@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -145,7 +146,21 @@ func (v *VirtualDiskHandler) ProcessRestore(ctx context.Context) error {
 			return nil
 		}
 
-		// Phase 1: Initiate deletion and wait for completion
+		// Phase 1: Set annotation to trigger find right VMOP for reconciliation
+		if vdObj.Annotations == nil {
+			vdObj.Annotations = make(map[string]string)
+		}
+		vdObj.Annotations[annotations.AnnVMOPRestoreDeleted] = v.restoreUID
+
+		err := v.client.Update(ctx, vdObj)
+		if err != nil {
+			if apierrors.IsConflict(err) {
+				return fmt.Errorf("waiting for the `VirtualDisk` %w", common.ErrUpdating)
+			}
+			return fmt.Errorf("failed to update the `VirtualDisk`: %w", err)
+		}
+
+		// Phase 2: Initiate deletion and wait for completion
 		if !object.IsTerminating(vdObj) {
 			err := v.client.Delete(ctx, vdObj)
 			if err != nil {
@@ -153,7 +168,7 @@ func (v *VirtualDiskHandler) ProcessRestore(ctx context.Context) error {
 			}
 		}
 
-		// Phase 2: Wait for deletion to complete before creating new disk
+		// Phase 3: Wait for deletion to complete before creating new disk
 		return fmt.Errorf("waiting for deletion of VirtualDisk %s %w", vdObj.Name, common.ErrWaitingForDeletion)
 	} else {
 		err = v.client.Create(ctx, v.vd)

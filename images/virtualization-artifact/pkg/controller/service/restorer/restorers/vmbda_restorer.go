@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -157,7 +158,20 @@ func (v *VMBlockDeviceAttachmentHandler) ProcessRestore(ctx context.Context) err
 			return nil
 		}
 
-		// Phase 1: Initiate deletion and wait for completion
+		// Phase 1: Set annotation to trigger find right VMOP for reconciliation
+		if vmbdaObj.Annotations == nil {
+			vmbdaObj.Annotations = make(map[string]string)
+		}
+		vmbdaObj.Annotations[annotations.AnnVMOPRestoreDeleted] = v.restoreUID
+		err := v.client.Update(ctx, vmbdaObj)
+		if err != nil {
+			if apierrors.IsConflict(err) {
+				return fmt.Errorf("waiting for the `VirtualMachineBlockDeviceAttachment` %w", common.ErrUpdating)
+			}
+			return fmt.Errorf("failed to update the `VirtualMachineBlockDeviceAttachment`: %w", err)
+		}
+
+		// Phase 2: Initiate deletion and wait for completion
 		if !object.IsTerminating(vmbdaObj) {
 			err = v.client.Delete(ctx, vmbdaObj)
 			if err != nil {
@@ -165,7 +179,7 @@ func (v *VMBlockDeviceAttachmentHandler) ProcessRestore(ctx context.Context) err
 			}
 		}
 
-		// Phase 2: Wait for deletion to complete before creating new VMBDA
+		// Phase 3: Wait for deletion to complete before creating new VMBDA
 		return fmt.Errorf("waiting for deletion of VirtualMachineBlockDeviceAttachment %s %w", vmbdaObj.Name, common.ErrWaitingForDeletion)
 	} else {
 		err = v.client.Create(ctx, v.vmbda)
