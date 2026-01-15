@@ -180,6 +180,11 @@ const (
 	// QuotaDiscountMemory provides a constant for discount Memory from quota annotation.
 	QuotaDiscountMemory = "resource-quota-overrides.deckhouse.io/discount-memory"
 
+	// HeritageLabel is the label to indicate Pod heritage.
+	HeritageLabel = "heritage"
+	// DeckhouseLabelValue is the value to indicate Pod is related to the deckhouse.
+	DeckhouseLabelValue = "deckhouse"
+
 	// InhibitNodeShutdownLabel is a label to prevent node shutdown is Pod with label is present.
 	InhibitNodeShutdownLabel = "pod.deckhouse.io/inhibit-node-shutdown"
 
