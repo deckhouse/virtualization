@@ -201,7 +201,7 @@ func (c *Controller) worker(ctx context.Context) {
 		}
 		defer c.queue.Done(key)
 
-		if err := c.sync(key); err != nil {
+		if err := c.sync(ctx, key); err != nil {
 			c.log.Error("re-enqueuing", slog.String("key", key), slog.Any("err", err))
 			c.queue.AddRateLimited(key)
 		} else {
@@ -219,7 +219,7 @@ func (c *Controller) worker(ctx context.Context) {
 	}
 }
 
-func (c *Controller) sync(key string) error {
+func (c *Controller) sync(ctx context.Context, key string) error {
 	log := c.log.With("key", key)
 	log.Info("syncing resource claim")
 
@@ -280,7 +280,7 @@ func (c *Controller) sync(key string) error {
 		}
 	case shouldAttach:
 		log.Info("attaching usb to my node")
-		if err = c.handleClient(rc, otherAllocationDevices, pod); err != nil {
+		if err = c.handleClient(ctx, rc, otherAllocationDevices, pod); err != nil {
 			return fmt.Errorf("failed to handle client: %w", err)
 		}
 
@@ -496,7 +496,7 @@ func (c *Controller) handleServer(rc *resourcev1beta1.ResourceClaim, myAllocatio
 	return nil
 }
 
-func (c *Controller) handleClient(rc *resourcev1beta1.ResourceClaim, otherAllocationDevices []resourcev1beta1.Device, pod *corev1.Pod) error {
+func (c *Controller) handleClient(ctx context.Context, rc *resourcev1beta1.ResourceClaim, otherAllocationDevices []resourcev1beta1.Device, pod *corev1.Pod) error {
 	indexAllocDevice := make(map[string]int)
 	for i, allocDeviceStatus := range rc.Status.Devices {
 		indexAllocDevice[allocDeviceStatus.Device] = i
@@ -538,7 +538,7 @@ func (c *Controller) handleClient(rc *resourcev1beta1.ResourceClaim, otherAlloca
 			return fmt.Errorf("failed to Refresh record: %w", err)
 		}
 
-		if err = c.attach(busID, usbGatewayStatus, rc.UID, pod.UID); err != nil {
+		if err = c.attach(ctx, busID, usbGatewayStatus, rc.UID, pod.UID); err != nil {
 			return fmt.Errorf("failed to attach usb: %w", err)
 		}
 
@@ -564,7 +564,7 @@ func (c *Controller) handleClient(rc *resourcev1beta1.ResourceClaim, otherAlloca
 	return nil
 }
 
-func (c *Controller) attach(busID string, usbGatewayStatus *vdraapi.USBGatewayStatus, claimUID, podUID types.UID) error {
+func (c *Controller) attach(ctx context.Context, busID string, usbGatewayStatus *vdraapi.USBGatewayStatus, claimUID, podUID types.UID) error {
 	entries := c.recordManager.GetEntries()
 	for _, entry := range entries {
 		if entry.BusID == busID {
@@ -594,21 +594,24 @@ func (c *Controller) attach(busID string, usbGatewayStatus *vdraapi.USBGatewaySt
 		return fmt.Errorf("failed to attach usb: %w", err)
 	}
 
-	infos, err := c.usbIP.GetAttachInfo()
-	if err != nil {
-		return fmt.Errorf("failed to get used info: %w", err)
-	}
-
+	// command attach was successful, but we need to wait until usb is real attached
 	var usedInfo *usbip.AttachInfo
-	for _, info := range infos {
-		if info.Port == rhport {
-			usedInfo = &info
-			break
+	err = wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
+		c.log.Info("Get attach info for store localBusID")
+		infos, err := c.usbIP.GetAttachInfo()
+		if err != nil {
+			c.log.Info("Failed to get used info", slog.String("error", err.Error()))
+			return false, nil
 		}
-	}
-	if usedInfo == nil {
-		return fmt.Errorf("failed to find used info for port %d", rhport)
-	}
+		for _, info := range infos {
+			if info.Port == rhport {
+				usedInfo = &info
+				return true, nil
+			}
+		}
+		c.log.Info("Usb are not attached yet")
+		return false, nil
+	})
 
 	entry := Entry{
 		Port:             rhport,

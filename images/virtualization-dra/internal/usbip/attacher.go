@@ -68,13 +68,12 @@ func (a usbAttacher) Detach(port int) error {
 		if idev.port == port {
 			found = true
 			vstatus := protocol.DeviceStatus(idev.status)
-			if vstatus != protocol.VDeviceStatusNull {
-				break
+			if vstatus == protocol.VDeviceStatusNull {
+				slog.Info("Port is already detached", slog.Int("port", port))
+				return fmt.Errorf("port is already detached")
 			}
 
-			slog.Info("Port is already detached", slog.Int("port", port))
-			return fmt.Errorf("port is already detached")
-
+			break
 		}
 	}
 
