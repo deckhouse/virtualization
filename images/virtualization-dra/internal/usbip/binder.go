@@ -21,6 +21,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/deckhouse/virtualization-dra/pkg/usb"
 )
 
 func NewUSBBinder() USBBinder {
@@ -94,6 +96,34 @@ func (b *usbBinder) IsBound(busID string) (bool, error) {
 		return false, fmt.Errorf("device with bus ID %s does not exist: %w", busID, err)
 	}
 	return b.isBound(devInfo), nil
+}
+
+func (b *usbBinder) GetBindInfo() ([]BindInfo, error) {
+	usbDevices, err := usb.DefaultDiscoverPluggedUSBDevices()
+	if err != nil {
+		return nil, fmt.Errorf("failed to discover USB devices: %w", err)
+	}
+
+	var infos []BindInfo
+
+	for _, device := range usbDevices {
+		devInfo := usbDeviceInfo{
+			BusID:   device.BusID,
+			Driver:  device.Driver,
+			DevPath: device.DevicePath,
+			IsHub:   device.IsHub,
+		}
+
+		infos = append(infos, BindInfo{
+			DevicePath: device.DevicePath,
+			BusID:      device.BusID,
+			Busnum:     int(device.Bus),
+			Devnum:     int(device.DeviceNumber),
+			Bound:      b.isBound(&devInfo),
+		})
+	}
+
+	return infos, err
 }
 
 type usbDeviceInfo struct {

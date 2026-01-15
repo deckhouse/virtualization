@@ -24,6 +24,10 @@ import (
 	"strings"
 )
 
+func DefaultDiscoverPluggedUSBDevices() (map[string]*Device, error) {
+	return DiscoverPluggedUSBDevices(PathToUSBDevices)
+}
+
 func DiscoverPluggedUSBDevices(pathToUSBDevices string) (map[string]*Device, error) {
 	devices := make(map[string]*Device)
 

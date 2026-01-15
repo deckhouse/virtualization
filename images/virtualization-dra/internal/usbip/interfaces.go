@@ -33,6 +33,19 @@ type USBBinder interface {
 	Bind(busID string) error
 	Unbind(busID string) error
 	IsBound(busID string) (bool, error)
+	BindInfoGetter
+}
+
+type BindInfoGetter interface {
+	GetBindInfo() ([]BindInfo, error)
+}
+
+type BindInfo struct {
+	DevicePath string
+	BusID      string
+	Busnum     int
+	Devnum     int
+	Bound      bool
 }
 
 type USBAttacher interface {

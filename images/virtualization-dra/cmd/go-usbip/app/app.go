@@ -45,6 +45,7 @@ func NewUSBIPCommand() *cobra.Command {
 		NewAttachCommand(),
 		NewDetachCommand(),
 		NewAttachInfoCommand(),
+		NewBindInfoCommand(),
 	)
 
 	return cmd
