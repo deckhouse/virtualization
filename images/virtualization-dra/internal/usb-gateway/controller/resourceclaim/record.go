@@ -24,6 +24,8 @@ import (
 	"slices"
 	"sync"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"github.com/deckhouse/virtualization-dra/internal/usbip"
 )
 
@@ -34,11 +36,13 @@ type record struct {
 }
 
 type Entry struct {
-	Port        int    `json:"port"`
-	RemotePort  int    `json:"remotePort" json:"remotePort"`
-	RemoteIP    string `json:"remoteIP" json:"remoteIP"`
-	RemoteBusID string `json:"remoteBusID" json:"remoteBusID"`
-	BusID       string `json:"busID" json:"busID"`
+	Port             int       `json:"port"`
+	RemotePort       int       `json:"remotePort"`
+	RemoteIP         string    `json:"remoteIP"`
+	RemoteBusID      string    `json:"remoteBusID"`
+	BusID            string    `json:"busID"`
+	ResourceClaimUID types.UID `json:"resourceClaimUID"`
+	PodUID           types.UID `json:"podUID"`
 }
 
 func (e Entry) Validate() error {
@@ -56,6 +60,12 @@ func (e Entry) Validate() error {
 	}
 	if e.BusID == "" {
 		return fmt.Errorf("busID is required")
+	}
+	if e.ResourceClaimUID == "" {
+		return fmt.Errorf("resourceClaimUID is required")
+	}
+	if e.PodUID == "" {
+		return fmt.Errorf("podUID is required")
 	}
 	return nil
 }

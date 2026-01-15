@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/utils/strings/slices"
 
 	vdraapi "github.com/deckhouse/virtualization-dra/api"
 	"github.com/deckhouse/virtualization-dra/internal/common"
@@ -106,6 +107,13 @@ func NewController(nodeName string, podIP net.IP, usbipPort int, client kubernet
 		return nil, fmt.Errorf("unable to add event handler to resourceclaim informer: %w", err)
 	}
 
+	_, err = podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: c.deletePod,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("unable to add event handler to pod informer: %w", err)
+	}
+
 	c.hasSynced = func() bool {
 		return resourceClaimInformer.HasSynced() && nodeInformer.HasSynced() && podInformer.HasSynced() && resourceSliceInformer.HasSynced()
 	}
@@ -133,6 +141,18 @@ func (c *Controller) updateResourceClaim(_, newObj interface{}) {
 
 	if newRC.Status.Allocation != nil {
 		c.enqueueResourceClaim(newRC)
+	}
+}
+
+func (c *Controller) deletePod(obj interface{}) {
+	pod, ok := obj.(*corev1.Pod)
+	if !ok {
+		return
+	}
+	for _, status := range pod.Status.ResourceClaimStatuses {
+		if status.ResourceClaimName != nil {
+			c.queueAdd(fmt.Sprintf("%s/%s", pod.Namespace, *status.ResourceClaimName))
+		}
 	}
 }
 
@@ -203,28 +223,46 @@ func (c *Controller) sync(key string) error {
 	log := c.log.With("key", key)
 	log.Info("syncing resource claim")
 
-	rc, err := c.getResourceClaim(key)
+	rc, err := c.getMyResourceClaim(key)
 	if err != nil {
 		return err
 	}
 	if rc == nil {
 		return nil
 	}
-	if !rc.GetDeletionTimestamp().IsZero() {
-		return c.handleDelete(rc)
-	}
+
+	resourceClaimDeleting := !rc.GetDeletionTimestamp().IsZero()
 
 	pod, err := c.getReservedFor(rc)
 	if err != nil {
 		return err
 	}
-	if pod == nil {
+
+	podExist := pod != nil
+
+	if !podExist && !resourceClaimDeleting {
 		c.log.Info("no reserved pod found for resource claim, re-enqueue after 10s")
 		c.queueAfterAdd(key, time.Second*10)
 		return nil
 	}
 
-	onMyNode := c.podOnMyNode(pod)
+	onMyNode := podExist && c.podOnMyNode(pod)
+
+	if onMyNode && c.podFinished(pod) {
+		log.Info("Pod finished, detach all usb devices for this pod",
+			slog.String("podName", pod.Name),
+			slog.String("podNamespace", pod.Namespace),
+		)
+		return c.handleClientPodFinished(pod)
+	}
+
+	if resourceClaimDeleting {
+		log.Info("ResourceClaim is deleting, unbind all usb devices for this resource claim")
+		return c.handleServerDeleteResourceClaim(rc)
+	}
+
+	// pod exists here
+	log = log.With(slog.String("podName", pod.Name), slog.String("podNamespace", pod.Namespace))
 
 	myAllocationDevices, otherAllocationDevices, err := c.getAllocationDevices(rc)
 	if err != nil {
@@ -242,7 +280,7 @@ func (c *Controller) sync(key string) error {
 		}
 	case shouldAttach:
 		log.Info("attaching usb to my node")
-		if err = c.handleClient(rc, otherAllocationDevices); err != nil {
+		if err = c.handleClient(rc, otherAllocationDevices, pod); err != nil {
 			return fmt.Errorf("failed to handle client: %w", err)
 		}
 
@@ -251,76 +289,62 @@ func (c *Controller) sync(key string) error {
 	return nil
 }
 
-// TODO: handle detach too
-func (c *Controller) handleDelete(rc *resourcev1beta1.ResourceClaim) error {
-	unbound, err := c.allUnBound(rc)
+func (c *Controller) podFinished(pod *corev1.Pod) bool {
+	return !pod.GetDeletionTimestamp().IsZero() || pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed
+}
+
+// handle on client node, should detach all usb for this pod
+func (c *Controller) handleClientPodFinished(pod *corev1.Pod) error {
+	err := c.recordManager.Refresh()
 	if err != nil {
-		return err
-	}
-	if unbound {
-		return c.removeFinalizer(rc)
+		return fmt.Errorf("failed to Refresh record: %w", err)
 	}
 
-	myAllocationDevices, _, err := c.getAllocationDevices(rc)
+	ports := make(map[int]struct{})
+
+	for _, entry := range c.recordManager.GetEntries() {
+		if entry.PodUID == pod.UID {
+			if _, ok := ports[entry.Port]; ok {
+				continue
+			}
+			if err = c.usbIP.Detach(entry.Port); err != nil {
+				return fmt.Errorf("failed to detach usb: %w", err)
+			}
+			ports[entry.Port] = struct{}{}
+		}
+	}
+
+	return c.removeFinalizerForPod(pod)
+}
+
+// handle on server node, should unbind usb
+func (c *Controller) handleServerDeleteResourceClaim(rc *resourcev1beta1.ResourceClaim) error {
+	infos, err := c.usbIP.GetBindInfo()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get used info: %w", err)
 	}
 
-	myAllocationDevicesByName := make(map[string]resourcev1beta1.Device)
-	for _, device := range myAllocationDevices {
-		myAllocationDevicesByName[device.Name] = device
-	}
-
-	shouldUpdate := false
-
-	for i := range rc.Status.Devices {
-		allocatedDeviceStatus := &rc.Status.Devices[i]
-
-		usbGatewayStatus, err := vdraapi.FromData(allocatedDeviceStatus.Data)
+	for _, deviceStatus := range rc.Status.Devices {
+		usbGatewayStatus, err := vdraapi.FromData(deviceStatus.Data)
 		if err != nil {
 			return err
 		}
-		if usbGatewayStatus == nil {
-			continue
-		}
-		if !usbGatewayStatus.Bound {
-			continue
-		}
 
-		device, ok := myAllocationDevicesByName[allocatedDeviceStatus.Device]
-		if !ok {
-			continue
-		}
+		busID := usbGatewayStatus.BusID
 
-		busID := ""
-		if attr, ok := device.Basic.Attributes["busID"]; ok && attr.StringValue != nil {
-			busID = *attr.StringValue
-		} else {
-			continue
-		}
-
-		// TODO: device can be added to other resource claims. Not supported yet.
-		c.log.Info("unbinding usb")
-		if err = c.usbIP.Unbind(busID); err != nil {
-			return fmt.Errorf("failed to unbind usb: %w", err)
-		}
-
-		usbGatewayStatus.Bound = false
-		allocatedDeviceStatus.Data, err = vdraapi.ToData(usbGatewayStatus)
-		if err != nil {
-			return err
-		}
-		shouldUpdate = true
-	}
-
-	if shouldUpdate {
-		_, err = c.client.ResourceV1beta1().ResourceClaims(rc.Namespace).UpdateStatus(context.Background(), rc, metav1.UpdateOptions{})
-		if err != nil {
-			return fmt.Errorf("failed to update resource claim status: %w", err)
+		for _, info := range infos {
+			if info.BusID == busID {
+				if info.Bound {
+					err = c.usbIP.Unbind(busID)
+					if err != nil {
+						return fmt.Errorf("failed to unbind usb: %w", err)
+					}
+				}
+			}
 		}
 	}
 
-	return nil
+	return c.removeFinalizerForResourceClaim(rc)
 }
 
 func (c *Controller) allUnBound(rc *resourcev1beta1.ResourceClaim) (bool, error) {
@@ -340,35 +364,32 @@ func (c *Controller) allUnBound(rc *resourcev1beta1.ResourceClaim) (bool, error)
 	return true, nil
 }
 
-func (c *Controller) addFinalizer(rc *resourcev1beta1.ResourceClaim) error {
-	var newFinalizers []string
-	for _, fin := range rc.GetFinalizers() {
-		if fin == finalizer {
-			return nil
-		}
-		newFinalizers = append(newFinalizers, fin)
+func (c *Controller) addFinalizerForResourceClaim(rc *resourcev1beta1.ResourceClaim) (err error) {
+	if addFinalizer(rc) {
+		_, err = c.client.ResourceV1beta1().ResourceClaims(rc.Namespace).Update(context.Background(), rc, metav1.UpdateOptions{})
 	}
-	newFinalizers = append(newFinalizers, finalizer)
-	rc.SetFinalizers(newFinalizers)
-	_, err := c.client.ResourceV1beta1().ResourceClaims(rc.Namespace).Update(context.Background(), rc, metav1.UpdateOptions{})
-	return err
+	return
 }
 
-func (c *Controller) removeFinalizer(rc *resourcev1beta1.ResourceClaim) error {
-	var newFinalizers []string
-	for _, fin := range rc.GetFinalizers() {
-		if fin == finalizer {
-			continue
-		}
-		newFinalizers = append(newFinalizers, fin)
+func (c *Controller) removeFinalizerForResourceClaim(rc *resourcev1beta1.ResourceClaim) (err error) {
+	if removeFinalizer(rc) {
+		_, err = c.client.ResourceV1beta1().ResourceClaims(rc.Namespace).Update(context.Background(), rc, metav1.UpdateOptions{})
 	}
-	if len(newFinalizers) == len(rc.GetFinalizers()) {
-		return nil
-	}
+	return
+}
 
-	rc.SetFinalizers(newFinalizers)
-	_, err := c.client.ResourceV1beta1().ResourceClaims(rc.Namespace).Update(context.Background(), rc, metav1.UpdateOptions{})
-	return err
+func (c *Controller) addFinalizerForPod(pod *corev1.Pod) (err error) {
+	if addFinalizer(pod) {
+		_, err = c.client.CoreV1().Pods(pod.Namespace).Update(context.Background(), pod, metav1.UpdateOptions{})
+	}
+	return
+}
+
+func (c *Controller) removeFinalizerForPod(pod *corev1.Pod) (err error) {
+	if removeFinalizer(pod) {
+		_, err = c.client.CoreV1().Pods(pod.Namespace).Update(context.Background(), pod, metav1.UpdateOptions{})
+	}
+	return
 }
 
 func (c *Controller) handleServer(rc *resourcev1beta1.ResourceClaim, myAllocationDevices []resourcev1beta1.Device) error {
@@ -462,7 +483,7 @@ func (c *Controller) handleServer(rc *resourcev1beta1.ResourceClaim, myAllocatio
 	}
 
 	if shouldUpdate {
-		err := c.addFinalizer(rc)
+		err := c.addFinalizerForResourceClaim(rc)
 		if err != nil {
 			return err
 		}
@@ -475,7 +496,7 @@ func (c *Controller) handleServer(rc *resourcev1beta1.ResourceClaim, myAllocatio
 	return nil
 }
 
-func (c *Controller) handleClient(rc *resourcev1beta1.ResourceClaim, otherAllocationDevices []resourcev1beta1.Device) error {
+func (c *Controller) handleClient(rc *resourcev1beta1.ResourceClaim, otherAllocationDevices []resourcev1beta1.Device, pod *corev1.Pod) error {
 	indexAllocDevice := make(map[string]int)
 	for i, allocDeviceStatus := range rc.Status.Devices {
 		indexAllocDevice[allocDeviceStatus.Device] = i
@@ -517,7 +538,7 @@ func (c *Controller) handleClient(rc *resourcev1beta1.ResourceClaim, otherAlloca
 			return fmt.Errorf("failed to Refresh record: %w", err)
 		}
 
-		if err = c.attach(busID, usbGatewayStatus); err != nil {
+		if err = c.attach(busID, usbGatewayStatus, rc.UID, pod.UID); err != nil {
 			return fmt.Errorf("failed to attach usb: %w", err)
 		}
 
@@ -529,7 +550,12 @@ func (c *Controller) handleClient(rc *resourcev1beta1.ResourceClaim, otherAlloca
 	}
 
 	if shouldUpdate {
-		_, err := c.client.ResourceV1beta1().ResourceClaims(rc.Namespace).UpdateStatus(context.Background(), rc, metav1.UpdateOptions{})
+		err := c.addFinalizerForPod(pod)
+		if err != nil {
+			return fmt.Errorf("failed to add finalizer for pod: %s/%s: %w", pod.Namespace, pod.Name, err)
+		}
+
+		_, err = c.client.ResourceV1beta1().ResourceClaims(rc.Namespace).UpdateStatus(context.Background(), rc, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to update resource claim status: %w", err)
 		}
@@ -538,7 +564,7 @@ func (c *Controller) handleClient(rc *resourcev1beta1.ResourceClaim, otherAlloca
 	return nil
 }
 
-func (c *Controller) attach(busID string, usbGatewayStatus *vdraapi.USBGatewayStatus) error {
+func (c *Controller) attach(busID string, usbGatewayStatus *vdraapi.USBGatewayStatus, claimUID, podUID types.UID) error {
 	entries := c.recordManager.GetEntries()
 	for _, entry := range entries {
 		if entry.BusID == busID {
@@ -547,6 +573,7 @@ func (c *Controller) attach(busID string, usbGatewayStatus *vdraapi.USBGatewaySt
 					return err
 				}
 			}
+			// already attached
 			return nil
 		}
 	}
@@ -584,11 +611,13 @@ func (c *Controller) attach(busID string, usbGatewayStatus *vdraapi.USBGatewaySt
 	}
 
 	entry := Entry{
-		Port:        rhport,
-		RemotePort:  usbGatewayStatus.RemotePort,
-		RemoteIP:    usbGatewayStatus.RemoteIP,
-		RemoteBusID: busID,
-		BusID:       usedInfo.LocalBusID,
+		Port:             rhport,
+		RemotePort:       usbGatewayStatus.RemotePort,
+		RemoteIP:         usbGatewayStatus.RemoteIP,
+		RemoteBusID:      busID,
+		BusID:            usedInfo.LocalBusID,
+		ResourceClaimUID: claimUID,
+		PodUID:           podUID,
 	}
 
 	if err = c.recordManager.AddEntry(entry); err != nil {
@@ -608,7 +637,7 @@ func (c *Controller) detach(port int) error {
 	return nil
 }
 
-func (c *Controller) getResourceClaim(key string) (*resourcev1beta1.ResourceClaim, error) {
+func (c *Controller) getMyResourceClaim(key string) (*resourcev1beta1.ResourceClaim, error) {
 	obj, exists, err := c.resourceClaimIndexer.GetByKey(key)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, fmt.Errorf("failed to get resourceclaim: %w", err)
@@ -622,7 +651,31 @@ func (c *Controller) getResourceClaim(key string) (*resourcev1beta1.ResourceClai
 		return nil, fmt.Errorf("unexpected type of resourceclaim: %T", obj)
 	}
 
-	return rc.DeepCopy(), nil
+	if c.isMyResourceClaim(rc) {
+		return rc.DeepCopy(), nil
+	}
+
+	return nil, nil
+}
+
+func (c *Controller) isMyResourceClaim(rc *resourcev1beta1.ResourceClaim) bool {
+	if rc == nil {
+		return false
+	}
+	if slices.Contains(rc.GetFinalizers(), finalizer) {
+		return true
+	}
+	if rc.Status.Allocation == nil {
+		return false
+	}
+	for _, status := range rc.Status.Allocation.Devices.Results {
+		// now, driver virtualization-dra supports only usb, but we can add more devices later
+		// so we need to check if the device is usb
+		if status.Driver == common.VirtualizationDraPluginName && strings.HasPrefix(status.Device, "usb") {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *Controller) getPod(name, namespace string) (*corev1.Pod, error) {
@@ -717,12 +770,12 @@ func (c *Controller) getAllocationDevices(rc *resourcev1beta1.ResourceClaim) ([]
 	var otherDevices []resourcev1beta1.Device
 
 	for pool, allocResultsByDevice := range allocResultsByPool {
-		slices, ok := byPoolSlices[pool]
+		resourceSlices, ok := byPoolSlices[pool]
 		if !ok {
 			return nil, nil, fmt.Errorf("no resource slices found for pool %s", pool)
 		}
 
-		for _, slice := range slices {
+		for _, slice := range resourceSlices {
 			for _, device := range slice.Spec.Devices {
 				allocResult, ok := allocResultsByDevice[device.Name]
 				if !ok {
@@ -740,4 +793,33 @@ func (c *Controller) getAllocationDevices(rc *resourcev1beta1.ResourceClaim) ([]
 	}
 
 	return myDevices, otherDevices, nil
+}
+
+func addFinalizer(obj metav1.Object) bool {
+	var newFinalizers []string
+	for _, fin := range obj.GetFinalizers() {
+		if fin == finalizer {
+			return false
+		}
+		newFinalizers = append(newFinalizers, fin)
+	}
+	newFinalizers = append(newFinalizers, finalizer)
+	obj.SetFinalizers(newFinalizers)
+	return true
+}
+
+func removeFinalizer(obj metav1.Object) bool {
+	var newFinalizers []string
+	for _, fin := range obj.GetFinalizers() {
+		if fin == finalizer {
+			continue
+		}
+		newFinalizers = append(newFinalizers, fin)
+	}
+	if len(newFinalizers) == len(obj.GetFinalizers()) {
+		return false
+	}
+
+	obj.SetFinalizers(newFinalizers)
+	return true
 }
