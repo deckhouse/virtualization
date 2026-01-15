@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -124,16 +125,12 @@ func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmip *v
 	}
 
 	if attachedVM != nil {
-		for _, ns := range attachedVM.Status.Networks {
-			if ns.Type == v1alpha2.NetworksTypeMain {
-				return attachedVM, nil
-			}
+		if network.HasMainNetworkStatus(attachedVM.Status.Networks) {
+			return attachedVM, nil
 		}
 
-		for _, ns := range attachedVM.Spec.Networks {
-			if ns.Type == v1alpha2.NetworksTypeMain {
-				return attachedVM, nil
-			}
+		if network.HasMainNetworkSpec(attachedVM.Spec.Networks) {
+			return attachedVM, nil
 		}
 	}
 

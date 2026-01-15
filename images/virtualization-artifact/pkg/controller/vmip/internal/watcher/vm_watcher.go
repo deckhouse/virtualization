@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -56,8 +57,21 @@ func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Control
 				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachine]) bool {
 					oldVM := e.ObjectOld
 					newVM := e.ObjectNew
-					return oldVM.Spec.VirtualMachineIPAddress != newVM.Spec.VirtualMachineIPAddress ||
-						oldVM.Status.VirtualMachineIPAddress != newVM.Status.VirtualMachineIPAddress
+
+					if oldVM.Spec.VirtualMachineIPAddress != newVM.Spec.VirtualMachineIPAddress ||
+						oldVM.Status.VirtualMachineIPAddress != newVM.Status.VirtualMachineIPAddress {
+						return true
+					}
+
+					if network.HasMainNetworkStatus(oldVM.Status.Networks) != network.HasMainNetworkStatus(newVM.Status.Networks) {
+						return true
+					}
+
+					if network.HasMainNetworkSpec(oldVM.Spec.Networks) != network.HasMainNetworkSpec(newVM.Spec.Networks) {
+						return true
+					}
+
+					return false
 				},
 			},
 		),
