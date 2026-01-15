@@ -21,14 +21,15 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/deckhouse/virtualization-dra/pkg/set"
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/deckhouse/virtualization-dra/pkg/usb"
 )
 
-type DeviceSet = set.Set[Device]
+type DeviceSet = sets.Set[Device]
 
-func NewDeviceSet() *DeviceSet {
-	return set.New[Device]()
+func NewDeviceSet() DeviceSet {
+	return sets.New[Device]()
 }
 
 type Device struct {

@@ -27,6 +27,7 @@ import (
 	"github.com/containerd/nri/pkg/api"
 	resourceapi "k8s.io/api/resource/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/dynamic-resource-allocation/resourceslice"
 	drapbv1 "k8s.io/kubelet/pkg/apis/dra/v1beta1"
 	"k8s.io/utils/ptr"
@@ -36,7 +37,6 @@ import (
 	vdraapi "github.com/deckhouse/virtualization-dra/api"
 	"github.com/deckhouse/virtualization-dra/internal/cdi"
 	"github.com/deckhouse/virtualization-dra/internal/featuregates"
-	"github.com/deckhouse/virtualization-dra/pkg/set"
 )
 
 const DefaultResyncPeriod = 10 * time.Minute
@@ -57,7 +57,7 @@ func NewAllocationStore(nodeName, devicesPath string, resyncPeriod time.Duration
 		updateChannel:             make(chan resourceslice.DriverResources, 2),
 		discoverPluggedUSBDevices: NewDeviceSet(),
 		allocatableDevices:        make(map[string]resourceapi.Device),
-		allocatedDevices:          set.New[string](),
+		allocatedDevices:          sets.New[string](),
 		resourceClaimAllocations:  make(map[types.UID][]string),
 		discoverer:                newDiscoverer(),
 	}
@@ -88,11 +88,11 @@ type AllocationStore struct {
 
 	discoverer discoverer
 
-	discoverPluggedUSBDevices      *DeviceSet
-	discoverUsbIpPluggedUSBDevices *DeviceSet
+	discoverPluggedUSBDevices      DeviceSet
+	discoverUsbIpPluggedUSBDevices DeviceSet
 	allocatableDevices             map[string]resourceapi.Device
 
-	allocatedDevices         *set.Set[string]
+	allocatedDevices         sets.Set[string]
 	resourceClaimAllocations map[types.UID][]string
 }
 
@@ -112,7 +112,7 @@ func (s *AllocationStore) sync() error {
 	s.discoverPluggedUSBDevices = discoverPluggedUSBDevices
 
 	allocatableDevices := make([]resourceapi.Device, discoverPluggedUSBDevices.Len())
-	for i, usbDevice := range discoverPluggedUSBDevices.Slice() {
+	for i, usbDevice := range discoverPluggedUSBDevices.UnsortedList() {
 		allocatableDevices[i] = *convertToAPIDevice(usbDevice, s.nodeName)
 	}
 
@@ -188,7 +188,7 @@ func (s *AllocationStore) Prepare(_ context.Context, claim *resourceapi.Resource
 		//  1 node(s) had tolerated taint {node-role.kubernetes.io/control-plane: },
 		//  2 cannot allocate all claims.
 		//  still not schedulable, preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling.
-		if s.allocatedDevices.Contains(result.Device) {
+		if s.allocatedDevices.Has(result.Device) {
 			return nil, fmt.Errorf("device %v is already allocated", result.Device)
 		}
 
@@ -256,7 +256,7 @@ func (s *AllocationStore) Prepare(_ context.Context, claim *resourceapi.Resource
 
 	devices := preparedDevices.GetDevices()
 	for _, device := range devices {
-		s.allocatedDevices.Add(device.DeviceName)
+		s.allocatedDevices.Insert(device.DeviceName)
 		s.resourceClaimAllocations[claim.UID] = append(s.resourceClaimAllocations[claim.UID], device.DeviceName)
 	}
 
@@ -273,7 +273,7 @@ func (s *AllocationStore) getUsbGatewayStatus(claim *resourceapi.ResourceClaim, 
 }
 
 func (s *AllocationStore) getUsbGatewayUsbDevice(busID string) *Device {
-	for _, device := range s.discoverUsbIpPluggedUSBDevices.Slice() {
+	for _, device := range s.discoverUsbIpPluggedUSBDevices.UnsortedList() {
 		if device.BusID == busID {
 			return &device
 		}
@@ -397,7 +397,7 @@ func (s *AllocationStore) Unprepare(_ context.Context, claimUID types.UID) error
 
 	allocatedDevices := s.resourceClaimAllocations[claimUID]
 	for _, device := range allocatedDevices {
-		s.allocatedDevices.Remove(device)
+		s.allocatedDevices.Delete(device)
 	}
 	delete(s.resourceClaimAllocations, claimUID)
 
@@ -426,7 +426,7 @@ func (s *AllocationStore) Synchronize(_ context.Context, pods []*api.PodSandbox,
 			for claimUID, deviceNames := range claimUIDDeviceNames {
 				s.resourceClaimAllocations[claimUID] = append(s.resourceClaimAllocations[claimUID], deviceNames...)
 				for _, deviceName := range deviceNames {
-					s.allocatedDevices.Add(deviceName)
+					s.allocatedDevices.Insert(deviceName)
 				}
 			}
 

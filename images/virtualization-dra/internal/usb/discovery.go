@@ -34,7 +34,7 @@ type discoverer struct {
 	getter usbip.AttachInfoGetter
 }
 
-func (d *discoverer) DiscoveryPluggedUSBDevices(pathToUSBDevices string) (*DeviceSet, *DeviceSet, error) {
+func (d *discoverer) DiscoveryPluggedUSBDevices(pathToUSBDevices string) (DeviceSet, DeviceSet, error) {
 	devices, err := usb.DiscoverPluggedUSBDevices(pathToUSBDevices)
 	if err != nil {
 		return nil, nil, err
@@ -56,9 +56,9 @@ func (d *discoverer) DiscoveryPluggedUSBDevices(pathToUSBDevices string) (*Devic
 
 	for _, device := range devices {
 		if _, ok := busIdMaps[device.BusID]; ok {
-			usbipDeviceSet.Add(toDevice(device))
+			usbipDeviceSet.Insert(toDevice(device))
 		} else {
-			usbDeviceSet.Add(toDevice(device))
+			usbDeviceSet.Insert(toDevice(device))
 		}
 	}
 
