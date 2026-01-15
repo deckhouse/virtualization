@@ -95,7 +95,7 @@ func newVMClass(name string, cpuType v1alpha2.CPUType, nodeSelector *v1alpha2.No
 	return vmc
 }
 
-func setupDiscoveryEnvironment(vmc *v1alpha2.VirtualMachineClass, objs ...client.Object) (client.WithWatch, state.VirtualMachineClassState, *reconciler.Resource[*v1alpha2.VirtualMachineClass, v1alpha2.VirtualMachineClassStatus]) {
+func setupDiscoveryEnvironment(vmc *v1alpha2.VirtualMachineClass, objs ...client.Object) (state.VirtualMachineClassState, *reconciler.Resource[*v1alpha2.VirtualMachineClass, v1alpha2.VirtualMachineClassStatus]) {
 	GinkgoHelper()
 	Expect(vmc).ToNot(BeNil())
 	allObjects := []client.Object{vmc}
@@ -116,7 +116,7 @@ func setupDiscoveryEnvironment(vmc *v1alpha2.VirtualMachineClass, objs ...client
 
 	vmcState := state.New(fakeClient, controllerNamespace, resource)
 
-	return fakeClient, vmcState, resource
+	return vmcState, resource
 }
 
 type nodeNamesDiffTestParams struct {
@@ -384,7 +384,7 @@ var _ = Describe("DiscoveryHandler", func() {
 
 			vmc := newVMClass("test-no-selector", v1alpha2.CPUTypeDiscovery, nil, nil)
 
-			_, vmcState, resource := setupDiscoveryEnvironment(vmc,
+			vmcState, resource := setupDiscoveryEnvironment(vmc,
 				node1, node2, node3,
 				virtHandler1, virtHandler2, virtHandler3)
 
@@ -440,7 +440,7 @@ var _ = Describe("DiscoveryHandler", func() {
 				},
 			)
 
-			_, vmcState, resource := setupDiscoveryEnvironment(vmc,
+			vmcState, resource := setupDiscoveryEnvironment(vmc,
 				node1, node2, node3,
 				virtHandler1, virtHandler2, virtHandler3)
 
@@ -498,7 +498,7 @@ var _ = Describe("DiscoveryHandler", func() {
 				},
 			)
 
-			_, vmcState, resource := setupDiscoveryEnvironment(vmc,
+			vmcState, resource := setupDiscoveryEnvironment(vmc,
 				node1, node2, node3,
 				virtHandler1, virtHandler2, virtHandler3)
 
