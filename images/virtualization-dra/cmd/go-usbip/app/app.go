@@ -24,7 +24,7 @@ const long = `
  / _' |/ _ \ _____| | | / __| '_ \| | '_ \
 | (_| | (_) |_____| |_| \__ \ |_) | | |_) |
 \__, | \___/       \__,_|___/_.__/|_| .__/
-|___/                             |_|
+|___/                             	|_|
 
 	go-usbip is a implementation of USBIP server and client.
 `
