@@ -21,11 +21,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/deckhouse/module-sdk/pkg"
-	"github.com/deckhouse/module-sdk/pkg/registry"
+	"hooks/pkg/settings"
 	"k8s.io/utils/ptr"
 
-	"hooks/pkg/settings"
+	"github.com/deckhouse/module-sdk/pkg"
+	"github.com/deckhouse/module-sdk/pkg/registry"
 )
 
 const (

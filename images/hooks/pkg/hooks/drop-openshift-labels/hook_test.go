@@ -21,13 +21,13 @@ import (
 	"fmt"
 	"testing"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"hooks/pkg/settings"
+
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/testing/mock"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-
-	"hooks/pkg/settings"
 )
 
 func TestDropOpenshiftLabels(t *testing.T) {

@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"hooks/pkg/settings"
-
 	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/module-sdk/pkg"
@@ -34,12 +33,6 @@ const (
 		"crt": .data."tls.crt",
 		"key": .data."tls.key",
 	}`
-
-	caExpiryDurationStr = "87600h" // 10 years
-
-	// certificate encryption algorithm
-	keyAlgorithm = "ecdsa"
-	keySize      = 256
 
 	rootCASecretName = "virtualization-ca"
 	rootCAValuesPath = "virtualization.internal.rootCA"

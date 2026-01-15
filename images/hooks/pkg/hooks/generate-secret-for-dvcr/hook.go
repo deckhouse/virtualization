@@ -24,9 +24,8 @@ import (
 	"strings"
 	"time"
 
-	"hooks/pkg/settings"
-
 	"golang.org/x/crypto/bcrypt"
+	"hooks/pkg/settings"
 	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/module-sdk/pkg"
@@ -175,6 +174,7 @@ func validateHtpasswd(password, hashEntry string) bool {
 
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
+//nolint:unparam // we need to pass the length
 func alphaNum(length int) string {
 	rnd := rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), 0))
 

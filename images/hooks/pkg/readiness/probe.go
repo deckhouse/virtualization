@@ -35,7 +35,7 @@ func checkModuleReadiness(ctx context.Context, input *pkg.HookInput) error {
 	if validationObj.IsObject() {
 		validationErr := validationObj.Get("error")
 		if validationErr.Exists() {
-			return fmt.Errorf(validationErr.String())
+			return fmt.Errorf("%s", validationErr.String())
 		}
 		// moduleConfigValidation is present, but no errors. Something wrong.
 		return fmt.Errorf("module is not ready yet")

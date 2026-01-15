@@ -83,8 +83,6 @@ linters:
     - copyloopvar # detects places where loop variables are copied (Go 1.22+)
     - gci # controls golang package import order and makes it always deterministic
     - gocritic # provides diagnostics that check for bugs, performance and style issues
-    - gofmt # [replaced by goimports] checks whether code was gofmt-ed
-    - gofumpt # [replaced by goimports, gofumports is not available yet] checks whether code was gofumpt-ed
     - goimports # in addition to fixing imports, goimports also formats your code in the same style as gofmt
     - gosimple # specializes in simplifying a code
     - govet # reports suspicious constructs, such as Printf calls whose arguments do not align with the format string
