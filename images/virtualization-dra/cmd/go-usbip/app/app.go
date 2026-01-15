@@ -16,7 +16,14 @@ limitations under the License.
 
 package app
 
-import "github.com/spf13/cobra"
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"sigs.k8s.io/yaml"
+)
 
 const long = `
                              _     _
@@ -24,7 +31,7 @@ const long = `
  / _' |/ _ \ _____| | | / __| '_ \| | '_ \
 | (_| | (_) |_____| |_| \__ \ |_) | | |_) |
 \__, | \___/       \__,_|___/_.__/|_| .__/
-|___/                             	|_|
+|___/                               |_|
 
 	go-usbip is a implementation of USBIP server and client.
 `
@@ -46,7 +53,41 @@ func NewUSBIPCommand() *cobra.Command {
 		NewDetachCommand(),
 		NewAttachInfoCommand(),
 		NewBindInfoCommand(),
+		NewInfoCommand(),
 	)
 
+	printer.AddFlags(cmd.PersistentFlags())
+
 	return cmd
+}
+
+var printer = &printOptions{}
+
+type printOptions struct {
+	output string
+}
+
+func (o *printOptions) AddFlags(fs *pflag.FlagSet) {
+	fs.StringVarP(&o.output, "output", "o", "json", "Output format")
+}
+
+func (o *printOptions) PrintObject(cmd *cobra.Command, data interface{}) error {
+	switch o.output {
+	case "json":
+		b, err := json.MarshalIndent(data, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal json: %w", err)
+		}
+		cmd.Println(string(b))
+		return nil
+	case "yaml":
+		b, err := yaml.Marshal(data)
+		if err != nil {
+			return fmt.Errorf("failed to marshal yaml: %w", err)
+		}
+		cmd.Println(string(b))
+		return nil
+	default:
+		return fmt.Errorf("unsupported format %q. Supported formats: [json, yaml]", o.output)
+	}
 }

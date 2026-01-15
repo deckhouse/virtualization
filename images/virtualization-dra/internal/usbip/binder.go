@@ -17,6 +17,7 @@ limitations under the License.
 package usbip
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -68,7 +69,7 @@ func (b *usbBinder) Unbind(busID string) error {
 		return fmt.Errorf("device with bus ID %s does not exist: %w", busID, err)
 	}
 
-	if b.isBound(devInfo) {
+	if !b.isBound(devInfo) {
 		return fmt.Errorf("device %s is not bound to %s driver", devInfo.BusID, usbipHostDriverName)
 	}
 
@@ -87,7 +88,6 @@ func (b *usbBinder) Unbind(busID string) error {
 	}
 
 	return nil
-	// return b.storeBind(busID, false)
 }
 
 func (b *usbBinder) IsBound(busID string) (bool, error) {
@@ -145,23 +145,37 @@ func (b *usbBinder) getUSBDeviceInfo(busID string) (*usbDeviceInfo, error) {
 	}
 
 	bDevClassPath := filepath.Join(path, "bDeviceClass")
-	if data, err := os.ReadFile(bDevClassPath); err == nil {
-		info.IsHub = strings.TrimSpace(string(data)) == "09" // 09 = USB Hub class
+	data, err := os.ReadFile(bDevClassPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s: %w", bDevClassPath, err)
 	}
-
-	driverLink := filepath.Join(path, "driver")
-	if link, err := os.Readlink(driverLink); err == nil {
-		info.Driver = filepath.Base(link)
-	}
+	info.IsHub = strings.TrimSpace(string(data)) == "09" // 09 = USB Hub class
 
 	ueventPath := filepath.Join(path, "uevent")
-	if data, err := os.ReadFile(ueventPath); err == nil {
-		lines := strings.Split(string(data), "\n")
-		for _, line := range lines {
-			if strings.HasPrefix(line, "DEVNAME=") {
-				info.DevPath = filepath.Join("/dev", strings.TrimPrefix(line, "DEVNAME="))
-				break
-			}
+	ueventFile, err := os.Open(ueventPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to open the file %s: %w", ueventPath, err)
+	}
+	defer ueventFile.Close()
+	scanner := bufio.NewScanner(ueventFile)
+
+	count := 0
+	for scanner.Scan() {
+		line := scanner.Text()
+		values := strings.Split(line, "=")
+		if len(values) != 2 {
+			continue
+		}
+		switch values[0] {
+		case "DEVNAME":
+			info.DevPath = filepath.Join("/dev", values[1])
+			count++
+		case "DRIVER":
+			info.Driver = values[1]
+			count++
+		}
+		if count == 2 {
+			break
 		}
 	}
 

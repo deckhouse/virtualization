@@ -17,16 +17,19 @@ limitations under the License.
 package app
 
 import (
+	"cmp"
+	"slices"
+
 	"github.com/spf13/cobra"
 
-	"github.com/deckhouse/virtualization-dra/internal/usbip"
+	"github.com/deckhouse/virtualization-dra/pkg/usb"
 )
 
-func NewAttachInfoCommand() *cobra.Command {
-	o := &attachInfoOptions{}
+func NewInfoCommand() *cobra.Command {
+	o := &infoOptions{}
 	cmd := &cobra.Command{
-		Use:     "attach-info",
-		Short:   "Get attach info",
+		Use:     "info",
+		Short:   "Get info",
 		Example: o.Usage(),
 		RunE:    o.Run,
 	}
@@ -34,19 +37,29 @@ func NewAttachInfoCommand() *cobra.Command {
 	return cmd
 }
 
-type attachInfoOptions struct{}
+type infoOptions struct{}
 
-func (o *attachInfoOptions) Usage() string {
-	return `  # Get attach info
-  $ go-usbip attach-info
+func (o *infoOptions) Usage() string {
+	return `  # Get info
+  $ go-usbip info
 `
 }
 
-func (o *attachInfoOptions) Run(cmd *cobra.Command, _ []string) error {
-	infos, err := usbip.NewUSBAttacher().GetAttachInfo()
+func (o *infoOptions) Run(cmd *cobra.Command, _ []string) error {
+	discoverDevices, err := usb.DefaultDiscoverPluggedUSBDevices()
 	if err != nil {
 		return err
 	}
 
-	return printer.PrintObject(cmd, infos)
+	devices := make([]*usb.Device, 0, len(discoverDevices))
+
+	for _, device := range discoverDevices {
+		devices = append(devices, device)
+	}
+
+	slices.SortFunc(devices, func(a, b *usb.Device) int {
+		return cmp.Compare(a.Path, b.Path)
+	})
+
+	return printer.PrintObject(cmd, devices)
 }

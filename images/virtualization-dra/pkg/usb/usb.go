@@ -161,9 +161,10 @@ func parseSysUeventFile(path string, device *Device) error {
 	// TYPE=0/0/0
 	// BUSNUM=003
 	// DEVNUM=002
-	file, err := os.Open(filepath.Join(path, "uevent"))
+	ueventPath := filepath.Join(path, "uevent")
+	file, err := os.Open(ueventPath)
 	if err != nil {
-		return fmt.Errorf("unable to open the file %s: %w", path, err)
+		return fmt.Errorf("unable to open the file %s: %w", ueventPath, err)
 	}
 	defer file.Close()
 
@@ -252,7 +253,6 @@ func parseSysUeventFile(path string, device *Device) error {
 			}
 			device.DeviceNumber = uint32(val)
 		default:
-			slog.Info("Skipping unhandled line", slog.String("line", line))
 		}
 	}
 	return nil

@@ -17,9 +17,6 @@ limitations under the License.
 package app
 
 import (
-	"encoding/json"
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/deckhouse/virtualization-dra/internal/usbip"
@@ -51,12 +48,5 @@ func (o *bindInfoOptions) Run(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	bytes, err := json.Marshal(infos)
-	if err != nil {
-		return fmt.Errorf("failed to marshal json: %w", err)
-	}
-
-	cmd.Println(string(bytes))
-
-	return nil
+	return printer.PrintObject(cmd, infos)
 }
