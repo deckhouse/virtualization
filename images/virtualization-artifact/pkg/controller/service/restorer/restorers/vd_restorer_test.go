@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -156,6 +157,16 @@ var _ = Describe("VirtualDiskRestorer", func() {
 
 			Expect(diskDeleted).To(Equal(args.shouldBeDeleted))
 			Expect(diskCreated).To(Equal(args.shouldBeCreated))
+
+			if args.diskExists {
+				err = fakeClient.Get(ctx, client.ObjectKeyFromObject(&disk), &disk)
+				Expect(err).NotTo(HaveOccurred())
+
+				_, restoreAnnoOk := disk.Annotations[annotations.AnnVMOPRestore]
+				Expect(restoreAnnoOk).To(Equal(args.shouldBeCreated))
+				_, deleteAnnoOk := disk.Annotations[annotations.AnnVMOPRestoreDeleted]
+				Expect(deleteAnnoOk).To(Equal(args.shouldBeDeleted))
+			}
 		},
 		Entry("disk exists; used by different VM", VirtualDiskTestArgs{
 			diskExists:       true,
@@ -213,6 +224,13 @@ var _ = Describe("VirtualDiskRestorer", func() {
 			Expect(errors.Is(err, common.ErrWaitingForDeletion)).To(BeTrue())
 			Expect(diskDeleted).To(BeTrue())
 			Expect(diskCreated).To(BeFalse())
+
+			err = fakeClient.Get(ctx, client.ObjectKeyFromObject(&disk), &disk)
+			Expect(err).NotTo(HaveOccurred())
+			_, restoreAnnoOk := disk.Annotations[annotations.AnnVMOPRestore]
+			Expect(restoreAnnoOk).To(BeFalse())
+			_, deleteAnnoOk := disk.Annotations[annotations.AnnVMOPRestoreDeleted]
+			Expect(deleteAnnoOk).To(BeTrue())
 		})
 	})
 
