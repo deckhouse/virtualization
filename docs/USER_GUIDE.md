@@ -923,6 +923,8 @@ Method #2:
 
 In commercial editions, you can migrate (move) a virtual machine disk to another storage by changing its StorageClass.
 
+Migration is supported for both statically attached disks and dynamically attached (hotplug) disks.
+
 {{< alert level="warning">}}
 Limitations of disk migration between storage:
 
@@ -2674,6 +2676,12 @@ Virtual machines can be connected to additional networks: project networks (`Net
 
 To do this, specify the desired networks in the configuration section `.spec.networks`. If this block is not specified (which is the default behavior), the VM will use only the main cluster network.
 
+{{< alert level="info" >}}
+Specifying the main cluster network (`type: Main`) in `.spec.networks` is optional. If you do not need a connection to the main cluster network, you can use only additional networks (`Network` or `ClusterNetwork`).
+
+However, if the main network is specified, it must always be first in the `.spec.networks` list.
+{{< /alert >}}
+
 Important considerations when working with additional network interfaces:
 
 - The order of listing networks in `.spec.networks` determines the order in which interfaces are connected inside the virtual machine.
@@ -2682,26 +2690,37 @@ Important considerations when working with additional network interfaces:
 - Network security policies (NetworkPolicy) do not apply to additional network interfaces.
 - Network parameters (IP addresses, gateways, DNS, etc.) for additional networks are configured manually from within the guest OS (for example, using Cloud-Init).
 
-Example of connecting a VM to the project network `user-net`:
+Example of connecting a VM to the main cluster network and the project network `user-net`:
 
 ```yaml
 spec:
   networks:
-    - type: Main # Must always be specified first
+    - type: Main # If specified, must be first
     - type: Network # Network type (Network \ ClusterNetwork)
       name: user-net # Network name
 ```
 
-Example of connecting to the cluster network `corp-net`:
+Example of connecting to multiple networks, including the cluster network `corp-net`:
 
 ```yaml
 spec:
   networks:
-    - type: Main # Must always be specified first
+    - type: Main # If specified, must be first
     - type: Network
       name: user-net
     - type: ClusterNetwork
       name: corp-net # Network name
+```
+
+Example of connecting a VM only to additional networks (without the main cluster network):
+
+```yaml
+spec:
+  networks:
+    - type: Network
+      name: isolated-net
+    - type: ClusterNetwork
+      name: corp-net
 ```
 
 You can view information about connected networks and their MAC addresses in the VM status:
@@ -2774,10 +2793,11 @@ Snapshots allow you to capture the current state of a resource for later recover
 
 Snapshots can be consistent or inconsistent; this is controlled by the `requiredConsistency` parameter. By default, `requiredConsistency` is set to `true`, which means a consistent snapshot is required.
 
-A consistent snapshot guarantees a consistent and complete state of the virtual machine's disks. Such a snapshot can be created when one of the following conditions is met:
+A consistent snapshot guarantees a consistent and complete state of disk data. Such a snapshot can be created when one of the following conditions is met:
 
+- The disk is not attached to any virtual machine — the snapshot will always be consistent.
 - The virtual machine is turned off.
-- [`qemu-guest-agent`](#guest-os-agent) is installed in the guest system, which temporarily suspends the file system at the time the snapshot is created to ensure its consistency.
+- [`qemu-guest-agent`](#guest-os-agent) is installed and running in the guest system, which temporarily suspends ("freezes") the file system at the time the snapshot is created to ensure its consistency.
 
 An inconsistent snapshot may not reflect a consistent state of the virtual machine's disks and its components. Such a snapshot is created if the VM is running and `qemu-guest-agent` is not installed or not running in the guest OS.
 If the snapshot manifest explicitly specifies the `requiredConsistency: false` parameter, but `qemu-guest-agent` is running, an attempt will be made to freeze the file system to ensure that the snapshot is consistent.
@@ -2835,8 +2855,10 @@ Example output:
 
 ```txt
 NAME                     PHASE     CONSISTENT   AGE
-linux-vm-root-1728027905   Ready                  3m2s
+linux-vm-root-1728027905   Ready     true         3m2s
 ```
+
+The `CONSISTENT` field shows whether the snapshot was created consistently (`true`) or not (`false`). This value is determined automatically based on the snapshot creation conditions and cannot be changed after creation.
 
 After creation, `VirtualDiskSnapshot` can be in the following states (phases):
 
@@ -3085,8 +3107,9 @@ d8 k get vmsop <vmsop-name> -o json | jq '.status.resources'
 
 VM cloning is performed using the VirtualMachineOperation resource with the `Clone` operation type.
 
-{{< alert level="warning" >}}
-Before cloning, the source VM must be [powered off](#vm-start-and-state-management-policy).
+Cloning is supported for both powered-off and running virtual machines. When cloning a running VM, a consistent snapshot is automatically created, from which the clone is then formed.
+
+{{< alert level="info" >}}
 It is recommended to set the `.spec.runPolicy: AlwaysOff` parameter in the configuration of the VM being cloned if you want to prevent the VM clone from starting automatically. This is because the clone inherits the behaviour of the parent VM.
 {{< /alert >}}
 
