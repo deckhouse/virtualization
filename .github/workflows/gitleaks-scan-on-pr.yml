@@ -1,0 +1,21 @@
+name: Gitleaks Scan
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  gitleaks_scan:
+    name: Gitleaks scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Run Gitleaks diff scan
+        uses: deckhouse/modules-actions/gitleaks@v4
+        with:
+          scan_mode: "diff"

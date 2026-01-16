@@ -1,0 +1,14 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allowlist for virtualization repo to ignore specific test folders"
+paths = [
+  # test files and data
+  '''testdata/''',
+  '''^test/''',
+  '''_test\.go$''',
+  '''^images/packages/.+/README\.md$''',
+  # development files that are not used in production images
+  '''^images/kube-api-rewriter/local/''',
+]
