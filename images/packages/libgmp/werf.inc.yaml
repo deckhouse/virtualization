@@ -57,9 +57,21 @@ shell:
 
     cd /src
 
+    # Limit optimisations to x86-64 level 2 microarchitecture.
+    # This prevent "invalid opcode" errors on CPUs without level v3 extensions
+    # AVX2, BMI2, etc.: Intel Ivy Bridge and older, AMD Steamroller and older.
+    export CFLAGS="-march=x86-64-v2"
+    export CPPFLAGS="-march=x86-64-v2"
+    export CXXFLAGS="-march=x86-64-v2"
+
+    # Notes:
+    # - Use x86_64 cpu to produce the most portable binary but not the most performant one.
+    # - Disable fat binary.
     ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64 \
+      --disable-fat \
+      --build x86_64-linux-gnu \
       --enable-cxx
 
     make -j$(nproc)

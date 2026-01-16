@@ -38,6 +38,8 @@ type Settings struct {
 	InsecureTLS string
 	// UploaderIngressSettings are settings for uploading images to the DVCR using ingress.
 	UploaderIngressSettings UploaderIngressSettings
+	// ImageMonitorSchedule is a cron schedule for periodic DVCR image presence checks.
+	ImageMonitorSchedule string
 	// GCSchedule is a cron formatted schedule to periodically run a garbage collection.
 	GCSchedule string
 }

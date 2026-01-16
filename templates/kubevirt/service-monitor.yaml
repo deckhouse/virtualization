@@ -98,32 +98,32 @@ spec:
         # hypervisor metrics ------------------------------------------------------------------------------
         - action: replace
           regex: kubevirt_vmi_cpu_system_usage_seconds_total
-          replacement: d8_virtualization_virtualmachine_hypervisor_cpu_system_usage_milliseconds_total
+          replacement: d8_virtualization_virtualmachine_hypervisor_cpu_system_usage_seconds_total
           sourceLabels:
             - __name__
           targetLabel: __name__
         - action: replace
           regex: kubevirt_vmi_cpu_user_usage_seconds_total
-          replacement: d8_virtualization_virtualmachine_hypervisor_cpu_user_usage_milliseconds_total
+          replacement: d8_virtualization_virtualmachine_hypervisor_cpu_user_usage_seconds_total
           sourceLabels:
             - __name__
           targetLabel: __name__
         - action: replace
           regex: kubevirt_vmi_cpu_usage_seconds_total
-          replacement: d8_virtualization_virtualmachine_hypervisor_cpu_usage_milliseconds_total
+          replacement: d8_virtualization_virtualmachine_hypervisor_cpu_usage_seconds_total
           sourceLabels:
             - __name__
           targetLabel: __name__
         # OS metrics -----------------------------------------------------------------------------
         - action: replace
           regex: kubevirt_vmi_vcpu_delay_seconds_total
-          replacement: d8_virtualization_virtualmachine_cpu_steal_milliseconds_total
+          replacement: d8_virtualization_virtualmachine_cpu_steal_seconds_total
           sourceLabels:
             - __name__
           targetLabel: __name__
         - action: replace
           regex: kubevirt_vmi_vcpu_seconds_total
-          replacement: d8_virtualization_virtualmachine_cpu_usage_milliseconds_total
+          replacement: d8_virtualization_virtualmachine_cpu_usage_seconds_total
           sourceLabels:
             - __name__
           targetLabel: __name__

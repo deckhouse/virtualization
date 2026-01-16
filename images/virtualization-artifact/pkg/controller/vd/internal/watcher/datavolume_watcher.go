@@ -28,7 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -73,8 +72,14 @@ func (w *DataVolumeWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 						return true
 					}
 
-					dvRunning := service.GetDataVolumeCondition(cdiv1.DataVolumeRunning, e.ObjectNew.Status.Conditions)
-					return dvRunning != nil && (dvRunning.Reason == "Error" || dvRunning.Reason == "ImagePullFailed")
+					oldDVRunning, _ := conditions.GetDataVolumeCondition(conditions.DVRunningConditionType, e.ObjectOld.Status.Conditions)
+					newDVRunning, _ := conditions.GetDataVolumeCondition(conditions.DVRunningConditionType, e.ObjectNew.Status.Conditions)
+
+					if oldDVRunning.Reason != newDVRunning.Reason {
+						return true
+					}
+
+					return newDVRunning.Reason == "Error" || newDVRunning.Reason == "ImagePullFailed"
 				},
 			},
 		),

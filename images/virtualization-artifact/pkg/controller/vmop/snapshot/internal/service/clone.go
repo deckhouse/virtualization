@@ -91,7 +91,7 @@ func (o CloneOperation) Execute(ctx context.Context) (reconcile.Result, error) {
 }
 
 func (o CloneOperation) IsApplicableForVMPhase(phase v1alpha2.MachinePhase) bool {
-	return phase == v1alpha2.MachineStopped
+	return phase == v1alpha2.MachineStopped || phase == v1alpha2.MachineRunning
 }
 
 func (o CloneOperation) IsApplicableForRunPolicy(runPolicy v1alpha2.RunPolicy) bool {

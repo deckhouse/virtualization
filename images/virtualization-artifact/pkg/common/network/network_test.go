@@ -74,7 +74,10 @@ var _ = Describe("Network Config Generation", func() {
 
 		configs := CreateNetworkSpec(vm, vmmacs)
 
-		Expect(configs).To(HaveLen(0))
+		Expect(configs).To(HaveLen(1))
+		Expect(configs[0].Name).To(Equal(""))
+		Expect(configs[0].InterfaceName).To(HavePrefix("default"))
+		Expect(configs[0].MAC).To(HavePrefix(""))
 	})
 
 	It("should generate correct interface name for Network type", func() {
@@ -90,10 +93,14 @@ var _ = Describe("Network Config Generation", func() {
 
 		configs := CreateNetworkSpec(vm, vmmacs)
 
-		Expect(configs).To(HaveLen(1))
-		Expect(configs[0].Type).To(Equal(v1alpha2.NetworksTypeNetwork))
-		Expect(configs[0].Name).To(Equal("mynet"))
-		Expect(configs[0].InterfaceName).To(HavePrefix("veth_n"))
+		Expect(configs).To(HaveLen(2))
+		Expect(configs[0].Name).To(Equal(""))
+		Expect(configs[0].InterfaceName).To(HavePrefix("default"))
+		Expect(configs[0].MAC).To(HavePrefix(""))
+
+		Expect(configs[1].Type).To(Equal(v1alpha2.NetworksTypeNetwork))
+		Expect(configs[1].Name).To(Equal("mynet"))
+		Expect(configs[1].InterfaceName).To(HavePrefix("veth_n"))
 	})
 
 	It("should generate correct interface name for ClusterNetwork type", func() {
@@ -109,10 +116,13 @@ var _ = Describe("Network Config Generation", func() {
 
 		configs := CreateNetworkSpec(vm, vmmacs)
 
-		Expect(configs).To(HaveLen(1))
-		Expect(configs[0].Type).To(Equal(v1alpha2.NetworksTypeClusterNetwork))
-		Expect(configs[0].Name).To(Equal("clusternet"))
-		Expect(configs[0].InterfaceName).To(HavePrefix("veth_cn"))
+		Expect(configs).To(HaveLen(2))
+		Expect(configs[0].Name).To(Equal(""))
+		Expect(configs[0].InterfaceName).To(HavePrefix("default"))
+		Expect(configs[0].MAC).To(HavePrefix(""))
+		Expect(configs[1].Type).To(Equal(v1alpha2.NetworksTypeClusterNetwork))
+		Expect(configs[1].Name).To(Equal("clusternet"))
+		Expect(configs[1].InterfaceName).To(HavePrefix("veth_cn"))
 	})
 
 	It("should generate unique names for different networks", func() {
@@ -132,8 +142,11 @@ var _ = Describe("Network Config Generation", func() {
 
 		configs := CreateNetworkSpec(vm, vmmacs)
 
-		Expect(configs).To(HaveLen(2))
-		Expect(configs[0].InterfaceName).NotTo(Equal(configs[1].InterfaceName))
+		Expect(configs).To(HaveLen(3))
+		Expect(configs[0].Name).To(Equal(""))
+		Expect(configs[0].InterfaceName).To(HavePrefix("default"))
+		Expect(configs[0].MAC).To(HavePrefix(""))
+		Expect(configs[1].InterfaceName).NotTo(Equal(configs[2].InterfaceName))
 	})
 
 	It("should preserve MAC order for existing networks and assign free MAC to new network", func() {
@@ -147,10 +160,12 @@ var _ = Describe("Network Config Generation", func() {
 				MAC:  "00:1A:2B:3C:4D:5E",
 			},
 			{
+				Type: v1alpha2.NetworksTypeNetwork,
 				Name: "name1",
 				MAC:  "00:1A:2B:3C:4D:5F",
 			},
 			{
+				Type: v1alpha2.NetworksTypeNetwork,
 				Name: "name1",
 				MAC:  "00:1A:2B:3C:4D:6A",
 			},
@@ -186,19 +201,22 @@ var _ = Describe("Network Config Generation", func() {
 
 		configs := CreateNetworkSpec(vm, vmmacs)
 
-		Expect(configs).To(HaveLen(4))
+		Expect(configs).To(HaveLen(5))
 
-		Expect(configs[0].Name).To(Equal("name1"))
-		Expect(configs[0].MAC).To(Equal("00:1A:2B:3C:4D:5E"))
+		Expect(configs[0].Name).To(Equal(""))
+		Expect(configs[0].MAC).To(Equal(""))
 
 		Expect(configs[1].Name).To(Equal("name1"))
-		Expect(configs[1].MAC).To(Equal("00:1A:2B:3C:4D:5F"))
+		Expect(configs[1].MAC).To(Equal("00:1A:2B:3C:4D:5E"))
 
-		Expect(configs[3].Name).To(Equal("name1"))
-		Expect(configs[3].MAC).To(Equal("00:1A:2B:3C:4D:6A"))
+		Expect(configs[2].Name).To(Equal("name1"))
+		Expect(configs[2].MAC).To(Equal("00:1A:2B:3C:4D:5F"))
 
-		Expect(configs[2].Name).To(Equal("name2"))
-		Expect(configs[2].MAC).To(Equal("00:1A:2B:3C:4D:7F"))
+		Expect(configs[3].Name).To(Equal("name2"))
+		Expect(configs[3].MAC).To(Equal("00:1A:2B:3C:4D:7F"))
+
+		Expect(configs[4].Name).To(Equal("name1"))
+		Expect(configs[4].MAC).To(Equal("00:1A:2B:3C:4D:6A"))
 	})
 
 	It("should preserve MAC order when delete network", func() {
@@ -252,15 +270,15 @@ var _ = Describe("Network Config Generation", func() {
 
 		configs := CreateNetworkSpec(vm, vmmacs)
 
-		Expect(configs).To(HaveLen(3))
-
-		Expect(configs[0].Name).To(Equal("name1"))
-		Expect(configs[0].MAC).To(Equal("00:1A:2B:3C:4D:5E"))
+		Expect(configs).To(HaveLen(4))
 
 		Expect(configs[1].Name).To(Equal("name1"))
-		Expect(configs[1].MAC).To(Equal("00:1A:2B:3C:4D:5F"))
+		Expect(configs[1].MAC).To(Equal("00:1A:2B:3C:4D:5E"))
 
 		Expect(configs[2].Name).To(Equal("name1"))
-		Expect(configs[2].MAC).To(Equal("00:1A:2B:3C:4D:6A"))
+		Expect(configs[2].MAC).To(Equal("00:1A:2B:3C:4D:5F"))
+
+		Expect(configs[3].Name).To(Equal("name1"))
+		Expect(configs[3].MAC).To(Equal("00:1A:2B:3C:4D:6A"))
 	})
 })

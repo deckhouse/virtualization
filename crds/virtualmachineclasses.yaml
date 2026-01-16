@@ -281,6 +281,13 @@ spec:
                         items:
                           type: boolean
                         type: array
+                      defaultCoreFraction:
+                        description:
+                          A default `CoreFraction` value for a `VirtualMachine`
+                          if it is not provided.
+                        maximum: 100
+                        minimum: 1
+                        type: integer
                       memory:
                         description: Memory sizing policy.
                         properties:
@@ -333,6 +340,8 @@ spec:
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             x-kubernetes-int-or-string: true
                         type: object
+                    required:
+                      - cores
                     type: object
                   type: array
                 tolerations:
@@ -775,6 +784,11 @@ spec:
                         items:
                           type: boolean
                         type: array
+                      defaultCoreFraction:
+                        description:
+                          A default `CoreFraction` value for a `VirtualMachine`
+                          if it is not provided.
+                        type: string
                       memory:
                         description: Memory sizing policy.
                         properties:
@@ -827,6 +841,8 @@ spec:
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             x-kubernetes-int-or-string: true
                         type: object
+                    required:
+                      - cores
                     type: object
                   type: array
                 tolerations:

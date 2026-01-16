@@ -11,7 +11,7 @@ rules:
 - apiGroups:
   - virtualization.deckhouse.io
   resources:
-  - virtualmachineoprtations
+  - virtualmachineoperations
   verbs:
   - create
   - update

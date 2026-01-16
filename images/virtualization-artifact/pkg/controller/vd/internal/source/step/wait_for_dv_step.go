@@ -126,13 +126,18 @@ func (s WaitForDVStep) setForProvisioning(vd *v1alpha2.VirtualDisk) (set bool) {
 }
 
 func (s WaitForDVStep) setForFirstConsumerIsAwaited(ctx context.Context, vd *v1alpha2.VirtualDisk) (set bool, err error) {
+	if vd.Status.StorageClassName == "" {
+		return false, fmt.Errorf("StorageClassName is empty, please report a bug")
+	}
+
 	sc, err := object.FetchObject(ctx, types.NamespacedName{Name: vd.Status.StorageClassName}, s.client, &storagev1.StorageClass{})
 	if err != nil {
 		return false, fmt.Errorf("get sc: %w", err)
 	}
 
+	dvRunningCond, _ := conditions.GetDataVolumeCondition(conditions.DVRunningConditionType, s.dv.Status.Conditions)
 	isWFFC := sc != nil && sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer
-	if isWFFC && (s.dv.Status.Phase == cdiv1.PendingPopulation || s.dv.Status.Phase == cdiv1.WaitForFirstConsumer) {
+	if isWFFC && (s.dv.Status.Phase == cdiv1.PendingPopulation || s.dv.Status.Phase == cdiv1.WaitForFirstConsumer) && dvRunningCond.Reason == "" {
 		vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
 		s.cb.
 			Status(metav1.ConditionFalse).

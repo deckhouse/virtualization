@@ -97,6 +97,7 @@ func (p *Pod) makeSpec() (*corev1.Pod, error) {
 			Labels: map[string]string{
 				annotations.AppLabel:             annotations.DVCRLabelValue,
 				annotations.UploaderServiceLabel: p.PodSettings.ServiceName,
+				annotations.QuotaExcludeLabel:    annotations.QuotaExcludeValue,
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				p.PodSettings.OwnerReference,
@@ -121,12 +122,12 @@ func (p *Pod) makeSpec() (*corev1.Pod, error) {
 		}
 	}
 
-	annotations.SetRecommendedLabels(&pod, p.PodSettings.InstallerLabels, p.PodSettings.ControllerName)
-	podutil.SetRestrictedSecurityContext(&pod.Spec)
-
 	container := p.makeUploaderContainerSpec()
 	p.addVolumes(&pod, container)
 	pod.Spec.Containers = append(pod.Spec.Containers, *container)
+
+	annotations.SetRecommendedLabels(&pod, p.PodSettings.InstallerLabels, p.PodSettings.ControllerName)
+	podutil.SetRestrictedSecurityContext(&pod.Spec)
 
 	return &pod, nil
 }

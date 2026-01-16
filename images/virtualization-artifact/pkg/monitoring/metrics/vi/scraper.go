@@ -55,6 +55,7 @@ func (s *scraper) updateMetricVirtualImageStatusPhase(m *dataMetric) {
 		{phase == v1alpha2.ImageFailed, string(v1alpha2.ImageFailed)},
 		{phase == v1alpha2.ImageTerminating, string(v1alpha2.ImageTerminating)},
 		{phase == v1alpha2.ImageLost, string(v1alpha2.ImageLost)},
+		{phase == v1alpha2.ImagePVCLost, string(v1alpha2.ImagePVCLost)},
 	}
 
 	for _, p := range phases {

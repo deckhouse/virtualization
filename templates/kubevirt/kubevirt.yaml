@@ -27,7 +27,7 @@ spec:
           tokenBucketRateLimiter:
             qps: 5000
             burst: 6000
-    selinuxLauncherType: spc_t
+    selinuxLauncherType: container_kvm_t
     migrations:
       bandwidthPerMigration: 640Mi
       completionTimeoutPerGiB: 800
@@ -52,16 +52,12 @@ spec:
         virtOperator: {{ $logVerbosity }}
       featureGates:
       - HotplugVolumes
-      - GPU
       - Snapshot
       - ExpandDisks
       - Root
-      - VMLiveUpdateFeatures
       - CPUManager
       - Sidecar
       - VolumeSnapshotDataSource
-      - VolumeMigration
-      - VolumesUpdateStrategy
     virtualMachineOptions:
       disableSerialConsoleLog: {}
   customizeComponents:

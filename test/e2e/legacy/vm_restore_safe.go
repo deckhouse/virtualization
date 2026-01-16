@@ -23,6 +23,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -152,28 +153,27 @@ var _ = Describe("VirtualMachineRestoreSafe", Ordered, func() {
 					})
 			})
 
-			// Disable dut to the issue with virtual disk restoration because of VMBDA.
-			// By("Attaching `VirtualDisk` after `VirtualMachine` snapshotting", func() {
-			// 	for i, vm := range vms.Items {
-			// 		vdName := fmt.Sprintf("%s-%d", "vd-attached-after-vm-snapshotting", i)
-			// 		newDisk := NewVirtualDisk(vdName, vm.Namespace, additionalDiskLabel, resource.NewQuantity(1*1024*1024, resource.BinarySI))
-			// 		CreateResource(ctx, newDisk)
-			// 		newVmbda := NewVirtualMachineBlockDeviceAttachment(vm.Name, vm.Namespace, newDisk.Name, v1alpha2.VMBDAObjectRefKindVirtualDisk, additionalDiskLabel)
-			// 		CreateResource(ctx, newVmbda)
-			//
-			// 		WaitPhaseByLabel(
-			// 			v1alpha2.VirtualMachineBlockDeviceAttachmentResource,
-			// 			string(v1alpha2.BlockDeviceAttachmentPhaseAttached),
-			// 			kc.WaitOptions{
-			// 				Namespace: vm.Namespace,
-			// 				Labels:    additionalDiskLabel,
-			// 				Timeout:   LongWaitDuration,
-			// 			})
-			// 		err := GetObject(v1alpha2.VirtualMachineKind, vm.Name, &vm, kc.GetOptions{Namespace: vm.Namespace})
-			// 		Expect(err).NotTo(HaveOccurred())
-			// 		Expect(vm.Status.BlockDeviceRefs).To(HaveLen(vmBlockDeviceCountBeforeSnapshotting[vm.Name] + 1))
-			// 	}
-			// })
+			By("Attaching `VirtualDisk` after `VirtualMachine` snapshotting", func() {
+				for i, vm := range vms.Items {
+					vdName := fmt.Sprintf("%s-%d", "vd-attached-after-vm-snapshotting", i)
+					newDisk := NewVirtualDisk(vdName, vm.Namespace, additionalDiskLabel, resource.NewQuantity(1*1024*1024, resource.BinarySI))
+					CreateResource(ctx, newDisk)
+					newVmbda := NewVirtualMachineBlockDeviceAttachment(vm.Name, vm.Namespace, newDisk.Name, v1alpha2.VMBDAObjectRefKindVirtualDisk, additionalDiskLabel)
+					CreateResource(ctx, newVmbda)
+
+					WaitPhaseByLabel(
+						v1alpha2.VirtualMachineBlockDeviceAttachmentResource,
+						string(v1alpha2.BlockDeviceAttachmentPhaseAttached),
+						kc.WaitOptions{
+							Namespace: vm.Namespace,
+							Labels:    additionalDiskLabel,
+							Timeout:   LongWaitDuration,
+						})
+					err := GetObject(v1alpha2.VirtualMachineKind, vm.Name, &vm, kc.GetOptions{Namespace: vm.Namespace})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(vm.Status.BlockDeviceRefs).To(HaveLen(vmBlockDeviceCountBeforeSnapshotting[vm.Name] + 1))
+				}
+			})
 
 			By("Deleting `VirtualMachines` and their resources for `Safe` restoring", func() {
 				result := kubectl.Delete(kc.DeleteOptions{
@@ -264,12 +264,12 @@ var _ = Describe("VirtualMachineRestoreSafe", Ordered, func() {
 			})
 
 			By("Checking the result of restoration", func() {
-				// const (
-				// 	testLabelKey        = "test-label"
-				// 	testLabelValue      = "test-label-value"
-				// 	testAnnotationKey   = "test-annotation"
-				// 	testAnnotationValue = "test-annotation-value"
-				// )
+				const (
+					testLabelKey        = "test-label"
+					testLabelValue      = "test-label-value"
+					testAnnotationKey   = "test-annotation"
+					testAnnotationValue = "test-annotation-value"
+				)
 
 				vmrestores := &v1alpha2.VirtualMachineRestoreList{}
 				err := GetObjects(v1alpha2.VirtualMachineRestoreKind, vmrestores, kc.GetOptions{Namespace: namespace, Labels: testCaseLabel})
@@ -294,19 +294,16 @@ var _ = Describe("VirtualMachineRestoreSafe", Ordered, func() {
 							Expect(err).NotTo(HaveOccurred())
 							Expect(vd.Annotations).To(HaveKeyWithValue(annotations.AnnVMRestore, string(restore.UID)))
 
-							// Skip the annotation and label checks until the issue with virtual disk restoration is fixed.
-							// Cause: Sometimes, a virtual disk does not have annotations and labels from a virtual disk snapshot, causing the test to fail.
-							// Expect(vd.Annotations).To(HaveKeyWithValue(testAnnotationKey, testAnnotationValue))
-							// Expect(vd.Labels).To(HaveKeyWithValue(testLabelKey, testLabelValue))
+							Expect(vd.Annotations).To(HaveKeyWithValue(testAnnotationKey, testAnnotationValue))
+							Expect(vd.Labels).To(HaveKeyWithValue(testLabelKey, testLabelValue))
 						}
 
-						// Disable dut to the issue with virtual disk restoration because of VMBDA.
-						// if bd.VirtualMachineBlockDeviceAttachmentName != "" {
-						// 	vmbda := &v1alpha2.VirtualMachineBlockDeviceAttachment{}
-						// 	err := GetObject(v1alpha2.VirtualMachineBlockDeviceAttachmentKind, bd.VirtualMachineBlockDeviceAttachmentName, vmbda, kc.GetOptions{Namespace: vm.Namespace})
-						// 	Expect(err).NotTo(HaveOccurred())
-						// 	Expect(vmbda.Annotations).To(HaveKeyWithValue(annotations.AnnVMRestore, string(restore.UID)))
-						// }
+						if bd.VirtualMachineBlockDeviceAttachmentName != "" {
+							vmbda := &v1alpha2.VirtualMachineBlockDeviceAttachment{}
+							err := GetObject(v1alpha2.VirtualMachineBlockDeviceAttachmentKind, bd.VirtualMachineBlockDeviceAttachmentName, vmbda, kc.GetOptions{Namespace: vm.Namespace})
+							Expect(err).NotTo(HaveOccurred())
+							Expect(vmbda.Annotations).To(HaveKeyWithValue(annotations.AnnVMRestore, string(restore.UID)))
+						}
 					}
 				}
 			})
@@ -330,9 +327,9 @@ var _ = Describe("VirtualMachineRestoreSafe", Ordered, func() {
 				vm := &v1alpha2.VirtualMachine{}
 				err = GetObject(v1alpha2.VirtualMachineKind, vmsnapshot.Spec.VirtualMachineName, vm, kc.GetOptions{Namespace: vmsnapshot.Namespace})
 				Expect(err).NotTo(HaveOccurred())
-				// Skip the network checks until the issue with the virtual machine's MAC address is fixed.
-				// Cause: Sometimes, a virtual machine has a different MAC address after restoration, causing the test to fail.
-				// Expect(originalVMNetworks).To(HaveKeyWithValue(vm.Name, vm.Status.Networks))
+				// It is a known issue that sometimes a virtual machine has a different MAC address
+				// after restoration, causing the test to fail.
+				Expect(originalVMNetworks).To(HaveKeyWithValue(vm.Name, vm.Status.Networks))
 			}
 		})
 	})

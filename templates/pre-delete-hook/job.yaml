@@ -18,7 +18,7 @@ spec:
       serviceAccountName: pre-delete-hook
       containers:
       - name: pre-delete-hook
-        {{- include "helm_lib_module_container_security_context_read_only_root_filesystem" . | nindent 8 }}
+        {{- include "helm_lib_module_container_security_context_read_only_root_filesystem_capabilities_drop_all_pss_restricted" . | nindent 8 }}
         image: {{ include "helm_lib_module_image" (list . "preDeleteHook") }}
         env:
         - name: WAIT_TIMEOUT

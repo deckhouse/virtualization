@@ -22,7 +22,7 @@ spec:
     kind: Deployment
     name: virtualization-api
   updatePolicy:
-    updateMode: "Auto"
+    updateMode: {{ include "vpa.policyUpdateMode" . }}
   resourcePolicy:
     containerPolicies:
       - containerName: virtualization-api
@@ -75,7 +75,7 @@ spec:
       {{ include "helm_lib_pod_anti_affinity_for_ha" (list . (dict "app" "virtualization-api")) | nindent 6 }}
       containers:
         - name: virtualization-api
-          {{- include "helm_lib_module_container_security_context_read_only_root_filesystem" . | nindent 10 }}
+          {{- include "helm_lib_module_container_security_context_read_only_root_filesystem_capabilities_drop_all_pss_restricted" . | nindent 10 }}
           args:
             - --kubevirt-cabundle=/etc/virt-api/certificates/ca.crt
             - --kubevirt-endpoint=virt-api.d8-{{ .Chart.Name}}.svc

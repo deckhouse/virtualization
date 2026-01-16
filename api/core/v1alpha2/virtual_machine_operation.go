@@ -52,6 +52,7 @@ type VirtualMachineOperation struct {
 type VirtualMachineOperationSpec struct {
 	Type VMOPType `json:"type"`
 	// Name of the virtual machine the operation is performed for.
+	// +kubebuilder:validation:MinLength=1
 	VirtualMachine string `json:"virtualMachineName"`
 	// Force execution of an operation.
 	//
@@ -68,6 +69,7 @@ type VirtualMachineOperationSpec struct {
 type VirtualMachineOperationRestoreSpec struct {
 	Mode SnapshotOperationMode `json:"mode"`
 	// VirtualMachineSnapshotName defines the source of the restore operation.
+	// +kubebuilder:validation:MinLength=1
 	VirtualMachineSnapshotName string `json:"virtualMachineSnapshotName"`
 }
 

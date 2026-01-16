@@ -101,6 +101,7 @@ type ClusterVirtualImageContainerImage struct {
 type ClusterVirtualImageObjectRef struct {
 	Kind ClusterVirtualImageObjectRefKind `json:"kind"`
 	// Name of the existing VirtualImage, ClusterVirtualImage, VirtualDisk or VirtualDiskSnapshot resource.
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 	// Namespace where the VirtualImage, VirtualDisk or VirtualDiskSnapshot resource is located.
 	Namespace string `json:"namespace,omitempty"`
@@ -133,7 +134,8 @@ type ClusterVirtualImageStatus struct {
 	// * `Ready`: The resource has been created and is ready to use.
 	// * `Failed`: There was an error when creating the resource.
 	// * `Terminating`: The resource is being deleted.
-	// +kubebuilder:validation:Enum:={Pending,Provisioning,WaitForUserUpload,Ready,Failed,Terminating}
+	// * `ImageLost`: The image is missing in DVCR. The resource cannot be used.
+	// +kubebuilder:validation:Enum:={Pending,Provisioning,WaitForUserUpload,Ready,Failed,Terminating,ImageLost}
 	Phase ImagePhase `json:"phase,omitempty"`
 	// Progress of copying an image from the source to DVCR. Appears only during the `Provisioning' phase.
 	Progress string `json:"progress,omitempty"`
