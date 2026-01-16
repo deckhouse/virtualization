@@ -25,9 +25,9 @@ import (
 )
 
 var (
-	mainNetwork    = v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeMain}
-	network        = v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeNetwork, Name: "test"}
-	clusterNetwork = v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "test"}
+	mainNetwork        = v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeMain}
+	networkTest        = v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeNetwork, Name: "test"}
+	clusterNetworkTest = v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "test"}
 )
 
 func TestNetworksValidateCreate(t *testing.T) {
@@ -39,12 +39,12 @@ func TestNetworksValidateCreate(t *testing.T) {
 		{[]v1alpha2.NetworksSpec{}, true, true},
 		{[]v1alpha2.NetworksSpec{mainNetwork}, true, true},
 		{[]v1alpha2.NetworksSpec{mainNetwork, mainNetwork}, true, false},
-		{[]v1alpha2.NetworksSpec{network, mainNetwork, mainNetwork}, true, false},
+		{[]v1alpha2.NetworksSpec{networkTest, mainNetwork, mainNetwork}, true, false},
 		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, Name: "main"}}, true, false},
-		{[]v1alpha2.NetworksSpec{network}, true, true},
-		{[]v1alpha2.NetworksSpec{network, clusterNetwork}, true, true},
-		{[]v1alpha2.NetworksSpec{mainNetwork, network}, true, true},
-		{[]v1alpha2.NetworksSpec{mainNetwork, network, network}, true, false},
+		{[]v1alpha2.NetworksSpec{networkTest}, true, true},
+		{[]v1alpha2.NetworksSpec{networkTest, clusterNetworkTest}, true, true},
+		{[]v1alpha2.NetworksSpec{mainNetwork, networkTest}, true, true},
+		{[]v1alpha2.NetworksSpec{mainNetwork, networkTest, networkTest}, true, false},
 		{[]v1alpha2.NetworksSpec{mainNetwork, {Type: v1alpha2.NetworksTypeNetwork}}, true, false},
 		{[]v1alpha2.NetworksSpec{mainNetwork}, false, false},
 	}
@@ -94,7 +94,7 @@ func TestNetworksValidateUpdate(t *testing.T) {
 			oldNetworksSpec: []v1alpha2.NetworksSpec{},
 			newNetworksSpec: []v1alpha2.NetworksSpec{
 				mainNetwork,
-				network,
+				networkTest,
 			},
 			sdnEnabled: true,
 			valid:      true,
@@ -103,8 +103,8 @@ func TestNetworksValidateUpdate(t *testing.T) {
 			oldNetworksSpec: []v1alpha2.NetworksSpec{},
 			newNetworksSpec: []v1alpha2.NetworksSpec{
 				mainNetwork,
-				network,
-				network,
+				networkTest,
+				networkTest,
 			},
 			sdnEnabled: true,
 			valid:      false,
@@ -112,14 +112,14 @@ func TestNetworksValidateUpdate(t *testing.T) {
 		{
 			oldNetworksSpec: []v1alpha2.NetworksSpec{
 				mainNetwork,
-				network,
-				network,
-				network,
+				networkTest,
+				networkTest,
+				networkTest,
 			},
 			newNetworksSpec: []v1alpha2.NetworksSpec{
 				mainNetwork,
-				network,
-				network,
+				networkTest,
+				networkTest,
 			},
 			sdnEnabled: true,
 			valid:      false,
@@ -127,13 +127,13 @@ func TestNetworksValidateUpdate(t *testing.T) {
 		{
 			oldNetworksSpec: []v1alpha2.NetworksSpec{
 				mainNetwork,
-				network,
-				network,
-				network,
+				networkTest,
+				networkTest,
+				networkTest,
 			},
 			newNetworksSpec: []v1alpha2.NetworksSpec{
 				mainNetwork,
-				network,
+				networkTest,
 			},
 			sdnEnabled: true,
 			valid:      true,
@@ -141,21 +141,21 @@ func TestNetworksValidateUpdate(t *testing.T) {
 		{
 			oldNetworksSpec: []v1alpha2.NetworksSpec{
 				mainNetwork,
-				network,
+				networkTest,
 			},
 			newNetworksSpec: []v1alpha2.NetworksSpec{
-				network,
+				networkTest,
 			},
 			sdnEnabled: true,
 			valid:      true,
 		},
 		{
 			oldNetworksSpec: []v1alpha2.NetworksSpec{
-				network,
+				networkTest,
 			},
 			newNetworksSpec: []v1alpha2.NetworksSpec{
 				mainNetwork,
-				network,
+				networkTest,
 			},
 			sdnEnabled: true,
 			valid:      true,

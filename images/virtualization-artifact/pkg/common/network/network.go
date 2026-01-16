@@ -27,9 +27,27 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-const (
-	NameDefaultInterface = "default"
-)
+const NameDefaultInterface = "default"
+
+func HasMainNetworkStatus(networks []v1alpha2.NetworksStatus) bool {
+	for _, network := range networks {
+		if network.Type == v1alpha2.NetworksTypeMain {
+			return true
+		}
+	}
+
+	return false
+}
+
+func HasMainNetworkSpec(networks []v1alpha2.NetworksSpec) bool {
+	for _, network := range networks {
+		if network.Type == v1alpha2.NetworksTypeMain {
+			return true
+		}
+	}
+
+	return false
+}
 
 type InterfaceSpec struct {
 	Type          string `json:"type"`
