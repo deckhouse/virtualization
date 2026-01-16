@@ -524,15 +524,14 @@ jobs:
             for i in $(seq 1 $count); do
               linstor_node=$(kubectl -n d8-sds-replicated-volume get pods | grep "linstor-node.*Running" | wc -l || true)
               csi_node=$(kubectl -n d8-sds-replicated-volume get pods | grep "csi-node.*Running" | wc -l || true)
-              webhooks=$(kubectl -n d8-sds-replicated-volume get pods | grep "webhooks.*Running" | wc -l || true)
 
               echo "[INFO] Check if sds-replicated pods are ready"
-              if [[ ${linstor_node} -ge ${workers} && ${csi_node} -ge ${workers} && ${webhooks} -ge 1 ]]; then
+              if [[ ${linstor_node} -ge ${workers} && ${csi_node} -ge ${workers} ]]; then
                 echo "[SUCCESS] sds-replicated-volume is ready"
                 return 0
               fi
               
-              echo "[WARNING] Not all pods are ready, linstor_node=${linstor_node}, csi_node=${csi_node}, webhooks=${webhooks}"
+              echo "[WARNING] Not all pods are ready, linstor_node=${linstor_node}, csi_node=${csi_node}"
               echo "[INFO] Waiting 10s for pods to be ready (attempt ${i}/${count})"
               if (( i % 5 == 0 )); then
                 echo "[DEBUG] Get pods"
@@ -611,6 +610,7 @@ jobs:
 
           echo "[INFO] Wait for sds-replicated-volume to be ready"
           sds_replicated_ready
+          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules sds-replicated-volume --timeout=300s
 
           echo "[INFO] Wait BlockDevice are ready"
           blockdevices_ready
