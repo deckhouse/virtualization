@@ -243,6 +243,16 @@ jobs:
           NAMESPACE: ${{ steps.vars.outputs.namespace }}
           PREFIX: ${{ inputs.storage_type }}
         run: |
+          d8vssh() {
+            local cmd=$1
+            d8 v ssh -i ./tmp/ssh/cloud \
+            --local-ssh=true \
+            --local-ssh-opts="-o StrictHostKeyChecking=no" \
+            --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+            ${DEFAULT_USER}@${nested_master}.${NAMESPACE} \
+            -c "$cmd"
+          }
+          
           nested_master=$(kubectl -n ${NAMESPACE} get vm -l group=${PREFIX}-master -o jsonpath="{.items[0].metadata.name}")
 
           echo "Pods"
@@ -259,21 +269,11 @@ jobs:
 
           echo "login to master"
           echo "os-release master"
-          d8 v ssh -i ./tmp/ssh/cloud \
-            --local-ssh=true \
-            --local-ssh-opts="-o StrictHostKeyChecking=no" \
-            --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-            ${DEFAULT_USER}@${nested_master}.${NAMESPACE} \
-            -c 'cat /etc/os-release'
+          d8vssh 'cat /etc/os-release'
           echo ""
 
           echo "hostname master"
-          d8 v ssh -i ./tmp/ssh/cloud  \
-            --local-ssh=true \
-            --local-ssh-opts="-o StrictHostKeyChecking=no" \
-            --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-            ${DEFAULT_USER}@${nested_master}.${NAMESPACE} \
-            -c 'hostname'
+          d8vssh 'hostname'
 
       - name: Generate nested kubeconfig
         id: generate-kubeconfig
@@ -398,6 +398,27 @@ jobs:
           include-hidden-files: true
           retention-days: 1
 
+      - name: Second check d8 queue in nested cluster
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+        env:
+          NAMESPACE: ${{ steps.vars.outputs.namespace }}
+          PREFIX: ${{ inputs.storage_type }}
+        run: |
+          nested_master=$(kubectl -n ${NAMESPACE} get vm -l group=${PREFIX}-master -o jsonpath="{.items[0].metadata.name}")
+
+          d8vssh() {
+            local cmd=$1
+            d8 v ssh -i ./tmp/ssh/cloud \
+            --local-ssh=true \
+            --local-ssh-opts="-o StrictHostKeyChecking=no" \
+            --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+            ${DEFAULT_USER}@${nested_master}.${NAMESPACE} \
+            -c "$cmd"
+          }
+
+          echo "[INFO] Second check d8 queue in nested cluster"
+          d8vssh 'sudo /tmp/deckhouse-queue.sh'
+
   configure-storage:
     name: Configure storage (${{ inputs.storage_type }})
     runs-on: ubuntu-latest
@@ -435,7 +456,7 @@ jobs:
 
           # some times kubectl get nodes returns error, so we need to retry
           for i in {1..5}; do
-            echo "Attempt $i/3..."
+            echo "Attempt $i/5..."
             if (kubectl get nodes); then
               echo "[SUCCESS] Successfully retrieved nodes."
               break
