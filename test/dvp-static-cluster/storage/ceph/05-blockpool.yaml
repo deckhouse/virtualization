@@ -2,7 +2,7 @@ apiVersion: ceph.rook.io/v1
 kind: CephBlockPool
 metadata:
   name: ceph-rbd-pool-r2
-  namespace: d8-operator-ceph # namespace:cluster
+  namespace: d8-operator-ceph
 spec:
   parameters:
     pg_num: "128"

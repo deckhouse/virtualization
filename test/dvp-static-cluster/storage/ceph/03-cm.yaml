@@ -89,7 +89,7 @@ data:
   CSI_GRPC_TIMEOUT_SECONDS: "150"
   CSI_NFS_FSGROUPPOLICY: File
   CSI_NFS_PLUGIN_RESOURCE: |
-    - name : driver-registrar
+    - name: driver-registrar
       resource:
         requests:
           memory: 128Mi

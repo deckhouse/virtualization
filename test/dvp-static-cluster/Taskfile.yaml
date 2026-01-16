@@ -118,21 +118,23 @@ tasks:
     cmds:
       - kubectl delete -f {{ .TMP_DIR }}/infra.yaml --timeout 300s || true
       - kubectl wait --for=delete namespace/{{ .NAMESPACE }} --timeout 300s || true
+  
+  render-cluster-config-proxy:
+    desc: Add proxy if enabled
+    cmds:
+      - |
+        if yq eval '.deckhouse.proxyEnabled' values.yaml; then
+          yq eval --inplace '.proxy.httpProxy = env(HTTP_PROXY) | .proxy.httpsProxy = env(HTTPS_PROXY)' values.yaml
+        fi
 
   render-cluster-config:
     desc: Preparation / Generate cluster config (infra required)
     deps:
       - ssh-gen
       - generate-helm-values
+      - render-cluster-config-proxy
     cmds:
       - helm template dvp-over-static-dvp-cluster-config ./charts/cluster-config -f values.yaml -f {{ .DISCOVERED_VALUES_FILE }} > {{ .TMP_DIR }}/config.yaml
-
-  render-cluster-manifests:
-    desc: Preparation / Generate cluster config without cluster bootstrap configs (infra required)
-    deps:
-      - render-cluster-config
-    cmds:
-      - yq 'select( (.apiVersion + "/" + .kind) != "deckhouse.io/v1/InitConfiguration" and (.apiVersion + "/" + .kind) != "deckhouse.io/v1/ClusterConfiguration" and (.apiVersion + "/" + .kind) != "deckhouse.io/v1/StaticClusterConfiguration" )' {{ .TMP_DIR }}/config.yaml > {{ .TMP_DIR }}/config-manifests.yaml
 
   infra-undeploy-jumphost:
     desc: Undeploy Jumphost
@@ -148,7 +150,7 @@ tasks:
     vars:
       DeckhouseInstallImage: "dev-registry.deckhouse.io/sys/deckhouse-oss/install"
       prefix:
-        sh: yq eval '.storage_type' values.yaml
+        sh: yq eval '.storageType' values.yaml
       start_time:
         sh: date +%s
       JUMPHOST_EXT_IP:
@@ -199,4 +201,4 @@ tasks:
         echo vms:
         kubectl -n {{ .NAMESPACE }} get vm
         echo "Grafana URL https://grafana.{{ .NAMESPACE }}.{{ .DOMAIN }}"
-        echo "Default user/password admin@deckhouse.io/{{ .PASSWORD}}"
+        echo "Default user/password admin@deckhouse.io/[see password in password.txt in artifact]"

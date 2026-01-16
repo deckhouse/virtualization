@@ -103,7 +103,7 @@ USER_NAME=${SA_NAME}
 CONTEXT_NAME="${CLUSTER_NAME}"-"${USER_NAME}"
 
 if kubectl cluster-info > /dev/null 2>&1; then
-  log_success "Access to Kubernetes cluster exists."
+  log_success "Connection to Kubernetes cluster OK. Proceeding..."
 else
   log_error "No access to Kubernetes cluster or configuration issue."
   exit 1

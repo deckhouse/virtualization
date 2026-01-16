@@ -30,7 +30,7 @@ spec:
         role: master
 
 {{range $_, $i := untilStep 0 (.Values.instances.masterNodes.count | int) 1}}
-  {{ $vmName := printf "%s-master-%d" $.Values.storage_type $i }}
+  {{ $vmName := printf "%s-master-%d" $.Values.storageType $i }}
 ---
 apiVersion: deckhouse.io/v1alpha1
 kind: StaticInstance

@@ -128,6 +128,5 @@ metadata:
   name: admin
 spec:
   email: admin@deckhouse.io
-  # echo "t3chn0l0gi4" | htpasswd -BinC 10 "" | cut -d: -f2 | base64 -w0
   password: {{ .Values.discovered.passwordHash }}
 {{ end }}
