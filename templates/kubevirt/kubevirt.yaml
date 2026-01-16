@@ -32,7 +32,7 @@ spec:
       bandwidthPerMigration: 640Mi
       completionTimeoutPerGiB: 800
       parallelMigrationsPerCluster: {{ include "kubevirt.parallel_migrations_per_cluster" . }}
-      parallelOutboundMigrationsPerNode: 1
+      parallelOutboundMigrationsPerNode: {{ .Values.virtualization.internal.virtConfig.parallelOutboundMigrationsPerNode }}
       progressTimeout: 150
     smbios:
       manufacturer: Flant
