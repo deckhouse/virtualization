@@ -22,6 +22,7 @@ import (
 	"net/netip"
 
 	"hooks/pkg/settings"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 

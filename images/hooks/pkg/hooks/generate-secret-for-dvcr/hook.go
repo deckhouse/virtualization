@@ -24,8 +24,9 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/crypto/bcrypt"
 	"hooks/pkg/settings"
+
+	"golang.org/x/crypto/bcrypt"
 	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/module-sdk/pkg"

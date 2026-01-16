@@ -20,8 +20,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/tidwall/gjson"
 	"hooks/pkg/settings"
+
+	"github.com/tidwall/gjson"
 )
 
 /*

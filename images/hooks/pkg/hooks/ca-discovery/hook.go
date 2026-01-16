@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"hooks/pkg/settings"
+
 	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/module-sdk/pkg"

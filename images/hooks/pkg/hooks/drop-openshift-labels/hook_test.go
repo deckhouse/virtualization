@@ -21,9 +21,10 @@ import (
 	"fmt"
 	"testing"
 
+	"hooks/pkg/settings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"hooks/pkg/settings"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/module-sdk/pkg"
