@@ -81,7 +81,8 @@ linters:
     - errname # checks that sentinel errors are prefixed with the Err and error types are suffixed with the Error
     - errorlint # finds code that will cause problems with the error wrapping scheme introduced in Go 1.13
     - copyloopvar # detects places where loop variables are copied (Go 1.22+)
-    - gci # controls golang package import order and makes it always deterministic
+    - gofmt # [replaced by goimports] checks whether code was gofmt-ed
+    - gofumpt # [replaced by goimports, gofumports is not available yet] checks whether code was gofumpt-ed
     - gocritic # provides diagnostics that check for bugs, performance and style issues
     - goimports # in addition to fixing imports, goimports also formats your code in the same style as gofmt
     - gosimple # specializes in simplifying a code
