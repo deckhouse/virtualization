@@ -95,9 +95,7 @@ jobs:
       group: "${{ github.workflow }}-${{ github.event.number || github.ref }}-${{ inputs.storage_type }}"
       cancel-in-progress: true
     outputs:
-      kubeconfig-content: ${{ steps.generate-kubeconfig.outputs.config }}
-      storage-type: ${{ steps.vars.outputs.storage_type }}
-      nested-storageclass-name: ${{ steps.vars.outputs.nested_storageclass_name }}
+      kubeconfig: ${{ steps.generate-kubeconfig.outputs.kubeconfig }}
     steps:
       - uses: actions/checkout@v4
         # with:
@@ -109,8 +107,6 @@ jobs:
           namespace="nightly-e2e-${{ inputs.storage_type }}-$(git rev-parse --short HEAD)"
           echo "namespace=$namespace" >> $GITHUB_OUTPUT
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-          echo "storage_type=${{ inputs.storage_type }}" >> $GITHUB_OUTPUT
-          echo "nested_storageclass_name=${{ inputs.nested_storageclass_name }}" >> $GITHUB_OUTPUT
 
           REGISTRY=$(base64 -d <<< ${{secrets.DEV_REGISTRY_DOCKER_CFG}} | jq '.auths | to_entries | .[] | .key' -r)
           USERNAME=$(base64 -d <<< ${{ secrets.DEV_REGISTRY_DOCKER_CFG }} | jq '.auths | to_entries | .[] | .value.auth' -r | base64 -d | cut -d ':' -f1)
@@ -158,7 +154,7 @@ jobs:
 
           cat <<EOF > values.yaml
           namespace: ${{ steps.vars.outputs.namespace }}
-          storage_type: ${{ inputs.storage_type }}
+          storageType: ${{ inputs.storage_type }}
           storageClass: ${defaultStorageClass}
           sa: dkp-sa
           deckhouse:
@@ -168,19 +164,7 @@ jobs:
             kubernetesVersion: Automatic
             registryDockerCfg: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
             bundle: Default
-            # proxy:
-            #   httpProxy: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
-            #   httpsProxy: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
-            #   noProxy: 
-            #   - "localhost"
-            #   - "127.0.0.1"
-            #   - "10.0.0.0/8"
-            #   - "172.16.0.0/12"
-            #   - "192.168.0.0/16"
-            #   - "10.112.0.0/16"
-            #   - "10.223.0.0/16"
-            #   - "docker.io"
-            #   - ".ubuntu.com"
+            proxyEnabled: false
           image:
             url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
             defaultUser: ${{ env.DEFAULT_USER }}
@@ -222,6 +206,10 @@ jobs:
       - name: Bootstrap cluster [dhctl-bootstrap]
         id: dhctl-bootstrap
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+        env:
+          # Proxy settings will be added to values.yaml if proxyEnabled is true via task render-cluster-config-proxy
+          HTTP_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
+          HTTPS_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
         run: |
           task dhctl-bootstrap
         timeout-minutes: 30
@@ -237,43 +225,40 @@ jobs:
         run: |
           kubectl -n $NAMESPACE create secret generic ssh-key --from-file=${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/ssh/cloud
 
-      - name: Get info about nested master VM
+      - name: Get info about nested cluster and master VM
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
         env:
           NAMESPACE: ${{ steps.vars.outputs.namespace }}
           PREFIX: ${{ inputs.storage_type }}
         run: |
+          nested_master=$(kubectl -n ${NAMESPACE} get vm -l group=${PREFIX}-master -o jsonpath="{.items[0].metadata.name}")
+          
           d8vssh() {
-            local cmd=$1
+            local host=$1
+            local cmd=$2
             d8 v ssh -i ./tmp/ssh/cloud \
             --local-ssh=true \
             --local-ssh-opts="-o StrictHostKeyChecking=no" \
             --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-            ${DEFAULT_USER}@${nested_master}.${NAMESPACE} \
+            ${DEFAULT_USER}@${host}.${NAMESPACE} \
             -c "$cmd"
           }
-          
-          nested_master=$(kubectl -n ${NAMESPACE} get vm -l group=${PREFIX}-master -o jsonpath="{.items[0].metadata.name}")
 
-          echo "Pods"
+          echo "[INFO] Pods in namespace $NAMESPACE"
           kubectl get pods -n "${NAMESPACE}"
           echo ""
 
-          echo "VMs"
+          echo "[INFO] VMs in namespace $NAMESPACE"
           kubectl get vm -n "${NAMESPACE}"
           echo ""
 
-          echo "VDs"
+          echo "[INFO] VDs in namespace $NAMESPACE"
           kubectl get vd -n "${NAMESPACE}"
           echo ""
 
-          echo "login to master"
-          echo "os-release master"
-          d8vssh 'cat /etc/os-release'
+          echo "Check connection to master"
+          d8vssh "${nested_master}" 'echo master os-release: ; cat /etc/os-release; echo " "; echo master hostname: ; hostname'
           echo ""
-
-          echo "hostname master"
-          d8vssh 'hostname'
 
       - name: Generate nested kubeconfig
         id: generate-kubeconfig
@@ -336,7 +321,7 @@ jobs:
           echo "[INFO] Kubeconf to github output"
           CONFIG=$(cat ${kubeConfigPath} | base64 -w 0)
           CONFIG=$(echo $CONFIG | base64 -w 0)
-          echo "config=$CONFIG" >> $GITHUB_OUTPUT
+          echo "kubeconfig=$CONFIG" >> $GITHUB_OUTPUT
 
       - name: cloud-init logs
         if: steps.dhctl-bootstrap.outcome == 'failure'
@@ -364,7 +349,7 @@ jobs:
         run: |
           sudo chown -fR 1001:1001 ${{ env.SETUP_CLUSTER_TYPE_PATH }}
           yq e '.deckhouse.registryDockerCfg = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/values.yaml
-          yq e 'select(.kind == "InitConfiguration") .deckhouse.registryDockerCfg = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/config.yaml || echo "The config.yaml file is not generated, skipping"
+          yq e 'select(.kind == "InitConfiguration").deckhouse.registryDockerCfg = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/config.yaml || echo "The config.yaml file is not generated, skipping"
           echo "${{ steps.generate-kubeconfig.outputs.config }}" | base64 -d | base64 -d > ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/kube-config
 
       - name: Upload generated files
@@ -389,7 +374,7 @@ jobs:
           include-hidden-files: true
           retention-days: 1
 
-      - name: Upload kubeconfig config
+      - name: Upload kubeconfig
         uses: actions/upload-artifact@v4
         with:
           name: generated-files-kubeconfig-${{ inputs.storage_type }}
@@ -423,7 +408,7 @@ jobs:
         run: |
           mkdir -p ~/.kube
           echo "[INFO] Configure kubeconfig for nested cluster"
-          echo "${{ needs.bootstrap.outputs.kubeconfig-content }}" | base64 -d | base64 -d > ~/.kube/config
+          echo "${{ needs.bootstrap.outputs.kubeconfig }}" | base64 -d | base64 -d > ~/.kube/config
 
           echo "[INFO] Show paths and files content"
           ls -la ~/.kube
@@ -433,8 +418,8 @@ jobs:
           echo "[INFO] Show nodes in cluster"
           kubectl config get-contexts
 
-          # some times kubectl get nodes returns error, so we need to retry
-          count=10
+          # `kubectl get nodes` may return error, so we need to retry.
+          count=30
           for i in $(seq 1 $count); do
             echo "[INFO] Attempt $i/$count..."
             if (kubectl get nodes); then
@@ -792,8 +777,8 @@ jobs:
           ./ceph-configure.sh
 
   configure-virtualization:
-    name: Configure Virtualization (${{ inputs.storage_type }})
-    runs-on: ubuntu-22.04
+    name: Configure Virtualization
+    runs-on: ubuntu-latest
     needs:
       - bootstrap
       - configure-storage
@@ -810,7 +795,7 @@ jobs:
         run: |
           echo "[INFO] Configure kube config"
           mkdir -p ~/.kube
-          echo "${{ needs.bootstrap.outputs.kubeconfig-content }}" | base64 -d | base64 -d > ~/.kube/config
+          echo "${{ needs.bootstrap.outputs.kubeconfig }}" | base64 -d | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
           kubectl config use-context nested-e2e-nested-sa
 
@@ -1002,7 +987,7 @@ jobs:
 
   e2e-test:
     name: E2E test (${{ inputs.storage_type }})
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     needs:
       - bootstrap
       - configure-storage
@@ -1039,7 +1024,7 @@ jobs:
         run: |
           echo "Configure kube config"
           mkdir -p ~/.kube
-          echo "${{ needs.bootstrap.outputs.kubeconfig-content }}" | base64 -d | base64 -d > ~/.kube/config
+          echo "${{ needs.bootstrap.outputs.kubeconfig }}" | base64 -d | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
           kubectl config use-context nested-e2e-nested-sa
           kubectl get vmclass
@@ -1062,7 +1047,7 @@ jobs:
           STORAGE_CLASS_NAME: ${{ inputs.nested_storageclass_name }}
         working-directory: ./test/e2e/
         run: |
-          GINKGO_RESULT=$(mktemp)
+          GINKGO_RESULT=$(mktemp -p $RUNNER_TEMP)
           DATE=$(date +"%Y-%m-%d")
           START_TIME=$(date +"%H:%M:%S")
           summary_file_name_junit="e2e_summary_${CSI}_${DATE}.xml"

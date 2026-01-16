@@ -8,14 +8,20 @@ serviceSubnetCIDR: {{ .Values.deckhouse.serviceSubnetCIDR }}
 kubernetesVersion: {{ .Values.deckhouse.kubernetesVersion | quote }}
 clusterDomain: "internal.{{ .Values.discovered.clusterDomain }}"
 defaultCRI: ContainerdV2
-{{- if .Values.deckhouse.proxy }}
+{{- if .Values.deckhouse.proxyEnabled }}
 proxy:
-  httpProxy: "{{ .Values.deckhouse.proxy.httpProxy }}"
-  httpsProxy: "{{ .Values.deckhouse.proxy.httpsProxy }}"
-  noProxy:
-  {{- range .Values.deckhouse.proxy.noProxy }}
-  - "{{ . }}"
-  {{- end }}
+  httpProxy: ""
+  httpsProxy: ""
+  noProxy: 
+  - "localhost"
+  - "127.0.0.1"
+  - "10.0.0.0/8"
+  - "172.16.0.0/12"
+  - "192.168.0.0/16"
+  - "10.112.0.0/16"
+  - "10.223.0.0/16"
+  - "docker.io"
+  - ".ubuntu.com"
 {{- end }}
 ---
 apiVersion: deckhouse.io/v1

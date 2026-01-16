@@ -26,7 +26,7 @@ spec:
   {{- end }}
 
   {{- range $_, $i := untilStep 0 ($v.count | int) 1}}
-    {{- $vmName := printf "%s-%s-%d" $.Values.storage_type $v.name $i }}
+    {{- $vmName := printf "%s-%s-%d" $.Values.storageType $v.name $i }}
 ---
 apiVersion: deckhouse.io/v1alpha1
 kind: StaticInstance

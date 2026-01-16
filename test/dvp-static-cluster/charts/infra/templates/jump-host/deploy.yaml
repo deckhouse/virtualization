@@ -32,9 +32,6 @@ spec:
           env:
             - name: SSH_KEY
               value: "{{ .Values.discovered.publicSSHKey }}"
-          securityContext:
-            runAsNonRoot: true
-            runAsUser: 1000
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
