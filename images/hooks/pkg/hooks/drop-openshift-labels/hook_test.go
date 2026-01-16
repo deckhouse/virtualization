@@ -19,9 +19,8 @@ package drop_openshift_labels
 import (
 	"context"
 	"fmt"
-	"testing"
-
 	"hooks/pkg/settings"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

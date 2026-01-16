@@ -18,7 +18,6 @@ package tls_certificates_controller
 
 import (
 	"fmt"
-
 	"hooks/pkg/settings"
 
 	tlscertificate "github.com/deckhouse/module-sdk/common-hooks/tls-certificate"

@@ -19,7 +19,6 @@ package discovery_workload_nodes
 import (
 	"context"
 	"fmt"
-
 	"hooks/pkg/settings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

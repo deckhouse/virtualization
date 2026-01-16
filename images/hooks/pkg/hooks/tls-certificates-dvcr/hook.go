@@ -18,7 +18,6 @@ package tls_certificates_dvcr
 
 import (
 	"fmt"
-
 	"hooks/pkg/settings"
 
 	"github.com/tidwall/gjson"

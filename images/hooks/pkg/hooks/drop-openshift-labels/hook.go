@@ -19,9 +19,8 @@ package drop_openshift_labels
 import (
 	"context"
 	"fmt"
-	"strings"
-
 	"hooks/pkg/settings"
+	"strings"
 
 	"k8s.io/utils/ptr"
 

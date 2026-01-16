@@ -18,9 +18,8 @@ package main
 
 import (
 	"fmt"
-	"os"
-
 	"hooks/pkg/settings"
+	"os"
 
 	"github.com/tidwall/gjson"
 )

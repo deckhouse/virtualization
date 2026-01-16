@@ -19,7 +19,6 @@ package readiness
 import (
 	"context"
 	"fmt"
-
 	"hooks/pkg/settings"
 
 	"github.com/deckhouse/module-sdk/pkg"

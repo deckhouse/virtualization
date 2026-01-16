@@ -21,6 +21,7 @@ linters-settings:
     sections:
       - standard
       - default
+      - localmodule
       - prefix(github.com/deckhouse/)
   goimports:
     local-prefixes: github.com/deckhouse/

@@ -12,11 +12,10 @@ import (
 	"context"
 	"fmt"
 
-	"hooks/pkg/settings"
-
 	tlscertificate "github.com/deckhouse/module-sdk/common-hooks/tls-certificate"
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
+	"hooks/pkg/settings"
 )
 
 var conf = tlscertificate.GenSelfSignedTLSHookConf{
