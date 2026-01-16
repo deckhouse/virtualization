@@ -19,13 +19,13 @@ package drop_openshift_labels
 import (
 	"context"
 	"fmt"
+	"hooks/pkg/settings"
 	"strings"
+
+	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
-	"k8s.io/utils/ptr"
-
-	"hooks/pkg/settings"
 )
 
 const (

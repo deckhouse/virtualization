@@ -20,19 +20,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"hooks/pkg/settings"
 	"strings"
 	"time"
-
-	"hooks/pkg/settings"
-
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-
-	"github.com/deckhouse/module-sdk/pkg"
-	"github.com/deckhouse/module-sdk/pkg/registry"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+
+	"github.com/deckhouse/module-sdk/pkg"
+	"github.com/deckhouse/module-sdk/pkg/registry"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (

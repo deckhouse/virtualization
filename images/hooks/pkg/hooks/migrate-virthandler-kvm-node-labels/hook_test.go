@@ -94,8 +94,8 @@ var _ = Describe("Migrate virtHandler KVM labels", func() {
 	Context("Four nodes but only two should be patched.", func() {
 		It("Hook must execute successfully", func() {
 			expectedNodes := map[string]struct{}{
-				"node1": struct{}{},
-				"node4": struct{}{},
+				"node1": {},
+				"node4": {},
 			}
 
 			snapshots.GetMock.When(nodesSnapshot).Then([]pkg.Snapshot{

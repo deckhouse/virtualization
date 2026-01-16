@@ -18,7 +18,6 @@ package tls_certificates_dvcr
 
 import (
 	"fmt"
-
 	"hooks/pkg/settings"
 
 	"github.com/tidwall/gjson"
@@ -52,10 +51,6 @@ var _ = tlscertificate.RegisterInternalTLSHookEM(tlscertificate.GenSelfSignedTLS
 	CommonCAValuesPath:   fmt.Sprintf("%s.internal.rootCA", settings.ModuleName),
 
 	BeforeHookCheck: func(input *pkg.HookInput) bool {
-		if dvcrGetServiceIP(input).Type == gjson.Null {
-			return false
-		}
-
-		return true
+		return dvcrGetServiceIP(input).Type != gjson.Null
 	},
 })
