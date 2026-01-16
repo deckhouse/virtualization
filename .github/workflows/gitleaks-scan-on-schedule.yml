@@ -18,6 +18,6 @@ jobs:
       pull-requests: read
     steps:
       - name: Run Gitleaks diff scan
-        uses: deckhouse/modules-actions/gitleaks@v4
+        uses: deckhouse/modules-actions/gitleaks@v6
         with:
           scan_mode: "full"
