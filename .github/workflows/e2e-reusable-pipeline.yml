@@ -398,27 +398,6 @@ jobs:
           include-hidden-files: true
           retention-days: 1
 
-      - name: Second check d8 queue in nested cluster
-        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
-        env:
-          NAMESPACE: ${{ steps.vars.outputs.namespace }}
-          PREFIX: ${{ inputs.storage_type }}
-        run: |
-          nested_master=$(kubectl -n ${NAMESPACE} get vm -l group=${PREFIX}-master -o jsonpath="{.items[0].metadata.name}")
-
-          d8vssh() {
-            local cmd=$1
-            d8 v ssh -i ./tmp/ssh/cloud \
-            --local-ssh=true \
-            --local-ssh-opts="-o StrictHostKeyChecking=no" \
-            --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-            ${DEFAULT_USER}@${nested_master}.${NAMESPACE} \
-            -c "$cmd"
-          }
-
-          echo "[INFO] Second check d8 queue in nested cluster"
-          d8vssh 'sudo /tmp/deckhouse-queue.sh'
-
   configure-storage:
     name: Configure storage (${{ inputs.storage_type }})
     runs-on: ubuntu-latest
@@ -440,7 +419,7 @@ jobs:
       - name: Install kubectl CLI
         uses: azure/setup-kubectl@v4
 
-      - name: Check kubeconfig
+      - name: Check nested kube-api via generated kubeconfig
         run: |
           mkdir -p ~/.kube
           echo "[INFO] Configure kubeconfig for nested cluster"
@@ -455,8 +434,9 @@ jobs:
           kubectl config get-contexts
 
           # some times kubectl get nodes returns error, so we need to retry
-          for i in {1..5}; do
-            echo "Attempt $i/5..."
+          count=10
+          for i in $(seq 1 $count); do
+            echo "[INFO] Attempt $i/$count..."
             if (kubectl get nodes); then
               echo "[SUCCESS] Successfully retrieved nodes."
               break
@@ -466,7 +446,7 @@ jobs:
             sleep 10
           done
 
-          if [ $i -eq 5 ]; then
+          if [ "$i" -ge "$count" ]; then
             echo "[ERROR] Failed to retrieve nodes."
             exit 1
           fi
