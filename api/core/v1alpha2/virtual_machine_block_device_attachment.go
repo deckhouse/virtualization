@@ -32,7 +32,7 @@ const (
 // +kubebuilder:printcolumn:name="PHASE",type="string",JSONPath=".status.phase",description="VirtualMachineBlockDeviceAttachment phase."
 // +kubebuilder:printcolumn:name="BLOCKDEVICE KIND",type=string,JSONPath=`.spec.blockDeviceRef.kind`,priority=1,description="Attached blockdevice kind."
 // +kubebuilder:printcolumn:name="BLOCKDEVICE NAME",type=string,JSONPath=`.spec.blockDeviceRef.name`,priority=1,description="Attached blockdevice name."
-// +kubebuilder:printcolumn:name="VIRTUAL MACHINE NAME",type="string",JSONPath=".status.virtualMachineName",description="Name of the virtual machine the disk is attached to."
+// +kubebuilder:printcolumn:name="VIRTUALMACHINE",type="string",JSONPath=".status.virtualMachineName",description="Name of the virtual machine the disk is attached to."
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp",description="Time of resource creation."
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
