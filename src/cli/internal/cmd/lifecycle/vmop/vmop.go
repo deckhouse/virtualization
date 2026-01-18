@@ -19,6 +19,7 @@ package vmop
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -93,6 +94,18 @@ func (v VirtualMachineOperation) Evict(ctx context.Context, vmName, vmNamespace 
 	return v.do(ctx, vmop, v.options.createOnly, v.options.waitComplete)
 }
 
+func (v VirtualMachineOperation) Migrate(ctx context.Context, vmName, vmNamespace string, nodeSelector map[string]string) (msg string, err error) {
+	vmop := v.newVMOP(vmName, vmNamespace, v1alpha2.VMOPTypeMigrate, v.options.force)
+	if nodeSelector != nil {
+		vmop.Spec.Migrate = &v1alpha2.VirtualMachineOperationMigrateSpec{
+			NodeSelector: nil,
+		}
+		vmop.Spec.Migrate.NodeSelector = make(map[string]string, len(nodeSelector))
+		maps.Copy(vmop.Spec.Migrate.NodeSelector, nodeSelector)
+	}
+	return v.do(ctx, vmop, v.options.createOnly, v.options.waitComplete)
+}
+
 func (v VirtualMachineOperation) do(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation, createOnly, waitCompleted bool) (msg string, err error) {
 	if createOnly {
 		vmop, err = v.create(ctx, vmop)
@@ -127,6 +140,8 @@ func (v VirtualMachineOperation) generateMsg(vmop *v1alpha2.VirtualMachineOperat
 			sb.WriteString("restarted. ")
 		case v1alpha2.VMOPTypeEvict:
 			sb.WriteString("evicted.")
+		case v1alpha2.VMOPTypeMigrate:
+			sb.WriteString("migrated.")
 		}
 	} else {
 		switch vmop.Spec.Type {
@@ -138,6 +153,8 @@ func (v VirtualMachineOperation) generateMsg(vmop *v1alpha2.VirtualMachineOperat
 			sb.WriteString("restarting. ")
 		case v1alpha2.VMOPTypeEvict:
 			sb.WriteString("evicting.")
+		case v1alpha2.VMOPTypeMigrate:
+			sb.WriteString("migrating.")
 		}
 	}
 

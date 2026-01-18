@@ -31,7 +31,7 @@ func NewStopCommand() *cobra.Command {
 		Args:    templates.ExactArgs("stop", 1),
 		RunE:    lifecycle.Run,
 	}
-	AddCommandlineArgs(cmd.Flags(), &lifecycle.opts)
+	AddCommandLineArgs(cmd.Flags(), &lifecycle.opts)
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }

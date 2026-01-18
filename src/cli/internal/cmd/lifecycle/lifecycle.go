@@ -27,6 +27,7 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/src/cli/internal/clientconfig"
@@ -41,6 +42,7 @@ const (
 	Start   Command = "start"
 	Restart Command = "restart"
 	Evict   Command = "evict"
+	Migrate Command = "migrate"
 )
 
 type Manager interface {
@@ -48,18 +50,23 @@ type Manager interface {
 	Start(ctx context.Context, name, namespace string) (msg string, err error)
 	Restart(ctx context.Context, name, namespace string) (msg string, err error)
 	Evict(ctx context.Context, name, namespace string) (msg string, err error)
+	Migrate(ctx context.Context, name, namespace string, nodeSelector map[string]string) (msg string, err error)
 }
 
 func NewLifecycle(cmd Command) *Lifecycle {
 	return &Lifecycle{
 		cmd:  cmd,
 		opts: DefaultOptions(),
+		migrationOpts: MigrationOpts{
+			NodeSelector: "",
+		},
 	}
 }
 
 type Lifecycle struct {
-	cmd  Command
-	opts Options
+	cmd           Command
+	opts          Options
+	migrationOpts MigrationOpts
 }
 
 func DefaultOptions() Options {
@@ -76,6 +83,10 @@ type Options struct {
 	WaitComplete bool
 	CreateOnly   bool
 	Timeout      time.Duration
+}
+
+type MigrationOpts struct {
+	NodeSelector string
 }
 
 func (l *Lifecycle) Run(cmd *cobra.Command, args []string) error {
@@ -106,6 +117,9 @@ func (l *Lifecycle) Run(cmd *cobra.Command, args []string) error {
 	case Evict:
 		cmd.Printf("Evicting virtual machine %q\n", key.String())
 		msg, err = mgr.Evict(ctx, name, namespace)
+	case Migrate:
+		cmd.Printf("Migrating virtual machine %q\n", key.String())
+		msg, err = mgr.Migrate(ctx, name, namespace, l.NodeSelector())
 	default:
 		return fmt.Errorf("invalid command %q", l.cmd)
 	}
@@ -154,6 +168,44 @@ func (l *Lifecycle) getManager(client kubeclient.Client) Manager {
 	)
 }
 
+func (l *Lifecycle) NodeSelector() map[string]string {
+	var nodeSelector map[string]string
+
+	if l.migrationOpts.NodeSelector != "" {
+		nodeSelector = make(map[string]string)
+		selectors := strings.SplitSeq(l.migrationOpts.NodeSelector, ",")
+		for selector := range selectors {
+			parts := strings.SplitN(selector, "=", 2)
+			nodeSelector[parts[0]] = parts[1]
+		}
+	}
+
+	return nodeSelector
+}
+
+func (l *Lifecycle) ValidateNodeSelector(nodeSelector string) error {
+	if nodeSelector != "" {
+		selectors := strings.SplitSeq(nodeSelector, ",")
+		for selector := range selectors {
+			parts := strings.SplitN(selector, "=", 2)
+			if len(parts) != 2 {
+				return fmt.Errorf("invalid node-selector format, expected key=value")
+			}
+			key, value := parts[0], parts[1]
+
+			if errs := validation.IsQualifiedName(key); len(errs) != 0 {
+				return fmt.Errorf("invalid label key: %v", errs)
+			}
+
+			if errs := validation.IsValidLabelValue(value); len(errs) != 0 {
+				return fmt.Errorf("invalid label value: %v", errs)
+			}
+		}
+	}
+
+	return nil
+}
+
 const (
 	forceFlag, forceFlagShort           = "force", "f"
 	waitFlag, waitFlagShort             = "wait", "w"
@@ -161,7 +213,7 @@ const (
 	timeoutFlag, timeoutFlagShort       = "timeout", "t"
 )
 
-func AddCommandlineArgs(flagset *pflag.FlagSet, opts *Options) {
+func AddCommandLineArgs(flagset *pflag.FlagSet, opts *Options) {
 	flagset.BoolVarP(&opts.Force, forceFlag, forceFlagShort, opts.Force,
 		fmt.Sprintf("--%s, -%s: Set this flag to force the operation.", forceFlag, forceFlagShort))
 	flagset.BoolVarP(&opts.WaitComplete, waitFlag, waitFlagShort, opts.WaitComplete,
@@ -170,4 +222,13 @@ func AddCommandlineArgs(flagset *pflag.FlagSet, opts *Options) {
 		fmt.Sprintf("--%s, -%s: Set this flag for create operation only.", createOnlyFlag, createOnlyFlagShort))
 	flagset.DurationVarP(&opts.Timeout, timeoutFlag, timeoutFlagShort, opts.Timeout,
 		fmt.Sprintf("--%s, -%s: Set this flag to change the timeout.", timeoutFlag, timeoutFlagShort))
+}
+
+func AddCommandLineMigrationArgs(flagset *pflag.FlagSet, migrationOpts *MigrationOpts) {
+	flagset.StringVar(
+		&migrationOpts.NodeSelector,
+		"node-selector",
+		"",
+		"Node selector in key=value format, multiple selectors can be separated by commas.",
+	)
 }

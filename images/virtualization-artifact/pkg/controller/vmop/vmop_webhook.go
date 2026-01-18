@@ -18,7 +18,9 @@ package vmop
 
 import (
 	"context"
+	"fmt"
 
+	"k8s.io/apimachinery/pkg/util/validation"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
@@ -31,16 +33,32 @@ func NewValidator(c client.Client, log *log.Logger) admission.CustomValidator {
 	return validator.NewValidator[*v1alpha2.VirtualMachineOperation](log.
 		With("controller", "vmop-controller").
 		With("webhook", "validation"),
-	).WithCreateValidators(&deprecateMigrateValidator{})
+	).WithCreateValidators(&nodeSelectorValidator{})
 }
 
-type deprecateMigrateValidator struct{}
+type nodeSelectorValidator struct{}
 
-func (v *deprecateMigrateValidator) ValidateCreate(_ context.Context, vmop *v1alpha2.VirtualMachineOperation) (admission.Warnings, error) {
-	// TODO: Delete me after v0.15
-	if vmop.Spec.Type == v1alpha2.VMOPTypeMigrate {
-		return admission.Warnings{"The Migrate type is deprecated, consider using Evict operation"}, nil
+func (n *nodeSelectorValidator) ValidateCreate(_ context.Context, vmop *v1alpha2.VirtualMachineOperation) (admission.Warnings, error) {
+	if vmop.Spec.Migrate != nil && vmop.Spec.Migrate.NodeSelector != nil {
+		err := n.validateNodeSelector(vmop.Spec.Migrate.NodeSelector)
+		if err != nil {
+			return admission.Warnings{}, err
+		}
 	}
 
 	return admission.Warnings{}, nil
+}
+
+func (n *nodeSelectorValidator) validateNodeSelector(nodeSelector map[string]string) error {
+	for k, v := range nodeSelector {
+		if errs := validation.IsQualifiedName(k); len(errs) != 0 {
+			return fmt.Errorf("invalid label key: %v", errs)
+		}
+
+		if errs := validation.IsValidLabelValue(v); len(errs) != 0 {
+			return fmt.Errorf("invalid label value: %v", errs)
+		}
+	}
+
+	return nil
 }
