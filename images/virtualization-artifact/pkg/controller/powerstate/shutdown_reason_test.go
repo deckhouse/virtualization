@@ -116,9 +116,8 @@ var _ = Describe("ShutdownReason", func() {
 				Items: []corev1.Pod{
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:              "test-pod",
-							Namespace:         "test-namespace",
-							CreationTimestamp: metav1.Now(),
+							Name:      "test-pod",
+							Namespace: "test-namespace",
 						},
 						Status: corev1.PodStatus{
 							Phase: corev1.PodSucceeded,
@@ -153,9 +152,8 @@ var _ = Describe("ShutdownReason", func() {
 				Items: []corev1.Pod{
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:              "other-pod",
-							Namespace:         "test-namespace",
-							CreationTimestamp: metav1.Now(),
+							Name:      "other-pod",
+							Namespace: "test-namespace",
 						},
 						Status: corev1.PodStatus{
 							Phase: corev1.PodSucceeded,
@@ -190,9 +188,8 @@ var _ = Describe("ShutdownReason", func() {
 				Items: []corev1.Pod{
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:              "test-pod",
-							Namespace:         "test-namespace",
-							CreationTimestamp: metav1.Now(),
+							Name:      "test-pod",
+							Namespace: "test-namespace",
 						},
 						Status: corev1.PodStatus{
 							Phase: corev1.PodRunning,
@@ -227,9 +224,8 @@ var _ = Describe("ShutdownReason", func() {
 				Items: []corev1.Pod{
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:              "test-pod",
-							Namespace:         "test-namespace",
-							CreationTimestamp: metav1.Now(),
+							Name:      "test-pod",
+							Namespace: "test-namespace",
 						},
 						Status: corev1.PodStatus{
 							Phase: corev1.PodSucceeded,
@@ -276,9 +272,8 @@ var _ = Describe("ShutdownReason", func() {
 				Items: []corev1.Pod{
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:              "test-pod",
-							Namespace:         "test-namespace",
-							CreationTimestamp: metav1.Now(),
+							Name:      "test-pod",
+							Namespace: "test-namespace",
 						},
 						Status: corev1.PodStatus{
 							Phase: corev1.PodSucceeded,
@@ -325,9 +320,8 @@ var _ = Describe("ShutdownReason", func() {
 				Items: []corev1.Pod{
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:              "test-pod",
-							Namespace:         "test-namespace",
-							CreationTimestamp: metav1.Now(),
+							Name:      "test-pod",
+							Namespace: "test-namespace",
 						},
 						Status: corev1.PodStatus{
 							Phase: corev1.PodSucceeded,
@@ -374,9 +368,8 @@ var _ = Describe("ShutdownReason", func() {
 				Items: []corev1.Pod{
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:              "test-pod",
-							Namespace:         "test-namespace",
-							CreationTimestamp: metav1.Now(),
+							Name:      "test-pod",
+							Namespace: "test-namespace",
 						},
 						Status: corev1.PodStatus{
 							Phase: corev1.PodSucceeded,
@@ -423,9 +416,8 @@ var _ = Describe("ShutdownReason", func() {
 				Items: []corev1.Pod{
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:              "test-pod",
-							Namespace:         "test-namespace",
-							CreationTimestamp: metav1.Now(),
+							Name:      "test-pod",
+							Namespace: "test-namespace",
 						},
 						Status: corev1.PodStatus{
 							Phase: corev1.PodSucceeded,
@@ -472,9 +464,8 @@ var _ = Describe("ShutdownReason", func() {
 				Items: []corev1.Pod{
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:              "test-pod",
-							Namespace:         "test-namespace",
-							CreationTimestamp: metav1.Now(),
+							Name:      "test-pod",
+							Namespace: "test-namespace",
 						},
 						Status: corev1.PodStatus{
 							Phase: corev1.PodSucceeded,
@@ -519,9 +510,8 @@ var _ = Describe("ShutdownReason", func() {
 				Items: []corev1.Pod{
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:              "test-pod",
-							Namespace:         "test-namespace",
-							CreationTimestamp: metav1.Now(),
+							Name:      "test-pod",
+							Namespace: "test-namespace",
 						},
 						Status: corev1.PodStatus{
 							Phase: corev1.PodSucceeded,
@@ -568,15 +558,12 @@ var _ = Describe("ShutdownReason", func() {
 					},
 				},
 			}
-			now := metav1.Now()
-			olderTime := metav1.NewTime(now.AddDate(0, 0, -1))
 			pods = &corev1.PodList{
 				Items: []corev1.Pod{
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:              "older-pod",
-							Namespace:         "test-namespace",
-							CreationTimestamp: olderTime,
+							Name:      "older-pod",
+							Namespace: "test-namespace",
 						},
 						Status: corev1.PodStatus{
 							Phase: corev1.PodSucceeded,
@@ -594,9 +581,8 @@ var _ = Describe("ShutdownReason", func() {
 					},
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:              "active-pod",
-							Namespace:         "test-namespace",
-							CreationTimestamp: now,
+							Name:      "active-pod",
+							Namespace: "test-namespace",
 						},
 						Status: corev1.PodStatus{
 							Phase: corev1.PodSucceeded,
@@ -608,6 +594,90 @@ var _ = Describe("ShutdownReason", func() {
 											Message: `{"event":"SHUTDOWN","details":"{\"guest\":true,\"reason\":\"guest-reset\"}"}`,
 										},
 									},
+								},
+							},
+						},
+					},
+				},
+			}
+		})
+
+		It("should use the active pod from VM status", func() {
+			result := ShutdownReason(vm, kvvmi, pods)
+			Expect(result.PodCompleted).To(BeTrue())
+			Expect(result.Reason).To(Equal(GuestResetReason))
+			Expect(result.Pod.Name).To(Equal("active-pod"))
+		})
+	})
+
+	Context("when there are multiple pods with only one succeeded", func() {
+		BeforeEach(func() {
+			kvvmi = &virtv1.VirtualMachineInstance{
+				Status: virtv1.VirtualMachineInstanceStatus{
+					Phase: virtv1.Succeeded,
+				},
+			}
+			vm.Status = v1alpha2.VirtualMachineStatus{
+				VirtualMachinePods: []v1alpha2.VirtualMachinePod{
+					{
+						Name:   "older-pod",
+						Active: false,
+					},
+					{
+						Name:   "active-pod",
+						Active: true,
+					},
+					{
+						Name:   "non-active-pod",
+						Active: false,
+					},
+				},
+			}
+			pods = &corev1.PodList{
+				Items: []corev1.Pod{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "older-pod",
+							Namespace: "test-namespace",
+						},
+						Status: corev1.PodStatus{
+							Phase: corev1.PodRunning,
+							ContainerStatuses: []corev1.ContainerStatus{
+								{
+									Name: "test-compute",
+								},
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "active-pod",
+							Namespace: "test-namespace",
+						},
+						Status: corev1.PodStatus{
+							Phase: corev1.PodSucceeded,
+							ContainerStatuses: []corev1.ContainerStatus{
+								{
+									Name: "test-compute",
+									State: corev1.ContainerState{
+										Terminated: &corev1.ContainerStateTerminated{
+											Message: `{"event":"SHUTDOWN","details":"{\"guest\":true,\"reason\":\"guest-reset\"}"}`,
+										},
+									},
+								},
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "non-active-pod",
+							Namespace: "test-namespace",
+						},
+						Status: corev1.PodStatus{
+							Phase: corev1.PodRunning,
+							ContainerStatuses: []corev1.ContainerStatus{
+								{
+									Name: "test-compute",
 								},
 							},
 						},
@@ -643,9 +713,8 @@ var _ = Describe("ShutdownReason", func() {
 				Items: []corev1.Pod{
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:              "test-pod",
-							Namespace:         "test-namespace",
-							CreationTimestamp: metav1.Now(),
+							Name:      "test-pod",
+							Namespace: "test-namespace",
 						},
 						Status: corev1.PodStatus{
 							Phase: corev1.PodSucceeded,
