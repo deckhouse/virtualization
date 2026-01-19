@@ -18,11 +18,13 @@ package handler
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
@@ -86,6 +88,18 @@ var _ = Describe("LifecycleHandler", func() {
 		}
 
 		return vm
+	}
+
+	newVMOPMigrate := func(opts ...vmopbuilder.Option) *v1alpha2.VirtualMachineOperation {
+		options := []vmopbuilder.Option{
+			vmopbuilder.WithName(name),
+			vmopbuilder.WithNamespace(namespace),
+			vmopbuilder.WithType(v1alpha2.VMOPTypeMigrate),
+			vmopbuilder.WithVirtualMachine(name),
+		}
+		options = append(options, opts...)
+		vmop := vmopbuilder.New(options...)
+		return vmop
 	}
 
 	DescribeTable("Evict operation for migration policy", func(vmop *v1alpha2.VirtualMachineOperation, vmPolicy v1alpha2.LiveMigrationPolicy, expectedPhase v1alpha2.VMOPPhase) {
@@ -167,6 +181,41 @@ var _ = Describe("LifecycleHandler", func() {
 			newVMOPEvictPending(vmopbuilder.WithForce(ptr.To(true))),
 			v1alpha2.PreferForcedMigrationPolicy,
 			v1alpha2.VMOPPhasePending,
+		),
+	)
+
+	DescribeTable("TargetMigration", func(vmPolicy v1alpha2.LiveMigrationPolicy, nodeSelector map[string]string) {
+		vm := newVM(vmPolicy)
+		vm.Status.Conditions = []metav1.Condition{
+			{
+				Type:   string(vmcondition.TypeMigrating),
+				Reason: string(vmcondition.ReasonReadyToMigrate),
+			},
+		}
+		vmop := newVMOPMigrate(vmopbuilder.WithVMOPMigrateNodeSelector(nodeSelector))
+
+		fakeClient, err := testutil.NewFakeClientWithObjects(vmop, vm)
+		Expect(err).NotTo(HaveOccurred())
+
+		migrationService := service.NewMigrationService(fakeClient)
+		base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
+
+		h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
+		_, err = h.Handle(ctx, vmop)
+		Expect(err).NotTo(HaveOccurred())
+
+		vmim := &virtv1.VirtualMachineInstanceMigration{}
+		err = fakeClient.Get(context.Background(), client.ObjectKey{Namespace: namespace, Name: fmt.Sprintf("vmop-%s", vmop.Name)}, vmim)
+		Expect(err).NotTo(HaveOccurred())
+
+		for k, v := range nodeSelector {
+			Expect(vmim.Spec.AddedNodeSelector).To(HaveKeyWithValue(k, v))
+		}
+	},
+		Entry(
+			"VMIM must have an AddedNodeSelector which is equal to the NodeSelector from VMOP.",
+			v1alpha2.PreferSafeMigrationPolicy,
+			map[string]string{"key": "value"},
 		),
 	)
 })
