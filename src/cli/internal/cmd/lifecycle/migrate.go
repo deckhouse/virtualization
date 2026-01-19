@@ -24,7 +24,6 @@ import (
 
 func NewMigrateCommand() *cobra.Command {
 	lifecycle := NewLifecycle(Migrate)
-	var nodeSelector string
 
 	cmd := &cobra.Command{
 		Use:     "migrate (VirtualMachine)",
@@ -32,7 +31,7 @@ func NewMigrateCommand() *cobra.Command {
 		Example: lifecycle.Usage(),
 		Args:    templates.ExactArgs("migrate", 1),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			err := lifecycle.ValidateNodeSelector(nodeSelector)
+			err := lifecycle.ValidateNodeSelector(lifecycle.migrationOpts.NodeSelector)
 			if err != nil {
 				return err
 			}

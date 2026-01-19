@@ -187,6 +187,9 @@ func (l *Lifecycle) ValidateNodeSelector(nodeSelector string) error {
 	if nodeSelector != "" {
 		selectors := strings.SplitSeq(nodeSelector, ",")
 		for selector := range selectors {
+			if !strings.Contains(selector, "=") {
+				return fmt.Errorf("invalid node-selector format, expected key=value")
+			}
 			parts := strings.SplitN(selector, "=", 2)
 			if len(parts) != 2 {
 				return fmt.Errorf("invalid node-selector format, expected key=value")
