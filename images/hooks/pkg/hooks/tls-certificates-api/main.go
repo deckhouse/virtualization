@@ -18,7 +18,6 @@ package tls_certificates_api
 
 import (
 	"fmt"
-
 	"hooks/pkg/settings"
 
 	tlscertificate "github.com/deckhouse/module-sdk/common-hooks/tls-certificate"

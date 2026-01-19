@@ -19,15 +19,15 @@ package drop_openshift_labels
 import (
 	"context"
 	"fmt"
+	"hooks/pkg/settings"
 	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/testing/mock"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-
-	"hooks/pkg/settings"
 )
 
 func TestDropOpenshiftLabels(t *testing.T) {

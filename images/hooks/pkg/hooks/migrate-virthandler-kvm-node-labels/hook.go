@@ -21,15 +21,14 @@ package migrate_virthandler_kvm_node_labels
 import (
 	"context"
 	"fmt"
-	"strings"
-
 	"hooks/pkg/settings"
-
-	"github.com/deckhouse/module-sdk/pkg"
-	"github.com/deckhouse/module-sdk/pkg/registry"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+
+	"github.com/deckhouse/module-sdk/pkg"
+	"github.com/deckhouse/module-sdk/pkg/registry"
 )
 
 const (

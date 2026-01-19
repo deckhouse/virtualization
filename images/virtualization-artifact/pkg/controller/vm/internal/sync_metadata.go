@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -79,7 +80,7 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 		}
 
 		if metaUpdated {
-			if err = h.patchLabelsAndAnnotations(ctx, kvvmi, kvvmi.ObjectMeta); err != nil {
+			if err = h.patchLabelsAndAnnotations(ctx, kvvmi, kvvmi.ObjectMeta); err != nil && !k8serrors.IsNotFound(err) {
 				return reconcile.Result{}, fmt.Errorf("failed to patch metadata KubeVirt VMI %q: %w", kvvmi.GetName(), err)
 			}
 		}
@@ -167,6 +168,14 @@ func PropagateVMMetadata(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachin
 			annotations.InhibitNodeShutdownLabel: "",
 		},
 	)
+
+	if !vm.Status.Resources.CPU.RuntimeOverhead.IsZero() {
+		propagateLabels[annotations.QuotaDiscountCPU] = vm.Status.Resources.CPU.RuntimeOverhead.String()
+	}
+	if !vm.Status.Resources.Memory.RuntimeOverhead.IsZero() {
+		propagateLabels[annotations.QuotaDiscountMemory] = vm.Status.Resources.Memory.RuntimeOverhead.String()
+	}
+
 	newLabels, labelsChanged := merger.ApplyMapChanges(destObj.GetLabels(), lastPropagatedLabels, propagateLabels)
 	if labelsChanged {
 		destObj.SetLabels(newLabels)
