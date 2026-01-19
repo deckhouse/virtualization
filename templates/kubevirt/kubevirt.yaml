@@ -58,6 +58,21 @@ spec:
       - CPUManager
       - Sidecar
       - VolumeSnapshotDataSource
+      {{/*
+      Even though these feature gates are enabled by default in KubeVirt 1.6.2, they still must not be removed from the config:
+      - VMLiveUpdateFeatures
+      - VolumeMigration
+      - VolumesUpdateStrategy
+
+      When rolling from KubeVirt 1.3.1 to KubeVirt 1.6.2, the config is updated first,
+      and only after some significant time is the virt-controller updated.
+      That is, the old version of virt-controller runs with the new config for a fairly long time.
+      It is important for the old version of virt-controller to see these feature gates in the new configuration,
+      because its business logic does not yet have their default behavior implemented.
+      */}}
+      - VMLiveUpdateFeatures
+      - VolumeMigration
+      - VolumesUpdateStrategy
     virtualMachineOptions:
       disableSerialConsoleLog: {}
   customizeComponents:
