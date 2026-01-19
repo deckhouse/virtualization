@@ -21,6 +21,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/builder/meta"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	k8scorev1 "k8s.io/api/core/v1"
 )
 
 type Option func(vm *v1alpha2.VirtualMachine)
@@ -137,5 +138,12 @@ func WithRunPolicy(runPolicy v1alpha2.RunPolicy) Option {
 func WithNetwork(network v1alpha2.NetworksSpec) Option {
 	return func(vm *v1alpha2.VirtualMachine) {
 		vm.Spec.Networks = append(vm.Spec.Networks, network)
+	}
+}
+
+func WithTolerations(t []k8scorev1.Toleration) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.Tolerations = make([]k8scorev1.Toleration, 0, len(t))
+		vm.Spec.Tolerations = append(vm.Spec.Tolerations, t...)
 	}
 }

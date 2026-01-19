@@ -69,3 +69,12 @@ func WithVirtualMachineSnapshotName(name string) Option {
 		vmop.Spec.Restore.VirtualMachineSnapshotName = name
 	}
 }
+
+func WithVMOPMigrateNodeSelector(NodeSelector map[string]string) Option {
+	return func(vmop *v1alpha2.VirtualMachineOperation) {
+		if vmop.Spec.Migrate == nil {
+			vmop.Spec.Migrate = &v1alpha2.VirtualMachineOperationMigrateSpec{}
+		}
+		vmop.Spec.Migrate.NodeSelector = NodeSelector
+	}
+}
