@@ -55,14 +55,6 @@ spec:
   version: 1
   enabled: true
 ---
-apiVersion: deckhouse.io/v1alpha2
-kind: ModulePullOverride
-metadata:
-  name: prompp
-spec:
-  imageTag: stable
-  scanInterval: 15s
----
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
 metadata:
@@ -84,15 +76,6 @@ metadata:
 spec:
   enabled: true
   version: 1
----
-apiVersion: deckhouse.io/v1alpha2
-kind: ModulePullOverride
-metadata:
-  name: snapshot-controller
-spec:
-  imageTag: main
-  rollback: false
-  scanInterval: 10m0s
 ---
 apiVersion: deckhouse.io/v1
 kind: IngressNginxController

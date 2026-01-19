@@ -35,11 +35,11 @@ on:
         type: string
         default: "main"
         description: "Virtualization tag"
-      deckhouse_tag:
+      deckhouse_channel:
         required: false
         type: string
-        default: "main"
-        description: "Deckhouse tag"
+        default: "alpha"
+        description: "Deckhouse release channel"
       pod_subnet_cidr:
         required: false
         type: string
@@ -78,7 +78,7 @@ on:
 env:
   BRANCH: ${{ inputs.branch }}
   VIRTUALIZATION_TAG: ${{ inputs.virtualization_tag }}
-  DECKHOUSE_TAG: ${{ inputs.deckhouse_tag }}
+  DECKHOUSE_CHANNEL: ${{ inputs.deckhouse_channel }}
   DEFAULT_USER: ${{ inputs.default_user }}
   GO_VERSION: ${{ inputs.go_version }}
   SETUP_CLUSTER_TYPE_PATH: test/dvp-static-cluster
@@ -108,9 +108,9 @@ jobs:
           echo "namespace=$namespace" >> $GITHUB_OUTPUT
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
-          REGISTRY=$(base64 -d <<< ${{secrets.DEV_REGISTRY_DOCKER_CFG}} | jq '.auths | to_entries | .[] | .key' -r)
-          USERNAME=$(base64 -d <<< ${{ secrets.DEV_REGISTRY_DOCKER_CFG }} | jq '.auths | to_entries | .[] | .value.auth' -r | base64 -d | cut -d ':' -f1)
-          PASSWORD=$(base64 -d <<< ${{ secrets.DEV_REGISTRY_DOCKER_CFG }} | jq '.auths | to_entries | .[] | .value.auth' -r | base64 -d | cut -d ':' -f2)
+          REGISTRY=$(base64 -d <<< ${{secrets.PROD_IO_REGISTRY_DOCKER_CFG}} | jq '.auths | to_entries | .[] | .key' -r)
+          USERNAME=$(base64 -d <<< ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }} | jq '.auths | to_entries | .[] | .value.auth' -r | base64 -d | cut -d ':' -f1)
+          PASSWORD=$(base64 -d <<< ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }} | jq '.auths | to_entries | .[] | .value.auth' -r | base64 -d | cut -d ':' -f2)
 
           echo "registry=$REGISTRY" >> $GITHUB_OUTPUT
           echo "username=$USERNAME" >> $GITHUB_OUTPUT
@@ -158,11 +158,11 @@ jobs:
           storageClass: ${defaultStorageClass}
           sa: dkp-sa
           deckhouse:
+            channel: ${{ env.DECKHOUSE_CHANNEL }}
             podSubnetCIDR: ${{ inputs.pod_subnet_cidr }}
             serviceSubnetCIDR: ${{ inputs.service_subnet_cidr }}
-            tag: ${{ env.DECKHOUSE_TAG }}
             kubernetesVersion: Automatic
-            registryDockerCfg: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
+            registryDockerCfg: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
             bundle: Default
             proxyEnabled: false
           image:
@@ -198,6 +198,15 @@ jobs:
                 additionalDisks:
                 - size: 50Gi
           EOF
+          
+          mkdir -p tmp
+          touch tmp/discovered-values.yaml
+
+          export REGISTRY=$(base64 -d <<< ${{secrets.DEV_REGISTRY_DOCKER_CFG}} | jq '.auths | to_entries | .[] | .key' -r)
+          export AUTH=$(base64 -d <<< ${{ secrets.DEV_REGISTRY_DOCKER_CFG }} | jq '.auths | to_entries | .[] | .value.auth' -r)
+          
+          yq eval --inplace '.discovered.registry_url = env(REGISTRY)' tmp/discovered-values.yaml
+          yq eval --inplace '.discovered.registry_auth = env(AUTH)' tmp/discovered-values.yaml
 
       - name: Bootstrap cluster [infra-deploy]
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
@@ -350,7 +359,9 @@ jobs:
           sudo chown -fR 1001:1001 ${{ env.SETUP_CLUSTER_TYPE_PATH }}
           yq e '.deckhouse.registryDockerCfg = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/values.yaml
           yq e 'select(.kind == "InitConfiguration").deckhouse.registryDockerCfg = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/config.yaml || echo "The config.yaml file is not generated, skipping"
-          echo "${{ steps.generate-kubeconfig.outputs.config }}" | base64 -d | base64 -d > ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/kube-config
+          yq e '.discovered.registry_url = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/discovered-values.yaml || echo "The discovered-values.yaml file is not generated, skipping editing registry_url"
+          yq e '.discovered.registry_auth = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/discovered-values.yaml || echo "The discovered-values.yaml file is not generated, skipping editing registry_auth"
+          echo "${{ steps.generate-kubeconfig.outputs.kubeconfig }}" | base64 -d | base64 -d > ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/kube-config
 
       - name: Upload generated files
         uses: actions/upload-artifact@v4
@@ -415,24 +426,29 @@ jobs:
           echo "[INFO] Set permissions for kubeconfig"
           chmod 600 ~/.kube/config
 
-          echo "[INFO] Show nodes in cluster"
+          echo "[INFO] Show current kubeconfig context"
           kubectl config get-contexts
-
+          
+          echo "[INFO] Show nodes in cluster"
           # `kubectl get nodes` may return error, so we need to retry.
           count=30
+          success=false
           for i in $(seq 1 $count); do
             echo "[INFO] Attempt $i/$count..."
-            if (kubectl get nodes); then
+            if kubectl get nodes; then
               echo "[SUCCESS] Successfully retrieved nodes."
+              success=true
               break
             fi
-            
-            echo "[INFO] Retrying in 10 seconds..."
-            sleep 10
+
+            if [ $i -lt $count ]; then
+              echo "[INFO] Retrying in 10 seconds..."
+              sleep 10
+            fi
           done
 
-          if [ "$i" -ge "$count" ]; then
-            echo "[ERROR] Failed to retrieve nodes."
+          if [ "$success" = false ]; then
+            echo "[ERROR] Failed to retrieve nodes after $count attempts."
             exit 1
           fi
 
@@ -441,6 +457,39 @@ jobs:
         if: ${{ inputs.storage_type == 'replicated' }}
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/sds-replicated
         run: |
+          d8_queue_list() {
+            d8 s queue list | grep -Po '([0-9]+)(?= active)' || echo "[WARNING] Failed to retrieve list queue"
+          }
+
+          d8_queue() {
+            local count=90
+            local queue_count
+
+            for i in $(seq 1 $count) ; do
+              queue_count=$(d8_queue_list)
+              if [ -n "$queue_count" ] && [ "$queue_count" = "0" ]; then
+                echo "[SUCCESS] Queue is clear"
+                return 0
+              fi
+
+              echo "[INFO] Wait until queues are empty ${i}/${count}"
+              if (( i % 5 == 0 )); then
+                echo "[INFO] Show queue list"
+                d8 s queue list | head -n25 || echo "[WARNING] Failed to retrieve list queue"
+                echo " "
+              fi
+
+              if (( i % 10 == 0 )); then
+                echo "[INFO] deckhouse logs"
+                echo "::group::📝 deckhouse logs"
+                d8 s logs | tail -n 100
+                echo "::endgroup::"
+                echo " "
+              fi
+              sleep 10
+            done
+          }
+
           sds_replicated_ready() {
             local count=60
             for i in $(seq 1 $count); do
@@ -568,6 +617,8 @@ jobs:
             echo "::endgroup::"
             exit 1
           }
+
+          d8_queue
 
           kubectl apply -f mc.yaml
           echo "[INFO] Wait for sds-node-configurator"
@@ -728,22 +779,26 @@ jobs:
             exit 1
           }
 
-          export registry=${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
-          yq e '.spec.registry.dockerCfg = env(registry)' -i 00-ms.yaml
-          unset registry
-
-          echo "[INFO] Create prod module source"
-          kubectl apply -f 00-ms.yaml
-          kubectl wait --for=jsonpath='{.status.phase}' modulesource deckhouse-prod --timeout=30s
-          kubectl get modulesources
-
           echo "[INFO] Create ceph operator and csi module config"
           kubectl apply -f 01-mc.yaml
+          
+          echo "[INFO] Check module source"
+          kubectl get modulesources
 
           echo "[INFO] Wait while queues are empty"
           d8_queue
 
-          echo "Start wait for ceph operator and csi"
+          echo "[INFO] Wait for operator-ceph namespace to be ready"
+          ceph_operator_ready
+          
+          if (kubectl get mc admission-policy-engine -o jsonpath='{.spec.enabled}') ; then
+            echo "[INFO] Label operator-ceph namespace with security.deckhouse.io/pod-policy"
+            kubectl label ns d8-operator-ceph security.deckhouse.io/pod-policy=privileged
+            echo "[INFO] Restart operator-ceph deployment"
+            kubectl -n d8-operator-ceph rollout restart deployment operator-ceph || true
+          fi
+
+          echo "[INFO] Start wait for ceph operator and csi"
           ceph_operator_ready
 
           echo "[INFO] Create ServiceAccounts"
@@ -801,6 +856,24 @@ jobs:
 
       - name: Configure Virtualization
         run: |
+          REGISTRY=$(base64 -d <<< "${{secrets.DEV_REGISTRY_DOCKER_CFG}}" | jq '.auths | to_entries | .[] | .key' -r)
+
+          echo "[INFO] Apply ModuleSource prod config"
+          kubectl apply -f -<<EOF
+          apiVersion: deckhouse.io/v1alpha1
+          kind: ModuleSource
+          metadata:
+            name: deckhouse-dev
+          spec:
+            registry:
+              ca: ""
+              dockerCfg: "${{secrets.DEV_REGISTRY_DOCKER_CFG}}"
+              repo: "${REGISTRY}/sys/deckhouse-oss/modules"
+              scheme: HTTPS
+          EOF
+
+          kubectl wait --for=jsonpath='{.status.phase}'=Active ms deckhouse-dev --timeout=30s
+          
           echo "[INFO] Apply Virtualization module config"
           kubectl apply -f -<<EOF
           apiVersion: deckhouse.io/v1alpha1
@@ -818,7 +891,7 @@ jobs:
                   type: PersistentVolumeClaim
               virtualMachineCIDRs:
                 - 192.168.10.0/24
-            source: deckhouse
+            source: deckhouse-dev
             version: 1
           ---
           apiVersion: deckhouse.io/v1alpha2
@@ -830,6 +903,9 @@ jobs:
             scanInterval: 10h
           EOF
 
+          echo "[INFO] Show ModuleSource"
+          kubectl get ms
+          
           echo "[INFO] Show module config virtualization info"
           kubectl get mc virtualization
 
@@ -923,7 +999,7 @@ jobs:
                 echo "[SUCCESS] Virtualization module is ready"
                 kubectl get modules virtualization
                 kubectl -n d8-virtualization get pods
-                kubectl get vmclass
+                kubectl get vmclass || echo "[WARNING] no vmclasses found"
                 return 0
               fi
               
@@ -962,9 +1038,9 @@ jobs:
               echo "[INFO] virt-handler pods $virt_handler_ready/$workers "
               echo "[INFO] Wait virt-handler pods are ready (attempt $i/$count)"
               if (( i % 5 == 0 )); then
-                echo "[DEBUG] Get pods in namespace d8-virtualization"
-                echo "::group::📦 virt-handler pods"
-                kubectl -n d8-virtualization get pods || echo "No pods virt-handler found"
+                echo "[DEBUG] Show pods in namespace d8-virtualization"
+                echo "::group::📦 virtualization pods"
+                kubectl -n d8-virtualization get pods || echo "No pods in virtualization namespace found"
                 echo "::endgroup::"
               fi
               sleep 10
@@ -981,7 +1057,7 @@ jobs:
           virtualization_ready
 
           echo "[INFO] Checking Virtualization module deployments"
-          kubectl -n d8-virtualization wait --for=condition=Available deploy --all --timeout 300s
+          kubectl -n d8-virtualization wait --for=condition=Available deploy --all --timeout 900s
           echo "[INFO] Checking virt-handler pods "
           virt_handler_ready
 
@@ -1020,13 +1096,12 @@ jobs:
       - name: Install kubectl CLI
         uses: azure/setup-kubectl@v4
 
-      - name: Check kubeconfig
+      - name: Setup kubeconfig
         run: |
-          echo "Configure kube config"
           mkdir -p ~/.kube
           echo "${{ needs.bootstrap.outputs.kubeconfig }}" | base64 -d | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
-          kubectl config use-context nested-e2e-nested-sa
+          echo "[INFO] Test cluster connection by showing existing vmclass"
           kubectl get vmclass
 
       - name: Download dependencies
@@ -1037,7 +1112,12 @@ jobs:
 
       - name: Create vmclass for e2e tests
         run: |
-          kubectl get vmclass/generic -o json | jq 'del(.status) | del(.metadata) | .metadata = {"name":"generic-for-e2e","annotations":{"virtualmachineclass.virtualization.deckhouse.io/is-default-class":"true"}} ' | kubectl create -f -
+          if ! (kubectl get vmclass generic-for-e2e 2>/dev/null); then
+            kubectl get vmclass/generic -o json | jq 'del(.status) | del(.metadata) | .metadata = {"name":"generic-for-e2e","annotations":{"virtualmachineclass.virtualization.deckhouse.io/is-default-class":"true"}} ' | kubectl create -f -
+          fi
+
+          echo "[INFO] Showing exists vmclasses"
+          kubectl get vmclass
 
       - name: Run E2E
         id: e2e-report
@@ -1132,6 +1212,15 @@ jobs:
             test/e2e/*junit*.xml
           if-no-files-found: ignore
           retention-days: 1
+      
+      - name: Upload resources from failed tests
+        uses: actions/upload-artifact@v4
+        if: always() && steps.e2e-report.outcome == 'failure'
+        with:
+          name: resources_from_failed_tests
+          path: ${{ runner.temp }}/e2e_failed__*
+          if-no-files-found: ignore
+          retention-days: 3
 
   undeploy-cluster:
     name: Undeploy cluster (${{ inputs.storage_type }})

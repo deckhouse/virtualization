@@ -5,7 +5,7 @@ metadata:
   name: operator-ceph
 spec:
   enabled: true
-  source: deckhouse-prod
+  source: deckhouse
   version: 1
 ---
 apiVersion: deckhouse.io/v1alpha1
@@ -16,11 +16,3 @@ spec:
   enabled: true
   source: deckhouse
   version: 1
----
-apiVersion: deckhouse.io/v1alpha2
-kind: ModulePullOverride
-metadata:
-  name: csi-ceph
-spec:
-  imageTag: main
-  scanInterval: 10h

@@ -29,12 +29,16 @@ spec:
       matchLabels:
         role: master
 
-{{range $_, $i := untilStep 0 (.Values.instances.masterNodes.count | int) 1}}
-  {{ $vmName := printf "%s-master-%d" $.Values.storageType $i }}
+{{- range $_, $i := untilStep 0 (.Values.instances.masterNodes.count | int) 1}}
+  {{- $vmName := printf "%s-master-%d" $.Values.storageType $i }}
 ---
 apiVersion: deckhouse.io/v1alpha1
 kind: StaticInstance
 metadata:
+  {{- if eq $i 0 }}
+  annotations:
+    static.node.deckhouse.io/skip-bootstrap-phase: ""
+  {{- end }}
   name: {{ $vmName }}
   labels:
     role: master
