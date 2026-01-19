@@ -17,11 +17,11 @@ limitations under the License.
 package vm
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/deckhouse/virtualization-controller/pkg/builder/meta"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	k8scorev1 "k8s.io/api/core/v1"
 )
 
 type Option func(vm *v1alpha2.VirtualMachine)
@@ -141,10 +141,10 @@ func WithNetwork(network v1alpha2.NetworksSpec) Option {
 	}
 }
 
-func WithTolerations(t []k8scorev1.Toleration) Option {
+func WithTolerations(t []corev1.Toleration) Option {
 	return func(vm *v1alpha2.VirtualMachine) {
 		if vm.Spec.Tolerations == nil {
-			vm.Spec.Tolerations = make([]k8scorev1.Toleration, 0, len(t))
+			vm.Spec.Tolerations = make([]corev1.Toleration, 0, len(t))
 		}
 		vm.Spec.Tolerations = append(vm.Spec.Tolerations, t...)
 	}
