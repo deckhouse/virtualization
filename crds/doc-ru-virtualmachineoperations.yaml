@@ -42,6 +42,14 @@ spec:
                     virtualMachineSnapshotName:
                       description: |
                         Имя снимка виртуальной машины, который используется как источник для операции восстановления.
+                migrate:
+                  description: |
+                    Определяет операцию миграции виртуальной машины.
+                  properties:
+                    nodeSelector:
+                      description: |-
+                        NodeSelector должен соответствовать меткам узла, чтобы виртуальная машина была запланирована на этом узле.
+                        [По аналогии](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes//) c параметром подов `spec.nodeSelector` в Kubernetes.
                 clone:
                   description: |
                     Определяет операцию клонирования.

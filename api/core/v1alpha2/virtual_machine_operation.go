@@ -89,9 +89,8 @@ type VirtualMachineOperationCloneSpec struct {
 
 // VirtualMachineOperationMigrateSpec defines the restore operation.
 type VirtualMachineOperationMigrateSpec struct {
-	// NodeSelector is a selector which must be true for the virtual machine to fit on a node.
-	// Selector which must match a node's labels for the virtual machine to be scheduled on
-	// that node.
+	// NodeSelector must match a node's labels for the VM to be scheduled on that node.
+	// [The same](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes//) as in the pods `spec.nodeSelector` parameter in Kubernetes.
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
 
