@@ -57,6 +57,7 @@ spec:
       - Root
       - CPUManager
       - Sidecar
+      - VMLiveUpdateFeatures
       - VolumeSnapshotDataSource
     virtualMachineOptions:
       disableSerialConsoleLog: {}
