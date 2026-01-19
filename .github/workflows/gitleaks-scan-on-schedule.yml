@@ -1,0 +1,23 @@
+name: Gitleaks Daily Scan
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  gitleaks_scan:
+    name: Gitleaks scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Run Gitleaks diff scan
+        uses: deckhouse/modules-actions/gitleaks@v6
+        with:
+          scan_mode: "full"
