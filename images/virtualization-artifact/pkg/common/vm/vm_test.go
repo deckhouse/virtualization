@@ -69,7 +69,7 @@ func TestCalculateCoresAndSockets(t *testing.T) {
 }
 
 func TestGetActivePodName(t *testing.T) {
-	// Exists
+	// Test case: active pod exists
 	// Given
 	vm := &v1alpha2.VirtualMachine{
 		Status: v1alpha2.VirtualMachineStatus{
@@ -97,7 +97,7 @@ func TestGetActivePodName(t *testing.T) {
 		t.Errorf("must return test-active pod name, not %s", podName)
 	}
 
-	// Not exists active pod
+	// Test case: no active pod exists
 	// Given
 	vm = &v1alpha2.VirtualMachine{
 		Status: v1alpha2.VirtualMachineStatus{
