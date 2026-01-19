@@ -399,6 +399,7 @@ virtualization:
     virtConfig:
       phase: Deployed
       parallelMigrationsPerCluster: 2
+      parallelOutboundMigrationsPerNode: 10
     virtHandler:
       nodeCount: 1
   logLevel: debug
