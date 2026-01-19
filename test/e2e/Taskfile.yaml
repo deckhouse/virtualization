@@ -60,7 +60,7 @@ tasks:
           {{if .TIMEOUT -}}
           --timeout={{ .TIMEOUT }} \
           {{else -}}
-          --timeout=3h \
+          --timeout=4h \
           {{end -}}
           {{if .FOCUS -}}
           --focus "{{ .FOCUS }}"
