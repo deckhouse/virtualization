@@ -8,6 +8,7 @@ spec:
   enabled: true
   settings:
     bundle: {{ .Values.deckhouse.bundle }}
+    releaseChannel: {{ .Values.deckhouse.channel | title }}
 ---
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig

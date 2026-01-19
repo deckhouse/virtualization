@@ -27,9 +27,8 @@ proxy:
 apiVersion: deckhouse.io/v1
 kind: InitConfiguration
 deckhouse:
-  imagesRepo: dev-registry.deckhouse.io/sys/deckhouse-oss
+  imagesRepo: registry.deckhouse.io/deckhouse/ee
   registryDockerCfg: {{ .Values.deckhouse.registryDockerCfg }}
-  devBranch: {{ .Values.deckhouse.tag }}
 ---
 apiVersion: deckhouse.io/v1
 kind: StaticClusterConfiguration

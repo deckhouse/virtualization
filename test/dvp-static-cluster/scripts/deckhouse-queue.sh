@@ -84,12 +84,17 @@ d8_queue() {
     fi
     log_info "Wait until queues are empty ${i}/${count}"
     if (( i % 5 == 0 )); then
-        log_info "Show queue first 25 lines"
-        d8 p queue list | head -n25 || echo "Failed to retrieve queue"
-        echo " "
+      log_info "Show queue first 25 lines"
+      d8 p queue list | head -n25 || echo "Failed to retrieve queue"
+      echo " "
     fi
     sleep 10
   done
+}
+
+module_ready() {
+  local module_name=$1
+  kubectl wait --for=jsonpath='{.status.phase}'=Ready module $module_name --timeout=300s
 }
 
 d8_ready() {
@@ -113,6 +118,8 @@ d8_ready() {
 
   if [ "$ready" = true ]; then
     log_success "Deckhouse is Ready!"
+    log_info "Checking module user-authn"
+    module_ready user-authn
     log_info "Checking queues"
     d8_queue
   else

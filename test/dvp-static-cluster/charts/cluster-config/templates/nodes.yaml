@@ -1,5 +1,5 @@
 {{- range $_, $v := .Values.instances.additionalNodes }}
-  {{ if (ne ($v.count |int) 0) }}
+  {{- if (ne ($v.count |int) 0) }}
 ---
 apiVersion: deckhouse.io/v1
 kind: NodeGroup
@@ -11,7 +11,7 @@ spec:
   nodeTemplate:
     labels:
       node-role.deckhouse.io/{{ $v.name }}: ""
-    {{ if ne $v.name "worker" -}}
+    {{- if ne $v.name "worker" }}
     taints:
       - effect: NoExecute
         key: dedicated.deckhouse.io
