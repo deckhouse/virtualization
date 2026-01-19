@@ -3,12 +3,47 @@ useDefault = true
 
 [allowlist]
 description = "Allowlist for virtualization repo to ignore specific test folders"
+commits = [
+  # tests/e2e/object/const.go - test SSH keys
+  "030b01dce1c99360cd39714d476ad90d872f79ac",
+  "a67d0501e0e1d7a5a348fff538a0985b39da0f0b",
+  # images/hooks/cmd/generate-secret-for-dvcr/main_test.go - test passwords
+  "c0c39f20c5a2a25d33e61f58d9fe3d072b1512ba",
+  # tests/e2e/testdata/connectivity/sshkeys/id_ed - test SSH keys
+  "60095c796d50f7e572f89f57b9facca734601f65",
+  # images/kube-api-proxy/local/proxy.yaml - local dev secrets
+  "9aaa05d34e7050e8d261568c6ee162a33a04f59d",
+  "32ba6a902bbb2de95cb49fc67a81119f1db1fdaa",
+  "8c73631f35a2ae0f5da0b7d34e4f94377abf9d9c",
+  # tests/performance/ssh/id_ed - test SSH keys
+  "5e57d5b3c484a9ae780355f6c69a1c8c53c07db6",
+  # tests/e2e/testdata/vm/sshkeys/id_ed - test SSH keys
+  "6c9bbca501d29539019358b9f4c1740011b49fbe",
+  "c70df49a09c0d3f9eaeb2bb3850e1506a48a6591",
+  # tests/e2e/testdata/vm/provisioning - test data
+  "7779a9548280e3d28cd44555efe6d0e18a106b09",
+  # images/virtualization-artifact/config/vm_sysprep.yaml - example config
+  "552a06eb1d2f50ca2d765d42c5ab4d701c92a555",
+  # legacy entry
+  "d964aca8c51cc3f2dcd0d72b6016fa6ad94c1ce4",
+]
 paths = [
   # test files and data
-  '''testdata/''',
-  '''^test/''',
-  '''_test\.go$''',
-  '''^images/packages/.+/README\.md$''',
+  '''^images/dvcr-artifact/pkg/uploader/testdata/auth.json$''',
+  '''^images/hooks/pkg/hooks/generate-secret-for-dvcr/hook_test.go$''',
+  '''^images/hooks/cmd/generate-secret-for-dvcr/main_test\.go$''',
+  '''^test/e2e/legacy/testdata/sshkeys/id_ed$''',
+  '''^test/e2e/internal/object/const.go$''',
+  '''^tests/e2e/object/const\.go$''',
+  '''^tests/e2e/testdata/connectivity/sshkeys/id_ed$''',
+  '''^tests/e2e/testdata/vm/sshkeys/id_ed$''',
+  '''^tests/e2e/testdata/vm/provisioning/.*$''',
+  '''^test/performance/ssh/id_ed$''',
+  '''^tests/performance/ssh/id_ed$''',
   # development files that are not used in production images
-  '''^images/kube-api-rewriter/local/''',
+  '''^images/kube-api-rewriter/local/proxy.yaml$''',
+  '''^images/kube-api-proxy/local/proxy\.yaml$''',
+  '''^images/virtualization-artifact/config/vm_sysprep\.yaml$''',
+  # false positives in README files
+  '''^images/packages/krb5/README.md$''',
 ]
