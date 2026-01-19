@@ -136,11 +136,8 @@ var _ = Describe("MigratingHandler", func() {
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
 
-			cond, exists := conditions.GetCondition(vmcondition.TypeMigrating, newVM.Status.Conditions)
-			Expect(exists).To(BeTrue())
-			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
-			Expect(cond.Reason).To(Equal(vmcondition.ReasonLastMigrationFinishedWithError.String()))
-			Expect(cond.Message).To(Equal("Network issues"))
+			_, exists := conditions.GetCondition(vmcondition.TypeMigrating, newVM.Status.Conditions)
+			Expect(exists).To(BeFalse())
 		})
 
 		It("Should remove migrating condition when migration is not in progress", func() {
