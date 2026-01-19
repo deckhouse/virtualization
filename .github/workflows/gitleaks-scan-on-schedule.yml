@@ -1,4 +1,4 @@
-name: Gitleaks Scan
+name: Gitleaks Daily Scan
 
 on:
   schedule:
