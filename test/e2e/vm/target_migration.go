@@ -21,13 +21,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/deckhouse/virtualization-controller/pkg/builder/vd"
-	"github.com/deckhouse/virtualization-controller/pkg/builder/vm"
-	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
-	"github.com/deckhouse/virtualization/test/e2e/internal/object"
-	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -38,6 +31,14 @@ import (
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/deckhouse/virtualization-controller/pkg/builder/vd"
+	"github.com/deckhouse/virtualization-controller/pkg/builder/vm"
+	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
 const hostnameLabelKey = "kubernetes.io/hostname"
