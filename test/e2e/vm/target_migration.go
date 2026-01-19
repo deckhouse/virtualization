@@ -33,7 +33,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -117,6 +120,11 @@ var _ = Describe("TargetMigration", func() {
 			Expect(targetMigrationVMOP.Spec.Migrate).NotTo(BeNil())
 			Expect(targetMigrationVMOP.Spec.Migrate.NodeSelector).To(HaveKey(hostnameLabelKey))
 
+			intvirtvmim, err := getVirtualMachineInstanceMigration(targetMigrationVMOP)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(intvirtvmim.Spec.AddedNodeSelector).To(HaveKey(hostnameLabelKey))
+			Expect(intvirtvmim.Status.Phase).To(Equal(virtv1.MigrationSucceeded))
+
 			virtualMachine, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(context.Background(), virtualMachine.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -174,4 +182,24 @@ func checkNodeSelectorRequirements(f *framework.Framework) {
 		Expect(node.Labels).To(HaveKey(hostnameLabelKey), errMsg)
 		Expect(node.Name).To(Equal(node.Labels[hostnameLabelKey]), errMsg)
 	}
+}
+
+func getVirtualMachineInstanceMigration(vmop *v1alpha2.VirtualMachineOperation) (*virtv1.VirtualMachineInstanceMigration, error) {
+	vmimName := fmt.Sprintf("vmop-%s", vmop.Name)
+	unstructuredVMIM, err := framework.GetClients().DynamicClient().Resource(schema.GroupVersionResource{
+		Group:    "internal.virtualization.deckhouse.io",
+		Version:  "v1",
+		Resource: "internalvirtualizationvirtualmachineinstancemigrations",
+	}).Namespace(vmop.Namespace).Get(context.Background(), vmimName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	var vmim virtv1.VirtualMachineInstanceMigration
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredVMIM.Object, &vmim)
+	if err != nil {
+		return nil, err
+	}
+
+	return &vmim, nil
 }

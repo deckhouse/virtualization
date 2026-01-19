@@ -63,6 +63,8 @@ func NewLifecycle(cmd Command) *Lifecycle {
 	}
 }
 
+// TODO: Refactor this structure because `Lifecycle` is a common object
+// and should not process custom flags for each subcommand like `Migrate`.
 type Lifecycle struct {
 	cmd           Command
 	opts          Options

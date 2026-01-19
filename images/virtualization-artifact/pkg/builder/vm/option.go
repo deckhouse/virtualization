@@ -143,7 +143,9 @@ func WithNetwork(network v1alpha2.NetworksSpec) Option {
 
 func WithTolerations(t []k8scorev1.Toleration) Option {
 	return func(vm *v1alpha2.VirtualMachine) {
-		vm.Spec.Tolerations = make([]k8scorev1.Toleration, 0, len(t))
+		if vm.Spec.Tolerations == nil {
+			vm.Spec.Tolerations = make([]k8scorev1.Toleration, 0, len(t))
+		}
 		vm.Spec.Tolerations = append(vm.Spec.Tolerations, t...)
 	}
 }

@@ -17,6 +17,8 @@ limitations under the License.
 package vmop
 
 import (
+	"maps"
+
 	"github.com/deckhouse/virtualization-controller/pkg/builder/meta"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -70,11 +72,12 @@ func WithVirtualMachineSnapshotName(name string) Option {
 	}
 }
 
-func WithVMOPMigrateNodeSelector(NodeSelector map[string]string) Option {
+func WithVMOPMigrateNodeSelector(nodeSelector map[string]string) Option {
 	return func(vmop *v1alpha2.VirtualMachineOperation) {
 		if vmop.Spec.Migrate == nil {
 			vmop.Spec.Migrate = &v1alpha2.VirtualMachineOperationMigrateSpec{}
 		}
-		vmop.Spec.Migrate.NodeSelector = NodeSelector
+		vmop.Spec.Migrate.NodeSelector = make(map[string]string, len(nodeSelector))
+		maps.Copy(vmop.Spec.Migrate.NodeSelector, nodeSelector)
 	}
 }
