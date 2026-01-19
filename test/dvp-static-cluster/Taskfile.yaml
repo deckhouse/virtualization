@@ -17,6 +17,7 @@ vars:
   DISCOVERED_VALUES_FILE: tmp/discovered-values.yaml
   PASSWORD_FILE: "{{ .TMP_DIR }}/password.txt"
   PASSWORD_HASH_FILE: "{{ .TMP_DIR }}/password-hash.txt"
+  VM_USER_PASSWD: Y2xvdWQK
 tasks:
   create-tmp-dir:
     desc: Preflight / Create tmp dir
@@ -71,6 +72,10 @@ tasks:
       - |
         export PASSWORD_HASH="$(cat {{ .PASSWORD_HASH_FILE }})"
         yq eval --inplace '.discovered.passwordHash = env(PASSWORD_HASH)' {{ .DISCOVERED_VALUES_FILE }}
+      - |
+        export VM_USER_PASSWD=(echo "{{ .VM_USER_PASSWD }}" | base64 -d | htpasswd -BinC 10 "" | cut -d: -f2)
+        yq eval --inplace '.discovered.userPasswd = env(VM_USER_PASSWD)' {{ .DISCOVERED_VALUES_FILE }}
+
 
   render-vm-ips:
     desc: Get VM IPs
