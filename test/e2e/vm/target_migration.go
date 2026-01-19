@@ -98,7 +98,7 @@ var _ = Describe("TargetMigration", func() {
 			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, virtualMachine)
 		})
 
-		By("Migrate a `VirtualMachine`", func() {
+		By("Migrate the `VirtualMachine`", func() {
 			virtualMachine, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(context.Background(), virtualMachine.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
