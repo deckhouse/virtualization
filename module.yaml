@@ -8,7 +8,7 @@ descriptions:
   ru: Модуль виртуализации позволяет запускать и управлять виртуальными машинами в рамках платформы Deckhouse.
 tags: ["virtualization"]
 requirements:
-  deckhouse: ">= 1.71.0"
+  deckhouse: ">= 1.74.2"
   modules:
     cni-cilium: ">= 0.0.0"
 disable:
