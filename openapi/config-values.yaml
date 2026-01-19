@@ -5,9 +5,10 @@ properties:
     type: boolean
     x-examples: [true, false]
     description: |
-      Manually enable the high availability mode.
+      Manually enable the high availability (HA) mode.
 
-      By default, Deckhouse automatically decides whether to enable the HA mode. Click [here](../../deckhouse-configure-global.html#parameters) to learn more about the HA mode for modules.
+      By default, Deckhouse automatically decides whether to enable the HA mode.
+      To learn more about the HA mode, refer to [High reliability and availability](/products/kubernetes-platform/documentation/v1/admin/configuration/high-reliability-and-availability/enable.html#enabling-ha-mode-for-individual-components).
   virtualMachineCIDRs:
     type: array
     minItems: 1
