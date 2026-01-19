@@ -18,6 +18,8 @@ package vm
 
 import (
 	"testing"
+
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func TestCalculateCoresAndSockets(t *testing.T) {
@@ -63,5 +65,63 @@ func TestCalculateCoresAndSockets(t *testing.T) {
 				t.Errorf("For %d cores, expected %d sockets and %d cores, got  %d sockets and %d cores", test.desiredCores, test.sockets, test.cores, sockets, cores)
 			}
 		})
+	}
+}
+
+func TestGetActivePodName(t *testing.T) {
+	// Exists
+	// Given
+	vm := &v1alpha2.VirtualMachine{
+		Status: v1alpha2.VirtualMachineStatus{
+			VirtualMachinePods: []v1alpha2.VirtualMachinePod{
+				{
+					Name:   "test-not-active",
+					Active: false,
+				},
+				{
+					Name:   "test-active",
+					Active: true,
+				},
+			},
+		},
+	}
+
+	// When
+	podName, ok := GetActivePodName(vm)
+
+	// Then
+	if !ok {
+		t.Errorf("must return pod name")
+	}
+	if podName != "test-active" {
+		t.Errorf("must return test-active pod name, not %s", podName)
+	}
+
+	// Not exists active pod
+	// Given
+	vm = &v1alpha2.VirtualMachine{
+		Status: v1alpha2.VirtualMachineStatus{
+			VirtualMachinePods: []v1alpha2.VirtualMachinePod{
+				{
+					Name:   "test-not-active",
+					Active: false,
+				},
+				{
+					Name:   "test-not-active-2",
+					Active: false,
+				},
+			},
+		},
+	}
+
+	// When
+	podName, ok = GetActivePodName(vm)
+
+	// Then
+	if ok {
+		t.Errorf("must not return pod name")
+	}
+	if podName != "" {
+		t.Errorf("must return empty pod name, not %s", podName)
 	}
 }
