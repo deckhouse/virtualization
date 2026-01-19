@@ -38,7 +38,7 @@ jobs:
       nested_storageclass_name: nested-ceph-pool-r2-csi-rbd
       branch: main
       virtualization_tag: main
-      deckhouse_tag: release-1.74
+      deckhouse_tag: main
       default_user: cloud
       go_version: "1.24.6"
       e2e_timeout: "3h"
@@ -56,7 +56,7 @@ jobs:
       nested_storageclass_name: nested-thin-r1
       branch: main
       virtualization_tag: main
-      deckhouse_tag: release-1.74
+      deckhouse_tag: main
       default_user: cloud
       go_version: "1.24.6"
       e2e_timeout: "3h"
