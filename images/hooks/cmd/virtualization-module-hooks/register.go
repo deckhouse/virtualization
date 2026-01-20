@@ -21,7 +21,6 @@ import (
 	_ "hooks/pkg/hooks/copy-custom-certificate"
 	_ "hooks/pkg/hooks/discovery-clusterip-service-for-dvcr"
 	_ "hooks/pkg/hooks/discovery-workload-nodes"
-	_ "hooks/pkg/hooks/drop-openshift-labels"
 	_ "hooks/pkg/hooks/dvcr-garbage-collection"
 	_ "hooks/pkg/hooks/generate-secret-for-dvcr"
 	_ "hooks/pkg/hooks/install-vmclass-generic"
