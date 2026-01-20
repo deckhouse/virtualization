@@ -18,6 +18,11 @@ package vm
 
 import (
 	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func TestCalculateCoresAndSockets(t *testing.T) {
@@ -65,3 +70,47 @@ func TestCalculateCoresAndSockets(t *testing.T) {
 		})
 	}
 }
+
+var _ = Describe("GetActivePodName", func() {
+	It("should return the name of the active pod if it exists", func() {
+		vm := &v1alpha2.VirtualMachine{
+			Status: v1alpha2.VirtualMachineStatus{
+				VirtualMachinePods: []v1alpha2.VirtualMachinePod{
+					{
+						Name:   "test-not-active",
+						Active: false,
+					},
+					{
+						Name:   "test-active",
+						Active: true,
+					},
+				},
+			},
+		}
+
+		podName, ok := GetActivePodName(vm)
+		Expect(ok).To(BeTrue(), "must return pod name")
+		Expect(podName).To(Equal("test-active"), "must return test-active pod name")
+	})
+
+	It("should not return pod name if no pod is active", func() {
+		vm := &v1alpha2.VirtualMachine{
+			Status: v1alpha2.VirtualMachineStatus{
+				VirtualMachinePods: []v1alpha2.VirtualMachinePod{
+					{
+						Name:   "test-not-active",
+						Active: false,
+					},
+					{
+						Name:   "test-not-active-2",
+						Active: false,
+					},
+				},
+			},
+		}
+
+		podName, ok := GetActivePodName(vm)
+		Expect(ok).To(BeFalse(), "must not return pod name")
+		Expect(podName).To(Equal(""), "must return empty pod name")
+	})
+})

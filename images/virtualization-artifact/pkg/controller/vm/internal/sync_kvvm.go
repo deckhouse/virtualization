@@ -228,10 +228,12 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	if cbAwaitingRestart.Condition().Status == metav1.ConditionFalse && kvvm != nil {
 		cond, _ := conditions.GetKVVMCondition(virtv1.VirtualMachineRestartRequired, kvvm.Status.Conditions)
 		if cond.Status == corev1.ConditionTrue {
+			msg := "Please restart the virtual machine to synchronize its configuration."
+			log.Error(msg)
 			cbAwaitingRestart.
 				Status(metav1.ConditionTrue).
 				Reason(vmcondition.ReasonRestartAwaitingUnexpectedState).
-				Message("VirtualMachine has some unexpected state. Restart is required for syncing the configuration.")
+				Message(msg)
 		}
 	}
 
