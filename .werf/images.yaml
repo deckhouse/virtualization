@@ -42,6 +42,7 @@ dockerfile: Dockerfile
 {{-   $_ := set $ctx "SVACE_ANALYZE_SSH_USER" $Root.SVACE_ANALYZE_SSH_USER }}
 {{-   $_ := set $ctx "SVACE_ANALYZE_HOST" $Root.SVACE_ANALYZE_HOST }}
 {{-   $_ := set $ctx "SVACE_IMAGE_SUFFIX" $Root.SVACE_IMAGE_SUFFIX }}
+{{-   $_ := set $ctx "Images" $Root.Images }}
 
 
 {{-   include "module_image_template" $ctx }}

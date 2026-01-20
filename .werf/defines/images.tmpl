@@ -47,3 +47,27 @@ Result:
 {{-     end -}}
 {{-   end }}
 {{ end }}
+
+{{ define "baseImages" }}
+{{-   if not (eq (kindOf .) "slice") }}
+{{-      fail "importPackageImages: invalid type of argument, slice is expected" }}
+{{-   end }}
+{{-   $context := index . 0 }}
+{{-   $imageNames := index . 1 }}
+{{-   $stage := "install" }}
+{{-   $toSuffix := "" }}
+{{-   if gt (len .) 2 }}
+{{-     $stage = index . 2 }}
+{{-   end }}
+{{-   if gt (len .) 3 }}
+{{-     $toSuffix = index . 3 }}
+{{-   end }}
+{{-   range $imageName := $imageNames }}
+{{-     if ne $imageName "" }}
+- image: dev-{{ index $context.Images $imageName }}
+  add: /out
+  to: /{{ last (splitList "/" $imageName) }}{{ $toSuffix }}
+  before: {{ $stage }}
+{{-     end -}}
+{{-   end }}
+{{ end }}

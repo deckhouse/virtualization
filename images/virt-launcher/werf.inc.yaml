@@ -124,10 +124,11 @@ packages:
 - glibc nghttp3 ngtcp2 nghttp2 libpsl libidn2 libgmp
 - openldap openssl
 - e2fsprogs libxcrypt lvm2 libjson-glib
-- libvirt
 - libffi
 - libbrotli libntlm gcc libcap libgpg-error lz4
 - libuserspace-rcu lzo dtc
+baseImages:
+- libs/libvirt
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -158,10 +159,19 @@ git:
     - nsswitch.conf
 import:
 # Libvirt and QEMU libraries and binaries
-- image: {{ .ModuleNamePrefix }}packages/libvirt
-  add: /libvirt
+{{- if $builderDependencies.baseImages }}
+  {{- range $imageName := $builderDependencies.baseImages }}
+{{-     $fullName := index $.Images $imageName }}
+{{-     $simpleName := last (splitList "/" $imageName) }}
+{{-     if eq $imageName "libs/libvirt" }}
+# Libvirt from base_images
+- image: dev-{{ $fullName }}
+  add: /out
   to: /libvirt-bins
   before: install
+{{-     end }}
+{{-   end }}
+{{- end }}
 - image: {{ .ModuleNamePrefix }}qemu
   add: /BINS
   to: /qemu-bins
@@ -209,6 +219,7 @@ import:
   - vlctl
 
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
+{{- include "baseImages" (list . $builderDependencies.baseImages "install") -}}
 
 # Statically built.
 - image: {{ .ModuleNamePrefix }}packages/openssl
@@ -263,6 +274,17 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
+
+    {{- if $builderDependencies.baseImages }}
+    echo "Copy base_images"
+    {{- range $imageName := $builderDependencies.baseImages }}
+    {{- $simpleName := last (splitList "/" $imageName) }}
+    if [ -d "/{{ $simpleName }}" ]; then
+      cp -a "/{{ $simpleName }}" /
+      rm -rf "/{{ $simpleName }}"
+    fi
+    {{- end }}
+    {{- end }}
 
     echo "Create folder hierarchy in VBINS"
     mkdir -p /VBINS/{etc,root}
@@ -422,6 +444,16 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
+    {{- if $builderDependencies.baseImages }}
+    echo "Copy base_images"
+    {{- range $imageName := $builderDependencies.baseImages }}
+    {{- $simpleName := last (splitList "/" $imageName) }}
+    if [ -d "/{{ $simpleName }}" ]; then
+      cp -a "/{{ $simpleName }}" /
+      rm -rf "/{{ $simpleName }}"
+    fi
+    {{- end }}
+    {{- end }}
   - mkdir -p /binaries
   - export GOPROXY=$(cat /run/secrets/GOPROXY)
   - export CGO_ENABLED=1
