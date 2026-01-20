@@ -74,7 +74,9 @@ func (h *MigratingHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		return reconcile.Result{}, err
 	}
 
-	vm.Status.MigrationState = h.wrapMigrationState(kvvmi)
+	if migrationState := h.wrapMigrationState(kvvmi); migrationState != nil {
+		vm.Status.MigrationState = migrationState
+	}
 
 	err = h.syncMigratable(ctx, s, vm, kvvm)
 	if err != nil {
@@ -335,12 +337,4 @@ func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMa
 
 func liveMigrationInProgress(migrationState *v1alpha2.VirtualMachineMigrationState) bool {
 	return migrationState != nil && migrationState.StartTimestamp != nil && migrationState.EndTimestamp == nil
-}
-
-func liveMigrationFailed(migrationState *v1alpha2.VirtualMachineMigrationState) bool {
-	return migrationState != nil && migrationState.EndTimestamp != nil && migrationState.Result == v1alpha2.MigrationResultFailed
-}
-
-func liveMigrationSucceeded(migrationState *v1alpha2.VirtualMachineMigrationState) bool {
-	return migrationState != nil && migrationState.EndTimestamp != nil && migrationState.Result == v1alpha2.MigrationResultSucceeded
 }
