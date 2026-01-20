@@ -65,6 +65,10 @@ func WithReplace(path string, value interface{}) JSONPatchOperation {
 	return NewJSONPatchOperation(PatchReplaceOp, path, value)
 }
 
+func WithTest(path string, value interface{}) JSONPatchOperation {
+	return NewJSONPatchOperation(PatchTestOp, path, value)
+}
+
 func (jp *JSONPatch) Operations() []JSONPatchOperation {
 	return jp.operations
 }
