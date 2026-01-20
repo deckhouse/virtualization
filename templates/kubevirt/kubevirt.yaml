@@ -57,6 +57,7 @@ spec:
       - Root
       - CPUManager
       - Sidecar
+      - VMLiveUpdateFeatures
       - VolumeSnapshotDataSource
       {{/*
       Even though these feature gates are enabled by default in KubeVirt 1.6.2, they still must not be removed from the config:
