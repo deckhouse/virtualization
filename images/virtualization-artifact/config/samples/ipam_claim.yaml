@@ -1,4 +1,0 @@
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineIPAddressClaim
-metadata:
-  name: foo

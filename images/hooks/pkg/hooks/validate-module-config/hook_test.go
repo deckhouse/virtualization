@@ -19,13 +19,13 @@ package validate_module_config
 import (
 	"context"
 	"encoding/json"
-	"testing"
-
 	"hooks/pkg/settings"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/tidwall/gjson"
+
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/deckhouse/deckhouse/pkg/log"

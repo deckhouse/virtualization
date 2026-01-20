@@ -38,7 +38,7 @@ func NewIPAMValidator(client client.Client) *IPAMValidator {
 }
 
 func (v *IPAMValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	if vm.Spec.VirtualMachineIPAddress != "" && !network.HasMainNetworkSpec(vm.Spec.Networks) {
+	if vm.Spec.VirtualMachineIPAddress != "" && len(vm.Spec.Networks) > 0 && !network.HasMainNetworkSpec(vm.Spec.Networks) {
 		return nil, fmt.Errorf("spec.virtualMachineIPAddressName cannot be set without Main network type in spec.networks")
 	}
 
@@ -67,7 +67,7 @@ func (v *IPAMValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.Virtual
 }
 
 func (v *IPAMValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	if newVM.Spec.VirtualMachineIPAddress != "" && !network.HasMainNetworkSpec(newVM.Spec.Networks) {
+	if newVM.Spec.VirtualMachineIPAddress != "" && len(newVM.Spec.Networks) > 0 && !network.HasMainNetworkSpec(newVM.Spec.Networks) {
 		return nil, fmt.Errorf("spec.virtualMachineIPAddressName cannot be set without Main network type in spec.networks")
 	}
 

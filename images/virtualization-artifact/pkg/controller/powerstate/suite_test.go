@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Flant JSC
+Copyright 2026 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,12 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package copy_custom_certificate
+package powerstate
 
 import (
-	"hooks/pkg/settings"
+	"testing"
 
-	copycustomcertificate "github.com/deckhouse/module-sdk/common-hooks/copy-custom-certificate"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-var _ = copycustomcertificate.RegisterHook(settings.ModuleName)
+func TestPowerstate(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Powerstate Suite")
+}

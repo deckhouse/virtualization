@@ -9,7 +9,7 @@ weight: 10
 
 The `virtualization` module allows you to declaratively create, start, and manage virtual machines and associated resources.
 
-The command line utility [`d8`](https://deckhouse.ru/documentation/v1/deckhouse-cli/) is used to manage cluster resources.
+The command line utility [`d8`](/products/kubernetes-platform/documentation/v1/cli/d8/) is used to manage cluster resources.
 
 ## Usage scenarios
 

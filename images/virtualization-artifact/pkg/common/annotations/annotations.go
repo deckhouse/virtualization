@@ -175,6 +175,10 @@ const (
 	QuotaExcludeValue = "true"
 	// QuotaExcludeLabel provides a constant  for exclude quota label.
 	QuotaExcludeLabel = "resource-quota-overrides.deckhouse.io/ignore"
+	// QuotaDiscountCPU provides a constant for discount CPU from quota annotation.
+	QuotaDiscountCPU = "resource-quota-overrides.deckhouse.io/discount-cpu"
+	// QuotaDiscountMemory provides a constant for discount Memory from quota annotation.
+	QuotaDiscountMemory = "resource-quota-overrides.deckhouse.io/discount-memory"
 
 	// InhibitNodeShutdownLabel is a label to prevent node shutdown is Pod with label is present.
 	InhibitNodeShutdownLabel = "pod.deckhouse.io/inhibit-node-shutdown"

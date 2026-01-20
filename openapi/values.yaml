@@ -133,6 +133,8 @@ properties:
             type: string
           parallelMigrationsPerCluster:
             type: integer
+          parallelOutboundMigrationsPerNode:
+            type: integer
       moduleConfig:
         type: object
         additionalProperties: true

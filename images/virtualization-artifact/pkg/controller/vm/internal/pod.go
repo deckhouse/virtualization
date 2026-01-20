@@ -64,7 +64,7 @@ func (h *PodHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	info := powerstate.ShutdownReason(kvvmi, pods)
+	info := powerstate.ShutdownReason(current, kvvmi, pods)
 	if info.PodCompleted {
 		s.Shared(func(s *state.Shared) {
 			s.ShutdownInfo = info

@@ -18,7 +18,6 @@ package tls_certificates_api_proxy
 
 import (
 	"fmt"
-
 	"hooks/pkg/settings"
 
 	v1 "k8s.io/api/certificates/v1"
