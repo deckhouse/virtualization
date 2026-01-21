@@ -35,6 +35,11 @@ on:
         type: string
         default: "main"
         description: "Virtualization tag"
+      virtualization_image_url:
+        required: false
+        type: string
+        default: "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
+        description: "Virtualization image url (default noble-server-cloudimg-amd64.img)"
       deckhouse_channel:
         required: false
         type: string
@@ -98,8 +103,6 @@ jobs:
       kubeconfig: ${{ steps.generate-kubeconfig.outputs.kubeconfig }}
     steps:
       - uses: actions/checkout@v4
-        # with:
-        #   ref: ${{ env.BRANCH }}
 
       - name: Set outputs
         id: vars
@@ -166,7 +169,7 @@ jobs:
             bundle: Default
             proxyEnabled: false
           image:
-            url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+            url: ${{ inputs.virtualization_image_url }}
             defaultUser: ${{ env.DEFAULT_USER }}
             bootloader: BIOS
           ingressHosts:
@@ -198,13 +201,13 @@ jobs:
                 additionalDisks:
                 - size: 50Gi
           EOF
-          
+
           mkdir -p tmp
           touch tmp/discovered-values.yaml
 
           export REGISTRY=$(base64 -d <<< ${{secrets.DEV_REGISTRY_DOCKER_CFG}} | jq '.auths | to_entries | .[] | .key' -r)
           export AUTH=$(base64 -d <<< ${{ secrets.DEV_REGISTRY_DOCKER_CFG }} | jq '.auths | to_entries | .[] | .value.auth' -r)
-          
+
           yq eval --inplace '.discovered.registry_url = env(REGISTRY)' tmp/discovered-values.yaml
           yq eval --inplace '.discovered.registry_auth = env(AUTH)' tmp/discovered-values.yaml
 
@@ -241,7 +244,7 @@ jobs:
           PREFIX: ${{ inputs.storage_type }}
         run: |
           nested_master=$(kubectl -n ${NAMESPACE} get vm -l group=${PREFIX}-master -o jsonpath="{.items[0].metadata.name}")
-          
+
           d8vssh() {
             local host=$1
             local cmd=$2
@@ -428,7 +431,7 @@ jobs:
 
           echo "[INFO] Show current kubeconfig context"
           kubectl config get-contexts
-          
+
           echo "[INFO] Show nodes in cluster"
           # `kubectl get nodes` may return error, so we need to retry.
           count=30
@@ -781,7 +784,7 @@ jobs:
 
           echo "[INFO] Create ceph operator and csi module config"
           kubectl apply -f 01-mc.yaml
-          
+
           echo "[INFO] Check module source"
           kubectl get modulesources
 
@@ -790,7 +793,7 @@ jobs:
 
           echo "[INFO] Wait for operator-ceph namespace to be ready"
           ceph_operator_ready
-          
+
           if (kubectl get mc admission-policy-engine -o jsonpath='{.spec.enabled}') ; then
             echo "[INFO] Label operator-ceph namespace with security.deckhouse.io/pod-policy"
             kubectl label ns d8-operator-ceph security.deckhouse.io/pod-policy=privileged
@@ -873,7 +876,7 @@ jobs:
           EOF
 
           kubectl wait --for=jsonpath='{.status.phase}'=Active ms deckhouse-dev --timeout=30s
-          
+
           echo "[INFO] Apply Virtualization module config"
           kubectl apply -f -<<EOF
           apiVersion: deckhouse.io/v1alpha1
@@ -905,7 +908,7 @@ jobs:
 
           echo "[INFO] Show ModuleSource"
           kubectl get ms
-          
+
           echo "[INFO] Show module config virtualization info"
           kubectl get mc virtualization
 
@@ -1212,7 +1215,7 @@ jobs:
             test/e2e/*junit*.xml
           if-no-files-found: ignore
           retention-days: 1
-      
+
       - name: Upload resources from failed tests
         uses: actions/upload-artifact@v4
         if: always() && steps.e2e-report.outcome == 'failure'
@@ -1233,11 +1236,6 @@ jobs:
     if: cancelled() || success()
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install htpasswd utility
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y apache2-utils
 
       - name: Setup d8
         uses: ./.github/actions/install-d8

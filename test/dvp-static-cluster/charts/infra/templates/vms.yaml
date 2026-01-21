@@ -1,4 +1,4 @@
-
+{{/* This is the render of all infra VMs (which include master and additional nodes), along with their disks */}}
 {{- range $_, $i := untilStep 0 (.Values.instances.masterNodes.count | int) 1}}
   {{- $vmName := printf "%s-master-%d" $.Values.storageType $i -}}
   {{ include "infra.vm" (list $ $vmName $.Values.instances.masterNodes.cfg) | nindent 0 }}
