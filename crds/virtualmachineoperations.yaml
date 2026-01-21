@@ -164,6 +164,11 @@ spec:
                 migrate:
                   description: Migrate defines the Migrate operation.
                   properties:
+                    nodeName:
+                      description:
+                        NodeName as set in the `kubernetes.io/hostname` label
+                        of the target node.
+                      type: string
                     nodeSelector:
                       additionalProperties:
                         type: string
@@ -234,8 +239,14 @@ spec:
                   rule: "self.type == 'Restore' ? has(self.restore) : true"
                 - message: Clone requires clone field.
                   rule: "self.type == 'Clone' ? has(self.clone) : true"
-                - message: Migrate requires migrate field.
-                  rule: "self.type == 'Migrate' ? has(self.migrate) : true"
+                - message: spec.migrate can only be set when spec.type is 'Migrate'
+                  rule: "!(has(self.migrate)) || self.type == 'Migrate'"
+                - message:
+                    spec.migrate.nodeSelector and spec.migrate.nodeName cannot
+                    both be set at the same time.
+                  rule:
+                    "!(has(self.migrate.nodeSelector) && self.migrate.nodeName !=
+                    '')"
             status:
               properties:
                 conditions:
