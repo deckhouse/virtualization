@@ -2677,9 +2677,9 @@ Virtual machines can be connected to additional networks: project networks (`Net
 To do this, specify the desired networks in the configuration section `.spec.networks`. If this block is not specified (which is the default behavior), the VM will use only the main cluster network.
 
 {{< alert level="info" >}}
-Specifying the main cluster network (`type: Main`) in `.spec.networks` is optional. If you do not need a connection to the main cluster network, you can use only additional networks (`Network` or `ClusterNetwork`).
+Specifying the main cluster network (`type: Main`) in `.spec.networks` is optional. If you do not need connectivity to the main cluster network, you can use only additional networks (`Network` or `ClusterNetwork`).
 
-However, if the main network is specified, it must always be first in the `.spec.networks` list.
+If you specify the main network, it must be the first entry in the `.spec.networks` list.
 {{< /alert >}}
 
 Important considerations when working with additional network interfaces:
@@ -2793,11 +2793,11 @@ Snapshots allow you to capture the current state of a resource for later recover
 
 Snapshots can be consistent or inconsistent; this is controlled by the `requiredConsistency` parameter. By default, `requiredConsistency` is set to `true`, which means a consistent snapshot is required.
 
-A consistent snapshot guarantees a consistent and complete state of disk data. Such a snapshot can be created when one of the following conditions is met:
+A consistent snapshot captures a complete and consistent state of disk data. You can create such a snapshot when one of the following conditions is met:
 
 - The disk is not attached to any virtual machine — the snapshot will always be consistent.
 - The virtual machine is turned off.
-- [`qemu-guest-agent`](#guest-os-agent) is installed and running in the guest system, which temporarily suspends ("freezes") the file system at the time the snapshot is created to ensure its consistency.
+- [`qemu-guest-agent`](#guest-os-agent) is installed and running in the guest OS. When a snapshot is created, it temporarily suspends ("freezes") the file system to ensure consistency.
 
 An inconsistent snapshot may not reflect a consistent state of the virtual machine's disks and its components. Such a snapshot is created if the VM is running and `qemu-guest-agent` is not installed or not running in the guest OS.
 If the snapshot manifest explicitly specifies the `requiredConsistency: false` parameter, but `qemu-guest-agent` is running, an attempt will be made to freeze the file system to ensure that the snapshot is consistent.
@@ -2858,7 +2858,7 @@ NAME                     PHASE     CONSISTENT   AGE
 linux-vm-root-1728027905   Ready     true         3m2s
 ```
 
-The `CONSISTENT` field shows whether the snapshot was created consistently (`true`) or not (`false`). This value is determined automatically based on the snapshot creation conditions and cannot be changed after creation.
+The `CONSISTENT` field indicates whether the snapshot is consistent (`true`) or not (`false`). This value is determined automatically based on the snapshot creation conditions and cannot be changed.
 
 After creation, `VirtualDiskSnapshot` can be in the following states (phases):
 
