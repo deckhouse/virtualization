@@ -75,7 +75,7 @@ func (s MigrationService) CreateMigration(ctx context.Context, vmop *v1alpha2.Vi
 		},
 	}
 
-	if vmop.Spec.Migrate != nil && vmop.Spec.Migrate.NodeSelector != nil {
+	if vmop.Spec.Migrate != nil {
 		vmim.Spec.AddedNodeSelector = vmop.Spec.Migrate.NodeSelector
 	}
 
