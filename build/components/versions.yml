@@ -3,8 +3,8 @@ firmware:
   libvirt: v10.9.0
   edk2: stable202411
 core:
-  3p-kubevirt: v1.6.2-v12n.5
-  3p-containerized-data-importer: v1.60.3-v12n.14
+  3p-kubevirt: v1.6.2-v12n.6
+  3p-containerized-data-importer: v1.60.3-v12n.15
   distribution: 2.8.3
 package:
   acl: v2.3.1
