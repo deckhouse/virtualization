@@ -7,16 +7,16 @@ weight: 70
 
 ### New features
 
-- [vd] Added the ability to change the storage class for disks attached via `VirtualMachineBlockDeviceAttachment` (hotplug).
-- [vd] Added the ability to migrate virtual machines with local disks attached via `VirtualMachineBlockDeviceAttachment` (hotplug).
-- [vm] A virtual machine can now be started without a `Main` network.
+- [vd] Added support for changing the storage class of disks attached via `VirtualMachineBlockDeviceAttachment` (hotplug).
+- [vd] Added support for migrating virtual machines with local disks attached via `VirtualMachineBlockDeviceAttachment` (hotplug).
+- [vm] Virtual machines can now be started without a `Main` network.
 
 ### Fixes
 
-- [module] Project quotas do not account for resources used by system components required for creating disks and images and for virtual machine operation.
-- [vi,cvi] Added tracking of image availability in DVCR: if an image disappears from DVCR, the status of the corresponding `VirtualImage` and `ClusterVirtualImage` resources will have the `Lost` phase and an error.
-- [vmip] Fixed IP address attachment when the corresponding `VirtualMachineIPAddress` resource was created by the user manually and in advance.
-- [vm] Added the ability to clone a running virtual machine (in the `Running` phase) via `VirtualMachineOperation` of type `Clone`.
+- [module] Fixed project quota accounting for resources used by system components required to create disks/images and operate virtual machines.
+- [vi,cvi] Added tracking of image availability in DVCR. If an image disappears from DVCR, the corresponding `VirtualImage` and `ClusterVirtualImage` resources enter the `Lost` phase and report an error.
+- [vmip] Fixed IP address attachment when the corresponding `VirtualMachineIPAddress` resource was created manually in advance.
+- [vm] Added support for cloning virtual machines in the `Running` phase via `VirtualMachineOperation` of type `Clone`.
 
 ## v1.3.0
 
