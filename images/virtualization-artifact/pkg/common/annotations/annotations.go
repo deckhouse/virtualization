@@ -182,8 +182,8 @@ const (
 
 	// HeritageLabel is the label to indicate Pod heritage.
 	HeritageLabel = "heritage"
-	// DeckhouseLabelValue is the value to indicate Pod is related to the deckhouse.
-	DeckhouseLabelValue = "deckhouse"
+	// HeritageValue is the value to indicate Pod is related to the deckhouse.
+	HeritageValue = "deckhouse"
 
 	// InhibitNodeShutdownLabel is a label to prevent node shutdown is Pod with label is present.
 	InhibitNodeShutdownLabel = "pod.deckhouse.io/inhibit-node-shutdown"

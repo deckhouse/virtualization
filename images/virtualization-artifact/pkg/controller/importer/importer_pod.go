@@ -122,7 +122,7 @@ func (imp *Importer) makeImporterPodSpec() (*corev1.Pod, error) {
 			Name:      imp.PodSettings.Name,
 			Namespace: imp.PodSettings.Namespace,
 			Labels: map[string]string{
-				annotations.HeritageLabel:     annotations.DeckhouseLabelValue,
+				annotations.HeritageLabel:     annotations.HeritageValue,
 				annotations.AppLabel:          annotations.DVCRLabelValue,
 				annotations.QuotaExcludeLabel: annotations.QuotaExcludeValue,
 			},

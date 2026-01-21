@@ -95,7 +95,7 @@ func (p *Pod) makeSpec() (*corev1.Pod, error) {
 				annotations.AnnCreatedBy: "yes",
 			},
 			Labels: map[string]string{
-				annotations.HeritageLabel:        annotations.DeckhouseLabelValue,
+				annotations.HeritageLabel:        annotations.HeritageValue,
 				annotations.AppLabel:             annotations.DVCRLabelValue,
 				annotations.UploaderServiceLabel: p.PodSettings.ServiceName,
 				annotations.QuotaExcludeLabel:    annotations.QuotaExcludeValue,

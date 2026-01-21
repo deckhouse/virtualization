@@ -87,7 +87,7 @@ func (imp *Bounder) makeBounderPodSpec() (*corev1.Pod, error) {
 				annotations.AnnCreatedBy: "yes",
 			},
 			Labels: map[string]string{
-				annotations.HeritageLabel: annotations.DeckhouseLabelValue,
+				annotations.HeritageLabel: annotations.HeritageValue,
 			},
 			Finalizers: []string{
 				imp.PodSettings.Finalizer,
