@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -302,20 +301,6 @@ func getTargetStorageClass(f *framework.Framework, storageClass *storagev1.Stora
 		if sc.Name == storageClass.Name {
 			continue
 		}
-
-		// Ignore hdd-based storage classes for some developer clusters.
-		if strings.HasSuffix(sc.Name, "-hdd") {
-			GinkgoWriter.Printf("Skipping HDD-based storage class %s\n", sc.Name)
-			continue
-		}
-		// Temporarily disable NFS.
-		if sc.Provisioner == "nfs.csi.k8s.io" {
-			GinkgoWriter.Printf("Skipping NFS storage class %s\n", sc.Name)
-			continue
-		}
-		// TODO add storage class ignore with label.
-		// TODO: add support for allowedStorageClasses settings in ModuleConfig.
-
 		// TODO: Add support for storage classes using the local volume provisioner.
 		// Temporarily disabled because the storage layer itself has stability problems.
 		if sc.Provisioner == "local.csi.storage.deckhouse.io" {
