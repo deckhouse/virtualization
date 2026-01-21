@@ -49,7 +49,7 @@ type VirtualMachineOperation struct {
 // +kubebuilder:validation:XValidation:rule="self.type == 'Migrate' ? !has(self.force) || !self.force : true",message="The `Migrate` operation cannot be performed forcibly."
 // +kubebuilder:validation:XValidation:rule="self.type == 'Restore' ? has(self.restore) : true",message="Restore requires restore field."
 // +kubebuilder:validation:XValidation:rule="self.type == 'Clone' ? has(self.clone) : true",message="Clone requires clone field."
-// +kubebuilder:validation:XValidation:rule="!(has(self.migrate)) || self.type == 'Migrate'",message="spec.migrate can only be set when spec.type is 'Migrate'"
+// +kubebuilder:validation:XValidation:rule="self.type == 'Migrate' ? has(self.migrate) : true",message="Migrate requires migrate field."
 type VirtualMachineOperationSpec struct {
 	Type VMOPType `json:"type"`
 	// Name of the virtual machine the operation is performed for.

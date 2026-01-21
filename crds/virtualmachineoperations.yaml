@@ -238,8 +238,8 @@ spec:
                   rule: "self.type == 'Restore' ? has(self.restore) : true"
                 - message: Clone requires clone field.
                   rule: "self.type == 'Clone' ? has(self.clone) : true"
-                - message: spec.migrate can only be set when spec.type is 'Migrate'
-                  rule: "!(has(self.migrate)) || self.type == 'Migrate'"
+                - message: Migrate requires migrate field.
+                  rule: "self.type == 'Migrate' ? has(self.migrate) : true"
             status:
               properties:
                 conditions:

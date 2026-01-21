@@ -18,6 +18,7 @@ package rewrite
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	virtv1 "kubevirt.io/api/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
@@ -25,6 +26,14 @@ func rewriteCDIV1beta1(resource string) schema.GroupVersionResource {
 	return schema.GroupVersionResource{
 		Group:    "cdi.internal.virtualization.deckhouse.io",
 		Version:  "v1beta1",
+		Resource: resource,
+	}
+}
+
+func rewriteVirtualizationV1(resource string) schema.GroupVersionResource {
+	return schema.GroupVersionResource{
+		Group:    "internal.virtualization.deckhouse.io",
+		Version:  "v1",
 		Resource: resource,
 	}
 }
@@ -40,4 +49,13 @@ type StorageProfile struct {
 func (StorageProfile) GVR() schema.GroupVersionResource {
 	resource := rewriteInternalVirtualizationResource("storageprofiles")
 	return rewriteCDIV1beta1(resource)
+}
+
+type VirtualMachineInstanceMigration struct {
+	*virtv1.VirtualMachineInstanceMigration
+}
+
+func (VirtualMachineInstanceMigration) GVR() schema.GroupVersionResource {
+	resource := rewriteInternalVirtualizationResource("virtualmachineinstancemigrations")
+	return rewriteVirtualizationV1(resource)
 }

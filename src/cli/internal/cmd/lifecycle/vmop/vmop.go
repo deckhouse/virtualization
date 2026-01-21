@@ -19,7 +19,6 @@ package vmop
 import (
 	"context"
 	"fmt"
-	"maps"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -98,10 +97,8 @@ func (v VirtualMachineOperation) Migrate(ctx context.Context, vmName, vmNamespac
 	vmop := v.newVMOP(vmName, vmNamespace, v1alpha2.VMOPTypeMigrate, v.options.force)
 	if nodeSelector != nil {
 		vmop.Spec.Migrate = &v1alpha2.VirtualMachineOperationMigrateSpec{
-			NodeSelector: nil,
+			NodeSelector: nodeSelector,
 		}
-		vmop.Spec.Migrate.NodeSelector = make(map[string]string, len(nodeSelector))
-		maps.Copy(vmop.Spec.Migrate.NodeSelector, nodeSelector)
 	}
 	return v.do(ctx, vmop, v.options.createOnly, v.options.waitComplete)
 }

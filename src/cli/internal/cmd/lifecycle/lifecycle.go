@@ -58,7 +58,7 @@ func NewLifecycle(cmd Command) *Lifecycle {
 		cmd:  cmd,
 		opts: DefaultOptions(),
 		migrationOpts: MigrationOpts{
-			NodeSelector: "",
+			NodeSelector: nil,
 		},
 	}
 }
@@ -88,7 +88,7 @@ type Options struct {
 }
 
 type MigrationOpts struct {
-	NodeSelector string
+	NodeSelector map[string]string
 }
 
 func (l *Lifecycle) Run(cmd *cobra.Command, args []string) error {
@@ -121,7 +121,7 @@ func (l *Lifecycle) Run(cmd *cobra.Command, args []string) error {
 		msg, err = mgr.Evict(ctx, name, namespace)
 	case Migrate:
 		cmd.Printf("Migrating virtual machine %q\n", key.String())
-		msg, err = mgr.Migrate(ctx, name, namespace, l.NodeSelector())
+		msg, err = mgr.Migrate(ctx, name, namespace, l.migrationOpts.NodeSelector)
 	default:
 		return fmt.Errorf("invalid command %q", l.cmd)
 	}
@@ -170,41 +170,14 @@ func (l *Lifecycle) getManager(client kubeclient.Client) Manager {
 	)
 }
 
-func (l *Lifecycle) NodeSelector() map[string]string {
-	var nodeSelector map[string]string
-
-	if l.migrationOpts.NodeSelector != "" {
-		nodeSelector = make(map[string]string)
-		selectors := strings.SplitSeq(l.migrationOpts.NodeSelector, ",")
-		for selector := range selectors {
-			parts := strings.SplitN(selector, "=", 2)
-			nodeSelector[parts[0]] = parts[1]
+func (l *Lifecycle) ValidateNodeSelector(nodeSelector map[string]string) error {
+	for key, value := range nodeSelector {
+		if errs := validation.IsQualifiedName(key); len(errs) != 0 {
+			return fmt.Errorf("invalid label key: %v", errs)
 		}
-	}
 
-	return nodeSelector
-}
-
-func (l *Lifecycle) ValidateNodeSelector(nodeSelector string) error {
-	if nodeSelector != "" {
-		selectors := strings.SplitSeq(nodeSelector, ",")
-		for selector := range selectors {
-			if !strings.Contains(selector, "=") {
-				return fmt.Errorf("invalid node-selector format, expected key=value")
-			}
-			parts := strings.SplitN(selector, "=", 2)
-			if len(parts) != 2 {
-				return fmt.Errorf("invalid node-selector format, expected key=value")
-			}
-			key, value := parts[0], parts[1]
-
-			if errs := validation.IsQualifiedName(key); len(errs) != 0 {
-				return fmt.Errorf("invalid label key: %v", errs)
-			}
-
-			if errs := validation.IsValidLabelValue(value); len(errs) != 0 {
-				return fmt.Errorf("invalid label value: %v", errs)
-			}
+		if errs := validation.IsValidLabelValue(value); len(errs) != 0 {
+			return fmt.Errorf("invalid label value: %v", errs)
 		}
 	}
 
@@ -230,10 +203,10 @@ func AddCommandLineArgs(flagset *pflag.FlagSet, opts *Options) {
 }
 
 func AddCommandLineMigrationArgs(flagset *pflag.FlagSet, migrationOpts *MigrationOpts) {
-	flagset.StringVar(
+	flagset.StringToStringVar(
 		&migrationOpts.NodeSelector,
 		"node-selector",
-		"",
+		nil,
 		"Node selector in key=value format, multiple selectors can be separated by commas.",
 	)
 }
