@@ -14,7 +14,7 @@ spec:
 apiVersion: deckhouse.io/v1alpha1
 kind: NodeGroupConfiguration
 metadata:
-  name: astra-d8-dm-modules.conf
+  name: d8-dm-modules.conf
 spec:
   weight: 98
   nodeGroups: ["*"]

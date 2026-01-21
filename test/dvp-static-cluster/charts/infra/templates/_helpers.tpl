@@ -17,18 +17,6 @@ group: {{ $prefix }}
 {{- $name := index . 1 -}}
 {{- $cfg := index . 2 -}}
 ---
-kind: Service
-apiVersion: v1
-metadata:
-  name: {{ $name }}
-  namespace: {{ $ctx.Values.namespace }}
-  labels:
-    {{- include "infra.vm-labels" $name | nindent 4 }}
-spec:
-  clusterIP: None
-  selector:
-    {{- include "infra.vm-labels" $name | nindent 4 }}
----
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
