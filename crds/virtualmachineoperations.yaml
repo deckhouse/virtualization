@@ -230,10 +230,6 @@ spec:
                   rule: self == oldSelf
                 - message: The `Start` operation cannot be performed forcibly.
                   rule: "self.type == 'Start' ? !has(self.force) || !self.force : true"
-                - message: The `Migrate` operation cannot be performed forcibly.
-                  rule:
-                    "self.type == 'Migrate' ? !has(self.force) || !self.force :
-                    true"
                 - message: Restore requires restore field.
                   rule: "self.type == 'Restore' ? has(self.restore) : true"
                 - message: Clone requires clone field.

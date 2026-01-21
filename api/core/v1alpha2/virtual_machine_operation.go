@@ -46,7 +46,6 @@ type VirtualMachineOperation struct {
 
 // +kubebuilder:validation:XValidation:rule="self == oldSelf",message=".spec is immutable"
 // +kubebuilder:validation:XValidation:rule="self.type == 'Start' ? !has(self.force) || !self.force : true",message="The `Start` operation cannot be performed forcibly."
-// +kubebuilder:validation:XValidation:rule="self.type == 'Migrate' ? !has(self.force) || !self.force : true",message="The `Migrate` operation cannot be performed forcibly."
 // +kubebuilder:validation:XValidation:rule="self.type == 'Restore' ? has(self.restore) : true",message="Restore requires restore field."
 // +kubebuilder:validation:XValidation:rule="self.type == 'Clone' ? has(self.clone) : true",message="Clone requires clone field."
 // +kubebuilder:validation:XValidation:rule="self.type == 'Migrate' ? has(self.migrate) : true",message="Migrate requires migrate field."
