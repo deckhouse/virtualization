@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"maps"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -77,8 +76,7 @@ func (s MigrationService) CreateMigration(ctx context.Context, vmop *v1alpha2.Vi
 	}
 
 	if vmop.Spec.Migrate != nil && vmop.Spec.Migrate.NodeSelector != nil {
-		vmim.Spec.AddedNodeSelector = make(map[string]string, len(vmop.Spec.Migrate.NodeSelector))
-		maps.Copy(vmim.Spec.AddedNodeSelector, vmop.Spec.Migrate.NodeSelector)
+		vmim.Spec.AddedNodeSelector = vmop.Spec.Migrate.NodeSelector
 	}
 
 	return client.IgnoreAlreadyExists(s.client.Create(ctx, vmim))

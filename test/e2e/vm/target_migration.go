@@ -24,10 +24,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,6 +36,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/rewrite"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
@@ -61,8 +60,6 @@ var _ = Describe("TargetMigration", func() {
 
 	It("checks a `VirtualMachine` migrate to the target `Node`", func() {
 		By("Environment preparation", func() {
-			checkNodeSelectorRequirements(f)
-
 			virtaulDisk := vd.New(
 				vd.WithName("vd"),
 				vd.WithNamespace(f.Namespace().Name),
@@ -71,18 +68,12 @@ var _ = Describe("TargetMigration", func() {
 				}),
 			)
 
-			virtualMachine = vm.New(
-				vm.WithName("vm"),
-				vm.WithNamespace(f.Namespace().Name),
+			virtualMachine = object.NewMinimalVM(
+				"vm-uefi-",
+				f.Namespace().Name,
 				vm.WithBootloader(v1alpha2.EFI),
 				vm.WithCPU(1, ptr.To("10%")),
-				vm.WithMemory(*resource.NewQuantity(object.Mi256, resource.BinarySI)),
 				vm.WithDisks(virtaulDisk),
-				vm.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
-				vm.WithProvisioning(&v1alpha2.Provisioning{
-					Type:     v1alpha2.ProvisioningTypeUserData,
-					UserData: object.DefaultCloudInit,
-				}),
 				vm.WithTolerations([]corev1.Toleration{
 					{
 						Key:      "node-role.kubernetes.io/control-plane",
@@ -121,8 +112,9 @@ var _ = Describe("TargetMigration", func() {
 			Expect(targetMigrationVMOP.Spec.Migrate).NotTo(BeNil())
 			Expect(targetMigrationVMOP.Spec.Migrate.NodeSelector).To(HaveKey(hostnameLabelKey))
 
-			intvirtvmim, err := getVirtualMachineInstanceMigration(targetMigrationVMOP)
+			intvirtvmim, err := getVirtualMachineInstanceMigration(f, fmt.Sprintf("vmop-%s", targetMigrationVMOP.Name))
 			Expect(err).NotTo(HaveOccurred())
+			Expect(intvirtvmim).NotTo(BeNil())
 			Expect(intvirtvmim.Spec.AddedNodeSelector).To(HaveKey(hostnameLabelKey))
 			Expect(intvirtvmim.Status.Phase).To(Equal(virtv1.MigrationSucceeded))
 
@@ -169,38 +161,14 @@ func defineTargetNodeSelector(f *framework.Framework, currentNodeName string) (m
 	return nil, errors.New(errMsg)
 }
 
-// All nodes must have the `kubernetes.io/hostname` label, and its value must be equal to `node.Name`.
-func checkNodeSelectorRequirements(f *framework.Framework) {
-	GinkgoHelper()
-
-	errMsg := "failed to check `NodeSelector` requirements"
-
-	nodes := &corev1.NodeList{}
-	err := f.Clients.GenericClient().List(context.Background(), nodes)
-	Expect(err).NotTo(HaveOccurred(), errMsg)
-
-	for _, node := range nodes.Items {
-		Expect(node.Labels).To(HaveKey(hostnameLabelKey), errMsg)
-		Expect(node.Name).To(Equal(node.Labels[hostnameLabelKey]), errMsg)
-	}
-}
-
-func getVirtualMachineInstanceMigration(vmop *v1alpha2.VirtualMachineOperation) (*virtv1.VirtualMachineInstanceMigration, error) {
-	vmimName := fmt.Sprintf("vmop-%s", vmop.Name)
-	unstructuredVMIM, err := framework.GetClients().DynamicClient().Resource(schema.GroupVersionResource{
-		Group:    "internal.virtualization.deckhouse.io",
-		Version:  "v1",
-		Resource: "internalvirtualizationvirtualmachineinstancemigrations",
-	}).Namespace(vmop.Namespace).Get(context.Background(), vmimName, metav1.GetOptions{})
+func getVirtualMachineInstanceMigration(f *framework.Framework, name string) (*virtv1.VirtualMachineInstanceMigration, error) {
+	obj := &rewrite.VirtualMachineInstanceMigration{}
+	err := f.RewriteClient().Get(context.Background(), name, obj, rewrite.InNamespace(f.Namespace().Name))
 	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, nil
+		}
 		return nil, err
 	}
-
-	var vmim virtv1.VirtualMachineInstanceMigration
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredVMIM.Object, &vmim)
-	if err != nil {
-		return nil, err
-	}
-
-	return &vmim, nil
+	return obj.VirtualMachineInstanceMigration, nil
 }
