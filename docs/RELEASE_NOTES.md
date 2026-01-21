@@ -3,6 +3,23 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.4.0
+
+### New features
+
+- [vd] Added the ability to change the storage class for disks attached via `VirtualMachineBlockDeviceAttachment` (hotplug).
+- [vd] Added the ability to migrate virtual machines with local disks attached via `VirtualMachineBlockDeviceAttachment` (hotplug).
+- [vm] A virtual machine can now be started without a `Main` network.
+
+### Fixes
+
+- [module] Project quotas do not account for resources used by system components required for creating disks and images and for virtual machine operation.
+- [vi,cvi] Added tracking of image availability in DVCR.
+           If an image disappears from DVCR, the status of the corresponding `VirtualImage` and `ClusterVirtualImage` resources will have the `Lost` phase and an error.
+- [vm] Attaching images and disks to a virtual machine via `VirtualMachineBlockDeviceAttachment` (hotplug) no longer requires allocating an additional IP address.
+- [vmip] Fixed IP address attachment when the corresponding `VirtualMachineIPAddress` resource was created by the user manually and in advance.
+- [vm] Added the ability to clone a running virtual machine (in the `Running` phase) via `VirtualMachineOperation` of type `Clone`.
+
 ## v1.3.0
 
 ### New Features
