@@ -14,8 +14,7 @@ weight: 70
 ### Fixes
 
 - [module] Project quotas do not account for resources used by system components required for creating disks and images and for virtual machine operation.
-- [vi,cvi] Added tracking of image availability in DVCR.
-           If an image disappears from DVCR, the status of the corresponding `VirtualImage` and `ClusterVirtualImage` resources will have the `Lost` phase and an error.
+- [vi,cvi] Added tracking of image availability in DVCR: if an image disappears from DVCR, the status of the corresponding `VirtualImage` and `ClusterVirtualImage` resources will have the `Lost` phase and an error.
 - [vmip] Fixed IP address attachment when the corresponding `VirtualMachineIPAddress` resource was created by the user manually and in advance.
 - [vm] Added the ability to clone a running virtual machine (in the `Running` phase) via `VirtualMachineOperation` of type `Clone`.
 
