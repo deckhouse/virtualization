@@ -18,8 +18,10 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -76,7 +78,18 @@ func (s MigrationService) CreateMigration(ctx context.Context, vmop *v1alpha2.Vi
 	}
 
 	if vmop.Spec.Migrate != nil {
-		vmim.Spec.AddedNodeSelector = vmop.Spec.Migrate.NodeSelector
+		if vmop.Spec.Migrate.NodeSelector != nil && vmop.Spec.Migrate.NodeName != "" {
+			return errors.New("spec.migrate.nodeSelector and spec.migrate.nodeName cannot both be set at the same time")
+		}
+	}
+
+	if vmop.Spec.Migrate != nil {
+		switch {
+		case vmop.Spec.Migrate.NodeSelector != nil:
+			vmim.Spec.AddedNodeSelector = vmop.Spec.Migrate.NodeSelector
+		case vmop.Spec.Migrate.NodeName != "":
+			vmim.Spec.AddedNodeSelector = map[string]string{corev1.LabelHostname: vmop.Spec.Migrate.NodeName}
+		}
 	}
 
 	return client.IgnoreAlreadyExists(s.client.Create(ctx, vmim))
