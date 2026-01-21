@@ -203,7 +203,7 @@ spec:
                     * `Stop`: Stop the virtual machine.
                     * `Restart`: Restart the virtual machine.
                     * `Migrate`: Migrate the virtual machine to another node where it can be started.
-                    * `Evict`: Migrate the virtual machine to another node where it can be started.
+                    * `Evict`: Evict the virtual machine to another node where it can be started.
                     * `Restore`: Restore the virtual machine from a snapshot.
                     * `Clone`: Clone the virtual machine to a new virtual machine.
                   enum:
