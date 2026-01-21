@@ -26,11 +26,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -60,20 +58,16 @@ var _ = Describe("TargetMigration", func() {
 
 	It("checks a `VirtualMachine` migrate to the target `Node`", func() {
 		By("Environment preparation", func() {
-			virtaulDisk := vd.New(
-				vd.WithName("vd"),
-				vd.WithNamespace(f.Namespace().Name),
-				vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: object.ImageURLAlpineUEFIPerf,
-				}),
+			virtualDisk := object.NewHTTPVDAlpineBIOS(
+				"vd-root",
+				f.Namespace().Name,
 			)
 
 			virtualMachine = object.NewMinimalVM(
-				"vm-uefi-",
+				"vm-",
 				f.Namespace().Name,
-				vm.WithBootloader(v1alpha2.EFI),
-				vm.WithCPU(1, ptr.To("10%")),
-				vm.WithDisks(virtaulDisk),
+				vm.WithBootloader(v1alpha2.BIOS),
+				vm.WithDisks(virtualDisk),
 				vm.WithTolerations([]corev1.Toleration{
 					{
 						Key:      "node-role.kubernetes.io/control-plane",
@@ -83,7 +77,7 @@ var _ = Describe("TargetMigration", func() {
 				}),
 			)
 
-			err := f.CreateWithDeferredDeletion(context.Background(), virtaulDisk, virtualMachine)
+			err := f.CreateWithDeferredDeletion(context.Background(), virtualDisk, virtualMachine)
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, virtualMachine)

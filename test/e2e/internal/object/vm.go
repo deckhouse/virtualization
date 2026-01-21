@@ -28,7 +28,7 @@ func NewMinimalVM(prefix, namespace string, opts ...vm.Option) *v1alpha2.Virtual
 	baseOpts := []vm.Option{
 		vm.WithGenerateName(prefix),
 		vm.WithNamespace(namespace),
-		vm.WithCPU(1, ptr.To("100%")),
+		vm.WithCPU(1, ptr.To("20%")),
 		vm.WithMemory(*resource.NewQuantity(Mi256, resource.BinarySI)),
 		vm.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 		vm.WithProvisioningUserData(DefaultCloudInit),
