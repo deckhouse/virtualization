@@ -31,9 +31,7 @@ import (
 )
 
 type VNCREST struct {
-	vmLister         virtlisters.VirtualMachineLister
-	proxyCertManager certmanager.CertificateManager
-	kubevirt         KubevirtAPIServerConfig
+	*BaseREST
 }
 
 var (
@@ -41,12 +39,8 @@ var (
 	_ rest.Connecter = &VNCREST{}
 )
 
-func NewVNCREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtAPIServerConfig, proxyCertManager certmanager.CertificateManager) *VNCREST {
-	return &VNCREST{
-		vmLister:         vmLister,
-		kubevirt:         kubevirt,
-		proxyCertManager: proxyCertManager,
-	}
+func NewVNCREST(baseREST *BaseREST) *VNCREST {
+	return &VNCREST{baseREST}
 }
 
 // New implements rest.Storage interface
