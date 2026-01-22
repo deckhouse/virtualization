@@ -59,6 +59,12 @@ func (s ExitMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 		return &reconcile.Result{}, nil
 	}
 
+	for _, status := range vmop.Status.Resources {
+		if status.Status == v1alpha2.SnapshotResourceStatusInProgress {
+			return &reconcile.Result{}, nil
+		}
+	}
+
 	vmKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}
 	vm, err := object.FetchObject(ctx, vmKey, s.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
@@ -75,50 +81,49 @@ func (s ExitMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 		return &reconcile.Result{}, nil
 	}
 
-	maintenanceVMCondition, found := conditions.GetCondition(vmcondition.TypeMaintenance, vm.Status.Conditions)
-	if !found || maintenanceVMCondition.Status != metav1.ConditionTrue {
-		return &reconcile.Result{}, nil
-	}
-
-	for _, status := range vmop.Status.Resources {
-		if status.Status == v1alpha2.SnapshotResourceStatusInProgress {
-			return &reconcile.Result{}, nil
-		}
-	}
-
-	conditions.SetCondition(
-		conditions.NewConditionBuilder(vmcondition.TypeMaintenance).
-			Generation(vm.GetGeneration()).
-			Reason(vmcondition.ReasonMaintenanceRestore).
-			Status(metav1.ConditionFalse).
-			Message("VM exited maintenance mode after restore completion."),
-		&vm.Status.Conditions,
-	)
-
-	err = s.client.Status().Update(ctx, vm)
-	if err != nil {
-		if apierrors.IsConflict(err) {
-			return &reconcile.Result{}, nil
-		}
-
-		s.recorder.Event(
-			vmop,
-			corev1.EventTypeWarning,
-			v1alpha2.ReasonErrVMOPFailed,
-			"Failed to exit maintenance mode: "+err.Error(),
+	// If a VM has a maintenance condition, set it to false.
+	maintenanceVMCondition, maintenanceVMConditionFound := conditions.GetCondition(vmcondition.TypeMaintenance, vm.Status.Conditions)
+	if maintenanceVMConditionFound && maintenanceVMCondition.Status == metav1.ConditionTrue {
+		conditions.SetCondition(
+			conditions.NewConditionBuilder(vmcondition.TypeMaintenance).
+				Generation(vm.GetGeneration()).
+				Reason(vmcondition.ReasonMaintenanceRestore).
+				Status(metav1.ConditionFalse).
+				Message("VM exited maintenance mode after restore completion."),
+			&vm.Status.Conditions,
 		)
-		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
-		return &reconcile.Result{}, err
+
+		err = s.client.Status().Update(ctx, vm)
+		if err != nil {
+			if apierrors.IsConflict(err) {
+				return &reconcile.Result{}, nil
+			}
+
+			s.recorder.Event(
+				vmop,
+				corev1.EventTypeWarning,
+				v1alpha2.ReasonErrVMOPFailed,
+				"Failed to exit maintenance mode: "+err.Error(),
+			)
+			common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
+			return &reconcile.Result{}, err
+		}
 	}
 
-	conditions.SetCondition(
-		conditions.NewConditionBuilder(vmopcondition.TypeMaintenanceMode).
-			Generation(vmop.GetGeneration()).
-			Reason(vmopcondition.ReasonMaintenanceModeDisabled).
-			Status(metav1.ConditionFalse).
-			Message("VMOP has disabled maintenance mode on VM."),
-		&vmop.Status.Conditions,
-	)
+	// If the maintenance condition was not present on the VM,
+	// or it was already set to false,
+	// or it was correctly set to false in the previous step,
+	// set the maintenance condition to false on the VMOP.
+	if !maintenanceVMConditionFound || maintenanceVMCondition.Status != metav1.ConditionTrue {
+		conditions.SetCondition(
+			conditions.NewConditionBuilder(vmopcondition.TypeMaintenanceMode).
+				Generation(vmop.GetGeneration()).
+				Reason(vmopcondition.ReasonMaintenanceModeDisabled).
+				Status(metav1.ConditionFalse).
+				Message("VMOP has disabled maintenance mode on VM."),
+			&vmop.Status.Conditions,
+		)
+	}
 
 	return &reconcile.Result{}, nil
 }
