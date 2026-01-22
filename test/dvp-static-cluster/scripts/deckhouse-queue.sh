@@ -100,6 +100,14 @@ module_ready() {
 d8_ready() {
   local ready=false
   local count=60
+  local start_time
+  local end_time
+  local difference
+  local common_start_time
+  local common_end_time
+  local common_difference
+  local common_formatted_difference
+
   common_start_time=$(get_timestamp)
   for i in $(seq 1 $count) ; do
     start_time=$(get_timestamp)
