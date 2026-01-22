@@ -110,11 +110,11 @@ jobs:
             local storage_type=$1
             local base_path="downloaded-artifacts/"
             
-            echo "[INFO] Searching for report for storage type: $storage_type" >&2
-            echo "[DEBUG] Base path: $base_path" >&2
+            echo "[INFO] Searching for report for storage type: $storage_type"
+            echo "[DEBUG] Base path: $base_path"
             
             if [ ! -d "$base_path" ]; then
-              echo "[WARN] Base path does not exist: $base_path" >&2
+              echo "[WARN] Base path does not exist: $base_path"
               return 1
             fi
             
