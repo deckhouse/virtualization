@@ -82,6 +82,7 @@ var KubevirtRewriteRules = &RewriteRules{
 			{Original: "host-model-cpu.node.kubevirt.io", Renamed: "host-model-cpu." + nodePrefix},
 			{Original: "host-model-required-features.node.kubevirt.io", Renamed: "host-model-required-features." + nodePrefix},
 			{Original: "hyperv.node.kubevirt.io", Renamed: "hyperv." + nodePrefix},
+			{Original: "machine-type.node.kubevirt.io", Renamed: "machine-type." + nodePrefix},
 		},
 	},
 	Annotations: MetadataReplace{

@@ -19,9 +19,8 @@ package discovery_clusterip_service_for_dvcr
 import (
 	"context"
 	"fmt"
-	"strings"
-
 	"hooks/pkg/settings"
+	"strings"
 
 	"k8s.io/utils/ptr"
 

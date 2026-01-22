@@ -99,6 +99,10 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 
 	var warnings admission.Warnings
 
+	if !newVM.GetDeletionTimestamp().IsZero() {
+		return warnings, nil
+	}
+
 	for _, validator := range v.validators {
 		warn, err := validator.ValidateUpdate(ctx, oldVM, newVM)
 		if err != nil {
@@ -131,6 +135,7 @@ func NewDefaulter(client client.Client, vmClassService *service.VirtualMachineCl
 	return &Defaulter{
 		defaulters: []VirtualMachineDefaulter{
 			defaulter.NewVirtualMachineClassNameDefaulter(client, vmClassService),
+			defaulter.NewCoreFractionDefaulter(client),
 		},
 		log: log.With("webhook", "mutating"),
 	}

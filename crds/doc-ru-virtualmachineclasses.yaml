@@ -134,6 +134,10 @@ spec:
                       coreFractions:
                         description: |
                           Допустимые значения параметра `coreFraction` в процентах (например, "5%", "10%", "25%", "50%", "100%").
+                      defaultCoreFraction:
+                        description: |
+                          Значение `coreFraction` по умолчанию для VirtualMachineClass.
+                          Используется при создании ВМ, если `coreFraction` не задан явно.
                       cores:
                         description: |
                           Политика применяется для заданного диапазона числа ядер CPU.

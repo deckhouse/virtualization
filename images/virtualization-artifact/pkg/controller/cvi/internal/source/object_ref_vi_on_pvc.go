@@ -109,7 +109,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *v1alpha2.Clu
 
 		ownerRef := metav1.NewControllerRef(cvi, cvi.GroupVersionKind())
 		podSettings := ds.importerService.GetPodSettingsWithPVC(ownerRef, supgen, viRef.Status.Target.PersistentVolumeClaim, viRef.Namespace)
-		err = ds.importerService.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource), podSettings)
+		err = ds.importerService.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource), podSettings, service.WithSystemNodeToleration())
 		switch {
 		case err == nil:
 			// OK.

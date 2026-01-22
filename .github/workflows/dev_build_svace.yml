@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Build main with Svace every weekend
+name: Build latest CSE branch with Svace every weekend
 env:
   MODULES_REGISTRY: ${{ vars.DEV_REGISTRY }}
   CI_COMMIT_REF_NAME: ${{ github.ref_name }}
@@ -43,10 +43,22 @@ jobs:
       modules_module_tag: ${{ steps.modules_module_tag.outputs.MODULES_MODULE_TAG }}
       module_edition: ${{ steps.modules_module_tag.outputs.MODULE_EDITION }}
       runner_type: ${{ steps.modules_module_tag.outputs.RUNNER_TYPE }}
+      checkout_tag: ${{ steps.modules_module_tag.outputs.CHECKOUT_TAG }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: "${{ github.event.pull_request.head.sha || github.sha }}"
       - name: Set vars
         id: modules_module_tag
         run: |
+          if [[ "${{ github.event_name }}" == 'schedule' ]]; then
+            # get last semver branch with remotes/origin/release-X.Y format
+            CHECKOUT_TAG=$(git branch --all | grep -E 'origin\/release-[0-9]+\.[0-9]+-cse$' | sort -V | tail -n 1)
+          else
+            CHECKOUT_TAG=${{ github.event.pull_request.head.sha || github.sha }}
+          fi
+          echo "CHECKOUT_TAG=$CHECKOUT_TAG" >> "$GITHUB_OUTPUT"
           if [[ "${{ github.ref_name }}" == 'main' ]]; then
             MODULES_MODULE_TAG="${{ github.ref_name }}-svace"
           elif [[ "${{ github.ref_name }}" =~ ^release-[0-9]+\.[0-9]+ ]]; then
@@ -79,6 +91,7 @@ jobs:
     env:
       MODULES_MODULE_TAG: ${{needs.set_vars.outputs.modules_module_tag}}
       MODULE_EDITION: ${{needs.set_vars.outputs.module_edition}}
+      CHECKOUT_TAG: ${{needs.set_vars.outputs.checkout_tag}}
       WERF_VIRTUAL_MERGE: 0
     steps:
       - name: Setup Docker config
@@ -94,11 +107,11 @@ jobs:
           echo MODULE_EDITION=$MODULE_EDITION
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
           echo DOCKER_CONFIG=$DOCKER_CONFIG
-
+          echo CHECKOUT_TAG=$CHECKOUT_TAG
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{needs.set_vars.outputs.checkout_tag}}
 
       - name: Remove unwanted software
         if: ${{ !contains(needs.set_vars.outputs.runner_type, 'self-hosted') }}

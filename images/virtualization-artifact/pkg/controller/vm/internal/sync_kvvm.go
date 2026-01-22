@@ -228,10 +228,12 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	if cbAwaitingRestart.Condition().Status == metav1.ConditionFalse && kvvm != nil {
 		cond, _ := conditions.GetKVVMCondition(virtv1.VirtualMachineRestartRequired, kvvm.Status.Conditions)
 		if cond.Status == corev1.ConditionTrue {
+			msg := "Please restart the virtual machine to synchronize its configuration."
+			log.Error(msg)
 			cbAwaitingRestart.
 				Status(metav1.ConditionTrue).
 				Reason(vmcondition.ReasonRestartAwaitingUnexpectedState).
-				Message("VirtualMachine has some unexpected state. Restart is required for syncing the configuration.")
+				Message(msg)
 		}
 	}
 
@@ -303,7 +305,11 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 		if err != nil {
 			return false, fmt.Errorf("detect changes on the stopped internal virtual machine: %w", err)
 		}
-		if hasVMChanges {
+		hasVMClassChanges, err := h.detectVMClassSpecChanges(ctx, s)
+		if err != nil {
+			return false, fmt.Errorf("detect changes on the stopped internal virtual machine: %w", err)
+		}
+		if hasVMChanges || hasVMClassChanges {
 			err := h.updateKVVM(ctx, s)
 			if err != nil {
 				return false, fmt.Errorf("update stopped internal virtual machine: %w", err)
@@ -410,8 +416,13 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 		return nil, err
 	}
 
-	if ip.Status.Address == "" {
-		return nil, fmt.Errorf("the IP address is not found for the virtual machine")
+	ipAddress := ""
+	if ip != nil {
+		if ip.Status.Address == "" {
+			return nil, fmt.Errorf("the IP address is not found for the virtual machine")
+		} else {
+			ipAddress = ip.Status.Address
+		}
 	}
 
 	vmmacs, err := s.VirtualMachineMACAddresses(ctx)
@@ -427,7 +438,7 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 	}
 
 	// Create kubevirt VirtualMachine resource from d8 VirtualMachine spec.
-	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, vmbdas, class, ip.Status.Address, networkSpec)
+	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, vmbdas, class, ipAddress, networkSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -569,6 +580,21 @@ func (h *SyncKvvmHandler) detectVMSpecChanges(ctx context.Context, s state.Virtu
 	}
 
 	return currentKvvm.Annotations[annotations.AnnVMLastAppliedSpec] != newKvvm.Annotations[annotations.AnnVMLastAppliedSpec], nil
+}
+
+// detectVMClassSpecChanges returns true and no error if specification has changes.
+func (h *SyncKvvmHandler) detectVMClassSpecChanges(ctx context.Context, s state.VirtualMachineState) (bool, error) {
+	currentKvvm, err := s.KVVM(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	newKvvm, err := MakeKVVMFromVMSpec(ctx, s)
+	if err != nil {
+		return false, err
+	}
+
+	return currentKvvm.Annotations[annotations.AnnVMClassLastAppliedSpec] != newKvvm.Annotations[annotations.AnnVMClassLastAppliedSpec], nil
 }
 
 // canApplyChanges returns true if changes can be applied right now.

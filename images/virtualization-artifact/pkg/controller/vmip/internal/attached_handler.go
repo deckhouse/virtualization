@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -102,28 +103,36 @@ func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmip *v
 		}
 	}
 
-	if attachedVM != nil {
-		return attachedVM, nil
-	}
+	if attachedVM == nil {
+		// If there's no match for the spec either, then try to find the vm by ownerRef.
+		var vmName string
+		for _, ownerRef := range vmip.OwnerReferences {
+			if ownerRef.Kind == v1alpha2.VirtualMachineKind && string(ownerRef.UID) == vmip.Labels[annotations.LabelVirtualMachineUID] {
+				vmName = ownerRef.Name
+				break
+			}
+		}
 
-	// If there's no match for the spec either, then try to find the vm by ownerRef.
-	var vmName string
-	for _, ownerRef := range vmip.OwnerReferences {
-		if ownerRef.Kind == v1alpha2.VirtualMachineKind && string(ownerRef.UID) == vmip.Labels[annotations.LabelVirtualMachineUID] {
-			vmName = ownerRef.Name
-			break
+		if vmName == "" {
+			return nil, nil
+		}
+
+		vmKey := types.NamespacedName{Name: vmName, Namespace: vmip.Namespace}
+		attachedVM, err = object.FetchObject(ctx, vmKey, h.client, &v1alpha2.VirtualMachine{})
+		if err != nil {
+			return nil, fmt.Errorf("fetch vm %s: %w", vmKey, err)
 		}
 	}
 
-	if vmName == "" {
-		return nil, nil
+	if attachedVM != nil {
+		if network.HasMainNetworkStatus(attachedVM.Status.Networks) {
+			return attachedVM, nil
+		}
+
+		if network.HasMainNetworkSpec(attachedVM.Spec.Networks) {
+			return attachedVM, nil
+		}
 	}
 
-	vmKey := types.NamespacedName{Name: vmName, Namespace: vmip.Namespace}
-	attachedVM, err = object.FetchObject(ctx, vmKey, h.client, &v1alpha2.VirtualMachine{})
-	if err != nil {
-		return nil, fmt.Errorf("fetch vm %s: %w", vmKey, err)
-	}
-
-	return attachedVM, nil
+	return nil, nil
 }

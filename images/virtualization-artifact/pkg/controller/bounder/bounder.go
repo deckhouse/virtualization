@@ -86,6 +86,9 @@ func (imp *Bounder) makeBounderPodSpec() (*corev1.Pod, error) {
 			Annotations: map[string]string{
 				annotations.AnnCreatedBy: "yes",
 			},
+			Labels: map[string]string{
+				annotations.HeritageLabel: annotations.HeritageValue,
+			},
 			Finalizers: []string{
 				imp.PodSettings.Finalizer,
 			},
@@ -112,12 +115,12 @@ func (imp *Bounder) makeBounderPodSpec() (*corev1.Pod, error) {
 		}
 	}
 
-	annotations.SetRecommendedLabels(&pod, imp.PodSettings.InstallerLabels, imp.PodSettings.ControllerName)
-	podutil.SetRestrictedSecurityContext(&pod.Spec)
-
 	container := imp.makeBounderContainerSpec()
 	imp.addVolumes(&pod, container)
 	pod.Spec.Containers = append(pod.Spec.Containers, *container)
+
+	annotations.SetRecommendedLabels(&pod, imp.PodSettings.InstallerLabels, imp.PodSettings.ControllerName)
+	podutil.SetRestrictedSecurityContext(&pod.Spec)
 
 	return &pod, nil
 }
@@ -155,7 +158,7 @@ func (imp *Bounder) addVolumes(pod *corev1.Pod, container *corev1.Container) {
 			},
 			corev1.VolumeDevice{
 				Name:       "volume",
-				DevicePath: "/dev/xvda",
+				DevicePath: common.ImporterBlockDeviceDir,
 			},
 		)
 	}

@@ -131,7 +131,7 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 
 	ready, _ := conditions.GetCondition(vicondition.ReadyType, newVI.Status.Conditions)
 	switch {
-	case ready.Status == metav1.ConditionTrue, newVI.Status.Phase == v1alpha2.ImageReady, newVI.Status.Phase == v1alpha2.ImageLost:
+	case ready.Status == metav1.ConditionTrue, newVI.Status.Phase == v1alpha2.ImageReady, newVI.Status.Phase == v1alpha2.ImageLost, newVI.Status.Phase == v1alpha2.ImagePVCLost:
 		if !reflect.DeepEqual(oldVI.Spec.DataSource, newVI.Spec.DataSource) {
 			return nil, errors.New("data source cannot be changed if the VirtualImage has already been provisioned")
 		}

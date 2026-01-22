@@ -171,6 +171,20 @@ const (
 	// DVCRLabelValue provides a constant  for DVCR Pod label values.
 	DVCRLabelValue = "dvcr-data-importer"
 
+	// QuotaExcludeValue provides a constant  for exclude quota value.
+	QuotaExcludeValue = "true"
+	// QuotaExcludeLabel provides a constant  for exclude quota label.
+	QuotaExcludeLabel = "resource-quota-overrides.deckhouse.io/ignore"
+	// QuotaDiscountCPU provides a constant for discount CPU from quota annotation.
+	QuotaDiscountCPU = "resource-quota-overrides.deckhouse.io/discount-cpu"
+	// QuotaDiscountMemory provides a constant for discount Memory from quota annotation.
+	QuotaDiscountMemory = "resource-quota-overrides.deckhouse.io/discount-memory"
+
+	// HeritageLabel is the label to indicate Pod heritage.
+	HeritageLabel = "heritage"
+	// HeritageValue is the value to indicate Pod is related to the deckhouse.
+	HeritageValue = "deckhouse"
+
 	// InhibitNodeShutdownLabel is a label to prevent node shutdown is Pod with label is present.
 	InhibitNodeShutdownLabel = "pod.deckhouse.io/inhibit-node-shutdown"
 

@@ -117,3 +117,13 @@ func IsVMActive(ctx context.Context, cli client.Client, vm v1alpha2.VirtualMachi
 
 	return false, nil
 }
+
+func GetActivePodName(vm *v1alpha2.VirtualMachine) (string, bool) {
+	for _, pod := range vm.Status.VirtualMachinePods {
+		if pod.Active {
+			return pod.Name, true
+		}
+	}
+
+	return "", false
+}

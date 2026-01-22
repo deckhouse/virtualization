@@ -89,8 +89,9 @@ type VirtualImageStatus struct {
 	// * `Ready`: The resource has been created and is ready to use.
 	// * `Failed`: There was an error when creating the resource.
 	// * `Terminating`: The resource is being deleted.
+	// * `ImageLost`: The image is missing in DVCR. The resource cannot be used.
 	// * `PVCLost`: The child PVC of the resource is missing. The resource cannot be used.
-	// +kubebuilder:validation:Enum:={Pending,Provisioning,WaitForUserUpload,Ready,Failed,Terminating,PVCLost}
+	// +kubebuilder:validation:Enum:={Pending,Provisioning,WaitForUserUpload,Ready,Failed,Terminating,ImageLost,PVCLost}
 	Phase ImagePhase `json:"phase,omitempty"`
 	// Progress of copying an image from a source to DVCR.
 	Progress string `json:"progress,omitempty"`
@@ -143,6 +144,7 @@ type VirtualImageObjectRef struct {
 	// Kind of an existing VirtualImage, ClusterVirtualImage, VirtualDisk or VirtualDiskSnapshot resource.
 	Kind VirtualImageObjectRefKind `json:"kind"`
 	// Name of an existing VirtualImage, ClusterVirtualImage, VirtualDisk or VirtualDiskSnapshot resource.
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 }
 

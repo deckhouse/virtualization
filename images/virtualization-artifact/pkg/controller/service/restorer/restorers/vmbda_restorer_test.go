@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -138,6 +139,16 @@ var _ = Describe("VMBlockDeviceAttachmentRestorer", func() {
 
 			Expect(vmbdaDeleted).To(Equal(args.shouldBeDeleted))
 			Expect(vmbdaCreated).To(Equal(args.shouldBeCreated))
+
+			if args.vmbdaExists {
+				err = fakeClient.Get(ctx, client.ObjectKeyFromObject(&vmbda), &vmbda)
+				Expect(err).NotTo(HaveOccurred())
+
+				_, restoreAnnoOk := vmbda.Annotations[annotations.AnnVMOPRestore]
+				Expect(restoreAnnoOk).To(Equal(args.shouldBeCreated))
+				_, deleteAnnoOk := vmbda.Annotations[annotations.AnnVMOPRestoreDeleted]
+				Expect(deleteAnnoOk).To(Equal(args.shouldBeDeleted))
+			}
 		},
 		Entry("vmbda exists; used by different VM", VMBlockDeviceAttachmentTestArgs{
 			mode: v1alpha2.SnapshotOperationModeStrict,
@@ -203,6 +214,13 @@ var _ = Describe("VMBlockDeviceAttachmentRestorer", func() {
 			Expect(errors.Is(err, common.ErrWaitingForDeletion)).To(BeTrue())
 			Expect(vmbdaDeleted).To(BeTrue())
 			Expect(vmbdaCreated).To(BeFalse())
+
+			err = fakeClient.Get(ctx, client.ObjectKeyFromObject(&vmbda), &vmbda)
+			Expect(err).NotTo(HaveOccurred())
+			_, restoreAnnoOk := vmbda.Annotations[annotations.AnnVMOPRestore]
+			Expect(restoreAnnoOk).To(BeFalse())
+			_, deleteAnnoOk := vmbda.Annotations[annotations.AnnVMOPRestoreDeleted]
+			Expect(deleteAnnoOk).To(BeTrue())
 		})
 	})
 

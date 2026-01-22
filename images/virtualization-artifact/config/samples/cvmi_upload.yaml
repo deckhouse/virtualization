@@ -1,9 +1,0 @@
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualImage
-metadata:
-  name: cvmi-upload
-  annotations:
-    virt.deckhouse.io/storage.pod.retainAfterCompletion: "true"
-spec:
-  dataSource:
-    type: "Upload"

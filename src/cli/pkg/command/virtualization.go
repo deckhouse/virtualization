@@ -31,6 +31,8 @@ import (
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/src/cli/internal/clientconfig"
+	"github.com/deckhouse/virtualization/src/cli/internal/cmd/ansibleinventory"
+	"github.com/deckhouse/virtualization/src/cli/internal/cmd/collectdebuginfo"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/console"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/lifecycle"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/portforward"
@@ -83,7 +85,9 @@ func NewCommand(programName string) *cobra.Command {
 	optionsCmd.SetUsageTemplate(templates.OptionsUsageTemplate())
 
 	virtCmd.AddCommand(
+		ansibleinventory.NewCommand(),
 		console.NewCommand(),
+		collectdebuginfo.NewCommand(),
 		vnc.NewCommand(),
 		portforward.NewCommand(),
 		ssh.NewCommand(),

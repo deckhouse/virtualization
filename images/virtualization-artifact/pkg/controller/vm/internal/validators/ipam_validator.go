@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -37,6 +38,10 @@ func NewIPAMValidator(client client.Client) *IPAMValidator {
 }
 
 func (v *IPAMValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+	if vm.Spec.VirtualMachineIPAddress != "" && len(vm.Spec.Networks) > 0 && !network.HasMainNetworkSpec(vm.Spec.Networks) {
+		return nil, fmt.Errorf("spec.virtualMachineIPAddressName cannot be set without Main network type in spec.networks")
+	}
+
 	vmipName := vm.Spec.VirtualMachineIPAddress
 	if vmipName == "" {
 		vmipName = vm.Name
@@ -62,6 +67,10 @@ func (v *IPAMValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.Virtual
 }
 
 func (v *IPAMValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+	if newVM.Spec.VirtualMachineIPAddress != "" && len(newVM.Spec.Networks) > 0 && !network.HasMainNetworkSpec(newVM.Spec.Networks) {
+		return nil, fmt.Errorf("spec.virtualMachineIPAddressName cannot be set without Main network type in spec.networks")
+	}
+
 	if oldVM.Spec.VirtualMachineIPAddress == newVM.Spec.VirtualMachineIPAddress {
 		return nil, nil
 	}

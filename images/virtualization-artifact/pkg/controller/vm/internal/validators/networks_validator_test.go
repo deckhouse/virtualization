@@ -24,6 +24,12 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
+var (
+	mainNetwork        = v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeMain}
+	networkTest        = v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeNetwork, Name: "test"}
+	clusterNetworkTest = v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "test"}
+)
+
 func TestNetworksValidateCreate(t *testing.T) {
 	tests := []struct {
 		networks   []v1alpha2.NetworksSpec
@@ -31,14 +37,16 @@ func TestNetworksValidateCreate(t *testing.T) {
 		valid      bool
 	}{
 		{[]v1alpha2.NetworksSpec{}, true, true},
-		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}}, true, true},
-		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}, {Type: v1alpha2.NetworksTypeMain}}, true, false},
+		{[]v1alpha2.NetworksSpec{mainNetwork}, true, true},
+		{[]v1alpha2.NetworksSpec{mainNetwork, mainNetwork}, true, false},
+		{[]v1alpha2.NetworksSpec{networkTest, mainNetwork, mainNetwork}, true, false},
 		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, Name: "main"}}, true, false},
-		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test"}, {Type: v1alpha2.NetworksTypeMain}}, true, false},
-		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}, {Type: v1alpha2.NetworksTypeNetwork, Name: "test"}}, true, true},
-		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}, {Type: v1alpha2.NetworksTypeNetwork, Name: "test"}, {Type: v1alpha2.NetworksTypeNetwork, Name: "test"}}, true, false},
-		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}, {Type: v1alpha2.NetworksTypeNetwork}}, true, false},
-		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}}, false, false},
+		{[]v1alpha2.NetworksSpec{networkTest}, true, true},
+		{[]v1alpha2.NetworksSpec{networkTest, clusterNetworkTest}, true, true},
+		{[]v1alpha2.NetworksSpec{mainNetwork, networkTest}, true, true},
+		{[]v1alpha2.NetworksSpec{mainNetwork, networkTest, networkTest}, true, false},
+		{[]v1alpha2.NetworksSpec{mainNetwork, {Type: v1alpha2.NetworksTypeNetwork}}, true, false},
+		{[]v1alpha2.NetworksSpec{mainNetwork}, false, false},
 	}
 
 	for i, test := range tests {
@@ -78,15 +86,15 @@ func TestNetworksValidateUpdate(t *testing.T) {
 		},
 		{
 			oldNetworksSpec: []v1alpha2.NetworksSpec{},
-			newNetworksSpec: []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}},
+			newNetworksSpec: []v1alpha2.NetworksSpec{mainNetwork},
 			sdnEnabled:      true,
 			valid:           true,
 		},
 		{
 			oldNetworksSpec: []v1alpha2.NetworksSpec{},
 			newNetworksSpec: []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeMain},
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "test"},
+				mainNetwork,
+				networkTest,
 			},
 			sdnEnabled: true,
 			valid:      true,
@@ -94,38 +102,60 @@ func TestNetworksValidateUpdate(t *testing.T) {
 		{
 			oldNetworksSpec: []v1alpha2.NetworksSpec{},
 			newNetworksSpec: []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeMain},
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "test"},
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "test"},
+				mainNetwork,
+				networkTest,
+				networkTest,
 			},
 			sdnEnabled: true,
 			valid:      false,
 		},
 		{
 			oldNetworksSpec: []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeMain},
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "test"},
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "test"},
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "test"},
+				mainNetwork,
+				networkTest,
+				networkTest,
+				networkTest,
 			},
 			newNetworksSpec: []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeMain},
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "test"},
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "test"},
+				mainNetwork,
+				networkTest,
+				networkTest,
 			},
 			sdnEnabled: true,
 			valid:      false,
 		},
 		{
 			oldNetworksSpec: []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeMain},
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "test"},
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "test"},
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "test"},
+				mainNetwork,
+				networkTest,
+				networkTest,
+				networkTest,
 			},
 			newNetworksSpec: []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeMain},
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "test"},
+				mainNetwork,
+				networkTest,
+			},
+			sdnEnabled: true,
+			valid:      true,
+		},
+		{
+			oldNetworksSpec: []v1alpha2.NetworksSpec{
+				mainNetwork,
+				networkTest,
+			},
+			newNetworksSpec: []v1alpha2.NetworksSpec{
+				networkTest,
+			},
+			sdnEnabled: true,
+			valid:      true,
+		},
+		{
+			oldNetworksSpec: []v1alpha2.NetworksSpec{
+				networkTest,
+			},
+			newNetworksSpec: []v1alpha2.NetworksSpec{
+				mainNetwork,
+				networkTest,
 			},
 			sdnEnabled: true,
 			valid:      true,

@@ -27,9 +27,27 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-const (
-	NameDefaultInterface = "default"
-)
+const NameDefaultInterface = "default"
+
+func HasMainNetworkStatus(networks []v1alpha2.NetworksStatus) bool {
+	for _, network := range networks {
+		if network.Type == v1alpha2.NetworksTypeMain {
+			return true
+		}
+	}
+
+	return false
+}
+
+func HasMainNetworkSpec(networks []v1alpha2.NetworksSpec) bool {
+	for _, network := range networks {
+		if network.Type == v1alpha2.NetworksTypeMain {
+			return true
+		}
+	}
+
+	return false
+}
 
 type InterfaceSpec struct {
 	Type          string `json:"type"`
@@ -77,6 +95,12 @@ func CreateNetworkSpec(vm *v1alpha2.VirtualMachine, vmmacs []*v1alpha2.VirtualMa
 	}
 	for _, n := range vm.Spec.Networks {
 		if n.Type == v1alpha2.NetworksTypeMain {
+			res = append(res, InterfaceSpec{
+				Type:          n.Type,
+				Name:          n.Name,
+				InterfaceName: NameDefaultInterface,
+				MAC:           "",
+			})
 			continue
 		}
 		var mac string
@@ -103,8 +127,16 @@ func CreateNetworkSpec(vm *v1alpha2.VirtualMachine, vmmacs []*v1alpha2.VirtualMa
 	return res
 }
 
-func (c InterfaceSpecList) ToString() (string, error) {
-	data, err := json.Marshal(c)
+func (s InterfaceSpecList) ToString() (string, error) {
+	filtered := InterfaceSpecList{}
+	for _, spec := range s {
+		if spec.Type == v1alpha2.NetworksTypeMain {
+			continue
+		}
+		filtered = append(filtered, spec)
+	}
+
+	data, err := json.Marshal(filtered)
 	if err != nil {
 		return "", err
 	}

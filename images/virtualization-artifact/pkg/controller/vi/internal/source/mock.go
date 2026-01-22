@@ -48,7 +48,7 @@ var _ Importer = &ImporterMock{}
 //			StartFunc: func(ctx context.Context, settings *importer.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error {
 //				panic("mock out the Start method")
 //			},
-//			StartWithPodSettingFunc: func(contextMoqParam context.Context, settings *importer.Settings, generator supplements.Generator, cABundle *datasource.CABundle, podSettings *importer.PodSettings) error {
+//			StartWithPodSettingFunc: func(contextMoqParam context.Context, settings *importer.Settings, generator supplements.Generator, cABundle *datasource.CABundle, podSettings *importer.PodSettings, options ...service.Option) error {
 //				panic("mock out the StartWithPodSetting method")
 //			},
 //			UnprotectFunc: func(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error {
@@ -80,7 +80,7 @@ type ImporterMock struct {
 	StartFunc func(ctx context.Context, settings *importer.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
 
 	// StartWithPodSettingFunc mocks the StartWithPodSetting method.
-	StartWithPodSettingFunc func(contextMoqParam context.Context, settings *importer.Settings, generator supplements.Generator, cABundle *datasource.CABundle, podSettings *importer.PodSettings) error
+	StartWithPodSettingFunc func(contextMoqParam context.Context, settings *importer.Settings, generator supplements.Generator, cABundle *datasource.CABundle, podSettings *importer.PodSettings, options ...service.Option) error
 
 	// UnprotectFunc mocks the Unprotect method.
 	UnprotectFunc func(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error
@@ -155,6 +155,8 @@ type ImporterMock struct {
 			CABundle *datasource.CABundle
 			// PodSettings is the podSettings argument value.
 			PodSettings *importer.PodSettings
+			// Options is the options argument value.
+			Options []service.Option
 		}
 		// Unprotect holds details about calls to the Unprotect method.
 		Unprotect []struct {
@@ -421,7 +423,7 @@ func (mock *ImporterMock) StartCalls() []struct {
 }
 
 // StartWithPodSetting calls StartWithPodSettingFunc.
-func (mock *ImporterMock) StartWithPodSetting(contextMoqParam context.Context, settings *importer.Settings, generator supplements.Generator, cABundle *datasource.CABundle, podSettings *importer.PodSettings) error {
+func (mock *ImporterMock) StartWithPodSetting(contextMoqParam context.Context, settings *importer.Settings, generator supplements.Generator, cABundle *datasource.CABundle, podSettings *importer.PodSettings, options ...service.Option) error {
 	if mock.StartWithPodSettingFunc == nil {
 		panic("ImporterMock.StartWithPodSettingFunc: method is nil but Importer.StartWithPodSetting was just called")
 	}
@@ -431,17 +433,19 @@ func (mock *ImporterMock) StartWithPodSetting(contextMoqParam context.Context, s
 		Generator       supplements.Generator
 		CABundle        *datasource.CABundle
 		PodSettings     *importer.PodSettings
+		Options         []service.Option
 	}{
 		ContextMoqParam: contextMoqParam,
 		Settings:        settings,
 		Generator:       generator,
 		CABundle:        cABundle,
 		PodSettings:     podSettings,
+		Options:         options,
 	}
 	mock.lockStartWithPodSetting.Lock()
 	mock.calls.StartWithPodSetting = append(mock.calls.StartWithPodSetting, callInfo)
 	mock.lockStartWithPodSetting.Unlock()
-	return mock.StartWithPodSettingFunc(contextMoqParam, settings, generator, cABundle, podSettings)
+	return mock.StartWithPodSettingFunc(contextMoqParam, settings, generator, cABundle, podSettings, options...)
 }
 
 // StartWithPodSettingCalls gets all the calls that were made to StartWithPodSetting.
@@ -454,6 +458,7 @@ func (mock *ImporterMock) StartWithPodSettingCalls() []struct {
 	Generator       supplements.Generator
 	CABundle        *datasource.CABundle
 	PodSettings     *importer.PodSettings
+	Options         []service.Option
 } {
 	var calls []struct {
 		ContextMoqParam context.Context
@@ -461,6 +466,7 @@ func (mock *ImporterMock) StartWithPodSettingCalls() []struct {
 		Generator       supplements.Generator
 		CABundle        *datasource.CABundle
 		PodSettings     *importer.PodSettings
+		Options         []service.Option
 	}
 	mock.lockStartWithPodSetting.RLock()
 	calls = mock.calls.StartWithPodSetting

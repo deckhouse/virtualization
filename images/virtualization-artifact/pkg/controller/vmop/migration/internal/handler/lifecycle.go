@@ -30,7 +30,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -189,23 +188,6 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 		return reconcile.Result{}, nil
 	}
 
-	// 6.3 Fail if attached vmbdas are not shared.
-	attachedRWOHotplugDisks, err := h.areAnyRWOHotplugDisks(ctx, vm)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	if attachedRWOHotplugDisks {
-		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
-		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "Hotplug disks are not shared. Cannot be migrated.")
-		conditions.SetCondition(
-			completedCond.
-				Reason(vmopcondition.ReasonHotplugDisksNotShared).
-				Status(metav1.ConditionFalse).
-				Message("Hotplug disks are not shared. Cannot be migrated."),
-			&vmop.Status.Conditions)
-		return reconcile.Result{}, nil
-	}
-
 	// 7. Check if the vm is migratable.
 	if !h.canExecute(vmop, vm) {
 		return reconcile.Result{}, nil
@@ -339,51 +321,6 @@ func (h LifecycleHandler) isKubeVirtMigrationRejectedDueToQuota(ctx context.Cont
 	_, ok := conditions.GetKVVMIMCondition(conditions.KubevirtMigrationRejectedByResourceQuotaType, mig.Status.Conditions)
 	if ok {
 		return true, nil
-	}
-
-	return false, nil
-}
-
-func (h LifecycleHandler) areAnyRWOHotplugDisks(ctx context.Context, vm *v1alpha2.VirtualMachine) (bool, error) {
-	vmbdaList := &v1alpha2.VirtualMachineBlockDeviceAttachmentList{}
-	err := h.client.List(ctx, vmbdaList, client.InNamespace(vm.Namespace), &client.MatchingFields{
-		indexer.IndexFieldVMBDAByVM: vm.Name,
-	})
-	if err != nil {
-		return false, err
-	}
-
-	var vmbdas []*v1alpha2.VirtualMachineBlockDeviceAttachment
-	for _, vmbda := range vmbdaList.Items {
-		if vmbda.Spec.BlockDeviceRef.Kind != v1alpha2.VMBDAObjectRefKindVirtualDisk {
-			continue
-		}
-		vmbdas = append(vmbdas, &vmbda)
-	}
-
-	for _, vmbda := range vmbdas {
-		vd := &v1alpha2.VirtualDisk{}
-		err = h.client.Get(ctx, client.ObjectKey{Namespace: vmbda.Namespace, Name: vmbda.Spec.BlockDeviceRef.Name}, vd)
-		if err != nil {
-			return false, err
-		}
-
-		pvc := &corev1.PersistentVolumeClaim{}
-		err = h.client.Get(ctx, client.ObjectKey{Namespace: vd.Namespace, Name: vd.Status.Target.PersistentVolumeClaim}, pvc)
-		if err != nil {
-			return false, err
-		}
-
-		isRWX := false
-		for _, mode := range pvc.Status.AccessModes {
-			if mode == corev1.ReadWriteMany {
-				isRWX = true
-				break
-			}
-		}
-		if !isRWX {
-			return true, nil
-		}
 	}
 
 	return false, nil
@@ -573,16 +510,29 @@ func isPodPendingUnschedulable(pod *corev1.Pod) bool {
 	return false
 }
 
-func (h LifecycleHandler) getConditionCompletedMessageByReason(ctx context.Context, reason vmopcondition.ReasonCompleted, mig *virtv1.VirtualMachineInstanceMigration) (string, error) {
-	msg := "Wait until operation is completed"
-	if reason == vmopcondition.ReasonMigrationPending || reason == vmopcondition.ReasonMigrationPrepareTarget {
+func (h LifecycleHandler) getConditionCompletedMessageByReason(
+	ctx context.Context,
+	reason vmopcondition.ReasonCompleted,
+	mig *virtv1.VirtualMachineInstanceMigration,
+) (string, error) {
+	switch reason {
+	case vmopcondition.ReasonMigrationPending:
+		return "The VirtualMachineOperation for migrating the virtual machine has been queued. " +
+			"Waiting for the queue to be processed and for this operation to be executed.", nil
+
+	case vmopcondition.ReasonMigrationPrepareTarget:
 		pod, err := h.getTargetPod(ctx, mig)
 		if err != nil {
 			return "", err
 		}
+
 		if isPodPendingUnschedulable(pod) {
-			msg += fmt.Sprintf(" (target pod is unschedulable: %s/%s)", pod.Namespace, pod.Name)
+			return fmt.Sprintf("Waiting for the virtual machine to be scheduled: "+
+				"target pod \"%s/%s\" is unschedulable.", pod.Namespace, pod.Name), nil
 		}
+		return "The target environment is in the process of being prepared for migration.", nil
+
+	default:
+		return "Wait until operation is completed.", nil
 	}
-	return msg + ".", nil
 }

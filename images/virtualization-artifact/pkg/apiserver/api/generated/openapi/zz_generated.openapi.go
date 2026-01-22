@@ -318,6 +318,13 @@ func schema_virtualization_api_core_v1alpha3_SizingPolicy(ref common.ReferenceCa
 							},
 						},
 					},
+					"defaultCoreFraction": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A default `CoreFraction` value for a `VirtualMachine` if it is not provided.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"dedicatedCores": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Allowed values of the `dedicatedCores` parameter.",

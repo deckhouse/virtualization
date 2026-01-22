@@ -181,6 +181,7 @@ spec:
                           description:
                             Name of the existing VirtualImage, ClusterVirtualImage,
                             VirtualDisk or VirtualDiskSnapshot resource.
+                          minLength: 1
                           type: string
                         namespace:
                           description:
@@ -357,6 +358,7 @@ spec:
                     * `Ready`: The resource has been created and is ready to use.
                     * `Failed`: There was an error when creating the resource.
                     * `Terminating`: The resource is being deleted.
+                    * `ImageLost`: The image is missing in DVCR. The resource cannot be used.
                   enum:
                     - Pending
                     - Provisioning
@@ -364,6 +366,7 @@ spec:
                     - Ready
                     - Failed
                     - Terminating
+                    - ImageLost
                   type: string
                 progress:
                   description:

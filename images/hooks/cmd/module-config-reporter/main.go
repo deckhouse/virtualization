@@ -18,9 +18,8 @@ package main
 
 import (
 	"fmt"
-	"os"
-
 	"hooks/pkg/settings"
+	"os"
 
 	"github.com/tidwall/gjson"
 )
@@ -103,7 +102,7 @@ func handle(values gjson.Result) error {
 	if validationObj.IsObject() {
 		validationErr := validationObj.Get("error")
 		if validationErr.Exists() {
-			return fmt.Errorf(validationErr.String())
+			return fmt.Errorf("%s", validationErr.String())
 		}
 	}
 	return nil

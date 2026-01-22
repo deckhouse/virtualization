@@ -39,6 +39,7 @@ spec:
               properties:
                 virtualDiskName:
                   type: string
+                  minLength: 1
                   description: |
                     Virtual disk name the snapshot is created for.
                 requiredConsistency:

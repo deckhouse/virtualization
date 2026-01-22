@@ -3,6 +3,31 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.3.0
+
+### New Features
+
+- [vmclass] Added the `.spec.sizingPolicies.defaultCoreFraction` field to the `VirtualMachineClass` resource, allowing you to set the default `coreFraction` for virtual machines that use this class.
+
+### Fixes
+
+- [vi/cvi] Added the ability to use system nodes to create project and cluster images.
+- [vd] Accelerated disk attachment in `WaitForFirstConsumer` mode for virtual machines.
+- [vd] Fixed an issue with restoring labels and annotations on a disk created from a snapshot.
+- [observability] Fixed the display of virtual machine charts in clusters running in HA mode.
+
+## v1.2.2
+
+### Fixes
+
+[module] Fixed RBAC access permissions for the `d8:use:role:user` role that prevented it from managing the [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource.
+
+## v1.2.1
+
+### Fixes
+
+- [module] The deprecated part of the configuration has been removed, which could have prevented the virtualization module from upgrading in clusters running Kubernetes version 1.34 and above.
+
 ## v1.2.0
 
 ### New features

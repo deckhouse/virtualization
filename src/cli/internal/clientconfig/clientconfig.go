@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
@@ -48,4 +49,16 @@ func ClientAndNamespaceFromContext(ctx context.Context) (client kubeclient.Clien
 		return nil, "", false, err
 	}
 	return client, namespace, overridden, nil
+}
+
+func GetRESTConfig(ctx context.Context) (*rest.Config, error) {
+	clientConfig, ok := ctx.Value(clientConfigKey).(clientcmd.ClientConfig)
+	if !ok {
+		return nil, fmt.Errorf("unable to get client config from context")
+	}
+	config, err := clientConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	return config, nil
 }

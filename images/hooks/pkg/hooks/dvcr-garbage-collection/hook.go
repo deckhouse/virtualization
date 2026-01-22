@@ -19,7 +19,6 @@ package dvcr_garbage_collection
 import (
 	"context"
 	"fmt"
-
 	"hooks/pkg/settings"
 
 	"k8s.io/utils/ptr"

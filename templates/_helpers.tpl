@@ -66,3 +66,21 @@ nodeSelector:
 true
 {{- end }}
 {{- end }}
+
+{{/* https://werf.io/docs/v2/usage/deploy/tracking.html#disabling-state-tracking-and-ignoring-resource-errors-werf-only */}}
+{{- define "werf.annotations.disabling_state_tracking_and_ignoring_resource_errors" }}
+annotations:
+  werf.io/fail-mode: IgnoreAndContinueDeployProcess
+  werf.io/track-termination-mode: NonBlocking
+{{- end }}
+
+{{- define "vpa.policyUpdateMode" -}}
+{{-   $kubeVersion := .Values.global.discovery.kubernetesVersion -}}
+{{-   $updateMode := "" -}}
+{{-   if semverCompare ">=1.33.0" $kubeVersion -}}
+{{-     $updateMode = "InPlaceOrRecreate" -}}
+{{-   else -}}
+{{-     $updateMode = "Recreate" -}}
+{{-   end }}
+{{- $updateMode }}
+{{- end }}

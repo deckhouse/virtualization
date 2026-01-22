@@ -25,12 +25,9 @@ shell:
 {{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- git
 - pkg-config
 - libtool
-- gcc
 - gcc-c++
-- golang
 packages:
 - libmnl
 - ncurses
@@ -46,7 +43,7 @@ packages:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/golang-alt-svace-1.24.10" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.24" "builder/golang-alt-svace-1.24" }}
 mount:
 - fromPath: ~/go-pkg-cache
   to: /go/pkg
@@ -83,7 +80,7 @@ shell:
     cd /kubevirt
 
     go mod download
-    go mod vendor
+    go work vendor
 
     for p in patches/*.patch ; do
       echo -n "Apply ${p} ... "
