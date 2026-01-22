@@ -304,3 +304,5 @@ tools/xfsprogs-v6.16.0: "sha256:bb8b1e677b0be4a2bdf33c61d1e09803126ce32486ebda27
 tools/yq: "sha256:035f73ce4ee26186851b039ff6c0afec622354bb6c5f0d6e8859c40a16286c0d" # from: builder/scratch
 tools/yq-v4.45.1: "sha256:31262bbc95fc1f9f2c831e1b148402b829f2a7cf8a62611e98543677fe28ff70" # from: builder/scratch
 tools/yq-v4.47.1: "sha256:035f73ce4ee26186851b039ff6c0afec622354bb6c5f0d6e8859c40a16286c0d" # from: builder/scratch
+libs/libvirt: "sha256:ae60c3483b74bd5d61ea5c16809ee78b4925ea31c9b2a252b15b50533deebff9"
+libs/libvirt-10.9.0: "sha256:ae60c3483b74bd5d61ea5c16809ee78b4925ea31c9b2a252b15b50533deebff9"
