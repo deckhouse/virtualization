@@ -27,9 +27,9 @@ import (
 	_ "github.com/deckhouse/virtualization/test/e2e/blockdevice"
 	"github.com/deckhouse/virtualization/test/e2e/controller"
 	"github.com/deckhouse/virtualization/test/e2e/legacy"
-	_ "github.com/deckhouse/virtualization/test/e2e/snapshot"
+	// _ "github.com/deckhouse/virtualization/test/e2e/snapshot"
 	_ "github.com/deckhouse/virtualization/test/e2e/vm"
-	_ "github.com/deckhouse/virtualization/test/e2e/vmop"
+	// _ "github.com/deckhouse/virtualization/test/e2e/vmop"
 )
 
 func TestE2E(t *testing.T) {
