@@ -70,6 +70,11 @@ on:
         type: string
         default: "3h"
         description: "E2E tests timeout"
+      e2e_focus_tests:
+        required: false
+        type: string
+        default: ""
+        description: "E2E tests focus tests like 'VirtualMachineConfiguration' and so on (by default all tests are run)"
     secrets:
       DEV_REGISTRY_DOCKER_CFG:
         required: true
@@ -1147,8 +1152,8 @@ jobs:
           cp -a legacy/testdata /tmp/testdata
 
           set +e
-          FOCUS="VirtualMachineConfiguration"
-          if [ -n $FOCUS ]; then
+          FOCUS="${{ inputs.e2e_focus_tests }}"
+          if [ -n "$FOCUS" ]; then
             go tool ginkgo \
               --focus="$FOCUS" \
               -v --race --timeout=$TIMEOUT \
