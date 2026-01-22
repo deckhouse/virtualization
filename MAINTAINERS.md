@@ -1,6 +1,8 @@
 # Core maintainers
 
-| Name           | Email                    | GitHub                                   | Telegram         |
-| -------------- | ------------------------ | ---------------------------------------- | ---------------- |
-| Andrey Polovov | andrey.polovov@flant.com | [@apolovov](https://github.com/apolovov) | `@andreypolovov` |
-| Pavel Tishkov  | pavel.tishkov@flant.com  | [@fl64](https://github.com/fl64)         | `@flsixtyfour`   |
+| Name             | Email                      | GitHub                                               | 
+| ---------------- | -------------------------- | ---------------------------------------------------- | 
+| Pavel Tishkov    | pavel.tishkov@flant.com    | [@fl64](https://github.com/fl64)                     | 
+| Dmitry Rakitin   | dmitry.rakitin@flant.com   | [@Isteb4k](https://github.com/Isteb4k)               | 
+| Ivan Mikheykin   | ivan.mikheykin@flant.com   | [@diafour](https://github.com/diafour)               | 
+| Yaroslav Borbat  | yaroslav.borbat@flant.com  | [@yaroslavborbat](https://github.com/yaroslavborbat) | 
