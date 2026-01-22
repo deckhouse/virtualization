@@ -1,0 +1,11 @@
+{{- $modules := list "upmeter" "local-path-provisioner" "pod-reloader" "secret-copier" "namespace-configurator" "observability" "dashboard" "console" "loki" "log-shipper" "monitoring-applications" "admission-policy-engine" -}}
+
+{{- range $modules }}
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: {{ . }}
+spec:
+  enabled: false
+{{- end }}

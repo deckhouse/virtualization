@@ -1,0 +1,50 @@
+
+{{- $totalNodes := 0 -}}
+{{- range .Values.instances.additionalNodes -}}
+  {{- $totalNodes = add $totalNodes .count -}}
+{{- end -}}
+
+---
+apiVersion: deckhouse.io/v1
+kind: NodeGroup
+metadata:
+  name: master
+spec:
+  disruptions:
+    approvalMode: Manual
+  kubelet:
+    containerLogMaxFiles: 4
+    containerLogMaxSize: 50Mi
+  nodeTemplate:
+  {{- if eq $totalNodes 0 }}
+    taints: []
+  {{- end }}
+    labels:
+      node-role.kubernetes.io/control-plane: ""
+      node-role.kubernetes.io/master: ""
+  nodeType: Static
+  staticInstances:
+    count: {{ .Values.instances.masterNodes.count }}
+    labelSelector:
+      matchLabels:
+        role: master
+
+{{- range $_, $i := untilStep 0 (.Values.instances.masterNodes.count | int) 1}}
+  {{- $vmName := printf "%s-master-%d" $.Values.storageType $i }}
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: StaticInstance
+metadata:
+  {{- if eq $i 0 }}
+  annotations:
+    static.node.deckhouse.io/skip-bootstrap-phase: ""
+  {{- end }}
+  name: {{ $vmName }}
+  labels:
+    role: master
+spec:
+  address: {{ index $.Values.discovered.vmIPs $vmName }}
+  credentialsRef:
+    kind: SSHCredentials
+    name: mvp-static
+{{- end }}

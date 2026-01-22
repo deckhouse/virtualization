@@ -1,0 +1,8 @@
+---
+apiVersion: deckhouse.io/v1alpha2
+kind: SSHCredentials
+metadata:
+  name: mvp-static
+spec:
+  user: cloud
+  privateSSHKey: {{ .Values.discovered.privateSSHKeyBase64 }}

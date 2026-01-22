@@ -20,15 +20,11 @@ on:
       storage_type:
         required: true
         type: string
-        description: "Storage type (ceph or replicated)"
+        description: "Storage type (ceph or replicated or etc.)"
       nested_storageclass_name:
         required: true
         type: string
         description: "Nested storage class name"
-      default_cluster_storageclass:
-        required: true
-        type: string
-        description: "Default cluster storage class"
       branch:
         required: false
         type: string
@@ -39,21 +35,41 @@ on:
         type: string
         default: "main"
         description: "Virtualization tag"
-      deckhouse_tag:
+      virtualization_image_url:
         required: false
         type: string
-        default: "main"
-        description: "Deckhouse tag"
+        default: "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
+        description: "Virtualization image url (default noble-server-cloudimg-amd64.img)"
+      deckhouse_channel:
+        required: false
+        type: string
+        default: "alpha"
+        description: "Deckhouse release channel"
+      pod_subnet_cidr:
+        required: false
+        type: string
+        default: "10.88.0.0/16"
+        description: "Pod subnet CIDR"
+      service_subnet_cidr:
+        required: false
+        type: string
+        default: "10.99.0.0/16"
+        description: "Service subnet CIDR"
       default_user:
         required: false
         type: string
         default: "ubuntu"
-        description: "Default user"
+        description: "Default user for vms"
       go_version:
         required: false
         type: string
-        default: "1.24.5"
+        default: "1.24.6"
         description: "Go version"
+      e2e_timeout:
+        required: false
+        type: string
+        default: "3h"
+        description: "E2E tests timeout"
     secrets:
       DEV_REGISTRY_DOCKER_CFG:
         required: true
@@ -61,24 +77,1362 @@ on:
         required: true
       PROD_IO_REGISTRY_DOCKER_CFG:
         required: true
-      GITHUB_TOKEN:
+      BOOTSTRAP_DEV_PROXY:
         required: true
+    outputs:
+      artifact-name:
+        description: "Name of the uploaded artifact with E2E report"
+        value: ${{ jobs.prepare-report.outputs.artifact-name }}
 
 env:
   BRANCH: ${{ inputs.branch }}
   VIRTUALIZATION_TAG: ${{ inputs.virtualization_tag }}
-  DECKHOUSE_TAG: ${{ inputs.deckhouse_tag }}
+  DECKHOUSE_CHANNEL: ${{ inputs.deckhouse_channel }}
   DEFAULT_USER: ${{ inputs.default_user }}
   GO_VERSION: ${{ inputs.go_version }}
+  SETUP_CLUSTER_TYPE_PATH: test/dvp-static-cluster
 
 defaults:
   run:
     shell: bash
 
 jobs:
-  noop:
-    name: Bootstrap
+  bootstrap:
+    name: Bootstrap cluster (${{ inputs.storage_type }})
     runs-on: ubuntu-latest
+    concurrency:
+      group: "${{ github.workflow }}-${{ github.event.number || github.ref }}-${{ inputs.storage_type }}"
+      cancel-in-progress: true
+    outputs:
+      kubeconfig: ${{ steps.generate-kubeconfig.outputs.kubeconfig }}
     steps:
-      - name: Say hello
-        run: echo "Bootstrap workflow OK"
+      - uses: actions/checkout@v4
+
+      - name: Set outputs
+        id: vars
+        run: |
+          namespace="nightly-e2e-${{ inputs.storage_type }}-$(git rev-parse --short HEAD)"
+          echo "namespace=$namespace" >> $GITHUB_OUTPUT
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+          REGISTRY=$(base64 -d <<< ${{secrets.PROD_IO_REGISTRY_DOCKER_CFG}} | jq '.auths | to_entries | .[] | .key' -r)
+          USERNAME=$(base64 -d <<< ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }} | jq '.auths | to_entries | .[] | .value.auth' -r | base64 -d | cut -d ':' -f1)
+          PASSWORD=$(base64 -d <<< ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }} | jq '.auths | to_entries | .[] | .value.auth' -r | base64 -d | cut -d ':' -f2)
+
+          echo "registry=$REGISTRY" >> $GITHUB_OUTPUT
+          echo "username=$USERNAME" >> $GITHUB_OUTPUT
+          echo "password=$PASSWORD" >> $GITHUB_OUTPUT
+
+      - name: Install htpasswd utility
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apache2-utils
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup d8
+        uses: ./.github/actions/install-d8
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to private registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ steps.vars.outputs.registry }}
+          username: ${{ steps.vars.outputs.username }}
+          password: ${{ steps.vars.outputs.password }}
+
+      - name: Configure kubectl via azure/k8s-set-context@v4
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          context: e2e-cluster-nightly-e2e-virt-sa
+          kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+
+      - name: Generate values.yaml
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+        run: |
+          defaultStorageClass=$(kubectl get storageclass -o json \
+            | jq -r '.items[] | select(.metadata.annotations."storageclass.kubernetes.io/is-default-class" == "true") | .metadata.name')
+
+          cat <<EOF > values.yaml
+          namespace: ${{ steps.vars.outputs.namespace }}
+          storageType: ${{ inputs.storage_type }}
+          storageClass: ${defaultStorageClass}
+          sa: dkp-sa
+          deckhouse:
+            channel: ${{ env.DECKHOUSE_CHANNEL }}
+            podSubnetCIDR: ${{ inputs.pod_subnet_cidr }}
+            serviceSubnetCIDR: ${{ inputs.service_subnet_cidr }}
+            kubernetesVersion: Automatic
+            registryDockerCfg: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
+            bundle: Default
+            proxyEnabled: false
+          image:
+            url: ${{ inputs.virtualization_image_url }}
+            defaultUser: ${{ env.DEFAULT_USER }}
+            bootloader: BIOS
+          ingressHosts:
+            - api
+            - grafana
+            - dex
+            - prometheus
+            - console
+            - virtualization
+          instances:
+            masterNodes:
+              count: 1
+              cfg:
+                rootDiskSize: 60Gi
+                cpu:
+                  cores: 4
+                  coreFraction: 50%
+                memory:
+                  size: 12Gi
+            additionalNodes:
+            - name: worker
+              count: 3
+              cfg:
+                cpu:
+                  cores: 4
+                  coreFraction: 50%
+                memory:
+                  size: 6Gi
+                additionalDisks:
+                - size: 50Gi
+          EOF
+
+          mkdir -p tmp
+          touch tmp/discovered-values.yaml
+
+          export REGISTRY=$(base64 -d <<< ${{secrets.DEV_REGISTRY_DOCKER_CFG}} | jq '.auths | to_entries | .[] | .key' -r)
+          export AUTH=$(base64 -d <<< ${{ secrets.DEV_REGISTRY_DOCKER_CFG }} | jq '.auths | to_entries | .[] | .value.auth' -r)
+
+          yq eval --inplace '.discovered.registry_url = env(REGISTRY)' tmp/discovered-values.yaml
+          yq eval --inplace '.discovered.registry_auth = env(AUTH)' tmp/discovered-values.yaml
+
+      - name: Bootstrap cluster [infra-deploy]
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+        run: |
+          task infra-deploy
+      - name: Bootstrap cluster [dhctl-bootstrap]
+        id: dhctl-bootstrap
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+        env:
+          # Proxy settings will be added to values.yaml if proxyEnabled is true via task render-cluster-config-proxy
+          HTTP_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
+          HTTPS_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
+        run: |
+          task dhctl-bootstrap
+        timeout-minutes: 30
+      - name: Bootstrap cluster [show-connection-info]
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+        run: |
+          task show-connection-info
+
+      - name: Save ssh to secrets in cluster
+        env:
+          NAMESPACE: ${{ steps.vars.outputs.namespace }}
+        if: always()
+        run: |
+          kubectl -n $NAMESPACE create secret generic ssh-key --from-file=${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/ssh/cloud
+
+      - name: Get info about nested cluster and master VM
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+        env:
+          NAMESPACE: ${{ steps.vars.outputs.namespace }}
+          PREFIX: ${{ inputs.storage_type }}
+        run: |
+          nested_master=$(kubectl -n ${NAMESPACE} get vm -l group=${PREFIX}-master -o jsonpath="{.items[0].metadata.name}")
+
+          d8vssh() {
+            local host=$1
+            local cmd=$2
+            d8 v ssh -i ./tmp/ssh/cloud \
+            --local-ssh=true \
+            --local-ssh-opts="-o StrictHostKeyChecking=no" \
+            --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+            ${DEFAULT_USER}@${host}.${NAMESPACE} \
+            -c "$cmd"
+          }
+
+          echo "[INFO] Pods in namespace $NAMESPACE"
+          kubectl get pods -n "${NAMESPACE}"
+          echo ""
+
+          echo "[INFO] VMs in namespace $NAMESPACE"
+          kubectl get vm -n "${NAMESPACE}"
+          echo ""
+
+          echo "[INFO] VDs in namespace $NAMESPACE"
+          kubectl get vd -n "${NAMESPACE}"
+          echo ""
+
+          echo "Check connection to master"
+          d8vssh "${nested_master}" 'echo master os-release: ; cat /etc/os-release; echo " "; echo master hostname: ; hostname'
+          echo ""
+
+      - name: Generate nested kubeconfig
+        id: generate-kubeconfig
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+        env:
+          kubeConfigPath: tmp/kube.config
+          NAMESPACE: ${{ steps.vars.outputs.namespace }}
+          PREFIX: ${{ inputs.storage_type }}
+        run: |
+          nested_master=$(kubectl -n ${NAMESPACE} get vm -l group=${PREFIX}-master -o jsonpath="{.items[0].metadata.name}")
+
+          d8vscp() {
+            local source=$1
+            local dest=$2
+            d8 v scp -i ./tmp/ssh/cloud \
+              --local-ssh=true \
+              --local-ssh-opts="-o StrictHostKeyChecking=no" \
+              --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+              $source $dest
+            echo "d8vscp: $source -> $dest - done"
+          }
+
+          d8vssh() {
+            local cmd=$1
+            d8 v ssh -i ./tmp/ssh/cloud \
+            --local-ssh=true \
+            --local-ssh-opts="-o StrictHostKeyChecking=no" \
+            --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+            ${DEFAULT_USER}@${nested_master}.${NAMESPACE} \
+            -c "$cmd"
+          }
+
+          echo "[INFO] Copy script for generating kubeconfig in nested cluster"
+          echo "[INFO] Copy scripts/gen-kubeconfig.sh to master"
+          d8vscp "./scripts/gen-kubeconfig.sh" "${DEFAULT_USER}@${nested_master}.${NAMESPACE}:/tmp/gen-kubeconfig.sh"
+          echo ""
+          d8vscp "./scripts/deckhouse-queue.sh" "${DEFAULT_USER}@${nested_master}.${NAMESPACE}:/tmp/deckhouse-queue.sh"
+          echo ""
+
+          echo "[INFO] Set file exec permissions"
+          d8vssh 'chmod +x /tmp/{gen-kubeconfig.sh,deckhouse-queue.sh}'
+          d8vssh 'ls -la /tmp/'
+          echo "[INFO] Check d8 queue in nested cluster"
+          d8vssh 'sudo /tmp/deckhouse-queue.sh'
+
+          echo "[INFO] Generate kube conf in nested cluster"
+          echo "[INFO] Run gen-kubeconfig.sh in nested cluster"
+          d8vssh "sudo /tmp/gen-kubeconfig.sh nested-sa nested nested-e2e /${kubeConfigPath}"
+          echo ""
+
+          echo "[INFO] Copy kubeconfig to runner"
+          echo "[INFO] ${DEFAULT_USER}@${nested_master}.$NAMESPACE:/${kubeConfigPath} ./${kubeConfigPath}"
+          d8vscp "${DEFAULT_USER}@${nested_master}.$NAMESPACE:/${kubeConfigPath}" "./${kubeConfigPath}"
+
+          echo "[INFO] Set rights for kubeconfig"
+          echo "[INFO] sudo chown 1001:1001 ${kubeConfigPath}"
+          sudo chown 1001:1001 ${kubeConfigPath}
+          echo " "
+
+          echo "[INFO] Kubeconf to github output"
+          CONFIG=$(cat ${kubeConfigPath} | base64 -w 0)
+          CONFIG=$(echo $CONFIG | base64 -w 0)
+          echo "kubeconfig=$CONFIG" >> $GITHUB_OUTPUT
+
+      - name: cloud-init logs
+        if: steps.dhctl-bootstrap.outcome == 'failure'
+        env:
+          NAMESPACE: ${{ steps.vars.outputs.namespace }}
+          PREFIX: ${{ inputs.storage_type }}
+        run: |
+          nested_master=$(kubectl -n ${NAMESPACE} get vm -l group=${PREFIX}-master -o jsonpath="{.items[0].metadata.name}")
+
+          d8vscp() {
+            local source=$1
+            local dest=$2
+            d8 v scp -i ./tmp/ssh/cloud \
+              --local-ssh=true \
+              --local-ssh-opts="-o StrictHostKeyChecking=no" \
+              --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+              $source $dest
+            echo "d8vscp: $source -> $dest - done"
+          }
+
+          d8vscp "${DEFAULT_USER}@${nested_master}.$NAMESPACE:/var/log/cloud-init*.log" "./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/"
+
+      - name: Prepare artifact
+        if: always()
+        run: |
+          sudo chown -fR 1001:1001 ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+          yq e '.deckhouse.registryDockerCfg = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/values.yaml
+          yq e 'select(.kind == "InitConfiguration").deckhouse.registryDockerCfg = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/config.yaml || echo "The config.yaml file is not generated, skipping"
+          yq e '.discovered.registry_url = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/discovered-values.yaml || echo "The discovered-values.yaml file is not generated, skipping editing registry_url"
+          yq e '.discovered.registry_auth = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/discovered-values.yaml || echo "The discovered-values.yaml file is not generated, skipping editing registry_auth"
+          echo "${{ steps.generate-kubeconfig.outputs.kubeconfig }}" | base64 -d | base64 -d > ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/kube-config
+
+      - name: Upload generated files
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: generated-files-${{ inputs.storage_type }}
+          path: |
+            ${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp
+            ${{ env.SETUP_CLUSTER_TYPE_PATH }}/values.yaml
+          overwrite: true
+          include-hidden-files: true
+          retention-days: 1
+
+      - name: Upload ssh config
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: generated-files-ssh-${{ inputs.storage_type }}
+          path: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/ssh
+          overwrite: true
+          include-hidden-files: true
+          retention-days: 1
+
+      - name: Upload kubeconfig
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-files-kubeconfig-${{ inputs.storage_type }}
+          path: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/kube-config
+          overwrite: true
+          include-hidden-files: true
+          retention-days: 1
+
+  configure-storage:
+    name: Configure storage (${{ inputs.storage_type }})
+    runs-on: ubuntu-latest
+    needs: bootstrap
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup d8
+        uses: ./.github/actions/install-d8
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install kubectl CLI
+        uses: azure/setup-kubectl@v4
+
+      - name: Check nested kube-api via generated kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "[INFO] Configure kubeconfig for nested cluster"
+          echo "${{ needs.bootstrap.outputs.kubeconfig }}" | base64 -d | base64 -d > ~/.kube/config
+
+          echo "[INFO] Show paths and files content"
+          ls -la ~/.kube
+          echo "[INFO] Set permissions for kubeconfig"
+          chmod 600 ~/.kube/config
+
+          echo "[INFO] Show current kubeconfig context"
+          kubectl config get-contexts
+
+          echo "[INFO] Show nodes in cluster"
+          # `kubectl get nodes` may return error, so we need to retry.
+          count=30
+          success=false
+          for i in $(seq 1 $count); do
+            echo "[INFO] Attempt $i/$count..."
+            if kubectl get nodes; then
+              echo "[SUCCESS] Successfully retrieved nodes."
+              success=true
+              break
+            fi
+
+            if [ $i -lt $count ]; then
+              echo "[INFO] Retrying in 10 seconds..."
+              sleep 10
+            fi
+          done
+
+          if [ "$success" = false ]; then
+            echo "[ERROR] Failed to retrieve nodes after $count attempts."
+            exit 1
+          fi
+
+      - name: Configure replicated storage
+        id: storage-replicated-setup
+        if: ${{ inputs.storage_type == 'replicated' }}
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/sds-replicated
+        run: |
+          d8_queue_list() {
+            d8 s queue list | grep -Po '([0-9]+)(?= active)' || echo "[WARNING] Failed to retrieve list queue"
+          }
+
+          d8_queue() {
+            local count=90
+            local queue_count
+
+            for i in $(seq 1 $count) ; do
+              queue_count=$(d8_queue_list)
+              if [ -n "$queue_count" ] && [ "$queue_count" = "0" ]; then
+                echo "[SUCCESS] Queue is clear"
+                return 0
+              fi
+
+              echo "[INFO] Wait until queues are empty ${i}/${count}"
+              if (( i % 5 == 0 )); then
+                echo "[INFO] Show queue list"
+                d8 s queue list | head -n25 || echo "[WARNING] Failed to retrieve list queue"
+                echo " "
+              fi
+
+              if (( i % 10 == 0 )); then
+                echo "[INFO] deckhouse logs"
+                echo "::group::📝 deckhouse logs"
+                d8 s logs | tail -n 100
+                echo "::endgroup::"
+                echo " "
+              fi
+              sleep 10
+            done
+          }
+
+          sds_replicated_ready() {
+            local count=60
+            for i in $(seq 1 $count); do
+            
+              sds_replicated_volume_status=$(kubectl get ns d8-sds-replicated-volume -o jsonpath='{.status.phase}' || echo "False")
+              
+              if [[ "${sds_replicated_volume_status}" = "Active" ]]; then
+                echo "[SUCCESS] Namespaces sds-replicated-volume are Active"
+                kubectl get ns d8-sds-replicated-volume
+                return 0
+              fi
+              
+              echo "[INFO] Waiting 10s for sds-replicated-volume namespace to be ready (attempt ${i}/${count})"
+              if (( i % 5 == 0 )); then
+                echo "[INFO] Show namespaces sds-replicated-volume"
+                kubectl get ns | grep sds-replicated-volume || echo "Namespaces sds-replicated-volume are not ready"
+                echo "[DEBUG] Show queue (first 25 lines)"
+                d8 s queue list | head -n25 || echo "No queues"
+              fi
+              sleep 10
+            done
+
+            echo "[ERROR] Namespaces sds-replicated-volume are not ready after ${count} attempts"
+            echo "[DEBUG] Show namespaces sds"
+            kubectl get ns | grep sds || echo "Namespaces sds-replicated-volume are not ready"
+            echo "[DEBUG] Show queue"
+            echo "::group::📦 Show queue"
+            d8 s queue list || echo "No queues"
+            echo "::endgroup::"
+            echo "[DEBUG] Show deckhouse logs"
+            echo "::group::📝 deckhouse logs"
+            d8 s logs | tail -n 100
+            echo "::endgroup::"
+            exit 1
+          }
+
+          sds_pods_ready() {
+            local count=100
+            local linstor_node
+            local csi_node
+            local webhooks
+            local workers=$(kubectl get nodes -o name | grep worker | wc -l || true)
+            workers=$((workers))
+
+            echo "[INFO] Wait while linstor-node csi-node webhooks pods are ready"
+            for i in $(seq 1 $count); do
+              linstor_node=$(kubectl -n d8-sds-replicated-volume get pods | grep "linstor-node.*Running" | wc -l || true)
+              csi_node=$(kubectl -n d8-sds-replicated-volume get pods | grep "csi-node.*Running" | wc -l || true)
+
+              echo "[INFO] Check if sds-replicated pods are ready"
+              if [[ ${linstor_node} -ge ${workers} && ${csi_node} -ge ${workers} ]]; then
+                echo "[SUCCESS] sds-replicated-volume is ready"
+                return 0
+              fi
+              
+              echo "[WARNING] Not all pods are ready, linstor_node=${linstor_node}, csi_node=${csi_node}"
+              echo "[INFO] Waiting 10s for pods to be ready (attempt ${i}/${count})"
+              if (( i % 5 == 0 )); then
+                echo "[DEBUG] Get pods"
+                kubectl -n d8-sds-replicated-volume get pods || true
+                echo "[DEBUG] Show queue (first 25 lines)"
+                d8 s queue list | head -n 25 || echo "Failed to retrieve list queue"
+                echo " "
+              fi
+              sleep 10
+            done
+
+            echo "[ERROR] sds-replicated-volume is not ready after ${count} attempts"
+            echo "[DEBUG] Get pods"
+            echo "::group::📦 sds-replicated-volume pods"
+            kubectl -n d8-sds-replicated-volume get pods || true
+            echo "::endgroup::"
+            echo "[DEBUG] Show queue"
+            echo "::group::📦 Show queue"
+            d8 s queue list || echo "Failed to retrieve list queue"
+            echo "::endgroup::"
+            echo "[DEBUG] Show deckhouse logs"
+            echo "::group::📝 deckhouse logs"
+            d8 s logs | tail -n 100
+            echo "::endgroup::"
+            exit 1
+          }
+
+          blockdevices_ready() {
+            local count=60
+            workers=$(kubectl get nodes -o name | grep worker | wc -l)
+            workers=$((workers))
+            
+            if [[ $workers -eq 0 ]]; then
+              echo "[ERROR] No worker nodes found"
+              exit 1
+            fi
+            
+            for i in $(seq 1 $count); do
+              blockdevices=$(kubectl get blockdevice -o name | wc -l || true)
+              if [ $blockdevices -ge $workers ]; then
+                echo "[SUCCESS] Blockdevices is greater or equal to $workers"
+                kubectl get blockdevice
+                return 0
+              fi
+
+              echo "[INFO] Wait 10 sec until blockdevices is greater or equal to $workers (attempt ${i}/${count})"
+              if (( i % 5 == 0 )); then
+                echo "[DEBUG] Show queue (first 25 lines)"
+                d8 s queue list | head -n25 || echo "No queues"
+              fi
+
+              sleep 10
+            done
+
+            echo "[ERROR] Blockdevices is not 3"
+            echo "[DEBUG] Show cluster nodes"
+            kubectl get nodes
+            echo "[DEBUG] Show blockdevices"
+            kubectl get blockdevice
+            echo "[DEBUG] Show sds namespaces"
+            kubectl get ns | grep sds || echo "ns sds is not found"
+            echo "[DEBUG] Show pods in sds-replicated-volume"
+            echo "::group::📦 pods in sds-replicated-volume"
+            kubectl -n d8-sds-replicated-volume get pods || true
+            echo "::endgroup::"
+            echo "[DEBUG] Show deckhouse logs"
+            echo "::group::📝 deckhouse logs"
+            d8 s logs | tail -n 100
+            echo "::endgroup::"
+            exit 1
+          }
+
+          d8_queue
+
+          kubectl apply -f mc.yaml
+          echo "[INFO] Wait for sds-node-configurator"
+          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules sds-node-configurator --timeout=300s
+
+          echo "[INFO] Wait for sds-replicated-volume to be ready"
+          sds_replicated_ready
+          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules sds-replicated-volume --timeout=300s
+
+          echo "[INFO] Wait BlockDevice are ready"
+          blockdevices_ready
+
+          echo "[INFO] Wait pods and webhooks sds-replicated pods"
+          sds_pods_ready
+
+          chmod +x lvg-gen.sh
+          ./lvg-gen.sh
+
+          chmod +x rsc-gen.sh
+          ./rsc-gen.sh
+
+          echo "[INFO] Show existing storageclasses"
+          if ! kubectl get storageclass | grep -q nested; then
+            echo "[WARNING] No nested storageclasses"
+          else
+            kubectl get storageclass | grep nested
+            echo "[SUCCESS] Done"
+          fi
+      - name: Configure ceph storage
+        if: ${{ inputs.storage_type == 'ceph' }}
+        id: storage-ceph-setup
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/ceph
+        run: |
+          d8_queue_list() {
+            d8 s queue list | grep -Po '([0-9]+)(?= active)' || echo "[WARNING] Failed to retrieve list queue"
+          }
+
+          d8_queue() {
+            local count=90
+            local queue_count
+
+            for i in $(seq 1 $count) ; do
+              queue_count=$(d8_queue_list)
+              if [ -n "$queue_count" ] && [ "$queue_count" = "0" ]; then
+                echo "[SUCCESS] Queue is clear"
+                return 0
+              fi
+
+              echo "[INFO] Wait until queues are empty ${i}/${count}"
+              if (( i % 5 == 0 )); then
+                echo "[INFO] Show queue list"
+                d8 s queue list | head -n25 || echo "[WARNING] Failed to retrieve list queue"
+                echo " "
+              fi
+
+              if (( i % 10 == 0 )); then
+                echo "[INFO] deckhouse logs"
+                echo "::group::📝 deckhouse logs"
+                d8 s logs | tail -n 100
+                echo "::endgroup::"
+                echo " "
+              fi
+              sleep 10
+            done
+          }
+
+          debug_output() {
+            echo "[DEBUG] Show ceph namespace"
+            echo "::group::📦 ceph namespace"
+            kubectl get ns | grep ceph || echo "Failed to retrieve ceph ns"
+            echo "::endgroup::"
+            echo "[DEBUG] Show ModuleConfig ceph"
+            echo "::group::📦 ModuleConfig ceph"
+            kubectl get mc | grep ceph || echo "Failed to retrieve mc"
+            echo "::endgroup::"
+            echo "[DEBUG] Show ceph in resource modules"
+            echo "::group::📦 ceph in resource modules"
+            kubectl get modules -o wide | grep ceph || echo "Failed to retrieve modules"
+            echo "::endgroup::"
+            echo "[DEBUG] Show queue"
+            echo "::group::📦 queue"
+            d8 s queue list || echo "Failed to retrieve list queue"
+            echo "::endgroup::"
+            echo "[DEBUG] Show deckhouse logs"
+            echo "::group::📝 deckhouse logs"
+            d8 s logs | tail -n 100
+            echo "::endgroup::"
+          }
+
+          ceph_operator_ready() {
+            local count=60
+            local ceph_operator_status
+            local csi_ceph_status
+
+            for i in $(seq 1 $count); do
+              ceph_operator_status=$(kubectl get ns d8-operator-ceph -o jsonpath='{.status.phase}' || echo "False")
+              csi_ceph_status=$(kubectl get module csi-ceph -o jsonpath='{.status.phase}' || echo "False")
+              
+              if [[ "${ceph_operator_status}" = "Active" && "${csi_ceph_status}" = "Ready" ]]; then
+                echo "[SUCCESS] Namespaces operator-ceph and csi are Active"
+                return 0
+              fi
+              
+              echo "[INFO] Waiting 10s for ceph operator and csi namespaces to be ready (attempt ${i}/${count})"
+              
+              if (( i % 5 == 0 )); then
+                echo "[DEBUG] Get namespace"
+              kubectl get namespace | grep ceph || echo "[WARNING] Namespaces operator-ceph and csi are not ready"
+                echo "[DEBUG] Show all namespaces"
+                kubectl get namespace
+                echo "[DEBUG] Show queue (first 25 lines)"
+                d8 s queue list | head -n25 || echo "[WARNING] Failed to retrieve list queue"
+                echo " "
+              fi
+              sleep 10
+            done
+
+            debug_output
+            exit 1
+          }
+
+          ceph_ready() {
+            local count=90
+            local ceph_mgr
+            local ceph_mon
+            local ceph_osd
+
+            for i in $(seq 1 $count); do
+              echo "[INFO] Check ceph pods, mon mgr osd"
+              ceph_mgr=$(kubectl -n d8-operator-ceph get pods | grep "ceph-mgr.*Running" | wc -l || true)
+              ceph_mon=$(kubectl -n d8-operator-ceph get pods | grep "ceph-mon.*Running" | wc -l || true)
+              ceph_osd=$(kubectl -n d8-operator-ceph get pods | grep "ceph-osd.*Running" | wc -l || true)
+              
+              echo "[INFO] check if ceph pods are ready"
+              if [[ $ceph_mgr -ge 2 && $ceph_mon -ge 3 && $ceph_osd -ge 3 ]]; then
+                echo "[SUCCESS] Ceph cluster is ready"
+                return 0
+              fi
+
+              echo "[WARNING] Not all pods are ready, ceph_mgr=${ceph_mgr}, ceph_mon=${ceph_mon}, ceph_osd=${ceph_osd}"
+              echo "[INFO] Waiting 10s for ceph operator to be ready"
+              kubectl -n d8-operator-ceph get pods || echo "Failed to retrieve pods"
+              if (( i % 5 == 0 )); then
+                echo "[DEBUG] Show ceph namespace"
+                kubectl get ns | grep ceph || echo "Failed to retrieve ceph ns"
+                echo "[DEBUG] Show ModuleConfig ceph"
+                kubectl get mc | grep ceph || echo "Failed to retrieve mc"
+                echo "[DEBUG] Show ceph in resource modules"
+                kubectl get modules -o wide | grep ceph || echo "Failed to retrieve modules"
+                echo "[DEBUG] Show queue"
+                d8 s queue list | head -n 25 || echo "Failed to retrieve list queue"
+              fi
+              echo "[INFO] Wait until all necessary pods are ready ${i}/${count}"
+              sleep 10
+            done
+            
+            debug_output
+            exit 1
+          }
+
+          echo "[INFO] Create ceph operator and csi module config"
+          kubectl apply -f 01-mc.yaml
+
+          echo "[INFO] Check module source"
+          kubectl get modulesources
+
+          echo "[INFO] Wait while queues are empty"
+          d8_queue
+
+          echo "[INFO] Wait for operator-ceph namespace to be ready"
+          ceph_operator_ready
+
+          if (kubectl get mc admission-policy-engine -o jsonpath='{.spec.enabled}') ; then
+            echo "[INFO] Label operator-ceph namespace with security.deckhouse.io/pod-policy"
+            kubectl label ns d8-operator-ceph security.deckhouse.io/pod-policy=privileged
+            echo "[INFO] Restart operator-ceph deployment"
+            kubectl -n d8-operator-ceph rollout restart deployment operator-ceph || true
+          fi
+
+          echo "[INFO] Start wait for ceph operator and csi"
+          ceph_operator_ready
+
+          echo "[INFO] Create ServiceAccounts"
+          kubectl apply -f 02-sa.yaml
+          echo "[INFO] Create ConfigMap (patch existing for configure rbd support)"
+          kubectl apply -f 03-cm.yaml
+          echo "[INFO] Create Cluster"
+          kubectl apply -f 04-cluster.yaml
+
+          echo "[INFO] Get pod in d8-operator-ceph"
+          kubectl -n d8-operator-ceph get pods
+
+          echo "[INFO] Wait for ceph operator"
+          ceph_ready
+
+          echo "[INFO] Show pods"
+          kubectl get pods -n d8-operator-ceph
+
+          kubectl apply -f 05-blockpool.yaml
+          echo "[INFO] Wait for ceph-rbd-pool-r2 blockpool to be ready, timeout 600s"
+          kubectl -n d8-operator-ceph wait --for=jsonpath='{.status.phase}'=Ready cephblockpools.ceph.rook.io ceph-rbd-pool-r2 --timeout=600s
+          kubectl apply -f 06-toolbox.yaml
+          echo "[INFO] Wait for rook-ceph-tools, timeout 300s"
+          kubectl -n d8-operator-ceph wait --for=condition=Available deployment/rook-ceph-tools --timeout=300s
+
+          echo "[INFO] Show ceph pools via rook-ceph-tools"
+          kubectl -n d8-operator-ceph exec deployments/rook-ceph-tools -c ceph-tools -- ceph osd pool ls
+
+          echo "[INFO] Configure storage class"
+          chmod +x ./ceph-configure.sh
+          ./ceph-configure.sh
+
+  configure-virtualization:
+    name: Configure Virtualization
+    runs-on: ubuntu-latest
+    needs:
+      - bootstrap
+      - configure-storage
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install kubectl CLI
+        uses: azure/setup-kubectl@v4
+      - name: Setup d8
+        uses: ./.github/actions/install-d8
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check kubeconfig
+        run: |
+          echo "[INFO] Configure kube config"
+          mkdir -p ~/.kube
+          echo "${{ needs.bootstrap.outputs.kubeconfig }}" | base64 -d | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+          kubectl config use-context nested-e2e-nested-sa
+
+      - name: Configure Virtualization
+        run: |
+          REGISTRY=$(base64 -d <<< "${{secrets.DEV_REGISTRY_DOCKER_CFG}}" | jq '.auths | to_entries | .[] | .key' -r)
+
+          echo "[INFO] Apply ModuleSource prod config"
+          kubectl apply -f -<<EOF
+          apiVersion: deckhouse.io/v1alpha1
+          kind: ModuleSource
+          metadata:
+            name: deckhouse-dev
+          spec:
+            registry:
+              ca: ""
+              dockerCfg: "${{secrets.DEV_REGISTRY_DOCKER_CFG}}"
+              repo: "${REGISTRY}/sys/deckhouse-oss/modules"
+              scheme: HTTPS
+          EOF
+
+          kubectl wait --for=jsonpath='{.status.phase}'=Active ms deckhouse-dev --timeout=30s
+
+          echo "[INFO] Apply Virtualization module config"
+          kubectl apply -f -<<EOF
+          apiVersion: deckhouse.io/v1alpha1
+          kind: ModuleConfig
+          metadata:
+            name: virtualization
+          spec:
+            enabled: true
+            settings:
+              dvcr:
+                storage:
+                  persistentVolumeClaim:
+                    size: 10Gi
+                    storageClassName: ${{ inputs.nested_storageclass_name }}
+                  type: PersistentVolumeClaim
+              virtualMachineCIDRs:
+                - 192.168.10.0/24
+            source: deckhouse-dev
+            version: 1
+          ---
+          apiVersion: deckhouse.io/v1alpha2
+          kind: ModulePullOverride
+          metadata:
+            name: virtualization
+          spec:
+            imageTag: ${{ env.VIRTUALIZATION_TAG }}
+            scanInterval: 10h
+          EOF
+
+          echo "[INFO] Show ModuleSource"
+          kubectl get ms
+
+          echo "[INFO] Show module config virtualization info"
+          kubectl get mc virtualization
+
+          echo "[INFO] Show ModulePullOverride virtualization info"
+          kubectl get mpo virtualization
+      - name: Wait for Virtualization to be ready
+        run: |
+          d8_queue_list() {
+            d8 s queue list | grep -Po '([0-9]+)(?= active)' || echo "Failed to retrieve list queue"
+          }
+
+          debug_output() {
+            echo "[ERROR] Virtualization module deploy failed"
+            echo "[DEBUG] Show describe virtualization module"
+            echo "::group::📦 describe virtualization module"
+            kubectl describe modules virtualization || true
+            echo "::endgroup::"
+            echo "[DEBUG] Show namespace d8-virtualization"
+            kubectl get ns d8-virtualization || true
+            echo "[DEBUG] Show pods in namespace d8-virtualization"
+            kubectl -n d8-virtualization get pods || true
+            echo "[DEBUG] Show dvcr info"
+            echo "::group::📦 dvcr pod describe"
+            kubectl -n d8-virtualization describe pod -l app=dvcr || true
+            echo "::endgroup::"
+            echo " "
+            echo "::group::📦 dvcr pod yaml"
+            kubectl -n d8-virtualization get pods -l app=dvcr -o yaml || true
+            echo "::endgroup::"
+            echo " "
+            echo "::group::📦 dvcr deployment yaml"
+            kubectl -n d8-virtualization get deployment -l app=dvcr -o yaml || true
+            echo "::endgroup::"
+            echo " "
+            echo "::group::📦 dvcr deployment describe"
+            kubectl -n d8-virtualization describe deployment -l app=dvcr || true
+            echo "::endgroup::"
+            echo " "
+            echo "::group::📦 dvcr service yaml"
+            kubectl -n d8-virtualization get service -l app=dvcr -o yaml || true
+            echo "::endgroup::"
+            echo " "
+            echo "[DEBUG] Show pvc in namespace d8-virtualization"
+            kubectl get pvc -n d8-virtualization || true
+            echo "[DEBUG] Show storageclasses"
+            kubectl get storageclasses || true
+            echo "[DEBUG] Show queue (first 25 lines)"
+            d8 s queue list | head -n 25 || echo "[WARNING] Failed to retrieve list queue"
+            echo "[DEBUG] Show deckhouse logs"
+            echo "::group::📝 deckhouse logs"
+            d8 s logs | tail -n 100
+            echo "::endgroup::"
+          }
+
+          d8_queue() {
+            local count=90
+            local queue_count
+
+            for i in $(seq 1 $count) ; do
+              queue_count=$(d8_queue_list)
+              if [ -n "$queue_count" ] && [ "$queue_count" = "0" ]; then
+                echo "[SUCCESS] Queue is clear"
+                return 0
+              fi
+
+              echo "[INFO] Wait until queues are empty ${i}/${count}"
+              if (( i % 5 == 0 )); then
+                echo "[INFO] Show queue list"
+                d8 s queue list | head -n25 || echo "[WARNING] Failed to retrieve list queue"
+                echo " "
+              fi
+              
+              if (( i % 10 == 0 )); then
+                echo "[INFO] deckhouse logs"
+                echo "::group::📝 deckhouse logs"
+                d8 s logs | tail -n 100
+                echo "::endgroup::"
+                echo " "
+              fi
+              sleep 10
+            done
+          }
+
+          virtualization_ready() {
+            local count=90
+            local virtualization_status
+
+            for i in $(seq 1 $count) ; do
+              virtualization_status=$(kubectl get modules virtualization -o jsonpath='{.status.phase}')
+              if [ "$virtualization_status" == "Ready" ]; then
+                echo "[SUCCESS] Virtualization module is ready"
+                kubectl get modules virtualization
+                kubectl -n d8-virtualization get pods
+                kubectl get vmclass || echo "[WARNING] no vmclasses found"
+                return 0
+              fi
+              
+              echo "[INFO] Waiting 10s for Virtualization module to be ready (attempt $i/$count)"
+              
+              if (( i % 5 == 0 )); then
+                echo " "
+                echo "[DEBUG] Show additional info"
+                kubectl get ns d8-virtualization || echo "[WARNING] Namespace virtualization is not ready"
+                echo " "
+                kubectl -n d8-virtualization get pods || echo "[WARNING] Pods in namespace virtualization is not ready"
+                kubectl get pvc -n d8-virtualization || echo "[WARNING] PVC in namespace virtualization is not ready"
+                echo " "
+              fi
+              sleep 10
+            done
+            
+            debug_output
+            exit 1
+          }
+
+          virt_handler_ready() {
+            local count=60
+            local virt_handler_ready
+            local workers=$(kubectl get nodes -o name | grep worker | wc -l || true)
+            workers=$((workers)) 
+
+            for i in $(seq 1 $count); do
+              virt_handler_ready=$(kubectl -n d8-virtualization get pods | grep "virt-handler.*Running" | wc -l || true)
+
+              if [[ $virt_handler_ready -ge $workers ]]; then
+                echo "[SUCCESS] virt-handlers pods are ready"
+                return 0
+              fi
+
+              echo "[INFO] virt-handler pods $virt_handler_ready/$workers "
+              echo "[INFO] Wait virt-handler pods are ready (attempt $i/$count)"
+              if (( i % 5 == 0 )); then
+                echo "[DEBUG] Show pods in namespace d8-virtualization"
+                echo "::group::📦 virtualization pods"
+                kubectl -n d8-virtualization get pods || echo "No pods in virtualization namespace found"
+                echo "::endgroup::"
+              fi
+              sleep 10
+            done
+
+            debug_output
+            exit 1
+          }
+
+          echo " "
+          echo "[INFO] Waiting for Virtualization module to be ready"
+          d8_queue
+
+          virtualization_ready
+
+          echo "[INFO] Checking Virtualization module deployments"
+          kubectl -n d8-virtualization wait --for=condition=Available deploy --all --timeout 900s
+          echo "[INFO] Checking virt-handler pods "
+          virt_handler_ready
+
+  e2e-test:
+    name: E2E test (${{ inputs.storage_type }})
+    runs-on: ubuntu-latest
+    needs:
+      - bootstrap
+      - configure-storage
+      - configure-virtualization
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install ginkgo
+        working-directory: ./test/e2e/
+        run: |
+          echo "Install ginkgo"
+          go install tool
+
+      - name: Setup d8
+        uses: ./.github/actions/install-d8
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install kubectl CLI
+        uses: azure/setup-kubectl@v4
+
+      - name: Setup kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ needs.bootstrap.outputs.kubeconfig }}" | base64 -d | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+          echo "[INFO] Test cluster connection by showing existing vmclass"
+          kubectl get vmclass
+
+      - name: Download dependencies
+        working-directory: ./test/e2e/
+        run: |
+          echo "Download dependencies"
+          go mod download
+
+      - name: Create vmclass for e2e tests
+        run: |
+          if ! (kubectl get vmclass generic-for-e2e 2>/dev/null); then
+            kubectl get vmclass/generic -o json | jq 'del(.status) | del(.metadata) | .metadata = {"name":"generic-for-e2e","annotations":{"virtualmachineclass.virtualization.deckhouse.io/is-default-class":"true"}} ' | kubectl create -f -
+          fi
+
+          echo "[INFO] Showing exists vmclasses"
+          kubectl get vmclass
+
+      - name: Run E2E
+        id: e2e-report
+        env:
+          TIMEOUT: ${{ inputs.e2e_timeout }}
+          CSI: ${{ inputs.storage_type }}
+          STORAGE_CLASS_NAME: ${{ inputs.nested_storageclass_name }}
+        working-directory: ./test/e2e/
+        run: |
+          GINKGO_RESULT=$(mktemp -p $RUNNER_TEMP)
+          DATE=$(date +"%Y-%m-%d")
+          START_TIME=$(date +"%H:%M:%S")
+          summary_file_name_junit="e2e_summary_${CSI}_${DATE}.xml"
+          summary_file_name_json="e2e_summary_${CSI}_${DATE}.json"
+
+          if [[ "${{ inputs.storage_type }}" == "replicated" ]]; then
+            export SKIP_IMMEDIATE_SC_CHECK="yes"
+          fi
+
+          cp -a legacy/testdata /tmp/testdata
+
+          set +e
+          FOCUS="VirtualMachineConfiguration"
+          if [ -n $FOCUS ]; then
+            go tool ginkgo \
+              --focus="$FOCUS" \
+              -v --race --timeout=$TIMEOUT \
+              --junit-report=$summary_file_name_junit | tee $GINKGO_RESULT
+          else
+            go tool ginkgo \
+              -v --race --timeout=$TIMEOUT \
+              --junit-report=$summary_file_name_junit | tee $GINKGO_RESULT
+          fi
+          GINKGO_EXIT_CODE=$?
+          set -e
+
+          RESULT=$(sed -e "s/\x1b\[[0-9;]*m//g" $GINKGO_RESULT | grep --color=never -E "FAIL!|SUCCESS!")
+          if [[ $RESULT == FAIL!* ]]; then
+            RESULT_STATUS=":x: FAIL!"
+          elif [[ $RESULT == SUCCESS!* ]]; then
+            RESULT_STATUS=":white_check_mark: SUCCESS!"
+          else
+            RESULT_STATUS=":question: UNKNOWN"
+          fi
+
+          PASSED=$(echo "$RESULT" | grep -oP "\d+(?= Passed)")
+          FAILED=$(echo "$RESULT" | grep -oP "\d+(?= Failed)")
+          PENDING=$(echo "$RESULT" | grep -oP "\d+(?= Pending)")
+          SKIPPED=$(echo "$RESULT" | grep -oP "\d+(?= Skipped)")
+
+          SUMMARY=$(jq -n \
+              --arg csi "$CSI" \
+              --arg date "$DATE" \
+              --arg startTime "$START_TIME" \
+              --arg branch "${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" \
+              --arg status "$RESULT_STATUS" \
+              --argjson passed "$PASSED" \
+              --argjson failed "$FAILED" \
+              --argjson pending "$PENDING" \
+              --argjson skipped "$SKIPPED" \
+              --arg link "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            '{
+              CSI: $csi,
+              Date: $date,
+              StartTime: $startTime,
+              Branch: $branch,
+              Status: $status,
+              Passed: $passed,
+              Failed: $failed,
+              Pending: $pending,
+              Skipped: $skipped,
+              Link: $link
+            }'
+          )
+
+          echo "$SUMMARY"
+          echo "summary=$(echo "$SUMMARY" | jq -c .)" >> $GITHUB_OUTPUT
+          echo $SUMMARY > "${summary_file_name_json}"
+
+          echo "[INFO] Exit code: $GINKGO_EXIT_CODE"
+          exit $GINKGO_EXIT_CODE
+
+      - name: Upload summary test results (junit/xml)
+        uses: actions/upload-artifact@v4
+        id: e2e-report-artifact
+        if: always()
+        with:
+          name: e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}
+          path: |
+            test/e2e/e2e_summary_*.json
+            test/e2e/e2e_summary_*.xml
+            test/e2e/*junit*.xml
+          if-no-files-found: ignore
+          retention-days: 1
+
+      - name: Upload resources from failed tests
+        uses: actions/upload-artifact@v4
+        if: always() && steps.e2e-report.outcome == 'failure'
+        with:
+          name: resources_from_failed_tests
+          path: ${{ runner.temp }}/e2e_failed__*
+          if-no-files-found: ignore
+          retention-days: 3
+
+  prepare-report:
+    name: Prepare E2E report (${{ inputs.storage_type }})
+    runs-on: ubuntu-latest
+    needs:
+      - bootstrap
+      - configure-storage
+      - configure-virtualization
+      - e2e-test
+    if: always()
+    outputs:
+      artifact-name: ${{ steps.set-artifact-name.outputs.artifact-name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download E2E test results if available
+        uses: actions/download-artifact@v5
+        continue-on-error: true
+        with:
+          name: e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}
+          path: test/e2e/
+
+      - name: Determine failed stage and prepare report
+        id: determine-stage
+        run: |
+          # Get branch name
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          if [ -z "$BRANCH_NAME" ] || [ "$BRANCH_NAME" == "refs/heads/" ]; then
+            BRANCH_NAME="${{ github.ref_name }}"
+          fi
+
+          # Function to create failure summary JSON with proper job URL
+          create_failure_summary() {
+            local stage=$1
+            local status_msg=$2
+            local job_name=$3
+            local csi="${{ inputs.storage_type }}"
+            local date=$(date +"%Y-%m-%d")
+            local start_time=$(date +"%H:%M:%S")
+            local branch="$BRANCH_NAME"
+            # Create URL pointing to the failed job in the workflow run
+            # Format: https://github.com/{owner}/{repo}/actions/runs/{run_id}
+            # The job name will be visible in the workflow run view
+            local link="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            
+            jq -n \
+              --arg csi "$csi" \
+              --arg date "$date" \
+              --arg startTime "$start_time" \
+              --arg branch "$branch" \
+              --arg status "$status_msg" \
+              --arg link "$link" \
+              '{
+                CSI: $csi,
+                Date: $date,
+                StartTime: $startTime,
+                Branch: $branch,
+                Status: $status,
+                Passed: 0,
+                Failed: 0,
+                Pending: 0,
+                Skipped: 0,
+                Link: $link
+              }'
+          }
+
+          # Try to find and load E2E test report
+          E2E_REPORT_FILE=""
+          REPORT_JSON=""
+
+          # Search for report file in test/e2e directory
+          E2E_REPORT_FILE=$(find test/e2e -name "e2e_summary_${{ inputs.storage_type }}_*.json" -type f 2>/dev/null | head -1)
+
+          if [ -n "$E2E_REPORT_FILE" ] && [ -f "$E2E_REPORT_FILE" ]; then
+            echo "[INFO] Found E2E report file: $E2E_REPORT_FILE"
+            REPORT_JSON=$(cat "$E2E_REPORT_FILE" | jq -c .)
+            echo "[INFO] Loaded report from file"
+            echo "$REPORT_JSON" | jq .
+          fi
+
+          # Function to process a stage
+          process_stage() {
+            local result_value="$1"
+            local stage_name="$2"
+            local status_msg="$3"
+            local job_name="$4"
+            local is_e2e_test="${5:-false}"
+            
+            if [ "$result_value" != "success" ]; then
+              FAILED_STAGE="$stage_name"
+              FAILED_JOB_NAME="$job_name (${{ inputs.storage_type }})"
+              
+              if [ -z "$REPORT_JSON" ] || [ "$REPORT_JSON" == "" ]; then
+                REPORT_JSON=$(create_failure_summary "$stage_name" "$status_msg" "$FAILED_JOB_NAME")
+              elif [ "$is_e2e_test" == "true" ]; then
+                # Special handling for e2e-test: update status if needed
+                CURRENT_STATUS=$(echo "$REPORT_JSON" | jq -r '.Status // ""')
+                if [[ "$CURRENT_STATUS" != *"FAIL"* ]] && [[ "$CURRENT_STATUS" != *"SUCCESS"* ]]; then
+                  REPORT_JSON=$(echo "$REPORT_JSON" | jq -c '.Status = ":x: E2E TEST FAILED"')
+                fi
+              fi
+              return 0  # Stage failed
+            fi
+            return 1  # Stage succeeded
+          }
+
+          # Determine which stage failed and prepare report
+          FAILED_STAGE=""
+          FAILED_JOB_NAME=""
+
+          if process_stage "${{ needs.bootstrap.result }}" "bootstrap" ":x: BOOTSTRAP CLUSTER FAILED" "Bootstrap cluster"; then
+            : # Stage failed, handled in function
+          elif process_stage "${{ needs.configure-storage.result }}" "storage-setup" ":x: STORAGE SETUP FAILED" "Configure storage"; then
+            : # Stage failed, handled in function
+          elif process_stage "${{ needs.configure-virtualization.result }}" "virtualization-setup" ":x: VIRTUALIZATION SETUP FAILED" "Configure Virtualization"; then
+            : # Stage failed, handled in function
+          elif process_stage "${{ needs.e2e-test.result }}" "e2e-test" ":x: E2E TEST FAILED" "E2E test" "true"; then
+            : # Stage failed, handled in function
+          else
+            # All stages succeeded
+            FAILED_STAGE="success"
+            FAILED_JOB_NAME="E2E test (${{ inputs.storage_type }})"
+            if [ -z "$REPORT_JSON" ] || [ "$REPORT_JSON" == "" ]; then
+              REPORT_JSON=$(create_failure_summary "success" ":white_check_mark: SUCCESS!" "$FAILED_JOB_NAME")
+            fi
+          fi
+
+          # Create structured report file with metadata
+          REPORT_FILE="e2e_report_${{ inputs.storage_type }}.json"
+          # Parse REPORT_JSON to ensure it's valid JSON before using it
+          REPORT_JSON_PARSED=$(echo "$REPORT_JSON" | jq -c .)
+          jq -n \
+            --argjson report "$REPORT_JSON_PARSED" \
+            --arg storage_type "${{ inputs.storage_type }}" \
+            --arg failed_stage "$FAILED_STAGE" \
+            --arg failed_job_name "$FAILED_JOB_NAME" \
+            --arg workflow_run_id "${{ github.run_id }}" \
+            --arg workflow_run_url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            '{
+              storage_type: $storage_type,
+              failed_stage: $failed_stage,
+              failed_job_name: $failed_job_name,
+              workflow_run_id: $workflow_run_id,
+              workflow_run_url: $workflow_run_url,
+              report: $report
+            }' > "$REPORT_FILE"
+
+          echo "report_file=$REPORT_FILE" >> $GITHUB_OUTPUT
+          echo "[INFO] Created report file: $REPORT_FILE"
+          echo "[INFO] Failed stage: $FAILED_STAGE"
+          echo "[INFO] Failed job: $FAILED_JOB_NAME"
+          cat "$REPORT_FILE" | jq .
+
+      - name: Upload E2E report artifact
+        id: upload-artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report-${{ inputs.storage_type }}-${{ github.run_id }}
+          path: ${{ steps.determine-stage.outputs.report_file }}
+          retention-days: 1
+
+      - name: Set artifact name output
+        id: set-artifact-name
+        run: |
+          ARTIFACT_NAME="e2e-report-${{ inputs.storage_type }}-${{ github.run_id }}"
+          echo "artifact-name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
+          echo "[INFO] Artifact name: $ARTIFACT_NAME"
+
+  undeploy-cluster:
+    name: Undeploy cluster (${{ inputs.storage_type }})
+    runs-on: ubuntu-latest
+    needs:
+      - bootstrap
+      - configure-storage
+      - configure-virtualization
+      - e2e-test
+    if: cancelled() || success()
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup d8
+        uses: ./.github/actions/install-d8
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: generated-files-${{ inputs.storage_type }}
+          path: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/
+
+      - name: Configure kubectl via azure/k8s-set-context@v4
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          context: e2e-cluster-nightly-e2e-virt-sa
+          kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+
+      - name: infra-undeploy
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+        run: |
+          task infra-undeploy
