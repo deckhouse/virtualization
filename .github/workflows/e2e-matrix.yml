@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: E2E Matrix Tests (bootstrap)
+name: E2E Matrix Tests (nested clusters)
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "45 6 * * *"
+    - cron: "45 4 * * *"
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
@@ -28,8 +28,31 @@ defaults:
     shell: bash
 
 jobs:
+  cleanup-nested-clusters:
+    name: Cleanup nested clusters
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure kubectl via azure/k8s-set-context@v4
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          context: e2e-cluster-nightly-e2e-virt-sa
+          kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+      - name: Delete nested clusters
+        run: |
+          echo "[INFO] Show namespaces with label test=nightly-e2e older than 3 days for delete"
+          kubectl get namespaces -l test=nightly-e2e -o jsonpath='{range .items[?(@.metadata.creationTimestamp<"'$(date -d '3 day ago' -u +'%Y-%m-%dT%H:%M:%SZ')'")]}{.metadata.name}{"\t"}{.metadata.creationTimestamp}{"\n"}{end}' || true
+          echo "[INFO] Show vmclass with label test=nightly-e2e older than 3 days for delete"
+          kubectl get namespaces -l test=nightly-e2e -o jsonpath='{range .items[?(@.metadata.creationTimestamp<"'$(date -d '3 day ago' -u +'%Y-%m-%dT%H:%M:%SZ')'")]}{.metadata.name}{"\t"}{.metadata.creationTimestamp}{"\n"}{end}' || true
+
+          echo "[INFO] Delete namespaces with label test=nightly-e2e older than 3 days"
+          kubectl get namespaces -l test=nightly-e2e -o jsonpath='{range .items[?(@.metadata.creationTimestamp<"'$(date -d '3 day ago' -u +'%Y-%m-%dT%H:%M:%SZ')'")]}{.metadata.name}{"\n"}{end}' | xargs -r kubectl delete namespace || true
+          echo "[INFO] Delete vmclass with label test=nightly-e2e older than 3 days"
+          kubectl get vmclass -l test=nightly-e2e -o jsonpath='{range .items[?(@.metadata.creationTimestamp<"'$(date -d '3 day ago' -u +'%Y-%m-%dT%H:%M:%SZ')'")]}{.metadata.name}{"\n"}{end}' | xargs -r kubectl delete vmclass || true
+
   e2e-ceph:
     name: E2E Pipeline (Ceph)
+    needs: cleanup-nested-clusters
     uses: ./.github/workflows/e2e-reusable-pipeline.yml
     with:
       storage_type: ceph
@@ -39,7 +62,7 @@ jobs:
       deckhouse_channel: alpha
       default_user: cloud
       go_version: "1.24.6"
-      e2e_timeout: "3h"
+      e2e_timeout: "3.5h"
     secrets:
       DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
       VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
@@ -48,6 +71,7 @@ jobs:
 
   e2e-replicated:
     name: E2E Pipeline (Replicated)
+    needs: cleanup-nested-clusters
     uses: ./.github/workflows/e2e-reusable-pipeline.yml
     with:
       storage_type: replicated
@@ -57,12 +81,13 @@ jobs:
       deckhouse_channel: alpha
       default_user: cloud
       go_version: "1.24.6"
-      e2e_timeout: "3h"
+      e2e_timeout: "3.5h"
     secrets:
       DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
       VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
       PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
       BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
+
   report-to-channel:
     runs-on: ubuntu-latest
     name: End-to-End tests report
