@@ -40,6 +40,7 @@ import (
 	"github.com/deckhouse/virtualization-dra/internal/common"
 	"github.com/deckhouse/virtualization-dra/internal/usb-gateway/informer"
 	"github.com/deckhouse/virtualization-dra/internal/usbip"
+	"github.com/deckhouse/virtualization-dra/pkg/patch"
 )
 
 const controllerName = "resourceclaim-controller"
@@ -367,32 +368,52 @@ func (c *Controller) allUnBound(rc *resourcev1beta1.ResourceClaim) (bool, error)
 	return true, nil
 }
 
-func (c *Controller) addFinalizerForResourceClaim(rc *resourcev1beta1.ResourceClaim) (err error) {
-	if addFinalizer(rc) {
-		_, err = c.client.ResourceV1beta1().ResourceClaims(rc.Namespace).Update(context.Background(), rc, metav1.UpdateOptions{})
+func (c *Controller) addFinalizerForResourceClaim(rc *resourcev1beta1.ResourceClaim) error {
+	patchBytes, err := makeAddFinalizerPatch(rc)
+	if err != nil {
+		return err
 	}
-	return
+	if patchBytes != nil {
+		_, err = c.client.ResourceV1beta1().ResourceClaims(rc.Namespace).Patch(context.Background(), rc.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		return err
+	}
+	return nil
 }
 
-func (c *Controller) removeFinalizerForResourceClaim(rc *resourcev1beta1.ResourceClaim) (err error) {
-	if removeFinalizer(rc) {
-		_, err = c.client.ResourceV1beta1().ResourceClaims(rc.Namespace).Update(context.Background(), rc, metav1.UpdateOptions{})
+func (c *Controller) removeFinalizerForResourceClaim(rc *resourcev1beta1.ResourceClaim) error {
+	patchBytes, err := makeRemoveFinalizerPatch(rc)
+	if err != nil {
+		return err
 	}
-	return
+	if patchBytes != nil {
+		_, err = c.client.ResourceV1beta1().ResourceClaims(rc.Namespace).Patch(context.Background(), rc.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		return err
+	}
+	return nil
 }
 
-func (c *Controller) addFinalizerForPod(pod *corev1.Pod) (err error) {
-	if addFinalizer(pod) {
-		_, err = c.client.CoreV1().Pods(pod.Namespace).Update(context.Background(), pod, metav1.UpdateOptions{})
+func (c *Controller) addFinalizerForPod(pod *corev1.Pod) error {
+	patchBytes, err := makeAddFinalizerPatch(pod)
+	if err != nil {
+		return err
 	}
-	return
+	if patchBytes != nil {
+		_, err = c.client.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		return err
+	}
+	return nil
 }
 
-func (c *Controller) removeFinalizerForPod(pod *corev1.Pod) (err error) {
-	if removeFinalizer(pod) {
-		_, err = c.client.CoreV1().Pods(pod.Namespace).Update(context.Background(), pod, metav1.UpdateOptions{})
+func (c *Controller) removeFinalizerForPod(pod *corev1.Pod) error {
+	patchBytes, err := makeRemoveFinalizerPatch(pod)
+	if err != nil {
+		return err
 	}
-	return
+	if patchBytes != nil {
+		_, err = c.client.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		return err
+	}
+	return nil
 }
 
 func (c *Controller) handleServer(rc *resourcev1beta1.ResourceClaim, myAllocationDevices []resourcev1beta1.Device) error {
@@ -828,4 +849,36 @@ func removeFinalizer(obj metav1.Object) bool {
 
 	obj.SetFinalizers(newFinalizers)
 	return true
+}
+
+func makeAddFinalizerPatch(obj metav1.Object) ([]byte, error) {
+	var newFinalizers []string
+	for _, fin := range obj.GetFinalizers() {
+		if fin == finalizer {
+			return nil, nil
+		}
+		newFinalizers = append(newFinalizers, fin)
+	}
+	newFinalizers = append(newFinalizers, finalizer)
+
+	return patch.NewJSONPatch(
+		patch.WithTest("/metadata/finalizers", obj.GetFinalizers()),
+		patch.WithReplace("/metadata/finalizers", newFinalizers),
+	).Bytes()
+}
+
+func makeRemoveFinalizerPatch(obj metav1.Object) ([]byte, error) {
+	var newFinalizers []string
+	for _, fin := range obj.GetFinalizers() {
+		if fin == finalizer {
+			return nil, nil
+		}
+		newFinalizers = append(newFinalizers, fin)
+	}
+	newFinalizers = append(newFinalizers, finalizer)
+
+	return patch.NewJSONPatch(
+		patch.WithTest("/metadata/finalizers", obj.GetFinalizers()),
+		patch.WithReplace("/metadata/finalizers", newFinalizers),
+	).Bytes()
 }

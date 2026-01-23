@@ -18,7 +18,6 @@ package labeler
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"maps"
 
@@ -26,10 +25,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
+
+	"github.com/deckhouse/virtualization-dra/pkg/patch"
 )
 
 type Labeler interface {
-	Label(ctx context.Context, name, namespace string, labels map[string]string) error
+	Label(ctx context.Context, name, namespace string, addLabels map[string]string) error
 }
 
 type genericLabeler struct {
@@ -44,23 +45,26 @@ func NewGenericLabeler(client dynamic.Interface, gvr schema.GroupVersionResource
 	}
 }
 
-func (l *genericLabeler) Label(ctx context.Context, name, namespace string, newLabels map[string]string) error {
+func (l *genericLabeler) Label(ctx context.Context, name, namespace string, addLabels map[string]string) error {
 	obj, err := l.client.Resource(l.gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
 
-	labels := obj.GetLabels()
-	maps.Copy(labels, newLabels)
+	oldLabels := obj.GetLabels()
+	newLabels := make(map[string]string)
+	maps.Copy(newLabels, oldLabels)
+	maps.Copy(newLabels, addLabels)
 
-	value, err := json.Marshal(labels)
+	patchBytes, err := patch.NewJSONPatch(
+		patch.WithTest("/metadata/labels", oldLabels),
+		patch.WithReplace("/metadata/labels", newLabels),
+	).Bytes()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create patch: %w", err)
 	}
 
-	patch := []byte(fmt.Sprintf(`[{"op": "replace", "path": "/metadata/labels", "value": %s}]`, string(value)))
-
-	_, err = l.client.Resource(l.gvr).Namespace(namespace).Patch(ctx, name, types.JSONPatchType, patch, metav1.PatchOptions{})
+	_, err = l.client.Resource(l.gvr).Namespace(namespace).Patch(ctx, name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	return err
 }
 
@@ -78,6 +82,6 @@ func NewNodeLabeler(client dynamic.Interface) NodeLabeler {
 	}
 }
 
-func (l NodeLabeler) Label(ctx context.Context, name, namespace string, newLabels map[string]string) error {
-	return l.generic.Label(ctx, name, namespace, newLabels)
+func (l NodeLabeler) Label(ctx context.Context, name, namespace string, addLabels map[string]string) error {
+	return l.generic.Label(ctx, name, namespace, addLabels)
 }

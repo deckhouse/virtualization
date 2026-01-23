@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2026 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -64,6 +64,10 @@ func WithRemove(path string) JSONPatchOperation {
 
 func WithReplace(path string, value interface{}) JSONPatchOperation {
 	return NewJSONPatchOperation(PatchReplaceOp, path, value)
+}
+
+func WithTest(path string, value interface{}) JSONPatchOperation {
+	return NewJSONPatchOperation(PatchTestOp, path, value)
 }
 
 func (jp *JSONPatch) Operations() []JSONPatchOperation {
