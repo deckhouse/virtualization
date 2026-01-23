@@ -1,0 +1,67 @@
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: deckhouse
+spec:
+  version: 1
+  enabled: true
+  settings:
+    bundle: {{ .Values.deckhouse.bundle }}
+    releaseChannel: {{ .Values.deckhouse.channel | title }}
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: global
+spec:
+  version: 2
+  settings:
+    modules:
+      https:
+        certManager:
+          clusterIssuerName: selfsigned
+        mode: CertManager
+      publicDomainTemplate: "%s.{{ .Values.namespace }}.{{ .Values.discovered.domain }}"
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: cni-cilium
+spec:
+  version: 1
+  enabled: true
+  settings:
+    tunnelMode: VXLAN
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: node-manager
+spec:
+  enabled: true
+  version: 2
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: kube-dns
+spec:
+  enabled: true
+  version: 1
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: registry-packages-proxy
+spec:
+  enabled: true
+  version: 1
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: control-plane-manager
+spec:
+  enabled: true
+  version: 2

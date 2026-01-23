@@ -1,0 +1,115 @@
+{{- $totalNodes := .Values.instances.masterNodes.count -}}
+{{- range .Values.instances.additionalNodes -}}
+  {{- $totalNodes = add $totalNodes .count -}}
+{{- end -}}
+
+{{- if eq .Values.deckhouse.bundle "Default" }}
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: user-authn
+spec:
+  version: 2
+  enabled: true
+  settings:
+    controlPlaneConfigurator:
+      dexCAMode: DoNotNeed
+    publishAPI:
+      enabled: true
+      https:
+        mode: SelfSigned
+        global:
+          kubeconfigGeneratorMasterCA: ""
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: user-authz
+spec:
+  enabled: true
+  version: 1
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: descheduler
+spec:
+  enabled: {{ if eq $totalNodes 1 }}false{{ else }}true{{ end }}
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: prometheus
+spec:
+  version: 1
+  enabled: true
+  settings:
+    retentionDays: 7
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: prompp
+spec:
+  version: 1
+  enabled: true
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: monitoring-applications
+spec:
+  enabled: true
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: node-local-dns
+spec:
+  enabled: true
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: snapshot-controller
+spec:
+  enabled: true
+  version: 1
+---
+apiVersion: deckhouse.io/v1
+kind: IngressNginxController
+metadata:
+  name: main
+spec:
+  inlet: HostPort
+  enableIstioSidecar: true
+  ingressClass: nginx
+  hostPort:
+    httpPort: 80
+    httpsPort: 443
+  nodeSelector:
+    node-role.kubernetes.io/master: ''
+  tolerations:
+    - effect: NoSchedule
+      operator: Exists
+---
+apiVersion: deckhouse.io/v1
+kind: ClusterAuthorizationRule
+metadata:
+  name: admin
+spec:
+  subjects:
+    - kind: User
+      name: admin@deckhouse.io
+  accessLevel: SuperAdmin
+  portForwarding: true
+---
+apiVersion: deckhouse.io/v1
+kind: User
+metadata:
+  name: admin
+spec:
+  email: admin@deckhouse.io
+  password: {{ .Values.discovered.passwordHash }}
+{{ end }}

@@ -15,20 +15,349 @@
 name: E2E Matrix Tests (bootstrap)
 
 on:
-  pull_request:
-    types: [opened, reopened, synchronize, labeled, unlabeled]
-    branches:
-      - main
-      - feat/ci-e2e-matrix
   workflow_dispatch:
+  schedule:
+    - cron: "45 6 * * *"
 
-permissions:
-  contents: read
+concurrency:
+  group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
-  noop:
-    name: Bootstrap
+  cleanup-nested-clusters:
+    name: Cleanup nested clusters
     runs-on: ubuntu-latest
     steps:
-      - name: Say hello
-        run: echo "Bootstrap workflow OK"
+      - name: Configure kubectl via azure/k8s-set-context@v4
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          context: e2e-cluster-nightly-e2e-virt-sa
+          kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+      - name: Delete nested clusters
+        run: |
+          echo "[INFO] Show namespaces with label test=nightly-e2e older than 3 days for delete"
+          kubectl get namespaces -l test=nightly-e2e -o jsonpath='{range .items[?(@.metadata.creationTimestamp<"'$(date -d '3 day ago' -u +'%Y-%m-%dT%H:%M:%SZ')'")]}{.metadata.name}{"\t"}{.metadata.creationTimestamp}{"\n"}{end}' || true
+          echo "[INFO] Show vmclass with label test=nightly-e2e older than 3 days for delete"
+          kubectl get namespaces -l test=nightly-e2e -o jsonpath='{range .items[?(@.metadata.creationTimestamp<"'$(date -d '3 day ago' -u +'%Y-%m-%dT%H:%M:%SZ')'")]}{.metadata.name}{"\t"}{.metadata.creationTimestamp}{"\n"}{end}' || true
+
+          echo "[INFO] Delete namespaces with label test=nightly-e2e older than 3 days"
+          kubectl get namespaces -l test=nightly-e2e -o jsonpath='{range .items[?(@.metadata.creationTimestamp<"'$(date -d '3 day ago' -u +'%Y-%m-%dT%H:%M:%SZ')'")]}{.metadata.name}{"\n"}{end}' | xargs -r kubectl delete namespace || true
+          echo "[INFO] Delete vmclass with label test=nightly-e2e older than 3 days"
+          kubectl get vmclass -l test=nightly-e2e -o jsonpath='{range .items[?(@.metadata.creationTimestamp<"'$(date -d '3 day ago' -u +'%Y-%m-%dT%H:%M:%SZ')'")]}{.metadata.name}{"\n"}{end}' | xargs -r kubectl delete vmclass || true
+
+  e2e-ceph:
+    name: E2E Pipeline (Ceph)
+    needs: cleanup-nested-clusters
+    uses: ./.github/workflows/e2e-reusable-pipeline.yml
+    with:
+      storage_type: ceph
+      nested_storageclass_name: nested-ceph-pool-r2-csi-rbd
+      branch: main
+      virtualization_tag: main
+      deckhouse_channel: alpha
+      default_user: cloud
+      go_version: "1.24.6"
+      e2e_timeout: "3h"
+    secrets:
+      DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
+      VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+      PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
+      BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
+
+  e2e-replicated:
+    name: E2E Pipeline (Replicated)
+    needs: cleanup-nested-clusters
+    uses: ./.github/workflows/e2e-reusable-pipeline.yml
+    with:
+      storage_type: replicated
+      nested_storageclass_name: nested-thin-r1
+      branch: main
+      virtualization_tag: main
+      deckhouse_channel: alpha
+      default_user: cloud
+      go_version: "1.24.6"
+      e2e_timeout: "3h"
+    secrets:
+      DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
+      VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+      PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
+      BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
+
+  report-to-channel:
+    runs-on: ubuntu-latest
+    name: End-to-End tests report
+    needs:
+      - e2e-ceph
+      - e2e-replicated
+    if: ${{ always()}}
+    env:
+      STORAGE_TYPES: '["ceph", "replicated"]'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download E2E report artifacts
+        uses: actions/download-artifact@v5
+        continue-on-error: true
+        id: download-artifacts-pattern
+        with:
+          pattern: "e2e-report-*"
+          path: downloaded-artifacts/
+          merge-multiple: false
+
+      - name: Send results to channel
+        run: |
+          # Map storage types to CSI names
+          get_csi_name() {
+            local storage_type=$1
+            case "$storage_type" in
+              "ceph")
+                echo "rbd.csi.ceph.com"
+                ;;
+              "replicated")
+                echo "replicated.csi.storage.deckhouse.io"
+                ;;
+              *)
+                echo "$storage_type"
+                ;;
+            esac
+          }
+
+          # Function to load and parse report from artifact
+          # Outputs: file content to stdout, debug messages to stderr
+          # Works with pattern-based artifact download (e2e-report-*)
+          # Artifacts are organized as: downloaded-artifacts/e2e-report-<storage_type>-<run_id>/e2e_report_<storage_type>.json
+          load_report_from_artifact() {
+            local storage_type=$1
+            local base_path="downloaded-artifacts/"
+            
+            echo "[INFO] Searching for report for storage type: $storage_type" >&2
+            echo "[DEBUG] Base path: $base_path" >&2
+            
+            if [ ! -d "$base_path" ]; then
+              echo "[WARN] Base path does not exist: $base_path" >&2
+              return 1
+            fi
+            
+            local report_file=""
+            
+            # First, search in artifact directories matching pattern: e2e-report-<storage_type>-*
+            # Pattern downloads create subdirectories named after the artifact
+            # e.g., downloaded-artifacts/e2e-report-ceph-<run_id>/e2e_report_ceph.json
+            echo "[DEBUG] Searching in artifact directories matching pattern: e2e-report-${storage_type}-*" >&2
+            local artifact_dir=$(find "$base_path" -type d -name "e2e-report-${storage_type}-*" 2>/dev/null | head -1)
+            if [ -n "$artifact_dir" ]; then
+              echo "[DEBUG] Found artifact dir: $artifact_dir" >&2
+              report_file=$(find "$artifact_dir" -name "e2e_report_*.json" -type f 2>/dev/null | head -1)
+              if [ -n "$report_file" ] && [ -f "$report_file" ]; then
+                echo "[INFO] Found report file in artifact dir: $report_file" >&2
+                cat "$report_file"
+                return 0
+              fi
+            fi
+            
+            # Fallback: search for file by name pattern anywhere in base_path
+            echo "[DEBUG] Searching for file: e2e_report_${storage_type}.json" >&2
+            report_file=$(find "$base_path" -type f -name "e2e_report_${storage_type}.json" 2>/dev/null | head -1)
+            if [ -n "$report_file" ] && [ -f "$report_file" ]; then
+              echo "[INFO] Found report file by name: $report_file" >&2
+              cat "$report_file"
+              return 0
+            fi
+            
+            echo "[WARN] Could not load report artifact for $storage_type" >&2
+            return 1
+          }
+
+          # Function to create failure summary JSON (fallback)
+          create_failure_summary() {
+            local storage_type=$1
+            local stage=$2
+            local run_id=$3
+            local csi=$(get_csi_name "$storage_type")
+            local date=$(date +"%Y-%m-%d")
+            local time=$(date +"%H:%M:%S")
+            local branch="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
+            local link="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${run_id:-${GITHUB_RUN_ID}}"
+            
+            # Map stage to status message
+            local status_msg
+            case "$stage" in
+              "bootstrap")
+                status_msg=":x: BOOTSTRAP CLUSTER FAILED"
+                ;;
+              "storage-setup")
+                status_msg=":x: STORAGE SETUP FAILED"
+                ;;
+              "virtualization-setup")
+                status_msg=":x: VIRTUALIZATION SETUP FAILED"
+                ;;
+              "e2e-test")
+                status_msg=":x: E2E TEST FAILED"
+                ;;
+              *)
+                status_msg=":question: UNKNOWN"
+                ;;
+            esac
+            
+            jq -n \
+              --arg csi "$csi" \
+              --arg date "$date" \
+              --arg time "$time" \
+              --arg branch "$branch" \
+              --arg status "$status_msg" \
+              --arg link "$link" \
+              '{CSI: $csi, Date: $date, StartTime: $time, Branch: $branch, Status: $status, Passed: 0, Failed: 0, Pending: 0, Skipped: 0, Link: $link}'
+          }
+
+
+          # Parse summary JSON and add to table
+          parse_summary() {
+            local summary_json=$1
+            local storage_type=$2
+            
+            if [ -z "$summary_json" ] || [ "$summary_json" == "null" ] || [ "$summary_json" == "" ]; then
+              echo "Warning: Empty summary for $storage_type"
+              return
+            fi
+
+            # Try to parse as JSON (handle both JSON string and already parsed JSON)
+            if ! echo "$summary_json" | jq empty 2>/dev/null; then
+              echo "Warning: Invalid JSON for $storage_type: $summary_json"
+              echo "[DEBUG] json: $summary_json"
+              return
+            fi
+
+            # Parse JSON fields
+            csi_raw=$(echo "$summary_json" | jq -r '.CSI // empty' 2>/dev/null)
+            if [ -z "$csi_raw" ] || [ "$csi_raw" == "null" ] || [ "$csi_raw" == "" ]; then
+              csi=$(get_csi_name "$storage_type")
+            else
+              csi="$csi_raw"
+            fi
+            
+            date=$(echo "$summary_json" | jq -r '.Date // ""' 2>/dev/null)
+            time=$(echo "$summary_json" | jq -r '.StartTime // ""' 2>/dev/null)
+            branch=$(echo "$summary_json" | jq -r '.Branch // ""' 2>/dev/null)
+            status=$(echo "$summary_json" | jq -r '.Status // ":question: UNKNOWN"' 2>/dev/null)
+            passed=$(echo "$summary_json" | jq -r '.Passed // 0' 2>/dev/null)
+            failed=$(echo "$summary_json" | jq -r '.Failed // 0' 2>/dev/null)
+            pending=$(echo "$summary_json" | jq -r '.Pending // 0' 2>/dev/null)
+            skipped=$(echo "$summary_json" | jq -r '.Skipped // 0' 2>/dev/null)
+            link=$(echo "$summary_json" | jq -r '.Link // ""' 2>/dev/null)
+
+            # Set defaults if empty
+            [ -z "$passed" ] && passed=0
+            [ -z "$failed" ] && failed=0
+            [ -z "$pending" ] && pending=0
+            [ -z "$skipped" ] && skipped=0
+            [ -z "$status" ] && status=":question: UNKNOWN"
+
+            # Format link - use CSI name as fallback if link is empty
+            if [ -z "$link" ] || [ "$link" == "" ]; then
+              link_text="$csi"
+            else
+              link_text="[:link: $csi]($link)"
+            fi
+
+            # Add row to table
+            markdown_table+="| $link_text | $status | $passed | $failed	| $pending	| $skipped | $date | $time | $branch |\n"
+          }
+
+          # Initialize markdown table
+          echo "[INFO] Generate markdown table"
+          markdown_table=""
+          header="| CSI | Status | Passed | Failed | Pending	| Skipped	| Date | Time | Branch|\n"
+          separator="|---|---|---|---|---|---|---|---|---|\n"
+          markdown_table+="$header"
+          markdown_table+="$separator"
+
+          # Get current date for header
+          DATE=$(date +"%Y-%m-%d")
+          COMBINED_SUMMARY="## :dvp: **DVP | End-to-End tests | $DATE**\n\n"
+
+          echo "[INFO] Get storage types"
+          readarray -t storage_types < <(echo "$STORAGE_TYPES" | jq -r '.[]')
+          echo "[INFO] Storage types: " "${storage_types[@]}"
+
+          echo "[INFO] Generate summary for each storage type"
+          for storage in "${storage_types[@]}"; do
+            echo "[INFO] Processing $storage"
+            
+            # Try to load report from artifact
+            # Debug messages go to stderr (visible in logs), JSON content goes to stdout
+            echo "[INFO] Attempting to load report for $storage"
+            structured_report=$(load_report_from_artifact "$storage" || true)
+            
+            if [ -n "$structured_report" ]; then
+              # Check if it's valid JSON
+              if echo "$structured_report" | jq empty 2>/dev/null; then
+                echo "[INFO] Report is valid JSON for $storage"
+              else
+                echo "[WARN] Report is not valid JSON for $storage"
+                echo "[DEBUG] Raw report content (first 200 chars):"
+                echo "$structured_report" | head -c 200
+                echo ""
+                structured_report=""
+              fi
+            fi
+            
+            if [ -n "$structured_report" ] && echo "$structured_report" | jq empty 2>/dev/null; then
+              # Extract report data from structured file
+              report_json=$(echo "$structured_report" | jq -c '.report // empty')
+              failed_stage=$(echo "$structured_report" | jq -r '.failed_stage // empty')
+              workflow_run_id=$(echo "$structured_report" | jq -r '.workflow_run_id // empty')
+              
+              echo "[INFO] Loaded report for $storage (failed_stage: ${failed_stage}, run_id: ${workflow_run_id})"
+              
+              # Validate and parse report
+              if [ -n "$report_json" ] && [ "$report_json" != "" ] && [ "$report_json" != "null" ]; then
+                if echo "$report_json" | jq empty 2>/dev/null; then
+                  echo "[INFO] Found valid report for $storage"
+                  parse_summary "$report_json" "$storage"
+                else
+                  echo "[WARN] Invalid report JSON for $storage, using failed stage info"
+                  # Fallback to failed stage
+                  if [ -n "$failed_stage" ] && [ "$failed_stage" != "" ] && [ "$failed_stage" != "success" ]; then
+                    failed_summary=$(create_failure_summary "$storage" "$failed_stage" "$workflow_run_id")
+                    parse_summary "$failed_summary" "$storage"
+                  else
+                    csi=$(get_csi_name "$storage")
+                    markdown_table+="| $csi | :warning: INVALID REPORT | 0 | 0 | 0 | 0 | — | — | — |\n"
+                  fi
+                fi
+              else
+                # No report in structured file, use failed stage
+                if [ -n "$failed_stage" ] && [ "$failed_stage" != "" ] && [ "$failed_stage" != "success" ]; then
+                  echo "[INFO] Stage '$failed_stage' failed for $storage"
+                  failed_summary=$(create_failure_summary "$storage" "$failed_stage" "$workflow_run_id")
+                  parse_summary "$failed_summary" "$storage"
+                else
+                  csi=$(get_csi_name "$storage")
+                  markdown_table+="| $csi | :warning: NO REPORT | 0 | 0 | 0 | 0 | — | — | — |\n"
+                fi
+              fi
+            else
+              # Artifact not found or invalid, show warning
+              echo "[WARN] Could not load report artifact for $storage"
+              csi=$(get_csi_name "$storage")
+              markdown_table+="| $csi | :warning: ARTIFACT NOT FOUND | 0 | 0 | 0 | 0 | — | — | — |\n"
+            fi
+          done
+
+          echo "[INFO] Combined summary"
+          COMBINED_SUMMARY+="${markdown_table}\n"
+
+          echo -e "$COMBINED_SUMMARY"
+
+          # Send to channel if webhook is configured
+          echo "[INFO] Send to webhook"
+          if [ -n "$LOOP_WEBHOOK_URL" ]; then
+            curl --request POST --header 'Content-Type: application/json' --data "{\"text\": \"${COMBINED_SUMMARY}\"}" "$LOOP_WEBHOOK_URL"
+          fi
+        env:
+          LOOP_WEBHOOK_URL: ${{ secrets.LOOP_WEBHOOK_URL }}

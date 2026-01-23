@@ -1,10 +1,15 @@
 name: Install deckhouse-cli
 description: Install deckhouse-cli
+inputs:
+  version:
+    description: version of deckhouse-cli (like v0.25.1)
+    required: false
+    default: v0.25.1
 runs:
   using: "composite"
   steps:
     - name: Install deckhouse-cli
       shell: bash
       run: |
-        sh -c "$(curl -fsSL https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/tools/install.sh)"
+        sh -c "$(curl -fsSL https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/tools/install.sh)" "" --version ${{ inputs.version }}
         echo "/opt/deckhouse/bin" >> $GITHUB_PATH

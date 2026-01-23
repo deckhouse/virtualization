@@ -1,0 +1,9 @@
+apiVersion: virtualization.deckhouse.io/v1alpha3
+kind: VirtualMachineClass
+metadata:
+  name: {{ include "infra.vmclass-name" . }}
+  labels:
+    test: nightly-e2e
+spec:
+  cpu:
+    type: Discovery
