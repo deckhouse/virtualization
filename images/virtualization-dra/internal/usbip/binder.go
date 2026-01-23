@@ -24,7 +24,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/deckhouse/virtualization-dra/pkg/usb"
+	"github.com/deckhouse/virtualization-dra/pkg/libusb"
 )
 
 func NewUSBBinder() USBBinder {
@@ -108,7 +108,7 @@ func (b *usbBinder) IsBound(busID string) (bool, error) {
 }
 
 func (b *usbBinder) GetBindInfo() ([]BindInfo, error) {
-	usbDevices, err := usb.DiscoverPluggedUSBDevices()
+	usbDevices, err := libusb.DiscoverPluggedUSBDevices()
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover USB devices: %w", err)
 	}

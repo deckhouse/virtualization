@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"time"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
@@ -33,8 +32,8 @@ import (
 	"github.com/deckhouse/virtualization-dra/internal/usb-gateway/informer"
 	"github.com/deckhouse/virtualization-dra/internal/usb-gateway/prepare"
 	"github.com/deckhouse/virtualization-dra/internal/usbip"
+	"github.com/deckhouse/virtualization-dra/pkg/libusb"
 	"github.com/deckhouse/virtualization-dra/pkg/logger"
-	"github.com/deckhouse/virtualization-dra/pkg/usb"
 )
 
 func NewUSBGatewayCommand() *cobra.Command {
@@ -70,17 +69,17 @@ func NewUSBGatewayCommand() *cobra.Command {
 func newUsbOptions() *usbOptions {
 	return &usbOptions{
 		Logging: &logger.Options{},
+		Monitor: &libusb.MonitorConfig{},
 	}
 }
 
 type usbOptions struct {
-	Kubeconfig      string
-	NodeName        string
-	PodIP           string
-	Isolated        bool
-	USBIPPort       int
-	USBResyncPeriod time.Duration
-	Logging         *logger.Options
+	Kubeconfig string
+	NodeName   string
+	PodIP      string
+	USBIPPort  int
+	Logging    *logger.Options
+	Monitor    *libusb.MonitorConfig
 }
 
 func (o *usbOptions) NamedFlags() (fs flag.NamedFlagSets) {
@@ -88,11 +87,11 @@ func (o *usbOptions) NamedFlags() (fs flag.NamedFlagSets) {
 	mfs.StringVar(&o.Kubeconfig, "kubeconfig", o.Kubeconfig, "Path to kubeconfig file")
 	mfs.StringVar(&o.NodeName, "node-name", os.Getenv("NODE_NAME"), "Node name")
 	mfs.StringVar(&o.PodIP, "pod-ip", os.Getenv("POD_IP"), "Pod IP")
-	mfs.BoolVar(&o.Isolated, "isolated", true, "Application running in isolated environment and should run USBMonitor in host network namespace")
 	mfs.IntVar(&o.USBIPPort, "usbip-port", 3240, "USBIP port")
-	mfs.DurationVar(&o.USBResyncPeriod, "usb-resync-period", 5*time.Minute, "USB resync period")
 
 	o.Logging.AddFlags(fs.FlagSet("logging"))
+
+	o.Monitor.AddFlags(fs.FlagSet("usb-monitor"))
 
 	return fs
 }
@@ -115,16 +114,11 @@ func (o *usbOptions) Validate() error {
 }
 
 func (o *usbOptions) Run(cmd *cobra.Command, _ []string) error {
-	monitorOpts := []usb.MonitorOption{
-		usb.WithResyncPeriod(o.USBResyncPeriod),
-	}
-	if o.Isolated {
-		monitorOpts = append(monitorOpts, usb.WithHostNetNS())
-	}
-	monitor, err := usb.NewMonitor(cmd.Context(), monitorOpts...)
+	monitor, err := o.Monitor.Complete(cmd.Context(), nil)
 	if err != nil {
 		return err
 	}
+
 	config := usbip.USBIPDConfig{
 		Port:    o.USBIPPort,
 		Monitor: monitor,

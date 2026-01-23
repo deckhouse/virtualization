@@ -38,12 +38,12 @@ import (
 	"github.com/deckhouse/virtualization-dra/internal/cdi"
 	"github.com/deckhouse/virtualization-dra/internal/featuregates"
 	"github.com/deckhouse/virtualization-dra/internal/usbip"
-	"github.com/deckhouse/virtualization-dra/pkg/usb"
+	"github.com/deckhouse/virtualization-dra/pkg/libusb"
 )
 
 const DefaultResyncPeriod = 10 * time.Minute
 
-func NewAllocationStore(nodeName string, cdiManager cdi.Manager, monitor *usb.Monitor, log *slog.Logger) (*AllocationStore, error) {
+func NewAllocationStore(nodeName string, cdiManager cdi.Manager, monitor libusb.Monitor, log *slog.Logger) (*AllocationStore, error) {
 	store := &AllocationStore{
 		nodeName:                  nodeName,
 		monitor:                   monitor,
@@ -57,7 +57,7 @@ func NewAllocationStore(nodeName string, cdiManager cdi.Manager, monitor *usb.Mo
 		usbipInfoGetter:           usbip.NewUSBAttacher(),
 	}
 
-	monitor.AddNotifier(usb.FuncNotifier(store.callback))
+	monitor.AddNotifier(libusb.FuncNotifier(store.callback))
 
 	store.callback()
 
@@ -79,7 +79,7 @@ type AllocationStore struct {
 	mu            sync.RWMutex
 
 	usbipInfoGetter usbip.AttachInfoGetter
-	monitor         *usb.Monitor
+	monitor         libusb.Monitor
 
 	discoverPluggedUSBDevices      DeviceSet
 	discoverUsbIpPluggedUSBDevices DeviceSet

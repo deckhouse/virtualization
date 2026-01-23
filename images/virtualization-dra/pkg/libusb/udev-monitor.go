@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package usb
+package libusb
 
 import (
 	"context"
@@ -29,12 +29,12 @@ import (
 	"github.com/deckhouse/virtualization-dra/pkg/udev"
 )
 
-// Monitor is a USB device monitor that uses the udev package for netlink events.
+// UdevMonitor is a USB device monitor that uses the udev package for netlink events.
 // It provides a clean separation between the generic udev event handling and
 // USB-specific device management.
-type Monitor struct {
+type UdevMonitor struct {
 	mu        sync.RWMutex
-	devices   map[string]*Device
+	devices   map[string]*USBDevice
 	notifiers []Notifier
 	log       *slog.Logger
 
@@ -53,50 +53,50 @@ type debounceEntry struct {
 	timer  *time.Timer
 }
 
-// MonitorOption is a functional option for MonitorV5
-type MonitorOption func(*Monitor)
+// UdevMonitorOption is a functional option for MonitorV5
+type UdevMonitorOption func(*UdevMonitor)
 
-// WithResyncPeriod sets the resync period
-func WithResyncPeriod(d time.Duration) MonitorOption {
-	return func(m *Monitor) {
+// UdevWithResyncPeriod sets the resync period
+func UdevWithResyncPeriod(d time.Duration) UdevMonitorOption {
+	return func(m *UdevMonitor) {
 		m.resyncPeriod = d
 	}
 }
 
-// WithDebounceDuration sets the debounce duration
-func WithDebounceDuration(d time.Duration) MonitorOption {
-	return func(m *Monitor) {
+// UdevWithDebounceDuration sets the debounce duration
+func UdevWithDebounceDuration(d time.Duration) UdevMonitorOption {
+	return func(m *UdevMonitor) {
 		m.debounceDuration = d
 	}
 }
 
-// WithLogger sets the logger
-func WithLogger(log *slog.Logger) MonitorOption {
-	return func(m *Monitor) {
+// UdevWithLogger sets the logger
+func UdevWithLogger(log *slog.Logger) UdevMonitorOption {
+	return func(m *UdevMonitor) {
 		m.log = log
 	}
 }
 
-// WithHostNetNS configures the monitor to create the netlink socket in the host
+// UdevWithHostNetNS configures the monitor to create the netlink socket in the host
 // network namespace. This is required when running in a container without host
 // networking to receive udev events.
-func WithHostNetNS() MonitorOption {
-	return func(m *Monitor) {
+func UdevWithHostNetNS() UdevMonitorOption {
+	return func(m *UdevMonitor) {
 		m.useHostNetNS = true
 	}
 }
 
-// NewMonitor creates a new USB monitor that uses the udev package
-func NewMonitor(ctx context.Context, opts ...MonitorOption) (*Monitor, error) {
+// NewUdevMonitor creates a new USB monitor that uses the udev package
+func NewUdevMonitor(ctx context.Context, opts ...UdevMonitorOption) (Monitor, error) {
 	devices, err := DiscoverPluggedUSBDevices()
 	if err != nil {
 		return nil, err
 	}
 	if devices == nil {
-		devices = make(map[string]*Device)
+		devices = make(map[string]*USBDevice)
 	}
 
-	m := &Monitor{
+	m := &UdevMonitor{
 		devices:          devices,
 		log:              slog.With(slog.String("component", "usb-monitor")),
 		resyncPeriod:     5 * time.Minute,
@@ -113,7 +113,7 @@ func NewMonitor(ctx context.Context, opts ...MonitorOption) (*Monitor, error) {
 	return m, nil
 }
 
-func (m *Monitor) run(ctx context.Context) {
+func (m *UdevMonitor) run(ctx context.Context) {
 	// Create udev monitor
 	udevOpts := []udev.MonitorOption{
 		udev.WithMode(udev.KernelEvent),
@@ -164,7 +164,7 @@ func (m *Monitor) run(ctx context.Context) {
 	}
 }
 
-func (m *Monitor) handleEvent(event *udev.UEvent) {
+func (m *UdevMonitor) handleEvent(event *udev.UEvent) {
 	m.log.Debug("received uevent",
 		slog.String("action", event.Action.String()),
 		slog.String("kobj", event.KObj),
@@ -179,7 +179,7 @@ func (m *Monitor) handleEvent(event *udev.UEvent) {
 	m.scheduleEvent(sysfsPath, event.Action)
 }
 
-func (m *Monitor) scheduleEvent(path string, action udev.Action) {
+func (m *UdevMonitor) scheduleEvent(path string, action udev.Action) {
 	m.debounceMu.Lock()
 	defer m.debounceMu.Unlock()
 
@@ -208,7 +208,7 @@ func (m *Monitor) scheduleEvent(path string, action udev.Action) {
 	}
 }
 
-func (m *Monitor) processEvent(path string, action udev.Action) {
+func (m *UdevMonitor) processEvent(path string, action udev.Action) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -221,7 +221,7 @@ func (m *Monitor) processEvent(path string, action udev.Action) {
 	}
 }
 
-func (m *Monitor) handleDeviceUpdate(path string) {
+func (m *UdevMonitor) handleDeviceUpdate(path string) {
 	// Small delay for sysfs to be fully populated
 	time.Sleep(50 * time.Millisecond)
 
@@ -234,7 +234,7 @@ func (m *Monitor) handleDeviceUpdate(path string) {
 		return
 	}
 
-	device, err := LoadDevice(path)
+	device, err := LoadUSBDevice(path)
 	if err != nil {
 		m.log.Debug("failed to load device", slog.String("path", path), slog.String("error", err.Error()))
 		return
@@ -267,7 +267,7 @@ func (m *Monitor) handleDeviceUpdate(path string) {
 	}
 }
 
-func (m *Monitor) handleDeviceRemove(path string) {
+func (m *UdevMonitor) handleDeviceRemove(path string) {
 	if device, exists := m.devices[path]; exists {
 		m.log.Info("device removed",
 			slog.String("path", path),
@@ -278,14 +278,14 @@ func (m *Monitor) handleDeviceRemove(path string) {
 	}
 }
 
-func (m *Monitor) resync() {
+func (m *UdevMonitor) resync() {
 	devices, err := DiscoverPluggedUSBDevices()
 	if err != nil {
 		m.log.Error("failed to discover USB devices during resync", slog.String("error", err.Error()))
 		return
 	}
 	if devices == nil {
-		devices = make(map[string]*Device)
+		devices = make(map[string]*USBDevice)
 	}
 
 	m.mu.Lock()
@@ -322,15 +322,15 @@ func (m *Monitor) resync() {
 }
 
 // GetDevices returns a copy of all discovered USB devices
-func (m *Monitor) GetDevices() []Device {
+func (m *UdevMonitor) GetDevices() []USBDevice {
 	m.mu.RLock()
-	devices := make([]Device, 0, len(m.devices))
+	devices := make([]USBDevice, 0, len(m.devices))
 	for _, device := range m.devices {
 		devices = append(devices, *device)
 	}
 	m.mu.RUnlock()
 
-	slices.SortFunc(devices, func(a, b Device) int {
+	slices.SortFunc(devices, func(a, b USBDevice) int {
 		return strings.Compare(a.DevicePath, b.DevicePath)
 	})
 
@@ -338,7 +338,7 @@ func (m *Monitor) GetDevices() []Device {
 }
 
 // GetDevice returns a device by path
-func (m *Monitor) GetDevice(path string) (*Device, bool) {
+func (m *UdevMonitor) GetDevice(path string) (*USBDevice, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -352,7 +352,7 @@ func (m *Monitor) GetDevice(path string) (*Device, bool) {
 }
 
 // GetDeviceByBusID returns a device by BusID
-func (m *Monitor) GetDeviceByBusID(busID string) (*Device, bool) {
+func (m *UdevMonitor) GetDeviceByBusID(busID string) (*USBDevice, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -366,7 +366,7 @@ func (m *Monitor) GetDeviceByBusID(busID string) (*Device, bool) {
 }
 
 // AddNotifier adds a notifier to be called on device changes
-func (m *Monitor) AddNotifier(notifier Notifier) {
+func (m *UdevMonitor) AddNotifier(notifier Notifier) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -374,7 +374,7 @@ func (m *Monitor) AddNotifier(notifier Notifier) {
 }
 
 // RemoveNotifier removes a notifier
-func (m *Monitor) RemoveNotifier(notifier Notifier) {
+func (m *UdevMonitor) RemoveNotifier(notifier Notifier) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -386,20 +386,10 @@ func (m *Monitor) RemoveNotifier(notifier Notifier) {
 	}
 }
 
-func (m *Monitor) notify() {
+func (m *UdevMonitor) notify() {
 	for _, notifier := range m.notifiers {
 		notifier.Notify()
 	}
-}
-
-type Notifier interface {
-	Notify()
-}
-
-type FuncNotifier func()
-
-func (f FuncNotifier) Notify() {
-	f()
 }
 
 func newUSBDeviceMatcher() udev.Matcher {

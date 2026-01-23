@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package usb
+package libusb
 
 import (
 	"fmt"
@@ -24,8 +24,8 @@ import (
 	"strings"
 )
 
-func DiscoverPluggedUSBDevices() (map[string]*Device, error) {
-	devices := make(map[string]*Device)
+func DiscoverPluggedUSBDevices() (map[string]*USBDevice, error) {
+	devices := make(map[string]*USBDevice)
 
 	err := filepath.Walk(PathToUSBDevices, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -37,7 +37,7 @@ func DiscoverPluggedUSBDevices() (map[string]*Device, error) {
 		}
 
 		// Get device information
-		device, err := LoadDevice(path)
+		device, err := LoadUSBDevice(path)
 		if err != nil {
 			return err
 		}

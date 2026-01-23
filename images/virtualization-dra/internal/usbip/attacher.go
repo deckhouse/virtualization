@@ -26,7 +26,7 @@ import (
 	"syscall"
 
 	"github.com/deckhouse/virtualization-dra/internal/usbip/protocol"
-	"github.com/deckhouse/virtualization-dra/pkg/usb"
+	"github.com/deckhouse/virtualization-dra/pkg/libusb"
 )
 
 func NewUSBAttacher() USBAttacher {
@@ -228,11 +228,11 @@ func (a *usbAttacher) getFreePort(speed uint32) (int, error) {
 		return -1, err
 	}
 
-	deviceSpeed := usb.DeviceSpeed(speed)
+	deviceSpeed := libusb.USBDeviceSpeed(speed)
 
 	for i := 0; i < driver.nports; i++ {
 		switch deviceSpeed {
-		case usb.DeviceSpeedSuper:
+		case libusb.USBDeviceSpeedSuper:
 			if driver.idevs[i].hub != hubSpeedSuper {
 				continue
 			}

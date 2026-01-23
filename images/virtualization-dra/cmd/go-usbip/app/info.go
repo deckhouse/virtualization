@@ -46,18 +46,18 @@ func (o *infoOptions) Usage() string {
 }
 
 func (o *infoOptions) Run(cmd *cobra.Command, _ []string) error {
-	discoverDevices, err := usb.DiscoverPluggedUSBDevices()
+	discoverDevices, err := libusb.DiscoverPluggedUSBDevices()
 	if err != nil {
 		return err
 	}
 
-	devices := make([]*usb.Device, 0, len(discoverDevices))
+	devices := make([]*libusb.Device, 0, len(discoverDevices))
 
 	for _, device := range discoverDevices {
 		devices = append(devices, device)
 	}
 
-	slices.SortFunc(devices, func(a, b *usb.Device) int {
+	slices.SortFunc(devices, func(a, b *libusb.Device) int {
 		return cmp.Compare(a.Path, b.Path)
 	})
 

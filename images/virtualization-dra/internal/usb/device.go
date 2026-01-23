@@ -23,7 +23,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/deckhouse/virtualization-dra/pkg/usb"
+	"github.com/deckhouse/virtualization-dra/pkg/libusb"
 )
 
 type DeviceSet = sets.Set[Device]
@@ -82,7 +82,7 @@ func (d *Device) Validate() error {
 	return nil
 }
 
-func toDevice(device *usb.Device) Device {
+func toDevice(device *libusb.USBDevice) Device {
 	return Device{
 		Path:         device.Path,
 		BusID:        device.BusID,

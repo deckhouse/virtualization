@@ -33,7 +33,7 @@ import (
 	"time"
 
 	"github.com/deckhouse/virtualization-dra/internal/usbip/protocol"
-	"github.com/deckhouse/virtualization-dra/pkg/usb"
+	"github.com/deckhouse/virtualization-dra/pkg/libusb"
 )
 
 const (
@@ -79,7 +79,7 @@ func WithMaxTCPConnection(maxTCPConnection int) Option {
 	}
 }
 
-func NewUSBIPD(port int, monitor *usb.Monitor, opts ...Option) *USBIPD {
+func NewUSBIPD(port int, monitor libusb.Monitor, opts ...Option) *USBIPD {
 	options := makeOptions(opts...)
 	return &USBIPD{
 		addr:                    ":" + strconv.Itoa(port),
@@ -104,7 +104,7 @@ type USBIPD struct {
 	connCount atomic.Int64
 	quit      chan struct{}
 
-	monitor *usb.Monitor
+	monitor libusb.Monitor
 }
 
 func (u *USBIPD) Start(ctx context.Context) error {
@@ -253,7 +253,7 @@ func (u *USBIPD) handleImportRequest(conn net.Conn) error {
 
 	devices := u.monitor.GetDevices()
 
-	var bindDevice *usb.Device
+	var bindDevice *libusb.USBDevice
 	for _, device := range devices {
 		if device.BusID == busID {
 			log.Info("found device for export")
@@ -287,7 +287,7 @@ func (u *USBIPD) handleImportRequest(conn net.Conn) error {
 }
 
 // https://github.com/torvalds/linux/blob/9448598b22c50c8a5bb77a9103e2d49f134c9578/tools/usb/usbip/libsrc/usbip_host_common.c#L212
-func (u *USBIPD) exportDevice(conn net.Conn, device *usb.Device) protocol.OpStatus {
+func (u *USBIPD) exportDevice(conn net.Conn, device *libusb.USBDevice) protocol.OpStatus {
 
 	log := u.logger.With(slog.String("busID", device.BusID))
 	log.Info("export request")
@@ -352,7 +352,7 @@ func (a sockFdAttr) Complete() string {
 	return fmt.Sprintf("%d\n", a.sockFd)
 }
 
-func (u *USBIPD) getUSBIPStatus(device *usb.Device) (protocol.DeviceStatus, error) {
+func (u *USBIPD) getUSBIPStatus(device *libusb.USBDevice) (protocol.DeviceStatus, error) {
 	statusPath := usbipStatusPath(device.BusID)
 
 	data, err := os.ReadFile(statusPath)
@@ -400,7 +400,7 @@ func (u *USBIPD) getUSBDeviceInfo() []protocol.USBDeviceInfo {
 	return bindDevices
 }
 
-func toUSBDeviceInfo(device *usb.Device) protocol.USBDeviceInfo {
+func toUSBDeviceInfo(device *libusb.USBDevice) protocol.USBDeviceInfo {
 	if device == nil {
 		return protocol.USBDeviceInfo{}
 	}
@@ -425,7 +425,7 @@ func toUSBDeviceInfo(device *usb.Device) protocol.USBDeviceInfo {
 	}
 }
 
-func toInterfaces(interfaces []usb.DeviceInterface) []protocol.USBDeviceInterface {
+func toInterfaces(interfaces []libusb.USBDeviceInterface) []protocol.USBDeviceInterface {
 	result := make([]protocol.USBDeviceInterface, len(interfaces))
 	for i, iface := range interfaces {
 		result[i] = protocol.USBDeviceInterface{
@@ -438,5 +438,5 @@ func toInterfaces(interfaces []usb.DeviceInterface) []protocol.USBDeviceInterfac
 }
 
 func toSpeed(speed uint32) uint32 {
-	return uint32(usb.ResolveDeviceSpeed(speed))
+	return uint32(libusb.ResolveDeviceSpeed(speed))
 }

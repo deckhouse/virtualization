@@ -18,17 +18,18 @@ package app
 
 import (
 	"context"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
 	"github.com/deckhouse/virtualization-dra/internal/usbip"
-	"github.com/deckhouse/virtualization-dra/pkg/usb"
+	"github.com/deckhouse/virtualization-dra/pkg/libusb"
 )
 
 func NewRunCommand() *cobra.Command {
-	o := &runOptions{}
+	o := &runOptions{
+		monitor: &libusb.MonitorConfig{},
+	}
 	cmd := &cobra.Command{
 		Use:     "run",
 		Short:   "Run USBIP server",
@@ -43,8 +44,8 @@ func NewRunCommand() *cobra.Command {
 }
 
 type runOptions struct {
-	port         int
-	resyncPeriod time.Duration
+	port    int
+	monitor *libusb.MonitorConfig
 }
 
 func (o *runOptions) Usage() string {
@@ -55,11 +56,11 @@ func (o *runOptions) Usage() string {
 
 func (o *runOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&o.port, "port", 3240, "Port to listen on")
-	fs.DurationVar(&o.resyncPeriod, "resync-period", time.Second*300, "Resync period")
+	o.monitor.AddFlags(fs)
 }
 
 func (o *runOptions) Run(cmd *cobra.Command, _ []string) error {
-	monitor, err := usb.NewMonitor(context.Background(), usb.WithResyncPeriod(o.resyncPeriod))
+	monitor, err := o.monitor.Complete(context.Background(), nil)
 	if err != nil {
 		return err
 	}

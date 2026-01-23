@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package usb
+package libusb
 
 import (
 	"bufio"
@@ -29,7 +29,7 @@ import (
 
 const PathToUSBDevices = "/sys/bus/usb/devices"
 
-type Device struct {
+type USBDevice struct {
 	Path                string
 	BusID               string
 	Manufacturer        string
@@ -52,16 +52,16 @@ type Device struct {
 	BConfigurationValue uint8
 	BNumConfigurations  uint8
 	BNumInterfaces      uint8
-	Interfaces          []DeviceInterface
+	Interfaces          []USBDeviceInterface
 }
 
-type DeviceInterface struct {
+type USBDeviceInterface struct {
 	BInterfaceClass    uint8
 	BInterfaceSubClass uint8
 	BInterfaceProtocol uint8
 }
 
-func (d *Device) Equal(other *Device) bool {
+func (d *USBDevice) Equal(other *USBDevice) bool {
 	return d.Path == other.Path &&
 		d.BusID == other.BusID &&
 		d.Manufacturer == other.Manufacturer &&
@@ -86,7 +86,7 @@ func (d *Device) Equal(other *Device) bool {
 		slices.Equal(d.Interfaces, other.Interfaces)
 }
 
-func (d *Device) Validate() error {
+func (d *USBDevice) Validate() error {
 	if d.VendorID == 0 {
 		return fmt.Errorf("VendorID is required")
 	}
@@ -111,7 +111,7 @@ func (d *Device) Validate() error {
 	return nil
 }
 
-func LoadDevice(path string) (device Device, err error) {
+func LoadUSBDevice(path string) (device USBDevice, err error) {
 	if !strings.HasPrefix(path, PathToUSBDevices) {
 		return device, fmt.Errorf("path %s is not a usb device", path)
 	}
@@ -150,7 +150,7 @@ func LoadDevice(path string) (device Device, err error) {
 	return
 }
 
-func parseSysUeventFile(path string, device *Device) error {
+func parseSysUeventFile(path string, device *USBDevice) error {
 	// Example uevent file:
 	// MAJOR=189
 	// MINOR=257
@@ -258,7 +258,7 @@ func parseSysUeventFile(path string, device *Device) error {
 	return nil
 }
 
-func parseSerial(path string, device *Device) error {
+func parseSerial(path string, device *USBDevice) error {
 	serial, err := parseStringValue(path, "serial")
 	if err != nil {
 		return err
@@ -267,7 +267,7 @@ func parseSerial(path string, device *Device) error {
 	return nil
 }
 
-func parseManufacturer(path string, device *Device) error {
+func parseManufacturer(path string, device *USBDevice) error {
 	manufacturer, err := parseStringValue(path, "manufacturer")
 	if err != nil {
 		return err
@@ -276,7 +276,7 @@ func parseManufacturer(path string, device *Device) error {
 	return nil
 }
 
-func parseProduct(path string, device *Device) error {
+func parseProduct(path string, device *USBDevice) error {
 	product, err := parseStringValue(path, "product")
 	if err != nil {
 		return err
@@ -285,7 +285,7 @@ func parseProduct(path string, device *Device) error {
 	return nil
 }
 
-func parseBConfigurationValue(path string, device *Device) error {
+func parseBConfigurationValue(path string, device *USBDevice) error {
 	val, err := parseUintValue(path, "bConfigurationValue", 8, true)
 	if err != nil {
 		return err
@@ -294,7 +294,7 @@ func parseBConfigurationValue(path string, device *Device) error {
 	return nil
 }
 
-func parseBNumConfigurations(path string, device *Device) error {
+func parseBNumConfigurations(path string, device *USBDevice) error {
 	val, err := parseUintValue(path, "bNumConfigurations", 8, false)
 	if err != nil {
 		return err
@@ -303,7 +303,7 @@ func parseBNumConfigurations(path string, device *Device) error {
 	return nil
 }
 
-func parseBNumInterfaces(path string, device *Device) error {
+func parseBNumInterfaces(path string, device *USBDevice) error {
 	val, err := parseUintValue(path, "bNumInterfaces", 8, true)
 	if err != nil {
 		return err
@@ -312,7 +312,7 @@ func parseBNumInterfaces(path string, device *Device) error {
 	return nil
 }
 
-func parseSpeed(path string, device *Device) error {
+func parseSpeed(path string, device *USBDevice) error {
 	val, err := parseUintValue(path, "speed", 32, false)
 	if err != nil {
 		return err
@@ -321,7 +321,7 @@ func parseSpeed(path string, device *Device) error {
 	return nil
 }
 
-func parseSysUeventInterfaces(path string, device *Device) error {
+func parseSysUeventInterfaces(path string, device *USBDevice) error {
 	// 3-2.1.1:1.0
 	// |       | |
 	// │       | |- bInterfaceNumber
@@ -336,7 +336,7 @@ func parseSysUeventInterfaces(path string, device *Device) error {
 		return nil
 	}
 
-	var deviceInterfaces []DeviceInterface
+	var deviceInterfaces []USBDeviceInterface
 
 	parent := filepath.Dir(path)
 	entries, err := os.ReadDir(parent)
@@ -376,7 +376,7 @@ func parseSysUeventInterfaces(path string, device *Device) error {
 			}
 			switch values[0] {
 			case "INTERFACE":
-				deviceInterface := DeviceInterface{}
+				deviceInterface := USBDeviceInterface{}
 
 				interfaces := strings.Split(values[1], "/")
 				if len(interfaces) != 3 {

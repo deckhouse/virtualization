@@ -14,33 +14,33 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package usb
+package libusb
 
-type DeviceSpeed uint32
+type USBDeviceSpeed uint32
 
 const (
-	DeviceSpeedUnknown   DeviceSpeed = iota // enumerating
-	DeviceSpeedLow                          // usb 1.1
-	DeviceSpeedFull                         // usb 1.1
-	DeviceSpeedHigh                         // usb 2.0
-	DeviceSpeedSuper                        // usb 3.0
-	DeviceSpeedSuperPlus                    // usb 3.1
+	USBDeviceSpeedUnknown   USBDeviceSpeed = iota // enumerating
+	USBDeviceSpeedLow                             // usb 1.1
+	USBDeviceSpeedFull                            // usb 1.1
+	USBDeviceSpeedHigh                            // usb 2.0
+	USBDeviceSpeedSuper                           // usb 3.0
+	USBDeviceSpeedSuperPlus                       // usb 3.1
 )
 
 // https://mjmwired.net/kernel/Documentation/ABI/testing/sysfs-bus-usb#502
-func ResolveDeviceSpeed(speed uint32) DeviceSpeed {
+func ResolveDeviceSpeed(speed uint32) USBDeviceSpeed {
 	switch speed {
 	case 1:
-		return DeviceSpeedLow
+		return USBDeviceSpeedLow
 	case 12, 15:
-		return DeviceSpeedFull
+		return USBDeviceSpeedFull
 	case 480:
-		return DeviceSpeedHigh
+		return USBDeviceSpeedHigh
 	case 5000:
-		return DeviceSpeedSuper
+		return USBDeviceSpeedSuper
 	case 10000, 20000:
-		return DeviceSpeedSuperPlus
+		return USBDeviceSpeedSuperPlus
 	default:
-		return DeviceSpeedUnknown
+		return USBDeviceSpeedUnknown
 	}
 }

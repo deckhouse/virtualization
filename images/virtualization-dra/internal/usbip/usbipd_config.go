@@ -24,7 +24,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/deckhouse/virtualization-dra/pkg/usb"
+	"github.com/deckhouse/virtualization-dra/pkg/libusb"
 )
 
 type ClientAuthType tls.ClientAuthType
@@ -66,7 +66,7 @@ type USBIPDConfig struct {
 	Port                    int
 	GracefulShutdownTimeout time.Duration
 
-	Monitor *usb.Monitor
+	Monitor libusb.Monitor
 }
 
 func (c *USBIPDConfig) AddFlags(fs *flag.FlagSet) {
