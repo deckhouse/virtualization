@@ -75,7 +75,7 @@ func (c *wsConn) SetDeadline(t time.Time) error {
 	return c.Conn.SetReadDeadline(t)
 }
 
-func NewWebsocketStreamer(conn *websocket.Conn, done chan struct{}) *wsStreamer {
+func newWebsocketStreamer(conn *websocket.Conn, done chan struct{}) *wsStreamer {
 	return &wsStreamer{
 		conn: conn,
 		done: done,

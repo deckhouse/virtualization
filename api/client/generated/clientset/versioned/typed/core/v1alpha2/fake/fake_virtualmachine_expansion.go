@@ -54,3 +54,7 @@ func (c *fakeVirtualMachines) RemoveVolume(ctx context.Context, name string, opt
 func (c *fakeVirtualMachines) CancelEvacuation(ctx context.Context, name string, dryRun []string) error {
 	return nil
 }
+
+func (c *fakeVirtualMachines) USBRedir(ctx context.Context, name string) (corev1alpha2.StreamInterface, error) {
+	return nil, nil
+}

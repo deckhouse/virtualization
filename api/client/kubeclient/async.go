@@ -127,10 +127,7 @@ func asyncSubresourceHelper(
 	case err = <-errChan:
 		return nil, err
 	case ws := <-aws.Connection:
-		return &wsStreamer{
-			conn: ws,
-			done: done,
-		}, nil
+		return newWebsocketStreamer(ws, done), nil
 	}
 }
 

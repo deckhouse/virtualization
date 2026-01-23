@@ -165,3 +165,7 @@ func (v vm) CancelEvacuation(ctx context.Context, name string, dryRun []string) 
 	}
 	return c.Do(ctx).Error()
 }
+
+func (v vm) USBRedir(_ context.Context, name string) (virtualizationv1alpha2.StreamInterface, error) {
+	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "usbredir", url.Values{})
+}

@@ -111,6 +111,7 @@ func ApplyVirtualMachineSpec(
 		return err
 	}
 
+	kvvm.SetClientPassthroughDevices()
 	kvvm.SetMetadata(vm.ObjectMeta)
 	setNetwork(kvvm, networkSpec)
 	kvvm.SetTablet("default-0")
