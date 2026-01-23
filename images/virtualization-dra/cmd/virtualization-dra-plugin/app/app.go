@@ -76,7 +76,6 @@ func newDraOptions() *draOptions {
 		CDIRoot:                      withDefault("CDI_ROOT", cdi.SpecDir),
 		KubeletRegisterDirectoryPath: os.Getenv("KUBELET_REGISTER_DIRECTORY_PATH"),
 		KubeletPluginsDirectoryPath:  os.Getenv("KUBELET_PLUGINS_DIRECTORY_PATH"),
-		USBDevicesPath:               withDefault("USB_DEVICES_PATH", usb.PathToUSBDevices),
 		HealthzPort:                  51515,
 		USBResyncPeriod:              usb.DefaultResyncPeriod,
 		Logging:                      &logger.Options{},
@@ -99,7 +98,6 @@ type draOptions struct {
 	CDIRoot                      string
 	KubeletRegisterDirectoryPath string
 	KubeletPluginsDirectoryPath  string
-	USBDevicesPath               string
 	HealthzPort                  int
 	USBResyncPeriod              time.Duration
 
@@ -114,7 +112,6 @@ func (o *draOptions) NamedFlags() (fs flag.NamedFlagSets) {
 	mfs.StringVar(&o.CDIRoot, "cdi-root", o.CDIRoot, "CDI root")
 	mfs.StringVar(&o.KubeletRegisterDirectoryPath, "kubelet-register-directory-path", o.KubeletRegisterDirectoryPath, "Kubelet register directory path")
 	mfs.StringVar(&o.KubeletPluginsDirectoryPath, "kubelet-plugins-directory-path", o.KubeletPluginsDirectoryPath, "Kubelet plugins directory path")
-	mfs.StringVar(&o.USBDevicesPath, "usb-devices-path", o.USBDevicesPath, "USB Devices path")
 	mfs.IntVar(&o.HealthzPort, "healthz-port", o.HealthzPort, "Healthz port")
 	mfs.DurationVar(&o.USBResyncPeriod, "usb-resync-period", o.USBResyncPeriod, "USB resync period")
 
@@ -160,7 +157,7 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to create CDI manager: %w", err)
 	}
 
-	usbStore := usb.NewAllocationStore(o.NodeName, o.USBDevicesPath, o.USBResyncPeriod, usbCDIManager, slog.Default())
+	usbStore := usb.NewAllocationStore(o.NodeName, o.USBResyncPeriod, usbCDIManager, slog.Default())
 
 	driver := plugin.NewDriver(o.NodeName, client, usbStore, slog.Default())
 	err = driver.Start(cmd.Context())

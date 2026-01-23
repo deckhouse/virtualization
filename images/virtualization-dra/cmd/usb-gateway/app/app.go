@@ -113,7 +113,7 @@ func (o *usbOptions) Validate() error {
 }
 
 func (o *usbOptions) Run(cmd *cobra.Command, _ []string) error {
-	monitor, err := usb.NewMonitor(cmd.Context(), o.USBResyncPeriod)
+	monitor, err := usb.NewMonitor(cmd.Context(), usb.WithResyncPeriod(o.USBResyncPeriod))
 	if err != nil {
 		return err
 	}

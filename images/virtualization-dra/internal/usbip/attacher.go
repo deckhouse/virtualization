@@ -22,6 +22,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"sync"
 	"syscall"
 
 	"github.com/deckhouse/virtualization-dra/internal/usbip/protocol"
@@ -32,10 +33,15 @@ func NewUSBAttacher() USBAttacher {
 	return &usbAttacher{}
 }
 
-type usbAttacher struct{}
+type usbAttacher struct {
+	mu sync.Mutex
+}
 
 // https://github.com/torvalds/linux/blob/b927546677c876e26eba308550207c2ddf812a43/tools/usb/usbip/src/usbip_attach.c#L174
-func (a usbAttacher) Attach(host, busID string, port int) (int, error) {
+func (a *usbAttacher) Attach(host, busID string, port int) (int, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	conn, err := a.usbipNetTCPConnect(host, fmt.Sprintf("%d", port))
 	if err != nil {
 		return -1, fmt.Errorf("failed to connect to usbipd: %w", err)
@@ -55,7 +61,10 @@ func (a usbAttacher) Attach(host, busID string, port int) (int, error) {
 }
 
 // https://github.com/torvalds/linux/blob/b927546677c876e26eba308550207c2ddf812a43/tools/usb/usbip/src/usbip_detach.c#L32
-func (a usbAttacher) Detach(port int) error {
+func (a *usbAttacher) Detach(port int) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	driver, err := newVhciDriver()
 	if err != nil {
 		return fmt.Errorf("failed to get vhci driver: %w", err)
@@ -100,7 +109,7 @@ func (a usbAttacher) Detach(port int) error {
 	return nil
 }
 
-func (a usbAttacher) GetAttachInfo() ([]AttachInfo, error) {
+func (a *usbAttacher) GetAttachInfo() ([]AttachInfo, error) {
 	driver, err := newVhciDriver()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get vhci driver: %w", err)
@@ -126,7 +135,7 @@ func (a usbAttacher) GetAttachInfo() ([]AttachInfo, error) {
 }
 
 // https://github.com/torvalds/linux/blob/b927546677c876e26eba308550207c2ddf812a43/tools/usb/usbip/src/usbip_network.c#L261
-func (a usbAttacher) usbipNetTCPConnect(host, port string) (*net.TCPConn, error) {
+func (a *usbAttacher) usbipNetTCPConnect(host, port string) (*net.TCPConn, error) {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(host, port))
 	if err != nil {
 		return nil, fmt.Errorf("resolve TCP address: %w", err)
@@ -151,7 +160,7 @@ func (a usbAttacher) usbipNetTCPConnect(host, port string) (*net.TCPConn, error)
 }
 
 // https://github.com/torvalds/linux/blob/b927546677c876e26eba308550207c2ddf812a43/tools/usb/usbip/src/usbip_attach.c#L120
-func (a usbAttacher) queryImportDevice(conn *net.TCPConn, busID string) (int, error) {
+func (a *usbAttacher) queryImportDevice(conn *net.TCPConn, busID string) (int, error) {
 	opCommon := protocol.NewOpCommon(protocol.OpReqImport, protocol.OpStatusOk)
 	importReq := protocol.NewImportRequest(busID)
 
@@ -184,7 +193,7 @@ func (a usbAttacher) queryImportDevice(conn *net.TCPConn, busID string) (int, er
 }
 
 // https://github.com/torvalds/linux/blob/b927546677c876e26eba308550207c2ddf812a43/tools/usb/usbip/src/usbip_attach.c#L81
-func (a usbAttacher) importDevice(conn *net.TCPConn, usbDevice protocol.USBDevice) (int, error) {
+func (a *usbAttacher) importDevice(conn *net.TCPConn, usbDevice protocol.USBDevice) (int, error) {
 	port, err := a.getFreePort(usbDevice.Speed)
 	if err != nil {
 		return -1, fmt.Errorf("failed to get free port: %w", err)
@@ -213,7 +222,7 @@ func (a usbAttacher) importDevice(conn *net.TCPConn, usbDevice protocol.USBDevic
 }
 
 // https://github.com/torvalds/linux/blob/b927546677c876e26eba308550207c2ddf812a43/tools/usb/usbip/libsrc/vhci_driver.c#L334
-func (a usbAttacher) getFreePort(speed uint32) (int, error) {
+func (a *usbAttacher) getFreePort(speed uint32) (int, error) {
 	driver, err := newVhciDriver()
 	if err != nil {
 		return -1, err
@@ -244,7 +253,7 @@ func (a usbAttacher) getFreePort(speed uint32) (int, error) {
 	return -1, nil
 }
 
-func (a usbAttacher) getSockFd(conn *net.TCPConn) (int, error) {
+func (a *usbAttacher) getSockFd(conn *net.TCPConn) (int, error) {
 	file, err := conn.File()
 	if err != nil {
 		return -1, err
@@ -262,7 +271,7 @@ func (a usbAttacher) getSockFd(conn *net.TCPConn) (int, error) {
 }
 
 // https://github.com/torvalds/linux/blob/b927546677c876e26eba308550207c2ddf812a43/tools/usb/usbip/src/usbip_attach.c#L39
-func (a usbAttacher) recordConnection(host, port, busID string, rhport int) error {
+func (a *usbAttacher) recordConnection(host, port, busID string, rhport int) error {
 	err := os.MkdirAll(vhciStatePath, 0700)
 	if err != nil {
 		return fmt.Errorf("failed to create vhci state path: %w", err)

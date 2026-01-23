@@ -247,7 +247,6 @@ func (c *Controller) sync(ctx context.Context, key string) error {
 	}
 
 	onMyNode := podExist && c.podOnMyNode(pod)
-
 	if onMyNode && c.podFinished(pod) {
 		log.Info("Pod finished, detach all usb devices for this pod",
 			slog.String("podName", pod.Name),
@@ -257,6 +256,11 @@ func (c *Controller) sync(ctx context.Context, key string) error {
 	}
 
 	if resourceClaimDeleting {
+		if podExist {
+			log.Info("Pod exists, waiting for pod to be deleted")
+			c.queueAfterAdd(key, time.Second*10)
+			return nil
+		}
 		log.Info("ResourceClaim is deleting, unbind all usb devices for this resource claim")
 		return c.handleServerDeleteResourceClaim(rc)
 	}
@@ -283,7 +287,6 @@ func (c *Controller) sync(ctx context.Context, key string) error {
 		if err = c.handleClient(ctx, rc, otherAllocationDevices, pod); err != nil {
 			return fmt.Errorf("failed to handle client: %w", err)
 		}
-
 	}
 
 	return nil

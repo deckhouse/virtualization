@@ -28,8 +28,8 @@ import (
 
 type DeviceSet = sets.Set[Device]
 
-func NewDeviceSet() DeviceSet {
-	return sets.New[Device]()
+func NewDeviceSet(devices ...Device) DeviceSet {
+	return sets.New[Device](devices...)
 }
 
 type Device struct {

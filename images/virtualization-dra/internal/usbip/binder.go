@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/deckhouse/virtualization-dra/pkg/usb"
 )
@@ -30,11 +31,16 @@ func NewUSBBinder() USBBinder {
 	return &usbBinder{}
 }
 
-type usbBinder struct{}
+type usbBinder struct {
+	mu sync.Mutex
+}
 
 // Bind binds the USB device to the USBIP server.
 // https://github.com/torvalds/linux/blob/40fbbd64bba6c6e7a72885d2f59b6a3be9991eeb/tools/usb/usbip/src/usbip_bind.c#L130
 func (b *usbBinder) Bind(busID string) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	devInfo, err := b.getUSBDeviceInfo(busID)
 	if err != nil {
 		return fmt.Errorf("device with bus ID %s does not exist: %w", busID, err)
@@ -64,6 +70,9 @@ func (b *usbBinder) Bind(busID string) error {
 // Unbind unbinds the USB device from the USBIP server.
 // https://github.com/torvalds/linux/blob/40fbbd64bba6c6e7a72885d2f59b6a3be9991eeb/tools/usb/usbip/src/usbip_unbind.c#L30
 func (b *usbBinder) Unbind(busID string) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	devInfo, err := b.getUSBDeviceInfo(busID)
 	if err != nil {
 		return fmt.Errorf("device with bus ID %s does not exist: %w", busID, err)

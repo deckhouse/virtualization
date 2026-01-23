@@ -18,47 +18,30 @@ package usb
 
 import (
 	"github.com/deckhouse/virtualization-dra/internal/featuregates"
-	"github.com/deckhouse/virtualization-dra/internal/usbip"
-	"github.com/deckhouse/virtualization-dra/pkg/usb"
 )
 
-const PathToUSBDevices = usb.PathToUSBDevices
+func (s *AllocationStore) discoveryPluggedUSBDevices() (DeviceSet, DeviceSet, error) {
+	allUSBDevices := s.monitor.GetDevices()
 
-func newDiscoverer() discoverer {
-	return discoverer{
-		getter: usbip.NewUSBAttacher(),
-	}
-}
-
-type discoverer struct {
-	getter usbip.AttachInfoGetter
-}
-
-func (d *discoverer) DiscoveryPluggedUSBDevices(pathToUSBDevices string) (DeviceSet, DeviceSet, error) {
-	devices, err := usb.DiscoverPluggedUSBDevices(pathToUSBDevices)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	busIdMaps := make(map[string]struct{})
+	busIDSet := make(map[string]struct{})
 	if featuregates.Default().USBGatewayEnabled() {
-		infos, err := d.getter.GetAttachInfo()
+		infos, err := s.usbipInfoGetter.GetAttachInfo()
 		if err != nil {
 			return nil, nil, err
 		}
 		for _, info := range infos {
-			busIdMaps[info.LocalBusID] = struct{}{}
+			busIDSet[info.LocalBusID] = struct{}{}
 		}
 	}
 
 	usbDeviceSet := NewDeviceSet()
 	usbipDeviceSet := NewDeviceSet()
 
-	for _, device := range devices {
-		if _, ok := busIdMaps[device.BusID]; ok {
-			usbipDeviceSet.Insert(toDevice(device))
+	for _, device := range allUSBDevices {
+		if _, ok := busIDSet[device.BusID]; ok {
+			usbipDeviceSet.Insert(toDevice(&device))
 		} else {
-			usbDeviceSet.Insert(toDevice(device))
+			usbDeviceSet.Insert(toDevice(&device))
 		}
 	}
 

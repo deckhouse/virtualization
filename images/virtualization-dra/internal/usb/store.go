@@ -37,20 +37,19 @@ import (
 	vdraapi "github.com/deckhouse/virtualization-dra/api"
 	"github.com/deckhouse/virtualization-dra/internal/cdi"
 	"github.com/deckhouse/virtualization-dra/internal/featuregates"
+	"github.com/deckhouse/virtualization-dra/internal/usbip"
+	"github.com/deckhouse/virtualization-dra/pkg/usb"
 )
 
 const DefaultResyncPeriod = 10 * time.Minute
 
-func NewAllocationStore(nodeName, devicesPath string, resyncPeriod time.Duration, cdiManager cdi.Manager, log *slog.Logger) *AllocationStore {
+func NewAllocationStore(nodeName string, resyncPeriod time.Duration, cdiManager cdi.Manager, log *slog.Logger) *AllocationStore {
 	if resyncPeriod == 0 {
 		resyncPeriod = DefaultResyncPeriod
 	}
-	if devicesPath == "" {
-		devicesPath = PathToUSBDevices
-	}
+
 	store := &AllocationStore{
 		nodeName:                  nodeName,
-		devicesPath:               devicesPath,
 		resyncPeriod:              resyncPeriod,
 		cdi:                       cdiManager,
 		log:                       log.With(slog.String("component", "usb-allocation-store")),
@@ -59,16 +58,8 @@ func NewAllocationStore(nodeName, devicesPath string, resyncPeriod time.Duration
 		allocatableDevices:        make(map[string]resourceapi.Device),
 		allocatedDevices:          sets.New[string](),
 		resourceClaimAllocations:  make(map[types.UID][]string),
-		discoverer:                newDiscoverer(),
+		usbipInfoGetter:           usbip.NewUSBAttacher(),
 	}
-
-	monitor := newUSBMonitor(monitorCallback{
-		Add:    store.genericCallback,
-		Update: store.genericCallback,
-		Delete: store.genericCallback,
-	})
-
-	store.monitor = monitor
 
 	return store
 }
@@ -81,12 +72,11 @@ type AllocationStore struct {
 	cdi cdi.Manager
 	log *slog.Logger
 
-	monitor *monitor
-
 	updateChannel chan resourceslice.DriverResources
 	mu            sync.RWMutex
 
-	discoverer discoverer
+	usbipInfoGetter usbip.AttachInfoGetter
+	monitor         *usb.Monitor
 
 	discoverPluggedUSBDevices      DeviceSet
 	discoverUsbIpPluggedUSBDevices DeviceSet
@@ -100,15 +90,17 @@ func (s *AllocationStore) sync() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	discoverPluggedUSBDevices, discoverUsbIpPluggedUSBDevices, err := s.discoverer.DiscoveryPluggedUSBDevices(s.devicesPath)
+	discoverPluggedUSBDevices, discoverUsbIpPluggedUSBDevices, err := s.discoveryPluggedUSBDevices()
 	if err != nil {
 		return err
 	}
+
 	s.discoverUsbIpPluggedUSBDevices = discoverUsbIpPluggedUSBDevices
 
 	if discoverPluggedUSBDevices.Equal(s.discoverPluggedUSBDevices) {
 		return nil
 	}
+
 	s.discoverPluggedUSBDevices = discoverPluggedUSBDevices
 
 	allocatableDevices := make([]resourceapi.Device, discoverPluggedUSBDevices.Len())
@@ -128,37 +120,23 @@ func (s *AllocationStore) sync() error {
 	return nil
 }
 
-func (s *AllocationStore) genericCallback() {
+func (s *AllocationStore) callback() {
 	if err := s.sync(); err != nil {
 		s.log.Error("failed to sync usb state", slog.Any("err", err))
 	}
 }
 
 func (s *AllocationStore) Start(ctx context.Context) error {
+	monitor, err := usb.NewMonitor(ctx, usb.WithResyncPeriod(s.resyncPeriod))
+	if err != nil {
+		return err
+	}
+	s.monitor = monitor
+	s.monitor.AddNotifier(usb.FuncNotifier(s.callback))
+
 	if err := s.cdi.CreateCommonSpecFile(); err != nil {
 		return fmt.Errorf("failed to create CDI common spec file: %w", err)
 	}
-
-	doSync := func() {
-		err := s.sync()
-		if err != nil {
-			s.log.Error("failed to sync usb state", slog.Any("err", err))
-		}
-	}
-	ticker := time.NewTicker(s.resyncPeriod)
-	go func() {
-		doSync()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				doSync()
-			}
-		}
-	}()
-
-	s.monitor.Start(ctx)
 
 	return nil
 }
