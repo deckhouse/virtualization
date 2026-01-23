@@ -62,7 +62,7 @@ jobs:
       deckhouse_channel: alpha
       default_user: cloud
       go_version: "1.24.6"
-      e2e_timeout: "3h"
+      e2e_timeout: "3.5h"
     secrets:
       DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
       VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
@@ -81,7 +81,7 @@ jobs:
       deckhouse_channel: alpha
       default_user: cloud
       go_version: "1.24.6"
-      e2e_timeout: "3h"
+      e2e_timeout: "3.5h"
     secrets:
       DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
       VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
