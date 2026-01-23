@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: E2E Matrix Tests (bootstrap)
+name: E2E Matrix Tests (nested clusters)
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "45 6 * * *"
+    - cron: "45 4 * * *"
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
@@ -62,7 +62,7 @@ jobs:
       deckhouse_channel: alpha
       default_user: cloud
       go_version: "1.24.6"
-      e2e_timeout: "3h"
+      e2e_timeout: "3.5h"
     secrets:
       DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
       VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
@@ -81,7 +81,7 @@ jobs:
       deckhouse_channel: alpha
       default_user: cloud
       go_version: "1.24.6"
-      e2e_timeout: "3h"
+      e2e_timeout: "3.5h"
     secrets:
       DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
       VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}

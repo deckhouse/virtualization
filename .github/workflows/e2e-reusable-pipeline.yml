@@ -379,32 +379,32 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: generated-files-${{ inputs.storage_type }}
+          name: ${{ inputs.storage_type }}-generated-files
           path: |
             ${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp
             ${{ env.SETUP_CLUSTER_TYPE_PATH }}/values.yaml
           overwrite: true
           include-hidden-files: true
-          retention-days: 1
+          retention-days: 3
 
       - name: Upload ssh config
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: generated-files-ssh-${{ inputs.storage_type }}
+          name: ${{ inputs.storage_type }}-generated-files-ssh
           path: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/ssh
           overwrite: true
           include-hidden-files: true
-          retention-days: 1
+          retention-days: 3
 
       - name: Upload kubeconfig
         uses: actions/upload-artifact@v4
         with:
-          name: generated-files-kubeconfig-${{ inputs.storage_type }}
+          name: ${{ inputs.storage_type }}-generated-files-kubeconfig
           path: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/kube-config
           overwrite: true
           include-hidden-files: true
-          retention-days: 1
+          retention-days: 3
 
   configure-storage:
     name: Configure storage (${{ inputs.storage_type }})
@@ -1223,13 +1223,13 @@ jobs:
             test/e2e/e2e_summary_*.xml
             test/e2e/*junit*.xml
           if-no-files-found: ignore
-          retention-days: 1
+          retention-days: 3
 
       - name: Upload resources from failed tests
         uses: actions/upload-artifact@v4
         if: always() && steps.e2e-report.outcome == 'failure'
         with:
-          name: resources_from_failed_tests
+          name: resources_from_failed_tests-${{ inputs.storage_type }}
           path: ${{ runner.temp }}/e2e_failed__*
           if-no-files-found: ignore
           retention-days: 3
@@ -1392,7 +1392,7 @@ jobs:
         with:
           name: e2e-report-${{ inputs.storage_type }}-${{ github.run_id }}
           path: ${{ steps.determine-stage.outputs.report_file }}
-          retention-days: 1
+          retention-days: 3
 
       - name: Set artifact name output
         id: set-artifact-name
