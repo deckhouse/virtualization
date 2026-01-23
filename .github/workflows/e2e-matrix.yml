@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: E2E Matrix Tests (bootstrap)
+name: E2E Matrix Tests (nested clusters)
 
 on:
   workflow_dispatch:
