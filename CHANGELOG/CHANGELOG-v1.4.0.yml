@@ -1,0 +1,60 @@
+api:
+  fixes:
+    - summary: Add validation of empty field values in the CRD.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1813
+ci:
+  fixes:
+    - summary: fix change URLs in CI
+      pull_request: https://github.com/deckhouse/virtualization/pull/1849
+core:
+  features:
+    - summary: Exclude hoplug pod from qouta calculations.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1866
+    - summary: Exclude from qouta system resources for CVI/VI/VD.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1848
+images:
+  features:
+    - summary: Added monitoring of DVCR image presence for VirtualImage and ClusterVirtualImage
+      pull_request: https://github.com/deckhouse/virtualization/pull/1622
+module:
+  features:
+    - summary: add collect-debug-info
+      pull_request: https://github.com/deckhouse/virtualization/pull/1791
+  fixes:
+    - summary: Correct KubeVirt virtualization metric unit from milliseconds to seconds.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1752
+vd:
+  features:
+    - summary: Enable storage class migration for hotplugged disks
+      pull_request: https://github.com/deckhouse/virtualization/pull/1785
+vm:
+  features:
+    - summary: Support network configuration without a 'Main' network type in spec.networks
+      pull_request: https://github.com/deckhouse/virtualization/pull/1818
+  fixes:
+    - summary: Prevent false RestartRequired during upgrade when firmware.uuid is not set on KVVM
+      pull_request: https://github.com/deckhouse/virtualization/pull/1875
+    - summary: Skip validation for VMs in the terminating status.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1842
+    - summary: React to creating and modifying provisioning secrets.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1825
+    - summary: Use hostNetwork for hotplug pods to avoid IP consumption
+      pull_request: https://github.com/deckhouse/virtualization/pull/1823
+    - summary: React to creating and modifying provisioning secrets.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1820
+vmip:
+  fixes:
+    - summary: >-
+        Fixed attaching the VirtualMachineIPAddress resource to a virtual machine when the address
+        was created in advance.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1879
+vmop:
+  features:
+    - summary: Add ability to create VMOP Clone with VM in Running state.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1816
+    - summary: Enable migration for VMs with hotplugged local disks
+      pull_request: https://github.com/deckhouse/virtualization/pull/1779
+  fixes:
+    - summary: Correctly set annotations on resources being deleted while restoring.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1878
+
