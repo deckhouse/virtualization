@@ -78,7 +78,7 @@ func newDraOptions() *draOptions {
 		KubeletPluginsDirectoryPath:  os.Getenv("KUBELET_PLUGINS_DIRECTORY_PATH"),
 		HealthzPort:                  51515,
 		Logging:                      &logger.Options{},
-		Monitor:                      &libusb.MonitorConfig{},
+		Monitor:                      libusb.NewDefaultMonitorConfig(),
 		featureGates:                 featuregates.AddFlags,
 	}
 

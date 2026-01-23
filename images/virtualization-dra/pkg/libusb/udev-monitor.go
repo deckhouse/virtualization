@@ -21,8 +21,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"slices"
-	"strings"
 	"sync"
 	"time"
 
@@ -33,10 +31,8 @@ import (
 // It provides a clean separation between the generic udev event handling and
 // USB-specific device management.
 type UdevMonitor struct {
-	mu        sync.RWMutex
-	devices   map[string]*USBDevice
-	notifiers []Notifier
-	log       *slog.Logger
+	store *USBDeviceStore
+	log   *slog.Logger
 
 	// Configuration
 	resyncPeriod     time.Duration
@@ -92,13 +88,12 @@ func NewUdevMonitor(ctx context.Context, opts ...UdevMonitorOption) (Monitor, er
 	if err != nil {
 		return nil, err
 	}
-	if devices == nil {
-		devices = make(map[string]*USBDevice)
-	}
+
+	log := slog.With(slog.String("component", "udev-usb-monitor"))
 
 	m := &UdevMonitor{
-		devices:          devices,
-		log:              slog.With(slog.String("component", "usb-monitor")),
+		store:            NewUSBDeviceStore(devices, log),
+		log:              log,
 		resyncPeriod:     5 * time.Minute,
 		debounceDuration: 100 * time.Millisecond,
 		pendingEvents:    make(map[string]*debounceEntry),
@@ -209,9 +204,6 @@ func (m *UdevMonitor) scheduleEvent(path string, action udev.Action) {
 }
 
 func (m *UdevMonitor) processEvent(path string, action udev.Action) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	switch action {
 	case udev.ActionAdd, udev.ActionChange, udev.ActionBind, udev.ActionOnline:
 		m.handleDeviceUpdate(path)
@@ -245,37 +237,11 @@ func (m *UdevMonitor) handleDeviceUpdate(path string) {
 		return
 	}
 
-	oldDevice, exists := m.devices[path]
-	if !exists {
-		m.devices[path] = &device
-		m.log.Info("device added",
-			slog.String("path", path),
-			slog.String("busid", device.BusID),
-			slog.String("product", device.Product),
-			slog.String("manufacturer", device.Manufacturer),
-			slog.String("serial", device.Serial),
-		)
-		m.notify()
-	} else if !device.Equal(oldDevice) {
-		m.devices[path] = &device
-		m.log.Info("device updated",
-			slog.String("path", path),
-			slog.String("busid", device.BusID),
-			slog.String("product", device.Product),
-		)
-		m.notify()
-	}
+	m.store.AddDevice(path, &device)
 }
 
 func (m *UdevMonitor) handleDeviceRemove(path string) {
-	if device, exists := m.devices[path]; exists {
-		m.log.Info("device removed",
-			slog.String("path", path),
-			slog.String("busid", device.BusID),
-		)
-		delete(m.devices, path)
-		m.notify()
-	}
+	m.store.RemoveDevice(path)
 }
 
 func (m *UdevMonitor) resync() {
@@ -284,112 +250,33 @@ func (m *UdevMonitor) resync() {
 		m.log.Error("failed to discover USB devices during resync", slog.String("error", err.Error()))
 		return
 	}
-	if devices == nil {
-		devices = make(map[string]*USBDevice)
-	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	changed := false
-
-	// Check for removed devices
-	for path := range m.devices {
-		if _, exists := devices[path]; !exists {
-			m.log.Info("device removed (resync)", slog.String("path", path))
-			delete(m.devices, path)
-			changed = true
-		}
-	}
-
-	// Check for added or changed devices
-	for path, device := range devices {
-		oldDevice, exists := m.devices[path]
-		if !exists {
-			m.log.Info("device added (resync)", slog.String("path", path))
-			m.devices[path] = device
-			changed = true
-		} else if !device.Equal(oldDevice) {
-			m.log.Info("device changed (resync)", slog.String("path", path))
-			m.devices[path] = device
-			changed = true
-		}
-	}
-
-	if changed {
-		m.notify()
-	}
+	m.store.Resync(devices)
 }
 
 // GetDevices returns a copy of all discovered USB devices
 func (m *UdevMonitor) GetDevices() []USBDevice {
-	m.mu.RLock()
-	devices := make([]USBDevice, 0, len(m.devices))
-	for _, device := range m.devices {
-		devices = append(devices, *device)
-	}
-	m.mu.RUnlock()
-
-	slices.SortFunc(devices, func(a, b USBDevice) int {
-		return strings.Compare(a.DevicePath, b.DevicePath)
-	})
-
-	return devices
+	return m.store.GetDevices()
 }
 
 // GetDevice returns a device by path
 func (m *UdevMonitor) GetDevice(path string) (*USBDevice, bool) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	device, ok := m.devices[path]
-	if !ok {
-		return nil, false
-	}
-
-	deviceCopy := *device
-	return &deviceCopy, true
+	return m.store.GetDevice(path)
 }
 
 // GetDeviceByBusID returns a device by BusID
 func (m *UdevMonitor) GetDeviceByBusID(busID string) (*USBDevice, bool) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	for _, device := range m.devices {
-		if device.BusID == busID {
-			deviceCopy := *device
-			return &deviceCopy, true
-		}
-	}
-	return nil, false
+	return m.store.GetDeviceByBusID(busID)
 }
 
 // AddNotifier adds a notifier to be called on device changes
 func (m *UdevMonitor) AddNotifier(notifier Notifier) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.notifiers = append(m.notifiers, notifier)
+	m.store.AddNotifier(notifier)
 }
 
 // RemoveNotifier removes a notifier
 func (m *UdevMonitor) RemoveNotifier(notifier Notifier) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	for i, n := range m.notifiers {
-		if n == notifier {
-			m.notifiers = slices.Delete(m.notifiers, i, i+1)
-			return
-		}
-	}
-}
-
-func (m *UdevMonitor) notify() {
-	for _, notifier := range m.notifiers {
-		notifier.Notify()
-	}
+	m.store.RemoveNotifier(notifier)
 }
 
 func newUSBDeviceMatcher() udev.Matcher {

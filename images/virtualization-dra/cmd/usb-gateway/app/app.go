@@ -69,7 +69,7 @@ func NewUSBGatewayCommand() *cobra.Command {
 func newUsbOptions() *usbOptions {
 	return &usbOptions{
 		Logging: &logger.Options{},
-		Monitor: &libusb.MonitorConfig{},
+		Monitor: libusb.NewDefaultMonitorConfig(),
 	}
 }
 

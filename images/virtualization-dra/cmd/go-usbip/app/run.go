@@ -28,7 +28,7 @@ import (
 
 func NewRunCommand() *cobra.Command {
 	o := &runOptions{
-		monitor: &libusb.MonitorConfig{},
+		monitor: libusb.NewDefaultMonitorConfig(),
 	}
 	cmd := &cobra.Command{
 		Use:     "run",
