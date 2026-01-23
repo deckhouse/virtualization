@@ -213,6 +213,15 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 			return fmt.Errorf("failed to update the `VirtualMachine`: %w", updErr)
 		}
 
+		vm.Status.BlockDeviceRefs = v.vm.Status.BlockDeviceRefs
+		updErr = v.client.Status().Update(ctx, vm)
+		if updErr != nil {
+			if apierrors.IsConflict(updErr) {
+				return fmt.Errorf("waiting for the `VirtualMachine` status %w", common.ErrUpdating)
+			}
+			return fmt.Errorf("failed to update the `VirtualMachine` status: %w", updErr)
+		}
+
 		// Always clean up VMBDAs first, regardless of VM state
 		err = v.deleteCurrentVirtualMachineBlockDeviceAttachments(ctx)
 		if err != nil {

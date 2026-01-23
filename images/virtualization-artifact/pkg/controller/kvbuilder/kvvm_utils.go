@@ -98,7 +98,6 @@ func ApplyVirtualMachineSpec(
 	class *v1alpha2.VirtualMachineClass,
 	ipAddress string,
 	networkSpec network.InterfaceSpecList,
-	existingTargets map[string]string,
 ) error {
 	if err := kvvm.SetRunPolicy(vm.Spec.RunPolicy); err != nil {
 		return err
@@ -236,21 +235,25 @@ func ApplyVirtualMachineSpec(
 		return err
 	}
 
-	sort.SliceStable(hotpluggedDevices, func(i, j int) bool {
+	diskOrder := make(map[string]int)
+	for i, bd := range vm.Status.BlockDeviceRefs {
+		diskOrder[bd.Name] = i
+	}
+	sort.Slice(hotpluggedDevices, func(i, j int) bool {
 		nameI, _ := GetOriginalDiskName(hotpluggedDevices[i].VolumeName)
 		nameJ, _ := GetOriginalDiskName(hotpluggedDevices[j].VolumeName)
-		ti := existingTargets[nameI]
-		tj := existingTargets[nameJ]
-		if ti == "" && tj == "" {
+		orderI, okI := diskOrder[nameI]
+		orderJ, okJ := diskOrder[nameJ]
+		if !okI && !okJ {
+			return hotpluggedDevices[i].VolumeName < hotpluggedDevices[j].VolumeName
+		}
+		if !okI {
 			return false
 		}
-		if ti == "" {
-			return false
-		}
-		if tj == "" {
+		if !okJ {
 			return true
 		}
-		return ti < tj
+		return orderI < orderJ
 	})
 
 	for _, device := range hotpluggedDevices {
