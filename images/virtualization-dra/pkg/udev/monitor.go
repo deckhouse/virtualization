@@ -26,10 +26,11 @@ import (
 // Monitor listens for uevents from netlink and sends matching events to a channel.
 // It runs until the context is canceled or an unrecoverable error occurs.
 type Monitor struct {
-	conn    *Conn
-	mode    Mode
-	matcher Matcher
-	log     *slog.Logger
+	conn     *Conn
+	mode     Mode
+	matcher  Matcher
+	log      *slog.Logger
+	connOpts []ConnOption
 }
 
 // MonitorOption is a functional option for Monitor
@@ -46,6 +47,14 @@ func WithMode(mode Mode) MonitorOption {
 func WithLogger(log *slog.Logger) MonitorOption {
 	return func(m *Monitor) {
 		m.log = log
+	}
+}
+
+// WithConnOptions sets the connection options for the underlying Conn.
+// Use this to configure network namespace for the netlink socket.
+func WithConnOptions(opts ...ConnOption) MonitorOption {
+	return func(m *Monitor) {
+		m.connOpts = append(m.connOpts, opts...)
 	}
 }
 
@@ -68,7 +77,7 @@ func NewMonitor(matcher Matcher, opts ...MonitorOption) *Monitor {
 // It blocks until the context is canceled or an error occurs.
 // The channel is NOT closed when the monitor stops - the caller is responsible for that.
 func (m *Monitor) Run(ctx context.Context, eventCh chan<- *UEvent) error {
-	m.conn = NewConn()
+	m.conn = NewConn(m.connOpts...)
 	if err := m.conn.Connect(m.mode); err != nil {
 		return err
 	}

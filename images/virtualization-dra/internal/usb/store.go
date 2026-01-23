@@ -43,14 +43,10 @@ import (
 
 const DefaultResyncPeriod = 10 * time.Minute
 
-func NewAllocationStore(nodeName string, resyncPeriod time.Duration, cdiManager cdi.Manager, log *slog.Logger) *AllocationStore {
-	if resyncPeriod == 0 {
-		resyncPeriod = DefaultResyncPeriod
-	}
-
+func NewAllocationStore(nodeName string, cdiManager cdi.Manager, monitor *usb.Monitor, log *slog.Logger) (*AllocationStore, error) {
 	store := &AllocationStore{
 		nodeName:                  nodeName,
-		resyncPeriod:              resyncPeriod,
+		monitor:                   monitor,
 		cdi:                       cdiManager,
 		log:                       log.With(slog.String("component", "usb-allocation-store")),
 		updateChannel:             make(chan resourceslice.DriverResources, 2),
@@ -61,13 +57,20 @@ func NewAllocationStore(nodeName string, resyncPeriod time.Duration, cdiManager 
 		usbipInfoGetter:           usbip.NewUSBAttacher(),
 	}
 
-	return store
+	monitor.AddNotifier(usb.FuncNotifier(store.callback))
+
+	store.callback()
+
+	if err := store.cdi.CreateCommonSpecFile(); err != nil {
+		return nil, fmt.Errorf("failed to create CDI common spec file: %w", err)
+	}
+
+	return store, nil
 }
 
 type AllocationStore struct {
-	nodeName     string
-	devicesPath  string
-	resyncPeriod time.Duration
+	nodeName    string
+	devicesPath string
 
 	cdi cdi.Manager
 	log *slog.Logger
@@ -124,24 +127,6 @@ func (s *AllocationStore) callback() {
 	if err := s.sync(); err != nil {
 		s.log.Error("failed to sync usb state", slog.Any("err", err))
 	}
-}
-
-func (s *AllocationStore) Start(ctx context.Context) error {
-	monitor, err := usb.NewMonitor(ctx, usb.WithResyncPeriod(s.resyncPeriod))
-	if err != nil {
-		return err
-	}
-	s.monitor = monitor
-	s.monitor.AddNotifier(usb.FuncNotifier(s.callback))
-
-	// Initial sync to publish already discovered devices
-	s.callback()
-
-	if err := s.cdi.CreateCommonSpecFile(); err != nil {
-		return fmt.Errorf("failed to create CDI common spec file: %w", err)
-	}
-
-	return nil
 }
 
 func (s *AllocationStore) UpdateChannel() chan resourceslice.DriverResources {

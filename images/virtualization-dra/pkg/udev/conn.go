@@ -19,7 +19,10 @@ package udev
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 // Mode determines the event source
@@ -32,19 +35,48 @@ const (
 	UdevEvent Mode = 2
 )
 
+// HostNetNS is a path to the host network namespace.
+// Use this to receive udev events when running in a container without host networking.
+const HostNetNS = "/proc/1/ns/net"
+
 // Conn represents a netlink connection for uevents
 type Conn struct {
-	fd   int
-	addr syscall.SockaddrNetlink
+	fd    int
+	addr  syscall.SockaddrNetlink
+	netNS string // optional: path to network namespace (e.g., /proc/1/ns/net)
+}
+
+// ConnOption is a functional option for Conn
+type ConnOption func(*Conn)
+
+// WithNetNS sets the network namespace path for the connection.
+// The socket will be created in the specified network namespace.
+// This is useful when running in a container without host networking -
+// use HostNetNS ("/proc/1/ns/net") to receive udev events from the host.
+func WithNetNS(path string) ConnOption {
+	return func(c *Conn) {
+		c.netNS = path
+	}
 }
 
 // NewConn creates a new udev connection
-func NewConn() *Conn {
-	return &Conn{}
+func NewConn(opts ...ConnOption) *Conn {
+	c := &Conn{}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c
 }
 
 // Connect establishes a connection to the netlink socket
 func (c *Conn) Connect(mode Mode) error {
+	if c.netNS != "" {
+		return c.connectInNetNS(mode)
+	}
+	return c.connect(mode)
+}
+
+func (c *Conn) connect(mode Mode) error {
 	var err error
 	c.fd, err = syscall.Socket(syscall.AF_NETLINK, syscall.SOCK_RAW, syscall.NETLINK_KOBJECT_UEVENT)
 	if err != nil {
@@ -62,6 +94,49 @@ func (c *Conn) Connect(mode Mode) error {
 	}
 
 	return nil
+}
+
+// connectInNetNS creates the netlink socket in the specified network namespace.
+// This allows receiving udev events from the host when running in a container.
+//
+// IMPORTANT: If the function cannot restore the original network namespace,
+// it will panic because the OS thread would be left in an undefined state.
+func (c *Conn) connectInNetNS(mode Mode) error {
+	// Lock the OS thread to ensure namespace operations affect only this goroutine.
+	// This is critical because Go scheduler can migrate goroutines between OS threads,
+	// and namespace is a per-thread property.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	// Save current network namespace
+	currentNS, err := unix.Open("/proc/self/ns/net", unix.O_RDONLY|unix.O_CLOEXEC, 0)
+	if err != nil {
+		return fmt.Errorf("failed to open current netns: %w", err)
+	}
+	defer unix.Close(currentNS)
+
+	// Open target network namespace
+	targetNS, err := unix.Open(c.netNS, unix.O_RDONLY|unix.O_CLOEXEC, 0)
+	if err != nil {
+		return fmt.Errorf("failed to open target netns %s: %w", c.netNS, err)
+	}
+	defer unix.Close(targetNS)
+
+	// Switch to target network namespace
+	if err := unix.Setns(targetNS, unix.CLONE_NEWNET); err != nil {
+		return fmt.Errorf("failed to switch to target netns: %w", err)
+	}
+
+	defer func() {
+		if err := unix.Setns(currentNS, unix.CLONE_NEWNET); err != nil {
+			panic(fmt.Sprintf("FATAL: failed to restore original netns: %v", err))
+		}
+	}()
+
+	// Create socket in target namespace.
+	// The socket will remain bound to the target namespace even after
+	// we switch back to the original namespace.
+	return c.connect(mode)
 }
 
 // Close closes the netlink connection

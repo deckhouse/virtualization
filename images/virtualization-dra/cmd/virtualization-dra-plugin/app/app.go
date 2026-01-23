@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-dra/internal/plugin"
 	"github.com/deckhouse/virtualization-dra/internal/usb"
 	"github.com/deckhouse/virtualization-dra/pkg/logger"
+	libusb "github.com/deckhouse/virtualization-dra/pkg/usb"
 )
 
 func NewVirtualizationDraPluginCommand() *cobra.Command {
@@ -99,6 +100,7 @@ type draOptions struct {
 	KubeletRegisterDirectoryPath string
 	KubeletPluginsDirectoryPath  string
 	HealthzPort                  int
+	Isolated                     bool
 	USBResyncPeriod              time.Duration
 
 	Logging      *logger.Options
@@ -113,6 +115,7 @@ func (o *draOptions) NamedFlags() (fs flag.NamedFlagSets) {
 	mfs.StringVar(&o.KubeletRegisterDirectoryPath, "kubelet-register-directory-path", o.KubeletRegisterDirectoryPath, "Kubelet register directory path")
 	mfs.StringVar(&o.KubeletPluginsDirectoryPath, "kubelet-plugins-directory-path", o.KubeletPluginsDirectoryPath, "Kubelet plugins directory path")
 	mfs.IntVar(&o.HealthzPort, "healthz-port", o.HealthzPort, "Healthz port")
+	mfs.BoolVar(&o.Isolated, "isolated", true, "Application running in isolated environment and should run USBMonitor in host network namespace")
 	mfs.DurationVar(&o.USBResyncPeriod, "usb-resync-period", o.USBResyncPeriod, "USB resync period")
 
 	o.Logging.AddFlags(fs.FlagSet("logging"))
@@ -157,7 +160,21 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to create CDI manager: %w", err)
 	}
 
-	usbStore := usb.NewAllocationStore(o.NodeName, o.USBResyncPeriod, usbCDIManager, slog.Default())
+	monitorOpts := []libusb.MonitorOption{
+		libusb.WithResyncPeriod(o.USBResyncPeriod),
+	}
+	if o.Isolated {
+		monitorOpts = append(monitorOpts, libusb.WithHostNetNS())
+	}
+	monitor, err := libusb.NewMonitor(cmd.Context(), monitorOpts...)
+	if err != nil {
+		return fmt.Errorf("failed to create USB monitor: %w", err)
+	}
+
+	usbStore, err := usb.NewAllocationStore(o.NodeName, usbCDIManager, monitor, slog.Default())
+	if err != nil {
+		return fmt.Errorf("failed to create USB store: %w", err)
+	}
 
 	driver := plugin.NewDriver(o.NodeName, client, usbStore, slog.Default())
 	err = driver.Start(cmd.Context())
@@ -169,11 +186,6 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 	err = healthCheck.Start()
 	if err != nil {
 		return fmt.Errorf("failed to start health check: %w", err)
-	}
-
-	err = usbStore.Start(cmd.Context())
-	if err != nil {
-		return fmt.Errorf("failed to start usb store: %w", err)
 	}
 
 	driver.Wait()

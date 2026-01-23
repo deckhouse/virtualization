@@ -24,14 +24,10 @@ import (
 	"strings"
 )
 
-func DefaultDiscoverPluggedUSBDevices() (map[string]*Device, error) {
-	return DiscoverPluggedUSBDevices(PathToUSBDevices)
-}
-
-func DiscoverPluggedUSBDevices(pathToUSBDevices string) (map[string]*Device, error) {
+func DiscoverPluggedUSBDevices() (map[string]*Device, error) {
 	devices := make(map[string]*Device)
 
-	err := filepath.Walk(pathToUSBDevices, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(PathToUSBDevices, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}

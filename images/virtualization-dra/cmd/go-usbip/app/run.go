@@ -59,7 +59,7 @@ func (o *runOptions) AddFlags(fs *pflag.FlagSet) {
 }
 
 func (o *runOptions) Run(cmd *cobra.Command, _ []string) error {
-	monitor, err := usb.NewMonitor(context.Background(), o.resyncPeriod)
+	monitor, err := usb.NewMonitor(context.Background(), usb.WithResyncPeriod(o.resyncPeriod))
 	if err != nil {
 		return err
 	}

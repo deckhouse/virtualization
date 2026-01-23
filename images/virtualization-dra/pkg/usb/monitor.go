@@ -41,6 +41,7 @@ type Monitor struct {
 	// Configuration
 	resyncPeriod     time.Duration
 	debounceDuration time.Duration
+	useHostNetNS     bool
 
 	// Debouncing
 	pendingEvents map[string]*debounceEntry
@@ -76,9 +77,18 @@ func WithLogger(log *slog.Logger) MonitorOption {
 	}
 }
 
+// WithHostNetNS configures the monitor to create the netlink socket in the host
+// network namespace. This is required when running in a container without host
+// networking to receive udev events.
+func WithHostNetNS() MonitorOption {
+	return func(m *Monitor) {
+		m.useHostNetNS = true
+	}
+}
+
 // NewMonitor creates a new USB monitor that uses the udev package
 func NewMonitor(ctx context.Context, opts ...MonitorOption) (*Monitor, error) {
-	devices, err := DiscoverPluggedUSBDevices(PathToUSBDevices)
+	devices, err := DiscoverPluggedUSBDevices()
 	if err != nil {
 		return nil, err
 	}
@@ -105,11 +115,16 @@ func NewMonitor(ctx context.Context, opts ...MonitorOption) (*Monitor, error) {
 
 func (m *Monitor) run(ctx context.Context) {
 	// Create udev monitor
-	udevMonitor := udev.NewMonitor(
-		newUSBDeviceMatcher(),
+	udevOpts := []udev.MonitorOption{
 		udev.WithMode(udev.KernelEvent),
 		udev.WithLogger(m.log),
-	)
+	}
+
+	if m.useHostNetNS {
+		udevOpts = append(udevOpts, udev.WithConnOptions(udev.WithNetNS(udev.HostNetNS)))
+	}
+
+	udevMonitor := udev.NewMonitor(newUSBDeviceMatcher(), udevOpts...)
 
 	// Start udev monitor and get event channel
 	eventCh, errCh := udevMonitor.Start(ctx)
@@ -264,7 +279,7 @@ func (m *Monitor) handleDeviceRemove(path string) {
 }
 
 func (m *Monitor) resync() {
-	devices, err := DiscoverPluggedUSBDevices(PathToUSBDevices)
+	devices, err := DiscoverPluggedUSBDevices()
 	if err != nil {
 		m.log.Error("failed to discover USB devices during resync", slog.String("error", err.Error()))
 		return

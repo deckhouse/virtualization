@@ -108,7 +108,7 @@ func (b *usbBinder) IsBound(busID string) (bool, error) {
 }
 
 func (b *usbBinder) GetBindInfo() ([]BindInfo, error) {
-	usbDevices, err := usb.DefaultDiscoverPluggedUSBDevices()
+	usbDevices, err := usb.DiscoverPluggedUSBDevices()
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover USB devices: %w", err)
 	}

@@ -77,6 +77,7 @@ type usbOptions struct {
 	Kubeconfig      string
 	NodeName        string
 	PodIP           string
+	Isolated        bool
 	USBIPPort       int
 	USBResyncPeriod time.Duration
 	Logging         *logger.Options
@@ -87,6 +88,7 @@ func (o *usbOptions) NamedFlags() (fs flag.NamedFlagSets) {
 	mfs.StringVar(&o.Kubeconfig, "kubeconfig", o.Kubeconfig, "Path to kubeconfig file")
 	mfs.StringVar(&o.NodeName, "node-name", os.Getenv("NODE_NAME"), "Node name")
 	mfs.StringVar(&o.PodIP, "pod-ip", os.Getenv("POD_IP"), "Pod IP")
+	mfs.BoolVar(&o.Isolated, "isolated", true, "Application running in isolated environment and should run USBMonitor in host network namespace")
 	mfs.IntVar(&o.USBIPPort, "usbip-port", 3240, "USBIP port")
 	mfs.DurationVar(&o.USBResyncPeriod, "usb-resync-period", 5*time.Minute, "USB resync period")
 
@@ -113,7 +115,13 @@ func (o *usbOptions) Validate() error {
 }
 
 func (o *usbOptions) Run(cmd *cobra.Command, _ []string) error {
-	monitor, err := usb.NewMonitor(cmd.Context(), usb.WithResyncPeriod(o.USBResyncPeriod))
+	monitorOpts := []usb.MonitorOption{
+		usb.WithResyncPeriod(o.USBResyncPeriod),
+	}
+	if o.Isolated {
+		monitorOpts = append(monitorOpts, usb.WithHostNetNS())
+	}
+	monitor, err := usb.NewMonitor(cmd.Context(), monitorOpts...)
 	if err != nil {
 		return err
 	}

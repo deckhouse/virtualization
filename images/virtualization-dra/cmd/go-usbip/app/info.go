@@ -46,7 +46,7 @@ func (o *infoOptions) Usage() string {
 }
 
 func (o *infoOptions) Run(cmd *cobra.Command, _ []string) error {
-	discoverDevices, err := usb.DefaultDiscoverPluggedUSBDevices()
+	discoverDevices, err := usb.DiscoverPluggedUSBDevices()
 	if err != nil {
 		return err
 	}
