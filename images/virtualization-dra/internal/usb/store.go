@@ -134,6 +134,9 @@ func (s *AllocationStore) Start(ctx context.Context) error {
 	s.monitor = monitor
 	s.monitor.AddNotifier(usb.FuncNotifier(s.callback))
 
+	// Initial sync to publish already discovered devices
+	s.callback()
+
 	if err := s.cdi.CreateCommonSpecFile(); err != nil {
 		return fmt.Errorf("failed to create CDI common spec file: %w", err)
 	}
