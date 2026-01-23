@@ -2078,6 +2078,43 @@ How to work with additional block devices in the web interface:
 - On the "Configuration" tab, scroll down to the "Disks and Images" section.
 - You can add, extract, delete, and resize additional block devices in the "Additional Disks" section.
 
+#### Disk naming in guest OS
+
+{{< alert level="warning">}}
+Block device names (`/dev/sda`, `/dev/sdb`, `/dev/sdc`, etc.) are assigned by the Linux kernel in the order devices are discovered during boot. The discovery order may change between reboots, which leads to changes in disk names even with unchanged SCSI addresses.
+
+Using `/dev/sdX` names in configuration files (e.g., `/etc/fstab`) or in scripts may lead to mounting incorrect disks or incorrect operation after VM reboot.
+{{< /alert >}}
+
+**Example:**
+
+After the first VM boot:
+
+```bash
+$ lsscsi
+[0:0:0:1]  disk    QEMU     QEMU HARDDISK   /dev/sda
+[0:0:0:2]  disk    QEMU     QEMU HARDDISK   /dev/sdb
+```
+
+After VM reboot:
+
+```bash
+$ lsscsi
+[0:0:0:1]  disk    QEMU     QEMU HARDDISK   /dev/sdb
+[0:0:0:2]  disk    QEMU     QEMU HARDDISK   /dev/sda
+```
+
+SCSI addresses (`0:0:0:1`, `0:0:0:2`) remain unchanged, but device names (`/dev/sda`, `/dev/sdb`) are swapped.
+
+Use stable identifiers instead of `/dev/sdX`:
+
+- **`/dev/disk/by-uuid/`** — by partition UUID (preferred for `/etc/fstab`)
+- **`/dev/disk/by-path/`** — by SCSI connection path
+- **`/dev/disk/by-id/`** — by SCSI device ID
+- **SCSI addresses** (`0:0:0:X`) — for programmatic disk identification
+
+In configuration files and scripts, use partition UUIDs or symlinks from `/dev/disk/by-*` instead of `/dev/sdX` names.
+
 ### Organizing interaction with virtual machines
 
 Virtual machines can be accessed directly via their fixed IP addresses. However, this approach has limitations: direct use of IP addresses requires manual management, complicates scaling, and makes the infrastructure less flexible. An alternative is services—a mechanism that abstracts access to VMs by providing logical entry points instead of binding to physical addresses.
