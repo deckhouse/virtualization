@@ -31,6 +31,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
@@ -68,6 +69,8 @@ func usage() string {
 
 	return usage
 }
+
+var spinnerChars = []rune{'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
 
 func (c *Console) Run(cmd *cobra.Command, args []string) error {
 	client, defaultNamespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
@@ -125,9 +128,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
-	firstConnection := true
-	showedReconnectMessage := false
-	spinnerChars := []rune{'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
+	showedWaitMessage := false
 	spinnerIdx := 0
 
 	for {
@@ -137,60 +138,53 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 		case <-doneChan:
 			return nil
 		default:
-			if firstConnection {
-				fmt.Fprintf(os.Stderr, "Connecting to %s console...\r\n", name)
+			err := connect(cmd.Context(), name, namespace, client, c.timeout, stdinCh, doneChan)
+			if err == nil {
+				return nil // Normal exit (escape sequence)
 			}
 
-			err := connect(cmd.Context(), name, namespace, client, c.timeout, stdinCh, doneChan)
-			if err != nil {
-				if strings.Contains(err.Error(), "not found") {
-					return err
-				}
+			if strings.Contains(err.Error(), "not found") {
+				return err
+			}
 
-				// If VM is not in Running state, show reconnection message
-				if strings.Contains(err.Error(), "not Running") || strings.Contains(err.Error(), "not Running or Migrating") {
-					if !firstConnection {
-						// Show spinner with line overwrite
-						fmt.Fprintf(os.Stderr, "\r%c Connection lost. Reconnecting...", spinnerChars[spinnerIdx])
-						spinnerIdx = (spinnerIdx + 1) % len(spinnerChars)
-						showedReconnectMessage = true
-					}
-					time.Sleep(200 * time.Millisecond)
-					firstConnection = false
-					continue
-				}
-
-				var e *websocket.CloseError
-				if errors.As(err, &e) {
-					switch e.Code {
-					case websocket.CloseGoingAway:
-						if showedReconnectMessage {
-							fmt.Fprintf(os.Stderr, "\r\x1b[K")
-						}
-						fmt.Fprintf(os.Stderr, util.CloseGoingAwayMessage)
-						return nil
-					case websocket.CloseAbnormalClosure:
-						if !firstConnection {
-							// Show spinner with line overwrite
-							fmt.Fprintf(os.Stderr, "\r%c Connection lost. Reconnecting...", spinnerChars[spinnerIdx])
-							spinnerIdx = (spinnerIdx + 1) % len(spinnerChars)
-							showedReconnectMessage = true
-						}
-					}
-				} else {
-					if showedReconnectMessage {
+			// Check if we should show waiting message and retry
+			errMsg := err.Error()
+			shouldWait := strings.Contains(errMsg, "not Running") ||
+				strings.Contains(errMsg, "bad handshake") ||
+				strings.Contains(errMsg, "Internal error")
+			var wsErr *websocket.CloseError
+			if errors.As(err, &wsErr) {
+				if wsErr.Code == websocket.CloseGoingAway {
+					if showedWaitMessage {
 						fmt.Fprintf(os.Stderr, "\r\x1b[K")
 					}
-					fmt.Fprintf(os.Stderr, "\r\n%s\r\n", err)
-					showedReconnectMessage = false
+					fmt.Fprintf(os.Stderr, util.CloseGoingAwayMessage)
+					return nil
 				}
-
-				time.Sleep(time.Second)
-				firstConnection = false
-			} else {
-				// connect returned nil - normal exit (escape sequence)
-				return nil
+				shouldWait = shouldWait || wsErr.Code == websocket.CloseAbnormalClosure
 			}
+
+			if shouldWait {
+				// Get VM phase and show waiting spinner
+				phase := "Unknown"
+				if vm, vmErr := client.VirtualMachines(namespace).Get(cmd.Context(), name, metav1.GetOptions{}); vmErr == nil {
+					phase = string(vm.Status.Phase)
+				}
+				fmt.Fprintf(os.Stderr, "\r\x1b[K%c Waiting for VirtualMachine %q serial console. Current VM phase: %s. Press Ctrl+] to exit.",
+					spinnerChars[spinnerIdx], name, phase)
+				spinnerIdx = (spinnerIdx + 1) % len(spinnerChars)
+				showedWaitMessage = true
+				time.Sleep(200 * time.Millisecond)
+				continue
+			}
+
+			// Unknown error - print and continue
+			if showedWaitMessage {
+				fmt.Fprintf(os.Stderr, "\r\x1b[K")
+			}
+			fmt.Fprintf(os.Stderr, "\r\n%s\r\n", err)
+			showedWaitMessage = false
+			time.Sleep(time.Second)
 		}
 	}
 }
@@ -208,7 +202,7 @@ func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Cli
 
 	console, err := virtCli.VirtualMachines(namespace).SerialConsole(name, &virtualizationv1alpha2.SerialConsoleOptions{ConnectionTimeout: time.Duration(timeout) * time.Minute})
 	if err != nil {
-		return fmt.Errorf("can't access VM %s: %s", name, err.Error())
+		return fmt.Errorf("can't access VM %s: %w", name, err)
 	}
 
 	go func() {
@@ -222,7 +216,7 @@ func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Cli
 	}()
 
 	// Clear spinner line and show success message
-	fmt.Fprintf(os.Stderr, "\r\x1b[K\r\nSuccessfully connected to %s console. The escape sequence is ^]\r\n", name)
+	fmt.Fprintf(os.Stderr, "\r\x1b[K\r\nSuccessfully connected to %s serial console. Press Ctrl+] to exit.\r\n", name)
 
 	out := os.Stdout
 	go func() {
@@ -250,8 +244,6 @@ func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Cli
 		for {
 			select {
 			case <-writeCtx.Done():
-				return
-			case <-doneChan:
 				return
 			case b, ok := <-stdinCh:
 				if !ok {
