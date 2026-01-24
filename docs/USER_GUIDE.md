@@ -1548,6 +1548,18 @@ Password: cloud
 
 Press `Ctrl+]` to finalize the serial console.
 
+{{< alert level="info" >}}
+The serial console does not support automatic terminal resizing. If full-screen applications or text editors are displayed incorrectly, run the following command after logging in:
+
+```bash
+stty rows <number_of_rows> cols <number_of_columns>
+```
+
+For example: `stty rows 50 cols 200`
+
+If the `xterm` package is installed on the system, you can also use the `resize` command.
+{{< /alert >}}
+
 Example command for connecting via VNC:
 
 ```bash
