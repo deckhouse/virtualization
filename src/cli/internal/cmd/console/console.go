@@ -127,6 +127,8 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 
 	firstConnection := true
 	showedReconnectMessage := false
+	spinnerChars := []rune{'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
+	spinnerIdx := 0
 
 	for {
 		select {
@@ -148,14 +150,12 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 				// If VM is not in Running state, show reconnection message
 				if strings.Contains(err.Error(), "not Running") || strings.Contains(err.Error(), "not Running or Migrating") {
 					if !firstConnection {
-						if !showedReconnectMessage {
-							fmt.Fprintf(os.Stderr, "\r\nConnection lost. Reconnecting")
-							showedReconnectMessage = true
-						}
-						// Show progress dots
-						fmt.Fprintf(os.Stderr, ".")
+						// Show spinner with line overwrite
+						fmt.Fprintf(os.Stderr, "\r%c Connection lost. Reconnecting...", spinnerChars[spinnerIdx])
+						spinnerIdx = (spinnerIdx + 1) % len(spinnerChars)
+						showedReconnectMessage = true
 					}
-					time.Sleep(time.Second)
+					time.Sleep(200 * time.Millisecond)
 					firstConnection = false
 					continue
 				}
@@ -165,22 +165,21 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 					switch e.Code {
 					case websocket.CloseGoingAway:
 						if showedReconnectMessage {
-							fmt.Fprintf(os.Stderr, "\r\n")
+							fmt.Fprintf(os.Stderr, "\r\x1b[K")
 						}
 						fmt.Fprintf(os.Stderr, util.CloseGoingAwayMessage)
 						return nil
 					case websocket.CloseAbnormalClosure:
 						if !firstConnection {
-							if !showedReconnectMessage {
-								fmt.Fprintf(os.Stderr, "\r\nConnection lost. Reconnecting")
-								showedReconnectMessage = true
-							}
-							fmt.Fprintf(os.Stderr, ".")
+							// Show spinner with line overwrite
+							fmt.Fprintf(os.Stderr, "\r%c Connection lost. Reconnecting...", spinnerChars[spinnerIdx])
+							spinnerIdx = (spinnerIdx + 1) % len(spinnerChars)
+							showedReconnectMessage = true
 						}
 					}
 				} else {
 					if showedReconnectMessage {
-						fmt.Fprintf(os.Stderr, "\r\n")
+						fmt.Fprintf(os.Stderr, "\r\x1b[K")
 					}
 					fmt.Fprintf(os.Stderr, "\r\n%s\r\n", err)
 					showedReconnectMessage = false
@@ -222,7 +221,8 @@ func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Cli
 		}
 	}()
 
-	fmt.Fprintf(os.Stderr, "\r\nSuccessfully connected to %s console. The escape sequence is ^]\r\n", name)
+	// Clear spinner line and show success message
+	fmt.Fprintf(os.Stderr, "\r\x1b[K\r\nSuccessfully connected to %s console. The escape sequence is ^]\r\n", name)
 
 	out := os.Stdout
 	go func() {
