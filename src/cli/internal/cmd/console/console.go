@@ -82,48 +82,127 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 		namespace = defaultNamespace
 	}
 
+	// Set terminal to raw mode once for all connections
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		state, err := term.MakeRaw(int(os.Stdin.Fd()))
+		if err != nil {
+			return fmt.Errorf("make raw terminal failed: %w", err)
+		}
+		defer func() {
+			_ = term.Restore(int(os.Stdin.Fd()), state)
+		}()
+	}
+
+	// Channel for stdin data - created once for all connections
+	// to avoid losing characters during reconnection
+	stdinCh := make(chan []byte, 100)
+	doneChan := make(chan struct{}, 1)
+
+	go func() {
+		defer close(stdinCh)
+		in := os.Stdin
+		buf := make([]byte, 1024)
+		for {
+			n, err := in.Read(buf)
+			if err != nil {
+				if err != io.EOF || n == 0 {
+					return
+				}
+			}
+
+			if n > 0 {
+				// Escape sequence Ctrl+] (^]) - code 29 - exit console
+				if buf[0] == 29 {
+					doneChan <- struct{}{}
+					return
+				}
+
+				// Copy data to avoid losing it on the next read
+				data := make([]byte, n)
+				copy(data, buf[0:n])
+				stdinCh <- data
+			}
+		}
+	}()
+
+	firstConnection := true
+	showedReconnectMessage := false
+
 	for {
 		select {
 		case <-cmd.Context().Done():
 			return nil
+		case <-doneChan:
+			return nil
 		default:
-			cmd.Printf("Connecting to %s console...\n", name)
+			if firstConnection {
+				fmt.Fprintf(os.Stderr, "Connecting to %s console...\r\n", name)
+			}
 
-			err := connect(cmd.Context(), name, namespace, client, c.timeout)
+			err := connect(cmd.Context(), name, namespace, client, c.timeout, stdinCh, doneChan)
 			if err != nil {
 				if strings.Contains(err.Error(), "not found") {
 					return err
+				}
+
+				// If VM is not in Running state, show reconnection message
+				if strings.Contains(err.Error(), "not Running") || strings.Contains(err.Error(), "not Running or Migrating") {
+					if !firstConnection {
+						if !showedReconnectMessage {
+							fmt.Fprintf(os.Stderr, "\r\nConnection lost. Reconnecting")
+							showedReconnectMessage = true
+						}
+						// Show progress dots
+						fmt.Fprintf(os.Stderr, ".")
+					}
+					time.Sleep(time.Second)
+					firstConnection = false
+					continue
 				}
 
 				var e *websocket.CloseError
 				if errors.As(err, &e) {
 					switch e.Code {
 					case websocket.CloseGoingAway:
-						cmd.Printf(util.CloseGoingAwayMessage)
+						if showedReconnectMessage {
+							fmt.Fprintf(os.Stderr, "\r\n")
+						}
+						fmt.Fprintf(os.Stderr, util.CloseGoingAwayMessage)
 						return nil
 					case websocket.CloseAbnormalClosure:
-						cmd.Printf(util.CloseAbnormalClosureMessage)
+						if !firstConnection {
+							if !showedReconnectMessage {
+								fmt.Fprintf(os.Stderr, "\r\nConnection lost. Reconnecting")
+								showedReconnectMessage = true
+							}
+							fmt.Fprintf(os.Stderr, ".")
+						}
 					}
 				} else {
-					cmd.Printf("%s\n", err)
+					if showedReconnectMessage {
+						fmt.Fprintf(os.Stderr, "\r\n")
+					}
+					fmt.Fprintf(os.Stderr, "\r\n%s\r\n", err)
+					showedReconnectMessage = false
 				}
 
 				time.Sleep(time.Second)
+				firstConnection = false
 			} else {
+				// connect returned nil - normal exit (escape sequence)
 				return nil
 			}
 		}
 	}
 }
 
-func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Client, timeout int) error {
+func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Client, timeout int, stdinCh <-chan []byte, doneChan <-chan struct{}) error {
 	// in -> stdinWriter | stdinReader -> console
 	// out <- stdoutReader | stdoutWriter <- console
 	stdinReader, stdinWriter := io.Pipe()
 	stdoutReader, stdoutWriter := io.Pipe()
 
-	doneChan := make(chan struct{}, 1)
-
+	// Unbuffered channels - as in original
 	k8sResErr := make(chan error)
 	writeStopErr := make(chan error)
 	readStopErr := make(chan error)
@@ -143,17 +222,7 @@ func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Cli
 		}
 	}()
 
-	if term.IsTerminal(int(os.Stdin.Fd())) {
-		state, err := term.MakeRaw(int(os.Stdin.Fd()))
-		if err != nil {
-			return fmt.Errorf("make raw terminal failed: %w", err)
-		}
-		defer func() {
-			_ = term.Restore(int(os.Stdin.Fd()), state)
-		}()
-	}
-
-	fmt.Fprintf(os.Stderr, "Successfully connected to %s console. The escape sequence is ^]\n", name)
+	fmt.Fprintf(os.Stderr, "\r\nSuccessfully connected to %s console. The escape sequence is ^]\r\n", name)
 
 	out := os.Stdout
 	go func() {
@@ -163,60 +232,65 @@ func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Cli
 		}
 	}()
 
-	stdinCh := make(chan []byte)
-	go func() {
-		in := os.Stdin
-		buf := make([]byte, 1024)
-		for {
-			// reading from stdin
-			n, err := in.Read(buf)
-			if err != nil {
-				if err != io.EOF || n == 0 {
-					return
-				}
-
-				readStopErr <- err
-			}
-
-			// the escape sequence
-			if buf[0] == 29 {
-				doneChan <- struct{}{}
-				return
-			}
-
-			stdinCh <- buf[0:n]
-		}
-	}()
+	// Channel to signal write goroutine termination
+	writeCtx, writeCancel := context.WithCancel(ctx)
+	writeDone := make(chan struct{})
 
 	go func() {
+		defer close(writeDone)
 		_, err := stdinWriter.Write([]byte("\r"))
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return
 			}
-
 			writeStopErr <- err
+			return
 		}
 
-		for b := range stdinCh {
-			_, err = stdinWriter.Write(b)
-			if err != nil {
-				if errors.Is(err, io.EOF) {
+		for {
+			select {
+			case <-writeCtx.Done():
+				return
+			case <-doneChan:
+				return
+			case b, ok := <-stdinCh:
+				if !ok {
 					return
 				}
-
-				writeStopErr <- err
+				_, err = stdinWriter.Write(b)
+				if err != nil {
+					if errors.Is(err, io.EOF) {
+						return
+					}
+					writeStopErr <- err
+					return
+				}
 			}
 		}
 	}()
 
+	var result error
 	select {
 	case <-ctx.Done():
+		result = ctx.Err()
 	case <-doneChan:
+		result = nil
 	case err = <-k8sResErr:
+		result = err
 	case err = <-writeStopErr:
+		result = err
 	case err = <-readStopErr:
+		result = err
 	}
 
-	return err
+	// Terminate write goroutine and wait for completion
+	writeCancel()
+	// Close pipes to unblock goroutines
+	_ = stdinWriter.Close()
+	_ = stdoutWriter.Close()
+	_ = stdinReader.Close()
+	_ = stdoutReader.Close()
+	<-writeDone
+
+	return result
 }
