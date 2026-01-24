@@ -50,7 +50,7 @@ func NewCommand() *cobra.Command {
 		RunE:    console.Run,
 	}
 
-	cmd.Flags().IntVar(&console.timeout, "timeout", 5, "The number of minutes to wait for the virtual machine to be ready.")
+	cmd.Flags().IntVar(&console.timeout, "timeout", 300, "The number of seconds to wait for the virtual machine to be ready.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -64,8 +64,8 @@ func usage() string {
   {{ProgramName}} console myvm
   {{ProgramName}} console myvm.mynamespace
   {{ProgramName}} console myvm -n mynamespace
-  # Configure one minute timeout (default 5 minutes)
-  {{ProgramName}} console --timeout=1 myvm`
+  # Configure 60 seconds timeout (default 300 seconds)
+  {{ProgramName}} console --timeout=60 myvm`
 
 	return usage
 }
@@ -130,6 +130,8 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 
 	showedWaitMessage := false
 	spinnerIdx := 0
+	startTime := time.Now()
+	timeout := time.Duration(c.timeout) * time.Second
 
 	for {
 		select {
@@ -165,6 +167,14 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 			}
 
 			if shouldWait {
+				// Check total timeout
+				if time.Since(startTime) > timeout {
+					if showedWaitMessage {
+						fmt.Fprintf(os.Stderr, "\r\x1b[K")
+					}
+					return fmt.Errorf("timeout after %d second(s) waiting for VirtualMachine %q serial console", c.timeout, name)
+				}
+
 				// Get VM phase and show waiting spinner
 				phase := "Unknown"
 				if vm, vmErr := client.VirtualMachines(namespace).Get(cmd.Context(), name, metav1.GetOptions{}); vmErr == nil {
@@ -200,7 +210,7 @@ func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Cli
 	writeStopErr := make(chan error)
 	readStopErr := make(chan error)
 
-	console, err := virtCli.VirtualMachines(namespace).SerialConsole(name, &virtualizationv1alpha2.SerialConsoleOptions{ConnectionTimeout: time.Duration(timeout) * time.Minute})
+	console, err := virtCli.VirtualMachines(namespace).SerialConsole(name, &virtualizationv1alpha2.SerialConsoleOptions{ConnectionTimeout: time.Duration(timeout) * time.Second})
 	if err != nil {
 		return fmt.Errorf("can't access VM %s: %w", name, err)
 	}
