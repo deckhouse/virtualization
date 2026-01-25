@@ -162,14 +162,14 @@ spec:
                     * Effect on `Evict` and `Migrate`: enable the AutoConverge feature to force migration via CPU throttling if the `PreferSafe` or `PreferForced` policies are used for live migration.
                   type: boolean
                 migrate:
-                  description: Migrate defines the Migrate operation.
+                  description: Defines the virtual machine migration operation.
                   properties:
                     nodeSelector:
                       additionalProperties:
                         type: string
                       description: |-
-                        NodeSelector must match a node's labels for the VM to be scheduled on that node.
-                        [The same](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes/) as in the pods `spec.nodeSelector` parameter in Kubernetes.
+                        Node selector for scheduling the VM onto a node. Must match the target node's labels.
+                        [Same](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes/) as the Pod `spec.nodeSelector` field in Kubernetes.
                         Note: the `nodeSelector` field is not available in the Community Edition version.
                       type: object
                   type: object
@@ -203,8 +203,8 @@ spec:
                     * `Start`: Start the virtual machine.
                     * `Stop`: Stop the virtual machine.
                     * `Restart`: Restart the virtual machine.
-                    * `Migrate`: Migrate the virtual machine to another node where it can be started.
-                    * `Evict`: Evict the virtual machine to another node where it can be started.
+                    * `Migrate`: Migrate the virtual machine to another node where it can run.
+                    * `Evict`: Evict the virtual machine to another node where it can run.
                     * `Restore`: Restore the virtual machine from a snapshot.
                     * `Clone`: Clone the virtual machine to a new virtual machine.
                   enum:
