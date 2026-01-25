@@ -50,9 +50,7 @@ spec:
                       description: |-
                         NodeSelector должен соответствовать меткам узла, чтобы виртуальная машина была запланирована на этом узле.
                         [По аналогии](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes/) c параметром подов `spec.nodeSelector` в Kubernetes.
-                    nodeName:
-                      description: |-
-                        Имя узла, указанное в метке `kubernetes.io/hostname` целевого узла.
+                        Примечание: поле `nodeSelector` недоступно в версии Community Edition.
                 clone:
                   description: |
                     Определяет операцию клонирования.

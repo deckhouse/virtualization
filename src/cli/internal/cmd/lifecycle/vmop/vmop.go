@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
@@ -93,11 +94,11 @@ func (v VirtualMachineOperation) Evict(ctx context.Context, vmName, vmNamespace 
 	return v.do(ctx, vmop, v.options.createOnly, v.options.waitComplete)
 }
 
-func (v VirtualMachineOperation) Migrate(ctx context.Context, vmName, vmNamespace string, nodeSelector map[string]string) (msg string, err error) {
+func (v VirtualMachineOperation) Migrate(ctx context.Context, vmName, vmNamespace string, targetNodeName string) (msg string, err error) {
 	vmop := v.newVMOP(vmName, vmNamespace, v1alpha2.VMOPTypeMigrate, v.options.force)
-	if nodeSelector != nil {
+	if targetNodeName != "" {
 		vmop.Spec.Migrate = &v1alpha2.VirtualMachineOperationMigrateSpec{
-			NodeSelector: nodeSelector,
+			NodeSelector: map[string]string{corev1.LabelHostname: targetNodeName},
 		}
 	}
 	return v.do(ctx, vmop, v.options.createOnly, v.options.waitComplete)
