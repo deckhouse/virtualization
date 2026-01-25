@@ -216,6 +216,7 @@ var _ = Describe("LifecycleHandler", func() {
 			"VMIM must have an AddedNodeSelector which is equal to the NodeSelector from VMOP.",
 			v1alpha2.PreferSafeMigrationPolicy,
 			map[string]string{"key": "value"},
+			Label("EE"),
 		),
 	)
 })

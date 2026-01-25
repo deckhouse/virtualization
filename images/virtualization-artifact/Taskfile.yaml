@@ -52,7 +52,8 @@ tasks:
     desc: "Run go unit tests"
     cmds:
       - |
-        go tool ginkgo -v -r pkg/
+        go tool ginkgo -v -r --label-filter '!EE' pkg/
+        go tool ginkgo -v -r -tags=EE --label-filter 'EE' pkg/
 
   lint:
     desc: "Run linters locally"

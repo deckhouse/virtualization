@@ -2365,7 +2365,7 @@ We can see that it is currently running on the `virtlab-pt-1` node.
 To migrate a virtual machine from one node to another while taking into account VM placement requirements, use the following command:
 
 ```bash
-d8 v migrate -n <namespace> <vm-name> [--force] [--node-selector key=value]
+d8 v migrate -n <namespace> <vm-name> [--force] [--target-node-name string]
 ```
 
 Running this command creates a VirtualMachineOperations resource.
