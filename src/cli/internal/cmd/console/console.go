@@ -72,6 +72,11 @@ func usage() string {
 
 var spinnerChars = []rune{'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
 
+const (
+	clearLine   = "\r\x1b[K"     // Clear current line
+	clearLineNL = "\r\x1b[K\r\n" // Clear current line and move to next
+)
+
 func (c *Console) Run(cmd *cobra.Command, args []string) error {
 	client, defaultNamespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
@@ -146,6 +151,9 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 			}
 
 			if strings.Contains(err.Error(), "not found") {
+				if showedWaitMessage {
+					fmt.Fprintf(os.Stderr, clearLineNL)
+				}
 				return err
 			}
 
@@ -158,7 +166,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 			if errors.As(err, &wsErr) {
 				if wsErr.Code == websocket.CloseGoingAway {
 					if showedWaitMessage {
-						fmt.Fprintf(os.Stderr, "\r\x1b[K")
+						fmt.Fprintf(os.Stderr, clearLine)
 					}
 					fmt.Fprintf(os.Stderr, util.CloseGoingAwayMessage)
 					return nil
@@ -170,7 +178,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 				// Check total timeout
 				if time.Since(startTime) > timeout {
 					if showedWaitMessage {
-						fmt.Fprintf(os.Stderr, "\r\x1b[K")
+						fmt.Fprintf(os.Stderr, clearLineNL)
 					}
 					return fmt.Errorf("timeout after %d second(s) waiting for VirtualMachine %q serial console", c.timeout, name)
 				}
@@ -180,8 +188,8 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 				if vm, vmErr := client.VirtualMachines(namespace).Get(cmd.Context(), name, metav1.GetOptions{}); vmErr == nil {
 					phase = string(vm.Status.Phase)
 				}
-				fmt.Fprintf(os.Stderr, "\r\x1b[K%c Waiting for VirtualMachine %q serial console. Current VM phase: %s. Press Ctrl+] to exit.",
-					spinnerChars[spinnerIdx], name, phase)
+				fmt.Fprintf(os.Stderr, "%s%c Waiting for VirtualMachine %q serial console. Current VM phase: %s. Press Ctrl+] to exit.",
+					clearLine, spinnerChars[spinnerIdx], name, phase)
 				spinnerIdx = (spinnerIdx + 1) % len(spinnerChars)
 				showedWaitMessage = true
 				time.Sleep(200 * time.Millisecond)
@@ -190,9 +198,9 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 
 			// Unknown error - print and continue
 			if showedWaitMessage {
-				fmt.Fprintf(os.Stderr, "\r\x1b[K")
+				fmt.Fprintf(os.Stderr, clearLineNL)
 			}
-			fmt.Fprintf(os.Stderr, "\r\n%s\r\n", err)
+			fmt.Fprintf(os.Stderr, "%s\r\n", err)
 			showedWaitMessage = false
 			time.Sleep(time.Second)
 		}
@@ -226,7 +234,7 @@ func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Cli
 	}()
 
 	// Clear spinner line and show success message
-	fmt.Fprintf(os.Stderr, "\r\x1b[K\r\nSuccessfully connected to %s serial console. Press Ctrl+] to exit.\r\n", name)
+	fmt.Fprintf(os.Stderr, "%sSuccessfully connected to %s serial console. Press Ctrl+] to exit.\r\n", clearLineNL, name)
 	// Reset timeout after successful connection
 	if startTime != nil {
 		*startTime = time.Now()
