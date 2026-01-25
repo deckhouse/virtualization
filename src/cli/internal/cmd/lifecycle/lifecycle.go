@@ -26,7 +26,7 @@ import (
 	"github.com/spf13/pflag"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
@@ -50,7 +50,7 @@ type Manager interface {
 	Start(ctx context.Context, name, namespace string) (msg string, err error)
 	Restart(ctx context.Context, name, namespace string) (msg string, err error)
 	Evict(ctx context.Context, name, namespace string) (msg string, err error)
-	Migrate(ctx context.Context, name, namespace string, targetNodeName string) (msg string, err error)
+	Migrate(ctx context.Context, name, namespace, targetNodeName string) (msg string, err error)
 }
 
 func NewLifecycle(cmd Command) *Lifecycle {
@@ -171,12 +171,16 @@ func (l *Lifecycle) getManager(client kubeclient.Client) Manager {
 }
 
 func (l *Lifecycle) ValidateNodeName(cmd *cobra.Command, nodeName string) error {
+	if nodeName == "" {
+		return nil
+	}
+
 	client, _, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}
 
-	nodes, err := client.CoreV1().Nodes().List(context.Background(), v1.ListOptions{})
+	nodes, err := client.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return err
 	}

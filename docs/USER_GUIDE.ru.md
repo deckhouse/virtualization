@@ -2384,7 +2384,7 @@ linux-vm                               Running   virtlab-pt-1   10.66.10.14   79
 Для миграции виртуальной машины с одного узла на другой с учётом требований к её размещению используйте команду:
 
 ```bash
-d8 v migrate -n <namespace> <vm-name> [--force] [--node-selector key=value]
+d8 v migrate -n <namespace> <vm-name> [--force] [--target-node-name string]
 ```
 
 Выполнение этой команды приводит к созданию ресурса VirtualMachineOperations.
