@@ -50,7 +50,7 @@ func NewCommand() *cobra.Command {
 		RunE:    console.Run,
 	}
 
-	cmd.Flags().IntVar(&console.timeout, "timeout", 300, "The number of seconds to wait for the virtual machine to be ready.")
+	cmd.Flags().IntVar(&console.timeout, "timeout", 300, "The number of seconds to wait until console is successfully connected.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
