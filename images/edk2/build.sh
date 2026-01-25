@@ -115,10 +115,12 @@ OVMF_4M_FLAGS="${CC_FLAGS} -D FD_SIZE_4MB=TRUE -D NETWORK_TLS_ENABLE=TRUE -D NET
 # secure boot features
 OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D SECURE_BOOT_ENABLE=TRUE"
 OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D SMM_REQUIRE=TRUE"
-# Increase CPU limits for SMM (default ~12 CPUs due to SMRAM size)
-# 8 sockets * 32 cores = 256 max logical processors
-OVMF_SB_FLAGS="${OVMF_SB_FLAGS} --pcd gUefiCpuPkgTokenSpaceGuid.PcdCpuMaxLogicalProcessorNumber=256"
 OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D EXCLUDE_SHELL_FROM_FD=TRUE -D BUILD_SHELL=FALSE"
+
+# Patch OvmfPkg DSC to increase CPU limit for SMM (default ~12 CPUs)
+# 8 sockets * 32 cores = 256 max logical processors
+echo "Patching OvmfPkgX64.dsc for PcdCpuMaxLogicalProcessorNumber=256..."
+sed -i 's/gUefiCpuPkgTokenSpaceGuid.PcdCpuMaxLogicalProcessorNumber|[0-9]*/gUefiCpuPkgTokenSpaceGuid.PcdCpuMaxLogicalProcessorNumber|256/' OvmfPkg/OvmfPkgX64.dsc
 
 # unset MAKEFLAGS
 echo "run source edksetup.sh"
