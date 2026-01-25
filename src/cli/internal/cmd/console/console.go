@@ -140,7 +140,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 		case <-doneChan:
 			return nil
 		default:
-			err := connect(cmd.Context(), name, namespace, client, c.timeout, stdinCh, doneChan)
+			err := connect(cmd.Context(), name, namespace, client, c.timeout, stdinCh, doneChan, &startTime)
 			if err == nil {
 				return nil // Normal exit (escape sequence)
 			}
@@ -199,7 +199,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 	}
 }
 
-func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Client, timeout int, stdinCh <-chan []byte, doneChan <-chan struct{}) error {
+func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Client, timeout int, stdinCh <-chan []byte, doneChan <-chan struct{}, startTime *time.Time) error {
 	// in -> stdinWriter | stdinReader -> console
 	// out <- stdoutReader | stdoutWriter <- console
 	stdinReader, stdinWriter := io.Pipe()
@@ -227,6 +227,10 @@ func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Cli
 
 	// Clear spinner line and show success message
 	fmt.Fprintf(os.Stderr, "\r\x1b[K\r\nSuccessfully connected to %s serial console. Press Ctrl+] to exit.\r\n", name)
+	// Reset timeout after successful connection
+	if startTime != nil {
+		*startTime = time.Now()
+	}
 
 	out := os.Stdout
 	go func() {
