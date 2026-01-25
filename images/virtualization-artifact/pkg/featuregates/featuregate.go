@@ -27,6 +27,7 @@ const (
 	SDN                                 featuregate.Feature = "SDN"
 	AutoMigrationIfNodePlacementChanged featuregate.Feature = "AutoMigrationIfNodePlacementChanged"
 	VolumeMigration                     featuregate.Feature = "VolumeMigration"
+	TargetMigration                     featuregate.Feature = "TargetMigration"
 )
 
 var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
@@ -40,6 +41,11 @@ var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
 		PreRelease:    featuregate.Alpha,
 	},
 	VolumeMigration: {
+		Default:       version.GetEdition() == version.EditionEE,
+		LockToDefault: true,
+		PreRelease:    featuregate.Alpha,
+	},
+	TargetMigration: {
 		Default:       version.GetEdition() == version.EditionEE,
 		LockToDefault: true,
 		PreRelease:    featuregate.Alpha,

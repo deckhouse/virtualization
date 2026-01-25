@@ -26,8 +26,8 @@ import (
 	"github.com/spf13/pflag"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/src/cli/internal/clientconfig"
@@ -50,7 +50,7 @@ type Manager interface {
 	Start(ctx context.Context, name, namespace string) (msg string, err error)
 	Restart(ctx context.Context, name, namespace string) (msg string, err error)
 	Evict(ctx context.Context, name, namespace string) (msg string, err error)
-	Migrate(ctx context.Context, name, namespace string, nodeSelector map[string]string) (msg string, err error)
+	Migrate(ctx context.Context, name, namespace string, targetNodeName string) (msg string, err error)
 }
 
 func NewLifecycle(cmd Command) *Lifecycle {
@@ -58,7 +58,7 @@ func NewLifecycle(cmd Command) *Lifecycle {
 		cmd:  cmd,
 		opts: DefaultOptions(),
 		migrationOpts: MigrationOpts{
-			NodeSelector: nil,
+			TargetNodeName: "",
 		},
 	}
 }
@@ -88,7 +88,7 @@ type Options struct {
 }
 
 type MigrationOpts struct {
-	NodeSelector map[string]string
+	TargetNodeName string
 }
 
 func (l *Lifecycle) Run(cmd *cobra.Command, args []string) error {
@@ -121,7 +121,7 @@ func (l *Lifecycle) Run(cmd *cobra.Command, args []string) error {
 		msg, err = mgr.Evict(ctx, name, namespace)
 	case Migrate:
 		cmd.Printf("Migrating virtual machine %q\n", key.String())
-		msg, err = mgr.Migrate(ctx, name, namespace, l.migrationOpts.NodeSelector)
+		msg, err = mgr.Migrate(ctx, name, namespace, l.migrationOpts.TargetNodeName)
 	default:
 		return fmt.Errorf("invalid command %q", l.cmd)
 	}
@@ -170,18 +170,24 @@ func (l *Lifecycle) getManager(client kubeclient.Client) Manager {
 	)
 }
 
-func (l *Lifecycle) ValidateNodeSelector(nodeSelector map[string]string) error {
-	for key, value := range nodeSelector {
-		if errs := validation.IsQualifiedName(key); len(errs) != 0 {
-			return fmt.Errorf("invalid label key: %v", errs)
-		}
+func (l *Lifecycle) ValidateNodeName(cmd *cobra.Command, nodeName string) error {
+	client, _, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	if err != nil {
+		return err
+	}
 
-		if errs := validation.IsValidLabelValue(value); len(errs) != 0 {
-			return fmt.Errorf("invalid label value: %v", errs)
+	nodes, err := client.CoreV1().Nodes().List(context.Background(), v1.ListOptions{})
+	if err != nil {
+		return err
+	}
+
+	for _, node := range nodes.Items {
+		if node.Name == nodeName {
+			return nil
 		}
 	}
 
-	return nil
+	return fmt.Errorf("there is no node with the name %s in the cluster", nodeName)
 }
 
 const (
@@ -193,20 +199,17 @@ const (
 
 func AddCommandLineArgs(flagset *pflag.FlagSet, opts *Options) {
 	flagset.BoolVarP(&opts.Force, forceFlag, forceFlagShort, opts.Force,
-		fmt.Sprintf("--%s, -%s: Set this flag to force the operation.", forceFlag, forceFlagShort))
+		"Set this flag to force the operation.")
 	flagset.BoolVarP(&opts.WaitComplete, waitFlag, waitFlagShort, opts.WaitComplete,
-		fmt.Sprintf("--%s, -%s: Set this flag to wait for the operation to complete.", waitFlag, waitFlagShort))
+		"Set this flag to wait for the operation to complete.")
 	flagset.BoolVarP(&opts.CreateOnly, createOnlyFlag, createOnlyFlagShort, opts.CreateOnly,
-		fmt.Sprintf("--%s, -%s: Set this flag for create operation only.", createOnlyFlag, createOnlyFlagShort))
+		"Set this flag for create operation only.")
 	flagset.DurationVarP(&opts.Timeout, timeoutFlag, timeoutFlagShort, opts.Timeout,
-		fmt.Sprintf("--%s, -%s: Set this flag to change the timeout.", timeoutFlag, timeoutFlagShort))
+		"Set this flag to change the timeout.")
 }
 
 func AddCommandLineMigrationArgs(flagset *pflag.FlagSet, migrationOpts *MigrationOpts) {
-	flagset.StringToStringVar(
-		&migrationOpts.NodeSelector,
-		"node-selector",
-		nil,
-		"Node selector in key=value format, multiple selectors can be separated by commas.",
+	flagset.StringVar(&migrationOpts.TargetNodeName, "target-node-name", "",
+		"Set the target node name for virtual machine migration.",
 	)
 }

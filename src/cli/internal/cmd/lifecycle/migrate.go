@@ -31,7 +31,7 @@ func NewMigrateCommand() *cobra.Command {
 		Example: lifecycle.Usage(),
 		Args:    templates.ExactArgs("migrate", 1),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			err := lifecycle.ValidateNodeSelector(lifecycle.migrationOpts.NodeSelector)
+			err := lifecycle.ValidateNodeName(cmd, lifecycle.migrationOpts.TargetNodeName)
 			if err != nil {
 				return err
 			}

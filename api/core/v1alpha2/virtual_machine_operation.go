@@ -49,7 +49,6 @@ type VirtualMachineOperation struct {
 // +kubebuilder:validation:XValidation:rule="self.type == 'Restore' ? has(self.restore) : true",message="Restore requires restore field."
 // +kubebuilder:validation:XValidation:rule="self.type == 'Clone' ? has(self.clone) : true",message="Clone requires clone field."
 // +kubebuilder:validation:XValidation:rule="!(has(self.migrate)) || self.type == 'Migrate'",message="spec.migrate can only be set when spec.type is 'Migrate'"
-// +kubebuilder:validation:XValidation:rule="!(has(self.migrate.nodeSelector) && self.migrate.nodeName != '')",message="spec.migrate.nodeSelector and spec.migrate.nodeName cannot both be set at the same time."
 type VirtualMachineOperationSpec struct {
 	Type VMOPType `json:"type"`
 	// Name of the virtual machine the operation is performed for.
@@ -91,9 +90,8 @@ type VirtualMachineOperationCloneSpec struct {
 type VirtualMachineOperationMigrateSpec struct {
 	// NodeSelector must match a node's labels for the VM to be scheduled on that node.
 	// [The same](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes/) as in the pods `spec.nodeSelector` parameter in Kubernetes.
+	// Note: the `nodeSelector` field is not available in the Community Edition version.
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-	// NodeName as set in the `kubernetes.io/hostname` label of the target node.
-	NodeName string `json:"nodeName,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:rule="!has(self.namePrefix) || (size(self.namePrefix) >= 1 && size(self.namePrefix) <= 59)",message="namePrefix length must be between 1 and 59 characters if set"
