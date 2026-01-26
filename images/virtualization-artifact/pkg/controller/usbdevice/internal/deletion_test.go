@@ -171,7 +171,7 @@ var _ = Describe("DeletionHandler", func() {
 			result, err := handler.Handle(ctx, usbDeviceState)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("hot unplug required"))
-			Expect(result.RequeueAfter).To(BeTrue())
+			Expect(result.Requeue).To(BeTrue())
 
 			// Verify finalizer was not removed
 			Expect(usbDeviceResource.Changed().GetFinalizers()).To(ContainElement(v1alpha2.FinalizerUSBDeviceCleanup))
