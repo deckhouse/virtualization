@@ -158,8 +158,8 @@ func (h *AssignedHandler) ensureUSBDevice(ctx context.Context, nodeUSBDevice *v1
 		// USBDevice exists - update it
 		usbDevice.Status.Attributes = nodeUSBDevice.Status.Attributes
 		usbDevice.Status.NodeName = nodeUSBDevice.Status.NodeName
-		if err := h.client.Status().Update(ctx, usbDevice); err != nil {
-			return nil, fmt.Errorf("failed to update USBDevice status: %w", err)
+		if err := h.client.Update(ctx, usbDevice); err != nil {
+			return nil, fmt.Errorf("failed to update USBDevice: %w", err)
 		}
 		return usbDevice, nil
 	}
