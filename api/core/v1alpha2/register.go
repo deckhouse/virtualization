@@ -92,6 +92,10 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachineMACAddressList{},
 		&VirtualMachineMACAddressLease{},
 		&VirtualMachineMACAddressLeaseList{},
+		&NodeUSBDevice{},
+		&NodeUSBDeviceList{},
+		&USBDevice{},
+		&USBDeviceList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

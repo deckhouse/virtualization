@@ -41,7 +41,8 @@ function source::settings {
                               "VirtualDisk"
                               "VirtualImage"
                               "ClusterVirtualImage"
-                              "NodeUSBDevices")
+                              "NodeUSBDevices"
+                              "USBDevice")
 
     source "${CODEGEN_PKG}/kube_codegen.sh"
 }

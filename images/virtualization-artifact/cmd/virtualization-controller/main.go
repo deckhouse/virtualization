@@ -58,6 +58,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmac"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmaclease"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/usbdevice"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmrestore"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot"
@@ -378,6 +379,12 @@ func main() {
 
 	nodeusbdeviceLogger := logger.NewControllerLogger(nodeusbdevice.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
 	if _, err = nodeusbdevice.NewController(ctx, mgr, nodeusbdeviceLogger); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	usbdeviceLogger := logger.NewControllerLogger(usbdevice.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = usbdevice.NewController(ctx, mgr, usbdeviceLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
