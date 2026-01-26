@@ -1914,6 +1914,8 @@ spec:
 
 In this example, the virtual machine will be placed, if possible (since preferred is used) only on hosts that have a virtual machine with the server label and database value.
 
+For placing VMs by availability zones instead of nodes, use `topologyKey: "topology.kubernetes.io/zone"` (see [section "Placing VMs by availability zones"](#placing-vms-by-availability-zones)).
+
 How to set "preferences" and "mandatories" for placing virtual machines in the web interface in the [Placement section](#placement-of-vms-by-nodes):
 
 - Click "Add" in the "Run VM near other VMs" block.
@@ -1953,6 +1955,8 @@ spec:
 
 In this example, the virtual machine being created will not be placed on the same host as the virtual machine labeled server: database.
 
+For placing VMs by availability zones instead of nodes, use `topologyKey: "topology.kubernetes.io/zone"` (see [section "Placing VMs by availability zones"](#placing-vms-by-availability-zones)).
+
 How to configure VM AntiAffinity on nodes in the web interface in the [Placement section](#placement-of-vms-by-nodes):
 
 - Click "Add" in the "Identify similar VMs by labels" -> "Select labels" block.
@@ -1961,6 +1965,24 @@ How to configure VM AntiAffinity on nodes in the web interface in the [Placement
 - Check the boxes next to the labels you want to use in the placement settings.
 - Select one of the options in the "Select options" section.
 - Click the "Save" button that appears.
+
+#### Placing VMs by availability zones
+
+{{< alert level="warning" >}}
+Availability zones must be pre-configured on cluster nodes. For this, nodes must have the `topology.kubernetes.io/zone` label set with the availability zone specified.
+{{< /alert >}}
+
+In the examples above, `topologyKey: "kubernetes.io/hostname"` is used, which places VMs on the same node. For placing VMs by availability zones instead of nodes, use `topologyKey: "topology.kubernetes.io/zone"`.
+
+When using `Affinity` with `topologyKey: "topology.kubernetes.io/zone"`, VMs will be placed in the same availability zone where a virtual machine with the specified labels is present.
+
+When using `AntiAffinity` with `topologyKey: "topology.kubernetes.io/zone"`, VMs will not be placed in the same availability zone as the virtual machine with the specified labels. This is useful for ensuring fault tolerance when distributing VMs across different availability zones.
+
+To view availability zones on cluster nodes (if these zones are configured), run the following command:
+
+```bash
+d8 k get nodes -o custom-columns=NAME:.metadata.name,ZONE:.metadata.labels.topology\.kubernetes\.io/zone
+```
 
 ### Attaching block devices (disks and images)
 
