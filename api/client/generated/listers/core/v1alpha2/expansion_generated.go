@@ -30,6 +30,14 @@ type NodeUSBDeviceListerExpansion interface{}
 // NodeUSBDeviceNamespaceLister.
 type NodeUSBDeviceNamespaceListerExpansion interface{}
 
+// USBDeviceListerExpansion allows custom methods to be added to
+// USBDeviceLister.
+type USBDeviceListerExpansion interface{}
+
+// USBDeviceNamespaceListerExpansion allows custom methods to be added to
+// USBDeviceNamespaceLister.
+type USBDeviceNamespaceListerExpansion interface{}
+
 // VirtualDiskListerExpansion allows custom methods to be added to
 // VirtualDiskLister.
 type VirtualDiskListerExpansion interface{}

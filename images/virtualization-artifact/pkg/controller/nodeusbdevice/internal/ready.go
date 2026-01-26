@@ -36,7 +36,6 @@ import (
 
 const (
 	nameReadyHandler = "ReadyHandler"
-	draDriverName    = "virtualization-dra"
 )
 
 func NewReadyHandler(client client.Client, recorder eventrecord.EventRecorderLogger) *ReadyHandler {

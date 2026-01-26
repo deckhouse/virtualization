@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -52,6 +53,10 @@ type DiscoveryHandler struct {
 	recorder eventrecord.EventRecorderLogger
 }
 
+func (h *DiscoveryHandler) Name() string {
+	return nameDiscoveryHandler
+}
+
 func (h *DiscoveryHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState) (reconcile.Result, error) {
 	nodeUSBDevice := s.NodeUSBDevice()
 
@@ -60,6 +65,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.NodeUSBDeviceStat
 	if _, err := h.discoverAndCreate(ctx); err != nil {
 		// Log error but don't fail reconciliation
 		// This is a best-effort discovery mechanism
+		log.Error("failed to discover and create NodeUSBDevice", log.Err(err))
 	}
 
 	if nodeUSBDevice.IsEmpty() {
@@ -304,19 +310,4 @@ func (h *DiscoveryHandler) attributesEqual(a, b v1alpha2.NodeUSBDeviceAttributes
 		a.ProductID == b.ProductID &&
 		a.Bus == b.Bus &&
 		a.DeviceNumber == b.DeviceNumber
-}
-
-func (h *DiscoveryHandler) updateReadyCondition(obj *v1alpha2.NodeUSBDevice, reason, message string, status metav1.ConditionStatus) (reconcile.Result, error) {
-	// This method is deprecated - use conditions.NewConditionBuilder instead
-	cb := conditions.NewConditionBuilder(nodeusbdevicecondition.ReadyType).
-		Generation(obj.GetGeneration()).
-		Status(status).
-		Reason(nodeusbdevicecondition.ReadyReason(reason)).
-		Message(message)
-	conditions.SetCondition(cb, &obj.Status.Conditions)
-	return reconcile.Result{}, nil
-}
-
-func (h *DiscoveryHandler) Name() string {
-	return nameDiscoveryHandler
 }

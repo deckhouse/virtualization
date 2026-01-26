@@ -30,6 +30,7 @@ type VirtualizationV1alpha2Interface interface {
 	RESTClient() rest.Interface
 	ClusterVirtualImagesGetter
 	NodeUSBDevicesGetter
+	USBDevicesGetter
 	VirtualDisksGetter
 	VirtualDiskSnapshotsGetter
 	VirtualImagesGetter
@@ -57,6 +58,10 @@ func (c *VirtualizationV1alpha2Client) ClusterVirtualImages() ClusterVirtualImag
 
 func (c *VirtualizationV1alpha2Client) NodeUSBDevices(namespace string) NodeUSBDeviceInterface {
 	return newNodeUSBDevices(c, namespace)
+}
+
+func (c *VirtualizationV1alpha2Client) USBDevices(namespace string) USBDeviceInterface {
+	return newUSBDevices(c, namespace)
 }
 
 func (c *VirtualizationV1alpha2Client) VirtualDisks(namespace string) VirtualDiskInterface {
