@@ -136,7 +136,7 @@ spec:
       - 10.77.20.0/16
 ```
 
-The first and the last subnet address are reserved and not available for use.
+For each subnet, the first and last IP addresses are reserved by the system and are not assigned to virtual machines. For example, for the `10.66.10.0/24` subnet, addresses `10.66.10.0` and `10.66.10.255` are not available for use by VMs.
 
 {{< alert level="warning" >}}
 The subnets in the `.spec.settings.virtualMachineCIDRs` block must not overlap with cluster node subnets, services subnet, or pods subnet (`podCIDR`).
@@ -252,6 +252,15 @@ Image files can also be compressed with one of the following compression algorit
 
 Once a resource is created, the image type and size are automatically determined, and this information is reflected in the resource status.
 
+The image status displays two sizes:
+
+- STOREDSIZE (storage size) — the size of the image that actually occupies space in storage (DVCR or PVC). For compressed images (gz, xz), this size is smaller than the unpacked size.
+- UNPACKEDSIZE (unpacked size) — the size of the image after unpacking, which will be used when creating a disk from this image. This size determines the minimum disk size that can be created from the image.
+
+{{< alert level="info" >}}
+When creating a disk from an image, you must specify a disk size that must be equal to or greater than the UNPACKEDSIZE value. If the size is not specified, the disk will be created with a size corresponding to the unpacked image size.
+{{< /alert >}}
+
 Images can be downloaded from various sources, such as HTTP servers where image files are located or container registries. It is also possible to download images directly from the command line using the `curl` utility.
 
 Images can be created from other images and virtual machine disks.
@@ -303,6 +312,7 @@ Once created, the ClusterVirtualImage resource can be in one of the following st
 - `Ready`: The image has been created and is ready for use.
 - `Failed`: An error occurred when creating the image.
 - `Terminating`: The image is being deleted. It may "get stuck" in this state if it is still connected to the virtual machine.
+- `ImageLost`: The image is missing in DVCR. The resource cannot be used.
 
 As long as the image has not entered the `Ready` phase, the contents of the `.spec` block can be changed. If you change it, the disk creation process will start again. Once it is in the `Ready` phase, the `.spec` block contents **cannot be changed**.
 
