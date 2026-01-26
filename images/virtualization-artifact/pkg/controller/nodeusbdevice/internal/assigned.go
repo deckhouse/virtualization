@@ -20,7 +20,10 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -64,11 +67,26 @@ func (h *AssignedHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState
 	var status metav1.ConditionStatus
 
 	if assignedNamespace != "" {
-		// TODO: When USBDevice resource is defined, create/check it here
-		// For now, just mark as Assigned when namespace is set
-		reason = nodeusbdevicecondition.Assigned
-		message = fmt.Sprintf("Namespace %s is assigned for the device", assignedNamespace)
-		status = metav1.ConditionTrue
+		// Check if namespace exists
+		var namespace corev1.Namespace
+		err := h.client.Get(ctx, types.NamespacedName{Name: assignedNamespace}, &namespace)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				// Namespace doesn't exist - mark as Available
+				reason = nodeusbdevicecondition.Available
+				message = fmt.Sprintf("Namespace %s does not exist", assignedNamespace)
+				status = metav1.ConditionFalse
+			} else {
+				// Error checking namespace - return error to retry
+				return reconcile.Result{}, fmt.Errorf("failed to check namespace %s: %w", assignedNamespace, err)
+			}
+		} else {
+			// Namespace exists - mark as Assigned
+			// TODO: When USBDevice resource is defined, create/check it here
+			reason = nodeusbdevicecondition.Assigned
+			message = fmt.Sprintf("Namespace %s is assigned for the device", assignedNamespace)
+			status = metav1.ConditionTrue
+		}
 	} else {
 		reason = nodeusbdevicecondition.Available
 		message = "No namespace is assigned for the device"
