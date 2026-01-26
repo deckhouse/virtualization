@@ -24,9 +24,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/usbdevice/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/usbdevicecondition"
 )
 
 const (
@@ -45,39 +46,45 @@ type DeletionHandler struct {
 	recorder eventrecord.EventRecorderLogger
 }
 
-func (h *DeletionHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState) (reconcile.Result, error) {
-	nodeUSBDevice := s.NodeUSBDevice()
+func (h *DeletionHandler) Handle(ctx context.Context, s state.USBDeviceState) (reconcile.Result, error) {
+	usbDevice := s.USBDevice()
 
-	if nodeUSBDevice.IsEmpty() {
+	if usbDevice.IsEmpty() {
 		return reconcile.Result{}, nil
 	}
 
-	current := nodeUSBDevice.Current()
-	changed := nodeUSBDevice.Changed()
+	current := usbDevice.Current()
+	changed := usbDevice.Changed()
 
 	// Add finalizer if not deleting
 	if current.GetDeletionTimestamp().IsZero() {
-		controllerutil.AddFinalizer(changed, v1alpha2.FinalizerNodeUSBDeviceCleanup)
+		controllerutil.AddFinalizer(changed, v1alpha2.FinalizerUSBDeviceCleanup)
 		return reconcile.Result{}, nil
 	}
 
-	// Resource is being deleted - clean up USBDevice in namespace
-	if current.Spec.AssignedNamespace != "" {
-		usbDevice := &v1alpha2.USBDevice{}
-		key := client.ObjectKey{
-			Namespace: current.Spec.AssignedNamespace,
-			Name:      current.Name,
-		}
-		if err := h.client.Get(ctx, key, usbDevice); err == nil {
-			// USBDevice exists - delete it
-			if err := h.client.Delete(ctx, usbDevice); err != nil {
-				return reconcile.Result{}, fmt.Errorf("failed to delete USBDevice: %w", err)
+	// Check if device is attached to a VM
+	// TODO: Implement hot unplug before deletion
+	// For now, we just check the Attached condition
+	attached := false
+	for _, condition := range current.Status.Conditions {
+		if condition.Type == string(usbdevicecondition.AttachedType) {
+			if condition.Status == "True" && condition.Reason == string(usbdevicecondition.AttachedToVirtualMachine) {
+				attached = true
+				break
 			}
 		}
 	}
 
+	if attached {
+		// TODO: Implement hot unplug logic here
+		// For now, we'll just log and continue
+		h.recorder.Eventf(changed, "Normal", "Deletion", "Device is attached to VM, hot unplug will be performed")
+		// Return to retry after hot unplug
+		return reconcile.Result{Requeue: true}, fmt.Errorf("device is attached to VM, hot unplug required")
+	}
+
 	// Remove finalizer
-	controllerutil.RemoveFinalizer(changed, v1alpha2.FinalizerNodeUSBDeviceCleanup)
+	controllerutil.RemoveFinalizer(changed, v1alpha2.FinalizerUSBDeviceCleanup)
 
 	return reconcile.Result{}, nil
 }
