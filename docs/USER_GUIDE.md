@@ -324,6 +324,8 @@ After creation the `VirtualImage` resource can be in the following states (phase
 - `Ready` - the image is created and ready for use.
 - `Failed` - an error occurred during the image creation process.
 - `Terminating` - the image is being deleted. The image may "hang" in this state if it is still connected to the virtual machine.
+- `ImageLost` - the image is missing in DVCR. The resource cannot be used.
+- `PVCLost` - the child PVC of the resource is missing. The resource cannot be used.
 
 As long as the image has not entered the `Ready` phase, the contents of the `.spec` block can be changed. If you change it, the disk creation process will start again. After entering the `Ready` phase, the contents of the `.spec` block cannot be changed!
 
@@ -1313,6 +1315,49 @@ status:
         sockets: 1
         coresPerSocket: 1
 ```
+
+### OS type and bootloader configuration
+
+The `osType` parameter determines the operating system type and applies an optimal set of virtual devices and parameters for correct VM operation.
+
+Supported values:
+
+- `Generic` (default) — for Linux and other operating systems. Uses standard virtual device configuration.
+- `Windows` — for Microsoft Windows family operating systems. Automatically enables Hyper-V features, TPM device, and other settings optimized for Windows.
+
+{{< alert level="warning" >}}
+The TPM device provided to the virtual machine is not persistent (TPM emulation in memory). This means that when the VM is rebooted or migrated, the TPM state is reset. 
+
+It is recommended to consider this limitation when planning to use Windows security features that depend on TPM.
+{{< /alert >}}
+
+The `bootloader` parameter determines the bootloader type for the virtual machine:
+
+- `BIOS` (default) — use legacy BIOS.
+- `EFI` — use Unified Extensible Firmware Interface (UEFI/EFI).
+- `EFIWithSecureBoot` — use UEFI/EFI with Secure Boot support.
+
+Example configuration for a Windows virtual machine:
+
+```yaml
+spec:
+  osType: Windows
+  bootloader: EFI
+  # other parameters...
+```
+
+Example configuration for a Linux virtual machine (default values can be omitted):
+
+```yaml
+spec:
+  osType: Generic
+  bootloader: BIOS
+  # other parameters...
+```
+
+{{< alert level="info" >}}
+For most modern Linux distributions, it is recommended to use `bootloader: EFI`. For Windows, `bootloader: EFI` or `bootloader: EFIWithSecureBoot` is usually required.
+{{< /alert >}}
 
 ### Initialization scripts
 
