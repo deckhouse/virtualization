@@ -53,9 +53,10 @@ func (h *AssignedHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState
 		return reconcile.Result{}, nil
 	}
 
+	current := nodeUSBDevice.Current()
 	changed := nodeUSBDevice.Changed()
 
-	assignedNamespace := changed.Spec.AssignedNamespace
+	assignedNamespace := current.Spec.AssignedNamespace
 
 	// Update Assigned condition
 	var reason nodeusbdevicecondition.AssignedReason
@@ -75,7 +76,7 @@ func (h *AssignedHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState
 	}
 
 	cb := conditions.NewConditionBuilder(nodeusbdevicecondition.AssignedType).
-		Generation(changed.Generation).
+		Generation(current.GetGeneration()).
 		Status(status).
 		Reason(reason).
 		Message(message)
