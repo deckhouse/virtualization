@@ -119,7 +119,7 @@ OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D SECURE_BOOT_ENABLE=TRUE"
 OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D SMM_REQUIRE=TRUE"
 OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D EXCLUDE_SHELL_FROM_FD=TRUE -D BUILD_SHELL=FALSE"
 # Disable Warm Reset on Memory Type Information change (needed for non-persistent NVRAM)
-OVMF_SB_FLAGS="${OVMF_SB_FLAGS} --pcd gEfiMdeModulePkgTokenSpaceGuid.PcdResetOnMemoryTypeInformationChange=FALSE"
+# OVMF_SB_FLAGS="${OVMF_SB_FLAGS} --pcd gEfiMdeModulePkgTokenSpaceGuid.PcdResetOnMemoryTypeInformationChange=FALSE"
 # Support up to 256 CPUs for SMM (8 sockets * 32 cores)
 OVMF_SB_FLAGS="${OVMF_SB_FLAGS} --pcd gUefiCpuPkgTokenSpaceGuid.PcdCpuMaxLogicalProcessorNumber=256"
 # Increase TSEG (SMRAM) from 8MB to 16MB for 256 CPUs (256 * 16KB stack = 4MB + overhead)
