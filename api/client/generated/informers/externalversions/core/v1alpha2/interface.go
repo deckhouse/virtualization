@@ -26,6 +26,8 @@ import (
 type Interface interface {
 	// ClusterVirtualImages returns a ClusterVirtualImageInformer.
 	ClusterVirtualImages() ClusterVirtualImageInformer
+	// NodeUSBDevices returns a NodeUSBDeviceInformer.
+	NodeUSBDevices() NodeUSBDeviceInformer
 	// VirtualDisks returns a VirtualDiskInformer.
 	VirtualDisks() VirtualDiskInformer
 	// VirtualDiskSnapshots returns a VirtualDiskSnapshotInformer.
@@ -70,6 +72,11 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // ClusterVirtualImages returns a ClusterVirtualImageInformer.
 func (v *version) ClusterVirtualImages() ClusterVirtualImageInformer {
 	return &clusterVirtualImageInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// NodeUSBDevices returns a NodeUSBDeviceInformer.
+func (v *version) NodeUSBDevices() NodeUSBDeviceInformer {
+	return &nodeUSBDeviceInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // VirtualDisks returns a VirtualDiskInformer.

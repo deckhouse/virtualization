@@ -21,10 +21,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"strconv"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
 	resourcev1beta1 "k8s.io/api/resource/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,7 +35,7 @@ import (
 
 const (
 	nameDiscoveryHandler = "DiscoveryHandler"
-	draDriverName         = "virtualization-dra"
+	draDriverName        = "virtualization-dra"
 )
 
 func NewDiscoveryHandler(client client.Client, recorder eventrecord.EventRecorderLogger) *DiscoveryHandler {
@@ -57,7 +55,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.NodeUSBDeviceStat
 
 	// Always check for new devices in ResourceSlice and create NodeUSBDevice if needed
 	// This ensures we discover new devices even if reconcile was triggered for other reasons
-	if err := h.discoverAndCreate(ctx); err != nil {
+	if _, err := h.discoverAndCreate(ctx); err != nil {
 		// Log error but don't fail reconciliation
 		// This is a best-effort discovery mechanism
 	}
@@ -207,7 +205,7 @@ func (h *DiscoveryHandler) findDeviceInSlices(slices []resourcev1beta1.ResourceS
 func (h *DiscoveryHandler) convertDeviceToAttributes(device resourcev1beta1.Device, nodeName string) v1alpha2.NodeUSBDeviceAttributes {
 	attrs := v1alpha2.NodeUSBDeviceAttributes{
 		NodeName: nodeName,
-		Name:      device.Name,
+		Name:     device.Name,
 	}
 
 	if device.Basic == nil {
