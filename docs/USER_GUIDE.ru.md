@@ -3391,13 +3391,13 @@ spec:
 Пример: экспорт диска (выполняется на узле кластера):
 
 ```bash
-d8 data download -n <namespace> vd/<virtual-disk-name> -o file.img
+d8 data export download -n <namespace> vd/<virtual-disk-name> -o file.img
 ```
 
 Пример: экспорт снимка диска (выполняется на узле кластера):
 
 ```bash
-d8 data download -n <namespace> vds/<virtual-disksnapshot-name> -o file.img
+d8 data export download -n <namespace> vds/<virtual-disksnapshot-name> -o file.img
 ```
 
 Если вы выполняете экспорт данных не с узла кластера (например, с вашей локальной машины), используйте флаг `--publish`.

@@ -3358,13 +3358,13 @@ The disk must not be in use at the time of export. If it is attached to a VM, th
 Example: export a disk (run on a cluster node):
 
 ```bash
-d8 data download -n <namespace> vd/<virtual-disk-name> -o file.img
+d8 data export download -n <namespace> vd/<virtual-disk-name> -o file.img
 ```
 
 Example: export a disk snapshot (run on a cluster node):
 
 ```bash
-d8 data download -n <namespace> vds/<virtual-disksnapshot-name> -o file.img
+d8 data export download -n <namespace> vds/<virtual-disksnapshot-name> -o file.img
 ```
 
 If you are exporting data from a machine other than a cluster node (for example, from your local machine), use the `--publish` flag.
