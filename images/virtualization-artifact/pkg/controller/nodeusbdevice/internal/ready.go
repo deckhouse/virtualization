@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/nodeusbdevicecondition"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -35,7 +36,6 @@ import (
 
 const (
 	nameReadyHandler = "ReadyHandler"
-	draDriverName    = "virtualization-dra"
 )
 
 func NewReadyHandler(client client.Client, recorder eventrecord.EventRecorderLogger) *ReadyHandler {
@@ -68,23 +68,24 @@ func (h *ReadyHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState) (
 
 	deviceFound := h.findDeviceInSlices(resourceSlices, current.Status.Attributes.Hash, current.Status.NodeName)
 
-	var reason, message string
+	var reason nodeusbdevicecondition.ReadyReason
+	var message string
 	var status metav1.ConditionStatus
 
 	if !deviceFound {
 		// Device not found - mark as NotFound
-		reason = "NotFound"
+		reason = nodeusbdevicecondition.NotFound
 		message = "Device is absent on the host"
 		status = metav1.ConditionFalse
 	} else {
 		// Device found - check if it's ready
 		// For now, if device exists in ResourceSlice, we consider it ready
-		reason = "Ready"
+		reason = nodeusbdevicecondition.Ready
 		message = "Device is ready to use"
 		status = metav1.ConditionTrue
 	}
 
-	cb := conditions.NewConditionBuilder("Ready").
+	cb := conditions.NewConditionBuilder(nodeusbdevicecondition.ReadyType).
 		Generation(changed.Generation).
 		Status(status).
 		Reason(reason).
