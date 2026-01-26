@@ -65,7 +65,7 @@ spec:
   resources:
     osd:
       limits:
-        memory: "4096Mi"
+        memory: "2048Mi"
       requests:
         memory: "1024Mi"
   removeOSDsIfOutAndSafeToRemove: false

@@ -206,7 +206,7 @@ jobs:
                   cores: 4
                   coreFraction: 50%
                 memory:
-                  size: 6Gi
+                  size: 8Gi
                 additionalDisks:
                 - size: 50Gi
           EOF
