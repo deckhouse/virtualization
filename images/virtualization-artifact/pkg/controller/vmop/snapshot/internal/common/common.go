@@ -25,26 +25,10 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
-func SetPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.VMOPPhase, err error) {
-	*phase = v1alpha2.VMOPPhaseFailed
-	cb.
-		Status(metav1.ConditionFalse).
-		Reason(vmopcondition.ReasonRestoreOperationFailed).
-		Message(service.CapitalizeFirstLetter(err.Error()) + ".")
-}
-
 func SetPhaseCloneConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.VMOPPhase, err error) {
 	*phase = v1alpha2.VMOPPhaseFailed
 	cb.
 		Status(metav1.ConditionFalse).
 		Reason(vmopcondition.ReasonCloneOperationFailed).
 		Message(service.CapitalizeFirstLetter(err.Error()) + ".")
-}
-
-func SetPhaseConditionCompleted(cb *conditions.ConditionBuilder, phase *v1alpha2.VMOPPhase, reason vmopcondition.ReasonRestoreCompleted, msg string) {
-	*phase = v1alpha2.VMOPPhaseCompleted
-	cb.
-		Status(metav1.ConditionTrue).
-		Reason(reason).
-		Message(service.CapitalizeFirstLetter(msg) + ".")
 }

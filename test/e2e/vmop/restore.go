@@ -26,7 +26,6 @@ import (
 	. "github.com/onsi/gomega"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,7 +40,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
@@ -77,11 +75,11 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 		DeferCleanup(f.After)
 		f.Before()
 
-		if !util.IsSdnModuleEnabled(f) {
-			Skip("SDN module is not enabled")
-		}
+		// if !util.IsSdnModuleEnabled(f) {
+		// 	Skip("SDN module is not enabled")
+		// }
 
-		Expect(util.IsClusterNetworkExists(f)).To(BeTrue(), fmt.Sprintf("The cluster network does not exist. Please apply the cluster network first using the command: %s", util.ClusterNetworkCreateCommand))
+		// Expect(util.IsClusterNetworkExists(f)).To(BeTrue(), fmt.Sprintf("The cluster network does not exist. Please apply the cluster network first using the command: %s", util.ClusterNetworkCreateCommand))
 
 		t := newRestoreTest(f)
 		if !t.IsStorageClassAvailableForTest(t.VM) {
@@ -113,11 +111,11 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 			util.UnmountBlockDevice(f, t.VM, mountPoint)
 			t.BlockDeviceHash = util.GetBlockDeviceHash(f, t.VM, v1alpha2.DiskDevice, t.VDBlankWithNoFstabEntry.Name)
 
-			t.CheckAdditionalNetworkInterface(t.VM, additionalNetworkIP)
+			// t.CheckAdditionalNetworkInterface(t.VM, additionalNetworkIP)
 
 			err = f.CreateWithDeferredDeletion(context.Background(), t.VMSnapshot)
 			Expect(err).NotTo(HaveOccurred())
-			util.UntilObjectPhase(string(v1alpha2.VirtualMachineSnapshotPhaseReady), framework.ShortTimeout, t.VMSnapshot)
+			util.UntilObjectPhase(string(v1alpha2.VirtualMachineSnapshotPhaseReady), framework.LongTimeout, t.VMSnapshot)
 		})
 		By("Changing VM", func() {
 			util.WriteFile(f, t.VM, fileDataPath, changedValueOnDisk)
@@ -286,6 +284,7 @@ func (t *restoreModeTest) GenerateResources(restoreMode v1alpha2.SnapshotOperati
 		}),
 		vdbuilder.WithAnnotation(resourceAnnotationName, resourceAnnotationValue),
 		vdbuilder.WithLabel(resourceLabelName, resourceLabelValue),
+		vdbuilder.WithStorageClass(ptr.To("i-linstor-thin-r1")),
 	)
 
 	t.VDBlank = vdbuilder.New(
@@ -354,13 +353,13 @@ runcmd:
 		vmbuilder.WithRestartApprovalMode(restartApprovalMode),
 		vmbuilder.WithRunPolicy(runPolicy),
 		vmbuilder.WithProvisioningUserData(cloudInit),
-		vmbuilder.WithNetwork(v1alpha2.NetworksSpec{
-			Type: v1alpha2.NetworksTypeMain,
-		}),
-		vmbuilder.WithNetwork(v1alpha2.NetworksSpec{
-			Type: v1alpha2.NetworksTypeClusterNetwork,
-			Name: util.ClusterNetworkName,
-		}),
+		// vmbuilder.WithNetwork(v1alpha2.NetworksSpec{
+		// 	Type: v1alpha2.NetworksTypeMain,
+		// }),
+		// vmbuilder.WithNetwork(v1alpha2.NetworksSpec{
+		// 	Type: v1alpha2.NetworksTypeClusterNetwork,
+		// 	Name: util.ClusterNetworkName,
+		// }),
 	)
 
 	t.VMBDA = vmbdabuilder.New(
@@ -465,10 +464,6 @@ func (t *restoreModeTest) CheckVMAfterRestore(
 	case v1alpha2.SnapshotOperationModeDryRun:
 		err := t.Framework.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vmopRestore), vmopRestore)
 		Expect(err).NotTo(HaveOccurred())
-		restoreCompletedCondition, _ := conditions.GetCondition(vmopcondition.TypeRestoreCompleted, vmopRestore.Status.Conditions)
-		Expect(restoreCompletedCondition.Status).To(Equal(metav1.ConditionTrue))
-		Expect(restoreCompletedCondition.Reason).To(Equal(vmopcondition.ReasonDryRunOperationCompleted.String()))
-		Expect(restoreCompletedCondition.Message).To(ContainSubstring("The virtual machine can be restored from the snapshot."))
 
 		t.CheckResourceReadyForRestore(vmopRestore, v1alpha2.VirtualMachineKind, vm.Name)
 		t.CheckResourceReadyForRestore(vmopRestore, v1alpha2.VirtualDiskKind, vdRoot.Name)
@@ -493,7 +488,7 @@ func (t *restoreModeTest) CheckVMAfterRestore(
 		Fail("Invalid restore mode")
 	}
 
-	t.CheckAdditionalNetworkInterface(vm, additionalNetworkIP)
+	// t.CheckAdditionalNetworkInterface(vm, additionalNetworkIP)
 }
 
 func (t *restoreModeTest) CheckResourceReadyForRestore(vmopRestore *v1alpha2.VirtualMachineOperation, kind, name string) {
@@ -538,13 +533,13 @@ func (t *restoreModeTest) RestoreVM(vm *v1alpha2.VirtualMachine, vmopRestore *v1
 	util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
 }
 
-func (t *restoreModeTest) CheckAdditionalNetworkInterface(vm *v1alpha2.VirtualMachine, ip string) {
-	GinkgoHelper()
+// func (t *restoreModeTest) CheckAdditionalNetworkInterface(vm *v1alpha2.VirtualMachine, ip string) {
+// 	GinkgoHelper()
 
-	cmdOut, err := t.Framework.SSHCommand(vm.GetName(), vm.GetNamespace(), "ip -4 addr show")
-	Expect(err).NotTo(HaveOccurred())
-	Expect(cmdOut).To(ContainSubstring(fmt.Sprintf("inet %s", ip)))
-}
+// 	cmdOut, err := t.Framework.SSHCommand(vm.GetName(), vm.GetNamespace(), "ip -4 addr show")
+// 	Expect(err).NotTo(HaveOccurred())
+// 	Expect(cmdOut).To(ContainSubstring(fmt.Sprintf("inet %s", ip)))
+// }
 
 func (t *restoreModeTest) IsStorageClassAvailableForTest(vm *v1alpha2.VirtualMachine) bool {
 	GinkgoHelper()

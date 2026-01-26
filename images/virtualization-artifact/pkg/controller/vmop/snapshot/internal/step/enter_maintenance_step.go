@@ -29,7 +29,6 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/common"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -39,36 +38,37 @@ import (
 type EnterMaintenanceStep struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
-	cb       *conditions.ConditionBuilder
 }
 
 func NewEnterMaintenanceStep(
 	client client.Client,
 	recorder eventrecord.EventRecorderLogger,
-	cb *conditions.ConditionBuilder,
 ) *EnterMaintenanceStep {
 	return &EnterMaintenanceStep{
 		client:   client,
 		recorder: recorder,
-		cb:       cb,
 	}
 }
 
 func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
+	fmt.Println("////////enter trace 1")
 	if vmop.Spec.Restore.Mode == v1alpha2.SnapshotOperationModeDryRun {
 		return nil, nil
 	}
 
+	fmt.Println("////////enter trace 2")
+	if vmop.Status.Resources != nil {
+		return nil, nil
+	}
+
+	fmt.Println("////////enter trace 3")
 	vmKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}
 	vm, err := object.FetchObject(ctx, vmKey, s.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch the virtual machine %q: %w", vmKey.Name, err)
 	}
 
-	if s.cb.Condition().Status == metav1.ConditionTrue {
-		return nil, nil
-	}
-
+	fmt.Println("////////enter trace 4")
 	maintenanceCondition, found := conditions.GetCondition(vmcondition.TypeMaintenance, vm.Status.Conditions)
 	if found && maintenanceCondition.Status == metav1.ConditionTrue && maintenanceCondition.Reason == vmcondition.ReasonMaintenanceRestore.String() {
 		if vm.Status.Phase != v1alpha2.MachineStopped && vm.Status.Phase != v1alpha2.MachinePending {
@@ -87,6 +87,7 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 		return nil, nil
 	}
 
+	fmt.Println("////////enter trace 5")
 	conditions.SetCondition(
 		conditions.NewConditionBuilder(vmcondition.TypeMaintenance).
 			Generation(vm.GetGeneration()).
@@ -97,13 +98,13 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 	)
 
 	err = s.client.Status().Update(ctx, vm)
+	fmt.Println("/////////////вешаем maintenance")
 	if err != nil {
 		if apierrors.IsConflict(err) {
 			return &reconcile.Result{}, nil
 		}
 
 		s.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "Failed to enter maintenance mode: "+err.Error())
-		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 

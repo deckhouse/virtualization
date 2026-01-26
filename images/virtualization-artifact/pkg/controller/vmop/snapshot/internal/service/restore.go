@@ -28,7 +28,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/steptaker"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/step"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -50,27 +49,13 @@ type RestoreOperation struct {
 }
 
 func (o RestoreOperation) Execute(ctx context.Context) (reconcile.Result, error) {
-	cb := conditions.NewConditionBuilder(vmopcondition.TypeRestoreCompleted)
-	defer func() { conditions.SetCondition(cb.Generation(o.vmop.Generation), &o.vmop.Status.Conditions) }()
-
-	cond, exist := conditions.GetCondition(vmopcondition.TypeRestoreCompleted, o.vmop.Status.Conditions)
-	if exist {
-		if cond.Status == metav1.ConditionUnknown {
-			cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonRestoreOperationInProgress)
-		} else {
-			cb.Status(cond.Status).Reason(vmopcondition.ReasonRestoreCompleted(cond.Reason)).Message(cond.Message)
-		}
-	}
-
 	if o.vmop.Spec.Restore == nil {
 		err := fmt.Errorf("restore specification is nil")
-		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonRestoreOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, err
 	}
 
 	if o.vmop.Spec.Restore.VirtualMachineSnapshotName == "" {
 		err := fmt.Errorf("virtual machine snapshot name is required")
-		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonRestoreOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, err
 	}
 
@@ -78,21 +63,19 @@ func (o RestoreOperation) Execute(ctx context.Context) (reconcile.Result, error)
 	vm, err := object.FetchObject(ctx, vmKey, o.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		err := fmt.Errorf("failed to fetch the virtual machine %q: %w", vmKey.Name, err)
-		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonRestoreOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, err
 	}
 
 	if vm == nil {
 		err := fmt.Errorf("virtual machine is nil")
-		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonRestoreOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, err
 	}
 
 	return steptaker.NewStepTakers(
-		step.NewVMSnapshotReadyStep(o.client, cb),
-		step.NewEnterMaintenanceStep(o.client, o.recorder, cb),
-		step.NewProcessRestoreStep(o.client, o.recorder, cb),
-		step.NewExitMaintenanceStep(o.client, o.recorder, cb),
+		step.NewVMSnapshotReadyStep(o.client),
+		step.NewEnterMaintenanceStep(o.client, o.recorder),
+		step.NewProcessRestoreStep(o.client, o.recorder),
+		step.NewExitMaintenanceStep(o.client, o.recorder),
 	).Run(ctx, o.vmop)
 }
 
@@ -114,28 +97,32 @@ func (o RestoreOperation) IsInProgress() bool {
 		return true
 	}
 
-	completedCondition, found := conditions.GetCondition(vmopcondition.TypeRestoreCompleted, o.vmop.Status.Conditions)
-	if found && completedCondition.Status != metav1.ConditionUnknown {
-		return true
+	if o.vmop.Status.Resources != nil {
+		for _, status := range o.vmop.Status.Resources {
+			if status.Status == v1alpha2.SnapshotResourceStatusInProgress {
+				return true
+			}
+		}
 	}
 
 	return false
 }
 
 func (o RestoreOperation) IsComplete() (bool, string) {
-	rc, ok := conditions.GetCondition(vmopcondition.TypeRestoreCompleted, o.vmop.Status.Conditions)
-	if !ok {
+	if o.vmop.Status.Resources == nil {
 		return false, ""
+	}
+
+	for _, status := range o.vmop.Status.Resources {
+		if status.Status != v1alpha2.SnapshotResourceStatusCompleted {
+			return false, ""
+		}
 	}
 
 	if o.vmop.Spec.Restore.Mode == v1alpha2.SnapshotOperationModeDryRun {
-		return rc.Status == metav1.ConditionTrue, ""
+		return true, ""
 	}
 
 	mc, ok := conditions.GetCondition(vmopcondition.TypeMaintenanceMode, o.vmop.Status.Conditions)
-	if !ok {
-		return false, ""
-	}
-
-	return rc.Status == metav1.ConditionTrue && mc.Status == metav1.ConditionFalse, ""
+	return ok && mc.Status == metav1.ConditionFalse, ""
 }

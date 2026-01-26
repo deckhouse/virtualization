@@ -58,7 +58,7 @@ func (o CloneOperation) Execute(ctx context.Context) (reconcile.Result, error) {
 		if cond.Status == metav1.ConditionUnknown {
 			cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonCloneOperationInProgress)
 		} else {
-			cb.Status(cond.Status).Reason(vmopcondition.ReasonRestoreCompleted(cond.Reason)).Message(cond.Message)
+			// cb.Status(cond.Status).Reason(vmopcondition.ReasonRestoreCompleted(cond.Reason)).Message(cond.Message)
 		}
 	}
 
@@ -85,7 +85,7 @@ func (o CloneOperation) Execute(ctx context.Context) (reconcile.Result, error) {
 	return steptaker.NewStepTakers(
 		step.NewCleanupSnapshotStep(o.client, o.recorder, cb),
 		step.NewCreateSnapshotStep(o.client, o.recorder, cb),
-		step.NewVMSnapshotReadyStep(o.client, cb),
+		// step.NewVMSnapshotReadyStep(o.client, cb),
 		step.NewProcessCloneStep(o.client, o.recorder, cb),
 	).Run(ctx, o.vmop)
 }

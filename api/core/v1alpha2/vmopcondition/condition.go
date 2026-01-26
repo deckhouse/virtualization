@@ -29,9 +29,6 @@ const (
 	// TypeSignalSent is a type for condition that indicates operation signal has been sent.
 	TypeSignalSent Type = "SignalSent"
 
-	// TypeRestoreCompleted is a type for condition that indicates success of restore.
-	TypeRestoreCompleted Type = "RestoreCompleted"
-
 	// TypeCloneCompleted is a type for condition that indicates success of clone.
 	TypeCloneCompleted Type = "CloneCompleted"
 
@@ -109,27 +106,6 @@ const (
 
 	// ReasonOperationCompleted is a ReasonCompleted indicating that operation is completed.
 	ReasonOperationCompleted ReasonCompleted = "OperationCompleted"
-)
-
-// ReasonRestoreCompleted represents specific reasons for the 'RestoreCompleted' condition type.
-type ReasonRestoreCompleted string
-
-func (r ReasonRestoreCompleted) String() string {
-	return string(r)
-}
-
-const (
-	// ReasonRestoreInProgress is a ReasonRestoreCompleted indicating that the restore operation is in progress.
-	ReasonRestoreOperationInProgress ReasonRestoreCompleted = "RestoreInProgress"
-
-	// ReasonRestoreOperationCompleted is a ReasonRestoreCompleted indicating that the restore operation has completed successfully.
-	ReasonRestoreOperationCompleted ReasonRestoreCompleted = "RestoreCompleted"
-
-	// ReasonDryRunOperationCompleted is a ReasonRestoreCompleted indicating that the restore dry run operation has completed successfully.
-	ReasonDryRunOperationCompleted ReasonRestoreCompleted = "RestoreDryRunCompleted"
-
-	// ReasonRestoreOperationFailed is a ReasonRestoreCompleted indicating that operation has failed.
-	ReasonRestoreOperationFailed ReasonRestoreCompleted = "RestoreFailed"
 )
 
 // ReasonCloneCompleted represents specific reasons for the 'CloneCompleted' condition type.
