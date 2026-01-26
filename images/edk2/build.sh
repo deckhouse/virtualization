@@ -122,8 +122,10 @@ OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D EXCLUDE_SHELL_FROM_FD=TRUE -D BUILD_SHELL=FAL
 # OVMF_SB_FLAGS="${OVMF_SB_FLAGS} --pcd gEfiMdeModulePkgTokenSpaceGuid.PcdResetOnMemoryTypeInformationChange=FALSE"
 # Support up to 256 CPUs for SMM (8 sockets * 32 cores)
 OVMF_SB_FLAGS="${OVMF_SB_FLAGS} --pcd gUefiCpuPkgTokenSpaceGuid.PcdCpuMaxLogicalProcessorNumber=256"
-# Increase TSEG (SMRAM) from 8MB to 16MB for 256 CPUs (256 * 16KB stack = 4MB + overhead)
-OVMF_SB_FLAGS="${OVMF_SB_FLAGS} --pcd gUefiOvmfPkgTokenSpaceGuid.PcdQ35TsegMbytes=16"
+# Increase TSEG (SMRAM) from 8MB to 32MB for 256 CPUs (256 * 16KB stack = 4MB + overhead)
+OVMF_SB_FLAGS="${OVMF_SB_FLAGS} --pcd gUefiOvmfPkgTokenSpaceGuid.PcdQ35TsegMbytes=32"
+# Increase SMM AP sync timeout for many vCPUs (default 1000000us = 1s, set to 10s)
+OVMF_SB_FLAGS="${OVMF_SB_FLAGS} --pcd gUefiCpuPkgTokenSpaceGuid.PcdCpuSmmApSyncTimeout=10000000"
 
 # unset MAKEFLAGS
 echo "run source edksetup.sh"
