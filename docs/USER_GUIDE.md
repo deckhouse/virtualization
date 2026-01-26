@@ -265,6 +265,15 @@ Image files can also be compressed with one of the following compression algorit
 
 Once a share is created, the image type and size are automatically determined, and this information is reflected in the share status.
 
+The image status displays two sizes:
+
+- STOREDSIZE (storage size) — the size of the image that actually occupies space in storage (DVCR or PVC). For compressed images (gz, xz), this size is smaller than the unpacked size.
+- UNPACKEDSIZE (unpacked size) — the size of the image after unpacking, which will be used when creating a disk from this image. This size determines the minimum disk size that can be created from the image.
+
+{{< alert level="info" >}}
+When creating a disk from an image, you must specify a disk size that must be equal to or greater than the UNPACKEDSIZE value. If the size is not specified, the disk will be created with a size corresponding to the unpacked image size.
+{{< /alert >}}
+
 Images can be downloaded from various sources, such as HTTP servers where image files are located or container registries. It is also possible to download images directly from the command line using the curl utility.
 
 Images can be created from other images and virtual machine disks.
@@ -681,6 +690,7 @@ After creation, the `VirtualDisk` resource can be in the following states (phase
 - `WaitForUserUpload`: Disk is waiting for the user to upload an image (type: Upload).
 - `Ready`: Disk has been created and is ready for use.
 - `Migrating`: Live migration of a disk.
+- `Exporting`: The disk export process is in progress.
 - `Failed`: An error occurred during the creation process.
 - `PVCLost`: System error, PVC with data has been lost.
 - `Terminating`: Disk is being deleted. The disk may "hang" in this state if it is still connected to the virtual machine.
@@ -1326,7 +1336,7 @@ Supported values:
 - `Windows` — for Microsoft Windows family operating systems. Automatically enables Hyper-V features, TPM device, and other settings optimized for Windows.
 
 {{< alert level="warning" >}}
-The TPM device provided to the virtual machine is not persistent (TPM emulation in memory). This means that when the VM is rebooted or migrated, the TPM state is reset. 
+The TPM device provided to the virtual machine is not persistent (TPM emulation in memory). This means that when the VM is rebooted or migrated, the TPM state is reset.
 
 It is recommended to consider this limitation when planning to use Windows security features that depend on TPM.
 {{< /alert >}}
@@ -1358,6 +1368,23 @@ spec:
 {{< alert level="info" >}}
 For most modern Linux distributions, it is recommended to use `bootloader: EFI`. For Windows, `bootloader: EFI` or `bootloader: EFIWithSecureBoot` is usually required.
 {{< /alert >}}
+
+The `enableParavirtualization` parameter controls the use of the `virtio` bus for connecting virtual devices of the VM:
+
+- `true` (default) — uses the `virtio` bus for disks, network interfaces, and other devices, providing better performance.
+- `false` — uses standard device emulation (SATA for disks, e1000e for network interfaces), which may be necessary for compatibility with older operating systems.
+
+{{< alert level="info" >}}
+To use paravirtualization mode (`virtio`), some operating systems require installing the corresponding drivers. If drivers are not installed, the VM may fail to boot or devices may not work correctly.
+{{< /alert >}}
+
+Example configuration with paravirtualization disabled:
+
+```yaml
+spec:
+  enableParavirtualization: false
+  # other parameters...
+```
 
 ### Initialization scripts
 
@@ -1860,15 +1887,7 @@ All of the above parameters (including the `.spec.nodeSelector` parameter from V
 - Use combinations of labels instead of single restrictions. For example, instead of required for a single label (e.g. env=prod), use several preferred conditions.
 - Consider the order in which interdependent VMs are launched. When using Affinity between VMs (for example, the backend depends on the database), launch the VMs referenced by the rules first to avoid lockouts.
 - Plan backup nodes for critical workloads. For VMs with strict requirements (e.g., AntiAffinity), provide backup nodes to avoid downtime in case of failure or maintenance.
-- Consider existing `taints` on nodes. If necessary, you can add appropriate `tolerations` to the VM. An example of using `tolerations` to allow scheduling on nodes with the `node.deckhouse.io/group=:NoSchedule` taint is provided below.
-
-```yaml
-spec:
-  tolerations:
-    - key: "node.deckhouse.io/group"
-      operator: "Exists"
-      effect: "NoSchedule"
-```
+- Consider existing `taints` on nodes. If necessary, you can add appropriate `tolerations` to the VM.
 
 {{< alert level="info" >}}
 When changing placement parameters:
@@ -1886,6 +1905,65 @@ How to manage VM placement parameters by nodes in the web interface:
 - Go to the "Virtualization" → "Virtual Machines" section.
 - Select the required VM from the list and click on its name.
 - On the "Configuration" tab, scroll down to the "Placement" section.
+
+#### Tolerations (tolerance to node restrictions)
+
+`Tolerations` allow VMs to run on nodes with restrictions (`taints`) that would otherwise block VM placement. This is useful when you need to allow VMs to run on special nodes (for example, test nodes or nodes with specific characteristics).
+
+Example of using `tolerations` to allow scheduling on nodes with the `node.deckhouse.io/group=:NoSchedule` taint:
+
+```yaml
+spec:
+  tolerations:
+    - key: "node.deckhouse.io/group"
+      operator: "Exists"
+      effect: "NoSchedule"
+```
+
+Each element in the `tolerations` list must match a `taint` on the node for the VM to be placed on that node.
+
+{{< alert level="warning" >}}
+Viewing cluster node information (including `taints`) requires an appropriate user role with access to cluster-level resources.
+{{< /alert >}}
+
+To view `taints` on cluster nodes, run:
+
+```bash
+d8 k get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints
+```
+
+Or for more detailed information:
+
+```bash
+d8 k describe node <node-name>
+```
+
+#### PriorityClassName (scheduling priority)
+
+`PriorityClassName` defines the priority of a VM when scheduling on nodes. VMs with higher priority can evict VMs with lower priority when node resources are insufficient.
+
+Example usage:
+
+```yaml
+spec:
+  priorityClassName: develop
+```
+
+To view available priority classes in the cluster, run:
+
+```bash
+d8 k get priorityclass
+```
+
+Or for more detailed information:
+
+```bash
+d8 k get priorityclass <priority-class-name> -o yaml
+```
+
+{{< alert level="info" >}}
+If the specified priority class does not exist, the VM will not be able to start.
+{{< /alert >}}
 
 #### Simple label binding (nodeSelector)
 
