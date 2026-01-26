@@ -352,6 +352,93 @@ spec:
       name: win-virtio-iso
 ```
 
+## How to use cloud-init to configure virtual machines?
+
+Cloud-Init is a tool for automatically configuring virtual machines on first boot. The configuration is written in YAML format and must start with the `#cloud-config` header.
+
+### Updating and installing packages
+
+Example configuration for updating the system and installing packages:
+
+```yaml
+#cloud-config
+# Update package lists
+package_update: true
+# Upgrade installed packages to latest versions
+package_upgrade: true
+# List of packages to install
+packages:
+  - nginx
+  - curl
+  - htop
+# Commands to run after package installation
+runcmd:
+  - systemctl enable --now nginx.service
+```
+
+### Creating a user
+
+Example configuration for creating a user with a password and SSH key:
+
+```yaml
+#cloud-config
+# List of users to create
+users:
+  - name: cloud                    # Username
+    passwd: "$6$rounds=4096$saltsalt$..."  # Password hash (SHA-512)
+    lock_passwd: false            # Do not lock the account
+    sudo: ALL=(ALL) NOPASSWD:ALL  # Sudo privileges without password prompt
+    shell: /bin/bash              # Default shell
+    ssh-authorized-keys:          # SSH keys for access
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
+# Allow password authentication via SSH
+ssh_pwauth: True
+```
+
+To generate a password hash, use the `mkpasswd --method=SHA-512 --rounds=4096` command.
+
+### Creating a file with required permissions
+
+Example configuration for creating a file with specified access permissions:
+
+```yaml
+#cloud-config
+# List of files to create
+write_files:
+  - path: /opt/scripts/start.sh    # File path
+    content: |                     # File content
+      #!/bin/bash
+      echo "Starting application"
+    owner: cloud:cloud            # File owner (user:group)
+    permissions: '0755'           # Access permissions (octal format)
+```
+
+### Configuring disk and filesystem
+
+Example configuration for disk partitioning, filesystem creation, and mounting:
+
+```yaml
+#cloud-config
+# Disk partitioning setup
+disk_setup:
+  /dev/sdb:                        # Disk device
+    table_type: gpt                # Partition table type (gpt or mbr)
+    layout: true                   # Automatically create partitions
+    overwrite: false               # Do not overwrite existing partitions
+
+# Filesystem setup
+fs_setup:
+  - label: data                    # Filesystem label
+    filesystem: ext4               # Filesystem type
+    device: /dev/sdb1              # Partition device
+    partition: auto                # Automatically detect partition
+
+# Filesystem mounting
+mounts:
+  # [device, mount_point, fs_type, options, dump, pass]
+  - ["/dev/sdb1", "/mnt/data", "ext4", "defaults", "0", "2"]
+```
+
 ## How to use Ansible to provision virtual machines?
 
 [Ansible](https://docs.ansible.com/ansible/latest/index.html) is an automation tool that helps you to run tasks on remote servers via SSH. In this example, we will show you how to use Ansible to manage virtual machines in a demo-app project.
