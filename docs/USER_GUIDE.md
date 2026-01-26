@@ -2372,7 +2372,13 @@ Running this command creates a VirtualMachineOperations resource.
 
 When used during virtual machine migration, the `--force` flag activates a special mechanism called AutoConverge (for more details, see the [Migration with insufficient network bandwidth](#migration-with-insufficient-network-bandwidth) section). This mechanism automatically reduces the CPU load of the virtual machine (slows down its CPU) when it is necessary to speed up the completion of migration and help it complete successfully, even when the virtual machine memory transfer is too slow. Use this flag if a standard migration cannot complete due to high virtual machine activity.
 
-To place the virtual machine on a specific target node, specify that node’s name in the `--target-node-name` option.
+To place the virtual machine on a specific target node, specify that node’s name using the `--target-node-name` option. For example, if a virtual machine should be placed on the node `production-1`:
+
+```bash
+d8 v migrate -n project-1 linux-vm --target-node-name production-1
+```
+
+Under the hood, a virtual machine operation will be created with the specific node selector `kubernetes.io/hostname: production-1`, where `production-1` is the node name.
 
 You can also start the migration by manually creating a [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) (`vmop`) resource of type `Migrate`:
 
@@ -2382,6 +2388,7 @@ apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineOperation
 metadata:
   generateName: migrate-linux-vm-
+  namespace: project-1
 spec:
   # virtual machine name
   virtualMachineName: linux-vm
@@ -2390,14 +2397,21 @@ spec:
   # Defines the Migrate operation.
   migrate:
     nodeSelector:
-      key: value
+      # Additionally, you can set any suitable node selector.
+      kubernetes.io/hostname: production-1
   # Allow CPU slowdown by AutoConverge mechanism to guarantee that migration will complete.
   force: true
 EOF
 ```
 
 {{< alert level="info" >}}
-If you don’t need to specify target node parameters, you can evict the virtual machine to another suitable node using the `d8 v evict` command or by creating a [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource of type `Evict`.
+To prevent the unschedulable state of a virtual machine, the node selector should not conflict with other placement rules such as virtual machine affinity, node selectors, and virtual machine class node selector rules.
+{{< /alert >}}
+
+{{< alert level="info" >}}
+Targeted migration to a specific node is not available in the Community Edition version.
+
+If you don’t need to specify target node parameters, you can omit the `migrate` field or evict the virtual machine to another suitable node using the `d8 v evict` command or by creating a [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource of type `Evict`.
 {{< /alert >}}
 
 To track the migration of a virtual machine immediately after the `vmop` resource is created, run the command:
