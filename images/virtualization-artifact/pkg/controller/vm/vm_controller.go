@@ -37,6 +37,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vmmetrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/virtualmachine"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 )
 
 const (
@@ -58,6 +59,11 @@ func SetupController(
 
 	migrateVolumesService := vmservice.NewMigrationVolumesService(client, internal.MakeKVVMFromVMSpec, 10*time.Second)
 
+	virtClient, err := versioned.NewForConfig(mgr.GetConfig())
+	if err != nil {
+		return fmt.Errorf("failed to create virtualization client: %w", err)
+	}
+
 	handlers := []Handler{
 		internal.NewMaintenanceHandler(client),
 		internal.NewDeletionHandler(client),
@@ -65,6 +71,7 @@ func SetupController(
 		internal.NewIPAMHandler(netmanager.NewIPAM(), client, recorder),
 		internal.NewMACHandler(netmanager.NewMACManager(), client, recorder),
 		internal.NewBlockDeviceHandler(client, blockDeviceService),
+		internal.NewUSBDeviceHandler(client, virtClient),
 		internal.NewProvisioningHandler(client),
 		internal.NewAgentHandler(),
 		internal.NewFilesystemHandler(),
