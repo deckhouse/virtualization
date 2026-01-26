@@ -29,7 +29,6 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/common"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -39,18 +38,15 @@ import (
 type EnterMaintenanceStep struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
-	cb       *conditions.ConditionBuilder
 }
 
 func NewEnterMaintenanceStep(
 	client client.Client,
 	recorder eventrecord.EventRecorderLogger,
-	cb *conditions.ConditionBuilder,
 ) *EnterMaintenanceStep {
 	return &EnterMaintenanceStep{
 		client:   client,
 		recorder: recorder,
-		cb:       cb,
 	}
 }
 
@@ -59,14 +55,14 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 		return nil, nil
 	}
 
+	if vmop.Status.Resources != nil {
+		return nil, nil
+	}
+
 	vmKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}
 	vm, err := object.FetchObject(ctx, vmKey, s.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch the virtual machine %q: %w", vmKey.Name, err)
-	}
-
-	if s.cb.Condition().Status == metav1.ConditionTrue {
-		return nil, nil
 	}
 
 	maintenanceCondition, found := conditions.GetCondition(vmcondition.TypeMaintenance, vm.Status.Conditions)
@@ -103,7 +99,6 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 		}
 
 		s.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "Failed to enter maintenance mode: "+err.Error())
-		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
