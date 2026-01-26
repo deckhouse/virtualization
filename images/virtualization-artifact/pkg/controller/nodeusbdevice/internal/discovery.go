@@ -116,11 +116,8 @@ func (h *DiscoveryHandler) discoverAndCreate(ctx context.Context) (reconcile.Res
 	}
 
 	// Create NodeUSBDevice for each USB device in ResourceSlices
+	// Note: resourceSlices are already filtered by draDriverName in getResourceSlices
 	for _, slice := range resourceSlices {
-		if slice.Spec.Driver != draDriverName {
-			continue
-		}
-
 		for _, device := range slice.Spec.Devices {
 			if !strings.HasPrefix(device.Name, "usb-") {
 				continue

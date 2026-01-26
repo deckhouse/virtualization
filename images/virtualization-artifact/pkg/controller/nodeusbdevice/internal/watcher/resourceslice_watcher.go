@@ -30,6 +30,10 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
+const (
+	draDriverName = "virtualization-dra"
+)
+
 func NewResourceSliceWatcher() *ResourceSliceWatcher {
 	return &ResourceSliceWatcher{}
 }
@@ -42,7 +46,7 @@ func (w *ResourceSliceWatcher) Watch(mgr manager.Manager, ctr controller.Control
 			&resourcev1beta1.ResourceSlice{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, slice *resourcev1beta1.ResourceSlice) []reconcile.Request {
 				// Only watch ResourceSlices from virtualization-dra driver
-				if slice.Spec.Driver != "virtualization-dra" {
+				if slice.Spec.Driver != draDriverName {
 					return nil
 				}
 
