@@ -12,7 +12,7 @@ imageSpec:
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
 final: false
-fromImage: builder/golang-bookworm-1.24
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.24" "builder/golang-alt-svace-1.24" }}
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}/static_binaries
     to: /static_binaries
@@ -21,13 +21,16 @@ git:
         - '*.c'
 shell:
   beforeInstall:
-  {{- include "debian packages proxy" . | nindent 2 }}
-  - apt-get install --yes musl-dev musl-tools
-  {{- include "debian packages clean" . | nindent 2 }}
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - apt-get install --yes musl-devel musl-devel-static musl-libc
+  {{- include "alt packages clean" . | nindent 2 }}
   install:
   - |
     cd /static_binaries
     echo "Building simple app that prints hello cdi"
     mkdir -p /bins
-    musl-gcc -static -Os -o /bins/hello_bounder hello_bounder.c
+    {{- include "image-build.build" (set $ "BuildCommand" `musl-gcc -static -Os -o /bins/hello_bounder hello_bounder.c`) | nindent 6 }}
     strip /bins/hello_bounder
+
+    echo Check output ...
+    /bins/hello_bounder
