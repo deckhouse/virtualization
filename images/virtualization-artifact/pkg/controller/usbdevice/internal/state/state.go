@@ -32,13 +32,13 @@ type USBDeviceState interface {
 
 func New(client client.Client, usbDevice *reconciler.Resource[*v1alpha2.USBDevice, v1alpha2.USBDeviceStatus]) USBDeviceState {
 	return &usbDeviceState{
-		client:   client,
+		client:    client,
 		usbDevice: usbDevice,
 	}
 }
 
 type usbDeviceState struct {
-	client   client.Client
+	client    client.Client
 	usbDevice *reconciler.Resource[*v1alpha2.USBDevice, v1alpha2.USBDeviceStatus]
 }
 

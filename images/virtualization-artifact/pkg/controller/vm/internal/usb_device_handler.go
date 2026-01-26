@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
@@ -325,6 +326,10 @@ func (h *USBDeviceHandler) getOrAssignUSBAddress(
 	// If device was already attached, keep the same address
 	if existingStatus != nil && existingStatus.Address != nil {
 		return existingStatus.Address
+	}
+
+	if isHotplugged {
+		log.Info("USB device is hotplugged, no address will be assigned")
 	}
 
 	// Assign new address

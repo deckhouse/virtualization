@@ -397,6 +397,5 @@ var _ = Describe("USBDeviceHandler", func() {
 			Expect(vmResource.Changed().Status.USBDevices).To(HaveLen(1))
 			Expect(vmResource.Changed().Status.USBDevices[0].Address).To(Equal(existingAddress))
 		})
-
 	})
 })

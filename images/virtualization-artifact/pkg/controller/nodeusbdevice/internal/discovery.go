@@ -62,7 +62,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.NodeUSBDeviceStat
 
 	// Always check for new devices in ResourceSlice and create NodeUSBDevice if needed
 	// This ensures we discover new devices even if reconcile was triggered for other reasons
-	if _, err := h.discoverAndCreate(ctx); err != nil {
+	if err := h.discoverAndCreate(ctx); err != nil {
 		// Log error but don't fail reconciliation
 		// This is a best-effort discovery mechanism
 		log.Error("failed to discover and create NodeUSBDevice", log.Err(err))
@@ -102,16 +102,16 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.NodeUSBDeviceStat
 	return reconcile.Result{}, nil
 }
 
-func (h *DiscoveryHandler) discoverAndCreate(ctx context.Context) (reconcile.Result, error) {
+func (h *DiscoveryHandler) discoverAndCreate(ctx context.Context) error {
 	resourceSlices, err := h.getResourceSlices(ctx)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to get resource slices: %w", err)
+		return fmt.Errorf("failed to get resource slices: %w", err)
 	}
 
 	// Get all existing NodeUSBDevices to avoid duplicates
 	var existingDevices v1alpha2.NodeUSBDeviceList
 	if err := h.client.List(ctx, &existingDevices); err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to list existing NodeUSBDevices: %w", err)
+		return fmt.Errorf("failed to list existing NodeUSBDevices: %w", err)
 	}
 
 	existingHashes := make(map[string]bool)
@@ -166,12 +166,12 @@ func (h *DiscoveryHandler) discoverAndCreate(ctx context.Context) (reconcile.Res
 			}
 
 			if err := h.client.Create(ctx, nodeUSBDevice); err != nil {
-				return reconcile.Result{}, fmt.Errorf("failed to create NodeUSBDevice: %w", err)
+				return fmt.Errorf("failed to create NodeUSBDevice: %w", err)
 			}
 		}
 	}
 
-	return reconcile.Result{}, nil
+	return nil
 }
 
 func (h *DiscoveryHandler) getResourceSlices(ctx context.Context) ([]resourcev1beta1.ResourceSlice, error) {
