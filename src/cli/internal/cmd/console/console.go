@@ -50,13 +50,13 @@ func NewCommand() *cobra.Command {
 		RunE:    console.Run,
 	}
 
-	cmd.Flags().IntVar(&console.timeout, "timeout", 300, "The number of seconds to wait until console is successfully connected.")
+	cmd.Flags().DurationVar(&console.timeout, "timeout", 5*time.Minute, "Duration to wait until console is successfully connected (e.g., 1s, 5m, 300s).")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 
 type Console struct {
-	timeout int
+	timeout time.Duration
 }
 
 func usage() string {
@@ -64,8 +64,9 @@ func usage() string {
   {{ProgramName}} console myvm
   {{ProgramName}} console myvm.mynamespace
   {{ProgramName}} console myvm -n mynamespace
-  # Configure 60 seconds timeout (default 300 seconds)
-  {{ProgramName}} console --timeout=60 myvm`
+  # Configure timeout (default 5 minutes)
+  {{ProgramName}} console --timeout=1m myvm
+  {{ProgramName}} console --timeout=300s myvm`
 
 	return usage
 }
@@ -136,7 +137,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 	showedWaitMessage := false
 	spinnerIdx := 0
 	var startTime time.Time
-	timeout := time.Duration(c.timeout) * time.Second
+	timeout := c.timeout
 	waitingForConnection := false
 
 	for {
@@ -189,7 +190,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 					if showedWaitMessage {
 						fmt.Fprintf(os.Stderr, clearLineNL)
 					}
-					return fmt.Errorf("timeout after %d second(s) waiting for VirtualMachine %q serial console", c.timeout, name)
+					return fmt.Errorf("timeout after %s waiting for VirtualMachine %q serial console", c.timeout, name)
 				}
 
 				// Get VM phase and show waiting spinner
@@ -217,7 +218,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 	}
 }
 
-func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Client, timeout int, stdinCh <-chan []byte, doneChan <-chan struct{}) error {
+func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Client, timeout time.Duration, stdinCh <-chan []byte, doneChan <-chan struct{}) error {
 	// in -> stdinWriter | stdinReader -> console
 	// out <- stdoutReader | stdoutWriter <- console
 	stdinReader, stdinWriter := io.Pipe()
@@ -228,7 +229,7 @@ func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Cli
 	writeStopErr := make(chan error)
 	readStopErr := make(chan error)
 
-	console, err := virtCli.VirtualMachines(namespace).SerialConsole(name, &virtualizationv1alpha2.SerialConsoleOptions{ConnectionTimeout: time.Duration(timeout) * time.Second})
+	console, err := virtCli.VirtualMachines(namespace).SerialConsole(name, &virtualizationv1alpha2.SerialConsoleOptions{ConnectionTimeout: timeout})
 	if err != nil {
 		return fmt.Errorf("can't access VM %s: %w", name, err)
 	}
