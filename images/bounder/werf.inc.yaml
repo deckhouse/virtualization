@@ -22,7 +22,7 @@ git:
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
-  - apt-get install --yes musl-dev musl-tools
+  - apt-get install --yes musl-devel musl-devel-static musl-libc
   {{- include "alt packages clean" . | nindent 2 }}
   install:
   - |
