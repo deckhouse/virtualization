@@ -136,7 +136,7 @@ spec:
       - 10.77.20.0/16
 ```
 
-The first and the last subnet address are reserved and not available for use.
+For each subnet, the first and last IP addresses are reserved by the system and are not assigned to virtual machines. For example, for the `10.66.10.0/24` subnet, addresses `10.66.10.0` and `10.66.10.255` are not available for use by VMs.
 
 {{< alert level="warning" >}}
 The subnets in the `.spec.settings.virtualMachineCIDRs` block must not overlap with cluster node subnets, services subnet, or pods subnet (`podCIDR`).
