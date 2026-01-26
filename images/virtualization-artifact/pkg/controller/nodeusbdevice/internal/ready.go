@@ -140,7 +140,7 @@ func (h *ReadyHandler) calculateDeviceHash(device resourcev1beta1.Device, nodeNa
 
 	if device.Basic != nil {
 		for key, attr := range device.Basic.Attributes {
-			switch key {
+			switch string(key) {
 			case "vendorID":
 				if attr.StringValue != nil {
 					vendorID = *attr.StringValue

@@ -224,7 +224,7 @@ func (h *DiscoveryHandler) convertDeviceToAttributes(device resourcev1beta1.Devi
 	}
 
 	for key, attr := range device.Basic.Attributes {
-		switch key {
+		switch string(key) {
 		case "name":
 			if attr.StringValue != nil {
 				attrs.Name = *attr.StringValue
