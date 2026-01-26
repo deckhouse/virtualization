@@ -69,6 +69,8 @@ type NodeUSBDeviceStatus struct {
 	NodeName string `json:"nodeName,omitempty"`
 	// The latest available observations of an object's current state.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// Resource generation last processed by the controller.
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // NodeUSBDeviceAttributes contains all attributes of a USB device.
@@ -103,4 +105,3 @@ type NodeUSBDeviceAttributes struct {
 	// the resource with a resource from the slice.
 	Hash string `json:"hash,omitempty"`
 }
-

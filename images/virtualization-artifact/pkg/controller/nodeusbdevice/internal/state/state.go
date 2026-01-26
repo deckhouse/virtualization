@@ -19,6 +19,7 @@ package state
 import (
 	"context"
 
+	resourcev1beta1 "k8s.io/api/resource/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
@@ -26,11 +27,11 @@ import (
 )
 
 type NodeUSBDeviceState interface {
-	NodeUSBDevice() reconciler.Resource[*v1alpha2.NodeUSBDevice, v1alpha2.NodeUSBDeviceStatus]
-	ResourceSlices(ctx context.Context) ([]v1alpha2.ResourceSlice, error)
+	NodeUSBDevice() *reconciler.Resource[*v1alpha2.NodeUSBDevice, v1alpha2.NodeUSBDeviceStatus]
+	ResourceSlices(ctx context.Context) ([]resourcev1beta1.ResourceSlice, error)
 }
 
-func New(client client.Client, nodeUSBDevice reconciler.Resource[*v1alpha2.NodeUSBDevice, v1alpha2.NodeUSBDeviceStatus]) NodeUSBDeviceState {
+func New(client client.Client, nodeUSBDevice *reconciler.Resource[*v1alpha2.NodeUSBDevice, v1alpha2.NodeUSBDeviceStatus]) NodeUSBDeviceState {
 	return &nodeUSBDeviceState{
 		client:        client,
 		nodeUSBDevice: nodeUSBDevice,
@@ -39,14 +40,14 @@ func New(client client.Client, nodeUSBDevice reconciler.Resource[*v1alpha2.NodeU
 
 type nodeUSBDeviceState struct {
 	client        client.Client
-	nodeUSBDevice reconciler.Resource[*v1alpha2.NodeUSBDevice, v1alpha2.NodeUSBDeviceStatus]
+	nodeUSBDevice *reconciler.Resource[*v1alpha2.NodeUSBDevice, v1alpha2.NodeUSBDeviceStatus]
 }
 
-func (s *nodeUSBDeviceState) NodeUSBDevice() reconciler.Resource[*v1alpha2.NodeUSBDevice, v1alpha2.NodeUSBDeviceStatus] {
+func (s *nodeUSBDeviceState) NodeUSBDevice() *reconciler.Resource[*v1alpha2.NodeUSBDevice, v1alpha2.NodeUSBDeviceStatus] {
 	return s.nodeUSBDevice
 }
 
-func (s *nodeUSBDeviceState) ResourceSlices(ctx context.Context) ([]v1alpha2.ResourceSlice, error) {
+func (s *nodeUSBDeviceState) ResourceSlices(ctx context.Context) ([]resourcev1beta1.ResourceSlice, error) {
 	// TODO: implement ResourceSlice fetching
 	// This should fetch ResourceSlice resources that contain USB device information
 	return nil, nil
