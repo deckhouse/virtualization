@@ -99,8 +99,8 @@ echo_dbg() {
 
 # compiler
 CC_FLAGS="-t GCC5"
-# CC_FLAGS="${CC_FLAGS} -b RELEASE"
-CC_FLAGS="${CC_FLAGS} -b DEBUG"  # TEMP: enable debug to see OVMF errors in serial
+CC_FLAGS="${CC_FLAGS} -b RELEASE"
+# CC_FLAGS="${CC_FLAGS} -b DEBUG"  # TEMP: enable debug to see OVMF errors in serial
 
 CC_FLAGS="${CC_FLAGS} --cmd-len=65536"
 CC_FLAGS="${CC_FLAGS} -D DEBUG_ON_SERIAL_PORT=TRUE"  # TEMP: output debug to serial console
@@ -119,6 +119,7 @@ OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D SECURE_BOOT_ENABLE=TRUE"
 OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D SMM_REQUIRE=TRUE"
 OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D EXCLUDE_SHELL_FROM_FD=TRUE -D BUILD_SHELL=FALSE"
 # Disable Warm Reset on Memory Type Information change (needed for non-persistent NVRAM)
+# Disable Warm Reset - NOT NEEDED: instead Persistent=true is set in kvbuilder/kvvm.go for EFIWithSecureBoot
 # OVMF_SB_FLAGS="${OVMF_SB_FLAGS} --pcd gEfiMdeModulePkgTokenSpaceGuid.PcdResetOnMemoryTypeInformationChange=FALSE"
 # Support up to 256 CPUs for SMM (8 sockets * 32 cores)
 OVMF_SB_FLAGS="${OVMF_SB_FLAGS} --pcd gUefiCpuPkgTokenSpaceGuid.PcdCpuMaxLogicalProcessorNumber=256"
