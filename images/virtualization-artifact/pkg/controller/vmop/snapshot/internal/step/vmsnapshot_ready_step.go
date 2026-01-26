@@ -28,23 +28,19 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/common"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmscondition"
 )
 
 type VMSnapshotReadyStep struct {
 	client client.Client
-	cb     *conditions.ConditionBuilder
 }
 
 func NewVMSnapshotReadyStep(
 	client client.Client,
-	cb *conditions.ConditionBuilder,
 ) *VMSnapshotReadyStep {
 	return &VMSnapshotReadyStep{
 		client: client,
-		cb:     cb,
 	}
 }
 
@@ -53,7 +49,6 @@ func (s VMSnapshotReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 	if vmop.Spec.Type == v1alpha2.VMOPTypeRestore {
 		if vmop.Spec.Restore.VirtualMachineSnapshotName == "" {
 			err := fmt.Errorf("the virtual machine snapshot name is empty")
-			common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
 			return &reconcile.Result{}, err
 		}
 
@@ -69,38 +64,24 @@ func (s VMSnapshotReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 	vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmopName}
 	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &v1alpha2.VirtualMachineSnapshot{})
 	if err != nil {
-		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
-		err := fmt.Errorf("failed to fetch the virtual machine snapshot %q: %w", vmSnapshotKey.Name, err)
-		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
 	if vmSnapshot == nil {
-		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
-		err := fmt.Errorf("virtual machine snapshot %q is not found", vmSnapshotKey.Name)
-		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
-		return &reconcile.Result{}, err
+		return &reconcile.Result{}, fmt.Errorf("virtual machine snapshot %q is not found", vmSnapshotKey.Name)
 	}
 
 	vmSnapshotReadyToUseCondition, exist := conditions.GetCondition(vmscondition.VirtualMachineSnapshotReadyType, vmSnapshot.Status.Conditions)
 	if !exist {
-		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
-		err := fmt.Errorf("virtual machine snapshot %q is not ready to use", vmop.Spec.Restore.VirtualMachineSnapshotName)
-		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
-		return &reconcile.Result{}, err
+		return &reconcile.Result{}, fmt.Errorf("virtual machine snapshot %q is not ready to use", vmopName)
 	}
 
 	if vmSnapshotReadyToUseCondition.Status != metav1.ConditionTrue {
-		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
-		err := fmt.Errorf("virtual machine snapshot %q is not ready to use", vmop.Spec.Restore.VirtualMachineSnapshotName)
-		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
-		return &reconcile.Result{}, err
+		return &reconcile.Result{}, fmt.Errorf("virtual machine snapshot %q is not ready to use", vmopName)
 	}
 
 	if vmSnapshot.Status.VirtualMachineSnapshotSecretName == "" {
-		err := fmt.Errorf("snapshot secret name is empty")
-		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
-		return &reconcile.Result{}, err
+		return &reconcile.Result{}, fmt.Errorf("snapshot secret name is empty")
 	}
 
 	return nil, nil

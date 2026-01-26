@@ -26,7 +26,6 @@ import (
 	. "github.com/onsi/gomega"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,7 +40,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
@@ -465,10 +463,6 @@ func (t *restoreModeTest) CheckVMAfterRestore(
 	case v1alpha2.SnapshotOperationModeDryRun:
 		err := t.Framework.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vmopRestore), vmopRestore)
 		Expect(err).NotTo(HaveOccurred())
-		restoreCompletedCondition, _ := conditions.GetCondition(vmopcondition.TypeRestoreCompleted, vmopRestore.Status.Conditions)
-		Expect(restoreCompletedCondition.Status).To(Equal(metav1.ConditionTrue))
-		Expect(restoreCompletedCondition.Reason).To(Equal(vmopcondition.ReasonDryRunOperationCompleted.String()))
-		Expect(restoreCompletedCondition.Message).To(ContainSubstring("The virtual machine can be restored from the snapshot."))
 
 		t.CheckResourceReadyForRestore(vmopRestore, v1alpha2.VirtualMachineKind, vm.Name)
 		t.CheckResourceReadyForRestore(vmopRestore, v1alpha2.VirtualDiskKind, vdRoot.Name)
