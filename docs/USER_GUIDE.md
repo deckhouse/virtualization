@@ -3477,3 +3477,86 @@ If you are exporting data from a machine other than a cluster node (for example,
 {{< alert level="info" >}}
 To import a downloaded disk back into the cluster, upload it as an [image](#load-an-image-from-the-command-line) or as a [disk](#upload-a-disk-from-the-command-line).
 {{< /alert >}}
+
+## Viewing resource events
+
+Events help track the state of virtualization resources and diagnose problems. Each resource type generates specific events that reflect state changes and errors.
+
+### Viewing events for virtual machines
+
+```bash
+# View all events for a specific VM
+d8 k describe vm <vm-name>
+
+# View events in list format
+d8 k get events --field-selector involvedObject.kind=VirtualMachine,involvedObject.name=<vm-name>
+```
+
+Main event types for VMs:
+
+- `Started`, `Stopped`, `Restarted` — VM state changes
+- `Evicted`, `Migrated` — migration operations
+- `ChangesApplied` — configuration changes applied
+- `RestartAwaitingChanges` — restart required to apply changes
+- `VirtualMachineOperationStarted`, `VirtualMachineOperationSucceeded`, `VirtualMachineOperationFailed` — VM operation status
+
+### Viewing events for disks
+
+```bash
+# View all events for a specific disk
+d8 k describe vd <disk-name>
+
+# View events in list format
+d8 k get events --field-selector involvedObject.kind=VirtualDisk,involvedObject.name=<disk-name>
+```
+
+Main event types for disks:
+
+- `VirtualDiskResizingStarted`, `VirtualDiskResizingCompleted`, `VirtualDiskResizingFailed` — disk resizing
+- `VirtualDiskSpecHasBeenChanged` — disk specification changed
+- `DataSourceImportStarted`, `DataSourceImportCompleted`, `DataSourceImportFailed` — data import
+- `VolumeMigrationCannotBeProcessed` — disk migration issues
+
+### Viewing events for images
+
+```bash
+# View all events for a project image
+d8 k describe vi <image-name>
+
+# View all events for a cluster image
+d8 k describe cvi <image-name>
+
+# View events in list format
+d8 k get events --field-selector involvedObject.kind=VirtualImage,involvedObject.name=<image-name>
+```
+
+Main event types for images:
+
+- `VirtualImageSpecHasBeenChanged` — image specification changed
+- `DataSourceImportStarted`, `DataSourceImportCompleted`, `DataSourceImportFailed` — data import
+- `DataSourceQuotaExceed` — project quota exceeded
+- `ImageOperationPostponedDueToDVCRGarbageCollection` — operation postponed due to DVCR garbage collection
+
+### Viewing events for operations
+
+```bash
+# View events for VM operation
+d8 k describe vmop <operation-name>
+
+# View events for VM snapshot operation
+d8 k describe vmsop <operation-name>
+```
+
+### Viewing all events
+
+```bash
+# View all events in namespace, sorted by time
+d8 k get events --sort-by='.lastTimestamp'
+
+# View events filtered by type (Warning or Normal)
+d8 k get events --field-selector type=Warning
+```
+
+{{< alert level="info" >}}
+Events are stored in the cluster for a limited time (usually 1 hour). For long-term monitoring, it is recommended to use logging and monitoring systems.
+{{< /alert >}}

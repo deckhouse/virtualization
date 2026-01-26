@@ -3515,3 +3515,86 @@ d8 data export download -n <namespace> vds/<virtual-disksnapshot-name> -o file.i
 {{< alert level="info" >}}
 Чтобы импортировать скачанный диск обратно в кластер, загрузите его как [образ](#загрузка-образа-из-командной-строки) или как [диск](#загрузка-диска-из-командной-строки).
 {{< /alert >}}
+
+## Просмотр событий ресурсов
+
+События (Events) помогают отслеживать состояние ресурсов виртуализации и диагностировать проблемы. Для каждого типа ресурса генерируются специфические события, отражающие изменения состояния и возникающие ошибки.
+
+### Просмотр событий для виртуальных машин
+
+```bash
+# Просмотр всех событий для конкретной ВМ
+d8 k describe vm <vm-name>
+
+# Просмотр событий в формате списка
+d8 k get events --field-selector involvedObject.kind=VirtualMachine,involvedObject.name=<vm-name>
+```
+
+Основные типы событий для ВМ:
+
+- `Started`, `Stopped`, `Restarted` — изменения состояния ВМ
+- `Evicted`, `Migrated` — операции миграции
+- `ChangesApplied` — применение изменений конфигурации
+- `RestartAwaitingChanges` — требуется перезапуск для применения изменений
+- `VirtualMachineOperationStarted`, `VirtualMachineOperationSucceeded`, `VirtualMachineOperationFailed` — статус операций над ВМ
+
+### Просмотр событий для дисков
+
+```bash
+# Просмотр всех событий для конкретного диска
+d8 k describe vd <disk-name>
+
+# Просмотр событий в формате списка
+d8 k get events --field-selector involvedObject.kind=VirtualDisk,involvedObject.name=<disk-name>
+```
+
+Основные типы событий для дисков:
+
+- `VirtualDiskResizingStarted`, `VirtualDiskResizingCompleted`, `VirtualDiskResizingFailed` — изменение размера диска
+- `VirtualDiskSpecHasBeenChanged` — изменение спецификации диска
+- `DataSourceImportStarted`, `DataSourceImportCompleted`, `DataSourceImportFailed` — импорт данных
+- `VolumeMigrationCannotBeProcessed` — проблемы с миграцией диска
+
+### Просмотр событий для образов
+
+```bash
+# Просмотр всех событий для образа проекта
+d8 k describe vi <image-name>
+
+# Просмотр всех событий для кластерного образа
+d8 k describe cvi <image-name>
+
+# Просмотр событий в формате списка
+d8 k get events --field-selector involvedObject.kind=VirtualImage,involvedObject.name=<image-name>
+```
+
+Основные типы событий для образов:
+
+- `VirtualImageSpecHasBeenChanged` — изменение спецификации образа
+- `DataSourceImportStarted`, `DataSourceImportCompleted`, `DataSourceImportFailed` — импорт данных
+- `DataSourceQuotaExceed` — превышена квота проекта
+- `ImageOperationPostponedDueToDVCRGarbageCollection` — операция отложена из-за сборки мусора DVCR
+
+### Просмотр событий для операций
+
+```bash
+# Просмотр событий для операции над ВМ
+d8 k describe vmop <operation-name>
+
+# Просмотр событий для операции над снимком ВМ
+d8 k describe vmsop <operation-name>
+```
+
+### Просмотр всех событий
+
+```bash
+# Просмотр всех событий в пространстве имен, отсортированных по времени
+d8 k get events --sort-by='.lastTimestamp'
+
+# Просмотр событий с фильтрацией по типу (Warning или Normal)
+d8 k get events --field-selector type=Warning
+```
+
+{{< alert level="info" >}}
+События хранятся в кластере ограниченное время (обычно 1 час). Для долгосрочного мониторинга рекомендуется использовать системы логирования и мониторинга.
+{{< /alert >}}
