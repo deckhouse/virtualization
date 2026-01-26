@@ -21,7 +21,6 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
@@ -29,8 +28,10 @@ import (
 	"k8s.io/component-base/cli/flag"
 
 	"github.com/deckhouse/virtualization-dra/internal/cdi"
+	"github.com/deckhouse/virtualization-dra/internal/featuregates"
 	"github.com/deckhouse/virtualization-dra/internal/plugin"
 	"github.com/deckhouse/virtualization-dra/internal/usb"
+	"github.com/deckhouse/virtualization-dra/pkg/libusb"
 	"github.com/deckhouse/virtualization-dra/pkg/logger"
 )
 
@@ -75,10 +76,10 @@ func newDraOptions() *draOptions {
 		CDIRoot:                      withDefault("CDI_ROOT", cdi.SpecDir),
 		KubeletRegisterDirectoryPath: os.Getenv("KUBELET_REGISTER_DIRECTORY_PATH"),
 		KubeletPluginsDirectoryPath:  os.Getenv("KUBELET_PLUGINS_DIRECTORY_PATH"),
-		USBDevicesPath:               withDefault("USB_DEVICES_PATH", usb.PathToUSBDevices),
 		HealthzPort:                  51515,
-		USBResyncPeriod:              usb.DefaultResyncPeriod,
 		Logging:                      &logger.Options{},
+		Monitor:                      libusb.NewDefaultMonitorConfig(),
+		featureGates:                 featuregates.AddFlags,
 	}
 
 	if healthzPort := os.Getenv("HEALTHZ_PORT"); healthzPort != "" {
@@ -97,11 +98,11 @@ type draOptions struct {
 	CDIRoot                      string
 	KubeletRegisterDirectoryPath string
 	KubeletPluginsDirectoryPath  string
-	USBDevicesPath               string
 	HealthzPort                  int
-	USBResyncPeriod              time.Duration
 
-	Logging *logger.Options
+	Logging      *logger.Options
+	Monitor      *libusb.MonitorConfig
+	featureGates featuregates.AddFlagsFunc
 }
 
 func (o *draOptions) NamedFlags() (fs flag.NamedFlagSets) {
@@ -111,11 +112,13 @@ func (o *draOptions) NamedFlags() (fs flag.NamedFlagSets) {
 	mfs.StringVar(&o.CDIRoot, "cdi-root", o.CDIRoot, "CDI root")
 	mfs.StringVar(&o.KubeletRegisterDirectoryPath, "kubelet-register-directory-path", o.KubeletRegisterDirectoryPath, "Kubelet register directory path")
 	mfs.StringVar(&o.KubeletPluginsDirectoryPath, "kubelet-plugins-directory-path", o.KubeletPluginsDirectoryPath, "Kubelet plugins directory path")
-	mfs.StringVar(&o.USBDevicesPath, "usb-devices-path", o.USBDevicesPath, "USB Devices path")
 	mfs.IntVar(&o.HealthzPort, "healthz-port", o.HealthzPort, "Healthz port")
-	mfs.DurationVar(&o.USBResyncPeriod, "usb-resync-period", o.USBResyncPeriod, "USB resync period")
 
 	o.Logging.AddFlags(fs.FlagSet("logging"))
+
+	o.Monitor.AddFlags(fs.FlagSet("usb-monitor"))
+
+	o.featureGates(fs.FlagSet("feature-gates"))
 
 	return fs
 }
@@ -155,7 +158,15 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to create CDI manager: %w", err)
 	}
 
-	usbStore := usb.NewAllocationStore(o.NodeName, o.USBDevicesPath, o.USBResyncPeriod, usbCDIManager, slog.Default())
+	monitor, err := o.Monitor.Complete(cmd.Context(), nil)
+	if err != nil {
+		return fmt.Errorf("failed to create USB monitor: %w", err)
+	}
+
+	usbStore, err := usb.NewAllocationStore(o.NodeName, usbCDIManager, monitor, slog.Default())
+	if err != nil {
+		return fmt.Errorf("failed to create USB store: %w", err)
+	}
 
 	driver := plugin.NewDriver(o.NodeName, client, usbStore, slog.Default())
 	err = driver.Start(cmd.Context())
@@ -167,11 +178,6 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 	err = healthCheck.Start()
 	if err != nil {
 		return fmt.Errorf("failed to start health check: %w", err)
-	}
-
-	err = usbStore.Start(cmd.Context())
-	if err != nil {
-		return fmt.Errorf("failed to start usb store: %w", err)
 	}
 
 	driver.Wait()

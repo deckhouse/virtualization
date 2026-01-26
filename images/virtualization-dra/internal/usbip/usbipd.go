@@ -1,0 +1,442 @@
+/*
+Copyright 2025 Flant JSC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package usbip
+
+import (
+	"context"
+	"crypto/tls"
+	"errors"
+	"fmt"
+	"io"
+	"log/slog"
+	"net"
+	"os"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"syscall"
+	"time"
+
+	"github.com/deckhouse/virtualization-dra/internal/usbip/protocol"
+	"github.com/deckhouse/virtualization-dra/pkg/libusb"
+)
+
+const (
+	defaultMaxTCPConnection        = 100
+	defaultGracefulShutdownTimeout = 30 * time.Second
+)
+
+func makeOptions(opts ...Option) *options {
+	options := &options{
+		maxTCPConnection:        defaultMaxTCPConnection,
+		gracefulShutdownTimeout: defaultGracefulShutdownTimeout,
+	}
+
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	return options
+}
+
+type options struct {
+	tlsConfig               *tls.Config
+	gracefulShutdownTimeout time.Duration
+	maxTCPConnection        int
+}
+
+type Option func(*options)
+
+func WithTLSConfig(tlsConfig *tls.Config) Option {
+	return func(o *options) {
+		o.tlsConfig = tlsConfig
+	}
+}
+func WithGracefulShutdownTimeout(timeout time.Duration) Option {
+	return func(o *options) {
+		o.gracefulShutdownTimeout = timeout
+	}
+}
+
+func WithMaxTCPConnection(maxTCPConnection int) Option {
+	return func(o *options) {
+		o.maxTCPConnection = maxTCPConnection
+	}
+}
+
+func NewUSBIPD(port int, monitor libusb.Monitor, opts ...Option) *USBIPD {
+	options := makeOptions(opts...)
+	return &USBIPD{
+		addr:                    ":" + strconv.Itoa(port),
+		tlsConfig:               options.tlsConfig,
+		gracefulShutdownTimeout: options.gracefulShutdownTimeout,
+		logger:                  slog.Default().With(slog.String("component", "usbipd")),
+		maxTCPConnection:        options.maxTCPConnection,
+		monitor:                 monitor,
+	}
+
+}
+
+type USBIPD struct {
+	addr                    string
+	tlsConfig               *tls.Config
+	gracefulShutdownTimeout time.Duration
+	logger                  *slog.Logger
+	maxTCPConnection        int
+
+	listener  net.Listener
+	connWg    sync.WaitGroup
+	connCount atomic.Int64
+	quit      chan struct{}
+
+	monitor libusb.Monitor
+}
+
+func (u *USBIPD) Start(ctx context.Context) error {
+	if err := u.setup(); err != nil {
+		return err
+	}
+
+	u.connWg.Add(1)
+	go u.run(ctx)
+
+	return nil
+}
+
+func (u *USBIPD) Run(ctx context.Context) error {
+	if err := u.setup(); err != nil {
+		return err
+	}
+
+	u.connWg.Add(1)
+	u.run(ctx)
+
+	return nil
+}
+
+func (u *USBIPD) setup() (err error) {
+	if u.tlsConfig != nil {
+		u.listener, err = tls.Listen("tcp", u.addr, u.tlsConfig)
+		if err != nil {
+			return err
+		}
+	} else {
+		u.listener, err = net.Listen("tcp", u.addr)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (u *USBIPD) run(ctx context.Context) {
+	var connCount atomic.Int64
+	defer u.connWg.Done()
+	for {
+		conn, err := u.listener.Accept()
+		// Error occurred when
+		// 1. Connection error
+		// 2. The listener is closed (quit channel is closed)
+		if err != nil {
+			select {
+			case <-u.quit:
+				return
+			default:
+				u.logger.Error("unsable to accept request", slog.String("address", u.addr), slog.Any("err", err))
+			}
+		} else {
+			// Check if TCP connection reached the limit specified in given config
+			count := connCount.Load()
+			if count+1 > int64(u.maxTCPConnection) {
+				u.logger.Error("maximum TCP connection reached, drop the connection", slog.Int64("count", count))
+				conn.Close()
+				continue
+			}
+
+			// TCP connection handler
+			u.connWg.Add(1)
+			connCount.Add(1)
+			go func() {
+				defer connCount.Add(-1)
+				defer u.connWg.Done()
+				defer conn.Close()
+
+				u.logger.Info("new connection established", slog.String("addr", conn.RemoteAddr().String()))
+				keepConn, err := u.handleConnection(conn)
+				if err != nil {
+					if !errors.Is(err, io.EOF) {
+						u.logger.Error("failed to handle connection", slog.Any("err", err), slog.String("addr", conn.RemoteAddr().String()))
+					} else {
+						u.logger.Info("connection EOF", slog.String("addr", conn.RemoteAddr().String()))
+					}
+				}
+				if keepConn {
+					// don't handle and read from the socket. other work doing a kernel module
+					<-ctx.Done()
+				}
+				u.logger.Info("connection closed", slog.String("addr", conn.RemoteAddr().String()))
+			}()
+		}
+	}
+}
+
+// https://docs.kernel.org/usb/usbip_protocol.html
+// https://github.com/torvalds/linux/blob/9448598b22c50c8a5bb77a9103e2d49f134c9578/tools/usb/usbip/src/usbipd.c#L251
+func (u *USBIPD) handleConnection(conn net.Conn) (bool, error) {
+	opCommon := &protocol.OpCommon{}
+	if err := opCommon.Decode(conn); err != nil {
+		return false, fmt.Errorf("failed to decode OpCommon: %w", err)
+	}
+
+	if opCommon.Version != protocol.Version {
+		return false, fmt.Errorf("unsupported USBIP version: %d", opCommon.Version)
+	}
+
+	if opCommon.Status != protocol.OpStatusOk {
+		return false, fmt.Errorf("request failed: %s", opCommon.Status.String())
+	}
+
+	switch opCommon.Code {
+	case protocol.OpReqDevList:
+		if err := u.handleDeviceList(conn); err != nil {
+			return false, fmt.Errorf("failed to handle OpReqDevList: %w", err)
+		}
+	case protocol.OpReqImport:
+		if err := u.handleImportRequest(conn); err != nil {
+			return false, fmt.Errorf("failed to handle OpReqImport: %w", err)
+		}
+		return true, nil
+	case protocol.OpReqDevInfo, protocol.OpReqCrypkey:
+		// nothing to do
+	default:
+		return false, fmt.Errorf("unsupported OpCommon.Code: %d", opCommon.Code)
+	}
+
+	return false, nil
+}
+
+// https://github.com/torvalds/linux/blob/9448598b22c50c8a5bb77a9103e2d49f134c9578/tools/usb/usbip/src/usbipd.c#L229
+func (u *USBIPD) handleDeviceList(conn net.Conn) error {
+	info := u.getUSBDeviceInfo()
+	if len(info) == 0 {
+		slog.Info("no USB devices found")
+	}
+	devList := protocol.NewDeviceList(protocol.OpStatusOk, info)
+	return devList.Encode(conn)
+}
+
+// https://github.com/torvalds/linux/blob/9448598b22c50c8a5bb77a9103e2d49f134c9578/tools/usb/usbip/src/usbipd.c#L91
+func (u *USBIPD) handleImportRequest(conn net.Conn) error {
+	importReq := &protocol.ImportRequest{}
+	if err := importReq.Decode(conn); err != nil {
+		return fmt.Errorf("failed to decode ImportRequest: %w", err)
+	}
+
+	busID := importReq.BusID()
+	log := u.logger.With(slog.String("busID", busID))
+	log.Info("import request")
+
+	devices := u.monitor.GetDevices()
+
+	var bindDevice *libusb.USBDevice
+	for _, device := range devices {
+		if device.BusID == busID {
+			log.Info("found device for export")
+			bindDevice = &device
+			break
+		}
+	}
+
+	status := protocol.OpStatusOk
+
+	if bindDevice != nil {
+		// should set TCP_NODELAY for usbip
+		u.setNotDelay(conn)
+
+		status = u.exportDevice(conn, bindDevice)
+		if status != protocol.OpStatusOk {
+			log.Error("failed to export device", slog.String("status", status.String()))
+		}
+
+	} else {
+		// not found
+		status = protocol.OpStatusNoDev
+	}
+
+	u.logger.Info("export device", slog.Any("device", bindDevice))
+
+	usbDevice := toUSBDeviceInfo(bindDevice).USBDevice
+	reply := protocol.NewImportReply(status, usbDevice)
+
+	return reply.Encode(conn)
+}
+
+// https://github.com/torvalds/linux/blob/9448598b22c50c8a5bb77a9103e2d49f134c9578/tools/usb/usbip/libsrc/usbip_host_common.c#L212
+func (u *USBIPD) exportDevice(conn net.Conn, device *libusb.USBDevice) protocol.OpStatus {
+
+	log := u.logger.With(slog.String("busID", device.BusID))
+	log.Info("export request")
+
+	usbIpStatus, err := u.getUSBIPStatus(device)
+	if err != nil {
+		log.Error("failed to get USBIP status", slog.Any("error", err))
+		return protocol.OpStatusError
+	}
+
+	if usbIpStatus != protocol.DeviceStatusAvailable {
+		log.Info("USBIP status is not available")
+		switch usbIpStatus {
+		case protocol.DeviceStatusError:
+			log.Debug("USBIP status is error")
+			return protocol.OpStatusDevErr
+		case protocol.DeviceStatusUsed:
+			log.Debug("USBIP status is used")
+			return protocol.OpStatusDevBusy
+		default:
+			log.Debug("USBIP status unknown")
+			return protocol.OpStatusNA
+		}
+	}
+
+	syscallConn, ok := conn.(syscall.Conn)
+	if !ok {
+		log.Error("conn does not implement syscall.Conn")
+		return protocol.OpStatusNA
+	}
+
+	var sockFd int
+	rawConn, err := syscallConn.SyscallConn()
+	if err != nil {
+		log.Error("failed to get raw connection", slog.Any("error", err))
+		return protocol.OpStatusNA
+	}
+	err = rawConn.Control(func(fd uintptr) {
+		sockFd = int(fd)
+	})
+	if err != nil {
+		log.Error("failed to get socket fd", slog.Any("error", err))
+		return protocol.OpStatusNA
+	}
+
+	err = writeSysfsAttr(usbipSockFdPath(device.BusID), sockFdAttr{sockFd: sockFd})
+	if err != nil {
+		log.Error("failed to write usbip_sockfd", slog.Any("error", err))
+		return protocol.OpStatusNA
+	}
+
+	log.Info("Connect")
+
+	return protocol.OpStatusOk
+}
+
+type sockFdAttr struct {
+	sockFd int
+}
+
+func (a sockFdAttr) Complete() string {
+	return fmt.Sprintf("%d\n", a.sockFd)
+}
+
+func (u *USBIPD) getUSBIPStatus(device *libusb.USBDevice) (protocol.DeviceStatus, error) {
+	statusPath := usbipStatusPath(device.BusID)
+
+	data, err := os.ReadFile(statusPath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read %s: %w", statusPath, err)
+	}
+
+	statusStr := strings.TrimSpace(string(data))
+
+	value, err := strconv.ParseUint(statusStr, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("invalid status value %q: %w", statusStr, err)
+	}
+
+	status := protocol.DeviceStatus(value)
+
+	return status, nil
+}
+
+func (u *USBIPD) setNotDelay(conn net.Conn) {
+	tcpConn, ok := conn.(*net.TCPConn)
+	if ok {
+		err := tcpConn.SetNoDelay(true)
+		if err != nil {
+			u.logger.Error("failed to set TCP_NODELAY", slog.String("error", err.Error()))
+		}
+		return
+	}
+	u.logger.Error("failed to cast connection to TCPConn")
+}
+
+// TODO: check already used devices
+func (u *USBIPD) getUSBDeviceInfo() []protocol.USBDeviceInfo {
+	devices := u.monitor.GetDevices()
+
+	var bindDevices []protocol.USBDeviceInfo
+
+	for _, device := range devices {
+		if device.Driver == usbipHostDriverName {
+			bindDevice := toUSBDeviceInfo(&device)
+			bindDevices = append(bindDevices, bindDevice)
+		}
+	}
+
+	return bindDevices
+}
+
+func toUSBDeviceInfo(device *libusb.USBDevice) protocol.USBDeviceInfo {
+	if device == nil {
+		return protocol.USBDeviceInfo{}
+	}
+	return protocol.USBDeviceInfo{
+		USBDevice: protocol.USBDevice{
+			Path:                protocol.ToDevicePath(device.DevicePath),
+			BusID:               protocol.ToBusID(device.BusID),
+			Busnum:              device.Bus,
+			Devnum:              device.DeviceNumber,
+			Speed:               toSpeed(device.Speed),
+			IDVendor:            device.VendorID,
+			IDProduct:           device.ProductID,
+			BcdDevice:           device.BCD,
+			BDeviceClass:        device.BDeviceClass,
+			BDeviceSubClass:     device.BDeviceSubClass,
+			BDeviceProtocol:     device.BDeviceProtocol,
+			BConfigurationValue: device.BConfigurationValue,
+			BNumConfigurations:  device.BNumConfigurations,
+			BNumInterfaces:      device.BNumInterfaces,
+		},
+		Interfaces: toInterfaces(device.Interfaces),
+	}
+}
+
+func toInterfaces(interfaces []libusb.USBDeviceInterface) []protocol.USBDeviceInterface {
+	result := make([]protocol.USBDeviceInterface, len(interfaces))
+	for i, iface := range interfaces {
+		result[i] = protocol.USBDeviceInterface{
+			BInterfaceClass:    iface.BInterfaceClass,
+			BInterfaceSubClass: iface.BInterfaceSubClass,
+			BInterfaceProtocol: iface.BInterfaceProtocol,
+		}
+	}
+	return result
+}
+
+func toSpeed(speed uint32) uint32 {
+	return uint32(libusb.ResolveDeviceSpeed(speed))
+}
