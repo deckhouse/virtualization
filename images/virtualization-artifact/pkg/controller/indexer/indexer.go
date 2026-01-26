@@ -35,6 +35,7 @@ const (
 	IndexFieldVMByVD    = "spec.blockDeviceRefs.VirtualDisk"
 	IndexFieldVMByVI    = "spec.blockDeviceRefs.VirtualImage"
 	IndexFieldVMByCVI   = "spec.blockDeviceRefs.ClusterVirtualImage"
+	IndexFieldVMByUSBDevice = "spec.usbDevices.name"
 	IndexFieldVMByNode  = "status.node"
 
 	IndexFieldVDByVDSnapshot  = "vd,spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
@@ -72,6 +73,7 @@ var IndexGetters = []IndexGetter{
 	IndexVMByVD,
 	IndexVMByVI,
 	IndexVMByCVI,
+	IndexVMByUSBDevice,
 	IndexVMByNode,
 	IndexVMByProvisioningSecret,
 	IndexVMSnapshotByVM,
@@ -190,4 +192,25 @@ func getBlockDeviceNamesByKind(obj client.Object, kind v1alpha2.BlockDeviceKind)
 	}
 
 	return result
+}
+
+func IndexVMByUSBDevice() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &v1alpha2.VirtualMachine{}, IndexFieldVMByUSBDevice, func(object client.Object) []string {
+		vm, ok := object.(*v1alpha2.VirtualMachine)
+		if !ok || vm == nil {
+			return nil
+		}
+
+		seen := make(map[string]struct{})
+		var result []string
+
+		for _, ref := range vm.Spec.USBDevices {
+			if _, exists := seen[ref.Name]; !exists {
+				seen[ref.Name] = struct{}{}
+				result = append(result, ref.Name)
+			}
+		}
+
+		return result
+	}
 }
