@@ -31,12 +31,12 @@ const (
 )
 
 const (
-	IndexFieldVMByClass = "spec.virtualMachineClassName"
-	IndexFieldVMByVD    = "spec.blockDeviceRefs.VirtualDisk"
-	IndexFieldVMByVI    = "spec.blockDeviceRefs.VirtualImage"
-	IndexFieldVMByCVI   = "spec.blockDeviceRefs.ClusterVirtualImage"
+	IndexFieldVMByClass     = "spec.virtualMachineClassName"
+	IndexFieldVMByVD        = "spec.blockDeviceRefs.VirtualDisk"
+	IndexFieldVMByVI        = "spec.blockDeviceRefs.VirtualImage"
+	IndexFieldVMByCVI       = "spec.blockDeviceRefs.ClusterVirtualImage"
 	IndexFieldVMByUSBDevice = "spec.usbDevices.name"
-	IndexFieldVMByNode  = "status.node"
+	IndexFieldVMByNode      = "status.node"
 
 	IndexFieldVDByVDSnapshot  = "vd,spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
 	IndexFieldVIByVDSnapshot  = "vi,spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
