@@ -92,9 +92,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 			Status(metav1.ConditionFalse).
 			Reason(vmscondition.Snapshotting).
 			Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
-		if vmSnapshot.Status.Phase == "" {
-			vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhasePending
-		}
 		return reconcile.Result{}, nil
 	case k8serrors.IsConflict(err):
 		log.Debug(fmt.Sprintf("failed to sync filesystem status; resource update conflict error: %s", err))
@@ -102,9 +99,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 			Status(metav1.ConditionFalse).
 			Reason(vmscondition.Snapshotting).
 			Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
-		if vmSnapshot.Status.Phase == "" {
-			vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhasePending
-		}
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 	default:
 		err = fmt.Errorf("failed to sync filesystem status: %w", err)
