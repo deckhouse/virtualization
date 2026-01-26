@@ -36,6 +36,7 @@ import (
 
 const (
 	nameReadyHandler = "ReadyHandler"
+	draDriverName    = "virtualization-dra"
 )
 
 func NewReadyHandler(client client.Client, recorder eventrecord.EventRecorderLogger) *ReadyHandler {
@@ -86,7 +87,7 @@ func (h *ReadyHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState) (
 	}
 
 	cb := conditions.NewConditionBuilder(nodeusbdevicecondition.ReadyType).
-		Generation(changed.Generation).
+		Generation(current.GetGeneration()).
 		Status(status).
 		Reason(reason).
 		Message(message)

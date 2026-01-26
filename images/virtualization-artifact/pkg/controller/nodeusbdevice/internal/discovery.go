@@ -28,9 +28,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/nodeusbdevicecondition"
 )
 
 const (
@@ -77,7 +79,13 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.NodeUSBDeviceStat
 	deviceInfo, found := h.findDeviceInSlices(resourceSlices, current.Status.Attributes.Hash, current.Status.NodeName)
 	if !found {
 		// Device not found in slices - mark as NotFound
-		return h.updateReadyCondition(changed, "NotFound", "Device not found in ResourceSlice", metav1.ConditionFalse)
+		cb := conditions.NewConditionBuilder(nodeusbdevicecondition.ReadyType).
+			Generation(current.GetGeneration()).
+			Status(metav1.ConditionFalse).
+			Reason(nodeusbdevicecondition.NotFound).
+			Message("Device not found in ResourceSlice")
+		conditions.SetCondition(cb, &changed.Status.Conditions)
+		return reconcile.Result{}, nil
 	}
 
 	// Update attributes if they changed
@@ -137,16 +145,16 @@ func (h *DiscoveryHandler) discoverAndCreate(ctx context.Context) (reconcile.Res
 					NodeName:   attributes.NodeName,
 					Conditions: []metav1.Condition{
 						{
-							Type:               "Ready",
+							Type:               string(nodeusbdevicecondition.ReadyType),
 							Status:             metav1.ConditionTrue,
-							Reason:             "Ready",
+							Reason:             string(nodeusbdevicecondition.Ready),
 							Message:            "Device is ready to use",
 							LastTransitionTime: metav1.Now(),
 						},
 						{
-							Type:               "Assigned",
+							Type:               string(nodeusbdevicecondition.AssignedType),
 							Status:             metav1.ConditionFalse,
-							Reason:             "Available",
+							Reason:             string(nodeusbdevicecondition.Available),
 							Message:            "No namespace is assigned for the device",
 							LastTransitionTime: metav1.Now(),
 						},
@@ -302,29 +310,13 @@ func (h *DiscoveryHandler) attributesEqual(a, b v1alpha2.NodeUSBDeviceAttributes
 }
 
 func (h *DiscoveryHandler) updateReadyCondition(obj *v1alpha2.NodeUSBDevice, reason, message string, status metav1.ConditionStatus) (reconcile.Result, error) {
-	now := metav1.Now()
-	condition := metav1.Condition{
-		Type:               "Ready",
-		Status:             status,
-		Reason:             reason,
-		Message:            message,
-		LastTransitionTime: now,
-		ObservedGeneration: obj.Generation,
-	}
-
-	// Update or add condition
-	found := false
-	for i := range obj.Status.Conditions {
-		if obj.Status.Conditions[i].Type == "Ready" {
-			obj.Status.Conditions[i] = condition
-			found = true
-			break
-		}
-	}
-	if !found {
-		obj.Status.Conditions = append(obj.Status.Conditions, condition)
-	}
-
+	// This method is deprecated - use conditions.NewConditionBuilder instead
+	cb := conditions.NewConditionBuilder(nodeusbdevicecondition.ReadyType).
+		Generation(obj.GetGeneration()).
+		Status(status).
+		Reason(nodeusbdevicecondition.ReadyReason(reason)).
+		Message(message)
+	conditions.SetCondition(cb, &obj.Status.Conditions)
 	return reconcile.Result{}, nil
 }
 
