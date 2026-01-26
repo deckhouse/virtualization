@@ -18,6 +18,7 @@ package vm
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"k8s.io/utils/ptr"
@@ -36,8 +37,8 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vmmetrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/virtualmachine"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (

@@ -18,7 +18,6 @@ package watcher
 
 import (
 	"context"
-	"fmt"
 
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"

@@ -20,17 +20,18 @@ import (
 	"context"
 	"fmt"
 
+	resourcev1beta1 "k8s.io/api/resource/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	resourcev1beta1 "k8s.io/api/resource/v1beta1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
 
 const nameUSBDeviceHandler = "USBDeviceHandler"
@@ -90,7 +91,7 @@ func (h *USBDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 
 		// Get or create ResourceClaimTemplate
 		templateName := h.getResourceClaimTemplateName(vm, usbDeviceRef.Name)
-		template, err := h.getOrCreateResourceClaimTemplate(ctx, vm, usbDevice, templateName)
+		_, err := h.getOrCreateResourceClaimTemplate(ctx, vm, usbDevice, templateName)
 		if err != nil {
 			log.Error("failed to get or create ResourceClaimTemplate", "error", err, "usbDevice", usbDeviceRef.Name)
 			// Continue with other devices
@@ -150,16 +151,33 @@ func (h *USBDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		address := h.getOrAssignUSBAddress(existingStatus, isHotplugged)
 
 		statusRef := v1alpha2.USBDeviceStatusRef{
-			Name:        usbDeviceRef.Name,
-			Attached:    true,
-			Address:     address,
-			Hotplugged:  isHotplugged,
+			Name:       usbDeviceRef.Name,
+			Attached:   true,
+			Address:    address,
+			Hotplugged: isHotplugged,
 		}
 		statusRefs = append(statusRefs, statusRef)
 	}
 
 	// Remove devices that are no longer in spec
-	// (they will be automatically unplugged when removed from spec)
+	specDeviceNames := make(map[string]bool)
+	for _, usbDeviceRef := range vm.Spec.USBDevices {
+		specDeviceNames[usbDeviceRef.Name] = true
+	}
+
+	for _, existingStatus := range currentStatusMap {
+		if !specDeviceNames[existingStatus.Name] && existingStatus.Attached {
+			// Device was removed from spec but is still attached, need to detach
+			err := h.detachUSBDevice(ctx, vm, existingStatus.Name)
+			if err != nil {
+				log.Error("failed to detach USB device", "error", err, "usbDevice", existingStatus.Name)
+				// Keep status but mark as not attached
+				existingStatus.Attached = false
+				statusRefs = append(statusRefs, *existingStatus)
+			}
+			// If detach succeeded, device is removed from status (not added to statusRefs)
+		}
+	}
 
 	changed.Status.USBDevices = statusRefs
 
@@ -189,7 +207,7 @@ func (h *USBDeviceHandler) getOrCreateResourceClaimTemplate(
 		return template, nil
 	}
 
-	if !client.IgnoreNotFound(err) {
+	if client.IgnoreNotFound(err) != nil {
 		return nil, fmt.Errorf("failed to get ResourceClaimTemplate: %w", err)
 	}
 
@@ -227,14 +245,12 @@ func (h *USBDeviceHandler) getOrCreateResourceClaimTemplate(
 		},
 		Spec: resourcev1beta1.ResourceClaimTemplateSpec{
 			Spec: resourcev1beta1.ResourceClaimSpec{
-				ResourceClassName: "usb-devices.virtualization.deckhouse.io",
-				AllocationMode:    resourcev1beta1.AllocationModeWaitForFirstConsumer,
-				Devices: &resourcev1beta1.DeviceRequest{
+				Devices: resourcev1beta1.DeviceClaim{
 					Requests: []resourcev1beta1.DeviceRequest{
 						{
-							Name:           "req-0",
-							AllocationMode: resourcev1beta1.AllocationModeExactCount,
-							Count:          ptr.To(int32(1)),
+							Name:            "req-0",
+							AllocationMode:  resourcev1beta1.DeviceAllocationModeExactCount,
+							Count:           1,
 							DeviceClassName: "usb-devices.virtualization.deckhouse.io",
 							Selectors: []resourcev1beta1.DeviceSelector{
 								{
@@ -280,13 +296,26 @@ func (h *USBDeviceHandler) attachUSBDevice(
 	requestName string,
 ) error {
 	// Call addResourceClaim API
-	opts := v1alpha2.VirtualMachineAddResourceClaim{
+	opts := subv1alpha2.VirtualMachineAddResourceClaim{
 		Name:                      usbDeviceName,
 		ResourceClaimTemplateName: templateName,
 		RequestName:               requestName,
 	}
 
 	return h.virtClient.VirtualizationV1alpha2().VirtualMachines(vm.Namespace).AddResourceClaim(ctx, vm.Name, opts)
+}
+
+func (h *USBDeviceHandler) detachUSBDevice(
+	ctx context.Context,
+	vm *v1alpha2.VirtualMachine,
+	usbDeviceName string,
+) error {
+	// Call removeResourceClaim API
+	opts := subv1alpha2.VirtualMachineRemoveResourceClaim{
+		Name: usbDeviceName,
+	}
+
+	return h.virtClient.VirtualizationV1alpha2().VirtualMachines(vm.Namespace).RemoveResourceClaim(ctx, vm.Name, opts)
 }
 
 func (h *USBDeviceHandler) getOrAssignUSBAddress(
