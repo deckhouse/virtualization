@@ -23,36 +23,19 @@ spec:
   versions:
     - additionalPrinterColumns:
         - jsonPath: .status.nodeName
-          name: NODENAME
+          name: Node
           type: string
-        - jsonPath: .status.attributes.manufacturer
-          name: MANUFACTURER
+        - jsonPath: .status.conditions[?(@.type=="Ready")].status
+          name: Ready
           type: string
-        - jsonPath: .status.attributes.product
-          name: PRODUCT
+        - jsonPath: .status.conditions[?(@.type=="Assigned")].status
+          name: Assigned
           type: string
-        - jsonPath: .status.attributes.vendorID
-          name: VENDORID
-          priority: 1
-          type: string
-        - jsonPath: .status.attributes.productID
-          name: PRODUCTID
-          priority: 1
-          type: string
-        - jsonPath: .status.attributes.bus
-          name: BUS
-          priority: 1
-          type: string
-        - jsonPath: .status.attributes.deviceNumber
-          name: DEVICENUMBER
-          priority: 1
-          type: string
-        - jsonPath: .status.attributes.serial
-          name: SERIAL
-          priority: 1
+        - jsonPath: .spec.assignedNamespace
+          name: Namespace
           type: string
         - jsonPath: .metadata.creationTimestamp
-          name: AGE
+          name: Age
           type: date
       name: v1alpha2
       schema:
@@ -139,9 +122,11 @@ spec:
                       type: string
                   type: object
                 conditions:
-                  description: The latest available observations of an object's current state.
+                  description:
+                    The latest available observations of an object's current
+                    state.
                   items:
-                    description: |-
+                    description:
                       Condition contains details for one aspect of the current
                       state of this API Resource.
                     properties:
@@ -172,14 +157,6 @@ spec:
                           and whether the values are considered a guaranteed API.
                           The value should be a CamelCase string.
                           This field may not be empty.
-                          For Ready condition type, possible values are:
-                          * Ready - device is ready to use
-                          * NotReady - device exists in the system but is not ready to use
-                          * NotFound - device is absent on the host
-                          For Assigned condition type, possible values are:
-                          * Assigned - namespace is assigned for the device and corresponding USBDevice resource is created in this namespace
-                          * Available - no namespace is assigned for the device
-                          * InProgress - device connection to namespace is in progress (USBDevice resource creation)
                         maxLength: 1024
                         minLength: 1
                         pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
@@ -192,15 +169,7 @@ spec:
                           - Unknown
                         type: string
                       type:
-                        description: |-
-                          type of condition in CamelCase or in foo.example.com/CamelCase.
-                          Supported condition types:
-                          * Ready - indicates whether the device is ready to use. When reason is "Ready", status is "True".
-                          When reason is "NotReady" or "NotFound", status is "False". When transitioning to NotFound,
-                          the resource remains in the cluster, administrator can delete it manually. Based on lastTransitionTime,
-                          a Garbage Collector can be implemented for automatic cleanup.
-                          * Assigned - indicates whether a namespace is assigned for the device. When reason is "Assigned",
-                          status is "True". When reason is "Available" or "InProgress", status is "False".
+                        description: type of condition in CamelCase or in foo.example.com/CamelCase.
                         maxLength: 316
                         pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                         type: string
@@ -215,6 +184,10 @@ spec:
                 nodeName:
                   description: Name of the node where the USB device is located.
                   type: string
+                observedGeneration:
+                  description: Resource generation last processed by the controller.
+                  format: int64
+                  type: integer
               type: object
           required:
             - spec
