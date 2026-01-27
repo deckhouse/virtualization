@@ -56,9 +56,9 @@ shell:
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 fromImage: {{ .ModuleNamePrefix }}distroless
 import:
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
   add: /src/app/images/vm-route-forge/vm-route-forge
-  to: /src
+  to: /app/vm-route-forge
   after: install
 {{- if eq $.DEBUG_COMPONENT "delve/vm-route-forge" }}
 - image: debugger
