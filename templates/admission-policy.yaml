@@ -94,11 +94,12 @@ spec:
         operations:
           - "UPDATE"
         resources:
+          - "nodeusbdevices/status"
           - "usbdevices"
   validations:
     - expression: |
         request.userInfo.username.startsWith("system:serviceaccount:d8")
-      message: "NodeUSBDevice and USBDevice resources can only be created, deleted, or have their status updated by ServiceAccounts with 'd8' prefix. Only spec updates are allowed for other users."
+      message: "NodeUSBDevice and USBDevice resources can only be created, deleted, or updated by ServiceAccounts with 'd8' prefix. NodeUSBDevice status can only be updated by ServiceAccounts with 'd8' prefix. Only spec updates are allowed for other users on NodeUSBDevice."
 ---
 apiVersion: {{ $apiVersion }}
 kind: ValidatingAdmissionPolicyBinding
