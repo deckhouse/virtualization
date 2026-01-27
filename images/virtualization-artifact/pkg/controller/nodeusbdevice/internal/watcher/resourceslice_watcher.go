@@ -55,7 +55,7 @@ func (w *ResourceSliceWatcher) Watch(mgr manager.Manager, ctr controller.Control
 				// Check if ResourceSlice contains USB devices
 				hasUSBDevices := false
 				for _, device := range slice.Spec.Devices {
-					if strings.HasPrefix(device.Name, "virtualization-dra-") {
+					if strings.HasPrefix(device.Name, "usb-") {
 						hasUSBDevices = true
 						break
 					}
