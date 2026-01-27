@@ -154,7 +154,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 
 			if strings.Contains(err.Error(), "not found") {
 				if showedWaitMessage {
-					fmt.Fprintf(os.Stderr, clearLineNL)
+					fmt.Fprint(os.Stderr, clearLineNL)
 				}
 				return err
 			}
@@ -168,9 +168,9 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 			if errors.As(err, &wsErr) {
 				if wsErr.Code == websocket.CloseGoingAway {
 					if showedWaitMessage {
-						fmt.Fprintf(os.Stderr, clearLine)
+						fmt.Fprint(os.Stderr, clearLine)
 					}
-					fmt.Fprintf(os.Stderr, util.CloseGoingAwayMessage)
+					fmt.Fprint(os.Stderr, util.CloseGoingAwayMessage)
 					return nil
 				}
 				shouldWait = shouldWait || wsErr.Code == websocket.CloseAbnormalClosure
@@ -188,7 +188,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 				// Check total timeout
 				if time.Since(startTime) > timeout {
 					if showedWaitMessage {
-						fmt.Fprintf(os.Stderr, clearLineNL)
+						fmt.Fprint(os.Stderr, clearLineNL)
 					}
 					return fmt.Errorf("timeout after %s waiting for VirtualMachine %q serial console", c.timeout, name)
 				}
@@ -208,7 +208,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 
 			// Unknown error - print and continue
 			if showedWaitMessage {
-				fmt.Fprintf(os.Stderr, clearLineNL)
+				fmt.Fprint(os.Stderr, clearLineNL)
 			}
 			fmt.Fprintf(os.Stderr, "%s\r\n", err)
 			showedWaitMessage = false
