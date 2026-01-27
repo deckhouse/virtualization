@@ -100,7 +100,7 @@ func (o CloneOperation) IsInProgress() bool {
 		}
 	}
 
-	return true
+	return false
 }
 
 func (o CloneOperation) IsCompleted() (bool, string) {
