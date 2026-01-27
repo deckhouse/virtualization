@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
@@ -69,6 +71,13 @@ func NewController(
 	}
 
 	if err = r.SetupController(ctx, mgr, c); err != nil {
+		return nil, err
+	}
+
+	if err = builder.WebhookManagedBy(mgr).
+		For(&v1alpha2.USBDevice{}).
+		WithValidator(NewValidator(log)).
+		Complete(); err != nil {
 		return nil, err
 	}
 
