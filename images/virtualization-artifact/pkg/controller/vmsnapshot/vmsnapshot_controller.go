@@ -53,6 +53,7 @@ func NewController(
 		mgr.GetClient(),
 		internal.NewVirtualMachineReadyHandler(snapshotter),
 		internal.NewLifeCycleHandler(recorder, snapshotter, restorer.NewSecretRestorer(mgr.GetClient()), mgr.GetClient()),
+		internal.NewEnsureValidityHandler(),
 	)
 
 	vmSnapshotController, err := controller.New(ControllerName, mgr, controller.Options{
