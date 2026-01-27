@@ -214,6 +214,8 @@ rules:
   - virtualdisksnapshots
   - virtualmachinesnapshots
   - virtualmachinerestores
+  - nodeusbdevices
+  - usbdevices
   verbs:
   - create
   - delete
@@ -240,6 +242,8 @@ rules:
   - virtualdisksnapshots/finalizers
   - virtualmachinesnapshots/finalizers
   - virtualmachinerestores/finalizers
+  - nodeusbdevices/finalizers
+  - usbdevices/finalizers
   - virtualmachineipaddresses/status
   - virtualmachineipaddressleases/status
   - virtualmachinemacaddresses/status
@@ -255,6 +259,8 @@ rules:
   - virtualdisksnapshots/status
   - virtualmachinesnapshots/status
   - virtualmachinerestores/status
+  - nodeusbdevices/status
+  - usbdevices/status
   verbs:
   - patch
   - update
