@@ -15,10 +15,6 @@ git:
   stageDependencies:
     install:
     - "**/*.go"
-secrets:
-- id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO }}
-
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
