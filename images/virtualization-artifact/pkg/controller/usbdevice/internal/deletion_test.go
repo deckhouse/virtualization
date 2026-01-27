@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/usbdevice/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -61,7 +62,14 @@ var _ = Describe("DeletionHandler", func() {
 			scheme := apiruntime.NewScheme()
 			Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 
-			fakeClient = fake.NewClientBuilder().WithScheme(scheme).WithObjects(usbDevice).Build()
+			vmObj, vmField, vmExtractValue := indexer.IndexVMByUSBDevice()
+			nodeUSBDeviceObj, nodeUSBDeviceField, nodeUSBDeviceExtractValue := indexer.IndexNodeUSBDeviceByName()
+			fakeClient = fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(usbDevice).
+				WithIndex(vmObj, vmField, vmExtractValue).
+				WithIndex(nodeUSBDeviceObj, nodeUSBDeviceField, nodeUSBDeviceExtractValue).
+				Build()
 
 			usbDeviceResource = reconciler.NewResource(
 				types.NamespacedName{Name: usbDevice.Name, Namespace: usbDevice.Namespace},
@@ -109,7 +117,14 @@ var _ = Describe("DeletionHandler", func() {
 			scheme := apiruntime.NewScheme()
 			Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 
-			fakeClient = fake.NewClientBuilder().WithScheme(scheme).WithObjects(usbDevice).Build()
+			vmObj, vmField, vmExtractValue := indexer.IndexVMByUSBDevice()
+			nodeUSBDeviceObj, nodeUSBDeviceField, nodeUSBDeviceExtractValue := indexer.IndexNodeUSBDeviceByName()
+			fakeClient = fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(usbDevice).
+				WithIndex(vmObj, vmField, vmExtractValue).
+				WithIndex(nodeUSBDeviceObj, nodeUSBDeviceField, nodeUSBDeviceExtractValue).
+				Build()
 
 			usbDeviceResource = reconciler.NewResource(
 				types.NamespacedName{Name: usbDevice.Name, Namespace: usbDevice.Namespace},
@@ -158,6 +173,13 @@ var _ = Describe("DeletionHandler", func() {
 					Name:      "test-vm",
 					Namespace: "default",
 				},
+				Spec: v1alpha2.VirtualMachineSpec{
+					USBDevices: []v1alpha2.USBDeviceSpecRef{
+						{
+							Name: "usb-device-1",
+						},
+					},
+				},
 				Status: v1alpha2.VirtualMachineStatus{
 					USBDevices: []v1alpha2.USBDeviceStatusRef{
 						{
@@ -171,7 +193,14 @@ var _ = Describe("DeletionHandler", func() {
 			scheme := apiruntime.NewScheme()
 			Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 
-			fakeClient = fake.NewClientBuilder().WithScheme(scheme).WithObjects(usbDevice, vm).Build()
+			vmObj, vmField, vmExtractValue := indexer.IndexVMByUSBDevice()
+			nodeUSBDeviceObj, nodeUSBDeviceField, nodeUSBDeviceExtractValue := indexer.IndexNodeUSBDeviceByName()
+			fakeClient = fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(usbDevice, vm).
+				WithIndex(vmObj, vmField, vmExtractValue).
+				WithIndex(nodeUSBDeviceObj, nodeUSBDeviceField, nodeUSBDeviceExtractValue).
+				Build()
 
 			usbDeviceResource = reconciler.NewResource(
 				types.NamespacedName{Name: usbDevice.Name, Namespace: usbDevice.Namespace},
@@ -183,7 +212,7 @@ var _ = Describe("DeletionHandler", func() {
 
 			usbDeviceState = state.New(fakeClient, usbDeviceResource)
 			recorder := &eventrecord.EventRecorderLoggerMock{
-				EventfFunc: func(involvedObject client.Object, eventtype, reason, messageFmt string, args ...interface{}) {},
+				EventfFunc: func(involvedObject client.Object, eventtype, reason, messageFmt string, args ...any) {},
 			}
 			fakeVirtClient := fakeversioned.NewSimpleClientset()
 			handler = NewDeletionHandler(fakeClient, fakeVirtClient, recorder)
