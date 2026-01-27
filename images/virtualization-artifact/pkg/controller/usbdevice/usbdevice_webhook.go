@@ -27,18 +27,18 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
+type Validator struct {
+	log *log.Logger
+}
+
 func NewValidator(log *log.Logger) *Validator {
 	return &Validator{
 		log: log.With("webhook", "validation"),
 	}
 }
 
-type Validator struct {
-	log *log.Logger
-}
-
 // ValidateCreate validates USBDevice creation.
-// USBDevice resources are managed by the controller and should not be created by users.
+// Access control is handled by RBAC - only the controller ServiceAccount has create permissions.
 func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	usbDevice, ok := obj.(*v1alpha2.USBDevice)
 	if !ok {
@@ -47,9 +47,9 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 
 	v.log.Info("Validate USBDevice creating", "name", usbDevice.Name, "namespace", usbDevice.Namespace)
 
-	// USBDevice resources are created automatically by the controller
-	// Users should not create them directly
-	return nil, fmt.Errorf("USBDevice resources are managed by the controller and cannot be created manually. Use NodeUSBDevice to assign devices to namespaces")
+	// RBAC controls access - only the controller ServiceAccount can create USBDevice
+	// No additional validation needed here
+	return nil, nil
 }
 
 // ValidateUpdate validates USBDevice updates.
@@ -74,7 +74,7 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 }
 
 // ValidateDelete validates USBDevice deletion.
-// USBDevice resources are managed by the controller and should not be deleted by users.
+// Access control is handled by RBAC - only the controller ServiceAccount has delete permissions.
 func (v *Validator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	usbDevice, ok := obj.(*v1alpha2.USBDevice)
 	if !ok {
@@ -83,7 +83,7 @@ func (v *Validator) ValidateDelete(ctx context.Context, obj runtime.Object) (adm
 
 	v.log.Info("Validate USBDevice deleting", "name", usbDevice.Name, "namespace", usbDevice.Namespace)
 
-	// USBDevice resources are deleted automatically by the controller
-	// Users should not delete them directly
-	return nil, fmt.Errorf("USBDevice resources are managed by the controller and cannot be deleted manually. Modify NodeUSBDevice.spec.assignedNamespace to remove the device from a namespace")
+	// RBAC controls access - only the controller ServiceAccount can delete USBDevice
+	// No additional validation needed here
+	return nil, nil
 }

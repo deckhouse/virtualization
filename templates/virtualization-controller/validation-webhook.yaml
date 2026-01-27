@@ -267,28 +267,11 @@ webhooks:
       - name: 'match-virtualization'
         expression: 'request.name == "virtualization"'
     {{- end }}
-  - name: "usbdevice.virtualization-controller.validate.d8-virtualization"
-    rules:
-      - apiGroups:   ["virtualization.deckhouse.io"]
-        apiVersions: ["v1alpha2"]
-        operations:  ["CREATE", "UPDATE", "DELETE"]
-        resources:   ["usbdevices"]
-        scope:       "Namespaced"
-    clientConfig:
-      service:
-        namespace: d8-{{ .Chart.Name }}
-        name: virtualization-controller
-        path: /validate-virtualization-deckhouse-io-v1alpha2-usbdevice
-        port: 443
-      caBundle: |
-        {{ .Values.virtualization.internal.controller.cert.ca | b64enc }}
-    admissionReviewVersions: ["v1"]
-    sideEffects: None
   - name: "nodeusbdevice.virtualization-controller.validate.d8-virtualization"
     rules:
       - apiGroups:   ["virtualization.deckhouse.io"]
         apiVersions: ["v1alpha2"]
-        operations:  ["CREATE", "UPDATE", "DELETE"]
+        operations:  ["UPDATE"]
         resources:   ["nodeusbdevices"]
         scope:       "Cluster"
     clientConfig:
