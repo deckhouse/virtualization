@@ -50,7 +50,8 @@ spec:
                       description: |-
                         Селектор меток узла для планирования виртуальной машины на узел. Должен соответствовать меткам целевого узла.
                         [По аналогии](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes/) с параметром подов `spec.nodeSelector` в Kubernetes.
-                        Примечание: поле `nodeSelector` недоступно в версии Community Edition.
+                        
+                        > Поле `nodeSelector` недоступно в Community Edition.
                 clone:
                   description: |
                     Определяет операцию клонирования.
