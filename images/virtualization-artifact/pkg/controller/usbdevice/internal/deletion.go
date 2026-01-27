@@ -26,24 +26,28 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/usbdevice/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/usbdevicecondition"
+	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
 
 const (
 	nameDeletionHandler = "DeletionHandler"
 )
 
-func NewDeletionHandler(client client.Client, recorder eventrecord.EventRecorderLogger) *DeletionHandler {
+func NewDeletionHandler(client client.Client, virtClient versioned.Interface, recorder eventrecord.EventRecorderLogger) *DeletionHandler {
 	return &DeletionHandler{
-		client:   client,
-		recorder: recorder,
+		client:     client,
+		virtClient: virtClient,
+		recorder:   recorder,
 	}
 }
 
 type DeletionHandler struct {
-	client   client.Client
-	recorder eventrecord.EventRecorderLogger
+	client     client.Client
+	virtClient versioned.Interface
+	recorder   eventrecord.EventRecorderLogger
 }
 
 func (h *DeletionHandler) Handle(ctx context.Context, s state.USBDeviceState) (reconcile.Result, error) {
@@ -62,25 +66,31 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.USBDeviceState) (r
 		return reconcile.Result{}, nil
 	}
 
-	// Check if device is attached to a VM
-	// TODO: Implement hot unplug before deletion
-	// For now, we just check the Attached condition
-	attached := false
-	for _, condition := range current.Status.Conditions {
-		if condition.Type == string(usbdevicecondition.AttachedType) {
-			if condition.Status == "True" && condition.Reason == string(usbdevicecondition.AttachedToVirtualMachine) {
-				attached = true
-				break
-			}
-		}
+	// Check if device is attached to a VM and perform hot unplug if needed
+	vms, err := s.VirtualMachinesUsingDevice(ctx)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to find VirtualMachines using USBDevice: %w", err)
 	}
 
-	if attached {
-		// TODO: Implement hot unplug logic here
-		// For now, we'll just log and continue
-		h.recorder.Eventf(changed, "Normal", "Deletion", "Device is attached to VM, hot unplug will be performed")
-		// Return to retry after hot unplug
-		return reconcile.Result{Requeue: true}, fmt.Errorf("device is attached to VM, hot unplug required")
+	if len(vms) > 0 {
+		// Device is attached to one or more VMs - perform hot unplug
+		h.recorder.Eventf(changed, "Normal", "Deletion", "Device is attached to VM(s), performing hot unplug")
+		
+		for _, vm := range vms {
+			// Remove ResourceClaim from VM
+			opts := subv1alpha2.VirtualMachineRemoveResourceClaim{
+				Name: current.Name,
+			}
+			if err := h.virtClient.VirtualizationV1alpha2().VirtualMachines(vm.Namespace).RemoveResourceClaim(ctx, vm.Name, opts); err != nil {
+				h.recorder.Eventf(changed, "Warning", "Deletion", "Failed to remove ResourceClaim from VM %s/%s: %v", vm.Namespace, vm.Name, err)
+				// Continue with other VMs, but requeue to retry
+				return reconcile.Result{Requeue: true}, fmt.Errorf("failed to remove ResourceClaim from VM %s/%s: %w", vm.Namespace, vm.Name, err)
+			}
+			h.recorder.Eventf(changed, "Normal", "Deletion", "Removed ResourceClaim from VM %s/%s", vm.Namespace, vm.Name)
+		}
+		
+		// Requeue to verify that device is no longer attached
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// Remove finalizer

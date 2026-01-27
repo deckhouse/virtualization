@@ -22,12 +22,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type USBDeviceState interface {
 	USBDevice() *reconciler.Resource[*v1alpha2.USBDevice, v1alpha2.USBDeviceStatus]
 	NodeUSBDevice(ctx context.Context) (*v1alpha2.NodeUSBDevice, error)
+	VirtualMachinesUsingDevice(ctx context.Context) ([]*v1alpha2.VirtualMachine, error)
 }
 
 func New(client client.Client, usbDevice *reconciler.Resource[*v1alpha2.USBDevice, v1alpha2.USBDeviceStatus]) USBDeviceState {
@@ -67,4 +69,35 @@ func (s *usbDeviceState) NodeUSBDevice(ctx context.Context) (*v1alpha2.NodeUSBDe
 	}
 
 	return nil, nil
+}
+
+func (s *usbDeviceState) VirtualMachinesUsingDevice(ctx context.Context) ([]*v1alpha2.VirtualMachine, error) {
+	usbDevice := s.usbDevice.Current()
+	if usbDevice == nil {
+		return nil, nil
+	}
+
+	var vmList v1alpha2.VirtualMachineList
+	if err := s.client.List(ctx, &vmList, client.MatchingFields{
+		indexer.IndexFieldVMByUSBDevice: usbDevice.Name,
+	}); err != nil {
+		return nil, err
+	}
+
+	var result []*v1alpha2.VirtualMachine
+	for i := range vmList.Items {
+		vm := &vmList.Items[i]
+		// Check if VM is in the same namespace as USBDevice
+		if vm.Namespace == usbDevice.Namespace {
+			// Verify that device is actually attached in VM status
+			for _, usbStatus := range vm.Status.USBDevices {
+				if usbStatus.Name == usbDevice.Name && usbStatus.Attached {
+					result = append(result, vm)
+					break
+				}
+			}
+		}
+	}
+
+	return result, nil
 }

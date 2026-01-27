@@ -149,7 +149,7 @@ func (h *USBDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		isHotplugged := vm.Status.Phase == v1alpha2.MachineRunning
 
 		// Get or assign USB address
-		address := h.getOrAssignUSBAddress(existingStatus, isHotplugged)
+		address := h.getOrAssignUSBAddress(existingStatus, isHotplugged, vm)
 
 		statusRef := v1alpha2.USBDeviceStatusRef{
 			Name:       usbDeviceRef.Name,
@@ -285,8 +285,15 @@ func (h *USBDeviceHandler) isUSBDeviceReady(usbDevice *v1alpha2.USBDevice) bool 
 		return false
 	}
 
-	// TODO: Check conditions if needed
-	return true
+	// Check Ready condition
+	for _, condition := range usbDevice.Status.Conditions {
+		if condition.Type == "Ready" {
+			return condition.Status == "True"
+		}
+	}
+
+	// If no Ready condition found, device is not ready
+	return false
 }
 
 func (h *USBDeviceHandler) attachUSBDevice(
@@ -322,6 +329,7 @@ func (h *USBDeviceHandler) detachUSBDevice(
 func (h *USBDeviceHandler) getOrAssignUSBAddress(
 	existingStatus *v1alpha2.USBDeviceStatusRef,
 	isHotplugged bool,
+	vm *v1alpha2.VirtualMachine,
 ) *v1alpha2.USBAddress {
 	// If device was already attached, keep the same address
 	if existingStatus != nil && existingStatus.Address != nil {
@@ -329,15 +337,35 @@ func (h *USBDeviceHandler) getOrAssignUSBAddress(
 	}
 
 	if isHotplugged {
-		log.Info("USB device is hotplugged, no address will be assigned")
+		// For hotplugged devices, we don't assign a fixed address
+		// The address will be assigned dynamically by the hypervisor
+		return nil
 	}
 
-	// Assign new address
+	// Assign new address for cold-plugged devices
 	// Bus is always 0 for main USB controller
 	// Port should be assigned based on available ports
-	// For simplicity, we'll use a sequential port number starting from 1
-	// In a real implementation, you'd need to track used ports
-	port := 1 // TODO: Implement proper port allocation
+	usedPorts := make(map[int]bool)
+	for _, usbStatus := range vm.Status.USBDevices {
+		if usbStatus.Address != nil && usbStatus.Address.Bus == 0 {
+			usedPorts[usbStatus.Address.Port] = true
+		}
+	}
+
+	// Find the first available port starting from 1
+	// USB ports typically range from 1 to 127, but we'll use a reasonable limit
+	port := 1
+	for port <= 127 {
+		if !usedPorts[port] {
+			break
+		}
+		port++
+	}
+
+	if port > 127 {
+		// All ports are used, fallback to port 1 (should not happen in practice)
+		port = 1
+	}
 
 	return &v1alpha2.USBAddress{
 		Bus:  0,
