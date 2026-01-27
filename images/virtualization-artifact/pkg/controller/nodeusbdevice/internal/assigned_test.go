@@ -150,7 +150,11 @@ var _ = Describe("AssignedHandler", func() {
 			Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 			Expect(corev1.AddToScheme(scheme)).To(Succeed())
 
-			fakeClient = fake.NewClientBuilder().WithScheme(scheme).WithObjects(nodeUSBDevice, namespace, existingUSBDevice).Build()
+			fakeClient = fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(nodeUSBDevice, namespace, existingUSBDevice).
+				WithStatusSubresource(&v1alpha2.USBDevice{}).
+				Build()
 
 			nodeUSBDeviceResource = reconciler.NewResource(
 				types.NamespacedName{Name: nodeUSBDevice.Name},
@@ -173,6 +177,8 @@ var _ = Describe("AssignedHandler", func() {
 			err = fakeClient.Get(ctx, types.NamespacedName{Name: "usb-device-1", Namespace: "test-namespace"}, usbDevice)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(usbDevice.Status.Attributes.VendorID).To(Equal("1234"))
+			Expect(usbDevice.Status.Attributes.ProductID).To(Equal("5678"))
+			Expect(usbDevice.Status.NodeName).To(Equal("node-1"))
 		})
 	})
 
