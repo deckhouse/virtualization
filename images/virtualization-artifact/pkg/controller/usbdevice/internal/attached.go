@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -55,19 +56,31 @@ func (h *AttachedHandler) Handle(ctx context.Context, s state.USBDeviceState) (r
 	current := usbDevice.Current()
 	changed := usbDevice.Changed()
 
-	// TODO: Check if device is attached to a VM
-	// For now, we'll mark it as Available
-	// This should be implemented by checking VirtualMachine resources that reference this USBDevice
+	// Check if device is attached to a VM
+	vms, err := s.VirtualMachinesUsingDevice(ctx)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to find VirtualMachines using USBDevice: %w", err)
+	}
 
 	var reason usbdevicecondition.AttachedReason
 	var status metav1.ConditionStatus
 	var message string
 
-	// TODO: Implement actual attachment check
-	// For now, default to Available
-	reason = usbdevicecondition.Available
-	status = metav1.ConditionFalse
-	message = "Device is available for attachment to a virtual machine"
+	if len(vms) > 0 {
+		// Device is attached to at least one VM
+		reason = usbdevicecondition.AttachedToVirtualMachine
+		status = metav1.ConditionTrue
+		if len(vms) == 1 {
+			message = fmt.Sprintf("Device is attached to VirtualMachine %s/%s", vms[0].Namespace, vms[0].Name)
+		} else {
+			message = fmt.Sprintf("Device is attached to %d VirtualMachines", len(vms))
+		}
+	} else {
+		// Device is available for attachment
+		reason = usbdevicecondition.Available
+		status = metav1.ConditionFalse
+		message = "Device is available for attachment to a virtual machine"
+	}
 
 	cb := conditions.NewConditionBuilder(usbdevicecondition.AttachedType).
 		Generation(current.GetGeneration()).
