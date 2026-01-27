@@ -108,7 +108,7 @@ func (o RestoreOperation) IsInProgress() bool {
 	return false
 }
 
-func (o RestoreOperation) IsComplete() (bool, string) {
+func (o RestoreOperation) IsCompleted() (bool, string) {
 	if o.vmop.Status.Resources == nil {
 		return false, ""
 	}

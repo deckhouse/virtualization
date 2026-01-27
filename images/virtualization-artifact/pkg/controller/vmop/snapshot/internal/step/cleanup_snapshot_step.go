@@ -38,18 +38,15 @@ import (
 type CleanupSnapshotStep struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
-	cb       *conditions.ConditionBuilder
 }
 
 func NewCleanupSnapshotStep(
 	client client.Client,
 	recorder eventrecord.EventRecorderLogger,
-	cb *conditions.ConditionBuilder,
 ) *CleanupSnapshotStep {
 	return &CleanupSnapshotStep{
 		client:   client,
 		recorder: recorder,
-		cb:       cb,
 	}
 }
 
@@ -58,27 +55,18 @@ func (s CleanupSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 
 	snapshotCondition, found := conditions.GetCondition(vmopcondition.TypeSnapshotReady, vmop.Status.Conditions)
 	if found && snapshotCondition.Reason == string(vmopcondition.ReasonSnapshotCleanedUp) {
-		return nil, nil
-	}
-
-	cloneCondition, found := conditions.GetCondition(vmopcondition.TypeCloneCompleted, vmop.Status.Conditions)
-	if !found || cloneCondition.Reason == string(vmopcondition.ReasonCloneOperationInProgress) || cloneCondition.Status == metav1.ConditionUnknown {
-		return nil, nil
-	}
-
-	if cloneCondition.Reason != string(vmopcondition.ReasonCloneOperationFailed) && cloneCondition.Status == metav1.ConditionFalse {
-		return nil, nil
+		return &reconcile.Result{}, nil
 	}
 
 	for _, status := range vmop.Status.Resources {
-		if status.Status == v1alpha2.SnapshotResourceStatusInProgress {
-			return nil, nil
+		if status.Status != v1alpha2.SnapshotResourceStatusCompleted {
+			return &reconcile.Result{}, nil
 		}
 	}
 
 	snapshotName, ok := vmop.Annotations[annotations.AnnVMOPSnapshotName]
 	if !ok {
-		return nil, nil
+		return &reconcile.Result{}, nil
 	}
 
 	vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: snapshotName}

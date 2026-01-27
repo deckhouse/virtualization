@@ -72,7 +72,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	}
 
 	// Ignore if VMOP is in final state.
-	if complete, _ := svcOp.IsComplete(); complete {
+	if complete, _ := svcOp.IsCompleted(); complete {
 		return reconcile.Result{}, nil
 	}
 
@@ -134,7 +134,7 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMac
 		conditions.SetCondition(completedCond.Reason(reason).Message("Wait for operation to complete.").Status(metav1.ConditionFalse), &vmop.Status.Conditions)
 	}
 
-	isComplete, failMsg := svcOp.IsComplete()
+	isComplete, failMsg := svcOp.IsCompleted()
 	if isComplete {
 		if failMsg != "" {
 			vmop.Status.Phase = v1alpha2.VMOPPhaseFailed

@@ -91,11 +91,6 @@ func (s ExitMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 		return &reconcile.Result{}, nil
 	}
 
-	restoreCondition, found := conditions.GetCondition(vmopcondition.TypeRestoreCompleted, vmop.Status.Conditions)
-	if !found || restoreCondition.Status == metav1.ConditionFalse {
-		return &reconcile.Result{}, nil
-	}
-
 	// If a VM has a maintenance condition, set it to false.
 	maintenanceVMCondition, maintenanceVMConditionFound := conditions.GetCondition(vmcondition.TypeMaintenance, vm.Status.Conditions)
 	if maintenanceVMConditionFound && maintenanceVMCondition.Status == metav1.ConditionTrue {
@@ -120,7 +115,6 @@ func (s ExitMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 				v1alpha2.ReasonErrVMOPFailed,
 				"Failed to exit maintenance mode: "+err.Error(),
 			)
-			common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
 			return &reconcile.Result{}, err
 		}
 	}

@@ -29,9 +29,6 @@ const (
 	// TypeSignalSent is a type for condition that indicates operation signal has been sent.
 	TypeSignalSent Type = "SignalSent"
 
-	// TypeCloneCompleted is a type for condition that indicates success of clone.
-	TypeCloneCompleted Type = "CloneCompleted"
-
 	// TypeMaintenanceMode is a type for condition that indicates VMOP has put VM in maintenance mode.
 	TypeMaintenanceMode Type = "MaintenanceMode"
 
@@ -106,24 +103,6 @@ const (
 
 	// ReasonOperationCompleted is a ReasonCompleted indicating that operation is completed.
 	ReasonOperationCompleted ReasonCompleted = "OperationCompleted"
-)
-
-// ReasonCloneCompleted represents specific reasons for the 'CloneCompleted' condition type.
-type ReasonCloneCompleted string
-
-func (r ReasonCloneCompleted) String() string {
-	return string(r)
-}
-
-const (
-	// ReasonCloneOperationInProgress is a ReasonCloneCompleted indicating that the clone operation is in progress.
-	ReasonCloneOperationInProgress ReasonCloneCompleted = "CloneInProgress"
-
-	// ReasonCloneOperationCompleted is a ReasonCloneCompleted indicating that the clone operation has completed successfully.
-	ReasonCloneOperationCompleted ReasonCloneCompleted = "CloneCompleted"
-
-	// ReasonCloneOperationFailed is a ReasonCloneCompleted indicating that clone operation has failed.
-	ReasonCloneOperationFailed ReasonCloneCompleted = "CloneFailed"
 )
 
 // ReasonCompleted represents specific reasons for the 'SignalSent' condition type.
