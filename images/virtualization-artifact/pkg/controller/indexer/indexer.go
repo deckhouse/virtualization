@@ -66,6 +66,8 @@ const (
 	IndexFieldVMIPLeaseByVMIP = "spec.virtualMachineIPAddressRef"
 
 	IndexFieldVMByProvisioningSecret = "spec.provisioning.secretRef"
+
+	IndexFieldNodeUSBDeviceByName = "metadata.name"
 )
 
 var IndexGetters = []IndexGetter{
@@ -93,6 +95,7 @@ var IndexGetters = []IndexGetter{
 	IndexVMMACByAddress,
 	IndexVMMACLeaseByVMMAC,
 	IndexVMIPLeaseByVMIP,
+	IndexNodeUSBDeviceByName,
 }
 
 type IndexGetter func() (obj client.Object, field string, extractValue client.IndexerFunc)
@@ -212,5 +215,15 @@ func IndexVMByUSBDevice() (obj client.Object, field string, extractValue client.
 		}
 
 		return result
+	}
+}
+
+func IndexNodeUSBDeviceByName() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &v1alpha2.NodeUSBDevice{}, IndexFieldNodeUSBDeviceByName, func(object client.Object) []string {
+		nodeUSBDevice, ok := object.(*v1alpha2.NodeUSBDevice)
+		if !ok || nodeUSBDevice == nil {
+			return nil
+		}
+		return []string{nodeUSBDevice.Name}
 	}
 }

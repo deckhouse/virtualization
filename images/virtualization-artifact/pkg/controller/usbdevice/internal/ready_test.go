@@ -38,10 +38,10 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/usbdevicecondition"
 )
 
-var _ = Describe("ReadyHandler", func() {
+var _ = Describe("SyncReadyHandler - Ready condition", func() {
 	var ctx context.Context
 	var fakeClient client.WithWatch
-	var handler *ReadyHandler
+	var handler *SyncReadyHandler
 	var usbDeviceState state.USBDeviceState
 	var usbDeviceResource *reconciler.Resource[*v1alpha2.USBDevice, v1alpha2.USBDeviceStatus]
 
@@ -90,7 +90,7 @@ var _ = Describe("ReadyHandler", func() {
 
 			usbDeviceState = state.New(fakeClient, usbDeviceResource)
 			recorder := &eventrecord.EventRecorderLoggerMock{}
-			handler = NewReadyHandler(fakeClient, recorder)
+			handler = NewSyncReadyHandler(fakeClient, recorder)
 
 			result, err := handler.Handle(ctx, usbDeviceState)
 			Expect(err).NotTo(HaveOccurred())
@@ -144,7 +144,7 @@ var _ = Describe("ReadyHandler", func() {
 
 			usbDeviceState = state.New(fakeClient, usbDeviceResource)
 			recorder := &eventrecord.EventRecorderLoggerMock{}
-			handler = NewReadyHandler(fakeClient, recorder)
+			handler = NewSyncReadyHandler(fakeClient, recorder)
 
 			result, err := handler.Handle(ctx, usbDeviceState)
 			Expect(err).NotTo(HaveOccurred())
@@ -183,7 +183,7 @@ var _ = Describe("ReadyHandler", func() {
 
 			usbDeviceState = state.New(fakeClient, usbDeviceResource)
 			recorder := &eventrecord.EventRecorderLoggerMock{}
-			handler = NewReadyHandler(fakeClient, recorder)
+			handler = NewSyncReadyHandler(fakeClient, recorder)
 
 			result, err := handler.Handle(ctx, usbDeviceState)
 			Expect(err).NotTo(HaveOccurred())
@@ -231,7 +231,7 @@ var _ = Describe("ReadyHandler", func() {
 
 			usbDeviceState = state.New(fakeClient, usbDeviceResource)
 			recorder := &eventrecord.EventRecorderLoggerMock{}
-			handler = NewReadyHandler(fakeClient, recorder)
+			handler = NewSyncReadyHandler(fakeClient, recorder)
 
 			result, err := handler.Handle(ctx, usbDeviceState)
 			Expect(err).NotTo(HaveOccurred())

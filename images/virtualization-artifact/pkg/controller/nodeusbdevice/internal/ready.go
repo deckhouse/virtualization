@@ -18,8 +18,6 @@ package internal
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -28,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice/internal/hash"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/nodeusbdevicecondition"
@@ -105,7 +104,7 @@ func (h *ReadyHandler) findDeviceInSlices(slices []resourcev1beta1.ResourceSlice
 			}
 
 			// Calculate hash for this device and compare
-			deviceHash := h.calculateDeviceHash(device, nodeName)
+			deviceHash := hash.CalculateHashFromDevice(device, nodeName)
 			if deviceHash == hash {
 				return true
 			}
@@ -113,48 +112,6 @@ func (h *ReadyHandler) findDeviceInSlices(slices []resourcev1beta1.ResourceSlice
 	}
 
 	return false
-}
-
-func (h *ReadyHandler) calculateDeviceHash(device resourcev1beta1.Device, nodeName string) string {
-	// Extract attributes and calculate hash similar to discovery handler
-	var vendorID, productID, bus, deviceNumber, serial, devicePath string
-
-	if device.Basic != nil {
-		for key, attr := range device.Basic.Attributes {
-			switch string(key) {
-			case "vendorID":
-				if attr.StringValue != nil {
-					vendorID = *attr.StringValue
-				}
-			case "productID":
-				if attr.StringValue != nil {
-					productID = *attr.StringValue
-				}
-			case "bus":
-				if attr.StringValue != nil {
-					bus = *attr.StringValue
-				}
-			case "deviceNumber":
-				if attr.StringValue != nil {
-					deviceNumber = *attr.StringValue
-				}
-			case "serial":
-				if attr.StringValue != nil {
-					serial = *attr.StringValue
-				}
-			case "devicePath":
-				if attr.StringValue != nil {
-					devicePath = *attr.StringValue
-				}
-			}
-		}
-	}
-
-	hashInput := fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s",
-		nodeName, vendorID, productID, bus, deviceNumber, serial, devicePath)
-
-	hash := sha256.Sum256([]byte(hashInput))
-	return hex.EncodeToString(hash[:])[:16]
 }
 
 func (h *ReadyHandler) Name() string {
