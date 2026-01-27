@@ -28,10 +28,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
 
@@ -85,10 +87,15 @@ func (h *USBDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 			statusRef := v1alpha2.USBDeviceStatusRef{
 				Name:     usbDeviceRef.Name,
 				Attached: false,
+				Ready:    false,
 			}
 			statusRefs = append(statusRefs, statusRef)
 			continue
 		}
+
+		// Get device ready status and conditions
+		isReady := h.isUSBDeviceReady(usbDevice)
+		deviceConditions := h.getDeviceConditions(usbDevice)
 
 		// Get or create ResourceClaimTemplate
 		templateName := h.getResourceClaimTemplateName(vm, usbDeviceRef.Name)
@@ -97,23 +104,29 @@ func (h *USBDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 			log.Error("failed to get or create ResourceClaimTemplate", "error", err, "usbDevice", usbDeviceRef.Name)
 			// Continue with other devices
 			statusRef := v1alpha2.USBDeviceStatusRef{
-				Name:     usbDeviceRef.Name,
-				Attached: false,
+				Name:       usbDeviceRef.Name,
+				Attached:   false,
+				Ready:      isReady,
+				Conditions: deviceConditions,
 			}
 			statusRefs = append(statusRefs, statusRef)
 			continue
 		}
 
 		// Check if device is ready
-		if !h.isUSBDeviceReady(usbDevice) {
+		if !isReady {
 			log.Info("USB device not ready", "usbDevice", usbDeviceRef.Name)
-			// Keep existing status if available
+			// Keep existing status if available, but update ready and conditions
 			if existingStatus, ok := currentStatusMap[usbDeviceRef.Name]; ok {
+				existingStatus.Ready = isReady
+				existingStatus.Conditions = deviceConditions
 				statusRefs = append(statusRefs, *existingStatus)
 			} else {
 				statusRefs = append(statusRefs, v1alpha2.USBDeviceStatusRef{
-					Name:     usbDeviceRef.Name,
-					Attached: false,
+					Name:       usbDeviceRef.Name,
+					Attached:   false,
+					Ready:      isReady,
+					Conditions: deviceConditions,
 				})
 			}
 			continue
@@ -122,7 +135,9 @@ func (h *USBDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		// Check if already attached
 		existingStatus, alreadyAttached := currentStatusMap[usbDeviceRef.Name]
 		if alreadyAttached && existingStatus.Attached {
-			// Device already attached, keep status
+			// Device already attached, keep status but update ready and conditions
+			existingStatus.Ready = isReady
+			existingStatus.Conditions = deviceConditions
 			statusRefs = append(statusRefs, *existingStatus)
 			continue
 		}
@@ -132,13 +147,17 @@ func (h *USBDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		err = h.attachUSBDevice(ctx, vm, usbDeviceRef.Name, templateName, requestName)
 		if err != nil {
 			log.Error("failed to attach USB device", "error", err, "usbDevice", usbDeviceRef.Name)
-			// Keep existing status or create new one
+			// Keep existing status or create new one, but update ready and conditions
 			if existingStatus != nil {
+				existingStatus.Ready = isReady
+				existingStatus.Conditions = deviceConditions
 				statusRefs = append(statusRefs, *existingStatus)
 			} else {
 				statusRefs = append(statusRefs, v1alpha2.USBDeviceStatusRef{
-					Name:     usbDeviceRef.Name,
-					Attached: false,
+					Name:       usbDeviceRef.Name,
+					Attached:   false,
+					Ready:      isReady,
+					Conditions: deviceConditions,
 				})
 			}
 			continue
@@ -154,8 +173,10 @@ func (h *USBDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		statusRef := v1alpha2.USBDeviceStatusRef{
 			Name:       usbDeviceRef.Name,
 			Attached:   true,
+			Ready:      isReady,
 			Address:    address,
 			Hotplugged: isHotplugged,
+			Conditions: deviceConditions,
 		}
 		statusRefs = append(statusRefs, statusRef)
 	}
@@ -181,6 +202,9 @@ func (h *USBDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	}
 
 	changed.Status.USBDevices = statusRefs
+
+	// Update USBDeviceReady condition
+	h.updateUSBDeviceReadyCondition(vm, changed, statusRefs)
 
 	return reconcile.Result{}, nil
 }
@@ -371,4 +395,62 @@ func (h *USBDeviceHandler) getOrAssignUSBAddress(
 		Bus:  0,
 		Port: port,
 	}
+}
+
+func (h *USBDeviceHandler) getDeviceConditions(usbDevice *v1alpha2.USBDevice) []metav1.Condition {
+	// Copy conditions from USBDevice
+	conditions := make([]metav1.Condition, 0, len(usbDevice.Status.Conditions))
+	for _, cond := range usbDevice.Status.Conditions {
+		conditions = append(conditions, *cond.DeepCopy())
+	}
+	return conditions
+}
+
+func (h *USBDeviceHandler) updateUSBDeviceReadyCondition(
+	vm *v1alpha2.VirtualMachine,
+	changed *v1alpha2.VirtualMachine,
+	statusRefs []v1alpha2.USBDeviceStatusRef,
+) {
+	// Check if all USB devices are ready
+	allReady := true
+	var notReadyDevices []string
+
+	for _, statusRef := range statusRefs {
+		if !statusRef.Ready {
+			allReady = false
+			notReadyDevices = append(notReadyDevices, statusRef.Name)
+		}
+	}
+
+	var reason vmcondition.USBDeviceReadyReason
+	var status metav1.ConditionStatus
+	var message string
+
+	if len(statusRefs) == 0 {
+		// No USB devices specified, remove condition
+		conditions.RemoveCondition(vmcondition.TypeUSBDeviceReady, &changed.Status.Conditions)
+		return
+	}
+
+	if allReady {
+		reason = vmcondition.ReasonUSBDeviceReady
+		status = metav1.ConditionTrue
+		message = "All USB devices are ready"
+	} else {
+		reason = vmcondition.ReasonSomeDevicesNotReady
+		status = metav1.ConditionFalse
+		if len(notReadyDevices) == 1 {
+			message = fmt.Sprintf("USB device '%s' is not ready", notReadyDevices[0])
+		} else {
+			message = fmt.Sprintf("USB devices '%v' are not ready", notReadyDevices)
+		}
+	}
+
+	cb := conditions.NewConditionBuilder(vmcondition.TypeUSBDeviceReady).
+		Generation(vm.GetGeneration()).
+		Status(status).
+		Reason(reason).
+		Message(message)
+
+	conditions.SetCondition(cb, &changed.Status.Conditions)
 }
