@@ -1,21 +1,33 @@
 ---
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.24" "builder/golang-alt-svace-1.24" }}
+fromImage: builder/src
 git:
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}
-  to: /app/images/vm-route-forge
+  to: /src/app/images/vm-route-forge
   stageDependencies:
     install:
     - go.mod
     - go.sum
-    setup:
     - "**/*.go"
 - add: {{ .ModuleDir }}/api
-  to: /app/api
+  to: /src/app/api
   stageDependencies:
-    setup:
+    install:
     - "**/*.go"
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO }}
+
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
+final: false
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.24" "builder/golang-alt-svace-1.24" }}
+import:
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
@@ -25,10 +37,10 @@ mount:
 shell:
   install:
   - export GOPROXY=$(cat /run/secrets/GOPROXY)
-  - cd /app/images/vm-route-forge
+  - cd /src/app/images/vm-route-forge
   - go mod download
   setup:
-  - cd /app/images/vm-route-forge
+  - cd /src/app/images/vm-route-forge
   - export GOOS=linux
   - export GOARCH=amd64
   - export CGO_ENABLED=0
@@ -44,9 +56,9 @@ shell:
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 fromImage: {{ .ModuleNamePrefix }}distroless
 import:
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
-  add: /app/images/vm-route-forge/vm-route-forge
-  to: /app/vm-route-forge
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+  add: /src/app/images/vm-route-forge/vm-route-forge
+  to: /src
   after: install
 {{- if eq $.DEBUG_COMPONENT "delve/vm-route-forge" }}
 - image: debugger
