@@ -19,8 +19,10 @@ package nodeusbdevice
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"maps"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
@@ -54,8 +56,8 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 }
 
 // ValidateUpdate validates NodeUSBDevice updates.
-// Only spec.assignedNamespace can be changed by administrators.
-// Status updates are performed by the controller.
+// Only spec can be changed by administrators. Metadata cannot be modified.
+// Status updates are performed by the controller via subresource.
 func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	oldNodeUSBDevice, ok := oldObj.(*v1alpha2.NodeUSBDevice)
 	if !ok {
@@ -69,16 +71,33 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 
 	v.log.Info("Validate NodeUSBDevice updating", "name", newNodeUSBDevice.Name)
 
-	// Only spec.assignedNamespace can be changed by administrators
-	// Status is managed by the controller
-	// If spec changed in a way other than assignedNamespace, reject
-	if oldNodeUSBDevice.Spec.AssignedNamespace != newNodeUSBDevice.Spec.AssignedNamespace {
-		// This is allowed - administrators can assign/unassign namespaces
-		return nil, nil
+	// Metadata cannot be modified
+	if oldNodeUSBDevice.Name != newNodeUSBDevice.Name {
+		return nil, fmt.Errorf("metadata.name cannot be changed")
+	}
+	if oldNodeUSBDevice.Namespace != newNodeUSBDevice.Namespace {
+		return nil, fmt.Errorf("metadata.namespace cannot be changed")
+	}
+	if oldNodeUSBDevice.UID != newNodeUSBDevice.UID {
+		return nil, fmt.Errorf("metadata.uid cannot be changed")
+	}
+	if !maps.Equal(oldNodeUSBDevice.Labels, newNodeUSBDevice.Labels) {
+		return nil, fmt.Errorf("metadata.labels cannot be changed")
+	}
+	if !maps.Equal(oldNodeUSBDevice.Annotations, newNodeUSBDevice.Annotations) {
+		return nil, fmt.Errorf("metadata.annotations cannot be changed")
+	}
+	if !reflect.DeepEqual(oldNodeUSBDevice.Finalizers, newNodeUSBDevice.Finalizers) {
+		return nil, fmt.Errorf("metadata.finalizers cannot be changed")
 	}
 
-	// Status changes are allowed (performed by the controller)
-	// Spec changes other than assignedNamespace are not allowed
+	// Status changes are not allowed via main resource update (use /status subresource)
+	if oldNodeUSBDevice.Status != newNodeUSBDevice.Status {
+		return nil, fmt.Errorf("status cannot be changed via main resource update, use /status subresource")
+	}
+
+	// Only spec can be changed
+	// This is allowed - administrators can modify spec (e.g., assignedNamespace)
 	return nil, nil
 }
 
