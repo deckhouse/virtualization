@@ -51,15 +51,11 @@ func NewExitMaintenanceStep(
 }
 
 func (s ExitMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
-	fmt.Println("////////exit trace 1")
 	if vmop.Spec.Restore.Mode == v1alpha2.SnapshotOperationModeDryRun {
-		fmt.Println("////////exit trace 2")
 		return &reconcile.Result{}, nil
 	}
 
-	fmt.Println("////////exit trace 3")
 	if vmop.Status.Resources == nil {
-		fmt.Println("////////exit trace 4")
 		return &reconcile.Result{}, nil
 	}
 
@@ -71,23 +67,18 @@ func (s ExitMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 
 	for _, status := range vmop.Status.Resources {
 		if status.Status != v1alpha2.SnapshotResourceStatusCompleted {
-			fmt.Println("////////exit trace 5")
 			return &reconcile.Result{}, nil
 		}
 	}
 
-	fmt.Println("////////exit trace 6")
 	vmKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}
 	vm, err := object.FetchObject(ctx, vmKey, s.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
-		fmt.Println("////////exit trace 7")
 		return nil, fmt.Errorf("failed to fetch the virtual machine %q: %w", vmKey.Name, err)
 	}
 
-	fmt.Println("////////exit trace 8")
 	maintenanceVMOPCondition, found := conditions.GetCondition(vmopcondition.TypeMaintenanceMode, vmop.Status.Conditions)
 	if !found || maintenanceVMOPCondition.Status == metav1.ConditionFalse {
-		fmt.Println("////////exit trace 9")
 		return &reconcile.Result{}, nil
 	}
 

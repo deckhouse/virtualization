@@ -18,7 +18,6 @@ package step
 
 import (
 	"context"
-	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,21 +49,17 @@ func NewProcessRestoreStep(
 }
 
 func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
-	fmt.Println("////////process trace 1")
 	maintenanceModeCondition, found := conditions.GetCondition(vmopcondition.TypeMaintenanceMode, vmop.Status.Conditions)
 	if !found && maintenanceModeCondition.Status == metav1.ConditionFalse {
-		fmt.Println("////////process trace 2")
 		return &reconcile.Result{}, nil
 	}
 
-	fmt.Println("////////process trace 3")
 	vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.Restore.VirtualMachineSnapshotName}
 	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &v1alpha2.VirtualMachineSnapshot{})
 	if err != nil {
 		return &reconcile.Result{}, err
 	}
 
-	fmt.Println("////////process trace 4")
 	restorerSecretKey := types.NamespacedName{Namespace: vmSnapshot.Namespace, Name: vmSnapshot.Status.VirtualMachineSnapshotSecretName}
 	restorerSecret, err := object.FetchObject(ctx, restorerSecretKey, s.client, &corev1.Secret{})
 	if err != nil {
@@ -73,38 +68,32 @@ func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 
 	snapshotResources := restorer.NewSnapshotResources(s.client, v1alpha2.VMOPTypeRestore, vmop.Spec.Restore.Mode, restorerSecret, vmSnapshot, string(vmop.UID))
 
-	fmt.Println("////////process trace 5")
 	err = snapshotResources.Prepare(ctx)
 	if err != nil {
 		return &reconcile.Result{}, err
 	}
 
-	fmt.Println("////////process trace 6")
 	statuses, err := snapshotResources.Validate(ctx)
 	vmop.Status.Resources = statuses
 	if err != nil {
 		return &reconcile.Result{}, err
 	}
 
-	fmt.Println("////////process trace 7")
 	if vmop.Spec.Restore.Mode == v1alpha2.SnapshotOperationModeDryRun {
 		return &reconcile.Result{}, nil
 	}
 
-	fmt.Println("////////process trace 8")
 	statuses, err = snapshotResources.Process(ctx)
 	vmop.Status.Resources = statuses
 	if err != nil {
 		return &reconcile.Result{}, err
 	}
 
-	fmt.Println("////////process trace 8")
 	for _, status := range statuses {
 		if status.Status == v1alpha2.SnapshotResourceStatusInProgress {
 			return &reconcile.Result{}, nil
 		}
 	}
 
-	fmt.Println("////////process trace 9")
 	return nil, nil
 }

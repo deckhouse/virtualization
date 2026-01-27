@@ -51,24 +51,20 @@ func NewEnterMaintenanceStep(
 }
 
 func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
-	fmt.Println("////////enter trace 1")
 	if vmop.Spec.Restore.Mode == v1alpha2.SnapshotOperationModeDryRun {
 		return nil, nil
 	}
 
-	fmt.Println("////////enter trace 2")
 	if vmop.Status.Resources != nil {
 		return nil, nil
 	}
 
-	fmt.Println("////////enter trace 3")
 	vmKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}
 	vm, err := object.FetchObject(ctx, vmKey, s.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch the virtual machine %q: %w", vmKey.Name, err)
 	}
 
-	fmt.Println("////////enter trace 4")
 	maintenanceCondition, found := conditions.GetCondition(vmcondition.TypeMaintenance, vm.Status.Conditions)
 	if found && maintenanceCondition.Status == metav1.ConditionTrue && maintenanceCondition.Reason == vmcondition.ReasonMaintenanceRestore.String() {
 		if vm.Status.Phase != v1alpha2.MachineStopped && vm.Status.Phase != v1alpha2.MachinePending {
@@ -87,7 +83,6 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 		return nil, nil
 	}
 
-	fmt.Println("////////enter trace 5")
 	conditions.SetCondition(
 		conditions.NewConditionBuilder(vmcondition.TypeMaintenance).
 			Generation(vm.GetGeneration()).
@@ -98,7 +93,6 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 	)
 
 	err = s.client.Status().Update(ctx, vm)
-	fmt.Println("/////////////вешаем maintenance")
 	if err != nil {
 		if apierrors.IsConflict(err) {
 			return &reconcile.Result{}, nil
