@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/usbdevice/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -78,7 +79,12 @@ var _ = Describe("SyncReadyHandler - Ready condition", func() {
 			scheme := apiruntime.NewScheme()
 			Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 
-			fakeClient = fake.NewClientBuilder().WithScheme(scheme).WithObjects(usbDevice, nodeUSBDevice).Build()
+			obj, field, extractValue := indexer.IndexNodeUSBDeviceByName()
+			fakeClient = fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(usbDevice, nodeUSBDevice).
+				WithIndex(obj, field, extractValue).
+				Build()
 
 			usbDeviceResource = reconciler.NewResource(
 				types.NamespacedName{Name: usbDevice.Name, Namespace: usbDevice.Namespace},
@@ -132,7 +138,12 @@ var _ = Describe("SyncReadyHandler - Ready condition", func() {
 			scheme := apiruntime.NewScheme()
 			Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 
-			fakeClient = fake.NewClientBuilder().WithScheme(scheme).WithObjects(usbDevice, nodeUSBDevice).Build()
+			obj, field, extractValue := indexer.IndexNodeUSBDeviceByName()
+			fakeClient = fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(usbDevice, nodeUSBDevice).
+				WithIndex(obj, field, extractValue).
+				Build()
 
 			usbDeviceResource = reconciler.NewResource(
 				types.NamespacedName{Name: usbDevice.Name, Namespace: usbDevice.Namespace},
@@ -171,7 +182,12 @@ var _ = Describe("SyncReadyHandler - Ready condition", func() {
 			scheme := apiruntime.NewScheme()
 			Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 
-			fakeClient = fake.NewClientBuilder().WithScheme(scheme).WithObjects(usbDevice).Build()
+			obj, field, extractValue := indexer.IndexNodeUSBDeviceByName()
+			fakeClient = fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(usbDevice).
+				WithIndex(obj, field, extractValue).
+				Build()
 
 			usbDeviceResource = reconciler.NewResource(
 				types.NamespacedName{Name: usbDevice.Name, Namespace: usbDevice.Namespace},
@@ -219,7 +235,12 @@ var _ = Describe("SyncReadyHandler - Ready condition", func() {
 			scheme := apiruntime.NewScheme()
 			Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 
-			fakeClient = fake.NewClientBuilder().WithScheme(scheme).WithObjects(usbDevice, nodeUSBDevice).Build()
+			obj, field, extractValue := indexer.IndexNodeUSBDeviceByName()
+			fakeClient = fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(usbDevice, nodeUSBDevice).
+				WithIndex(obj, field, extractValue).
+				Build()
 
 			usbDeviceResource = reconciler.NewResource(
 				types.NamespacedName{Name: usbDevice.Name, Namespace: usbDevice.Namespace},
