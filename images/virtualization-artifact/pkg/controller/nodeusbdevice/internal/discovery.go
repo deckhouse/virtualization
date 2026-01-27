@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	resourcev1beta1 "k8s.io/api/resource/v1beta1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -198,9 +199,23 @@ func (h *DiscoveryHandler) discoverAndCreate(ctx context.Context, s state.NodeUS
 }
 
 func (h *DiscoveryHandler) createNodeUSBDevice(ctx context.Context, attributes v1alpha2.NodeUSBDeviceAttributes, hash string) error {
+	name := h.generateName(hash, attributes.NodeName)
+	
+	// Check if device already exists
+	existing := &v1alpha2.NodeUSBDevice{}
+	err := h.client.Get(ctx, client.ObjectKey{Name: name}, existing)
+	if err == nil {
+		// Device already exists, skip creation
+		return nil
+	}
+	if !apierrors.IsNotFound(err) {
+		// Unexpected error
+		return fmt.Errorf("failed to check if NodeUSBDevice exists: %w", err)
+	}
+
 	nodeUSBDevice := &v1alpha2.NodeUSBDevice{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: h.generateName(hash, attributes.NodeName),
+			Name: name,
 		},
 		Spec: v1alpha2.NodeUSBDeviceSpec{
 			AssignedNamespace: "",
@@ -228,6 +243,10 @@ func (h *DiscoveryHandler) createNodeUSBDevice(ctx context.Context, attributes v
 	}
 
 	if err := h.client.Create(ctx, nodeUSBDevice); err != nil {
+		// If device was created by another process between check and create, ignore the error
+		if apierrors.IsAlreadyExists(err) {
+			return nil
+		}
 		return fmt.Errorf("failed to create NodeUSBDevice: %w", err)
 	}
 
