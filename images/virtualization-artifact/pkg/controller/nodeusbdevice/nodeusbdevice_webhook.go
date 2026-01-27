@@ -19,10 +19,10 @@ package nodeusbdevice
 import (
 	"context"
 	"fmt"
+	"maps"
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/runtime"
-	"maps"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
@@ -71,7 +71,12 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 
 	v.log.Info("Validate NodeUSBDevice updating", "name", newNodeUSBDevice.Name)
 
-	// Metadata cannot be modified
+	// TypeMeta cannot be modified
+	if !reflect.DeepEqual(oldNodeUSBDevice.TypeMeta, newNodeUSBDevice.TypeMeta) {
+		return nil, fmt.Errorf("TypeMeta cannot be changed")
+	}
+
+	// Metadata cannot be modified (except fields that Kubernetes manages automatically)
 	if oldNodeUSBDevice.Name != newNodeUSBDevice.Name {
 		return nil, fmt.Errorf("metadata.name cannot be changed")
 	}
@@ -92,7 +97,7 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 	}
 
 	// Status changes are not allowed via main resource update (use /status subresource)
-	if oldNodeUSBDevice.Status != newNodeUSBDevice.Status {
+	if !reflect.DeepEqual(oldNodeUSBDevice.Status, newNodeUSBDevice.Status) {
 		return nil, fmt.Errorf("status cannot be changed via main resource update, use /status subresource")
 	}
 
