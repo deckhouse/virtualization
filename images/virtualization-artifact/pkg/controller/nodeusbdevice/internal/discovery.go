@@ -200,7 +200,7 @@ func (h *DiscoveryHandler) discoverAndCreate(ctx context.Context, s state.NodeUS
 
 func (h *DiscoveryHandler) createNodeUSBDevice(ctx context.Context, attributes v1alpha2.NodeUSBDeviceAttributes, hash string) error {
 	name := h.generateName(hash, attributes.NodeName)
-	
+
 	// Check if device already exists
 	existing := &v1alpha2.NodeUSBDevice{}
 	err := h.client.Get(ctx, client.ObjectKey{Name: name}, existing)
@@ -213,32 +213,13 @@ func (h *DiscoveryHandler) createNodeUSBDevice(ctx context.Context, attributes v
 		return fmt.Errorf("failed to check if NodeUSBDevice exists: %w", err)
 	}
 
+	// Create NodeUSBDevice without status (status is a subresource)
 	nodeUSBDevice := &v1alpha2.NodeUSBDevice{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
 		Spec: v1alpha2.NodeUSBDeviceSpec{
 			AssignedNamespace: "",
-		},
-		Status: v1alpha2.NodeUSBDeviceStatus{
-			Attributes: attributes,
-			NodeName:   attributes.NodeName,
-			Conditions: []metav1.Condition{
-				{
-					Type:               string(nodeusbdevicecondition.ReadyType),
-					Status:             metav1.ConditionTrue,
-					Reason:             string(nodeusbdevicecondition.Ready),
-					Message:            "Device is ready to use",
-					LastTransitionTime: metav1.Now(),
-				},
-				{
-					Type:               string(nodeusbdevicecondition.AssignedType),
-					Status:             metav1.ConditionFalse,
-					Reason:             string(nodeusbdevicecondition.Available),
-					Message:            "No namespace is assigned for the device",
-					LastTransitionTime: metav1.Now(),
-				},
-			},
 		},
 	}
 
@@ -248,6 +229,34 @@ func (h *DiscoveryHandler) createNodeUSBDevice(ctx context.Context, attributes v
 			return nil
 		}
 		return fmt.Errorf("failed to create NodeUSBDevice: %w", err)
+	}
+
+	// Update status separately (status is a subresource)
+	// Set all attributes including Hash
+	attributes.Hash = hash
+	nodeUSBDevice.Status = v1alpha2.NodeUSBDeviceStatus{
+		Attributes: attributes,
+		NodeName:   attributes.NodeName,
+		Conditions: []metav1.Condition{
+			{
+				Type:               string(nodeusbdevicecondition.ReadyType),
+				Status:             metav1.ConditionTrue,
+				Reason:             string(nodeusbdevicecondition.Ready),
+				Message:            "Device is ready to use",
+				LastTransitionTime: metav1.Now(),
+			},
+			{
+				Type:               string(nodeusbdevicecondition.AssignedType),
+				Status:             metav1.ConditionFalse,
+				Reason:             string(nodeusbdevicecondition.Available),
+				Message:            "No namespace is assigned for the device",
+				LastTransitionTime: metav1.Now(),
+			},
+		},
+	}
+
+	if err := h.client.Status().Update(ctx, nodeUSBDevice); err != nil {
+		return fmt.Errorf("failed to update NodeUSBDevice status: %w", err)
 	}
 
 	return nil
