@@ -99,7 +99,7 @@ func (h *ReadyHandler) findDeviceInSlices(slices []resourcev1beta1.ResourceSlice
 		}
 
 		for _, device := range slice.Spec.Devices {
-			if !strings.HasPrefix(device.Name, "virtualization-dra-") {
+			if !strings.HasPrefix(device.Name, "usb-") {
 				continue
 			}
 
