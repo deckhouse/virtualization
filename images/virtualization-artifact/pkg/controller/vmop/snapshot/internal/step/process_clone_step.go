@@ -141,19 +141,23 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 			return &reconcile.Result{}, nil
 		}
 
-		if vd.Status.Phase == v1alpha2.DiskFailed {
+		switch vd.Status.Phase {
+		case v1alpha2.DiskFailed:
+			// Clone can't proceed if disk is failed.
 			err = fmt.Errorf("virtual disk %q is in failed phase", vdKey.Name)
 			conditions.SetCondition(s.cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonSnapshotFailed).Message(service.CapitalizeFirstLetter(err.Error())), &vmop.Status.Conditions)
 			common.SetPhaseCloneConditionToFailed(s.cb, &vmop.Status.Phase, err)
 			return &reconcile.Result{}, fmt.Errorf("virtual disk %q is in failed phase", vdKey.Name)
-		}
-
-		if vd.Status.Phase != v1alpha2.DiskReady && vd.Status.Phase != v1alpha2.DiskWaitForFirstConsumer {
+		case v1alpha2.DiskReady:
+			// Disk is Ready, check the next one.
+			continue
+		default:
+			s.cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonCloneOperationInProgress).Message("Wait for VirtualDisks to be Ready.")
 			return &reconcile.Result{}, nil
 		}
 	}
 
+	// All disks are Ready, mark Clone operation as Completed.
 	s.cb.Status(metav1.ConditionTrue).Reason(vmopcondition.ReasonCloneOperationCompleted).Message("The virtual machine has been cloned successfully.")
-
 	return &reconcile.Result{}, nil
 }

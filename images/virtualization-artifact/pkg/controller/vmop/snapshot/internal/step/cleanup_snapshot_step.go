@@ -54,32 +54,17 @@ func NewCleanupSnapshotStep(
 }
 
 func (s CleanupSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
-	rcb := conditions.NewConditionBuilder(vmopcondition.TypeSnapshotReady)
-
-	snapshotCondition, found := conditions.GetCondition(vmopcondition.TypeSnapshotReady, vmop.Status.Conditions)
-	if found && snapshotCondition.Reason == string(vmopcondition.ReasonSnapshotCleanedUp) {
+	canProceed := canProceedWithCleanup(vmop)
+	if !canProceed {
 		return nil, nil
-	}
-
-	cloneCondition, found := conditions.GetCondition(vmopcondition.TypeCloneCompleted, vmop.Status.Conditions)
-	if !found || cloneCondition.Reason == string(vmopcondition.ReasonCloneOperationInProgress) || cloneCondition.Status == metav1.ConditionUnknown {
-		return nil, nil
-	}
-
-	if cloneCondition.Reason != string(vmopcondition.ReasonCloneOperationFailed) && cloneCondition.Status == metav1.ConditionFalse {
-		return nil, nil
-	}
-
-	for _, status := range vmop.Status.Resources {
-		if status.Status == v1alpha2.SnapshotResourceStatusInProgress {
-			return nil, nil
-		}
 	}
 
 	snapshotName, ok := vmop.Annotations[annotations.AnnVMOPSnapshotName]
 	if !ok {
 		return nil, nil
 	}
+
+	rcb := conditions.NewConditionBuilder(vmopcondition.TypeSnapshotReady)
 
 	vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: snapshotName}
 	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &v1alpha2.VirtualMachineSnapshot{})
@@ -110,4 +95,43 @@ func (s CleanupSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 	)
 
 	return &reconcile.Result{}, nil
+}
+
+const (
+	NoCleanup = false
+	Cleanup   = true
+)
+
+func canProceedWithCleanup(vmop *v1alpha2.VirtualMachineOperation) bool {
+	// Do not clean up if vmop is marked as "snapshot was cleaned before".
+	snapshotCondition, found := conditions.GetCondition(vmopcondition.TypeSnapshotReady, vmop.Status.Conditions)
+	if found && snapshotCondition.Reason == string(vmopcondition.ReasonSnapshotCleanedUp) {
+		return NoCleanup
+	}
+
+	cloneCondition, found := conditions.GetCondition(vmopcondition.TypeCloneCompleted, vmop.Status.Conditions)
+	// Do not clean up in uncertain states of the clone condition.
+	if !found || cloneCondition.Status == metav1.ConditionUnknown {
+		return NoCleanup
+	}
+
+	switch cloneCondition.Reason {
+	case string(vmopcondition.ReasonCloneOperationInProgress):
+		// No clean up while clone is in progress.
+		return NoCleanup
+	case string(vmopcondition.ReasonCloneOperationCompleted):
+		// Cleanup if definitely completed.
+		return cloneCondition.Status == metav1.ConditionTrue
+	case string(vmopcondition.ReasonCloneOperationFailed):
+		// Should clean up, but also check resources ...
+	}
+
+	// Do not clean up if some resources are still in progress.
+	for _, status := range vmop.Status.Resources {
+		if status.Status == v1alpha2.SnapshotResourceStatusInProgress {
+			return NoCleanup
+		}
+	}
+
+	return Cleanup
 }
