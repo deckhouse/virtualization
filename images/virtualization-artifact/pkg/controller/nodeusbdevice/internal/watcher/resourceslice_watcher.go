@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	resourcev1beta1 "k8s.io/api/resource/v1beta1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -87,20 +88,25 @@ func (w *ResourceSliceWatcher) Watch(mgr manager.Manager, ctr controller.Control
 					}
 				}
 
-				// If no devices exist on this node yet, trigger discovery by enqueueing
-				// any existing NodeUSBDevice to trigger a reconciliation cycle.
-				// DiscoveryHandler will check all ResourceSlices during reconciliation
-				// and automatically create new NodeUSBDevice for devices found in this ResourceSlice.
-				if !hasDevicesOnNode && len(deviceList.Items) > 0 {
-					// Enqueue first device to trigger reconciliation cycle
-					// DiscoveryHandler will discover new devices during this cycle
-					result = append(result, reconcile.Request{
-						NamespacedName: object.NamespacedName(&deviceList.Items[0]),
-					})
+				// If no devices exist on this node yet, trigger discovery
+				if !hasDevicesOnNode {
+					if len(deviceList.Items) > 0 {
+						// Enqueue first device to trigger reconciliation cycle
+						// DiscoveryHandler will discover new devices during this cycle
+						result = append(result, reconcile.Request{
+							NamespacedName: object.NamespacedName(&deviceList.Items[0]),
+						})
+					} else {
+						// If no NodeUSBDevices exist at all, create a dummy reconcile request
+						// to trigger discovery. The reconciler will handle empty NodeUSBDevice
+						// and run DiscoveryHandler to discover new devices.
+						result = append(result, reconcile.Request{
+							NamespacedName: types.NamespacedName{
+								Name: "discovery-" + slice.Spec.Pool.Name,
+							},
+						})
+					}
 				}
-
-				// Note: If no NodeUSBDevices exist at all, discovery will happen
-				// on next periodic reconciliation or when controller starts
 
 				return result
 			}),
