@@ -77,8 +77,6 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	}
 
 	// 1.Initialize new VMOP resource: set phase to Pending and all conditions to Unknown.
-	h.base.Init(vmop)
-
 	if vmop.Status.Phase == "" {
 		conditions.SetCondition(
 			conditions.NewConditionBuilder(vmopcondition.TypeSignalSent).
@@ -90,12 +88,14 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 		)
 	}
 
+	h.base.Init(vmop)
+
 	completedCond := conditions.NewConditionBuilder(vmopcondition.TypeCompleted).Generation(vmop.GetGeneration())
 
 	// Pending if quota exceeded.
 	isQuotaExceededDuringMigration, err := h.isKubeVirtMigrationRejectedDueToQuota(ctx, vmop)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("failed to check if migration was rejected due to quota for VMOP: %w", err)
 	}
 	if isQuotaExceededDuringMigration {
 		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPPending, "Project quota exceeded")
@@ -111,7 +111,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	// 2. Get VirtualMachine for validation vmop.
 	vm, err := h.base.FetchVirtualMachineOrSetFailedPhase(ctx, vmop)
 	if vm == nil || err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("failed to fetch VirtualMachine for VMOP: %w", err)
 	}
 
 	log, ctx := logger.GetHandlerContext(ctx, lifecycleHandlerName)
@@ -127,7 +127,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	// Do it now.
 	mig, err := h.migration.GetMigration(ctx, vmop)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("failed to get migration for VMOP: %w", err)
 	}
 	if mig != nil {
 		conditions.SetCondition(
@@ -143,7 +143,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	// All operations must be performed in course, check it and set phase if operation cannot be executed now.
 	should, err := h.base.ShouldExecuteOrSetFailedPhase(ctx, vmop)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("failed to determine if VMOP should execute: %w", err)
 	}
 	if !should {
 		return reconcile.Result{}, nil
@@ -174,7 +174,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	// 6.2 Fail if there is at least one other migration in progress.
 	found, err := h.otherMigrationsAreInProgress(ctx, vmop)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("failed to check other migrations in progress for VMOP: %w", err)
 	}
 	if found {
 		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
@@ -194,8 +194,11 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	}
 	// 7.1 The Operation is valid, and can be executed.
 	err = h.execute(ctx, vmop, vm)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to execute VMOP: %w", err)
+	}
 
-	return reconcile.Result{}, err
+	return reconcile.Result{}, nil
 }
 
 func (h LifecycleHandler) Name() string {
