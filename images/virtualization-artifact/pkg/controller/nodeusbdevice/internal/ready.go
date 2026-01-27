@@ -25,7 +25,6 @@ import (
 
 	resourcev1beta1 "k8s.io/api/resource/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -38,15 +37,13 @@ const (
 	nameReadyHandler = "ReadyHandler"
 )
 
-func NewReadyHandler(client client.Client, recorder eventrecord.EventRecorderLogger) *ReadyHandler {
+func NewReadyHandler(recorder eventrecord.EventRecorderLogger) *ReadyHandler {
 	return &ReadyHandler{
-		client:   client,
 		recorder: recorder,
 	}
 }
 
 type ReadyHandler struct {
-	client   client.Client
 	recorder eventrecord.EventRecorderLogger
 }
 
@@ -61,7 +58,7 @@ func (h *ReadyHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState) (
 	changed := nodeUSBDevice.Changed()
 
 	// Check if device exists in ResourceSlice
-	resourceSlices, err := h.getResourceSlices(ctx)
+	resourceSlices, err := s.ResourceSlices(ctx)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get resource slices: %w", err)
 	}
@@ -94,22 +91,6 @@ func (h *ReadyHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState) (
 	conditions.SetCondition(cb, &changed.Status.Conditions)
 
 	return reconcile.Result{}, nil
-}
-
-func (h *ReadyHandler) getResourceSlices(ctx context.Context) ([]resourcev1beta1.ResourceSlice, error) {
-	var slices resourcev1beta1.ResourceSliceList
-	if err := h.client.List(ctx, &slices, client.MatchingLabels{}); err != nil {
-		return nil, err
-	}
-
-	result := make([]resourcev1beta1.ResourceSlice, 0)
-	for _, slice := range slices.Items {
-		if slice.Spec.Driver == draDriverName {
-			result = append(result, slice)
-		}
-	}
-
-	return result, nil
 }
 
 func (h *ReadyHandler) findDeviceInSlices(slices []resourcev1beta1.ResourceSlice, hash, nodeName string) bool {

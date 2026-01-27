@@ -129,7 +129,7 @@ var _ = Describe("ReadyHandler", func() {
 
 			nodeUSBDeviceState = state.New(fakeClient, nodeUSBDeviceResource)
 			recorder := &eventrecord.EventRecorderLoggerMock{}
-			handler = NewReadyHandler(fakeClient, recorder)
+			handler = NewReadyHandler(recorder)
 
 			result, err := handler.Handle(ctx, nodeUSBDeviceState)
 			Expect(err).NotTo(HaveOccurred())
@@ -176,7 +176,7 @@ var _ = Describe("ReadyHandler", func() {
 
 			nodeUSBDeviceState = state.New(fakeClient, nodeUSBDeviceResource)
 			recorder := &eventrecord.EventRecorderLoggerMock{}
-			handler = NewReadyHandler(fakeClient, recorder)
+			handler = NewReadyHandler(recorder)
 
 			result, err := handler.Handle(ctx, nodeUSBDeviceState)
 			Expect(err).NotTo(HaveOccurred())
