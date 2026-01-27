@@ -92,7 +92,7 @@ func (h *ReadyHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState) (
 	return reconcile.Result{}, nil
 }
 
-func (h *ReadyHandler) findDeviceInSlices(slices []resourcev1beta1.ResourceSlice, hash, nodeName string) bool {
+func (h *ReadyHandler) findDeviceInSlices(slices []resourcev1beta1.ResourceSlice, searchedHash, nodeName string) bool {
 	for _, slice := range slices {
 		if slice.Spec.Pool.Name != nodeName {
 			continue
@@ -105,7 +105,7 @@ func (h *ReadyHandler) findDeviceInSlices(slices []resourcev1beta1.ResourceSlice
 
 			// Calculate hash for this device and compare
 			deviceHash := hash.CalculateHashFromDevice(device, nodeName)
-			if deviceHash == hash {
+			if deviceHash == searchedHash {
 				return true
 			}
 		}

@@ -55,7 +55,7 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 // ValidateUpdate validates USBDevice updates.
 // Only status updates are allowed (performed by the controller).
 func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	oldUSBDevice, ok := oldObj.(*v1alpha2.USBDevice)
+	_, ok := oldObj.(*v1alpha2.USBDevice)
 	if !ok {
 		return nil, fmt.Errorf("expected an old USBDevice but got a %T", oldObj)
 	}
