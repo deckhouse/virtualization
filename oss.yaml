@@ -2,7 +2,26 @@
   link: https://github.com/kubevirt/kubevirt
   description: KubeVirt is a virtual machine management add-on for Kubernetes.
   license: Apache License 2.0
+  version: v1.6.2
+  id: kubevirt
 - name: CDI
   link: https://github.com/kubevirt/containerized-data-importer
   description: Containerized-Data-Importer (CDI) is a persistent storage management add-on for Kubernetes.
   license: Apache License 2.0
+  version: v1.60.3
+  id: cdi
+- name: QEMU
+  link: https://gitlab.com/qemu-project/qemu
+  description: QEMU is a generic and open source machine & userspace emulator andvirtualizer.
+  license: GNU General Public License, version 2
+  version: v9.2.0
+  id: qemu
+- name: Libvirt
+  link: https://gitlab.com/libvirt/libvirt
+  description: Libvirt provides a portable, long term stable C API for managing the virtualization technologies provided by many operating systems
+  license: |
+    GNU Lesser General Public License, version 2.1 (or later). Some parts of the code that are
+    not part of the C library may have the more restrictive GNU General
+    Public License, version 2.0 (or later)
+  version: v10.9.0
+  id: libvirt
