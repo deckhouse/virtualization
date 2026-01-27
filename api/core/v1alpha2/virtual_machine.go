@@ -116,6 +116,7 @@ type VirtualMachineSpec struct {
 	Networks            []NetworksSpec      `json:"networks,omitempty"`
 	// List of USB devices to attach to the virtual machine.
 	// Devices are referenced by name of USBDevice resource in the same namespace.
+	// +kubebuilder:validation:MaxItems:=8
 	USBDevices []USBDeviceSpecRef `json:"usbDevices,omitempty"`
 }
 
@@ -497,10 +498,14 @@ type USBDeviceStatusRef struct {
 	Name string `json:"name"`
 	// The USB device is attached to the virtual machine.
 	Attached bool `json:"attached"`
+	// USB device is ready to use.
+	Ready bool `json:"ready"`
 	// USB address inside the virtual machine.
 	Address *USBAddress `json:"address,omitempty"`
 	// USB device is attached via hot plug connection.
 	Hotplugged bool `json:"hotplugged,omitempty"`
+	// Conditions for this USB device.
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // USBAddress represents the USB bus address inside the virtual machine.

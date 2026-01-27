@@ -19,7 +19,7 @@ spec:
     shortNames:
       - nusb
     singular: nodeusbdevice
-  scope: Namespaced
+  scope: Cluster
   versions:
     - additionalPrinterColumns:
         - jsonPath: .status.nodeName
