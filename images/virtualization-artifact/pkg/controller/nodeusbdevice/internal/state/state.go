@@ -18,12 +18,17 @@ package state
 
 import (
 	"context"
+	"fmt"
 
 	resourcev1beta1 "k8s.io/api/resource/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+)
+
+const (
+	draDriverName = "virtualization-dra"
 )
 
 type NodeUSBDeviceState interface {
@@ -48,7 +53,17 @@ func (s *nodeUSBDeviceState) NodeUSBDevice() *reconciler.Resource[*v1alpha2.Node
 }
 
 func (s *nodeUSBDeviceState) ResourceSlices(ctx context.Context) ([]resourcev1beta1.ResourceSlice, error) {
-	// TODO: implement ResourceSlice fetching
-	// This should fetch ResourceSlice resources that contain USB device information
-	return nil, nil
+	var slices resourcev1beta1.ResourceSliceList
+	if err := s.client.List(ctx, &slices, client.MatchingLabels{}); err != nil {
+		return nil, fmt.Errorf("failed to list ResourceSlices: %w", err)
+	}
+
+	result := make([]resourcev1beta1.ResourceSlice, 0)
+	for _, slice := range slices.Items {
+		if slice.Spec.Driver == draDriverName {
+			result = append(result, slice)
+		}
+	}
+
+	return result, nil
 }

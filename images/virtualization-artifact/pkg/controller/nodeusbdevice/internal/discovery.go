@@ -38,7 +38,6 @@ import (
 
 const (
 	nameDiscoveryHandler = "DiscoveryHandler"
-	draDriverName        = "virtualization-dra"
 )
 
 func NewDiscoveryHandler(client client.Client, recorder eventrecord.EventRecorderLogger) *DiscoveryHandler {
@@ -62,7 +61,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.NodeUSBDeviceStat
 
 	// Always check for new devices in ResourceSlice and create NodeUSBDevice if needed
 	// This ensures we discover new devices even if reconcile was triggered for other reasons
-	if err := h.discoverAndCreate(ctx); err != nil {
+	if err := h.discoverAndCreate(ctx, s); err != nil {
 		// Log error but don't fail reconciliation
 		// This is a best-effort discovery mechanism
 		log.Error("failed to discover and create NodeUSBDevice", log.Err(err))
@@ -77,7 +76,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.NodeUSBDeviceStat
 	changed := nodeUSBDevice.Changed()
 
 	// Update attributes from ResourceSlice if needed
-	resourceSlices, err := h.getResourceSlices(ctx)
+	resourceSlices, err := s.ResourceSlices(ctx)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get resource slices: %w", err)
 	}
@@ -102,8 +101,8 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.NodeUSBDeviceStat
 	return reconcile.Result{}, nil
 }
 
-func (h *DiscoveryHandler) discoverAndCreate(ctx context.Context) error {
-	resourceSlices, err := h.getResourceSlices(ctx)
+func (h *DiscoveryHandler) discoverAndCreate(ctx context.Context, s state.NodeUSBDeviceState) error {
+	resourceSlices, err := s.ResourceSlices(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get resource slices: %w", err)
 	}
@@ -122,7 +121,7 @@ func (h *DiscoveryHandler) discoverAndCreate(ctx context.Context) error {
 	}
 
 	// Create NodeUSBDevice for each USB device in ResourceSlices
-	// Note: resourceSlices are already filtered by draDriverName in getResourceSlices
+	// Note: resourceSlices are already filtered by draDriverName in state.ResourceSlices
 	for _, slice := range resourceSlices {
 		for _, device := range slice.Spec.Devices {
 			if !strings.HasPrefix(device.Name, "usb-") {
@@ -172,22 +171,6 @@ func (h *DiscoveryHandler) discoverAndCreate(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func (h *DiscoveryHandler) getResourceSlices(ctx context.Context) ([]resourcev1beta1.ResourceSlice, error) {
-	var slices resourcev1beta1.ResourceSliceList
-	if err := h.client.List(ctx, &slices, client.MatchingLabels{}); err != nil {
-		return nil, err
-	}
-
-	result := make([]resourcev1beta1.ResourceSlice, 0)
-	for _, slice := range slices.Items {
-		if slice.Spec.Driver == draDriverName {
-			result = append(result, slice)
-		}
-	}
-
-	return result, nil
 }
 
 func (h *DiscoveryHandler) findDeviceInSlices(slices []resourcev1beta1.ResourceSlice, hash, nodeName string) (v1alpha2.NodeUSBDeviceAttributes, bool) {
