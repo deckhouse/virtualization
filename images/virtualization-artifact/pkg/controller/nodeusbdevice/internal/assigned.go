@@ -164,8 +164,8 @@ func (h *AssignedHandler) ensureUSBDevice(ctx context.Context, nodeUSBDevice *v1
 		if needsUpdate {
 			usbDevice.Status.Attributes = nodeUSBDevice.Status.Attributes
 			usbDevice.Status.NodeName = nodeUSBDevice.Status.NodeName
-			if err := h.client.Status().Update(ctx, usbDevice); err != nil {
-				return nil, fmt.Errorf("failed to update USBDevice status: %w", err)
+			if err := h.client.Update(ctx, usbDevice); err != nil {
+				return nil, fmt.Errorf("failed to update USBDevice: %w", err)
 			}
 		}
 		return usbDevice, nil
@@ -175,8 +175,7 @@ func (h *AssignedHandler) ensureUSBDevice(ctx context.Context, nodeUSBDevice *v1
 		return nil, fmt.Errorf("failed to get USBDevice: %w", err)
 	}
 
-	// USBDevice doesn't exist - create it
-	// Create USBDevice without status (status is a subresource)
+	// USBDevice doesn't exist - create it with status
 	usbDevice = &v1alpha2.USBDevice{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nodeUSBDevice.Name,
@@ -191,20 +190,14 @@ func (h *AssignedHandler) ensureUSBDevice(ctx context.Context, nodeUSBDevice *v1
 				},
 			},
 		},
+		Status: v1alpha2.USBDeviceStatus{
+			Attributes: nodeUSBDevice.Status.Attributes,
+			NodeName:   nodeUSBDevice.Status.NodeName,
+		},
 	}
 
 	if err := h.client.Create(ctx, usbDevice); err != nil {
 		return nil, fmt.Errorf("failed to create USBDevice: %w", err)
-	}
-
-	// Update status separately (status is a subresource)
-	usbDevice.Status = v1alpha2.USBDeviceStatus{
-		Attributes: nodeUSBDevice.Status.Attributes,
-		NodeName:   nodeUSBDevice.Status.NodeName,
-	}
-
-	if err := h.client.Status().Update(ctx, usbDevice); err != nil {
-		return nil, fmt.Errorf("failed to update USBDevice status: %w", err)
 	}
 
 	return usbDevice, nil
