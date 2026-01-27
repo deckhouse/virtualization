@@ -50,14 +50,16 @@ func (s *usbDeviceState) USBDevice() *reconciler.Resource[*v1alpha2.USBDevice, v
 
 func (s *usbDeviceState) NodeUSBDevice(ctx context.Context) (*v1alpha2.NodeUSBDevice, error) {
 	// USBDevice has the same name as the corresponding NodeUSBDevice
-	// We need to find the NodeUSBDevice by name across all namespaces
+	// Use indexer to find NodeUSBDevice by name
 	usbDevice := s.usbDevice.Current()
 	if usbDevice == nil {
 		return nil, nil
 	}
 
 	var nodeUSBDeviceList v1alpha2.NodeUSBDeviceList
-	if err := s.client.List(ctx, &nodeUSBDeviceList); err != nil {
+	if err := s.client.List(ctx, &nodeUSBDeviceList, client.MatchingFields{
+		indexer.IndexFieldNodeUSBDeviceByName: usbDevice.Name,
+	}); err != nil {
 		return nil, err
 	}
 
