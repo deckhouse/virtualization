@@ -78,13 +78,13 @@ func CalculateHashFromDevice(device resourcev1beta1.Device, nodeName string) str
 	}
 
 	attrs := v1alpha2.NodeUSBDeviceAttributes{
-		NodeName:    nodeName,
-		VendorID:    vendorID,
-		ProductID:   productID,
-		Bus:         bus,
+		NodeName:     nodeName,
+		VendorID:     vendorID,
+		ProductID:    productID,
+		Bus:          bus,
 		DeviceNumber: deviceNumber,
-		Serial:      serial,
-		DevicePath:  devicePath,
+		Serial:       serial,
+		DevicePath:   devicePath,
 	}
 
 	return CalculateHash(attrs)
