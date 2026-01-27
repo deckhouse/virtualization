@@ -30,7 +30,6 @@ const (
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
 // +kubebuilder:resource:categories={virtualization},scope=Namespaced,shortName={usb},singular=usbdevice
-// +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Node",type=string,JSONPath=`.status.nodeName`
 // +kubebuilder:printcolumn:name="VendorID",type=string,JSONPath=`.status.attributes.vendorID`,priority=1
 // +kubebuilder:printcolumn:name="ProductID",type=string,JSONPath=`.status.attributes.productID`,priority=1
