@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/usbdevice/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	fakeversioned "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/fake"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/usbdevicecondition"
 )
@@ -72,7 +73,8 @@ var _ = Describe("DeletionHandler", func() {
 
 			usbDeviceState = state.New(fakeClient, usbDeviceResource)
 			recorder := &eventrecord.EventRecorderLoggerMock{}
-			handler = NewDeletionHandler(fakeClient, recorder)
+			fakeVirtClient := fakeversioned.NewSimpleClientset()
+			handler = NewDeletionHandler(fakeClient, fakeVirtClient, recorder)
 
 			result, err := handler.Handle(ctx, usbDeviceState)
 			Expect(err).NotTo(HaveOccurred())
@@ -119,7 +121,8 @@ var _ = Describe("DeletionHandler", func() {
 
 			usbDeviceState = state.New(fakeClient, usbDeviceResource)
 			recorder := &eventrecord.EventRecorderLoggerMock{}
-			handler = NewDeletionHandler(fakeClient, recorder)
+			fakeVirtClient := fakeversioned.NewSimpleClientset()
+			handler = NewDeletionHandler(fakeClient, fakeVirtClient, recorder)
 
 			result, err := handler.Handle(ctx, usbDeviceState)
 			Expect(err).NotTo(HaveOccurred())
@@ -149,10 +152,26 @@ var _ = Describe("DeletionHandler", func() {
 				},
 			}
 
+			// Create a VM that uses this USB device
+			vm := &v1alpha2.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vm",
+					Namespace: "default",
+				},
+				Status: v1alpha2.VirtualMachineStatus{
+					USBDevices: []v1alpha2.USBDeviceStatusRef{
+						{
+							Name:     "usb-device-1",
+							Attached: true,
+						},
+					},
+				},
+			}
+
 			scheme := apiruntime.NewScheme()
 			Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 
-			fakeClient = fake.NewClientBuilder().WithScheme(scheme).WithObjects(usbDevice).Build()
+			fakeClient = fake.NewClientBuilder().WithScheme(scheme).WithObjects(usbDevice, vm).Build()
 
 			usbDeviceResource = reconciler.NewResource(
 				types.NamespacedName{Name: usbDevice.Name, Namespace: usbDevice.Namespace},
@@ -166,14 +185,15 @@ var _ = Describe("DeletionHandler", func() {
 			recorder := &eventrecord.EventRecorderLoggerMock{
 				EventfFunc: func(involvedObject client.Object, eventtype, reason, messageFmt string, args ...interface{}) {},
 			}
-			handler = NewDeletionHandler(fakeClient, recorder)
+			fakeVirtClient := fakeversioned.NewSimpleClientset()
+			handler = NewDeletionHandler(fakeClient, fakeVirtClient, recorder)
 
 			result, err := handler.Handle(ctx, usbDeviceState)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("hot unplug required"))
+			// Should requeue to verify device is no longer attached
+			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeTrue())
 
-			// Verify finalizer was not removed
+			// Verify finalizer was not removed yet
 			Expect(usbDeviceResource.Changed().GetFinalizers()).To(ContainElement(v1alpha2.FinalizerUSBDeviceCleanup))
 		})
 	})

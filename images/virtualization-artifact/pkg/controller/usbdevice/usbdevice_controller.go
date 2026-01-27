@@ -28,6 +28,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/usbdevice/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 )
 
 const (
@@ -42,8 +43,13 @@ func NewController(
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	client := mgr.GetClient()
 
+	virtClient, err := versioned.NewForConfig(mgr.GetConfig())
+	if err != nil {
+		return nil, err
+	}
+
 	handlers := []Handler{
-		internal.NewDeletionHandler(client, recorder),
+		internal.NewDeletionHandler(client, virtClient, recorder),
 		internal.NewReadyHandler(client, recorder),
 		internal.NewAttachedHandler(client, recorder),
 		internal.NewSyncHandler(client, recorder),
