@@ -19,11 +19,13 @@ package internal
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -155,11 +157,16 @@ func (h *AssignedHandler) ensureUSBDevice(ctx context.Context, nodeUSBDevice *v1
 
 	err := h.client.Get(ctx, key, usbDevice)
 	if err == nil {
-		// USBDevice exists - update it
-		usbDevice.Status.Attributes = nodeUSBDevice.Status.Attributes
-		usbDevice.Status.NodeName = nodeUSBDevice.Status.NodeName
-		if err := h.client.Update(ctx, usbDevice); err != nil {
-			return nil, fmt.Errorf("failed to update USBDevice: %w", err)
+		// USBDevice exists - check if update is needed
+		needsUpdate := !reflect.DeepEqual(usbDevice.Status.Attributes, nodeUSBDevice.Status.Attributes) ||
+			usbDevice.Status.NodeName != nodeUSBDevice.Status.NodeName
+
+		if needsUpdate {
+			usbDevice.Status.Attributes = nodeUSBDevice.Status.Attributes
+			usbDevice.Status.NodeName = nodeUSBDevice.Status.NodeName
+			if err := h.client.Status().Update(ctx, usbDevice); err != nil {
+				return nil, fmt.Errorf("failed to update USBDevice status: %w", err)
+			}
 		}
 		return usbDevice, nil
 	}
@@ -173,6 +180,15 @@ func (h *AssignedHandler) ensureUSBDevice(ctx context.Context, nodeUSBDevice *v1
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nodeUSBDevice.Name,
 			Namespace: namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: nodeUSBDevice.APIVersion,
+					Kind:       nodeUSBDevice.Kind,
+					Name:       nodeUSBDevice.Name,
+					UID:        nodeUSBDevice.UID,
+					Controller: ptr.To(true),
+				},
+			},
 		},
 		Status: v1alpha2.USBDeviceStatus{
 			Attributes: nodeUSBDevice.Status.Attributes,
