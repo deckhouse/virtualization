@@ -20,6 +20,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"sort"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -233,6 +234,27 @@ func ApplyVirtualMachineSpec(
 	if err := kvvm.SetProvisioning(vm.Spec.Provisioning); err != nil {
 		return err
 	}
+
+	diskOrder := make(map[string]int)
+	for i, bd := range vm.Status.BlockDeviceRefs {
+		diskOrder[bd.Name] = i
+	}
+	sort.Slice(hotpluggedDevices, func(i, j int) bool {
+		nameI, _ := GetOriginalDiskName(hotpluggedDevices[i].VolumeName)
+		nameJ, _ := GetOriginalDiskName(hotpluggedDevices[j].VolumeName)
+		orderI, okI := diskOrder[nameI]
+		orderJ, okJ := diskOrder[nameJ]
+		if !okI && !okJ {
+			return hotpluggedDevices[i].VolumeName < hotpluggedDevices[j].VolumeName
+		}
+		if !okI {
+			return false
+		}
+		if !okJ {
+			return true
+		}
+		return orderI < orderJ
+	})
 
 	for _, device := range hotpluggedDevices {
 		name, kind := GetOriginalDiskName(device.VolumeName)
