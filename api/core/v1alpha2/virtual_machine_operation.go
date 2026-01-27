@@ -63,7 +63,7 @@ type VirtualMachineOperationSpec struct {
 	Restore *VirtualMachineOperationRestoreSpec `json:"restore,omitempty"`
 	// Clone defines the clone operation.
 	Clone *VirtualMachineOperationCloneSpec `json:"clone,omitempty"`
-	// Migrate defines the Migrate operation.
+	// Defines the virtual machine migration operation.
 	Migrate *VirtualMachineOperationMigrateSpec `json:"migrate,omitempty"`
 }
 
@@ -88,9 +88,10 @@ type VirtualMachineOperationCloneSpec struct {
 
 // VirtualMachineOperationMigrateSpec defines the restore operation.
 type VirtualMachineOperationMigrateSpec struct {
-	// NodeSelector must match a node's labels for the VM to be scheduled on that node.
-	// [The same](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes/) as in the pods `spec.nodeSelector` parameter in Kubernetes.
-	// Note: the `nodeSelector` field is not available in the Community Edition version.
+	// Node selector for scheduling the VM onto a node. Must match the target node's labels.
+	// [Same](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes/) as the Pod `spec.nodeSelector` field in Kubernetes.
+	//
+	// > The `nodeSelector` field is not available in the Community Edition.
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
 
@@ -172,8 +173,8 @@ const (
 // * `Start`: Start the virtual machine.
 // * `Stop`: Stop the virtual machine.
 // * `Restart`: Restart the virtual machine.
-// * `Migrate`: Migrate the virtual machine to another node where it can be started.
-// * `Evict`: Evict the virtual machine to another node where it can be started.
+// * `Migrate`: Migrate the virtual machine to another node where it can run.
+// * `Evict`: Evict the virtual machine to another node where it can run.
 // * `Restore`: Restore the virtual machine from a snapshot.
 // * `Clone`: Clone the virtual machine to a new virtual machine.
 // +kubebuilder:validation:Enum={Restart,Start,Stop,Migrate,Evict,Restore,Clone}

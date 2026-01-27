@@ -170,7 +170,7 @@ spec:
                       description: |-
                         Node selector for scheduling the VM onto a node. Must match the target node's labels.
                         [Same](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes/) as the Pod `spec.nodeSelector` field in Kubernetes.
-                        
+
                         > The `nodeSelector` field is not available in the Community Edition.
                       type: object
                   type: object
