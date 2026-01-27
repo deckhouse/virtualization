@@ -19,6 +19,7 @@ package nodeusbdevice
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"reflect"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -88,12 +89,26 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, err
 	}
 
+	s := state.New(r.client, nodeUSBDevice)
+
+	// If NodeUSBDevice doesn't exist, only run DiscoveryHandler to discover new devices
 	if nodeUSBDevice.IsEmpty() {
-		log.Info("Reconcile observe an absent NodeUSBDevice: it may be deleted")
+		log.Info("Reconcile observe an absent NodeUSBDevice: running discovery to find new devices")
+
+		// Find DiscoveryHandler and run it
+		for _, handler := range r.handlers {
+			if handler.Name() == "DiscoveryHandler" {
+				result, err := handler.Handle(ctx, s)
+				if err != nil {
+					log.Error("DiscoveryHandler failed", slog.Attr{Key: "error", Value: slog.StringValue(err.Error())})
+				}
+				return result, err
+			}
+		}
+
+		// If DiscoveryHandler not found, return
 		return reconcile.Result{}, nil
 	}
-
-	s := state.New(r.client, nodeUSBDevice)
 
 	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
 	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
