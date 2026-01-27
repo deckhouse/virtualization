@@ -28,7 +28,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/usbdevicecondition"
 	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
 
@@ -75,7 +74,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.USBDeviceState) (r
 	if len(vms) > 0 {
 		// Device is attached to one or more VMs - perform hot unplug
 		h.recorder.Eventf(changed, "Normal", "Deletion", "Device is attached to VM(s), performing hot unplug")
-		
+
 		for _, vm := range vms {
 			// Remove ResourceClaim from VM
 			opts := subv1alpha2.VirtualMachineRemoveResourceClaim{
@@ -88,7 +87,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.USBDeviceState) (r
 			}
 			h.recorder.Eventf(changed, "Normal", "Deletion", "Removed ResourceClaim from VM %s/%s", vm.Namespace, vm.Name)
 		}
-		
+
 		// Requeue to verify that device is no longer attached
 		return reconcile.Result{Requeue: true}, nil
 	}

@@ -234,7 +234,7 @@ func (h *DiscoveryHandler) createNodeUSBDevice(ctx context.Context, attributes v
 	return nil
 }
 
-func (h *DiscoveryHandler) findDeviceInSlices(slices []resourcev1beta1.ResourceSlice, hash, nodeName string) (v1alpha2.NodeUSBDeviceAttributes, bool) {
+func (h *DiscoveryHandler) findDeviceInSlices(slices []resourcev1beta1.ResourceSlice, searchedHash, nodeName string) (v1alpha2.NodeUSBDeviceAttributes, bool) {
 	for _, slice := range slices {
 		if slice.Spec.Pool.Name != nodeName {
 			continue
@@ -246,9 +246,9 @@ func (h *DiscoveryHandler) findDeviceInSlices(slices []resourcev1beta1.ResourceS
 			}
 
 			attributes := h.convertDeviceToAttributes(device, nodeName)
-			deviceHash := h.calculateHash(attributes)
+			deviceHash := hash.CalculateHash(attributes)
 
-			if deviceHash == hash {
+			if deviceHash == searchedHash {
 				return attributes, true
 			}
 		}

@@ -59,7 +59,7 @@ var _ = Describe("ReadyHandler", func() {
 					Name: "slice-1",
 				},
 				Spec: resourcev1beta1.ResourceSliceSpec{
-					Driver: draDriverName,
+					Driver: "virtualization-dra",
 					Pool: resourcev1beta1.ResourcePool{
 						Name: "node-1",
 					},
