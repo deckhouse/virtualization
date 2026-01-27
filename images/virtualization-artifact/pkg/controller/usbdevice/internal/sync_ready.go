@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"reflect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,22 +32,22 @@ import (
 )
 
 const (
-	nameReadyHandler = "ReadyHandler"
+	nameSyncReadyHandler = "SyncReadyHandler"
 )
 
-func NewReadyHandler(client client.Client, recorder eventrecord.EventRecorderLogger) *ReadyHandler {
-	return &ReadyHandler{
+func NewSyncReadyHandler(client client.Client, recorder eventrecord.EventRecorderLogger) *SyncReadyHandler {
+	return &SyncReadyHandler{
 		client:   client,
 		recorder: recorder,
 	}
 }
 
-type ReadyHandler struct {
+type SyncReadyHandler struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
 }
 
-func (h *ReadyHandler) Handle(ctx context.Context, s state.USBDeviceState) (reconcile.Result, error) {
+func (h *SyncReadyHandler) Handle(ctx context.Context, s state.USBDeviceState) (reconcile.Result, error) {
 	usbDevice := s.USBDevice()
 
 	if usbDevice.IsEmpty() {
@@ -56,7 +57,7 @@ func (h *ReadyHandler) Handle(ctx context.Context, s state.USBDeviceState) (reco
 	current := usbDevice.Current()
 	changed := usbDevice.Changed()
 
-	// Get corresponding NodeUSBDevice
+	// Get corresponding NodeUSBDevice once
 	nodeUSBDevice, err := s.NodeUSBDevice(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -74,7 +75,16 @@ func (h *ReadyHandler) Handle(ctx context.Context, s state.USBDeviceState) (reco
 		return reconcile.Result{}, nil
 	}
 
-	// Find Ready condition in NodeUSBDevice
+	// Sync attributes and nodeName from NodeUSBDevice (only if changed)
+	needsSync := !reflect.DeepEqual(changed.Status.Attributes, nodeUSBDevice.Status.Attributes) ||
+		changed.Status.NodeName != nodeUSBDevice.Status.NodeName
+
+	if needsSync {
+		changed.Status.Attributes = nodeUSBDevice.Status.Attributes
+		changed.Status.NodeName = nodeUSBDevice.Status.NodeName
+	}
+
+	// Sync Ready condition from NodeUSBDevice
 	var readyCondition *metav1.Condition
 	for i := range nodeUSBDevice.Status.Conditions {
 		if nodeUSBDevice.Status.Conditions[i].Type == string(nodeusbdevicecondition.ReadyType) {
@@ -126,6 +136,6 @@ func (h *ReadyHandler) Handle(ctx context.Context, s state.USBDeviceState) (reco
 	return reconcile.Result{}, nil
 }
 
-func (h *ReadyHandler) Name() string {
-	return nameReadyHandler
+func (h *SyncReadyHandler) Name() string {
+	return nameSyncReadyHandler
 }

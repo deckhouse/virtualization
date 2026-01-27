@@ -52,9 +52,8 @@ func NewController(
 
 	handlers := []Handler{
 		internal.NewDeletionHandler(client, virtClient, recorder),
-		internal.NewReadyHandler(client, recorder),
+		internal.NewSyncReadyHandler(client, recorder),
 		internal.NewAttachedHandler(client, recorder),
-		internal.NewSyncHandler(client, recorder),
 	}
 
 	r := NewReconciler(client, handlers...)

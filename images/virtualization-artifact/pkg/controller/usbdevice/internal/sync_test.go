@@ -36,10 +36,10 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-var _ = Describe("SyncHandler", func() {
+var _ = Describe("SyncReadyHandler", func() {
 	var ctx context.Context
 	var fakeClient client.WithWatch
-	var handler *SyncHandler
+	var handler *SyncReadyHandler
 	var usbDeviceState state.USBDeviceState
 	var usbDeviceResource *reconciler.Resource[*v1alpha2.USBDevice, v1alpha2.USBDeviceStatus]
 
@@ -91,7 +91,7 @@ var _ = Describe("SyncHandler", func() {
 
 			usbDeviceState = state.New(fakeClient, usbDeviceResource)
 			recorder := &eventrecord.EventRecorderLoggerMock{}
-			handler = NewSyncHandler(fakeClient, recorder)
+			handler = NewSyncReadyHandler(fakeClient, recorder)
 
 			result, err := handler.Handle(ctx, usbDeviceState)
 			Expect(err).NotTo(HaveOccurred())
@@ -135,7 +135,7 @@ var _ = Describe("SyncHandler", func() {
 
 			usbDeviceState = state.New(fakeClient, usbDeviceResource)
 			recorder := &eventrecord.EventRecorderLoggerMock{}
-			handler = NewSyncHandler(fakeClient, recorder)
+			handler = NewSyncReadyHandler(fakeClient, recorder)
 
 			result, err := handler.Handle(ctx, usbDeviceState)
 			Expect(err).NotTo(HaveOccurred())
