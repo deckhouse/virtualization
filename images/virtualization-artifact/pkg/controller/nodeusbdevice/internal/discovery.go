@@ -111,7 +111,7 @@ func (h *DiscoveryHandler) discoverAndCreate(ctx context.Context, s state.NodeUS
 	deviceHashesInSlices := make(map[string]bool)
 	for _, slice := range resourceSlices {
 		for _, device := range slice.Spec.Devices {
-			if !strings.HasPrefix(device.Name, "usb-") {
+			if !strings.HasPrefix(device.Name, "virtualization-dra-") {
 				continue
 			}
 			hash := hash.CalculateHashFromDevice(device, slice.Spec.Pool.Name)
@@ -142,7 +142,7 @@ func (h *DiscoveryHandler) discoverAndCreate(ctx context.Context, s state.NodeUS
 			// Only create devices that are in slices but not in existing
 			for _, slice := range resourceSlices {
 				for _, device := range slice.Spec.Devices {
-					if !strings.HasPrefix(device.Name, "usb-") {
+					if !strings.HasPrefix(device.Name, "virtualization-dra-") {
 						continue
 					}
 
@@ -177,7 +177,7 @@ func (h *DiscoveryHandler) discoverAndCreate(ctx context.Context, s state.NodeUS
 	// Note: resourceSlices are already filtered by draDriverName in state.ResourceSlices
 	for _, slice := range resourceSlices {
 		for _, device := range slice.Spec.Devices {
-			if !strings.HasPrefix(device.Name, "usb-") {
+			if !strings.HasPrefix(device.Name, "virtualization-dra-") {
 				continue
 			}
 
@@ -241,7 +241,7 @@ func (h *DiscoveryHandler) findDeviceInSlices(slices []resourcev1beta1.ResourceS
 		}
 
 		for _, device := range slice.Spec.Devices {
-			if !strings.HasPrefix(device.Name, "usb-") {
+			if !strings.HasPrefix(device.Name, "virtualization-dra-") {
 				continue
 			}
 
