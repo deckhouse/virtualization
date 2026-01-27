@@ -95,7 +95,7 @@ spec:
           - "UPDATE"
         resources:
           - "nodeusbdevices/status"
-          - "usbdevices"
+          - "usbdevices/status"
   validations:
     - expression: |
         request.userInfo.username.startsWith("system:serviceaccount:d8")

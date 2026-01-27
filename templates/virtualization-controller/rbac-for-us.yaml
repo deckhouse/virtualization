@@ -22,7 +22,6 @@ rules:
   - services
   - secrets
   - configmaps
-  - namespaces
   verbs:
   - get
   - create
