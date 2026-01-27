@@ -1,7 +1,7 @@
 ---
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.24" "builder/golang-alt-svace-1.24" }}
+fromImage: builder/src
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}
     to: /src/kube-api-rewriter
@@ -9,8 +9,16 @@ git:
       install:
         - go.mod
         - go.sum
-      setup:
         - "**/*.go"
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
+final: false
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.24" "builder/golang-alt-svace-1.24" }}
+import:
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+    add: /src
+    to: /src
+    before: install
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
