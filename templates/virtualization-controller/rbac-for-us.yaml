@@ -22,6 +22,7 @@ rules:
   - services
   - secrets
   - configmaps
+  - namespaces
   verbs:
   - get
   - create
@@ -214,6 +215,8 @@ rules:
   - virtualdisksnapshots
   - virtualmachinesnapshots
   - virtualmachinerestores
+  - nodeusbdevices
+  - usbdevices
   verbs:
   - create
   - delete
@@ -240,6 +243,8 @@ rules:
   - virtualdisksnapshots/finalizers
   - virtualmachinesnapshots/finalizers
   - virtualmachinerestores/finalizers
+  - nodeusbdevices/finalizers
+  - usbdevices/finalizers
   - virtualmachineipaddresses/status
   - virtualmachineipaddressleases/status
   - virtualmachinemacaddresses/status
@@ -255,6 +260,8 @@ rules:
   - virtualdisksnapshots/status
   - virtualmachinesnapshots/status
   - virtualmachinerestores/status
+  - nodeusbdevices/status
+  - usbdevices/status
   verbs:
   - patch
   - update
@@ -281,6 +288,19 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - resource.k8s.io
+  resources:
+  - resourceslices
+  - resourceclaimtemplates
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
 - apiGroups:
   - apiextensions.k8s.io
   resources:
