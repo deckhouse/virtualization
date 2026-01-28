@@ -59,7 +59,7 @@ jobs:
           else
             CHECKOUT_TAG=${{ github.event.pull_request.head.sha || github.sha }}
           fi
-          CHECKOUT_SHA=$(git rev-parse $CHECKOUT_TAG)
+          CHECKOUT_SHA=$(git rev-parse remotes/origin/$CHECKOUT_TAG)
           echo "CHECKOUT_TAG=$CHECKOUT_TAG" >> "$GITHUB_OUTPUT"
           echo "CHECKOUT_SHA=$CHECKOUT_SHA" >> "$GITHUB_OUTPUT"
           if [[ "${{ github.ref_name }}" == 'main' ]]; then
