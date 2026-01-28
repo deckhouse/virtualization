@@ -74,8 +74,8 @@ func usage() string {
 var spinnerChars = []rune{'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
 
 const (
-	clearLine   = "\r\x1b[K"     // Clear current line
-	clearLineNL = "\r\x1b[K\r\n" // Clear current line and move to next
+	clearLine   = "\r\x1b[K"     // Clear from cursor to end of line
+	clearLineNL = "\r\x1b[K\r\n" // Clear line and move to next
 )
 
 func (c *Console) Run(cmd *cobra.Command, args []string) error {
@@ -198,8 +198,13 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 				if vm, vmErr := client.VirtualMachines(namespace).Get(cmd.Context(), name, metav1.GetOptions{}); vmErr == nil {
 					phase = string(vm.Status.Phase)
 				}
-				fmt.Fprintf(os.Stderr, "%s%c Waiting for VirtualMachine %q serial console. Current VM phase: %s. Press Ctrl+] to exit.",
-					clearLine, spinnerChars[spinnerIdx], name, phase)
+				msg := fmt.Sprintf("%c Waiting for VirtualMachine %q serial console. Current VM phase: %s. Press Ctrl+] to exit.",
+					spinnerChars[spinnerIdx], name, phase)
+				// Truncate message to terminal width to avoid line wrapping issues
+				if width, _, err := term.GetSize(int(os.Stderr.Fd())); err == nil && len(msg) > width {
+					msg = msg[:width-3] + "..."
+				}
+				fmt.Fprint(os.Stderr, clearLine+msg)
 				spinnerIdx = (spinnerIdx + 1) % len(spinnerChars)
 				showedWaitMessage = true
 				time.Sleep(200 * time.Millisecond)
