@@ -38,18 +38,15 @@ import (
 type CleanupSnapshotStep struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
-	cb       *conditions.ConditionBuilder
 }
 
 func NewCleanupSnapshotStep(
 	client client.Client,
 	recorder eventrecord.EventRecorderLogger,
-	cb *conditions.ConditionBuilder,
 ) *CleanupSnapshotStep {
 	return &CleanupSnapshotStep{
 		client:   client,
 		recorder: recorder,
-		cb:       cb,
 	}
 }
 
@@ -61,17 +58,8 @@ func (s CleanupSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 		return nil, nil
 	}
 
-	cloneCondition, found := conditions.GetCondition(vmopcondition.TypeCloneCompleted, vmop.Status.Conditions)
-	if !found || cloneCondition.Reason == string(vmopcondition.ReasonCloneOperationInProgress) || cloneCondition.Status == metav1.ConditionUnknown {
-		return nil, nil
-	}
-
-	if cloneCondition.Reason != string(vmopcondition.ReasonCloneOperationFailed) && cloneCondition.Status == metav1.ConditionFalse {
-		return nil, nil
-	}
-
 	for _, status := range vmop.Status.Resources {
-		if status.Status == v1alpha2.SnapshotResourceStatusInProgress {
+		if status.Status != v1alpha2.SnapshotResourceStatusCompleted {
 			return nil, nil
 		}
 	}
@@ -109,5 +97,5 @@ func (s CleanupSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 		&vmop.Status.Conditions,
 	)
 
-	return &reconcile.Result{}, nil
+	return nil, nil
 }
