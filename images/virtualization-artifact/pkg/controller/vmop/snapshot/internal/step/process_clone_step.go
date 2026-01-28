@@ -63,10 +63,18 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 		return &reconcile.Result{}, err
 	}
 
+	if vmSnapshot == nil {
+		return &reconcile.Result{}, nil
+	}
+
 	restorerSecretKey := types.NamespacedName{Namespace: vmSnapshot.Namespace, Name: vmSnapshot.Status.VirtualMachineSnapshotSecretName}
 	restorerSecret, err := object.FetchObject(ctx, restorerSecretKey, s.client, &corev1.Secret{})
 	if err != nil {
 		return &reconcile.Result{}, err
+	}
+
+	if restorerSecret == nil {
+		return &reconcile.Result{}, nil
 	}
 
 	snapshotResources := restorer.NewSnapshotResources(s.client, v1alpha2.VMOPTypeClone, vmop.Spec.Clone.Mode, restorerSecret, vmSnapshot, string(vmop.UID))
@@ -88,7 +96,7 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 	statuses, err := snapshotResources.Validate(ctx)
 	vmop.Status.Resources = statuses
 	if err != nil {
-		return &reconcile.Result{}, nil
+		return &reconcile.Result{}, err
 	}
 
 	if vmop.Spec.Clone.Mode == v1alpha2.SnapshotOperationModeDryRun {

@@ -48,8 +48,15 @@ func NewWaitingDisksStep(
 }
 
 func (s WaitingDisksReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
-	if vmop.Spec.Type == v1alpha2.VMOPTypeRestore && vmop.Spec.Restore.Mode == v1alpha2.SnapshotOperationModeDryRun {
-		return nil, nil
+	switch vmop.Spec.Type {
+	case v1alpha2.VMOPTypeRestore:
+		if vmop.Spec.Restore.Mode == v1alpha2.SnapshotOperationModeDryRun {
+			return nil, nil
+		}
+	case v1alpha2.VMOPTypeClone:
+		if vmop.Spec.Clone.Mode == v1alpha2.SnapshotOperationModeDryRun {
+			return nil, nil
+		}
 	}
 
 	for _, status := range vmop.Status.Resources {

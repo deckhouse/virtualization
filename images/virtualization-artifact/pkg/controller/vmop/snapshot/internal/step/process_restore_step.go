@@ -50,7 +50,7 @@ func NewProcessRestoreStep(
 
 func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
 	maintenanceModeCondition, found := conditions.GetCondition(vmopcondition.TypeMaintenanceMode, vmop.Status.Conditions)
-	if !found && maintenanceModeCondition.Status == metav1.ConditionFalse {
+	if !found || maintenanceModeCondition.Status == metav1.ConditionFalse {
 		return &reconcile.Result{}, nil
 	}
 
@@ -60,10 +60,18 @@ func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 		return &reconcile.Result{}, err
 	}
 
+	if vmSnapshot == nil {
+		return &reconcile.Result{}, nil
+	}
+
 	restorerSecretKey := types.NamespacedName{Namespace: vmSnapshot.Namespace, Name: vmSnapshot.Status.VirtualMachineSnapshotSecretName}
 	restorerSecret, err := object.FetchObject(ctx, restorerSecretKey, s.client, &corev1.Secret{})
 	if err != nil {
 		return &reconcile.Result{}, err
+	}
+
+	if restorerSecret == nil {
+		return &reconcile.Result{}, nil
 	}
 
 	snapshotResources := restorer.NewSnapshotResources(s.client, v1alpha2.VMOPTypeRestore, vmop.Spec.Restore.Mode, restorerSecret, vmSnapshot, string(vmop.UID))
@@ -92,7 +100,7 @@ func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 	conditions.SetCondition(
 		conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 			Status(metav1.ConditionFalse).
-			Reason(vmopcondition.ReasonCloneCompleted).
+			Reason(vmopcondition.ReasonRestoreCompleted).
 			Message("Restore operation is completed. Waiting for resource readiness"),
 		&vmop.Status.Conditions,
 	)

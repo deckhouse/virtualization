@@ -68,20 +68,20 @@ func (s VMSnapshotReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 	}
 
 	if vmSnapshot == nil {
-		return &reconcile.Result{}, err
+		return &reconcile.Result{}, nil
 	}
 
 	vmSnapshotReadyToUseCondition, exist := conditions.GetCondition(vmscondition.VirtualMachineSnapshotReadyType, vmSnapshot.Status.Conditions)
 	if !exist {
-		return &reconcile.Result{}, err
+		return &reconcile.Result{}, nil
 	}
 
 	if vmSnapshotReadyToUseCondition.Status != metav1.ConditionTrue {
-		return &reconcile.Result{}, err
+		return &reconcile.Result{}, nil
 	}
 
 	if vmSnapshot.Status.VirtualMachineSnapshotSecretName == "" {
-		return &reconcile.Result{}, err
+		return &reconcile.Result{}, nil
 	}
 
 	return nil, nil
