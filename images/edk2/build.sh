@@ -99,11 +99,10 @@ echo_dbg() {
 
 # compiler
 CC_FLAGS="-t GCC5"
-CC_FLAGS="${CC_FLAGS} -b RELEASE"
-# CC_FLAGS="${CC_FLAGS} -b DEBUG"  # TEMP: enable debug to see OVMF errors in serial
+CC_FLAGS="${CC_FLAGS} -b RELEASE"  # use "-b DEBUG" to build debug version
 
 CC_FLAGS="${CC_FLAGS} --cmd-len=65536"
-CC_FLAGS="${CC_FLAGS} -D DEBUG_ON_SERIAL_PORT=TRUE"  # TEMP: output debug to serial console
+CC_FLAGS="${CC_FLAGS} -D DEBUG_ON_SERIAL_PORT=TRUE"  # output debug to serial console (only effective with -b DEBUG build)
 CC_FLAGS="${CC_FLAGS} -D NETWORK_IP6_ENABLE=TRUE"
 CC_FLAGS="${CC_FLAGS} -D NETWORK_HTTP_BOOT_ENABLE=TRUE -D NETWORK_ALLOW_HTTP_CONNECTIONS=TRUE"
 CC_FLAGS="${CC_FLAGS} -D TPM2_ENABLE=TRUE -D TPM2_CONFIG_ENABLE=TRUE"
