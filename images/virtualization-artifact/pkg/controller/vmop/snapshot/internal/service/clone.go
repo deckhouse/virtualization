@@ -78,7 +78,7 @@ func (o CloneOperation) Execute(ctx context.Context) (reconcile.Result, error) {
 		step.NewProcessCloneStep(o.client, o.recorder),
 		step.NewWaitingDisksStep(o.client, o.recorder),
 		step.NewCleanupSnapshotStep(o.client, o.recorder),
-		step.NewFinalStep(o.recorder),
+		step.NewCompletedStep(o.recorder),
 	).Run(ctx, o.vmop)
 	if err != nil {
 		failMsg := fmt.Sprintf("%s is failed", o.vmop.Spec.Type)

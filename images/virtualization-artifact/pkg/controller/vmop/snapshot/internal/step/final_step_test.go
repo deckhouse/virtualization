@@ -26,11 +26,11 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-var _ = Describe("FinalStep", func() {
+var _ = Describe("CompletedStep", func() {
 	var (
 		ctx      context.Context
 		recorder *eventrecord.EventRecorderLoggerMock
-		step     *FinalStep
+		step     *CompletedStep
 	)
 
 	BeforeEach(func() {
@@ -41,7 +41,7 @@ var _ = Describe("FinalStep", func() {
 	It("should set completed phase and condition", func() {
 		vmop := createRestoreVMOP("default", "test-vmop", "test-vm", "test-snapshot")
 
-		step = NewFinalStep(recorder)
+		step = NewCompletedStep(recorder)
 		result, err := step.Take(ctx, vmop)
 
 		Expect(err).NotTo(HaveOccurred())
@@ -52,7 +52,7 @@ var _ = Describe("FinalStep", func() {
 	It("should be idempotent - multiple calls produce same result", func() {
 		vmop := createRestoreVMOP("default", "test-vmop", "test-vm", "test-snapshot")
 
-		step = NewFinalStep(recorder)
+		step = NewCompletedStep(recorder)
 
 		result1, err1 := step.Take(ctx, vmop)
 		phase1 := vmop.Status.Phase

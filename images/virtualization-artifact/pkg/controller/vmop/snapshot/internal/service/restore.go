@@ -83,7 +83,7 @@ func (o RestoreOperation) Execute(ctx context.Context) (reconcile.Result, error)
 		step.NewProcessRestoreStep(o.client, o.recorder),
 		step.NewWaitingDisksStep(o.client, o.recorder),
 		step.NewExitMaintenanceStep(o.client, o.recorder),
-		step.NewFinalStep(o.recorder),
+		step.NewCompletedStep(o.recorder),
 	).Run(ctx, o.vmop)
 	if err != nil {
 		failMsg := fmt.Sprintf("%s is failed", o.vmop.Spec.Type)

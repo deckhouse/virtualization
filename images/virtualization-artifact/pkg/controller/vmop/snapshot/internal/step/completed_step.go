@@ -29,19 +29,19 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
-type FinalStep struct {
+type CompletedStep struct {
 	recorder eventrecord.EventRecorderLogger
 }
 
-func NewFinalStep(
+func NewCompletedStep(
 	recorder eventrecord.EventRecorderLogger,
-) *FinalStep {
-	return &FinalStep{
+) *CompletedStep {
+	return &CompletedStep{
 		recorder: recorder,
 	}
 }
 
-func (s FinalStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
+func (s CompletedStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vmopcondition.TypeCompleted).Status(metav1.ConditionTrue).Reason(vmopcondition.ReasonOperationCompleted)
 	conditions.SetCondition(cb, &vmop.Status.Conditions)
 	vmop.Status.Phase = v1alpha2.VMOPPhaseCompleted
