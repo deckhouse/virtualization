@@ -99,9 +99,10 @@ echo_dbg() {
 
 # compiler
 CC_FLAGS="-t GCC5"
-CC_FLAGS="${CC_FLAGS} -b RELEASE"
+CC_FLAGS="${CC_FLAGS} -b RELEASE"  # use "-b DEBUG" to build debug version
 
 CC_FLAGS="${CC_FLAGS} --cmd-len=65536"
+CC_FLAGS="${CC_FLAGS} -D DEBUG_ON_SERIAL_PORT=TRUE"  # output debug to serial console (only effective with -b DEBUG build)
 CC_FLAGS="${CC_FLAGS} -D NETWORK_IP6_ENABLE=TRUE"
 CC_FLAGS="${CC_FLAGS} -D NETWORK_HTTP_BOOT_ENABLE=TRUE -D NETWORK_ALLOW_HTTP_CONNECTIONS=TRUE"
 CC_FLAGS="${CC_FLAGS} -D TPM2_ENABLE=TRUE -D TPM2_CONFIG_ENABLE=TRUE"
@@ -116,6 +117,15 @@ OVMF_4M_FLAGS="${CC_FLAGS} -D FD_SIZE_4MB=TRUE -D NETWORK_TLS_ENABLE=TRUE -D NET
 OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D SECURE_BOOT_ENABLE=TRUE"
 OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D SMM_REQUIRE=TRUE"
 OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D EXCLUDE_SHELL_FROM_FD=TRUE -D BUILD_SHELL=FALSE"
+# Disable Warm Reset on Memory Type Information change (needed for non-persistent NVRAM)
+# Disable Warm Reset - NOT NEEDED: instead Persistent=true is set in kvbuilder/kvvm.go for EFIWithSecureBoot
+# OVMF_SB_FLAGS="${OVMF_SB_FLAGS} --pcd gEfiMdeModulePkgTokenSpaceGuid.PcdResetOnMemoryTypeInformationChange=FALSE"
+# Support up to 256 CPUs for SMM (8 sockets * 32 cores)
+OVMF_SB_FLAGS="${OVMF_SB_FLAGS} --pcd gUefiCpuPkgTokenSpaceGuid.PcdCpuMaxLogicalProcessorNumber=256"
+# Increase TSEG (SMRAM) from 8MB to 32MB for 256 CPUs (256 * 16KB stack = 4MB + overhead)
+OVMF_SB_FLAGS="${OVMF_SB_FLAGS} --pcd gUefiOvmfPkgTokenSpaceGuid.PcdQ35TsegMbytes=32"
+# Increase SMM AP sync timeout for many vCPUs (default 1000000us = 1s, set to 10s)
+OVMF_SB_FLAGS="${OVMF_SB_FLAGS} --pcd gUefiCpuPkgTokenSpaceGuid.PcdCpuSmmApSyncTimeout=10000000"
 
 # unset MAKEFLAGS
 echo "run source edksetup.sh"

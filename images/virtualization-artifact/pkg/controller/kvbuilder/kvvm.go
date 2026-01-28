@@ -614,7 +614,10 @@ func (b *KVVM) SetBootloader(bootloader v1alpha2.BootloaderType) error {
 			Enabled: pointer.GetPointer(true),
 		}
 		b.Resource.Spec.Template.Spec.Domain.Firmware.Bootloader = &virtv1.Bootloader{
-			EFI: &virtv1.EFI{SecureBoot: pointer.GetPointer(true)},
+			EFI: &virtv1.EFI{
+				SecureBoot: pointer.GetPointer(true),
+				Persistent: pointer.GetPointer(true),
+			},
 		}
 	default:
 		return fmt.Errorf("unexpected bootloader type %q. %w", bootloader, common.ErrUnknownType)
