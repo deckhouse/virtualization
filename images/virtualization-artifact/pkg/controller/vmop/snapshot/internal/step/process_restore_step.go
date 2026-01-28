@@ -97,13 +97,5 @@ func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 		return &reconcile.Result{}, err
 	}
 
-	conditions.SetCondition(
-		conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
-			Status(metav1.ConditionFalse).
-			Reason(vmopcondition.ReasonRestoreCompleted).
-			Message("Restore operation is completed. Waiting for resource readiness"),
-		&vmop.Status.Conditions,
-	)
-
 	return nil, nil
 }

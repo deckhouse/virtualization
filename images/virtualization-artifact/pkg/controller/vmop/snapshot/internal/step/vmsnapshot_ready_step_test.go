@@ -54,7 +54,7 @@ var _ = Describe("VMSnapshotReadyStep", func() {
 			Expect(result).NotTo(BeNil())
 		})
 
-		It("should wait when snapshot is not ready", func() {
+		It("should return error when snapshot is not ready", func() {
 			vmop := createRestoreVMOP("default", "test-vmop", "test-vm", "test-snapshot")
 			snapshot := createVMSnapshot("default", "test-snapshot", "test-secret", false)
 
@@ -65,7 +65,8 @@ var _ = Describe("VMSnapshotReadyStep", func() {
 			step = NewVMSnapshotReadyStep(fakeClient)
 			result, err := step.Take(ctx, vmop)
 
-			Expect(err).NotTo(HaveOccurred())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("is not ready to use"))
 			Expect(result).NotTo(BeNil())
 		})
 
@@ -106,7 +107,7 @@ var _ = Describe("VMSnapshotReadyStep", func() {
 			Expect(result3).To(BeNil())
 		})
 
-		It("should be idempotent when waiting for snapshot", func() {
+		It("should be idempotent when snapshot is not ready", func() {
 			vmop := createRestoreVMOP("default", "test-vmop", "test-vm", "test-snapshot")
 			snapshot := createVMSnapshot("default", "test-snapshot", "test-secret", false)
 
@@ -118,8 +119,9 @@ var _ = Describe("VMSnapshotReadyStep", func() {
 
 			for i := range 5 {
 				result, err := step.Take(ctx, vmop)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(result).NotTo(BeNil(), "Iteration %d should return non-nil result (waiting)", i)
+				Expect(err).To(HaveOccurred(), "Iteration %d should return error", i)
+				Expect(err.Error()).To(ContainSubstring("is not ready to use"))
+				Expect(result).NotTo(BeNil(), "Iteration %d should return non-nil result", i)
 			}
 		})
 	})

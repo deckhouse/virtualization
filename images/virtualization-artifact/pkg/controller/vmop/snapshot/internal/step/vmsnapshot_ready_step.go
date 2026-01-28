@@ -68,20 +68,20 @@ func (s VMSnapshotReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 	}
 
 	if vmSnapshot == nil {
-		return &reconcile.Result{}, nil
+		return &reconcile.Result{}, fmt.Errorf("virtual machine snapshot %q is not found", vmSnapshotKey.Name)
 	}
 
 	vmSnapshotReadyToUseCondition, exist := conditions.GetCondition(vmscondition.VirtualMachineSnapshotReadyType, vmSnapshot.Status.Conditions)
 	if !exist {
-		return &reconcile.Result{}, nil
+		return &reconcile.Result{}, fmt.Errorf("virtual machine snapshot %q is not ready to use", vmopName)
 	}
 
 	if vmSnapshotReadyToUseCondition.Status != metav1.ConditionTrue {
-		return &reconcile.Result{}, nil
+		return &reconcile.Result{}, fmt.Errorf("virtual machine snapshot %q is not ready to use", vmopName)
 	}
 
 	if vmSnapshot.Status.VirtualMachineSnapshotSecretName == "" {
-		return &reconcile.Result{}, nil
+		return &reconcile.Result{}, fmt.Errorf("snapshot secret name is empty")
 	}
 
 	return nil, nil

@@ -59,6 +59,14 @@ func (s WaitingDisksReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualM
 		}
 	}
 
+	cb := conditions.NewConditionBuilder(vmopcondition.TypeCompleted).Status(metav1.ConditionFalse)
+	switch vmop.Spec.Type {
+	case v1alpha2.VMOPTypeClone:
+		cb.Reason(vmopcondition.ReasonCloneInProgress)
+	case v1alpha2.VMOPTypeRestore:
+		cb.Reason(vmopcondition.ReasonRestoreInProgress)
+	}
+
 	for _, status := range vmop.Status.Resources {
 		if status.Kind != v1alpha2.VirtualDiskKind {
 			continue
@@ -80,28 +88,27 @@ func (s WaitingDisksReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualM
 			return &reconcile.Result{}, fmt.Errorf("virtual disk %q is in failed phase", vdKey.Name)
 		}
 
-		switch vmop.Spec.Type {
-		case v1alpha2.VMOPTypeClone:
-			if vd.Status.Phase != v1alpha2.DiskReady {
-				return &reconcile.Result{}, nil
+		switch vd.Status.Phase {
+		case v1alpha2.DiskFailed:
+			return &reconcile.Result{}, fmt.Errorf("virtual disk %q is in failed phase", vdKey.Name)
+		case v1alpha2.DiskReady:
+			// Disk is Ready, check the next one.
+			continue
+		case v1alpha2.DiskWaitForFirstConsumer:
+			if vmop.Spec.Type == v1alpha2.VMOPTypeClone {
+				cb.Message(fmt.Sprintf("%s operation is completed. Waiting for resource readiness. Waiting for cleanup.", vmop.Spec.Type))
+				conditions.SetCondition(cb, &vmop.Status.Conditions)
+				return &reconcile.Result{}, nil // Should wait for disk ready.
 			}
-		case v1alpha2.VMOPTypeRestore:
-			if vd.Status.Phase != v1alpha2.DiskReady && vd.Status.Phase != v1alpha2.DiskWaitForFirstConsumer {
-				return &reconcile.Result{}, nil
-			}
+			continue
+		default:
+			cb.Message(fmt.Sprintf("%s operation is completed. Waiting for resource readiness. Waiting for cleanup.", vmop.Spec.Type))
+			conditions.SetCondition(cb, &vmop.Status.Conditions)
+			return &reconcile.Result{}, nil
 		}
 	}
 
-	cb := conditions.NewConditionBuilder(vmopcondition.TypeCompleted).Status(metav1.ConditionFalse)
-	switch vmop.Spec.Type {
-	case v1alpha2.VMOPTypeClone:
-		cb.Reason(vmopcondition.ReasonCloneCompleted)
-		cb.Message("Clone operation is completed. Waiting for cleanup.")
-	case v1alpha2.VMOPTypeRestore:
-		cb.Reason(vmopcondition.ReasonRestoreCompleted)
-		cb.Message("Restore operation is completed. Waiting for cleanup.")
-	}
-
+	cb.Message(fmt.Sprintf("%s operation is completed. Resources are ready. Waiting for cleanup.", vmop.Spec.Type))
 	conditions.SetCondition(cb, &vmop.Status.Conditions)
 
 	return nil, nil
