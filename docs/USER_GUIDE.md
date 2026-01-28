@@ -1906,7 +1906,7 @@ How to manage VM placement parameters by nodes in the web interface:
 - Select the required VM from the list and click on its name.
 - On the "Configuration" tab, scroll down to the "Placement" section.
 
-#### Tolerations (tolerance to node restrictions)
+#### Tolerance to node restrictions
 
 `Tolerations` allow VMs to run on nodes with restrictions (`taints`) that would otherwise block VM placement. This is useful when you need to allow VMs to run on special nodes (for example, test nodes or nodes with specific characteristics).
 
@@ -1937,33 +1937,6 @@ Or for more detailed information:
 ```bash
 d8 k describe node <node-name>
 ```
-
-#### PriorityClassName (scheduling priority)
-
-`PriorityClassName` defines the priority of a VM when scheduling on nodes. VMs with higher priority can evict VMs with lower priority when node resources are insufficient.
-
-Example usage:
-
-```yaml
-spec:
-  priorityClassName: develop
-```
-
-To view available priority classes in the cluster, run:
-
-```bash
-d8 k get priorityclass
-```
-
-Or for more detailed information:
-
-```bash
-d8 k get priorityclass <priority-class-name> -o yaml
-```
-
-{{< alert level="info" >}}
-If the specified priority class does not exist, the VM will not be able to start.
-{{< /alert >}}
 
 #### Simple label binding (nodeSelector)
 
@@ -2268,7 +2241,6 @@ Use stable identifiers instead of `/dev/sdX`:
 - **`/dev/disk/by-uuid/`** — by partition UUID (preferred for `/etc/fstab`)
 - **`/dev/disk/by-path/`** — by SCSI connection path
 - **`/dev/disk/by-id/`** — by SCSI device ID
-- **SCSI addresses** (`0:0:0:X`) — for programmatic disk identification
 
 In configuration files and scripts, use partition UUIDs or symlinks from `/dev/disk/by-*` instead of `/dev/sdX` names.
 
