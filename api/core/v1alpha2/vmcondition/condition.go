@@ -270,7 +270,6 @@ const (
 	ReasonMigratingPending               MigratingReason = "Pending"
 	ReasonReadyToMigrate                 MigratingReason = "ReadyToMigrate"
 	ReasonMigratingInProgress            MigratingReason = "InProgress"
-	ReasonLastMigrationFinishedWithError MigratingReason = "LastMigrationFinishedWithError"
 )
 
 type MaintenanceReason string
