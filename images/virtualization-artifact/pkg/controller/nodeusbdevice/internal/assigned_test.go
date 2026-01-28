@@ -60,6 +60,7 @@ var _ = Describe("AssignedHandler", func() {
 			nodeUSBDevice := &v1alpha2.NodeUSBDevice{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "usb-device-1",
+					UID:  types.UID("node-usb-device-uid-1"),
 				},
 				Spec: v1alpha2.NodeUSBDeviceSpec{
 					AssignedNamespace: "test-namespace",
@@ -77,7 +78,11 @@ var _ = Describe("AssignedHandler", func() {
 			Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 			Expect(corev1.AddToScheme(scheme)).To(Succeed())
 
-			fakeClient = fake.NewClientBuilder().WithScheme(scheme).WithObjects(nodeUSBDevice, namespace).Build()
+			fakeClient = fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(nodeUSBDevice, namespace).
+				WithStatusSubresource(&v1alpha2.USBDevice{}).
+				Build()
 
 			nodeUSBDeviceResource = reconciler.NewResource(
 				types.NamespacedName{Name: nodeUSBDevice.Name},
