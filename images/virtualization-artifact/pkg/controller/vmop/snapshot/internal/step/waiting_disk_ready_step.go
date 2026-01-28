@@ -72,7 +72,8 @@ func (s WaitingDisksReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualM
 		}
 
 		if vd.Annotations[annotations.AnnVMOPRestore] != string(vmop.UID) {
-			return &reconcile.Result{}, nil
+			// Skip disks that don't belong to this vmop
+			continue
 		}
 
 		if vd.Status.Phase == v1alpha2.DiskFailed {
