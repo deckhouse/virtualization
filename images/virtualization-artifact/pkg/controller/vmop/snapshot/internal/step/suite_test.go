@@ -45,6 +45,7 @@ func newNoOpRecorder() *eventrecord.EventRecorderLoggerMock {
 	}
 }
 
+//nolint:unparam
 func createVMSnapshot(namespace, name, secretName string, ready bool) *v1alpha2.VirtualMachineSnapshot {
 	vms := &v1alpha2.VirtualMachineSnapshot{
 		TypeMeta: metav1.TypeMeta{
@@ -76,6 +77,7 @@ func createVMSnapshot(namespace, name, secretName string, ready bool) *v1alpha2.
 	return vms
 }
 
+//nolint:unparam
 func createRestoreVMOP(namespace, name, vmName, snapshotName string) *v1alpha2.VirtualMachineOperation {
 	return &v1alpha2.VirtualMachineOperation{
 		TypeMeta: metav1.TypeMeta{
@@ -98,6 +100,7 @@ func createRestoreVMOP(namespace, name, vmName, snapshotName string) *v1alpha2.V
 	}
 }
 
+//nolint:unparam
 func createCloneVMOP(namespace, name, vmName, snapshotName string) *v1alpha2.VirtualMachineOperation {
 	vmop := &v1alpha2.VirtualMachineOperation{
 		TypeMeta: metav1.TypeMeta{
@@ -133,6 +136,7 @@ func setMaintenanceCondition(vmop *v1alpha2.VirtualMachineOperation, status meta
 	})
 }
 
+//nolint:unparam
 func createVirtualDisk(namespace, name, ownerUID string, phase v1alpha2.DiskPhase) *v1alpha2.VirtualDisk {
 	return &v1alpha2.VirtualDisk{
 		TypeMeta: metav1.TypeMeta{

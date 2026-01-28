@@ -80,7 +80,6 @@ func (o CloneOperation) Execute(ctx context.Context) (reconcile.Result, error) {
 		step.NewCleanupSnapshotStep(o.client, o.recorder),
 		step.NewFinalStep(o.recorder),
 	).Run(ctx, o.vmop)
-
 	if err != nil {
 		failMsg := fmt.Sprintf("%s is failed", o.vmop.Spec.Type)
 		log.Debug(failMsg, logger.SlogErr(err))
