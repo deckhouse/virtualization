@@ -80,7 +80,7 @@ func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 	}
 
 	if vmop.Spec.Restore.Mode == v1alpha2.SnapshotOperationModeDryRun {
-		return &reconcile.Result{}, nil
+		return nil, nil
 	}
 
 	statuses, err = snapshotResources.Process(ctx)
@@ -89,11 +89,13 @@ func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 		return &reconcile.Result{}, err
 	}
 
-	for _, status := range statuses {
-		if status.Status == v1alpha2.SnapshotResourceStatusInProgress {
-			return &reconcile.Result{}, nil
-		}
-	}
+	conditions.SetCondition(
+		conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
+			Status(metav1.ConditionFalse).
+			Reason(vmopcondition.ReasonCloneCompleted).
+			Message("Restore operation is completed. Waiting for resource readiness"),
+		&vmop.Status.Conditions,
+	)
 
 	return nil, nil
 }

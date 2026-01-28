@@ -52,8 +52,8 @@ func (s CreateSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 	rcb := conditions.NewConditionBuilder(vmopcondition.TypeSnapshotReady)
 
 	if snapshotCondition, found := conditions.GetCondition(vmopcondition.TypeSnapshotReady, vmop.Status.Conditions); found {
-		if snapshotCondition.Reason == string(vmopcondition.ReasonSnapshotCleanedUp) {
-			return &reconcile.Result{}, nil
+		if snapshotCondition.Status == metav1.ConditionTrue || snapshotCondition.Reason == string(vmopcondition.ReasonSnapshotCleanedUp) {
+			return nil, nil
 		}
 	}
 

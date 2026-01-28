@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -30,6 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/step"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
@@ -49,6 +51,8 @@ type CloneOperation struct {
 }
 
 func (o CloneOperation) Execute(ctx context.Context) (reconcile.Result, error) {
+	log := logger.FromContext(ctx)
+
 	if o.vmop.Spec.Clone == nil {
 		err := fmt.Errorf("clone specification is mandatory to start cloning")
 		return reconcile.Result{}, err
@@ -66,12 +70,33 @@ func (o CloneOperation) Execute(ctx context.Context) (reconcile.Result, error) {
 		return reconcile.Result{}, err
 	}
 
-	return steptaker.NewStepTakers(
+	o.vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+
+	result, err := steptaker.NewStepTakers(
 		step.NewCreateSnapshotStep(o.client, o.recorder),
 		step.NewVMSnapshotReadyStep(o.client),
 		step.NewProcessCloneStep(o.client, o.recorder),
+		step.NewWaitingDisksStep(o.client, o.recorder),
 		step.NewCleanupSnapshotStep(o.client, o.recorder),
+		step.NewFinalStep(o.recorder),
 	).Run(ctx, o.vmop)
+
+	if err != nil {
+		failMsg := fmt.Sprintf("%s is failed", o.vmop.Spec.Type)
+		log.Debug(failMsg, logger.SlogErr(err))
+		failMsg = fmt.Errorf("%s: %w", failMsg, err).Error()
+		o.recorder.Event(o.vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, failMsg)
+
+		o.vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+		conditions.SetCondition(
+			conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
+				Reason(vmopcondition.ReasonOperationFailed).
+				Message(failMsg).Status(metav1.ConditionFalse),
+			&o.vmop.Status.Conditions,
+		)
+	}
+
+	return result, err
 }
 
 func (o CloneOperation) IsApplicableForVMPhase(phase v1alpha2.MachinePhase) bool {
@@ -84,44 +109,4 @@ func (o CloneOperation) IsApplicableForRunPolicy(runPolicy v1alpha2.RunPolicy) b
 
 func (o CloneOperation) GetInProgressReason() vmopcondition.ReasonCompleted {
 	return vmopcondition.ReasonCloneInProgress
-}
-
-func (o CloneOperation) IsInProgress() bool {
-	snapshotCondition, ok := conditions.GetCondition(vmopcondition.TypeSnapshotReady, o.vmop.Status.Conditions)
-	if !ok && snapshotCondition.Status != metav1.ConditionUnknown {
-		return true
-	}
-
-	if o.vmop.Status.Resources == nil {
-		for _, status := range o.vmop.Status.Resources {
-			if status.Status == v1alpha2.SnapshotResourceStatusInProgress {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-func (o CloneOperation) IsCompleted() (bool, string) {
-	snapshotCondition, ok := conditions.GetCondition(vmopcondition.TypeSnapshotReady, o.vmop.Status.Conditions)
-	if !ok {
-		return false, ""
-	}
-
-	if snapshotCondition.Reason != string(vmopcondition.ReasonSnapshotCleanedUp) {
-		return false, ""
-	}
-
-	if o.vmop.Status.Resources == nil {
-		return false, ""
-	}
-
-	for _, status := range o.vmop.Status.Resources {
-		if status.Status != v1alpha2.SnapshotResourceStatusCompleted {
-			return false, ""
-		}
-	}
-
-	return true, ""
 }

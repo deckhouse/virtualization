@@ -71,8 +71,14 @@ const (
 	// ReasonRestoreInProgress is a ReasonCompleted indicating that the restore operation is in progress.
 	ReasonRestoreInProgress ReasonCompleted = "RestoreInProgress"
 
+	// ReasonRestoreCompleted is a ReasonCompleted indicating that the resource restoration is completed.
+	ReasonRestoreCompleted ReasonCompleted = "RestoreCompleted"
+
 	// ReasonCloneInProgress is a ReasonCompleted indicating that the clone operation is in progress.
 	ReasonCloneInProgress ReasonCompleted = "CloneInProgress"
+
+	// ReasonCloneCompleted is a ReasonCompleted indicating that the resources cloning is completed.
+	ReasonCloneCompleted ReasonCompleted = "CloneCompleted"
 
 	// ReasonMigrationPending is a ReasonCompleted indicating that the migration process has been initiated but not yet started.
 	ReasonMigrationPending ReasonCompleted = "MigrationPending"

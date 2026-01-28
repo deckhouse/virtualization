@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -30,6 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/step"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
@@ -49,6 +51,8 @@ type RestoreOperation struct {
 }
 
 func (o RestoreOperation) Execute(ctx context.Context) (reconcile.Result, error) {
+	log := logger.FromContext(ctx)
+
 	if o.vmop.Spec.Restore == nil {
 		err := fmt.Errorf("restore specification is nil")
 		return reconcile.Result{}, err
@@ -71,12 +75,33 @@ func (o RestoreOperation) Execute(ctx context.Context) (reconcile.Result, error)
 		return reconcile.Result{}, err
 	}
 
-	return steptaker.NewStepTakers(
+	o.vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+
+	result, err := steptaker.NewStepTakers(
 		step.NewVMSnapshotReadyStep(o.client),
 		step.NewEnterMaintenanceStep(o.client, o.recorder),
 		step.NewProcessRestoreStep(o.client, o.recorder),
+		step.NewWaitingDisksStep(o.client, o.recorder),
 		step.NewExitMaintenanceStep(o.client, o.recorder),
+		step.NewFinalStep(o.recorder),
 	).Run(ctx, o.vmop)
+
+	if err != nil {
+		failMsg := fmt.Sprintf("%s is failed", o.vmop.Spec.Type)
+		log.Debug(failMsg, logger.SlogErr(err))
+		failMsg = fmt.Errorf("%s: %w", failMsg, err).Error()
+		o.recorder.Event(o.vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, failMsg)
+
+		o.vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+		conditions.SetCondition(
+			conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
+				Reason(vmopcondition.ReasonOperationFailed).
+				Message(failMsg).Status(metav1.ConditionFalse),
+			&o.vmop.Status.Conditions,
+		)
+	}
+
+	return result, err
 }
 
 func (o RestoreOperation) IsApplicableForVMPhase(phase v1alpha2.MachinePhase) bool {
@@ -89,40 +114,4 @@ func (o RestoreOperation) IsApplicableForRunPolicy(runPolicy v1alpha2.RunPolicy)
 
 func (o RestoreOperation) GetInProgressReason() vmopcondition.ReasonCompleted {
 	return vmopcondition.ReasonRestoreInProgress
-}
-
-func (o RestoreOperation) IsInProgress() bool {
-	maintenanceModeCondition, found := conditions.GetCondition(vmopcondition.TypeMaintenanceMode, o.vmop.Status.Conditions)
-	if found && maintenanceModeCondition.Status != metav1.ConditionUnknown {
-		return true
-	}
-
-	if o.vmop.Status.Resources != nil {
-		for _, status := range o.vmop.Status.Resources {
-			if status.Status == v1alpha2.SnapshotResourceStatusInProgress {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-func (o RestoreOperation) IsCompleted() (bool, string) {
-	if o.vmop.Status.Resources == nil {
-		return false, ""
-	}
-
-	for _, status := range o.vmop.Status.Resources {
-		if status.Status != v1alpha2.SnapshotResourceStatusCompleted {
-			return false, ""
-		}
-	}
-
-	if o.vmop.Spec.Restore.Mode == v1alpha2.SnapshotOperationModeDryRun {
-		return true, ""
-	}
-
-	mc, ok := conditions.GetCondition(vmopcondition.TypeMaintenanceMode, o.vmop.Status.Conditions)
-	return ok && mc.Status == metav1.ConditionFalse, ""
 }

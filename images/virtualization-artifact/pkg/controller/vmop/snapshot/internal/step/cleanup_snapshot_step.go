@@ -55,18 +55,22 @@ func (s CleanupSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 
 	snapshotCondition, found := conditions.GetCondition(vmopcondition.TypeSnapshotReady, vmop.Status.Conditions)
 	if found && snapshotCondition.Reason == string(vmopcondition.ReasonSnapshotCleanedUp) {
+		return nil, nil
+	}
+
+	if vmop.Status.Resources == nil {
 		return &reconcile.Result{}, nil
 	}
 
 	for _, status := range vmop.Status.Resources {
 		if status.Status != v1alpha2.SnapshotResourceStatusCompleted {
-			return &reconcile.Result{}, nil
+			return nil, nil
 		}
 	}
 
 	snapshotName, ok := vmop.Annotations[annotations.AnnVMOPSnapshotName]
 	if !ok {
-		return &reconcile.Result{}, nil
+		return nil, nil
 	}
 
 	vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: snapshotName}
@@ -97,5 +101,5 @@ func (s CleanupSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 		&vmop.Status.Conditions,
 	)
 
-	return &reconcile.Result{}, nil
+	return nil, nil
 }

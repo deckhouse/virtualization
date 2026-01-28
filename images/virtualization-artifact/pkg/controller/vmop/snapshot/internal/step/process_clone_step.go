@@ -21,15 +21,18 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 type ProcessCloneStep struct {
@@ -98,31 +101,13 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 		return &reconcile.Result{}, err
 	}
 
-	for _, status := range vmop.Status.Resources {
-		if status.Kind != v1alpha2.VirtualDiskKind {
-			continue
-		}
+	conditions.SetCondition(
+		conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
+			Status(metav1.ConditionFalse).
+			Reason(vmopcondition.ReasonCloneCompleted).
+			Message("Clone operation is completed. Waiting for resource readiness"),
+		&vmop.Status.Conditions,
+	)
 
-		var vd v1alpha2.VirtualDisk
-		vdKey := types.NamespacedName{Namespace: vmop.Namespace, Name: status.Name}
-		err := s.client.Get(ctx, vdKey, &vd)
-		if err != nil {
-			return &reconcile.Result{}, fmt.Errorf("failed to get the `VirtualDisk`: %w", err)
-		}
-
-		if vd.Annotations[annotations.AnnVMOPRestore] != string(vmop.UID) {
-			return &reconcile.Result{}, nil
-		}
-
-		if vd.Status.Phase == v1alpha2.DiskFailed {
-			err = fmt.Errorf("virtual disk %q is in failed phase", vdKey.Name)
-			return &reconcile.Result{}, fmt.Errorf("virtual disk %q is in failed phase", vdKey.Name)
-		}
-
-		if vd.Status.Phase != v1alpha2.DiskReady && vd.Status.Phase != v1alpha2.DiskWaitForFirstConsumer {
-			return &reconcile.Result{}, nil
-		}
-	}
-
-	return &reconcile.Result{}, nil
+	return nil, nil
 }
