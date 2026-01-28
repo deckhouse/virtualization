@@ -170,7 +170,7 @@ func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *v1alpha2.VirtualDisk, vs *vsv1
 		DataSource: &corev1.TypedLocalObjectReference{
 			APIGroup: ptr.To(vs.GroupVersionKind().Group),
 			Kind:     vs.Kind,
-			Name:     vd.Spec.DataSource.ObjectRef.Name,
+			Name:     vs.Name,
 		},
 	}
 
