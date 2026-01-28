@@ -292,10 +292,15 @@ rules:
   - resource.k8s.io
   resources:
   - resourceslices
+  - resourceclaimtemplates
   verbs:
   - get
   - list
   - watch
+  - create
+  - update
+  - patch
+  - delete
 - apiGroups:
   - apiextensions.k8s.io
   resources:
