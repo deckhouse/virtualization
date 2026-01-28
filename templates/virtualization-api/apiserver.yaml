@@ -7,7 +7,22 @@ metadata:
 spec:
   caBundle: {{ .Values.virtualization.internal.apiserver.cert.ca | b64enc }}
   group: subresources.virtualization.deckhouse.io
-  groupPriorityMinimum: 1000
+{{/*
+  Sets a lower group priority for the subresources API group to ensure the main group is preferred.
+
+  The default groupPriorityMinimum in CRD is 1000.
+  We have two VirtualMachine resources in different API groups:
+  - subresources.virtualization.deckhouse.io
+  - virtualization.deckhouse.io
+
+  We need requests to default to the virtualization.deckhouse.io group.
+  By setting a lower priority (999) for the subresources group,
+  we ensure the main group takes precedence.
+
+  If both groups had the same priority, subresources.virtualization.deckhouse.io
+  would be preferred due to alphabetical ordering.
+*/}}
+  groupPriorityMinimum: 999
   service:
     name: virtualization-api
     namespace: d8-virtualization

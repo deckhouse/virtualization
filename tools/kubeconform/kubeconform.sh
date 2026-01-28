@@ -77,7 +77,8 @@ if [[ ! -d schemas ]]; then
   echo "  NodeGroupConfiguration"
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/040-node-manager/crds/nodegroupconfiguration.yaml
   echo "  Certificate"
-  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/101-cert-manager/crds/crd-certificates.yaml
+  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/101-cert-manager/crds/cert-manager/cert-manager.io_certificates.yaml
+  # curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/101-cert-manager/crds/crd-certificates.yaml
   echo "  GrafanaDashboardDefinition"
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/300-prometheus/crds/grafanadashboarddefinition.yaml
   echo " ClusterLoggingConfig"
