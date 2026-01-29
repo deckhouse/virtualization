@@ -144,6 +144,12 @@ var _ = Describe("USBDeviceHandler", func() {
 						ProductID: "5678",
 					},
 					NodeName: "node-1",
+					Conditions: []metav1.Condition{
+						{
+							Type:   "Ready",
+							Status: metav1.ConditionTrue,
+						},
+					},
 				},
 			}
 
@@ -175,7 +181,8 @@ var _ = Describe("USBDeviceHandler", func() {
 			Expect(vmResource.Changed().Status.USBDevices[0].Name).To(Equal("usb-device-1"))
 			Expect(vmResource.Changed().Status.USBDevices[0].Attached).To(BeTrue())
 			Expect(vmResource.Changed().Status.USBDevices[0].Hotplugged).To(BeTrue())
-			Expect(vmResource.Changed().Status.USBDevices[0].Address).NotTo(BeNil())
+			// Hotplugged devices don't get a fixed address - it's assigned dynamically by hypervisor
+			Expect(vmResource.Changed().Status.USBDevices[0].Address).To(BeNil())
 		})
 
 		It("should not attach USB device when not ready", func() {
@@ -369,6 +376,12 @@ var _ = Describe("USBDeviceHandler", func() {
 						ProductID: "5678",
 					},
 					NodeName: "node-1",
+					Conditions: []metav1.Condition{
+						{
+							Type:   "Ready",
+							Status: metav1.ConditionTrue,
+						},
+					},
 				},
 			}
 
