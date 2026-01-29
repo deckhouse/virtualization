@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"maps"
 	"reflect"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -28,6 +29,12 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
+
+var systemServiceAccountPrefixes = []string{
+	"system:serviceaccount:kube-system:",
+	"system:serviceaccount:d8-system:",
+	"system:serviceaccount:d8-virtualization:",
+}
 
 func NewValidator(log *log.Logger) *Validator {
 	return &Validator{
@@ -40,25 +47,23 @@ type Validator struct {
 }
 
 // ValidateCreate validates NodeUSBDevice creation.
-// NodeUSBDevice resources are created automatically by the controller when devices are discovered.
+// NodeUSBDevice resources can only be created by system service accounts (controllers).
 func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	nodeUSBDevice, ok := obj.(*v1alpha2.NodeUSBDevice)
-	if !ok {
-		return nil, fmt.Errorf("expected a new NodeUSBDevice but got a %T", obj)
+	if isSystemServiceAccount(ctx) {
+		return nil, nil
 	}
-
-	v.log.Info("Validate NodeUSBDevice creating", "name", nodeUSBDevice.Name)
-
-	// NodeUSBDevice resources are created automatically by the controller
-	// Manual creation is allowed for administrative purposes (e.g., testing)
-	// but spec.assignedNamespace can be set by administrators
-	return nil, nil
+	return nil, fmt.Errorf("NodeUSBDevice can only be created by system service accounts")
 }
 
 // ValidateUpdate validates NodeUSBDevice updates.
 // Only spec can be changed by administrators. Metadata cannot be modified.
 // Status updates are performed by the controller via subresource.
 func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	// System service accounts can change anything
+	if isSystemServiceAccount(ctx) {
+		return nil, nil
+	}
+
 	oldNodeUSBDevice, ok := oldObj.(*v1alpha2.NodeUSBDevice)
 	if !ok {
 		return nil, fmt.Errorf("expected an old NodeUSBDevice but got a %T", oldObj)
@@ -69,41 +74,12 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 		return nil, fmt.Errorf("expected a new NodeUSBDevice but got a %T", newObj)
 	}
 
-	v.log.Info("Validate NodeUSBDevice updating", "name", newNodeUSBDevice.Name)
-
-	// TypeMeta cannot be modified
-	if !reflect.DeepEqual(oldNodeUSBDevice.TypeMeta, newNodeUSBDevice.TypeMeta) {
-		return nil, fmt.Errorf("TypeMeta cannot be changed")
+	// Spec changes are only allowed
+	if !reflect.DeepEqual(oldNodeUSBDevice.Spec, newNodeUSBDevice.Spec) {
+		return nil, nil
 	}
 
-	// Metadata cannot be modified (except fields that Kubernetes manages automatically)
-	if oldNodeUSBDevice.Name != newNodeUSBDevice.Name {
-		return nil, fmt.Errorf("metadata.name cannot be changed")
-	}
-	if oldNodeUSBDevice.Namespace != newNodeUSBDevice.Namespace {
-		return nil, fmt.Errorf("metadata.namespace cannot be changed")
-	}
-	if oldNodeUSBDevice.UID != newNodeUSBDevice.UID {
-		return nil, fmt.Errorf("metadata.uid cannot be changed")
-	}
-	if !maps.Equal(oldNodeUSBDevice.Labels, newNodeUSBDevice.Labels) {
-		return nil, fmt.Errorf("metadata.labels cannot be changed")
-	}
-	if !maps.Equal(oldNodeUSBDevice.Annotations, newNodeUSBDevice.Annotations) {
-		return nil, fmt.Errorf("metadata.annotations cannot be changed")
-	}
-	if !reflect.DeepEqual(oldNodeUSBDevice.Finalizers, newNodeUSBDevice.Finalizers) {
-		return nil, fmt.Errorf("metadata.finalizers cannot be changed")
-	}
-
-	// Status changes are not allowed via main resource update (use /status subresource)
-	if !reflect.DeepEqual(oldNodeUSBDevice.Status, newNodeUSBDevice.Status) {
-		return nil, fmt.Errorf("status cannot be changed via main resource update, use /status subresource")
-	}
-
-	// Only spec can be changed
-	// This is allowed - administrators can modify spec (e.g., assignedNamespace)
-	return nil, nil
+	return nil, fmt.Errorf("only spec.assignedNamespace can be changed")
 }
 
 // ValidateDelete validates NodeUSBDevice deletion.
@@ -119,4 +95,20 @@ func (v *Validator) ValidateDelete(ctx context.Context, obj runtime.Object) (adm
 	// NodeUSBDevice can be deleted by administrators
 	// The controller will clean up associated USBDevice resources via finalizer
 	return nil, nil
+}
+
+// isSystemServiceAccount checks if the request is made by a system service account.
+func isSystemServiceAccount(ctx context.Context) bool {
+	req, err := admission.RequestFromContext(ctx)
+	if err != nil {
+		return false
+	}
+
+	for _, systemServiceAccountPrefix := range systemServiceAccountPrefixes {
+		if strings.HasPrefix(req.UserInfo.Username, systemServiceAccountPrefix) {
+			return true
+		}
+	}
+
+	return false
 }
