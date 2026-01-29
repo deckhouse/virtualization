@@ -74,7 +74,9 @@ func (h *MigratingHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		return reconcile.Result{}, err
 	}
 
-	vm.Status.MigrationState = h.wrapMigrationState(kvvmi)
+	if migrationState := h.wrapMigrationState(kvvmi); migrationState != nil {
+		vm.Status.MigrationState = migrationState
+	}
 
 	err = h.syncMigratable(ctx, s, vm, kvvm)
 	if err != nil {
@@ -135,10 +137,7 @@ func (h *MigratingHandler) getMigrationResult(state *virtv1.VirtualMachineInstan
 func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) error {
 	// 0. If KVVMI is nil, migration cannot be in progress. Remove Migrating condition, but keep if migration failed.
 	if kvvmi == nil {
-		migrating, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
-		if migrating.Reason != vmcondition.ReasonLastMigrationFinishedWithError.String() {
-			conditions.RemoveCondition(vmcondition.TypeMigrating, &vm.Status.Conditions)
-		}
+		conditions.RemoveCondition(vmcondition.TypeMigrating, &vm.Status.Conditions)
 		return nil
 	}
 
@@ -184,29 +183,6 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 		case vmopcondition.ReasonMigrationRunning.String():
 			cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonMigratingInProgress)
 
-		case vmopcondition.ReasonOperationFailed.String():
-			cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message(completed.Message)
-
-		case vmopcondition.ReasonNotApplicableForVMPhase.String():
-			cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message(
-				fmt.Sprintf("Migration is not possible for the `%s` phase of a virtual machine; VirtualMachineOperation: %s.", vm.Status.Phase, vmop.Name),
-			)
-
-		case vmopcondition.ReasonNotApplicableForLiveMigrationPolicy.String():
-			cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message(
-				fmt.Sprintf("Migration is not possible for the `%s` live migration policy; VirtualMachineOperation: %s.", vm.Spec.LiveMigrationPolicy, vmop.Name),
-			)
-
-		case vmopcondition.ReasonNotApplicableForRunPolicy.String():
-			cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message(
-				fmt.Sprintf("Migration is not possible for the `%s` run policy; VirtualMachineOperation: %s.", vm.Spec.RunPolicy, vmop.Name),
-			)
-
-		case vmopcondition.ReasonOtherMigrationInProgress.String():
-			cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message(
-				fmt.Sprintf("Another migration is in progress; VirtualMachineOperation: %s.", vmop.Name),
-			)
-
 		case vmopcondition.ReasonOperationCompleted.String():
 			conditions.RemoveCondition(vmcondition.TypeMigrating, &vm.Status.Conditions)
 			return nil
@@ -228,19 +204,9 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 					fmt.Sprintf("Wait until operation is completed; VirtualMachineOperation: %s.", vmop.Name),
 				)
 
-			case v1alpha2.VMOPPhaseCompleted:
+			case v1alpha2.VMOPPhaseCompleted, v1alpha2.VMOPPhaseFailed, v1alpha2.VMOPPhaseTerminating:
 				conditions.RemoveCondition(vmcondition.TypeMigrating, &vm.Status.Conditions)
 				return nil
-
-			case v1alpha2.VMOPPhaseFailed:
-				cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message(
-					fmt.Sprintf("Operation failed; VirtualMachineOperation: %s.", vmop.Name),
-				)
-
-			case v1alpha2.VMOPPhaseTerminating:
-				cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message(
-					fmt.Sprintf("Operation terminated; VirtualMachineOperation: %s.", vmop.Name),
-				)
 			}
 		}
 
@@ -248,26 +214,8 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 		return nil
 	}
 
-	// 4. Set error if migration failed.
-	if liveMigrationFailed(vm.Status.MigrationState) {
-		msg := kvvmi.Status.MigrationState.FailureReason
-		cb.Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonLastMigrationFinishedWithError).
-			Message(msg)
-		conditions.SetCondition(cb, &vm.Status.Conditions)
-		return nil
-	}
-
-	if liveMigrationSucceeded(vm.Status.MigrationState) {
-		conditions.RemoveCondition(vmcondition.TypeMigrating, &vm.Status.Conditions)
-		return nil
-	}
-
-	// 5. Remove Migrating condition if migration is finished successfully. Or migration was not be requested.
-	migrating, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
-	if migrating.Reason != vmcondition.ReasonLastMigrationFinishedWithError.String() {
-		conditions.RemoveCondition(vmcondition.TypeMigrating, &vm.Status.Conditions)
-	}
+	// 4. Remove Migrating condition if migration is finished or migration was not be requested.
+	conditions.RemoveCondition(vmcondition.TypeMigrating, &vm.Status.Conditions)
 	return nil
 }
 
@@ -389,12 +337,4 @@ func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMa
 
 func liveMigrationInProgress(migrationState *v1alpha2.VirtualMachineMigrationState) bool {
 	return migrationState != nil && migrationState.StartTimestamp != nil && migrationState.EndTimestamp == nil
-}
-
-func liveMigrationFailed(migrationState *v1alpha2.VirtualMachineMigrationState) bool {
-	return migrationState != nil && migrationState.EndTimestamp != nil && migrationState.Result == v1alpha2.MigrationResultFailed
-}
-
-func liveMigrationSucceeded(migrationState *v1alpha2.VirtualMachineMigrationState) bool {
-	return migrationState != nil && migrationState.EndTimestamp != nil && migrationState.Result == v1alpha2.MigrationResultSucceeded
 }
