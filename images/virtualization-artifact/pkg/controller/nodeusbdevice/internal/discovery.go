@@ -83,7 +83,7 @@ func (h *DiscoveryHandler) discoverAndCreate(ctx context.Context, s state.NodeUS
 	deviceHashesInSlices := make(map[string]bool)
 	for _, slice := range resourceSlices {
 		for _, device := range slice.Spec.Devices {
-			if !strings.HasPrefix(device.Name, "usb-") {
+			if !IsUSBDevice(device) {
 				continue
 			}
 			hash := hash.CalculateHashFromDevice(device, slice.Spec.Pool.Name)
@@ -114,11 +114,11 @@ func (h *DiscoveryHandler) discoverAndCreate(ctx context.Context, s state.NodeUS
 			// Only create devices that are in slices but not in existing
 			for _, slice := range resourceSlices {
 				for _, device := range slice.Spec.Devices {
-					if !strings.HasPrefix(device.Name, "usb-") {
+					if !IsUSBDevice(device) {
 						continue
 					}
 
-					attributes := h.convertDeviceToAttributes(device, slice.Spec.Pool.Name)
+					attributes := ConvertDeviceToAttributes(device, slice.Spec.Pool.Name)
 					hash := hash.CalculateHash(attributes)
 
 					if !existingHashes[hash] {
@@ -149,11 +149,11 @@ func (h *DiscoveryHandler) discoverAndCreate(ctx context.Context, s state.NodeUS
 	// Note: resourceSlices are already filtered by draDriverName in state.ResourceSlices
 	for _, slice := range resourceSlices {
 		for _, device := range slice.Spec.Devices {
-			if !strings.HasPrefix(device.Name, "usb-") {
+			if !IsUSBDevice(device) {
 				continue
 			}
 
-			attributes := h.convertDeviceToAttributes(device, slice.Spec.Pool.Name)
+			attributes := ConvertDeviceToAttributes(device, slice.Spec.Pool.Name)
 			hash := hash.CalculateHash(attributes)
 
 			if existingHashes[hash] {
@@ -231,73 +231,6 @@ func (h *DiscoveryHandler) createNodeUSBDevice(ctx context.Context, attributes v
 	}
 
 	return nil
-}
-
-func (h *DiscoveryHandler) convertDeviceToAttributes(device resourcev1beta1.Device, nodeName string) v1alpha2.NodeUSBDeviceAttributes {
-	attrs := v1alpha2.NodeUSBDeviceAttributes{
-		NodeName: nodeName,
-		Name:     device.Name,
-	}
-
-	if device.Basic == nil {
-		return attrs
-	}
-
-	for key, attr := range device.Basic.Attributes {
-		switch string(key) {
-		case "name":
-			if attr.StringValue != nil {
-				attrs.Name = *attr.StringValue
-			}
-		case "manufacturer":
-			if attr.StringValue != nil {
-				attrs.Manufacturer = *attr.StringValue
-			}
-		case "product":
-			if attr.StringValue != nil {
-				attrs.Product = *attr.StringValue
-			}
-		case "vendorID":
-			if attr.StringValue != nil {
-				attrs.VendorID = *attr.StringValue
-			}
-		case "productID":
-			if attr.StringValue != nil {
-				attrs.ProductID = *attr.StringValue
-			}
-		case "bcd":
-			if attr.StringValue != nil {
-				attrs.BCD = *attr.StringValue
-			}
-		case "bus":
-			if attr.StringValue != nil {
-				attrs.Bus = *attr.StringValue
-			}
-		case "deviceNumber":
-			if attr.StringValue != nil {
-				attrs.DeviceNumber = *attr.StringValue
-			}
-		case "serial":
-			if attr.StringValue != nil {
-				attrs.Serial = *attr.StringValue
-			}
-		case "devicePath":
-			if attr.StringValue != nil {
-				attrs.DevicePath = *attr.StringValue
-			}
-		case "major":
-			if attr.IntValue != nil {
-				attrs.Major = int(*attr.IntValue)
-			}
-		case "minor":
-			if attr.IntValue != nil {
-				attrs.Minor = int(*attr.IntValue)
-			}
-		}
-	}
-
-	attrs.Hash = hash.CalculateHash(attrs)
-	return attrs
 }
 
 func (h *DiscoveryHandler) generateName(hash, nodeName string) string {

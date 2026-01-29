@@ -20,6 +20,7 @@ import (
 	"context"
 	"reflect"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -82,14 +83,7 @@ func (h *SyncReadyHandler) Handle(ctx context.Context, s state.USBDeviceState) (
 	}
 
 	// Sync Ready condition from NodeUSBDevice
-	var readyCondition *metav1.Condition
-	for i := range nodeUSBDevice.Status.Conditions {
-		if nodeUSBDevice.Status.Conditions[i].Type == string(nodeusbdevicecondition.ReadyType) {
-			readyCondition = &nodeUSBDevice.Status.Conditions[i]
-			break
-		}
-	}
-
+	readyCondition := meta.FindStatusCondition(nodeUSBDevice.Status.Conditions, string(nodeusbdevicecondition.ReadyType))
 	if readyCondition == nil {
 		// No Ready condition in NodeUSBDevice - mark as NotReady
 		cb := conditions.NewConditionBuilder(usbdevicecondition.ReadyType).

@@ -19,14 +19,11 @@ package internal
 import (
 	"context"
 	"fmt"
-	"strings"
 
-	resourcev1beta1 "k8s.io/api/resource/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice/internal/hash"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/nodeusbdevicecondition"
@@ -62,7 +59,7 @@ func (h *ReadyHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState) (
 		return reconcile.Result{}, fmt.Errorf("failed to get resource slices: %w", err)
 	}
 
-	deviceFound := h.findDeviceInSlices(resourceSlices, current.Status.Attributes.Hash, current.Status.NodeName)
+	deviceFound := DeviceExistsInSlices(resourceSlices, current.Status.Attributes.Hash, current.Status.NodeName)
 
 	var reason nodeusbdevicecondition.ReadyReason
 	var message string
@@ -90,28 +87,6 @@ func (h *ReadyHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState) (
 	conditions.SetCondition(cb, &changed.Status.Conditions)
 
 	return reconcile.Result{}, nil
-}
-
-func (h *ReadyHandler) findDeviceInSlices(slices []resourcev1beta1.ResourceSlice, searchedHash, nodeName string) bool {
-	for _, slice := range slices {
-		if slice.Spec.Pool.Name != nodeName {
-			continue
-		}
-
-		for _, device := range slice.Spec.Devices {
-			if !strings.HasPrefix(device.Name, "usb-") {
-				continue
-			}
-
-			// Calculate hash for this device and compare
-			deviceHash := hash.CalculateHashFromDevice(device, nodeName)
-			if deviceHash == searchedHash {
-				return true
-			}
-		}
-	}
-
-	return false
 }
 
 func (h *ReadyHandler) Name() string {

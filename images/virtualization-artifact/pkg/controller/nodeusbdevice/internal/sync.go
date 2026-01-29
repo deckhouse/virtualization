@@ -19,12 +19,9 @@ package internal
 import (
 	"context"
 	"fmt"
-	"strings"
 
-	resourcev1beta1 "k8s.io/api/resource/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice/internal/hash"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -67,7 +64,7 @@ func (h *SyncHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState) (r
 	}
 
 	// Find device in ResourceSlices and get updated attributes
-	updatedAttrs, found := h.findDeviceInSlices(resourceSlices, current.Status.Attributes.Hash, current.Status.NodeName)
+	updatedAttrs, found := FindDeviceInSlices(resourceSlices, current.Status.Attributes.Hash, current.Status.NodeName)
 	if !found {
 		// Device not found - ReadyHandler will handle this case
 		return reconcile.Result{}, nil
@@ -79,97 +76,6 @@ func (h *SyncHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState) (r
 	}
 
 	return reconcile.Result{}, nil
-}
-
-func (h *SyncHandler) findDeviceInSlices(slices []resourcev1beta1.ResourceSlice, searchedHash, nodeName string) (v1alpha2.NodeUSBDeviceAttributes, bool) {
-	for _, slice := range slices {
-		if slice.Spec.Pool.Name != nodeName {
-			continue
-		}
-
-		for _, device := range slice.Spec.Devices {
-			if !strings.HasPrefix(device.Name, "usb-") {
-				continue
-			}
-
-			attrs := h.convertDeviceToAttributes(device, nodeName)
-			deviceHash := hash.CalculateHash(attrs)
-
-			if deviceHash == searchedHash {
-				// Set hash in attributes
-				attrs.Hash = searchedHash
-				return attrs, true
-			}
-		}
-	}
-
-	return v1alpha2.NodeUSBDeviceAttributes{}, false
-}
-
-func (h *SyncHandler) convertDeviceToAttributes(device resourcev1beta1.Device, nodeName string) v1alpha2.NodeUSBDeviceAttributes {
-	attrs := v1alpha2.NodeUSBDeviceAttributes{
-		NodeName: nodeName,
-		Name:     device.Name,
-	}
-
-	if device.Basic == nil {
-		return attrs
-	}
-
-	for key, attr := range device.Basic.Attributes {
-		switch string(key) {
-		case "name":
-			if attr.StringValue != nil {
-				attrs.Name = *attr.StringValue
-			}
-		case "manufacturer":
-			if attr.StringValue != nil {
-				attrs.Manufacturer = *attr.StringValue
-			}
-		case "product":
-			if attr.StringValue != nil {
-				attrs.Product = *attr.StringValue
-			}
-		case "vendorID":
-			if attr.StringValue != nil {
-				attrs.VendorID = *attr.StringValue
-			}
-		case "productID":
-			if attr.StringValue != nil {
-				attrs.ProductID = *attr.StringValue
-			}
-		case "bcd":
-			if attr.StringValue != nil {
-				attrs.BCD = *attr.StringValue
-			}
-		case "bus":
-			if attr.StringValue != nil {
-				attrs.Bus = *attr.StringValue
-			}
-		case "deviceNumber":
-			if attr.StringValue != nil {
-				attrs.DeviceNumber = *attr.StringValue
-			}
-		case "serial":
-			if attr.StringValue != nil {
-				attrs.Serial = *attr.StringValue
-			}
-		case "devicePath":
-			if attr.StringValue != nil {
-				attrs.DevicePath = *attr.StringValue
-			}
-		case "major":
-			if attr.IntValue != nil {
-				attrs.Major = int(*attr.IntValue)
-			}
-		case "minor":
-			if attr.IntValue != nil {
-				attrs.Minor = int(*attr.IntValue)
-			}
-		}
-	}
-
-	return attrs
 }
 
 // attributesChanged compares attributes to check if they need updating.
