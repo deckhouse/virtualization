@@ -63,11 +63,8 @@ func (s *usbDeviceState) NodeUSBDevice(ctx context.Context) (*v1alpha2.NodeUSBDe
 		return nil, err
 	}
 
-	// Find the NodeUSBDevice that matches by name
-	for i := range nodeUSBDeviceList.Items {
-		if nodeUSBDeviceList.Items[i].Name == usbDevice.Name {
-			return &nodeUSBDeviceList.Items[i], nil
-		}
+	if len(nodeUSBDeviceList.Items) > 0 {
+		return &nodeUSBDeviceList.Items[0], nil
 	}
 
 	return nil, nil

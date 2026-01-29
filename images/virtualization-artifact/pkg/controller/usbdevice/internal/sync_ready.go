@@ -21,7 +21,6 @@ import (
 	"reflect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -35,15 +34,13 @@ const (
 	nameSyncReadyHandler = "SyncReadyHandler"
 )
 
-func NewSyncReadyHandler(client client.Client, recorder eventrecord.EventRecorderLogger) *SyncReadyHandler {
+func NewSyncReadyHandler(recorder eventrecord.EventRecorderLogger) *SyncReadyHandler {
 	return &SyncReadyHandler{
-		client:   client,
 		recorder: recorder,
 	}
 }
 
 type SyncReadyHandler struct {
-	client   client.Client
 	recorder eventrecord.EventRecorderLogger
 }
 
