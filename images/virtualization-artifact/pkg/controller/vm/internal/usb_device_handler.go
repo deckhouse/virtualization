@@ -22,6 +22,7 @@ import (
 
 	resourcev1beta1 "k8s.io/api/resource/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -316,14 +317,8 @@ func (h *USBDeviceHandler) isUSBDeviceReady(usbDevice *v1alpha2.USBDevice) bool 
 	}
 
 	// Check Ready condition
-	for _, condition := range usbDevice.Status.Conditions {
-		if condition.Type == string(usbdevicecondition.ReadyType) {
-			return condition.Status == metav1.ConditionTrue
-		}
-	}
-
-	// If no Ready condition found, device is not ready
-	return false
+	readyCondition := meta.FindStatusCondition(usbDevice.Status.Conditions, string(usbdevicecondition.ReadyType))
+	return readyCondition != nil && readyCondition.Status == metav1.ConditionTrue
 }
 
 func (h *USBDeviceHandler) attachUSBDevice(
