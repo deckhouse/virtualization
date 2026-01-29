@@ -96,7 +96,7 @@ func (m *wgManager) ConfigureDevice(iface string, ipNet *net.IPNet, config Confi
 	}
 
 	oldConfig := NewConfigFromDevice(dev)
-	shouldConfigure := !oldConfig.Equal(config)
+	shouldConfigure := !config.Equal(oldConfig)
 	if shouldConfigure {
 		err = client.ConfigureDevice(iface, config.WGConfig(oldConfig))
 		if err != nil {
