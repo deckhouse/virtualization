@@ -66,6 +66,11 @@ func (h *AssignedHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState
 	current := nodeUSBDevice.Current()
 	changed := nodeUSBDevice.Changed()
 
+	// Do not create or update USBDevice when NodeUSBDevice is being deleted — cleanup is done by DeletionHandler
+	if !current.GetDeletionTimestamp().IsZero() {
+		return reconcile.Result{}, nil
+	}
+
 	assignedNamespace := current.Spec.AssignedNamespace
 
 	// Check previous assignedNamespace if it changed
