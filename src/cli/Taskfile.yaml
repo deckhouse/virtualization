@@ -5,19 +5,38 @@ version: "3"
 silent: true
 
 tasks:
-  build:
+  build-tiny:
     desc: "Build d8v cli"
     cmds:
-      - go build -o .out/d8v cmd/main.go
-  install:
+      - CGO_ENABLED=0 go build -o .out/d8v cmd/main.go
+
+  build:
+    desc: "Build d8v cli [CGO]"
+    cmds:
+      - mkdir -p .out
+      - CGO_ENABLED=1 go build -tags cgo -o .out/d8v cmd/main.go
+
+  install-tiny:
     desc: "Install d8v cli to ~/.local/bin"
+    deps: [build-tiny]
+    cmds:
+      - _install
+
+  install:
+    desc: "Install d8v cli to ~/.local/bin [CGO]"
     deps: [build]
+    cmds:
+      - _install
+
+  _install:
+    internal: true
     cmds:
       - echo "Check that ~/.local/bin in your PATH"
       - echo "Installing d8v to ~/.local/bin"
       - mkdir -p ~/.local/bin
       - cp .out/d8v ~/.local/bin/d8v
       - task: clean
+
   clean:
     desc: "Clean up build artifacts"
     cmds:

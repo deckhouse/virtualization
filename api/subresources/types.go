@@ -88,3 +88,9 @@ type VirtualMachineCancelEvacuation struct {
 
 	DryRun []string
 }
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualMachineUSBRedir struct {
+	metav1.TypeMeta
+}

@@ -94,3 +94,10 @@ type VirtualMachineCancelEvacuation struct {
 
 	DryRun []string `json:"dryRun,omitempty"`
 }
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:conversion-gen:explicit-from=net/url.Values
+
+type VirtualMachineUSBRedir struct {
+	metav1.TypeMeta `json:",inline"`
+}

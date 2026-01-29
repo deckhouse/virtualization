@@ -38,6 +38,7 @@ import (
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/portforward"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/scp"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/ssh"
+	"github.com/deckhouse/virtualization/src/cli/internal/cmd/usbredir"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/vnc"
 	"github.com/deckhouse/virtualization/src/cli/internal/comp"
 	"github.com/deckhouse/virtualization/src/cli/internal/templates"
@@ -96,6 +97,7 @@ func NewCommand(programName string) *cobra.Command {
 		lifecycle.NewStopCommand(),
 		lifecycle.NewRestartCommand(),
 		lifecycle.NewEvictCommand(),
+		usbredir.NewCommand(),
 		optionsCmd,
 	)
 
