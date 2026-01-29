@@ -17,7 +17,6 @@ limitations under the License.
 package informer
 
 import (
-	"fmt"
 	"log/slog"
 	"math/rand/v2"
 	"sync"
