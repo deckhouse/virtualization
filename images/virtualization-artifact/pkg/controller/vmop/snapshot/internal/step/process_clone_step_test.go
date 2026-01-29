@@ -75,8 +75,8 @@ var _ = Describe("ProcessCloneStep", func() {
 			Expect(err1).To(HaveOccurred())
 			Expect(err2).To(HaveOccurred())
 			Expect(err3).To(HaveOccurred())
-			Expect(err1.Error()).To(Equal(err2.Error()))
-			Expect(err2.Error()).To(Equal(err3.Error()))
+			Expect(err2.Error()).To(Equal(err1.Error()), "err2 should be equal to the first error")
+			Expect(err3.Error()).To(Equal(err1.Error()), "err3 should be equal to the first error")
 		})
 	})
 
