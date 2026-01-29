@@ -19,11 +19,12 @@ package vmop
 import "github.com/deckhouse/virtualization/api/core/v1alpha2"
 
 type dataMetric struct {
-	Name      string
-	Namespace string
-	UID       string
-	Type      string
-	Phase     v1alpha2.VMOPPhase
+	Name           string
+	Namespace      string
+	UID            string
+	Type           string
+	VirtualMachine string
+	Phase          v1alpha2.VMOPPhase
 }
 
 // DO NOT mutate VirtualMachineOperation!
@@ -33,10 +34,11 @@ func newDataMetric(vmop *v1alpha2.VirtualMachineOperation) *dataMetric {
 	}
 
 	return &dataMetric{
-		Name:      vmop.Name,
-		Namespace: vmop.Namespace,
-		UID:       string(vmop.UID),
-		Phase:     vmop.Status.Phase,
-		Type:      string(vmop.Spec.Type),
+		Name:           vmop.Name,
+		Namespace:      vmop.Namespace,
+		UID:            string(vmop.UID),
+		Phase:          vmop.Status.Phase,
+		Type:           string(vmop.Spec.Type),
+		VirtualMachine: vmop.Spec.VirtualMachine,
 	}
 }
