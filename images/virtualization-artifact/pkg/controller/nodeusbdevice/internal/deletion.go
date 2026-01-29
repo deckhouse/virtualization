@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -61,17 +62,16 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState
 		return reconcile.Result{}, nil
 	}
 
-	// Resource is being deleted - clean up USBDevice in namespace
-	if current.Spec.AssignedNamespace != "" {
-		usbDevice := &v1alpha2.USBDevice{}
-		key := client.ObjectKey{
-			Namespace: current.Spec.AssignedNamespace,
-			Name:      current.Name,
-		}
-		if err := h.client.Get(ctx, key, usbDevice); err == nil {
-			// USBDevice exists - delete it
+	// Resource is being deleted - clean up all USBDevice resources owned by this NodeUSBDevice (in any namespace)
+	var usbDeviceList v1alpha2.USBDeviceList
+	if err := h.client.List(ctx, &usbDeviceList); err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to list USBDevices: %w", err)
+	}
+	for i := range usbDeviceList.Items {
+		usbDevice := &usbDeviceList.Items[i]
+		if metav1.IsControlledBy(usbDevice, current) {
 			if err := h.client.Delete(ctx, usbDevice); err != nil {
-				return reconcile.Result{}, fmt.Errorf("failed to delete USBDevice: %w", err)
+				return reconcile.Result{}, fmt.Errorf("failed to delete USBDevice %s/%s: %w", usbDevice.Namespace, usbDevice.Name, err)
 			}
 		}
 	}
