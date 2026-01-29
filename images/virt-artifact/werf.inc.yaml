@@ -69,7 +69,7 @@ shell:
 
   install:
   - |
-    echo kek
+    echo kek1234
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
