@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"sync/atomic"
 	"time"
 
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -39,6 +40,7 @@ type Controller struct {
 	afterHook                     Hook
 	log                           *slog.Logger
 	hasSynced                     cache.InformerSynced
+	ready                         atomic.Bool
 }
 
 type Hook func(ctx context.Context) error
@@ -174,6 +176,8 @@ func (c *Controller) Sync(ctx context.Context, key string) error {
 			return fmt.Errorf("failed to run after hook: %w", err)
 		}
 	}
+
+	c.ready.Store(true)
 
 	return nil
 }

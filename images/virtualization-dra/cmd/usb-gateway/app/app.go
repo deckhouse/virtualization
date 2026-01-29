@@ -166,7 +166,10 @@ func (o *usbOptions) Clients() (kubernetes.Interface, dynamic.Interface, drav1al
 		return nil, nil, nil, fmt.Errorf("failed to create dynamic client: %w", err)
 	}
 
-	vdraClient := drav1alpha1.New(client.RESTClient())
+	vdraClient, err := drav1alpha1.NewForConfig(cfg)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to create vdra client: %w", err)
+	}
 
 	return client, dynamicClient, vdraClient, nil
 }
