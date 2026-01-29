@@ -19,7 +19,6 @@ package nodeusbdevice
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"reflect"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,7 +31,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -80,8 +78,6 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	log := logger.FromContext(ctx)
-
 	nodeUSBDevice := reconciler.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
 
 	err := nodeUSBDevice.Fetch(ctx)
@@ -91,22 +87,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 	s := state.New(r.client, nodeUSBDevice)
 
-	// If NodeUSBDevice doesn't exist, only run DiscoveryHandler to discover new devices
 	if nodeUSBDevice.IsEmpty() {
-		log.Info("Reconcile observe an absent NodeUSBDevice: running discovery to find new devices")
-
-		// Find DiscoveryHandler and run it
-		for _, handler := range r.handlers {
-			if handler.Name() == "DiscoveryHandler" {
-				result, err := handler.Handle(ctx, s)
-				if err != nil {
-					log.Error("DiscoveryHandler failed", slog.Attr{Key: "error", Value: slog.StringValue(err.Error())})
-				}
-				return result, err
-			}
-		}
-
-		// If DiscoveryHandler not found, return
+		// NodeUSBDevice is created by the ResourceSlice controller
 		return reconcile.Result{}, nil
 	}
 

@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	resourcev1beta1 "k8s.io/api/resource/v1beta1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -61,53 +60,25 @@ func (w *ResourceSliceWatcher) Watch(mgr manager.Manager, ctr controller.Control
 						break
 					}
 				}
-
-				// If no USB devices in this ResourceSlice, skip reconciliation
 				if !hasUSBDevices {
 					return nil
 				}
 
-				var result []reconcile.Request
-				client := mgr.GetClient()
-
-				// Enqueue all existing NodeUSBDevices for reconciliation
+				// Enqueue NodeUSBDevices on this node so they can sync attributes from the updated slice
 				deviceList := &v1alpha2.NodeUSBDeviceList{}
-				if err := client.List(ctx, deviceList); err != nil {
+				if err := mgr.GetClient().List(ctx, deviceList); err != nil {
 					log.Error("failed to list NodeUSBDevices in ResourceSliceWatcher", log.Err(err))
 					return nil
 				}
 
-				hasDevicesOnNode := false
+				var result []reconcile.Request
 				for _, device := range deviceList.Items {
-					// Only enqueue devices from the same node as the ResourceSlice
 					if device.Status.NodeName == slice.Spec.Pool.Name {
-						hasDevicesOnNode = true
 						result = append(result, reconcile.Request{
 							NamespacedName: object.NamespacedName(&device),
 						})
 					}
 				}
-
-				// If no devices exist on this node yet, trigger discovery
-				if !hasDevicesOnNode {
-					if len(deviceList.Items) > 0 {
-						// Enqueue first device to trigger reconciliation cycle
-						// DiscoveryHandler will discover new devices during this cycle
-						result = append(result, reconcile.Request{
-							NamespacedName: object.NamespacedName(&deviceList.Items[0]),
-						})
-					} else {
-						// If no NodeUSBDevices exist at all, create a dummy reconcile request
-						// to trigger discovery. The reconciler will handle empty NodeUSBDevice
-						// and run DiscoveryHandler to discover new devices.
-						result = append(result, reconcile.Request{
-							NamespacedName: types.NamespacedName{
-								Name: "discovery-" + slice.Spec.Pool.Name,
-							},
-						})
-					}
-				}
-
 				return result
 			}),
 		),
