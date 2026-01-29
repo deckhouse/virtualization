@@ -32,6 +32,10 @@ spec:
           name: InUse
           priority: 1
           type: string
+        - description: Name of the virtual machine the disk is attached to.
+          jsonPath: .status.attachedToVirtualMachines[?(@.mounted==true)].name
+          name: VirtualMachine
+          type: string
         - jsonPath: .status.progress
           name: Progress
           priority: 1
