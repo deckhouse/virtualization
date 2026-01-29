@@ -29,12 +29,6 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-var systemServiceAccountPrefixes = []string{
-	"system:serviceaccount:kube-system:",
-	"system:serviceaccount:d8-system:",
-	"system:serviceaccount:d8-virtualization:",
-}
-
 func NewValidator(log *log.Logger) *Validator {
 	return &Validator{
 		log: log.With("webhook", "validation"),
@@ -103,10 +97,10 @@ func isSystemServiceAccount(ctx context.Context) bool {
 		return false
 	}
 
-	for _, systemServiceAccountPrefix := range systemServiceAccountPrefixes {
-		if strings.HasPrefix(req.UserInfo.Username, systemServiceAccountPrefix) {
-			return true
-		}
+	if strings.HasPrefix(req.UserInfo.Username, "system:serviceaccount:kube-system:") ||
+		strings.HasPrefix(req.UserInfo.Username, "system:serviceaccount:d8-system:") ||
+		strings.HasPrefix(req.UserInfo.Username, "system:serviceaccount:d8-virtualization:") {
+		return true
 	}
 
 	return false
