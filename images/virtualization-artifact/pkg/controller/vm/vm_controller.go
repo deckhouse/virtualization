@@ -18,7 +18,6 @@ package vm
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"k8s.io/utils/ptr"
@@ -37,7 +36,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vmmetrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/virtualmachine"
-	"github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -48,6 +47,7 @@ const (
 func SetupController(
 	ctx context.Context,
 	mgr manager.Manager,
+	virtClient kubeclient.Client,
 	log *log.Logger,
 	dvcrSettings *dvcr.Settings,
 	firmwareImage string,
@@ -58,12 +58,8 @@ func SetupController(
 	blockDeviceService := service.NewBlockDeviceService(client)
 	vmClassService := service.NewVirtualMachineClassService(client)
 
-	migrateVolumesService := vmservice.NewMigrationVolumesService(client, internal.MakeKVVMFromVMSpec, 10*time.Second)
 
-	virtClient, err := versioned.NewForConfig(mgr.GetConfig())
-	if err != nil {
-		return fmt.Errorf("failed to create virtualization client: %w", err)
-	}
+	migrateVolumesService := vmservice.NewMigrationVolumesService(client, internal.MakeKVVMFromVMSpec, 10*time.Second)
 
 	handlers := []Handler{
 		internal.NewMaintenanceHandler(client),

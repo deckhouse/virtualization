@@ -31,7 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/usbdevicecondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -40,7 +40,7 @@ import (
 
 const nameUSBDeviceHandler = "USBDeviceHandler"
 
-func NewUSBDeviceHandler(cl client.Client, virtClient versioned.Interface) *USBDeviceHandler {
+func NewUSBDeviceHandler(cl client.Client, virtClient kubeclient.Client) *USBDeviceHandler {
 	return &USBDeviceHandler{
 		client:     cl,
 		virtClient: virtClient,
@@ -49,7 +49,7 @@ func NewUSBDeviceHandler(cl client.Client, virtClient versioned.Interface) *USBD
 
 type USBDeviceHandler struct {
 	client     client.Client
-	virtClient versioned.Interface
+	virtClient kubeclient.Client
 }
 
 func (h *USBDeviceHandler) Name() string {
