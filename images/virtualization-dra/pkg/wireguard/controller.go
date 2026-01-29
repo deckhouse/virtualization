@@ -79,7 +79,7 @@ func NewController(wireguardSystemNetworkName, nodeName, namespace, podIP string
 		return wireguardSystemNetworkInformer.HasSynced()
 	}
 
-	return &Controller{}, nil
+	return c, nil
 }
 
 func (c *Controller) addWSN(obj interface{}) {
@@ -138,7 +138,7 @@ func (c *Controller) Sync(ctx context.Context, key string) error {
 	log := c.log.With(slog.String("key", key))
 	log.Info("syncing wireguard system network")
 
-	if c.isMyWSNKey(key) {
+	if !c.isMyWSNKey(key) {
 		log.Warn("False trying to sync other wireguard system network")
 		return nil
 	}
@@ -203,7 +203,12 @@ func (c *Controller) configureWireguard(_ context.Context, wsn *vdraapi.Wireguar
 
 	config := NewConfig(wsn.Spec.ListenPort, *priv, *pub, peers)
 
-	err = c.wireguardManager.ConfigureDevice(wsn.Spec.InterfaceName, config)
+	allocAddr := c.getAllocatedAddr(wsn)
+	if allocAddr != nil {
+		return fmt.Errorf("not found allocated address: %w", err)
+	}
+
+	err = c.wireguardManager.ConfigureDevice(wsn.Spec.InterfaceName, allocAddr, config)
 	if err != nil {
 		return fmt.Errorf("failed to configure WireguardSystemNetwork: %w", err)
 	}
@@ -224,6 +229,19 @@ func (c *Controller) configureWireguard(_ context.Context, wsn *vdraapi.Wireguar
 	return nil
 }
 
+func (c *Controller) getAllocatedAddr(wsn *vdraapi.WireguardSystemNetwork) *net.IPNet {
+	for _, alloc := range wsn.Status.AllocatedIPs {
+		if alloc.Node == c.nodeName {
+			ipNet := net.IPNet{
+				IP:   net.ParseIP(alloc.IP),
+				Mask: net.CIDRMask(32, 32),
+			}
+			return &ipNet
+		}
+	}
+	return nil
+}
+
 func (c *Controller) getWireguardSystemNetwork() (*vdraapi.WireguardSystemNetwork, error) {
 	obj, exists, err := c.wireguardSystemNetworkIndexer.GetByKey(c.wireguardSystemNetworkNameKey)
 	if err != nil {
@@ -236,5 +254,5 @@ func (c *Controller) getWireguardSystemNetwork() (*vdraapi.WireguardSystemNetwor
 	if !ok {
 		return nil, fmt.Errorf("unexpected type of WireguardSystemNetwork: %T", obj)
 	}
-	return wsn, nil
+	return wsn.DeepCopy(), nil
 }

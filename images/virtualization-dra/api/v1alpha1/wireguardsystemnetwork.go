@@ -29,8 +29,8 @@ type WireguardSystemNetworkSpec struct {
 }
 
 type WireguardSystemNetworkStatus struct {
-	AllocatedIPs []AllocatedIP  `json:"allocatedIPs"`
-	NodeSettings []NodeSettings `json:"nodeSettings"`
+	AllocatedIPs []AllocatedIP  `json:"allocatedIPs,omitempty"`
+	NodeSettings []NodeSettings `json:"nodeSettings,omitempty"`
 }
 
 type AllocatedIP struct {

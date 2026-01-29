@@ -55,6 +55,7 @@ spec:
       imagePullSecrets:
         - name: virtualization-module-registry
       serviceAccountName: virtualization-dra-usb-gateway
+      hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       nodeSelector:
         kubernetes.io/os: linux
@@ -76,7 +77,6 @@ spec:
               mountPath: /lib/modules
       containers:
         - name: virtualization-dra-usb-gateway
-          {{- include "helm_lib_module_container_security_context_privileged_read_only_root_filesystem" . | nindent 10 }}
           securityContext:
             privileged: true
           image: {{ include "helm_lib_module_image" (list . "virtualizationDraUsbGateway") }}

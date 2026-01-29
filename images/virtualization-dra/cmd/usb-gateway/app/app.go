@@ -285,7 +285,7 @@ func (o *usbOptions) waitWireguardReady(ctx context.Context, wgController *wireg
 			slog.Error("failed to check if wireguard is ready for use",
 				slog.Any("error", err),
 				slog.String("component", "wireguard"))
-			return false, err
+			return false, nil
 		}
 
 		if ready {

@@ -88,9 +88,6 @@ spec:
                   - publicKey
                   type: object
                 type: array
-            required:
-            - allocatedIPs
-            - nodeSettings
             type: object
         required:
         - spec

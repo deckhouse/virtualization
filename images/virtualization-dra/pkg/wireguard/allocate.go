@@ -6,19 +6,19 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
-	"slices"
 	"time"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/cache"
 
 	vdraapi "github.com/deckhouse/virtualization-dra/api/v1alpha1"
-	"github.com/deckhouse/virtualization-dra/pkg/patch"
 )
 
 func (c *Controller) AllocateAddress(ctx context.Context) (string, error) {
+	if !cache.WaitForCacheSync(ctx.Done(), c.hasSynced) {
+		return "", fmt.Errorf("failed to wait for caches to sync")
+	}
 	return c.tryAllocateAddress(ctx)
 }
 
@@ -46,7 +46,7 @@ func (c *Controller) tryAllocateAddress(ctx context.Context) (string, error) {
 			c.log.Warn("Failed to get WireguardSystemNetwork",
 				slog.Any("error", err),
 				slog.Int("attempt", attempt))
-			return false, err
+			return false, nil
 		}
 
 		for _, alloc := range wsn.Status.AllocatedIPs {
@@ -66,40 +66,21 @@ func (c *Controller) tryAllocateAddress(ctx context.Context) (string, error) {
 			c.log.Error("Failed to allocate address",
 				slog.Any("error", err),
 				slog.String("node", c.nodeName))
-			return false, err
+			return false, nil
 		}
 
-		oldAllocatedIPs := wsn.Status.AllocatedIPs
-		newAllocatedIPs := slices.Clone(oldAllocatedIPs)
-		newAllocatedIPs = append(newAllocatedIPs, vdraapi.AllocatedIP{
+		wsn.Status.AllocatedIPs = append(wsn.Status.AllocatedIPs, vdraapi.AllocatedIP{
 			Node: c.nodeName,
 			IP:   allocAddr,
 		})
 
-		b, err := patch.NewJSONPatch(
-			patch.WithTest("/status/allocatedIPs", oldAllocatedIPs),
-			patch.WithReplace("/status/allocatedIPs", newAllocatedIPs),
-		).Bytes()
-		if err != nil {
-			c.log.Error("Failed to create JSON patch", slog.Any("error", err))
-			return false, err
-		}
-
-		patchCtx, patchCancel := context.WithTimeout(ctx, 15*time.Second)
-		defer patchCancel()
-
-		_, err = c.vdraClient.WireguardSystemNetworks(wsn.Namespace).Patch(patchCtx, wsn.Name, types.JSONPatchType, b, metav1.PatchOptions{})
+		_, err = c.vdraClient.WireguardSystemNetworks(wsn.Namespace).UpdateStatus(ctx, wsn, metav1.UpdateOptions{})
 
 		if err != nil {
-			if apierrors.IsConflict(err) {
-				c.log.Info("Patch conflict, retrying...")
-				return false, nil
-			}
-
-			c.log.Error("Failed to apply patch",
+			c.log.Error("Failed to apply update status",
 				slog.Any("error", err),
 				slog.String("address", allocAddr))
-			return false, fmt.Errorf("patch failed: %w", err)
+			return false, nil
 		}
 
 		address = allocAddr
@@ -111,12 +92,16 @@ func (c *Controller) tryAllocateAddress(ctx context.Context) (string, error) {
 		return true, nil
 	})
 
+	elapsed := time.Since(startTime)
 	if err != nil {
-		elapsed := time.Since(startTime)
 		if errors.Is(err, context.DeadlineExceeded) {
 			return "", fmt.Errorf("address allocation timeout after %v (attempts: %d)", elapsed, attempt)
 		}
 		return "", fmt.Errorf("address allocation failed after %v (attempts: %d): %w", elapsed, attempt, err)
+	}
+
+	if address == "" {
+		return "", fmt.Errorf("address allocation failed after %v (attempts: %d)", elapsed, attempt)
 	}
 
 	return address, nil

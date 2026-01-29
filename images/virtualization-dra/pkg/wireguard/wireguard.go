@@ -8,6 +8,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/vishvananda/netlink"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -27,6 +28,39 @@ func generateKeys() (wgtypes.Key, wgtypes.Key, error) {
 
 type wgManager struct{}
 
+func (m *wgManager) createDevice(iface string) error {
+	link := &netlink.Wireguard{LinkAttrs: netlink.LinkAttrs{Name: iface}}
+	err := netlink.LinkAdd(link)
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return nil
+		}
+		return fmt.Errorf("failed to create wireguard device: %w", err)
+	}
+	return nil
+}
+
+func (m *wgManager) ensureAddAddrAndLinkUp(iface string, ipNet *net.IPNet) error {
+	link, err := netlink.LinkByName(iface)
+	if err != nil {
+		return fmt.Errorf("failed to get link %s: %w", iface, err)
+	}
+
+	if link.Attrs().OperState == netlink.OperUp {
+		return nil
+	}
+
+	if err := netlink.AddrAdd(link, &netlink.Addr{IPNet: ipNet}); err != nil && !errors.Is(err, os.ErrExist) {
+		return fmt.Errorf("failed to add address: %w", err)
+	}
+
+	if err = netlink.LinkSetUp(link); err != nil {
+		return fmt.Errorf("failed to bring up wireguard device: %w", err)
+	}
+
+	return nil
+}
+
 func (m *wgManager) getDevice(iface string, client *wgctrl.Client) (*wgtypes.Device, bool, error) {
 	dev, err := client.Device(iface)
 	if err != nil {
@@ -38,7 +72,7 @@ func (m *wgManager) getDevice(iface string, client *wgctrl.Client) (*wgtypes.Dev
 	return dev, true, nil
 }
 
-func (m *wgManager) ConfigureDevice(iface string, config Config) error {
+func (m *wgManager) ConfigureDevice(iface string, ipNet *net.IPNet, config Config) error {
 	client, err := wgctrl.New()
 	if err != nil {
 		return fmt.Errorf("failed to create wgctrl client: %w", err)
@@ -50,19 +84,27 @@ func (m *wgManager) ConfigureDevice(iface string, config Config) error {
 		return err
 	}
 
+	if !exist {
+		if err = m.createDevice(iface); err != nil {
+			return err
+		}
+		err = client.ConfigureDevice(iface, config.WGConfigWithReplace())
+		if err != nil {
+			return fmt.Errorf("failed to configure device: %w", err)
+		}
+		return m.ensureAddAddrAndLinkUp(iface, ipNet)
+	}
+
 	oldConfig := NewConfigFromDevice(dev)
-	// should configure if device doesn't exist or config is different
-	shouldConfigure := !exist || !oldConfig.Equal(config)
-	if !shouldConfigure {
-		return nil
+	shouldConfigure := !oldConfig.Equal(config)
+	if shouldConfigure {
+		err = client.ConfigureDevice(iface, config.WGConfig(oldConfig))
+		if err != nil {
+			return fmt.Errorf("failed to configure device: %w", err)
+		}
 	}
 
-	err = client.ConfigureDevice(iface, config.WGConfig(oldConfig))
-	if err != nil {
-		return fmt.Errorf("failed to configure device: %w", err)
-	}
-
-	return nil
+	return m.ensureAddAddrAndLinkUp(iface, ipNet)
 }
 
 func NewConfigFromDevice(dev *wgtypes.Device) Config {
