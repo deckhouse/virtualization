@@ -84,9 +84,15 @@ spec:
         apiVersions: ["v1alpha2"]
         operations:
           - "CREATE"
-          - "DELETE"
         resources:
           - "nodeusbdevices"
+      - apiGroups:
+          - "virtualization.deckhouse.io"
+        apiVersions: ["v1alpha2"]
+        operations:
+          - "CREATE"
+          - "DELETE"
+        resources:
           - "usbdevices"
       - apiGroups:
           - "virtualization.deckhouse.io"
@@ -101,7 +107,7 @@ spec:
         request.userInfo.username.startsWith("system:serviceaccount:kube-system:") ||
         request.userInfo.username.startsWith("system:serviceaccount:d8-system:") ||
         request.userInfo.username.startsWith("system:serviceaccount:d8-virtualization:")
-      message: "NodeUSBDevice and USBDevice resources can only be created, deleted, or updated by ServiceAccounts with 'd8' prefix. NodeUSBDevice status can only be updated by ServiceAccounts with 'd8' prefix. Only spec updates are allowed for other users on NodeUSBDevice."
+      message: "NodeUSBDevice and USBDevice resources can only be created by ServiceAccounts with 'd8' prefix. USBDevice DELETE is allowed only for ServiceAccounts with 'd8' prefix. NodeUSBDevice DELETE is controlled via RBAC (allowed for cluster-admin role). Status updates are allowed only for ServiceAccounts with 'd8' prefix."
 ---
 apiVersion: {{ $apiVersion }}
 kind: ValidatingAdmissionPolicyBinding
