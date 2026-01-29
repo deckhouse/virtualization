@@ -14,26 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package nodeusbdevice
+package resourceslice
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	resourcev1beta1 "k8s.io/api/resource/v1beta1"
 	"k8s.io/utils/ptr"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice/internal"
-	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/resourceslice/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
-	ControllerName = "nodeusbdevice-controller"
+	ControllerName = "resourceslice-controller"
 )
 
 func NewController(
@@ -41,15 +42,11 @@ func NewController(
 	mgr manager.Manager,
 	log *log.Logger,
 ) (controller.Controller, error) {
-	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	client := mgr.GetClient()
 
 	handlers := []Handler{
-		internal.NewDeletionHandler(client, recorder),
-		internal.NewReadyHandler(recorder),
-		internal.NewAssignedHandler(client, recorder),
+		internal.NewNodeUSBDeviceHandler(client),
 	}
-
 	r := NewReconciler(client, handlers...)
 
 	c, err := controller.New(ControllerName, mgr, controller.Options{
@@ -57,23 +54,20 @@ func NewController(
 		RecoverPanic:     ptr.To(true),
 		LogConstructor:   logger.NewConstructor(log),
 		CacheSyncTimeout: 10 * time.Minute,
-		UsePriorityQueue: ptr.To(true),
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	if err = r.SetupController(ctx, mgr, c); err != nil {
-		return nil, err
+	if err := c.Watch(
+		source.Kind(mgr.GetCache(),
+			&resourcev1beta1.ResourceSlice{},
+			&handler.TypedEnqueueRequestForObject[*resourcev1beta1.ResourceSlice]{},
+		),
+	); err != nil {
+		return nil, fmt.Errorf("watch ResourceSlice: %w", err)
 	}
 
-	if err = builder.WebhookManagedBy(mgr).
-		For(&v1alpha2.NodeUSBDevice{}).
-		WithValidator(NewValidator(log)).
-		Complete(); err != nil {
-		return nil, err
-	}
-
-	log.Info("Initialized NodeUSBDevice controller")
+	log.Info("Initialized ResourceSlice controller")
 	return c, nil
 }

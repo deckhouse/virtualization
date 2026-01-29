@@ -48,6 +48,7 @@ import (
 	mc "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/resourceslice"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/usbdevice"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vdsnapshot"
@@ -373,6 +374,12 @@ func main() {
 
 	vmclassLogger := logger.NewControllerLogger(vmclass.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
 	if _, err = vmclass.NewController(ctx, mgr, controllerNamespace, vmclassLogger); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	resourcesliceLogger := logger.NewControllerLogger(resourceslice.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = resourceslice.NewController(ctx, mgr, resourcesliceLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
