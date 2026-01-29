@@ -31,16 +31,21 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization/api/client/kubeclient"
+	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/usbdevicecondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
 
+// VirtClient is an interface for accessing VirtualMachine resources with subresource operations.
+type VirtClient interface {
+	VirtualMachines(namespace string) virtualizationv1alpha2.VirtualMachineInterface
+}
+
 const nameUSBDeviceHandler = "USBDeviceHandler"
 
-func NewUSBDeviceHandler(cl client.Client, virtClient kubeclient.Client) *USBDeviceHandler {
+func NewUSBDeviceHandler(cl client.Client, virtClient VirtClient) *USBDeviceHandler {
 	return &USBDeviceHandler{
 		client:     cl,
 		virtClient: virtClient,
@@ -49,7 +54,7 @@ func NewUSBDeviceHandler(cl client.Client, virtClient kubeclient.Client) *USBDev
 
 type USBDeviceHandler struct {
 	client     client.Client
-	virtClient kubeclient.Client
+	virtClient VirtClient
 }
 
 func (h *USBDeviceHandler) Name() string {
@@ -335,7 +340,7 @@ func (h *USBDeviceHandler) attachUSBDevice(
 		RequestName:               requestName,
 	}
 
-	return h.virtClient.VirtualizationV1alpha2().VirtualMachines(vm.Namespace).AddResourceClaim(ctx, vm.Name, opts)
+	return h.virtClient.VirtualMachines(vm.Namespace).AddResourceClaim(ctx, vm.Name, opts)
 }
 
 func (h *USBDeviceHandler) detachUSBDevice(
@@ -348,7 +353,7 @@ func (h *USBDeviceHandler) detachUSBDevice(
 		Name: usbDeviceName,
 	}
 
-	return h.virtClient.VirtualizationV1alpha2().VirtualMachines(vm.Namespace).RemoveResourceClaim(ctx, vm.Name, opts)
+	return h.virtClient.VirtualMachines(vm.Namespace).RemoveResourceClaim(ctx, vm.Name, opts)
 }
 
 func (h *USBDeviceHandler) getOrAssignUSBAddress(

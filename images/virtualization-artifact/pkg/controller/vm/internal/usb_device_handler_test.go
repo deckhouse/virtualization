@@ -34,21 +34,62 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	fakeversioned "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/fake"
+	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
+
+// mockVirtClient implements kubeclient.Client interface for testing
+type mockVirtClient struct {
+	vmClients map[string]*mockVirtualMachines
+}
+
+func newMockVirtClient() *mockVirtClient {
+	return &mockVirtClient{
+		vmClients: make(map[string]*mockVirtualMachines),
+	}
+}
+
+func (m *mockVirtClient) VirtualMachines(namespace string) virtualizationv1alpha2.VirtualMachineInterface {
+	if _, ok := m.vmClients[namespace]; !ok {
+		m.vmClients[namespace] = &mockVirtualMachines{
+			addResourceClaimCalls:    make([]subv1alpha2.VirtualMachineAddResourceClaim, 0),
+			removeResourceClaimCalls: make([]subv1alpha2.VirtualMachineRemoveResourceClaim, 0),
+		}
+	}
+	return m.vmClients[namespace]
+}
+
+// mockVirtualMachines implements VirtualMachineInterface for testing
+type mockVirtualMachines struct {
+	virtualizationv1alpha2.VirtualMachineInterface
+	addResourceClaimCalls    []subv1alpha2.VirtualMachineAddResourceClaim
+	removeResourceClaimCalls []subv1alpha2.VirtualMachineRemoveResourceClaim
+	addResourceClaimErr      error
+	removeResourceClaimErr   error
+}
+
+func (m *mockVirtualMachines) AddResourceClaim(_ context.Context, _ string, opts subv1alpha2.VirtualMachineAddResourceClaim) error {
+	m.addResourceClaimCalls = append(m.addResourceClaimCalls, opts)
+	return m.addResourceClaimErr
+}
+
+func (m *mockVirtualMachines) RemoveResourceClaim(_ context.Context, _ string, opts subv1alpha2.VirtualMachineRemoveResourceClaim) error {
+	m.removeResourceClaimCalls = append(m.removeResourceClaimCalls, opts)
+	return m.removeResourceClaimErr
+}
 
 var _ = Describe("USBDeviceHandler", func() {
 	var ctx context.Context
 	var fakeClient client.WithWatch
-	var fakeVirtClient *fakeversioned.Clientset
+	var mockVirtCl *mockVirtClient
 	var handler *USBDeviceHandler
 	var vmState state.VirtualMachineState
 	var vmResource *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]
 
 	BeforeEach(func() {
 		ctx = logger.ToContext(context.TODO(), slog.Default())
-		fakeVirtClient = fakeversioned.NewSimpleClientset()
+		mockVirtCl = newMockVirtClient()
 	})
 
 	Context("when handling USB devices", func() {
@@ -98,9 +139,7 @@ var _ = Describe("USBDeviceHandler", func() {
 			Expect(vmResource.Fetch(ctx)).To(Succeed())
 
 			vmState = state.New(fakeClient, vmResource)
-			handler = NewUSBDeviceHandler(fakeClient, fakeVirtClient)
-
-			// Fake client already implements AddResourceClaim, no need to mock
+			handler = NewUSBDeviceHandler(fakeClient, mockVirtCl)
 
 			result, err := handler.Handle(ctx, vmState)
 			Expect(err).NotTo(HaveOccurred())
@@ -168,13 +207,16 @@ var _ = Describe("USBDeviceHandler", func() {
 			Expect(vmResource.Fetch(ctx)).To(Succeed())
 
 			vmState = state.New(fakeClient, vmResource)
-			handler = NewUSBDeviceHandler(fakeClient, fakeVirtClient)
+			handler = NewUSBDeviceHandler(fakeClient, mockVirtCl)
 
 			result, err := handler.Handle(ctx, vmState)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(Equal(reconcile.Result{}))
 
-			// Verify AddResourceClaim was called (fake client implements it)
+			// Verify AddResourceClaim was called
+			mockVM := mockVirtCl.vmClients["default"]
+			Expect(mockVM.addResourceClaimCalls).To(HaveLen(1))
+			Expect(mockVM.addResourceClaimCalls[0].Name).To(Equal("usb-device-1"))
 
 			// Verify status was updated
 			Expect(vmResource.Changed().Status.USBDevices).To(HaveLen(1))
@@ -231,7 +273,7 @@ var _ = Describe("USBDeviceHandler", func() {
 			Expect(vmResource.Fetch(ctx)).To(Succeed())
 
 			vmState = state.New(fakeClient, vmResource)
-			handler = NewUSBDeviceHandler(fakeClient, fakeVirtClient)
+			handler = NewUSBDeviceHandler(fakeClient, mockVirtCl)
 
 			result, err := handler.Handle(ctx, vmState)
 			Expect(err).NotTo(HaveOccurred())
@@ -273,7 +315,7 @@ var _ = Describe("USBDeviceHandler", func() {
 			Expect(vmResource.Fetch(ctx)).To(Succeed())
 
 			vmState = state.New(fakeClient, vmResource)
-			handler = NewUSBDeviceHandler(fakeClient, fakeVirtClient)
+			handler = NewUSBDeviceHandler(fakeClient, mockVirtCl)
 
 			result, err := handler.Handle(ctx, vmState)
 			Expect(err).NotTo(HaveOccurred())
@@ -324,13 +366,16 @@ var _ = Describe("USBDeviceHandler", func() {
 			Expect(vmResource.Fetch(ctx)).To(Succeed())
 
 			vmState = state.New(fakeClient, vmResource)
-			handler = NewUSBDeviceHandler(fakeClient, fakeVirtClient)
+			handler = NewUSBDeviceHandler(fakeClient, mockVirtCl)
 
 			result, err := handler.Handle(ctx, vmState)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(Equal(reconcile.Result{}))
 
-			// Verify RemoveResourceClaim was called (fake client implements it)
+			// Verify RemoveResourceClaim was called
+			mockVM := mockVirtCl.vmClients["default"]
+			Expect(mockVM.removeResourceClaimCalls).To(HaveLen(1))
+			Expect(mockVM.removeResourceClaimCalls[0].Name).To(Equal("usb-device-1"))
 
 			// Verify device was removed from status
 			Expect(vmResource.Changed().Status.USBDevices).To(BeEmpty())
@@ -400,7 +445,7 @@ var _ = Describe("USBDeviceHandler", func() {
 			Expect(vmResource.Fetch(ctx)).To(Succeed())
 
 			vmState = state.New(fakeClient, vmResource)
-			handler = NewUSBDeviceHandler(fakeClient, fakeVirtClient)
+			handler = NewUSBDeviceHandler(fakeClient, mockVirtCl)
 
 			result, err := handler.Handle(ctx, vmState)
 			Expect(err).NotTo(HaveOccurred())
