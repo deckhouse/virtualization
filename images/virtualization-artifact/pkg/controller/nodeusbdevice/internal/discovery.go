@@ -28,7 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice/internal/hash"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -57,9 +56,7 @@ func (h *DiscoveryHandler) Name() string {
 }
 
 func (h *DiscoveryHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState) (reconcile.Result, error) {
-	nodeUSBDevice := s.NodeUSBDevice()
-
-	// Get ResourceSlices once for both discovery and update
+	// Get ResourceSlices
 	resourceSlices, err := s.ResourceSlices(ctx)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get resource slices: %w", err)
@@ -71,32 +68,6 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.NodeUSBDeviceStat
 		// Log error but don't fail reconciliation
 		// This is a best-effort discovery mechanism
 		log.Error("failed to discover and create NodeUSBDevice", log.Err(err))
-	}
-
-	if nodeUSBDevice.IsEmpty() {
-		// Resource doesn't exist - nothing to update
-		return reconcile.Result{}, nil
-	}
-
-	current := nodeUSBDevice.Current()
-	changed := nodeUSBDevice.Changed()
-
-	// Update attributes from ResourceSlice if needed
-	deviceInfo, found := h.findDeviceInSlices(resourceSlices, current.Status.Attributes.Hash, current.Status.NodeName)
-	if !found {
-		// Device not found in slices - mark as NotFound
-		cb := conditions.NewConditionBuilder(nodeusbdevicecondition.ReadyType).
-			Generation(current.GetGeneration()).
-			Status(metav1.ConditionFalse).
-			Reason(nodeusbdevicecondition.NotFound).
-			Message("Device not found in ResourceSlice")
-		conditions.SetCondition(cb, &changed.Status.Conditions)
-		return reconcile.Result{}, nil
-	}
-
-	// Update attributes if they changed
-	if !h.attributesEqual(current.Status.Attributes, deviceInfo) {
-		changed.Status.Attributes = deviceInfo
 	}
 
 	return reconcile.Result{}, nil
@@ -262,29 +233,6 @@ func (h *DiscoveryHandler) createNodeUSBDevice(ctx context.Context, attributes v
 	return nil
 }
 
-func (h *DiscoveryHandler) findDeviceInSlices(slices []resourcev1beta1.ResourceSlice, searchedHash, nodeName string) (v1alpha2.NodeUSBDeviceAttributes, bool) {
-	for _, slice := range slices {
-		if slice.Spec.Pool.Name != nodeName {
-			continue
-		}
-
-		for _, device := range slice.Spec.Devices {
-			if !strings.HasPrefix(device.Name, "usb-") {
-				continue
-			}
-
-			attributes := h.convertDeviceToAttributes(device, nodeName)
-			deviceHash := hash.CalculateHash(attributes)
-
-			if deviceHash == searchedHash {
-				return attributes, true
-			}
-		}
-	}
-
-	return v1alpha2.NodeUSBDeviceAttributes{}, false
-}
-
 func (h *DiscoveryHandler) convertDeviceToAttributes(device resourcev1beta1.Device, nodeName string) v1alpha2.NodeUSBDeviceAttributes {
 	attrs := v1alpha2.NodeUSBDeviceAttributes{
 		NodeName: nodeName,
@@ -357,13 +305,4 @@ func (h *DiscoveryHandler) generateName(hash, nodeName string) string {
 	// Format: nusb-<hash>-<nodeName>
 	nodeNameSanitized := strings.ToLower(strings.ReplaceAll(nodeName, ".", "-"))
 	return fmt.Sprintf("nusb-%s-%s", hash[:8], nodeNameSanitized)
-}
-
-func (h *DiscoveryHandler) attributesEqual(a, b v1alpha2.NodeUSBDeviceAttributes) bool {
-	return a.Hash == b.Hash &&
-		a.NodeName == b.NodeName &&
-		a.VendorID == b.VendorID &&
-		a.ProductID == b.ProductID &&
-		a.Bus == b.Bus &&
-		a.DeviceNumber == b.DeviceNumber
 }
