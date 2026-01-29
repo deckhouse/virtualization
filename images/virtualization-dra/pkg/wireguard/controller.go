@@ -204,7 +204,7 @@ func (c *Controller) configureWireguard(_ context.Context, wsn *vdraapi.Wireguar
 	config := NewConfig(wsn.Spec.ListenPort, *priv, *pub, peers)
 
 	allocAddr := c.getAllocatedAddr(wsn)
-	if allocAddr != nil {
+	if allocAddr == nil {
 		return fmt.Errorf("not found allocated address: %w", err)
 	}
 
