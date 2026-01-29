@@ -81,7 +81,7 @@ spec:
             privileged: true
           image: {{ include "helm_lib_module_image" (list . "virtualizationDraUsbGateway") }}
           imagePullPolicy: "IfNotPresent"
-          {{- if .Values.usbipCIDR }}
+          {{- if .Values.virtualization.usbipCIDR }}
           args:
             - --feature-gates=USBGatewayWireguard=true
             - --wireguard-system-network-name=usbip
