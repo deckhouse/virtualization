@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -81,11 +82,14 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.USBDeviceState) (r
 				Name: current.Name,
 			}
 			if err := h.virtClient.VirtualizationV1alpha2().VirtualMachines(vm.Namespace).RemoveResourceClaim(ctx, vm.Name, opts); err != nil {
-				h.recorder.Eventf(changed, "Warning", "Deletion", "Failed to remove ResourceClaim from VM %s/%s: %v", vm.Namespace, vm.Name, err)
-				// Continue with other VMs, but requeue to retry
-				return reconcile.Result{Requeue: true}, fmt.Errorf("failed to remove ResourceClaim from VM %s/%s: %w", vm.Namespace, vm.Name, err)
+				// Ignore NotFound - VM or ResourceClaim may have been deleted already
+				if !apierrors.IsNotFound(err) {
+					h.recorder.Eventf(changed, "Warning", "Deletion", "Failed to remove ResourceClaim from VM %s/%s: %v", vm.Namespace, vm.Name, err)
+					return reconcile.Result{Requeue: true}, fmt.Errorf("failed to remove ResourceClaim from VM %s/%s: %w", vm.Namespace, vm.Name, err)
+				}
+			} else {
+				h.recorder.Eventf(changed, "Normal", "Deletion", "Removed ResourceClaim from VM %s/%s", vm.Namespace, vm.Name)
 			}
-			h.recorder.Eventf(changed, "Normal", "Deletion", "Removed ResourceClaim from VM %s/%s", vm.Namespace, vm.Name)
 		}
 
 		// Requeue to verify that device is no longer attached

@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -34,15 +33,13 @@ const (
 	nameAttachedHandler = "AttachedHandler"
 )
 
-func NewAttachedHandler(client client.Client, recorder eventrecord.EventRecorderLogger) *AttachedHandler {
+func NewAttachedHandler(recorder eventrecord.EventRecorderLogger) *AttachedHandler {
 	return &AttachedHandler{
-		client:   client,
 		recorder: recorder,
 	}
 }
 
 type AttachedHandler struct {
-	client   client.Client
 	recorder eventrecord.EventRecorderLogger
 }
 

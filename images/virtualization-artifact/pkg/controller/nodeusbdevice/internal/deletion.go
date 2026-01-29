@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -70,7 +71,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState
 	for i := range usbDeviceList.Items {
 		usbDevice := &usbDeviceList.Items[i]
 		if metav1.IsControlledBy(usbDevice, current) {
-			if err := h.client.Delete(ctx, usbDevice); err != nil {
+			if err := h.client.Delete(ctx, usbDevice); err != nil && !apierrors.IsNotFound(err) {
 				return reconcile.Result{}, fmt.Errorf("failed to delete USBDevice %s/%s: %w", usbDevice.Namespace, usbDevice.Name, err)
 			}
 		}

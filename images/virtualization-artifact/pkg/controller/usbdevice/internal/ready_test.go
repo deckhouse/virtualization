@@ -96,7 +96,7 @@ var _ = Describe("SyncReadyHandler - Ready condition", func() {
 
 			usbDeviceState = state.New(fakeClient, usbDeviceResource)
 			recorder := &eventrecord.EventRecorderLoggerMock{}
-			handler = NewSyncReadyHandler(fakeClient, recorder)
+			handler = NewSyncReadyHandler(recorder)
 
 			result, err := handler.Handle(ctx, usbDeviceState)
 			Expect(err).NotTo(HaveOccurred())
@@ -155,7 +155,7 @@ var _ = Describe("SyncReadyHandler - Ready condition", func() {
 
 			usbDeviceState = state.New(fakeClient, usbDeviceResource)
 			recorder := &eventrecord.EventRecorderLoggerMock{}
-			handler = NewSyncReadyHandler(fakeClient, recorder)
+			handler = NewSyncReadyHandler(recorder)
 
 			result, err := handler.Handle(ctx, usbDeviceState)
 			Expect(err).NotTo(HaveOccurred())
@@ -199,7 +199,7 @@ var _ = Describe("SyncReadyHandler - Ready condition", func() {
 
 			usbDeviceState = state.New(fakeClient, usbDeviceResource)
 			recorder := &eventrecord.EventRecorderLoggerMock{}
-			handler = NewSyncReadyHandler(fakeClient, recorder)
+			handler = NewSyncReadyHandler(recorder)
 
 			result, err := handler.Handle(ctx, usbDeviceState)
 			Expect(err).NotTo(HaveOccurred())
@@ -252,7 +252,7 @@ var _ = Describe("SyncReadyHandler - Ready condition", func() {
 
 			usbDeviceState = state.New(fakeClient, usbDeviceResource)
 			recorder := &eventrecord.EventRecorderLoggerMock{}
-			handler = NewSyncReadyHandler(fakeClient, recorder)
+			handler = NewSyncReadyHandler(recorder)
 
 			result, err := handler.Handle(ctx, usbDeviceState)
 			Expect(err).NotTo(HaveOccurred())

@@ -76,15 +76,16 @@ func (h *AssignedHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState
 	// Check previous assignedNamespace if it changed
 	// Try to find previous USBDevice to delete it if namespace changed
 	var usbDeviceList v1alpha2.USBDeviceList
-	if err := h.client.List(ctx, &usbDeviceList); err == nil {
-		for _, usbDevice := range usbDeviceList.Items {
-			if usbDevice.Name == current.Name && usbDevice.Namespace != assignedNamespace {
-				// Delete USBDevice from previous namespace
-				if err := h.deleteUSBDevice(ctx, usbDevice.Namespace, usbDevice.Name); err != nil {
-					return reconcile.Result{}, fmt.Errorf("failed to delete USBDevice from previous namespace: %w", err)
-				}
-				break
+	if err := h.client.List(ctx, &usbDeviceList); err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to list USBDevices: %w", err)
+	}
+	for _, usbDevice := range usbDeviceList.Items {
+		if usbDevice.Name == current.Name && usbDevice.Namespace != assignedNamespace {
+			// Delete USBDevice from previous namespace
+			if err := h.deleteUSBDevice(ctx, usbDevice.Namespace, usbDevice.Name); err != nil {
+				return reconcile.Result{}, fmt.Errorf("failed to delete USBDevice from previous namespace: %w", err)
 			}
+			break
 		}
 	}
 
@@ -126,13 +127,14 @@ func (h *AssignedHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState
 		}
 	} else {
 		// No namespace assigned - delete USBDevice if it exists
-		var usbDeviceList v1alpha2.USBDeviceList
-		if err := h.client.List(ctx, &usbDeviceList); err == nil {
-			for _, usbDevice := range usbDeviceList.Items {
-				if usbDevice.Name == current.Name {
-					if err := h.deleteUSBDevice(ctx, usbDevice.Namespace, usbDevice.Name); err != nil {
-						return reconcile.Result{}, fmt.Errorf("failed to delete USBDevice: %w", err)
-					}
+		var usbDeviceListForDelete v1alpha2.USBDeviceList
+		if err := h.client.List(ctx, &usbDeviceListForDelete); err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to list USBDevices: %w", err)
+		}
+		for _, usbDevice := range usbDeviceListForDelete.Items {
+			if usbDevice.Name == current.Name {
+				if err := h.deleteUSBDevice(ctx, usbDevice.Namespace, usbDevice.Name); err != nil {
+					return reconcile.Result{}, fmt.Errorf("failed to delete USBDevice: %w", err)
 				}
 			}
 		}
@@ -188,8 +190,8 @@ func (h *AssignedHandler) ensureUSBDevice(ctx context.Context, nodeUSBDevice *v1
 			Namespace: namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: nodeUSBDevice.APIVersion,
-					Kind:       nodeUSBDevice.Kind,
+					APIVersion: v1alpha2.SchemeGroupVersion.String(),
+					Kind:       "NodeUSBDevice",
 					Name:       nodeUSBDevice.Name,
 					UID:        nodeUSBDevice.UID,
 					Controller: ptr.To(true),
