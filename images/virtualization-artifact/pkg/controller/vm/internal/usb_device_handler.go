@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	resourcev1beta1 "k8s.io/api/resource/v1beta1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -32,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/usbdevicecondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
@@ -144,7 +146,7 @@ func (h *USBDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		// Try to attach via addResourceClaim API
 		requestName := fmt.Sprintf("req-%s", usbDeviceRef.Name)
 		err = h.attachUSBDevice(ctx, vm, usbDeviceRef.Name, templateName, requestName)
-		if err != nil {
+		if err != nil && !apierrors.IsAlreadyExists(err) {
 			log.Error("failed to attach USB device", "error", err, "usbDevice", usbDeviceRef.Name)
 			// Keep existing status or create new one, but update ready and conditions
 			if existingStatus != nil {
@@ -190,13 +192,13 @@ func (h *USBDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		if !specDeviceNames[existingStatus.Name] && existingStatus.Attached {
 			// Device was removed from spec but is still attached, need to detach
 			err := h.detachUSBDevice(ctx, vm, existingStatus.Name)
-			if err != nil {
+			if err != nil && !apierrors.IsNotFound(err) {
 				log.Error("failed to detach USB device", "error", err, "usbDevice", existingStatus.Name)
 				// Keep status but mark as not attached
 				existingStatus.Attached = false
 				statusRefs = append(statusRefs, *existingStatus)
 			}
-			// If detach succeeded, device is removed from status (not added to statusRefs)
+			// If detach succeeded or NotFound, device is removed from status (not added to statusRefs)
 		}
 	}
 
@@ -259,8 +261,8 @@ func (h *USBDeviceHandler) getOrCreateResourceClaimTemplate(
 			Namespace: vm.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: vm.APIVersion,
-					Kind:       vm.Kind,
+					APIVersion: v1alpha2.SchemeGroupVersion.String(),
+					Kind:       v1alpha2.VirtualMachineKind,
 					Name:       vm.Name,
 					UID:        vm.UID,
 					Controller: ptr.To(true),
@@ -310,8 +312,8 @@ func (h *USBDeviceHandler) isUSBDeviceReady(usbDevice *v1alpha2.USBDevice) bool 
 
 	// Check Ready condition
 	for _, condition := range usbDevice.Status.Conditions {
-		if condition.Type == "Ready" {
-			return condition.Status == "True"
+		if condition.Type == string(usbdevicecondition.ReadyType) {
+			return condition.Status == metav1.ConditionTrue
 		}
 	}
 
