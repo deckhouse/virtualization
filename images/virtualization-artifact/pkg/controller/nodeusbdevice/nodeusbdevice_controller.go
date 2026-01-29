@@ -48,6 +48,7 @@ func NewController(
 		internal.NewDeletionHandler(client, recorder),
 		internal.NewReadyHandler(recorder),
 		internal.NewAssignedHandler(client, recorder),
+		internal.NewDiscoveryHandler(client, recorder),
 	}
 
 	r := NewReconciler(client, handlers...)
