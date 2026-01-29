@@ -17,148 +17,40 @@ limitations under the License.
 package usbip
 
 import (
-	"crypto/tls"
-	"crypto/x509"
-	"flag"
-	"fmt"
+	"net"
 	"os"
+	"strconv"
 	"time"
+
+	"github.com/spf13/pflag"
 
 	"github.com/deckhouse/virtualization-dra/pkg/libusb"
 )
 
-type ClientAuthType tls.ClientAuthType
-
-func (c *ClientAuthType) String() string {
-	cc := tls.ClientAuthType(*c)
-	return cc.String()
-}
-
-func (c *ClientAuthType) Set(s string) error {
-	switch s {
-	case "NoClientCert":
-		*c = ClientAuthType(tls.NoClientCert)
-	case "RequestClientCert":
-		*c = ClientAuthType(tls.RequestClientCert)
-	case "RequireAnyClientCert":
-		*c = ClientAuthType(tls.RequireAnyClientCert)
-	case "VerifyClientCertIfGiven":
-		*c = ClientAuthType(tls.VerifyClientCertIfGiven)
-	case "RequireAndVerifyClientCert":
-		*c = ClientAuthType(tls.RequireAndVerifyClientCert)
-	default:
-		return fmt.Errorf("invalid client auth type: %s", s)
-	}
-	return nil
-}
-
 type USBIPDConfig struct {
-	ServerCertificateFile string
-	ServerKeyFile         string
-
-	RootCAFile string
-
-	ClientCAFile       string
-	ClientAuthType     *ClientAuthType
-	clientAuthType     int
-	InsecureSkipVerify bool
-
+	Address                 string
 	Port                    int
 	GracefulShutdownTimeout time.Duration
-
-	Monitor libusb.Monitor
+	MaxTcpConnections       int
 }
 
-func (c *USBIPDConfig) AddFlags(fs *flag.FlagSet) {
-	fs.IntVar(&c.Port, "usbipd-port", 0, "USBIPD port")
-	fs.StringVar(&c.ServerCertificateFile, "usbipd-server-certificate-file", "", "USBIPD server certificate file")
-	fs.StringVar(&c.ServerKeyFile, "usbipd-server-key-file", "", "USBIPD server key file")
-	fs.StringVar(&c.RootCAFile, "usbipd-root-ca-file", "", "USBIPD root CA file")
-	fs.StringVar(&c.ClientCAFile, "usbipd-client-ca-file", "", "USBIPD client CA file")
-	fs.Var(c.ClientAuthType, "usbipd-client-auth-type", "USBIPD client auth type")
-	fs.BoolVar(&c.InsecureSkipVerify, "usbipd-insecure-skip-verify", false, "USBIPD insecure skip verify")
+func (c *USBIPDConfig) AddFlags(fs *pflag.FlagSet) {
+	fs.StringVar(&c.Address, "usbipd-address", os.Getenv("USBIPD_ADDRESS"), "USBIPD address")
+	fs.IntVar(&c.Port, "usbipd-port", 3240, "USBIPD port")
 	fs.DurationVar(&c.GracefulShutdownTimeout, "usbipd-graceful-shutdown-timeout", 0, "USBIPD graceful shutdown timeout")
+	fs.IntVar(&c.MaxTcpConnections, "usbipd-max-tcp-connections", 0, "USBIPD max TCP connections")
 }
 
-func (c *USBIPDConfig) Validate() error {
-	if c.Port == 0 {
-		return fmt.Errorf("port is required")
-	}
-
-	if c.ServerCertificateFile != "" && c.ServerKeyFile == "" {
-		return fmt.Errorf("server key file is required if server certificate file is provided")
-	}
-
-	if c.ServerCertificateFile == "" && c.ServerKeyFile != "" {
-		return fmt.Errorf("server certificate file is required if server key file is provided")
-	}
-
-	if c.Monitor == nil {
-		return fmt.Errorf("monitor is required")
-	}
-
-	return nil
-}
-
-func (c *USBIPDConfig) Complete() (*USBIPD, error) {
+func (c *USBIPDConfig) Complete(monitor libusb.Monitor) (*USBIPD, error) {
 	var opts []Option
-	if c.GracefulShutdownTimeout != 0 {
+	if c.GracefulShutdownTimeout > 0 {
 		opts = append(opts, WithGracefulShutdownTimeout(c.GracefulShutdownTimeout))
 	}
-
-	var serverCertificate *tls.Certificate
-	if c.ServerCertificateFile != "" && c.ServerKeyFile != "" {
-		certificate, err := tls.LoadX509KeyPair(c.ServerCertificateFile, c.ServerKeyFile)
-		if err != nil {
-			return nil, err
-		}
-		serverCertificate = &certificate
+	if c.MaxTcpConnections > 0 {
+		opts = append(opts, WithMaxTCPConnection(c.MaxTcpConnections))
 	}
 
-	rootCACertPool, err := loadCAPoolFromFile(c.RootCAFile)
-	if err != nil {
-		return nil, err
-	}
+	address := net.JoinHostPort(c.Address, strconv.Itoa(c.Port))
 
-	clientCACertPool, err := loadCAPoolFromFile(c.ClientCAFile)
-	if err != nil {
-		return nil, err
-	}
-
-	if serverCertificate != nil || rootCACertPool != nil || clientCACertPool != nil {
-		tlsConfig := &tls.Config{
-			RootCAs:            rootCACertPool,
-			ClientCAs:          clientCACertPool,
-			InsecureSkipVerify: c.InsecureSkipVerify,
-		}
-		if serverCertificate != nil {
-			tlsConfig.Certificates = []tls.Certificate{*serverCertificate}
-		}
-		if c.ClientAuthType != nil {
-			tlsConfig.ClientAuth = tls.ClientAuthType(*c.ClientAuthType)
-		}
-
-		opts = append(opts, WithTLSConfig(tlsConfig))
-	}
-
-	return NewUSBIPD(c.Port, c.Monitor, opts...), nil
-
-}
-
-func loadCAPoolFromFile(file string) (*x509.CertPool, error) {
-	if file == "" {
-		return nil, nil
-	}
-
-	caCertPool := x509.NewCertPool()
-	caCertPEMBlock, err := os.ReadFile(file)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read CA certificate: %w", err)
-	}
-
-	if !caCertPool.AppendCertsFromPEM(caCertPEMBlock) {
-		return nil, fmt.Errorf("failed to parse CA certificate")
-	}
-
-	return caCertPool, nil
+	return NewUSBIPD(address, monitor, opts...), nil
 }

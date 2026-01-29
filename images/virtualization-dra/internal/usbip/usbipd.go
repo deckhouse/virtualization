@@ -18,7 +18,6 @@ package usbip
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -41,70 +40,48 @@ const (
 	defaultGracefulShutdownTimeout = 30 * time.Second
 )
 
-func makeOptions(opts ...Option) *options {
-	options := &options{
-		maxTCPConnection:        defaultMaxTCPConnection,
-		gracefulShutdownTimeout: defaultGracefulShutdownTimeout,
-	}
+type Option func(usbipd *USBIPD)
 
-	for _, opt := range opts {
-		opt(options)
-	}
-
-	return options
-}
-
-type options struct {
-	tlsConfig               *tls.Config
-	gracefulShutdownTimeout time.Duration
-	maxTCPConnection        int
-}
-
-type Option func(*options)
-
-func WithTLSConfig(tlsConfig *tls.Config) Option {
-	return func(o *options) {
-		o.tlsConfig = tlsConfig
-	}
-}
 func WithGracefulShutdownTimeout(timeout time.Duration) Option {
-	return func(o *options) {
-		o.gracefulShutdownTimeout = timeout
+	return func(u *USBIPD) {
+		u.gracefulShutdownTimeout = timeout
 	}
 }
 
 func WithMaxTCPConnection(maxTCPConnection int) Option {
-	return func(o *options) {
-		o.maxTCPConnection = maxTCPConnection
+	return func(u *USBIPD) {
+		u.maxTCPConnection = maxTCPConnection
 	}
 }
 
-func NewUSBIPD(port int, monitor libusb.Monitor, opts ...Option) *USBIPD {
-	options := makeOptions(opts...)
-	return &USBIPD{
-		addr:                    ":" + strconv.Itoa(port),
-		tlsConfig:               options.tlsConfig,
-		gracefulShutdownTimeout: options.gracefulShutdownTimeout,
-		logger:                  slog.Default().With(slog.String("component", "usbipd")),
-		maxTCPConnection:        options.maxTCPConnection,
+func NewUSBIPD(addr string, monitor libusb.Monitor, opts ...Option) *USBIPD {
+	usbipd := &USBIPD{
+		addr:                    addr,
 		monitor:                 monitor,
+		gracefulShutdownTimeout: defaultGracefulShutdownTimeout,
+		maxTCPConnection:        defaultMaxTCPConnection,
+		logger:                  slog.Default().With(slog.String("component", "usbipd")),
 	}
+
+	for _, opt := range opts {
+		opt(usbipd)
+	}
+
+	return usbipd
 
 }
 
 type USBIPD struct {
 	addr                    string
-	tlsConfig               *tls.Config
+	monitor                 libusb.Monitor
 	gracefulShutdownTimeout time.Duration
-	logger                  *slog.Logger
 	maxTCPConnection        int
+	logger                  *slog.Logger
 
 	listener  net.Listener
 	connWg    sync.WaitGroup
 	connCount atomic.Int64
 	quit      chan struct{}
-
-	monitor libusb.Monitor
 }
 
 func (u *USBIPD) Start(ctx context.Context) error {
@@ -130,18 +107,8 @@ func (u *USBIPD) Run(ctx context.Context) error {
 }
 
 func (u *USBIPD) setup() (err error) {
-	if u.tlsConfig != nil {
-		u.listener, err = tls.Listen("tcp", u.addr, u.tlsConfig)
-		if err != nil {
-			return err
-		}
-	} else {
-		u.listener, err = net.Listen("tcp", u.addr)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	u.listener, err = net.Listen("tcp", u.addr)
+	return err
 }
 
 func (u *USBIPD) run(ctx context.Context) {

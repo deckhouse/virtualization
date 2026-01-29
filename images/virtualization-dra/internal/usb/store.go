@@ -34,7 +34,7 @@ import (
 	cdiapi "tags.cncf.io/container-device-interface/pkg/cdi"
 	cdispec "tags.cncf.io/container-device-interface/specs-go"
 
-	vdraapi "github.com/deckhouse/virtualization-dra/api"
+	vdraapi "github.com/deckhouse/virtualization-dra/api/v1alpha1"
 	"github.com/deckhouse/virtualization-dra/internal/cdi"
 	"github.com/deckhouse/virtualization-dra/internal/featuregates"
 	"github.com/deckhouse/virtualization-dra/internal/usbip"

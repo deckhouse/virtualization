@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package api
+package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,8 +24,8 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
-const Version = "v1alpha2"
-const Group = "usb-gateway.virtualization.deckhouse.io"
+const Version = "v1alpha1"
+const Group = "usbgateway.virtualization.deckhouse.io"
 
 var SchemeGroupVersion = schema.GroupVersion{Group: Group, Version: Version}
 
@@ -33,6 +33,16 @@ var (
 	Scheme = runtime.NewScheme()
 	Codecs = serializer.NewCodecFactory(Scheme)
 )
+
+// Kind takes an unqualified kind and returns back a Group qualified GroupKind
+func Kind(kind string) schema.GroupKind {
+	return SchemeGroupVersion.WithKind(kind).GroupKind()
+}
+
+// Resource takes an unqualified resource and returns a Group qualified GroupResource
+func Resource(resource string) schema.GroupResource {
+	return SchemeGroupVersion.WithResource(resource).GroupResource()
+}
 
 var (
 	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
@@ -42,6 +52,8 @@ var (
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&USBGatewayStatus{},
+		&WireguardSystemNetwork{},
+		&WireguardSystemNetworkList{},
 	)
 	return nil
 }

@@ -77,9 +77,20 @@ spec:
       containers:
         - name: virtualization-dra-usb-gateway
           {{- include "helm_lib_module_container_security_context_privileged_read_only_root_filesystem" . | nindent 10 }}
+          securityContext:
+            privileged: true
           image: {{ include "helm_lib_module_image" (list . "virtualizationDraUsbGateway") }}
           imagePullPolicy: "IfNotPresent"
+          {{- if .Values.usbipCIDR }}
+          args:
+            - --feature-gates=USBGatewayWireguard=true
+            - --wireguard-system-network-name=usbip
+          {{- end }}
           env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: NODE_NAME
               valueFrom:
                 fieldRef:

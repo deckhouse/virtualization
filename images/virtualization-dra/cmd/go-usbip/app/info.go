@@ -22,7 +22,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/deckhouse/virtualization-dra/pkg/usb"
+	"github.com/deckhouse/virtualization-dra/pkg/libusb"
 )
 
 func NewInfoCommand() *cobra.Command {
@@ -51,13 +51,13 @@ func (o *infoOptions) Run(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	devices := make([]*libusb.Device, 0, len(discoverDevices))
+	devices := make([]*libusb.USBDevice, 0, len(discoverDevices))
 
 	for _, device := range discoverDevices {
 		devices = append(devices, device)
 	}
 
-	slices.SortFunc(devices, func(a, b *libusb.Device) int {
+	slices.SortFunc(devices, func(a, b *libusb.USBDevice) int {
 		return cmp.Compare(a.Path, b.Path)
 	})
 

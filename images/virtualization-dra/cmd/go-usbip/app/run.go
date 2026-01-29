@@ -17,7 +17,7 @@ limitations under the License.
 package app
 
 import (
-	"context"
+	"fmt"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -28,7 +28,8 @@ import (
 
 func NewRunCommand() *cobra.Command {
 	o := &runOptions{
-		monitor: libusb.NewDefaultMonitorConfig(),
+		usbipdConfig: &usbip.USBIPDConfig{},
+		monitor:      libusb.NewDefaultMonitorConfig(),
 	}
 	cmd := &cobra.Command{
 		Use:     "run",
@@ -44,8 +45,8 @@ func NewRunCommand() *cobra.Command {
 }
 
 type runOptions struct {
-	port    int
-	monitor *libusb.MonitorConfig
+	usbipdConfig *usbip.USBIPDConfig
+	monitor      *libusb.MonitorConfig
 }
 
 func (o *runOptions) Usage() string {
@@ -55,36 +56,25 @@ func (o *runOptions) Usage() string {
 }
 
 func (o *runOptions) AddFlags(fs *pflag.FlagSet) {
-	fs.IntVar(&o.port, "port", 3240, "Port to listen on")
+	o.usbipdConfig.AddFlags(fs)
 	o.monitor.AddFlags(fs)
 }
 
 func (o *runOptions) Run(cmd *cobra.Command, _ []string) error {
-	monitor, err := o.monitor.Complete(context.Background(), nil)
+	monitor, err := o.monitor.Complete(cmd.Context(), nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create usb monitor: %w", err)
 	}
 
-	config := usbip.USBIPDConfig{
-		Port:    o.port,
-		Monitor: monitor,
-	}
-	err = config.Validate()
+	usbipd, err := o.usbipdConfig.Complete(monitor)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create usbipd: %w", err)
 	}
 
-	usbipd, err := config.Complete()
+	err = usbipd.Run(cmd.Context())
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to run usbipd: %w", err)
 	}
-
-	err = usbipd.Start(cmd.Context())
-	if err != nil {
-		return err
-	}
-
-	<-cmd.Context().Done()
 
 	return nil
 }

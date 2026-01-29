@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"maps"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -30,7 +31,7 @@ import (
 )
 
 type Labeler interface {
-	Label(ctx context.Context, name, namespace string, addLabels map[string]string) error
+	Label(ctx context.Context, name, namespace string, addLabels map[string]string, removeLabels []string) error
 }
 
 type genericLabeler struct {
@@ -45,7 +46,11 @@ func NewGenericLabeler(client dynamic.Interface, gvr schema.GroupVersionResource
 	}
 }
 
-func (l *genericLabeler) Label(ctx context.Context, name, namespace string, addLabels map[string]string) error {
+func (l *genericLabeler) Label(ctx context.Context, name, namespace string, addLabels map[string]string, removeLabels []string) error {
+	if addLabels == nil && removeLabels == nil {
+		return nil
+	}
+
 	obj, err := l.client.Resource(l.gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return err
@@ -54,7 +59,14 @@ func (l *genericLabeler) Label(ctx context.Context, name, namespace string, addL
 	oldLabels := obj.GetLabels()
 	newLabels := make(map[string]string)
 	maps.Copy(newLabels, oldLabels)
+	for _, k := range removeLabels {
+		delete(newLabels, k)
+	}
 	maps.Copy(newLabels, addLabels)
+
+	if equality.Semantic.DeepEqual(oldLabels, newLabels) {
+		return nil
+	}
 
 	patchBytes, err := patch.NewJSONPatch(
 		patch.WithTest("/metadata/labels", oldLabels),
@@ -82,6 +94,6 @@ func NewNodeLabeler(client dynamic.Interface) NodeLabeler {
 	}
 }
 
-func (l NodeLabeler) Label(ctx context.Context, name, namespace string, addLabels map[string]string) error {
-	return l.generic.Label(ctx, name, namespace, addLabels)
+func (l NodeLabeler) Label(ctx context.Context, name, namespace string, addLabels map[string]string, removeLabels []string) error {
+	return l.generic.Label(ctx, name, namespace, addLabels, removeLabels)
 }

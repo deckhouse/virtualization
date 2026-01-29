@@ -28,5 +28,9 @@ import (
 func MarkNodeForUSBGateway(ctx context.Context, nodeName string, dynamicClient dynamic.Interface) error {
 	return labeler.NewNodeLabeler(dynamicClient).Label(ctx, nodeName, "", map[string]string{
 		common.USBGatewayLabel: "true",
-	})
+	}, nil)
+}
+
+func UnmarkNodeForUSBGateway(ctx context.Context, nodeName string, dynamicClient dynamic.Interface) error {
+	return labeler.NewNodeLabeler(dynamicClient).Label(ctx, nodeName, "", nil, []string{common.USBGatewayLabel})
 }

@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net"
 	"strings"
 	"time"
 
@@ -36,31 +35,21 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/strings/slices"
 
-	vdraapi "github.com/deckhouse/virtualization-dra/api"
+	vdraapi "github.com/deckhouse/virtualization-dra/api/v1alpha1"
 	"github.com/deckhouse/virtualization-dra/internal/common"
 	"github.com/deckhouse/virtualization-dra/internal/usb-gateway/informer"
 	"github.com/deckhouse/virtualization-dra/internal/usbip"
+	"github.com/deckhouse/virtualization-dra/pkg/controller"
 	"github.com/deckhouse/virtualization-dra/pkg/patch"
 )
 
 const controllerName = "resourceclaim-controller"
 const finalizer = "virtualization.deckhouse.io/usb-gateway"
 
-var (
-	keyFunc = cache.DeletionHandlingMetaNamespaceKeyFunc
-)
-
-func controllerKeyFunc(namespace, name string) string {
-	return types.NamespacedName{
-		Namespace: namespace,
-		Name:      name,
-	}.String()
-}
-
 type Controller struct {
 	nodeName             string
-	podIP                net.IP
-	usbipPort            int
+	usbipdAddr           string
+	usbipdPort           int
 	client               kubernetes.Interface
 	resourceClaimIndexer cache.Indexer
 	resourceSliceIndexer cache.Indexer
@@ -73,7 +62,7 @@ type Controller struct {
 	recordManager        *recordManager
 }
 
-func NewController(nodeName string, podIP net.IP, usbipPort int, client kubernetes.Interface, resourceClaimInformer, resourceSliceInformer, nodeInformer, podInformer cache.SharedIndexInformer, usbIP usbip.Interface) (*Controller, error) {
+func NewController(nodeName, usbipdAddr string, usbipdPort int, client kubernetes.Interface, resourceClaimInformer, resourceSliceInformer, nodeInformer, podInformer cache.SharedIndexInformer, usbIP usbip.Interface) (*Controller, error) {
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
 		workqueue.DefaultTypedControllerRateLimiter[string](),
 		workqueue.TypedRateLimitingQueueConfig[string]{Name: controllerName},
@@ -86,8 +75,8 @@ func NewController(nodeName string, podIP net.IP, usbipPort int, client kubernet
 
 	c := &Controller{
 		nodeName:             nodeName,
-		podIP:                podIP,
-		usbipPort:            usbipPort,
+		usbipdAddr:           usbipdAddr,
+		usbipdPort:           usbipdPort,
 		client:               client,
 		resourceClaimIndexer: resourceClaimInformer.GetIndexer(),
 		resourceSliceIndexer: resourceSliceInformer.GetIndexer(),
@@ -158,7 +147,7 @@ func (c *Controller) deletePod(obj interface{}) {
 }
 
 func (c *Controller) enqueueResourceClaim(rc *resourcev1beta1.ResourceClaim) {
-	key, err := keyFunc(rc)
+	key, err := controller.ObjectKeyFunc(rc)
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("couldn't get key for object %#v: %w", rc, err))
 		return
@@ -174,53 +163,19 @@ func (c *Controller) queueAfterAdd(key string, duration time.Duration) {
 	c.queue.AddAfter(key, duration)
 }
 
-func (c *Controller) Run(ctx context.Context, workers int) error {
-	defer utilruntime.HandleCrash()
-	defer c.queue.ShutDown()
-
-	c.log.Info("Starting controller")
-	defer c.log.Info("Shutting down controller")
-
-	if !cache.WaitForCacheSync(ctx.Done(), c.hasSynced) {
-		return fmt.Errorf("failed to wait for caches to sync")
-	}
-
-	c.log.Info("Starting workers controller")
-	for i := 0; i < workers; i++ {
-		go wait.UntilWithContext(ctx, c.worker, time.Second)
-	}
-
-	<-ctx.Done()
-	return nil
+func (c *Controller) Queue() workqueue.TypedRateLimitingInterface[string] {
+	return c.queue
 }
 
-func (c *Controller) worker(ctx context.Context) {
-	workFunc := func(ctx context.Context) bool {
-		key, quit := c.queue.Get()
-		if quit {
-			return true
-		}
-		defer c.queue.Done(key)
-
-		if err := c.sync(ctx, key); err != nil {
-			c.log.Error("re-enqueuing", slog.String("key", key), slog.Any("err", err))
-			c.queue.AddRateLimited(key)
-		} else {
-			c.log.Info(fmt.Sprintf("processed ResourceClaim %v", key))
-			c.queue.Forget(key)
-		}
-		return false
-	}
-	for {
-		quit := workFunc(ctx)
-
-		if quit {
-			return
-		}
-	}
+func (c *Controller) HasSynced() bool {
+	return c.hasSynced()
 }
 
-func (c *Controller) sync(ctx context.Context, key string) error {
+func (c *Controller) Logger() *slog.Logger {
+	return c.log
+}
+
+func (c *Controller) Sync(ctx context.Context, key string) error {
 	log := c.log.With("key", key)
 	log.Info("syncing resource claim")
 
@@ -462,7 +417,7 @@ func (c *Controller) handleServer(rc *resourcev1beta1.ResourceClaim, myAllocatio
 		}
 
 		targetIPAlreadySet := usbGatewayStatus != nil && usbGatewayStatus.RemoteIP != ""
-		targetIPWrong := usbGatewayStatus != nil && usbGatewayStatus.RemoteIP != c.podIP.String()
+		targetIPWrong := usbGatewayStatus != nil && usbGatewayStatus.RemoteIP != c.usbipdAddr
 
 		if targetIPAlreadySet && !targetIPWrong {
 			continue
@@ -493,8 +448,8 @@ func (c *Controller) handleServer(rc *resourcev1beta1.ResourceClaim, myAllocatio
 			}
 		}
 
-		usbGatewayStatus.RemoteIP = c.podIP.String()
-		usbGatewayStatus.RemotePort = c.usbipPort
+		usbGatewayStatus.RemoteIP = c.usbipdAddr
+		usbGatewayStatus.RemotePort = c.usbipdPort
 		usbGatewayStatus.Bound = true
 
 		data, err := vdraapi.ToData(usbGatewayStatus)
@@ -706,7 +661,7 @@ func (c *Controller) isMyResourceClaim(rc *resourcev1beta1.ResourceClaim) bool {
 }
 
 func (c *Controller) getPod(name, namespace string) (*corev1.Pod, error) {
-	obj, exists, err := c.podIndexer.GetByKey(controllerKeyFunc(namespace, name))
+	obj, exists, err := c.podIndexer.GetByKey(controller.KeyFunc(namespace, name))
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, err
 	}
