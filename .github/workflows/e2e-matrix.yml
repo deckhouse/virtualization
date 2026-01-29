@@ -278,7 +278,7 @@ jobs:
 
           # Get current date for header
           DATE=$(date +"%Y-%m-%d")
-          COMBINED_SUMMARY="## :dvp: **DVP | End-to-End tests | $DATE**\n\n"
+          COMBINED_SUMMARY="## :dvp: **DVP | E2E on a nested cluster | $DATE**\n\n"
 
           echo "[INFO] Get storage types"
           readarray -t storage_types < <(echo "$STORAGE_TYPES" | jq -r '.[]')
