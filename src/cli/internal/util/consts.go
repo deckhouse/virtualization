@@ -20,6 +20,6 @@ Initially copied from https://github.com/kubevirt/kubevirt/blob/main/pkg/virtctl
 package util
 
 const (
-	CloseGoingAwayMessage       = "\nYou were disconnected from the console. This has one of the following reasons:\n - another user connected to the console of the target vm\n"
-	CloseAbnormalClosureMessage = "\nYou were disconnected from the console. This has one of the following reasons:\n - network issues\n - machine restart\n"
+	CloseGoingAwayMessage       = "\r\nYou were disconnected from the console. This has one of the following reasons:\r\n - another user connected to the console of the target vm\r\n"
+	CloseAbnormalClosureMessage = "\r\nYou were disconnected from the console. This has one of the following reasons:\r\n - network issues\r\n - machine restart\r\n"
 )
