@@ -26,19 +26,19 @@ type KeyStore interface {
 	GetPeerPublicKeys(ctx context.Context) ([]wgtypes.Key, error)
 }
 type Controller struct {
-	queue                          workqueue.TypedRateLimitingInterface[string]
-	wireguardSystemNetworkInformer cache.Indexer
-	vdraClient                     drav1alpha1.UsbgatewayV1alpha1Interface
-	wireguardSystemNetworkNameKey  string
-	wireguardSystemNetworkName     string
-	namespace                      string
-	nodeName                       string
-	podIP                          string
-	wireguardManager               *wgManager
-	routeManager                   *routeManager
-	afterHook                      Hook
-	log                            *slog.Logger
-	hasSynced                      cache.InformerSynced
+	queue                         workqueue.TypedRateLimitingInterface[string]
+	wireguardSystemNetworkIndexer cache.Indexer
+	vdraClient                    drav1alpha1.UsbgatewayV1alpha1Interface
+	wireguardSystemNetworkNameKey string
+	wireguardSystemNetworkName    string
+	namespace                     string
+	nodeName                      string
+	podIP                         string
+	wireguardManager              *wgManager
+	routeManager                  *routeManager
+	afterHook                     Hook
+	log                           *slog.Logger
+	hasSynced                     cache.InformerSynced
 }
 
 type Hook func(ctx context.Context) error
@@ -50,18 +50,18 @@ func NewController(wireguardSystemNetworkName, nodeName, namespace, podIP string
 	)
 
 	c := &Controller{
-		queue:                          queue,
-		wireguardSystemNetworkInformer: wireguardSystemNetworkInformer.GetIndexer(),
-		vdraClient:                     vdraClient,
-		wireguardSystemNetworkNameKey:  controller.KeyFunc(namespace, wireguardSystemNetworkName),
-		wireguardSystemNetworkName:     wireguardSystemNetworkName,
-		namespace:                      namespace,
-		nodeName:                       nodeName,
-		podIP:                          podIP,
-		wireguardManager:               &wgManager{},
-		routeManager:                   newRouteManager(rouTableID),
-		afterHook:                      afterHook,
-		log:                            slog.With(slog.String("controller", controllerName)),
+		queue:                         queue,
+		wireguardSystemNetworkIndexer: wireguardSystemNetworkInformer.GetIndexer(),
+		vdraClient:                    vdraClient,
+		wireguardSystemNetworkNameKey: controller.KeyFunc(namespace, wireguardSystemNetworkName),
+		wireguardSystemNetworkName:    wireguardSystemNetworkName,
+		namespace:                     namespace,
+		nodeName:                      nodeName,
+		podIP:                         podIP,
+		wireguardManager:              &wgManager{},
+		routeManager:                  newRouteManager(rouTableID),
+		afterHook:                     afterHook,
+		log:                           slog.With(slog.String("controller", controllerName)),
 	}
 
 	_, err := wireguardSystemNetworkInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -221,7 +221,7 @@ func (c *Controller) configureWireguard(_ context.Context, wsn *vdraapi.Wireguar
 }
 
 func (c *Controller) getWireguardSystemNetwork() (*vdraapi.WireguardSystemNetwork, error) {
-	obj, exists, err := c.wireguardSystemNetworkInformer.GetByKey(c.wireguardSystemNetworkNameKey)
+	obj, exists, err := c.wireguardSystemNetworkIndexer.GetByKey(c.wireguardSystemNetworkNameKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get WireguardSystemNetwork: %w", err)
 	}

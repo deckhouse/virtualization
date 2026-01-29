@@ -208,7 +208,12 @@ func (o *usbOptions) Run(cmd *cobra.Command, _ []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create WireguardSystemNetwork controller: %w", err)
 		}
+	}
 
+	f.Start(ctx.Done())
+	f.WaitForCacheSync(ctx.Done())
+
+	if o.wireguardEnabled {
 		addr, err := wireguardController.AllocateAddress(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to allocate address for WireguardSystemNetwork: %w", err)
@@ -217,13 +222,9 @@ func (o *usbOptions) Run(cmd *cobra.Command, _ []string) error {
 		// Reconfigure Address for USBIPD
 		o.usbipdConfig.Address = addr
 		slog.Info("Use allocated address for USBIPD", slog.String("address", addr))
-	}
 
-	f.Start(ctx.Done())
-	f.WaitForCacheSync(ctx.Done())
-
-	// if wireguard enabled, controller will mark nodes dynamically
-	if !o.wireguardEnabled {
+	} else {
+		// if wireguard enabled, controller will mark nodes dynamically
 		defer func() {
 			if err := prepare.UnmarkNodeForUSBGateway(ctx, o.NodeName, dynamicClient); err != nil {
 				slog.Error("failed to unmark node for USB gateway", slog.Any("error", err))
