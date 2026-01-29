@@ -22,9 +22,6 @@ import (
 	"sync"
 	"time"
 
-	drav1alpha1 "github.com/deckhouse/virtualization-dra/api/client/generated/clientset/versioned/typed/api/v1alpha1"
-	"github.com/deckhouse/virtualization-dra/pkg/wireguard"
-
 	corev1 "k8s.io/api/core/v1"
 	resourcev1beta1 "k8s.io/api/resource/v1beta1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -129,12 +126,6 @@ func (f *Factory) Pods() cache.SharedIndexInformer {
 				return []string{obj.(*corev1.Pod).Spec.NodeName}, nil
 			},
 		})
-	})
-}
-
-func (f *Factory) NamespacedWireguardSystemNetwork(namespace string, client drav1alpha1.UsbgatewayV1alpha1Interface) cache.SharedIndexInformer {
-	return f.getInformer("wireguardSystemNetworkInformer", func() cache.SharedIndexInformer {
-		return wireguard.NewSharedIndexInformer(namespace, client, f.defaultResync)
 	})
 }
 

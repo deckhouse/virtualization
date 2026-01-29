@@ -18,21 +18,17 @@ package app
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
-	"time"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/component-base/cli/flag"
 
-	drav1alpha1 "github.com/deckhouse/virtualization-dra/api/client/generated/clientset/versioned/typed/api/v1alpha1"
 	"github.com/deckhouse/virtualization-dra/internal/featuregates"
 	"github.com/deckhouse/virtualization-dra/internal/usb-gateway/controller/resourceclaim"
 	"github.com/deckhouse/virtualization-dra/internal/usb-gateway/informer"
@@ -41,7 +37,6 @@ import (
 	"github.com/deckhouse/virtualization-dra/pkg/controller"
 	"github.com/deckhouse/virtualization-dra/pkg/libusb"
 	"github.com/deckhouse/virtualization-dra/pkg/logger"
-	"github.com/deckhouse/virtualization-dra/pkg/wireguard"
 )
 
 func NewUSBGatewayCommand() *cobra.Command {
@@ -150,34 +145,29 @@ func (o *usbOptions) USBIPD(ctx context.Context) (*usbip.USBIPD, error) {
 	return usbipd, nil
 }
 
-func (o *usbOptions) Clients() (kubernetes.Interface, dynamic.Interface, drav1alpha1.UsbgatewayV1alpha1Interface, error) {
+func (o *usbOptions) Clients() (kubernetes.Interface, dynamic.Interface, error) {
 	cfg, err := clientcmd.BuildConfigFromFlags("", o.Kubeconfig)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to get rest config: %w", err)
+		return nil, nil, fmt.Errorf("failed to get rest config: %w", err)
 	}
 
 	client, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to create kubernetes client: %w", err)
+		return nil, nil, fmt.Errorf("failed to create kubernetes client: %w", err)
 	}
 
 	dynamicClient, err := dynamic.NewForConfig(cfg)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to create dynamic client: %w", err)
+		return nil, nil, fmt.Errorf("failed to create dynamic client: %w", err)
 	}
 
-	vdraClient, err := drav1alpha1.NewForConfig(cfg)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to create vdra client: %w", err)
-	}
-
-	return client, dynamicClient, vdraClient, nil
+	return client, dynamicClient, nil
 }
 
 func (o *usbOptions) Run(cmd *cobra.Command, _ []string) error {
 	ctx := cmd.Context()
 
-	client, dynamicClient, vdraClient, err := o.Clients()
+	client, dynamicClient, err := o.Clients()
 	if err != nil {
 		return err
 	}
@@ -188,54 +178,16 @@ func (o *usbOptions) Run(cmd *cobra.Command, _ []string) error {
 	nodeInformer := f.Nodes()
 	podInformer := f.Pods()
 
-	var wireguardController *wireguard.Controller
-
-	if o.wireguardEnabled {
-		slog.Info(fmt.Sprintf("%s feature gate enabled", featuregates.USBGatewayWireguard))
-
-		wireguardSystemNetworkInformer := f.NamespacedWireguardSystemNetwork(o.Namespace, vdraClient)
-		wireguardController, err = wireguard.NewController(
-			o.WireguardSystemNetworkName,
-			o.NodeName,
-			o.Namespace,
-			o.PodIP,
-			o.WireguardRouteTableID,
-			wireguardSystemNetworkInformer,
-			vdraClient,
-			func(ctx context.Context) error {
-				if err = prepare.MarkNodeForUSBGateway(ctx, o.NodeName, dynamicClient); err != nil {
-					return fmt.Errorf("failed to mark node for USB gateway: %w", err)
-				}
-				return nil
-			})
-		if err != nil {
-			return fmt.Errorf("failed to create WireguardSystemNetwork controller: %w", err)
-		}
-	}
-
 	f.Start(ctx.Done())
 	f.WaitForCacheSync(ctx.Done())
 
-	if o.wireguardEnabled {
-		addr, err := wireguardController.AllocateAddress(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to allocate address for WireguardSystemNetwork: %w", err)
+	defer func() {
+		if err := prepare.UnmarkNodeForUSBGateway(ctx, o.NodeName, dynamicClient); err != nil {
+			slog.Error("failed to unmark node for USB gateway", slog.Any("error", err))
 		}
-
-		// Reconfigure Address for USBIPD
-		o.usbipdConfig.Address = addr
-		slog.Info("Use allocated address for USBIPD", slog.String("address", addr))
-
-	} else {
-		// if wireguard enabled, controller will mark nodes dynamically
-		defer func() {
-			if err := prepare.UnmarkNodeForUSBGateway(ctx, o.NodeName, dynamicClient); err != nil {
-				slog.Error("failed to unmark node for USB gateway", slog.Any("error", err))
-			}
-		}()
-		if err = prepare.MarkNodeForUSBGateway(ctx, o.NodeName, dynamicClient); err != nil {
-			return fmt.Errorf("failed to mark node for USB gateway: %w", err)
-		}
+	}()
+	if err = prepare.MarkNodeForUSBGateway(ctx, o.NodeName, dynamicClient); err != nil {
+		return fmt.Errorf("failed to mark node for USB gateway: %w", err)
 	}
 
 	usbipd, err := o.USBIPD(ctx)
@@ -251,15 +203,6 @@ func (o *usbOptions) Run(cmd *cobra.Command, _ []string) error {
 
 	group, ctx := errgroup.WithContext(ctx)
 
-	if o.wireguardEnabled {
-		group.Go(func() error {
-			return controller.Run(wireguardController, ctx, 1)
-		})
-		if o.waitWireguardReady(ctx, wireguardController) != nil {
-			return err
-		}
-	}
-
 	group.Go(func() error {
 		return usbipd.Run(ctx)
 	})
@@ -269,40 +212,4 @@ func (o *usbOptions) Run(cmd *cobra.Command, _ []string) error {
 	})
 
 	return group.Wait()
-}
-
-func (o *usbOptions) waitWireguardReady(ctx context.Context, wgController *wireguard.Controller) error {
-	if !o.wireguardEnabled {
-		return nil
-	}
-
-	timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
-	defer cancel()
-
-	err := wait.PollUntilContextCancel(timeoutCtx, 5*time.Second, false, func(ctx context.Context) (done bool, err error) {
-		ready, err := wgController.ReadyForUse(ctx)
-		if err != nil {
-			slog.Error("failed to check if wireguard is ready for use",
-				slog.Any("error", err),
-				slog.String("component", "wireguard"))
-			return false, nil
-		}
-
-		if ready {
-			slog.Info("Wireguard is ready for use")
-			return true, nil
-		}
-
-		slog.Debug("Wireguard not ready yet, waiting...")
-		return false, nil
-	})
-
-	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return fmt.Errorf("wireguard did not become ready within 10 minutes")
-		}
-		return fmt.Errorf("waiting for wireguard: %w", err)
-	}
-
-	return nil
 }

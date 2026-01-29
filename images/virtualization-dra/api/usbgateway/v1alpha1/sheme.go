@@ -52,8 +52,6 @@ var (
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&USBGatewayStatus{},
-		&WireguardSystemNetwork{},
-		&WireguardSystemNetworkList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

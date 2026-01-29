@@ -48,3 +48,8 @@ shell:
     {{- else }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -v -o /out/virtualization-dra-usb-gateway ./cmd/usb-gateway`) | nindent 4 }}
     {{- end }}
+
+  - |
+    echo "Build go-usbip binary"
+    {{- $_ := set $ "ProjectName" (list $.ImageName "go-usbip" | join "/") }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -v -o /out/go-usbip ./cmd/go-usbip`) | nindent 4 }}

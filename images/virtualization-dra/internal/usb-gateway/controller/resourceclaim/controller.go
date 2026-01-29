@@ -35,7 +35,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/strings/slices"
 
-	vdraapi "github.com/deckhouse/virtualization-dra/api/v1alpha1"
+	vdraapi "github.com/deckhouse/virtualization-dra/api/usbgateway/v1alpha1"
 	"github.com/deckhouse/virtualization-dra/internal/common"
 	"github.com/deckhouse/virtualization-dra/internal/usb-gateway/informer"
 	"github.com/deckhouse/virtualization-dra/internal/usbip"
