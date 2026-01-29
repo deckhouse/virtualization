@@ -19,7 +19,6 @@ package nodeusbdevice
 import (
 	"context"
 	"fmt"
-	"maps"
 	"reflect"
 	"strings"
 
