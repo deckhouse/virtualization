@@ -55,6 +55,7 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 		return nil, nil
 	}
 
+	// Need to prevent reapplying the maintenance condition once the resources have already been restored.
 	if vmop.Status.Resources != nil {
 		return nil, nil
 	}

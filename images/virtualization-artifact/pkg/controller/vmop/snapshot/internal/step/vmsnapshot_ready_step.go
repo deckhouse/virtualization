@@ -73,11 +73,11 @@ func (s VMSnapshotReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 
 	vmSnapshotReadyToUseCondition, exist := conditions.GetCondition(vmscondition.VirtualMachineSnapshotReadyType, vmSnapshot.Status.Conditions)
 	if !exist {
-		return &reconcile.Result{}, fmt.Errorf("virtual machine snapshot %q is not ready to use", vmopName)
+		return &reconcile.Result{}, fmt.Errorf("virtual machine snapshot %q is not ready to use", vmSnapshot.Name)
 	}
 
 	if vmSnapshotReadyToUseCondition.Status != metav1.ConditionTrue {
-		return &reconcile.Result{}, fmt.Errorf("virtual machine snapshot %q is not ready to use", vmopName)
+		return &reconcile.Result{}, fmt.Errorf("virtual machine snapshot %q is not ready to use", vmSnapshot.Name)
 	}
 
 	if vmSnapshot.Status.VirtualMachineSnapshotSecretName == "" {
