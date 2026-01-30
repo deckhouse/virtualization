@@ -115,7 +115,18 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return h.Handle(ctx, s)
 	})
 	rec.SetResourceUpdater(func(ctx context.Context) error {
-		nodeUSBDevice.Changed().Status.ObservedGeneration = nodeUSBDevice.Changed().Generation
+		changed := nodeUSBDevice.Changed()
+		changed.Status.ObservedGeneration = changed.Generation
+
+		// If changed has empty Attributes (e.g. due to cache delay after create), fetch latest from server
+		// so we don't overwrite the status set in createNodeUSBDevice with empty Attributes.
+		if changed.Status.Attributes.Name == "" {
+			latest := &v1alpha2.NodeUSBDevice{}
+			if err := r.client.Get(ctx, nodeUSBDevice.Name(), latest); err == nil && latest.Status.Attributes.Name != "" {
+				changed.Status.Attributes = latest.Status.Attributes
+				changed.Status.NodeName = latest.Status.NodeName
+			}
+		}
 
 		return nodeUSBDevice.Update(ctx)
 	})

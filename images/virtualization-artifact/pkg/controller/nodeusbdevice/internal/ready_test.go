@@ -18,8 +18,6 @@ package internal
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"log/slog"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -87,22 +85,14 @@ var _ = Describe("ReadyHandler", func() {
 				},
 			}
 
-			// Calculate hash from device attributes to match what the handler expects
-			// Hash is calculated as: nodeName:vendorID:productID:bus:deviceNumber:serial:devicePath
-			// Using the same values as in ResourceSlice (serial and devicePath are empty)
-			hashInput := "node-1:1234:5678:1:2::"
-			hash := calculateTestHash(hashInput)
-
-			// Verify hash calculation matches handler logic
-			// The handler will calculate hash from ResourceSlice device attributes
-
+			// NodeUSBDevice name matches device name from ResourceSlice (unique, guaranteed by DRA driver)
 			nodeUSBDevice := &v1alpha2.NodeUSBDevice{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "usb-device-1",
 				},
 				Status: v1alpha2.NodeUSBDeviceStatus{
 					Attributes: v1alpha2.NodeUSBDeviceAttributes{
-						Hash:         hash,
+						Name:         "usb-device-1",
 						VendorID:     "1234",
 						ProductID:    "5678",
 						Bus:          "1",
@@ -146,13 +136,14 @@ var _ = Describe("ReadyHandler", func() {
 
 	Context("when device is not found in ResourceSlice", func() {
 		It("should set NotFound condition", func() {
+			// Device name that does not exist in any ResourceSlice
 			nodeUSBDevice := &v1alpha2.NodeUSBDevice{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "usb-device-1",
+					Name: "usb-device-missing",
 				},
 				Status: v1alpha2.NodeUSBDeviceStatus{
 					Attributes: v1alpha2.NodeUSBDeviceAttributes{
-						Hash:     "non-existent-hash",
+						Name:     "usb-device-missing",
 						VendorID: "1234",
 						NodeName: "node-1",
 					},
@@ -194,11 +185,4 @@ var _ = Describe("ReadyHandler", func() {
 
 func stringPtr(s string) *string {
 	return &s
-}
-
-func calculateTestHash(input string) string {
-	// This matches the hash calculation in ready.go:calculateDeviceHash
-	// Hash is calculated as SHA256 and first 16 characters are used
-	hash := sha256.Sum256([]byte(input))
-	return hex.EncodeToString(hash[:])[:16]
 }

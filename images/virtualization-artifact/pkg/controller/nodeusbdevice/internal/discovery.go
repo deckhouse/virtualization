@@ -28,7 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice/internal/hash"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -79,52 +78,44 @@ func (h *DiscoveryHandler) discoverAndCreate(ctx context.Context, s state.NodeUS
 	currentDevice := s.NodeUSBDevice()
 	hasCurrentDevice := !currentDevice.IsEmpty()
 
-	// Collect all hashes from ResourceSlices first
-	deviceHashesInSlices := make(map[string]bool)
+	// Collect all device names from ResourceSlices (name is unique, guaranteed by DRA driver)
+	deviceNamesInSlices := make(map[string]bool)
 	for _, slice := range resourceSlices {
 		for _, device := range slice.Spec.Devices {
 			if !IsUSBDevice(device) {
 				continue
 			}
-			hash := hash.CalculateHashFromDevice(device, slice.Spec.Pool.Name)
-			deviceHashesInSlices[hash] = true
+			deviceNamesInSlices[device.Name] = true
 		}
 	}
 
-	// If we have a current device and its hash is in slices, we can skip List
-	// Only do List if we need to check for new devices
+	// If we have a current device and its name is in slices, we can skip List
 	if hasCurrentDevice {
 		current := currentDevice.Current()
-		if current.Status.Attributes.Hash != "" && deviceHashesInSlices[current.Status.Attributes.Hash] {
-			// Current device exists and is in slices - only check for new devices
-			// We still need to List to check for duplicates, but we can optimize
-			// by only checking hashes that are in slices
+		if current.Status.Attributes.Name != "" && deviceNamesInSlices[current.Status.Attributes.Name] {
 			var existingDevices v1alpha2.NodeUSBDeviceList
 			if err := h.client.List(ctx, &existingDevices); err != nil {
 				return fmt.Errorf("failed to list existing NodeUSBDevices: %w", err)
 			}
 
-			existingHashes := make(map[string]bool)
+			existingDeviceNames := make(map[string]bool)
 			for _, device := range existingDevices.Items {
-				if device.Status.Attributes.Hash != "" {
-					existingHashes[device.Status.Attributes.Hash] = true
+				if device.Status.Attributes.Name != "" {
+					existingDeviceNames[device.Status.Attributes.Name] = true
 				}
 			}
 
-			// Only create devices that are in slices but not in existing
 			for _, slice := range resourceSlices {
 				for _, device := range slice.Spec.Devices {
 					if !IsUSBDevice(device) {
 						continue
 					}
-
+					if existingDeviceNames[device.Name] {
+						continue
+					}
 					attributes := ConvertDeviceToAttributes(device, slice.Spec.Pool.Name)
-					hash := hash.CalculateHash(attributes)
-
-					if !existingHashes[hash] {
-						if err := h.createNodeUSBDevice(ctx, attributes, hash); err != nil {
-							return err
-						}
+					if err := h.createNodeUSBDevice(ctx, attributes); err != nil {
+						return err
 					}
 				}
 			}
@@ -138,29 +129,24 @@ func (h *DiscoveryHandler) discoverAndCreate(ctx context.Context, s state.NodeUS
 		return fmt.Errorf("failed to list existing NodeUSBDevices: %w", err)
 	}
 
-	existingHashes := make(map[string]bool)
+	existingDeviceNames := make(map[string]bool)
 	for _, device := range existingDevices.Items {
-		if device.Status.Attributes.Hash != "" {
-			existingHashes[device.Status.Attributes.Hash] = true
+		if device.Status.Attributes.Name != "" {
+			existingDeviceNames[device.Status.Attributes.Name] = true
 		}
 	}
 
 	// Create NodeUSBDevice for each USB device in ResourceSlices
-	// Note: resourceSlices are already filtered by draDriverName in state.ResourceSlices
 	for _, slice := range resourceSlices {
 		for _, device := range slice.Spec.Devices {
 			if !IsUSBDevice(device) {
 				continue
 			}
-
-			attributes := ConvertDeviceToAttributes(device, slice.Spec.Pool.Name)
-			hash := hash.CalculateHash(attributes)
-
-			if existingHashes[hash] {
+			if existingDeviceNames[device.Name] {
 				continue
 			}
-
-			if err := h.createNodeUSBDevice(ctx, attributes, hash); err != nil {
+			attributes := ConvertDeviceToAttributes(device, slice.Spec.Pool.Name)
+			if err := h.createNodeUSBDevice(ctx, attributes); err != nil {
 				return err
 			}
 		}
@@ -169,8 +155,8 @@ func (h *DiscoveryHandler) discoverAndCreate(ctx context.Context, s state.NodeUS
 	return nil
 }
 
-func (h *DiscoveryHandler) createNodeUSBDevice(ctx context.Context, attributes v1alpha2.NodeUSBDeviceAttributes, hash string) error {
-	name := h.generateName(hash, attributes.NodeName)
+func (h *DiscoveryHandler) createNodeUSBDevice(ctx context.Context, attributes v1alpha2.NodeUSBDeviceAttributes) error {
+	name := h.sanitizeName(attributes.Name)
 
 	// Check if device already exists
 	existing := &v1alpha2.NodeUSBDevice{}
@@ -203,8 +189,6 @@ func (h *DiscoveryHandler) createNodeUSBDevice(ctx context.Context, attributes v
 	}
 
 	// Update status separately (status is a subresource)
-	// Set all attributes including Hash
-	attributes.Hash = hash
 	nodeUSBDevice.Status = v1alpha2.NodeUSBDeviceStatus{
 		Attributes: attributes,
 		NodeName:   attributes.NodeName,
@@ -233,9 +217,8 @@ func (h *DiscoveryHandler) createNodeUSBDevice(ctx context.Context, attributes v
 	return nil
 }
 
-func (h *DiscoveryHandler) generateName(hash, nodeName string) string {
-	// Generate name based on hash and node name
-	// Format: nusb-<hash>-<nodeName>
-	nodeNameSanitized := strings.ToLower(strings.ReplaceAll(nodeName, ".", "-"))
-	return fmt.Sprintf("nusb-%s-%s", hash[:8], nodeNameSanitized)
+// sanitizeName converts ResourceSlice device name to a valid Kubernetes resource name.
+// Device name is unique and guaranteed by the DRA driver.
+func (h *DiscoveryHandler) sanitizeName(deviceName string) string {
+	return strings.ToLower(strings.ReplaceAll(deviceName, ".", "-"))
 }

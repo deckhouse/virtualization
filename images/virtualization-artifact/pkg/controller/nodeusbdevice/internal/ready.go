@@ -59,7 +59,7 @@ func (h *ReadyHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState) (
 		return reconcile.Result{}, fmt.Errorf("failed to get resource slices: %w", err)
 	}
 
-	deviceFound := DeviceExistsInSlices(resourceSlices, current.Status.Attributes.Hash, current.Status.NodeName)
+	deviceFound := DeviceExistsInSlices(resourceSlices, current.Status.Attributes.Name, current.Status.NodeName)
 
 	var reason nodeusbdevicecondition.ReadyReason
 	var message string
