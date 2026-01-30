@@ -17,55 +17,88 @@ limitations under the License.
 package usb
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1"
 	"k8s.io/utils/ptr"
+
+	"github.com/deckhouse/virtualization-dra/internal/common"
+	"github.com/deckhouse/virtualization-dra/internal/featuregates"
 )
 
-func convertToAPIDevice(usbDevice Device) *resourceapi.Device {
-	return &resourceapi.Device{
-		Name: usbDevice.GetName(),
+func convertToAPIDevice(usbDevice Device, nodeName string) *resourceapi.Device {
+	name := usbDevice.GetName(nodeName)
+	device := &resourceapi.Device{
+		Name: name,
 		Attributes: map[resourceapi.QualifiedName]resourceapi.DeviceAttribute{
-			"name": {
-				StringValue: ptr.To(usbDevice.Name),
+			common.AttrName: {
+				StringValue: ptr.To(name),
 			},
-			"manufacturer": {
+			common.AttrPath: {
+				StringValue: ptr.To(usbDevice.Path),
+			},
+			common.AttrBusID: {
+				StringValue: ptr.To(usbDevice.BusID),
+			},
+			common.AttrManufacturer: {
 				StringValue: ptr.To(usbDevice.Manufacturer),
 			},
-			"product": {
+			common.AttrProduct: {
 				StringValue: ptr.To(usbDevice.Product),
 			},
-			"vendorID": {
+			common.AttrVendorId: {
 				StringValue: ptr.To(usbDevice.VendorID.String()),
 			},
-			"productID": {
+			common.AttrProductId: {
 				StringValue: ptr.To(usbDevice.ProductID.String()),
 			},
-			"bcd": {
+			common.AttrBCD: {
 				StringValue: ptr.To(usbDevice.BCD.String()),
 			},
-			"bus": {
+			common.AttrBus: {
 				StringValue: ptr.To(usbDevice.Bus.String()),
 			},
-			"resource.kubernetes.io/usbAddressBus": {
+			common.AttrUsbAddressBus: {
 				IntValue: ptr.To(int64(usbDevice.Bus)),
 			},
-			"deviceNumber": {
+			common.AttrDeviceNumber: {
 				StringValue: ptr.To(usbDevice.DeviceNumber.String()),
 			},
-			"resource.kubernetes.io/usbAddressDeviceNumber": {
+			common.AttrUsbAddressDeviceNumber: {
 				IntValue: ptr.To(int64(usbDevice.DeviceNumber)),
 			},
-			"major": {
+			common.AttrMajor: {
 				IntValue: ptr.To(int64(usbDevice.Major)),
 			},
-			"minor": {
+			common.AttrMinor: {
 				IntValue: ptr.To(int64(usbDevice.Minor)),
 			},
-			"serial": {
+			common.AttrSerial: {
 				StringValue: ptr.To(usbDevice.Serial),
 			},
-			"devicePath": {
+			common.AttrDevicePath: {
 				StringValue: ptr.To(usbDevice.DevicePath),
+			},
+		},
+	}
+
+	if !featuregates.Default().USBGatewayEnabled() {
+		device.NodeName = ptr.To(nodeName)
+	}
+
+	return device
+}
+
+func getNodeSelector() *corev1.NodeSelector {
+	return &corev1.NodeSelector{
+		NodeSelectorTerms: []corev1.NodeSelectorTerm{
+			{
+				MatchExpressions: []corev1.NodeSelectorRequirement{
+					{
+						Key:      common.USBGatewayLabel,
+						Operator: corev1.NodeSelectorOpIn,
+						Values:   []string{"true"},
+					},
+				},
 			},
 		},
 	}

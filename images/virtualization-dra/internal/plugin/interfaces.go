@@ -22,11 +22,12 @@ import (
 	"github.com/containerd/nri/pkg/api"
 	resourceapi "k8s.io/api/resource/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/dynamic-resource-allocation/resourceslice"
 	drapbv1 "k8s.io/kubelet/pkg/apis/dra/v1beta1"
 )
 
 type Allocator interface {
-	UpdateChannel() chan []resourceapi.Device
+	UpdateChannel() chan resourceslice.DriverResources
 	Prepare(ctx context.Context, claim *resourceapi.ResourceClaim) ([]*drapbv1.Device, error)
 	Unprepare(ctx context.Context, claimUID types.UID) error
 	Synchronize(ctx context.Context, pods []*api.PodSandbox, containers []*api.Container) ([]*api.ContainerUpdate, error)

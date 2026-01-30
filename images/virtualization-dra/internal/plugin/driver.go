@@ -29,10 +29,11 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/dynamic-resource-allocation/kubeletplugin"
-	"k8s.io/dynamic-resource-allocation/resourceslice"
+
+	"github.com/deckhouse/virtualization-dra/internal/common"
 )
 
-const DriverName = "virtualization-dra"
+const DriverName = common.VirtualizationDraPluginName
 
 func NewDriver(nodeName string, kubeClient kubernetes.Interface, allocator Allocator, log *slog.Logger) *Driver {
 	return &Driver{
@@ -50,6 +51,7 @@ type Driver struct {
 	allocator  Allocator
 	log        *slog.Logger
 
+	publisher    resourcePublisher
 	helper       *kubeletplugin.Helper
 	pluginCtx    context.Context
 	pluginCancel context.CancelCauseFunc
@@ -59,6 +61,8 @@ func (d *Driver) Start(ctx context.Context) error {
 	ctx, cancel := context.WithCancelCause(ctx)
 	d.pluginCtx = ctx
 	d.pluginCancel = cancel
+
+	d.publisher = newNonOwnerPublisher(ctx, d.kubeClient, d.HandleError)
 
 	log.Info("Starting dra plugin")
 	helper, err := kubeletplugin.Start(
@@ -88,6 +92,7 @@ func (d *Driver) Wait() {
 }
 
 func (d *Driver) Shutdown() {
+	d.publisher.Stop()
 	if d.helper != nil {
 		d.log.Info("Stopping dra plugin")
 		d.helper.Stop()
@@ -95,6 +100,10 @@ func (d *Driver) Shutdown() {
 }
 
 func (d *Driver) PrepareResourceClaims(ctx context.Context, claims []*v1.ResourceClaim) (map[types.UID]kubeletplugin.PrepareResult, error) {
+	if len(claims) == 0 {
+		return nil, nil
+	}
+
 	d.log.Info("Preparing resource claims")
 
 	result := make(map[types.UID]kubeletplugin.PrepareResult, len(claims))
@@ -134,6 +143,10 @@ func (d *Driver) prepareResourceClaim(ctx context.Context, claim *resourceapi.Re
 }
 
 func (d *Driver) UnprepareResourceClaims(ctx context.Context, claims []kubeletplugin.NamespacedObject) (map[types.UID]error, error) {
+	if len(claims) == 0 {
+		return nil, nil
+	}
+
 	d.log.Info("Unpreparing resource claims")
 
 	result := make(map[types.UID]error)
@@ -167,30 +180,13 @@ func (d *Driver) startPublisher(ctx context.Context) {
 			select {
 			case <-ctx.Done():
 				return
-			case devices := <-ch:
-				d.log.Info("Publishing devices", slog.Any("devices", devices))
-				if len(devices) > 0 {
-				}
-				resources := d.makeResources(devices)
-				err := d.helper.PublishResources(ctx, resources)
+			case resources := <-ch:
+				d.log.Info("Publishing devices", slog.Any("resources", resources))
+				err := d.publisher.PublishResources(ctx, resources)
 				if err != nil {
 					d.log.Error("Failed to publish devices", slog.Any("err", err))
 				}
 			}
 		}
 	}()
-}
-
-func (d *Driver) makeResources(devices []resourceapi.Device) resourceslice.DriverResources {
-	return resourceslice.DriverResources{
-		Pools: map[string]resourceslice.Pool{
-			d.nodeName: {
-				Slices: []resourceslice.Slice{
-					{
-						Devices: devices,
-					},
-				},
-			},
-		},
-	}
 }

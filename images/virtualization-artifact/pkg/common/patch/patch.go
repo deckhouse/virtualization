@@ -19,6 +19,7 @@ package patch
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -74,18 +75,9 @@ func (jp *JSONPatch) Append(patches ...JSONPatchOperation) {
 }
 
 func (jp *JSONPatch) Delete(op, path string) {
-	var idx int
-	var found bool
-	for i, o := range jp.operations {
-		if o.Op == op && o.Path == path {
-			idx = i
-			found = true
-			break
-		}
-	}
-	if found {
-		jp.operations = append(jp.operations[:idx], jp.operations[idx+1:]...)
-	}
+	slices.DeleteFunc(jp.operations, func(o JSONPatchOperation) bool {
+		return o.Op == op && o.Path == path
+	})
 }
 
 func (jp *JSONPatch) Len() int {

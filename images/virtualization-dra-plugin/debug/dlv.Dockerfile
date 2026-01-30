@@ -1,4 +1,4 @@
-FROM golang:1.24.7-bookworm@sha256:2c5f7a0c252a17cf6aa30ddee15caa0f485ee29410a6ea64cddb62eea2b07bdf AS builder
+FROM golang:1.25-bookworm@sha256:019c22232e57fda8ded2b10a8f201989e839f3d3f962d4931375069bbb927e03 AS builder
 ARG TARGETOS
 ARG TARGETARCH
 
@@ -13,13 +13,14 @@ RUN go mod download
 COPY ./images/virtualization-dra/cmd /app/images/virtualization-dra/cmd
 COPY ./images/virtualization-dra/internal /app/images/virtualization-dra/internal
 COPY ./images/virtualization-dra/pkg /app/images/virtualization-dra/pkg
+COPY ./images/virtualization-dra/api /app/images/virtualization-dra/api
 
 ENV GO111MODULE=on
 ENV GOOS=${TARGETOS:-linux}
 ENV GOARCH=${TARGETARCH:-amd64}
 ENV CGO_ENABLED=0
 
-RUN go build -tags EE -gcflags "all=-N -l" -a -o virtualization-dra-plugin ./cmd/virtualization-dra-plugin
+RUN go build -gcflags "all=-N -l" -a -o virtualization-dra-plugin ./cmd/virtualization-dra-plugin/main.go
 
 FROM busybox:1.36.1-glibc
 

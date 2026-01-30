@@ -22,88 +22,90 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/containerd/nri/pkg/api"
 	resourceapi "k8s.io/api/resource/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/dynamic-resource-allocation/resourceslice"
 	drapbv1 "k8s.io/kubelet/pkg/apis/dra/v1beta1"
 	"k8s.io/utils/ptr"
 	cdiapi "tags.cncf.io/container-device-interface/pkg/cdi"
 	cdispec "tags.cncf.io/container-device-interface/specs-go"
 
+	vdraapi "github.com/deckhouse/virtualization-dra/api/usbgateway/v1alpha1"
 	"github.com/deckhouse/virtualization-dra/internal/cdi"
-	"github.com/deckhouse/virtualization-dra/pkg/set"
+	"github.com/deckhouse/virtualization-dra/internal/featuregates"
+	"github.com/deckhouse/virtualization-dra/pkg/libusb"
+	"github.com/deckhouse/virtualization-dra/pkg/usbip"
 )
 
-const DefaultResyncPeriod = 10 * time.Minute
-
-func NewAllocationStore(nodeName, devicesPath string, resyncPeriod time.Duration, cdiManager cdi.Manager, log *slog.Logger) *AllocationStore {
-	if resyncPeriod == 0 {
-		resyncPeriod = DefaultResyncPeriod
-	}
-	if devicesPath == "" {
-		devicesPath = PathToUSBDevices
-	}
+func NewAllocationStore(nodeName string, cdiManager cdi.Manager, monitor libusb.Monitor, log *slog.Logger) (*AllocationStore, error) {
 	store := &AllocationStore{
 		nodeName:                  nodeName,
-		devicesPath:               devicesPath,
-		resyncPeriod:              resyncPeriod,
+		monitor:                   monitor,
 		cdi:                       cdiManager,
 		log:                       log.With(slog.String("component", "usb-allocation-store")),
-		updateChannel:             make(chan []resourceapi.Device, 2),
+		updateChannel:             make(chan resourceslice.DriverResources, 2),
 		discoverPluggedUSBDevices: NewDeviceSet(),
 		allocatableDevices:        make(map[string]resourceapi.Device),
-		allocatedDevices:          set.New[string](),
+		allocatedDevices:          sets.New[string](),
 		resourceClaimAllocations:  make(map[types.UID][]string),
+		usbipInfoGetter:           usbip.NewUSBAttacher(),
 	}
 
-	monitor := newUSBMonitor(monitorCallback{
-		Add:    store.genericCallback,
-		Update: store.genericCallback,
-		Delete: store.genericCallback,
-	})
+	monitor.AddNotifier(libusb.FuncNotifier(store.callback))
 
-	store.monitor = monitor
+	store.callback()
 
-	return store
+	if err := store.cdi.CreateCommonSpecFile(); err != nil {
+		return nil, fmt.Errorf("failed to create CDI common spec file: %w", err)
+	}
+
+	return store, nil
 }
 
 type AllocationStore struct {
-	nodeName     string
-	devicesPath  string
-	resyncPeriod time.Duration
+	nodeName    string
+	devicesPath string
 
 	cdi cdi.Manager
 	log *slog.Logger
 
-	monitor *monitor
-
-	updateChannel chan []resourceapi.Device
+	updateChannel chan resourceslice.DriverResources
 	mu            sync.RWMutex
 
-	discoverPluggedUSBDevices *DeviceSet
-	allocatableDevices        map[string]resourceapi.Device
-	allocatedDevices          *set.Set[string]
-	resourceClaimAllocations  map[types.UID][]string
+	usbipInfoGetter usbip.AttachInfoGetter
+	monitor         libusb.Monitor
+
+	discoverPluggedUSBDevices      DeviceSet
+	discoverUsbIpPluggedUSBDevices DeviceSet
+	allocatableDevices             map[string]resourceapi.Device
+
+	allocatedDevices         sets.Set[string]
+	resourceClaimAllocations map[types.UID][]string
 }
 
 func (s *AllocationStore) sync() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	discoverPluggedUSBDevices, err := discoverPluggedUSBDevices(s.devicesPath)
+	discoverPluggedUSBDevices, discoverUsbIpPluggedUSBDevices, err := s.discoveryPluggedUSBDevices()
 	if err != nil {
 		return err
 	}
+
+	s.discoverUsbIpPluggedUSBDevices = discoverUsbIpPluggedUSBDevices
+
 	if discoverPluggedUSBDevices.Equal(s.discoverPluggedUSBDevices) {
 		return nil
 	}
+
 	s.discoverPluggedUSBDevices = discoverPluggedUSBDevices
 
 	allocatableDevices := make([]resourceapi.Device, discoverPluggedUSBDevices.Len())
-	for i, usbDevice := range discoverPluggedUSBDevices.Slice() {
-		allocatableDevices[i] = *convertToAPIDevice(usbDevice)
+	for i, usbDevice := range discoverPluggedUSBDevices.UnsortedList() {
+		allocatableDevices[i] = *convertToAPIDevice(usbDevice, s.nodeName)
 	}
 
 	allocatableDevicesByName := make(map[string]resourceapi.Device, len(allocatableDevices))
@@ -113,47 +115,18 @@ func (s *AllocationStore) sync() error {
 
 	s.allocatableDevices = allocatableDevicesByName
 
-	s.updateChannel <- allocatableDevices
+	s.updateChannel <- s.makeResources(allocatableDevices)
 
 	return nil
 }
 
-func (s *AllocationStore) genericCallback() {
+func (s *AllocationStore) callback() {
 	if err := s.sync(); err != nil {
 		s.log.Error("failed to sync usb state", slog.Any("err", err))
 	}
 }
 
-func (s *AllocationStore) Start(ctx context.Context) error {
-	if err := s.cdi.CreateCommonSpecFile(); err != nil {
-		return fmt.Errorf("failed to create CDI common spec file: %w", err)
-	}
-
-	doSync := func() {
-		err := s.sync()
-		if err != nil {
-			s.log.Error("failed to sync usb state", slog.Any("err", err))
-		}
-	}
-	ticker := time.NewTicker(s.resyncPeriod)
-	go func() {
-		doSync()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				doSync()
-			}
-		}
-	}()
-
-	s.monitor.Start(ctx)
-
-	return nil
-}
-
-func (s *AllocationStore) UpdateChannel() chan []resourceapi.Device {
+func (s *AllocationStore) UpdateChannel() chan resourceslice.DriverResources {
 	return s.updateChannel
 }
 
@@ -168,22 +141,62 @@ func (s *AllocationStore) Prepare(_ context.Context, claim *resourceapi.Resource
 	claimUID := string(claim.UID)
 
 	preparedDevices := make(cdi.PreparedDevices, len(claim.Status.Allocation.Devices.Results))
+	usbGatewayEnabled := featuregates.Default().USBGatewayEnabled()
+
 	for i, result := range claim.Status.Allocation.Devices.Results {
-		usbDevice, exists := s.allocatableDevices[result.Device]
-		if !exists {
-			return nil, fmt.Errorf("requested device is not allocatable: %v", result.Device)
-		}
+
 		// TODO: unnecessary?
 		//  kubernetes check allocatable devices
 		//  Warning  FailedScheduling  8s    default-scheduler  0/3 nodes are available:
 		//  1 node(s) had tolerated taint {node-role.kubernetes.io/control-plane: },
 		//  2 cannot allocate all claims.
 		//  still not schedulable, preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling.
-		if s.allocatedDevices.Contains(result.Device) {
+		if s.allocatedDevices.Has(result.Device) {
 			return nil, fmt.Errorf("device %v is already allocated", result.Device)
 		}
 
-		edits, err := s.makeContainerEdits(claimUID, &usbDevice)
+		isUSBGatewayRequest := s.isUSBGatewayRequest(&result)
+
+		if !usbGatewayEnabled && isUSBGatewayRequest {
+			return nil, fmt.Errorf("claim %s/%s has usb gateway request but usb gateway is disabled", claim.Namespace, claim.Name)
+		}
+
+		var containerEditsOptions containerEditsOptions
+
+		if isUSBGatewayRequest {
+
+			usbGatewayStatus, err := s.getUsbGatewayStatus(claim, result.Device)
+			if err != nil {
+				return nil, err
+			}
+
+			if !usbGatewayStatus.Attached {
+				return nil, fmt.Errorf("claim %s/%s has usb gateway request but usb gateway is not attached", claim.Namespace, claim.Name)
+			}
+
+			usbDevice := s.getUsbGatewayUsbDevice(usbGatewayStatus.BusID)
+			if usbDevice == nil {
+				return nil, fmt.Errorf("usb device %s is not found", usbGatewayStatus.BusID)
+			}
+
+			containerEditsOptions = newContainerEditsOptionsForUSBGateway(result.Device, usbDevice)
+
+		} else {
+
+			usbDevice, exists := s.allocatableDevices[result.Device]
+			if !exists {
+				return nil, fmt.Errorf("requested device is not allocatable: %v", result.Device)
+			}
+
+			opts, err := newContainerEditsOptions(&usbDevice)
+			if err != nil {
+				return nil, err
+			}
+			containerEditsOptions = opts
+
+		}
+
+		edits, err := s.makeContainerEdits(claimUID, containerEditsOptions)
 		if err != nil {
 			return nil, err
 		}
@@ -206,82 +219,126 @@ func (s *AllocationStore) Prepare(_ context.Context, claim *resourceapi.Resource
 
 	devices := preparedDevices.GetDevices()
 	for _, device := range devices {
-		s.allocatedDevices.Add(device.DeviceName)
+		s.allocatedDevices.Insert(device.DeviceName)
 		s.resourceClaimAllocations[claim.UID] = append(s.resourceClaimAllocations[claim.UID], device.DeviceName)
 	}
 
 	return devices, nil
 }
 
-// TODO: refactor me
-func (s *AllocationStore) makeContainerEdits(claimUID string, device *resourceapi.Device) (*cdiapi.ContainerEdits, error) {
-	var (
-		devicePath string
-		deviceNum  string
-		bus        string
-		major      int64
-		minor      int64
-	)
+func (s *AllocationStore) getUsbGatewayStatus(claim *resourceapi.ResourceClaim, deviceName string) (*vdraapi.USBGatewayStatus, error) {
+	for _, allocDeviceStatus := range claim.Status.Devices {
+		if allocDeviceStatus.Device == deviceName {
+			return vdraapi.FromData(allocDeviceStatus.Data)
+		}
+	}
+	return nil, fmt.Errorf("device %s is not allocated", deviceName)
+}
+
+func (s *AllocationStore) getUsbGatewayUsbDevice(busID string) *Device {
+	for _, device := range s.discoverUsbIpPluggedUSBDevices.UnsortedList() {
+		if device.BusID == busID {
+			return &device
+		}
+	}
+	return nil
+}
+
+func newContainerEditsOptionsForUSBGateway(deviceName string, usbDevice *Device) containerEditsOptions {
+	return containerEditsOptions{
+		Name:       deviceName,
+		DevicePath: usbDevice.DevicePath,
+		DeviceNum:  usbDevice.DeviceNumber.String(),
+		Bus:        usbDevice.Bus.String(),
+		Major:      int64(usbDevice.Major),
+		Minor:      int64(usbDevice.Minor),
+	}
+}
+
+func newContainerEditsOptions(device *resourceapi.Device) (containerEditsOptions, error) {
+	opts := containerEditsOptions{
+		Name: device.Name,
+	}
 
 	if attr, ok := device.Attributes["devicePath"]; ok {
 		if val := attr.StringValue; val != nil {
-			devicePath = *val
+			opts.DevicePath = *val
 		} else {
-			return nil, fmt.Errorf("devicePath attribute is not exist")
+			return opts, fmt.Errorf("devicePath attribute is not exist")
 		}
 	}
 
 	if attr, ok := device.Attributes["deviceNumber"]; ok {
 		if val := attr.StringValue; val != nil {
-			deviceNum = *val
+			opts.DeviceNum = *val
 		} else {
-			return nil, fmt.Errorf("deviceNum attribute is not exist")
+			return opts, fmt.Errorf("deviceNum attribute is not exist")
 		}
 	}
 
 	if attr, ok := device.Attributes["bus"]; ok {
 		if val := attr.StringValue; val != nil {
-			bus = *val
+			opts.Bus = *val
 		} else {
-			return nil, fmt.Errorf("bus attribute is not exist")
+			return opts, fmt.Errorf("bus attribute is not exist")
 		}
 	}
 
 	if attr, ok := device.Attributes["major"]; ok {
 		if val := attr.IntValue; val != nil {
-			major = *val
+			opts.Major = *val
 		} else {
-			return nil, fmt.Errorf("major attribute is not exist")
+			return opts, fmt.Errorf("major attribute is not exist")
 		}
 	}
 
 	if attr, ok := device.Attributes["minor"]; ok {
 		if val := attr.IntValue; val != nil {
-			minor = *val
+			opts.Minor = *val
 		} else {
-			return nil, fmt.Errorf("minor attribute is not exist")
+			return opts, fmt.Errorf("minor attribute is not exist")
 		}
 	}
 
+	return opts, nil
+}
+
+func (s *AllocationStore) isUSBGatewayRequest(result *resourceapi.DeviceRequestAllocationResult) bool {
+	// virtualization-dra creates slices with pool name by node name
+	// if pool not equal our node name, it is usb gateway request
+	return result.Pool != s.nodeName
+}
+
+type containerEditsOptions struct {
+	Name       string
+	DevicePath string
+	DeviceNum  string
+	Bus        string
+	Major      int64
+	Minor      int64
+}
+
+// TODO: refactor me
+func (s *AllocationStore) makeContainerEdits(claimUID string, opts containerEditsOptions) (*cdiapi.ContainerEdits, error) {
 	claimUIDUpper := strings.ToUpper(claimUID)
-	deviceNameUpper := strings.ToUpper(device.Name)
+	deviceNameUpper := strings.ToUpper(opts.Name)
 
 	edits := &cdiapi.ContainerEdits{
 		ContainerEdits: &cdispec.ContainerEdits{
 			Env: []string{
 				fmt.Sprintf("DRA_USB_CLAIM_UID_%s=%s", claimUIDUpper, claimUID),
-				fmt.Sprintf("DRA_USB_DEVICE_NAME_%s=%s", deviceNameUpper, device.Name),
-				fmt.Sprintf("DRA_USB_CLAIM_UID_%s_DEVICE_NAME=%s", claimUIDUpper, device.Name),
-				fmt.Sprintf("DRA_USB_%s_DEVICE_PATH=%s", deviceNameUpper, devicePath),
-				fmt.Sprintf("DRA_USB_%s_BUS_DEVICENUMBER=%s:%s", deviceNameUpper, bus, deviceNum),
+				fmt.Sprintf("DRA_USB_DEVICE_NAME_%s=%s", deviceNameUpper, opts.Name),
+				fmt.Sprintf("DRA_USB_CLAIM_UID_%s_DEVICE_NAME=%s", claimUIDUpper, opts.Name),
+				fmt.Sprintf("DRA_USB_%s_DEVICE_PATH=%s", deviceNameUpper, opts.DevicePath),
+				fmt.Sprintf("DRA_USB_%s_BUS_DEVICENUMBER=%s:%s", deviceNameUpper, opts.Bus, opts.DeviceNum),
 			},
 			DeviceNodes: []*cdispec.DeviceNode{
 				{
-					Path:        devicePath,
-					HostPath:    devicePath,
+					Path:        opts.DevicePath,
+					HostPath:    opts.DevicePath,
 					Type:        "c",
-					Major:       major,
-					Minor:       minor,
+					Major:       opts.Major,
+					Minor:       opts.Minor,
 					Permissions: "mrw",
 					UID:         ptr.To(uint32(107)), // qemu user. TODO: make this configurable
 					GID:         ptr.To(uint32(107)), // qemu group. TODO: make this configurable
@@ -303,7 +360,7 @@ func (s *AllocationStore) Unprepare(_ context.Context, claimUID types.UID) error
 
 	allocatedDevices := s.resourceClaimAllocations[claimUID]
 	for _, device := range allocatedDevices {
-		s.allocatedDevices.Remove(device)
+		s.allocatedDevices.Delete(device)
 	}
 	delete(s.resourceClaimAllocations, claimUID)
 
@@ -332,7 +389,7 @@ func (s *AllocationStore) Synchronize(_ context.Context, pods []*api.PodSandbox,
 			for claimUID, deviceNames := range claimUIDDeviceNames {
 				s.resourceClaimAllocations[claimUID] = append(s.resourceClaimAllocations[claimUID], deviceNames...)
 				for _, deviceName := range deviceNames {
-					s.allocatedDevices.Add(deviceName)
+					s.allocatedDevices.Insert(deviceName)
 				}
 			}
 
@@ -366,4 +423,26 @@ func parseDraEnvToClaimAllocations(envs []string) (map[types.UID][]string, error
 	}
 
 	return result, nil
+}
+
+func (s *AllocationStore) makeResources(devices []resourceapi.Device) resourceslice.DriverResources {
+	poolName := s.nodeName
+
+	pool := resourceslice.Pool{
+		Slices: []resourceslice.Slice{
+			{
+				Devices: devices,
+			},
+		},
+	}
+
+	if featuregates.Default().USBGatewayEnabled() {
+		pool.NodeSelector = getNodeSelector()
+	}
+
+	return resourceslice.DriverResources{
+		Pools: map[string]resourceslice.Pool{
+			poolName: pool,
+		},
+	}
 }

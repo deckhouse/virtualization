@@ -17,46 +17,33 @@ limitations under the License.
 package usb
 
 import (
-	"fmt"
-	"log/slog"
-	"os"
-	"path/filepath"
-	"strings"
+	"github.com/deckhouse/virtualization-dra/internal/featuregates"
 )
 
-const PathToUSBDevices = "/sys/bus/usb/devices"
+func (s *AllocationStore) discoveryPluggedUSBDevices() (DeviceSet, DeviceSet, error) {
+	allUSBDevices := s.monitor.GetDevices()
 
-func discoverPluggedUSBDevices(pathToUSBDevices string) (*DeviceSet, error) {
-	usbDeviceSet := NewDeviceSet()
-	err := filepath.Walk(pathToUSBDevices, func(path string, info os.FileInfo, err error) error {
+	busIDSet := make(map[string]struct{})
+	if featuregates.Default().USBGatewayEnabled() {
+		infos, err := s.usbipInfoGetter.GetAttachInfo()
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
-		// Ignore named usb controllers
-		if strings.HasPrefix(info.Name(), "usb") {
-			return nil
+		for _, info := range infos {
+			busIDSet[info.LocalBusID] = struct{}{}
 		}
-		// We are interested in actual USB devices information that
-		// contains idVendor and idProduct. We can skip all others.
-		if _, err := os.Stat(filepath.Join(path, "idVendor")); err != nil {
-			return nil
-		}
-
-		// Get device information
-		device, err := LoadDevice(path)
-		if err = device.Validate(); err != nil {
-			slog.Error("failed to validate device, skip...", slog.Any("device", device), slog.String("error", err.Error()))
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		usbDeviceSet.Add(device)
-		return nil
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed when walking usb devices tree: %w", err)
 	}
-	return usbDeviceSet, nil
+
+	usbDeviceSet := NewDeviceSet()
+	usbipDeviceSet := NewDeviceSet()
+
+	for _, device := range allUSBDevices {
+		if _, ok := busIDSet[device.BusID]; ok {
+			usbipDeviceSet.Insert(toDevice(&device))
+		} else {
+			usbDeviceSet.Insert(toDevice(&device))
+		}
+	}
+
+	return usbDeviceSet, usbipDeviceSet, nil
 }

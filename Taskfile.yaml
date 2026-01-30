@@ -314,5 +314,39 @@ tasks:
           }
         }
       }'
-      kubectl -n d8-virtualization port-forward deploy/virtualization-dra 2345:2345
+      kubectl -n d8-virtualization port-forward pod/<virtualization-dra-pod> 2345:2345
+      EOF
+
+  dlv:virtualization-dra-usb-gateway:build:
+    desc: "Build image virtualization-dra-usb-gateway with dlv"
+    cmds:
+      - docker build --build-arg BRANCH=$BRANCH -f ./images/virtualization-dra-usb-gateway/debug/dlv.Dockerfile -t "{{ .DLV_IMAGE }}" --platform linux/amd64 .
+
+  dlv:virtualization-dra-usb-gateway:build-push:
+    desc: "Build and Push image virtualization-dra-usb-gateway with dlv"
+    cmds:
+      - task: dlv:virtualization-dra-usb-gateway:build
+      - docker push "{{ .DLV_IMAGE }}"
+      - task: dlv:virtualization-dra-usb-gateway:print
+
+  dlv:virtualization-dra-usb-gateway:print:
+    desc: "Print commands for debug"
+    env:
+      IMAGE: "{{ .DLV_IMAGE }}"
+    cmd: |
+      cat <<EOF
+      kubectl -n d8-virtualization patch ds virtualization-dra-usb-gateway --type='strategic' -p '{
+        "spec": {
+          "template": {
+            "spec": {
+              "containers": [ {
+                "name": "virtualization-dra-usb-gateway",
+                "image": "${IMAGE}",
+                "ports": [ { "containerPort": 2345, "name": "dlv" } ]
+              }]
+            }
+          }
+        }
+      }'
+      kubectl -n d8-virtualization port-forward pod/<virtualization-dra-usb-gateway-pod> 2345:2345
       EOF
