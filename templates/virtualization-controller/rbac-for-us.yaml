@@ -163,6 +163,8 @@ rules:
     - virtualmachines/migrate
     - virtualmachines/addvolume
     - virtualmachines/removevolume
+    - virtualmachines/addresourceclaim
+    - virtualmachines/removeresourceclaim
     - virtualmachines/cancelevacuation
   verbs:
     - update
