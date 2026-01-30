@@ -30,63 +30,58 @@ func convertToAPIDevice(usbDevice Device, nodeName string) *resourceapi.Device {
 	device := &resourceapi.Device{
 		Name: name,
 		Attributes: map[resourceapi.QualifiedName]resourceapi.DeviceAttribute{
-			"name": {
+			common.AttrName: {
 				StringValue: ptr.To(name),
 			},
-			"path": {
+			common.AttrPath: {
 				StringValue: ptr.To(usbDevice.Path),
 			},
-			"busID": {
+			common.AttrBusID: {
 				StringValue: ptr.To(usbDevice.BusID),
 			},
-			"manufacturer": {
+			common.AttrManufacturer: {
 				StringValue: ptr.To(usbDevice.Manufacturer),
 			},
-			"product": {
+			common.AttrProduct: {
 				StringValue: ptr.To(usbDevice.Product),
 			},
-			"vendorID": {
+			common.AttrVendorId: {
 				StringValue: ptr.To(usbDevice.VendorID.String()),
 			},
-			"productID": {
+			common.AttrProductId: {
 				StringValue: ptr.To(usbDevice.ProductID.String()),
 			},
-			"bcd": {
+			common.AttrBCD: {
 				StringValue: ptr.To(usbDevice.BCD.String()),
 			},
-			"bus": {
+			common.AttrBus: {
 				StringValue: ptr.To(usbDevice.Bus.String()),
 			},
-			"resource.kubernetes.io/usbAddressBus": {
+			common.AttrUsbAddressBus: {
 				IntValue: ptr.To(int64(usbDevice.Bus)),
 			},
-			"deviceNumber": {
+			common.AttrDeviceNumber: {
 				StringValue: ptr.To(usbDevice.DeviceNumber.String()),
 			},
-			"resource.kubernetes.io/usbAddressDeviceNumber": {
+			common.AttrUsbAddressDeviceNumber: {
 				IntValue: ptr.To(int64(usbDevice.DeviceNumber)),
 			},
-			"major": {
+			common.AttrMajor: {
 				IntValue: ptr.To(int64(usbDevice.Major)),
 			},
-			"minor": {
+			common.AttrMinor: {
 				IntValue: ptr.To(int64(usbDevice.Minor)),
 			},
-			"serial": {
+			common.AttrSerial: {
 				StringValue: ptr.To(usbDevice.Serial),
 			},
-			"devicePath": {
+			common.AttrDevicePath: {
 				StringValue: ptr.To(usbDevice.DevicePath),
 			},
 		},
 	}
 
-	if featuregates.Default().USBGatewayEnabled() {
-		// TODO: need pr to deckhouse for enable DRAPartitionableDevices feature gate on ApiServer
-		//device.NodeSelector = getNodeSelector()
-		// TODO: add support for multiple allocations
-		// device.AllowMultipleAllocations = ptr.To(true)
-	} else {
+	if !featuregates.Default().USBGatewayEnabled() {
 		device.NodeName = ptr.To(nodeName)
 	}
 

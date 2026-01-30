@@ -81,16 +81,9 @@ spec:
             privileged: true
           image: {{ include "helm_lib_module_image" (list . "virtualizationDraUsbGateway") }}
           imagePullPolicy: "IfNotPresent"
-          {{- if .Values.virtualization.usbipCIDR }}
           args:
-            - --feature-gates=USBGatewayWireguard=true
-            - --wireguard-system-network-name=usbip
-          {{- end }}
+            - --usbipd-port=3240
           env:
-            - name: NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
             - name: NODE_NAME
               valueFrom:
                 fieldRef:
@@ -99,7 +92,7 @@ spec:
             - name: VERBOSITY
               value: "10"
             {{- end }}
-            - name: POD_IP
+            - name: USBIPD_ADDRESS
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP

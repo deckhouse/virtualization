@@ -44,12 +44,8 @@ func NewVirtualizationDraPluginCommand() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if err := o.Validate(); err != nil {
-				return err
-			}
-			log := o.Logging.Complete()
-			logger.SetDefaultLogger(log)
-			return nil
+			o.Complete()
+			return o.Validate()
 		},
 		RunE: o.Run,
 	}
@@ -103,6 +99,11 @@ type draOptions struct {
 	Logging      *logger.Options
 	Monitor      *libusb.MonitorConfig
 	featureGates featuregates.AddFlagsFunc
+}
+
+func (o *draOptions) Complete() {
+	log := o.Logging.Complete()
+	logger.SetDefaultLogger(log)
 }
 
 func (o *draOptions) NamedFlags() (fs flag.NamedFlagSets) {

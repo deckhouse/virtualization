@@ -101,38 +101,38 @@ func (h *HealthCheck) Check(ctx context.Context, req *grpc_health_v1.HealthCheck
 		return nil, status.Error(codes.NotFound, "unknown service")
 	}
 
-	status := &grpc_health_v1.HealthCheckResponse{
+	healthCheckResponse := &grpc_health_v1.HealthCheckResponse{
 		Status: grpc_health_v1.HealthCheckResponse_NOT_SERVING,
 	}
 
 	regClient, err := h.newRegClient()
 	if err != nil {
 		h.log.Error("failed to create registration client", slog.Any("err", err))
-		return status, err
+		return healthCheckResponse, err
 	}
 
 	info, err := regClient.GetInfo(ctx, &registerapi.InfoRequest{})
 	if err != nil {
 		h.log.Error("failed to call GetInfo", slog.Any("err", err))
-		return status, nil
+		return healthCheckResponse, nil
 	}
 	h.log.Info("Successfully invoked GetInfo", "info", info)
 
 	draClient, err := h.newDraConn()
 	if err != nil {
 		h.log.Error("failed to create DRA client", slog.Any("err", err))
-		return status, err
+		return healthCheckResponse, err
 	}
 
 	_, err = draClient.NodePrepareResources(ctx, &drapb.NodePrepareResourcesRequest{})
 	if err != nil {
 		h.log.Error("failed to call NodePrepareResources", slog.Any("err", err))
-		return status, nil
+		return healthCheckResponse, nil
 	}
 	h.log.Info("Successfully invoked NodePrepareResources")
 
-	status.Status = grpc_health_v1.HealthCheckResponse_SERVING
-	return status, nil
+	healthCheckResponse.Status = grpc_health_v1.HealthCheckResponse_SERVING
+	return healthCheckResponse, nil
 }
 
 func (h *HealthCheck) newRegClient() (registerapi.RegistrationClient, error) {

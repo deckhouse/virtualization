@@ -100,6 +100,10 @@ func (d *Driver) Shutdown() {
 }
 
 func (d *Driver) PrepareResourceClaims(ctx context.Context, claims []*v1.ResourceClaim) (map[types.UID]kubeletplugin.PrepareResult, error) {
+	if len(claims) == 0 {
+		return nil, nil
+	}
+
 	d.log.Info("Preparing resource claims")
 
 	result := make(map[types.UID]kubeletplugin.PrepareResult, len(claims))
@@ -139,6 +143,10 @@ func (d *Driver) prepareResourceClaim(ctx context.Context, claim *resourceapi.Re
 }
 
 func (d *Driver) UnprepareResourceClaims(ctx context.Context, claims []kubeletplugin.NamespacedObject) (map[types.UID]error, error) {
+	if len(claims) == 0 {
+		return nil, nil
+	}
+
 	d.log.Info("Unpreparing resource claims")
 
 	result := make(map[types.UID]error)

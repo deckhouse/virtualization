@@ -22,7 +22,6 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/containerd/nri/pkg/api"
 	resourceapi "k8s.io/api/resource/v1"
@@ -40,8 +39,6 @@ import (
 	"github.com/deckhouse/virtualization-dra/internal/usbip"
 	"github.com/deckhouse/virtualization-dra/pkg/libusb"
 )
-
-const DefaultResyncPeriod = 10 * time.Minute
 
 func NewAllocationStore(nodeName string, cdiManager cdi.Manager, monitor libusb.Monitor, log *slog.Logger) (*AllocationStore, error) {
 	store := &AllocationStore{
@@ -429,13 +426,14 @@ func parseDraEnvToClaimAllocations(envs []string) (map[types.UID][]string, error
 }
 
 func (s *AllocationStore) makeResources(devices []resourceapi.Device) resourceslice.DriverResources {
-	slice := resourceslice.Slice{
-		Devices: devices,
-	}
 	poolName := s.nodeName
 
 	pool := resourceslice.Pool{
-		Slices: []resourceslice.Slice{slice},
+		Slices: []resourceslice.Slice{
+			{
+				Devices: devices,
+			},
+		},
 	}
 
 	if featuregates.Default().USBGatewayEnabled() {
