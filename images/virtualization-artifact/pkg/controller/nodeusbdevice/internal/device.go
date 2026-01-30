@@ -21,7 +21,6 @@ import (
 
 	resourcev1beta1 "k8s.io/api/resource/v1beta1"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice/internal/hash"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -102,9 +101,10 @@ func ConvertDeviceToAttributes(device resourcev1beta1.Device, nodeName string) v
 	return attrs
 }
 
-// FindDeviceInSlices searches for a device with the given hash in ResourceSlices.
+// FindDeviceInSlices searches for a device with the given name in ResourceSlices.
 // Returns the device attributes and true if found, empty attributes and false otherwise.
-func FindDeviceInSlices(slices []resourcev1beta1.ResourceSlice, searchedHash, nodeName string) (v1alpha2.NodeUSBDeviceAttributes, bool) {
+// Device name is unique and guaranteed by the DRA driver.
+func FindDeviceInSlices(slices []resourcev1beta1.ResourceSlice, deviceName, nodeName string) (v1alpha2.NodeUSBDeviceAttributes, bool) {
 	for _, slice := range slices {
 		if slice.Spec.Pool.Name != nodeName {
 			continue
@@ -114,22 +114,19 @@ func FindDeviceInSlices(slices []resourcev1beta1.ResourceSlice, searchedHash, no
 			if !IsUSBDevice(device) {
 				continue
 			}
-
-			attrs := ConvertDeviceToAttributes(device, nodeName)
-			deviceHash := hash.CalculateHash(attrs)
-
-			if deviceHash == searchedHash {
-				attrs.Hash = searchedHash
-				return attrs, true
+			if device.Name != deviceName {
+				continue
 			}
+
+			return ConvertDeviceToAttributes(device, nodeName), true
 		}
 	}
 
 	return v1alpha2.NodeUSBDeviceAttributes{}, false
 }
 
-// DeviceExistsInSlices checks if a device with the given hash exists in ResourceSlices.
-func DeviceExistsInSlices(slices []resourcev1beta1.ResourceSlice, searchedHash, nodeName string) bool {
-	_, found := FindDeviceInSlices(slices, searchedHash, nodeName)
+// DeviceExistsInSlices checks if a device with the given name exists in ResourceSlices.
+func DeviceExistsInSlices(slices []resourcev1beta1.ResourceSlice, deviceName, nodeName string) bool {
+	_, found := FindDeviceInSlices(slices, deviceName, nodeName)
 	return found
 }

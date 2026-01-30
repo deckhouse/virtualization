@@ -88,11 +88,6 @@ spec:
                     devicePath:
                       description: Device path in the filesystem.
                       type: string
-                    hash:
-                      description: |-
-                        Hash calculated based on all main attributes. Required to uniquely match
-                        the resource with a resource from the slice.
-                      type: string
                     major:
                       description: Major device number.
                       type: integer

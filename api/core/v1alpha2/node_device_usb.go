@@ -101,7 +101,4 @@ type NodeUSBDeviceAttributes struct {
 	Product string `json:"product,omitempty"`
 	// Node name where the device is located.
 	NodeName string `json:"nodeName,omitempty"`
-	// Hash calculated based on all main attributes. Required to uniquely match
-	// the resource with a resource from the slice.
-	Hash string `json:"hash,omitempty"`
 }

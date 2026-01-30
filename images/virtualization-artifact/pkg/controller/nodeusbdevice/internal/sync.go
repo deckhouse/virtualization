@@ -46,7 +46,7 @@ func (h *SyncHandler) Name() string {
 }
 
 // Handle synchronizes NodeUSBDevice attributes from ResourceSlice.
-// This handler updates dynamic attributes that may change without changing the device hash.
+// This handler updates dynamic attributes that may change without changing the device name.
 func (h *SyncHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState) (reconcile.Result, error) {
 	nodeUSBDevice := s.NodeUSBDevice()
 
@@ -64,7 +64,7 @@ func (h *SyncHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState) (r
 	}
 
 	// Find device in ResourceSlices and get updated attributes
-	updatedAttrs, found := FindDeviceInSlices(resourceSlices, current.Status.Attributes.Hash, current.Status.NodeName)
+	updatedAttrs, found := FindDeviceInSlices(resourceSlices, current.Status.Attributes.Name, current.Status.NodeName)
 	if !found {
 		// Device not found - ReadyHandler will handle this case
 		return reconcile.Result{}, nil
@@ -79,7 +79,6 @@ func (h *SyncHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState) (r
 }
 
 // attributesChanged compares attributes to check if they need updating.
-// This compares all attributes, not just the ones used for hash calculation.
 func (h *SyncHandler) attributesChanged(current, updated v1alpha2.NodeUSBDeviceAttributes) bool {
 	return current.Name != updated.Name ||
 		current.Manufacturer != updated.Manufacturer ||

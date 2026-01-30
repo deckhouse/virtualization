@@ -51,11 +51,6 @@ spec:
                     devicePath:
                       description: Путь к устройству в файловой системе.
                       type: string
-                    hash:
-                      description: |-
-                        Хеш, вычисленный на основе всех основных атрибутов. Необходим для уникального сопоставления
-                        ресурса с ресурсом из среза.
-                      type: string
                     major:
                       description: Основной номер устройства.
                       type: integer
