@@ -58,12 +58,7 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, func() {
 
 		CreateNamespace(ns)
 
-		// if config.SkipImmediateStorageClassCheck() || conf.StorageClass.ImmediateStorageClass == nil {
-		// 	Skip("Skipp")
-		// }
-
 		if !config.SkipImmediateStorageClassCheck() || conf.StorageClass.ImmediateStorageClass != nil {
-			Expect(conf.StorageClass.ImmediateStorageClass).NotTo(BeNil(), "immediate storage class cannot be nil; please set up the immediate storage class in the cluster")
 
 			virtualDiskWithoutConsumer := v1alpha2.VirtualDisk{}
 			vdWithoutConsumerFilePath := fmt.Sprintf("%s/vd/vd-ubuntu-http.yaml", conf.TestData.VdSnapshots)
@@ -143,10 +138,9 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, func() {
 	Context(fmt.Sprintf("When unattached VDs in phase %s:", PhaseReady), func() {
 		BeforeEach(func() {
 			if config.SkipImmediateStorageClassCheck() || conf.StorageClass.ImmediateStorageClass == nil {
-				Skip("Skipping this context because ...")
+				Skip("Set immediate storage class for run this test case")
 			}
 		})
-		// if conf.StorageClass.ImmediateStorageClass != nil {
 
 		It("creates VDs snapshots with `requiredConsistency`", func() {
 			res := kubectl.List(kc.ResourceVD, kc.GetOptions{
@@ -186,7 +180,6 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, func() {
 				}
 			})
 		})
-		// }
 	})
 
 	Context(fmt.Sprintf("When virtual machines in %s phase", PhaseRunning), func() {
