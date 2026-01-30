@@ -245,20 +245,8 @@ func (h *USBDeviceHandler) getOrCreateResourceClaimTemplate(
 
 	// Template doesn't exist, create it
 	attributes := usbDevice.Status.Attributes
-	if attributes.VendorID == "" || attributes.ProductID == "" {
-		return nil, fmt.Errorf("USB device %s missing vendorID or productID", usbDevice.Name)
-	}
-
-	// Build CEL expression to match this specific USB device
-	celExpression := fmt.Sprintf(
-		`device.attributes["virtualization-dra"].productID == "%s" && device.attributes["virtualization-dra"].vendorID == "%s"`,
-		attributes.ProductID,
-		attributes.VendorID,
-	)
-
-	// Add serial number if available for more precise matching
-	if attributes.Serial != "" {
-		celExpression = fmt.Sprintf(`%s && device.attributes["virtualization-dra"].serial == "%s"`, celExpression, attributes.Serial)
+	if attributes.Name == "" {
+		return nil, fmt.Errorf("USB device %s missing name", usbDevice.Name)
 	}
 
 	template = &resourcev1beta1.ResourceClaimTemplate{
@@ -287,7 +275,7 @@ func (h *USBDeviceHandler) getOrCreateResourceClaimTemplate(
 							Selectors: []resourcev1beta1.DeviceSelector{
 								{
 									CEL: &resourcev1beta1.CELDeviceSelector{
-										Expression: celExpression,
+										Expression: fmt.Sprintf(`device.attributes["resource.kubernetes.io"].name == "%s"`, attributes.Name),
 									},
 								},
 							},
