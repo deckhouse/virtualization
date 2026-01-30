@@ -466,6 +466,12 @@ func calculateTargetSize(ctx context.Context, size, realSize resource.Quantity) 
 		logger.FromContext(ctx).Error("Failed to detect RealSize disk on KVVMI. Please report a bug.")
 		return size
 	}
+	// Use PVC requested size when the actual image size appears smaller.
+	// This handles filesystem overhead cases
+	// where the physical storage usage is less than the allocated PVC capacity.
+	if size.Cmp(realSize) == 1 {
+		return size
+	}
 	return realSize
 }
 
