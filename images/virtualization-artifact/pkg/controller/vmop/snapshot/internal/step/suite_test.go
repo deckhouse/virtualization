@@ -174,6 +174,7 @@ func createVirtualMachine(namespace, name string, phase v1alpha2.MachinePhase) *
 	}
 }
 
+//nolint:unparam // reason is always ReasonMaintenanceRestore in tests, but kept for flexibility
 func setVMMaintenanceCondition(vm *v1alpha2.VirtualMachine, status metav1.ConditionStatus, reason vmcondition.MaintenanceReason) {
 	vm.Status.Conditions = append(vm.Status.Conditions, metav1.Condition{
 		Type:   string(vmcondition.TypeMaintenance),
