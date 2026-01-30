@@ -47,6 +47,8 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/livemigration"
 	mc "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/usbdevice"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vdsnapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi"
@@ -342,7 +344,7 @@ func main() {
 	}
 
 	vmLogger := logger.NewControllerLogger(vm.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if err = vm.SetupController(ctx, mgr, vmLogger, dvcrSettings, firmwareImage); err != nil {
+	if err = vm.SetupController(ctx, mgr, virtClient, vmLogger, dvcrSettings, firmwareImage); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
@@ -371,6 +373,18 @@ func main() {
 
 	vmclassLogger := logger.NewControllerLogger(vmclass.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
 	if _, err = vmclass.NewController(ctx, mgr, controllerNamespace, vmclassLogger); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	nodeusbdeviceLogger := logger.NewControllerLogger(nodeusbdevice.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = nodeusbdevice.NewController(ctx, mgr, nodeusbdeviceLogger); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	usbdeviceLogger := logger.NewControllerLogger(usbdevice.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = usbdevice.NewController(ctx, mgr, usbdeviceLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

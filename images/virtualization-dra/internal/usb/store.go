@@ -35,6 +35,7 @@ import (
 
 	vdraapi "github.com/deckhouse/virtualization-dra/api/usbgateway/v1alpha1"
 	"github.com/deckhouse/virtualization-dra/internal/cdi"
+	"github.com/deckhouse/virtualization-dra/internal/common"
 	"github.com/deckhouse/virtualization-dra/internal/featuregates"
 	"github.com/deckhouse/virtualization-dra/pkg/libusb"
 	"github.com/deckhouse/virtualization-dra/pkg/usbip"
@@ -260,7 +261,7 @@ func newContainerEditsOptions(device *resourceapi.Device) (containerEditsOptions
 		Name: device.Name,
 	}
 
-	if attr, ok := device.Attributes["devicePath"]; ok {
+	if attr, ok := device.Attributes[resourceapi.QualifiedName(common.AttrDevicePath)]; ok {
 		if val := attr.StringValue; val != nil {
 			opts.DevicePath = *val
 		} else {
@@ -268,7 +269,7 @@ func newContainerEditsOptions(device *resourceapi.Device) (containerEditsOptions
 		}
 	}
 
-	if attr, ok := device.Attributes["deviceNumber"]; ok {
+	if attr, ok := device.Attributes[resourceapi.QualifiedName(common.AttrDeviceNumber)]; ok {
 		if val := attr.StringValue; val != nil {
 			opts.DeviceNum = *val
 		} else {
@@ -276,7 +277,7 @@ func newContainerEditsOptions(device *resourceapi.Device) (containerEditsOptions
 		}
 	}
 
-	if attr, ok := device.Attributes["bus"]; ok {
+	if attr, ok := device.Attributes[resourceapi.QualifiedName(common.AttrBus)]; ok {
 		if val := attr.StringValue; val != nil {
 			opts.Bus = *val
 		} else {
@@ -284,7 +285,7 @@ func newContainerEditsOptions(device *resourceapi.Device) (containerEditsOptions
 		}
 	}
 
-	if attr, ok := device.Attributes["major"]; ok {
+	if attr, ok := device.Attributes[resourceapi.QualifiedName(common.AttrMajor)]; ok {
 		if val := attr.IntValue; val != nil {
 			opts.Major = *val
 		} else {
@@ -292,7 +293,7 @@ func newContainerEditsOptions(device *resourceapi.Device) (containerEditsOptions
 		}
 	}
 
-	if attr, ok := device.Attributes["minor"]; ok {
+	if attr, ok := device.Attributes[resourceapi.QualifiedName(common.AttrMinor)]; ok {
 		if val := attr.IntValue; val != nil {
 			opts.Minor = *val
 		} else {

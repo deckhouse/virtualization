@@ -75,7 +75,7 @@ func (jp *JSONPatch) Append(patches ...JSONPatchOperation) {
 }
 
 func (jp *JSONPatch) Delete(op, path string) {
-	slices.DeleteFunc(jp.operations, func(o JSONPatchOperation) bool {
+	jp.operations = slices.DeleteFunc(jp.operations, func(o JSONPatchOperation) bool {
 		return o.Op == op && o.Path == path
 	})
 }
