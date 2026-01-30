@@ -19,7 +19,7 @@ package app
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/deckhouse/virtualization-dra/internal/usbip"
+	"github.com/deckhouse/virtualization-dra/pkg/usbip"
 )
 
 func NewBindCommand() *cobra.Command {

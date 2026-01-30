@@ -38,9 +38,9 @@ import (
 	vdraapi "github.com/deckhouse/virtualization-dra/api/usbgateway/v1alpha1"
 	"github.com/deckhouse/virtualization-dra/internal/common"
 	"github.com/deckhouse/virtualization-dra/internal/usb-gateway/informer"
-	"github.com/deckhouse/virtualization-dra/internal/usbip"
 	"github.com/deckhouse/virtualization-dra/pkg/controller"
 	"github.com/deckhouse/virtualization-dra/pkg/patch"
+	"github.com/deckhouse/virtualization-dra/pkg/usbip"
 )
 
 const controllerName = "resourceclaim-controller"

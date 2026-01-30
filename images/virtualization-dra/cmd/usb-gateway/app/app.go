@@ -33,10 +33,10 @@ import (
 	"github.com/deckhouse/virtualization-dra/internal/usb-gateway/controller/resourceclaim"
 	"github.com/deckhouse/virtualization-dra/internal/usb-gateway/informer"
 	"github.com/deckhouse/virtualization-dra/internal/usb-gateway/prepare"
-	"github.com/deckhouse/virtualization-dra/internal/usbip"
 	"github.com/deckhouse/virtualization-dra/pkg/controller"
 	"github.com/deckhouse/virtualization-dra/pkg/libusb"
 	"github.com/deckhouse/virtualization-dra/pkg/logger"
+	"github.com/deckhouse/virtualization-dra/pkg/usbip"
 )
 
 func NewUSBGatewayCommand() *cobra.Command {

@@ -31,8 +31,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/deckhouse/virtualization-dra/internal/usbip/protocol"
 	"github.com/deckhouse/virtualization-dra/pkg/libusb"
+	"github.com/deckhouse/virtualization-dra/pkg/usbip/protocol"
 )
 
 const (

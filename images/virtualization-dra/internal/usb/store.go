@@ -36,8 +36,8 @@ import (
 	vdraapi "github.com/deckhouse/virtualization-dra/api/usbgateway/v1alpha1"
 	"github.com/deckhouse/virtualization-dra/internal/cdi"
 	"github.com/deckhouse/virtualization-dra/internal/featuregates"
-	"github.com/deckhouse/virtualization-dra/internal/usbip"
 	"github.com/deckhouse/virtualization-dra/pkg/libusb"
+	"github.com/deckhouse/virtualization-dra/pkg/usbip"
 )
 
 func NewAllocationStore(nodeName string, cdiManager cdi.Manager, monitor libusb.Monitor, log *slog.Logger) (*AllocationStore, error) {
