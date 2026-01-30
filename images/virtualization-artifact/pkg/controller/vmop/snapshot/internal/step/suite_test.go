@@ -28,6 +28,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmscondition"
 )
@@ -154,4 +155,29 @@ func createVirtualDisk(namespace, name, ownerUID string, phase v1alpha2.DiskPhas
 			Phase: phase,
 		},
 	}
+}
+
+//nolint:unparam // namespace is always "default" in tests, but kept for flexibility
+func createVirtualMachine(namespace, name string, phase v1alpha2.MachinePhase) *v1alpha2.VirtualMachine {
+	return &v1alpha2.VirtualMachine{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       v1alpha2.VirtualMachineKind,
+			APIVersion: v1alpha2.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Status: v1alpha2.VirtualMachineStatus{
+			Phase: phase,
+		},
+	}
+}
+
+func setVMMaintenanceCondition(vm *v1alpha2.VirtualMachine, status metav1.ConditionStatus, reason vmcondition.MaintenanceReason) {
+	vm.Status.Conditions = append(vm.Status.Conditions, metav1.Condition{
+		Type:   string(vmcondition.TypeMaintenance),
+		Status: status,
+		Reason: string(reason),
+	})
 }
