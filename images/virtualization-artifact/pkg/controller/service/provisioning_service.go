@@ -31,6 +31,11 @@ import (
 
 const cloudInitUserMaxLen = 2048
 
+var (
+	ErrUserDataEmpty   = errors.New("provisioning userdata is defined, but it is empty")
+	ErrUserDataTooLong = fmt.Errorf("userdata exceeds %d byte limit; should use userDataRef for larger data", cloudInitUserMaxLen)
+)
+
 type ProvisioningService struct {
 	reader client.Reader
 }
@@ -103,11 +108,11 @@ func (p *ProvisioningService) hasOneOfKeys(secret *corev1.Secret, checkKeys ...s
 
 func (p *ProvisioningService) ValidateUserDataLen(userData string) error {
 	if userData == "" {
-		return errors.New("provisioning userdata is defined, but it is empty")
+		return ErrUserDataEmpty
 	}
 
 	if len(userData) > cloudInitUserMaxLen {
-		return fmt.Errorf("userdata exceeds %d byte limit; should use userDataRef for larger data", cloudInitUserMaxLen)
+		return ErrUserDataTooLong
 	}
 
 	return nil
