@@ -73,9 +73,9 @@ var _ = Describe("CompletedStep", func() {
 		Expect(result2).NotTo(BeNil())
 		Expect(result3).NotTo(BeNil())
 
-		Expect(phase1).To(Equal(phase2))
-		Expect(phase2).To(Equal(phase3))
 		Expect(phase1).To(Equal(v1alpha2.VMOPPhaseCompleted))
+		Expect(phase2).To(Equal(v1alpha2.VMOPPhaseCompleted))
+		Expect(phase3).To(Equal(v1alpha2.VMOPPhaseCompleted))
 
 		Expect(conditions1).To(Equal(conditions2))
 		Expect(conditions2).To(Equal(conditions3))
