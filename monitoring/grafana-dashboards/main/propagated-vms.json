@@ -193,7 +193,7 @@
                   "index": 8
                 },
                 "Pending": {
-                  "color": "#00ffff",
+                  "color": "#30e3ca",
                   "index": 0
                 },
                 "Provisioning": {
@@ -1189,7 +1189,7 @@
                         "index": 1
                       },
                       "Pending": {
-                        "color": "#00ffff",
+                        "color": "#30e3ca",
                         "index": 2
                       },
                       "Running": {
@@ -1725,7 +1725,7 @@
                       "text": "Pause"
                     },
                     "4": {
-                      "color": "#00ffff",
+                      "color": "#30e3ca",
                       "index": 3,
                       "text": "Pending"
                     },
@@ -1810,7 +1810,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "max by (name,namespace) (\n  sum by (name,namespace,pod) ((d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"} == 1) * on(phase) group_left()\n      (\n        label_replace(vector(1), \"phase\", \"Degraded\", \"\", \"\") or\n        label_replace(vector(2), \"phase\", \"Migrating\", \"\", \"\") or\n        label_replace(vector(3), \"phase\", \"Pause\", \"\", \"\") or\n        label_replace(vector(4), \"phase\", \"Pending\", \"\", \"\") or\n        label_replace(vector(5), \"phase\", \"Running\", \"\", \"\") or\n        label_replace(vector(6), \"phase\", \"Starting\", \"\", \"\") or\n        label_replace(vector(7), \"phase\", \"Stopped\", \"\", \"\") or\n        label_replace(vector(8), \"phase\", \"Stopping\", \"\", \"\") or\n        label_replace(vector(9), \"phase\", \"Terminating\", \"\", \"\")\n      ))\n)",
+              "expr": "max by (name,namespace) (\n  max by (name,namespace,pod) ((d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"} == 1) * on(phase) group_left()\n      (\n        label_replace(vector(1), \"phase\", \"Degraded\", \"\", \"\") or\n        label_replace(vector(2), \"phase\", \"Migrating\", \"\", \"\") or\n        label_replace(vector(3), \"phase\", \"Pause\", \"\", \"\") or\n        label_replace(vector(4), \"phase\", \"Pending\", \"\", \"\") or\n        label_replace(vector(5), \"phase\", \"Running\", \"\", \"\") or\n        label_replace(vector(6), \"phase\", \"Starting\", \"\", \"\") or\n        label_replace(vector(7), \"phase\", \"Stopped\", \"\", \"\") or\n        label_replace(vector(8), \"phase\", \"Stopping\", \"\", \"\") or\n        label_replace(vector(9), \"phase\", \"Terminating\", \"\", \"\")\n      ))\n)",
               "instant": false,
               "legendFormat": "{{ name }}",
               "range": true,
@@ -2689,7 +2689,7 @@
                             "index": 3
                           },
                           "Pending": {
-                            "color": "#00ffff",
+                            "color": "#30e3ca",
                             "index": 2
                           },
                           "Provisioning": {

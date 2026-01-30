@@ -23,10 +23,13 @@ import (
 )
 
 const (
-	MetricVMOPStatusPhase = "virtualmachineoperation_status_phase"
+	MetricVMOPStatusPhase       = "virtualmachineoperation_status_phase"
+	MetricVMOPCreatedTimestamp  = "virtualmachineoperation_created_timestamp_seconds"
+	MetricVMOPStartedTimestamp  = "virtualmachineoperation_started_timestamp_seconds"
+	MetricVMOPFinishedTimestamp = "virtualmachineoperation_finished_timestamp_seconds"
 )
 
-var baseLabels = []string{"name", "namespace", "uid", "type"}
+var baseLabels = []string{"name", "namespace", "uid", "type", "virtualmachine"}
 
 func WithBaseLabels(labels ...string) []string {
 	return append(baseLabels, labels...)
@@ -40,6 +43,7 @@ func WithBaseLabelsByMetric(m *dataMetric, labels ...string) []string {
 			m.Namespace,
 			m.UID,
 			m.Type,
+			m.VirtualMachine,
 		}
 	}
 	return append(base, labels...)
@@ -50,5 +54,20 @@ var vmopMetrics = map[string]metrics.MetricInfo{
 		"The virtualmachineoperation current phase.",
 		prometheus.GaugeValue,
 		WithBaseLabels("phase"),
+		nil),
+	MetricVMOPCreatedTimestamp: metrics.NewMetricInfo(MetricVMOPCreatedTimestamp,
+		"The timestamp when virtualmachineoperation was created (Unix timestamp in seconds).",
+		prometheus.GaugeValue,
+		WithBaseLabels(),
+		nil),
+	MetricVMOPStartedTimestamp: metrics.NewMetricInfo(MetricVMOPStartedTimestamp,
+		"The timestamp when virtualmachineoperation transitioned to InProgress phase (Unix timestamp in seconds).",
+		prometheus.GaugeValue,
+		WithBaseLabels(),
+		nil),
+	MetricVMOPFinishedTimestamp: metrics.NewMetricInfo(MetricVMOPFinishedTimestamp,
+		"The timestamp when virtualmachineoperation finished (Completed or Failed phase, Unix timestamp in seconds).",
+		prometheus.GaugeValue,
+		WithBaseLabels(),
 		nil),
 }

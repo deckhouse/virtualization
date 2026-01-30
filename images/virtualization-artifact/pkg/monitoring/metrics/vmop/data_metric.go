@@ -16,14 +16,24 @@ limitations under the License.
 
 package vmop
 
-import "github.com/deckhouse/virtualization/api/core/v1alpha2"
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
+)
 
 type dataMetric struct {
-	Name      string
-	Namespace string
-	UID       string
-	Type      string
-	Phase     v1alpha2.VMOPPhase
+	Name           string
+	Namespace      string
+	UID            string
+	Type           string
+	VirtualMachine string
+	Phase          v1alpha2.VMOPPhase
+	CreatedAt      *int64 // Unix timestamp when operation was created
+	StartedAt      *int64 // Unix timestamp when operation transitioned to InProgress
+	FinishedAt     *int64 // Unix timestamp when operation finished (Completed/Failed)
 }
 
 // DO NOT mutate VirtualMachineOperation!
@@ -32,11 +42,36 @@ func newDataMetric(vmop *v1alpha2.VirtualMachineOperation) *dataMetric {
 		return nil
 	}
 
+	createdAt := vmop.CreationTimestamp.Unix()
+
+	var startedAt *int64
+	signalSendCond, found := conditions.GetCondition(vmopcondition.TypeSignalSent, vmop.Status.Conditions)
+	if found && signalSendCond.Status == metav1.ConditionTrue {
+		ts := signalSendCond.LastTransitionTime.Unix()
+		startedAt = &ts
+	}
+
+	var finishedAt *int64
+	if vmop.Status.Phase == v1alpha2.VMOPPhaseCompleted || vmop.Status.Phase == v1alpha2.VMOPPhaseFailed {
+		completedCond, found := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+		if found {
+			if (completedCond.Status == metav1.ConditionTrue && completedCond.Reason == string(vmopcondition.ReasonOperationCompleted)) ||
+				(completedCond.Status == metav1.ConditionFalse && completedCond.Reason == string(vmopcondition.ReasonOperationFailed)) {
+				ts := completedCond.LastTransitionTime.Unix()
+				finishedAt = &ts
+			}
+		}
+	}
+
 	return &dataMetric{
-		Name:      vmop.Name,
-		Namespace: vmop.Namespace,
-		UID:       string(vmop.UID),
-		Phase:     vmop.Status.Phase,
-		Type:      string(vmop.Spec.Type),
+		Name:           vmop.Name,
+		Namespace:      vmop.Namespace,
+		UID:            string(vmop.UID),
+		Phase:          vmop.Status.Phase,
+		Type:           string(vmop.Spec.Type),
+		VirtualMachine: vmop.Spec.VirtualMachine,
+		CreatedAt:      &createdAt,
+		StartedAt:      startedAt,
+		FinishedAt:     finishedAt,
 	}
 }
