@@ -74,28 +74,18 @@ func newUsbOptions() *usbOptions {
 }
 
 type usbOptions struct {
-	Kubeconfig                 string
-	NodeName                   string
-	Namespace                  string
-	WireguardSystemNetworkName string
-	PodIP                      string
-	WireguardRouteTableID      int
+	Kubeconfig string
+	NodeName   string
 
 	usbipdConfig *usbip.USBIPDConfig
 	logging      *logger.Options
 	monitor      *libusb.MonitorConfig
-
-	wireguardEnabled bool
 }
 
 func (o *usbOptions) NamedFlags() (fs flag.NamedFlagSets) {
 	mfs := fs.FlagSet("usb-gateway")
 	mfs.StringVar(&o.Kubeconfig, "kubeconfig", o.Kubeconfig, "Path to kubeconfig file")
 	mfs.StringVar(&o.NodeName, "node-name", os.Getenv("NODE_NAME"), "Node name")
-	mfs.StringVar(&o.Namespace, "namespace", os.Getenv("NAMESPACE"), "Namespace")
-	mfs.StringVar(&o.WireguardSystemNetworkName, "wireguard-system-network-name", "", "Wireguard system network name")
-	mfs.StringVar(&o.PodIP, "pod-ip", os.Getenv("POD_IP"), "Pod IP")
-	mfs.IntVar(&o.WireguardRouteTableID, "wireguard-route-table-id", o.WireguardRouteTableID, "Wireguard route table ID")
 
 	o.usbipdConfig.AddFlags(fs.FlagSet("usbipd"))
 	o.logging.AddFlags(fs.FlagSet("logging"))
@@ -108,24 +98,11 @@ func (o *usbOptions) NamedFlags() (fs flag.NamedFlagSets) {
 func (o *usbOptions) Complete() {
 	log := o.logging.Complete()
 	logger.SetDefaultLogger(log)
-
-	o.wireguardEnabled = featuregates.Default().USBGatewayWireguardEnabled()
 }
 
 func (o *usbOptions) Validate() error {
 	if o.NodeName == "" {
 		return fmt.Errorf("NodeName is required")
-	}
-	if o.Namespace == "" {
-		return fmt.Errorf("Namespace is required")
-	}
-	if o.wireguardEnabled {
-		if o.WireguardSystemNetworkName == "" {
-			return fmt.Errorf("WireguardSystemNetworkName is required if feature-gate USBGatewayWireguard is enabled")
-		}
-		if o.PodIP == "" {
-			return fmt.Errorf("PodIP is required if feature-gate USBGatewayWireguard is enabled")
-		}
 	}
 
 	return nil

@@ -22,16 +22,11 @@ import (
 )
 
 const (
-	USBGateway          featuregate.Feature = "USBGateway"
-	USBGatewayWireguard featuregate.Feature = "USBGatewayWireguard"
+	USBGateway featuregate.Feature = "USBGateway"
 )
 
 var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
 	USBGateway: {
-		Default:    false,
-		PreRelease: featuregate.Alpha,
-	},
-	USBGatewayWireguard: {
 		Default:    false,
 		PreRelease: featuregate.Alpha,
 	},
@@ -78,8 +73,4 @@ type FeatureGate struct {
 
 func (f *FeatureGate) USBGatewayEnabled() bool {
 	return f.Enabled(USBGateway)
-}
-
-func (f *FeatureGate) USBGatewayWireguardEnabled() bool {
-	return f.Enabled(USBGatewayWireguard)
 }
