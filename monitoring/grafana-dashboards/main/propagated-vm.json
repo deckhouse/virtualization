@@ -63,7 +63,7 @@
                   "text": "Pause"
                 },
                 "4": {
-                  "color": "#00ffff",
+                  "color": "#30e3ca",
                   "index": 3,
                   "text": "Pending"
                 },
@@ -152,7 +152,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "max by (name) (\n  sum by (name,pod) (\n    (d8_virtualization_virtualmachine_status_phase{namespace=\"$namespace\", name=\"$name\"} == 1) * on(phase) group_left()\n      (\n        label_replace(vector(1), \"phase\", \"Degraded\", \"\", \"\") or\n        label_replace(vector(2), \"phase\", \"Migrating\", \"\", \"\") or\n        label_replace(vector(3), \"phase\", \"Pause\", \"\", \"\") or\n        label_replace(vector(4), \"phase\", \"Pending\", \"\", \"\") or\n        label_replace(vector(5), \"phase\", \"Running\", \"\", \"\") or\n        label_replace(vector(6), \"phase\", \"Starting\", \"\", \"\") or\n        label_replace(vector(7), \"phase\", \"Stopped\", \"\", \"\") or\n        label_replace(vector(8), \"phase\", \"Stopping\", \"\", \"\") or\n        label_replace(vector(9), \"phase\", \"Terminating\", \"\", \"\")\n      ))\n)",
+          "expr": "max by (name) (\n  max by (name,pod) (\n    (d8_virtualization_virtualmachine_status_phase{namespace=\"$namespace\", name=\"$name\"} == 1) * on(phase) group_left()\n      (\n        label_replace(vector(1), \"phase\", \"Degraded\", \"\", \"\") or\n        label_replace(vector(2), \"phase\", \"Migrating\", \"\", \"\") or\n        label_replace(vector(3), \"phase\", \"Pause\", \"\", \"\") or\n        label_replace(vector(4), \"phase\", \"Pending\", \"\", \"\") or\n        label_replace(vector(5), \"phase\", \"Running\", \"\", \"\") or\n        label_replace(vector(6), \"phase\", \"Starting\", \"\", \"\") or\n        label_replace(vector(7), \"phase\", \"Stopped\", \"\", \"\") or\n        label_replace(vector(8), \"phase\", \"Stopping\", \"\", \"\") or\n        label_replace(vector(9), \"phase\", \"Terminating\", \"\", \"\")\n      ))\n)",
           "instant": true,
           "legendFormat": "{{name}}",
           "range": false,
@@ -1702,7 +1702,7 @@
                       "text": "Pause"
                     },
                     "4": {
-                      "color": "#00ffff",
+                      "color": "#30e3ca",
                       "index": 3,
                       "text": "Pending"
                     },
@@ -2003,7 +2003,7 @@
                             "text": "InProgress"
                           },
                           "Pending": {
-                            "color": "#00ffff",
+                            "color": "#30e3ca",
                             "index": 0,
                             "text": "Pending"
                           }
