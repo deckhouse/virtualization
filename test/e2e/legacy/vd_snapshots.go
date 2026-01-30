@@ -58,16 +58,19 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, func() {
 
 		CreateNamespace(ns)
 
-		Expect(conf.StorageClass.ImmediateStorageClass).NotTo(BeNil(), "immediate storage class cannot be nil; please set up the immediate storage class in the cluster")
-
 		virtualDiskWithoutConsumer := v1alpha2.VirtualDisk{}
-		vdWithoutConsumerFilePath := fmt.Sprintf("%s/vd/vd-ubuntu-http.yaml", conf.TestData.VdSnapshots)
-		err = util.UnmarshalResource(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
-		Expect(err).NotTo(HaveOccurred(), "cannot get object from file: %s\nstderr: %s", vdWithoutConsumerFilePath, err)
 
-		virtualDiskWithoutConsumer.Spec.PersistentVolumeClaim.StorageClass = &conf.StorageClass.ImmediateStorageClass.Name
-		err = util.WriteYamlObject(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
-		Expect(err).NotTo(HaveOccurred(), "cannot update virtual disk with custom storage class: %s\nstderr: %s", vdWithoutConsumerFilePath, err)
+		if !config.SkipImmediateStorageClassCheck() || conf.StorageClass.ImmediateStorageClass != nil {
+			Expect(conf.StorageClass.ImmediateStorageClass).NotTo(BeNil(), "immediate storage class cannot be nil; please set up the immediate storage class in the cluster")
+
+			vdWithoutConsumerFilePath := fmt.Sprintf("%s/vd/vd-ubuntu-http.yaml", conf.TestData.VdSnapshots)
+			err = util.UnmarshalResource(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
+			Expect(err).NotTo(HaveOccurred(), "cannot get object from file: %s\nstderr: %s", vdWithoutConsumerFilePath, err)
+
+			virtualDiskWithoutConsumer.Spec.PersistentVolumeClaim.StorageClass = &conf.StorageClass.ImmediateStorageClass.Name
+			err = util.WriteYamlObject(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
+			Expect(err).NotTo(HaveOccurred(), "cannot update virtual disk with custom storage class: %s\nstderr: %s", vdWithoutConsumerFilePath, err)
+		}
 	})
 
 	AfterEach(func() {
@@ -131,44 +134,47 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, func() {
 	})
 
 	Context(fmt.Sprintf("When unattached VDs in phase %s:", PhaseReady), func() {
-		It("creates VDs snapshots with `requiredConsistency`", func() {
-			res := kubectl.List(kc.ResourceVD, kc.GetOptions{
-				Labels:    hasNoConsumerLabel,
-				Namespace: ns,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
-			})
-			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+		if !config.SkipImmediateStorageClassCheck() || conf.StorageClass.ImmediateStorageClass != nil {
 
-			vds := strings.Split(res.StdOut(), " ")
+			It("creates VDs snapshots with `requiredConsistency`", func() {
+				res := kubectl.List(kc.ResourceVD, kc.GetOptions{
+					Labels:    hasNoConsumerLabel,
+					Namespace: ns,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
+				Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 
-			for _, vdName := range vds {
-				By(fmt.Sprintf("Create snapshot for %q", vdName))
-				labels := make(map[string]string)
-				maps.Copy(labels, hasNoConsumerLabel)
-				maps.Copy(labels, testCaseLabel)
-				err := CreateVirtualDiskSnapshot(vdName, vdName, ns, true, labels)
-				Expect(err).NotTo(HaveOccurred(), "%s", err)
-			}
-		})
+				vds := strings.Split(res.StdOut(), " ")
 
-		It("checks snapshots of unattached VDs", func() {
-			By(fmt.Sprintf("Snapshots should be in %s phase", PhaseReady))
-			WaitPhaseByLabel(kc.ResourceVDSnapshot, PhaseReady, kc.WaitOptions{
-				Labels:    hasNoConsumerLabel,
-				Namespace: ns,
-				Timeout:   MaxWaitTimeout,
-			})
-
-			By("Snapshots should be consistent", func() {
-				vdSnapshots := v1alpha2.VirtualDiskSnapshotList{}
-				err := GetObjects(kc.ResourceVDSnapshot, &vdSnapshots, kc.GetOptions{Namespace: ns, Labels: hasNoConsumerLabel})
-				Expect(err).NotTo(HaveOccurred(), "cannot get `vdSnapshots`\nstderr: %s", err)
-
-				for _, snapshot := range vdSnapshots.Items {
-					Expect(*snapshot.Status.Consistent).To(BeTrue(), "consistent field should be `true`: %s", snapshot.Name)
+				for _, vdName := range vds {
+					By(fmt.Sprintf("Create snapshot for %q", vdName))
+					labels := make(map[string]string)
+					maps.Copy(labels, hasNoConsumerLabel)
+					maps.Copy(labels, testCaseLabel)
+					err := CreateVirtualDiskSnapshot(vdName, vdName, ns, true, labels)
+					Expect(err).NotTo(HaveOccurred(), "%s", err)
 				}
 			})
-		})
+
+			It("checks snapshots of unattached VDs", func() {
+				By(fmt.Sprintf("Snapshots should be in %s phase", PhaseReady))
+				WaitPhaseByLabel(kc.ResourceVDSnapshot, PhaseReady, kc.WaitOptions{
+					Labels:    hasNoConsumerLabel,
+					Namespace: ns,
+					Timeout:   MaxWaitTimeout,
+				})
+
+				By("Snapshots should be consistent", func() {
+					vdSnapshots := v1alpha2.VirtualDiskSnapshotList{}
+					err := GetObjects(kc.ResourceVDSnapshot, &vdSnapshots, kc.GetOptions{Namespace: ns, Labels: hasNoConsumerLabel})
+					Expect(err).NotTo(HaveOccurred(), "cannot get `vdSnapshots`\nstderr: %s", err)
+
+					for _, snapshot := range vdSnapshots.Items {
+						Expect(*snapshot.Status.Consistent).To(BeTrue(), "consistent field should be `true`: %s", snapshot.Name)
+					}
+				})
+			})
+		}
 	})
 
 	Context(fmt.Sprintf("When virtual machines in %s phase", PhaseRunning), func() {
