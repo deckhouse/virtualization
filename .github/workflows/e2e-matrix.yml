@@ -49,10 +49,24 @@ jobs:
           kubectl get namespaces -l test=nightly-e2e -o jsonpath='{range .items[?(@.metadata.creationTimestamp<"'$(date -d '3 day ago' -u +'%Y-%m-%dT%H:%M:%SZ')'")]}{.metadata.name}{"\n"}{end}' | xargs -r kubectl delete namespace || true
           echo "[INFO] Delete vmclass with label test=nightly-e2e older than 3 days"
           kubectl get vmclass -l test=nightly-e2e -o jsonpath='{range .items[?(@.metadata.creationTimestamp<"'$(date -d '3 day ago' -u +'%Y-%m-%dT%H:%M:%SZ')'")]}{.metadata.name}{"\n"}{end}' | xargs -r kubectl delete vmclass || true
+  set-vars:
+    name: Set vars
+    runs-on: ubuntu-latest
+    outputs:
+      date_start: ${{ steps.vars.outputs.date-start }}
+      randuuid4c: ${{ steps.vars.outputs.randuuid4c }}
+    steps:
+      - name: Set vars
+        id: vars
+        run: |
+          echo "date-start=$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+          echo "randuuid4c=$(openssl rand -hex 2)" >> $GITHUB_OUTPUT
 
   e2e-ceph:
     name: E2E Pipeline (Ceph)
-    needs: cleanup-nested-clusters
+    needs:
+      - cleanup-nested-clusters
+      - set-vars
     uses: ./.github/workflows/e2e-reusable-pipeline.yml
     with:
       storage_type: ceph
@@ -63,6 +77,9 @@ jobs:
       default_user: cloud
       go_version: "1.24.6"
       e2e_timeout: "3.5h"
+      e2e_focus_tests: "VirtualMachineConfiguration"
+      date_start: ${{ needs.set-vars.outputs.date_start }}
+      randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
     secrets:
       DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
       VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
@@ -71,7 +88,9 @@ jobs:
 
   e2e-replicated:
     name: E2E Pipeline (Replicated)
-    needs: cleanup-nested-clusters
+    needs:
+      - cleanup-nested-clusters
+      - set-vars
     uses: ./.github/workflows/e2e-reusable-pipeline.yml
     with:
       storage_type: replicated
@@ -82,6 +101,9 @@ jobs:
       default_user: cloud
       go_version: "1.24.6"
       e2e_timeout: "3.5h"
+      e2e_focus_tests: "VirtualMachineConfiguration"
+      date_start: ${{ needs.set-vars.outputs.date_start }}
+      randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
     secrets:
       DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
       VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}

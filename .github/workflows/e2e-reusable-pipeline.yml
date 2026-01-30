@@ -17,6 +17,14 @@ name: E2E Pipeline (Reusable)
 on:
   workflow_call:
     inputs:
+      date_start:
+        required: true
+        type: string
+        description: "Date start"
+      randuuid4c:
+        required: true
+        type: string
+        description: "Random UUID first 4 chars"
       storage_type:
         required: true
         type: string
@@ -114,11 +122,17 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set outputs
+        env:
+          RANDUUID4C: ${{ inputs.randuuid4c }}
+          STORAGE_TYPE: ${{ inputs.storage_type }}
         id: vars
         run: |
-          namespace="nightly-e2e-${{ inputs.storage_type }}-$(git rev-parse --short HEAD)"
+          GIT_SHORT_HASH=$(git rev-parse --short HEAD)
+
+          namespace="nightly-e2e-$STORAGE_TYPE-$GIT_SHORT_HASH-$RANDUUID4C"
+
           echo "namespace=$namespace" >> $GITHUB_OUTPUT
-          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "sha_short=$GIT_SHORT_HASH" >> $GITHUB_OUTPUT
 
           REGISTRY=$(base64 -d <<< ${{secrets.PROD_IO_REGISTRY_DOCKER_CFG}} | jq '.auths | to_entries | .[] | .key' -r)
           USERNAME=$(base64 -d <<< ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }} | jq '.auths | to_entries | .[] | .value.auth' -r | base64 -d | cut -d ':' -f1)
@@ -242,7 +256,7 @@ jobs:
       - name: Save ssh to secrets in cluster
         env:
           NAMESPACE: ${{ steps.vars.outputs.namespace }}
-        if: always()
+        if: always() && steps.dhctl-bootstrap.outcome == 'success'
         run: |
           kubectl -n $NAMESPACE create secret generic ssh-key --from-file=${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/ssh/cloud
 
@@ -298,7 +312,7 @@ jobs:
               --local-ssh=true \
               --local-ssh-opts="-o StrictHostKeyChecking=no" \
               --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-              $source $dest
+              "$source" "$dest"
             echo "d8vscp: $source -> $dest - done"
           }
 
@@ -359,14 +373,14 @@ jobs:
               --local-ssh=true \
               --local-ssh-opts="-o StrictHostKeyChecking=no" \
               --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-              $source $dest
+              "$source" "$dest"
             echo "d8vscp: $source -> $dest - done"
           }
 
           d8vscp "${DEFAULT_USER}@${nested_master}.$NAMESPACE:/var/log/cloud-init*.log" "./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/"
 
       - name: Prepare artifact
-        if: always()
+        if: always() && steps.dhctl-bootstrap.outcome == 'success'
         run: |
           sudo chown -fR 1001:1001 ${{ env.SETUP_CLUSTER_TYPE_PATH }}
           yq e '.deckhouse.registryDockerCfg = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/values.yaml
@@ -377,9 +391,9 @@ jobs:
 
       - name: Upload generated files
         uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && steps.dhctl-bootstrap.outcome == 'success'
         with:
-          name: ${{ inputs.storage_type }}-generated-files
+          name: ${{ inputs.storage_type }}-generated-files-${{ inputs.date_start }}
           path: |
             ${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp
             ${{ env.SETUP_CLUSTER_TYPE_PATH }}/values.yaml
@@ -391,7 +405,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ${{ inputs.storage_type }}-generated-files-ssh
+          name: ${{ inputs.storage_type }}-generated-files-ssh-${{ inputs.date_start }}
           path: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/ssh
           overwrite: true
           include-hidden-files: true
@@ -400,7 +414,7 @@ jobs:
       - name: Upload kubeconfig
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.storage_type }}-generated-files-kubeconfig
+          name: ${{ inputs.storage_type }}-generated-files-kubeconfig-${{ inputs.date_start }}
           path: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/kube-config
           overwrite: true
           include-hidden-files: true
@@ -1131,6 +1145,13 @@ jobs:
           echo "[INFO] Showing exists vmclasses"
           kubectl get vmclass
 
+      - name: Set vars
+        id: vars
+        env:
+          DATE_START: ${{ inputs.date_start }}
+        run: |
+          echo "e2e-start-time=$DATE_START" >> $GITHUB_OUTPUT
+
       - name: Run E2E
         id: e2e-report
         env:
@@ -1144,10 +1165,6 @@ jobs:
           START_TIME=$(date +"%H:%M:%S")
           summary_file_name_junit="e2e_summary_${CSI}_${DATE}.xml"
           summary_file_name_json="e2e_summary_${CSI}_${DATE}.json"
-
-          if [[ "${{ inputs.storage_type }}" == "replicated" ]]; then
-            export SKIP_IMMEDIATE_SC_CHECK="yes"
-          fi
 
           cp -a legacy/testdata /tmp/testdata
 
@@ -1210,14 +1227,15 @@ jobs:
           echo $SUMMARY > "${summary_file_name_json}"
 
           echo "[INFO] Exit code: $GINKGO_EXIT_CODE"
-          exit $GINKGO_EXIT_CODE
+          # exit $GINKGO_EXIT_CODE
+          exit 1
 
       - name: Upload summary test results (junit/xml)
         uses: actions/upload-artifact@v4
         id: e2e-report-artifact
-        if: always()
+        if: always() && steps.e2e-report.outcome != 'skipped'
         with:
-          name: e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}
+          name: e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ steps.vars.outputs.e2e-start-time }}
           path: |
             test/e2e/e2e_summary_*.json
             test/e2e/e2e_summary_*.xml
@@ -1227,9 +1245,9 @@ jobs:
 
       - name: Upload resources from failed tests
         uses: actions/upload-artifact@v4
-        if: always() && steps.e2e-report.outcome == 'failure'
+        if: always() && steps.e2e-report.outcome != 'skipped'
         with:
-          name: resources_from_failed_tests-${{ inputs.storage_type }}
+          name: resources_from_failed_tests-${{ inputs.storage_type }}-${{ steps.vars.outputs.e2e-start-time }}
           path: ${{ runner.temp }}/e2e_failed__*
           if-no-files-found: ignore
           retention-days: 3
@@ -1252,7 +1270,7 @@ jobs:
         uses: actions/download-artifact@v5
         continue-on-error: true
         with:
-          name: e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}
+          name: e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ inputs.date_start }}
           path: test/e2e/
 
       - name: Determine failed stage and prepare report
@@ -1390,14 +1408,14 @@ jobs:
         id: upload-artifact
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-report-${{ inputs.storage_type }}-${{ github.run_id }}
+          name: e2e-report-${{ inputs.storage_type }}-${{ github.run_id }}-${{ inputs.date_start }}
           path: ${{ steps.determine-stage.outputs.report_file }}
           retention-days: 3
 
       - name: Set artifact name output
         id: set-artifact-name
         run: |
-          ARTIFACT_NAME="e2e-report-${{ inputs.storage_type }}-${{ github.run_id }}"
+          ARTIFACT_NAME="e2e-report-${{ inputs.storage_type }}-${{ github.run_id }}-${{ inputs.date_start }}"
           echo "artifact-name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
           echo "[INFO] Artifact name: $ARTIFACT_NAME"
 
@@ -1427,7 +1445,7 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v5
         with:
-          name: generated-files-${{ inputs.storage_type }}
+          name: ${{ inputs.storage_type }}-generated-files-${{ inputs.date_start }}
           path: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/
 
       - name: Configure kubectl via azure/k8s-set-context@v4
