@@ -17,6 +17,7 @@ limitations under the License.
 package vm
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/deckhouse/virtualization-controller/pkg/builder/meta"
@@ -137,5 +138,14 @@ func WithRunPolicy(runPolicy v1alpha2.RunPolicy) Option {
 func WithNetwork(network v1alpha2.NetworksSpec) Option {
 	return func(vm *v1alpha2.VirtualMachine) {
 		vm.Spec.Networks = append(vm.Spec.Networks, network)
+	}
+}
+
+func WithTolerations(t []corev1.Toleration) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		if vm.Spec.Tolerations == nil {
+			vm.Spec.Tolerations = make([]corev1.Toleration, 0, len(t))
+		}
+		vm.Spec.Tolerations = append(vm.Spec.Tolerations, t...)
 	}
 }

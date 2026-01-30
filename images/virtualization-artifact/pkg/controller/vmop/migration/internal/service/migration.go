@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -51,7 +53,7 @@ func (s MigrationService) IsApplicableForRunPolicy(runPolicy v1alpha2.RunPolicy)
 }
 
 func (s MigrationService) CreateMigration(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) error {
-	return client.IgnoreAlreadyExists(s.client.Create(ctx, &virtv1.VirtualMachineInstanceMigration{
+	vmim := &virtv1.VirtualMachineInstanceMigration{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: virtv1.SchemeGroupVersion.String(),
 			Kind:       "VirtualMachineInstanceMigration",
@@ -73,7 +75,19 @@ func (s MigrationService) CreateMigration(ctx context.Context, vmop *v1alpha2.Vi
 		Spec: virtv1.VirtualMachineInstanceMigrationSpec{
 			VMIName: vmop.Spec.VirtualMachine,
 		},
-	}))
+	}
+
+	if !featuregates.Default().Enabled(featuregates.TargetMigration) {
+		if vmop.Spec.Migrate != nil && vmop.Spec.Migrate.NodeSelector != nil {
+			return errors.New("the `nodeSelector` field is not available in the Community Edition version")
+		}
+	}
+
+	if vmop.Spec.Migrate != nil {
+		vmim.Spec.AddedNodeSelector = vmop.Spec.Migrate.NodeSelector
+	}
+
+	return client.IgnoreAlreadyExists(s.client.Create(ctx, vmim))
 }
 
 func (s MigrationService) DeleteMigration(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) error {
