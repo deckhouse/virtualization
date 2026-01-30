@@ -106,11 +106,15 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, func() {
 	Context("When virtual disks are applied:", func() {
 		It("checks VDs phases", func() {
 			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
-			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
+			waitOpts := kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
-			})
+			}
+			if config.SkipImmediateStorageClassCheck() || conf.StorageClass.ImmediateStorageClass == nil {
+				waitOpts.ExcludedLabels = []string{"hasNoConsumer"}
+			}
+			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, waitOpts)
 		})
 	})
 
