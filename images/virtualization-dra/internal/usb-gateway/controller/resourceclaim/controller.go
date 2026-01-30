@@ -431,7 +431,7 @@ func (c *Controller) handleServer(rc *resourcev1beta1.ResourceClaim, myAllocatio
 		}
 
 		busID := ""
-		if attr, ok := device.Basic.Attributes["busID"]; ok && attr.StringValue != nil {
+		if attr, ok := device.Basic.Attributes[resourcev1beta1.QualifiedName(common.AttrBusID)]; ok && attr.StringValue != nil {
 			busID = *attr.StringValue
 		} else {
 			continue
@@ -506,7 +506,7 @@ func (c *Controller) handleClient(ctx context.Context, rc *resourcev1beta1.Resou
 			continue
 		}
 		busID := ""
-		if attr, ok := device.Basic.Attributes["busID"]; ok && attr.StringValue != nil {
+		if attr, ok := device.Basic.Attributes[resourcev1beta1.QualifiedName(common.AttrBusID)]; ok && attr.StringValue != nil {
 			busID = *attr.StringValue
 		} else {
 			continue
