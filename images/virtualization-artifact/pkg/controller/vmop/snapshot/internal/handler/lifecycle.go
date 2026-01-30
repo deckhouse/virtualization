@@ -89,7 +89,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 
 	// 3. Operation already in progress. Check if the operation is completed.
 	// Run execute until the operation is completed.
-	if _, found := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions); found {
+	if vmop.Status.Phase == v1alpha2.VMOPPhaseInProgress {
 		return svcOp.Execute(ctx)
 	}
 
