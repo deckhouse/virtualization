@@ -54,6 +54,7 @@ func SetupController(
 	mgrCache := mgr.GetCache()
 	client := mgr.GetClient()
 	blockDeviceService := service.NewBlockDeviceService(client)
+	provisioningService := service.NewProvisioningService(client)
 	vmClassService := service.NewVirtualMachineClassService(client)
 
 	migrateVolumesService := vmservice.NewMigrationVolumesService(client, internal.MakeKVVMFromVMSpec, 10*time.Second)
@@ -100,7 +101,7 @@ func SetupController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachine{}).
-		WithValidator(NewValidator(client, blockDeviceService, featuregates.Default(), log)).
+		WithValidator(NewValidator(client, blockDeviceService, provisioningService, featuregates.Default(), log)).
 		WithDefaulter(NewDefaulter(client, vmClassService, log)).
 		Complete(); err != nil {
 		return err
