@@ -45,53 +45,68 @@ func ConvertDeviceToAttributes(device resourcev1beta1.Device, nodeName string) v
 		return attrs
 	}
 
+	// Attribute keys use full resource.kubernetes.io/... names (DRA ResourceSlice API)
+	const (
+		attrName         = "resource.kubernetes.io/name"
+		attrManufacturer = "resource.kubernetes.io/manufacturer"
+		attrProduct      = "resource.kubernetes.io/product"
+		attrVendorID     = "resource.kubernetes.io/vendorID"
+		attrProductID    = "resource.kubernetes.io/productID"
+		attrBCD          = "resource.kubernetes.io/bcd"
+		attrBus          = "resource.kubernetes.io/bus"
+		attrDeviceNumber = "resource.kubernetes.io/deviceNumber"
+		attrSerial       = "resource.kubernetes.io/serial"
+		attrDevicePath   = "resource.kubernetes.io/devicePath"
+		attrMajor        = "resource.kubernetes.io/major"
+		attrMinor        = "resource.kubernetes.io/minor"
+	)
 	for key, attr := range device.Basic.Attributes {
 		switch string(key) {
-		case "name":
+		case attrName:
 			if attr.StringValue != nil {
 				attrs.Name = *attr.StringValue
 			}
-		case "manufacturer":
+		case attrManufacturer:
 			if attr.StringValue != nil {
 				attrs.Manufacturer = *attr.StringValue
 			}
-		case "product":
+		case attrProduct:
 			if attr.StringValue != nil {
 				attrs.Product = *attr.StringValue
 			}
-		case "vendorID":
+		case attrVendorID:
 			if attr.StringValue != nil {
 				attrs.VendorID = *attr.StringValue
 			}
-		case "productID":
+		case attrProductID:
 			if attr.StringValue != nil {
 				attrs.ProductID = *attr.StringValue
 			}
-		case "bcd":
+		case attrBCD:
 			if attr.StringValue != nil {
 				attrs.BCD = *attr.StringValue
 			}
-		case "bus":
+		case attrBus:
 			if attr.StringValue != nil {
 				attrs.Bus = *attr.StringValue
 			}
-		case "deviceNumber":
+		case attrDeviceNumber:
 			if attr.StringValue != nil {
 				attrs.DeviceNumber = *attr.StringValue
 			}
-		case "serial":
+		case attrSerial:
 			if attr.StringValue != nil {
 				attrs.Serial = *attr.StringValue
 			}
-		case "devicePath":
+		case attrDevicePath:
 			if attr.StringValue != nil {
 				attrs.DevicePath = *attr.StringValue
 			}
-		case "major":
+		case attrMajor:
 			if attr.IntValue != nil {
 				attrs.Major = int(*attr.IntValue)
 			}
-		case "minor":
+		case attrMinor:
 			if attr.IntValue != nil {
 				attrs.Minor = int(*attr.IntValue)
 			}

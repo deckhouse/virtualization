@@ -66,16 +66,16 @@ var _ = Describe("ReadyHandler", func() {
 							Name: "usb-device-1",
 							Basic: &resourcev1beta1.BasicDevice{
 								Attributes: map[resourcev1beta1.QualifiedName]resourcev1beta1.DeviceAttribute{
-									resourcev1beta1.QualifiedName("vendorID"): {
+									resourcev1beta1.QualifiedName("resource.kubernetes.io/vendorID"): {
 										StringValue: stringPtr("1234"),
 									},
-									resourcev1beta1.QualifiedName("productID"): {
+									resourcev1beta1.QualifiedName("resource.kubernetes.io/productID"): {
 										StringValue: stringPtr("5678"),
 									},
-									resourcev1beta1.QualifiedName("bus"): {
+									resourcev1beta1.QualifiedName("resource.kubernetes.io/bus"): {
 										StringValue: stringPtr("1"),
 									},
-									resourcev1beta1.QualifiedName("deviceNumber"): {
+									resourcev1beta1.QualifiedName("resource.kubernetes.io/deviceNumber"): {
 										StringValue: stringPtr("2"),
 									},
 								},
