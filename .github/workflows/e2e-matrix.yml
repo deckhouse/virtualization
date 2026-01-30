@@ -16,8 +16,12 @@ name: E2E Matrix Tests (nested clusters)
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "40 4 * * *"
+  # schedule:
+  #   - cron: "40 4 * * *"
+  pull_request: # TODO: remove before merge
+    branches:
+      - main
+      - chore/ci/fix-artifacts-name
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
@@ -63,6 +67,7 @@ jobs:
       default_user: cloud
       go_version: "1.24.6"
       e2e_timeout: "3.5h"
+      e2e_focus_tests: "VirtualMachineConfiguration"
     secrets:
       DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
       VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
@@ -82,6 +87,7 @@ jobs:
       default_user: cloud
       go_version: "1.24.6"
       e2e_timeout: "3.5h"
+      e2e_focus_tests: "VirtualMachineConfiguration"
     secrets:
       DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
       VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
@@ -360,4 +366,4 @@ jobs:
             curl --request POST --header 'Content-Type: application/json' --data "{\"text\": \"${COMBINED_SUMMARY}\"}" "$LOOP_WEBHOOK_URL"
           fi
         env:
-          LOOP_WEBHOOK_URL: ${{ secrets.LOOP_WEBHOOK_URL }}
+          LOOP_WEBHOOK_URL: ${{ secrets.LOOP_TEST_CHANNEL }}
