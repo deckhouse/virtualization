@@ -24,9 +24,9 @@ import (
 
 const (
 	MetricVMOPStatusPhase       = "virtualmachineoperation_status_phase"
-	MetricVMOPCreatedTimestamp  = "virtualmachineoperation_created_timestamp"
-	MetricVMOPStartedTimestamp  = "virtualmachineoperation_started_timestamp"
-	MetricVMOPFinishedTimestamp = "virtualmachineoperation_finished_timestamp"
+	MetricVMOPCreatedTimestamp  = "virtualmachineoperation_created_timestamp_seconds"
+	MetricVMOPStartedTimestamp  = "virtualmachineoperation_started_timestamp_seconds"
+	MetricVMOPFinishedTimestamp = "virtualmachineoperation_finished_timestamp_seconds"
 )
 
 var baseLabels = []string{"name", "namespace", "uid", "type", "virtualmachine"}
@@ -56,17 +56,17 @@ var vmopMetrics = map[string]metrics.MetricInfo{
 		WithBaseLabels("phase"),
 		nil),
 	MetricVMOPCreatedTimestamp: metrics.NewMetricInfo(MetricVMOPCreatedTimestamp,
-		"The timestamp when virtualmachineoperation was created (Unix timestamp).",
+		"The timestamp when virtualmachineoperation was created (Unix timestamp in seconds).",
 		prometheus.GaugeValue,
 		WithBaseLabels(),
 		nil),
 	MetricVMOPStartedTimestamp: metrics.NewMetricInfo(MetricVMOPStartedTimestamp,
-		"The timestamp when virtualmachineoperation transitioned to InProgress phase (Unix timestamp).",
+		"The timestamp when virtualmachineoperation transitioned to InProgress phase (Unix timestamp in seconds).",
 		prometheus.GaugeValue,
 		WithBaseLabels(),
 		nil),
 	MetricVMOPFinishedTimestamp: metrics.NewMetricInfo(MetricVMOPFinishedTimestamp,
-		"The timestamp when virtualmachineoperation finished (Completed or Failed phase, Unix timestamp).",
+		"The timestamp when virtualmachineoperation finished (Completed or Failed phase, Unix timestamp in seconds).",
 		prometheus.GaugeValue,
 		WithBaseLabels(),
 		nil),
