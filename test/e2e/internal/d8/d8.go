@@ -60,6 +60,14 @@ type D8Virtualization interface {
 	StopVM(vmName string, opts SSHOptions) *executor.CMDResult
 	StartVM(vmName string, opts SSHOptions) *executor.CMDResult
 	RestartVM(vmName string, opts SSHOptions) *executor.CMDResult
+	DataExportDownload(resourceType, name string, opts DataExportOptions) *executor.CMDResult
+}
+
+type DataExportOptions struct {
+	Namespace  string
+	OutputFile string
+	Timeout    time.Duration
+	Publish    bool
 }
 
 func NewD8Virtualization(conf D8VirtualizationConf) (*D8VirtualizationCMD, error) {
@@ -150,6 +158,34 @@ func (v D8VirtualizationCMD) RestartVM(vmName string, opts SSHOptions) *executor
 
 	cmd := fmt.Sprintf("%s restart %s", v.cmd, vmName)
 	cmd = v.addNamespace(cmd, opts.Namespace)
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	return v.ExecContext(ctx, cmd)
+}
+
+func (v D8VirtualizationCMD) DataExportDownload(resourceType, name string, opts DataExportOptions) *executor.CMDResult {
+	timeout := LongTimeout
+	if opts.Timeout != 0 {
+		timeout = opts.Timeout
+	}
+
+	cmd := fmt.Sprintf("d8 data export download %s/%s", resourceType, name)
+	cmd = v.addNamespace(cmd, opts.Namespace)
+
+	if opts.OutputFile != "" {
+		cmd = fmt.Sprintf("%s -o %s", cmd, opts.OutputFile)
+	}
+
+	if opts.Publish {
+		cmd = fmt.Sprintf("%s --publish", cmd)
+	}
+
+	// d8 data export download always returns exit code 0 even on errors,
+	// so we pipe output through grep to check for success message.
+	// grep -q returns non-zero exit code if pattern not found.
+	cmd = fmt.Sprintf(`echo y | %s 2>&1 | grep -q "All files have been downloaded"`, cmd)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
