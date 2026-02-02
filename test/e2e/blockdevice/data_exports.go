@@ -19,6 +19,7 @@ package blockdevice
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -203,6 +204,8 @@ var _ = Describe("DataExports", label.Slow(), func() {
 			Expect(err).NotTo(HaveOccurred(), "Failed to get file stats")
 			Expect(stat.Size()).NotTo(BeZero(), "File should not be empty")
 
+			GinkgoWriter.Printf("Uploading file size: %d bytes to URL: %s\n", stat.Size(), uploadURL)
+
 			req, err := http.NewRequest(http.MethodPut, uploadURL, file)
 			Expect(err).NotTo(HaveOccurred(), "Failed to create HTTP request")
 			req.ContentLength = stat.Size()
@@ -213,8 +216,9 @@ var _ = Describe("DataExports", label.Slow(), func() {
 			Expect(err).NotTo(HaveOccurred(), "Failed to upload disk image")
 			defer resp.Body.Close()
 
-			Expect(resp.StatusCode).To(BeNumerically(">=", 200))
-			Expect(resp.StatusCode).To(BeNumerically("<", 300), "Upload should succeed")
+			body, _ := io.ReadAll(resp.Body)
+			Expect(resp.StatusCode).To(BeNumerically(">=", 200), "Upload failed with status %d: %s", resp.StatusCode, string(body))
+			Expect(resp.StatusCode).To(BeNumerically("<", 300), "Upload should succeed, got status %d: %s", resp.StatusCode, string(body))
 		})
 
 		By("Waiting for the uploaded disk to be ready", func() {
