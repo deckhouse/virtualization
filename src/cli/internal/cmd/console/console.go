@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -74,8 +75,9 @@ func usage() string {
 var spinnerChars = []rune{'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
 
 const (
-	clearLine   = "\r\x1b[K"     // Clear from cursor to end of line
-	clearLineNL = "\r\x1b[K\r\n" // Clear line and move to next
+	clearLine         = "\r\x1b[K"      // Clear from cursor to end of line
+	clearLineNL       = "\r\x1b[K\r\n"  // Clear line and move to next
+	reconnectInterval = 2 * time.Second // Interval between reconnection attempts
 )
 
 func (c *Console) Run(cmd *cobra.Command, args []string) error {
@@ -150,18 +152,15 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 				return nil // Normal exit (escape sequence)
 			}
 
-			if strings.Contains(err.Error(), "not found") {
+			var asyncErr *kubeclient.AsyncSubresourceError
+			if errors.As(err, &asyncErr) && asyncErr.GetStatusCode() == http.StatusNotFound {
 				if showedWaitMessage {
 					fmt.Fprint(os.Stderr, clearLineNL)
 				}
 				return err
 			}
 
-			// Check if we should show waiting message and retry
-			errMsg := err.Error()
-			shouldWait := strings.Contains(errMsg, "not Running") ||
-				strings.Contains(errMsg, "bad handshake") ||
-				strings.Contains(errMsg, "Internal error")
+			// Check for CloseGoingAway (normal VM shutdown)
 			var wsErr *websocket.CloseError
 			if errors.As(err, &wsErr) {
 				if wsErr.Code == websocket.CloseGoingAway {
@@ -171,12 +170,11 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 					fmt.Fprint(os.Stderr, util.CloseGoingAwayMessage)
 					return nil
 				}
-				shouldWait = shouldWait || wsErr.Code == websocket.CloseAbnormalClosure
 				// Connection was established, reset waiting flag
 				waitingForConnection = false
 			}
 
-			if shouldWait {
+			if ShouldWaitErr(err) {
 				// Start timeout timer when we start waiting for connection
 				if !waitingForConnection {
 					startTime = time.Now()
@@ -205,7 +203,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 				fmt.Fprint(os.Stderr, clearLine+msg)
 				spinnerIdx = (spinnerIdx + 1) % len(spinnerChars)
 				showedWaitMessage = true
-				time.Sleep(200 * time.Millisecond)
+				time.Sleep(reconnectInterval)
 				continue
 			}
 
@@ -216,7 +214,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 			fmt.Fprintf(os.Stderr, "%s\r\n", err)
 			showedWaitMessage = false
 			waitingForConnection = false
-			time.Sleep(time.Second)
+			time.Sleep(reconnectInterval)
 		}
 	}
 }
@@ -317,4 +315,23 @@ func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Cli
 	<-writeDone
 
 	return result
+}
+
+// ShouldWaitErr returns true if the error indicates a temporary condition
+// where we should wait and retry the connection.
+func ShouldWaitErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	errMsg := err.Error()
+	if strings.Contains(errMsg, "not Running") ||
+		strings.Contains(errMsg, "bad handshake") ||
+		strings.Contains(errMsg, "Internal error") {
+		return true
+	}
+	var wsErr *websocket.CloseError
+	if errors.As(err, &wsErr) && wsErr.Code == websocket.CloseAbnormalClosure {
+		return true
+	}
+	return false
 }
