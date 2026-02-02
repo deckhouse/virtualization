@@ -117,6 +117,7 @@ var _ = Describe("USBDeviceHandler", func() {
 				},
 				Status: v1alpha2.USBDeviceStatus{
 					Attributes: v1alpha2.NodeUSBDeviceAttributes{
+						Name:      "usb-device-1",
 						VendorID:  "1234",
 						ProductID: "5678",
 					},
@@ -179,6 +180,7 @@ var _ = Describe("USBDeviceHandler", func() {
 				},
 				Status: v1alpha2.USBDeviceStatus{
 					Attributes: v1alpha2.NodeUSBDeviceAttributes{
+						Name:      "usb-device-1",
 						VendorID:  "1234",
 						ProductID: "5678",
 					},
@@ -417,6 +419,7 @@ var _ = Describe("USBDeviceHandler", func() {
 				},
 				Status: v1alpha2.USBDeviceStatus{
 					Attributes: v1alpha2.NodeUSBDeviceAttributes{
+						Name:      "usb-device-1",
 						VendorID:  "1234",
 						ProductID: "5678",
 					},

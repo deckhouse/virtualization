@@ -90,7 +90,13 @@ func (h *USBDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	for _, usbDeviceRef := range vm.Spec.USBDevices {
 		usbDevice, exists := usbDevicesByName[usbDeviceRef.Name]
 		if !exists {
-			// USB device not found, but we still track it in status
+			// USB device not found (e.g. absent on node), unplug if still attached
+			if existingStatus := currentStatusMap[usbDeviceRef.Name]; existingStatus != nil && existingStatus.Attached {
+				err := h.detachUSBDevice(ctx, vm, usbDeviceRef.Name)
+				if err != nil && !apierrors.IsNotFound(err) {
+					log.Error("failed to detach USB device (device not found)", "error", err, "usbDevice", usbDeviceRef.Name)
+				}
+			}
 			statusRef := v1alpha2.USBDeviceStatusRef{
 				Name:     usbDeviceRef.Name,
 				Attached: false,
@@ -123,9 +129,18 @@ func (h *USBDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		// Check if device is ready
 		if !isReady {
 			log.Info("USB device not ready", "usbDevice", usbDeviceRef.Name)
-			// Keep existing status if available, but update ready and conditions
-			if existingStatus, ok := currentStatusMap[usbDeviceRef.Name]; ok {
+			existingStatus := currentStatusMap[usbDeviceRef.Name]
+			// If device was attached but is now absent (e.g. physically unplugged), perform unplug
+			if existingStatus != nil && existingStatus.Attached {
+				err := h.detachUSBDevice(ctx, vm, usbDeviceRef.Name)
+				if err != nil && !apierrors.IsNotFound(err) {
+					log.Error("failed to detach USB device (absent on device)", "error", err, "usbDevice", usbDeviceRef.Name)
+				}
+			}
+			// Keep existing status if available, but update ready, attached and conditions
+			if existingStatus != nil {
 				existingStatus.Ready = isReady
+				existingStatus.Attached = false
 				existingStatus.Conditions = deviceConditions
 				statusRefs = append(statusRefs, *existingStatus)
 			} else {
