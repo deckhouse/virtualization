@@ -219,21 +219,21 @@ func (h *USBDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	}
 
 	for _, existingStatus := range currentStatusMap {
-		if !specDeviceNames[existingStatus.Name] && existingStatus.Attached {
-			// Device was removed from spec but is still attached, need to detach and delete ResourceClaimTemplate
+		if !specDeviceNames[existingStatus.Name] {
+			// Device was removed from spec - always try unplug (status may not have Attached yet or may be stale)
 			err := h.detachUSBDevice(ctx, vm, existingStatus.Name)
 			if err != nil && !apierrors.IsNotFound(err) {
 				log.Error("failed to detach USB device", "error", err, "usbDevice", existingStatus.Name)
-				// Keep status but mark as not attached
+				// Keep in status with Attached: false so we retry unplug on next reconciliation
 				existingStatus.Attached = false
 				statusRefs = append(statusRefs, *existingStatus)
 			} else {
-				// Detach succeeded, clean up ResourceClaimTemplate
+				// Detach succeeded or already not attached, clean up ResourceClaimTemplate
 				if delErr := h.deleteResourceClaimTemplate(ctx, vm, existingStatus.Name); delErr != nil && !apierrors.IsNotFound(delErr) {
 					log.Error("failed to delete ResourceClaimTemplate after unplug", "error", delErr, "usbDevice", existingStatus.Name)
 				}
 			}
-			// If detach succeeded or NotFound, device is removed from status (not added to statusRefs)
+			// On success device is removed from status (not added to statusRefs)
 		}
 	}
 
