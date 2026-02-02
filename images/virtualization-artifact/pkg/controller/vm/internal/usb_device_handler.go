@@ -304,7 +304,7 @@ func (h *USBDeviceHandler) getOrCreateResourceClaimTemplate(
 							Selectors: []resourcev1beta1.DeviceSelector{
 								{
 									CEL: &resourcev1beta1.CELDeviceSelector{
-										Expression: fmt.Sprintf(`device.attributes["resource.kubernetes.io"].name == "%s"`, attributes.Name),
+										Expression: fmt.Sprintf(`device.attributes["virtualization-dra"].name == "%s"`, attributes.Name),
 									},
 								},
 							},
