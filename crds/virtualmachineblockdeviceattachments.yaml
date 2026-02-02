@@ -38,7 +38,7 @@ spec:
           type: string
         - description: Name of the virtual machine the disk is attached to.
           jsonPath: .status.virtualMachineName
-          name: VIRTUAL MACHINE NAME
+          name: VIRTUALMACHINE
           type: string
         - description: Time of resource creation.
           jsonPath: .metadata.creationTimestamp
