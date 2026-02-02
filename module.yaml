@@ -4,8 +4,8 @@ subsystems:
   - virtualization
 namespace: d8-virtualization
 descriptions:
-  en: Allows you to run and manage virtual machines within the Deckhouse Kubernetes Platform.
-  ru: Позволяет запускать и управлять виртуальными машинами в рамках Deckhouse Kubernetes Platform.
+  en: Launches and manages virtual machines on the Deckhouse platform.
+  ru: Запускает и управляет виртуальными машинами в платформе Deckhouse.
 tags: ["virtualization"]
 requirements:
   deckhouse: ">= 1.74.2"
