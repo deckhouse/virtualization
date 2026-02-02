@@ -22,7 +22,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -37,6 +36,7 @@ import (
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/test/e2e/internal/d8"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
@@ -147,11 +147,11 @@ var _ = Describe("DataExports", label.Slow(), func() {
 		})
 
 		By("Exporting VirtualDisk to local file", func() {
-			exportData(f.Namespace().Name, "vd", vdData.Name, exportedDiskFile)
+			exportData(f, "vd", vdData.Name, exportedDiskFile)
 		})
 
 		By("Exporting VirtualDiskSnapshot to local file", func() {
-			exportData(f.Namespace().Name, "vds", vdSnapshot.Name, exportedSnapshotFile)
+			exportData(f, "vds", vdSnapshot.Name, exportedSnapshotFile)
 		})
 
 		By("Deleting the original data disk", func() {
@@ -227,14 +227,12 @@ var _ = Describe("DataExports", label.Slow(), func() {
 	})
 })
 
-func exportData(namespace, resourceType, name, outputFile string) {
-	cmd := exec.Command("d8", "data", "export", "download",
-		fmt.Sprintf("%s/%s", resourceType, name),
-		"-n", namespace,
-		"-o", outputFile,
-	)
-	output, err := cmd.CombinedOutput()
-	Expect(err).NotTo(HaveOccurred(), "d8 data export download failed: %s", string(output))
+func exportData(f *framework.Framework, resourceType, name, outputFile string) {
+	result := f.D8Virtualization().DataExportDownload(resourceType, name, d8.DataExportOptions{
+		Namespace:  f.Namespace().Name,
+		OutputFile: outputFile,
+	})
+	Expect(result.WasSuccess()).To(BeTrue(), "d8 data export download failed: %s", result.StdErr())
 
 	DeferCleanup(func() {
 		_ = os.Remove(outputFile)
