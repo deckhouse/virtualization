@@ -231,6 +231,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *v1alpha2.Virtua
 		overrideValidators = append(overrideValidators, restorer.NewProvisionerOverrideValidator(provisioner, h.client, string(vmRestore.UID)))
 	}
 
+	overridedVMName, err = h.getOverrridedVMName(overrideValidators)
+	if err != nil {
+		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+		return reconcile.Result{}, err
+	}
+
 	var toCreate []client.Object
 
 	if vmRestore.Spec.RestoreMode == v1alpha2.RestoreModeForced {
