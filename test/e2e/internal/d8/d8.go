@@ -170,7 +170,7 @@ func (v D8VirtualizationCMD) DataExportDownload(resourceType, name string, opts 
 		timeout = opts.Timeout
 	}
 
-	cmd := fmt.Sprintf("%s data export download %s/%s", v.cmd, resourceType, name)
+	cmd := fmt.Sprintf("d8 data export download %s/%s", resourceType, name)
 	cmd = v.addNamespace(cmd, opts.Namespace)
 
 	if opts.OutputFile != "" {
