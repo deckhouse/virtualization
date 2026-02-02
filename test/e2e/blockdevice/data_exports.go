@@ -192,9 +192,9 @@ var _ = Describe("DataExports", label.Slow(), func() {
 			err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vdUploaded), vdUploaded)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vdUploaded.Status.ImageUploadURLs).NotTo(BeNil(), "ImageUploadURLs should be set")
-			Expect(vdUploaded.Status.ImageUploadURLs.External).NotTo(BeEmpty(), "External upload URL should be set")
+			Expect(vdUploaded.Status.ImageUploadURLs.InCluster).NotTo(BeEmpty(), "InCluster upload URL should be set")
 
-			uploadURL := vdUploaded.Status.ImageUploadURLs.External
+			uploadURL := vdUploaded.Status.ImageUploadURLs.InCluster
 
 			file, err := os.Open("disk.img")
 			Expect(err).NotTo(HaveOccurred(), "Failed to open disk.img")
@@ -209,6 +209,7 @@ var _ = Describe("DataExports", label.Slow(), func() {
 			req, err := http.NewRequest(http.MethodPut, uploadURL, file)
 			Expect(err).NotTo(HaveOccurred(), "Failed to create HTTP request")
 			req.ContentLength = stat.Size()
+			req.Header.Set("Content-Type", "application/octet-stream")
 
 			client := &http.Client{}
 
