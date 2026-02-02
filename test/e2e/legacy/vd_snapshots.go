@@ -58,7 +58,8 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, func() {
 
 		CreateNamespace(ns)
 
-		if !config.SkipImmediateStorageClassCheck() || conf.StorageClass.ImmediateStorageClass != nil {
+		if !config.SkipImmediateStorageClassCheck() {
+			Expect(conf.StorageClass.ImmediateStorageClass).NotTo(BeNil(), "immediate storage class cannot be nil; please set up the immediate storage class in the cluster")
 
 			virtualDiskWithoutConsumer := v1alpha2.VirtualDisk{}
 			vdWithoutConsumerFilePath := fmt.Sprintf("%s/vd/vd-ubuntu-http.yaml", conf.TestData.VdSnapshots)
@@ -106,7 +107,7 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, func() {
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			}
-			if config.SkipImmediateStorageClassCheck() || conf.StorageClass.ImmediateStorageClass == nil {
+			if config.SkipImmediateStorageClassCheck() {
 				waitOpts.ExcludedLabels = []string{"hasNoConsumer"}
 			}
 			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, waitOpts)
@@ -137,7 +138,7 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, func() {
 
 	Context(fmt.Sprintf("When unattached VDs in phase %s:", PhaseReady), func() {
 		BeforeEach(func() {
-			if config.SkipImmediateStorageClassCheck() || conf.StorageClass.ImmediateStorageClass == nil {
+			if config.SkipImmediateStorageClassCheck() {
 				Skip("Set immediate storage class for run this test case")
 			}
 		})
