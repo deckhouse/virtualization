@@ -34,6 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
@@ -106,7 +107,7 @@ var _ = Describe("LifecycleHandler", func() {
 		vm := newVM(vmPolicy)
 
 		fakeClient, srv = setupEnvironment(vmop, vm)
-		migrationService := service.NewMigrationService(fakeClient)
+		migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 		base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
 
 		h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
@@ -184,7 +185,7 @@ var _ = Describe("LifecycleHandler", func() {
 		),
 	)
 
-	DescribeTable("TargetMigration", func(vmPolicy v1alpha2.LiveMigrationPolicy, nodeSelector map[string]string) {
+	DescribeTable("TargetMigration", func(vmPolicy v1alpha2.LiveMigrationPolicy, nodeSelector map[string]string, targetMigrationEnabled bool) {
 		vm := newVM(vmPolicy)
 		vm.Status.Conditions = []metav1.Condition{
 			{
@@ -197,7 +198,14 @@ var _ = Describe("LifecycleHandler", func() {
 		fakeClient, err := testutil.NewFakeClientWithObjects(vmop, vm)
 		Expect(err).NotTo(HaveOccurred())
 
-		migrationService := service.NewMigrationService(fakeClient)
+		featureGate, _, setFromMap, _ := featuregates.NewUnlocked()
+		if targetMigrationEnabled {
+			_ = setFromMap(map[string]bool{
+				string(featuregates.TargetMigration): true,
+			})
+		}
+
+		migrationService := service.NewMigrationService(fakeClient, featureGate)
 		base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
 
 		h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
@@ -214,9 +222,9 @@ var _ = Describe("LifecycleHandler", func() {
 	},
 		Entry(
 			"VMIM must have an AddedNodeSelector which is equal to the NodeSelector from VMOP.",
-			v1alpha2.PreferSafeMigrationPolicy,
-			map[string]string{"key": "value"},
-			Label("EE"),
+			v1alpha2.PreferSafeMigrationPolicy, // vmPolicy
+			map[string]string{"key": "value"},  // nodeSelector
+			true,                               // targetMigrationEnabled
 		),
 	)
 })

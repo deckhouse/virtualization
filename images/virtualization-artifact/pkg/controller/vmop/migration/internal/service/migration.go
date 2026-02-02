@@ -23,6 +23,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/component-base/featuregate"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -33,12 +34,14 @@ import (
 )
 
 type MigrationService struct {
-	client client.Client
+	client      client.Client
+	featureGate featuregate.FeatureGate
 }
 
-func NewMigrationService(client client.Client) *MigrationService {
+func NewMigrationService(client client.Client, featureGate featuregate.FeatureGate) *MigrationService {
 	return &MigrationService{
-		client: client,
+		client:      client,
+		featureGate: featureGate,
 	}
 }
 
@@ -77,7 +80,7 @@ func (s MigrationService) CreateMigration(ctx context.Context, vmop *v1alpha2.Vi
 		},
 	}
 
-	if !featuregates.Default().Enabled(featuregates.TargetMigration) {
+	if !s.featureGate.Enabled(featuregates.TargetMigration) {
 		if vmop.Spec.Migrate != nil && vmop.Spec.Migrate.NodeSelector != nil {
 			return errors.New("the `nodeSelector` field is not available in the Community Edition version")
 		}
