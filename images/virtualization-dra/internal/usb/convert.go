@@ -57,14 +57,8 @@ func convertToAPIDevice(usbDevice Device, nodeName string) *resourceapi.Device {
 			common.AttrBus: {
 				StringValue: ptr.To(usbDevice.Bus.String()),
 			},
-			common.AttrUsbAddressBus: {
-				IntValue: ptr.To(int64(usbDevice.Bus)),
-			},
 			common.AttrDeviceNumber: {
 				StringValue: ptr.To(usbDevice.DeviceNumber.String()),
-			},
-			common.AttrUsbAddressDeviceNumber: {
-				IntValue: ptr.To(int64(usbDevice.DeviceNumber)),
 			},
 			common.AttrMajor: {
 				IntValue: ptr.To(int64(usbDevice.Major)),
@@ -77,6 +71,12 @@ func convertToAPIDevice(usbDevice Device, nodeName string) *resourceapi.Device {
 			},
 			common.AttrDevicePath: {
 				StringValue: ptr.To(usbDevice.DevicePath),
+			},
+			common.StandardDeviceAttrUsbAddressBus: {
+				IntValue: ptr.To(int64(usbDevice.Bus)),
+			},
+			common.StandardDeviceAttrUsbAddressDeviceNumber: {
+				IntValue: ptr.To(int64(usbDevice.DeviceNumber)),
 			},
 		},
 	}

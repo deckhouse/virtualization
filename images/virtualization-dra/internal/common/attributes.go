@@ -1,20 +1,24 @@
 package common
 
+import "k8s.io/dynamic-resource-allocation/deviceattribute"
+
 const (
-	AttrName                   = "resource.kubernetes.io/name"
-	AttrPath                   = "resource.kubernetes.io/path"
-	AttrBusID                  = "resource.kubernetes.io/busID"
-	AttrManufacturer           = "resource.kubernetes.io/manufacturer"
-	AttrProduct                = "resource.kubernetes.io/product"
-	AttrVendorId               = "resource.kubernetes.io/vendorID"
-	AttrProductId              = "resource.kubernetes.io/productID"
-	AttrBCD                    = "resource.kubernetes.io/bcd"
-	AttrBus                    = "resource.kubernetes.io/bus"
-	AttrUsbAddressBus          = "resource.kubernetes.io/usbAddressBus"
-	AttrDeviceNumber           = "resource.kubernetes.io/deviceNumber"
-	AttrUsbAddressDeviceNumber = "resource.kubernetes.io/usbAddressDeviceNumber"
-	AttrMajor                  = "resource.kubernetes.io/major"
-	AttrMinor                  = "resource.kubernetes.io/minor"
-	AttrSerial                 = "resource.kubernetes.io/serial"
-	AttrDevicePath             = "resource.kubernetes.io/devicePath"
+	AttrName         = "name"
+	AttrPath         = "path"
+	AttrBusID        = "busID"
+	AttrManufacturer = "manufacturer"
+	AttrProduct      = "product"
+	AttrVendorId     = "vendorID"
+	AttrProductId    = "productID"
+	AttrBCD          = "bcd"
+	AttrBus          = "bus"
+	AttrDeviceNumber = "deviceNumber"
+	AttrMajor        = "major"
+	AttrMinor        = "minor"
+	AttrSerial       = "serial"
+	AttrDevicePath   = "devicePath"
+
+	// https://github.com/kubernetes/kubernetes/tree/4c5746c0bc529439f78af458f8131b5def4dbe5d/staging/src/k8s.io/dynamic-resource-allocation/deviceattribute
+	StandardDeviceAttrUsbAddressBus          = deviceattribute.StandardDeviceAttributePrefix + "usbAddressBus"
+	StandardDeviceAttrUsbAddressDeviceNumber = deviceattribute.StandardDeviceAttributePrefix + "usbAddressDeviceNumber"
 )
