@@ -90,11 +90,16 @@ func (h *USBDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	for _, usbDeviceRef := range vm.Spec.USBDevices {
 		usbDevice, exists := usbDevicesByName[usbDeviceRef.Name]
 		if !exists {
-			// USB device not found (e.g. absent on node), unplug if still attached
+			// USB device not found (e.g. absent on node), unplug if still attached and delete ResourceClaimTemplate
 			if existingStatus := currentStatusMap[usbDeviceRef.Name]; existingStatus != nil && existingStatus.Attached {
 				err := h.detachUSBDevice(ctx, vm, usbDeviceRef.Name)
 				if err != nil && !apierrors.IsNotFound(err) {
 					log.Error("failed to detach USB device (device not found)", "error", err, "usbDevice", usbDeviceRef.Name)
+				} else {
+					// Device unplugged, clean up ResourceClaimTemplate created for it
+					if delErr := h.deleteResourceClaimTemplate(ctx, vm, usbDeviceRef.Name); delErr != nil && !apierrors.IsNotFound(delErr) {
+						log.Error("failed to delete ResourceClaimTemplate after unplug", "error", delErr, "usbDevice", usbDeviceRef.Name)
+					}
 				}
 			}
 			statusRef := v1alpha2.USBDeviceStatusRef{
@@ -130,11 +135,15 @@ func (h *USBDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		if !isReady {
 			log.Info("USB device not ready", "usbDevice", usbDeviceRef.Name)
 			existingStatus := currentStatusMap[usbDeviceRef.Name]
-			// If device was attached but is now absent (e.g. physically unplugged), perform unplug
+			// If device was attached but is now absent (e.g. physically unplugged), perform unplug and delete ResourceClaimTemplate
 			if existingStatus != nil && existingStatus.Attached {
 				err := h.detachUSBDevice(ctx, vm, usbDeviceRef.Name)
 				if err != nil && !apierrors.IsNotFound(err) {
 					log.Error("failed to detach USB device (absent on device)", "error", err, "usbDevice", usbDeviceRef.Name)
+				} else {
+					if delErr := h.deleteResourceClaimTemplate(ctx, vm, usbDeviceRef.Name); delErr != nil && !apierrors.IsNotFound(delErr) {
+						log.Error("failed to delete ResourceClaimTemplate after unplug", "error", delErr, "usbDevice", usbDeviceRef.Name)
+					}
 				}
 			}
 			// Keep existing status if available, but update ready, attached and conditions
@@ -211,13 +220,18 @@ func (h *USBDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 
 	for _, existingStatus := range currentStatusMap {
 		if !specDeviceNames[existingStatus.Name] && existingStatus.Attached {
-			// Device was removed from spec but is still attached, need to detach
+			// Device was removed from spec but is still attached, need to detach and delete ResourceClaimTemplate
 			err := h.detachUSBDevice(ctx, vm, existingStatus.Name)
 			if err != nil && !apierrors.IsNotFound(err) {
 				log.Error("failed to detach USB device", "error", err, "usbDevice", existingStatus.Name)
 				// Keep status but mark as not attached
 				existingStatus.Attached = false
 				statusRefs = append(statusRefs, *existingStatus)
+			} else {
+				// Detach succeeded, clean up ResourceClaimTemplate
+				if delErr := h.deleteResourceClaimTemplate(ctx, vm, existingStatus.Name); delErr != nil && !apierrors.IsNotFound(delErr) {
+					log.Error("failed to delete ResourceClaimTemplate after unplug", "error", delErr, "usbDevice", existingStatus.Name)
+				}
 			}
 			// If detach succeeded or NotFound, device is removed from status (not added to statusRefs)
 		}
@@ -306,6 +320,23 @@ func (h *USBDeviceHandler) getOrCreateResourceClaimTemplate(
 	}
 
 	return template, nil
+}
+
+func (h *USBDeviceHandler) deleteResourceClaimTemplate(
+	ctx context.Context,
+	vm *v1alpha2.VirtualMachine,
+	usbDeviceName string,
+) error {
+	templateName := h.getResourceClaimTemplateName(vm, usbDeviceName)
+	template := &resourcev1beta1.ResourceClaimTemplate{}
+	key := types.NamespacedName{
+		Name:      templateName,
+		Namespace: vm.Namespace,
+	}
+	if err := h.client.Get(ctx, key, template); err != nil {
+		return err
+	}
+	return h.client.Delete(ctx, template)
 }
 
 func (h *USBDeviceHandler) isUSBDeviceReady(usbDevice *v1alpha2.USBDevice) bool {

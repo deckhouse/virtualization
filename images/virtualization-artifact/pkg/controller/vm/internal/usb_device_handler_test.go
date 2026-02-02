@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	resourcev1beta1 "k8s.io/api/resource/v1beta1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -329,7 +330,7 @@ var _ = Describe("USBDeviceHandler", func() {
 			Expect(vmResource.Changed().Status.USBDevices[0].Attached).To(BeFalse())
 		})
 
-		It("should detach USB device when removed from spec", func() {
+		It("should detach USB device and delete ResourceClaimTemplate when removed from spec", func() {
 			vm := &v1alpha2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vm",
@@ -354,10 +355,28 @@ var _ = Describe("USBDeviceHandler", func() {
 				},
 			}
 
+			// ResourceClaimTemplate that was created when device was attached - should be deleted on unplug
+			resourceClaimTemplate := &resourcev1beta1.ResourceClaimTemplate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vm-usb-usb-device-1-template",
+					Namespace: "default",
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: v1alpha2.SchemeGroupVersion.String(),
+							Kind:       v1alpha2.VirtualMachineKind,
+							Name:       vm.Name,
+							UID:        vm.UID,
+							Controller: ptr.To(true),
+						},
+					},
+				},
+			}
+
 			scheme := apiruntime.NewScheme()
 			Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
+			Expect(resourcev1beta1.AddToScheme(scheme)).To(Succeed())
 
-			fakeClient = fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm).Build()
+			fakeClient = fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, resourceClaimTemplate).Build()
 
 			vmResource = reconciler.NewResource(
 				types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace},
@@ -381,6 +400,11 @@ var _ = Describe("USBDeviceHandler", func() {
 
 			// Verify device was removed from status
 			Expect(vmResource.Changed().Status.USBDevices).To(BeEmpty())
+
+			// Verify ResourceClaimTemplate was deleted after unplug
+			template := &resourcev1beta1.ResourceClaimTemplate{}
+			err = fakeClient.Get(ctx, types.NamespacedName{Name: "test-vm-usb-usb-device-1-template", Namespace: "default"}, template)
+			Expect(apierrors.IsNotFound(err)).To(BeTrue())
 		})
 
 		It("should keep existing address when device already attached", func() {
