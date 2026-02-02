@@ -13,5 +13,5 @@ spec:
           selectors:
             - cel:
                 expression: |-
-                  device.attributes["resource.kubernetes.io"].productID == "0104" &&
-                  device.attributes["resource.kubernetes.io"].vendorID == "0951"
+                  device.attributes["virtualization-dra"].productID == "0104" &&
+                  device.attributes["virtualization-dra"].vendorID == "0951"
