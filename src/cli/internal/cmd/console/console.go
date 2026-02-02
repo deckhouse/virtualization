@@ -114,9 +114,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 		for {
 			n, err := in.Read(buf)
 			if err != nil {
-				if err != io.EOF || n == 0 {
-					return
-				}
+				return
 			}
 
 			if n > 0 {
