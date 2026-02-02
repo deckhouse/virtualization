@@ -61,14 +61,7 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, func() {
 		if !config.SkipImmediateStorageClassCheck() {
 			Expect(conf.StorageClass.ImmediateStorageClass).NotTo(BeNil(), "immediate storage class cannot be nil; please set up the immediate storage class in the cluster")
 
-			virtualDiskWithoutConsumer := v1alpha2.VirtualDisk{}
-			vdWithoutConsumerFilePath := fmt.Sprintf("%s/vd/vd-ubuntu-http.yaml", conf.TestData.VdSnapshots)
-			err = util.UnmarshalResource(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
-			Expect(err).NotTo(HaveOccurred(), "cannot get object from file: %s\nstderr: %s", vdWithoutConsumerFilePath, err)
-
-			virtualDiskWithoutConsumer.Spec.PersistentVolumeClaim.StorageClass = &conf.StorageClass.ImmediateStorageClass.Name
-			err = util.WriteYamlObject(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
-			Expect(err).NotTo(HaveOccurred(), "cannot update virtual disk with custom storage class: %s\nstderr: %s", vdWithoutConsumerFilePath, err)
+			setDiskImmediateStorageClass()
 		}
 	})
 
@@ -440,4 +433,15 @@ func CheckFileSystemFrozen(vmName, vmNamespace string) (bool, error) {
 	}
 
 	return false, nil
+}
+
+func setDiskImmediateStorageClass() {
+	virtualDiskWithoutConsumer := v1alpha2.VirtualDisk{}
+	vdWithoutConsumerFilePath := fmt.Sprintf("%s/vd/vd-ubuntu-http.yaml", conf.TestData.VdSnapshots)
+	err := util.UnmarshalResource(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
+	Expect(err).NotTo(HaveOccurred(), "cannot get object from file: %s\nstderr: %s", vdWithoutConsumerFilePath, err)
+
+	virtualDiskWithoutConsumer.Spec.PersistentVolumeClaim.StorageClass = &conf.StorageClass.ImmediateStorageClass.Name
+	err = util.WriteYamlObject(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
+	Expect(err).NotTo(HaveOccurred(), "cannot update virtual disk with custom storage class: %s\nstderr: %s", vdWithoutConsumerFilePath, err)
 }
