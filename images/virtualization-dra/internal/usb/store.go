@@ -35,12 +35,13 @@ import (
 
 	vdraapi "github.com/deckhouse/virtualization-dra/api/usbgateway/v1alpha1"
 	"github.com/deckhouse/virtualization-dra/internal/cdi"
+	"github.com/deckhouse/virtualization-dra/internal/common"
 	"github.com/deckhouse/virtualization-dra/internal/featuregates"
 	"github.com/deckhouse/virtualization-dra/pkg/libusb"
 	"github.com/deckhouse/virtualization-dra/pkg/usbip"
 )
 
-func NewAllocationStore(nodeName string, cdiManager cdi.Manager, monitor libusb.Monitor, log *slog.Logger) (*AllocationStore, error) {
+func NewAllocationStore(ctx context.Context, nodeName string, cdiManager cdi.Manager, monitor libusb.Monitor, log *slog.Logger) (*AllocationStore, error) {
 	store := &AllocationStore{
 		nodeName:                  nodeName,
 		monitor:                   monitor,
@@ -54,9 +55,7 @@ func NewAllocationStore(nodeName string, cdiManager cdi.Manager, monitor libusb.
 		usbipInfoGetter:           usbip.NewUSBAttacher(),
 	}
 
-	monitor.AddNotifier(libusb.FuncNotifier(store.callback))
-
-	store.callback()
+	store.subscribeToDeviceChanges(ctx)
 
 	if err := store.cdi.CreateCommonSpecFile(); err != nil {
 		return nil, fmt.Errorf("failed to create CDI common spec file: %w", err)
@@ -118,6 +117,24 @@ func (s *AllocationStore) sync() error {
 	s.updateChannel <- s.makeResources(allocatableDevices)
 
 	return nil
+}
+
+func (s *AllocationStore) subscribeToDeviceChanges(ctx context.Context) {
+	go func() {
+		s.callback()
+		changes := s.monitor.DeviceChanges()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case _, ok := <-changes:
+				if !ok {
+					return
+				}
+				s.callback()
+			}
+		}
+	}()
 }
 
 func (s *AllocationStore) callback() {
@@ -260,7 +277,7 @@ func newContainerEditsOptions(device *resourceapi.Device) (containerEditsOptions
 		Name: device.Name,
 	}
 
-	if attr, ok := device.Attributes["devicePath"]; ok {
+	if attr, ok := device.Attributes[common.AttrDevicePath]; ok {
 		if val := attr.StringValue; val != nil {
 			opts.DevicePath = *val
 		} else {
@@ -268,7 +285,7 @@ func newContainerEditsOptions(device *resourceapi.Device) (containerEditsOptions
 		}
 	}
 
-	if attr, ok := device.Attributes["deviceNumber"]; ok {
+	if attr, ok := device.Attributes[common.AttrDeviceNumber]; ok {
 		if val := attr.StringValue; val != nil {
 			opts.DeviceNum = *val
 		} else {
@@ -276,7 +293,7 @@ func newContainerEditsOptions(device *resourceapi.Device) (containerEditsOptions
 		}
 	}
 
-	if attr, ok := device.Attributes["bus"]; ok {
+	if attr, ok := device.Attributes[common.AttrBus]; ok {
 		if val := attr.StringValue; val != nil {
 			opts.Bus = *val
 		} else {
@@ -284,7 +301,7 @@ func newContainerEditsOptions(device *resourceapi.Device) (containerEditsOptions
 		}
 	}
 
-	if attr, ok := device.Attributes["major"]; ok {
+	if attr, ok := device.Attributes[common.AttrMajor]; ok {
 		if val := attr.IntValue; val != nil {
 			opts.Major = *val
 		} else {
@@ -292,7 +309,7 @@ func newContainerEditsOptions(device *resourceapi.Device) (containerEditsOptions
 		}
 	}
 
-	if attr, ok := device.Attributes["minor"]; ok {
+	if attr, ok := device.Attributes[common.AttrMinor]; ok {
 		if val := attr.IntValue; val != nil {
 			opts.Minor = *val
 		} else {

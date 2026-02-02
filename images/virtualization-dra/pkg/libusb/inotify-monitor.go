@@ -331,12 +331,7 @@ func (m *InotifyMonitor) GetDeviceByBusID(busID string) (*USBDevice, bool) {
 	return m.store.GetDeviceByBusID(busID)
 }
 
-// AddNotifier adds a notifier to be called on device changes
-func (m *InotifyMonitor) AddNotifier(notifier Notifier) {
-	m.store.AddNotifier(notifier)
-}
-
-// RemoveNotifier removes a notifier
-func (m *InotifyMonitor) RemoveNotifier(notifier Notifier) {
-	m.store.RemoveNotifier(notifier)
+// DeviceChanges returns a channel that is sent on when the device list changes.
+func (m *InotifyMonitor) DeviceChanges() <-chan struct{} {
+	return m.store.Changes()
 }

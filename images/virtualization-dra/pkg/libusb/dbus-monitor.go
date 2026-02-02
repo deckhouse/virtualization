@@ -225,7 +225,7 @@ func (m *DBusMonitor) handleInterfacesRemoved(signal *dbus.Signal) {
 	}
 }
 
-// scheduleResync schedules a resync with debouncing to avoid multiple
+// scheduleResync schedules a resyncing with debouncing to avoid multiple
 // rapid resyncs when multiple events arrive in quick succession.
 func (m *DBusMonitor) scheduleResync() {
 	m.debounceMu.Lock()
@@ -296,12 +296,7 @@ func (m *DBusMonitor) GetDeviceByBusID(busID string) (*USBDevice, bool) {
 	return m.store.GetDeviceByBusID(busID)
 }
 
-// AddNotifier adds a notifier to be called on device changes
-func (m *DBusMonitor) AddNotifier(notifier Notifier) {
-	m.store.AddNotifier(notifier)
-}
-
-// RemoveNotifier removes a notifier
-func (m *DBusMonitor) RemoveNotifier(notifier Notifier) {
-	m.store.RemoveNotifier(notifier)
+// DeviceChanges returns a channel that is sent on when the device list changes.
+func (m *DBusMonitor) DeviceChanges() <-chan struct{} {
+	return m.store.Changes()
 }

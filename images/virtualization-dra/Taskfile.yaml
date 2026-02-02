@@ -63,6 +63,11 @@ tasks:
     cmds:
       - go build -o bin/go-usbip cmd/go-usbip/main.go
 
+  build:usb-monitor:
+    desc: "Build usb-monitor binary"
+    cmds:
+      - go build -o bin/usb-monitor cmd/usb-monitor/main.go
+
   api:generate:
     desc: "Generate API code"
     cmds:

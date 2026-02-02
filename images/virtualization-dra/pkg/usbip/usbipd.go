@@ -233,7 +233,7 @@ func (u *USBIPD) handleImportRequest(conn net.Conn) error {
 
 	if bindDevice != nil {
 		// should set TCP_NODELAY for usbip
-		u.setNotDelay(conn)
+		u.setNoDelay(conn)
 
 		status = u.exportDevice(conn, bindDevice)
 		if status != protocol.OpStatusOk {
@@ -339,7 +339,7 @@ func (u *USBIPD) getUSBIPStatus(device *libusb.USBDevice) (protocol.DeviceStatus
 	return status, nil
 }
 
-func (u *USBIPD) setNotDelay(conn net.Conn) {
+func (u *USBIPD) setNoDelay(conn net.Conn) {
 	tcpConn, ok := conn.(*net.TCPConn)
 	if ok {
 		err := tcpConn.SetNoDelay(true)

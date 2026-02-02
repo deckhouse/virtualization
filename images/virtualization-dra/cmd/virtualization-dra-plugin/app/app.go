@@ -164,7 +164,7 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to create USB monitor: %w", err)
 	}
 
-	usbStore, err := usb.NewAllocationStore(o.NodeName, usbCDIManager, monitor, slog.Default())
+	usbStore, err := usb.NewAllocationStore(cmd.Context(), o.NodeName, usbCDIManager, monitor, slog.Default())
 	if err != nil {
 		return fmt.Errorf("failed to create USB store: %w", err)
 	}

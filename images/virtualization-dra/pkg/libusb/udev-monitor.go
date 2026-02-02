@@ -226,21 +226,28 @@ func (m *UdevMonitor) handleDeviceUpdate(path string) {
 		return
 	}
 
+	slog.Debug("Load usb device", slog.String("path", path))
+
 	device, err := LoadUSBDevice(path)
 	if err != nil {
 		m.log.Debug("failed to load device", slog.String("path", path), slog.String("error", err.Error()))
 		return
 	}
 
+	slog.Debug("Validate usb device", slog.String("path", path))
+
 	if err := device.Validate(); err != nil {
 		m.log.Debug("device validation failed", slog.String("path", path), slog.String("error", err.Error()))
 		return
 	}
 
+	slog.Debug("Add usb device", slog.String("path", path))
+
 	m.store.AddDevice(path, &device)
 }
 
 func (m *UdevMonitor) handleDeviceRemove(path string) {
+	slog.Debug("Remove usb device", slog.String("path", path))
 	m.store.RemoveDevice(path)
 }
 
@@ -269,14 +276,9 @@ func (m *UdevMonitor) GetDeviceByBusID(busID string) (*USBDevice, bool) {
 	return m.store.GetDeviceByBusID(busID)
 }
 
-// AddNotifier adds a notifier to be called on device changes
-func (m *UdevMonitor) AddNotifier(notifier Notifier) {
-	m.store.AddNotifier(notifier)
-}
-
-// RemoveNotifier removes a notifier
-func (m *UdevMonitor) RemoveNotifier(notifier Notifier) {
-	m.store.RemoveNotifier(notifier)
+// DeviceChanges returns a channel that is sent on when the device list changes.
+func (m *UdevMonitor) DeviceChanges() <-chan struct{} {
+	return m.store.Changes()
 }
 
 func newUSBDeviceMatcher() udev.Matcher {

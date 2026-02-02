@@ -30,35 +30,35 @@ import (
 const PathToUSBDevices = "/sys/bus/usb/devices"
 
 type USBDevice struct {
-	Path                string
-	BusID               string
-	Manufacturer        string
-	Product             string
-	Serial              string
-	DevicePath          string
-	Driver              string
-	IsHub               bool
-	VendorID            uint16
-	ProductID           uint16
-	BCD                 uint16
-	Bus                 uint32
-	DeviceNumber        uint32
-	Speed               uint32
-	Major               uint64
-	Minor               uint64
-	BDeviceClass        uint8
-	BDeviceSubClass     uint8
-	BDeviceProtocol     uint8
-	BConfigurationValue uint8
-	BNumConfigurations  uint8
-	BNumInterfaces      uint8
-	Interfaces          []USBDeviceInterface
+	Path                string               `json:"path"`
+	BusID               string               `json:"busID"`
+	Manufacturer        string               `json:"manufacturer"`
+	Product             string               `json:"product"`
+	Serial              string               `json:"serial"`
+	DevicePath          string               `json:"devicePath"`
+	Driver              string               `json:"driver"`
+	IsHub               bool                 `json:"isHub"`
+	VendorID            uint16               `json:"vendorID"`
+	ProductID           uint16               `json:"productID"`
+	BCD                 uint16               `json:"bcd"`
+	Bus                 uint32               `json:"bus"`
+	DeviceNumber        uint32               `json:"deviceNumber"`
+	Speed               uint32               `json:"speed"`
+	Major               uint64               `json:"major"`
+	Minor               uint64               `json:"minor"`
+	BDeviceClass        uint8                `json:"bDeviceClass"`
+	BDeviceSubClass     uint8                `json:"bDeviceSubClass"`
+	BDeviceProtocol     uint8                `json:"bDeviceProtocol"`
+	BConfigurationValue uint8                `json:"bConfigurationValue"`
+	BNumConfigurations  uint8                `json:"bNumConfigurations"`
+	BNumInterfaces      uint8                `json:"bNumInterfaces"`
+	Interfaces          []USBDeviceInterface `json:"interfaces"`
 }
 
 type USBDeviceInterface struct {
-	BInterfaceClass    uint8
-	BInterfaceSubClass uint8
-	BInterfaceProtocol uint8
+	BInterfaceClass    uint8 `json:"bInterfaceClass"`
+	BInterfaceSubClass uint8 `json:"bInterfaceSubClass"`
+	BInterfaceProtocol uint8 `json:"bInterfaceProtocol"`
 }
 
 func (d *USBDevice) Equal(other *USBDevice) bool {

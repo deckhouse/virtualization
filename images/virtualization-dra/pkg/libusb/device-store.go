@@ -27,7 +27,7 @@ import (
 type USBDeviceStore struct {
 	mu        sync.RWMutex
 	devices   map[string]*USBDevice
-	notifiers []Notifier
+	changesCh chan struct{}
 	log       *slog.Logger
 }
 
@@ -37,8 +37,25 @@ func NewUSBDeviceStore(devices map[string]*USBDevice, log *slog.Logger) *USBDevi
 		devices = make(map[string]*USBDevice)
 	}
 	return &USBDeviceStore{
-		devices: devices,
-		log:     log,
+		devices:   devices,
+		changesCh: make(chan struct{}, 1),
+		log:       log,
+	}
+}
+
+// Changes return a channel sent on when the device list changes.
+// The channel is closed when the store is closed.
+func (s *USBDeviceStore) Changes() <-chan struct{} {
+	return s.changesCh
+}
+
+// Close closes the store and releases resources. No further changes will be sent.
+func (s *USBDeviceStore) Close() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.changesCh != nil {
+		close(s.changesCh)
+		s.changesCh = nil
 	}
 }
 
@@ -52,7 +69,7 @@ func (s *USBDeviceStore) GetDevices() []USBDevice {
 	s.mu.RUnlock()
 
 	slices.SortFunc(devices, func(a, b USBDevice) int {
-		return strings.Compare(a.DevicePath, b.DevicePath)
+		return strings.Compare(a.Path, b.Path)
 	})
 
 	return devices
@@ -86,23 +103,16 @@ func (s *USBDeviceStore) GetDeviceByBusID(busID string) (*USBDevice, bool) {
 	return nil, false
 }
 
-// AddNotifier adds a notifier to be called on device changes.
-func (s *USBDeviceStore) AddNotifier(notifier Notifier) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.notifiers = append(s.notifiers, notifier)
-}
-
-// RemoveNotifier removes a notifier.
-func (s *USBDeviceStore) RemoveNotifier(notifier Notifier) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for i, n := range s.notifiers {
-		if n == notifier {
-			s.notifiers = slices.Delete(s.notifiers, i, i+1)
-			return
+func (s *USBDeviceStore) sendChange() {
+	s.mu.RLock()
+	ch := s.changesCh
+	s.mu.RUnlock()
+	if ch != nil {
+		s.log.Debug("Notifying USB device store")
+		select {
+		case ch <- struct{}{}:
+		default:
+			// consumer hasn't read yet, skip
 		}
 	}
 }
@@ -110,10 +120,9 @@ func (s *USBDeviceStore) RemoveNotifier(notifier Notifier) {
 // AddDevice adds or updates a device and notifies if changed.
 func (s *USBDeviceStore) AddDevice(path string, device *USBDevice) bool {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	oldDevice, exists := s.devices[path]
-	if !exists {
+	needNotify := false
+	if !exists || !device.Equal(oldDevice) {
 		s.devices[path] = device
 		s.log.Info("device added",
 			slog.String("path", path),
@@ -122,51 +131,40 @@ func (s *USBDeviceStore) AddDevice(path string, device *USBDevice) bool {
 			slog.String("manufacturer", device.Manufacturer),
 			slog.String("serial", device.Serial),
 		)
-		s.notify()
-		return true
+		needNotify = true
 	}
+	s.mu.Unlock()
 
-	if !device.Equal(oldDevice) {
-		s.devices[path] = device
-		s.log.Info("device updated",
-			slog.String("path", path),
-			slog.String("busid", device.BusID),
-			slog.String("product", device.Product),
-		)
-		s.notify()
-		return true
+	if needNotify {
+		s.sendChange()
 	}
-
-	return false
+	return needNotify
 }
 
 // RemoveDevice removes a device and notifies if it existed.
 func (s *USBDeviceStore) RemoveDevice(path string) bool {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	device, exists := s.devices[path]
+	needNotify := false
 	if exists {
 		s.log.Info("device removed",
 			slog.String("path", path),
 			slog.String("busid", device.BusID),
 		)
 		delete(s.devices, path)
-		s.notify()
-		return true
+		needNotify = true
 	}
-	return false
+	s.mu.Unlock()
+
+	if needNotify {
+		s.sendChange()
+	}
+	return needNotify
 }
 
 // Resync synchronizes the store with discovered devices and notifies if changed.
 func (s *USBDeviceStore) Resync(devices map[string]*USBDevice) bool {
-	if devices == nil {
-		devices = make(map[string]*USBDevice)
-	}
-
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	changed := false
 
 	// Check for removed devices
@@ -195,9 +193,10 @@ func (s *USBDeviceStore) Resync(devices map[string]*USBDevice) bool {
 			changed = true
 		}
 	}
+	s.mu.Unlock()
 
 	if changed {
-		s.notify()
+		s.sendChange()
 	}
 
 	return changed
@@ -209,10 +208,4 @@ func (s *USBDeviceStore) Exists(path string) bool {
 	defer s.mu.RUnlock()
 	_, exists := s.devices[path]
 	return exists
-}
-
-func (s *USBDeviceStore) notify() {
-	for _, notifier := range s.notifiers {
-		notifier.Notify()
-	}
 }

@@ -30,17 +30,9 @@ type Monitor interface {
 	GetDevices() []USBDevice
 	GetDevice(path string) (*USBDevice, bool)
 	GetDeviceByBusID(busID string) (*USBDevice, bool)
-	AddNotifier(notifier Notifier)
-	RemoveNotifier(notifier Notifier)
-}
-
-type Notifier interface {
-	Notify()
-}
-type FuncNotifier func()
-
-func (f FuncNotifier) Notify() {
-	f()
+	// DeviceChanges returns a channel that is sent on when the device list changes.
+	// The channel is closed when the monitor is closed.
+	DeviceChanges() <-chan struct{}
 }
 
 type MonitorType string
