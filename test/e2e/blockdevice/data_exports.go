@@ -44,9 +44,11 @@ import (
 )
 
 const (
-	mountPointData = "/mnt"
-	fileDataPath   = "/mnt/testfile"
-	testFileValue  = "test-file-value"
+	mountPointData        = "/mnt"
+	fileDataPath          = "/mnt/testfile"
+	testFileValue         = "test-file-value"
+	exportedDiskImage     = "disk.img"
+	exportedSnapshotImage = "disk-from-snapshot.img"
 )
 
 var _ = Describe("DataExports", label.Slow(), func() {
@@ -59,11 +61,12 @@ var _ = Describe("DataExports", label.Slow(), func() {
 
 	It("restores disk data from a VirtualDiskSnapshot", func() {
 		var (
-			vdRoot     *v1alpha2.VirtualDisk
-			vdBlank    *v1alpha2.VirtualDisk
-			vm         *v1alpha2.VirtualMachine
-			vdSnapshot *v1alpha2.VirtualDiskSnapshot
-			vdUploaded *v1alpha2.VirtualDisk
+			vdRoot                 *v1alpha2.VirtualDisk
+			vdBlank                *v1alpha2.VirtualDisk
+			vm                     *v1alpha2.VirtualMachine
+			vdSnapshot             *v1alpha2.VirtualDiskSnapshot
+			vdUploaded             *v1alpha2.VirtualDisk
+			vdFromSnapshotUploaded *v1alpha2.VirtualDisk
 		)
 
 		By("Creating VirtualDisks", func() {
@@ -153,10 +156,28 @@ var _ = Describe("DataExports", label.Slow(), func() {
 			cmd := exec.Command("d8", "data", "export", "download",
 				fmt.Sprintf("vd/%s", vdBlank.Name),
 				"-n", f.Namespace().Name,
-				"-o", "disk.img",
+				"-o", exportedDiskImage,
 			)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "d8 data export download failed: %s", string(output))
+
+			DeferCleanup(func() {
+				_ = os.Remove(exportedDiskImage)
+			})
+		})
+
+		By("Exporting snapshot data using d8 CLI", func() {
+			cmd := exec.Command("d8", "data", "export", "download",
+				fmt.Sprintf("vds/%s", vdSnapshot.Name),
+				"-n", f.Namespace().Name,
+				"-o", exportedSnapshotImage,
+			)
+			output, err := cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), "d8 data export download failed: %s", string(output))
+
+			DeferCleanup(func() {
+				_ = os.Remove(exportedSnapshotImage)
+			})
 		})
 
 		By("Deleting the blank disk", func() {
@@ -174,7 +195,7 @@ var _ = Describe("DataExports", label.Slow(), func() {
 			}, framework.MiddleTimeout, time.Second).Should(Succeed())
 		})
 
-		By("Creating a new disk with upload type", func() {
+		By("Creating a new disk with upload type for disk image", func() {
 			vdUploaded = vdbuilder.New(
 				vdbuilder.WithName("vd-uploaded"),
 				vdbuilder.WithNamespace(f.Namespace().Name),
@@ -196,15 +217,13 @@ var _ = Describe("DataExports", label.Slow(), func() {
 
 			uploadURL := vdUploaded.Status.ImageUploadURLs.InCluster
 
-			file, err := os.Open("disk.img")
-			Expect(err).NotTo(HaveOccurred(), "Failed to open disk.img")
+			file, err := os.Open(exportedDiskImage)
+			Expect(err).NotTo(HaveOccurred(), "Failed to open %s", exportedDiskImage)
 			defer file.Close()
 
 			stat, err := file.Stat()
 			Expect(err).NotTo(HaveOccurred(), "Failed to get file stats")
 			Expect(stat.Size()).NotTo(BeZero(), "File should not be empty")
-
-			GinkgoWriter.Printf("Uploading file size: %d bytes to URL: %s\n", stat.Size(), uploadURL)
 
 			req, err := http.NewRequest(http.MethodPut, uploadURL, file)
 			Expect(err).NotTo(HaveOccurred(), "Failed to create HTTP request")
@@ -226,6 +245,60 @@ var _ = Describe("DataExports", label.Slow(), func() {
 			util.UntilObjectPhase(string(v1alpha2.DiskWaitForFirstConsumer), framework.LongTimeout, vdUploaded)
 		})
 
+		// ==
+
+		By("Creating a new disk with upload type for snapshot image", func() {
+			vdFromSnapshotUploaded = vdbuilder.New(
+				vdbuilder.WithName("vd-from-snapshot-uploaded"),
+				vdbuilder.WithNamespace(f.Namespace().Name),
+				vdbuilder.WithDatasource(&v1alpha2.VirtualDiskDataSource{
+					Type: v1alpha2.DataSourceTypeUpload,
+				}),
+			)
+
+			err := f.CreateWithDeferredDeletion(context.Background(), vdFromSnapshotUploaded)
+			Expect(err).NotTo(HaveOccurred())
+			util.UntilObjectPhase(string(v1alpha2.DiskWaitForUserUpload), framework.LongTimeout, vdFromSnapshotUploaded)
+		})
+
+		By("Uploading snapshot image to the new disk", func() {
+			err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vdFromSnapshotUploaded), vdFromSnapshotUploaded)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vdFromSnapshotUploaded.Status.ImageUploadURLs).NotTo(BeNil(), "ImageUploadURLs should be set")
+			Expect(vdFromSnapshotUploaded.Status.ImageUploadURLs.InCluster).NotTo(BeEmpty(), "InCluster upload URL should be set")
+
+			uploadURL := vdFromSnapshotUploaded.Status.ImageUploadURLs.InCluster
+
+			file, err := os.Open(exportedSnapshotImage)
+			Expect(err).NotTo(HaveOccurred(), "Failed to open %s", exportedSnapshotImage)
+			defer file.Close()
+
+			stat, err := file.Stat()
+			Expect(err).NotTo(HaveOccurred(), "Failed to get file stats")
+			Expect(stat.Size()).NotTo(BeZero(), "File should not be empty")
+
+			req, err := http.NewRequest(http.MethodPut, uploadURL, file)
+			Expect(err).NotTo(HaveOccurred(), "Failed to create HTTP request")
+			req.ContentLength = stat.Size()
+			req.Header.Set("Content-Type", "application/octet-stream")
+
+			client := &http.Client{}
+
+			resp, err := client.Do(req)
+			Expect(err).NotTo(HaveOccurred(), "Failed to upload disk image")
+			defer resp.Body.Close()
+
+			body, _ := io.ReadAll(resp.Body)
+			Expect(resp.StatusCode).To(BeNumerically(">=", 200), "Upload failed with status %d: %s", resp.StatusCode, string(body))
+			Expect(resp.StatusCode).To(BeNumerically("<", 300), "Upload should succeed, got status %d: %s", resp.StatusCode, string(body))
+		})
+
+		By("Waiting for the uploaded disk to be ready", func() {
+			util.UntilObjectPhase(string(v1alpha2.DiskWaitForFirstConsumer), framework.LongTimeout, vdFromSnapshotUploaded)
+		})
+
+		// ==
+
 		By("Updating VM to use the uploaded disk", func() {
 			err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vm), vm)
 			Expect(err).NotTo(HaveOccurred())
@@ -239,6 +312,10 @@ var _ = Describe("DataExports", label.Slow(), func() {
 					Kind: v1alpha2.DiskDevice,
 					Name: vdUploaded.Name,
 				},
+				{
+					Kind: v1alpha2.DiskDevice,
+					Name: vdFromSnapshotUploaded.Name,
+				},
 			}
 
 			err = f.Clients.GenericClient().Update(context.Background(), vm)
@@ -250,10 +327,17 @@ var _ = Describe("DataExports", label.Slow(), func() {
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 		})
 
-		By("Verifying that the data is restored", func() {
+		By("Verifying that the data is restored from disk export", func() {
 			util.MountBlockDevice(f, vm, v1alpha2.DiskDevice, vdUploaded.Name, mountPointData)
 			restoredValue := util.ReadFile(f, vm, fileDataPath)
 			Expect(restoredValue).To(Equal(testFileValue), "The data should be restored from the uploaded disk")
+			util.UnmountBlockDevice(f, vm, mountPointData)
+		})
+
+		By("Verifying that the data is restored from snapshot export", func() {
+			util.MountBlockDevice(f, vm, v1alpha2.DiskDevice, vdFromSnapshotUploaded.Name, mountPointData)
+			restoredValue := util.ReadFile(f, vm, fileDataPath)
+			Expect(restoredValue).To(Equal(testFileValue), "The data should be restored from the snapshot uploaded disk")
 		})
 	})
 })
