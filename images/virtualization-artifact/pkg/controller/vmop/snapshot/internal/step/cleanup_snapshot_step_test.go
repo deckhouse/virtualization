@@ -84,7 +84,8 @@ var _ = Describe("CleanupSnapshotStep", func() {
 			result, err := step.Take(ctx, vmop)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(BeNil())
+			Expect(result).NotTo(BeNil())
+			Expect(*result).To(Equal(reconcile.Result{}))
 		})
 
 		It("should skip when snapshot name annotation is not present", func() {
