@@ -14,5 +14,8 @@ metadata:
   name: csi-ceph
 spec:
   enabled: true
+  settings:
+    cephfsEnabled: false
+    rbdEnabled: true
   source: deckhouse
   version: 1
