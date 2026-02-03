@@ -18,6 +18,7 @@ package step
 
 import (
 	"context"
+	"errors"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,7 +62,7 @@ func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 	}
 
 	if vmSnapshot == nil {
-		return &reconcile.Result{}, nil
+		return &reconcile.Result{}, errors.New("snapshot is not found")
 	}
 
 	restorerSecretKey := types.NamespacedName{Namespace: vmSnapshot.Namespace, Name: vmSnapshot.Status.VirtualMachineSnapshotSecretName}
@@ -71,7 +72,7 @@ func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 	}
 
 	if restorerSecret == nil {
-		return &reconcile.Result{}, nil
+		return &reconcile.Result{}, errors.New("restorer secret is not found")
 	}
 
 	snapshotResources := restorer.NewSnapshotResources(s.client, v1alpha2.VMOPTypeRestore, vmop.Spec.Restore.Mode, restorerSecret, vmSnapshot, string(vmop.UID))

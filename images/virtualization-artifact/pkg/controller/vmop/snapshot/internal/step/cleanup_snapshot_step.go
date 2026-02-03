@@ -51,6 +51,10 @@ func NewCleanupSnapshotStep(
 }
 
 func (s CleanupSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
+	if vmop.Spec.Clone.Mode == v1alpha2.SnapshotOperationModeDryRun {
+		return nil, nil
+	}
+
 	snapshotConditionBuilder := conditions.NewConditionBuilder(vmopcondition.TypeSnapshotReady)
 
 	snapshotCondition, _ := conditions.GetCondition(vmopcondition.TypeSnapshotReady, vmop.Status.Conditions)

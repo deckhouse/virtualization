@@ -81,7 +81,7 @@ var _ = Describe("ProcessCloneStep", func() {
 	})
 
 	Describe("Snapshot not found", func() {
-		It("should wait when snapshot is not found", func() {
+		It("should return error when snapshot is not found", func() {
 			vmop := createCloneVMOP("default", "test-vmop", "test-vm", "test-snapshot")
 
 			var err error
@@ -91,13 +91,14 @@ var _ = Describe("ProcessCloneStep", func() {
 			step = NewProcessCloneStep(fakeClient, recorder)
 			result, err := step.Take(ctx, vmop)
 
-			Expect(err).NotTo(HaveOccurred())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("snapshot is not found"))
 			Expect(result).NotTo(BeNil())
 		})
 	})
 
 	Describe("Secret not found", func() {
-		It("should wait when restorer secret is not found", func() {
+		It("should return error when restorer secret is not found", func() {
 			vmop := createCloneVMOP("default", "test-vmop", "test-vm", "test-snapshot")
 			snapshot := createVMSnapshot("default", "test-snapshot", "test-secret", true)
 
@@ -108,7 +109,8 @@ var _ = Describe("ProcessCloneStep", func() {
 			step = NewProcessCloneStep(fakeClient, recorder)
 			result, err := step.Take(ctx, vmop)
 
-			Expect(err).NotTo(HaveOccurred())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("restorer secret is not found"))
 			Expect(result).NotTo(BeNil())
 		})
 	})
