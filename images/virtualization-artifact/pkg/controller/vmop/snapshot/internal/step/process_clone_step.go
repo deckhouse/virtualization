@@ -18,7 +18,7 @@ package step
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -50,8 +50,7 @@ func NewProcessCloneStep(
 func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
 	snapshotName, ok := vmop.Annotations[annotations.AnnVMOPSnapshotName]
 	if !ok {
-		err := fmt.Errorf("snapshot name annotation not found")
-		return &reconcile.Result{}, err
+		return &reconcile.Result{}, errors.New("snapshot name annotation not found")
 	}
 
 	vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: snapshotName}
@@ -61,7 +60,7 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 	}
 
 	if vmSnapshot == nil {
-		return &reconcile.Result{}, nil
+		return &reconcile.Result{}, errors.New("snapshot is not found")
 	}
 
 	restorerSecretKey := types.NamespacedName{Namespace: vmSnapshot.Namespace, Name: vmSnapshot.Status.VirtualMachineSnapshotSecretName}
@@ -71,7 +70,7 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 	}
 
 	if restorerSecret == nil {
-		return &reconcile.Result{}, nil
+		return &reconcile.Result{}, errors.New("restorer secret is not found")
 	}
 
 	snapshotResources := restorer.NewSnapshotResources(s.client, v1alpha2.VMOPTypeClone, vmop.Spec.Clone.Mode, restorerSecret, vmSnapshot, string(vmop.UID))
@@ -97,7 +96,7 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 	}
 
 	if vmop.Spec.Clone.Mode == v1alpha2.SnapshotOperationModeDryRun {
-		return &reconcile.Result{}, nil
+		return nil, nil
 	}
 
 	statuses, err = snapshotResources.Process(ctx)

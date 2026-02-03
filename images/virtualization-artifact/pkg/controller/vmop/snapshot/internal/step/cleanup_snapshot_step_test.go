@@ -48,6 +48,21 @@ var _ = Describe("CleanupSnapshotStep", func() {
 	})
 
 	Describe("Skip conditions", func() {
+		It("should skip when clone mode is DryRun", func() {
+			vmop := createCloneVMOP("default", "test-vmop", "test-vm", "test-snapshot")
+			vmop.Spec.Clone.Mode = v1alpha2.SnapshotOperationModeDryRun
+
+			var err error
+			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
+			Expect(err).NotTo(HaveOccurred())
+
+			step = NewCleanupSnapshotStep(fakeClient, recorder)
+			result, err := step.Take(ctx, vmop)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeNil())
+		})
+
 		It("should skip when snapshot condition is already CleanedUp", func() {
 			vmop := createCloneVMOP("default", "test-vmop", "test-vm", "test-snapshot")
 			vmop.Status.Conditions = []metav1.Condition{

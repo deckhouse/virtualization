@@ -21,10 +21,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 var _ = Describe("VMSnapshotReadyStep", func() {
@@ -36,6 +38,29 @@ var _ = Describe("VMSnapshotReadyStep", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
+	})
+
+	Describe("Skip conditions", func() {
+		It("should skip when snapshot condition is already CleanedUp", func() {
+			vmop := createRestoreVMOP("default", "test-vmop", "test-vm", "test-snapshot")
+			vmop.Status.Conditions = []metav1.Condition{
+				{
+					Type:   string(vmopcondition.TypeSnapshotReady),
+					Status: metav1.ConditionFalse,
+					Reason: string(vmopcondition.ReasonSnapshotCleanedUp),
+				},
+			}
+
+			var err error
+			fakeClient, err = testutil.NewFakeClientWithObjects(vmop)
+			Expect(err).NotTo(HaveOccurred())
+
+			step = NewVMSnapshotReadyStep(fakeClient)
+			result, err := step.Take(ctx, vmop)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeNil())
+		})
 	})
 
 	Describe("Restore operation", func() {
@@ -127,7 +152,7 @@ var _ = Describe("VMSnapshotReadyStep", func() {
 	})
 
 	Describe("Clone operation", func() {
-		It("should wait when snapshot annotation is not set", func() {
+		It("should return error when snapshot annotation is not set", func() {
 			vmop := createCloneVMOP("default", "test-vmop", "test-vm", "test-snapshot")
 			delete(vmop.Annotations, annotations.AnnVMOPSnapshotName)
 
@@ -138,7 +163,8 @@ var _ = Describe("VMSnapshotReadyStep", func() {
 			step = NewVMSnapshotReadyStep(fakeClient)
 			result, err := step.Take(ctx, vmop)
 
-			Expect(err).NotTo(HaveOccurred())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("snapshot name annotation not found"))
 			Expect(result).NotTo(BeNil())
 		})
 
