@@ -192,6 +192,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *v1alpha2.Virtua
 
 	overrideValidators = append(overrideValidators, restorer.NewVirtualMachineOverrideValidator(vm, h.client, string(vmRestore.UID)))
 
+	overridedVMName, err = h.getOverrridedVMName(overrideValidators)
+	if err != nil {
+		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+		return reconcile.Result{}, err
+	}
+
 	vds, err := h.getVirtualDisks(ctx, vmSnapshot)
 	switch {
 	case err == nil:
@@ -229,12 +235,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *v1alpha2.Virtua
 
 	if provisioner != nil {
 		overrideValidators = append(overrideValidators, restorer.NewProvisionerOverrideValidator(provisioner, h.client, string(vmRestore.UID)))
-	}
-
-	overridedVMName, err = h.getOverrridedVMName(overrideValidators)
-	if err != nil {
-		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
-		return reconcile.Result{}, err
 	}
 
 	var toCreate []client.Object
@@ -340,12 +340,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *v1alpha2.Virtua
 
 			toCreate = append(toCreate, ov.Object())
 		}
-	}
-
-	overridedVMName, err = h.getOverrridedVMName(overrideValidators)
-	if err != nil {
-		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
-		return reconcile.Result{}, err
 	}
 
 	currentHotplugs, err := h.getCurrentVirtualMachineBlockDeviceAttachments(ctx, overridedVMName, vm.Namespace, string(vmRestore.UID))
