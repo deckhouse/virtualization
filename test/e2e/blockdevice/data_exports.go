@@ -231,6 +231,8 @@ func exportData(f *framework.Framework, resourceType, name, outputFile string) {
 	result := f.D8Virtualization().DataExportDownload(resourceType, name, d8.DataExportOptions{
 		Namespace:  f.Namespace().Name,
 		OutputFile: outputFile,
+		Publish:    true,
+		Timeout:    framework.LongTimeout,
 	})
 	Expect(result.WasSuccess()).To(BeTrue(), "d8 data export download failed: %s", result.StdErr())
 
@@ -259,7 +261,7 @@ func uploadFile(f *framework.Framework, vd *v1alpha2.VirtualDisk, filePath strin
 	err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vd), vd)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(vd.Status.ImageUploadURLs).NotTo(BeNil(), "ImageUploadURLs should be set")
-	Expect(vd.Status.ImageUploadURLs.InCluster).NotTo(BeEmpty(), "InCluster upload URL should be set")
+	Expect(vd.Status.ImageUploadURLs.External).NotTo(BeEmpty(), "External upload URL should be set")
 
 	file, err := os.Open(filePath)
 	Expect(err).NotTo(HaveOccurred(), "Failed to open %s", filePath)
@@ -269,7 +271,7 @@ func uploadFile(f *framework.Framework, vd *v1alpha2.VirtualDisk, filePath strin
 	Expect(err).NotTo(HaveOccurred(), "Failed to get file stats")
 	Expect(stat.Size()).NotTo(BeZero(), "File should not be empty")
 
-	req, err := http.NewRequest(http.MethodPut, vd.Status.ImageUploadURLs.InCluster, file)
+	req, err := http.NewRequest(http.MethodPut, vd.Status.ImageUploadURLs.External, file)
 	Expect(err).NotTo(HaveOccurred(), "Failed to create HTTP request")
 	req.ContentLength = stat.Size()
 	req.Header.Set("Content-Type", "application/octet-stream")

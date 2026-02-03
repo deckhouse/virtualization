@@ -67,6 +67,7 @@ type DataExportOptions struct {
 	Namespace  string
 	OutputFile string
 	Timeout    time.Duration
+	Publish    bool
 }
 
 func NewD8Virtualization(conf D8VirtualizationConf) (*D8VirtualizationCMD, error) {
@@ -176,6 +177,13 @@ func (v D8VirtualizationCMD) DataExportDownload(resourceType, name string, opts 
 	if opts.OutputFile != "" {
 		cmd = fmt.Sprintf("%s -o %s", cmd, opts.OutputFile)
 	}
+
+	if opts.Publish {
+		cmd = fmt.Sprintf("%s --publish", cmd)
+	}
+
+	// Pipe 'y' to confirm DataExport deletion after download (non-interactive mode).
+	cmd = fmt.Sprintf("echo y | %s", cmd)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
