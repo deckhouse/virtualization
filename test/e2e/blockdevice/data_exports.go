@@ -108,7 +108,7 @@ var _ = Describe("DataExports", label.Slow(), func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		By("Waiting for VM to be ready", func() {
+		By("Waiting for VM agent to be ready", func() {
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 		})
 
@@ -170,11 +170,11 @@ var _ = Describe("DataExports", label.Slow(), func() {
 		})
 
 		By("Creating disk from exported VirtualDisk", func() {
-			vdFromDiskExport = createUploadDisk(f, "restored-from-disk")
+			vdFromDiskExport = createUploadDisk(f, "vd-restored-from-disk")
 		})
 
 		By("Uploading exported disk image", func() {
-			uploadFile(f, vdFromDiskExport, exportedDiskFile)
+			uploadImage(f, vdFromDiskExport, exportedDiskFile)
 		})
 
 		By("Waiting for disk from VirtualDisk export to be ready", func() {
@@ -182,11 +182,11 @@ var _ = Describe("DataExports", label.Slow(), func() {
 		})
 
 		By("Creating disk from exported VirtualDiskSnapshot", func() {
-			vdFromSnapshotExport = createUploadDisk(f, "restored-from-snapshot")
+			vdFromSnapshotExport = createUploadDisk(f, "vd-restored-from-snapshot")
 		})
 
 		By("Uploading exported snapshot image", func() {
-			uploadFile(f, vdFromSnapshotExport, exportedSnapshotFile)
+			uploadImage(f, vdFromSnapshotExport, exportedSnapshotFile)
 		})
 
 		By("Waiting for disk from snapshot export to be ready", func() {
@@ -258,7 +258,7 @@ func createUploadDisk(f *framework.Framework, name string) *v1alpha2.VirtualDisk
 	return vd
 }
 
-func uploadFile(f *framework.Framework, vd *v1alpha2.VirtualDisk, filePath string) {
+func uploadImage(f *framework.Framework, vd *v1alpha2.VirtualDisk, filePath string) {
 	err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vd), vd)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(vd.Status.ImageUploadURLs).NotTo(BeNil(), "ImageUploadURLs should be set")
