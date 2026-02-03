@@ -66,7 +66,7 @@ func (o CloneOperation) Execute(ctx context.Context) (reconcile.Result, error) {
 	}
 
 	if vm == nil {
-		err := fmt.Errorf("virtual machine specified is not found")
+		err := fmt.Errorf("specified virtual machine was not found")
 		return reconcile.Result{}, err
 	}
 

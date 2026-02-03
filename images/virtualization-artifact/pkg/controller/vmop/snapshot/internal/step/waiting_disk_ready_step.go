@@ -25,7 +25,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -77,11 +76,6 @@ func (s WaitingDisksReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualM
 		err := s.client.Get(ctx, vdKey, &vd)
 		if err != nil {
 			return &reconcile.Result{}, fmt.Errorf("failed to get the `VirtualDisk`: %w", err)
-		}
-
-		if vd.Annotations[annotations.AnnVMOPRestore] != string(vmop.UID) {
-			// Skip disks that don't belong to this vmop
-			continue
 		}
 
 		if vd.Status.Phase == v1alpha2.DiskFailed {
