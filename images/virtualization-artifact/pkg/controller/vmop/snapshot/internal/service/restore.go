@@ -29,6 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/steptaker"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/step"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -51,15 +52,26 @@ type RestoreOperation struct {
 }
 
 func (o RestoreOperation) Execute(ctx context.Context) (reconcile.Result, error) {
+	cb := conditions.NewConditionBuilder(vmopcondition.TypeCompleted)
+
+	defer func() {
+		if cb.Condition().Reason == string(vmopcondition.ReasonOperationFailed) {
+			o.vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+			conditions.SetCondition(cb, &o.vmop.Status.Conditions)
+		}
+	}()
+
 	log := logger.FromContext(ctx)
 
 	if o.vmop.Spec.Restore == nil {
 		err := fmt.Errorf("restore specification is nil")
+		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, err
 	}
 
 	if o.vmop.Spec.Restore.VirtualMachineSnapshotName == "" {
 		err := fmt.Errorf("virtual machine snapshot name is required")
+		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, err
 	}
 
@@ -67,11 +79,13 @@ func (o RestoreOperation) Execute(ctx context.Context) (reconcile.Result, error)
 	vm, err := object.FetchObject(ctx, vmKey, o.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		err := fmt.Errorf("failed to fetch the virtual machine %q: %w", vmKey.Name, err)
+		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, err
 	}
 
 	if vm == nil {
 		err := fmt.Errorf("virtual machine is nil")
+		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, err
 	}
 
@@ -90,14 +104,7 @@ func (o RestoreOperation) Execute(ctx context.Context) (reconcile.Result, error)
 		log.Debug(failMsg, logger.SlogErr(err))
 		failMsg = fmt.Errorf("%s: %w", failMsg, err).Error()
 		o.recorder.Event(o.vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, failMsg)
-
-		o.vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
-		conditions.SetCondition(
-			conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
-				Reason(vmopcondition.ReasonOperationFailed).
-				Message(failMsg).Status(metav1.ConditionFalse),
-			&o.vmop.Status.Conditions,
-		)
+		cb.Reason(vmopcondition.ReasonOperationFailed).Message(failMsg).Status(metav1.ConditionFalse)
 	}
 
 	return result, err
