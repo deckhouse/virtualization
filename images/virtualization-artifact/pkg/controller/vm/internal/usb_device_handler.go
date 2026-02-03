@@ -297,7 +297,7 @@ func (h *USBDeviceHandler) getOrCreateResourceClaimTemplate(
 				Devices: resourcev1beta1.DeviceClaim{
 					Requests: []resourcev1beta1.DeviceRequest{
 						{
-							Name:            "req-0",
+							Name:            "req-" + attributes.Name,
 							AllocationMode:  resourcev1beta1.DeviceAllocationModeExactCount,
 							Count:           1,
 							DeviceClassName: "usb-devices.virtualization.deckhouse.io",
