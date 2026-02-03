@@ -18,6 +18,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -30,7 +31,8 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	migrationservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
@@ -50,12 +52,12 @@ type Base interface {
 }
 type LifecycleHandler struct {
 	client    client.Client
-	migration *service.MigrationService
+	migration *migrationservice.MigrationService
 	base      Base
 	recorder  eventrecord.EventRecorderLogger
 }
 
-func NewLifecycleHandler(client client.Client, migration *service.MigrationService, base Base, recorder eventrecord.EventRecorderLogger) *LifecycleHandler {
+func NewLifecycleHandler(client client.Client, migration *migrationservice.MigrationService, base Base, recorder eventrecord.EventRecorderLogger) *LifecycleHandler {
 	return &LifecycleHandler{
 		client:    client,
 		migration: migration,
@@ -380,6 +382,17 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMac
 
 	err := h.migration.CreateMigration(ctx, vmop)
 	if err != nil {
+		if errors.Is(err, migrationservice.ErrTargetMigrationIsNotAvailable) {
+			vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+			conditions.SetCondition(
+				conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
+					Generation(vmop.GetGeneration()).
+					Reason(vmopcondition.ReasonOperationFailed).
+					Status(metav1.ConditionFalse).
+					Message(service.CapitalizeFirstLetter(migrationservice.ErrTargetMigrationIsNotAvailable.Error())+"."),
+				&vmop.Status.Conditions)
+			return nil
+		}
 		return err
 	}
 

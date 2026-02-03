@@ -89,7 +89,7 @@ func New() (featuregate.FeatureGate, AddFlagsFunc, SetFromMapFunc, error) {
 
 // NewUnlocked is intended solely for testing purposes.
 // Use NewUnlocked only in testing scenarios.
-func NewUnlocked() (featuregate.FeatureGate, AddFlagsFunc, SetFromMapFunc, error) {
+func NewUnlocked() (featuregate.FeatureGate, SetFromMapFunc, error) {
 	newSpecs := make(map[featuregate.Feature]featuregate.FeatureSpec)
 	for k, v := range featureSpecs {
 		newSpecs[k] = featuregate.FeatureSpec{
@@ -101,7 +101,7 @@ func NewUnlocked() (featuregate.FeatureGate, AddFlagsFunc, SetFromMapFunc, error
 	}
 	gate := featuregate.NewFeatureGate()
 	if err := gate.Add(newSpecs); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
-	return gate, gate.AddFlag, gate.SetFromMap, nil
+	return gate, gate.SetFromMap, nil
 }

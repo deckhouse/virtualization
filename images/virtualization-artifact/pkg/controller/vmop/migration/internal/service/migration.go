@@ -33,6 +33,8 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
+var ErrTargetMigrationIsNotAvailable = errors.New("the `nodeSelector` field is not available in the Community Edition version")
+
 type MigrationService struct {
 	client      client.Client
 	featureGate featuregate.FeatureGate
@@ -82,7 +84,7 @@ func (s MigrationService) CreateMigration(ctx context.Context, vmop *v1alpha2.Vi
 
 	if !s.featureGate.Enabled(featuregates.TargetMigration) {
 		if vmop.Spec.Migrate != nil && vmop.Spec.Migrate.NodeSelector != nil {
-			return errors.New("the `nodeSelector` field is not available in the Community Edition version")
+			return ErrTargetMigrationIsNotAvailable
 		}
 	}
 

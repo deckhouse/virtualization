@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/component-base/featuregate"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -198,11 +199,17 @@ var _ = Describe("LifecycleHandler", func() {
 		fakeClient, err := testutil.NewFakeClientWithObjects(vmop, vm)
 		Expect(err).NotTo(HaveOccurred())
 
-		featureGate, _, setFromMap, _ := featuregates.NewUnlocked()
+		var (
+			featureGate featuregate.FeatureGate
+			setFromMap  featuregates.SetFromMapFunc
+		)
 		if targetMigrationEnabled {
+			featureGate, setFromMap, _ = featuregates.NewUnlocked()
 			_ = setFromMap(map[string]bool{
 				string(featuregates.TargetMigration): true,
 			})
+		} else {
+			featureGate = featuregates.Default()
 		}
 
 		migrationService := service.NewMigrationService(fakeClient, featureGate)
@@ -210,14 +217,19 @@ var _ = Describe("LifecycleHandler", func() {
 
 		h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
 		_, err = h.Handle(ctx, vmop)
-		Expect(err).NotTo(HaveOccurred())
+		if targetMigrationEnabled {
+			Expect(err).NotTo(HaveOccurred())
 
-		vmim := &virtv1.VirtualMachineInstanceMigration{}
-		err = fakeClient.Get(context.Background(), client.ObjectKey{Namespace: namespace, Name: fmt.Sprintf("vmop-%s", vmop.Name)}, vmim)
-		Expect(err).NotTo(HaveOccurred())
+			vmim := &virtv1.VirtualMachineInstanceMigration{}
+			err = fakeClient.Get(context.Background(), client.ObjectKey{Namespace: namespace, Name: fmt.Sprintf("vmop-%s", vmop.Name)}, vmim)
+			Expect(err).NotTo(HaveOccurred())
 
-		for k, v := range nodeSelector {
-			Expect(vmim.Spec.AddedNodeSelector).To(HaveKeyWithValue(k, v))
+			for k, v := range nodeSelector {
+				Expect(vmim.Spec.AddedNodeSelector).To(HaveKeyWithValue(k, v))
+			}
+		} else {
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
 		}
 	},
 		Entry(
@@ -225,6 +237,12 @@ var _ = Describe("LifecycleHandler", func() {
 			v1alpha2.PreferSafeMigrationPolicy, // vmPolicy
 			map[string]string{"key": "value"},  // nodeSelector
 			true,                               // targetMigrationEnabled
+		),
+		Entry(
+			"VMOP should fail with a locked feature error.",
+			v1alpha2.PreferSafeMigrationPolicy, // vmPolicy
+			map[string]string{"key": "value"},  // nodeSelector
+			false,                              // targetMigrationEnabled
 		),
 	)
 })
