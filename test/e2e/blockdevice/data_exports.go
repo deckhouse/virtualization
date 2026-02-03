@@ -223,6 +223,7 @@ var _ = Describe("DataExports", label.Slow(), func() {
 			util.MountBlockDevice(f, vm, v1alpha2.DiskDevice, vdFromSnapshotExport.Name, mountPointData)
 			restoredValue := util.ReadFile(f, vm, fileDataPath)
 			Expect(restoredValue).To(Equal(testFileValue), "Data should match original")
+			util.UnmountBlockDevice(f, vm, mountPointData)
 		})
 	})
 })
