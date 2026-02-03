@@ -18,7 +18,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,21 +28,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-var ErrTargetMigrationIsNotAvailable = errors.New("the `nodeSelector` field is not available in the Community Edition version")
-
 type MigrationService struct {
 	client      client.Client
-	featureGate featuregate.FeatureGate
+	FeatureGate featuregate.FeatureGate
 }
 
 func NewMigrationService(client client.Client, featureGate featuregate.FeatureGate) *MigrationService {
 	return &MigrationService{
 		client:      client,
-		featureGate: featureGate,
+		FeatureGate: featureGate,
 	}
 }
 
@@ -80,12 +76,6 @@ func (s MigrationService) CreateMigration(ctx context.Context, vmop *v1alpha2.Vi
 		Spec: virtv1.VirtualMachineInstanceMigrationSpec{
 			VMIName: vmop.Spec.VirtualMachine,
 		},
-	}
-
-	if !s.featureGate.Enabled(featuregates.TargetMigration) {
-		if vmop.Spec.Migrate != nil && vmop.Spec.Migrate.NodeSelector != nil {
-			return ErrTargetMigrationIsNotAvailable
-		}
 	}
 
 	if vmop.Spec.Migrate != nil {

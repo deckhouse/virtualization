@@ -18,7 +18,6 @@ package handler
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -31,10 +30,10 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	migrationservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -91,6 +90,21 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	}
 
 	h.base.Init(vmop)
+
+	// Fails if Type is 'Migrate', 'NodeSelector' is specified and `TargetMigration` is not available.
+	if !h.migration.FeatureGate.Enabled(featuregates.TargetMigration) {
+		if vmop.Spec.Migrate != nil && vmop.Spec.Migrate.NodeSelector != nil {
+			vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+			conditions.SetCondition(
+				conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
+					Generation(vmop.GetGeneration()).
+					Reason(vmopcondition.ReasonOperationFailed).
+					Status(metav1.ConditionFalse).
+					Message("The `nodeSelector` field is not available in the Community Edition version."),
+				&vmop.Status.Conditions)
+			return reconcile.Result{}, nil
+		}
+	}
 
 	completedCond := conditions.NewConditionBuilder(vmopcondition.TypeCompleted).Generation(vmop.GetGeneration())
 
@@ -382,17 +396,6 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMac
 
 	err := h.migration.CreateMigration(ctx, vmop)
 	if err != nil {
-		if errors.Is(err, migrationservice.ErrTargetMigrationIsNotAvailable) {
-			vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
-			conditions.SetCondition(
-				conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
-					Generation(vmop.GetGeneration()).
-					Reason(vmopcondition.ReasonOperationFailed).
-					Status(metav1.ConditionFalse).
-					Message(service.CapitalizeFirstLetter(migrationservice.ErrTargetMigrationIsNotAvailable.Error())+"."),
-				&vmop.Status.Conditions)
-			return nil
-		}
 		return err
 	}
 
