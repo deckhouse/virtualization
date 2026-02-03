@@ -16,7 +16,12 @@ limitations under the License.
 
 package errors
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+	"os"
+	"syscall"
+)
 
 type ReasonError interface {
 	error
@@ -43,4 +48,53 @@ func (e BadImageChecksumError) Reason() string {
 
 func (e BadImageChecksumError) Error() string {
 	return fmt.Sprintf("%s sum mismatch: %s != %s", e.algorithm, e.expected, e.actual)
+}
+
+func NewNoSpaceLeftError(err error) NoSpaceLeftError {
+	return NoSpaceLeftError{
+		err: err,
+	}
+}
+
+type NoSpaceLeftError struct {
+	err error
+}
+
+func (e NoSpaceLeftError) Reason() string {
+	return "NoSpaceLeft"
+}
+
+func (e NoSpaceLeftError) Error() string {
+	return fmt.Sprintf("no space left on device: %v", e.err)
+}
+
+func (e NoSpaceLeftError) Unwrap() error {
+	return e.err
+}
+
+func IsNoSpaceLeftError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	var noSpaceErr NoSpaceLeftError
+	if errors.As(err, &noSpaceErr) {
+		return true
+	}
+
+	var pathErr *os.PathError
+	if errors.As(err, &pathErr) {
+		if pathErr.Err == syscall.ENOSPC {
+			return true
+		}
+	}
+
+	var errno syscall.Errno
+	if errors.As(err, &errno) {
+		if errno == syscall.ENOSPC {
+			return true
+		}
+	}
+
+	return false
 }
