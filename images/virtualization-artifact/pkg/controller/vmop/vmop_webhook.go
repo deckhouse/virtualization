@@ -94,7 +94,7 @@ func (v *localStorageMigrationValidator) ValidateCreate(ctx context.Context, vmo
 			return nil, fmt.Errorf("failed to get PersistentVolumeClaim %s: %w", vd.Status.Target.PersistentVolumeClaim, err)
 		}
 
-		if slices.Contains(pvc.Spec.AccessModes, corev1.ReadWriteOnce) {
+		if !slices.Contains(pvc.Spec.AccessModes, corev1.ReadWriteMany) {
 			return nil, fmt.Errorf("migration of VirtualMachines with local (RWO) storage is only available in the Enterprise Edition (EE)")
 		}
 	}
