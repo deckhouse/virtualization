@@ -1227,8 +1227,7 @@ jobs:
           echo $SUMMARY > "${summary_file_name_json}"
 
           echo "[INFO] Exit code: $GINKGO_EXIT_CODE"
-          # exit $GINKGO_EXIT_CODE
-          exit 1
+          exit $GINKGO_EXIT_CODE
 
       - name: Upload summary test results (junit/xml)
         uses: actions/upload-artifact@v4

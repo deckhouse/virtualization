@@ -77,7 +77,6 @@ jobs:
       default_user: cloud
       go_version: "1.24.6"
       e2e_timeout: "3.5h"
-      e2e_focus_tests: "VirtualMachineConfiguration"
       date_start: ${{ needs.set-vars.outputs.date_start }}
       randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
     secrets:
@@ -101,7 +100,6 @@ jobs:
       default_user: cloud
       go_version: "1.24.6"
       e2e_timeout: "3.5h"
-      e2e_focus_tests: "VirtualMachineConfiguration"
       date_start: ${{ needs.set-vars.outputs.date_start }}
       randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
     secrets:
