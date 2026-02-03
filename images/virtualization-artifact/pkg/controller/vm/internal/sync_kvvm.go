@@ -86,7 +86,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	cbAwaitingRestart := conditions.NewConditionBuilder(vmcondition.TypeAwaitingRestartToApplyConfiguration).
 		Generation(current.GetGeneration()).
 		Status(metav1.ConditionFalse).
-		Reason(vmcondition.ReasonRestartNoNeed)
+		Reason(vmcondition.ReasonNoRestartRequired)
 
 	defer func() {
 		switch changed.Status.Phase {
@@ -205,7 +205,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			Message("Waiting for the user to restart in order to apply the configuration changes.")
 		cbAwaitingRestart.
 			Status(metav1.ConditionTrue).
-			Reason(vmcondition.ReasonRestartAwaitingChangesExist).
+			Reason(vmcondition.ReasonChangesPendingRestart).
 			Message("Waiting for the user to restart in order to apply the configuration changes.")
 	case classChanged:
 		h.recorder.Event(current, corev1.EventTypeNormal, v1alpha2.ReasonErrRestartAwaitingChanges, "Restart required to propagate changes from the vmclass spec")
@@ -215,7 +215,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			Message("VirtualMachineClass.spec has been modified. Waiting for the user to restart in order to apply the configuration changes.")
 		cbAwaitingRestart.
 			Status(metav1.ConditionTrue).
-			Reason(vmcondition.ReasonRestartAwaitingVMClassChangesExist).
+			Reason(vmcondition.ReasonChangesPendingRestart).
 			Message("VirtualMachineClass.spec has been modified. Waiting for the user to restart in order to apply the configuration changes.")
 	case synced:
 		h.recorder.Event(current, corev1.EventTypeNormal, v1alpha2.ReasonErrVmSynced, "The virtual machine configuration successfully synced")
@@ -234,7 +234,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			log.Error(msg)
 			cbAwaitingRestart.
 				Status(metav1.ConditionTrue).
-				Reason(vmcondition.ReasonRestartAwaitingUnexpectedState).
+				Reason(vmcondition.ReasonUnexpectedState).
 				Message(msg)
 		}
 	}
