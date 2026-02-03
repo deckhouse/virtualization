@@ -25,6 +25,11 @@ on:
         required: true
         type: string
         description: "Random UUID first 4 chars"
+      cluster_config_workers_memory:
+        required: false
+        type: string
+        default: "8Gi"
+        description: "Set memory for workers node in cluster config"
       storage_type:
         required: true
         type: string
@@ -220,7 +225,7 @@ jobs:
                   cores: 4
                   coreFraction: 50%
                 memory:
-                  size: 8Gi
+                  size: ${{ inputs.cluster_config_workers_memory }}
                 additionalDisks:
                 - size: 50Gi
           EOF
