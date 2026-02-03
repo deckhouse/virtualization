@@ -90,19 +90,19 @@ func (s WaitingDisksReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualM
 			continue
 		case v1alpha2.DiskWaitForFirstConsumer:
 			if vmop.Spec.Type == v1alpha2.VMOPTypeClone {
-				cb.Message("Clone operation is completed. Waiting for resource readiness.")
+				cb.Message("Waiting for resource readiness.")
 				conditions.SetCondition(cb, &vmop.Status.Conditions)
 				return &reconcile.Result{}, nil // Should wait for disk ready.
 			}
 			continue
 		default:
-			cb.Message(fmt.Sprintf("%s operation is completed. Waiting for resource readiness.", vmop.Spec.Type))
+			cb.Message("Waiting for resource readiness.")
 			conditions.SetCondition(cb, &vmop.Status.Conditions)
 			return &reconcile.Result{}, nil
 		}
 	}
 
-	cb.Message(fmt.Sprintf("%s operation is completed. Resources are ready. Waiting for cleanup.", vmop.Spec.Type))
+	cb.Message("Resources are ready. Waiting for cleanup.")
 	conditions.SetCondition(cb, &vmop.Status.Conditions)
 
 	return nil, nil
