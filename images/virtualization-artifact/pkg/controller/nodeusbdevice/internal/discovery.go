@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"strings"
 
-	resourcev1beta1 "k8s.io/api/resource/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -55,71 +54,61 @@ func (h *DiscoveryHandler) Name() string {
 }
 
 func (h *DiscoveryHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState) (reconcile.Result, error) {
-	// Get ResourceSlices
 	resourceSlices, err := s.ResourceSlices(ctx)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get resource slices: %w", err)
 	}
 
-	// Check for new devices in ResourceSlice and create NodeUSBDevice if needed
-	// This ensures we discover new devices even if reconcile was triggered for other reasons
-	if err := h.discoverAndCreate(ctx, resourceSlices); err != nil {
-		// Log error but don't fail reconciliation
-		// This is a best-effort discovery mechanism
-		log.Error("failed to discover and create NodeUSBDevice", log.Err(err))
+	var existingDevices v1alpha2.NodeUSBDeviceList
+	if err := h.client.List(ctx, &existingDevices); err != nil {
+		log.Error("failed to discover and create NodeUSBDevice", log.Err(fmt.Errorf("failed to list existing NodeUSBDevices: %w", err)))
+	} else {
+		existingDeviceNames := make(map[string]bool)
+		for _, device := range existingDevices.Items {
+			if device.Status.Attributes.Name != "" {
+				existingDeviceNames[device.Status.Attributes.Name] = true
+			}
+		}
+
+		var discoverErr error
+		for _, slice := range resourceSlices {
+			if discoverErr != nil {
+				break
+			}
+			for _, device := range slice.Spec.Devices {
+				if !IsUSBDevice(device) {
+					continue
+				}
+				if existingDeviceNames[device.Name] {
+					continue
+				}
+				attributes := ConvertDeviceToAttributes(device, slice.Spec.Pool.Name)
+				if err := h.createNodeUSBDevice(ctx, attributes); err != nil {
+					discoverErr = err
+					break
+				}
+			}
+		}
+		if discoverErr != nil {
+			log.Error("failed to discover and create NodeUSBDevice", log.Err(discoverErr))
+		}
 	}
 
 	return reconcile.Result{}, nil
 }
 
-func (h *DiscoveryHandler) discoverAndCreate(ctx context.Context, resourceSlices []resourcev1beta1.ResourceSlice) error {
-	var existingDevices v1alpha2.NodeUSBDeviceList
-	if err := h.client.List(ctx, &existingDevices); err != nil {
-		return fmt.Errorf("failed to list existing NodeUSBDevices: %w", err)
-	}
-
-	existingDeviceNames := make(map[string]bool)
-	for _, device := range existingDevices.Items {
-		if device.Status.Attributes.Name != "" {
-			existingDeviceNames[device.Status.Attributes.Name] = true
-		}
-	}
-
-	// Create NodeUSBDevice for each USB device in ResourceSlices
-	for _, slice := range resourceSlices {
-		for _, device := range slice.Spec.Devices {
-			if !IsUSBDevice(device) {
-				continue
-			}
-			if existingDeviceNames[device.Name] {
-				continue
-			}
-			attributes := ConvertDeviceToAttributes(device, slice.Spec.Pool.Name)
-			if err := h.createNodeUSBDevice(ctx, attributes); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
 func (h *DiscoveryHandler) createNodeUSBDevice(ctx context.Context, attributes v1alpha2.NodeUSBDeviceAttributes) error {
 	name := h.sanitizeName(attributes.Name)
 
-	// Check if device already exists
 	existing := &v1alpha2.NodeUSBDevice{}
 	err := h.client.Get(ctx, client.ObjectKey{Name: name}, existing)
 	if err == nil {
-		// Device already exists, skip creation
 		return nil
 	}
 	if !apierrors.IsNotFound(err) {
-		// Unexpected error
 		return fmt.Errorf("failed to check if NodeUSBDevice exists: %w", err)
 	}
 
-	// Create NodeUSBDevice without status (status is a subresource)
 	nodeUSBDevice := &v1alpha2.NodeUSBDevice{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -130,14 +119,12 @@ func (h *DiscoveryHandler) createNodeUSBDevice(ctx context.Context, attributes v
 	}
 
 	if err := h.client.Create(ctx, nodeUSBDevice); err != nil {
-		// If device was created by another process between check and create, ignore the error
 		if apierrors.IsAlreadyExists(err) {
 			return nil
 		}
 		return fmt.Errorf("failed to create NodeUSBDevice: %w", err)
 	}
 
-	// Update status separately (status is a subresource)
 	nodeUSBDevice.Status = v1alpha2.NodeUSBDeviceStatus{
 		Attributes: attributes,
 		NodeName:   attributes.NodeName,
@@ -166,8 +153,6 @@ func (h *DiscoveryHandler) createNodeUSBDevice(ctx context.Context, attributes v
 	return nil
 }
 
-// sanitizeName converts ResourceSlice device name to a valid Kubernetes resource name.
-// Device name is unique and guaranteed by the DRA driver.
 func (h *DiscoveryHandler) sanitizeName(deviceName string) string {
 	return strings.ToLower(strings.ReplaceAll(deviceName, ".", "-"))
 }

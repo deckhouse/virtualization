@@ -48,10 +48,6 @@ func (h *USBDeviceDetachHandler) Name() string {
 	return nameUSBDeviceDetachHandler
 }
 
-// Handle performs detach and cleanup for USB devices that should be unplugged:
-// - devices that are no longer in spec
-// - devices in spec but not found (e.g. absent on node)
-// - devices in spec but not ready (e.g. physically unplugged)
 func (h *USBDeviceDetachHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler(nameUSBDeviceDetachHandler))
 
