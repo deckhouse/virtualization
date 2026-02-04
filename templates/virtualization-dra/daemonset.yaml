@@ -79,8 +79,10 @@ spec:
             - name: VERBOSITY
               value: "10"
             {{- end }}
-            - name: USB_DEVICES_PATH
-              value: /sys/bus/usb/devices
+            - name: USBIPD_ADDRESS
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}

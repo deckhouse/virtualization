@@ -206,7 +206,6 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	_ = dynamicClient
 
 	monitor, err := o.monitor.Complete(ctx, nil)
 	if err != nil {
@@ -222,11 +221,11 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 		}
 
 		f := informer.NewFactory(client, nil)
-		f.Start(ctx.Done())
-		f.WaitForCacheSync(ctx.Done())
-
 		secretInformer := f.NamespacedSecret(o.Namespace)
 		resourceSliceInformer := f.ResourceSlice()
+
+		f.Start(ctx.Done())
+		f.WaitForCacheSync(ctx.Done())
 
 		usbGatewayController, err := usbgateway.NewUSBGatewayController(
 			ctx,
