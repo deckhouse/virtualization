@@ -75,6 +75,7 @@ func newDraOptions() *draOptions {
 	o := &draOptions{
 		Kubeconfig:                   os.Getenv("KUBECONFIG"),
 		NodeName:                     os.Getenv("NODE_NAME"),
+		Namespace:                    os.Getenv("NAMESPACE"),
 		USBGatewaySecretName:         "virtualization-dra-usb-gateway",
 		CDIRoot:                      withDefault("CDI_ROOT", cdi.SpecDir),
 		KubeletRegisterDirectoryPath: os.Getenv("KUBELET_REGISTER_DIRECTORY_PATH"),
