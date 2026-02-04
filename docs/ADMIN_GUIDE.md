@@ -27,7 +27,7 @@ spec:
       storage:
         persistentVolumeClaim:
           size: 50G
-          storageClassName: sds-replicated-thin-r1
+          storageClassName: rv-thin-r1
         type: PersistentVolumeClaim
     virtualMachineCIDRs:
       - 10.66.10.0/24
@@ -60,7 +60,7 @@ The `.spec.version` parameter defines the version of the configuration schema. T
 The `.spec.settings.dvcr.storage` block configures a persistent volume for storing images:
 
 - `.spec.settings.dvcr.storage.persistentVolumeClaim.size`: Volume size (for example, `50G`). To expand the storage, increase the value of the parameter.
-- `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`: StorageClass name (for example, `sds-replicated-thin-r1`).
+- `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`: StorageClass name (for example, `rv-thin-r1`).
 
 {{< alert level="warning" >}}
 Migrating images when changing the `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` parameter value is not supported.

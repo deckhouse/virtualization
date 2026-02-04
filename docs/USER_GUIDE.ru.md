@@ -395,7 +395,7 @@ spec:
   storage: PersistentVolumeClaim
   persistentVolumeClaim:
     # Подставьте ваше название StorageClass.
-    storageClassName: i-sds-replicated-thin-r2
+    storageClassName: rv-thin-r2
   # Источник для создания образа.
   dataSource:
     type: HTTP
@@ -653,12 +653,8 @@ d8 k get storageclass
 
 ```txt
 NAME                                 PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
-i-sds-replicated-thin-r1 (default)   replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
-i-sds-replicated-thin-r2             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
-i-sds-replicated-thin-r3             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
-sds-replicated-thin-r1               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
-sds-replicated-thin-r2               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
-sds-replicated-thin-r3               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
+rv-thin-r1 (default)                 replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
+rv-thin-r2                           replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
 nfs-4-1-wffc                         nfs.csi.k8s.io                        Delete          WaitForFirstConsumer   true                   30d
 ```
 
@@ -684,7 +680,7 @@ spec:
   # Настройки параметров хранения диска.
   persistentVolumeClaim:
     # Подставьте ваше название StorageClass.
-    storageClassName: i-sds-replicated-thin-r2
+    storageClassName: rv-thin-r2
     size: 100Mi
 EOF
 ```
@@ -768,7 +764,7 @@ spec:
     # Укажем размер больше чем значение распакованного образа.
     size: 10Gi
     # Подставьте ваше название StorageClass.
-    storageClassName: i-sds-replicated-thin-r2
+    storageClassName: rv-thin-r2
   # Источник из которого создается диск.
   dataSource:
     type: ObjectRef
@@ -790,7 +786,7 @@ spec:
   # Настройки параметров хранения диска.
   persistentVolumeClaim:
     # Подставьте ваше название StorageClass.
-    storageClassName: i-sds-replicated-thin-r2
+    storageClassName: rv-thin-r2
   # Источник из которого создается диск.
   dataSource:
     type: ObjectRef
@@ -3140,7 +3136,7 @@ spec:
     # Укажем размер больше чем значение .
     size: 10Gi
     # Подставьте ваше название StorageClass.
-    storageClassName: i-sds-replicated-thin-r2
+    storageClassName: rv-thin-r2
   # Источник из которого создается диск.
   dataSource:
     type: ObjectRef

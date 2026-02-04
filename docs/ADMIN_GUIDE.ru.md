@@ -27,7 +27,7 @@ spec:
       storage:
         persistentVolumeClaim:
           size: 50G
-          storageClassName: sds-replicated-thin-r1
+          storageClassName: rv-thin-r1
         type: PersistentVolumeClaim
     virtualMachineCIDRs:
       - 10.66.10.0/24
@@ -60,7 +60,7 @@ spec:
 Блок `.spec.settings.dvcr.storage` настраивает постоянный том для хранения образов:
 
 - `.spec.settings.dvcr.storage.persistentVolumeClaim.size` — размер тома (например, `50G`). Для расширения хранилища увеличьте значение параметра;
-- `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` — класс хранения (например, `sds-replicated-thin-r1`).
+- `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` — класс хранения (например, `rv-thin-r1`).
 
 {{< alert level="warning" >}}
 Перенос образов при изменении значения параметра `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` не поддерживается.
