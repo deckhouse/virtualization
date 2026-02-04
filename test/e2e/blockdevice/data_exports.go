@@ -265,19 +265,6 @@ func uploadFile(f *framework.Framework, vd *v1alpha2.VirtualDisk, filePath strin
 	Expect(vd.Status.ImageUploadURLs).NotTo(BeNil(), "ImageUploadURLs should be set")
 	Expect(vd.Status.ImageUploadURLs.External).NotTo(BeEmpty(), "External upload URL should be set")
 
-	file, err := os.Open(filePath)
-	Expect(err).NotTo(HaveOccurred(), "Failed to open %s", filePath)
-	defer file.Close()
-
-	stat, err := file.Stat()
-	Expect(err).NotTo(HaveOccurred(), "Failed to get file stats")
-	Expect(stat.Size()).NotTo(BeZero(), "File should not be empty")
-
-	req, err := http.NewRequest(http.MethodPut, vd.Status.ImageUploadURLs.External, file)
-	Expect(err).NotTo(HaveOccurred(), "Failed to create HTTP request")
-	req.ContentLength = stat.Size()
-	req.Header.Set("Content-Type", "application/octet-stream")
-
 	client := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
@@ -286,11 +273,57 @@ func uploadFile(f *framework.Framework, vd *v1alpha2.VirtualDisk, filePath strin
 		},
 	}
 
-	resp, err := client.Do(req)
-	Expect(err).NotTo(HaveOccurred(), "Failed to upload file")
-	defer resp.Body.Close()
+	const maxRetries = 10
+	var lastErr error
+	var lastStatusCode int
+	var lastBody string
 
-	body, _ := io.ReadAll(resp.Body)
-	Expect(resp.StatusCode).To(BeNumerically(">=", 200), "Upload failed: %s", string(body))
-	Expect(resp.StatusCode).To(BeNumerically("<", 300), "Upload failed with status %d: %s", resp.StatusCode, string(body))
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		file, err := os.Open(filePath)
+		Expect(err).NotTo(HaveOccurred(), "Failed to open %s", filePath)
+
+		stat, err := file.Stat()
+		Expect(err).NotTo(HaveOccurred(), "Failed to stat %s", filePath)
+		Expect(stat.Size()).NotTo(BeZero(), "File should not be empty")
+
+		req, err := http.NewRequest(http.MethodPut, vd.Status.ImageUploadURLs.External, file)
+		Expect(err).NotTo(HaveOccurred(), "Failed to create HTTP request")
+		req.ContentLength = stat.Size()
+
+		resp, err := client.Do(req)
+		err = file.Close()
+		Expect(err).NotTo(HaveOccurred(), "Failed to close file %s", filePath)
+
+		if err != nil {
+			lastErr = err
+			GinkgoWriter.Printf("Upload attempt %d/%d failed: %v\n", attempt, maxRetries, err)
+			time.Sleep(time.Duration(attempt) * time.Second)
+			continue
+		}
+
+		body, _ := io.ReadAll(resp.Body)
+		err = resp.Body.Close()
+		Expect(err).NotTo(HaveOccurred(), "Failed to close resp.body")
+		lastStatusCode = resp.StatusCode
+		lastBody = string(body)
+
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			return
+		}
+
+		// Retry on 5xx errors (service not ready) and 413 (nginx may not be ready)
+		if resp.StatusCode >= 500 || resp.StatusCode == 413 {
+			GinkgoWriter.Printf("Upload attempt %d/%d got %d, retrying...\n", attempt, maxRetries, resp.StatusCode)
+			time.Sleep(time.Duration(attempt) * time.Second)
+			continue
+		}
+
+		// Non-retryable error
+		Fail(fmt.Sprintf("Upload failed with status %d: %s", resp.StatusCode, lastBody))
+	}
+
+	if lastErr != nil {
+		Fail(fmt.Sprintf("Upload failed after %d attempts: %v", maxRetries, lastErr))
+	}
+	Fail(fmt.Sprintf("Upload failed after %d attempts with status %d: %s", maxRetries, lastStatusCode, lastBody))
 }
