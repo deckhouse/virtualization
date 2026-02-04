@@ -27,6 +27,10 @@ import (
 	"github.com/deckhouse/virtualization-dra/internal/featuregates"
 )
 
+func (d *Device) ToAPIDevice(nodeName string) *resourceapi.Device {
+	return convertToAPIDevice(*d, nodeName)
+}
+
 func convertToAPIDevice(usbDevice Device, nodeName string) *resourceapi.Device {
 	name := usbDevice.GetName(nodeName)
 	device := &resourceapi.Device{
