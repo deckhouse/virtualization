@@ -194,6 +194,8 @@ func (o *draOptions) Clients() (kubernetes.Interface, dynamic.Interface, error) 
 }
 
 func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
+	ctx := cmd.Context()
+
 	err := plugin.InitPluginDirs(o.KubeletPluginsDirectoryPath, o.KubeletRegisterDirectoryPath)
 	if err != nil {
 		return err
@@ -205,7 +207,7 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 	}
 	_ = dynamicClient
 
-	monitor, err := o.monitor.Complete(cmd.Context(), nil)
+	monitor, err := o.monitor.Complete(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create USB monitor: %w", err)
 	}
@@ -219,13 +221,14 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 		}
 
 		f := informer.NewFactory(client, nil)
-		f.WaitForCacheSync(cmd.Context().Done())
+		f.Start(ctx.Done())
+		f.WaitForCacheSync(ctx.Done())
 
 		secretInformer := f.NamespacedSecret(o.Namespace)
 		resourceSliceInformer := f.ResourceSlice()
 
 		usbGatewayController, err := usbgateway.NewUSBGatewayController(
-			cmd.Context(),
+			ctx,
 			o.USBGatewaySecretName,
 			o.Namespace,
 			o.NodeName,
@@ -240,19 +243,19 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 			return fmt.Errorf("failed to create USB gateway controller: %w", err)
 		}
 
-		if err = usbipd.Run(cmd.Context()); err != nil {
+		if err = usbipd.Run(ctx); err != nil {
 			return fmt.Errorf("failed to run USBIPD: %w", err)
 		}
-		if err = controller.Run(usbGatewayController, cmd.Context(), 1); err != nil {
+		if err = controller.Run(usbGatewayController, ctx, 1); err != nil {
 			return fmt.Errorf("failed to run USB gateway controller: %w", err)
 		}
 
-		err = prepare.MarkNodeForUSBGateway(cmd.Context(), o.NodeName, dynamicClient)
+		err = prepare.MarkNodeForUSBGateway(ctx, o.NodeName, dynamicClient)
 		if err != nil {
 			return fmt.Errorf("failed to mark node for USB gateway: %w", err)
 		}
 		defer func() {
-			err = prepare.UnmarkNodeForUSBGateway(cmd.Context(), o.NodeName, dynamicClient)
+			err = prepare.UnmarkNodeForUSBGateway(ctx, o.NodeName, dynamicClient)
 			if err != nil {
 				slog.Error("failed to unmark node for USB gateway", slog.Any("error", err))
 			}
@@ -266,13 +269,13 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to create CDI manager: %w", err)
 	}
 
-	usbStore, err := usb.NewAllocationStore(cmd.Context(), o.NodeName, usbCDIManager, monitor, usbGateway, slog.Default())
+	usbStore, err := usb.NewAllocationStore(ctx, o.NodeName, usbCDIManager, monitor, usbGateway, slog.Default())
 	if err != nil {
 		return fmt.Errorf("failed to create USB store: %w", err)
 	}
 
 	driver := plugin.NewDriver(o.NodeName, client, usbStore, slog.Default())
-	err = driver.Start(cmd.Context())
+	err = driver.Start(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to start driver: %w", err)
 	}
