@@ -18,6 +18,7 @@ package blockdevice
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
@@ -174,7 +175,7 @@ var _ = Describe("DataExports", label.Slow(), func() {
 		})
 
 		By("Uploading exported disk image", func() {
-			uploadImage(f, vdFromDiskExport, exportedDiskFile)
+			uploadFile(f, vdFromDiskExport, exportedDiskFile)
 		})
 
 		By("Waiting for disk from VirtualDisk export to be ready", func() {
@@ -186,7 +187,7 @@ var _ = Describe("DataExports", label.Slow(), func() {
 		})
 
 		By("Uploading exported snapshot image", func() {
-			uploadImage(f, vdFromSnapshotExport, exportedSnapshotFile)
+			uploadFile(f, vdFromSnapshotExport, exportedSnapshotFile)
 		})
 
 		By("Waiting for disk from snapshot export to be ready", func() {
@@ -258,7 +259,7 @@ func createUploadDisk(f *framework.Framework, name string) *v1alpha2.VirtualDisk
 	return vd
 }
 
-func uploadImage(f *framework.Framework, vd *v1alpha2.VirtualDisk, filePath string) {
+func uploadFile(f *framework.Framework, vd *v1alpha2.VirtualDisk, filePath string) {
 	err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vd), vd)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(vd.Status.ImageUploadURLs).NotTo(BeNil(), "ImageUploadURLs should be set")
@@ -277,7 +278,15 @@ func uploadImage(f *framework.Framework, vd *v1alpha2.VirtualDisk, filePath stri
 	req.ContentLength = stat.Size()
 	req.Header.Set("Content-Type", "application/octet-stream")
 
-	resp, err := (&http.Client{}).Do(req)
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		},
+	}
+
+	resp, err := client.Do(req)
 	Expect(err).NotTo(HaveOccurred(), "Failed to upload file")
 	defer resp.Body.Close()
 
