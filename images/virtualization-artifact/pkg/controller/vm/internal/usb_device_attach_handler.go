@@ -118,8 +118,10 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 
 		existingStatus, alreadyAttached := currentStatusMap[usbDeviceRef.Name]
 		if alreadyAttached && existingStatus.Attached {
+			kvvmi, _ := s.KVVMI(ctx)
 			existingStatus.Ready = isReady
 			existingStatus.Conditions = deviceConditions
+			existingStatus.Address = h.getUSBAddressFromKVVMI(usbDeviceRef.Name, kvvmi)
 			statusRefs = append(statusRefs, *existingStatus)
 			continue
 		}
@@ -144,7 +146,8 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 		}
 
 		isHotplugged := vm.Status.Phase == v1alpha2.MachineRunning
-		address := h.getOrAssignUSBAddress(existingStatus, isHotplugged, vm)
+		kvvmi, _ := s.KVVMI(ctx)
+		address := h.getUSBAddressFromKVVMI(usbDeviceRef.Name, kvvmi)
 
 		statusRefs = append(statusRefs, v1alpha2.USBDeviceStatusRef{
 			Name:       usbDeviceRef.Name,

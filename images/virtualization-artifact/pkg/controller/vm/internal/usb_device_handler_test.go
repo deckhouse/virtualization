@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
@@ -408,12 +409,7 @@ var _ = Describe("USB device handlers", func() {
 			// ResourceClaimTemplate is owned by USBDevice and is not deleted by VM controller
 		})
 
-		It("should keep existing address when device already attached", func() {
-			existingAddress := &v1alpha2.USBAddress{
-				Bus:  0,
-				Port: 2,
-			}
-
+		It("should set address from KVVMI when device has usbAddress in status", func() {
 			vm := &v1alpha2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vm",
@@ -431,7 +427,6 @@ var _ = Describe("USB device handlers", func() {
 						{
 							Name:     "usb-device-1",
 							Attached: true,
-							Address:  existingAddress,
 						},
 					},
 				},
@@ -465,11 +460,37 @@ var _ = Describe("USB device handlers", func() {
 				},
 			}
 
+			// KVVMI reports bus/device for the USB device — we only use address from here
+			kvvmi := &virtv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vm",
+					Namespace: "default",
+				},
+				Status: virtv1.VirtualMachineInstanceStatus{
+					DeviceStatus: &virtv1.DeviceStatus{
+						HostDeviceStatuses: []virtv1.DeviceStatusInfo{
+							{
+								Name: "usb-device-1",
+								DeviceResourceClaimStatus: &virtv1.DeviceResourceClaimStatus{
+									Attributes: &virtv1.DeviceAttribute{
+										USBAddress: &virtv1.USBAddress{
+											Bus:           0,
+											DeviceNumber:  2,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
 			scheme := apiruntime.NewScheme()
 			Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 			Expect(resourcev1beta1.AddToScheme(scheme)).To(Succeed())
+			Expect(virtv1.AddToScheme(scheme)).To(Succeed())
 
-			fakeClient = fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, usbDevice, resourceClaimTemplate).Build()
+			fakeClient = fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, usbDevice, resourceClaimTemplate, kvvmi).Build()
 
 			vmResource = reconciler.NewResource(
 				types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace},
@@ -487,9 +508,9 @@ var _ = Describe("USB device handlers", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(Equal(reconcile.Result{}))
 
-			// Verify existing address was preserved
+			// Address is taken only from KVVMI, never assigned by us
 			Expect(vmResource.Changed().Status.USBDevices).To(HaveLen(1))
-			Expect(vmResource.Changed().Status.USBDevices[0].Address).To(Equal(existingAddress))
+			Expect(vmResource.Changed().Status.USBDevices[0].Address).To(Equal(&v1alpha2.USBAddress{Bus: 0, Port: 2}))
 		})
 	})
 
@@ -556,6 +577,7 @@ var _ = Describe("USB device handlers", func() {
 			_, err := detachHandler.Handle(ctx, vmState)
 			Expect(err).NotTo(HaveOccurred())
 
+			_ = mockVirtCl.VirtualMachines("default") // ensure entry exists
 			mockVM := mockVirtCl.vmClients["default"]
 			Expect(mockVM.removeResourceClaimCalls).To(BeEmpty())
 		})
@@ -605,6 +627,7 @@ var _ = Describe("USB device handlers", func() {
 			Expect(changed).ToNot(BeNil())
 			Expect(changed.Status.USBDevices).To(HaveLen(1))
 			Expect(changed.Status.USBDevices[0].Attached).To(BeFalse())
+			_ = mockVirtCl.VirtualMachines("default") // ensure entry exists
 			mockVM := mockVirtCl.vmClients["default"]
 			Expect(mockVM.addResourceClaimCalls).To(BeEmpty())
 		})

@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -101,37 +102,24 @@ func (h *usbDeviceHandlerBase) detachUSBDevice(
 	return h.virtClient.VirtualMachines(vm.Namespace).RemoveResourceClaim(ctx, vm.Name, opts)
 }
 
-func (h *usbDeviceHandlerBase) getOrAssignUSBAddress(
-	existingStatus *v1alpha2.USBDeviceStatusRef,
-	isHotplugged bool,
-	vm *v1alpha2.VirtualMachine,
-) *v1alpha2.USBAddress {
-	if existingStatus != nil && existingStatus.Address != nil {
-		return existingStatus.Address
-	}
-	if isHotplugged {
+func (h *usbDeviceHandlerBase) getUSBAddressFromKVVMI(deviceName string, kvvmi *virtv1.VirtualMachineInstance) *v1alpha2.USBAddress {
+	if kvvmi == nil || kvvmi.Status.DeviceStatus == nil {
 		return nil
 	}
-	usedPorts := make(map[int]bool)
-	for _, usbStatus := range vm.Status.USBDevices {
-		if usbStatus.Address != nil && usbStatus.Address.Bus == 0 {
-			usedPorts[usbStatus.Address.Port] = true
+	for _, st := range kvvmi.Status.DeviceStatus.HostDeviceStatuses {
+		if st.Name != deviceName {
+			continue
+		}
+		if st.DeviceResourceClaimStatus == nil || st.DeviceResourceClaimStatus.Attributes == nil || st.DeviceResourceClaimStatus.Attributes.USBAddress == nil {
+			return nil
+		}
+		ua := st.DeviceResourceClaimStatus.Attributes.USBAddress
+		return &v1alpha2.USBAddress{
+			Bus:  int(ua.Bus),
+			Port: int(ua.DeviceNumber),
 		}
 	}
-	port := 1
-	for port <= 127 {
-		if !usedPorts[port] {
-			break
-		}
-		port++
-	}
-	if port > 127 {
-		port = 1
-	}
-	return &v1alpha2.USBAddress{
-		Bus:  0,
-		Port: port,
-	}
+	return nil
 }
 
 func (h *usbDeviceHandlerBase) getDeviceConditions(usbDevice *v1alpha2.USBDevice) []metav1.Condition {
