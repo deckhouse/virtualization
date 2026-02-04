@@ -2712,6 +2712,46 @@ spec:
 
 Now the current node (groups green) does not match the new conditions. The system will automatically create a `VirtualMachineOperations` object of type Evict, which will initiate a live migration of the VM to an available node in group blue .
 
+### Collecting debug information
+
+{{< alert level="warning" >}}
+The `collect-debug-info` command requires `d8` version v0.27.0 or higher.
+{{< /alert >}}
+
+To diagnose problems with a virtual machine, you can use the `collect-debug-info` command, which collects complete information about the VM state and all related resources into a compressed archive.
+
+The command collects the following information:
+
+- Virtual machine configuration
+- Virtual machine operations
+- Migration information
+- Block devices
+- Related PVCs and PVs
+- Pods associated with the VM, including their logs (last 10000 lines)
+- Events for all related resources
+- VM domain XML configuration
+
+The command output is written to a compressed archive (tar.gz) that is output to stdout. To save the archive, you must redirect the output to a file.
+
+Usage example:
+
+```bash
+# Collect debug information for virtual machine 'linux-vm'
+d8 v collect-debug-info linux-vm > debug-info.tar.gz
+
+# Collect debug information for VM with namespace specified
+d8 v collect-debug-info linux-vm -n mynamespace > debug-info.tar.gz
+
+# Collect debug information for VM with full name specified (name.namespace)
+d8 v collect-debug-info linux-vm.mynamespace > debug-info.tar.gz
+```
+
+{{< alert level="warning" >}}
+The command cannot output data directly to the terminal. You must redirect the output to a file, otherwise the command will fail with an error.
+{{< /alert >}}
+
+After executing the command, you will receive a `debug-info.tar.gz` archive that contains all collected data in YAML format (for resources) and text files (for logs). This archive can be sent to technical support for problem analysis.
+
 ## Network configuration
 
 ### IP addresses of virtual machines
