@@ -42,7 +42,7 @@ func (a *usbAttacher) Attach(host, busID string, port int) (int, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	conn, err := a.usbipNetTCPConnect(host, fmt.Sprintf("%d", port))
+	conn, err := a.usbipNetTCPConnect(host, strconv.Itoa(port))
 	if err != nil {
 		return -1, fmt.Errorf("failed to connect to usbipd: %w", err)
 	}
@@ -61,7 +61,7 @@ func (a *usbAttacher) Attach(host, busID string, port int) (int, error) {
 }
 
 // https://github.com/torvalds/linux/blob/b927546677c876e26eba308550207c2ddf812a43/tools/usb/usbip/src/usbip_detach.c#L32
-func (a *usbAttacher) Detach(port int) error {
+func (a *usbAttacher) Detach(rhport int) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -74,11 +74,11 @@ func (a *usbAttacher) Detach(port int) error {
 	for i := 0; i < driver.nports; i++ {
 		idev := &driver.idevs[i]
 
-		if idev.port == port {
+		if idev.port == rhport {
 			found = true
 			vstatus := protocol.DeviceStatus(idev.status)
 			if vstatus == protocol.VDeviceStatusNull {
-				slog.Info("Port is already detached", slog.Int("port", port))
+				slog.Info("Port is already detached", slog.Int("rhport", rhport))
 				return fmt.Errorf("port is already detached")
 			}
 
@@ -87,11 +87,11 @@ func (a *usbAttacher) Detach(port int) error {
 	}
 
 	if !found {
-		slog.Error("Invalid port > maxports", slog.Int("port", port), slog.Int("maxports", driver.nports))
-		return fmt.Errorf("port %d not found", port)
+		slog.Error("Invalid port > maxports", slog.Int("rhport", rhport), slog.Int("maxports", driver.nports))
+		return fmt.Errorf("rhport %d not found", rhport)
 	}
 
-	path := vhciStatePortPath(port)
+	path := vhciStatePortPath(rhport)
 
 	if err = os.Remove(path); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to remove vhci state port file: %w", err)
@@ -101,11 +101,11 @@ func (a *usbAttacher) Detach(port int) error {
 		return fmt.Errorf("failed to remove vhci state path: %w", err)
 	}
 
-	if err = writeSysfsAttr(vhciHcdDetach, detachAttr{port: port}); err != nil {
+	if err = writeSysfsAttr(vhciHcdDetach, detachAttr{port: rhport}); err != nil {
 		return fmt.Errorf("failed to write detach attribute: %w", err)
 	}
 
-	slog.Info("Port detached", slog.Int("port", port))
+	slog.Info("Port detached", slog.Int("rhport", rhport))
 	return nil
 }
 

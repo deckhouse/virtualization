@@ -129,6 +129,13 @@ func (f *Factory) Pods() cache.SharedIndexInformer {
 	})
 }
 
+func (f *Factory) NamespacedSecret(namespace string) cache.SharedIndexInformer {
+	return f.getInformer("namespacedSecretInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "secrets", namespace, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &corev1.Secret{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
 func (f *Factory) getInformer(key string, newFunc func() cache.SharedIndexInformer) cache.SharedIndexInformer {
 	f.mu.Lock()
 	defer f.mu.Unlock()

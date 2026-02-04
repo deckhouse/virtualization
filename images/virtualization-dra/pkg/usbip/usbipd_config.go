@@ -40,7 +40,7 @@ func (c *USBIPDConfig) AddFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&c.Port, "usbipd-port", 3240, "USBIPD port")
 	fs.DurationVar(&c.GracefulShutdownTimeout, "usbipd-graceful-shutdown-timeout", 0, "USBIPD graceful shutdown timeout")
 	fs.IntVar(&c.MaxTcpConnections, "usbipd-max-tcp-connections", 0, "USBIPD max TCP connections")
-	fs.BoolVar(&c.ExportEnabled, "usbipd-export-enabled", true, "USBIPD export enabled")
+	fs.BoolVar(&c.ExportEnabled, "usbipd-export-enabled", false, "USBIPD export enabled")
 }
 
 func (c *USBIPDConfig) Complete(monitor libusb.Monitor) (*USBIPD, error) {

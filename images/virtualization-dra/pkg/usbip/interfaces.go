@@ -51,7 +51,7 @@ type BindInfo struct {
 
 type USBAttacher interface {
 	Attach(host, busID string, port int) (int, error)
-	Detach(port int) error
+	Detach(rhport int) error
 	AttachInfoGetter
 }
 
