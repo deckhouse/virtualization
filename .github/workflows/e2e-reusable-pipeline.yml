@@ -949,6 +949,8 @@ jobs:
           }
 
           debug_output() {
+            local NODES
+
             echo "[ERROR] Virtualization module deploy failed"
             echo "[DEBUG] Show describe virtualization module"
             echo "::group::📦 describe virtualization module"
@@ -981,8 +983,22 @@ jobs:
             echo " "
             echo "[DEBUG] Show pvc in namespace d8-virtualization"
             kubectl get pvc -n d8-virtualization || true
-            echo "[DEBUG] Show storageclasses"
+            echo "[DEBUG] Show cluster StorageClasses"
             kubectl get storageclasses || true
+            echo "[DEBUG] Show cluster nodes"
+            kubectl get node
+
+            echo "[DEBUG] Show cluster node yaml and describe"
+            NODES=$(kubectl get no -o jsonpath='{range .items[?(@.metadata.name)]}{.metadata.name}{"\n"}{end}')
+            for node in $NODES; do
+              echo "::group::📝 show cluster node $node yaml"
+              kubectl get node $node -o yaml
+              echo "::endgroup::"
+              echo "::group::📝 show cluster node $node describe"
+              kubectl describe node $node
+              echo "::endgroup::"
+            done
+            
             echo "[DEBUG] Show queue (first 25 lines)"
             d8 s queue list | head -n 25 || echo "[WARNING] Failed to retrieve list queue"
             echo "[DEBUG] Show deckhouse logs"
@@ -1053,9 +1069,12 @@ jobs:
           }
 
           virt_handler_ready() {
-            local count=60
+            local count=180
             local virt_handler_ready
-            local workers=$(kubectl get nodes -o name | grep worker | wc -l || true)
+            local workers
+            local time_wait=10
+            
+            workers=$(kubectl get nodes -o name | grep worker | wc -l || true)
             workers=$((workers)) 
 
             for i in $(seq 1 $count); do
@@ -1067,14 +1086,18 @@ jobs:
               fi
 
               echo "[INFO] virt-handler pods $virt_handler_ready/$workers "
-              echo "[INFO] Wait virt-handler pods are ready (attempt $i/$count)"
+              echo "[INFO] Wait ${time_wait}s virt-handler pods are ready (attempt $i/$count)"
               if (( i % 5 == 0 )); then
                 echo "[DEBUG] Show pods in namespace d8-virtualization"
                 echo "::group::📦 virtualization pods"
                 kubectl -n d8-virtualization get pods || echo "No pods in virtualization namespace found"
                 echo "::endgroup::"
+                echo "[DEBUG] Show cluster nodes"
+                echo "::group::📦 cluster nodes"
+                kubectl get node
+                echo "::endgroup::"
               fi
-              sleep 10
+              sleep ${time_wait}
             done
 
             debug_output
