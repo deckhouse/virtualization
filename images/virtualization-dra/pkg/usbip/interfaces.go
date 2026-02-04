@@ -27,6 +27,7 @@ type ServerInterface interface {
 
 type ClientInterface interface {
 	USBAttacher
+	USBExporter
 }
 
 type USBBinder interface {
@@ -63,6 +64,11 @@ type AttachInfo struct {
 	LocalBusID           string
 }
 
+type USBExporter interface {
+	Export(host, busID string, port int) error
+	Unexport(host, busID string, port int) error
+}
+
 type serverImpl struct {
 	USBBinder
 }
@@ -73,10 +79,11 @@ func NewServer(binder USBBinder) ServerInterface {
 
 type clientImpl struct {
 	USBAttacher
+	USBExporter
 }
 
-func NewClient(attacher USBAttacher) ClientInterface {
-	return &clientImpl{USBAttacher: attacher}
+func NewClient(attacher USBAttacher, exporter USBExporter) ClientInterface {
+	return &clientImpl{USBAttacher: attacher, USBExporter: exporter}
 }
 
 type interfaceImpl struct {
@@ -94,9 +101,10 @@ func NewInterface(server ServerInterface, client ClientInterface) Interface {
 func New() Interface {
 	binder := NewUSBBinder()
 	attacher := NewUSBAttacher()
+	exporter := NewUSBExporter()
 
 	server := NewServer(binder)
-	client := NewClient(attacher)
+	client := NewClient(attacher, exporter)
 
 	return NewInterface(server, client)
 }

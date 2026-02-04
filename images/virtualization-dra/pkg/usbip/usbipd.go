@@ -54,6 +54,12 @@ func WithMaxTCPConnection(maxTCPConnection int) Option {
 	}
 }
 
+func WithExport(enabled bool) Option {
+	return func(usbipd *USBIPD) {
+		usbipd.exportEnabled = enabled
+	}
+}
+
 func NewUSBIPD(addr string, monitor libusb.Monitor, opts ...Option) *USBIPD {
 	usbipd := &USBIPD{
 		addr:                    addr,
@@ -67,6 +73,10 @@ func NewUSBIPD(addr string, monitor libusb.Monitor, opts ...Option) *USBIPD {
 		opt(usbipd)
 	}
 
+	if usbipd.exportEnabled {
+		usbipd.usbBinder = NewUSBBinder()
+	}
+
 	return usbipd
 
 }
@@ -77,6 +87,8 @@ type USBIPD struct {
 	gracefulShutdownTimeout time.Duration
 	maxTCPConnection        int
 	logger                  *slog.Logger
+	exportEnabled           bool
+	usbBinder               USBBinder
 
 	listener  net.Listener
 	connWg    sync.WaitGroup
@@ -188,6 +200,14 @@ func (u *USBIPD) handleConnection(conn net.Conn) (bool, error) {
 			return false, fmt.Errorf("failed to handle OpReqImport: %w", err)
 		}
 		return true, nil
+	case protocol.OpReqExport:
+		if err := u.handleExportRequest(conn); err != nil {
+			return false, fmt.Errorf("failed to handle OpRepExport: %w", err)
+		}
+	case protocol.OpReqUnexport:
+		if err := u.handleUnexportRequest(conn); err != nil {
+			return false, fmt.Errorf("failed to handle OpReqUnexport: %w", err)
+		}
 	case protocol.OpReqDevInfo, protocol.OpReqCrypkey:
 		// nothing to do
 	default:
@@ -218,39 +238,25 @@ func (u *USBIPD) handleImportRequest(conn net.Conn) error {
 	log := u.logger.With(slog.String("busID", busID))
 	log.Info("import request")
 
-	devices := u.monitor.GetDevices()
-
-	var bindDevice *libusb.USBDevice
-	for _, device := range devices {
-		if device.BusID == busID {
-			log.Info("found device for export")
-			bindDevice = &device
-			break
-		}
+	bindDevice, exists := u.monitor.GetDeviceByBusID(busID)
+	if !exists {
+		log.Info("USB device is not found")
+		return protocol.NewImportReply(protocol.OpStatusNoDev, protocol.USBDevice{}).Encode(conn)
 	}
 
-	status := protocol.OpStatusOk
+	// should set TCP_NODELAY for usbip
+	u.setNoDelay(conn)
 
-	if bindDevice != nil {
-		// should set TCP_NODELAY for usbip
-		u.setNoDelay(conn)
-
-		status = u.exportDevice(conn, bindDevice)
-		if status != protocol.OpStatusOk {
-			log.Error("failed to export device", slog.String("status", status.String()))
-		}
-
-	} else {
-		// not found
-		status = protocol.OpStatusNoDev
+	status := u.exportDevice(conn, bindDevice)
+	if status != protocol.OpStatusOk {
+		log.Error("failed to export device", slog.String("status", status.String()))
 	}
 
-	u.logger.Info("export device", slog.Any("device", bindDevice))
+	u.logger.Info("device exported", slog.Any("device", bindDevice))
 
 	usbDevice := toUSBDeviceInfo(bindDevice).USBDevice
-	reply := protocol.NewImportReply(status, usbDevice)
 
-	return reply.Encode(conn)
+	return protocol.NewImportReply(status, usbDevice).Encode(conn)
 }
 
 // https://github.com/torvalds/linux/blob/9448598b22c50c8a5bb77a9103e2d49f134c9578/tools/usb/usbip/libsrc/usbip_host_common.c#L212
@@ -309,6 +315,91 @@ func (u *USBIPD) exportDevice(conn net.Conn, device *libusb.USBDevice) protocol.
 	log.Info("Connect")
 
 	return protocol.OpStatusOk
+}
+
+func (u *USBIPD) handleExportRequest(conn net.Conn) error {
+	if !u.exportEnabled {
+		u.logger.Info("USBIPD export is disabled, skip handle export request")
+		return nil
+	}
+
+	exportRequest := &protocol.ExportRequest{}
+	if err := exportRequest.Decode(conn); err != nil {
+		return fmt.Errorf("failed to decode ExportRequest: %w", err)
+	}
+
+	busID := exportRequest.BusID()
+	log := u.logger.With(slog.String("busID", busID))
+	log.Info("export request")
+
+	_, exists := u.monitor.GetDeviceByBusID(busID)
+	if !exists {
+		log.Info("USB device is not found")
+		return protocol.NewExportReply(protocol.OpStatusNoDev).Encode(conn)
+	}
+
+	bound, err := u.usbBinder.IsBound(busID)
+	if err != nil {
+		log.Error("failed to check if USB device is bound", slog.Any("error", err))
+		return protocol.NewExportReply(protocol.OpStatusError).Encode(conn)
+
+	}
+
+	if bound {
+		log.Info("USB device is already bound")
+		return protocol.NewExportReply(protocol.OpStatusOk).Encode(conn)
+	}
+
+	err = u.usbBinder.Bind(busID)
+	if err != nil {
+		log.Error("failed to bind USB device", slog.Any("error", err))
+		return protocol.NewExportReply(protocol.OpStatusError).Encode(conn)
+	}
+
+	log.Info("USB device bound")
+	return protocol.NewExportReply(protocol.OpStatusOk).Encode(conn)
+}
+
+func (u *USBIPD) handleUnexportRequest(conn net.Conn) error {
+	if !u.exportEnabled {
+		u.logger.Info("USBIPD export is disabled, skip handle unexport request")
+		return nil
+	}
+
+	unexportRequest := &protocol.UnExportRequest{}
+	if err := unexportRequest.Decode(conn); err != nil {
+		return fmt.Errorf("failed to decode UnExportRequest: %w", err)
+	}
+
+	busID := unexportRequest.BusID()
+	log := u.logger.With(slog.String("busID", busID))
+	log.Info("unexport request")
+
+	_, exists := u.monitor.GetDeviceByBusID(busID)
+	if !exists {
+		log.Info("USB device is not found")
+		return protocol.NewUnExportReply(protocol.OpStatusNoDev).Encode(conn)
+	}
+
+	bound, err := u.usbBinder.IsBound(busID)
+	if err != nil {
+		log.Error("failed to check if USB device is bound", slog.Any("error", err))
+		return protocol.NewUnExportReply(protocol.OpStatusError).Encode(conn)
+	}
+
+	if !bound {
+		log.Info("USB device already unbound")
+		return protocol.NewUnExportReply(protocol.OpStatusOk).Encode(conn)
+	}
+
+	err = u.usbBinder.Unbind(busID)
+	if err != nil {
+		log.Error("failed to unbind USB device", slog.Any("error", err))
+		return protocol.NewUnExportReply(protocol.OpStatusError).Encode(conn)
+	}
+
+	log.Info("USB device unbound")
+	return protocol.NewUnExportReply(protocol.OpStatusOk).Encode(conn)
 }
 
 type sockFdAttr struct {

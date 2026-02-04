@@ -44,7 +44,7 @@ type attachOptions struct {
 
 func (o *attachOptions) Usage() string {
 	return `  # Attach USB devices to USBIP server
-  $ go-usbip attach 192.168.1.1 3-2.1.1
+  $ go-usbip attach 192.168.1.1 3-1
 `
 }
 

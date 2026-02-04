@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -15,6 +16,10 @@ import (
 
 func ObjectKeyFunc(obj interface{}) (string, error) {
 	return cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+}
+
+func MetaObjectKeyFunc(obj metav1.Object) string {
+	return KeyFunc(obj.GetNamespace(), obj.GetName())
 }
 
 func KeyFunc(namespace, name string) string {

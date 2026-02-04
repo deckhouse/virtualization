@@ -39,7 +39,7 @@ type bindOptions struct{}
 
 func (o *bindOptions) Usage() string {
 	return `  # Bind USB devices to USBIP server
-  $ go-usbip bind 3-2.1.1
+  $ go-usbip bind 3-1
 `
 }
 

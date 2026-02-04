@@ -54,6 +54,8 @@ func NewUSBIPCommand() *cobra.Command {
 		NewAttachInfoCommand(),
 		NewBindInfoCommand(),
 		NewInfoCommand(),
+		NewExportCommand(),
+		NewUnExportCommand(),
 	)
 
 	printer.AddFlags(cmd.PersistentFlags())

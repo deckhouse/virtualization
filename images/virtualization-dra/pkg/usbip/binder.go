@@ -64,7 +64,6 @@ func (b *usbBinder) Bind(busID string) error {
 	}
 
 	return nil
-	// return b.storeBind(busID, true)
 }
 
 // Unbind unbinds the USB device from the USBIP server.

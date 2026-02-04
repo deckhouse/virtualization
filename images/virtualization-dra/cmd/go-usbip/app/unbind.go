@@ -39,7 +39,7 @@ type unbindOptions struct{}
 
 func (o *unbindOptions) Usage() string {
 	return `  # Unbind USB devices from USBIP server
-  $ go-usbip unbind 3-2.1.1
+  $ go-usbip unbind 3-1
 `
 }
 

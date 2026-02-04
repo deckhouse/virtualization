@@ -693,7 +693,6 @@ func (c *Controller) getVirtualizationDraResourceSlices() ([]resourcev1beta1.Res
 	return slices, nil
 }
 
-// TODO: refactor me. only one pod supports now
 func (c *Controller) getReservedFor(rc *resourcev1beta1.ResourceClaim) (*corev1.Pod, error) {
 	for _, rFor := range rc.Status.ReservedFor {
 		if rFor.Resource == "pods" {
@@ -775,35 +774,6 @@ func (c *Controller) getAllocationDevices(rc *resourcev1beta1.ResourceClaim) ([]
 	}
 
 	return myDevices, otherDevices, nil
-}
-
-func addFinalizer(obj metav1.Object) bool {
-	var newFinalizers []string
-	for _, fin := range obj.GetFinalizers() {
-		if fin == finalizer {
-			return false
-		}
-		newFinalizers = append(newFinalizers, fin)
-	}
-	newFinalizers = append(newFinalizers, finalizer)
-	obj.SetFinalizers(newFinalizers)
-	return true
-}
-
-func removeFinalizer(obj metav1.Object) bool {
-	var newFinalizers []string
-	for _, fin := range obj.GetFinalizers() {
-		if fin == finalizer {
-			continue
-		}
-		newFinalizers = append(newFinalizers, fin)
-	}
-	if len(newFinalizers) == len(obj.GetFinalizers()) {
-		return false
-	}
-
-	obj.SetFinalizers(newFinalizers)
-	return true
 }
 
 func makeAddFinalizerPatch(obj metav1.Object) ([]byte, error) {

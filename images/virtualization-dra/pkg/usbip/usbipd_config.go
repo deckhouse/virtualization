@@ -32,6 +32,7 @@ type USBIPDConfig struct {
 	Port                    int
 	GracefulShutdownTimeout time.Duration
 	MaxTcpConnections       int
+	ExportEnabled           bool
 }
 
 func (c *USBIPDConfig) AddFlags(fs *pflag.FlagSet) {
@@ -39,6 +40,7 @@ func (c *USBIPDConfig) AddFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&c.Port, "usbipd-port", 3240, "USBIPD port")
 	fs.DurationVar(&c.GracefulShutdownTimeout, "usbipd-graceful-shutdown-timeout", 0, "USBIPD graceful shutdown timeout")
 	fs.IntVar(&c.MaxTcpConnections, "usbipd-max-tcp-connections", 0, "USBIPD max TCP connections")
+	fs.BoolVar(&c.ExportEnabled, "usbipd-export-enabled", true, "USBIPD export enabled")
 }
 
 func (c *USBIPDConfig) Complete(monitor libusb.Monitor) (*USBIPD, error) {
@@ -48,6 +50,9 @@ func (c *USBIPDConfig) Complete(monitor libusb.Monitor) (*USBIPD, error) {
 	}
 	if c.MaxTcpConnections > 0 {
 		opts = append(opts, WithMaxTCPConnection(c.MaxTcpConnections))
+	}
+	if c.ExportEnabled {
+		opts = append(opts, WithExport(true))
 	}
 
 	address := net.JoinHostPort(c.Address, strconv.Itoa(c.Port))
