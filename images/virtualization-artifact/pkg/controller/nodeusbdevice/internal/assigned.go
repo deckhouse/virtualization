@@ -73,48 +73,42 @@ func (h *AssignedHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState
 
 	assignedNamespace := current.Spec.AssignedNamespace
 
-	// Check previous assignedNamespace if it changed
-	// Try to find previous USBDevice to delete it if namespace changed
 	var usbDeviceList v1alpha2.USBDeviceList
 	if err := h.client.List(ctx, &usbDeviceList); err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to list USBDevices: %w", err)
 	}
+	// Delete USBDevices that are in wrong namespace or all of them when no namespace assigned
 	for _, usbDevice := range usbDeviceList.Items {
-		if usbDevice.Name == current.Name && usbDevice.Namespace != assignedNamespace {
-			// Delete USBDevice from previous namespace
+		if usbDevice.Name != current.Name {
+			continue
+		}
+		if assignedNamespace == "" || usbDevice.Namespace != assignedNamespace {
 			if err := h.deleteUSBDevice(ctx, usbDevice.Namespace, usbDevice.Name); err != nil {
-				return reconcile.Result{}, fmt.Errorf("failed to delete USBDevice from previous namespace: %w", err)
+				return reconcile.Result{}, fmt.Errorf("failed to delete USBDevice %s/%s: %w", usbDevice.Namespace, usbDevice.Name, err)
 			}
-			break
 		}
 	}
 
-	// Update Assigned condition
 	var reason nodeusbdevicecondition.AssignedReason
 	var message string
 	var status metav1.ConditionStatus
 
 	if assignedNamespace != "" {
-		// Check if namespace exists
 		var namespace corev1.Namespace
 		err := h.client.Get(ctx, types.NamespacedName{Name: assignedNamespace}, &namespace)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				// Namespace doesn't exist - mark as Available
 				reason = nodeusbdevicecondition.Available
 				message = fmt.Sprintf("Namespace %s does not exist", assignedNamespace)
 				status = metav1.ConditionFalse
 			} else {
-				// Error checking namespace - return error to retry
 				return reconcile.Result{}, fmt.Errorf("failed to check namespace %s: %w", assignedNamespace, err)
 			}
 		} else {
-			// Namespace exists - create or update USBDevice
 			usbDevice, err := h.ensureUSBDevice(ctx, current, assignedNamespace)
 			if err != nil {
 				return reconcile.Result{}, fmt.Errorf("failed to ensure USBDevice: %w", err)
 			}
-
 			if usbDevice != nil {
 				reason = nodeusbdevicecondition.Assigned
 				message = fmt.Sprintf("Namespace %s is assigned for the device, USBDevice created", assignedNamespace)
@@ -126,19 +120,6 @@ func (h *AssignedHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState
 			}
 		}
 	} else {
-		// No namespace assigned - delete USBDevice if it exists
-		var usbDeviceListForDelete v1alpha2.USBDeviceList
-		if err := h.client.List(ctx, &usbDeviceListForDelete); err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to list USBDevices: %w", err)
-		}
-		for _, usbDevice := range usbDeviceListForDelete.Items {
-			if usbDevice.Name == current.Name {
-				if err := h.deleteUSBDevice(ctx, usbDevice.Namespace, usbDevice.Name); err != nil {
-					return reconcile.Result{}, fmt.Errorf("failed to delete USBDevice: %w", err)
-				}
-			}
-		}
-
 		reason = nodeusbdevicecondition.Available
 		message = "No namespace is assigned for the device"
 		status = metav1.ConditionFalse

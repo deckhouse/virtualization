@@ -27,6 +27,7 @@ import (
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	"github.com/spf13/pflag"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	resourcev1beta1 "k8s.io/api/resource/v1beta1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -227,6 +228,7 @@ func main() {
 	for _, f := range []func(*apiruntime.Scheme) error{
 		clientgoscheme.AddToScheme,
 		extv1.AddToScheme,
+		resourcev1beta1.AddToScheme,
 		v1alpha2.AddToScheme,
 		v1alpha3.AddToScheme,
 		cdiv1beta1.AddToScheme,
