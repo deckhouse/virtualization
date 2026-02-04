@@ -115,6 +115,8 @@ spec:
               mountPath: /var/run/cdi
             - name: devices
               mountPath: /sys/bus/usb/devices
+            - name: virtualization-dra
+              mountPath: /var/run/virtualization-dra
       volumes:
         - name: plugins-registry
           hostPath:
@@ -128,4 +130,8 @@ spec:
         - name: devices
           hostPath:
             path: /sys/bus/usb/devices
+        - name: virtualization-dra
+          hostPath:
+            path: /var/run/virtualization-dra
+            type: DirectoryOrCreate
 {{- end }}
