@@ -172,6 +172,10 @@ func (l *Lifecycle) getManager(client kubeclient.Client) Manager {
 }
 
 func (l *Lifecycle) ValidateNodeName(cmd *cobra.Command, nodeName string) error {
+	if !cmd.Flags().Changed("target-node-name") {
+		return nil
+	}
+
 	if nodeName == "" {
 		return errors.New("flag --target-node-name cannot be empty")
 	}
