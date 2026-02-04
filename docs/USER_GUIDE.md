@@ -619,21 +619,37 @@ EOF
 
 Virtual machine disks are used to write and store data required for operating systems and applications to run. Various types of storage can be used for this purpose.
 
+The disk specification contains two main blocks:
+
+- `persistentVolumeClaim` — storage settings for the disk (storage class, size).
+- `dataSource` — data source for creating the disk (image, another disk, snapshot).
+
+If `dataSource` is not specified, an empty disk is created. In this case, you must specify parameters in the `persistentVolumeClaim` block (size and storage class).
+
+If `dataSource` is specified, the `persistentVolumeClaim` block can be omitted. In this case:
+
+- The disk size will be determined automatically from the source.
+- The storage class will be determined automatically from the source, or the default `StorageClass` at the cluster level will be used, or for disks if it is specified in [module settings](./admin_guide.html#storage-class-settings-for-disks).
+
 Depending on the storage properties, the behavior of disks during creation of virtual machines during operation may differ:
 
-VolumeBindingMode property:
+Storage systems can differ in the following parameters:
 
-`Immediate`: The disk is created immediately after the resource is created (the disk is assumed to be available for connection to a virtual machine on any node in the cluster).
+- Volume type: storage can support filesystem volumes (FileSystem, e.g., NFS) or block devices (Block, e.g., iSCSI, Ceph RBD). For filesystem volumes, the virtual machine disk is created in qcow2 format. Some storage systems support both volume types.
+- Volume binding mode (VolumeBindingMode):
+  - `Immediate` — the disk is created immediately after the resource is created (the disk is assumed to be available for connection to a virtual machine on any node in the cluster).
 
-![vd-immediate](images/vd-immediate.png)
+    ![vd-immediate](images/vd-immediate.png)
 
-`WaitForFirstConsumer`: The disk is created only after it is connected to the virtual machine and is created on the node on which the virtual machine will be running.
+  - `WaitForFirstConsumer` — the disk is created only after it is connected to the virtual machine and is created on the node on which the virtual machine will be running.
 
-![vd-wffc](images/vd-wffc.png)
+    ![vd-wffc](images/vd-wffc.png)
 
-When creating a disk, the controller will independently determine the most optimal parameters supported by the storage.
+When creating a disk, all parameters (volume type, disk format, volume binding mode, and other settings) are determined automatically based on the capabilities of the selected storage class.
 
-Attention: It is impossible to create disks from iso-images!
+{{< alert level="warning" >}}
+Creating disks from iso-images is forbidden!
+{{< /alert >}}
 
 To find out the available storage options, run the following command:
 
@@ -2021,6 +2037,7 @@ How to set "preferences" and "mandatories" for placing virtual machines in the w
 `AntiAffinity` is the opposite of `Affinity`, which allows you to specify requirements to avoid co-location of virtual machines on the same hosts. This is useful for load balancing or fault tolerance.
 
 Placement requirements can be strict or soft:
+
 - Strict (`requiredDuringSchedulingIgnoredDuringExecution`) — The VM is scheduled only on nodes that meet the condition.
 - Soft (`preferredDuringSchedulingIgnoredDuringExecution`) — The VM is scheduled on suitable nodes if possible.
 
