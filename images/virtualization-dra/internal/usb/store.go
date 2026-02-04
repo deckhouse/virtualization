@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -263,6 +264,13 @@ func (s *AllocationStore) getUsbGatewayUsbDevice(busID string) *Device {
 			return &device
 		}
 	}
+	// usb device is not found in cache
+	// load usb device from sysfs
+	dev, err := libusb.LoadUSBDevice(filepath.Join(libusb.PathToUSBDevices, busID))
+	if err == nil {
+		return ptr.To(toDevice(&dev))
+	}
+
 	return nil
 }
 
