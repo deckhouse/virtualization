@@ -771,7 +771,7 @@ spec:
     storageClassName: i-sds-replicated-thin-r2
   # Источник из которого создается диск.
   dataSource:
-    type: ObjectRe
+    type: ObjectRef
     objectRef:
       kind: VirtualImage
       name: ubuntu-22-04
