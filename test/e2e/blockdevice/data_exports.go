@@ -19,6 +19,7 @@ package blockdevice
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -290,20 +291,22 @@ func uploadFile(f *framework.Framework, vd *v1alpha2.VirtualDisk, filePath strin
 		Expect(err).NotTo(HaveOccurred(), "Failed to create HTTP request")
 		req.ContentLength = stat.Size()
 
-		resp, err := client.Do(req)
-		err = file.Close()
-		Expect(err).NotTo(HaveOccurred(), "Failed to close file %s", filePath)
+		resp, httpErr := client.Do(req)
+		if closeErr := file.Close(); closeErr != nil && !errors.Is(closeErr, os.ErrClosed) {
+			Expect(closeErr).NotTo(HaveOccurred(), "Failed to close file %s", filePath)
+		}
 
-		if err != nil {
-			lastErr = err
-			GinkgoWriter.Printf("Upload attempt %d/%d failed: %v\n", attempt, maxRetries, err)
+		if httpErr != nil {
+			lastErr = httpErr
+			GinkgoWriter.Printf("Upload attempt %d/%d failed: %v\n", attempt, maxRetries, httpErr)
 			time.Sleep(time.Duration(attempt) * time.Second)
 			continue
 		}
 
 		body, _ := io.ReadAll(resp.Body)
-		err = resp.Body.Close()
-		Expect(err).NotTo(HaveOccurred(), "Failed to close resp.body")
+		if closeErr := resp.Body.Close(); closeErr != nil && !errors.Is(closeErr, os.ErrClosed) {
+			Expect(closeErr).NotTo(HaveOccurred(), "Failed to close response body")
+		}
 		lastStatusCode = resp.StatusCode
 		lastBody = string(body)
 
