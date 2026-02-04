@@ -63,6 +63,20 @@ spec:
       prometheus.deckhouse.io/custom-target: ceph
       prometheus.deckhouse.io/port: "9283"
   resources:
+    mon:
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+      requests:
+        memory: "1Gi"
+        cpu: "100m"
+    mgr:
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+      requests:
+        memory: "512Mi"
+        cpu: "100m"
     osd:
       limits:
         memory: "2048Mi"
