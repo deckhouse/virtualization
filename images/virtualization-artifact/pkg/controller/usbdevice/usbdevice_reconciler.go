@@ -69,6 +69,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	for _, w := range []Watcher{
 		watcher.NewNodeUSBDeviceWatcher(),
 		watcher.NewResourceClaimTemplateWatcher(),
+		watcher.NewVirtualMachineWatcher(),
 	} {
 		err := w.Watch(mgr, ctr)
 		if err != nil {
