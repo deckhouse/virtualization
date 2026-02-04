@@ -447,7 +447,7 @@ The following assumptions will be used:
 
 - There is a frontend virtual machine in a demo-app project.
 - A cloud user is set up on the virtual machine for SSH access.
-- The SSH private key for the cloud user is stored in the ./tmp/demo file on the Ansible server.
+- The SSH private key for the cloud user is stored in the /home/user/.ssh/id_rsa file on the Ansible server.
 
 Ansible inventory file example:
 
@@ -459,11 +459,12 @@ all:
     # Default user for SSH access.
     ansible_user: cloud
     # Path to private key.
-    ansible_ssh_private_key_file: ./tmp/demo
+    ansible_ssh_private_key_file: /home/user/.ssh/id_rsa
   hosts:
     # Host name in the format <VM name>.<project name>.
     frontend.demo-app:
 ```
+
 To check the virtual machine's uptime value, use the following command:
 
 ```bash
@@ -479,8 +480,45 @@ ansible -m shell -a "uptime" \
   -i "frontend.demo-app," \
   -e "ansible_ssh_common_args='-o ProxyCommand=\"d8 v port-forward --stdio=true %h %p %p\"'" \
   -e "ansible_user=cloud" \
-  -e "ansible_ssh_private_key_file=./tmp/demo" \
+  -e "ansible_ssh_private_key_file=/home/user/.ssh/id_rsa" \
   all
+```
+
+## How to automatically generate inventory for Ansible?
+
+{{< alert level="warning" >}}
+The `ansible-inventory` command requires `d8` version v0.27.0 or higher.
+{{< /alert >}}
+
+{{< alert level="warning" >}}
+The command works only for virtual machines with the main cluster network (Main) connected.
+{{< /alert >}}
+
+Instead of manually creating an inventory file, you can use the `d8 v ansible-inventory` command, which automatically generates an Ansible inventory from virtual machines in the specified namespace. The command is compatible with the [ansible inventory script](https://docs.ansible.com/ansible/latest/user_guide/intro_inventory.html#inventory-scripts) interface.
+
+The command includes only virtual machines with assigned IP addresses in the `Running` state. Host names are formatted as `<vmname>.<namespace>` (for example, `frontend.demo-app`).
+
+If necessary, configure host variables through annotations (for example, SSH user):
+
+```bash
+d8 k -n demo-app annotate vm frontend provisioning.virtualization.deckhouse.io/ansible_user="cloud"
+```
+
+Use the command directly:
+
+```bash
+ANSIBLE_INVENTORY_ENABLED=yaml ansible -m shell -a "uptime" all -i <(d8 v ansible-inventory -n demo-app -o yaml)
+```
+
+{{< alert level="info" >}}
+The `<(...)` construct is necessary because Ansible expects a file or script as the source of the host list. Simply specifying the command in quotes will not work — Ansible will try to execute the string as a script. The `<(...)` construct passes the command output as a file that Ansible can read.
+{{< /alert >}}
+
+Or save the inventory to a file:
+
+```bash
+d8 v ansible-inventory --list -o yaml -n demo-app > inventory.yaml
+ansible -m shell -a "uptime" -i inventory.yaml all
 ```
 
 ## How to redirect traffic to a virtual machine?
