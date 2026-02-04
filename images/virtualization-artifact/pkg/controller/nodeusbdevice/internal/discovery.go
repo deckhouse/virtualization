@@ -63,7 +63,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.NodeUSBDeviceStat
 
 	// Check for new devices in ResourceSlice and create NodeUSBDevice if needed
 	// This ensures we discover new devices even if reconcile was triggered for other reasons
-	if err := h.discoverAndCreate(ctx, s, resourceSlices); err != nil {
+	if err := h.discoverAndCreate(ctx, resourceSlices); err != nil {
 		// Log error but don't fail reconciliation
 		// This is a best-effort discovery mechanism
 		log.Error("failed to discover and create NodeUSBDevice", log.Err(err))
@@ -72,58 +72,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.NodeUSBDeviceStat
 	return reconcile.Result{}, nil
 }
 
-func (h *DiscoveryHandler) discoverAndCreate(ctx context.Context, s state.NodeUSBDeviceState, resourceSlices []resourcev1beta1.ResourceSlice) error {
-	// Check if current device exists - if it does, we only need to check for new devices
-	// This avoids unnecessary List when reconciling existing devices
-	currentDevice := s.NodeUSBDevice()
-	hasCurrentDevice := !currentDevice.IsEmpty()
-
-	// Collect all device names from ResourceSlices (name is unique, guaranteed by DRA driver)
-	deviceNamesInSlices := make(map[string]bool)
-	for _, slice := range resourceSlices {
-		for _, device := range slice.Spec.Devices {
-			if !IsUSBDevice(device) {
-				continue
-			}
-			deviceNamesInSlices[device.Name] = true
-		}
-	}
-
-	// If we have a current device and its name is in slices, we can skip List
-	if hasCurrentDevice {
-		current := currentDevice.Current()
-		if current.Status.Attributes.Name != "" && deviceNamesInSlices[current.Status.Attributes.Name] {
-			var existingDevices v1alpha2.NodeUSBDeviceList
-			if err := h.client.List(ctx, &existingDevices); err != nil {
-				return fmt.Errorf("failed to list existing NodeUSBDevices: %w", err)
-			}
-
-			existingDeviceNames := make(map[string]bool)
-			for _, device := range existingDevices.Items {
-				if device.Status.Attributes.Name != "" {
-					existingDeviceNames[device.Status.Attributes.Name] = true
-				}
-			}
-
-			for _, slice := range resourceSlices {
-				for _, device := range slice.Spec.Devices {
-					if !IsUSBDevice(device) {
-						continue
-					}
-					if existingDeviceNames[device.Name] {
-						continue
-					}
-					attributes := ConvertDeviceToAttributes(device, slice.Spec.Pool.Name)
-					if err := h.createNodeUSBDevice(ctx, attributes); err != nil {
-						return err
-					}
-				}
-			}
-			return nil
-		}
-	}
-
-	// No current device or it's not in slices - need full List
+func (h *DiscoveryHandler) discoverAndCreate(ctx context.Context, resourceSlices []resourcev1beta1.ResourceSlice) error {
 	var existingDevices v1alpha2.NodeUSBDeviceList
 	if err := h.client.List(ctx, &existingDevices); err != nil {
 		return fmt.Errorf("failed to list existing NodeUSBDevices: %w", err)
