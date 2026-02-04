@@ -23,6 +23,7 @@ import (
 	"strconv"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -243,12 +244,15 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 			return fmt.Errorf("failed to create USB gateway controller: %w", err)
 		}
 
-		if err = usbipd.Run(ctx); err != nil {
-			return fmt.Errorf("failed to run USBIPD: %w", err)
-		}
-		if err = controller.Run(usbGatewayController, ctx, 1); err != nil {
-			return fmt.Errorf("failed to run USB gateway controller: %w", err)
-		}
+		group, ctx := errgroup.WithContext(ctx)
+
+		group.Go(func() error {
+			return usbipd.Run(ctx)
+		})
+
+		group.Go(func() error {
+			return controller.Run(usbGatewayController, ctx, 1)
+		})
 
 		err = prepare.MarkNodeForUSBGateway(ctx, o.NodeName, dynamicClient)
 		if err != nil {
