@@ -53,6 +53,7 @@ func NewAllocationStore(ctx context.Context, nodeName string, cdiManager cdi.Man
 		discoverPluggedUSBDevices: NewDeviceSet(),
 		allocatableDevices:        make(map[string]resourceapi.Device),
 		allocatedDevices:          sets.New[string](),
+		usbipAllocatedDevices:     sets.New[string](),
 		resourceClaimAllocations:  make(map[types.UID][]string),
 		usbipInfoGetter:           usbip.NewUSBAttacher(),
 	}
