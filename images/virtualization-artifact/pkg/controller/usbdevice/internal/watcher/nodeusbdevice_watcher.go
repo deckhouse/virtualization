@@ -19,6 +19,7 @@ package watcher
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -26,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -56,6 +58,12 @@ func (w *NodeUSBDeviceWatcher) Watch(mgr manager.Manager, ctr controller.Control
 				}
 				if err := mgr.GetClient().Get(ctx, key, usbDevice); err != nil {
 					// USBDevice doesn't exist yet - it will be created by the assigned handler
+					if errors.IsNotFound(err) {
+						return nil
+					}
+
+					log.Error("failed to get USBDevice", "error", err, "usbDevice", usbDevice)
+
 					return nil
 				}
 
