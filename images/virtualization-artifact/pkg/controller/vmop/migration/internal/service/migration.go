@@ -28,18 +28,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type MigrationService struct {
 	client      client.Client
-	FeatureGate featuregate.FeatureGate
+	featureGate featuregate.FeatureGate
 }
 
 func NewMigrationService(client client.Client, featureGate featuregate.FeatureGate) *MigrationService {
 	return &MigrationService{
 		client:      client,
-		FeatureGate: featureGate,
+		featureGate: featureGate,
 	}
 }
 
@@ -108,4 +109,8 @@ const vmopPrefix = "vmop-"
 
 func migrationName(vmop *v1alpha2.VirtualMachineOperation) string {
 	return fmt.Sprintf("%s%s", vmopPrefix, vmop.GetName())
+}
+
+func (s MigrationService) IsTargetMigrationEnabled() bool {
+	return s.featureGate.Enabled(featuregates.TargetMigration)
 }

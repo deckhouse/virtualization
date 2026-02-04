@@ -18,6 +18,7 @@ package lifecycle
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -172,7 +173,7 @@ func (l *Lifecycle) getManager(client kubeclient.Client) Manager {
 
 func (l *Lifecycle) ValidateNodeName(cmd *cobra.Command, nodeName string) error {
 	if nodeName == "" {
-		return nil
+		return errors.New("flag --target-node-name cannot be empty")
 	}
 
 	client, _, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())

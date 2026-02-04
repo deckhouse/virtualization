@@ -56,7 +56,7 @@ var _ = Describe("TargetMigration", func() {
 		f.Before()
 	})
 
-	It("checks a `VirtualMachine` migrate to the target `Node`", func() {
+	It("checks if a VirtualMachine can be migrated to the target Node", func() {
 		By("Environment preparation", func() {
 			virtualDisk := object.NewHTTPVDAlpineBIOS(
 				"vd-root",
@@ -135,7 +135,15 @@ func defineTargetNodeSelector(f *framework.Framework, currentNodeName string) (m
 	errMsg := "could not define a target node for the virtual machine"
 
 	nodes := &corev1.NodeList{}
-	err := f.Clients.GenericClient().List(context.Background(), nodes)
+	err := f.Clients.GenericClient().List(
+		context.Background(),
+		nodes,
+		client.MatchingLabels(
+			map[string]string{
+				"virtualization.deckhouse.io/kvm-enabled": "true",
+			},
+		),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", errMsg, err)
 	}

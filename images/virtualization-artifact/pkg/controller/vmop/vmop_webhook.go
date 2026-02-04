@@ -41,13 +41,11 @@ func NewValidator(c client.Client, log *log.Logger) admission.CustomValidator {
 type nodeSelectorValidator struct{}
 
 func (n *nodeSelectorValidator) ValidateCreate(_ context.Context, vmop *v1alpha2.VirtualMachineOperation) (admission.Warnings, error) {
-	if !featuregates.Default().Enabled(featuregates.TargetMigration) {
-		if vmop.Spec.Migrate != nil && vmop.Spec.Migrate.NodeSelector != nil {
+	if vmop.Spec.Migrate != nil && vmop.Spec.Migrate.NodeSelector != nil {
+		if !featuregates.Default().Enabled(featuregates.TargetMigration) {
 			return admission.Warnings{}, errors.New("the `nodeSelector` field is not available in the Community Edition version")
 		}
-	}
 
-	if vmop.Spec.Migrate != nil && vmop.Spec.Migrate.NodeSelector != nil {
 		err := n.validateNodeSelector(vmop.Spec.Migrate.NodeSelector)
 		if err != nil {
 			return admission.Warnings{}, nil

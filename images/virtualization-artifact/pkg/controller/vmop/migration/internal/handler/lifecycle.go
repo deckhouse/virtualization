@@ -33,7 +33,6 @@ import (
 	migrationservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -92,7 +91,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	h.base.Init(vmop)
 
 	// Fails if Type is 'Migrate', 'NodeSelector' is specified and `TargetMigration` is not available.
-	if !h.migration.FeatureGate.Enabled(featuregates.TargetMigration) {
+	if !h.migration.IsTargetMigrationEnabled() {
 		if vmop.Spec.Migrate != nil && vmop.Spec.Migrate.NodeSelector != nil {
 			vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
 			conditions.SetCondition(
