@@ -30,7 +30,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 )
 
-const computeContainerName = "d8v-compute"
+const d8vContainerPrefix = "d8v"
 
 // SaveTestCaseDump dump some resources, logs and descriptions that may help in further diagnostic.
 //
@@ -149,26 +149,46 @@ func (f *Framework) saveIntvirtvmiDescriptions(testCaseFullText, dumpPath string
 }
 
 func (f *Framework) writePodLogs(name, namespace, filePath, testCaseFullText string) {
-	podLogs, err := f.Clients.KubeClient().CoreV1().Pods(namespace).GetLogs(name,
-		&corev1.PodLogOptions{
-			Container: computeContainerName,
-		}).Stream(context.Background())
+	pod, err := f.Clients.kubeClient.CoreV1().Pods(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
-		GinkgoWriter.Printf("Failed to get logs:\nPodName: %s\nError: %v\n", name, err)
-		return
-	}
-	defer podLogs.Close()
-
-	logs, err := io.ReadAll(podLogs)
-	if err != nil {
-		GinkgoWriter.Printf("Failed to read logs:\nPodName: %s\nError: %v\n", name, err)
+		GinkgoWriter.Printf("Failed to get pod:\nPodName: %s\nError: %v\n", name, err)
 		return
 	}
 
-	fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__logs.json", filePath, testCaseFullText, name)
-	err = os.WriteFile(fileName, logs, 0o644)
-	if err != nil {
-		GinkgoWriter.Printf("Failed to save logs:\nPodName: %s\nError: %v\n", name, err)
+	var containerNames []string
+	for _, container := range pod.Spec.Containers {
+		if strings.HasPrefix(container.Name, d8vContainerPrefix) {
+			containerNames = append(containerNames, container.Name)
+		}
+	}
+
+	if len(containerNames) == 0 {
+		GinkgoWriter.Printf("No d8v containers found for pod; skipping logs:\nPodName: %s\n", pod.Name)
+		return
+	}
+
+	for _, containerName := range containerNames {
+		podLogs, err := f.Clients.KubeClient().CoreV1().Pods(pod.Namespace).GetLogs(pod.Name,
+			&corev1.PodLogOptions{
+				Container: containerName,
+			}).Stream(context.Background())
+		if err != nil {
+			GinkgoWriter.Printf("Failed to get logs:\nPodName: %s\nContainer: %s\nError: %v\n", pod.Name, containerName, err)
+			continue
+		}
+
+		logs, err := io.ReadAll(podLogs)
+		podLogs.Close()
+		if err != nil {
+			GinkgoWriter.Printf("Failed to read logs:\nPodName: %s\nContainer: %s\nError: %v\n", pod.Name, containerName, err)
+			continue
+		}
+
+		fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__%s__logs.json", filePath, testCaseFullText, pod.Name, containerName)
+		err = os.WriteFile(fileName, logs, 0o644)
+		if err != nil {
+			GinkgoWriter.Printf("Failed to save logs:\nPodName: %s\nContainer: %s\nError: %v\n", pod.Name, containerName, err)
+		}
 	}
 }
 
