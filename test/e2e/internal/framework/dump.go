@@ -155,19 +155,14 @@ func (f *Framework) writePodLogs(name, namespace, filePath, testCaseFullText str
 		return
 	}
 
-	var containerNames []string
+	foundContainer := false
 	for _, container := range pod.Spec.Containers {
-		if strings.HasPrefix(container.Name, d8vContainerPrefix) {
-			containerNames = append(containerNames, container.Name)
+		if !strings.HasPrefix(container.Name, d8vContainerPrefix) {
+			continue
 		}
-	}
+		foundContainer = true
+		containerName := container.Name
 
-	if len(containerNames) == 0 {
-		GinkgoWriter.Printf("No d8v containers found for pod; skipping logs:\nPodName: %s\n", pod.Name)
-		return
-	}
-
-	for _, containerName := range containerNames {
 		podLogs, err := f.Clients.KubeClient().CoreV1().Pods(pod.Namespace).GetLogs(pod.Name,
 			&corev1.PodLogOptions{
 				Container: containerName,
@@ -189,6 +184,10 @@ func (f *Framework) writePodLogs(name, namespace, filePath, testCaseFullText str
 		if err != nil {
 			GinkgoWriter.Printf("Failed to save logs:\nPodName: %s\nContainer: %s\nError: %v\n", pod.Name, containerName, err)
 		}
+	}
+
+	if !foundContainer {
+		GinkgoWriter.Printf("No d8v containers found for pod; skipping logs:\nPodName: %s\n", pod.Name)
 	}
 }
 
