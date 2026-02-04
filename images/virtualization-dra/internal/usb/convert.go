@@ -17,6 +17,8 @@ limitations under the License.
 package usb
 
 import (
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1"
 	"k8s.io/utils/ptr"
@@ -72,11 +74,8 @@ func convertToAPIDevice(usbDevice Device, nodeName string) *resourceapi.Device {
 			common.AttrDevicePath: {
 				StringValue: ptr.To(usbDevice.DevicePath),
 			},
-			common.StandardDeviceAttrUsbAddressBus: {
-				IntValue: ptr.To(int64(usbDevice.Bus)),
-			},
-			common.StandardDeviceAttrUsbAddressDeviceNumber: {
-				IntValue: ptr.To(int64(usbDevice.DeviceNumber)),
+			common.AttrUsbAddress: {
+				StringValue: ptr.To(fmt.Sprintf("%s:%s", usbDevice.Bus, usbDevice.DeviceNumber)),
 			},
 		},
 	}

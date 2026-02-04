@@ -58,6 +58,7 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       nodeSelector:
         kubernetes.io/os: linux
+      hostNetwork: true
       containers:
         - name: virtualization-dra
           {{- include "helm_lib_module_container_security_context_privileged_read_only_root_filesystem" . | nindent 10 }}
@@ -76,8 +77,6 @@ spec:
             {{- end }}
             - name: USB_DEVICES_PATH
               value: /sys/bus/usb/devices
-            - name: DBUS_SYSTEM_BUS_ADDRESS
-              value: "unix:path=/var/run/dbus/system_bus_socket"
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
@@ -112,8 +111,6 @@ spec:
               mountPath: /var/run/cdi
             - name: devices
               mountPath: /sys/bus/usb/devices
-            - name: dbus-socket
-              mountPath: /var/run/dbus/system_bus_socket
       volumes:
         - name: plugins-registry
           hostPath:
@@ -127,8 +124,4 @@ spec:
         - name: devices
           hostPath:
             path: /sys/bus/usb/devices
-        - name: dbus-socket
-          hostPath:
-            path: /var/run/dbus/system_bus_socket
-            type: Socket
 {{- end }}
