@@ -160,8 +160,7 @@ func (f *Framework) writePodLogs(name, namespace, filePath, testCaseFullText str
 			GinkgoWriter.Printf("Skipping container without d8v prefix:\nPodName: %s\nContainer: %s\n", pod.Name, container.Name)
 			continue
 		}
-		containerName := container.Name
-		f.writePodContainerLogs(pod, containerName, filePath, testCaseFullText)
+		f.writePodContainerLogs(pod, container.Name, filePath, testCaseFullText)
 	}
 }
 
