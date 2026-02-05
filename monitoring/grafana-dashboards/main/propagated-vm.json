@@ -2168,7 +2168,7 @@
                   "Value #finished (lastNotNull)": 5,
                   "Value #started (lastNotNull)": 4,
                   "name": 0,
-                  "phase": 2,
+                  "phase (lastNotNull)": 2,
                   "type": 1
                 },
                 "renameByName": {
@@ -2176,7 +2176,7 @@
                   "Value #finished (lastNotNull)": "Finished At",
                   "Value #started (lastNotNull)": "Started At",
                   "name": "Name",
-                  "phase": "Phase",
+                  "phase (lastNotNull)": "Phase",
                   "type": "Operation"
                 }
               }
