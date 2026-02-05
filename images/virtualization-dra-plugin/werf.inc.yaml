@@ -8,6 +8,10 @@ import:
     add: /out/virtualization-dra-plugin
     to: /app/virtualization-dra-plugin
     after: install
+  - image: {{ .ModuleNamePrefix }}virtualization-dra-builder
+    add: /out/go-usbip
+    to: /usb/bin/go-usbip
+    after: install
   {{- if eq $.DEBUG_COMPONENT "delve/virtualization-dra-plugin" }}
   - image: debugger
     add: /app/dlv

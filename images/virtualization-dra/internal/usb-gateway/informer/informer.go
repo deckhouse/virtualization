@@ -30,7 +30,6 @@ import (
 )
 
 const (
-	NodeIndex   = "node"
 	PoolIndex   = "pool"
 	DriverIndex = "driver"
 )
@@ -89,13 +88,6 @@ func (f *Factory) WaitForCacheSync(stopCh <-chan struct{}) {
 	cache.WaitForCacheSync(stopCh, syncs...)
 }
 
-func (f *Factory) ResourceClaim() cache.SharedIndexInformer {
-	return f.getInformer("resourceClaimInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.clientSet.ResourceV1beta1().RESTClient(), "resourceclaims", corev1.NamespaceAll, fields.Everything())
-		return cache.NewSharedIndexInformer(lw, &resourcev1beta1.ResourceClaim{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-	})
-}
-
 func (f *Factory) ResourceSlice() cache.SharedIndexInformer {
 	return f.getInformer("resourceSliceInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.clientSet.ResourceV1beta1().RESTClient(), "resourceslices", corev1.NamespaceAll, fields.Everything())
@@ -105,25 +97,6 @@ func (f *Factory) ResourceSlice() cache.SharedIndexInformer {
 			},
 			DriverIndex: func(obj interface{}) ([]string, error) {
 				return []string{obj.(*resourcev1beta1.ResourceSlice).Spec.Driver}, nil
-			},
-		})
-	})
-}
-
-func (f *Factory) Nodes() cache.SharedIndexInformer {
-	return f.getInformer("nodesInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "nodes", corev1.NamespaceAll, fields.Everything())
-		return cache.NewSharedIndexInformer(lw, &corev1.Node{}, f.defaultResync, cache.Indexers{})
-	})
-}
-
-func (f *Factory) Pods() cache.SharedIndexInformer {
-	return f.getInformer("podsInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "pods", corev1.NamespaceAll, fields.Everything())
-		return cache.NewSharedIndexInformer(lw, &corev1.Pod{}, f.defaultResync, cache.Indexers{
-			cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
-			NodeIndex: func(obj interface{}) ([]string, error) {
-				return []string{obj.(*corev1.Pod).Spec.NodeName}, nil
 			},
 		})
 	})

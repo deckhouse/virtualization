@@ -62,6 +62,8 @@ func NewVirtualizationDraPluginCommand() *cobra.Command {
 		fs.AddFlagSet(f)
 	}
 
+	cmd.AddCommand(NewInitCommand())
+
 	return cmd
 }
 
