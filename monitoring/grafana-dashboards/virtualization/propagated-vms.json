@@ -54,11 +54,11 @@
             {
               "options": {
                 "Pending": {
-                  "color": "super-light-blue",
+                  "color": "#30e3ca",
                   "index": 1
                 },
                 "Running": {
-                  "color": "super-light-green",
+                  "color": "green",
                   "index": 0
                 }
               },
@@ -71,7 +71,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "super-light-green",
+                "color": "green",
                 "value": null
               }
             ]
@@ -230,7 +230,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "super-light-green",
+                "color": "green",
                 "value": null
               }
             ]
