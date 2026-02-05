@@ -85,7 +85,7 @@ func (l *LogChecker) Start() error {
 				// It should not cause tests to fail.
 				var goAwayError *http2.GoAwayError
 				if errors.As(err, &goAwayError) {
-					ginkgo.GinkgoWriter.Printf("Warning! %w\n", err)
+					ginkgo.GinkgoWriter.Printf("Warning! %v\n", err)
 				} else {
 					l.resultErr = errors.Join(l.resultErr, err)
 				}
