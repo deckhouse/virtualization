@@ -96,6 +96,7 @@ func NewCommand(programName string) *cobra.Command {
 		lifecycle.NewStopCommand(),
 		lifecycle.NewRestartCommand(),
 		lifecycle.NewEvictCommand(),
+		lifecycle.NewMigrateCommand(),
 		optionsCmd,
 	)
 

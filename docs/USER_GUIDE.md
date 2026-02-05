@@ -1623,12 +1623,13 @@ d8 v restart  linux-vm
 
 A list of possible operations is given in the table below:
 
-| d8             | vmop type | Action                         |
-| -------------- | --------- | ------------------------------ |
-| `d8 v stop`    | `Stop`    | Stop VM                        |
-| `d8 v start`   | `Start`   | Start the VM                   |
-| `d8 v restart` | `Restart` | Restart the VM                 |
-| `d8 v evict`   | `Evict`   | Migrate the VM to another host |
+| d8               | vmop type   | Action                         |
+| ---------------- | ----------- | ------------------------------ |
+| `d8 v stop`      | `Stop`      | Stop VM                        |
+| `d8 v start`     | `Start`     | Start the VM                   |
+| `d8 v restart`   | `Restart`   | Restart the VM                 |
+| `d8 v evict`     | `Evict`     | Evict the VM to another host   |
+| `d8 v migrate`   | `Migrate`   | Migrate the VM to another host |
 
 How to perform the operation in the web interface:
 
@@ -2364,30 +2365,54 @@ We can see that it is currently running on the `virtlab-pt-1` node.
 To migrate a virtual machine from one node to another while taking into account VM placement requirements, use the following command:
 
 ```bash
-d8 v evict -n <namespace> <vm-name> [--force]
+d8 v migrate -n <namespace> <vm-name> [--force] [--target-node-name string]
 ```
 
 Running this command creates a VirtualMachineOperations resource.
 
 When used during virtual machine migration, the `--force` flag activates a special mechanism called AutoConverge (for more details, see the [Migration with insufficient network bandwidth](#migration-with-insufficient-network-bandwidth) section). This mechanism automatically reduces the CPU load of the virtual machine (slows down its CPU) when it is necessary to speed up the completion of migration and help it complete successfully, even when the virtual machine memory transfer is too slow. Use this flag if a standard migration cannot complete due to high virtual machine activity.
 
-You can also start the migration by creating a VirtualMachineOperations (`vmop`) resource with the `Evict` type manually:
+To place the virtual machine on a specific target node, specify that node’s name using the `--target-node-name` option. For example, if a virtual machine should be placed on the node `production-1`:
+
+```bash
+d8 v migrate -n project-1 linux-vm --target-node-name production-1
+```
+
+Under the hood, a virtual machine operation will be created with the specific node selector `kubernetes.io/hostname: production-1`, where `production-1` is the node name.
+
+You can also start the migration by manually creating a [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) (`vmop`) resource of type `Migrate`:
 
 ```yaml
 d8 k create -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineOperation
 metadata:
-  generateName: evict-linux-vm-
+  generateName: migrate-linux-vm-
+  namespace: project-1
 spec:
   # virtual machine name
   virtualMachineName: linux-vm
   # operation to evict
-  type: Evict
+  type: Migrate
+  # Defines the Migrate operation.
+  migrate:
+    nodeSelector:
+      # Additionally, you can set any suitable node selector.
+      kubernetes.io/hostname: production-1
   # Allow CPU slowdown by AutoConverge mechanism to guarantee that migration will complete.
   force: true
 EOF
 ```
+
+{{< alert level="info" >}}
+To prevent the unschedulable state of a virtual machine, the node selector should not conflict with other placement rules such as virtual machine affinity, node selectors, and virtual machine class node selector rules.
+{{< /alert >}}
+
+{{< alert level="info" >}}
+Targeted migration to a specific node is not available in the Community Edition version.
+
+If you don’t need to specify target node parameters, you can omit the `migrate` field or evict the virtual machine to another suitable node using the `d8 v evict` command or by creating a [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource of type `Evict`.
+{{< /alert >}}
 
 To track the migration of a virtual machine immediately after the `vmop` resource is created, run the command:
 
@@ -2434,9 +2459,9 @@ The AutoConverge mechanism works in two stages:
 To configure the migration policy, use the [`.spec.liveMigrationPolicy`](/modules/virtualization/cr.html#virtualmachine-v1alpha2-spec-livemigrationpolicy) parameter in the virtual machine configuration. The following options are available:
 
 - `AlwaysSafe`: Migration is always performed without slowing down the CPU (AutoConverge is not used). Suitable for cases where maximum virtual machine performance is important, but it requires high network bandwidth.
-- `PreferSafe` (used as the default policy): Migration is performed without slowing down the CPU (AutoConverge is not used). However, you can start migration with CPU slowdown using the VirtualMachineOperation resource with parameters `type=Evict` and `force=true`.
+- `PreferSafe` (used as the default policy): Migration is performed without slowing down the CPU (AutoConverge is not used). However, you can start migration with CPU slowdown using the [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource with parameters `type=Migrate` and `force=true`.
 - `AlwaysForced`: Migration always uses AutoConverge, meaning the CPU is slowed down when necessary. This guarantees migration completion even with poor network, but may reduce virtual machine performance.
-- `PreferForced`: Migration uses AutoConverge, meaning the CPU is slowed down when necessary. However, you can start migration without slowing down the CPU using the VirtualMachineOperation resource with parameters `type=Evict` and `force=false`.
+- `PreferForced`: Migration uses AutoConverge, meaning the CPU is slowed down when necessary. However, you can start migration without slowing down the CPU using the [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource with parameters `type=Migrate` and `force=false`.
 
 #### Migration with insufficient network bandwidth
 
@@ -2455,7 +2480,7 @@ Example of a situation where migration cannot be completed due to insufficient n
 
 ![](./images/livemigration-example.png)
 
-Example of performing migration of the same virtual machine using the `--force` flag of the `d8 v evict` command (which enables the AutoConverge mechanism): here you can clearly see that the CPU frequency decreases step by step to reduce the memory change rate.
+Example of migrating the same virtual machine using the `--force` flag of the `d8 v migrate` command (which enables AutoConverge). The example shows the CPU frequency decreasing step by step to reduce the memory change rate.
 
 ![](./images/livemigration-example-autoconverge.png)
 

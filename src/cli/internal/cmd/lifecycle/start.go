@@ -31,7 +31,7 @@ func NewStartCommand() *cobra.Command {
 		Args:    templates.ExactArgs("start", 1),
 		RunE:    lifecycle.Run,
 	}
-	AddCommandlineArgs(cmd.Flags(), &lifecycle.opts)
+	AddCommandLineArgs(cmd.Flags(), &lifecycle.opts)
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }

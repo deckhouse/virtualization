@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vmopcollector "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vmop"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -56,7 +57,7 @@ func SetupController(
 
 	controllers := []SubController{
 		powerstate.NewController(client, mgr),
-		migration.NewController(client, mgr),
+		migration.NewController(client, mgr, featuregates.Default()),
 		snapshot.NewController(client, mgr),
 	}
 

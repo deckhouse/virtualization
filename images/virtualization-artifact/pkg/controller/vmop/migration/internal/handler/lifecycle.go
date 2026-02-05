@@ -30,7 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
+	migrationservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
@@ -50,12 +50,12 @@ type Base interface {
 }
 type LifecycleHandler struct {
 	client    client.Client
-	migration *service.MigrationService
+	migration *migrationservice.MigrationService
 	base      Base
 	recorder  eventrecord.EventRecorderLogger
 }
 
-func NewLifecycleHandler(client client.Client, migration *service.MigrationService, base Base, recorder eventrecord.EventRecorderLogger) *LifecycleHandler {
+func NewLifecycleHandler(client client.Client, migration *migrationservice.MigrationService, base Base, recorder eventrecord.EventRecorderLogger) *LifecycleHandler {
 	return &LifecycleHandler{
 		client:    client,
 		migration: migration,
@@ -89,6 +89,21 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	}
 
 	h.base.Init(vmop)
+
+	// Fails if Type is 'Migrate', 'NodeSelector' is specified and `TargetMigration` is not available.
+	if !h.migration.IsTargetMigrationEnabled() {
+		if vmop.Spec.Migrate != nil && vmop.Spec.Migrate.NodeSelector != nil {
+			vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+			conditions.SetCondition(
+				conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
+					Generation(vmop.GetGeneration()).
+					Reason(vmopcondition.ReasonOperationFailed).
+					Status(metav1.ConditionFalse).
+					Message("The `nodeSelector` field is not available in the Community Edition version."),
+				&vmop.Status.Conditions)
+			return reconcile.Result{}, nil
+		}
+	}
 
 	completedCond := conditions.NewConditionBuilder(vmopcondition.TypeCompleted).Generation(vmop.GetGeneration())
 
