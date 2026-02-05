@@ -49,6 +49,9 @@ type dataMetric struct {
 	Labels                              map[string]string
 	Annotations                         map[string]string
 	firmwareUpToDate                    bool
+	// AppliedVirtualMachineClassName is the class name that is actually applied to the running VM.
+	// It may differ from spec.virtualMachineClassName if the spec was changed but the VM wasn't restarted.
+	AppliedVirtualMachineClassName string
 }
 
 // DO NOT mutate VirtualMachine!
