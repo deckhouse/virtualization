@@ -43,19 +43,17 @@ func newDataMetric(vmop *v1alpha2.VirtualMachineOperation) *dataMetric {
 	}
 
 	var startedAt int64
-	signalSendCond, found := conditions.GetCondition(vmopcondition.TypeSignalSent, vmop.Status.Conditions)
-	if found && signalSendCond.Status == metav1.ConditionTrue {
+	signalSendCond, _ := conditions.GetCondition(vmopcondition.TypeSignalSent, vmop.Status.Conditions)
+	if signalSendCond.Status == metav1.ConditionTrue {
 		startedAt = signalSendCond.LastTransitionTime.Unix()
 	}
 
 	var finishedAt int64
 	if vmop.Status.Phase == v1alpha2.VMOPPhaseCompleted || vmop.Status.Phase == v1alpha2.VMOPPhaseFailed {
-		completedCond, found := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
-		if found {
-			if (completedCond.Status == metav1.ConditionTrue && completedCond.Reason == string(vmopcondition.ReasonOperationCompleted)) ||
-				(completedCond.Status == metav1.ConditionFalse && completedCond.Reason == string(vmopcondition.ReasonOperationFailed)) {
-				finishedAt = completedCond.LastTransitionTime.Unix()
-			}
+		completedCond, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+		if (completedCond.Status == metav1.ConditionTrue && completedCond.Reason == string(vmopcondition.ReasonOperationCompleted)) ||
+			(completedCond.Status == metav1.ConditionFalse && completedCond.Reason == string(vmopcondition.ReasonOperationFailed)) {
+			finishedAt = completedCond.LastTransitionTime.Unix()
 		}
 	}
 
