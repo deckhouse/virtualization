@@ -142,7 +142,6 @@ func defineTargetNodeSelector(f *framework.Framework, currentNodeName string) (m
 			},
 		),
 	)
-
 	if err != nil {
 		return nil, fmt.Errorf("could not define a target node for the virtual machine: %w", err)
 	}
