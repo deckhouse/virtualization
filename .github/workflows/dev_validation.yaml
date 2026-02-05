@@ -171,7 +171,7 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
           sudo apt-get update
           sudo apt-get install -y -qq \
-            llvm linux-headers-generic clang \
+            llvm linux-headers-$(uname -r) clang \
             libbpf-dev uuid-runtime \
             gcc-multilib yq
           sudo apt-get clean
