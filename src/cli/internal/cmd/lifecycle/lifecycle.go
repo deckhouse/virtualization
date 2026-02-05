@@ -27,6 +27,7 @@ import (
 	"github.com/spf13/pflag"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -189,23 +190,19 @@ func (l *Lifecycle) ValidateNodeName(cmd *cobra.Command, vmName, targetNodeName 
 	if err != nil {
 		return err
 	}
-
 	if targetNodeName == vm.Status.Node {
 		return fmt.Errorf("the virtual machine cannot be migrated to the same node: %s", vm.Status.Node)
 	}
 
-	nodes, err := client.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+	_, err = client.CoreV1().Nodes().Get(context.Background(), targetNodeName, metav1.GetOptions{})
 	if err != nil {
-		return err
-	}
-
-	for _, node := range nodes.Items {
-		if node.Name == targetNodeName {
-			return nil
+		if k8serrors.IsNotFound(err) {
+			return fmt.Errorf("there is no node with the name %s in the cluster", targetNodeName)
 		}
+		return fmt.Errorf("failed to validate target node name: %w", err)
 	}
 
-	return fmt.Errorf("there is no node with the name %s in the cluster", targetNodeName)
+	return nil
 }
 
 const (
