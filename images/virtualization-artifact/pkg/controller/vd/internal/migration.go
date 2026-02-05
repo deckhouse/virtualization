@@ -219,13 +219,9 @@ func (h MigrationHandler) getActionIfMigrationInProgress(ctx context.Context, vd
 	}
 
 	// If migration is in progress. VirtualMachine must have the migrating condition.
-	migrating, migratingFound := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
+	_, migratingFound := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
 	if !migratingFound {
 		log.Info("VirtualMachine is not migrating. Will be reverted.", slog.String("vm.name", vm.Name), slog.String("vm.namespace", vm.Namespace))
-		return revert, nil
-	}
-	if migrating.Reason == vmcondition.ReasonLastMigrationFinishedWithError.String() {
-		log.Info("Last VirtualMachine migration failed. Will be reverted.", slog.String("vm.name", vm.Name), slog.String("vm.namespace", vm.Namespace))
 		return revert, nil
 	}
 
