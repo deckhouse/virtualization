@@ -48,7 +48,7 @@ func (n *nodeSelectorValidator) ValidateCreate(_ context.Context, vmop *v1alpha2
 
 		err := n.validateNodeSelector(vmop.Spec.Migrate.NodeSelector)
 		if err != nil {
-			return admission.Warnings{}, nil
+			return admission.Warnings{}, err
 		}
 	}
 

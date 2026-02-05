@@ -132,8 +132,6 @@ func newTargetMigrationVMOP(virtualMachine *v1alpha2.VirtualMachine, nodeSelecto
 }
 
 func defineTargetNodeSelector(f *framework.Framework, currentNodeName string) (map[string]string, error) {
-	errMsg := "could not define a target node for the virtual machine"
-
 	nodes := &corev1.NodeList{}
 	err := f.Clients.GenericClient().List(
 		context.Background(),
@@ -144,8 +142,9 @@ func defineTargetNodeSelector(f *framework.Framework, currentNodeName string) (m
 			},
 		),
 	)
+
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", errMsg, err)
+		return nil, fmt.Errorf("could not define a target node for the virtual machine: %w", err)
 	}
 
 	for _, node := range nodes.Items {
@@ -160,7 +159,7 @@ func defineTargetNodeSelector(f *framework.Framework, currentNodeName string) (m
 		}
 	}
 
-	return nil, errors.New(errMsg)
+	return nil, errors.New("could not define a target node for the virtual machine")
 }
 
 func getVirtualMachineInstanceMigration(f *framework.Framework, name string) (*virtv1.VirtualMachineInstanceMigration, error) {

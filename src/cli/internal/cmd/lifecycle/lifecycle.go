@@ -171,16 +171,16 @@ func (l *Lifecycle) getManager(client kubeclient.Client) Manager {
 	)
 }
 
-func (l *Lifecycle) ValidateNodeName(cmd *cobra.Command, nodeName string) error {
+func (l *Lifecycle) ValidateNodeName(cmd *cobra.Command, vmName, targetNodeName string) error {
 	if !cmd.Flags().Changed("target-node-name") {
 		return nil
 	}
 
-	if nodeName == "" {
+	if targetNodeName == "" {
 		return errors.New("flag --target-node-name cannot be empty")
 	}
 
-	client, _, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	client, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}
@@ -190,13 +190,21 @@ func (l *Lifecycle) ValidateNodeName(cmd *cobra.Command, nodeName string) error 
 		return err
 	}
 
+	vm, err := client.VirtualMachines(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
 	for _, node := range nodes.Items {
-		if node.Name == nodeName {
+		if targetNodeName == vm.Status.Node {
+			return fmt.Errorf("the virtual machine cannot be migrated to the same node: %s", vm.Status.Node)
+		}
+		if node.Name == targetNodeName {
 			return nil
 		}
 	}
 
-	return fmt.Errorf("there is no node with the name %s in the cluster", nodeName)
+	return fmt.Errorf("there is no node with the name %s in the cluster", targetNodeName)
 }
 
 const (
