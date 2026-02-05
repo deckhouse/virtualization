@@ -19,8 +19,10 @@ package virtualmachine
 import (
 	"context"
 
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -41,8 +43,19 @@ func (l *iterator) Iter(ctx context.Context, h handler) error {
 	if err := l.reader.List(ctx, &vms, client.UnsafeDisableDeepCopy); err != nil {
 		return err
 	}
+
+	// Build a map of KVVM by namespace/name for efficient lookup.
+	kvvmMap, err := l.buildKVVMMap(ctx)
+	if err != nil {
+		return err
+	}
+
 	for _, vm := range vms.Items {
 		m := newDataMetric(&vm)
+		// Extract applied class name from KVVM annotation.
+		if kvvm, ok := kvvmMap[vm.Namespace+"/"+vm.Name]; ok {
+			m.AppliedVirtualMachineClassName = extractAppliedClassName(kvvm)
+		}
 		if stop := h(m); stop {
 			return nil
 		}
@@ -54,4 +67,28 @@ func (l *iterator) Iter(ctx context.Context, h handler) error {
 		}
 	}
 	return nil
+}
+
+func (l *iterator) buildKVVMMap(ctx context.Context) (map[string]*virtv1.VirtualMachine, error) {
+	kvvms := virtv1.VirtualMachineList{}
+	if err := l.reader.List(ctx, &kvvms, client.UnsafeDisableDeepCopy); err != nil {
+		return nil, err
+	}
+	result := make(map[string]*virtv1.VirtualMachine, len(kvvms.Items))
+	for i := range kvvms.Items {
+		kvvm := &kvvms.Items[i]
+		result[kvvm.Namespace+"/"+kvvm.Name] = kvvm
+	}
+	return result, nil
+}
+
+func extractAppliedClassName(kvvm *virtv1.VirtualMachine) string {
+	if kvvm == nil {
+		return ""
+	}
+	spec, err := kvbuilder.LoadLastAppliedSpec(kvvm)
+	if err != nil || spec == nil {
+		return ""
+	}
+	return spec.VirtualMachineClassName
 }
