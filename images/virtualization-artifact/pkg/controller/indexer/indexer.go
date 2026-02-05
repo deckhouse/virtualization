@@ -31,11 +31,12 @@ const (
 )
 
 const (
-	IndexFieldVMByClass = "spec.virtualMachineClassName"
-	IndexFieldVMByVD    = "spec.blockDeviceRefs.VirtualDisk"
-	IndexFieldVMByVI    = "spec.blockDeviceRefs.VirtualImage"
-	IndexFieldVMByCVI   = "spec.blockDeviceRefs.ClusterVirtualImage"
-	IndexFieldVMByNode  = "status.node"
+	IndexFieldVMByClass     = "spec.virtualMachineClassName"
+	IndexFieldVMByVD        = "spec.blockDeviceRefs.VirtualDisk"
+	IndexFieldVMByVI        = "spec.blockDeviceRefs.VirtualImage"
+	IndexFieldVMByCVI       = "spec.blockDeviceRefs.ClusterVirtualImage"
+	IndexFieldVMByUSBDevice = "spec.usbDevices.name"
+	IndexFieldVMByNode      = "status.node"
 
 	IndexFieldVDByVDSnapshot  = "vd,spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
 	IndexFieldVIByVDSnapshot  = "vi,spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
@@ -65,6 +66,8 @@ const (
 	IndexFieldVMIPLeaseByVMIP = "spec.virtualMachineIPAddressRef"
 
 	IndexFieldVMByProvisioningSecret = "spec.provisioning.secretRef"
+
+	IndexFieldNodeUSBDeviceByName = "metadata.name"
 )
 
 var IndexGetters = []IndexGetter{
@@ -72,6 +75,7 @@ var IndexGetters = []IndexGetter{
 	IndexVMByVD,
 	IndexVMByVI,
 	IndexVMByCVI,
+	IndexVMByUSBDevice,
 	IndexVMByNode,
 	IndexVMByProvisioningSecret,
 	IndexVMSnapshotByVM,
@@ -91,6 +95,7 @@ var IndexGetters = []IndexGetter{
 	IndexVMMACByAddress,
 	IndexVMMACLeaseByVMMAC,
 	IndexVMIPLeaseByVMIP,
+	IndexNodeUSBDeviceByName,
 }
 
 type IndexGetter func() (obj client.Object, field string, extractValue client.IndexerFunc)
@@ -190,4 +195,35 @@ func getBlockDeviceNamesByKind(obj client.Object, kind v1alpha2.BlockDeviceKind)
 	}
 
 	return result
+}
+
+func IndexVMByUSBDevice() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &v1alpha2.VirtualMachine{}, IndexFieldVMByUSBDevice, func(object client.Object) []string {
+		vm, ok := object.(*v1alpha2.VirtualMachine)
+		if !ok || vm == nil {
+			return nil
+		}
+
+		seen := make(map[string]struct{})
+		var result []string
+
+		for _, ref := range vm.Spec.USBDevices {
+			if _, exists := seen[ref.Name]; !exists {
+				seen[ref.Name] = struct{}{}
+				result = append(result, ref.Name)
+			}
+		}
+
+		return result
+	}
+}
+
+func IndexNodeUSBDeviceByName() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &v1alpha2.NodeUSBDevice{}, IndexFieldNodeUSBDeviceByName, func(object client.Object) []string {
+		nodeUSBDevice, ok := object.(*v1alpha2.NodeUSBDevice)
+		if !ok || nodeUSBDevice == nil {
+			return nil
+		}
+		return []string{nodeUSBDevice.Name}
+	}
 }

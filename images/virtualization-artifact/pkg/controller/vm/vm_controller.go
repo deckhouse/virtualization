@@ -36,6 +36,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vmmetrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/virtualmachine"
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -46,6 +47,7 @@ const (
 func SetupController(
 	ctx context.Context,
 	mgr manager.Manager,
+	virtClient kubeclient.Client,
 	log *log.Logger,
 	dvcrSettings *dvcr.Settings,
 	firmwareImage string,
@@ -56,6 +58,7 @@ func SetupController(
 	blockDeviceService := service.NewBlockDeviceService(client)
 	vmClassService := service.NewVirtualMachineClassService(client)
 
+
 	migrateVolumesService := vmservice.NewMigrationVolumesService(client, internal.MakeKVVMFromVMSpec, 10*time.Second)
 
 	handlers := []Handler{
@@ -65,6 +68,8 @@ func SetupController(
 		internal.NewIPAMHandler(netmanager.NewIPAM(), client, recorder),
 		internal.NewMACHandler(netmanager.NewMACManager(), client, recorder),
 		internal.NewBlockDeviceHandler(client, blockDeviceService),
+		internal.NewUSBDeviceDetachHandler(client, virtClient),
+		internal.NewUSBDeviceAttachHandler(client, virtClient),
 		internal.NewProvisioningHandler(client),
 		internal.NewAgentHandler(),
 		internal.NewFilesystemHandler(),
