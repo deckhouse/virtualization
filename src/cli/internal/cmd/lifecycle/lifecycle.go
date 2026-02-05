@@ -185,20 +185,21 @@ func (l *Lifecycle) ValidateNodeName(cmd *cobra.Command, vmName, targetNodeName 
 		return err
 	}
 
-	nodes, err := client.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return err
-	}
-
 	vm, err := client.VirtualMachines(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
 
+	if targetNodeName == vm.Status.Node {
+		return fmt.Errorf("the virtual machine cannot be migrated to the same node: %s", vm.Status.Node)
+	}
+
+	nodes, err := client.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+
 	for _, node := range nodes.Items {
-		if targetNodeName == vm.Status.Node {
-			return fmt.Errorf("the virtual machine cannot be migrated to the same node: %s", vm.Status.Node)
-		}
 		if node.Name == targetNodeName {
 			return nil
 		}
