@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 type ResourceObject[T, ST any] interface {
@@ -159,6 +160,22 @@ func rewriteConditions(conds []metav1.Condition) {
 		}
 		if conds[i].Status == "" {
 			conds[i].Status = metav1.ConditionUnknown
+		}
+
+		// The reasons and types for the virtual machine have been renamed (naming errors have been corrected).
+		// To ensure a smooth upgrade from the old version of the virtualization to the new one,
+		// these existing old conditions need to be renamed.
+		if conds[i].Type == "NeedsEvict" {
+			conds[i].Type = vmcondition.TypeEvictionRequired.String()
+		}
+		if conds[i].Type == vmcondition.TypeEvictionRequired.String() && conds[i].Reason == "NeedsEvict" {
+			conds[i].Reason = vmcondition.ReasonEvictionRequired.String()
+		}
+		if conds[i].Type == vmcondition.TypeNetworkReady.String() && conds[i].Reason == "SDNModuleDisable" {
+			conds[i].Reason = vmcondition.ReasonSDNModuleDisabled.String()
+		}
+		if conds[i].Type == vmcondition.TypeBlockDevicesReady.String() && conds[i].Reason == "WaitingForTheProvisioningToPersistentVolumeClaim" {
+			conds[i].Reason = vmcondition.ReasonWaitingForWaitForFirstConsumerBlockDevicesToBeReady.String()
 		}
 	}
 }
