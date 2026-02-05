@@ -65,27 +65,27 @@ func (s *scraper) updateMetricVMOPStatusPhase(m *dataMetric) {
 }
 
 func (s *scraper) updateMetricVMOPCreatedTimestamp(m *dataMetric) {
-	if m.CreatedAt == nil {
+	if m.CreatedAt == 0 {
 		return
 	}
 	s.defaultUpdate(MetricVMOPCreatedTimestamp,
-		float64(*m.CreatedAt), m)
+		float64(m.CreatedAt), m)
 }
 
 func (s *scraper) updateMetricVMOPStartedTimestamp(m *dataMetric) {
-	if m.StartedAt == nil {
+	if m.StartedAt == 0 {
 		return
 	}
 	s.defaultUpdate(MetricVMOPStartedTimestamp,
-		float64(*m.StartedAt), m)
+		float64(m.StartedAt), m)
 }
 
 func (s *scraper) updateMetricVMOPFinishedTimestamp(m *dataMetric) {
-	if m.FinishedAt == nil {
+	if m.FinishedAt == 0 {
 		return
 	}
 	s.defaultUpdate(MetricVMOPFinishedTimestamp,
-		float64(*m.FinishedAt), m)
+		float64(m.FinishedAt), m)
 }
 
 func (s *scraper) defaultUpdate(descName string, value float64, m *dataMetric, labels ...string) {
