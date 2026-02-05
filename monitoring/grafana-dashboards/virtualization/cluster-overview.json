@@ -66,7 +66,7 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 3,
+        "w": 5,
         "x": 0,
         "y": 1
       },
@@ -112,6 +112,78 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
+      "description": "Number of virtual machines currently in migration state",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 5,
+        "y": 1
+      },
+      "id": 139,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.4.19",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "count(d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\", phase=\"Migrating\"} == 1) or vector(0)",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Migrating VMs",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds_prometheus}"
+      },
       "description": "Total CPU cores allocated to running virtual machines",
       "fieldConfig": {
         "defaults": {
@@ -134,7 +206,7 @@
       "gridPos": {
         "h": 4,
         "w": 5,
-        "x": 3,
+        "x": 9,
         "y": 1
       },
       "id": 122,
@@ -202,7 +274,7 @@
       "gridPos": {
         "h": 4,
         "w": 5,
-        "x": 8,
+        "x": 14,
         "y": 1
       },
       "id": 123,
@@ -270,7 +342,7 @@
       "gridPos": {
         "h": 4,
         "w": 5,
-        "x": 13,
+        "x": 19,
         "y": 1
       },
       "id": 124,
@@ -522,6 +594,18 @@
                 "value": "Total VM"
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value #MigratingVMS"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Migrating VM"
+              }
+            ]
           }
         ]
       },
@@ -713,6 +797,21 @@
           "intervalFactor": 1,
           "legendFormat": "__auto",
           "refId": "TotalVMCount"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "editorMode": "code",
+          "expr": "avg by (namespace) (\n    sum by (namespace,pod) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\",phase=\"Migrating\"}==1\n    )\n)",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "interval": "",
+          "intervalFactor": 1,
+          "legendFormat": "__auto",
+          "refId": "MigratingVMS"
         }
       ],
       "title": "Namespaces",
@@ -737,7 +836,8 @@
                 "Value #VDSnapshotCount",
                 "Value #VMSnapshotCount",
                 "Value #StorageCapacity",
-                "Value #TotalVMCount"
+                "Value #TotalVMCount",
+                "Value #MigratingVMS"
               ]
             }
           }
@@ -749,16 +849,17 @@
             "includeByName": {},
             "indexByName": {
               "Value #ActiveVMCount": 2,
-              "Value #CPUGuaranteedCores": 3,
-              "Value #MemoryConfigured": 4,
-              "Value #StorageCapacity": 6,
-              "Value #SvcLBCount": 10,
-              "Value #SvcNodePortCount": 11,
+              "Value #CPUGuaranteedCores": 4,
+              "Value #MemoryConfigured": 5,
+              "Value #MigratingVMS": 3,
+              "Value #StorageCapacity": 7,
+              "Value #SvcLBCount": 11,
+              "Value #SvcNodePortCount": 12,
               "Value #TotalVMCount": 1,
-              "Value #VDCount": 5,
-              "Value #VDSnapshotCount": 7,
-              "Value #VICount": 8,
-              "Value #VMSnapshotCount": 9,
+              "Value #VDCount": 6,
+              "Value #VDSnapshotCount": 8,
+              "Value #VICount": 9,
+              "Value #VMSnapshotCount": 10,
               "namespace": 0
             },
             "renameByName": {}
@@ -868,7 +969,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 24
+            "y": 17
           },
           "id": 69,
           "options": {
@@ -1009,7 +1110,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 32
+            "y": 25
           },
           "id": 136,
           "options": {
@@ -1152,7 +1253,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 40
+            "y": 33
           },
           "id": 134,
           "options": {
@@ -1221,8 +1322,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               }
@@ -1329,8 +1429,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -1458,8 +1557,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -1601,8 +1699,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2078,8 +2175,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -2187,8 +2283,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -2311,8 +2406,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3056,6 +3150,6 @@
   "timezone": "browser",
   "title": "Virtualization Overview",
   "uid": "cdwp4qk7mz8g0d",
-  "version": 1,
+  "version": 3,
   "weekStart": ""
 }
