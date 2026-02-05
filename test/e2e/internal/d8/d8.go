@@ -182,8 +182,10 @@ func (v D8VirtualizationCMD) DataExportDownload(resourceType, name string, opts 
 		cmd = fmt.Sprintf("%s --publish", cmd)
 	}
 
-	// Pipe 'y' to confirm DataExport deletion after download (non-interactive mode).
-	cmd = fmt.Sprintf("echo y | %s", cmd)
+	// d8 data export download always returns exit code 0 even on errors,
+	// so we pipe output through grep to check for success message.
+	// grep -q returns non-zero exit code if pattern not found.
+	cmd = fmt.Sprintf(`echo y | %s 2>&1 | grep -q "All files have been downloaded"`, cmd)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
