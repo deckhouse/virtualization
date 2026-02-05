@@ -11,12 +11,6 @@
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
         "name": "Annotations & Alerts",
-        "target": {
-          "limit": 100,
-          "matchAny": false,
-          "tags": [],
-          "type": "dashboard"
-        },
         "type": "dashboard"
       }
     ]
@@ -69,7 +63,7 @@
                   "text": "Pause"
                 },
                 "4": {
-                  "color": "#00ffff",
+                  "color": "#30e3ca",
                   "index": 3,
                   "text": "Pending"
                 },
@@ -158,7 +152,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "max by (name) (\n  sum by (name,pod) (\n    (d8_virtualization_virtualmachine_status_phase{namespace=\"$namespace\", name=\"$name\"} == 1) * on(phase) group_left()\n      (\n        label_replace(vector(1), \"phase\", \"Degraded\", \"\", \"\") or\n        label_replace(vector(2), \"phase\", \"Migrating\", \"\", \"\") or\n        label_replace(vector(3), \"phase\", \"Pause\", \"\", \"\") or\n        label_replace(vector(4), \"phase\", \"Pending\", \"\", \"\") or\n        label_replace(vector(5), \"phase\", \"Running\", \"\", \"\") or\n        label_replace(vector(6), \"phase\", \"Starting\", \"\", \"\") or\n        label_replace(vector(7), \"phase\", \"Stopped\", \"\", \"\") or\n        label_replace(vector(8), \"phase\", \"Stopping\", \"\", \"\") or\n        label_replace(vector(9), \"phase\", \"Terminating\", \"\", \"\")\n      ))\n)",
+          "expr": "max by (name) (\n  max by (name,pod) (\n    (d8_virtualization_virtualmachine_status_phase{namespace=\"$namespace\", name=\"$name\"} == 1) * on(phase) group_left()\n      (\n        label_replace(vector(1), \"phase\", \"Degraded\", \"\", \"\") or\n        label_replace(vector(2), \"phase\", \"Migrating\", \"\", \"\") or\n        label_replace(vector(3), \"phase\", \"Pause\", \"\", \"\") or\n        label_replace(vector(4), \"phase\", \"Pending\", \"\", \"\") or\n        label_replace(vector(5), \"phase\", \"Running\", \"\", \"\") or\n        label_replace(vector(6), \"phase\", \"Starting\", \"\", \"\") or\n        label_replace(vector(7), \"phase\", \"Stopped\", \"\", \"\") or\n        label_replace(vector(8), \"phase\", \"Stopping\", \"\", \"\") or\n        label_replace(vector(9), \"phase\", \"Terminating\", \"\", \"\")\n      ))\n)",
           "instant": true,
           "legendFormat": "{{name}}",
           "range": false,
@@ -1619,7 +1613,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   }
                 ]
               },
@@ -1707,7 +1702,7 @@
                       "text": "Pause"
                     },
                     "4": {
-                      "color": "#00ffff",
+                      "color": "#30e3ca",
                       "index": 3,
                       "text": "Pending"
                     },
@@ -1755,7 +1750,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   }
                 ]
               },
@@ -1852,7 +1848,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -1925,6 +1922,267 @@
           ],
           "title": "Live migration memory metrics",
           "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "description": "VM operations",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "inspect": false
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "/(Created At|Started At|Finished At)/"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "dateTimeAsIso"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 180
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Phase"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "mode": "basic",
+                      "type": "color-background"
+                    }
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "options": {
+                          "Completed": {
+                            "color": "green",
+                            "index": 2,
+                            "text": "Completed"
+                          },
+                          "Failed": {
+                            "color": "red",
+                            "index": 3,
+                            "text": "Failed"
+                          },
+                          "InProgress": {
+                            "color": "yellow",
+                            "index": 1,
+                            "text": "InProgress"
+                          },
+                          "Pending": {
+                            "color": "#30e3ca",
+                            "index": 0,
+                            "text": "Pending"
+                          }
+                        },
+                        "type": "value"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 11,
+            "w": 24,
+            "x": 0,
+            "y": 36
+          },
+          "id": 88,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": false,
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "showHeader": true,
+            "sortBy": [
+              {
+                "desc": true,
+                "displayName": "Created At"
+              }
+            ]
+          },
+          "pluginVersion": "10.4.19",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "last_over_time(d8_virtualization_virtualmachineoperation_created_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) * 1000 and on(uid) ((last_over_time(d8_virtualization_virtualmachineoperation_created_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) >= $__from/1000 and last_over_time(d8_virtualization_virtualmachineoperation_created_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) <= $__to/1000) or (last_over_time(d8_virtualization_virtualmachineoperation_started_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) >= $__from/1000 and last_over_time(d8_virtualization_virtualmachineoperation_started_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) <= $__to/1000) or (last_over_time(d8_virtualization_virtualmachineoperation_finished_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) >= $__from/1000 and last_over_time(d8_virtualization_virtualmachineoperation_finished_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) <= $__to/1000))",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "created"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "last_over_time(d8_virtualization_virtualmachineoperation_started_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) * 1000 and on(uid) ((last_over_time(d8_virtualization_virtualmachineoperation_created_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) >= $__from/1000 and last_over_time(d8_virtualization_virtualmachineoperation_created_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) <= $__to/1000) or (last_over_time(d8_virtualization_virtualmachineoperation_started_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) >= $__from/1000 and last_over_time(d8_virtualization_virtualmachineoperation_started_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) <= $__to/1000) or (last_over_time(d8_virtualization_virtualmachineoperation_finished_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) >= $__from/1000 and last_over_time(d8_virtualization_virtualmachineoperation_finished_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) <= $__to/1000))",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "started"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "last_over_time(d8_virtualization_virtualmachineoperation_finished_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) * 1000 and on(uid) ((last_over_time(d8_virtualization_virtualmachineoperation_created_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) >= $__from/1000 and last_over_time(d8_virtualization_virtualmachineoperation_created_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) <= $__to/1000) or (last_over_time(d8_virtualization_virtualmachineoperation_started_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) >= $__from/1000 and last_over_time(d8_virtualization_virtualmachineoperation_started_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) <= $__to/1000) or (last_over_time(d8_virtualization_virtualmachineoperation_finished_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) >= $__from/1000 and last_over_time(d8_virtualization_virtualmachineoperation_finished_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) <= $__to/1000))",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "finished"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "last_over_time(d8_virtualization_virtualmachineoperation_status_phase{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) == 1 and on(uid) ((last_over_time(d8_virtualization_virtualmachineoperation_created_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) >= $__from/1000 and last_over_time(d8_virtualization_virtualmachineoperation_created_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) <= $__to/1000) or (last_over_time(d8_virtualization_virtualmachineoperation_started_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) >= $__from/1000 and last_over_time(d8_virtualization_virtualmachineoperation_started_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) <= $__to/1000) or (last_over_time(d8_virtualization_virtualmachineoperation_finished_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) >= $__from/1000 and last_over_time(d8_virtualization_virtualmachineoperation_finished_timestamp_seconds{namespace=\"$namespace\", virtualmachine=\"$name\"}[$__range]) <= $__to/1000))",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "phase"
+            }
+          ],
+          "title": "VM operations",
+          "transformations": [
+            {
+              "id": "merge",
+              "options": {}
+            },
+            {
+              "id": "groupBy",
+              "options": {
+                "fields": {
+                  "Value #created": {
+                    "aggregations": [
+                      "lastNotNull"
+                    ],
+                    "operation": "aggregate"
+                  },
+                  "Value #finished": {
+                    "aggregations": [
+                      "lastNotNull"
+                    ],
+                    "operation": "aggregate"
+                  },
+                  "Value #started": {
+                    "aggregations": [
+                      "lastNotNull"
+                    ],
+                    "operation": "aggregate"
+                  },
+                  "name": {
+                    "aggregations": [],
+                    "operation": "groupby"
+                  },
+                  "namespace": {
+                    "aggregations": [],
+                    "operation": "groupby"
+                  },
+                  "phase": {
+                    "aggregations": [
+                      "lastNotNull"
+                    ],
+                    "operation": "aggregate"
+                  },
+                  "type": {
+                    "aggregations": [],
+                    "operation": "groupby"
+                  },
+                  "uid": {
+                    "aggregations": [],
+                    "operation": "groupby"
+                  },
+                  "virtualmachine": {
+                    "aggregations": [],
+                    "operation": "groupby"
+                  }
+                }
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "Value #phase": true,
+                  "namespace": true,
+                  "uid": true,
+                  "virtualmachine": true
+                },
+                "indexByName": {
+                  "Value #created (lastNotNull)": 3,
+                  "Value #finished (lastNotNull)": 5,
+                  "Value #started (lastNotNull)": 4,
+                  "name": 0,
+                  "phase (lastNotNull)": 2,
+                  "type": 1
+                },
+                "renameByName": {
+                  "Value #created (lastNotNull)": "Created At",
+                  "Value #finished (lastNotNull)": "Finished At",
+                  "Value #started (lastNotNull)": "Started At",
+                  "name": "Name",
+                  "phase (lastNotNull)": "Phase",
+                  "type": "Operation"
+                }
+              }
+            }
+          ],
+          "type": "table"
         }
       ],
       "title": "VM status details",
@@ -4662,7 +4920,6 @@
       "type": "row"
     }
   ],
-  "refresh": "auto",
   "schemaVersion": 39,
   "tags": [
     "main"
@@ -4809,6 +5066,7 @@
   "timezone": "browser",
   "title": "Namespace / Virtual Machine",
   "uid": "bdw6dw2izvpxcb",
-  "version": 3,
-  "weekStart": ""
+  "version": 40,
+  "weekStart": "",
+  "refresh": "auto"
 }
