@@ -2133,8 +2133,10 @@
                     "operation": "groupby"
                   },
                   "phase": {
-                    "aggregations": [],
-                    "operation": "groupby"
+                    "aggregations": [
+                      "lastNotNull"
+                    ],
+                    "operation": "aggregate"
                   },
                   "type": {
                     "aggregations": [],
