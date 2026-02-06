@@ -48,7 +48,7 @@ func (w *VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error 
 				CreateFunc: func(e event.TypedCreateEvent[*v1alpha2.VirtualMachine]) bool { return false },
 				DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha2.VirtualMachine]) bool { return false },
 				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachine]) bool {
-					cond, _ := conditions.GetCondition(vmcondition.TypeNeedsEvict, e.ObjectNew.Status.Conditions)
+					cond, _ := conditions.GetCondition(vmcondition.TypeEvictionRequired, e.ObjectNew.Status.Conditions)
 					needEvict := cond.Status == metav1.ConditionTrue
 
 					cond, _ = conditions.GetCondition(vmcondition.TypeMigrating, e.ObjectNew.Status.Conditions)

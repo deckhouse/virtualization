@@ -36,7 +36,6 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
-	commonvm "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
@@ -63,7 +62,7 @@ func NewMigrationVolumesService(client client.Client, makeKVVMFromSpec func(ctx 
 	}
 }
 
-func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.VirtualMachineState) (reconcile.Result, error) {
+func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.VirtualMachineState, restartRequired bool) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With("func", "SyncVolumes")
 	log.Debug("Start")
 	defer log.Debug("End")
@@ -71,7 +70,7 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	vm := vmState.VirtualMachine().Changed()
 
 	// TODO: refactor syncKVVM and allow migration
-	if commonvm.RestartRequired(vm) {
+	if restartRequired {
 		log.Info("Virtualmachine is restart required, skip volume migration.")
 		return reconcile.Result{}, nil
 	}

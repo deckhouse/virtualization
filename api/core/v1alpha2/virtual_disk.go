@@ -37,6 +37,7 @@ const (
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
 // +kubebuilder:printcolumn:name="Capacity",type=string,JSONPath=`.status.capacity`
 // +kubebuilder:printcolumn:name="InUse",type=string,JSONPath=`.status.conditions[?(@.type=='InUse')].status`,priority=1
+// +kubebuilder:printcolumn:name="VirtualMachine",type="string",JSONPath=".status.attachedToVirtualMachines[?(@.mounted==true)].name",description="Name of the virtual machine the disk is attached to."
 // +kubebuilder:printcolumn:name="Progress",type=string,JSONPath=`.status.progress`,priority=1
 // +kubebuilder:printcolumn:name="StorageClass",type=string,JSONPath=`.status.storageClassName`,priority=1
 // +kubebuilder:printcolumn:name="TargetPVC",type=string,JSONPath=`.status.target.persistentVolumeClaimName`,priority=1

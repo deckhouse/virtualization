@@ -674,7 +674,7 @@ func SaveTestCaseResources(labels map[string]string, additional, namespace, dump
 		ShowManagedFields: true,
 	})
 	if clusterResourceResult.Error() != nil {
-		GinkgoWriter.Printf("Get resources error:\n%s\n%w\n%s\n", clusterResourceResult.GetCmd(), clusterResourceResult.Error(), clusterResourceResult.StdErr())
+		GinkgoWriter.Printf("Get resources error:\n%s\n%v\n%s\n", clusterResourceResult.GetCmd(), clusterResourceResult.Error(), clusterResourceResult.StdErr())
 	}
 
 	namespacedResourceResult := kubectl.Get("virtualization,intvirt,pod,volumesnapshot,pvc", kc.GetOptions{
@@ -683,7 +683,7 @@ func SaveTestCaseResources(labels map[string]string, additional, namespace, dump
 		ShowManagedFields: true,
 	})
 	if namespacedResourceResult.Error() != nil {
-		GinkgoWriter.Printf("Get resources error:\n%s\n%w\n%s\n", namespacedResourceResult.GetCmd(), namespacedResourceResult.Error(), namespacedResourceResult.StdErr())
+		GinkgoWriter.Printf("Get resources error:\n%s\n%v\n%s\n", namespacedResourceResult.GetCmd(), namespacedResourceResult.Error(), namespacedResourceResult.StdErr())
 	}
 
 	// Stdout may present even if error is occurred.

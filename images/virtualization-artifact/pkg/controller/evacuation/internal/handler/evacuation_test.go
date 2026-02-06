@@ -55,7 +55,7 @@ var _ = Describe("TestEvacuationHandler", func() {
 		vm.Status.Node = nodeName
 		if needEvict {
 			vm.Status.Conditions = append(vm.Status.Conditions, metav1.Condition{
-				Type:   vmcondition.TypeNeedsEvict.String(),
+				Type:   vmcondition.TypeEvictionRequired.String(),
 				Status: metav1.ConditionTrue,
 			})
 		}

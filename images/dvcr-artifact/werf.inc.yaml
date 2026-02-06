@@ -1,4 +1,16 @@
 ---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+git:
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}
+  to: /src
+  stageDependencies:
+    install:
+    - go.mod
+    - go.sum
+    - "**/*.go"
+---
 {{- $nameDeps := print $.ImageName "-dependencies" -}}
 {{- define "$nameDeps" -}}
 packages:
@@ -12,19 +24,14 @@ packages:
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.24" "builder/golang-alt-svace-1.24" }}
-git:
-- add: {{ .ModuleDir }}/images/{{ .ImageName }}
-  to: /src
-  stageDependencies:
-    install:
-    - go.mod
-    - go.sum
-    setup:
-    - "**/*.go"
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
 import:
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
 {{- include "importPackageImages" (list . $builderDeps.packages "install") -}}
 shell:
   install:

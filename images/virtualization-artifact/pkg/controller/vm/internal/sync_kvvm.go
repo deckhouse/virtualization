@@ -49,7 +49,7 @@ import (
 const nameSyncKvvmHandler = "SyncKvvmHandler"
 
 type syncVolumesService interface {
-	SyncVolumes(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error)
+	SyncVolumes(ctx context.Context, s state.VirtualMachineState, restartRequired bool) (reconcile.Result, error)
 }
 
 func NewSyncKvvmHandler(dvcrSettings *dvcr.Settings, client client.Client, recorder eventrecord.EventRecorderLogger, syncVolumesService syncVolumesService) *SyncKvvmHandler {
@@ -86,7 +86,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	cbAwaitingRestart := conditions.NewConditionBuilder(vmcondition.TypeAwaitingRestartToApplyConfiguration).
 		Generation(current.GetGeneration()).
 		Status(metav1.ConditionFalse).
-		Reason(vmcondition.ReasonRestartNoNeed)
+		Reason(vmcondition.ReasonNoRestartRequired)
 
 	defer func() {
 		switch changed.Status.Phase {
@@ -205,7 +205,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			Message("Waiting for the user to restart in order to apply the configuration changes.")
 		cbAwaitingRestart.
 			Status(metav1.ConditionTrue).
-			Reason(vmcondition.ReasonRestartAwaitingChangesExist).
+			Reason(vmcondition.ReasonChangesPendingRestart).
 			Message("Waiting for the user to restart in order to apply the configuration changes.")
 	case classChanged:
 		h.recorder.Event(current, corev1.EventTypeNormal, v1alpha2.ReasonErrRestartAwaitingChanges, "Restart required to propagate changes from the vmclass spec")
@@ -215,7 +215,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			Message("VirtualMachineClass.spec has been modified. Waiting for the user to restart in order to apply the configuration changes.")
 		cbAwaitingRestart.
 			Status(metav1.ConditionTrue).
-			Reason(vmcondition.ReasonRestartAwaitingVMClassChangesExist).
+			Reason(vmcondition.ReasonChangesPendingRestart).
 			Message("VirtualMachineClass.spec has been modified. Waiting for the user to restart in order to apply the configuration changes.")
 	case synced:
 		h.recorder.Event(current, corev1.EventTypeNormal, v1alpha2.ReasonErrVmSynced, "The virtual machine configuration successfully synced")
@@ -226,19 +226,21 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 
 	// 5. Set RestartRequired from KVVM condition.
 	if cbAwaitingRestart.Condition().Status == metav1.ConditionFalse && kvvm != nil {
+		// The check for StateChangeRequests is added to ignore the RestartRequired condition when it is set while
+		// the virtual machine is in the process of rebooting.
 		cond, _ := conditions.GetKVVMCondition(virtv1.VirtualMachineRestartRequired, kvvm.Status.Conditions)
-		if cond.Status == corev1.ConditionTrue {
+		if cond.Status == corev1.ConditionTrue && len(kvvm.Status.StateChangeRequests) == 0 {
 			msg := "Please restart the virtual machine to synchronize its configuration."
 			log.Error(msg)
 			cbAwaitingRestart.
 				Status(metav1.ConditionTrue).
-				Reason(vmcondition.ReasonRestartAwaitingUnexpectedState).
+				Reason(vmcondition.ReasonUnexpectedState).
 				Message(msg)
 		}
 	}
 
 	// 6. Sync migrating volumes if needed.
-	result, migrateVolumesErr := h.syncVolumesService.SyncVolumes(ctx, s)
+	result, migrateVolumesErr := h.syncVolumesService.SyncVolumes(ctx, s, cbAwaitingRestart.Condition().Status == metav1.ConditionTrue)
 	if migrateVolumesErr != nil {
 		errs = errors.Join(errs, fmt.Errorf("failed to sync migrating volumes: %w", migrateVolumesErr))
 	}

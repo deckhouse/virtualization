@@ -58,16 +58,11 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, func() {
 
 		CreateNamespace(ns)
 
-		Expect(conf.StorageClass.ImmediateStorageClass).NotTo(BeNil(), "immediate storage class cannot be nil; please set up the immediate storage class in the cluster")
+		if !config.SkipImmediateStorageClassCheck() {
+			Expect(conf.StorageClass.ImmediateStorageClass).NotTo(BeNil(), "immediate storage class cannot be nil; please set up the immediate storage class in the cluster")
 
-		virtualDiskWithoutConsumer := v1alpha2.VirtualDisk{}
-		vdWithoutConsumerFilePath := fmt.Sprintf("%s/vd/vd-ubuntu-http.yaml", conf.TestData.VdSnapshots)
-		err = util.UnmarshalResource(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
-		Expect(err).NotTo(HaveOccurred(), "cannot get object from file: %s\nstderr: %s", vdWithoutConsumerFilePath, err)
-
-		virtualDiskWithoutConsumer.Spec.PersistentVolumeClaim.StorageClass = &conf.StorageClass.ImmediateStorageClass.Name
-		err = util.WriteYamlObject(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
-		Expect(err).NotTo(HaveOccurred(), "cannot update virtual disk with custom storage class: %s\nstderr: %s", vdWithoutConsumerFilePath, err)
+			setDiskImmediateStorageClass()
+		}
 	})
 
 	AfterEach(func() {
@@ -100,11 +95,15 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, func() {
 	Context("When virtual disks are applied:", func() {
 		It("checks VDs phases", func() {
 			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
-			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
+			waitOpts := kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
-			})
+			}
+			if config.SkipImmediateStorageClassCheck() {
+				waitOpts.ExcludedLabels = []string{"hasNoConsumer"}
+			}
+			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, waitOpts)
 		})
 	})
 
@@ -131,6 +130,12 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, func() {
 	})
 
 	Context(fmt.Sprintf("When unattached VDs in phase %s:", PhaseReady), func() {
+		BeforeEach(func() {
+			if config.SkipImmediateStorageClassCheck() {
+				Skip("Set immediate storage class for run this test case")
+			}
+		})
+
 		It("creates VDs snapshots with `requiredConsistency`", func() {
 			res := kubectl.List(kc.ResourceVD, kc.GetOptions{
 				Labels:    hasNoConsumerLabel,
@@ -428,4 +433,15 @@ func CheckFileSystemFrozen(vmName, vmNamespace string) (bool, error) {
 	}
 
 	return false, nil
+}
+
+func setDiskImmediateStorageClass() {
+	virtualDiskWithoutConsumer := v1alpha2.VirtualDisk{}
+	vdWithoutConsumerFilePath := fmt.Sprintf("%s/vd/vd-ubuntu-http.yaml", conf.TestData.VdSnapshots)
+	err := util.UnmarshalResource(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
+	Expect(err).NotTo(HaveOccurred(), "cannot get object from file: %s\nstderr: %s", vdWithoutConsumerFilePath, err)
+
+	virtualDiskWithoutConsumer.Spec.PersistentVolumeClaim.StorageClass = &conf.StorageClass.ImmediateStorageClass.Name
+	err = util.WriteYamlObject(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
+	Expect(err).NotTo(HaveOccurred(), "cannot update virtual disk with custom storage class: %s\nstderr: %s", vdWithoutConsumerFilePath, err)
 }

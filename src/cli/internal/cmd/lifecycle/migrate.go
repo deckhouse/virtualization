@@ -1,11 +1,11 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2026 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+     http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,16 +22,26 @@ import (
 	"github.com/deckhouse/virtualization/src/cli/internal/templates"
 )
 
-func NewRestartCommand() *cobra.Command {
-	lifecycle := NewLifecycle(Restart)
+func NewMigrateCommand() *cobra.Command {
+	lifecycle := NewLifecycle(Migrate)
+
 	cmd := &cobra.Command{
-		Use:     "restart (VirtualMachine)",
-		Short:   "Restart a virtual machine.",
+		Use:     "migrate (VirtualMachine)",
+		Short:   "Migrate a virtual machine.",
 		Example: lifecycle.Usage(),
-		Args:    templates.ExactArgs("restart", 1),
-		RunE:    lifecycle.Run,
+		Args:    templates.ExactArgs("migrate", 1),
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			vmName := args[0]
+			err := lifecycle.ValidateNodeName(cmd, vmName, lifecycle.migrationOpts.TargetNodeName)
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+		RunE: lifecycle.Run,
 	}
 	AddCommandLineArgs(cmd.Flags(), &lifecycle.opts)
+	AddCommandLineMigrationArgs(cmd.Flags(), &lifecycle.migrationOpts)
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
