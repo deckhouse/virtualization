@@ -776,12 +776,12 @@ func SaveIntvirtvmDescriptions(labels map[string]string, leafNodeText, namespace
 
 func SaveNodeOWide(labels map[string]string, leafNodeText, dumpPath string) {
 	GinkgoHelper()
-	describeCmd := kubectl.RawCommand("get nodes -o wide", framework.ShortTimeout)
-	if describeCmd.Error() != nil {
-		GinkgoWriter.Printf("Failed to get node owide:\nError: %s\n", describeCmd.StdErr())
+	cmd := kubectl.RawCommand("get nodes -o wide", framework.ShortTimeout)
+	if cmd.Error() != nil {
+		GinkgoWriter.Printf("Failed to get node owide:\nError: %s\n", cmd.StdErr())
 	}
 	fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__nodes_owide.log", dumpPath, labels["testcase"], leafNodeText)
-	err := os.WriteFile(fileName, describeCmd.StdOutBytes(), 0o644)
+	err := os.WriteFile(fileName, cmd.StdOutBytes(), 0o644)
 	if err != nil {
 		GinkgoWriter.Printf("Failed to save node owide:\nError: %s\n", err)
 	}
@@ -789,12 +789,12 @@ func SaveNodeOWide(labels map[string]string, leafNodeText, dumpPath string) {
 
 func SaveNodeDescribe(labels map[string]string, leafNodeText, dumpPath string) {
 	GinkgoHelper()
-	describeCmd := kubectl.RawCommand("describe node -o wide", framework.ShortTimeout)
-	if describeCmd.Error() != nil {
-		GinkgoWriter.Printf("Failed to get node describe:\nError: %s\n", describeCmd.StdErr())
+	cmd := kubectl.RawCommand("describe node -o wide", framework.ShortTimeout)
+	if cmd.Error() != nil {
+		GinkgoWriter.Printf("Failed to get node describe:\nError: %s\n", cmd.StdErr())
 	}
 	fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__nodes_describe.log", dumpPath, labels["testcase"], leafNodeText)
-	err := os.WriteFile(fileName, describeCmd.StdOutBytes(), 0o644)
+	err := os.WriteFile(fileName, cmd.StdOutBytes(), 0o644)
 	if err != nil {
 		GinkgoWriter.Printf("Failed to save node describe:\nError: %s\n", err)
 	}
