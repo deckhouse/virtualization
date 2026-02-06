@@ -673,19 +673,17 @@ func SaveTestCaseResources(labels map[string]string, leafNodeText, namespace, du
 	resFileName := fmt.Sprintf("%s/e2e_failed__%s__%s.yaml", dumpPath, labels["testcase"], leafNodeText)
 
 	clusterResourceResult := kubectl.Get("cvi,vmc", kc.GetOptions{
-		Labels:            labels,
-		Namespace:         namespace,
-		Output:            "yaml",
-		ShowManagedFields: false,
+		Labels:    labels,
+		Namespace: namespace,
+		Output:    "yaml",
 	})
 	if clusterResourceResult.Error() != nil {
 		GinkgoWriter.Printf("Get resources error:\n%s\n%v\n%s\n", clusterResourceResult.GetCmd(), clusterResourceResult.Error(), clusterResourceResult.StdErr())
 	}
 
 	namespacedResourceResult := kubectl.Get("virtualization,intvirt,pod,volumesnapshot,pvc", kc.GetOptions{
-		Namespace:         namespace,
-		Output:            "yaml",
-		ShowManagedFields: false,
+		Namespace: namespace,
+		Output:    "yaml",
 	})
 	if namespacedResourceResult.Error() != nil {
 		GinkgoWriter.Printf("Get resources error:\n%s\n%v\n%s\n", namespacedResourceResult.GetCmd(), namespacedResourceResult.Error(), namespacedResourceResult.StdErr())
@@ -778,12 +776,14 @@ func SaveNodeOWide(labels map[string]string, leafNodeText, dumpPath string) {
 	GinkgoHelper()
 	cmd := kubectl.RawCommand("get nodes -o wide", framework.ShortTimeout)
 	if cmd.Error() != nil {
-		GinkgoWriter.Printf("Failed to get node owide:\nError: %s\n", cmd.StdErr())
+		GinkgoWriter.Printf("Failed to get node owide:\nCmdError: %v\nError: %s\n", cmd.Error(), cmd.StdErr())
+		return
 	}
 	fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__nodes_owide.log", dumpPath, labels["testcase"], leafNodeText)
 	err := os.WriteFile(fileName, cmd.StdOutBytes(), 0o644)
 	if err != nil {
-		GinkgoWriter.Printf("Failed to save node owide:\nError: %s\n", err)
+		GinkgoWriter.Printf("Failed to save node owide:\nError: %v\n", err)
+		return
 	}
 }
 
@@ -791,12 +791,15 @@ func SaveNodeDescribe(labels map[string]string, leafNodeText, dumpPath string) {
 	GinkgoHelper()
 	cmd := kubectl.RawCommand("describe node -o wide", framework.ShortTimeout)
 	if cmd.Error() != nil {
-		GinkgoWriter.Printf("Failed to get node describe:\nError: %s\n", cmd.StdErr())
+		GinkgoWriter.Printf("Failed to get node describe:\nCmdError: %v\nError: %s\n", cmd.Error(), cmd.StdErr())
+		return
 	}
+
 	fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__nodes_describe.log", dumpPath, labels["testcase"], leafNodeText)
 	err := os.WriteFile(fileName, cmd.StdOutBytes(), 0o644)
 	if err != nil {
-		GinkgoWriter.Printf("Failed to save node describe:\nError: %s\n", err)
+		GinkgoWriter.Printf("Failed to save node describe:\nError: %v\n", err)
+		return
 	}
 }
 

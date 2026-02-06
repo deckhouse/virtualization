@@ -91,12 +91,11 @@ type DeleteOptions struct {
 }
 
 type GetOptions struct {
-	ExcludedLabels    []string
-	IgnoreNotFound    bool
-	Labels            map[string]string
-	Namespace         string
-	Output            string
-	ShowManagedFields bool
+	ExcludedLabels []string
+	IgnoreNotFound bool
+	Labels         map[string]string
+	Namespace      string
+	Output         string
 }
 
 type LogOptions struct {
