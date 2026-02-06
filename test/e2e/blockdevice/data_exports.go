@@ -180,7 +180,7 @@ var _ = Describe("DataExports", label.Slow(), func() {
 		})
 
 		By("Waiting for disk from VirtualDisk export to be ready", func() {
-			util.UntilObjectPhase(string(v1alpha2.DiskWaitForFirstConsumer), framework.LongTimeout, vdFromDiskExport)
+			util.UntilObjectPhase(util.GetExpectedDiskPhaseByVolumeBindingMode(), framework.LongTimeout, vdFromDiskExport)
 		})
 
 		By("Creating disk from exported VirtualDiskSnapshot", func() {
@@ -192,7 +192,7 @@ var _ = Describe("DataExports", label.Slow(), func() {
 		})
 
 		By("Waiting for disk from snapshot export to be ready", func() {
-			util.UntilObjectPhase(string(v1alpha2.DiskWaitForFirstConsumer), framework.LongTimeout, vdFromSnapshotExport)
+			util.UntilObjectPhase(util.GetExpectedDiskPhaseByVolumeBindingMode(), framework.LongTimeout, vdFromSnapshotExport)
 		})
 
 		By("Attaching restored disks to VM", func() {
