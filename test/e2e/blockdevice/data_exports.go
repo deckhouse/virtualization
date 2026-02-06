@@ -24,6 +24,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -231,10 +232,19 @@ var _ = Describe("DataExports", label.Slow(), func() {
 })
 
 func exportData(f *framework.Framework, resourceType, name, outputFile string) {
+	publish := true
+	// If hostname matches virtlab-XX-X pattern (e.g. virtlab-dl-1), set publish to false.
+	if hostname, err := os.Hostname(); err == nil {
+		virtlabPattern := regexp.MustCompile(`^virtlab-[a-z]+-\d+$`)
+		if virtlabPattern.MatchString(hostname) {
+			publish = false
+		}
+	}
+
 	result := f.D8Virtualization().DataExportDownload(resourceType, name, d8.DataExportOptions{
 		Namespace:  f.Namespace().Name,
 		OutputFile: outputFile,
-		Publish:    true,
+		Publish:    publish,
 		Timeout:    framework.LongTimeout,
 	})
 	Expect(result.WasSuccess()).To(BeTrue(), "d8 data export download failed: %s", result.StdErr())
