@@ -106,7 +106,6 @@ type VirtualMachineSpec struct {
 	Memory                  MemorySpec `json:"memory"`
 	// List of block devices that can be mounted by disks belonging to the virtual machine.
 	// The order of booting is determined by the order in the list.
-	// +kubebuilder:validation:MinItems:=1
 	// +kubebuilder:validation:MaxItems:=16
 	BlockDeviceRefs []BlockDeviceSpecRef `json:"blockDeviceRefs"`
 	Provisioning    *Provisioning        `json:"provisioning,omitempty"`
