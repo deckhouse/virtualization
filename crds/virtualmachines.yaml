@@ -89,8 +89,9 @@ spec:
 
                         [More information about `cloud-init` and configuration examples](https://cloudinit.readthedocs.io/en/latest/reference/examples.html).
                       type: string
-                      maxLength: 2048
-
+                      x-kubernetes-validations:
+                        - rule: "size(self) <= 2048"
+                          message: "`userData` exceeds 2048 byte limit; should use `userDataRef` for larger data."
                     userDataRef:
                       description: |
                         Link to an existing resource with the `cloud-init` scenario.
