@@ -14,15 +14,16 @@ weight: 70
 ### Fixes
 
 - [core] Fixed an issue with starting virtual machines using the `EFIWithSecureBoot` bootloader when configured with more than 12 vCPUs.
-- [clone] Fixed an issue where it was not possible to successfully clone a virtual machine whose disks use storage in `WaitForFirstConsumer` mode.
-- [module] Fixed accounting of system component resources in project quotas (for virtual machine operation and migration).
-- [module] Disallowed deletion of virtualization system components in non-system namespaces for user service accounts.
-- [vm] Fixed a possible virtual machine hang in the `Pending` state during migration when changing the storage class.
-- [vd] Fixed changing the storage class for virtual disks when a `Filesystem`-to-`Filesystem` change occurs.
+- [vmop] Fixed an issue with cloning a virtual machine whose disks use storage in `WaitForFirstConsumer` mode.
+- [module] System component resources required for starting and running virtual machines are no longer counted in project quotas.
+- [module] During virtual machine migration, temporary double consumption of resources is no longer counted in project quotas.
+- [module] Platform system components in user projects are protected from deletion by users.
+- [vm] Fixed a possible virtual machine hang in the `Pending` state during migration when changing the StorageClass.
+- [vd] Fixed an issue with live migration of a virtual machine between StorageClass with the `Filesystem` type.
 
 ### Other
 
-- [vd] Added the attached virtual machine name to the extended `kubectl` output for virtual disks (`kubectl get vd -owide`).
+- [vd] When viewing disks, the name of the virtual machine they are attached to is now displayed (`d8 k get vd`).
 
 ### Security
 
@@ -32,7 +33,7 @@ weight: 70
 
 ### New features
 
-- [vd] Added support for changing the storage class of disks attached via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug).
+- [vd] Added support for changing the StorageClass of disks attached via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug).
 - [vd] Added support for migrating virtual machines with local disks attached via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug).
 - [vm] Virtual machines can now be started without a `Main` network.
 
@@ -117,7 +118,7 @@ weight: 70
 
 ### Fixes
 
-- [vd] Fixed live disk migration between storage classes that use different drivers. Restrictions:
+- [vd] Fixed live disk migration between StorageClasses that use different drivers. Restrictions:
   - Migration between `Block` and `Filesystem` is not supported. Only migrations between the same volume mode are allowed: `Block` → `Block` and `Filesystem` → `Filesystem`.
 - [vm] In the `Migrating` state, detailed error information is now displayed when a live migration of a virtual machine fails.
 
@@ -163,7 +164,7 @@ weight: 70
 - [vmop/restore] Fixed a bug where the controller sometimes started a restored VM before its disks were fully restored, resulting in the VM starting with old (unrestored) disks.
 - [vmsnapshot] Fixed behavior when creating a VM snapshot with uncommitted changes: the snapshot now instantly captures the current state of the virtual machine, including all current changes.
 - [module] Fixed an issue with installing the module on RedOS 8.X OS.
-- [module] Improved validation to prevent adding empty values for parameters that define storage classes for disks and images.
+- [module] Improved validation to prevent adding empty values for parameters that define StorageClass for disks and images.
 - [vmop] Fixed garbage collector behavior: previously, all VMOP objects were deleted after restarting the virtualization controller, ignoring cleanup rules.
 - [observability] The virtual machine dashboard now displays statistics for all networks (including additional ones) connected to the VM.
 - [observability] Fixed the graph on the virtual machine dashboard that displays memory copy statistics during VM migration.
