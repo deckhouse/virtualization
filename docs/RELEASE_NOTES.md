@@ -3,6 +3,23 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.5.0
+
+### New Features
+
+- [vm] Added support for targeted migration of virtual machines.
+       To do this, create a `VirtualMachineOperation` resource with the `Migrate` type and specify `.spec.migrate.nodeSelector` to migrate the virtual machine to the corresponding node.
+- [observability] Added a table with virtual machine operations to the `Namespace / Virtual Machine` dashboard.
+
+### Fixes
+
+- [core] Fixed an issue with starting virtual machines using the `EFIWithSecureBoot` bootloader when configured with more than 12 vCPUs.
+- [clone] Fixed an issue where it was not possible to successfully clone a virtual machine whose disks use storage in `WaitForFirstConsumer` mode.
+
+### Security
+
+- [module] Fixed vulnerabilities CVE-2025-61726, CVE-2025-61728, CVE-2025-61730, and CVE-2025-68121.
+
 ## v1.4.0
 
 ### New features
