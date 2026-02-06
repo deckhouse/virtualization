@@ -19,10 +19,12 @@ package usb
 import (
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	resourcev1 "k8s.io/api/resource/v1"
 	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/virtualization-dra/internal/common"
+	"github.com/deckhouse/virtualization-dra/internal/featuregates"
 )
 
 func (d *Device) ToAPIDevice(nodeName string) *resourcev1.Device {
@@ -82,5 +84,25 @@ func convertToAPIDevice(usbDevice Device, nodeName string) *resourcev1.Device {
 		},
 	}
 
+	if !featuregates.Default().USBGatewayEnabled() {
+		device.NodeName = ptr.To(nodeName)
+	}
+
 	return device
+}
+
+func getNodeSelector() *corev1.NodeSelector {
+	return &corev1.NodeSelector{
+		NodeSelectorTerms: []corev1.NodeSelectorTerm{
+			{
+				MatchExpressions: []corev1.NodeSelectorRequirement{
+					{
+						Key:      common.USBGatewayLabel,
+						Operator: corev1.NodeSelectorOpIn,
+						Values:   []string{"true"},
+					},
+				},
+			},
+		},
+	}
 }

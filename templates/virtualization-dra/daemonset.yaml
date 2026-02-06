@@ -59,11 +59,29 @@ spec:
       nodeSelector:
         kubernetes.io/os: linux
       hostNetwork: true
+      initContainers:
+        - name: virtualization-dra-init
+          image: {{ include "helm_lib_module_image" (list . "virtualizationDraUsb") }}
+          args:
+            - init
+          securityContext:
+            privileged: false
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - SYS_MODULE
+          volumeMounts:
+            - mountPath: /lib/modules
+              name: lib-modules
       containers:
         - name: virtualization-dra
           {{- include "helm_lib_module_container_security_context_privileged_read_only_root_filesystem" . | nindent 10 }}
           image: {{ include "helm_lib_module_image" (list . "virtualizationDraUsb") }}
           imagePullPolicy: "IfNotPresent"
+          args:
+            - --feature-gates=USBGateway=true
           env:
             - name: NAMESPACE
               valueFrom:
@@ -116,6 +134,9 @@ spec:
             - name: var-run
               mountPath: /var/run
       volumes:
+        - name: lib-modules
+          hostPath:
+            path: /lib/modules
         - name: plugins-registry
           hostPath:
             path: /var/lib/kubelet/plugins_registry

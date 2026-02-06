@@ -1,5 +1,5 @@
 /*
-Copyright 2026 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,8 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package usb
+package main
 
-import "github.com/deckhouse/virtualization-dra/internal/common"
+import (
+	"context"
+	"log/slog"
+	"os"
+	"os/signal"
+	"syscall"
 
-const DriverName = common.VirtualizationDraUSBDriverName
+	"github.com/deckhouse/virtualization-dra/cmd/usb/go-usbip/app"
+)
+
+func main() {
+	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+
+	if err := app.NewUSBIPCommand().ExecuteContext(ctx); err != nil {
+		slog.Error("failed to execute command", slog.Any("err", err))
+		os.Exit(1)
+	}
+}
