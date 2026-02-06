@@ -40,15 +40,60 @@ jobs:
           kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
       - name: Delete nested clusters
         run: |
-          echo "[INFO] Show namespaces with label test=nightly-e2e older than 3 days for delete"
-          kubectl get namespaces -l test=nightly-e2e -o jsonpath='{range .items[?(@.metadata.creationTimestamp<"'$(date -d '3 day ago' -u +'%Y-%m-%dT%H:%M:%SZ')'")]}{.metadata.name}{"\t"}{.metadata.creationTimestamp}{"\n"}{end}' || true
-          echo "[INFO] Show vmclass with label test=nightly-e2e older than 3 days for delete"
-          kubectl get namespaces -l test=nightly-e2e -o jsonpath='{range .items[?(@.metadata.creationTimestamp<"'$(date -d '3 day ago' -u +'%Y-%m-%dT%H:%M:%SZ')'")]}{.metadata.name}{"\t"}{.metadata.creationTimestamp}{"\n"}{end}' || true
+          current_date_seconds="$(date -u +%s)"
+          FORMAT="%-63s %22s\n"
 
-          echo "[INFO] Delete namespaces with label test=nightly-e2e older than 3 days"
-          kubectl get namespaces -l test=nightly-e2e -o jsonpath='{range .items[?(@.metadata.creationTimestamp<"'$(date -d '3 day ago' -u +'%Y-%m-%dT%H:%M:%SZ')'")]}{.metadata.name}{"\n"}{end}' | xargs -r kubectl delete namespace || true
-          echo "[INFO] Delete vmclass with label test=nightly-e2e older than 3 days"
-          kubectl get vmclass -l test=nightly-e2e -o jsonpath='{range .items[?(@.metadata.creationTimestamp<"'$(date -d '3 day ago' -u +'%Y-%m-%dT%H:%M:%SZ')'")]}{.metadata.name}{"\n"}{end}' | xargs -r kubectl delete vmclass || true
+          collect_items_json() {
+            local resource="$1"
+            kubectl get "${resource}" -l test=nightly-e2e -o json \
+              | jq -c '.items[] | {name: .metadata.name, created_at: .metadata.creationTimestamp}'
+          }
+
+          should_keep() {
+            local created_at="$1"
+            local recourse_created_at age_days weekday_of_day
+
+            recourse_created_at_seconds="$(date -d "${created_at}" -u +%s)"
+            age_days="$(( (current_date_seconds - recourse_created_at_seconds) / 86400 ))"
+            weekday_of_day="$(date -d "${created_at}" -u +%u)"
+
+            if [ "${age_days}" -lt 2 ]; then
+              echo "keep"
+              return 0
+            fi
+
+            if [ "${weekday_of_day}" -eq 5 ] && [ "${age_days}" -lt 4 ]; then
+              echo "keep"
+              return 0
+            fi
+
+            echo "delete"
+            return 0
+          }
+
+          cleanup_kind() {
+            local kind="$1"
+            local item name created_at decision parsed
+
+            echo "[INFO] Process ${kind} with label test=nightly-e2e"
+            collect_items_json "${kind}" | while read -r item; do
+              name=$(echo $item | jq -r '.name')
+              created_at=$(echo $item | jq -r '.created_at')
+              [ -z "${name}" ] && continue
+
+              decision="$(should_keep "${created_at}")"
+              if [ "${decision}" = "keep" ]; then
+                printf "$FORMAT" "[INFO] Keep ${kind}/${name}:" "created_at ${created_at}"
+                continue
+              fi
+              printf "$FORMAT" "[INFO] Delete ${kind}/${name}:" "created_at ${created_at}"
+              kubectl delete "${kind}" "${name}" --timeout=300s || true
+            done || true
+          }
+
+          cleanup_kind "namespaces"
+          echo " "
+          cleanup_kind "vmclass"
   set-vars:
     name: Set vars
     runs-on: ubuntu-latest
