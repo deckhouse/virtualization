@@ -86,9 +86,8 @@ func (f *Framework) saveTestCaseResources(testCaseFullText, dumpPath string) {
 
 	// TODO: Add CVI and VMC to the request when the environment is isolated.
 	result := f.Clients.Kubectl().Get("virtualization,intvirt,pod,volumesnapshot,pvc", kubectl.GetOptions{
-		Namespace:         f.Namespace().Name,
-		Output:            "yaml",
-		ShowManagedFields: true,
+		Namespace: f.Namespace().Name,
+		Output:    "yaml",
 	})
 	if result.Error() != nil {
 		GinkgoWriter.Printf("Get resources error:\n%s\n%v\n%s\n", result.GetCmd(), result.Error(), result.StdErr())
