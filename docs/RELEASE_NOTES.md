@@ -22,7 +22,7 @@ weight: 70
 
 ### Other
 
-- [vd] Added the virtual machine name to the extended kubectl output for virtual disks (`kubectl get vd -owide`).
+- [vd] Added the attached virtual machine name to the extended kubectl output for virtual disks (`kubectl get vd -owide`).
 
 ### Security
 
