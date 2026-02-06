@@ -172,4 +172,4 @@ replace (
 )
 
 // Kubevirt API replaces
-replace kubevirt.io/api => github.com/deckhouse/3p-kubevirt/staging/src/kubevirt.io/api v1.6.2-v12n.0
+replace kubevirt.io/api => github.com/deckhouse/3p-kubevirt/staging/src/kubevirt.io/api v1.6.2-add-dra-hotplug-support

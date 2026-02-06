@@ -29,78 +29,80 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/deckhouse/virtualization/api/core/v1alpha3.CPU":                                    schema_virtualization_api_core_v1alpha3_CPU(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha3.CpuDiscovery":                           schema_virtualization_api_core_v1alpha3_CpuDiscovery(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha3.CpuFeatures":                            schema_virtualization_api_core_v1alpha3_CpuFeatures(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha3.MemoryMinMax":                           schema_virtualization_api_core_v1alpha3_MemoryMinMax(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha3.NodeSelector":                           schema_virtualization_api_core_v1alpha3_NodeSelector(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha3.SizingPolicy":                           schema_virtualization_api_core_v1alpha3_SizingPolicy(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha3.SizingPolicyCores":                      schema_virtualization_api_core_v1alpha3_SizingPolicyCores(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha3.SizingPolicyMemory":                     schema_virtualization_api_core_v1alpha3_SizingPolicyMemory(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha3.SizingPolicyMemoryPerCore":              schema_virtualization_api_core_v1alpha3_SizingPolicyMemoryPerCore(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha3.VirtualMachineClass":                    schema_virtualization_api_core_v1alpha3_VirtualMachineClass(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha3.VirtualMachineClassList":                schema_virtualization_api_core_v1alpha3_VirtualMachineClassList(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha3.VirtualMachineClassSpec":                schema_virtualization_api_core_v1alpha3_VirtualMachineClassSpec(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha3.VirtualMachineClassStatus":              schema_virtualization_api_core_v1alpha3_VirtualMachineClassStatus(ref),
-		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachine":                 schema_virtualization_api_subresources_v1alpha2_VirtualMachine(ref),
-		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineAddVolume":        schema_virtualization_api_subresources_v1alpha2_VirtualMachineAddVolume(ref),
-		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineCancelEvacuation": schema_virtualization_api_subresources_v1alpha2_VirtualMachineCancelEvacuation(ref),
-		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineConsole":          schema_virtualization_api_subresources_v1alpha2_VirtualMachineConsole(ref),
-		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineFreeze":           schema_virtualization_api_subresources_v1alpha2_VirtualMachineFreeze(ref),
-		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachinePortForward":      schema_virtualization_api_subresources_v1alpha2_VirtualMachinePortForward(ref),
-		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineRemoveVolume":     schema_virtualization_api_subresources_v1alpha2_VirtualMachineRemoveVolume(ref),
-		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineUnfreeze":         schema_virtualization_api_subresources_v1alpha2_VirtualMachineUnfreeze(ref),
-		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineVNC":              schema_virtualization_api_subresources_v1alpha2_VirtualMachineVNC(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                                schema_pkg_apis_meta_v1_APIGroup(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                            schema_pkg_apis_meta_v1_APIGroupList(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResource":                                             schema_pkg_apis_meta_v1_APIResource(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResourceList":                                         schema_pkg_apis_meta_v1_APIResourceList(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIVersions":                                             schema_pkg_apis_meta_v1_APIVersions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ApplyOptions":                                            schema_pkg_apis_meta_v1_ApplyOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Condition":                                               schema_pkg_apis_meta_v1_Condition(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.CreateOptions":                                           schema_pkg_apis_meta_v1_CreateOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.DeleteOptions":                                           schema_pkg_apis_meta_v1_DeleteOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Duration":                                                schema_pkg_apis_meta_v1_Duration(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.FieldSelectorRequirement":                                schema_pkg_apis_meta_v1_FieldSelectorRequirement(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.FieldsV1":                                                schema_pkg_apis_meta_v1_FieldsV1(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GetOptions":                                              schema_pkg_apis_meta_v1_GetOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupKind":                                               schema_pkg_apis_meta_v1_GroupKind(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupResource":                                           schema_pkg_apis_meta_v1_GroupResource(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersion":                                            schema_pkg_apis_meta_v1_GroupVersion(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionForDiscovery":                                schema_pkg_apis_meta_v1_GroupVersionForDiscovery(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionKind":                                        schema_pkg_apis_meta_v1_GroupVersionKind(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionResource":                                    schema_pkg_apis_meta_v1_GroupVersionResource(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.InternalEvent":                                           schema_pkg_apis_meta_v1_InternalEvent(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector":                                           schema_pkg_apis_meta_v1_LabelSelector(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelectorRequirement":                                schema_pkg_apis_meta_v1_LabelSelectorRequirement(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.List":                                                    schema_pkg_apis_meta_v1_List(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta":                                                schema_pkg_apis_meta_v1_ListMeta(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ListOptions":                                             schema_pkg_apis_meta_v1_ListOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ManagedFieldsEntry":                                      schema_pkg_apis_meta_v1_ManagedFieldsEntry(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.MicroTime":                                               schema_pkg_apis_meta_v1_MicroTime(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta":                                              schema_pkg_apis_meta_v1_ObjectMeta(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.OwnerReference":                                          schema_pkg_apis_meta_v1_OwnerReference(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadata":                                   schema_pkg_apis_meta_v1_PartialObjectMetadata(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadataList":                               schema_pkg_apis_meta_v1_PartialObjectMetadataList(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Patch":                                                   schema_pkg_apis_meta_v1_Patch(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.PatchOptions":                                            schema_pkg_apis_meta_v1_PatchOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Preconditions":                                           schema_pkg_apis_meta_v1_Preconditions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.RootPaths":                                               schema_pkg_apis_meta_v1_RootPaths(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ServerAddressByClientCIDR":                               schema_pkg_apis_meta_v1_ServerAddressByClientCIDR(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Status":                                                  schema_pkg_apis_meta_v1_Status(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusCause":                                             schema_pkg_apis_meta_v1_StatusCause(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusDetails":                                           schema_pkg_apis_meta_v1_StatusDetails(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Table":                                                   schema_pkg_apis_meta_v1_Table(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableColumnDefinition":                                   schema_pkg_apis_meta_v1_TableColumnDefinition(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableOptions":                                            schema_pkg_apis_meta_v1_TableOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRow":                                                schema_pkg_apis_meta_v1_TableRow(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRowCondition":                                       schema_pkg_apis_meta_v1_TableRowCondition(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Time":                                                    schema_pkg_apis_meta_v1_Time(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Timestamp":                                               schema_pkg_apis_meta_v1_Timestamp(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta":                                                schema_pkg_apis_meta_v1_TypeMeta(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.UpdateOptions":                                           schema_pkg_apis_meta_v1_UpdateOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.WatchEvent":                                              schema_pkg_apis_meta_v1_WatchEvent(ref),
-		"k8s.io/apimachinery/pkg/version.Info":                                                         schema_k8sio_apimachinery_pkg_version_Info(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.CPU":                                       schema_virtualization_api_core_v1alpha3_CPU(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.CpuDiscovery":                              schema_virtualization_api_core_v1alpha3_CpuDiscovery(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.CpuFeatures":                               schema_virtualization_api_core_v1alpha3_CpuFeatures(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.MemoryMinMax":                              schema_virtualization_api_core_v1alpha3_MemoryMinMax(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.NodeSelector":                              schema_virtualization_api_core_v1alpha3_NodeSelector(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.SizingPolicy":                              schema_virtualization_api_core_v1alpha3_SizingPolicy(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.SizingPolicyCores":                         schema_virtualization_api_core_v1alpha3_SizingPolicyCores(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.SizingPolicyMemory":                        schema_virtualization_api_core_v1alpha3_SizingPolicyMemory(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.SizingPolicyMemoryPerCore":                 schema_virtualization_api_core_v1alpha3_SizingPolicyMemoryPerCore(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.VirtualMachineClass":                       schema_virtualization_api_core_v1alpha3_VirtualMachineClass(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.VirtualMachineClassList":                   schema_virtualization_api_core_v1alpha3_VirtualMachineClassList(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.VirtualMachineClassSpec":                   schema_virtualization_api_core_v1alpha3_VirtualMachineClassSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.VirtualMachineClassStatus":                 schema_virtualization_api_core_v1alpha3_VirtualMachineClassStatus(ref),
+		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachine":                    schema_virtualization_api_subresources_v1alpha2_VirtualMachine(ref),
+		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineAddResourceClaim":    schema_virtualization_api_subresources_v1alpha2_VirtualMachineAddResourceClaim(ref),
+		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineAddVolume":           schema_virtualization_api_subresources_v1alpha2_VirtualMachineAddVolume(ref),
+		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineCancelEvacuation":    schema_virtualization_api_subresources_v1alpha2_VirtualMachineCancelEvacuation(ref),
+		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineConsole":             schema_virtualization_api_subresources_v1alpha2_VirtualMachineConsole(ref),
+		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineFreeze":              schema_virtualization_api_subresources_v1alpha2_VirtualMachineFreeze(ref),
+		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachinePortForward":         schema_virtualization_api_subresources_v1alpha2_VirtualMachinePortForward(ref),
+		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineRemoveResourceClaim": schema_virtualization_api_subresources_v1alpha2_VirtualMachineRemoveResourceClaim(ref),
+		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineRemoveVolume":        schema_virtualization_api_subresources_v1alpha2_VirtualMachineRemoveVolume(ref),
+		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineUnfreeze":            schema_virtualization_api_subresources_v1alpha2_VirtualMachineUnfreeze(ref),
+		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineVNC":                 schema_virtualization_api_subresources_v1alpha2_VirtualMachineVNC(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                                   schema_pkg_apis_meta_v1_APIGroup(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                               schema_pkg_apis_meta_v1_APIGroupList(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResource":                                                schema_pkg_apis_meta_v1_APIResource(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResourceList":                                            schema_pkg_apis_meta_v1_APIResourceList(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIVersions":                                                schema_pkg_apis_meta_v1_APIVersions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ApplyOptions":                                               schema_pkg_apis_meta_v1_ApplyOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Condition":                                                  schema_pkg_apis_meta_v1_Condition(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.CreateOptions":                                              schema_pkg_apis_meta_v1_CreateOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.DeleteOptions":                                              schema_pkg_apis_meta_v1_DeleteOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Duration":                                                   schema_pkg_apis_meta_v1_Duration(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.FieldSelectorRequirement":                                   schema_pkg_apis_meta_v1_FieldSelectorRequirement(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.FieldsV1":                                                   schema_pkg_apis_meta_v1_FieldsV1(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GetOptions":                                                 schema_pkg_apis_meta_v1_GetOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupKind":                                                  schema_pkg_apis_meta_v1_GroupKind(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupResource":                                              schema_pkg_apis_meta_v1_GroupResource(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersion":                                               schema_pkg_apis_meta_v1_GroupVersion(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionForDiscovery":                                   schema_pkg_apis_meta_v1_GroupVersionForDiscovery(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionKind":                                           schema_pkg_apis_meta_v1_GroupVersionKind(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionResource":                                       schema_pkg_apis_meta_v1_GroupVersionResource(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.InternalEvent":                                              schema_pkg_apis_meta_v1_InternalEvent(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector":                                              schema_pkg_apis_meta_v1_LabelSelector(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelectorRequirement":                                   schema_pkg_apis_meta_v1_LabelSelectorRequirement(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.List":                                                       schema_pkg_apis_meta_v1_List(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta":                                                   schema_pkg_apis_meta_v1_ListMeta(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ListOptions":                                                schema_pkg_apis_meta_v1_ListOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ManagedFieldsEntry":                                         schema_pkg_apis_meta_v1_ManagedFieldsEntry(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.MicroTime":                                                  schema_pkg_apis_meta_v1_MicroTime(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta":                                                 schema_pkg_apis_meta_v1_ObjectMeta(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.OwnerReference":                                             schema_pkg_apis_meta_v1_OwnerReference(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadata":                                      schema_pkg_apis_meta_v1_PartialObjectMetadata(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadataList":                                  schema_pkg_apis_meta_v1_PartialObjectMetadataList(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Patch":                                                      schema_pkg_apis_meta_v1_Patch(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.PatchOptions":                                               schema_pkg_apis_meta_v1_PatchOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Preconditions":                                              schema_pkg_apis_meta_v1_Preconditions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.RootPaths":                                                  schema_pkg_apis_meta_v1_RootPaths(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ServerAddressByClientCIDR":                                  schema_pkg_apis_meta_v1_ServerAddressByClientCIDR(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Status":                                                     schema_pkg_apis_meta_v1_Status(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusCause":                                                schema_pkg_apis_meta_v1_StatusCause(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusDetails":                                              schema_pkg_apis_meta_v1_StatusDetails(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Table":                                                      schema_pkg_apis_meta_v1_Table(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableColumnDefinition":                                      schema_pkg_apis_meta_v1_TableColumnDefinition(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableOptions":                                               schema_pkg_apis_meta_v1_TableOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRow":                                                   schema_pkg_apis_meta_v1_TableRow(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRowCondition":                                          schema_pkg_apis_meta_v1_TableRowCondition(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Time":                                                       schema_pkg_apis_meta_v1_Time(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Timestamp":                                                  schema_pkg_apis_meta_v1_Timestamp(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta":                                                   schema_pkg_apis_meta_v1_TypeMeta(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.UpdateOptions":                                              schema_pkg_apis_meta_v1_UpdateOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.WatchEvent":                                                 schema_pkg_apis_meta_v1_WatchEvent(ref),
+		"k8s.io/apimachinery/pkg/version.Info":                                                            schema_k8sio_apimachinery_pkg_version_Info(ref),
 	}
 }
 
@@ -718,6 +720,68 @@ func schema_virtualization_api_subresources_v1alpha2_VirtualMachine(ref common.R
 	}
 }
 
+func schema_virtualization_api_subresources_v1alpha2_VirtualMachineAddResourceClaim(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"resourceClaimTemplateName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"requestName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"dryRun": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name", "resourceClaimTemplateName", "requestName"},
+			},
+		},
+	}
+}
+
 func schema_virtualization_api_subresources_v1alpha2_VirtualMachineAddVolume(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -793,10 +857,18 @@ func schema_virtualization_api_subresources_v1alpha2_VirtualMachineCancelEvacuat
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"TypeMeta": {
+					"kind": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta"),
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"dryRun": {
@@ -814,11 +886,8 @@ func schema_virtualization_api_subresources_v1alpha2_VirtualMachineCancelEvacuat
 						},
 					},
 				},
-				Required: []string{"TypeMeta"},
 			},
 		},
-		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta"},
 	}
 }
 
@@ -920,6 +989,48 @@ func schema_virtualization_api_subresources_v1alpha2_VirtualMachinePortForward(r
 				Required: []string{"protocol", "port"},
 			},
 		},
+	}
+}
+
+func schema_virtualization_api_subresources_v1alpha2_VirtualMachineRemoveResourceClaim(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"TypeMeta": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta"),
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"dryRun": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"TypeMeta", "name"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta"},
 	}
 }
 
