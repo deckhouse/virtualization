@@ -15,6 +15,7 @@ weight: 70
 
 - [core] Fixed an issue with starting virtual machines using the `EFIWithSecureBoot` bootloader when configured with more than 12 vCPUs.
 - [clone] Fixed an issue where it was not possible to successfully clone a virtual machine whose disks use storage in `WaitForFirstConsumer` mode.
+- [vd] Fixed changing the storage class for virtual disks when a `Filesystem`-to-`Filesystem` change occurs.
 
 ### Security
 
