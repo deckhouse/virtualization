@@ -1,6 +1,6 @@
 module vlctl
 
-go 1.24.6
+go 1.24.13
 
 require (
 	github.com/spf13/cobra v1.9.1
@@ -8,6 +8,7 @@ require (
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.36.1
 	gopkg.in/yaml.v3 v3.0.1
+	k8s.io/apimachinery v0.32.5
 	kubevirt.io/api v0.0.0-20250930144221-aaa67e9803df
 )
 
@@ -30,7 +31,6 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	k8s.io/api v0.32.5 // indirect
 	k8s.io/apiextensions-apiserver v0.32.5 // indirect
-	k8s.io/apimachinery v0.32.5 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738 // indirect
 	kubevirt.io/containerized-data-importer-api v1.60.3-0.20241105012228-50fbed985de9 // indirect
