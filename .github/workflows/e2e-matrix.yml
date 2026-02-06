@@ -62,7 +62,7 @@ jobs:
               return 0
             fi
 
-            if [ "${weekday_of_day}" -eq 5 ] && [ "${age_days}" -ge 2 ] && [ "${age_days}" -lt 4 ]; then
+            if [ "${weekday_of_day}" -eq 5 ] && [ "${age_days}" -lt 4 ]; then
               echo "keep"
               return 0
             fi
