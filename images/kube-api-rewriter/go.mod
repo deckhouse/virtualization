@@ -1,6 +1,6 @@
 module github.com/deckhouse/kube-api-rewriter
 
-go 1.24.6
+go 1.24.13
 
 require (
 	github.com/fsnotify/fsnotify v1.9.0

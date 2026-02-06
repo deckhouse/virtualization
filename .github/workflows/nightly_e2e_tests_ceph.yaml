@@ -18,7 +18,7 @@ env:
   CSI: rbd.csi.ceph.com
   STORAGE_CLASS_NAME: ceph-pool-r2-csi-rbd-immediate
   CI_COMMIT_REF_NAME: ${{ github.ref_name }}
-  GO_VERSION: "1.24.6"
+  GO_VERSION: "1.24.13"
   TIMEOUT: "3h"
 
 on:
