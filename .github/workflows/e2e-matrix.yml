@@ -41,12 +41,12 @@ jobs:
       - name: Delete nested clusters
         run: |
           current_date_seconds="$(date -u +%s)"
+          FORMAT="%-63s %22s\n"
 
-          collect_items() {
-            local resource
-            resource="$1"
-            kubectl get "$resource" -l test=nightly-e2e -o json \
-              | jq -r '.items[] | [.metadata.name, .metadata.creationTimestamp] | @tsv'
+          collect_items_json() {
+            local resource="$1"
+            kubectl get "${resource}" -l test=nightly-e2e -o json \
+              | jq -c '.items[] | {name: .metadata.name, created_at: .metadata.creationTimestamp}'
           }
 
           should_keep() {
@@ -57,12 +57,12 @@ jobs:
             age_days="$(( (current_date_seconds - recourse_created_at_seconds) / 86400 ))"
             weekday_of_day="$(date -d "${created_at}" -u +%u)"
 
-            if [ "${age_days}" -lt 0 ]; then
+            if [ "${age_days}" -lt 2 ]; then
               echo "keep"
               return 0
             fi
 
-            if [ "${weekday_of_day}" -eq 5 ] && [ "${age_days}" -ge 2 ] && [ "${age_days}" -le 3 ]; then
+            if [ "${weekday_of_day}" -eq 5 ] && [ "${age_days}" -ge 2 ] && [ "${age_days}" -lt 4 ]; then
               echo "keep"
               return 0
             fi
@@ -73,26 +73,26 @@ jobs:
 
           cleanup_kind() {
             local kind="$1"
+            local item name created_at decision parsed
 
-            echo "[INFO] Show ${kind} with label test=nightly-e2e for review"
-            collect_items "${kind}" | while IFS=$'\t' read -r name created_at; do
+            echo "[INFO] Process ${kind} with label test=nightly-e2e"
+            collect_items_json "${kind}" | while read -r item; do
+              name=$(echo $item | jq -r '.name')
+              created_at=$(echo $item | jq -r '.created_at')
               [ -z "${name}" ] && continue
-              echo "${name}	${created_at}"
-            done || true
 
-            echo "[INFO] Delete ${kind} with label test=nightly-e2e by date rules"
-            collect_items "${kind}" | while IFS=$'\t' read -r name created_at; do
-              [ -z "${name}" ] && continue
-              if [ "$(should_keep "${created_at}")" = "keep" ]; then
-                echo "[INFO] Keep ${kind}/${name}: created ${created_at}"
+              decision="$(should_keep "${created_at}")"
+              if [ "${decision}" = "keep" ]; then
+                printf "$FORMAT" "[INFO] Keep ${kind}/${name}:" "created_at ${created_at}"
                 continue
               fi
-              echo "[INFO] Delete ${kind}/${name}: created ${created_at}"
+              printf "$FORMAT" "[INFO] Delete ${kind}/${name}:" "created_at ${created_at}"
               kubectl delete "${kind}" "${name}" || true
             done || true
           }
 
           cleanup_kind "namespaces"
+          echo " "
           cleanup_kind "vmclass"
   set-vars:
     name: Set vars
