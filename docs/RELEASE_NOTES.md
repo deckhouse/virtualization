@@ -17,8 +17,8 @@ weight: 70
 - [clone] Fixed an issue where it was not possible to successfully clone a virtual machine whose disks use storage in `WaitForFirstConsumer` mode.
 - [module] Fixed accounting of system component resources in project quotas (for virtual machine operation and migration).
 - [module] Disallowed deletion of virtualization system components in non-system namespaces for user service accounts.
-- [vd] Fixed changing the storage class for virtual disks when a `Filesystem`-to-`Filesystem` change occurs.
 - [vm] Fixed a possible virtual machine hang in the `Pending` state during migration when changing the storage class.
+- [vd] Fixed changing the storage class for virtual disks when a `Filesystem`-to-`Filesystem` change occurs.
 
 ### Other
 
