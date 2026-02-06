@@ -1,6 +1,6 @@
 module github.com/deckhouse/virtualization/tests/e2e
 
-go 1.24.6
+go 1.24.13
 
 tool github.com/onsi/ginkgo/v2/ginkgo
 
