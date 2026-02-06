@@ -59,11 +59,8 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 
 	defer func() { conditions.SetCondition(cb, &vdSnapshot.Status.Conditions) }()
 
-	if vdSnapshot.Status.VolumeSnapshotName == "" {
-		vdSnapshot.Status.VolumeSnapshotName = supplements.NewGenerator("vds", vdSnapshot.Name, vdSnapshot.Namespace, vdSnapshot.UID).CommonSupplement().Name
-	}
-
-	vs, err := h.snapshotter.GetVolumeSnapshot(ctx, vdSnapshot.Status.VolumeSnapshotName, vdSnapshot.Namespace)
+	vsName := supplements.NewGenerator("vds", vdSnapshot.Name, vdSnapshot.Namespace, vdSnapshot.UID).CommonSupplement().Name
+	vs, err := h.snapshotter.GetVolumeSnapshot(ctx, vsName, vdSnapshot.Namespace)
 	if err != nil {
 		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
 		return reconcile.Result{}, err
@@ -338,7 +335,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		vs = &vsv1.VolumeSnapshot{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: anno,
-				Name:        vdSnapshot.Status.VolumeSnapshotName,
+				Name:        vsName,
 				Namespace:   vdSnapshot.Namespace,
 				OwnerReferences: []metav1.OwnerReference{
 					service.MakeOwnerReference(vdSnapshot),
