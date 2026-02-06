@@ -87,7 +87,7 @@ jobs:
                 continue
               fi
               printf "$FORMAT" "[INFO] Delete ${kind}/${name}:" "created_at ${created_at}"
-              kubectl delete "${kind}" "${name}" || true
+              kubectl delete "${kind}" "${name}" --timeout=300s || true
             done || true
           }
 
