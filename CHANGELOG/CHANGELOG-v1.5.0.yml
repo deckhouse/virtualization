@@ -1,0 +1,71 @@
+api:
+  fixes:
+    - summary: rename conditions
+      pull_request: https://github.com/deckhouse/virtualization/pull/1948
+ci:
+  features:
+    - summary: add report for e2e tests for nested clusters for nightly tests
+      pull_request: https://github.com/deckhouse/virtualization/pull/1877
+    - summary: e2e nightly test in nested cluster
+      pull_request: https://github.com/deckhouse/virtualization/pull/1876
+  fixes:
+    - summary: fix e2e tests on nested cluster
+      pull_request: https://github.com/deckhouse/virtualization/pull/1943
+    - summary: check released versions
+      pull_request: https://github.com/deckhouse/virtualization/pull/1931
+    - summary: >-
+        rescheduling the e2e-matrix workflow to 4:45 UTC, rename workflow to 'E2E Matrix Tests
+        (nested clusters)', rename artifacts
+      pull_request: https://github.com/deckhouse/virtualization/pull/1911
+core:
+  features:
+    - summary: Add qouta exclude labels for virt-launcher pods.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1872
+  fixes:
+    - summary: >-
+        fix VMs with `EFIWithSecureBoot` bootloader failing to start when configured with more than
+        12 vCPUs.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1916
+module:
+  features:
+    - summary: add VM operation timestamp metrics and operations table to dashboard
+      pull_request: https://github.com/deckhouse/virtualization/pull/1935
+  fixes:
+    - summary: fix losing first 4 characters after VM reboot during console session
+      pull_request: https://github.com/deckhouse/virtualization/pull/1915
+vd:
+  features:
+    - summary: add VM name in wide output
+      pull_request: https://github.com/deckhouse/virtualization/pull/1889
+vdsnapshot:
+  fixes:
+    - summary: fix skip test if SKIP_IMMEDIATE_SC_CHECK set yes or no immediate storage class
+      pull_request: https://github.com/deckhouse/virtualization/pull/1942
+vm:
+  features:
+    - summary: >-
+        A virtual machine can now be migrated to a particular node using the NodeSelector option in
+        the virtual machine operation.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1874
+  fixes:
+    - summary: fix volume migration for disks in Filesystem mode
+      pull_request: https://github.com/deckhouse/virtualization/pull/1940
+    - summary: Prevent a false "Restart Required" condition when  restarting the VM.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1910
+    - summary: Remove migrating condition for failed VM Migration.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1891
+    - summary: Get shutdown reason from correct pod.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1890
+    - summary: Correct message in AwaitingRestartToApplyConfiguration condition.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1869
+vmop:
+  fixes:
+    - summary: Make Clone operation works for WaitForFirstConsumer disks.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1926
+    - summary: Correct message for 'Completed' condition for VirtualMachineOperation in phase 'Pending'
+      pull_request: https://github.com/deckhouse/virtualization/pull/1873
+vmsnapshot:
+  fixes:
+    - summary: Fix "unsupported empty phase" errors for VMSnapshot.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1922
+
