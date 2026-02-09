@@ -33,8 +33,8 @@ spec:
         bb-flag-set containerd-need-restart
     }
 
-    bb-log-info .cri = {{ "{{ .cri }}" }}
-    bb-log-info .registryEnabled = {{ "{{ $registryEnabled }}" }}
+    bb-log-info '.cri = {{ "{{ .cri }}" }}'
+    bb-log-info '.registryEnabled = {{ "{{ $registryEnabled }}" }}'
     {{ "{{- if and (eq .cri \"Containerd\") (not $registryEnabled) }}" }}
 
     mkdir -p /etc/containerd/conf.d
