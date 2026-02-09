@@ -349,6 +349,93 @@ spec:
       name: win-virtio-iso
 ```
 
+## Как использовать cloud-init для конфигурирования виртуальных машин?
+
+Cloud-Init — это инструмент для автоматической настройки виртуальных машин при первом запуске. Конфигурация записывается в формате YAML и должна начинаться с заголовка `#cloud-config`.
+
+### Обновление и установка пакетов
+
+Пример конфигурации для обновления системы и установки пакетов:
+
+```yaml
+#cloud-config
+# Обновить списки пакетов
+package_update: true
+# Обновить установленные пакеты до последних версий
+package_upgrade: true
+# Список пакетов для установки
+packages:
+  - nginx
+  - curl
+  - htop
+# Команды для выполнения после установки пакетов
+runcmd:
+  - systemctl enable --now nginx.service
+```
+
+### Создание пользователя
+
+Пример конфигурации для создания пользователя с паролем и SSH-ключом:
+
+```yaml
+#cloud-config
+# Список пользователей для создания
+users:
+  - name: cloud                    # Имя пользователя
+    passwd: "$6$rounds=4096$saltsalt$..."  # Хеш пароля (SHA-512)
+    lock_passwd: false            # Не блокировать учетную запись
+    sudo: ALL=(ALL) NOPASSWD:ALL  # Права sudo без запроса пароля
+    shell: /bin/bash              # Оболочка по умолчанию
+    ssh-authorized-keys:          # SSH-ключи для доступа
+      - ssh-ed25519 AAAAC3NzaC... your-public-key ...
+# Разрешить аутентификацию по паролю через SSH
+ssh_pwauth: true
+```
+
+Для генерации хеша пароля используйте команду `mkpasswd --method=SHA-512 --rounds=4096`.
+
+### Создание файла с нужными правами
+
+Пример конфигурации для создания файла с заданными правами доступа:
+
+```yaml
+#cloud-config
+# Список файлов для создания
+write_files:
+  - path: /opt/scripts/start.sh    # Путь к файлу
+    content: |                     # Содержимое файла
+      #!/bin/bash
+      echo "Starting application"
+    owner: cloud:cloud            # Владелец файла (пользователь:группа)
+    permissions: '0755'           # Права доступа (восьмеричный формат)
+```
+
+### Настройка диска и файловой системы
+
+Пример конфигурации для разметки диска, создания файловой системы и монтирования:
+
+```yaml
+#cloud-config
+# Настройка разметки диска
+disk_setup:
+  /dev/sdb:                        # Устройство диска
+    table_type: gpt                # Тип таблицы разделов (gpt или mbr)
+    layout: true                   # Автоматически создать разделы
+    overwrite: false               # Не перезаписывать существующие разделы
+
+# Настройка файловых систем
+fs_setup:
+  - label: data                    # Метка файловой системы
+    filesystem: ext4               # Тип файловой системы
+    device: /dev/sdb1              # Устройство раздела
+    partition: auto                # Автоматически определить раздел
+
+# Монтирование файловых систем
+mounts:
+  # [устройство, точка_монтирования, тип_ФС, опции, dump, pass]
+  - ["/dev/sdb1", "/mnt/data", "ext4", "defaults", "0", "2"]
+```
+
 ## Как использовать Ansible для конфигурирования виртуальных машин?
 
 [Ansible](https://docs.ansible.com/ansible/latest/index.html) — это инструмент автоматизации, который позволяет выполнять задачи на удаленных серверах с использованием протокола SSH. В данном примере мы рассмотрим, как использовать Ansible для управления виртуальными машинами расположенных в проекте demo-app.
@@ -357,7 +444,7 @@ spec:
 
 - У вас есть виртуальная машина с именем frontend в проекте demo-app.
 - На виртуальной машине создан пользователь cloud для доступа по SSH.
-- Приватный SSH-ключ пользователя хранится в файле ./tmp/demo на сервере Ansible.
+- Приватный SSH-ключ пользователя хранится в файле /home/user/.ssh/id_rsa на сервере Ansible.
 
 Пример inventory-файла:
 
@@ -369,7 +456,7 @@ all:
     # Пользователь по умолчанию, для доступа по SSH.
     ansible_user: cloud
     # Путь к приватному ключу.
-    ansible_ssh_private_key_file: ./tmp/demo
+    ansible_ssh_private_key_file: /home/user/.ssh/id_rsa
   hosts:
     # Название узла в формате <название ВМ>.<название проекта>.
     frontend.demo-app:
@@ -392,8 +479,45 @@ ansible -m shell -a "uptime" \
   -i "frontend.demo-app," \
   -e "ansible_ssh_common_args='-o ProxyCommand=\"d8 v port-forward --stdio=true %h %p\"'" \
   -e "ansible_user=cloud" \
-  -e "ansible_ssh_private_key_file=./tmp/demo" \
+  -e "ansible_ssh_private_key_file=/home/user/.ssh/id_rsa" \
   all
+```
+
+## Как автоматически сгенерировать inventory для Ansible?
+
+{{< alert level="warning" >}}
+Для использования команды `d8 v ansible-inventory` требуется версия `d8` v0.27.0 или выше.
+{{< /alert >}}
+
+{{< alert level="warning" >}}
+Команда работает только для виртуальных машин, у которых подключена основная сеть кластера (Main). 
+{{< /alert >}}
+
+Вместо ручного создания inventory-файла можно использовать команду `d8 v ansible-inventory`, которая автоматически генерирует инвентарь Ansible из виртуальных машин в указанном namespace. Команда совместима с интерфейсом [ansible inventory script](https://docs.ansible.com/ansible/latest/user_guide/intro_inventory.html#inventory-scripts).
+
+Команда включает в инвентарь только виртуальные машины с назначенными IP-адресами в состоянии `Running`. Имена хостов формируются в формате `<vmname>.<namespace>` (например, `frontend.demo-app`).
+
+При необходимости настройте переменные хоста через аннотации (например, пользователя для SSH):
+
+```bash
+d8 k -n demo-app annotate vm frontend provisioning.virtualization.deckhouse.io/ansible_user="cloud" 
+```
+
+Используйте команду напрямую:
+
+```bash
+ANSIBLE_INVENTORY_ENABLED=yaml ansible -m shell -a "uptime" all -i <(d8 v ansible-inventory -n demo-app -o yaml)
+```
+
+{{< alert level="info" >}}
+Конструкция `<(...)` необходима, потому что Ansible ожидает файл или скрипт в качестве источника списка хостов. Простое указание команды в кавычках не сработает — Ansible попытается выполнить строку как скрипт. Конструкция `<(...)` передаёт вывод команды как файл, который Ansible может прочитать.
+{{< /alert >}}
+
+Или сохраните инвентарь в файл:
+
+```bash
+d8 v ansible-inventory --list -o yaml -n demo-app > inventory.yaml
+ansible -m shell -a "uptime" -i inventory.yaml all
 ```
 
 ## Как перенаправить трафик на виртуальную машину?

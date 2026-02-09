@@ -27,7 +27,7 @@ spec:
       storage:
         persistentVolumeClaim:
           size: 50G
-          storageClassName: sds-replicated-thin-r1
+          storageClassName: rv-thin-r1
         type: PersistentVolumeClaim
     virtualMachineCIDRs:
       - 10.66.10.0/24
@@ -60,7 +60,7 @@ The `.spec.version` parameter defines the version of the configuration schema. T
 The `.spec.settings.dvcr.storage` block configures a persistent volume for storing images:
 
 - `.spec.settings.dvcr.storage.persistentVolumeClaim.size`: Volume size (for example, `50G`). To expand the storage, increase the value of the parameter.
-- `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`: StorageClass name (for example, `sds-replicated-thin-r1`).
+- `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`: StorageClass name (for example, `rv-thin-r1`).
 
 {{< alert level="warning" >}}
 Migrating images when changing the `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` parameter value is not supported.
@@ -136,7 +136,7 @@ spec:
       - 10.77.20.0/16
 ```
 
-The first and the last subnet address are reserved and not available for use.
+For each subnet, the first and last IP addresses are reserved by the system and cannot be assigned to virtual machines. For example, for the `10.66.10.0/24` subnet, addresses `10.66.10.0` and `10.66.10.255` are not available for use by VMs.
 
 {{< alert level="warning" >}}
 The subnets in the `.spec.settings.virtualMachineCIDRs` block must not overlap with cluster node subnets, services subnet, or pods subnet (`podCIDR`).
@@ -252,6 +252,16 @@ Image files can also be compressed with one of the following compression algorit
 
 Once a resource is created, the image type and size are automatically determined, and this information is reflected in the resource status.
 
+The image status shows two sizes:
+
+- `STOREDSIZE` (storage size) — the amount of space the image actually occupies in storage (DVCR or PVC). For images uploaded in a compressed format (for example, `.gz` or `.xz`), this value is smaller than the unpacked size.
+- `UNPACKEDSIZE` (unpacked size) — the image size after unpacking. It is used when creating a disk from the image and defines the minimum disk size that can be created.
+
+{{< alert level="info" >}}
+When creating a disk from an image, set the disk size to `UNPACKEDSIZE` or larger .  
+If the size is not specified, the disk will be created with a size equal to `UNPACKEDSIZE`.
+{{< /alert >}}
+
 Images can be downloaded from various sources, such as HTTP servers where image files are located or container registries. It is also possible to download images directly from the command line using the `curl` utility.
 
 Images can be created from other images and virtual machine disks.
@@ -303,6 +313,7 @@ Once created, the ClusterVirtualImage resource can be in one of the following st
 - `Ready`: The image has been created and is ready for use.
 - `Failed`: An error occurred when creating the image.
 - `Terminating`: The image is being deleted. It may "get stuck" in this state if it is still connected to the virtual machine.
+- `ImageLost`: The image is missing in DVCR. The resource cannot be used.
 
 As long as the image has not entered the `Ready` phase, the contents of the `.spec` block can be changed. If you change it, the disk creation process will start again. Once it is in the `Ready` phase, the `.spec` block contents **cannot be changed**.
 
