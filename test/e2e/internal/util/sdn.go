@@ -58,18 +58,6 @@ func IsSdnModuleEnabled(f *framework.Framework) bool {
 	return enabled != nil && *enabled
 }
 
-// IsSdnModuleEnabledOrError returns whether SDN module is enabled, or an error if config cannot be read.
-// Used by legacy tests that do not have a framework instance.
-func IsSdnModuleEnabledOrError() (bool, error) {
-	f := framework.NewFramework("")
-	sdnModule, err := f.GetModuleConfig("sdn")
-	if err != nil {
-		return false, err
-	}
-	enabled := sdnModule.Spec.Enabled
-	return enabled != nil && *enabled, nil
-}
-
 func IsClusterNetworkExists(f *framework.Framework) bool {
 	GinkgoHelper()
 
