@@ -18,7 +18,6 @@ package legacy
 
 import (
 	"fmt"
-	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -28,6 +27,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
+	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
 const VirtualMachineCount = 12
