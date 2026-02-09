@@ -59,6 +59,11 @@ var _ = Describe("DataExports", label.Slow(), func() {
 	f := framework.NewFramework("data-exports")
 
 	BeforeEach(func() {
+		moduleEnabled, err := checkStorageVolumeDataManagerEnabled()
+		if err != nil || !moduleEnabled {
+			Skip("Module 'storage-volume-data-manager' is disabled. Skipping all tests with using this module.")
+		}
+
 		f.Before()
 		DeferCleanup(f.After)
 	})
@@ -349,4 +354,14 @@ func uploadFile(f *framework.Framework, vd *v1alpha2.VirtualDisk, filePath strin
 		Fail(fmt.Sprintf("Upload failed after %d attempts: %v", maxRetries, lastErr))
 	}
 	Fail(fmt.Sprintf("Upload failed after %d attempts with status %d: %s", maxRetries, lastStatusCode, lastBody))
+}
+
+func checkStorageVolumeDataManagerEnabled() (bool, error) {
+	sdnModule, err := framework.NewFramework("").GetModuleConfig("storage-volume-data-manager")
+	if err != nil {
+		return false, err
+	}
+	enabled := sdnModule.Spec.Enabled
+
+	return enabled != nil && *enabled, nil
 }
