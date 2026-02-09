@@ -265,13 +265,14 @@ Image files can also be compressed with one of the following compression algorit
 
 Once a share is created, the image type and size are automatically determined, and this information is reflected in the share status.
 
-The image status displays two sizes:
+The image status shows two sizes:
 
-- STOREDSIZE (storage size) — the size of the image that actually occupies space in storage (DVCR or PVC). For compressed images (gz, xz), this size is smaller than the unpacked size.
-- UNPACKEDSIZE (unpacked size) — the size of the image after unpacking, which will be used when creating a disk from this image. This size determines the minimum disk size that can be created from the image.
+- `STOREDSIZE` (storage size) — the amount of space the image actually occupies in storage (DVCR or PVC). For images uploaded in a compressed format (for example, `.gz` or `.xz`), this value is smaller than the unpacked size.
+- `UNPACKEDSIZE` (unpacked size) — the image size after unpacking. It is used when creating a disk from the image and defines the minimum disk size that can be created.
 
 {{< alert level="info" >}}
-When creating a disk from an image, you must specify a disk size that must be equal to or greater than the UNPACKEDSIZE value. If the size is not specified, the disk will be created with a size corresponding to the unpacked image size.
+When creating a disk from an image, set the disk size to `UNPACKEDSIZE` or larger .  
+If the size is not specified, the disk will be created with a size equal to `UNPACKEDSIZE`.
 {{< /alert >}}
 
 Images can be downloaded from various sources, such as HTTP servers where image files are located or container registries. It is also possible to download images directly from the command line using the curl utility.
@@ -621,34 +622,34 @@ Virtual machine disks are used to write and store data required for operating sy
 
 The disk specification contains two main blocks:
 
-- `persistentVolumeClaim` — storage settings for the disk (storage class, size).
-- `dataSource` — data source for creating the disk (image, another disk, snapshot).
+- `persistentVolumeClaim`: Disk storage parameters (StorageClass and size).
+- `dataSource`: The source used to create the disk (image, another disk, snapshot).
 
-If `dataSource` is not specified, an empty disk is created. In this case, you must specify parameters in the `persistentVolumeClaim` block (size and storage class).
+If `dataSource` is not specified, an empty disk is created. In this case, you must specify at least the size and StorageClass in `persistentVolumeClaim`.
 
-If `dataSource` is specified, the `persistentVolumeClaim` block can be omitted. In this case:
+If `dataSource` is specified, you can omit `persistentVolumeClaim`. Then:
 
-- The disk size will be determined automatically from the source.
-- The storage class will be determined automatically from the source, or the default `StorageClass` at the cluster level will be used, or for disks if it is specified in [module settings](./admin_guide.html#storage-class-settings-for-disks).
+- The disk size is determined automatically based on the source.
+- The StorageClass is determined from the source. If it cannot be derived, the cluster default StorageClass is used, or the value configured for disks in the [module settings](./admin_guide.html#storage-class-settings-for-disks).
 
 Depending on the storage properties, the behavior of disks during creation of virtual machines during operation may differ:
 
 Storage systems can differ in the following parameters:
 
-- Volume type: storage can support filesystem volumes (FileSystem, e.g., NFS) or block devices (Block, e.g., iSCSI, Ceph RBD). For filesystem volumes, the virtual machine disk is created in qcow2 format. Some storage systems support both volume types.
-- Volume binding mode (VolumeBindingMode):
-  - `Immediate` — the disk is created immediately after the resource is created (the disk is assumed to be available for connection to a virtual machine on any node in the cluster).
+- Volume type: A storage class can support filesystem volumes (`FileSystem`, for example NFS) or block volumes (`Block`, for example iSCSI, Ceph RBD). For `FileSystem` volumes, a VM disk is created in the `qcow2` format. Some storage classes support both volume types.
+- `VolumeBindingMode`:
+  - `Immediate` — the disk is created right after the resource is created (the disk is expected to be attachable to a VM on any node in the cluster).
 
-    ![vd-immediate](images/vd-immediate.png)
+    ![VolumeBindingMode: Immediate](images/vd-immediate.png)
 
-  - `WaitForFirstConsumer` — the disk is created only after it is connected to the virtual machine and is created on the node on which the virtual machine will be running.
+  - `WaitForFirstConsumer` — the disk is created only after it is attached to a VM and is provisioned on the node where the VM will run.
 
-    ![vd-wffc](images/vd-wffc.png)
+    ![VolumeBindingMode: WaitForFirstConsumer](images/vd-wffc.png)
 
-When creating a disk, all parameters (volume type, disk format, volume binding mode, and other settings) are determined automatically based on the capabilities of the selected storage class.
+When a disk is created, all parameters (volume type, disk format, volume binding mode, and other settings) are determined automatically based on the capabilities of the selected `StorageClass`.
 
 {{< alert level="warning" >}}
-Creating disks from iso-images is forbidden!
+Creating disks from ISO images is not supported.
 {{< /alert >}}
 
 To find out the available storage options, run the following command:
@@ -1344,20 +1345,18 @@ The `osType` parameter determines the operating system type and applies an optim
 
 Supported values:
 
-- `Generic` (default) — for Linux and other operating systems. Uses standard virtual device configuration.
-- `Windows` — for Microsoft Windows family operating systems. Automatically enables Hyper-V features, TPM device, and other settings optimized for Windows.
+- `Generic` (default): For Linux and other operating systems. Uses standard virtual device configuration.
+- `Windows`: For Microsoft Windows family operating systems. Automatically enables Hyper-V features, TPM device, and other settings optimized for Windows.
 
 {{< alert level="warning" >}}
-The TPM device provided to the virtual machine is not persistent (TPM emulation in memory). This means that when the VM is rebooted or migrated, the TPM state is reset.
-
-It is recommended to consider this limitation when planning to use Windows security features that depend on TPM.
+The TPM device provided to the virtual machine is not persistent (TPM emulation in memory). This means that when the VM is rebooted or migrated, the TPM state is reset. It is recommended to consider this limitation when planning to use Windows security features that depend on TPM.
 {{< /alert >}}
 
 The `bootloader` parameter determines the bootloader type for the virtual machine:
 
-- `BIOS` (default) — use legacy BIOS.
-- `EFI` — use Unified Extensible Firmware Interface (UEFI/EFI).
-- `EFIWithSecureBoot` — use UEFI/EFI with Secure Boot support.
+- `BIOS` (default): Use legacy BIOS.
+- `EFI`: Use Unified Extensible Firmware Interface (UEFI/EFI).
+- `EFIWithSecureBoot`: Use UEFI/EFI with Secure Boot support.
 
 Example configuration for a Windows virtual machine:
 
@@ -1633,7 +1632,7 @@ Password: cloud
 Press `Ctrl+]` to finalize the serial console.
 
 {{< alert level="info" >}}
-The serial console does not support automatic terminal resizing. If full-screen applications or text editors are displayed incorrectly, run the following command after logging in:
+The serial console does not support automatic terminal resizing. If full-screen applications or text editors are displayed incorrectly, run the following command after you log in:
 
 ```bash
 stty rows <number_of_rows> cols <number_of_columns>
@@ -1920,7 +1919,7 @@ How to manage VM placement parameters by nodes in the web interface:
 
 #### Tolerance to node restrictions
 
-`Tolerations` allow VMs to run on nodes with restrictions (`taints`) that would otherwise block VM placement. This is useful when you need to allow VMs to run on special nodes (for example, test nodes or nodes with specific characteristics).
+`tolerations` allow VMs to be scheduled onto nodes with `taints` that would otherwise block placement. This is useful when you need to run VMs on special nodes (for example, test nodes) or nodes with specific characteristics.
 
 Example of using `tolerations` to allow scheduling on nodes with the `node.deckhouse.io/group=:NoSchedule` taint:
 
@@ -1932,10 +1931,10 @@ spec:
       effect: "NoSchedule"
 ```
 
-Each element in the `tolerations` list must match a `taint` on the node for the VM to be placed on that node.
+Each entry in `tolerations` must match a node `taint` for the VM to be scheduled onto that node.
 
 {{< alert level="warning" >}}
-Viewing cluster node information (including `taints`) requires an appropriate user role with access to cluster-level resources.
+Viewing node information (including `taints`) requires an appropriate role with access to cluster-level resources.
 {{< /alert >}}
 
 To view `taints` on cluster nodes, run:
@@ -1944,7 +1943,7 @@ To view `taints` on cluster nodes, run:
 d8 k get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints
 ```
 
-Or for more detailed information:
+For more details:
 
 ```bash
 d8 k describe node <node-name>
@@ -2022,7 +2021,7 @@ spec:
 
 In this example, the virtual machine will be placed, if possible (since preferred is used) only on hosts that have a virtual machine with the server label and database value.
 
-For placing VMs by availability zones instead of nodes, use `topologyKey: "topology.kubernetes.io/zone"` (see [section "Placing VMs by availability zones"](#placing-vms-by-availability-zones)).
+To place VMs across availability zones instead of specific nodes, set `topologyKey` to `topology.kubernetes.io/zone` (see [Placing VMs by availability zones](#placing-vms-by-availability-zones)).
 
 How to set "preferences" and "mandatories" for placing virtual machines in the web interface in the [Placement section](#placement-of-vms-by-nodes):
 
@@ -2064,7 +2063,7 @@ spec:
 
 In this example, the virtual machine being created will not be placed on the same host as the virtual machine labeled server: database.
 
-For placing VMs by availability zones instead of nodes, use `topologyKey: "topology.kubernetes.io/zone"` (see [section "Placing VMs by availability zones"](#placing-vms-by-availability-zones)).
+To place VMs across availability zones instead of specific nodes, set `topologyKey` to `topology.kubernetes.io/zone` (see [Placing VMs by availability zones](#placing-vms-by-availability-zones)).
 
 How to configure VM AntiAffinity on nodes in the web interface in the [Placement section](#placement-of-vms-by-nodes):
 
@@ -2224,16 +2223,16 @@ How to work with additional block devices in the web interface:
 #### Disk naming in guest OS
 
 {{< alert level="warning">}}
-Block device names (`/dev/sda`, `/dev/sdb`, `/dev/sdc`, etc.) are assigned by the Linux kernel in the order devices are discovered during boot. The discovery order may change between reboots, which leads to changes in disk names even with unchanged SCSI addresses.
+Block device names (`/dev/sda`, `/dev/sdb`, `/dev/sdc`, etc.) are assigned by the Linux kernel in the order devices are discovered during boot. This order may change between reboots, so device names can change even if SCSI addresses remain the same.
 
-Using `/dev/sdX` names in configuration files (e.g., `/etc/fstab`) or in scripts may lead to mounting incorrect disks or incorrect operation after VM reboot.
+Using `/dev/sdX` in configuration files (for example, `/etc/fstab`) or scripts may cause the wrong disk to be mounted or the VM to behave incorrectly after a reboot.
 {{< /alert >}}
 
 **Example:**
 
 After the first VM boot:
 
-```bash
+```console
 $ lsscsi
 [0:0:0:1]  disk    QEMU     QEMU HARDDISK   /dev/sda
 [0:0:0:2]  disk    QEMU     QEMU HARDDISK   /dev/sdb
@@ -2241,7 +2240,7 @@ $ lsscsi
 
 After VM reboot:
 
-```bash
+```console
 $ lsscsi
 [0:0:0:1]  disk    QEMU     QEMU HARDDISK   /dev/sdb
 [0:0:0:2]  disk    QEMU     QEMU HARDDISK   /dev/sda
@@ -2731,7 +2730,7 @@ Now the current node (groups green) does not match the new conditions. The syste
 The `collect-debug-info` command requires `d8` version v0.27.0 or higher.
 {{< /alert >}}
 
-To diagnose problems with a virtual machine, you can use the `collect-debug-info` command, which collects complete information about the VM state and all related resources into a compressed archive.
+Use `collect-debug-info` to gather diagnostic data about a virtual machine and all related resources into a single compressed archive.
 
 The command collects the following information:
 

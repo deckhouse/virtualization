@@ -387,9 +387,9 @@ users:
     sudo: ALL=(ALL) NOPASSWD:ALL  # Права sudo без запроса пароля
     shell: /bin/bash              # Оболочка по умолчанию
     ssh-authorized-keys:          # SSH-ключи для доступа
-      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
+      - ssh-ed25519 AAAAC3NzaC... your-public-key ...
 # Разрешить аутентификацию по паролю через SSH
-ssh_pwauth: True
+ssh_pwauth: true
 ```
 
 Для генерации хеша пароля используйте команду `mkpasswd --method=SHA-512 --rounds=4096`.
@@ -486,7 +486,7 @@ ansible -m shell -a "uptime" \
 ## Как автоматически сгенерировать inventory для Ansible?
 
 {{< alert level="warning" >}}
-Для использования команды `ansible-inventory` требуется версия `d8` v0.27.0 или выше.
+Для использования команды `d8 v ansible-inventory` требуется версия `d8` v0.27.0 или выше.
 {{< /alert >}}
 
 {{< alert level="warning" >}}

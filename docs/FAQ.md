@@ -390,9 +390,9 @@ users:
     sudo: ALL=(ALL) NOPASSWD:ALL  # Sudo privileges without password prompt
     shell: /bin/bash              # Default shell
     ssh-authorized-keys:          # SSH keys for access
-      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
+      - ssh-ed25519 AAAAC3NzaC... your-public-key ...
 # Allow password authentication via SSH
-ssh_pwauth: True
+ssh_pwauth: true
 ```
 
 To generate a password hash, use the `mkpasswd --method=SHA-512 --rounds=4096` command.
@@ -487,7 +487,7 @@ ansible -m shell -a "uptime" \
 ## How to automatically generate inventory for Ansible?
 
 {{< alert level="warning" >}}
-The `ansible-inventory` command requires `d8` version v0.27.0 or higher.
+The `d8 v ansible-inventory` command requires `d8` version v0.27.0 or higher.
 {{< /alert >}}
 
 {{< alert level="warning" >}}
