@@ -126,6 +126,8 @@ spec:
           value: {{ include "kubevirt_images" . | sha256sum | trunc 7 | quote }}
         - name: WATCH_NAMESPACE
           value: d8-{{ .Chart.Name }}
+        - name: KUBEVIRT_NO_DELETE_CRDS_KINDS
+          value: "VirtualMachineInstance,VirtualMachine"
         image: {{ include "helm_lib_module_image" (list . "virtOperator") }}
         imagePullPolicy: IfNotPresent
         ports:
