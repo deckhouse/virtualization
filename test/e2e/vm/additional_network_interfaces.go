@@ -45,6 +45,10 @@ const (
 	vmBarAdditionalIP = "192.168.1.11"
 )
 
+type additionalNetworkTestCase struct {
+	vmBarHasMainNetwork bool
+}
+
 var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 	var (
 		vdFooRoot *v1alpha2.VirtualDisk
@@ -68,115 +72,120 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 			fmt.Sprintf("Cluster network %s does not exist. Create it first: %s", util.ClusterNetworkName, util.ClusterNetworkCreateCommand))
 	})
 
-	It("verifies additional network interfaces and connectivity before and after migration", func() {
-		By("Environment preparation", func() {
-			ns := f.Namespace().Name
+	DescribeTable("verifies additional network interfaces and connectivity before and after migration",
+		func(tc additionalNetworkTestCase) {
+			By("Environment preparation", func() {
+				ns := f.Namespace().Name
 
-			vdFooRoot = vd.New(
-				vd.WithName("vd-foo-root"),
-				vd.WithNamespace(ns),
-				vd.WithSize(ptr.To(resource.MustParse("512Mi"))),
-				vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: object.ImageURLAlpineUEFIPerf,
-				}),
-			)
-			vdBarRoot = vd.New(
-				vd.WithName("vd-bar-root"),
-				vd.WithNamespace(ns),
-				vd.WithSize(ptr.To(resource.MustParse("512Mi"))),
-				vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: object.ImageURLAlpineUEFIPerf,
-				}),
-			)
+				vdFooRoot = vd.New(
+					vd.WithName("vd-foo-root"),
+					vd.WithNamespace(ns),
+					vd.WithSize(ptr.To(resource.MustParse("512Mi"))),
+					vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
+						URL: object.ImageURLAlpineUEFIPerf,
+					}),
+				)
+				vdBarRoot = vd.New(
+					vd.WithName("vd-bar-root"),
+					vd.WithNamespace(ns),
+					vd.WithSize(ptr.To(resource.MustParse("512Mi"))),
+					vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
+						URL: object.ImageURLAlpineUEFIPerf,
+					}),
+				)
 
-			vmFoo = vm.New(
-				vm.WithName("vm-foo"),
-				vm.WithNamespace(ns),
-				vm.WithBootloader(v1alpha2.EFI),
-				vm.WithCPU(1, ptr.To("5%")),
-				vm.WithMemory(resource.MustParse("256Mi")),
-				vm.WithRestartApprovalMode(v1alpha2.Manual),
-				vm.WithVirtualMachineClass(object.DefaultVMClass),
-				vm.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
-				vm.WithProvisioningUserData(cloudInitAdditionalNetwork(vmFooAdditionalIP)),
-				vm.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
-					Kind: v1alpha2.VirtualDiskKind,
-					Name: vdFooRoot.Name,
-				}),
-				vm.WithNetwork(v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeMain}),
-				vm.WithNetwork(v1alpha2.NetworksSpec{
-					Type: v1alpha2.NetworksTypeClusterNetwork,
-					Name: util.ClusterNetworkName,
-				}),
-			)
-			vmBar = vm.New(
-				vm.WithName("vm-bar"),
-				vm.WithNamespace(ns),
-				vm.WithBootloader(v1alpha2.EFI),
-				vm.WithCPU(1, ptr.To("5%")),
-				vm.WithMemory(resource.MustParse("256Mi")),
-				vm.WithRestartApprovalMode(v1alpha2.Manual),
-				vm.WithVirtualMachineClass(object.DefaultVMClass),
-				vm.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
-				vm.WithProvisioningUserData(cloudInitAdditionalNetwork(vmBarAdditionalIP)),
-				vm.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
-					Kind: v1alpha2.VirtualDiskKind,
-					Name: vdBarRoot.Name,
-				}),
-				vm.WithNetwork(v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeMain}),
-				vm.WithNetwork(v1alpha2.NetworksSpec{
-					Type: v1alpha2.NetworksTypeClusterNetwork,
-					Name: util.ClusterNetworkName,
-				}),
-			)
+				// vm-foo always has Main + ClusterNetwork so we can SSH to it.
+				vmFoo = buildVMWithNetworks("vm-foo", ns, vdFooRoot.Name, vmFooAdditionalIP, true)
+				vmBar = buildVMWithNetworks("vm-bar", ns, vdBarRoot.Name, vmBarAdditionalIP, tc.vmBarHasMainNetwork)
 
-			err := f.CreateWithDeferredDeletion(context.Background(), vdFooRoot, vdBarRoot, vmFoo, vmBar)
-			Expect(err).NotTo(HaveOccurred())
+				err := f.CreateWithDeferredDeletion(context.Background(), vdFooRoot, vdBarRoot, vmFoo, vmBar)
+				Expect(err).NotTo(HaveOccurred())
 
-			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmFoo, vmBar)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmFoo), framework.LongTimeout)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmBar), framework.LongTimeout)
-		})
+				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmFoo, vmBar)
+				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmFoo), framework.LongTimeout)
+				if tc.vmBarHasMainNetwork {
+					util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmBar), framework.LongTimeout)
+				}
+			})
 
-		By("Wait for additional network interfaces to be ready", func() {
-			util.UntilConditionStatus(vmcondition.TypeNetworkReady.String(), "True", framework.LongTimeout, vmFoo, vmBar)
-		})
+			By("Wait for additional network interfaces to be ready", func() {
+				util.UntilConditionStatus(vmcondition.TypeNetworkReady.String(), "True", framework.LongTimeout, vmFoo, vmBar)
+			})
 
-		By("Check connectivity between VMs via additional network", func() {
-			checkConnectivityBetweenVMs(f, vmFoo, vmBar)
-		})
+			By("Check connectivity between VMs via additional network", func() {
+				checkConnectivityBetweenVMs(f, vmFoo, vmBar)
+			})
 
-		By("Create VMOPs to trigger migration", func() {
-			util.MigrateVirtualMachine(f, vmFoo, vmop.WithGenerateName("vmop-migrate-foo-"))
-			util.MigrateVirtualMachine(f, vmBar, vmop.WithGenerateName("vmop-migrate-bar-"))
-		})
+			By("Create VMOPs to trigger migration", func() {
+				util.MigrateVirtualMachine(f, vmFoo, vmop.WithGenerateName("vmop-migrate-foo-"))
+				util.MigrateVirtualMachine(f, vmBar, vmop.WithGenerateName("vmop-migrate-bar-"))
+			})
 
-		By("Wait for migration to complete", func() {
-			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vmFoo), framework.LongTimeout)
-			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vmBar), framework.LongTimeout)
-		})
+			By("Wait for migration to complete", func() {
+				util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vmFoo), framework.LongTimeout)
+				util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vmBar), framework.LongTimeout)
+			})
 
-		By("Check Cilium agents after migration", func() {
-			err := network.CheckCiliumAgents(context.Background(), f.Clients.Kubectl(), vmFoo.Name, f.Namespace().Name)
-			Expect(err).NotTo(HaveOccurred(), "Cilium agents check for VM %s", vmFoo.Name)
-			err = network.CheckCiliumAgents(context.Background(), f.Clients.Kubectl(), vmBar.Name, f.Namespace().Name)
-			Expect(err).NotTo(HaveOccurred(), "Cilium agents check for VM %s", vmBar.Name)
-		})
+			By("Check Cilium agents after migration", func() {
+				err := network.CheckCiliumAgents(context.Background(), f.Clients.Kubectl(), vmFoo.Name, f.Namespace().Name)
+				Expect(err).NotTo(HaveOccurred(), "Cilium agents check for VM %s", vmFoo.Name)
+				if tc.vmBarHasMainNetwork {
+					err = network.CheckCiliumAgents(context.Background(), f.Clients.Kubectl(), vmBar.Name, f.Namespace().Name)
+					Expect(err).NotTo(HaveOccurred(), "Cilium agents check for VM %s", vmBar.Name)
+				}
+			})
 
-		By("Check VM can reach external network after migration", func() {
-			network.CheckExternalConnectivity(f, vmFoo.Name, network.ExternalHost, network.HTTPStatusOk)
-			network.CheckExternalConnectivity(f, vmBar.Name, network.ExternalHost, network.HTTPStatusOk)
-		})
+			By("Check VM can reach external network after migration", func() {
+				if tc.vmBarHasMainNetwork {
+					network.CheckExternalConnectivity(f, vmFoo.Name, network.ExternalHost, network.HTTPStatusOk)
+					network.CheckExternalConnectivity(f, vmBar.Name, network.ExternalHost, network.HTTPStatusOk)
+				}
+			})
 
-		By("Wait for additional network interfaces to be ready after migration", func() {
-			util.UntilConditionStatus(vmcondition.TypeNetworkReady.String(), "True", framework.LongTimeout, vmFoo, vmBar)
-		})
+			By("Wait for additional network interfaces to be ready after migration", func() {
+				util.UntilConditionStatus(vmcondition.TypeNetworkReady.String(), "True", framework.LongTimeout, vmFoo, vmBar)
+			})
 
-		By("Check connectivity between VMs via additional network after migration", func() {
-			checkConnectivityBetweenVMs(f, vmFoo, vmBar)
-		})
-	})
+			By("Check connectivity between VMs via additional network after migration", func() {
+				checkConnectivityBetweenVMs(f, vmFoo, vmBar)
+			})
+		},
+		Entry("Main + additional network", additionalNetworkTestCase{vmBarHasMainNetwork: true}),
+		Entry("Only additional network (vm-bar without Main)", additionalNetworkTestCase{vmBarHasMainNetwork: false}),
+	)
 })
+
+// buildVMWithNetworks creates a VM with optional Main + ClusterNetwork.
+// If hasMain is false, only ClusterNetwork is added (VM without Main network).
+func buildVMWithNetworks(name, ns, vdRootName, eth1IP string, hasMain bool) *v1alpha2.VirtualMachine {
+	opts := []vm.Option{
+		vm.WithName(name),
+		vm.WithNamespace(ns),
+		vm.WithBootloader(v1alpha2.EFI),
+		vm.WithCPU(1, ptr.To("5%")),
+		vm.WithMemory(resource.MustParse("256Mi")),
+		vm.WithRestartApprovalMode(v1alpha2.Manual),
+		vm.WithVirtualMachineClass(object.DefaultVMClass),
+		vm.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
+		vm.WithProvisioningUserData(cloudInitAdditionalNetwork(eth1IP)),
+		vm.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
+			Kind: v1alpha2.VirtualDiskKind,
+			Name: vdRootName,
+		}),
+	}
+	if hasMain {
+		opts = append(opts,
+			vm.WithNetwork(v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeMain}),
+		)
+	}
+	opts = append(opts,
+		vm.WithNetwork(v1alpha2.NetworksSpec{
+			Type: v1alpha2.NetworksTypeClusterNetwork,
+			Name: util.ClusterNetworkName,
+		}),
+	)
+	return vm.New(opts...)
+}
 
 // cloudInitAdditionalNetwork returns cloud-init that configures eth1 with the given static IP (Alpine /etc/network/interfaces).
 func cloudInitAdditionalNetwork(eth1Address string) string {
