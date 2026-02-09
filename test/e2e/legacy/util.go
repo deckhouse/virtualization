@@ -808,7 +808,7 @@ func SaveNodeOWide(labels map[string]string, leafNodeText, dumpPath string) {
 
 func SaveNodeDescribe(labels map[string]string, leafNodeText, dumpPath string) {
 	GinkgoHelper()
-	cmd := kubectl.RawCommand("describe node -o wide", framework.ShortTimeout)
+	cmd := kubectl.RawCommand("describe nodes", framework.ShortTimeout)
 	if cmd.Error() != nil {
 		GinkgoWriter.Printf("Failed to get node describe:\nCmdError: %v\nError: %s\n", cmd.Error(), cmd.StdErr())
 		return
