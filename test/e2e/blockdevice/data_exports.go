@@ -285,11 +285,12 @@ func createUploadDisk(f *framework.Framework, name string) *v1alpha2.VirtualDisk
 	return vd
 }
 
-func retry(maxRetries int, fn func(attempt int) error) error {
+func retry(maxRetries int, fn func() error) error {
 	var lastErr error
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		if err := fn(attempt); err != nil {
+		if err := fn(); err != nil {
 			lastErr = err
+			GinkgoWriter.Printf("Attempt %d/%d failed: %v\n", attempt, maxRetries, err)
 			time.Sleep(time.Duration(attempt) * time.Second)
 			continue
 		}
@@ -313,14 +314,14 @@ func uploadFile(f *framework.Framework, vd *v1alpha2.VirtualDisk, filePath strin
 	}
 	uploadURL := vd.Status.ImageUploadURLs.External
 
-	const maxRetries = 10
-	err = retry(maxRetries, func(attempt int) error {
-		return doUploadAttempt(httpClient, uploadURL, filePath, attempt, maxRetries)
+	const maxRetries = 5
+	err = retry(maxRetries, func() error {
+		return doUploadAttempt(httpClient, uploadURL, filePath)
 	})
 	Expect(err).NotTo(HaveOccurred(), "Upload failed")
 }
 
-func doUploadAttempt(client *http.Client, url, filePath string, attempt, maxRetries int) error {
+func doUploadAttempt(client *http.Client, url, filePath string) error {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to open %s: %w", filePath, err)
@@ -347,7 +348,6 @@ func doUploadAttempt(client *http.Client, url, filePath string, attempt, maxRetr
 
 	resp, err := client.Do(req)
 	if err != nil {
-		GinkgoWriter.Printf("Upload attempt %d/%d failed: %v\n", attempt, maxRetries, err)
 		return err
 	}
 	defer func() {
@@ -356,10 +356,10 @@ func doUploadAttempt(client *http.Client, url, filePath string, attempt, maxRetr
 		}
 	}()
 
-	return handleUploadResponse(resp, attempt, maxRetries)
+	return handleUploadResponse(resp)
 }
 
-func handleUploadResponse(resp *http.Response, attempt, maxRetries int) error {
+func handleUploadResponse(resp *http.Response) error {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read response body: %w", err)
@@ -369,15 +369,7 @@ func handleUploadResponse(resp *http.Response, attempt, maxRetries int) error {
 		return nil
 	}
 
-	// Retry on 5xx errors (service not ready) and 413 (nginx may not be ready)
-	if resp.StatusCode >= 500 || resp.StatusCode == 413 {
-		GinkgoWriter.Printf("Upload attempt %d/%d got %d, retrying...\n", attempt, maxRetries, resp.StatusCode)
-		return fmt.Errorf("status %d: %s", resp.StatusCode, body)
-	}
-
-	// Non-retryable error - fail immediately
-	Fail(fmt.Sprintf("Upload failed with status %d: %s", resp.StatusCode, body))
-	return nil
+	return fmt.Errorf("upload failed with status %d: %s", resp.StatusCode, body)
 }
 
 func checkStorageVolumeDataManagerEnabled() (bool, error) {
