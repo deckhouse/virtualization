@@ -16,7 +16,7 @@ shell:
   install:
   - |
     echo "Git clone {{ $gitRepoName }} repository..."
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v1.6.2-virtualization-add-d8v-resource-prefix /src/kubevirt
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $tag }} /src/kubevirt
 
     rm -rf /src/kubevirt/.git
 
@@ -69,7 +69,6 @@ shell:
 
   install:
   - |
-    echo kek1234
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
