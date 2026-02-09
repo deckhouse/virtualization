@@ -4,6 +4,7 @@
     {{- $password :=  printf "admin:%s" (printf "%s" .Values.virtualization.internal.dvcr.passwordRW | b64dec) | b64enc }}
     {{- $registry := include "dvcr.get_registry" (list .) }}
     {{- $endpoint := .Values.virtualization.internal.dvcr.serviceIP }}
+    {{- $registryEnabled := (.Values.global.enabledModules | has "registry") }}
 
 apiVersion: deckhouse.io/v1alpha1
 kind: NodeGroupConfiguration
@@ -32,7 +33,9 @@ spec:
         bb-flag-set containerd-need-restart
     }
 
-    {{ "{{- if and (eq .cri \"Containerd\") (not (.Values.global.enabledModules | has \"registry\")) }}" }}
+    echo .cri = {{ "{{ .cri }}" }}
+    echo .registryEnabled = {{ "{{ $registryEnabled }}" }}
+    {{ "{{- if and (eq .cri \"Containerd\") (not $registryEnabled) }}" }}
 
     mkdir -p /etc/containerd/conf.d
     bb-sync-file /etc/containerd/conf.d/dvcr-ca.crt - registry-ca-changed << "EOF"
