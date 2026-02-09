@@ -45,7 +45,7 @@ var _ = Describe("VirtualDiskAttachment", Ordered, func() {
 		vdAttach                 string
 		vmName                   string
 		ns                       string
-		phaseByVolumeBindingMode = GetPhaseByVolumeBindingModeForTemplateSc()
+		phaseByVolumeBindingMode = util.GetExpectedDiskPhaseByVolumeBindingMode()
 	)
 
 	BeforeAll(func() {

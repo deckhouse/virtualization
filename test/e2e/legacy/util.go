@@ -48,7 +48,6 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 	"github.com/deckhouse/virtualization/test/e2e/internal/network"
-	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
 const (
@@ -467,10 +466,6 @@ func GetCondition(conditionType string, obj client.Object) (metav1.Condition, er
 	}
 
 	return metav1.Condition{}, fmt.Errorf("condition %s not found", conditionType)
-}
-
-func GetPhaseByVolumeBindingModeForTemplateSc() string {
-	return util.GetExpectedDiskPhaseByVolumeBindingMode()
 }
 
 // Test data templates does not contain this resources, but this resources are created in test case.

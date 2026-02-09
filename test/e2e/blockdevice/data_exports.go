@@ -60,7 +60,8 @@ var _ = Describe("DataExports", label.Slow(), func() {
 
 	BeforeEach(func() {
 		moduleEnabled, err := checkStorageVolumeDataManagerEnabled()
-		if err != nil || !moduleEnabled {
+		Expect(err).NotTo(HaveOccurred(), "Failed to get modules")
+		if !moduleEnabled {
 			Skip("Module 'storage-volume-data-manager' is disabled. Skipping all tests with using this module.")
 		}
 
