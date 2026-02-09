@@ -192,12 +192,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *v1alpha2.Virtua
 
 	overrideValidators = append(overrideValidators, restorer.NewVirtualMachineOverrideValidator(vm, h.client, string(vmRestore.UID)))
 
-	overridedVMName, err = h.getOverrridedVMName(overrideValidators)
-	if err != nil {
-		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
-		return reconcile.Result{}, err
-	}
-
 	vds, err := h.getVirtualDisks(ctx, vmSnapshot)
 	switch {
 	case err == nil:
@@ -237,12 +231,20 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *v1alpha2.Virtua
 		overrideValidators = append(overrideValidators, restorer.NewProvisionerOverrideValidator(provisioner, h.client, string(vmRestore.UID)))
 	}
 
+	for _, ov := range overrideValidators {
+		ov.Override(vmRestore.Spec.NameReplacements)
+	}
+
+	overridedVMName, err = h.getOverrridedVMName(overrideValidators)
+	if err != nil {
+		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+		return reconcile.Result{}, err
+	}
+
 	var toCreate []client.Object
 
 	if vmRestore.Spec.RestoreMode == v1alpha2.RestoreModeForced {
 		for _, ov := range overrideValidators {
-			ov.Override(vmRestore.Spec.NameReplacements)
-
 			err := ov.ValidateWithForce(ctx)
 			switch {
 			case err == nil:
@@ -321,8 +323,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *v1alpha2.Virtua
 
 	if vmRestore.Spec.RestoreMode == v1alpha2.RestoreModeSafe {
 		for _, ov := range overrideValidators {
-			ov.Override(vmRestore.Spec.NameReplacements)
-
 			err = ov.Validate(ctx)
 			switch {
 			case err == nil:
@@ -342,7 +342,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *v1alpha2.Virtua
 		}
 	}
 
-	currentHotplugs, err := h.getCurrentVirtualMachineBlockDeviceAttachments(ctx, vm.Name, vm.Namespace, string(vmRestore.UID))
+	currentHotplugs, err := h.getCurrentVirtualMachineBlockDeviceAttachments(ctx, overridedVMName, vm.Namespace, string(vmRestore.UID))
 	if err != nil {
 		setPhaseConditionToPending(cb, &vmRestore.Status.Phase, vmrestorecondition.VirtualMachineResourcesAreNotReady, err.Error())
 		return reconcile.Result{}, err
