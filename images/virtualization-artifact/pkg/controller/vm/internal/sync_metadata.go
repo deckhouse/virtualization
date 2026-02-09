@@ -139,10 +139,22 @@ func (h *SyncMetadataHandler) patchLabelsAndAnnotations(ctx context.Context, obj
 		patch.NewJSONPatchOperation(patch.PatchReplaceOp, "/metadata/labels", metadata.Labels),
 		patch.NewJSONPatchOperation(patch.PatchReplaceOp, "/metadata/annotations", metadata.Annotations),
 	)
+
+	// For KubeVirt VirtualMachine, also patch spec.template.metadata
+	// to ensure consistency with future VMI instances.
+	// KubeVirt doesn't trigger VMI restart on template metadata changes.
+	if _, ok := obj.(*virtv1.VirtualMachine); ok {
+		jp.Append(
+			patch.NewJSONPatchOperation(patch.PatchReplaceOp, "/spec/template/metadata/labels", metadata.Labels),
+			patch.NewJSONPatchOperation(patch.PatchReplaceOp, "/spec/template/metadata/annotations", metadata.Annotations),
+		)
+	}
+
 	bytes, err := jp.Bytes()
 	if err != nil {
 		return err
 	}
+
 	return h.client.Patch(ctx, obj, client.RawPatch(types.JSONPatchType, bytes))
 }
 
