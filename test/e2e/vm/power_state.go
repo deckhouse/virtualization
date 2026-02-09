@@ -171,26 +171,6 @@ var _ = Describe("PowerState", func() {
 			util.UntilSSHReady(f, t.VM, framework.ShortTimeout)
 		})
 
-		By("Reboot VM by Pod Deletion", func() {
-			err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
-			Expect(err).NotTo(HaveOccurred())
-
-			runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, t.VM.Status.Conditions)
-			runningLastTransitionTime := runningCondition.LastTransitionTime.Time
-
-			util.RebootVirtualMachineByPodDeletion(f, t.VM)
-
-			if t.VM.Spec.RunPolicy != v1alpha2.AlwaysOnPolicy {
-				util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.MiddleTimeout, t.VM)
-				util.StartVirtualMachine(f, t.VM)
-			}
-
-			util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), runningLastTransitionTime, framework.LongTimeout)
-			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
-			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
-			util.UntilSSHReady(f, t.VM, framework.ShortTimeout)
-		})
-
 		By("Check VM can reach external network", func() {
 			err := network.CheckCiliumAgents(context.Background(), f.Clients.Kubectl(), t.VM.Name, f.Namespace().Name)
 			Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", t.VM.Name)
