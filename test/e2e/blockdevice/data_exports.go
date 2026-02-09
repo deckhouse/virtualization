@@ -314,6 +314,10 @@ func uploadFile(f *framework.Framework, vd *v1alpha2.VirtualDisk, filePath strin
 	}
 	uploadURL := vd.Status.ImageUploadURLs.External
 
+	// During the upload of a VirtualDisk of type 'Upload', there is a bug:
+	//  when the VirtualDisk is in the 'DiskWaitForUserUpload' phase,
+	//  nginx may not be ready yet and can return 413 or 503 errors.
+	//  Once this bug is fixed, the retry mechanism must be removed.
 	const maxRetries = 5
 	err = retry(maxRetries, func() error {
 		return doUploadAttempt(httpClient, uploadURL, filePath)
