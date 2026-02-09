@@ -32,7 +32,7 @@ spec:
         bb-flag-set containerd-need-restart
     }
 
-    {{ "{{- if and (eq .cri \"Containerd\") (.Values.global.enabledModules | has \"registry\") }}" }}
+    {{ "{{- if and (eq .cri \"Containerd\") (not (.Values.global.enabledModules | has \"registry\")) }}" }}
 
     mkdir -p /etc/containerd/conf.d
     bb-sync-file /etc/containerd/conf.d/dvcr-ca.crt - registry-ca-changed << "EOF"
