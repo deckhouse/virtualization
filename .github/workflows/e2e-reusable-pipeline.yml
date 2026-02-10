@@ -123,6 +123,7 @@ jobs:
       cancel-in-progress: true
     outputs:
       kubeconfig: ${{ steps.generate-kubeconfig.outputs.kubeconfig }}
+      namespace: ${{ steps.vars.outputs.namespace }}
     steps:
       - uses: actions/checkout@v4
 
@@ -1256,7 +1257,6 @@ jobs:
 
           echo "[INFO] Exit code: $GINKGO_EXIT_CODE"
           exit $GINKGO_EXIT_CODE
-
       - name: Upload summary test results (junit/xml)
         uses: actions/upload-artifact@v4
         id: e2e-report-artifact
@@ -1278,6 +1278,32 @@ jobs:
           path: ${{ runner.temp }}/e2e_failed__*
           if-no-files-found: ignore
           retention-days: 3
+
+  unpin-cluster-nodes:
+    name: Unpin cluster nodes
+    runs-on: ubuntu-latest
+    needs:
+      - bootstrap
+      - e2e-test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure kubectl via azure/k8s-set-context@v4
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          context: e2e-cluster-nightly-e2e-virt-sa
+          kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+
+      - name: Unpin cluster nodes
+        env:
+          NAMESPACE: ${{ needs.e2e-test.outputs.namespace }}
+        run: |
+          for vm in $(kubectl -n $NAMESPACE get vm -o name); do
+            echo "[INFO] Unpin VM $vm"
+            pinNode=$(kubectl -n $NAMESPACE get vm $vm jsonpath='{.status.nodeName}')
+            echo "[INFO] Unping VM $vm from node $pinNode"
+            kubectl -n $NAMESPACE patch vm $vm --type json --patch '{"op": "remove", "path": "/spec/nodeSelector"}'
+          done
 
   prepare-report:
     name: Prepare E2E report (${{ inputs.storage_type }})
