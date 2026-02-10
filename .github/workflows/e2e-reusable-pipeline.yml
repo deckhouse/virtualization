@@ -1302,7 +1302,7 @@ jobs:
             echo "[INFO] Unpin VM $vm"
             pinNode=$(kubectl -n $NAMESPACE get vm $vm jsonpath='{.status.nodeName}')
             echo "[INFO] Unping VM $vm from node $pinNode"
-            kubectl -n $NAMESPACE patch vm $vm --type json --patch '{"op": "remove", "path": "/spec/nodeSelector"}'
+            kubectl -n $NAMESPACE patch vm $vm --type json --patch '[{"op": "remove", "path": "/spec/nodeSelector"}]' || echo "[WARN] Failed to unpin VM $vm from node $pinNode"
           done
 
   prepare-report:
