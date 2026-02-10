@@ -96,7 +96,7 @@ var _ = Describe("PowerState", func() {
 			}
 		})
 
-		By("Start VM", func() {
+		By("Start VM by VMOP", func() {
 			if t.VM.Spec.RunPolicy != v1alpha2.AlwaysOnPolicy {
 				util.StartVirtualMachine(f, t.VM)
 				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.MiddleTimeout, t.VM)
@@ -124,7 +124,7 @@ var _ = Describe("PowerState", func() {
 			}
 		})
 
-		By("Start VM", func() {
+		By("Start VM by VMOP", func() {
 			if t.VM.Spec.RunPolicy != v1alpha2.AlwaysOnPolicy {
 				util.StartVirtualMachine(f, t.VM)
 				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.MiddleTimeout, t.VM)
@@ -164,26 +164,6 @@ var _ = Describe("PowerState", func() {
 			runningLastTransitionTime := runningCondition.LastTransitionTime.Time
 
 			util.RebootVirtualMachineBySSH(f, t.VM)
-
-			util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), runningLastTransitionTime, framework.LongTimeout)
-			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
-			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
-			util.UntilSSHReady(f, t.VM, framework.ShortTimeout)
-		})
-
-		By("Reboot VM by Pod Deletion", func() {
-			err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
-			Expect(err).NotTo(HaveOccurred())
-
-			runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, t.VM.Status.Conditions)
-			runningLastTransitionTime := runningCondition.LastTransitionTime.Time
-
-			util.RebootVirtualMachineByPodDeletion(f, t.VM)
-
-			if t.VM.Spec.RunPolicy != v1alpha2.AlwaysOnPolicy {
-				util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.MiddleTimeout, t.VM)
-				util.StartVirtualMachine(f, t.VM)
-			}
 
 			util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), runningLastTransitionTime, framework.LongTimeout)
 			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)

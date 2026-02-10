@@ -78,7 +78,7 @@ var _ = Describe("SizingPolicy", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for SizingPolicyMatched condition reason to be VirtualMachineClassNotExists")
-		util.UntilConditionReason(vmcondition.TypeSizingPolicyMatched.String(), vmcondition.ReasonVirtualMachineClassNotExists.String(), framework.LongTimeout, t.VM)
+		util.UntilConditionReason(vmcondition.TypeSizingPolicyMatched.String(), vmcondition.ReasonVirtualMachineClassNotFound.String(), framework.LongTimeout, t.VM)
 
 		By("Creating VMClass")
 		err = f.CreateWithDeferredDeletion(context.Background(), t.VMClass)
@@ -101,7 +101,7 @@ var _ = Describe("SizingPolicy", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for SizingPolicyMatched condition reason to be VirtualMachineClassNotExists")
-		util.UntilConditionReason(vmcondition.TypeSizingPolicyMatched.String(), vmcondition.ReasonVirtualMachineClassNotExists.String(), framework.LongTimeout, t.VM)
+		util.UntilConditionReason(vmcondition.TypeSizingPolicyMatched.String(), vmcondition.ReasonVirtualMachineClassNotFound.String(), framework.LongTimeout, t.VM)
 
 		By("Changing VMClass")
 		patch, err := json.Marshal([]map[string]interface{}{{

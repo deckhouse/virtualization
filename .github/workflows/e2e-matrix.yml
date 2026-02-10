@@ -40,19 +40,78 @@ jobs:
           kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
       - name: Delete nested clusters
         run: |
-          echo "[INFO] Show namespaces with label test=nightly-e2e older than 3 days for delete"
-          kubectl get namespaces -l test=nightly-e2e -o jsonpath='{range .items[?(@.metadata.creationTimestamp<"'$(date -d '3 day ago' -u +'%Y-%m-%dT%H:%M:%SZ')'")]}{.metadata.name}{"\t"}{.metadata.creationTimestamp}{"\n"}{end}' || true
-          echo "[INFO] Show vmclass with label test=nightly-e2e older than 3 days for delete"
-          kubectl get namespaces -l test=nightly-e2e -o jsonpath='{range .items[?(@.metadata.creationTimestamp<"'$(date -d '3 day ago' -u +'%Y-%m-%dT%H:%M:%SZ')'")]}{.metadata.name}{"\t"}{.metadata.creationTimestamp}{"\n"}{end}' || true
+          current_date_seconds="$(date -u +%s)"
+          FORMAT="%-63s %22s\n"
 
-          echo "[INFO] Delete namespaces with label test=nightly-e2e older than 3 days"
-          kubectl get namespaces -l test=nightly-e2e -o jsonpath='{range .items[?(@.metadata.creationTimestamp<"'$(date -d '3 day ago' -u +'%Y-%m-%dT%H:%M:%SZ')'")]}{.metadata.name}{"\n"}{end}' | xargs -r kubectl delete namespace || true
-          echo "[INFO] Delete vmclass with label test=nightly-e2e older than 3 days"
-          kubectl get vmclass -l test=nightly-e2e -o jsonpath='{range .items[?(@.metadata.creationTimestamp<"'$(date -d '3 day ago' -u +'%Y-%m-%dT%H:%M:%SZ')'")]}{.metadata.name}{"\n"}{end}' | xargs -r kubectl delete vmclass || true
+          collect_items_json() {
+            local resource="$1"
+            kubectl get "${resource}" -l test=nightly-e2e -o json \
+              | jq -c '.items[] | {name: .metadata.name, created_at: .metadata.creationTimestamp}'
+          }
+
+          should_keep() {
+            local created_at="$1"
+            local recourse_created_at age_days weekday_of_day
+
+            recourse_created_at_seconds="$(date -d "${created_at}" -u +%s)"
+            age_days="$(( (current_date_seconds - recourse_created_at_seconds) / 86400 ))"
+            weekday_of_day="$(date -d "${created_at}" -u +%u)"
+
+            if [ "${age_days}" -lt 2 ]; then
+              echo "keep"
+              return 0
+            fi
+
+            if [ "${weekday_of_day}" -eq 5 ] && [ "${age_days}" -lt 4 ]; then
+              echo "keep"
+              return 0
+            fi
+
+            echo "delete"
+            return 0
+          }
+
+          cleanup_kind() {
+            local kind="$1"
+            local item name created_at decision parsed
+
+            echo "[INFO] Process ${kind} with label test=nightly-e2e"
+            collect_items_json "${kind}" | while read -r item; do
+              name=$(echo $item | jq -r '.name')
+              created_at=$(echo $item | jq -r '.created_at')
+              [ -z "${name}" ] && continue
+
+              decision="$(should_keep "${created_at}")"
+              if [ "${decision}" = "keep" ]; then
+                printf "$FORMAT" "[INFO] Keep ${kind}/${name}:" "created_at ${created_at}"
+                continue
+              fi
+              printf "$FORMAT" "[INFO] Delete ${kind}/${name}:" "created_at ${created_at}"
+              kubectl delete "${kind}" "${name}" --timeout=300s || true
+            done || true
+          }
+
+          cleanup_kind "namespaces"
+          echo " "
+          cleanup_kind "vmclass"
+  set-vars:
+    name: Set vars
+    runs-on: ubuntu-latest
+    outputs:
+      date_start: ${{ steps.vars.outputs.date-start }}
+      randuuid4c: ${{ steps.vars.outputs.randuuid4c }}
+    steps:
+      - name: Set vars
+        id: vars
+        run: |
+          echo "date-start=$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+          echo "randuuid4c=$(openssl rand -hex 2)" >> $GITHUB_OUTPUT
 
   e2e-ceph:
     name: E2E Pipeline (Ceph)
-    needs: cleanup-nested-clusters
+    needs:
+      - cleanup-nested-clusters
+      - set-vars
     uses: ./.github/workflows/e2e-reusable-pipeline.yml
     with:
       storage_type: ceph
@@ -61,8 +120,11 @@ jobs:
       virtualization_tag: main
       deckhouse_channel: alpha
       default_user: cloud
-      go_version: "1.24.6"
+      go_version: "1.24.13"
       e2e_timeout: "3.5h"
+      date_start: ${{ needs.set-vars.outputs.date_start }}
+      randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
+      cluster_config_workers_memory: "10Gi"
     secrets:
       DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
       VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
@@ -71,7 +133,9 @@ jobs:
 
   e2e-replicated:
     name: E2E Pipeline (Replicated)
-    needs: cleanup-nested-clusters
+    needs:
+      - cleanup-nested-clusters
+      - set-vars
     uses: ./.github/workflows/e2e-reusable-pipeline.yml
     with:
       storage_type: replicated
@@ -80,8 +144,11 @@ jobs:
       virtualization_tag: main
       deckhouse_channel: alpha
       default_user: cloud
-      go_version: "1.24.6"
+      go_version: "1.24.13"
       e2e_timeout: "3.5h"
+      date_start: ${{ needs.set-vars.outputs.date_start }}
+      randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
+      cluster_config_workers_memory: "9Gi"
     secrets:
       DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
       VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
@@ -134,17 +201,17 @@ jobs:
           load_report_from_artifact() {
             local storage_type=$1
             local base_path="downloaded-artifacts/"
-            
+
             echo "[INFO] Searching for report for storage type: $storage_type" >&2
             echo "[DEBUG] Base path: $base_path" >&2
-            
+
             if [ ! -d "$base_path" ]; then
               echo "[WARN] Base path does not exist: $base_path" >&2
               return 1
             fi
-            
+
             local report_file=""
-            
+
             # First, search in artifact directories matching pattern: e2e-report-<storage_type>-*
             # Pattern downloads create subdirectories named after the artifact
             # e.g., downloaded-artifacts/e2e-report-ceph-<run_id>/e2e_report_ceph.json
@@ -159,7 +226,7 @@ jobs:
                 return 0
               fi
             fi
-            
+
             # Fallback: search for file by name pattern anywhere in base_path
             echo "[DEBUG] Searching for file: e2e_report_${storage_type}.json" >&2
             report_file=$(find "$base_path" -type f -name "e2e_report_${storage_type}.json" 2>/dev/null | head -1)
@@ -168,7 +235,7 @@ jobs:
               cat "$report_file"
               return 0
             fi
-            
+
             echo "[WARN] Could not load report artifact for $storage_type" >&2
             return 1
           }
@@ -183,7 +250,7 @@ jobs:
             local time=$(date +"%H:%M:%S")
             local branch="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
             local link="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${run_id:-${GITHUB_RUN_ID}}"
-            
+
             # Map stage to status message
             local status_msg
             case "$stage" in
@@ -203,7 +270,7 @@ jobs:
                 status_msg=":question: UNKNOWN"
                 ;;
             esac
-            
+
             jq -n \
               --arg csi "$csi" \
               --arg date "$date" \
@@ -219,7 +286,7 @@ jobs:
           parse_summary() {
             local summary_json=$1
             local storage_type=$2
-            
+
             if [ -z "$summary_json" ] || [ "$summary_json" == "null" ] || [ "$summary_json" == "" ]; then
               echo "Warning: Empty summary for $storage_type"
               return
@@ -239,7 +306,7 @@ jobs:
             else
               csi="$csi_raw"
             fi
-            
+
             date=$(echo "$summary_json" | jq -r '.Date // ""' 2>/dev/null)
             time=$(echo "$summary_json" | jq -r '.StartTime // ""' 2>/dev/null)
             branch=$(echo "$summary_json" | jq -r '.Branch // ""' 2>/dev/null)
@@ -287,12 +354,12 @@ jobs:
           echo "[INFO] Generate summary for each storage type"
           for storage in "${storage_types[@]}"; do
             echo "[INFO] Processing $storage"
-            
+
             # Try to load report from artifact
             # Debug messages go to stderr (visible in logs), JSON content goes to stdout
             echo "[INFO] Attempting to load report for $storage"
             structured_report=$(load_report_from_artifact "$storage" || true)
-            
+
             if [ -n "$structured_report" ]; then
               # Check if it's valid JSON
               if echo "$structured_report" | jq empty 2>/dev/null; then
@@ -305,15 +372,15 @@ jobs:
                 structured_report=""
               fi
             fi
-            
+
             if [ -n "$structured_report" ] && echo "$structured_report" | jq empty 2>/dev/null; then
               # Extract report data from structured file
               report_json=$(echo "$structured_report" | jq -c '.report // empty')
               failed_stage=$(echo "$structured_report" | jq -r '.failed_stage // empty')
               workflow_run_id=$(echo "$structured_report" | jq -r '.workflow_run_id // empty')
-              
+
               echo "[INFO] Loaded report for $storage (failed_stage: ${failed_stage}, run_id: ${workflow_run_id})"
-              
+
               # Validate and parse report
               if [ -n "$report_json" ] && [ "$report_json" != "" ] && [ "$report_json" != "null" ]; then
                 if echo "$report_json" | jq empty 2>/dev/null; then

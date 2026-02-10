@@ -27,6 +27,7 @@ const (
 	SDN                                 featuregate.Feature = "SDN"
 	AutoMigrationIfNodePlacementChanged featuregate.Feature = "AutoMigrationIfNodePlacementChanged"
 	VolumeMigration                     featuregate.Feature = "VolumeMigration"
+	TargetMigration                     featuregate.Feature = "TargetMigration"
 )
 
 var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
@@ -40,6 +41,11 @@ var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
 		PreRelease:    featuregate.Alpha,
 	},
 	VolumeMigration: {
+		Default:       version.GetEdition() == version.EditionEE,
+		LockToDefault: true,
+		PreRelease:    featuregate.Alpha,
+	},
+	TargetMigration: {
 		Default:       version.GetEdition() == version.EditionEE,
 		LockToDefault: true,
 		PreRelease:    featuregate.Alpha,
@@ -79,4 +85,23 @@ func New() (featuregate.FeatureGate, AddFlagsFunc, SetFromMapFunc, error) {
 		return nil, nil, nil, err
 	}
 	return gate, gate.AddFlag, gate.SetFromMap, nil
+}
+
+// NewUnlocked is intended solely for testing purposes.
+// Use NewUnlocked only in testing scenarios.
+func NewUnlocked() (featuregate.FeatureGate, SetFromMapFunc, error) {
+	newSpecs := make(map[featuregate.Feature]featuregate.FeatureSpec)
+	for k, v := range featureSpecs {
+		newSpecs[k] = featuregate.FeatureSpec{
+			Default:       v.Default,
+			LockToDefault: false,
+			PreRelease:    v.PreRelease,
+			Version:       v.Version,
+		}
+	}
+	gate := featuregate.NewFeatureGate()
+	if err := gate.Add(newSpecs); err != nil {
+		return nil, nil, err
+	}
+	return gate, gate.SetFromMap, nil
 }

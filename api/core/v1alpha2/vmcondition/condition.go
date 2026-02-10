@@ -42,8 +42,8 @@ const (
 	// TypeFirmwareUpToDate indicates whether the firmware on the virtual machine is up to date.
 	// This condition is used to determine if a migration or update is required due to changes in the firmware version.
 	TypeFirmwareUpToDate Type = "FirmwareUpToDate"
-	// TypeNeedsEvict indicates that the VirtualMachine should be evicting from node.
-	TypeNeedsEvict Type = "NeedsEvict"
+	// TypeEvictionRequired indicates that the VirtualMachine should be evicting from node.
+	TypeEvictionRequired Type = "EvictionRequired"
 	// TypeNetworkReady indicates the state of additional network interfaces inside the virtual machine pod
 	TypeNetworkReady Type = "NetworkReady"
 
@@ -117,9 +117,9 @@ func (r BlockDevicesReadyReason) String() string {
 }
 
 const (
-	ReasonBlockDevicesReady           BlockDevicesReadyReason = "BlockDevicesReady"
-	ReasonWaitingForProvisioningToPVC BlockDevicesReadyReason = "WaitingForTheProvisioningToPersistentVolumeClaim"
-	ReasonBlockDevicesNotReady        BlockDevicesReadyReason = "BlockDevicesNotReady"
+	ReasonBlockDevicesReady                                   BlockDevicesReadyReason = "BlockDevicesReady"
+	ReasonWaitingForWaitForFirstConsumerBlockDevicesToBeReady BlockDevicesReadyReason = "WaitingForWaitForFirstConsumerBlockDevicesToBeReady"
+	ReasonBlockDevicesNotReady                                BlockDevicesReadyReason = "BlockDevicesNotReady"
 	// ReasonBlockDeviceLimitExceeded indicates that the limit for attaching block devices has been exceeded
 	ReasonBlockDeviceLimitExceeded BlockDevicesReadyReason = "BlockDeviceLimitExceeded"
 )
@@ -153,10 +153,9 @@ func (r AwaitingRestartToApplyConfigurationReason) String() string {
 }
 
 const (
-	ReasonRestartAwaitingUnexpectedState     AwaitingRestartToApplyConfigurationReason = "RestartAwaitingUnexpectedState"
-	ReasonRestartAwaitingChangesExist        AwaitingRestartToApplyConfigurationReason = "RestartAwaitingChangesExist"
-	ReasonRestartAwaitingVMClassChangesExist AwaitingRestartToApplyConfigurationReason = "RestartAwaitingVMClassChangesExist"
-	ReasonRestartNoNeed                      AwaitingRestartToApplyConfigurationReason = "NoNeedRestart"
+	ReasonUnexpectedState       AwaitingRestartToApplyConfigurationReason = "UnexpectedState"
+	ReasonChangesPendingRestart AwaitingRestartToApplyConfigurationReason = "ChangesPendingRestart"
+	ReasonNoRestartRequired     AwaitingRestartToApplyConfigurationReason = "NoRestartRequired"
 )
 
 type RunningReason string
@@ -166,12 +165,12 @@ func (r RunningReason) String() string {
 }
 
 const (
-	ReasonVmIsNotRunning              RunningReason = "VirtualMachineNotRunning"
-	ReasonVmIsRunning                 RunningReason = "VirtualMachineRunning"
+	ReasonVirtualMachineNotRunning    RunningReason = "NotRunning"
+	ReasonVirtualMachineRunning       RunningReason = "Running"
 	ReasonInternalVirtualMachineError RunningReason = "InternalVirtualMachineError"
 	ReasonPodNotStarted               RunningReason = "PodNotStarted"
 	ReasonPodTerminating              RunningReason = "PodTerminating"
-	ReasonPodNotExists                RunningReason = "PodNotExists"
+	ReasonPodNotFound                 RunningReason = "PodNotFound"
 	ReasonPodConditionMissing         RunningReason = "PodConditionMissing"
 	ReasonGuestNotRunning             RunningReason = "GuestNotRunning"
 )
@@ -207,7 +206,7 @@ func (r SizingPolicyMatchedReason) String() string {
 const (
 	ReasonSizingPolicyNotMatched         SizingPolicyMatchedReason = "SizingPolicyNotMatched"
 	ReasonVirtualMachineClassTerminating SizingPolicyMatchedReason = "VirtualMachineClassTerminating"
-	ReasonVirtualMachineClassNotExists   SizingPolicyMatchedReason = "VirtualMachineClassNotExists"
+	ReasonVirtualMachineClassNotFound    SizingPolicyMatchedReason = "VirtualMachineClassNotFound"
 )
 
 type FirmwareUpToDateReason string
@@ -221,15 +220,15 @@ const (
 	ReasonFirmwareOutOfDate FirmwareUpToDateReason = "FirmwareOutOfDate"
 )
 
-type NeedsEvictReason string
+type EvictionRequiredReason string
 
-func (r NeedsEvictReason) String() string {
+func (r EvictionRequiredReason) String() string {
 	return string(r)
 }
 
 const (
-	// ReasonNeedsEvict indicates that the VirtualMachine should be evicting from node.
-	ReasonNeedsEvict NeedsEvictReason = "NeedsEvict"
+	// ReasonEvictionRequired indicates that the VirtualMachine should be evicting from node.
+	ReasonEvictionRequired EvictionRequiredReason = "EvictionRequired"
 )
 
 type NetworkReadyReason string
@@ -243,8 +242,8 @@ const (
 	ReasonNetworkReady NetworkReadyReason = "NetworkReady"
 	// ReasonNetworkNotReady indicates that the additional network interfaces in the virtual machine pod are not ready.
 	ReasonNetworkNotReady NetworkReadyReason = "NetworkNotReady"
-	// ReasonSDNModuleDisable indicates that the SDN module is disabled, which may prevent network interfaces from becoming ready.
-	ReasonSDNModuleDisable NetworkReadyReason = "SDNModuleDisable"
+	// ReasonSDNModuleDisabled indicates that the SDN module is disabled, which may prevent network interfaces from becoming ready.
+	ReasonSDNModuleDisabled NetworkReadyReason = "SDNModuleDisabled"
 )
 
 type MigratableReason string
@@ -270,7 +269,6 @@ const (
 	ReasonMigratingPending               MigratingReason = "Pending"
 	ReasonReadyToMigrate                 MigratingReason = "ReadyToMigrate"
 	ReasonMigratingInProgress            MigratingReason = "InProgress"
-	ReasonLastMigrationFinishedWithError MigratingReason = "LastMigrationFinishedWithError"
 )
 
 type MaintenanceReason string

@@ -47,15 +47,15 @@ func (h *EvictHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 	}
 
 	if kvvmi == nil || kvvmi.Status.EvacuationNodeName == "" {
-		conditions.RemoveCondition(vmcondition.TypeNeedsEvict, &changed.Status.Conditions)
+		conditions.RemoveCondition(vmcondition.TypeEvictionRequired, &changed.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
 
 	conditions.SetCondition(
-		conditions.NewConditionBuilder(vmcondition.TypeNeedsEvict).
+		conditions.NewConditionBuilder(vmcondition.TypeEvictionRequired).
 			Generation(changed.GetGeneration()).
 			Status(metav1.ConditionTrue).
-			Reason(vmcondition.ReasonNeedsEvict).
+			Reason(vmcondition.ReasonEvictionRequired).
 			Message("VirtualMachine should be evicted from current node or restarted."),
 		&changed.Status.Conditions,
 	)

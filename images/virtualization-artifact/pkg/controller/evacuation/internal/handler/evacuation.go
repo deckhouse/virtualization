@@ -178,7 +178,7 @@ func newEvacuationVMOP(vmName, namespace string) *v1alpha2.VirtualMachineOperati
 }
 
 func isVMNeedEvict(vm *v1alpha2.VirtualMachine) bool {
-	cond, _ := conditions.GetCondition(vmcondition.TypeNeedsEvict, vm.Status.Conditions)
+	cond, _ := conditions.GetCondition(vmcondition.TypeEvictionRequired, vm.Status.Conditions)
 	return cond.Status == metav1.ConditionTrue
 }
 

@@ -22,21 +22,25 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/component-base/featuregate"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type MigrationService struct {
-	client client.Client
+	client      client.Client
+	featureGate featuregate.FeatureGate
 }
 
-func NewMigrationService(client client.Client) *MigrationService {
+func NewMigrationService(client client.Client, featureGate featuregate.FeatureGate) *MigrationService {
 	return &MigrationService{
-		client: client,
+		client:      client,
+		featureGate: featureGate,
 	}
 }
 
@@ -51,7 +55,7 @@ func (s MigrationService) IsApplicableForRunPolicy(runPolicy v1alpha2.RunPolicy)
 }
 
 func (s MigrationService) CreateMigration(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) error {
-	return client.IgnoreAlreadyExists(s.client.Create(ctx, &virtv1.VirtualMachineInstanceMigration{
+	vmim := &virtv1.VirtualMachineInstanceMigration{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: virtv1.SchemeGroupVersion.String(),
 			Kind:       "VirtualMachineInstanceMigration",
@@ -73,7 +77,13 @@ func (s MigrationService) CreateMigration(ctx context.Context, vmop *v1alpha2.Vi
 		Spec: virtv1.VirtualMachineInstanceMigrationSpec{
 			VMIName: vmop.Spec.VirtualMachine,
 		},
-	}))
+	}
+
+	if vmop.Spec.Migrate != nil {
+		vmim.Spec.AddedNodeSelector = vmop.Spec.Migrate.NodeSelector
+	}
+
+	return client.IgnoreAlreadyExists(s.client.Create(ctx, vmim))
 }
 
 func (s MigrationService) DeleteMigration(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) error {
@@ -99,4 +109,8 @@ const vmopPrefix = "vmop-"
 
 func migrationName(vmop *v1alpha2.VirtualMachineOperation) string {
 	return fmt.Sprintf("%s%s", vmopPrefix, vmop.GetName())
+}
+
+func (s MigrationService) IsTargetMigrationEnabled() bool {
+	return s.featureGate.Enabled(featuregates.TargetMigration)
 }
