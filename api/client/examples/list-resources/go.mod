@@ -1,6 +1,6 @@
 module github.com/deckhouse/virtualization/api/client/examples/list-resources
 
-go 1.24.6
+go 1.24.13
 
 require (
 	github.com/deckhouse/virtualization/api v0.0.0-20240322104947-2d492906a8b2
@@ -27,6 +27,8 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/onsi/ginkgo/v2 v2.22.0 // indirect
+	github.com/onsi/gomega v1.36.1 // indirect
 	github.com/openshift/api v0.0.0-20230503133300-8bbcb7ca7183 // indirect
 	github.com/openshift/custom-resource-status v1.1.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect

@@ -1,6 +1,6 @@
 module github.com/deckhouse/virtualization/src/cli
 
-go 1.24.6
+go 1.24.13
 
 require (
 	github.com/deckhouse/virtualization/api v0.15.0
