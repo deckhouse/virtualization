@@ -33,6 +33,7 @@ spec:
         bb-flag-set containerd-need-restart
     }
 
+    {{ "{{ $registryEnabled := " }}{{ $registryEnabled }}{{ "}}" }}
     bb-log-msg '.cri = {{ "{{ .cri }}" }}'
     bb-log-msg '.registryEnabled = {{ "{{ $registryEnabled }}" }}'
     echo '.cri = {{ "{{ .cri }}" }}' > /etc/containerd/bashible-cri-status.txt
