@@ -34,8 +34,8 @@ spec:
     }
 
     {{ "{{ $registryEnabled := " }}{{ $registryEnabled }}{{ "}}" }}
-    bb-log-info "module 'registry' enabled: {{ \"{{ $registryEnabled }}\" }}
-    bb-log-info "cri version: {{ \"{{ .cri }}\" }}
+    bb-log-info "module 'registry' enabled: {{ \"{{ $registryEnabled }}\" }}"
+    bb-log-info "cri version: {{ \"{{ .cri }}\" }}"
     {{ "{{- if and (eq .cri \"Containerd\") (not $registryEnabled) }}" }}
 
     mkdir -p /etc/containerd/conf.d
