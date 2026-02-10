@@ -73,7 +73,6 @@ shell:
 ---
 image: bundle
 fromImage: builder/scratch
-fromCacheVersion: DoNotMerge1
 import:
 - image: prepare-bundle
   add: /prep-bundle
