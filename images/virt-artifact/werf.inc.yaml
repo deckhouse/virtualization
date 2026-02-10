@@ -15,11 +15,13 @@ secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
 shell:
+  # TODO: remove before merge.
   installCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
   install:
   - |
-    echo "[ $(date) ]"
-    echo "Git clone {{ $gitRepoName }} repository..."
+    echo "[INFO] [ $(date) ]"
+    echo "[INFO] Git clone {{ $gitRepoName }} repository..."
+    echo "[INFO] Clone branch {{ $tag }}"
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $tag }} /src/kubevirt
 
     rm -rf /src/kubevirt/.git
