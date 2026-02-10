@@ -127,7 +127,6 @@ tasks:
         difference=$((end_time - {{.start_time}}))
         date -ud "@$difference" +'%H:%M:%S'
       - task: render-vm-ips
-      - task: infra-pin-vms
 
   infra-undeploy:
     desc: Destroy infra
