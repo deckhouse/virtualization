@@ -468,24 +468,6 @@ func GetCondition(conditionType string, obj client.Object) (metav1.Condition, er
 	return metav1.Condition{}, fmt.Errorf("condition %s not found", conditionType)
 }
 
-func GetPhaseByVolumeBindingModeForTemplateSc() string {
-	return GetPhaseByVolumeBindingMode(conf.StorageClass.TemplateStorageClass)
-}
-
-func GetPhaseByVolumeBindingMode(sc *storagev1.StorageClass) string {
-	if sc.VolumeBindingMode == nil {
-		return string(v1alpha2.DiskReady)
-	}
-	switch *sc.VolumeBindingMode {
-	case storagev1.VolumeBindingImmediate:
-		return string(v1alpha2.DiskReady)
-	case storagev1.VolumeBindingWaitForFirstConsumer:
-		return string(v1alpha2.DiskWaitForFirstConsumer)
-	default:
-		return string(v1alpha2.DiskReady)
-	}
-}
-
 // Test data templates does not contain this resources, but this resources are created in test case.
 type AdditionalResource struct {
 	Resource kc.Resource
