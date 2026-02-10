@@ -96,7 +96,7 @@ var _ = Describe("PowerState", func() {
 			}
 		})
 
-		By("Start VM", func() {
+		By("Start VM by VMOP", func() {
 			if t.VM.Spec.RunPolicy != v1alpha2.AlwaysOnPolicy {
 				util.StartVirtualMachine(f, t.VM)
 				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.MiddleTimeout, t.VM)
@@ -124,7 +124,7 @@ var _ = Describe("PowerState", func() {
 			}
 		})
 
-		By("Start VM", func() {
+		By("Start VM by VMOP", func() {
 			if t.VM.Spec.RunPolicy != v1alpha2.AlwaysOnPolicy {
 				util.StartVirtualMachine(f, t.VM)
 				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.MiddleTimeout, t.VM)
