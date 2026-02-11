@@ -47,7 +47,7 @@ const (
 	changedCoreFraction = "10%"
 )
 
-var _ = Describe("VirtualMachineConfiguration", func() {
+var _ = Describe("VirtualMachineConfiguration", Label("ci"), func() {
 	DescribeTable("the configuration should be applied", func(restartApprovalMode v1alpha2.RestartApprovalMode) {
 		f := framework.NewFramework(fmt.Sprintf("vm-configuration-%s", strings.ToLower(string(restartApprovalMode))))
 		t := NewConfigurationTest(f)
