@@ -32,6 +32,24 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
+// isGoAwayError reports whether err is or contains http2.GoAwayError (e.g. when wrapped in errors.Join).
+// GOAWAY is sent by the server when the connection is closed (e.g. after context cancel) and should not fail the test.
+func isGoAwayError(err error) bool {
+	var goAway *http2.GoAwayError
+	if errors.As(err, &goAway) {
+		return true
+	}
+	type multiUnwrap interface{ Unwrap() []error }
+	if u, ok := err.(multiUnwrap); ok {
+		for _, e := range u.Unwrap() {
+			if isGoAwayError(e) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // LogChecker detects `v12n-controller` errors while the test suite is running.
 type LogChecker struct {
 	ctx     context.Context
@@ -81,10 +99,9 @@ func (l *LogChecker) Start() error {
 			defer l.mu.Unlock()
 			if err != nil && !errors.Is(err, context.Canceled) {
 				// TODO: Find an alternative way to store Virtualization Controller errors without streaming.
-				// `http2.GoAwayError` likely appears when the context is canceled and readers are closed.
-				// It should not cause tests to fail.
-				var goAwayError *http2.GoAwayError
-				if errors.As(err, &goAwayError) {
+				// http2.GoAwayError (possibly wrapped in errors.Join) appears when the context is canceled
+				// and the server closes the connection. It should not cause tests to fail.
+				if isGoAwayError(err) {
 					ginkgo.GinkgoWriter.Printf("Warning! %v\n", err)
 				} else {
 					l.resultErr = errors.Join(l.resultErr, err)
