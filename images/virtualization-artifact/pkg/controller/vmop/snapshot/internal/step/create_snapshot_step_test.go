@@ -67,6 +67,11 @@ var _ = Describe("CreateSnapshotStep", func() {
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeNil())
+
+			snapshotReadyCondition, ok := conditions.GetCondition(vmopcondition.TypeSnapshotReady, vmop.Status.Conditions)
+			Expect(ok).To(BeTrue())
+			Expect(snapshotReadyCondition.Status).To(Equal(metav1.ConditionTrue))
+			Expect(snapshotReadyCondition.Reason).To(Equal(string(vmopcondition.ReasonSnapshotOperationReady)))
 		})
 
 		It("should skip when snapshot condition reason is CleanedUp", func() {
@@ -88,6 +93,11 @@ var _ = Describe("CreateSnapshotStep", func() {
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeNil())
+
+			snapshotReadyCondition, ok := conditions.GetCondition(vmopcondition.TypeSnapshotReady, vmop.Status.Conditions)
+			Expect(ok).To(BeTrue())
+			Expect(snapshotReadyCondition.Status).To(Equal(metav1.ConditionFalse))
+			Expect(snapshotReadyCondition.Reason).To(Equal(string(vmopcondition.ReasonSnapshotCleanedUp)))
 		})
 	})
 
