@@ -55,6 +55,11 @@ spec:
               endpoint = ["https://{{ $endpoint }}"]
     EOF
 
+    {{- if $registry }}
+    rm -rf "/etc/containerd/registry.d/{{ $registry }}"
+    rm -rf "/etc/containerd/certs.d/{{ $registry }}"
+    {{- end }}
+
     {{ "{{- else }}" }}
 
     mkdir -p "/etc/containerd/registry.d/{{ $registry }}"
