@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -68,13 +69,6 @@ var _ = Describe("TargetMigration", func() {
 				f.Namespace().Name,
 				vm.WithBootloader(v1alpha2.BIOS),
 				vm.WithDisks(virtualDisk),
-				vm.WithTolerations([]corev1.Toleration{
-					{
-						Key:      "node-role.kubernetes.io/control-plane",
-						Operator: corev1.TolerationOpExists,
-						Effect:   corev1.TaintEffectNoSchedule,
-					},
-				}),
 			)
 
 			err := f.CreateWithDeferredDeletion(context.Background(), virtualDisk, virtualMachine)
@@ -139,12 +133,17 @@ func defineTargetNodeSelector(f *framework.Framework, currentNodeName string) (m
 		client.MatchingLabels(
 			map[string]string{
 				"virtualization.deckhouse.io/kvm-enabled": "true",
+				"node.deckhouse.io/group":                 "worker",
 			},
 		),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("could not define a target node for the virtual machine: %w", err)
 	}
+
+	rand.Shuffle(len(nodes.Items), func(i, j int) {
+		nodes.Items[i], nodes.Items[j] = nodes.Items[j], nodes.Items[i]
+	})
 
 	for _, node := range nodes.Items {
 		if node.Name == currentNodeName {

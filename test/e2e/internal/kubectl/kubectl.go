@@ -91,12 +91,11 @@ type DeleteOptions struct {
 }
 
 type GetOptions struct {
-	ExcludedLabels    []string
-	IgnoreNotFound    bool
-	Labels            map[string]string
-	Namespace         string
-	Output            string
-	ShowManagedFields bool
+	ExcludedLabels []string
+	IgnoreNotFound bool
+	Labels         map[string]string
+	Namespace      string
+	Output         string
 }
 
 type LogOptions struct {
@@ -345,13 +344,6 @@ func (k KubectlCMD) addIgnoreNotFound(cmd string, ignoreNotFound bool) string {
 	return cmd
 }
 
-func (k KubectlCMD) addShowManagedFields(cmd string, showManagedFields bool) string {
-	if showManagedFields {
-		return fmt.Sprintf("%s --show-managed-fields=true", cmd)
-	}
-	return cmd
-}
-
 func (k KubectlCMD) applyOptions(cmd string, opts ApplyOptions) string {
 	var resourceEmptyValue Resource = ""
 	cmd = k.addFilenameOptions(cmd, resourceEmptyValue, opts.FilenameOption, opts.Recursive, opts.Filename...)
@@ -371,7 +363,6 @@ func (k KubectlCMD) getOptions(cmd string, opts GetOptions) string {
 	cmd = k.addOutput(cmd, opts.Output)
 	cmd = k.addIgnoreNotFound(cmd, opts.IgnoreNotFound)
 	cmd = k.addLabels(cmd, opts.Labels, opts.ExcludedLabels)
-	cmd = k.addShowManagedFields(cmd, opts.ShowManagedFields)
 	return cmd
 }
 
