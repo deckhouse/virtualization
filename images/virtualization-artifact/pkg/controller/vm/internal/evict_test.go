@@ -69,7 +69,7 @@ var _ = Describe("TestEvictHandler", func() {
 	newKVVMI := func(evacuationNodeName string, phase virtv1.VirtualMachineInstancePhase) *virtv1.VirtualMachineInstance {
 		kvvmi := newEmptyKVVMI(name, namespace)
 		kvvmi.Status.EvacuationNodeName = evacuationNodeName
-		kvvmi.Status.Phase = virtv1.Running
+		kvvmi.Status.Phase = phase
 		return kvvmi
 	}
 
