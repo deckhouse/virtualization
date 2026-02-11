@@ -99,8 +99,8 @@ func (l *ErrStreamer) Stream(r io.Reader, w io.Writer) (int, error) {
 					string(jsonData),
 					Red,
 				)
-				n, _ := w.Write([]byte(msg))
-				num += n
+				_, _ = w.Write([]byte(msg))
+				num++
 			}
 		}
 	}
