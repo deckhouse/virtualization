@@ -59,7 +59,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 
 	defer func() { conditions.SetCondition(cb, &vdSnapshot.Status.Conditions) }()
 
-	vsName := supplements.NewGenerator("vds", vdSnapshot.Name, vdSnapshot.Namespace, vdSnapshot.UID).CommonSupplement().Name
+	vsName := vdSnapshot.Status.VolumeSnapshotName
+	if vsName == "" {
+		vsName = supplements.NewGenerator("vds", vdSnapshot.Name, vdSnapshot.Namespace, vdSnapshot.UID).CommonSupplement().Name
+	}
 	vs, err := h.snapshotter.GetVolumeSnapshot(ctx, vsName, vdSnapshot.Namespace)
 	if err != nil {
 		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
