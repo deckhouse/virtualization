@@ -124,7 +124,7 @@ func (l *LogChecker) Stop() error {
 		return l.resultErr
 	}
 	if l.resultNum > 0 {
-		return fmt.Errorf("errors have appeared in the `Virtualization-controller` logs")
+		return fmt.Errorf("%d error(s) have appeared in the `Virtualization-controller` logs (see test output above); add exclusions via logFilter/regexpLogFilter in e2e config if these are expected", l.resultNum)
 	}
 
 	return nil
