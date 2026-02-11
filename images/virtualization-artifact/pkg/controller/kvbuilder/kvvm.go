@@ -648,6 +648,8 @@ func (b *KVVM) SetMetadata(metadata metav1.ObjectMeta) {
 	}
 	maps.Copy(b.Resource.Spec.Template.ObjectMeta.Labels, metadata.Labels)
 	maps.Copy(b.Resource.Spec.Template.ObjectMeta.Annotations, metadata.Annotations)
+
+	b.Resource.Spec.Template.ObjectMeta.Annotations = vm.RemoveNonPropagatableAnnotations(b.Resource.Spec.Template.ObjectMeta.Annotations)
 }
 
 func (b *KVVM) SetUpdateVolumesStrategy(strategy *virtv1.UpdateVolumesStrategy) {

@@ -20,10 +20,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
+	"maps"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/merger"
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
+	commonvm "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -62,8 +64,8 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 	current := s.VirtualMachine().Current()
 
 	// Propagate user specified labels and annotations from the d8 VM to kubevirt VM.
-	kvvmWithNewMetadata := &virtv1.VirtualMachine{}
-	kvvmMetaUpdated, err := PropagateVMMetadata(current, kvvm, kvvm, kvvmWithNewMetadata)
+	kvvmNewMetadata := &metav1.ObjectMeta{}
+	kvvmMetaUpdated, err := PropagateVMMetadata(current, kvvm, kvvm, kvvmNewMetadata)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -74,14 +76,14 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 	}
 	// Propagate user specified labels and annotations from the d8 VM to the kubevirt VirtualMachineInstance.
 	if kvvmi != nil {
-		kvvmiWithNewMetadata := &virtv1.VirtualMachineInstance{}
-		metaUpdated, err := PropagateVMMetadata(current, kvvm, kvvmi, kvvmiWithNewMetadata)
+		kvvmiNewMetadata := &metav1.ObjectMeta{}
+		metaUpdated, err := PropagateVMMetadata(current, kvvm, kvvmi, kvvmiNewMetadata)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
 		if metaUpdated {
-			if err = h.patchLabelsAndAnnotations(ctx, kvvmi, kvvmiWithNewMetadata); err != nil && !k8serrors.IsNotFound(err) {
+			if err = h.patchLabelsAndAnnotations(ctx, kvvmi, kvvmiNewMetadata); err != nil && !k8serrors.IsNotFound(err) {
 				return reconcile.Result{}, fmt.Errorf("failed to patch metadata KubeVirt VMI %q: %w", kvvmi.GetName(), err)
 			}
 		}
@@ -99,32 +101,32 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 			if pod.Status.Phase != corev1.PodRunning {
 				continue
 			}
-			podWithNewMetadata := &corev1.Pod{}
-			metaUpdated, err := PropagateVMMetadata(current, kvvm, &pod, podWithNewMetadata)
+			podNewMetadata := &metav1.ObjectMeta{}
+			metaUpdated, err := PropagateVMMetadata(current, kvvm, &pod, podNewMetadata)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
 
 			if metaUpdated {
-				if err = h.patchLabelsAndAnnotations(ctx, &pod, podWithNewMetadata); err != nil {
+				if err = h.patchLabelsAndAnnotations(ctx, &pod, podNewMetadata); err != nil {
 					return reconcile.Result{}, fmt.Errorf("failed to patch KubeVirt Pod %q: %w", pod.GetName(), err)
 				}
 			}
 		}
 	}
 
-	labelsChanged, err := SetLastPropagatedLabels(kvvm, current)
+	labelsChanged, err := SetLastPropagatedLabels(kvvmNewMetadata, current)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to set last propagated labels: %w", err)
 	}
 
-	annosChanged, err := SetLastPropagatedAnnotations(kvvm, current)
+	annosChanged, err := SetLastPropagatedAnnotations(kvvmNewMetadata, current)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to set last propagated annotations: %w", err)
 	}
 
 	if labelsChanged || annosChanged || kvvmMetaUpdated {
-		if err = h.patchLabelsAndAnnotations(ctx, kvvm, kvvmWithNewMetadata); err != nil {
+		if err = h.patchLabelsAndAnnotations(ctx, kvvm, kvvmNewMetadata); err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed to patch metadata KubeVirt VM %q: %w", kvvm.GetName(), err)
 		}
 	}
@@ -136,24 +138,41 @@ func (h *SyncMetadataHandler) Name() string {
 	return nameSyncMetadataHandler
 }
 
-func (h *SyncMetadataHandler) patchLabelsAndAnnotations(ctx context.Context, obj, objWithNewMetadata client.Object) error {
-	jp := patch.NewJSONPatch(
-		patch.WithTest("/metadata/labels", obj.GetLabels()),
-		patch.WithReplace("/metadata/labels", objWithNewMetadata.GetLabels()),
-		patch.WithTest("/metadata/annotations", obj.GetAnnotations()),
-		patch.WithReplace("/metadata/annotations", objWithNewMetadata.GetAnnotations()),
-	)
+func (h *SyncMetadataHandler) patchLabelsAndAnnotations(ctx context.Context, obj client.Object, metadata *metav1.ObjectMeta) error {
+	jp := patch.NewJSONPatch()
+
+	newLabels := metadata.GetLabels()
+	newAnnotations := metadata.GetAnnotations()
 
 	// For KubeVirt VirtualMachine, also patch spec.template.metadata
 	// to ensure consistency with future VMI instances.
 	// KubeVirt doesn't trigger VMI restart on template metadata changes.
-	if kvvm, ok := obj.(*virtv1.VirtualMachine); ok {
+	kvvm, ok := obj.(*virtv1.VirtualMachine)
+
+	if newLabels != nil {
 		jp.Append(
-			patch.WithTest("/spec/template/metadata/labels", kvvm.Spec.Template.ObjectMeta.Labels),
-			patch.WithReplace("/spec/template/metadata/labels", objWithNewMetadata.GetLabels()),
-			patch.WithTest("/spec/template/metadata/annotations", kvvm.Spec.Template.ObjectMeta.Annotations),
-			patch.WithReplace("/spec/template/metadata/annotations", objWithNewMetadata.GetAnnotations()),
+			patch.WithTest("/metadata/labels", obj.GetLabels()),
+			patch.WithReplace("/metadata/labels", newLabels),
 		)
+		if ok {
+			jp.Append(
+				patch.WithTest("/spec/template/metadata/labels", kvvm.Spec.Template.ObjectMeta.Labels),
+				patch.WithReplace("/spec/template/metadata/labels", newLabels),
+			)
+		}
+	}
+
+	if newAnnotations != nil {
+		jp.Append(
+			patch.WithTest("/metadata/annotations", obj.GetAnnotations()),
+			patch.WithReplace("/metadata/annotations", newAnnotations),
+		)
+		if ok {
+			jp.Append(
+				patch.WithTest("/spec/template/metadata/annotations", kvvm.Spec.Template.ObjectMeta.Annotations),
+				patch.WithReplace("/spec/template/metadata/annotations", newAnnotations),
+			)
+		}
 	}
 
 	bytes, err := jp.Bytes()
@@ -167,11 +186,17 @@ func (h *SyncMetadataHandler) patchLabelsAndAnnotations(ctx context.Context, obj
 // PropagateVMMetadata merges labels and annotations from the input VM into destination object.
 // Attach related labels and some dangerous annotations are not copied.
 // Return true if destination object was changed.
-func PropagateVMMetadata(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine, origObj, destObj client.Object) (bool, error) {
+func PropagateVMMetadata(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine, origObj client.Object, metadata *metav1.ObjectMeta) (bool, error) {
 	// No changes if origObj is nil.
 	if origObj == nil {
 		return false, nil
 	}
+
+	metadata.Labels = make(map[string]string, len(origObj.GetLabels()))
+	metadata.Annotations = make(map[string]string, len(origObj.GetAnnotations()))
+
+	maps.Copy(metadata.Labels, origObj.GetLabels())
+	maps.Copy(metadata.Annotations, origObj.GetAnnotations())
 
 	// 1. Propagate labels.
 	lastPropagatedLabels, err := GetLastPropagatedLabels(kvvm)
@@ -194,9 +219,9 @@ func PropagateVMMetadata(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachin
 		propagateLabels[annotations.QuotaDiscountMemory] = vm.Status.Resources.Memory.RuntimeOverhead.String()
 	}
 
-	newLabels, labelsChanged := merger.ApplyMapChanges(origObj.GetLabels(), lastPropagatedLabels, propagateLabels)
+	newLabels, labelsChanged := merger.ApplyMapChanges(metadata.Labels, lastPropagatedLabels, propagateLabels)
 	if labelsChanged {
-		destObj.SetLabels(newLabels)
+		metadata.SetLabels(newLabels)
 	}
 
 	// 1. Propagate annotations.
@@ -206,11 +231,11 @@ func PropagateVMMetadata(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachin
 	}
 
 	// Remove dangerous annotations.
-	curAnno := RemoveNonPropagatableAnnotations(vm.GetAnnotations())
+	curAnno := commonvm.RemoveNonPropagatableAnnotations(vm.GetAnnotations())
 
-	newAnno, annoChanged := merger.ApplyMapChanges(origObj.GetAnnotations(), lastPropagatedAnno, curAnno)
+	newAnno, annoChanged := merger.ApplyMapChanges(metadata.Annotations, lastPropagatedAnno, curAnno)
 	if annoChanged {
-		destObj.SetAnnotations(newAnno)
+		metadata.SetAnnotations(newAnno)
 	}
 
 	return labelsChanged || annoChanged, nil
@@ -229,7 +254,7 @@ func GetLastPropagatedLabels(kvvm *virtv1.VirtualMachine) (map[string]string, er
 	return lastPropagatedLabels, nil
 }
 
-func SetLastPropagatedLabels(kvvm *virtv1.VirtualMachine, vm *v1alpha2.VirtualMachine) (bool, error) {
+func SetLastPropagatedLabels(metadata *metav1.ObjectMeta, vm *v1alpha2.VirtualMachine) (bool, error) {
 	data, err := json.Marshal(vm.GetLabels())
 	if err != nil {
 		return false, err
@@ -237,11 +262,11 @@ func SetLastPropagatedLabels(kvvm *virtv1.VirtualMachine, vm *v1alpha2.VirtualMa
 
 	newAnnoValue := string(data)
 
-	if kvvm.Annotations[annotations.LastPropagatedVMLabelsAnnotation] == newAnnoValue {
+	if metadata.Annotations[annotations.LastPropagatedVMLabelsAnnotation] == newAnnoValue {
 		return false, nil
 	}
 
-	annotations.AddAnnotation(kvvm, annotations.LastPropagatedVMLabelsAnnotation, newAnnoValue)
+	annotations.AddAnnotation(metadata, annotations.LastPropagatedVMLabelsAnnotation, newAnnoValue)
 	return true, nil
 }
 
@@ -258,36 +283,18 @@ func GetLastPropagatedAnnotations(kvvm *virtv1.VirtualMachine) (map[string]strin
 	return lastPropagatedAnno, nil
 }
 
-func SetLastPropagatedAnnotations(kvvm *virtv1.VirtualMachine, vm *v1alpha2.VirtualMachine) (bool, error) {
-	data, err := json.Marshal(RemoveNonPropagatableAnnotations(vm.GetAnnotations()))
+func SetLastPropagatedAnnotations(metadata *metav1.ObjectMeta, vm *v1alpha2.VirtualMachine) (bool, error) {
+	data, err := json.Marshal(commonvm.RemoveNonPropagatableAnnotations(vm.GetAnnotations()))
 	if err != nil {
 		return false, err
 	}
 
 	newAnnoValue := string(data)
 
-	if kvvm.Annotations[annotations.LastPropagatedVMAnnotationsAnnotation] == newAnnoValue {
+	if metadata.Annotations[annotations.LastPropagatedVMAnnotationsAnnotation] == newAnnoValue {
 		return false, nil
 	}
 
-	annotations.AddAnnotation(kvvm, annotations.LastPropagatedVMAnnotationsAnnotation, newAnnoValue)
+	annotations.AddAnnotation(metadata, annotations.LastPropagatedVMAnnotationsAnnotation, newAnnoValue)
 	return true, nil
-}
-
-// RemoveNonPropagatableAnnotations removes well known annotations that are dangerous to propagate.
-func RemoveNonPropagatableAnnotations(anno map[string]string) map[string]string {
-	res := make(map[string]string)
-
-	for k, v := range anno {
-		if k == annotations.LastPropagatedVMAnnotationsAnnotation || k == annotations.LastPropagatedVMLabelsAnnotation {
-			continue
-		}
-
-		if strings.HasPrefix(k, "kubectl.kubernetes.io") {
-			continue
-		}
-
-		res[k] = v
-	}
-	return res
 }
