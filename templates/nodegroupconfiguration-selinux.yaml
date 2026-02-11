@@ -48,28 +48,3 @@ spec:
     function install_package() {
         bb-dnf-install "$1"
     }
-
-    if is_selinux_enabled; then
-
-      if is_package_installed "selinux-policy"; then
-
-        if is_package_installed "container-selinux"; then
-          exit 0
-        fi
-
-        bb-log-info "install container-selinux"
-        install_package "container-selinux"
-      else
-        bb-event-on 'bb-package-installed' 'post-install'
-        post-install() {
-          bb-log-info "Setting reboot flag due to selinux-policy was installed"
-          bb-flag-set reboot
-        }
-        bb-deckhouse-get-disruptive-update-approval
-        install_package "selinux-policy"
-        install_package "container-selinux"
-      fi
-
-    else
-      exit 0
-    fi
