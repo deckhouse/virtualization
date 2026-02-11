@@ -55,7 +55,7 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 		return nil, nil
 	}
 
-	// Resources contains the list of resources that are affected by the snapshot operation.
+	// If resources are already populated, restore is in progress or done; do not re-enter maintenance mode.
 	if vmop.Status.Resources != nil {
 		return nil, nil
 	}

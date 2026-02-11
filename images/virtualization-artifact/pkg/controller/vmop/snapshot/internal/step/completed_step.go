@@ -45,6 +45,6 @@ func (s CompletedStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOp
 	cb := conditions.NewConditionBuilder(vmopcondition.TypeCompleted).Status(metav1.ConditionTrue).Reason(vmopcondition.ReasonOperationCompleted)
 	conditions.SetCondition(cb, &vmop.Status.Conditions)
 	vmop.Status.Phase = v1alpha2.VMOPPhaseCompleted
-	s.recorder.Event(vmop, corev1.EventTypeNormal, v1alpha2.ReasonVMOPSucceeded, "VirtualMachineOperation is successful completed")
+	s.recorder.Event(vmop, corev1.EventTypeNormal, v1alpha2.ReasonVMOPSucceeded, "VirtualMachineOperation is successfully completed")
 	return &reconcile.Result{}, nil
 }
