@@ -54,7 +54,7 @@
             {
               "options": {
                 "Pending": {
-                  "color": "#30e3ca",
+                  "color": "#18a7b5",
                   "index": 1
                 },
                 "Running": {
@@ -193,7 +193,7 @@
                   "index": 8
                 },
                 "Pending": {
-                  "color": "#30e3ca",
+                  "color": "#18a7b5",
                   "index": 0
                 },
                 "Provisioning": {
@@ -1189,7 +1189,7 @@
                         "index": 1
                       },
                       "Pending": {
-                        "color": "#30e3ca",
+                        "color": "#18a7b5",
                         "index": 2
                       },
                       "Running": {
@@ -1803,7 +1803,7 @@
                       "text": "Pause"
                     },
                     "4": {
-                      "color": "#30e3ca",
+                      "color": "#18a7b5",
                       "index": 3,
                       "text": "Pending"
                     },
@@ -2769,7 +2769,7 @@
                             "index": 3
                           },
                           "Pending": {
-                            "color": "#30e3ca",
+                            "color": "#18a7b5",
                             "index": 2
                           },
                           "Provisioning": {

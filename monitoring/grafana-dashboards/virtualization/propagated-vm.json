@@ -63,7 +63,7 @@
                   "text": "Pause"
                 },
                 "4": {
-                  "color": "#30e3ca",
+                  "color": "#18a7b5",
                   "index": 3,
                   "text": "Pending"
                 },
@@ -1836,7 +1836,7 @@
                       "text": "Pause"
                     },
                     "4": {
-                      "color": "#30e3ca",
+                      "color": "#18a7b5",
                       "index": 3,
                       "text": "Pending"
                     },
@@ -2134,7 +2134,7 @@
                             "text": "InProgress"
                           },
                           "Pending": {
-                            "color": "#30e3ca",
+                            "color": "#18a7b5",
                             "index": 0,
                             "text": "Pending"
                           }
@@ -3647,7 +3647,7 @@
                             "index": 3
                           },
                           "Pending": {
-                            "color": "#30e3ca",
+                            "color": "#18a7b5",
                             "index": 2
                           },
                           "Provisioning": {
