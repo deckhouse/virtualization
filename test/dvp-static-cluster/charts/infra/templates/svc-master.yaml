@@ -9,6 +9,7 @@ metadata:
   namespace: {{ $ctx.Values.namespace }}
 spec:
   selector:
+    infra: jump-host
     {{- include "infra.vm-labels" $name | nindent 4 }}
   ports:
     - name: ssh
