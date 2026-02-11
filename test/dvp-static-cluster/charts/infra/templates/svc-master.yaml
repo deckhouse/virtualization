@@ -1,0 +1,19 @@
+{{- define "infra.svc.master" }}
+{{-   $ctx := index . 0 -}}
+{{-   $name := index . 1 -}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ssh-master
+  namespace: {{ $ctx.Values.namespace }}
+spec:
+  selector:
+    {{- include "infra.vm-labels" $name | nindent 4 }}
+  ports:
+    - name: ssh
+      protocol: TCP
+      port: 22
+      targetPort: 22
+  type: ClusterIP
+{{- end }}
