@@ -66,9 +66,10 @@ var _ = Describe("TestEvictHandler", func() {
 		return vm
 	}
 
-	newKVVMI := func(evacuationNodeName string) *virtv1.VirtualMachineInstance {
+	newKVVMI := func(evacuationNodeName string, phase virtv1.VirtualMachineInstancePhase) *virtv1.VirtualMachineInstance {
 		kvvmi := newEmptyKVVMI(name, namespace)
 		kvvmi.Status.EvacuationNodeName = evacuationNodeName
+		kvvmi.Status.Phase = virtv1.Running
 		return kvvmi
 	}
 
@@ -98,8 +99,9 @@ var _ = Describe("TestEvictHandler", func() {
 				Expect(exists).To(BeFalse())
 			}
 		},
-		Entry("Should add NeedEvict condition when KVVM has evacuation node", newVM(false), newKVVMI("node1"), true, metav1.ConditionTrue, vmcondition.ReasonEvictionRequired),
-		Entry("Should remove NeedEvict condition when KVVM has no evacuation node", newVM(true), newKVVMI(""), false, metav1.ConditionStatus(""), vmcondition.EvictionRequiredReason("")),
-		Entry("Should not change NeedEvict condition when condition is present and KVVM has evacuation node", newVM(true), newKVVMI("node1"), true, metav1.ConditionTrue, vmcondition.ReasonEvictionRequired),
+		Entry("Should add NeedEvict condition when KVVM has evacuation node", newVM(false), newKVVMI("node1", virtv1.Running), true, metav1.ConditionTrue, vmcondition.ReasonEvictionRequired),
+		Entry("Should remove NeedEvict condition when KVVM has no evacuation node", newVM(true), newKVVMI("", virtv1.Running), false, metav1.ConditionStatus(""), vmcondition.EvictionRequiredReason("")),
+		Entry("Should not change NeedEvict condition when condition is present and KVVM has evacuation node", newVM(true), newKVVMI("node1", virtv1.Running), true, metav1.ConditionTrue, vmcondition.ReasonEvictionRequired),
+		Entry("Shoiuld remove NeedEvict condition when KVVM is not running", newVM(true), newKVVMI("", virtv1.Failed), false, metav1.ConditionStatus(""), vmcondition.EvictionRequiredReason("")),
 	)
 })
