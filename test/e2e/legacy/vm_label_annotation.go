@@ -28,6 +28,9 @@ import (
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 )
 
+// TODO: When this test case is refactored with the new end-to-end test framework,
+// it should check labels and annotations on all resources: KVVM, KVVMI, and Pod.
+// KVVM must contain propagated metadata in the spec.template.metadata field.
 var _ = Describe("VirtualMachineLabelAndAnnotation", Ordered, func() {
 	const (
 		specialKey   = "specialKey"

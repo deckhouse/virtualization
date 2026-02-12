@@ -168,9 +168,10 @@ func (h *SyncMetadataHandler) patchLabelsAndAnnotations(ctx context.Context, obj
 			patch.WithReplace("/metadata/annotations", newAnnotations),
 		)
 		if ok {
+			filteredAnno := commonvm.RemoveNonPropagatableAnnotations(newAnnotations)
 			jp.Append(
 				patch.WithTest("/spec/template/metadata/annotations", kvvm.Spec.Template.ObjectMeta.Annotations),
-				patch.WithReplace("/spec/template/metadata/annotations", newAnnotations),
+				patch.WithReplace("/spec/template/metadata/annotations", filteredAnno),
 			)
 		}
 	}
