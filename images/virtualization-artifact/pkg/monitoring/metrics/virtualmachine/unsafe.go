@@ -18,11 +18,10 @@ package virtualmachine
 
 import (
 	"context"
+	"encoding/json"
 
-	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -44,18 +43,9 @@ func (l *iterator) Iter(ctx context.Context, h handler) error {
 		return err
 	}
 
-	// Build a map of VirtualMachineClassName by namespace/name for efficient lookup.
-	kvvmClassNameMap, err := l.buildKVVMClassNameMap(ctx)
-	if err != nil {
-		return err
-	}
-
 	for _, vm := range vms.Items {
 		m := newDataMetric(&vm)
-		// Get applied class name from the map.
-		if className, ok := kvvmClassNameMap[vm.Namespace+"/"+vm.Name]; ok {
-			m.AppliedVirtualMachineClassName = className
-		}
+		m.AppliedVirtualMachineClassName = appliedClassName(&vm)
 		if stop := h(m); stop {
 			return nil
 		}
@@ -69,27 +59,28 @@ func (l *iterator) Iter(ctx context.Context, h handler) error {
 	return nil
 }
 
-func (l *iterator) buildKVVMClassNameMap(ctx context.Context) (map[string]string, error) {
-	kvvms := virtv1.VirtualMachineList{}
-	if err := l.reader.List(ctx, &kvvms, client.UnsafeDisableDeepCopy); err != nil {
-		return nil, err
+// appliedClassName returns the VirtualMachineClass name that is actually running on the VM.
+// If there are no pending restart changes, spec value is already applied.
+// Otherwise, it looks for a virtualMachineClassName change in restartAwaitingChanges
+// and returns its currentValue (the one still running).
+func appliedClassName(vm *v1alpha2.VirtualMachine) string {
+	if len(vm.Status.RestartAwaitingChanges) == 0 {
+		return vm.Spec.VirtualMachineClassName
 	}
-	result := make(map[string]string, len(kvvms.Items))
-	for i := range kvvms.Items {
-		kvvm := &kvvms.Items[i]
-		key := kvvm.Namespace + "/" + kvvm.Name
-		result[key] = extractAppliedClassName(kvvm)
-	}
-	return result, nil
-}
 
-func extractAppliedClassName(kvvm *virtv1.VirtualMachine) string {
-	if kvvm == nil {
-		return ""
+	for _, raw := range vm.Status.RestartAwaitingChanges {
+		var change struct {
+			Path         string `json:"path"`
+			CurrentValue string `json:"currentValue"`
+		}
+		if err := json.Unmarshal(raw.Raw, &change); err != nil {
+			continue
+		}
+		if change.Path == "virtualMachineClassName" {
+			return change.CurrentValue
+		}
 	}
-	spec, err := kvbuilder.LoadLastAppliedSpec(kvvm)
-	if err != nil || spec == nil {
-		return ""
-	}
-	return spec.VirtualMachineClassName
+
+	// No virtualMachineClassName change among pending changes — spec value is applied.
+	return vm.Spec.VirtualMachineClassName
 }
