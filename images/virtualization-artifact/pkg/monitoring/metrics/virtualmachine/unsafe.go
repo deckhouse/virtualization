@@ -68,6 +68,7 @@ func appliedClassName(vm *v1alpha2.VirtualMachine) string {
 		return vm.Spec.VirtualMachineClassName
 	}
 
+	// TODO: consider using gjson for faster JSON field extraction when tuning performance.
 	for _, raw := range vm.Status.RestartAwaitingChanges {
 		var change struct {
 			Path         string `json:"path"`
