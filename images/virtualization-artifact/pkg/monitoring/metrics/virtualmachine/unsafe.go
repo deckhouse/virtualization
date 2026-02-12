@@ -44,17 +44,17 @@ func (l *iterator) Iter(ctx context.Context, h handler) error {
 		return err
 	}
 
-	// Build a map of KVVM by namespace/name for efficient lookup.
-	kvvmMap, err := l.buildKVVMMap(ctx)
+	// Build a map of VirtualMachineClassName by namespace/name for efficient lookup.
+	kvvmClassNameMap, err := l.buildKVVMClassNameMap(ctx)
 	if err != nil {
 		return err
 	}
 
 	for _, vm := range vms.Items {
 		m := newDataMetric(&vm)
-		// Extract applied class name from KVVM annotation.
-		if kvvm, ok := kvvmMap[vm.Namespace+"/"+vm.Name]; ok {
-			m.AppliedVirtualMachineClassName = extractAppliedClassName(kvvm)
+		// Get applied class name from the map.
+		if className, ok := kvvmClassNameMap[vm.Namespace+"/"+vm.Name]; ok {
+			m.AppliedVirtualMachineClassName = className
 		}
 		if stop := h(m); stop {
 			return nil
@@ -69,15 +69,16 @@ func (l *iterator) Iter(ctx context.Context, h handler) error {
 	return nil
 }
 
-func (l *iterator) buildKVVMMap(ctx context.Context) (map[string]*virtv1.VirtualMachine, error) {
+func (l *iterator) buildKVVMClassNameMap(ctx context.Context) (map[string]string, error) {
 	kvvms := virtv1.VirtualMachineList{}
 	if err := l.reader.List(ctx, &kvvms, client.UnsafeDisableDeepCopy); err != nil {
 		return nil, err
 	}
-	result := make(map[string]*virtv1.VirtualMachine, len(kvvms.Items))
+	result := make(map[string]string, len(kvvms.Items))
 	for i := range kvvms.Items {
 		kvvm := &kvvms.Items[i]
-		result[kvvm.Namespace+"/"+kvvm.Name] = kvvm
+		key := kvvm.Namespace + "/" + kvvm.Name
+		result[key] = extractAppliedClassName(kvvm)
 	}
 	return result, nil
 }
