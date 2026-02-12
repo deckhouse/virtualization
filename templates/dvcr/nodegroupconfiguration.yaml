@@ -78,6 +78,7 @@ spec:
     EOF
 
     rm -f /etc/containerd/conf.d/dvcr.toml
+    rm -f /etc/containerd/conf.d/dvcr-ca.crt
 
     {{ "{{- end }}" }}
 
