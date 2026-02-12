@@ -201,7 +201,7 @@
                   "index": 1
                 },
                 "Ready": {
-                  "color": "green",
+                  "color": "semi-dark-green",
                   "index": 4
                 },
                 "Resizing": {
