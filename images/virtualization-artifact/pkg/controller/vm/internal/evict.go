@@ -20,6 +20,7 @@ import (
 	"context"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -46,7 +47,7 @@ func (h *EvictHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 		return reconcile.Result{}, err
 	}
 
-	if kvvmi == nil || kvvmi.Status.EvacuationNodeName == "" {
+	if kvvmi == nil || kvvmi.Status.Phase != virtv1.Running || kvvmi.Status.EvacuationNodeName == "" {
 		conditions.RemoveCondition(vmcondition.TypeEvictionRequired, &changed.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
