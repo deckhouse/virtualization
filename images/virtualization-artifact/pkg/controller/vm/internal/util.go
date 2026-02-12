@@ -211,7 +211,7 @@ var mapReasons = map[string]vmcondition.RunningReason{
 	// PodTerminatingReason indicates on the Ready condition on the VMI if the underlying pod is terminating
 	virtv1.PodTerminatingReason: vmcondition.ReasonPodTerminating,
 	// PodNotExistsReason indicates on the Ready condition on the VMI if the underlying pod does not exist
-	virtv1.PodNotExistsReason: vmcondition.ReasonPodNotExists,
+	virtv1.PodNotExistsReason: vmcondition.ReasonPodNotFound,
 	// PodConditionMissingReason indicates on the Ready condition on the VMI if the underlying pod does not report a Ready condition
 	virtv1.PodConditionMissingReason: vmcondition.ReasonPodConditionMissing,
 	// GuestNotRunningReason indicates on the Ready condition on the VMI if the underlying guest VM is not running
@@ -255,7 +255,7 @@ func checkVirtualMachineConfiguration(vm *v1alpha2.VirtualMachine) bool {
 	for _, c := range vm.Status.Conditions {
 		switch vmcondition.Type(c.Type) {
 		case vmcondition.TypeBlockDevicesReady:
-			if c.Status != metav1.ConditionTrue && c.Reason != vmcondition.ReasonWaitingForProvisioningToPVC.String() {
+			if c.Status != metav1.ConditionTrue && c.Reason != vmcondition.ReasonWaitingForWaitForFirstConsumerBlockDevicesToBeReady.String() {
 				return false
 			}
 
@@ -286,7 +286,7 @@ func checkVirtualMachineConfiguration(vm *v1alpha2.VirtualMachine) bool {
 			}
 
 		case vmcondition.TypeNetworkReady:
-			if c.Status == metav1.ConditionFalse && c.Reason == vmcondition.ReasonSDNModuleDisable.String() {
+			if c.Status == metav1.ConditionFalse && c.Reason == vmcondition.ReasonSDNModuleDisabled.String() {
 				return false
 			}
 		}

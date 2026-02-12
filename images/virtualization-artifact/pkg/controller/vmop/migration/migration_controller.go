@@ -17,6 +17,7 @@ limitations under the License.
 package migration
 
 import (
+	"k8s.io/component-base/featuregate"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -33,10 +34,10 @@ const (
 	controllerName = "vmop-migration-controller"
 )
 
-func NewController(client client.Client, mgr manager.Manager) *Controller {
+func NewController(client client.Client, mgr manager.Manager, featureGate featuregate.FeatureGate) *Controller {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, controllerName)
 	baseSvc := genericservice.NewBaseVMOPService(client, recorder)
-	migration := service.NewMigrationService(client)
+	migration := service.NewMigrationService(client, featureGate)
 	return &Controller{
 		watchers: []reconciler.Watcher{
 			watcher.NewVMOPWatcher(),

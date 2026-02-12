@@ -219,13 +219,9 @@ func (h MigrationHandler) getActionIfMigrationInProgress(ctx context.Context, vd
 	}
 
 	// If migration is in progress. VirtualMachine must have the migrating condition.
-	migrating, migratingFound := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
+	_, migratingFound := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
 	if !migratingFound {
 		log.Info("VirtualMachine is not migrating. Will be reverted.", slog.String("vm.name", vm.Name), slog.String("vm.namespace", vm.Namespace))
-		return revert, nil
-	}
-	if migrating.Reason == vmcondition.ReasonLastMigrationFinishedWithError.String() {
-		log.Info("Last VirtualMachine migration failed. Will be reverted.", slog.String("vm.name", vm.Name), slog.String("vm.namespace", vm.Namespace))
 		return revert, nil
 	}
 
@@ -464,6 +460,12 @@ func (h MigrationHandler) getProvisionedCapacity(ctx context.Context, vd *v1alph
 func calculateTargetSize(ctx context.Context, size, realSize resource.Quantity) resource.Quantity {
 	if realSize.IsZero() {
 		logger.FromContext(ctx).Error("Failed to detect RealSize disk on KVVMI. Please report a bug.")
+		return size
+	}
+	// Use PVC requested size when the actual image size appears smaller.
+	// This handles filesystem overhead cases
+	// where the physical storage usage is less than the allocated PVC capacity.
+	if size.Cmp(realSize) == 1 {
 		return size
 	}
 	return realSize

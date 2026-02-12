@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2026 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,24 +14,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package lifecycle
+package backoff
 
 import (
-	"github.com/spf13/cobra"
+	"time"
 
-	"github.com/deckhouse/virtualization/src/cli/internal/templates"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-func NewEvictCommand() *cobra.Command {
-	lifecycle := NewLifecycle(Evict)
-	cmd := &cobra.Command{
-		Use:     "evict (VirtualMachine)",
-		Short:   "Evict a virtual machine.",
-		Example: lifecycle.Usage(),
-		Args:    templates.ExactArgs("evict", 1),
-		RunE:    lifecycle.Run,
+func CalculateBackOff(failedCount int) time.Duration {
+	if failedCount == 0 {
+		return 0
 	}
-	AddCommandLineArgs(cmd.Flags(), &lifecycle.opts)
-	cmd.SetUsageTemplate(templates.UsageTemplate())
-	return cmd
+
+	evacuationBackoff := wait.Backoff{
+		Duration: 2 * time.Second,
+		Factor:   2.0,
+		Jitter:   0,
+		Cap:      5 * time.Minute,
+		Steps:    failedCount,
+	}
+
+	return evacuationBackoff.Step()
 }

@@ -27,6 +27,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
+	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
 const VirtualMachineCount = 12
@@ -36,7 +37,7 @@ var _ = Describe("ComplexTest", Ordered, func() {
 		testCaseLabel            = map[string]string{"testcase": "complex-test"}
 		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "complex-test"}
 		ns                       string
-		phaseByVolumeBindingMode = GetPhaseByVolumeBindingModeForTemplateSc()
+		phaseByVolumeBindingMode = util.GetExpectedDiskPhaseByVolumeBindingMode()
 		f                        = framework.NewFramework("")
 	)
 

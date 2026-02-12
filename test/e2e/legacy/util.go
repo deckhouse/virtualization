@@ -332,6 +332,9 @@ func GetImmediateStorageClass(provisioner string) (*storagev1.StorageClass, erro
 	}
 
 	for _, sc := range scl.Items {
+		if sc.VolumeBindingMode == nil {
+			continue
+		}
 		if sc.Provisioner == provisioner && *sc.VolumeBindingMode == storagev1.VolumeBindingImmediate {
 			return &sc, nil
 		}
@@ -463,21 +466,6 @@ func GetCondition(conditionType string, obj client.Object) (metav1.Condition, er
 	}
 
 	return metav1.Condition{}, fmt.Errorf("condition %s not found", conditionType)
-}
-
-func GetPhaseByVolumeBindingModeForTemplateSc() string {
-	return GetPhaseByVolumeBindingMode(conf.StorageClass.TemplateStorageClass)
-}
-
-func GetPhaseByVolumeBindingMode(sc *storagev1.StorageClass) string {
-	switch *sc.VolumeBindingMode {
-	case storagev1.VolumeBindingImmediate:
-		return string(v1alpha2.DiskReady)
-	case storagev1.VolumeBindingWaitForFirstConsumer:
-		return string(v1alpha2.DiskWaitForFirstConsumer)
-	default:
-		return string(v1alpha2.DiskReady)
-	}
 }
 
 // Test data templates does not contain this resources, but this resources are created in test case.
@@ -640,7 +628,10 @@ func IsContainsLabelWithValue(obj client.Object, label, value string) bool {
 //
 // NOTE: This method is called in AfterEach for failed specs only. Avoid to use Expect,
 // as it fails without reporting. Better use GinkgoWriter to report errors at this point.
-func SaveTestCaseDump(labels map[string]string, additional, namespace string) {
+// leafNodeText: LeafNodeType, LeadNodeLocation, LeafNodeLabels and LeafNodeText capture the NodeType, CodeLocation, and text
+// of the Ginkgo node being tested (typically an NodeTypeIt node, though this can also be
+// one of the NodeTypesForSuiteLevelNodes node types)
+func SaveTestCaseDump(labels map[string]string, leafNodeText, namespace string) {
 	replacer := strings.NewReplacer(
 		" ", "_",
 		":", "_",
@@ -652,38 +643,40 @@ func SaveTestCaseDump(labels map[string]string, additional, namespace string) {
 		"`", "",
 		"'", "",
 	)
-	additional = replacer.Replace(strings.ToLower(additional))
+	leafNodeText = replacer.Replace(strings.ToLower(leafNodeText))
 
 	tmpDir := os.Getenv("RUNNER_TEMP")
 	if tmpDir == "" {
 		tmpDir = "/tmp"
 	}
 
-	SaveTestCaseResources(labels, additional, namespace, tmpDir)
-	SavePodLogsAndDescriptions(labels, additional, namespace, tmpDir)
-	SaveIntvirtvmDescriptions(labels, additional, namespace, tmpDir)
+	SaveTestCaseResources(labels, leafNodeText, namespace, tmpDir)
+	SavePodLogsAndDescriptions(labels, leafNodeText, namespace, tmpDir)
+	SaveIntvirtvmDescriptions(labels, leafNodeText, namespace, tmpDir)
+	SaveNodeOWide(labels, leafNodeText, tmpDir)
+	SaveNodeDescribe(labels, leafNodeText, tmpDir)
 }
 
-func SaveTestCaseResources(labels map[string]string, additional, namespace, dumpPath string) {
-	resFileName := fmt.Sprintf("%s/e2e_failed__%s__%s.yaml", dumpPath, labels["testcase"], additional)
+func SaveTestCaseResources(labels map[string]string, leafNodeText, namespace, dumpPath string) {
+	resFileName := fmt.Sprintf("%s/e2e_failed__%s__%s.yaml", dumpPath, labels["testcase"], leafNodeText)
 
 	clusterResourceResult := kubectl.Get("cvi,vmc", kc.GetOptions{
-		Labels:            labels,
-		Namespace:         namespace,
-		Output:            "yaml",
-		ShowManagedFields: true,
+		Labels:    labels,
+		Namespace: namespace,
+		Output:    "yaml",
 	})
 	if clusterResourceResult.Error() != nil {
-		GinkgoWriter.Printf("Get resources error:\n%s\n%w\n%s\n", clusterResourceResult.GetCmd(), clusterResourceResult.Error(), clusterResourceResult.StdErr())
+		GinkgoWriter.Printf("Get resources error:\n%s\n%v\n%s\n", clusterResourceResult.GetCmd(), clusterResourceResult.Error(), clusterResourceResult.StdErr())
+		return
 	}
 
 	namespacedResourceResult := kubectl.Get("virtualization,intvirt,pod,volumesnapshot,pvc", kc.GetOptions{
-		Namespace:         namespace,
-		Output:            "yaml",
-		ShowManagedFields: true,
+		Namespace: namespace,
+		Output:    "yaml",
 	})
 	if namespacedResourceResult.Error() != nil {
-		GinkgoWriter.Printf("Get resources error:\n%s\n%w\n%s\n", namespacedResourceResult.GetCmd(), namespacedResourceResult.Error(), namespacedResourceResult.StdErr())
+		GinkgoWriter.Printf("Get resources error:\n%s\n%v\n%s\n", namespacedResourceResult.GetCmd(), namespacedResourceResult.Error(), namespacedResourceResult.StdErr())
+		return
 	}
 
 	// Stdout may present even if error is occurred.
@@ -698,19 +691,22 @@ func SaveTestCaseResources(labels map[string]string, additional, namespace, dump
 		err := os.WriteFile(resFileName, result, 0o644)
 		if err != nil {
 			GinkgoWriter.Printf("Save resources to file '%s' failed: %s\n", resFileName, err)
+			return
 		}
 	}
 }
 
-func SavePodLogsAndDescriptions(labels map[string]string, additional, namespace, dumpPath string) {
+func SavePodLogsAndDescriptions(labels map[string]string, leafNodeText, namespace, dumpPath string) {
 	pods := &corev1.PodList{}
 	err := GetObjects(kc.ResourcePod, pods, kc.GetOptions{Namespace: namespace})
 	if err != nil {
 		GinkgoWriter.Printf("Failed to get PodList:\n%s\n", err)
+		return
 	}
 
 	if len(pods.Items) == 0 {
 		GinkgoWriter.Println("The list of pods is empty; nothing to dump.")
+		return
 	}
 
 	for _, pod := range pods.Items {
@@ -718,54 +714,93 @@ func SavePodLogsAndDescriptions(labels map[string]string, additional, namespace,
 		logCmd := kubectl.RawCommand(fmt.Sprintf("logs %s --namespace %s", pod.Name, pod.Namespace), framework.ShortTimeout)
 		if logCmd.Error() != nil {
 			GinkgoWriter.Printf("Failed to get logs:\nPodName: %s\nError: %s\n", pod.Name, logCmd.StdErr())
+			continue
 		}
 
-		fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__%s__logs.json", dumpPath, labels["testcase"], additional, pod.Name)
+		fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__%s__logs.json", dumpPath, labels["testcase"], leafNodeText, pod.Name)
 		err := os.WriteFile(fileName, logCmd.StdOutBytes(), 0o644)
 		if err != nil {
 			GinkgoWriter.Printf("Failed to save logs:\nPodName: %s\nError: %s\n", pod.Name, err)
+			continue
 		}
 
 		// Get pod descriptions
 		describeCmd := kubectl.RawCommand(fmt.Sprintf("describe pod %s --namespace %s", pod.Name, pod.Namespace), framework.ShortTimeout)
 		if describeCmd.Error() != nil {
 			GinkgoWriter.Printf("Failed to describe pod:\nPodName: %s\nError: %s\n", pod.Name, describeCmd.StdErr())
+			continue
 		}
 
-		fileName = fmt.Sprintf("%s/e2e_failed__%s__%s__%s__describe", dumpPath, labels["testcase"], additional, pod.Name)
+		fileName = fmt.Sprintf("%s/e2e_failed__%s__%s__%s__describe", dumpPath, labels["testcase"], leafNodeText, pod.Name)
 		err = os.WriteFile(fileName, describeCmd.StdOutBytes(), 0o644)
 		if err != nil {
 			GinkgoWriter.Printf("Failed to save pod description:\nPodName: %s\nError: %s\n", pod.Name, err)
+			continue
 		}
 
 		// Get pod guest info
 		if pod.Labels != nil && pod.Status.Phase == corev1.PodRunning {
 			if value, ok := pod.Labels["kubevirt.internal.virtualization.deckhouse.io"]; ok && value == "virt-launcher" {
-				vlctlGuestInfoCmd := kubectl.RawCommand(fmt.Sprintf("exec --stdin=true --tty=true %s --namespace %s -- vlctl guest info", pod.Name, pod.Namespace), framework.ShortTimeout)
+				vlctlGuestInfoCmd := kubectl.RawCommand(fmt.Sprintf("exec %s --namespace %s -- vlctl guest info", pod.Name, pod.Namespace), framework.ShortTimeout)
 				if vlctlGuestInfoCmd.Error() != nil {
 					GinkgoWriter.Printf("Failed to get pod guest info:\nPodName: %s\nError: %s\n", pod.Name, vlctlGuestInfoCmd.StdErr())
+					continue
 				}
 
-				fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__%s__vlctl_guest_info", dumpPath, labels["testcase"], additional, pod.Name)
+				fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__%s__vlctl_guest_info", dumpPath, labels["testcase"], leafNodeText, pod.Name)
 				err := os.WriteFile(fileName, vlctlGuestInfoCmd.StdOutBytes(), 0o644)
 				if err != nil {
 					GinkgoWriter.Printf("Failed to save pod guest info:\nPodName: %s\nError: %s\n", pod.Name, err)
+					continue
 				}
 			}
 		}
 	}
 }
 
-func SaveIntvirtvmDescriptions(labels map[string]string, additional, namespace, dumpPath string) {
+func SaveIntvirtvmDescriptions(labels map[string]string, leafNodeText, namespace, dumpPath string) {
 	describeCmd := kubectl.RawCommand(fmt.Sprintf("describe intvirtvm --namespace %s", namespace), framework.ShortTimeout)
 	if describeCmd.Error() != nil {
 		GinkgoWriter.Printf("Failed to describe InternalVirtualizationVirtualMachine:\nError: %s\n", describeCmd.StdErr())
+		return
 	}
 
-	fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__intvirtvm_describe", dumpPath, labels["testcase"], additional)
+	fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__intvirtvm_describe", dumpPath, labels["testcase"], leafNodeText)
 	err := os.WriteFile(fileName, describeCmd.StdOutBytes(), 0o644)
 	if err != nil {
 		GinkgoWriter.Printf("Failed to save InternalVirtualizationVirtualMachine description:\nError: %s\n", err)
+		return
+	}
+}
+
+func SaveNodeOWide(labels map[string]string, leafNodeText, dumpPath string) {
+	GinkgoHelper()
+	cmd := kubectl.RawCommand("get nodes -o wide", framework.ShortTimeout)
+	if cmd.Error() != nil {
+		GinkgoWriter.Printf("Failed to get node owide:\nCmdError: %v\nError: %s\n", cmd.Error(), cmd.StdErr())
+		return
+	}
+	fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__nodes_owide.log", dumpPath, labels["testcase"], leafNodeText)
+	err := os.WriteFile(fileName, cmd.StdOutBytes(), 0o644)
+	if err != nil {
+		GinkgoWriter.Printf("Failed to save node owide:\nError: %v\n", err)
+		return
+	}
+}
+
+func SaveNodeDescribe(labels map[string]string, leafNodeText, dumpPath string) {
+	GinkgoHelper()
+	cmd := kubectl.RawCommand("describe nodes", framework.ShortTimeout)
+	if cmd.Error() != nil {
+		GinkgoWriter.Printf("Failed to get node describe:\nCmdError: %v\nError: %s\n", cmd.Error(), cmd.StdErr())
+		return
+	}
+
+	fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__nodes_describe.log", dumpPath, labels["testcase"], leafNodeText)
+	err := os.WriteFile(fileName, cmd.StdOutBytes(), 0o644)
+	if err != nil {
+		GinkgoWriter.Printf("Failed to save node describe:\nError: %v\n", err)
+		return
 	}
 }
 

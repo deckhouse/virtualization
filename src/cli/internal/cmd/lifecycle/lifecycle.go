@@ -18,6 +18,7 @@ package lifecycle
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -26,6 +27,8 @@ import (
 	"github.com/spf13/pflag"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
@@ -41,6 +44,7 @@ const (
 	Start   Command = "start"
 	Restart Command = "restart"
 	Evict   Command = "evict"
+	Migrate Command = "migrate"
 )
 
 type Manager interface {
@@ -48,18 +52,25 @@ type Manager interface {
 	Start(ctx context.Context, name, namespace string) (msg string, err error)
 	Restart(ctx context.Context, name, namespace string) (msg string, err error)
 	Evict(ctx context.Context, name, namespace string) (msg string, err error)
+	Migrate(ctx context.Context, name, namespace, targetNodeName string) (msg string, err error)
 }
 
 func NewLifecycle(cmd Command) *Lifecycle {
 	return &Lifecycle{
 		cmd:  cmd,
 		opts: DefaultOptions(),
+		migrationOpts: MigrationOpts{
+			TargetNodeName: "",
+		},
 	}
 }
 
+// TODO: Refactor this structure because `Lifecycle` is a common object
+// and should not process custom flags for each subcommand like `Migrate`.
 type Lifecycle struct {
-	cmd  Command
-	opts Options
+	cmd           Command
+	opts          Options
+	migrationOpts MigrationOpts
 }
 
 func DefaultOptions() Options {
@@ -76,6 +87,10 @@ type Options struct {
 	WaitComplete bool
 	CreateOnly   bool
 	Timeout      time.Duration
+}
+
+type MigrationOpts struct {
+	TargetNodeName string
 }
 
 func (l *Lifecycle) Run(cmd *cobra.Command, args []string) error {
@@ -106,6 +121,9 @@ func (l *Lifecycle) Run(cmd *cobra.Command, args []string) error {
 	case Evict:
 		cmd.Printf("Evicting virtual machine %q\n", key.String())
 		msg, err = mgr.Evict(ctx, name, namespace)
+	case Migrate:
+		cmd.Printf("Migrating virtual machine %q\n", key.String())
+		msg, err = mgr.Migrate(ctx, name, namespace, l.migrationOpts.TargetNodeName)
 	default:
 		return fmt.Errorf("invalid command %q", l.cmd)
 	}
@@ -154,6 +172,39 @@ func (l *Lifecycle) getManager(client kubeclient.Client) Manager {
 	)
 }
 
+func (l *Lifecycle) ValidateNodeName(cmd *cobra.Command, vmName, targetNodeName string) error {
+	if !cmd.Flags().Changed("target-node-name") {
+		return nil
+	}
+
+	if targetNodeName == "" {
+		return errors.New("flag --target-node-name cannot be empty")
+	}
+
+	client, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	if err != nil {
+		return err
+	}
+
+	vm, err := client.VirtualMachines(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if targetNodeName == vm.Status.Node {
+		return fmt.Errorf("the virtual machine cannot be migrated to the same node: %s", vm.Status.Node)
+	}
+
+	_, err = client.CoreV1().Nodes().Get(context.Background(), targetNodeName, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return fmt.Errorf("there is no node with the name %s in the cluster", targetNodeName)
+		}
+		return fmt.Errorf("failed to validate target node name: %w", err)
+	}
+
+	return nil
+}
+
 const (
 	forceFlag, forceFlagShort           = "force", "f"
 	waitFlag, waitFlagShort             = "wait", "w"
@@ -161,13 +212,19 @@ const (
 	timeoutFlag, timeoutFlagShort       = "timeout", "t"
 )
 
-func AddCommandlineArgs(flagset *pflag.FlagSet, opts *Options) {
+func AddCommandLineArgs(flagset *pflag.FlagSet, opts *Options) {
 	flagset.BoolVarP(&opts.Force, forceFlag, forceFlagShort, opts.Force,
-		fmt.Sprintf("--%s, -%s: Set this flag to force the operation.", forceFlag, forceFlagShort))
+		"Set this flag to force the operation.")
 	flagset.BoolVarP(&opts.WaitComplete, waitFlag, waitFlagShort, opts.WaitComplete,
-		fmt.Sprintf("--%s, -%s: Set this flag to wait for the operation to complete.", waitFlag, waitFlagShort))
+		"Set this flag to wait for the operation to complete.")
 	flagset.BoolVarP(&opts.CreateOnly, createOnlyFlag, createOnlyFlagShort, opts.CreateOnly,
-		fmt.Sprintf("--%s, -%s: Set this flag for create operation only.", createOnlyFlag, createOnlyFlagShort))
+		"Set this flag for create operation only.")
 	flagset.DurationVarP(&opts.Timeout, timeoutFlag, timeoutFlagShort, opts.Timeout,
-		fmt.Sprintf("--%s, -%s: Set this flag to change the timeout.", timeoutFlag, timeoutFlagShort))
+		"Set this flag to change the timeout.")
+}
+
+func AddCommandLineMigrationArgs(flagset *pflag.FlagSet, migrationOpts *MigrationOpts) {
+	flagset.StringVar(&migrationOpts.TargetNodeName, "target-node-name", "",
+		"Set the target node name for virtual machine migration.",
+	)
 }

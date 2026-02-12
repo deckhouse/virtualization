@@ -24,6 +24,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -174,4 +175,22 @@ func ReadFile(f *framework.Framework, vm *v1alpha2.VirtualMachine, path string) 
 	cmdOut, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo cat %s", path))
 	Expect(err).NotTo(HaveOccurred())
 	return strings.TrimSpace(cmdOut)
+}
+
+// GetExpectedDiskPhaseByVolumeBindingMode returns the expected disk phase based on the TemplateStorageClass VolumeBindingMode.
+// For Immediate binding mode, disks become Ready immediately.
+// For WaitForFirstConsumer binding mode, disks wait until attached to a VM.
+func GetExpectedDiskPhaseByVolumeBindingMode() string {
+	sc := framework.GetConfig().StorageClass.TemplateStorageClass
+	if sc == nil || sc.VolumeBindingMode == nil {
+		return string(v1alpha2.DiskReady)
+	}
+	switch *sc.VolumeBindingMode {
+	case storagev1.VolumeBindingImmediate:
+		return string(v1alpha2.DiskReady)
+	case storagev1.VolumeBindingWaitForFirstConsumer:
+		return string(v1alpha2.DiskWaitForFirstConsumer)
+	default:
+		return string(v1alpha2.DiskReady)
+	}
 }

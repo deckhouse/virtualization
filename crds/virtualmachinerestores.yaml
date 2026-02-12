@@ -30,6 +30,10 @@ spec:
           jsonPath: .metadata.creationTimestamp
           name: Age
           type: date
+      deprecated: true
+      deprecationWarning:
+        The VirtualMachineRestore resource is deprecated, consider
+        using VirtualMachineOperation with type Restore/Clone
       name: v1alpha2
       schema:
         openAPIV3Schema:

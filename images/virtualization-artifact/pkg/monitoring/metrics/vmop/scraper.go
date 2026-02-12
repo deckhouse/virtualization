@@ -37,6 +37,9 @@ type scraper struct {
 
 func (s *scraper) Report(m *dataMetric) {
 	s.updateMetricVMOPStatusPhase(m)
+	s.updateMetricVMOPCreatedTimestamp(m)
+	s.updateMetricVMOPStartedTimestamp(m)
+	s.updateMetricVMOPFinishedTimestamp(m)
 }
 
 func (s *scraper) updateMetricVMOPStatusPhase(m *dataMetric) {
@@ -59,6 +62,30 @@ func (s *scraper) updateMetricVMOPStatusPhase(m *dataMetric) {
 		s.defaultUpdate(MetricVMOPStatusPhase,
 			common.BoolFloat64(p.value), m, p.name)
 	}
+}
+
+func (s *scraper) updateMetricVMOPCreatedTimestamp(m *dataMetric) {
+	if m.CreatedAt == 0 {
+		return
+	}
+	s.defaultUpdate(MetricVMOPCreatedTimestamp,
+		float64(m.CreatedAt), m)
+}
+
+func (s *scraper) updateMetricVMOPStartedTimestamp(m *dataMetric) {
+	if m.StartedAt == 0 {
+		return
+	}
+	s.defaultUpdate(MetricVMOPStartedTimestamp,
+		float64(m.StartedAt), m)
+}
+
+func (s *scraper) updateMetricVMOPFinishedTimestamp(m *dataMetric) {
+	if m.FinishedAt == 0 {
+		return
+	}
+	s.defaultUpdate(MetricVMOPFinishedTimestamp,
+		float64(m.FinishedAt), m)
 }
 
 func (s *scraper) defaultUpdate(descName string, value float64, m *dataMetric, labels ...string) {

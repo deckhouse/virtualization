@@ -34,6 +34,7 @@ func GetPodCondition(condType corev1.PodConditionType, conds []corev1.PodConditi
 
 const (
 	DVRunningConditionType          cdiv1.DataVolumeConditionType = "Running"
+	DVRunningConditionPendingReason string                        = "Pending"
 	DVQoutaNotExceededConditionType cdiv1.DataVolumeConditionType = "QuotaNotExceeded"
 	DVImagePullFailedReason         string                        = "ImagePullFailed"
 )
