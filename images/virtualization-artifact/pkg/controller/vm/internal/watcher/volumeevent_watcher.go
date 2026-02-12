@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Flant JSC
+Copyright 2026 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -33,6 +33,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
+const (
+	ReasonFailedAttachVolume = "FailedAttachVolume"
+	ReasonFailedMount        = "FailedMount"
+)
+
 func NewVolumeEventWatcher(client client.Client) *VolumeEventWatcher {
 	return &VolumeEventWatcher{
 		client: client,
@@ -53,7 +58,7 @@ func (w *VolumeEventWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 					return nil
 				}
 
-				if e.Reason != "FailedAttachVolume" && e.Reason != "FailedMount" {
+				if e.Reason != ReasonFailedAttachVolume && e.Reason != ReasonFailedMount {
 					return nil
 				}
 
@@ -82,7 +87,7 @@ func (w *VolumeEventWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 			predicate.TypedFuncs[*corev1.Event]{
 				CreateFunc: func(e event.TypedCreateEvent[*corev1.Event]) bool {
 					return e.Object.Type == corev1.EventTypeWarning &&
-						(e.Object.Reason == "FailedAttachVolume" || e.Object.Reason == "FailedMount")
+						(e.Object.Reason == ReasonFailedAttachVolume || e.Object.Reason == ReasonFailedMount)
 				},
 				UpdateFunc: func(e event.TypedUpdateEvent[*corev1.Event]) bool {
 					return false

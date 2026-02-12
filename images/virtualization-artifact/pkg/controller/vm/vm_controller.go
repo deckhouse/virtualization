@@ -20,10 +20,8 @@ import (
 	"context"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
@@ -45,24 +43,6 @@ const (
 	ControllerName = "vm-controller"
 )
 
-func setupEventIndexes(ctx context.Context, mgr manager.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(ctx, &corev1.Event{}, "involvedObject.name", func(obj client.Object) []string {
-		event := obj.(*corev1.Event)
-		return []string{event.InvolvedObject.Name}
-	}); err != nil {
-		return err
-	}
-
-	if err := mgr.GetFieldIndexer().IndexField(ctx, &corev1.Event{}, "involvedObject.kind", func(obj client.Object) []string {
-		event := obj.(*corev1.Event)
-		return []string{event.InvolvedObject.Kind}
-	}); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func SetupController(
 	ctx context.Context,
 	mgr manager.Manager,
@@ -70,10 +50,6 @@ func SetupController(
 	dvcrSettings *dvcr.Settings,
 	firmwareImage string,
 ) error {
-	if err := setupEventIndexes(ctx, mgr); err != nil {
-		return err
-	}
-
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	mgrCache := mgr.GetCache()
 	client := mgr.GetClient()
