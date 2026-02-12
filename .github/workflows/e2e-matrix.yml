@@ -106,6 +106,7 @@ jobs:
 
   power-off-vms-for-nested:
     name: Power off VMs for nested clusters
+    if: github.event_name != 'pull_request'
     needs: cleanup-nested-clusters
     runs-on: ubuntu-latest
     steps:
@@ -653,4 +654,4 @@ jobs:
             curl --request POST --header 'Content-Type: application/json' --data "{\"text\": \"${COMBINED_SUMMARY}\"}" "$LOOP_WEBHOOK_URL"
           fi
         env:
-          LOOP_WEBHOOK_URL: ${{ secrets.LOOP_TEST_CHANNEL }}
+          LOOP_WEBHOOK_URL: ${{ secrets.LOOP_TEST_CHANNEL }} # LOOP_WEBHOOK_URL
