@@ -1364,9 +1364,9 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "sum by (applied_virtualmachineclass) (\n    max by (namespace, name, applied_virtualmachineclass) (\n        d8_virtualization_virtualmachine_info{namespace=~\"$namespace\"}\n    )\n    * on(namespace, name) group_left()\n    (\n        max by (namespace, name) (\n            d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\", phase!~\"(Pending|Stopped)\"} == 1\n        )\n    )\n)",
+              "expr": "sum by (virtualmachineclass) (\n    max by (namespace, name, virtualmachineclass) (\n        d8_virtualization_virtualmachine_info{namespace=~\"$namespace\"}\n    )\n    * on(namespace, name) group_left()\n    (\n        max by (namespace, name) (\n            d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\", phase!~\"(Pending|Stopped)\"} == 1\n        )\n    )\n)",
               "instant": true,
-              "legendFormat": "{{applied_virtualmachineclass}}",
+              "legendFormat": "{{virtualmachineclass}}",
               "range": false,
               "refId": "A"
             }

@@ -1341,7 +1341,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "applied_virtualmachineclass"
+              "options": "virtualmachineclass"
             },
             "properties": [
               {
@@ -1677,7 +1677,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "max by (namespace, name, applied_virtualmachineclass, node) (d8_virtualization_virtualmachine_info{namespace=~\"$namespace\"})",
+          "expr": "max by (namespace, name, virtualmachineclass, node) (d8_virtualization_virtualmachine_info{namespace=~\"$namespace\"})",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -1701,7 +1701,7 @@
               "names": [
                 "name",
                 "phase",
-                "applied_virtualmachineclass",
+                "virtualmachineclass",
                 "node",
                 "Value #Agent",
                 "Value #CPUOSUsage",
@@ -1741,7 +1741,7 @@
               "Value #NetworkBandwidthRX": 13,
               "Value #NetworkBandwidthTX": 14,
               "Value #SnapshotCount": 16,
-              "applied_virtualmachineclass": 4,
+              "virtualmachineclass": 4,
               "name": 0,
               "node": 3,
               "phase": 1

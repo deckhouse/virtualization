@@ -271,7 +271,7 @@
           "calcs": [
             "last"
           ],
-          "fields": "/^applied_virtualmachineclass$/",
+          "fields": "/^virtualmachineclass$/",
           "values": false
         },
         "showPercentChange": false,

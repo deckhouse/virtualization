@@ -177,7 +177,7 @@ var virtualMachineMetrics = map[string]metrics.MetricInfo{
 	MetricVirtualMachineInfo: metrics.NewMetricInfo(MetricVirtualMachineInfo,
 		"Information about the virtualmachine including the applied virtualmachineclass.",
 		prometheus.GaugeValue,
-		WithBaseLabels("applied_virtualmachineclass"),
+		WithBaseLabels("virtualmachineclass"),
 		nil,
 	),
 }
