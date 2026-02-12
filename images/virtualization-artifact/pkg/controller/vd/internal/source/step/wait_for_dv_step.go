@@ -135,9 +135,10 @@ func (s WaitForDVStep) setForFirstConsumerIsAwaited(ctx context.Context, vd *v1a
 		return false, fmt.Errorf("get sc: %w", err)
 	}
 
-	dvRunningCond, _ := conditions.GetDataVolumeCondition(conditions.DVRunningConditionType, s.dv.Status.Conditions)
 	isWFFC := sc != nil && sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer
-	if isWFFC && (s.dv.Status.Phase == cdiv1.PendingPopulation || s.dv.Status.Phase == cdiv1.WaitForFirstConsumer) && dvRunningCond.Reason == "" {
+	dvRunningCond, _ := conditions.GetDataVolumeCondition(conditions.DVRunningConditionType, s.dv.Status.Conditions)
+	dvRunningReasonEmptyOrPending := dvRunningCond.Reason == "" || dvRunningCond.Reason == conditions.DVRunningConditionPendingReason
+	if isWFFC && (s.dv.Status.Phase == cdiv1.PendingPopulation || s.dv.Status.Phase == cdiv1.WaitForFirstConsumer) && dvRunningReasonEmptyOrPending {
 		vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
 		s.cb.
 			Status(metav1.ConditionFalse).
