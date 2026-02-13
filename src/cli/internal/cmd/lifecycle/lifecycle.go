@@ -82,6 +82,9 @@ func DefaultOptions() Options {
 	}
 }
 
+// TODO: If none of the flags are set, the operation output appears as if the `CreateOnly` flag is `true`,
+// although in reality, it is `false`. This flag should be refactored.
+// Consider changing it to a `silence` flag, which could be useful in scripting.
 type Options struct {
 	Force        bool
 	WaitComplete bool
@@ -144,7 +147,7 @@ func (l *Lifecycle) Usage() string {
   {{ProgramName}} {{operation}} --%s=1m myvm
   # Configure wait vm phase (default: wait=%v)
   {{ProgramName}} {{operation}} --%s myvm`, opts.Timeout, timeoutFlag, opts.WaitComplete, waitFlag), "{{operation}}", string(l.cmd))
-	if l.cmd != Start && l.cmd != Evict {
+	if l.cmd != Start && l.cmd != Evict && l.cmd != Migrate {
 		usage += fmt.Sprintf(`
   # Configure shutdown policy (default: force=%v)
   {{ProgramName}} %s --%s myvm`, opts.Force, l.cmd, forceFlag)
@@ -218,7 +221,7 @@ func AddCommandLineArgs(flagset *pflag.FlagSet, opts *Options) {
 	flagset.BoolVarP(&opts.WaitComplete, waitFlag, waitFlagShort, opts.WaitComplete,
 		"Set this flag to wait for the operation to complete.")
 	flagset.BoolVarP(&opts.CreateOnly, createOnlyFlag, createOnlyFlagShort, opts.CreateOnly,
-		"Set this flag for create operation only.")
+		"Set this flag if required only create action, and if any warnings or notifications about the operation status do not required.")
 	flagset.DurationVarP(&opts.Timeout, timeoutFlag, timeoutFlagShort, opts.Timeout,
 		"Set this flag to change the timeout.")
 }
