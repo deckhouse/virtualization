@@ -65,6 +65,7 @@ var _ = Describe("Generator", func() {
 			Entry("DataVolume", func(g Generator) types.NamespacedName { return g.DataVolume() }, "vi"),
 			Entry("PersistentVolumeClaim", func(g Generator) types.NamespacedName { return g.PersistentVolumeClaim() }, "vi"),
 			Entry("NetworkPolicy", func(g Generator) types.NamespacedName { return g.NetworkPolicy() }, "vi"),
+			Entry("CommonSupplement", func(g Generator) types.NamespacedName { return g.CommonSupplement() }, "vi"),
 		)
 
 		DescribeTable("should truncate long names to respect limits",
@@ -91,6 +92,7 @@ var _ = Describe("Generator", func() {
 			Entry("DataVolume - 253 limit", func(g Generator) types.NamespacedName { return g.DataVolume() }, kvalidation.DNS1123SubdomainMaxLength),
 			Entry("PersistentVolumeClaim - 253 limit", func(g Generator) types.NamespacedName { return g.PersistentVolumeClaim() }, kvalidation.DNS1123SubdomainMaxLength),
 			Entry("NetworkPolicy - 253 limit", func(g Generator) types.NamespacedName { return g.NetworkPolicy() }, kvalidation.DNS1123SubdomainMaxLength),
+			Entry("CommonSupplement - 253 limit", func(g Generator) types.NamespacedName { return g.CommonSupplement() }, kvalidation.DNS1123SubdomainMaxLength),
 		)
 	})
 })

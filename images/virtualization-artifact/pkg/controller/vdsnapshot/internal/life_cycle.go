@@ -35,6 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdscondition"
@@ -58,7 +59,11 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 
 	defer func() { conditions.SetCondition(cb, &vdSnapshot.Status.Conditions) }()
 
-	vs, err := h.snapshotter.GetVolumeSnapshot(ctx, vdSnapshot.Name, vdSnapshot.Namespace)
+	vsName := vdSnapshot.Status.VolumeSnapshotName
+	if vsName == "" {
+		vsName = supplements.NewGenerator("vds", vdSnapshot.Name, vdSnapshot.Namespace, vdSnapshot.UID).CommonSupplement().Name
+	}
+	vs, err := h.snapshotter.GetVolumeSnapshot(ctx, vsName, vdSnapshot.Namespace)
 	if err != nil {
 		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
 		return reconcile.Result{}, err
@@ -333,7 +338,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		vs = &vsv1.VolumeSnapshot{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: anno,
-				Name:        vdSnapshot.Name,
+				Name:        vsName,
 				Namespace:   vdSnapshot.Namespace,
 				OwnerReferences: []metav1.OwnerReference{
 					service.MakeOwnerReference(vdSnapshot),
