@@ -26,7 +26,7 @@ spec:
     # See the License for the specific language governing permissions and
     # limitations under the License.
 
-    {{ "{{- if and (eq .cri \"Containerd\") not ((.registry).registryModuleEnable) }}" }}
+    {{ "{{- if and (eq .cri \"Containerd\") (not (.registry).registryModuleEnable) }}" }}
 
     bb-event-on 'registry-ca-changed' '_restart_containerd'
     bb-event-on 'containerd-config-changed' '_restart_containerd'
