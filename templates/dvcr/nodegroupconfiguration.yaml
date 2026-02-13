@@ -64,11 +64,11 @@ spec:
 
     mkdir -p "/etc/containerd/registry.d/{{ $registry }}"
     mkdir -p "/etc/containerd/certs.d/{{ $registry }}"
-    bb-sync-file "/etc/containerd/certs.d/{{ $registry }}/ca.crt" - registry-ca-changed << "EOF"
+    bb-sync-file "/etc/containerd/certs.d/{{ $registry }}/ca.crt" - << "EOF"
     {{- $ca | nindent 4 }}
     EOF
 
-    bb-sync-file "/etc/containerd/registry.d/{{ $registry }}/hosts.toml" - containerd-config-changed << "EOF"
+    bb-sync-file "/etc/containerd/registry.d/{{ $registry }}/hosts.toml" - << "EOF"
     server = "https://{{ $registry }}"
     [host."https://{{ $endpoint }}"]
       capabilities = ["pull", "resolve"]
