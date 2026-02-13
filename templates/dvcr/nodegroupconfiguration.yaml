@@ -26,13 +26,13 @@ spec:
     # See the License for the specific language governing permissions and
     # limitations under the License.
 
+    {{ "{{- if and (eq .cri \"Containerd\") (not .(registry).registryModuleEnable) }}" }}
+
     bb-event-on 'registry-ca-changed' '_restart_containerd'
     bb-event-on 'containerd-config-changed' '_restart_containerd'
     _restart_containerd() {
         bb-flag-set containerd-need-restart
     }
-
-    {{ "{{- if and (eq .cri \"Containerd\") (not .registry.registryModuleEnable) }}" }}
 
     mkdir -p /etc/containerd/conf.d
     bb-sync-file /etc/containerd/conf.d/dvcr-ca.crt - registry-ca-changed << "EOF"
