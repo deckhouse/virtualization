@@ -62,6 +62,19 @@ func setupEnvironment(vm *v1alpha2.VirtualMachine, objs ...client.Object) (clien
 	return fakeClient, resource, vmState
 }
 
+func newEmptyKVVM(name, namespace string) *virtv1.VirtualMachine {
+	return &virtv1.VirtualMachine{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: virtv1.GroupVersion.String(),
+			Kind:       "VirtualMachine",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+	}
+}
+
 func newEmptyKVVMI(name, namespace string) *virtv1.VirtualMachineInstance {
 	return &virtv1.VirtualMachineInstance{
 		TypeMeta: metav1.TypeMeta{
