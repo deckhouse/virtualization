@@ -221,7 +221,7 @@ func AddCommandLineArgs(flagset *pflag.FlagSet, opts *Options) {
 	flagset.BoolVarP(&opts.WaitComplete, waitFlag, waitFlagShort, opts.WaitComplete,
 		"Set this flag to wait for the operation to complete.")
 	flagset.BoolVarP(&opts.CreateOnly, createOnlyFlag, createOnlyFlagShort, opts.CreateOnly,
-		"Set this flag if required only create action, and if any warnings or notifications about the operation status do not required.")
+		"Set this flag to only create the action without status warnings or notifications.")
 	flagset.DurationVarP(&opts.Timeout, timeoutFlag, timeoutFlagShort, opts.Timeout,
 		"Set this flag to change the timeout.")
 }
