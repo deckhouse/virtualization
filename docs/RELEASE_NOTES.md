@@ -29,6 +29,12 @@ weight: 70
 
 - [module] Fixed vulnerabilities CVE-2025-61726, CVE-2025-61728, CVE-2025-61730, and CVE-2025-68121.
 
+## v1.4.1
+
+### Security
+
+- [module] Fixed vulnerabilities CVE-2025-61726, CVE-2025-61728, CVE-2025-61730, and CVE-2025-68121.
+
 ## v1.4.0
 
 ### New features
