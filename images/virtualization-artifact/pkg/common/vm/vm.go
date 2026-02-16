@@ -27,6 +27,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -114,4 +115,22 @@ func GetActivePodName(vm *v1alpha2.VirtualMachine) (string, bool) {
 	}
 
 	return "", false
+}
+
+// RemoveNonPropagatableAnnotations removes well known annotations that are dangerous to propagate.
+func RemoveNonPropagatableAnnotations(anno map[string]string) map[string]string {
+	res := make(map[string]string)
+
+	for k, v := range anno {
+		if k == annotations.LastPropagatedVMAnnotationsAnnotation || k == annotations.LastPropagatedVMLabelsAnnotation {
+			continue
+		}
+
+		if strings.HasPrefix(k, "kubectl.kubernetes.io") {
+			continue
+		}
+
+		res[k] = v
+	}
+	return res
 }

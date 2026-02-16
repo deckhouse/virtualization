@@ -26,30 +26,13 @@ spec:
     # See the License for the specific language governing permissions and
     # limitations under the License.
 
+    {{ "{{- if and (eq .cri \"Containerd\") (not ((.registry).registryModuleEnable)) }}" }}
+
     bb-event-on 'registry-ca-changed' '_restart_containerd'
     bb-event-on 'containerd-config-changed' '_restart_containerd'
     _restart_containerd() {
         bb-flag-set containerd-need-restart
     }
-
-    {{ "{{- if eq .cri \"ContainerdV2\" }}" }}
-
-    mkdir -p "/etc/containerd/registry.d/{{ $registry }}"
-    mkdir -p "/etc/containerd/certs.d/{{ $registry }}"
-    bb-sync-file "/etc/containerd/certs.d/{{ $registry }}/ca.crt" - registry-ca-changed << "EOF"
-    {{- $ca | nindent 4 }}
-    EOF
-
-    bb-sync-file "/etc/containerd/registry.d/{{ $registry }}/hosts.toml" - containerd-config-changed << "EOF"
-    server = "https://{{ $registry }}"
-    [host."https://{{ $endpoint }}"]
-      capabilities = ["pull", "resolve"]
-      ca = "/etc/containerd/certs.d/{{ $registry }}/ca.crt"
-    [host."https://{{ $endpoint }}".auth]
-      auth = {{  $password | quote }}
-    EOF
-
-    {{ "{{- else }}" }}
 
     mkdir -p /etc/containerd/conf.d
     bb-sync-file /etc/containerd/conf.d/dvcr-ca.crt - registry-ca-changed << "EOF"
@@ -71,6 +54,31 @@ spec:
             [plugins."io.containerd.grpc.v1.cri".registry.mirrors."{{ $registry }}"]
               endpoint = ["https://{{ $endpoint }}"]
     EOF
+
+    {{- if $registry }}
+    rm -rf "/etc/containerd/registry.d/{{ $registry }}"
+    rm -rf "/etc/containerd/certs.d/{{ $registry }}"
+    {{- end }}
+
+    {{ "{{- else }}" }}
+
+    mkdir -p "/etc/containerd/registry.d/{{ $registry }}"
+    mkdir -p "/etc/containerd/certs.d/{{ $registry }}"
+    bb-sync-file "/etc/containerd/certs.d/{{ $registry }}/ca.crt" - << "EOF"
+    {{- $ca | nindent 4 }}
+    EOF
+
+    bb-sync-file "/etc/containerd/registry.d/{{ $registry }}/hosts.toml" - << "EOF"
+    server = "https://{{ $registry }}"
+    [host."https://{{ $endpoint }}"]
+      capabilities = ["pull", "resolve"]
+      ca = "/etc/containerd/certs.d/{{ $registry }}/ca.crt"
+    [host."https://{{ $endpoint }}".auth]
+      auth = {{  $password | quote }}
+    EOF
+
+    rm -f /etc/containerd/conf.d/dvcr.toml
+    rm -f /etc/containerd/conf.d/dvcr-ca.crt
 
     {{ "{{- end }}" }}
 

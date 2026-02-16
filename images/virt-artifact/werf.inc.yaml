@@ -208,3 +208,8 @@ shell:
     {{- $_ := set $ "ProjectName" (list $.ImageName "virtctl" | join "/") }}
     - |
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virtctl ./cmd/virtctl/`) | nindent 6 }}
+
+    - echo ============== Build virt-launcher-hook ===============
+    {{- $_ := set $ "ProjectName" (list $.ImageName "virt-launcher-hook" | join "/") }}
+    - |
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-launcher-hook ./cmd/virt-launcher-hook/`) | nindent 6 }}

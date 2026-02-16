@@ -75,6 +75,14 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 			return reconcile.Result{}, nil
 		}
 
+		if vd.GetDeletionTimestamp() != nil {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vmbdacondition.BlockDeviceNotReady).
+				Message(fmt.Sprintf("VirtualDisk %q is being deleted. Delete VirtualMachineBlockDeviceAttachment to detach disk from the VirtualMachine.", vdKey.String()))
+			return reconcile.Result{}, nil
+		}
+
 		if vd.Generation != vd.Status.ObservedGeneration {
 			cb.
 				Status(metav1.ConditionFalse).
@@ -150,6 +158,14 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.BlockDeviceNotReady).
 				Message(fmt.Sprintf("VirtualImage %q not found.", viKey.String()))
+			return reconcile.Result{}, nil
+		}
+
+		if vi.GetDeletionTimestamp() != nil {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vmbdacondition.BlockDeviceNotReady).
+				Message(fmt.Sprintf("VirtualImage %q is being deleted. Delete VirtualMachineBlockDeviceAttachment to detach image from the VirtualMachine.", viKey.String()))
 			return reconcile.Result{}, nil
 		}
 
@@ -230,6 +246,15 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 				Message(fmt.Sprintf("ClusterVirtualImage %q not found.", cviKey.String()))
 			return reconcile.Result{}, nil
 		}
+
+		if cvi.GetDeletionTimestamp() != nil {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vmbdacondition.BlockDeviceNotReady).
+				Message(fmt.Sprintf("ClusterVirtualImage %q is being deleted. Delete VirtualMachineBlockDeviceAttachment to detach image from the VirtualMachine.", cviKey.String()))
+			return reconcile.Result{}, nil
+		}
+
 		if cvi.Generation != cvi.Status.ObservedGeneration {
 			cb.
 				Status(metav1.ConditionFalse).
