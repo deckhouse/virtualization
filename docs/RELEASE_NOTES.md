@@ -3,6 +3,12 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.5.1
+
+### Fixes
+
+- [vd] Fixed an issue with creating a virtual disk from a virtual image stored on a `PersistentVolumeClaim` (with `.spec.storage` set to `PersistentVolumeClaim`).
+
 ## v1.5.0
 
 ### New features
