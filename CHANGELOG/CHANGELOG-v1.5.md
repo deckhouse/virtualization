@@ -9,10 +9,10 @@
 ## Fixes
 
 
- - **[core]** Fixed vulnerabilities CVE-2025-61726, CVE-2025-61728, CVE-2025-61730, and CVE-2025-68121. [#1957](https://github.com/deckhouse/virtualization/pull/1957)
  - **[core]** Fixed an issue with starting virtual machines using the `EFIWithSecureBoot` bootloader when configured with more than 12 vCPUs. [#1916](https://github.com/deckhouse/virtualization/pull/1916)
  - **[module]** Platform system components in user projects are protected from deletion by users. [#1880](https://github.com/deckhouse/virtualization/pull/1880)
  - **[module]** During virtual machine migration, temporary double consumption of resources is no longer counted in project quotas. System component resources required for starting and running virtual machines are no longer counted in project quotas. [#1872](https://github.com/deckhouse/virtualization/pull/1872)
+ - **[vd]** Fixed an issue with creating a virtual disk from a virtual image stored on a `PersistentVolumeClaim` (with `.spec.storage` set to `PersistentVolumeClaim`). [#1983](https://github.com/deckhouse/virtualization/pull/1983)
  - **[vd]** Fixed an issue with live migration of a virtual machine between StorageClass with the `Filesystem` type. [#1940](https://github.com/deckhouse/virtualization/pull/1940)
  - **[vm]** Fixed a possible virtual machine hang in the `Pending` state during migration when changing the StorageClass. [#1903](https://github.com/deckhouse/virtualization/pull/1903)
  - **[vmop]** Fixed an issue with cloning a virtual machine whose disks use storage in `WaitForFirstConsumer` mode. [#1926](https://github.com/deckhouse/virtualization/pull/1926)

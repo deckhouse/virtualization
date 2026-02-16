@@ -63,7 +63,7 @@
                   "text": "Pause"
                 },
                 "4": {
-                  "color": "#30e3ca",
+                  "color": "#18a7b5",
                   "index": 3,
                   "text": "Pending"
                 },
@@ -188,7 +188,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 2,
+        "h": 6,
         "w": 3,
         "x": 3,
         "y": 1
@@ -219,7 +219,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "d8_virtualization_virtualmachine_pod{namespace=\"$namespace\", name=\"$name\"}==1",
+          "expr": "d8_virtualization_virtualmachine_info{namespace=\"$namespace\", name=\"$name\"}==1",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
@@ -235,7 +235,7 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
-      "description": "Instance CPU core count",
+      "description": "The VMClass that is actually applied to the running VM. May differ from spec.virtualMachineClassName if VM was not restarted after spec change.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -251,7 +251,7 @@
               }
             ]
           },
-          "unit": "none"
+          "unit": "string"
         },
         "overrides": []
       },
@@ -261,7 +261,7 @@
         "x": 6,
         "y": 1
       },
-      "id": 46,
+      "id": 89,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -269,9 +269,9 @@
         "orientation": "horizontal",
         "reduceOptions": {
           "calcs": [
-            "lastNotNull"
+            "last"
           ],
-          "fields": "",
+          "fields": "/^virtualmachineclass$/",
           "values": false
         },
         "showPercentChange": false,
@@ -287,14 +287,15 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "avg by (namespace,name) (d8_virtualization_virtualmachine_cpu_cores{namespace=\"$namespace\", name=\"$name\"})",
+          "expr": "d8_virtualization_virtualmachine_info{namespace=\"$namespace\", name=\"$name\"}==1",
+          "format": "table",
           "instant": true,
           "legendFormat": "__auto",
           "range": false,
           "refId": "A"
         }
       ],
-      "title": "CPU Cores",
+      "title": "VMClass",
       "type": "stat"
     },
     {
@@ -329,7 +330,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 6,
         "w": 3,
         "x": 9,
         "y": 1
@@ -402,7 +403,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 6,
         "w": 3,
         "x": 12,
         "y": 1
@@ -511,78 +512,6 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
-      "description": "This graph displays the total disk usage across all disks in the system as a percentage. It aggregates data from every filesystem, summing up used space and total capacity to provide an overall view of disk utilization. The calculation excludes temporary or cloud-init files to ensure accuracy.",
-      "fieldConfig": {
-        "defaults": {
-          "decimals": 1,
-          "mappings": [],
-          "thresholds": {
-            "mode": "percentage",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 70
-              },
-              {
-                "color": "red",
-                "value": 85
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 3,
-        "x": 18,
-        "y": 1
-      },
-      "id": 63,
-      "options": {
-        "minVizHeight": 75,
-        "minVizWidth": 75,
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true,
-        "sizing": "auto"
-      },
-      "pluginVersion": "10.4.19",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${ds_prometheus}"
-          },
-          "editorMode": "code",
-          "exemplar": false,
-          "expr": "avg by (name,namespace) (\n  sum by (name, namespace,pod) (\n    d8_virtualization_virtualmachine_filesystem_used_bytes{namespace=\"$namespace\", name=\"$name\", type!=\"cloudinit\",mount_point!~\".*(io.containerd.snapshotter.v1.erofs|/var/lib/kubelet/pods).*\"})\n  / \n  sum by (name, namespace,pod) (d8_virtualization_virtualmachine_filesystem_capacity_bytes / 100)\n)\n",
-          "instant": true,
-          "legendFormat": "{{mount_point}}",
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "title": "Total filesystem usage",
-      "type": "gauge"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${ds_prometheus}"
-      },
       "fieldConfig": {
         "defaults": {
           "mappings": [],
@@ -600,9 +529,9 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 6,
         "w": 3,
-        "x": 21,
+        "x": 18,
         "y": 1
       },
       "id": 66,
@@ -654,6 +583,78 @@
       ],
       "title": "Filesystem",
       "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds_prometheus}"
+      },
+      "description": "This graph displays the total disk usage across all disks in the system as a percentage. It aggregates data from every filesystem, summing up used space and total capacity to provide an overall view of disk utilization. The calculation excludes temporary or cloud-init files to ensure accuracy.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 1,
+          "mappings": [],
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 3,
+        "x": 21,
+        "y": 1
+      },
+      "id": 63,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "10.4.19",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "avg by (name,namespace) (\n  sum by (name, namespace,pod) (\n    d8_virtualization_virtualmachine_filesystem_used_bytes{namespace=\"$namespace\", name=\"$name\", type!=\"cloudinit\",mount_point!~\".*(io.containerd.snapshotter.v1.erofs|/var/lib/kubelet/pods).*\"})\n  / \n  sum by (name, namespace,pod) (d8_virtualization_virtualmachine_filesystem_capacity_bytes / 100)\n)\n",
+          "instant": true,
+          "legendFormat": "{{mount_point}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Total filesystem usage",
+      "type": "gauge"
     },
     {
       "datasource": {
@@ -743,6 +744,140 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
+      "description": "Instance CPU core count",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 3,
+        "x": 6,
+        "y": 3
+      },
+      "id": 46,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.4.19",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "avg by (namespace,name) (d8_virtualization_virtualmachine_cpu_cores{namespace=\"$namespace\", name=\"$name\"})",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "CPU Cores",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds_prometheus}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 3,
+        "x": 15,
+        "y": 3
+      },
+      "id": 91,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.4.19",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "max by (namespace, name) (\n    count by (namespace, name,pod) (\n        label_replace(\n            d8_virtualization_virtualdisk_status_in_use{namespace=~\"$namespace\"}, \n            \"name\", \n            \"$1\", \n            \"virtualmachine\", \n            \"(.+)\"\n        )\n    ) * on(namespace, name,pod) group_left() (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\",name=\"$name\"} == 1\n    )\n)",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Disks attached",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds_prometheus}"
+      },
       "description": "Whether the desired configuration is currently applied to a running VM",
       "fieldConfig": {
         "defaults": {
@@ -782,8 +917,8 @@
       "gridPos": {
         "h": 2,
         "w": 3,
-        "x": 3,
-        "y": 3
+        "x": 0,
+        "y": 5
       },
       "id": 56,
       "options": {
@@ -850,7 +985,7 @@
         "h": 2,
         "w": 3,
         "x": 6,
-        "y": 3
+        "y": 5
       },
       "id": 15,
       "options": {
@@ -918,7 +1053,7 @@
         "h": 2,
         "w": 3,
         "x": 15,
-        "y": 3
+        "y": 5
       },
       "id": 87,
       "options": {
@@ -1076,7 +1211,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 5
+        "y": 7
       },
       "id": 37,
       "options": {
@@ -1263,7 +1398,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 5
+        "y": 7
       },
       "id": 41,
       "options": {
@@ -1400,7 +1535,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 13
+        "y": 15
       },
       "id": 22,
       "options": {
@@ -1513,7 +1648,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 13
+        "y": 15
       },
       "id": 23,
       "options": {
@@ -1566,7 +1701,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 21
+        "y": 23
       },
       "id": 55,
       "panels": [
@@ -1613,8 +1748,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -1626,7 +1760,7 @@
             "h": 4,
             "w": 24,
             "x": 0,
-            "y": 22
+            "y": 32
           },
           "id": 1,
           "options": {
@@ -1702,7 +1836,7 @@
                       "text": "Pause"
                     },
                     "4": {
-                      "color": "#30e3ca",
+                      "color": "#18a7b5",
                       "index": 3,
                       "text": "Pending"
                     },
@@ -1750,8 +1884,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -1763,7 +1896,7 @@
             "h": 4,
             "w": 24,
             "x": 0,
-            "y": 26
+            "y": 36
           },
           "id": 57,
           "options": {
@@ -1848,8 +1981,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1865,7 +1997,7 @@
             "h": 6,
             "w": 24,
             "x": 0,
-            "y": 30
+            "y": 40
           },
           "id": 81,
           "options": {
@@ -1946,8 +2078,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               }
@@ -2003,7 +2134,7 @@
                             "text": "InProgress"
                           },
                           "Pending": {
-                            "color": "#30e3ca",
+                            "color": "#18a7b5",
                             "index": 0,
                             "text": "Pending"
                           }
@@ -2020,7 +2151,7 @@
             "h": 11,
             "w": 24,
             "x": 0,
-            "y": 36
+            "y": 46
           },
           "id": 88,
           "options": {
@@ -2194,7 +2325,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 22
+        "y": 24
       },
       "id": 21,
       "panels": [
@@ -2310,7 +2441,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 23
+            "y": 39
           },
           "id": 69,
           "options": {
@@ -2487,7 +2618,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 23
+            "y": 39
           },
           "id": 51,
           "options": {
@@ -2690,7 +2821,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 31
+            "y": 47
           },
           "id": 72,
           "options": {
@@ -2791,7 +2922,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 23
+        "y": 25
       },
       "id": 28,
       "panels": [
@@ -2917,7 +3048,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 24
+            "y": 40
           },
           "id": 75,
           "options": {
@@ -3095,7 +3226,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 24
+            "y": 40
           },
           "id": 42,
           "options": {
@@ -3208,7 +3339,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 32
+            "y": 48
           },
           "id": 31,
           "options": {
@@ -3324,7 +3455,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 32
+            "y": 48
           },
           "id": 32,
           "options": {
@@ -3385,10 +3516,332 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 24
+        "y": 26
       },
       "id": 60,
       "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "description": "Detailed table of all virtual disk with status information\n\n- `Pending` - waiting for all dependent resources required for disk creation to be ready.\n- `Provisioning` - disk creation process is in progress.\n- `Resizing` - the process of resizing the disk is in progress.\n- `WaitForFirstConsumer` - the disk is waiting for the virtual machine that will use it to be created.\n- `WaitForUserUpload` - the disk is waiting for the user to upload an image (type: Upload).\n- `Ready` - the disk has been created and is ready for use.\n- `Failed` - an error occurred during the creation process.\n- `PVCLost` - system error, PVC with data has been lost.\n- `Terminating` - the disk is being deleted. The disk may \"hang\" in this state if it is still connected to the virtual machine.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "filterable": true,
+                "inspect": false,
+                "minWidth": 70
+              },
+              "displayName": "",
+              "mappings": [],
+              "noValue": "-",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "name"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "short"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 2
+                  },
+                  {
+                    "id": "custom.align",
+                    "value": "auto"
+                  },
+                  {
+                    "id": "displayName",
+                    "value": "VirtualDisk"
+                  },
+                  {
+                    "id": "custom.minWidth",
+                    "value": 70
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "namespace"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Namespace"
+                  },
+                  {
+                    "id": "custom.minWidth",
+                    "value": 70
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #Snapshot"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Snapshots"
+                  },
+                  {
+                    "id": "unit",
+                    "value": "none"
+                  },
+                  {
+                    "id": "noValue",
+                    "value": "-"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 0
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "phase"
+                },
+                "properties": [
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "options": {
+                          "Migrating": {
+                            "color": "orange",
+                            "index": 1
+                          },
+                          "PVCLost": {
+                            "color": "semi-dark-red",
+                            "index": 3
+                          },
+                          "Pending": {
+                            "color": "#18a7b5",
+                            "index": 2
+                          },
+                          "Provisioning": {
+                            "color": "semi-dark-blue",
+                            "index": 7
+                          },
+                          "Ready": {
+                            "color": "semi-dark-green",
+                            "index": 0
+                          },
+                          "Terminating": {
+                            "color": "dark-red",
+                            "index": 4
+                          },
+                          "WaitForFirstConsumer": {
+                            "color": "semi-dark-purple",
+                            "index": 5
+                          },
+                          "WaitForUserUpload": {
+                            "color": "semi-dark-purple",
+                            "index": 6
+                          }
+                        },
+                        "type": "value"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "mode": "basic",
+                      "type": "color-background"
+                    }
+                  },
+                  {
+                    "id": "displayName",
+                    "value": "Phase"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #Capacity"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "bytes"
+                  },
+                  {
+                    "id": "displayName",
+                    "value": "Capacity"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "virtualmachine"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Attached to VM"
+                  },
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "targetBlank": true,
+                        "title": "",
+                        "url": "/d/bdw6dw2izvpxcb/namespace-virtual-machine?var-ds_prometheus=${ds_prometheus}&var-namespace=${namespace}&var-name=${__value.raw}&${__url_time_range}"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 12,
+            "w": 12,
+            "x": 0,
+            "y": 27
+          },
+          "id": 92,
+          "maxPerRow": 6,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": false,
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": true
+            },
+            "showHeader": true,
+            "sortBy": [
+              {
+                "desc": false,
+                "displayName": "VirtualDisk"
+              }
+            ]
+          },
+          "pluginVersion": "10.4.19",
+          "repeatDirection": "h",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "max by (namespace, name, phase) (d8_virtualization_virtualdisk_status_phase{namespace=\"$namespace\"})==1 and on(namespace, name) max by (namespace, name) (d8_virtualization_virtualdisk_status_in_use{namespace=\"$namespace\", virtualmachine=\"$name\"})",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "Virtual Machine",
+              "refId": "VD"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "max by (namespace, name) (d8_virtualization_virtualdisk_capacity_bytes{namespace=\"$namespace\"}) and on(namespace, name) max by (namespace, name) (d8_virtualization_virtualdisk_status_in_use{namespace=\"$namespace\", virtualmachine=\"$name\"})",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "Virtual Machine",
+              "refId": "Capacity"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "count by (namespace, name) (\n    label_replace(\n        d8_virtualization_virtualdisksnapshot_info{namespace=\"$namespace\"}, \n        \"name\", \n        \"$1\", \n        \"virtualdisk\", \n        \"(.+)\"\n    )\n) * on(namespace, name) group_left() (\n    d8_virtualization_virtualdisk_status_phase{namespace=\"$namespace\"} == 1\n) and on(namespace, name) max by (namespace, name) (d8_virtualization_virtualdisk_status_in_use{namespace=\"$namespace\", virtualmachine=\"$name\"})",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "Virtual Machine",
+              "refId": "Snapshot"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "max by (namespace, name, storageclass) (d8_virtualization_virtualdisk_info{namespace=\"$namespace\"}) and on(namespace, name) max by (namespace, name) (d8_virtualization_virtualdisk_status_in_use{namespace=\"$namespace\", virtualmachine=\"$name\"})",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "Virtual Machine",
+              "refId": "SC"
+            }
+          ],
+          "title": "Virtual disks",
+          "transformations": [
+            {
+              "id": "merge",
+              "options": {}
+            },
+            {
+              "id": "filterFieldsByName",
+              "options": {
+                "include": {
+                  "names": [
+                    "name",
+                    "phase",
+                    "Value #Capacity",
+                    "storageclass",
+                    "Value #Snapshot",
+                    "virtualmachine"
+                  ]
+                }
+              }
+            }
+          ],
+          "type": "table"
+        },
         {
           "datasource": {
             "type": "prometheus",
@@ -3438,7 +3891,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3482,9 +3936,9 @@
           },
           "gridPos": {
             "h": 12,
-            "w": 24,
-            "x": 0,
-            "y": 25
+            "w": 12,
+            "x": 12,
+            "y": 27
           },
           "id": 83,
           "options": {
@@ -3570,7 +4024,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3623,9 +4078,9 @@
           },
           "gridPos": {
             "h": 14,
-            "w": 12,
+            "w": 24,
             "x": 0,
-            "y": 37
+            "y": 39
           },
           "id": 44,
           "maxPerRow": 2,
@@ -3695,7 +4150,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 25
+        "y": 27
       },
       "id": 5,
       "panels": [
@@ -3747,7 +4202,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3763,7 +4219,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 26
+            "y": 28
           },
           "id": 7,
           "options": {
@@ -3849,7 +4305,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3865,7 +4322,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 26
+            "y": 28
           },
           "id": 8,
           "options": {
@@ -3951,7 +4408,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3967,7 +4425,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 34
+            "y": 36
           },
           "id": 12,
           "options": {
@@ -4053,7 +4511,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -4069,7 +4528,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 34
+            "y": 36
           },
           "id": 11,
           "options": {
@@ -4155,7 +4614,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -4171,7 +4631,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 42
+            "y": 44
           },
           "id": 10,
           "options": {
@@ -4257,7 +4717,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -4273,7 +4734,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 42
+            "y": 44
           },
           "id": 9,
           "options": {
@@ -4321,7 +4782,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 26
+        "y": 28
       },
       "id": 6,
       "panels": [
@@ -4373,7 +4834,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -4421,7 +4883,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 27
+            "y": 29
           },
           "id": 13,
           "options": {
@@ -4520,7 +4982,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -4568,7 +5031,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 27
+            "y": 29
           },
           "id": 14,
           "options": {
@@ -4715,7 +5178,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 35
+            "y": 37
           },
           "id": 18,
           "options": {
@@ -4862,7 +5325,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 35
+            "y": 37
           },
           "id": 17,
           "options": {
@@ -4920,6 +5383,7 @@
       "type": "row"
     }
   ],
+  "refresh": "auto",
   "schemaVersion": 39,
   "tags": [
     "main"
@@ -5066,7 +5530,6 @@
   "timezone": "browser",
   "title": "Namespace / Virtual Machine",
   "uid": "bdw6dw2izvpxcb",
-  "version": 40,
-  "weekStart": "",
-  "refresh": "auto"
+  "version": 12,
+  "weekStart": ""
 }
