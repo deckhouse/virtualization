@@ -30,6 +30,7 @@ import (
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -47,6 +48,12 @@ var _ = Describe("SyncMetadataHandler", func() {
 		testLabelValue = "testLabelValue"
 
 		kubecltLastAppliedConfLabel = "kubectl.kubernetes.io/last-applied-configuration"
+
+		testNetworkAnnoValue   = `[{"type":"ClusterNetwork","name":"test","ifName":"veth_cn81b2c569"}]`
+		liveMigrationAnnoValue = "true"
+		ipAddressAnnoValue     = "10.66.10.1"
+
+		skipSecurityCheckLabelValue = "true"
 	)
 
 	var (
@@ -103,6 +110,12 @@ var _ = Describe("SyncMetadataHandler", func() {
 		kvvm.Spec.Template.ObjectMeta.Annotations = make(map[string]string, len(vm.Annotations))
 		kvvm.Spec.Template.ObjectMeta.Labels = make(map[string]string, len(vm.Labels))
 
+		kvvm.Spec.Template.ObjectMeta.Annotations[annotations.AnnNetworksSpec] = testNetworkAnnoValue
+		kvvm.Spec.Template.ObjectMeta.Annotations[virtv1.AllowPodBridgeNetworkLiveMigrationAnnotation] = liveMigrationAnnoValue
+		kvvm.Spec.Template.ObjectMeta.Annotations[netmanager.AnnoIPAddressCNIRequest] = ipAddressAnnoValue
+
+		kvvm.Spec.Template.ObjectMeta.Labels[annotations.SkipPodSecurityStandardsCheckLabel] = skipSecurityCheckLabelValue
+
 		return kvvm
 	}
 
@@ -146,12 +159,16 @@ var _ = Describe("SyncMetadataHandler", func() {
 		// Validate KVVM Spec Template Metadata
 		Expect(kvvm.Spec.Template.ObjectMeta.Annotations).To(And(
 			HaveKeyWithValue(testAnnoName, testAnnoValue),
+			HaveKeyWithValue(annotations.AnnNetworksSpec, testNetworkAnnoValue),
+			HaveKeyWithValue(virtv1.AllowPodBridgeNetworkLiveMigrationAnnotation, liveMigrationAnnoValue),
+			HaveKeyWithValue(netmanager.AnnoIPAddressCNIRequest, ipAddressAnnoValue),
 			Not(HaveKey(kubecltLastAppliedConfLabel)),
 			Not(HaveKey(annotations.LastPropagatedVMAnnotationsAnnotation)),
 			Not(HaveKey(annotations.LastPropagatedVMLabelsAnnotation)),
 		))
 		Expect(kvvm.Spec.Template.ObjectMeta.Labels).To(And(
 			HaveKeyWithValue(testLabelName, testLabelValue),
+			HaveKeyWithValue(annotations.SkipPodSecurityStandardsCheckLabel, skipSecurityCheckLabelValue),
 			HaveKeyWithValue(annotations.InhibitNodeShutdownLabel, ""),
 		))
 
