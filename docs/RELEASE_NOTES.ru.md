@@ -3,32 +3,38 @@ title: "Релизы"
 weight: 70
 ---
 
+## v1.4.1
+
+### Безопасность
+
+- [module] Исправлены уязвимости CVE-2025-61726, CVE-2025-61728, CVE-2025-61730 и CVE-2025-68121.
+
 ## v1.4.0
 
 ### Новые возможности
 
-- [vd] Добавлена поддержка изменения класса хранения для дисков, подключённых через `VirtualMachineBlockDeviceAttachment` (hotplug).
-- [vd] Добавлена поддержка миграции виртуальных машин с локальными дисками, подключёнными через `VirtualMachineBlockDeviceAttachment` (hotplug).
+- [vd] Добавлена поддержка изменения StorageClass для дисков, подключённых через [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug).
+- [vd] Добавлена поддержка миграции виртуальных машин с локальными дисками, подключёнными через [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug).
 - [vm] Теперь виртуальную машину можно запускать без сети `Main`.
 
 ### Исправления
 
-- [module] Исправлен учёт ресурсов системных компонентов в квотах проекта (для создания дисков/образов и работы виртуальных машин).
-- [vi,cvi] Добавлено отслеживание наличия образов в DVCR: если образ пропадает из DVCR, соответствующие ресурсы `VirtualImage` и `ClusterVirtualImage` переходят в фазу `Lost` и получают ошибку в статусе.
-- [vmip] Исправлено присоединение IP-адреса, если ресурс `VirtualMachineIPAddress` был создан пользователем заранее вручную.
-- [vm] Добавлена поддержку клонирования виртуальных машин в состоянии `Running` через `VirtualMachineOperation` с типом `Clone`.
+- [module] Исправлен учёт ресурсов системных компонентов в квотах проекта (для создания дисков/образов и их подключения к виртуальной машине через [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug)).
+- [vi,cvi] Добавлено отслеживание наличия образов в DVCR: если образ пропадает из DVCR, соответствующие ресурсы [VirtualImage](/modules/virtualization/cr.html#virtualimage) и [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) переходят в фазу `Lost` и получают ошибку в статусе.
+- [vmip] Исправлено присоединение IP-адреса, если ресурс [VirtualMachineIPAddress](/modules/virtualization/cr.html#virtualmachineipaddress) был создан пользователем заранее вручную.
+- [vm] Добавлена поддержка клонирования виртуальных машин в состоянии `Running` через [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) с типом `Clone`.
 
 ## v1.3.0
 
 ### Новые возможности
 
-- [vmclass] В ресурсе `VirtualMachineClass` добавлено поле `.spec.sizingPolicies.defaultCoreFraction`, позволяющее задать значение `coreFraction` по умолчанию для виртуальных машин, использующих этот класс.
+- [vmclass] В ресурсе [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) добавлено поле `.spec.sizingPolicies.defaultCoreFraction`, позволяющее задать значение `coreFraction` по умолчанию для виртуальных машин, использующих этот класс.
 
 ### Исправления
 
 - [vi/cvi] Добавлена возможность использования системных узлов для создания проектных и кластерных образов. 
-- [vd] Ускорено подключение дисков в режиме WaitForFirstConsumer к виртуальной машине.
-- [vd] Исправлена проблема с восстановлением лейблов и аннтоаций на диске, созданном из снимка.
+- [vd] Ускорено подключение дисков в режиме `WaitForFirstConsumer` к виртуальной машине.
+- [vd] Исправлена проблема с восстановлением меток и аннотаций на диске, созданном из снимка.
 - [observability] В кластерах, работающих в HA режиме, исправлено отображение графиков по виртуальным машинам.
 
 ## v1.2.2
@@ -47,19 +53,19 @@ weight: 70
 
 ### Новые возможности
 
-- [vmrestore] Ресурс `VirtualMachineRestore` помечен как устаревший (deprecated). Вместо него используйте следующие ресурсы:
-  - `VirtualMachineOperation` с типом `Clone` - для клонирования существующей виртуальной машины;
-  - `VirtualMachineOperation` с типом `Restore` - для восстановления существующей виртуальной машины до состояния из снимка;
-  - `VirtualMachineSnapshotOperation` - для создания новой виртуальной машины на основе снимка.
-- [vmsop] Доабвлен ресурс `VirtualMachineSnapshotOperation` для создания виртуальной машины на основе снимка `VirtualMachineSnapshot`.
-- [vmclass] Для ресурса `VirtualMachineClass` версия v1alpha2 помечена как устаревшая (deprecated). Вместо неё рекомендуется использовать версию v1alpha3:
-  - в версии v1alpha3 поле `.spec.sizingPolicies.coreFraction` теперь задаётся строкой с указанием процента (например, "50%"), аналогично полю в виртуальной машине.
+- [vmrestore] Ресурс [VirtualMachineRestore](/modules/virtualization/cr.html#virtualmachinerestore) помечен как устаревший (deprecated). Вместо него используйте следующие ресурсы:
+  - [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) с типом `Clone` - для клонирования существующей виртуальной машины;
+  - [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) с типом `Restore` - для восстановления существующей виртуальной машины до состояния из снимка;
+  - [VirtualMachineSnapshotOperation](/modules/virtualization/cr.html#virtualmachinesnapshotoperation) - для создания новой виртуальной машины на основе снимка.
+- [vmsop] Добавлен ресурс [VirtualMachineSnapshotOperation](/modules/virtualization/cr.html#virtualmachinesnapshotoperation) для создания виртуальной машины на основе снимка [VirtualMachineSnapshot](/modules/virtualization/cr.html#virtualmachinesnapshot).
+- [vmclass] Для ресурса [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) версия `v1alpha2` помечена как устаревшая (deprecated). Вместо неё рекомендуется использовать версию `v1alpha3`:
+  - в версии `v1alpha3` поле `.spec.sizingPolicies.coreFraction` теперь задаётся строкой с указанием процента (например, "50%"), аналогично полю в виртуальной машине.
 - [module] Для ModuleConfig виртуализации добавлена валидация, запрещающая уменьшать размер и изменять выбранный StorageClass для DVCR.
 - [module] Улучшены события аудита: сообщения стали более информативными и теперь включают имена виртуальных машин и информацию о пользователях.
 - [module] Добавлена возможность очищать DVCR от несуществующих проектных и кластерных образов:
   - по умолчанию эта функция отключена;
   - чтобы включить очистку, задайте расписание в настройках модуля: `.spec.settings.dvcr.gc.schedule`.
-- [vmbda] В условие `Attached` ресурса `VirtualMachineBlockDeviceAttachment` добавлен подробный вывод ошибки, возникающей при недоступности блочного устройства на узле виртуальной машины.
+- [vmbda] В условие `Attached` ресурса [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) добавлен подробный вывод ошибки, возникающей при недоступности блочного устройства на узле виртуальной машины.
 - [module] Добавлены новые метрики для дисков:
   - `d8_virtualization_virtualdisk_capacity_bytes` - метрика, показывающая размер диска;
   - `d8_virtualization_virtualdisk_info` - метрика с информацией о конфигурации диска;
@@ -67,12 +73,12 @@ weight: 70
 
 ### Исправления
 
-- [vmclass] Добавлена возможность изменять или удалять ресурс `VirtualMachineClass` с именем generic. Теперь модуль виртуализации не будет восстанавливать его в исходное состояние.
-- [vm] Исправили ошибку MethodNotAllowed для операций patch и watch для запросов к ресурсу `VirtualMachineClass` через утилиты командной строки (d8 k, kubectl).
-- [image] Исправлена проблема, из-за которой было невозможно удалить ресурсы `VirtualImage` и `ClusterVirtualImage` для остановленной виртуальной машины.
+- [vmclass] Добавлена возможность изменять или удалять ресурс [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) с именем generic. Теперь модуль виртуализации не будет восстанавливать его в исходное состояние.
+- [vm] Исправлена ошибка `MethodNotAllowed` для операций `patch` и `watch` при запросах к ресурсу [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) через утилиты командной строки (`d8 k`, `kubectl`).
+- [image] Исправлена проблема, из-за которой было невозможно удалить ресурсы [VirtualImage](/modules/virtualization/cr.html#virtualimage) и [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) для остановленной виртуальной машины.
 - [module] Исправлена конфигурация RBAC для кластерных ролей `user` и `editor`.
-- [module] Исправили алерт `D8VirtualizationVirtualMachineFirmwareOutOfDate`, который мог дублироваться при работе виртуализации в HA режиме.
-- [snapshot] Исправлена ошибка, которая могла приводить к неконсистентности ресурсов `VirtualMachineSnapshot` и `VirtualDiskSnapshot` при создании снимка виртуальной машины с несколькими дисками.
+- [module] Исправлен алерт `D8VirtualizationVirtualMachineFirmwareOutOfDate`, который мог дублироваться при работе виртуализации в HA режиме.
+- [snapshot] Исправлена ошибка, которая могла приводить к неконсистентности ресурсов [VirtualMachineSnapshot](/modules/virtualization/cr.html#virtualmachinesnapshot) и [VirtualDiskSnapshot](/modules/virtualization/cr.html#virtualdisksnapshot) при создании снимка виртуальной машины с несколькими дисками.
 
 ### Безопасность
 
@@ -92,21 +98,21 @@ weight: 70
 
 ### Исправления
 
-- [vd] Исправлена живая миграция дисков между классами хранения, использующими разные драйверы. Ограничения:
+- [vd] Исправлена живая миграция дисков между StorageClass, использующими разные драйверы. Ограничения:
   - Не поддерживается миграция с `Block` на `Filesystem` и наоборот. Миграция возможна только между одинаковыми режимами томов (volume mode): `Block` → `Block` и `Filesystem` → `Filesystem`.
-- [vm] В состоянии Migrating при неуспешной живой миграции виртуальной машины добавлено отображение подробной информации об ошибке.
+- [vm] В состоянии `Migrating` при неуспешной живой миграции виртуальной машины добавлено отображение подробной информации об ошибке.
 
 ## v1.1.1
 
 ### Исправления
 
-- [core] Исправлена проблема в containerd v2, из-за которой хранилище, предоставляющее PVC с типом `FileSystem`, некорректно подключалось через `VirtualMachineBlockDeviceAttachment`.
+- [core] Исправлена проблема в containerd v2, из-за которой хранилище, предоставляющее PVC с типом `FileSystem`, некорректно подключалось через [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment).
 - [core] Добавлено отображение ошибок в статусе дисков и образов при недоступности источника данных (URL).
-- [vi] Теперь при создании виртуальных образов из снимков виртуальных дисков учитывается параметр `spec.persistentVolumeClaim.storageClassName`. Ранее он мог игнорироваться.
-- [vm] Исправлен вывод кондишна `NetworkReady`: он больше не отображается в состоянии `Unknown` и показывается только при необходимости.
+- [vi] Теперь при создании виртуальных образов из снимков виртуальных дисков учитывается параметр `.spec.persistentVolumeClaim.storageClassName`. Ранее он мог игнорироваться.
+- [vm] Исправлен вывод условия `NetworkReady`: он больше не отображается в состоянии `Unknown` и показывается только при необходимости.
 - [vm] Добавлена валидация, предотвращающая указание одной и той же сети в спецификации виртуальной машины `.spec.network` более одного раза.
-- [vmip] Добавлена валидация для статических IP-адресов, предотвращающая создание ресурсов `VirtualMachineIPAddress` с уже используемым в кластере адресом.
-- [vmbda] Исправлена ошибка, из-за которой при отключении виртуального образа через `VirtualMachineBlockDeviceAttachment` ресурс мог зависать в состоянии `Terminating`.
+- [vmip] Добавлена валидация для статических IP-адресов, предотвращающая создание ресурсов [VirtualMachineIPAddress](/modules/virtualization/cr.html#virtualmachineipaddress) с уже используемым в кластере адресом.
+- [vmbda] Исправлена ошибка, из-за которой при отключении виртуального образа через [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) ресурс мог зависать в состоянии `Terminating`.
 
 ### Прочее
 
@@ -120,46 +126,43 @@ weight: 70
 
 ### Новые возможности
 
-- [vm] Добавлена возможность миграции ВМ, использующей диски на локальных хранилищах. Ограничения:
+- [vm] Добавлена возможность миграции ВМ, использующих диски на локальных хранилищах. Ограничения:
   - Функция недоступна в CE-редакции.
   - Миграция возможна только для запущенной ВМ (`phase: Running`)
-  - Миграция ВМ с локальными дисками, подключенными через `VirtualMachineBlockDeviceAttachment` (hotplug), пока недоступна.
-- [vd] Добавлена возможность миграции хранилища для дисков ВМ (изменение `StorageClass`). Ограничения:
+  - Миграция ВМ с локальными дисками, подключенными через [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug), пока недоступна.
+- [vd] Добавлена возможность миграции хранилища для дисков ВМ (изменение StorageClass). Ограничения:
   - Функция недоступна в CE-редакции.
   - Миграция возможна только для запущенной ВМ (`phase: Running`)
-  - Миграция хранилища для дисков, подключенных через `VirtualMachineBlockDeviceAttachment` (hotplug), пока недоступна.
-- [vmop] Добавлена операция с типом `Clone` для создания клона ВМ из существующей ВМ (`VirtualMachineOperation` `.spec.type: Clone`).
+  - Миграция хранилища для дисков, подключенных через [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug), пока недоступна.
+- [vmop] Добавлена операция с типом `Clone` для создания клона ВМ из существующей ВМ ([VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) `.spec.type: Clone`).
 - [observability] Добавлен алерт `KubeNodeAwaitingVirtualMachinesEvictionBeforeShutdown`, срабатывающий при получении узлом, на котором размещены виртуальные машины, команды на завершение работы — до завершения эвакуации ВМ.
 - [observability] Добавлен алерт `D8VirtualizationDVCRInsufficientCapacityRisk`, предупреждающий о риске нехватки свободного места в хранилище образов виртуальных машин (DVCR).
 
 ### Исправления
 
-- [vmclass] Исправлена ошибка в `VirtualMachineClass` типах `Features` и `Discovery`, из-за которой на узлах с процессорами AMD не работала вложенная виртуализация.
+- [vmclass] Исправлена ошибка в [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) типах `Features` и `Discovery`, из-за которой на узлах с процессорами AMD не работала вложенная виртуализация.
 - [vmop/restore] Исправлена ошибка, при которой контроллер иногда запускал восстановленную ВМ до завершения восстановления её дисков, в результате чего ВМ стартовала со старыми (не восстановленными) дисками.
 - [vmsnapshot] Исправлено поведение при создании снимка ВМ при наличии неприменённых изменений: снимок теперь мгновенно фиксирует актуальное состояние виртуальной машины, включая все текущие изменения.
 - [module] Исправлена проблема установки модуля на RedOS 8.X ОС.
-- [module] Улучшена валидация, предотвращающая добавление пустых значений для параметров, определяющих классы хранения для дисков и образов.
+- [module] Улучшена валидация, предотвращающая добавление пустых значений для параметров, определяющих StorageClass для дисков и образов.
 - [vmop] Исправлена работа сборщика мусора: ранее при перезапуске virtualization-controller все объекты VMOP удалялись без учёта правил очистки.
 - [observability] Дашборд виртуальной машины теперь отображает статистику по всем сетям (в том числе и дополнительным), подключённым к ВМ.
 - [observability] На дашборде виртуальной машины исправлен график, отображающий статистику копирования памяти во время миграции ВМ.
-
-
-### Прочее
 
 ## v1.0.0
 
 ### Новые возможности
 
-- [vm] Добавлена защита от подключения cloud-образа (`VirtualImage` \ `ClusterVirtualImage`) в качестве первого диска. Ранее это приводило к невозможности запуска ВМ с ошибкой "No bootable device".
+- [vm] Добавлена защита от подключения cloud-образа ([VirtualImage](/modules/virtualization/cr.html#virtualimage) \ [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage)) в качестве первого диска. Ранее это приводило к невозможности запуска ВМ с ошибкой "No bootable device".
 - [vmop] Добавлена операция с типом `Restore` для восстановления ВМ из ранее созданного снимка.
 
 ### Исправления
 
-- [vmsnapshot] Теперь при восстановлении виртуальной машины из снимка корректно восстанавливаются все аннотации и лейблы, которые были у ресурсов в момент снимка.
+- [vmsnapshot] Теперь при восстановлении виртуальной машины из снимка корректно восстанавливаются все аннотации и метки, которые были у ресурсов в момент снимка.
 - [module] Исправлена проблема с блокировкой очереди, когда параметр `settings.modules.publicClusterDomain` был пустым в глобальном ресурсе ModuleConfig.
 - [module] Оптимизирована производительность хука во время установки модуля.
-- [vmclass] Исправлена валидация core/coreFraction в ресурсе VirtualMachineClass.
-- [module] При выключенном модуле SDN конфигурация дополнительных сетей в ВМ недоступна.
+- [vmclass] Исправлена валидация `core`/`coreFraction` в ресурсе [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass).
+- [module] При выключенном модуле `sdn` конфигурация дополнительных сетей в ВМ недоступна.
 
 ### Безопасность
 
@@ -167,28 +170,28 @@ weight: 70
 
 ## v0.25.0
 
-### Важное
+### Важная информация перед обновлением
 
-В версии v.0.25.0 добавлена поддержка работы модуля с CRI containerd V2.
+В версии v0.25.0 добавлена поддержка работы модуля с CRI containerd v2.
 После обновления CRI с containerd v1 до containerd v2 необходимо пересоздать образы, которые были созданы с использованием версии модуля виртуализации v0.24.0 и ранее.
 
 ### Новые возможности
 
-- [vm] Добавлена возможность подключения к виртуальной машине дополнительных сетевых интерфейсов к сетям, предоставляемым модулем `SDN`. Для этого модуль `SDN` должен быть включен в кластере.
-- [vmmac] Для дополнительных сетевых интерфейсов добавлено управление MAC-адресами с использованием ресурсов `VirtualMachineMACAddress` и `VirtualMachineMACAddressLease`.
-- [vmclass] Добавлена аннотация для установки класса виртуальной машины по умолчанию. Чтобы назначить `VirtualMachineClass` по умолчанию, необходимо добавить на него аннотацию `virtualmachineclass.virtualization.deckhouse.io/is-default-class=true`. Это позволяет создавать ВМ с пустым полем `spec.virtualMachineClassName`, автоматически заполняя его классом по умолчанию.
-- [observability] Добавлены новые метрики Prometheus для отслеживания фазы ресурсов, таких как `VirtualMachineSnapshot`, `VirtualDiskSnapshot`, `VirtualImage` и `ClusterVirtualImage`.
+- [vm] Добавлена возможность подключения к виртуальной машине дополнительных сетевых интерфейсов к сетям, предоставляемым модулем `sdn`. Для этого модуль `sdn` должен быть включен в кластере.
+- [vmmac] Для дополнительных сетевых интерфейсов добавлено управление MAC-адресами с использованием ресурсов [VirtualMachineMACAddress](/modules/virtualization/cr.html#virtualmachinemacaddress) и [VirtualMachineMACAddressLease](/modules/virtualization/cr.html#virtualmachinemacaddresslease).
+- [vmclass] Добавлена аннотация для установки класса виртуальной машины по умолчанию. Чтобы назначить [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) по умолчанию, необходимо добавить на него аннотацию `virtualmachineclass.virtualization.deckhouse.io/is-default-class=true`. Это позволяет создавать ВМ с пустым полем `spec.virtualMachineClassName`, автоматически заполняя его классом по умолчанию.
+- [observability] Добавлены новые метрики Prometheus для отслеживания фазы ресурсов, таких как [VirtualMachineSnapshot](/modules/virtualization/cr.html#virtualmachinesnapshot), [VirtualDiskSnapshot](/modules/virtualization/cr.html#virtualdisksnapshot), [VirtualImage](/modules/virtualization/cr.html#virtualimage) и [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage).
 
 ### Исправления
 
-- [vm] Исправили проблему: при изменении типа операционной системы машина уходила в циклическую перезагрузку.
-- [vm] Исправили зависание виртуальной машины в фазе Starting при нехватке квот проекта. Сообщение о нехватке квот будет отображаться в статусе виртуальной машины. Чтобы машина продолжила запуск, необходимо будет увеличить квоты проекта.
+- [vm] Исправлена проблема: при изменении типа операционной системы машина уходила в циклическую перезагрузку.
+- [vm] Исправлено зависание виртуальной машины в фазе `Starting` при нехватке квот проекта. Сообщение о нехватке квот будет отображаться в статусе виртуальной машины. Чтобы машина продолжила запуск, необходимо будет увеличить квоты проекта.
 - [vi] Для создания виртуального образа на `PersistentVolumeClaim` должно быть использовано хранилище в режиме `RWX` и `Block`, в противном случае будет отображено предупреждение об ошибке.
-- [module] Добавили валидацию, проверяющую, что подсети виртуальных машин не пересекаются с системными подсетями (`podSubnetCIDR` и `serviceSubnetCIDR`).
+- [module] Добавлена валидация, проверяющая, что подсети виртуальных машин не пересекаются с системными подсетями (`podSubnetCIDR` и `serviceSubnetCIDR`).
 
 ### Прочее
 
-- [vmop] Улучшили сборщик мусора (GC) для отработавших операций виртуальной машины:
+- [vmop] Улучшен сборщик мусора (GC) для завершённых операций виртуальной машины:
   - GC запускается каждый день в 00:00;
-  - GC будет удалять успешно завершённые операции (`Completed` \ `Failed`), если истёк их TTL (24 часа);
-  - GC подчищает все завершённые операции (`Completed` \ `Failed`), оставляя только 10 последних.
+  - GC будет удалять успешно завершённые операции (`Completed` / `Failed`), если истёк их TTL (24 часа);
+  - GC подчищает все завершённые операции (`Completed` / `Failed`), оставляя только 10 последних.
