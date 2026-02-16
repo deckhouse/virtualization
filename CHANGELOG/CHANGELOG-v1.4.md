@@ -14,6 +14,7 @@
 ## Fixes
 
 
+ - **[core]** Fixed vulnerabilities CVE-2025-61726, CVE-2025-61728, CVE-2025-61730, and CVE-2025-68121. [#1957](https://github.com/deckhouse/virtualization/pull/1957)
  - **[module]** Correct KubeVirt virtualization metric unit from milliseconds to seconds. [#1752](https://github.com/deckhouse/virtualization/pull/1752)
  - **[vm]** Prevent false RestartRequired during upgrade when firmware.uuid is not set on KVVM [#1875](https://github.com/deckhouse/virtualization/pull/1875)
  - **[vm]** Use hostNetwork for hotplug pods to avoid IP consumption [#1823](https://github.com/deckhouse/virtualization/pull/1823)
