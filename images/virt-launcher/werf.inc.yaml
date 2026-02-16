@@ -200,6 +200,10 @@ import:
   - virt-launcher-monitor
   - virt-probe
   - virt-tail
+- image: {{ .ModuleNamePrefix }}virt-artifact
+  add: /kubevirt-binaries/virt-launcher-hook
+  to: /relocate/etc/libvirt/hooks/qemu
+  before: setup
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-gobuilder
   add: /binaries
   to: /usr/bin
