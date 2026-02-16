@@ -25,10 +25,6 @@ weight: 70
 
 - [vd] When viewing disks, the name of the virtual machine they are attached to is now displayed (`d8 k get vd`).
 
-### Security
-
-- [module] Fixed vulnerabilities CVE-2025-61726, CVE-2025-61728, CVE-2025-61730, and CVE-2025-68121.
-
 ## v1.4.1
 
 ### Security
