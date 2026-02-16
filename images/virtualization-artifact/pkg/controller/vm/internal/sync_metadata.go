@@ -34,6 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/merger"
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	commonvm "github.com/deckhouse/virtualization-controller/pkg/common/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -147,17 +148,19 @@ func (h *SyncMetadataHandler) patchLabelsAndAnnotations(ctx context.Context, obj
 	// For KubeVirt VirtualMachine, also patch spec.template.metadata
 	// to ensure consistency with future VMI instances.
 	// KubeVirt doesn't trigger VMI restart on template metadata changes.
-	kvvm, ok := obj.(*virtv1.VirtualMachine)
+	kvvm, objIsKVVM := obj.(*virtv1.VirtualMachine)
 
 	if newLabels != nil {
 		jp.Append(
 			patch.WithTest("/metadata/labels", obj.GetLabels()),
 			patch.WithReplace("/metadata/labels", newLabels),
 		)
-		if ok {
+		if objIsKVVM {
+			currSpecTemplateLabels := kvvm.Spec.Template.ObjectMeta.Labels
+			syncedSpecTemplateLabels := h.updateKVVMSpecTemplateMetadataLabels(currSpecTemplateLabels, newLabels)
 			jp.Append(
-				patch.WithTest("/spec/template/metadata/labels", kvvm.Spec.Template.ObjectMeta.Labels),
-				patch.WithReplace("/spec/template/metadata/labels", newLabels),
+				patch.WithTest("/spec/template/metadata/labels", currSpecTemplateLabels),
+				patch.WithReplace("/spec/template/metadata/labels", syncedSpecTemplateLabels),
 			)
 		}
 	}
@@ -167,11 +170,12 @@ func (h *SyncMetadataHandler) patchLabelsAndAnnotations(ctx context.Context, obj
 			patch.WithTest("/metadata/annotations", obj.GetAnnotations()),
 			patch.WithReplace("/metadata/annotations", newAnnotations),
 		)
-		if ok {
-			filteredAnno := commonvm.RemoveNonPropagatableAnnotations(newAnnotations)
+		if objIsKVVM {
+			currSpecTemplateAnno := kvvm.Spec.Template.ObjectMeta.Annotations
+			syncedSpecTemplateAnno := h.updateKVVMSpecTemplateMetadataAnnotations(currSpecTemplateAnno, newAnnotations)
 			jp.Append(
-				patch.WithTest("/spec/template/metadata/annotations", kvvm.Spec.Template.ObjectMeta.Annotations),
-				patch.WithReplace("/spec/template/metadata/annotations", filteredAnno),
+				patch.WithTest("/spec/template/metadata/annotations", currSpecTemplateAnno),
+				patch.WithReplace("/spec/template/metadata/annotations", syncedSpecTemplateAnno),
 			)
 		}
 	}
@@ -182,6 +186,45 @@ func (h *SyncMetadataHandler) patchLabelsAndAnnotations(ctx context.Context, obj
 	}
 
 	return h.client.Patch(ctx, obj, client.RawPatch(types.JSONPatchType, bytes))
+}
+
+// updateKVVMSpecTemplateMetadataAnnotations ensures that the special network annotation is present if it exists.
+// It also removes well-known annotations that are dangerous to propagate.
+func (h *SyncMetadataHandler) updateKVVMSpecTemplateMetadataAnnotations(currAnno, newAnno map[string]string) map[string]string {
+	res := make(map[string]string, len(newAnno))
+	for k, v := range newAnno {
+		if k == annotations.AnnVMLastAppliedSpec || k == annotations.AnnVMClassLastAppliedSpec {
+			continue
+		}
+
+		res[k] = v
+	}
+
+	if v, ok := currAnno[annotations.AnnNetworksSpec]; ok {
+		res[annotations.AnnNetworksSpec] = v
+	}
+
+	if v, ok := currAnno[virtv1.AllowPodBridgeNetworkLiveMigrationAnnotation]; ok {
+		res[virtv1.AllowPodBridgeNetworkLiveMigrationAnnotation] = v
+	}
+
+	if v, ok := currAnno[netmanager.AnnoIPAddressCNIRequest]; ok {
+		res[netmanager.AnnoIPAddressCNIRequest] = v
+	}
+
+	return commonvm.RemoveNonPropagatableAnnotations(res)
+}
+
+// updateKVVMSpecTemplateMetadataLabels ensures that the special labels is present if it exists.
+func (h *SyncMetadataHandler) updateKVVMSpecTemplateMetadataLabels(currLabels, newLabels map[string]string) map[string]string {
+	res := make(map[string]string, len(newLabels))
+	maps.Copy(res, newLabels)
+
+	if v, ok := currLabels[annotations.SkipPodSecurityStandardsCheckLabel]; ok {
+		res[annotations.SkipPodSecurityStandardsCheckLabel] = v
+	}
+
+	return res
 }
 
 // PropagateVMMetadata merges labels and annotations from the input VM into destination object.
