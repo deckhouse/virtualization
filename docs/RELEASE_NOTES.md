@@ -7,7 +7,7 @@ weight: 70
 
 ### Fixes
 
-- [vd] Fixed the creation of a virtual disk from a virtual image stored on a `PersistentVolumeClaim` (i.e., from an image with `.spec.storage=PersistentVolumeClaim`).
+- [vd] Fixed an issue with creating a virtual disk from a virtual image stored on a `PersistentVolumeClaim` (with `.spec.storage` set to `PersistentVolumeClaim`).
 
 ## v1.5.0
 
