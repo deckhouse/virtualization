@@ -7,7 +7,7 @@ weight: 70
 
 ### Исправления
 
-- [vd] Исправили создание виртуального диска из виртуального образа, хранящегося на `PersistentVolumeClaim` (из образа с `.spec.storage=PersistentVolumeClaim`).
+- [vd] Исправлена проблема при создании виртуального диска из виртуального образа, хранящегося на `PersistentVolumeClaim` (при значении `.spec.storage=PersistentVolumeClaim`).
 
 ## v1.5.0
 
