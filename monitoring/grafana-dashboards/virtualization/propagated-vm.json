@@ -1794,8 +1794,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -1885,8 +1884,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -1960,8 +1958,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2226,8 +2223,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               }
@@ -2514,7 +2510,7 @@
                   "type": "linear"
                 },
                 "showPoints": "auto",
-                "spanNulls": false,
+                "spanNulls": 600000,
                 "stacking": {
                   "group": "A",
                   "mode": "none"
@@ -2528,7 +2524,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2670,7 +2667,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   }
                 ]
               },
@@ -2728,7 +2726,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 39
+            "y": 24
           },
           "id": 69,
           "options": {
@@ -2873,7 +2871,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   }
                 ]
               },
@@ -2905,7 +2904,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 39
+            "y": 24
           },
           "id": 51,
           "options": {
@@ -3050,7 +3049,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   }
                 ]
               },
@@ -3108,7 +3108,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 47
+            "y": 32
           },
           "id": 72,
           "options": {
