@@ -128,7 +128,8 @@ packages:
 - openldap keyutils
 - libpixman libpsl libpng libqpl rdma-core
 - pcre2
-{{- end -}}
+- libgsasl libidn libntlm
+  {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
@@ -180,6 +181,12 @@ shell:
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
+    done
+
+    for l in $(find / -type f -name libcurl\*.so\* ) ; do
+      echo ===========
+      echo >> ldd $l
+      echo ldd $l
     done
 
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"

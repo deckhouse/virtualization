@@ -92,6 +92,7 @@ packages:
 - openssl libcurl e2fsprogs libxcrypt numactl
 - zlib p11-kit
 - libssh libssh2 libjson-c5 keyutils
+- libgsasl
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

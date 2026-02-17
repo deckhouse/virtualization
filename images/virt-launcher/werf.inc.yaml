@@ -126,12 +126,13 @@ packages:
 - swtpm libtpms numactl dmidecode
 - libisoburn libburn libattr libaudit
 - gnutls acl libbsd libgcrypt libmd
-- util-linux libfuse3 nettle libgsasl
+- util-linux libfuse3 nettle
 - libnbd libcap-ng libcapstone libcurl
 - libjson-c5 keyutils libisofs
 - zlib zstd p11-kit linux-pam
 - libssh libssh2
 - libpixman libqpl rdma-core
+- libgsasl libidn libntlm
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
