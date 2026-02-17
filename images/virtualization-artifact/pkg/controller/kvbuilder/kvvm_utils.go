@@ -356,7 +356,10 @@ func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName ma
 func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList) {
 	kvvm.ClearNetworkInterfaces()
 	for _, n := range networkSpec {
-		kvvm.SetNetworkInterface(n.InterfaceName, n.MAC)
+		if n.Type == v1alpha2.NetworksTypeMain {
+			kvvm.SetNetworkInterface(n.InterfaceName, n.MAC, 100)
+		}
+		kvvm.SetNetworkInterface(n.InterfaceName, n.MAC, 101)
 	}
 }
 
