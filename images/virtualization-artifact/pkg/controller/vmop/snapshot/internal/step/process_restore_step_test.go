@@ -27,6 +27,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("ProcessRestoreStep", func() {
@@ -43,6 +44,26 @@ var _ = Describe("ProcessRestoreStep", func() {
 	})
 
 	Describe("Maintenance mode check", func() {
+		It("Should pass if restore mode dryrun", func() {
+			vmop := createRestoreVMOP("default", "test-vmop", "test-vm", "test-snapshot")
+			vmop.Spec.Restore.Mode = v1alpha2.SnapshotOperationModeDryRun
+
+			snapshot := createVMSnapshot("default", "test-snapshot", "test-secret", true)
+			vm := createVirtualMachine("default", "test-vm", v1alpha2.MachineRunning)
+			restorerSecret := createRestorerSecret("default", "test-secret", vm)
+
+			var err error
+			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, snapshot, restorerSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			step = NewProcessRestoreStep(fakeClient, recorder)
+			result, err := step.Take(ctx, vmop)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeNil())
+			Expect(vmop.Status.Resources).NotTo(BeNil())
+		})
+
 		It("should wait when maintenance condition is not found", func() {
 			vmop := createRestoreVMOP("default", "test-vmop", "test-vm", "test-snapshot")
 

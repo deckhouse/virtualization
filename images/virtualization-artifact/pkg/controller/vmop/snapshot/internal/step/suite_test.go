@@ -17,10 +17,12 @@ limitations under the License.
 package step
 
 import (
+	"encoding/json"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -76,6 +78,23 @@ func createVMSnapshot(namespace, name, secretName string, ready bool) *v1alpha2.
 	}
 
 	return vms
+}
+
+func createRestorerSecret(namespace, name string, vm *v1alpha2.VirtualMachine) *corev1.Secret {
+	vmJSON, err := json.Marshal(vm)
+	if err != nil {
+		panic(err)
+	}
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			"vm": vmJSON,
+		},
+		Type: "virtualmachine.virtualization.deckhouse.io/snapshot",
+	}
 }
 
 //nolint:unparam // namespace is always "default" in tests, but kept for flexibility
