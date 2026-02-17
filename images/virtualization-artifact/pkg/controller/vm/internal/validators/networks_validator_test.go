@@ -47,6 +47,19 @@ func TestNetworksValidateCreate(t *testing.T) {
 		{[]v1alpha2.NetworksSpec{mainNetwork, networkTest, networkTest}, true, false},
 		{[]v1alpha2.NetworksSpec{mainNetwork, {Type: v1alpha2.NetworksTypeNetwork}}, true, false},
 		{[]v1alpha2.NetworksSpec{mainNetwork}, false, true},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, ID: 1}}, true, true},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 2}}, true, true},
+		{[]v1alpha2.NetworksSpec{
+			{Type: v1alpha2.NetworksTypeMain, ID: 1},
+			{Type: v1alpha2.NetworksTypeNetwork, Name: "test1", ID: 1},
+			{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "test2", ID: 2},
+		}, true, true},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 16383}}, true, true},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 0}}, true, true},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 16384}}, true, false},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: -1}}, true, false},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, ID: 16383}}, true, true},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, ID: 16384}}, true, false},
 	}
 
 	for i, test := range tests {
@@ -62,10 +75,10 @@ func TestNetworksValidateCreate(t *testing.T) {
 
 			_, err := networkValidator.ValidateCreate(t.Context(), vm)
 			if test.valid && err != nil {
-				t.Errorf("Validation failed for spec %s: expected valid, but got an error: %v", test.networks, err)
+				t.Errorf("Validation failed for spec %v: expected valid, but got an error: %v", test.networks, err)
 			}
 			if !test.valid && err == nil {
-				t.Errorf("Validation succeeded for spec %s: expected error, but got none", test.networks)
+				t.Errorf("Validation succeeded for spec %v: expected error, but got none", test.networks)
 			}
 		})
 	}
@@ -159,6 +172,104 @@ func TestNetworksValidateUpdate(t *testing.T) {
 			},
 			sdnEnabled: true,
 			valid:      true,
+		},
+		{
+			oldNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeMain, ID: 1},
+			},
+			newNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeMain, ID: 2},
+			},
+			sdnEnabled: true,
+			valid:      false,
+		},
+		{
+			oldNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 1},
+			},
+			newNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 2},
+			},
+			sdnEnabled: true,
+			valid:      false,
+		},
+		{
+			oldNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "cluster", ID: 5},
+			},
+			newNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "cluster", ID: 10},
+			},
+			sdnEnabled: true,
+			valid:      false,
+		},
+		{
+			oldNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeMain, ID: 1},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 2},
+			},
+			newNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeMain, ID: 1},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 2},
+			},
+			sdnEnabled: true,
+			valid:      true,
+		},
+		{
+			oldNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeMain, ID: 0},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test1", ID: 1},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test2", ID: 2},
+			},
+			newNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeMain, ID: 0},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test1", ID: 1},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test2", ID: 3},
+			},
+			sdnEnabled: true,
+			valid:      false,
+		},
+		{
+			oldNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeMain, ID: 0},
+			},
+			newNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeMain, ID: 0},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "new", ID: 5},
+			},
+			sdnEnabled: true,
+			valid:      true,
+		},
+		{
+			oldNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeMain, ID: 0},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 1},
+			},
+			newNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeMain, ID: 0},
+			},
+			sdnEnabled: true,
+			valid:      true,
+		},
+		{
+			oldNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 0},
+			},
+			newNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 1},
+			},
+			sdnEnabled: true,
+			valid:      true,
+		},
+		{
+			oldNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 1},
+			},
+			newNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 0},
+			},
+			sdnEnabled: true,
+			valid:      false,
 		},
 	}
 

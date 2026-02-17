@@ -292,4 +292,298 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 			})
 		})
 	})
+
+	Describe("Lazy initialization of network IDs", func() {
+		It("should assign id=1 to Main network when id=0", func() {
+			networkSpec := []v1alpha2.NetworksSpec{
+				{
+					Type: v1alpha2.NetworksTypeMain,
+					ID:   0,
+				},
+			}
+			vm.Spec.Networks = networkSpec
+			fakeClient, resource, vmState = setupEnvironment(vm, vmPod)
+
+			gate, _, setFromMap, err := featuregates.New()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(setFromMap(map[string]bool{string(featuregates.SDN): true})).To(Succeed())
+
+			h := NewNetworkInterfaceHandler(gate)
+			_, err = h.Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changedVM := vmState.VirtualMachine().Changed()
+			Expect(changedVM.Spec.Networks).To(HaveLen(1))
+			Expect(changedVM.Spec.Networks[0].Type).To(Equal(v1alpha2.NetworksTypeMain))
+			Expect(changedVM.Spec.Networks[0].ID).To(Equal(1))
+		})
+
+		It("should not change Main network id when it is already set to 1", func() {
+			networkSpec := []v1alpha2.NetworksSpec{
+				{
+					Type: v1alpha2.NetworksTypeMain,
+					ID:   1,
+				},
+			}
+			vm.Spec.Networks = networkSpec
+			fakeClient, resource, vmState = setupEnvironment(vm, vmPod)
+
+			gate, _, setFromMap, err := featuregates.New()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(setFromMap(map[string]bool{string(featuregates.SDN): true})).To(Succeed())
+
+			h := NewNetworkInterfaceHandler(gate)
+			_, err = h.Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changedVM := vmState.VirtualMachine().Changed()
+			Expect(changedVM.Spec.Networks).To(HaveLen(1))
+			Expect(changedVM.Spec.Networks[0].Type).To(Equal(v1alpha2.NetworksTypeMain))
+			Expect(changedVM.Spec.Networks[0].ID).To(Equal(1))
+		})
+
+		It("should assign sequential ids starting from 2 to networks with id=0", func() {
+			mac1 := newMACAddress("test-mac-address1", "aa:bb:cc:dd:ee:ff", v1alpha2.VirtualMachineMACAddressPhaseAttached, name)
+			mac2 := newMACAddress("test-mac-address2", "aa:bb:cc:dd:ee:00", v1alpha2.VirtualMachineMACAddressPhaseAttached, name)
+			networkSpec := []v1alpha2.NetworksSpec{
+				{
+					Type: v1alpha2.NetworksTypeMain,
+					ID:   0,
+				},
+				{
+					Type: v1alpha2.NetworksTypeNetwork,
+					Name: "test-network-1",
+					ID:   0,
+				},
+				{
+					Type: v1alpha2.NetworksTypeNetwork,
+					Name: "test-network-2",
+					ID:   0,
+				},
+			}
+			vm.Spec.Networks = networkSpec
+			fakeClient, resource, vmState = setupEnvironment(vm, vmPod, mac1, mac2)
+
+			gate, _, setFromMap, err := featuregates.New()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(setFromMap(map[string]bool{string(featuregates.SDN): true})).To(Succeed())
+
+			h := NewNetworkInterfaceHandler(gate)
+			_, err = h.Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changedVM := vmState.VirtualMachine().Changed()
+			Expect(changedVM.Spec.Networks).To(HaveLen(3))
+			Expect(changedVM.Spec.Networks[0].Type).To(Equal(v1alpha2.NetworksTypeMain))
+			Expect(changedVM.Spec.Networks[0].ID).To(Equal(1))
+			Expect(changedVM.Spec.Networks[1].Type).To(Equal(v1alpha2.NetworksTypeNetwork))
+			Expect(changedVM.Spec.Networks[1].Name).To(Equal("test-network-1"))
+			Expect(changedVM.Spec.Networks[1].ID).To(Equal(2))
+			Expect(changedVM.Spec.Networks[2].Type).To(Equal(v1alpha2.NetworksTypeNetwork))
+			Expect(changedVM.Spec.Networks[2].Name).To(Equal("test-network-2"))
+			Expect(changedVM.Spec.Networks[2].ID).To(Equal(3))
+		})
+
+		It("should not change network id when it is already set", func() {
+			mac1 := newMACAddress("test-mac-address1", "aa:bb:cc:dd:ee:ff", v1alpha2.VirtualMachineMACAddressPhaseAttached, name)
+			networkSpec := []v1alpha2.NetworksSpec{
+				{
+					Type: v1alpha2.NetworksTypeMain,
+					ID:   1,
+				},
+				{
+					Type: v1alpha2.NetworksTypeNetwork,
+					Name: "test-network",
+					ID:   5,
+				},
+			}
+			vm.Spec.Networks = networkSpec
+			fakeClient, resource, vmState = setupEnvironment(vm, vmPod, mac1)
+
+			gate, _, setFromMap, err := featuregates.New()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(setFromMap(map[string]bool{string(featuregates.SDN): true})).To(Succeed())
+
+			h := NewNetworkInterfaceHandler(gate)
+			_, err = h.Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changedVM := vmState.VirtualMachine().Changed()
+			Expect(changedVM.Spec.Networks).To(HaveLen(2))
+			Expect(changedVM.Spec.Networks[0].Type).To(Equal(v1alpha2.NetworksTypeMain))
+			Expect(changedVM.Spec.Networks[0].ID).To(Equal(1))
+			Expect(changedVM.Spec.Networks[1].Type).To(Equal(v1alpha2.NetworksTypeNetwork))
+			Expect(changedVM.Spec.Networks[1].ID).To(Equal(5))
+		})
+
+		It("should assign sequential ids considering already set ids", func() {
+			mac1 := newMACAddress("test-mac-address1", "aa:bb:cc:dd:ee:ff", v1alpha2.VirtualMachineMACAddressPhaseAttached, name)
+			mac2 := newMACAddress("test-mac-address2", "aa:bb:cc:dd:ee:00", v1alpha2.VirtualMachineMACAddressPhaseAttached, name)
+			networkSpec := []v1alpha2.NetworksSpec{
+				{
+					Type: v1alpha2.NetworksTypeMain,
+					ID:   0,
+				},
+				{
+					Type: v1alpha2.NetworksTypeNetwork,
+					Name: "test-network-1",
+					ID:   5,
+				},
+				{
+					Type: v1alpha2.NetworksTypeNetwork,
+					Name: "test-network-2",
+					ID:   0,
+				},
+			}
+			vm.Spec.Networks = networkSpec
+			fakeClient, resource, vmState = setupEnvironment(vm, vmPod, mac1, mac2)
+
+			gate, _, setFromMap, err := featuregates.New()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(setFromMap(map[string]bool{string(featuregates.SDN): true})).To(Succeed())
+
+			h := NewNetworkInterfaceHandler(gate)
+			_, err = h.Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changedVM := vmState.VirtualMachine().Changed()
+			Expect(changedVM.Spec.Networks).To(HaveLen(3))
+			Expect(changedVM.Spec.Networks[0].Type).To(Equal(v1alpha2.NetworksTypeMain))
+			Expect(changedVM.Spec.Networks[0].ID).To(Equal(1))
+			Expect(changedVM.Spec.Networks[1].Type).To(Equal(v1alpha2.NetworksTypeNetwork))
+			Expect(changedVM.Spec.Networks[1].Name).To(Equal("test-network-1"))
+			Expect(changedVM.Spec.Networks[1].ID).To(Equal(5))
+			Expect(changedVM.Spec.Networks[2].Type).To(Equal(v1alpha2.NetworksTypeNetwork))
+			Expect(changedVM.Spec.Networks[2].Name).To(Equal("test-network-2"))
+			Expect(changedVM.Spec.Networks[2].ID).To(Equal(2))
+		})
+
+		It("should handle ClusterNetwork type correctly", func() {
+			mac1 := newMACAddress("test-mac-address1", "aa:bb:cc:dd:ee:ff", v1alpha2.VirtualMachineMACAddressPhaseAttached, name)
+			networkSpec := []v1alpha2.NetworksSpec{
+				{
+					Type: v1alpha2.NetworksTypeMain,
+					ID:   0,
+				},
+				{
+					Type: v1alpha2.NetworksTypeClusterNetwork,
+					Name: "test-cluster-network",
+					ID:   0,
+				},
+			}
+			vm.Spec.Networks = networkSpec
+			fakeClient, resource, vmState = setupEnvironment(vm, vmPod, mac1)
+
+			gate, _, setFromMap, err := featuregates.New()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(setFromMap(map[string]bool{string(featuregates.SDN): true})).To(Succeed())
+
+			h := NewNetworkInterfaceHandler(gate)
+			_, err = h.Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changedVM := vmState.VirtualMachine().Changed()
+			Expect(changedVM.Spec.Networks).To(HaveLen(2))
+			Expect(changedVM.Spec.Networks[0].Type).To(Equal(v1alpha2.NetworksTypeMain))
+			Expect(changedVM.Spec.Networks[0].ID).To(Equal(1))
+			Expect(changedVM.Spec.Networks[1].Type).To(Equal(v1alpha2.NetworksTypeClusterNetwork))
+			Expect(changedVM.Spec.Networks[1].Name).To(Equal("test-cluster-network"))
+			Expect(changedVM.Spec.Networks[1].ID).To(Equal(2))
+		})
+
+		It("should skip id=1 when assigning to non-Main networks", func() {
+			mac1 := newMACAddress("test-mac-address1", "aa:bb:cc:dd:ee:ff", v1alpha2.VirtualMachineMACAddressPhaseAttached, name)
+			networkSpec := []v1alpha2.NetworksSpec{
+				{
+					Type: v1alpha2.NetworksTypeMain,
+					ID:   1,
+				},
+				{
+					Type: v1alpha2.NetworksTypeNetwork,
+					Name: "test-network",
+					ID:   0,
+				},
+			}
+			vm.Spec.Networks = networkSpec
+			fakeClient, resource, vmState = setupEnvironment(vm, vmPod, mac1)
+
+			gate, _, setFromMap, err := featuregates.New()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(setFromMap(map[string]bool{string(featuregates.SDN): true})).To(Succeed())
+
+			h := NewNetworkInterfaceHandler(gate)
+			_, err = h.Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changedVM := vmState.VirtualMachine().Changed()
+			Expect(changedVM.Spec.Networks).To(HaveLen(2))
+			Expect(changedVM.Spec.Networks[0].Type).To(Equal(v1alpha2.NetworksTypeMain))
+			Expect(changedVM.Spec.Networks[0].ID).To(Equal(1))
+			Expect(changedVM.Spec.Networks[1].Type).To(Equal(v1alpha2.NetworksTypeNetwork))
+			Expect(changedVM.Spec.Networks[1].ID).To(Equal(2))
+		})
+
+		It("should assign sequential ids starting from 2 when there is no Main network", func() {
+			mac1 := newMACAddress("test-mac-address1", "aa:bb:cc:dd:ee:ff", v1alpha2.VirtualMachineMACAddressPhaseAttached, name)
+			mac2 := newMACAddress("test-mac-address2", "aa:bb:cc:dd:ee:00", v1alpha2.VirtualMachineMACAddressPhaseAttached, name)
+			networkSpec := []v1alpha2.NetworksSpec{
+				{
+					Type: v1alpha2.NetworksTypeNetwork,
+					Name: "test-network-1",
+					ID:   0,
+				},
+				{
+					Type: v1alpha2.NetworksTypeNetwork,
+					Name: "test-network-2",
+					ID:   0,
+				},
+			}
+			vm.Spec.Networks = networkSpec
+			fakeClient, resource, vmState = setupEnvironment(vm, vmPod, mac1, mac2)
+
+			gate, _, setFromMap, err := featuregates.New()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(setFromMap(map[string]bool{string(featuregates.SDN): true})).To(Succeed())
+
+			h := NewNetworkInterfaceHandler(gate)
+			_, err = h.Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changedVM := vmState.VirtualMachine().Changed()
+			Expect(changedVM.Spec.Networks).To(HaveLen(2))
+			Expect(changedVM.Spec.Networks[0].Type).To(Equal(v1alpha2.NetworksTypeNetwork))
+			Expect(changedVM.Spec.Networks[0].Name).To(Equal("test-network-1"))
+			Expect(changedVM.Spec.Networks[0].ID).To(Equal(2))
+			Expect(changedVM.Spec.Networks[1].Type).To(Equal(v1alpha2.NetworksTypeNetwork))
+			Expect(changedVM.Spec.Networks[1].Name).To(Equal("test-network-2"))
+			Expect(changedVM.Spec.Networks[1].ID).To(Equal(3))
+		})
+
+		It("should handle only ClusterNetwork without Main network", func() {
+			mac1 := newMACAddress("test-mac-address1", "aa:bb:cc:dd:ee:ff", v1alpha2.VirtualMachineMACAddressPhaseAttached, name)
+			networkSpec := []v1alpha2.NetworksSpec{
+				{
+					Type: v1alpha2.NetworksTypeClusterNetwork,
+					Name: "test-cluster-network",
+					ID:   0,
+				},
+			}
+			vm.Spec.Networks = networkSpec
+			fakeClient, resource, vmState = setupEnvironment(vm, vmPod, mac1)
+
+			gate, _, setFromMap, err := featuregates.New()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(setFromMap(map[string]bool{string(featuregates.SDN): true})).To(Succeed())
+
+			h := NewNetworkInterfaceHandler(gate)
+			_, err = h.Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changedVM := vmState.VirtualMachine().Changed()
+			Expect(changedVM.Spec.Networks).To(HaveLen(1))
+			Expect(changedVM.Spec.Networks[0].Type).To(Equal(v1alpha2.NetworksTypeClusterNetwork))
+			Expect(changedVM.Spec.Networks[0].Name).To(Equal("test-cluster-network"))
+			Expect(changedVM.Spec.Networks[0].ID).To(Equal(2))
+		})
+	})
 })

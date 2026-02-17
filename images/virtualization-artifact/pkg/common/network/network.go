@@ -50,6 +50,7 @@ func HasMainNetworkSpec(networks []v1alpha2.NetworksSpec) bool {
 }
 
 type InterfaceSpec struct {
+	ID            int    `json:"id"`
 	Type          string `json:"type"`
 	Name          string `json:"name"`
 	InterfaceName string `json:"ifName"`
@@ -66,65 +67,87 @@ type InterfaceStatus struct {
 
 type InterfaceSpecList []InterfaceSpec
 
-func CreateNetworkSpec(vm *v1alpha2.VirtualMachine, vmmacs []*v1alpha2.VirtualMachineMACAddress) InterfaceSpecList {
-	var (
-		all     []string
-		status  []struct{ Name, MAC string }
-		taken   = make(map[string]bool)
-		free    []string
-		res     InterfaceSpecList
-		freeIdx int
-	)
+type MacAddressPool struct {
+	reservedByName map[string]string
+	available      []string
+}
 
-	for _, v := range vmmacs {
-		if mac := v.Status.Address; mac != "" {
-			all = append(all, mac)
-		}
-	}
+func NewMacAddressPool(vm *v1alpha2.VirtualMachine, vmmacs []*v1alpha2.VirtualMachineMACAddress) *MacAddressPool {
+	reservedByName := make(map[string]string)
+	takenMacs := make(map[string]bool)
+
 	for _, n := range vm.Status.Networks {
-		if n.Type == v1alpha2.NetworksTypeMain {
-			continue
-		}
-		status = append(status, struct{ Name, MAC string }{n.Name, n.MAC})
-		taken[n.MAC] = true
-	}
-	for _, mac := range all {
-		if !taken[mac] {
-			free = append(free, mac)
+		if n.Type != v1alpha2.NetworksTypeMain && n.MAC != "" {
+			reservedByName[n.Name] = n.MAC
+			takenMacs[n.MAC] = true
 		}
 	}
-	for _, n := range vm.Spec.Networks {
-		if n.Type == v1alpha2.NetworksTypeMain {
-			res = append(res, InterfaceSpec{
-				Type:          n.Type,
-				Name:          n.Name,
-				InterfaceName: NameDefaultInterface,
-				MAC:           "",
-			})
+
+	var available []string
+	for _, v := range vmmacs {
+		mac := v.Status.Address
+		if mac != "" && !takenMacs[mac] {
+			available = append(available, mac)
+		}
+	}
+
+	return &MacAddressPool{
+		reservedByName: reservedByName,
+		available:      available,
+	}
+}
+
+func (p *MacAddressPool) Assign(networkName string) string {
+	if mac, exists := p.reservedByName[networkName]; exists {
+		return mac
+	}
+
+	if len(p.available) > 0 {
+		mac := p.available[0]
+		p.available = p.available[1:]
+		return mac
+	}
+
+	return ""
+}
+
+func CreateNetworkSpec(vm *v1alpha2.VirtualMachine, vmmacs []*v1alpha2.VirtualMachineMACAddress) InterfaceSpecList {
+	macPool := NewMacAddressPool(vm, vmmacs)
+	var specs InterfaceSpecList
+
+	for _, net := range vm.Spec.Networks {
+		if net.Type == v1alpha2.NetworksTypeMain {
+			specs = append(specs, createMainInterfaceSpec(net))
 			continue
 		}
-		var mac string
-		for i, s := range status {
-			if s.Name == n.Name {
-				mac = s.MAC
-				status = append(status[:i], status[i+1:]...)
-				break
-			}
-		}
-		if mac == "" && freeIdx < len(free) {
-			mac = free[freeIdx]
-			freeIdx++
-		}
+
+		mac := macPool.Assign(net.Name)
 		if mac != "" {
-			res = append(res, InterfaceSpec{
-				Type:          n.Type,
-				Name:          n.Name,
-				InterfaceName: generateInterfaceName(mac, n.Type),
-				MAC:           mac,
-			})
+			specs = append(specs, createAdditionalInterfaceSpec(net, mac))
 		}
 	}
-	return res
+
+	return specs
+}
+
+func createMainInterfaceSpec(net v1alpha2.NetworksSpec) InterfaceSpec {
+	return InterfaceSpec{
+		ID:            net.ID,
+		Type:          net.Type,
+		Name:          net.Name,
+		InterfaceName: NameDefaultInterface,
+		MAC:           "",
+	}
+}
+
+func createAdditionalInterfaceSpec(net v1alpha2.NetworksSpec, mac string) InterfaceSpec {
+	return InterfaceSpec{
+		ID:            net.ID,
+		Type:          net.Type,
+		Name:          net.Name,
+		InterfaceName: generateInterfaceName(mac, net.Type),
+		MAC:           mac,
+	}
 }
 
 func (s InterfaceSpecList) ToString() (string, error) {
@@ -156,4 +179,44 @@ func generateInterfaceName(macAddress, networkType string) string {
 		name = fmt.Sprintf("veth_cn%s", hashHex[:8])
 	}
 	return name
+}
+
+const (
+	ReservedMainID = 1
+	StartGenericID = 2
+)
+
+type InterfaceIDAllocator struct {
+	used   map[int]bool
+	cursor int
+}
+
+func NewInterfaceIDAllocator() *InterfaceIDAllocator {
+	return &InterfaceIDAllocator{
+		used:   make(map[int]bool),
+		cursor: StartGenericID,
+	}
+}
+
+func (a *InterfaceIDAllocator) Reserve(id int) {
+	if id > 0 {
+		a.used[id] = true
+	}
+}
+
+func (a *InterfaceIDAllocator) NextAvailable() int {
+	for {
+		if a.cursor == ReservedMainID {
+			a.cursor++
+			continue
+		}
+
+		if !a.used[a.cursor] {
+			id := a.cursor
+			a.used[id] = true
+			a.cursor++
+			return id
+		}
+		a.cursor++
+	}
 }

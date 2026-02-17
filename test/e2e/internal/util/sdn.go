@@ -18,6 +18,7 @@ package util
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -28,14 +29,18 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
-const (
-	ClusterNetworkName          = "cn-1003-for-e2e-test"
-	ClusterNetworkVLANID        = 1003
-	ClusterNetworkCreateCommand = `kubectl apply -f - <<EOF
+const ClusterNetworkVLANID = 1003
+
+func ClusterNetworkName(vlanID int) string {
+	return fmt.Sprintf("cn-%d-for-e2e-test", vlanID)
+}
+
+func ClusterNetworkCreateCommand(vlanID int) string {
+	return fmt.Sprintf(`kubectl apply -f - <<EOF
 apiVersion: network.deckhouse.io/v1alpha1
 kind: ClusterNetwork
 metadata:
-  name: cn-1003-for-e2e-test
+  name: %s
 spec:
   parentNodeNetworkInterfaces:
     labelSelector:
@@ -44,9 +49,9 @@ spec:
         network.deckhouse.io/node-role: worker
   type: VLAN
   vlan:
-    id: 1003
-EOF`
-)
+    id: %d
+EOF`, ClusterNetworkName(vlanID), vlanID)
+}
 
 func IsSdnModuleEnabled(f *framework.Framework) bool {
 	GinkgoHelper()
@@ -58,7 +63,7 @@ func IsSdnModuleEnabled(f *framework.Framework) bool {
 	return enabled != nil && *enabled
 }
 
-func IsClusterNetworkExists(f *framework.Framework) bool {
+func IsClusterNetworkExists(f *framework.Framework, vlanID int) bool {
 	GinkgoHelper()
 
 	gvr := schema.GroupVersionResource{
@@ -67,7 +72,7 @@ func IsClusterNetworkExists(f *framework.Framework) bool {
 		Resource: "clusternetworks",
 	}
 
-	_, err := framework.GetClients().DynamicClient().Resource(gvr).Get(context.Background(), ClusterNetworkName, metav1.GetOptions{})
+	_, err := framework.GetClients().DynamicClient().Resource(gvr).Get(context.Background(), ClusterNetworkName(vlanID), metav1.GetOptions{})
 	Expect(err).To(SatisfyAny(BeNil(), WithTransform(k8serrors.IsNotFound, BeTrue())))
 
 	return err == nil || !k8serrors.IsNotFound(err)
