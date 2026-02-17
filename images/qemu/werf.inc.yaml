@@ -128,8 +128,8 @@ packages:
 - openldap keyutils
 - libpixman libpsl libpng libqpl rdma-core
 - pcre2
-- libgsasl
-{{- end -}}
+- libgsasl libidn libntlm
+  {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
