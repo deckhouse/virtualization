@@ -1208,7 +1208,7 @@
         ]
       },
       "gridPos": {
-        "h": 8,
+        "h": 7,
         "w": 12,
         "x": 0,
         "y": 7
@@ -1395,7 +1395,7 @@
         ]
       },
       "gridPos": {
-        "h": 8,
+        "h": 7,
         "w": 12,
         "x": 12,
         "y": 7
@@ -1532,10 +1532,10 @@
         ]
       },
       "gridPos": {
-        "h": 8,
+        "h": 7,
         "w": 12,
         "x": 0,
-        "y": 15
+        "y": 14
       },
       "id": 22,
       "options": {
@@ -1645,10 +1645,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 7,
         "w": 12,
         "x": 12,
-        "y": 15
+        "y": 14
       },
       "id": 23,
       "options": {
@@ -1701,100 +1701,10 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 23
+        "y": 21
       },
       "id": 55,
       "panels": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${ds_prometheus}"
-          },
-          "description": "Whether the desired configuration is currently applied to a running VM",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "custom": {
-                "fillOpacity": 70,
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineWidth": 0,
-                "spanNulls": false
-              },
-              "mappings": [
-                {
-                  "options": {
-                    "0": {
-                      "color": "light-red",
-                      "index": 0,
-                      "text": "not applied"
-                    },
-                    "1": {
-                      "color": "green",
-                      "index": 1,
-                      "text": "applied"
-                    }
-                  },
-                  "type": "value"
-                }
-              ],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  }
-                ]
-              },
-              "unit": "string"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 24,
-            "x": 0,
-            "y": 32
-          },
-          "id": 1,
-          "options": {
-            "alignValue": "left",
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "mergeValues": false,
-            "rowHeight": 0.9,
-            "showValue": "never",
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${ds_prometheus}"
-              },
-              "editorMode": "code",
-              "expr": "max by (name) (\n    count by (name,pod) (\n        d8_virtualization_virtualmachine_configuration_applied{namespace=\"$namespace\", name=\"$name\"}\n    )\n)\n",
-              "instant": false,
-              "legendFormat": "__auto",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Configuration",
-          "type": "state-timeline"
-        },
         {
           "datasource": {
             "type": "prometheus",
@@ -1884,7 +1794,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   }
                 ]
               },
@@ -1893,10 +1804,10 @@
             "overrides": []
           },
           "gridPos": {
-            "h": 4,
+            "h": 3,
             "w": 24,
             "x": 0,
-            "y": 36
+            "y": 22
           },
           "id": 57,
           "options": {
@@ -1936,77 +1847,70 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
+          "description": "Whether the desired configuration is currently applied to a running VM",
           "fieldConfig": {
             "defaults": {
               "color": {
-                "mode": "palette-classic"
+                "mode": "thresholds"
               },
               "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
+                "fillOpacity": 70,
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
                   "viz": false
                 },
                 "insertNulls": false,
-                "lineInterpolation": "stepAfter",
-                "lineStyle": {
-                  "fill": "solid"
-                },
-                "lineWidth": 1,
-                "pointSize": 1,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
+                "lineWidth": 0,
+                "spanNulls": false
               },
-              "mappings": [],
+              "mappings": [
+                {
+                  "options": {
+                    "0": {
+                      "color": "light-red",
+                      "index": 0,
+                      "text": "not applied"
+                    },
+                    "1": {
+                      "color": "green",
+                      "index": 1,
+                      "text": "applied"
+                    }
+                  },
+                  "type": "value"
+                }
+              ],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
+                    "color": "green",
+                    "value": null
                   }
                 ]
               },
-              "unit": "binbps"
+              "unit": "string"
             },
             "overrides": []
           },
           "gridPos": {
-            "h": 6,
+            "h": 3,
             "w": 24,
             "x": 0,
-            "y": 40
+            "y": 25
           },
-          "id": 81,
+          "id": 1,
           "options": {
+            "alignValue": "left",
             "legend": {
-              "calcs": [],
               "displayMode": "list",
               "placement": "bottom",
               "showLegend": true
             },
+            "mergeValues": false,
+            "rowHeight": 0.9,
+            "showValue": "never",
             "tooltip": {
               "mode": "single",
               "sort": "none"
@@ -2019,10 +1923,220 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum(rate(d8_virtualization_virtualmachine_migration_data_processed_bytes{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])) without (instance,job,node) * 8",
+              "expr": "max by (name) (\n    count by (name,pod) (\n        d8_virtualization_virtualmachine_configuration_applied{namespace=\"$namespace\", name=\"$name\"}\n    )\n)\n",
               "instant": false,
-              "legendFormat": "Processed memory rate",
+              "legendFormat": "__auto",
               "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Configuration",
+          "type": "state-timeline"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "description": "Pods associated with this Virtual Machine",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "filterable": false,
+                "inspect": false,
+                "minWidth": 70
+              },
+              "decimals": 2,
+              "displayName": "",
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "pod"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Pod Name"
+                  },
+                  {
+                    "id": "unit",
+                    "value": "short"
+                  },
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "targetBlank": true,
+                        "title": "Pod Details",
+                        "url": "/d/m41rB4yiz1/pod?var-ds_prometheus=${ds_prometheus}&var-namespace=${namespace}&var-pod=${__value.raw}&${__url_time_range}"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "custom.minWidth",
+                    "value": 250
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "node"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Node"
+                  },
+                  {
+                    "id": "unit",
+                    "value": "short"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #C"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Phase"
+                  },
+                  {
+                    "id": "unit",
+                    "value": "short"
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "mode": "basic",
+                      "type": "color-background"
+                    }
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "options": {
+                          "0": {
+                            "color": "green",
+                            "index": 0,
+                            "text": "Ready"
+                          },
+                          "1": {
+                            "color": "#99440a",
+                            "index": 1,
+                            "text": "Some containers not running or ready"
+                          },
+                          "2": {
+                            "color": "#e5ac0e",
+                            "index": 2,
+                            "text": "Pending"
+                          },
+                          "3": {
+                            "color": "#d7d7d7",
+                            "index": 3,
+                            "text": "Unknown"
+                          },
+                          "4": {
+                            "color": "#bf1b00",
+                            "index": 4,
+                            "text": "Failed"
+                          },
+                          "5": {
+                            "color": "#e0f9d7",
+                            "index": 5,
+                            "text": "Succeeded"
+                          }
+                        },
+                        "type": "value"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #D"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Created ago"
+                  },
+                  {
+                    "id": "unit",
+                    "value": "dtdurations"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 0
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 28
+          },
+          "id": 93,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": false,
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "showHeader": true,
+            "sortBy": []
+          },
+          "pluginVersion": "10.4.19",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "max by (pod) (max_over_time(kube_pod_labels{namespace=\"$namespace\", label_vm_kubevirt_internal_virtualization_deckhouse_io_name=\"$name\"}[$__range]))\nor\nmax by (pod) (\n  kube_pod_owner{namespace=\"$namespace\", owner_kind=\"Pod\"}\n  * on (owner_name) group_left()\n  label_replace(\n    max by (pod) (max_over_time(kube_pod_labels{namespace=\"$namespace\", label_vm_kubevirt_internal_virtualization_deckhouse_io_name=\"$name\"}[$__range])),\n    \"owner_name\",\n    \"$1\",\n    \"pod\",\n    \"(.*)\"\n  )\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "intervalFactor": 1,
+              "legendFormat": "Pod Name",
               "refId": "A"
             },
             {
@@ -2031,11 +2145,12 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum(rate(d8_virtualization_virtualmachine_migration_data_remaining_bytes{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])) without (instance,job,node) * 8",
+              "expr": "(max by (pod) (max_over_time(kube_pod_labels{namespace=\"$namespace\", label_vm_kubevirt_internal_virtualization_deckhouse_io_name=\"$name\"}[$__range]))\nor\nmax by (pod,uid) (\n  kube_pod_owner{namespace=\"$namespace\", owner_kind=\"Pod\"}\n  * on (owner_name,uid) group_left()\n  label_replace(\n    max by (pod,uid) (max_over_time(kube_pod_labels{namespace=\"$namespace\", label_vm_kubevirt_internal_virtualization_deckhouse_io_name=\"$name\"}[$__range])),\n    \"owner_name\",\n    \"$1\",\n    \"pod\",\n    \"(.*)\"\n  )\n))\n  * on (pod,uid) group_right(node)\n  max by (pod, node,uid) (max_over_time(kube_pod_info{namespace=\"$namespace\"}[$__range]))",
+              "format": "table",
               "hide": false,
-              "instant": false,
-              "legendFormat": "Remaining memory rate",
-              "range": true,
+              "instant": true,
+              "intervalFactor": 1,
+              "legendFormat": "Node",
               "refId": "B"
             },
             {
@@ -2044,16 +2159,63 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum(d8_virtualization_virtualmachine_migration_dirty_memory_rate_bytes{namespace=\"$namespace\", name=\"$name\"}) without (instance,job,node) * 8",
+              "expr": "(\n  max by (pod) (max_over_time(kube_pod_labels{namespace=\"$namespace\", label_vm_kubevirt_internal_virtualization_deckhouse_io_name=\"$name\"}[$__range]))\n  or\n  max by (pod) (\n    kube_pod_owner{namespace=\"$namespace\", owner_kind=\"Pod\"}\n    * on (owner_name) group_left()\n    label_replace(\n      max by (pod) (max_over_time(kube_pod_labels{namespace=\"$namespace\", label_vm_kubevirt_internal_virtualization_deckhouse_io_name=\"$name\"}[$__range])),\n      \"owner_name\",\n      \"$1\",\n      \"pod\",\n      \"(.*)\"\n    )\n  )\n)\n  * on (pod) group_right()\n  (\n    (\n      (min by (pod) (last_over_time(kube_pod_container_status_ready{namespace=\"$namespace\"}[5m])) == 1) * 0 + 0\n    )\n    or on(pod)\n    (\n      (\n        (last_over_time(kube_pod_status_phase{namespace=\"$namespace\", phase=\"Running\"}[5m]) == 1) * 0 + 1\n        or\n        (last_over_time(kube_pod_status_phase{namespace=\"$namespace\", phase=\"Pending\"}[5m]) == 1) * 0 + 2\n        or\n        (last_over_time(kube_pod_status_phase{namespace=\"$namespace\", phase=\"Unknown\"}[5m]) == 1) * 0 + 3\n        or\n        (last_over_time(kube_pod_status_phase{namespace=\"$namespace\", phase=\"Failed\"}[5m]) == 1) * 0 + 4\n        or\n        (last_over_time(kube_pod_status_phase{namespace=\"$namespace\", phase=\"Succeeded\"}[5m]) == 1) * 0 + 5\n      )\n    )\n  )",
+              "format": "table",
               "hide": false,
-              "instant": false,
-              "legendFormat": "Dirty memory rate",
-              "range": true,
+              "instant": true,
+              "intervalFactor": 1,
+              "legendFormat": "Phase",
               "refId": "C"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "(max by (pod) (max_over_time(kube_pod_labels{namespace=\"$namespace\", label_vm_kubevirt_internal_virtualization_deckhouse_io_name=\"$name\"}[$__range]))\nor\nmax by (pod) (\n  kube_pod_owner{namespace=\"$namespace\", owner_kind=\"Pod\"}\n  * on (owner_name) group_left()\n  label_replace(\n    max by (pod) (max_over_time(kube_pod_labels{namespace=\"$namespace\", label_vm_kubevirt_internal_virtualization_deckhouse_io_name=\"$name\"}[$__range])),\n    \"owner_name\",\n    \"$1\",\n    \"pod\",\n    \"(.*)\"\n  )\n))\n  * on (pod) group_left()\n  (time() - kube_pod_created{namespace=\"$namespace\"})",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "intervalFactor": 1,
+              "legendFormat": "Created",
+              "refId": "D"
             }
           ],
-          "title": "Live migration memory metrics",
-          "type": "timeseries"
+          "title": "VM pods",
+          "transformations": [
+            {
+              "id": "merge",
+              "options": {
+                "reducers": []
+              }
+            },
+            {
+              "id": "filterFieldsByName",
+              "options": {
+                "include": {
+                  "names": [
+                    "pod",
+                    "node",
+                    "Value #C",
+                    "Value #D"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "sortBy",
+              "options": {
+                "fields": {},
+                "sort": [
+                  {
+                    "field": "Value #D"
+                  }
+                ]
+              }
+            }
+          ],
+          "type": "table"
         },
         {
           "datasource": {
@@ -2078,7 +2240,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   }
                 ]
               }
@@ -2148,10 +2311,10 @@
             ]
           },
           "gridPos": {
-            "h": 11,
-            "w": 24,
-            "x": 0,
-            "y": 46
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 28
           },
           "id": 88,
           "options": {
@@ -2325,7 +2488,146 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 24
+        "y": 22
+      },
+      "id": 94,
+      "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "stepAfter",
+                "lineStyle": {
+                  "fill": "solid"
+                },
+                "lineWidth": 1,
+                "pointSize": 1,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "binbps"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 24,
+            "x": 0,
+            "y": 23
+          },
+          "id": 81,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "sum(rate(d8_virtualization_virtualmachine_migration_data_processed_bytes{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])) without (instance,job,node) * 8",
+              "instant": false,
+              "legendFormat": "Processed memory rate",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "sum(rate(d8_virtualization_virtualmachine_migration_data_remaining_bytes{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])) without (instance,job,node) * 8",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "Remaining memory rate",
+              "range": true,
+              "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "sum(d8_virtualization_virtualmachine_migration_dirty_memory_rate_bytes{namespace=\"$namespace\", name=\"$name\"}) without (instance,job,node) * 8",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "Dirty memory rate",
+              "range": true,
+              "refId": "C"
+            }
+          ],
+          "title": "Live migration memory metrics",
+          "type": "timeseries"
+        }
+      ],
+      "title": "Live migration",
+      "type": "row"
+    },
+    {
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 23
       },
       "id": 21,
       "panels": [
@@ -2922,7 +3224,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 25
+        "y": 24
       },
       "id": 28,
       "panels": [
@@ -3516,7 +3818,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 26
+        "y": 25
       },
       "id": 60,
       "panels": [
@@ -3547,8 +3849,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3891,8 +4192,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -4024,8 +4324,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -4150,7 +4449,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 27
+        "y": 26
       },
       "id": 5,
       "panels": [
@@ -4202,8 +4501,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -4305,8 +4603,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -4408,8 +4705,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -4511,8 +4807,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -4614,8 +4909,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -4717,8 +5011,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -4782,7 +5075,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 28
+        "y": 27
       },
       "id": 6,
       "panels": [
@@ -4834,8 +5127,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -4982,8 +5274,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -5530,6 +5821,6 @@
   "timezone": "browser",
   "title": "Namespace / Virtual Machine",
   "uid": "bdw6dw2izvpxcb",
-  "version": 12,
+  "version": 22,
   "weekStart": ""
 }
