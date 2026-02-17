@@ -94,8 +94,133 @@ jobs:
           cleanup_kind "namespaces"
           echo " "
           cleanup_kind "vmclass"
+
+  power-off-vms-for-nested:
+    name: Power off VMs for nested clusters
+    needs: cleanup-nested-clusters
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure kubectl via azure/k8s-set-context@v4
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          context: e2e-cluster-nightly-e2e-virt-sa
+          kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+      - name: Power off VMs to free resources for nested cluster setup
+        run: |
+          set -euo pipefail
+
+          # Nested clusters required resources (overhead):
+          # Configuration: 1 master + 3 workers x2
+
+          REQUIRED_MEM_GI=86
+          REQUIRED_CPU=20
+
+          # Convert Kubernetes memory quantity to Gi (float). Supports Gi, Mi, Ki, or plain number (bytes).
+          mem_to_gi() {
+            local q="$1"
+            if [[ "$q" =~ ^([0-9]+)Gi$ ]]; then
+              echo "${BASH_REMATCH[1]}"
+            elif [[ "$q" =~ ^([0-9]+)Mi$ ]]; then
+              echo "scale=4; ${BASH_REMATCH[1]} / 1024" | bc
+            elif [[ "$q" =~ ^([0-9]+)Ki$ ]]; then
+              echo "scale=6; ${BASH_REMATCH[1]} / 1024 / 1024" | bc
+            elif [[ "$q" =~ ^[0-9]+$ ]]; then
+              echo "scale=6; $q / 1024 / 1024 / 1024" | bc
+            else
+              echo "0"
+            fi
+          }
+
+          # Convert Kubernetes CPU quantity to cores (float). Supports "2", "500m", "1000m".
+          cpu_to_cores() {
+            local q="${1:-0}"
+            if [[ "$q" == *m ]]; then
+              echo "scale=4; ${q%m} / 1000" | bc
+            else
+              echo "${q:-0}"
+            fi
+          }
+
+          # VMs run only on worker nodes. Sum *free* (allocatable - requested) memory and CPU on workers.
+          # Free = not occupied by existing pods (scheduler uses requests).
+          available_mem_gi=0
+          available_cpu=0
+          worker_nodes=$(kubectl get nodes -l node-role.kubernetes.io/worker -o jsonpath='{.items[*].metadata.name}')
+
+          for node in $worker_nodes; do
+            [[ -n "$node" ]] || continue
+            alloc=$(kubectl get node "$node" -o json | jq -r '.status.allocatable | "\(.memory // "0") \(.cpu // "0")"')
+            read -r node_mem node_cpu <<< "$alloc"
+            node_alloc_mem=$(mem_to_gi "$node_mem")
+            node_alloc_cpu=$(cpu_to_cores "$node_cpu")
+
+            node_req_mem=0
+            node_req_cpu=0
+            while read -r mem_req cpu_req; do
+              [[ -n "$mem_req" ]] || continue
+              node_req_mem=$(echo "$node_req_mem + $(mem_to_gi "$mem_req")" | bc)
+              node_req_cpu=$(echo "$node_req_cpu + $(cpu_to_cores "$cpu_req")" | bc)
+            done < <(kubectl get pods -A --field-selector spec.nodeName="$node" -o json | jq -r '.items[].spec.containers[] | "\(.resources.requests.memory // "0") \(.resources.requests.cpu // "0")"')
+
+            node_free_mem=$(echo "$node_alloc_mem - $node_req_mem" | bc 2>/dev/null || echo "0")
+            node_free_cpu=$(echo "$node_alloc_cpu - $node_req_cpu" | bc 2>/dev/null || echo "0")
+            
+            available_mem_gi=$(echo "$available_mem_gi + $node_free_mem" | bc)
+            available_cpu=$(echo "$available_cpu + $node_free_cpu" | bc)
+          done
+
+          echo "[INFO] Worker nodes (node-role.kubernetes.io/worker): free memory ${available_mem_gi} Gi, free CPU ${available_cpu} cores"
+          echo "[INFO] Required for nested setup: memory ${REQUIRED_MEM_GI} Gi, CPU ${REQUIRED_CPU} cores"
+
+          deficit_mem=$(echo "$REQUIRED_MEM_GI - $available_mem_gi" | bc 2>/dev/null || echo "0")
+          deficit_cpu=$(echo "$REQUIRED_CPU - $available_cpu" | bc 2>/dev/null || echo "0")
+
+          if [[ $(echo "$deficit_mem <= 0" | bc) -eq 1 ]] && [[ $(echo "$deficit_cpu <= 0" | bc) -eq 1 ]]; then
+            echo "[INFO] Free resources on workers are sufficient, no VMs to power off"
+            exit 0
+          fi
+          echo "[INFO] Deficit: memory ${deficit_mem} Gi, CPU ${deficit_cpu} cores — will power off VMs (excluding nightly-e2e-* and static-cse)"
+
+          # List VMs not in nightly-e2e-* or static-cse with runPolicy != AlwaysOff. Output: namespace name mem_gi cpu_effective
+          get_vms_to_consider() {
+            kubectl get vm -A -o json | jq -r '
+              .items[]
+              | select(.metadata.namespace | test("^nightly-e2e-|static-cse") | not)
+              | select(.spec.runPolicy != "AlwaysOff")
+              | [.metadata.namespace, .metadata.name, (.spec.memory.size // "0"), (.spec.cpu.cores // 0), (.spec.cpu.coreFraction // "100%")]
+              | @tsv
+            '
+          }
+
+          freed_mem=0
+          freed_cpu=0
+          need_more() {
+            [[ $(echo "$freed_mem < $deficit_mem" | bc) -eq 1 ]] || [[ $(echo "$freed_cpu < $deficit_cpu" | bc) -eq 1 ]]
+          }
+
+          while read -r ns name mem_qty cores core_frac; do
+            [[ -n "$ns" ]] || continue
+            if ! need_more; then
+              break
+            fi
+            vm_mem_gi=$(mem_to_gi "$mem_qty")
+            frac_pct=100
+            if [[ "$core_frac" =~ ^([0-9]+)%$ ]]; then
+              frac_pct="${BASH_REMATCH[1]}"
+            fi
+            vm_cpu=$(echo "scale=2; $cores * $frac_pct / 100" | bc)
+
+            echo "[INFO] Patching vm $ns/$name (mem ${vm_mem_gi} Gi, cpu ${vm_cpu}) to runPolicy=AlwaysOff"
+            kubectl patch vm -n "$ns" "$name" --type=merge -p '{"spec":{"runPolicy":"AlwaysOff"}}' || true
+            freed_mem=$(echo "$freed_mem + $vm_mem_gi" | bc)
+            freed_cpu=$(echo "$freed_cpu + $vm_cpu" | bc)
+          done < <(get_vms_to_consider | sort -t$'\t' -k1,2)
+
+          echo "[INFO] Freed: memory ${freed_mem} Gi, CPU ${freed_cpu} cores"
   set-vars:
     name: Set vars
+    needs: power-off-vms-for-nested
     runs-on: ubuntu-latest
     outputs:
       date_start: ${{ steps.vars.outputs.date-start }}
@@ -110,7 +235,6 @@ jobs:
   e2e-ceph:
     name: E2E Pipeline (Ceph)
     needs:
-      - cleanup-nested-clusters
       - set-vars
     uses: ./.github/workflows/e2e-reusable-pipeline.yml
     with:
@@ -134,7 +258,6 @@ jobs:
   e2e-replicated:
     name: E2E Pipeline (Replicated)
     needs:
-      - cleanup-nested-clusters
       - set-vars
     uses: ./.github/workflows/e2e-reusable-pipeline.yml
     with:
