@@ -1,0 +1,26 @@
+name: Translate Changelog and Create PR
+
+on:
+  push:
+    branches:
+      - main
+      - release-[0-9]+.[0-9]+
+
+jobs:
+  translate-and-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Translate changelog and create PR
+        uses: deckhouse/modules-actions/translate-changelog@v9
+        with:
+          changelog_path: "CHANGELOG"
+          python_version: "3.11"
