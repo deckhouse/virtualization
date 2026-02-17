@@ -182,6 +182,12 @@ shell:
       rm -rf /$pkg
     done
 
+    for l in $(find / -type f -name libcurl\*.so\* ) ; do
+      echo ===========
+      echo >> ldd $l
+      echo ldd $l
+    done
+
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
     export CCACHE_DIR="$CCACHE_BASEDIR/ccache"
     export CCACHE_BASEDIR="$(pwd)"
