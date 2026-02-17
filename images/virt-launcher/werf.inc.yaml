@@ -392,7 +392,6 @@ shell:
   # /etc/libvirt-init will be copied back into /etc/libvirt at runtime. This is necessary because we configure libvirt to mount /etc/libvirt and set readOnlyRootFilesystem for other directories.
   # DO NOT REMOVE. node-labeler.sh uses /etc/libvirt.
   - |
-    chmod +x etc/libvirt/hooks/qemu
     cp -a etc/libvirt etc/libvirt-init
 
 ---
