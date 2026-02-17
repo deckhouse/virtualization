@@ -2145,20 +2145,6 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "(max by (pod) (max_over_time(kube_pod_labels{namespace=\"$namespace\", label_vm_kubevirt_internal_virtualization_deckhouse_io_name=\"$name\"}[$__range]))\nor\nmax by (pod,uid) (\n  kube_pod_owner{namespace=\"$namespace\", owner_kind=\"Pod\"}\n  * on (owner_name,uid) group_left()\n  label_replace(\n    max by (pod,uid) (max_over_time(kube_pod_labels{namespace=\"$namespace\", label_vm_kubevirt_internal_virtualization_deckhouse_io_name=\"$name\"}[$__range])),\n    \"owner_name\",\n    \"$1\",\n    \"pod\",\n    \"(.*)\"\n  )\n))\n  * on (pod,uid) group_right(node)\n  max by (pod, node,uid) (max_over_time(kube_pod_info{namespace=\"$namespace\"}[$__range]))",
-              "format": "table",
-              "hide": false,
-              "instant": true,
-              "intervalFactor": 1,
-              "legendFormat": "Node",
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${ds_prometheus}"
-              },
-              "editorMode": "code",
               "expr": "(\n  max by (pod) (max_over_time(kube_pod_labels{namespace=\"$namespace\", label_vm_kubevirt_internal_virtualization_deckhouse_io_name=\"$name\"}[$__range]))\n  or\n  max by (pod) (\n    kube_pod_owner{namespace=\"$namespace\", owner_kind=\"Pod\"}\n    * on (owner_name) group_left()\n    label_replace(\n      max by (pod) (max_over_time(kube_pod_labels{namespace=\"$namespace\", label_vm_kubevirt_internal_virtualization_deckhouse_io_name=\"$name\"}[$__range])),\n      \"owner_name\",\n      \"$1\",\n      \"pod\",\n      \"(.*)\"\n    )\n  )\n)\n  * on (pod) group_right()\n  (\n    (\n      (min by (pod) (last_over_time(kube_pod_container_status_ready{namespace=\"$namespace\"}[5m])) == 1) * 0 + 0\n    )\n    or on(pod)\n    (\n      (\n        (last_over_time(kube_pod_status_phase{namespace=\"$namespace\", phase=\"Running\"}[5m]) == 1) * 0 + 1\n        or\n        (last_over_time(kube_pod_status_phase{namespace=\"$namespace\", phase=\"Pending\"}[5m]) == 1) * 0 + 2\n        or\n        (last_over_time(kube_pod_status_phase{namespace=\"$namespace\", phase=\"Unknown\"}[5m]) == 1) * 0 + 3\n        or\n        (last_over_time(kube_pod_status_phase{namespace=\"$namespace\", phase=\"Failed\"}[5m]) == 1) * 0 + 4\n        or\n        (last_over_time(kube_pod_status_phase{namespace=\"$namespace\", phase=\"Succeeded\"}[5m]) == 1) * 0 + 5\n      )\n    )\n  )",
               "format": "table",
               "hide": false,
@@ -2542,8 +2528,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -5821,6 +5806,6 @@
   "timezone": "browser",
   "title": "Namespace / Virtual Machine",
   "uid": "bdw6dw2izvpxcb",
-  "version": 22,
+  "version": 1,
   "weekStart": ""
 }
