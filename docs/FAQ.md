@@ -356,6 +356,10 @@ spec:
 
 Cloud-Init is a tool for automatically configuring virtual machines on first boot. The configuration is written in YAML format and must start with the `#cloud-config` header.
 
+{{< alert level="warning" >}}
+When using cloud images (for example, official images from distributions), you must provide a cloud-init configuration. Without it, on some distributions, network connectivity is not configured, and the virtual machine becomes unavailable on the network, even if the main network (Main) is connected. In addition, cloud images do not allow login by default — you must either add SSH keys for the default user or create a new user with SSH access. Without this, it will be impossible to access the virtual machine.
+{{< /alert >}}
+
 ### Updating and installing packages
 
 Example configuration for updating the system and installing packages:
