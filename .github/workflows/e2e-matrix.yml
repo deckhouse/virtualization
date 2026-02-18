@@ -183,10 +183,12 @@ jobs:
           echo "[INFO] Deficit: memory ${deficit_mem} Gi, CPU ${deficit_cpu} cores — will power off VMs (excluding nightly-e2e-* and static-cse)"
 
           # List VMs not in nightly-e2e-* or static-cse with runPolicy != AlwaysOff. Output: namespace name mem_gi cpu_effective
+          # Also exclude VMs with label e2e-cluster/do-not-stop-vm-on-e2e-run
           get_vms_to_consider() {
             kubectl get vm -A -o json | jq -r '
               .items[]
               | select(.metadata.namespace | test("^nightly-e2e-|static-cse") | not)
+              | select(.metadata.labels | tostring | test("e2e-cluster/do-not-stop-vm-on-e2e-run") | not)
               | select(.spec.runPolicy != "AlwaysOff")
               | [.metadata.namespace, .metadata.name, (.spec.memory.size // "0"), (.spec.cpu.cores // 0), (.spec.cpu.coreFraction // "100%")]
               | @tsv
