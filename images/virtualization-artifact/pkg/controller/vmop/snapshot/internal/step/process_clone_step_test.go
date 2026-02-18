@@ -122,7 +122,7 @@ var _ = Describe("ProcessCloneStep", func() {
 	})
 
 	Describe("Process completion", func() {
-		It("should complete when all resources are Completed after Process", func() {
+		It("should complete after running Process if all resources are in the Completed state", func() {
 			vmop := createCloneVMOP("default", "test-vmop", "test-vm", "test-snapshot")
 			snapshot := createVMSnapshot("default", "test-snapshot", "test-secret", true)
 			vm := createVirtualMachine("default", "test-vm", v1alpha2.MachineRunning)
