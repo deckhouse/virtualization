@@ -143,7 +143,7 @@ var _ = Describe("ProcessCloneStep", func() {
 			}
 		})
 
-		It("should requeue when not all resources are Completed after Process", func() {
+		It("should requeue after running Process if there are resources in the Completed state", func() {
 			vmop := createCloneVMOP("default", "test-vmop", "test-vm", "test-snapshot")
 			snapshot := createVMSnapshot("default", "test-snapshot", "test-secret", true)
 			vm := createVirtualMachine("default", "test-vm", v1alpha2.MachineRunning)
