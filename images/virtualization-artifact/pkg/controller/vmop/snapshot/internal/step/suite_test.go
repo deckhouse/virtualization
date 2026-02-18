@@ -202,7 +202,6 @@ func setVMMaintenanceCondition(vm *v1alpha2.VirtualMachine, status metav1.Condit
 	})
 }
 
-//nolint:unparam // namespace is always "default" in tests, but kept for flexibility
 func createVMBDA(namespace, name, vmName string) *v1alpha2.VirtualMachineBlockDeviceAttachment {
 	return &v1alpha2.VirtualMachineBlockDeviceAttachment{
 		TypeMeta: metav1.TypeMeta{
@@ -223,7 +222,6 @@ func createVMBDA(namespace, name, vmName string) *v1alpha2.VirtualMachineBlockDe
 	}
 }
 
-//nolint:unparam // namespace is always "default" in tests, but kept for flexibility
 func createRestorerSecretWithVMBDAs(namespace, name string, vm *v1alpha2.VirtualMachine, vmbdas []*v1alpha2.VirtualMachineBlockDeviceAttachment) *corev1.Secret {
 	secret := createRestorerSecret(namespace, name, vm)
 	if len(vmbdas) > 0 {

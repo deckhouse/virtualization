@@ -181,7 +181,6 @@ var _ = Describe("ProcessRestoreStep", func() {
 		})
 
 		It("should requeue after running Process if there are resources in the Completed state", func() {
-
 			vmop := createRestoreVMOP("default", "test-vmop", "test-vm", "test-snapshot")
 			setMaintenanceCondition(vmop, metav1.ConditionTrue)
 
