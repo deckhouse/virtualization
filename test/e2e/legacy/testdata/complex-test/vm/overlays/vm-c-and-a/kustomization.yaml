@@ -10,4 +10,5 @@ patches:
 labels:
   - includeSelectors: true
     pairs:
+      affinity: ""
       vm: vm-c

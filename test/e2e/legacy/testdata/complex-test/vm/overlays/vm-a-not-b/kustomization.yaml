@@ -11,4 +11,5 @@ patches:
 labels:
   - includeSelectors: true
     pairs:
+      anti-affinity: ""
       vm: vm-a

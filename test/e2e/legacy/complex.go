@@ -18,6 +18,7 @@ package legacy
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -30,7 +31,10 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-const VirtualMachineCount = 12
+const (
+	affinityLabel     = "affinity"
+	antiAffinityLabel = "anti-affinity"
+)
 
 var _ = Describe("ComplexTest", Ordered, func() {
 	var (
@@ -67,9 +71,7 @@ var _ = Describe("ComplexTest", Ordered, func() {
 
 		It("should fill empty virtualMachineClassName with the default class name", func() {
 			defaultVMLabels := make(map[string]string, len(testCaseLabel)+1)
-			for k, v := range testCaseLabel {
-				defaultVMLabels[k] = v
-			}
+			maps.Copy(defaultVMLabels, testCaseLabel)
 			defaultVMLabels["vm"] = "default"
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 				Labels:    testCaseLabel,
@@ -197,11 +199,13 @@ var _ = Describe("ComplexTest", Ordered, func() {
 	Describe("Migrations", func() {
 		Context("When Virtual machine agents are ready", func() {
 			It("starts migrations", func() {
-				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+				opts := kc.GetOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
-				})
+				}
+				excludeVMsWithAffinityRules(&opts)
+				res := kubectl.List(kc.ResourceVM, opts)
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
@@ -219,12 +223,14 @@ var _ = Describe("ComplexTest", Ordered, func() {
 					Timeout:   MaxWaitTimeout,
 				})
 				By("Virtual machines should be migrated")
-				WaitByLabel(kc.ResourceVM, kc.WaitOptions{
+				opts := kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 					For:       "'jsonpath={.status.migrationState.result}=Succeeded'",
-				})
+				}
+				excludeVMsWithAffinityRules(&opts)
+				WaitByLabel(kc.ResourceVM, opts)
 			})
 
 			It("checks VMs external connection after migrations", func() {
@@ -237,8 +243,8 @@ var _ = Describe("ComplexTest", Ordered, func() {
 
 				vms := strings.Split(res.StdOut(), " ")
 
-				// Skip this check until the issue with cilium-agents is fixed.
-				// CheckCiliumAgents(kubectl, ns, vms...)
+				// There is a known issue with the Cilium agent check.
+				CheckCiliumAgents(kubectl, ns, vms...)
 				CheckExternalConnection(externalHost, httpStatusOk, ns, vms...)
 			})
 		})
@@ -246,20 +252,18 @@ var _ = Describe("ComplexTest", Ordered, func() {
 
 	Context("When test is completed", func() {
 		It("deletes test case resources", func() {
-			resourcesToDelete := ResourcesToDelete{
-				AdditionalResources: []AdditionalResource{
-					{
-						kc.ResourceVMOP,
-						testCaseLabel,
-					},
-				},
-			}
-
 			if config.IsCleanUpNeeded() {
-				resourcesToDelete.KustomizationDir = conf.TestData.ComplexTest
+				resourcesToDelete := ResourcesToDelete{
+					AdditionalResources: []AdditionalResource{
+						{
+							kc.ResourceVMOP,
+							testCaseLabel,
+						},
+					},
+					KustomizationDir: conf.TestData.ComplexTest,
+				}
+				DeleteTestCaseResources(ns, resourcesToDelete)
 			}
-
-			DeleteTestCaseResources(ns, resourcesToDelete)
 		})
 	})
 })
@@ -302,4 +306,19 @@ func AssignIPToVMIP(f *framework.Framework, vmipNamespace, vmipName string) erro
 	}
 
 	return nil
+}
+
+// This is required to prevent virtual machine pods from becoming unschedulable due to anti-affinity rules.
+func excludeVMsWithAffinityRules(opts kc.Options) {
+	GinkgoHelper()
+
+	res := kubectl.Get(kc.ResourceNode, kc.GetOptions{Output: "jsonpath='{.items[*].metadata.name}'"})
+	Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+	nodes := strings.Split(res.StdOut(), " ")
+
+	// When two virtual machines with anti-affinity rules migrate simultaneously, one of them may create two pods on two nodes.
+	// This can cause the second virtual machine to become unschedulable.
+	if len(nodes) <= 3 {
+		opts.ExcludeLabels([]string{affinityLabel, antiAffinityLabel})
+	}
 }
