@@ -445,6 +445,8 @@ mounts:
 
 ### Configuring network interfaces for additional networks
 
+For more information on connecting additional networks to a virtual machine, see the [Additional network interfaces](./user_guide.html#additional-network-interfaces) section.
+
 {{< alert level="warning" >}}
 The settings described in this section apply only to additional networks. The main network (Main) is configured automatically via cloud-init and does not require manual configuration.
 {{< /alert >}}
