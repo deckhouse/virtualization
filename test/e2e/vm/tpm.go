@@ -29,6 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
 var _ = Describe("VMCheckTPM", func() {
@@ -86,6 +87,8 @@ runcmd:
 		)
 		err := f.CreateWithDeferredDeletion(context.Background(), vdRoot, vmTPM)
 		Expect(err).NotTo(HaveOccurred())
+		util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmTPM)
+		util.UntilSSHReady(f, vmTPM, framework.LongTimeout)
 
 		By(fmt.Sprintf("Checks that the VM has the TPM module version %s.", expectedTPMVersion))
 
@@ -100,6 +103,6 @@ runcmd:
 			Expect(cmdStdOut).To(ContainSubstring(expectedTPMVersion))
 
 			return nil
-		}).WithTimeout(framework.LongTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
+		}).WithTimeout(framework.ShortTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
 	})
 })
