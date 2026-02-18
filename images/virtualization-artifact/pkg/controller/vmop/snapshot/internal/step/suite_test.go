@@ -202,6 +202,7 @@ func setVMMaintenanceCondition(vm *v1alpha2.VirtualMachine, status metav1.Condit
 	})
 }
 
+//nolint:unparam // namespace is always "default" in tests, but kept for flexibility
 func createVMBDA(namespace, name, vmName string) *v1alpha2.VirtualMachineBlockDeviceAttachment {
 	return &v1alpha2.VirtualMachineBlockDeviceAttachment{
 		TypeMeta: metav1.TypeMeta{
