@@ -831,41 +831,41 @@ Golden image — это предварительно настроенный об
 
 1. Сохраните манифест в файл (например, `containerd-dvcr-remove-old-config.yaml`):
 
-    ```yaml
-    apiVersion: deckhouse.io/v1alpha1
-    kind: NodeGroupConfiguration
-    metadata:
-      name: containerd-dvcr-remove-old-config.sh
-    spec:
-      weight: 32 # Должен быть в диапазоне 32–90
-      nodeGroups: ["*"]
-      bundles: ["*"]
-      content: |
-        # Copyright 2023 Flant JSC
-        # Licensed under the Apache License, Version 2.0 (the "License");
-        # you may not use this file except in compliance with the License.
-        # You may obtain a copy of the License at
-        #      http://www.apache.org/licenses/LICENSE-2.0
-        # Unless required by applicable law or agreed to in writing, software
-        # distributed under the License is distributed on an "AS IS" BASIS,
-        # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-        # See the License for the specific language governing permissions and
-        # limitations under the License.
+   ```yaml
+   apiVersion: deckhouse.io/v1alpha1
+   kind: NodeGroupConfiguration
+   metadata:
+     name: containerd-dvcr-remove-old-config.sh
+   spec:
+     weight: 32 # Должен быть в диапазоне 32–90
+     nodeGroups: ["*"]
+     bundles: ["*"]
+     content: |
+       # Copyright 2023 Flant JSC
+       # Licensed under the Apache License, Version 2.0 (the "License");
+       # you may not use this file except in compliance with the License.
+       # You may obtain a copy of the License at
+       #      http://www.apache.org/licenses/LICENSE-2.0
+       # Unless required by applicable law or agreed to in writing, software
+       # distributed under the License is distributed on an "AS IS" BASIS,
+       # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+       # See the License for the specific language governing permissions and
+       # limitations under the License.
 
-        rm -f /etc/containerd/conf.d/dvcr.toml
-    ```
+       rm -f /etc/containerd/conf.d/dvcr.toml
+   ```
 
 1. Примените манифест:
 
-    ```bash
-    d8 k apply -f containerd-dvcr-remove-old-config.yaml
-    ```
+   ```bash
+   d8 k apply -f containerd-dvcr-remove-old-config.yaml
+   ```
 
 1. Проверьте, что модуль `registry` запущен:
 
-    ```bash
-    d8 k -n d8-system -o yaml get secret registry-state | yq -C -P '.data | del .state | map_values(@base64d) | .conditions = (.conditions | from_yaml)'
-    ```
+   ```bash
+   d8 k -n d8-system -o yaml get secret registry-state | yq -C -P '.data | del .state | map_values(@base64d) | .conditions = (.conditions | from_yaml)'
+   ```
 
    Пример вывода при успешном запуске:
 
