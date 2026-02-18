@@ -129,7 +129,7 @@ func getNodeInternalIP(kubectl kc.Kubectl, nodeName string) (string, error) {
 }
 
 func getCiliumAgentPods(kubectl kc.Kubectl) ([]corev1.Pod, error) {
-	result := kubectl.Get(string(kc.ResourcePod), kc.GetOptions{
+	result := kubectl.Get(kc.ResourcePod, kc.GetOptions{
 		Namespace: ciliumNamespace,
 		Labels:    map[string]string{"app": "agent"},
 		Output:    "json",
