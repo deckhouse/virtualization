@@ -149,3 +149,9 @@ func WithTolerations(t []corev1.Toleration) Option {
 		vm.Spec.Tolerations = append(vm.Spec.Tolerations, t...)
 	}
 }
+
+func WithOsType(osType v1alpha2.OsType) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.OsType = osType
+	}
+}
