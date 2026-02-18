@@ -40,7 +40,8 @@ import (
 )
 
 const (
-	// IPs on additional interface (eth1) for connectivity check between VMs.
+	// IPs on additional network interface for connectivity check between VMs.
+	// When VM has Main network, additional interface is eth1; otherwise it's eth0.
 	vmFooAdditionalIP = "192.168.1.10"
 	vmBarAdditionalIP = "192.168.1.11"
 )
@@ -113,7 +114,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 			})
 
 			By("Check connectivity between VMs via additional network", func() {
-				checkConnectivityBetweenVMs(f, vmFoo, vmBar)
+				checkConnectivityBetweenVMs(f, vmFoo, vmBar, tc.vmBarHasMainNetwork)
 			})
 
 			By("Create VMOPs to trigger migration", func() {
@@ -147,7 +148,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 			})
 
 			By("Check connectivity between VMs via additional network after migration", func() {
-				checkConnectivityBetweenVMs(f, vmFoo, vmBar)
+				checkConnectivityBetweenVMs(f, vmFoo, vmBar, tc.vmBarHasMainNetwork)
 			})
 		},
 		Entry("Main + additional network", additionalNetworkTestCase{vmBarHasMainNetwork: true}),
@@ -157,7 +158,8 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 
 // buildVMWithNetworks creates a VM with optional Main + ClusterNetwork.
 // If hasMain is false, only ClusterNetwork is added (VM without Main network).
-func buildVMWithNetworks(name, ns, vdRootName, eth1IP string, hasMain bool) *v1alpha2.VirtualMachine {
+// The additional network interface is eth1 when hasMain is true, eth0 otherwise.
+func buildVMWithNetworks(name, ns, vdRootName, additionalIP string, hasMain bool) *v1alpha2.VirtualMachine {
 	opts := []vm.Option{
 		vm.WithName(name),
 		vm.WithNamespace(ns),
@@ -167,7 +169,7 @@ func buildVMWithNetworks(name, ns, vdRootName, eth1IP string, hasMain bool) *v1a
 		vm.WithRestartApprovalMode(v1alpha2.Manual),
 		vm.WithVirtualMachineClass(object.DefaultVMClass),
 		vm.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
-		vm.WithProvisioningUserData(cloudInitAdditionalNetwork(eth1IP)),
+		vm.WithProvisioningUserData(cloudInitAdditionalNetwork(additionalIP, hasMain)),
 		vm.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
 			Kind: v1alpha2.VirtualDiskKind,
 			Name: vdRootName,
@@ -187,8 +189,13 @@ func buildVMWithNetworks(name, ns, vdRootName, eth1IP string, hasMain bool) *v1a
 	return vm.New(opts...)
 }
 
-// cloudInitAdditionalNetwork returns cloud-init that configures eth1 with the given static IP (Alpine /etc/network/interfaces).
-func cloudInitAdditionalNetwork(eth1Address string) string {
+// cloudInitAdditionalNetwork returns cloud-init that configures the additional network interface with the given static IP.
+// When hasMain is true, the additional interface is eth1; when false, it's eth0.
+func cloudInitAdditionalNetwork(additionalIP string, hasMain bool) string {
+	ifaceName := "eth0"
+	if hasMain {
+		ifaceName = "eth1"
+	}
 	return fmt.Sprintf(`#cloud-config
 ssh_pwauth: True
 users:
@@ -207,8 +214,8 @@ write_files:
     append: true
     content: |
 
-      auto eth1
-      iface eth1 inet static
+      auto %s
+      iface %s inet static
           address %s
           netmask 255.255.255.0
 runcmd:
@@ -216,10 +223,10 @@ runcmd:
   - sudo rc-service qemu-guest-agent start
   - sudo /etc/init.d/networking restart
   - chown -R cloud:cloud /home/cloud
-`, eth1Address)
+`, ifaceName, ifaceName, additionalIP)
 }
 
-func checkConnectivityBetweenVMs(f *framework.Framework, vmFoo, vmBar *v1alpha2.VirtualMachine) {
+func checkConnectivityBetweenVMs(f *framework.Framework, vmFoo, vmBar *v1alpha2.VirtualMachine, vmBarHasMainNetwork bool) {
 	GinkgoHelper()
 
 	pingCmd := "ping -c 2 -W 2 -w 5 -q %s 2>&1 | grep -o \"[0-9]\\+%%\\s*packet loss\"" // %% -> % in output
@@ -228,8 +235,10 @@ func checkConnectivityBetweenVMs(f *framework.Framework, vmFoo, vmBar *v1alpha2.
 	By(fmt.Sprintf("VM %s should have connectivity to %s (vm-bar)", vmFoo.Name, vmBarAdditionalIP))
 	checkResultSSHCommand(f, vmFoo.Name, vmFoo.Namespace, fmt.Sprintf(pingCmd, vmBarAdditionalIP), expectedOut)
 
-	By(fmt.Sprintf("VM %s should have connectivity to %s (vm-foo)", vmBar.Name, vmFooAdditionalIP))
-	checkResultSSHCommand(f, vmBar.Name, vmBar.Namespace, fmt.Sprintf(pingCmd, vmFooAdditionalIP), expectedOut)
+	if vmBarHasMainNetwork {
+		By(fmt.Sprintf("VM %s should have connectivity to %s (vm-foo)", vmBar.Name, vmFooAdditionalIP))
+		checkResultSSHCommand(f, vmBar.Name, vmBar.Namespace, fmt.Sprintf(pingCmd, vmFooAdditionalIP), expectedOut)
+	}
 }
 
 const (
