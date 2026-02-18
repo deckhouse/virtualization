@@ -176,7 +176,7 @@ jobs:
           deficit_mem=$(echo "$REQUIRED_MEM_GI - $available_mem_gi" | bc 2>/dev/null || echo "0")
           deficit_cpu=$(echo "$REQUIRED_CPU - $available_cpu" | bc 2>/dev/null || echo "0")
 
-          if [[ $(echo "$deficit_mem <= 0" | bc) -eq 1 ]] && [[ $(echo "$deficit_cpu <= 0" | bc) -eq 1 ]]; then
+          if [[ $deficit_mem -le 0 && $deficit_cpu -le 0 ]] ; then
             echo "[INFO] Free resources on workers are sufficient, no VMs to power off"
             exit 0
           fi
