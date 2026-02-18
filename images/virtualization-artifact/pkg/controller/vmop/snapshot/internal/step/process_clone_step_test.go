@@ -18,14 +18,20 @@ package step
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("ProcessCloneStep", func() {
@@ -112,6 +118,71 @@ var _ = Describe("ProcessCloneStep", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("restorer secret is not found"))
 			Expect(result).NotTo(BeNil())
+		})
+	})
+
+	Describe("Process completion", func() {
+		It("should complete when all resources are Completed after Process", func() {
+			vmop := createCloneVMOP("default", "test-vmop", "test-vm", "test-snapshot")
+			snapshot := createVMSnapshot("default", "test-snapshot", "test-secret", true)
+			vm := createVirtualMachine("default", "test-vm", v1alpha2.MachineRunning)
+			restorerSecret := createRestorerSecret("default", "test-secret", vm)
+
+			var err error
+			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, snapshot, restorerSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			step = NewProcessCloneStep(fakeClient, recorder)
+			result, err := step.Take(ctx, vmop)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeNil())
+			Expect(vmop.Status.Resources).NotTo(BeEmpty())
+			for _, status := range vmop.Status.Resources {
+				Expect(status.Status).To(Equal(v1alpha2.SnapshotResourceStatusCompleted))
+			}
+		})
+
+		It("should requeue when not all resources are Completed after Process", func() {
+			vmop := createCloneVMOP("default", "test-vmop", "test-vm", "test-snapshot")
+			snapshot := createVMSnapshot("default", "test-snapshot", "test-secret", true)
+			vm := createVirtualMachine("default", "test-vm", v1alpha2.MachineRunning)
+
+			vmbda := createVMBDA("default", "test-vmbda", "test-vm")
+			restorerSecret := createRestorerSecretWithVMBDAs("default", "test-secret", vm, []*v1alpha2.VirtualMachineBlockDeviceAttachment{vmbda})
+
+			intercept := interceptor.Funcs{
+				Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+					if _, ok := obj.(*v1alpha2.VirtualMachineBlockDeviceAttachment); ok {
+						return apierrors.NewConflict(
+							schema.GroupResource{Resource: "virtualmachineblockdeviceattachments"},
+							obj.GetName(),
+							fmt.Errorf("the object has been modified"),
+						)
+					}
+					return c.Create(ctx, obj, opts...)
+				},
+			}
+
+			var err error
+			fakeClient, err = testutil.NewFakeClientWithInterceptorWithObjects(intercept, vmop, snapshot, restorerSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			step = NewProcessCloneStep(fakeClient, recorder)
+			result, err := step.Take(ctx, vmop)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).NotTo(BeNil())
+			Expect(*result).To(Equal(reconcile.Result{}))
+			Expect(vmop.Status.Resources).NotTo(BeEmpty())
+
+			hasInProgress := false
+			for _, status := range vmop.Status.Resources {
+				if status.Status == v1alpha2.SnapshotResourceStatusInProgress {
+					hasInProgress = true
+				}
+			}
+			Expect(hasInProgress).To(BeTrue(), "expected at least one resource with InProgress status")
 		})
 	})
 })

@@ -105,5 +105,11 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 		return &reconcile.Result{}, err
 	}
 
+	for _, status := range statuses {
+		if status.Status != v1alpha2.SnapshotResourceStatusCompleted {
+			return &reconcile.Result{}, nil
+		}
+	}
+
 	return nil, nil
 }

@@ -28,6 +28,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 var _ = Describe("ProcessRestoreStep", func() {
@@ -152,6 +153,63 @@ var _ = Describe("ProcessRestoreStep", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("restorer secret is not found"))
 			Expect(result).NotTo(BeNil())
+		})
+	})
+
+	Describe("Process completion", func() {
+		It("should complete when all resources are Completed after Process", func() {
+			vmop := createRestoreVMOP("default", "test-vmop", "test-vm", "test-snapshot")
+			setMaintenanceCondition(vmop, metav1.ConditionTrue)
+
+			snapshot := createVMSnapshot("default", "test-snapshot", "test-secret", true)
+			vm := createVirtualMachine("default", "test-vm", v1alpha2.MachineRunning)
+			restorerSecret := createRestorerSecret("default", "test-secret", vm)
+
+			var err error
+			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, snapshot, restorerSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			step = NewProcessRestoreStep(fakeClient, recorder)
+			result, err := step.Take(ctx, vmop)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeNil())
+			Expect(vmop.Status.Resources).NotTo(BeEmpty())
+			for _, status := range vmop.Status.Resources {
+				Expect(status.Status).To(Equal(v1alpha2.SnapshotResourceStatusCompleted))
+			}
+		})
+
+		It("should requeue when not all resources are Completed after Process", func() {
+			vmop := createRestoreVMOP("default", "test-vmop", "test-vm", "test-snapshot")
+			setMaintenanceCondition(vmop, metav1.ConditionTrue)
+
+			snapshot := createVMSnapshot("default", "test-snapshot", "test-secret", true)
+			vm := createVirtualMachine("default", "test-vm", v1alpha2.MachineRunning)
+			setVMMaintenanceCondition(vm, metav1.ConditionTrue, vmcondition.ReasonMaintenanceRestore)
+
+			vmbda := createVMBDA("default", "test-vmbda", "test-vm")
+			restorerSecret := createRestorerSecretWithVMBDAs("default", "test-secret", vm, []*v1alpha2.VirtualMachineBlockDeviceAttachment{vmbda})
+
+			var err error
+			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, snapshot, restorerSecret, vm, vmbda)
+			Expect(err).NotTo(HaveOccurred())
+
+			step = NewProcessRestoreStep(fakeClient, recorder)
+			result, err := step.Take(ctx, vmop)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).NotTo(BeNil())
+			Expect(*result).To(Equal(reconcile.Result{}))
+			Expect(vmop.Status.Resources).NotTo(BeEmpty())
+
+			hasInProgress := false
+			for _, status := range vmop.Status.Resources {
+				if status.Status == v1alpha2.SnapshotResourceStatusInProgress {
+					hasInProgress = true
+				}
+			}
+			Expect(hasInProgress).To(BeTrue(), "expected at least one resource with InProgress status")
 		})
 	})
 })

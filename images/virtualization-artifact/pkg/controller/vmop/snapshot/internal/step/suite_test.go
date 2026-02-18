@@ -201,3 +201,35 @@ func setVMMaintenanceCondition(vm *v1alpha2.VirtualMachine, status metav1.Condit
 		Reason: string(reason),
 	})
 }
+
+func createVMBDA(namespace, name, vmName string) *v1alpha2.VirtualMachineBlockDeviceAttachment {
+	return &v1alpha2.VirtualMachineBlockDeviceAttachment{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       v1alpha2.VirtualMachineBlockDeviceAttachmentKind,
+			APIVersion: v1alpha2.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: v1alpha2.VirtualMachineBlockDeviceAttachmentSpec{
+			VirtualMachineName: vmName,
+			BlockDeviceRef: v1alpha2.VMBDAObjectRef{
+				Kind: v1alpha2.VMBDAObjectRefKindVirtualDisk,
+				Name: "test-disk",
+			},
+		},
+	}
+}
+
+func createRestorerSecretWithVMBDAs(namespace, name string, vm *v1alpha2.VirtualMachine, vmbdas []*v1alpha2.VirtualMachineBlockDeviceAttachment) *corev1.Secret {
+	secret := createRestorerSecret(namespace, name, vm)
+	if len(vmbdas) > 0 {
+		vmbdasJSON, err := json.Marshal(vmbdas)
+		if err != nil {
+			panic(err)
+		}
+		secret.Data["vmbdas"] = vmbdasJSON
+	}
+	return secret
+}
