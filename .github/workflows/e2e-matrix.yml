@@ -163,7 +163,7 @@ jobs:
               node_req_cpu=$(echo "$node_req_cpu + $(cpu_to_cores "$cpu_req")" | bc)
             done < <(kubectl get pods -A --field-selector spec.nodeName="$node" -o json | jq -r '.items[].spec.containers[] | "\(.resources.requests.memory // "0") \(.resources.requests.cpu // "0")"')
 
-            node_free_mem=$(echo "$node_alloc_mem - $node_req_mem" | bc 2>/dev/null || echo "0")
+            node_free_mem=$(( $node_alloc_mem - $node_req_mem ))
             node_free_cpu=$(echo "$node_alloc_cpu - $node_req_cpu" | bc 2>/dev/null || echo "0")
             
             available_mem_gi=$(echo "$available_mem_gi + $node_free_mem" | bc)
