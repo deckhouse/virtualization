@@ -91,9 +91,7 @@ runcmd:
 		util.UntilSSHReady(f, vmTPM, framework.LongTimeout)
 
 		By(fmt.Sprintf("Checks that the VM has the TPM module version %s.", expectedTPMVersion))
-
 		cmd := `sudo tpm2_getcap properties-fixed | grep -A2 TPM2_PT_FAMILY_INDICATOR | grep value`
-
 		Eventually(func() error {
 			cmdStdOut, err := f.SSHCommand(vmTPM.Name, vmTPM.Namespace, cmd)
 			if err != nil {
