@@ -157,7 +157,7 @@ var _ = Describe("ProcessRestoreStep", func() {
 	})
 
 	Describe("Process completion", func() {
-		It("should complete when all resources are Completed after Process", func() {
+		It("should complete after running Process if all resources are in the Completed state", func() {
 			vmop := createRestoreVMOP("default", "test-vmop", "test-vm", "test-snapshot")
 			setMaintenanceCondition(vmop, metav1.ConditionTrue)
 
