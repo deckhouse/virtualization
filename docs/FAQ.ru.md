@@ -436,6 +436,92 @@ mounts:
   - ["/dev/sdb1", "/mnt/data", "ext4", "defaults", "0", "2"]
 ```
 
+### Настройка сетевых интерфейсов для дополнительных сетей
+
+{{< alert level="warning" >}}
+Настройки, описанные в этом разделе, применяются только для дополнительных сетей. Основная сеть (Main) настраивается автоматически через cloud-init и не требует ручной конфигурации.
+{{< /alert >}}
+
+#### Для systemd-networkd
+
+```yaml
+#cloud-config
+write_files:
+  - path: /etc/systemd/network/10-eth1.network
+    content: |
+      [Match]
+      Name=eth1
+
+      [Network]
+      Address=192.168.1.10/24
+      Gateway=192.168.1.1
+      DNS=8.8.8.8
+
+runcmd:
+  - systemctl restart systemd-networkd
+```
+
+#### Для Netplan (Ubuntu)
+
+```yaml
+#cloud-config
+write_files:
+  - path: /etc/netplan/99-custom.yaml
+    content: |
+      network:
+        version: 2
+        ethernets:
+          eth1:
+            addresses:
+              - 10.0.0.5/24
+            gateway4: 10.0.0.1
+            nameservers:
+              addresses: [8.8.8.8]
+          eth2:
+            dhcp4: true
+
+runcmd:
+  - netplan apply
+```
+
+#### Для ifcfg (RHEL/CentOS)
+
+```yaml
+#cloud-config
+write_files:
+  - path: /etc/sysconfig/network-scripts/ifcfg-eth1
+    content: |
+      DEVICE=eth1
+      BOOTPROTO=none
+      ONBOOT=yes
+      IPADDR=192.168.1.10
+      PREFIX=24
+      GATEWAY=192.168.1.1
+      DNS1=8.8.8.8
+
+runcmd:
+  - nmcli connection reload
+  - nmcli connection up eth1
+```
+
+#### Для Alpine Linux
+
+```yaml
+#cloud-config
+write_files:
+  - path: /etc/network/interfaces
+    append: true
+    content: |
+      auto eth1
+      iface eth1 inet static
+          address 192.168.1.10
+          netmask 255.255.255.0
+          gateway 192.168.1.1
+
+runcmd:
+  - /etc/init.d/networking restart
+```
+
 ## Как использовать Ansible для конфигурирования виртуальных машин?
 
 [Ansible](https://docs.ansible.com/ansible/latest/index.html) — это инструмент автоматизации, который позволяет выполнять задачи на удаленных серверах с использованием протокола SSH. В данном примере мы рассмотрим, как использовать Ansible для управления виртуальными машинами расположенных в проекте demo-app.
@@ -490,7 +576,7 @@ ansible -m shell -a "uptime" \
 {{< /alert >}}
 
 {{< alert level="warning" >}}
-Команда работает только для виртуальных машин, у которых подключена основная сеть кластера (Main). 
+Команда работает только для виртуальных машин, у которых подключена основная сеть кластера (Main).
 {{< /alert >}}
 
 Вместо ручного создания inventory-файла можно использовать команду `d8 v ansible-inventory`, которая автоматически генерирует инвентарь Ansible из виртуальных машин в указанном неймспейсе. Команда совместима с интерфейсом [ansible inventory script](https://docs.ansible.com/ansible/latest/user_guide/intro_inventory.html#inventory-scripts).
@@ -500,7 +586,7 @@ ansible -m shell -a "uptime" \
 При необходимости настройте переменные хоста через аннотации (например, пользователя для SSH):
 
 ```bash
-d8 k -n demo-app annotate vm frontend provisioning.virtualization.deckhouse.io/ansible_user="cloud" 
+d8 k -n demo-app annotate vm frontend provisioning.virtualization.deckhouse.io/ansible_user="cloud"
 ```
 
 Используйте команду напрямую:

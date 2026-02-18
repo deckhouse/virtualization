@@ -439,6 +439,94 @@ mounts:
   - ["/dev/sdb1", "/mnt/data", "ext4", "defaults", "0", "2"]
 ```
 
+### Configuring network interfaces for additional networks
+
+{{< alert level="warning" >}}
+The settings described in this section apply only to additional networks. The main network (Main) is configured automatically via cloud-init and does not require manual configuration.
+{{< /alert >}}
+
+If additional networks are connected to a virtual machine, they must be configured manually via cloud-init. Use `write_files` to create configuration files and `runcmd` to apply the settings.
+
+#### For systemd-networkd
+
+```yaml
+#cloud-config
+write_files:
+  - path: /etc/systemd/network/10-eth1.network
+    content: |
+      [Match]
+      Name=eth1
+
+      [Network]
+      Address=192.168.1.10/24
+      Gateway=192.168.1.1
+      DNS=8.8.8.8
+
+runcmd:
+  - systemctl restart systemd-networkd
+```
+
+#### For Netplan (Ubuntu)
+
+```yaml
+#cloud-config
+write_files:
+  - path: /etc/netplan/99-custom.yaml
+    content: |
+      network:
+        version: 2
+        ethernets:
+          eth1:
+            addresses:
+              - 10.0.0.5/24
+            gateway4: 10.0.0.1
+            nameservers:
+              addresses: [8.8.8.8]
+          eth2:
+            dhcp4: true
+
+runcmd:
+  - netplan apply
+```
+
+#### For ifcfg (RHEL/CentOS)
+
+```yaml
+#cloud-config
+write_files:
+  - path: /etc/sysconfig/network-scripts/ifcfg-eth1
+    content: |
+      DEVICE=eth1
+      BOOTPROTO=none
+      ONBOOT=yes
+      IPADDR=192.168.1.10
+      PREFIX=24
+      GATEWAY=192.168.1.1
+      DNS1=8.8.8.8
+
+runcmd:
+  - nmcli connection reload
+  - nmcli connection up eth1
+```
+
+#### For Alpine Linux
+
+```yaml
+#cloud-config
+write_files:
+  - path: /etc/network/interfaces
+    append: true
+    content: |
+      auto eth1
+      iface eth1 inet static
+          address 192.168.1.10
+          netmask 255.255.255.0
+          gateway 192.168.1.1
+
+runcmd:
+  - /etc/init.d/networking restart
+```
+
 ## How to use Ansible to provision virtual machines?
 
 [Ansible](https://docs.ansible.com/ansible/latest/index.html) is an automation tool that helps you to run tasks on remote servers via SSH. In this example, we will show you how to use Ansible to manage virtual machines in a demo-app project.
