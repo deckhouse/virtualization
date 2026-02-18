@@ -144,11 +144,11 @@ jobs:
             fi
           }
 
-          # Float comparison helpers (bc)
-          float_ge() { [[ $(echo "$1 >= $2" | bc) -eq 1 ]]; }
-          float_gt() { [[ $(echo "$1 > $2" | bc) -eq 1 ]]; }
-          float_le() { [[ $(echo "$1 <= $2" | bc) -eq 1 ]]; }
-          float_lt() { [[ $(echo "$1 < $2" | bc) -eq 1 ]]; }
+          # Compare two numbers (bc outputs 0 or 1; (( )) treats 0 as false)
+          float_ge() { (( $(echo "$1 >= $2" | bc) )); }
+          float_gt() { (( $(echo "$1 > $2"  | bc) )); }
+          float_le() { (( $(echo "$1 <= $2" | bc) )); }
+          float_lt() { (( $(echo "$1 < $2"  | bc) )); }
 
           # Gather free resources on worker nodes (kubelet stats = same as kubectl top)
           available_mem_gi=0
@@ -164,22 +164,28 @@ jobs:
               continue
             fi
 
-            node_free_mem=$(echo "$summary" | jq -r '.node.memory.availableBytes // 0')
-            node_free_mem=$(echo "scale=4; $node_free_mem / 1024 / 1024 / 1024" | bc 2>/dev/null || echo "0")
+            # Memory: available bytes -> Gi
+            mem_bytes=$(echo "$summary" | jq -r '.node.memory.availableBytes // 0')
+            node_free_mem=$(echo "scale=4; $mem_bytes / 1024 / 1024 / 1024" | bc 2>/dev/null || echo "0")
 
-            node_alloc_cpu=$(kubectl get node "$node" -o json | jq -r '.status.allocatable.cpu // "0"')
-            node_alloc_cpu=$(cpu_to_cores "$node_alloc_cpu")
-            node_usage_nano=$(echo "$summary" | jq -r '.node.cpu.usageNanoCores // 0')
-            node_usage_cpu=$(echo "scale=4; $node_usage_nano / 1000000000" | bc 2>/dev/null || echo "0")
-            node_free_cpu=$(echo "x = $node_alloc_cpu - $node_usage_cpu; if (x < 0) 0 else x" | bc 2>/dev/null || echo "0")
+            # CPU: allocatable - used, at least 0
+            alloc_cores=$(kubectl get node "$node" -o json | jq -r '.status.allocatable.cpu // "0"')
+            alloc_cores=$(cpu_to_cores "$alloc_cores")
+            usage_cores=$(echo "$summary" | jq -r '.node.cpu.usageNanoCores // 0')
+            usage_cores=$(echo "scale=4; $usage_cores / 1000000000" | bc 2>/dev/null || echo "0")
+            node_free_cpu=$(echo "x = $alloc_cores - $usage_cores; if (x < 0) 0 else x" | bc 2>/dev/null || echo "0")
 
+            # Add to cluster totals
             available_mem_gi=$(echo "$available_mem_gi + $node_free_mem" | bc)
             available_cpu=$(echo "$available_cpu + $node_free_cpu" | bc)
 
-            if float_ge "$node_free_mem" "$MIN_MEM_GI_PER_NODE" && float_ge "$node_free_cpu" "$MIN_CPU_PER_NODE"; then
+            # Check if node meet minimum for placement
+            node_ok_mem=$(echo "$node_free_mem >= $MIN_MEM_GI_PER_NODE" | bc)
+            node_ok_cpu=$(echo "$node_free_cpu >= $MIN_CPU_PER_NODE" | bc)
+            if [[ "$node_ok_mem" -eq 1 && "$node_ok_cpu" -eq 1 ]]; then
               nodes_meeting_min=$((nodes_meeting_min + 1))
             else
-              echo "[INFO] Node $node: free ${node_free_mem} Gi RAM, ${node_free_cpu} CPU (min: ${MIN_MEM_GI_PER_NODE} Gi, ${MIN_CPU_PER_NODE} CPU)"
+              echo "[INFO] Node $node: does not meet placement min — free ${node_free_mem} Gi RAM, ${node_free_cpu} CPU (required: >= ${MIN_MEM_GI_PER_NODE} Gi, >= ${MIN_CPU_PER_NODE} CPU)"
             fi
           done
 
@@ -189,11 +195,16 @@ jobs:
           deficit_mem=$(echo "$REQUIRED_MEM_GI - $available_mem_gi" | bc 2>/dev/null || echo "$REQUIRED_MEM_GI")
           deficit_cpu=$(echo "$REQUIRED_CPU - $available_cpu" | bc 2>/dev/null || echo "$REQUIRED_CPU")
 
-          # Decide: enough total free and enough nodes for placement?
+          # Check for sufficient free resources and node availability to proceed with placement
           total_sufficient=false
           placement_sufficient=false
-          float_le "$deficit_mem" 0 && float_le "$deficit_cpu" 0 && total_sufficient=true
-          [[ $nodes_meeting_min -ge $MIN_NODES_FOR_PLACEMENT ]] && placement_sufficient=true
+          if float_le "$deficit_mem" 0 && float_le "$deficit_cpu" 0; then
+            total_sufficient=true
+          fi
+
+          if [[ $nodes_meeting_min -ge $MIN_NODES_FOR_PLACEMENT ]]; then
+            placement_sufficient=true
+          fi
 
           if $total_sufficient && $placement_sufficient; then
             echo "[INFO] Resources sufficient (total + placement), no VMs to power off"
