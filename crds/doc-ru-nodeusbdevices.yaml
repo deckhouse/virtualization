@@ -1,0 +1,166 @@
+spec:
+  versions:
+    - name: v1alpha2
+      schema:
+        openAPIV3Schema:
+          description: |
+            NodeUSBDevice представляет USB-устройство, обнаруженное на конкретном узле в кластере.
+            Этот ресурс создаётся автоматически системой DRA (Dynamic Resource Allocation),
+            когда USB-устройство обнаруживается на узле.
+          properties:
+            apiVersion:
+              description: |-
+                APIVersion определяет версионированную схему этого представления объекта.
+                Серверы должны преобразовывать распознанные схемы в последнее внутреннее значение и
+                могут отклонять нераспознанные значения.
+                Подробнее: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+              type: string
+            kind:
+              description: |-
+                Kind — это строковое значение, представляющее REST-ресурс, который представляет этот объект.
+                Серверы могут выводить это из конечной точки, на которую клиент отправляет запросы.
+                Не может быть обновлено.
+                В формате CamelCase.
+                Подробнее: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+              type: string
+            metadata:
+              type: object
+            spec:
+              properties:
+                assignedNamespace:
+                  default: ""
+                  description: |-
+                    Пространство имён, в котором разрешено использование устройства. По умолчанию создаётся с пустым значением "".
+                    При установке значения создаётся соответствующий ресурс USBDevice в этом пространстве имён.
+                  type: string
+              type: object
+            status:
+              properties:
+                attributes:
+                  description: Все атрибуты устройства, полученные через DRA для устройства.
+                  properties:
+                    bcd:
+                      description: BCD (Binary Coded Decimal) версия устройства.
+                      type: string
+                    bus:
+                      description: Номер USB-шины.
+                      type: string
+                    deviceNumber:
+                      description: Номер USB-устройства на шине.
+                      type: string
+                    devicePath:
+                      description: Путь к устройству в файловой системе.
+                      type: string
+                    major:
+                      description: Основной номер устройства.
+                      type: integer
+                    manufacturer:
+                      description: Название производителя устройства.
+                      type: string
+                    minor:
+                      description: Вспомогательный номер устройства.
+                      type: integer
+                    name:
+                      description: Имя устройства.
+                      type: string
+                    nodeName:
+                      description: Имя узла, на котором находится устройство.
+                      type: string
+                    product:
+                      description: Название продукта устройства.
+                      type: string
+                    productID:
+                      description: USB product ID в шестнадцатеричном формате.
+                      type: string
+                    serial:
+                      description: Серийный номер устройства.
+                      type: string
+                    vendorID:
+                      description: USB vendor ID в шестнадцатеричном формате.
+                      type: string
+                  type: object
+                conditions:
+                  description: Последние доступные наблюдения текущего состояния объекта.
+                  items:
+                    description: |-
+                      Condition содержит подробности об одном аспекте текущего
+                      состояния этого API-ресурса.
+                    properties:
+                      lastTransitionTime:
+                        description: |-
+                          lastTransitionTime — это время последнего перехода условия из одного состояния в другое.
+                          Это должно быть время, когда изменилось базовое условие. Если это неизвестно, то допустимо использовать время, когда изменилось поле API.
+                        format: date-time
+                        type: string
+                      message:
+                        description: |-
+                          message — это удобочитаемое сообщение с подробностями о переходе.
+                          Это может быть пустая строка.
+                        maxLength: 32768
+                        type: string
+                      observedGeneration:
+                        description: |-
+                          observedGeneration представляет .metadata.generation, на основе которого было установлено условие.
+                          Например, если .metadata.generation в настоящее время имеет значение 12, а .status.conditions[x].observedGeneration имеет значение 9, то условие устарело
+                          по отношению к текущему состоянию экземпляра.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                      reason:
+                        description: |-
+                          reason содержит программный идентификатор, указывающий причину последнего перехода условия.
+                          Производители конкретных типов условий могут определять ожидаемые значения и значения для этого поля,
+                          и являются ли эти значения гарантированным API.
+                          Значение должно быть строкой в формате CamelCase.
+                          Это поле не может быть пустым.
+                          Для типа условия Ready возможные значения:
+                          * Ready — устройство готово к использованию
+                          * NotReady — устройство существует в системе, но не готово к использованию
+                          * NotFound — устройство отсутствует на хосте
+                          Для типа условия Assigned возможные значения:
+                          * Assigned — пространство имён назначено для устройства и создан соответствующий ресурс USBDevice в этом пространстве имён
+                          * Available — для устройства не назначено пространство имён
+                          * InProgress — подключение устройства к пространству имён выполняется (создание ресурса USBDevice)
+                        maxLength: 1024
+                        minLength: 1
+                        pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                        type: string
+                      status:
+                        description: статус условия, одно из True, False, Unknown.
+                        enum:
+                          - "True"
+                          - "False"
+                          - Unknown
+                        type: string
+                      type:
+                        description: |-
+                          тип условия в формате CamelCase или в формате foo.example.com/CamelCase.
+                          Поддерживаемые типы условий:
+                          * Ready — указывает, готово ли устройство к использованию. Когда reason — "Ready", status — "True".
+                          Когда reason — "NotReady" или "NotFound", status — "False". При переходе в NotFound
+                          ресурс остаётся в кластере, администратор может удалить его вручную. На основе lastTransitionTime
+                          может быть реализован Garbage Collector для автоматической очистки.
+                          * Assigned — указывает, назначено ли пространство имён для устройства. Когда reason — "Assigned",
+                          status — "True". Когда reason — "Available" или "InProgress", status — "False".
+                        maxLength: 316
+                        pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                        type: string
+                    required:
+                      - lastTransitionTime
+                      - message
+                      - reason
+                      - status
+                      - type
+                    type: object
+                  type: array
+                nodeName:
+                  description: Имя узла, на котором находится USB-устройство.
+                  type: string
+                observedGeneration:
+                  description: Поколение ресурса, которое в последний раз обрабатывалось контроллером.
+                  format: int64
+                  type: integer
+              type: object
+          required:
+            - spec
+          type: object

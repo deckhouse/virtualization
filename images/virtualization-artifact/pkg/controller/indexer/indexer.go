@@ -19,9 +19,11 @@ package indexer
 import (
 	"context"
 
+	resourcev1 "k8s.io/api/resource/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -31,11 +33,12 @@ const (
 )
 
 const (
-	IndexFieldVMByClass = "spec.virtualMachineClassName"
-	IndexFieldVMByVD    = "spec.blockDeviceRefs.VirtualDisk"
-	IndexFieldVMByVI    = "spec.blockDeviceRefs.VirtualImage"
-	IndexFieldVMByCVI   = "spec.blockDeviceRefs.ClusterVirtualImage"
-	IndexFieldVMByNode  = "status.node"
+	IndexFieldVMByClass     = "spec.virtualMachineClassName"
+	IndexFieldVMByVD        = "spec.blockDeviceRefs.VirtualDisk"
+	IndexFieldVMByVI        = "spec.blockDeviceRefs.VirtualImage"
+	IndexFieldVMByCVI       = "spec.blockDeviceRefs.ClusterVirtualImage"
+	IndexFieldVMByUSBDevice = "spec.usbDevices.name"
+	IndexFieldVMByNode      = "status.node"
 
 	IndexFieldVDByVDSnapshot  = "vd,spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
 	IndexFieldVIByVDSnapshot  = "vi,spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
@@ -65,6 +68,13 @@ const (
 	IndexFieldVMIPLeaseByVMIP = "spec.virtualMachineIPAddressRef"
 
 	IndexFieldVMByProvisioningSecret = "spec.provisioning.secretRef"
+
+	IndexFieldNodeUSBDeviceByName = "metadata.name"
+	IndexFieldNodeUSBDeviceByNode = "status.nodeName"
+
+	IndexFieldUSBDeviceByName = "metadata.name"
+
+	IndexFieldResourceSliceByNode = "spec.pool.name"
 )
 
 var IndexGetters = []IndexGetter{
@@ -93,9 +103,25 @@ var IndexGetters = []IndexGetter{
 	IndexVMIPLeaseByVMIP,
 }
 
+var IndexGettersUSB = []IndexGetter{
+	IndexVMByUSBDevice,
+	IndexNodeUSBDeviceByNode,
+	IndexUSBDeviceByName,
+	IndexResourceSliceByNode,
+}
+
 type IndexGetter func() (obj client.Object, field string, extractValue client.IndexerFunc)
 
 func IndexALL(ctx context.Context, mgr manager.Manager) error {
+	if featuregates.Default().Enabled(featuregates.USB) {
+		for _, fn := range IndexGettersUSB {
+			obj, field, indexFunc := fn()
+			if err := mgr.GetFieldIndexer().IndexField(ctx, obj, field, indexFunc); err != nil {
+				return err
+			}
+		}
+	}
+
 	for _, fn := range IndexGetters {
 		obj, field, indexFunc := fn()
 		if err := mgr.GetFieldIndexer().IndexField(ctx, obj, field, indexFunc); err != nil {
@@ -190,4 +216,67 @@ func getBlockDeviceNamesByKind(obj client.Object, kind v1alpha2.BlockDeviceKind)
 	}
 
 	return result
+}
+
+func IndexVMByUSBDevice() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &v1alpha2.VirtualMachine{}, IndexFieldVMByUSBDevice, func(object client.Object) []string {
+		vm, ok := object.(*v1alpha2.VirtualMachine)
+		if !ok || vm == nil {
+			return nil
+		}
+
+		seen := make(map[string]struct{})
+		var result []string
+
+		for _, ref := range vm.Spec.USBDevices {
+			if _, exists := seen[ref.Name]; !exists {
+				seen[ref.Name] = struct{}{}
+				result = append(result, ref.Name)
+			}
+		}
+
+		return result
+	}
+}
+
+func IndexNodeUSBDeviceByName() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &v1alpha2.NodeUSBDevice{}, IndexFieldNodeUSBDeviceByName, func(object client.Object) []string {
+		nodeUSBDevice, ok := object.(*v1alpha2.NodeUSBDevice)
+		if !ok || nodeUSBDevice == nil {
+			return nil
+		}
+		return []string{nodeUSBDevice.Name}
+	}
+}
+
+func IndexNodeUSBDeviceByNode() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &v1alpha2.NodeUSBDevice{}, IndexFieldNodeUSBDeviceByNode, func(object client.Object) []string {
+		nodeUSBDevice, ok := object.(*v1alpha2.NodeUSBDevice)
+		if !ok || nodeUSBDevice == nil || nodeUSBDevice.Status.NodeName == "" {
+			return nil
+		}
+
+		return []string{nodeUSBDevice.Status.NodeName}
+	}
+}
+
+func IndexUSBDeviceByName() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &v1alpha2.USBDevice{}, IndexFieldUSBDeviceByName, func(object client.Object) []string {
+		usbDevice, ok := object.(*v1alpha2.USBDevice)
+		if !ok || usbDevice == nil {
+			return nil
+		}
+		return []string{usbDevice.Name}
+	}
+}
+
+func IndexResourceSliceByNode() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &resourcev1.ResourceSlice{}, IndexFieldResourceSliceByNode, func(object client.Object) []string {
+		resourceSlice, ok := object.(*resourcev1.ResourceSlice)
+		if !ok || resourceSlice == nil || resourceSlice.Spec.Pool.Name == "" {
+			return nil
+		}
+
+		return []string{resourceSlice.Spec.Pool.Name}
+	}
 }

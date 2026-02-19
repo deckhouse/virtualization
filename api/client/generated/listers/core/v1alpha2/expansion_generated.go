@@ -22,6 +22,22 @@ package v1alpha2
 // ClusterVirtualImageLister.
 type ClusterVirtualImageListerExpansion interface{}
 
+// NodeUSBDeviceListerExpansion allows custom methods to be added to
+// NodeUSBDeviceLister.
+type NodeUSBDeviceListerExpansion interface{}
+
+// NodeUSBDeviceNamespaceListerExpansion allows custom methods to be added to
+// NodeUSBDeviceNamespaceLister.
+type NodeUSBDeviceNamespaceListerExpansion interface{}
+
+// USBDeviceListerExpansion allows custom methods to be added to
+// USBDeviceLister.
+type USBDeviceListerExpansion interface{}
+
+// USBDeviceNamespaceListerExpansion allows custom methods to be added to
+// USBDeviceNamespaceLister.
+type USBDeviceNamespaceListerExpansion interface{}
+
 // VirtualDiskListerExpansion allows custom methods to be added to
 // VirtualDiskLister.
 type VirtualDiskListerExpansion interface{}

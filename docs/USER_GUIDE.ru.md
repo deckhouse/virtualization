@@ -3555,6 +3555,197 @@ spec:
 
 В результате будет создана ВМ с именем `clone-database-prod` и диск с именем `clone-database-root-prod`.
 
+## USB-устройства
+
+{{< alert level="warning">}}
+Проброс USB-устройств доступен только в **Enterprise Edition (EE)** платформы **Deckhouse Virtualization Platform**.
+{{< /alert >}}
+
+Модуль виртуализации поддерживает проброс USB-устройств в виртуальные машины с использованием DRA (Dynamic Resource Allocation). В этом разделе описано, как использовать USB-устройства с виртуальными машинами.
+
+### Обзор
+
+Модуль предоставляет два пользовательских ресурса для управления USB-устройствами:
+
+- **NodeUSBDevice** (кластерная область) — представляет USB-устройство, обнаруженное на конкретном узле. Создаётся автоматически системой DRA при обнаружении USB-устройства на узле.
+- **USBDevice** (область имён) — представляет USB-устройство, доступное для подключения к виртуальным машинам в заданном пространстве имён.
+
+### Принцип работы
+
+1. **Обнаружение устройств**: Драйвер DRA автоматически обнаруживает USB-устройства на узлах кластера и создаёт ресурсы `NodeUSBDevice`.
+
+2. **Назначение пространства имён**: Администратор может назначить пространство имён для `NodeUSBDevice`, установив поле `.spec.assignedNamespace`. Это делает устройство доступным в этом пространстве имён.
+
+3. **Предоставление устройства**: После назначения пространства имён контроллер автоматически создаёт соответствующий ресурс `USBDevice` в этом пространстве имён.
+
+4. **Подключение к ВМ**: Устройство `USBDevice` может быть подключено к виртуальной машине с помощью ресурса `VirtualMachineBlockDeviceAttachment`.
+
+### NodeUSBDevice
+
+`NodeUSBDevice` — это ресурс с областью видимости кластера, представляющий физическое USB-устройство на узле. Он создаётся автоматически системой DRA.
+
+Пример просмотра всех обнаруженных USB-устройств:
+
+```bash
+d8 k get nodeusbdevice
+```
+
+Пример вывода:
+
+```txt
+NAME                 NODE           READY   ASSIGNED   NAMESPACE   AGE
+usb-flash-drive     node-1         True    False                  10m
+logitech-webcam     node-2         True    True      my-project   15m
+```
+
+#### Условия NodeUSBDevice
+
+- **Ready**: Указывает, готово ли устройство к использованию.
+  - `Ready` — устройство готово к использованию.
+  - `NotReady` — устройство существует, но не готово.
+  - `NotFound` — устройство отсутствует на хосте.
+
+- **Assigned**: Указывает, назначено ли пространство имён для устройства.
+  - `Assigned` — пространство имён назначено и ресурс USBDevice создан.
+  - `Available` — для устройства не назначено пространство имён.
+  - `InProgress` — подключение устройства к пространству имён выполняется.
+
+#### Назначение пространства имён
+
+Чтобы сделать USB-устройство доступным в определённом пространстве имён, установите поле `.spec.assignedNamespace`:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: NodeUSBDevice
+metadata:
+  name: logitech-webcam
+spec:
+  assignedNamespace: my-project
+EOF
+```
+
+После назначения пространства имён соответствующий ресурс `USBDevice` автоматически создаётся в указанном пространстве имён.
+
+### USBDevice
+
+`USBDevice` — это ресурс с областью видимости пространства имён, представляющий USB-устройство, доступное для подключения к виртуальным машинам в заданном пространстве имён. Создаётся автоматически, когда `NodeUSBDevice` имеет назначенное пространство имён.
+
+Пример просмотра USB-устройств в пространстве имён:
+
+```bash
+d8 k get usbdevice -n my-project
+```
+
+Пример вывода:
+
+```txt
+NAME               NODE     MANUFACTURER   PRODUCT              SERIAL       ATTACHED   AGE
+logitech-webcam    node-2   Logitech       Webcam C920         ABC123456   False      10m
+```
+
+#### Атрибуты USBDevice
+
+Атрибуты устройства доступны в `.status.attributes`:
+
+- `vendorID` — USB идентификатор производителя (шестнадцатеричный формат).
+- `productID` — USB идентификатор продукта (шестнадцатеричный формат).
+- `bus` — номер USB-шины.
+- `deviceNumber` — номер USB-устройства на шине.
+- `serial` — серийный номер устройства.
+- `manufacturer` — название производителя устройства.
+- `product` — название продукта устройства.
+- `name` — имя устройства.
+
+#### Условия USBDevice
+
+- **Ready**: Указывает, готово ли устройство к использованию.
+  - `Ready` — устройство готово к использованию.
+  - `NotReady` — устройство существует, но не готово.
+  - `NotFound` — устройство отсутствует на хосте.
+
+- **Attached**: Указывает, подключено ли устройство к виртуальной машине.
+  - `AttachedToVirtualMachine` — устройство подключено к ВМ.
+  - `Available` — устройство доступно для подключения.
+  - `DetachedForMigration` — устройство было отключено для миграции.
+
+### Подключение USB-устройства к ВМ
+
+Чтобы подключить USB-устройство к виртуальной машине, создайте ресурс `VirtualMachineBlockDeviceAttachment`:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineBlockDeviceAttachment
+metadata:
+  name: webcam-attachment
+spec:
+  virtualMachineName: linux-vm
+  blockDeviceRef:
+    kind: USBDevice
+    name: logitech-webcam
+EOF
+```
+
+После создания USB-устройство будет подключено к указанной виртуальной машине.
+
+{{< alert level="info" >}}
+Виртуальная машина должна запускаться на том же узле, к которому физически подключено USB-устройство.
+{{< /alert >}}
+
+### Просмотр информации об USB-устройстве
+
+Для просмотра подробной информации об USB-устройстве:
+
+```bash
+d8 k describe nodeusbdevice <device-name>
+```
+
+Пример вывода:
+
+```txt
+Name:         logitech-webcam
+Namespace:
+Labels:       <none>
+Annotations:  <none>
+API Version:  virtualization.deckhouse.io/v1alpha2
+Kind:         NodeUSBDevice
+Metadata:
+  Creation Timestamp:  2024-01-15T10:30:00Z
+  Generation:          1
+  UID:                 abc123-def456-ghi789
+Spec:
+  Assigned Namespace:  my-project
+Status:
+  Node Name:           node-2
+  Attributes:
+    Bus:               1
+    Device Number:     2
+    Manufacturer:      Logitech
+    Name:              Webcam C920
+    Product:           Webcam C920
+    Product ID:        082d
+    Serial:            ABC123456
+    Vendor ID:         046d
+  Conditions:
+    Type:              Ready
+    Status:            True
+    Reason:            Ready
+    Message:           Device is ready to use
+    Type:              Assigned
+    Status:            True
+    Reason:            Assigned
+    Message:           Namespace is assigned for the device
+  Observed Generation: 1
+```
+
+### Требования и ограничения
+
+- Драйвер DRA должен быть установлен на узлах, где требуется обнаружение USB-устройств.
+- USB-устройства могут быть подключены только к виртуальным машинам, работающим на том же узле, где устройство физически подключено.
+- Горячее подключение USB-устройств не поддерживается — ВМ должна быть остановлена перед отключением устройства.
+- Для проброса USB-устройств требуются соответствующие_kernel_модули на узле.
+
 ## Экспорт данных
 
 Экспортировать диски и снимки дисков виртуальных машин можно с помощью утилиты `d8` (версия 0.20.7 и выше). Для работы этой функции должен быть включен модуль [`storage-volume-data-manager`](/modules/storage-volume-data-manager/).

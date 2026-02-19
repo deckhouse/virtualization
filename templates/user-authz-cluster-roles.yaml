@@ -152,3 +152,10 @@ rules:
   - deletecollection
   - patch
   - update
+- apiGroups:
+  - virtualization.deckhouse.io
+  resources:
+  - nodeusbdevices
+  verbs:
+  - delete
+  - update

@@ -41,6 +41,7 @@ var specComparators = []SpecFieldsComparator{
 	compareBlockDevices,
 	compareProvisioning,
 	compareNetworks,
+	compareUSBDevices,
 }
 
 type VMClassSpecFieldsComparator func(prev, next *v1alpha2.VirtualMachineClassSpec) []FieldChange
