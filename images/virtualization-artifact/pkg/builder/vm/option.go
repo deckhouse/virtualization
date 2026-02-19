@@ -155,3 +155,9 @@ func WithOsType(osType v1alpha2.OsType) Option {
 		vm.Spec.OsType = osType
 	}
 }
+
+func WithUSBDevices(usbDevices []v1alpha2.USBDeviceSpecRef) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.USBDevices = usbDevices
+	}
+}

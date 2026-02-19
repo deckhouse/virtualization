@@ -21,6 +21,7 @@ rules:
   - virtualmachineipaddresses
   - virtualmachineclasses
   - virtualmachineoperations
+  - usbdevices
   verbs:
   - get
   - list
@@ -151,4 +152,11 @@ rules:
   - delete
   - deletecollection
   - patch
+  - update
+- apiGroups:
+  - virtualization.deckhouse.io
+  resources:
+  - nodeusbdevices
+  verbs:
+  - delete
   - update

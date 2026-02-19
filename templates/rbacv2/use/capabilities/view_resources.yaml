@@ -20,6 +20,7 @@ rules:
       - virtualmachinerestores
       - virtualmachines
       - virtualmachinesnapshots
+      - usbdevices
     verbs:
       - get
       - list
