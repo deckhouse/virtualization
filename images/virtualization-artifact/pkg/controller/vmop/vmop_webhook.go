@@ -118,7 +118,7 @@ func (v *localStorageMigrationValidator) ValidateCreate(ctx context.Context, vmo
 		}
 
 		if !slices.Contains(pvc.Spec.AccessModes, corev1.ReadWriteMany) {
-			return nil, fmt.Errorf("migration of VirtualMachines with local (RWO) storage is only available in the Enterprise Edition (EE)")
+			return nil, fmt.Errorf("migration of virtual machines with local (RWO) virtual disks is available only in the Enterprise Edition (EE)")
 		}
 	}
 
