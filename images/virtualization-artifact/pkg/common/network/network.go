@@ -50,6 +50,7 @@ func HasMainNetworkSpec(networks []v1alpha2.NetworksSpec) bool {
 }
 
 type InterfaceSpec struct {
+	ID            int    `json:"id"`
 	Type          string `json:"type"`
 	Name          string `json:"name"`
 	InterfaceName string `json:"ifName"`
@@ -96,6 +97,7 @@ func CreateNetworkSpec(vm *v1alpha2.VirtualMachine, vmmacs []*v1alpha2.VirtualMa
 	for _, n := range vm.Spec.Networks {
 		if n.Type == v1alpha2.NetworksTypeMain {
 			res = append(res, InterfaceSpec{
+				ID:            n.Id,
 				Type:          n.Type,
 				Name:          n.Name,
 				InterfaceName: NameDefaultInterface,
@@ -117,6 +119,7 @@ func CreateNetworkSpec(vm *v1alpha2.VirtualMachine, vmmacs []*v1alpha2.VirtualMa
 		}
 		if mac != "" {
 			res = append(res, InterfaceSpec{
+				ID:            n.Id,
 				Type:          n.Type,
 				Name:          n.Name,
 				InterfaceName: generateInterfaceName(mac, n.Type),

@@ -93,7 +93,6 @@ func ApplyVirtualMachineSpec(
 	vdByName map[string]*v1alpha2.VirtualDisk,
 	viByName map[string]*v1alpha2.VirtualImage,
 	cviByName map[string]*v1alpha2.ClusterVirtualImage,
-	vmbdas map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment,
 	class *v1alpha2.VirtualMachineClass,
 	ipAddress string,
 	networkSpec network.InterfaceSpecList,
@@ -356,10 +355,7 @@ func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName ma
 func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList) {
 	kvvm.ClearNetworkInterfaces()
 	for _, n := range networkSpec {
-		if n.Type == v1alpha2.NetworksTypeMain {
-			kvvm.SetNetworkInterface(n.InterfaceName, n.MAC, 100)
-		}
-		kvvm.SetNetworkInterface(n.InterfaceName, n.MAC, 101)
+		kvvm.SetNetworkInterface(n.InterfaceName, n.MAC, n.ID)
 	}
 }
 
