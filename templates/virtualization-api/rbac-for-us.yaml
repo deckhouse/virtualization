@@ -84,6 +84,8 @@ rules:
   resources:
   - virtualmachines/addvolume
   - virtualmachines/removevolume
+  - virtualmachines/addresourceclaim
+  - virtualmachines/removeresourceclaim
   - virtualmachines/evacuatecancel
   - virtualmachines/addresourceclaim
   - virtualmachines/removeresourceclaim
@@ -97,11 +99,13 @@ rules:
   resources:
   - virtualmachines
   - virtualmachines/addvolume
+  - virtualmachines/addresourceclaim
   - virtualmachines/cancelevacuation
   - virtualmachines/console
   - virtualmachines/freeze
   - virtualmachines/portforward
   - virtualmachines/removevolume
+  - virtualmachines/removeresourceclaim
   - virtualmachines/unfreeze
   - virtualmachines/vnc
   verbs:

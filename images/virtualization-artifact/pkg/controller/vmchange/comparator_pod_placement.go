@@ -96,3 +96,16 @@ func compareNetworks(current, desired *v1alpha2.VirtualMachineSpec) []FieldChang
 		ActionRestart,
 	)
 }
+
+func compareUSBDevices(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+	currentValue := NewValue(current.USBDevices, current.USBDevices == nil, false)
+	desiredValue := NewValue(desired.USBDevices, desired.USBDevices == nil, false)
+
+	return compareValues(
+		"usbDevices",
+		currentValue,
+		desiredValue,
+		reflect.DeepEqual(current.USBDevices, desired.USBDevices),
+		ActionApplyImmediate,
+	)
+}

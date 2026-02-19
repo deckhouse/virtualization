@@ -565,6 +565,15 @@ spec:
                         type: string
                         description: |
                           Имя ресурса `VirtualMachineMACAddress`, связанного с сетевым интерфейсом.
+                usbDevices:
+                  description: |
+                    Список USB-устройств для подключения к виртуальной машине.
+                    Устройства указываются по имени ресурса `USBDevice` в том же пространстве имен.
+                  items:
+                    properties:
+                      name:
+                        description: |
+                          Имя ресурса `USBDevice` в том же пространстве имен.
             status:
               properties:
                 blockDeviceRefs:
@@ -738,6 +747,52 @@ spec:
                           description: Накладные расходы на память во время выполнения.
                         size:
                           description: Текущий размер памяти виртуальной машины.
+                usbDevices:
+                  description: |
+                    Список USB-устройств, подключенных к виртуальной машине.
+                  items:
+                    properties:
+                      name:
+                        description: |
+                          Имя ресурса `USBDevice`.
+                      attached:
+                        description: |
+                          USB-устройство подключено к виртуальной машине.
+                      ready:
+                        description: |
+                          USB-устройство готово к использованию.
+                      address:
+                        description: |
+                          USB-адрес внутри виртуальной машины.
+                        properties:
+                          bus:
+                            description: |
+                              Номер USB-шины (всегда `0` для основного USB-контроллера).
+                          port:
+                            description: |
+                              Номер USB-порта на выбранной шине.
+                      hotplugged:
+                        description: |
+                          USB-устройство подключено через горячее подключение.
+                      conditions:
+                        description: |
+                          Список условий для данного USB-устройства.
+                        items:
+                          properties:
+                            lastTransitionTime:
+                              description: Время перехода условия из одного состояния в другое.
+                            message:
+                              description: Удобочитаемое сообщение с подробной информацией о последнем переходе.
+                            observedGeneration:
+                              description: |
+                                `.metadata.generation`, на основе которого было установлено условие.
+                            reason:
+                              description: Краткая причина последнего перехода состояния.
+                            status:
+                              description: |
+                                Статус условия. Возможные значения: `True`, `False`, `Unknown`.
+                            type:
+                              description: Тип условия.
                 networks:
                   description: |
                     Список сетевых интерфейсов, подключенных к ВМ.

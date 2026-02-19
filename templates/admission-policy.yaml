@@ -28,6 +28,7 @@ spec:
           - "pool.internal.virtualization.deckhouse.io"
           - "snapshot.internal.virtualization.deckhouse.io"
           - "migrations.internal.virtualization.deckhouse.io"
+          - "nodeusbdevice.internal.virtualization.deckhouse.io"
         apiVersions: ["*"]
         operations:
           - "CREATE"
@@ -63,6 +64,59 @@ metadata:
   name: virtualization-restricted-access-policy-binding
 spec:
   policyName: virtualization-restricted-access-policy
+  validationActions:
+    - "Deny"
+  matchResources:
+    namespaceSelector: {}
+    objectSelector: {}
+---
+apiVersion: {{ $apiVersion }}
+kind: ValidatingAdmissionPolicy
+metadata:
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+  name: virtualization-usbdevice-access-policy
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups:
+          - "virtualization.deckhouse.io"
+        apiVersions: ["v1alpha2"]
+        operations:
+          - "CREATE"
+        resources:
+          - "nodeusbdevices"
+      - apiGroups:
+          - "virtualization.deckhouse.io"
+        apiVersions: ["v1alpha2"]
+        operations:
+          - "CREATE"
+          - "DELETE"
+          - "UPDATE"
+        resources:
+          - "usbdevices"
+      - apiGroups:
+          - "virtualization.deckhouse.io"
+        apiVersions: ["v1alpha2"]
+        operations:
+          - "UPDATE"
+        resources:
+          - "nodeusbdevices/status"
+          - "usbdevices/status"
+  validations:
+    - expression: |
+        request.userInfo.username.startsWith("system:serviceaccount:kube-system:") ||
+        request.userInfo.username.startsWith("system:serviceaccount:d8-system:") ||
+        request.userInfo.username.startsWith("system:serviceaccount:d8-virtualization:")
+      message: "NodeUSBDevice and USBDevice resources can only be created by ServiceAccounts with 'd8' prefix. USBDevice DELETE is allowed only for ServiceAccounts with 'd8' prefix. NodeUSBDevice DELETE is controlled via RBAC (allowed for cluster-admin role). Status updates are allowed only for ServiceAccounts with 'd8' prefix."
+---
+apiVersion: {{ $apiVersion }}
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+  name: virtualization-usbdevice-access-policy-binding
+spec:
+  policyName: virtualization-usbdevice-access-policy
   validationActions:
     - "Deny"
   matchResources:

@@ -46,6 +46,8 @@ const (
 	TypeEvictionRequired Type = "EvictionRequired"
 	// TypeNetworkReady indicates the state of additional network interfaces inside the virtual machine pod
 	TypeNetworkReady Type = "NetworkReady"
+	// TypeUSBDeviceReady indicates the state of USB devices attached to the virtual machine.
+	TypeUSBDeviceReady Type = "USBDeviceReady"
 
 	// TypeMaintenance indicates that the VirtualMachine is in maintenance mode.
 	// During this condition, the VM remains stopped and no changes are allowed.
@@ -253,10 +255,12 @@ func (r MigratableReason) String() string {
 }
 
 const (
-	ReasonMigratable             MigratableReason = "VirtualMachineMigratable"
-	ReasonNonMigratable          MigratableReason = "VirtualMachineNonMigratable"
-	ReasonDisksNotMigratable     MigratableReason = "VirtualMachineDisksNotMigratable"
-	ReasonDisksShouldBeMigrating MigratableReason = "VirtualMachineDisksShouldBeMigrating"
+	ReasonMigratable               MigratableReason = "VirtualMachineMigratable"
+	ReasonNonMigratable            MigratableReason = "VirtualMachineNonMigratable"
+	ReasonDisksNotMigratable       MigratableReason = "VirtualMachineDisksNotMigratable"
+	ReasonDisksShouldBeMigrating   MigratableReason = "VirtualMachineDisksShouldBeMigrating"
+	ReasonHostDevicesNotMigratable MigratableReason = "VirtualMachineHostDevicesNotMigratable"
+	ReasonUSBShouldBeMigrating     MigratableReason = "VirtualMachineUSBShouldBeMigrating"
 )
 
 type MigratingReason string
@@ -266,9 +270,9 @@ func (r MigratingReason) String() string {
 }
 
 const (
-	ReasonMigratingPending               MigratingReason = "Pending"
-	ReasonReadyToMigrate                 MigratingReason = "ReadyToMigrate"
-	ReasonMigratingInProgress            MigratingReason = "InProgress"
+	ReasonMigratingPending    MigratingReason = "Pending"
+	ReasonReadyToMigrate      MigratingReason = "ReadyToMigrate"
+	ReasonMigratingInProgress MigratingReason = "InProgress"
 )
 
 type MaintenanceReason string
@@ -279,4 +283,17 @@ func (r MaintenanceReason) String() string {
 
 const (
 	ReasonMaintenanceRestore MaintenanceReason = "RestoreInProgress"
+)
+
+type USBDeviceReadyReason string
+
+func (r USBDeviceReadyReason) String() string {
+	return string(r)
+}
+
+const (
+	// ReasonUSBDeviceReady indicates that all USB devices are ready.
+	ReasonUSBDeviceReady USBDeviceReadyReason = "USBDeviceReady"
+	// ReasonSomeDevicesNotReady indicates that some USB devices are not ready.
+	ReasonSomeDevicesNotReady USBDeviceReadyReason = "SomeDevicesNotReady"
 )
