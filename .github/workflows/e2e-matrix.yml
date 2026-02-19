@@ -211,11 +211,17 @@ jobs:
             exit 0
           fi
 
-          if $total_sufficient && ! $placement_sufficient; then
-            echo "[INFO] Total OK but only ${nodes_meeting_min} node(s) meet placement (need >= ${MIN_NODES_FOR_PLACEMENT}) — powering off VMs"
+          if $total_sufficient; then
+            echo "[INFO] Cluster has enough free memory and cpu.
           else
-            echo "[INFO] Deficit: ${deficit_mem} Gi RAM, ${deficit_cpu} CPU — powering off VMs (excluding nightly-e2e-*, static-cse, do-not-stop label)"
+            echo "[INFO] Resources shortage: need to free ${deficit_mem} Gi RAM, ${deficit_cpu} CPU. Proceed with power off some VMs to free cluster resources."          
           fi
+          if $placement_sufficient; then
+            echo "[INFO] Cluster has enough available nodes.
+          else
+            echo "[INFO] Available nodes shortage: only ${nodes_meeting_min} node(s) meet free resources requirement, expect at least ${MIN_NODES_FOR_PLACEMENT} available nodes. Proceed with power off some VMs to free resources."
+          fi
+          echo "[Note] Will ignore VMs in 'nightly-e2e-*', 'static-cse' namespaces, and VMs with the 'e2e-cluster/do-not-stop-vm-on-e2e-run' label."
 
           # Power off VMs until we have enough (exclude nightly-e2e-*, static-cse, do-not-stop)
           get_vms_candidates() {
