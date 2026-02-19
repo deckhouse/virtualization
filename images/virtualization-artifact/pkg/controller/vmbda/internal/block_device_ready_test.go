@@ -152,14 +152,14 @@ var _ = Describe("BlockDeviceReadyHandler ValidateVirtualDiskReady", func() {
 		Entry("DiskTerminating", v1alpha2.DiskTerminating, metav1.ConditionFalse),
 	)
 
-	DescribeTable("sets condition status based on PVC phase", func(phase corev1.PersistentVolumeClaimPhase, expectedStatus metav1.ConditionStatus) {
+	DescribeTable("sets condition status based on VD and PVC phase", func(vdPhase v1alpha2.DiskPhase, pvcPhase corev1.PersistentVolumeClaimPhase, expectedStatus metav1.ConditionStatus) {
 		attachmentServiceMock.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualDisk, error) {
-			return generateVD(v1alpha2.DiskReady, metav1.ConditionTrue), nil
+			return generateVD(vdPhase, metav1.ConditionTrue), nil
 		}
 		attachmentServiceMock.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *service.AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
 			return &corev1.PersistentVolumeClaim{
 				Status: corev1.PersistentVolumeClaimStatus{
-					Phase: phase,
+					Phase: pvcPhase,
 				},
 			}, nil
 		}
@@ -170,9 +170,11 @@ var _ = Describe("BlockDeviceReadyHandler ValidateVirtualDiskReady", func() {
 			Expect(cb.Condition().Reason).To(Equal(vmbdacondition.BlockDeviceReady.String()))
 		}
 	},
-		Entry("ClaimBound", corev1.ClaimBound, metav1.ConditionTrue),
-		Entry("ClaimPending", corev1.ClaimPending, metav1.ConditionFalse),
-		Entry("ClaimLost", corev1.ClaimLost, metav1.ConditionFalse),
+		Entry("VirtualDisk Ready and PVC ClaimBound", v1alpha2.DiskReady, corev1.ClaimBound, metav1.ConditionTrue),
+		Entry("VirtualDisk Ready and PVC ClaimPending", v1alpha2.DiskReady, corev1.ClaimPending, metav1.ConditionFalse),
+		Entry("VirtualDisk Ready and PVC ClaimLost", v1alpha2.DiskReady, corev1.ClaimLost, metav1.ConditionFalse),
+		Entry("VirtualDisk Migrating and PVC ClaimLost", v1alpha2.DiskMigrating, corev1.ClaimLost, metav1.ConditionFalse),
+		Entry("VirtualDisk WaitForFirstConsumer and PVC ClaimLost", v1alpha2.DiskWaitForFirstConsumer, corev1.ClaimLost, metav1.ConditionTrue),
 	)
 })
 
