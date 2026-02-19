@@ -47,8 +47,6 @@ func (w *ResourceClaimTemplateWatcher) Watch(mgr manager.Manager, ctr controller
 		source.Kind(mgr.GetCache(),
 			&resourcev1.ResourceClaimTemplate{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, template *resourcev1.ResourceClaimTemplate) []reconcile.Request {
-				_ = ctx
-
 				name, ok := mapResourceClaimTemplateToUSBDeviceName(template)
 				if !ok {
 					return nil
