@@ -424,7 +424,7 @@ type Versions struct {
 }
 
 type NetworksStatus struct {
-	Id                           int    `json:"id"`
+	Id                           int    `json:"id,omitempty"`
 	Type                         string `json:"type"`
 	Name                         string `json:"name,omitempty"`
 	MAC                          string `json:"macAddress,omitempty"`
