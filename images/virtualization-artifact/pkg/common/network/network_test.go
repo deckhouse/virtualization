@@ -357,7 +357,7 @@ var _ = Describe("Network Config Generation", func() {
 		vm.Spec.Networks = []v1alpha2.NetworksSpec{
 			{
 				Type: v1alpha2.NetworksTypeMain,
-				Id:   10,
+				Id:   1,
 			},
 			{
 				Type: v1alpha2.NetworksTypeClusterNetwork,
