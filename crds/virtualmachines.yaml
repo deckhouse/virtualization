@@ -981,6 +981,10 @@ spec:
                     required:
                       - type
                     properties:
+                      id:
+                        type: integer
+                        description: |
+                          Network interface ID.
                       type:
                         type: string
                         description: |
@@ -1333,6 +1337,10 @@ spec:
                     required:
                       - type
                     properties:
+                      id:
+                        type: integer
+                        description: |
+                          Network interface ID.
                       type:
                         type: string
                         description: |
