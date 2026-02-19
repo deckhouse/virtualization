@@ -42,7 +42,7 @@ func (w *NodeUSBDeviceWatcher) Watch(mgr manager.Manager, ctr controller.Control
 	return ctr.Watch(
 		source.Kind(mgr.GetCache(),
 			&v1alpha2.NodeUSBDevice{},
-			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, nodeUSBDevice *v1alpha2.NodeUSBDevice) []reconcile.Request {
+			handler.TypedEnqueueRequestsFromMapFunc(func(_ context.Context, nodeUSBDevice *v1alpha2.NodeUSBDevice) []reconcile.Request {
 				// Only enqueue USBDevice if NodeUSBDevice has assignedNamespace
 				if nodeUSBDevice.Spec.AssignedNamespace == "" {
 					return nil

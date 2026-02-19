@@ -44,7 +44,7 @@ func (w *ResourceSliceWatcher) Watch(mgr manager.Manager, ctr controller.Control
 	return ctr.Watch(
 		source.Kind(mgr.GetCache(),
 			&resourcev1.ResourceSlice{},
-			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, slice *resourcev1.ResourceSlice) []reconcile.Request {
+			handler.TypedEnqueueRequestsFromMapFunc(func(_ context.Context, slice *resourcev1.ResourceSlice) []reconcile.Request {
 				return []reconcile.Request{{NamespacedName: client.ObjectKeyFromObject(slice)}}
 			}),
 			predicate.TypedFuncs[*resourcev1.ResourceSlice]{
