@@ -31,7 +31,6 @@ import (
 	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/usbdevicecondition"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
 
@@ -135,57 +134,6 @@ func (h *usbDeviceHandlerBase) getUSBAddressFromKVVMI(deviceName string, kvvmi *
 		}
 	}
 	return nil
-}
-
-func (h *usbDeviceHandlerBase) getDeviceConditions(usbDevice *v1alpha2.USBDevice) []metav1.Condition {
-	conds := make([]metav1.Condition, 0, len(usbDevice.Status.Conditions))
-	for _, c := range usbDevice.Status.Conditions {
-		conds = append(conds, *c.DeepCopy())
-	}
-	return conds
-}
-
-func (h *usbDeviceHandlerBase) updateUSBDeviceReadyCondition(vm *v1alpha2.VirtualMachine, statusRefs []v1alpha2.USBDeviceStatusRef) {
-	allReady := true
-	var notReadyDevices []string
-
-	for _, statusRef := range statusRefs {
-		if !statusRef.Ready || !statusRef.Attached {
-			allReady = false
-			notReadyDevices = append(notReadyDevices, statusRef.Name)
-		}
-	}
-
-	var reason vmcondition.USBDevicesReadyReason
-	var status metav1.ConditionStatus
-	var message string
-
-	if len(statusRefs) == 0 {
-		conditions.RemoveCondition(vmcondition.TypeUSBDevicesReady, &vm.Status.Conditions)
-		return
-	}
-
-	if allReady {
-		reason = vmcondition.ReasonUSBDevicesReady
-		status = metav1.ConditionTrue
-		message = "All USB devices are ready"
-	} else {
-		reason = vmcondition.ReasonUSBDevicesNotReady
-		status = metav1.ConditionFalse
-		if len(notReadyDevices) == 1 {
-			message = fmt.Sprintf("USB device '%s' is not ready or not attached", notReadyDevices[0])
-		} else {
-			message = fmt.Sprintf("USB devices '%v' are not ready or not attached", notReadyDevices)
-		}
-	}
-
-	cb := conditions.NewConditionBuilder(vmcondition.TypeUSBDevicesReady).
-		Generation(vm.GetGeneration()).
-		Status(status).
-		Reason(reason).
-		Message(message)
-
-	conditions.SetCondition(cb, &vm.Status.Conditions)
 }
 
 func (h *usbDeviceHandlerBase) hasPendingMigrationOp(ctx context.Context, s state.VirtualMachineState) (bool, error) {

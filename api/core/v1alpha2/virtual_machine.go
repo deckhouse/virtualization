@@ -504,8 +504,6 @@ type USBDeviceStatusRef struct {
 	Address *USBAddress `json:"address,omitempty"`
 	// USB device is attached via hot plug connection.
 	Hotplugged bool `json:"hotplugged,omitempty"`
-	// Conditions for this USB device.
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // USBAddress represents the USB bus address inside the virtual machine.

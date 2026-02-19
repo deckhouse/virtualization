@@ -21,14 +21,12 @@ import (
 	"fmt"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/usbdevicecondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -92,18 +90,7 @@ func (h *USBDeviceMigrationHandler) Handle(ctx context.Context, s state.VirtualM
 		ref.Attached = false
 		ref.Address = nil
 		ref.Hotplugged = false
-
-		if ref.Conditions == nil {
-			ref.Conditions = []metav1.Condition{}
-		}
-		cb := conditions.NewConditionBuilder(usbdevicecondition.AttachedType).
-			Status(metav1.ConditionFalse).
-			Reason(usbdevicecondition.DetachedForMigration).
-			Message("USB device detached for migration.")
-
-		conditions.SetCondition(cb, &ref.Conditions)
 	}
 
-	h.updateUSBDeviceReadyCondition(changed, changed.Status.USBDevices)
 	return reconcile.Result{}, nil
 }

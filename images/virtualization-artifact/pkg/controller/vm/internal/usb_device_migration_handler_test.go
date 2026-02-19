@@ -28,11 +28,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/usbdevicecondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -120,10 +118,6 @@ var _ = Describe("USBDeviceMigrationHandler", func() {
 		Expect(mockVM.removeResourceClaimCalls).To(HaveLen(2))
 		Expect(vmResource.Changed().Status.USBDevices[0].Attached).To(BeFalse())
 		Expect(vmResource.Changed().Status.USBDevices[0].Hotplugged).To(BeFalse())
-
-		attachedCond, found := conditions.GetCondition(usbdevicecondition.AttachedType, vmResource.Changed().Status.USBDevices[0].Conditions)
-		Expect(found).To(BeTrue())
-		Expect(attachedCond.Reason).To(Equal(string(usbdevicecondition.DetachedForMigration)))
 	})
 
 	It("should return error when detach fails during migration", func() {

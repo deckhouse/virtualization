@@ -67,7 +67,7 @@ spec:
                 assignedNamespace:
                   default: ""
                   description: |-
-                    Namespace in which the device usage is allowed. By default, created with an empty value "".
+                    AssignedNamespace in which the device usage is allowed. By default, created with an empty value "".
                     When set, a corresponding USBDevice resource is created in this namespace.
                   type: string
               type: object

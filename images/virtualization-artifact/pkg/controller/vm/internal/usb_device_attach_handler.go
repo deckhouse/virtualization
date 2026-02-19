@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -99,16 +98,15 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 		// 1) Resolve source USBDevice object.
 		usbDevice, exists := usbDevicesByName[deviceName]
 		if !exists {
-			nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(nil, deviceName, false, nil))
+			nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(nil, deviceName, false))
 			continue
 		}
 
 		isReady := h.isUSBDeviceReady(usbDevice)
-		deviceConditions := h.getDeviceConditions(usbDevice)
 
 		// 2) Pre-attach gates: deleting/template/ready checks.
 		if !usbDevice.GetDeletionTimestamp().IsZero() {
-			nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(existingStatus, deviceName, false, deviceConditions))
+			nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(existingStatus, deviceName, false))
 			continue
 		}
 
@@ -119,12 +117,12 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 			}
 
 			log.Error("failed to get ResourceClaimTemplate", "error", err, "usbDevice", deviceName)
-			nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(nil, deviceName, isReady, deviceConditions))
+			nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(nil, deviceName, isReady))
 			continue
 		}
 
 		if !isReady {
-			nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(existingStatus, deviceName, isReady, deviceConditions))
+			nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(existingStatus, deviceName, isReady))
 			continue
 		}
 
@@ -146,12 +144,11 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 			if existingStatus != nil && existingStatus.Attached {
 				status := *existingStatus
 				status.Ready = isReady
-				status.Conditions = deviceConditions
 				status.Address = address
 				status.Hotplugged = isHotplugged
 				nextStatusRefs = append(nextStatusRefs, status)
 			} else {
-				nextStatusRefs = append(nextStatusRefs, h.buildAttachedStatus(deviceName, isReady, deviceConditions, address, isHotplugged))
+				nextStatusRefs = append(nextStatusRefs, h.buildAttachedStatus(deviceName, isReady, address, isHotplugged))
 			}
 			continue
 		}
@@ -162,11 +159,10 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 			log.Error("failed to attach USB device", "error", err, "usbDevice", deviceName)
 		}
 
-		nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(existingStatus, deviceName, isReady, deviceConditions))
+		nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(existingStatus, deviceName, isReady))
 	}
 
 	changed.Status.USBDevices = nextStatusRefs
-	h.updateUSBDeviceReadyCondition(changed, nextStatusRefs)
 
 	return reconcile.Result{}, nil
 }
@@ -174,7 +170,6 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 func (h *USBDeviceAttachHandler) buildAttachedStatus(
 	deviceName string,
 	ready bool,
-	conditions []metav1.Condition,
 	address *v1alpha2.USBAddress,
 	hotplugged bool,
 ) v1alpha2.USBDeviceStatusRef {
@@ -184,7 +179,6 @@ func (h *USBDeviceAttachHandler) buildAttachedStatus(
 		Ready:      ready,
 		Address:    address,
 		Hotplugged: hotplugged,
-		Conditions: conditions,
 	}
 }
 
@@ -192,7 +186,6 @@ func (h *USBDeviceAttachHandler) buildDetachedStatus(
 	existing *v1alpha2.USBDeviceStatusRef,
 	deviceName string,
 	ready bool,
-	conditions []metav1.Condition,
 ) v1alpha2.USBDeviceStatusRef {
 	status := v1alpha2.USBDeviceStatusRef{Name: deviceName}
 	if existing != nil {
@@ -204,7 +197,6 @@ func (h *USBDeviceAttachHandler) buildDetachedStatus(
 	status.Ready = ready
 	status.Address = nil
 	status.Hotplugged = false
-	status.Conditions = conditions
 
 	return status
 }

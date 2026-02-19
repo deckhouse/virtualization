@@ -774,25 +774,6 @@ spec:
                       hotplugged:
                         description: |
                           USB-устройство подключено через горячее подключение.
-                      conditions:
-                        description: |
-                          Список условий для данного USB-устройства.
-                        items:
-                          properties:
-                            lastTransitionTime:
-                              description: Время перехода условия из одного состояния в другое.
-                            message:
-                              description: Удобочитаемое сообщение с подробной информацией о последнем переходе.
-                            observedGeneration:
-                              description: |
-                                `.metadata.generation`, на основе которого было установлено условие.
-                            reason:
-                              description: Краткая причина последнего перехода состояния.
-                            status:
-                              description: |
-                                Статус условия. Возможные значения: `True`, `False`, `Unknown`.
-                            type:
-                              description: Тип условия.
                 networks:
                   description: |
                     Список сетевых интерфейсов, подключенных к ВМ.
