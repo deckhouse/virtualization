@@ -101,7 +101,7 @@ func (h *NetworkInterfaceHandler) Handle(ctx context.Context, s state.VirtualMac
 
 func (h *NetworkInterfaceHandler) lazyInitialization(vm *v1alpha2.VirtualMachine) {
 	for i := range vm.Spec.Networks {
-		vm.Spec.Networks[i].Id = 10 + i
+		vm.Spec.Networks[i].Id = 1 + i
 	}
 }
 
