@@ -259,7 +259,7 @@ func TestNetworksValidateUpdate(t *testing.T) {
 				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", Id: 1},
 			},
 			sdnEnabled: true,
-			valid:      false,
+			valid:      true,
 		},
 		{
 			oldNetworksSpec: []v1alpha2.NetworksSpec{

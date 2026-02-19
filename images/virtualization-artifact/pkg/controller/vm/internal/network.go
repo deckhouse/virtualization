@@ -95,7 +95,39 @@ func (h *NetworkInterfaceHandler) Handle(ctx context.Context, s state.VirtualMac
 		}
 	}
 
+	h.lazyInitialization(vm)
 	return h.UpdateNetworkStatus(ctx, s, vm)
+}
+
+func (h *NetworkInterfaceHandler) lazyInitialization(vm *v1alpha2.VirtualMachine) {
+	// First pass: assign id=1 to Main network if it has id=0
+	for i := range vm.Spec.Networks {
+		if vm.Spec.Networks[i].Type == v1alpha2.NetworksTypeMain && vm.Spec.Networks[i].Id == 0 {
+			vm.Spec.Networks[i].Id = 1
+		}
+	}
+
+	// Second pass: assign sequential ids starting from 2 to other networks with id=0
+	nextID := 2
+	for i := range vm.Spec.Networks {
+		if vm.Spec.Networks[i].Type != v1alpha2.NetworksTypeMain && vm.Spec.Networks[i].Id == 0 {
+			vm.Spec.Networks[i].Id = nextID
+			nextID++
+			// Ensure we never use id=1 (reserved for Main)
+			if nextID == 1 {
+				nextID = 2
+			}
+		} else if vm.Spec.Networks[i].Id > 0 {
+			// Track the highest ID used to avoid conflicts
+			if vm.Spec.Networks[i].Id >= nextID {
+				nextID = vm.Spec.Networks[i].Id + 1
+				// Ensure we never use id=1 (reserved for Main)
+				if nextID == 1 {
+					nextID = 2
+				}
+			}
+		}
+	}
 }
 
 func hasOnlyDefaultNetwork(vm *v1alpha2.VirtualMachine) bool {

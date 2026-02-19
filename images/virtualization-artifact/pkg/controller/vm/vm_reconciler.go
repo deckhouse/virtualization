@@ -106,7 +106,25 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return h.Handle(ctx, s)
 	})
 	rec.SetResourceUpdater(func(ctx context.Context) error {
-		return vm.Update(ctx)
+		var specToUpdate *v1alpha2.VirtualMachineSpec
+		if !reflect.DeepEqual(vm.Current().Spec, vm.Changed().Spec) {
+			specToUpdate = vm.Changed().Spec.DeepCopy()
+		}
+
+		err := vm.Update(ctx)
+		if err != nil {
+			return fmt.Errorf("update status: %w", err)
+		}
+
+		if specToUpdate != nil {
+			vm.Changed().Spec = *specToUpdate
+			err = r.client.Update(ctx, vm.Changed())
+			if err != nil {
+				return fmt.Errorf("update spec: %w", err)
+			}
+		}
+
+		return nil
 	})
 
 	return rec.Reconcile(ctx)

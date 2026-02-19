@@ -143,6 +143,11 @@ func (v *NetworksValidator) validateNetworkIDsUnchanged(oldNetworksSpec, newNetw
 			continue
 		}
 
+		// Allow changing id from 0 to a valid value (lazy initialization)
+		if oldNetwork.Id == 0 && newNetwork.Id > 0 && newNetwork.Id <= maxNetworkID {
+			continue
+		}
+
 		networkIdentifier := v.getNetworkIdentifier(oldNetwork)
 		return fmt.Errorf("network id cannot be changed for network %s", networkIdentifier)
 	}
