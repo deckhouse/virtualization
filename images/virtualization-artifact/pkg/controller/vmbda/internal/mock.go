@@ -5,7 +5,9 @@ package internal
 
 import (
 	"context"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	corev1 "k8s.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sync"
 )
@@ -20,11 +22,23 @@ var _ AttachmentService = &AttachmentServiceMock{}
 //
 //		// make and configure a mocked AttachmentService
 //		mockedAttachmentService := &AttachmentServiceMock{
+//			GetClusterVirtualImageFunc: func(ctx context.Context, name string) (*v1alpha2.ClusterVirtualImage, error) {
+//				panic("mock out the GetClusterVirtualImage method")
+//			},
 //			GetKVVMFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachine, error) {
 //				panic("mock out the GetKVVM method")
 //			},
 //			GetKVVMIFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
 //				panic("mock out the GetKVVMI method")
+//			},
+//			GetPersistentVolumeClaimFunc: func(ctx context.Context, ad *service.AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
+//				panic("mock out the GetPersistentVolumeClaim method")
+//			},
+//			GetVirtualDiskFunc: func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualDisk, error) {
+//				panic("mock out the GetVirtualDisk method")
+//			},
+//			GetVirtualImageFunc: func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualImage, error) {
+//				panic("mock out the GetVirtualImage method")
 //			},
 //			GetVirtualMachineFunc: func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualMachine, error) {
 //				panic("mock out the GetVirtualMachine method")
@@ -36,17 +50,36 @@ var _ AttachmentService = &AttachmentServiceMock{}
 //
 //	}
 type AttachmentServiceMock struct {
+	// GetClusterVirtualImageFunc mocks the GetClusterVirtualImage method.
+	GetClusterVirtualImageFunc func(ctx context.Context, name string) (*v1alpha2.ClusterVirtualImage, error)
+
 	// GetKVVMFunc mocks the GetKVVM method.
 	GetKVVMFunc func(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachine, error)
 
 	// GetKVVMIFunc mocks the GetKVVMI method.
 	GetKVVMIFunc func(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error)
 
+	// GetPersistentVolumeClaimFunc mocks the GetPersistentVolumeClaim method.
+	GetPersistentVolumeClaimFunc func(ctx context.Context, ad *service.AttachmentDisk) (*corev1.PersistentVolumeClaim, error)
+
+	// GetVirtualDiskFunc mocks the GetVirtualDisk method.
+	GetVirtualDiskFunc func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualDisk, error)
+
+	// GetVirtualImageFunc mocks the GetVirtualImage method.
+	GetVirtualImageFunc func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualImage, error)
+
 	// GetVirtualMachineFunc mocks the GetVirtualMachine method.
 	GetVirtualMachineFunc func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualMachine, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
+		// GetClusterVirtualImage holds details about calls to the GetClusterVirtualImage method.
+		GetClusterVirtualImage []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Name is the name argument value.
+			Name string
+		}
 		// GetKVVM holds details about calls to the GetKVVM method.
 		GetKVVM []struct {
 			// Ctx is the ctx argument value.
@@ -61,6 +94,31 @@ type AttachmentServiceMock struct {
 			// VM is the vm argument value.
 			VM *v1alpha2.VirtualMachine
 		}
+		// GetPersistentVolumeClaim holds details about calls to the GetPersistentVolumeClaim method.
+		GetPersistentVolumeClaim []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Ad is the ad argument value.
+			Ad *service.AttachmentDisk
+		}
+		// GetVirtualDisk holds details about calls to the GetVirtualDisk method.
+		GetVirtualDisk []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Name is the name argument value.
+			Name string
+			// Namespace is the namespace argument value.
+			Namespace string
+		}
+		// GetVirtualImage holds details about calls to the GetVirtualImage method.
+		GetVirtualImage []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Name is the name argument value.
+			Name string
+			// Namespace is the namespace argument value.
+			Namespace string
+		}
 		// GetVirtualMachine holds details about calls to the GetVirtualMachine method.
 		GetVirtualMachine []struct {
 			// Ctx is the ctx argument value.
@@ -71,9 +129,49 @@ type AttachmentServiceMock struct {
 			Namespace string
 		}
 	}
-	lockGetKVVM           sync.RWMutex
-	lockGetKVVMI          sync.RWMutex
-	lockGetVirtualMachine sync.RWMutex
+	lockGetClusterVirtualImage   sync.RWMutex
+	lockGetKVVM                  sync.RWMutex
+	lockGetKVVMI                 sync.RWMutex
+	lockGetPersistentVolumeClaim sync.RWMutex
+	lockGetVirtualDisk           sync.RWMutex
+	lockGetVirtualImage          sync.RWMutex
+	lockGetVirtualMachine        sync.RWMutex
+}
+
+// GetClusterVirtualImage calls GetClusterVirtualImageFunc.
+func (mock *AttachmentServiceMock) GetClusterVirtualImage(ctx context.Context, name string) (*v1alpha2.ClusterVirtualImage, error) {
+	if mock.GetClusterVirtualImageFunc == nil {
+		panic("AttachmentServiceMock.GetClusterVirtualImageFunc: method is nil but AttachmentService.GetClusterVirtualImage was just called")
+	}
+	callInfo := struct {
+		Ctx  context.Context
+		Name string
+	}{
+		Ctx:  ctx,
+		Name: name,
+	}
+	mock.lockGetClusterVirtualImage.Lock()
+	mock.calls.GetClusterVirtualImage = append(mock.calls.GetClusterVirtualImage, callInfo)
+	mock.lockGetClusterVirtualImage.Unlock()
+	return mock.GetClusterVirtualImageFunc(ctx, name)
+}
+
+// GetClusterVirtualImageCalls gets all the calls that were made to GetClusterVirtualImage.
+// Check the length with:
+//
+//	len(mockedAttachmentService.GetClusterVirtualImageCalls())
+func (mock *AttachmentServiceMock) GetClusterVirtualImageCalls() []struct {
+	Ctx  context.Context
+	Name string
+} {
+	var calls []struct {
+		Ctx  context.Context
+		Name string
+	}
+	mock.lockGetClusterVirtualImage.RLock()
+	calls = mock.calls.GetClusterVirtualImage
+	mock.lockGetClusterVirtualImage.RUnlock()
+	return calls
 }
 
 // GetKVVM calls GetKVVMFunc.
@@ -145,6 +243,122 @@ func (mock *AttachmentServiceMock) GetKVVMICalls() []struct {
 	mock.lockGetKVVMI.RLock()
 	calls = mock.calls.GetKVVMI
 	mock.lockGetKVVMI.RUnlock()
+	return calls
+}
+
+// GetPersistentVolumeClaim calls GetPersistentVolumeClaimFunc.
+func (mock *AttachmentServiceMock) GetPersistentVolumeClaim(ctx context.Context, ad *service.AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
+	if mock.GetPersistentVolumeClaimFunc == nil {
+		panic("AttachmentServiceMock.GetPersistentVolumeClaimFunc: method is nil but AttachmentService.GetPersistentVolumeClaim was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		Ad  *service.AttachmentDisk
+	}{
+		Ctx: ctx,
+		Ad:  ad,
+	}
+	mock.lockGetPersistentVolumeClaim.Lock()
+	mock.calls.GetPersistentVolumeClaim = append(mock.calls.GetPersistentVolumeClaim, callInfo)
+	mock.lockGetPersistentVolumeClaim.Unlock()
+	return mock.GetPersistentVolumeClaimFunc(ctx, ad)
+}
+
+// GetPersistentVolumeClaimCalls gets all the calls that were made to GetPersistentVolumeClaim.
+// Check the length with:
+//
+//	len(mockedAttachmentService.GetPersistentVolumeClaimCalls())
+func (mock *AttachmentServiceMock) GetPersistentVolumeClaimCalls() []struct {
+	Ctx context.Context
+	Ad  *service.AttachmentDisk
+} {
+	var calls []struct {
+		Ctx context.Context
+		Ad  *service.AttachmentDisk
+	}
+	mock.lockGetPersistentVolumeClaim.RLock()
+	calls = mock.calls.GetPersistentVolumeClaim
+	mock.lockGetPersistentVolumeClaim.RUnlock()
+	return calls
+}
+
+// GetVirtualDisk calls GetVirtualDiskFunc.
+func (mock *AttachmentServiceMock) GetVirtualDisk(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualDisk, error) {
+	if mock.GetVirtualDiskFunc == nil {
+		panic("AttachmentServiceMock.GetVirtualDiskFunc: method is nil but AttachmentService.GetVirtualDisk was just called")
+	}
+	callInfo := struct {
+		Ctx       context.Context
+		Name      string
+		Namespace string
+	}{
+		Ctx:       ctx,
+		Name:      name,
+		Namespace: namespace,
+	}
+	mock.lockGetVirtualDisk.Lock()
+	mock.calls.GetVirtualDisk = append(mock.calls.GetVirtualDisk, callInfo)
+	mock.lockGetVirtualDisk.Unlock()
+	return mock.GetVirtualDiskFunc(ctx, name, namespace)
+}
+
+// GetVirtualDiskCalls gets all the calls that were made to GetVirtualDisk.
+// Check the length with:
+//
+//	len(mockedAttachmentService.GetVirtualDiskCalls())
+func (mock *AttachmentServiceMock) GetVirtualDiskCalls() []struct {
+	Ctx       context.Context
+	Name      string
+	Namespace string
+} {
+	var calls []struct {
+		Ctx       context.Context
+		Name      string
+		Namespace string
+	}
+	mock.lockGetVirtualDisk.RLock()
+	calls = mock.calls.GetVirtualDisk
+	mock.lockGetVirtualDisk.RUnlock()
+	return calls
+}
+
+// GetVirtualImage calls GetVirtualImageFunc.
+func (mock *AttachmentServiceMock) GetVirtualImage(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualImage, error) {
+	if mock.GetVirtualImageFunc == nil {
+		panic("AttachmentServiceMock.GetVirtualImageFunc: method is nil but AttachmentService.GetVirtualImage was just called")
+	}
+	callInfo := struct {
+		Ctx       context.Context
+		Name      string
+		Namespace string
+	}{
+		Ctx:       ctx,
+		Name:      name,
+		Namespace: namespace,
+	}
+	mock.lockGetVirtualImage.Lock()
+	mock.calls.GetVirtualImage = append(mock.calls.GetVirtualImage, callInfo)
+	mock.lockGetVirtualImage.Unlock()
+	return mock.GetVirtualImageFunc(ctx, name, namespace)
+}
+
+// GetVirtualImageCalls gets all the calls that were made to GetVirtualImage.
+// Check the length with:
+//
+//	len(mockedAttachmentService.GetVirtualImageCalls())
+func (mock *AttachmentServiceMock) GetVirtualImageCalls() []struct {
+	Ctx       context.Context
+	Name      string
+	Namespace string
+} {
+	var calls []struct {
+		Ctx       context.Context
+		Name      string
+		Namespace string
+	}
+	mock.lockGetVirtualImage.RLock()
+	calls = mock.calls.GetVirtualImage
+	mock.lockGetVirtualImage.RUnlock()
 	return calls
 }
 
