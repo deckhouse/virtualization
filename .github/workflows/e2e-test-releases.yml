@@ -1,0 +1,44 @@
+# Copyright 2026 Flant JSC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: E2E Release Tests (nested cluster)
+
+on:
+  workflow_dispatch:
+    inputs:
+      current-release:
+        description: "Current release tag, like v1.4.1"
+        required: false # before merge to main, set to true
+        default: "v1.4.1"
+        type: string
+      next-release:
+        description: "Next release like v1.5.0, should be greater than current-release"
+        required: false # before merge to main, set to true
+        type: string
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  release-test:
+    name: Release test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test
+        run: |
+          echo "🏷️ [INFO] Current release tag: ${{ github.event.inputs.current-release }}"
+          echo "🔜 [INFO] Next release tag: ${{ github.event.inputs.next-release }}"
+
+          echo "🎉 [INFO] Test from ${{ github.event.inputs.current-release }} -> ${{ github.event.inputs.next-release }} SUCCESS"

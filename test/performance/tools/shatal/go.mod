@@ -1,6 +1,6 @@
 module github.com/deckhouse/virtualization/shatal
 
-go 1.24.6
+go 1.24.13
 
 require (
 	github.com/deckhouse/virtualization/api v1.0.0

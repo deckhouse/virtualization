@@ -44,6 +44,7 @@ jobs:
       module_edition: ${{ steps.modules_module_tag.outputs.MODULE_EDITION }}
       runner_type: ${{ steps.modules_module_tag.outputs.RUNNER_TYPE }}
       checkout_tag: ${{ steps.modules_module_tag.outputs.CHECKOUT_TAG }}
+      checkout_sha: ${{ steps.modules_module_tag.outputs.CHECKOUT_SHA }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -53,12 +54,14 @@ jobs:
         id: modules_module_tag
         run: |
           if [[ "${{ github.event_name }}" == 'schedule' ]]; then
-            # get last semver branch with remotes/origin/release-X.Y format
-            CHECKOUT_TAG=$(git branch --all | grep -E 'origin\/release-[0-9]+\.[0-9]+-cse$' | sort -V | tail -n 1)
+            # get last semver branch with release-X.Y-cse format
+            CHECKOUT_TAG=$(git branch -r | grep -oE 'release-[0-9]+\.[0-9]+-cse$' | sort -V | tail -n 1)
           else
             CHECKOUT_TAG=${{ github.event.pull_request.head.sha || github.sha }}
           fi
+          CHECKOUT_SHA=$(git rev-parse remotes/origin/$CHECKOUT_TAG)
           echo "CHECKOUT_TAG=$CHECKOUT_TAG" >> "$GITHUB_OUTPUT"
+          echo "CHECKOUT_SHA=$CHECKOUT_SHA" >> "$GITHUB_OUTPUT"
           if [[ "${{ github.ref_name }}" == 'main' ]]; then
             MODULES_MODULE_TAG="${{ github.ref_name }}-svace"
           elif [[ "${{ github.ref_name }}" =~ ^release-[0-9]+\.[0-9]+ ]]; then
@@ -92,6 +95,7 @@ jobs:
       MODULES_MODULE_TAG: ${{needs.set_vars.outputs.modules_module_tag}}
       MODULE_EDITION: ${{needs.set_vars.outputs.module_edition}}
       CHECKOUT_TAG: ${{needs.set_vars.outputs.checkout_tag}}
+      CHECKOUT_SHA: ${{needs.set_vars.outputs.checkout_sha}}
       WERF_VIRTUAL_MERGE: 0
     steps:
       - name: Setup Docker config
@@ -108,6 +112,7 @@ jobs:
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
           echo DOCKER_CONFIG=$DOCKER_CONFIG
           echo CHECKOUT_TAG=$CHECKOUT_TAG
+          echo CHECKOUT_SHA=$CHECKOUT_SHA
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -132,6 +137,7 @@ jobs:
           svace_enabled: "true"
           svace_analyze_host: "${{ secrets.SVACE_ANALYZE_HOST }}"
           svace_analyze_ssh_user: "${{ secrets.SVACE_ANALYZE_SSH_USER }}"
+          svace_analyze_ssh_key: "${{ secrets.SVACE_ANALYZE_SSH_PRIVATE_KEY }}"
 
       - name: Cleanup Docker config
         run: |
@@ -148,8 +154,8 @@ jobs:
         id: analyze
         with:
           project_group: ${{ github.event.repository.name }}
-          ci_commit_ref_name: ${{ github.event.pull_request.head.ref || github.ref_name }}
-          ci_commit_hash: ${{ github.event.pull_request.head.sha || github.sha }}
+          ci_commit_ref_name: ${{ needs.set_vars.outputs.checkout_tag }}
+          ci_commit_hash: ${{ needs.set_vars.outputs.checkout_sha }}
           svace_analyze_host: "${{ secrets.SVACE_ANALYZE_HOST }}"
           svace_analyze_ssh_user: "${{ secrets.SVACE_ANALYZE_SSH_USER }}"
           svacer_url: "${{ secrets.SVACER_URL }}"
@@ -160,6 +166,8 @@ jobs:
   notify:
     name: Notify Loop
     runs-on: ubuntu-latest
+    env:
+      CHECKOUT_TAG: ${{needs.set_vars.outputs.checkout_tag}}
     needs:
       - set_vars
       - dev_setup_build
@@ -177,7 +185,7 @@ jobs:
           MESSAGE="
           ### :gear: **DVP $DATE Weekly Svace Analyze Report**
 
-          **Branch:** \`$GITHUB_REF_NAME\`
+          **Branch:** \`$CHECKOUT_TAG\`
           **Status: ${STATUS}**
 
           [:link: GitHub Actions Output]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)

@@ -18,7 +18,7 @@ env:
   CSI: replicated.csi.storage.deckhouse.io
   STORAGE_CLASS_NAME: linstor-thin-r1
   CI_COMMIT_REF_NAME: ${{ github.ref_name }}
-  GO_VERSION: "1.24.5"
+  GO_VERSION: "1.24.13"
   TIMEOUT: "3h"
 
 on:

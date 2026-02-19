@@ -30,6 +30,7 @@ import (
 
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/backoff"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -87,6 +88,19 @@ func (h *EvacuationHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMach
 
 	if !isVMNeedEvict(vm) || isVMMigrating(vm) {
 		return reconcile.Result{}, nil
+	}
+
+	failedCount := 0
+	for _, vmop := range finishedVMOPs {
+		_, isEvacuation := vmop.GetAnnotations()[annotations.AnnVMOPEvacuation]
+		if isEvacuation && vmop.Status.Phase == v1alpha2.VMOPPhaseFailed {
+			failedCount++
+		}
+	}
+
+	backoff := backoff.CalculateBackOff(failedCount)
+	if backoff > 0 {
+		return reconcile.Result{RequeueAfter: backoff}, nil
 	}
 
 	log.Info("Create evacuation vmop")
@@ -178,7 +192,7 @@ func newEvacuationVMOP(vmName, namespace string) *v1alpha2.VirtualMachineOperati
 }
 
 func isVMNeedEvict(vm *v1alpha2.VirtualMachine) bool {
-	cond, _ := conditions.GetCondition(vmcondition.TypeNeedsEvict, vm.Status.Conditions)
+	cond, _ := conditions.GetCondition(vmcondition.TypeEvictionRequired, vm.Status.Conditions)
 	return cond.Status == metav1.ConditionTrue
 }
 

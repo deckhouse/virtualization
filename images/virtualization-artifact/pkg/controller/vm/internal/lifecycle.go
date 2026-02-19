@@ -194,7 +194,7 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 		vm.Status.Node = kvvmi.Status.NodeName
 
 		if vm.Status.Phase == v1alpha2.MachineRunning {
-			cb.Reason(vmcondition.ReasonVmIsRunning).Status(metav1.ConditionTrue)
+			cb.Reason(vmcondition.ReasonVirtualMachineRunning).Status(metav1.ConditionTrue)
 			conditions.SetCondition(cb, &vm.Status.Conditions)
 			return
 		}
@@ -210,7 +210,7 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 	} else {
 		vm.Status.Node = ""
 	}
-	cb.Reason(vmcondition.ReasonVmIsNotRunning).Status(metav1.ConditionFalse)
+	cb.Reason(vmcondition.ReasonVirtualMachineNotRunning).Status(metav1.ConditionFalse)
 	conditions.SetCondition(cb, &vm.Status.Conditions)
 }
 

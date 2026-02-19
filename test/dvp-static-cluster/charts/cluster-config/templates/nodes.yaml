@@ -1,0 +1,44 @@
+{{- range $_, $v := .Values.instances.additionalNodes }}
+  {{- if (ne ($v.count |int) 0) }}
+---
+apiVersion: deckhouse.io/v1
+kind: NodeGroup
+metadata:
+  name: {{ $v.name }}
+spec:
+  disruptions:
+    approvalMode: Manual
+  nodeTemplate:
+    labels:
+      node-role.deckhouse.io/{{ $v.name }}: ""
+    {{- if ne $v.name "worker" }}
+    taints:
+      - effect: NoExecute
+        key: dedicated.deckhouse.io
+        value: {{ $v.name }}
+    {{- end }}
+  nodeType: Static
+  staticInstances:
+    count: {{ $v.count }}
+    labelSelector:
+      matchLabels:
+        role: {{ $v.name }}
+  {{- end }}
+
+  {{- range $_, $i := untilStep 0 ($v.count | int) 1}}
+    {{- $vmName := printf "%s-%s-%d" $.Values.storageType $v.name $i }}
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: StaticInstance
+metadata:
+  name: {{ $vmName }}
+  labels:
+    role: {{ $v.name }}
+spec:
+  address: {{ index $.Values.discovered.vmIPs $vmName }}
+  credentialsRef:
+    kind: SSHCredentials
+    name: mvp-static
+  {{- end }}
+
+{{- end }}

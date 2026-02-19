@@ -29,6 +29,7 @@ const (
 
 // VirtualMachineRestore provides a resource for restoring a virtual machine and all associated resources from a snapshot.
 //
+// +kubebuilder:deprecatedversion:warning="The VirtualMachineRestore resource is deprecated, consider using VirtualMachineOperation with type Restore/Clone"
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
 // +kubebuilder:subresource:status

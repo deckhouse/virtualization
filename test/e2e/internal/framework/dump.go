@@ -30,6 +30,8 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 )
 
+const d8vContainerPrefix = "d8v"
+
 // SaveTestCaseDump dump some resources, logs and descriptions that may help in further diagnostic.
 //
 // NOTE: This method is called in AfterEach for failed specs only. Avoid to use Expect,
@@ -84,12 +86,11 @@ func (f *Framework) saveTestCaseResources(testCaseFullText, dumpPath string) {
 
 	// TODO: Add CVI and VMC to the request when the environment is isolated.
 	result := f.Clients.Kubectl().Get("virtualization,intvirt,pod,volumesnapshot,pvc", kubectl.GetOptions{
-		Namespace:         f.Namespace().Name,
-		Output:            "yaml",
-		ShowManagedFields: true,
+		Namespace: f.Namespace().Name,
+		Output:    "yaml",
 	})
 	if result.Error() != nil {
-		GinkgoWriter.Printf("Get resources error:\n%s\n%w\n%s\n", result.GetCmd(), result.Error(), result.StdErr())
+		GinkgoWriter.Printf("Get resources error:\n%s\n%v\n%s\n", result.GetCmd(), result.Error(), result.StdErr())
 	}
 
 	// Stdout may present even if error is occurred.
@@ -147,23 +148,42 @@ func (f *Framework) saveIntvirtvmiDescriptions(testCaseFullText, dumpPath string
 }
 
 func (f *Framework) writePodLogs(name, namespace, filePath, testCaseFullText string) {
-	podLogs, err := f.Clients.KubeClient().CoreV1().Pods(namespace).GetLogs(name, &corev1.PodLogOptions{}).Stream(context.Background())
+	pod, err := f.Clients.kubeClient.CoreV1().Pods(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
-		GinkgoWriter.Printf("Failed to get logs:\nPodName: %s\nError: %w\n", name, err)
+		GinkgoWriter.Printf("Failed to get pod:\nPodName: %s\nError: %v\n", name, err)
+		return
+	}
+
+	for _, container := range pod.Spec.Containers {
+		if !strings.HasPrefix(container.Name, d8vContainerPrefix) {
+			GinkgoWriter.Printf("Skipping container without d8v prefix:\nPodName: %s\nContainer: %s\n", pod.Name, container.Name)
+			continue
+		}
+		f.writePodContainerLogs(pod, container.Name, filePath, testCaseFullText)
+	}
+}
+
+func (f *Framework) writePodContainerLogs(pod *corev1.Pod, containerName, filePath, testCaseFullText string) {
+	podLogs, err := f.Clients.KubeClient().CoreV1().Pods(pod.Namespace).GetLogs(pod.Name,
+		&corev1.PodLogOptions{
+			Container: containerName,
+		}).Stream(context.Background())
+	if err != nil {
+		GinkgoWriter.Printf("Failed to get logs:\nPodName: %s\nContainer: %s\nError: %v\n", pod.Name, containerName, err)
 		return
 	}
 	defer podLogs.Close()
 
 	logs, err := io.ReadAll(podLogs)
 	if err != nil {
-		GinkgoWriter.Printf("Failed to read logs:\nPodName: %s\nError: %w\n", name, err)
+		GinkgoWriter.Printf("Failed to read logs:\nPodName: %s\nContainer: %s\nError: %v\n", pod.Name, containerName, err)
 		return
 	}
 
-	fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__logs.json", filePath, testCaseFullText, name)
+	fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__%s__logs.json", filePath, testCaseFullText, pod.Name, containerName)
 	err = os.WriteFile(fileName, logs, 0o644)
 	if err != nil {
-		GinkgoWriter.Printf("Failed to save logs:\nPodName: %s\nError: %w\n", name, err)
+		GinkgoWriter.Printf("Failed to save logs:\nPodName: %s\nContainer: %s\nError: %v\n", pod.Name, containerName, err)
 	}
 }
 
@@ -176,7 +196,7 @@ func (f *Framework) writePodDescription(name, namespace, filePath, testCaseFullT
 	fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__describe", filePath, testCaseFullText, name)
 	err := os.WriteFile(fileName, describeCmd.StdOutBytes(), 0o644)
 	if err != nil {
-		GinkgoWriter.Printf("Failed to save pod description:\nPodName: %s\nError: %w\n", name, err)
+		GinkgoWriter.Printf("Failed to save pod description:\nPodName: %s\nError: %v\n", name, err)
 	}
 }
 
@@ -191,7 +211,7 @@ func (f *Framework) writeVirtualMachineGuestInfo(pod corev1.Pod, filePath, testC
 			fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__vlctl_guest_info", filePath, testCaseFullText, pod.Name)
 			err := os.WriteFile(fileName, vlctlGuestInfoCmd.StdOutBytes(), 0o644)
 			if err != nil {
-				GinkgoWriter.Printf("Failed to save pod guest info:\nPodName: %s\nError: %w\n", pod.Name, err)
+				GinkgoWriter.Printf("Failed to save pod guest info:\nPodName: %s\nError: %v\n", pod.Name, err)
 			}
 		}
 	}

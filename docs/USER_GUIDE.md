@@ -265,6 +265,16 @@ Image files can also be compressed with one of the following compression algorit
 
 Once a share is created, the image type and size are automatically determined, and this information is reflected in the share status.
 
+The image status shows two sizes:
+
+- `STOREDSIZE` (storage size) — the amount of space the image actually occupies in storage (DVCR or PVC). For images uploaded in a compressed format (for example, `.gz` or `.xz`), this value is smaller than the unpacked size.
+- `UNPACKEDSIZE` (unpacked size) — the image size after unpacking. It is used when creating a disk from the image and defines the minimum disk size that can be created.
+
+{{< alert level="info" >}}
+When creating a disk from an image, set the disk size to `UNPACKEDSIZE` or larger .  
+If the size is not specified, the disk will be created with a size equal to `UNPACKEDSIZE`.
+{{< /alert >}}
+
 Images can be downloaded from various sources, such as HTTP servers where image files are located or container registries. It is also possible to download images directly from the command line using the curl utility.
 
 Images can be created from other images and virtual machine disks.
@@ -324,6 +334,8 @@ After creation the `VirtualImage` resource can be in the following states (phase
 - `Ready` - the image is created and ready for use.
 - `Failed` - an error occurred during the image creation process.
 - `Terminating` - the image is being deleted. The image may "hang" in this state if it is still connected to the virtual machine.
+- `ImageLost` - the image is missing in DVCR. The resource cannot be used.
+- `PVCLost` - the child PVC of the resource is missing. The resource cannot be used.
 
 As long as the image has not entered the `Ready` phase, the contents of the `.spec` block can be changed. If you change it, the disk creation process will start again. After entering the `Ready` phase, the contents of the `.spec` block cannot be changed!
 
@@ -378,7 +390,7 @@ spec:
   storage: PersistentVolumeClaim
   persistentVolumeClaim:
     # Substitute your StorageClass name.
-    storageClassName: i-sds-replicated-thin-r2
+    storageClassName: rv-thin-r2
   # Source for image creation.
   dataSource:
     type: HTTP
@@ -608,26 +620,37 @@ EOF
 
 Virtual machine disks are used to write and store data required for operating systems and applications to run. Various types of storage can be used for this purpose.
 
+The disk specification contains two main blocks:
+
+- `persistentVolumeClaim`: Disk storage parameters (StorageClass and size).
+- `dataSource`: The source used to create the disk (image, another disk, snapshot).
+
+If `dataSource` is not specified, an empty disk is created. In this case, you must specify at least the size and StorageClass in `persistentVolumeClaim`.
+
+If `dataSource` is specified, you can omit `persistentVolumeClaim`. Then:
+
+- The disk size is determined automatically based on the source.
+- The StorageClass is determined from the source. If it cannot be derived, the cluster default StorageClass is used, or the value configured for disks in the [module settings](./admin_guide.html#storage-class-settings-for-disks).
+
 Depending on the storage properties, the behavior of disks during creation of virtual machines during operation may differ:
 
-VolumeBindingMode property:
+Storage systems can differ in the following parameters:
 
-`Immediate`: The disk is created immediately after the resource is created (the disk is assumed to be available for connection to a virtual machine on any node in the cluster).
+- Volume type: A storage class can support filesystem volumes (`FileSystem`, for example NFS) or block volumes (`Block`, for example iSCSI, Ceph RBD). For `FileSystem` volumes, a VM disk is created in the `qcow2` format. Some storage classes support both volume types.
+- `VolumeBindingMode`:
+  - `Immediate` — the disk is created right after the resource is created (the disk is expected to be attachable to a VM on any node in the cluster).
 
-![vd-immediate](images/vd-immediate.png)
+    ![VolumeBindingMode: Immediate](images/vd-immediate.png)
 
-`WaitForFirstConsumer`: The disk is created only after it is connected to the virtual machine and is created on the node on which the virtual machine will be running.
+  - `WaitForFirstConsumer` — the disk is created only after it is attached to a VM and is provisioned on the node where the VM will run.
 
-![vd-wffc](images/vd-wffc.png)
+    ![VolumeBindingMode: WaitForFirstConsumer](images/vd-wffc.png)
 
-AccessMode:
+When a disk is created, all parameters (volume type, disk format, volume binding mode, and other settings) are determined automatically based on the capabilities of the selected `StorageClass`.
 
-- `ReadWriteMany (RWX)`: Multiple disk access. Live migration of virtual machines with such disks is possible.
-- `ReadWriteOnce (RWO)`: The disk can be accessed by only a single virtual machine instance. Live migration of virtual machines that use such disks is supported only in commercial editions.
-
-When creating a disk, the controller will independently determine the most optimal parameters supported by the storage.
-
-Attention: It is impossible to create disks from iso-images!
+{{< alert level="warning" >}}
+Creating disks from ISO images is not supported.
+{{< /alert >}}
 
 To find out the available storage options, run the following command:
 
@@ -639,12 +662,8 @@ Example output:
 
 ```txt
 NAME                                 PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
-i-sds-replicated-thin-r1 (default)   replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
-i-sds-replicated-thin-r2             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
-i-sds-replicated-thin-r3             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
-sds-replicated-thin-r1               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
-sds-replicated-thin-r2               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
-sds-replicated-thin-r3               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
+rv-thin-r1 (default)                 replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
+rv-thin-r2                           replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
 nfs-4-1-wffc                         nfs.csi.k8s.io                        Delete          WaitForFirstConsumer   true                   30d
 ```
 
@@ -670,7 +689,7 @@ spec:
   # Disk storage parameter settings.
   persistentVolumeClaim:
     # Substitute your StorageClass name.
-    storageClassName: i-sds-replicated-thin-r2
+    storageClassName: rv-thin-r2
     size: 100Mi
 EOF
 ```
@@ -684,6 +703,7 @@ After creation, the `VirtualDisk` resource can be in the following states (phase
 - `WaitForUserUpload`: Disk is waiting for the user to upload an image (type: Upload).
 - `Ready`: Disk has been created and is ready for use.
 - `Migrating`: Live migration of a disk.
+- `Exporting`: The disk export process is in progress.
 - `Failed`: An error occurred during the creation process.
 - `PVCLost`: System error, PVC with data has been lost.
 - `Terminating`: Disk is being deleted. The disk may "hang" in this state if it is still connected to the virtual machine.
@@ -753,7 +773,7 @@ spec:
     # Specify a size larger than the value of the unpacked image.
     size: 10Gi
     # Substitute your StorageClass name.
-    storageClassName: i-sds-replicated-thin-r2
+    storageClassName: rv-thin-r2
   # The source from which the disk is created.
   dataSource:
     type: ObjectRef
@@ -775,7 +795,7 @@ spec:
   # Disk storage settings.
   persistentVolumeClaim:
     # Substitute your StorageClass name.
-    storageClassName: i-sds-replicated-thin-r2
+    storageClassName: rv-thin-r2
   # The source from which the disk is created.
   dataSource:
     type: ObjectRef
@@ -927,6 +947,8 @@ Method #2:
 ### Migrating disks to other storage
 
 In commercial editions, you can migrate (move) a virtual machine disk to another storage by changing its StorageClass.
+
+Migration is supported for both statically attached disks and dynamically attached (hotplug) disks.
 
 {{< alert level="warning">}}
 Limitations of disk migration between storage:
@@ -1317,6 +1339,64 @@ status:
         coresPerSocket: 1
 ```
 
+### OS type and bootloader configuration
+
+The `osType` parameter determines the operating system type and applies an optimal set of virtual devices and parameters for correct VM operation.
+
+Supported values:
+
+- `Generic` (default): For Linux and other operating systems. Uses standard virtual device configuration.
+- `Windows`: For Microsoft Windows family operating systems. Automatically enables Hyper-V features, TPM device, and other settings optimized for Windows.
+
+{{< alert level="warning" >}}
+The TPM device provided to the virtual machine is not persistent (TPM emulation in memory). This means that when the VM is rebooted or migrated, the TPM state is reset. It is recommended to consider this limitation when planning to use Windows security features that depend on TPM.
+{{< /alert >}}
+
+The `bootloader` parameter determines the bootloader type for the virtual machine:
+
+- `BIOS` (default): Use legacy BIOS.
+- `EFI`: Use Unified Extensible Firmware Interface (UEFI/EFI).
+- `EFIWithSecureBoot`: Use UEFI/EFI with Secure Boot support.
+
+Example configuration for a Windows virtual machine:
+
+```yaml
+spec:
+  osType: Windows
+  bootloader: EFI
+  # other parameters...
+```
+
+Example configuration for a Linux virtual machine (default values can be omitted):
+
+```yaml
+spec:
+  osType: Generic
+  bootloader: BIOS
+  # other parameters...
+```
+
+{{< alert level="info" >}}
+For most modern Linux distributions, it is recommended to use `bootloader: EFI`. For Windows, `bootloader: EFI` or `bootloader: EFIWithSecureBoot` is usually required.
+{{< /alert >}}
+
+The `enableParavirtualization` parameter controls the use of the `virtio` bus for connecting virtual devices of the VM:
+
+- `true` (default) — uses the `virtio` bus for disks, network interfaces, and other devices, providing better performance.
+- `false` — uses standard device emulation (SATA for disks, e1000e for network interfaces), which may be necessary for compatibility with older operating systems.
+
+{{< alert level="info" >}}
+To use paravirtualization mode (`virtio`), some operating systems require installing the corresponding drivers. If drivers are not installed, the VM may fail to boot or devices may not work correctly.
+{{< /alert >}}
+
+Example configuration with paravirtualization disabled:
+
+```yaml
+spec:
+  enableParavirtualization: false
+  # other parameters...
+```
+
 ### Initialization scripts
 
 Initialization scripts are used for the initial configuration of a virtual machine when it is started.
@@ -1551,6 +1631,18 @@ Password: cloud
 
 Press `Ctrl+]` to finalize the serial console.
 
+{{< alert level="info" >}}
+The serial console does not support automatic terminal resizing. If full-screen applications or text editors are displayed incorrectly, run the following command after you log in:
+
+```bash
+stty rows <number_of_rows> cols <number_of_columns>
+```
+
+For example: `stty rows 50 cols 200`
+
+If the `xterm` package is installed on the system, you can also use the `resize` command.
+{{< /alert >}}
+
 Example command for connecting via VNC:
 
 ```bash
@@ -1626,12 +1718,13 @@ d8 v restart  linux-vm
 
 A list of possible operations is given in the table below:
 
-| d8             | vmop type | Action                         |
-| -------------- | --------- | ------------------------------ |
-| `d8 v stop`    | `Stop`    | Stop VM                        |
-| `d8 v start`   | `Start`   | Start the VM                   |
-| `d8 v restart` | `Restart` | Restart the VM                 |
-| `d8 v evict`   | `Evict`   | Migrate the VM to another host |
+| d8               | vmop type   | Action                         |
+| ---------------- | ----------- | ------------------------------ |
+| `d8 v stop`      | `Stop`      | Stop VM                        |
+| `d8 v start`     | `Start`     | Start the VM                   |
+| `d8 v restart`   | `Restart`   | Restart the VM                 |
+| `d8 v evict`     | `Evict`     | Evict the VM to another host   |
+| `d8 v migrate`   | `Migrate`   | Migrate the VM to another host |
 
 How to perform the operation in the web interface:
 
@@ -1806,15 +1899,7 @@ All of the above parameters (including the `.spec.nodeSelector` parameter from V
 - Use combinations of labels instead of single restrictions. For example, instead of required for a single label (e.g. env=prod), use several preferred conditions.
 - Consider the order in which interdependent VMs are launched. When using Affinity between VMs (for example, the backend depends on the database), launch the VMs referenced by the rules first to avoid lockouts.
 - Plan backup nodes for critical workloads. For VMs with strict requirements (e.g., AntiAffinity), provide backup nodes to avoid downtime in case of failure or maintenance.
-- Consider existing `taints` on nodes. If necessary, you can add appropriate `tolerations` to the VM. An example of using `tolerations` to allow scheduling on nodes with the `node.deckhouse.io/group=:NoSchedule` taint is provided below.
-
-```yaml
-spec:
-  tolerations:
-    - key: "node.deckhouse.io/group"
-      operator: "Exists"
-      effect: "NoSchedule"
-```
+- Consider existing `taints` on nodes. If necessary, you can add appropriate `tolerations` to the VM.
 
 {{< alert level="info" >}}
 When changing placement parameters:
@@ -1832,6 +1917,38 @@ How to manage VM placement parameters by nodes in the web interface:
 - Go to the "Virtualization" → "Virtual Machines" section.
 - Select the required VM from the list and click on its name.
 - On the "Configuration" tab, scroll down to the "Placement" section.
+
+#### Tolerance to node restrictions
+
+`tolerations` allow VMs to be scheduled onto nodes with `taints` that would otherwise block placement. This is useful when you need to run VMs on special nodes (for example, test nodes) or nodes with specific characteristics.
+
+Example of using `tolerations` to allow scheduling on nodes with the `node.deckhouse.io/group=:NoSchedule` taint:
+
+```yaml
+spec:
+  tolerations:
+    - key: "node.deckhouse.io/group"
+      operator: "Exists"
+      effect: "NoSchedule"
+```
+
+Each entry in `tolerations` must match a node `taint` for the VM to be scheduled onto that node.
+
+{{< alert level="warning" >}}
+Viewing node information (including `taints`) requires an appropriate role with access to cluster-level resources.
+{{< /alert >}}
+
+To view `taints` on cluster nodes, run:
+
+```bash
+d8 k get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints
+```
+
+For more details:
+
+```bash
+d8 k describe node <node-name>
+```
 
 #### Simple label binding (nodeSelector)
 
@@ -1905,6 +2022,8 @@ spec:
 
 In this example, the virtual machine will be placed, if possible (since preferred is used) only on hosts that have a virtual machine with the server label and database value.
 
+To place VMs across availability zones instead of specific nodes, set `topologyKey` to `topology.kubernetes.io/zone` (see [Placing VMs by availability zones](#placing-vms-by-availability-zones)).
+
 How to set "preferences" and "mandatories" for placing virtual machines in the web interface in the [Placement section](#placement-of-vms-by-nodes):
 
 - Click "Add" in the "Run VM near other VMs" block.
@@ -1918,6 +2037,7 @@ How to set "preferences" and "mandatories" for placing virtual machines in the w
 `AntiAffinity` is the opposite of `Affinity`, which allows you to specify requirements to avoid co-location of virtual machines on the same hosts. This is useful for load balancing or fault tolerance.
 
 Placement requirements can be strict or soft:
+
 - Strict (`requiredDuringSchedulingIgnoredDuringExecution`) — The VM is scheduled only on nodes that meet the condition.
 - Soft (`preferredDuringSchedulingIgnoredDuringExecution`) — The VM is scheduled on suitable nodes if possible.
 
@@ -1944,6 +2064,8 @@ spec:
 
 In this example, the virtual machine being created will not be placed on the same host as the virtual machine labeled server: database.
 
+To place VMs across availability zones instead of specific nodes, set `topologyKey` to `topology.kubernetes.io/zone` (see [Placing VMs by availability zones](#placing-vms-by-availability-zones)).
+
 How to configure VM AntiAffinity on nodes in the web interface in the [Placement section](#placement-of-vms-by-nodes):
 
 - Click "Add" in the "Identify similar VMs by labels" -> "Select labels" block.
@@ -1952,6 +2074,24 @@ How to configure VM AntiAffinity on nodes in the web interface in the [Placement
 - Check the boxes next to the labels you want to use in the placement settings.
 - Select one of the options in the "Select options" section.
 - Click the "Save" button that appears.
+
+#### Placing VMs by availability zones
+
+{{< alert level="warning" >}}
+Availability zones must be pre-configured on cluster nodes. For this, nodes must have the `topology.kubernetes.io/zone` label set with the availability zone specified.
+{{< /alert >}}
+
+In the examples above, `topologyKey: "kubernetes.io/hostname"` is used, which places VMs on the same node. For placing VMs by availability zones instead of nodes, use `topologyKey: "topology.kubernetes.io/zone"`.
+
+When using `Affinity` with `topologyKey: "topology.kubernetes.io/zone"`, VMs will be placed in the same availability zone where a virtual machine with the specified labels is present.
+
+When using `AntiAffinity` with `topologyKey: "topology.kubernetes.io/zone"`, VMs will not be placed in the same availability zone as the virtual machine with the specified labels. This is useful for ensuring fault tolerance when distributing VMs across different availability zones.
+
+To view availability zones on cluster nodes (if these zones are configured), run the following command:
+
+```bash
+d8 k get nodes -o custom-columns=NAME:.metadata.name,ZONE:.metadata.labels.topology\.kubernetes\.io/zone
+```
 
 ### Attaching block devices (disks and images)
 
@@ -2080,6 +2220,42 @@ How to work with additional block devices in the web interface:
 - Select the required VM from the list and click on its name.
 - On the "Configuration" tab, scroll down to the "Disks and Images" section.
 - You can add, extract, delete, and resize additional block devices in the "Additional Disks" section.
+
+#### Disk naming in guest OS
+
+{{< alert level="warning">}}
+Block device names (`/dev/sda`, `/dev/sdb`, `/dev/sdc`, etc.) are assigned by the Linux kernel in the order devices are discovered during boot. This order may change between reboots, so device names can change even if SCSI addresses remain the same.
+
+Using `/dev/sdX` in configuration files (for example, `/etc/fstab`) or scripts may cause the wrong disk to be mounted or the VM to behave incorrectly after a reboot.
+{{< /alert >}}
+
+**Example:**
+
+After the first VM boot:
+
+```console
+$ lsscsi
+[0:0:0:1]  disk    QEMU     QEMU HARDDISK   /dev/sda
+[0:0:0:2]  disk    QEMU     QEMU HARDDISK   /dev/sdb
+```
+
+After VM reboot:
+
+```console
+$ lsscsi
+[0:0:0:1]  disk    QEMU     QEMU HARDDISK   /dev/sdb
+[0:0:0:2]  disk    QEMU     QEMU HARDDISK   /dev/sda
+```
+
+SCSI addresses (`0:0:0:1`, `0:0:0:2`) remain unchanged, but device names (`/dev/sda`, `/dev/sdb`) are swapped.
+
+Use stable identifiers instead of `/dev/sdX`:
+
+- **`/dev/disk/by-uuid/`** — by partition UUID (preferred for `/etc/fstab`)
+- **`/dev/disk/by-path/`** — by SCSI connection path
+- **`/dev/disk/by-id/`** — by SCSI device ID
+
+In configuration files and scripts, use partition UUIDs or symlinks from `/dev/disk/by-*` instead of `/dev/sdX` names.
 
 ### Organizing interaction with virtual machines
 
@@ -2367,30 +2543,54 @@ We can see that it is currently running on the `virtlab-pt-1` node.
 To migrate a virtual machine from one node to another while taking into account VM placement requirements, use the following command:
 
 ```bash
-d8 v evict -n <namespace> <vm-name> [--force]
+d8 v migrate -n <namespace> <vm-name> [--force] [--target-node-name string]
 ```
 
 Running this command creates a VirtualMachineOperations resource.
 
 When used during virtual machine migration, the `--force` flag activates a special mechanism called AutoConverge (for more details, see the [Migration with insufficient network bandwidth](#migration-with-insufficient-network-bandwidth) section). This mechanism automatically reduces the CPU load of the virtual machine (slows down its CPU) when it is necessary to speed up the completion of migration and help it complete successfully, even when the virtual machine memory transfer is too slow. Use this flag if a standard migration cannot complete due to high virtual machine activity.
 
-You can also start the migration by creating a VirtualMachineOperations (`vmop`) resource with the `Evict` type manually:
+To place the virtual machine on a specific target node, specify that node’s name using the `--target-node-name` option. For example, if a virtual machine should be placed on the node `production-1`:
+
+```bash
+d8 v migrate -n project-1 linux-vm --target-node-name production-1
+```
+
+Under the hood, a virtual machine operation will be created with the specific node selector `kubernetes.io/hostname: production-1`, where `production-1` is the node name.
+
+You can also start the migration by manually creating a [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) (`vmop`) resource of type `Migrate`:
 
 ```yaml
 d8 k create -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineOperation
 metadata:
-  generateName: evict-linux-vm-
+  generateName: migrate-linux-vm-
+  namespace: project-1
 spec:
   # virtual machine name
   virtualMachineName: linux-vm
   # operation to evict
-  type: Evict
+  type: Migrate
+  # Defines the Migrate operation.
+  migrate:
+    nodeSelector:
+      # Additionally, you can set any suitable node selector.
+      kubernetes.io/hostname: production-1
   # Allow CPU slowdown by AutoConverge mechanism to guarantee that migration will complete.
   force: true
 EOF
 ```
+
+{{< alert level="info" >}}
+To prevent the unschedulable state of a virtual machine, the node selector should not conflict with other placement rules such as virtual machine affinity, node selectors, and virtual machine class node selector rules.
+{{< /alert >}}
+
+{{< alert level="info" >}}
+Targeted migration to a specific node is not available in the Community Edition version.
+
+If you don’t need to specify target node parameters, you can omit the `migrate` field or evict the virtual machine to another suitable node using the `d8 v evict` command or by creating a [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource of type `Evict`.
+{{< /alert >}}
 
 To track the migration of a virtual machine immediately after the `vmop` resource is created, run the command:
 
@@ -2437,9 +2637,9 @@ The AutoConverge mechanism works in two stages:
 To configure the migration policy, use the [`.spec.liveMigrationPolicy`](/modules/virtualization/cr.html#virtualmachine-v1alpha2-spec-livemigrationpolicy) parameter in the virtual machine configuration. The following options are available:
 
 - `AlwaysSafe`: Migration is always performed without slowing down the CPU (AutoConverge is not used). Suitable for cases where maximum virtual machine performance is important, but it requires high network bandwidth.
-- `PreferSafe` (used as the default policy): Migration is performed without slowing down the CPU (AutoConverge is not used). However, you can start migration with CPU slowdown using the VirtualMachineOperation resource with parameters `type=Evict` and `force=true`.
+- `PreferSafe` (used as the default policy): Migration is performed without slowing down the CPU (AutoConverge is not used). However, you can start migration with CPU slowdown using the [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource with parameters `type=Migrate` and `force=true`.
 - `AlwaysForced`: Migration always uses AutoConverge, meaning the CPU is slowed down when necessary. This guarantees migration completion even with poor network, but may reduce virtual machine performance.
-- `PreferForced`: Migration uses AutoConverge, meaning the CPU is slowed down when necessary. However, you can start migration without slowing down the CPU using the VirtualMachineOperation resource with parameters `type=Evict` and `force=false`.
+- `PreferForced`: Migration uses AutoConverge, meaning the CPU is slowed down when necessary. However, you can start migration without slowing down the CPU using the [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource with parameters `type=Migrate` and `force=false`.
 
 #### Migration with insufficient network bandwidth
 
@@ -2458,7 +2658,7 @@ Example of a situation where migration cannot be completed due to insufficient n
 
 ![](./images/livemigration-example.png)
 
-Example of performing migration of the same virtual machine using the `--force` flag of the `d8 v evict` command (which enables the AutoConverge mechanism): here you can clearly see that the CPU frequency decreases step by step to reduce the memory change rate.
+Example of migrating the same virtual machine using the `--force` flag of the `d8 v migrate` command (which enables AutoConverge). The example shows the CPU frequency decreasing step by step to reduce the memory change rate.
 
 ![](./images/livemigration-example-autoconverge.png)
 
@@ -2548,6 +2748,46 @@ spec:
 ```
 
 Now the current node (groups green) does not match the new conditions. The system will automatically create a `VirtualMachineOperations` object of type Evict, which will initiate a live migration of the VM to an available node in group blue .
+
+### Collecting debug information
+
+{{< alert level="warning" >}}
+The `collect-debug-info` command requires `d8` version v0.27.0 or higher.
+{{< /alert >}}
+
+Use `collect-debug-info` to gather diagnostic data about a virtual machine and all related resources into a single compressed archive.
+
+The command collects the following information:
+
+- Virtual machine configuration
+- Virtual machine operations
+- Migration information
+- Block devices
+- Related PVCs and PVs
+- Pods associated with the VM, including their logs (last 10000 lines)
+- Events for all related resources
+- VM domain XML configuration
+
+The command output is written to a compressed archive (tar.gz) that is output to stdout. To save the archive, you must redirect the output to a file.
+
+Usage example:
+
+```bash
+# Collect debug information for virtual machine 'linux-vm'
+d8 v collect-debug-info linux-vm > debug-info.tar.gz
+
+# Collect debug information for VM with namespace specified
+d8 v collect-debug-info linux-vm -n mynamespace > debug-info.tar.gz
+
+# Collect debug information for VM with full name specified (name.namespace)
+d8 v collect-debug-info linux-vm.mynamespace > debug-info.tar.gz
+```
+
+{{< alert level="warning" >}}
+The command cannot output data directly to the terminal. You must redirect the output to a file, otherwise the command will fail with an error.
+{{< /alert >}}
+
+After executing the command, you will receive a `debug-info.tar.gz` archive that contains all collected data in YAML format (for resources) and text files (for logs). This archive can be sent to technical support for problem analysis.
 
 ## Network configuration
 
@@ -2679,6 +2919,12 @@ Virtual machines can be connected to additional networks: project networks (`Net
 
 To do this, specify the desired networks in the configuration section `.spec.networks`. If this block is not specified (which is the default behavior), the VM will use only the main cluster network.
 
+{{< alert level="info" >}}
+Specifying the main cluster network (`type: Main`) in `.spec.networks` is optional. If you do not need connectivity to the main cluster network, you can use only additional networks (`Network` or `ClusterNetwork`).
+
+If you specify the main network, it must be the first entry in the `.spec.networks` list.
+{{< /alert >}}
+
 Important considerations when working with additional network interfaces:
 
 - The order of listing networks in `.spec.networks` determines the order in which interfaces are connected inside the virtual machine.
@@ -2687,26 +2933,37 @@ Important considerations when working with additional network interfaces:
 - Network security policies (NetworkPolicy) do not apply to additional network interfaces.
 - Network parameters (IP addresses, gateways, DNS, etc.) for additional networks are configured manually from within the guest OS (for example, using Cloud-Init).
 
-Example of connecting a VM to the project network `user-net`:
+Example of connecting a VM to the main cluster network and the project network `user-net`:
 
 ```yaml
 spec:
   networks:
-    - type: Main # Must always be specified first
+    - type: Main # If specified, must be first
     - type: Network # Network type (Network \ ClusterNetwork)
       name: user-net # Network name
 ```
 
-Example of connecting to the cluster network `corp-net`:
+Example of connecting to multiple networks, including the cluster network `corp-net`:
 
 ```yaml
 spec:
   networks:
-    - type: Main # Must always be specified first
+    - type: Main # If specified, must be first
     - type: Network
       name: user-net
     - type: ClusterNetwork
       name: corp-net # Network name
+```
+
+Example of connecting a VM only to additional networks (without the main cluster network):
+
+```yaml
+spec:
+  networks:
+    - type: Network
+      name: isolated-net
+    - type: ClusterNetwork
+      name: corp-net
 ```
 
 You can view information about connected networks and their MAC addresses in the VM status:
@@ -2779,12 +3036,13 @@ Snapshots allow you to capture the current state of a resource for later recover
 
 Snapshots can be consistent or inconsistent; this is controlled by the `requiredConsistency` parameter. By default, `requiredConsistency` is set to `true`, which means a consistent snapshot is required.
 
-A consistent snapshot guarantees a consistent and complete state of the virtual machine's disks. Such a snapshot can be created when one of the following conditions is met:
+A consistent snapshot captures a complete and consistent state of disk data. You can create such a snapshot when one of the following conditions is met:
 
+- The disk is not attached to any virtual machine — the snapshot will always be consistent.
 - The virtual machine is turned off.
-- [`qemu-guest-agent`](#guest-os-agent) is installed in the guest system, which temporarily suspends the file system at the time the snapshot is created to ensure its consistency.
+- [`qemu-guest-agent`](#guest-os-agent) is installed and running in the guest OS. When a snapshot is created, it temporarily suspends ("freezes") the file system to ensure consistency.
 
-An inconsistent snapshot may not reflect a consistent state of the virtual machine's disks and its components. Such a snapshot is created if the VM is running and `qemu-guest-agent` is not installed or not running in the guest OS.  
+An inconsistent snapshot may not reflect a consistent state of the virtual machine's disks and its components. Such a snapshot is created if the VM is running and `qemu-guest-agent` is not installed or not running in the guest OS.
 If the snapshot manifest explicitly specifies the `requiredConsistency: false` parameter, but `qemu-guest-agent` is running, an attempt will be made to freeze the file system to ensure that the snapshot is consistent.
 
 QEMU Guest Agent supports hook scripts that allow you to prepare applications for snapshot creation without stopping services, ensuring application-level consistency. For more information on configuring hooks scripts, see the [Guest OS agent](#guest-os-agent) section.
@@ -2840,8 +3098,10 @@ Example output:
 
 ```txt
 NAME                     PHASE     CONSISTENT   AGE
-linux-vm-root-1728027905   Ready                  3m2s
+linux-vm-root-1728027905   Ready     true         3m2s
 ```
+
+The `CONSISTENT` field indicates whether the snapshot is consistent (`true`) or not (`false`). This value is determined automatically based on the snapshot creation conditions and cannot be changed.
 
 After creation, `VirtualDiskSnapshot` can be in the following states (phases):
 
@@ -2880,7 +3140,7 @@ spec:
   persistentVolumeClaim:
     size: 10Gi
     # Substitute your StorageClass name.
-    storageClassName: i-sds-replicated-thin-r2
+    storageClassName: rv-thin-r2
   dataSource:
     type: ObjectRef
     objectRef:
@@ -3090,8 +3350,9 @@ d8 k get vmsop <vmsop-name> -o json | jq '.status.resources'
 
 VM cloning is performed using the VirtualMachineOperation resource with the `Clone` operation type.
 
-{{< alert level="warning" >}}
-Before cloning, the source VM must be [powered off](#vm-start-and-state-management-policy).
+Cloning is supported for both powered-off and running virtual machines. When cloning a running VM, a consistent snapshot is automatically created, from which the clone is then formed.
+
+{{< alert level="info" >}}
 It is recommended to set the `.spec.runPolicy: AlwaysOff` parameter in the configuration of the VM being cloned if you want to prevent the VM clone from starting automatically. This is because the clone inherits the behaviour of the parent VM.
 {{< /alert >}}
 
@@ -3269,13 +3530,13 @@ The disk must not be in use at the time of export. If it is attached to a VM, th
 Example: export a disk (run on a cluster node):
 
 ```bash
-d8 data download -n <namespace> vd/<virtual-disk-name> -o file.img
+d8 data export download -n <namespace> vd/<virtual-disk-name> -o file.img
 ```
 
 Example: export a disk snapshot (run on a cluster node):
 
 ```bash
-d8 data download -n <namespace> vds/<virtual-disksnapshot-name> -o file.img
+d8 data export download -n <namespace> vds/<virtual-disksnapshot-name> -o file.img
 ```
 
 If you are exporting data from a machine other than a cluster node (for example, from your local machine), use the `--publish` flag.
@@ -3283,3 +3544,4 @@ If you are exporting data from a machine other than a cluster node (for example,
 {{< alert level="info" >}}
 To import a downloaded disk back into the cluster, upload it as an [image](#load-an-image-from-the-command-line) or as a [disk](#upload-a-disk-from-the-command-line).
 {{< /alert >}}
+

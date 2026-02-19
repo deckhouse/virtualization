@@ -47,7 +47,7 @@ type Kubectl interface {
 	Apply(opts ApplyOptions) *executor.CMDResult
 	Create(filepath string, opts CreateOptions) *executor.CMDResult
 	CreateResource(resource Resource, name string, opts CreateOptions) *executor.CMDResult
-	Get(resource string, opts GetOptions) *executor.CMDResult
+	Get(resource Resource, opts GetOptions) *executor.CMDResult
 	GetResource(resource Resource, name string, opts GetOptions) *executor.CMDResult
 	Delete(opts DeleteOptions) *executor.CMDResult
 	List(resource Resource, opts GetOptions) *executor.CMDResult
@@ -57,6 +57,10 @@ type Kubectl interface {
 	Patch(filepath string, opts PatchOptions) *executor.CMDResult
 	PatchResource(resource Resource, name string, opts PatchOptions) *executor.CMDResult
 	RawCommand(subCmd string, timeout time.Duration) *executor.CMDResult
+}
+
+type Options interface {
+	ExcludeLabels(l []string)
 }
 
 // FilenameOption:
@@ -91,12 +95,15 @@ type DeleteOptions struct {
 }
 
 type GetOptions struct {
-	ExcludedLabels    []string
-	IgnoreNotFound    bool
-	Labels            map[string]string
-	Namespace         string
-	Output            string
-	ShowManagedFields bool
+	ExcludedLabels []string
+	IgnoreNotFound bool
+	Labels         map[string]string
+	Namespace      string
+	Output         string
+}
+
+func (g *GetOptions) ExcludeLabels(l []string) {
+	g.ExcludedLabels = l
 }
 
 type LogOptions struct {
@@ -113,6 +120,10 @@ type WaitOptions struct {
 	Namespace      string
 	For            string
 	Timeout        time.Duration
+}
+
+func (w *WaitOptions) ExcludeLabels(l []string) {
+	w.ExcludedLabels = l
 }
 
 type PatchOptions struct {
@@ -198,7 +209,7 @@ func (k KubectlCMD) CreateResource(resource Resource, name string, opts CreateOp
 	return k.ExecContext(ctx, cmd)
 }
 
-func (k KubectlCMD) Get(resource string, opts GetOptions) *executor.CMDResult {
+func (k KubectlCMD) Get(resource Resource, opts GetOptions) *executor.CMDResult {
 	cmd := fmt.Sprintf("%s get %s", k.cmd, resource)
 	cmd = k.getOptions(cmd, opts)
 	ctx, cancel := context.WithTimeout(context.Background(), MediumTimeout)
@@ -345,13 +356,6 @@ func (k KubectlCMD) addIgnoreNotFound(cmd string, ignoreNotFound bool) string {
 	return cmd
 }
 
-func (k KubectlCMD) addShowManagedFields(cmd string, showManagedFields bool) string {
-	if showManagedFields {
-		return fmt.Sprintf("%s --show-managed-fields=true", cmd)
-	}
-	return cmd
-}
-
 func (k KubectlCMD) applyOptions(cmd string, opts ApplyOptions) string {
 	var resourceEmptyValue Resource = ""
 	cmd = k.addFilenameOptions(cmd, resourceEmptyValue, opts.FilenameOption, opts.Recursive, opts.Filename...)
@@ -371,7 +375,6 @@ func (k KubectlCMD) getOptions(cmd string, opts GetOptions) string {
 	cmd = k.addOutput(cmd, opts.Output)
 	cmd = k.addIgnoreNotFound(cmd, opts.IgnoreNotFound)
 	cmd = k.addLabels(cmd, opts.Labels, opts.ExcludedLabels)
-	cmd = k.addShowManagedFields(cmd, opts.ShowManagedFields)
 	return cmd
 }
 

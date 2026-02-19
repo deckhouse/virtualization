@@ -1,0 +1,7 @@
+vd:
+  fixes:
+    - summary: >-
+        Fixed an issue with creating a virtual disk from a virtual image stored on a
+        `PersistentVolumeClaim` (with `.spec.storage` set to `PersistentVolumeClaim`).
+      pull_request: https://github.com/deckhouse/virtualization/pull/1983
+

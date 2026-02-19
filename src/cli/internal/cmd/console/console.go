@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -31,6 +32,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
@@ -49,13 +51,13 @@ func NewCommand() *cobra.Command {
 		RunE:    console.Run,
 	}
 
-	cmd.Flags().IntVar(&console.timeout, "timeout", 5, "The number of minutes to wait for the virtual machine to be ready.")
+	cmd.Flags().DurationVar(&console.timeout, "timeout", 5*time.Minute, "Duration to wait until console is successfully connected (e.g., 1s, 5m, 300s).")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 
 type Console struct {
-	timeout int
+	timeout time.Duration
 }
 
 func usage() string {
@@ -63,11 +65,20 @@ func usage() string {
   {{ProgramName}} console myvm
   {{ProgramName}} console myvm.mynamespace
   {{ProgramName}} console myvm -n mynamespace
-  # Configure one minute timeout (default 5 minutes)
-  {{ProgramName}} console --timeout=1 myvm`
+  # Configure timeout (default 5 minutes)
+  {{ProgramName}} console --timeout=1m myvm
+  {{ProgramName}} console --timeout=300s myvm`
 
 	return usage
 }
+
+var spinnerChars = []rune{'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
+
+const (
+	clearLine         = "\r\x1b[K"      // Clear from cursor to end of line
+	clearLineNL       = "\r\x1b[K\r\n"  // Clear line and move to next
+	reconnectInterval = 2 * time.Second // Interval between reconnection attempts
+)
 
 func (c *Console) Run(cmd *cobra.Command, args []string) error {
 	client, defaultNamespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
@@ -82,55 +93,146 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 		namespace = defaultNamespace
 	}
 
+	// Set terminal to raw mode once for all connections
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		state, err := term.MakeRaw(int(os.Stdin.Fd()))
+		if err != nil {
+			return fmt.Errorf("make raw terminal failed: %w", err)
+		}
+		defer func() {
+			_ = term.Restore(int(os.Stdin.Fd()), state)
+		}()
+	}
+
+	// Channel for stdin data - created once for all connections
+	// to avoid losing characters during reconnection
+	stdinCh := make(chan []byte, 100)
+	doneChan := make(chan struct{}, 1)
+
+	go func() {
+		defer close(stdinCh)
+		in := os.Stdin
+		buf := make([]byte, 1024)
+		for {
+			n, err := in.Read(buf)
+			if err != nil {
+				return
+			}
+
+			if n > 0 {
+				// Escape sequence Ctrl+] (^]) - code 29 - exit console
+				if buf[0] == 29 {
+					doneChan <- struct{}{}
+					return
+				}
+
+				// Copy data to avoid losing it on the next read
+				data := make([]byte, n)
+				copy(data, buf[0:n])
+				stdinCh <- data
+			}
+		}
+	}()
+
+	showedWaitMessage := false
+	spinnerIdx := 0
+	var startTime time.Time
+	timeout := c.timeout
+	waitingForConnection := false
+
 	for {
 		select {
 		case <-cmd.Context().Done():
 			return nil
+		case <-doneChan:
+			return nil
 		default:
-			cmd.Printf("Connecting to %s console...\n", name)
-
-			err := connect(cmd.Context(), name, namespace, client, c.timeout)
-			if err != nil {
-				if strings.Contains(err.Error(), "not found") {
-					return err
-				}
-
-				var e *websocket.CloseError
-				if errors.As(err, &e) {
-					switch e.Code {
-					case websocket.CloseGoingAway:
-						cmd.Printf(util.CloseGoingAwayMessage)
-						return nil
-					case websocket.CloseAbnormalClosure:
-						cmd.Printf(util.CloseAbnormalClosureMessage)
-					}
-				} else {
-					cmd.Printf("%s\n", err)
-				}
-
-				time.Sleep(time.Second)
-			} else {
-				return nil
+			err := connect(cmd.Context(), name, namespace, client, c.timeout, stdinCh, doneChan)
+			if err == nil {
+				return nil // Normal exit (escape sequence)
 			}
+
+			var asyncErr *kubeclient.AsyncSubresourceError
+			if errors.As(err, &asyncErr) && asyncErr.GetStatusCode() == http.StatusNotFound {
+				if showedWaitMessage {
+					fmt.Fprint(os.Stderr, clearLineNL)
+				}
+				return err
+			}
+
+			// Check for CloseGoingAway (normal VM shutdown)
+			var wsErr *websocket.CloseError
+			if errors.As(err, &wsErr) {
+				if wsErr.Code == websocket.CloseGoingAway {
+					if showedWaitMessage {
+						fmt.Fprint(os.Stderr, clearLine)
+					}
+					fmt.Fprint(os.Stderr, util.CloseGoingAwayMessage)
+					return nil
+				}
+				// Connection was established, reset waiting flag
+				waitingForConnection = false
+			}
+
+			if ShouldWaitErr(err) {
+				// Start timeout timer when we start waiting for connection
+				if !waitingForConnection {
+					startTime = time.Now()
+					waitingForConnection = true
+				}
+
+				// Check total timeout
+				if time.Since(startTime) > timeout {
+					if showedWaitMessage {
+						fmt.Fprint(os.Stderr, clearLineNL)
+					}
+					return fmt.Errorf("timeout after %s waiting for VirtualMachine %q serial console", c.timeout, name)
+				}
+
+				// Get VM phase and show waiting spinner
+				phase := "Unknown"
+				if vm, vmErr := client.VirtualMachines(namespace).Get(cmd.Context(), name, metav1.GetOptions{}); vmErr == nil {
+					phase = string(vm.Status.Phase)
+				}
+				msg := fmt.Sprintf("%c Waiting for VirtualMachine %q serial console. Current VM phase: %s. Press Ctrl+] to exit.",
+					spinnerChars[spinnerIdx], name, phase)
+				// Truncate message to terminal width to avoid line wrapping issues
+				if width, _, err := term.GetSize(int(os.Stderr.Fd())); err == nil && len(msg) > width {
+					msg = msg[:width-3] + "..."
+				}
+				fmt.Fprint(os.Stderr, clearLine+msg)
+				spinnerIdx = (spinnerIdx + 1) % len(spinnerChars)
+				showedWaitMessage = true
+				time.Sleep(reconnectInterval)
+				continue
+			}
+
+			// Unknown error - print and continue
+			if showedWaitMessage {
+				fmt.Fprint(os.Stderr, clearLineNL)
+			}
+			fmt.Fprintf(os.Stderr, "%s\r\n", err)
+			showedWaitMessage = false
+			waitingForConnection = false
+			time.Sleep(reconnectInterval)
 		}
 	}
 }
 
-func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Client, timeout int) error {
+func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Client, timeout time.Duration, stdinCh <-chan []byte, doneChan <-chan struct{}) error {
 	// in -> stdinWriter | stdinReader -> console
 	// out <- stdoutReader | stdoutWriter <- console
 	stdinReader, stdinWriter := io.Pipe()
 	stdoutReader, stdoutWriter := io.Pipe()
 
-	doneChan := make(chan struct{}, 1)
-
+	// Unbuffered channels - as in original
 	k8sResErr := make(chan error)
 	writeStopErr := make(chan error)
 	readStopErr := make(chan error)
 
-	console, err := virtCli.VirtualMachines(namespace).SerialConsole(name, &virtualizationv1alpha2.SerialConsoleOptions{ConnectionTimeout: time.Duration(timeout) * time.Minute})
+	console, err := virtCli.VirtualMachines(namespace).SerialConsole(name, &virtualizationv1alpha2.SerialConsoleOptions{ConnectionTimeout: timeout})
 	if err != nil {
-		return fmt.Errorf("can't access VM %s: %s", name, err.Error())
+		return fmt.Errorf("can't access VM %s: %w", name, err)
 	}
 
 	go func() {
@@ -143,17 +245,8 @@ func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Cli
 		}
 	}()
 
-	if term.IsTerminal(int(os.Stdin.Fd())) {
-		state, err := term.MakeRaw(int(os.Stdin.Fd()))
-		if err != nil {
-			return fmt.Errorf("make raw terminal failed: %w", err)
-		}
-		defer func() {
-			_ = term.Restore(int(os.Stdin.Fd()), state)
-		}()
-	}
-
-	fmt.Fprintf(os.Stderr, "Successfully connected to %s console. The escape sequence is ^]\n", name)
+	// Clear spinner line and show success message
+	fmt.Fprintf(os.Stderr, "%sSuccessfully connected to %s serial console. Press Ctrl+] to exit.\r\n", clearLineNL, name)
 
 	out := os.Stdout
 	go func() {
@@ -163,60 +256,82 @@ func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Cli
 		}
 	}()
 
-	stdinCh := make(chan []byte)
-	go func() {
-		in := os.Stdin
-		buf := make([]byte, 1024)
-		for {
-			// reading from stdin
-			n, err := in.Read(buf)
-			if err != nil {
-				if err != io.EOF || n == 0 {
-					return
-				}
-
-				readStopErr <- err
-			}
-
-			// the escape sequence
-			if buf[0] == 29 {
-				doneChan <- struct{}{}
-				return
-			}
-
-			stdinCh <- buf[0:n]
-		}
-	}()
+	// Channel to signal write goroutine termination
+	writeCtx, writeCancel := context.WithCancel(ctx)
+	writeDone := make(chan struct{})
 
 	go func() {
+		defer close(writeDone)
 		_, err := stdinWriter.Write([]byte("\r"))
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return
 			}
-
 			writeStopErr <- err
+			return
 		}
 
-		for b := range stdinCh {
-			_, err = stdinWriter.Write(b)
-			if err != nil {
-				if errors.Is(err, io.EOF) {
+		for {
+			select {
+			case <-writeCtx.Done():
+				return
+			case b, ok := <-stdinCh:
+				if !ok {
 					return
 				}
-
-				writeStopErr <- err
+				_, err = stdinWriter.Write(b)
+				if err != nil {
+					if errors.Is(err, io.EOF) {
+						return
+					}
+					writeStopErr <- err
+					return
+				}
 			}
 		}
 	}()
 
+	var result error
 	select {
 	case <-ctx.Done():
+		result = ctx.Err()
 	case <-doneChan:
+		result = nil
 	case err = <-k8sResErr:
+		result = err
 	case err = <-writeStopErr:
+		result = err
 	case err = <-readStopErr:
+		result = err
 	}
 
-	return err
+	// Terminate write goroutine and wait for completion
+	writeCancel()
+	// Close pipes to unblock goroutines
+	_ = stdinWriter.Close()
+	_ = stdoutWriter.Close()
+	_ = stdinReader.Close()
+	_ = stdoutReader.Close()
+	<-writeDone
+
+	return result
+}
+
+// ShouldWaitErr returns true if the error indicates a temporary condition
+// where we should wait and retry the connection.
+func ShouldWaitErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	errMsg := err.Error()
+	if strings.Contains(errMsg, "not Running") ||
+		strings.Contains(errMsg, "bad handshake") ||
+		strings.Contains(errMsg, "Internal error") {
+		return true
+	}
+	var wsErr *websocket.CloseError
+	if errors.As(err, &wsErr) && wsErr.Code == websocket.CloseAbnormalClosure {
+		return true
+	}
+	return false
 }

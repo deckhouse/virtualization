@@ -29,6 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -50,7 +51,7 @@ var _ = Describe("DeletionHandler", func() {
 	})
 
 	reconcile := func() {
-		migrationService := service.NewMigrationService(fakeClient)
+		migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 		h := NewDeletionHandler(migrationService)
 		_, err := h.Handle(ctx, srv.Changed())
 		Expect(err).NotTo(HaveOccurred())

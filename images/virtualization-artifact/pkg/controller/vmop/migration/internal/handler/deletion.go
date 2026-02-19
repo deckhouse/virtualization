@@ -18,6 +18,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -57,13 +58,13 @@ func (h DeletionHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMachi
 	// Delete migration if exists.
 	err := h.migration.DeleteMigration(ctx, vmop)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("failed to delete migration: %w", err)
 	}
 
 	// Check if migration removed.
 	mig, err := h.migration.GetMigration(ctx, vmop)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("failed to get migration after deletion': %w", err)
 	}
 
 	if mig != nil {

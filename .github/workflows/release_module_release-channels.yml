@@ -358,7 +358,7 @@ jobs:
     name: Check version on release channel
     runs-on: ubuntu-latest
     env:
-      GO_VERSION: "1.24.6"
+      GO_VERSION: "1.24.13"
       input_channel: ${{ github.event.inputs.channel }}
       input_version: ${{ github.event.inputs.tag }}
     needs:
@@ -406,7 +406,7 @@ jobs:
         run: |
           # When check_only is true, we don't want to wait 120 seconds
           # because we just want to check the version we're interested in on the website
-          if [ $input_check_only = false]; then
+          if [ $input_check_only = false ]; then
             echo "Waiting for site to update (versions are usually updated within 2 minutes)..."
             sleep 120
           fi
@@ -423,7 +423,7 @@ jobs:
         run: |
           # When check_only is true, we don't want to wait 300 seconds
           # because we just want to check the version we're interested in on the website
-          if [ $input_check_only = false]; then
+          if [ $input_check_only = false ]; then
             echo "Waiting for site to update (versions are usually updated within 5 minutes)..."
             sleep 300
           fi

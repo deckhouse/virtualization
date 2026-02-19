@@ -31,6 +31,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -45,14 +46,16 @@ func NewSecretRestorer(client client.Client) *SecretRestorer {
 }
 
 func (r SecretRestorer) Store(ctx context.Context, vm *v1alpha2.VirtualMachine, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error) {
+	secretName := supplements.NewGenerator("vms", vmSnapshot.Name, vmSnapshot.Namespace, vmSnapshot.UID).CommonSupplement()
+
 	secret := corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      vmSnapshot.Name,
-			Namespace: vmSnapshot.Namespace,
+			Name:      secretName.Name,
+			Namespace: secretName.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				service.MakeOwnerReference(vmSnapshot),
 			},

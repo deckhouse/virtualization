@@ -264,7 +264,7 @@ func (h *BlockDeviceHandler) handleBlockDevicesReady(ctx context.Context, s stat
 			Message(msg)
 
 		if canStartVM && isWFFC {
-			cb.Reason(vmcondition.ReasonWaitingForProvisioningToPVC)
+			cb.Reason(vmcondition.ReasonWaitingForWaitForFirstConsumerBlockDevicesToBeReady)
 			conditions.SetCondition(cb, &changed.Status.Conditions)
 			return errBlockDeviceWaitForProvisioning
 		}

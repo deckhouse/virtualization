@@ -614,7 +614,10 @@ func (b *KVVM) SetBootloader(bootloader v1alpha2.BootloaderType) error {
 			Enabled: pointer.GetPointer(true),
 		}
 		b.Resource.Spec.Template.Spec.Domain.Firmware.Bootloader = &virtv1.Bootloader{
-			EFI: &virtv1.EFI{SecureBoot: pointer.GetPointer(true)},
+			EFI: &virtv1.EFI{
+				SecureBoot: pointer.GetPointer(true),
+				Persistent: pointer.GetPointer(true),
+			},
 		}
 	default:
 		return fmt.Errorf("unexpected bootloader type %q. %w", bootloader, common.ErrUnknownType)
@@ -645,6 +648,8 @@ func (b *KVVM) SetMetadata(metadata metav1.ObjectMeta) {
 	}
 	maps.Copy(b.Resource.Spec.Template.ObjectMeta.Labels, metadata.Labels)
 	maps.Copy(b.Resource.Spec.Template.ObjectMeta.Annotations, metadata.Annotations)
+
+	b.Resource.Spec.Template.ObjectMeta.Annotations = vm.RemoveNonPropagatableAnnotations(b.Resource.Spec.Template.ObjectMeta.Annotations)
 }
 
 func (b *KVVM) SetUpdateVolumesStrategy(strategy *virtv1.UpdateVolumesStrategy) {

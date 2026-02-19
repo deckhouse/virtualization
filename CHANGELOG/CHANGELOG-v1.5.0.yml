@@ -1,0 +1,68 @@
+ci:
+  features:
+    - summary: add report for e2e tests for nested clusters for nightly tests
+      pull_request: https://github.com/deckhouse/virtualization/pull/1877
+    - summary: e2e nightly test in nested cluster
+      pull_request: https://github.com/deckhouse/virtualization/pull/1876
+  fixes:
+    - summary: fix e2e tests on nested cluster
+      pull_request: https://github.com/deckhouse/virtualization/pull/1943
+    - summary: check released versions
+      pull_request: https://github.com/deckhouse/virtualization/pull/1931
+    - summary: >-
+        rescheduling the e2e-matrix workflow to 4:45 UTC, rename workflow to 'E2E Matrix Tests
+        (nested clusters)', rename artifacts
+      pull_request: https://github.com/deckhouse/virtualization/pull/1911
+core:
+  fixes:
+    - summary: Fixed vulnerabilities CVE-2025-61726, CVE-2025-61728, CVE-2025-61730, and CVE-2025-68121.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1957
+    - summary: >-
+        Fixed an issue with starting virtual machines using the `EFIWithSecureBoot` bootloader when
+        configured with more than 12 vCPUs.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1916
+module:
+  fixes:
+    - summary: Platform system components in user projects are protected from deletion by users.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1880
+    - summary: >-
+        During virtual machine migration, temporary double consumption of resources is no longer
+        counted in project quotas. System component resources required for starting and running
+        virtual machines are no longer counted in project quotas.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1872
+observability:
+  features:
+    - summary: >-
+        Added a table with virtual machine operations to the `Namespace / Virtual Machine`
+        dashboard.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1935
+vd:
+  fixes:
+    - summary: >-
+        Fixed an issue with live migration of a virtual machine between StorageClass with the
+        `Filesystem` type.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1940
+vdsnapshot:
+  fixes:
+    - summary: fix skip test if SKIP_IMMEDIATE_SC_CHECK set yes or no immediate storage class
+      pull_request: https://github.com/deckhouse/virtualization/pull/1942
+vm:
+  features:
+    - summary: >-
+        Added support for targeted migration of virtual machines. To do this, create a
+        [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource
+        with the `Migrate` type and specify `.spec.migrate.nodeSelector` to migrate the virtual
+        machine to the corresponding node.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1874
+  fixes:
+    - summary: >-
+        Fixed a possible virtual machine hang in the `Pending` state during migration when changing
+        the StorageClass.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1903
+vmop:
+  fixes:
+    - summary: >-
+        Fixed an issue with cloning a virtual machine whose disks use storage in
+        `WaitForFirstConsumer` mode.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1926
+
