@@ -189,7 +189,7 @@ jobs:
             fi
           done
 
-          echo "[INFO] Workers: free ${available_mem_gi} Gi RAM, ${available_cpu} CPU; nodes meeting min: ${nodes_meeting_min}/${MIN_NODES_FOR_PLACEMENT}"
+          echo "[INFO] Workers: free ${available_mem_gi} Gi RAM, ${available_cpu} CPU; nodes with enough free resources for placement: ${nodes_meeting_min} (need at least ${MIN_NODES_FOR_PLACEMENT})"
           echo "[INFO] Required: ${REQUIRED_MEM_GI} Gi, ${REQUIRED_CPU} CPU; need >= ${MIN_NODES_FOR_PLACEMENT} nodes with >= ${MIN_MEM_GI_PER_NODE} Gi and >= ${MIN_CPU_PER_NODE} CPU"
 
           deficit_mem=$(echo "$REQUIRED_MEM_GI - $available_mem_gi" | bc 2>/dev/null || echo "$REQUIRED_MEM_GI")
@@ -212,12 +212,15 @@ jobs:
           fi
 
           if $total_sufficient; then
-            echo "[INFO] Cluster has enough free memory and cpu.
+            echo "[INFO] Cluster has enough free memory and cpu."
           else
-            echo "[INFO] Resources shortage: need to free ${deficit_mem} Gi RAM, ${deficit_cpu} CPU. Proceed with power off some VMs to free cluster resources."          
+            shortage_parts=""
+            float_gt "$deficit_mem" 0 && shortage_parts="${deficit_mem} Gi RAM"
+            float_gt "$deficit_cpu" 0 && shortage_parts="${shortage_parts:+$shortage_parts, }${deficit_cpu} CPU"
+            echo "[INFO] Resources shortage: need to free ${shortage_parts}. Proceed with power off some VMs to free cluster resources."
           fi
           if $placement_sufficient; then
-            echo "[INFO] Cluster has enough available nodes.
+            echo "[INFO] Cluster has enough available nodes."
           else
             echo "[INFO] Available nodes shortage: only ${nodes_meeting_min} node(s) meet free resources requirement, expect at least ${MIN_NODES_FOR_PLACEMENT} available nodes. Proceed with power off some VMs to free resources."
           fi
@@ -261,6 +264,11 @@ jobs:
           done < <(get_vms_candidates | sort -t$'\t' -k1,2)
 
           echo "[INFO] Freed: ${freed_mem} Gi RAM, ${freed_cpu} CPU"
+
+          if still_need_to_free; then
+            echo "[ERROR] Stopping VMs did not free enough resources. Human intervention is required."
+            exit 1
+          fi
   set-vars:
     name: Set vars
     needs: power-off-vms-for-nested
