@@ -19,6 +19,7 @@ package retry
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/rand"
 	"strings"
 	"time"
@@ -52,58 +53,62 @@ type Backoff struct {
 	// amount chosen uniformly at random from the interval between
 	// zero and `jitter*duration`.
 	Jitter float64
-	// The remaining number of iterations in which the duration
-	// parameter may change (but progress can be stopped earlier by
-	// hitting the cap). If not positive, the duration is not
+	// The total number of attempts in which the duration
+	// parameter may change. If not positive, the duration is not
 	// changed. Used for exponential backoff in combination with
 	// Factor and Cap.
 	Steps int
 	// A limit on revised values of the duration parameter. If a
 	// multiplication by the factor parameter would make the duration
-	// exceed the cap then the duration is set to the cap and the
-	// steps parameter is set to zero.
+	// exceed the cap then the duration is set to the cap.
 	Cap time.Duration
+
+	currentStep int
 }
 
 // Step (1) returns an amount of time to sleep determined by the
 // original Duration and Jitter and (2) mutates the provided Backoff
 // to update its Steps and Duration.
-func (b *Backoff) Step() time.Duration {
-	if b.Steps < 1 {
-		if b.Jitter > 0 {
-			return Jitter(b.Duration, b.Jitter)
-		}
-		return b.Duration
+func (b *Backoff) Step() (int, time.Duration) {
+	// Return 0 duration to indicate there are no more steps.
+	if b.currentStep >= b.Steps {
+		return b.Steps, 0
 	}
-	b.Steps--
+	// Note: initial step 0 become step 1, so range is from step 1 to step "b.Steps".
+	b.currentStep++
 
 	duration := b.Duration
 
-	// calculate the next step
-	if b.Factor != 0 {
-		b.Duration = time.Duration(float64(b.Duration) * b.Factor)
-		if b.Cap > 0 && b.Duration > b.Cap {
-			b.Duration = b.Cap
-			b.Steps = 0
-		}
+	// Calculate increased duration for the step.
+	// No increase for the first step, increase once for the second step,
+	// increase twice for the third and so on. Use factor ^ (step - 1) to calculate
+	// duration for the step.
+	if b.Factor != 0 && b.currentStep > 1 {
+		duration = time.Duration(float64(b.Duration) * math.Pow(b.Factor, float64(b.currentStep-1)))
 	}
 
+	// Limit calculated duration to the Cap value.
+	if b.Cap > 0 && duration > b.Cap {
+		duration = b.Cap
+	}
+
+	// Add jitter.
 	if b.Jitter > 0 {
 		duration = Jitter(duration, b.Jitter)
 	}
-	return duration
+	return b.currentStep, duration
 }
 
 // ExponentialBackoff repeats a condition check with exponential backoff.
 //
 // It repeatedly checks the condition and then sleeps, using `backoff.Step()`
-// to determine the length of the sleep and adjust Duration and Steps.
+// to determine the delay.
 // Stops and returns as soon as:
-// 1. the condition check returns true or an error,
-// 2. `backoff.Steps` checks of the condition have been done, or
-// 3. a sleep truncated by the cap on duration has been completed.
+// 1. The condition check returns no or well known error.
+// 2. `backoff.Step()` signaling there are no more attempt with zero duration.
+// 3. ctx has been cancelled.
 // In case (1) the returned error is what the condition function returned.
-// In all other cases, ErrWaitTimeout is returned.
+// Returns error if check was not success after all backoff steps.
 func ExponentialBackoff(ctx context.Context, f Fn, backoff Backoff) error {
 	const (
 		dvcrNoSpaceError             = "no space left on device"
@@ -114,8 +119,9 @@ func ExponentialBackoff(ctx context.Context, f Fn, backoff Backoff) error {
 	)
 
 	var err error
+	start := time.Now()
 
-	for backoff.Steps > 0 {
+	for {
 		err = f(ctx)
 
 		switch {
@@ -129,13 +135,12 @@ func ExponentialBackoff(ctx context.Context, f Fn, backoff Backoff) error {
 			return err
 		}
 
-		if backoff.Steps == 1 {
+		attempt, wait := backoff.Step()
+		if wait == 0 {
 			break
 		}
 
-		wait := backoff.Step()
-
-		klog.Infof("Failed to execute: %s: retry in %s...", err, wait)
+		klog.Infof("Failed to execute attempt %d of %d: %s: retry in %s...", attempt, backoff.Steps, err, wait.Truncate(100*time.Millisecond))
 
 		timer := time.NewTimer(wait)
 
@@ -147,5 +152,6 @@ func ExponentialBackoff(ctx context.Context, f Fn, backoff Backoff) error {
 		}
 	}
 
-	return fmt.Errorf("attempts timeout: %w", err)
+	totalDuration := time.Now().Sub(start).Truncate(time.Second)
+	return fmt.Errorf("no success after %d attempts within %s, last attempt error: %w", backoff.Steps, totalDuration, err)
 }
