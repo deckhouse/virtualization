@@ -62,10 +62,10 @@ func TestNetworksValidateCreate(t *testing.T) {
 
 			_, err := networkValidator.ValidateCreate(t.Context(), vm)
 			if test.valid && err != nil {
-				t.Errorf("Validation failed for spec %s: expected valid, but got an error: %v", test.networks, err)
+				t.Errorf("Validation failed for spec %v: expected valid, but got an error: %v", test.networks, err)
 			}
 			if !test.valid && err == nil {
-				t.Errorf("Validation succeeded for spec %s: expected error, but got none", test.networks)
+				t.Errorf("Validation succeeded for spec %v: expected error, but got none", test.networks)
 			}
 		})
 	}
