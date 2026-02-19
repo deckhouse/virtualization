@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	maxNetworkId = 16*1024 - 1 // 16383
+	maxNetworkID = 16*1024 - 1 // 16383
 )
 
 type NetworksValidator struct {
@@ -65,7 +65,7 @@ func (v *NetworksValidator) ValidateUpdate(_ context.Context, oldVM, newVM *v1al
 		return nil, fmt.Errorf("network configuration requires SDN to be enabled")
 	}
 
-	if err := v.validateNetworkIdsUnchanged(oldVM.Spec.Networks, newNetworksSpec); err != nil {
+	if err := v.validateNetworkIDsUnchanged(oldVM.Spec.Networks, newNetworksSpec); err != nil {
 		return nil, err
 	}
 
@@ -94,7 +94,7 @@ func (v *NetworksValidator) validateNetworksSpec(networksSpec []v1alpha2.Network
 			return nil, err
 		}
 
-		if err := v.validateNetworkId(network); err != nil {
+		if err := v.validateNetworkID(network); err != nil {
 			return nil, err
 		}
 	}
@@ -129,7 +129,7 @@ func (v *NetworksValidator) validateNetworkUniqueness(networkType, networkName s
 	return nil
 }
 
-func (v *NetworksValidator) validateNetworkIdsUnchanged(oldNetworksSpec, newNetworksSpec []v1alpha2.NetworksSpec) error {
+func (v *NetworksValidator) validateNetworkIDsUnchanged(oldNetworksSpec, newNetworksSpec []v1alpha2.NetworksSpec) error {
 	oldNetworksMap := v.buildNetworksMap(oldNetworksSpec)
 	newNetworksMap := v.buildNetworksMap(newNetworksSpec)
 
@@ -159,14 +159,14 @@ func (v *NetworksValidator) buildNetworksMap(networksSpec []v1alpha2.NetworksSpe
 	return networksMap
 }
 
-func (v *NetworksValidator) validateNetworkId(network v1alpha2.NetworksSpec) error {
+func (v *NetworksValidator) validateNetworkID(network v1alpha2.NetworksSpec) error {
 	if network.Id == 0 {
 		return nil
 	}
 
-	if network.Id < 1 || network.Id > maxNetworkId {
+	if network.Id < 1 || network.Id > maxNetworkID {
 		networkIdentifier := v.getNetworkIdentifier(network)
-		return fmt.Errorf("network id must be between 1 and %d for network %s, got %d", maxNetworkId, networkIdentifier, network.Id)
+		return fmt.Errorf("network id must be between 1 and %d for network %s, got %d", maxNetworkID, networkIdentifier, network.Id)
 	}
 
 	return nil
