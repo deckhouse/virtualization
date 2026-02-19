@@ -18,8 +18,8 @@ package watcher
 
 import (
 	"context"
-	"reflect"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -42,9 +42,7 @@ func (w *NodeUSBDeviceWatcher) Watch(mgr manager.Manager, ctr controller.Control
 	return ctr.Watch(
 		source.Kind(mgr.GetCache(),
 			&v1alpha2.NodeUSBDevice{},
-			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, nodeUSBDevice *v1alpha2.NodeUSBDevice) []reconcile.Request {
-				_ = ctx
-
+			handler.TypedEnqueueRequestsFromMapFunc(func(_ context.Context, nodeUSBDevice *v1alpha2.NodeUSBDevice) []reconcile.Request {
 				// Only enqueue USBDevice if NodeUSBDevice has assignedNamespace
 				if nodeUSBDevice.Spec.AssignedNamespace == "" {
 					return nil
@@ -79,7 +77,7 @@ func shouldProcessNodeUSBDeviceUpdate(oldObj, newObj *v1alpha2.NodeUSBDevice) bo
 
 	return oldObj.Spec.AssignedNamespace != newObj.Spec.AssignedNamespace ||
 		oldObj.Status.NodeName != newObj.Status.NodeName ||
-		!reflect.DeepEqual(oldObj.Status.Attributes, newObj.Status.Attributes) ||
-		!reflect.DeepEqual(oldObj.Status.Conditions, newObj.Status.Conditions) ||
-		!reflect.DeepEqual(oldObj.GetDeletionTimestamp(), newObj.GetDeletionTimestamp())
+		!equality.Semantic.DeepEqual(oldObj.Status.Attributes, newObj.Status.Attributes) ||
+		!equality.Semantic.DeepEqual(oldObj.Status.Conditions, newObj.Status.Conditions) ||
+		!equality.Semantic.DeepEqual(oldObj.GetDeletionTimestamp(), newObj.GetDeletionTimestamp())
 }

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package internal
+package handler
 
 import (
 	"context"
@@ -55,13 +55,21 @@ var _ = Describe("ReadyHandler", func() {
 			cl := fake.NewClientBuilder().
 				WithScheme(scheme).
 				WithObjects(objects...).
-				WithIndex(&resourcev1.ResourceSlice{}, indexer.IndexFieldResourceSliceByNode, func(object client.Object) []string {
+				WithIndex(&resourcev1.ResourceSlice{}, indexer.IndexFieldResourceSliceByPoolName, func(object client.Object) []string {
 					resourceSlice, ok := object.(*resourcev1.ResourceSlice)
 					if !ok || resourceSlice == nil || resourceSlice.Spec.Pool.Name == "" {
 						return nil
 					}
 
 					return []string{resourceSlice.Spec.Pool.Name}
+				}).
+				WithIndex(&resourcev1.ResourceSlice{}, indexer.IndexFieldResourceSliceByDriver, func(object client.Object) []string {
+					resourceSlice, ok := object.(*resourcev1.ResourceSlice)
+					if !ok || resourceSlice == nil || resourceSlice.Spec.Driver == "" {
+						return nil
+					}
+
+					return []string{resourceSlice.Spec.Driver}
 				}).
 				Build()
 

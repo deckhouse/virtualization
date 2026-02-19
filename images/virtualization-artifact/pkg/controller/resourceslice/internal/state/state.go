@@ -22,6 +22,8 @@ import (
 
 	resourcev1 "k8s.io/api/resource/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 )
 
 const (
@@ -51,16 +53,9 @@ func (s *resourceSliceState) ResourceSlice() *resourcev1.ResourceSlice {
 
 func (s *resourceSliceState) ResourceSlices(ctx context.Context) ([]resourcev1.ResourceSlice, error) {
 	var slices resourcev1.ResourceSliceList
-	if err := s.client.List(ctx, &slices, client.MatchingLabels{}); err != nil {
+	if err := s.client.List(ctx, &slices, client.MatchingFields{indexer.IndexFieldResourceSliceByDriver: draDriverName}); err != nil {
 		return nil, fmt.Errorf("failed to list ResourceSlices: %w", err)
 	}
 
-	result := make([]resourcev1.ResourceSlice, 0)
-	for _, slice := range slices.Items {
-		if slice.Spec.Driver == draDriverName {
-			result = append(result, slice)
-		}
-	}
-
-	return result, nil
+	return slices.Items, nil
 }

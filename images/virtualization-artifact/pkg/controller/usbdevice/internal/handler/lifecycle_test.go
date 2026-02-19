@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package internal
+package handler
 
 import (
 	"context"
@@ -83,8 +83,7 @@ var _ = Describe("LifecycleHandler", func() {
 			}
 
 			vmObj, vmField, vmExtractValue := indexer.IndexVMByUSBDevice()
-			nodeObj, nodeField, nodeExtractValue := indexer.IndexNodeUSBDeviceByName()
-			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).WithIndex(vmObj, vmField, vmExtractValue).WithIndex(nodeObj, nodeField, nodeExtractValue).Build()
+			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).WithIndex(vmObj, vmField, vmExtractValue).Build()
 
 			res := reconciler.NewResource(
 				types.NamespacedName{Name: usbDevice.Name, Namespace: usbDevice.Namespace},
@@ -95,7 +94,7 @@ var _ = Describe("LifecycleHandler", func() {
 			Expect(res.Fetch(ctx)).To(Succeed())
 
 			st := state.New(cl, res)
-			h := NewLifecycleHandler(cl, scheme)
+			h := NewLifecycleHandler(cl)
 			_, err := h.Handle(ctx, st)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -135,8 +134,7 @@ var _ = Describe("LifecycleHandler", func() {
 			}
 
 			vmObj, vmField, vmExtractValue := indexer.IndexVMByUSBDevice()
-			nodeObj, nodeField, nodeExtractValue := indexer.IndexNodeUSBDeviceByName()
-			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(usbDevice, nodeUSBDevice).WithIndex(vmObj, vmField, vmExtractValue).WithIndex(nodeObj, nodeField, nodeExtractValue).Build()
+			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(usbDevice, nodeUSBDevice).WithIndex(vmObj, vmField, vmExtractValue).Build()
 
 			res := reconciler.NewResource(
 				types.NamespacedName{Name: usbDevice.Name, Namespace: usbDevice.Namespace},
@@ -147,7 +145,7 @@ var _ = Describe("LifecycleHandler", func() {
 			Expect(res.Fetch(ctx)).To(Succeed())
 
 			st := state.New(cl, res)
-			h := NewLifecycleHandler(cl, scheme)
+			h := NewLifecycleHandler(cl)
 			_, err := h.Handle(ctx, st)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -204,8 +202,7 @@ var _ = Describe("LifecycleHandler", func() {
 		}
 
 		vmObj, vmField, vmExtractValue := indexer.IndexVMByUSBDevice()
-		nodeObj, nodeField, nodeExtractValue := indexer.IndexNodeUSBDeviceByName()
-		cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(usbDevice, nodeUSBDevice, template).WithIndex(vmObj, vmField, vmExtractValue).WithIndex(nodeObj, nodeField, nodeExtractValue).Build()
+		cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(usbDevice, nodeUSBDevice, template).WithIndex(vmObj, vmField, vmExtractValue).Build()
 
 		res := reconciler.NewResource(
 			types.NamespacedName{Name: usbDevice.Name, Namespace: usbDevice.Namespace},
@@ -216,7 +213,7 @@ var _ = Describe("LifecycleHandler", func() {
 		Expect(res.Fetch(ctx)).To(Succeed())
 
 		st := state.New(cl, res)
-		h := NewLifecycleHandler(cl, scheme)
+		h := NewLifecycleHandler(cl)
 		_, err := h.Handle(ctx, st)
 		Expect(err).NotTo(HaveOccurred())
 

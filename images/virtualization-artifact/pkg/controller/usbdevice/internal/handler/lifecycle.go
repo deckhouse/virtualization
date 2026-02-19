@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package internal
+package handler
 
 import (
 	"context"
@@ -23,16 +23,16 @@ import (
 	"strconv"
 
 	resourcev1 "k8s.io/api/resource/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/usbdevice/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -49,16 +49,14 @@ func ResourceClaimTemplateName(usbDeviceName string) string {
 	return usbDeviceName + resourceClaimTemplateNameSuffix
 }
 
-func NewLifecycleHandler(client client.Client, scheme *runtime.Scheme) *LifecycleHandler {
+func NewLifecycleHandler(client client.Client) *LifecycleHandler {
 	return &LifecycleHandler{
 		client: client,
-		scheme: scheme,
 	}
 }
 
 type LifecycleHandler struct {
 	client client.Client
-	scheme *runtime.Scheme
 }
 
 func (h *LifecycleHandler) Name() string {
@@ -95,18 +93,18 @@ func (h *LifecycleHandler) syncReady(ctx context.Context, s state.USBDeviceState
 	}
 
 	if nodeUSBDevice == nil {
-		setReadyCondition(current, &changed.Status.Conditions, metav1.ConditionFalse, usbdevicecondition.NotFound, "Corresponding NodeUSBDevice not found", nil)
+		setReadyCondition(current, &changed.Status.Conditions, metav1.ConditionFalse, usbdevicecondition.NotFound, "Corresponding NodeUSBDevice not found.", nil)
 		return nil
 	}
 
-	if !reflect.DeepEqual(changed.Status.Attributes, nodeUSBDevice.Status.Attributes) || changed.Status.NodeName != nodeUSBDevice.Status.NodeName {
+	if !equality.Semantic.DeepEqual(changed.Status.Attributes, nodeUSBDevice.Status.Attributes) || changed.Status.NodeName != nodeUSBDevice.Status.NodeName {
 		changed.Status.Attributes = nodeUSBDevice.Status.Attributes
 		changed.Status.NodeName = nodeUSBDevice.Status.NodeName
 	}
 
 	readyCondition := meta.FindStatusCondition(nodeUSBDevice.Status.Conditions, string(nodeusbdevicecondition.ReadyType))
 	if readyCondition == nil {
-		setReadyCondition(current, &changed.Status.Conditions, metav1.ConditionFalse, usbdevicecondition.NotReady, "Ready condition not found in NodeUSBDevice", nil)
+		setReadyCondition(current, &changed.Status.Conditions, metav1.ConditionFalse, usbdevicecondition.NotReady, "Ready condition not found in NodeUSBDevice.", nil)
 		return nil
 	}
 
@@ -159,12 +157,12 @@ func (h *LifecycleHandler) ensureResourceClaimTemplate(ctx context.Context, s st
 			}
 
 			template = &resourcev1.ResourceClaimTemplate{
-				ObjectMeta: metav1.ObjectMeta{Name: templateName, Namespace: usbDevice.Namespace},
-				Spec:       desiredSpec,
-			}
-
-			if err := controllerutil.SetControllerReference(usbDevice, template, h.scheme); err != nil {
-				return fmt.Errorf("failed to set owner reference on ResourceClaimTemplate: %w", err)
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            templateName,
+					Namespace:       usbDevice.Namespace,
+					OwnerReferences: []metav1.OwnerReference{service.MakeControllerOwnerReference(usbDevice)},
+				},
+				Spec: desiredSpec,
 			}
 
 			if err := h.client.Create(ctx, template); err != nil {
@@ -177,12 +175,12 @@ func (h *LifecycleHandler) ensureResourceClaimTemplate(ctx context.Context, s st
 	}
 
 	template = &resourcev1.ResourceClaimTemplate{
-		ObjectMeta: metav1.ObjectMeta{Name: templateName, Namespace: usbDevice.Namespace},
-		Spec:       desiredSpec,
-	}
-
-	if err := controllerutil.SetControllerReference(usbDevice, template, h.scheme); err != nil {
-		return fmt.Errorf("failed to set owner reference on ResourceClaimTemplate: %w", err)
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            templateName,
+			Namespace:       usbDevice.Namespace,
+			OwnerReferences: []metav1.OwnerReference{service.MakeControllerOwnerReference(usbDevice)},
+		},
+		Spec: desiredSpec,
 	}
 
 	if err := h.client.Create(ctx, template); err != nil {
@@ -209,16 +207,16 @@ func (h *LifecycleHandler) syncAttached(ctx context.Context, s state.USBDeviceSt
 	if len(vms) == 0 {
 		reason = usbdevicecondition.Available
 		status = metav1.ConditionFalse
-		message = "Device is available for attachment to a virtual machine"
+		message = "Device is available for attachment to a virtual machine."
 		setAttachedCondition(current, &changed.Status.Conditions, status, reason, message)
 		return nil
 	}
 
 	reason = usbdevicecondition.AttachedToVirtualMachine
 	status = metav1.ConditionTrue
-	message = fmt.Sprintf("Device is attached to %d VirtualMachines", len(vms))
+	message = fmt.Sprintf("Device is attached to %d VirtualMachines.", len(vms))
 	if len(vms) == 1 {
-		message = fmt.Sprintf("Device is attached to VirtualMachine %s/%s", vms[0].Namespace, vms[0].Name)
+		message = fmt.Sprintf("Device is attached to VirtualMachine %s/%s.", vms[0].Namespace, vms[0].Name)
 	}
 
 	setAttachedCondition(current, &changed.Status.Conditions, status, reason, message)

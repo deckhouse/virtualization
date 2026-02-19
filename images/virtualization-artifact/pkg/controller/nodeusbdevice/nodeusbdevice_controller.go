@@ -21,15 +21,13 @@ import (
 	"time"
 
 	"k8s.io/utils/ptr"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice/internal"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice/internal/handler"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
@@ -48,9 +46,9 @@ func NewController(
 	client := mgr.GetClient()
 
 	handlers := []Handler{
-		internal.NewDeletionHandler(client),
-		internal.NewReadyHandler(client),
-		internal.NewAssignedHandler(client),
+		handler.NewDeletionHandler(client),
+		handler.NewReadyHandler(client),
+		handler.NewAssignedHandler(client),
 	}
 
 	r := NewReconciler(client, handlers...)
@@ -67,13 +65,6 @@ func NewController(
 	}
 
 	if err = r.SetupController(ctx, mgr, c); err != nil {
-		return nil, err
-	}
-
-	if err = builder.WebhookManagedBy(mgr).
-		For(&v1alpha2.NodeUSBDevice{}).
-		WithValidator(NewValidator(log)).
-		Complete(); err != nil {
 		return nil, err
 	}
 

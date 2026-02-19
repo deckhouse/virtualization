@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package internal
+package handler
 
 import (
 	"context"
@@ -62,7 +62,7 @@ var _ = Describe("DeletionHandler", func() {
 						Namespace: usbNamespace,
 						OwnerReferences: []metav1.OwnerReference{{
 							APIVersion: v1alpha2.SchemeGroupVersion.String(),
-							Kind:       "NodeUSBDevice",
+							Kind:       v1alpha2.NodeUSBDeviceKind,
 							Name:       node.Name,
 							UID:        node.UID,
 							Controller: ptr.To(true),

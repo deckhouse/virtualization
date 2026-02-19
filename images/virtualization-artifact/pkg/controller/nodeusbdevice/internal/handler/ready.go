@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package internal
+package handler
 
 import (
 	"context"
@@ -60,7 +60,7 @@ func (h *ReadyHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState) (
 
 	readyReason := nodeusbdevicecondition.NotFound
 	readyStatus := metav1.ConditionFalse
-	readyMessage := "Device is absent on the host"
+	readyMessage := "Device is absent on the host."
 
 	found, err := h.deviceExistsOnHost(ctx, current)
 	if err != nil {
@@ -69,7 +69,7 @@ func (h *ReadyHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState) (
 	if found {
 		readyReason = nodeusbdevicecondition.Ready
 		readyStatus = metav1.ConditionTrue
-		readyMessage = "Device is ready to use"
+		readyMessage = "Device is ready to use."
 	}
 
 	cb := conditions.NewConditionBuilder(nodeusbdevicecondition.ReadyType).
@@ -90,7 +90,10 @@ func (h *ReadyHandler) deviceExistsOnHost(ctx context.Context, nodeUSBDevice *v1
 	}
 
 	var slices resourcev1.ResourceSliceList
-	if err := h.client.List(ctx, &slices, client.MatchingFields{indexer.IndexFieldResourceSliceByNode: nodeName}); err != nil {
+	if err := h.client.List(ctx, &slices, client.MatchingFields{
+		indexer.IndexFieldResourceSliceByPoolName: nodeName,
+		indexer.IndexFieldResourceSliceByDriver:   draDriverName,
+	}); err != nil {
 		return false, fmt.Errorf("failed to list ResourceSlices: %w", err)
 	}
 
@@ -100,10 +103,6 @@ func (h *ReadyHandler) deviceExistsOnHost(ctx context.Context, nodeUSBDevice *v1
 	}
 
 	for _, slice := range slices.Items {
-		if slice.Spec.Driver != draDriverName || slice.Spec.Pool.Name != nodeName {
-			continue
-		}
-
 		for _, dev := range slice.Spec.Devices {
 			if dev.Name == deviceName {
 				return true, nil

@@ -69,12 +69,10 @@ const (
 
 	IndexFieldVMByProvisioningSecret = "spec.provisioning.secretRef"
 
-	IndexFieldNodeUSBDeviceByName = "metadata.name"
-	IndexFieldNodeUSBDeviceByNode = "status.nodeName"
-
 	IndexFieldUSBDeviceByName = "metadata.name"
 
-	IndexFieldResourceSliceByNode = "spec.pool.name"
+	IndexFieldResourceSliceByPoolName = "spec.pool.name"
+	IndexFieldResourceSliceByDriver   = "spec.driver"
 )
 
 var IndexGetters = []IndexGetter{
@@ -105,9 +103,9 @@ var IndexGetters = []IndexGetter{
 
 var IndexGettersUSB = []IndexGetter{
 	IndexVMByUSBDevice,
-	IndexNodeUSBDeviceByNode,
 	IndexUSBDeviceByName,
-	IndexResourceSliceByNode,
+	IndexResourceSliceByPoolName,
+	IndexResourceSliceByDriver,
 }
 
 type IndexGetter func() (obj client.Object, field string, extractValue client.IndexerFunc)
@@ -239,27 +237,6 @@ func IndexVMByUSBDevice() (obj client.Object, field string, extractValue client.
 	}
 }
 
-func IndexNodeUSBDeviceByName() (obj client.Object, field string, extractValue client.IndexerFunc) {
-	return &v1alpha2.NodeUSBDevice{}, IndexFieldNodeUSBDeviceByName, func(object client.Object) []string {
-		nodeUSBDevice, ok := object.(*v1alpha2.NodeUSBDevice)
-		if !ok || nodeUSBDevice == nil {
-			return nil
-		}
-		return []string{nodeUSBDevice.Name}
-	}
-}
-
-func IndexNodeUSBDeviceByNode() (obj client.Object, field string, extractValue client.IndexerFunc) {
-	return &v1alpha2.NodeUSBDevice{}, IndexFieldNodeUSBDeviceByNode, func(object client.Object) []string {
-		nodeUSBDevice, ok := object.(*v1alpha2.NodeUSBDevice)
-		if !ok || nodeUSBDevice == nil || nodeUSBDevice.Status.NodeName == "" {
-			return nil
-		}
-
-		return []string{nodeUSBDevice.Status.NodeName}
-	}
-}
-
 func IndexUSBDeviceByName() (obj client.Object, field string, extractValue client.IndexerFunc) {
 	return &v1alpha2.USBDevice{}, IndexFieldUSBDeviceByName, func(object client.Object) []string {
 		usbDevice, ok := object.(*v1alpha2.USBDevice)
@@ -270,13 +247,24 @@ func IndexUSBDeviceByName() (obj client.Object, field string, extractValue clien
 	}
 }
 
-func IndexResourceSliceByNode() (obj client.Object, field string, extractValue client.IndexerFunc) {
-	return &resourcev1.ResourceSlice{}, IndexFieldResourceSliceByNode, func(object client.Object) []string {
+func IndexResourceSliceByPoolName() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &resourcev1.ResourceSlice{}, IndexFieldResourceSliceByPoolName, func(object client.Object) []string {
 		resourceSlice, ok := object.(*resourcev1.ResourceSlice)
 		if !ok || resourceSlice == nil || resourceSlice.Spec.Pool.Name == "" {
 			return nil
 		}
 
 		return []string{resourceSlice.Spec.Pool.Name}
+	}
+}
+
+func IndexResourceSliceByDriver() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &resourcev1.ResourceSlice{}, IndexFieldResourceSliceByDriver, func(object client.Object) []string {
+		resourceSlice, ok := object.(*resourcev1.ResourceSlice)
+		if !ok || resourceSlice == nil || resourceSlice.Spec.Driver == "" {
+			return nil
+		}
+
+		return []string{resourceSlice.Spec.Driver}
 	}
 }

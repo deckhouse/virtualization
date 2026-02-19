@@ -18,8 +18,8 @@ package watcher
 
 import (
 	"context"
-	"reflect"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -44,12 +44,7 @@ func (w *VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Contro
 			&v1alpha2.VirtualMachine{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vm *v1alpha2.VirtualMachine) []reconcile.Request {
 				var result []reconcile.Request
-				seen := make(map[string]struct{})
 				for _, ref := range vm.Spec.USBDevices {
-					if _, exists := seen[ref.Name]; exists {
-						continue
-					}
-					seen[ref.Name] = struct{}{}
 					result = append(result, reconcile.Request{
 						NamespacedName: types.NamespacedName{
 							Namespace: vm.Namespace,
@@ -61,10 +56,10 @@ func (w *VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Contro
 			}),
 			predicate.TypedFuncs[*v1alpha2.VirtualMachine]{
 				CreateFunc: func(e event.TypedCreateEvent[*v1alpha2.VirtualMachine]) bool {
-					return e.Object != nil
+					return true
 				},
 				DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha2.VirtualMachine]) bool {
-					return e.Object != nil
+					return true
 				},
 				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachine]) bool {
 					return shouldProcessVirtualMachineUpdate(e.ObjectOld, e.ObjectNew)
@@ -79,7 +74,7 @@ func shouldProcessVirtualMachineUpdate(oldObj, newObj *v1alpha2.VirtualMachine) 
 		return false
 	}
 
-	return !reflect.DeepEqual(oldObj.Spec.USBDevices, newObj.Spec.USBDevices) ||
-		!reflect.DeepEqual(oldObj.Status.USBDevices, newObj.Status.USBDevices) ||
-		!reflect.DeepEqual(oldObj.GetDeletionTimestamp(), newObj.GetDeletionTimestamp())
+	return !equality.Semantic.DeepEqual(oldObj.Spec.USBDevices, newObj.Spec.USBDevices) ||
+		!equality.Semantic.DeepEqual(oldObj.Status.USBDevices, newObj.Status.USBDevices) ||
+		!equality.Semantic.DeepEqual(oldObj.GetDeletionTimestamp(), newObj.GetDeletionTimestamp())
 }

@@ -37,7 +37,7 @@ func NewUSBDevicesValidator(client client.Client) *USBDevicesValidator {
 }
 
 func (v *USBDevicesValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	return v.validateUSBDevicesUnique(ctx, vm, "")
+	return v.validateUSBDevicesUnique(ctx, vm, "", nil)
 }
 
 func (v *USBDevicesValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
@@ -45,12 +45,12 @@ func (v *USBDevicesValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *
 		return nil, nil
 	}
 
-	return v.validateUSBDevicesUnique(ctx, newVM, newVM.Name)
+	return v.validateUSBDevicesUnique(ctx, newVM, newVM.Name, getUSBDeviceNames(oldVM.Spec.USBDevices))
 }
 
 // validateUSBDevicesUnique checks that each USB device is not used by another VM.
 // currentVMName is empty for Create (no VM to exclude), or VM name for Update (exclude current VM from conflict check).
-func (v *USBDevicesValidator) validateUSBDevicesUnique(ctx context.Context, vm *v1alpha2.VirtualMachine, currentVMName string) (admission.Warnings, error) {
+func (v *USBDevicesValidator) validateUSBDevicesUnique(ctx context.Context, vm *v1alpha2.VirtualMachine, currentVMName string, oldUSBDevices map[string]struct{}) (admission.Warnings, error) {
 	if len(vm.Spec.USBDevices) == 0 {
 		return nil, nil
 	}
@@ -65,13 +65,12 @@ func (v *USBDevicesValidator) validateUSBDevicesUnique(ctx context.Context, vm *
 		}
 		seen[ref.Name] = struct{}{}
 
+		if _, exists := oldUSBDevices[ref.Name]; exists {
+			continue
+		}
+
 		var vmList v1alpha2.VirtualMachineList
-		if err := v.client.List(ctx, &vmList,
-			client.InNamespace(vm.Namespace),
-			client.MatchingFields{
-				indexer.IndexFieldVMByUSBDevice: ref.Name,
-			},
-		); err != nil {
+		if err := v.client.List(ctx, &vmList, client.InNamespace(vm.Namespace), client.MatchingFields{indexer.IndexFieldVMByUSBDevice: ref.Name}); err != nil {
 			return nil, fmt.Errorf("failed to list VMs using USB device %s: %w", ref.Name, err)
 		}
 
@@ -85,4 +84,16 @@ func (v *USBDevicesValidator) validateUSBDevicesUnique(ctx context.Context, vm *
 	}
 
 	return nil, nil
+}
+
+func getUSBDeviceNames(refs []v1alpha2.USBDeviceSpecRef) map[string]struct{} {
+	names := make(map[string]struct{}, len(refs))
+	for _, ref := range refs {
+		if ref.Name == "" {
+			continue
+		}
+		names[ref.Name] = struct{}{}
+	}
+
+	return names
 }

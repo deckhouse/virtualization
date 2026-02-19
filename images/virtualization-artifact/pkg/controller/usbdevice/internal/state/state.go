@@ -19,6 +19,7 @@ package state
 import (
 	"context"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
@@ -49,25 +50,21 @@ func (s *usbDeviceState) USBDevice() *reconciler.Resource[*v1alpha2.USBDevice, v
 }
 
 func (s *usbDeviceState) NodeUSBDevice(ctx context.Context) (*v1alpha2.NodeUSBDevice, error) {
-	// USBDevice has the same name as the corresponding NodeUSBDevice
-	// Use indexer to find NodeUSBDevice by name
 	usbDevice := s.usbDevice.Current()
 	if usbDevice == nil {
 		return nil, nil
 	}
 
-	var nodeUSBDeviceList v1alpha2.NodeUSBDeviceList
-	if err := s.client.List(ctx, &nodeUSBDeviceList, client.MatchingFields{
-		indexer.IndexFieldNodeUSBDeviceByName: usbDevice.Name,
-	}); err != nil {
+	nodeUSBDevice := &v1alpha2.NodeUSBDevice{}
+	err := s.client.Get(ctx, client.ObjectKey{Name: usbDevice.Name}, nodeUSBDevice)
+	if apierrors.IsNotFound(err) {
+		return nil, nil
+	}
+	if err != nil {
 		return nil, err
 	}
 
-	if len(nodeUSBDeviceList.Items) > 0 {
-		return &nodeUSBDeviceList.Items[0], nil
-	}
-
-	return nil, nil
+	return nodeUSBDevice, nil
 }
 
 func (s *usbDeviceState) VirtualMachinesUsingDevice(ctx context.Context) ([]*v1alpha2.VirtualMachine, error) {

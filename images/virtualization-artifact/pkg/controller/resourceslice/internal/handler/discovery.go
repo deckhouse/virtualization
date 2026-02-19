@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package internal
+package handler
 
 import (
 	"context"
@@ -29,7 +29,6 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/resourceslice/internal/state"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/nodeusbdevicecondition"
 )
 
 const (
@@ -109,10 +108,6 @@ func (h *DiscoveryHandler) createNodeUSBDevice(ctx context.Context, resourceSlic
 	nodeUSBDevice.Status = v1alpha2.NodeUSBDeviceStatus{
 		Attributes: attributes,
 		NodeName:   attributes.NodeName,
-		Conditions: []metav1.Condition{
-			{Type: string(nodeusbdevicecondition.ReadyType), Status: metav1.ConditionTrue, Reason: string(nodeusbdevicecondition.Ready), Message: "Device is ready to use", LastTransitionTime: metav1.Now()},
-			{Type: string(nodeusbdevicecondition.AssignedType), Status: metav1.ConditionFalse, Reason: string(nodeusbdevicecondition.Available), Message: "No namespace is assigned for the device", LastTransitionTime: metav1.Now()},
-		},
 	}
 
 	if err := h.client.Status().Update(ctx, nodeUSBDevice); err != nil {

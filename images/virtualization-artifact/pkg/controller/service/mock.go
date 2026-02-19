@@ -862,6 +862,9 @@ var _ VirtClient = &VirtClientMock{}
 //			NetworkingV1beta1Func: func() networkingv1beta1.NetworkingV1beta1Interface {
 //				panic("mock out the NetworkingV1beta1 method")
 //			},
+//			NodeUSBDevicesFunc: func(namespace string) corev1alpha2.NodeUSBDeviceInterface {
+//				panic("mock out the NodeUSBDevices method")
+//			},
 //			NodeV1Func: func() nodev1.NodeV1Interface {
 //				panic("mock out the NodeV1 method")
 //			},
@@ -918,6 +921,9 @@ var _ VirtClient = &VirtClientMock{}
 //			},
 //			StoragemigrationV1alpha1Func: func() v1alpha1.StoragemigrationV1alpha1Interface {
 //				panic("mock out the StoragemigrationV1alpha1 method")
+//			},
+//			USBDevicesFunc: func(namespace string) corev1alpha2.USBDeviceInterface {
+//				panic("mock out the USBDevices method")
 //			},
 //			VirtualDisksFunc: func(namespace string) corev1alpha2.VirtualDiskInterface {
 //				panic("mock out the VirtualDisks method")
@@ -1070,6 +1076,9 @@ type VirtClientMock struct {
 	// NetworkingV1beta1Func mocks the NetworkingV1beta1 method.
 	NetworkingV1beta1Func func() networkingv1beta1.NetworkingV1beta1Interface
 
+	// NodeUSBDevicesFunc mocks the NodeUSBDevices method.
+	NodeUSBDevicesFunc func(namespace string) corev1alpha2.NodeUSBDeviceInterface
+
 	// NodeV1Func mocks the NodeV1 method.
 	NodeV1Func func() nodev1.NodeV1Interface
 
@@ -1126,6 +1135,9 @@ type VirtClientMock struct {
 
 	// StoragemigrationV1alpha1Func mocks the StoragemigrationV1alpha1 method.
 	StoragemigrationV1alpha1Func func() v1alpha1.StoragemigrationV1alpha1Interface
+
+	// USBDevicesFunc mocks the USBDevices method.
+	USBDevicesFunc func(namespace string) corev1alpha2.USBDeviceInterface
 
 	// VirtualDisksFunc mocks the VirtualDisks method.
 	VirtualDisksFunc func(namespace string) corev1alpha2.VirtualDiskInterface
@@ -1273,6 +1285,11 @@ type VirtClientMock struct {
 		// NetworkingV1beta1 holds details about calls to the NetworkingV1beta1 method.
 		NetworkingV1beta1 []struct {
 		}
+		// NodeUSBDevices holds details about calls to the NodeUSBDevices method.
+		NodeUSBDevices []struct {
+			// Namespace is the namespace argument value.
+			Namespace string
+		}
 		// NodeV1 holds details about calls to the NodeV1 method.
 		NodeV1 []struct {
 		}
@@ -1329,6 +1346,11 @@ type VirtClientMock struct {
 		}
 		// StoragemigrationV1alpha1 holds details about calls to the StoragemigrationV1alpha1 method.
 		StoragemigrationV1alpha1 []struct {
+		}
+		// USBDevices holds details about calls to the USBDevices method.
+		USBDevices []struct {
+			// Namespace is the namespace argument value.
+			Namespace string
 		}
 		// VirtualDisks holds details about calls to the VirtualDisks method.
 		VirtualDisks []struct {
@@ -1413,6 +1435,7 @@ type VirtClientMock struct {
 	lockInternalV1alpha1                     sync.RWMutex
 	lockNetworkingV1                         sync.RWMutex
 	lockNetworkingV1beta1                    sync.RWMutex
+	lockNodeUSBDevices                       sync.RWMutex
 	lockNodeV1                               sync.RWMutex
 	lockNodeV1alpha1                         sync.RWMutex
 	lockNodeV1beta1                          sync.RWMutex
@@ -1432,6 +1455,7 @@ type VirtClientMock struct {
 	lockStorageV1alpha1                      sync.RWMutex
 	lockStorageV1beta1                       sync.RWMutex
 	lockStoragemigrationV1alpha1             sync.RWMutex
+	lockUSBDevices                           sync.RWMutex
 	lockVirtualDisks                         sync.RWMutex
 	lockVirtualImages                        sync.RWMutex
 	lockVirtualMachineBlockDeviceAttachments sync.RWMutex
@@ -2470,6 +2494,38 @@ func (mock *VirtClientMock) NetworkingV1beta1Calls() []struct {
 	return calls
 }
 
+// NodeUSBDevices calls NodeUSBDevicesFunc.
+func (mock *VirtClientMock) NodeUSBDevices(namespace string) corev1alpha2.NodeUSBDeviceInterface {
+	if mock.NodeUSBDevicesFunc == nil {
+		panic("VirtClientMock.NodeUSBDevicesFunc: method is nil but VirtClient.NodeUSBDevices was just called")
+	}
+	callInfo := struct {
+		Namespace string
+	}{
+		Namespace: namespace,
+	}
+	mock.lockNodeUSBDevices.Lock()
+	mock.calls.NodeUSBDevices = append(mock.calls.NodeUSBDevices, callInfo)
+	mock.lockNodeUSBDevices.Unlock()
+	return mock.NodeUSBDevicesFunc(namespace)
+}
+
+// NodeUSBDevicesCalls gets all the calls that were made to NodeUSBDevices.
+// Check the length with:
+//
+//	len(mockedVirtClient.NodeUSBDevicesCalls())
+func (mock *VirtClientMock) NodeUSBDevicesCalls() []struct {
+	Namespace string
+} {
+	var calls []struct {
+		Namespace string
+	}
+	mock.lockNodeUSBDevices.RLock()
+	calls = mock.calls.NodeUSBDevices
+	mock.lockNodeUSBDevices.RUnlock()
+	return calls
+}
+
 // NodeV1 calls NodeV1Func.
 func (mock *VirtClientMock) NodeV1() nodev1.NodeV1Interface {
 	if mock.NodeV1Func == nil {
@@ -2980,6 +3036,38 @@ func (mock *VirtClientMock) StoragemigrationV1alpha1Calls() []struct {
 	mock.lockStoragemigrationV1alpha1.RLock()
 	calls = mock.calls.StoragemigrationV1alpha1
 	mock.lockStoragemigrationV1alpha1.RUnlock()
+	return calls
+}
+
+// USBDevices calls USBDevicesFunc.
+func (mock *VirtClientMock) USBDevices(namespace string) corev1alpha2.USBDeviceInterface {
+	if mock.USBDevicesFunc == nil {
+		panic("VirtClientMock.USBDevicesFunc: method is nil but VirtClient.USBDevices was just called")
+	}
+	callInfo := struct {
+		Namespace string
+	}{
+		Namespace: namespace,
+	}
+	mock.lockUSBDevices.Lock()
+	mock.calls.USBDevices = append(mock.calls.USBDevices, callInfo)
+	mock.lockUSBDevices.Unlock()
+	return mock.USBDevicesFunc(namespace)
+}
+
+// USBDevicesCalls gets all the calls that were made to USBDevices.
+// Check the length with:
+//
+//	len(mockedVirtClient.USBDevicesCalls())
+func (mock *VirtClientMock) USBDevicesCalls() []struct {
+	Namespace string
+} {
+	var calls []struct {
+		Namespace string
+	}
+	mock.lockUSBDevices.RLock()
+	calls = mock.calls.USBDevices
+	mock.lockUSBDevices.RUnlock()
 	return calls
 }
 

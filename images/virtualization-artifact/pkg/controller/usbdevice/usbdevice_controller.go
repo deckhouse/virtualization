@@ -25,8 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/usbdevice/internal"
-	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/usbdevice/internal/handler"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
@@ -45,7 +44,6 @@ func NewController(
 		return nil, nil
 	}
 
-	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	client := mgr.GetClient()
 
 	virtClient, err := versioned.NewForConfig(mgr.GetConfig())
@@ -54,8 +52,8 @@ func NewController(
 	}
 
 	handlers := []Handler{
-		internal.NewDeletionHandler(client, virtClient, recorder),
-		internal.NewLifecycleHandler(client, mgr.GetScheme()),
+		handler.NewDeletionHandler(client, virtClient),
+		handler.NewLifecycleHandler(client),
 	}
 
 	r := NewReconciler(client, handlers...)

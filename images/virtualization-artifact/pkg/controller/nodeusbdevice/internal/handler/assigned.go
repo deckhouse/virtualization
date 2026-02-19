@@ -14,14 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package internal
+package handler
 
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -74,13 +74,13 @@ func (h *AssignedHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState
 		if err := h.removeOrphanedUSBDevices(ctx, current.Name, assignedNamespace, true); err != nil {
 			return reconcile.Result{}, err
 		}
-		setAssignedInProgressCondition(current, &changed.Status.Conditions, "Device is absent on the host, USBDevice is removed")
+		setAssignedInProgressCondition(current, &changed.Status.Conditions, "Device is absent on the host, USBDevice is removed.")
 
 	case assignedNamespace == "":
 		if err := h.removeOrphanedUSBDevices(ctx, current.Name, assignedNamespace, false); err != nil {
 			return reconcile.Result{}, err
 		}
-		setAssignedAvailableCondition(current, &changed.Status.Conditions, "No namespace is assigned for the device")
+		setAssignedAvailableCondition(current, &changed.Status.Conditions, "No namespace is assigned for the device.")
 
 	default:
 		if err := h.removeOrphanedUSBDevices(ctx, current.Name, assignedNamespace, false); err != nil {
@@ -92,7 +92,7 @@ func (h *AssignedHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState
 			return reconcile.Result{}, fmt.Errorf("failed to check namespace %s: %w", assignedNamespace, err)
 		}
 		if !exists {
-			setAssignedAvailableCondition(current, &changed.Status.Conditions, fmt.Sprintf("Namespace %s does not exist", assignedNamespace))
+			setAssignedAvailableCondition(current, &changed.Status.Conditions, fmt.Sprintf("Namespace %s does not exist.", assignedNamespace))
 			return reconcile.Result{}, nil
 		}
 
@@ -145,7 +145,7 @@ func (h *AssignedHandler) ensureUSBDevice(ctx context.Context, nodeUSBDevice *v1
 
 	err := h.client.Get(ctx, key, usbDevice)
 	if err == nil {
-		if !reflect.DeepEqual(usbDevice.Status.Attributes, nodeUSBDevice.Status.Attributes) || usbDevice.Status.NodeName != nodeUSBDevice.Status.NodeName {
+		if !equality.Semantic.DeepEqual(usbDevice.Status.Attributes, nodeUSBDevice.Status.Attributes) || usbDevice.Status.NodeName != nodeUSBDevice.Status.NodeName {
 			usbDevice.Status.Attributes = nodeUSBDevice.Status.Attributes
 			usbDevice.Status.NodeName = nodeUSBDevice.Status.NodeName
 			if err := h.client.Status().Update(ctx, usbDevice); err != nil {
@@ -167,7 +167,7 @@ func (h *AssignedHandler) ensureUSBDevice(ctx context.Context, nodeUSBDevice *v1
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: v1alpha2.SchemeGroupVersion.String(),
-					Kind:       "NodeUSBDevice",
+					Kind:       v1alpha2.NodeUSBDeviceKind,
 					Name:       nodeUSBDevice.Name,
 					UID:        nodeUSBDevice.UID,
 					Controller: ptr.To(true),
@@ -185,7 +185,7 @@ func (h *AssignedHandler) ensureUSBDevice(ctx context.Context, nodeUSBDevice *v1
 			if err := h.client.Get(ctx, key, usbDevice); err != nil {
 				return nil, fmt.Errorf("failed to get existing USBDevice: %w", err)
 			}
-			if !reflect.DeepEqual(usbDevice.Status.Attributes, nodeUSBDevice.Status.Attributes) || usbDevice.Status.NodeName != nodeUSBDevice.Status.NodeName {
+			if !equality.Semantic.DeepEqual(usbDevice.Status.Attributes, nodeUSBDevice.Status.Attributes) || usbDevice.Status.NodeName != nodeUSBDevice.Status.NodeName {
 				usbDevice.Status.Attributes = nodeUSBDevice.Status.Attributes
 				usbDevice.Status.NodeName = nodeUSBDevice.Status.NodeName
 				if err := h.client.Status().Update(ctx, usbDevice); err != nil {

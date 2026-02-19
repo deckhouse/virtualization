@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	resourcev1 "k8s.io/api/resource/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -77,8 +76,8 @@ func (h *usbDeviceHandlerBase) isUSBDeviceReady(usbDevice *v1alpha2.USBDevice) b
 	if usbDevice.Status.NodeName == "" {
 		return false
 	}
-	readyCondition := meta.FindStatusCondition(usbDevice.Status.Conditions, string(usbdevicecondition.ReadyType))
-	return readyCondition != nil && readyCondition.Status == metav1.ConditionTrue
+	readyCondition, found := conditions.GetCondition(usbdevicecondition.ReadyType, usbDevice.Status.Conditions)
+	return found && readyCondition.Status == metav1.ConditionTrue
 }
 
 func (h *usbDeviceHandlerBase) resourceClaimExistsInKVVMI(kvvmi *virtv1.VirtualMachineInstance, deviceName string) bool {
@@ -157,21 +156,21 @@ func (h *usbDeviceHandlerBase) updateUSBDeviceReadyCondition(vm *v1alpha2.Virtua
 		}
 	}
 
-	var reason vmcondition.USBDeviceReadyReason
+	var reason vmcondition.USBDevicesReadyReason
 	var status metav1.ConditionStatus
 	var message string
 
 	if len(statusRefs) == 0 {
-		conditions.RemoveCondition(vmcondition.TypeUSBDeviceReady, &vm.Status.Conditions)
+		conditions.RemoveCondition(vmcondition.TypeUSBDevicesReady, &vm.Status.Conditions)
 		return
 	}
 
 	if allReady {
-		reason = vmcondition.ReasonUSBDeviceReady
+		reason = vmcondition.ReasonUSBDevicesReady
 		status = metav1.ConditionTrue
 		message = "All USB devices are ready"
 	} else {
-		reason = vmcondition.ReasonSomeDevicesNotReady
+		reason = vmcondition.ReasonUSBDevicesNotReady
 		status = metav1.ConditionFalse
 		if len(notReadyDevices) == 1 {
 			message = fmt.Sprintf("USB device '%s' is not ready or not attached", notReadyDevices[0])
@@ -180,7 +179,7 @@ func (h *usbDeviceHandlerBase) updateUSBDeviceReadyCondition(vm *v1alpha2.Virtua
 		}
 	}
 
-	cb := conditions.NewConditionBuilder(vmcondition.TypeUSBDeviceReady).
+	cb := conditions.NewConditionBuilder(vmcondition.TypeUSBDevicesReady).
 		Generation(vm.GetGeneration()).
 		Status(status).
 		Reason(reason).

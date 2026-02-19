@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package internal
+package handler
 
 import (
 	"fmt"
@@ -36,7 +36,7 @@ func setAssignedInProgressCondition(nodeUSBDevice *v1alpha2.NodeUSBDevice, targe
 }
 
 func setAssignedReadyCondition(nodeUSBDevice *v1alpha2.NodeUSBDevice, target *[]metav1.Condition, assignedNamespace string) {
-	message := fmt.Sprintf("Namespace %s is assigned for the device, USBDevice created", assignedNamespace)
+	message := fmt.Sprintf("The device is assigned to namespace %q, and the corresponding USBDevice has been created.", assignedNamespace)
 	setAssignedCondition(nodeUSBDevice, target, metav1.ConditionTrue, nodeusbdevicecondition.Assigned, message)
 }
 

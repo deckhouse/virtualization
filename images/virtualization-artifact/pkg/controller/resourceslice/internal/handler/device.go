@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package internal
+package handler
 
 import (
 	"strings"
@@ -92,25 +92,4 @@ func ConvertDeviceToAttributes(device resourcev1.Device, nodeName string) v1alph
 	}
 
 	return attrs
-}
-
-func FindDeviceInSlices(slices []resourcev1.ResourceSlice, deviceName, nodeName string) (v1alpha2.NodeUSBDeviceAttributes, bool) {
-	for _, slice := range slices {
-		if slice.Spec.Pool.Name != nodeName {
-			continue
-		}
-
-		for _, device := range slice.Spec.Devices {
-			if !IsUSBDevice(device) {
-				continue
-			}
-			if device.Name != deviceName {
-				continue
-			}
-
-			return ConvertDeviceToAttributes(device, nodeName), true
-		}
-	}
-
-	return v1alpha2.NodeUSBDeviceAttributes{}, false
 }

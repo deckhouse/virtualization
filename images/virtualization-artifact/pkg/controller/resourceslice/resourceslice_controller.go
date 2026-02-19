@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/resourceslice/internal"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/resourceslice/internal/handler"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
@@ -46,7 +46,7 @@ func NewController(
 	client := mgr.GetClient()
 
 	handlers := []Handler{
-		internal.NewDiscoveryHandler(client),
+		handler.NewDiscoveryHandler(client),
 	}
 
 	r := NewReconciler(client, handlers...)

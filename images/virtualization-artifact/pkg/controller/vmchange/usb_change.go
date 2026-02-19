@@ -1,5 +1,5 @@
 /*
-Copyright 2026 Flant JSC
+Copyright 2024 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,16 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package internal
+package vmchange
 
 import (
-	"testing"
+	"reflect"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func TestNodeUSBDevice(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "NodeUSBDevice Handlers Suite")
+func compareUSBDevices(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+	currentValue := NewValue(current.USBDevices, current.USBDevices == nil, false)
+	desiredValue := NewValue(desired.USBDevices, desired.USBDevices == nil, false)
+
+	return compareValues(
+		"usbDevices",
+		currentValue,
+		desiredValue,
+		reflect.DeepEqual(current.USBDevices, desired.USBDevices),
+		ActionApplyImmediate,
+	)
 }

@@ -23,12 +23,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -121,8 +121,8 @@ var _ = Describe("USBDeviceMigrationHandler", func() {
 		Expect(vmResource.Changed().Status.USBDevices[0].Attached).To(BeFalse())
 		Expect(vmResource.Changed().Status.USBDevices[0].Hotplugged).To(BeFalse())
 
-		attachedCond := meta.FindStatusCondition(vmResource.Changed().Status.USBDevices[0].Conditions, string(usbdevicecondition.AttachedType))
-		Expect(attachedCond).NotTo(BeNil())
+		attachedCond, found := conditions.GetCondition(usbdevicecondition.AttachedType, vmResource.Changed().Status.USBDevices[0].Conditions)
+		Expect(found).To(BeTrue())
 		Expect(attachedCond.Reason).To(Equal(string(usbdevicecondition.DetachedForMigration)))
 	})
 

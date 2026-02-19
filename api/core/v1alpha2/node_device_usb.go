@@ -20,6 +20,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	NodeUSBDeviceKind = "NodeUSBDevice"
+)
+
 // NodeUSBDevice represents a USB device discovered on a specific node in the cluster.
 // This resource is created automatically by the DRA (Dynamic Resource Allocation) system
 // when a USB device is detected on a node.
@@ -35,12 +39,10 @@ import (
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type NodeUSBDevice struct {
-	metav1.TypeMeta `json:",inline"`
-
+	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec NodeUSBDeviceSpec `json:"spec"`
-
+	Spec   NodeUSBDeviceSpec   `json:"spec"`
 	Status NodeUSBDeviceStatus `json:"status,omitempty"`
 }
 
@@ -56,7 +58,7 @@ type NodeUSBDeviceList struct {
 }
 
 type NodeUSBDeviceSpec struct {
-	// Namespace in which the device usage is allowed. By default, created with an empty value "".
+	// AssignedNamespace in which the device usage is allowed. By default, created with an empty value "".
 	// When set, a corresponding USBDevice resource is created in this namespace.
 	// +kubebuilder:default:=""
 	AssignedNamespace string `json:"assignedNamespace,omitempty"`

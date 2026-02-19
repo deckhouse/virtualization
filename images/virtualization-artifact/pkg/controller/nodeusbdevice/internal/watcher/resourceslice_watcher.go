@@ -29,6 +29,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	"github.com/deckhouse/deckhouse/pkg/log"
 )
 
 const (
@@ -70,6 +72,7 @@ func (w *ResourceSliceWatcher) Watch(mgr manager.Manager, ctr controller.Control
 
 func requestsByResourceSlice(resourceSlice *resourcev1.ResourceSlice) []reconcile.Request {
 	if resourceSlice == nil || resourceSlice.Spec.Driver != draDriverName {
+		log.Error("resource slice is not a DRA slice")
 		return nil
 	}
 
@@ -90,10 +93,6 @@ func requestsByResourceSlice(resourceSlice *resourcev1.ResourceSlice) []reconcil
 }
 
 func nodeUSBDeviceNamesFromSlice(resourceSlice *resourcev1.ResourceSlice) []string {
-	if resourceSlice == nil {
-		return nil
-	}
-
 	result := make([]string, 0, len(resourceSlice.Spec.Devices))
 	seen := make(map[string]struct{}, len(resourceSlice.Spec.Devices))
 

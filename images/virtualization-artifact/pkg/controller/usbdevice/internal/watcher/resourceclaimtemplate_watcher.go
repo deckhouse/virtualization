@@ -18,10 +18,10 @@ package watcher
 
 import (
 	"context"
-	"reflect"
 	"strings"
 
 	resourcev1 "k8s.io/api/resource/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -46,9 +46,7 @@ func (w *ResourceClaimTemplateWatcher) Watch(mgr manager.Manager, ctr controller
 	return ctr.Watch(
 		source.Kind(mgr.GetCache(),
 			&resourcev1.ResourceClaimTemplate{},
-			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, template *resourcev1.ResourceClaimTemplate) []reconcile.Request {
-				_ = ctx
-
+			handler.TypedEnqueueRequestsFromMapFunc(func(_ context.Context, template *resourcev1.ResourceClaimTemplate) []reconcile.Request {
 				name, ok := mapResourceClaimTemplateToUSBDeviceName(template)
 				if !ok {
 					return nil
@@ -96,5 +94,5 @@ func shouldProcessResourceClaimTemplateUpdate(oldObj, newObj *resourcev1.Resourc
 		return false
 	}
 
-	return !reflect.DeepEqual(oldObj.OwnerReferences, newObj.OwnerReferences) || !reflect.DeepEqual(oldObj.Spec, newObj.Spec)
+	return !equality.Semantic.DeepEqual(oldObj.OwnerReferences, newObj.OwnerReferences) || !equality.Semantic.DeepEqual(oldObj.Spec, newObj.Spec)
 }

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package internal
+package handler
 
 import (
 	"testing"
@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestResourceSlice(t *testing.T) {
+func TestNodeUSBDevice(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "ResourceSlice Handlers Suite")
+	RunSpecs(t, "NodeUSBDevice Handlers Suite")
 }

@@ -46,8 +46,8 @@ const (
 	TypeEvictionRequired Type = "EvictionRequired"
 	// TypeNetworkReady indicates the state of additional network interfaces inside the virtual machine pod
 	TypeNetworkReady Type = "NetworkReady"
-	// TypeUSBDeviceReady indicates the state of USB devices attached to the virtual machine.
-	TypeUSBDeviceReady Type = "USBDeviceReady"
+	// TypeUSBDevicesReady indicates the state of USB devices attached to the virtual machine.
+	TypeUSBDevicesReady Type = "USBDevicesReady"
 
 	// TypeMaintenance indicates that the VirtualMachine is in maintenance mode.
 	// During this condition, the VM remains stopped and no changes are allowed.
@@ -285,15 +285,15 @@ const (
 	ReasonMaintenanceRestore MaintenanceReason = "RestoreInProgress"
 )
 
-type USBDeviceReadyReason string
+type USBDevicesReadyReason string
 
-func (r USBDeviceReadyReason) String() string {
+func (r USBDevicesReadyReason) String() string {
 	return string(r)
 }
 
 const (
-	// ReasonUSBDeviceReady indicates that all USB devices are ready.
-	ReasonUSBDeviceReady USBDeviceReadyReason = "USBDeviceReady"
-	// ReasonSomeDevicesNotReady indicates that some USB devices are not ready.
-	ReasonSomeDevicesNotReady USBDeviceReadyReason = "SomeDevicesNotReady"
+	// ReasonUSBDevicesReady indicates that all USB devices are ready.
+	ReasonUSBDevicesReady USBDevicesReadyReason = "USBDevicesReady"
+	// ReasonUSBDevicesNotReady indicates that some USB devices are not ready.
+	ReasonUSBDevicesNotReady USBDevicesReadyReason = "USBDevicesNotReady"
 )

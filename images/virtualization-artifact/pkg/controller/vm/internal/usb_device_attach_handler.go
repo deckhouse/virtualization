@@ -52,7 +52,7 @@ func (h *USBDeviceAttachHandler) Name() string {
 	return nameUSBDeviceAttachHandler
 }
 
-// Handle builds USB device status, attaches devices that are ready, and updates USBDeviceReady condition.
+// Handle builds USB device status, attaches devices that are ready, and updates USBDevicesReady condition.
 func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler(nameUSBDeviceAttachHandler))
 

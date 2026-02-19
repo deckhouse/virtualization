@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package internal
+package handler
 
 import (
 	"context"
@@ -32,7 +32,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/usbdevice/internal/state"
-	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	fakeversioned "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/fake"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -42,31 +41,39 @@ import (
 var _ = Describe("DeletionHandler", func() {
 	var ctx context.Context
 
+	type testCase struct {
+		deleting         bool
+		attached         bool
+		withVM           bool
+		expectRequeue    bool
+		finalizerPresent bool
+	}
+
 	BeforeEach(func() {
 		ctx = logger.ToContext(context.TODO(), slog.Default())
 	})
 
 	DescribeTable("Handle",
-		func(deleting, attached, withVM, expectFinalizerPresent, expectRequeue bool) {
+		func(tc testCase) {
 			scheme := apiruntime.NewScheme()
 			Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 
 			usb := &v1alpha2.USBDevice{ObjectMeta: metav1.ObjectMeta{Name: "usb-device-1", Namespace: "default"}}
-			if deleting {
+			if tc.deleting {
 				now := metav1.Now()
 				usb.DeletionTimestamp = &now
 				usb.Finalizers = []string{v1alpha2.FinalizerUSBDeviceCleanup}
 			}
 			condStatus := metav1.ConditionFalse
 			condReason := string(usbdevicecondition.Available)
-			if attached {
+			if tc.attached {
 				condStatus = metav1.ConditionTrue
 				condReason = string(usbdevicecondition.AttachedToVirtualMachine)
 			}
 			usb.Status.Conditions = []metav1.Condition{{Type: string(usbdevicecondition.AttachedType), Status: condStatus, Reason: condReason}}
 
 			objects := []client.Object{usb}
-			if withVM {
+			if tc.withVM {
 				objects = append(objects, &v1alpha2.VirtualMachine{
 					ObjectMeta: metav1.ObjectMeta{Name: "test-vm", Namespace: "default"},
 					Spec:       v1alpha2.VirtualMachineSpec{USBDevices: []v1alpha2.USBDeviceSpecRef{{Name: "usb-device-1"}}},
@@ -75,8 +82,7 @@ var _ = Describe("DeletionHandler", func() {
 			}
 
 			vmObj, vmField, vmExtractValue := indexer.IndexVMByUSBDevice()
-			nodeObj, nodeField, nodeExtractValue := indexer.IndexNodeUSBDeviceByName()
-			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).WithIndex(vmObj, vmField, vmExtractValue).WithIndex(nodeObj, nodeField, nodeExtractValue).Build()
+			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).WithIndex(vmObj, vmField, vmExtractValue).Build()
 
 			res := reconciler.NewResource(
 				types.NamespacedName{Name: usb.Name, Namespace: usb.Namespace},
@@ -87,24 +93,24 @@ var _ = Describe("DeletionHandler", func() {
 			Expect(res.Fetch(ctx)).To(Succeed())
 
 			st := state.New(cl, res)
-			h := NewDeletionHandler(cl, fakeversioned.NewSimpleClientset(), &eventrecord.EventRecorderLoggerMock{EventfFunc: func(client.Object, string, string, string, ...any) {}})
+			h := NewDeletionHandler(cl, fakeversioned.NewSimpleClientset())
 			result, err := h.Handle(ctx, st)
 			Expect(err).NotTo(HaveOccurred())
 
-			if expectRequeue {
+			if tc.expectRequeue {
 				Expect(result.RequeueAfter).To(BeNumerically(">", 0))
 			} else {
 				Expect(result).To(Equal(reconcile.Result{}))
 			}
 
-			if expectFinalizerPresent {
+			if tc.finalizerPresent {
 				Expect(res.Changed().GetFinalizers()).To(ContainElement(v1alpha2.FinalizerUSBDeviceCleanup))
 			} else {
 				Expect(res.Changed().GetFinalizers()).NotTo(ContainElement(v1alpha2.FinalizerUSBDeviceCleanup))
 			}
 		},
-		Entry("not deleting adds finalizer", false, false, false, true, false),
-		Entry("deleting not attached removes finalizer", true, false, false, false, false),
-		Entry("deleting attached requeues", true, true, true, true, true),
+		Entry("not deleting adds finalizer", testCase{finalizerPresent: true}),
+		Entry("deleting not attached removes finalizer", testCase{deleting: true, finalizerPresent: false}),
+		Entry("deleting attached requeues", testCase{deleting: true, attached: true, withVM: true, expectRequeue: true, finalizerPresent: true}),
 	)
 })
