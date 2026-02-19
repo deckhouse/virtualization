@@ -339,7 +339,7 @@ var _ = Describe("Network Config Generation", func() {
 		configs := CreateNetworkSpec(vm, vmmacs)
 
 		Expect(configs).To(HaveLen(2))
-		Expect(configs[0].ID).To(Equal(0))
+		Expect(configs[0].ID).To(Equal(1))
 		Expect(configs[1].ID).To(Equal(5))
 	})
 
