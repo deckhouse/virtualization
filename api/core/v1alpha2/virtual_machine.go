@@ -262,7 +262,7 @@ const (
 )
 
 type NetworksSpec struct {
-	Id                           int    `json:"id"`
+	Id                           int    `json:"id,omitempty"`
 	Type                         string `json:"type"`
 	Name                         string `json:"name,omitempty"`
 	VirtualMachineMACAddressName string `json:"virtualMachineMACAddressName,omitempty"`
