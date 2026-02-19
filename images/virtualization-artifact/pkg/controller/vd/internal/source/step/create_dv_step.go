@@ -85,6 +85,12 @@ func (s CreateDataVolumeStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk
 		return nil, fmt.Errorf("get sc: %w", err)
 	}
 
+	isWFFC := sc != nil && sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer
+	if isWFFC && len(vd.Status.AttachedToVirtualMachines) != 1 {
+		vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
+		return &reconcile.Result{}, nil
+	}
+
 	var nodePlacement *provisioner.NodePlacement
 	nodePlacement, err = GetNodePlacement(ctx, s.client, vd)
 	if err != nil {
