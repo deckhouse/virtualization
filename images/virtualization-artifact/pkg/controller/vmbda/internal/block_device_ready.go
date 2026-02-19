@@ -279,7 +279,7 @@ func (h BlockDeviceReadyHandler) ValidateVirtualDiskReady(ctx context.Context, v
 		return nil
 	}
 
-	if pvc.Status.Phase != corev1.ClaimBound {
+	if diskPhaseReadyOrMigrating && pvc.Status.Phase != corev1.ClaimBound {
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.BlockDeviceNotReady).
