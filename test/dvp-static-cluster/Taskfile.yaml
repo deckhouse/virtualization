@@ -176,7 +176,6 @@ tasks:
         sh: kubectl -n {{ .NAMESPACE }} get svc jump-host -o json | jq '.spec.ports[] | select(.port==2222) | .nodePort'
       MASTER_NODE_IP:
         sh: kubectl -n {{ .NAMESPACE }} get vm {{.prefix}}-master-0 -o jsonpath="{.status.ipAddress}"
-        # sh: kubectl -n {{ .NAMESPACE }} get svc ssh-master -o jsonpath="{.spec.clusterIP}"
     cmds:
       - |
         docker run --pull=always \
