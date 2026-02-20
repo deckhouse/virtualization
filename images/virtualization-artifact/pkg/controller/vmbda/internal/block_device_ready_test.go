@@ -27,7 +27,7 @@ import (
 
 	vmbdaBuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmbda"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmbdacondition"
@@ -48,7 +48,7 @@ var _ = Describe("BlockDeviceReadyHandler ValidateVirtualDiskReady", func() {
 			GetVirtualDiskFunc: func(_ context.Context, _, _ string) (*v1alpha2.VirtualDisk, error) {
 				return nil, nil
 			},
-			GetPersistentVolumeClaimFunc: func(_ context.Context, _ *service.AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
+			GetPersistentVolumeClaimFunc: func(_ context.Context, _ *intsvc.AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
 				return nil, nil
 			},
 		}
@@ -88,7 +88,7 @@ var _ = Describe("BlockDeviceReadyHandler ValidateVirtualDiskReady", func() {
 		attachmentServiceMock.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualDisk, error) {
 			return generateVD(v1alpha2.DiskReady, metav1.ConditionTrue), nil
 		}
-		attachmentServiceMock.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *service.AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
+		attachmentServiceMock.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *intsvc.AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
 			return nil, errors.New("error")
 		}
 		err := NewBlockDeviceReadyHandler(&attachmentServiceMock).ValidateVirtualDiskReady(ctx, vmbda, cb)
@@ -99,7 +99,7 @@ var _ = Describe("BlockDeviceReadyHandler ValidateVirtualDiskReady", func() {
 		attachmentServiceMock.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualDisk, error) {
 			return generateVD(v1alpha2.DiskReady, metav1.ConditionTrue), nil
 		}
-		attachmentServiceMock.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *service.AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
+		attachmentServiceMock.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *intsvc.AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
 			return nil, nil
 		}
 		err := NewBlockDeviceReadyHandler(&attachmentServiceMock).ValidateVirtualDiskReady(ctx, vmbda, cb)
@@ -112,7 +112,7 @@ var _ = Describe("BlockDeviceReadyHandler ValidateVirtualDiskReady", func() {
 		attachmentServiceMock.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualDisk, error) {
 			return generateVD(v1alpha2.DiskReady, metav1.ConditionFalse), nil
 		}
-		attachmentServiceMock.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *service.AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
+		attachmentServiceMock.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *intsvc.AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
 			return nil, nil
 		}
 		err := NewBlockDeviceReadyHandler(&attachmentServiceMock).ValidateVirtualDiskReady(ctx, vmbda, cb)
@@ -125,7 +125,7 @@ var _ = Describe("BlockDeviceReadyHandler ValidateVirtualDiskReady", func() {
 		attachmentServiceMock.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualDisk, error) {
 			return generateVD(phase, metav1.ConditionTrue), nil
 		}
-		attachmentServiceMock.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *service.AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
+		attachmentServiceMock.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *intsvc.AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
 			return &corev1.PersistentVolumeClaim{
 				Status: corev1.PersistentVolumeClaimStatus{
 					Phase: corev1.ClaimBound,
@@ -156,7 +156,7 @@ var _ = Describe("BlockDeviceReadyHandler ValidateVirtualDiskReady", func() {
 		attachmentServiceMock.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualDisk, error) {
 			return generateVD(vdPhase, metav1.ConditionTrue), nil
 		}
-		attachmentServiceMock.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *service.AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
+		attachmentServiceMock.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *intsvc.AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
 			return &corev1.PersistentVolumeClaim{
 				Status: corev1.PersistentVolumeClaimStatus{
 					Phase: pvcPhase,

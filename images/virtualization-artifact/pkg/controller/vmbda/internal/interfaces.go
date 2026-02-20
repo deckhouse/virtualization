@@ -22,7 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -35,5 +35,5 @@ type AttachmentService interface {
 	GetVirtualDisk(ctx context.Context, name, namespace string) (*v1alpha2.VirtualDisk, error)
 	GetVirtualImage(ctx context.Context, name, namespace string) (*v1alpha2.VirtualImage, error)
 	GetClusterVirtualImage(ctx context.Context, name string) (*v1alpha2.ClusterVirtualImage, error)
-	GetPersistentVolumeClaim(ctx context.Context, ad *service.AttachmentDisk) (*corev1.PersistentVolumeClaim, error)
+	GetPersistentVolumeClaim(ctx context.Context, ad *intsvc.AttachmentDisk) (*corev1.PersistentVolumeClaim, error)
 }
