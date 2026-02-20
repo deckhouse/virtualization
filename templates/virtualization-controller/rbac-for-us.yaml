@@ -101,6 +101,8 @@ rules:
   verbs:
   - create
   - patch
+  - list
+  - watch
 - apiGroups:
   - cdi.internal.virtualization.deckhouse.io
   resources:

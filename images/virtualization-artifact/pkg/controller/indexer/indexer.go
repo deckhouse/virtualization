@@ -65,6 +65,9 @@ const (
 	IndexFieldVMIPLeaseByVMIP = "spec.virtualMachineIPAddressRef"
 
 	IndexFieldVMByProvisioningSecret = "spec.provisioning.secretRef"
+
+	IndexFieldEventByInvolvedObjectName = "involvedObject.name"
+	IndexFieldEventByInvolvedObjectKind = "involvedObject.kind"
 )
 
 var IndexGetters = []IndexGetter{
@@ -91,6 +94,8 @@ var IndexGetters = []IndexGetter{
 	IndexVMMACByAddress,
 	IndexVMMACLeaseByVMMAC,
 	IndexVMIPLeaseByVMIP,
+	IndexEventByInvolvedObjectName,
+	IndexEventByInvolvedObjectKind,
 }
 
 type IndexGetter func() (obj client.Object, field string, extractValue client.IndexerFunc)
