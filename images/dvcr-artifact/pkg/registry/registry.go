@@ -24,6 +24,7 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -35,12 +36,12 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/stream"
-	"github.com/pkg/errors"
+	githuberrs "github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/klog/v2"
 	"kubevirt.io/containerized-data-importer/pkg/importer"
@@ -140,24 +141,33 @@ func (p DataProcessor) Process(ctx context.Context) (ImportRes, error) {
 
 	informer := NewImageInformer()
 
-	errsGroup, ctx := errgroup.WithContext(ctx)
-	errsGroup.Go(func() error {
-		return p.inspectAndStreamSourceImage(ctx, sourceImageFilename, sourceImageSize, progressMeter, pipeWriter, informer)
-	})
-	errsGroup.Go(func() error {
-		defer pipeReader.Close()
-		return p.uploadLayersAndImage(ctx, pipeReader, sourceImageSize, informer)
-	})
+	resultCh := make(chan error, 2)
 
-	err = errsGroup.Wait()
-	if err != nil {
+	go func() {
+		resultCh <- p.inspectAndStreamSourceImage(
+			ctx, sourceImageFilename, sourceImageSize,
+			progressMeter, pipeWriter, informer,
+		)
+	}()
+
+	go func() {
+		defer pipeReader.Close()
+		resultCh <- p.uploadLayersAndImage(
+			ctx, pipeReader, sourceImageSize, informer,
+		)
+	}()
+
+	err1 := <-resultCh
+	err2 := <-resultCh
+
+	if err := errors.Join(err1, err2); err != nil {
 		return ImportRes{}, err
 	}
 
 	select {
 	case <-informer.Wait():
 	default:
-		return ImportRes{}, errors.New("unexpected waiting for the informer, please report a bug")
+		return ImportRes{}, githuberrs.New("unexpected waiting for the informer, please report a bug")
 	}
 
 	return ImportRes{
@@ -402,7 +412,7 @@ func getImageInfo(ctx context.Context, sourceReader io.ReadCloser) (ImageInfo, e
 		}
 
 		uncompressedN, err = io.CopyN(tempImageInfoFile, formatSourceReaders.TopReader(), imageInfoSize)
-		if err != nil && !errors.Is(err, io.EOF) {
+		if err != nil && !githuberrs.Is(err, io.EOF) {
 			return ImageInfo{}, fmt.Errorf("error writing to temp file: %w", err)
 		}
 
