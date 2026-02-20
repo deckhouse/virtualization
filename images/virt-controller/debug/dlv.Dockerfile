@@ -2,8 +2,8 @@ FROM golang:1.24 AS builder
 
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
-ARG BRANCH="v1.6.1-virtualization"
-ENV VERSION="1.6.1"
+ARG BRANCH="v1.6.2-virtualization"
+ENV VERSION="1.6.2"
 ENV GOVERSION="1.23.0"
 
 # Copy the git commits for rebuilding the image if the branch changes
