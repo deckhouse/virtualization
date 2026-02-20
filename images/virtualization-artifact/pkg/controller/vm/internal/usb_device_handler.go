@@ -19,6 +19,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	resourcev1 "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,6 +44,8 @@ type usbDeviceHandlerBase struct {
 	client     client.Client
 	virtClient VirtClient
 }
+
+const hostDevicePhaseAttachedToPod = "AttachedToPod"
 
 func (h *usbDeviceHandlerBase) getResourceClaimTemplateName(usbDeviceName string) string {
 	return usbDeviceName + "-template"
@@ -79,15 +82,31 @@ func (h *usbDeviceHandlerBase) isUSBDeviceReady(usbDevice *v1alpha2.USBDevice) b
 	return found && readyCondition.Status == metav1.ConditionTrue
 }
 
-func (h *usbDeviceHandlerBase) resourceClaimExistsInKVVMI(kvvmi *virtv1.VirtualMachineInstance, deviceName string) bool {
-	if kvvmi != nil && kvvmi.Spec.Domain.Devices.HostDevices != nil {
-		for _, d := range kvvmi.Spec.Domain.Devices.HostDevices {
-			if d.Name == deviceName {
-				return true
-			}
-		}
+func (h *usbDeviceHandlerBase) hostDeviceAttachedToPodByName(kvvmi *virtv1.VirtualMachineInstance) map[string]bool {
+	hostDeviceAttachedToPodByName := make(map[string]bool)
+	if kvvmi == nil || kvvmi.Status.DeviceStatus == nil {
+		return hostDeviceAttachedToPodByName
 	}
-	return false
+
+	for _, hostDeviceStatus := range kvvmi.Status.DeviceStatus.HostDeviceStatuses {
+		if hostDeviceStatus.Name == "" {
+			continue
+		}
+
+		hostDeviceAttachedToPodByName[hostDeviceStatus.Name] = hostDeviceAttachedToPodByName[hostDeviceStatus.Name] || isHostDeviceAttachedToPod(hostDeviceStatus)
+	}
+
+	return hostDeviceAttachedToPodByName
+}
+
+func isHostDeviceAttachedToPod(hostDeviceStatus virtv1.DeviceStatusInfo) bool {
+	hostDeviceStatusValue := reflect.ValueOf(hostDeviceStatus)
+	hostDevicePhaseValue := hostDeviceStatusValue.FieldByName("Phase")
+	if hostDevicePhaseValue.IsValid() && hostDevicePhaseValue.Kind() == reflect.String {
+		return hostDevicePhaseValue.String() == hostDevicePhaseAttachedToPod
+	}
+
+	return hostDeviceStatus.Hotplug != nil && hostDeviceStatus.Hotplug.AttachPodName != ""
 }
 
 func (h *usbDeviceHandlerBase) attachUSBDevice(
