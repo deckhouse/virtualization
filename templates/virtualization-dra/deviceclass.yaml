@@ -1,5 +1,5 @@
 {{- if eq (include "virtualization-dra.isEnabled" .) "true"}}
-apiVersion: resource.k8s.io/v1beta1
+apiVersion: resource.k8s.io/v1
 kind: DeviceClass
 metadata:
   name: usb-devices.virtualization.deckhouse.io

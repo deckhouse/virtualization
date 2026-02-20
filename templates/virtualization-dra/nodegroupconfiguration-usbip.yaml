@@ -1,0 +1,52 @@
+{{- if eq (include "virtualization-dra.isEnabled" .) "true"}}
+apiVersion: deckhouse.io/v1alpha1
+kind: NodeGroupConfiguration
+metadata:
+  name: virtualization-install-usbip-modules
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  bundles:
+    - '*'
+  nodeGroups:
+    - '*'
+  weight: 30
+  content: |
+    # Copyright 2026 Flant JSC
+    #
+    # Licensed under the Apache License, Version 2.0 (the "License");
+    # you may not use this file except in compliance with the License.
+    # You may obtain a copy of the License at
+    #
+    #     http://www.apache.org/licenses/LICENSE-2.0
+    #
+    # Unless required by applicable law or agreed to in writing, software
+    # distributed under the License is distributed on an "AS IS" BASIS,
+    # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    # See the License for the specific language governing permissions and
+    # limitations under the License.
+
+    pkg=""
+    bundle="$(bb-is-bundle)"
+
+    if bb-is-distro-like? "debian"; then
+    # Debian, Ubuntu, Astra (Debian-based): modules in linux-modules-extra-$(uname -r)
+    pkg="linux-modules-extra-$(uname -r)"
+    elif bb-is-distro-like? "rhel" || bb-is-distro-like? "centos" || bb-is-distro-like? "fedora"; then
+    # RHEL, CentOS, Fedora, ROSA, REDOS: kernel-modules-extra (match by ID or ID_LIKE)
+    pkg="kernel-modules-extra"
+    elif [[ "$bundle" == "altlinux" ]]; then
+    # Alt Linux
+    pkg="kernel-modules-extra"
+    else
+    bb-log-warn "Unsupported OS for usbip kernel modules: bundle=${bundle}. Skipping."
+    return 1
+    fi
+
+    if [[ -z "$pkg" ]]; then
+    bb-log-warn "Could not determine package for usbip kernel modules."
+    return 1
+    fi
+
+    bb-log-info "Installing package for usbip kernel modules (usbip_core, usbip_host, vhci_hcd): ${pkg}"
+    bb-pkg install "$pkg"
+{{- end }}

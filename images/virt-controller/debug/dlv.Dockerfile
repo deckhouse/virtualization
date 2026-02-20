@@ -4,7 +4,7 @@ RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
 ARG BRANCH="v1.6.2-virtualization"
 ENV VERSION="1.6.2"
-ENV GOVERSION="1.23.0"
+ENV GOVERSION="1.24.0"
 
 # Copy the git commits for rebuilding the image if the branch changes
 ADD "https://api.github.com/repos/deckhouse/3p-kubevirt/commits/$BRANCH" /.git-commit-hash.tmp
@@ -26,7 +26,7 @@ ENV GOOS=linux
 ENV CGO_ENABLED=0
 ENV GOARCH=amd64
 
-RUN go build -o /kubevirt-binaries/virt-controller ./cmd/virt-controller/
+RUN go build -gcflags="all=-N -l" -o /kubevirt-binaries/virt-controller ./cmd/virt-controller/
 
 FROM busybox
 
