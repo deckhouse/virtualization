@@ -53,6 +53,7 @@ type LogEntry struct {
 type ErrStreamer struct {
 	excludedPatterns      [][]byte
 	excludedRegexpPattens []regexp.Regexp
+	sinceTime             time.Time // if non-zero, only count errors after this time (for polling)
 }
 
 func NewErrStreamer(excludedPatterns []string, excludedRegexpPattens []regexp.Regexp) *ErrStreamer {
@@ -66,32 +67,40 @@ func NewErrStreamer(excludedPatterns []string, excludedRegexpPattens []regexp.Re
 	}
 }
 
-func (l *ErrStreamer) Stream(r io.Reader, w io.Writer) (int, error) {
+// SetSince sets the start time for counting errors (only entries after this time count).
+// Used by the polling log checker so all polls share the same test start time.
+func (l *ErrStreamer) SetSince(t time.Time) { l.sinceTime = t }
+
+func (l *ErrStreamer) Stream(r io.Reader, w io.Writer) (num int, lastTime time.Time, err error) {
 	startTime := time.Now()
+	if !l.sinceTime.IsZero() {
+		startTime = l.sinceTime
+	}
 
 	scanner := bufio.NewScanner(r)
 	buf := make([]byte, maxCapacity)
 	scanner.Buffer(buf, maxCapacity)
 
-	num := 0
-
 	for scanner.Scan() {
 		rawEntry := scanner.Bytes()
 
 		var entry LogEntry
-		err := json.Unmarshal(rawEntry, &entry)
-		if err != nil {
+		if json.Unmarshal(rawEntry, &entry) != nil {
 			continue
 		}
 
+		entryTime, parseErr := time.Parse(time.RFC3339, entry.Time)
+		if parseErr == nil && entryTime.After(lastTime) {
+			lastTime = entryTime
+		}
+
 		if entry.Level == LevelError && !l.isMsgIgnoredByPattern(rawEntry) {
-			errTime, err := time.Parse(time.RFC3339, entry.Time)
-			if err != nil {
+			if parseErr != nil {
 				continue
 			}
-			if errTime.After(startTime) {
-				jsonData, err := json.MarshalIndent(entry, "", "  ")
-				if err != nil {
+			if entryTime.After(startTime) {
+				jsonData, marshalErr := json.MarshalIndent(entry, "", "  ")
+				if marshalErr != nil {
 					continue
 				}
 				msg := formatMessage(
@@ -105,7 +114,7 @@ func (l *ErrStreamer) Stream(r io.Reader, w io.Writer) (int, error) {
 		}
 	}
 
-	return num, scanner.Err()
+	return num, lastTime, scanner.Err()
 }
 
 func (l *ErrStreamer) isMsgIgnoredByPattern(msg []byte) bool {
