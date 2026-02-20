@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -66,6 +67,11 @@ func NewCreateDataVolumeFromVirtualImageStep(
 
 func (s CreateDataVolumeFromVirtualImageStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
 	if s.pvc != nil || s.dv != nil {
+		return nil, nil
+	}
+
+	_, exists := vd.Annotations[annotations.AnnUseVolumeSnapshot]
+	if exists {
 		return nil, nil
 	}
 
