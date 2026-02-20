@@ -150,6 +150,7 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 	if hasOnlyDefaultNetwork(vm) {
 		vm.Status.Networks = []v1alpha2.NetworksStatus{
 			{
+				Id:   1,
 				Type: v1alpha2.NetworksTypeMain,
 				Name: network.NameDefaultInterface,
 			},
@@ -185,6 +186,7 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 	for _, interfaceSpec := range network.CreateNetworkSpec(vm, vmmacs) {
 		if interfaceSpec.Type == v1alpha2.NetworksTypeMain {
 			networksStatus = append(networksStatus, v1alpha2.NetworksStatus{
+				Id:   interfaceSpec.ID,
 				Type: v1alpha2.NetworksTypeMain,
 				Name: network.NameDefaultInterface,
 			})
@@ -192,6 +194,7 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 		}
 
 		networksStatus = append(networksStatus, v1alpha2.NetworksStatus{
+			Id:                           interfaceSpec.ID,
 			Type:                         interfaceSpec.Type,
 			Name:                         interfaceSpec.Name,
 			MAC:                          macAddressesByInterfaceName[interfaceSpec.InterfaceName],
