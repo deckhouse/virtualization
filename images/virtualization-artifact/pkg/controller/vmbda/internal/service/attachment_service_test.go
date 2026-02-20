@@ -25,11 +25,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	service "github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
-	var clientMock *ClientMock
+	var clientMock *service.ClientMock
 	var vmbdaAlpha *v1alpha2.VirtualMachineBlockDeviceAttachment
 	var vmbdaBeta *v1alpha2.VirtualMachineBlockDeviceAttachment
 
@@ -60,7 +61,7 @@ var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
 			Spec: spec,
 		}
 
-		clientMock = &ClientMock{}
+		clientMock = &service.ClientMock{}
 	})
 
 	// T1: -->VMBDA A Should be Conflicted

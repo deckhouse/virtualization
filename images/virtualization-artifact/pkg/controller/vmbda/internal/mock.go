@@ -5,7 +5,7 @@ package internal
 
 import (
 	"context"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -31,7 +31,7 @@ var _ AttachmentService = &AttachmentServiceMock{}
 //			GetKVVMIFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
 //				panic("mock out the GetKVVMI method")
 //			},
-//			GetPersistentVolumeClaimFunc: func(ctx context.Context, ad *service.AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
+//			GetPersistentVolumeClaimFunc: func(ctx context.Context, ad *intsvc.AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
 //				panic("mock out the GetPersistentVolumeClaim method")
 //			},
 //			GetVirtualDiskFunc: func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualDisk, error) {
@@ -60,7 +60,7 @@ type AttachmentServiceMock struct {
 	GetKVVMIFunc func(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error)
 
 	// GetPersistentVolumeClaimFunc mocks the GetPersistentVolumeClaim method.
-	GetPersistentVolumeClaimFunc func(ctx context.Context, ad *service.AttachmentDisk) (*corev1.PersistentVolumeClaim, error)
+	GetPersistentVolumeClaimFunc func(ctx context.Context, ad *intsvc.AttachmentDisk) (*corev1.PersistentVolumeClaim, error)
 
 	// GetVirtualDiskFunc mocks the GetVirtualDisk method.
 	GetVirtualDiskFunc func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualDisk, error)
@@ -99,7 +99,7 @@ type AttachmentServiceMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Ad is the ad argument value.
-			Ad *service.AttachmentDisk
+			Ad *intsvc.AttachmentDisk
 		}
 		// GetVirtualDisk holds details about calls to the GetVirtualDisk method.
 		GetVirtualDisk []struct {
@@ -247,13 +247,13 @@ func (mock *AttachmentServiceMock) GetKVVMICalls() []struct {
 }
 
 // GetPersistentVolumeClaim calls GetPersistentVolumeClaimFunc.
-func (mock *AttachmentServiceMock) GetPersistentVolumeClaim(ctx context.Context, ad *service.AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
+func (mock *AttachmentServiceMock) GetPersistentVolumeClaim(ctx context.Context, ad *intsvc.AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
 	if mock.GetPersistentVolumeClaimFunc == nil {
 		panic("AttachmentServiceMock.GetPersistentVolumeClaimFunc: method is nil but AttachmentService.GetPersistentVolumeClaim was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Ad  *service.AttachmentDisk
+		Ad  *intsvc.AttachmentDisk
 	}{
 		Ctx: ctx,
 		Ad:  ad,
@@ -270,11 +270,11 @@ func (mock *AttachmentServiceMock) GetPersistentVolumeClaim(ctx context.Context,
 //	len(mockedAttachmentService.GetPersistentVolumeClaimCalls())
 func (mock *AttachmentServiceMock) GetPersistentVolumeClaimCalls() []struct {
 	Ctx context.Context
-	Ad  *service.AttachmentDisk
+	Ad  *intsvc.AttachmentDisk
 } {
 	var calls []struct {
 		Ctx context.Context
-		Ad  *service.AttachmentDisk
+		Ad  *intsvc.AttachmentDisk
 	}
 	mock.lockGetPersistentVolumeClaim.RLock()
 	calls = mock.calls.GetPersistentVolumeClaim
