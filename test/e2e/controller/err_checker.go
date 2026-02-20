@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 
 	"github.com/onsi/ginkgo/v2"
@@ -46,6 +47,23 @@ func isGoAwayError(err error) bool {
 				return true
 			}
 		}
+	}
+	return false
+}
+
+// isExpectedStreamShutdownError reports whether err is expected when we stop the log stream
+// (e.g. we closed the stream, or the server sent GOAWAY after context cancel).
+func isExpectedStreamShutdownError(err error) bool {
+	if err == nil || errors.Is(err, context.Canceled) {
+		return true
+	}
+	if isGoAwayError(err) {
+		return true
+	}
+	// Client closed the stream: Read() returns "read on closed body" or "use of closed network connection".
+	s := err.Error()
+	if strings.Contains(s, "read on closed body") || strings.Contains(s, "use of closed network connection") {
+		return true
 	}
 	return false
 }
@@ -97,15 +115,8 @@ func (l *LogChecker) Start() error {
 			n, err := logStreamer.Stream(readCloser, ginkgo.GinkgoWriter)
 			l.mu.Lock()
 			defer l.mu.Unlock()
-			if err != nil && !errors.Is(err, context.Canceled) {
-				// TODO: Find an alternative way to store Virtualization Controller errors without streaming.
-				// http2.GoAwayError (possibly wrapped in errors.Join) appears when the context is canceled
-				// and the server closes the connection. It should not cause tests to fail.
-				if isGoAwayError(err) {
-					ginkgo.GinkgoWriter.Printf("Warning! %v\n", err)
-				} else {
-					l.resultErr = errors.Join(l.resultErr, err)
-				}
+			if err != nil && !isExpectedStreamShutdownError(err) {
+				l.resultErr = errors.Join(l.resultErr, err)
 			}
 			l.resultNum += n
 		}()
@@ -114,11 +125,12 @@ func (l *LogChecker) Start() error {
 }
 
 func (l *LogChecker) Stop() error {
-	l.cancel()
-	l.wg.Wait()
+	// Close streams first so goroutines exit with "read on closed body" instead of server GOAWAY.
 	for _, c := range l.closers {
 		_ = c.Close()
 	}
+	l.wg.Wait()
+	l.cancel()
 
 	if l.resultErr != nil {
 		return l.resultErr
