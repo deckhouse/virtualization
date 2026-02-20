@@ -9,4 +9,14 @@ users:
     ssh_authorized_keys:
       # testcases
       - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxcXHmwaGnJ8scJaEN5RzklBPZpVSic4GdaAsKjQoeA your_email@example.com
+runcmd:
+  - systemctl enable qemu-guest-agent.service
+  - systemctl start qemu-guest-agent.service
+  - |
+    if systemctl is-active --quiet qemu-guest-agent.service; then
+      echo "✓ QEMU Guest Agent is RUNNING" | tee /var/log/qemu-ga-status.log
+      systemctl status qemu-guest-agent.service --no-pager | tee -a /var/log/qemu-ga-status.log
+    else
+      echo "✗ QEMU Guest Agent FAILED to start" | tee /var/log/qemu-ga-status.log
+    fi
 final_message: "\U0001F525\U0001F525\U0001F525 The system is finally up, after $(awk '{print int($1)}' /proc/uptime) seconds \U0001F525\U0001F525\U0001F525"
