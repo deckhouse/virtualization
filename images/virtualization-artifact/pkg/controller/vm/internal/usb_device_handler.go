@@ -46,8 +46,6 @@ type usbDeviceHandlerBase struct {
 	virtClient VirtClient
 }
 
-const hostDevicePhaseAttachedToPod = "AttachedToPod"
-
 func (h *usbDeviceHandlerBase) getResourceClaimTemplateName(usbDeviceName string) string {
 	return usbDeviceName + "-template"
 }
