@@ -46,6 +46,22 @@ spec:
   vlan:
     id: 1003
 EOF`
+	ClusterNetwork2Name          = "cn-1004-for-e2e-test"
+	ClusterNetwork2CreateCommand = `kubectl apply -f - <<EOF
+apiVersion: network.deckhouse.io/v1alpha1
+kind: ClusterNetwork
+metadata:
+  name: cn-1004-for-e2e-test
+spec:
+  parentNodeNetworkInterfaces:
+    labelSelector:
+      matchLabels:
+        network.deckhouse.io/interface-type: NIC
+        network.deckhouse.io/node-role: worker
+  type: VLAN
+  vlan:
+    id: 1004
+EOF`
 )
 
 func IsSdnModuleEnabled(f *framework.Framework) bool {
@@ -68,6 +84,21 @@ func IsClusterNetworkExists(f *framework.Framework) bool {
 	}
 
 	_, err := framework.GetClients().DynamicClient().Resource(gvr).Get(context.Background(), ClusterNetworkName, metav1.GetOptions{})
+	Expect(err).To(SatisfyAny(BeNil(), WithTransform(k8serrors.IsNotFound, BeTrue())))
+
+	return err == nil || !k8serrors.IsNotFound(err)
+}
+
+func IsClusterNetwork2Exists(f *framework.Framework) bool {
+	GinkgoHelper()
+
+	gvr := schema.GroupVersionResource{
+		Group:    "network.deckhouse.io",
+		Version:  "v1alpha1",
+		Resource: "clusternetworks",
+	}
+
+	_, err := framework.GetClients().DynamicClient().Resource(gvr).Get(context.Background(), ClusterNetwork2Name, metav1.GetOptions{})
 	Expect(err).To(SatisfyAny(BeNil(), WithTransform(k8serrors.IsNotFound, BeTrue())))
 
 	return err == nil || !k8serrors.IsNotFound(err)

@@ -550,6 +550,9 @@ spec:
                     Список конфигураций сетевых интерфейсов.
                   items:
                     properties:
+                      id:
+                        description: |
+                          ID сетевого интерфейса.
                       type:
                         description: |
                           Тип сетевого интерфейса.
@@ -743,6 +746,9 @@ spec:
                     Список сетевых интерфейсов, подключенных к ВМ.
                   items:
                     properties:
+                      id:
+                        description: |
+                          ID сетевого интерфейса.
                       type:
                         description: |
                           Тип сетевого интерфейса.
