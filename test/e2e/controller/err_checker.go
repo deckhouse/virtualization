@@ -21,10 +21,12 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
+	"golang.org/x/net/http2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -33,6 +35,33 @@ import (
 )
 
 const pollInterval = 1 * time.Second // tradeoff: smaller = less log lag, more API calls
+
+// isExpectedShutdownError reports whether err is expected when we stop (cancel context):
+// GOAWAY, connection reset, or context.Canceled. Such errors must not fail the test.
+func isExpectedShutdownError(err error) bool {
+	if err == nil || errors.Is(err, context.Canceled) {
+		return true
+	}
+	var goAway *http2.GoAwayError
+	if errors.As(err, &goAway) {
+		return true
+	}
+	type multiUnwrap interface{ Unwrap() []error }
+	if u, ok := err.(multiUnwrap); ok {
+		for _, e := range u.Unwrap() {
+			if isExpectedShutdownError(e) {
+				return true
+			}
+		}
+	}
+	s := err.Error()
+	if strings.Contains(s, "connection reset by peer") ||
+		strings.Contains(s, "read on closed body") ||
+		strings.Contains(s, "use of closed network connection") {
+		return true
+	}
+	return false
+}
 
 // LogChecker detects `v12n-controller` errors while the test suite is running.
 // It polls pod logs in short-lived requests (no Follow) so that Stop() only cancels
@@ -96,7 +125,7 @@ func (l *LogChecker) pollPodLogs(podName string, excludePatterns []string, exclu
 		})
 		stream, err := req.Stream(l.ctx)
 		if err != nil {
-			if errors.Is(err, context.Canceled) {
+			if isExpectedShutdownError(err) {
 				return
 			}
 			l.mu.Lock()
@@ -108,7 +137,7 @@ func (l *LogChecker) pollPodLogs(podName string, excludePatterns []string, exclu
 
 		n, lastTime, streamErr := streamer.Stream(stream, ginkgo.GinkgoWriter)
 		_ = stream.Close()
-		if streamErr != nil && !errors.Is(streamErr, context.Canceled) {
+		if streamErr != nil && !isExpectedShutdownError(streamErr) {
 			l.mu.Lock()
 			l.resultErr = errors.Join(l.resultErr, fmt.Errorf("pod %s: %w", podName, streamErr))
 			l.mu.Unlock()
