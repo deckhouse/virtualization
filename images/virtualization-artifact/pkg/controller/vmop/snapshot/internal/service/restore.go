@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/step"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
@@ -50,27 +52,26 @@ type RestoreOperation struct {
 }
 
 func (o RestoreOperation) Execute(ctx context.Context) (reconcile.Result, error) {
-	cb := conditions.NewConditionBuilder(vmopcondition.TypeRestoreCompleted)
-	defer func() { conditions.SetCondition(cb.Generation(o.vmop.Generation), &o.vmop.Status.Conditions) }()
+	cb := conditions.NewConditionBuilder(vmopcondition.TypeCompleted)
 
-	cond, exist := conditions.GetCondition(vmopcondition.TypeRestoreCompleted, o.vmop.Status.Conditions)
-	if exist {
-		if cond.Status == metav1.ConditionUnknown {
-			cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonRestoreOperationInProgress)
-		} else {
-			cb.Status(cond.Status).Reason(vmopcondition.ReasonRestoreCompleted(cond.Reason)).Message(cond.Message)
+	defer func() {
+		if cb.Condition().Reason == string(vmopcondition.ReasonOperationFailed) {
+			o.vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+			conditions.SetCondition(cb, &o.vmop.Status.Conditions)
 		}
-	}
+	}()
+
+	log := logger.FromContext(ctx)
 
 	if o.vmop.Spec.Restore == nil {
 		err := fmt.Errorf("restore specification is nil")
-		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonRestoreOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
+		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, err
 	}
 
 	if o.vmop.Spec.Restore.VirtualMachineSnapshotName == "" {
 		err := fmt.Errorf("virtual machine snapshot name is required")
-		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonRestoreOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
+		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, err
 	}
 
@@ -78,22 +79,35 @@ func (o RestoreOperation) Execute(ctx context.Context) (reconcile.Result, error)
 	vm, err := object.FetchObject(ctx, vmKey, o.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		err := fmt.Errorf("failed to fetch the virtual machine %q: %w", vmKey.Name, err)
-		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonRestoreOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
+		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, err
 	}
 
 	if vm == nil {
 		err := fmt.Errorf("virtual machine is nil")
-		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonRestoreOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
+		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, err
 	}
 
-	return steptaker.NewStepTakers(
-		step.NewVMSnapshotReadyStep(o.client, cb),
-		step.NewEnterMaintenanceStep(o.client, o.recorder, cb),
-		step.NewProcessRestoreStep(o.client, o.recorder, cb),
-		step.NewExitMaintenanceStep(o.client, o.recorder, cb),
+	o.vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+
+	result, err := steptaker.NewStepTakers(
+		step.NewVMSnapshotReadyStep(o.client),
+		step.NewEnterMaintenanceStep(o.client, o.recorder),
+		step.NewProcessRestoreStep(o.client, o.recorder),
+		step.NewWaitingDisksStep(o.client, o.recorder),
+		step.NewExitMaintenanceStep(o.client, o.recorder),
+		step.NewCompletedStep(o.recorder),
 	).Run(ctx, o.vmop)
+	if err != nil {
+		failMsg := fmt.Sprintf("%s is failed", o.vmop.Spec.Type)
+		log.Debug(failMsg, logger.SlogErr(err))
+		failMsg = fmt.Errorf("%s: %w", failMsg, err).Error()
+		o.recorder.Event(o.vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, failMsg)
+		cb.Reason(vmopcondition.ReasonOperationFailed).Message(failMsg).Status(metav1.ConditionFalse)
+	}
+
+	return result, err
 }
 
 func (o RestoreOperation) IsApplicableForVMPhase(phase v1alpha2.MachinePhase) bool {
@@ -106,36 +120,4 @@ func (o RestoreOperation) IsApplicableForRunPolicy(runPolicy v1alpha2.RunPolicy)
 
 func (o RestoreOperation) GetInProgressReason() vmopcondition.ReasonCompleted {
 	return vmopcondition.ReasonRestoreInProgress
-}
-
-func (o RestoreOperation) IsInProgress() bool {
-	maintenanceModeCondition, found := conditions.GetCondition(vmopcondition.TypeMaintenanceMode, o.vmop.Status.Conditions)
-	if found && maintenanceModeCondition.Status != metav1.ConditionUnknown {
-		return true
-	}
-
-	completedCondition, found := conditions.GetCondition(vmopcondition.TypeRestoreCompleted, o.vmop.Status.Conditions)
-	if found && completedCondition.Status != metav1.ConditionUnknown {
-		return true
-	}
-
-	return false
-}
-
-func (o RestoreOperation) IsComplete() (bool, string) {
-	rc, ok := conditions.GetCondition(vmopcondition.TypeRestoreCompleted, o.vmop.Status.Conditions)
-	if !ok {
-		return false, ""
-	}
-
-	if o.vmop.Spec.Restore.Mode == v1alpha2.SnapshotOperationModeDryRun {
-		return rc.Status == metav1.ConditionTrue, ""
-	}
-
-	mc, ok := conditions.GetCondition(vmopcondition.TypeMaintenanceMode, o.vmop.Status.Conditions)
-	if !ok {
-		return false, ""
-	}
-
-	return rc.Status == metav1.ConditionTrue && mc.Status == metav1.ConditionFalse, ""
 }
