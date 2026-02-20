@@ -3297,7 +3297,11 @@ The cloned VM will be assigned a new IP address for the cluster network and MAC 
 {{< /alert >}}
 
 {{< alert level="info" >}}
-Labels are not copied from the source VM to the clone. This avoids traffic from Services (which select VMs by labels) being directed to the clone. If the clone should be part of a Service, add the required labels after cloning (e.g. using `d8 k label vm <vm-name> label-name=label-value`).
+Labels are not copied from the source VM to the clone. This prevents Service traffic (Services select VMs by labels) from being routed to the clone. If the clone should be part of a Service, add the required labels after cloning. For example:
+
+```bash
+d8 k label vm <vm-name> label-name=label-value
+```
 {{< /alert >}}
 
 Cloning creates a copy of a VM, so the resources of the new VM must have unique names. To do this, use the `nameReplacements` and/or `customization` parameters:
