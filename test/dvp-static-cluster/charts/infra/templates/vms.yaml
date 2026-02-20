@@ -2,9 +2,6 @@
 {{- range $_, $i := untilStep 0 (.Values.instances.masterNodes.count | int) 1}}
   {{- $vmName := printf "%s-master-%d" $.Values.storageType $i -}}
   {{- include "infra.vm" (list $ $vmName $.Values.instances.masterNodes.cfg) | nindent 0 }}
-  {{- if eq $i 0 }}
-    {{- include "infra.svc.master" (list $ $vmName) | nindent 0 }}
-  {{- end }}
 {{- end }}
 
 {{- range $_, $v := .Values.instances.additionalNodes }}
