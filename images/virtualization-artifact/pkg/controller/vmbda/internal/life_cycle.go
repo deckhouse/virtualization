@@ -28,16 +28,17 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmbdacondition"
 )
 
 type LifeCycleHandler struct {
-	attacher *service.AttachmentService
+	attacher *intsvc.AttachmentService
 }
 
-func NewLifeCycleHandler(attacher *service.AttachmentService) *LifeCycleHandler {
+func NewLifeCycleHandler(attacher *intsvc.AttachmentService) *LifeCycleHandler {
 	return &LifeCycleHandler{
 		attacher: attacher,
 	}
@@ -55,7 +56,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 		cb.Status(metav1.ConditionUnknown).Reason(conditions.ReasonUnknown)
 	}
 
-	var ad *service.AttachmentDisk
+	var ad *intsvc.AttachmentDisk
 	switch vmbda.Spec.BlockDeviceRef.Kind {
 	case v1alpha2.VMBDAObjectRefKindVirtualDisk:
 		vd, err := h.attacher.GetVirtualDisk(ctx, vmbda.Spec.BlockDeviceRef.Name, vmbda.Namespace)
@@ -63,7 +64,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 			return reconcile.Result{}, err
 		}
 		if vd != nil {
-			ad = service.NewAttachmentDiskFromVirtualDisk(vd)
+			ad = intsvc.NewAttachmentDiskFromVirtualDisk(vd)
 		}
 	case v1alpha2.VMBDAObjectRefKindVirtualImage:
 		vi, err := h.attacher.GetVirtualImage(ctx, vmbda.Spec.BlockDeviceRef.Name, vmbda.Namespace)
@@ -71,7 +72,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 			return reconcile.Result{}, err
 		}
 		if vi != nil {
-			ad = service.NewAttachmentDiskFromVirtualImage(vi)
+			ad = intsvc.NewAttachmentDiskFromVirtualImage(vi)
 		}
 	case v1alpha2.VMBDAObjectRefKindClusterVirtualImage:
 		cvi, err := h.attacher.GetClusterVirtualImage(ctx, vmbda.Spec.BlockDeviceRef.Name)
@@ -79,7 +80,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 			return reconcile.Result{}, err
 		}
 		if cvi != nil {
-			ad = service.NewAttachmentDiskFromClusterVirtualImage(cvi)
+			ad = intsvc.NewAttachmentDiskFromClusterVirtualImage(cvi)
 		}
 	}
 
@@ -196,7 +197,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 
 	isHotPlugged, err := h.attacher.IsHotPlugged(ad, vm, kvvmi)
 	if err != nil {
-		if errors.Is(err, service.ErrVolumeStatusNotReady) {
+		if errors.Is(err, intsvc.ErrVolumeStatusNotReady) {
 			vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseInProgress
 			cb.
 				Status(metav1.ConditionFalse).
@@ -277,7 +278,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 			Reason(vmbdacondition.AttachmentRequestSent).
 			Message("Attachment request has sent: attachment is in progress.")
 		return reconcile.Result{}, nil
-	case errors.Is(err, service.ErrBlockDeviceIsSpecAttached):
+	case errors.Is(err, intsvc.ErrBlockDeviceIsSpecAttached):
 		log.Info("VirtualDisk is already attached to the virtual machine spec")
 
 		vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseFailed
@@ -286,7 +287,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 			Reason(vmbdacondition.Conflict).
 			Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, nil
-	case errors.Is(err, service.ErrHotPlugRequestAlreadySent):
+	case errors.Is(err, intsvc.ErrHotPlugRequestAlreadySent):
 		log.Info("Attachment request sent: attachment is in progress.")
 
 		vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseInProgress
