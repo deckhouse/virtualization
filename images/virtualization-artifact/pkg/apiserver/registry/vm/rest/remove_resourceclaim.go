@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -32,48 +32,48 @@ import (
 	"github.com/deckhouse/virtualization/api/subresources"
 )
 
-type RemoveVolumeREST struct {
+type RemoveResourceClaimREST struct {
 	*BaseREST
 }
 
 var (
-	_ rest.Storage   = &RemoveVolumeREST{}
-	_ rest.Connecter = &RemoveVolumeREST{}
+	_ rest.Storage   = &RemoveResourceClaimREST{}
+	_ rest.Connecter = &RemoveResourceClaimREST{}
 )
 
-func NewRemoveVolumeREST(baseREST *BaseREST) *RemoveVolumeREST {
-	return &RemoveVolumeREST{baseREST}
+func NewRemoveResourceClaimREST(baseREST *BaseREST) *RemoveResourceClaimREST {
+	return &RemoveResourceClaimREST{baseREST}
 }
 
-func (r RemoveVolumeREST) New() runtime.Object {
-	return &subresources.VirtualMachineRemoveVolume{}
+func (r RemoveResourceClaimREST) New() runtime.Object {
+	return &subresources.VirtualMachineRemoveResourceClaim{}
 }
 
-func (r RemoveVolumeREST) Destroy() {
+func (r RemoveResourceClaimREST) Destroy() {
 }
 
-func (r RemoveVolumeREST) Connect(ctx context.Context, name string, opts runtime.Object, responder rest.Responder) (http.Handler, error) {
-	removeVolumeOpts, ok := opts.(*subresources.VirtualMachineRemoveVolume)
+func (r RemoveResourceClaimREST) Connect(ctx context.Context, name string, opts runtime.Object, responder rest.Responder) (http.Handler, error) {
+	removeResourceClaimOpts, ok := opts.(*subresources.VirtualMachineRemoveResourceClaim)
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
 	}
 	var (
-		removeVolumePather pather
-		hooks              []mutateRequestHook
+		removeResourceClaimPather pather
+		hooks                     []mutateRequestHook
 	)
 
-	if r.requestFromKubevirt(removeVolumeOpts) {
-		removeVolumePather = newKVVMIPather("removevolume")
+	if r.requestFromKubevirt(removeResourceClaimOpts) {
+		removeResourceClaimPather = newKVVMIPather("removeresourceclaim")
 	} else {
-		removeVolumePather = newKVVMPather("removevolume")
-		h, err := r.genMutateRequestHook(removeVolumeOpts)
+		removeResourceClaimPather = newKVVMPather("removeresourceclaim")
+		h, err := r.genMutateRequestHook(removeResourceClaimOpts)
 		if err != nil {
 			return nil, err
 		}
 		hooks = append(hooks, h)
 	}
 
-	location, transport, err := RemoveVolumeRESTLocation(ctx, r.vmLister, name, removeVolumeOpts, r.kubevirt, r.proxyCertManager, removeVolumePather)
+	location, transport, err := RemoveResourceClaimRESTLocation(ctx, r.vmLister, name, r.kubevirt, r.proxyCertManager, removeResourceClaimPather)
 	if err != nil {
 		return nil, err
 	}
@@ -82,22 +82,23 @@ func (r RemoveVolumeREST) Connect(ctx context.Context, name string, opts runtime
 }
 
 // NewConnectOptions implements rest.Connecter interface
-func (r RemoveVolumeREST) NewConnectOptions() (runtime.Object, bool, string) {
-	return &subresources.VirtualMachineRemoveVolume{}, false, ""
+func (r RemoveResourceClaimREST) NewConnectOptions() (runtime.Object, bool, string) {
+	return &subresources.VirtualMachineRemoveResourceClaim{}, false, ""
 }
 
 // ConnectMethods implements rest.Connecter interface
-func (r RemoveVolumeREST) ConnectMethods() []string {
+func (r RemoveResourceClaimREST) ConnectMethods() []string {
 	return []string{http.MethodPut}
 }
 
-func (r RemoveVolumeREST) requestFromKubevirt(opts *subresources.VirtualMachineRemoveVolume) bool {
+func (r RemoveResourceClaimREST) requestFromKubevirt(opts *subresources.VirtualMachineRemoveResourceClaim) bool {
 	return opts == nil || opts.Name == ""
 }
 
-func (r RemoveVolumeREST) genMutateRequestHook(opts *subresources.VirtualMachineRemoveVolume) (mutateRequestHook, error) {
-	unplugRequest := virtv1.RemoveVolumeOptions{
-		Name: opts.Name,
+func (r RemoveResourceClaimREST) genMutateRequestHook(opts *subresources.VirtualMachineRemoveResourceClaim) (mutateRequestHook, error) {
+	unplugRequest := virtv1.RemoveResourceClaimOptions{
+		Name:   opts.Name,
+		DryRun: opts.DryRun,
 	}
 
 	newBody, err := json.Marshal(&unplugRequest)
@@ -110,14 +111,13 @@ func (r RemoveVolumeREST) genMutateRequestHook(opts *subresources.VirtualMachine
 	}, nil
 }
 
-func RemoveVolumeRESTLocation(
+func RemoveResourceClaimRESTLocation(
 	ctx context.Context,
 	getter virtlisters.VirtualMachineLister,
 	name string,
-	opts *subresources.VirtualMachineRemoveVolume,
 	kubevirt KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
-	removeVolumePather pather,
+	removeResourceClaimPather pather,
 ) (*url.URL, *http.Transport, error) {
-	return streamLocation(ctx, getter, name, removeVolumePather, kubevirt, proxyCertManager)
+	return streamLocation(ctx, getter, name, removeResourceClaimPather, kubevirt, proxyCertManager)
 }

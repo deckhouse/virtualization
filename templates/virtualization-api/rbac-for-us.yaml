@@ -72,6 +72,8 @@ rules:
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/addvolume
   - virtualmachineinstances/removevolume
+  - virtualmachineinstances/addresourceclaim
+  - virtualmachineinstances/removeresourceclaim
   verbs:
   - get
   - patch
@@ -83,6 +85,8 @@ rules:
   - virtualmachines/addvolume
   - virtualmachines/removevolume
   - virtualmachines/evacuatecancel
+  - virtualmachines/addresourceclaim
+  - virtualmachines/removeresourceclaim
   verbs:
   - get
   - patch
