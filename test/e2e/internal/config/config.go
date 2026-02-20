@@ -93,7 +93,6 @@ type TestData struct {
 	VdSnapshots        string `yaml:"vdSnapshots"`
 	Sshkey             string `yaml:"sshKey"`
 	SSHUser            string `yaml:"sshUser"`
-	VMVpc              string `yaml:"vmVpc"`
 }
 
 type StorageClass struct {
