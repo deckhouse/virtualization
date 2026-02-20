@@ -89,7 +89,7 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 
 	var kvvmiLoaded bool
 	var kvvmi *virtv1.VirtualMachineInstance
-	var hostDeviceAttachedToPodByName map[string]bool
+	var hostDeviceReadyByName map[string]bool
 
 	var nextStatusRefs []v1alpha2.USBDeviceStatusRef
 	for _, usbDeviceRef := range vm.Spec.USBDevices {
@@ -137,11 +137,11 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 			kvvmiLoaded = true
 		}
 
-		if hostDeviceAttachedToPodByName == nil {
-			hostDeviceAttachedToPodByName = h.hostDeviceAttachedToPodByName(kvvmi)
+		if hostDeviceReadyByName == nil {
+			hostDeviceReadyByName = h.hostDeviceReadyByName(kvvmi)
 		}
 
-		if hostDeviceAttachedToPodByName[deviceName] {
+		if hostDeviceReadyByName[deviceName] {
 			address := h.getUSBAddressFromKVVMI(deviceName, kvvmi)
 			isHotplugged := vm.Status.Phase == v1alpha2.MachineRunning
 

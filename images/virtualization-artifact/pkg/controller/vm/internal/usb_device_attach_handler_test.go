@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"reflect"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -76,17 +75,6 @@ func (m *mockVirtualMachines) AddResourceClaim(_ context.Context, _ string, opts
 func (m *mockVirtualMachines) RemoveResourceClaim(_ context.Context, _ string, opts subv1alpha2.VirtualMachineRemoveResourceClaim) error {
 	m.removeResourceClaimCalls = append(m.removeResourceClaimCalls, opts)
 	return m.removeResourceClaimErr
-}
-
-func setHostDeviceStatusPhase(hostDeviceStatus *virtv1.DeviceStatusInfo, phase string) bool {
-	hostDeviceStatusValue := reflect.ValueOf(hostDeviceStatus).Elem()
-	hostDevicePhaseValue := hostDeviceStatusValue.FieldByName("Phase")
-	if !hostDevicePhaseValue.IsValid() || hostDevicePhaseValue.Kind() != reflect.String || !hostDevicePhaseValue.CanSet() {
-		return false
-	}
-
-	hostDevicePhaseValue.SetString(phase)
-	return true
 }
 
 var _ = Describe("USBDeviceAttachHandler", func() {
@@ -172,7 +160,7 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 		Expect(vmResource.Changed().Status.USBDevices[0].Attached).To(BeFalse())
 	})
 
-	It("should set attached when KVVMI host device phase is AttachedToPod and attach pod name is set", func() {
+	It("should set attached when KVVMI host device phase is HostDeviceReady and attach pod name is set", func() {
 		vm := &v1alpha2.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-vm", Namespace: "default", UID: types.UID("vm-uid")},
 			Spec:       v1alpha2.VirtualMachineSpec{USBDevices: []v1alpha2.USBDeviceSpecRef{{Name: "usb-device-1"}}},
@@ -191,7 +179,7 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 			Name:    "usb-device-1",
 			Hotplug: &virtv1.HotplugDeviceStatus{AttachPodName: "hp-usb-device-1"},
 		}
-		setHostDeviceStatusPhase(&hostDeviceStatus, "AttachedToPod")
+		hostDeviceStatus.Phase = virtv1.DeviceReady
 
 		kvvmi := &virtv1.VirtualMachineInstance{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-vm", Namespace: "default"},
@@ -207,7 +195,7 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 		Expect(vmResource.Changed().Status.USBDevices[0].Attached).To(BeTrue())
 	})
 
-	It("should set attached when KVVMI host device phase is AttachedToPod", func() {
+	It("should set attached when KVVMI host device phase is HostDeviceReady", func() {
 		vm := &v1alpha2.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-vm", Namespace: "default", UID: types.UID("vm-uid")},
 			Spec:       v1alpha2.VirtualMachineSpec{USBDevices: []v1alpha2.USBDeviceSpecRef{{Name: "usb-device-1"}}},
@@ -226,9 +214,6 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 		hostDeviceStatus := virtv1.DeviceStatusInfo{
 			Address: "0:2",
 			Name:    "usb-device-1",
-		}
-		if !setHostDeviceStatusPhase(&hostDeviceStatus, "AttachedToPod") {
-			Skip("kubevirt DeviceStatusInfo has no Phase field")
 		}
 
 		kvvmi := &virtv1.VirtualMachineInstance{
@@ -266,9 +251,6 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 			hostDeviceStatus := virtv1.DeviceStatusInfo{
 				Address: invalidAddress,
 				Name:    "usb-device-1",
-			}
-			if !setHostDeviceStatusPhase(&hostDeviceStatus, "AttachedToPod") {
-				Skip("kubevirt DeviceStatusInfo has no Phase field")
 			}
 
 			kvvmi := &virtv1.VirtualMachineInstance{
@@ -316,8 +298,39 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 			Name:    "usb-device-1",
 			Hotplug: &virtv1.HotplugDeviceStatus{AttachPodName: "hp-usb-device-1"},
 		}
-		if !setHostDeviceStatusPhase(&hostDeviceStatus, "Ready") {
-			Skip("kubevirt DeviceStatusInfo has no Phase field")
+
+		kvvmi := &virtv1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-vm", Namespace: "default"},
+			Status:     virtv1.VirtualMachineInstanceStatus{DeviceStatus: &virtv1.DeviceStatus{HostDeviceStatuses: []virtv1.DeviceStatusInfo{hostDeviceStatus}}},
+		}
+
+		fakeClient, vmResource, vmState = setupEnvironment(vm, usbDevice, template, kvvmi)
+		handler = NewUSBDeviceAttachHandler(fakeClient, mockVirtCl)
+
+		_, err := handler.Handle(ctx, vmState)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(vmResource.Changed().Status.USBDevices).To(HaveLen(1))
+		Expect(vmResource.Changed().Status.USBDevices[0].Attached).To(BeFalse())
+	})
+
+	It("should keep detached when KVVMI host device phase is AttachedToPod even if attach pod name is set", func() {
+		vm := &v1alpha2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-vm", Namespace: "default", UID: types.UID("vm-uid")},
+			Spec:       v1alpha2.VirtualMachineSpec{USBDevices: []v1alpha2.USBDeviceSpecRef{{Name: "usb-device-1"}}},
+			Status:     v1alpha2.VirtualMachineStatus{Phase: v1alpha2.MachineRunning},
+		}
+		usbDevice := &v1alpha2.USBDevice{
+			ObjectMeta: metav1.ObjectMeta{Name: "usb-device-1", Namespace: "default"},
+			Status: v1alpha2.USBDeviceStatus{
+				Attributes: v1alpha2.NodeUSBDeviceAttributes{Name: "usb-device-1", VendorID: "1234", ProductID: "5678"},
+				NodeName:   "node-1",
+				Conditions: []metav1.Condition{{Type: "Ready", Status: metav1.ConditionTrue}},
+			},
+		}
+		template := &resourcev1.ResourceClaimTemplate{ObjectMeta: metav1.ObjectMeta{Name: "usb-device-1-template", Namespace: "default"}}
+		hostDeviceStatus := virtv1.DeviceStatusInfo{
+			Name:    "usb-device-1",
+			Hotplug: &virtv1.HotplugDeviceStatus{AttachPodName: "hp-usb-device-1"},
 		}
 
 		kvvmi := &virtv1.VirtualMachineInstance{

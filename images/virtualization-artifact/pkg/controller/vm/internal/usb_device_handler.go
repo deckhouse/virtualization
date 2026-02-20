@@ -81,10 +81,10 @@ func (h *usbDeviceHandlerBase) isUSBDeviceReady(usbDevice *v1alpha2.USBDevice) b
 	return found && readyCondition.Status == metav1.ConditionTrue
 }
 
-func (h *usbDeviceHandlerBase) hostDeviceAttachedToPodByName(kvvmi *virtv1.VirtualMachineInstance) map[string]bool {
-	hostDeviceAttachedToPodByName := make(map[string]bool)
+func (h *usbDeviceHandlerBase) hostDeviceReadyByName(kvvmi *virtv1.VirtualMachineInstance) map[string]bool {
+	hostDeviceReadyByName := make(map[string]bool)
 	if kvvmi == nil || kvvmi.Status.DeviceStatus == nil {
-		return hostDeviceAttachedToPodByName
+		return hostDeviceReadyByName
 	}
 
 	for _, hostDeviceStatus := range kvvmi.Status.DeviceStatus.HostDeviceStatuses {
@@ -92,10 +92,10 @@ func (h *usbDeviceHandlerBase) hostDeviceAttachedToPodByName(kvvmi *virtv1.Virtu
 			continue
 		}
 
-		hostDeviceAttachedToPodByName[hostDeviceStatus.Name] = hostDeviceAttachedToPodByName[hostDeviceStatus.Name] || hostDeviceStatus.Phase == virtv1.DeviceAttachedToPod
+		hostDeviceReadyByName[hostDeviceStatus.Name] = hostDeviceReadyByName[hostDeviceStatus.Name] || hostDeviceStatus.Phase == virtv1.DeviceReady
 	}
 
-	return hostDeviceAttachedToPodByName
+	return hostDeviceReadyByName
 }
 
 func (h *usbDeviceHandlerBase) attachUSBDevice(
