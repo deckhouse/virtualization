@@ -1,7 +1,8 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
-  name: vd-from-cvi-ubuntu-http
+  name: vd-from-cvi-http
+  # name: vd-from-cvi-ubuntu-http
 spec:
   persistentVolumeClaim:
     storageClassName: "{{ .STORAGE_CLASS_NAME }}"
@@ -10,4 +11,5 @@ spec:
     type: ObjectRef
     objectRef:
       kind: ClusterVirtualImage
-      name: cvi-ubuntu-http
+      name: cvi-alpine-http
+      # name: cvi-ubuntu-http

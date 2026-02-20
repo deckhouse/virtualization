@@ -1,0 +1,10 @@
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: ClusterVirtualImage
+metadata:
+  name: cvi-alpine-http
+spec:
+  dataSource:
+    type: HTTP
+    http:
+      url: https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/cloud/generic_alpine-3.23.3-x86_64-uefi-cloudinit-r0.qcow2
