@@ -95,20 +95,10 @@ func (h *usbDeviceHandlerBase) hostDeviceAttachedToPodByName(kvvmi *virtv1.Virtu
 			continue
 		}
 
-		hostDeviceAttachedToPodByName[hostDeviceStatus.Name] = hostDeviceAttachedToPodByName[hostDeviceStatus.Name] || isHostDeviceAttachedToPod(hostDeviceStatus)
+		hostDeviceAttachedToPodByName[hostDeviceStatus.Name] = hostDeviceAttachedToPodByName[hostDeviceStatus.Name] || hostDeviceStatus.Phase == virtv1.DeviceAttachedToPod
 	}
 
 	return hostDeviceAttachedToPodByName
-}
-
-func isHostDeviceAttachedToPod(hostDeviceStatus virtv1.DeviceStatusInfo) bool {
-	hostDeviceStatusValue := reflect.ValueOf(hostDeviceStatus)
-	hostDevicePhaseValue := hostDeviceStatusValue.FieldByName("Phase")
-	if hostDevicePhaseValue.IsValid() && hostDevicePhaseValue.Kind() == reflect.String {
-		return hostDevicePhaseValue.String() == hostDevicePhaseAttachedToPod
-	}
-
-	return hostDeviceStatus.Hotplug != nil && hostDeviceStatus.Hotplug.AttachPodName != ""
 }
 
 func (h *usbDeviceHandlerBase) attachUSBDevice(

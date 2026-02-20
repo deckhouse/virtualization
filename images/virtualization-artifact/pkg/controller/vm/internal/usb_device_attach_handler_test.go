@@ -172,7 +172,7 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 		Expect(vmResource.Changed().Status.USBDevices[0].Attached).To(BeFalse())
 	})
 
-	It("should set attached when hotplug attach pod name is present (fallback path)", func() {
+	It("should set attached when KVVMI host device phase is AttachedToPod and attach pod name is set", func() {
 		vm := &v1alpha2.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-vm", Namespace: "default", UID: types.UID("vm-uid")},
 			Spec:       v1alpha2.VirtualMachineSpec{USBDevices: []v1alpha2.USBDeviceSpecRef{{Name: "usb-device-1"}}},
@@ -297,7 +297,7 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 		Entry("missing port", "1:"),
 	)
 
-	It("should keep detached when KVVMI host device phase is not AttachedToPod even if attach pod name is set", func() {
+	It("should keep detached when KVVMI host device phase is Ready even if attach pod name is set", func() {
 		vm := &v1alpha2.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-vm", Namespace: "default", UID: types.UID("vm-uid")},
 			Spec:       v1alpha2.VirtualMachineSpec{USBDevices: []v1alpha2.USBDeviceSpecRef{{Name: "usb-device-1"}}},
@@ -316,7 +316,7 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 			Name:    "usb-device-1",
 			Hotplug: &virtv1.HotplugDeviceStatus{AttachPodName: "hp-usb-device-1"},
 		}
-		if !setHostDeviceStatusPhase(&hostDeviceStatus, "DetachingFromPod") {
+		if !setHostDeviceStatusPhase(&hostDeviceStatus, "Ready") {
 			Skip("kubevirt DeviceStatusInfo has no Phase field")
 		}
 
