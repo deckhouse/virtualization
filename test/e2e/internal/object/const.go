@@ -17,15 +17,24 @@ limitations under the License.
 package object
 
 const (
-	ImageURLAlpineUEFIPerf = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/alpine/alpine-3-21-uefi-perf.qcow2"
-	ImageURLUbuntu         = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/ubuntu-24.04-minimal-cloudimg-amd64.qcow2"
-	ImageURLAlpineBIOS     = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/alpine/alpine-3-21-bios-base.qcow2"
+	ImageURLAlpineUEFIPerf = "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/cloud/nocloud_alpine-3.23.0-x86_64-uefi-cloudinit-metal-r0.qcow2"
+	// ImageURLAlpineUEFIPerf = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/alpine/alpine-3-21-uefi-perf.qcow2"
+	ImageURLUbuntu     = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/ubuntu-24.04-minimal-cloudimg-amd64.qcow2"
+	ImageURLAlpineBIOS = "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/cloud/nocloud_alpine-3.23.0-x86_64-bios-cloudinit-metal-r0.qcow2"
+	// ImageURLAlpineBIOS     = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/alpine/alpine-3-21-bios-base.qcow2"
 	ImageURLContainerImage = "cr.yandex/crpvs5j3nh1mi2tpithr/e2e/alpine/alpine-image:latest"
 	ImageURLMinimalQCOW    = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.qcow2"
 	ImageURLMinimalISO     = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.iso"
 	Mi256                  = 256 * 1024 * 1024
 	DefaultVMClass         = "generic"
 	DefaultCloudInit       = `#cloud-config
+package_update: true
+packages:
+  - qemu-guest-agent
+  - curl
+  - bash
+  - sudo
+  - iputils
 users:
   - name: cloud
     # passwd: cloud
@@ -36,6 +45,8 @@ users:
     ssh_authorized_keys:
       # testcases
       - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxcXHmwaGnJ8scJaEN5RzklBPZpVSic4GdaAsKjQoeA your_email@example.com
+runcmd:
+- "rc-update add qemu-guest-agent && rc-service qemu-guest-agent start"
 `
 	DefaultSSHPrivateKey = `-----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW

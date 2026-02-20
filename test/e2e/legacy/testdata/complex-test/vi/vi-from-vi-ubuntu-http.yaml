@@ -8,4 +8,5 @@ spec:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
-      name: vi-ubuntu-http
+      name: vi-alpine-http
+      # name: vi-ubuntu-http

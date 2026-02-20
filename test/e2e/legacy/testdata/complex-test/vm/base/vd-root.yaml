@@ -5,9 +5,11 @@ metadata:
 spec:
   persistentVolumeClaim:
     storageClassName: "{{ .STORAGE_CLASS_NAME }}"
-    size: 3600Mi
+    size: 350Mi
+    # size: 3600Mi
   dataSource:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
-      name: vi-ubuntu-http
+      name: vi-alpine-http
+      # name: vi-ubuntu-http
