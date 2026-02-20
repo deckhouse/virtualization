@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
 
 	resourcev1 "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -143,16 +145,42 @@ func (h *usbDeviceHandlerBase) getUSBAddressFromKVVMI(deviceName string, kvvmi *
 		if st.Name != deviceName {
 			continue
 		}
-		if st.DeviceResourceClaimStatus == nil || st.DeviceResourceClaimStatus.Attributes == nil || st.DeviceResourceClaimStatus.Attributes.USBAddress == nil {
-			return nil
+
+		if st.Address == "" {
+			continue
 		}
-		ua := st.DeviceResourceClaimStatus.Attributes.USBAddress
-		return &v1alpha2.USBAddress{
-			Bus:  int(ua.Bus),
-			Port: int(ua.DeviceNumber),
-		}
+
+		return parseUSBAddress(st.Address)
 	}
 	return nil
+}
+
+func parseUSBAddress(address string) *v1alpha2.USBAddress {
+	parts := strings.Split(address, ":")
+	if len(parts) != 2 {
+		return nil
+	}
+
+	busPart := strings.TrimSpace(parts[0])
+	portPart := strings.TrimSpace(parts[1])
+	if busPart == "" || portPart == "" {
+		return nil
+	}
+
+	bus, err := strconv.Atoi(busPart)
+	if err != nil {
+		return nil
+	}
+
+	port, err := strconv.Atoi(portPart)
+	if err != nil {
+		return nil
+	}
+
+	return &v1alpha2.USBAddress{
+		Bus:  bus,
+		Port: port,
+	}
 }
 
 func (h *usbDeviceHandlerBase) hasPendingMigrationOp(ctx context.Context, s state.VirtualMachineState) (bool, error) {
