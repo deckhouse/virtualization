@@ -32,6 +32,41 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
+// isOnlyGoAwayOrCanceled returns true if err is nil, context.Canceled, or only contains
+// http2.GoAwayError (e.g. when wrapped in errors.joinError). Such errors are expected when
+// stopping log streams and should not fail the test.
+func isOnlyGoAwayOrCanceled(err error) bool {
+	if err == nil || errors.Is(err, context.Canceled) {
+		return true
+	}
+	var all []error
+	if j := asJoin(err); j != nil {
+		all = j
+	} else {
+		all = []error{err}
+	}
+	for _, e := range all {
+		if e == nil || errors.Is(e, context.Canceled) {
+			continue
+		}
+		var goAway *http2.GoAwayError
+		if !errors.As(e, &goAway) {
+			return false
+		}
+	}
+	return true
+}
+
+type join interface{ Unwrap() []error }
+
+func asJoin(err error) []error {
+	var j join
+	if !errors.As(err, &j) {
+		return nil
+	}
+	return j.Unwrap()
+}
+
 // LogChecker detects `v12n-controller` errors while the test suite is running.
 type LogChecker struct {
 	ctx     context.Context
@@ -79,16 +114,10 @@ func (l *LogChecker) Start() error {
 			n, err := logStreamer.Stream(readCloser, ginkgo.GinkgoWriter)
 			l.mu.Lock()
 			defer l.mu.Unlock()
-			if err != nil && !errors.Is(err, context.Canceled) {
-				// TODO: Find an alternative way to store Virtualization Controller errors without streaming.
-				// `http2.GoAwayError` likely appears when the context is canceled and readers are closed.
-				// It should not cause tests to fail.
-				var goAwayError *http2.GoAwayError
-				if errors.As(err, &goAwayError) {
-					ginkgo.GinkgoWriter.Printf("Warning! %v\n", err)
-				} else {
-					l.resultErr = errors.Join(l.resultErr, err)
-				}
+			if err != nil && !errors.Is(err, context.Canceled) && !isOnlyGoAwayOrCanceled(err) {
+				l.resultErr = errors.Join(l.resultErr, err)
+			} else if err != nil && !errors.Is(err, context.Canceled) {
+				ginkgo.GinkgoWriter.Printf("Warning! %v\n", err)
 			}
 			l.resultNum += n
 		}()
@@ -103,7 +132,8 @@ func (l *LogChecker) Stop() error {
 		_ = c.Close()
 	}
 
-	if l.resultErr != nil {
+	// Ignore errors that are only GOAWAY/canceled (connection closed during teardown).
+	if l.resultErr != nil && !isOnlyGoAwayOrCanceled(l.resultErr) {
 		return l.resultErr
 	}
 	if l.resultNum > 0 {
