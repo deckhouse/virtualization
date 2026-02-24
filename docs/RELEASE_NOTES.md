@@ -3,13 +3,19 @@ title: "Release Notes"
 weight: 70
 ---
 
-## v1.5.1 (2026-02-16)
+## v1.5.1
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: February 16, 2026.
+</span>
 
 ### Fixes
 
 - [vd] Fixed an issue with creating a virtual disk from a virtual image stored on a `PersistentVolumeClaim` (with `.spec.storage` set to `PersistentVolumeClaim`).
 
-## v1.5.0 (2026-02-09)
+## v1.5.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: February 9, 2026.
+</span>
 
 ### New features
 
@@ -31,13 +37,19 @@ weight: 70
 
 - [vd] When viewing disks, the name of the virtual machine they are attached to is now displayed (`d8 k get vd`).
 
-## v1.4.1 (2026-02-16)
+## v1.4.1
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: February 16, 2026.
+</span>
 
 ### Security
 
 - [module] Fixed vulnerabilities CVE-2025-61726, CVE-2025-61728, CVE-2025-61730, and CVE-2025-68121.
 
-## v1.4.0 (2026-01-23)
+## v1.4.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: January 23, 2026.
+</span>
 
 ### New features
 
@@ -52,7 +64,10 @@ weight: 70
 - [vmip] Fixed IP address attachment when the corresponding [VirtualMachineIPAddress](/modules/virtualization/cr.html#virtualmachineipaddress) resource was created manually in advance.
 - [vm] Added support for cloning virtual machines in the `Running` phase via [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) of type `Clone`.
 
-## v1.3.0 (2025-12-16)
+## v1.3.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: December 16, 2025.
+</span>
 
 ### New features
 
@@ -65,19 +80,28 @@ weight: 70
 - [vd] Fixed an issue with restoring labels and annotations on a disk created from a snapshot.
 - [observability] Fixed the display of virtual machine charts in clusters running in HA mode.
 
-## v1.2.2 (2025-12-05)
+## v1.2.2
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: December 5, 2025.
+</span>
 
 ### Fixes
 
 - [module] Fixed RBAC access permissions for the `d8:use:role:user` role that prevented it from managing the [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource.
 
-## v1.2.1 (2025-12-04)
+## v1.2.1
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: December 4, 2025.
+</span>
 
 ### Fixes
 
 - [module] The deprecated part of the configuration has been removed, which could have prevented the virtualization module from upgrading in clusters running Kubernetes version 1.34 and above.
 
-## v1.2.0 (2025-11-28)
+## v1.2.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: November 28, 2025.
+</span>
 
 ### New features
 
@@ -112,7 +136,10 @@ weight: 70
 
 - [module] Fixed vulnerability CVE-2025-64324.
 
-## v1.1.3 (2025-11-21)
+## v1.1.3
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: November 21, 2025.
+</span>
 
 ### Security
 
@@ -122,7 +149,10 @@ weight: 70
 
 - [observability] The virtual machine overview dashboards (`Namespace / Virtual Machine` and `Namespace / Virtual Machines`) have been improved: in addition to the cluster level, they are now also available at the project level.
 
-## v1.1.2 (2025-11-05)
+## v1.1.2
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: November 5, 2025.
+</span>
 
 ### Fixes
 
@@ -130,7 +160,10 @@ weight: 70
   - Migration between `Block` and `Filesystem` is not supported. Only migrations between the same volume mode are allowed: `Block` → `Block` and `Filesystem` → `Filesystem`.
 - [vm] In the `Migrating` state, detailed error information is now displayed when a live migration of a virtual machine fails.
 
-## v1.1.1 (2025-10-16)
+## v1.1.1
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: October 16, 2025.
+</span>
 
 ### Fixes
 
@@ -150,7 +183,10 @@ weight: 70
 
 - [module] Fixed vulnerabilities CVE-2025-58058 and CVE-2025-54410.
 
-## v1.1.0 (2025-10-06)
+## v1.1.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: October 6, 2025.
+</span>
 
 ### New features
 
@@ -177,7 +213,10 @@ weight: 70
 - [observability] The virtual machine dashboard now displays statistics for all networks (including additional ones) connected to the VM.
 - [observability] Fixed the graph on the virtual machine dashboard that displays memory copy statistics during VM migration.
 
-## v1.0.0 (2025-09-11)
+## v1.0.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: September 11, 2025.
+</span>
 
 ### New features
 
@@ -196,7 +235,10 @@ weight: 70
 
 - Fixed CVE-2025-47907.
 
-## v0.25.0 (2025-08-29)
+## v0.25.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: August 29, 2025.
+</span>
 
 ### Important notes before update
 
