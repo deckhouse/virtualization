@@ -42,6 +42,10 @@ jobs:
         run: |
           current_date_seconds="$(date -u +%s)"
           FORMAT="%-63s %22s\n"
+          
+          # 47h = ~2 days with CI delay; 71h = ~3 days for Friday clusters
+          KEEP_HOURS=47
+          FRIDAY_KEEP_HOURS=71
 
           collect_items_json() {
             local resource="$1"
@@ -51,18 +55,18 @@ jobs:
 
           should_keep() {
             local created_at="$1"
-            local recourse_created_at age_days weekday_of_day
+            local recourse_created_at_seconds age_seconds weekday_of_day
 
             recourse_created_at_seconds="$(date -d "${created_at}" -u +%s)"
-            age_days="$(( (current_date_seconds - recourse_created_at_seconds) / 86400 ))"
+            age_seconds="$(( current_date_seconds - recourse_created_at_seconds ))"
             weekday_of_day="$(date -d "${created_at}" -u +%u)"
 
-            if [ "${age_days}" -lt 2 ]; then
+            if [ "${age_seconds}" -lt "$(( KEEP_HOURS * 3600 ))" ]; then
               echo "keep"
               return 0
             fi
 
-            if [ "${weekday_of_day}" -eq 5 ] && [ "${age_days}" -lt 4 ]; then
+            if [ "${weekday_of_day}" -eq 5 ] && [ "${age_seconds}" -lt "$(( FRIDAY_KEEP_HOURS * 3600 ))" ]; then
               echo "keep"
               return 0
             fi
