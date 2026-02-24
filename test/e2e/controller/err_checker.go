@@ -20,10 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
-	"strings"
+	"io"
 	"sync"
-	"time"
 
 	"github.com/onsi/ginkgo/v2"
 	"golang.org/x/net/http2"
@@ -34,43 +32,12 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
-const pollInterval = 1 * time.Second // tradeoff: smaller = less log lag, more API calls
-
-// isExpectedShutdownError reports whether err is expected when we stop (cancel context):
-// GOAWAY, connection reset, or context.Canceled. Such errors must not fail the test.
-func isExpectedShutdownError(err error) bool {
-	if err == nil || errors.Is(err, context.Canceled) {
-		return true
-	}
-	var goAway *http2.GoAwayError
-	if errors.As(err, &goAway) {
-		return true
-	}
-	type multiUnwrap interface{ Unwrap() []error }
-	if u, ok := err.(multiUnwrap); ok {
-		for _, e := range u.Unwrap() {
-			if isExpectedShutdownError(e) {
-				return true
-			}
-		}
-	}
-	s := err.Error()
-	if strings.Contains(s, "connection reset by peer") ||
-		strings.Contains(s, "read on closed body") ||
-		strings.Contains(s, "use of closed network connection") {
-		return true
-	}
-	return false
-}
-
 // LogChecker detects `v12n-controller` errors while the test suite is running.
-// It polls pod logs in short-lived requests (no Follow) so that Stop() only cancels
-// the context; no long-lived streams, so no GOAWAY or "read on closed body" errors.
 type LogChecker struct {
 	ctx     context.Context
 	cancel  context.CancelFunc
+	closers []io.Closer
 	wg      *sync.WaitGroup
-	startAt time.Time
 
 	resultNum int
 	resultErr error
@@ -80,7 +47,6 @@ type LogChecker struct {
 func (l *LogChecker) Start() error {
 	l.ctx, l.cancel = context.WithCancel(context.Background())
 	l.wg = &sync.WaitGroup{}
-	l.startAt = time.Now()
 
 	kubeClient := framework.GetClients().KubeClient()
 	pods, err := kubeClient.CoreV1().Pods(VirtualizationNamespace).List(l.ctx, metav1.ListOptions{
@@ -90,89 +56,58 @@ func (l *LogChecker) Start() error {
 		return fmt.Errorf("failed to obtain the `Virtualization-controller` pods: %w", err)
 	}
 
-	c := framework.GetConfig()
-	excludePatterns := c.LogFilter
-	excludeRegexpPatterns := c.RegexpLogFilter
-
 	for _, p := range pods.Items {
-		podName := p.Name
+		req := kubeClient.CoreV1().Pods(VirtualizationNamespace).GetLogs(p.Name, &corev1.PodLogOptions{
+			Container: VirtualizationController,
+			Follow:    true,
+		})
+		readCloser, err := req.Stream(l.ctx)
+		if err != nil {
+			return fmt.Errorf("failed to stream the `Virtualization-controller` logs: %w", err)
+		}
+
+		l.closers = append(l.closers, readCloser)
+
 		l.wg.Add(1)
 		go func() {
 			defer l.wg.Done()
-			l.pollPodLogs(podName, excludePatterns, excludeRegexpPatterns)
+
+			c := framework.GetConfig()
+			excludePatterns := c.LogFilter
+			excludeRegexpPatterns := c.RegexpLogFilter
+			logStreamer := NewErrStreamer(excludePatterns, excludeRegexpPatterns)
+			n, err := logStreamer.Stream(readCloser, ginkgo.GinkgoWriter)
+			l.mu.Lock()
+			defer l.mu.Unlock()
+			if err != nil && !errors.Is(err, context.Canceled) {
+				// TODO: Find an alternative way to store Virtualization Controller errors without streaming.
+				// `http2.GoAwayError` likely appears when the context is canceled and readers are closed.
+				// It should not cause tests to fail.
+				var goAwayError *http2.GoAwayError
+				if errors.As(err, &goAwayError) {
+					ginkgo.GinkgoWriter.Printf("Warning! %v\n", err)
+				} else {
+					l.resultErr = errors.Join(l.resultErr, err)
+				}
+			}
+			l.resultNum += n
 		}()
 	}
 	return nil
 }
 
-func (l *LogChecker) pollPodLogs(podName string, excludePatterns []string, excludeRegexpPatterns []regexp.Regexp) {
-	kubeClient := framework.GetClients().KubeClient()
-	streamer := NewErrStreamer(excludePatterns, excludeRegexpPatterns)
-	streamer.SetSince(l.startAt)
-	sinceTime := l.startAt
-
-	for {
-		select {
-		case <-l.ctx.Done():
-			return
-		default:
-		}
-
-		req := kubeClient.CoreV1().Pods(VirtualizationNamespace).GetLogs(podName, &corev1.PodLogOptions{
-			Container:  VirtualizationController,
-			SinceTime:  &metav1.Time{Time: sinceTime},
-			Timestamps: true,
-		})
-		stream, err := req.Stream(l.ctx)
-		if err != nil {
-			if isExpectedShutdownError(err) {
-				return
-			}
-			l.mu.Lock()
-			l.resultErr = errors.Join(l.resultErr, fmt.Errorf("pod %s: %w", podName, err))
-			l.mu.Unlock()
-			l.sleepOrDone()
-			continue
-		}
-
-		n, lastTime, streamErr := streamer.Stream(stream, ginkgo.GinkgoWriter)
-		_ = stream.Close()
-		if streamErr != nil && !isExpectedShutdownError(streamErr) {
-			l.mu.Lock()
-			l.resultErr = errors.Join(l.resultErr, fmt.Errorf("pod %s: %w", podName, streamErr))
-			l.mu.Unlock()
-		}
-		if !lastTime.IsZero() {
-			sinceTime = lastTime
-		}
-		l.mu.Lock()
-		l.resultNum += n
-		l.mu.Unlock()
-
-		l.sleepOrDone()
-	}
-}
-
-func (l *LogChecker) sleepOrDone() {
-	t := time.NewTimer(pollInterval)
-	defer t.Stop()
-	select {
-	case <-l.ctx.Done():
-		return
-	case <-t.C:
-		return
-	}
-}
-
 func (l *LogChecker) Stop() error {
 	l.cancel()
 	l.wg.Wait()
+	for _, c := range l.closers {
+		_ = c.Close()
+	}
 
 	if l.resultErr != nil {
 		return l.resultErr
 	}
 	if l.resultNum > 0 {
-		return fmt.Errorf("%d error(s) have appeared in the `Virtualization-controller` logs (see test output above); add exclusions via logFilter/regexpLogFilter in e2e config if these are expected", l.resultNum)
+		return fmt.Errorf("errors have appeared in the `Virtualization-controller` logs")
 	}
 
 	return nil
