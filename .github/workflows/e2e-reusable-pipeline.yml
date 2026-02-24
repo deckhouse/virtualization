@@ -1202,12 +1202,10 @@ jobs:
           if [ -n "$FOCUS" ]; then
             go tool ginkgo \
               --focus="$FOCUS" \
-              --procs=3 \
               -v --race --timeout=$TIMEOUT \
               --junit-report=$summary_file_name_junit | tee $GINKGO_RESULT
           else
             go tool ginkgo \
-              --procs=3 \
               -v --race --timeout=$TIMEOUT \
               --junit-report=$summary_file_name_junit | tee $GINKGO_RESULT
           fi
