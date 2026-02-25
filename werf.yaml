@@ -128,6 +128,13 @@ shell:
 ---
 image: release-channel-version
 fromImage: builder/scratch
+import:
+- image: prepare-bundle
+  add: /
+  to: /
+  after: install
+  includePaths:
+    - module.yaml
 shell:
   install:
     - echo  '{"version":"{{ env "MODULES_MODULE_TAG" "dev" }}"}' > version.json
