@@ -2,10 +2,8 @@
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/hack/dockerized#L15
 {{- $gitRepoName := "3p-kubevirt" }}
 {{- $gitRepoUrl := (printf "%s/%s" "deckhouse" $gitRepoName) }}
-{{- $tag := "chore/debug/add-debug-nodeplacement" }}
-{{/*{{- $tag := get $.Core $gitRepoName }}*/}}
-{{- $version := "v1.6.2" }}
-{{/*{{- $version := (split "-" $tag)._0 }}*/}}
+{{- $tag := get $.Core $gitRepoName }}
+{{- $version := (split "-" $tag)._0 }}
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
@@ -15,13 +13,9 @@ secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
 shell:
-  # TODO: remove before merge
-  installCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
   install:
   - |
-    echo "[INFO] [ $(date) ]"
-    echo "[INFO] Git clone {{ $gitRepoName }} repository..."
-    echo "[INFO] Clone branch {{ $tag }}"
+    echo "Git clone {{ $gitRepoName }} repository..."
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $tag }} /src/kubevirt
 
     rm -rf /src/kubevirt/.git
