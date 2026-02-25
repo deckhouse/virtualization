@@ -975,7 +975,9 @@ spec:
                 networks:
                   type: array
                   description: |
-                    List of network interface configurations.
+                    List of network interface configurations. If not specified, the VM uses only the main cluster network.
+
+                    The `sdn` module is required only when `.spec.networks` contains additional networks (`Network` or `ClusterNetwork`). If only the main network (`Main`) is specified, the module is not required.
                   items:
                     type: object
                     required:
