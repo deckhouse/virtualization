@@ -1,0 +1,95 @@
+{{- if eq (include "d8.securityPolicyException.isEnabled" .) "true" }}
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: SecurityPolicyException
+metadata:
+  name: virt-handler-ds
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" .Chart.Name)) | nindent 2 }}
+spec:
+  securityContext:
+    runAsUser:
+      allowedValues:
+        - 0
+      metadata:
+        description: |
+          Allow virt-handler container to run as root user (UID 0).
+          Virt-handler component requires root privileges to properly communicate with the KVM subsystem.
+
+    runAsNonRoot:
+      allowedValue: false
+      metadata:
+        description: |
+          Allow containers to run as root user (non-root disabled).
+          Virt-handler component requires root privileges to access kernel-level resources and interact with system calls.
+
+    allowPrivilegeEscalation:
+      allowedValue: true
+      metadata:
+        description: |
+          Allow privilege escalation for the virt-handler container.
+          Virt-handler component requires privilege escalation to access kernel-level system calls.
+
+    privileged:
+      allowedValue: true
+      metadata:
+        description: |
+          Allow privileged mode for the virt-handler.
+          Virt-handler component requires privileged access to interact with the KVM subsystem and Linux kernel.
+
+  network:
+    hostNetwork:
+      allowedValue: true
+      metadata:
+        description: |
+          Virt-handler component needs hostNetwork to manipulate node route tables
+          to allow traffic between virtual machines.
+    hostPID:
+      allowedValue: true
+      metadata:
+        description:
+          Virt-handler component needs access to host PID.
+  # Allow mounting host directories.
+  volumes:
+    types:
+      allowedValues:
+        - hostPath
+      metadata:
+        description: |
+          Allow hostPath volume type for virt handlers.
+          Virt-handler component requires access to host filesystem to share files and sockets with virtual machines.
+
+    hostPath:
+      allowedValues:
+        - path: /var/lib/kubelet
+          readOnly: false
+          metadata:
+            description: |
+              Allow read-write access to /var/lib/kubelet hostPath volume.
+        - path: /var/lib/kubelet/pods
+          readOnly: false
+          metadata:
+            description: |
+              Allow read-write access to /var/lib/kubelet/pods hostPath volume.
+        - path: /var/lib/kubevirt-node-labeller
+          readOnly: false
+          metadata:
+            description: |
+              Allow read-write access to /var/lib/kubevirt-node-labeller hostPath volume.
+        - path: /var/run/kubevirt
+          readOnly: false
+          metadata:
+            description: |
+              Allow read-write access to /var/run/kubevirt hostPath volume.
+        - path: /var/run/kubevirt-libvirt-runtimes
+          readOnly: false
+          metadata:
+            description: |
+              Allow read-write access to /var/run/kubevirt-libvirt-runtimes hostPath volume.
+        - path: /var/run/kubevirt-private
+          readOnly: false
+          metadata:
+            description: |
+              Allow read-write access to /var/run/kubevirt-private hostPath volume.
+
+{{- end }}
