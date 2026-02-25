@@ -250,7 +250,7 @@ jobs:
             echo "[INFO] Available nodes shortage: only ${nodes_meeting_min} node(s) meet free resources requirement, expect at least ${MIN_NODES_FOR_PLACEMENT} available nodes. Proceed with power off some VMs to free resources."
           fi
           echo "[Note] Will ignore VMs in 'nightly-e2e-*', 'static-cse' namespaces, and VMs with the 'e2e-cluster/do-not-stop-vm-on-e2e-run' label."
-          echo "[INFO] Power off candidates sorted by memory (largest first); stop once enough resources are freed."
+          echo "[INFO] Power off candidates sorted by memory (largest first); stop when enough resources are freed."
 
           # Power off VMs until we have enough (exclude nightly-e2e-*, static-cse, do-not-stop)
           get_vms_candidates() {
