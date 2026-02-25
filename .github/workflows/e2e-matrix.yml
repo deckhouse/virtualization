@@ -321,7 +321,7 @@ jobs:
           fi
   set-vars:
     name: Set vars
-    # needs: power-off-vms-for-nested
+    needs: power-off-vms-for-nested
     runs-on: ubuntu-latest
     outputs:
       date_start: ${{ steps.vars.outputs.date-start }}

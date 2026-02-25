@@ -32,14 +32,14 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
-// isOnlyGoAwayOrCanceled returns true if err is nil, context.Canceled, or only contains
-// http2.GoAwayError (e.g. when wrapped in errors.joinError). Such errors are expected when
-// stopping log streams and should not fail the test.
-func isOnlyGoAwayOrCanceled(err error) bool {
+// isExpectedStreamCloseError reports whether err is an expected outcome of closing a log stream:
+// nil, context.Canceled, or only http2.GoAwayError (e.g. when wrapped in errors.joinError).
+// These should not fail the test.
+func isExpectedStreamCloseError(err error) bool {
 	if err == nil || errors.Is(err, context.Canceled) {
 		return true
 	}
-	for _, e := range flattenErrors(err) {
+	for _, e := range collectAllErrors(err) {
 		if e == nil || errors.Is(e, context.Canceled) {
 			continue
 		}
@@ -51,8 +51,8 @@ func isOnlyGoAwayOrCanceled(err error) bool {
 	return true
 }
 
-// flattenErrors collects all errors from the error tree (single Unwrap() error and Unwrap() []error).
-func flattenErrors(err error) []error {
+// collectAllErrors returns all errors from the error tree (following Unwrap() error and Unwrap() []error).
+func collectAllErrors(err error) []error {
 	var out []error
 	var visit func(error)
 	visit = func(e error) {
@@ -123,7 +123,7 @@ func (l *LogChecker) Start() error {
 			n, err := logStreamer.Stream(readCloser, ginkgo.GinkgoWriter)
 			l.mu.Lock()
 			defer l.mu.Unlock()
-			if err != nil && !errors.Is(err, context.Canceled) && !isOnlyGoAwayOrCanceled(err) {
+			if err != nil && !errors.Is(err, context.Canceled) && !isExpectedStreamCloseError(err) {
 				l.resultErr = errors.Join(l.resultErr, err)
 			} else if err != nil && !errors.Is(err, context.Canceled) {
 				ginkgo.GinkgoWriter.Printf("Warning! %v\n", err)
@@ -142,7 +142,7 @@ func (l *LogChecker) Stop() error {
 	}
 
 	// Ignore errors that are only GOAWAY/canceled (connection closed during teardown).
-	if l.resultErr != nil && !isOnlyGoAwayOrCanceled(l.resultErr) {
+	if l.resultErr != nil && !isExpectedStreamCloseError(l.resultErr) {
 		return l.resultErr
 	}
 	if l.resultNum > 0 {
