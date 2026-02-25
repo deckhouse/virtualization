@@ -1,0 +1,100 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-tools
+final: false
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.25" "builder/golang-alt-svace-1.25.4" }}
+git:
+  - add: {{ .ModuleDir }}/images/{{ .ImageName }}/tools
+    to: /src/images/usb-modules/tools
+    stageDependencies:
+      install:
+        - go.mod
+        - go.sum
+      setup:
+        - "**/*.go"
+secrets:
+  - id: GOPROXY
+    value: {{ .GOPROXY }}
+mount:
+  - fromPath: ~/go-pkg-cache
+    to: /go/pkg
+shell:
+  install:
+    - export GOPROXY=$(cat /run/secrets/GOPROXY)
+    - cd /src/images/usb-modules/tools
+    - go mod download
+  setup:
+    - cd /src/images/usb-modules/tools
+    - mkdir /out
+    - export GOOS=linux
+    - export GOARCH=amd64
+    - export CGO_ENABLED=0
+
+    - |
+      echo "Build usbip-downloader binary"
+      {{- $_ := set $ "ProjectName" (list $.ImageName "usbip-downloader" | join "/") }}
+      {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -v -o /out/usbip-downloader ./usbip-downloader`) | nindent 6 }}
+
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-downloader
+fromImage: {{ "builder/debian-trixie-slim" }}
+final: false
+import:
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-tools
+    add: /out/usbip-downloader
+    to: /usb/bin/usbip-downloader
+    before: setup
+shell:
+  install:
+    - apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+  setup:
+    - mkdir -p /src/linux
+    - /usb/bin/usbip-downloader --out-dir=/src/linux
+
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+# Need GCC 14+ for -fmin-function-alignment (used by Fedora kernel build)
+fromImage: {{ "builder/debian-trixie-slim" }}
+import:
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-downloader
+    add: /src/linux
+    to: /src/linux
+    after: install
+git:
+  - add: {{ .ModuleDir }}/images/{{ .ImageName }}
+    to: /src/images/usb-modules
+    stageDependencies:
+      setup:
+        - "**/Makefile"
+        - "**/build-usbip-modules.sh"
+        - "**/build.sh"
+        - "**/apply-patches.sh"
+        - "**/patches/*"
+shell:
+  install:
+    - |
+      apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        patch \
+        make \
+        gcc \
+        libc-dev \
+        libelf-dev \
+        && rm -rf /var/lib/apt/lists/*
+  setup:
+    # copy Makefile to every kernel version
+    - |
+      for dir in src/linux/*/drivers/usb/usbip; do
+        cp /src/images/usb-modules/Makefile "$dir/Makefile"
+      done
+    - |
+      chmod +x /src/images/usb-modules/apply-patches.sh
+      /src/images/usb-modules/apply-patches.sh "/src/linux/"
+
+    - chmod +x /src/images/usb-modules/build-usbip-modules.sh
+    - chmod +x /src/images/usb-modules/build.sh
+
+imageSpec:
+  config:
+    user: 64535
+    workingDir: "/src/images/usb-modules"
+    entrypoint: ["./build.sh", "/out"]
