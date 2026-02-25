@@ -36,7 +36,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -137,30 +137,47 @@ func (p DataProcessor) Process(ctx context.Context) (ImportRes, error) {
 	defer progressMeter.Stop()
 
 	pipeReader, pipeWriter := io.Pipe()
+	defer pipeReader.Close()
 
 	informer := NewImageInformer()
 
-	resultCh := make(chan error, 2)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	errsCh := make(chan error, 2)
 
 	go func() {
-		resultCh <- p.inspectAndStreamSourceImage(
+		err := p.inspectAndStreamSourceImage(
 			ctx, sourceImageFilename, sourceImageSize,
 			progressMeter, pipeWriter, informer,
 		)
+		if err != nil {
+			err = fmt.Errorf("stream source error: %w", err)
+			if !errors.Is(err, context.Canceled) {
+				cancel()
+			}
+		}
+		errsCh <- err
 	}()
 
 	go func() {
-		defer pipeReader.Close()
-		resultCh <- p.uploadLayersAndImage(
+		err := p.uploadLayersAndImage(
 			ctx, pipeReader, sourceImageSize, informer,
 		)
+		if err != nil {
+			err = fmt.Errorf("upload layers error: %w", err)
+			if !errors.Is(err, context.Canceled) {
+				cancel()
+			}
+		}
+		errsCh <- err
 	}()
 
-	err1 := <-resultCh
+	err1 := <-errsCh
 	if err1 != nil {
 		klog.Errorln(err1)
 	}
-	err2 := <-resultCh
+	err2 := <-errsCh
 	if err2 != nil {
 		klog.Errorln(err2)
 	}
