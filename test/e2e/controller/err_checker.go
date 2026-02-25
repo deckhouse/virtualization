@@ -39,13 +39,7 @@ func isOnlyGoAwayOrCanceled(err error) bool {
 	if err == nil || errors.Is(err, context.Canceled) {
 		return true
 	}
-	var all []error
-	if j := asJoin(err); j != nil {
-		all = j
-	} else {
-		all = []error{err}
-	}
-	for _, e := range all {
+	for _, e := range flattenErrors(err) {
 		if e == nil || errors.Is(e, context.Canceled) {
 			continue
 		}
@@ -57,14 +51,29 @@ func isOnlyGoAwayOrCanceled(err error) bool {
 	return true
 }
 
-type join interface{ Unwrap() []error }
-
-func asJoin(err error) []error {
-	var j join
-	if !errors.As(err, &j) {
-		return nil
+// flattenErrors collects all errors from the error tree (single Unwrap() error and Unwrap() []error).
+func flattenErrors(err error) []error {
+	var out []error
+	var visit func(error)
+	visit = func(e error) {
+		if e == nil {
+			return
+		}
+		out = append(out, e)
+		// Multi-error (e.g. errors.Join)
+		if multi, ok := e.(interface{ Unwrap() []error }); ok {
+			for _, child := range multi.Unwrap() {
+				visit(child)
+			}
+			return
+		}
+		// Single unwrap
+		if child := errors.Unwrap(e); child != nil {
+			visit(child)
+		}
 	}
-	return j.Unwrap()
+	visit(err)
+	return out
 }
 
 // LogChecker detects `v12n-controller` errors while the test suite is running.
