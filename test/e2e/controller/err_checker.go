@@ -21,60 +21,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 
 	"github.com/onsi/ginkgo/v2"
-	"golang.org/x/net/http2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
-
-// isExpectedStreamCloseError reports whether err is an expected outcome of closing a log stream:
-// nil, context.Canceled, or only http2.GoAwayError (e.g. when wrapped in errors.joinError).
-// These should not fail the test.
-func isExpectedStreamCloseError(err error) bool {
-	if err == nil || errors.Is(err, context.Canceled) {
-		return true
-	}
-	for _, e := range collectAllErrors(err) {
-		if e == nil || errors.Is(e, context.Canceled) {
-			continue
-		}
-		var goAway *http2.GoAwayError
-		if !errors.As(e, &goAway) {
-			return false
-		}
-	}
-	return true
-}
-
-// collectAllErrors returns all errors from the error tree (following Unwrap() error and Unwrap() []error).
-func collectAllErrors(err error) []error {
-	var out []error
-	var visit func(error)
-	visit = func(e error) {
-		if e == nil {
-			return
-		}
-		out = append(out, e)
-		// Multi-error (e.g. errors.Join)
-		if multi, ok := e.(interface{ Unwrap() []error }); ok {
-			for _, child := range multi.Unwrap() {
-				visit(child)
-			}
-			return
-		}
-		// Single unwrap
-		if child := errors.Unwrap(e); child != nil {
-			visit(child)
-		}
-	}
-	visit(err)
-	return out
-}
 
 // LogChecker detects `v12n-controller` errors while the test suite is running.
 type LogChecker struct {
@@ -123,10 +79,15 @@ func (l *LogChecker) Start() error {
 			n, err := logStreamer.Stream(readCloser, ginkgo.GinkgoWriter)
 			l.mu.Lock()
 			defer l.mu.Unlock()
-			if err != nil && !errors.Is(err, context.Canceled) && !isExpectedStreamCloseError(err) {
-				l.resultErr = errors.Join(l.resultErr, err)
-			} else if err != nil && !errors.Is(err, context.Canceled) {
-				ginkgo.GinkgoWriter.Printf("Warning! %v\n", err)
+			if err != nil && !errors.Is(err, context.Canceled) {
+				// TODO: Find an alternative way to store Virtualization Controller errors without streaming.
+				// `http2.GoAwayError` likely appears when the context is canceled and readers are closed.
+				// It should not cause tests to fail.
+				if strings.Contains(err.Error(), "GOAWAY") {
+					ginkgo.GinkgoWriter.Printf("Warning! %v\n", err)
+				} else {
+					l.resultErr = errors.Join(l.resultErr, err)
+				}
 			}
 			l.resultNum += n
 		}()
@@ -141,8 +102,7 @@ func (l *LogChecker) Stop() error {
 		_ = c.Close()
 	}
 
-	// Ignore errors that are only GOAWAY/canceled (connection closed during teardown).
-	if l.resultErr != nil && !isExpectedStreamCloseError(l.resultErr) {
+	if l.resultErr != nil {
 		return l.resultErr
 	}
 	if l.resultNum > 0 {
