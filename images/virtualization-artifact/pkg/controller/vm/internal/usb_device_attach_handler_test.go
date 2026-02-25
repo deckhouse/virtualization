@@ -312,12 +312,17 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 			mockVM.addResourceClaimErr = input.addErr
 
 			_, _, _, err := runHandle(vm, newUSBDevice(true, usbDeviceName, false), newResourceClaimTemplate())
-			Expect(err).NotTo(HaveOccurred())
-			Expect(expectSingleUSBStatus().Attached).To(Equal(expected.attached))
-			Expect(mockVM.addResourceClaimCalls).To(HaveLen(1))
+			if input.addErr != nil && !apierrors.IsAlreadyExists(input.addErr) {
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("failed to attach USB device"))
+			} else {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(expectSingleUSBStatus().Attached).To(Equal(expected.attached))
+				Expect(mockVM.addResourceClaimCalls).To(HaveLen(1))
+			}
 		},
 		Entry(
-			"non AlreadyExists error keeps detached",
+			"non AlreadyExists error returns error",
 			struct{ addErr error }{addErr: apierrors.NewInternalError(errors.New("boom"))},
 			struct{ attached bool }{attached: false},
 		),
@@ -353,11 +358,16 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 			}
 
 			_, _, _, err := runHandle(vm, objs...)
-			Expect(err).NotTo(HaveOccurred())
-			status := expectSingleUSBStatus()
-			Expect(status.Attached).To(BeFalse())
-			Expect(status.Address).To(BeNil())
-			Expect(status.Hotplugged).To(BeFalse())
+			if input.addErr != nil && !apierrors.IsAlreadyExists(input.addErr) {
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("failed to attach USB device"))
+			} else {
+				Expect(err).NotTo(HaveOccurred())
+				status := expectSingleUSBStatus()
+				Expect(status.Attached).To(BeFalse())
+				Expect(status.Address).To(BeNil())
+				Expect(status.Hotplugged).To(BeFalse())
+			}
 		},
 		Entry(
 			"device deleting",
