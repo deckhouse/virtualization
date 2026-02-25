@@ -43,6 +43,10 @@ jobs:
           current_date_seconds="$(date -u +%s)"
           FORMAT="%-63s %22s\n"
 
+          # 47h = ~2 days with CI delay; 71h = ~3 days for Friday clusters
+          KEEP_HOURS=47
+          FRIDAY_KEEP_HOURS=71
+
           collect_items_json() {
             local resource="$1"
             kubectl get "${resource}" -l test=nightly-e2e -o json \
@@ -51,18 +55,18 @@ jobs:
 
           should_keep() {
             local created_at="$1"
-            local recourse_created_at age_days weekday_of_day
+            local recourse_created_at_seconds age_seconds weekday_of_day
 
             recourse_created_at_seconds="$(date -d "${created_at}" -u +%s)"
-            age_days="$(( (current_date_seconds - recourse_created_at_seconds) / 86400 ))"
+            age_seconds="$(( current_date_seconds - recourse_created_at_seconds ))"
             weekday_of_day="$(date -d "${created_at}" -u +%u)"
 
-            if [ "${age_days}" -lt 2 ]; then
+            if [ "${age_seconds}" -lt "$(( KEEP_HOURS * 3600 ))" ]; then
               echo "keep"
               return 0
             fi
 
-            if [ "${weekday_of_day}" -eq 5 ] && [ "${age_days}" -lt 4 ]; then
+            if [ "${weekday_of_day}" -eq 5 ] && [ "${age_seconds}" -lt "$(( FRIDAY_KEEP_HOURS * 3600 ))" ]; then
               echo "keep"
               return 0
             fi
@@ -150,47 +154,68 @@ jobs:
           float_le() { (( $(echo "$1 <= $2" | bc) )); }
           float_lt() { (( $(echo "$1 < $2"  | bc) )); }
 
-          # Gather free resources on worker nodes (kubelet stats = same as kubectl top)
-          available_mem_gi=0
-          available_cpu=0
-          nodes_meeting_min=0
+          # Gather free resources like the scheduler: allocatable - sum(pod requests) per node.
           worker_nodes=$(kubectl get nodes -l node-role.kubernetes.io/worker -o jsonpath='{.items[*].metadata.name}')
+          gather_node_resources() {
+            available_mem_gi=0
+            available_cpu=0
+            nodes_meeting_min=0
+            for node in $worker_nodes; do
+              [[ -n "$node" ]] || continue
+              node_json=$(kubectl get node "$node" -o json 2>/dev/null) || true
+              if [[ -z "$node_json" ]]; then
+                echo "[WARN] Node $node: could not get node spec, skipping"
+                continue
+              fi
 
-          for node in $worker_nodes; do
-            [[ -n "$node" ]] || continue
-            summary=$(kubectl get --raw "/api/v1/nodes/${node}/proxy/stats/summary" 2>/dev/null) || true
-            if [[ -z "$summary" ]]; then
-              echo "[WARN] Node $node: could not get kubelet stats/summary, skipping"
-              continue
-            fi
+              alloc_mem_gi=$(mem_to_gi "$(echo "$node_json" | jq -r '.status.allocatable.memory // "0"')")
+              alloc_cpu=$(cpu_to_cores "$(echo "$node_json" | jq -r '.status.allocatable.cpu // "0"')")
 
-            # Memory: available bytes -> Gi
-            mem_bytes=$(echo "$summary" | jq -r '.node.memory.availableBytes // 0')
-            node_free_mem=$(echo "scale=4; $mem_bytes / 1024 / 1024 / 1024" | bc 2>/dev/null || echo "0")
+              pods_json=$(kubectl get pods -A --field-selector spec.nodeName="$node" -o json 2>/dev/null) || true
+              requested_mem_gi=0
+              requested_cpu=0
+              if [[ -n "$pods_json" ]]; then
+                while read -r qty; do
+                  [[ -z "$qty" ]] && continue
+                  requested_mem_gi=$(echo "$requested_mem_gi + $(mem_to_gi "$qty")" | bc)
+                done < <(echo "$pods_json" | jq -r '
+                  .items[]
+                  | select(.status.phase == "Running" or .status.phase == "Pending")
+                  | [(.spec.containers[]? | try .resources.requests.memory catch null), (.spec.initContainers[]? | try .resources.requests.memory catch null)]
+                  | .[] | . // "0"
+                ')
 
-            # CPU: allocatable - used, at least 0
-            alloc_cores=$(kubectl get node "$node" -o json | jq -r '.status.allocatable.cpu // "0"')
-            alloc_cores=$(cpu_to_cores "$alloc_cores")
-            usage_cores=$(echo "$summary" | jq -r '.node.cpu.usageNanoCores // 0')
-            usage_cores=$(echo "scale=4; $usage_cores / 1000000000" | bc 2>/dev/null || echo "0")
-            node_free_cpu=$(echo "x = $alloc_cores - $usage_cores; if (x < 0) 0 else x" | bc 2>/dev/null || echo "0")
+                while read -r qty; do
+                  [[ -z "$qty" ]] && continue
+                  requested_cpu=$(echo "$requested_cpu + $(cpu_to_cores "$qty")" | bc)
+                done < <(echo "$pods_json" | jq -r '
+                  .items[]
+                  | select(.status.phase == "Running" or .status.phase == "Pending")
+                  | [(.spec.containers[]? | try .resources.requests.cpu catch null), (.spec.initContainers[]? | try .resources.requests.cpu catch null)]
+                  | .[] | . // "0"
+                ')
+              fi
 
-            # Add to cluster totals
-            available_mem_gi=$(echo "$available_mem_gi + $node_free_mem" | bc)
-            available_cpu=$(echo "$available_cpu + $node_free_cpu" | bc)
+              node_free_mem=$(echo "x = $alloc_mem_gi - $requested_mem_gi; if (x < 0) 0 else x" | bc 2>/dev/null || echo "0")
+              node_free_cpu=$(echo "x = $alloc_cpu - $requested_cpu; if (x < 0) 0 else x" | bc 2>/dev/null || echo "0")
 
-            # Check if node meet minimum for placement
-            node_ok_mem=$(echo "$node_free_mem >= $MIN_MEM_GI_PER_NODE" | bc)
-            node_ok_cpu=$(echo "$node_free_cpu >= $MIN_CPU_PER_NODE" | bc)
-            if [[ "$node_ok_mem" -eq 1 && "$node_ok_cpu" -eq 1 ]]; then
-              nodes_meeting_min=$((nodes_meeting_min + 1))
-            else
-              echo "[INFO] Node $node: does not meet placement min — free ${node_free_mem} Gi RAM, ${node_free_cpu} CPU (required: >= ${MIN_MEM_GI_PER_NODE} Gi, >= ${MIN_CPU_PER_NODE} CPU)"
-            fi
-          done
+              available_mem_gi=$(echo "$available_mem_gi + $node_free_mem" | bc)
+              available_cpu=$(echo "$available_cpu + $node_free_cpu" | bc)
 
+              node_ok_mem=$(echo "$node_free_mem >= $MIN_MEM_GI_PER_NODE" | bc)
+              node_ok_cpu=$(echo "$node_free_cpu >= $MIN_CPU_PER_NODE" | bc)
+              if [[ "$node_ok_mem" -eq 1 && "$node_ok_cpu" -eq 1 ]]; then
+                nodes_meeting_min=$((nodes_meeting_min + 1))
+              else
+                echo "[INFO] Node $node: does not meet placement min — free ${node_free_mem} Gi RAM, ${node_free_cpu} CPU (required: >= ${MIN_MEM_GI_PER_NODE} Gi, >= ${MIN_CPU_PER_NODE} CPU)"
+              fi
+            done
+          }
+
+          gather_node_resources
           echo "[INFO] Workers: free ${available_mem_gi} Gi RAM, ${available_cpu} CPU; nodes with enough free resources for placement: ${nodes_meeting_min} (need at least ${MIN_NODES_FOR_PLACEMENT})"
           echo "[INFO] Required: ${REQUIRED_MEM_GI} Gi, ${REQUIRED_CPU} CPU; need >= ${MIN_NODES_FOR_PLACEMENT} nodes with >= ${MIN_MEM_GI_PER_NODE} Gi and >= ${MIN_CPU_PER_NODE} CPU"
+          echo " "
 
           deficit_mem=$(echo "$REQUIRED_MEM_GI - $available_mem_gi" | bc 2>/dev/null || echo "$REQUIRED_MEM_GI")
           deficit_cpu=$(echo "$REQUIRED_CPU - $available_cpu" | bc 2>/dev/null || echo "$REQUIRED_CPU")
@@ -225,6 +250,7 @@ jobs:
             echo "[INFO] Available nodes shortage: only ${nodes_meeting_min} node(s) meet free resources requirement, expect at least ${MIN_NODES_FOR_PLACEMENT} available nodes. Proceed with power off some VMs to free resources."
           fi
           echo "[Note] Will ignore VMs in 'nightly-e2e-*', 'static-cse' namespaces, and VMs with the 'e2e-cluster/do-not-stop-vm-on-e2e-run' label."
+          echo "[INFO] Power off candidates sorted by memory (largest first); stop when enough resources are freed."
 
           # Power off VMs until we have enough (exclude nightly-e2e-*, static-cse, do-not-stop)
           get_vms_candidates() {
@@ -238,6 +264,15 @@ jobs:
             '
           }
 
+          # Sort by memory descending (largest first) so we free the most with fewer power-offs
+          sort_by_mem_desc() {
+            while IFS=$'\t' read -r ns name mem_qty cores core_frac; do
+              [[ -n "$ns" ]] || continue
+              mem_gi=$(mem_to_gi "$mem_qty")
+              printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$mem_gi" "$ns" "$name" "$mem_qty" "$cores" "$core_frac"
+            done | sort -t$'\t' -k1,1 -rn
+          }
+
           # Keep powering off while: placement not met, or memory/CPU deficit not yet covered
           still_need_to_free() {
             if ! $placement_sufficient; then return 0; fi
@@ -248,11 +283,10 @@ jobs:
 
           freed_mem=0
           freed_cpu=0
-          while read -r ns name mem_qty cores core_frac; do
+          while IFS=$'\t' read -r vm_mem_gi ns name mem_qty cores core_frac; do
             [[ -n "$ns" ]] || continue
             still_need_to_free || break
 
-            vm_mem_gi=$(mem_to_gi "$mem_qty")
             frac_pct=100
             [[ "$core_frac" =~ ^([0-9]+)%$ ]] && frac_pct="${BASH_REMATCH[1]}"
             vm_cpu=$(echo "scale=2; $cores * $frac_pct / 100" | bc)
@@ -261,7 +295,17 @@ jobs:
             kubectl patch vm -n "$ns" "$name" --type=merge -p '{"spec":{"runPolicy":"AlwaysOff"}}' || true
             freed_mem=$(echo "$freed_mem + $vm_mem_gi" | bc)
             freed_cpu=$(echo "$freed_cpu + $vm_cpu" | bc)
-          done < <(get_vms_candidates | sort -t$'\t' -k1,2)
+
+            # Re-check placement after each power-off (pods may take a few seconds to disappear)
+            if ! $placement_sufficient; then
+              kubectl wait --for=jsonpath='{.status.phase}'=Stopped vm -n "$ns" "$name" --timeout=90s || true
+              gather_node_resources
+              if [[ $nodes_meeting_min -ge $MIN_NODES_FOR_PLACEMENT ]]; then
+                placement_sufficient=true
+                echo "[INFO] Placement now sufficient: ${nodes_meeting_min} nodes with >= ${MIN_MEM_GI_PER_NODE} Gi and >= ${MIN_CPU_PER_NODE} CPU"
+              fi
+            fi
+          done < <(get_vms_candidates | sort_by_mem_desc)
 
           echo "[INFO] Freed: ${freed_mem} Gi RAM, ${freed_cpu} CPU"
 
