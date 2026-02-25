@@ -357,7 +357,9 @@ spec:
 Cloud-Init is a tool for automatically configuring virtual machines on first boot. The configuration is written in YAML format and must start with the `#cloud-config` header.
 
 {{< alert level="warning" >}}
-When using cloud images (for example, official images from distributions), you must provide a cloud-init configuration. Without it, on some distributions, network connectivity is not configured, and the virtual machine becomes unavailable on the network, even if the main network (Main) is connected. In addition, cloud images do not allow login by default — you must either add SSH keys for the default user or create a new user with SSH access. Without this, it will be impossible to access the virtual machine.
+When using cloud images (for example, official distribution images), you must provide a cloud-init configuration. Without it, some distributions do not configure network connectivity, and the virtual machine becomes unreachable on the network, even if the main network (Main) is attached.
+
+In addition, cloud images do not allow login by default — you must either add SSH keys for the default user or create a new user with SSH access. Otherwise, you will not be able to access the virtual machine.
 {{< /alert >}}
 
 ### Updating and installing packages
@@ -455,6 +457,8 @@ If additional networks are connected to a virtual machine, they must be configur
 
 #### For systemd-networkd
 
+Use the following example on distributions that use `systemd-networkd` (for example, Debian, CoreOS):
+
 ```yaml
 #cloud-config
 write_files:
@@ -473,6 +477,8 @@ runcmd:
 ```
 
 #### For Netplan (Ubuntu)
+
+Use the following example on Ubuntu and other distributions that use `Netplan`:
 
 ```yaml
 #cloud-config
@@ -497,6 +503,8 @@ runcmd:
 
 #### For ifcfg (RHEL/CentOS)
 
+Use the following example on RHEL, CentOS and other distributions that use the `ifcfg` scheme with `NetworkManager`:
+
 ```yaml
 #cloud-config
 write_files:
@@ -516,6 +524,8 @@ runcmd:
 ```
 
 #### For Alpine Linux
+
+Use the following example on Alpine Linux and other distributions that use the traditional `/etc/network/interfaces` format:
 
 ```yaml
 #cloud-config
