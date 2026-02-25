@@ -147,3 +147,11 @@ properties:
         type: object
         default: {}
         additionalProperties: true
+      hasDraFeatureGates:
+        type: string
+        default: ""
+      kubeAPIServerFeatureGates:
+        type: array
+        default: []
+        items:
+          type: string

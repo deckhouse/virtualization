@@ -18,6 +18,7 @@ package kubeapi
 
 import (
 	"log/slog"
+	"os"
 	"sync"
 
 	resourcev1 "k8s.io/api/resource/v1"
@@ -74,4 +75,13 @@ func isResourceV1Enabled(clientset kubernetes.Interface) (bool, error) {
 	}
 
 	return false, nil
+}
+
+func HasDRAFeatureGates() bool {
+	envValue := os.Getenv("HAS_DRA_FEATURE_GATES")
+	if envValue == "" {
+		return false
+	}
+
+	return envValue == "true"
 }

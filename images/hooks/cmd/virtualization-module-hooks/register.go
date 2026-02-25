@@ -17,6 +17,8 @@ limitations under the License.
 package main
 
 import (
+	_ "hooks/pkg/hooks/discover-kube-apiserver-feature-gates"
+
 	_ "hooks/pkg/hooks/ca-discovery"
 	_ "hooks/pkg/hooks/copy-custom-certificate"
 	_ "hooks/pkg/hooks/discovery-clusterip-service-for-dvcr"
