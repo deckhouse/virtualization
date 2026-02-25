@@ -298,7 +298,7 @@ jobs:
 
             # Re-check placement after each power-off (pods may take a few seconds to disappear)
             if ! $placement_sufficient; then
-              sleep 5
+              kubectl wait --for=jsonpath='{.status.phase}'=Stopped vm -n "$ns" "$name" --timeout=90s || true
               gather_node_resources
               if [[ $nodes_meeting_min -ge $MIN_NODES_FOR_PLACEMENT ]]; then
                 placement_sufficient=true
