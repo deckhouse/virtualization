@@ -26,7 +26,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager/filesystem"
-	virtclient "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 )
 
 var ErrConfigInvalid = errors.New("configuration is invalid")
@@ -81,16 +80,10 @@ func (c Config) Complete() (*Server, error) {
 		return nil, err
 	}
 
-	virtClient, err := virtclient.NewForConfig(c.Rest)
-	if err != nil {
-		return nil, err
-	}
-
 	err = api.Install(vmInformer.Lister(),
 		genericServer,
 		c.Kubevirt,
 		proxyCertManager,
-		virtClient.VirtualizationV1alpha2(),
 	)
 	if err != nil {
 		return nil, err

@@ -88,3 +88,24 @@ type VirtualMachineCancelEvacuation struct {
 
 	DryRun []string
 }
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualMachineAddResourceClaim struct {
+	metav1.TypeMeta
+
+	Name                      string
+	ResourceClaimTemplateName string
+	RequestName               string
+
+	DryRun []string
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualMachineRemoveResourceClaim struct {
+	metav1.TypeMeta
+
+	Name   string
+	DryRun []string
+}
