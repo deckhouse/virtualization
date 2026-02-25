@@ -33,13 +33,40 @@ spec:
         memory: 25Mi
 {{- end }}
 
+
+{{- if eq (include "d8.securityPolicyException.isEnabled" .) "true" }}
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: SecurityPolicyException
+metadata:
+  name: vm-route-forge-ds
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" .Chart.Name)) | nindent 2 }}
+spec:
+  securityContext:
+    privileged:
+      allowedValue: true
+      metadata:
+        description: |
+          Allow privileged mode.
+          VM route forge component requires privileged access to interact with the host network layer.
+
+  network:
+    hostNetwork:
+      allowedValue: true
+      metadata:
+        description: |
+          VM route forge component needs hostNetwork to manipulate node route tables
+          to allow traffic between virtual machines.
+{{- end }}
+
 ---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: vm-route-forge
   namespace: d8-{{ .Chart.Name }}
-  {{- include "helm_lib_module_labels" (list . (dict "app" "vm-route-forge")) | nindent 2 }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "vm-route-forge" "security.deckhouse.io/security-policy-exception" "vm-route-forge-ds")) | nindent 2 }}
 spec:
   selector:
     matchLabels:
@@ -48,6 +75,7 @@ spec:
     metadata:
       labels:
         app: vm-route-forge
+        security.deckhouse.io/security-policy-exception: vm-route-forge-ds
     spec:
       {{- include "helm_lib_priority_class" (tuple . $priorityClassName) | nindent 6 }}
       {{- include "helm_lib_tolerations" (tuple . "any-node") | nindent 6 }}
