@@ -16,12 +16,8 @@ name: E2E Matrix Tests (nested clusters)
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches:
-      - main
-      - test/fix/tests
-  # schedule:
-  #   - cron: "40 4 * * *"
+  schedule:
+    - cron: "40 4 * * *"
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
@@ -33,7 +29,6 @@ defaults:
 
 jobs:
   cleanup-nested-clusters:
-    if: github.event_name != 'pull_request'
     name: Cleanup nested clusters
     runs-on: ubuntu-latest
     steps:
@@ -106,7 +101,6 @@ jobs:
 
   power-off-vms-for-nested:
     name: Power off VMs for nested clusters
-    if: github.event_name != 'pull_request'
     needs: cleanup-nested-clusters
     runs-on: ubuntu-latest
     steps:
@@ -321,7 +315,7 @@ jobs:
           fi
   set-vars:
     name: Set vars
-    # needs: power-off-vms-for-nested
+    needs: power-off-vms-for-nested
     runs-on: ubuntu-latest
     outputs:
       date_start: ${{ steps.vars.outputs.date-start }}
@@ -336,7 +330,6 @@ jobs:
   e2e-ceph:
     name: E2E Pipeline (Ceph)
     needs:
-      # - cleanup-nested-clusters
       - set-vars
     uses: ./.github/workflows/e2e-reusable-pipeline.yml
     with:
@@ -358,10 +351,8 @@ jobs:
       BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
 
   e2e-replicated:
-    if: github.event_name != 'pull_request'
     name: E2E Pipeline (Replicated)
     needs:
-      # - cleanup-nested-clusters
       - set-vars
     uses: ./.github/workflows/e2e-reusable-pipeline.yml
     with:
@@ -387,7 +378,7 @@ jobs:
     name: End-to-End tests report
     needs:
       - e2e-ceph
-      # - e2e-replicated
+      - e2e-replicated
     if: ${{ always()}}
     env:
       STORAGE_TYPES: '["ceph", "replicated"]'
@@ -654,4 +645,4 @@ jobs:
             curl --request POST --header 'Content-Type: application/json' --data "{\"text\": \"${COMBINED_SUMMARY}\"}" "$LOOP_WEBHOOK_URL"
           fi
         env:
-          LOOP_WEBHOOK_URL: ${{ secrets.LOOP_TEST_CHANNEL }} # LOOP_WEBHOOK_URL
+          LOOP_WEBHOOK_URL: ${{ secrets.LOOP_WEBHOOK_URL }}

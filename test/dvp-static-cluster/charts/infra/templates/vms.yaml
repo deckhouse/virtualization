@@ -1,12 +1,12 @@
 {{/* This is the render of all infra VMs (which include master and additional nodes), along with their disks */}}
 {{- range $_, $i := untilStep 0 (.Values.instances.masterNodes.count | int) 1}}
   {{- $vmName := printf "%s-master-%d" $.Values.storageType $i -}}
-  {{- include "infra.vm" (list $ $vmName $.Values.instances.masterNodes.cfg) | nindent 0 }}
+  {{ include "infra.vm" (list $ $vmName $.Values.instances.masterNodes.cfg) | nindent 0 }}
 {{- end }}
 
 {{- range $_, $v := .Values.instances.additionalNodes }}
-  {{ range $_, $i := untilStep 0 ($v.count | int) 1}}
+  {{range $_, $i := untilStep 0 ($v.count | int) 1}}
     {{- $vmName := printf "%s-%s-%d" $.Values.storageType $v.name $i -}}
-    {{- include "infra.vm" (list $ $vmName $v.cfg) | nindent 0}}
+    {{ include "infra.vm" (list $ $vmName $v.cfg) | nindent 0}}
   {{- end }}
 {{- end }}
