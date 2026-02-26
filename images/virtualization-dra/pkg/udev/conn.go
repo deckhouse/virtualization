@@ -18,6 +18,7 @@ package udev
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"runtime"
 	"syscall"
@@ -113,14 +114,22 @@ func (c *Conn) connectInNetNS(mode Mode) error {
 	if err != nil {
 		return fmt.Errorf("failed to open current netns: %w", err)
 	}
-	defer unix.Close(currentNS)
+	defer func(fd int) {
+		if err = unix.Close(fd); err != nil {
+			slog.Error("failed to close current netns", slog.String("error", err.Error()))
+		}
+	}(currentNS)
 
 	// Open target network namespace
 	targetNS, err := unix.Open(c.netNS, unix.O_RDONLY|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return fmt.Errorf("failed to open target netns %s: %w", c.netNS, err)
 	}
-	defer unix.Close(targetNS)
+	defer func(fd int) {
+		if err = unix.Close(fd); err != nil {
+			slog.Error("failed to close target netns", slog.String("error", err.Error()))
+		}
+	}(targetNS)
 
 	// Switch to target network namespace
 	if err := unix.Setns(targetNS, unix.CLONE_NEWNET); err != nil {

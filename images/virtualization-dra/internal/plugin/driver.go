@@ -27,11 +27,13 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/dynamic-resource-allocation/kubeletplugin"
+	"k8s.io/dynamic-resource-allocation/resourceslice"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-dra/internal/plugin/wrapresourceslice"
 )
 
-func NewDriver(driverName, nodeName string, kubeClient kubernetes.Interface, allocator Allocator) (*Driver, error) {
+func NewDriver(driverName, nodeName string, kubeClient kubernetes.Interface, allocator Allocator, shared bool) (*Driver, error) {
 	if driverName == "" {
 		return nil, fmt.Errorf("driver name is required")
 	}
@@ -40,11 +42,17 @@ func NewDriver(driverName, nodeName string, kubeClient kubernetes.Interface, all
 		return nil, fmt.Errorf("failed to initialize plugin directory: %w", err)
 	}
 
+	poolName := ""
+	if shared {
+		poolName = nodeName
+	}
+
 	return &Driver{
 		driverName: driverName,
 		nodeName:   nodeName,
 		kubeClient: kubeClient,
 		allocator:  allocator,
+		poolName:   poolName,
 		log:        slog.With(slog.String("driver", driverName), slog.String("component", "driver")),
 	}, nil
 }
@@ -54,11 +62,13 @@ func NewDriver(driverName, nodeName string, kubeClient kubernetes.Interface, all
 type Driver struct {
 	driverName string
 	nodeName   string
+	poolName   string
 
 	kubeClient kubernetes.Interface
 	allocator  Allocator
 	log        *slog.Logger
 
+	publisher    resourcePublisher
 	helper       *kubeletplugin.Helper
 	pluginCtx    context.Context
 	pluginCancel context.CancelCauseFunc
@@ -68,6 +78,8 @@ func (d *Driver) Start(ctx context.Context) error {
 	ctx, cancel := context.WithCancelCause(ctx)
 	d.pluginCtx = ctx
 	d.pluginCancel = cancel
+
+	d.publisher = newCustomPublisher(ctx, d.driverName, d.nodeName, d.poolName, d.kubeClient, d.HandleError)
 
 	log.Info("Starting dra plugin")
 	helper, err := kubeletplugin.Start(
@@ -97,6 +109,7 @@ func (d *Driver) Wait() {
 }
 
 func (d *Driver) Shutdown() {
+	d.publisher.Stop()
 	if d.helper != nil {
 		d.log.Info("Stopping dra plugin")
 		d.helper.Stop()
@@ -128,6 +141,7 @@ func (d *Driver) prepareResourceClaim(ctx context.Context, claim *resourcev1.Res
 
 	preparedPBs, err := d.allocator.Prepare(ctx, claim)
 	if err != nil {
+		d.log.Error("Error preparing devices for claim", slog.Any("error", err), slog.String("uid", string(claim.UID)))
 		return kubeletplugin.PrepareResult{
 			Err: fmt.Errorf("error preparing devices for claim %v: %w", claim.UID, err),
 		}
@@ -186,11 +200,39 @@ func (d *Driver) startPublisher(ctx context.Context) {
 				return
 			case resources := <-ch:
 				d.log.Info("Publishing devices", slog.Any("resources", resources))
-				err := d.helper.PublishResources(ctx, resources)
+				err := d.publisher.PublishResources(ctx, toWrappedDriverResources(resources))
 				if err != nil {
 					d.log.Error("Failed to publish devices", slog.Any("err", err))
 				}
 			}
 		}
 	}()
+}
+
+func toWrappedDriverResources(resources resourceslice.DriverResources) wrapresourceslice.DriverResources {
+	wrapped := wrapresourceslice.DriverResources{
+		Pools: make(map[string]wrapresourceslice.Pool, len(resources.Pools)),
+	}
+
+	for name, pool := range resources.Pools {
+		wrapped.Pools[name] = wrapresourceslice.Pool{
+			NodeSelector: pool.NodeSelector,
+			Generation:   pool.Generation,
+			Slices:       toWrappedSlices(pool.Slices),
+		}
+	}
+
+	return wrapped
+}
+
+func toWrappedSlices(slices []resourceslice.Slice) []wrapresourceslice.Slice {
+	wrapped := make([]wrapresourceslice.Slice, len(slices))
+	for i, slice := range slices {
+		wrapped[i] = wrapresourceslice.Slice{
+			Devices:                slice.Devices,
+			SharedCounters:         slice.SharedCounters,
+			PerDeviceNodeSelection: slice.PerDeviceNodeSelection,
+		}
+	}
+	return wrapped
 }

@@ -242,6 +242,7 @@ jobs:
             find . \
               -path ./images/cdi-cloner/cloner-startup -prune -o \
               -path ./images/dvcr-artifact -prune -o \
+              -path ./images/virtualization-dra -prune -o \
               -path ./test/performance/shatal -prune -o \
               -type f -name '.golangci.yaml' -printf '%h\0' | \
             xargs -0 -n1 | sort -u
@@ -278,6 +279,33 @@ jobs:
             echo "$error_count error more than 0, exit 1"
             exit 1
           fi
+
+  lint_go-virtualization-dra:
+    runs-on: ubuntu-22.04
+    name: Run go linter virtualization-dra
+    steps:
+      - name: Set up Go 1.25
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Install golangci-lint
+        run: |
+          echo "Installing golangci-lint..."
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.8.0
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+          echo "golangci-lint v2.8.0 installed successfully!"
+
+      - name: Lint virtualization-dra directory with golangci-lint
+        shell: bash
+        working-directory: ./images/virtualization-dra
+        run: |
+          set -e
+          golangci-lint run
 
   lint_yaml:
     runs-on: ubuntu-latest

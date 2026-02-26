@@ -121,6 +121,7 @@ git:
       - openapi/openapi-case-tests.yaml
     {{- if eq .MODULE_EDITION "CE" }}
       - templates/virtualization-audit
+      - templates/virtualization-dra
     {{- end }}
 shell:
   install:

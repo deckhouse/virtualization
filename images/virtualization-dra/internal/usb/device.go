@@ -51,9 +51,9 @@ type Device struct {
 }
 
 func (d *Device) GetName(nodeName string) string {
-	// usb-<bus>-<deviceNumber>-<vendorID>-<productID>-<nodeName>
-	// usb-003-005-e39-f100
-	unhashed := fmt.Sprintf("%s-%s-%s-%s-%s", d.Bus.String(), d.DeviceNumber.String(), d.VendorID.String(), d.ProductID.String(), nodeName)
+	// usb-<busID>-<vendorID>-<productID>-<nodeName>
+	// usb-3-1-e39-f100
+	unhashed := fmt.Sprintf("%s-%s-%s-%s", d.BusID, d.VendorID.String(), d.ProductID.String(), nodeName)
 
 	hash := sha1.Sum([]byte(unhashed))
 	hashedString := hex.EncodeToString(hash[:])
