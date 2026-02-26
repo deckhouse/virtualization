@@ -82,6 +82,7 @@ func isSingleMainNet(networks []v1alpha2.NetworksSpec) bool {
 
 func (v *NetworksValidator) validateNetworksSpec(networksSpec []v1alpha2.NetworksSpec) (admission.Warnings, error) {
 	namesSet := make(map[string]struct{})
+	idsSet := make(map[int]struct{})
 	for i, network := range networksSpec {
 		typ := network.Type
 		name := network.Name
@@ -95,6 +96,10 @@ func (v *NetworksValidator) validateNetworksSpec(networksSpec []v1alpha2.Network
 		}
 
 		if err := v.validateNetworkUniqueness(typ, name, namesSet); err != nil {
+			return nil, err
+		}
+
+		if err := v.validateNetworkIDUniqueness(network, idsSet); err != nil {
 			return nil, err
 		}
 
@@ -133,6 +138,18 @@ func (v *NetworksValidator) validateNetworkUniqueness(networkType, networkName s
 	return nil
 }
 
+func (v *NetworksValidator) validateNetworkIDUniqueness(network v1alpha2.NetworksSpec, idsSet map[int]struct{}) error {
+	if network.ID == 0 {
+		return nil
+	}
+	if _, exists := idsSet[network.ID]; exists {
+		networkIdentifier := v.getNetworkIdentifier(network)
+		return fmt.Errorf("network id %d is duplicated for network %s", network.ID, networkIdentifier)
+	}
+	idsSet[network.ID] = struct{}{}
+	return nil
+}
+
 func (v *NetworksValidator) validateNetworkIDsUnchanged(oldNetworksSpec, newNetworksSpec []v1alpha2.NetworksSpec) error {
 	oldNetworksMap := v.buildNetworksMap(oldNetworksSpec)
 	newNetworksMap := v.buildNetworksMap(newNetworksSpec)
@@ -144,10 +161,6 @@ func (v *NetworksValidator) validateNetworkIDsUnchanged(oldNetworksSpec, newNetw
 		}
 
 		if oldNetwork.ID == newNetwork.ID {
-			continue
-		}
-
-		if oldNetwork.ID == 0 && newNetwork.ID > 0 && newNetwork.ID <= maxNetworkID {
 			continue
 		}
 

@@ -95,38 +95,7 @@ func (h *NetworkInterfaceHandler) Handle(ctx context.Context, s state.VirtualMac
 		}
 	}
 
-	h.lazyInitialization(vm)
 	return h.UpdateNetworkStatus(ctx, s, vm)
-}
-
-func (h *NetworkInterfaceHandler) lazyInitialization(vm *v1alpha2.VirtualMachine) {
-	networks := vm.Spec.Networks
-	allocator := network.NewInterfaceIDAllocator()
-
-	h.ensureMainNetworkID(networks)
-
-	for _, net := range networks {
-		allocator.Reserve(net.ID)
-	}
-
-	h.assignMissingIDs(networks, allocator)
-}
-
-func (h *NetworkInterfaceHandler) ensureMainNetworkID(networks []v1alpha2.NetworksSpec) {
-	for i := range networks {
-		if networks[i].Type == v1alpha2.NetworksTypeMain && networks[i].ID == 0 {
-			networks[i].ID = network.ReservedMainID
-			return
-		}
-	}
-}
-
-func (h *NetworkInterfaceHandler) assignMissingIDs(networks []v1alpha2.NetworksSpec, allocator *network.InterfaceIDAllocator) {
-	for i := range networks {
-		if networks[i].ID == 0 {
-			networks[i].ID = allocator.NextAvailable()
-		}
-	}
 }
 
 func hasOnlyDefaultNetwork(vm *v1alpha2.VirtualMachine) bool {

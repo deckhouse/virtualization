@@ -51,9 +51,18 @@ func TestNetworksValidateCreate(t *testing.T) {
 		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 2}}, true, true},
 		{[]v1alpha2.NetworksSpec{
 			{Type: v1alpha2.NetworksTypeMain, ID: 1},
+			{Type: v1alpha2.NetworksTypeNetwork, Name: "test1", ID: 2},
+			{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "test2", ID: 3},
+		}, true, true},
+		{[]v1alpha2.NetworksSpec{
+			{Type: v1alpha2.NetworksTypeMain, ID: 1},
 			{Type: v1alpha2.NetworksTypeNetwork, Name: "test1", ID: 1},
 			{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "test2", ID: 2},
-		}, true, true},
+		}, true, false},
+		{[]v1alpha2.NetworksSpec{
+			{Type: v1alpha2.NetworksTypeNetwork, Name: "a", ID: 2},
+			{Type: v1alpha2.NetworksTypeNetwork, Name: "b", ID: 2},
+		}, true, false},
 		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 16383}}, true, true},
 		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 0}}, true, true},
 		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 16384}}, true, false},
@@ -259,7 +268,7 @@ func TestNetworksValidateUpdate(t *testing.T) {
 				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 1},
 			},
 			sdnEnabled: true,
-			valid:      true,
+			valid:      false,
 		},
 		{
 			oldNetworksSpec: []v1alpha2.NetworksSpec{

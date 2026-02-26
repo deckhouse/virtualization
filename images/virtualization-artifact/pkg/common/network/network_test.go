@@ -275,20 +275,6 @@ var _ = Describe("Network Config Generation", func() {
 		Expect(configs[0].ID).To(Equal(1))
 	})
 
-	It("should preserve id from spec for Main network", func() {
-		vm.Spec.Networks = []v1alpha2.NetworksSpec{
-			{
-				Type: v1alpha2.NetworksTypeMain,
-				ID:   1,
-			},
-		}
-
-		configs := CreateNetworkSpec(vm, vmmacs)
-
-		Expect(configs).To(HaveLen(1))
-		Expect(configs[0].ID).To(Equal(1))
-	})
-
 	It("should preserve id from spec for Network type with MAC", func() {
 		vm.Status.Networks = []v1alpha2.NetworksStatus{
 			{

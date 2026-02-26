@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"reflect"
 
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -108,27 +107,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return h.Handle(ctx, s)
 	})
 	rec.SetResourceUpdater(func(ctx context.Context) error {
-		var specToUpdate *v1alpha2.VirtualMachineSpec
-		if !reflect.DeepEqual(vm.Current().Spec, vm.Changed().Spec) {
-			specToUpdate = vm.Changed().Spec.DeepCopy()
-		}
-
-		vm.Changed().Status.ObservedGeneration = vm.Changed().GetGeneration()
-
-		err := vm.Update(ctx)
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return fmt.Errorf("update status: %w", err)
-		}
-
-		if specToUpdate != nil {
-			vm.Changed().Spec = *specToUpdate
-			err = r.client.Update(ctx, vm.Changed())
-			if err != nil && !k8serrors.IsNotFound(err) {
-				return fmt.Errorf("update spec: %w", err)
-			}
-		}
-
-		return nil
+		return vm.Update(ctx)
 	})
 
 	return rec.Reconcile(ctx)
