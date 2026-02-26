@@ -65,6 +65,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		watcher.NewKVVMWatcher(),
 		watcher.NewKVVMIWatcher(),
 		watcher.NewPodWatcher(),
+		watcher.NewVolumeEventWatcher(mgr.GetClient()),
 		watcher.NewVirtualImageWatcher(mgr.GetClient()),
 		watcher.NewClusterVirtualImageWatcher(mgr.GetClient()),
 		watcher.NewVirtualDiskWatcher(mgr.GetClient()),

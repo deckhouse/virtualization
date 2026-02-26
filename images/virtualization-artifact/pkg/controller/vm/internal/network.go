@@ -185,7 +185,11 @@ func extractNetworkStatusFromPods(pods *corev1.PodList) (string, error) {
 
 		networkStatusAnnotation, found := pod.Annotations[annotations.AnnNetworksStatus]
 		if !found {
-			errorMessages = append(errorMessages, "Cannot determine the status of additional interfaces, waiting for a response from the SDN module")
+			if pod.Status.Phase == corev1.PodRunning {
+				errorMessages = append(errorMessages, "Cannot determine the status of additional interfaces, waiting for a response from the SDN module")
+			} else {
+				errorMessages = append(errorMessages, "Waiting for virt-launcher pod to start")
+			}
 			continue
 		}
 
