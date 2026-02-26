@@ -18,6 +18,7 @@ package kubeapi
 
 import (
 	"log/slog"
+	"sync"
 
 	resourcev1 "k8s.io/api/resource/v1"
 	"k8s.io/client-go/discovery"
@@ -25,14 +26,34 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
-var client kubernetes.Interface
+var (
+	kubeClient     kubernetes.Interface
+	kubeClientOnce sync.Once
+)
 
-func init() {
-	restConfig := config.GetConfigOrDie()
-	client = kubernetes.NewForConfigOrDie(restConfig)
+func getClient() kubernetes.Interface {
+	kubeClientOnce.Do(func() {
+		restConfig, err := config.GetConfig()
+		if err != nil {
+			slog.Error("failed to get kubeconfig", "error", err)
+			return
+		}
+
+		kubeClient, err = kubernetes.NewForConfig(restConfig)
+		if err != nil {
+			slog.Error("failed to create kubernetes client", "error", err)
+		}
+	})
+
+	return kubeClient
 }
 
 func ResourceV1Available() bool {
+	client := getClient()
+	if client == nil {
+		return false
+	}
+
 	enabled, err := isResourceV1Enabled(client)
 	if err != nil {
 		slog.Error("failed to check if resource v1 is enabled", "error", err)
