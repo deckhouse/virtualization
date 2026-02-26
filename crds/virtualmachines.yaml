@@ -62,7 +62,6 @@ spec:
                 - virtualMachineClassName
                 - cpu
                 - memory
-                - blockDeviceRefs
               properties:
                 provisioning:
                   description: |
@@ -930,7 +929,6 @@ spec:
 
                 blockDeviceRefs:
                   type: array
-                  minItems: 1
                   maxItems: 16
                   description: |
                     List of block devices connected to the VM.

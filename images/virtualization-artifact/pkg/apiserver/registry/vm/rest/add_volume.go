@@ -120,6 +120,7 @@ func (r AddVolumeREST) genMutateRequestHook(opts *subresources.VirtualMachineAdd
 			Name:        opts.Name,
 			DiskDevice:  dd,
 			Serial:      serial,
+			BootOrder:   ptr.To(uint(1)),
 			ErrorPolicy: ptr.To(virtv1.DiskErrorPolicyReport),
 		},
 	}
