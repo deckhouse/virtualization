@@ -2,11 +2,10 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: vi-from-vi-ubuntu-http
+  name: vi-from-vi-alpine-http
 spec:
   dataSource:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
       name: vi-alpine-http
-      # name: vi-ubuntu-http

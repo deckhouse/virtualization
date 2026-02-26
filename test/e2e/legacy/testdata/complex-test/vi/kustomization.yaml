@@ -1,8 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  # - vi-ubuntu-http.yaml
   - vi-alpine-http.yaml
   - vi-alpine-registry.yaml
-  - vi-from-cvi-ubuntu-http.yaml
-  - vi-from-vi-ubuntu-http.yaml
+  - vi-from-cvi-alpine-http.yaml
+  - vi-from-vi-alpine-http.yaml

@@ -1,13 +1,13 @@
----
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualImage
+kind: VirtualDisk
 metadata:
-  name: cvi-from-vi-http
-  # name: cvi-from-vi-ubu-http
+  name: vd-from-vi-alpine-http
 spec:
+  persistentVolumeClaim:
+    storageClassName: "{{ .STORAGE_CLASS_NAME }}"
+    size: 350Mi
   dataSource:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
       name: vi-alpine-http
-      namespace: testcases
