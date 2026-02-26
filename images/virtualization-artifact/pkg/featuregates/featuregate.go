@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/pflag"
 	"k8s.io/component-base/featuregate"
 
+	"github.com/deckhouse/virtualization-controller/pkg/kubeapi"
 	"github.com/deckhouse/virtualization-controller/pkg/version"
 )
 
@@ -28,6 +29,7 @@ const (
 	AutoMigrationIfNodePlacementChanged featuregate.Feature = "AutoMigrationIfNodePlacementChanged"
 	VolumeMigration                     featuregate.Feature = "VolumeMigration"
 	TargetMigration                     featuregate.Feature = "TargetMigration"
+	USB                                 featuregate.Feature = "USB"
 )
 
 var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
@@ -47,6 +49,11 @@ var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
 	},
 	TargetMigration: {
 		Default:       version.GetEdition() == version.EditionEE,
+		LockToDefault: true,
+		PreRelease:    featuregate.Alpha,
+	},
+	USB: {
+		Default:       version.GetEdition() == version.EditionEE && kubeapi.ResourceV1Available(),
 		LockToDefault: true,
 		PreRelease:    featuregate.Alpha,
 	},
