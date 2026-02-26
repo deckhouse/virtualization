@@ -8,4 +8,5 @@ spec:
   dataSource:
     type: HTTP
     http:
-      url: https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/alpine/alpine-3-21-bios-base.qcow2
+      # url: https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/alpine/alpine-3-21-bios-base.qcow2
+      url: https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/cloud/generic_alpine-3.23.3-x86_64-bios-cloudinit-r0.qcow2

@@ -2,7 +2,7 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: vi-alpine-http-uefi
+  name: vi-alpine-http
 spec:
   storage: ContainerRegistry
   dataSource:
