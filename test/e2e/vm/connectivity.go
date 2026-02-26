@@ -160,7 +160,7 @@ func (t *VMConnectivityTest) GenerateEnvironmentResources() {
 		vdbuilder.WithName("vd-a"),
 		vdbuilder.WithNamespace(t.Framework.Namespace().Name),
 		vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-			URL: object.ImageURLUbuntu,
+			URL: object.ImageURLAlpineBIOS,
 		}),
 	)
 
@@ -168,7 +168,7 @@ func (t *VMConnectivityTest) GenerateEnvironmentResources() {
 		vdbuilder.WithName("vd-b"),
 		vdbuilder.WithNamespace(t.Framework.Namespace().Name),
 		vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-			URL: object.ImageURLUbuntu,
+			URL: object.ImageURLAlpineBIOS,
 		}),
 	)
 

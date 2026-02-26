@@ -140,7 +140,7 @@ func (t *sizingPolicyTest) GenerateSizingPolicyResources(vmClassName, vmClassNam
 		vdbuilder.WithName("vd"),
 		vdbuilder.WithNamespace(t.Framework.Namespace().Name),
 		vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-			URL: object.ImageURLUbuntu,
+			URL: object.ImageURLAlpineBIOS,
 		}),
 	)
 

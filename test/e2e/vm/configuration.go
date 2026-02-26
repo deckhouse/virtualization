@@ -127,7 +127,7 @@ func (t *configurationTest) GenerateResources(restartApprovalMode v1alpha2.Resta
 		vdbuilder.WithName("vd-root"),
 		vdbuilder.WithNamespace(t.Framework.Namespace().Name),
 		vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-			URL: object.ImageURLUbuntu,
+			URL: object.ImageURLAlpineBIOS,
 		}),
 	)
 
