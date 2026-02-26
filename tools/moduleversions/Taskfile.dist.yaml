@@ -35,9 +35,10 @@ tasks:
     vars:
       VERSION: "{{ .VERSION }}"
       CHANNEL: "{{ .CHANNEL }}"
+      MODULE: "{{ .MODULE }}"
     cmds:
       - |
-        if [[ -z "{{ .VERSION }}" ]] && [[ -z "{{ .CHANNEL }}" ]]; then
+        if [[ -z "{{ .VERSION }}" ]] || [[ -z "{{ .CHANNEL }}" ]]; then
           echo "TAG and CHANNEL are required"
           exit 1
         fi
@@ -52,11 +53,20 @@ tasks:
           local prod_registry="registry.deckhouse.io/deckhouse"
           local channel=$1
           local version=$2
-          
+          local module=$3
+
           for edition in ${editions[@]}; do
+            if [[ -z "$module" ]]; then
+              local url="${prod_registry}/${edition}:${channel}"
+              local command="crane export $url - | tar -Oxf - deckhouse/version"
+            else
+              local url="${prod_registry}/${edition}/modules/$module/release:${channel}"
+              local command="crane export $url - | tar -Oxf - version.json | jq '.version' -r"
+            fi
             echo "Check version on ${edition}"
-            getVersion=$(crane export "${prod_registry}/${edition}/modules/virtualization/release:${channel}" - | tar -Oxf - version.json | jq '.version' -r)
-            
+            getVersion=$(
+              eval $command
+            )
             if [[ "${getVersion}" != "${version}" ]]; then
               echo "Version is not valid in ${edition} and channel ${channel}"
               echo "Expected version: ${version} but got ${getVersion}"
@@ -74,14 +84,14 @@ tasks:
 
         for i in $(seq 1 $count); do
           echo "[INFO] Attempt $i/$count..."
-          check_editions_version {{ .CHANNEL }} {{ .VERSION }}
-          
+          check_editions_version {{ .CHANNEL }} {{ .VERSION }} {{ .MODULE }}
+
           if [ "$CHECK" = true ]; then
             echo "[SUCCESS] Successfully checkd version for editions."
             success=true
             break
           fi
-          
+
           if [ $i -lt $count ]; then
             echo "[INFO] Retrying in ${wait_seconds} seconds..."
             sleep ${wait_seconds}
@@ -125,7 +135,7 @@ tasks:
         for EDITION in ${EDITIONS[@]}; do
           echo "Check version on $EDITION"
           getVersion=$(crane export $PROD_REGISTRY/$EDITION/modules/virtualization/release:{{ .CHANNEL }} - | tar -Oxf - version.json | jq '.version' -r)
-          
+
           if [[ "$getVersion" != "{{ .VERSION }}" ]]; then
             echo "Version is not valid in $EDITION and channel {{ .CHANNEL }}"
             echo "Expected version: {{ .VERSION }} but got $getVersion"
