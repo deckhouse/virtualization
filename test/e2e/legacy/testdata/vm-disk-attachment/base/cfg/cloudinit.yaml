@@ -6,6 +6,7 @@ packages:
   - bash
   - sudo
   - iputils
+  - util-linux
 users:
   - name: cloud
     # passwd: cloud

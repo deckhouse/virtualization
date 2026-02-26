@@ -2,7 +2,7 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
-  name: vd-ubuntu-http
+  name: vd-alpine-http
 spec:
   dataSource:
     type: HTTP

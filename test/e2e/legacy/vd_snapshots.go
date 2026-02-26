@@ -41,7 +41,7 @@ const (
 	frozenReasonPollingInterval    = 1 * time.Second
 )
 
-var _ = Describe("VirtualDiskSnapshots", Ordered, func() {
+var _ = Describe("VirtualDiskSnapshots", Label("legacy"), Ordered, func() {
 	var (
 		testCaseLabel            = map[string]string{"testcase": "vd-snapshots", "id": namePrefix}
 		attachedVirtualDiskLabel = map[string]string{"attachedVirtualDisk": ""}
