@@ -26,16 +26,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
 	"path"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -261,6 +263,9 @@ func (p DataProcessor) inspectAndStreamSourceImage(
 		klog.Infoln("Streaming from the source")
 		doneSize, err := io.Copy(streamWriter, io.TeeReader(sourceImageReader, imageInfoWriter))
 		if err != nil {
+			if importerrs.IsNoSpaceLeftError(err) {
+				return importerrs.NewNoSpaceLeftError(err)
+			}
 			return fmt.Errorf("error copying from the source: %w", err)
 		}
 
@@ -325,6 +330,15 @@ func (p DataProcessor) uploadLayersAndImage(
 
 	klog.Infoln("Uploading layer to registry")
 	if err := remote.WriteLayer(repo, layer, remoteOpts...); err != nil {
+		slog.Error(fmt.Sprintf("error uploading layer: %w", err))
+
+		if errors.Is(err, syscall.ENOSPC) {
+			slog.Error(fmt.Sprintf("ENOSPC uploading layer: %w", err))
+		}
+
+		if importerrs.IsNoSpaceLeftError(err) {
+			return importerrs.NewNoSpaceLeftError(err)
+		}
 		return fmt.Errorf("error uploading layer: %w", err)
 	}
 	klog.Infoln("Layer uploaded")
@@ -356,6 +370,9 @@ func (p DataProcessor) uploadLayersAndImage(
 
 	klog.Infof("Uploading image %q to registry", p.destImageName)
 	if err = remote.Write(ref, image, remoteOpts...); err != nil {
+		if importerrs.IsNoSpaceLeftError(err) {
+			return importerrs.NewNoSpaceLeftError(err)
+		}
 		return fmt.Errorf("error uploading image: %w", err)
 	}
 
@@ -403,6 +420,9 @@ func getImageInfo(ctx context.Context, sourceReader io.ReadCloser) (ImageInfo, e
 
 		uncompressedN, err = io.CopyN(tempImageInfoFile, formatSourceReaders.TopReader(), imageInfoSize)
 		if err != nil && !errors.Is(err, io.EOF) {
+			if importerrs.IsNoSpaceLeftError(err) {
+				return ImageInfo{}, importerrs.NewNoSpaceLeftError(err)
+			}
 			return ImageInfo{}, fmt.Errorf("error writing to temp file: %w", err)
 		}
 
@@ -430,6 +450,9 @@ func getImageInfo(ctx context.Context, sourceReader io.ReadCloser) (ImageInfo, e
 			// It's necessary to read everything from the original image to avoid blocking.
 			_, err = io.Copy(&EmptyWriter{}, sourceReader)
 			if err != nil {
+				if importerrs.IsNoSpaceLeftError(err) {
+					return ImageInfo{}, importerrs.NewNoSpaceLeftError(err)
+				}
 				return ImageInfo{}, fmt.Errorf("error copying to nowhere: %w", err)
 			}
 
@@ -458,6 +481,9 @@ func getImageInfo(ctx context.Context, sourceReader io.ReadCloser) (ImageInfo, e
 		// Count uncompressed size of source image.
 		n, err := io.Copy(&EmptyWriter{}, formatSourceReaders.TopReader())
 		if err != nil {
+			if importerrs.IsNoSpaceLeftError(err) {
+				return ImageInfo{}, importerrs.NewNoSpaceLeftError(err)
+			}
 			return ImageInfo{}, fmt.Errorf("error copying to nowhere: %w", err)
 		}
 
