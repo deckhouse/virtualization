@@ -275,4 +275,72 @@ var _ = Describe("VirtualDiskRestorer", func() {
 			Expect(handler.vd.Name).To(Equal(originalName))
 		})
 	})
+
+	Describe("OwnerReferences", func() {
+		It("preserves OwnerReferences from template when creating VD on restore", func() {
+			ownerRefs := []metav1.OwnerReference{
+				{
+					APIVersion: v1alpha2.SchemeGroupVersion.String(),
+					Kind:       v1alpha2.VirtualMachineKind,
+					Name:       vm,
+					UID:        "owner-uid-123",
+				},
+			}
+			disk.OwnerReferences = ownerRefs
+
+			var createdVD *v1alpha2.VirtualDisk
+			interceptCreate := interceptor.Funcs{
+				Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
+					if vd, ok := obj.(*v1alpha2.VirtualDisk); ok && vd.Name == disk.Name {
+						createdVD = vd.DeepCopy()
+					}
+					return nil
+				},
+			}
+
+			fakeClient, err = testutil.NewFakeClientWithInterceptorWithObjects(interceptCreate)
+			Expect(err).ToNot(HaveOccurred())
+
+			handler = NewVirtualDiskHandler(fakeClient, disk, uid)
+			Expect(handler.vd.OwnerReferences).To(Equal(ownerRefs), "handler must copy OwnerReferences from template")
+
+			err = handler.ProcessRestore(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(createdVD).ToNot(BeNil(), "Create should have been called")
+			Expect(createdVD.OwnerReferences).To(Equal(ownerRefs), "created VirtualDisk must have OwnerReferences from template")
+		})
+
+		It("preserves OwnerReferences from template when creating VD on clone", func() {
+			ownerRefs := []metav1.OwnerReference{
+				{
+					APIVersion: v1alpha2.SchemeGroupVersion.String(),
+					Kind:       v1alpha2.VirtualMachineKind,
+					Name:       "clone-vm",
+					UID:        "owner-uid-456",
+				},
+			}
+			disk.OwnerReferences = ownerRefs
+
+			var createdVD *v1alpha2.VirtualDisk
+			interceptCreate := interceptor.Funcs{
+				Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
+					if vd, ok := obj.(*v1alpha2.VirtualDisk); ok && vd.Name == disk.Name {
+						createdVD = vd.DeepCopy()
+					}
+					return nil
+				},
+			}
+
+			fakeClient, err = testutil.NewFakeClientWithInterceptorWithObjects(interceptCreate)
+			Expect(err).ToNot(HaveOccurred())
+
+			handler = NewVirtualDiskHandler(fakeClient, disk, uid)
+			Expect(handler.vd.OwnerReferences).To(Equal(ownerRefs), "handler must copy OwnerReferences from template")
+
+			err = handler.ProcessClone(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(createdVD).ToNot(BeNil(), "Create should have been called")
+			Expect(createdVD.OwnerReferences).To(Equal(ownerRefs), "created VirtualDisk must have OwnerReferences from template")
+		})
+	})
 })
