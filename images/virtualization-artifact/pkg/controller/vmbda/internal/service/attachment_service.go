@@ -30,19 +30,18 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
 
 type AttachmentService struct {
-	client              service.Client
+	client              client.Client
 	virtClient          kubeclient.Client
 	controllerNamespace string
 }
 
-func NewAttachmentService(client service.Client, virtClient kubeclient.Client, controllerNamespace string) *AttachmentService {
+func NewAttachmentService(client client.Client, virtClient kubeclient.Client, controllerNamespace string) *AttachmentService {
 	return &AttachmentService{
 		client:              client,
 		virtClient:          virtClient,
