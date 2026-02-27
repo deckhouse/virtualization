@@ -813,7 +813,7 @@ func (c *Controller) syncPool(ctx context.Context, poolName string) error {
 		//
 		// When adding new fields here, then also extend sliceStored.
 		slice.Spec.NodeSelector = pool.NodeSelector
-		slice.Spec.AllNodes = refIfNotZero(desiredAllNodes && !(pool.Slices[i].PerDeviceNodeSelection != nil && *pool.Slices[i].PerDeviceNodeSelection))
+		slice.Spec.AllNodes = refIfNotZero(desiredAllNodes && (pool.Slices[i].PerDeviceNodeSelection == nil && !*pool.Slices[i].PerDeviceNodeSelection))
 		slice.Spec.SharedCounters = pool.Slices[i].SharedCounters
 		slice.Spec.PerDeviceNodeSelection = pool.Slices[i].PerDeviceNodeSelection
 		// Preserve TimeAdded from existing device, if there is a matching device and taint.
@@ -861,7 +861,7 @@ func (c *Controller) syncPool(ctx context.Context, poolName string) error {
 				Pool:                   desiredPool,
 				NodeName:               refIfNotZero(nodeName),
 				NodeSelector:           pool.NodeSelector,
-				AllNodes:               refIfNotZero(desiredAllNodes && !(pool.Slices[i].PerDeviceNodeSelection != nil && *pool.Slices[i].PerDeviceNodeSelection)),
+				AllNodes:               refIfNotZero(desiredAllNodes && (pool.Slices[i].PerDeviceNodeSelection == nil && !*pool.Slices[i].PerDeviceNodeSelection)),
 				Devices:                pool.Slices[i].Devices,
 				SharedCounters:         pool.Slices[i].SharedCounters,
 				PerDeviceNodeSelection: pool.Slices[i].PerDeviceNodeSelection,

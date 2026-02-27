@@ -17,6 +17,8 @@ limitations under the License.
 package usb
 
 import (
+	"log/slog"
+
 	"github.com/deckhouse/virtualization-dra/internal/featuregates"
 )
 
@@ -44,6 +46,9 @@ func (s *AllocationStore) discoveryPluggedUSBDevices() (DeviceSet, DeviceSet, er
 			usbDeviceSet.Insert(toDevice(&device))
 		}
 	}
+
+	s.log.Debug("USB device set", slog.Any("usbDeviceSet", usbDeviceSet))
+	s.log.Debug("USBIP device set", slog.Any("usbipDeviceSet", usbipDeviceSet))
 
 	return usbDeviceSet, usbipDeviceSet, nil
 }

@@ -144,7 +144,6 @@ func (c *USBDevicesValidator) validateAvailableUSBIPPorts(ctx context.Context, v
 		if usbDevice.Status.NodeName != vm.Status.Node {
 			usbFromOtherNodes = append(usbFromOtherNodes, ref.Name)
 		}
-
 	}
 
 	if len(usbFromOtherNodes) == 0 {
