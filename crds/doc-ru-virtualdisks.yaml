@@ -8,6 +8,7 @@ spec:
 
             После создания VirtualDisk можно изменить только размер диска с помощью поля `.spec.persistentVolumeClaim.size`. Все остальные поля изменить нельзя.
 
+            **Важно:** Поле `metadata.name` должно соответствовать [правилам именования объектов Kubernetes](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/) и **не должно превышать 60 символов**.
           properties:
             spec:
               properties:
