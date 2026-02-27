@@ -1,0 +1,50 @@
+api:
+  features:
+    - summary: Add NodeUSBDevice and USBDevice.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1913
+ci:
+  fixes:
+    - summary: resources cleanup before run e2e test
+      pull_request: https://github.com/deckhouse/virtualization/pull/2018
+    - summary: add retry for checking registry
+      pull_request: https://github.com/deckhouse/virtualization/pull/2005
+dvcr:
+  fixes:
+    - summary: Set Cap to limit delays to around 1m for each retry step.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1992
+module:
+  features:
+    - summary: add vm pods info to vm dashboard
+      pull_request: https://github.com/deckhouse/virtualization/pull/2002
+    - summary: add Virtualization Overview dashboard and VM info metric
+      pull_request: https://github.com/deckhouse/virtualization/pull/1956
+vd:
+  fixes:
+    - summary: Ensure tolerations are copied from VM to VD importer Prime for WFFC
+      pull_request: https://github.com/deckhouse/virtualization/pull/1999
+vm:
+  features:
+    - summary: >-
+        Extend the `vlct` command with a `--from-file` flag that allows users to display domain
+        information directly from a local libvirt XML file
+      pull_request: https://github.com/deckhouse/virtualization/pull/2014
+    - summary: add usb over ip
+      pull_request: https://github.com/deckhouse/virtualization/pull/1840
+    - summary: >-
+        Implementation of dynamic USB device allocation in a cluster using the Kubernetes DRA
+        mechanism.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1696
+  fixes:
+    - summary: correct networks spec validation for main-only case
+      pull_request: https://github.com/deckhouse/virtualization/pull/2027
+    - summary: Retain kvvm.spec.template special system metadata during vm.metadata sync.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1994
+    - summary: Labels and annotations now work properly on virtual machines.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1971
+    - summary: Prevent OOMKills for the target Pod during VM migration with hotplugged disks.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1947
+vmsnapshot:
+  features:
+    - summary: add d8v prefix to snapshot supplemental resources
+      pull_request: https://github.com/deckhouse/virtualization/pull/1733
+
