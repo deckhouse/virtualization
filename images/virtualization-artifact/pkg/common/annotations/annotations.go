@@ -164,6 +164,8 @@ const (
 	AnnStorageProvisioner           = "volume.kubernetes.io/storage-provisioner"
 	AnnStorageProvisionerDeprecated = "volume.beta.kubernetes.io/storage-provisioner"
 
+	AnnUseVolumeSnapshot = AnnAPIGroupV + "/use-volume-snapshot"
+
 	// AppLabel is the app name label.
 	AppLabel = "app"
 	// CDILabelValue provides a constant  for CDI Pod label values.
