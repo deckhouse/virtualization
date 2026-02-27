@@ -18,8 +18,6 @@ package object
 
 const (
 	ImageURLAlpineUEFIPerf = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/alpine/alpine-3-23-3-uefi-base.qcow2"
-	// Temporary not used
-	// ImageURLUbuntu         = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/ubuntu-24.04-minimal-cloudimg-amd64.qcow2"
 	ImageURLAlpineBIOS     = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/alpine/alpine-3-23-3-bios-base.qcow2"
 	ImageURLContainerImage = "cr.yandex/crpvs5j3nh1mi2tpithr/e2e/alpine/alpine-image:latest"
 	ImageURLMinimalQCOW    = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.qcow2"
@@ -27,7 +25,6 @@ const (
 	Mi256                  = 256 * 1024 * 1024
 	DefaultVMClass         = "generic"
 
-	// Shared cloud-init fragments (DRY between DefaultCloudInit and PerfCloudInit).
 	cloudInitBase = `#cloud-config
 package_update: true
 packages:
