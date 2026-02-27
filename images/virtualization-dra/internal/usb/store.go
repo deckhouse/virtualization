@@ -29,6 +29,7 @@ import (
 	"sync"
 
 	"github.com/containerd/nri/pkg/api"
+	corev1 "k8s.io/api/core/v1"
 	resourcev1 "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -90,31 +91,33 @@ type AllocationStore struct {
 	monitor         libusb.Monitor
 	kubeClient      kubernetes.Interface
 
-	discoverPluggedUSBDevices      DeviceSet
-	discoverUsbIpPluggedUSBDevices DeviceSet
-	allocatableDevices             map[string]resourcev1.Device
+	discoverPluggedUSBDevicesInited bool
+	discoverPluggedUSBDevices       DeviceSet
+	discoverUsbIpPluggedUSBDevices  DeviceSet
+	allocatableDevices              map[string]resourcev1.Device
 
 	allocatedDevices           sets.Set[string]
 	usbipAllocatedDevicesCount map[string]int
 	resourceClaimAllocations   map[types.UID][]string
 }
 
-func (s *AllocationStore) sync() error {
+func (s *AllocationStore) sync(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	discoverPluggedUSBDevices, discoverUsbIpPluggedUSBDevices, err := s.discoveryPluggedUSBDevices()
+	discoverPluggedUSBDevices, discoverUsbIpPluggedUSBDevices, err := s.discoveryPluggedUSBDevices(ctx)
 	if err != nil {
 		return err
 	}
 
 	s.discoverUsbIpPluggedUSBDevices = discoverUsbIpPluggedUSBDevices
 
-	if discoverPluggedUSBDevices.Equal(s.discoverPluggedUSBDevices) {
+	if s.discoverPluggedUSBDevicesInited && discoverPluggedUSBDevices.Equal(s.discoverPluggedUSBDevices) {
 		return nil
 	}
 
 	s.discoverPluggedUSBDevices = discoverPluggedUSBDevices
+	s.discoverPluggedUSBDevicesInited = true
 
 	allocatableDevices := make([]resourcev1.Device, discoverPluggedUSBDevices.Len())
 	for i, usbDevice := range discoverPluggedUSBDevices.UnsortedList() {
@@ -135,7 +138,7 @@ func (s *AllocationStore) sync() error {
 
 func (s *AllocationStore) subscribeToDeviceChanges(ctx context.Context) {
 	syncFunc := func() {
-		if err := s.sync(); err != nil {
+		if err := s.sync(ctx); err != nil {
 			s.log.Error("failed to sync usb state", slog.Any("err", err))
 		}
 	}
@@ -486,12 +489,12 @@ func (s *AllocationStore) Unprepare(_ context.Context, claimUID types.UID) error
 	allocatedDevices := s.resourceClaimAllocations[claimUID]
 	for _, device := range allocatedDevices {
 		if usbGatewayEnabled {
-			if count := s.usbipAllocatedDevicesCount[device]; count == 1 {
+			if count := s.usbipAllocatedDevicesCount[device]; count <= 1 {
 				if err := s.usbGateway.Detach(device); err != nil {
 					return fmt.Errorf("failed to detach device %s: %w", device, err)
 				}
 				delete(s.usbipAllocatedDevicesCount, device)
-			} else if count > 1 {
+			} else {
 				s.usbipAllocatedDevicesCount[device]--
 			}
 		}
@@ -573,23 +576,26 @@ func parseDraEnvToClaimAllocations(envs []string) (map[types.UID][]string, error
 }
 
 func (s *AllocationStore) makeResources(devices []resourcev1.Device) resourceslice.DriverResources {
-	poolName := s.nodeName
-
-	pool := resourceslice.Pool{
-		Slices: []resourceslice.Slice{
-			{
-				Devices: devices,
-			},
-		},
+	if len(devices) == 0 {
+		return resourceslice.DriverResources{}
 	}
 
+	poolName := s.nodeName
+	var nodeSelector *corev1.NodeSelector
 	if featuregates.Default().USBGatewayEnabled() {
-		pool.NodeSelector = getNodeSelector()
+		nodeSelector = getNodeSelector(s.nodeName)
 	}
 
 	return resourceslice.DriverResources{
 		Pools: map[string]resourceslice.Pool{
-			poolName: pool,
+			poolName: {
+				Slices: []resourceslice.Slice{
+					{
+						Devices: devices,
+					},
+				},
+				NodeSelector: nodeSelector,
+			},
 		},
 	}
 }

@@ -17,13 +17,17 @@ limitations under the License.
 package usbip
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
 	"os"
+	"reflect"
 	"strconv"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/deckhouse/virtualization-dra/pkg/libusb"
 	"github.com/deckhouse/virtualization-dra/pkg/usbip/protocol"
@@ -114,20 +118,20 @@ func (a *usbAttacher) Detach(rhport int) error {
 	return nil
 }
 
-func (a *usbAttacher) GetAttachInfo() ([]AttachInfo, error) {
+func (a *usbAttacher) GetAttachInfo() (AttachInfo, error) {
 	driver, err := newVhciDriver()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get vhci driver: %w", err)
+		return AttachInfo{}, fmt.Errorf("failed to get vhci driver: %w", err)
 	}
 
-	var usedInfos []AttachInfo
+	attachInfo := AttachInfo{NPorts: driver.nports}
 
 	for i := 0; i < driver.nports; i++ {
 		idev := &driver.idevs[i]
 
 		vstatus := protocol.DeviceStatus(idev.status)
 		if vstatus == protocol.VDeviceStatusUsed {
-			usedInfos = append(usedInfos, AttachInfo{
+			attachInfo.Items = append(attachInfo.Items, AttachInfoItem{
 				Port:       idev.port,
 				Busnum:     idev.busnum,
 				Devnum:     idev.devnum,
@@ -136,7 +140,45 @@ func (a *usbAttacher) GetAttachInfo() ([]AttachInfo, error) {
 		}
 	}
 
-	return usedInfos, nil
+	return attachInfo, nil
+}
+
+func (a *usbAttacher) WatchAttachInfo(ctx context.Context) (<-chan AttachInfo, error) {
+	resultCh := make(chan AttachInfo, 10)
+
+	ticker := time.NewTicker(time.Second)
+
+	last, err := a.GetAttachInfo()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get attach info: %w", err)
+	}
+
+	resultCh <- last
+
+	go func() {
+		defer func() {
+			close(resultCh)
+		}()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				info, err := a.GetAttachInfo()
+				if err != nil {
+					slog.Error("failed to get attach info", slog.Any("error", err))
+				}
+
+				if !reflect.DeepEqual(info, last) {
+					last = info
+					resultCh <- info
+				}
+			}
+		}
+	}()
+
+	return resultCh, nil
 }
 
 // https://github.com/torvalds/linux/blob/b927546677c876e26eba308550207c2ddf812a43/tools/usb/usbip/src/usbip_network.c#L261
@@ -205,7 +247,7 @@ func (a *usbAttacher) queryImportDevice(conn *net.TCPConn, busID string) (int, e
 func (a *usbAttacher) importDevice(conn *net.TCPConn, usbDevice protocol.USBDevice) (int, error) {
 	port, err := a.getFreePort(usbDevice.Speed)
 	if err != nil {
-		return -1, fmt.Errorf("failed to get free port: %w", err)
+		return -1, err
 	}
 
 	sockFd, err := a.getSockFd(conn)
@@ -229,6 +271,8 @@ func (a *usbAttacher) importDevice(conn *net.TCPConn, usbDevice protocol.USBDevi
 
 	return port, nil
 }
+
+var errNoFreePodFound = errors.New("no free port found")
 
 // https://github.com/torvalds/linux/blob/b927546677c876e26eba308550207c2ddf812a43/tools/usb/usbip/libsrc/vhci_driver.c#L334
 func (a *usbAttacher) getFreePort(speed uint32) (int, error) {
@@ -256,28 +300,7 @@ func (a *usbAttacher) getFreePort(speed uint32) (int, error) {
 		}
 	}
 
-	return a.getAvailablePortOnOtherHub(deviceSpeed, driver)
-}
-
-func (a *usbAttacher) getAvailablePortOnOtherHub(deviceSpeed libusb.USBDeviceSpeed, driver *vhciDriver) (int, error) {
-	for i := 0; i < driver.nports; i++ {
-		switch deviceSpeed {
-		case libusb.USBDeviceSpeedSuper:
-			if driver.idevs[i].hub == hubSpeedSuper {
-				continue
-			}
-		default:
-			if driver.idevs[i].hub == hubSpeedHigh {
-				continue
-			}
-		}
-		vstatus := protocol.DeviceStatus(driver.idevs[i].status)
-		if vstatus == protocol.VDeviceStatusNull {
-			return driver.idevs[i].port, nil
-		}
-	}
-
-	return -1, fmt.Errorf("no free port found")
+	return -1, errNoFreePodFound
 }
 
 func (a *usbAttacher) getSockFd(conn *net.TCPConn) (int, error) {

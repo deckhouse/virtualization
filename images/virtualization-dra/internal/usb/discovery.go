@@ -17,20 +17,23 @@ limitations under the License.
 package usb
 
 import (
+	"context"
+	"log/slog"
+
 	"github.com/deckhouse/virtualization-dra/internal/featuregates"
 )
 
-func (s *AllocationStore) discoveryPluggedUSBDevices() (DeviceSet, DeviceSet, error) {
+func (s *AllocationStore) discoveryPluggedUSBDevices(ctx context.Context) (DeviceSet, DeviceSet, error) {
 	allUSBDevices := s.monitor.GetDevices()
 
 	busIDSet := make(map[string]struct{})
 	if featuregates.Default().USBGatewayEnabled() {
-		infos, err := s.usbipInfoGetter.GetAttachInfo()
+		info, err := s.usbipInfoGetter.GetAttachInfo()
 		if err != nil {
 			return nil, nil, err
 		}
-		for _, info := range infos {
-			busIDSet[info.LocalBusID] = struct{}{}
+		for _, item := range info.Items {
+			busIDSet[item.LocalBusID] = struct{}{}
 		}
 	}
 
@@ -43,6 +46,11 @@ func (s *AllocationStore) discoveryPluggedUSBDevices() (DeviceSet, DeviceSet, er
 		} else {
 			usbDeviceSet.Insert(toDevice(&device))
 		}
+	}
+
+	if s.log.Enabled(ctx, slog.LevelDebug) {
+		s.log.Debug("USB device set", slog.Any("usbDeviceSet", usbDeviceSet.UnsortedList()))
+		s.log.Debug("USBIP device set", slog.Any("usbipDeviceSet", usbipDeviceSet.UnsortedList()))
 	}
 
 	return usbDeviceSet, usbipDeviceSet, nil
