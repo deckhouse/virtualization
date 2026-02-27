@@ -861,7 +861,7 @@ func (c *Controller) syncPool(ctx context.Context, poolName string) error {
 				Pool:                   desiredPool,
 				NodeName:               refIfNotZero(nodeName),
 				NodeSelector:           pool.NodeSelector,
-				AllNodes:               refIfNotZero(desiredAllNodes),
+				AllNodes:               refIfNotZero(desiredAllNodes && !(pool.Slices[i].PerDeviceNodeSelection != nil && *pool.Slices[i].PerDeviceNodeSelection)),
 				Devices:                pool.Slices[i].Devices,
 				SharedCounters:         pool.Slices[i].SharedCounters,
 				PerDeviceNodeSelection: pool.Slices[i].PerDeviceNodeSelection,
