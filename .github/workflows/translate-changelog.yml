@@ -34,7 +34,11 @@ jobs:
           fetch-depth: 0
 
       - name: Translate changelog and create PR
-        uses: deckhouse/modules-actions/translate-changelog@v9
+        uses: deckhouse/modules-actions/translate-changelog@main
         with:
           changelog_path: "CHANGELOG"
+          source_lang: en
+          target_lang: ru
+          file_prefix: CHANGELOG-v
           python_version: "3.11"
+          github_token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
