@@ -24,6 +24,7 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -40,7 +41,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/stream"
-	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/klog/v2"
 	"kubevirt.io/containerized-data-importer/pkg/importer"
@@ -140,17 +140,51 @@ func (p DataProcessor) Process(ctx context.Context) (ImportRes, error) {
 
 	informer := NewImageInformer()
 
-	errsGroup, ctx := errgroup.WithContext(ctx)
-	errsGroup.Go(func() error {
-		return p.inspectAndStreamSourceImage(ctx, sourceImageFilename, sourceImageSize, progressMeter, pipeWriter, informer)
-	})
-	errsGroup.Go(func() error {
-		defer pipeReader.Close()
-		return p.uploadLayersAndImage(ctx, pipeReader, sourceImageSize, informer)
-	})
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
-	err = errsGroup.Wait()
-	if err != nil {
+	errsCh := make(chan error, 2)
+
+	go func() {
+		err := p.inspectAndStreamSourceImage(
+			ctx, sourceImageFilename, sourceImageSize,
+			progressMeter, pipeWriter, informer,
+		)
+		if err != nil {
+			if errors.Is(err, io.ErrClosedPipe) {
+				klog.Infof("source streaming: pipe is closed by upload: %s", err.Error())
+				err = nil
+			} else {
+				if ctx.Err() != context.Canceled {
+					cancel()
+				}
+				err = fmt.Errorf("source streaming error: %w", err)
+				klog.Errorln(err)
+			}
+		}
+		errsCh <- err
+	}()
+
+	go func() {
+		defer pipeReader.Close()
+
+		err := p.uploadLayersAndImage(
+			ctx, pipeReader, sourceImageSize, informer,
+		)
+		if err != nil {
+			if ctx.Err() != context.Canceled {
+				cancel()
+			}
+			err = fmt.Errorf("layers uploading error: %w", err)
+			klog.Errorln(err)
+		}
+		errsCh <- err
+	}()
+
+	err1 := <-errsCh
+	err2 := <-errsCh
+
+	if err := errors.Join(err1, err2); err != nil {
 		return ImportRes{}, err
 	}
 
