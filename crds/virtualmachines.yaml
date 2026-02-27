@@ -956,6 +956,13 @@ spec:
                         type: string
                         description: |
                           Name of the attached resource.
+                      bootOrder:
+                        type: integer
+                        minimum: 1
+                        description: |
+                          Boot priority for the block device. 1-based: 1 = first to boot. Smaller value means higher boot priority.
+                          If not set for any device, boot order follows the position in the list (starting from 1).
+                          If set for at least one device, explicit values determine boot priority.
 
                 liveMigrationPolicy:
                   type: string

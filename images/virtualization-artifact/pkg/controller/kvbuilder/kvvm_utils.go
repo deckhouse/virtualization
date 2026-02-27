@@ -20,13 +20,8 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"slices"
 	"strings"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/utils/ptr"
-	virtv1 "kubevirt.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
@@ -37,6 +32,10 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/utils/ptr"
+	virtv1 "kubevirt.io/api/core/v1"
 )
 
 const (
@@ -55,6 +54,18 @@ func GenerateVIDiskName(name string) string {
 
 func GenerateCVIDiskName(name string) string {
 	return CVIDiskPrefix + name
+}
+
+func GenerateDiskName(kind v1alpha2.BlockDeviceKind, name string) string {
+	switch kind {
+	case v1alpha2.DiskDevice:
+		return VDDiskPrefix + name
+	case v1alpha2.ImageDevice:
+		return VIDiskPrefix + name
+	case v1alpha2.ClusterImageDevice:
+		return CVIDiskPrefix + name
+	}
+	return ""
 }
 
 func GetOriginalDiskName(prefixedName string) (string, v1alpha2.BlockDeviceKind) {
@@ -81,19 +92,11 @@ func GenerateSerial(input string) string {
 	return hex.EncodeToString(hashInBytes)
 }
 
-type HotPlugDeviceSettings struct {
-	VolumeName     string
-	PVCName        string
-	Image          string
-	DataVolumeName string
-}
-
 func ApplyVirtualMachineSpec(
 	kvvm *KVVM, vm *v1alpha2.VirtualMachine,
 	vdByName map[string]*v1alpha2.VirtualDisk,
 	viByName map[string]*v1alpha2.VirtualImage,
 	cviByName map[string]*v1alpha2.ClusterVirtualImage,
-	vmbdas map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment,
 	class *v1alpha2.VirtualMachineClass,
 	ipAddress string,
 	networkSpec network.InterfaceSpecList,
@@ -125,160 +128,12 @@ func ApplyVirtualMachineSpec(
 		return err
 	}
 
-	hotpluggedDevices := make([]HotPlugDeviceSettings, 0)
-	for _, volume := range kvvm.Resource.Spec.Template.Spec.Volumes {
-		if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable {
-			hotpluggedDevices = append(hotpluggedDevices, HotPlugDeviceSettings{
-				VolumeName: volume.Name,
-				PVCName:    volume.PersistentVolumeClaim.ClaimName,
-			})
-		}
-
-		if volume.ContainerDisk != nil && volume.ContainerDisk.Hotpluggable {
-			hotpluggedDevices = append(hotpluggedDevices, HotPlugDeviceSettings{
-				VolumeName: volume.Name,
-				Image:      volume.ContainerDisk.Image,
-			})
-		}
-	}
-
-	kvvm.ClearDisks()
-	bootOrder := uint(1)
-	for _, bd := range vm.Spec.BlockDeviceRefs {
-		// bootOrder starts from 1.
-		switch bd.Kind {
-		case v1alpha2.ImageDevice:
-			// Attach ephemeral disk for storage: Kubernetes.
-			// Attach containerDisk for storage: ContainerRegistry (i.e. image from DVCR).
-
-			vi, ok := viByName[bd.Name]
-			if !ok || vi == nil {
-				return fmt.Errorf("unexpected error: virtual image %q should exist in the cluster; please recreate it", bd.Name)
-			}
-
-			name := GenerateVIDiskName(bd.Name)
-			switch vi.Spec.Storage {
-			case v1alpha2.StorageKubernetes,
-				v1alpha2.StoragePersistentVolumeClaim:
-				// Attach PVC as ephemeral volume: its data will be restored to initial state on VM restart.
-				if err := kvvm.SetDisk(name, SetDiskOptions{
-					PersistentVolumeClaim: pointer.GetPointer(vi.Status.Target.PersistentVolumeClaim),
-					IsEphemeral:           true,
-					Serial:                GenerateSerialFromObject(vi),
-					BootOrder:             bootOrder,
-				}); err != nil {
-					return err
-				}
-			case v1alpha2.StorageContainerRegistry:
-				if err := kvvm.SetDisk(name, SetDiskOptions{
-					ContainerDisk: pointer.GetPointer(vi.Status.Target.RegistryURL),
-					IsCdrom:       imageformat.IsISO(vi.Status.Format),
-					Serial:        GenerateSerialFromObject(vi),
-					BootOrder:     bootOrder,
-				}); err != nil {
-					return err
-				}
-			default:
-				return fmt.Errorf("unexpected storage type %q for vi %s. %w", vi.Spec.Storage, vi.Name, common.ErrUnknownType)
-			}
-			bootOrder++
-
-		case v1alpha2.ClusterImageDevice:
-			// ClusterVirtualImage is attached as containerDisk.
-
-			cvi, ok := cviByName[bd.Name]
-			if !ok || cvi == nil {
-				return fmt.Errorf("unexpected error: cluster virtual image %q should exist in the cluster; please recreate it", bd.Name)
-			}
-
-			name := GenerateCVIDiskName(bd.Name)
-			if err := kvvm.SetDisk(name, SetDiskOptions{
-				ContainerDisk: pointer.GetPointer(cvi.Status.Target.RegistryURL),
-				IsCdrom:       imageformat.IsISO(cvi.Status.Format),
-				Serial:        GenerateSerialFromObject(cvi),
-				BootOrder:     bootOrder,
-			}); err != nil {
-				return err
-			}
-			bootOrder++
-
-		case v1alpha2.DiskDevice:
-			// VirtualDisk is attached as a regular disk.
-
-			vd, ok := vdByName[bd.Name]
-			if !ok || vd == nil {
-				return fmt.Errorf("unexpected error: virtual disk %q should exist in the cluster; please recreate it", bd.Name)
-			}
-
-			pvcName := vd.Status.Target.PersistentVolumeClaim
-			// VirtualDisk doesn't have pvc yet: wait for pvc and reconcile again.
-			if pvcName == "" {
-				continue
-			}
-
-			name := GenerateVDDiskName(bd.Name)
-			if err := kvvm.SetDisk(name, SetDiskOptions{
-				PersistentVolumeClaim: pointer.GetPointer(pvcName),
-				Serial:                GenerateSerialFromObject(vd),
-				BootOrder:             bootOrder,
-			}); err != nil {
-				return err
-			}
-			bootOrder++
-		default:
-			return fmt.Errorf("unknown block device kind %q. %w", bd.Kind, common.ErrUnknownType)
-		}
+	if err := applyBlockDeviceRefs(kvvm, vm, vdByName, viByName, cviByName); err != nil {
+		return err
 	}
 
 	if err := kvvm.SetProvisioning(vm.Spec.Provisioning); err != nil {
 		return err
-	}
-
-	for _, device := range hotpluggedDevices {
-		name, kind := GetOriginalDiskName(device.VolumeName)
-
-		var obj client.Object
-		var exists bool
-
-		switch kind {
-		case v1alpha2.ImageDevice:
-			obj, exists = viByName[name]
-		case v1alpha2.ClusterImageDevice:
-			obj, exists = cviByName[name]
-		case v1alpha2.DiskDevice:
-			obj, exists = vdByName[name]
-		default:
-			return fmt.Errorf("unknown block device kind %q. %w", kind, common.ErrUnknownType)
-		}
-
-		if !exists || obj == nil || obj.GetUID() == "" {
-			continue
-		}
-
-		switch {
-		case device.PVCName != "":
-			pvcName := device.PVCName
-			if kind == v1alpha2.DiskDevice {
-				if vd := vdByName[name]; vd != nil && vd.Status.Target.PersistentVolumeClaim != "" {
-					pvcName = vd.Status.Target.PersistentVolumeClaim
-				}
-			}
-			if err := kvvm.SetDisk(device.VolumeName, SetDiskOptions{
-				PersistentVolumeClaim: pointer.GetPointer(pvcName),
-				IsHotplugged:          true,
-				Serial:                GenerateSerialFromObject(obj),
-			}); err != nil {
-				return err
-			}
-		case device.Image != "":
-			if err := kvvm.SetDisk(device.VolumeName, SetDiskOptions{
-				ContainerDisk: pointer.GetPointer(device.Image),
-				IsHotplugged:  true,
-				Serial:        GenerateSerialFromObject(obj),
-			}); err != nil {
-				return err
-			}
-		}
 	}
 
 	kvvm.SetOwnerRef(vm, schema.GroupVersionKind{
@@ -289,21 +144,112 @@ func ApplyVirtualMachineSpec(
 	kvvm.AddFinalizer(v1alpha2.FinalizerKVVMProtection)
 
 	if ipAddress != "" {
-		// Set ip address cni request annotation.
 		kvvm.SetKVVMIAnnotation(netmanager.AnnoIPAddressCNIRequest, ipAddress)
 	}
 
-	// Set live migration annotation.
 	kvvm.SetKVVMIAnnotation(virtv1.AllowPodBridgeNetworkLiveMigrationAnnotation, "true")
-	// Set label to skip the check for PodSecurityStandards to avoid irrelevant alerts related to a privileged virtual machine pod.
 	kvvm.SetKVVMILabel(annotations.SkipPodSecurityStandardsCheckLabel, "true")
 
-	// Set annotation for request network configuration.
-	err := setNetworksAnnotation(kvvm, networkSpec)
-	if err != nil {
-		return err
+	return setNetworksAnnotation(kvvm, networkSpec)
+}
+
+func applyBlockDeviceRefs(
+	kvvm *KVVM, vm *v1alpha2.VirtualMachine,
+	vdByName map[string]*v1alpha2.VirtualDisk,
+	viByName map[string]*v1alpha2.VirtualImage,
+	cviByName map[string]*v1alpha2.ClusterVirtualImage,
+) error {
+	hasExplicitBootOrder := false
+	for _, bd := range vm.Spec.BlockDeviceRefs {
+		if bd.BootOrder != nil {
+			hasExplicitBootOrder = true
+			break
+		}
 	}
+
+	kvvmVolumes := kvvm.Resource.Spec.Template.Spec.Volumes
+	for i, bd := range vm.Spec.BlockDeviceRefs {
+		if len(kvvmVolumes) > 0 && !slices.ContainsFunc(kvvmVolumes, func(v virtv1.Volume) bool { return v.Name == GenerateDiskName(bd.Kind, bd.Name) }) {
+			continue
+		}
+
+		var kvBootOrder uint
+		if hasExplicitBootOrder {
+			if bd.BootOrder != nil {
+				kvBootOrder = uint(*bd.BootOrder)
+			}
+		} else {
+			kvBootOrder = uint(i) + 1
+		}
+
+		if err := setBlockDeviceDisk(kvvm, bd, kvBootOrder, vdByName, viByName, cviByName); err != nil {
+			return err
+		}
+	}
+
 	return nil
+}
+
+func setBlockDeviceDisk(
+	kvvm *KVVM, bd v1alpha2.BlockDeviceSpecRef, bootOrder uint,
+	vdByName map[string]*v1alpha2.VirtualDisk,
+	viByName map[string]*v1alpha2.VirtualImage,
+	cviByName map[string]*v1alpha2.ClusterVirtualImage,
+) error {
+	switch bd.Kind {
+	case v1alpha2.ImageDevice:
+		vi, ok := viByName[bd.Name]
+		if !ok || vi == nil {
+			return fmt.Errorf("unexpected error: virtual image %q should exist in the cluster; please recreate it", bd.Name)
+		}
+		opts := SetDiskOptions{
+			Serial:       GenerateSerialFromObject(vi),
+			BootOrder:    bootOrder,
+			IsHotplugged: true,
+		}
+		switch vi.Spec.Storage {
+		case v1alpha2.StorageKubernetes, v1alpha2.StoragePersistentVolumeClaim:
+			opts.PersistentVolumeClaim = pointer.GetPointer(vi.Status.Target.PersistentVolumeClaim)
+			opts.IsEphemeral = true
+		case v1alpha2.StorageContainerRegistry:
+			opts.ContainerDisk = pointer.GetPointer(vi.Status.Target.RegistryURL)
+			opts.IsCdrom = imageformat.IsISO(vi.Status.Format)
+		default:
+			return fmt.Errorf("unexpected storage type %q for vi %s. %w", vi.Spec.Storage, vi.Name, common.ErrUnknownType)
+		}
+		return kvvm.SetDisk(GenerateVIDiskName(bd.Name), opts)
+
+	case v1alpha2.ClusterImageDevice:
+		cvi, ok := cviByName[bd.Name]
+		if !ok || cvi == nil {
+			return fmt.Errorf("unexpected error: cluster virtual image %q should exist in the cluster; please recreate it", bd.Name)
+		}
+		return kvvm.SetDisk(GenerateCVIDiskName(bd.Name), SetDiskOptions{
+			ContainerDisk: pointer.GetPointer(cvi.Status.Target.RegistryURL),
+			IsCdrom:       imageformat.IsISO(cvi.Status.Format),
+			Serial:        GenerateSerialFromObject(cvi),
+			BootOrder:     bootOrder,
+			IsHotplugged:  true,
+		})
+
+	case v1alpha2.DiskDevice:
+		vd, ok := vdByName[bd.Name]
+		if !ok || vd == nil {
+			return fmt.Errorf("unexpected error: virtual disk %q should exist in the cluster; please recreate it", bd.Name)
+		}
+		if vd.Status.Target.PersistentVolumeClaim == "" {
+			return nil
+		}
+		return kvvm.SetDisk(GenerateVDDiskName(bd.Name), SetDiskOptions{
+			PersistentVolumeClaim: pointer.GetPointer(vd.Status.Target.PersistentVolumeClaim),
+			Serial:                GenerateSerialFromObject(vd),
+			BootOrder:             bootOrder,
+			IsHotplugged:          true,
+		})
+
+	default:
+		return fmt.Errorf("unknown block device kind %q. %w", bd.Kind, common.ErrUnknownType)
+	}
 }
 
 func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName map[string]*v1alpha2.VirtualDisk) error {

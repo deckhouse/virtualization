@@ -156,7 +156,7 @@ blockDeviceRefs:
 			),
 		},
 		{
-			"restart on blockDeviceRefs add disk",
+			"apply immediate on blockDeviceRefs add disk",
 			`
 blockDeviceRefs:
 - kind: VirtualImage
@@ -170,12 +170,12 @@ blockDeviceRefs:
   name: linux
 `,
 			assertChanges(
-				actionRequired(ActionRestart),
+				actionRequired(ActionApplyImmediate),
 				requirePathOperation("blockDeviceRefs.0", ChangeAdd),
 			),
 		},
 		{
-			"restart on blockDeviceRefs remove disk",
+			"apply immediate on blockDeviceRefs remove disk",
 			`
 blockDeviceRefs:
 - kind: VirtualDisk
@@ -189,12 +189,12 @@ blockDeviceRefs:
   name: linux
 `,
 			assertChanges(
-				actionRequired(ActionRestart),
+				actionRequired(ActionApplyImmediate),
 				requirePathOperation("blockDeviceRefs.0", ChangeRemove),
 			),
 		},
 		{
-			"restart on blockDeviceRefs change order",
+			"apply immediate on blockDeviceRefs change order",
 			`
 blockDeviceRefs:
 - kind: VirtualImage
@@ -210,13 +210,13 @@ blockDeviceRefs:
   name: linux
 `,
 			assertChanges(
-				actionRequired(ActionRestart),
+				actionRequired(ActionApplyImmediate),
 				requirePathOperation("blockDeviceRefs.0", ChangeReplace),
 				requirePathOperation("blockDeviceRefs.1", ChangeReplace),
 			),
 		},
 		{
-			"restart on blockDeviceRefs change order :: bigger",
+			"apply immediate on blockDeviceRefs change order :: bigger",
 			`
 blockDeviceRefs:
 - kind: VirtualImage
@@ -245,7 +245,7 @@ blockDeviceRefs:
   name: linux
 `,
 			assertChanges(
-				actionRequired(ActionRestart),
+				actionRequired(ActionApplyImmediate),
 				requirePathOperation("blockDeviceRefs.0", ChangeReplace),
 				requirePathOperation("blockDeviceRefs.1", ChangeReplace),
 				requirePathOperation("blockDeviceRefs.4", ChangeReplace),

@@ -33,20 +33,23 @@ type nameKindKey struct {
 	name string
 }
 
-// getBlockDeviceStatusRefs returns block device refs to populate .status.blockDeviceRefs of the virtual machine.
-// If kvvm is present, this method will reflect all volumes with prefixes (vi,vd, or cvi) into the slice of `BlockDeviceStatusRef`.
-// Block devices from the virtual machine specification will be added to the resulting slice if they have not been included in the previous step.
 func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s state.VirtualMachineState) ([]v1alpha2.BlockDeviceStatusRef, error) {
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
 		return nil, err
 	}
 
+	specRefs := s.VirtualMachine().Current().Spec.BlockDeviceRefs
+
+	specDevices := make(map[nameKindKey]struct{}, len(specRefs))
+	for _, bd := range specRefs {
+		specDevices[nameKindKey{kind: bd.Kind, name: bd.Name}] = struct{}{}
+	}
+
 	var refs []v1alpha2.BlockDeviceStatusRef
 
-	// 1. There is no kvvm yet: populate block device refs with the spec.
 	if kvvm == nil {
-		for _, specBlockDeviceRef := range s.VirtualMachine().Current().Spec.BlockDeviceRefs {
+		for _, specBlockDeviceRef := range specRefs {
 			ref := h.getBlockDeviceStatusRef(specBlockDeviceRef.Kind, specBlockDeviceRef.Name)
 			ref.Size, err = h.getBlockDeviceRefSize(ctx, ref, s)
 			if err != nil {
@@ -77,14 +80,13 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 
 	attachedBlockDeviceRefs := make(map[nameKindKey]struct{})
 
-	// 2. The kvvm already exists: populate block device refs with the kvvm volumes.
 	for _, volume := range kvvm.Spec.Template.Spec.Volumes {
 		bdName, kind := kvbuilder.GetOriginalDiskName(volume.Name)
 		if kind == "" {
-			// Reflect only vi, vd, or cvi block devices in status.
-			// This is neither of them, so skip.
 			continue
 		}
+
+		key := nameKindKey{kind: kind, name: bdName}
 
 		ref := h.getBlockDeviceStatusRef(kind, bdName)
 		ref.Target, ref.Attached = h.getBlockDeviceTarget(volume, kvvmiVolumeStatusByName)
@@ -95,26 +97,22 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 
 		ref.Hotplugged = h.isHotplugged(volume, kvvmiVolumeStatusByName)
 		if ref.Hotplugged {
-			ref.VirtualMachineBlockDeviceAttachmentName, err = h.getBlockDeviceAttachmentName(ctx, kind, bdName, s)
-			if err != nil {
-				return nil, err
+			_, isSpecDevice := specDevices[key]
+			if !isSpecDevice {
+				ref.VirtualMachineBlockDeviceAttachmentName, err = h.getBlockDeviceAttachmentName(ctx, kind, bdName, s)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 
 		refs = append(refs, ref)
-		attachedBlockDeviceRefs[nameKindKey{
-			kind: ref.Kind,
-			name: ref.Name,
-		}] = struct{}{}
+		attachedBlockDeviceRefs[key] = struct{}{}
 	}
 
-	// 3. The kvvm may be missing some block devices from the spec; they need to be added as well.
-	for _, specBlockDeviceRef := range s.VirtualMachine().Current().Spec.BlockDeviceRefs {
-		_, ok := attachedBlockDeviceRefs[nameKindKey{
-			kind: specBlockDeviceRef.Kind,
-			name: specBlockDeviceRef.Name,
-		}]
-		if ok {
+	for _, specBlockDeviceRef := range specRefs {
+		key := nameKindKey{kind: specBlockDeviceRef.Kind, name: specBlockDeviceRef.Name}
+		if _, ok := attachedBlockDeviceRefs[key]; ok {
 			continue
 		}
 
@@ -189,20 +187,14 @@ func (h *BlockDeviceHandler) getBlockDeviceTarget(volume virtv1.Volume, kvvmiVol
 
 func (h *BlockDeviceHandler) isHotplugged(volume virtv1.Volume, kvvmiVolumeStatusByName map[string]virtv1.VolumeStatus) bool {
 	switch {
-	// 1. If kvvmi has volume status with hotplugVolume reference then it's 100% hot-plugged volume.
 	case kvvmiVolumeStatusByName[volume.Name].HotplugVolume != nil:
 		return true
-
-	// 2. If kvvm has volume with hot-pluggable pvc reference then it's 100% hot-plugged volume.
 	case volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable:
 		return true
-
-	// 3. If kvvm has volume with hot-pluggable disk reference then it's 100% hot-plugged volume.
 	case volume.ContainerDisk != nil && volume.ContainerDisk.Hotpluggable:
 		return true
 	}
 
-	// 4. Is not hot-plugged.
 	return false
 }
 

@@ -434,13 +434,7 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 
 	networkSpec := network.CreateNetworkSpec(current, vmmacs)
 
-	vmbdas, err := s.VirtualMachineBlockDeviceAttachments(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("get vmbdas: %w", err)
-	}
-
-	// Create kubevirt VirtualMachine resource from d8 VirtualMachine spec.
-	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, vmbdas, class, ipAddress, networkSpec)
+	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, class, ipAddress, networkSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -646,7 +640,6 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 
 	switch action {
 	case vmchange.ActionRestart:
-		// Update KVVM spec according the current VM spec.
 		if err = h.updateKVVM(ctx, s); err != nil {
 			return fmt.Errorf("update virtual machine instance with new spec: %w", err)
 		}
@@ -659,8 +652,18 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 		h.recorder.Event(current, corev1.EventTypeNormal, v1alpha2.ReasonVMChangesApplied, message)
 		log.Debug(message, "vm.name", current.GetName(), "changes", changes)
 
-		if err := h.updateKVVM(ctx, s); err != nil {
-			return fmt.Errorf("unable to update KVVM using new VM spec: %w", err)
+		if changes.IsBlockDeviceRefsOnly() && kvvmi != nil {
+			class, err := s.Class(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to get vmclass: %w", err)
+			}
+			if err = h.patchKVVMLastAppliedSpec(ctx, current, kvvm, class); err != nil {
+				return fmt.Errorf("unable to patch last-applied-spec on KVVM: %w", err)
+			}
+		} else {
+			if err := h.updateKVVM(ctx, s); err != nil {
+				return fmt.Errorf("unable to update KVVM using new VM spec: %w", err)
+			}
 		}
 
 	case vmchange.ActionNone:
@@ -688,6 +691,8 @@ func (h *SyncKvvmHandler) updateKVVMLastAppliedSpec(
 		return nil
 	}
 
+	log := logger.FromContext(ctx)
+
 	err := kvbuilder.SetLastAppliedSpec(kvvm, vm)
 	if err != nil {
 		return fmt.Errorf("set vm last applied spec on KubeVirt VM '%s': %w", kvvm.GetName(), err)
@@ -701,8 +706,39 @@ func (h *SyncKvvmHandler) updateKVVMLastAppliedSpec(
 		return fmt.Errorf("unable to update KubeVirt VM '%s': %w", kvvm.GetName(), err)
 	}
 
-	log := logger.FromContext(ctx)
 	log.Info("Update last applied spec on KubeVirt VM done", "name", kvvm.GetName())
+
+	return nil
+}
+
+// patchKVVMLastAppliedSpec updates only the last-applied-spec annotations on KubeVirt VirtualMachine
+// using a merge patch. Unlike updateKVVMLastAppliedSpec, this does not send the full KVVM object,
+// so it won't accidentally overwrite spec changes made by KubeVirt (e.g., from AddVolume processing).
+func (h *SyncKvvmHandler) patchKVVMLastAppliedSpec(
+	ctx context.Context,
+	vm *v1alpha2.VirtualMachine,
+	kvvm *virtv1.VirtualMachine,
+	class *v1alpha2.VirtualMachineClass,
+) error {
+	if vm == nil || kvvm == nil {
+		return nil
+	}
+
+	patch := client.MergeFrom(kvvm.DeepCopy())
+
+	if err := kvbuilder.SetLastAppliedSpec(kvvm, vm); err != nil {
+		return fmt.Errorf("set vm last applied spec on KubeVirt VM '%s': %w", kvvm.GetName(), err)
+	}
+	if err := kvbuilder.SetLastAppliedClassSpec(kvvm, class); err != nil {
+		return fmt.Errorf("set vmclass last applied spec on KubeVirt VM '%s': %w", kvvm.GetName(), err)
+	}
+
+	if err := h.client.Patch(ctx, kvvm, patch); err != nil {
+		return fmt.Errorf("unable to patch KubeVirt VM '%s': %w", kvvm.GetName(), err)
+	}
+
+	log := logger.FromContext(ctx)
+	log.Info("Patch last applied spec on KubeVirt VM done", "name", kvvm.GetName())
 
 	return nil
 }

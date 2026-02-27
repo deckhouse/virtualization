@@ -81,6 +81,7 @@ func compareBlockDevices(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 		switch {
 		case isAdded && isRemoved:
 			// Compact add+remove for the same index into one replace.
+			// A different device at the same index requires restart.
 			changes = append(changes, FieldChange{
 				Operation:      ChangeReplace,
 				Path:           itemPath,
@@ -93,14 +94,14 @@ func compareBlockDevices(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 				Operation:      ChangeAdd,
 				Path:           itemPath,
 				DesiredValue:   desired.BlockDeviceRefs[idx],
-				ActionRequired: ActionRestart,
+				ActionRequired: ActionApplyImmediate,
 			})
 		case isRemoved:
 			changes = append(changes, FieldChange{
 				Operation:      ChangeRemove,
 				Path:           itemPath,
 				CurrentValue:   current.BlockDeviceRefs[idx],
-				ActionRequired: ActionRestart,
+				ActionRequired: ActionApplyImmediate,
 			})
 		case isSwapped:
 			changes = append(changes, FieldChange{
@@ -108,7 +109,7 @@ func compareBlockDevices(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 				Path:           itemPath,
 				CurrentValue:   current.BlockDeviceRefs[idx],
 				DesiredValue:   desired.BlockDeviceRefs[idx],
-				ActionRequired: ActionRestart,
+				ActionRequired: ActionApplyImmediate,
 			})
 		}
 	}

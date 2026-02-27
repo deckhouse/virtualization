@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/yaml"
@@ -264,6 +265,18 @@ func (s *SpecChanges) ActionType() ActionType {
 
 func (s *SpecChanges) IsDisruptive() bool {
 	return s.ActionType() == ActionRestart
+}
+
+func (s *SpecChanges) IsBlockDeviceRefsOnly() bool {
+	if s.IsEmpty() {
+		return false
+	}
+	for _, change := range s.changes {
+		if !strings.HasPrefix(change.Path, BlockDevicesPath) {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *SpecChanges) ToJSON() string {
