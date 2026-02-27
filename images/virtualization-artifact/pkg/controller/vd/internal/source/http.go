@@ -151,14 +151,11 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 
 		envSettings := ds.getEnvSettings(vd, supgen)
 
-		var nodePlacement *provisioner.NodePlacement
-		nodePlacement, err = getNodePlacement(ctx, ds.client, vd)
-		if err != nil {
-			setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
-			return reconcile.Result{}, fmt.Errorf("failed to get importer tolerations: %w", err)
-		}
-
-		err = ds.importerService.Start(ctx, envSettings, vd, supgen, datasource.NewCABundleForVMD(vd.GetNamespace(), vd.Spec.DataSource), service.WithNodePlacement(nodePlacement))
+		err = ds.importerService.Start(
+			ctx, envSettings, vd, supgen,
+			datasource.NewCABundleForVMD(vd.GetNamespace(), vd.Spec.DataSource),
+			service.WithSystemNodeToleration(),
+		)
 		switch {
 		case err == nil:
 			// OK.
@@ -199,6 +196,12 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 		vd.Status.Progress = ds.statService.GetProgress(vd.GetUID(), pod, vd.Status.Progress, service.NewScaleOption(0, 50))
 		vd.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vd.GetUID(), pod)
 	case dv == nil:
+		if isStorageClassWFFC(sc) && len(vd.Status.AttachedToVirtualMachines) != 1 {
+			vd.Status.Progress = "50%"
+			vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
+			return reconcile.Result{}, nil
+		}
+
 		ds.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,

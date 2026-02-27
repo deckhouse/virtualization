@@ -187,7 +187,10 @@ func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vi *v1alpha2.
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.StorageClassNotReady).
-			Message(fmt.Sprintf("The specified StorageClass %q is not allowed. Please check the module settings.", vi.Status.StorageClassName))
+			Message(fmt.Sprintf(
+				"The specified StorageClass %q is not permitted by the virtualization module configuration. Check settings in \"spec.settings.virtualImages\" section of the ModuleConfig.",
+				vi.Status.StorageClassName,
+			))
 		conditions.SetCondition(cb, &vi.Status.Conditions)
 		return nil
 	}

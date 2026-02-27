@@ -33,9 +33,7 @@ import (
 )
 
 type RemoveVolumeREST struct {
-	vmLister         virtlisters.VirtualMachineLister
-	proxyCertManager certmanager.CertificateManager
-	kubevirt         KubevirtAPIServerConfig
+	*BaseREST
 }
 
 var (
@@ -43,12 +41,8 @@ var (
 	_ rest.Connecter = &RemoveVolumeREST{}
 )
 
-func NewRemoveVolumeREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtAPIServerConfig, proxyCertManager certmanager.CertificateManager) *RemoveVolumeREST {
-	return &RemoveVolumeREST{
-		vmLister:         vmLister,
-		kubevirt:         kubevirt,
-		proxyCertManager: proxyCertManager,
-	}
+func NewRemoveVolumeREST(baseREST *BaseREST) *RemoveVolumeREST {
+	return &RemoveVolumeREST{baseREST}
 }
 
 func (r RemoveVolumeREST) New() runtime.Object {

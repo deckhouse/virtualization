@@ -1,0 +1,127 @@
+# https://golangci-lint.run/usage/configuration/
+version: "2"
+
+run:
+  concurrency: 4
+  timeout: 10m
+
+issues:
+  # Show all errors.
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude:
+    - "don't use an underscore in package name"
+
+output:
+  sort-results: true
+
+exclusions:
+  paths:
+    - "^zz_generated.*"
+
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/deckhouse/)
+    gofumpt:
+      extra-rules: true
+    goimports:
+      local-prefixes: github.com/deckhouse/
+
+linters:
+  default: none
+  enable:
+    - asciicheck # checks that your code does not contain non-ASCII identifiers
+    - bidichk # checks for dangerous unicode character sequences
+    - bodyclose # checks whether HTTP response body is closed successfully
+    - contextcheck # [maybe too many false positives] checks the function whether use a non-inherited context
+    - dogsled # checks assignments with too many blank identifiers (e.g. x, _, _, _, := f())
+    - errcheck # checking for unchecked errors, these unchecked errors can be critical bugs in some cases
+    - errname # checks that sentinel errors are prefixed with the Err and error types are suffixed with the Error
+    - errorlint # finds code that will cause problems with the error wrapping scheme introduced in Go 1.13
+    - copyloopvar # detects places where loop variables are copied (Go 1.22+)
+    - gocritic # provides diagnostics that check for bugs, performance and style issues
+    - govet # reports suspicious constructs, such as Printf calls whose arguments do not align with the format string
+    - ineffassign # detects when assignments to existing variables are not used
+    - misspell # finds commonly misspelled English words in comments
+    - nolintlint # reports ill-formed or insufficient nolint directives
+    - reassign # checks that package variables are not reassigned
+    - revive # fast, configurable, extensible, flexible, and beautiful linter for Go, drop-in replacement of golint
+    - staticcheck # is a go vet on steroids, applying a ton of static analysis checks
+    - testifylint # checks usage of github.com/stretchr/testify
+    - unconvert # removes unnecessary type conversions
+    - unparam # reports unused function parameters
+    - unused # checks for unused constants, variables, functions and types
+    - usetesting # reports uses of functions with replacement inside the testing package
+    - testableexamples # checks if examples are testable (have an expected output)
+    - thelper # detects golang test helpers without t.Helper() call and checks the consistency of test helpers
+    - tparallel # detects inappropriate usage of t.Parallel() method in your Go test codes
+    - whitespace # detects leading and trailing whitespace
+    - wastedassign # finds wasted assignment statements
+    - importas # checks import aliases against the configured convention
+  settings:
+    errcheck:
+      exclude-functions:
+        - "(*os.File).Close"
+        - "(*net.TCPConn).Close"
+      # - "fmt:.*"
+      # - "[rR]ead"
+      # - "[wW]rite"
+      # - "[cC]lose"
+      # - "io:Copy"
+    revive:
+      rules:
+        - name: dot-imports
+          disabled: true
+        - name: exported
+          disabled: true
+        - name: package-comments
+          disabled: true
+    nolintlint:
+      # Exclude following linters from requiring an explanation.
+      # Default: []
+      allow-no-explanation: [funlen, gocognit, lll]
+      # Enable to require an explanation of nonzero length after each nolint directive.
+      # Default: false
+      require-explanation: true
+      # Enable to require nolint directives to mention the specific linter being suppressed.
+      # Default: false
+      require-specific: true
+    importas:
+      # Do not allow unaliased imports of aliased packages.
+      # Default: false
+      no-unaliased: true
+      # Do not allow non-required aliases.
+      # Default: false
+      no-extra-aliases: false
+      # List of aliases
+      # Default: []
+      alias:
+        - pkg: github.com/deckhouse/virtualization/api/core/v1alpha2
+          alias: ""
+        - pkg: github.com/deckhouse/virtualization/api/subresources/v1alpha2
+          alias: subv1alpha2
+        - pkg: kubevirt.io/api/core/v1
+          alias: virtv1
+        - pkg: k8s.io/api/core/v1
+          alias: corev1
+        - pkg: k8s.io/api/authentication/v1
+          alias: authnv1
+        - pkg: k8s.io/api/storage/v1
+          alias: storagev1
+        - pkg: k8s.io/api/networking/v1
+          alias: netv1
+        - pkg: k8s.io/api/policy/v1
+          alias: policyv1
+        - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
+          alias: metav1
+        - pkg: k8s.io/api/resource/v1
+          alias: resourcev1

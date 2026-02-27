@@ -1,0 +1,32 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
+git:
+  {{- include "image mount points" . }}
+import:
+  - image: {{ .ModuleNamePrefix }}virtualization-dra-builder
+    add: /out/virtualization-dra-usb
+    to: /app/virtualization-dra-usb
+    after: install
+  - image: {{ .ModuleNamePrefix }}virtualization-dra-builder
+    add: /out/go-usbip
+    to: /usb/bin/go-usbip
+    after: install
+  {{- if eq $.DEBUG_COMPONENT "delve/virtualization-dra-usb" }}
+  - image: debugger
+    add: /app/dlv
+    to: /app/dlv
+    after: install
+  {{- end }}
+imageSpec:
+  config:
+    user: 64535
+    workingDir: "/app"
+    {{- if eq $.DEBUG_COMPONENT "delve/virtualization-dra-usb" }}
+    env:
+      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/app/dlv"
+      XDG_CONFIG_HOME: "/tmp"
+    entrypoint: ["/app/dlv", "--listen=:2345", "--headless=true", "--continue", "--log=true", "--log-output=debugger,debuglineerr,gdbwire,lldbout,rpc", "--accept-multiclient", "--api-version=2", "exec", "/app/virtualization-dra-usb", "--"]
+    {{- else }}
+    entrypoint: ["/app/virtualization-dra-usb"]
+    {{- end }}

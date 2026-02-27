@@ -1,0 +1,17 @@
+apiVersion: resource.k8s.io/v1beta1
+kind: ResourceClaim
+metadata:
+  name: test-pod-with-usb-1
+  namespace: usb2
+spec:
+  devices:
+    requests:
+      - allocationMode: ExactCount
+        count: 1
+        deviceClassName: usb-devices.virtualization.deckhouse.io
+        name: req-0
+        selectors:
+          - cel:
+              expression: |-
+                device.attributes["virtualization-usb"].productID == "f100" &&
+                device.attributes["virtualization-usb"].vendorID == "0e39"

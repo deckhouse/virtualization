@@ -18,6 +18,7 @@ package virtualmachine
 
 import (
 	"context"
+	"encoding/json"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -41,8 +42,10 @@ func (l *iterator) Iter(ctx context.Context, h handler) error {
 	if err := l.reader.List(ctx, &vms, client.UnsafeDisableDeepCopy); err != nil {
 		return err
 	}
+
 	for _, vm := range vms.Items {
 		m := newDataMetric(&vm)
+		m.AppliedVirtualMachineClassName = appliedClassName(&vm)
 		if stop := h(m); stop {
 			return nil
 		}
@@ -54,4 +57,31 @@ func (l *iterator) Iter(ctx context.Context, h handler) error {
 		}
 	}
 	return nil
+}
+
+// appliedClassName returns the VirtualMachineClass name that is actually running on the VM.
+// If there are no pending restart changes, spec value is already applied.
+// Otherwise, it looks for a virtualMachineClassName change in restartAwaitingChanges
+// and returns its currentValue (the one still running).
+func appliedClassName(vm *v1alpha2.VirtualMachine) string {
+	if len(vm.Status.RestartAwaitingChanges) == 0 {
+		return vm.Spec.VirtualMachineClassName
+	}
+
+	// TODO: consider using gjson for faster JSON field extraction when tuning performance.
+	for _, raw := range vm.Status.RestartAwaitingChanges {
+		var change struct {
+			Path         string `json:"path"`
+			CurrentValue string `json:"currentValue"`
+		}
+		if err := json.Unmarshal(raw.Raw, &change); err != nil {
+			continue
+		}
+		if change.Path == "virtualMachineClassName" {
+			return change.CurrentValue
+		}
+	}
+
+	// No virtualMachineClassName change among pending changes — spec value is applied.
+	return vm.Spec.VirtualMachineClassName
 }
