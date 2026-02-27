@@ -36,12 +36,12 @@ import (
 )
 
 type AttachmentService struct {
-	client              Client
+	client              client.Client
 	virtClient          kubeclient.Client
 	controllerNamespace string
 }
 
-func NewAttachmentService(client Client, virtClient kubeclient.Client, controllerNamespace string) *AttachmentService {
+func NewAttachmentService(client client.Client, virtClient kubeclient.Client, controllerNamespace string) *AttachmentService {
 	return &AttachmentService{
 		client:              client,
 		virtClient:          virtClient,

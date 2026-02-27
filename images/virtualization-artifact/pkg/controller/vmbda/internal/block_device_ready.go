@@ -26,17 +26,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmbdacondition"
 )
 
 type BlockDeviceReadyHandler struct {
-	attachment *service.AttachmentService
+	attachment AttachmentService
 }
 
-func NewBlockDeviceReadyHandler(attachment *service.AttachmentService) *BlockDeviceReadyHandler {
+func NewBlockDeviceReadyHandler(attachment AttachmentService) *BlockDeviceReadyHandler {
 	return &BlockDeviceReadyHandler{
 		attachment: attachment,
 	}
@@ -57,91 +57,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 
 	switch vmbda.Spec.BlockDeviceRef.Kind {
 	case v1alpha2.VMBDAObjectRefKindVirtualDisk:
-		vdKey := types.NamespacedName{
-			Name:      vmbda.Spec.BlockDeviceRef.Name,
-			Namespace: vmbda.Namespace,
-		}
-
-		vd, err := h.attachment.GetVirtualDisk(ctx, vdKey.Name, vdKey.Namespace)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		if vd == nil {
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vmbdacondition.BlockDeviceNotReady).
-				Message(fmt.Sprintf("VirtualDisk %q not found.", vdKey.String()))
-			return reconcile.Result{}, nil
-		}
-
-		if vd.GetDeletionTimestamp() != nil {
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vmbdacondition.BlockDeviceNotReady).
-				Message(fmt.Sprintf("VirtualDisk %q is being deleted. Delete VirtualMachineBlockDeviceAttachment to detach disk from the VirtualMachine.", vdKey.String()))
-			return reconcile.Result{}, nil
-		}
-
-		if vd.Generation != vd.Status.ObservedGeneration {
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vmbdacondition.BlockDeviceNotReady).
-				Message(fmt.Sprintf("Waiting for the VirtualDisk %q to be observed in its latest state generation.", vdKey.String()))
-			return reconcile.Result{}, nil
-		}
-
-		if vd.Status.Phase != v1alpha2.DiskReady && vd.Status.Phase != v1alpha2.DiskWaitForFirstConsumer {
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vmbdacondition.BlockDeviceNotReady).
-				Message(fmt.Sprintf("VirtualDisk %q is not ready to be attached to the virtual machine: waiting for the VirtualDisk to be ready for attachment.", vdKey.String()))
-			return reconcile.Result{}, nil
-		}
-
-		if vd.Status.Phase == v1alpha2.DiskReady {
-			diskReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
-			if diskReadyCondition.Status != metav1.ConditionTrue {
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(vmbdacondition.BlockDeviceNotReady).
-					Message(fmt.Sprintf("VirtualDisk %q is not Ready: waiting for the VirtualDisk to be Ready.", vdKey.String()))
-				return reconcile.Result{}, nil
-			}
-		}
-
-		if vd.Status.Target.PersistentVolumeClaim == "" {
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vmbdacondition.BlockDeviceNotReady).
-				Message("Waiting until VirtualDisk has associated PersistentVolumeClaim name.")
-			return reconcile.Result{}, nil
-		}
-
-		ad := service.NewAttachmentDiskFromVirtualDisk(vd)
-		pvc, err := h.attachment.GetPersistentVolumeClaim(ctx, ad)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		if pvc == nil {
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vmbdacondition.BlockDeviceNotReady).
-				Message(fmt.Sprintf("Underlying PersistentVolumeClaim %q not found.", vd.Status.Target))
-			return reconcile.Result{}, nil
-		}
-
-		if vd.Status.Phase == v1alpha2.DiskReady && pvc.Status.Phase != corev1.ClaimBound {
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vmbdacondition.BlockDeviceNotReady).
-				Message(fmt.Sprintf("Underlying PersistentVolumeClaim %q not bound.", vd.Status.Target))
-			return reconcile.Result{}, nil
-		}
-
-		cb.Status(metav1.ConditionTrue).Reason(vmbdacondition.BlockDeviceReady)
-		return reconcile.Result{}, nil
+		return reconcile.Result{}, h.ValidateVirtualDiskReady(ctx, vmbda, cb)
 	case v1alpha2.VMBDAObjectRefKindVirtualImage:
 		viKey := types.NamespacedName{
 			Name:      vmbda.Spec.BlockDeviceRef.Name,
@@ -193,7 +109,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 					Message("Waiting until VirtualImage has associated PersistentVolumeClaim name.")
 				return reconcile.Result{}, nil
 			}
-			ad := service.NewAttachmentDiskFromVirtualImage(vi)
+			ad := intsvc.NewAttachmentDiskFromVirtualImage(vi)
 			pvc, err := h.attachment.GetPersistentVolumeClaim(ctx, ad)
 			if err != nil {
 				return reconcile.Result{}, err
@@ -284,4 +200,93 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 	default:
 		return reconcile.Result{}, fmt.Errorf("unknown block device kind %s", vmbda.Spec.BlockDeviceRef.Kind)
 	}
+}
+
+func (h BlockDeviceReadyHandler) ValidateVirtualDiskReady(ctx context.Context, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment, cb *conditions.ConditionBuilder) error {
+	vdKey := types.NamespacedName{
+		Name:      vmbda.Spec.BlockDeviceRef.Name,
+		Namespace: vmbda.Namespace,
+	}
+
+	vd, err := h.attachment.GetVirtualDisk(ctx, vdKey.Name, vdKey.Namespace)
+	if err != nil {
+		return err
+	}
+
+	if vd == nil {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.BlockDeviceNotReady).
+			Message(fmt.Sprintf("VirtualDisk %q not found.", vdKey.String()))
+		return nil
+	}
+
+	if vd.GetDeletionTimestamp() != nil {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.BlockDeviceNotReady).
+			Message(fmt.Sprintf("VirtualDisk %q is being deleted. Delete VirtualMachineBlockDeviceAttachment to detach disk from the VirtualMachine.", vdKey.String()))
+		return nil
+	}
+
+	if vd.Generation != vd.Status.ObservedGeneration {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.BlockDeviceNotReady).
+			Message(fmt.Sprintf("Waiting for the VirtualDisk %q to be observed in its latest state generation.", vdKey.String()))
+		return nil
+	}
+
+	diskPhaseReadyOrMigrating := vd.Status.Phase == v1alpha2.DiskReady || vd.Status.Phase == v1alpha2.DiskMigrating
+	if !diskPhaseReadyOrMigrating && vd.Status.Phase != v1alpha2.DiskWaitForFirstConsumer {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.BlockDeviceNotReady).
+			Message(fmt.Sprintf("VirtualDisk %q is not ready to be attached to the virtual machine: waiting for the VirtualDisk to be ready for attachment.", vdKey.String()))
+		return nil
+	}
+
+	if diskPhaseReadyOrMigrating {
+		diskReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+		if diskReadyCondition.Status != metav1.ConditionTrue {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vmbdacondition.BlockDeviceNotReady).
+				Message(fmt.Sprintf("VirtualDisk %q is not Ready: waiting for the VirtualDisk to be Ready.", vdKey.String()))
+			return nil
+		}
+	}
+
+	if vd.Status.Target.PersistentVolumeClaim == "" {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.BlockDeviceNotReady).
+			Message("Waiting until VirtualDisk has associated PersistentVolumeClaim name.")
+		return nil
+	}
+
+	ad := intsvc.NewAttachmentDiskFromVirtualDisk(vd)
+	pvc, err := h.attachment.GetPersistentVolumeClaim(ctx, ad)
+	if err != nil {
+		return err
+	}
+
+	if pvc == nil {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.BlockDeviceNotReady).
+			Message(fmt.Sprintf("Underlying PersistentVolumeClaim %q not found.", vd.Status.Target))
+		return nil
+	}
+
+	if diskPhaseReadyOrMigrating && pvc.Status.Phase != corev1.ClaimBound {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.BlockDeviceNotReady).
+			Message(fmt.Sprintf("Underlying PersistentVolumeClaim %q not bound.", vd.Status.Target))
+		return nil
+	}
+
+	cb.Status(metav1.ConditionTrue).Reason(vmbdacondition.BlockDeviceReady)
+	return nil
 }
