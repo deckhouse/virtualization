@@ -19,6 +19,8 @@ package util
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -36,6 +38,11 @@ import (
 )
 
 const VmopE2ePrefix = "vmop-e2e"
+const fallbackSSHKubeConfigEnv = "E2E_SSH_FALLBACK_KUBECONFIG"
+const fallbackSSHKeyEnv = "E2E_SSH_FALLBACK_KEY"
+const namespaceNestedEnv = "NAMESPACE_NESTED"
+const storageClassNameEnv = "STORAGE_CLASS_NAME"
+const fallbackNestedMasterSSHUser = "cloud"
 
 func UntilVMAgentReady(key client.ObjectKey, timeout time.Duration) {
 	GinkgoHelper()
@@ -60,9 +67,78 @@ func UntilSSHReady(f *framework.Framework, vm *v1alpha2.VirtualMachine, timeout 
 
 	Eventually(func(g Gomega) {
 		result, err := f.SSHCommand(vm.Name, vm.Namespace, "echo 'test'")
+		if err != nil && shouldRetrySSHWithFallbackKubeConfig(err) {
+			fallbackRes, fallbackErr := checkVMSSHPortFromNestedMaster(f, vm)
+			if fallbackErr != nil {
+				err = fmt.Errorf("%w; fallback nc check failed: %v", err, fallbackErr)
+			} else {
+				err = fmt.Errorf("%w; fallback nc check passed: %s", err, strings.TrimSpace(fallbackRes))
+			}
+		}
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(result).To(ContainSubstring("test"))
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+}
+
+func shouldRetrySSHWithFallbackKubeConfig(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	return strings.Contains(strings.ToLower(err.Error()), "banner")
+}
+
+func checkVMSSHPortFromNestedMaster(f *framework.Framework, vm *v1alpha2.VirtualMachine) (string, error) {
+	fallbackKubeConfig, ok := os.LookupEnv(fallbackSSHKubeConfigEnv)
+	if !ok || fallbackKubeConfig == "" {
+		return "", fmt.Errorf("%s is not set", fallbackSSHKubeConfigEnv)
+	}
+
+	fallbackSSHKey, ok := os.LookupEnv(fallbackSSHKeyEnv)
+	if !ok || fallbackSSHKey == "" {
+		return "", fmt.Errorf("%s is not set", fallbackSSHKeyEnv)
+	}
+
+	namespaceNested, ok := os.LookupEnv(namespaceNestedEnv)
+	if !ok || namespaceNested == "" {
+		return "", fmt.Errorf("%s is not set", namespaceNestedEnv)
+	}
+
+	storageClassName, ok := os.LookupEnv(storageClassNameEnv)
+	if !ok || storageClassName == "" {
+		return "", fmt.Errorf("%s is not set", storageClassNameEnv)
+	}
+
+	vmIP, err := getVMIPAddress(vm)
+	if err != nil {
+		return "", err
+	}
+
+	nestedMasterName := fmt.Sprintf("%s-master-0", storageClassName)
+	cmd := fmt.Sprintf("nc -vz %s 22", vmIP)
+
+	return f.D8SSHCommandWithKubeConfig(
+		nestedMasterName,
+		namespaceNested,
+		cmd,
+		fallbackKubeConfig,
+		fallbackNestedMasterSSHUser,
+		fallbackSSHKey,
+		framework.ShortTimeout,
+	)
+}
+
+func getVMIPAddress(vm *v1alpha2.VirtualMachine) (string, error) {
+	latestVM, err := framework.GetClients().VirtClient().VirtualMachines(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to get VM %s/%s for fallback nc check: %w", vm.Namespace, vm.Name, err)
+	}
+
+	if latestVM.Status.IPAddress == "" {
+		return "", fmt.Errorf("VM %s/%s has no IP address for fallback nc check", vm.Namespace, vm.Name)
+	}
+
+	return latestVM.Status.IPAddress, nil
 }
 
 func UntilVMMigrationSucceeded(key client.ObjectKey, timeout time.Duration) {

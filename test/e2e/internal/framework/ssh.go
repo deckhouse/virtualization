@@ -65,6 +65,26 @@ func makeSSHCommandOptions(options ...SSHCommandOption) *sshCommandOptions {
 // SSHCommand returns the STDOUT of the command result and nil for the error if the command execution is successful.
 // It returns an empty string and an error if the command execution fails.
 func (f *Framework) SSHCommand(vmName, vmNamespace, command string, options ...SSHCommandOption) (string, error) {
+	return f.sshCommandWithClient(f.d8virtualization, vmName, vmNamespace, command, options...)
+}
+
+// SSHCommandWithKubeConfig executes ssh command with an explicitly provided kubeconfig.
+func (f *Framework) SSHCommandWithKubeConfig(vmName, vmNamespace, command, kubeConfig string, options ...SSHCommandOption) (string, error) {
+	if kubeConfig == "" {
+		return f.SSHCommand(vmName, vmNamespace, command, options...)
+	}
+
+	altD8, err := d8.NewD8Virtualization(d8.D8VirtualizationConf{
+		KubeConfig: kubeConfig,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to initialize d8 client with fallback kubeconfig: %w", err)
+	}
+
+	return f.sshCommandWithClient(altD8, vmName, vmNamespace, command, options...)
+}
+
+func (f *Framework) sshCommandWithClient(d8client d8.D8Virtualization, vmName, vmNamespace, command string, options ...SSHCommandOption) (string, error) {
 	o := makeSSHCommandOptions(options...)
 
 	file, err := os.CreateTemp(os.TempDir(), "ssh-key-")
@@ -83,13 +103,42 @@ func (f *Framework) SSHCommand(vmName, vmNamespace, command string, options ...S
 		return "", err
 	}
 
-	res := f.d8virtualization.SSHCommand(vmName, command, d8.SSHOptions{
+	res := d8client.SSHCommand(vmName, command, d8.SSHOptions{
 		Namespace:    vmNamespace,
 		Username:     o.user,
 		IdentityFile: file.Name(),
 		Timeout:      o.timeout,
 	})
 
+	if !res.WasSuccess() {
+		return "", fmt.Errorf("failed to execute command %s: %w: %s", command, res.Error(), res.StdErr())
+	}
+
+	return res.StdOut(), nil
+}
+
+// D8SSHCommandWithKubeConfig executes ssh command against target host through d8 using provided kubeconfig.
+func (f *Framework) D8SSHCommandWithKubeConfig(
+	vmName, vmNamespace, command, kubeConfig, user, identityFile string,
+	timeout time.Duration,
+) (string, error) {
+	altD8, err := d8.NewD8Virtualization(d8.D8VirtualizationConf{
+		KubeConfig: kubeConfig,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to initialize d8 client with fallback kubeconfig: %w", err)
+	}
+
+	if timeout == 0 {
+		timeout = ShortTimeout
+	}
+
+	res := altD8.SSHCommand(vmName, command, d8.SSHOptions{
+		Namespace:    vmNamespace,
+		Username:     user,
+		IdentityFile: identityFile,
+		Timeout:      timeout,
+	})
 	if !res.WasSuccess() {
 		return "", fmt.Errorf("failed to execute command %s: %w: %s", command, res.Error(), res.StdErr())
 	}
