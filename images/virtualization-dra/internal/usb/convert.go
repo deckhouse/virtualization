@@ -96,6 +96,12 @@ func convertToAPIDevice(usbDevice Device, nodeName string) *resourcev1.Device {
 	return device
 }
 
+func addNodeSelector(device *resourcev1.Device, nodeSelector *corev1.NodeSelector) {
+	if device != nil {
+		device.NodeSelector = nodeSelector
+	}
+}
+
 func getNodeSelector(nodeName string) *corev1.NodeSelector {
 	return &corev1.NodeSelector{
 		NodeSelectorTerms: []corev1.NodeSelectorTerm{
