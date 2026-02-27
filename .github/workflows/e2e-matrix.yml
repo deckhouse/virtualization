@@ -16,8 +16,13 @@ name: E2E Matrix Tests (nested clusters)
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "40 4 * * *"
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+    branches:
+      - main
+      - fix/test/powerstate
+  # schedule:
+  #   - cron: "40 4 * * *"
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
@@ -30,6 +35,7 @@ defaults:
 jobs:
   cleanup-nested-clusters:
     name: Cleanup nested clusters
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Configure kubectl via azure/k8s-set-context@v4
@@ -101,6 +107,7 @@ jobs:
 
   power-off-vms-for-nested:
     name: Power off VMs for nested clusters
+    if: github.event_name != 'pull_request'
     needs: cleanup-nested-clusters
     runs-on: ubuntu-latest
     steps:
@@ -315,7 +322,7 @@ jobs:
           fi
   set-vars:
     name: Set vars
-    needs: power-off-vms-for-nested
+    # needs: power-off-vms-for-nested
     runs-on: ubuntu-latest
     outputs:
       date_start: ${{ steps.vars.outputs.date-start }}
@@ -329,6 +336,7 @@ jobs:
 
   e2e-ceph:
     name: E2E Pipeline (Ceph)
+    if: github.event_name != 'pull_request'
     needs:
       - set-vars
     uses: ./.github/workflows/e2e-reusable-pipeline.yml
@@ -377,7 +385,7 @@ jobs:
     runs-on: ubuntu-latest
     name: End-to-End tests report
     needs:
-      - e2e-ceph
+      # - e2e-ceph
       - e2e-replicated
     if: ${{ always()}}
     env:
@@ -645,4 +653,5 @@ jobs:
             curl --request POST --header 'Content-Type: application/json' --data "{\"text\": \"${COMBINED_SUMMARY}\"}" "$LOOP_WEBHOOK_URL"
           fi
         env:
-          LOOP_WEBHOOK_URL: ${{ secrets.LOOP_WEBHOOK_URL }}
+          LOOP_WEBHOOK_URL: ${{ secrets.LOOP_TEST_CHANNEL }}
+          # LOOP_WEBHOOK_URL: ${{ secrets.LOOP_WEBHOOK_URL }}
