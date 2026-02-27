@@ -11,4 +11,3 @@ spec:
     objectRef:
       kind: VirtualImage
       name: vi-alpine-http
-      # name: vi-ubuntu-http

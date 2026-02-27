@@ -26,7 +26,9 @@ const (
 	ImageURLMinimalISO     = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.iso"
 	Mi256                  = 256 * 1024 * 1024
 	DefaultVMClass         = "generic"
-	DefaultCloudInit       = `#cloud-config
+
+	// Shared cloud-init fragments (DRY between DefaultCloudInit and PerfCloudInit).
+	cloudInitBase = `#cloud-config
 package_update: true
 packages:
   - qemu-guest-agent
@@ -35,6 +37,10 @@ packages:
   - sudo
   - iputils
   - util-linux
+  - iperf3
+  - jq
+`
+	cloudInitUsers = `
 users:
   - name: cloud
     # passwd: cloud
@@ -45,9 +51,58 @@ users:
     ssh_authorized_keys:
       # testcases
       - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxcXHmwaGnJ8scJaEN5RzklBPZpVSic4GdaAsKjQoeA your_email@example.com
+`
+	cloudInitDefaultRuncmd = `
 runcmd:
 - "rc-update add qemu-guest-agent && rc-service qemu-guest-agent start"
 `
+
+	DefaultCloudInit = cloudInitBase + cloudInitUsers + cloudInitDefaultRuncmd
+
+	cloudInitPerfWriteFiles = `
+write_files:
+- path: /usr/scripts/iperf3.sh
+  permissions: '0755'
+  content: |
+    #!/bin/bash
+    cat > /etc/init.d/iperf3 <<-"EOF"
+    #!/sbin/openrc-run
+
+    name="iperf3"
+    description="iperf3 server"
+    command="/usr/bin/iperf3"
+    command_args="-s"
+    pidfile="/run/${name}.pid"
+    supervisor="supervise-daemon"
+    supervise_daemon_args="--respawn-delay 2 --stdout /var/log/iperf3.log --stderr /var/log/iperf3.log"
+
+    depend() {
+        need net
+    }
+
+    start_pre() {
+        checkpath --directory --owner root:root --mode 0755 /run
+        touch /var/log/iperf3.log
+        chmod 644 /var/log/iperf3.log
+    }
+
+    stop_post() {
+        logger -t iperf3 "Stopped by $(whoami) at $(date)"
+        rm -f "$pidfile"
+    }
+    EOF
+    chmod +x /etc/init.d/iperf3
+    rc-update add iperf3 default
+`
+	cloudInitPerfRuncmd = `
+runcmd:
+- "/usr/scripts/iperf3.sh"
+- "rc-update add qemu-guest-agent && rc-service qemu-guest-agent start"
+- "rc-update add iperf3 && rc-service iperf3 start"
+- "rc-update add sshd && rc-service sshd start"
+`
+
+	PerfCloudInit        = cloudInitBase + cloudInitPerfWriteFiles + cloudInitUsers + cloudInitPerfRuncmd
 	DefaultSSHPrivateKey = `-----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
 QyNTUxOQAAACBcXFx5sGhpyfLHCWhDeUc5JQT2aVUonOBnWgLCo0KHgAAAAKDCANDUwgDQ
