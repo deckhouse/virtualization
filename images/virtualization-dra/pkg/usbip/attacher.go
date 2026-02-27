@@ -18,6 +18,7 @@ package usbip
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -248,9 +249,17 @@ func (a *usbAttacher) queryImportDevice(conn *net.TCPConn, busID string) (int, e
 
 // https://github.com/torvalds/linux/blob/b927546677c876e26eba308550207c2ddf812a43/tools/usb/usbip/src/usbip_attach.c#L81
 func (a *usbAttacher) importDevice(conn *net.TCPConn, usbDevice protocol.USBDevice) (int, error) {
-	port, err := a.getFreePort(usbDevice.Speed)
+	speed := usbDevice.Speed
+	port, err := a.getFreePort(speed)
 	if err != nil {
-		return -1, fmt.Errorf("failed to get free port: %w", err)
+		if !errors.Is(err, noFreePodFoundErr) {
+			return -1, fmt.Errorf("failed to get free port: %w", err)
+		}
+
+		port, speed, err = a.fallbackGetFreePortFromOtherHub()
+		if err != nil {
+			return -1, fmt.Errorf("all ports used, failed to get free port from other hub: %w", err)
+		}
 	}
 
 	sockFd, err := a.getSockFd(conn)
@@ -264,7 +273,7 @@ func (a *usbAttacher) importDevice(conn *net.TCPConn, usbDevice protocol.USBDevi
 		port:   port,
 		sockFd: sockFd,
 		devId:  devID,
-		speed:  usbDevice.Speed,
+		speed:  speed,
 	}
 
 	err = writeSysfsAttr(vhciHcdAttach, attr)
@@ -274,6 +283,8 @@ func (a *usbAttacher) importDevice(conn *net.TCPConn, usbDevice protocol.USBDevi
 
 	return port, nil
 }
+
+var noFreePodFoundErr = errors.New("no free pod found")
 
 // https://github.com/torvalds/linux/blob/b927546677c876e26eba308550207c2ddf812a43/tools/usb/usbip/libsrc/vhci_driver.c#L334
 func (a *usbAttacher) getFreePort(speed uint32) (int, error) {
@@ -301,28 +312,31 @@ func (a *usbAttacher) getFreePort(speed uint32) (int, error) {
 		}
 	}
 
-	return a.getAvailablePortOnOtherHub(deviceSpeed, driver)
+	return -1, noFreePodFoundErr
 }
 
-func (a *usbAttacher) getAvailablePortOnOtherHub(deviceSpeed libusb.USBDeviceSpeed, driver *vhciDriver) (int, error) {
+func (a *usbAttacher) fallbackGetFreePortFromOtherHub() (int, uint32, error) {
+	driver, err := newVhciDriver()
+	if err != nil {
+		return -1, 0, err
+	}
+
 	for i := 0; i < driver.nports; i++ {
-		switch deviceSpeed {
-		case libusb.USBDeviceSpeedSuper:
-			if driver.idevs[i].hub == hubSpeedSuper {
-				continue
+		switch {
+		case driver.idevs[i].hub == hubSpeedSuper:
+			vstatus := protocol.DeviceStatus(driver.idevs[i].status)
+			if vstatus == protocol.VDeviceStatusNull {
+				return driver.idevs[i].port, libusb.USBDeviceSpeedSuper.Speeds()[0], nil
 			}
-		default:
-			if driver.idevs[i].hub == hubSpeedHigh {
-				continue
+		case driver.idevs[i].hub == hubSpeedHigh:
+			vstatus := protocol.DeviceStatus(driver.idevs[i].status)
+			if vstatus == protocol.VDeviceStatusNull {
+				return driver.idevs[i].port, libusb.USBDeviceSpeedHigh.Speeds()[0], nil
 			}
-		}
-		vstatus := protocol.DeviceStatus(driver.idevs[i].status)
-		if vstatus == protocol.VDeviceStatusNull {
-			return driver.idevs[i].port, nil
 		}
 	}
 
-	return -1, fmt.Errorf("no free port found")
+	return -1, 0, noFreePodFoundErr
 }
 
 func (a *usbAttacher) getSockFd(conn *net.TCPConn) (int, error) {

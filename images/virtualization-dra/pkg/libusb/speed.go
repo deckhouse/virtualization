@@ -27,6 +27,23 @@ const (
 	USBDeviceSpeedSuperPlus                       // usb 3.1
 )
 
+func (s USBDeviceSpeed) Speeds() []uint32 {
+	switch s {
+	case USBDeviceSpeedLow:
+		return []uint32{1}
+	case USBDeviceSpeedFull:
+		return []uint32{12, 15}
+	case USBDeviceSpeedHigh:
+		return []uint32{480}
+	case USBDeviceSpeedSuper:
+		return []uint32{5000}
+	case USBDeviceSpeedSuperPlus:
+		return []uint32{10000, 20000}
+	default:
+		return nil
+	}
+}
+
 // https://mjmwired.net/kernel/Documentation/ABI/testing/sysfs-bus-usb#502
 func ResolveDeviceSpeed(speed uint32) USBDeviceSpeed {
 	switch speed {
