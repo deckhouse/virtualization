@@ -137,6 +137,7 @@ func NewDefaulter(client client.Client, vmClassService *service.VirtualMachineCl
 		defaulters: []VirtualMachineDefaulter{
 			defaulter.NewVirtualMachineClassNameDefaulter(client, vmClassService),
 			defaulter.NewCoreFractionDefaulter(client),
+			defaulter.NewNetworksDefaulter(),
 		},
 		log: log.With("webhook", "mutating"),
 	}
