@@ -91,7 +91,7 @@ spec:
             {{- if eq (include "moduleLogLevel" .) "debug" }}
             - --log-level=debug
             - --log-debug-verbosity=10
-            - -v 10
+            - -v=10
             {{- end }}
           env:
             - name: NODE_NAME
