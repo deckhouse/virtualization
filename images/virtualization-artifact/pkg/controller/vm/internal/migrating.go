@@ -280,6 +280,15 @@ func (h *MigratingHandler) getVMOPCandidate(ctx context.Context, s state.Virtual
 func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) error {
 	cb := conditions.NewConditionBuilder(vmcondition.TypeMigratable).Generation(vm.GetGeneration())
 
+	fsFrozen, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, vm.Status.Conditions)
+	if fsFrozen.Status == metav1.ConditionTrue {
+		cb.Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonNonMigratable).
+			Message("For the migration to proceed, the file system must be unfrozen.")
+		conditions.SetCondition(cb, &vm.Status.Conditions)
+		return nil
+	}
+
 	if kvvm != nil {
 		liveMigratable := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceIsMigratable), kvvm.Status.Conditions)
 		switch {
