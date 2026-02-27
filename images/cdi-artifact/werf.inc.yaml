@@ -25,6 +25,7 @@ packages:
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
+fromCacheVersion: ffff
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}
     to: /src
@@ -39,7 +40,6 @@ secrets:
 shell:
   install:
   - |
-    echo ffff
     echo "Git clone {{ $gitRepoName }} repository..."
     git clone --depth=1 --branch {{ $version }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /src/containerized-data-importer
 
