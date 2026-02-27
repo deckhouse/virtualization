@@ -58,6 +58,8 @@ spec:
             The VirtualDisk resource describes the desired virtual machine disk configuration. A VirtualDisk can be mounted statically in the virtual machine by specifying it in the `.spec.blockDeviceRefs` disk list, or mounted on-the-fly using the VirtualMachineBlockDeviceAttachments resource.
 
             Once a VirtualDisk is created, only the disk size field `.spec.persistentVolumeClaim.size` can be changed. All other fields are immutable.
+
+            **Note:** The `metadata.name` field must comply with [Kubernetes object naming conventions](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/) and **must not exceed 60 characters**.
           properties:
             apiVersion:
               description: |-
