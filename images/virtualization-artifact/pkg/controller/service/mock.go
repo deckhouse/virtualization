@@ -45,7 +45,6 @@ import (
 	flowcontrolv1beta2 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta2"
 	"k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta3"
 	networkingv1 "k8s.io/client-go/kubernetes/typed/networking/v1"
-	networkingv1alpha1 "k8s.io/client-go/kubernetes/typed/networking/v1alpha1"
 	networkingv1beta1 "k8s.io/client-go/kubernetes/typed/networking/v1beta1"
 	nodev1 "k8s.io/client-go/kubernetes/typed/node/v1"
 	nodev1alpha1 "k8s.io/client-go/kubernetes/typed/node/v1alpha1"
@@ -55,16 +54,17 @@ import (
 	rbacv1 "k8s.io/client-go/kubernetes/typed/rbac/v1"
 	rbacv1alpha1 "k8s.io/client-go/kubernetes/typed/rbac/v1alpha1"
 	rbacv1beta1 "k8s.io/client-go/kubernetes/typed/rbac/v1beta1"
+	resourcev1 "k8s.io/client-go/kubernetes/typed/resource/v1"
 	"k8s.io/client-go/kubernetes/typed/resource/v1alpha3"
 	resourcev1beta1 "k8s.io/client-go/kubernetes/typed/resource/v1beta1"
 	"k8s.io/client-go/kubernetes/typed/resource/v1beta2"
 	schedulingv1 "k8s.io/client-go/kubernetes/typed/scheduling/v1"
 	schedulingv1alpha1 "k8s.io/client-go/kubernetes/typed/scheduling/v1alpha1"
 	schedulingv1beta1 "k8s.io/client-go/kubernetes/typed/scheduling/v1beta1"
-	storagev1 "k8s.io/client-go/kubernetes/typed/storage/v1"
+	"k8s.io/client-go/kubernetes/typed/storage/v1"
 	storagev1alpha1 "k8s.io/client-go/kubernetes/typed/storage/v1alpha1"
 	storagev1beta1 "k8s.io/client-go/kubernetes/typed/storage/v1beta1"
-	storagemigrationv1alpha1 "k8s.io/client-go/kubernetes/typed/storagemigration/v1alpha1"
+	"k8s.io/client-go/kubernetes/typed/storagemigration/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sync"
 )
@@ -859,11 +859,11 @@ var _ VirtClient = &VirtClientMock{}
 //			NetworkingV1Func: func() networkingv1.NetworkingV1Interface {
 //				panic("mock out the NetworkingV1 method")
 //			},
-//			NetworkingV1alpha1Func: func() networkingv1alpha1.NetworkingV1alpha1Interface {
-//				panic("mock out the NetworkingV1alpha1 method")
-//			},
 //			NetworkingV1beta1Func: func() networkingv1beta1.NetworkingV1beta1Interface {
 //				panic("mock out the NetworkingV1beta1 method")
+//			},
+//			NodeUSBDevicesFunc: func() corev1alpha2.NodeUSBDeviceInterface {
+//				panic("mock out the NodeUSBDevices method")
 //			},
 //			NodeV1Func: func() nodev1.NodeV1Interface {
 //				panic("mock out the NodeV1 method")
@@ -889,6 +889,9 @@ var _ VirtClient = &VirtClientMock{}
 //			RbacV1beta1Func: func() rbacv1beta1.RbacV1beta1Interface {
 //				panic("mock out the RbacV1beta1 method")
 //			},
+//			ResourceV1Func: func() resourcev1.ResourceV1Interface {
+//				panic("mock out the ResourceV1 method")
+//			},
 //			ResourceV1alpha3Func: func() v1alpha3.ResourceV1alpha3Interface {
 //				panic("mock out the ResourceV1alpha3 method")
 //			},
@@ -907,7 +910,7 @@ var _ VirtClient = &VirtClientMock{}
 //			SchedulingV1beta1Func: func() schedulingv1beta1.SchedulingV1beta1Interface {
 //				panic("mock out the SchedulingV1beta1 method")
 //			},
-//			StorageV1Func: func() storagev1.StorageV1Interface {
+//			StorageV1Func: func() v1.StorageV1Interface {
 //				panic("mock out the StorageV1 method")
 //			},
 //			StorageV1alpha1Func: func() storagev1alpha1.StorageV1alpha1Interface {
@@ -916,8 +919,11 @@ var _ VirtClient = &VirtClientMock{}
 //			StorageV1beta1Func: func() storagev1beta1.StorageV1beta1Interface {
 //				panic("mock out the StorageV1beta1 method")
 //			},
-//			StoragemigrationV1alpha1Func: func() storagemigrationv1alpha1.StoragemigrationV1alpha1Interface {
+//			StoragemigrationV1alpha1Func: func() v1alpha1.StoragemigrationV1alpha1Interface {
 //				panic("mock out the StoragemigrationV1alpha1 method")
+//			},
+//			USBDevicesFunc: func(namespace string) corev1alpha2.USBDeviceInterface {
+//				panic("mock out the USBDevices method")
 //			},
 //			VirtualDisksFunc: func(namespace string) corev1alpha2.VirtualDiskInterface {
 //				panic("mock out the VirtualDisks method")
@@ -1067,11 +1073,11 @@ type VirtClientMock struct {
 	// NetworkingV1Func mocks the NetworkingV1 method.
 	NetworkingV1Func func() networkingv1.NetworkingV1Interface
 
-	// NetworkingV1alpha1Func mocks the NetworkingV1alpha1 method.
-	NetworkingV1alpha1Func func() networkingv1alpha1.NetworkingV1alpha1Interface
-
 	// NetworkingV1beta1Func mocks the NetworkingV1beta1 method.
 	NetworkingV1beta1Func func() networkingv1beta1.NetworkingV1beta1Interface
+
+	// NodeUSBDevicesFunc mocks the NodeUSBDevices method.
+	NodeUSBDevicesFunc func() corev1alpha2.NodeUSBDeviceInterface
 
 	// NodeV1Func mocks the NodeV1 method.
 	NodeV1Func func() nodev1.NodeV1Interface
@@ -1097,6 +1103,9 @@ type VirtClientMock struct {
 	// RbacV1beta1Func mocks the RbacV1beta1 method.
 	RbacV1beta1Func func() rbacv1beta1.RbacV1beta1Interface
 
+	// ResourceV1Func mocks the ResourceV1 method.
+	ResourceV1Func func() resourcev1.ResourceV1Interface
+
 	// ResourceV1alpha3Func mocks the ResourceV1alpha3 method.
 	ResourceV1alpha3Func func() v1alpha3.ResourceV1alpha3Interface
 
@@ -1116,7 +1125,7 @@ type VirtClientMock struct {
 	SchedulingV1beta1Func func() schedulingv1beta1.SchedulingV1beta1Interface
 
 	// StorageV1Func mocks the StorageV1 method.
-	StorageV1Func func() storagev1.StorageV1Interface
+	StorageV1Func func() v1.StorageV1Interface
 
 	// StorageV1alpha1Func mocks the StorageV1alpha1 method.
 	StorageV1alpha1Func func() storagev1alpha1.StorageV1alpha1Interface
@@ -1125,7 +1134,10 @@ type VirtClientMock struct {
 	StorageV1beta1Func func() storagev1beta1.StorageV1beta1Interface
 
 	// StoragemigrationV1alpha1Func mocks the StoragemigrationV1alpha1 method.
-	StoragemigrationV1alpha1Func func() storagemigrationv1alpha1.StoragemigrationV1alpha1Interface
+	StoragemigrationV1alpha1Func func() v1alpha1.StoragemigrationV1alpha1Interface
+
+	// USBDevicesFunc mocks the USBDevices method.
+	USBDevicesFunc func(namespace string) corev1alpha2.USBDeviceInterface
 
 	// VirtualDisksFunc mocks the VirtualDisks method.
 	VirtualDisksFunc func(namespace string) corev1alpha2.VirtualDiskInterface
@@ -1270,11 +1282,11 @@ type VirtClientMock struct {
 		// NetworkingV1 holds details about calls to the NetworkingV1 method.
 		NetworkingV1 []struct {
 		}
-		// NetworkingV1alpha1 holds details about calls to the NetworkingV1alpha1 method.
-		NetworkingV1alpha1 []struct {
-		}
 		// NetworkingV1beta1 holds details about calls to the NetworkingV1beta1 method.
 		NetworkingV1beta1 []struct {
+		}
+		// NodeUSBDevices holds details about calls to the NodeUSBDevices method.
+		NodeUSBDevices []struct {
 		}
 		// NodeV1 holds details about calls to the NodeV1 method.
 		NodeV1 []struct {
@@ -1299,6 +1311,9 @@ type VirtClientMock struct {
 		}
 		// RbacV1beta1 holds details about calls to the RbacV1beta1 method.
 		RbacV1beta1 []struct {
+		}
+		// ResourceV1 holds details about calls to the ResourceV1 method.
+		ResourceV1 []struct {
 		}
 		// ResourceV1alpha3 holds details about calls to the ResourceV1alpha3 method.
 		ResourceV1alpha3 []struct {
@@ -1329,6 +1344,11 @@ type VirtClientMock struct {
 		}
 		// StoragemigrationV1alpha1 holds details about calls to the StoragemigrationV1alpha1 method.
 		StoragemigrationV1alpha1 []struct {
+		}
+		// USBDevices holds details about calls to the USBDevices method.
+		USBDevices []struct {
+			// Namespace is the namespace argument value.
+			Namespace string
 		}
 		// VirtualDisks holds details about calls to the VirtualDisks method.
 		VirtualDisks []struct {
@@ -1412,8 +1432,8 @@ type VirtClientMock struct {
 	lockFlowcontrolV1beta3                   sync.RWMutex
 	lockInternalV1alpha1                     sync.RWMutex
 	lockNetworkingV1                         sync.RWMutex
-	lockNetworkingV1alpha1                   sync.RWMutex
 	lockNetworkingV1beta1                    sync.RWMutex
+	lockNodeUSBDevices                       sync.RWMutex
 	lockNodeV1                               sync.RWMutex
 	lockNodeV1alpha1                         sync.RWMutex
 	lockNodeV1beta1                          sync.RWMutex
@@ -1422,6 +1442,7 @@ type VirtClientMock struct {
 	lockRbacV1                               sync.RWMutex
 	lockRbacV1alpha1                         sync.RWMutex
 	lockRbacV1beta1                          sync.RWMutex
+	lockResourceV1                           sync.RWMutex
 	lockResourceV1alpha3                     sync.RWMutex
 	lockResourceV1beta1                      sync.RWMutex
 	lockResourceV1beta2                      sync.RWMutex
@@ -1432,6 +1453,7 @@ type VirtClientMock struct {
 	lockStorageV1alpha1                      sync.RWMutex
 	lockStorageV1beta1                       sync.RWMutex
 	lockStoragemigrationV1alpha1             sync.RWMutex
+	lockUSBDevices                           sync.RWMutex
 	lockVirtualDisks                         sync.RWMutex
 	lockVirtualImages                        sync.RWMutex
 	lockVirtualMachineBlockDeviceAttachments sync.RWMutex
@@ -2443,33 +2465,6 @@ func (mock *VirtClientMock) NetworkingV1Calls() []struct {
 	return calls
 }
 
-// NetworkingV1alpha1 calls NetworkingV1alpha1Func.
-func (mock *VirtClientMock) NetworkingV1alpha1() networkingv1alpha1.NetworkingV1alpha1Interface {
-	if mock.NetworkingV1alpha1Func == nil {
-		panic("VirtClientMock.NetworkingV1alpha1Func: method is nil but VirtClient.NetworkingV1alpha1 was just called")
-	}
-	callInfo := struct {
-	}{}
-	mock.lockNetworkingV1alpha1.Lock()
-	mock.calls.NetworkingV1alpha1 = append(mock.calls.NetworkingV1alpha1, callInfo)
-	mock.lockNetworkingV1alpha1.Unlock()
-	return mock.NetworkingV1alpha1Func()
-}
-
-// NetworkingV1alpha1Calls gets all the calls that were made to NetworkingV1alpha1.
-// Check the length with:
-//
-//	len(mockedVirtClient.NetworkingV1alpha1Calls())
-func (mock *VirtClientMock) NetworkingV1alpha1Calls() []struct {
-} {
-	var calls []struct {
-	}
-	mock.lockNetworkingV1alpha1.RLock()
-	calls = mock.calls.NetworkingV1alpha1
-	mock.lockNetworkingV1alpha1.RUnlock()
-	return calls
-}
-
 // NetworkingV1beta1 calls NetworkingV1beta1Func.
 func (mock *VirtClientMock) NetworkingV1beta1() networkingv1beta1.NetworkingV1beta1Interface {
 	if mock.NetworkingV1beta1Func == nil {
@@ -2494,6 +2489,33 @@ func (mock *VirtClientMock) NetworkingV1beta1Calls() []struct {
 	mock.lockNetworkingV1beta1.RLock()
 	calls = mock.calls.NetworkingV1beta1
 	mock.lockNetworkingV1beta1.RUnlock()
+	return calls
+}
+
+// NodeUSBDevices calls NodeUSBDevicesFunc.
+func (mock *VirtClientMock) NodeUSBDevices() corev1alpha2.NodeUSBDeviceInterface {
+	if mock.NodeUSBDevicesFunc == nil {
+		panic("VirtClientMock.NodeUSBDevicesFunc: method is nil but VirtClient.NodeUSBDevices was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockNodeUSBDevices.Lock()
+	mock.calls.NodeUSBDevices = append(mock.calls.NodeUSBDevices, callInfo)
+	mock.lockNodeUSBDevices.Unlock()
+	return mock.NodeUSBDevicesFunc()
+}
+
+// NodeUSBDevicesCalls gets all the calls that were made to NodeUSBDevices.
+// Check the length with:
+//
+//	len(mockedVirtClient.NodeUSBDevicesCalls())
+func (mock *VirtClientMock) NodeUSBDevicesCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockNodeUSBDevices.RLock()
+	calls = mock.calls.NodeUSBDevices
+	mock.lockNodeUSBDevices.RUnlock()
 	return calls
 }
 
@@ -2713,6 +2735,33 @@ func (mock *VirtClientMock) RbacV1beta1Calls() []struct {
 	return calls
 }
 
+// ResourceV1 calls ResourceV1Func.
+func (mock *VirtClientMock) ResourceV1() resourcev1.ResourceV1Interface {
+	if mock.ResourceV1Func == nil {
+		panic("VirtClientMock.ResourceV1Func: method is nil but VirtClient.ResourceV1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockResourceV1.Lock()
+	mock.calls.ResourceV1 = append(mock.calls.ResourceV1, callInfo)
+	mock.lockResourceV1.Unlock()
+	return mock.ResourceV1Func()
+}
+
+// ResourceV1Calls gets all the calls that were made to ResourceV1.
+// Check the length with:
+//
+//	len(mockedVirtClient.ResourceV1Calls())
+func (mock *VirtClientMock) ResourceV1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockResourceV1.RLock()
+	calls = mock.calls.ResourceV1
+	mock.lockResourceV1.RUnlock()
+	return calls
+}
+
 // ResourceV1alpha3 calls ResourceV1alpha3Func.
 func (mock *VirtClientMock) ResourceV1alpha3() v1alpha3.ResourceV1alpha3Interface {
 	if mock.ResourceV1alpha3Func == nil {
@@ -2876,7 +2925,7 @@ func (mock *VirtClientMock) SchedulingV1beta1Calls() []struct {
 }
 
 // StorageV1 calls StorageV1Func.
-func (mock *VirtClientMock) StorageV1() storagev1.StorageV1Interface {
+func (mock *VirtClientMock) StorageV1() v1.StorageV1Interface {
 	if mock.StorageV1Func == nil {
 		panic("VirtClientMock.StorageV1Func: method is nil but VirtClient.StorageV1 was just called")
 	}
@@ -2957,7 +3006,7 @@ func (mock *VirtClientMock) StorageV1beta1Calls() []struct {
 }
 
 // StoragemigrationV1alpha1 calls StoragemigrationV1alpha1Func.
-func (mock *VirtClientMock) StoragemigrationV1alpha1() storagemigrationv1alpha1.StoragemigrationV1alpha1Interface {
+func (mock *VirtClientMock) StoragemigrationV1alpha1() v1alpha1.StoragemigrationV1alpha1Interface {
 	if mock.StoragemigrationV1alpha1Func == nil {
 		panic("VirtClientMock.StoragemigrationV1alpha1Func: method is nil but VirtClient.StoragemigrationV1alpha1 was just called")
 	}
@@ -2980,6 +3029,38 @@ func (mock *VirtClientMock) StoragemigrationV1alpha1Calls() []struct {
 	mock.lockStoragemigrationV1alpha1.RLock()
 	calls = mock.calls.StoragemigrationV1alpha1
 	mock.lockStoragemigrationV1alpha1.RUnlock()
+	return calls
+}
+
+// USBDevices calls USBDevicesFunc.
+func (mock *VirtClientMock) USBDevices(namespace string) corev1alpha2.USBDeviceInterface {
+	if mock.USBDevicesFunc == nil {
+		panic("VirtClientMock.USBDevicesFunc: method is nil but VirtClient.USBDevices was just called")
+	}
+	callInfo := struct {
+		Namespace string
+	}{
+		Namespace: namespace,
+	}
+	mock.lockUSBDevices.Lock()
+	mock.calls.USBDevices = append(mock.calls.USBDevices, callInfo)
+	mock.lockUSBDevices.Unlock()
+	return mock.USBDevicesFunc(namespace)
+}
+
+// USBDevicesCalls gets all the calls that were made to USBDevices.
+// Check the length with:
+//
+//	len(mockedVirtClient.USBDevicesCalls())
+func (mock *VirtClientMock) USBDevicesCalls() []struct {
+	Namespace string
+} {
+	var calls []struct {
+		Namespace string
+	}
+	mock.lockUSBDevices.RLock()
+	calls = mock.calls.USBDevices
+	mock.lockUSBDevices.RUnlock()
 	return calls
 }
 

@@ -982,7 +982,9 @@ spec:
                 networks:
                   type: array
                   description: |
-                    List of network interface configurations.
+                    List of network interface configurations. If not specified, the VM uses only the main cluster network (`Main`).
+
+                    The `sdn` module is required only when additional networks (`Network` or `ClusterNetwork`) are specified in `.spec.networks`. If only the main network (`Main`) is specified, the module is not required.
                   items:
                     type: object
                     required:
@@ -1012,6 +1014,22 @@ spec:
                         type: string
                         description: |
                           The name of the `VirtualMachineMACAddress` resource that is associated with the network interface.
+                usbDevices:
+                  type: array
+                  maxItems: 8
+                  description: |
+                    List of USB devices to attach to the virtual machine.
+                    Devices are referenced by name of USBDevice resource in the same namespace.
+                  items:
+                    type: object
+                    required:
+                      - name
+                    properties:
+                      name:
+                        minLength: 1
+                        type: string
+                        description: |
+                          The name of USBDevice resource in the same namespace.
             status:
               type: object
               properties:
@@ -1335,6 +1353,46 @@ spec:
                         - size
                       type: object
                   type: object
+                usbDevices:
+                  type: array
+                  description: |
+                    List of USB devices attached to the virtual machine.
+                  items:
+                    type: object
+                    required:
+                      - name
+                      - attached
+                      - ready
+                    properties:
+                      name:
+                        type: string
+                        description: |
+                          The name of USBDevice resource.
+                      attached:
+                        type: boolean
+                        description: |
+                          The USB device is attached to the virtual machine.
+                      ready:
+                        type: boolean
+                        description: |
+                          USB device is ready to use.
+                      address:
+                        type: object
+                        description: |
+                          USB address inside the virtual machine.
+                        properties:
+                          bus:
+                            type: integer
+                            description: |
+                              USB bus number (always 0 for the main USB controller).
+                          port:
+                            type: integer
+                            description: |
+                              USB port number on the selected bus.
+                      hotplugged:
+                        type: boolean
+                        description: |
+                          USB device is attached via hot plug connection.
                 networks:
                   type: array
                   description: |
