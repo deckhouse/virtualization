@@ -3584,7 +3584,7 @@ The following steps describe the minimal workflow for attaching a USB device to 
    d8 k get usbdevice -n my-project
    ```
 
-1. Add the device to the `.spec.usbDevices` field of a [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource and ensure that the VM is scheduled on the node where the USB device is physically connected.
+1. Add the device to the `.spec.usbDevices` field of a [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
 
    ```bash
    d8 k apply -f - <<EOF
@@ -3619,7 +3619,7 @@ logitech-webcam     node-2         True    True      my-project   15m
 
 #### NodeUSBDevice Conditions
 
-The status of a [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource is represented by a set of conditions that describe its availability and assignment state:
+The status of a [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource is represented by a set of conditions that describe its availability and assignment state. These conditions are available in `.status.conditions`:
 
 - **Ready**: Indicates whether the device is ready to use.
   - `Ready`: Device is ready to use.
@@ -3680,7 +3680,7 @@ The [USBDevice](/modules/virtualization/cr.html#usbdevice) resource exposes deta
 
 #### USBDevice Conditions
 
-The [USBDevice](/modules/virtualization/cr.html#usbdevice) resource provides status conditions that reflect its readiness and attachment state.
+The [USBDevice](/modules/virtualization/cr.html#usbdevice) resource provides status conditions that reflect its readiness and attachment state. These conditions are available in `.status.conditions`.
 
 - **Ready**: Indicates whether the device is ready to use.
   - `Ready`: Device is ready to use.
@@ -3690,7 +3690,6 @@ The [USBDevice](/modules/virtualization/cr.html#usbdevice) resource provides sta
 - **Attached**: Indicates whether the device is attached to a virtual machine.
   - `AttachedToVirtualMachine`: Device is attached to a VM.
   - `Available`: Device is available for attachment.
-  - `DetachedForMigration`: Device was detached for migration.
 
 ### Attaching USB Device to VM
 
@@ -3712,7 +3711,7 @@ EOF
 After creating or updating the VM, the USB device will be attached to the specified virtual machine.
 
 {{< alert level="info" >}}
-The virtual machine must be running on the same node where the USB device is physically connected.
+The USB device is automatically forwarded to the node where the virtual machine is running via the network (USBIP). There is no need to manually place the VM on the same node as the device.
 {{< /alert >}}
 
 {{< alert level="warning" >}}
@@ -3775,8 +3774,8 @@ Both `USBDevice` and `NodeUSBDevice` resources update their status conditions to
 USB device passthrough has several operational requirements and limitations that must be considered before use:
 
 - The DRA driver must be installed on nodes where USB devices are to be discovered.
-- USB devices can only be attached to virtual machines running on the same node where the device is physically connected.
-- Hot-plug of USB devices is not supported — the VM must be stopped before detaching the device.
+- USB devices are forwarded to the VM node over the network using USBIP. The VM does not need to run on the same node where the device is physically connected.
+- USB devices support hot-plug — they can be attached to and detached from a running VM without stopping it.
 - USB device passthrough requires proper kernel modules on the node.
 
 ## Data export

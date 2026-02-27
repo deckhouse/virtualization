@@ -19,6 +19,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -77,7 +78,7 @@ func (h *USBDeviceDetachHandler) Handle(ctx context.Context, s state.VirtualMach
 	for _, existingStatus := range currentStatusMap {
 		if _, ok := specDeviceNames[existingStatus.Name]; !ok {
 			err := h.detachUSBDevice(ctx, vm, existingStatus.Name)
-			if err != nil && !apierrors.IsNotFound(err) {
+			if err != nil && !apierrors.IsNotFound(err) && !strings.Contains(err.Error(), "it does not exist") {
 				log.Error("failed to detach USB device", "error", err, "usbDevice", existingStatus.Name)
 				return reconcile.Result{}, fmt.Errorf("failed to detach USB device %s: %w", existingStatus.Name, err)
 			}
@@ -93,7 +94,7 @@ func (h *USBDeviceDetachHandler) Handle(ctx context.Context, s state.VirtualMach
 		usbDevice, exists := usbDevicesByName[usbDeviceRef.Name]
 		if !exists {
 			err := h.detachUSBDevice(ctx, vm, usbDeviceRef.Name)
-			if err != nil && !apierrors.IsNotFound(err) {
+			if err != nil && !apierrors.IsNotFound(err) && !strings.Contains(err.Error(), "it does not exist") {
 				log.Error("failed to detach USB device (device not found)", "error", err, "usbDevice", usbDeviceRef.Name)
 				return reconcile.Result{}, fmt.Errorf("failed to detach USB device %s (device not found): %w", usbDeviceRef.Name, err)
 			}
@@ -102,7 +103,7 @@ func (h *USBDeviceDetachHandler) Handle(ctx context.Context, s state.VirtualMach
 
 		if !usbDevice.GetDeletionTimestamp().IsZero() {
 			err := h.detachUSBDevice(ctx, vm, usbDeviceRef.Name)
-			if err != nil && !apierrors.IsNotFound(err) {
+			if err != nil && !apierrors.IsNotFound(err) && !strings.Contains(err.Error(), "it does not exist") {
 				log.Error("failed to detach USB device (device deleting)", "error", err, "usbDevice", usbDeviceRef.Name)
 				return reconcile.Result{}, fmt.Errorf("failed to detach USB device %s (device deleting): %w", usbDeviceRef.Name, err)
 			}
@@ -111,7 +112,7 @@ func (h *USBDeviceDetachHandler) Handle(ctx context.Context, s state.VirtualMach
 
 		if !h.isUSBDeviceReady(usbDevice) {
 			err := h.detachUSBDevice(ctx, vm, usbDeviceRef.Name)
-			if err != nil && !apierrors.IsNotFound(err) {
+			if err != nil && !apierrors.IsNotFound(err) && !strings.Contains(err.Error(), "it does not exist") {
 				log.Error("failed to detach USB device (absent on device)", "error", err, "usbDevice", usbDeviceRef.Name)
 				return reconcile.Result{}, fmt.Errorf("failed to detach USB device %s (device not ready): %w", usbDeviceRef.Name, err)
 			}
