@@ -137,7 +137,6 @@ func (p DataProcessor) Process(ctx context.Context) (ImportRes, error) {
 	defer progressMeter.Stop()
 
 	pipeReader, pipeWriter := io.Pipe()
-	defer pipeReader.Close()
 
 	informer := NewImageInformer()
 
@@ -152,35 +151,38 @@ func (p DataProcessor) Process(ctx context.Context) (ImportRes, error) {
 			progressMeter, pipeWriter, informer,
 		)
 		if err != nil {
-			err = fmt.Errorf("stream source error: %w", err)
-			if !errors.Is(err, context.Canceled) {
-				cancel()
+			if errors.Is(err, io.ErrClosedPipe) {
+				klog.Infof("source streaming: pipe is closed by upload: %s", err.Error())
+				err = nil
+			} else {
+				if ctx.Err() != context.Canceled {
+					cancel()
+				}
+				err = fmt.Errorf("source streaming error: %w", err)
+				klog.Errorln(err)
 			}
 		}
 		errsCh <- err
 	}()
 
 	go func() {
+		defer pipeReader.Close()
+
 		err := p.uploadLayersAndImage(
 			ctx, pipeReader, sourceImageSize, informer,
 		)
 		if err != nil {
-			err = fmt.Errorf("upload layers error: %w", err)
-			if !errors.Is(err, context.Canceled) {
+			if ctx.Err() != context.Canceled {
 				cancel()
 			}
+			err = fmt.Errorf("layers uploading error: %w", err)
+			klog.Errorln(err)
 		}
 		errsCh <- err
 	}()
 
 	err1 := <-errsCh
-	if err1 != nil {
-		klog.Errorln(err1)
-	}
 	err2 := <-errsCh
-	if err2 != nil {
-		klog.Errorln(err2)
-	}
 
 	if err := errors.Join(err1, err2); err != nil {
 		return ImportRes{}, err
