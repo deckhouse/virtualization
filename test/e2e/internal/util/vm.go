@@ -66,7 +66,7 @@ func UntilSSHReady(f *framework.Framework, vm *v1alpha2.VirtualMachine, timeout 
 	GinkgoHelper()
 
 	Eventually(func(g Gomega) {
-		result, err := f.SSHCommand(vm.Name, vm.Namespace, "echo 'test'")
+		result, err := f.SSHCommand(vm.Name, vm.Namespace, "echo 'test'", framework.WithSSHTimeout(5*time.Second))
 		if err != nil && shouldRetrySSHWithFallbackKubeConfig(err) {
 			fallbackRes, fallbackErr := checkVMSSHPortFromNestedMaster(f, vm)
 			if fallbackErr != nil {
