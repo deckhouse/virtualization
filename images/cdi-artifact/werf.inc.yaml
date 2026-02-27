@@ -39,7 +39,7 @@ secrets:
 shell:
   install:
   - |
-    echo ff
+    echo fff
     echo "Git clone {{ $gitRepoName }} repository..."
     git clone --depth=1 --branch {{ $version }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /src/containerized-data-importer
 
