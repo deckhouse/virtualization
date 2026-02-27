@@ -33,31 +33,6 @@ type nameKindKey struct {
 	name string
 }
 
-func computeBootOrders(bdRefs []v1alpha2.BlockDeviceSpecRef) map[nameKindKey]int {
-	hasExplicit := false
-	for _, bd := range bdRefs {
-		if bd.BootOrder != nil {
-			hasExplicit = true
-			break
-		}
-	}
-
-	result := make(map[nameKindKey]int, len(bdRefs))
-	for i, bd := range bdRefs {
-		key := nameKindKey{kind: bd.Kind, name: bd.Name}
-		if hasExplicit {
-			if bd.BootOrder != nil {
-				result[key] = *bd.BootOrder
-			} else {
-				result[key] = -1
-			}
-		} else {
-			result[key] = i
-		}
-	}
-	return result
-}
-
 func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s state.VirtualMachineState) ([]v1alpha2.BlockDeviceStatusRef, error) {
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
@@ -65,7 +40,6 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 	}
 
 	specRefs := s.VirtualMachine().Current().Spec.BlockDeviceRefs
-	bootOrders := computeBootOrders(specRefs)
 
 	specDevices := make(map[nameKindKey]struct{}, len(specRefs))
 	for _, bd := range specRefs {
@@ -76,8 +50,7 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 
 	if kvvm == nil {
 		for _, specBlockDeviceRef := range specRefs {
-			key := nameKindKey{kind: specBlockDeviceRef.Kind, name: specBlockDeviceRef.Name}
-			ref := h.getBlockDeviceStatusRef(specBlockDeviceRef.Kind, specBlockDeviceRef.Name, bootOrders[key])
+			ref := h.getBlockDeviceStatusRef(specBlockDeviceRef.Kind, specBlockDeviceRef.Name)
 			ref.Size, err = h.getBlockDeviceRefSize(ctx, ref, s)
 			if err != nil {
 				return nil, err
@@ -114,12 +87,8 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 		}
 
 		key := nameKindKey{kind: kind, name: bdName}
-		bo, hasBo := bootOrders[key]
-		if !hasBo {
-			bo = -1
-		}
 
-		ref := h.getBlockDeviceStatusRef(kind, bdName, bo)
+		ref := h.getBlockDeviceStatusRef(kind, bdName)
 		ref.Target, ref.Attached = h.getBlockDeviceTarget(volume, kvvmiVolumeStatusByName)
 		ref.Size, err = h.getBlockDeviceRefSize(ctx, ref, s)
 		if err != nil {
@@ -147,7 +116,7 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 			continue
 		}
 
-		ref := h.getBlockDeviceStatusRef(specBlockDeviceRef.Kind, specBlockDeviceRef.Name, bootOrders[key])
+		ref := h.getBlockDeviceStatusRef(specBlockDeviceRef.Kind, specBlockDeviceRef.Name)
 		ref.Size, err = h.getBlockDeviceRefSize(ctx, ref, s)
 		if err != nil {
 			return nil, err
@@ -158,11 +127,10 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 	return refs, nil
 }
 
-func (h *BlockDeviceHandler) getBlockDeviceStatusRef(kind v1alpha2.BlockDeviceKind, name string, bootOrder int) v1alpha2.BlockDeviceStatusRef {
+func (h *BlockDeviceHandler) getBlockDeviceStatusRef(kind v1alpha2.BlockDeviceKind, name string) v1alpha2.BlockDeviceStatusRef {
 	return v1alpha2.BlockDeviceStatusRef{
-		Kind:      kind,
-		Name:      name,
-		BootOrder: bootOrder,
+		Kind: kind,
+		Name: name,
 	}
 }
 

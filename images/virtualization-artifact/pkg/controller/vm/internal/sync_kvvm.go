@@ -434,13 +434,7 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 
 	networkSpec := network.CreateNetworkSpec(current, vmmacs)
 
-	vmbdas, err := s.VirtualMachineBlockDeviceAttachments(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("get vmbdas: %w", err)
-	}
-
-	// Create kubevirt VirtualMachine resource from d8 VirtualMachine spec.
-	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, vmbdas, class, ipAddress, networkSpec)
+	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, class, ipAddress, networkSpec)
 	if err != nil {
 		return nil, err
 	}

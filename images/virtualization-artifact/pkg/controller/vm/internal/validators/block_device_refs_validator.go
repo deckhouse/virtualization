@@ -96,8 +96,8 @@ func (v *BlockDeviceSpecRefsValidator) validateBootOrder(vm *v1alpha2.VirtualMac
 		if bdRef.BootOrder == nil {
 			continue
 		}
-		if *bdRef.BootOrder < 0 {
-			return fmt.Errorf("bootOrder must be >= 0, got %d for %s %q", *bdRef.BootOrder, bdRef.Kind, bdRef.Name)
+		if *bdRef.BootOrder < 1 {
+			return fmt.Errorf("bootOrder must be >= 1, got %d for %s %q", *bdRef.BootOrder, bdRef.Kind, bdRef.Name)
 		}
 		if prev, exists := seen[*bdRef.BootOrder]; exists {
 			return fmt.Errorf("duplicate bootOrder %d: already used by %s, conflicts with %s %q", *bdRef.BootOrder, prev, bdRef.Kind, bdRef.Name)
