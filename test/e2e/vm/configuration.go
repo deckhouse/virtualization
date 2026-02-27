@@ -126,6 +126,7 @@ func (t *configurationTest) GenerateResources(restartApprovalMode v1alpha2.Resta
 	t.VDRoot = vdbuilder.New(
 		vdbuilder.WithName("vd-root"),
 		vdbuilder.WithNamespace(t.Framework.Namespace().Name),
+		vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
 		vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
 			URL: object.ImageURLAlpineBIOS,
 		}),
