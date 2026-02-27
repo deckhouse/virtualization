@@ -576,10 +576,13 @@ func (s *AllocationStore) makeResources(devices []resourcev1.Device) resourcesli
 	poolName := s.nodeName
 
 	var perDeviceNodeSelection *bool
+	var newDevices []resourcev1.Device
 	if featuregates.Default().USBGatewayEnabled() {
 		nodeSelector := getNodeSelector(s.nodeName)
 		for i := range devices {
-			addNodeSelector(&devices[i], nodeSelector)
+			newDevice := devices[i].DeepCopy()
+			addNodeSelector(newDevice, nodeSelector)
+			newDevices = append(newDevices, *newDevice)
 		}
 		perDeviceNodeSelection = ptr.To(true)
 	}
@@ -587,7 +590,7 @@ func (s *AllocationStore) makeResources(devices []resourcev1.Device) resourcesli
 	pool := resourceslice.Pool{
 		Slices: []resourceslice.Slice{
 			{
-				Devices:                devices,
+				Devices:                newDevices,
 				PerDeviceNodeSelection: perDeviceNodeSelection,
 			},
 		},

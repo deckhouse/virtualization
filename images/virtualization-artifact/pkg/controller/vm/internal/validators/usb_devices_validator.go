@@ -136,7 +136,7 @@ func (c *USBDevicesValidator) validateAvailableUSBIPPorts(ctx context.Context, v
 		}
 
 		usbDevice := &v1alpha2.USBDevice{}
-		err := c.client.Get(ctx, client.ObjectKey{Name: ref.Name}, usbDevice)
+		err := c.client.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: vm.Namespace}, usbDevice)
 		if err != nil {
 			return admission.Warnings{}, fmt.Errorf("failed to get USB device %s: %w", ref.Name, err)
 		}
