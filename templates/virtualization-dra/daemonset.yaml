@@ -65,10 +65,30 @@ spec:
       nodeSelector:
         kubernetes.io/os: linux
       initContainers:
+        - name: init-build
+          command:
+            - bash
+            - -c
+            - "./build.sh /tmp || echo 'Failed to build modules'"
+          image: {{ include "helm_lib_module_image" (list . "usbModules") }}
+          resources:
+            requests:
+              {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
+              {{- include "virtualization-dra_init_resources" . | nindent 14 }}
+          volumeMounts:
+            - mountPath: /lib/modules
+              name: lib-modules
+              readOnly: true
+            - mountPath: /usr/src
+              name: usr-src
+              readOnly: true
+            - mountPath: /tmp
+              name: tmp
         - name: init-load
           image: {{ include "helm_lib_module_image" (list . "virtualizationDraUsb") }}
           args:
             - init
+            - --try-custom-build-path=/tmp
           {{- include "helm_lib_module_container_security_context_read_only_root_filesystem_capabilities_drop_all_and_add"  (list . (list "SYS_MODULE")) | nindent 10 }}
           resources:
             requests:
@@ -148,6 +168,9 @@ spec:
         - name: lib-modules
           hostPath:
             path: /lib/modules
+        - name: usr-src
+          hostPath:
+            path: /usr/src
         - name: plugins-registry
           hostPath:
             path: /var/lib/kubelet/plugins_registry
