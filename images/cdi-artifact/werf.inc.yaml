@@ -25,7 +25,7 @@ packages:
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
-fromCacheVersion: ffff
+fromCacheVersion: ffffff
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}
     to: /src
