@@ -2,12 +2,12 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
-  name: vd-ubuntu-http
+  name: vd-alpine-http
 spec:
   dataSource:
     type: HTTP
     http:
-      url: https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/noble-server-cloudimg-amd64.img
+      url: https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/alpine/alpine-3-23-3-uefi-base.qcow2
   persistentVolumeClaim:
     storageClassName: "{{ .STORAGE_CLASS_NAME }}"
-    size: 3600Mi
+    size: 350Mi

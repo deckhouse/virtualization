@@ -25,7 +25,7 @@ func NewHTTPCVIUbuntu(name string, opts ...cvi.Option) *v1alpha2.ClusterVirtualI
 	baseOpts := []cvi.Option{
 		cvi.WithName(name),
 		cvi.WithDataSourceHTTP(
-			ImageURLUbuntu,
+			ImageURLAlpineBIOS,
 			nil,
 			nil,
 		),
@@ -38,7 +38,7 @@ func NewGenerateHTTPCVIUbuntu(prefix string, opts ...cvi.Option) *v1alpha2.Clust
 	baseOpts := []cvi.Option{
 		cvi.WithGenerateName(prefix),
 		cvi.WithDataSourceHTTP(
-			ImageURLUbuntu,
+			ImageURLAlpineBIOS,
 			nil,
 			nil,
 		),

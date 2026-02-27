@@ -22,6 +22,13 @@ patches:
         path: /spec/provisioning/userData
         value: |
           #cloud-config
+          package_update: true
+          packages:
+            - qemu-guest-agent
+            - curl
+            - bash
+            - sudo
+            - iputils
           users:
             - name: cloud
               # passwd: cloud
@@ -33,6 +40,8 @@ patches:
               ssh_authorized_keys:
                 # testcases
                 - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxcXHmwaGnJ8scJaEN5RzklBPZpVSic4GdaAsKjQoeA your_email@example.com
+          runcmd:
+          - "rc-update add qemu-guest-agent && rc-service qemu-guest-agent start"
     target:
       kind: VirtualMachine
       name: vm

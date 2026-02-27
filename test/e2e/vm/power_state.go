@@ -225,15 +225,16 @@ func (t *powerStateTest) GenerateResources(runPolicy v1alpha2.RunPolicy) {
 	t.VDRoot = vdbuilder.New(
 		vdbuilder.WithName("vd-root"),
 		vdbuilder.WithNamespace(t.Framework.Namespace().Name),
+		vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
 		vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-			URL: object.ImageURLUbuntu,
+			URL: object.ImageURLAlpineBIOS,
 		}),
 	)
 
 	t.VDBlank = vdbuilder.New(
 		vdbuilder.WithName("vd-blank"),
 		vdbuilder.WithNamespace(t.Framework.Namespace().Name),
-		vdbuilder.WithPersistentVolumeClaim(nil, ptr.To(resource.MustParse("51Mi"))),
+		vdbuilder.WithPersistentVolumeClaim(nil, ptr.To(resource.MustParse("100Mi"))),
 	)
 
 	t.VM = vmbuilder.New(

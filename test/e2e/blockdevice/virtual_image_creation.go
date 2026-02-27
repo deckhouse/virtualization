@@ -22,6 +22,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	cvibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/cvi"
@@ -59,6 +61,7 @@ var _ = Describe("VirtualImageCreation", func() {
 			vd = vdbuilder.New(
 				vdbuilder.WithGenerateName("vd-"),
 				vdbuilder.WithNamespace(f.Namespace().Name),
+				vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
 				vdbuilder.WithDataSourceHTTP(
 					&v1alpha2.DataSourceHTTP{
 						URL: object.ImageURLAlpineUEFIPerf,

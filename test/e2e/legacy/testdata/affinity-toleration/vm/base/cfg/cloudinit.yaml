@@ -1,4 +1,11 @@
 #cloud-config
+package_update: true
+packages:
+  - qemu-guest-agent
+  - curl
+  - bash
+  - sudo
+  - iputils
 users:
   - name: cloud
     # passwd: cloud
@@ -42,9 +49,10 @@ write_files:
       while true; do
         ping -W1 -D 1.1.1.1 >> /tmp/ping.log
       done
-final_message: "\U0001F525\U0001F525\U0001F525 The system is finally up, after $(awk '{print int($1)}' /proc/uptime) seconds \U0001F525\U0001F525\U0001F525"
+final_message: "\U0001F525\U0001F525\U0001F525 The system is finally up, after ${uptime} seconds \U0001F525\U0001F525\U0001F525"
 runcmd:
   - "echo \"\U0001F7E1 Starting runcmd at $(date +%H:%M:%S)\""
   - rc-update add ping-service default
   - rc-service ping-service start
+  - "rc-update add qemu-guest-agent && rc-service qemu-guest-agent start"
   - "echo \"\U0001F7E1 Finished runcmd at $(date +%H:%M:%S)\""

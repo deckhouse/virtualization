@@ -280,7 +280,7 @@ func (t *restoreModeTest) GenerateResources(restoreMode v1alpha2.SnapshotOperati
 		vdbuilder.WithName("vd-root"),
 		vdbuilder.WithNamespace(t.Framework.Namespace().Name),
 		vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-			URL: object.ImageURLUbuntu,
+			URL: object.ImageURLAlpineBIOS,
 		}),
 		vdbuilder.WithAnnotation(resourceAnnotationName, resourceAnnotationValue),
 		vdbuilder.WithLabel(resourceLabelName, resourceLabelValue),

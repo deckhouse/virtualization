@@ -29,6 +29,7 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vd"
@@ -72,6 +73,7 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", func() {
 			iperfServerDisk := vd.New(
 				vd.WithName(iperfServerName),
 				vd.WithNamespace(f.Namespace().Name),
+				vd.WithSize(ptr.To(resource.MustParse("400Mi"))),
 				vd.WithStorageClass(&storageClass.Name),
 				vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
 					URL: object.ImageURLAlpineUEFIPerf,
@@ -81,14 +83,15 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", func() {
 			iperfClientDisk := vd.New(
 				vd.WithName(iperfClientName),
 				vd.WithNamespace(f.Namespace().Name),
+				vd.WithSize(ptr.To(resource.MustParse("500Mi"))),
 				vd.WithStorageClass(&storageClass.Name),
 				vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
 					URL: object.ImageURLAlpineUEFIPerf,
 				}),
 			)
 
-			iperfServer = newVirtualMachine(iperfServerName, f.Namespace().Name, iperfServerDisk)
-			iperfClient = newVirtualMachine(iperfClientName, f.Namespace().Name, iperfClientDisk)
+			iperfServer = newVirtualMachine(iperfServerName, f.Namespace().Name, iperfServerDisk, object.PerfCloudInit)
+			iperfClient = newVirtualMachine(iperfClientName, f.Namespace().Name, iperfClientDisk, object.DefaultCloudInit)
 
 			err := f.CreateWithDeferredDeletion(context.Background(), iperfServerDisk, iperfClientDisk, iperfServer, iperfClient)
 			Expect(err).NotTo(HaveOccurred())
@@ -106,9 +109,11 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", func() {
 			iperfServer, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(context.Background(), iperfServer.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
-			cmd := fmt.Sprintf("nohup iperf3 --client %s --time 0 --json > ~/%s 2>&1 < /dev/null &", iperfServer.Status.IPAddress, reportName)
+			cmd := fmt.Sprintf("nohup iperf3 -c %s -t 0 --json > ~/%s 2>&1 < /dev/null &", iperfServer.Status.IPAddress, reportName)
 			_, err = f.SSHCommand(iperfClient.Name, iperfClient.Namespace, cmd)
 			Expect(err).NotTo(HaveOccurred(), "failed to run iperf3 client")
+
+			waitForIPerfClientToStart(iperfClient.Name, iperfClient.Namespace, f)
 		})
 
 		By("Migrate the iPerf server", func() {
@@ -116,17 +121,16 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", func() {
 			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(iperfServer), framework.LongTimeout)
 		})
 
-		By("Wait for packets to be transmitted after migration", func() {
+		By("Wait 10s for packets to be transmitted after migration", func() {
 			time.Sleep(10 * time.Second)
 		})
 
 		By("Check the iPerf client report", func() {
-			stopIPerfClient(iperfClient.Name, f.Namespace().Name, iperfServer.Status.IPAddress, f)
-			report = getIPerfClientReport(iperfClient.Name, f.Namespace().Name, reportName, f)
-			Expect(report).NotTo(BeNil(), "iPerf report cannot be nil")
-
 			iperfServer, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(context.Background(), iperfServerName, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
+			stopIPerfClient(iperfClient.Name, f.Namespace().Name, f)
+			report = getIPerfClientReport(iperfClient.Name, f.Namespace().Name, reportName, f)
+			Expect(report).NotTo(BeNil(), "iPerf report cannot be nil")
 
 			iPerfClientStartTime, err := time.Parse(time.RFC1123, report.Start.Timestamp.Time)
 			Expect(err).NotTo(HaveOccurred())
@@ -170,22 +174,27 @@ func waitForIPerfServerToStart(vmName, vmNamespace string, f *framework.Framewor
 	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).ShouldNot(HaveOccurred())
 }
 
-func stopIPerfClient(vmName, vmNamespace, ip string, f *framework.Framework) {
+func waitForIPerfClientToStart(vmName, vmNamespace string, f *framework.Framework) {
 	GinkgoHelper()
-
-	var pid string
-
-	iPerfClientPidCmd := fmt.Sprintf("ps aux | grep \"iperf3 --client %s\" | grep -v grep | awk \"{print \\$1}\"", ip)
+	iPerfClientPidCmd := "pgrep iperf3"
 	Eventually(func() error {
 		stdout, err := f.SSHCommand(vmName, vmNamespace, iPerfClientPidCmd)
 		if err != nil {
 			return fmt.Errorf("cmd: %s\nstderr: %w", iPerfClientPidCmd, err)
 		}
-		pid = stdout
+		pid := strings.TrimSpace(strings.TrimSuffix(stdout, "\n"))
+		re := regexp.MustCompile(`^\d+$`)
+		if !re.MatchString(pid) {
+			return fmt.Errorf("iperf3 client not running yet (no PID found): %q", stdout)
+		}
 		return nil
 	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).ShouldNot(HaveOccurred())
+}
 
-	stopIPerfClientCmd := fmt.Sprintf("kill %s", pid)
+func stopIPerfClient(vmName, vmNamespace string, f *framework.Framework) {
+	GinkgoHelper()
+
+	stopIPerfClientCmd := "pkill -INT -x iperf3"
 	Eventually(func() error {
 		_, err := f.SSHCommand(vmName, vmNamespace, stopIPerfClientCmd)
 		if err != nil {
@@ -199,21 +208,22 @@ func getIPerfClientReport(vmName, vmNamespace, reportName string, f *framework.F
 	GinkgoHelper()
 
 	rawReport := new(string)
-	cmd := fmt.Sprintf("jq . ~/%s", reportName)
+	cmd := fmt.Sprintf("cat ~/%s | jq .", reportName)
 	Eventually(func() error {
 		stdout, err := f.SSHCommand(vmName, vmNamespace, cmd)
 		if err != nil {
 			return fmt.Errorf("cmd: %s\nstderr: %w", cmd, err)
 		}
-
+		if len(strings.TrimSpace(stdout)) < 100 || !strings.Contains(stdout, `"start"`) {
+			return fmt.Errorf("iperf3 report empty or incomplete (len=%d)", len(stdout))
+		}
 		*rawReport = stdout
-
 		return nil
 	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
 
 	report := &IPerfReport{}
 	err := json.Unmarshal([]byte(*rawReport), report)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred(), "iperf3 report must be valid JSON (file may be truncated or iperf3 did not run)")
 
 	return report
 }
@@ -264,7 +274,7 @@ type IPerfReport struct {
 	Error     string          `json:"error,omitempty"`
 }
 
-func newVirtualMachine(name, namespace string, disk *v1alpha2.VirtualDisk) *v1alpha2.VirtualMachine {
+func newVirtualMachine(name, namespace string, disk *v1alpha2.VirtualDisk, cloudInit string) *v1alpha2.VirtualMachine {
 	cpuCount := 1
 	coreFraction := "10%"
 
@@ -278,7 +288,7 @@ func newVirtualMachine(name, namespace string, disk *v1alpha2.VirtualDisk) *v1al
 		vm.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 		vm.WithProvisioning(&v1alpha2.Provisioning{
 			Type:     v1alpha2.ProvisioningTypeUserData,
-			UserData: object.DefaultCloudInit,
+			UserData: cloudInit,
 		}),
 	)
 }

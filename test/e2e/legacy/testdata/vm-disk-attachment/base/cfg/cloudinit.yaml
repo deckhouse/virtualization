@@ -1,4 +1,12 @@
 #cloud-config
+package_update: true
+packages:
+  - qemu-guest-agent
+  - curl
+  - bash
+  - sudo
+  - iputils
+  - util-linux
 users:
   - name: cloud
     # passwd: cloud
@@ -9,3 +17,8 @@ users:
     ssh_authorized_keys:
       # testcases
       - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxcXHmwaGnJ8scJaEN5RzklBPZpVSic4GdaAsKjQoeA your_email@example.com
+final_message: "\U0001F525\U0001F525\U0001F525 The system is finally up, after ${updame} \U0001F525\U0001F525\U0001F525"
+runcmd:
+  - "echo \"\U0001F7E1 Starting runcmd at $(date +%H:%M:%S)\""
+  - "rc-update add qemu-guest-agent && rc-service qemu-guest-agent start"
+  - "echo \"\U0001F7E1 Finished runcmd at $(date +%H:%M:%S)\""

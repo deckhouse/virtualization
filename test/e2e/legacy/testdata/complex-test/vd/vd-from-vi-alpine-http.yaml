@@ -1,13 +1,13 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
-  name: vd-from-vi-ubuntu-http
+  name: vd-from-vi-alpine-http
 spec:
   persistentVolumeClaim:
     storageClassName: "{{ .STORAGE_CLASS_NAME }}"
-    size: 3600Mi
+    size: 350Mi
   dataSource:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
-      name: vi-ubuntu-http
+      name: vi-alpine-http
