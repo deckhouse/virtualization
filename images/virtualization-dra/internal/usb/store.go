@@ -575,32 +575,31 @@ func parseDraEnvToClaimAllocations(envs []string) (map[types.UID][]string, error
 }
 
 func (s *AllocationStore) makeResources(devices []resourcev1.Device) resourceslice.DriverResources {
-	poolName := s.nodeName
+	if len(devices) == 0 {
+		return resourceslice.DriverResources{}
+	}
 
+	poolName := s.nodeName
 	var perDeviceNodeSelection *bool
-	var newDevices []resourcev1.Device
+
 	if featuregates.Default().USBGatewayEnabled() {
 		nodeSelector := getNodeSelector(s.nodeName)
 		for i := range devices {
-			newDevice := devices[i].DeepCopy()
-			addNodeSelector(newDevice, nodeSelector)
-			newDevices = append(newDevices, *newDevice)
+			addNodeSelector(&devices[i], nodeSelector)
 		}
 		perDeviceNodeSelection = ptr.To(true)
 	}
 
-	pool := resourceslice.Pool{
-		Slices: []resourceslice.Slice{
-			{
-				Devices:                newDevices,
-				PerDeviceNodeSelection: perDeviceNodeSelection,
-			},
-		},
-	}
-
 	return resourceslice.DriverResources{
 		Pools: map[string]resourceslice.Pool{
-			poolName: pool,
+			poolName: {
+				Slices: []resourceslice.Slice{
+					{
+						Devices:                devices,
+						PerDeviceNodeSelection: perDeviceNodeSelection,
+					},
+				},
+			},
 		},
 	}
 }
