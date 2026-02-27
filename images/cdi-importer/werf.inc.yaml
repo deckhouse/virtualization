@@ -45,6 +45,7 @@ packages:
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
 fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
+fromCacheVersion: ffffff
 import:
 - image: tools/util-linux
   add: /
