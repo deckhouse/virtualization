@@ -584,7 +584,7 @@ func (s *AllocationStore) makeResources(devices []resourcev1.Device) resourcesli
 	}
 
 	if featuregates.Default().USBGatewayEnabled() {
-		pool.NodeSelector = getNodeSelector()
+		pool.NodeSelector = getNodeSelector(s.nodeName)
 	}
 
 	return resourceslice.DriverResources{

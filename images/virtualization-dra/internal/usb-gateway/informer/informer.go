@@ -111,6 +111,13 @@ func (f *Factory) ResourceSlice() cache.SharedIndexInformer {
 	})
 }
 
+func (f *Factory) Nodes() cache.SharedIndexInformer {
+	return f.getInformer("nodesInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "nodes", corev1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &corev1.Node{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
 func (f *Factory) NamespacedSecret(namespace string) cache.SharedIndexInformer {
 	return f.getInformer("namespacedSecretInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "secrets", namespace, fields.Everything())

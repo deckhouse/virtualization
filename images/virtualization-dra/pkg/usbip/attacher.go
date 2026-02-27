@@ -17,6 +17,7 @@ limitations under the License.
 package usbip
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net"
@@ -114,20 +115,20 @@ func (a *usbAttacher) Detach(rhport int) error {
 	return nil
 }
 
-func (a *usbAttacher) GetAttachInfo() ([]AttachInfo, error) {
+func (a *usbAttacher) GetAttachInfo() (AttachInfo, error) {
 	driver, err := newVhciDriver()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get vhci driver: %w", err)
+		return AttachInfo{}, fmt.Errorf("failed to get vhci driver: %w", err)
 	}
 
-	var usedInfos []AttachInfo
+	attachInfo := AttachInfo{NPorts: driver.nports}
 
 	for i := 0; i < driver.nports; i++ {
 		idev := &driver.idevs[i]
 
 		vstatus := protocol.DeviceStatus(idev.status)
 		if vstatus == protocol.VDeviceStatusUsed {
-			usedInfos = append(usedInfos, AttachInfo{
+			attachInfo.Items = append(attachInfo.Items, AttachInfoItem{
 				Port:       idev.port,
 				Busnum:     idev.busnum,
 				Devnum:     idev.devnum,
@@ -136,7 +137,51 @@ func (a *usbAttacher) GetAttachInfo() ([]AttachInfo, error) {
 		}
 	}
 
-	return usedInfos, nil
+	return attachInfo, nil
+}
+
+func (a *usbAttacher) WatchAttachInfo(ctx context.Context) (<-chan AttachInfo, error) {
+	resultCh := make(chan AttachInfo, 10)
+
+	info, err := a.GetAttachInfo()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get attach info: %w", err)
+	}
+	resultCh <- info
+
+	w, err := followVhciHcdStatus()
+	if err != nil {
+		return nil, fmt.Errorf("failed to follow vhci hcd status: %w", err)
+	}
+
+	go func() {
+		defer func() {
+			if err := w.Close(); err != nil {
+				slog.Error("failed to close watcher", slog.Any("error", err))
+			}
+		}()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-w.Events:
+				info, err := a.GetAttachInfo()
+				if err != nil {
+					slog.Error("failed to get attach info", slog.Any("error", err))
+					continue
+				}
+				resultCh <- info
+			case err, ok := <-w.Errors:
+				if !ok {
+					return
+				}
+				slog.Error("watcher error", slog.Any("error", err))
+			}
+		}
+	}()
+
+	return resultCh, nil
 }
 
 // https://github.com/torvalds/linux/blob/b927546677c876e26eba308550207c2ddf812a43/tools/usb/usbip/src/usbip_network.c#L261

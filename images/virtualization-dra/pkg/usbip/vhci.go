@@ -22,6 +22,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/fsnotify/fsnotify"
 )
 
 const (
@@ -210,4 +212,27 @@ func getBusNumDevNum(devID int) (int, int) {
 	devnum := devID & 0x0000ffff
 
 	return busnum, devnum
+}
+
+func followVhciHcdStatus() (*fsnotify.Watcher, error) {
+	// TODO: follow other controllers
+	statusFile := vhciHcdStatus
+	portsFile := usbipVhciHcdNPortsPath
+
+	w, err := fsnotify.NewWatcher()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create watcher: %w", err)
+	}
+
+	err = w.Add(statusFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add %s: %w", statusFile, err)
+	}
+
+	err = w.Add(portsFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add %s: %w", portsFile, err)
+	}
+
+	return w, nil
 }

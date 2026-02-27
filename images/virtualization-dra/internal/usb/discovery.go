@@ -25,12 +25,12 @@ func (s *AllocationStore) discoveryPluggedUSBDevices() (DeviceSet, DeviceSet, er
 
 	busIDSet := make(map[string]struct{})
 	if featuregates.Default().USBGatewayEnabled() {
-		infos, err := s.usbipInfoGetter.GetAttachInfo()
+		info, err := s.usbipInfoGetter.GetAttachInfo()
 		if err != nil {
 			return nil, nil, err
 		}
-		for _, info := range infos {
-			busIDSet[info.LocalBusID] = struct{}{}
+		for _, item := range info.Items {
+			busIDSet[item.LocalBusID] = struct{}{}
 		}
 	}
 
