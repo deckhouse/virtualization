@@ -90,9 +90,10 @@ type AllocationStore struct {
 	monitor         libusb.Monitor
 	kubeClient      kubernetes.Interface
 
-	discoverPluggedUSBDevices      DeviceSet
-	discoverUsbIpPluggedUSBDevices DeviceSet
-	allocatableDevices             map[string]resourcev1.Device
+	discoverPluggedUSBDevicesInited bool
+	discoverPluggedUSBDevices       DeviceSet
+	discoverUsbIpPluggedUSBDevices  DeviceSet
+	allocatableDevices              map[string]resourcev1.Device
 
 	allocatedDevices           sets.Set[string]
 	usbipAllocatedDevicesCount map[string]int
@@ -110,11 +111,12 @@ func (s *AllocationStore) sync() error {
 
 	s.discoverUsbIpPluggedUSBDevices = discoverUsbIpPluggedUSBDevices
 
-	if discoverPluggedUSBDevices.Equal(s.discoverPluggedUSBDevices) {
+	if s.discoverPluggedUSBDevicesInited && discoverPluggedUSBDevices.Equal(s.discoverPluggedUSBDevices) {
 		return nil
 	}
 
 	s.discoverPluggedUSBDevices = discoverPluggedUSBDevices
+	s.discoverPluggedUSBDevicesInited = true
 
 	allocatableDevices := make([]resourcev1.Device, discoverPluggedUSBDevices.Len())
 	for i, usbDevice := range discoverPluggedUSBDevices.UnsortedList() {
