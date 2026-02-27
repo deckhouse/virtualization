@@ -486,13 +486,14 @@ func (c *Controller) initInformer(ctx context.Context) error {
 				}
 
 				if c.reconcileOnlyPoolName != "" {
+					var newItems []resourcev1.ResourceSlice
 					for i := range slices.Items {
 						if slices.Items[i].Spec.Pool.Name == c.reconcileOnlyPoolName {
-							slices.Items = []resourcev1.ResourceSlice{slices.Items[i]}
-							return slices, nil
+							newItems = append(newItems, slices.Items[i])
+							break
 						}
 					}
-					slices.Items = nil
+					slices.Items = newItems
 					return slices, nil
 				}
 
