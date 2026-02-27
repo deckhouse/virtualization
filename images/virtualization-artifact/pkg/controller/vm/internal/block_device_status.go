@@ -53,7 +53,6 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 				return nil, err
 			}
 			refs = append(refs, ref)
-			ref.Target = ""
 		}
 
 		return refs, nil
@@ -88,7 +87,7 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 		}
 
 		ref := h.getBlockDeviceStatusRef(kind, bdName)
-		ref.Target, ref.Attached = h.getBlockDeviceTarget(volume, kvvmiVolumeStatusByName)
+		_, ref.Attached = h.getBlockDeviceTarget(volume, kvvmiVolumeStatusByName)
 		ref.Size, err = h.getBlockDeviceRefSize(ctx, ref, s)
 		if err != nil {
 			return nil, err
