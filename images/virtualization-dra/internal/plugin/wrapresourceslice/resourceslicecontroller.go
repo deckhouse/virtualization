@@ -348,7 +348,7 @@ func (c *Controller) Update(resources *DriverResources) error {
 	} else {
 		if c.reconcileOnlyPoolName != "" {
 			_, ok := resources.Pools[c.reconcileOnlyPoolName]
-			if (ok && len(resources.Pools) > 1) || len(resources.Pools) > 0 {
+			if (ok && len(resources.Pools) > 1) || !ok && len(resources.Pools) > 0 {
 				return fmt.Errorf("reconcileOnlyPoolName is set to %q, but other pools found (%d total)",
 					c.reconcileOnlyPoolName, len(resources.Pools))
 			}
