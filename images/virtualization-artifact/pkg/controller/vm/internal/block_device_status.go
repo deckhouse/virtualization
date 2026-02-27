@@ -53,6 +53,7 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 				return nil, err
 			}
 			refs = append(refs, ref)
+			ref.Target = ""
 		}
 
 		return refs, nil
