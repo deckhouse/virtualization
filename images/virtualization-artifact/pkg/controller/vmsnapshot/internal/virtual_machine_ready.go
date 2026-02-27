@@ -82,6 +82,15 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmSnapshot *v1al
 		return reconcile.Result{}, nil
 	}
 
+	_, migratingConditionExists := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
+	if migratingConditionExists {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmscondition.VirtualMachineNotReadyForSnapshotting).
+			Message("The virtual machine is migrating at the moment, so a snapshot cannot be taken.")
+		return reconcile.Result{}, nil
+	}
+
 	switch vm.Status.Phase {
 	case v1alpha2.MachineRunning, v1alpha2.MachineStopped:
 		// If the snapshotting condition is not found, it means that the vm is ready for snapshotting.
