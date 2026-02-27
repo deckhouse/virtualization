@@ -33,21 +33,51 @@ type nameKindKey struct {
 	name string
 }
 
-// getBlockDeviceStatusRefs returns block device refs to populate .status.blockDeviceRefs of the virtual machine.
-// If kvvm is present, this method will reflect all volumes with prefixes (vi,vd, or cvi) into the slice of `BlockDeviceStatusRef`.
-// Block devices from the virtual machine specification will be added to the resulting slice if they have not been included in the previous step.
+func computeBootOrders(bdRefs []v1alpha2.BlockDeviceSpecRef) map[nameKindKey]int {
+	hasExplicit := false
+	for _, bd := range bdRefs {
+		if bd.BootOrder != nil {
+			hasExplicit = true
+			break
+		}
+	}
+
+	result := make(map[nameKindKey]int, len(bdRefs))
+	for i, bd := range bdRefs {
+		key := nameKindKey{kind: bd.Kind, name: bd.Name}
+		if hasExplicit {
+			if bd.BootOrder != nil {
+				result[key] = *bd.BootOrder
+			} else {
+				result[key] = -1
+			}
+		} else {
+			result[key] = i
+		}
+	}
+	return result
+}
+
 func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s state.VirtualMachineState) ([]v1alpha2.BlockDeviceStatusRef, error) {
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
 		return nil, err
 	}
 
+	specRefs := s.VirtualMachine().Current().Spec.BlockDeviceRefs
+	bootOrders := computeBootOrders(specRefs)
+
+	specDevices := make(map[nameKindKey]struct{}, len(specRefs))
+	for _, bd := range specRefs {
+		specDevices[nameKindKey{kind: bd.Kind, name: bd.Name}] = struct{}{}
+	}
+
 	var refs []v1alpha2.BlockDeviceStatusRef
 
-	// 1. There is no kvvm yet: populate block device refs with the spec.
 	if kvvm == nil {
-		for _, specBlockDeviceRef := range s.VirtualMachine().Current().Spec.BlockDeviceRefs {
-			ref := h.getBlockDeviceStatusRef(specBlockDeviceRef.Kind, specBlockDeviceRef.Name)
+		for _, specBlockDeviceRef := range specRefs {
+			key := nameKindKey{kind: specBlockDeviceRef.Kind, name: specBlockDeviceRef.Name}
+			ref := h.getBlockDeviceStatusRef(specBlockDeviceRef.Kind, specBlockDeviceRef.Name, bootOrders[key])
 			ref.Size, err = h.getBlockDeviceRefSize(ctx, ref, s)
 			if err != nil {
 				return nil, err
@@ -77,16 +107,19 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 
 	attachedBlockDeviceRefs := make(map[nameKindKey]struct{})
 
-	// 2. The kvvm already exists: populate block device refs with the kvvm volumes.
 	for _, volume := range kvvm.Spec.Template.Spec.Volumes {
 		bdName, kind := kvbuilder.GetOriginalDiskName(volume.Name)
 		if kind == "" {
-			// Reflect only vi, vd, or cvi block devices in status.
-			// This is neither of them, so skip.
 			continue
 		}
 
-		ref := h.getBlockDeviceStatusRef(kind, bdName)
+		key := nameKindKey{kind: kind, name: bdName}
+		bo, hasBo := bootOrders[key]
+		if !hasBo {
+			bo = -1
+		}
+
+		ref := h.getBlockDeviceStatusRef(kind, bdName, bo)
 		ref.Target, ref.Attached = h.getBlockDeviceTarget(volume, kvvmiVolumeStatusByName)
 		ref.Size, err = h.getBlockDeviceRefSize(ctx, ref, s)
 		if err != nil {
@@ -95,30 +128,26 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 
 		ref.Hotplugged = h.isHotplugged(volume, kvvmiVolumeStatusByName)
 		if ref.Hotplugged {
-			ref.VirtualMachineBlockDeviceAttachmentName, err = h.getBlockDeviceAttachmentName(ctx, kind, bdName, s)
-			if err != nil {
-				return nil, err
+			_, isSpecDevice := specDevices[key]
+			if !isSpecDevice {
+				ref.VirtualMachineBlockDeviceAttachmentName, err = h.getBlockDeviceAttachmentName(ctx, kind, bdName, s)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 
 		refs = append(refs, ref)
-		attachedBlockDeviceRefs[nameKindKey{
-			kind: ref.Kind,
-			name: ref.Name,
-		}] = struct{}{}
+		attachedBlockDeviceRefs[key] = struct{}{}
 	}
 
-	// 3. The kvvm may be missing some block devices from the spec; they need to be added as well.
-	for _, specBlockDeviceRef := range s.VirtualMachine().Current().Spec.BlockDeviceRefs {
-		_, ok := attachedBlockDeviceRefs[nameKindKey{
-			kind: specBlockDeviceRef.Kind,
-			name: specBlockDeviceRef.Name,
-		}]
-		if ok {
+	for _, specBlockDeviceRef := range specRefs {
+		key := nameKindKey{kind: specBlockDeviceRef.Kind, name: specBlockDeviceRef.Name}
+		if _, ok := attachedBlockDeviceRefs[key]; ok {
 			continue
 		}
 
-		ref := h.getBlockDeviceStatusRef(specBlockDeviceRef.Kind, specBlockDeviceRef.Name)
+		ref := h.getBlockDeviceStatusRef(specBlockDeviceRef.Kind, specBlockDeviceRef.Name, bootOrders[key])
 		ref.Size, err = h.getBlockDeviceRefSize(ctx, ref, s)
 		if err != nil {
 			return nil, err
@@ -129,10 +158,11 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 	return refs, nil
 }
 
-func (h *BlockDeviceHandler) getBlockDeviceStatusRef(kind v1alpha2.BlockDeviceKind, name string) v1alpha2.BlockDeviceStatusRef {
+func (h *BlockDeviceHandler) getBlockDeviceStatusRef(kind v1alpha2.BlockDeviceKind, name string, bootOrder int) v1alpha2.BlockDeviceStatusRef {
 	return v1alpha2.BlockDeviceStatusRef{
-		Kind: kind,
-		Name: name,
+		Kind:      kind,
+		Name:      name,
+		BootOrder: bootOrder,
 	}
 }
 
@@ -189,20 +219,14 @@ func (h *BlockDeviceHandler) getBlockDeviceTarget(volume virtv1.Volume, kvvmiVol
 
 func (h *BlockDeviceHandler) isHotplugged(volume virtv1.Volume, kvvmiVolumeStatusByName map[string]virtv1.VolumeStatus) bool {
 	switch {
-	// 1. If kvvmi has volume status with hotplugVolume reference then it's 100% hot-plugged volume.
 	case kvvmiVolumeStatusByName[volume.Name].HotplugVolume != nil:
 		return true
-
-	// 2. If kvvm has volume with hot-pluggable pvc reference then it's 100% hot-plugged volume.
 	case volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable:
 		return true
-
-	// 3. If kvvm has volume with hot-pluggable disk reference then it's 100% hot-plugged volume.
 	case volume.ContainerDisk != nil && volume.ContainerDisk.Hotpluggable:
 		return true
 	}
 
-	// 4. Is not hot-plugged.
 	return false
 }
 

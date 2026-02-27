@@ -125,9 +125,13 @@ func ApplyVirtualMachineSpec(
 		return err
 	}
 
+	existingNonHotplug := make(map[string]struct{})
 	hotpluggedDevices := make([]HotPlugDeviceSettings, 0)
 	for _, volume := range kvvm.Resource.Spec.Template.Spec.Volumes {
+		isHotpluggable := false
+
 		if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable {
+			isHotpluggable = true
 			hotpluggedDevices = append(hotpluggedDevices, HotPlugDeviceSettings{
 				VolumeName: volume.Name,
 				PVCName:    volume.PersistentVolumeClaim.ClaimName,
@@ -135,22 +139,57 @@ func ApplyVirtualMachineSpec(
 		}
 
 		if volume.ContainerDisk != nil && volume.ContainerDisk.Hotpluggable {
+			isHotpluggable = true
 			hotpluggedDevices = append(hotpluggedDevices, HotPlugDeviceSettings{
 				VolumeName: volume.Name,
 				Image:      volume.ContainerDisk.Image,
 			})
 		}
+
+		if !isHotpluggable {
+			existingNonHotplug[volume.Name] = struct{}{}
+		}
 	}
 
 	kvvm.ClearDisks()
-	bootOrder := uint(1)
+	hasExplicitBootOrder := false
 	for _, bd := range vm.Spec.BlockDeviceRefs {
-		// bootOrder starts from 1.
+		if bd.BootOrder != nil {
+			hasExplicitBootOrder = true
+			break
+		}
+	}
+
+	isExistingKVVM := len(existingNonHotplug) > 0 || len(hotpluggedDevices) > 0
+
+	for i, bd := range vm.Spec.BlockDeviceRefs {
+		var kvBootOrder uint
+		if hasExplicitBootOrder {
+			if bd.BootOrder != nil {
+				kvBootOrder = uint(*bd.BootOrder) + 1
+			}
+		} else {
+			kvBootOrder = uint(i) + 1
+		}
+
+		var volumeName string
 		switch bd.Kind {
 		case v1alpha2.ImageDevice:
-			// Attach ephemeral disk for storage: Kubernetes.
-			// Attach containerDisk for storage: ContainerRegistry (i.e. image from DVCR).
+			volumeName = GenerateVIDiskName(bd.Name)
+		case v1alpha2.ClusterImageDevice:
+			volumeName = GenerateCVIDiskName(bd.Name)
+		case v1alpha2.DiskDevice:
+			volumeName = GenerateVDDiskName(bd.Name)
+		}
 
+		if isExistingKVVM {
+			if _, exists := existingNonHotplug[volumeName]; !exists {
+				continue
+			}
+		}
+
+		switch bd.Kind {
+		case v1alpha2.ImageDevice:
 			vi, ok := viByName[bd.Name]
 			if !ok || vi == nil {
 				return fmt.Errorf("unexpected error: virtual image %q should exist in the cluster; please recreate it", bd.Name)
@@ -160,12 +199,11 @@ func ApplyVirtualMachineSpec(
 			switch vi.Spec.Storage {
 			case v1alpha2.StorageKubernetes,
 				v1alpha2.StoragePersistentVolumeClaim:
-				// Attach PVC as ephemeral volume: its data will be restored to initial state on VM restart.
 				if err := kvvm.SetDisk(name, SetDiskOptions{
 					PersistentVolumeClaim: pointer.GetPointer(vi.Status.Target.PersistentVolumeClaim),
 					IsEphemeral:           true,
 					Serial:                GenerateSerialFromObject(vi),
-					BootOrder:             bootOrder,
+					BootOrder:             kvBootOrder,
 				}); err != nil {
 					return err
 				}
@@ -174,18 +212,15 @@ func ApplyVirtualMachineSpec(
 					ContainerDisk: pointer.GetPointer(vi.Status.Target.RegistryURL),
 					IsCdrom:       imageformat.IsISO(vi.Status.Format),
 					Serial:        GenerateSerialFromObject(vi),
-					BootOrder:     bootOrder,
+					BootOrder:     kvBootOrder,
 				}); err != nil {
 					return err
 				}
 			default:
 				return fmt.Errorf("unexpected storage type %q for vi %s. %w", vi.Spec.Storage, vi.Name, common.ErrUnknownType)
 			}
-			bootOrder++
 
 		case v1alpha2.ClusterImageDevice:
-			// ClusterVirtualImage is attached as containerDisk.
-
 			cvi, ok := cviByName[bd.Name]
 			if !ok || cvi == nil {
 				return fmt.Errorf("unexpected error: cluster virtual image %q should exist in the cluster; please recreate it", bd.Name)
@@ -196,22 +231,18 @@ func ApplyVirtualMachineSpec(
 				ContainerDisk: pointer.GetPointer(cvi.Status.Target.RegistryURL),
 				IsCdrom:       imageformat.IsISO(cvi.Status.Format),
 				Serial:        GenerateSerialFromObject(cvi),
-				BootOrder:     bootOrder,
+				BootOrder:     kvBootOrder,
 			}); err != nil {
 				return err
 			}
-			bootOrder++
 
 		case v1alpha2.DiskDevice:
-			// VirtualDisk is attached as a regular disk.
-
 			vd, ok := vdByName[bd.Name]
 			if !ok || vd == nil {
 				return fmt.Errorf("unexpected error: virtual disk %q should exist in the cluster; please recreate it", bd.Name)
 			}
 
 			pvcName := vd.Status.Target.PersistentVolumeClaim
-			// VirtualDisk doesn't have pvc yet: wait for pvc and reconcile again.
 			if pvcName == "" {
 				continue
 			}
@@ -220,11 +251,10 @@ func ApplyVirtualMachineSpec(
 			if err := kvvm.SetDisk(name, SetDiskOptions{
 				PersistentVolumeClaim: pointer.GetPointer(pvcName),
 				Serial:                GenerateSerialFromObject(vd),
-				BootOrder:             bootOrder,
+				BootOrder:             kvBootOrder,
 			}); err != nil {
 				return err
 			}
-			bootOrder++
 		default:
 			return fmt.Errorf("unknown block device kind %q. %w", bd.Kind, common.ErrUnknownType)
 		}

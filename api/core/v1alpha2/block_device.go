@@ -20,6 +20,9 @@ type BlockDeviceSpecRef struct {
 	Kind BlockDeviceKind `json:"kind"`
 	// The name of attached resource.
 	Name string `json:"name"`
+	// Boot priority for the block device. Smaller value = higher priority.
+	// +optional
+	BootOrder *int `json:"bootOrder,omitempty"`
 }
 
 type BlockDeviceStatusRef struct {
@@ -35,6 +38,8 @@ type BlockDeviceStatusRef struct {
 	Target string `json:"target,omitempty"`
 	// Block device is attached via hot plug connection.
 	Hotplugged bool `json:"hotplugged,omitempty"`
+	// Computed boot order of the block device.
+	BootOrder int `json:"bootOrder"`
 	// The name of the `VirtualMachineBlockDeviceAttachment` resource that defines hot plug disk connection to the virtual machine.
 	VirtualMachineBlockDeviceAttachmentName string `json:"virtualMachineBlockDeviceAttachmentName,omitempty"`
 }

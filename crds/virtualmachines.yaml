@@ -956,6 +956,13 @@ spec:
                         type: string
                         description: |
                           Name of the attached resource.
+                      bootOrder:
+                        type: integer
+                        minimum: 0
+                        description: |
+                          Boot priority for the block device. Smaller value means higher boot priority.
+                          If not set for any device, boot order follows the position in the list (0-based).
+                          If set for at least one device, explicit values determine boot priority.
 
                 liveMigrationPolicy:
                   type: string
@@ -1054,7 +1061,7 @@ spec:
                     List of block devices attached to the VM.
                   items:
                     type: object
-                    required: ["kind", "name", "size", "attached"]
+                    required: ["kind", "name", "size", "attached", "bootOrder"]
                     properties:
                       attached:
                         type: boolean
@@ -1083,6 +1090,10 @@ spec:
                         type: string
                         description: |
                           Size of the attached block device.
+                      bootOrder:
+                        type: integer
+                        description: |
+                          Computed boot order of the block device.
                       virtualMachineBlockDeviceAttachmentName:
                         type: string
                         description: |

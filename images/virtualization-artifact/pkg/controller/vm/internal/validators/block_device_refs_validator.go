@@ -26,6 +26,11 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
+type blockDeviceKey struct {
+	Kind v1alpha2.BlockDeviceKind
+	Name string
+}
+
 type BlockDeviceSpecRefsValidator struct{}
 
 func NewBlockDeviceSpecRefsValidator() *BlockDeviceSpecRefsValidator {
@@ -33,8 +38,11 @@ func NewBlockDeviceSpecRefsValidator() *BlockDeviceSpecRefsValidator {
 }
 
 func (v *BlockDeviceSpecRefsValidator) validate(vm *v1alpha2.VirtualMachine) error {
-	err := v.noDoubles(vm)
-	if err != nil {
+	if err := v.noDoubles(vm); err != nil {
+		return err
+	}
+
+	if err := v.validateBootOrder(vm); err != nil {
 		return err
 	}
 
@@ -68,15 +76,33 @@ func (v *BlockDeviceSpecRefsValidator) ValidateUpdate(_ context.Context, _, newV
 }
 
 func (v *BlockDeviceSpecRefsValidator) noDoubles(vm *v1alpha2.VirtualMachine) error {
-	blockDevicesByRef := make(map[v1alpha2.BlockDeviceSpecRef]struct{}, len(vm.Spec.BlockDeviceRefs))
+	seen := make(map[blockDeviceKey]struct{}, len(vm.Spec.BlockDeviceRefs))
 
 	for _, bdRef := range vm.Spec.BlockDeviceRefs {
-		if _, ok := blockDevicesByRef[bdRef]; ok {
+		key := blockDeviceKey{Kind: bdRef.Kind, Name: bdRef.Name}
+		if _, ok := seen[key]; ok {
 			return fmt.Errorf("cannot specify the same block device reference more than once: %s with name %q has a duplicate reference", bdRef.Kind, bdRef.Name)
 		}
 
-		blockDevicesByRef[bdRef] = struct{}{}
+		seen[key] = struct{}{}
 	}
 
+	return nil
+}
+
+func (v *BlockDeviceSpecRefsValidator) validateBootOrder(vm *v1alpha2.VirtualMachine) error {
+	seen := make(map[int]string)
+	for _, bdRef := range vm.Spec.BlockDeviceRefs {
+		if bdRef.BootOrder == nil {
+			continue
+		}
+		if *bdRef.BootOrder < 0 {
+			return fmt.Errorf("bootOrder must be >= 0, got %d for %s %q", *bdRef.BootOrder, bdRef.Kind, bdRef.Name)
+		}
+		if prev, exists := seen[*bdRef.BootOrder]; exists {
+			return fmt.Errorf("duplicate bootOrder %d: already used by %s, conflicts with %s %q", *bdRef.BootOrder, prev, bdRef.Kind, bdRef.Name)
+		}
+		seen[*bdRef.BootOrder] = fmt.Sprintf("%s/%s", bdRef.Kind, bdRef.Name)
+	}
 	return nil
 }

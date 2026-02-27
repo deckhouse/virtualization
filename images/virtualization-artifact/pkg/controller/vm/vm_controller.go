@@ -49,12 +49,15 @@ func SetupController(
 	log *log.Logger,
 	dvcrSettings *dvcr.Settings,
 	firmwareImage string,
+	virtClient service.VirtClient,
+	controllerNamespace string,
 ) error {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	mgrCache := mgr.GetCache()
 	client := mgr.GetClient()
 	blockDeviceService := service.NewBlockDeviceService(client)
 	vmClassService := service.NewVirtualMachineClassService(client)
+	attachmentService := service.NewAttachmentService(client, virtClient, controllerNamespace)
 
 	migrateVolumesService := vmservice.NewMigrationVolumesService(client, internal.MakeKVVMFromVMSpec, 10*time.Second)
 
@@ -73,6 +76,7 @@ func SetupController(
 		internal.NewSizePolicyHandler(),
 		internal.NewNetworkInterfaceHandler(featuregates.Default()),
 		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder, migrateVolumesService),
+		internal.NewHotplugHandler(attachmentService),
 		internal.NewSyncPowerStateHandler(client, recorder),
 		internal.NewSyncMetadataHandler(client),
 		internal.NewLifeCycleHandler(client, recorder),

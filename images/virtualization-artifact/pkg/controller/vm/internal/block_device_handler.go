@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -196,35 +195,8 @@ func (h *BlockDeviceHandler) Name() string {
 	return nameBlockDeviceHandler
 }
 
-func (h *BlockDeviceHandler) getBlockDeviceWarnings(ctx context.Context, s state.VirtualMachineState) (string, error) {
-	vmbdasByBlockDevice, err := s.VirtualMachineBlockDeviceAttachments(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	var conflictedRefs []string
-
-	for _, bdSpecRef := range s.VirtualMachine().Current().Spec.BlockDeviceRefs {
-		// It is a precaution to not apply changes in spec.blockDeviceRefs if disk is already
-		// hotplugged using the VMBDA resource.
-		// spec check is done by VirtualDisk status
-		// the reverse check is done by the vmbda-controller.
-		_, conflict := vmbdasByBlockDevice[v1alpha2.VMBDAObjectRef{
-			Kind: v1alpha2.VMBDAObjectRefKind(bdSpecRef.Kind),
-			Name: bdSpecRef.Name,
-		}]
-		if conflict {
-			conflictedRefs = append(conflictedRefs, fmt.Sprintf("%s/%s", strings.ToLower(string(bdSpecRef.Kind)), bdSpecRef.Name))
-			continue
-		}
-	}
-
-	var warning string
-	if len(conflictedRefs) > 0 {
-		warning = fmt.Sprintf("spec.blockDeviceRefs field contains block devices to hotplug (%s): unplug or remove them from spec to continue.", strings.Join(conflictedRefs, ", "))
-	}
-
-	return warning, nil
+func (h *BlockDeviceHandler) getBlockDeviceWarnings(_ context.Context, _ state.VirtualMachineState) (string, error) {
+	return "", nil
 }
 
 // setFinalizersOnBlockDevices sets protection finalizers on CVMI and VMD attached to the VM.

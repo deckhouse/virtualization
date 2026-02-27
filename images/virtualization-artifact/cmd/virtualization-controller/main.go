@@ -342,7 +342,7 @@ func main() {
 	}
 
 	vmLogger := logger.NewControllerLogger(vm.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if err = vm.SetupController(ctx, mgr, vmLogger, dvcrSettings, firmwareImage); err != nil {
+	if err = vm.SetupController(ctx, mgr, vmLogger, dvcrSettings, firmwareImage, virtClient, controllerNamespace); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
