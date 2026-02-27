@@ -36,7 +36,7 @@ const (
 	antiAffinityLabel = "anti-affinity"
 )
 
-var _ = Describe("ComplexTest", Label("legacy"), Ordered, func() {
+var _ = Describe("ComplexTest", Ordered, func() {
 	var (
 		testCaseLabel            = map[string]string{"testcase": "complex-test"}
 		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "complex-test"}

@@ -33,7 +33,7 @@ import (
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 )
 
-var _ = Describe("VirtualMachineAffinityAndToleration", Label("legacy"), Ordered, func() {
+var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 	const (
 		nodeLabelKey   = "kubernetes.io/hostname"
 		masterLabelKey = "node.deckhouse.io/group"

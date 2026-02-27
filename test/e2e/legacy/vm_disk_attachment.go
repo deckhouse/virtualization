@@ -36,7 +36,7 @@ const unacceptableCount = -1000
 
 var APIVersion = v1alpha2.SchemeGroupVersion.String()
 
-var _ = Describe("VirtualDiskAttachment", Label("legacy"), Ordered, func() {
+var _ = Describe("VirtualDiskAttachment", Ordered, func() {
 	var (
 		testCaseLabel            = map[string]string{"testcase": "vm-disk-attachment"}
 		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "vm-disk-attachment"}

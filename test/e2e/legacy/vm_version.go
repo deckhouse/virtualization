@@ -26,7 +26,7 @@ import (
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 )
 
-var _ = Describe("VirtualMachineVersions", Label("legacy"), Ordered, func() {
+var _ = Describe("VirtualMachineVersions", Ordered, func() {
 	testCaseLabel := map[string]string{"testcase": "vm-versions"}
 	var ns string
 
