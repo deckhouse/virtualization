@@ -21,17 +21,20 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
+	"github.com/deckhouse/virtualization-dra/internal/consts"
 	"github.com/deckhouse/virtualization-dra/pkg/controller"
 	"github.com/deckhouse/virtualization-dra/pkg/patch"
 	"github.com/deckhouse/virtualization-dra/pkg/usbip"
@@ -40,17 +43,17 @@ import (
 const controllerName = "usb-gateway-controller"
 
 type USBGatewayController struct {
-	secretName           string
-	namespace            string
 	nodeName             string
 	usbipdAddr           string
 	client               kubernetes.Interface
-	secretIndexer        cache.Indexer
+	nodeIndexer          cache.Indexer
 	resourceSliceIndexer cache.Indexer
 	usbIP                usbip.Interface
+	marker               *Marker
 	queue                workqueue.TypedRateLimitingInterface[string]
 	hasSynced            cache.InformerSynced
 	attachRecordManager  *attachRecordManager
+	attachInfo           atomic.Value
 
 	mu            sync.RWMutex
 	nodeAddresses map[string]string
@@ -59,11 +62,10 @@ type USBGatewayController struct {
 }
 
 func NewUSBGatewayController(
-	ctx context.Context,
-	secretName, namespace, nodeName, usbipdHost string,
-	usbipdPort string,
+	nodeName, usbipdHost, usbipdPort string,
 	client kubernetes.Interface,
-	secretInformer, resourceSliceInformer cache.SharedIndexInformer,
+	dynamicClient dynamic.Interface,
+	nodeInformer, resourceSliceInformer cache.SharedIndexInformer,
 	usbIP usbip.Interface,
 ) (*USBGatewayController, error) {
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -71,121 +73,120 @@ func NewUSBGatewayController(
 		workqueue.TypedRateLimitingQueueConfig[string]{Name: controllerName},
 	)
 
+	usbipAddr := net.JoinHostPort(usbipdHost, usbipdPort)
+	if err := validateUSBIPAddress(usbipAddr); err != nil {
+		return nil, fmt.Errorf("invalid usbip address: %w", err)
+	}
+
 	attachRecordManager, err := newAttachRecordManager(DefaultRecordStateDir, usbIP)
 	if err != nil {
 		return nil, err
 	}
 
 	c := &USBGatewayController{
-		secretName:           secretName,
-		namespace:            namespace,
 		nodeName:             nodeName,
-		usbipdAddr:           net.JoinHostPort(usbipdHost, usbipdPort),
+		usbipdAddr:           usbipAddr,
 		client:               client,
-		secretIndexer:        secretInformer.GetIndexer(),
+		nodeIndexer:          nodeInformer.GetIndexer(),
 		resourceSliceIndexer: resourceSliceInformer.GetIndexer(),
 		usbIP:                usbIP,
+		marker:               NewMarker(dynamicClient, nodeName),
 		queue:                queue,
 		log:                  slog.With(slog.String("controller", controllerName)),
 		attachRecordManager:  attachRecordManager,
 	}
 
-	_, err = secretInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.addSecret,
-		UpdateFunc: c.updateSecret,
-		DeleteFunc: c.deleteSecret,
+	_, err = nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addNode,
+		UpdateFunc: c.updateNode,
+		DeleteFunc: c.deleteNode,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("unable to add event handler to secret informer: %w", err)
+		return nil, fmt.Errorf("unable to add event handler to node informer: %w", err)
 	}
 
 	c.hasSynced = func() bool {
-		return secretInformer.HasSynced() && resourceSliceInformer.HasSynced()
-	}
-
-	err = c.runSecretChecker(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to run secret checker: %w", err)
+		return nodeInformer.HasSynced() && resourceSliceInformer.HasSynced()
 	}
 
 	return c, nil
 }
 
-func (c *USBGatewayController) runSecretChecker(ctx context.Context) error {
-	ticker := time.NewTicker(time.Second * 30)
-	defer ticker.Stop()
+func (c *USBGatewayController) addNode(obj interface{}) {
+	if node, ok := obj.(*corev1.Node); ok && c.nodeName == node.Name {
+		c.enqueueNode(node)
+	} else if !ok {
+		c.log.Error("expected node, got", slog.Any("obj", obj))
+	}
+}
 
-	if !cache.WaitForCacheSync(ctx.Done(), c.hasSynced) {
-		return fmt.Errorf("failed to wait for caches to sync")
+func (c *USBGatewayController) deleteNode(obj interface{}) {
+	if node, ok := obj.(*corev1.Node); ok && c.nodeName == node.Name {
+		c.enqueueNode(node)
+	} else if !ok {
+		c.log.Error("expected node, got", slog.Any("obj", obj))
+	}
+}
+
+func (c *USBGatewayController) updateNode(oldObj, newObj interface{}) {
+	_, oldOk := oldObj.(*corev1.Node)
+	newNode, newOk := newObj.(*corev1.Node)
+
+	if !oldOk || !newOk {
+		c.log.Error("expected node, got", slog.Any("old", oldObj), slog.Any("new", newObj))
 	}
 
-	key := controller.KeyFunc(c.namespace, c.secretName)
-	c.queueAdd(key)
+	c.enqueueNode(newNode)
+}
+
+func (c *USBGatewayController) enqueueNode(node *corev1.Node) {
+	c.queueAdd(controller.MetaObjectKeyFunc(node))
+}
+
+func (c *USBGatewayController) queueAdd(key string) {
+	c.queue.Add(key)
+}
+
+func (c *USBGatewayController) queueAddAfter(key string, after time.Duration) {
+	c.queue.AddAfter(key, after)
+}
+
+func (c *USBGatewayController) subscribeVhci(ctx context.Context) error {
+	ch, err := c.usbIP.WatchAttachInfo(ctx)
+	if err != nil {
+		return err
+	}
 
 	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				exist, err := c.secretExists(key)
-				if err != nil {
-					c.log.Error("Failed to check secret existence", slog.Any("error", err))
-				}
-				if !exist {
-					c.queueAdd(key)
-				}
-			}
+		for info := range ch {
+			c.storeAttachInfo(info)
+			c.queueAddAfter(c.nodeName, time.Second)
 		}
 	}()
 
 	return nil
 }
 
-func (c *USBGatewayController) addSecret(obj interface{}) {
-	if secret, ok := obj.(*corev1.Secret); ok && c.isMySecret(secret) {
-		c.enqueueSecret(secret)
-	} else if !ok {
-		c.log.Error("expected secret, got", slog.Any("obj", obj))
-	}
+func (c *USBGatewayController) storeAttachInfo(info usbip.AttachInfo) {
+	c.attachInfo.Store(info)
 }
 
-func (c *USBGatewayController) deleteSecret(obj interface{}) {
-	if secret, ok := obj.(*corev1.Secret); ok && c.isMySecret(secret) {
-		c.enqueueSecret(secret)
-	} else if !ok {
-		c.log.Error("expected secret, got", slog.Any("obj", obj))
-	}
+func (c *USBGatewayController) getAttachInfo() usbip.AttachInfo {
+	return c.attachInfo.Load().(usbip.AttachInfo)
 }
 
-func (c *USBGatewayController) updateSecret(oldObj, newObj interface{}) {
-	oldSecret, oldOk := oldObj.(*corev1.Secret)
-	newSecret, newOk := newObj.(*corev1.Secret)
-
-	if !oldOk || !newOk {
-		c.log.Error("expected secret, got", slog.Any("old", oldObj), slog.Any("new", newObj))
-		return
+func (c *USBGatewayController) Start(ctx context.Context) error {
+	if err := c.subscribeVhci(ctx); err != nil {
+		return fmt.Errorf("failed to subscribe vhci: %w", err)
 	}
 
-	if c.isMySecret(newSecret) && !equality.Semantic.DeepEqual(oldSecret.Data, newSecret.Data) {
-		c.enqueueSecret(newSecret)
+	return nil
+}
+
+func (c *USBGatewayController) Stop() {
+	if err := c.marker.Unmark(context.Background()); err != nil {
+		c.log.Error("failed to unmark node", slog.Any("error", err))
 	}
-}
-
-func (c *USBGatewayController) isMySecret(secret *corev1.Secret) bool {
-	return secret.Name == c.secretName && secret.Namespace == c.namespace
-}
-
-func (c *USBGatewayController) isMySecretKey(key string) bool {
-	return key == controller.KeyFunc(c.namespace, c.secretName)
-}
-
-func (c *USBGatewayController) enqueueSecret(secret *corev1.Secret) {
-	c.queueAdd(controller.MetaObjectKeyFunc(secret))
-}
-
-func (c *USBGatewayController) queueAdd(key string) {
-	c.queue.Add(key)
 }
 
 func (c *USBGatewayController) Queue() workqueue.TypedRateLimitingInterface[string] {
@@ -202,106 +203,205 @@ func (c *USBGatewayController) Logger() *slog.Logger {
 
 func (c *USBGatewayController) Sync(ctx context.Context, key string) error {
 	log := c.log.With("key", key)
-	log.Info("syncing resource claim")
+	log.Info("syncing node")
 
-	if !c.isMySecretKey(key) {
-		log.Error("False try reconcile other secret, please report a bug")
+	node, err := c.getNode(key)
+	if err != nil {
+		return err
+	}
+
+	c.syncAddresses(node, key)
+
+	if node == nil || c.nodeName != node.Name {
 		return nil
 	}
 
-	secret, err := c.getSecret(key)
-	if err != nil {
-		return err
-	}
-	if secret == nil {
-		return c.createSecret(ctx)
-	}
-
-	secret, err = c.ensureAddress(ctx, secret)
+	node, err = c.ensureAddress(ctx, node)
 	if err != nil {
 		return err
 	}
 
-	c.syncAddresses(secret)
-
-	return nil
-}
-
-func (c *USBGatewayController) secretExists(key string) (bool, error) {
-	_, exists, err := c.secretIndexer.GetByKey(key)
-	return exists, err
-}
-
-func (c *USBGatewayController) getSecret(key string) (*corev1.Secret, error) {
-	obj, exists, err := c.secretIndexer.GetByKey(key)
+	_, err = c.ensureAttachInfo(ctx, node)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get secret: %w", err)
+		return err
+	}
+
+	return c.markNode(ctx)
+}
+
+func (c *USBGatewayController) getNode(key string) (*corev1.Node, error) {
+	obj, exists, err := c.nodeIndexer.GetByKey(key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get node %s: %w", key, err)
 	}
 	if !exists {
 		return nil, nil
 	}
-	secret, ok := obj.(*corev1.Secret)
+	node, ok := obj.(*corev1.Node)
 	if !ok {
-		return nil, fmt.Errorf("expected secret, got %T", obj)
+		return nil, fmt.Errorf("expected node, got %T", obj)
 	}
-	return secret.DeepCopy(), nil
+	return node.DeepCopy(), nil
 }
 
-func (c *USBGatewayController) createSecret(ctx context.Context) error {
-	secret := &corev1.Secret{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Secret",
-			APIVersion: corev1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      c.secretName,
-			Namespace: c.namespace,
-		},
-		Data: map[string][]byte{
-			c.nodeName: []byte(c.usbipdAddr),
-		},
+func (c *USBGatewayController) syncAddresses(node *corev1.Node, key string) {
+	if node == nil {
+		c.removeAddr(key)
+		return
 	}
 
-	_, err := c.client.CoreV1().Secrets(c.namespace).Create(ctx, secret, metav1.CreateOptions{})
+	if node.Name == c.nodeName {
+		c.addAddr(c.nodeName, c.usbipdAddr)
+		return
+	}
+
+	addr, exists := node.Annotations[consts.AnnUSBIPAddress]
+	if !exists {
+		c.removeAddr(node.Name)
+		return
+	}
+
+	err := validateUSBIPAddress(addr)
 	if err != nil {
-		return fmt.Errorf("failed to create secret: %w", err)
+		c.log.Error("invalid address", slog.String("address", addr), slog.Any("error", err))
+		c.removeAddr(node.Name)
+		return
+	}
+
+	c.addAddr(node.Name, addr)
+}
+
+func (c *USBGatewayController) addAddr(node, addr string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.nodeAddresses == nil {
+		c.nodeAddresses = make(map[string]string)
+	}
+	c.nodeAddresses[node] = addr
+}
+
+func (c *USBGatewayController) removeAddr(node string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	delete(c.nodeAddresses, node)
+}
+
+func validateUSBIPAddress(addr string) error {
+	if addr == "" {
+		return fmt.Errorf("address is empty")
+	}
+
+	host, portStr, err := net.SplitHostPort(addr)
+	if err != nil {
+		return fmt.Errorf("invalid format (expected host:port): %w", err)
+	}
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return fmt.Errorf("invalid port number: %w", err)
+	}
+
+	if port < 1 || port > 65535 {
+		return fmt.Errorf("port %d out of range (1-65535)", port)
+	}
+
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return fmt.Errorf("invalid IP address: %s", host)
 	}
 
 	return nil
 }
 
-func (c *USBGatewayController) ensureAddress(ctx context.Context, secret *corev1.Secret) (*corev1.Secret, error) {
-	addr, exists := secret.Data[c.nodeName]
-	if string(addr) == c.usbipdAddr {
-		return secret, nil
+func (c *USBGatewayController) ensureAddress(ctx context.Context, node *corev1.Node) (*corev1.Node, error) {
+	if node == nil || c.nodeName != node.Name {
+		return node, nil
 	}
 
-	jp := patch.NewJSONPatch(patch.WithTest("/data/"+c.nodeName, addr))
+	addr, exists := node.Annotations[consts.AnnUSBIPAddress]
+	if addr == c.usbipdAddr {
+		return node, nil
+	}
+
+	path := "/metadata/annotations/" + patch.EscapeJSONPointer(consts.AnnUSBIPAddress)
+
+	jp := patch.NewJSONPatch()
 	if exists {
-		jp.Append(patch.WithReplace("/data/"+c.nodeName, []byte(c.usbipdAddr)))
+		jp.Append(patch.WithTest(path, addr), patch.WithReplace(path, c.usbipdAddr))
 	} else {
-		jp.Append(patch.WithAdd("/data/"+c.nodeName, []byte(c.usbipdAddr)))
+		jp.Append(patch.WithAdd(path, c.usbipdAddr))
+	}
+	bytes, err := jp.Bytes()
+	if err != nil {
+		return node, fmt.Errorf("failed to generate patch: %w", err)
+	}
+
+	newNode, err := c.client.CoreV1().Nodes().Patch(ctx, node.Name, types.JSONPatchType, bytes, metav1.PatchOptions{})
+	if err != nil {
+		return node, fmt.Errorf("failed to patch node: %w", err)
+	}
+
+	return newNode, nil
+}
+
+func (c *USBGatewayController) ensureAttachInfo(ctx context.Context, node *corev1.Node) (*corev1.Node, error) {
+	if node == nil || c.nodeName != node.Name {
+		return node, nil
+	}
+
+	attachInfo := c.getAttachInfo()
+
+	nports := strconv.Itoa(attachInfo.NPorts)
+	usedPorts := strconv.Itoa(len(attachInfo.Items))
+
+	jp := patch.NewJSONPatch()
+
+	nPortsPath := "/metadata/annotations/" + patch.EscapeJSONPointer(consts.AnnUSBIPTotalPorts)
+	oldNPorts, exists := node.Annotations[consts.AnnUSBIPTotalPorts]
+
+	if nports != oldNPorts {
+		if exists {
+			jp.Append(patch.WithTest(nPortsPath, oldNPorts), patch.WithReplace(nPortsPath, nports))
+		} else {
+			jp.Append(patch.WithAdd(nPortsPath, nports))
+		}
+	}
+
+	usedPortsPath := "/metadata/annotations/" + patch.EscapeJSONPointer(consts.AnnUSBIPUsedPorts)
+	oldUsedPorts, exists := node.Annotations[consts.AnnUSBIPUsedPorts]
+	if usedPorts != oldUsedPorts {
+		if exists {
+			jp.Append(patch.WithTest(usedPortsPath, oldUsedPorts), patch.WithReplace(usedPortsPath, usedPorts))
+		} else {
+			jp.Append(patch.WithAdd(usedPortsPath, usedPorts))
+		}
+	}
+
+	if jp.Len() == 0 {
+		return node, nil
 	}
 
 	bytes, err := jp.Bytes()
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate patch: %w", err)
+		return node, fmt.Errorf("failed to generate patch: %w", err)
 	}
 
-	newSecret, err := c.client.CoreV1().Secrets(c.namespace).Patch(ctx, secret.Name, types.JSONPatchType, bytes, metav1.PatchOptions{})
+	newNode, err := c.client.CoreV1().Nodes().Patch(ctx, node.Name, types.JSONPatchType, bytes, metav1.PatchOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to patch secret: %w", err)
+		return node, fmt.Errorf("failed to patch node: %w", err)
 	}
 
-	return newSecret, nil
+	return newNode, nil
 }
 
-func (c *USBGatewayController) syncAddresses(secret *corev1.Secret) {
-	newAddresses := make(map[string]string, len(secret.Data))
-	for node, addr := range secret.Data {
-		newAddresses[node] = string(addr)
+func (c *USBGatewayController) markNode(ctx context.Context) error {
+	attachInfo := c.getAttachInfo()
+
+	if len(attachInfo.Items) >= attachInfo.NPorts {
+		return c.marker.Unmark(ctx)
 	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.nodeAddresses = newAddresses
+
+	return c.marker.Mark(ctx)
 }

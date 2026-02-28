@@ -43,10 +43,10 @@ func (o *attachInfoOptions) Usage() string {
 }
 
 func (o *attachInfoOptions) Run(cmd *cobra.Command, _ []string) error {
-	infos, err := usbip.NewUSBAttacher().GetAttachInfo()
+	info, err := usbip.NewUSBAttacher().GetAttachInfo()
 	if err != nil {
 		return err
 	}
 
-	return printer.PrintObject(cmd, infos)
+	return printer.PrintObject(cmd, info)
 }

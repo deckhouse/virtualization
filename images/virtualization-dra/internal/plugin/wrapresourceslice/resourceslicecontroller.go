@@ -348,8 +348,8 @@ func (c *Controller) Update(resources *DriverResources) error {
 	} else {
 		if c.reconcileOnlyPoolName != "" {
 			_, ok := resources.Pools[c.reconcileOnlyPoolName]
-			if !ok && len(resources.Pools) > 1 {
-				return fmt.Errorf("reconcileOnlyPoolName is set to %q, but multiple pools found (%d total)",
+			if (ok && len(resources.Pools) > 1) || !ok && len(resources.Pools) > 0 {
+				return fmt.Errorf("reconcileOnlyPoolName is set to %q, but other pools found (%d total)",
 					c.reconcileOnlyPoolName, len(resources.Pools))
 			}
 		}
@@ -486,13 +486,14 @@ func (c *Controller) initInformer(ctx context.Context) error {
 				}
 
 				if c.reconcileOnlyPoolName != "" {
+					var newItems []resourcev1.ResourceSlice
 					for i := range slices.Items {
 						if slices.Items[i].Spec.Pool.Name == c.reconcileOnlyPoolName {
-							slices.Items = []resourcev1.ResourceSlice{slices.Items[i]}
-							return slices, nil
+							newItems = append(newItems, slices.Items[i])
+							break
 						}
 					}
-					slices.Items = nil
+					slices.Items = newItems
 					return slices, nil
 				}
 
@@ -812,7 +813,7 @@ func (c *Controller) syncPool(ctx context.Context, poolName string) error {
 		//
 		// When adding new fields here, then also extend sliceStored.
 		slice.Spec.NodeSelector = pool.NodeSelector
-		slice.Spec.AllNodes = refIfNotZero(desiredAllNodes)
+		slice.Spec.AllNodes = refIfNotZero(desiredAllNodes && (pool.Slices[i].PerDeviceNodeSelection == nil && !*pool.Slices[i].PerDeviceNodeSelection))
 		slice.Spec.SharedCounters = pool.Slices[i].SharedCounters
 		slice.Spec.PerDeviceNodeSelection = pool.Slices[i].PerDeviceNodeSelection
 		// Preserve TimeAdded from existing device, if there is a matching device and taint.
@@ -860,7 +861,7 @@ func (c *Controller) syncPool(ctx context.Context, poolName string) error {
 				Pool:                   desiredPool,
 				NodeName:               refIfNotZero(nodeName),
 				NodeSelector:           pool.NodeSelector,
-				AllNodes:               refIfNotZero(desiredAllNodes),
+				AllNodes:               refIfNotZero(desiredAllNodes && (pool.Slices[i].PerDeviceNodeSelection == nil && !*pool.Slices[i].PerDeviceNodeSelection)),
 				Devices:                pool.Slices[i].Devices,
 				SharedCounters:         pool.Slices[i].SharedCounters,
 				PerDeviceNodeSelection: pool.Slices[i].PerDeviceNodeSelection,

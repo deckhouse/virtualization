@@ -17,7 +17,10 @@ limitations under the License.
 package logger
 
 import (
+	"flag"
+
 	"github.com/spf13/pflag"
+	"k8s.io/klog/v2"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 )
@@ -32,6 +35,10 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.Level, "log-level", o.Level, "Log level")
 	fs.StringVar(&o.Output, "log-output", o.Output, "Log output")
 	fs.IntVar(&o.DebugVerbosity, "log-debug-verbosity", o.DebugVerbosity, "Log debug verbosity")
+
+	var klogFlags flag.FlagSet
+	klog.InitFlags(&klogFlags)
+	fs.AddGoFlagSet(&klogFlags)
 }
 
 func (o *Options) Complete() *log.Logger {

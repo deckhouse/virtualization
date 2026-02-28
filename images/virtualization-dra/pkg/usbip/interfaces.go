@@ -16,6 +16,8 @@ limitations under the License.
 
 package usbip
 
+import "context"
+
 type Interface interface {
 	ServerInterface
 	ClientInterface
@@ -56,10 +58,16 @@ type USBAttacher interface {
 }
 
 type AttachInfoGetter interface {
-	GetAttachInfo() ([]AttachInfo, error)
+	GetAttachInfo() (AttachInfo, error)
+	WatchAttachInfo(ctx context.Context) (<-chan AttachInfo, error)
 }
 
 type AttachInfo struct {
+	NPorts int
+	Items  []AttachInfoItem
+}
+
+type AttachInfoItem struct {
 	Port, Busnum, Devnum int
 	LocalBusID           string
 }

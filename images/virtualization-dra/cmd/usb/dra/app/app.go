@@ -70,13 +70,11 @@ func NewVirtualizationDraUSBCommand() *cobra.Command {
 }
 
 type draOptions struct {
-	DriverName           string
-	Kubeconfig           string
-	Namespace            string
-	NodeName             string
-	USBGatewaySecretName string
-	CDIRoot              string
-	HealthzPort          int
+	DriverName  string
+	Kubeconfig  string
+	NodeName    string
+	CDIRoot     string
+	HealthzPort int
 
 	logging      *logger.Options
 	monitor      *libusb.MonitorConfig
@@ -102,9 +100,7 @@ func (o *draOptions) NamedFlags() (fs flag.NamedFlagSets) {
 	mfs := fs.FlagSet("virtualization-usb plugin")
 	mfs.StringVar(&o.DriverName, "driver-name", usb.DriverName, "Driver name")
 	mfs.StringVar(&o.Kubeconfig, "kubeconfig", cli.GetStringEnv("KUBECONFIG", ""), "Path to kubeconfig file")
-	mfs.StringVar(&o.Namespace, "namespace", cli.GetStringEnv("NAMESPACE", ""), "Namespace")
 	mfs.StringVar(&o.NodeName, "node-name", cli.GetStringEnv("NODE_NAME", ""), "Node name")
-	mfs.StringVar(&o.USBGatewaySecretName, "usb-gateway-secret-name", cli.GetStringEnv("USB_GATEWAY_SECRET_NAME", "virtualization-dra-usb-gateway"), "USB gateway secret name")
 	mfs.StringVar(&o.CDIRoot, "cdi-root", cli.GetStringEnv("CDI_ROOT", cdi.SpecDir), "CDI root")
 	mfs.IntVar(&o.HealthzPort, "healthz-port", cli.GetIntEnv("HEALTHZ_PORT", 51515), "Healthz port")
 
@@ -118,20 +114,11 @@ func (o *draOptions) NamedFlags() (fs flag.NamedFlagSets) {
 }
 
 func (o *draOptions) Validate() error {
-	if o.Namespace == "" {
-		return fmt.Errorf("namespace is required")
-	}
 	if o.NodeName == "" {
 		return fmt.Errorf("nodeName is required")
 	}
 	if o.CDIRoot == "" {
 		return fmt.Errorf("cdiRoot is required")
-	}
-
-	if o.usbGatewayEnabled {
-		if o.USBGatewaySecretName == "" {
-			return fmt.Errorf("USBGatewaySecretName is required")
-		}
 	}
 
 	return nil
@@ -180,7 +167,7 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 		}
 
 		f := informer.NewFactory(client, nil)
-		secretInformer := f.NamespacedSecret(o.Namespace)
+		nodeInformer := f.Nodes()
 		resourceSliceInformer := f.ResourceSlice()
 
 		group.Go(func() error {
@@ -189,14 +176,12 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 		f.WaitForCacheSync(ctx.Done())
 
 		usbGatewayController, err := usbgateway.NewUSBGatewayController(
-			ctx,
-			o.USBGatewaySecretName,
-			o.Namespace,
 			o.NodeName,
 			o.usbipdConfig.Address,
 			o.usbipdConfig.Port,
 			client,
-			secretInformer,
+			dynamicClient,
+			nodeInformer,
 			resourceSliceInformer,
 			usbip.New(),
 		)
@@ -211,16 +196,6 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 		group.Go(func() error {
 			return controller.Run(usbGatewayController, ctx, 1)
 		})
-
-		marker := usbgateway.NewMarker(dynamicClient, o.NodeName)
-		if err = marker.Mark(ctx); err != nil {
-			return err
-		}
-		defer func() {
-			if err = marker.Unmark(ctx); err != nil {
-				slog.Error("failed to unmark node for USB gateway", slog.Any("error", err))
-			}
-		}()
 
 		usbGateway = usbGatewayController
 	}

@@ -96,7 +96,13 @@ func convertToAPIDevice(usbDevice Device, nodeName string) *resourcev1.Device {
 	return device
 }
 
-func getNodeSelector() *corev1.NodeSelector {
+func addNodeSelector(device *resourcev1.Device, nodeSelector *corev1.NodeSelector) {
+	if device != nil {
+		device.NodeSelector = nodeSelector
+	}
+}
+
+func getNodeSelector(nodeName string) *corev1.NodeSelector {
 	return &corev1.NodeSelector{
 		NodeSelectorTerms: []corev1.NodeSelectorTerm{
 			{
@@ -105,6 +111,15 @@ func getNodeSelector() *corev1.NodeSelector {
 						Key:      consts.USBGatewayLabel,
 						Operator: corev1.NodeSelectorOpIn,
 						Values:   []string{"true"},
+					},
+				},
+			},
+			{
+				MatchExpressions: []corev1.NodeSelectorRequirement{
+					{
+						Key:      "kubernetes.io/hostname",
+						Operator: corev1.NodeSelectorOpIn,
+						Values:   []string{nodeName},
 					},
 				},
 			},

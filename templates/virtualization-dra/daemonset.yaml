@@ -88,19 +88,16 @@ spec:
             - --feature-gates=USBGateway=true,USBNodeLocalMultiAllocation=true
             {{/* https://github.com/deckhouse/deckhouse/pull/18139 */}}
             - --usbipd-port=4280
+            {{- if eq (include "moduleLogLevel" .) "debug" }}
+            - --log-level=debug
+            - --log-debug-verbosity=10
+            - -v=10
+            {{- end }}
           env:
-            - name: NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
             - name: NODE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
-            {{- if eq (include "moduleLogLevel" .) "debug" }}
-            - name: VERBOSITY
-              value: "10"
-            {{- end }}
             - name: USBIPD_ADDRESS
               valueFrom:
                 fieldRef:

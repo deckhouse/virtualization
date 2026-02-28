@@ -10,7 +10,7 @@ import:
     after: install
   - image: {{ .ModuleNamePrefix }}virtualization-dra-builder
     add: /out/go-usbip
-    to: /usb/bin/go-usbip
+    to: /usr/bin/go-usbip
     after: install
   {{- if eq $.DEBUG_COMPONENT "delve/virtualization-dra-usb" }}
   - image: debugger

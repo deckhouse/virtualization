@@ -98,14 +98,14 @@ func (r *attachRecordManager) Refresh() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	infos, err := r.getter.GetAttachInfo()
+	info, err := r.getter.GetAttachInfo()
 	if err != nil {
 		return err
 	}
 
-	ports := make(map[int]struct{}, len(infos))
-	for _, info := range infos {
-		ports[info.Port] = struct{}{}
+	ports := make(map[int]struct{}, len(info.Items))
+	for _, item := range info.Items {
+		ports[item.Port] = struct{}{}
 	}
 
 	b, err := os.ReadFile(r.recordFile)

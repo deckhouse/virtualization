@@ -270,20 +270,20 @@ func (c *USBGatewayController) findEntry(deviceName string) *AttachEntry {
 	return nil
 }
 
-func (c *USBGatewayController) waitUsbAttachInfo(ctx context.Context, rhport int) (*usbip.AttachInfo, error) {
+func (c *USBGatewayController) waitUsbAttachInfo(ctx context.Context, rhport int) (*usbip.AttachInfoItem, error) {
 	// command attach was successful, but we need to wait until usb is real attached
-	var usedInfo *usbip.AttachInfo
+	var usedInfo *usbip.AttachInfoItem
 
 	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
 		c.log.Info("Get attach info for store localBusID")
-		infos, err := c.usbIP.GetAttachInfo()
+		info, err := c.usbIP.GetAttachInfo()
 		if err != nil {
 			c.log.Info("Failed to get used info", slog.String("error", err.Error()))
 			return false, nil
 		}
-		for _, info := range infos {
-			if info.Port == rhport {
-				usedInfo = &info
+		for _, item := range info.Items {
+			if item.Port == rhport {
+				usedInfo = &item
 				return true, nil
 			}
 		}
