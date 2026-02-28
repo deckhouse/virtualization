@@ -335,6 +335,14 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			}
 		}
 
+		if len(vd.OwnerReferences) > 0 {
+			vdOwnerRefsJSON, err := json.Marshal(vd.OwnerReferences)
+			if err != nil {
+				return reconcile.Result{}, fmt.Errorf("failed to marshal VirtualDisk owner references: %w", err)
+			}
+			anno[annotations.AnnVirtualDiskOriginalOwnerReferences] = string(vdOwnerRefsJSON)
+		}
+
 		vs = &vsv1.VolumeSnapshot{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: anno,

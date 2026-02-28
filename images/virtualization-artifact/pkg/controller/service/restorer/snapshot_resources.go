@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -399,6 +400,7 @@ func AddOriginalMetadata(ctx context.Context, vd *v1alpha2.VirtualDisk, vdSnapsh
 	return errors.Join(
 		setOriginalAnnotations(vd, vs),
 		setOriginalLabels(vd, vs),
+		setOriginalOwnerReferences(ctx, vd, vs, client),
 	)
 }
 
@@ -445,6 +447,43 @@ func setOriginalLabels(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) error 
 		if _, exists := vd.Labels[key]; !exists {
 			vd.Labels[key] = value
 		}
+	}
+
+	return nil
+}
+
+func setOriginalOwnerReferences(ctx context.Context, vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot, client client.Client) error {
+	if vs == nil || vs.Annotations[annotations.AnnVirtualDiskOriginalOwnerReferences] == "" {
+		return nil
+	}
+
+	var ownerRefs []metav1.OwnerReference
+	err := json.Unmarshal([]byte(vs.Annotations[annotations.AnnVirtualDiskOriginalOwnerReferences]), &ownerRefs)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal the original owner references: %w", err)
+	}
+
+	for _, ref := range ownerRefs {
+		if ref.Name == "" {
+			continue
+		}
+		ownerRef := ref.DeepCopy()
+		u := &unstructured.Unstructured{}
+		u.SetAPIVersion(ownerRef.APIVersion)
+		u.SetKind(ownerRef.Kind)
+		key := types.NamespacedName{Namespace: vd.Namespace, Name: ownerRef.Name}
+		if err := client.Get(ctx, key, u); err != nil {
+			if apierrors.IsNotFound(err) {
+				key.Namespace = ""
+				if err := client.Get(ctx, key, u); err != nil {
+					continue
+				}
+			} else {
+				return fmt.Errorf("failed to get owner %s %s: %w", ownerRef.Kind, ownerRef.Name, err)
+			}
+		}
+		ownerRef.UID = u.GetUID()
+		vd.OwnerReferences = append(vd.OwnerReferences, *ownerRef)
 	}
 
 	return nil
