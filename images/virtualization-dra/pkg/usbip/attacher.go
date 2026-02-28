@@ -273,7 +273,7 @@ func (a *usbAttacher) importDevice(conn *net.TCPConn, usbDevice protocol.USBDevi
 		port:   port,
 		sockFd: sockFd,
 		devId:  devID,
-		speed:  speed,
+		speed:  usbDevice.Speed,
 	}
 
 	err = writeSysfsAttr(vhciHcdAttach, attr)
@@ -322,13 +322,13 @@ func (a *usbAttacher) fallbackGetFreePortFromOtherHub() (int, uint32, error) {
 	}
 
 	for i := 0; i < driver.nports; i++ {
-		switch {
-		case driver.idevs[i].hub == hubSpeedSuper:
+		switch driver.idevs[i].hub {
+		case hubSpeedSuper:
 			vstatus := protocol.DeviceStatus(driver.idevs[i].status)
 			if vstatus == protocol.VDeviceStatusNull {
 				return driver.idevs[i].port, libusb.USBDeviceSpeedSuper.Speeds()[0], nil
 			}
-		case driver.idevs[i].hub == hubSpeedHigh:
+		case hubSpeedHigh:
 			vstatus := protocol.DeviceStatus(driver.idevs[i].status)
 			if vstatus == protocol.VDeviceStatusNull {
 				return driver.idevs[i].port, libusb.USBDeviceSpeedHigh.Speeds()[0], nil

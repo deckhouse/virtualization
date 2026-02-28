@@ -120,7 +120,7 @@ func getUSBDeviceNames(refs []v1alpha2.USBDeviceSpecRef) map[string]struct{} {
 	return names
 }
 
-func (c *USBDevicesValidator) validateAvailableUSBIPPorts(ctx context.Context, vm *v1alpha2.VirtualMachine, oldUSBDevices map[string]struct{}) (admission.Warnings, error) {
+func (v *USBDevicesValidator) validateAvailableUSBIPPorts(ctx context.Context, vm *v1alpha2.VirtualMachine, oldUSBDevices map[string]struct{}) (admission.Warnings, error) {
 	if vm.Status.Node == "" {
 		return admission.Warnings{}, nil
 	}
@@ -136,7 +136,7 @@ func (c *USBDevicesValidator) validateAvailableUSBIPPorts(ctx context.Context, v
 		}
 
 		usbDevice := &v1alpha2.USBDevice{}
-		err := c.client.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: vm.Namespace}, usbDevice)
+		err := v.client.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: vm.Namespace}, usbDevice)
 		if err != nil {
 			return admission.Warnings{}, fmt.Errorf("failed to get USB device %s: %w", ref.Name, err)
 		}
@@ -151,7 +151,7 @@ func (c *USBDevicesValidator) validateAvailableUSBIPPorts(ctx context.Context, v
 	}
 
 	node := &corev1.Node{}
-	err := c.client.Get(ctx, client.ObjectKey{Name: vm.Status.Node}, node)
+	err := v.client.Get(ctx, client.ObjectKey{Name: vm.Status.Node}, node)
 	if err != nil {
 		return admission.Warnings{}, fmt.Errorf("failed to get node %s: %w", vm.Status.Node, err)
 	}
