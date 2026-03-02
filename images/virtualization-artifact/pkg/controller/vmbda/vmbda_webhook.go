@@ -25,6 +25,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal/validators"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -39,7 +40,7 @@ type Validator struct {
 	log        *log.Logger
 }
 
-func NewValidator(attachmentService *service.AttachmentService, service *service.BlockDeviceService, log *log.Logger) *Validator {
+func NewValidator(attachmentService *intsvc.AttachmentService, service *service.BlockDeviceService, log *log.Logger) *Validator {
 	return &Validator{
 		log: log.With("webhook", "validation"),
 		validators: []VirtualMachineBlockDeviceAttachmentValidator{
