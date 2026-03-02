@@ -93,7 +93,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 				vd.WithNamespace(f.Namespace().Name),
 				vd.WithSize(ptr.To(resource.MustParse("10Gi"))),
 				vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: object.ImageURLAlpineUEFIPerf,
+					URL: object.ImageURLAlpineUEFI,
 				}),
 			)
 			vdBlankUEFI = vd.New(

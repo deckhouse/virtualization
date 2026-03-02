@@ -64,7 +64,7 @@ var _ = Describe("VirtualImageCreation", func() {
 				vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
 				vdbuilder.WithDataSourceHTTP(
 					&v1alpha2.DataSourceHTTP{
-						URL: object.ImageURLAlpineUEFIPerf,
+						URL: object.ImageURLAlpineUEFI,
 					},
 				),
 			)
@@ -98,7 +98,7 @@ var _ = Describe("VirtualImageCreation", func() {
 			baseCvis = append(baseCvis, cvibuilder.New(
 				cvibuilder.WithGenerateName(fmt.Sprintf("%s-cvi-http-", cviPrefix)),
 				cvibuilder.WithDataSourceHTTP(
-					object.ImageURLAlpineUEFIPerf,
+					object.ImageURLAlpineUEFI,
 					nil,
 					nil,
 				),
@@ -120,7 +120,7 @@ var _ = Describe("VirtualImageCreation", func() {
 				vibuilder.WithNamespace(f.Namespace().Name),
 				vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
 				vibuilder.WithDataSourceHTTP(
-					object.ImageURLAlpineUEFIPerf,
+					object.ImageURLAlpineUEFI,
 					nil,
 					nil,
 				),
@@ -146,7 +146,7 @@ var _ = Describe("VirtualImageCreation", func() {
 				vibuilder.WithNamespace(f.Namespace().Name),
 				vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
 				vibuilder.WithDataSourceHTTP(
-					object.ImageURLAlpineUEFIPerf,
+					object.ImageURLAlpineUEFI,
 					nil,
 					nil,
 				),

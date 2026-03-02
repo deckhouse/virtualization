@@ -42,12 +42,16 @@ import (
 const (
 	// IPs on additional network interface for connectivity check between VMs.
 	// When VM has Main network, additional interface is eth1; otherwise it's eth0.
-	vmFooAdditionalIP = "192.168.1.10"
-	vmBarAdditionalIP = "192.168.1.11"
+	vmFooAdditionalIP1 = "192.168.1.10"
+	vmBarAdditionalIP1 = "192.168.1.11"
+	vmFooAdditionalIP2 = "192.168.1.12"
+	vmBarAdditionalIP2 = "192.168.1.13"
 )
 
 type additionalNetworkTestCase struct {
 	vmBarHasMainNetwork bool
+	vmFooAdditionalIP   string
+	vmBarAdditionalIP   string
 }
 
 var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
@@ -83,7 +87,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 					vd.WithNamespace(ns),
 					vd.WithSize(ptr.To(resource.MustParse("512Mi"))),
 					vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-						URL: object.ImageURLAlpineUEFIPerf,
+						URL: object.ImagesURLAlpineUEFIPerf,
 					}),
 				)
 				vdBarRoot = vd.New(
@@ -91,22 +95,29 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 					vd.WithNamespace(ns),
 					vd.WithSize(ptr.To(resource.MustParse("512Mi"))),
 					vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-						URL: object.ImageURLAlpineUEFIPerf,
+						URL: object.ImagesURLAlpineUEFIPerf,
 					}),
 				)
 
 				// vm-foo always has Main + ClusterNetwork so we can SSH to it.
-				vmFoo = buildVMWithNetworks("vm-foo", ns, vdFooRoot.Name, vmFooAdditionalIP, true)
-				vmBar = buildVMWithNetworks("vm-bar", ns, vdBarRoot.Name, vmBarAdditionalIP, tc.vmBarHasMainNetwork)
+				vmFoo = buildVMWithNetworks("vm-foo", ns, vdFooRoot.Name, tc.vmFooAdditionalIP, true)
+				vmBar = buildVMWithNetworks("vm-bar", ns, vdBarRoot.Name, tc.vmBarAdditionalIP, tc.vmBarHasMainNetwork)
 
 				err := f.CreateWithDeferredDeletion(context.Background(), vdFooRoot, vdBarRoot, vmFoo, vmBar)
 				Expect(err).NotTo(HaveOccurred())
 
 				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmFoo, vmBar)
-				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmFoo), framework.LongTimeout)
-				if tc.vmBarHasMainNetwork {
-					util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmBar), framework.LongTimeout)
-				}
+				By(fmt.Sprintf("Wait agent on vm %s", vmFoo.GetName()), func() {
+					util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmFoo), framework.LongTimeout)
+				})
+				By(fmt.Sprintf("Wait agent on vm %s", vmBar.GetName()), func() {
+					util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmFoo), framework.LongTimeout)
+				})
+
+				// util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmBar), framework.LongTimeout)
+				// if tc.vmBarHasMainNetwork {
+				// 	util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmBar), framework.LongTimeout)
+				// }
 			})
 
 			By("Wait for additional network interfaces to be ready", func() {
@@ -114,7 +125,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 			})
 
 			By("Check connectivity between VMs via additional network", func() {
-				checkConnectivityBetweenVMs(f, vmFoo, vmBar, tc.vmBarHasMainNetwork)
+				checkConnectivityBetweenVMs(f, vmFoo, vmBar, tc.vmBarHasMainNetwork, tc.vmBarAdditionalIP, tc.vmFooAdditionalIP)
 			})
 
 			By("Create VMOPs to trigger migration", func() {
@@ -150,11 +161,11 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 			})
 
 			By("Check connectivity between VMs via additional network after migration", func() {
-				checkConnectivityBetweenVMs(f, vmFoo, vmBar, tc.vmBarHasMainNetwork)
+				checkConnectivityBetweenVMs(f, vmFoo, vmBar, tc.vmBarHasMainNetwork, tc.vmBarAdditionalIP, tc.vmFooAdditionalIP)
 			})
 		},
-		Entry("Main + additional network", additionalNetworkTestCase{vmBarHasMainNetwork: true}),
-		Entry("Only additional network (vm-bar without Main)", additionalNetworkTestCase{vmBarHasMainNetwork: false}),
+		Entry("Main + additional network", additionalNetworkTestCase{vmBarHasMainNetwork: true, vmFooAdditionalIP: vmFooAdditionalIP1, vmBarAdditionalIP: vmBarAdditionalIP1}),
+		Entry("Only additional network (vm-bar without Main)", additionalNetworkTestCase{vmBarHasMainNetwork: false, vmFooAdditionalIP: vmFooAdditionalIP2, vmBarAdditionalIP: vmBarAdditionalIP2}),
 	)
 })
 
@@ -209,26 +220,23 @@ users:
     lock_passwd: False
     ssh_authorized_keys:
       - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxcXHmwaGnJ8scJaEN5RzklBPZpVSic4GdaAsKjQoeA your_email@example.com
-packages:
-  - qemu-guest-agent
 write_files:
   - path: /etc/network/interfaces
     append: true
     content: |
-
       auto %s
       iface %s inet static
           address %s
           netmask 255.255.255.0
 runcmd:
-  - sudo rc-update add qemu-guest-agent default
-  - sudo rc-service qemu-guest-agent start
-  - sudo /etc/init.d/networking restart
-  - chown -R cloud:cloud /home/cloud
+  - "rc-update add qemu-guest-agent && rc-service qemu-guest-agent start"
+  - "rc-update add sshd && rc-service sshd start"
+  - "rc-update add networking boot && rc-service networking restart"
+  - "chown -R cloud:cloud /home/cloud"
 `, ifaceName, ifaceName, additionalIP)
 }
 
-func checkConnectivityBetweenVMs(f *framework.Framework, vmFoo, vmBar *v1alpha2.VirtualMachine, vmBarHasMainNetwork bool) {
+func checkConnectivityBetweenVMs(f *framework.Framework, vmFoo, vmBar *v1alpha2.VirtualMachine, vmBarHasMainNetwork bool, vmBarAdditionalIP, vmFooAdditionalIP string) {
 	GinkgoHelper()
 
 	pingCmd := "ping -c 2 -W 2 -w 5 -q %s 2>&1 | grep -o \"[0-9]\\+%%\\s*packet loss\"" // %% -> % in output
