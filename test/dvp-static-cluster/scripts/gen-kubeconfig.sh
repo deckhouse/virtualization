@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -Eeuo pipefail
+
 get_current_date() {
   date +"%H:%M:%S %d-%m-%Y"
 }
@@ -34,7 +36,7 @@ log_info() {
   local timestamp
   timestamp=$(get_current_date)
   echo -e "${BLUE}[INFO]${NC} $message"
-  if [ -n "$LOG_FILE" ]; then
+  if [ -n "${LOG_FILE:-}" ]; then
     echo "[$timestamp] [INFO] $message" >> "$LOG_FILE"
   fi
 }
@@ -44,7 +46,7 @@ log_success() {
   local timestamp
   timestamp=$(get_current_date)
   echo -e "${GREEN}[SUCCESS]${NC} $message"
-  if [ -n "$LOG_FILE" ]; then
+  if [ -n "${LOG_FILE:-}" ]; then
     echo "[$timestamp] [SUCCESS] $message" >> "$LOG_FILE"
   fi
 }
@@ -54,7 +56,7 @@ log_warning() {
   local timestamp
   timestamp=$(get_current_date)
   echo -e "${YELLOW}[WARNING]${NC} $message"
-  if [ -n "$LOG_FILE" ]; then
+  if [ -n "${LOG_FILE:-}" ]; then
     echo "[$timestamp] [WARNING] $message" >> "$LOG_FILE"
   fi
 }
@@ -63,33 +65,51 @@ log_error() {
   local message="$1"
   local timestamp
   timestamp=$(get_current_date)
-  echo -e "${RED}[ERROR]${NC} $message"
-  if [ -n "$LOG_FILE" ]; then
+  echo -e "${RED}[ERROR]${NC} $message" >&2
+  if [ -n "${LOG_FILE:-}" ]; then
     echo "[$timestamp] [ERROR] $message" >> "$LOG_FILE"
   fi
 }
 
-exit_trap() {
+exit_with_error() {
+  local message="$1"
+  local exit_code="${2:-1}"
+  log_error "$message"
+  exit "$exit_code"
+}
+
+on_signal() {
+  local signal_name="$1"
+  local exit_code="$2"
   echo ""
-  log_info "Exiting..."
+  log_warning "Received ${signal_name}. Exiting..."
   echo ""
-  exit 0
+  exit "$exit_code"
+}
+
+on_error() {
+  local exit_code=$?
+  local line_no="$1"
+  local command="$2"
+  log_error "Command failed with exit code ${exit_code} at line ${line_no}: ${command}"
+  exit "$exit_code"
 }
 
 kubectl() {
   sudo /opt/deckhouse/bin/kubectl "$@"
 }
 
-trap exit_trap SIGINT SIGTERM
+trap 'on_error "${LINENO}" "${BASH_COMMAND}"' ERR
+trap 'on_signal "SIGINT" 130' SIGINT
+trap 'on_signal "SIGTERM" 143' SIGTERM
 
-SA_NAME=$1
-CLUSTER_PREFIX=$2
-CLUSTER_NAME=$3
-FILE_NAME=$4
+SA_NAME="${1:-}"
+CLUSTER_PREFIX="${2:-}"
+CLUSTER_NAME="${3:-}"
+FILE_NAME="${4:-}"
 
 if [[ -z "$SA_NAME" ]] || [[ -z "$CLUSTER_PREFIX" ]] || [[ -z "$CLUSTER_NAME" ]]; then
-  log_error "Usage: ${0} <SA_NAME> <CLUSTER_PREFIX> <CLUSTER_NAME> [FILE_NAME]"
-  exit 1
+  exit_with_error "Usage: ${0} <SA_NAME> <CLUSTER_PREFIX> <CLUSTER_NAME> [FILE_NAME]"
 fi
 
 if [[ -z "$FILE_NAME" ]]; then
@@ -105,8 +125,7 @@ CONTEXT_NAME="${CLUSTER_NAME}"-"${USER_NAME}"
 if kubectl cluster-info > /dev/null 2>&1; then
   log_success "Connection to Kubernetes cluster OK. Proceeding..."
 else
-  log_error "No access to Kubernetes cluster or configuration issue."
-  exit 1
+  exit_with_error "No access to Kubernetes cluster or configuration issue."
 fi
 
 log_info "Apply SA, Secrets and ClusterAuthorizationRule"
@@ -170,33 +189,43 @@ kubeconfig_set_current_context() {
 }
 
 check_kubeconfig() {
-  local attempt=3
-  local wait_time=5
-  for i in $(seq 1 $attempt); do
-    if kubectl --kubeconfig "${FILE_NAME}" get no >/dev/null 2>&1;then 
-      echo "true"
-      return 0
-    fi
-    sleep $wait_time
-  done
-  log_error "Failed to get resources vi generated kubeconfig" >&2
-  cat "${FILE_NAME}" >&2
-  echo "false"
-  return 0
+  if kubectl --kubeconfig "${FILE_NAME}" get no >/dev/null 2>&1; then
+    return 0
+  fi
+
+  log_error "Failed to get resources via generated kubeconfig"
+  if [[ -f "${FILE_NAME}" ]]; then
+    cat "${FILE_NAME}"
+  fi
+  return 1
 }
 
 generate_kubeconfig() {
   log_info "Create kubeconfig"
 
-  while ! check_kubeconfig; do
+  local max_attempts=10
+  local retry_wait_seconds=5
+  local attempt_number
+
+  for ((attempt_number = 1; attempt_number <= max_attempts; attempt_number++)); do
     kubeconfig_cert_cluster_section
     kubeconfig_set_credentials
     kubeconfig_set_context
     kubeconfig_set_current_context
+
+    if check_kubeconfig; then
+      return 0
+    fi
+
+    log_warning "Kubeconfig validation failed (attempt ${attempt_number}/${max_attempts}), retrying..."
+    sleep "${retry_wait_seconds}"
   done
+
+  log_error "Unable to generate a working kubeconfig after ${max_attempts} attempts"
+  return 1
 }
 
-generate_kubeconfig
+generate_kubeconfig || exit_with_error "Kubeconfig generation failed"
 
 log_success "kubeconfig created and stored in ${FILE_NAME}"
 sudo chmod 444 "${FILE_NAME}"
