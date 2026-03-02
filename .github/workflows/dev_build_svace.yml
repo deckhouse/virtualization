@@ -134,6 +134,7 @@ jobs:
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{needs.set_vars.outputs.modules_module_tag}}
           source_repo: ${{secrets.SOURCE_REPO_GIT}}
+          source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
           svace_enabled: "true"
           svace_analyze_host: "${{ secrets.SVACE_ANALYZE_HOST }}"
           svace_analyze_ssh_user: "${{ secrets.SVACE_ANALYZE_SSH_USER }}"
