@@ -702,7 +702,6 @@ func (h *SyncKvvmHandler) updateKVVMLastAppliedSpec(
 	return nil
 }
 
-
 func (h *SyncKvvmHandler) isVMUnschedulable(
 	vm *v1alpha2.VirtualMachine,
 	kvvm *virtv1.VirtualMachine,

@@ -130,7 +130,7 @@ memory:
 			),
 		},
 		{
-			"restart on blockDeviceRefs section add",
+			"apply immediate on blockDeviceRefs section add",
 			``,
 			`
 blockDeviceRefs:
@@ -138,12 +138,12 @@ blockDeviceRefs:
   name: linux
 `,
 			assertChanges(
-				actionRequired(ActionRestart),
+				actionRequired(ActionApplyImmediate),
 				requirePathOperation("blockDeviceRefs", ChangeAdd),
 			),
 		},
 		{
-			"restart on blockDeviceRefs section remove",
+			"apply immediate on blockDeviceRefs section remove",
 			`
 blockDeviceRefs:
 - kind: VirtualImage
@@ -151,7 +151,7 @@ blockDeviceRefs:
 `,
 			``,
 			assertChanges(
-				actionRequired(ActionRestart),
+				actionRequired(ActionApplyImmediate),
 				requirePathOperation("blockDeviceRefs", ChangeRemove),
 			),
 		},
