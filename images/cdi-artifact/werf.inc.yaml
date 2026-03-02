@@ -25,7 +25,7 @@ packages:
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
-fromCacheVersion: "test -t writeback -T none"
+fromCacheVersion: "O_DIRECT + qemu -t none -T none"
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}
     to: /src
