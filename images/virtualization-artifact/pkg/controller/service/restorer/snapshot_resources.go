@@ -275,6 +275,20 @@ func (r *SnapshotResources) Process(ctx context.Context) ([]v1alpha2.SnapshotRes
 		return r.statuses, errors.New("fail to process the resources: check the status")
 	}
 
+	vmKey, vdKeys := r.getRestoredVMAndVDKeys()
+	vm := &v1alpha2.VirtualMachine{}
+	if err := r.client.Get(ctx, vmKey, vm); err != nil {
+		if apierrors.IsNotFound(err) {
+			return r.statuses, common.ErrQueueing
+		}
+		return r.statuses, fmt.Errorf("failed to get virtual machine %s: %w", vmKey, err)
+	}
+	for _, vdKey := range vdKeys {
+		if err := r.setOwnerRefOnVirtualDisk(ctx, vm, vdKey); err != nil {
+			return r.statuses, err
+		}
+	}
+
 	return r.statuses, nil
 }
 
@@ -338,7 +352,7 @@ func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1al
 		}
 
 		if vdSnapshot == nil {
-			return nil, fmt.Errorf("the virtual disk snapshot %q %w", vdSnapshotName, common.ErrVirtualDiskSnapshotNotFound)
+			return nil, fmt.Errorf("failed to get the virtual disk snapshot %q: %w", vdSnapshotName, common.ErrVirtualDiskSnapshotNotFound)
 		}
 
 		vd := v1alpha2.VirtualDisk{
@@ -368,7 +382,7 @@ func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1al
 
 		err = AddOriginalMetadata(ctx, &vd, vdSnapshot, client)
 		if err != nil {
-			return nil, fmt.Errorf("add original metadata: %w", err)
+			return nil, fmt.Errorf("failed to add original metadata: %w", err)
 		}
 
 		vds = append(vds, &vd)
@@ -381,6 +395,77 @@ func (r *SnapshotResources) GetObjectHandlers() []ObjectHandler {
 	return r.objectHandlers
 }
 
+func (r *SnapshotResources) getRestoredVMAndVDKeys() (types.NamespacedName, []types.NamespacedName) {
+	var vmKey types.NamespacedName
+	vdKeys := make([]types.NamespacedName, 0)
+	for _, ov := range r.objectHandlers {
+		obj := ov.Object()
+		kind := obj.GetObjectKind().GroupVersionKind().Kind
+		key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
+		switch kind {
+		case v1alpha2.VirtualMachineKind:
+			vmKey = key
+		case v1alpha2.VirtualDiskKind:
+			vdKeys = append(vdKeys, key)
+		}
+	}
+	return vmKey, vdKeys
+}
+
+func (r *SnapshotResources) setOwnerRefOnVirtualDisk(ctx context.Context, vm *v1alpha2.VirtualMachine, vdKey types.NamespacedName) error {
+	vd := &v1alpha2.VirtualDisk{}
+	if err := r.client.Get(ctx, vdKey, vd); err != nil {
+		if apierrors.IsNotFound(err) {
+			return common.ErrQueueing
+		}
+		return fmt.Errorf("failed to get virtual disk %s: %w", vdKey, err)
+	}
+
+	if vd.Spec.DataSource == nil || vd.Spec.DataSource.ObjectRef == nil {
+		return nil
+	}
+
+	if vd.Annotations[annotations.AnnVMOPRestore] == r.uuid && len(vd.OwnerReferences) > 0 {
+		return nil
+	}
+
+	vdSnapshotName := vd.Spec.DataSource.ObjectRef.Name
+	vdSnapshotKey := types.NamespacedName{Namespace: vd.Namespace, Name: vdSnapshotName}
+	vdSnapshot := &v1alpha2.VirtualDiskSnapshot{}
+	if err := r.client.Get(ctx, vdSnapshotKey, vdSnapshot); err != nil {
+		return fmt.Errorf("failed to get virtual disk snapshot %s: %w", vdSnapshotKey, err)
+	}
+	if vdSnapshot.Status.VolumeSnapshotName == "" {
+		return nil
+	}
+
+	vsKey := types.NamespacedName{Namespace: vd.Namespace, Name: vdSnapshot.Status.VolumeSnapshotName}
+	vs := &vsv1.VolumeSnapshot{}
+	if err := r.client.Get(ctx, vsKey, vs); err != nil {
+		return fmt.Errorf("failed to get volume snapshot %s: %w", vsKey, err)
+	}
+
+	_, ok := vs.Annotations[annotations.AnnVirtualDiskHadOwnerReference]
+	if !ok {
+		return nil
+	}
+
+	vd.OwnerReferences = append(vd.OwnerReferences, metav1.OwnerReference{
+		APIVersion: v1alpha2.SchemeGroupVersion.String(),
+		Kind:       v1alpha2.VirtualMachineKind,
+		Name:       vm.Name,
+		UID:        vm.UID,
+	})
+	if err := r.client.Update(ctx, vd); err != nil {
+		if apierrors.IsConflict(err) {
+			return common.ErrQueueing
+		}
+		return err
+	}
+
+	return nil
+}
+
 func AddOriginalMetadata(ctx context.Context, vd *v1alpha2.VirtualDisk, vdSnapshot *v1alpha2.VirtualDiskSnapshot, client client.Client) error {
 	vsKey := types.NamespacedName{
 		Namespace: vdSnapshot.Namespace,
@@ -389,7 +474,7 @@ func AddOriginalMetadata(ctx context.Context, vd *v1alpha2.VirtualDisk, vdSnapsh
 
 	vs, err := object.FetchObject(ctx, vsKey, client, &vsv1.VolumeSnapshot{})
 	if err != nil {
-		return fmt.Errorf("fetch the volume snapshot %q: %w", vsKey.Name, err)
+		return fmt.Errorf("failed to fetch the volume snapshot %q: %w", vsKey.Name, err)
 	}
 
 	if vs == nil {
