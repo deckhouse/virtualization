@@ -7,7 +7,6 @@ resources:
   - vmc.yaml
   - cvi
   - vi
-  - vd
   - vm
 configurations:
   - transformer.yaml

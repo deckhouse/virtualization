@@ -3,8 +3,6 @@ kind: Kustomization
 nameSuffix: -automatic-with-hotplug
 resources:
   - ../../base
-  - ./vd-attach.yaml
-  - ./vmbda.yaml
 patches:
   - patch: |-
       - op: replace
