@@ -59,7 +59,7 @@ func UntilSSHReady(f *framework.Framework, vm *v1alpha2.VirtualMachine, timeout 
 	GinkgoHelper()
 
 	Eventually(func(g Gomega) {
-		result, err := f.SSHCommand(vm.Name, vm.Namespace, "echo 'test'")
+		result, err := f.SSHCommand(vm.Name, vm.Namespace, "echo 'test'", framework.WithSSHTimeout(5*time.Second))
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(result).To(ContainSubstring("test"))
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
