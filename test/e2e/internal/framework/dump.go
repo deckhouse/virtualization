@@ -219,7 +219,7 @@ func (f *Framework) writeVirtualMachineGuestInfo(pod corev1.Pod, filePath, testC
 	}
 }
 
-func (f *Framework) writeNodeDescribe(testCaseFullText, dumpPath string) {
+func (f *Framework) writeNodeDescription(testCaseFullText, dumpPath string) {
 	GinkgoHelper()
 
 	cmd := f.Clients.Kubectl().RawCommand("describe nodes", ShortTimeout)
@@ -236,7 +236,7 @@ func (f *Framework) writeNodeDescribe(testCaseFullText, dumpPath string) {
 	}
 }
 
-func (f *Framework) writeNodeOWide(testCaseFullText, dumpPath string) {
+func (f *Framework) writeNodeList(testCaseFullText, dumpPath string) {
 	GinkgoHelper()
 
 	cmd := f.Clients.Kubectl().RawCommand("get nodes -o wide", ShortTimeout)
