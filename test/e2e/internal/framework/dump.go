@@ -44,8 +44,7 @@ func (f *Framework) saveTestCaseDump() {
 	f.savePodAdditionalInfo(ft, tmpDir)
 	f.saveIntvirtvmDescriptions(ft, tmpDir)
 	f.saveIntvirtvmiDescriptions(ft, tmpDir)
-	f.writeNodeDescription(ft, tmpDir)
-	f.writeNodeList(ft, tmpDir)
+	f.saveNodeAdditionalInfo(ft, tmpDir)
 }
 
 // GetFormattedTestCaseFullText returns CurrentSpecReport().FullText(), formatted with the following rules:
@@ -217,6 +216,13 @@ func (f *Framework) writeVirtualMachineGuestInfo(pod corev1.Pod, filePath, testC
 			}
 		}
 	}
+}
+
+func (f *Framework) saveNodeAdditionalInfo(testCaseFullText, dumpPath string) {
+	GinkgoHelper()
+
+	f.writeNodeDescription(testCaseFullText, dumpPath)
+	f.writeNodeList(testCaseFullText, dumpPath)
 }
 
 func (f *Framework) writeNodeDescription(testCaseFullText, dumpPath string) {
