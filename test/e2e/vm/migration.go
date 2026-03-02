@@ -78,8 +78,10 @@ var _ = Describe("VirtualMachineMigration", func() {
 
 		f.Before()
 		vmbdasShouldBeAttached.Store(false)
+		testEnded.Store(false)
 
 		go func() {
+			defer GinkgoRecover()
 			for !testEnded.Load() {
 				if vmbdasShouldBeAttached.Load() {
 					checkVmbdasAttached(
