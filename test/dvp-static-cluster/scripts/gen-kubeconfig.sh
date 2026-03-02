@@ -88,7 +88,7 @@ CLUSTER_NAME=$3
 FILE_NAME=$4
 
 if [[ -z "$SA_NAME" ]] || [[ -z "$CLUSTER_PREFIX" ]] || [[ -z "$CLUSTER_NAME" ]]; then
-  log_error "Usage: gen-sa.sh <SA_NAME> <CLUSTER_PREFIX> <CLUSTER_NAME> [FILE_NAME]"
+  log_error "Usage: ${0} <SA_NAME> <CLUSTER_PREFIX> <CLUSTER_NAME> [FILE_NAME]"
   exit 1
 fi
 
@@ -169,16 +169,36 @@ kubeconfig_set_current_context() {
     --kubeconfig="${FILE_NAME}"
 }
 
-log_info "Create kubeconfig"
+check_kubeconfig() {
+  local attempt=3
+  local wait_time=5
+  for i in $(seq 1 $attempt); do
+    if kubectl --kubeconfig "${FILE_NAME}" get no >/dev/null 2>&1;then 
+      echo "true"
+      return 0
+    fi
+    sleep $wait_time
+  done
+  log_error "Failed to get resources vi generated kubeconfig" >&2
+  cat "${FILE_NAME}" >&2
+  echo "false"
+  return 0
+}
 
-kubeconfig_cert_cluster_section
-kubeconfig_set_credentials
-kubeconfig_set_context
-kubeconfig_set_current_context
+generate_kubeconfig() {
+  log_info "Create kubeconfig"
+
+  while ! check_kubeconfig; do
+    kubeconfig_cert_cluster_section
+    kubeconfig_set_credentials
+    kubeconfig_set_context
+    kubeconfig_set_current_context
+  done
+}
+
+generate_kubeconfig
 
 log_success "kubeconfig created and stored in ${FILE_NAME}"
-
-log_info "kubeconfig created and stored in ${FILE_NAME}"
 sudo chmod 444 "${FILE_NAME}"
 ls -la "${FILE_NAME}"
 
