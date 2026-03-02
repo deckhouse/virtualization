@@ -51,7 +51,7 @@ func UntilVMAgentReady(key client.ObjectKey, timeout time.Duration) {
 			return nil
 		}
 
-		return fmt.Errorf("vm %s is not ready", key.Name)
+		return fmt.Errorf("%s: guest agent is not ready", key.Name)
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
 
