@@ -225,14 +225,14 @@ func (f *Framework) writeNodeDescribe(testCaseFullText, dumpPath string) {
 	cmd := f.Clients.Kubectl().RawCommand("describe nodes", ShortTimeout)
 	if cmd.Error() != nil {
 		GinkgoWriter.Printf("Failed to get node describe:\nCmdError: %v\nError: %s\n", cmd.Error(), cmd.StdErr())
-		return
 	}
 
 	fileName := fmt.Sprintf("%s/e2e_failed__%s__nodes_describe.log", dumpPath, testCaseFullText)
-	err := os.WriteFile(fileName, cmd.StdOutBytes(), 0o644)
-	if err != nil {
-		GinkgoWriter.Printf("Failed to save node describe:\nError: %v\n", err)
-		return
+	if len(cmd.StdOutBytes()) > 0 {
+		err := os.WriteFile(fileName, cmd.StdOutBytes(), 0o644)
+		if err != nil {
+			GinkgoWriter.Printf("Failed to save node describe:\nError: %v\n", err)
+		}
 	}
 }
 
@@ -242,13 +242,13 @@ func (f *Framework) writeNodeOWide(testCaseFullText, dumpPath string) {
 	cmd := f.Clients.Kubectl().RawCommand("get nodes -o wide", ShortTimeout)
 	if cmd.Error() != nil {
 		GinkgoWriter.Printf("Failed to get node owide:\nCmdError: %v\nError: %s\n", cmd.Error(), cmd.StdErr())
-		return
 	}
 
 	fileName := fmt.Sprintf("%s/e2e_failed__%s__nodes_owide.log", dumpPath, testCaseFullText)
-	err := os.WriteFile(fileName, cmd.StdOutBytes(), 0o644)
-	if err != nil {
-		GinkgoWriter.Printf("Failed to save node owide:\nError: %v\n", err)
-		return
+	if len(cmd.StdOutBytes()) > 0 {
+		err := os.WriteFile(fileName, cmd.StdOutBytes(), 0o644)
+		if err != nil {
+			GinkgoWriter.Printf("Failed to save node owide:\nError: %v\n", err)
+		}
 	}
 }
