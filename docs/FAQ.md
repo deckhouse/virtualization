@@ -356,6 +356,12 @@ spec:
 
 Cloud-Init is a tool for automatically configuring virtual machines on first boot. The configuration is written in YAML format and must start with the `#cloud-config` header.
 
+{{< alert level="warning" >}}
+When using cloud images (for example, official distribution images), you must provide a cloud-init configuration. Without it, some distributions do not configure network connectivity, and the virtual machine becomes unreachable on the network, even if the main network (Main) is attached.
+
+In addition, cloud images do not allow login by default — you must either add SSH keys for the default user or create a new user with SSH access. Otherwise, you will not be able to access the virtual machine.
+{{< /alert >}}
+
 ### Updating and installing packages
 
 Example configuration for updating the system and installing packages:
@@ -437,6 +443,104 @@ fs_setup:
 mounts:
   # [device, mount_point, fs_type, options, dump, pass]
   - ["/dev/sdb1", "/mnt/data", "ext4", "defaults", "0", "2"]
+```
+
+### Configuring network interfaces for additional networks
+
+For more information on connecting additional networks to a virtual machine, see the [Additional network interfaces](./user_guide.html#additional-network-interfaces) section.
+
+{{< alert level="warning" >}}
+The settings described in this section apply only to additional networks. The main network (Main) is configured automatically via cloud-init and does not require manual configuration.
+{{< /alert >}}
+
+If additional networks are connected to a virtual machine, they must be configured manually via cloud-init. Use `write_files` to create configuration files and `runcmd` to apply the settings.
+
+#### For systemd-networkd
+
+Use the following example on distributions that use `systemd-networkd` (for example, Debian, CoreOS):
+
+```yaml
+#cloud-config
+write_files:
+  - path: /etc/systemd/network/10-eth1.network
+    content: |
+      [Match]
+      Name=eth1
+
+      [Network]
+      Address=192.168.1.10/24
+      Gateway=192.168.1.1
+      DNS=8.8.8.8
+
+runcmd:
+  - systemctl restart systemd-networkd
+```
+
+#### For Netplan (Ubuntu)
+
+Use the following example on Ubuntu and other distributions that use `Netplan`:
+
+```yaml
+#cloud-config
+write_files:
+  - path: /etc/netplan/99-custom.yaml
+    content: |
+      network:
+        version: 2
+        ethernets:
+          eth1:
+            addresses:
+              - 10.0.0.5/24
+            gateway4: 10.0.0.1
+            nameservers:
+              addresses: [8.8.8.8]
+          eth2:
+            dhcp4: true
+
+runcmd:
+  - netplan apply
+```
+
+#### For ifcfg (RHEL/CentOS)
+
+Use the following example on RHEL, CentOS and other distributions that use the `ifcfg` scheme with `NetworkManager`:
+
+```yaml
+#cloud-config
+write_files:
+  - path: /etc/sysconfig/network-scripts/ifcfg-eth1
+    content: |
+      DEVICE=eth1
+      BOOTPROTO=none
+      ONBOOT=yes
+      IPADDR=192.168.1.10
+      PREFIX=24
+      GATEWAY=192.168.1.1
+      DNS1=8.8.8.8
+
+runcmd:
+  - nmcli connection reload
+  - nmcli connection up eth1
+```
+
+#### For Alpine Linux
+
+Use the following example on Alpine Linux and other distributions that use the traditional `/etc/network/interfaces` format:
+
+```yaml
+#cloud-config
+write_files:
+  - path: /etc/network/interfaces
+    append: true
+    content: |
+      auto eth1
+      iface eth1 inet static
+          address 192.168.1.10
+          netmask 255.255.255.0
+          gateway 192.168.1.1
+
+runcmd:
+  - /etc/init.d/networking restart
 ```
 
 ## How to use Ansible to provision virtual machines?
@@ -823,3 +927,67 @@ A golden image is a pre-configured virtual machine image that can be used to qui
    ```
 
 After completing these steps, you will have a golden image that can be used to quickly create new virtual machines with pre-installed software and configurations.
+
+## How to restore the cluster if images from registry.deckhouse.io cannot be pulled after a license change?
+
+After a license change on a cluster with `containerd v1` and removal of the outdated license, images from `registry.deckhouse.io` may stop being pulled. In that case, nodes still have the outdated config file `/etc/containerd/conf.d/dvcr.toml`, which is not removed automatically. Because of it, the `registry` module does not start, and without it DVCR does not work.
+
+To fix this, apply a NodeGroupConfiguration (NGC) manifest: it will remove the file on the nodes. After the `registry` module starts, remove the manifest, since this is a one-time fix.
+
+1. Save the manifest to a file (for example, `containerd-dvcr-remove-old-config.yaml`):
+
+   ```yaml
+   apiVersion: deckhouse.io/v1alpha1
+   kind: NodeGroupConfiguration
+   metadata:
+     name: containerd-dvcr-remove-old-config.sh
+   spec:
+     weight: 32 # Must be in range 32–90
+     nodeGroups: ["*"]
+     bundles: ["*"]
+     content: |
+       # Copyright 2023 Flant JSC
+       # Licensed under the Apache License, Version 2.0 (the "License");
+       # you may not use this file except in compliance with the License.
+       # You may obtain a copy of the License at
+       #      http://www.apache.org/licenses/LICENSE-2.0
+       # Unless required by applicable law or agreed to in writing, software
+       # distributed under the License is distributed on an "AS IS" BASIS,
+       # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+       # See the License for the specific language governing permissions and
+       # limitations under the License.
+
+       rm -f /etc/containerd/conf.d/dvcr.toml
+   ```
+
+1. Apply the manifest:
+
+   ```bash
+   d8 k apply -f containerd-dvcr-remove-old-config.yaml
+   ```
+
+1. Verify that the `registry` module is running:
+
+   ```bash
+   d8 k -n d8-system -o yaml get secret registry-state | yq -C -P '.data | del .state | map_values(@base64d) | .conditions = (.conditions | from_yaml)'
+   ```
+
+   Example output when the `registry` module is running:
+
+   ```yaml
+   conditions:
+   # ...
+     - lastTransitionTime: "..."
+       message: ""
+       reason: ""
+       status: "True"
+       type: Ready
+   ```
+
+1. Delete the NGC manifest:
+
+   ```bash
+   d8 k delete -f containerd-dvcr-remove-old-config.yaml
+   ```
+
+For more information on migration, see [Migrating container runtime to containerd v2](/products/virtualization-platform/documentation/admin/platform-management/platform-scaling/node/migrating.html).
