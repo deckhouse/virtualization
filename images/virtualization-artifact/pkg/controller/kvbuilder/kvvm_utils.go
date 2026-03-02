@@ -144,12 +144,16 @@ func ApplyVirtualMachineSpec(
 	kvvm.AddFinalizer(v1alpha2.FinalizerKVVMProtection)
 
 	if ipAddress != "" {
+		// Set ip address cni request annotation.
 		kvvm.SetKVVMIAnnotation(netmanager.AnnoIPAddressCNIRequest, ipAddress)
 	}
 
+	// Set live migration annotation.
 	kvvm.SetKVVMIAnnotation(virtv1.AllowPodBridgeNetworkLiveMigrationAnnotation, "true")
+	// Set label to skip the check for PodSecurityStandards to avoid irrelevant alerts related to a privileged virtual machine pod.
 	kvvm.SetKVVMILabel(annotations.SkipPodSecurityStandardsCheckLabel, "true")
 
+	// Set annotation for request network configuration.
 	return setNetworksAnnotation(kvvm, networkSpec)
 }
 

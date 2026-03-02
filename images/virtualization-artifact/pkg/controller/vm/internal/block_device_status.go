@@ -33,6 +33,9 @@ type nameKindKey struct {
 	name string
 }
 
+// getBlockDeviceStatusRefs returns block device refs to populate .status.blockDeviceRefs of the virtual machine.
+// If kvvm is present, this method will reflect all volumes with prefixes (vi,vd, or cvi) into the slice of `BlockDeviceStatusRef`.
+// Block devices from the virtual machine specification will be added to the resulting slice if they have not been included in the previous step.
 func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s state.VirtualMachineState) ([]v1alpha2.BlockDeviceStatusRef, error) {
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
@@ -48,6 +51,7 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 
 	var refs []v1alpha2.BlockDeviceStatusRef
 
+	// 1. There is no kvvm yet: populate block device refs with the spec.
 	if kvvm == nil {
 		for _, specBlockDeviceRef := range specRefs {
 			ref := h.getBlockDeviceStatusRef(specBlockDeviceRef.Kind, specBlockDeviceRef.Name)
@@ -80,9 +84,11 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 
 	attachedBlockDeviceRefs := make(map[nameKindKey]struct{})
 
+	// 2. The kvvm already exists: populate block device refs with the kvvm volumes.
 	for _, volume := range kvvm.Spec.Template.Spec.Volumes {
 		bdName, kind := kvbuilder.GetOriginalDiskName(volume.Name)
 		if kind == "" {
+			// Reflect only vi, vd, or cvi block devices in status.
 			continue
 		}
 
@@ -110,6 +116,7 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 		attachedBlockDeviceRefs[key] = struct{}{}
 	}
 
+	// 3. The kvvm may be missing some block devices from the spec; they need to be added as well.
 	for _, specBlockDeviceRef := range specRefs {
 		key := nameKindKey{kind: specBlockDeviceRef.Kind, name: specBlockDeviceRef.Name}
 		if _, ok := attachedBlockDeviceRefs[key]; ok {
@@ -187,14 +194,18 @@ func (h *BlockDeviceHandler) getBlockDeviceTarget(volume virtv1.Volume, kvvmiVol
 
 func (h *BlockDeviceHandler) isHotplugged(volume virtv1.Volume, kvvmiVolumeStatusByName map[string]virtv1.VolumeStatus) bool {
 	switch {
+	// 1. If kvvmi has volume status with hotplugVolume reference then it's 100% hot-plugged volume.
 	case kvvmiVolumeStatusByName[volume.Name].HotplugVolume != nil:
 		return true
+	// 2. If kvvm has volume with hot-pluggable pvc reference then it's 100% hot-plugged volume.
 	case volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable:
 		return true
+	// 3. If kvvm has volume with hot-pluggable disk reference then it's 100% hot-plugged volume.
 	case volume.ContainerDisk != nil && volume.ContainerDisk.Hotpluggable:
 		return true
 	}
 
+	// 4. Is not hot-plugged.
 	return false
 }
 
