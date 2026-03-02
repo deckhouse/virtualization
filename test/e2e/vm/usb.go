@@ -193,7 +193,7 @@ func (t *VMUSBTest) GenerateEnvironmentResources() {
 		vdbuilder.WithName("vd-usb-test"),
 		vdbuilder.WithNamespace(t.Framework.Namespace().Name),
 		vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-			URL: object.ImageURLUbuntu,
+			URL: object.ImageURLAlpineBIOS,
 		}),
 	)
 
@@ -208,16 +208,6 @@ func (t *VMUSBTest) GenerateEnvironmentResources() {
 		vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: t.VD.Name}),
 		vmbuilder.WithUSBDevices([]v1alpha2.USBDeviceSpecRef{{Name: t.NodeUSBDevice.Name}}),
 	)
-
-	// t.VM.Spec.Affinity = &v1alpha2.VMAffinity{
-	// 	NodeAffinity: &corev1.NodeAffinity{
-	// 		RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-	// 			NodeSelectorTerms: []corev1.NodeSelectorTerm{
-	// 				{MatchExpressions: []corev1.NodeSelectorRequirement{{Key: "kubernetes.io/hostname", Operator: corev1.NodeSelectorOpNotIn, Values: []string{usbNodeName}}}},
-	// 			},
-	// 		},
-	// 	},
-	// }
 }
 
 func (t *VMUSBTest) assignNodeUSB() {
