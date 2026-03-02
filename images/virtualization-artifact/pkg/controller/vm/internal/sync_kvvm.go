@@ -654,18 +654,8 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 		h.recorder.Event(current, corev1.EventTypeNormal, v1alpha2.ReasonVMChangesApplied, message)
 		log.Debug(message, "vm.name", current.GetName(), "changes", changes)
 
-		if changes.IsBlockDeviceRefsOnly() && kvvmi != nil {
-			class, err := s.Class(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to get vmclass: %w", err)
-			}
-			if err = h.patchKVVMLastAppliedSpec(ctx, current, kvvm, class); err != nil {
-				return fmt.Errorf("unable to patch last-applied-spec on KVVM: %w", err)
-			}
-		} else {
-			if err := h.updateKVVM(ctx, s); err != nil {
-				return fmt.Errorf("unable to update KVVM using new VM spec: %w", err)
-			}
+		if err := h.updateKVVM(ctx, s); err != nil {
+			return fmt.Errorf("unable to update KVVM using new VM spec: %w", err)
 		}
 
 	case vmchange.ActionNone:
@@ -712,37 +702,6 @@ func (h *SyncKvvmHandler) updateKVVMLastAppliedSpec(
 	return nil
 }
 
-// patchKVVMLastAppliedSpec updates only the last-applied-spec annotations on KubeVirt VirtualMachine
-// using a merge patch. Unlike updateKVVMLastAppliedSpec, this does not send the full KVVM object,
-// so it won't accidentally overwrite spec changes made by KubeVirt (e.g., from AddVolume processing).
-func (h *SyncKvvmHandler) patchKVVMLastAppliedSpec(
-	ctx context.Context,
-	vm *v1alpha2.VirtualMachine,
-	kvvm *virtv1.VirtualMachine,
-	class *v1alpha2.VirtualMachineClass,
-) error {
-	if vm == nil || kvvm == nil {
-		return nil
-	}
-
-	patch := client.MergeFrom(kvvm.DeepCopy())
-
-	if err := kvbuilder.SetLastAppliedSpec(kvvm, vm); err != nil {
-		return fmt.Errorf("set vm last applied spec on KubeVirt VM '%s': %w", kvvm.GetName(), err)
-	}
-	if err := kvbuilder.SetLastAppliedClassSpec(kvvm, class); err != nil {
-		return fmt.Errorf("set vmclass last applied spec on KubeVirt VM '%s': %w", kvvm.GetName(), err)
-	}
-
-	if err := h.client.Patch(ctx, kvvm, patch); err != nil {
-		return fmt.Errorf("unable to patch KubeVirt VM '%s': %w", kvvm.GetName(), err)
-	}
-
-	log := logger.FromContext(ctx)
-	log.Info("Patch last applied spec on KubeVirt VM done", "name", kvvm.GetName())
-
-	return nil
-}
 
 func (h *SyncKvvmHandler) isVMUnschedulable(
 	vm *v1alpha2.VirtualMachine,
