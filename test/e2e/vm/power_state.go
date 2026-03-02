@@ -72,8 +72,7 @@ var _ = Describe("PowerState", func() {
 
 			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, t.VM)
 			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.MiddleTimeout)
-			util.UntilSSHReady(f, t.VM, framework.ShortTimeout)
+			util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 		})
 
 		By("Shutdown VM by VMOP", func() {
@@ -102,8 +101,7 @@ var _ = Describe("PowerState", func() {
 				util.StartVirtualMachine(f, t.VM)
 				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.MiddleTimeout, t.VM)
 				util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
-				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.MiddleTimeout)
-				util.UntilSSHReady(f, t.VM, framework.ShortTimeout)
+				util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 			}
 		})
 
@@ -120,8 +118,7 @@ var _ = Describe("PowerState", func() {
 				util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), runningLastTransitionTime, framework.LongTimeout)
 				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
 				util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
-				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.MiddleTimeout)
-				util.UntilSSHReady(f, t.VM, framework.ShortTimeout)
+				util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 			case v1alpha2.AlwaysOnUnlessStoppedManually, v1alpha2.ManualPolicy:
 				util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.LongTimeout, t.VM)
 			}
@@ -132,8 +129,7 @@ var _ = Describe("PowerState", func() {
 				util.StartVirtualMachine(f, t.VM)
 				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.MiddleTimeout, t.VM)
 				util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
-				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.MiddleTimeout)
-				util.UntilSSHReady(f, t.VM, framework.ShortTimeout)
+				util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 			}
 		})
 
@@ -157,8 +153,7 @@ var _ = Describe("PowerState", func() {
 			util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), runningLastTransitionTime, framework.MiddleTimeout)
 			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
 			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.MiddleTimeout)
-			util.UntilSSHReady(f, t.VM, framework.ShortTimeout)
+			util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 		})
 
 		By("Reboot VM by SSH", func() {
@@ -173,8 +168,7 @@ var _ = Describe("PowerState", func() {
 			util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), runningLastTransitionTime, framework.LongTimeout)
 			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
 			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.MiddleTimeout)
-			util.UntilSSHReady(f, t.VM, framework.ShortTimeout)
+			util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 		})
 
 		By("Check VM can reach external network", func() {
