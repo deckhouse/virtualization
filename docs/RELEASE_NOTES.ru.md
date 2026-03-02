@@ -3,6 +3,33 @@ title: "Релизы"
 weight: 70
 ---
 
+## v1.6.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 2 марта 2026.
+</span>
+
+### Новые возможности
+
+- [vm] Добавлена поддержка подключения USB-устройств в виртуальные машины с помощью `.spec.usbDevices`.
+- [usb] Добавлены ресурсы `NodeUSBDevice` и `USBDevice`, позволяющие управлять USB-устройствами в кластере:
+  - `NodeUSBDevice` (cluster-scoped) - представляет USB-устройство, обнаруженное на конкретном узле. Позволяет назначить USB-устройство для использования в конкретном неймспейсе.
+  - `USBDevice` (namespace-scoped) - представляет USB-устройство, доступное для подключения к виртуальным машинам в заданном неймспейсе.
+- [observability] Добавлен дашборд `Virtualization / Overview` с обзором состояния платформы виртуализации.
+- [observability] На дашборд виртуальной машины добавлена информация о pod'ах, связанных с виртуальными машинами.
+- [dvcr] Включили очистку DVCR в кластерах по умолчанию: ежедневно в 02:00. Расписание можно переопределить через `dvcr.gc.schedule` в ModuleConfig модуля виртуализации.
+
+### Исправления
+
+- [vd] Исправлено зависание создания виртуальных дисков в режиме `WaitForFirstConsumer` на нодах с taints.
+- [vm] Если в `.spec.networks` указана только сеть `Main`, то больше не требуется включенный модуль SDN.
+- [vm] Исправлена миграция виртуальной машины с дисками, подключенными через [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug): целевой pod мог превысить лимиты по памяти (`OOMKilled`).
+- [vmbda] Исправлена некорректная фаза `Pending` ресурса [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) во время миграции виртуальной машины.
+- [vmbda] Чтобы удалить диски и образы, подключенные к в виртуальной машине через [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug), сначала нужно отсоединить от виртуальной машины. Для этого нужно удалить соответствующий `vmbda`. Информация об этом добавлена в статус `vmbda`.
+
+### Прочее
+
+- [vm] Для утилиты `vlct` добавлен флаг `--from-file`, который позволяет смотреть информацию о домене напрямую из локального libvirt XML-файла.
+
 ## v1.5.1
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Дата релиза: 16 февраля 2026.
