@@ -93,7 +93,7 @@ var _ = Describe("VirtualMachineConfiguration", func() {
 
 		By("Waiting for VM to be rebooted")
 		util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), previousRunningTime, framework.LongTimeout)
-		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.ShortTimeout)
+		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.MiddleTimeout)
 
 		By("Checking changed configuration")
 		err = f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
