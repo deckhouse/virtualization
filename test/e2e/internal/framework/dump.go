@@ -44,6 +44,8 @@ func (f *Framework) saveTestCaseDump() {
 	f.savePodAdditionalInfo(ft, tmpDir)
 	f.saveIntvirtvmDescriptions(ft, tmpDir)
 	f.saveIntvirtvmiDescriptions(ft, tmpDir)
+	f.writeNodeDescribe(ft, tmpDir)
+	f.writeNodeOWide(ft, tmpDir)
 }
 
 // GetFormattedTestCaseFullText returns CurrentSpecReport().FullText(), formatted with the following rules:
@@ -214,5 +216,39 @@ func (f *Framework) writeVirtualMachineGuestInfo(pod corev1.Pod, filePath, testC
 				GinkgoWriter.Printf("Failed to save pod guest info:\nPodName: %s\nError: %v\n", pod.Name, err)
 			}
 		}
+	}
+}
+
+func (f *Framework) writeNodeDescribe(testCaseFullText, dumpPath string) {
+	GinkgoHelper()
+
+	cmd := f.Clients.Kubectl().RawCommand("describe nodes", ShortTimeout)
+	if cmd.Error() != nil {
+		GinkgoWriter.Printf("Failed to get node describe:\nCmdError: %v\nError: %s\n", cmd.Error(), cmd.StdErr())
+		return
+	}
+
+	fileName := fmt.Sprintf("%s/e2e_failed__%s__nodes_describe.log", dumpPath, testCaseFullText)
+	err := os.WriteFile(fileName, cmd.StdOutBytes(), 0o644)
+	if err != nil {
+		GinkgoWriter.Printf("Failed to save node describe:\nError: %v\n", err)
+		return
+	}
+}
+
+func (f *Framework) writeNodeOWide(testCaseFullText, dumpPath string) {
+	GinkgoHelper()
+
+	cmd := f.Clients.Kubectl().RawCommand("get nodes -o wide", ShortTimeout)
+	if cmd.Error() != nil {
+		GinkgoWriter.Printf("Failed to get node owide:\nCmdError: %v\nError: %s\n", cmd.Error(), cmd.StdErr())
+		return
+	}
+
+	fileName := fmt.Sprintf("%s/e2e_failed__%s__nodes_owide.log", dumpPath, testCaseFullText)
+	err := os.WriteFile(fileName, cmd.StdOutBytes(), 0o644)
+	if err != nil {
+		GinkgoWriter.Printf("Failed to save node owide:\nError: %v\n", err)
+		return
 	}
 }
