@@ -164,7 +164,7 @@ spec:
           image: {{ include "helm_lib_module_image" (list . "virtualizationDraUsb") }}
           imagePullPolicy: "IfNotPresent"
           args:
-            - --feature-gates=USBGateway=true,USBNodeLocalMultiAllocation=true
+            - {{ include "virtualization-dra.featureGates" . }}
             {{/* https://github.com/deckhouse/deckhouse/pull/18139 */}}
             - --usbipd-port=4280
             {{- if eq (include "moduleLogLevel" .) "debug" }}

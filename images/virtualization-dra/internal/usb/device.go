@@ -46,6 +46,7 @@ type Device struct {
 	DeviceNumber int3d
 	Major        int
 	Minor        int
+	Speed        int
 	Serial       string
 	DevicePath   string
 }
@@ -86,6 +87,9 @@ func (d *Device) Validate() error {
 	if d.Minor == 0 {
 		return fmt.Errorf("minor is required")
 	}
+	if d.Speed == 0 {
+		return fmt.Errorf("speed is required")
+	}
 	return nil
 }
 
@@ -102,6 +106,7 @@ func toDevice(device *libusb.USBDevice) Device {
 		DeviceNumber: int3d(device.DeviceNumber),
 		Major:        int(device.Major),
 		Minor:        int(device.Minor),
+		Speed:        int(device.Speed),
 		Serial:       device.Serial,
 		DevicePath:   device.DevicePath,
 	}

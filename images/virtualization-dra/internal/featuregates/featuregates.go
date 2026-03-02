@@ -24,6 +24,7 @@ import (
 const (
 	USBGateway                  featuregate.Feature = "USBGateway"
 	USBNodeLocalMultiAllocation featuregate.Feature = "USBNodeLocalMultiAllocation"
+	DRAPartitionableDevices     featuregate.Feature = "DRAPartitionableDevices"
 )
 
 var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
@@ -32,6 +33,10 @@ var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
 		PreRelease: featuregate.Alpha,
 	},
 	USBNodeLocalMultiAllocation: {
+		Default:    false,
+		PreRelease: featuregate.Alpha,
+	},
+	DRAPartitionableDevices: {
 		Default:    false,
 		PreRelease: featuregate.Alpha,
 	},
@@ -82,4 +87,8 @@ func (f *FeatureGate) USBGatewayEnabled() bool {
 
 func (f *FeatureGate) USBNodeLocalMultiAllocationEnabled() bool {
 	return f.Enabled(USBNodeLocalMultiAllocation)
+}
+
+func (f *FeatureGate) DRAPartitionableDevicesEnabled() bool {
+	return f.Enabled(DRAPartitionableDevices)
 }
