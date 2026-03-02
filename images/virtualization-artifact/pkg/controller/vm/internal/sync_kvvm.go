@@ -434,6 +434,7 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 
 	networkSpec := network.CreateNetworkSpec(current, vmmacs)
 
+	// Create kubevirt VirtualMachine resource from d8 VirtualMachine spec.
 	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, class, ipAddress, networkSpec)
 	if err != nil {
 		return nil, err
@@ -640,6 +641,7 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 
 	switch action {
 	case vmchange.ActionRestart:
+		// Update KVVM spec according the current VM spec.
 		if err = h.updateKVVM(ctx, s); err != nil {
 			return fmt.Errorf("update virtual machine instance with new spec: %w", err)
 		}
@@ -691,8 +693,6 @@ func (h *SyncKvvmHandler) updateKVVMLastAppliedSpec(
 		return nil
 	}
 
-	log := logger.FromContext(ctx)
-
 	err := kvbuilder.SetLastAppliedSpec(kvvm, vm)
 	if err != nil {
 		return fmt.Errorf("set vm last applied spec on KubeVirt VM '%s': %w", kvvm.GetName(), err)
@@ -706,6 +706,7 @@ func (h *SyncKvvmHandler) updateKVVMLastAppliedSpec(
 		return fmt.Errorf("unable to update KubeVirt VM '%s': %w", kvvm.GetName(), err)
 	}
 
+	log := logger.FromContext(ctx)
 	log.Info("Update last applied spec on KubeVirt VM done", "name", kvvm.GetName())
 
 	return nil

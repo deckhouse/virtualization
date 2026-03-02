@@ -89,6 +89,7 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 		bdName, kind := kvbuilder.GetOriginalDiskName(volume.Name)
 		if kind == "" {
 			// Reflect only vi, vd, or cvi block devices in status.
+			// This is neither of them, so skip.
 			continue
 		}
 
@@ -197,9 +198,11 @@ func (h *BlockDeviceHandler) isHotplugged(volume virtv1.Volume, kvvmiVolumeStatu
 	// 1. If kvvmi has volume status with hotplugVolume reference then it's 100% hot-plugged volume.
 	case kvvmiVolumeStatusByName[volume.Name].HotplugVolume != nil:
 		return true
+
 	// 2. If kvvm has volume with hot-pluggable pvc reference then it's 100% hot-plugged volume.
 	case volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable:
 		return true
+
 	// 3. If kvvm has volume with hot-pluggable disk reference then it's 100% hot-plugged volume.
 	case volume.ContainerDisk != nil && volume.ContainerDisk.Hotpluggable:
 		return true
