@@ -44,8 +44,8 @@ func (f *Framework) saveTestCaseDump() {
 	f.savePodAdditionalInfo(ft, tmpDir)
 	f.saveIntvirtvmDescriptions(ft, tmpDir)
 	f.saveIntvirtvmiDescriptions(ft, tmpDir)
-	f.writeNodeDescribe(ft, tmpDir)
-	f.writeNodeOWide(ft, tmpDir)
+	f.writeNodeDescription(ft, tmpDir)
+	f.writeNodeList(ft, tmpDir)
 }
 
 // GetFormattedTestCaseFullText returns CurrentSpecReport().FullText(), formatted with the following rules:
