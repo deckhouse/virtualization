@@ -38,10 +38,12 @@ func NewMarker(dynamicClient dynamic.Interface, nodeName string) *Marker {
 	}
 }
 
-func (m Marker) Mark(ctx context.Context) error {
-	err := m.labeler.Label(ctx, m.nodeName, "", map[string]string{
-		consts.USBGatewayLabel: "true",
-	}, nil)
+func (m Marker) Mark(ctx context.Context, all bool) error {
+	value := m.nodeName
+	if all {
+		value = "any"
+	}
+	err := m.labeler.Label(ctx, m.nodeName, "", map[string]string{consts.USBGatewayLabel: value}, nil)
 	if err != nil {
 		return fmt.Errorf("failed to label node %s: %w", m.nodeName, err)
 	}
