@@ -214,8 +214,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 			err := f.CreateWithDeferredDeletion(context.Background(), allObjects...)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmBIOS), framework.LongTimeout)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmUEFI), framework.LongTimeout)
+			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmBIOS, vmUEFI)
 			util.UntilObjectPhase(
 				string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.LongTimeout,
 				toObjects(vmbdas)...,
@@ -250,7 +249,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 
 				g.Expect(vmopMigrateBIOS.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
 				g.Expect(vmopMigrateUEFI.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
-			}).WithPolling(time.Second).WithTimeout(framework.LongTimeout).To(Succeed())
+			}).WithPolling(100 * time.Millisecond).WithTimeout(framework.LongTimeout).To(Succeed())
 		})
 
 		// There is a known issue with the Cilium agent check.
