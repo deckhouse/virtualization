@@ -89,6 +89,11 @@ spec:
           Virtualization DRA component requires access to host filesystem to share files and sockets with virtual machines.
     hostPath:
       allowedValues:
+        - path: /lib/modules
+          readOnly: false
+          metadata:
+            description: |
+              Allow read-write access to /lib/modules hostPath volume.
         - path: /var/lib/kubelet/plugins
           readOnly: false
           metadata:

@@ -44,6 +44,21 @@ metadata:
   {{- include "helm_lib_module_labels" (list . (dict "app" .Chart.Name)) | nindent 2 }}
 spec:
   securityContext:
+    runAsUser:
+      allowedValues:
+        - 0
+      metadata:
+        description: |
+          Allow vm-route-forge container to run as root user (UID 0).
+          VM route forge component requires root privileges to interact with the host network layer.
+
+    runAsNonRoot:
+      allowedValue: false
+      metadata:
+        description: |
+          Allow containers to run as root user (non-root disabled).
+          VM route forge component requires root privileges to interact with the host network layer.
+
     privileged:
       allowedValue: true
       metadata:
