@@ -81,6 +81,15 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 		specDevices[nameKindKey{kind: bd.Kind, name: bd.Name}] = struct{}{}
 	}
 
+	vmbdaMap, err := s.VirtualMachineBlockDeviceAttachments(ctx)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	vmbdaDevices := make(map[nameKindKey]struct{})
+	for ref := range vmbdaMap {
+		vmbdaDevices[nameKindKey{kind: v1alpha2.BlockDeviceKind(ref.Kind), name: ref.Name}] = struct{}{}
+	}
+
 	kvvmDevices, pending := parseKVVMVolumes(kvvm)
 
 	var errs []error
@@ -110,9 +119,12 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 		}
 	}
 
-	// 2. Unplugging
+	// 2. Unplugging: only unplug volumes that are not in spec and not managed by VMBDA.
 	for key, vol := range kvvmDevices {
-		if _, wanted := specDevices[key]; wanted || !vol.hotpluggable {
+		if _, wanted := specDevices[key]; wanted {
+			continue
+		}
+		if _, isVMBDA := vmbdaDevices[key]; isVMBDA {
 			continue
 		}
 		if _, ok := pending[vol.name]; ok {
