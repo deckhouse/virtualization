@@ -131,7 +131,7 @@ image: release-channel-version
 fromImage: builder/scratch
 import:
 - image: prepare-bundle
-  add: /
+  add: /prep-bundle
   to: /
   after: install
   includePaths:
