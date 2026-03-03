@@ -94,6 +94,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 					},
 				),
 				vm.WithBootloader(v1alpha2.BIOS),
+				vm.WithProvisioningUserData(object.DefaultCloudInit),
 				vm.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
 			)
 			vmUEFI = object.NewMinimalVM("vm-uefi-", f.Namespace().Name,
@@ -108,6 +109,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 					},
 				),
 				vm.WithBootloader(v1alpha2.EFI),
+				vm.WithProvisioningUserData(object.DefaultCloudInit),
 				vm.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
 			)
 
