@@ -23,16 +23,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal/service"
+	
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 )
 
 type AttachmentConflictValidator struct {
 	log     *log.Logger
-	service *intsvc.AttachmentService
+	service *service.AttachmentService
 }
 
-func NewAttachmentConflictValidator(service *intsvc.AttachmentService, log *log.Logger) *AttachmentConflictValidator {
+func NewAttachmentConflictValidator(service *service.AttachmentService, log *log.Logger) *AttachmentConflictValidator {
 	return &AttachmentConflictValidator{
 		log:     log,
 		service: service,

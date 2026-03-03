@@ -26,10 +26,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal/service"
+	
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmbdacondition"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 )
 
 type BlockDeviceReadyHandler struct {
@@ -109,7 +110,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 					Message("Waiting until VirtualImage has associated PersistentVolumeClaim name.")
 				return reconcile.Result{}, nil
 			}
-			ad := intsvc.NewAttachmentDiskFromVirtualImage(vi)
+			ad := service.NewAttachmentDiskFromVirtualImage(vi)
 			pvc, err := h.attachment.GetPersistentVolumeClaim(ctx, ad)
 			if err != nil {
 				return reconcile.Result{}, err
@@ -265,7 +266,7 @@ func (h BlockDeviceReadyHandler) ValidateVirtualDiskReady(ctx context.Context, v
 		return nil
 	}
 
-	ad := intsvc.NewAttachmentDiskFromVirtualDisk(vd)
+	ad := service.NewAttachmentDiskFromVirtualDisk(vd)
 	pvc, err := h.attachment.GetPersistentVolumeClaim(ctx, ad)
 	if err != nil {
 		return err
