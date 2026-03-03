@@ -25,7 +25,7 @@ packages:
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
-fromCacheVersion: "O_DIRECT + qemu -t none -T none"
+fromCacheVersion: "add fallback for qemu-img"
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}
     to: /src
