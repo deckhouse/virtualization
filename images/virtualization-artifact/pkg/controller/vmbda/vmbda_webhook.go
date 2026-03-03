@@ -25,7 +25,6 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal/validators"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )

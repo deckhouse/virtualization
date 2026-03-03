@@ -29,7 +29,6 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal"
-	
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vmbdametrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vmbda"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"

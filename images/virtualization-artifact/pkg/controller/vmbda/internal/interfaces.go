@@ -22,9 +22,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 
-	
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 //go:generate go tool moq -rm -out mock.go . AttachmentService
