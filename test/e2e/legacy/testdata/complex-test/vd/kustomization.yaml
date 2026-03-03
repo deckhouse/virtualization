@@ -4,10 +4,10 @@ resources:
   - ./vd-alpine-http.yaml
   - ./vd-alpine-registry.yaml
   - ./vd-blank.yaml
-  - ./vd-from-cvi-ubuntu-http.yaml
   - ./vd-from-cvi-alpine-registry.yaml
-  - ./vd-from-vi-ubuntu-http.yaml
+  - ./vd-from-cvi-alpine-http.yaml
   - ./vd-from-vi-alpine-registry.yaml
+  - ./vd-from-vi-alpine-http.yaml
 labels:
   - includeSelectors: true
     pairs:
