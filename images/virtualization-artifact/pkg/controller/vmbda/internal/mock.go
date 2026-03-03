@@ -5,12 +5,11 @@ package internal
 
 import (
 	"context"
-	
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sync"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 )
 
 // Ensure, that AttachmentServiceMock does implement AttachmentService.
