@@ -53,7 +53,7 @@ var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
 		PreRelease:    featuregate.Alpha,
 	},
 	USB: {
-		Default:       version.GetEdition() == version.EditionEE && kubeapi.ResourceV1Available(),
+		Default:       version.GetEdition() == version.EditionEE && kubeapi.HasDRAFeatureGates() && kubeapi.ResourceV1Available(),
 		LockToDefault: true,
 		PreRelease:    featuregate.Alpha,
 	},

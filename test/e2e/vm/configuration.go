@@ -93,7 +93,7 @@ var _ = Describe("VirtualMachineConfiguration", func() {
 
 		By("Waiting for VM to be rebooted")
 		util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), previousRunningTime, framework.LongTimeout)
-		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.ShortTimeout)
+		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.MiddleTimeout)
 
 		By("Checking changed configuration")
 		err = f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
@@ -126,8 +126,9 @@ func (t *configurationTest) GenerateResources(restartApprovalMode v1alpha2.Resta
 	t.VDRoot = vdbuilder.New(
 		vdbuilder.WithName("vd-root"),
 		vdbuilder.WithNamespace(t.Framework.Namespace().Name),
+		vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
 		vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-			URL: object.ImageURLUbuntu,
+			URL: object.ImageURLAlpineBIOS,
 		}),
 	)
 

@@ -18,6 +18,7 @@ package usbip
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 )
 
@@ -32,7 +33,10 @@ func writeSysfsAttr(attrPath string, value sysfsAttr) error {
 	}
 	defer f.Close()
 
-	_, err = f.WriteString(value.Complete())
+	completed := value.Complete()
+	slog.Debug("writing sysfs attr", "attrPath", attrPath, "value", completed)
+
+	_, err = f.WriteString(completed)
 	return err
 }
 

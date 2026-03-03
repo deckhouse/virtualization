@@ -437,7 +437,7 @@ func CheckFileSystemFrozen(vmName, vmNamespace string) (bool, error) {
 
 func setDiskImmediateStorageClass() {
 	virtualDiskWithoutConsumer := v1alpha2.VirtualDisk{}
-	vdWithoutConsumerFilePath := fmt.Sprintf("%s/vd/vd-ubuntu-http.yaml", conf.TestData.VdSnapshots)
+	vdWithoutConsumerFilePath := fmt.Sprintf("%s/vd/vd-alpine-http.yaml", conf.TestData.VdSnapshots)
 	err := util.UnmarshalResource(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
 	Expect(err).NotTo(HaveOccurred(), "cannot get object from file: %s\nstderr: %s", vdWithoutConsumerFilePath, err)
 

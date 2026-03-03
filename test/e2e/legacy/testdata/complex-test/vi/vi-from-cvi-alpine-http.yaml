@@ -2,10 +2,11 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: vi-from-vi-ubuntu-http
+  name: vi-from-cvi-alpine-http
 spec:
+  storage: ContainerRegistry
   dataSource:
     type: ObjectRef
     objectRef:
-      kind: VirtualImage
-      name: vi-ubuntu-http
+      kind: ClusterVirtualImage
+      name: cvi-alpine-http

@@ -271,7 +271,7 @@ The image status shows two sizes:
 - `UNPACKEDSIZE` (unpacked size) — the image size after unpacking. It is used when creating a disk from the image and defines the minimum disk size that can be created.
 
 {{< alert level="info" >}}
-When creating a disk from an image, set the disk size to `UNPACKEDSIZE` or larger .  
+When creating a disk from an image, set the disk size to `UNPACKEDSIZE` or larger.
 If the size is not specified, the disk will be created with a size equal to `UNPACKEDSIZE`.
 {{< /alert >}}
 
@@ -2257,6 +2257,46 @@ Use stable identifiers instead of `/dev/sdX`:
 
 In configuration files and scripts, use partition UUIDs or symlinks from `/dev/disk/by-*` instead of `/dev/sdX` names.
 
+#### Network interface naming in guest OS
+
+In systems without predictable network interface naming support, network interface names (`eth0`, `eth1`, `eth2`, etc.) are assigned by the Linux kernel in the order devices are discovered during boot. When adding new network interfaces or changing the order of networks in `.spec.networks`, the interface order may change, which can cause IP addresses to be assigned to the wrong interfaces.
+
+Using `ethX` in configuration files (for example, `/etc/network/interfaces`, `netplan`, `systemd-networkd`) or scripts may lead to unexpected network behavior or connection to the wrong network when adding new interfaces or changing the network order.
+
+Modern distributions with systemd (Ubuntu 16.04+, Debian 9+, CentOS 7+, RHEL 7+) use predictable interface names (`enpXsY`, `ensX`, `enoX`) by default, which are based on the physical characteristics of the device (PCI coordinates) and remain stable between reboots and when adding new interfaces.
+
+However, even when using predictable names, it is recommended to bind network configuration to interface MAC addresses for guaranteed stability, especially when changing the order of networks in `.spec.networks` or adding new interfaces.
+
+**Example for systems without predictable naming:**
+
+Initially, the VM has two interfaces:
+
+```console
+$ ip link show
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500
+3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500
+```
+
+After adding a new interface at the beginning of the `.spec.networks` list and rebooting the VM:
+
+```console
+$ ip link show
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500  # New interface
+3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500  # Old eth0
+4: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500  # Old eth1
+```
+
+MAC addresses remain unchanged, but interface names (`eth0`, `eth1`) shift, which can lead to IP addresses being assigned to the wrong interfaces.
+
+Use stable identifiers instead of `ethX`:
+
+- **`enpXsY`** — predictable names based on physical location (systemd networkd naming scheme, enabled by default in modern systems)
+- **MAC address binding** — in `netplan`, `systemd-networkd`, or `/etc/network/interfaces` configuration (preferred for guaranteed stability)
+
+In configuration files and scripts, use stable interface names (`enpXsY`) or MAC address binding instead of `ethX` names.
+
 ### Organizing interaction with virtual machines
 
 Virtual machines can be accessed directly via their fixed IP addresses. However, this approach has limitations: direct use of IP addresses requires manual management, complicates scaling, and makes the infrastructure less flexible. An alternative is services—a mechanism that abstracts access to VMs by providing logical entry points instead of binding to physical addresses.
@@ -2933,6 +2973,10 @@ Important considerations when working with additional network interfaces:
 - Network security policies (NetworkPolicy) do not apply to additional network interfaces.
 - Network parameters (IP addresses, gateways, DNS, etc.) for additional networks are configured manually from within the guest OS (for example, using Cloud-Init).
 
+{{< alert level="info" >}}
+When configuring network interfaces in the guest OS, use stable identifiers (predictable names `enpXsY` or MAC address binding) instead of `ethX` names. For more details, see the [Network interface naming in guest OS](#network-interface-naming-in-guest-os) section.
+{{< /alert >}}
+
 Example of connecting a VM to the main cluster network and the project network `user-net`:
 
 ```yaml
@@ -3584,7 +3628,7 @@ The following steps describe the minimal workflow for attaching a USB device to 
    d8 k get usbdevice -n my-project
    ```
 
-1. Add the device to the `.spec.usbDevices` field of a [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource and ensure that the VM is scheduled on the node where the USB device is physically connected.
+1. Add the device to the `.spec.usbDevices` field of a [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
 
    ```bash
    d8 k apply -f - <<EOF
@@ -3619,7 +3663,7 @@ logitech-webcam     node-2         True    True      my-project   15m
 
 #### NodeUSBDevice Conditions
 
-The status of a [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource is represented by a set of conditions that describe its availability and assignment state:
+The status of a [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource is represented by a set of conditions that describe its availability and assignment state. These conditions are available in `.status.conditions`:
 
 - **Ready**: Indicates whether the device is ready to use.
   - `Ready`: Device is ready to use.
@@ -3680,7 +3724,7 @@ The [USBDevice](/modules/virtualization/cr.html#usbdevice) resource exposes deta
 
 #### USBDevice Conditions
 
-The [USBDevice](/modules/virtualization/cr.html#usbdevice) resource provides status conditions that reflect its readiness and attachment state.
+The [USBDevice](/modules/virtualization/cr.html#usbdevice) resource provides status conditions that reflect its readiness and attachment state. These conditions are available in `.status.conditions`.
 
 - **Ready**: Indicates whether the device is ready to use.
   - `Ready`: Device is ready to use.
@@ -3690,7 +3734,6 @@ The [USBDevice](/modules/virtualization/cr.html#usbdevice) resource provides sta
 - **Attached**: Indicates whether the device is attached to a virtual machine.
   - `AttachedToVirtualMachine`: Device is attached to a VM.
   - `Available`: Device is available for attachment.
-  - `DetachedForMigration`: Device was detached for migration.
 
 ### Attaching USB Device to VM
 
@@ -3712,7 +3755,7 @@ EOF
 After creating or updating the VM, the USB device will be attached to the specified virtual machine.
 
 {{< alert level="info" >}}
-The virtual machine must be running on the same node where the USB device is physically connected.
+The USB device is automatically forwarded to the node where the virtual machine is running via the network (USBIP). There is no need to manually place the VM on the same node as the device.
 {{< /alert >}}
 
 {{< alert level="warning" >}}
@@ -3775,8 +3818,8 @@ Both `USBDevice` and `NodeUSBDevice` resources update their status conditions to
 USB device passthrough has several operational requirements and limitations that must be considered before use:
 
 - The DRA driver must be installed on nodes where USB devices are to be discovered.
-- USB devices can only be attached to virtual machines running on the same node where the device is physically connected.
-- Hot-plug of USB devices is not supported — the VM must be stopped before detaching the device.
+- USB devices are forwarded to the VM node over the network using USBIP. The VM does not need to run on the same node where the device is physically connected.
+- USB devices support hot-plug — they can be attached to and detached from a running VM without stopping it.
 - USB device passthrough requires proper kernel modules on the node.
 
 ## Data export

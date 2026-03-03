@@ -3,6 +3,33 @@ title: "Релизы"
 weight: 70
 ---
 
+## v1.6.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 2 марта 2026.
+</span>
+
+### Новые возможности
+
+- [vm] Добавлена поддержка подключения USB-устройств к виртуальным машинам через `.spec.usbDevices`.
+- [usb] Добавлены ресурсы [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) и `USBDevice`, позволяющие управлять USB-устройствами в кластере:
+  - [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) (cluster-scoped) — представляет USB-устройство, обнаруженное на конкретном узле. Позволяет назначить USB-устройство для использования в конкретном неймспейсе.
+  - [USBDevice](/modules/virtualization/cr.html#usbdevice) (namespace-scoped) — представляет USB-устройство, доступное для подключения к виртуальным машинам в заданном неймспейсе.
+- [observability] Добавлен дашборд `Virtualization / Overview` с обзором состояния платформы виртуализации.
+- [observability] На дашборд виртуальной машины добавлена информация о подах виртуальных машин.
+- [dvcr] Включена очистка DVCR в кластерах по умолчанию: ежедневно в 02:00. Расписание можно переопределить через `dvcr.gc.schedule` в ModuleConfig модуля `virtualization`.
+
+### Исправления
+
+- [vd] Исправлено зависание при создании виртуальных дисков в режиме `WaitForFirstConsumer` на нодах с taints.
+- [vm] Если в `.spec.networks` указана только сеть `Main`, то больше не требуется включенный модуль `sdn`.
+- [vm] Исправлена миграция виртуальной машины с дисками, подключенными через [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug): целевой под мог превысить лимиты по памяти (`OOMKilled`).
+- [vmbda] Исправлена некорректная фаза `Pending` ресурса [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) во время миграции виртуальной машины.
+- [vmbda] Чтобы удалить диски и образы, подключенные к виртуальной машине через [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug), сначала нужно отсоединить их от виртуальной машины, удалив соответствующий `vmbda`. Эта информация добавлена в статус `vmbda`.
+
+### Прочее
+
+- [vm] Для утилиты `vlctl` добавлен флаг `--from-file` для просмотра информации о домене из локального libvirt XML-файла.
+
 ## v1.5.1
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Дата релиза: 16 февраля 2026.

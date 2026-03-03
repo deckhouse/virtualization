@@ -18,6 +18,7 @@ package app
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/deckhouse/virtualization-dra/pkg/usbip"
 )
@@ -31,10 +32,14 @@ func NewAttachInfoCommand() *cobra.Command {
 		RunE:    o.Run,
 	}
 
+	o.AddFlags(cmd.Flags())
+
 	return cmd
 }
 
-type attachInfoOptions struct{}
+type attachInfoOptions struct {
+	watch bool
+}
 
 func (o *attachInfoOptions) Usage() string {
 	return `  # Get attach info
@@ -42,11 +47,37 @@ func (o *attachInfoOptions) Usage() string {
 `
 }
 
+func (o *attachInfoOptions) AddFlags(fs *pflag.FlagSet) {
+	fs.BoolVarP(&o.watch, "watch", "w", false, "Watch attach info")
+}
+
 func (o *attachInfoOptions) Run(cmd *cobra.Command, _ []string) error {
-	infos, err := usbip.NewUSBAttacher().GetAttachInfo()
+	if o.watch {
+		return o.handleWatch(cmd)
+	}
+	return o.handleGet(cmd)
+}
+
+func (o *attachInfoOptions) handleGet(cmd *cobra.Command) error {
+	info, err := usbip.NewUSBAttacher().GetAttachInfo()
 	if err != nil {
 		return err
 	}
 
-	return printer.PrintObject(cmd, infos)
+	return printer.PrintObject(cmd, info)
+}
+
+func (o *attachInfoOptions) handleWatch(cmd *cobra.Command) error {
+	ch, err := usbip.NewUSBAttacher().WatchAttachInfo(cmd.Context())
+	if err != nil {
+		return err
+	}
+
+	for info := range ch {
+		if err := printer.PrintObject(cmd, info); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

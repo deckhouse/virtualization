@@ -28,4 +28,7 @@ const (
 	AnnUSBDeviceAddresses = "usb.virtualization.deckhouse.io/device-addresses"
 	AnnUSBDeviceUser      = "usb.virtualization.deckhouse.io/device-user"
 	AnnUSBDeviceGroup     = "usb.virtualization.deckhouse.io/device-group"
+	AnnUSBIPTotalPorts    = "usb.virtualization.deckhouse.io/usbip-total-ports"
+	AnnUSBIPUsedPorts     = "usb.virtualization.deckhouse.io/usbip-used-ports"
+	AnnUSBIPAddress       = "usb.virtualization.deckhouse.io/usbip-address"
 )

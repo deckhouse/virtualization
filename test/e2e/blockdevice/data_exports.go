@@ -83,8 +83,9 @@ var _ = Describe("DataExports", label.Slow(), func() {
 			vdRoot = vdbuilder.New(
 				vdbuilder.WithName("vd-root"),
 				vdbuilder.WithNamespace(f.Namespace().Name),
+				vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
 				vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: object.ImageURLUbuntu,
+					URL: object.ImageURLAlpineBIOS,
 				}),
 			)
 

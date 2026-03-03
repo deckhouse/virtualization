@@ -23,7 +23,6 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -39,10 +38,7 @@ func MetaObjectKeyFunc(obj metav1.Object) string {
 }
 
 func KeyFunc(namespace, name string) string {
-	return types.NamespacedName{
-		Namespace: namespace,
-		Name:      name,
-	}.String()
+	return cache.ObjectName{Namespace: namespace, Name: name}.String()
 }
 
 type Controller interface {
@@ -50,6 +46,14 @@ type Controller interface {
 	HasSynced() bool
 	Sync(ctx context.Context, key string) error
 	Logger() *slog.Logger
+}
+
+type ExpansionStart interface {
+	Start(ctx context.Context) error
+}
+
+type ExpansionStop interface {
+	Stop()
 }
 
 func Run(controller Controller, ctx context.Context, workers int) error {
@@ -86,7 +90,18 @@ func (c *controller) Run(ctx context.Context, workers int) error {
 		go wait.UntilWithContext(ctx, c.worker, time.Second)
 	}
 
+	if exp, ok := c.controller.(ExpansionStart); ok {
+		if err := exp.Start(ctx); err != nil {
+			return fmt.Errorf("failed to start controller: %w", err)
+		}
+	}
+
 	<-ctx.Done()
+
+	if exp, ok := c.controller.(ExpansionStop); ok {
+		exp.Stop()
+	}
+
 	return nil
 }
 
