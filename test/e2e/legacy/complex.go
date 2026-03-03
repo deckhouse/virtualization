@@ -145,14 +145,14 @@ var _ = Describe("ComplexTest", Ordered, func() {
 				Timeout:        MaxWaitTimeout,
 			})
 		})
-	})
 
-	It("checks VDs phases with no consumers", func() {
-		By(fmt.Sprintf("VDs should be in %s phases", phaseByVolumeBindingMode))
-		WaitPhaseByLabel(kc.ResourceVD, phaseByVolumeBindingMode, kc.WaitOptions{
-			Labels:    hasNoConsumerLabel,
-			Namespace: ns,
-			Timeout:   MaxWaitTimeout,
+		It("checks VDs phases with no consumers", func() {
+			By(fmt.Sprintf("VDs should be in %s phases", phaseByVolumeBindingMode))
+			WaitPhaseByLabel(kc.ResourceVD, phaseByVolumeBindingMode, kc.WaitOptions{
+				Labels:    hasNoConsumerLabel,
+				Namespace: ns,
+				Timeout:   MaxWaitTimeout,
+			})
 		})
 	})
 
