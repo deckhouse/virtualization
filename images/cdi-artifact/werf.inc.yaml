@@ -25,7 +25,7 @@ packages:
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
-fromCacheVersion: "add new made-up error 2"
+fromCacheVersion: "add new made-up error 3"
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}
     to: /src
