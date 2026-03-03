@@ -59,7 +59,7 @@ spec:
 
             Once a VirtualDisk is created, only the disk size field `.spec.persistentVolumeClaim.size` can be changed. All other fields are immutable.
 
-            **Note:** The `metadata.name` field must comply with [Kubernetes object naming conventions](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/) and **must not exceed 60 characters**.
+            **Note:** The `metadata.name` field must comply with [Kubernetes object naming conventions](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/) and must not exceed 60 characters.
           properties:
             apiVersion:
               description: |-
