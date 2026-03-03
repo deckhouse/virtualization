@@ -28,6 +28,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
+	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
 const (
@@ -37,9 +38,11 @@ const (
 
 var _ = Describe("ComplexTest", Ordered, func() {
 	var (
-		testCaseLabel = map[string]string{"testcase": "complex-test"}
-		ns            string
-		f             = framework.NewFramework("")
+		testCaseLabel            = map[string]string{"testcase": "complex-test"}
+		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "complex-test"}
+		ns                       string
+		phaseByVolumeBindingMode = util.GetExpectedDiskPhaseByVolumeBindingMode()
+		f                        = framework.NewFramework("")
 	)
 
 	AfterEach(func() {
@@ -141,6 +144,15 @@ var _ = Describe("ComplexTest", Ordered, func() {
 				Namespace:      ns,
 				Timeout:        MaxWaitTimeout,
 			})
+		})
+	})
+
+	It("checks VDs phases with no consumers", func() {
+		By(fmt.Sprintf("VDs should be in %s phases", phaseByVolumeBindingMode))
+		WaitPhaseByLabel(kc.ResourceVD, phaseByVolumeBindingMode, kc.WaitOptions{
+			Labels:    hasNoConsumerLabel,
+			Namespace: ns,
+			Timeout:   MaxWaitTimeout,
 		})
 	})
 

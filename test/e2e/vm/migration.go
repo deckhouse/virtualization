@@ -18,7 +18,6 @@ package vm
 
 import (
 	"context"
-	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -32,7 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vmbda"
-	"github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
+	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/network"
@@ -61,37 +60,20 @@ var _ = Describe("VirtualMachineMigration", func() {
 		vmbdas     []*v1alpha2.VirtualMachineBlockDeviceAttachment
 		allObjects []crclient.Object
 
-		vmbdasShouldBeAttached atomic.Bool
-		testEnded              atomic.Bool
+		vmopMigrateBIOS *v1alpha2.VirtualMachineOperation
+		vmopMigrateUEFI *v1alpha2.VirtualMachineOperation
 
 		f = framework.NewFramework("vm-migration")
 	)
 
 	BeforeEach(func() {
 		DeferCleanup(f.After)
-		DeferCleanup(func() {
-			vmbdasShouldBeAttached.Store(false)
-			testEnded.Store(true)
-		})
 
 		f.Before()
-		vmbdasShouldBeAttached.Store(false)
-		testEnded.Store(false)
-
-		go func() {
-			defer GinkgoRecover()
-			for !testEnded.Load() {
-				if vmbdasShouldBeAttached.Load() && vmbdas != nil {
-					checkVmbdasAttached(f, vmbdas)
-				}
-				time.Sleep(time.Second)
-			}
-		}()
 	})
 
 	It("verifies that migrations are successful", func() {
 		By("Environment preparation", func() {
-			// --- BIOS VM and root disks ---
 			vdRootBIOS = vd.New(
 				vd.WithName("vd-root-bios"),
 				vd.WithNamespace(f.Namespace().Name),
@@ -106,7 +88,6 @@ var _ = Describe("VirtualMachineMigration", func() {
 				vd.WithSize(ptr.To(resource.MustParse("100Mi"))),
 			)
 
-			// --- UEFI VM and root disks ---
 			vdRootUEFI = vd.New(
 				vd.WithName("vd-root-uefi"),
 				vd.WithNamespace(f.Namespace().Name),
@@ -151,7 +132,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 				vm.WithName("vm-uefi"),
 			)
 
-			// --- Hotplug virtual disks ---
+			// --- Hotplug resources ---
 			vdHotplugBIOS = vd.New(
 				vd.WithName("vd-hotplug-bios"),
 				vd.WithNamespace(f.Namespace().Name),
@@ -163,7 +144,6 @@ var _ = Describe("VirtualMachineMigration", func() {
 				vd.WithSize(ptr.To(resource.MustParse("100Mi"))),
 			)
 
-			// --- Hotplug virtual images ---
 			viHotplugBIOS = vi.New(
 				vi.WithName("vi-hotplug-bios"),
 				vi.WithNamespace(f.Namespace().Name),
@@ -177,7 +157,6 @@ var _ = Describe("VirtualMachineMigration", func() {
 				vi.WithStorage(v1alpha2.StorageContainerRegistry),
 			)
 
-			// --- Hotplug cluster virtual images ---
 			cviHotplugBIOS = cvi.New(
 				cvi.WithName("cvi-hotplug-bios"),
 				cvi.WithDataSourceHTTP(object.ImageURLMinimalQCOW, nil, nil),
@@ -187,7 +166,6 @@ var _ = Describe("VirtualMachineMigration", func() {
 				cvi.WithDataSourceHTTP(object.ImageURLMinimalQCOW, nil, nil),
 			)
 
-			// --- Block device attachments (VD, VI, CVI × BIOS/UEFI) ---
 			vmbdaVdBIOS := vmbda.New(
 				vmbda.WithName("vmbda-vd-bios"),
 				vmbda.WithNamespace(f.Namespace().Name),
@@ -242,17 +220,37 @@ var _ = Describe("VirtualMachineMigration", func() {
 				string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.LongTimeout,
 				toObjects(vmbdas)...,
 			)
-			vmbdasShouldBeAttached.Store(true)
 		})
 
 		By("Create VMOP to trigger migration", func() {
-			util.MigrateVirtualMachine(f, vmBIOS, vmop.WithGenerateName("vmop-migrate-bios-"))
-			util.MigrateVirtualMachine(f, vmUEFI, vmop.WithGenerateName("vmop-migrate-uefi-"))
+			vmopMigrateBIOS = vmopbuilder.New(
+				vmopbuilder.WithGenerateName("vmop-migrate-bios-evict-"),
+				vmopbuilder.WithNamespace(f.Namespace().Name),
+				vmopbuilder.WithType(v1alpha2.VMOPTypeEvict),
+				vmopbuilder.WithVirtualMachine(vmBIOS.Name),
+			)
+			vmopMigrateUEFI = vmopbuilder.New(
+				vmopbuilder.WithGenerateName("vmop-migrate-uefi-evict-"),
+				vmopbuilder.WithNamespace(f.Namespace().Name),
+				vmopbuilder.WithType(v1alpha2.VMOPTypeEvict),
+				vmopbuilder.WithVirtualMachine(vmUEFI.Name),
+			)
+			err := f.CreateWithDeferredDeletion(context.Background(), vmopMigrateBIOS, vmopMigrateUEFI)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		By("Wait for migration to complete", func() {
-			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vmBIOS), framework.LongTimeout)
-			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vmUEFI), framework.LongTimeout)
+			Eventually(func(g Gomega) {
+				err := f.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vmopMigrateBIOS), vmopMigrateBIOS)
+				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
+				err = f.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vmopMigrateUEFI), vmopMigrateUEFI)
+				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
+
+				checkVmbdasAttached(f, vmbdas) // Intentionally fail the test on a single error
+
+				g.Expect(vmopMigrateBIOS.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
+				g.Expect(vmopMigrateUEFI.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
+			}).WithPolling(time.Second).WithTimeout(framework.LongTimeout).To(Succeed())
 		})
 
 		// There is a known issue with the Cilium agent check.
