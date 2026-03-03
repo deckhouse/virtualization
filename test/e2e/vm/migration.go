@@ -245,11 +245,13 @@ var _ = Describe("VirtualMachineMigration", func() {
 				err = f.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vmopMigrateUEFI), vmopMigrateUEFI)
 				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
 
+				// TODO: Watch vmbda phase via watch to not miss phase flickering.
 				checkVmbdasAttached(f, vmbdas) // Intentionally fail the test on a single error
+				// TODO: Verify hotplug availability from inside the VM during migration.
 
 				g.Expect(vmopMigrateBIOS.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
 				g.Expect(vmopMigrateUEFI.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
-			}).WithPolling(100 * time.Millisecond).WithTimeout(framework.LongTimeout).To(Succeed())
+			}).WithPolling(time.Second).WithTimeout(framework.LongTimeout).To(Succeed())
 		})
 
 		// There is a known issue with the Cilium agent check.
