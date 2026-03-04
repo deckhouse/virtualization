@@ -25,7 +25,7 @@ packages:
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
-fromCacheVersion: "final version"
+fromCacheVersion: "NFS_SUPER_MAGIC"
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}
     to: /src
