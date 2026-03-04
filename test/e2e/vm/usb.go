@@ -67,7 +67,7 @@ var _ = Describe("VirtualMachineUSB", func() {
 			t.assignNodeUSB()
 
 			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, t.VM)
-			util.UntilSSHReady(f, t.VM, framework.ShortTimeout)
+			util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 		})
 
 		By("Waiting for USB device to be attached and ready", func() {
