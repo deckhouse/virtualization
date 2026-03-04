@@ -53,11 +53,20 @@ spec:
           VM route forge component requires root privileges to interact with the host network layer.
 
     runAsNonRoot:
-      allowedValue: false
+      allowedValues:
+      - false
+      - true
       metadata:
         description: |
           Allow containers to run as root user (non-root disabled).
           VM route forge component requires root privileges to interact with the host network layer.
+
+    allowPrivilegeEscalation:
+      allowedValue: true
+      metadata:
+        description: |
+          Allow privilege escalation for the virt-handler container.
+          Virt-handler component requires privilege escalation to access kernel-level system calls.
 
     privileged:
       allowedValue: true
@@ -108,7 +117,7 @@ spec:
           {{- range .Values.virtualization.internal.moduleConfig.virtualMachineCIDRs }}
           - --cidr={{ . }}
           {{- end }}
-          {{- include "helm_lib_module_container_security_context_privileged_read_only_root_filesystem" . | nindent 10 }}
+          {{- include "helm_lib_module_container_security_context_pss_restricted_flexible" (dict "ro" true "caps" (list "NET_ADMIN") "uid" 0 "runAsNonRoot" false) | nindent 10 -}}
           image: {{ include "helm_lib_module_image" (list . "vmRouteForge") }}
           imagePullPolicy: "IfNotPresent"
           env:
