@@ -55,7 +55,7 @@ var _ = Describe("VirtualMachineUSB", func() {
 
 	It("should write data to USB device and preserve after reconnection", func() {
 		By("Environment preparation", func() {
-            // TODO: Move all preflight checks to the `SynchronizedBeforeSuite` to ensure they are executed in a synchronized context.
+			// TODO: Move all preflight checks to the `SynchronizedBeforeSuite` to ensure they are executed in a synchronized context.
 			if !t.checkDummyHCDConfigured() {
 				Skip("dummy_hcd is not configured. Run generate_dummy_hcd_ngc.sh first.")
 			}
@@ -185,7 +185,16 @@ func (t *VMUSBTest) GenerateEnvironmentResources() {
 	nodeUSBList, err := virtClient.NodeUSBDevices().List(ctx, metav1.ListOptions{})
 	Expect(err).NotTo(HaveOccurred())
 
-	t.NodeUSBDevice = &nodeUSBList.Items[0]
+	var freeUSB *v1alpha2.NodeUSBDevice
+	for i := range nodeUSBList.Items {
+		if nodeUSBList.Items[i].Spec.AssignedNamespace == "" {
+			freeUSB = &nodeUSBList.Items[i]
+			break
+		}
+	}
+	Expect(freeUSB).NotTo(BeNil(), "no free USB devices available")
+
+	t.NodeUSBDevice = freeUSB
 
 	usbNodeName := t.NodeUSBDevice.Status.NodeName
 	Expect(usbNodeName).NotTo(BeEmpty(), "USB device must have a node assigned")
