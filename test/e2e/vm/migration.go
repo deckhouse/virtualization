@@ -149,23 +149,23 @@ var _ = Describe("VirtualMachineMigration", func() {
 			viHotplugBIOS = vi.New(
 				vi.WithName("vi-hotplug-bios"),
 				vi.WithNamespace(f.Namespace().Name),
-				vi.WithDataSourceHTTP(object.ImageURLMinimalQCOW, nil, nil),
+				vi.WithDataSourceHTTP(object.ImageTestDataQCOW, nil, nil),
 				vi.WithStorage(v1alpha2.StorageContainerRegistry),
 			)
 			viHotplugUEFI = vi.New(
 				vi.WithName("vi-hotplug-uefi"),
 				vi.WithNamespace(f.Namespace().Name),
-				vi.WithDataSourceHTTP(object.ImageURLMinimalQCOW, nil, nil),
+				vi.WithDataSourceHTTP(object.ImageTestDataQCOW, nil, nil),
 				vi.WithStorage(v1alpha2.StorageContainerRegistry),
 			)
 
 			cviHotplugBIOS = cvi.New(
 				cvi.WithName("cvi-hotplug-bios"),
-				cvi.WithDataSourceHTTP(object.ImageURLMinimalQCOW, nil, nil),
+				cvi.WithDataSourceHTTP(object.ImageTestDataQCOW, nil, nil),
 			)
 			cviHotplugUEFI = cvi.New(
 				cvi.WithName("cvi-hotplug-uefi"),
-				cvi.WithDataSourceHTTP(object.ImageURLMinimalQCOW, nil, nil),
+				cvi.WithDataSourceHTTP(object.ImageTestDataQCOW, nil, nil),
 			)
 
 			vmbdaVdBIOS := vmbda.New(
