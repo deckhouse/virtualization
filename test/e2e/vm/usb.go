@@ -187,7 +187,7 @@ func (t *VMUSBTest) GenerateEnvironmentResources() {
 
 	var freeUSB *v1alpha2.NodeUSBDevice
 	for i := range nodeUSBList.Items {
-		if nodeUSBList.Items[i].Spec.AssignedNamespace == "" {
+		if nodeUSBList.Items[i].Status.Attributes.VendorID == "1d6b" && nodeUSBList.Items[i].Status.Attributes.ProductID == "0104" && nodeUSBList.Items[i].Spec.AssignedNamespace == "" {
 			freeUSB = &nodeUSBList.Items[i]
 			break
 		}
