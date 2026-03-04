@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -125,8 +126,13 @@ func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmip *v
 	}
 
 	if attachedVM != nil {
+		kvvm, err := object.FetchObject(ctx, types.NamespacedName{Name: attachedVM.Name, Namespace: attachedVM.Namespace}, h.client, &virtv1.VirtualMachine{})
+		if err != nil {
+			return nil, err
+		}
+
 		// A VM that is being deleted is not considered attached so the VMIP can be released and, if managed, removed (e.g. during cascade deletion).
-		if !attachedVM.GetDeletionTimestamp().IsZero() {
+		if !attachedVM.GetDeletionTimestamp().IsZero() && kvvm == nil {
 			return nil, nil
 		}
 		if network.HasMainNetworkStatus(attachedVM.Status.Networks) {
