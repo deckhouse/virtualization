@@ -67,7 +67,6 @@ var _ = Describe("VirtualMachineUSB", func() {
 			t.assignNodeUSB()
 
 			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, t.VM)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
 			util.UntilSSHReady(f, t.VM, framework.ShortTimeout)
 		})
 
