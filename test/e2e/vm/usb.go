@@ -55,6 +55,7 @@ var _ = Describe("VirtualMachineUSB", func() {
 
 	It("should write data to USB device and preserve after reconnection", func() {
 		By("Environment preparation", func() {
+            // TODO: Move all preflight checks to the `SynchronizedBeforeSuite` to ensure they are executed in a synchronized context.
 			if !t.checkDummyHCDConfigured() {
 				Skip("dummy_hcd is not configured. Run generate_dummy_hcd_ngc.sh first.")
 			}
