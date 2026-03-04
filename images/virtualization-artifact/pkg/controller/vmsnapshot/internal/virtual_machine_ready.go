@@ -87,7 +87,7 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmSnapshot *v1al
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmscondition.VirtualMachineNotReadyForSnapshotting).
-			Message("The virtual machine is migrating at the moment, so a snapshot cannot be taken.")
+			Message("Snapshot cannot be taken: the virtual machine is currently migrating.")
 		return reconcile.Result{}, nil
 	}
 
