@@ -75,6 +75,10 @@ spec:
     WORK_DIR="/var/lib/dummy-hcd"
     USB_IMAGES_DIR="\$WORK_DIR/images"
 
+    # Create work directory early to avoid issues
+    mkdir -p "\$WORK_DIR"
+    mkdir -p "\$USB_IMAGES_DIR"
+
     bb-log-info "Setting up dummy_hcd for \$NUM_USB_DEVICES virtual USB devices (filesystem: \$FILESYSTEM)"
 
     # Detect OS and install required packages
