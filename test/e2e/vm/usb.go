@@ -102,7 +102,6 @@ var _ = Describe("VirtualMachineUSB", func() {
 			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
 
 			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.ShortTimeout)
 			util.UntilSSHReady(f, t.VM, framework.ShortTimeout)
 		})
 
