@@ -70,7 +70,7 @@ var _ = Describe("LocalVirtualDiskMigration", decoratorsForVolumeMigrations(), f
 
 		DeferCleanup(f.After)
 
-		newVI := object.NewGeneratedHTTPVIUbuntu("volume-migration-local-disks-", f.Namespace().Name)
+		newVI := object.NewGeneratedHTTPVIAlpineBIOS("volume-migration-local-disks-", f.Namespace().Name)
 		newVI, err := f.VirtClient().VirtualImages(f.Namespace().Name).Create(context.Background(), newVI, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(newVI)
@@ -78,8 +78,8 @@ var _ = Describe("LocalVirtualDiskMigration", decoratorsForVolumeMigrations(), f
 	})
 
 	const (
-		vdRootName       = "vd-ubuntu-root-disk"
-		vdAdditionalName = "vd-ubuntu-additional-disk"
+		vdRootName       = "vd-alpine-root-disk"
+		vdAdditionalName = "vd-alpine-additional-disk"
 	)
 
 	localMigrationRootOnlyBuild := func() (*v1alpha2.VirtualMachine, []*v1alpha2.VirtualDisk) {
