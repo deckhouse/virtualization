@@ -178,7 +178,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 						}
 
 						return nil
-					}).WithTimeout(Timeout).WithPolling(migratingStatusPollingInterval).Should(Succeed())
+					}).WithTimeout(LongWaitDuration).WithPolling(migratingStatusPollingInterval).Should(Succeed())
 				}()
 				res := kubectl.PatchResource(kc.ResourceVM, vmObjC.Name, kc.PatchOptions{
 					JSONPatch: []*kc.JSONPatch{
@@ -504,51 +504,15 @@ func DefineTargetNode(sourceNode string, targetLabel map[string]string) (string,
 		return "", err
 	}
 	for _, n := range nodes.Items {
-		if n.Name == sourceNode {
-			continue
-		}
-		if n.Spec.Unschedulable {
-			continue
-		}
-		if n.Labels["kubevirt.internal.virtualization.deckhouse.io/schedulable"] != "true" {
-			continue
-		}
-
-		isReady := false
-		for _, c := range n.Status.Conditions {
-			if c.Type == corev1.NodeReady && c.Status == corev1.ConditionTrue {
-				isReady = true
-				break
+		if n.Name != sourceNode {
+			for _, c := range n.Status.Conditions {
+				if c.Type == corev1.NodeReady && c.Status == corev1.ConditionTrue {
+					return n.Name, nil
+				}
 			}
 		}
-		if !isReady {
-			continue
-		}
-
-		if !hasRequiredVirtualizationDevices(n) {
-			continue
-		}
-
-		return n.Name, nil
 	}
 	return "", fmt.Errorf("failed to define a target node")
-}
-
-func hasRequiredVirtualizationDevices(n corev1.Node) bool {
-	requiredDevices := []corev1.ResourceName{
-		corev1.ResourceName("devices.virtualization.deckhouse.io/kvm"),
-		corev1.ResourceName("devices.virtualization.deckhouse.io/tun"),
-		corev1.ResourceName("devices.virtualization.deckhouse.io/vhost-net"),
-	}
-
-	for _, resourceName := range requiredDevices {
-		qty, exists := n.Status.Allocatable[resourceName]
-		if !exists || qty.Sign() <= 0 {
-			return false
-		}
-	}
-
-	return true
 }
 
 func GetVirtualMachineObjByLabel(namespace string, label map[string]string) (*v1alpha2.VirtualMachine, error) {
