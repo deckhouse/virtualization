@@ -87,7 +87,13 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 				err := f.CreateWithDeferredDeletion(context.Background(), vdFooRoot, vdBarRoot, vmFoo, vmBar)
 				Expect(err).NotTo(HaveOccurred())
 
-				By(fmt.Sprintf("Wait until vms %s and %s in pahe running", vmFoo.GetName(), vmBar.GetName()), func() {
+				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmFoo, vmBar)
+				util.UntilSSHReady(f, vmFoo, framework.LongTimeout)
+				if tc.vmBarHasMainNetwork {
+					util.UntilSSHReady(f, vmBar, framework.LongTimeout)
+				}
+
+				By(fmt.Sprintf("Wait until vms %s and %s in phase running", vmFoo.GetName(), vmBar.GetName()), func() {
 					util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmFoo, vmBar)
 				})
 			})
@@ -221,7 +227,7 @@ func checkConnectivityBetweenVMs(f *framework.Framework, vmFoo, vmBar *v1alpha2.
 
 const (
 	Interval = 1 * time.Second
-	Timeout  = 120 * time.Second
+	Timeout  = 90 * time.Second
 )
 
 func checkResultSSHCommand(f *framework.Framework, vmName, vmNamespace, cmd, equal string) {
