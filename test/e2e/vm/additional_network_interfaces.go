@@ -39,15 +39,6 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-const (
-	// IPs on additional network interface for connectivity check between VMs.
-	// When VM has Main network, additional interface is eth1; otherwise it's eth0.
-	vmFooAdditionalIP1 = "192.168.1.10"
-	vmBarAdditionalIP1 = "192.168.1.11"
-	vmFooAdditionalIP2 = "192.168.1.12"
-	vmBarAdditionalIP2 = "192.168.1.13"
-)
-
 type additionalNetworkTestCase struct {
 	vmBarHasMainNetwork bool
 	vmFooAdditionalIP   string
@@ -106,7 +97,9 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 				err := f.CreateWithDeferredDeletion(context.Background(), vdFooRoot, vdBarRoot, vmFoo, vmBar)
 				Expect(err).NotTo(HaveOccurred())
 
-				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmFoo, vmBar)
+				By(fmt.Sprintf("Wait until vms %s and %s in pahe running", vmFoo.GetName(), vmBar.GetName()), func() {
+					util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmFoo, vmBar)
+				})
 				By(fmt.Sprintf("Wait agent on vm %s", vmFoo.GetName()), func() {
 					util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmFoo), framework.LongTimeout)
 				})
@@ -159,8 +152,8 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 				checkConnectivityBetweenVMs(f, vmFoo, vmBar, tc.vmBarHasMainNetwork, tc.vmBarAdditionalIP, tc.vmFooAdditionalIP)
 			})
 		},
-		Entry("Main + additional network", additionalNetworkTestCase{vmBarHasMainNetwork: true, vmFooAdditionalIP: vmFooAdditionalIP1, vmBarAdditionalIP: vmBarAdditionalIP1}),
-		Entry("Only additional network (vm-bar without Main)", additionalNetworkTestCase{vmBarHasMainNetwork: false, vmFooAdditionalIP: vmFooAdditionalIP2, vmBarAdditionalIP: vmBarAdditionalIP2}),
+		Entry("Main + additional network", additionalNetworkTestCase{vmBarHasMainNetwork: true, vmFooAdditionalIP: "192.168.42.10", vmBarAdditionalIP: "192.168.42.11"}),
+		Entry("Only additional network (vm-bar without Main)", additionalNetworkTestCase{vmBarHasMainNetwork: false, vmFooAdditionalIP: "192.168.42.12", vmBarAdditionalIP: "192.168.42.13"}),
 	)
 })
 
