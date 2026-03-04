@@ -113,11 +113,6 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 				By(fmt.Sprintf("Wait agent on vm %s", vmBar.GetName()), func() {
 					util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmFoo), framework.LongTimeout)
 				})
-
-				// util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmBar), framework.LongTimeout)
-				// if tc.vmBarHasMainNetwork {
-				// 	util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmBar), framework.LongTimeout)
-				// }
 			})
 
 			By("Wait for additional network interfaces to be ready", func() {
