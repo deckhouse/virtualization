@@ -60,7 +60,6 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		watcher.NewVirtualMachineIPAddressWatcher(),
 		watcher.NewVirtualMachineIPAddressLeaseWatcher(mgr.GetClient()),
 		watcher.NewVirtualMachineWatcher(mgr.GetClient()),
-		watcher.NewKVVMWatcher(mgr.GetClient()),
 	} {
 		err := w.Watch(mgr, ctr)
 		if err != nil {
