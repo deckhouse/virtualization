@@ -35,17 +35,12 @@ import (
 
 const nameHotplugHandler = "HotplugHandler"
 
-type hotplugService interface {
-	HotPlugDisk(ctx context.Context, ad *service.AttachmentDisk, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) error
-	UnplugDisk(ctx context.Context, kvvm *virtv1.VirtualMachine, diskName string) error
-}
-
-func NewHotplugHandler(svc hotplugService) *HotplugHandler {
+func NewHotplugHandler(svc HotplugService) *HotplugHandler {
 	return &HotplugHandler{svc: svc}
 }
 
 type HotplugHandler struct {
-	svc hotplugService
+	svc HotplugService
 }
 
 func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
