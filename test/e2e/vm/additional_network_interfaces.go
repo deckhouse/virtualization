@@ -206,11 +206,6 @@ write_files:
       iface %s inet static
           address %s
           netmask 255.255.255.0
-runcmd:
-  - "rc-update add qemu-guest-agent && rc-service qemu-guest-agent start"
-  - "rc-update add sshd && rc-service sshd start"
-  - "rc-update add networking boot && rc-service networking restart"
-  - "chown -R cloud:cloud /home/cloud"
 `, ifaceName, ifaceName, additionalIP)
 }
 
