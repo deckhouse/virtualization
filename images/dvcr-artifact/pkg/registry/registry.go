@@ -155,9 +155,7 @@ func (p DataProcessor) Process(ctx context.Context) (ImportRes, error) {
 				klog.Infof("source streaming: pipe is closed by upload: %s", err.Error())
 				err = nil
 			} else {
-				if ctx.Err() != context.Canceled {
-					cancel()
-				}
+				cancel()
 				err = fmt.Errorf("source streaming error: %w", err)
 				klog.Errorln(err)
 			}
@@ -172,9 +170,7 @@ func (p DataProcessor) Process(ctx context.Context) (ImportRes, error) {
 			ctx, pipeReader, sourceImageSize, informer,
 		)
 		if err != nil {
-			if ctx.Err() != context.Canceled {
-				cancel()
-			}
+			cancel()
 			err = fmt.Errorf("layers uploading error: %w", err)
 			klog.Errorln(err)
 		}
