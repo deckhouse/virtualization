@@ -2107,11 +2107,26 @@ Block devices and their features are shown in the table below:
 
 #### Boot Block Devices
 
-Boot block devices are defined in the virtual machine specification in the `.spec.blockDeviceRefs` block as a list. The order of the devices in this list determines the sequence in which they are loaded. Thus, if a disk or image is specified first, the loader will first try to boot from it. If it fails, the system will go to the next device in the list and try to boot from it. And so on until the first boot loader is detected.
+Boot block devices are defined in the virtual machine specification in the `.spec.blockDeviceRefs` block as a list.
 
-Changing the composition and order of devices in the `.spec.blockDeviceRefs` block is possible only with a reboot of the virtual machine.
+By default, the boot order follows the position in the list. You can override this with the optional `bootOrder` field — a smaller value means a higher boot priority. If `bootOrder` is set for at least one device, only devices with an explicit `bootOrder` participate in the boot sequence. Values must be unique and >= 1.
 
-VirtualMachine configuration fragment with statically connected disk and project image:
+Adding or removing block devices in the `.spec.blockDeviceRefs` block is applied without a reboot. Changing the order of devices or `bootOrder` values requires a reboot of the virtual machine.
+
+VirtualMachine configuration fragment with block devices and explicit boot order:
+
+```yaml
+spec:
+  blockDeviceRefs:
+    - kind: VirtualDisk
+      name: <virtual-disk-name>
+      bootOrder: 1
+    - kind: VirtualImage
+      name: <virtual-image-name>
+      bootOrder: 2
+```
+
+To attach a disk to a running virtual machine, add it to the `.spec.blockDeviceRefs` list:
 
 ```yaml
 spec:
@@ -2120,7 +2135,11 @@ spec:
       name: <virtual-disk-name>
     - kind: VirtualImage
       name: <virtual-image-name>
+    - kind: VirtualDisk
+      name: <additional-disk-name>
 ```
+
+To detach a disk, remove it from the list. The disk will be detached from the running virtual machine without a reboot.
 
 How to work with bootable block devices in the web interface:
 
@@ -2132,11 +2151,9 @@ How to work with bootable block devices in the web interface:
 
 #### Additional Block Devices
 
-Additional block devices can be connected and disconnected from a virtual machine that is in a running state without having to reboot it.
+Alternatively, additional block devices can be connected and disconnected from a running virtual machine using the `VirtualMachineBlockDeviceAttachment` (`vmbda`) resource.
 
-The `VirtualMachineBlockDeviceAttachment` (`vmbda`) resource is used to connect additional block devices.
-
-As an example, create the following share that connects an empty blank-disk disk to a linux-vm virtual machine:
+As an example, create the following resource that connects an empty blank-disk disk to a linux-vm virtual machine:
 
 ```yaml
 d8 k apply -f - <<EOF
