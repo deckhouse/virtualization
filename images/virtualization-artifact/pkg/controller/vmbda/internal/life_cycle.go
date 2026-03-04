@@ -192,6 +192,19 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 	}
 
 	log = log.With("vmName", vm.Name, "attachmentDiskName", ad.Name)
+
+	_, canErr := h.attacher.CanHotPlug(ad, vm, kvvm)
+	if errors.Is(canErr, service.ErrBlockDeviceIsSpecAttached) {
+		log.Info("VirtualDisk is already attached to the virtual machine spec")
+
+		vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseFailed
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.Conflict).
+			Message(service.CapitalizeFirstLetter(canErr.Error()))
+		return reconcile.Result{}, nil
+	}
+
 	log.Info("Check if hot plug is completed and disk is attached")
 
 	isHotPlugged, err := h.attacher.IsHotPlugged(ad, vm, kvvmi)
@@ -219,10 +232,8 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 		return reconcile.Result{}, nil
 	}
 
-	_, err = h.attacher.CanHotPlug(ad, vm, kvvm)
-
 	switch {
-	case err == nil:
+	case canErr == nil:
 		blockDeviceLimitCondition, _ := conditions.GetCondition(vmbdacondition.DiskAttachmentCapacityAvailableType, vmbda.Status.Conditions)
 		if blockDeviceLimitCondition.Status != metav1.ConditionTrue {
 			log.Info("Virtual machine block device capacity reached")
@@ -277,16 +288,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 			Reason(vmbdacondition.AttachmentRequestSent).
 			Message("Attachment request has sent: attachment is in progress.")
 		return reconcile.Result{}, nil
-	case errors.Is(err, service.ErrBlockDeviceIsSpecAttached):
-		log.Info("VirtualDisk is already attached to the virtual machine spec")
-
-		vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseFailed
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vmbdacondition.Conflict).
-			Message(service.CapitalizeFirstLetter(err.Error()))
-		return reconcile.Result{}, nil
-	case errors.Is(err, service.ErrHotPlugRequestAlreadySent):
+	case errors.Is(canErr, service.ErrHotPlugRequestAlreadySent):
 		log.Info("Attachment request sent: attachment is in progress.")
 
 		vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseInProgress
@@ -296,6 +298,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 			Message("Attachment request sent: attachment is in progress.")
 		return reconcile.Result{}, nil
 	default:
-		return reconcile.Result{}, err
+		return reconcile.Result{}, canErr
 	}
 }
