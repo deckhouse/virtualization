@@ -40,7 +40,7 @@ import (
 func NewKVVMWatcher(client client.Client) *KVVMWatcher {
 	return &KVVMWatcher{
 		client: client,
-		logger: log.Default().With("watcher", strings.ToLower(v1alpha2.VirtualMachineKind)),
+		logger: log.Default().With("watcher", strings.ToLower(virtv1.VirtualMachineGroupVersionKind.Kind)),
 	}
 }
 
