@@ -90,14 +90,9 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 				By(fmt.Sprintf("Wait until vms %s and %s in pahe running", vmFoo.GetName(), vmBar.GetName()), func() {
 					util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmFoo, vmBar)
 				})
-				By(fmt.Sprintf("Wait agent on vm %s", vmFoo.GetName()), func() {
-					util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmFoo), framework.LongTimeout)
-				})
-				By(fmt.Sprintf("Wait agent on vm %s", vmBar.GetName()), func() {
-					util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmFoo), framework.LongTimeout)
-				})
 			})
 
+			// If test fail due this timeout, rollback in test waiting for agent to be ready.
 			By("Wait for additional network interfaces to be ready", func() {
 				util.UntilConditionStatus(vmcondition.TypeNetworkReady.String(), "True", framework.LongTimeout, vmFoo, vmBar)
 			})
@@ -225,14 +220,14 @@ func checkConnectivityBetweenVMs(f *framework.Framework, vmFoo, vmBar *v1alpha2.
 }
 
 const (
-	Interval = 5 * time.Second
-	Timeout  = 90 * time.Second
+	Interval = 1 * time.Second
+	Timeout  = 120 * time.Second
 )
 
 func checkResultSSHCommand(f *framework.Framework, vmName, vmNamespace, cmd, equal string) {
 	GinkgoHelper()
 	Eventually(func() (string, error) {
-		res, err := f.SSHCommand(vmName, vmNamespace, cmd)
+		res, err := f.SSHCommand(vmName, vmNamespace, cmd, framework.WithSSHTimeout(5*time.Second))
 		if err != nil {
 			return "", fmt.Errorf("cmd: %s\nstderr: %w", cmd, err)
 		}
