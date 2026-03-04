@@ -117,7 +117,7 @@ spec:
           {{- range .Values.virtualization.internal.moduleConfig.virtualMachineCIDRs }}
           - --cidr={{ . }}
           {{- end }}
-          {{- include "helm_lib_module_container_security_context_pss_restricted_flexible" (dict "ro" true "caps" (list "NET_ADMIN") "uid" 0 "runAsNonRoot" false) | nindent 10 -}}
+          {{- include "helm_lib_module_container_security_context_pss_restricted_flexible" (dict "ro" true "caps" (list "NET_ADMIN") "uid" 0 "runAsNonRoot" false) | nindent 10 }}
           image: {{ include "helm_lib_module_image" (list . "vmRouteForge") }}
           imagePullPolicy: "IfNotPresent"
           env:
