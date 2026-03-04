@@ -73,21 +73,11 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 			By("Environment preparation", func() {
 				ns := f.Namespace().Name
 
-				vdFooRoot = vd.New(
-					vd.WithName("vd-foo-root"),
-					vd.WithNamespace(ns),
+				vdFooRoot = object.NewHTTPVDAlpineUEFIPerf("vd-foo-root", ns,
 					vd.WithSize(ptr.To(resource.MustParse("512Mi"))),
-					vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-						URL: object.ImagesURLAlpineUEFIPerf,
-					}),
 				)
-				vdBarRoot = vd.New(
-					vd.WithName("vd-bar-root"),
-					vd.WithNamespace(ns),
+				vdBarRoot = object.NewHTTPVDAlpineUEFIPerf("vd-bar-root", ns,
 					vd.WithSize(ptr.To(resource.MustParse("512Mi"))),
-					vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-						URL: object.ImagesURLAlpineUEFIPerf,
-					}),
 				)
 
 				// vm-foo always has Main + ClusterNetwork so we can SSH to it.
