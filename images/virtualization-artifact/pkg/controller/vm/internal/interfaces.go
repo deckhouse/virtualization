@@ -19,8 +19,8 @@ package internal
 import (
 	"context"
 
-	virtv1 "kubevirt.io/api/core/v1"
 	"k8s.io/client-go/tools/record"
+	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
