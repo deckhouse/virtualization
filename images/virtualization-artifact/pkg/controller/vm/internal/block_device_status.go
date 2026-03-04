@@ -227,7 +227,6 @@ func (h *BlockDeviceHandler) getBlockDeviceAttachmentName(ctx context.Context, k
 
 	switch len(vmbdas) {
 	case 0:
-		log.Error("No one vmbda was found for hot-plugged block device")
 		return "", nil
 	case 1:
 		// OK.
