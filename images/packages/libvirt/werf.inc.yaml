@@ -2,6 +2,7 @@
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
 final: false
 fromImage: builder/scratch
+fromCacheVersion: 1
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
@@ -11,9 +12,7 @@ import:
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/distroless
+fromCacheVersion: 1
 shell:
-  beforeInstall:
-    - pm --version
   install:
-    - pm --version
     - pm install libvirt -d /out
