@@ -25,9 +25,12 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -35,6 +38,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
@@ -47,11 +51,13 @@ type migratingVolumesService interface {
 }
 type MigratingHandler struct {
 	migratingVolumesService migratingVolumesService
+	client                  client.Client
 }
 
-func NewMigratingHandler(migratingVolumesService migratingVolumesService) *MigratingHandler {
+func NewMigratingHandler(migratingVolumesService migratingVolumesService, client client.Client) *MigratingHandler {
 	return &MigratingHandler{
 		migratingVolumesService: migratingVolumesService,
+		client:                  client,
 	}
 }
 
@@ -287,6 +293,23 @@ func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMa
 			Message("Cannot migrate the machine while a snapshot is in progress.")
 		conditions.SetCondition(cb, &vm.Status.Conditions)
 		return nil
+	}
+
+	for _, bd := range vm.Status.BlockDeviceRefs {
+		if bd.Kind == v1alpha2.VirtualDiskKind {
+			vd, err := object.FetchObject(ctx, types.NamespacedName{Name: bd.Name, Namespace: vm.Namespace}, h.client, &v1alpha2.VirtualDisk{})
+			if err != nil {
+				return err
+			}
+			vdSnapshotting, _ := conditions.GetCondition(vdcondition.SnapshottingType, vd.Status.Conditions)
+			if vdSnapshotting.Status == metav1.ConditionTrue {
+				cb.Status(metav1.ConditionFalse).
+					Reason(vmcondition.ReasonNonMigratable).
+					Message(fmt.Sprintf("Cannot migrate the machine while a snapshot is in progress on attached disk %q", vd.Name))
+				conditions.SetCondition(cb, &vm.Status.Conditions)
+				return nil
+			}
+		}
 	}
 
 	frozen, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, vm.Status.Conditions)
