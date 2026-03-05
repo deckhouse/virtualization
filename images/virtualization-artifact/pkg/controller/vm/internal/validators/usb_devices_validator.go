@@ -24,27 +24,38 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/component-base/featuregate"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type USBDevicesValidator struct {
-	client client.Client
+	client      client.Client
+	featureGate featuregate.FeatureGate
 }
 
-func NewUSBDevicesValidator(client client.Client) *USBDevicesValidator {
-	return &USBDevicesValidator{client: client}
+func NewUSBDevicesValidator(client client.Client, featureGate featuregate.FeatureGate) *USBDevicesValidator {
+	return &USBDevicesValidator{client: client, featureGate: featureGate}
 }
 
 func (v *USBDevicesValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+	if err := v.validateUSBFeature(vm); err != nil {
+		return nil, err
+	}
+
 	return v.validateUSBDevicesUnique(ctx, vm, nil)
 }
 
 func (v *USBDevicesValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+	if err := v.validateUSBFeature(newVM); err != nil {
+		return nil, err
+	}
+
 	if equality.Semantic.DeepEqual(oldVM.Spec.USBDevices, newVM.Spec.USBDevices) {
 		return nil, nil
 	}
@@ -106,6 +117,18 @@ func (v *USBDevicesValidator) validateUSBDevicesUnique(ctx context.Context, vm *
 	}
 
 	return nil, nil
+}
+
+func (v *USBDevicesValidator) validateUSBFeature(vm *v1alpha2.VirtualMachine) error {
+	if len(vm.Spec.USBDevices) == 0 {
+		return nil
+	}
+
+	if v.featureGate.Enabled(featuregates.USB) {
+		return nil
+	}
+
+	return fmt.Errorf("USB device attachment requires Kubernetes version 1.34 or newer and enabled DRA feature gates")
 }
 
 func getUSBDeviceNames(refs []v1alpha2.USBDeviceSpecRef) map[string]struct{} {
