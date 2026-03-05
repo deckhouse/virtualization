@@ -30,6 +30,15 @@ weight: 70
 
 - [vm] Для утилиты `vlctl` добавлен флаг `--from-file` для просмотра информации о домене из локального libvirt XML-файла.
 
+## v1.5.2
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 5 марта 2026.
+</span>
+
+### Исправления
+
+- [vd] Исправлен возможный `OOMKill` в процессе создания виртуального диска на NFS.
+
 ## v1.5.1
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Дата релиза: 16 февраля 2026.
