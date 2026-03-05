@@ -62,7 +62,7 @@ var _ = Describe("ImporterNetworkPolicy", func() {
 		util.UntilObjectState("Deployed", framework.ShortTimeout, project)
 
 		By("Create virtual disk")
-		vd := object.NewHTTPVDAlpineBIOS("vd-", project.Name)
+		vd := object.NewHTTPVDAlpineBIOS("vd", project.Name)
 		err = f.CreateWithDeferredDeletion(context.Background(), vd)
 		Expect(err).NotTo(HaveOccurred())
 
