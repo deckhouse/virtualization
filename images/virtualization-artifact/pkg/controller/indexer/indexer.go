@@ -69,8 +69,8 @@ const (
 
 	IndexFieldVMByProvisioningSecret = "spec.provisioning.secretRef"
 
-	IndexFieldEventByInvolvedObjectName = "involvedObject.name"
-	IndexFieldEventByInvolvedObjectKind = "involvedObject.kind"
+	IndexFieldEventByInvolvedObjectName        = "involvedObject.name"
+	IndexFieldEventByInvolvedObjectKind        = "involvedObject.kind"
 	IndexFieldUSBDeviceByName                  = "metadata.name"
 	IndexFieldNodeUSBDeviceByAssignedNamespace = "spec.assignedNamespace"
 
