@@ -1,0 +1,69 @@
+api:
+  features:
+    - summary: >-
+        Added support for attaching USB devices to virtual machines using the `.spec.usbDevices`
+        field. Introduced the `NodeUSBDevice` and `USBDevice` resources for managing USB devices
+        within the cluster:
+
+        - `NodeUSBDevice` (cluster-scoped): represents a USB device discovered on a specific node.
+        Allows assigning a USB device for use in a specific namespace.
+
+        - `USBDevice` (namespace-scoped): represents a USB device available for attachment to
+        virtual machines in a given namespace.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1913
+ci:
+  fixes:
+    - summary: resources cleanup before run e2e test
+      pull_request: https://github.com/deckhouse/virtualization/pull/2018
+    - summary: add retry for checking registry
+      pull_request: https://github.com/deckhouse/virtualization/pull/2005
+dvcr:
+  fixes:
+    - summary: Set Cap to limit delays to around 1m for each retry step.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1992
+module:
+  features:
+    - summary: >-
+        Enabled DVCR cleanup in clusters by default: daily at 02:00. You can override the schedule
+        via `dvcr.gc.schedule` in the `virtualization` module ModuleConfig.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2019
+    - summary: Added information about virtual machine pods to the virtual machine dashboard.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2002
+    - summary: >-
+        Added the `Virtualization / Overview` dashboard with an overview of the virtualization
+        platform status.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1956
+vd:
+  fixes:
+    - summary: >-
+        Fixed virtual disks hanging during creation in `WaitForFirstConsumer` mode on nodes with
+        taints.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1999
+vm:
+  fixes:
+    - summary: >-
+        If only the `Main` network is specified in `.spec.networks`, the `sdn` module is no longer
+        required.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2027
+    - summary: Retain kvvm.spec.template special system metadata during vm.metadata sync.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1994
+    - summary: Labels and annotations now work properly on virtual machines.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1971
+    - summary: >-
+        Fixed virtual machine migration with disks attached via
+        `VirtualMachineBlockDeviceAttachment` (hotplug): the target pod could exceed memory limits
+        (`OOMKilled`).
+      pull_request: https://github.com/deckhouse/virtualization/pull/1947
+vmbda:
+  fixes:
+    - summary: >-
+        Fixed an incorrect `Pending` phase for the `VirtualMachineBlockDeviceAttachment` resource
+        during virtual machine migration.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2011
+    - summary: >-
+        To remove disks and images attached to a virtual machine via
+        `VirtualMachineBlockDeviceAttachment` (hotplug), you must first detach them from the virtual
+        machine by deleting the corresponding `vmbda`. This information has been added to the
+        `vmbda` status.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2000
+

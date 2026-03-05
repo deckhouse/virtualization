@@ -36,10 +36,14 @@ func Retry(ctx context.Context, f Fn) error {
 	return ExponentialBackoff(ctx, f, defaultBackoff)
 }
 
-// Sleep for 3^0 then 3^1, 3^2 , ..., 3^7 seconds. This should cover networking blips.
+// Backoff with delays increasing with each step. Factor of 3 will overflow the Cap
+// in around 5 steps (1s -> 3s -> 9s -> 27s -> 1m21s (trimmed to Cap of 1m)) and then wait for another 15 minutes more.
+// Small delays at the start should cover networking blips and ~17 minutes overall
+// timeout should be enough to survive dvcr cleanup procedure.
 var defaultBackoff = Backoff{
 	Duration: time.Second,
 	Factor:   3.0,
 	Jitter:   0.1,
-	Steps:    9,
+	Steps:    20,
+	Cap:      time.Minute,
 }

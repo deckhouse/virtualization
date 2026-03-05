@@ -214,9 +214,9 @@ global:
     clusterMasterCount: 1
     clusterUUID: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
     d8SpecificNodeCountByRole: {}
-    kubernetesVersion: 1.27.16
+    kubernetesVersion: 1.35.0
     kubernetesVersions:
-      - 1.27.16
+      - 1.35.0
     podSubnet: 10.111.0.0/16
     prometheusScrapeInterval: 30
     serviceSubnet: 10.222.0.0/16
@@ -331,6 +331,8 @@ global:
         virtualizationApi: sha256:0000000000000000000000000000000000000000000000000000000000000000
         virtualizationController: sha256:0000000000000000000000000000000000000000000000000000000000000000
         vmRouteForge: sha256:0000000000000000000000000000000000000000000000000000000000000000
+        virtualizationDraUsb: sha256:0000000000000000000000000000000000000000000000000000000000000000
+        usbModules: sha256:0000000000000000000000000000000000000000000000000000000000000000
     registry:
       CA: ""
       address: some-registry.io

@@ -44,7 +44,7 @@ func (v *NetworksValidator) ValidateCreate(_ context.Context, vm *v1alpha2.Virtu
 		return nil, nil
 	}
 
-	if !v.featureGate.Enabled(featuregates.SDN) {
+	if !isSingleMainNet(networksSpec) && !v.featureGate.Enabled(featuregates.SDN) {
 		return nil, fmt.Errorf("network configuration requires SDN to be enabled")
 	}
 
@@ -57,7 +57,7 @@ func (v *NetworksValidator) ValidateUpdate(_ context.Context, oldVM, newVM *v1al
 		return nil, nil
 	}
 
-	if !v.featureGate.Enabled(featuregates.SDN) {
+	if !isSingleMainNet(newNetworksSpec) && !v.featureGate.Enabled(featuregates.SDN) {
 		return nil, fmt.Errorf("network configuration requires SDN to be enabled")
 	}
 
@@ -66,6 +66,10 @@ func (v *NetworksValidator) ValidateUpdate(_ context.Context, oldVM, newVM *v1al
 		return v.validateNetworksSpec(newNetworksSpec)
 	}
 	return nil, nil
+}
+
+func isSingleMainNet(networks []v1alpha2.NetworksSpec) bool {
+	return len(networks) == 1 && networks[0].Type == v1alpha2.NetworksTypeMain
 }
 
 func (v *NetworksValidator) validateNetworksSpec(networksSpec []v1alpha2.NetworksSpec) (admission.Warnings, error) {

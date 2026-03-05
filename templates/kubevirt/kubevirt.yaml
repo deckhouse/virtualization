@@ -73,6 +73,9 @@ spec:
       - VMLiveUpdateFeatures
       - VolumeMigration
       - VolumesUpdateStrategy
+      - HostDevicesWithDRA
+      - HostDevices
+      - HotplugHostDevicesWithDRA # custom feature gate - added in our KubeVirt fork, not present in upstream
     virtualMachineOptions:
       disableSerialConsoleLog: {}
   customizeComponents:
@@ -350,6 +353,12 @@ env:
       resourceName: virt-controller
       type: strategic
       patch: '{"spec":{"template":{"spec":{"containers":[ {"name":"virt-controller","env":{{ include "virt-controller-additional-envs" . | fromYaml | pluck "env" | first | toJson }} } ]}}}}'
+
+    # Label for SecurityPolicyException
+    - resourceName: virt-handler
+      resourceType: DaemonSet
+      patch: '{"spec":{"template":{"metadata":{"labels":{"security.deckhouse.io/security-policy-exception": "virt-handler-ds"}}}}}'
+      type: strategic
 
   imagePullPolicy: IfNotPresent
   imagePullSecrets:

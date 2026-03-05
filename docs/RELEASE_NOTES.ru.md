@@ -3,13 +3,46 @@ title: "Релизы"
 weight: 70
 ---
 
+## v1.6.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 2 марта 2026.
+</span>
+
+### Новые возможности
+
+- [vm] Добавлена поддержка подключения USB-устройств к виртуальным машинам через `.spec.usbDevices`.
+- [usb] Добавлены ресурсы [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) и `USBDevice`, позволяющие управлять USB-устройствами в кластере:
+  - [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) (cluster-scoped) — представляет USB-устройство, обнаруженное на конкретном узле. Позволяет назначить USB-устройство для использования в конкретном неймспейсе.
+  - [USBDevice](/modules/virtualization/cr.html#usbdevice) (namespace-scoped) — представляет USB-устройство, доступное для подключения к виртуальным машинам в заданном неймспейсе.
+- [observability] Добавлен дашборд `Virtualization / Overview` с обзором состояния платформы виртуализации.
+- [observability] На дашборд виртуальной машины добавлена информация о подах виртуальных машин.
+- [dvcr] Включена очистка DVCR в кластерах по умолчанию: ежедневно в 02:00. Расписание можно переопределить через `dvcr.gc.schedule` в ModuleConfig модуля `virtualization`.
+
+### Исправления
+
+- [vd] Исправлено зависание при создании виртуальных дисков в режиме `WaitForFirstConsumer` на нодах с taints.
+- [vm] Если в `.spec.networks` указана только сеть `Main`, то больше не требуется включенный модуль `sdn`.
+- [vm] Исправлена миграция виртуальной машины с дисками, подключенными через [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug): целевой под мог превысить лимиты по памяти (`OOMKilled`).
+- [vmbda] Исправлена некорректная фаза `Pending` ресурса [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) во время миграции виртуальной машины.
+- [vmbda] Чтобы удалить диски и образы, подключенные к виртуальной машине через [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug), сначала нужно отсоединить их от виртуальной машины, удалив соответствующий `vmbda`. Эта информация добавлена в статус `vmbda`.
+
+### Прочее
+
+- [vm] Для утилиты `vlctl` добавлен флаг `--from-file` для просмотра информации о домене из локального libvirt XML-файла.
+
 ## v1.5.1
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 16 февраля 2026.
+</span>
 
 ### Исправления
 
 - [vd] Исправлена проблема при создании виртуального диска из виртуального образа, хранящегося на `PersistentVolumeClaim` (при значении `.spec.storage=PersistentVolumeClaim`).
 
 ## v1.5.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 9 февраля 2026.
+</span>
 
 ### Новые возможности
 
@@ -32,12 +65,18 @@ weight: 70
 - [vd] При просмотре дисков теперь отображается имя виртуальной машины, к которой они подключены (`d8 k get vd`).
 
 ## v1.4.1
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 16 февраля 2026.
+</span>
 
 ### Безопасность
 
 - [module] Исправлены уязвимости CVE-2025-61726, CVE-2025-61728, CVE-2025-61730 и CVE-2025-68121.
 
 ## v1.4.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 23 января 2026.
+</span>
 
 ### Новые возможности
 
@@ -53,6 +92,9 @@ weight: 70
 - [vm] Добавлена поддержка клонирования виртуальных машин в состоянии `Running` через [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) с типом `Clone`.
 
 ## v1.3.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 16 декабря 2025.
+</span>
 
 ### Новые возможности
 
@@ -66,18 +108,27 @@ weight: 70
 - [observability] В кластерах, работающих в HA режиме, исправлено отображение графиков по виртуальным машинам.
 
 ## v1.2.2
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 5 декабря 2025.
+</span>
 
 ### Исправления
 
 - [module] Для роли `d8:use:role:user` исправлены права доступа RBAC, которые не позволяли управлять ресурсом [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation).
 
 ## v1.2.1
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 4 декабря 2025.
+</span>
 
 ### Исправления
 
 - [module] Удалена устаревшая часть конфигурации, из‑за которой обновление модуля виртуализации могло не выполняться в кластерах с Kubernetes версии 1.34 и выше.
 
 ## v1.2.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 28 ноября 2025.
+</span>
 
 ### Новые возможности
 
@@ -113,6 +164,9 @@ weight: 70
 - [module] Исправлена уязвимость CVE-2025-64324.
 
 ## v1.1.3
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 21 ноября 2025.
+</span>
 
 ### Безопасность
 
@@ -123,6 +177,9 @@ weight: 70
 - [observability] Доработаны дашборды обзора виртуальных машин (`Namespace / Virtual Machine` и `Namespace / Virtual Machines`): помимо уровня кластера, они теперь доступны и на уровне проекта.
 
 ## v1.1.2
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 5 ноября 2025.
+</span>
 
 ### Исправления
 
@@ -131,6 +188,9 @@ weight: 70
 - [vm] В состоянии `Migrating` при неуспешной живой миграции виртуальной машины добавлено отображение подробной информации об ошибке.
 
 ## v1.1.1
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 16 октября 2025.
+</span>
 
 ### Исправления
 
@@ -151,6 +211,9 @@ weight: 70
 - [module] Исправлены уязвимости CVE-2025-58058 и CVE-2025-54410.
 
 ## v1.1.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 6 октября 2025.
+</span>
 
 ### Новые возможности
 
@@ -178,6 +241,9 @@ weight: 70
 - [observability] На дашборде виртуальной машины исправлен график, отображающий статистику копирования памяти во время миграции ВМ.
 
 ## v1.0.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 11 сентября 2025.
+</span>
 
 ### Новые возможности
 
@@ -197,6 +263,9 @@ weight: 70
 - Устранено CVE-2025-47907.
 
 ## v0.25.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 29 августа 2025.
+</span>
 
 ### Важная информация перед обновлением
 

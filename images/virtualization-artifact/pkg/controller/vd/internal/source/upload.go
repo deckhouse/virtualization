@@ -160,14 +160,11 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 
 		envSettings := ds.getEnvSettings(vd, supgen.Generator)
 
-		var nodePlacement *provisioner.NodePlacement
-		nodePlacement, err = getNodePlacement(ctx, ds.client, vd)
-		if err != nil {
-			setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
-			return reconcile.Result{}, fmt.Errorf("failed to get importer tolerations: %w", err)
-		}
-
-		err = ds.uploaderService.Start(ctx, envSettings, vd, supgen, datasource.NewCABundleForVMD(vd.GetNamespace(), vd.Spec.DataSource), service.WithNodePlacement(nodePlacement))
+		err = ds.uploaderService.Start(
+			ctx, envSettings, vd, supgen,
+			datasource.NewCABundleForVMD(vd.GetNamespace(), vd.Spec.DataSource),
+			service.WithSystemNodeToleration(),
+		)
 		switch {
 		case err == nil:
 			// OK.
@@ -234,6 +231,12 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 			return reconcile.Result{}, err
 		}
 	case dv == nil:
+		if isStorageClassWFFC(sc) && len(vd.Status.AttachedToVirtualMachines) != 1 {
+			vd.Status.Progress = "50%"
+			vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
+			return reconcile.Result{}, nil
+		}
+
 		ds.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
@@ -285,7 +288,15 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		err = ds.diskService.Start(ctx, diskSize, sc, source, vd, supgen)
+
+		var nodePlacement *provisioner.NodePlacement
+		nodePlacement, err = getNodePlacement(ctx, ds.client, vd)
+		if err != nil {
+			setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			return reconcile.Result{}, fmt.Errorf("failed to get importer tolerations: %w", err)
+		}
+
+		err = ds.diskService.Start(ctx, diskSize, sc, source, vd, supgen, service.WithNodePlacement(nodePlacement))
 		if updated, err := setPhaseConditionFromStorageError(err, vd, cb); err != nil || updated {
 			return reconcile.Result{}, err
 		}

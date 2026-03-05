@@ -110,4 +110,8 @@ true
   value: {{ .Values.global.clusterConfiguration.podSubnetCIDR }}
 - name: CLUSTER_SERVICE_SUBNET_CIDR
   value: {{ .Values.global.clusterConfiguration.serviceSubnetCIDR }}
+- name: KUBE_APISERVER_FEATURE_GATES
+  value: {{ .Values.virtualization.internal.kubeAPIServerFeatureGates | toJson | quote }}
+- name: HAS_DRA_FEATURE_GATES
+  value: {{ .Values.virtualization.internal.hasDraFeatureGates | quote }}
 {{- end }}

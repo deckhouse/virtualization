@@ -1,0 +1,9 @@
+# A list of pre-created mount points for containerd strict mode.
+
+dirs:
+  # Default dir for Container Device Interface
+  - /var/run/cdi
+  # Default dir for registration kubelet plugins
+  - /var/lib/kubelet/plugins_registry
+  # Default dir where DRA plugin stores sockets
+  - /var/lib/kubelet/plugins

@@ -1,0 +1,78 @@
+version: "3"
+
+silent: true
+
+tasks:
+  fmt:
+    desc: "Run formatters locally"
+    cmds:
+      - task: fmt:gci
+      - task: fmt:gofumpt
+
+  fmt:gci:
+    desc: "Format code with gci, important vars: paths."
+    cmds:
+      - |
+        gci write --skip-generated -s standard,default,prefix\(github.com/deckhouse/\) {{.CLI_ARGS}} {{.paths | default "pkg/ cmd/"}}
+
+  fmt:gofumpt:
+    desc: "Format code with gofumpt, important vars: paths"
+    cmds:
+      - |
+        gofumpt -extra -w {{.CLI_ARGS}} {{.paths | default "cmd/ pkg/"}}
+
+  dev:gogenerate:
+    desc: |-
+      Run go generate for all packages.
+    cmds:
+      - |
+        go generate ./...
+
+  dev:addlicense:
+    desc: |-
+      Add Flant CE license to files sh,go,py. Default directory is root of project, custom directory path can be passed like: "task dev:addlicense -- <somedir>"
+    cmds:
+      - |
+        {{if .CLI_ARGS}}
+          go run ../../tools/addlicense/{main,variables,msg,utils}.go -directory {{ .CLI_ARGS }}
+        {{else}}
+          go run ../../tools/addlicense/{main,variables,msg,utils}.go -directory ./
+        {{end}}
+
+  test:unit:
+    desc: "Run go unit tests"
+    cmds:
+      - |
+        go tool ginkgo -v -r pkg/
+
+  lint:
+    desc: "Run linters locally"
+    cmds:
+      - task: lint:go
+
+  lint:go:
+    desc: "Run golangci-lint"
+    cmds:
+      - |
+        golangci-lint run
+
+  lint:go:fix:
+    desc: "Run golangci-lint with --fix"
+    cmds:
+      - |
+        golangci-lint run --fix
+
+  build:go-usbip:
+    desc: "Build go-usbip binary"
+    cmds:
+      - go build -o bin/go-usbip cmd/usb/go-usbip/main.go
+
+  build:usb-monitor:
+    desc: "Build usb-monitor binary"
+    cmds:
+      - go build -o bin/usb-monitor cmd/usb/usb-monitor/main.go
+
+  api:generate:
+    desc: "Generate API code"
+    cmds:
+      - hack/update-codegen.sh

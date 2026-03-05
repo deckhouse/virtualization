@@ -1,0 +1,45 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
+final: false
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.25" "builder/golang-alt-svace-1.25.4" }}
+git:
+  - add: {{ .ModuleDir }}/images/{{ .ImageName }}
+    to: /src/images/virtualization-dra
+    stageDependencies:
+      install:
+        - go.mod
+        - go.sum
+      setup:
+        - "**/*.go"
+secrets:
+  - id: GOPROXY
+    value: {{ .GOPROXY }}
+mount:
+  - fromPath: ~/go-pkg-cache
+    to: /go/pkg
+shell:
+  install:
+    - export GOPROXY=$(cat /run/secrets/GOPROXY)
+    - cd /src/images/virtualization-dra
+    - go mod download
+  setup:
+    - cd /src/images/virtualization-dra
+    - mkdir /out
+    - export GOOS=linux
+    - export GOARCH=amd64
+    - export CGO_ENABLED=0
+
+    - |
+      echo "Build virtualization-dra-usb binary"
+      {{- $_ := set $ "ProjectName" (list $.ImageName "virtualization-dra-usb" | join "/") }}
+
+      {{- if eq $.DEBUG_COMPONENT "delve/virtualization-dra-usb" }}
+      go build -v -o /out/virtualization-dra-usb ./cmd/usb/dra
+      {{- else }}
+      {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -v -o /out/virtualization-dra-usb ./cmd/usb/dra`) | nindent 6 }}
+      {{- end }}
+
+    - |
+      echo "Build go-usbip binary"
+      {{- $_ := set $ "ProjectName" (list $.ImageName "go-usbip" | join "/") }}
+      {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -v -o /out/go-usbip ./cmd/usb/go-usbip`) | nindent 6 }}

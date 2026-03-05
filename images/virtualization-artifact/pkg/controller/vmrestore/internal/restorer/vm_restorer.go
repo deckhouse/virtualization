@@ -67,7 +67,13 @@ func NewVirtualMachineOverrideValidator(vmTmpl *v1alpha2.VirtualMachine, client 
 }
 
 func (v *VirtualMachineOverrideValidator) Override(rules []v1alpha2.NameReplacement) {
+	originalName := v.vm.Name
 	v.vm.Name = overrideName(v.vm.Kind, v.vm.Name, rules)
+	if v.vm.Name != originalName {
+		// Do not clone labels due to potential issues with traffic from services.
+		v.vm.Labels = map[string]string{}
+	}
+
 	v.vm.Spec.VirtualMachineIPAddress = overrideName(v1alpha2.VirtualMachineIPAddressKind, v.vm.Spec.VirtualMachineIPAddress, rules)
 
 	if v.vm.Spec.Provisioning != nil {

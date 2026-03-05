@@ -55,7 +55,7 @@ const (
 	CVMIImageTmpl     = "cvi/%s:%s"
 	VMIImageTmpl      = "vi/%s/%s:%s"
 	VMDImageTmpl      = "vd/%s/%s:%s"
-	DefaultGCSchedule = "0 2 * * *"
+	DefaultGCSchedule = "0 2 * * *" // Run DVCR garbage collect on 2:00 am every day.
 )
 
 // RegistryImageForCVI returns image name for CVI.

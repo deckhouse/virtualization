@@ -125,9 +125,11 @@ tasks:
         max_retries=120
         sleep_interval=5
 
+        SKIP_IMAGES=()
         if [ $audit_image_skip == "true" ]; then
-          SKIP_IMAGES=("virtualizationAudit")
+          SKIP_IMAGES+=("virtualizationAudit")
         fi
+        SKIP_IMAGES+=("virtualizationDraUsb")
 
         is_skipped_image() {
           local img="$1"

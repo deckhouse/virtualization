@@ -18,26 +18,56 @@ package app
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
 
+const xmlDir = "/var/run/libvirt/qemu"
+
 func NewDomainCommand() *cobra.Command {
+	var fromFile bool
+
 	cmd := &cobra.Command{
 		Use:   "domain",
 		Short: "Get domain specification",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			baseOpts := BaseOptionsFromCommand(cmd)
-			return runDomainCommand(baseOpts)
+			return runDomainCommand(baseOpts, fromFile)
 		},
 	}
 
+	cmd.Flags().BoolVarP(&fromFile, "from-file", "f", false, "Read domain specification from file")
 	cmd.AddCommand(NewDomainStatsCommand())
+
 	return cmd
 }
 
-func runDomainCommand(opts BaseOptions) error {
+func runDomainCommand(opts BaseOptions, fromFile bool) error {
+	if fromFile {
+		if opts.Output != outputXml {
+			return fmt.Errorf("output format must be xml when reading from file")
+		}
+		entries, err := os.ReadDir(xmlDir)
+		if err != nil {
+			return fmt.Errorf("failed to read domain xml dir: %w", err)
+		}
+		for _, entry := range entries {
+			if strings.HasSuffix(entry.Name(), ".xml") {
+				b, err := os.ReadFile(filepath.Join(xmlDir, entry.Name()))
+				if err != nil {
+					return fmt.Errorf("failed to read domain xml file: %w", err)
+				}
+				_, err = os.Stdout.Write(append(b, '\n'))
+				return err
+			}
+		}
+		return fmt.Errorf("xml domain not found")
+	}
+
 	if err := opts.Validate(); err != nil {
 		return err
 	}

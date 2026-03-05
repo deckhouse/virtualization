@@ -114,6 +114,10 @@ type VirtualMachineSpec struct {
 	// Live migration policy type.
 	LiveMigrationPolicy LiveMigrationPolicy `json:"liveMigrationPolicy"`
 	Networks            []NetworksSpec      `json:"networks,omitempty"`
+	// List of USB devices to attach to the virtual machine.
+	// Devices are referenced by name of USBDevice resource in the same namespace.
+	// +kubebuilder:validation:MaxItems:=8
+	USBDevices []USBDeviceSpecRef `json:"usbDevices,omitempty"`
 }
 
 // RunPolicy parameter defines the VM startup policy
@@ -315,6 +319,8 @@ type VirtualMachineStatus struct {
 	Versions  Versions         `json:"versions,omitempty"`
 	Resources ResourcesStatus  `json:"resources,omitempty"`
 	Networks  []NetworksStatus `json:"networks,omitempty"`
+	// List of USB devices attached to the virtual machine.
+	USBDevices []USBDeviceStatusRef `json:"usbDevices,omitempty"`
 }
 
 type VirtualMachineStats struct {
@@ -479,3 +485,31 @@ const (
 	SecretTypeCloudInit corev1.SecretType = "provisioning.virtualization.deckhouse.io/cloud-init"
 	SecretTypeSysprep   corev1.SecretType = "provisioning.virtualization.deckhouse.io/sysprep"
 )
+
+// USBDeviceSpecRef references a USB device by name.
+type USBDeviceSpecRef struct {
+	// The name of USBDevice resource in the same namespace.
+	Name string `json:"name"`
+}
+
+// USBDeviceStatusRef represents the status of a USB device attached to the virtual machine.
+type USBDeviceStatusRef struct {
+	// The name of USBDevice resource.
+	Name string `json:"name"`
+	// The USB device is attached to the virtual machine.
+	Attached bool `json:"attached"`
+	// USB device is ready to use.
+	Ready bool `json:"ready"`
+	// USB address inside the virtual machine.
+	Address *USBAddress `json:"address,omitempty"`
+	// USB device is attached via hot plug connection.
+	Hotplugged bool `json:"hotplugged,omitempty"`
+}
+
+// USBAddress represents the USB bus address inside the virtual machine.
+type USBAddress struct {
+	// USB bus number (always 0 for the main USB controller).
+	Bus int `json:"bus"`
+	// USB port number on the selected bus.
+	Port int `json:"port"`
+}

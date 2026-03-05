@@ -250,6 +250,9 @@ func (v *VirtualMachineHandler) ProcessClone(ctx context.Context) error {
 		return err
 	}
 
+	// Do not clone labels due to potential issues with traffic from services.
+	v.vm.Labels = map[string]string{}
+
 	err = v.client.Create(ctx, v.vm)
 	if err != nil {
 		return fmt.Errorf("failed to create the `VirtualMachine`: %w", err)

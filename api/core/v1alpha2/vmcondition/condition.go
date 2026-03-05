@@ -253,10 +253,12 @@ func (r MigratableReason) String() string {
 }
 
 const (
-	ReasonMigratable             MigratableReason = "VirtualMachineMigratable"
-	ReasonNonMigratable          MigratableReason = "VirtualMachineNonMigratable"
-	ReasonDisksNotMigratable     MigratableReason = "VirtualMachineDisksNotMigratable"
-	ReasonDisksShouldBeMigrating MigratableReason = "VirtualMachineDisksShouldBeMigrating"
+	ReasonMigratable               MigratableReason = "VirtualMachineMigratable"
+	ReasonNonMigratable            MigratableReason = "VirtualMachineNonMigratable"
+	ReasonDisksNotMigratable       MigratableReason = "VirtualMachineDisksNotMigratable"
+	ReasonDisksShouldBeMigrating   MigratableReason = "VirtualMachineDisksShouldBeMigrating"
+	ReasonHostDevicesNotMigratable MigratableReason = "VirtualMachineHostDevicesNotMigratable"
+	ReasonUSBShouldBeMigrating     MigratableReason = "VirtualMachineUSBShouldBeMigrating"
 )
 
 type MigratingReason string
@@ -266,9 +268,9 @@ func (r MigratingReason) String() string {
 }
 
 const (
-	ReasonMigratingPending               MigratingReason = "Pending"
-	ReasonReadyToMigrate                 MigratingReason = "ReadyToMigrate"
-	ReasonMigratingInProgress            MigratingReason = "InProgress"
+	ReasonMigratingPending    MigratingReason = "Pending"
+	ReasonReadyToMigrate      MigratingReason = "ReadyToMigrate"
+	ReasonMigratingInProgress MigratingReason = "InProgress"
 )
 
 type MaintenanceReason string

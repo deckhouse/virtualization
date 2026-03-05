@@ -18,82 +18,65 @@ package step
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/common"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 type ProcessCloneStep struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
-	cb       *conditions.ConditionBuilder
 }
 
 func NewProcessCloneStep(
 	client client.Client,
 	recorder eventrecord.EventRecorderLogger,
-	cb *conditions.ConditionBuilder,
 ) *ProcessCloneStep {
 	return &ProcessCloneStep{
 		client:   client,
 		recorder: recorder,
-		cb:       cb,
 	}
 }
 
 func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
-	c, exist := conditions.GetCondition(s.cb.GetType(), vmop.Status.Conditions)
-	if exist {
-		if c.Status == metav1.ConditionTrue {
-			return &reconcile.Result{}, nil
-		}
-
-		snapshotReadyCondition, found := conditions.GetCondition(vmopcondition.TypeSnapshotReady, vmop.Status.Conditions)
-		if found && snapshotReadyCondition.Status == metav1.ConditionFalse {
-			return &reconcile.Result{}, nil
-		}
-	}
-
 	snapshotName, ok := vmop.Annotations[annotations.AnnVMOPSnapshotName]
 	if !ok {
-		err := fmt.Errorf("snapshot name annotation not found")
-		common.SetPhaseCloneConditionToFailed(s.cb, &vmop.Status.Phase, err)
-		return &reconcile.Result{}, err
+		return &reconcile.Result{}, errors.New("snapshot name annotation not found")
 	}
 
 	vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: snapshotName}
 	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &v1alpha2.VirtualMachineSnapshot{})
 	if err != nil {
-		common.SetPhaseCloneConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
+	}
+
+	if vmSnapshot == nil {
+		return &reconcile.Result{}, errors.New("snapshot is not found")
 	}
 
 	restorerSecretKey := types.NamespacedName{Namespace: vmSnapshot.Namespace, Name: vmSnapshot.Status.VirtualMachineSnapshotSecretName}
 	restorerSecret, err := object.FetchObject(ctx, restorerSecretKey, s.client, &corev1.Secret{})
 	if err != nil {
-		common.SetPhaseCloneConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
+	}
+
+	if restorerSecret == nil {
+		return &reconcile.Result{}, errors.New("restorer secret is not found")
 	}
 
 	snapshotResources := restorer.NewSnapshotResources(s.client, v1alpha2.VMOPTypeClone, vmop.Spec.Clone.Mode, restorerSecret, vmSnapshot, string(vmop.UID))
 
 	err = snapshotResources.Prepare(ctx)
 	if err != nil {
-		common.SetPhaseCloneConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
@@ -109,55 +92,24 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 	statuses, err := snapshotResources.Validate(ctx)
 	vmop.Status.Resources = statuses
 	if err != nil {
-		s.cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonCloneOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
-		return &reconcile.Result{}, nil
+		return &reconcile.Result{}, err
 	}
 
 	if vmop.Spec.Clone.Mode == v1alpha2.SnapshotOperationModeDryRun {
-		s.cb.Status(metav1.ConditionTrue).Reason(vmopcondition.ReasonCloneOperationCompleted).Message("The virtual machine can be cloned from the snapshot.")
-		return &reconcile.Result{}, nil
+		return nil, nil
 	}
 
 	statuses, err = snapshotResources.Process(ctx)
 	vmop.Status.Resources = statuses
 	if err != nil {
-		common.SetPhaseCloneConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
-	for _, status := range vmop.Status.Resources {
-		if status.Kind != v1alpha2.VirtualDiskKind {
-			continue
-		}
-
-		var vd v1alpha2.VirtualDisk
-		vdKey := types.NamespacedName{Namespace: vmop.Namespace, Name: status.Name}
-		err := s.client.Get(ctx, vdKey, &vd)
-		if err != nil {
-			return &reconcile.Result{}, fmt.Errorf("failed to get the `VirtualDisk`: %w", err)
-		}
-
-		if vd.Annotations[annotations.AnnVMOPRestore] != string(vmop.UID) {
-			return &reconcile.Result{}, nil
-		}
-
-		switch vd.Status.Phase {
-		case v1alpha2.DiskFailed:
-			// Clone can't proceed if disk is failed.
-			err = fmt.Errorf("virtual disk %q is in failed phase", vdKey.Name)
-			conditions.SetCondition(s.cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonSnapshotFailed).Message(service.CapitalizeFirstLetter(err.Error())), &vmop.Status.Conditions)
-			common.SetPhaseCloneConditionToFailed(s.cb, &vmop.Status.Phase, err)
-			return &reconcile.Result{}, fmt.Errorf("virtual disk %q is in failed phase", vdKey.Name)
-		case v1alpha2.DiskReady:
-			// Disk is Ready, check the next one.
-			continue
-		default:
-			s.cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonCloneOperationInProgress).Message("Wait for VirtualDisks to be Ready.")
+	for _, status := range statuses {
+		if status.Status != v1alpha2.SnapshotResourceStatusCompleted {
 			return &reconcile.Result{}, nil
 		}
 	}
 
-	// All disks are Ready, mark Clone operation as Completed.
-	s.cb.Status(metav1.ConditionTrue).Reason(vmopcondition.ReasonCloneOperationCompleted).Message("The virtual machine has been cloned successfully.")
-	return &reconcile.Result{}, nil
+	return nil, nil
 }

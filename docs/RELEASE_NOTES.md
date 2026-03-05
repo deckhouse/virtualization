@@ -3,13 +3,46 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.6.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: March 2, 2026.
+</span>
+
+### New features
+
+- [vm] Added support for attaching USB devices to virtual machines via `.spec.usbDevices`.
+- [usb] Added [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) and [USBDevice](/modules/virtualization/cr.html#usbdevice) resources to manage USB devices in the cluster:
+  - [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) (cluster-scoped): Represents a USB device discovered on a specific node. Allows assigning a USB device for use in a specific namespace.
+  - [USBDevice](/modules/virtualization/cr.html#usbdevice) (namespace-scoped): Represents a USB device available for attachment to virtual machines in a given namespace.
+- [observability] Added the `Virtualization / Overview` dashboard with an overview of the virtualization platform status.
+- [observability] Added information about virtual machine pods to the virtual machine dashboard.
+- [dvcr] Enabled DVCR cleanup in clusters by default: daily at 02:00. You can override the schedule via `dvcr.gc.schedule` in the `virtualization` module ModuleConfig.
+
+### Fixes
+
+- [vd] Fixed virtual disks hanging during creation in `WaitForFirstConsumer` mode on nodes with taints.
+- [vm] If only the `Main` network is specified in `.spec.networks`, the `sdn` module is no longer required.
+- [vm] Fixed virtual machine migration with disks attached via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug): the target pod could exceed memory limits (`OOMKilled`).
+- [vmbda] Fixed an incorrect `Pending` phase for the [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) resource during virtual machine migration.
+- [vmbda] To remove disks and images attached to a virtual machine via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug), you must first detach them from the virtual machine by deleting the corresponding `vmbda`. This information has been added to the `vmbda` status.
+
+### Other
+
+- [vm] Added the `--from-file` flag to the `vlctl` utility for viewing domain information from a local libvirt XML file.
+
 ## v1.5.1
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: February 16, 2026.
+</span>
 
 ### Fixes
 
 - [vd] Fixed an issue with creating a virtual disk from a virtual image stored on a `PersistentVolumeClaim` (with `.spec.storage` set to `PersistentVolumeClaim`).
 
 ## v1.5.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: February 9, 2026.
+</span>
 
 ### New features
 
@@ -32,12 +65,18 @@ weight: 70
 - [vd] When viewing disks, the name of the virtual machine they are attached to is now displayed (`d8 k get vd`).
 
 ## v1.4.1
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: February 16, 2026.
+</span>
 
 ### Security
 
 - [module] Fixed vulnerabilities CVE-2025-61726, CVE-2025-61728, CVE-2025-61730, and CVE-2025-68121.
 
 ## v1.4.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: January 23, 2026.
+</span>
 
 ### New features
 
@@ -53,6 +92,9 @@ weight: 70
 - [vm] Added support for cloning virtual machines in the `Running` phase via [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) of type `Clone`.
 
 ## v1.3.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: December 16, 2025.
+</span>
 
 ### New features
 
@@ -66,18 +108,27 @@ weight: 70
 - [observability] Fixed the display of virtual machine charts in clusters running in HA mode.
 
 ## v1.2.2
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: December 5, 2025.
+</span>
 
 ### Fixes
 
 - [module] Fixed RBAC access permissions for the `d8:use:role:user` role that prevented it from managing the [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource.
 
 ## v1.2.1
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: December 4, 2025.
+</span>
 
 ### Fixes
 
 - [module] The deprecated part of the configuration has been removed, which could have prevented the virtualization module from upgrading in clusters running Kubernetes version 1.34 and above.
 
 ## v1.2.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: November 28, 2025.
+</span>
 
 ### New features
 
@@ -113,6 +164,9 @@ weight: 70
 - [module] Fixed vulnerability CVE-2025-64324.
 
 ## v1.1.3
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: November 21, 2025.
+</span>
 
 ### Security
 
@@ -123,6 +177,9 @@ weight: 70
 - [observability] The virtual machine overview dashboards (`Namespace / Virtual Machine` and `Namespace / Virtual Machines`) have been improved: in addition to the cluster level, they are now also available at the project level.
 
 ## v1.1.2
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: November 5, 2025.
+</span>
 
 ### Fixes
 
@@ -131,6 +188,9 @@ weight: 70
 - [vm] In the `Migrating` state, detailed error information is now displayed when a live migration of a virtual machine fails.
 
 ## v1.1.1
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: October 16, 2025.
+</span>
 
 ### Fixes
 
@@ -151,6 +211,9 @@ weight: 70
 - [module] Fixed vulnerabilities CVE-2025-58058 and CVE-2025-54410.
 
 ## v1.1.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: October 6, 2025.
+</span>
 
 ### New features
 
@@ -178,6 +241,9 @@ weight: 70
 - [observability] Fixed the graph on the virtual machine dashboard that displays memory copy statistics during VM migration.
 
 ## v1.0.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: September 11, 2025.
+</span>
 
 ### New features
 
@@ -197,6 +263,9 @@ weight: 70
 - Fixed CVE-2025-47907.
 
 ## v0.25.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: August 29, 2025.
+</span>
 
 ### Important notes before update
 

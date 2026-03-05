@@ -54,6 +54,8 @@ type VirtualMachineState interface {
 	VMOPs(ctx context.Context) ([]*v1alpha2.VirtualMachineOperation, error)
 	Shared(fn func(s *Shared))
 	ReadWriteOnceVirtualDisks(ctx context.Context) ([]*v1alpha2.VirtualDisk, error)
+	USBDevice(ctx context.Context, name string) (*v1alpha2.USBDevice, error)
+	USBDevicesByName(ctx context.Context) (map[string]*v1alpha2.USBDevice, error)
 }
 
 func New(c client.Client, vm *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]) VirtualMachineState {
@@ -382,4 +384,26 @@ func (s *state) ReadWriteOnceVirtualDisks(ctx context.Context) ([]*v1alpha2.Virt
 	}
 
 	return nonMigratableVirtualDisks, nil
+}
+
+func (s *state) USBDevice(ctx context.Context, name string) (*v1alpha2.USBDevice, error) {
+	return object.FetchObject(ctx, types.NamespacedName{
+		Name:      name,
+		Namespace: s.vm.Current().GetNamespace(),
+	}, s.client, &v1alpha2.USBDevice{})
+}
+
+func (s *state) USBDevicesByName(ctx context.Context) (map[string]*v1alpha2.USBDevice, error) {
+	usbDevicesByName := make(map[string]*v1alpha2.USBDevice)
+	for _, usbDeviceRef := range s.vm.Current().Spec.USBDevices {
+		usbDevice, err := s.USBDevice(ctx, usbDeviceRef.Name)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get USB device %q: %w", usbDeviceRef.Name, err)
+		}
+		if usbDevice == nil {
+			continue
+		}
+		usbDevicesByName[usbDeviceRef.Name] = usbDevice
+	}
+	return usbDevicesByName, nil
 }

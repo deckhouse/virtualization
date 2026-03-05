@@ -192,7 +192,7 @@ func (r *Resource[T, ST]) Update(ctx context.Context) error {
 		finalizers := r.changedObj.GetFinalizers()
 		labels := r.changedObj.GetLabels()
 		annotations := r.changedObj.GetAnnotations()
-		if err := r.client.Status().Update(ctx, r.changedObj); err != nil {
+		if err := r.client.Status().Update(ctx, r.changedObj); err != nil && !kerrors.IsNotFound(err) {
 			return fmt.Errorf("error updating status subresource: %w", err)
 		}
 		// Restore metadata in changedObject.

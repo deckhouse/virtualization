@@ -51,10 +51,9 @@ import (
 )
 
 const (
-	CurlPod           = "curl-helper"
-	externalHost      = "https://flant.ru"
-	nginxActiveStatus = "active"
-	httpStatusOk      = "200"
+	CurlPod      = "curl-helper"
+	externalHost = "https://flant.ru"
+	httpStatusOk = "200"
 )
 
 func WaitResource(resource kc.Resource, ns, name, waitFor string, timeout time.Duration) {
