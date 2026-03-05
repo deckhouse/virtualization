@@ -167,7 +167,6 @@ spec:
           bb-log-info "Cloning raw-gadget repository"
           git clone https://github.com/xairy/raw-gadget "$WORK_DIR/raw-gadget" || {
             bb-log-error "Failed to clone raw-gadget repository"
-            # exit 1
           }
         else
           bb-log-info "raw-gadget already cloned, skipping"
@@ -184,14 +183,12 @@ spec:
         make clean || true
         make -j$(nproc) || {
           bb-log-error "Failed to build dummy_hcd module"
-          # exit 1
         }
 
         # Load module directly (no make modules_install in dummy_hcd)
         bb-log-info "Loading dummy_hcd module with num=$NUM_USB_DEVICES"
         insmod ./dummy_hcd.ko num=$NUM_USB_DEVICES || {
           bb-log-error "Failed to load dummy_hcd module"
-          # exit 1
         }
       fi
     fi
@@ -199,7 +196,6 @@ spec:
     # Verify module is loaded
     if ! lsmod | grep -q "^dummy_hcd"; then
       bb-log-error "dummy_hcd module is not loaded after setup"
-      # exit 1
     fi
 
     bb-log-info "dummy_hcd module loaded successfully"
