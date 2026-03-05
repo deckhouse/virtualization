@@ -212,13 +212,13 @@ func newPowerStateTest(f *framework.Framework) *powerStateTest {
 func (t *powerStateTest) GenerateResources(runPolicy v1alpha2.RunPolicy) {
 	t.CVI = cvibuilder.New(
 		cvibuilder.WithName(fmt.Sprintf("%s-cvi", t.Framework.Namespace().Name)),
-		cvibuilder.WithDataSourceHTTP(object.ImageURLMinimalISO, nil, nil),
+		cvibuilder.WithDataSourceHTTP(object.ImageTestDataISO, nil, nil),
 	)
 
 	t.VI = vibuilder.New(
 		vibuilder.WithName("vi"),
 		vibuilder.WithNamespace(t.Framework.Namespace().Name),
-		vibuilder.WithDataSourceHTTP(object.ImageURLMinimalQCOW, nil, nil),
+		vibuilder.WithDataSourceHTTP(object.ImageTestDataQCOW, nil, nil),
 		vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
 	)
 

@@ -29,13 +29,13 @@ import (
 )
 
 const (
-	ClusterNetworkName          = "cn-1003-for-e2e-test"
-	ClusterNetworkVLANID        = 1003
+	ClusterNetworkName          = "cn-4006-for-e2e-test"
+	ClusterNetworkVLANID        = 4006
 	ClusterNetworkCreateCommand = `kubectl apply -f - <<EOF
 apiVersion: network.deckhouse.io/v1alpha1
 kind: ClusterNetwork
 metadata:
-  name: cn-1003-for-e2e-test
+  name: cn-4006-for-e2e-test
 spec:
   parentNodeNetworkInterfaces:
     labelSelector:
@@ -44,7 +44,7 @@ spec:
         network.deckhouse.io/node-role: worker
   type: VLAN
   vlan:
-    id: 1003
+    id: 4006
 EOF`
 )
 

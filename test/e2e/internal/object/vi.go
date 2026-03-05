@@ -27,9 +27,35 @@ func NewHTTPVIUbuntu(name, namespace string, opts ...vi.Option) *v1alpha2.Virtua
 		vi.WithStorage(v1alpha2.StorageContainerRegistry),
 		vi.WithNamespace(namespace),
 		vi.WithDataSourceHTTP(
-			ImageURLAlpineBIOS,
-			nil,
-			nil,
+			ImageURLUbuntu, nil, nil,
+		),
+		vi.WithStorage(v1alpha2.StorageContainerRegistry),
+	}
+	baseOpts = append(baseOpts, opts...)
+	return vi.New(baseOpts...)
+}
+
+func NewHTTPVIAlpineBIOS(name, namespace string, opts ...vi.Option) *v1alpha2.VirtualImage {
+	baseOpts := []vi.Option{
+		vi.WithName(name),
+		vi.WithStorage(v1alpha2.StorageContainerRegistry),
+		vi.WithNamespace(namespace),
+		vi.WithDataSourceHTTP(
+			ImageURLAlpineBIOS, nil, nil,
+		),
+		vi.WithStorage(v1alpha2.StorageContainerRegistry),
+	}
+	baseOpts = append(baseOpts, opts...)
+	return vi.New(baseOpts...)
+}
+
+func NewHTTPVIAlpineUEFI(name, namespace string, opts ...vi.Option) *v1alpha2.VirtualImage {
+	baseOpts := []vi.Option{
+		vi.WithName(name),
+		vi.WithStorage(v1alpha2.StorageContainerRegistry),
+		vi.WithNamespace(namespace),
+		vi.WithDataSourceHTTP(
+			ImageURLAlpineUEFI, nil, nil,
 		),
 		vi.WithStorage(v1alpha2.StorageContainerRegistry),
 	}
@@ -42,9 +68,33 @@ func NewGeneratedHTTPVIUbuntu(prefix, namespace string, opts ...vi.Option) *v1al
 		vi.WithGenerateName(prefix),
 		vi.WithNamespace(namespace),
 		vi.WithDataSourceHTTP(
-			ImageURLAlpineBIOS,
-			nil,
-			nil,
+			ImageURLUbuntu, nil, nil,
+		),
+		vi.WithStorage(v1alpha2.StorageContainerRegistry),
+	}
+	baseOpts = append(baseOpts, opts...)
+	return vi.New(baseOpts...)
+}
+
+func NewGeneratedHTTPVIAlpineBIOS(prefix, namespace string, opts ...vi.Option) *v1alpha2.VirtualImage {
+	baseOpts := []vi.Option{
+		vi.WithGenerateName(prefix),
+		vi.WithNamespace(namespace),
+		vi.WithDataSourceHTTP(
+			ImageURLAlpineBIOS, nil, nil,
+		),
+		vi.WithStorage(v1alpha2.StorageContainerRegistry),
+	}
+	baseOpts = append(baseOpts, opts...)
+	return vi.New(baseOpts...)
+}
+
+func NewGeneratedHTTPVIAlpineUEFI(prefix, namespace string, opts ...vi.Option) *v1alpha2.VirtualImage {
+	baseOpts := []vi.Option{
+		vi.WithGenerateName(prefix),
+		vi.WithNamespace(namespace),
+		vi.WithDataSourceHTTP(
+			ImageURLAlpineUEFI, nil, nil,
 		),
 		vi.WithStorage(v1alpha2.StorageContainerRegistry),
 	}
