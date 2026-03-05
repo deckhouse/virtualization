@@ -1,0 +1,5 @@
+core:
+  fixes:
+    - summary: Fixed a potential `OOMKill` during virtual disk creation on NFS.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2029
+
