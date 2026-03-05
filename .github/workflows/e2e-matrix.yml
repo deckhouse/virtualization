@@ -16,8 +16,13 @@ name: E2E Matrix Tests (nested clusters)
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "40 4 * * *"
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+    branches:
+      - main
+      - fix/ci/e2e-bootstrap-cluster
+  # schedule:
+  #   - cron: "40 4 * * *"
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
