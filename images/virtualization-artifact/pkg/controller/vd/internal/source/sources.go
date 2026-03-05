@@ -97,7 +97,7 @@ func CleanUpSupplements(ctx context.Context, vd *v1alpha2.VirtualDisk, c Supplem
 }
 
 func IsDiskProvisioningFinished(c metav1.Condition) bool {
-	return c.Reason == vdcondition.Ready.String() || c.Reason == vdcondition.Lost.String()
+	return c.Reason == vdcondition.Ready.String() || c.Reason == vdcondition.Lost.String() || c.Reason == vdcondition.Exporting.String()
 }
 
 func setPhaseConditionForFinishedDisk(

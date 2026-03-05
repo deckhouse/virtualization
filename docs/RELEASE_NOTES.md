@@ -30,6 +30,15 @@ Release date: March 2, 2026.
 
 - [vm] Added the `--from-file` flag to the `vlctl` utility for viewing domain information from a local libvirt XML file.
 
+## v1.5.2
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: March 5, 2026.
+</span>
+
+### Fixes
+
+- [vd] Fixed a potential `OOMKill` during the virtual disk creation on NFS.
+
 ## v1.5.1
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: February 16, 2026.

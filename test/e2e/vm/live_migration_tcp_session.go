@@ -76,7 +76,7 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", func() {
 				vd.WithSize(ptr.To(resource.MustParse("400Mi"))),
 				vd.WithStorageClass(&storageClass.Name),
 				vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: object.ImageURLAlpineUEFIPerf,
+					URL: object.ImageURLAlpineUEFI,
 				}),
 			)
 
@@ -86,7 +86,7 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", func() {
 				vd.WithSize(ptr.To(resource.MustParse("500Mi"))),
 				vd.WithStorageClass(&storageClass.Name),
 				vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: object.ImageURLAlpineUEFIPerf,
+					URL: object.ImageURLAlpineUEFI,
 				}),
 			)
 

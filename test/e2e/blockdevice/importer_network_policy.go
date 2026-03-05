@@ -46,7 +46,7 @@ var _ = Describe("ImporterNetworkPolicy", func() {
 		util.UntilObjectState("Deployed", framework.ShortTimeout, project)
 
 		By("Create virtual image")
-		vi := object.NewGeneratedHTTPVIUbuntu("vi-", project.Name)
+		vi := object.NewGeneratedHTTPVIAlpineBIOS("vi-", project.Name)
 		err = f.CreateWithDeferredDeletion(context.Background(), vi)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -62,7 +62,7 @@ var _ = Describe("ImporterNetworkPolicy", func() {
 		util.UntilObjectState("Deployed", framework.ShortTimeout, project)
 
 		By("Create virtual disk")
-		vd := object.NewGeneratedHTTPVDUbuntu("vd-", project.Name)
+		vd := object.NewHTTPVDAlpineBIOS("vd", project.Name)
 		err = f.CreateWithDeferredDeletion(context.Background(), vd)
 		Expect(err).NotTo(HaveOccurred())
 

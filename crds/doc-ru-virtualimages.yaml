@@ -9,6 +9,8 @@ spec:
             > Этот ресурс не может быть изменён после создания.
 
             После появления в кластере этого ресурса создаётся образ контейнера, который хранится в специальном реестре контейнеров Deckhouse Virtualization Container Registry (DVCR).
+
+            **Важно:** Поле `metadata.name` должно соответствовать [правилам именования объектов Kubernetes](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/) и не должно превышать 49 символов.
           properties:
             spec:
               properties:

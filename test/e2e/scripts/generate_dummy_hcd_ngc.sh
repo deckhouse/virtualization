@@ -95,11 +95,6 @@ spec:
         ntfs) bb-pkg install ntfs-3g || true ;;
       esac
 
-    elif bb-is-distro-like? "alpine"; then
-      # Alpine Linux
-      bb-log-info "Installing packages for Alpine"
-      apk add --no-cache linux-headers build-base git libelf-dev dosfstools e2fsprogs ntfs-3g || true
-
     elif bb-is-distro-like? "debian"; then
       # Debian, Ubuntu, Astra (Debian-based)
       bb-log-info "Installing packages for Debian-based OS"
