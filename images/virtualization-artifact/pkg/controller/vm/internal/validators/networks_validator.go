@@ -28,6 +28,10 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
+const (
+	maxNetworkID = 16*1024 - 1 // 16383
+)
+
 type NetworksValidator struct {
 	featureGate featuregate.FeatureGate
 }
@@ -61,6 +65,10 @@ func (v *NetworksValidator) ValidateUpdate(_ context.Context, oldVM, newVM *v1al
 		return nil, fmt.Errorf("network configuration requires SDN to be enabled")
 	}
 
+	if err := v.validateNetworkIDsUnchanged(oldVM.Spec.Networks, newNetworksSpec); err != nil {
+		return nil, err
+	}
+
 	isChanged := !equality.Semantic.DeepEqual(newNetworksSpec, oldVM.Spec.Networks)
 	if isChanged {
 		return v.validateNetworksSpec(newNetworksSpec)
@@ -74,6 +82,7 @@ func isSingleMainNet(networks []v1alpha2.NetworksSpec) bool {
 
 func (v *NetworksValidator) validateNetworksSpec(networksSpec []v1alpha2.NetworksSpec) (admission.Warnings, error) {
 	namesSet := make(map[string]struct{})
+	idsSet := make(map[int]struct{})
 	for i, network := range networksSpec {
 		typ := network.Type
 		name := network.Name
@@ -87,6 +96,14 @@ func (v *NetworksValidator) validateNetworksSpec(networksSpec []v1alpha2.Network
 		}
 
 		if err := v.validateNetworkUniqueness(typ, name, namesSet); err != nil {
+			return nil, err
+		}
+
+		if err := v.validateNetworkIDUniqueness(network, idsSet); err != nil {
+			return nil, err
+		}
+
+		if err := v.validateNetworkID(network); err != nil {
 			return nil, err
 		}
 	}
@@ -119,4 +136,66 @@ func (v *NetworksValidator) validateNetworkUniqueness(networkType, networkName s
 	}
 	namesSet[key] = struct{}{}
 	return nil
+}
+
+func (v *NetworksValidator) validateNetworkIDUniqueness(network v1alpha2.NetworksSpec, idsSet map[int]struct{}) error {
+	if network.ID == 0 {
+		return nil
+	}
+	if _, exists := idsSet[network.ID]; exists {
+		networkIdentifier := v.getNetworkIdentifier(network)
+		return fmt.Errorf("network id %d is duplicated for network %s", network.ID, networkIdentifier)
+	}
+	idsSet[network.ID] = struct{}{}
+	return nil
+}
+
+func (v *NetworksValidator) validateNetworkIDsUnchanged(oldNetworksSpec, newNetworksSpec []v1alpha2.NetworksSpec) error {
+	oldNetworksMap := v.buildNetworksMap(oldNetworksSpec)
+	newNetworksMap := v.buildNetworksMap(newNetworksSpec)
+
+	for key, oldNetwork := range oldNetworksMap {
+		newNetwork, exists := newNetworksMap[key]
+		if !exists {
+			continue
+		}
+
+		if oldNetwork.ID == newNetwork.ID {
+			continue
+		}
+
+		networkIdentifier := v.getNetworkIdentifier(oldNetwork)
+		return fmt.Errorf("network id cannot be changed for network %s", networkIdentifier)
+	}
+
+	return nil
+}
+
+func (v *NetworksValidator) buildNetworksMap(networksSpec []v1alpha2.NetworksSpec) map[string]v1alpha2.NetworksSpec {
+	networksMap := make(map[string]v1alpha2.NetworksSpec)
+	for _, network := range networksSpec {
+		key := v.getNetworkIdentifier(network)
+		networksMap[key] = network
+	}
+	return networksMap
+}
+
+func (v *NetworksValidator) validateNetworkID(network v1alpha2.NetworksSpec) error {
+	if network.ID == 0 {
+		return nil
+	}
+
+	if network.ID < 1 || network.ID > maxNetworkID {
+		networkIdentifier := v.getNetworkIdentifier(network)
+		return fmt.Errorf("network id must be between 1 and %d for network %s, got %d", maxNetworkID, networkIdentifier, network.ID)
+	}
+
+	return nil
+}
+
+func (v *NetworksValidator) getNetworkIdentifier(network v1alpha2.NetworksSpec) string {
+	if network.Type == v1alpha2.NetworksTypeMain {
+		return network.Type
+	}
+	return fmt.Sprintf("%s/%s", network.Type, network.Name)
 }

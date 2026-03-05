@@ -552,6 +552,9 @@ spec:
                     Модуль `sdn` требуется, если в `.spec.networks` указаны дополнительные сети (`Network` или `ClusterNetwork`). Если указана только основная сеть (`Main`), модуль `sdn` не требуется.
                   items:
                     properties:
+                      id:
+                        description: |
+                          ID сетевого интерфейса.
                       type:
                         description: |
                           Тип сетевого интерфейса.
@@ -781,6 +784,9 @@ spec:
                     Список сетевых интерфейсов, подключенных к ВМ.
                   items:
                     properties:
+                      id:
+                        description: |
+                          ID сетевого интерфейса.
                       type:
                         description: |
                           Тип сетевого интерфейса.
