@@ -35,7 +35,7 @@ Release date: March 2, 2026.
 Release date: March 5, 2026.
 </span>
 
-### Исправления
+### Fixes
 
 - [vd] Fixed a potential `OOMKill` during the virtual disk creation on NFS.
 
