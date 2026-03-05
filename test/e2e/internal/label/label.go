@@ -23,3 +23,7 @@ import (
 func Slow() Labels {
 	return Label("Slow")
 }
+
+func TPM() Labels {
+	return Label("TPM")
+}
