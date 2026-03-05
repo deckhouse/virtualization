@@ -16,4 +16,6 @@ limitations under the License.
 
 package usb
 
-const DriverName = "virtualization-usb"
+import "github.com/deckhouse/virtualization-dra/internal/consts"
+
+const DriverName = consts.VirtualizationDraUSBDriverName

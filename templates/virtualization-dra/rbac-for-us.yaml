@@ -15,10 +15,10 @@ metadata:
 rules:
   - apiGroups: ["resource.k8s.io"]
     resources: ["resourceclaims"]
-    verbs: ["get"]
+    verbs: ["get", "update", "patch"]
   - apiGroups: [""]
     resources: ["nodes"]
-    verbs: ["get"]
+    verbs: ["get", "list", "watch", "patch"]
   - apiGroups: ["resource.k8s.io"]
     resources: ["resourceslices"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]

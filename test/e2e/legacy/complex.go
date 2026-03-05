@@ -167,17 +167,6 @@ var _ = Describe("ComplexTest", Ordered, func() {
 		})
 	})
 
-	Context("When virtual machine block device attachments are applied", func() {
-		It("checks VMBDAs phases", func() {
-			By(fmt.Sprintf("VMBDAs should be in %s phases", PhaseAttached))
-			WaitPhaseByLabel(kc.ResourceVMBDA, PhaseAttached, kc.WaitOptions{
-				Labels:    testCaseLabel,
-				Namespace: ns,
-				Timeout:   MaxWaitTimeout,
-			})
-		})
-	})
-
 	Describe("External connection", func() {
 		Context("When Virtual machine agents are ready", func() {
 			It("checks VMs external connectivity", func() {

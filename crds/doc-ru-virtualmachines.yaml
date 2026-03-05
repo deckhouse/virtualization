@@ -547,7 +547,9 @@ spec:
                     * `PreferForced` — включать замедление CPU для автоматических миграций. Замедление CPU можно выключить вручную с помощью поля `force=false` в VMOP.
                 networks:
                   description: |
-                    Список конфигураций сетевых интерфейсов.
+                    Список конфигураций сетевых интерфейсов. Если список не задан, ВМ использует только основную сеть кластера (`Main`).
+
+                    Модуль `sdn` требуется, если в `.spec.networks` указаны дополнительные сети (`Network` или `ClusterNetwork`). Если указана только основная сеть (`Main`), модуль `sdn` не требуется.
                   items:
                     properties:
                       type:
@@ -565,6 +567,15 @@ spec:
                         type: string
                         description: |
                           Имя ресурса `VirtualMachineMACAddress`, связанного с сетевым интерфейсом.
+                usbDevices:
+                  description: |
+                    Список USB-устройств для подключения к виртуальной машине.
+                    Устройства указываются по имени ресурса `USBDevice` в том же пространстве имен.
+                  items:
+                    properties:
+                      name:
+                        description: |
+                          Имя ресурса `USBDevice` в том же пространстве имен.
             status:
               properties:
                 blockDeviceRefs:
@@ -738,6 +749,33 @@ spec:
                           description: Накладные расходы на память во время выполнения.
                         size:
                           description: Текущий размер памяти виртуальной машины.
+                usbDevices:
+                  description: |
+                    Список USB-устройств, подключенных к виртуальной машине.
+                  items:
+                    properties:
+                      name:
+                        description: |
+                          Имя ресурса `USBDevice`.
+                      attached:
+                        description: |
+                          USB-устройство подключено к виртуальной машине.
+                      ready:
+                        description: |
+                          USB-устройство готово к использованию.
+                      address:
+                        description: |
+                          USB-адрес внутри виртуальной машины.
+                        properties:
+                          bus:
+                            description: |
+                              Номер USB-шины (всегда `0` для основного USB-контроллера).
+                          port:
+                            description: |
+                              Номер USB-порта на выбранной шине.
+                      hotplugged:
+                        description: |
+                          USB-устройство подключено через горячее подключение.
                 networks:
                   description: |
                     Список сетевых интерфейсов, подключенных к ВМ.

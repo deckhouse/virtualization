@@ -78,7 +78,7 @@ func NewGeneratedHTTPVDUbuntu(prefix, namespace string, opts ...vd.Option) *v1al
 		vd.WithGenerateName(prefix),
 		vd.WithNamespace(namespace),
 		vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-			URL: ImageURLUbuntu,
+			URL: ImageURLAlpineBIOS,
 		}),
 	}
 	baseOpts = append(baseOpts, opts...)

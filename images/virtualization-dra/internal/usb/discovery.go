@@ -16,11 +16,42 @@ limitations under the License.
 
 package usb
 
-func (s *AllocationStore) discoveryPluggedUSBDevices() DeviceSet {
+import (
+	"context"
+	"log/slog"
+
+	"github.com/deckhouse/virtualization-dra/internal/featuregates"
+)
+
+func (s *AllocationStore) discoveryPluggedUSBDevices(ctx context.Context) (DeviceSet, DeviceSet, error) {
 	allUSBDevices := s.monitor.GetDevices()
-	usbDeviceSet := NewDeviceSet()
-	for _, device := range allUSBDevices {
-		usbDeviceSet.Insert(toDevice(&device))
+
+	busIDSet := make(map[string]struct{})
+	if featuregates.Default().USBGatewayEnabled() {
+		info, err := s.usbipInfoGetter.GetAttachInfo()
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, item := range info.Items {
+			busIDSet[item.LocalBusID] = struct{}{}
+		}
 	}
-	return usbDeviceSet
+
+	usbDeviceSet := NewDeviceSet()
+	usbipDeviceSet := NewDeviceSet()
+
+	for _, device := range allUSBDevices {
+		if _, ok := busIDSet[device.BusID]; ok {
+			usbipDeviceSet.Insert(toDevice(&device))
+		} else {
+			usbDeviceSet.Insert(toDevice(&device))
+		}
+	}
+
+	if s.log.Enabled(ctx, slog.LevelDebug) {
+		s.log.Debug("USB device set", slog.Any("usbDeviceSet", usbDeviceSet.UnsortedList()))
+		s.log.Debug("USBIP device set", slog.Any("usbipDeviceSet", usbipDeviceSet.UnsortedList()))
+	}
+
+	return usbDeviceSet, usbipDeviceSet, nil
 }

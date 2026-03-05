@@ -283,19 +283,19 @@ tasks:
       kubectl -n d8-virtualization port-forward deploy/virt-api 2345:2345
       EOF
 
-  dlv:virtualization-dra-plugin:build:
-    desc: "Build image virtualization-dra-plugin with dlv"
+  dlv:virtualization-dra-usb:build:
+    desc: "Build image virtualization-dra-usb with dlv"
     cmds:
-      - docker build --build-arg BRANCH=$BRANCH -f ./images/virtualization-dra-plugin/debug/dlv.Dockerfile -t "{{ .DLV_IMAGE }}" --platform linux/amd64 .
+      - docker build --build-arg BRANCH=$BRANCH -f ./images/virtualization-dra-usb/debug/dlv.Dockerfile -t "{{ .DLV_IMAGE }}" --platform linux/amd64 .
 
-  dlv:virtualization-dra-plugin:build-push:
-    desc: "Build and Push image virtualization-dra-plugin with dlv"
+  dlv:virtualization-dra-usb:build-push:
+    desc: "Build and Push image virtualization-dra-usb with dlv"
     cmds:
-      - task: dlv:virtualization-dra-plugin:build
+      - task: dlv:virtualization-dra-usb:build
       - docker push "{{ .DLV_IMAGE }}"
-      - task: dlv:virtualization-dra-plugin:print
+      - task: dlv:virtualization-dra-usb:print
 
-  dlv:virtualization-dra-plugin:print:
+  dlv:virtualization-dra-usb:print:
     desc: "Print commands for debug"
     env:
       IMAGE: "{{ .DLV_IMAGE }}"
@@ -314,5 +314,5 @@ tasks:
           }
         }
       }'
-      kubectl -n d8-virtualization port-forward deploy/virtualization-dra 2345:2345
+      kubectl -n d8-virtualization port-forward pod/<virtualization-dra-pod> 2345:2345
       EOF

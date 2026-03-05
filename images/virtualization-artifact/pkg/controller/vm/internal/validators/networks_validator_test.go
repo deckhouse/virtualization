@@ -46,7 +46,7 @@ func TestNetworksValidateCreate(t *testing.T) {
 		{[]v1alpha2.NetworksSpec{mainNetwork, networkTest}, true, true},
 		{[]v1alpha2.NetworksSpec{mainNetwork, networkTest, networkTest}, true, false},
 		{[]v1alpha2.NetworksSpec{mainNetwork, {Type: v1alpha2.NetworksTypeNetwork}}, true, false},
-		{[]v1alpha2.NetworksSpec{mainNetwork}, false, false},
+		{[]v1alpha2.NetworksSpec{mainNetwork}, false, true},
 	}
 
 	for i, test := range tests {

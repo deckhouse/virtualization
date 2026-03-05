@@ -31,9 +31,7 @@ import (
 )
 
 type VNCREST struct {
-	vmLister         virtlisters.VirtualMachineLister
-	proxyCertManager certmanager.CertificateManager
-	kubevirt         KubevirtAPIServerConfig
+	*BaseREST
 }
 
 var (
@@ -41,12 +39,8 @@ var (
 	_ rest.Connecter = &VNCREST{}
 )
 
-func NewVNCREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtAPIServerConfig, proxyCertManager certmanager.CertificateManager) *VNCREST {
-	return &VNCREST{
-		vmLister:         vmLister,
-		kubevirt:         kubevirt,
-		proxyCertManager: proxyCertManager,
-	}
+func NewVNCREST(baseREST *BaseREST) *VNCREST {
+	return &VNCREST{baseREST}
 }
 
 // New implements rest.Storage interface
@@ -59,11 +53,11 @@ func (r VNCREST) Destroy() {
 }
 
 func (r VNCREST) Connect(ctx context.Context, name string, opts runtime.Object, responder rest.Responder) (http.Handler, error) {
-	vncOpts, ok := opts.(*subresources.VirtualMachineVNC)
+	_, ok := opts.(*subresources.VirtualMachineVNC)
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
 	}
-	location, transport, err := VNCLocation(ctx, r.vmLister, name, vncOpts, r.kubevirt, r.proxyCertManager)
+	location, transport, err := VNCLocation(ctx, r.vmLister, name, r.kubevirt, r.proxyCertManager)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +79,6 @@ func VNCLocation(
 	ctx context.Context,
 	getter virtlisters.VirtualMachineLister,
 	name string,
-	opts *subresources.VirtualMachineVNC,
 	kubevirt KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
 ) (*url.URL, *http.Transport, error) {

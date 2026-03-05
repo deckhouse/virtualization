@@ -28,10 +28,10 @@ type Manager struct {
 	checker *HealthCheck
 }
 
-func NewManager(driverName, nodeName string, kubeClient kubernetes.Interface, allocator Allocator, healthPort int) (*Manager, error) {
+func NewManager(driverName, nodeName string, kubeClient kubernetes.Interface, allocator Allocator, healthPort int, shared bool) (*Manager, error) {
 	m := &Manager{}
 
-	driver, err := NewDriver(driverName, nodeName, kubeClient, allocator)
+	driver, err := NewDriver(driverName, nodeName, kubeClient, allocator, shared)
 	if err != nil {
 		return nil, err
 	}

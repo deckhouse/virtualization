@@ -271,7 +271,7 @@ The image status shows two sizes:
 - `UNPACKEDSIZE` (unpacked size) — the image size after unpacking. It is used when creating a disk from the image and defines the minimum disk size that can be created.
 
 {{< alert level="info" >}}
-When creating a disk from an image, set the disk size to `UNPACKEDSIZE` or larger .  
+When creating a disk from an image, set the disk size to `UNPACKEDSIZE` or larger.
 If the size is not specified, the disk will be created with a size equal to `UNPACKEDSIZE`.
 {{< /alert >}}
 
@@ -2257,6 +2257,46 @@ Use stable identifiers instead of `/dev/sdX`:
 
 In configuration files and scripts, use partition UUIDs or symlinks from `/dev/disk/by-*` instead of `/dev/sdX` names.
 
+#### Network interface naming in guest OS
+
+In systems without predictable network interface naming support, network interface names (`eth0`, `eth1`, `eth2`, etc.) are assigned by the Linux kernel in the order devices are discovered during boot. When adding new network interfaces or changing the order of networks in `.spec.networks`, the interface order may change, which can cause IP addresses to be assigned to the wrong interfaces.
+
+Using `ethX` in configuration files (for example, `/etc/network/interfaces`, `netplan`, `systemd-networkd`) or scripts may lead to unexpected network behavior or connection to the wrong network when adding new interfaces or changing the network order.
+
+Modern distributions with systemd (Ubuntu 16.04+, Debian 9+, CentOS 7+, RHEL 7+) use predictable interface names (`enpXsY`, `ensX`, `enoX`) by default, which are based on the physical characteristics of the device (PCI coordinates) and remain stable between reboots and when adding new interfaces.
+
+However, even when using predictable names, it is recommended to bind network configuration to interface MAC addresses for guaranteed stability, especially when changing the order of networks in `.spec.networks` or adding new interfaces.
+
+**Example for systems without predictable naming:**
+
+Initially, the VM has two interfaces:
+
+```console
+$ ip link show
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500
+3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500
+```
+
+After adding a new interface at the beginning of the `.spec.networks` list and rebooting the VM:
+
+```console
+$ ip link show
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500  # New interface
+3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500  # Old eth0
+4: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500  # Old eth1
+```
+
+MAC addresses remain unchanged, but interface names (`eth0`, `eth1`) shift, which can lead to IP addresses being assigned to the wrong interfaces.
+
+Use stable identifiers instead of `ethX`:
+
+- **`enpXsY`** — predictable names based on physical location (systemd networkd naming scheme, enabled by default in modern systems)
+- **MAC address binding** — in `netplan`, `systemd-networkd`, or `/etc/network/interfaces` configuration (preferred for guaranteed stability)
+
+In configuration files and scripts, use stable interface names (`enpXsY`) or MAC address binding instead of `ethX` names.
+
 ### Organizing interaction with virtual machines
 
 Virtual machines can be accessed directly via their fixed IP addresses. However, this approach has limitations: direct use of IP addresses requires manual management, complicates scaling, and makes the infrastructure less flexible. An alternative is services—a mechanism that abstracts access to VMs by providing logical entry points instead of binding to physical addresses.
@@ -2933,6 +2973,10 @@ Important considerations when working with additional network interfaces:
 - Network security policies (NetworkPolicy) do not apply to additional network interfaces.
 - Network parameters (IP addresses, gateways, DNS, etc.) for additional networks are configured manually from within the guest OS (for example, using Cloud-Init).
 
+{{< alert level="info" >}}
+When configuring network interfaces in the guest OS, use stable identifiers (predictable names `enpXsY` or MAC address binding) instead of `ethX` names. For more details, see the [Network interface naming in guest OS](#network-interface-naming-in-guest-os) section.
+{{< /alert >}}
+
 Example of connecting a VM to the main cluster network and the project network `user-net`:
 
 ```yaml
@@ -3296,6 +3340,14 @@ You can create a VM clone in two ways: from an existing VM or from a previously 
 The cloned VM will be assigned a new IP address for the cluster network and MAC addresses for additional network interfaces (if any), so you will need to reconfigure the guest OS network settings after cloning.
 {{< /alert >}}
 
+{{< alert level="info" >}}
+Labels are not copied from the source VM to the clone. This prevents Service traffic (Services select VMs by labels) from being routed to the clone. If the clone should be part of a Service, add the required labels after cloning. For example:
+
+```bash
+d8 k label vm <vm-name> label-name=label-value
+```
+{{< /alert >}}
+
 Cloning creates a copy of a VM, so the resources of the new VM must have unique names. To do this, use the `nameReplacements` and/or `customization` parameters:
 
 - `nameReplacements`: Allows you to replace the names of existing resources with new ones to avoid conflicts.
@@ -3518,6 +3570,257 @@ spec:
 ```
 
 As a result, a VM named `clone-database-prod` and a disk named `clone-database-root-prod` will be created.
+
+## USB Devices
+
+{{< alert level="warning" >}}
+USB device passthrough is available only in the **Enterprise Edition (EE)** of the Deckhouse Virtualization Platform.
+{{< /alert >}}
+
+The virtualization module supports USB device passthrough to virtual machines using DRA (Dynamic Resource Allocation). This section describes how to use USB devices with virtual machines.
+
+### Overview
+
+The module provides two custom resources for managing USB devices:
+
+- [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) (cluster-scoped) — represents a USB device discovered on a specific node. Created automatically by the DRA system when a USB device is detected on a node.
+- [USBDevice](/modules/virtualization/cr.html#usbdevice) (namespace-scoped) — represents a USB device available for attachment to virtual machines in a given namespace.
+
+### How It Works
+
+USB device passthrough follows a defined lifecycle — from device discovery on a node to attachment to a virtual machine:
+
+1. The DRA driver automatically discovers USB devices on cluster nodes and creates [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resources.
+
+1. An administrator assigns a namespace to the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource by setting the `.spec.assignedNamespace` field. This makes the device available in that namespace.
+
+1. After the namespace is assigned, the controller automatically creates a corresponding [USBDevice](/modules/virtualization/cr.html#usbdevice) resource in that namespace.
+
+1. The [USBDevice](/modules/virtualization/cr.html#usbdevice) is attached to a virtual machine by adding it to the `.spec.usbDevices` field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
+
+### Quick Start
+
+The following steps describe the minimal workflow for attaching a USB device to a virtual machine:
+
+1. Connect the USB device to a cluster node. 
+1. Verify that a NodeUSBDevice resource has been created:
+
+   ```bash
+   d8 k get nodeusbdevice
+   ```
+
+1. Assign a namespace to the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) by setting `.spec.assignedNamespace`.
+
+   ```bash
+   d8 k apply -f - <<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: NodeUSBDevice
+   metadata:
+     name: logitech-webcam
+   spec:
+     assignedNamespace: my-project
+   EOF
+   ```
+
+1. Verify that a corresponding [USBDevice](/modules/virtualization/cr.html#usbdevice) resource has been created in the target namespace:
+
+   ```bash
+   d8 k get usbdevice -n my-project
+   ```
+
+1. Add the device to the `.spec.usbDevices` field of a [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
+
+   ```bash
+   d8 k apply -f - <<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: VirtualMachine
+   metadata:
+     name: linux-vm
+   spec:
+     # ... other VM settings ...
+     usbDevices:
+       - name: logitech-webcam
+   EOF
+   ```
+
+### NodeUSBDevice
+
+[NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource reflects the state of a physical USB device detected on a cluster node. It is a cluster-scoped resource that represents a physical USB device on a node. It is created automatically by the DRA system.
+
+Example of viewing all discovered USB devices:
+
+```bash
+d8 k get nodeusbdevice
+```
+
+Example output:
+
+```console
+NAME                 NODE           READY   ASSIGNED   NAMESPACE   AGE
+usb-flash-drive     node-1         True    False                  10m
+logitech-webcam     node-2         True    True      my-project   15m
+```
+
+#### NodeUSBDevice Conditions
+
+The status of a [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource is represented by a set of conditions that describe its availability and assignment state. These conditions are available in `.status.conditions`:
+
+- **Ready**: Indicates whether the device is ready to use.
+  - `Ready`: Device is ready to use.
+  - `NotReady`: Device exists but is not ready.
+  - `NotFound`: Device is absent on the host.
+
+- **Assigned**: Indicates whether a namespace is assigned to the device.
+  - `Assigned`: Namespace is assigned and USBDevice resource is created.
+  - `Available`: No namespace is assigned for the device.
+  - `InProgress`: Device connection to namespace is in progress.
+
+#### Assigning a Namespace
+
+Before a USB device can be attached to a virtual machine, it must be exposed to a specific namespace. To make a USB device available in a specific namespace, set the `.spec.assignedNamespace` field:
+
+```bash
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: NodeUSBDevice
+metadata:
+  name: logitech-webcam
+spec:
+  assignedNamespace: my-project
+EOF
+```
+
+After assigning the namespace, a corresponding [USBDevice](/modules/virtualization/cr.html#usbdevice) resource is automatically created in the specified namespace.
+
+### USBDevice
+
+Once a namespace is assigned to a [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice), a corresponding [USBDevice](/modules/virtualization/cr.html#usbdevice) resource is created in automatically that namespace. It is a namespace-scoped resource that represents a USB device available for attachment to virtual machines within a given namespace.
+
+Example of viewing USB devices in a namespace:
+
+```bash
+d8 k get usbdevice -n my-project
+```
+
+Example output:
+
+```console
+NAME               NODE     MANUFACTURER   PRODUCT              SERIAL       ATTACHED   AGE
+logitech-webcam    node-2   Logitech       Webcam C920         ABC123456   False      10m
+```
+
+#### USBDevice Attributes
+
+The [USBDevice](/modules/virtualization/cr.html#usbdevice) resource exposes detailed information about the physical USB device through its status fields. This attributes are available in `.status.attributes`:
+
+- `vendorID`: USB vendor ID (hexadecimal format).
+- `productID`: USB product ID (hexadecimal format).
+- `bus`: USB bus number.
+- `deviceNumber`: USB device number on the bus.
+- `serial`: Device serial number.
+- `manufacturer`: Device manufacturer name.
+- `product`: Device product name.
+- `name`: Device name.
+
+#### USBDevice Conditions
+
+The [USBDevice](/modules/virtualization/cr.html#usbdevice) resource provides status conditions that reflect its readiness and attachment state. These conditions are available in `.status.conditions`.
+
+- **Ready**: Indicates whether the device is ready to use.
+  - `Ready`: Device is ready to use.
+  - `NotReady`: Device exists but is not ready.
+  - `NotFound`: Device is absent on the host.
+
+- **Attached**: Indicates whether the device is attached to a virtual machine.
+  - `AttachedToVirtualMachine`: Device is attached to a VM.
+  - `Available`: Device is available for attachment.
+
+### Attaching USB Device to VM
+
+After the [USBDevice](/modules/virtualization/cr.html#usbdevice) resource is available in a namespace, it can be attached to a virtual machine. To attach a USB device to a virtual machine, add the device to the `.spec.usbDevices` field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource specification:
+
+```bash
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  name: linux-vm
+spec:
+  # ... other VM settings ...
+  usbDevices:
+    - name: logitech-webcam
+EOF
+```
+
+After creating or updating the VM, the USB device will be attached to the specified virtual machine.
+
+{{< alert level="info" >}}
+The USB device is automatically forwarded to the node where the virtual machine is running via the network (USBIP). There is no need to manually place the VM on the same node as the device.
+{{< /alert >}}
+
+{{< alert level="warning" >}}
+If a virtual machine with an attached USB device is migrated to another node, the USB device is automatically detached for the entire duration of the migration.
+{{< /alert >}}
+
+### Viewing USB Device Details
+
+To view detailed information about a USB device:
+
+```bash
+d8 k describe nodeusbdevice <device-name>
+```
+
+Example output:
+
+```console
+Name:         logitech-webcam
+Namespace:
+Labels:       <none>
+Annotations:  <none>
+API Version:  virtualization.deckhouse.io/v1alpha2
+Kind:         NodeUSBDevice
+Metadata:
+  Creation Timestamp:  2024-01-15T10:30:00Z
+  Generation:          1
+  UID:                 abc123-def456-ghi789
+Spec:
+  Assigned Namespace:  my-project
+Status:
+  Node Name:           node-2
+  Attributes:
+    Bus:               1
+    Device Number:     2
+    Manufacturer:      Logitech
+    Name:              Webcam C920
+    Product:           Webcam C920
+    Product ID:        082d
+    Serial:            ABC123456
+    Vendor ID:         046d
+  Conditions:
+    Type:              Ready
+    Status:            True
+    Reason:            Ready
+    Message:           Device is ready to use
+    Type:              Assigned
+    Status:            True
+    Reason:            Assigned
+    Message:           Namespace is assigned for the device
+  Observed Generation: 1
+```
+
+{{< alert level="info" >}}
+If a USB device is physically disconnected from the node, the `Attached` condition becomes `False`.  
+Both `USBDevice` and `NodeUSBDevice` resources update their status conditions to indicate that the device is no longer present on the host.
+{{< /alert >}}
+
+### Requirements and Limitations
+
+USB device passthrough has several operational requirements and limitations that must be considered before use:
+
+- The DRA driver must be installed on nodes where USB devices are to be discovered.
+- USB devices are forwarded to the VM node over the network using USBIP. The VM does not need to run on the same node where the device is physically connected.
+- USB devices support hot-plug — they can be attached to and detached from a running VM without stopping it.
+- USB device passthrough requires proper kernel modules on the node.
 
 ## Data export
 

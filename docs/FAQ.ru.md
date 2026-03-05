@@ -353,6 +353,12 @@ spec:
 
 Cloud-Init — это инструмент для автоматической настройки виртуальных машин при первом запуске. Конфигурация записывается в формате YAML и должна начинаться с заголовка `#cloud-config`.
 
+{{< alert level="warning" >}}
+При использовании cloud-образов (например, официальных образов дистрибутивов) необходимо обязательно предоставить конфигурацию cloud-init. Без неё на некоторых дистрибутивах не настраивается сетевое подключение, и виртуальная машина становится недоступной в сети, даже если подключена основная сеть (Main).
+
+Кроме того, в cloud-образах по умолчанию отключена возможность входа в систему — необходимо добавить SSH-ключи для пользователя по умолчанию либо создать нового пользователя с SSH-доступом, иначе доступ к виртуальной машине будет невозможен.
+{{< /alert >}}
+
 ### Обновление и установка пакетов
 
 Пример конфигурации для обновления системы и установки пакетов:
@@ -436,6 +442,104 @@ mounts:
   - ["/dev/sdb1", "/mnt/data", "ext4", "defaults", "0", "2"]
 ```
 
+### Настройка сетевых интерфейсов для дополнительных сетей
+
+Подробнее о подключении дополнительных сетей к виртуальной машине см. в разделе [Дополнительные сетевые интерфейсы](./user_guide.html#дополнительные-сетевые-интерфейсы).
+
+{{< alert level="warning" >}}
+Настройки, описанные в этом разделе, применяются только для дополнительных сетей. Основная сеть (Main) настраивается автоматически через cloud-init и не требует ручной конфигурации.
+{{< /alert >}}
+
+Если к виртуальной машине подключены дополнительные сети, их необходимо настроить вручную через cloud-init: используйте `write_files` для создания конфигурационных файлов и `runcmd` для применения настроек.
+
+#### Для systemd-networkd
+
+Пример для дистрибутивов, использующих `systemd-networkd` (например, Debian, CoreOS):
+
+```yaml
+#cloud-config
+write_files:
+  - path: /etc/systemd/network/10-eth1.network
+    content: |
+      [Match]
+      Name=eth1
+
+      [Network]
+      Address=192.168.1.10/24
+      Gateway=192.168.1.1
+      DNS=8.8.8.8
+
+runcmd:
+  - systemctl restart systemd-networkd
+```
+
+#### Для Netplan (Ubuntu)
+
+Пример для Ubuntu и других дистрибутивов, использующих `Netplan`:
+
+```yaml
+#cloud-config
+write_files:
+  - path: /etc/netplan/99-custom.yaml
+    content: |
+      network:
+        version: 2
+        ethernets:
+          eth1:
+            addresses:
+              - 10.0.0.5/24
+            gateway4: 10.0.0.1
+            nameservers:
+              addresses: [8.8.8.8]
+          eth2:
+            dhcp4: true
+
+runcmd:
+  - netplan apply
+```
+
+#### Для ifcfg (RHEL/CentOS)
+
+Пример для RHEL, CentOS и других дистрибутивов, использующих схему `ifcfg` с `NetworkManager`:
+
+```yaml
+#cloud-config
+write_files:
+  - path: /etc/sysconfig/network-scripts/ifcfg-eth1
+    content: |
+      DEVICE=eth1
+      BOOTPROTO=none
+      ONBOOT=yes
+      IPADDR=192.168.1.10
+      PREFIX=24
+      GATEWAY=192.168.1.1
+      DNS1=8.8.8.8
+
+runcmd:
+  - nmcli connection reload
+  - nmcli connection up eth1
+```
+
+#### Для Alpine Linux
+
+Пример для Alpine Linux и других дистрибутивов, использующих традиционный формат `/etc/network/interfaces`:
+
+```yaml
+#cloud-config
+write_files:
+  - path: /etc/network/interfaces
+    append: true
+    content: |
+      auto eth1
+      iface eth1 inet static
+          address 192.168.1.10
+          netmask 255.255.255.0
+          gateway 192.168.1.1
+
+runcmd:
+  - /etc/init.d/networking restart
+```
+
 ## Как использовать Ansible для конфигурирования виртуальных машин?
 
 [Ansible](https://docs.ansible.com/ansible/latest/index.html) — это инструмент автоматизации, который позволяет выполнять задачи на удаленных серверах с использованием протокола SSH. В данном примере мы рассмотрим, как использовать Ansible для управления виртуальными машинами расположенных в проекте demo-app.
@@ -490,7 +594,7 @@ ansible -m shell -a "uptime" \
 {{< /alert >}}
 
 {{< alert level="warning" >}}
-Команда работает только для виртуальных машин, у которых подключена основная сеть кластера (Main). 
+Команда работает только для виртуальных машин, у которых подключена основная сеть кластера (Main).
 {{< /alert >}}
 
 Вместо ручного создания inventory-файла можно использовать команду `d8 v ansible-inventory`, которая автоматически генерирует инвентарь Ansible из виртуальных машин в указанном неймспейсе. Команда совместима с интерфейсом [ansible inventory script](https://docs.ansible.com/ansible/latest/user_guide/intro_inventory.html#inventory-scripts).
@@ -500,7 +604,7 @@ ansible -m shell -a "uptime" \
 При необходимости настройте переменные хоста через аннотации (например, пользователя для SSH):
 
 ```bash
-d8 k -n demo-app annotate vm frontend provisioning.virtualization.deckhouse.io/ansible_user="cloud" 
+d8 k -n demo-app annotate vm frontend provisioning.virtualization.deckhouse.io/ansible_user="cloud"
 ```
 
 Используйте команду напрямую:
@@ -822,3 +926,67 @@ Golden image — это предварительно настроенный об
    ```
 
 После выполнения этих шагов у вас будет golden image, который можно использовать для быстрого создания новых виртуальных машин с предустановленным программным обеспечением и настройками.
+
+## Как восстановить кластер, если после смены лицензии образы из registry.deckhouse.io не загружаются?
+
+После смены лицензии на кластере с `containerd v1` и удаления устаревшей лицензии образы из `registry.deckhouse.io` могут перестать загружаться. При этом на узлах остаётся устаревший файл конфигурации `/etc/containerd/conf.d/dvcr.toml`, который не удаляется автоматически. Из-за него не запускается модуль `registry`, без которого не работает DVCR.
+
+Чтобы это исправить, примените манифест NodeGroupConfiguration (NGC): он удалит файл на узлах. После запуска модуля `registry` манифест нужно удалить, так как это разовое исправление.
+
+1. Сохраните манифест в файл (например, `containerd-dvcr-remove-old-config.yaml`):
+
+   ```yaml
+   apiVersion: deckhouse.io/v1alpha1
+   kind: NodeGroupConfiguration
+   metadata:
+     name: containerd-dvcr-remove-old-config.sh
+   spec:
+     weight: 32 # Должен быть в диапазоне 32–90
+     nodeGroups: ["*"]
+     bundles: ["*"]
+     content: |
+       # Copyright 2023 Flant JSC
+       # Licensed under the Apache License, Version 2.0 (the "License");
+       # you may not use this file except in compliance with the License.
+       # You may obtain a copy of the License at
+       #      http://www.apache.org/licenses/LICENSE-2.0
+       # Unless required by applicable law or agreed to in writing, software
+       # distributed under the License is distributed on an "AS IS" BASIS,
+       # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+       # See the License for the specific language governing permissions and
+       # limitations under the License.
+
+       rm -f /etc/containerd/conf.d/dvcr.toml
+   ```
+
+1. Примените манифест:
+
+   ```bash
+   d8 k apply -f containerd-dvcr-remove-old-config.yaml
+   ```
+
+1. Проверьте, что модуль `registry` запущен:
+
+   ```bash
+   d8 k -n d8-system -o yaml get secret registry-state | yq -C -P '.data | del .state | map_values(@base64d) | .conditions = (.conditions | from_yaml)'
+   ```
+
+   Пример вывода при успешном запуске:
+
+   ```yaml
+   conditions:
+   # ...
+     - lastTransitionTime: "..."
+       message: ""
+       reason: ""
+       status: "True"
+       type: Ready
+   ```
+
+1. Удалите манифест NGC:
+
+   ```bash
+   d8 k delete -f containerd-dvcr-remove-old-config.yaml
+   ```
+
+Подробнее о миграции см. в статье [Миграция container runtime на containerd v2](/products/virtualization-platform/documentation/admin/platform-management/platform-scaling/node/migrating.html).

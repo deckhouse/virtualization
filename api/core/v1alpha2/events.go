@@ -170,4 +170,7 @@ const (
 
 	// ReasonVolumeMigrationCannotBeProcessed is event reason indicating that volume migration cannot be processed.
 	ReasonVolumeMigrationCannotBeProcessed = "VolumeMigrationCannotBeProcessed"
+
+	// ReasonDeleted is event reason that Object is deleted.
+	ReasonDeleted = "Deleted"
 )

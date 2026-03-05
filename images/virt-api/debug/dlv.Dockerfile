@@ -1,4 +1,4 @@
-FROM golang:1.23 AS builder
+FROM golang:1.23.0 AS builder
 
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
@@ -15,6 +15,12 @@ RUN go mod edit -go=$GOVERSION && \
     go mod download
 
 RUN go work vendor
+
+
+RUN for p in $(test -d patches && ls -1 patches/*.patch 2>/dev/null) ; do \
+        echo -n "Apply ${p} ... " ; \
+        git apply --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1) ; \
+    done
 
 ENV GO111MODULE=on
 ENV GOOS=linux

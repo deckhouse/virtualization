@@ -52,8 +52,27 @@ tasks:
 
   lint:go:
     desc: "Run golangci-lint"
-    deps:
-      - _ensure:golangci-lint
     cmds:
       - |
         golangci-lint run
+
+  lint:go:fix:
+    desc: "Run golangci-lint with --fix"
+    cmds:
+      - |
+        golangci-lint run --fix
+
+  build:go-usbip:
+    desc: "Build go-usbip binary"
+    cmds:
+      - go build -o bin/go-usbip cmd/usb/go-usbip/main.go
+
+  build:usb-monitor:
+    desc: "Build usb-monitor binary"
+    cmds:
+      - go build -o bin/usb-monitor cmd/usb/usb-monitor/main.go
+
+  api:generate:
+    desc: "Generate API code"
+    cmds:
+      - hack/update-codegen.sh

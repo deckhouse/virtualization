@@ -31,9 +31,7 @@ import (
 )
 
 type UnfreezeREST struct {
-	vmLister         virtlisters.VirtualMachineLister
-	proxyCertManager certmanager.CertificateManager
-	kubevirt         KubevirtAPIServerConfig
+	*BaseREST
 }
 
 var (
@@ -41,12 +39,8 @@ var (
 	_ rest.Connecter = &UnfreezeREST{}
 )
 
-func NewUnfreezeREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtAPIServerConfig, proxyCertManager certmanager.CertificateManager) *UnfreezeREST {
-	return &UnfreezeREST{
-		vmLister:         vmLister,
-		kubevirt:         kubevirt,
-		proxyCertManager: proxyCertManager,
-	}
+func NewUnfreezeREST(baseREST *BaseREST) *UnfreezeREST {
+	return &UnfreezeREST{baseREST}
 }
 
 func (r UnfreezeREST) New() runtime.Object {
@@ -57,11 +51,11 @@ func (r UnfreezeREST) Destroy() {
 }
 
 func (r UnfreezeREST) Connect(ctx context.Context, name string, opts runtime.Object, responder rest.Responder) (http.Handler, error) {
-	unfreezeOpts, ok := opts.(*subresources.VirtualMachineUnfreeze)
+	_, ok := opts.(*subresources.VirtualMachineUnfreeze)
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
 	}
-	location, transport, err := UnfreezeLocation(ctx, r.vmLister, name, unfreezeOpts, r.kubevirt, r.proxyCertManager)
+	location, transport, err := UnfreezeLocation(ctx, r.vmLister, name, r.kubevirt, r.proxyCertManager)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +77,6 @@ func UnfreezeLocation(
 	ctx context.Context,
 	getter virtlisters.VirtualMachineLister,
 	name string,
-	opts *subresources.VirtualMachineUnfreeze,
 	kubevirt KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
 ) (*url.URL, *http.Transport, error) {

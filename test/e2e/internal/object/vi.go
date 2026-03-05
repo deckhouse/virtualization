@@ -27,7 +27,7 @@ func NewHTTPVIUbuntu(name, namespace string, opts ...vi.Option) *v1alpha2.Virtua
 		vi.WithStorage(v1alpha2.StorageContainerRegistry),
 		vi.WithNamespace(namespace),
 		vi.WithDataSourceHTTP(
-			ImageURLUbuntu,
+			ImageURLAlpineBIOS,
 			nil,
 			nil,
 		),
@@ -42,7 +42,7 @@ func NewGeneratedHTTPVIUbuntu(prefix, namespace string, opts ...vi.Option) *v1al
 		vi.WithGenerateName(prefix),
 		vi.WithNamespace(namespace),
 		vi.WithDataSourceHTTP(
-			ImageURLUbuntu,
+			ImageURLAlpineBIOS,
 			nil,
 			nil,
 		),

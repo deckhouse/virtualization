@@ -32,9 +32,7 @@ import (
 )
 
 type ConsoleREST struct {
-	vmLister         virtlisters.VirtualMachineLister
-	proxyCertManager certmanager.CertificateManager
-	kubevirt         KubevirtAPIServerConfig
+	*BaseREST
 }
 
 type KubevirtAPIServerConfig struct {
@@ -48,12 +46,8 @@ var (
 	_ rest.Connecter = &ConsoleREST{}
 )
 
-func NewConsoleREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtAPIServerConfig, proxyCertManager certmanager.CertificateManager) *ConsoleREST {
-	return &ConsoleREST{
-		vmLister:         vmLister,
-		kubevirt:         kubevirt,
-		proxyCertManager: proxyCertManager,
-	}
+func NewConsoleREST(baseREST *BaseREST) *ConsoleREST {
+	return &ConsoleREST{baseREST}
 }
 
 // New implements rest.Storage interface
@@ -66,11 +60,11 @@ func (r ConsoleREST) Destroy() {
 }
 
 func (r ConsoleREST) Connect(ctx context.Context, name string, opts runtime.Object, responder rest.Responder) (http.Handler, error) {
-	consoleOpts, ok := opts.(*subresources.VirtualMachineConsole)
+	_, ok := opts.(*subresources.VirtualMachineConsole)
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
 	}
-	location, transport, err := ConsoleLocation(ctx, r.vmLister, name, consoleOpts, r.kubevirt, r.proxyCertManager)
+	location, transport, err := ConsoleLocation(ctx, r.vmLister, name, r.kubevirt, r.proxyCertManager)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +86,6 @@ func ConsoleLocation(
 	ctx context.Context,
 	getter virtlisters.VirtualMachineLister,
 	name string,
-	opts *subresources.VirtualMachineConsole,
 	kubevirt KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
 ) (*url.URL, *http.Transport, error) {

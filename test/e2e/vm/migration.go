@@ -18,6 +18,7 @@ package vm
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,9 +26,12 @@ import (
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/builder/cvi"
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vd"
+	"github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vm"
-	"github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
+	"github.com/deckhouse/virtualization-controller/pkg/builder/vmbda"
+	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/network"
@@ -37,13 +41,27 @@ import (
 
 var _ = Describe("VirtualMachineMigration", func() {
 	var (
+		// Core: VMs and their root/blank disks
 		vdRootBIOS  *v1alpha2.VirtualDisk
 		vdBlankBIOS *v1alpha2.VirtualDisk
 		vdRootUEFI  *v1alpha2.VirtualDisk
 		vdBlankUEFI *v1alpha2.VirtualDisk
+		vmBIOS      *v1alpha2.VirtualMachine
+		vmUEFI      *v1alpha2.VirtualMachine
 
-		vmBIOS *v1alpha2.VirtualMachine
-		vmUEFI *v1alpha2.VirtualMachine
+		// Hotplug: disks and images attached via VMBDAs
+		vdHotplugBIOS  *v1alpha2.VirtualDisk
+		vdHotplugUEFI  *v1alpha2.VirtualDisk
+		viHotplugBIOS  *v1alpha2.VirtualImage
+		viHotplugUEFI  *v1alpha2.VirtualImage
+		cviHotplugBIOS *v1alpha2.ClusterVirtualImage
+		cviHotplugUEFI *v1alpha2.ClusterVirtualImage
+
+		vmbdas     []*v1alpha2.VirtualMachineBlockDeviceAttachment
+		allObjects []crclient.Object
+
+		vmopMigrateBIOS *v1alpha2.VirtualMachineOperation
+		vmopMigrateUEFI *v1alpha2.VirtualMachineOperation
 
 		f = framework.NewFramework("vm-migration")
 	)
@@ -69,6 +87,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 				vd.WithNamespace(f.Namespace().Name),
 				vd.WithSize(ptr.To(resource.MustParse("100Mi"))),
 			)
+
 			vdRootUEFI = vd.New(
 				vd.WithName("vd-root-uefi"),
 				vd.WithNamespace(f.Namespace().Name),
@@ -82,7 +101,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 				vd.WithNamespace(f.Namespace().Name),
 				vd.WithSize(ptr.To(resource.MustParse("100Mi"))),
 			)
-			vmBIOS = object.NewMinimalVM("vm-bios-", f.Namespace().Name,
+			vmBIOS = object.NewMinimalVM("", f.Namespace().Name,
 				vm.WithBlockDeviceRefs(
 					v1alpha2.BlockDeviceSpecRef{
 						Kind: v1alpha2.VirtualDiskKind,
@@ -94,9 +113,11 @@ var _ = Describe("VirtualMachineMigration", func() {
 					},
 				),
 				vm.WithBootloader(v1alpha2.BIOS),
+				vm.WithProvisioningUserData(object.DefaultCloudInit),
 				vm.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
+				vm.WithName("vm-bios"),
 			)
-			vmUEFI = object.NewMinimalVM("vm-uefi-", f.Namespace().Name,
+			vmUEFI = object.NewMinimalVM("", f.Namespace().Name,
 				vm.WithBlockDeviceRefs(
 					v1alpha2.BlockDeviceSpecRef{
 						Kind: v1alpha2.VirtualDiskKind,
@@ -108,24 +129,131 @@ var _ = Describe("VirtualMachineMigration", func() {
 					},
 				),
 				vm.WithBootloader(v1alpha2.EFI),
+				vm.WithProvisioningUserData(object.DefaultCloudInit),
 				vm.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
+				vm.WithName("vm-uefi"),
 			)
 
-			err := f.CreateWithDeferredDeletion(context.Background(), vdRootBIOS, vdBlankBIOS, vmBIOS, vdRootUEFI, vdBlankUEFI, vmUEFI)
+			// --- Hotplug resources ---
+			vdHotplugBIOS = vd.New(
+				vd.WithName("vd-hotplug-bios"),
+				vd.WithNamespace(f.Namespace().Name),
+				vd.WithSize(ptr.To(resource.MustParse("100Mi"))),
+			)
+			vdHotplugUEFI = vd.New(
+				vd.WithName("vd-hotplug-uefi"),
+				vd.WithNamespace(f.Namespace().Name),
+				vd.WithSize(ptr.To(resource.MustParse("100Mi"))),
+			)
+
+			viHotplugBIOS = vi.New(
+				vi.WithName("vi-hotplug-bios"),
+				vi.WithNamespace(f.Namespace().Name),
+				vi.WithDataSourceHTTP(object.ImageURLMinimalQCOW, nil, nil),
+				vi.WithStorage(v1alpha2.StorageContainerRegistry),
+			)
+			viHotplugUEFI = vi.New(
+				vi.WithName("vi-hotplug-uefi"),
+				vi.WithNamespace(f.Namespace().Name),
+				vi.WithDataSourceHTTP(object.ImageURLMinimalQCOW, nil, nil),
+				vi.WithStorage(v1alpha2.StorageContainerRegistry),
+			)
+
+			cviHotplugBIOS = cvi.New(
+				cvi.WithName("cvi-hotplug-bios"),
+				cvi.WithDataSourceHTTP(object.ImageURLMinimalQCOW, nil, nil),
+			)
+			cviHotplugUEFI = cvi.New(
+				cvi.WithName("cvi-hotplug-uefi"),
+				cvi.WithDataSourceHTTP(object.ImageURLMinimalQCOW, nil, nil),
+			)
+
+			vmbdaVdBIOS := vmbda.New(
+				vmbda.WithName("vmbda-vd-bios"),
+				vmbda.WithNamespace(f.Namespace().Name),
+				vmbda.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindVirtualDisk, vdHotplugBIOS.Name),
+				vmbda.WithVirtualMachineName(vmBIOS.Name),
+			)
+			vmbdaVdUEFI := vmbda.New(
+				vmbda.WithName("vmbda-vd-uefi"),
+				vmbda.WithNamespace(f.Namespace().Name),
+				vmbda.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindVirtualDisk, vdHotplugUEFI.Name),
+				vmbda.WithVirtualMachineName(vmUEFI.Name),
+			)
+			vmbdaViBIOS := vmbda.New(
+				vmbda.WithName("vmbda-vi-bios"),
+				vmbda.WithNamespace(f.Namespace().Name),
+				vmbda.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindVirtualImage, viHotplugBIOS.Name),
+				vmbda.WithVirtualMachineName(vmBIOS.Name),
+			)
+			vmbdaViUEFI := vmbda.New(
+				vmbda.WithName("vmbda-vi-uefi"),
+				vmbda.WithNamespace(f.Namespace().Name),
+				vmbda.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindVirtualImage, viHotplugUEFI.Name),
+				vmbda.WithVirtualMachineName(vmUEFI.Name),
+			)
+			vmbdaCviBIOS := vmbda.New(
+				vmbda.WithName("vmbda-cvi-bios"),
+				vmbda.WithNamespace(f.Namespace().Name),
+				vmbda.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindClusterVirtualImage, cviHotplugBIOS.Name),
+				vmbda.WithVirtualMachineName(vmBIOS.Name),
+			)
+			vmbdaCviUEFI := vmbda.New(
+				vmbda.WithName("vmbda-cvi-uefi"),
+				vmbda.WithNamespace(f.Namespace().Name),
+				vmbda.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindClusterVirtualImage, cviHotplugUEFI.Name),
+				vmbda.WithVirtualMachineName(vmUEFI.Name),
+			)
+			vmbdas = []*v1alpha2.VirtualMachineBlockDeviceAttachment{
+				vmbdaVdBIOS, vmbdaVdUEFI, vmbdaViBIOS, vmbdaViUEFI, vmbdaCviBIOS, vmbdaCviUEFI,
+			}
+
+			allObjects = append([]crclient.Object{
+				vdRootBIOS, vdBlankBIOS, vmBIOS, vdRootUEFI, vdBlankUEFI, vmUEFI,
+				vdHotplugBIOS, vdHotplugUEFI, viHotplugBIOS, viHotplugUEFI,
+				cviHotplugBIOS, cviHotplugUEFI,
+			}, toObjects(vmbdas)...)
+			err := f.CreateWithDeferredDeletion(context.Background(), allObjects...)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmBIOS), framework.LongTimeout)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmUEFI), framework.LongTimeout)
+			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmBIOS, vmUEFI)
+			util.UntilObjectPhase(
+				string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.LongTimeout,
+				toObjects(vmbdas)...,
+			)
 		})
 
 		By("Create VMOP to trigger migration", func() {
-			util.MigrateVirtualMachine(f, vmBIOS, vmop.WithGenerateName("vmop-migrate-bios-"))
-			util.MigrateVirtualMachine(f, vmUEFI, vmop.WithGenerateName("vmop-migrate-uefi-"))
+			vmopMigrateBIOS = vmopbuilder.New(
+				vmopbuilder.WithGenerateName("vmop-migrate-bios-evict-"),
+				vmopbuilder.WithNamespace(f.Namespace().Name),
+				vmopbuilder.WithType(v1alpha2.VMOPTypeEvict),
+				vmopbuilder.WithVirtualMachine(vmBIOS.Name),
+			)
+			vmopMigrateUEFI = vmopbuilder.New(
+				vmopbuilder.WithGenerateName("vmop-migrate-uefi-evict-"),
+				vmopbuilder.WithNamespace(f.Namespace().Name),
+				vmopbuilder.WithType(v1alpha2.VMOPTypeEvict),
+				vmopbuilder.WithVirtualMachine(vmUEFI.Name),
+			)
+			err := f.CreateWithDeferredDeletion(context.Background(), vmopMigrateBIOS, vmopMigrateUEFI)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		By("Wait for migration to complete", func() {
-			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vmBIOS), framework.LongTimeout)
-			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vmUEFI), framework.LongTimeout)
+			Eventually(func(g Gomega) {
+				err := f.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vmopMigrateBIOS), vmopMigrateBIOS)
+				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
+				err = f.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vmopMigrateUEFI), vmopMigrateUEFI)
+				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
+
+				// TODO: Watch vmbda phase via watch to not miss phase flickering.
+				checkVmbdasAttached(f, vmbdas) // Intentionally fail the test on a single error
+				// TODO: Verify hotplug availability from inside the VM during migration.
+
+				g.Expect(vmopMigrateBIOS.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
+				g.Expect(vmopMigrateUEFI.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
+			}).WithPolling(time.Second).WithTimeout(framework.LongTimeout).To(Succeed())
 		})
 
 		// There is a known issue with the Cilium agent check.
@@ -142,3 +270,22 @@ var _ = Describe("VirtualMachineMigration", func() {
 		})
 	})
 })
+
+func toObjects[T crclient.Object](objs []T) []crclient.Object {
+	out := make([]crclient.Object, len(objs))
+	for i, o := range objs {
+		out[i] = o
+	}
+	return out
+}
+
+func checkVmbdasAttached(f *framework.Framework, attachments []*v1alpha2.VirtualMachineBlockDeviceAttachment) {
+	GinkgoHelper()
+
+	var current v1alpha2.VirtualMachineBlockDeviceAttachment
+	for _, a := range attachments {
+		err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(a), &current)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(current.Status.Phase).To(Equal(v1alpha2.BlockDeviceAttachmentPhaseAttached))
+	}
+}

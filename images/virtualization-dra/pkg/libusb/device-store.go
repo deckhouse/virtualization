@@ -103,10 +103,8 @@ func (s *USBDeviceStore) GetDeviceByBusID(busID string) (*USBDevice, bool) {
 	return nil, false
 }
 
-func (s *USBDeviceStore) sendChange() {
-	s.mu.RLock()
+func (s *USBDeviceStore) unlockedSendChange() {
 	ch := s.changesCh
-	s.mu.RUnlock()
 	if ch != nil {
 		s.log.Debug("Notifying USB device store")
 		select {
@@ -120,6 +118,8 @@ func (s *USBDeviceStore) sendChange() {
 // AddDevice adds or updates a device and notifies if changed.
 func (s *USBDeviceStore) AddDevice(path string, device *USBDevice) bool {
 	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	oldDevice, exists := s.devices[path]
 	needNotify := false
 	if !exists || !device.Equal(oldDevice) {
@@ -133,10 +133,9 @@ func (s *USBDeviceStore) AddDevice(path string, device *USBDevice) bool {
 		)
 		needNotify = true
 	}
-	s.mu.Unlock()
 
 	if needNotify {
-		s.sendChange()
+		s.unlockedSendChange()
 	}
 	return needNotify
 }
@@ -144,6 +143,8 @@ func (s *USBDeviceStore) AddDevice(path string, device *USBDevice) bool {
 // RemoveDevice removes a device and notifies if it existed.
 func (s *USBDeviceStore) RemoveDevice(path string) bool {
 	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	device, exists := s.devices[path]
 	needNotify := false
 	if exists {
@@ -154,10 +155,9 @@ func (s *USBDeviceStore) RemoveDevice(path string) bool {
 		delete(s.devices, path)
 		needNotify = true
 	}
-	s.mu.Unlock()
 
 	if needNotify {
-		s.sendChange()
+		s.unlockedSendChange()
 	}
 	return needNotify
 }
@@ -165,6 +165,8 @@ func (s *USBDeviceStore) RemoveDevice(path string) bool {
 // Resync synchronizes the store with discovered devices and notifies if changed.
 func (s *USBDeviceStore) Resync(devices map[string]*USBDevice) bool {
 	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	changed := false
 
 	// Check for removed devices
@@ -193,10 +195,9 @@ func (s *USBDeviceStore) Resync(devices map[string]*USBDevice) bool {
 			changed = true
 		}
 	}
-	s.mu.Unlock()
 
 	if changed {
-		s.sendChange()
+		s.unlockedSendChange()
 	}
 
 	return changed

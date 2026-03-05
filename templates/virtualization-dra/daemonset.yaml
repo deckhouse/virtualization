@@ -1,12 +1,17 @@
 {{- $priorityClassName := include "priorityClassName" . }}
 {{- $delve := (include "delve" . | fromYaml) -}}
+{{- define "virtualization-dra_init_resources" }}
+cpu: 10m
+memory: 25Mi
+{{- end }}
+
 {{- define "virtualization-dra_resources" }}
 cpu: 10m
 memory: 25Mi
 {{- end }}
 
 
-{{- if eq (include "virtualization-dra.isEnabled" .) "true"}}
+{{- if eq (include "virtualization-dra.isEnabled" .) "true" }}
 
 {{- if (.Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
 ---
@@ -22,7 +27,7 @@ spec:
     kind: DaemonSet
     name: virtualization-dra
   updatePolicy:
-    updateMode: "Auto"
+    updateMode: {{ include "vpa.policyUpdateMode" . }}
   resourcePolicy:
     containerPolicies:
     - containerName: virtualization-dra
@@ -31,6 +36,84 @@ spec:
       maxAllowed:
         cpu: 20m
         memory: 25Mi
+{{- end }}
+
+{{- if eq (include "d8.securityPolicyException.isEnabled" .) "true" }}
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: SecurityPolicyException
+metadata:
+  name: virtualization-dra-ds
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" .Chart.Name)) | nindent 2 }}
+spec:
+  securityContext:
+    runAsUser:
+      allowedValues:
+        - 0
+      metadata:
+        description: |
+          Allow virtualization-dra container to run as root user (UID 0).
+          Virtualization DRA component requires root privileges to properly communicate with the KVM subsystem.
+
+    runAsNonRoot:
+      allowedValue: false
+      metadata:
+        description: |
+          Allow containers to run as root user (non-root disabled).
+          Virtualization DRA component requires root privileges to access kernel-level resources and interact with system calls.
+
+    privileged:
+      allowedValue: true
+      metadata:
+        description: |
+          Allow privileged mode for the virtualization-dra DaemonSet.
+          Virtualization DRA component requires privileged access to interact with the KVM subsystem and Linux kernel.
+
+  network:
+    hostNetwork:
+      allowedValue: true
+      metadata:
+        description: |
+          Virtualization DRA component needs hostNetwork to provide
+          USB devices to other Nodes and during VM migrations. Architectural feature.
+
+  # Allow mounting host directories.
+  volumes:
+    types:
+      allowedValues:
+        - hostPath
+      metadata:
+        description: |
+          Allow hostPath volume type for virtualization-dra DaemonSet.
+          Virtualization DRA component requires access to host filesystem to share files and sockets with virtual machines.
+    hostPath:
+      allowedValues:
+        - path: /lib/modules
+          readOnly: false
+          metadata:
+            description: |
+              Allow read-write access to /lib/modules hostPath volume.
+        - path: /var/lib/kubelet/plugins
+          readOnly: false
+          metadata:
+            description: |
+              Allow read-write access to /var/lib/kubelet/plugins hostPath volume.
+        - path: /var/lib/kubelet/plugins_registry
+          readOnly: false
+          metadata:
+            description: |
+              Allow read-write access to /var/lib/kubelet/plugins_registry hostPath volume.
+        - path: /var/run
+          readOnly: false
+          metadata:
+            description: |
+              Allow read-write access to /var/run hostPath volume.
+        - path: /sys
+          readOnly: false
+          metadata:
+            description: |
+              Allow read-write access to /sys hostPath volume.
 {{- end }}
 
 ---
@@ -48,6 +131,7 @@ spec:
     metadata:
       labels:
         app: virtualization-dra
+        security.deckhouse.io/security-policy-exception: virtualization-dra-ds
     spec:
       {{- include "helm_lib_priority_class" (tuple . $priorityClassName) | nindent 6 }}
       {{- include "helm_lib_tolerations" (tuple . "any-node") | nindent 6 }}
@@ -56,27 +140,43 @@ spec:
         - name: virtualization-module-registry
       serviceAccountName: virtualization-dra
       dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
       nodeSelector:
         kubernetes.io/os: linux
-      hostNetwork: true
+      initContainers:
+        - name: init-load
+          image: {{ include "helm_lib_module_image" (list . "virtualizationDraUsb") }}
+          args:
+            - init
+          {{- include "helm_lib_module_container_security_context_read_only_root_filesystem_capabilities_drop_all_and_add"  (list . (list "SYS_MODULE")) | nindent 10 }}
+          resources:
+            requests:
+              {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
+              {{- include "virtualization-dra_init_resources" . | nindent 14 }}
+          volumeMounts:
+            - mountPath: /lib/modules
+              name: lib-modules
+            - mountPath: /tmp
+              name: tmp
       containers:
         - name: virtualization-dra
           {{- include "helm_lib_module_container_security_context_privileged_read_only_root_filesystem" . | nindent 10 }}
           image: {{ include "helm_lib_module_image" (list . "virtualizationDraUsb") }}
           imagePullPolicy: "IfNotPresent"
+          args:
+            - --feature-gates=USBGateway=true,USBNodeLocalMultiAllocation=true
+            {{/* https://github.com/deckhouse/deckhouse/pull/18139 */}}
+            - --usbipd-port=4280
+            {{- if eq (include "moduleLogLevel" .) "debug" }}
+            - --log-level=debug
+            - --log-debug-verbosity=10
+            - -v=10
+            {{- end }}
           env:
-            - name: NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
             - name: NODE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
-            {{- if eq (include "moduleLogLevel" .) "debug" }}
-            - name: VERBOSITY
-              value: "10"
-            {{- end }}
             - name: USBIPD_ADDRESS
               valueFrom:
                 fieldRef:
@@ -88,6 +188,9 @@ spec:
               {{- include "virtualization-dra_resources" . | nindent 14 }}
               {{- end }}
           ports:
+            - containerPort: 4280
+              name: usbipd
+              protocol: TCP
             - containerPort: 51515
               name: health
               protocol: TCP
@@ -116,6 +219,11 @@ spec:
             - name: var-run
               mountPath: /var/run
       volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: lib-modules
+          hostPath:
+            path: /lib/modules
         - name: plugins-registry
           hostPath:
             path: /var/lib/kubelet/plugins_registry

@@ -82,8 +82,8 @@ var _ = Describe("VirtualMachineConnectivity", func() {
 		})
 
 		By("Check nginx status on VMs", func() {
-			cmd := "systemctl is-active nginx.service"
-			expectedOut := "active"
+			cmd := "rc-service nginx status | grep -o started"
+			expectedOut := "started"
 
 			cmdStdOutA, err := f.SSHCommand(t.VMa.Name, t.VMa.Namespace, cmd)
 			Expect(err).NotTo(HaveOccurred())
@@ -160,7 +160,7 @@ func (t *VMConnectivityTest) GenerateEnvironmentResources() {
 		vdbuilder.WithName("vd-a"),
 		vdbuilder.WithNamespace(t.Framework.Namespace().Name),
 		vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-			URL: object.ImageURLUbuntu,
+			URL: object.ImageURLAlpineBIOS,
 		}),
 	)
 
@@ -168,7 +168,7 @@ func (t *VMConnectivityTest) GenerateEnvironmentResources() {
 		vdbuilder.WithName("vd-b"),
 		vdbuilder.WithNamespace(t.Framework.Namespace().Name),
 		vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-			URL: object.ImageURLUbuntu,
+			URL: object.ImageURLAlpineBIOS,
 		}),
 	)
 
@@ -177,7 +177,7 @@ func (t *VMConnectivityTest) GenerateEnvironmentResources() {
 		vmbuilder.WithNamespace(t.Framework.Namespace().Name),
 		vmbuilder.WithLabel("service", "vm-a"),
 		vmbuilder.WithCPU(1, ptr.To("50%")),
-		vmbuilder.WithMemory(resource.MustParse("1Gi")),
+		vmbuilder.WithMemory(resource.MustParse("500Mi")),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 		vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
 		vmbuilder.WithProvisioningUserData(t.getCloudInit()),
@@ -194,7 +194,7 @@ func (t *VMConnectivityTest) GenerateEnvironmentResources() {
 		vmbuilder.WithNamespace(t.Framework.Namespace().Name),
 		vmbuilder.WithLabel("service", "vm-b"),
 		vmbuilder.WithCPU(1, ptr.To("50%")),
-		vmbuilder.WithMemory(resource.MustParse("1Gi")),
+		vmbuilder.WithMemory(resource.MustParse("500Mi")),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 		vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
 		vmbuilder.WithProvisioningUserData(t.getCloudInit()),
@@ -268,7 +268,7 @@ func (t *VMConnectivityTest) CheckCloudInitCompleted(timeout time.Duration) {
 	GinkgoHelper()
 
 	Eventually(func(g Gomega) {
-		cmd := "cat /var/www/html/index.html"
+		cmd := "cat /var/lib/nginx/html/index.html"
 		cmdStdOutA, err := t.Framework.SSHCommand(t.VMa.Name, t.VMa.Namespace, cmd)
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(cmdStdOutA).To(ContainSubstring(t.VMa.Name))
@@ -296,29 +296,51 @@ func (t *VMConnectivityTest) getCloudInit() string {
       packages:
       - qemu-guest-agent
       - nginx
+      - bash
+      - sudo
+      - curl
       write_files:
         - path: /usr/scripts/genpage_script.sh
           permissions: "0755"
           content: |
             #!/bin/bash
-            rm -f /var/www/html/index*
+            WEBROOT="/var/lib/nginx/html"
+            mkdir -p "$WEBROOT"
+            rm -f "$WEBROOT"/index*
 
-            cat > /var/www/html/index.html<<EOF
+            cat > "$WEBROOT/index.html" << EOF
             <!DOCTYPE html>
             <html>
-            <head>
-            <title>Welcome to $(hostname)<title>
-            </head>
-            <body>
-            <h1>Welcome to nginx on server $(hostname)!</h1>
-            </body>
+            <head><title>Welcome to $(hostname)</title></head>
+            <body><h1>Welcome to nginx on server $(hostname)!</h1></body>
             </html>
             EOF
+            chmod -R 755 "/var/lib/nginx"
+        - path: /etc/nginx/http.d/default.conf
+          permissions: "0644"
+          content: |
+            # This is a default site configuration
+
+            server {
+                listen 80 default_server;
+                listen [::]:80 default_server;
+
+                # Serve files from document root
+                location / {
+                    try_files $uri $uri/ =404;
+                }
+
+                # Prevent return 404 recursion
+                location = /404.html {
+                    internal;
+                }
+            }
       runcmd:
       - [ /usr/scripts/genpage_script.sh ]
-      - [ systemctl, daemon-reload ]
-      - [ systemctl, enable, --now, qemu-guest-agent.service ]
-      - [ systemctl, enable, --now, nginx ]
+      - [ rc-update, add, qemu-guest-agent, default ]
+      - [ rc-service, qemu-guest-agent, start ]
+      - [ rc-update, add, nginx, default ]
+      - [ rc-service, nginx, start ]
       users:
       - name: cloud
         # passwd: cloud

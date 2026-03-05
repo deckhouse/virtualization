@@ -63,6 +63,8 @@ type Client interface {
 	VirtualMachineClasses() virtualizationv1alpha2.VirtualMachineClassInterface
 	VirtualMachineMACAddresses(namespace string) virtualizationv1alpha2.VirtualMachineMACAddressInterface
 	VirtualMachineMACAddressLeases() virtualizationv1alpha2.VirtualMachineMACAddressLeaseInterface
+	NodeUSBDevices() virtualizationv1alpha2.NodeUSBDeviceInterface
+	USBDevices(namespace string) virtualizationv1alpha2.USBDeviceInterface
 }
 type client struct {
 	kubernetes.Interface
@@ -120,4 +122,12 @@ func (c client) VirtualMachineMACAddresses(namespace string) virtualizationv1alp
 
 func (c client) VirtualMachineMACAddressLeases() virtualizationv1alpha2.VirtualMachineMACAddressLeaseInterface {
 	return c.virtClient.VirtualizationV1alpha2().VirtualMachineMACAddressLeases()
+}
+
+func (c client) NodeUSBDevices() virtualizationv1alpha2.NodeUSBDeviceInterface {
+	return c.virtClient.VirtualizationV1alpha2().NodeUSBDevices()
+}
+
+func (c client) USBDevices(namespace string) virtualizationv1alpha2.USBDeviceInterface {
+	return c.virtClient.VirtualizationV1alpha2().USBDevices(namespace)
 }

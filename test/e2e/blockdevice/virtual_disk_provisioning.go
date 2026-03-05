@@ -21,6 +21,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/utils/ptr"
 
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
@@ -68,6 +70,7 @@ var _ = Describe("VirtualDiskProvisioning", func() {
 			vd = vdbuilder.New(
 				vdbuilder.WithName("vd"),
 				vdbuilder.WithNamespace(f.Namespace().Name),
+				vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
 				vdbuilder.WithDataSourceObjectRefFromVI(vi),
 			)
 

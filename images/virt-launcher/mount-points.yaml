@@ -47,3 +47,4 @@ dirs:
   - /var/log/libvirt
   - /path # For hot-plugged disks, used in "hp Pods".
   - /init/usr/bin # For attaching images as "container disks".
+  - /dev/bus/usb # For hot-plugged USB devices, used in "hp Pods".
