@@ -163,9 +163,10 @@ spec:
         bb-log-info "d8-usb-modules.conf already exists, skipping"
       else
         bb-sync-file /etc/modules-load.d/d8-usb-modules.conf - << "EOF"
-      udc_core
-      libcomposite
-      EOF
+    udc_core
+    libcomposite
+    EOF
+        systemctl restart systemd-modules-load.service
       fi
       
       case "$FILESYSTEM" in
