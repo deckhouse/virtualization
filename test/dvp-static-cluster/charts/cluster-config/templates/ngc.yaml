@@ -156,7 +156,7 @@ spec:
     elif bb-is-distro-like? "debian"; then
       # Debian, Ubuntu, Astra (Debian-based)
       bb-log-info "Installing packages for Debian-based OS"
-      bb-pkg install linux-headers-$KERNEL_VERSION build-essential git libelf-dev || true
+      bb-pkg install linux-headers-$KERNEL_VERSION build-essential git libelf-dev apt install linux-modules-extra-$KERNEL_VERSION || true
       case "$FILESYSTEM" in
         vfat) bb-pkg install dosfstools || true ;;
         ext4) bb-pkg install e2fsprogs || true ;;
