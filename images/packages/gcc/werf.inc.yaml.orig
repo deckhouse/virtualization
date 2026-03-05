@@ -1,16 +1,28 @@
 ---
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/libgcc1
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
   add: /out
-  to: /nbdkit
+  to: /libgcc1
+  before: setup
+  includePaths:
+  - usr/lib64/libgcc_s.so.1
+  - usr/lib64/libstdc++.so.6
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /gcc
   before: setup
 
 ---
-{{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "nbdkit/nbdkit.git" }}
+{{- $version := get $.PackageVersion $.ImageName }}
+{{- $gitRepoUrl := "gcc.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
@@ -21,36 +33,24 @@ secrets:
 shell:
   install:
   - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
----
 
+---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- git gcc
-- automake autoconf-archive make libtool
-- bash-completion
-- curl qemu expect
-- filesystem
-- socat jq
-- iproute2
-- zlib-ng
-- libblkio libtorrent-rasterbar-devel
+- git gcc-c++ flex make makeinfo libtool autoconf_2.60
+- libelf-devel libmpc-devel libmpfr-devel perl-Pod-Parser
+- libgc-devel coreutils
+- autogen dejagnu
+- tree
 packages:
-- libisoburn libnbd e2fsprogs
-- gnutls libidn2 libgmp
 - zlib
-- libssh
 - zstd
-- libxml2
-- libtasn1
-- libunistring
-- xz libcurl nghttp2 nghttp3 ngtcp2 openldap
-- libgsasl cyrus-sasl2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
 import:
@@ -81,15 +81,26 @@ shell:
 
     cd /src
 
-    autoreconf -if
     ./configure \
-      --disable-static \
+      --enable-languages=c,c++ \
       --prefix=/usr \
       --libdir=/usr/lib64 \
-      --without-bash-completions \
-      --with-ext2 \
-      --disable-torrent
+      --build=x86_64-linux-gnu \
+      --host=x86_64-linux-gnu \
+      --target=x86_64-linux-gnu \
+      --disable-multilib \
+      --disable-nls \
+      --enable-checking=release \
+      --enable-shared \
+      --enable-threads=posix \
+      --enable-__cxa_atexit \
+      --enable-clocale=gnu \
+      --with-system-zlib \
+      --program-suffix=-{{ (split "-" $version)._1 }}
 
     make -j$(nproc)
 
     make DESTDIR=$OUTDIR install-strip
+    rm -rf $OUTDIR/usr/share
+
+    tree -hp $OUTDIR
