@@ -37,7 +37,7 @@ Release date: March 5, 2026.
 
 ### Исправления
 
-- [vd] Fixed a potential `OOMKill` during the creation of a virtual disk on NFS
+- [vd] Fixed a potential `OOMKill` during the virtual disk creation on NFS.
 
 ## v1.5.1
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
