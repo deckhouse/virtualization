@@ -82,6 +82,11 @@ const (
 	isoImageType         = "iso"
 )
 
+const (
+	syntheticHeadSize = 10 * 1024 * 1024
+	syntheticTailSize = 50 * 1024 * 1024
+)
+
 type DataProcessor struct {
 	ds            datasource.DataSourceInterface
 	destUsername  string
@@ -415,14 +420,62 @@ func populateCommonConfigFields(cnf *v1.ConfigFile) {
 	})
 }
 
+type TailBuffer struct {
+	buffer   []byte
+	size     int
+	writePos int
+	full     bool
+}
+
+func NewTailBuffer(size int) *TailBuffer {
+	return &TailBuffer{
+		buffer: make([]byte, size),
+		size:   size,
+	}
+}
+
+func (tb *TailBuffer) Write(p []byte) (n int, err error) {
+	n = len(p)
+
+	for len(p) > 0 {
+		available := tb.size - tb.writePos
+		toCopy := len(p)
+		if toCopy > available {
+			toCopy = available
+		}
+
+		copy(tb.buffer[tb.writePos:], p[:toCopy])
+		tb.writePos += toCopy
+		p = p[toCopy:]
+
+		if tb.writePos >= tb.size {
+			tb.writePos = 0
+			tb.full = true
+		}
+	}
+
+	return n, nil
+}
+
+func (tb *TailBuffer) Bytes() []byte {
+	if !tb.full {
+		return tb.buffer[:tb.writePos]
+	}
+
+	result := make([]byte, tb.size)
+	copy(result, tb.buffer[tb.writePos:])
+	copy(result[tb.size-tb.writePos:], tb.buffer[:tb.writePos])
+	return result
+}
+
 func getImageInfo(ctx context.Context, sourceReader io.ReadCloser) (ImageInfo, error) {
 	formatSourceReaders, err := importer.NewFormatReaders(sourceReader, 0)
 	if err != nil {
 		return ImageInfo{}, fmt.Errorf("error creating format readers: %w", err)
 	}
 
-	var uncompressedN int64
 	var tempImageInfoFile *os.File
+	var initialBuffer []byte
 
 	klog.Infoln("Write image info to temp file")
 	{
@@ -430,9 +483,17 @@ func getImageInfo(ctx context.Context, sourceReader io.ReadCloser) (ImageInfo, e
 		if err != nil {
 			return ImageInfo{}, fmt.Errorf("error creating temp file: %w", err)
 		}
+		defer os.Remove(tempImageInfoFile.Name())
 
-		uncompressedN, err = io.CopyN(tempImageInfoFile, formatSourceReaders.TopReader(), imageInfoSize)
-		if err != nil && !errors.Is(err, io.EOF) {
+		initialBuffer = make([]byte, imageInfoSize)
+		n, err := io.ReadFull(formatSourceReaders.TopReader(), initialBuffer)
+		if err != nil && !errors.Is(err, io.EOF) && err != io.ErrUnexpectedEOF {
+			return ImageInfo{}, fmt.Errorf("error reading from source: %w", err)
+		}
+		initialBuffer = initialBuffer[:n]
+
+		_, err = tempImageInfoFile.Write(initialBuffer)
+		if err != nil {
 			return ImageInfo{}, fmt.Errorf("error writing to temp file: %w", err)
 		}
 
@@ -445,9 +506,30 @@ func getImageInfo(ctx context.Context, sourceReader io.ReadCloser) (ImageInfo, e
 	var imageInfo ImageInfo
 	{
 		cmd := exec.CommandContext(ctx, "qemu-img", "info", "--output=json", tempImageInfoFile.Name())
-		rawOut, err := cmd.Output()
+		rawOut, err := cmd.CombinedOutput()
+
 		if err != nil {
-			return ImageInfo{}, fmt.Errorf("error running qemu-img info: %w", err)
+			klog.Warningf("qemu-img info failed: %v", err)
+			klog.Warningf("qemu-img output: %s", string(rawOut))
+
+			if shouldTrySyntheticApproach(string(rawOut)) {
+				klog.Infoln("Detected VMDK footer issue, trying synthetic approach")
+
+				syntheticInfo, syntheticErr := tryGetImageInfoSynthetic(
+					ctx,
+					formatSourceReaders.TopReader(),
+					initialBuffer,
+				)
+
+				if syntheticErr == nil {
+					klog.Infoln("Synthetic approach succeeded")
+					return syntheticInfo, nil
+				}
+
+				klog.Warningf("Synthetic approach failed: %v", syntheticErr)
+			}
+
+			return ImageInfo{}, fmt.Errorf("error running qemu-img info: %s: %w", string(rawOut), err)
 		}
 
 		klog.Infoln("Qemu-img command output:", string(rawOut))
@@ -458,7 +540,7 @@ func getImageInfo(ctx context.Context, sourceReader io.ReadCloser) (ImageInfo, e
 
 		if imageInfo.Format != "raw" {
 			// It's necessary to read everything from the original image to avoid blocking.
-			_, err = io.Copy(&EmptyWriter{}, sourceReader)
+			_, err = io.Copy(&EmptyWriter{}, formatSourceReaders.TopReader())
 			if err != nil {
 				return ImageInfo{}, fmt.Errorf("error copying to nowhere: %w", err)
 			}
@@ -491,7 +573,7 @@ func getImageInfo(ctx context.Context, sourceReader io.ReadCloser) (ImageInfo, e
 			return ImageInfo{}, fmt.Errorf("error copying to nowhere: %w", err)
 		}
 
-		imageInfo.VirtualSize = uint64(uncompressedN + n)
+		imageInfo.VirtualSize = uint64(int64(len(initialBuffer)) + n)
 
 		return imageInfo, nil
 	}
@@ -528,4 +610,117 @@ type EmptyWriter struct{}
 
 func (w EmptyWriter) Write(p []byte) (int, error) {
 	return len(p), nil
+}
+
+func shouldTrySyntheticApproach(qemuImgOutput string) bool {
+	vmdkErrorIndicators := []string{
+		"Invalid footer",
+		"footer",
+		"Footer",
+		"VMDK",
+		"vmdk",
+		"Could not open",
+		"invalid header",
+		"grain directory",
+		"Grain Directory",
+		"grain table",
+		"incomplete",
+	}
+
+	lowerOutput := strings.ToLower(qemuImgOutput)
+
+	for _, indicator := range vmdkErrorIndicators {
+		if strings.Contains(lowerOutput, strings.ToLower(indicator)) {
+			klog.Infof("Found VMDK error indicator: %s", indicator)
+			return true
+		}
+	}
+
+	return false
+}
+
+func tryGetImageInfoSynthetic(ctx context.Context, sourceReader io.Reader, initialBuffer []byte) (ImageInfo, error) {
+	klog.Infoln("Creating synthetic VMDK from head and tail buffers")
+
+	headSize := syntheticHeadSize
+	if len(initialBuffer) < headSize {
+		headSize = len(initialBuffer)
+	}
+	headBuf := initialBuffer[:headSize]
+
+	klog.Infof("Using head from initial buffer: %d bytes", len(headBuf))
+
+	tailBuf := NewTailBuffer(syntheticTailSize)
+
+	if len(initialBuffer) > headSize {
+		remainingInitial := initialBuffer[headSize:]
+		klog.Infof("Adding remaining initial buffer to tail: %d bytes", len(remainingInitial))
+		tailBuf.Write(remainingInitial)
+	}
+
+	klog.Infoln("Streaming remaining data to tail buffer...")
+	written, err := io.Copy(tailBuf, sourceReader)
+	if err != nil {
+		return ImageInfo{}, fmt.Errorf("error streaming to tail: %w", err)
+	}
+
+	totalSize := int64(len(initialBuffer)) + written
+	klog.Infof("Total file size: %d bytes (%.2f GB)", totalSize, float64(totalSize)/(1024*1024*1024))
+
+	syntheticPath, err := createSyntheticVMDK(headBuf, tailBuf, totalSize)
+	if err != nil {
+		return ImageInfo{}, fmt.Errorf("error creating synthetic VMDK: %w", err)
+	}
+	defer os.Remove(syntheticPath)
+
+	klog.Infof("Created synthetic VMDK: %s", syntheticPath)
+
+	cmd := exec.CommandContext(ctx, "qemu-img", "info", "--output=json", syntheticPath)
+	rawOut, err := cmd.CombinedOutput()
+	if err != nil {
+		klog.Errorf("qemu-img failed on synthetic VMDK: %s", string(rawOut))
+		return ImageInfo{}, fmt.Errorf("qemu-img info failed on synthetic: %w, output: %s", err, string(rawOut))
+	}
+
+	klog.Infof("qemu-img output on synthetic VMDK: %s", string(rawOut))
+
+	var imageInfo ImageInfo
+	if err = json.Unmarshal(rawOut, &imageInfo); err != nil {
+		return ImageInfo{}, fmt.Errorf("error parsing qemu-img output: %w", err)
+	}
+
+	return imageInfo, nil
+}
+
+func createSyntheticVMDK(headBuf []byte, tailBuf *TailBuffer, totalSize int64) (string, error) {
+	tmpFile, err := os.CreateTemp("", "synthetic-*.vmdk")
+	if err != nil {
+		return "", fmt.Errorf("error creating temp file: %w", err)
+	}
+	defer tmpFile.Close()
+
+	_, err = tmpFile.Write(headBuf)
+	if err != nil {
+		os.Remove(tmpFile.Name())
+		return "", fmt.Errorf("error writing head: %w", err)
+	}
+
+	tailData := tailBuf.Bytes()
+	tailOffset := totalSize - int64(len(tailData))
+
+	if tailOffset > int64(len(headBuf)) {
+		_, err = tmpFile.Seek(tailOffset, io.SeekStart)
+		if err != nil {
+			os.Remove(tmpFile.Name())
+			return "", fmt.Errorf("error seeking: %w", err)
+		}
+	}
+
+	_, err = tmpFile.Write(tailData)
+	if err != nil {
+		os.Remove(tmpFile.Name())
+		return "", fmt.Errorf("error writing tail: %w", err)
+	}
+
+	return tmpFile.Name(), nil
 }
