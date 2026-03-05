@@ -26,7 +26,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
 fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
 import:
-- image: tools/util-linux
+- image: util-linux
   add: /
   to: /relocate/usr
   after: setup
