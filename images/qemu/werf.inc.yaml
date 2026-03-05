@@ -128,7 +128,6 @@ packages:
 - ngtcp2 libtasn1 ncurses
 - glib2 util-linux
 - libxkbcommon
-- libgcc1
 - libaio
 - liburing libuserspace-rcu libunistring systemd
 - multipath-tools
