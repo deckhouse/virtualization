@@ -160,6 +160,10 @@ func (v *VirtualMachineHandler) ValidateClone(ctx context.Context) error {
 		return err
 	}
 
+	if err := v.filterUSBDependencies(ctx); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -314,6 +318,15 @@ func (v *VirtualMachineHandler) imageExists(ctx context.Context, ref v1alpha2.Bl
 	}
 
 	return true, nil
+}
+
+func (v *VirtualMachineHandler) filterUSBDependencies(_ context.Context) error {
+	if v.mode != v1alpha2.SnapshotOperationModeBestEffort || len(v.vm.Spec.USBDevices) == 0 {
+		return nil
+	}
+
+	v.vm.Spec.USBDevices = nil
+	return nil
 }
 
 func (v *VirtualMachineHandler) Object() client.Object {

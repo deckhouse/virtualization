@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package restorer
+package restorer_test
 
 import (
 	"context"
@@ -27,6 +27,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	restorer "github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/restorers"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -63,9 +64,15 @@ var _ = Describe("VirtualMachineRestorer", func() {
 		vm         v1alpha2.VirtualMachine
 		vmbda1     v1alpha2.VirtualMachineBlockDeviceAttachment
 		vmbda2     v1alpha2.VirtualMachineBlockDeviceAttachment
-		handler    *VirtualMachineHandler
+		handler    *restorer.VirtualMachineHandler
 		fakeClient client.WithWatch
 	)
+
+	currentHandlerVM := func() *v1alpha2.VirtualMachine {
+		vmObj, ok := handler.Object().(*v1alpha2.VirtualMachine)
+		Expect(ok).To(BeTrue())
+		return vmObj
+	}
 
 	BeforeEach(func() {
 		ctx = context.Background()
@@ -214,11 +221,11 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(fakeClient).ToNot(BeNil())
 
-			handler = NewVirtualMachineHandler(fakeClient, vm, restoreUID, v1alpha2.SnapshotOperationModeStrict)
+			handler = restorer.NewVirtualMachineHandler(fakeClient, vm, restoreUID, v1alpha2.SnapshotOperationModeStrict)
 			Expect(handler).ToNot(BeNil())
 
 			// Verify that restore annotation was added
-			Expect(handler.vm.Annotations[annotations.AnnVMOPRestore]).To(Equal(restoreUID))
+			Expect(currentHandlerVM().Annotations[annotations.AnnVMOPRestore]).To(Equal(restoreUID))
 
 			err = handler.ValidateRestore(ctx)
 			if args.failValidation {
@@ -375,34 +382,34 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			fakeClient, err = testutil.NewFakeClientWithInterceptorWithObjects(intercept)
 			Expect(err).ToNot(HaveOccurred())
 
-			handler = NewVirtualMachineHandler(fakeClient, vm, restoreUID, v1alpha2.SnapshotOperationModeStrict)
+			handler = restorer.NewVirtualMachineHandler(fakeClient, vm, restoreUID, v1alpha2.SnapshotOperationModeStrict)
 		})
 
 		It("should override VM name", func() {
 			handler.Override(rules)
-			Expect(handler.vm.Name).To(Equal("new-vm-name"))
+			Expect(currentHandlerVM().Name).To(Equal("new-vm-name"))
 		})
 
 		It("should override VirtualMachineIPAddress", func() {
 			handler.Override(rules)
-			Expect(handler.vm.Spec.VirtualMachineIPAddress).To(Equal("new-test-ip"))
+			Expect(currentHandlerVM().Spec.VirtualMachineIPAddress).To(Equal("new-test-ip"))
 		})
 
 		It("should override disk names in BlockDeviceRefs", func() {
 			handler.Override(rules)
-			Expect(handler.vm.Spec.BlockDeviceRefs[0].Name).To(Equal("new-test-disk-1"))
-			Expect(handler.vm.Spec.BlockDeviceRefs[1].Name).To(Equal("test-disk-2")) // unchanged
+			Expect(currentHandlerVM().Spec.BlockDeviceRefs[0].Name).To(Equal("new-test-disk-1"))
+			Expect(currentHandlerVM().Spec.BlockDeviceRefs[1].Name).To(Equal("test-disk-2")) // unchanged
 		})
 
 		It("should override Secret name in UserDataRef", func() {
-			handler.vm.Spec.Provisioning = &v1alpha2.Provisioning{
+			currentHandlerVM().Spec.Provisioning = &v1alpha2.Provisioning{
 				UserDataRef: &v1alpha2.UserDataRef{
 					Kind: v1alpha2.UserDataRefKindSecret,
 					Name: "test-secret",
 				},
 			}
 			handler.Override(rules)
-			Expect(handler.vm.Spec.Provisioning.UserDataRef.Name).To(Equal("new-test-secret"))
+			Expect(currentHandlerVM().Spec.Provisioning.UserDataRef.Name).To(Equal("new-test-secret"))
 		})
 
 		It("should not override non-matching names", func() {
@@ -416,9 +423,69 @@ var _ = Describe("VirtualMachineRestorer", func() {
 				},
 			}
 
-			originalName := handler.vm.Name
+			originalName := currentHandlerVM().Name
 			handler.Override(nonMatchingRules)
-			Expect(handler.vm.Name).To(Equal(originalName))
+			Expect(currentHandlerVM().Name).To(Equal(originalName))
+		})
+	})
+
+	Describe("Clone BestEffort USB filtering", func() {
+		It("should remove all usb devices from cloned vm in best effort mode", func() {
+			cloneVM := vm.DeepCopy()
+			cloneVM.Name = "clone-vm"
+			cloneVM.Spec.USBDevices = []v1alpha2.USBDeviceSpecRef{{Name: "usb-busy"}, {Name: "usb-free"}}
+
+			otherVM := vm.DeepCopy()
+			otherVM.Name = "other-vm"
+			otherVM.Spec.USBDevices = []v1alpha2.USBDeviceSpecRef{{Name: "usb-busy"}}
+
+			var createdVM *v1alpha2.VirtualMachine
+			interceptClone := interceptor.Funcs{
+				Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
+					if vmObj, ok := obj.(*v1alpha2.VirtualMachine); ok && vmObj.Name == cloneVM.Name {
+						createdVM = vmObj.DeepCopy()
+					}
+					return nil
+				},
+			}
+
+			fakeClient, err = testutil.NewFakeClientWithInterceptorWithObjects(interceptClone, otherVM)
+			Expect(err).ToNot(HaveOccurred())
+
+			handler = restorer.NewVirtualMachineHandler(fakeClient, *cloneVM, restoreUID, v1alpha2.SnapshotOperationModeBestEffort)
+			err = handler.ProcessClone(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(createdVM).ToNot(BeNil())
+			Expect(createdVM.Spec.USBDevices).To(BeNil())
+		})
+
+		It("should keep usb devices in strict mode", func() {
+			cloneVM := vm.DeepCopy()
+			cloneVM.Name = "clone-vm"
+			cloneVM.Spec.USBDevices = []v1alpha2.USBDeviceSpecRef{{Name: "usb-busy"}, {Name: "usb-free"}}
+
+			otherVM := vm.DeepCopy()
+			otherVM.Name = "other-vm"
+			otherVM.Spec.USBDevices = []v1alpha2.USBDeviceSpecRef{{Name: "usb-busy"}}
+
+			var createdVM *v1alpha2.VirtualMachine
+			interceptClone := interceptor.Funcs{
+				Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
+					if vmObj, ok := obj.(*v1alpha2.VirtualMachine); ok && vmObj.Name == cloneVM.Name {
+						createdVM = vmObj.DeepCopy()
+					}
+					return nil
+				},
+			}
+
+			fakeClient, err = testutil.NewFakeClientWithInterceptorWithObjects(interceptClone, otherVM)
+			Expect(err).ToNot(HaveOccurred())
+
+			handler = restorer.NewVirtualMachineHandler(fakeClient, *cloneVM, restoreUID, v1alpha2.SnapshotOperationModeStrict)
+			err = handler.ProcessClone(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(createdVM).ToNot(BeNil())
+			Expect(createdVM.Spec.USBDevices).To(Equal([]v1alpha2.USBDeviceSpecRef{{Name: "usb-busy"}, {Name: "usb-free"}}))
 		})
 	})
 })
