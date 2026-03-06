@@ -23,7 +23,6 @@ import (
 	"strings"
 	"time"
 
-	"hooks/pkg/settings"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -31,6 +30,7 @@ import (
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
 
 const (

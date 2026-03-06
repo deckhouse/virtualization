@@ -20,10 +20,10 @@ import (
 	"fmt"
 
 	"github.com/tidwall/gjson"
-	"hooks/pkg/settings"
 
 	tlscertificate "github.com/deckhouse/module-sdk/common-hooks/tls-certificate"
 	"github.com/deckhouse/module-sdk/pkg"
+	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
 
 func dvcrGetServiceIP(input *pkg.HookInput) gjson.Result {

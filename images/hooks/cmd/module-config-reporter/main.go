@@ -21,7 +21,8 @@ import (
 	"os"
 
 	"github.com/tidwall/gjson"
-	"hooks/pkg/settings"
+
+	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
 
 /*

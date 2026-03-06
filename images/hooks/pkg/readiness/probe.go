@@ -20,10 +20,9 @@ import (
 	"context"
 	"fmt"
 
-	"hooks/pkg/settings"
-
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/app"
+	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
 
 var ReadinessConfig = app.ReadinessConfig{

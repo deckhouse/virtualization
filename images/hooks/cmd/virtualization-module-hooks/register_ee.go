@@ -9,5 +9,5 @@ Licensed under the Deckhouse Platform Enterprise Edition (EE) license. See https
 package main
 
 import (
-	_ "hooks/pkg/hooks/tls-certificates-audit"
+	_ "github.com/deckhouse/virtualization/hooks/pkg/hooks/tls-certificates-audit"
 )

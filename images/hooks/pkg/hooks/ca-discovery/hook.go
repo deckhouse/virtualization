@@ -20,11 +20,11 @@ import (
 	"context"
 	"fmt"
 
-	"hooks/pkg/settings"
 	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
+	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
 
 const (

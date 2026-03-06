@@ -19,11 +19,11 @@ package tls_certificates_api_proxy
 import (
 	"fmt"
 
-	"hooks/pkg/settings"
 	v1 "k8s.io/api/certificates/v1"
 
 	tlscertificate "github.com/deckhouse/module-sdk/common-hooks/tls-certificate"
 	"github.com/deckhouse/module-sdk/pkg"
+	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
 
 var _ = tlscertificate.RegisterInternalTLSHookEM(tlscertificate.GenSelfSignedTLSHookConf{

@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net/netip"
 
-	"hooks/pkg/settings"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 
@@ -29,6 +28,7 @@ import (
 	"github.com/deckhouse/module-sdk/pkg/registry"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
+	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
 
 const (
