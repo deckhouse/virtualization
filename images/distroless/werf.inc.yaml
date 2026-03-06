@@ -16,7 +16,7 @@ imageSpec:
     user: 64535
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-artifact
-fromImage: builder/alt
+fromImage: builder/golang-alt
 final: false
 shell:
   beforeInstall:

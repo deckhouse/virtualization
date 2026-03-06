@@ -14,7 +14,7 @@ packages:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-fromImage: builder/alt
+fromImage: builder/golang-alt
 git:
   - add: {{ .ModuleDir }}/build/tools/relocate_binaries.sh
     to: /relocate_binaries.sh
