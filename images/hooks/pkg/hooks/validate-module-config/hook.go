@@ -19,9 +19,9 @@ package validate_module_config
 import (
 	"context"
 	"fmt"
-	"hooks/pkg/settings"
 	"net/netip"
 
+	"hooks/pkg/settings"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 

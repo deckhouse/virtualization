@@ -20,13 +20,12 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"hooks/pkg/settings"
 	"math/rand/v2"
 	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
-
+	"hooks/pkg/settings"
 	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/module-sdk/pkg"

@@ -172,7 +172,7 @@ var _ = Describe("PowerState", func() {
 		})
 
 		By("Check VM can reach external network", func() {
-			err := network.CheckCiliumAgents(context.Background(), f.Clients.Kubectl(), t.VM.Name, f.Namespace().Name)
+			err := network.CheckCiliumAgents(context.Background(), f.Kubectl(), t.VM.Name, f.Namespace().Name)
 			Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", t.VM.Name)
 			network.CheckExternalConnectivity(f, t.VM.Name, network.ExternalHost, network.HTTPStatusOk)
 		})

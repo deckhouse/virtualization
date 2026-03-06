@@ -19,10 +19,10 @@ package discover_kube_apiserver_feature_gates
 import (
 	"context"
 	"fmt"
-	"hooks/pkg/settings"
 	"slices"
 	"strings"
 
+	"hooks/pkg/settings"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 

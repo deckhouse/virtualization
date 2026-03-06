@@ -258,9 +258,9 @@ var _ = Describe("VirtualMachineMigration", func() {
 
 		// There is a known issue with the Cilium agent check.
 		By("Check Cilium agents are properly configured for the VM", func() {
-			err := network.CheckCiliumAgents(context.Background(), f.Clients.Kubectl(), vmBIOS.Name, f.Namespace().Name)
+			err := network.CheckCiliumAgents(context.Background(), f.Kubectl(), vmBIOS.Name, f.Namespace().Name)
 			Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", vmBIOS.Name)
-			err = network.CheckCiliumAgents(context.Background(), f.Clients.Kubectl(), vmUEFI.Name, f.Namespace().Name)
+			err = network.CheckCiliumAgents(context.Background(), f.Kubectl(), vmUEFI.Name, f.Namespace().Name)
 			Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", vmUEFI.Name)
 		})
 

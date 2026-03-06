@@ -62,10 +62,8 @@ func RunLocalClient(cmd *cobra.Command, namespace, name string, options *SSHOpti
 
 func buildProxyCommandOption(cmd *cobra.Command, namespace, name string, port int) string {
 	parents := make([]string, 0, 2)
-	for {
-		if !cmd.HasParent() {
-			break
-		}
+	for cmd.HasParent() {
+
 		cmd = cmd.Parent()
 		parents = append(parents, cmd.Name())
 	}
@@ -81,7 +79,7 @@ func buildProxyCommandOption(cmd *cobra.Command, namespace, name string, port in
 	proxyCommand.WriteString("ProxyCommand=")
 	proxyCommand.WriteString(pcmd.String())
 	proxyCommand.WriteString("port-forward --stdio=true ")
-	proxyCommand.WriteString(fmt.Sprintf("%s.%s", name, namespace))
+	fmt.Fprintf(&proxyCommand, "%s.%s", name, namespace)
 	proxyCommand.WriteString(" ")
 
 	proxyCommand.WriteString(strconv.Itoa(port))
@@ -103,5 +101,5 @@ func (o *SSH) buildSSHTarget(namespace, name string) (opts []string) {
 	if o.command != "" {
 		opts = append(opts, o.command)
 	}
-	return
+	return opts
 }

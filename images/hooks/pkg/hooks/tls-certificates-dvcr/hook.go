@@ -18,9 +18,9 @@ package tls_certificates_dvcr
 
 import (
 	"fmt"
-	"hooks/pkg/settings"
 
 	"github.com/tidwall/gjson"
+	"hooks/pkg/settings"
 
 	tlscertificate "github.com/deckhouse/module-sdk/common-hooks/tls-certificate"
 	"github.com/deckhouse/module-sdk/pkg"

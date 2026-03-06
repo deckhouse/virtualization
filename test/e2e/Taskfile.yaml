@@ -211,7 +211,7 @@ tasks:
       - _ensure:golangci-lint
     cmds:
       - |
-        golangci-lint run 
+        golangci-lint run
 
   set-url:ci:
     desc: "Change URL for images"

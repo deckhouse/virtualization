@@ -19,8 +19,8 @@ package ca_discovery
 import (
 	"context"
 	"fmt"
-	"hooks/pkg/settings"
 
+	"hooks/pkg/settings"
 	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/module-sdk/pkg"

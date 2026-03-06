@@ -12,7 +12,7 @@ tasks:
     deps:
       - _ensure:golangci-lint
     cmds:
-      - golangci-lint run 
+      - golangci-lint run
 
   _ensure:golangci-lint:
     desc: "Ensure golangci-lint v2+ is available"

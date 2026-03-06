@@ -123,7 +123,7 @@ func (v VirtualMachineOperation) generateMsg(vmop *v1alpha2.VirtualMachineOperat
 	phase := vmop.Status.Phase
 
 	sb := strings.Builder{}
-	sb.WriteString(fmt.Sprintf("VirtualMachine %q ", vmKey.String()))
+	fmt.Fprintf(&sb, "VirtualMachine %q ", vmKey.String())
 
 	if v.isPhaseOrFailed(vmop, v1alpha2.VMOPPhaseCompleted) {
 		if !v.isCompleted(vmop) {
@@ -156,7 +156,7 @@ func (v VirtualMachineOperation) generateMsg(vmop *v1alpha2.VirtualMachineOperat
 		}
 	}
 
-	sb.WriteString(fmt.Sprintf("VirtualMachineOperation %q ", key.String()))
+	fmt.Fprintf(&sb, "VirtualMachineOperation %q ", key.String())
 	switch phase {
 	case v1alpha2.VMOPPhasePending:
 		sb.WriteString("pending.")
@@ -166,11 +166,11 @@ func (v VirtualMachineOperation) generateMsg(vmop *v1alpha2.VirtualMachineOperat
 		sb.WriteString("completed.")
 	case v1alpha2.VMOPPhaseFailed:
 		cond, _ := getCondition(vmopcondition.TypeCompleted.String(), vmop.Status.Conditions)
-		sb.WriteString(fmt.Sprintf("failed. type=%q reason=%q, message=%q.", cond.Type, cond.Reason, cond.Message))
+		fmt.Fprintf(&sb, "failed. type=%q reason=%q, message=%q.", cond.Type, cond.Reason, cond.Message)
 	case "":
 		sb.WriteString("created.")
 	default:
-		sb.WriteString(fmt.Sprintf(" phase=%q.", phase))
+		fmt.Fprintf(&sb, " phase=%q.", phase)
 	}
 	sb.WriteString("\n")
 	return sb.String()
