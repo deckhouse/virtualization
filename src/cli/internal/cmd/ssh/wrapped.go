@@ -63,7 +63,6 @@ func RunLocalClient(cmd *cobra.Command, namespace, name string, options *SSHOpti
 func buildProxyCommandOption(cmd *cobra.Command, namespace, name string, port int) string {
 	parents := make([]string, 0, 2)
 	for cmd.HasParent() {
-
 		cmd = cmd.Parent()
 		parents = append(parents, cmd.Name())
 	}

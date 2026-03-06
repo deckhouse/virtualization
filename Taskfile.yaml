@@ -55,7 +55,7 @@ tasks:
       - which helm >/dev/null || (echo "helm not found."; exit 1)
     silent: true
 
-  check-golangci-lint:
+  golangci-lint:check:
     desc: "Check golangci-lint version"
     cmds:
       - |
@@ -108,7 +108,7 @@ tasks:
           go run tools/addlicense/{main,variables,msg,utils}.go -directory ./
         {{end}}
 
-  dev:sync-golangci-config:
+  golangci-lint:sync:
     desc: "Sync root .golangci.yaml to all subprojects"
     cmds:
       - |

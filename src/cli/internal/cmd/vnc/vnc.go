@@ -244,7 +244,10 @@ func connect(ctx context.Context, ln *net.TCPListener, virtCli kubeclient.Client
 			if err != nil {
 				viewResErr <- fmt.Errorf("error encountered: %s", err.Error())
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), string(optionString))
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), string(optionString))
+			if err != nil {
+				viewResErr <- fmt.Errorf("error encountered: %s", err.Error())
+			}
 		} else {
 			// execute VNC Viewer
 			checkAndRunVNCViewer(ctx, doneChan, viewResErr, port)
