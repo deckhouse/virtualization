@@ -205,18 +205,18 @@ func (a *AnsibleInventory) generateInventoryINI(vms []v1alpha2.VirtualMachine) s
 	for hostName, hostVars := range data.hostVars {
 		builder.WriteString(hostName)
 		for varName, value := range hostVars {
-			builder.WriteString(fmt.Sprintf(" %s=%s", varName, value))
+			fmt.Fprintf(&builder, " %s=%s", varName, value)
 		}
 		builder.WriteString("\n")
 	}
 
 	builder.WriteString("\n[all:vars]\n")
-	builder.WriteString(fmt.Sprintf("%s=\"%s\"\n", ansibleSSHCommonArgsKey, ansibleSSHCommonArgs))
+	fmt.Fprintf(&builder, "%s=\"%s\"\n", ansibleSSHCommonArgsKey, ansibleSSHCommonArgs)
 
 	for group, hosts := range data.groups {
-		builder.WriteString(fmt.Sprintf("\n[%s]\n", group))
+		fmt.Fprintf(&builder, "\n[%s]\n", group)
 		for _, host := range hosts {
-			builder.WriteString(fmt.Sprintf("%s\n", host))
+			fmt.Fprintf(&builder, "%s\n", host)
 		}
 	}
 
@@ -425,7 +425,7 @@ func (a *AnsibleInventory) generateHostInfo(vm *v1alpha2.VirtualMachine) string 
 			} else {
 				builder.WriteString(" ")
 			}
-			builder.WriteString(fmt.Sprintf("%s=%s", varName, value))
+			fmt.Fprintf(&builder, "%s=%s", varName, value)
 		}
 		builder.WriteString("\n")
 		output = builder.Bytes()

@@ -224,7 +224,7 @@ func (s AttachmentService) IsConflictedAttachment(ctx context.Context, vmbda *v1
 			return true, vmbdas.Items[i].Name, nil
 		}
 
-		switch vmbdas.Items[i].CreationTimestamp.Time.Compare(vmbda.CreationTimestamp.Time) {
+		switch vmbdas.Items[i].CreationTimestamp.Compare(vmbda.CreationTimestamp.Time) {
 		case -1:
 			// The current VMBDA undergoing reconciliation conflicts with another previously created VMBDA.
 			return true, vmbdas.Items[i].Name, nil

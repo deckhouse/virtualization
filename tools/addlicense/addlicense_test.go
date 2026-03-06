@@ -214,7 +214,7 @@ print("Hello")
 	for _, c := range validCases {
 		t.Run(c.title, func(t *testing.T) {
 			res := CELicenseRe.MatchString(c.content)
-			require.Equal(t, true, res)
+			require.True(t, res)
 
 			if !res {
 				t.Errorf("should detect license")

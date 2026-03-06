@@ -65,7 +65,7 @@ func (w VirtualMachineBlockDeviceAttachmentWatcher) enqueueRequests(ctx context.
 	})
 	if err != nil {
 		log.Error(fmt.Sprintf("failed to list vmRestores: %s", err))
-		return
+		return requests
 	}
 
 	for _, vmRestore := range vmRestores.Items {
@@ -74,7 +74,7 @@ func (w VirtualMachineBlockDeviceAttachmentWatcher) enqueueRequests(ctx context.
 		err := w.client.Get(ctx, types.NamespacedName{Name: vmSnapshotName, Namespace: vmbda.GetNamespace()}, &vmSnapshot)
 		if err != nil {
 			log.Error(fmt.Sprintf("failed to get vmSnapshot: %s", err))
-			return
+			return requests
 		}
 
 		if vmSnapshot.Status.VirtualMachineSnapshotSecretName == "" {
@@ -85,18 +85,18 @@ func (w VirtualMachineBlockDeviceAttachmentWatcher) enqueueRequests(ctx context.
 		restorerSecret, err := object.FetchObject(ctx, restorerSecretKey, w.client, &corev1.Secret{})
 		if err != nil {
 			log.Error(fmt.Sprintf("failed to get virtualMachineSnapshotSecret: %s", err))
-			return
+			return requests
 		}
 
 		if restorerSecret == nil {
 			log.Error(fmt.Sprintf("virtualMachineSnapshotSecret %q not found", vmSnapshot.Status.VirtualMachineSnapshotSecretName))
-			return
+			return requests
 		}
 
 		vmbdas, err := w.restorer.RestoreVirtualMachineBlockDeviceAttachments(ctx, restorerSecret)
 		if err != nil {
 			log.Error(fmt.Sprintf("failed to extract vmbda resources from the virtualMachineSnapshotSecret: %s", err))
-			return
+			return requests
 		}
 
 		for _, eVmbda := range vmbdas {
@@ -111,7 +111,7 @@ func (w VirtualMachineBlockDeviceAttachmentWatcher) enqueueRequests(ctx context.
 		}
 	}
 
-	return
+	return requests
 }
 
 func (w VirtualMachineBlockDeviceAttachmentWatcher) isVmbdaNameMatch(vmbdaName, restoredName string, nameReplacements []v1alpha2.NameReplacement) bool {

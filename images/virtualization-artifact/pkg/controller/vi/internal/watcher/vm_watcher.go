@@ -97,7 +97,7 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *v1alpha2
 		})
 	}
 
-	return
+	return requests
 }
 
 func (w VirtualMachineWatcher) hasVirtualImageRef(vm *v1alpha2.VirtualMachine) bool {

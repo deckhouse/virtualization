@@ -18,12 +18,12 @@ package tls_certificates_dvcr
 
 import (
 	"fmt"
-	"hooks/pkg/settings"
 
 	"github.com/tidwall/gjson"
 
 	tlscertificate "github.com/deckhouse/module-sdk/common-hooks/tls-certificate"
 	"github.com/deckhouse/module-sdk/pkg"
+	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
 
 func dvcrGetServiceIP(input *pkg.HookInput) gjson.Result {

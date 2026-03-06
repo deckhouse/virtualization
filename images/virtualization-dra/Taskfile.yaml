@@ -52,15 +52,35 @@ tasks:
 
   lint:go:
     desc: "Run golangci-lint"
+    deps:
+      - _ensure:golangci-lint
     cmds:
       - |
         golangci-lint run
 
   lint:go:fix:
     desc: "Run golangci-lint with --fix"
+    deps:
+      - _ensure:golangci-lint
     cmds:
       - |
         golangci-lint run --fix
+
+  _ensure:golangci-lint:
+    desc: "Ensure golangci-lint v2+ is available"
+    internal: true
+    cmds:
+      - |
+        GOLANGCI_LINT_MIN_VERSION="2.0"
+        if ! command -v golangci-lint &> /dev/null; then
+          echo "Installing golangci-lint..."
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
+        fi
+        CURRENT_VERSION=$(golangci-lint --version 2>/dev/null | grep -oP 'version \K[0-9]+\.[0-9]+' || echo "0.0")
+        if [ "$(printf '%s\n' "$GOLANGCI_LINT_MIN_VERSION" "$CURRENT_VERSION" | sort -V | head -n1)" != "$GOLANGCI_LINT_MIN_VERSION" ]; then
+          echo "Upgrading golangci-lint from $CURRENT_VERSION to $GOLANGCI_LINT_MIN_VERSION+"
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
+        fi
 
   build:go-usbip:
     desc: "Build go-usbip binary"

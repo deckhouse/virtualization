@@ -118,11 +118,11 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 			})
 
 			By("Check Cilium agents after migration", func() {
-				err := network.CheckCiliumAgents(context.Background(), f.Clients.Kubectl(), vmFoo.Name, f.Namespace().Name)
+				err := network.CheckCiliumAgents(context.Background(), f.Kubectl(), vmFoo.Name, f.Namespace().Name)
 				Expect(err).NotTo(HaveOccurred(), "Cilium agents check for VM %s", vmFoo.Name)
 
 				if tc.vmBarHasMainNetwork {
-					err = network.CheckCiliumAgents(context.Background(), f.Clients.Kubectl(), vmBar.Name, f.Namespace().Name)
+					err = network.CheckCiliumAgents(context.Background(), f.Kubectl(), vmBar.Name, f.Namespace().Name)
 					Expect(err).NotTo(HaveOccurred(), "Cilium agents check for VM %s", vmBar.Name)
 				}
 			})

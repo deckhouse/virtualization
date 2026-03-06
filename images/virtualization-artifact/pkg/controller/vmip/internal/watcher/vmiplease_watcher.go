@@ -76,7 +76,7 @@ func (w VirtualMachineIPAddressLeaseWatcher) enqueueRequests(ctx context.Context
 	err := w.client.List(ctx, &vmips, &opts)
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to list vmips: %s", err))
-		return
+		return requests
 	}
 
 	for _, vmip := range vmips.Items {
@@ -88,5 +88,5 @@ func (w VirtualMachineIPAddressLeaseWatcher) enqueueRequests(ctx context.Context
 		})
 	}
 
-	return
+	return requests
 }

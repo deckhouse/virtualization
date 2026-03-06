@@ -15,7 +15,7 @@ import (
 	tlscertificate "github.com/deckhouse/module-sdk/common-hooks/tls-certificate"
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
-	"hooks/pkg/settings"
+	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
 
 var conf = tlscertificate.GenSelfSignedTLSHookConf{

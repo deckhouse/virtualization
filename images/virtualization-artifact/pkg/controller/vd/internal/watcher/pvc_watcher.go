@@ -97,7 +97,7 @@ func (w PersistentVolumeClaimWatcher) enqueueRequestsFromOwnerRefsRecursively(ct
 		}
 	}
 
-	return
+	return requests
 }
 
 func (w PersistentVolumeClaimWatcher) filterUpdateEvents(e event.TypedUpdateEvent[*corev1.PersistentVolumeClaim]) bool {
