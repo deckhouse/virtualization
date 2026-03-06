@@ -112,9 +112,8 @@ tasks:
     desc: "Sync root .golangci.yaml to all subprojects"
     cmds:
       - |
-        ROOT_CONFIG=".golangci.yaml"
+        ROOT_CONFIG="images/virtualization-artifact/.golangci.yaml"
         TARGETS=(
-          "images/virtualization-artifact"
           "images/hooks"
           "images/dvcr-artifact"
           "images/cdi-cloner/cloner-startup"
