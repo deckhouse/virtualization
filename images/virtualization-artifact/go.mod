@@ -11,7 +11,7 @@ require (
 	github.com/deckhouse/deckhouse/pkg/log v0.0.0-20250226105106-176cd3afcdd5
 	github.com/deckhouse/virtualization/api v0.0.0-00010101000000-000000000000
 	github.com/distribution/reference v0.6.0
-	github.com/docker/cli v28.2.2+incompatible
+	github.com/docker/cli v29.2.0+incompatible
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-logr/logr v1.4.3
 	github.com/google/go-containerregistry v0.20.3
