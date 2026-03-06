@@ -23,36 +23,6 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewGeneratedVDFromCVI(prefix, namespace string, cvi *v1alpha2.ClusterVirtualImage, opts ...vd.Option) *v1alpha2.VirtualDisk {
-	baseOpts := []vd.Option{
-		vd.WithGenerateName(prefix),
-		vd.WithNamespace(namespace),
-		vd.WithDataSourceObjectRefFromCVI(cvi),
-	}
-	baseOpts = append(baseOpts, opts...)
-	return vd.New(baseOpts...)
-}
-
-func NewVDFromCVI(name, namespace string, cvi *v1alpha2.ClusterVirtualImage, opts ...vd.Option) *v1alpha2.VirtualDisk {
-	baseOpts := []vd.Option{
-		vd.WithName(name),
-		vd.WithNamespace(namespace),
-		vd.WithDataSourceObjectRefFromCVI(cvi),
-	}
-	baseOpts = append(baseOpts, opts...)
-	return vd.New(baseOpts...)
-}
-
-func NewGeneratedVDFromVI(prefix, namespace string, vi *v1alpha2.VirtualImage, opts ...vd.Option) *v1alpha2.VirtualDisk {
-	baseOpts := []vd.Option{
-		vd.WithGenerateName(prefix),
-		vd.WithNamespace(namespace),
-		vd.WithDataSourceObjectRefFromVI(vi),
-	}
-	baseOpts = append(baseOpts, opts...)
-	return vd.New(baseOpts...)
-}
-
 func NewVDFromVI(name, namespace string, vi *v1alpha2.VirtualImage, opts ...vd.Option) *v1alpha2.VirtualDisk {
 	baseOpts := []vd.Option{
 		vd.WithName(name),
@@ -73,36 +43,12 @@ func NewBlankVD(name, namespace string, storageClass *string, size *resource.Qua
 	return vd.New(baseOpts...)
 }
 
-func NewGeneratedHTTPVDUbuntu(prefix, namespace string, opts ...vd.Option) *v1alpha2.VirtualDisk {
-	baseOpts := []vd.Option{
-		vd.WithGenerateName(prefix),
-		vd.WithNamespace(namespace),
-		vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-			URL: ImageURLUbuntu,
-		}),
-	}
-	baseOpts = append(baseOpts, opts...)
-	return vd.New(baseOpts...)
-}
-
 func NewHTTPVDAlpineBIOS(name, namespace string, opts ...vd.Option) *v1alpha2.VirtualDisk {
 	baseOpts := []vd.Option{
 		vd.WithName(name),
 		vd.WithNamespace(namespace),
 		vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
 			URL: ImageURLAlpineBIOS,
-		}),
-	}
-	baseOpts = append(baseOpts, opts...)
-	return vd.New(baseOpts...)
-}
-
-func NewHTTPVDAlpineUEFI(name, namespace string, opts ...vd.Option) *v1alpha2.VirtualDisk {
-	baseOpts := []vd.Option{
-		vd.WithName(name),
-		vd.WithNamespace(namespace),
-		vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-			URL: ImageURLAlpineUEFI,
 		}),
 	}
 	baseOpts = append(baseOpts, opts...)
