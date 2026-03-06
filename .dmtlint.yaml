@@ -53,3 +53,13 @@ linters-settings:
           - tools/addlicense/testdata
           - test/performance/ssh
           - test/e2e/legacy/testdata/sshkeys
+  container:
+    exclude-rules:
+      readiness-probe:
+        - kind: Deployment
+          name: dvcr
+          container: dvcr-garbage-collection
+      liveness-probe:
+        - kind: Deployment
+          name: dvcr
+          container: dvcr-garbage-collection

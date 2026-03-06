@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2026 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,30 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package cmd
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/spf13/cobra"
-
-	"github.com/deckhouse/virtualization-controller/dvcr-importers/cmd/dvcr-cleaner/cmd"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "dvcr-cleaner",
-	Short: "`dvcr-cleaner` is used for exploring and removing `VirtualImages` and `ClusterVirtualImages` from registry.",
+var PauseCmd = &cobra.Command{
+	Use:           "pause",
+	Args:          cobra.NoArgs,
+	RunE:          pauseCleanupHandler,
+	SilenceUsage:  true,
+	SilenceErrors: true,
 }
 
-func init() {
-	rootCmd.AddCommand(cmd.DeleteCmd, cmd.GcCmd, cmd.LsCmd, cmd.PauseCmd)
-}
-
-func main() {
-	err := rootCmd.Execute()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+func pauseCleanupHandler(cmd *cobra.Command, _ []string) error {
+	cmd.Println("Pause")
+	ctx, cancel := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+	<-ctx.Done()
+	return nil
 }
