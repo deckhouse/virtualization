@@ -20,6 +20,7 @@ fromImage: builder/golang-alt
 final: false
 shell:
   beforeInstall:
+  - rm -rf /var/lib/rpm/__db*
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install ca-certificates tzdata -y

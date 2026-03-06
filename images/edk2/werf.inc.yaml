@@ -113,6 +113,7 @@ import:
   before: install
 shell:
   beforeInstall:
+  - rm -rf /var/lib/rpm/__db*
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
