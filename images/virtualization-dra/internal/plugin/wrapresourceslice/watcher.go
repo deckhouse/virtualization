@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 )
 
-func newWrapWatcher(ctx context.Context, w watch.Interface, match func(event watch.Event) bool) watch.Interface {
+func newWrapWatcher(ctx context.Context, w watch.Interface, match func(event watch.Event) bool) *wrapWatcher {
 	ctx, cancel := context.WithCancel(ctx)
 
 	watcher := &wrapWatcher{
@@ -31,6 +31,7 @@ func newWrapWatcher(ctx context.Context, w watch.Interface, match func(event wat
 		ctx:     ctx,
 		cancel:  cancel,
 		result:  make(chan watch.Event),
+		done:    make(chan struct{}),
 	}
 	go watcher.receive(ctx)
 
@@ -44,17 +45,27 @@ type wrapWatcher struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	result chan watch.Event
+	done   chan struct{}
 }
 
 func (w *wrapWatcher) receive(ctx context.Context) {
+	defer close(w.result)
+	defer close(w.done)
 	resultChan := w.watcher.ResultChan()
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case event := <-resultChan:
+		case event, ok := <-resultChan:
+			if !ok {
+				return
+			}
 			if w.match == nil || w.match(event) {
-				w.result <- event
+				select {
+				case <-ctx.Done():
+					return
+				case w.result <- event:
+				}
 			}
 		}
 	}
@@ -71,4 +82,5 @@ func (w *wrapWatcher) Stop() {
 		w.watcher.Stop()
 		w.cancel()
 	}
+	<-w.done
 }

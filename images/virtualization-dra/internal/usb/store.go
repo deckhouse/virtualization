@@ -426,10 +426,6 @@ func (s *AllocationStore) Unprepare(_ context.Context, claimUID types.UID) error
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if err := s.cdi.DeleteClaimSpecFile(string(claimUID)); err != nil {
-		return fmt.Errorf("unable to delete CDI spec file for claim: %w", err)
-	}
-
 	usbGatewayEnabled := featuregates.Default().USBGatewayEnabled()
 
 	allocatedDevices := s.resourceClaimAllocations[claimUID]
@@ -447,6 +443,11 @@ func (s *AllocationStore) Unprepare(_ context.Context, claimUID types.UID) error
 
 		s.allocatedDevices.Delete(device)
 	}
+
+	if err := s.cdi.DeleteClaimSpecFile(string(claimUID)); err != nil {
+		return fmt.Errorf("unable to delete CDI spec file for claim: %w", err)
+	}
+
 	delete(s.resourceClaimAllocations, claimUID)
 
 	return nil
@@ -526,7 +527,7 @@ func (s *AllocationStore) makeResources(devicesByName map[string]Device) resourc
 		return resourceslice.DriverResources{}
 	}
 
-	devices := make([]resourcev1.Device, len(devicesByName))
+	devices := make([]resourcev1.Device, 0, len(devicesByName))
 	for _, usbDevice := range devicesByName {
 		devices = append(devices, *usbDevice.ToAPIDevice(s.nodeName))
 	}
