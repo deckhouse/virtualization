@@ -53,7 +53,7 @@ func decoratorsForVolumeMigrations() []interface{} {
 
 // Ordered is required due to concurrent migration limitations in the cluster to prevent test interference.
 // ContinueOnFailure ensures all independent tests run even if one fails.
-var _ = Describe("LocalVirtualDiskMigration", decoratorsForVolumeMigrations(), func() {
+var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), func() {
 	var (
 		f            = framework.NewFramework("volume-migration-local-disks")
 		storageClass *storagev1.StorageClass
