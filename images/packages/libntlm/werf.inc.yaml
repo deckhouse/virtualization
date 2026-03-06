@@ -52,6 +52,7 @@ import:
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
+  - rm -rf /var/lib/rpm/__db*
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
@@ -65,14 +66,14 @@ shell:
     cd /src
     export GNULIB_REVISION=$(. bootstrap.conf >&2; echo $GNULIB_REVISION)
     export GNULIB_SRCDIR=$(pwd)/gnulib
-    
+
     ./bootstrap --skip-po --no-git
     ./configure \
       --prefix=/usr \
       --exec-prefix=/usr \
       --libdir=/usr/lib64 \
       --disable-static
-    
+
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
 
