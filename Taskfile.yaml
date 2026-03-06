@@ -108,6 +108,27 @@ tasks:
           go run tools/addlicense/{main,variables,msg,utils}.go -directory ./
         {{end}}
 
+  dev:sync-golangci-config:
+    desc: "Sync root .golangci.yaml to all subprojects"
+    cmds:
+      - |
+        ROOT_CONFIG=".golangci.yaml"
+        TARGETS=(
+          "images/virtualization-artifact"
+          "images/hooks"
+          "images/dvcr-artifact"
+          "images/cdi-cloner/cloner-startup"
+          "images/virtualization-dra"
+          "src/cli"
+          "test/e2e"
+          "test/performance/tools/shatal"
+          "tools/addlicense"
+        )
+        for target in "${TARGETS[@]}"; do
+          cp "$ROOT_CONFIG" "$target/.golangci.yaml"
+          echo "Synced $ROOT_CONFIG -> $target/.golangci.yaml"
+        done
+
   lint:
     cmds:
       - task: lint:doc-ru

@@ -72,11 +72,6 @@ linters:
       exclude-functions:
         - "(*os.File).Close"
         - "(*net.TCPConn).Close"
-      # - "fmt:.*"
-      # - "[rR]ead"
-      # - "[wW]rite"
-      # - "[cC]lose"
-      # - "io:Copy"
     revive:
       rules:
         - name: dot-imports
