@@ -93,7 +93,7 @@ var _ = Describe("Forbid Events", func() {
 			}
 
 			fakeClient := fake.NewSimpleClientset()
-			fakeClient.Fake.PrependReactor("create", "subjectaccessreviews", func(action kubetesting.Action) (
+			fakeClient.PrependReactor("create", "subjectaccessreviews", func(action kubetesting.Action) (
 				handled bool,
 				ret runtime.Object,
 				err error,

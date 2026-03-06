@@ -73,7 +73,7 @@ func (w ResourceQuotaWatcher) enqueueRequests(ctx context.Context, obj client.Ob
 	err := w.client.List(ctx, &vds, client.InNamespace(obj.GetNamespace()))
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to get virtual disks: %s", err))
-		return
+		return requests
 	}
 
 	for _, vd := range vds.Items {
@@ -86,5 +86,5 @@ func (w ResourceQuotaWatcher) enqueueRequests(ctx context.Context, obj client.Ob
 		}
 	}
 
-	return
+	return requests
 }

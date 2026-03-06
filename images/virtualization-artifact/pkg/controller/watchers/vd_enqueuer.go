@@ -56,7 +56,7 @@ func (w VirtualDiskRequestEnqueuer) EnqueueRequestsFromVDs(ctx context.Context, 
 	err := w.client.List(ctx, &vds)
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to list vd: %s", err))
-		return
+		return requests
 	}
 
 	for _, vd := range vds.Items {
@@ -86,7 +86,7 @@ func (w VirtualDiskRequestEnqueuer) EnqueueRequestsFromVDs(ctx context.Context, 
 		}
 	}
 
-	return
+	return requests
 }
 
 func (w VirtualDiskRequestEnqueuer) EnqueueRequestsFromVIs(obj client.Object) (requests []reconcile.Request) {
@@ -94,7 +94,7 @@ func (w VirtualDiskRequestEnqueuer) EnqueueRequestsFromVIs(obj client.Object) (r
 		vi, ok := obj.(*v1alpha2.VirtualImage)
 		if !ok {
 			w.logger.Error(fmt.Sprintf("expected a VirtualImage but got a %T", obj))
-			return
+			return requests
 		}
 
 		if vi.Spec.DataSource.Type == v1alpha2.DataSourceTypeObjectRef && vi.Spec.DataSource.ObjectRef != nil && vi.Spec.DataSource.ObjectRef.Kind == v1alpha2.VirtualDiskKind {
@@ -106,7 +106,7 @@ func (w VirtualDiskRequestEnqueuer) EnqueueRequestsFromVIs(obj client.Object) (r
 			})
 		}
 	}
-	return
+	return requests
 }
 
 func (w VirtualDiskRequestEnqueuer) EnqueueRequestsFromCVIs(obj client.Object) (requests []reconcile.Request) {
@@ -114,7 +114,7 @@ func (w VirtualDiskRequestEnqueuer) EnqueueRequestsFromCVIs(obj client.Object) (
 		cvi, ok := obj.(*v1alpha2.ClusterVirtualImage)
 		if !ok {
 			w.logger.Error(fmt.Sprintf("expected a ClusterVirtualImage but got a %T", obj))
-			return
+			return requests
 		}
 
 		if cvi.Spec.DataSource.Type == v1alpha2.DataSourceTypeObjectRef && cvi.Spec.DataSource.ObjectRef != nil && cvi.Spec.DataSource.ObjectRef.Kind == v1alpha2.VirtualDiskKind {
@@ -126,7 +126,7 @@ func (w VirtualDiskRequestEnqueuer) EnqueueRequestsFromCVIs(obj client.Object) (
 			})
 		}
 	}
-	return
+	return requests
 }
 
 func (w VirtualDiskRequestEnqueuer) EnqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {

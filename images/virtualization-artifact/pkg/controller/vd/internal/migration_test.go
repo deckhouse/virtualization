@@ -489,5 +489,5 @@ func newEmptyPVC(name, namespace string) *corev1.PersistentVolumeClaim {
 }
 
 func withOwner(pvc *corev1.PersistentVolumeClaim, owner client.Object) {
-	pvc.ObjectMeta.OwnerReferences = []metav1.OwnerReference{service.MakeControllerOwnerReference(owner)}
+	pvc.OwnerReferences = []metav1.OwnerReference{service.MakeControllerOwnerReference(owner)}
 }

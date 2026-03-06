@@ -70,7 +70,7 @@ func (w KVVMIWatcher) enqueueRequests(ctx context.Context, kvvmi *virtv1.Virtual
 	})
 	if err != nil {
 		slog.Default().Error(fmt.Sprintf("failed to list virtual machine snapshots: %s", err))
-		return
+		return requests
 	}
 
 	for _, vmSnapshot := range vmSnapshots.Items {
@@ -84,7 +84,7 @@ func (w KVVMIWatcher) enqueueRequests(ctx context.Context, kvvmi *virtv1.Virtual
 		}
 	}
 
-	return
+	return requests
 }
 
 func (w KVVMIWatcher) filterUpdateEvents(e event.TypedUpdateEvent[*virtv1.VirtualMachineInstance]) bool {

@@ -75,7 +75,7 @@ func (h *MigrationHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk)
 	log.Info("Detected VirtualDisk with changed StorageClass")
 
 	ready, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
-	if !(ready.Status == metav1.ConditionTrue && conditions.IsLastUpdated(ready, vd)) {
+	if ready.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(ready, vd) {
 		h.recorder.Eventf(vd, corev1.EventTypeWarning, v1alpha2.ReasonVolumeMigrationCannotBeProcessed, "VirtualDisk is not ready. Cannot be migrated now.")
 		return reconcile.Result{}, nil
 	}

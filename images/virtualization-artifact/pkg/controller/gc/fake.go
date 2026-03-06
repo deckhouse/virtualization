@@ -67,7 +67,7 @@ type FakeObject struct {
 func (f FakeObject) DeepCopyObject() runtime.Object {
 	return &FakeObject{
 		TypeMeta:   f.TypeMeta,
-		ObjectMeta: *f.ObjectMeta.DeepCopy(),
+		ObjectMeta: *f.DeepCopy(),
 		RefObject:  f.RefObject,
 		Phase:      f.Phase,
 	}
@@ -91,7 +91,7 @@ func (f *FakeObjectList) DeepCopyObject() runtime.Object {
 
 	return &FakeObjectList{
 		TypeMeta: f.TypeMeta,
-		ListMeta: *f.ListMeta.DeepCopy(),
+		ListMeta: *f.DeepCopy(),
 		Items:    items,
 	}
 }

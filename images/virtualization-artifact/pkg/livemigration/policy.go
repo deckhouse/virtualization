@@ -72,5 +72,5 @@ func CalculateEffectivePolicy(vm v1alpha2.VirtualMachine, vmop *v1alpha2.Virtual
 		autoConverge = *autoConvergePtr
 	}
 
-	return
+	return effectivePolicy, autoConverge, err
 }
