@@ -69,6 +69,8 @@ const (
 
 	IndexFieldVMByProvisioningSecret = "spec.provisioning.secretRef"
 
+	IndexFieldEventByInvolvedObjectName        = "involvedObject.name"
+	IndexFieldEventByInvolvedObjectKind        = "involvedObject.kind"
 	IndexFieldUSBDeviceByName                  = "metadata.name"
 	IndexFieldNodeUSBDeviceByAssignedNamespace = "spec.assignedNamespace"
 
@@ -100,6 +102,8 @@ var IndexGetters = []IndexGetter{
 	IndexVMMACByAddress,
 	IndexVMMACLeaseByVMMAC,
 	IndexVMIPLeaseByVMIP,
+	IndexEventByInvolvedObjectName,
+	IndexEventByInvolvedObjectKind,
 }
 
 var IndexGettersUSB = []IndexGetter{
