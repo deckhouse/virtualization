@@ -21,93 +21,12 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewHTTPVIUbuntu(name, namespace string, opts ...vi.Option) *v1alpha2.VirtualImage {
-	baseOpts := []vi.Option{
-		vi.WithName(name),
-		vi.WithStorage(v1alpha2.StorageContainerRegistry),
-		vi.WithNamespace(namespace),
-		vi.WithDataSourceHTTP(
-			ImageURLUbuntu, nil, nil,
-		),
-		vi.WithStorage(v1alpha2.StorageContainerRegistry),
-	}
-	baseOpts = append(baseOpts, opts...)
-	return vi.New(baseOpts...)
-}
-
-func NewHTTPVIAlpineBIOS(name, namespace string, opts ...vi.Option) *v1alpha2.VirtualImage {
-	baseOpts := []vi.Option{
-		vi.WithName(name),
-		vi.WithStorage(v1alpha2.StorageContainerRegistry),
-		vi.WithNamespace(namespace),
-		vi.WithDataSourceHTTP(
-			ImageURLAlpineBIOS, nil, nil,
-		),
-		vi.WithStorage(v1alpha2.StorageContainerRegistry),
-	}
-	baseOpts = append(baseOpts, opts...)
-	return vi.New(baseOpts...)
-}
-
-func NewHTTPVIAlpineUEFI(name, namespace string, opts ...vi.Option) *v1alpha2.VirtualImage {
-	baseOpts := []vi.Option{
-		vi.WithName(name),
-		vi.WithStorage(v1alpha2.StorageContainerRegistry),
-		vi.WithNamespace(namespace),
-		vi.WithDataSourceHTTP(
-			ImageURLAlpineUEFI, nil, nil,
-		),
-		vi.WithStorage(v1alpha2.StorageContainerRegistry),
-	}
-	baseOpts = append(baseOpts, opts...)
-	return vi.New(baseOpts...)
-}
-
-func NewGeneratedHTTPVIUbuntu(prefix, namespace string, opts ...vi.Option) *v1alpha2.VirtualImage {
-	baseOpts := []vi.Option{
-		vi.WithGenerateName(prefix),
-		vi.WithNamespace(namespace),
-		vi.WithDataSourceHTTP(
-			ImageURLUbuntu, nil, nil,
-		),
-		vi.WithStorage(v1alpha2.StorageContainerRegistry),
-	}
-	baseOpts = append(baseOpts, opts...)
-	return vi.New(baseOpts...)
-}
-
 func NewGeneratedHTTPVIAlpineBIOS(prefix, namespace string, opts ...vi.Option) *v1alpha2.VirtualImage {
 	baseOpts := []vi.Option{
 		vi.WithGenerateName(prefix),
 		vi.WithNamespace(namespace),
 		vi.WithDataSourceHTTP(
 			ImageURLAlpineBIOS, nil, nil,
-		),
-		vi.WithStorage(v1alpha2.StorageContainerRegistry),
-	}
-	baseOpts = append(baseOpts, opts...)
-	return vi.New(baseOpts...)
-}
-
-func NewGeneratedHTTPVIAlpineUEFI(prefix, namespace string, opts ...vi.Option) *v1alpha2.VirtualImage {
-	baseOpts := []vi.Option{
-		vi.WithGenerateName(prefix),
-		vi.WithNamespace(namespace),
-		vi.WithDataSourceHTTP(
-			ImageURLAlpineUEFI, nil, nil,
-		),
-		vi.WithStorage(v1alpha2.StorageContainerRegistry),
-	}
-	baseOpts = append(baseOpts, opts...)
-	return vi.New(baseOpts...)
-}
-
-func NewGeneratedHTTPVIAlpineUEFIPerf(prefix, namespace string, opts ...vi.Option) *v1alpha2.VirtualImage {
-	baseOpts := []vi.Option{
-		vi.WithGenerateName(prefix),
-		vi.WithNamespace(namespace),
-		vi.WithDataSourceHTTP(
-			ImagesURLAlpineUEFIPerf, nil, nil,
 		),
 		vi.WithStorage(v1alpha2.StorageContainerRegistry),
 	}
@@ -123,17 +42,6 @@ func NewGeneratedHTTPVIAlpineBIOSPerf(prefix, namespace string, opts ...vi.Optio
 			ImagesURLAlpineBIOSPerf, nil, nil,
 		),
 		vi.WithStorage(v1alpha2.StorageContainerRegistry),
-	}
-	baseOpts = append(baseOpts, opts...)
-	return vi.New(baseOpts...)
-}
-
-func NewContainerImageVI(name, namespace string, opts ...vi.Option) *v1alpha2.VirtualImage {
-	baseOpts := []vi.Option{
-		vi.WithName(name),
-		vi.WithNamespace(namespace),
-		vi.WithStorage(v1alpha2.StorageContainerRegistry),
-		vi.WithDataSourceContainerImage(ImageURLContainerImage, v1alpha2.ImagePullSecretName{}, nil),
 	}
 	baseOpts = append(baseOpts, opts...)
 	return vi.New(baseOpts...)
