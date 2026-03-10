@@ -13,4 +13,4 @@ final: false
 fromImage: builder/distroless
 shell:
   install:
-    - pm install {{ .ImageName }} -d /out
+    - pm install {{ .ImageName }}-devel -d /out

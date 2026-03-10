@@ -72,7 +72,8 @@ shell:
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
-      cp -a /$pkg/. /
+      cd /$pkg
+      rsync -avul * /
       rm -rf /$pkg
     done
   - |
