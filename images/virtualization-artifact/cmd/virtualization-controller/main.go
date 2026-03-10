@@ -355,6 +355,10 @@ func main() {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
+	if err = vm.SetupPodGC(mgr, vmLogger, gcSettings.VMPod); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
 
 	vmbdaLogger := logger.NewControllerLogger(vmbda.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
 	if _, err = vmbda.NewController(ctx, mgr, virtClient, vmbdaLogger, controllerNamespace); err != nil {
