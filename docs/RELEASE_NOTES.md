@@ -10,7 +10,7 @@ Release date: March 10, 2026.
 
 ### Fixes
 
-- [observability] Temporarily reverted the placement of virtual machine dashboards due to a validation issue that could block the Deckhouse queue.
+- [observability] Restored the previous placement of virtual machine dashboards due to a validation issue that could block the Deckhouse queue.
 - [vm] Fixed USB device discovery on nodes: corresponding [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resources might not have been created.
 - [vm] Fixed cloning of a virtual machine with connected USB devices when using [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) with the `Clone` type in `BestEffort` mode.
 
