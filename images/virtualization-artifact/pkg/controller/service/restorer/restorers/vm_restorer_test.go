@@ -421,4 +421,64 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			Expect(handler.vm.Name).To(Equal(originalName))
 		})
 	})
+
+	Describe("Clone BestEffort USB filtering", func() {
+		It("should remove all usb devices from cloned vm in best effort mode", func() {
+			cloneVM := vm.DeepCopy()
+			cloneVM.Name = "clone-vm"
+			cloneVM.Spec.USBDevices = []v1alpha2.USBDeviceSpecRef{{Name: "usb-busy"}, {Name: "usb-free"}}
+
+			otherVM := vm.DeepCopy()
+			otherVM.Name = "other-vm"
+			otherVM.Spec.USBDevices = []v1alpha2.USBDeviceSpecRef{{Name: "usb-busy"}}
+
+			var createdVM *v1alpha2.VirtualMachine
+			interceptClone := interceptor.Funcs{
+				Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
+					if vmObj, ok := obj.(*v1alpha2.VirtualMachine); ok && vmObj.Name == cloneVM.Name {
+						createdVM = vmObj.DeepCopy()
+					}
+					return nil
+				},
+			}
+
+			fakeClient, err = testutil.NewFakeClientWithInterceptorWithObjects(interceptClone, otherVM)
+			Expect(err).ToNot(HaveOccurred())
+
+			handler = NewVirtualMachineHandler(fakeClient, *cloneVM, restoreUID, v1alpha2.SnapshotOperationModeBestEffort)
+			err = handler.ProcessClone(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(createdVM).ToNot(BeNil())
+			Expect(createdVM.Spec.USBDevices).To(BeNil())
+		})
+
+		It("should keep usb devices in strict mode", func() {
+			cloneVM := vm.DeepCopy()
+			cloneVM.Name = "clone-vm"
+			cloneVM.Spec.USBDevices = []v1alpha2.USBDeviceSpecRef{{Name: "usb-busy"}, {Name: "usb-free"}}
+
+			otherVM := vm.DeepCopy()
+			otherVM.Name = "other-vm"
+			otherVM.Spec.USBDevices = []v1alpha2.USBDeviceSpecRef{{Name: "usb-busy"}}
+
+			var createdVM *v1alpha2.VirtualMachine
+			interceptClone := interceptor.Funcs{
+				Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
+					if vmObj, ok := obj.(*v1alpha2.VirtualMachine); ok && vmObj.Name == cloneVM.Name {
+						createdVM = vmObj.DeepCopy()
+					}
+					return nil
+				},
+			}
+
+			fakeClient, err = testutil.NewFakeClientWithInterceptorWithObjects(interceptClone, otherVM)
+			Expect(err).ToNot(HaveOccurred())
+
+			handler = NewVirtualMachineHandler(fakeClient, *cloneVM, restoreUID, v1alpha2.SnapshotOperationModeStrict)
+			err = handler.ProcessClone(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(createdVM).ToNot(BeNil())
+			Expect(createdVM.Spec.USBDevices).To(Equal([]v1alpha2.USBDeviceSpecRef{{Name: "usb-busy"}, {Name: "usb-free"}}))
+		})
+	})
 })
