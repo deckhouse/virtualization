@@ -30,6 +30,13 @@ tasks:
     cmds:
       - go run ./main.go moduleversions --channel {{.CHANNEL}} --version {{.VERSION}} --attempt {{.COUNT}} --check-docs
 
+  check:requirements:
+    desc: "Check that Deckhouse version on the channel satisfies module requirements (from module.yaml)"
+    deps:
+      - task: go:download
+    cmds:
+      - go run ./main.go moduleversions --channel {{.CHANNEL}} --version {{.VERSION}} --check-requirements
+
   check:registry:
     desc: "Check version in the registry"
     vars:
