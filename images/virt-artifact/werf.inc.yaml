@@ -72,8 +72,7 @@ shell:
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
-      cd /$pkg
-      rsync -avul * /
+      rsync -avul --no-relative --ignore-existing "/$pkg/" /
       rm -rf /$pkg
     done
   - |
@@ -89,9 +88,6 @@ shell:
     done
 
   setup:
-    - ls -la /bin/sh
-    - cat $(which ld)
-    - bash -x /usr/bin/ld --version; sleep 3
     - mkdir /kubevirt-binaries
     - mkdir /kubevirt-config-files
     - cd /kubevirt
