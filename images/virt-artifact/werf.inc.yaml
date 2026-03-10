@@ -66,6 +66,7 @@ shell:
       {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
+  - ln -s /usr/bin/sh /bin/sh
 
   install:
   - |
