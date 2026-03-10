@@ -34,9 +34,9 @@ import (
 
 const (
 	moduleFileLinkTemplate = "https://raw.githubusercontent.com/deckhouse/virtualization/refs/tags/%s/module.yaml"
-	moduleImageURL = "registry.deckhouse.io/deckhouse/%s/modules/%s:%s"
+	moduleImageURLTemplate = "registry.deckhouse.io/deckhouse/%s/modules/%s:%s"
 	moduleVersionFile = "version.json"
-	deckhouseImageURL = "registry.deckhouse.io/deckhouse/%s:%s"
+	deckhouseImageURLTemplate = "registry.deckhouse.io/deckhouse/%s:%s"
 	deckhouseVersionFile = "deckhouse/version"
 	httpTimeout = 5 * time.Second
 )
@@ -75,7 +75,7 @@ func ExtractFileFromImage(image, targetFile string) (string, error) {
 			return "", fmt.Errorf("there is no file %v in tar archive for %v", targetFile, image)
 		}
 		if err != nil {
-		return "", fmt.Errorf("tar read error for image %v: %v\n", image, err)
+			return "", fmt.Errorf("tar read error for image %v: %v\n", image, err)
 		}
 
 		if hdr.Name == targetFile && hdr.Typeflag == tar.TypeReg {
@@ -88,7 +88,7 @@ func ExtractFileFromImage(image, targetFile string) (string, error) {
 	}
 }
 
-func VerifyModuleRequirements(module string, sv SemVerRange, edition, channel, tag string) error {
+func VerifyModuleRequirements(module string, sv SemVerRange, edition, channel string) error {
 	fmt.Printf("semver range of module %s: %s\n", module, sv)
 	prange, err := semver.ParseRange(string(sv))
 	if err != nil {
@@ -103,23 +103,22 @@ func VerifyModuleRequirements(module string, sv SemVerRange, edition, channel, t
 
 	var image, tf string
 	if isDeckhouse {
-		image = fmt.Sprintf(deckhouseImageURL, edition, channel)
+		image = fmt.Sprintf(deckhouseImageURLTemplate, edition, channel)
 		tf = deckhouseVersionFile
 	} else {
-		image = fmt.Sprintf(moduleImageURL, edition, module, channel)
+		image = fmt.Sprintf(moduleImageURLTemplate, edition, module, channel)
 		tf = moduleVersionFile
 	}
 
-	file, err := ExtractFileFromImage(image, tf)
+	vs, err := ExtractFileFromImage(image, tf)
 	if err != nil {
 		fmt.Printf("ExtractFileFromImage failed for image %v: %v\n", image, err)
 		return err
 	}
 
-	vs := file
 	if !isDeckhouse {
 		tmp := ModuleVersion{}
-		err = json.Unmarshal([]byte(file), &tmp)
+		err = json.Unmarshal([]byte(vs), &tmp)
 		if err != nil {
 			fmt.Printf("Unmarshal failed for JSON")
 			return err
@@ -139,7 +138,7 @@ func VerifyModuleRequirements(module string, sv SemVerRange, edition, channel, t
 	return nil
 }
 
-func CheckVersionWithRetries(channel, version, moduleName string, attempts int) error {
+func CheckVersionWithRetries(channel, version string, attempts int) error {
 	client := &http.Client{
 		Timeout: httpTimeout,
 	}
@@ -183,7 +182,7 @@ func CheckVersionWithRetries(channel, version, moduleName string, attempts int) 
 	var supportedEditions = []string{"fe", "ee", "ce", "se-plus"}
 	for _, e := range supportedEditions {
 		fmt.Printf("Verifying deckhouse (range %q) on channel %s version %s\n", c.Requirements.Deckhouse, channel, version)
-		err = VerifyModuleRequirements("deckhouse", c.Requirements.Deckhouse, e, channel, version)
+		err = VerifyModuleRequirements("deckhouse", c.Requirements.Deckhouse, e, channel)
 		if err != nil {
 			fmt.Printf("requirements of the virtualization module (%s) are not satisfied: on channel %s Deckhouse is currently at a version that is not in the range required by the module. %v\n",
 				moduleFileLink, channel, err)
