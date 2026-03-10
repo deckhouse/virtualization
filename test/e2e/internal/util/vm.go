@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"regexp"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -41,17 +40,13 @@ import (
 )
 
 const (
-	VmopE2ePrefix                                      = "vmop-e2e"
-	knownKubeVirtClientSocketClosedFailureReasonPrefix = "virError(Code=1, Domain=7"
-	knownKubeVirtClientSocketClosedMessage             = "internal error: client socket is closed"
+	VmopE2ePrefix = "vmop-e2e"
 )
 
-var whitespaceRegex = regexp.MustCompile(`\s+`)
+var knownKubeVirtClientSocketClosedRe = regexp.MustCompile(`(?is)virError\(Code=1,.*internal error:\s*client\s+socket\s+is\s+closed`)
 
 func IsKnownKubeVirtClientSocketClosedFailureReason(reason string) bool {
-	normalizedReason := whitespaceRegex.ReplaceAllString(strings.TrimSpace(reason), " ")
-	return strings.Contains(normalizedReason, knownKubeVirtClientSocketClosedFailureReasonPrefix) &&
-		strings.Contains(normalizedReason, knownKubeVirtClientSocketClosedMessage)
+	return knownKubeVirtClientSocketClosedRe.MatchString(reason)
 }
 
 func SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(vm *v1alpha2.VirtualMachine) bool {
