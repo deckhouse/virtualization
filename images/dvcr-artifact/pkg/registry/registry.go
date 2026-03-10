@@ -579,6 +579,7 @@ func getImageInfoVMDK(ctx context.Context, sourceReader io.Reader, headerBuf []b
 func getImageInfoStandard(ctx context.Context, formatSourceReaders *importer.FormatReaders, headerBuf []byte) (ImageInfo, error) {
 	var tempImageInfoFile *os.File
 	var err error
+	var bytesWrittenToTemp int64
 
 	klog.Infoln("Write image info to temp file (standard approach)")
 	{
@@ -588,17 +589,19 @@ func getImageInfoStandard(ctx context.Context, formatSourceReaders *importer.For
 		}
 		defer os.Remove(tempImageInfoFile.Name())
 
-		_, err = tempImageInfoFile.Write(headerBuf)
+		n, err := tempImageInfoFile.Write(headerBuf)
 		if err != nil {
 			return ImageInfo{}, fmt.Errorf("error writing header to temp file: %w", err)
 		}
+		bytesWrittenToTemp = int64(n)
 
 		remaining := imageInfoSize - int64(len(headerBuf))
 		if remaining > 0 {
-			_, err = io.CopyN(tempImageInfoFile, formatSourceReaders.TopReader(), remaining)
+			n, err := io.CopyN(tempImageInfoFile, formatSourceReaders.TopReader(), remaining)
 			if err != nil && !errors.Is(err, io.EOF) {
 				return ImageInfo{}, fmt.Errorf("error writing remaining data to temp file: %w", err)
 			}
+			bytesWrittenToTemp += n
 		}
 
 		if err = tempImageInfoFile.Close(); err != nil {
@@ -658,7 +661,7 @@ func getImageInfoStandard(ctx context.Context, formatSourceReaders *importer.For
 			return ImageInfo{}, fmt.Errorf("error copying to nowhere: %w", err)
 		}
 
-		imageInfo.VirtualSize = uint64(int64(len(headerBuf)) + n)
+		imageInfo.VirtualSize = uint64(bytesWrittenToTemp + n)
 
 		return imageInfo, nil
 	}
