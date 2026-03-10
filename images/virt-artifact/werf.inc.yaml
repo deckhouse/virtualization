@@ -68,7 +68,6 @@ shell:
   {{- include "alt packages clean" . | nindent 2 }}
 
   install:
-  - ls -la /bin/sh; sleep 3
   - |
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
@@ -90,6 +89,9 @@ shell:
     done
 
   setup:
+    - ls -la /bin/sh
+    - cat $(which ld)
+    - bash -x /usr/bin/ld --version; sleep 3
     - mkdir /kubevirt-binaries
     - mkdir /kubevirt-config-files
     - cd /kubevirt
