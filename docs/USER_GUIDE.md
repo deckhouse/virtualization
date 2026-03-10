@@ -2933,6 +2933,10 @@ Important considerations when working with additional network interfaces:
 - Network security policies (NetworkPolicy) do not apply to additional network interfaces.
 - Network parameters (IP addresses, gateways, DNS, etc.) for additional networks are configured manually from within the guest OS (for example, using Cloud-Init).
 
+{{< alert level="info" >}}
+Predictable interface order works only on guest OS with `systemd` (e.g. Ubuntu, Debian). On Alpine and other distros without `systemd` the order may not match.
+{{< /alert >}}
+
 Example of connecting a VM to the main cluster network and the project network `user-net`:
 
 ```yaml
