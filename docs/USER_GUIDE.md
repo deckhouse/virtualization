@@ -2109,11 +2109,11 @@ Block devices and their features are shown in the table below:
 
 Boot block devices are defined in the virtual machine specification in the `.spec.blockDeviceRefs` block as a list.
 
-By default, the boot order follows the position in the list. You can override this with the optional `bootOrder` field — a smaller value means a higher boot priority. If `bootOrder` is set for at least one device, only devices with an explicit `bootOrder` participate in the boot sequence. Values must be unique and >= 1.
+By default, the boot order follows the position in the list. You can override it using the optional `bootOrder` field — a smaller value means a higher boot priority. If `bootOrder` is set for at least one device, only devices with an explicit `bootOrder` are included in the boot order. Values must be unique and ≥ 1.
 
-Adding or removing block devices in the `.spec.blockDeviceRefs` block is applied without a reboot. Changing the order of devices or `bootOrder` values requires a reboot of the virtual machine.
+Adding or removing block devices in the `.spec.blockDeviceRefs` block is applied without a reboot. Changing the device order or `bootOrder` values requires a reboot of the virtual machine.
 
-VirtualMachine configuration fragment with block devices and explicit boot order:
+Virtual machine configuration fragment with block devices and explicit boot order:
 
 ```yaml
 spec:
@@ -2151,9 +2151,9 @@ How to work with bootable block devices in the web interface:
 
 #### Additional Block Devices
 
-Alternatively, additional block devices can be connected and disconnected from a running virtual machine using the `VirtualMachineBlockDeviceAttachment` (`vmbda`) resource.
+Alternatively, additional block devices can be connected and disconnected from a running virtual machine using the [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) resource.
 
-As an example, create the following resource that connects an empty blank-disk disk to a linux-vm virtual machine:
+As an example, create the following resource that connects an empty `blank-disk` disk to a `linux-vm` virtual machine:
 
 ```yaml
 d8 k apply -f - <<EOF
