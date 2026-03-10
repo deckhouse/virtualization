@@ -26,27 +26,30 @@ import (
 	"net/http"
 	"time"
 
-	"moduleversions/internal/version"
 	"github.com/blang/semver/v4"
 	"github.com/google/go-containerregistry/pkg/crane"
 	"gopkg.in/yaml.v3"
+	"moduleversions/internal/version"
 )
 
 const (
-	moduleFileLinkTemplate = "https://raw.githubusercontent.com/deckhouse/virtualization/refs/tags/%s/module.yaml"
-	moduleImageURLTemplate = "registry.deckhouse.io/deckhouse/%s/modules/%s:%s"
-	moduleVersionFile = "version.json"
+	moduleFileLinkTemplate    = "https://raw.githubusercontent.com/deckhouse/virtualization/refs/tags/%s/module.yaml"
+	moduleImageURLTemplate    = "registry.deckhouse.io/deckhouse/%s/modules/%s:%s"
+	moduleVersionFile         = "version.json"
 	deckhouseImageURLTemplate = "registry.deckhouse.io/deckhouse/%s:%s"
-	deckhouseVersionFile = "deckhouse/version"
-	httpTimeout = 5 * time.Second
+	deckhouseVersionFile      = "deckhouse/version"
+	httpTimeout               = 5 * time.Second
 )
 
-type SemVerRange string
-type Modules map[string]SemVerRange
-type Requirements struct {
-	Deckhouse SemVerRange   `yaml:"deckhouse"`
-	Modules Modules   		`yaml:"modules"`
-}
+type (
+	SemVerRange  string
+	Modules      map[string]SemVerRange
+	Requirements struct {
+		Deckhouse SemVerRange `yaml:"deckhouse"`
+		Modules   Modules     `yaml:"modules"`
+	}
+)
+
 type Config struct {
 	Requirements Requirements `yaml:"requirements"`
 }
@@ -59,12 +62,12 @@ func ExtractFileFromImage(image, targetFile string) (string, error) {
 	ctx := context.Background()
 	img, err := crane.Pull(image, crane.WithContext(ctx))
 	if err != nil {
-		return "", fmt.Errorf("pull failed for image %v: %v\n", image, err)
+		return "", fmt.Errorf("pull failed for image %v: %w", image, err)
 	}
 	var buf bytes.Buffer
 	err = crane.Export(img, &buf)
 	if err != nil {
-		return "", fmt.Errorf("export failed for image %v: %v\n", image, err)
+		return "", fmt.Errorf("export failed for image %v: %w", image, err)
 	}
 
 	tr := tar.NewReader(&buf)
@@ -75,7 +78,7 @@ func ExtractFileFromImage(image, targetFile string) (string, error) {
 			return "", fmt.Errorf("there is no file %v in tar archive for %v", targetFile, image)
 		}
 		if err != nil {
-			return "", fmt.Errorf("tar read error for image %v: %v\n", image, err)
+			return "", fmt.Errorf("tar read error for image %v: %w", image, err)
 		}
 
 		if hdr.Name == targetFile && hdr.Typeflag == tar.TypeReg {
@@ -96,10 +99,7 @@ func VerifyModuleRequirements(module string, sv SemVerRange, edition, channel st
 		return fmt.Errorf("failed to parse range for module %v: %w", module, err)
 	}
 
-	isDeckhouse := false
-	if module == "deckhouse" {
-		isDeckhouse = true
-	}
+	isDeckhouse := module == "deckhouse"
 
 	var image, tf string
 	if isDeckhouse {
@@ -154,7 +154,7 @@ func CheckVersionWithRetries(channel, version, moduleName string, attempts int) 
 
 	if resp.StatusCode != http.StatusOK {
 		fmt.Printf("unexpected status code %d for URL %s\n", resp.StatusCode, moduleFileLink)
-		return fmt.Errorf("unexpected status code %d for URL %s\n", resp.StatusCode, moduleFileLink)
+		return fmt.Errorf("unexpected status code %d for URL %s", resp.StatusCode, moduleFileLink)
 	}
 
 	file, err := io.ReadAll(resp.Body)
@@ -179,7 +179,7 @@ func CheckVersionWithRetries(channel, version, moduleName string, attempts int) 
 	// 	}
 	// }
 
-	var supportedEditions = []string{"fe", "ee", "ce", "se-plus"}
+	supportedEditions := []string{"fe", "ee", "ce", "se-plus"}
 	for _, e := range supportedEditions {
 		fmt.Printf("Verifying deckhouse (range %q) on channel %s version %s\n", c.Requirements.Deckhouse, channel, version)
 		err = VerifyModuleRequirements("deckhouse", c.Requirements.Deckhouse, e, channel)

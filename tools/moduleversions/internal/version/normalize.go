@@ -30,4 +30,3 @@ func NormalizeChannel(channel string) string {
 	channel = strings.ReplaceAll(strings.ToLower(channel), " ", "-")
 	return channel
 }
-

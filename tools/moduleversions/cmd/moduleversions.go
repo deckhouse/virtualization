@@ -20,12 +20,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
 	"moduleversions/internal/docs"
 	"moduleversions/internal/releases"
-	"moduleversions/internal/version"
 	"moduleversions/internal/requirements"
-
-	"github.com/spf13/cobra"
+	"moduleversions/internal/version"
 )
 
 const defaultModuleName = "virtualization"
@@ -41,12 +40,12 @@ func Execute() {
 
 // Config holds the configuration for the command.
 type Config struct {
-	Channel        string
-	Version        string
-	ModuleName     string
-	Attempt        int
-	CheckReleases  bool
-	CheckDocs      bool
+	Channel           string
+	Version           string
+	ModuleName        string
+	Attempt           int
+	CheckReleases     bool
+	CheckDocs         bool
 	CheckRequirements bool
 }
 
@@ -77,8 +76,16 @@ releases.deckhouse.io (across all editions) and deckhouse.ru/modules/virtualizat
 	rootCmd.Flags().BoolVarP(&cfg.CheckDocs, "check-docs", "d", false, "check version on deckhouse.ru/modules/virtualization/[channel]/")
 	rootCmd.Flags().BoolVarP(&cfg.CheckRequirements, "check-requirements", "q", false, "check module requirements")
 
-	rootCmd.MarkFlagRequired("channel")
-	rootCmd.MarkFlagRequired("version")
+	err := rootCmd.MarkFlagRequired("channel")
+	if err != nil {
+		fmt.Printf("failed to mark channel flag required: %s", err.Error())
+		os.Exit(1)
+	}
+	err = rootCmd.MarkFlagRequired("version")
+	if err != nil {
+		fmt.Printf("failed to mark version flag required: %s", err.Error())
+		os.Exit(1)
+	}
 
 	return rootCmd
 }
