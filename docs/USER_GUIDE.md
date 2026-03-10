@@ -3759,7 +3759,7 @@ The USB device is automatically forwarded to the node where the virtual machine 
 {{< /alert >}}
 
 {{< alert level="warning" >}}
-If a virtual machine with an attached USB device is migrated to another node, the USB device is automatically detached for the entire duration of the migration.
+If a virtual machine with an attached USB device is migrated to another node, the USB device is automatically detached for the entire duration of the migration. After a successful migration, the device is forwarded to the new node again and reattached to the VM. If the migration fails, the device is reattached on the original node.
 {{< /alert >}}
 
 ### Viewing USB Device Details
@@ -3818,7 +3818,9 @@ Both `USBDevice` and `NodeUSBDevice` resources update their status conditions to
 USB device passthrough has several operational requirements and limitations that must be considered before use:
 
 - The DRA driver must be installed on nodes where USB devices are to be discovered.
-- USB devices are forwarded to the VM node over the network using USBIP. The VM does not need to run on the same node where the device is physically connected.
+- USB devices are forwarded to the VM node over the network using USBIP. The VM does not need to run on the same node where the device is physically connected. When connecting over the network, the following limitations on the number of devices and hub selection apply:
+  - Node can attach at most 16 USB devices: up to 8 on the USB 2.0 hub and up to 8 on the USB 3.0 hub.
+  - Hub is determined by the device speed and cannot be changed. A device that operates at USB 2.0 speed cannot be attached to the USB 3.0 hub, and vice versa.
 - USB devices support hot-plug — they can be attached to and detached from a running VM without stopping it.
 - USB device passthrough requires proper kernel modules on the node.
 
