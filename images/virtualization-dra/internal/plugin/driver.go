@@ -20,15 +20,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
-
 	resourcev1 "k8s.io/api/resource/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/dynamic-resource-allocation/kubeletplugin"
 	"k8s.io/dynamic-resource-allocation/resourceslice"
+	"log/slog"
 
+	"github.com/containerd/nri/pkg/stub"
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-dra/internal/plugin/wrapresourceslice"
 )
@@ -70,6 +70,7 @@ type Driver struct {
 
 	publisher    resourcePublisher
 	helper       *kubeletplugin.Helper
+	nriPlugin    stub.Stub
 	pluginCtx    context.Context
 	pluginCancel context.CancelCauseFunc
 }
@@ -96,7 +97,25 @@ func (d *Driver) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to start kubelet plugin: %w", err)
 	}
 
+	// register the NRI plugin
+	nriOpts := []stub.Option{
+		stub.WithPluginName(d.driverName),
+		stub.WithPluginIdx("00"),
+		// https://github.com/containerd/nri/pull/173
+		// Otherwise it silently exits the program
+		stub.WithOnClose(func() {
+			d.log.Info("NRI plugin closed")
+		}),
+	}
+	nriPlugin, err := stub.New(d, nriOpts...)
+	if err != nil {
+		return fmt.Errorf("failed to create plugin stub: %w", err)
+	}
+
 	d.helper = helper
+	d.nriPlugin = nriPlugin
+
+	d.startNRIPlugin(ctx)
 	d.startPublisher(ctx)
 
 	return err
@@ -109,7 +128,14 @@ func (d *Driver) Wait() {
 }
 
 func (d *Driver) Shutdown() {
-	d.publisher.Stop()
+	if d.publisher != nil {
+		d.log.Info("Stopping resource publisher")
+		d.publisher.Stop()
+	}
+	if d.nriPlugin != nil {
+		d.log.Info("Stopping NRI plugin")
+		d.nriPlugin.Stop()
+	}
 	if d.helper != nil {
 		d.log.Info("Stopping dra plugin")
 		d.helper.Stop()
@@ -189,6 +215,26 @@ func (d *Driver) HandleError(ctx context.Context, err error, msg string) {
 	if !errors.Is(err, kubeletplugin.ErrRecoverable) && d.pluginCancel != nil {
 		d.pluginCancel(fmt.Errorf("fatal background error: %w", err))
 	}
+}
+
+func (d *Driver) startNRIPlugin(ctx context.Context) {
+	const maxAttempts = 5
+	go func() {
+		for i := 0; i < maxAttempts; i++ {
+			err := d.nriPlugin.Run(ctx)
+			if err != nil {
+				d.log.Info("NRI plugin failed with error", slog.Any("error", err))
+			}
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				d.log.Info("NRI plugin restarting", slog.Int("attempt", i), slog.Int("maxAttempts", maxAttempts))
+			}
+		}
+
+		d.HandleError(ctx, fmt.Errorf("NRI plugin failed to start"), "NRI plugin failed")
+	}()
 }
 
 func (d *Driver) startPublisher(ctx context.Context) {
