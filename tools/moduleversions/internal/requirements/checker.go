@@ -56,7 +56,7 @@ type ModuleVersion struct {
 }
 
 func ExtractFileFromImage(image, targetFile string) (string, error) {
-	ctx := context.Background() // Загружаем образ (аналог crane export)
+	ctx := context.Background()
 	img, err := crane.Pull(image, crane.WithContext(ctx))
 	if err != nil {
 		return "", fmt.Errorf("pull failed for image %v: %v\n", image, err)
