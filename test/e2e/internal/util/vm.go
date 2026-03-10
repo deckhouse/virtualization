@@ -23,13 +23,13 @@ import (
 	"strings"
 	"time"
 
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
@@ -38,13 +38,13 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/rewrite"
-	virtv1 "kubevirt.io/api/core/v1"
 )
 
-const VmopE2ePrefix = "vmop-e2e"
-
-const knownKubeVirtClientSocketClosedFailureReasonPrefix = "virError(Code=1, Domain=7"
-const knownKubeVirtClientSocketClosedMessage = "internal error: client socket is closed"
+const (
+	VmopE2ePrefix                                      = "vmop-e2e"
+	knownKubeVirtClientSocketClosedFailureReasonPrefix = "virError(Code=1, Domain=7"
+	knownKubeVirtClientSocketClosedMessage             = "internal error: client socket is closed"
+)
 
 var whitespaceRegex = regexp.MustCompile(`\s+`)
 
