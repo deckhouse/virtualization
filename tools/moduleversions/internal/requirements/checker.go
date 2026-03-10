@@ -138,7 +138,7 @@ func VerifyModuleRequirements(module string, sv SemVerRange, edition, channel st
 	return nil
 }
 
-func CheckVersionWithRetries(channel, version string, attempts int) error {
+func CheckVersionWithRetries(channel, version, moduleName string, attempts int) error {
 	client := &http.Client{
 		Timeout: httpTimeout,
 	}
@@ -184,8 +184,8 @@ func CheckVersionWithRetries(channel, version string, attempts int) error {
 		fmt.Printf("Verifying deckhouse (range %q) on channel %s version %s\n", c.Requirements.Deckhouse, channel, version)
 		err = VerifyModuleRequirements("deckhouse", c.Requirements.Deckhouse, e, channel)
 		if err != nil {
-			fmt.Printf("requirements of the virtualization module (%s) are not satisfied: on channel %s Deckhouse is currently at a version that is not in the range required by the module. %v\n",
-				moduleFileLink, channel, err)
+			fmt.Printf("requirements of the %s module (%s) are not satisfied: on channel %s Deckhouse is currently at a version that is not in the range required by the module. %v\n",
+				moduleName, moduleFileLink, channel, err)
 			return err
 		}
 		fmt.Printf("Deckhouse on channel %s edition %s version %s OK!\n", channel, e, version)
