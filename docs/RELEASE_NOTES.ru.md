@@ -11,7 +11,7 @@ weight: 70
 ### Новые возможности
 
 - [vm] Добавлена поддержка подключения USB-устройств к виртуальным машинам через `.spec.usbDevices`.
-- [usb] Добавлены ресурсы [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) и `USBDevice`, позволяющие управлять USB-устройствами в кластере:
+- [usb] Добавлены ресурсы [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) и [USBDevice](/modules/virtualization/cr.html#usbdevice), позволяющие управлять USB-устройствами в кластере:
   - [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) (cluster-scoped) — представляет USB-устройство, обнаруженное на конкретном узле. Позволяет назначить USB-устройство для использования в конкретном неймспейсе.
   - [USBDevice](/modules/virtualization/cr.html#usbdevice) (namespace-scoped) — представляет USB-устройство, доступное для подключения к виртуальным машинам в заданном неймспейсе.
 - [observability] Добавлен дашборд `Virtualization / Overview` с обзором состояния платформы виртуализации.

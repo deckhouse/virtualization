@@ -191,7 +191,7 @@ properties:
             description: |
               Schedule to run garbage collection procedure that remove stale images for `ClusterVirtualImage`, `VirtualImage`, `VirtualDisk` resources deleted from the cluster.
 
-              Default schedule is not defined. Specify schedule to enable garbage collection.
+              By default, periodic garbage collection is enabled and runs daily at 02:00.
   audit:
     type: object
     description: |
