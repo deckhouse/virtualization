@@ -3,6 +3,21 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.6.1
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: March 10, 2026.
+</span>
+
+### Fixes
+
+- [observability] Temporarily reverted the placement of virtual machine dashboards due to a validation issue that could block the Deckhouse queue.
+- [vm] Fixed USB device discovery on nodes: corresponding [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resources might not have been created.
+- [vm] For a virtual machine with connected USB devices, cloning using [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) with the `Clone` type in `BestEffort` mode has been fixed.
+
+### Security
+
+- [module] Fixed vulnerabilities CVE-2026-24051 and CVE-2025-15558.
+
 ## v1.6.0
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: March 2, 2026.

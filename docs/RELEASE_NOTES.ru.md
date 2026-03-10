@@ -3,6 +3,21 @@ title: "Релизы"
 weight: 70
 ---
 
+## v1.6.1
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 10 марта 2026.
+</span>
+
+### Исправления
+
+- [observability] Временно откатили расположение дашбордов виртуальных машин из-за проблемы с их валидацией, приводящей к блокировке очереди Deckhouse.
+- [vm] Исправлено обнаружение USB-устройств на узлах: соответствующие [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) могли не создаться.
+- [vm] Для виртуальной машины с подключенными USB-устройствами исправлено клонирование с помощью [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) с типом `Clone` в режиме `BestEffort`.
+
+### Безопасность
+
+- [module] Исправлены уязвимости CVE-2026-24051, CVE-2025-15558.
+
 ## v1.6.0
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Дата релиза: 2 марта 2026.
