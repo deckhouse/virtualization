@@ -480,10 +480,6 @@ func (s *AllocationStore) Unprepare(_ context.Context, claimUID types.UID) error
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if err := s.cdi.DeleteClaimSpecFile(string(claimUID)); err != nil {
-		return fmt.Errorf("unable to delete CDI spec file for claim: %w", err)
-	}
-
 	usbGatewayEnabled := featuregates.Default().USBGatewayEnabled()
 
 	allocatedDevices := s.resourceClaimAllocations[claimUID]
@@ -501,6 +497,11 @@ func (s *AllocationStore) Unprepare(_ context.Context, claimUID types.UID) error
 
 		s.allocatedDevices.Delete(device)
 	}
+
+	if err := s.cdi.DeleteClaimSpecFile(string(claimUID)); err != nil {
+		return fmt.Errorf("unable to delete CDI spec file for claim: %w", err)
+	}
+
 	delete(s.resourceClaimAllocations, claimUID)
 
 	return nil
