@@ -26,6 +26,7 @@ import (
 	"bytes"
 	"time"
 
+	"moduleversions/internal/version"
 	"gopkg.in/yaml.v3"
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/blang/semver/v4"
@@ -111,6 +112,7 @@ func VerifyModuleRequirements(module string, sv SemVerRange, edition, channel, t
 
 	file, err := ExtractFileFromImage(image, tf)
 	if err != nil {
+		fmt.Printf("ExtractFileFromImage failed for image %v: %v\n", image, err)
 		return err
 	}
 
@@ -119,14 +121,17 @@ func VerifyModuleRequirements(module string, sv SemVerRange, edition, channel, t
 		tmp := ModuleVersion{}
 		err = json.Unmarshal([]byte(file), &tmp)
 		if err != nil {
+			fmt.Printf("Unmarshal failed for JSON")
 			return err
 		}
 		vs = tmp.Version
 	}
-	fmt.Printf("version of module %s: %s\n", module, file)
+	vs = version.NormalizeSemVer(vs)
+	fmt.Printf("normalized version of module %s: %s\n", module, vs)
+
 	version, err := semver.Parse(vs)
 	if err != nil {
-		return fmt.Errorf("can't parse module %s version %s", module, version )
+		return fmt.Errorf("can't parse module %s version %s: %w", module, vs, err)
 	}
 	if !prange(version) {
 		return fmt.Errorf("module %s version %s is not in range %s", module, version, sv)
@@ -183,6 +188,7 @@ func CheckVersionWithRetries(channel, version, moduleName string, attempts int) 
 			fmt.Printf("verifying module %s on channel %s and version %s failed: %s\n", "deckhouse", channel, version, err)
 			return err
 		}
+		fmt.Printf("Deckhouse on channel %s edition %s version %s OK!\n", channel, e, version)
 	}
 
 	return nil

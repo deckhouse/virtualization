@@ -20,7 +20,9 @@ import "strings"
 
 // NormalizeSemVer removes the 'v' prefix from version string if present.
 func NormalizeSemVer(version string) string {
-	return strings.TrimPrefix(version, "v")
+	version = strings.TrimPrefix(version, "v")
+	version = strings.TrimSpace(version)
+	return version
 }
 
 // NormalizeChannel normalizes channel name by converting to lowercase and replacing spaces with hyphens.
