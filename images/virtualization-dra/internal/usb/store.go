@@ -98,6 +98,8 @@ type AllocationStore struct {
 	allocatedDevices           sets.Set[string]
 	usbipAllocatedDevicesCount map[string]int
 	resourceClaimAllocations   map[types.UID][]string
+
+	synchronized bool
 }
 
 func (s *AllocationStore) sync(ctx context.Context) error {
@@ -153,6 +155,10 @@ func (s *AllocationStore) UpdateChannel() chan resourceslice.DriverResources {
 func (s *AllocationStore) Prepare(ctx context.Context, claim *resourcev1.ResourceClaim) ([]*drapbv1.Device, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if !s.synchronized {
+		return nil, fmt.Errorf("prepare called before synchronize NRI Hook")
+	}
 
 	if claim.Status.Allocation == nil {
 		return nil, fmt.Errorf("claim %s/%s has no allocation", claim.Namespace, claim.Name)
@@ -426,24 +432,36 @@ func (s *AllocationStore) Unprepare(_ context.Context, claimUID types.UID) error
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if !s.synchronized {
+		return fmt.Errorf("unprepare called before synchronize NRI Hook")
+	}
+
 	usbGatewayEnabled := featuregates.Default().USBGatewayEnabled()
 
 	allocatedDevices := s.resourceClaimAllocations[claimUID]
+	s.log.Info("Unpreparing devices", slog.Any("devices", allocatedDevices), slog.String("claimUID", string(claimUID)))
+
 	for _, device := range allocatedDevices {
 		if usbGatewayEnabled {
-			if count := s.usbipAllocatedDevicesCount[device]; count <= 1 {
+			count := s.usbipAllocatedDevicesCount[device]
+			s.log.Info("Device attached by USBGateway", slog.String("device", device), slog.Int("count", count))
+			if count <= 1 {
+				s.log.Info("Detaching device because has only one consumer", slog.String("device", device))
 				if err := s.usbGateway.Detach(device); err != nil {
 					return fmt.Errorf("failed to detach device %s: %w", device, err)
 				}
 				delete(s.usbipAllocatedDevicesCount, device)
 			} else {
+				s.log.Info("Decrementing device consumer count", slog.String("device", device), slog.Int("newCount", count-1))
 				s.usbipAllocatedDevicesCount[device]--
 			}
 		}
 
+		s.log.Info("Deleting device from allocated devices", slog.String("device", device))
 		s.allocatedDevices.Delete(device)
 	}
 
+	s.log.Info("Deleting CDI claim spec file", slog.String("claimUID", string(claimUID)))
 	if err := s.cdi.DeleteClaimSpecFile(string(claimUID)); err != nil {
 		return fmt.Errorf("unable to delete CDI spec file for claim: %w", err)
 	}
@@ -484,15 +502,20 @@ func (s *AllocationStore) Synchronize(_ context.Context, pods []*api.PodSandbox,
 			for claimUID, deviceNames := range claimUIDDeviceNames {
 				s.resourceClaimAllocations[claimUID] = append(s.resourceClaimAllocations[claimUID], deviceNames...)
 				for _, deviceName := range deviceNames {
+					s.log.Info("Found allocated device", slog.String("claimUID", string(claimUID)), slog.String("deviceName", deviceName))
 					s.allocatedDevices.Insert(deviceName)
 
 					if _, ok := uspIPDeviceNames[deviceName]; ok {
 						s.usbipAllocatedDevicesCount[deviceName]++
+						s.log.Info("Found allocated usbip device", slog.String("deviceName", deviceName), slog.Int("count", s.usbipAllocatedDevicesCount[deviceName]))
 					}
 				}
 			}
 		}
 	}
+
+	s.synchronized = true
+
 	return nil, nil
 }
 
