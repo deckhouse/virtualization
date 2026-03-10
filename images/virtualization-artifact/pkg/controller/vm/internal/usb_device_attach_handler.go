@@ -22,11 +22,13 @@ import (
 	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/usb"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -93,6 +95,10 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 	var kvvmi *virtv1.VirtualMachineInstance
 	var hostDeviceReadyByName map[string]bool
 
+	// Lazy-loaded node for USBIP port check
+	var nodeLoaded bool
+	var node *corev1.Node
+
 	var nextStatusRefs []v1alpha2.USBDeviceStatusRef
 	for _, usbDeviceRef := range vm.Spec.USBDevices {
 		deviceName := usbDeviceRef.Name
@@ -130,7 +136,37 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 			continue
 		}
 
-		// 3) Runtime evidence from KVVMI and attach action.
+		// 3) Check free USBIP ports for devices from other nodes (USBIP scenario)
+		if usbDevice.Status.NodeName != "" && usbDevice.Status.NodeName != vm.Status.Node {
+			if !nodeLoaded && vm.Status.Node != "" {
+				node = &corev1.Node{}
+				if err := h.client.Get(ctx, client.ObjectKey{Name: vm.Status.Node}, node); err != nil {
+					if !apierrors.IsNotFound(err) {
+						return reconcile.Result{}, fmt.Errorf("failed to get node %s: %w", vm.Status.Node, err)
+					}
+					node = nil
+				}
+				nodeLoaded = true
+			}
+
+			if node != nil {
+				hasFreePort, err := usb.CheckFreePort(node.Annotations, usbDevice.Status.Attributes.Speed)
+				if err != nil {
+					log.Error("failed to check free USBIP ports", "error", err, "device", deviceName, "node", vm.Status.Node)
+					nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(existingStatus, deviceName, isReady))
+					continue
+				}
+				if !hasFreePort {
+					log.Info("no free USBIP ports available", "device", deviceName, "speed", usbDevice.Status.Attributes.Speed, "node", vm.Status.Node)
+					// Return requeue to retry after 5 seconds
+					nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(existingStatus, deviceName, isReady))
+					changed.Status.USBDevices = nextStatusRefs
+					return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+				}
+			}
+		}
+
+		// 4) Runtime evidence from KVVMI and attach action.
 		if !kvvmiLoaded {
 			fetchedKVVMI, err := s.KVVMI(ctx)
 			if err != nil {

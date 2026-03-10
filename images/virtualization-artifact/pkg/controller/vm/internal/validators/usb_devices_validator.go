@@ -19,8 +19,6 @@ package validators
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -28,10 +26,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/usb"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
-	"github.com/deckhouse/virtualization-controller/pkg/kubeapi"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -145,10 +142,7 @@ func getUSBDeviceNames(refs []v1alpha2.USBDeviceSpecRef) map[string]struct{} {
 }
 
 func (v *USBDevicesValidator) validateAvailableUSBIPPorts(ctx context.Context, vm *v1alpha2.VirtualMachine, oldUSBDevices map[string]struct{}) (admission.Warnings, error) {
-	if kubeapi.HasDRAPartitionableDevices() {
-		return v.validateAvailableUSBIPPortsWithPartitionableDevices(ctx, vm, oldUSBDevices)
-	}
-	return v.validateAvailableUSBIPPortsDefault(ctx, vm, oldUSBDevices)
+	return v.validateAvailableUSBIPPortsWithPartitionableDevices(ctx, vm, oldUSBDevices)
 }
 
 func (v *USBDevicesValidator) validateAvailableUSBIPPortsWithPartitionableDevices(ctx context.Context, vm *v1alpha2.VirtualMachine, oldUSBDevices map[string]struct{}) (admission.Warnings, error) {
@@ -177,7 +171,7 @@ func (v *USBDevicesValidator) validateAvailableUSBIPPortsWithPartitionableDevice
 			continue
 		}
 
-		isHs, isSS := resolveSpeed(usbDevice.Status.Attributes.Speed)
+		isHs, isSS := usb.ResolveSpeed(usbDevice.Status.Attributes.Speed)
 		switch {
 		case isHs:
 			hsUSBFromOtherNodes = append(hsUSBFromOtherNodes, ref.Name)
@@ -192,107 +186,31 @@ func (v *USBDevicesValidator) validateAvailableUSBIPPortsWithPartitionableDevice
 		return admission.Warnings{}, nil
 	}
 
-	node, totalPorts, err := v.getNodeTotalPorts(ctx, vm.Status.Node)
+	node := &corev1.Node{}
+	err := v.client.Get(ctx, client.ObjectKey{Name: vm.Status.Node}, node)
 	if err != nil {
 		return admission.Warnings{}, err
 	}
 
-	totalPortsPerHub := totalPorts / 2
-
 	if len(hsUSBFromOtherNodes) > 0 {
-		if err = validateUsedPortsByAnnotation(node, annotations.AnnUSBIPHighSpeedHubUsedPorts, hsUSBFromOtherNodes, totalPortsPerHub); err != nil {
+		hasFree, err := usb.CheckFreePortForRequest(node.Annotations, 480, len(hsUSBFromOtherNodes))
+		if err != nil {
 			return admission.Warnings{}, err
+		}
+		if !hasFree {
+			return admission.Warnings{}, fmt.Errorf("node %s has no available ports for sharing USB devices %v", vm.Status.Node, hsUSBFromOtherNodes)
 		}
 	}
 
 	if len(ssUSBFromOtherNodes) > 0 {
-		if err = validateUsedPortsByAnnotation(node, annotations.AnnUSBIPSuperSpeedHubUsedPorts, ssUSBFromOtherNodes, totalPortsPerHub); err != nil {
+		hasFree, err := usb.CheckFreePortForRequest(node.Annotations, 5000, len(ssUSBFromOtherNodes))
+		if err != nil {
 			return admission.Warnings{}, err
+		}
+		if !hasFree {
+			return admission.Warnings{}, fmt.Errorf("node %s has no available ports for sharing USB devices %v", vm.Status.Node, ssUSBFromOtherNodes)
 		}
 	}
 
 	return admission.Warnings{}, nil
-}
-
-func (v *USBDevicesValidator) getNodeTotalPorts(ctx context.Context, nodeName string) (*corev1.Node, int, error) {
-	node := &corev1.Node{}
-	err := v.client.Get(ctx, client.ObjectKey{Name: nodeName}, node)
-	if err != nil {
-		return nil, -1, fmt.Errorf("failed to get node %s: %w", nodeName, err)
-	}
-
-	totalPorts, exists := node.Annotations[annotations.AnnUSBIPTotalPorts]
-	if !exists {
-		return nil, -1, fmt.Errorf("node %s does not have %s annotation", nodeName, annotations.AnnUSBIPTotalPorts)
-	}
-	totalPortsInt, err := strconv.Atoi(totalPorts)
-	if err != nil {
-		return nil, -1, fmt.Errorf("failed to parse %s annotation: %w", annotations.AnnUSBIPTotalPorts, err)
-	}
-
-	return node, totalPortsInt, nil
-}
-
-func validateUsedPortsByAnnotation(node *corev1.Node, anno string, usbFromOtherNodes []string, totalPortsPerHub int) error {
-	usedPorts, exists := node.Annotations[anno]
-	if !exists {
-		return fmt.Errorf("node %s does not have %s annotation", node.Name, anno)
-	}
-	usedPortsInt, err := strconv.Atoi(usedPorts)
-	if err != nil {
-		return fmt.Errorf("failed to parse %s annotation: %w", anno, err)
-	}
-
-	wantedPorts := usedPortsInt + len(usbFromOtherNodes)
-	if wantedPorts > totalPortsPerHub {
-		return fmt.Errorf("node %s not available ports for sharing USB devices %s. total: %d, used: %d, wanted: %d", node.Name, strings.Join(usbFromOtherNodes, ", "), totalPortsPerHub, usedPortsInt, wantedPorts)
-	}
-
-	return nil
-}
-
-// https://mjmwired.net/kernel/Documentation/ABI/testing/sysfs-bus-usb#502
-func resolveSpeed(speed int) (isHs, isSS bool) {
-	return speed == 480, speed >= 5000
-}
-
-func (v *USBDevicesValidator) validateAvailableUSBIPPortsDefault(ctx context.Context, vm *v1alpha2.VirtualMachine, oldUSBDevices map[string]struct{}) (admission.Warnings, error) {
-	if vm.Status.Node == "" {
-		return admission.Warnings{}, nil
-	}
-	if vm.Spec.USBDevices == nil {
-		return admission.Warnings{}, nil
-	}
-
-	var usbFromOtherNodes []string
-
-	for _, ref := range vm.Spec.USBDevices {
-		if _, exists := oldUSBDevices[ref.Name]; exists {
-			continue
-		}
-
-		usbDevice := &v1alpha2.USBDevice{}
-		err := v.client.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: vm.Namespace}, usbDevice)
-		if err != nil {
-			return admission.Warnings{}, fmt.Errorf("failed to get USB device %s: %w", ref.Name, err)
-		}
-
-		if usbDevice.Status.NodeName != vm.Status.Node {
-			usbFromOtherNodes = append(usbFromOtherNodes, ref.Name)
-		}
-	}
-
-	if len(usbFromOtherNodes) == 0 {
-		return admission.Warnings{}, nil
-	}
-
-	node, totalPorts, err := v.getNodeTotalPorts(ctx, vm.Status.Node)
-	if err != nil {
-		return admission.Warnings{}, err
-	}
-
-	// total for 2 usb hubs (2.0 and 3.0)
-	totalPorts /= 2
-
-	return admission.Warnings{}, validateUsedPortsByAnnotation(node, annotations.AnnUSBIPUsedPorts, usbFromOtherNodes, totalPorts)
 }
