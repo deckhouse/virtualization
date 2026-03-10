@@ -19,6 +19,7 @@ package util
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -42,10 +43,15 @@ import (
 
 const VmopE2ePrefix = "vmop-e2e"
 
-const knownKubeVirtClientSocketClosedFailureReason = `virError(Code=1, Domain=7, Message="internal error: client socket is closed")`
+const knownKubeVirtClientSocketClosedFailureReasonPrefix = "virError(Code=1, Domain=7"
+const knownKubeVirtClientSocketClosedMessage = "internal error: client socket is closed"
+
+var whitespaceRegex = regexp.MustCompile(`\s+`)
 
 func IsKnownKubeVirtClientSocketClosedFailureReason(reason string) bool {
-	return strings.Contains(reason, knownKubeVirtClientSocketClosedFailureReason)
+	normalizedReason := whitespaceRegex.ReplaceAllString(strings.TrimSpace(reason), " ")
+	return strings.Contains(normalizedReason, knownKubeVirtClientSocketClosedFailureReasonPrefix) &&
+		strings.Contains(normalizedReason, knownKubeVirtClientSocketClosedMessage)
 }
 
 func SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(vm *v1alpha2.VirtualMachine) bool {
