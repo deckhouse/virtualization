@@ -170,7 +170,9 @@ func CheckVersionWithRetries(channel, version, moduleName string, attempts int) 
 	}
 	fmt.Printf("Parsed requirements: deckhouse=%q, modules=%d\n", c.Requirements.Deckhouse, len(c.Requirements.Modules))
 
-	// skip module check for now
+	// Skip checking other module requirements, because now we only have one dependency,
+	// cni-cilium, which is an embedded module and we only check for its existence in the cluster.
+	//
 	// for k, v := range c.Requirements.Modules { fmt.Printf("Verifying module %s (range %q) on channel %s version %s\n", k, v, channel, version)
 	// 	err = VerifyModuleRequirements(k, v, channel, version)
 	// 	if err != nil {
