@@ -18,18 +18,18 @@ package requirements
 
 import (
 	"archive/tar"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"bytes"
 	"time"
 
 	"moduleversions/internal/version"
-	"gopkg.in/yaml.v3"
-	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/blang/semver/v4"
+	"github.com/google/go-containerregistry/pkg/crane"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -185,7 +185,8 @@ func CheckVersionWithRetries(channel, version, moduleName string, attempts int) 
 		fmt.Printf("Verifying deckhouse (range %q) on channel %s version %s\n", c.Requirements.Deckhouse, channel, version)
 		err = VerifyModuleRequirements("deckhouse", c.Requirements.Deckhouse, e, channel, version)
 		if err != nil {
-			fmt.Printf("verifying module %s on channel %s and version %s failed: %s\n", "deckhouse", channel, version, err)
+			fmt.Printf("requirements of the virtualization module (%s) are not satisfied: on channel %s Deckhouse is currently at a version that is not in the range required by the module. %v\n",
+				moduleFileLink, channel, err)
 			return err
 		}
 		fmt.Printf("Deckhouse on channel %s edition %s version %s OK!\n", channel, e, version)
