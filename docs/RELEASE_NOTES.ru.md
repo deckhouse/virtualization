@@ -11,8 +11,8 @@ weight: 70
 ### Исправления
 
 - [observability] Временно откатили расположение дашбордов виртуальных машин из-за проблемы с их валидацией, приводящей к блокировке очереди Deckhouse.
-- [vm] Исправлено обнаружение USB-устройств на узлах: соответствующие [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) могли не создаться.
-- [vm] Для виртуальной машины с подключенными USB-устройствами исправлено клонирование с помощью [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) с типом `Clone` в режиме `BestEffort`.
+- [vm] Исправлено обнаружение USB-устройств на узлах: соответствующие ресурсы [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) могли не создаваться.
+- [vm] Исправлено клонирование виртуальной машины с подключенными USB-устройствами при использовании [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) с типом `Clone` в режиме `BestEffort`.
 
 ### Безопасность
 
