@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package restorer_test
+package restorer
 
 import (
 	"context"
@@ -27,7 +27,6 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
-	restorer "github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/restorers"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -64,15 +63,9 @@ var _ = Describe("VirtualMachineRestorer", func() {
 		vm         v1alpha2.VirtualMachine
 		vmbda1     v1alpha2.VirtualMachineBlockDeviceAttachment
 		vmbda2     v1alpha2.VirtualMachineBlockDeviceAttachment
-		handler    *restorer.VirtualMachineHandler
+		handler    *VirtualMachineHandler
 		fakeClient client.WithWatch
 	)
-
-	currentHandlerVM := func() *v1alpha2.VirtualMachine {
-		vmObj, ok := handler.Object().(*v1alpha2.VirtualMachine)
-		Expect(ok).To(BeTrue())
-		return vmObj
-	}
 
 	BeforeEach(func() {
 		ctx = context.Background()
@@ -221,11 +214,11 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(fakeClient).ToNot(BeNil())
 
-			handler = restorer.NewVirtualMachineHandler(fakeClient, vm, restoreUID, v1alpha2.SnapshotOperationModeStrict)
+			handler = NewVirtualMachineHandler(fakeClient, vm, restoreUID, v1alpha2.SnapshotOperationModeStrict)
 			Expect(handler).ToNot(BeNil())
 
 			// Verify that restore annotation was added
-			Expect(currentHandlerVM().Annotations[annotations.AnnVMOPRestore]).To(Equal(restoreUID))
+			Expect(handler.vm.Annotations[annotations.AnnVMOPRestore]).To(Equal(restoreUID))
 
 			err = handler.ValidateRestore(ctx)
 			if args.failValidation {
@@ -382,34 +375,34 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			fakeClient, err = testutil.NewFakeClientWithInterceptorWithObjects(intercept)
 			Expect(err).ToNot(HaveOccurred())
 
-			handler = restorer.NewVirtualMachineHandler(fakeClient, vm, restoreUID, v1alpha2.SnapshotOperationModeStrict)
+			handler = NewVirtualMachineHandler(fakeClient, vm, restoreUID, v1alpha2.SnapshotOperationModeStrict)
 		})
 
 		It("should override VM name", func() {
 			handler.Override(rules)
-			Expect(currentHandlerVM().Name).To(Equal("new-vm-name"))
+			Expect(handler.vm.Name).To(Equal("new-vm-name"))
 		})
 
 		It("should override VirtualMachineIPAddress", func() {
 			handler.Override(rules)
-			Expect(currentHandlerVM().Spec.VirtualMachineIPAddress).To(Equal("new-test-ip"))
+			Expect(handler.vm.Spec.VirtualMachineIPAddress).To(Equal("new-test-ip"))
 		})
 
 		It("should override disk names in BlockDeviceRefs", func() {
 			handler.Override(rules)
-			Expect(currentHandlerVM().Spec.BlockDeviceRefs[0].Name).To(Equal("new-test-disk-1"))
-			Expect(currentHandlerVM().Spec.BlockDeviceRefs[1].Name).To(Equal("test-disk-2")) // unchanged
+			Expect(handler.vm.Spec.BlockDeviceRefs[0].Name).To(Equal("new-test-disk-1"))
+			Expect(handler.vm.Spec.BlockDeviceRefs[1].Name).To(Equal("test-disk-2")) // unchanged
 		})
 
 		It("should override Secret name in UserDataRef", func() {
-			currentHandlerVM().Spec.Provisioning = &v1alpha2.Provisioning{
+			handler.vm.Spec.Provisioning = &v1alpha2.Provisioning{
 				UserDataRef: &v1alpha2.UserDataRef{
 					Kind: v1alpha2.UserDataRefKindSecret,
 					Name: "test-secret",
 				},
 			}
 			handler.Override(rules)
-			Expect(currentHandlerVM().Spec.Provisioning.UserDataRef.Name).To(Equal("new-test-secret"))
+			Expect(handler.vm.Spec.Provisioning.UserDataRef.Name).To(Equal("new-test-secret"))
 		})
 
 		It("should not override non-matching names", func() {
@@ -423,9 +416,9 @@ var _ = Describe("VirtualMachineRestorer", func() {
 				},
 			}
 
-			originalName := currentHandlerVM().Name
+			originalName := handler.vm.Name
 			handler.Override(nonMatchingRules)
-			Expect(currentHandlerVM().Name).To(Equal(originalName))
+			Expect(handler.vm.Name).To(Equal(originalName))
 		})
 	})
 
@@ -452,7 +445,7 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			fakeClient, err = testutil.NewFakeClientWithInterceptorWithObjects(interceptClone, otherVM)
 			Expect(err).ToNot(HaveOccurred())
 
-			handler = restorer.NewVirtualMachineHandler(fakeClient, *cloneVM, restoreUID, v1alpha2.SnapshotOperationModeBestEffort)
+			handler = NewVirtualMachineHandler(fakeClient, *cloneVM, restoreUID, v1alpha2.SnapshotOperationModeBestEffort)
 			err = handler.ProcessClone(ctx)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(createdVM).ToNot(BeNil())
@@ -481,7 +474,7 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			fakeClient, err = testutil.NewFakeClientWithInterceptorWithObjects(interceptClone, otherVM)
 			Expect(err).ToNot(HaveOccurred())
 
-			handler = restorer.NewVirtualMachineHandler(fakeClient, *cloneVM, restoreUID, v1alpha2.SnapshotOperationModeStrict)
+			handler = NewVirtualMachineHandler(fakeClient, *cloneVM, restoreUID, v1alpha2.SnapshotOperationModeStrict)
 			err = handler.ProcessClone(ctx)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(createdVM).ToNot(BeNil())
