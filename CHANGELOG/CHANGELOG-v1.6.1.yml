@@ -1,0 +1,21 @@
+module:
+  fixes:
+    - summary: Fixed vulnerabilities CVE-2026-24051 and CVE-2025-15558.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2057
+observability:
+  fixes:
+    - summary: >-
+        Restored the previous placement of virtual machine dashboards due to a validation issue that
+        could block the Deckhouse queue.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2063
+vm:
+  fixes:
+    - summary: >-
+        Fixed USB device discovery on nodes: corresponding `NodeUSBDevice` resources might not have
+        been created.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2085
+    - summary: >-
+        Fixed cloning of a virtual machine with connected USB devices when using
+        `VirtualMachineOperation` with the `Clone` type in `BestEffort` mode.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2076
+
