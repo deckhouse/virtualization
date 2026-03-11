@@ -50,53 +50,45 @@ func IsKnownKubeVirtClientSocketClosedFailureReason(reason string) bool {
 	return knownKubeVirtClientSocketClosedRe.MatchString(reason)
 }
 
-func SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(vm *v1alpha2.VirtualMachine) bool {
+func SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
 	if vm == nil {
-		return false
+		return
 	}
 
 	intvirtvmi, err := getInternalVirtualMachineInstance(vm)
 	Expect(err).NotTo(HaveOccurred())
 	if intvirtvmi == nil || intvirtvmi.Status.MigrationState == nil {
-		return false
+		return
 	}
 
 	failureReason := intvirtvmi.Status.MigrationState.FailureReason
 	if !IsKnownKubeVirtClientSocketClosedFailureReason(failureReason) {
-		return false
+		return
 	}
 
 	// TODO: remove temporary migration skip logic when both known issues are fixed:
 	// kubevirt "client socket is closed" and Volume(s)UpdateError.
 	Skip(fmt.Sprintf("skip due to known kubevirt migration issue (client socket closed) for vm %s/%s: %s",
 		vm.Namespace, vm.Name, failureReason))
-
-	return true
 }
 
 func IsKnownVolumesUpdateFailureReason(reason string) bool {
 	return reason == knownVolumeUpdateFailureReason
 }
 
-func SkipIfKnownVolumesUpdateMigrationFailure(vm *v1alpha2.VirtualMachine) bool {
+func SkipIfKnownVolumesUpdateMigrationFailure(vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
 	if vm == nil {
-		return false
+		return
 	}
 
 	intvirtvmi, err := getInternalVirtualMachineInstance(vm)
 	Expect(err).NotTo(HaveOccurred())
 	if intvirtvmi == nil {
-		return false
-	}
-
-	if intvirtvmi.Status.MigrationState != nil && IsKnownVolumesUpdateFailureReason(intvirtvmi.Status.MigrationState.FailureReason) {
-		Skip(fmt.Sprintf("skip due to known volume update migration issue for vm %s/%s: %s",
-			vm.Namespace, vm.Name, intvirtvmi.Status.MigrationState.FailureReason))
-		return true
+		return
 	}
 
 	// Prefer checking the concrete migratable condition, where volume update issues are expected.
@@ -104,30 +96,14 @@ func SkipIfKnownVolumesUpdateMigrationFailure(vm *v1alpha2.VirtualMachine) bool 
 	if exists && IsKnownVolumesUpdateFailureReason(migratableCondition.Reason) {
 		Skip(fmt.Sprintf("skip due to known volume update migration issue for vm %s/%s: condition=%s, reason=%s, message=%s",
 			vm.Namespace, vm.Name, migratableCondition.Type, migratableCondition.Reason, migratableCondition.Message))
-		return true
 	}
-
-	for _, condition := range intvirtvmi.Status.Conditions {
-		if IsKnownVolumesUpdateFailureReason(condition.Reason) {
-			Skip(fmt.Sprintf("skip due to known volume update migration issue for vm %s/%s: condition=%s, reason=%s, message=%s",
-				vm.Namespace, vm.Name, condition.Type, condition.Reason, condition.Message))
-			return true
-		}
-	}
-
-	return false
 }
 
-func SkipIfKnownMigrationFailure(vm *v1alpha2.VirtualMachine) bool {
+func SkipIfKnownMigrationFailure(vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
-	if SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(vm) {
-		return true
-	}
-	if SkipIfKnownVolumesUpdateMigrationFailure(vm) {
-		return true
-	}
-	return false
+	SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(vm)
+	SkipIfKnownVolumesUpdateMigrationFailure(vm)
 }
 
 func getInternalVirtualMachineInstance(vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
