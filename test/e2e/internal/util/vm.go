@@ -39,9 +39,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/rewrite"
 )
 
-const (
-	VmopE2ePrefix = "vmop-e2e"
-)
+const VmopE2ePrefix = "vmop-e2e"
 
 var knownKubeVirtClientSocketClosedRe = regexp.MustCompile(`(?is)virError\(Code=1,.*internal error:\s*client\s+socket\s+is\s+closed`)
 
