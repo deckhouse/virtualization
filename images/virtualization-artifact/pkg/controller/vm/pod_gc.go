@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Flant JSC
+Copyright 2026 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -30,10 +30,14 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/gc"
 )
 
-const gcPodControllerName = "vm-pod-gc-controller"
+const (
+	gcPodControllerName  = "vm-pod-gc-controller"
+	defaultPodGCTTL      = 24 * time.Hour
+	defaultPodGCMaxCount = 2
+)
 
 func SetupPodGC(mgr manager.Manager, log *log.Logger, gcSettings config.BaseGcSettings) error {
-	podGCMgr := newPodGCManager(mgr.GetClient(), gcSettings.TTL.Duration, 2)
+	podGCMgr := newPodGCManager(mgr.GetClient(), gcSettings.TTL.Duration, defaultPodGCMaxCount)
 
 	return gc.SetupGcController(gcPodControllerName,
 		mgr,
@@ -45,10 +49,10 @@ func SetupPodGC(mgr manager.Manager, log *log.Logger, gcSettings config.BaseGcSe
 
 func newPodGCManager(client client.Client, ttl time.Duration, max int) *podGCManager {
 	if ttl == 0 {
-		ttl = 24 * time.Hour
+		ttl = defaultPodGCTTL
 	}
 	if max == 0 {
-		max = 2
+		max = defaultPodGCMaxCount
 	}
 	return &podGCManager{
 		client: client,
