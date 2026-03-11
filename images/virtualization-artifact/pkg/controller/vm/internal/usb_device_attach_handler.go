@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -163,7 +162,7 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 		requestName := h.getResourceClaimRequestName(deviceName)
 		err := h.attachUSBDevice(ctx, vm, deviceName, templateName, requestName)
 		if err != nil && !apierrors.IsAlreadyExists(err) && !strings.Contains(err.Error(), "already exists") {
-			return reconcile.Result{RequeueAfter: 5 * time.Second}, fmt.Errorf("failed to attach USB device %s: %w", deviceName, err)
+			return reconcile.Result{}, fmt.Errorf("failed to attach USB device %s: %w", deviceName, err)
 		}
 
 		nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(existingStatus, deviceName, isReady))

@@ -187,7 +187,7 @@ var _ = Describe("TestMigrationHandler", func() {
 		Expect(err).NotTo(HaveOccurred())
 		//nolint:staticcheck // check requeue is not used
 		Expect(result.Requeue).To(BeFalse())
-		Expect(result.RequeueAfter).To(Equal(5 * time.Second))
+		Expect(result.RequeueAfter).To(Equal(2 * time.Second))
 
 		// Check that no new VMOP was created
 		vmopList := &v1alpha2.VirtualMachineOperationList{}
@@ -219,7 +219,7 @@ var _ = Describe("TestMigrationHandler", func() {
 		Expect(err).NotTo(HaveOccurred())
 		//nolint:staticcheck // check requeue is not used
 		Expect(result.Requeue).To(BeFalse())
-		Expect(result.RequeueAfter).To(Equal(10 * time.Second))
+		Expect(result.RequeueAfter).To(Equal(4 * time.Second))
 
 		// Check that no new VMOP was created
 		vmopList := &v1alpha2.VirtualMachineOperationList{}
@@ -272,7 +272,7 @@ var _ = Describe("TestMigrationHandler", func() {
 			}
 			withCreationTime(secondTime, vmops...)
 			backoff := handler.calculateBackoff(vmops, firstTime)
-			Expect(backoff).To(Equal(40 * time.Second))
+			Expect(backoff).To(Equal(16 * time.Second))
 		})
 
 		It("should cap backoff at maximum delay", func() {

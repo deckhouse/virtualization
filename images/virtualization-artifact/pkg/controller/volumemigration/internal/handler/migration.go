@@ -26,7 +26,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -35,6 +34,7 @@ import (
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -46,19 +46,16 @@ const (
 )
 
 type MigrationHandler struct {
-	client   client.Client
-	recorder eventrecord.EventRecorderLogger
-
-	backoff  map[types.UID]time.Duration
-	nextTime map[types.UID]time.Time
+	client     client.Client
+	recorder   eventrecord.EventRecorderLogger
+	backoffSvc *service.BackoffService
 }
 
 func NewMigrationHandler(client client.Client, recorder eventrecord.EventRecorderLogger) *MigrationHandler {
 	return &MigrationHandler{
-		client:   client,
-		recorder: recorder,
-		backoff:  make(map[types.UID]time.Duration),
-		nextTime: make(map[types.UID]time.Time),
+		client:     client,
+		recorder:   recorder,
+		backoffSvc: service.NewBackoffService(),
 	}
 }
 
@@ -104,19 +101,10 @@ func (h *MigrationHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk)
 		return reconcile.Result{}, nil
 	}
 
-	setBackoff := h.backoff[vm.UID]
-	calculatedBackoff := h.calculateBackoff(finishedVMOPs, vm.GetCreationTimestamp())
-	if calculatedBackoff > setBackoff {
-		h.backoff[vm.UID] = calculatedBackoff
-		h.nextTime[vm.UID] = time.Now().Add(calculatedBackoff)
-	}
-
-	backoff := h.backoff[vm.UID]
-	nextTime := h.nextTime[vm.UID]
-
-	if nextTime.After(time.Now()) {
-		h.recorder.Eventf(vd, corev1.EventTypeNormal, v1alpha2.ReasonVolumeMigrationCannotBeProcessed, "VMOP will be created after the backoff. backoff: %q", backoff.String())
-		return reconcile.Result{RequeueAfter: backoff}, nil
+	delay := h.calculateBackoff(finishedVMOPs, vm.GetCreationTimestamp())
+	if delay > 0 {
+		h.recorder.Eventf(vd, corev1.EventTypeNormal, v1alpha2.ReasonVolumeMigrationCannotBeProcessed, "VMOP will be created after the backoff. backoff: %q", delay.String())
+		return reconcile.Result{RequeueAfter: delay}, nil
 	}
 
 	vmop := newVolumeMigrationVMOP(vm.Name, vm.Namespace)
@@ -126,9 +114,6 @@ func (h *MigrationHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk)
 	}
 
 	h.recorder.Eventf(vd, corev1.EventTypeNormal, v1alpha2.ReasonVMOPStarted, "Volume migration is started. vmop.name: %q, vmop.namespace: %q", vmop.Name, vmop.Namespace)
-
-	delete(h.backoff, vm.UID)
-	delete(h.nextTime, vm.UID)
 
 	return reconcile.Result{}, nil
 }
@@ -186,20 +171,7 @@ func (h *MigrationHandler) calculateBackoff(finishedVMOPs []*v1alpha2.VirtualMac
 		break
 	}
 
-	if failedCount == 0 {
-		return 0
-	}
-
-	baseDelay := 5 * time.Second
-	maxDelay := 5 * time.Minute
-
-	// exponential backoff formula = baseDelay * 2^(failedCount - 1)
-	backoff := baseDelay * time.Duration(1<<(failedCount-1))
-	if backoff > maxDelay {
-		backoff = maxDelay
-	}
-
-	return backoff
+	return h.backoffSvc.CalculateBackoff(failedCount)
 }
 
 func newVolumeMigrationVMOP(vmName, namespace string) *v1alpha2.VirtualMachineOperation {

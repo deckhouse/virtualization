@@ -30,9 +30,9 @@ import (
 
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	"github.com/deckhouse/virtualization-controller/pkg/common/backoff"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -44,6 +44,7 @@ func NewEvacuationHandler(client client.Client, evacuateCanceler EvacuateCancele
 	return &EvacuationHandler{
 		client:           client,
 		evacuateCanceler: evacuateCanceler,
+		backoffSvc:       service.NewBackoffService(),
 	}
 }
 
@@ -55,6 +56,7 @@ type EvacuateCanceler interface {
 type EvacuationHandler struct {
 	client           client.Client
 	evacuateCanceler EvacuateCanceler
+	backoffSvc       *service.BackoffService
 }
 
 func (h *EvacuationHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachine) (reconcile.Result, error) {
@@ -98,9 +100,9 @@ func (h *EvacuationHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMach
 		}
 	}
 
-	backoff := backoff.CalculateBackOff(failedCount)
-	if backoff > 0 {
-		return reconcile.Result{RequeueAfter: backoff}, nil
+	delay := h.backoffSvc.CalculateBackoff(failedCount)
+	if delay > 0 {
+		return reconcile.Result{RequeueAfter: delay}, nil
 	}
 
 	log.Info("Create evacuation vmop")
