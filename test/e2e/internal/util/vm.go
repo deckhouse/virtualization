@@ -125,7 +125,7 @@ func UntilVMMigrationSucceeded(key client.ObjectKey, timeout time.Duration) {
 		if err != nil {
 			return err
 		}
-
+		// TODO: remove skip when kubevirt client socket closed issue is fixed.
 		SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(vm)
 
 		state := vm.Status.MigrationState

@@ -521,6 +521,7 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), fun
 			if err != nil {
 				return err
 			}
+			// TODO: remove skip when kubevirt client socket closed issue is fixed.
 			util.SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(vm)
 
 			vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(context.Background(), vmopName, metav1.GetOptions{})
