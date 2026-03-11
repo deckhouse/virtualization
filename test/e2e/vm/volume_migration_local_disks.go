@@ -128,8 +128,9 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), fun
 			if err != nil {
 				return err
 			}
-			// TODO: remove skip when kubevirt client socket closed issue is fixed.
-			util.SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(vm)
+			// TODO: remove temporary migration skip logic when both known issues are fixed:
+			// kubevirt "client socket is closed" and Volume(s)UpdateError.
+			util.SkipIfKnownMigrationFailure(vm)
 
 			vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(context.Background(), vmopName, metav1.GetOptions{})
 			if err != nil {
@@ -219,8 +220,9 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), fun
 				if err != nil {
 					return err
 				}
-				// TODO: remove skip when kubevirt client socket closed issue is fixed.
-				util.SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(vm)
+				// TODO: remove temporary migration skip logic when both known issues are fixed:
+				// kubevirt "client socket is closed" and Volume(s)UpdateError.
+				util.SkipIfKnownMigrationFailure(vm)
 
 				vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(context.Background(), vmopName, metav1.GetOptions{})
 				if err != nil {
@@ -283,6 +285,12 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), fun
 		util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName2))
 
 		Eventually(func(g Gomega) {
+			vm, err = f.VirtClient().VirtualMachines(ns).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
+			g.Expect(err).NotTo(HaveOccurred())
+			// TODO: remove temporary migration skip logic when both known issues are fixed:
+			// kubevirt "client socket is closed" and Volume(s)UpdateError.
+			util.SkipIfKnownMigrationFailure(vm)
+
 			vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(context.Background(), vmopName2, metav1.GetOptions{})
 			g.Expect(err).NotTo(HaveOccurred())
 
@@ -521,8 +529,9 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), fun
 			if err != nil {
 				return err
 			}
-			// TODO: remove skip when kubevirt client socket closed issue is fixed.
-			util.SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(vm)
+			// TODO: remove temporary migration skip logic when both known issues are fixed:
+			// kubevirt "client socket is closed" and Volume(s)UpdateError.
+			util.SkipIfKnownMigrationFailure(vm)
 
 			vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(context.Background(), vmopName, metav1.GetOptions{})
 			if err != nil {

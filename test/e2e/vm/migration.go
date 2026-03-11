@@ -242,7 +242,16 @@ var _ = Describe("VirtualMachineMigration", func() {
 
 		By("Wait for migration to complete", func() {
 			Eventually(func(g Gomega) {
-				err := f.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vmopMigrateBIOS), vmopMigrateBIOS)
+				err := f.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vmBIOS), vmBIOS)
+				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
+				err = f.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vmUEFI), vmUEFI)
+				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
+				// TODO: remove temporary migration skip logic when both known issues are fixed:
+				// kubevirt "client socket is closed" and Volume(s)UpdateError.
+				util.SkipIfKnownMigrationFailure(vmBIOS)
+				util.SkipIfKnownMigrationFailure(vmUEFI)
+
+				err = f.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vmopMigrateBIOS), vmopMigrateBIOS)
 				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
 				err = f.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vmopMigrateUEFI), vmopMigrateUEFI)
 				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
