@@ -113,11 +113,17 @@ func SkipIfKnownVolumesUpdateMigrationFailure(vm *v1alpha2.VirtualMachine) bool 
 func SkipIfKnownMigrationFailure(vm *v1alpha2.VirtualMachine) bool {
 	GinkgoHelper()
 
-	if SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(vm) {
-		return true
-	}
+	kubeVirtSocketClosedFailure := SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(vm)
+	volumesUpdateFailure := SkipIfKnownVolumesUpdateMigrationFailure(vm)
 
-	return SkipIfKnownVolumesUpdateMigrationFailure(vm)
+	switch {
+	case kubeVirtSocketClosedFailure:
+		return true
+	case volumesUpdateFailure:
+		return true
+	default:
+		return false
+	}
 }
 
 func getInternalVirtualMachineInstance(vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
