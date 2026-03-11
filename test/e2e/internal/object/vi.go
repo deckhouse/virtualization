@@ -21,30 +21,12 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewHTTPVIUbuntu(name, namespace string, opts ...vi.Option) *v1alpha2.VirtualImage {
-	baseOpts := []vi.Option{
-		vi.WithName(name),
-		vi.WithStorage(v1alpha2.StorageContainerRegistry),
-		vi.WithNamespace(namespace),
-		vi.WithDataSourceHTTP(
-			ImageURLAlpineBIOS,
-			nil,
-			nil,
-		),
-		vi.WithStorage(v1alpha2.StorageContainerRegistry),
-	}
-	baseOpts = append(baseOpts, opts...)
-	return vi.New(baseOpts...)
-}
-
-func NewGeneratedHTTPVIUbuntu(prefix, namespace string, opts ...vi.Option) *v1alpha2.VirtualImage {
+func NewGeneratedHTTPVIAlpineBIOS(prefix, namespace string, opts ...vi.Option) *v1alpha2.VirtualImage {
 	baseOpts := []vi.Option{
 		vi.WithGenerateName(prefix),
 		vi.WithNamespace(namespace),
 		vi.WithDataSourceHTTP(
-			ImageURLAlpineBIOS,
-			nil,
-			nil,
+			ImageURLAlpineBIOS, nil, nil,
 		),
 		vi.WithStorage(v1alpha2.StorageContainerRegistry),
 	}
@@ -52,12 +34,14 @@ func NewGeneratedHTTPVIUbuntu(prefix, namespace string, opts ...vi.Option) *v1al
 	return vi.New(baseOpts...)
 }
 
-func NewContainerImageVI(name, namespace string, opts ...vi.Option) *v1alpha2.VirtualImage {
+func NewGeneratedHTTPVIAlpineBIOSPerf(prefix, namespace string, opts ...vi.Option) *v1alpha2.VirtualImage {
 	baseOpts := []vi.Option{
-		vi.WithName(name),
+		vi.WithGenerateName(prefix),
 		vi.WithNamespace(namespace),
+		vi.WithDataSourceHTTP(
+			ImagesURLAlpineBIOSPerf, nil, nil,
+		),
 		vi.WithStorage(v1alpha2.StorageContainerRegistry),
-		vi.WithDataSourceContainerImage(ImageURLContainerImage, v1alpha2.ImagePullSecretName{}, nil),
 	}
 	baseOpts = append(baseOpts, opts...)
 	return vi.New(baseOpts...)

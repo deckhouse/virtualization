@@ -17,9 +17,8 @@ limitations under the License.
 package copy_custom_certificate
 
 import (
-	"hooks/pkg/settings"
-
 	copycustomcertificate "github.com/deckhouse/module-sdk/common-hooks/copy-custom-certificate"
+	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
 
 var _ = copycustomcertificate.RegisterHook(settings.ModuleName)

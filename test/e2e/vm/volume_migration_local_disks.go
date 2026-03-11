@@ -53,7 +53,7 @@ func decoratorsForVolumeMigrations() []interface{} {
 
 // Ordered is required due to concurrent migration limitations in the cluster to prevent test interference.
 // ContinueOnFailure ensures all independent tests run even if one fails.
-var _ = Describe("LocalVirtualDiskMigration", decoratorsForVolumeMigrations(), func() {
+var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), func() {
 	var (
 		f            = framework.NewFramework("volume-migration-local-disks")
 		storageClass *storagev1.StorageClass
@@ -70,7 +70,7 @@ var _ = Describe("LocalVirtualDiskMigration", decoratorsForVolumeMigrations(), f
 
 		DeferCleanup(f.After)
 
-		newVI := object.NewGeneratedHTTPVIUbuntu("volume-migration-local-disks-", f.Namespace().Name)
+		newVI := object.NewGeneratedHTTPVIAlpineBIOSPerf("volume-migration-local-disks-", f.Namespace().Name)
 		newVI, err := f.VirtClient().VirtualImages(f.Namespace().Name).Create(context.Background(), newVI, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(newVI)
@@ -78,8 +78,8 @@ var _ = Describe("LocalVirtualDiskMigration", decoratorsForVolumeMigrations(), f
 	})
 
 	const (
-		vdRootName       = "vd-ubuntu-root-disk"
-		vdAdditionalName = "vd-ubuntu-additional-disk"
+		vdRootName       = "vd-alpine-root-disk"
+		vdAdditionalName = "vd-alpine-additional-disk"
 	)
 
 	localMigrationRootOnlyBuild := func() (*v1alpha2.VirtualMachine, []*v1alpha2.VirtualDisk) {

@@ -199,7 +199,7 @@ func validateIsQuantized(value, min, max, step resource.Quantity, source string)
 		cmpRightResult := value.Cmp(grid[i+1])
 
 		if cmpLeftResult == common.CmpEqual || cmpRightResult == common.CmpEqual {
-			return
+			return err
 		} else if cmpLeftResult == common.CmpGreater && cmpRightResult == common.CmpLesser {
 			err = fmt.Errorf(
 				"requested %s does not match any available values, nearest valid values are [%s, %s]",
@@ -207,11 +207,11 @@ func validateIsQuantized(value, min, max, step resource.Quantity, source string)
 				grid[i].String(),
 				grid[i+1].String(),
 			)
-			return
+			return err
 		}
 	}
 
-	return
+	return err
 }
 
 func generateValidGrid(min, max, step resource.Quantity) []resource.Quantity {

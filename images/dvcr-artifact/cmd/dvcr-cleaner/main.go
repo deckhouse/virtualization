@@ -31,7 +31,7 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(cmd.DeleteCmd, cmd.GcCmd, cmd.LsCmd)
+	rootCmd.AddCommand(cmd.DeleteCmd, cmd.GcCmd, cmd.LsCmd, cmd.PauseCmd)
 }
 
 func main() {

@@ -55,6 +55,19 @@ tasks:
       - which helm >/dev/null || (echo "helm not found."; exit 1)
     silent: true
 
+  golangci-lint:check:
+    desc: "Check golangci-lint version"
+    cmds:
+      - |
+        GOLANGCI_LINT_MIN_VERSION="2.0"
+        CURRENT_VERSION=$(golangci-lint --version 2>/dev/null | grep -oP 'version \K[0-9]+\.[0-9]+' || echo "0.0")
+        if [ "$(printf '%s\n' "$GOLANGCI_LINT_MIN_VERSION" "$CURRENT_VERSION" | sort -V | head -n1)" != "$GOLANGCI_LINT_MIN_VERSION" ]; then
+          echo "golangci-lint version $CURRENT_VERSION is below minimum $GOLANGCI_LINT_MIN_VERSION"
+          echo "Installing golangci-lint..."
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
+        fi
+    silent: true
+
   helm-update-subcharts:
     deps:
       - check-helm
@@ -94,6 +107,26 @@ tasks:
         {{else}}
           go run tools/addlicense/{main,variables,msg,utils}.go -directory ./
         {{end}}
+
+  golangci-lint:sync:
+    desc: "Sync root .golangci.yaml to all subprojects"
+    cmds:
+      - |
+        ROOT_CONFIG="images/virtualization-artifact/.golangci.yaml"
+        TARGETS=(
+          "images/hooks"
+          "images/dvcr-artifact"
+          "images/cdi-cloner/cloner-startup"
+          "images/virtualization-dra"
+          "src/cli"
+          "test/e2e"
+          "test/performance/tools/shatal"
+          "tools/addlicense"
+        )
+        for target in "${TARGETS[@]}"; do
+          cp "$ROOT_CONFIG" "$target/.golangci.yaml"
+          echo "Synced $ROOT_CONFIG -> $target/.golangci.yaml"
+        done
 
   lint:
     cmds:

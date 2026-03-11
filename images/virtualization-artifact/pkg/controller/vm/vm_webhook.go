@@ -55,7 +55,7 @@ func NewValidator(client client.Client, service *service.BlockDeviceService, fea
 			validators.NewCPUCountValidator(),
 			validators.NewNetworksValidator(featureGate),
 			validators.NewFirstDiskValidator(client),
-			validators.NewUSBDevicesValidator(client),
+			validators.NewUSBDevicesValidator(client, featureGate),
 			validators.NewVMBDAConflictValidator(client),
 		},
 		log: log.With("webhook", "validation"),

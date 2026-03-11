@@ -56,6 +56,8 @@ spec:
             > This resource cannot be modified once it has been created.
 
             With this resource in the cluster, a container image is created and stored in a dedicated Deckhouse Virtualization Container Registry (DVCR).
+
+            **Note:** The `metadata.name` field must comply with [Kubernetes object naming conventions](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/) and must not exceed 48 characters.
           properties:
             apiVersion:
               description: |-

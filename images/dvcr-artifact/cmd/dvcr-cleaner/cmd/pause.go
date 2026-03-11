@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2026 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,22 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package profiler
+package cmd
 
 import (
-	"net/http"
-	"net/http/pprof"
+	"github.com/spf13/cobra"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
-// NewPprofHandler returns http.ServeMux with pprof endpoints.
-func NewPprofHandler() http.Handler {
-	mux := http.NewServeMux()
+var PauseCmd = &cobra.Command{
+	Use:           "pause",
+	Args:          cobra.NoArgs,
+	RunE:          pauseCleanupHandler,
+	SilenceUsage:  true,
+	SilenceErrors: true,
+}
 
-	mux.HandleFunc("/debug/pprof/", pprof.Index)
-	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
-	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-
-	return mux
+func pauseCleanupHandler(cmd *cobra.Command, _ []string) error {
+	cmd.Println("Pause")
+	ctx, cancel := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+	<-ctx.Done()
+	return nil
 }

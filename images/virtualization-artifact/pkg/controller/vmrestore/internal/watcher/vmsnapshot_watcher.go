@@ -70,7 +70,7 @@ func (w VirtualMachineSnapshotWatcher) enqueueRequests(ctx context.Context, vmSn
 	})
 	if err != nil {
 		log.Error(fmt.Sprintf("failed to list virtual machine restores: %s", err))
-		return
+		return requests
 	}
 
 	for _, vmRestore := range vmRestores.Items {
@@ -82,5 +82,5 @@ func (w VirtualMachineSnapshotWatcher) enqueueRequests(ctx context.Context, vmSn
 		})
 	}
 
-	return
+	return requests
 }

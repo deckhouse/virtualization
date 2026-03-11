@@ -154,7 +154,7 @@ func PrepareCommand(cmd *cobra.Command, defaultNamespace string, opts *SSHOption
 	var targetUsername string
 	namespace, name, targetUsername, err = templates.ParseSSHTarget(args[0])
 	if err != nil {
-		return
+		return namespace, name, err
 	}
 
 	if len(namespace) < 1 {
@@ -164,7 +164,7 @@ func PrepareCommand(cmd *cobra.Command, defaultNamespace string, opts *SSHOption
 	if len(targetUsername) > 0 {
 		opts.SSHUsername = targetUsername
 	}
-	return
+	return namespace, name, err
 }
 
 func usage() string {

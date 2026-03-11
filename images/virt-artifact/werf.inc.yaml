@@ -9,7 +9,6 @@
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
-fromCacheVersion: "hotplug-42" # TODO: remove this
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
@@ -207,3 +206,8 @@ shell:
     {{- $_ := set $ "ProjectName" (list $.ImageName "virtctl" | join "/") }}
     - |
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virtctl ./cmd/virtctl/`) | nindent 6 }}
+
+    - echo ============== Build virt-launcher-hook ===============
+    {{- $_ := set $ "ProjectName" (list $.ImageName "virt-launcher-hook" | join "/") }}
+    - |
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-launcher-hook ./cmd/virt-launcher-hook/`) | nindent 6 }}

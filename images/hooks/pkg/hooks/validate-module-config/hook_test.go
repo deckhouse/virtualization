@@ -19,19 +19,18 @@ package validate_module_config
 import (
 	"context"
 	"encoding/json"
-	"hooks/pkg/settings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/tidwall/gjson"
-
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/testing/mock"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
+	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
 
 func TestValidateModuleConfig(t *testing.T) {

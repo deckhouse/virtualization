@@ -33,6 +33,8 @@ spec:
             - `.metadata.annotations`
             - `.spec.disruptions.restartApprovalMode`
             - `.spec.runPolicy`.
+
+            **Note:** The `metadata.name` field must comply with [Kubernetes object naming conventions](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/) and must not exceed 63 characters.
           required:
             - spec
           properties:

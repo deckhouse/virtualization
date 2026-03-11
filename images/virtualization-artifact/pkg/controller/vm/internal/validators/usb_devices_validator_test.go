@@ -17,14 +17,17 @@ limitations under the License.
 package validators
 
 import (
+	"strings"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/component-base/featuregate"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -60,7 +63,7 @@ func TestUSBDevicesValidatorValidateUpdate(t *testing.T) {
 			objects := []client.Object{oldVM}
 			objects = append(objects, tt.existing...)
 
-			validator := NewUSBDevicesValidator(newFakeClientWithUSBVMIndexer(t, objects...))
+			validator := NewUSBDevicesValidator(newFakeClientWithUSBVMIndexer(t, objects...), newUSBFeatureGate(t, true))
 			_, err := validator.ValidateUpdate(t.Context(), oldVM, newVM)
 
 			if tt.wantError && err == nil {
@@ -81,6 +84,48 @@ func newVirtualMachine(name string, usb []v1alpha2.USBDeviceSpecRef) *v1alpha2.V
 	}
 }
 
+func TestUSBDevicesValidatorValidateCreateReturnsErrorWhenUSBFeatureDisabled(t *testing.T) {
+	vm := newVirtualMachine("vm-current", []v1alpha2.USBDeviceSpecRef{{Name: "usb-1"}})
+
+	validator := NewUSBDevicesValidator(newFakeClientWithUSBVMIndexer(t), newUSBFeatureGate(t, false))
+	_, err := validator.ValidateCreate(t.Context(), vm)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "Kubernetes version 1.34 or newer") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(err.Error(), "DRA feature gates") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestUSBDevicesValidatorValidateCreateSucceedsWhenUSBFeatureEnabled(t *testing.T) {
+	vm := newVirtualMachine("vm-current", []v1alpha2.USBDeviceSpecRef{{Name: "usb-1"}})
+
+	validator := NewUSBDevicesValidator(newFakeClientWithUSBVMIndexer(t), newUSBFeatureGate(t, true))
+	_, err := validator.ValidateCreate(t.Context(), vm)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
+func TestUSBDevicesValidatorValidateUpdateReturnsErrorWhenUSBFeatureDisabled(t *testing.T) {
+	oldVM := newVirtualMachine("vm-current", nil)
+	newVM := newVirtualMachine("vm-current", []v1alpha2.USBDeviceSpecRef{{Name: "usb-1"}})
+
+	validator := NewUSBDevicesValidator(newFakeClientWithUSBVMIndexer(t, oldVM), newUSBFeatureGate(t, false))
+	_, err := validator.ValidateUpdate(t.Context(), oldVM, newVM)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "Kubernetes version 1.34 or newer") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func newFakeClientWithUSBVMIndexer(t *testing.T, objects ...client.Object) client.Client {
 	t.Helper()
 
@@ -95,4 +140,19 @@ func newFakeClientWithUSBVMIndexer(t *testing.T, objects ...client.Object) clien
 		WithObjects(objects...).
 		WithIndex(vmObj, vmField, vmExtractValue).
 		Build()
+}
+
+func newUSBFeatureGate(t *testing.T, enabled bool) featuregate.FeatureGate {
+	t.Helper()
+
+	gate, setFromMap, err := featuregates.NewUnlocked()
+	if err != nil {
+		t.Fatalf("failed to create feature gate: %v", err)
+	}
+
+	if err = setFromMap(map[string]bool{string(featuregates.USB): enabled}); err != nil {
+		t.Fatalf("failed to set USB feature gate: %v", err)
+	}
+
+	return gate
 }

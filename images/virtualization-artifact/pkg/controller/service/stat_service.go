@@ -19,7 +19,11 @@ package service
 import (
 	"errors"
 	"fmt"
+	"net/http"
+	"regexp"
 	"strconv"
+	"strings"
+	"syscall"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -99,9 +103,12 @@ func (s StatService) GetSize(pod *corev1.Pod) v1alpha2.ImageStatusSize {
 }
 
 var (
-	ErrNotInitialized     = errors.New("not initialized")
-	ErrNotScheduled       = errors.New("not scheduled")
-	ErrProvisioningFailed = errors.New("provisioning failed")
+	ErrNotInitialized        = errors.New("not initialized")
+	ErrNotScheduled          = errors.New("not scheduled")
+	ErrProvisioningFailed    = errors.New("provisioning failed")
+	ErrDVCRNoSpaceImageError = errors.New("DVCR is out of space; please contact the cluster administrator")
+	// ErrDVCRNoSpaceDiskError is intended to avoid confusion by clarifying that DVCR is needed as an intermediary when creating a virtual disk.
+	ErrDVCRNoSpaceDiskError = errors.New("DVCR is out of space to create the virtual disk; please contact the cluster administrator")
 )
 
 func (s StatService) CheckPod(pod *corev1.Pod) error {
@@ -125,6 +132,12 @@ func (s StatService) CheckPod(pod *corev1.Pod) error {
 	}
 
 	if report != nil && report.ErrMessage != "" {
+		if s.isDVCRNoSpaceError(report.ErrMessage) {
+			if strings.HasPrefix(pod.Name, "d8v-vd-") {
+				return fmt.Errorf("%w: %w", ErrProvisioningFailed, ErrDVCRNoSpaceDiskError)
+			}
+			return fmt.Errorf("%w: %w", ErrProvisioningFailed, ErrDVCRNoSpaceImageError)
+		}
 		return fmt.Errorf("%w: Pod %s/%s termination message: %s", ErrProvisioningFailed, pod.Namespace, pod.Name, report.ErrMessage)
 	}
 
@@ -133,6 +146,22 @@ func (s StatService) CheckPod(pod *corev1.Pod) error {
 	}
 
 	return nil
+}
+
+func (s StatService) isDVCRNoSpaceError(terminationMessage string) bool {
+	dvcrSvc := "dvcr.d8-virtualization.svc"
+
+	noSpaceErrorPattern := fmt.Sprintf("Err:%d", syscall.ENOSPC)
+	noDigitPattern := `\D`
+	re := regexp.MustCompile(noSpaceErrorPattern + noDigitPattern)
+
+	if strings.Contains(terminationMessage, dvcrSvc) &&
+		strings.Contains(terminationMessage, http.MethodPost) &&
+		re.MatchString(terminationMessage) {
+		return true
+	}
+
+	return false
 }
 
 func (s StatService) GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *v1alpha2.StatusSpeed {

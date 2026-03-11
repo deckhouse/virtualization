@@ -41,5 +41,5 @@ func addAllUnknown(class *v1alpha2.VirtualMachineClass, conds ...vmclassconditio
 		}
 	}
 	class.Status.Conditions = mgr.Generate()
-	return
+	return update
 }

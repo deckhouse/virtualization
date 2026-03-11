@@ -76,7 +76,7 @@ func (w *VirtualDiskWatcher) enqueueRequestsFromVDs(ctx context.Context, vd *v1a
 	err := w.client.List(ctx, &cviList, &client.ListOptions{})
 	if err != nil {
 		slog.Default().Error(fmt.Sprintf("failed to list cvi: %s", err))
-		return
+		return requests
 	}
 
 	for _, cvi := range cviList.Items {
@@ -95,5 +95,5 @@ func (w *VirtualDiskWatcher) enqueueRequestsFromVDs(ctx context.Context, vd *v1a
 		})
 	}
 
-	return
+	return requests
 }

@@ -54,7 +54,7 @@ var _ = Describe("VirtualDiskProvisioning", func() {
 			vi = vibuilder.New(
 				vibuilder.WithName("vi"),
 				vibuilder.WithNamespace(f.Namespace().Name),
-				vibuilder.WithDataSourceHTTP(object.ImageURLAlpineUEFIPerf, nil, nil),
+				vibuilder.WithDataSourceHTTP(object.ImageURLAlpineUEFI, nil, nil),
 				vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
 			)
 

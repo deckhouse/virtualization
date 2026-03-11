@@ -3,6 +3,21 @@ title: "Релизы"
 weight: 70
 ---
 
+## v1.6.1
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 10 марта 2026.
+</span>
+
+### Исправления
+
+- [observability] Восстановлено прежнее расположение дашбордов виртуальных машин из-за проблемы с их валидацией, которая могла приводить к блокировке очереди Deckhouse.
+- [vm] Исправлено обнаружение USB-устройств на узлах: соответствующие ресурсы [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) могли не создаваться.
+- [vm] Исправлено клонирование виртуальной машины с подключенными USB-устройствами при использовании [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) с типом `Clone` в режиме `BestEffort`.
+
+### Безопасность
+
+- [module] Исправлены уязвимости CVE-2026-24051, CVE-2025-15558.
+
 ## v1.6.0
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Дата релиза: 2 марта 2026.
@@ -11,7 +26,7 @@ weight: 70
 ### Новые возможности
 
 - [vm] Добавлена поддержка подключения USB-устройств к виртуальным машинам через `.spec.usbDevices`.
-- [usb] Добавлены ресурсы [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) и `USBDevice`, позволяющие управлять USB-устройствами в кластере:
+- [usb] Добавлены ресурсы [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) и [USBDevice](/modules/virtualization/cr.html#usbdevice), позволяющие управлять USB-устройствами в кластере:
   - [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) (cluster-scoped) — представляет USB-устройство, обнаруженное на конкретном узле. Позволяет назначить USB-устройство для использования в конкретном неймспейсе.
   - [USBDevice](/modules/virtualization/cr.html#usbdevice) (namespace-scoped) — представляет USB-устройство, доступное для подключения к виртуальным машинам в заданном неймспейсе.
 - [observability] Добавлен дашборд `Virtualization / Overview` с обзором состояния платформы виртуализации.
@@ -29,6 +44,15 @@ weight: 70
 ### Прочее
 
 - [vm] Для утилиты `vlctl` добавлен флаг `--from-file` для просмотра информации о домене из локального libvirt XML-файла.
+
+## v1.5.2
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 5 марта 2026.
+</span>
+
+### Исправления
+
+- [vd] Исправлен возможный `OOMKill` при создании виртуального диска на NFS.
 
 ## v1.5.1
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">

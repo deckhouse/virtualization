@@ -78,7 +78,7 @@ func (w *VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error 
 					return false
 				},
 				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachine]) bool {
-					if !(e.ObjectOld.Status.Phase != v1alpha2.MachineRunning && e.ObjectNew.Status.Phase == v1alpha2.MachineRunning) {
+					if e.ObjectOld.Status.Phase == v1alpha2.MachineRunning || e.ObjectNew.Status.Phase != v1alpha2.MachineRunning {
 						return false
 					}
 					for _, bd := range e.ObjectNew.Spec.BlockDeviceRefs {

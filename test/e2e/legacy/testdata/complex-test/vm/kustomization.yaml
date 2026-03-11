@@ -6,8 +6,6 @@ resources:
   - overlays/embedded-cloudinit
   - overlays/custom-ip
   - overlays/automatic
-  - overlays/automatic-with-hotplug
-  - overlays/hotplug
   - overlays/vm-a-not-b
   - overlays/vm-b-not-a
   - overlays/vm-c-and-a

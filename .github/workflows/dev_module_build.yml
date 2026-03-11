@@ -22,7 +22,7 @@ env:
   MODULES_REGISTRY_LOGIN: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
   MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
   GO_VERSION: "1.24.13"
-  GOLANGCI_LINT_VERSION: "1.64.8"
+  GOLANGCI_LINT_VERSION: "2.11.1"
   SOURCE_REPO: "${{secrets.SOURCE_REPO}}"
   SOURCE_REPO_GIT: "${{secrets.SOURCE_REPO_GIT}}"
   TRIVY_DISABLE_VEX_NOTICE: "true"
@@ -237,14 +237,13 @@ jobs:
           # set -eo pipefail
           set -e
 
-          # Find directories containing .golangci.yaml
+          # Find directories containing .golangci.yaml (excluding symlinks)
           mapfile -t config_dirs < <(
             find . \
               -path ./images/cdi-cloner/cloner-startup -prune -o \
               -path ./images/dvcr-artifact -prune -o \
-              -path ./images/virtualization-dra -prune -o \
               -path ./test/performance/shatal -prune -o \
-              -type f -name '.golangci.yaml' -printf '%h\0' | \
+              -type f -name '.golangci.yaml' -not -type l -printf '%h\0' | \
             xargs -0 -n1 | sort -u
           )
           count=${#config_dirs[@]}
@@ -257,11 +256,11 @@ jobs:
             find_errors=0
             cd "$dir" || { echo "::error::Failed to access directory $dir"; continue; }
 
-            if ! output=$(golangci-lint run --sort-results); then
+            if ! output=$(golangci-lint run); then
               error_count=$(( error_count + 1 ))
               echo "::group::📂 Linting directory ❌: $dir"
               echo -e "❌ Errors:\n$output\n"
-              golangci-lint run --sort-results || true
+              golangci-lint run || true
             else
               echo "::group::📂 Linting directory ✅: $dir"
               echo -e "✅ All check passed\n"
@@ -279,33 +278,6 @@ jobs:
             echo "$error_count error more than 0, exit 1"
             exit 1
           fi
-
-  lint_go-virtualization-dra:
-    runs-on: ubuntu-22.04
-    name: Run go linter virtualization-dra
-    steps:
-      - name: Set up Go 1.25
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.25"
-
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-
-      - name: Install golangci-lint
-        run: |
-          echo "Installing golangci-lint..."
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.8.0
-          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-          echo "golangci-lint v2.8.0 installed successfully!"
-
-      - name: Lint virtualization-dra directory with golangci-lint
-        shell: bash
-        working-directory: ./images/virtualization-dra
-        run: |
-          set -e
-          golangci-lint run
 
   lint_yaml:
     runs-on: ubuntu-latest

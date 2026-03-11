@@ -39,15 +39,10 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-const (
-	// IPs on additional network interface for connectivity check between VMs.
-	// When VM has Main network, additional interface is eth1; otherwise it's eth0.
-	vmFooAdditionalIP = "192.168.1.10"
-	vmBarAdditionalIP = "192.168.1.11"
-)
-
 type additionalNetworkTestCase struct {
 	vmBarHasMainNetwork bool
+	vmFooAdditionalIP   string
+	vmBarAdditionalIP   string
 }
 
 var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
@@ -78,43 +73,38 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 			By("Environment preparation", func() {
 				ns := f.Namespace().Name
 
-				vdFooRoot = vd.New(
-					vd.WithName("vd-foo-root"),
-					vd.WithNamespace(ns),
+				vdFooRoot = object.NewHTTPVDAlpineUEFIPerf("vd-foo-root", ns,
 					vd.WithSize(ptr.To(resource.MustParse("512Mi"))),
-					vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-						URL: object.ImageURLAlpineUEFIPerf,
-					}),
 				)
-				vdBarRoot = vd.New(
-					vd.WithName("vd-bar-root"),
-					vd.WithNamespace(ns),
+				vdBarRoot = object.NewHTTPVDAlpineUEFIPerf("vd-bar-root", ns,
 					vd.WithSize(ptr.To(resource.MustParse("512Mi"))),
-					vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-						URL: object.ImageURLAlpineUEFIPerf,
-					}),
 				)
 
 				// vm-foo always has Main + ClusterNetwork so we can SSH to it.
-				vmFoo = buildVMWithNetworks("vm-foo", ns, vdFooRoot.Name, vmFooAdditionalIP, true)
-				vmBar = buildVMWithNetworks("vm-bar", ns, vdBarRoot.Name, vmBarAdditionalIP, tc.vmBarHasMainNetwork)
+				vmFoo = buildVMWithNetworks("vm-foo", ns, vdFooRoot.Name, tc.vmFooAdditionalIP, true)
+				vmBar = buildVMWithNetworks("vm-bar", ns, vdBarRoot.Name, tc.vmBarAdditionalIP, tc.vmBarHasMainNetwork)
 
 				err := f.CreateWithDeferredDeletion(context.Background(), vdFooRoot, vdBarRoot, vmFoo, vmBar)
 				Expect(err).NotTo(HaveOccurred())
 
 				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmFoo, vmBar)
-				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmFoo), framework.LongTimeout)
+				util.UntilSSHReady(f, vmFoo, framework.LongTimeout)
 				if tc.vmBarHasMainNetwork {
-					util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmBar), framework.LongTimeout)
+					util.UntilSSHReady(f, vmBar, framework.LongTimeout)
 				}
+
+				By(fmt.Sprintf("Wait until vms %s and %s in phase running", vmFoo.GetName(), vmBar.GetName()), func() {
+					util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmFoo, vmBar)
+				})
 			})
 
+			// If test fail due this timeout, rollback in test waiting for agent to be ready.
 			By("Wait for additional network interfaces to be ready", func() {
 				util.UntilConditionStatus(vmcondition.TypeNetworkReady.String(), "True", framework.LongTimeout, vmFoo, vmBar)
 			})
 
 			By("Check connectivity between VMs via additional network", func() {
-				checkConnectivityBetweenVMs(f, vmFoo, vmBar, tc.vmBarHasMainNetwork)
+				checkConnectivityBetweenVMs(f, vmFoo, vmBar, tc.vmBarHasMainNetwork, tc.vmBarAdditionalIP, tc.vmFooAdditionalIP)
 			})
 
 			By("Create VMOPs to trigger migration", func() {
@@ -128,11 +118,11 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 			})
 
 			By("Check Cilium agents after migration", func() {
-				err := network.CheckCiliumAgents(context.Background(), f.Clients.Kubectl(), vmFoo.Name, f.Namespace().Name)
+				err := network.CheckCiliumAgents(context.Background(), f.Kubectl(), vmFoo.Name, f.Namespace().Name)
 				Expect(err).NotTo(HaveOccurred(), "Cilium agents check for VM %s", vmFoo.Name)
 
 				if tc.vmBarHasMainNetwork {
-					err = network.CheckCiliumAgents(context.Background(), f.Clients.Kubectl(), vmBar.Name, f.Namespace().Name)
+					err = network.CheckCiliumAgents(context.Background(), f.Kubectl(), vmBar.Name, f.Namespace().Name)
 					Expect(err).NotTo(HaveOccurred(), "Cilium agents check for VM %s", vmBar.Name)
 				}
 			})
@@ -150,11 +140,11 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 			})
 
 			By("Check connectivity between VMs via additional network after migration", func() {
-				checkConnectivityBetweenVMs(f, vmFoo, vmBar, tc.vmBarHasMainNetwork)
+				checkConnectivityBetweenVMs(f, vmFoo, vmBar, tc.vmBarHasMainNetwork, tc.vmBarAdditionalIP, tc.vmFooAdditionalIP)
 			})
 		},
-		Entry("Main + additional network", additionalNetworkTestCase{vmBarHasMainNetwork: true}),
-		Entry("Only additional network (vm-bar without Main)", additionalNetworkTestCase{vmBarHasMainNetwork: false}),
+		Entry("Main + additional network", additionalNetworkTestCase{vmBarHasMainNetwork: true, vmFooAdditionalIP: "192.168.42.10", vmBarAdditionalIP: "192.168.42.11"}),
+		Entry("Only additional network (vm-bar without Main)", additionalNetworkTestCase{vmBarHasMainNetwork: false, vmFooAdditionalIP: "192.168.42.12", vmBarAdditionalIP: "192.168.42.13"}),
 	)
 })
 
@@ -209,26 +199,21 @@ users:
     lock_passwd: False
     ssh_authorized_keys:
       - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxcXHmwaGnJ8scJaEN5RzklBPZpVSic4GdaAsKjQoeA your_email@example.com
-packages:
-  - qemu-guest-agent
 write_files:
   - path: /etc/network/interfaces
     append: true
     content: |
-
       auto %s
       iface %s inet static
           address %s
           netmask 255.255.255.0
 runcmd:
-  - sudo rc-update add qemu-guest-agent default
-  - sudo rc-service qemu-guest-agent start
-  - sudo /etc/init.d/networking restart
-  - chown -R cloud:cloud /home/cloud
+  - "rc-update add sshd && rc-service sshd start"
+  - "rc-update add networking boot && rc-service networking restart"
 `, ifaceName, ifaceName, additionalIP)
 }
 
-func checkConnectivityBetweenVMs(f *framework.Framework, vmFoo, vmBar *v1alpha2.VirtualMachine, vmBarHasMainNetwork bool) {
+func checkConnectivityBetweenVMs(f *framework.Framework, vmFoo, vmBar *v1alpha2.VirtualMachine, vmBarHasMainNetwork bool, vmBarAdditionalIP, vmFooAdditionalIP string) {
 	GinkgoHelper()
 
 	pingCmd := "ping -c 2 -W 2 -w 5 -q %s 2>&1 | grep -o \"[0-9]\\+%%\\s*packet loss\"" // %% -> % in output
@@ -244,14 +229,14 @@ func checkConnectivityBetweenVMs(f *framework.Framework, vmFoo, vmBar *v1alpha2.
 }
 
 const (
-	Interval = 5 * time.Second
+	Interval = 1 * time.Second
 	Timeout  = 90 * time.Second
 )
 
 func checkResultSSHCommand(f *framework.Framework, vmName, vmNamespace, cmd, equal string) {
 	GinkgoHelper()
 	Eventually(func() (string, error) {
-		res, err := f.SSHCommand(vmName, vmNamespace, cmd)
+		res, err := f.SSHCommand(vmName, vmNamespace, cmd, framework.WithSSHTimeout(5*time.Second))
 		if err != nil {
 			return "", fmt.Errorf("cmd: %s\nstderr: %w", cmd, err)
 		}

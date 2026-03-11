@@ -125,6 +125,10 @@ func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmip *v
 	}
 
 	if attachedVM != nil {
+		// A VM that is being deleted is not considered attached so the VMIP can be released and, if managed, removed (e.g. during cascade deletion).
+		if !attachedVM.GetDeletionTimestamp().IsZero() && len(attachedVM.Status.VirtualMachinePods) == 0 {
+			return nil, nil
+		}
 		if network.HasMainNetworkStatus(attachedVM.Status.Networks) {
 			return attachedVM, nil
 		}

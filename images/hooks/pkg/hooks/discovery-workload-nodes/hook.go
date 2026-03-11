@@ -19,13 +19,13 @@ package discovery_workload_nodes
 import (
 	"context"
 	"fmt"
-	"hooks/pkg/settings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
+	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
 
 const (

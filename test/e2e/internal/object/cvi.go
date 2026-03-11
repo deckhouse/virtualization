@@ -21,41 +21,6 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewHTTPCVIUbuntu(name string, opts ...cvi.Option) *v1alpha2.ClusterVirtualImage {
-	baseOpts := []cvi.Option{
-		cvi.WithName(name),
-		cvi.WithDataSourceHTTP(
-			ImageURLAlpineBIOS,
-			nil,
-			nil,
-		),
-	}
-	baseOpts = append(baseOpts, opts...)
-	return cvi.New(baseOpts...)
-}
-
-func NewGenerateHTTPCVIUbuntu(prefix string, opts ...cvi.Option) *v1alpha2.ClusterVirtualImage {
-	baseOpts := []cvi.Option{
-		cvi.WithGenerateName(prefix),
-		cvi.WithDataSourceHTTP(
-			ImageURLAlpineBIOS,
-			nil,
-			nil,
-		),
-	}
-	baseOpts = append(baseOpts, opts...)
-	return cvi.New(baseOpts...)
-}
-
-func NewContainerImageCVI(name string, opts ...cvi.Option) *v1alpha2.ClusterVirtualImage {
-	baseOpts := []cvi.Option{
-		cvi.WithName(name),
-		cvi.WithDataSourceContainerImage(ImageURLContainerImage, v1alpha2.ImagePullSecret{}, nil),
-	}
-	baseOpts = append(baseOpts, opts...)
-	return cvi.New(baseOpts...)
-}
-
 func NewGenerateContainerImageCVI(prefix string, opts ...cvi.Option) *v1alpha2.ClusterVirtualImage {
 	baseOpts := []cvi.Option{
 		cvi.WithGenerateName(prefix),

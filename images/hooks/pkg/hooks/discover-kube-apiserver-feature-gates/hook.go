@@ -19,7 +19,6 @@ package discover_kube_apiserver_feature_gates
 import (
 	"context"
 	"fmt"
-	"hooks/pkg/settings"
 	"slices"
 	"strings"
 
@@ -28,6 +27,7 @@ import (
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
+	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
 
 const (

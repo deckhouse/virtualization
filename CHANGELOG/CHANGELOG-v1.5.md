@@ -9,6 +9,7 @@
 ## Fixes
 
 
+ - **[core]** Fixed a potential `OOMKill` during virtual disk creation on NFS. [#2029](https://github.com/deckhouse/virtualization/pull/2029)
  - **[core]** Fixed an issue with starting virtual machines using the `EFIWithSecureBoot` bootloader when configured with more than 12 vCPUs. [#1916](https://github.com/deckhouse/virtualization/pull/1916)
  - **[module]** Platform system components in user projects are protected from deletion by users. [#1880](https://github.com/deckhouse/virtualization/pull/1880)
  - **[module]** During virtual machine migration, temporary double consumption of resources is no longer counted in project quotas. System component resources required for starting and running virtual machines are no longer counted in project quotas. [#1872](https://github.com/deckhouse/virtualization/pull/1872)

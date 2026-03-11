@@ -72,11 +72,16 @@ linters:
       exclude-functions:
         - "(*os.File).Close"
         - "(*net.TCPConn).Close"
-      # - "fmt:.*"
-      # - "[rR]ead"
-      # - "[wW]rite"
-      # - "[cC]lose"
-      # - "io:Copy"
+        - "(io.ReadCloser).Close"
+        - "(net.Listener).Close"
+        - "(net.Conn).Close"
+        - "(net.Conn).Close"
+        - "(*golang.org/x/crypto/ssh.Session).Close"
+        - "(*github.com/fsnotify/fsnotify.Watcher).Close"
+    staticcheck:
+      dot-import-whitelist:
+        - github.com/onsi/ginkgo/v2
+        - github.com/onsi/gomega
     revive:
       rules:
         - name: dot-imports

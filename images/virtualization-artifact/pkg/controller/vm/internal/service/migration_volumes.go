@@ -132,7 +132,7 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 
 	kvvmSynced := equality.Semantic.DeepEqual(builtKVVMWithMigrationVolumes.Spec.Template.Spec.Volumes, kvvmInCluster.Spec.Template.Spec.Volumes)
 	if kvvmSynced {
-		if vmop != nil && !(readWriteOnceDisksSynced && storageClassChangedDisksSynced) {
+		if vmop != nil && (!readWriteOnceDisksSynced || !storageClassChangedDisksSynced) {
 			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 		// we already synced our vm with kvvm

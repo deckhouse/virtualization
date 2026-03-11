@@ -25,6 +25,11 @@ on:
         required: true
         type: string
         description: "Random UUID first 4 chars"
+      cluster_config_k8s_version:
+        required: false
+        type: string
+        default: "Automatic"
+        description: "Set k8s version for cluster config, like 1.34, 1.36 (without patch version)"
       cluster_config_workers_memory:
         required: false
         type: string
@@ -109,6 +114,7 @@ env:
   DEFAULT_USER: ${{ inputs.default_user }}
   GO_VERSION: ${{ inputs.go_version }}
   SETUP_CLUSTER_TYPE_PATH: test/dvp-static-cluster
+  K8S_VERSION: ${{ inputs.cluster_config_k8s_version }}
 
 defaults:
   run:
@@ -116,7 +122,7 @@ defaults:
 
 jobs:
   bootstrap:
-    name: Bootstrap cluster (${{ inputs.storage_type }})
+    name: Bootstrap cluster
     runs-on: ubuntu-latest
     concurrency:
       group: "${{ github.workflow }}-${{ github.event.number || github.ref }}-${{ inputs.storage_type }}"
@@ -193,7 +199,7 @@ jobs:
             channel: ${{ env.DECKHOUSE_CHANNEL }}
             podSubnetCIDR: ${{ inputs.pod_subnet_cidr }}
             serviceSubnetCIDR: ${{ inputs.service_subnet_cidr }}
-            kubernetesVersion: Automatic
+            kubernetesVersion: ${{ env.K8S_VERSION }}
             registryDockerCfg: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
             bundle: Default
             proxyEnabled: false
@@ -427,7 +433,7 @@ jobs:
           retention-days: 3
 
   configure-storage:
-    name: Configure storage (${{ inputs.storage_type }})
+    name: Configure storage
     runs-on: ubuntu-latest
     needs: bootstrap
     steps:
@@ -1117,7 +1123,7 @@ jobs:
           virt_handler_ready
 
   e2e-test:
-    name: E2E test (${{ inputs.storage_type }})
+    name: E2E test
     runs-on: ubuntu-latest
     needs:
       - bootstrap
@@ -1279,35 +1285,8 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
 
-  # temporary disabled
-  # unpin-cluster-nodes:
-  #   name: Unpin cluster nodes
-  #   runs-on: ubuntu-latest
-  #   needs:
-  #     - bootstrap
-  #     - e2e-test
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Configure kubectl via azure/k8s-set-context@v4
-  #       uses: azure/k8s-set-context@v4
-  #       with:
-  #         method: kubeconfig
-  #         context: e2e-cluster-nightly-e2e-virt-sa
-  #         kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
-
-  #     - name: Unpin cluster nodes
-  #       env:
-  #         NAMESPACE: ${{ needs.e2e-test.outputs.namespace }}
-  #       run: |
-  #         for vm in $(kubectl -n $NAMESPACE get vm -o name); do
-  #           echo "[INFO] Unpin VM $vm"
-  #           pinNode=$(kubectl -n $NAMESPACE get vm $vm jsonpath='{.status.nodeName}')
-  #           echo "[INFO] Unping VM $vm from node $pinNode"
-  #           kubectl -n $NAMESPACE patch vm $vm --type json --patch '{"op": "remove", "path": "/spec/nodeSelector"}'
-  #         done
-
   prepare-report:
-    name: Prepare E2E report (${{ inputs.storage_type }})
+    name: Prepare E2E report
     runs-on: ubuntu-latest
     needs:
       - bootstrap
@@ -1474,7 +1453,7 @@ jobs:
           echo "[INFO] Artifact name: $ARTIFACT_NAME"
 
   undeploy-cluster:
-    name: Undeploy cluster (${{ inputs.storage_type }})
+    name: Undeploy cluster
     runs-on: ubuntu-latest
     needs:
       - bootstrap
