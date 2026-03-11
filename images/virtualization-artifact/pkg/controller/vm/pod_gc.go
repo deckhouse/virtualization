@@ -33,7 +33,7 @@ import (
 const gcPodControllerName = "vm-pod-gc-controller"
 
 func SetupPodGC(mgr manager.Manager, log *log.Logger, gcSettings config.BaseGcSettings) error {
-	podGCMgr := newPodGCManager(mgr.GetClient(), gcSettings.TTL.Duration, 10)
+	podGCMgr := newPodGCManager(mgr.GetClient(), gcSettings.TTL.Duration, 2)
 
 	return gc.SetupGcController(gcPodControllerName,
 		mgr,
@@ -48,7 +48,7 @@ func newPodGCManager(client client.Client, ttl time.Duration, max int) *podGCMan
 		ttl = 24 * time.Hour
 	}
 	if max == 0 {
-		max = 10
+		max = 2
 	}
 	return &podGCManager{
 		client: client,
@@ -100,5 +100,5 @@ func (m *podGCManager) getIndex(obj client.Object) string {
 	if !ok {
 		return ""
 	}
-	return pod.Labels[virtv1.VirtualMachineNameLabel]
+	return pod.Namespace + "/" + pod.Labels[virtv1.VirtualMachineNameLabel]
 }
