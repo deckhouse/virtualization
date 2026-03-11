@@ -192,28 +192,74 @@ Where:
 
 {{< alert level="warning" >}}
 Not available in CE edition.
+
+To enable security event auditing:
+
+1. Enable `log-shipper` and `runtime-audit-engine` modules.
+2. Enable Kubernetes API audit by setting `.spec.settings.apiserver.auditPolicyEnabled: true` in the `control-plane-manager` module.
+3. Set `.spec.settings.audit.enabled: true` in the `virtualization` module:
+
+   ```yaml
+   spec:
+     settings:
+       audit:
+         enabled: true
+   ```
 {{< /alert >}}
-
-{{< alert level="warning" >}}
-To set up auditing, the following modules must be enabled:
-
-- `log-shipper`,
-- `runtime-audit-engine`.
-{{< /alert >}}
-
-To enable security event auditing, set the module’s `.spec.settings.audit.enabled` parameter to `true`:
-
-```yaml
-spec:
-  enabled: true
-  settings:
-    audit:
-      enabled: true
-```
 
 {{< alert level="info" >}}
 For a complete list of configuration options, see [Configuration](./configuration.html).
 {{< /alert >}}
+
+Events are collected by the `virtualization-audit-*` pod in the `d8-virtualization` namespace. To forward events to the cluster logging system (e.g., Loki), create a ClusterLoggingConfig:
+
+```yaml
+apiVersion: deckhouse.io/v1alpha1
+kind: ClusterLoggingConfig
+metadata:
+  name: virtualization-audit-logs
+spec:
+  destinationRefs:
+    - d8-loki
+  kubernetesPods:
+    namespaceSelector:
+      matchNames:
+        - d8-virtualization
+    labelSelector:
+      matchLabels:
+        app: virtualization-audit
+  type: KubernetesPods
+```
+
+To view events in Grafana, use a Loki query:
+
+```logql
+{namespace="d8-virtualization", pod=~"virtualization-audit-.*"}
+```
+
+Available fields in the logs:
+- `type` — event type (Access to VM, VM Management, etc.)
+- `name` — human-readable description
+- `request_subject` — username or serviceaccount
+- `datetime` — event timestamp
+- `virtualmachine_name` — affected VM
+- `source_ip` — request source IP (for forbidden operations)
+
+### Security events
+
+The audit system logs the following events:
+
+1. **Access to VM** — connection via console, VNC, or portforward. Includes VM name, OS, versions, storage, and node address.
+
+2. **VM Management** — create, update, patch, or delete operations on VirtualMachine resources.
+
+3. **VM Control Operations** — start, stop, restart, migrate, or evict via VirtualMachineOperation resource.
+
+4. **Integrity Check** — sha256 verification of VM configuration. Logs when checksum changes.
+
+5. **Module Control** — create, update, or delete operations on ModuleConfig.
+
+6. **Forbidden Operations** — operations blocked by the platform. Includes user, operation, resource, source IP, and denial reason.
 
 ## Images
 
