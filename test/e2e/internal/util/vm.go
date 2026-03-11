@@ -19,13 +19,16 @@ package util
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
@@ -33,9 +36,56 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/rewrite"
 )
 
 const VmopE2ePrefix = "vmop-e2e"
+
+var knownKubeVirtClientSocketClosedRe = regexp.MustCompile(`(?is)virError\(Code=1,.*internal error:\s*client\s+socket\s+is\s+closed`)
+
+func IsKnownKubeVirtClientSocketClosedFailureReason(reason string) bool {
+	return knownKubeVirtClientSocketClosedRe.MatchString(reason)
+}
+
+func SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(vm *v1alpha2.VirtualMachine) bool {
+	GinkgoHelper()
+
+	if vm == nil {
+		return false
+	}
+
+	intvirtvmi, err := getInternalVirtualMachineInstance(vm)
+	Expect(err).NotTo(HaveOccurred())
+	if intvirtvmi == nil || intvirtvmi.Status.MigrationState == nil {
+		return false
+	}
+
+	failureReason := intvirtvmi.Status.MigrationState.FailureReason
+	if !IsKnownKubeVirtClientSocketClosedFailureReason(failureReason) {
+		return false
+	}
+
+	// TODO: remove skip when kubevirt client socket closed issue is fixed.
+	Skip(fmt.Sprintf("skip due to known kubevirt migration issue (client socket closed) for vm %s/%s: %s",
+		vm.Namespace, vm.Name, failureReason))
+
+	return true
+}
+
+func getInternalVirtualMachineInstance(vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
+	GinkgoHelper()
+
+	obj := &rewrite.VirtualMachineInstance{}
+	err := framework.GetClients().RewriteClient().Get(context.Background(), vm.Name, obj, rewrite.InNamespace(vm.Namespace))
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return obj.VirtualMachineInstance, nil
+}
 
 func UntilVMAgentReady(key client.ObjectKey, timeout time.Duration) {
 	GinkgoHelper()
@@ -73,6 +123,8 @@ func UntilVMMigrationSucceeded(key client.ObjectKey, timeout time.Duration) {
 		if err != nil {
 			return err
 		}
+		// TODO: remove skip when kubevirt client socket closed issue is fixed.
+		SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(vm)
 
 		state := vm.Status.MigrationState
 

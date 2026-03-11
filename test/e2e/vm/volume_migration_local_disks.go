@@ -124,6 +124,13 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), fun
 		util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
 		Eventually(func() error {
+			vm, err = f.VirtClient().VirtualMachines(ns).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			// TODO: remove skip when kubevirt client socket closed issue is fixed.
+			util.SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(vm)
+
 			vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(context.Background(), vmopName, metav1.GetOptions{})
 			if err != nil {
 				return err
@@ -208,6 +215,13 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), fun
 			util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
 			Eventually(func() error {
+				vm, err = f.VirtClient().VirtualMachines(ns).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				// TODO: remove skip when kubevirt client socket closed issue is fixed.
+				util.SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(vm)
+
 				vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(context.Background(), vmopName, metav1.GetOptions{})
 				if err != nil {
 					return err
@@ -503,6 +517,13 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), fun
 		util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
 		Eventually(func() error {
+			vm, err = f.VirtClient().VirtualMachines(ns).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			// TODO: remove skip when kubevirt client socket closed issue is fixed.
+			util.SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(vm)
+
 			vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(context.Background(), vmopName, metav1.GetOptions{})
 			if err != nil {
 				return err

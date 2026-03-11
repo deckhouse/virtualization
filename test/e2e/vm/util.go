@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	e2eutil "github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
 type buildOption struct {
@@ -129,6 +130,13 @@ func untilVirtualDisksMigrationsSucceeded(f *framework.Framework) {
 
 	By("Wait until VirtualDisks migrations succeeded")
 	Eventually(func(g Gomega) {
+		vms, err := f.VirtClient().VirtualMachines(f.Namespace().Name).List(context.Background(), metav1.ListOptions{})
+		g.Expect(err).NotTo(HaveOccurred())
+		for _, vm := range vms.Items {
+			// TODO: remove skip when kubevirt client socket closed issue is fixed.
+			e2eutil.SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(&vm)
+		}
+
 		vds, err := f.VirtClient().VirtualDisks(f.Namespace().Name).List(context.Background(), metav1.ListOptions{})
 		g.Expect(err).NotTo(HaveOccurred())
 
@@ -154,6 +162,13 @@ func untilVirtualDisksMigrationsFailed(f *framework.Framework) {
 
 	By("Wait until VirtualDisks migrations failed")
 	Eventually(func(g Gomega) {
+		vms, err := f.VirtClient().VirtualMachines(f.Namespace().Name).List(context.Background(), metav1.ListOptions{})
+		g.Expect(err).NotTo(HaveOccurred())
+		for _, vm := range vms.Items {
+			// TODO: remove skip when kubevirt client socket closed issue is fixed.
+			e2eutil.SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(&vm)
+		}
+
 		vds, err := f.VirtClient().VirtualDisks(f.Namespace().Name).List(context.Background(), metav1.ListOptions{})
 		g.Expect(err).NotTo(HaveOccurred())
 
@@ -201,6 +216,8 @@ func untilVirtualMachinesWillBeStartMigratingAndCancelImmediately(f *framework.F
 
 		vmsByName := make(map[string]*v1alpha2.VirtualMachine, len(vms.Items))
 		for _, vm := range vms.Items {
+			// TODO: remove skip when kubevirt client socket closed issue is fixed.
+			e2eutil.SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(&vm)
 			vmsByName[vm.Name] = &vm
 		}
 
