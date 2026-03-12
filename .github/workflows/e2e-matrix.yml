@@ -116,7 +116,7 @@ jobs:
 
           # Constants (nested cluster: 1 master + 3 workers x2)
           REQUIRED_MEM_GI=86
-          REQUIRED_CPU=20
+          REQUIRED_CPU=26
           MIN_MEM_GI_PER_NODE=12
           MIN_CPU_PER_NODE=4
           MIN_NODES_FOR_PLACEMENT=3

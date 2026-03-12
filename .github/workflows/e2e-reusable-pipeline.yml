@@ -229,7 +229,7 @@ jobs:
               count: 3
               cfg:
                 cpu:
-                  cores: 4
+                  cores: 6
                   coreFraction: 50%
                 memory:
                   size: ${{ inputs.cluster_config_workers_memory }}
