@@ -10,7 +10,7 @@ true
   value: {{ include "moduleLogLevel" . }}
 {{- if eq (include "moduleLogLevel" .) "debug" }}
 - name: LOG_DEBUG_VERBOSITY
-  value: "10"
+  value: "9"
 {{- end }}
 - name: LOG_FORMAT
   value: {{ include "moduleLogFormat" . }}
