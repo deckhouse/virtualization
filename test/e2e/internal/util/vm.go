@@ -50,6 +50,7 @@ func IsKnownKubeVirtClientSocketClosedFailureReason(reason string) bool {
 	return knownKubeVirtClientSocketClosedRe.MatchString(reason)
 }
 
+// TODO: remove temporary migration skip logic when issue "client socket is closed" is fixed:
 func SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
@@ -64,20 +65,17 @@ func SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(vm *v1alpha2.VirtualM
 	}
 
 	failureReason := intvirtvmi.Status.MigrationState.FailureReason
-	if !IsKnownKubeVirtClientSocketClosedFailureReason(failureReason) {
-		return
+	if IsKnownKubeVirtClientSocketClosedFailureReason(failureReason) {
+		Skip(fmt.Sprintf("skip due to known kubevirt migration issue (client socket closed) for vm %s/%s: %s",
+			vm.Namespace, vm.Name, failureReason))
 	}
-
-	// TODO: remove temporary migration skip logic when both known issues are fixed:
-	// kubevirt "client socket is closed" and Volume(s)UpdateError.
-	Skip(fmt.Sprintf("skip due to known kubevirt migration issue (client socket closed) for vm %s/%s: %s",
-		vm.Namespace, vm.Name, failureReason))
 }
 
 func IsKnownVolumesUpdateFailureReason(reason string) bool {
 	return reason == knownVolumeUpdateFailureReason
 }
 
+// TODO: remove temporary migration skip logic when known issue "VolumesUpdateError" is fixed:
 func SkipIfKnownVolumesUpdateMigrationFailure(vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
@@ -99,6 +97,8 @@ func SkipIfKnownVolumesUpdateMigrationFailure(vm *v1alpha2.VirtualMachine) {
 	}
 }
 
+// TODO: remove temporary migration skip logic when both known issues are fixed:
+// kubevirt "client socket is closed" and VolumesUpdateError.
 func SkipIfKnownMigrationFailure(vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
