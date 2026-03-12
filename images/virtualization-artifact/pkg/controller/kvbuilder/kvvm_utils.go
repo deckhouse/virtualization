@@ -110,7 +110,7 @@ func ApplyVirtualMachineSpec(
 		return err
 	}
 
-	kvvm.SetHostDeviceMigrationStrategy()
+	kvvm.SetHostDeviceMigrationStrategy(vm.GetAnnotations())
 	kvvm.SetMetadata(vm.ObjectMeta)
 	setNetwork(kvvm, networkSpec)
 	kvvm.SetTablet("default-0")

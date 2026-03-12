@@ -655,6 +655,20 @@ func (b *KVVM) SetUpdateVolumesStrategy(strategy *virtv1.UpdateVolumesStrategy) 
 	b.Resource.Spec.UpdateVolumesStrategy = strategy
 }
 
-func (b *KVVM) SetHostDeviceMigrationStrategy() {
-	b.Resource.Spec.Template.Spec.HostDeviceMigrationStrategy = ptr.To(virtv1.HostDeviceMigrationStrategyDetachBeforeMigration)
+func (b *KVVM) SetHostDeviceMigrationStrategy(annos map[string]string) {
+	const strategyAnn = "virtualization.deckhouse.io/host-device-migration-strategy"
+
+	strategy := virtv1.HostDeviceMigrationStrategyIgnoreOnTarget
+
+	anno := annos[strategyAnn]
+	switch anno {
+	case string(virtv1.HostDeviceMigrationStrategyPreventMigration):
+		strategy = virtv1.HostDeviceMigrationStrategyPreventMigration
+	case string(virtv1.HostDeviceMigrationStrategyDetachBeforeMigration):
+		strategy = virtv1.HostDeviceMigrationStrategyDetachBeforeMigration
+	case string(virtv1.HostDeviceMigrationStrategyIgnoreOnTarget):
+		strategy = virtv1.HostDeviceMigrationStrategyIgnoreOnTarget
+	}
+
+	b.Resource.Spec.Template.Spec.HostDeviceMigrationStrategy = ptr.To(strategy)
 }
