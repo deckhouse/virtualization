@@ -54,7 +54,6 @@ spec:
       - HotplugVolumes
       - Snapshot
       - ExpandDisks
-      - Root
       - CPUManager
       - Sidecar
       - VolumeSnapshotDataSource
