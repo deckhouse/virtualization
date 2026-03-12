@@ -42,7 +42,6 @@ tasks:
     vars:
       VERSION: "{{ .VERSION }}"
       CHANNEL: "{{ .CHANNEL }}"
-      MODULE: "{{ .MODULE }}"
     cmds:
       - |
         if [[ -z "{{ .VERSION }}" ]] || [[ -z "{{ .CHANNEL }}" ]]; then
@@ -60,20 +59,10 @@ tasks:
           local prod_registry="registry.deckhouse.io/deckhouse"
           local channel=$1
           local version=$2
-          local module=$3
 
           for edition in ${editions[@]}; do
-            if [[ -z "$module" ]]; then
-              local url="${prod_registry}/${edition}:${channel}"
-              local command="crane export $url - | tar -Oxf - deckhouse/version"
-            else
-              local url="${prod_registry}/${edition}/modules/$module/release:${channel}"
-              local command="crane export $url - | tar -Oxf - version.json | jq '.version' -r"
-            fi
             echo "Check version on ${edition}"
-            getVersion=$(
-              eval $command
-            )
+            getVersion=$(crane export "${prod_registry}/${edition}/modules/virtualization/release:${channel}" - | tar -Oxf - version.json | jq '.version' -r)
             if [[ "${getVersion}" != "${version}" ]]; then
               echo "Version is not valid in ${edition} and channel ${channel}"
               echo "Expected version: ${version} but got ${getVersion}"
@@ -91,7 +80,7 @@ tasks:
 
         for i in $(seq 1 $count); do
           echo "[INFO] Attempt $i/$count..."
-          check_editions_version {{ .CHANNEL }} {{ .VERSION }} {{ .MODULE }}
+          check_editions_version {{ .CHANNEL }} {{ .VERSION }}
 
           if [ "$CHECK" = true ]; then
             echo "[SUCCESS] Successfully checkd version for editions."

@@ -34,7 +34,7 @@ formatters:
     gofumpt:
       extra-rules: true
     goimports:
-      local-prefixes: github.com/deckhouse/
+      local-prefixes: github.com/deckhouse/virtualization/tools/moduleversions
 
 linters:
   default: none
