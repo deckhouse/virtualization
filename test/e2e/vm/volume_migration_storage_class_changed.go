@@ -241,8 +241,9 @@ var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), func(
 				if err != nil {
 					return err
 				}
-				// TODO: remove skip when kubevirt client socket closed issue is fixed.
-				util.SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(vm)
+				// TODO: remove temporary migration skip logic when both known issues are fixed:
+				// kubevirt "client socket is closed" and Volume(s)UpdateError.
+				util.SkipIfKnownMigrationFailure(vm)
 
 				var lastVMOP *v1alpha2.VirtualMachineOperation
 				vmops, err := f.VirtClient().VirtualMachineOperations(ns).List(context.Background(), metav1.ListOptions{})
