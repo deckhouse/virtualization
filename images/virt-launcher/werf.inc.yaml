@@ -392,9 +392,6 @@ shell:
     echo "Create symlink for run -> var/run "
     ln -s var/run run
 
-  - |
-    setcap cap_net_bind_service=+ep /relocate/usr/bin/virt-launcher-monitor
-
   # /etc/libvirt-init will be copied back into /etc/libvirt at runtime. This is necessary because we configure libvirt to mount /etc/libvirt and set readOnlyRootFilesystem for other directories.
   # DO NOT REMOVE. node-labeler.sh uses /etc/libvirt.
   - |
