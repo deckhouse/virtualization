@@ -2128,7 +2128,12 @@ How to work with bootable block devices in the web interface:
 - Go to the "Virtualization" → "Virtual Machines" section.
 - Select the required VM from the list and click on its name.
 - On the "Configuration" tab, scroll down to the "Disks and Images" section.
-- You can add, extract, delete, resize, and reorder bootable block devices in the "Boot Disks" section.
+- In the "Boot Disks" section you can:
+  - Add: Attach a new disk or image to the VM.
+  - Extract: Detach the device from the VM (the image or disk remains in the project and can be attached again to this or another VM).
+  - Delete: Remove the image or disk resource from the cluster (after deletion it cannot be reused).
+  - Resize: Change the size of the disk.
+  - Reorder: Change the boot order of devices.
 
 #### Additional Block Devices
 
@@ -2219,7 +2224,11 @@ How to work with additional block devices in the web interface:
 - Go to the "Virtualization" → "Virtual Machines" section.
 - Select the required VM from the list and click on its name.
 - On the "Configuration" tab, scroll down to the "Disks and Images" section.
-- You can add, extract, delete, and resize additional block devices in the "Additional Disks" section.
+- In the "Additional Disks" section you can:
+  - Add: Attach a new disk or image to the VM.
+  - Extract: Detach the device from the VM (the image or disk remains in the project and can be attached again to this or another VM).
+  - Delete: Remove the image or disk resource from the cluster (after deletion it cannot be reused).
+  - Resize: Change the size of the disk.
 
 #### Disk naming in guest OS
 
