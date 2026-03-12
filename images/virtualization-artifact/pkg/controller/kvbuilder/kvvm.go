@@ -31,7 +31,6 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/array"
-	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/common/resource_builder"
 	"github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -166,11 +165,11 @@ func (b *KVVM) SetRunPolicy(runPolicy v1alpha2.RunPolicy) error {
 	case v1alpha2.AlwaysOnPolicy,
 		v1alpha2.AlwaysOffPolicy,
 		v1alpha2.ManualPolicy:
-		b.Resource.Spec.RunStrategy = pointer.GetPointer(virtv1.RunStrategyManual)
+		b.Resource.Spec.RunStrategy = ptr.To(virtv1.RunStrategyManual)
 	case v1alpha2.AlwaysOnUnlessStoppedManually:
 		if !b.ResourceExists {
 			// initialize only
-			b.Resource.Spec.RunStrategy = pointer.GetPointer(virtv1.RunStrategyAlways)
+			b.Resource.Spec.RunStrategy = ptr.To(virtv1.RunStrategyAlways)
 		}
 	default:
 		return fmt.Errorf("unexpected runPolicy %s. %w", runPolicy, common.ErrUnknownValue)
@@ -483,34 +482,34 @@ func (b *KVVM) SetOsType(osType v1alpha2.OsType) error {
 		b.Resource.Spec.Template.Spec.Domain.Machine = &virtv1.Machine{
 			Type: "q35",
 		}
-		b.Resource.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.GetPointer(true)
+		b.Resource.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = ptr.To(true)
 		b.Resource.Spec.Template.Spec.Domain.Devices.TPM = &virtv1.TPMDevice{}
 		b.Resource.Spec.Template.Spec.Domain.Features = &virtv1.Features{
-			ACPI: virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
-			APIC: &virtv1.FeatureAPIC{Enabled: pointer.GetPointer(true)},
-			SMM:  &virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
+			ACPI: virtv1.FeatureState{Enabled: ptr.To(true)},
+			APIC: &virtv1.FeatureAPIC{Enabled: ptr.To(true)},
+			SMM:  &virtv1.FeatureState{Enabled: ptr.To(true)},
 			Hyperv: &virtv1.FeatureHyperv{
-				Frequencies:     &virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
-				IPI:             &virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
-				Reenlightenment: &virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
-				Relaxed:         &virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
-				Reset:           &virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
-				Runtime:         &virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
+				Frequencies:     &virtv1.FeatureState{Enabled: ptr.To(true)},
+				IPI:             &virtv1.FeatureState{Enabled: ptr.To(true)},
+				Reenlightenment: &virtv1.FeatureState{Enabled: ptr.To(true)},
+				Relaxed:         &virtv1.FeatureState{Enabled: ptr.To(true)},
+				Reset:           &virtv1.FeatureState{Enabled: ptr.To(true)},
+				Runtime:         &virtv1.FeatureState{Enabled: ptr.To(true)},
 				Spinlocks: &virtv1.FeatureSpinlocks{
-					Enabled: pointer.GetPointer(true),
-					Retries: pointer.GetPointer[uint32](8191),
+					Enabled: ptr.To(true),
+					Retries: ptr.To[uint32](8191),
 				},
-				TLBFlush: &virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
-				VAPIC:    &virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
-				VPIndex:  &virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
+				TLBFlush: &virtv1.FeatureState{Enabled: ptr.To(true)},
+				VAPIC:    &virtv1.FeatureState{Enabled: ptr.To(true)},
+				VPIndex:  &virtv1.FeatureState{Enabled: ptr.To(true)},
 			},
 		}
 
 		if !b.opts.DisableHypervSyNIC {
-			b.Resource.Spec.Template.Spec.Domain.Features.Hyperv.SyNIC = &virtv1.FeatureState{Enabled: pointer.GetPointer(true)}
+			b.Resource.Spec.Template.Spec.Domain.Features.Hyperv.SyNIC = &virtv1.FeatureState{Enabled: ptr.To(true)}
 			b.Resource.Spec.Template.Spec.Domain.Features.Hyperv.SyNICTimer = &virtv1.SyNICTimer{
-				Enabled: pointer.GetPointer(true),
-				Direct:  &virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
+				Enabled: ptr.To(true),
+				Direct:  &virtv1.FeatureState{Enabled: ptr.To(true)},
 			}
 		}
 
@@ -518,12 +517,12 @@ func (b *KVVM) SetOsType(osType v1alpha2.OsType) error {
 		b.Resource.Spec.Template.Spec.Domain.Machine = &virtv1.Machine{
 			Type: "q35",
 		}
-		b.Resource.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.GetPointer(true)
+		b.Resource.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = ptr.To(true)
 		b.Resource.Spec.Template.Spec.Domain.Devices.TPM = nil
 		b.Resource.Spec.Template.Spec.Domain.Devices.Rng = &virtv1.Rng{}
 		b.Resource.Spec.Template.Spec.Domain.Features = &virtv1.Features{
-			ACPI: virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
-			SMM:  &virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
+			ACPI: virtv1.FeatureState{Enabled: ptr.To(true)},
+			SMM:  &virtv1.FeatureState{Enabled: ptr.To(true)},
 		}
 	default:
 		return fmt.Errorf("unexpected os type %q. %w", osType, common.ErrUnknownType)
@@ -603,7 +602,7 @@ func (b *KVVM) SetBootloader(bootloader v1alpha2.BootloaderType) error {
 	case v1alpha2.EFI:
 		b.Resource.Spec.Template.Spec.Domain.Firmware.Bootloader = &virtv1.Bootloader{
 			EFI: &virtv1.EFI{
-				SecureBoot: pointer.GetPointer(false),
+				SecureBoot: ptr.To(false),
 			},
 		}
 	case v1alpha2.EFIWithSecureBoot:
@@ -611,12 +610,12 @@ func (b *KVVM) SetBootloader(bootloader v1alpha2.BootloaderType) error {
 			b.Resource.Spec.Template.Spec.Domain.Features = &virtv1.Features{}
 		}
 		b.Resource.Spec.Template.Spec.Domain.Features.SMM = &virtv1.FeatureState{
-			Enabled: pointer.GetPointer(true),
+			Enabled: ptr.To(true),
 		}
 		b.Resource.Spec.Template.Spec.Domain.Firmware.Bootloader = &virtv1.Bootloader{
 			EFI: &virtv1.EFI{
-				SecureBoot: pointer.GetPointer(true),
-				Persistent: pointer.GetPointer(true),
+				SecureBoot: ptr.To(true),
+				Persistent: ptr.To(true),
 			},
 		}
 	default:

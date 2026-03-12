@@ -33,7 +33,6 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
@@ -133,7 +132,7 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 		Message("PVC has created: waiting to be Bound.")
 
 	vd.Status.Progress = "0%"
-	vd.Status.SourceUID = pointer.GetPointer(vdSnapshot.UID)
+	vd.Status.SourceUID = ptr.To(vdSnapshot.UID)
 	vdsupplements.SetPVCName(vd, pvc.Name)
 
 	return nil, nil
