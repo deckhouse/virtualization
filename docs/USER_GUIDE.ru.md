@@ -2884,7 +2884,13 @@ NAME             VIRTUALMACHINEIPADDRESS                             STATUS   AG
 ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
 
-Ресурс `VirtualMachineIPAddress` (`vmip`): проектный/неймспейсный ресурс, который отвечает за резервирование арендованных IP-адресов и их привязку к виртуальным машинам. IP-адреса могут выделяться автоматически или по явному запросу.
+Ресурс [VirtualMachineIPAddres](/modules/virtualization/cr.html#virtualmachineipaddress) (`vmip`): проектный/неймспейсный ресурс, который отвечает за резервирование арендованных IP-адресов и их привязку к виртуальным машинам. IP-адреса могут выделяться автоматически или по явному запросу.
+
+После создания ресурс `VirtualMachineIPAddress` может находиться в следующих состояниях:
+
+- `Pending` — выполняется создание ресурса;
+- `Bound` — ресурс [VirtualMachineIPAddress](/modules/virtualization/cr.html#virtualmachineipaddress) привязан к ресурсу [VirtualMachineIPAddressLease](/modules/virtualization/cr.html#virtualmachineipaddresslease);
+- `Attached` — ресурс [VirtualMachineIPAddress](/modules/virtualization/cr.html#virtualmachineipaddress) подключен к ресурсу [VirtualMachine](/modules/virtualization/cr.html#virtualmachineipaddress).
 
 По умолчанию IP-адрес виртуальной машине назначается автоматически из подсетей, определенных в модуле и закрепляется за ней до её удаления. Проверить назначенный IP-адрес можно с помощью команды:
 

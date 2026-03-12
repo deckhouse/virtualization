@@ -2850,7 +2850,13 @@ NAME             VIRTUALMACHINEIPADDRESS                              STATUS   A
 ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
 
-`VirtualMachineIPAddress` (`vmip`) resource: A project/namespace resource that is responsible for reserving leased IP addresses and binding them to virtual machines. IP addresses can be allocated automatically or by explicit request.
+[`VirtualMachineIPAddress`](/modules/virtualization/cr.html#virtualmachineipaddress) (`vmip`) resource: A project/namespace resource that is responsible for reserving leased IP addresses and binding them to virtual machines. IP addresses can be allocated automatically or by explicit request.
+
+After creation, the [`VirtualMachineIPAddress`](/modules/virtualization/cr.html#virtualmachineipaddress) resource can have the following `Phase` values:
+
+- `Pending`: Resource is being created.
+- `Bound`: [VirtualMachineIPAddress](/modules/virtualization/cr.html#virtualmachineipaddress) is bound to the [VirtualMachineIPAddressLease](/modules/virtualization/cr.html#virtualmachineipaddresslease) resource.
+- `Attached`: [VirtualMachineIPAddress](/modules/virtualization/cr.html#virtualmachineipaddress) is attached to the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
 
 By default, an ip address is automatically assigned to a virtual machine from the subnets defined in the module and is assigned to it until it is deleted. You can check the assigned ip address using the command:
 
