@@ -23,7 +23,7 @@ import (
 	"github.com/deckhouse/virtualization-dra/internal/featuregates"
 )
 
-func (s *AllocationStore) discoveryPluggedUSBDevices(ctx context.Context) (DeviceSet, DeviceSet, error) {
+func (s *AllocationStore) discoveryPluggedUSBDevices(ctx context.Context) (map[string]Device, DeviceSet, error) {
 	allUSBDevices := s.monitor.GetDevices()
 
 	busIDSet := make(map[string]struct{})
@@ -37,21 +37,22 @@ func (s *AllocationStore) discoveryPluggedUSBDevices(ctx context.Context) (Devic
 		}
 	}
 
-	usbDeviceSet := NewDeviceSet()
+	usbDeviceMap := make(map[string]Device)
 	usbipDeviceSet := NewDeviceSet()
 
 	for _, device := range allUSBDevices {
 		if _, ok := busIDSet[device.BusID]; ok {
 			usbipDeviceSet.Insert(toDevice(&device))
 		} else {
-			usbDeviceSet.Insert(toDevice(&device))
+			dev := toDevice(&device)
+			usbDeviceMap[dev.GetName(s.nodeName)] = dev
 		}
 	}
 
 	if s.log.Enabled(ctx, slog.LevelDebug) {
-		s.log.Debug("USB device set", slog.Any("usbDeviceSet", usbDeviceSet.UnsortedList()))
+		s.log.Debug("USB device set", slog.Any("usbDeviceMap", usbDeviceMap))
 		s.log.Debug("USBIP device set", slog.Any("usbipDeviceSet", usbipDeviceSet.UnsortedList()))
 	}
 
-	return usbDeviceSet, usbipDeviceSet, nil
+	return usbDeviceMap, usbipDeviceSet, nil
 }

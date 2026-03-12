@@ -38,12 +38,33 @@ func NewMarker(dynamicClient dynamic.Interface, nodeName string) *Marker {
 	}
 }
 
-func (m Marker) Mark(ctx context.Context, all bool) error {
-	value := m.nodeName
-	if all {
-		value = "any"
+func (m Marker) Mark(ctx context.Context, any, hs, ss bool) error {
+	var (
+		addLabels = map[string]string{
+			consts.USBGatewayLabel: "true",
+		}
+		removeLabels []string
+	)
+
+	if any {
+		addLabels[consts.USBGatewayNodeLabel] = "any"
+	} else {
+		addLabels[consts.USBGatewayNodeLabel] = m.nodeName
 	}
-	err := m.labeler.Label(ctx, m.nodeName, "", map[string]string{consts.USBGatewayLabel: value}, nil)
+
+	if hs {
+		addLabels[consts.USBGatewayHighSpeedLabel] = "true"
+	} else {
+		removeLabels = append(removeLabels, consts.USBGatewayHighSpeedLabel)
+	}
+
+	if ss {
+		addLabels[consts.USBGatewaySuperSpeedLabel] = "true"
+	} else {
+		removeLabels = append(removeLabels, consts.USBGatewaySuperSpeedLabel)
+	}
+
+	err := m.labeler.Label(ctx, m.nodeName, "", addLabels, removeLabels)
 	if err != nil {
 		return fmt.Errorf("failed to label node %s: %w", m.nodeName, err)
 	}
@@ -51,7 +72,7 @@ func (m Marker) Mark(ctx context.Context, all bool) error {
 }
 
 func (m Marker) Unmark(ctx context.Context) error {
-	err := m.labeler.Label(ctx, m.nodeName, "", nil, []string{consts.USBGatewayLabel})
+	err := m.labeler.Label(ctx, m.nodeName, "", nil, []string{consts.USBGatewayLabel, consts.USBGatewayHighSpeedLabel, consts.USBGatewaySuperSpeedLabel})
 	if err != nil {
 		return fmt.Errorf("failed to unlabel node %s: %w", m.nodeName, err)
 	}
