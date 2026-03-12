@@ -99,6 +99,8 @@ type AllocationStore struct {
 	allocatedDevices           sets.Set[string]
 	usbipAllocatedDevicesCount map[string]int
 	resourceClaimAllocations   map[types.UID][]string
+
+	synchronized bool
 }
 
 func (s *AllocationStore) sync(ctx context.Context) error {
@@ -166,6 +168,10 @@ func (s *AllocationStore) UpdateChannel() chan resourceslice.DriverResources {
 func (s *AllocationStore) Prepare(ctx context.Context, claim *resourcev1.ResourceClaim) ([]*drapbv1.Device, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if !s.synchronized {
+		return nil, fmt.Errorf("prepare called before synchronize NRI Hook")
+	}
 
 	if claim.Status.Allocation == nil {
 		return nil, fmt.Errorf("claim %s/%s has no allocation", claim.Namespace, claim.Name)
@@ -480,6 +486,10 @@ func (s *AllocationStore) Unprepare(_ context.Context, claimUID types.UID) error
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if !s.synchronized {
+		return fmt.Errorf("unprepare called before synchronize NRI Hook")
+	}
+
 	usbGatewayEnabled := featuregates.Default().USBGatewayEnabled()
 
 	allocatedDevices := s.resourceClaimAllocations[claimUID]
@@ -547,6 +557,9 @@ func (s *AllocationStore) Synchronize(_ context.Context, pods []*api.PodSandbox,
 			}
 		}
 	}
+
+	s.synchronized = true
+
 	return nil, nil
 }
 
