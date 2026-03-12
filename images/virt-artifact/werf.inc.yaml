@@ -9,6 +9,7 @@
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
+fromCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
@@ -44,6 +45,7 @@ packages:
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.24" "builder/golang-alt-svace-1.24" }}
+fromCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
 mount:
 - fromPath: ~/go-pkg-cache
   to: /go/pkg
