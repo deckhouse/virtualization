@@ -9,7 +9,7 @@
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
-fromCacheVersion: "003" # TODO: delete it
+fromCacheVersion: "004" # TODO: delete it
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
