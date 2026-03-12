@@ -1,7 +1,6 @@
-{{- if eq .Values.global.deckhouseVersion "dev" }}
-{{- $localDeckhouseVersion := "1.76.0" }}
-{{- else }}
 {{- $localDeckhouseVersion := .Values.global.deckhouseVersion }}
+{{- if eq .Values.global.deckhouseVersion "dev" }}
+{{- $localDeckhouseVersion = "1.76.0" }}
 {{- end }}
 {{- if semverCompare "<1.76.0" $localDeckhouseVersion }}
 apiVersion: deckhouse.io/v1alpha1
