@@ -3592,6 +3592,14 @@ spec:
                         deviceResourceClaimStatus:
                           description: DRA-related information for the device.
                           properties:
+                            allowMultipleAllocations:
+                              description: AllowMultipleAllocations is a flag to allow multiple
+                                allocations of the same device
+                              type: boolean
+                            bindsToNode:
+                              description: BindsToNode is a flag to bind the device to the
+                                node
+                              type: boolean
                             attributes:
                               description: |-
                                 Properties of the device that could be used by kubevirt and other components to learn more
@@ -3640,6 +3648,14 @@ spec:
                         deviceResourceClaimStatus:
                           description: DRA-related information for the device.
                           properties:
+                            allowMultipleAllocations:
+                              description: AllowMultipleAllocations is a flag to allow multiple
+                                allocations of the same device
+                              type: boolean
+                            bindsToNode:
+                              description: BindsToNode is a flag to bind the device to the
+                                node
+                              type: boolean
                             attributes:
                               description: |-
                                 Properties of the device that could be used by kubevirt and other components to learn more
