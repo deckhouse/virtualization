@@ -34,7 +34,7 @@ altPackages:
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
-fromImage: builder/alt
+fromImage: builder/golang-alt
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
