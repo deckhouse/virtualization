@@ -28,7 +28,6 @@ import (
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/builder/cvi"
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vm"
@@ -54,15 +53,12 @@ var _ = Describe("VirtualMachineMigration", func() {
 		vmUEFI      *v1alpha2.VirtualMachine
 
 		// Hotplug: disks and images attached via VMBDAs
-		vdHotplugBIOS  *v1alpha2.VirtualDisk
-		vdHotplugUEFI  *v1alpha2.VirtualDisk
-		viHotplugBIOS  *v1alpha2.VirtualImage
-		viHotplugUEFI  *v1alpha2.VirtualImage
-		cviHotplugBIOS *v1alpha2.ClusterVirtualImage
-		cviHotplugUEFI *v1alpha2.ClusterVirtualImage
-
-		vmbdas     []*v1alpha2.VirtualMachineBlockDeviceAttachment
-		allObjects []crclient.Object
+		vdHotplugBIOS *v1alpha2.VirtualDisk
+		vdHotplugUEFI *v1alpha2.VirtualDisk
+		viHotplugBIOS *v1alpha2.VirtualImage
+		viHotplugUEFI *v1alpha2.VirtualImage
+		vmbdas        []*v1alpha2.VirtualMachineBlockDeviceAttachment
+		allObjects    []crclient.Object
 
 		vmopMigrateBIOS *v1alpha2.VirtualMachineOperation
 		vmopMigrateUEFI *v1alpha2.VirtualMachineOperation
@@ -165,15 +161,6 @@ var _ = Describe("VirtualMachineMigration", func() {
 				vi.WithStorage(v1alpha2.StorageContainerRegistry),
 			)
 
-			cviHotplugBIOS = cvi.New(
-				cvi.WithName("cvi-hotplug-bios"),
-				cvi.WithDataSourceHTTP(object.ImageTestDataQCOW, nil, nil),
-			)
-			cviHotplugUEFI = cvi.New(
-				cvi.WithName("cvi-hotplug-uefi"),
-				cvi.WithDataSourceHTTP(object.ImageTestDataQCOW, nil, nil),
-			)
-
 			vmbdaVdBIOS := vmbda.New(
 				vmbda.WithName("vmbda-vd-bios"),
 				vmbda.WithNamespace(f.Namespace().Name),
@@ -201,13 +188,13 @@ var _ = Describe("VirtualMachineMigration", func() {
 			vmbdaCviBIOS := vmbda.New(
 				vmbda.WithName("vmbda-cvi-bios"),
 				vmbda.WithNamespace(f.Namespace().Name),
-				vmbda.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindClusterVirtualImage, cviHotplugBIOS.Name),
+				vmbda.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindClusterVirtualImage, object.PrecreatedCVITestDataQCOW),
 				vmbda.WithVirtualMachineName(vmBIOS.Name),
 			)
 			vmbdaCviUEFI := vmbda.New(
 				vmbda.WithName("vmbda-cvi-uefi"),
 				vmbda.WithNamespace(f.Namespace().Name),
-				vmbda.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindClusterVirtualImage, cviHotplugUEFI.Name),
+				vmbda.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindClusterVirtualImage, object.PrecreatedCVITestDataQCOW),
 				vmbda.WithVirtualMachineName(vmUEFI.Name),
 			)
 			vmbdas = []*v1alpha2.VirtualMachineBlockDeviceAttachment{
@@ -217,7 +204,6 @@ var _ = Describe("VirtualMachineMigration", func() {
 			allObjects = append([]crclient.Object{
 				vdRootBIOS, vdBlankBIOS, vmBIOS, vdRootUEFI, vdBlankUEFI, vmUEFI,
 				vdHotplugBIOS, vdHotplugUEFI, viHotplugBIOS, viHotplugUEFI,
-				cviHotplugBIOS, cviHotplugUEFI,
 			}, toObjects(vmbdas)...)
 			err := f.CreateWithDeferredDeletion(context.Background(), allObjects...)
 			Expect(err).NotTo(HaveOccurred())

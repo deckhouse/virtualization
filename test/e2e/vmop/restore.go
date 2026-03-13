@@ -30,7 +30,6 @@ import (
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	cvibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/cvi"
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
@@ -90,7 +89,7 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 		By("Environment preparation", func() {
 			t.GenerateResources(restoreMode, restartApprovalMode, runPolicy)
 			err := f.CreateWithDeferredDeletion(
-				context.Background(), t.CVI, t.VI, t.VDRoot, t.VDBlank, t.VM, t.VMBDA, t.VDBlankWithNoFstabEntry, t.VMBDAWithNoFstabEntry,
+				context.Background(), t.VI, t.VDRoot, t.VDBlank, t.VM, t.VMBDA, t.VDBlankWithNoFstabEntry, t.VMBDAWithNoFstabEntry,
 			)
 			Expect(err).NotTo(HaveOccurred())
 			if t.VM.Spec.RunPolicy == v1alpha2.ManualPolicy {
@@ -242,7 +241,6 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 })
 
 type restoreModeTest struct {
-	CVI                     *v1alpha2.ClusterVirtualImage
 	VI                      *v1alpha2.VirtualImage
 	VDRoot                  *v1alpha2.VirtualDisk
 	VDBlank                 *v1alpha2.VirtualDisk
@@ -265,11 +263,6 @@ func newRestoreTest(f *framework.Framework) *restoreModeTest {
 }
 
 func (t *restoreModeTest) GenerateResources(restoreMode v1alpha2.SnapshotOperationMode, restartApprovalMode v1alpha2.RestartApprovalMode, runPolicy v1alpha2.RunPolicy) {
-	t.CVI = cvibuilder.New(
-		cvibuilder.WithName(fmt.Sprintf("%s-cvi", t.Framework.Namespace().Name)),
-		cvibuilder.WithDataSourceHTTP(object.ImageTestDataISO, nil, nil),
-	)
-
 	t.VI = vibuilder.New(
 		vibuilder.WithName("vi"),
 		vibuilder.WithNamespace(t.Framework.Namespace().Name),
@@ -343,7 +336,7 @@ runcmd:
 			},
 			v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.ClusterImageDevice,
-				Name: t.CVI.Name,
+				Name: object.PrecreatedCVITestDataISO,
 			},
 			v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.ImageDevice,

@@ -41,9 +41,11 @@ func TestE2E(t *testing.T) {
 var _ = SynchronizedBeforeSuite(func() {
 	controller.NewBeforeProcess1Body()
 	legacy.NewBeforeProcess1Body()
+	bootstrapPrecreatedCVIs()
 }, func() {})
 
 var _ = SynchronizedAfterSuite(func() {}, func() {
-	DeferCleanup(legacy.NewAfterAllProcessBody)
+	cleanupPrecreatedCVIs()
+	legacy.NewAfterAllProcessBody()
 	controller.NewAfterAllProcessBody()
 })
