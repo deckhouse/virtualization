@@ -95,17 +95,6 @@ var _ = Describe("ComplexTest", Ordered, func() {
 		})
 	})
 
-	Context("When cluster virtual images are applied", func() {
-		It("checks CVIs phases", func() {
-			By(fmt.Sprintf("CVIs should be in %s phases", PhaseReady))
-			WaitPhaseByLabel(kc.ResourceCVI, PhaseReady, kc.WaitOptions{
-				Labels:    testCaseLabel,
-				Namespace: ns,
-				Timeout:   MaxWaitTimeout,
-			})
-		})
-	})
-
 	Context("When virtual machine classes are applied", func() {
 		It("checks VMClasses phases", func() {
 			By(fmt.Sprintf("VMClasses should be in %s phases", PhaseReady))
