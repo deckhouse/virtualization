@@ -138,6 +138,10 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		lastClassAppliedSpec := h.loadClassLastAppliedSpec(class, kvvm)
 		changes = h.detectSpecChanges(ctx, kvvm, &current.Spec, lastAppliedSpec)
 		if !changes.IsEmpty() {
+			kvvmi, kvvmiErr := s.KVVMI(ctx)
+			if kvvmiErr == nil && hasNonHotpluggableVolumes(kvvmi) {
+				changes.UpgradeBlockDeviceChangesToRestart()
+			}
 			allChanges.Add(changes.GetAll()...)
 		}
 		if class != nil {
@@ -714,6 +718,19 @@ func (h *SyncKvvmHandler) isVMUnschedulable(
 }
 
 // isPlacementPolicyChanged returns true if any of the Affinity, NodePlacement, or Toleration rules have changed.
+func hasNonHotpluggableVolumes(kvvmi *virtv1.VirtualMachineInstance) bool {
+	if kvvmi == nil {
+		return false
+	}
+	for _, v := range kvvmi.Spec.Volumes {
+		if v.PersistentVolumeClaim != nil && !v.PersistentVolumeClaim.Hotpluggable ||
+			v.ContainerDisk != nil && !v.ContainerDisk.Hotpluggable {
+			return true
+		}
+	}
+	return false
+}
+
 func (h *SyncKvvmHandler) isPlacementPolicyChanged(allChanges vmchange.SpecChanges) bool {
 	for _, c := range allChanges.GetAll() {
 		switch c.Path {
