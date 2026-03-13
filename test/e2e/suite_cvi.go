@@ -18,6 +18,7 @@ package e2e
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -38,10 +39,21 @@ func bootstrapPrecreatedCVIs() {
 
 	ctx := context.Background()
 	for _, cvi := range object.PrecreatedClusterVirtualImages() {
-		Expect(createOrReusePrecreatedCVI(ctx, cvi)).NotTo(HaveOccurred())
+		By(fmt.Sprintf("Create or reuse precreated CVI %q in the cluster", cvi.Name))
+		created, err := createOrReusePrecreatedCVI(ctx, cvi)
+		Expect(err).NotTo(HaveOccurred())
+		if created {
+			By(fmt.Sprintf("Precreated CVI %q has been created", cvi.Name))
+			continue
+		}
+		By(fmt.Sprintf("Precreated CVI %q already exists and will be reused", cvi.Name))
 	}
 
+	By("Wait until all precreated CVIs are ready")
 	util.UntilObjectPhase(string(v1alpha2.ImageReady), framework.LongTimeout, precreatedClusterVirtualImagesAsObjects()...)
+	for _, cvi := range object.PrecreatedClusterVirtualImages() {
+		By(fmt.Sprintf("Precreated CVI %q is ready", cvi.Name))
+	}
 }
 
 func cleanupPrecreatedCVIs() {
@@ -58,19 +70,19 @@ func cleanupPrecreatedCVIs() {
 	}
 }
 
-func createOrReusePrecreatedCVI(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) error {
+func createOrReusePrecreatedCVI(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, error) {
 	setPrecreatedCVILabel(cvi)
 
 	err := framework.GetClients().GenericClient().Create(ctx, cvi)
 	if err == nil {
-		return nil
+		return true, nil
 	}
 
 	if !k8serrors.IsAlreadyExists(err) {
-		return err
+		return false, err
 	}
 
-	return framework.GetClients().GenericClient().Get(ctx, crclient.ObjectKeyFromObject(cvi), cvi)
+	return false, framework.GetClients().GenericClient().Get(ctx, crclient.ObjectKeyFromObject(cvi), cvi)
 }
 
 func precreatedClusterVirtualImagesAsObjects() []crclient.Object {
