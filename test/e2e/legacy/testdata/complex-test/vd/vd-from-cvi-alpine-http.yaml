@@ -10,4 +10,4 @@ spec:
     type: ObjectRef
     objectRef:
       kind: ClusterVirtualImage
-      name: cvi-alpine-http
+      name: v12n-e2e-alpine-bios
