@@ -28,6 +28,7 @@ const (
 	PrecreatedCVIAlpineBIOSPerf = "v12n-e2e-alpine-bios-perf"
 	PrecreatedCVIUbuntu         = "v12n-e2e-ubuntu"
 	PrecreatedCVIContainerImage = "v12n-e2e-container-image"
+	PrecreatedCVILegacyRegistry = "v12n-e2e-legacy-registry"
 	PrecreatedCVITestDataQCOW   = "v12n-e2e-testdata-qcow"
 	PrecreatedCVITestDataISO    = "v12n-e2e-testdata-iso"
 )
@@ -41,6 +42,7 @@ func PrecreatedClusterVirtualImages() []*v1alpha2.ClusterVirtualImage {
 		newPrecreatedHTTPCVI(PrecreatedCVIAlpineBIOSPerf, ImagesURLAlpineBIOSPerf),
 		newPrecreatedHTTPCVI(PrecreatedCVIUbuntu, ImageURLUbuntu),
 		newPrecreatedContainerImageCVI(PrecreatedCVIContainerImage, ImageURLContainerImage),
+		newPrecreatedContainerImageCVI(PrecreatedCVILegacyRegistry, ImageURLLegacyContainerImage),
 		newPrecreatedHTTPCVI(PrecreatedCVITestDataQCOW, ImageTestDataQCOW),
 		newPrecreatedHTTPCVI(PrecreatedCVITestDataISO, ImageTestDataISO),
 	}
