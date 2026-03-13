@@ -438,8 +438,13 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 
 	networkSpec := network.CreateNetworkSpec(current, vmmacs)
 
+	kvvmi, err := s.KVVMI(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	// Create kubevirt VirtualMachine resource from d8 VirtualMachine spec.
-	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, class, ipAddress, networkSpec)
+	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, class, ipAddress, networkSpec, kvvmi != nil && kvvmi.Status.Phase == virtv1.Running)
 	if err != nil {
 		return nil, err
 	}

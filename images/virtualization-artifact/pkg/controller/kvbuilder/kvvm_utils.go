@@ -100,6 +100,7 @@ func ApplyVirtualMachineSpec(
 	class *v1alpha2.VirtualMachineClass,
 	ipAddress string,
 	networkSpec network.InterfaceSpecList,
+	isVmRunning bool,
 ) error {
 	if err := kvvm.SetRunPolicy(vm.Spec.RunPolicy); err != nil {
 		return err
@@ -128,7 +129,7 @@ func ApplyVirtualMachineSpec(
 		return err
 	}
 
-	if err := applyBlockDeviceRefs(kvvm, vm, vdByName, viByName, cviByName); err != nil {
+	if err := applyBlockDeviceRefs(kvvm, vm, isVmRunning, vdByName, viByName, cviByName); err != nil {
 		return err
 	}
 
@@ -158,7 +159,7 @@ func ApplyVirtualMachineSpec(
 }
 
 func applyBlockDeviceRefs(
-	kvvm *KVVM, vm *v1alpha2.VirtualMachine,
+	kvvm *KVVM, vm *v1alpha2.VirtualMachine, isVmRunning bool,
 	vdByName map[string]*v1alpha2.VirtualDisk,
 	viByName map[string]*v1alpha2.VirtualImage,
 	cviByName map[string]*v1alpha2.ClusterVirtualImage,
@@ -170,6 +171,18 @@ func applyBlockDeviceRefs(
 			break
 		}
 	}
+
+	specDiskNames := make(map[string]struct{}, len(vm.Spec.BlockDeviceRefs))
+	for _, bd := range vm.Spec.BlockDeviceRefs {
+		specDiskNames[GenerateDiskName(bd.Kind, bd.Name)] = struct{}{}
+	}
+	hotpluggableVolumes := make(map[string]struct{}, len(kvvm.Resource.Spec.Template.Spec.Volumes))
+	for _, v := range kvvm.Resource.Spec.Template.Spec.Volumes {
+		if v.ContainerDisk != nil && v.ContainerDisk.Hotpluggable || v.PersistentVolumeClaim != nil && v.PersistentVolumeClaim.Hotpluggable {
+			hotpluggableVolumes[v.Name] = struct{}{}
+		}
+	}
+	cleanupRemovedStaticDisks(kvvm, specDiskNames, hotpluggableVolumes)
 
 	kvvmVolumes := kvvm.Resource.Spec.Template.Spec.Volumes
 	for i, bd := range vm.Spec.BlockDeviceRefs {
@@ -187,8 +200,9 @@ func applyBlockDeviceRefs(
 			kvBootOrder = uint(i) + 1
 		}
 
-		hotpluggable := isVolumeHotpluggable(kvvmVolumes, diskName)
-		if err := setBlockDeviceDisk(kvvm, bd, kvBootOrder, hotpluggable, vdByName, viByName, cviByName); err != nil {
+		_, hotpluggable := hotpluggableVolumes[diskName]
+		// isVmRunning is used to set static disks as hotpluggable on VM restart
+		if err := setBlockDeviceDisk(kvvm, bd, kvBootOrder, hotpluggable || !isVmRunning, vdByName, viByName, cviByName); err != nil {
 			return err
 		}
 	}
@@ -196,19 +210,22 @@ func applyBlockDeviceRefs(
 	return nil
 }
 
-func isVolumeHotpluggable(volumes []virtv1.Volume, name string) bool {
-	for _, v := range volumes {
-		if v.Name != name {
-			continue
-		}
-		if v.PersistentVolumeClaim != nil {
-			return v.PersistentVolumeClaim.Hotpluggable
-		}
-		if v.ContainerDisk != nil {
-			return v.ContainerDisk.Hotpluggable
-		}
+func cleanupRemovedStaticDisks(kvvm *KVVM, specDiskNames map[string]struct{}, hotpluggableVolumes map[string]struct{}) {
+	isRemovedStatic := func(name string) bool {
+		_, kind := GetOriginalDiskName(name)
+		_, inSpec := specDiskNames[name]
+		_, hotpluggable := hotpluggableVolumes[name]
+		return kind != "" && !inSpec && !hotpluggable
 	}
-	return true
+
+	kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks = slices.DeleteFunc(
+		kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks,
+		func(d virtv1.Disk) bool { return isRemovedStatic(d.Name) },
+	)
+	kvvm.Resource.Spec.Template.Spec.Volumes = slices.DeleteFunc(
+		kvvm.Resource.Spec.Template.Spec.Volumes,
+		func(v virtv1.Volume) bool { return isRemovedStatic(v.Name) },
+	)
 }
 
 func setBlockDeviceDisk(
