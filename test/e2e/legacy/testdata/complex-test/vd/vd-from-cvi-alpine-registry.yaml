@@ -10,4 +10,4 @@ spec:
     type: ObjectRef
     objectRef:
       kind: ClusterVirtualImage
-      name: cvi-alpine-registry
+      name: v12n-e2e-legacy-registry
