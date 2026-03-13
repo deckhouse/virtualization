@@ -112,7 +112,7 @@ func (r *SnapshotResources) Prepare(ctx context.Context) error {
 		return err
 	}
 
-	vds, err := getVirtualDisks(ctx, r.client, r.vmSnapshot)
+	vds, err := getVirtualDisks(ctx, r.client, r.vmSnapshot, r.kind)
 	if err != nil {
 		return err
 	}
@@ -329,7 +329,7 @@ func isRetryError(err error) bool {
 	return false
 }
 
-func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1alpha2.VirtualMachineSnapshot) ([]*v1alpha2.VirtualDisk, error) {
+func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1alpha2.VirtualMachineSnapshot, kind v1alpha2.VMOPType) ([]*v1alpha2.VirtualDisk, error) {
 	vds := make([]*v1alpha2.VirtualDisk, 0, len(vmSnapshot.Status.VirtualDiskSnapshotNames))
 
 	for _, vdSnapshotName := range vmSnapshot.Status.VirtualDiskSnapshotNames {
@@ -341,6 +341,15 @@ func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1al
 
 		if vdSnapshot == nil {
 			return nil, fmt.Errorf("failed to get the virtual disk snapshot %q: %w", vdSnapshotName, common.ErrVirtualDiskSnapshotNotFound)
+		}
+
+		// Set AttachedToVirtualMachines only for restore operation.
+		// For clone operation, leave it empty so WaitForFirstConsumer logic works correctly.
+		var attachedVMs []v1alpha2.AttachedVirtualMachine
+		if kind == v1alpha2.VMOPTypeRestore {
+			attachedVMs = []v1alpha2.AttachedVirtualMachine{
+				{Name: vmSnapshot.Spec.VirtualMachineName, Mounted: true},
+			}
 		}
 
 		vd := v1alpha2.VirtualDisk{
@@ -362,9 +371,7 @@ func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1al
 				},
 			},
 			Status: v1alpha2.VirtualDiskStatus{
-				AttachedToVirtualMachines: []v1alpha2.AttachedVirtualMachine{
-					{Name: vmSnapshot.Spec.VirtualMachineName, Mounted: true},
-				},
+				AttachedToVirtualMachines: attachedVMs,
 			},
 		}
 
