@@ -306,4 +306,4 @@ tools/yq-v4.45.1: "sha256:893d67cc466e2be16006f9053d43701cb8bd376cd6864547ca43ba
 tools/yq-v4.47.1: "sha256:4f294d46559f45bbd7d20f2306e2eaa2b6ec1cb6e826f906377c10bb9eea04d5" # from: builder/scratch
 
 ALT_REGISTRY_PATH: registry.deckhouse.io/container-factory
-builder/distroless: "sha256:5f2c2d54bd6d1ef5e207fb4e70731895d3876ebf12ffc434d25f3b3949c81694" # from: builder/scratch
+builder/distroless: "sha256:600b8c521866590656d21499cc96034e2e125cb2abb3ee70ae0eed7fa1e14ac5" # from: builder/scratch

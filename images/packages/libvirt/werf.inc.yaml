@@ -12,11 +12,5 @@ image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/distroless
 shell:
-  beforeInstall:
-    - pm --version
-    - pm info libvirt
-    - pm info libvirt-devel
   install:
-    - pm info -L libvirt
-    - pm info -L libvirt-devel
     - pm install -1 {{ .ImageName }} {{ .ImageName }}-devel -d /out
