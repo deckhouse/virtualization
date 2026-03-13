@@ -292,11 +292,6 @@ func (r *SnapshotResources) Process(ctx context.Context) ([]v1alpha2.SnapshotRes
 	return r.statuses, nil
 }
 
-var DryRunIgnoredErrors = []error{
-	common.ErrVMMaintenanceCondNotFound,
-	common.ErrVMNotInMaintenance,
-}
-
 var BestEffortIgnoredErrors = []error{
 	common.ErrVirtualImageNotFound,
 	common.ErrClusterVirtualImageNotFound,
@@ -311,12 +306,6 @@ var RetryErrors = []error{
 
 func shouldIgnoreError(mode v1alpha2.SnapshotOperationMode, err error) bool {
 	switch mode {
-	case v1alpha2.SnapshotOperationModeDryRun:
-		for _, e := range DryRunIgnoredErrors {
-			if errors.Is(err, e) {
-				return true
-			}
-		}
 	case v1alpha2.SnapshotOperationModeBestEffort:
 		for _, e := range BestEffortIgnoredErrors {
 			if errors.Is(err, e) {

@@ -51,11 +51,6 @@ func NewProcessRestoreStep(
 }
 
 func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
-	cond, found := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
-	if found && cond.Status == metav1.ConditionTrue {
-		return nil, nil
-	}
-
 	maintenanceModeCondition, found := conditions.GetCondition(vmopcondition.TypeMaintenanceMode, vmop.Status.Conditions)
 	if vmop.Spec.Restore.Mode != v1alpha2.SnapshotOperationModeDryRun && (!found || maintenanceModeCondition.Status == metav1.ConditionFalse) {
 		return &reconcile.Result{}, nil
