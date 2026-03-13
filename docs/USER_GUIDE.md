@@ -2114,9 +2114,9 @@ Block device types and access modes:
 
 The list of block devices is defined in the `.spec.blockDeviceRefs` field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
 
-By default, boot order follows the order of devices in the list. You can set it explicitly with the optional `bootOrder` field (smaller value means higher priority). If `bootOrder` is set for at least one device, only devices with `bootOrder` set are included in the boot sequence. Allowed values: integers ≥ 1, unique within the list.
+By default, boot order follows the order of devices in the list. You can set it explicitly with the optional `bootOrder` field (smaller value means higher priority). If `bootOrder` is set for at least one device, only devices with `bootOrder` set are included in the boot sequence. Allowed values: integers ≥ 1, unique within the list. When you remove a device from the list, boot order is recalculated for the remaining devices.
 
-Adding or removing entries in `.spec.blockDeviceRefs` is applied to a running VM without a reboot. Changing the order of devices in the list or their `bootOrder` values takes effect after a VM reboot.
+Adding or removing entries in `.spec.blockDeviceRefs` is applied to a running VM without a reboot (hotplug). Changing the order of devices in the list or their `bootOrder` values takes effect after a VM reboot. This allows you to attach an ISO image for OS installation with the desired boot priority, then remove it from the list and detach it without rebooting the VM.
 
 Virtual machine configuration fragment with block devices and explicit boot order:
 
