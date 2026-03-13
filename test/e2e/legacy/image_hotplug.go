@@ -50,6 +50,10 @@ var _ = Describe("ImageHotplug", Ordered, func() {
 	)
 
 	BeforeAll(func() {
+		if conf.StorageClass.TemplateStorageClass != nil && conf.StorageClass.TemplateStorageClass.Provisioner == "nfs.csi.k8s.io" {
+			Skip("VirtualImages on PVC only work with block storage classes, skipping NFS")
+		}
+
 		kustomization := fmt.Sprintf("%s/%s", conf.TestData.ImageHotplug, "kustomization.yaml")
 		var err error
 		ns, err = kustomize.GetNamespace(kustomization)
