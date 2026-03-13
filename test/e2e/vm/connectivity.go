@@ -258,6 +258,17 @@ func (t *VMConnectivityTest) GenerateEnvironmentResources() {
 					Image:   framework.GetConfig().HelperImages.CurlImage,
 					Command: []string{"sleep"},
 					Args:    []string{"10000"},
+					SecurityContext: &corev1.SecurityContext{
+						AllowPrivilegeEscalation: ptr.To(false),
+						RunAsNonRoot:             ptr.To(true),
+						RunAsUser:                ptr.To(int64(1000)),
+						Capabilities: &corev1.Capabilities{
+							Drop: []corev1.Capability{"ALL"},
+						},
+						SeccompProfile: &corev1.SeccompProfile{
+							Type: corev1.SeccompProfileTypeRuntimeDefault,
+						},
+					},
 				},
 			},
 		},
