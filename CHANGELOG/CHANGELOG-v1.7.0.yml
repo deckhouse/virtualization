@@ -1,0 +1,50 @@
+api:
+  features:
+    - summary: >-
+        VirtualDisk owner reference is now saved at snapshot time and restored when restoring from
+        snapshot, so restored disks are again owned by the restored VirtualMachine.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2032
+ci:
+  fixes:
+    - summary: e2e bootstrap cluster
+      pull_request: https://github.com/deckhouse/virtualization/pull/2064
+core:
+  fixes:
+    - summary: Exit maintenance mode after restore operation failure.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2094
+    - summary: >-
+        Fix VirtualDisk AttachedToVirtualMachines references during clone and customized restore
+        operations.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2080
+    - summary: >-
+        Reject VM USB device attachments when USB feature gate is disabled and validate only newly
+        added USB devices on update.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2077
+dvcr:
+  fixes:
+    - summary: >-
+        When DVCR is out of space, a resource will contain a clearer message about it in the
+        condition.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2016
+module:
+  fixes:
+    - summary: >-
+        Limited the maximum debug verbosity level to 9 in the Virtualization controller to prevent
+        full trace-level logs from appearing when debug logging is enabled.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2101
+vd:
+  fixes:
+    - summary: Do not check datasourceReady for the exporting phase.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2060
+vm:
+  features:
+    - summary: add conntrack synchronization for live migration
+      pull_request: https://github.com/deckhouse/virtualization/pull/1939
+  fixes:
+    - summary: show CSI and volume errors in VM status
+      pull_request: https://github.com/deckhouse/virtualization/pull/1766
+vmop:
+  features:
+    - summary: add validation for local storage migration in CE edition
+      pull_request: https://github.com/deckhouse/virtualization/pull/1950
+
