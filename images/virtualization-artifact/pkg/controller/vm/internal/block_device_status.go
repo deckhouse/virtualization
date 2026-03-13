@@ -42,11 +42,18 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 		return nil, err
 	}
 
+	specRefs := s.VirtualMachine().Current().Spec.BlockDeviceRefs
+
+	specDevices := make(map[nameKindKey]struct{}, len(specRefs))
+	for _, bd := range specRefs {
+		specDevices[nameKindKey{kind: bd.Kind, name: bd.Name}] = struct{}{}
+	}
+
 	var refs []v1alpha2.BlockDeviceStatusRef
 
 	// 1. There is no kvvm yet: populate block device refs with the spec.
 	if kvvm == nil {
-		for _, specBlockDeviceRef := range s.VirtualMachine().Current().Spec.BlockDeviceRefs {
+		for _, specBlockDeviceRef := range specRefs {
 			ref := h.getBlockDeviceStatusRef(specBlockDeviceRef.Kind, specBlockDeviceRef.Name)
 			ref.Size, err = h.getBlockDeviceRefSize(ctx, ref, s)
 			if err != nil {
@@ -86,6 +93,8 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 			continue
 		}
 
+		key := nameKindKey{kind: kind, name: bdName}
+
 		ref := h.getBlockDeviceStatusRef(kind, bdName)
 		_, ref.Attached = h.getBlockDeviceTarget(volume, kvvmiVolumeStatusByName)
 		ref.Size, err = h.getBlockDeviceRefSize(ctx, ref, s)
@@ -95,26 +104,23 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 
 		ref.Hotplugged = h.isHotplugged(volume, kvvmiVolumeStatusByName)
 		if ref.Hotplugged {
-			ref.VirtualMachineBlockDeviceAttachmentName, err = h.getBlockDeviceAttachmentName(ctx, kind, bdName, s)
-			if err != nil {
-				return nil, err
+			_, isSpecDevice := specDevices[key]
+			if !isSpecDevice {
+				ref.VirtualMachineBlockDeviceAttachmentName, err = h.getBlockDeviceAttachmentName(ctx, kind, bdName, s)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 
 		refs = append(refs, ref)
-		attachedBlockDeviceRefs[nameKindKey{
-			kind: ref.Kind,
-			name: ref.Name,
-		}] = struct{}{}
+		attachedBlockDeviceRefs[key] = struct{}{}
 	}
 
 	// 3. The kvvm may be missing some block devices from the spec; they need to be added as well.
-	for _, specBlockDeviceRef := range s.VirtualMachine().Current().Spec.BlockDeviceRefs {
-		_, ok := attachedBlockDeviceRefs[nameKindKey{
-			kind: specBlockDeviceRef.Kind,
-			name: specBlockDeviceRef.Name,
-		}]
-		if ok {
+	for _, specBlockDeviceRef := range specRefs {
+		key := nameKindKey{kind: specBlockDeviceRef.Kind, name: specBlockDeviceRef.Name}
+		if _, ok := attachedBlockDeviceRefs[key]; ok {
 			continue
 		}
 
@@ -221,7 +227,6 @@ func (h *BlockDeviceHandler) getBlockDeviceAttachmentName(ctx context.Context, k
 
 	switch len(vmbdas) {
 	case 0:
-		log.Error("No one vmbda was found for hot-plugged block device")
 		return "", nil
 	case 1:
 		// OK.

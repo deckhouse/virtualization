@@ -5,8 +5,10 @@ package internal
 
 import (
 	"context"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"k8s.io/apimachinery/pkg/runtime"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sync"
 )
 
@@ -305,5 +307,145 @@ func (mock *BlockDeviceServiceMock) CountBlockDevicesAttachedToVMCalls() []struc
 	mock.lockCountBlockDevicesAttachedToVM.RLock()
 	calls = mock.calls.CountBlockDevicesAttachedToVM
 	mock.lockCountBlockDevicesAttachedToVM.RUnlock()
+	return calls
+}
+
+// Ensure, that HotplugServiceMock does implement HotplugService.
+// If this is not the case, regenerate this file with moq.
+var _ HotplugService = &HotplugServiceMock{}
+
+// HotplugServiceMock is a mock implementation of HotplugService.
+//
+//	func TestSomethingThatUsesHotplugService(t *testing.T) {
+//
+//		// make and configure a mocked HotplugService
+//		mockedHotplugService := &HotplugServiceMock{
+//			HotPlugDiskFunc: func(ctx context.Context, ad *service.AttachmentDisk, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) error {
+//				panic("mock out the HotPlugDisk method")
+//			},
+//			UnplugDiskFunc: func(ctx context.Context, kvvm *virtv1.VirtualMachine, diskName string) error {
+//				panic("mock out the UnplugDisk method")
+//			},
+//		}
+//
+//		// use mockedHotplugService in code that requires HotplugService
+//		// and then make assertions.
+//
+//	}
+type HotplugServiceMock struct {
+	// HotPlugDiskFunc mocks the HotPlugDisk method.
+	HotPlugDiskFunc func(ctx context.Context, ad *service.AttachmentDisk, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) error
+
+	// UnplugDiskFunc mocks the UnplugDisk method.
+	UnplugDiskFunc func(ctx context.Context, kvvm *virtv1.VirtualMachine, diskName string) error
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// HotPlugDisk holds details about calls to the HotPlugDisk method.
+		HotPlugDisk []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Ad is the ad argument value.
+			Ad *service.AttachmentDisk
+			// VM is the vm argument value.
+			VM *v1alpha2.VirtualMachine
+			// Kvvm is the kvvm argument value.
+			Kvvm *virtv1.VirtualMachine
+		}
+		// UnplugDisk holds details about calls to the UnplugDisk method.
+		UnplugDisk []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Kvvm is the kvvm argument value.
+			Kvvm *virtv1.VirtualMachine
+			// DiskName is the diskName argument value.
+			DiskName string
+		}
+	}
+	lockHotPlugDisk sync.RWMutex
+	lockUnplugDisk  sync.RWMutex
+}
+
+// HotPlugDisk calls HotPlugDiskFunc.
+func (mock *HotplugServiceMock) HotPlugDisk(ctx context.Context, ad *service.AttachmentDisk, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) error {
+	if mock.HotPlugDiskFunc == nil {
+		panic("HotplugServiceMock.HotPlugDiskFunc: method is nil but HotplugService.HotPlugDisk was just called")
+	}
+	callInfo := struct {
+		Ctx  context.Context
+		Ad   *service.AttachmentDisk
+		VM   *v1alpha2.VirtualMachine
+		Kvvm *virtv1.VirtualMachine
+	}{
+		Ctx:  ctx,
+		Ad:   ad,
+		VM:   vm,
+		Kvvm: kvvm,
+	}
+	mock.lockHotPlugDisk.Lock()
+	mock.calls.HotPlugDisk = append(mock.calls.HotPlugDisk, callInfo)
+	mock.lockHotPlugDisk.Unlock()
+	return mock.HotPlugDiskFunc(ctx, ad, vm, kvvm)
+}
+
+// HotPlugDiskCalls gets all the calls that were made to HotPlugDisk.
+// Check the length with:
+//
+//	len(mockedHotplugService.HotPlugDiskCalls())
+func (mock *HotplugServiceMock) HotPlugDiskCalls() []struct {
+	Ctx  context.Context
+	Ad   *service.AttachmentDisk
+	VM   *v1alpha2.VirtualMachine
+	Kvvm *virtv1.VirtualMachine
+} {
+	var calls []struct {
+		Ctx  context.Context
+		Ad   *service.AttachmentDisk
+		VM   *v1alpha2.VirtualMachine
+		Kvvm *virtv1.VirtualMachine
+	}
+	mock.lockHotPlugDisk.RLock()
+	calls = mock.calls.HotPlugDisk
+	mock.lockHotPlugDisk.RUnlock()
+	return calls
+}
+
+// UnplugDisk calls UnplugDiskFunc.
+func (mock *HotplugServiceMock) UnplugDisk(ctx context.Context, kvvm *virtv1.VirtualMachine, diskName string) error {
+	if mock.UnplugDiskFunc == nil {
+		panic("HotplugServiceMock.UnplugDiskFunc: method is nil but HotplugService.UnplugDisk was just called")
+	}
+	callInfo := struct {
+		Ctx      context.Context
+		Kvvm     *virtv1.VirtualMachine
+		DiskName string
+	}{
+		Ctx:      ctx,
+		Kvvm:     kvvm,
+		DiskName: diskName,
+	}
+	mock.lockUnplugDisk.Lock()
+	mock.calls.UnplugDisk = append(mock.calls.UnplugDisk, callInfo)
+	mock.lockUnplugDisk.Unlock()
+	return mock.UnplugDiskFunc(ctx, kvvm, diskName)
+}
+
+// UnplugDiskCalls gets all the calls that were made to UnplugDisk.
+// Check the length with:
+//
+//	len(mockedHotplugService.UnplugDiskCalls())
+func (mock *HotplugServiceMock) UnplugDiskCalls() []struct {
+	Ctx      context.Context
+	Kvvm     *virtv1.VirtualMachine
+	DiskName string
+} {
+	var calls []struct {
+		Ctx      context.Context
+		Kvvm     *virtv1.VirtualMachine
+		DiskName string
+	}
+	mock.lockUnplugDisk.RLock()
+	calls = mock.calls.UnplugDisk
+	mock.lockUnplugDisk.RUnlock()
 	return calls
 }
