@@ -2128,7 +2128,7 @@ d8 k get nodes -o custom-columns=NAME:.metadata.name,ZONE:.metadata.labels.topol
 
 | Тип блочного устройства                                                    | Комментарий                                                       |
 |----------------------------------------------------------------------------|-------------------------------------------------------------------|
-| [VirtualImage](/modules/virtualization/cr.html#virtualimage)               | Подключается в режиме для чтения, или как cdrom для ISO-образов.  |
+| [VirtualImage](/modules/virtualization/cr.html#virtualimage)               | Подключается в режиме для чтения, или как CD-ROM для ISO-образов. |
 | [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) | Подключается в режиме для чтения, или как CD-ROM для ISO-образов. |
 | [VirtualDisk](/modules/virtualization/cr.html#virtualdisk)                 | Подключается в режиме для чтения и записи.                        |
 

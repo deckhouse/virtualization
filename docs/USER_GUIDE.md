@@ -2104,11 +2104,11 @@ Two attachment methods are available:
 
 Block device types and access modes:
 
-| Block device type                                                                 | Comment                                                       |
-| --------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| [VirtualImage](/modules/virtualization/cr.html#virtualimage)                      | Connected in read-only mode, or as a CD-ROM for ISO images.   |
-| [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage)         | Connected in read-only mode, or as a CD-ROM for ISO images.   |
-| [VirtualDisk](/modules/virtualization/cr.html#virtualdisk)                        | Connected in read/write mode.                                 |
+| Block device type                                                          | Comment                                                     |
+|----------------------------------------------------------------------------|-------------------------------------------------------------|
+| [VirtualImage](/modules/virtualization/cr.html#virtualimage)               | Connected in read-only mode, or as a CD-ROM for ISO images. |
+| [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) | Connected in read-only mode, or as a CD-ROM for ISO images. |
+| [VirtualDisk](/modules/virtualization/cr.html#virtualdisk)                 | Connected in read/write mode.                               |
 
 #### Attaching via the VM specification
 
