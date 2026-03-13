@@ -80,14 +80,14 @@ var _ = Describe("VirtualMachineBlockDeviceHotplug", Ordered, func() {
 					Name: vdRoot.Name,
 				},
 			),
-			vmbuilder.WithRestartApprovalMode(v1alpha2.Automatic),
+			vmbuilder.WithRestartApprovalMode(v1alpha2.Manual),
 		)
 
 		err := f.CreateWithDeferredDeletion(context.Background(), vm, vdRoot, vdBlank)
 		Expect(err).NotTo(HaveOccurred())
 
-		By("Waiting for VM agent to be ready")
-		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+		By("Waiting for SSH to be ready")
+		util.UntilSSHReady(f, vm, framework.LongTimeout)
 
 		By("Recording initial disk count")
 		out, err := f.SSHCommand(vm.Name, vm.Namespace, "lsblk --nodeps --noheadings | wc -l")

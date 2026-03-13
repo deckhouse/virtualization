@@ -173,7 +173,8 @@ func applyBlockDeviceRefs(
 
 	kvvmVolumes := kvvm.Resource.Spec.Template.Spec.Volumes
 	for i, bd := range vm.Spec.BlockDeviceRefs {
-		if len(kvvmVolumes) > 0 && !slices.ContainsFunc(kvvmVolumes, func(v virtv1.Volume) bool { return v.Name == GenerateDiskName(bd.Kind, bd.Name) }) {
+		diskName := GenerateDiskName(bd.Kind, bd.Name)
+		if len(kvvmVolumes) > 0 && !slices.ContainsFunc(kvvmVolumes, func(v virtv1.Volume) bool { return v.Name == diskName }) {
 			continue
 		}
 
@@ -186,7 +187,8 @@ func applyBlockDeviceRefs(
 			kvBootOrder = uint(i) + 1
 		}
 
-		if err := setBlockDeviceDisk(kvvm, bd, kvBootOrder, vdByName, viByName, cviByName); err != nil {
+		hotpluggable := isVolumeHotpluggable(kvvmVolumes, diskName)
+		if err := setBlockDeviceDisk(kvvm, bd, kvBootOrder, hotpluggable, vdByName, viByName, cviByName); err != nil {
 			return err
 		}
 	}
@@ -194,8 +196,23 @@ func applyBlockDeviceRefs(
 	return nil
 }
 
+func isVolumeHotpluggable(volumes []virtv1.Volume, name string) bool {
+	for _, v := range volumes {
+		if v.Name != name {
+			continue
+		}
+		if v.PersistentVolumeClaim != nil {
+			return v.PersistentVolumeClaim.Hotpluggable
+		}
+		if v.ContainerDisk != nil {
+			return v.ContainerDisk.Hotpluggable
+		}
+	}
+	return true
+}
+
 func setBlockDeviceDisk(
-	kvvm *KVVM, bd v1alpha2.BlockDeviceSpecRef, bootOrder uint,
+	kvvm *KVVM, bd v1alpha2.BlockDeviceSpecRef, bootOrder uint, hotpluggable bool,
 	vdByName map[string]*v1alpha2.VirtualDisk,
 	viByName map[string]*v1alpha2.VirtualImage,
 	cviByName map[string]*v1alpha2.ClusterVirtualImage,
@@ -209,7 +226,7 @@ func setBlockDeviceDisk(
 		opts := SetDiskOptions{
 			Serial:       GenerateSerialFromObject(vi),
 			BootOrder:    bootOrder,
-			IsHotplugged: true,
+			IsHotplugged: hotpluggable,
 		}
 		switch vi.Spec.Storage {
 		case v1alpha2.StorageKubernetes, v1alpha2.StoragePersistentVolumeClaim:
@@ -233,7 +250,7 @@ func setBlockDeviceDisk(
 			IsCdrom:       imageformat.IsISO(cvi.Status.Format),
 			Serial:        GenerateSerialFromObject(cvi),
 			BootOrder:     bootOrder,
-			IsHotplugged:  true,
+			IsHotplugged:  hotpluggable,
 		})
 
 	case v1alpha2.DiskDevice:
@@ -248,7 +265,7 @@ func setBlockDeviceDisk(
 			PersistentVolumeClaim: ptr.To(vd.Status.Target.PersistentVolumeClaim),
 			Serial:                GenerateSerialFromObject(vd),
 			BootOrder:             bootOrder,
-			IsHotplugged:          true,
+			IsHotplugged:          hotpluggable,
 		})
 
 	default:
