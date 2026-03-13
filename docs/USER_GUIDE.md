@@ -2095,23 +2095,28 @@ d8 k get nodes -o custom-columns=NAME:.metadata.name,ZONE:.metadata.labels.topol
 
 ### Attaching block devices (disks and images)
 
-Block devices can be divided into two types based on how they are connected: static and dynamic (hotplug).
+You can attach disks and images to a virtual machine. They are described as block devices (BlockDevices).
 
-Block devices and their features are shown in the table below:
+Two attachment methods are available:
 
-| Block device type     | Comment                                                   |
-| --------------------- | --------------------------------------------------------- |
-| `VirtualImage`        | connected in read-only mode, or as a cdrom for iso images |
-| `ClusterVirtualImage` | connected in read-only mode, or as a cdrom for iso images |
-| `VirtualDisk`         | connects in read/write mode                               |
+- Static attachment: Devices are listed in the VM specification at creation or start and form the initial configuration.
+- Dynamic attachment (hotplug): Attaching and detaching devices to or from a running VM without a reboot. This can be done either by changing the `.spec.blockDeviceRefs` list or by using the [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) resource.
 
-#### Boot Block Devices
+Block device types and access modes:
 
-Boot block devices are defined in the virtual machine specification in the `.spec.blockDeviceRefs` block as a list.
+| Block device type                                                                 | Comment                                                       |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| [VirtualImage](/modules/virtualization/cr.html#virtualimage)                      | Connected in read-only mode, or as a CD-ROM for ISO images.   |
+| [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage)         | Connected in read-only mode, or as a CD-ROM for ISO images.   |
+| [VirtualDisk](/modules/virtualization/cr.html#virtualdisk)                        | Connected in read/write mode.                                 |
 
-By default, the boot order follows the position in the list. You can override it using the optional `bootOrder` field — a smaller value means a higher boot priority. If `bootOrder` is set for at least one device, only devices with an explicit `bootOrder` are included in the boot order. Values must be unique and ≥ 1.
+#### Attaching via the VM specification
 
-Adding or removing block devices in the `.spec.blockDeviceRefs` block is applied without a reboot. Changing the device order or `bootOrder` values requires a reboot of the virtual machine.
+The list of block devices is defined in the `.spec.blockDeviceRefs` field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
+
+By default, boot order follows the order of devices in the list. You can set it explicitly with the optional `bootOrder` field (smaller value means higher priority). If `bootOrder` is set for at least one device, only devices with `bootOrder` set are included in the boot sequence. Allowed values: integers ≥ 1, unique within the list.
+
+Adding or removing entries in `.spec.blockDeviceRefs` is applied to a running VM without a reboot. Changing the order of devices in the list or their `bootOrder` values takes effect after a VM reboot.
 
 Virtual machine configuration fragment with block devices and explicit boot order:
 
@@ -2149,13 +2154,13 @@ How to work with bootable block devices in the web interface:
 - On the "Configuration" tab, scroll down to the "Disks and Images" section.
 - You can add, extract, delete, resize, and reorder bootable block devices in the "Boot Disks" section.
 
-#### Additional Block Devices
+#### Attaching via VirtualMachineBlockDeviceAttachment (vmbda)
 
-Alternatively, additional block devices can be connected and disconnected from a running virtual machine using the [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) resource.
+The [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) resource provides hot-plug: attach and detach a block device to or from a running VM without changing its spec and without a reboot. Suited for automation and scenarios when the user does not have permission to edit the VM.
 
-As an example, create the following resource that connects an empty `blank-disk` disk to a `linux-vm` virtual machine:
+Create a resource that attaches the empty disk `blank-disk` to the virtual machine `linux-vm`:
 
-```yaml
+```shell
 d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineBlockDeviceAttachment
@@ -2169,15 +2174,15 @@ spec:
 EOF
 ```
 
-After creation, `VirtualMachineBlockDeviceAttachment` can be in the following states (phases):
+After creation, [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) can be in the following states:
 
 - `Pending` - waiting for all dependent resources to be ready.
 - `InProgress` - the process of device connection is in progress.
 - `Attached` - the device is connected.
 
-Diagnosing problems with a resource is done by analyzing the information in the `.status.conditions` block
+Diagnosing problems with the resource is done by analyzing the information in the `.status.conditions` block.
 
-Check the state of your resource::
+Check the state of your resource:
 
 ```bash
 d8 k get vmbda attach-blank-disk
@@ -2185,8 +2190,8 @@ d8 k get vmbda attach-blank-disk
 
 Example output:
 
-```txt
-NAME              PHASE      VIRTUAL MACHINE NAME   AGE
+```console
+NAME                PHASE      VIRTUAL MACHINE NAME   AGE
 attach-blank-disk   Attached   linux-vm              3m7s
 ```
 
@@ -2198,14 +2203,14 @@ d8 v ssh cloud@linux-vm --local-ssh --command "lsblk"
 
 Example output:
 
-```txt
+```console
 NAME    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
-sda       8:0    0   10G  0 disk <--- statically mounted linux-vm-root disk
+sda       8:0    0   10G  0 disk <--- statically attached linux-vm-root disk
 |-sda1    8:1    0  9.9G  0 part /
 |-sda14   8:14   0    4M  0 part
 `-sda15   8:15   0  106M  0 part /boot/efi
 sdb       8:16   0    1M  0 disk <--- cloudinit
-sdc       8:32   0 95.9M  0 disk <--- dynamically mounted disk blank-disk
+sdc       8:32   0 95.9M  0 disk <--- dynamically attached disk blank-disk
 ```
 
 To detach the disk from the virtual machine, delete the previously created resource:
@@ -2214,9 +2219,9 @@ To detach the disk from the virtual machine, delete the previously created resou
 d8 k delete vmbda attach-blank-disk
 ```
 
-Attaching images is done by analogy. To do this, specify `VirtualImage` or `ClusterVirtualImage` and the image name as `kind`:
+Attaching images is done by analogy. Set `kind` to `VirtualImage` or `ClusterVirtualImage` and specify the image name:
 
-```yaml
+```bash
 d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineBlockDeviceAttachment
