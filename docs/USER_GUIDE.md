@@ -2097,11 +2097,6 @@ d8 k get nodes -o custom-columns=NAME:.metadata.name,ZONE:.metadata.labels.topol
 
 You can attach disks and images to a virtual machine. They are described as block devices (BlockDevices).
 
-Two attachment methods are available:
-
-- Static attachment: Devices are listed in the VM specification at creation or start and form the initial configuration.
-- Dynamic attachment (hotplug): Attaching and detaching devices to or from a running VM without a reboot. This can be done either by changing the `.spec.blockDeviceRefs` list or by using the [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) resource.
-
 Block device types and access modes:
 
 | Block device type                                                          | Comment                                                     |
@@ -2110,13 +2105,20 @@ Block device types and access modes:
 | [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) | Connected in read-only mode, or as a CD-ROM for ISO images. |
 | [VirtualDisk](/modules/virtualization/cr.html#virtualdisk)                 | Connected in read/write mode.                               |
 
+Two attachment methods are available:
+
+- Via the VM specification (`.spec.blockDeviceRefs`): Disks are listed in the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) configuration and boot order is set for them (by position in the list or via the `bootOrder` field). Recommended when configuring the VM manually or via GitOps, or when you need to control boot order (e.g., an ISO for OS installation).
+- Via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (`vmbda`): Disk is attached via a separate resource and does not participate in boot order. Recommended for automation and when you do not have permission to edit the VM.
+
+Both methods support hotplug (add or remove without rebooting the VM).
+
 #### Attaching via the VM specification
 
 The list of block devices is defined in the `.spec.blockDeviceRefs` field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
 
 By default, boot order follows the order of devices in the list. You can set it explicitly with the optional `bootOrder` field (smaller value means higher priority). If `bootOrder` is set for at least one device, only devices with `bootOrder` set are included in the boot sequence. Allowed values: integers ≥ 1, unique within the list. When you remove a device from the list, boot order is recalculated for the remaining devices.
 
-Adding or removing entries in `.spec.blockDeviceRefs` is applied to a running VM without a reboot (hotplug). Changing the order of devices in the list or their `bootOrder` values takes effect after a VM reboot. This allows you to attach an ISO image for OS installation with the desired boot priority, then remove it from the list and detach it without rebooting the VM.
+Changing the order of devices in the list or their `bootOrder` values takes effect after a VM reboot. For example, you can attach an ISO image for OS installation with the desired boot priority, then remove it from the list after installation.
 
 Virtual machine configuration fragment with block devices and explicit boot order:
 
@@ -2144,7 +2146,7 @@ spec:
       name: <additional-disk-name>
 ```
 
-To detach a disk, remove it from the list. The disk will be detached from the running virtual machine without a reboot.
+To detach a disk, remove it from the list.
 
 How to work with bootable block devices in the web interface:
 
@@ -2156,7 +2158,7 @@ How to work with bootable block devices in the web interface:
 
 #### Attaching via VirtualMachineBlockDeviceAttachment (vmbda)
 
-The [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) resource provides hot-plug: attach and detach a block device to or from a running VM without changing its spec and without a reboot. Suited for automation and scenarios when the user does not have permission to edit the VM.
+The [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) resource attaches and detaches a block device to or from a VM without changing its spec. Suited for automation and scenarios when the user does not have permission to edit the VM.
 
 Create a resource that attaches the empty disk `blank-disk` to the virtual machine `linux-vm`:
 
@@ -2219,7 +2221,7 @@ To detach the disk from the virtual machine, delete the previously created resou
 d8 k delete vmbda attach-blank-disk
 ```
 
-Attaching images is done by analogy. Set `kind` to `VirtualImage` or `ClusterVirtualImage` and specify the image name:
+Attaching images is done by analogy: set the `kind` field to VirtualImage or ClusterVirtualImage and the image name.
 
 ```bash
 d8 k apply -f - <<EOF
