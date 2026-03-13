@@ -28,10 +28,8 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 const ReasonPVCNotFound = "PVC not found"
@@ -184,15 +182,6 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 	}
 
 	if vm != nil {
-		cond, found := conditions.GetCondition(vmcondition.TypeMaintenance, vm.Status.Conditions)
-		if !found {
-			return common.ErrVMMaintenanceCondNotFound
-		}
-
-		if cond.Status != metav1.ConditionTrue {
-			return common.ErrVMNotInMaintenance
-		}
-
 		// Early return if VM is already fully processed by this restore operation
 		if value, ok := vm.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
 			if equality.Semantic.DeepEqual(vm.Spec, v.vm.Spec) {
