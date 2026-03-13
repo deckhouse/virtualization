@@ -29,6 +29,7 @@ import (
 	"github.com/blang/semver/v4"
 	"github.com/google/go-containerregistry/pkg/crane"
 	"gopkg.in/yaml.v3"
+
 	"moduleversions/internal/version"
 )
 

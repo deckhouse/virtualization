@@ -25,6 +25,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+
 	"moduleversions/internal/version"
 )
 

@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+
 	"moduleversions/internal/version"
 )
 

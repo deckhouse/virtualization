@@ -21,6 +21,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
 	"moduleversions/internal/docs"
 	"moduleversions/internal/releases"
 	"moduleversions/internal/requirements"

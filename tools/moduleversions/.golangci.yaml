@@ -23,7 +23,7 @@ formatters:
   enable:
     - gci
     - gofmt
-    - gofumpt
+    # - gofumpt
     - goimports
   settings:
     gci:
@@ -31,6 +31,7 @@ formatters:
         - standard
         - default
         - prefix(github.com/deckhouse/)
+        - prefix(moduleversions)
     gofumpt:
       extra-rules: true
     goimports:
