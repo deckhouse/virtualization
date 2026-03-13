@@ -360,6 +360,13 @@ env:
       patch: '{"spec":{"template":{"metadata":{"labels":{"security.deckhouse.io/security-policy-exception": "virt-handler-ds"}}}}}'
       type: strategic
 
+    # Change host path for directory with capabilities xml files. We have custom qemu with different
+    # machine types thus it conflicts with the original kubevirt.
+    - resourceName: virt-handler
+      resourceType: DaemonSet
+      patch: '{"spec":{"template":{"spec":{"volumes":[{"name":"node-labeller","hostPath":{"path":"/var/lib/d8-virtualization/node-labeller"}}]}}}}'
+      type: strategic
+
   imagePullPolicy: IfNotPresent
   imagePullSecrets:
     - name: virtualization-module-registry
