@@ -26,7 +26,6 @@ import (
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	cvibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/cvi"
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
@@ -61,7 +60,7 @@ var _ = Describe("PowerState", func() {
 		By("Environment preparation", func() {
 			t.GenerateResources(runPolicy)
 			err := f.CreateWithDeferredDeletion(
-				context.Background(), t.CVI, t.VI, t.VDRoot, t.VDBlank, t.VM, t.VMBDA,
+				context.Background(), t.VI, t.VDRoot, t.VDBlank, t.VM, t.VMBDA,
 			)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -195,7 +194,6 @@ var _ = Describe("PowerState", func() {
 type powerStateTest struct {
 	Framework *framework.Framework
 
-	CVI     *v1alpha2.ClusterVirtualImage
 	VI      *v1alpha2.VirtualImage
 	VM      *v1alpha2.VirtualMachine
 	VDRoot  *v1alpha2.VirtualDisk
@@ -210,11 +208,6 @@ func newPowerStateTest(f *framework.Framework) *powerStateTest {
 }
 
 func (t *powerStateTest) GenerateResources(runPolicy v1alpha2.RunPolicy) {
-	t.CVI = cvibuilder.New(
-		cvibuilder.WithName(fmt.Sprintf("%s-cvi", t.Framework.Namespace().Name)),
-		cvibuilder.WithDataSourceHTTP(object.ImageTestDataISO, nil, nil),
-	)
-
 	t.VI = vibuilder.New(
 		vibuilder.WithName("vi"),
 		vibuilder.WithNamespace(t.Framework.Namespace().Name),
@@ -251,7 +244,7 @@ func (t *powerStateTest) GenerateResources(runPolicy v1alpha2.RunPolicy) {
 			},
 			v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.ClusterImageDevice,
-				Name: t.CVI.Name,
+				Name: object.PrecreatedCVITestDataISO,
 			},
 			v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.ImageDevice,
