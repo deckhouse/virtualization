@@ -192,28 +192,74 @@ spec:
 
 {{< alert level="warning" >}}
 Недоступно в CE-редакции.
+
+Для активации аудита событий безопасности:
+
+1. Включить модули `log-shipper` и `runtime-audit-engine`.
+2. Включить аудит Kubernetes API, установив `.spec.settings.apiserver.auditPolicyEnabled: true` в модуле `control-plane-manager`.
+3. Установить `.spec.settings.audit.enabled: true` в модуле `virtualization`:
+
+   ```yaml
+   spec:
+     settings:
+       audit:
+         enabled: true
+   ```
 {{< /alert >}}
-
-{{< alert level="warning" >}}
-Для активации аудита требуется, чтобы были включены следующие модули:
-
-- `log-shipper`,
-- `runtime-audit-engine`.
-{{< /alert >}}
-
-Чтобы включить аудит событий безопасности, установите параметр `.spec.settings.audit.enabled` настроек модуля  в `true`:
-
-```yaml
-spec:
-  enabled: true
-  settings:
-    audit:
-      enabled: true
-```
 
 {{< alert level="info" >}}
-Полный перечень параметров конфигурации приведен в разделе [Настройки](./configuration.html).
+Полный перечень параметров конфигурации приведён в разделе [Настройки](./configuration.html).
 {{< /alert >}}
+
+События собираются подом `virtualization-audit-*` в пространстве имён `d8-virtualization`. Чтобы перенаправить события в систему логирования кластера (например, Loki), создайте ClusterLoggingConfig:
+
+```yaml
+apiVersion: deckhouse.io/v1alpha1
+kind: ClusterLoggingConfig
+metadata:
+  name: virtualization-audit-logs
+spec:
+  destinationRefs:
+    - d8-loki
+  kubernetesPods:
+    namespaceSelector:
+      matchNames:
+        - d8-virtualization
+    labelSelector:
+      matchLabels:
+        app: virtualization-audit
+  type: KubernetesPods
+```
+
+Для просмотра событий в Grafana используйте запрос к Loki:
+
+```logql
+{namespace="d8-virtualization", pod=~"virtualization-audit-.*"}
+```
+
+Доступные поля в логах:
+- `type` — тип события (Access to VM, VM Management и т.д.)
+- `name` — описание события
+- `request_subject` — username или serviceaccount
+- `datetime` — время события
+- `virtualmachine_name` — имя ВМ
+- `source_ip` — IP-адрес источника (для запрещённых операций)
+
+### События безопасности
+
+Система аудита фиксирует следующие события:
+
+1. **Доступ к ВМ** — подключение через console, VNC или portforward. Включает имя ВМ, ОС, версии, хранилище и адрес узла.
+
+2. **Управление ВМ** — создание, обновление, изменение или удаление ресурсов VirtualMachine.
+
+3. **Управление ВМ через операции** — start, stop, restart, migrate или evict через ресурс VirtualMachineOperation.
+
+4. **Проверка целостности** — проверка sha256 конфигурации ВМ. Логируется при изменении контрольной суммы.
+
+5. **Управление модулем** — создание, обновление или удаление ModuleConfig.
+
+6. **Запрещённые операции** — операции, заблокированные платформой. Включает пользователя, операцию, ресурс, IP-адрес и причину отказа.
 
 ## Образы
 
