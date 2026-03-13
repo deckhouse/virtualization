@@ -305,8 +305,7 @@ var RetryErrors = []error{
 }
 
 func shouldIgnoreError(mode v1alpha2.SnapshotOperationMode, err error) bool {
-	switch mode {
-	case v1alpha2.SnapshotOperationModeBestEffort:
+	if mode == v1alpha2.SnapshotOperationModeBestEffort {
 		for _, e := range BestEffortIgnoredErrors {
 			if errors.Is(err, e) {
 				return true
