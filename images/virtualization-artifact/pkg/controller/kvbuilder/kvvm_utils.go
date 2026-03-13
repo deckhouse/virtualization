@@ -32,7 +32,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
-	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -214,10 +213,10 @@ func setBlockDeviceDisk(
 		}
 		switch vi.Spec.Storage {
 		case v1alpha2.StorageKubernetes, v1alpha2.StoragePersistentVolumeClaim:
-			opts.PersistentVolumeClaim = pointer.GetPointer(vi.Status.Target.PersistentVolumeClaim)
+			opts.PersistentVolumeClaim = ptr.To(vi.Status.Target.PersistentVolumeClaim)
 			opts.IsEphemeral = true
 		case v1alpha2.StorageContainerRegistry:
-			opts.ContainerDisk = pointer.GetPointer(vi.Status.Target.RegistryURL)
+			opts.ContainerDisk = ptr.To(vi.Status.Target.RegistryURL)
 			opts.IsCdrom = imageformat.IsISO(vi.Status.Format)
 		default:
 			return fmt.Errorf("unexpected storage type %q for vi %s. %w", vi.Spec.Storage, vi.Name, common.ErrUnknownType)
@@ -230,7 +229,7 @@ func setBlockDeviceDisk(
 			return fmt.Errorf("unexpected error: cluster virtual image %q should exist in the cluster; please recreate it", bd.Name)
 		}
 		return kvvm.SetDisk(GenerateCVIDiskName(bd.Name), SetDiskOptions{
-			ContainerDisk: pointer.GetPointer(cvi.Status.Target.RegistryURL),
+			ContainerDisk: ptr.To(cvi.Status.Target.RegistryURL),
 			IsCdrom:       imageformat.IsISO(cvi.Status.Format),
 			Serial:        GenerateSerialFromObject(cvi),
 			BootOrder:     bootOrder,
@@ -246,7 +245,7 @@ func setBlockDeviceDisk(
 			return nil
 		}
 		return kvvm.SetDisk(GenerateVDDiskName(bd.Name), SetDiskOptions{
-			PersistentVolumeClaim: pointer.GetPointer(vd.Status.Target.PersistentVolumeClaim),
+			PersistentVolumeClaim: ptr.To(vd.Status.Target.PersistentVolumeClaim),
 			Serial:                GenerateSerialFromObject(vd),
 			BootOrder:             bootOrder,
 			IsHotplugged:          true,
@@ -286,7 +285,7 @@ func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName ma
 
 		name := GenerateVDDiskName(bd.Name)
 		opts := SetDiskOptions{
-			PersistentVolumeClaim: pointer.GetPointer(pvcName),
+			PersistentVolumeClaim: ptr.To(pvcName),
 			Serial:                GenerateSerialFromObject(vd),
 			IsHotplugged:          bd.Hotplugged,
 		}

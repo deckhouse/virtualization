@@ -62,9 +62,14 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 		return reconcile.Result{}, nil
 	}
 
+	maintenanced, foundMaintenance := conditions.GetCondition(vmopcondition.TypeMaintenanceMode, vmop.Status.Conditions)
+
 	// Ignore if VMOP is in final state or failed.
 	if vmop.Status.Phase == v1alpha2.VMOPPhaseCompleted || vmop.Status.Phase == v1alpha2.VMOPPhaseFailed {
-		return reconcile.Result{}, nil
+		// Skip: not a restore operation OR already exited maintenance
+		if vmop.Spec.Restore == nil || !foundMaintenance || maintenanced.Status == metav1.ConditionFalse {
+			return reconcile.Result{}, nil
+		}
 	}
 
 	completed, completedFound := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
