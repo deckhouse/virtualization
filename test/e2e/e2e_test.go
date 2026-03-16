@@ -45,7 +45,7 @@ var _ = SynchronizedBeforeSuite(func() {
 }, func() {})
 
 var _ = SynchronizedAfterSuite(func() {}, func() {
-	cleanupPrecreatedCVIs()
+	// cleanupPrecreatedCVIs()
 	legacy.NewAfterAllProcessBody()
 	controller.NewAfterAllProcessBody()
 })
