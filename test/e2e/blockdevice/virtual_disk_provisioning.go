@@ -37,6 +37,11 @@ var _ = Describe("VirtualDiskProvisioning", func() {
 	f := framework.NewFramework("vd-provisioning")
 
 	BeforeEach(func() {
+		sc := framework.GetConfig().StorageClass.TemplateStorageClass
+		if sc != nil && sc.Provisioner == "nfs.csi.k8s.io" {
+			Skip("VirtualImages on PVC only work with block storage classes, skipping NFS")
+		}
+
 		f.Before()
 		DeferCleanup(f.After)
 	})
