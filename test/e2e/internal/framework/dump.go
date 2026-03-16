@@ -263,14 +263,14 @@ func (f *Framework) writeNodeList(testCaseFullText, dumpPath string) {
 
 func (f *Framework) saveEvents(testCaseFullText, dumpPath string) {
 	GinkgoHelper()
-
-	events, err := f.Clients.kubeClient.CoreV1().Events(f.Namespace().Name).List(context.Background(), metav1.ListOptions{})
+	namespace := f.Namespace().Name
+	events, err := f.Clients.kubeClient.CoreV1().Events(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		GinkgoWriter.Printf("Failed to get events:\nError: %v\n", err)
 		return
 	}
 
-	fileName := fmt.Sprintf("%s/e2e_failed__%s__events.yaml", dumpPath, testCaseFullText)
+	fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__events.yaml", dumpPath, testCaseFullText, namespace)
 	if len(events.Items) > 0 {
 		data, err := yaml.Marshal(events)
 		if err != nil {
