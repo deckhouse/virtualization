@@ -407,7 +407,7 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 	bdState := NewBlockDeviceState(s)
 	err = bdState.Reload(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to relaod blockdevice state for the virtual machine: %w", err)
+		return nil, fmt.Errorf("failed to reload blockdevice state for the virtual machine: %w", err)
 	}
 	class, err := s.Class(ctx)
 	if err != nil {

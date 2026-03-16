@@ -309,12 +309,8 @@ func (b *KVVM) SetMemory(memorySize resource.Quantity) {
 
 	// Remove memory limits and requests if set by previous versions.
 	res := &b.Resource.Spec.Template.Spec.Domain.Resources
-	if res.Requests != nil {
-		delete(res.Requests, corev1.ResourceMemory)
-	}
-	if res.Limits == nil {
-		delete(res.Limits, corev1.ResourceMemory)
-	}
+	delete(res.Requests, corev1.ResourceMemory)
+	delete(res.Limits, corev1.ResourceMemory)
 }
 
 func isVMRunningWithMemoryResources(kvvm *virtv1.VirtualMachine) bool {
