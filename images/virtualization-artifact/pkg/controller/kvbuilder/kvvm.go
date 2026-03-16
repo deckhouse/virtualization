@@ -46,6 +46,9 @@ const (
 
 	// GenericCPUModel specifies the base CPU model for Features and Discovery CPU model types.
 	GenericCPUModel = "qemu64"
+
+	MaxMemorySizeForHotplug      = 256 * 1024 * 1024 * 1024 // 256 Gi (safely limit to not overlap somewhat conservative 38 bit physical address space)
+	EnableMemoryHotplugThreshold = 1 * 1024 * 1024 * 1024   // 1 Gi (no hotplug for VMs with less than 1Gi)
 )
 
 type KVVMOptions struct {
@@ -269,16 +272,65 @@ func (b *KVVM) SetCPU(cores int, coreFraction string) error {
 	return nil
 }
 
+// SetMemory sets memory in kvvm.
+// There are 2 possibilities to set memory:
+// 1. Use domain.memory.guest field: it enabled memory hotplugging, but not set resources.limits.
+// 2. Explicitly set limits and requests in domain.resources. No hotplugging in this scenario.
+//
+// (1) is a new approach, and (2) should be respected for Running VMs started by previous version of the controller.
 func (b *KVVM) SetMemory(memorySize resource.Quantity) {
+	// TODO delete this in the future (around version 1.12).
+	if b.ResourceExists && isVMRunningWithMemoryResources(b.Resource) {
+		// Keep resources as-is to not trigger a reboot.
+		res := &b.Resource.Spec.Template.Spec.Domain.Resources
+		if res.Requests == nil {
+			res.Requests = make(map[corev1.ResourceName]resource.Quantity)
+		}
+		if res.Limits == nil {
+			res.Limits = make(map[corev1.ResourceName]resource.Quantity)
+		}
+		res.Requests[corev1.ResourceMemory] = memorySize
+		res.Limits[corev1.ResourceMemory] = memorySize
+		return
+	}
+
+	domain := &b.Resource.Spec.Template.Spec.Domain
+	if domain.Memory == nil {
+		domain.Memory = &virtv1.Memory{}
+	}
+	domain.Memory.Guest = &memorySize
+
+	// Enable memory hotplug if VM has enough memory (>= 1Gi).
+	hotplugThreshold := resource.NewQuantity(EnableMemoryHotplugThreshold, resource.BinarySI)
+	if memorySize.Cmp(*hotplugThreshold) >= 0 {
+		maxMemory := resource.NewQuantity(MaxMemorySizeForHotplug, resource.BinarySI)
+		domain.Memory.MaxGuest = maxMemory
+	}
+
+	// Remove memory limits and requests if set by previous versions.
 	res := &b.Resource.Spec.Template.Spec.Domain.Resources
-	if res.Requests == nil {
-		res.Requests = make(map[corev1.ResourceName]resource.Quantity)
+	if res.Requests != nil {
+		delete(res.Requests, corev1.ResourceMemory)
 	}
 	if res.Limits == nil {
-		res.Limits = make(map[corev1.ResourceName]resource.Quantity)
+		delete(res.Limits, corev1.ResourceMemory)
 	}
-	res.Requests[corev1.ResourceMemory] = memorySize
-	res.Limits[corev1.ResourceMemory] = memorySize
+}
+
+func isVMRunningWithMemoryResources(kvvm *virtv1.VirtualMachine) bool {
+	if kvvm == nil {
+		return false
+	}
+
+	if !kvvm.Status.Created {
+		return false
+	}
+
+	res := kvvm.Spec.Template.Spec.Domain.Resources
+	_, hasMemoryRequests := res.Requests[corev1.ResourceMemory]
+	_, hasMemoryLimits := res.Limits[corev1.ResourceMemory]
+
+	return hasMemoryRequests && hasMemoryLimits
 }
 
 func GetCPURequest(cores int, coreFraction string) (*resource.Quantity, error) {
