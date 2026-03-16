@@ -25,7 +25,6 @@ import (
 	"k8s.io/utils/ptr"
 
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
-	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
@@ -55,13 +54,8 @@ var _ = Describe("VirtualDiskProvisioning", func() {
 			vm *v1alpha2.VirtualMachine
 		)
 
-		By("Creating VirtualImage", func() {
-			vi = vibuilder.New(
-				vibuilder.WithName("vi"),
-				vibuilder.WithNamespace(f.Namespace().Name),
-				vibuilder.WithDataSourceHTTP(object.ImageURLAlpineUEFI, nil, nil),
-				vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
-			)
+		By("Creating VirtualImage from precreated CVI", func() {
+			vi = object.NewGeneratedVIFromCVI("vi-", f.Namespace().Name, object.PrecreatedCVIAlpineUEFI)
 
 			err := f.CreateWithDeferredDeletion(context.Background(), vi)
 			Expect(err).NotTo(HaveOccurred())
@@ -72,12 +66,7 @@ var _ = Describe("VirtualDiskProvisioning", func() {
 		})
 
 		By("Creating VirtualDisk", func() {
-			vd = vdbuilder.New(
-				vdbuilder.WithName("vd"),
-				vdbuilder.WithNamespace(f.Namespace().Name),
-				vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
-				vdbuilder.WithDataSourceObjectRefFromVI(vi),
-			)
+			vd = object.NewVDFromVI("vd", f.Namespace().Name, vi, vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))))
 
 			err := f.CreateWithDeferredDeletion(context.Background(), vd)
 			Expect(err).NotTo(HaveOccurred())
