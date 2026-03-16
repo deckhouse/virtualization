@@ -30,6 +30,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/d8"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 )
@@ -133,14 +134,13 @@ var _ = Describe("ImageHotplug", Ordered, label.Legacy(), func() {
 				}
 			})
 			By("`ClusterVirtualImages`", func() {
-				cviObjs := &v1alpha2.ClusterVirtualImageList{}
-				err := GetObjects(v1alpha2.ClusterVirtualImageResource, cviObjs, kc.GetOptions{
-					Labels:    testCaseLabel,
-					Namespace: ns,
-				})
-				Expect(err).NotTo(HaveOccurred(), "failed to get `ClusterVirtualImages`: %s", err)
+				// Get precreated CVIs by name (they are created in bootstrap)
+				cviNames := []string{object.PrecreatedCVIAlpineBIOSPerf, object.PrecreatedCVIUbuntuISO}
+				for _, cviName := range cviNames {
+					cviObj := &v1alpha2.ClusterVirtualImage{}
+					err := GetObject(kc.ResourceCVI, cviName, cviObj, kc.GetOptions{})
+					Expect(err).NotTo(HaveOccurred(), "failed to get CVI %q: %s", cviName, err)
 
-				for _, cviObj := range cviObjs.Items {
 					imageBlockDevices = append(imageBlockDevices, Image{
 						Kind: cviObj.Kind,
 						Name: cviObj.Name,

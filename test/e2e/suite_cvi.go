@@ -34,6 +34,9 @@ import (
 
 const precreatedCVILabel = "v12n-e2e-precreated"
 
+// Additional labels to add to precreated CVIs (e.g., for test discovery)
+var precreatedCVITestLabels = make(map[string]string)
+
 func bootstrapPrecreatedCVIs() {
 	GinkgoHelper()
 
@@ -53,6 +56,14 @@ func bootstrapPrecreatedCVIs() {
 	util.UntilObjectPhase(string(v1alpha2.ImageReady), framework.LongTimeout, precreatedClusterVirtualImagesAsObjects()...)
 	for _, cvi := range object.PrecreatedClusterVirtualImages() {
 		By(fmt.Sprintf("Precreated CVI %q is ready", cvi.Name))
+	}
+}
+
+// AddTestLabelsToPrecreatedCVI adds additional labels to precreated CVIs for test discovery.
+// Must be called before applying kustomize in tests that use precreated CVIs.
+func AddTestLabelsToPrecreatedCVI(labels map[string]string) {
+	for k, v := range labels {
+		precreatedCVITestLabels[k] = v
 	}
 }
 
@@ -101,5 +112,9 @@ func setPrecreatedCVILabel(cvi *v1alpha2.ClusterVirtualImage) {
 		labels = make(map[string]string)
 	}
 	labels[precreatedCVILabel] = "true"
+	// Add test-specific labels for test discovery
+	for k, v := range precreatedCVITestLabels {
+		labels[k] = v
+	}
 	cvi.SetLabels(labels)
 }
