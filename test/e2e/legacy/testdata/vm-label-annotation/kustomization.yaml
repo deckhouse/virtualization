@@ -4,7 +4,6 @@ namespace: testcases
 namePrefix: pr-number-or-commit-hash-
 resources:
   - ns.yaml
-  - vi
   - overlays/vm-label-annotation
 configurations:
   - transformer.yaml
