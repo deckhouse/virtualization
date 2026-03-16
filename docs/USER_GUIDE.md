@@ -3774,7 +3774,7 @@ The USB device is automatically forwarded to the node where the virtual machine 
 {{< /alert >}}
 
 {{< alert level="warning" >}}
-If a virtual machine with an attached USB device is migrated to another node, the USB device is automatically detached for the entire duration of the migration. After a successful migration, the device is forwarded to the new node again and reattached to the VM. If the migration fails, the device is reattached on the original node.
+During VM migration, the USB device briefly disconnects and reconnects on the new node when the VM switches to it. If migration fails, the device will remain on the original node.
 {{< /alert >}}
 
 ### Viewing USB Device Details
