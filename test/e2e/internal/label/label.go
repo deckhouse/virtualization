@@ -29,5 +29,5 @@ func TPM() Labels {
 }
 
 func Legacy() Labels {
-	return Label("Legacy")
+	return Label("Legacy", "legacy")
 }
