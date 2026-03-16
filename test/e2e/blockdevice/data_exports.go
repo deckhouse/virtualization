@@ -82,13 +82,7 @@ var _ = Describe("DataExports", label.Slow(), func() {
 		)
 
 		By("Creating root and data disks", func() {
-			vdRoot = vdbuilder.New(
-				vdbuilder.WithName("vd-root"),
-				vdbuilder.WithNamespace(f.Namespace().Name),
-				vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: object.ImageURLUbuntu,
-				}),
-			)
+			vdRoot = object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIUbuntu)
 
 			vdData = vdbuilder.New(
 				vdbuilder.WithName("vd-data"),
