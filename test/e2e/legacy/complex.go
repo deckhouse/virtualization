@@ -28,6 +28,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
@@ -36,7 +37,7 @@ const (
 	antiAffinityLabel = "anti-affinity"
 )
 
-var _ = Describe("ComplexTest", Ordered, func() {
+var _ = Describe("ComplexTest", Ordered, label.Legacy(), func() {
 	var (
 		testCaseLabel            = map[string]string{"testcase": "complex-test"}
 		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "complex-test"}

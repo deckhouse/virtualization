@@ -31,9 +31,10 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 )
 
-var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
+var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, label.Legacy(), func() {
 	const (
 		nodeLabelKey   = "kubernetes.io/hostname"
 		masterLabelKey = "node.deckhouse.io/group"

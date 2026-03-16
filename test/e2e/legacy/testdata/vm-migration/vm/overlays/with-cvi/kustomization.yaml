@@ -11,7 +11,7 @@ patches:
         path: /spec/blockDeviceRefs/-
         value: {
           "kind": "ClusterVirtualImage",
-          "name": "cvi-cirros"
+          "name": "v12n-e2e-cirros"
         }
     target:
       kind: VirtualMachine

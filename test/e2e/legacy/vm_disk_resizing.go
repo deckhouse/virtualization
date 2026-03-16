@@ -33,9 +33,10 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/d8"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 )
 
-var _ = Describe("VirtualDiskResizing", Ordered, func() {
+var _ = Describe("VirtualDiskResizing", Ordered, label.Legacy(), func() {
 	const (
 		vmCount   = 1
 		diskCount = 3
