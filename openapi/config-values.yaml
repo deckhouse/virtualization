@@ -277,3 +277,15 @@ properties:
     enum:
       - "text"
       - "json"
+  featureGates:
+    type: array
+    description: |
+      Enable experimental or early access features.
+
+      - `HotplugCPUWithLiveMigration` — enable live changing of cpu cores number. (Not available in CE);
+      - `HotplugMemoryWithLiveMigration` — enable live changing of memory size. (Not available in CE);
+    items:
+      type: string
+      enum:
+        - "HotplugCPUWithLiveMigration"
+        - "HotplugMemoryWithLiveMigration"
