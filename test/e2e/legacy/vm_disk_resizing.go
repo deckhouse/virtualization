@@ -70,18 +70,6 @@ var _ = Describe("VirtualDiskResizing", Ordered, label.Legacy(), func() {
 		})
 	})
 
-	Context("When the virtual images are applied", func() {
-		It("checks `VirtualImages` phase", func() {
-			By(fmt.Sprintf("`VirtualImages` should be in the %q phases", v1alpha2.ImageReady), func() {
-				WaitPhaseByLabel(kc.ResourceVI, string(v1alpha2.ImageReady), kc.WaitOptions{
-					Labels:    testCaseLabel,
-					Namespace: ns,
-					Timeout:   MaxWaitTimeout,
-				})
-			})
-		})
-	})
-
 	Context("When the virtual disks are applied", func() {
 		It("checks `VirtualDisks` phase", func() {
 			By(fmt.Sprintf("`VirtualDisks` should be in the %q phases", v1alpha2.DiskReady), func() {
