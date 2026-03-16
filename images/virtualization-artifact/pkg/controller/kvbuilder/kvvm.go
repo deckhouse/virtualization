@@ -322,7 +322,7 @@ func isVMRunningWithMemoryResources(kvvm *virtv1.VirtualMachine) bool {
 		return false
 	}
 
-	if !kvvm.Status.Created {
+	if kvvm.Status.PrintableStatus != virtv1.VirtualMachineStatusRunning {
 		return false
 	}
 
