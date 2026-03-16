@@ -27,6 +27,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/workload-updater/internal/handler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/workload-updater/internal/service"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
 
@@ -47,6 +48,10 @@ func SetupController(
 	handlers := []Handler{
 		handler.NewFirmwareHandler(client, service.NewOneShotMigrationService(client, "firmware-update-"), firmwareImage, namespace, virtControllerName),
 		handler.NewNodePlacementHandler(client, service.NewOneShotMigrationService(client, "nodeplacement-update-")),
+	}
+	if featuregates.Default().Enabled(featuregates.HotplugMemoryWithLiveMigration) {
+		hotplugHandler := handler.NewHotplugHandler(client, service.NewOneShotMigrationService(client, "hotplug-resources-"))
+		handlers = append(handlers, hotplugHandler)
 	}
 	r := NewReconciler(client, handlers)
 

@@ -17,31 +17,30 @@ limitations under the License.
 package vmchange
 
 import (
+	"k8s.io/component-base/featuregate"
+
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type SpecFieldsComparator func(prev, next *v1alpha2.VirtualMachineSpec) []FieldChange
 
-var specComparators = []SpecFieldsComparator{
-	compareVirtualMachineClass,
-	compareRunPolicy,
-	compareVirtualMachineIPAddress,
-	compareTopologySpreadConstraints,
-	compareAffinity,
-	compareNodeSelector,
-	comparePriorityClassName,
-	compareTolerations,
-	compareDisruptions,
-	compareTerminationGracePeriodSeconds,
-	compareEnableParavirtualization,
-	compareOSType,
-	compareBootloader,
-	compareCPU,
-	compareMemory,
-	compareBlockDevices,
-	compareProvisioning,
-	compareNetworks,
-	compareUSBDevices,
+type VMSpecFieldComparator interface {
+	Compare(prev, next *v1alpha2.VirtualMachineSpec) []FieldChange
+}
+
+type vmSpecFieldsComparatorWithFn struct {
+	fn func(prev, next *v1alpha2.VirtualMachineSpec) []FieldChange
+}
+
+func (v *vmSpecFieldsComparatorWithFn) Compare(prev, next *v1alpha2.VirtualMachineSpec) []FieldChange {
+	if v.fn == nil {
+		return nil
+	}
+	return v.fn(prev, next)
+}
+
+func vmSpecFieldComparator(fn SpecFieldsComparator) VMSpecFieldComparator {
+	return &vmSpecFieldsComparatorWithFn{fn: fn}
 }
 
 type VMClassSpecFieldsComparator func(prev, next *v1alpha2.VirtualMachineClassSpec) []FieldChange
@@ -51,18 +50,45 @@ var vmclassSpecComparators = []VMClassSpecFieldsComparator{
 	compareVMClassTolerations,
 }
 
-func CompareSpecs(prev, next *v1alpha2.VirtualMachineSpec, prevClass, nextClass *v1alpha2.VirtualMachineClassSpec) SpecChanges {
-	specChanges := CompareVMSpecs(prev, next)
-	specClassChanges := CompareClassSpecs(prevClass, nextClass)
-	specChanges.Add(specClassChanges.GetAll()...)
-	return specChanges
+type VMSpecComparator struct {
+	featureGate featuregate.FeatureGate
 }
 
-func CompareVMSpecs(prev, next *v1alpha2.VirtualMachineSpec) SpecChanges {
+func NewVMSpecComparator(featureGate featuregate.FeatureGate) *VMSpecComparator {
+	return &VMSpecComparator{
+		featureGate: featureGate,
+	}
+}
+
+func (v *VMSpecComparator) comparators() []VMSpecFieldComparator {
+	return []VMSpecFieldComparator{
+		vmSpecFieldComparator(compareVirtualMachineClass),
+		vmSpecFieldComparator(compareRunPolicy),
+		vmSpecFieldComparator(compareVirtualMachineIPAddress),
+		vmSpecFieldComparator(compareTopologySpreadConstraints),
+		vmSpecFieldComparator(compareAffinity),
+		vmSpecFieldComparator(compareNodeSelector),
+		vmSpecFieldComparator(comparePriorityClassName),
+		vmSpecFieldComparator(compareTolerations),
+		vmSpecFieldComparator(compareDisruptions),
+		vmSpecFieldComparator(compareTerminationGracePeriodSeconds),
+		vmSpecFieldComparator(compareEnableParavirtualization),
+		vmSpecFieldComparator(compareOSType),
+		vmSpecFieldComparator(compareBootloader),
+		vmSpecFieldComparator(compareCPU),
+		NewComparatorMemory(v.featureGate),
+		vmSpecFieldComparator(compareBlockDevices),
+		vmSpecFieldComparator(compareProvisioning),
+		vmSpecFieldComparator(compareNetworks),
+		vmSpecFieldComparator(compareUSBDevices),
+	}
+}
+
+func (v *VMSpecComparator) Compare(prev, next *v1alpha2.VirtualMachineSpec) SpecChanges {
 	specChanges := SpecChanges{}
 
-	for _, comparator := range specComparators {
-		changes := comparator(prev, next)
+	for _, comparator := range v.comparators() {
+		changes := comparator.Compare(prev, next)
 		if HasChanges(changes) {
 			specChanges.Add(changes...)
 		}
