@@ -73,8 +73,8 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 
 	input.Values.Set(featureGatesPath, featureGates)
 
+	// DRAResourceClaimDeviceStatus enabled by default
 	if slices.Contains(featureGates, "DRADeviceBindingConditions") &&
-		slices.Contains(featureGates, "DRAResourceClaimDeviceStatus") &&
 		slices.Contains(featureGates, "DRAConsumableCapacity") {
 		input.Values.Set(draFeatureGatesPath, "true")
 	}
