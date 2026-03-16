@@ -57,3 +57,14 @@ func NewGeneratedContainerImageVI(prefix, namespace string, opts ...vi.Option) *
 	baseOpts = append(baseOpts, opts...)
 	return vi.New(baseOpts...)
 }
+
+func NewGeneratedVIFromCVI(prefix, namespace, cviName string, opts ...vi.Option) *v1alpha2.VirtualImage {
+	baseOpts := []vi.Option{
+		vi.WithGenerateName(prefix),
+		vi.WithNamespace(namespace),
+		vi.WithStorage(v1alpha2.StorageContainerRegistry),
+		vi.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, cviName),
+	}
+	baseOpts = append(baseOpts, opts...)
+	return vi.New(baseOpts...)
+}
