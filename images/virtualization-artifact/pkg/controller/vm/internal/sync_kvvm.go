@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -298,24 +299,14 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 		}
 		return true, nil
 	case h.isVMStopped(s.VirtualMachine().Current(), kvvm, pod):
-		// KVVM must be updated when the VM is stopped because all its components,
-		//  like VirtualDisk and other resources,
-		//  can be changed during the restoration process.
+		// KVVM should be updated when VM become stopped.
+		// It safe to update KVVM at this point in general and also all related resources
+		// can be changed during the restoration process: e.g. VirtualDisks, VMIPs, etc.
 		// For example, the PVC of the VirtualDisk will be changed,
 		//  and the volume with this PVC must be updated in the KVVM specification.
-		hasVMChanges, err := h.detectVMSpecChanges(ctx, s)
+		err := h.updateKVVM(ctx, s)
 		if err != nil {
-			return false, fmt.Errorf("detect changes on the stopped internal virtual machine: %w", err)
-		}
-		hasVMClassChanges, err := h.detectVMClassSpecChanges(ctx, s)
-		if err != nil {
-			return false, fmt.Errorf("detect changes on the stopped internal virtual machine: %w", err)
-		}
-		if hasVMChanges || hasVMClassChanges {
-			err := h.updateKVVM(ctx, s)
-			if err != nil {
-				return false, fmt.Errorf("update stopped internal virtual machine: %w", err)
-			}
+			return false, fmt.Errorf("update internal virtual machine in 'Stopped' state: %w", err)
 		}
 		return true, nil
 	case h.hasNoneDisruptiveChanges(s.VirtualMachine().Current(), kvvm, kvvmi, allChanges):
@@ -370,17 +361,27 @@ func (h *SyncKvvmHandler) updateKVVM(ctx context.Context, s state.VirtualMachine
 		return fmt.Errorf("the virtual machine is empty, please report a bug")
 	}
 
-	kvvm, err := MakeKVVMFromVMSpec(ctx, s)
+	newKVVM, err := MakeKVVMFromVMSpec(ctx, s)
 	if err != nil {
-		return fmt.Errorf("failed to prepare the internal virtual machine: %w", err)
+		return fmt.Errorf("update internal virtual machine: make kvvm from the virtual machine spec: %w", err)
 	}
 
-	if err = h.client.Update(ctx, kvvm); err != nil {
-		return fmt.Errorf("failed to create the internal virtual machine: %w", err)
+	// Check for changes to skip unneeded updated.
+	isChanged, err := IsKVVMChanged(ctx, s, newKVVM)
+	if err != nil {
+		return fmt.Errorf("update internal virtual machine: detect changes: %w", err)
 	}
 
-	log.Info("Update KubeVirt VM done", "name", kvvm.Name)
-	log.Debug("Update KubeVirt VM done", "name", kvvm.Name, "kvvm", kvvm)
+	if isChanged {
+		if err = h.client.Update(ctx, newKVVM); err != nil {
+			return fmt.Errorf("update internal virtual machine: %w", err)
+		}
+
+		log.Info("Update internal virtual machine done", "name", newKVVM.Name)
+		log.Debug("Update internal virtual machine done", "name", newKVVM.Name, "kvvm", newKVVM)
+	} else {
+		log.Debug("Update internal virtual machine is not needed", "name", newKVVM.Name, "kvvm", newKVVM)
+	}
 
 	return nil
 }
@@ -452,6 +453,25 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 	}
 
 	return newKVVM, nil
+}
+
+// IsKVVMChanged returns whether kvvm spec or special annotations are changed.
+func IsKVVMChanged(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine) (bool, error) {
+	currentKVVM, err := s.KVVM(ctx)
+	if err != nil {
+		return false, fmt.Errorf("get current kvvm: %w", err)
+	}
+
+	isChanged := currentKVVM.Annotations[annotations.AnnVMLastAppliedSpec] != kvvm.Annotations[annotations.AnnVMLastAppliedSpec]
+
+	if !isChanged {
+		isChanged = currentKVVM.Annotations[annotations.AnnVMClassLastAppliedSpec] != kvvm.Annotations[annotations.AnnVMClassLastAppliedSpec]
+	}
+
+	if !isChanged {
+		isChanged = reflect.DeepEqual(kvvm.Spec, currentKVVM.Spec)
+	}
+	return isChanged, nil
 }
 
 func (h *SyncKvvmHandler) loadLastAppliedSpec(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) *v1alpha2.VirtualMachineSpec {
