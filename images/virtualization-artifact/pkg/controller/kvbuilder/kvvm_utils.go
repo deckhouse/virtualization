@@ -210,7 +210,7 @@ func applyBlockDeviceRefs(
 	return nil
 }
 
-func cleanupRemovedStaticDisks(kvvm *KVVM, specDiskNames map[string]struct{}, hotpluggableVolumes map[string]struct{}) {
+func cleanupRemovedStaticDisks(kvvm *KVVM, specDiskNames, hotpluggableVolumes map[string]struct{}) {
 	isRemovedStatic := func(name string) bool {
 		_, kind := GetOriginalDiskName(name)
 		_, inSpec := specDiskNames[name]
