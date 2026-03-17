@@ -7,3 +7,11 @@ true
 {{- end -}}
 {{- end -}}
 {{- end -}}
+
+{{- define "virtualization-dra.featureGates" -}}
+{{- $base := "--feature-gates=USBGateway=true,USBNodeLocalMultiAllocation=true" -}}
+{{- if has "DRAPartitionableDevices" .Values.virtualization.internal.kubeAPIServerFeatureGates -}}
+{{- $base = printf "%s,DRAPartitionableDevices=true" $base -}}
+{{- end -}}
+{{- $base -}}
+{{- end -}}

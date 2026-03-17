@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"maps"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -59,8 +60,7 @@ func NewAllocationStore(ctx context.Context, nodeName string, cdiManager cdi.Man
 		kubeClient:                 kubeClient,
 		log:                        slog.With(slog.String("component", "usb-allocation-store")),
 		updateChannel:              make(chan resourceslice.DriverResources, 2),
-		discoverPluggedUSBDevices:  NewDeviceSet(),
-		allocatableDevices:         make(map[string]resourcev1.Device),
+		allocatableDevices:         make(map[string]Device),
 		allocatedDevices:           sets.New[string](),
 		usbipAllocatedDevicesCount: make(map[string]int),
 		resourceClaimAllocations:   make(map[types.UID][]string),
@@ -92,9 +92,8 @@ type AllocationStore struct {
 	kubeClient      kubernetes.Interface
 
 	discoverPluggedUSBDevicesInited bool
-	discoverPluggedUSBDevices       DeviceSet
 	discoverUsbIpPluggedUSBDevices  DeviceSet
-	allocatableDevices              map[string]resourcev1.Device
+	allocatableDevices              map[string]Device
 
 	allocatedDevices           sets.Set[string]
 	usbipAllocatedDevicesCount map[string]int
@@ -112,26 +111,14 @@ func (s *AllocationStore) sync(ctx context.Context) error {
 
 	s.discoverUsbIpPluggedUSBDevices = discoverUsbIpPluggedUSBDevices
 
-	if s.discoverPluggedUSBDevicesInited && discoverPluggedUSBDevices.Equal(s.discoverPluggedUSBDevices) {
+	if s.discoverPluggedUSBDevicesInited && maps.Equal(discoverPluggedUSBDevices, s.allocatableDevices) {
 		return nil
 	}
 
-	s.discoverPluggedUSBDevices = discoverPluggedUSBDevices
+	s.allocatableDevices = discoverPluggedUSBDevices
 	s.discoverPluggedUSBDevicesInited = true
 
-	allocatableDevices := make([]resourcev1.Device, discoverPluggedUSBDevices.Len())
-	for i, usbDevice := range discoverPluggedUSBDevices.UnsortedList() {
-		allocatableDevices[i] = *convertToAPIDevice(usbDevice, s.nodeName)
-	}
-
-	allocatableDevicesByName := make(map[string]resourcev1.Device, len(allocatableDevices))
-	for _, device := range allocatableDevices {
-		allocatableDevicesByName[device.Name] = device
-	}
-
-	s.allocatableDevices = allocatableDevicesByName
-
-	s.updateChannel <- s.makeResources(allocatableDevices)
+	s.updateChannel <- s.makeResources(discoverPluggedUSBDevices)
 
 	return nil
 }
@@ -226,14 +213,10 @@ func (s *AllocationStore) Prepare(ctx context.Context, claim *resourcev1.Resourc
 				return nil, fmt.Errorf("requested device is not allocatable: %v", result.Device)
 			}
 
-			opts, err := newContainerEditsOptions(&usbDevice)
-			if err != nil {
-				return nil, err
-			}
-			containerEditsOptions = opts.withUserGroup(claim)
+			containerEditsOptions = newContainerEditsOptions(&usbDevice, s.nodeName).withUserGroup(claim)
 			usbDeviceInfos = append(usbDeviceInfos, usbDeviceInfo{
 				DeviceName: result.Device,
-				UsbAddress: usbAddress(opts.Bus, opts.DeviceNum),
+				UsbAddress: usbAddressFromDev(&usbDevice),
 			})
 		}
 
@@ -380,52 +363,15 @@ func (c containerEditsOptions) withUserGroup(claim *resourcev1.ResourceClaim) co
 	return c
 }
 
-func newContainerEditsOptions(device *resourcev1.Device) (containerEditsOptions, error) {
-	opts := containerEditsOptions{
-		Name: device.Name,
+func newContainerEditsOptions(device *Device, nodeName string) containerEditsOptions {
+	return containerEditsOptions{
+		Name:       device.GetName(nodeName),
+		DevicePath: device.DevicePath,
+		DeviceNum:  device.DeviceNumber.String(),
+		Bus:        device.Bus.String(),
+		Major:      int64(device.Major),
+		Minor:      int64(device.Minor),
 	}
-
-	if attr, ok := device.Attributes[consts.AttrDevicePath]; ok {
-		if val := attr.StringValue; val != nil {
-			opts.DevicePath = *val
-		} else {
-			return opts, fmt.Errorf("devicePath attribute is not exist")
-		}
-	}
-
-	if attr, ok := device.Attributes[consts.AttrDeviceNumber]; ok {
-		if val := attr.StringValue; val != nil {
-			opts.DeviceNum = *val
-		} else {
-			return opts, fmt.Errorf("deviceNum attribute is not exist")
-		}
-	}
-
-	if attr, ok := device.Attributes[consts.AttrBus]; ok {
-		if val := attr.StringValue; val != nil {
-			opts.Bus = *val
-		} else {
-			return opts, fmt.Errorf("bus attribute is not exist")
-		}
-	}
-
-	if attr, ok := device.Attributes[consts.AttrMajor]; ok {
-		if val := attr.IntValue; val != nil {
-			opts.Major = *val
-		} else {
-			return opts, fmt.Errorf("major attribute is not exist")
-		}
-	}
-
-	if attr, ok := device.Attributes[consts.AttrMinor]; ok {
-		if val := attr.IntValue; val != nil {
-			opts.Minor = *val
-		} else {
-			return opts, fmt.Errorf("minor attribute is not exist")
-		}
-	}
-
-	return opts, nil
 }
 
 func (s *AllocationStore) isUSBGatewayRequest(result *resourcev1.DeviceRequestAllocationResult) bool {
@@ -576,15 +522,26 @@ func parseDraEnvToClaimAllocations(envs []string) (map[types.UID][]string, error
 	return result, nil
 }
 
-func (s *AllocationStore) makeResources(devices []resourcev1.Device) resourceslice.DriverResources {
-	if len(devices) == 0 {
+func (s *AllocationStore) makeResources(devicesByName map[string]Device) resourceslice.DriverResources {
+	if len(devicesByName) == 0 {
 		return resourceslice.DriverResources{}
 	}
 
+	devices := make([]resourcev1.Device, len(devicesByName))
+	for _, usbDevice := range devicesByName {
+		devices = append(devices, *usbDevice.ToAPIDevice(s.nodeName))
+	}
+
 	poolName := s.nodeName
+	var perDeviceNodeSelection *bool
 	var nodeSelector *corev1.NodeSelector
+
 	if featuregates.Default().USBGatewayEnabled() {
-		nodeSelector = getNodeSelector(s.nodeName)
+		if featuregates.Default().DRAPartitionableDevicesEnabled() {
+			perDeviceNodeSelection = ptr.To(true)
+		} else {
+			nodeSelector = getCommonNodeSelector(s.nodeName)
+		}
 	}
 
 	return resourceslice.DriverResources{
@@ -592,7 +549,8 @@ func (s *AllocationStore) makeResources(devices []resourcev1.Device) resourcesli
 			poolName: {
 				Slices: []resourceslice.Slice{
 					{
-						Devices: devices,
+						Devices:                devices,
+						PerDeviceNodeSelection: perDeviceNodeSelection,
 					},
 				},
 				NodeSelector: nodeSelector,

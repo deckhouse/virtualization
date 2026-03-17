@@ -404,6 +404,14 @@ virtualization:
       parallelOutboundMigrationsPerNode: 10
     virtHandler:
       nodeCount: 1
+    hasDraFeatureGates: "true"
+    kubeAPIServerFeatureGates:
+      - TopologyAwareHints
+      - RotateKubeletServerCertificate
+      - DRADeviceBindingConditions
+      - DRAResourceClaimDeviceStatus
+      - DRAConsumableCapacity
+      - DRAPartitionableDevices
   logLevel: debug
   registry:
     base: some-registry.io/sys/deckhouse-oss/modules

@@ -220,9 +220,11 @@ const (
 	// AnnUSBDeviceUser is the annotation for device user (owner) in ResourceClaimTemplate.
 	AnnUSBDeviceUser = "usb.virtualization.deckhouse.io/device-user"
 
-	AnnUSBIPTotalPorts = "usb.virtualization.deckhouse.io/usbip-total-ports"
-	AnnUSBIPUsedPorts  = "usb.virtualization.deckhouse.io/usbip-used-ports"
-	AnnUSBIPAddress    = "usb.virtualization.deckhouse.io/usbip-address"
+	AnnUSBIPTotalPorts             = "usb.virtualization.deckhouse.io/usbip-total-ports"
+	AnnUSBIPUsedPorts              = "usb.virtualization.deckhouse.io/usbip-used-ports"
+	AnnUSBIPHighSpeedHubUsedPorts  = "usb.virtualization.deckhouse.io/usbip-high-speed-hub-used-ports"
+	AnnUSBIPSuperSpeedHubUsedPorts = "usb.virtualization.deckhouse.io/usbip-super-speed-hub-used-ports"
+	AnnUSBIPAddress                = "usb.virtualization.deckhouse.io/usbip-address"
 
 	// DefaultUSBDeviceGroup is the default device group ID for USB devices.
 	DefaultUSBDeviceGroup = "107"

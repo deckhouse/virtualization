@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/deckhouse/virtualization-dra/internal/consts"
+	"github.com/deckhouse/virtualization-dra/internal/featuregates"
 	"github.com/deckhouse/virtualization-dra/pkg/controller"
 	"github.com/deckhouse/virtualization-dra/pkg/patch"
 	"github.com/deckhouse/virtualization-dra/pkg/usbip"
@@ -356,32 +357,14 @@ func (c *USBGatewayController) ensureAttachInfo(ctx context.Context, node *corev
 	}
 
 	attachInfo := c.getAttachInfo()
-
-	nports := strconv.Itoa(attachInfo.NPorts)
-	usedPorts := strconv.Itoa(len(attachInfo.Items))
+	hsHub, ssHub := calculateUsedPorts(attachInfo)
 
 	jp := patch.NewJSONPatch()
 
-	nPortsPath := "/metadata/annotations/" + patch.EscapeJSONPointer(consts.AnnUSBIPTotalPorts)
-	oldNPorts, exists := node.Annotations[consts.AnnUSBIPTotalPorts]
-
-	if nports != oldNPorts {
-		if exists {
-			jp.Append(patch.WithTest(nPortsPath, oldNPorts), patch.WithReplace(nPortsPath, nports))
-		} else {
-			jp.Append(patch.WithAdd(nPortsPath, nports))
-		}
-	}
-
-	usedPortsPath := "/metadata/annotations/" + patch.EscapeJSONPointer(consts.AnnUSBIPUsedPorts)
-	oldUsedPorts, exists := node.Annotations[consts.AnnUSBIPUsedPorts]
-	if usedPorts != oldUsedPorts {
-		if exists {
-			jp.Append(patch.WithTest(usedPortsPath, oldUsedPorts), patch.WithReplace(usedPortsPath, usedPorts))
-		} else {
-			jp.Append(patch.WithAdd(usedPortsPath, usedPorts))
-		}
-	}
+	c.ensureAnno(jp, consts.AnnUSBIPTotalPorts, strconv.Itoa(attachInfo.NPorts), node)
+	c.ensureAnno(jp, consts.AnnUSBIPUsedPorts, strconv.Itoa(len(attachInfo.Items)), node)
+	c.ensureAnno(jp, consts.AnnUSBIPHighSpeedHubUsedPorts, strconv.Itoa(hsHub), node)
+	c.ensureAnno(jp, consts.AnnUSBIPSuperSpeedHubUsedPorts, strconv.Itoa(ssHub), node)
 
 	if jp.Len() == 0 {
 		return node, nil
@@ -400,10 +383,46 @@ func (c *USBGatewayController) ensureAttachInfo(ctx context.Context, node *corev
 	return newNode, nil
 }
 
+func (c *USBGatewayController) ensureAnno(jp *patch.JSONPatch, anno, newValue string, node *corev1.Node) {
+	path := "/metadata/annotations/" + patch.EscapeJSONPointer(anno)
+	oldValue, exists := node.Annotations[anno]
+	if !exists {
+		jp.Append(patch.WithAdd(path, newValue))
+		return
+	}
+	if oldValue != newValue {
+		jp.Append(patch.WithTest(path, oldValue), patch.WithReplace(path, newValue))
+	}
+}
+
 func (c *USBGatewayController) markNode(ctx context.Context) error {
 	attachInfo := c.getAttachInfo()
 
-	all := attachInfo.NPorts/2 > len(attachInfo.Items)
+	perHub := attachInfo.NPorts / 2
+	hsHub, ssHub := calculateUsedPorts(attachInfo)
 
-	return c.marker.Mark(ctx, all)
+	hsAvailable := perHub > hsHub
+	ssAvailable := perHub > ssHub
+
+	var anyNode bool
+	if featuregates.Default().DRAPartitionableDevicesEnabled() {
+		anyNode = hsAvailable || ssAvailable
+	} else {
+		anyNode = hsAvailable && ssAvailable
+	}
+
+	return c.marker.Mark(ctx, anyNode, hsAvailable, ssAvailable)
+}
+
+func calculateUsedPorts(attachInfo usbip.AttachInfo) (hsHub, ssHub int) {
+	for _, item := range attachInfo.Items {
+		switch item.Hub {
+		case "hs":
+			hsHub++
+		case "ss":
+			ssHub++
+		}
+	}
+
+	return hsHub, ssHub
 }

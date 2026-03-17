@@ -31,6 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
+	"github.com/deckhouse/virtualization-controller/pkg/kubeapi"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -144,6 +145,118 @@ func getUSBDeviceNames(refs []v1alpha2.USBDeviceSpecRef) map[string]struct{} {
 }
 
 func (v *USBDevicesValidator) validateAvailableUSBIPPorts(ctx context.Context, vm *v1alpha2.VirtualMachine, oldUSBDevices map[string]struct{}) (admission.Warnings, error) {
+	if kubeapi.HasDRAPartitionableDevices() {
+		return v.validateAvailableUSBIPPortsWithPartitionableDevices(ctx, vm, oldUSBDevices)
+	}
+	return v.validateAvailableUSBIPPortsDefault(ctx, vm, oldUSBDevices)
+}
+
+func (v *USBDevicesValidator) validateAvailableUSBIPPortsWithPartitionableDevices(ctx context.Context, vm *v1alpha2.VirtualMachine, oldUSBDevices map[string]struct{}) (admission.Warnings, error) {
+	if vm.Status.Node == "" {
+		return admission.Warnings{}, nil
+	}
+	if vm.Spec.USBDevices == nil {
+		return admission.Warnings{}, nil
+	}
+
+	var hsUSBFromOtherNodes []string
+	var ssUSBFromOtherNodes []string
+
+	for _, ref := range vm.Spec.USBDevices {
+		if _, exists := oldUSBDevices[ref.Name]; exists {
+			continue
+		}
+
+		usbDevice := &v1alpha2.USBDevice{}
+		err := v.client.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: vm.Namespace}, usbDevice)
+		if err != nil {
+			return admission.Warnings{}, fmt.Errorf("failed to get USB device %s: %w", ref.Name, err)
+		}
+
+		if usbDevice.Status.NodeName == vm.Status.Node {
+			continue
+		}
+
+		isHs, isSS := resolveSpeed(usbDevice.Status.Attributes.Speed)
+		switch {
+		case isHs:
+			hsUSBFromOtherNodes = append(hsUSBFromOtherNodes, ref.Name)
+		case isSS:
+			ssUSBFromOtherNodes = append(ssUSBFromOtherNodes, ref.Name)
+		default:
+			return admission.Warnings{}, fmt.Errorf("USB device %s has unsupported speed %d", ref.Name, usbDevice.Status.Attributes.Speed)
+		}
+	}
+
+	if len(hsUSBFromOtherNodes) == 0 && len(ssUSBFromOtherNodes) == 0 {
+		return admission.Warnings{}, nil
+	}
+
+	node, totalPorts, err := v.getNodeTotalPorts(ctx, vm.Status.Node)
+	if err != nil {
+		return admission.Warnings{}, err
+	}
+
+	totalPortsPerHub := totalPorts / 2
+
+	if len(hsUSBFromOtherNodes) > 0 {
+		if err = validateUsedPortsByAnnotation(node, annotations.AnnUSBIPHighSpeedHubUsedPorts, hsUSBFromOtherNodes, totalPortsPerHub); err != nil {
+			return admission.Warnings{}, err
+		}
+	}
+
+	if len(ssUSBFromOtherNodes) > 0 {
+		if err = validateUsedPortsByAnnotation(node, annotations.AnnUSBIPSuperSpeedHubUsedPorts, ssUSBFromOtherNodes, totalPortsPerHub); err != nil {
+			return admission.Warnings{}, err
+		}
+	}
+
+	return admission.Warnings{}, nil
+}
+
+func (v *USBDevicesValidator) getNodeTotalPorts(ctx context.Context, nodeName string) (*corev1.Node, int, error) {
+	node := &corev1.Node{}
+	err := v.client.Get(ctx, client.ObjectKey{Name: nodeName}, node)
+	if err != nil {
+		return nil, -1, fmt.Errorf("failed to get node %s: %w", nodeName, err)
+	}
+
+	totalPorts, exists := node.Annotations[annotations.AnnUSBIPTotalPorts]
+	if !exists {
+		return nil, -1, fmt.Errorf("node %s does not have %s annotation", nodeName, annotations.AnnUSBIPTotalPorts)
+	}
+	totalPortsInt, err := strconv.Atoi(totalPorts)
+	if err != nil {
+		return nil, -1, fmt.Errorf("failed to parse %s annotation: %w", annotations.AnnUSBIPTotalPorts, err)
+	}
+
+	return node, totalPortsInt, nil
+}
+
+func validateUsedPortsByAnnotation(node *corev1.Node, anno string, usbFromOtherNodes []string, totalPortsPerHub int) error {
+	usedPorts, exists := node.Annotations[anno]
+	if !exists {
+		return fmt.Errorf("node %s does not have %s annotation", node.Name, anno)
+	}
+	usedPortsInt, err := strconv.Atoi(usedPorts)
+	if err != nil {
+		return fmt.Errorf("failed to parse %s annotation: %w", anno, err)
+	}
+
+	wantedPorts := usedPortsInt + len(usbFromOtherNodes)
+	if wantedPorts > totalPortsPerHub {
+		return fmt.Errorf("node %s not available ports for sharing USB devices %s. total: %d, used: %d, wanted: %d", node.Name, strings.Join(usbFromOtherNodes, ", "), totalPortsPerHub, usedPortsInt, wantedPorts)
+	}
+
+	return nil
+}
+
+// https://mjmwired.net/kernel/Documentation/ABI/testing/sysfs-bus-usb#502
+func resolveSpeed(speed int) (isHs, isSS bool) {
+	return speed == 480, speed >= 5000
+}
+
+func (v *USBDevicesValidator) validateAvailableUSBIPPortsDefault(ctx context.Context, vm *v1alpha2.VirtualMachine, oldUSBDevices map[string]struct{}) (admission.Warnings, error) {
 	if vm.Status.Node == "" {
 		return admission.Warnings{}, nil
 	}
@@ -173,38 +286,13 @@ func (v *USBDevicesValidator) validateAvailableUSBIPPorts(ctx context.Context, v
 		return admission.Warnings{}, nil
 	}
 
-	node := &corev1.Node{}
-	err := v.client.Get(ctx, client.ObjectKey{Name: vm.Status.Node}, node)
+	node, totalPorts, err := v.getNodeTotalPorts(ctx, vm.Status.Node)
 	if err != nil {
-		return admission.Warnings{}, fmt.Errorf("failed to get node %s: %w", vm.Status.Node, err)
-	}
-
-	totalPorts, exists := node.Annotations[annotations.AnnUSBIPTotalPorts]
-	if !exists {
-		return admission.Warnings{}, fmt.Errorf("node %s does not have %s annotation", vm.Status.Node, annotations.AnnUSBIPTotalPorts)
-	}
-	totalPortsInt, err := strconv.Atoi(totalPorts)
-	if err != nil {
-		return admission.Warnings{}, fmt.Errorf("failed to parse %s annotation: %w", annotations.AnnUSBIPTotalPorts, err)
+		return admission.Warnings{}, err
 	}
 
 	// total for 2 usb hubs (2.0 and 3.0)
-	totalPortsInt /= 2
+	totalPorts /= 2
 
-	usedPorts, exists := node.Annotations[annotations.AnnUSBIPUsedPorts]
-	if !exists {
-		return admission.Warnings{}, fmt.Errorf("node %s does not have %s annotation", vm.Status.Node, annotations.AnnUSBIPUsedPorts)
-	}
-	usedPortsInt, err := strconv.Atoi(usedPorts)
-	if err != nil {
-		return admission.Warnings{}, fmt.Errorf("failed to parse %s annotation: %w", annotations.AnnUSBIPUsedPorts, err)
-	}
-
-	wantedPorts := usedPortsInt + len(usbFromOtherNodes)
-
-	if wantedPorts > totalPortsInt {
-		return admission.Warnings{}, fmt.Errorf("node %s not available ports for sharing USB devices %s. total: %d, used: %d, wanted: %d", vm.Status.Node, strings.Join(usbFromOtherNodes, ", "), totalPortsInt, usedPortsInt, wantedPorts)
-	}
-
-	return admission.Warnings{}, nil
+	return admission.Warnings{}, validateUsedPortsByAnnotation(node, annotations.AnnUSBIPUsedPorts, usbFromOtherNodes, totalPorts)
 }

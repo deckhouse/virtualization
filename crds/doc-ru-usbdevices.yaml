@@ -66,6 +66,9 @@ spec:
                     serial:
                       description: Серийный номер устройства.
                       type: string
+                    speed:
+                      description: Скорость устройства.
+                      type: integer
                     vendorID:
                       description: USB vendor ID в шестнадцатеричном формате.
                       type: string
