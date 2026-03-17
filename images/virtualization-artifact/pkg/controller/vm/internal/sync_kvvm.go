@@ -257,9 +257,15 @@ func (h *SyncKvvmHandler) isWaiting(vm *v1alpha2.VirtualMachine) bool {
 }
 
 func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineState, allChanges vmchange.SpecChanges) (bool, error) {
+	log := logger.FromContext(ctx)
+
+	log.Info("syncKVVM: start")
 	if s.VirtualMachine().IsEmpty() {
+		log.Info("syncKVVM: got empty VM, return")
 		return false, fmt.Errorf("the virtual machine is empty, please report a bug")
 	}
+
+	log.Info("syncKVVM: vm non-empty")
 
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
@@ -267,6 +273,8 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 	}
 
 	if kvvm == nil {
+		log.Info("syncKVVM: got empty KVVM, create a new one")
+
 		err = h.createKVVM(ctx, s)
 		if err != nil {
 			return false, fmt.Errorf("create the internal virtual machine: %w", err)
@@ -274,6 +282,8 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 
 		return true, nil
 	}
+
+	log.Info("syncKVVM: got non-empty KVVM, synchronize")
 
 	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {
@@ -289,6 +299,8 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 	// When a KVVM is created with conflicting placement rules and cannot be scheduled,
 	// it remains unschedulable even if these rules are changed or removed.
 	case h.isVMUnschedulable(s.VirtualMachine().Current(), kvvm) && h.isPlacementPolicyChanged(allChanges):
+		log.Info("syncKVVM: detect KVVM is Unschedulable, update KVVM")
+
 		err := h.updateKVVM(ctx, s)
 		if err != nil {
 			return false, fmt.Errorf("failed to update internal virtual machine: %w", err)
@@ -299,6 +311,8 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 		}
 		return true, nil
 	case h.isVMStopped(s.VirtualMachine().Current(), kvvm, pod):
+		log.Info("syncKVVM: detect KVVM is Stopped, update KVVM")
+
 		// KVVM should be updated when VM become stopped.
 		// It is safe to update KVVM at this point in general and also all related resources
 		// can be changed during the restoration process: e.g. VirtualDisks, VMIPs, etc.
@@ -310,6 +324,8 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 		}
 		return true, nil
 	case h.hasNoneDisruptiveChanges(s.VirtualMachine().Current(), kvvm, kvvmi, allChanges):
+		log.Info("syncKVVM: detect no disruptive changes, apply them to KVVM")
+
 		// No need to wait, apply changes to KVVM immediately.
 		err = h.applyVMChangesToKVVM(ctx, s, allChanges)
 		if err != nil {
@@ -318,8 +334,11 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 
 		return true, nil
 	case allChanges.IsEmpty():
+		log.Info("syncKVVM: detect no changes, stop sync")
+
 		return true, nil
 	default:
+		log.Info("syncKVVM: detect disruptive changes: wait for reboot")
 		// Delay changes propagation to KVVM until user restarts VM.
 		return false, nil
 	}
