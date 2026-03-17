@@ -84,6 +84,10 @@ true
   value: "24h"
 - name: GC_VMI_MIGRATION_SCHEDULE
   value: "0 0 * * *"
+- name: GC_VM_POD_TTL
+  value: "24h"
+- name: GC_VM_POD_SCHEDULE
+  value: "0 0 * * *"
 {{- if (hasKey .Values.virtualization.internal.moduleConfig "liveMigration") }}
 - name: LIVE_MIGRATION_BANDWIDTH_PER_NODE
   value: {{ .Values.virtualization.internal.moduleConfig.liveMigration.bandwidthPerNode | quote }}
