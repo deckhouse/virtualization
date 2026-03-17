@@ -54,8 +54,9 @@ func CalculateEffectivePolicy(vm v1alpha2.VirtualMachine, vmop *v1alpha2.Virtual
 				autoConvergePtr = vmop.Spec.Force
 			}
 		case v1alpha2.PreferForcedMigrationPolicy:
-			// PreferForced always uses autoConverge=true, force flag is ignored.
-			autoConvergePtr = ptr.To(true)
+			if vmop.Spec.Force != nil {
+				autoConvergePtr = vmop.Spec.Force
+			}
 		case v1alpha2.AlwaysSafeMigrationPolicy:
 			if vmop.Spec.Force != nil && *vmop.Spec.Force {
 				return effectivePolicy, *autoConvergePtr, fmt.Errorf("force=true is not applicable for VM liveMigrationPolicy %s", effectivePolicy)

@@ -64,7 +64,7 @@ var _ = Describe("CalculateEffectivePolicy", func() {
 
 		Entry("PreferForced with no force", v1alpha2.PreferForcedMigrationPolicy, nil, v1alpha2.PreferForcedMigrationPolicy, true, false),
 		Entry("PreferForced with force=true", v1alpha2.PreferForcedMigrationPolicy, ptr.To(true), v1alpha2.PreferForcedMigrationPolicy, true, false),
-		Entry("PreferForced with force=false", v1alpha2.PreferForcedMigrationPolicy, ptr.To(false), v1alpha2.PreferForcedMigrationPolicy, true, false),
+		Entry("PreferForced with force=false", v1alpha2.PreferForcedMigrationPolicy, ptr.To(false), v1alpha2.PreferForcedMigrationPolicy, false, false),
 
 		Entry("PreferSafe with no force", v1alpha2.PreferSafeMigrationPolicy, nil, v1alpha2.PreferSafeMigrationPolicy, false, false),
 		Entry("PreferSafe with force=true", v1alpha2.PreferSafeMigrationPolicy, ptr.To(true), v1alpha2.PreferSafeMigrationPolicy, true, false),
