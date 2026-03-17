@@ -300,7 +300,7 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 		return true, nil
 	case h.isVMStopped(s.VirtualMachine().Current(), kvvm, pod):
 		// KVVM should be updated when VM become stopped.
-		// It safe to update KVVM at this point in general and also all related resources
+		// It is safe to update KVVM at this point in general and also all related resources
 		// can be changed during the restoration process: e.g. VirtualDisks, VMIPs, etc.
 		// For example, the PVC of the VirtualDisk will be changed,
 		//  and the volume with this PVC must be updated in the KVVM specification.
