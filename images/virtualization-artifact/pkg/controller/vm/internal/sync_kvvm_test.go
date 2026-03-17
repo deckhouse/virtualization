@@ -35,6 +35,7 @@ import (
 	vmservice "github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization-controller/pkg/version"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
@@ -173,6 +174,10 @@ var _ = Describe("SyncKvvmHandler", func() {
 		})).To(Succeed())
 	}
 
+	// In EE, AutoMigrationIfNodePlacementChanged feature gate is enabled by default.
+	// When nodeSelector changes in VMClass, KubeVirt performs live migration instead of requiring VM restart.
+	expectAwaitingRestartConditionOnClassChange := version.GetEdition() != version.EditionEE
+
 	DescribeTable("AwaitingRestart Condition Tests",
 		func(phase v1alpha2.MachinePhase, needChange bool, expectedStatus metav1.ConditionStatus, expectedExistence bool) {
 			ip := &v1alpha2.VirtualMachineIPAddress{
@@ -227,13 +232,13 @@ var _ = Describe("SyncKvvmHandler", func() {
 				Expect(awaitCond.Status).To(Equal(expectedStatus))
 			}
 		},
-		Entry("Running phase with changes", v1alpha2.MachineRunning, true, metav1.ConditionTrue, true),
+		Entry("Running phase with changes", v1alpha2.MachineRunning, true, metav1.ConditionTrue, expectAwaitingRestartConditionOnClassChange),
 		Entry("Running phase without changes", v1alpha2.MachineRunning, false, metav1.ConditionUnknown, false),
 
-		Entry("Migrating phase with changes, condition should exist", v1alpha2.MachineMigrating, true, metav1.ConditionTrue, true),
+		Entry("Migrating phase with changes, condition should exist", v1alpha2.MachineMigrating, true, metav1.ConditionTrue, expectAwaitingRestartConditionOnClassChange),
 		Entry("Migrating phase without changes, condition should not exist", v1alpha2.MachineMigrating, false, metav1.ConditionUnknown, false),
 
-		Entry("Stopping phase with changes, condition should exist", v1alpha2.MachineStopping, true, metav1.ConditionTrue, true),
+		Entry("Stopping phase with changes, condition should exist", v1alpha2.MachineStopping, true, metav1.ConditionTrue, expectAwaitingRestartConditionOnClassChange),
 		Entry("Stopping phase without changes, condition should not exist", v1alpha2.MachineStopping, false, metav1.ConditionUnknown, false),
 
 		Entry("Stopped phase with changes, shouldn't have condition", v1alpha2.MachineStopped, true, metav1.ConditionUnknown, false),

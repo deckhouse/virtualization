@@ -48,9 +48,13 @@ func NewMigrationStorageClassValidator(client client.Client, scService *intsvc.V
 
 func (v *StorageClassValidator) ValidateCreate(ctx context.Context, newVD *v1alpha2.VirtualDisk) (admission.Warnings, error) {
 	if newVD.Spec.PersistentVolumeClaim.StorageClass != nil && *newVD.Spec.PersistentVolumeClaim.StorageClass != "" {
-		sc, err := v.scService.GetStorageClass(ctx, *newVD.Spec.PersistentVolumeClaim.StorageClass)
+		scName := *newVD.Spec.PersistentVolumeClaim.StorageClass
+		sc, err := v.scService.GetStorageClass(ctx, scName)
 		if err != nil {
 			return nil, err
+		}
+		if sc == nil {
+			return nil, fmt.Errorf("storage class %q not found", scName)
 		}
 		if v.scService.IsStorageClassDeprecated(sc) {
 			return nil, fmt.Errorf(
@@ -70,9 +74,13 @@ func (v *StorageClassValidator) ValidateUpdate(ctx context.Context, oldVD, newVD
 
 	if newVD.Status.Phase == v1alpha2.DiskPending {
 		if newVD.Spec.PersistentVolumeClaim.StorageClass != nil && *newVD.Spec.PersistentVolumeClaim.StorageClass != "" {
-			sc, err := v.scService.GetStorageClass(ctx, *newVD.Spec.PersistentVolumeClaim.StorageClass)
+			scName := *newVD.Spec.PersistentVolumeClaim.StorageClass
+			sc, err := v.scService.GetStorageClass(ctx, scName)
 			if err != nil {
 				return nil, err
+			}
+			if sc == nil {
+				return nil, fmt.Errorf("target storage class %q not found", scName)
 			}
 			if v.scService.IsStorageClassDeprecated(sc) {
 				return nil, fmt.Errorf(
@@ -126,6 +134,9 @@ func (v *StorageClassValidator) validateTargetStorageClassForVolumeMigration(ctx
 	if err != nil {
 		return err
 	}
+	if currentStorageClass == nil {
+		return fmt.Errorf("source storage class %q not found", currentStorageClassName)
+	}
 	currentMode, _, err := v.modeGetter.GetVolumeAndAccessModes(ctx, newVD, currentStorageClass)
 	if err != nil {
 		return err
@@ -135,6 +146,9 @@ func (v *StorageClassValidator) validateTargetStorageClassForVolumeMigration(ctx
 	desiredStorageClass, err := v.scService.GetStorageClass(ctx, desiredStorageClassName)
 	if err != nil {
 		return err
+	}
+	if desiredStorageClass == nil {
+		return fmt.Errorf("target storage class %q not found", desiredStorageClassName)
 	}
 	desiredMode, _, err := v.modeGetter.GetVolumeAndAccessModes(ctx, newVD, desiredStorageClass)
 	if err != nil {
