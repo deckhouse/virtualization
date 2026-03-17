@@ -274,6 +274,8 @@ var _ = Describe("VirtualMachineMigration", func() {
 		})
 
 		By("Check VM can reach external network", func() {
+			util.UntilSSHReady(f, vmBIOS, framework.MiddleTimeout)
+			util.UntilSSHReady(f, vmUEFI, framework.MiddleTimeout)
 			network.CheckExternalConnectivity(f, vmBIOS.Name, network.ExternalHost, network.HTTPStatusOk)
 			network.CheckExternalConnectivity(f, vmUEFI.Name, network.ExternalHost, network.HTTPStatusOk)
 		})
