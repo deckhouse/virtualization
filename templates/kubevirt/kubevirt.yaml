@@ -381,7 +381,7 @@ volumes:
 {{- end }}
     - resourceName: virt-handler
       resourceType: DaemonSet
-      patch: '{"spec":{"template":{"spec": {{include "virt-handler-rewrite-host-path-volumes" | fromYaml | toJson }} }}}'
+      patch: '{"spec":{"template":{"spec": {{include "virt-handler-rewrite-host-path-volumes" . | fromYaml | toJson }} }}}'
       type: strategic
 
   imagePullPolicy: IfNotPresent
