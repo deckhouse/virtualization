@@ -488,7 +488,7 @@ func IsKVVMChanged(ctx context.Context, s state.VirtualMachineState, kvvm *virtv
 	}
 
 	if !isChanged {
-		isChanged = reflect.DeepEqual(kvvm.Spec, currentKVVM.Spec)
+		isChanged = !reflect.DeepEqual(kvvm.Spec, currentKVVM.Spec)
 	}
 	return isChanged, nil
 }
