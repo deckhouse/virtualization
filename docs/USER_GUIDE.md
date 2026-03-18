@@ -2310,6 +2310,10 @@ Use stable identifiers instead of `ethX`:
 
 In configuration files and scripts, use stable interface names (`enpXsY`) or MAC address binding instead of `ethX` names.
 
+{{< alert level="info" >}}
+Predictable interface order works only on guest OS with systemd (e.g. Ubuntu, Debian). On Alpine and other distros without systemd the order may not match.
+{{< /alert >}}
+
 ### Organizing interaction with virtual machines
 
 Virtual machines can be accessed directly via their fixed IP addresses. However, this approach has limitations: direct use of IP addresses requires manual management, complicates scaling, and makes the infrastructure less flexible. An alternative is services—a mechanism that abstracts access to VMs by providing logical entry points instead of binding to physical addresses.
