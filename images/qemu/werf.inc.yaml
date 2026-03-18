@@ -321,7 +321,7 @@ shell:
       --enable-pie \
       --enable-rbd \
       --enable-rdma \
-      --enable-seccomp \
+      --disable-seccomp \
       --enable-selinux \
       --enable-slirp \
       --enable-snappy \
