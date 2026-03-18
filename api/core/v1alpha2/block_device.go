@@ -20,7 +20,9 @@ type BlockDeviceSpecRef struct {
 	Kind BlockDeviceKind `json:"kind"`
 	// The name of attached resource.
 	Name string `json:"name"`
-	// Boot priority for the block device. Smaller value = higher priority.
+	// Boot order of the block device. A smaller value means a higher priority.
+	// If the parameter is not set for any device, the boot order follows the device position in the list (starting from 1).
+    // If the parameter is set for at least one device, the boot order is determined by the specified values.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	BootOrder *int `json:"bootOrder,omitempty"`
