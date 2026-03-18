@@ -694,7 +694,7 @@ spec:
 EOF
 ```
 
-After creation, the `VirtualDisk` resource can be in the following states (phases):
+After creation, the `VirtualDisk` resource can be in the following phase:
 
 - `Pending`: Waiting for all dependent resources required for disk creation to be ready.
 - `Provisioning`: Disk creation process is in progress.
@@ -709,6 +709,10 @@ After creation, the `VirtualDisk` resource can be in the following states (phase
 - `Terminating`: Disk is being deleted. The disk may "hang" in this state if it is still connected to the virtual machine.
 
 As long as the disk has not reached the `Ready` phase, you can modify any fields in the `.spec` block. When changes are made, the disk creation process is restarted.
+
+{{< alert level="info" >}}
+After the disk reaches the `Ready` phase, you can still change `.spec.persistentVolumeClaim.size` and `.spec.persistentVolumeClaim.storageClassName`. All other `.spec` fields are immutable.
+{{< /alert >}}
 
 If the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified, the default `StorageClass` at the cluster level will be used, or for images if specified in [module settings](./admin_guide.html#storage-class-settings-for-disks).
 
