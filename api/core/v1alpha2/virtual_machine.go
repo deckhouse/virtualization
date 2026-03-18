@@ -266,6 +266,7 @@ const (
 )
 
 type NetworksSpec struct {
+	ID                           int    `json:"id,omitempty"`
 	Type                         string `json:"type"`
 	Name                         string `json:"name,omitempty"`
 	VirtualMachineMACAddressName string `json:"virtualMachineMACAddressName,omitempty"`
@@ -429,6 +430,7 @@ type Versions struct {
 }
 
 type NetworksStatus struct {
+	ID                           int    `json:"id,omitempty"`
 	Type                         string `json:"type"`
 	Name                         string `json:"name,omitempty"`
 	MAC                          string `json:"macAddress,omitempty"`
