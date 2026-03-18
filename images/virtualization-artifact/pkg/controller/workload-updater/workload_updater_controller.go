@@ -47,6 +47,7 @@ func SetupController(
 	handlers := []Handler{
 		handler.NewFirmwareHandler(client, service.NewOneShotMigrationService(client, "firmware-update-"), firmwareImage, namespace, virtControllerName),
 		handler.NewNodePlacementHandler(client, service.NewOneShotMigrationService(client, "nodeplacement-update-")),
+		handler.NewHotplugHandler(client, service.NewOneShotMigrationService(client, "hotplug-resources-")),
 	}
 	r := NewReconciler(client, handlers)
 
