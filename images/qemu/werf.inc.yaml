@@ -215,7 +215,7 @@ shell:
       --block-drv-ro-whitelist="vdi,vmdk,vhdx,vpc,https" \
       --disable-alsa \
       --disable-auth-pam \
-      --disable-avx2 \
+      --enable-avx2 \
       --disable-avx512bw \
       --disable-block-drv-whitelist-in-tools \
       --disable-bochs \
@@ -256,7 +256,7 @@ shell:
       --disable-linux-user \
       --disable-lto \
       --disable-lzfse \
-      --disable-membarrier \
+      --enable-membarrier \
       --disable-module-upgrades \
       --disable-multiprocess \
       --disable-netmap \
