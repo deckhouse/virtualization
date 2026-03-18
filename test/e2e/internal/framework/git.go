@@ -27,7 +27,7 @@ import (
 const (
 	ceph                = "rbd.csi.ceph.com"
 	sdsReplicatedVolume = "replicated.csi.storage.deckhouse.io"
-	nfs 				= "nfs.csi.k8s.io"
+	nfs                 = "nfs.csi.k8s.io"
 )
 
 // Deprecated: do not use for new e2e tests (only for legacy ones).
