@@ -17,6 +17,7 @@ limitations under the License.
 package vmchange
 
 import (
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -153,9 +154,23 @@ func compareCPU(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
 	return nil
 }
 
-// compareMemory returns changes in the memory section.
+// compareMemory is a special comparator to detect changes in memory.
+// It is aware of hotplug mechanism. If hotplug is disabled it requires
+// restart if memory.size is changed. If hotplug is enabled, it allows
+// changing "on the fly". Also, it requires restart if hotplug boundary
+// is crossed.
+// Note: memory hotplug is enabled if VM has more than 1Gi of RAM.
 func compareMemory(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
-	return compareQuantity("memory.size", current.Memory.Size, desired.Memory.Size, resource.Quantity{}, ActionRestart)
+	hotplugThreshold := resource.NewQuantity(kvbuilder.EnableMemoryHotplugThreshold, resource.BinarySI)
+	isHotpluggable := current.Memory.Size.Cmp(*hotplugThreshold) > 0
+	isHotpluggableDesired := desired.Memory.Size.Cmp(*hotplugThreshold) > 0
+
+	actionType := ActionRestart
+	if isHotpluggable && isHotpluggableDesired {
+		actionType = ActionApplyImmediate
+	}
+
+	return compareQuantity("memory.size", current.Memory.Size, desired.Memory.Size, resource.Quantity{}, actionType)
 }
 
 func compareProvisioning(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
