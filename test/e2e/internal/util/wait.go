@@ -32,7 +32,7 @@ type Watcher interface {
 }
 
 type Resource interface {
-	*v1alpha2.VirtualMachineIPAddress | *v1alpha2.VirtualMachineIPAddressLease | *v1alpha2.VirtualMachine | *v1alpha2.VirtualDisk
+	*v1alpha2.VirtualMachineIPAddress | *v1alpha2.VirtualMachineIPAddressLease | *v1alpha2.VirtualMachine | *v1alpha2.VirtualDisk | *v1alpha2.VirtualMachineBlockDeviceAttachment
 }
 
 type EventHandler[R Resource] func(eventType watch.EventType, r R) (bool, error)
@@ -73,4 +73,43 @@ func WaitFor[R Resource](ctx context.Context, w Watcher, h EventHandler[R], opts
 	}
 
 	return zero, fmt.Errorf("the condition for matching was not successfully met: %w", ctx.Err())
+}
+
+// EnsureVMBDAsStayAttached watches VMBDAs and returns an error if any of the tracked
+// VMBDAs transitions away from the Attached phase. It runs until ctx is cancelled,
+// returning nil if all VMBDAs stayed Attached throughout.
+// Intended to run concurrently with a migration to catch unexpected detach events.
+func EnsureVMBDAsStayAttached(ctx context.Context, w Watcher, names []string, opts metav1.ListOptions) error {
+	if len(names) == 0 {
+		return nil
+	}
+
+	wi, err := w.Watch(ctx, opts)
+	if err != nil {
+		return err
+	}
+	defer wi.Stop()
+
+	tracked := make(map[string]struct{}, len(names))
+	for _, n := range names {
+		tracked[n] = struct{}{}
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case event, ok := <-wi.ResultChan():
+			if !ok {
+				return nil
+			}
+			vmbda, ok := event.Object.(*v1alpha2.VirtualMachineBlockDeviceAttachment)
+			if !ok {
+				continue
+			}
+			if _, ok := tracked[vmbda.Name]; ok && vmbda.Status.Phase != v1alpha2.BlockDeviceAttachmentPhaseAttached {
+				return fmt.Errorf("VMBDA %s unexpectedly transitioned to phase %q", vmbda.Name, vmbda.Status.Phase)
+			}
+		}
+	}
 }

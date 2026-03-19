@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -38,6 +39,8 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
+
+const lsblkCommand = "lsblk -dn | wc -l"
 
 var _ = Describe("VirtualMachineMigration", func() {
 	var (
@@ -63,7 +66,9 @@ var _ = Describe("VirtualMachineMigration", func() {
 		vmopMigrateBIOS *v1alpha2.VirtualMachineOperation
 		vmopMigrateUEFI *v1alpha2.VirtualMachineOperation
 
-		f = framework.NewFramework("vm-migration")
+		f                         = framework.NewFramework("vm-migration")
+		lsblkWcResultBIOSOriginal string
+		lsblkWcResultUEFIOriginal string
 	)
 
 	BeforeEach(func() {
@@ -79,7 +84,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 				vd.WithNamespace(f.Namespace().Name),
 				vd.WithSize(ptr.To(resource.MustParse("10Gi"))),
 				vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: object.ImageURLAlpineBIOS,
+					URL: object.ImageURLUbuntu,
 				}),
 			)
 			vdBlankBIOS = vd.New(
@@ -116,6 +121,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 				vm.WithProvisioningUserData(object.DefaultCloudInit),
 				vm.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
 				vm.WithName("vm-bios"),
+				vm.WithBootloader(v1alpha2.BIOS),
 			)
 			vmUEFI = object.NewMinimalVM("", f.Namespace().Name,
 				vm.WithBlockDeviceRefs(
@@ -132,6 +138,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 				vm.WithProvisioningUserData(object.DefaultCloudInit),
 				vm.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
 				vm.WithName("vm-uefi"),
+				vm.WithBootloader(v1alpha2.EFI),
 			)
 
 			// --- Hotplug resources ---
@@ -221,6 +228,14 @@ var _ = Describe("VirtualMachineMigration", func() {
 				string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.LongTimeout,
 				toObjects(vmbdas)...,
 			)
+
+			util.UntilSSHReady(f, vmBIOS, framework.LongTimeout)
+			util.UntilSSHReady(f, vmUEFI, framework.LongTimeout)
+
+			lsblkWcResultBIOSOriginal, err = f.SSHCommand(vmBIOS.Name, f.Namespace().Name, lsblkCommand)
+			Expect(err).NotTo(HaveOccurred())
+			lsblkWcResultUEFIOriginal, err = f.SSHCommand(vmUEFI.Name, f.Namespace().Name, lsblkCommand)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		By("Create VMOP to trigger migration", func() {
@@ -241,6 +256,20 @@ var _ = Describe("VirtualMachineMigration", func() {
 		})
 
 		By("Wait for migration to complete", func() {
+			ctxVMBDA, cancelVMBDA := context.WithCancel(context.Background())
+			defer cancelVMBDA()
+
+			vmbdaGuardErrCh := make(chan error, 1)
+			vmbdaNames := make([]string, len(vmbdas))
+			for i, a := range vmbdas {
+				vmbdaNames[i] = a.Name
+			}
+			go func() {
+				vmbdaGuardErrCh <- util.EnsureVMBDAsStayAttached(ctxVMBDA,
+					f.VirtClient().VirtualMachineBlockDeviceAttachments(f.Namespace().Name),
+					vmbdaNames, metav1.ListOptions{})
+			}()
+
 			Eventually(func(g Gomega) {
 				err := f.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vmBIOS), vmBIOS)
 				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
@@ -256,13 +285,19 @@ var _ = Describe("VirtualMachineMigration", func() {
 				err = f.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vmopMigrateUEFI), vmopMigrateUEFI)
 				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
 
-				// TODO: Watch vmbda phase via watch to not miss phase flickering.
-				checkVmbdasAttached(f, vmbdas) // Intentionally fail the test on a single error
-				// TODO: Verify hotplug availability from inside the VM during migration.
+				lsblkWcResultBIOS, err := f.SSHCommand(vmBIOS.Name, f.Namespace().Name, lsblkCommand)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lsblkWcResultBIOS).To(Equal(lsblkWcResultBIOSOriginal))
+				lsblkWcResultUEFI, err := f.SSHCommand(vmUEFI.Name, f.Namespace().Name, lsblkCommand)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lsblkWcResultUEFI).To(Equal(lsblkWcResultUEFIOriginal))
 
 				g.Expect(vmopMigrateBIOS.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
 				g.Expect(vmopMigrateUEFI.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
 			}).WithPolling(time.Second).WithTimeout(framework.LongTimeout).To(Succeed())
+
+			cancelVMBDA()
+			Expect(<-vmbdaGuardErrCh).NotTo(HaveOccurred(), "VMBDAs should stay in Attached phase during migration")
 		})
 
 		// There is a known issue with the Cilium agent check.
@@ -288,15 +323,4 @@ func toObjects[T crclient.Object](objs []T) []crclient.Object {
 		out[i] = o
 	}
 	return out
-}
-
-func checkVmbdasAttached(f *framework.Framework, attachments []*v1alpha2.VirtualMachineBlockDeviceAttachment) {
-	GinkgoHelper()
-
-	var current v1alpha2.VirtualMachineBlockDeviceAttachment
-	for _, a := range attachments {
-		err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(a), &current)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(current.Status.Phase).To(Equal(v1alpha2.BlockDeviceAttachmentPhaseAttached))
-	}
 }
