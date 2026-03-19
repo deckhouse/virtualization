@@ -290,7 +290,7 @@ func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMa
 	if snapshotting.Status == metav1.ConditionTrue {
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonNonMigratable).
-			Message("Cannot migrate the machine while a snapshot is in progress.")
+			Message("Cannot migrate the virtual machine while a snapshot is in progress.")
 		conditions.SetCondition(cb, &vm.Status.Conditions)
 		return nil
 	}

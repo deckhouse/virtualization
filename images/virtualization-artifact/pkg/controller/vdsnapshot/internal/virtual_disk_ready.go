@@ -101,7 +101,7 @@ func (h VirtualDiskReadyHandler) Handle(ctx context.Context, vdSnapshot *v1alpha
 			return reconcile.Result{}, nil
 		}
 
-		attachedToMigratingVM, err := h.checkDiskNotAttachedToMigratingVM(ctx, vd, cb)
+		attachedToMigratingVM, err := h.isVDAttachedToMigratingVM(ctx, vd, cb)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -123,20 +123,28 @@ func (h VirtualDiskReadyHandler) Handle(ctx context.Context, vdSnapshot *v1alpha
 	}
 }
 
-// checkDiskNotAttachedToMigratingVM checks that the disk is not attached to a migrating VM.
+// isVDAttachedToMigratingVM checks that the disk is not attached to a migrating VM.
 // Returns (true, nil) if the disk is attached to a migrating VM (caller should return immediately).
 // Otherwise returns (false, nil) or (false, err).
-func (h VirtualDiskReadyHandler) checkDiskNotAttachedToMigratingVM(ctx context.Context, vd *v1alpha2.VirtualDisk, cb *conditions.ConditionBuilder) (bool, error) {
+func (h VirtualDiskReadyHandler) isVDAttachedToMigratingVM(ctx context.Context, vd *v1alpha2.VirtualDisk, cb *conditions.ConditionBuilder) (bool, error) {
 	inUse, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 	if inUse.Status != metav1.ConditionTrue {
 		return false, nil
 	}
 
-	if len(vd.Status.AttachedToVirtualMachines) != 1 {
+	var vmNames []string
+
+	for _, attachedVM := range vd.Status.AttachedToVirtualMachines {
+		if attachedVM.Mounted {
+			vmNames = append(vmNames, attachedVM.Name)
+		}
+	}
+
+	if len(vmNames) != 1 {
 		return false, errors.New("disk is in InUse state but the number of VMs it is attached to is not 1; this should not happen, please report a bug")
 	}
 
-	vmName := vd.Status.AttachedToVirtualMachines[0].Name
+	vmName := vmNames[0]
 	vm, err := object.FetchObject(ctx, types.NamespacedName{Name: vmName, Namespace: vd.Namespace}, h.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		return false, err

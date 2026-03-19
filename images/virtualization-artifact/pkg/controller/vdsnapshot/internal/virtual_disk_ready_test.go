@@ -69,11 +69,117 @@ var _ = Describe("VirtualDiskReady handler", func() {
 		}
 	})
 
+	Context("condition VirtualDiskReady is Unknown", func() {
+		It("The virtual disk snapshot is being deleted", func() {
+			vdSnapshot.DeletionTimestamp = ptr.To(metav1.Now())
+			h := NewVirtualDiskReadyHandler(snapshotter, fakeClient)
+
+			_, err := h.Handle(testContext(), vdSnapshot)
+			Expect(err).To(BeNil())
+			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
+			Expect(ready.Status).To(Equal(metav1.ConditionUnknown))
+			Expect(ready.Reason).To(Equal(conditions.ReasonUnknown.String()))
+			Expect(ready.Message).To(BeEmpty())
+		})
+	})
+
 	Context("condition VirtualDiskReady is True", func() {
 		It("The virtual disk is ready for snapshotting", func() {
 			h := NewVirtualDiskReadyHandler(snapshotter, fakeClient)
 
 			_, err := h.Handle(testContext(), vdSnapshot)
+			Expect(err).To(BeNil())
+			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
+			Expect(ready.Status).To(Equal(metav1.ConditionTrue))
+			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskReady.String()))
+			Expect(ready.Message).To(BeEmpty())
+		})
+
+		It("The virtual disk snapshot is already in Ready phase", func() {
+			vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseReady
+			h := NewVirtualDiskReadyHandler(snapshotter, fakeClient)
+
+			_, err := h.Handle(testContext(), vdSnapshot)
+			Expect(err).To(BeNil())
+			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
+			Expect(ready.Status).To(Equal(metav1.ConditionTrue))
+			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskReady.String()))
+			Expect(ready.Message).To(BeEmpty())
+		})
+
+		It("The virtual disk has no snapshotting condition", func() {
+			snapshotter.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualDisk, error) {
+				vd.Status.Conditions = nil
+				return vd, nil
+			}
+			h := NewVirtualDiskReadyHandler(snapshotter, fakeClient)
+
+			_, err := h.Handle(testContext(), vdSnapshot)
+			Expect(err).To(BeNil())
+			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
+			Expect(ready.Status).To(Equal(metav1.ConditionTrue))
+			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskReady.String()))
+			Expect(ready.Message).To(BeEmpty())
+		})
+
+		It("The virtual disk is InUse but attached VM is not migrating", func() {
+			const namespace = "default"
+			vmName := "vm-running"
+			vd.Namespace = namespace
+			vd.Status.Conditions = []metav1.Condition{
+				{Type: vdcondition.SnapshottingType.String(), Status: metav1.ConditionTrue},
+				{Type: vdcondition.InUseType.String(), Status: metav1.ConditionTrue},
+			}
+			vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{{Name: vmName, Mounted: true}}
+			vdSnapshot.Namespace = namespace
+
+			vm := &v1alpha2.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{Name: vmName, Namespace: namespace},
+				Status:     v1alpha2.VirtualMachineStatus{},
+			}
+			fakeClient, err := testutil.NewFakeClientWithObjects(vm)
+			Expect(err).NotTo(HaveOccurred())
+
+			snapshotter.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualDisk, error) {
+				return vd, nil
+			}
+			h := NewVirtualDiskReadyHandler(snapshotter, fakeClient)
+
+			_, err = h.Handle(testContext(), vdSnapshot)
+			Expect(err).To(BeNil())
+			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
+			Expect(ready.Status).To(Equal(metav1.ConditionTrue))
+			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskReady.String()))
+			Expect(ready.Message).To(BeEmpty())
+		})
+
+		It("The virtual disk has multiple attached VMs but only one is mounted and it is not migrating", func() {
+			const namespace = "default"
+			vmName := "vm-mounted"
+			vd.Namespace = namespace
+			vd.Status.Conditions = []metav1.Condition{
+				{Type: vdcondition.SnapshottingType.String(), Status: metav1.ConditionTrue},
+				{Type: vdcondition.InUseType.String(), Status: metav1.ConditionTrue},
+			}
+			vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{
+				{Name: "vm-unmounted", Mounted: false},
+				{Name: vmName, Mounted: true},
+			}
+			vdSnapshot.Namespace = namespace
+
+			vm := &v1alpha2.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{Name: vmName, Namespace: namespace},
+				Status:     v1alpha2.VirtualMachineStatus{},
+			}
+			fakeClient, err := testutil.NewFakeClientWithObjects(vm)
+			Expect(err).NotTo(HaveOccurred())
+
+			snapshotter.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualDisk, error) {
+				return vd, nil
+			}
+			h := NewVirtualDiskReadyHandler(snapshotter, fakeClient)
+
+			_, err = h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
 			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionTrue))
@@ -148,6 +254,27 @@ var _ = Describe("VirtualDiskReady handler", func() {
 			Expect(ready.Message).ToNot(BeEmpty())
 		})
 
+		It("The virtual disk snapshotting condition is stale", func() {
+			snapshotter.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualDisk, error) {
+				vd.Generation = 2
+				vd.Status.Conditions = []metav1.Condition{
+					{
+						Type:               vdcondition.SnapshottingType.String(),
+						Status:             metav1.ConditionTrue,
+						ObservedGeneration: 1,
+					},
+				}
+				return vd, nil
+			}
+			h := NewVirtualDiskReadyHandler(snapshotter, fakeClient)
+
+			_, err := h.Handle(testContext(), vdSnapshot)
+			Expect(err).To(BeNil())
+			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
+			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
+			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskNotReadyForSnapshotting.String()))
+		})
+
 		It("The virtual disk is attached to a migrating VM", func() {
 			const namespace = "default"
 			vmName := "vm-migrating"
@@ -156,7 +283,7 @@ var _ = Describe("VirtualDiskReady handler", func() {
 				{Type: vdcondition.SnapshottingType.String(), Status: metav1.ConditionTrue},
 				{Type: vdcondition.InUseType.String(), Status: metav1.ConditionTrue},
 			}
-			vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{{Name: vmName}}
+			vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{{Name: vmName, Mounted: true}}
 			vdSnapshot.Namespace = namespace
 
 			vm := &v1alpha2.VirtualMachine{
@@ -181,6 +308,53 @@ var _ = Describe("VirtualDiskReady handler", func() {
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskNotReadyForSnapshotting.String()))
 			Expect(ready.Message).To(ContainSubstring("migrating"))
+		})
+	})
+
+	Context("returns an error", func() {
+		It("The virtual disk is InUse but has no mounted VMs", func() {
+			const namespace = "default"
+			vd.Namespace = namespace
+			vd.Status.Conditions = []metav1.Condition{
+				{Type: vdcondition.SnapshottingType.String(), Status: metav1.ConditionTrue},
+				{Type: vdcondition.InUseType.String(), Status: metav1.ConditionTrue},
+			}
+			vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{
+				{Name: "vm-01", Mounted: false},
+			}
+			vdSnapshot.Namespace = namespace
+
+			snapshotter.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualDisk, error) {
+				return vd, nil
+			}
+			h := NewVirtualDiskReadyHandler(snapshotter, fakeClient)
+
+			_, err := h.Handle(testContext(), vdSnapshot)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("please report a bug"))
+		})
+
+		It("The virtual disk is InUse with multiple mounted VMs", func() {
+			const namespace = "default"
+			vd.Namespace = namespace
+			vd.Status.Conditions = []metav1.Condition{
+				{Type: vdcondition.SnapshottingType.String(), Status: metav1.ConditionTrue},
+				{Type: vdcondition.InUseType.String(), Status: metav1.ConditionTrue},
+			}
+			vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{
+				{Name: "vm-01", Mounted: true},
+				{Name: "vm-02", Mounted: true},
+			}
+			vdSnapshot.Namespace = namespace
+
+			snapshotter.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualDisk, error) {
+				return vd, nil
+			}
+			h := NewVirtualDiskReadyHandler(snapshotter, fakeClient)
+
+			_, err := h.Handle(testContext(), vdSnapshot)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("please report a bug"))
 		})
 	})
 })
