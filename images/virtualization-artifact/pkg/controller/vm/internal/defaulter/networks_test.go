@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/defaulter"
@@ -37,12 +38,12 @@ var _ = Describe("NetworksDefaulter", func() {
 	})
 
 	Describe("Default network IDs", func() {
-		It("should assign id=1 to Main network when id=0", func() {
+		It("should assign id=1 to Main network when id is omitted", func() {
 			vm := &v1alpha2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "default"},
 				Spec: v1alpha2.VirtualMachineSpec{
 					Networks: []v1alpha2.NetworksSpec{
-						{Type: v1alpha2.NetworksTypeMain, ID: 0},
+						{Type: v1alpha2.NetworksTypeMain},
 					},
 				},
 			}
@@ -50,7 +51,7 @@ var _ = Describe("NetworksDefaulter", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vm.Spec.Networks).To(HaveLen(1))
 			Expect(vm.Spec.Networks[0].Type).To(Equal(v1alpha2.NetworksTypeMain))
-			Expect(vm.Spec.Networks[0].ID).To(Equal(1))
+			Expect(*vm.Spec.Networks[0].ID).To(Equal(1))
 		})
 
 		It("should not change Main network id when it is already set to 1", func() {
@@ -58,7 +59,7 @@ var _ = Describe("NetworksDefaulter", func() {
 				ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "default"},
 				Spec: v1alpha2.VirtualMachineSpec{
 					Networks: []v1alpha2.NetworksSpec{
-						{Type: v1alpha2.NetworksTypeMain, ID: 1},
+						{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(1)},
 					},
 				},
 			}
@@ -66,17 +67,17 @@ var _ = Describe("NetworksDefaulter", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vm.Spec.Networks).To(HaveLen(1))
 			Expect(vm.Spec.Networks[0].Type).To(Equal(v1alpha2.NetworksTypeMain))
-			Expect(vm.Spec.Networks[0].ID).To(Equal(1))
+			Expect(*vm.Spec.Networks[0].ID).To(Equal(1))
 		})
 
-		It("should assign sequential ids starting from 2 to networks with id=0", func() {
+		It("should assign sequential ids starting from 2 when additional ids are omitted", func() {
 			vm := &v1alpha2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "default"},
 				Spec: v1alpha2.VirtualMachineSpec{
 					Networks: []v1alpha2.NetworksSpec{
-						{Type: v1alpha2.NetworksTypeMain, ID: 0},
-						{Type: v1alpha2.NetworksTypeNetwork, Name: "test-network-1", ID: 0},
-						{Type: v1alpha2.NetworksTypeNetwork, Name: "test-network-2", ID: 0},
+						{Type: v1alpha2.NetworksTypeMain},
+						{Type: v1alpha2.NetworksTypeNetwork, Name: "test-network-1"},
+						{Type: v1alpha2.NetworksTypeNetwork, Name: "test-network-2"},
 					},
 				},
 			}
@@ -84,13 +85,13 @@ var _ = Describe("NetworksDefaulter", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vm.Spec.Networks).To(HaveLen(3))
 			Expect(vm.Spec.Networks[0].Type).To(Equal(v1alpha2.NetworksTypeMain))
-			Expect(vm.Spec.Networks[0].ID).To(Equal(1))
+			Expect(*vm.Spec.Networks[0].ID).To(Equal(1))
 			Expect(vm.Spec.Networks[1].Type).To(Equal(v1alpha2.NetworksTypeNetwork))
 			Expect(vm.Spec.Networks[1].Name).To(Equal("test-network-1"))
-			Expect(vm.Spec.Networks[1].ID).To(Equal(2))
+			Expect(*vm.Spec.Networks[1].ID).To(Equal(2))
 			Expect(vm.Spec.Networks[2].Type).To(Equal(v1alpha2.NetworksTypeNetwork))
 			Expect(vm.Spec.Networks[2].Name).To(Equal("test-network-2"))
-			Expect(vm.Spec.Networks[2].ID).To(Equal(3))
+			Expect(*vm.Spec.Networks[2].ID).To(Equal(3))
 		})
 
 		It("should not change network id when it is already set", func() {
@@ -98,8 +99,8 @@ var _ = Describe("NetworksDefaulter", func() {
 				ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "default"},
 				Spec: v1alpha2.VirtualMachineSpec{
 					Networks: []v1alpha2.NetworksSpec{
-						{Type: v1alpha2.NetworksTypeMain, ID: 1},
-						{Type: v1alpha2.NetworksTypeNetwork, Name: "test-network", ID: 5},
+						{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(1)},
+						{Type: v1alpha2.NetworksTypeNetwork, Name: "test-network", ID: ptr.To(5)},
 					},
 				},
 			}
@@ -107,9 +108,9 @@ var _ = Describe("NetworksDefaulter", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vm.Spec.Networks).To(HaveLen(2))
 			Expect(vm.Spec.Networks[0].Type).To(Equal(v1alpha2.NetworksTypeMain))
-			Expect(vm.Spec.Networks[0].ID).To(Equal(1))
+			Expect(*vm.Spec.Networks[0].ID).To(Equal(1))
 			Expect(vm.Spec.Networks[1].Type).To(Equal(v1alpha2.NetworksTypeNetwork))
-			Expect(vm.Spec.Networks[1].ID).To(Equal(5))
+			Expect(*vm.Spec.Networks[1].ID).To(Equal(5))
 		})
 
 		It("should assign sequential ids considering already set ids", func() {
@@ -117,9 +118,9 @@ var _ = Describe("NetworksDefaulter", func() {
 				ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "default"},
 				Spec: v1alpha2.VirtualMachineSpec{
 					Networks: []v1alpha2.NetworksSpec{
-						{Type: v1alpha2.NetworksTypeMain, ID: 0},
-						{Type: v1alpha2.NetworksTypeNetwork, Name: "test-network-1", ID: 5},
-						{Type: v1alpha2.NetworksTypeNetwork, Name: "test-network-2", ID: 0},
+						{Type: v1alpha2.NetworksTypeMain},
+						{Type: v1alpha2.NetworksTypeNetwork, Name: "test-network-1", ID: ptr.To(5)},
+						{Type: v1alpha2.NetworksTypeNetwork, Name: "test-network-2"},
 					},
 				},
 			}
@@ -127,13 +128,13 @@ var _ = Describe("NetworksDefaulter", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vm.Spec.Networks).To(HaveLen(3))
 			Expect(vm.Spec.Networks[0].Type).To(Equal(v1alpha2.NetworksTypeMain))
-			Expect(vm.Spec.Networks[0].ID).To(Equal(1))
+			Expect(*vm.Spec.Networks[0].ID).To(Equal(1))
 			Expect(vm.Spec.Networks[1].Type).To(Equal(v1alpha2.NetworksTypeNetwork))
 			Expect(vm.Spec.Networks[1].Name).To(Equal("test-network-1"))
-			Expect(vm.Spec.Networks[1].ID).To(Equal(5))
+			Expect(*vm.Spec.Networks[1].ID).To(Equal(5))
 			Expect(vm.Spec.Networks[2].Type).To(Equal(v1alpha2.NetworksTypeNetwork))
 			Expect(vm.Spec.Networks[2].Name).To(Equal("test-network-2"))
-			Expect(vm.Spec.Networks[2].ID).To(Equal(2))
+			Expect(*vm.Spec.Networks[2].ID).To(Equal(2))
 		})
 
 		It("should handle ClusterNetwork type correctly", func() {
@@ -141,8 +142,8 @@ var _ = Describe("NetworksDefaulter", func() {
 				ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "default"},
 				Spec: v1alpha2.VirtualMachineSpec{
 					Networks: []v1alpha2.NetworksSpec{
-						{Type: v1alpha2.NetworksTypeMain, ID: 0},
-						{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "test-cluster-network", ID: 0},
+						{Type: v1alpha2.NetworksTypeMain},
+						{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "test-cluster-network"},
 					},
 				},
 			}
@@ -150,10 +151,10 @@ var _ = Describe("NetworksDefaulter", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vm.Spec.Networks).To(HaveLen(2))
 			Expect(vm.Spec.Networks[0].Type).To(Equal(v1alpha2.NetworksTypeMain))
-			Expect(vm.Spec.Networks[0].ID).To(Equal(1))
+			Expect(*vm.Spec.Networks[0].ID).To(Equal(1))
 			Expect(vm.Spec.Networks[1].Type).To(Equal(v1alpha2.NetworksTypeClusterNetwork))
 			Expect(vm.Spec.Networks[1].Name).To(Equal("test-cluster-network"))
-			Expect(vm.Spec.Networks[1].ID).To(Equal(2))
+			Expect(*vm.Spec.Networks[1].ID).To(Equal(2))
 		})
 
 		It("should skip id=1 when assigning to non-Main networks", func() {
@@ -161,8 +162,8 @@ var _ = Describe("NetworksDefaulter", func() {
 				ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "default"},
 				Spec: v1alpha2.VirtualMachineSpec{
 					Networks: []v1alpha2.NetworksSpec{
-						{Type: v1alpha2.NetworksTypeMain, ID: 1},
-						{Type: v1alpha2.NetworksTypeNetwork, Name: "test-network", ID: 0},
+						{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(1)},
+						{Type: v1alpha2.NetworksTypeNetwork, Name: "test-network"},
 					},
 				},
 			}
@@ -170,9 +171,9 @@ var _ = Describe("NetworksDefaulter", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vm.Spec.Networks).To(HaveLen(2))
 			Expect(vm.Spec.Networks[0].Type).To(Equal(v1alpha2.NetworksTypeMain))
-			Expect(vm.Spec.Networks[0].ID).To(Equal(1))
+			Expect(*vm.Spec.Networks[0].ID).To(Equal(1))
 			Expect(vm.Spec.Networks[1].Type).To(Equal(v1alpha2.NetworksTypeNetwork))
-			Expect(vm.Spec.Networks[1].ID).To(Equal(2))
+			Expect(*vm.Spec.Networks[1].ID).To(Equal(2))
 		})
 
 		It("should assign sequential ids starting from 2 when there is no Main network", func() {
@@ -180,8 +181,8 @@ var _ = Describe("NetworksDefaulter", func() {
 				ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "default"},
 				Spec: v1alpha2.VirtualMachineSpec{
 					Networks: []v1alpha2.NetworksSpec{
-						{Type: v1alpha2.NetworksTypeNetwork, Name: "test-network-1", ID: 0},
-						{Type: v1alpha2.NetworksTypeNetwork, Name: "test-network-2", ID: 0},
+						{Type: v1alpha2.NetworksTypeNetwork, Name: "test-network-1"},
+						{Type: v1alpha2.NetworksTypeNetwork, Name: "test-network-2"},
 					},
 				},
 			}
@@ -190,10 +191,10 @@ var _ = Describe("NetworksDefaulter", func() {
 			Expect(vm.Spec.Networks).To(HaveLen(2))
 			Expect(vm.Spec.Networks[0].Type).To(Equal(v1alpha2.NetworksTypeNetwork))
 			Expect(vm.Spec.Networks[0].Name).To(Equal("test-network-1"))
-			Expect(vm.Spec.Networks[0].ID).To(Equal(2))
+			Expect(*vm.Spec.Networks[0].ID).To(Equal(2))
 			Expect(vm.Spec.Networks[1].Type).To(Equal(v1alpha2.NetworksTypeNetwork))
 			Expect(vm.Spec.Networks[1].Name).To(Equal("test-network-2"))
-			Expect(vm.Spec.Networks[1].ID).To(Equal(3))
+			Expect(*vm.Spec.Networks[1].ID).To(Equal(3))
 		})
 
 		It("should handle only ClusterNetwork without Main network", func() {
@@ -201,7 +202,7 @@ var _ = Describe("NetworksDefaulter", func() {
 				ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "default"},
 				Spec: v1alpha2.VirtualMachineSpec{
 					Networks: []v1alpha2.NetworksSpec{
-						{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "test-cluster-network", ID: 0},
+						{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "test-cluster-network"},
 					},
 				},
 			}
@@ -210,7 +211,7 @@ var _ = Describe("NetworksDefaulter", func() {
 			Expect(vm.Spec.Networks).To(HaveLen(1))
 			Expect(vm.Spec.Networks[0].Type).To(Equal(v1alpha2.NetworksTypeClusterNetwork))
 			Expect(vm.Spec.Networks[0].Name).To(Equal("test-cluster-network"))
-			Expect(vm.Spec.Networks[0].ID).To(Equal(2))
+			Expect(*vm.Spec.Networks[0].ID).To(Equal(2))
 		})
 	})
 })

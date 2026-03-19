@@ -14,22 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package defaulter
+package network
 
 import (
-	"context"
+	"testing"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/network"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-type NetworksDefaulter struct{}
-
-func NewNetworksDefaulter() *NetworksDefaulter {
-	return &NetworksDefaulter{}
-}
-
-func (d *NetworksDefaulter) Default(_ context.Context, vm *v1alpha2.VirtualMachine) error {
-	network.EnsureNetworkInterfaceIDs(vm.Spec.Networks)
-	return nil
+func TestNetwork(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Network Suite")
 }

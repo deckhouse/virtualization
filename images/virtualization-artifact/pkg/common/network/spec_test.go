@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Flant JSC
+Copyright 2026 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,19 +17,12 @@ limitations under the License.
 package network
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
-
-func TestHandlers(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Network config generation suite")
-}
 
 var _ = Describe("Network Config Generation", func() {
 	vm := &v1alpha2.VirtualMachine{}
@@ -259,151 +252,6 @@ var _ = Describe("Network Config Generation", func() {
 
 		Expect(configs[3].Name).To(Equal("name4"))
 		Expect(configs[3].MAC).To(Equal("00:1A:2B:3C:4D:6A"))
-	})
-
-	It("should preserve id from spec for Main network", func() {
-		vm.Spec.Networks = []v1alpha2.NetworksSpec{
-			{
-				Type: v1alpha2.NetworksTypeMain,
-				ID:   1,
-			},
-		}
-
-		configs := CreateNetworkSpec(vm, vmmacs)
-
-		Expect(configs).To(HaveLen(1))
-		Expect(configs[0].ID).To(Equal(1))
-	})
-
-	It("should preserve id from spec for Network type with MAC", func() {
-		vm.Status.Networks = []v1alpha2.NetworksStatus{
-			{
-				ID:   1,
-				Type: v1alpha2.NetworksTypeMain,
-			},
-			{
-				ID:   5,
-				Type: v1alpha2.NetworksTypeNetwork,
-				Name: "mynet",
-				MAC:  "00:1A:2B:3C:4D:5E",
-			},
-		}
-		vmmac1 := newMACAddress("mac1", "00:1A:2B:3C:4D:5E", v1alpha2.VirtualMachineMACAddressPhaseAttached, "vm1")
-		vmmacs = []*v1alpha2.VirtualMachineMACAddress{vmmac1}
-
-		vm.Spec.Networks = []v1alpha2.NetworksSpec{
-			{
-				Type: v1alpha2.NetworksTypeMain,
-				ID:   1,
-			},
-			{
-				Type: v1alpha2.NetworksTypeNetwork,
-				Name: "mynet",
-				ID:   5,
-			},
-		}
-
-		configs := CreateNetworkSpec(vm, vmmacs)
-
-		Expect(configs).To(HaveLen(2))
-		Expect(configs[0].ID).To(Equal(1))
-		Expect(configs[1].ID).To(Equal(5))
-	})
-
-	It("should preserve id from spec for ClusterNetwork type with MAC", func() {
-		vm.Status.Networks = []v1alpha2.NetworksStatus{
-			{
-				Type: v1alpha2.NetworksTypeMain,
-				ID:   1,
-			},
-			{
-				ID:   20,
-				Type: v1alpha2.NetworksTypeClusterNetwork,
-				Name: "clusternet",
-				MAC:  "00:1A:2B:3C:4D:5E",
-			},
-		}
-		vmmac1 := newMACAddress("mac1", "00:1A:2B:3C:4D:5E", v1alpha2.VirtualMachineMACAddressPhaseAttached, "vm1")
-		vmmacs = []*v1alpha2.VirtualMachineMACAddress{vmmac1}
-
-		vm.Spec.Networks = []v1alpha2.NetworksSpec{
-			{
-				Type: v1alpha2.NetworksTypeMain,
-				ID:   1,
-			},
-			{
-				Type: v1alpha2.NetworksTypeClusterNetwork,
-				Name: "clusternet",
-				ID:   20,
-			},
-		}
-
-		configs := CreateNetworkSpec(vm, vmmacs)
-
-		Expect(configs).To(HaveLen(2))
-		Expect(configs[0].ID).To(Equal(1))
-		Expect(configs[1].ID).To(Equal(20))
-	})
-
-	It("should preserve different ids for multiple networks with MACs", func() {
-		vm.Status.Networks = []v1alpha2.NetworksStatus{
-			{
-				Type: v1alpha2.NetworksTypeMain,
-				ID:   1,
-			},
-			{
-				ID:   2,
-				Type: v1alpha2.NetworksTypeNetwork,
-				Name: "net1",
-				MAC:  "00:1A:2B:3C:4D:5E",
-			},
-			{
-				ID:   3,
-				Type: v1alpha2.NetworksTypeNetwork,
-				Name: "net2",
-				MAC:  "00:1A:2B:3C:4D:5F",
-			},
-			{
-				ID:   4,
-				Type: v1alpha2.NetworksTypeClusterNetwork,
-				Name: "cluster1",
-				MAC:  "00:1A:2B:3C:4D:6A",
-			},
-		}
-		vmmac1 := newMACAddress("mac1", "00:1A:2B:3C:4D:5E", v1alpha2.VirtualMachineMACAddressPhaseAttached, "vm1")
-		vmmac2 := newMACAddress("mac2", "00:1A:2B:3C:4D:5F", v1alpha2.VirtualMachineMACAddressPhaseAttached, "vm1")
-		vmmac3 := newMACAddress("mac3", "00:1A:2B:3C:4D:6A", v1alpha2.VirtualMachineMACAddressPhaseAttached, "vm1")
-		vmmacs = []*v1alpha2.VirtualMachineMACAddress{vmmac1, vmmac2, vmmac3}
-
-		vm.Spec.Networks = []v1alpha2.NetworksSpec{
-			{
-				Type: v1alpha2.NetworksTypeMain,
-				ID:   1,
-			},
-			{
-				Type: v1alpha2.NetworksTypeNetwork,
-				Name: "net1",
-				ID:   2,
-			},
-			{
-				Type: v1alpha2.NetworksTypeNetwork,
-				Name: "net2",
-				ID:   3,
-			},
-			{
-				Type: v1alpha2.NetworksTypeClusterNetwork,
-				Name: "cluster1",
-				ID:   4,
-			},
-		}
-
-		configs := CreateNetworkSpec(vm, vmmacs)
-
-		Expect(configs).To(HaveLen(4))
-		Expect(configs[0].ID).To(Equal(1))
-		Expect(configs[1].ID).To(Equal(2))
-		Expect(configs[2].ID).To(Equal(3))
-		Expect(configs[3].ID).To(Equal(4))
 	})
 
 	It("should set id to zero when not specified", func() {

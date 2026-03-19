@@ -22,6 +22,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/component-base/featuregate"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
@@ -65,7 +66,7 @@ func (v *NetworksValidator) ValidateUpdate(_ context.Context, oldVM, newVM *v1al
 		return nil, fmt.Errorf("network configuration requires SDN to be enabled")
 	}
 
-	if err := v.validateNetworkIDsUnchanged(oldVM.Spec.Networks, newNetworksSpec); err != nil {
+	if err := v.validateNetworkIDsUnchanged(oldVM.Spec.Networks, newNetworksSpec, newVM.Status.Phase); err != nil {
 		return nil, err
 	}
 
@@ -139,18 +140,19 @@ func (v *NetworksValidator) validateNetworkUniqueness(networkType, networkName s
 }
 
 func (v *NetworksValidator) validateNetworkIDUniqueness(network v1alpha2.NetworksSpec, idsSet map[int]struct{}) error {
-	if network.ID == 0 {
+	id := ptr.Deref(network.ID, 0)
+	if id == 0 {
 		return nil
 	}
-	if _, exists := idsSet[network.ID]; exists {
+	if _, exists := idsSet[id]; exists {
 		networkIdentifier := v.getNetworkIdentifier(network)
-		return fmt.Errorf("network id %d is duplicated for network %s", network.ID, networkIdentifier)
+		return fmt.Errorf("network id %d is duplicated for network %s", id, networkIdentifier)
 	}
-	idsSet[network.ID] = struct{}{}
+	idsSet[id] = struct{}{}
 	return nil
 }
 
-func (v *NetworksValidator) validateNetworkIDsUnchanged(oldNetworksSpec, newNetworksSpec []v1alpha2.NetworksSpec) error {
+func (v *NetworksValidator) validateNetworkIDsUnchanged(oldNetworksSpec, newNetworksSpec []v1alpha2.NetworksSpec, phase v1alpha2.MachinePhase) error {
 	oldNetworksMap := v.buildNetworksMap(oldNetworksSpec)
 	newNetworksMap := v.buildNetworksMap(newNetworksSpec)
 
@@ -160,12 +162,19 @@ func (v *NetworksValidator) validateNetworkIDsUnchanged(oldNetworksSpec, newNetw
 			continue
 		}
 
-		if oldNetwork.ID == newNetwork.ID {
+		if ptr.Deref(oldNetwork.ID, 0) == ptr.Deref(newNetwork.ID, 0) {
 			continue
 		}
 
-		networkIdentifier := v.getNetworkIdentifier(oldNetwork)
-		return fmt.Errorf("network id cannot be changed for network %s", networkIdentifier)
+		if oldNetwork.ID == nil {
+			continue
+		}
+
+		if phase != v1alpha2.MachineStopped {
+			networkIdentifier := v.getNetworkIdentifier(oldNetwork)
+			return fmt.Errorf("cannot change network ID for network '%s' while VM is in phase '%s' (only allowed when VM is stopped)",
+				networkIdentifier, phase)
+		}
 	}
 
 	return nil
@@ -181,13 +190,18 @@ func (v *NetworksValidator) buildNetworksMap(networksSpec []v1alpha2.NetworksSpe
 }
 
 func (v *NetworksValidator) validateNetworkID(network v1alpha2.NetworksSpec) error {
-	if network.ID == 0 {
+	if network.ID == nil {
 		return nil
 	}
 
-	if network.ID < 1 || network.ID > maxNetworkID {
+	id := *network.ID
+	if id < 1 || id > maxNetworkID {
 		networkIdentifier := v.getNetworkIdentifier(network)
-		return fmt.Errorf("network id must be between 1 and %d for network %s, got %d", maxNetworkID, networkIdentifier, network.ID)
+		return fmt.Errorf("network id must be between 1 and %d for network %s, got %d", maxNetworkID, networkIdentifier, id)
+	}
+
+	if network.Type == v1alpha2.NetworksTypeMain && id != 1 {
+		return fmt.Errorf("network id for network %s must be 1, got %d", network.Type, id)
 	}
 
 	return nil

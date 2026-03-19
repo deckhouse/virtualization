@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"testing"
 
+	"k8s.io/utils/ptr"
+
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -47,28 +49,29 @@ func TestNetworksValidateCreate(t *testing.T) {
 		{[]v1alpha2.NetworksSpec{mainNetwork, networkTest, networkTest}, true, false},
 		{[]v1alpha2.NetworksSpec{mainNetwork, {Type: v1alpha2.NetworksTypeNetwork}}, true, false},
 		{[]v1alpha2.NetworksSpec{mainNetwork}, false, true},
-		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, ID: 1}}, true, true},
-		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 2}}, true, true},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(1)}}, true, true},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: ptr.To(2)}}, true, true},
 		{[]v1alpha2.NetworksSpec{
-			{Type: v1alpha2.NetworksTypeMain, ID: 1},
-			{Type: v1alpha2.NetworksTypeNetwork, Name: "test1", ID: 2},
-			{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "test2", ID: 3},
+			{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(1)},
+			{Type: v1alpha2.NetworksTypeNetwork, Name: "test1", ID: ptr.To(2)},
+			{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "test2", ID: ptr.To(3)},
 		}, true, true},
 		{[]v1alpha2.NetworksSpec{
-			{Type: v1alpha2.NetworksTypeMain, ID: 1},
-			{Type: v1alpha2.NetworksTypeNetwork, Name: "test1", ID: 1},
-			{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "test2", ID: 2},
+			{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(1)},
+			{Type: v1alpha2.NetworksTypeNetwork, Name: "test1", ID: ptr.To(1)},
+			{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "test2", ID: ptr.To(2)},
 		}, true, false},
 		{[]v1alpha2.NetworksSpec{
-			{Type: v1alpha2.NetworksTypeNetwork, Name: "a", ID: 2},
-			{Type: v1alpha2.NetworksTypeNetwork, Name: "b", ID: 2},
+			{Type: v1alpha2.NetworksTypeNetwork, Name: "a", ID: ptr.To(2)},
+			{Type: v1alpha2.NetworksTypeNetwork, Name: "b", ID: ptr.To(2)},
 		}, true, false},
-		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 16383}}, true, true},
-		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 0}}, true, true},
-		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 16384}}, true, false},
-		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: -1}}, true, false},
-		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, ID: 16383}}, true, true},
-		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, ID: 16384}}, true, false},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: ptr.To(16383)}}, true, true},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: ptr.To(0)}}, true, false},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: ptr.To(16384)}}, true, false},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: ptr.To(-1)}}, true, false},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(2)}}, true, false},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(16383)}}, true, false},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(16384)}}, true, false},
 	}
 
 	for i, test := range tests {
@@ -99,12 +102,34 @@ func TestNetworksValidateUpdate(t *testing.T) {
 		newNetworksSpec []v1alpha2.NetworksSpec
 		sdnEnabled      bool
 		valid           bool
+		phase           v1alpha2.MachinePhase
 	}{
 		{
-			oldNetworksSpec: []v1alpha2.NetworksSpec{},
-			newNetworksSpec: []v1alpha2.NetworksSpec{},
+			oldNetworksSpec: []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: ptr.To(1)}},
+			newNetworksSpec: []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: ptr.To(2)}},
+			sdnEnabled:      true,
+			valid:           false,
+		},
+		{
+			oldNetworksSpec: []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: ptr.To(1)}},
+			newNetworksSpec: []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: ptr.To(2)}},
 			sdnEnabled:      true,
 			valid:           true,
+			phase:           v1alpha2.MachineStopped,
+		},
+		// nil → value is always allowed
+		{
+			oldNetworksSpec: []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test"}},
+			newNetworksSpec: []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: ptr.To(1)}},
+			sdnEnabled:      true,
+			valid:           true,
+		},
+		{
+			oldNetworksSpec: []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test"}},
+			newNetworksSpec: []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: ptr.To(1)}},
+			sdnEnabled:      true,
+			valid:           true,
+			phase:           v1alpha2.MachineStopped,
 		},
 		{
 			oldNetworksSpec: []v1alpha2.NetworksSpec{},
@@ -184,98 +209,98 @@ func TestNetworksValidateUpdate(t *testing.T) {
 		},
 		{
 			oldNetworksSpec: []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeMain, ID: 1},
+				{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(1)},
 			},
 			newNetworksSpec: []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeMain, ID: 2},
+				{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(2)},
 			},
 			sdnEnabled: true,
 			valid:      false,
 		},
 		{
 			oldNetworksSpec: []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 1},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: ptr.To(1)},
 			},
 			newNetworksSpec: []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 2},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: ptr.To(2)},
 			},
 			sdnEnabled: true,
 			valid:      false,
 		},
 		{
 			oldNetworksSpec: []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "cluster", ID: 5},
+				{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "cluster", ID: ptr.To(5)},
 			},
 			newNetworksSpec: []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "cluster", ID: 10},
+				{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "cluster", ID: ptr.To(10)},
 			},
 			sdnEnabled: true,
 			valid:      false,
 		},
 		{
 			oldNetworksSpec: []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeMain, ID: 1},
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 2},
+				{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(1)},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: ptr.To(2)},
 			},
 			newNetworksSpec: []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeMain, ID: 1},
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 2},
+				{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(1)},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: ptr.To(2)},
 			},
 			sdnEnabled: true,
 			valid:      true,
 		},
 		{
 			oldNetworksSpec: []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeMain, ID: 0},
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "test1", ID: 1},
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "test2", ID: 2},
+				{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(0)},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test1", ID: ptr.To(1)},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test2", ID: ptr.To(2)},
 			},
 			newNetworksSpec: []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeMain, ID: 0},
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "test1", ID: 1},
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "test2", ID: 3},
+				{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(0)},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test1", ID: ptr.To(1)},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test2", ID: ptr.To(3)},
 			},
 			sdnEnabled: true,
 			valid:      false,
 		},
 		{
 			oldNetworksSpec: []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeMain, ID: 0},
+				{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(0)},
 			},
 			newNetworksSpec: []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeMain, ID: 0},
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "new", ID: 5},
-			},
-			sdnEnabled: true,
-			valid:      true,
-		},
-		{
-			oldNetworksSpec: []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeMain, ID: 0},
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 1},
-			},
-			newNetworksSpec: []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeMain, ID: 0},
-			},
-			sdnEnabled: true,
-			valid:      true,
-		},
-		{
-			oldNetworksSpec: []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 0},
-			},
-			newNetworksSpec: []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 1},
+				{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(0)},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "new", ID: ptr.To(5)},
 			},
 			sdnEnabled: true,
 			valid:      false,
 		},
 		{
 			oldNetworksSpec: []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 1},
+				{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(0)},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: ptr.To(1)},
 			},
 			newNetworksSpec: []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: 0},
+				{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(0)},
+			},
+			sdnEnabled: true,
+			valid:      false,
+		},
+		{
+			oldNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: ptr.To(0)},
+			},
+			newNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: ptr.To(1)},
+			},
+			sdnEnabled: true,
+			valid:      false,
+		},
+		{
+			oldNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: ptr.To(1)},
+			},
+			newNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: ptr.To(0)},
 			},
 			sdnEnabled: true,
 			valid:      false,
@@ -292,6 +317,9 @@ func TestNetworksValidateUpdate(t *testing.T) {
 			newVM := &v1alpha2.VirtualMachine{
 				Spec: v1alpha2.VirtualMachineSpec{
 					Networks: test.newNetworksSpec,
+				},
+				Status: v1alpha2.VirtualMachineStatus{
+					Phase: test.phase,
 				},
 			}
 
