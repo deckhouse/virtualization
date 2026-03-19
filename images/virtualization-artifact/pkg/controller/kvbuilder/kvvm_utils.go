@@ -248,7 +248,6 @@ func setBlockDeviceDisk(
 		switch vi.Spec.Storage {
 		case v1alpha2.StorageKubernetes, v1alpha2.StoragePersistentVolumeClaim:
 			opts.PersistentVolumeClaim = ptr.To(vi.Status.Target.PersistentVolumeClaim)
-			opts.IsEphemeral = true
 		case v1alpha2.StorageContainerRegistry:
 			opts.ContainerDisk = ptr.To(vi.Status.Target.RegistryURL)
 			opts.IsCdrom = imageformat.IsISO(vi.Status.Format)
