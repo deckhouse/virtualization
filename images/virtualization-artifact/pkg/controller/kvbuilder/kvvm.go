@@ -305,6 +305,8 @@ func (b *KVVM) SetMemory(memorySize resource.Quantity) {
 	if memorySize.Cmp(*hotplugThreshold) >= 0 {
 		maxMemory := resource.NewQuantity(MaxMemorySizeForHotplug, resource.BinarySI)
 		domain.Memory.MaxGuest = maxMemory
+	} else {
+		domain.Memory.MaxGuest = resource.NewQuantity(0, resource.BinarySI)
 	}
 
 	// Remove memory limits and requests if set by previous versions.
