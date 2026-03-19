@@ -53,7 +53,7 @@ var _ = Describe("VMSOPCreateVirtualMachine", Ordered, func() {
 	BeforeAll(func() {
 		cfg := framework.GetConfig()
 		if cfg.StorageClass.TemplateStorageClass != nil && cfg.StorageClass.TemplateStorageClass.Provisioner == "nfs.csi.k8s.io" {
-			Skip("Not working on NFS, skipping")
+			Skip("Concurrent snapshotting is not supported on NFS on the volumesnapshot side, skipping")
 		}
 
 		DeferCleanup(f.After)
