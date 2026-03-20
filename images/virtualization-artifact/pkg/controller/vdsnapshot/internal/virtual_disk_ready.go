@@ -101,7 +101,7 @@ func (h VirtualDiskReadyHandler) Handle(ctx context.Context, vdSnapshot *v1alpha
 			return reconcile.Result{}, nil
 		}
 
-		attachedToMigratingVM, err := h.isVDAttachedToMigratingVM(ctx, vd, cb)
+		attachedToMigratingVM, err := h.isVDAttachedToMigratingVM(ctx, vd)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -130,7 +130,7 @@ func (h VirtualDiskReadyHandler) Handle(ctx context.Context, vdSnapshot *v1alpha
 // isVDAttachedToMigratingVM checks that the disk is not attached to a migrating VM.
 // Returns (true, nil) if the disk is attached to a migrating VM (caller should return immediately).
 // Otherwise returns (false, nil) or (false, err).
-func (h VirtualDiskReadyHandler) isVDAttachedToMigratingVM(ctx context.Context, vd *v1alpha2.VirtualDisk, cb *conditions.ConditionBuilder) (bool, error) {
+func (h VirtualDiskReadyHandler) isVDAttachedToMigratingVM(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
 	inUse, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 	if inUse.Status != metav1.ConditionTrue {
 		return false, nil
@@ -158,9 +158,5 @@ func (h VirtualDiskReadyHandler) isVDAttachedToMigratingVM(ctx context.Context, 
 	if !migratingConditionExists {
 		return false, nil
 	}
-	cb.
-		Status(metav1.ConditionFalse).
-		Reason(vdscondition.VirtualDiskNotReadyForSnapshotting).
-		Message("Snapshot cannot be taken: the virtual machine is currently migrating.")
 	return true, nil
 }
