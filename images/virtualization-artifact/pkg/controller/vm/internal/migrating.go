@@ -313,7 +313,7 @@ func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMa
 	}
 
 	frozen, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, vm.Status.Conditions)
-	if frozen.Status == metav1.ConditionTrue {
+	if frozen.Status == metav1.ConditionTrue || (kvvmi != nil && kvvmi.Status.FSFreezeStatus == service.FSFrozen) {
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonNonMigratable).
 			Message("Cannot migrate the virtual machine whose file system is frozen.")
