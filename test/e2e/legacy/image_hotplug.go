@@ -50,7 +50,7 @@ var _ = Describe("ImageHotplug", Ordered, func() {
 	)
 
 	BeforeAll(func() {
-		if conf.StorageClass.TemplateStorageClass != nil && conf.StorageClass.TemplateStorageClass.Provisioner == "nfs.csi.k8s.io" {
+		if conf.StorageClass.TemplateStorageClass != nil && conf.StorageClass.TemplateStorageClass.Provisioner == config.NFS {
 			Skip("VirtualImages on PVC only work with block storage classes, skipping NFS")
 		}
 
