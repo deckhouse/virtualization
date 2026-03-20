@@ -77,6 +77,7 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 	var kvvmiVolumeStatusByName map[string]virtv1.VolumeStatus
 	var kvvmiDiskByName map[string]virtv1.Disk
 
+	// Disk.Name and VolumeStatus.Name should always be equal.
 	if kvvmi != nil {
 		kvvmiVolumeStatusByName = make(map[string]virtv1.VolumeStatus, len(kvvmi.Status.VolumeStatus))
 		for _, vs := range kvvmi.Status.VolumeStatus {
@@ -107,7 +108,7 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 		if err != nil {
 			return nil, err
 		}
-		bootOrder := h.getBlockDeviceBootOrder(volume, kvvmiDiskByName)
+		bootOrder := kvvmiDiskByName[volume.Name].BootOrder
 		if bootOrder != nil {
 			ref.BootOrder = bootOrder
 		}
@@ -245,12 +246,4 @@ func (h *BlockDeviceHandler) getBlockDeviceAttachmentName(ctx context.Context, k
 	}
 
 	return vmbdas[0].Name, nil
-}
-
-func (h *BlockDeviceHandler) getBlockDeviceBootOrder(volume virtv1.Volume, kvvmiDiskByName map[string]virtv1.Disk) *uint {
-	d, ok := kvvmiDiskByName[volume.Name]
-	if ok {
-		return d.BootOrder
-	}
-	return nil
 }
