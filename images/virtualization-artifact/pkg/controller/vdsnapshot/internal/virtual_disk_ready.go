@@ -23,6 +23,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -155,8 +156,20 @@ func (h VirtualDiskReadyHandler) isVDAttachedToMigratingVM(ctx context.Context, 
 	}
 
 	_, migratingConditionExists := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
-	if !migratingConditionExists {
-		return false, nil
+	if migratingConditionExists {
+		return true, nil
 	}
-	return true, nil
+
+	kvvmi, err := object.FetchObject(ctx, types.NamespacedName{Name: vmName, Namespace: vd.Namespace}, h.client, &virtv1.VirtualMachineInstance{})
+	if err != nil {
+		return false, err
+	}
+
+	if kvvmi != nil && kvvmi.Status.MigrationState != nil &&
+		kvvmi.Status.MigrationState.StartTimestamp != nil &&
+		kvvmi.Status.MigrationState.EndTimestamp == nil {
+		return true, nil
+	}
+
+	return false, nil
 }

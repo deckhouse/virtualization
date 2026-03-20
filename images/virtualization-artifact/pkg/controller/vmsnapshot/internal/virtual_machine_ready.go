@@ -21,8 +21,11 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	virtv1 "kubevirt.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -35,11 +38,13 @@ type VirtualMachineReadySnapshotter interface {
 
 type VirtualMachineReadyHandler struct {
 	snapshotter VirtualMachineReadySnapshotter
+	client      client.Client
 }
 
-func NewVirtualMachineReadyHandler(snapshotter VirtualMachineReadySnapshotter) *VirtualMachineReadyHandler {
+func NewVirtualMachineReadyHandler(snapshotter VirtualMachineReadySnapshotter, client client.Client) *VirtualMachineReadyHandler {
 	return &VirtualMachineReadyHandler{
 		snapshotter: snapshotter,
+		client:      client,
 	}
 }
 
@@ -84,6 +89,21 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmSnapshot *v1al
 
 	_, migratingConditionExists := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
 	if migratingConditionExists {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmscondition.VirtualMachineNotReadyForSnapshotting).
+			Message("Snapshot cannot be taken: the virtual machine is currently migrating.")
+		return reconcile.Result{}, nil
+	}
+
+	kvvmi, err := object.FetchObject(ctx, client.ObjectKeyFromObject(vm), h.client, &virtv1.VirtualMachineInstance{})
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if kvvmi != nil && kvvmi.Status.MigrationState != nil &&
+		kvvmi.Status.MigrationState.StartTimestamp != nil &&
+		kvvmi.Status.MigrationState.EndTimestamp == nil {
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmscondition.VirtualMachineNotReadyForSnapshotting).
