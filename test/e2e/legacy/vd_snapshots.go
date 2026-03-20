@@ -52,7 +52,7 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, func() {
 
 	BeforeAll(func() {
 		if conf.StorageClass.TemplateStorageClass != nil && conf.StorageClass.TemplateStorageClass.Provisioner == "nfs.csi.k8s.io" {
-			Skip("NFS CSI does not support concurrent snapshotting, skipping")
+			Skip("Concurrent snapshotting is not supported on NFS on the volumesnapshot side, skipping")
 		}
 
 		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VdSnapshots, "kustomization.yaml")
