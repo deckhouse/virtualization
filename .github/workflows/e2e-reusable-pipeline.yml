@@ -531,15 +531,15 @@ jobs:
           sds_replicated_ready() {
             local count=60
             for i in $(seq 1 $count); do
-            
+
               sds_replicated_volume_status=$(kubectl get ns d8-sds-replicated-volume -o jsonpath='{.status.phase}' || echo "False")
-              
+
               if [[ "${sds_replicated_volume_status}" = "Active" ]]; then
                 echo "[SUCCESS] Namespaces sds-replicated-volume are Active"
                 kubectl get ns d8-sds-replicated-volume
                 return 0
               fi
-              
+
               echo "[INFO] Waiting 10s for sds-replicated-volume namespace to be ready (attempt ${i}/${count})"
               if (( i % 5 == 0 )); then
                 echo "[INFO] Show namespaces sds-replicated-volume"
@@ -582,7 +582,7 @@ jobs:
                 echo "[SUCCESS] sds-replicated-volume is ready"
                 return 0
               fi
-              
+
               echo "[WARNING] Not all pods are ready, linstor_node=${linstor_node}, csi_node=${csi_node}"
               echo "[INFO] Waiting 10s for pods to be ready (attempt ${i}/${count})"
               if (( i % 5 == 0 )); then
@@ -615,12 +615,12 @@ jobs:
             local count=60
             workers=$(kubectl get nodes -o name | grep worker | wc -l)
             workers=$((workers))
-            
+
             if [[ $workers -eq 0 ]]; then
               echo "[ERROR] No worker nodes found"
               exit 1
             fi
-            
+
             for i in $(seq 1 $count); do
               blockdevices=$(kubectl get blockdevice -o name | wc -l || true)
               if [ $blockdevices -ge $workers ]; then
@@ -685,6 +685,19 @@ jobs:
             kubectl get storageclass | grep nested
             echo "[SUCCESS] Done"
           fi
+
+      - name: Configure NFS storage
+        if: ${{ inputs.storage_type == 'nfs' }}
+        id: storage-nfs-setup
+        run: |
+          echo "[INFO] Apply csi-nfs ModuleConfig, ModulePullOverride, snapshot-controller and NFSStorageClass"
+          envsubst < ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/nfs/deckhouse.yaml | kubectl apply -f -
+
+          echo "[INFO] Wait for csi-nfs module to be ready"
+          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules csi-nfs --timeout=300s
+
+          echo "[INFO] Show existing storageclasses"
+          kubectl get storageclass
 
   configure-virtualization:
     name: Configure Virtualization
@@ -822,7 +835,7 @@ jobs:
               kubectl describe node $node
               echo "::endgroup::"
             done
-            
+
             echo "[DEBUG] Show queue (first 25 lines)"
             d8 s queue list | head -n 25 || echo "[WARNING] Failed to retrieve list queue"
             echo "[DEBUG] Show deckhouse logs"
@@ -848,7 +861,7 @@ jobs:
                 d8 s queue list | head -n25 || echo "[WARNING] Failed to retrieve list queue"
                 echo " "
               fi
-              
+
               if (( i % 10 == 0 )); then
                 echo "[INFO] deckhouse logs"
                 echo "::group::📝 deckhouse logs"
@@ -873,9 +886,9 @@ jobs:
                 kubectl get vmclass || echo "[WARNING] no vmclasses found"
                 return 0
               fi
-              
+
               echo "[INFO] Waiting 10s for Virtualization module to be ready (attempt $i/$count)"
-              
+
               if (( i % 5 == 0 )); then
                 echo " "
                 echo "[DEBUG] Show additional info"
@@ -887,7 +900,7 @@ jobs:
               fi
               sleep 10
             done
-            
+
             debug_output
             exit 1
           }
@@ -897,9 +910,9 @@ jobs:
             local virt_handler_ready
             local workers
             local time_wait=10
-            
+
             workers=$(kubectl get nodes -o name | grep worker | wc -l || true)
-            workers=$((workers)) 
+            workers=$((workers))
 
             for i in $(seq 1 $count); do
               virt_handler_ready=$(kubectl -n d8-virtualization get pods | grep "virt-handler.*Running" | wc -l || true)
@@ -1145,7 +1158,7 @@ jobs:
             # Format: https://github.com/{owner}/{repo}/actions/runs/{run_id}
             # The job name will be visible in the workflow run view
             local link="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-            
+
             jq -n \
               --arg csi "$csi" \
               --arg date "$date" \
@@ -1188,11 +1201,11 @@ jobs:
             local status_msg="$3"
             local job_name="$4"
             local is_e2e_test="${5:-false}"
-            
+
             if [ "$result_value" != "success" ]; then
               FAILED_STAGE="$stage_name"
               FAILED_JOB_NAME="$job_name (${{ inputs.storage_type }})"
-              
+
               if [ -z "$REPORT_JSON" ] || [ "$REPORT_JSON" == "" ]; then
                 REPORT_JSON=$(create_failure_summary "$stage_name" "$status_msg" "$FAILED_JOB_NAME")
               elif [ "$is_e2e_test" == "true" ]; then

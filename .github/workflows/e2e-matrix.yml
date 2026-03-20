@@ -351,14 +351,39 @@ jobs:
       PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
       BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
 
+  e2e-nfs:
+    name: E2E Pipeline (NFS)
+    needs:
+      - set-vars
+    uses: ./.github/workflows/e2e-reusable-pipeline.yml
+    with:
+      storage_type: nfs
+      nested_storageclass_name: nfs
+      branch: main
+      virtualization_tag: main
+      deckhouse_channel: alpha
+      default_user: cloud
+      go_version: "1.24.13"
+      e2e_timeout: "3.5h"
+      date_start: ${{ needs.set-vars.outputs.date_start }}
+      randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
+      cluster_config_workers_memory: "9Gi"
+      cluster_config_k8s_version: "Automatic"
+    secrets:
+      DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
+      VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+      PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
+      BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
+
   report-to-channel:
     runs-on: ubuntu-latest
     name: End-to-End tests report
     needs:
       - e2e-replicated
+      - e2e-nfs
     if: ${{ always()}}
     env:
-      STORAGE_TYPES: '["replicated"]'
+      STORAGE_TYPES: '["replicated", "nfs"]'
     steps:
       - uses: actions/checkout@v4
 
@@ -379,6 +404,9 @@ jobs:
             case "$storage_type" in
               "replicated")
                 echo "replicated.csi.storage.deckhouse.io"
+                ;;
+              "nfs")
+                echo "nfs.csi.storage.deckhouse.io"
                 ;;
               *)
                 echo "$storage_type"
