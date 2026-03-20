@@ -73,15 +73,4 @@ var _ = Describe("Network IDs", func() {
 			Expect(changed).To(BeFalse())
 		})
 	})
-
-	Describe("InterfaceIDAllocator", func() {
-		It("should skip reserved main id and used IDs", func() {
-			a := NewInterfaceIDAllocator()
-			a.Reserve(2)
-			a.Reserve(4)
-
-			Expect(a.NextAvailable()).To(Equal(3))
-			Expect(a.NextAvailable()).To(Equal(5))
-		})
-	})
 })

@@ -17,14 +17,13 @@ limitations under the License.
 package network
 
 import (
-	"k8s.io/utils/ptr"
-
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
 	ReservedMainID = 1
 	StartGenericID = 2
+	MaxID          = 16*1024 - 1 // 16383
 )
 
 // EnsureNetworkInterfaceIDs sets missing IDs in VM networks according to module rules:
@@ -38,63 +37,50 @@ func EnsureNetworkInterfaceIDs(networks []v1alpha2.NetworksSpec) bool {
 	}
 
 	changed := false
-	allocator := NewInterfaceIDAllocator()
+	used := make(map[int]struct{}, len(networks))
 
+	nextID := StartGenericID
 	for i := range networks {
-		if networks[i].Type == v1alpha2.NetworksTypeMain && networks[i].ID == nil {
+		if networks[i].ID != nil {
+			if *networks[i].ID > 0 {
+				used[*networks[i].ID] = struct{}{}
+			}
+			continue
+		}
+
+		if networks[i].Type == v1alpha2.NetworksTypeMain {
 			v := ReservedMainID
 			networks[i].ID = &v
+			used[v] = struct{}{}
 			changed = true
-			break
+			continue
 		}
-	}
 
-	for _, net := range networks {
-		allocator.Reserve(ptr.Deref(net.ID, 0))
-	}
-
-	for i := range networks {
-		if networks[i].ID == nil {
-			id := allocator.NextAvailable()
-			networks[i].ID = &id
-			changed = true
+		id, ok := allocateNextID(used, nextID)
+		if !ok {
+			return changed
 		}
+
+		networks[i].ID = &id
+		nextID = id + 1
+		changed = true
 	}
 
 	return changed
 }
 
-type InterfaceIDAllocator struct {
-	used   map[int]bool
-	cursor int
-}
-
-func NewInterfaceIDAllocator() *InterfaceIDAllocator {
-	return &InterfaceIDAllocator{
-		used:   make(map[int]bool),
-		cursor: StartGenericID,
-	}
-}
-
-func (a *InterfaceIDAllocator) Reserve(id int) {
-	if id > 0 {
-		a.used[id] = true
-	}
-}
-
-func (a *InterfaceIDAllocator) NextAvailable() int {
-	for {
-		if a.cursor == ReservedMainID {
-			a.cursor++
+func allocateNextID(used map[int]struct{}, nextID int) (int, bool) {
+	for id := nextID; id <= MaxID; id++ {
+		if id == ReservedMainID {
+			continue
+		}
+		if _, exists := used[id]; exists {
 			continue
 		}
 
-		if !a.used[a.cursor] {
-			id := a.cursor
-			a.used[id] = true
-			a.cursor++
-			return id
-		}
-		a.cursor++
+		used[id] = struct{}{}
+		return id, true
 	}
+
+	return 0, false
 }

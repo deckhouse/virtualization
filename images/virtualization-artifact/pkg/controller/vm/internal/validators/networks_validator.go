@@ -25,12 +25,9 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	commonnetwork "github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-)
-
-const (
-	maxNetworkID = 16*1024 - 1 // 16383
 )
 
 type NetworksValidator struct {
@@ -195,9 +192,9 @@ func (v *NetworksValidator) validateNetworkID(network v1alpha2.NetworksSpec) err
 	}
 
 	id := *network.ID
-	if id < 1 || id > maxNetworkID {
+	if id < 1 || id > commonnetwork.MaxID {
 		networkIdentifier := v.getNetworkIdentifier(network)
-		return fmt.Errorf("network id must be between 1 and %d for network %s, got %d", maxNetworkID, networkIdentifier, id)
+		return fmt.Errorf("network id must be between 1 and %d for network %s, got %d", commonnetwork.MaxID, networkIdentifier, id)
 	}
 
 	if network.Type == v1alpha2.NetworksTypeMain && id != 1 {
