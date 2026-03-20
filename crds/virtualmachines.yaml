@@ -958,6 +958,13 @@ spec:
                         type: string
                         description: |
                           Name of the attached resource.
+                      bootOrder:
+                        type: integer
+                        minimum: 1
+                        description: |
+                          Boot order of the block device. A smaller value means a higher priority.
+                          If the parameter is not set for any device, the boot order follows the device position in the list (starting from 1).
+                          If the parameter is set for at least one device, the boot order is determined by the specified values.
 
                 liveMigrationPolicy:
                   type: string
@@ -1107,6 +1114,10 @@ spec:
                         type: string
                         description: |
                           Name of the VirtualMachineBlockDeviceAttachment resource that defines the hot-plug disk connection to the VM.
+                      bootOrder:
+                        type: integer
+                        description: |
+                          Boot order of the block device. A smaller value means a higher priority.
                 migrationState:
                   type: object
                   description: Details on the VM migration.
