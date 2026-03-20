@@ -420,7 +420,7 @@ func (r *SnapshotResources) setOwnerRefOnVirtualDisk(ctx context.Context, vm *v1
 		return nil
 	}
 
-	if vd.Annotations[annotations.AnnVMOPRestore] == r.uuid && len(vd.OwnerReferences) > 0 {
+	if vd.Annotations[annotations.AnnVMOPRestore] != r.uuid || len(vd.OwnerReferences) > 0 {
 		return nil
 	}
 
