@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/array"
 	"github.com/deckhouse/virtualization-controller/pkg/common/resource_builder"
 	"github.com/deckhouse/virtualization-controller/pkg/common/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -295,17 +296,27 @@ func (b *KVVM) SetMemory(memorySize resource.Quantity) {
 	}
 
 	domain := &b.Resource.Spec.Template.Spec.Domain
-	if domain.Memory == nil {
-		domain.Memory = &virtv1.Memory{}
-	}
-	domain.Memory.Guest = &memorySize
 
-	// Enable memory hotplug if VM has enough memory (>= 1Gi).
+	currentMaxGuest := int64(-1)
+	if domain.Memory != nil && domain.Memory.MaxGuest != nil {
+		currentMaxGuest = domain.Memory.MaxGuest.Value()
+	}
+
+	domain.Memory = &virtv1.Memory{
+		Guest: &memorySize,
+	}
+
+	// Set maxMemory to enable hotplug for mem size >= 1Gi.
 	hotplugThreshold := resource.NewQuantity(EnableMemoryHotplugThreshold, resource.BinarySI)
-	if memorySize.Cmp(*hotplugThreshold) >= 0 {
-		maxMemory := resource.NewQuantity(MaxMemorySizeForHotplug, resource.BinarySI)
-		domain.Memory.MaxGuest = maxMemory
-	} else {
+	if featuregates.Default().Enabled(featuregates.HotplugMemory) {
+		if memorySize.Cmp(*hotplugThreshold) >= 0 {
+			maxMemory := resource.NewQuantity(MaxMemorySizeForHotplug, resource.BinarySI)
+			domain.Memory.MaxGuest = maxMemory
+		}
+	}
+	// Set maxGuest to 0 if hotplug is disabled now (mem size < 1Gi) and maxGuest was previously set.
+	// Zero value is just a flag to patch memory and remove maxGuest before updating kvvm.
+	if memorySize.Cmp(*hotplugThreshold) == -1 && currentMaxGuest > 0 {
 		domain.Memory.MaxGuest = resource.NewQuantity(0, resource.BinarySI)
 	}
 

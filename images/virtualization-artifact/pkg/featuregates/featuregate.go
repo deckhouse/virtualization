@@ -30,6 +30,7 @@ const (
 	VolumeMigration                     featuregate.Feature = "VolumeMigration"
 	TargetMigration                     featuregate.Feature = "TargetMigration"
 	USB                                 featuregate.Feature = "USB"
+	HotplugMemory                       featuregate.Feature = "HotplugMemory"
 )
 
 var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
@@ -54,6 +55,11 @@ var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
 	},
 	USB: {
 		Default:       version.GetEdition() == version.EditionEE && kubeapi.HasDRAFeatureGates() && kubeapi.ResourceV1Available(),
+		LockToDefault: true,
+		PreRelease:    featuregate.Alpha,
+	},
+	HotplugMemory: {
+		Default:       version.GetEdition() == version.EditionEE,
 		LockToDefault: true,
 		PreRelease:    featuregate.Alpha,
 	},

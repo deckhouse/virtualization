@@ -23,10 +23,12 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -392,6 +394,25 @@ func (h *SyncKvvmHandler) updateKVVM(ctx context.Context, s state.VirtualMachine
 	}
 
 	if isChanged {
+		memory := newKVVM.Spec.Template.Spec.Domain.Memory
+		if memory != nil && memory.MaxGuest != nil && memory.MaxGuest.IsZero() {
+			// Zero maxGuest is a special value to patch KVVM to unset maxGuest.
+			// 3 operations: test; remove memory.maxGuest; set memory.guest.
+			// Remove is not enough, remove and set are needed both to pass kvvm validator.
+			patchBytes, err := patch.NewJSONPatch(
+				patch.WithTest("/spec/template/spec/domain/memory", memory),
+				patch.WithRemove("/spec/template/spec/domain/memory/maxGuest"),
+				patch.WithReplace("/spec/template/spec/domain/memory/guest", memory.Guest.String()),
+			).Bytes()
+			if err != nil {
+				return fmt.Errorf("prepare json patch to unset memory.maxGuest: %w", err)
+			}
+
+			if err = h.client.Patch(ctx, newKVVM, client.RawPatch(types.JSONPatchType, patchBytes)); err != nil {
+				return fmt.Errorf("patch internal virtual machine to unset memory.maxGuest: %w", err)
+			}
+		}
+
 		if err = h.client.Update(ctx, newKVVM); err != nil {
 			return fmt.Errorf("update internal virtual machine: %w", err)
 		}
