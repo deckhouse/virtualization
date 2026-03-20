@@ -527,7 +527,7 @@ func (s *AllocationStore) makeResources(devicesByName map[string]Device) resourc
 		return resourceslice.DriverResources{}
 	}
 
-	devices := make([]resourcev1.Device, len(devicesByName))
+	devices := make([]resourcev1.Device, 0, len(devicesByName))
 	for _, usbDevice := range devicesByName {
 		devices = append(devices, *usbDevice.ToAPIDevice(s.nodeName))
 	}
