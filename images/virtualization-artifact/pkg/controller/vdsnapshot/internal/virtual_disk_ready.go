@@ -106,6 +106,10 @@ func (h VirtualDiskReadyHandler) Handle(ctx context.Context, vdSnapshot *v1alpha
 			return reconcile.Result{}, err
 		}
 		if attachedToMigratingVM {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdscondition.VirtualDiskNotReadyForSnapshotting).
+				Message("Snapshot cannot be taken: the virtual disk is attached to a migrating virtual machine.")
 			return reconcile.Result{}, nil
 		}
 
