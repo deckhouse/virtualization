@@ -55,4 +55,3 @@ spec:
     retransmissions: 3
   reclaimPolicy: Delete
   volumeBindingMode: Immediate
-
