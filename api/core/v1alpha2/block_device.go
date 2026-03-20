@@ -22,10 +22,10 @@ type BlockDeviceSpecRef struct {
 	Name string `json:"name"`
 	// Boot order of the block device. A smaller value means a higher priority.
 	// If the parameter is not set for any device, the boot order follows the device position in the list (starting from 1).
-    // If the parameter is set for at least one device, the boot order is determined by the specified values.
+	// If the parameter is set for at least one device, the boot order is determined by the specified values.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	BootOrder *int `json:"bootOrder,omitempty"`
+	BootOrder *uint `json:"bootOrder,omitempty"`
 }
 
 type BlockDeviceStatusRef struct {
@@ -43,6 +43,8 @@ type BlockDeviceStatusRef struct {
 	Hotplugged bool `json:"hotplugged,omitempty"`
 	// The name of the `VirtualMachineBlockDeviceAttachment` resource that defines hot plug disk connection to the virtual machine.
 	VirtualMachineBlockDeviceAttachmentName string `json:"virtualMachineBlockDeviceAttachmentName,omitempty"`
+	// Boot order of the block device. A smaller value means a higher priority.
+	BootOrder *uint `json:"bootOrder,omitempty"`
 }
 
 // The BlockDeviceKind is a type of the block device. Options are:

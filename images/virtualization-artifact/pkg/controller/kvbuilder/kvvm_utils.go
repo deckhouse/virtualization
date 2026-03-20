@@ -194,7 +194,7 @@ func applyBlockDeviceRefs(
 		var kvBootOrder uint
 		if hasExplicitBootOrder {
 			if bd.BootOrder != nil {
-				kvBootOrder = uint(*bd.BootOrder)
+				kvBootOrder = *bd.BootOrder
 			}
 		} else {
 			kvBootOrder = uint(i) + 1

@@ -91,7 +91,7 @@ func (v *BlockDeviceSpecRefsValidator) noDoubles(vm *v1alpha2.VirtualMachine) er
 }
 
 func (v *BlockDeviceSpecRefsValidator) validateBootOrder(vm *v1alpha2.VirtualMachine) error {
-	seen := make(map[int]string)
+	seen := make(map[uint]string)
 	for _, bdRef := range vm.Spec.BlockDeviceRefs {
 		if bdRef.BootOrder == nil {
 			continue

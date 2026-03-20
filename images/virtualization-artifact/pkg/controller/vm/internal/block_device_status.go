@@ -33,6 +33,11 @@ type nameKindKey struct {
 	name string
 }
 
+type kvvmiDiskInfo struct {
+	d  virtv1.Disk
+	vs virtv1.VolumeStatus
+}
+
 // getBlockDeviceStatusRefs returns block device refs to populate .status.blockDeviceRefs of the virtual machine.
 // If kvvm is present, this method will reflect all volumes with prefixes (vi,vd, or cvi) into the slice of `BlockDeviceStatusRef`.
 // Block devices from the virtual machine specification will be added to the resulting slice if they have not been included in the previous step.
@@ -74,11 +79,20 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 		return nil, err
 	}
 
-	var kvvmiVolumeStatusByName map[string]virtv1.VolumeStatus
+	var kvvmiDiskInfoByName map[string]kvvmiDiskInfo
 	if kvvmi != nil {
-		kvvmiVolumeStatusByName = make(map[string]virtv1.VolumeStatus)
+		kvvmiDiskInfoByName = make(map[string]kvvmiDiskInfo, len(kvvmi.Status.VolumeStatus))
 		for _, vs := range kvvmi.Status.VolumeStatus {
-			kvvmiVolumeStatusByName[vs.Name] = vs
+			di := kvvmiDiskInfo{
+				vs: vs,
+			}
+			for _, d := range kvvmi.Spec.Domain.Devices.Disks {
+				if d.Name == vs.Name {
+					di.d = d
+					break
+				}
+			}
+			kvvmiDiskInfoByName[vs.Name] = di
 		}
 	}
 
@@ -96,13 +110,17 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 		key := nameKindKey{kind: kind, name: bdName}
 
 		ref := h.getBlockDeviceStatusRef(kind, bdName)
-		_, ref.Attached = h.getBlockDeviceTarget(volume, kvvmiVolumeStatusByName)
+		_, ref.Attached = h.getBlockDeviceTarget(volume, kvvmiDiskInfoByName)
 		ref.Size, err = h.getBlockDeviceRefSize(ctx, ref, s)
 		if err != nil {
 			return nil, err
 		}
+		bootOrder := h.getBlockDeviceBootOrder(volume, kvvmiDiskInfoByName)
+		if bootOrder != nil {
+			ref.BootOrder = bootOrder
+		}
 
-		ref.Hotplugged = h.isHotplugged(volume, kvvmiVolumeStatusByName)
+		ref.Hotplugged = h.isHotplugged(volume, kvvmiDiskInfoByName)
 		if ref.Hotplugged {
 			_, isSpecDevice := specDevices[key]
 			if !isSpecDevice {
@@ -188,15 +206,15 @@ func (h *BlockDeviceHandler) getBlockDeviceRefSize(ctx context.Context, ref v1al
 	return "", nil
 }
 
-func (h *BlockDeviceHandler) getBlockDeviceTarget(volume virtv1.Volume, kvvmiVolumeStatusByName map[string]virtv1.VolumeStatus) (string, bool) {
-	vs, ok := kvvmiVolumeStatusByName[volume.Name]
-	return vs.Target, ok
+func (h *BlockDeviceHandler) getBlockDeviceTarget(volume virtv1.Volume, kvvmiDiskInfoByName map[string]kvvmiDiskInfo) (string, bool) {
+	di, ok := kvvmiDiskInfoByName[volume.Name]
+	return di.vs.Target, ok
 }
 
-func (h *BlockDeviceHandler) isHotplugged(volume virtv1.Volume, kvvmiVolumeStatusByName map[string]virtv1.VolumeStatus) bool {
+func (h *BlockDeviceHandler) isHotplugged(volume virtv1.Volume, kvvmiDiskInfoByName map[string]kvvmiDiskInfo) bool {
 	switch {
 	// 1. If kvvmi has volume status with hotplugVolume reference then it's 100% hot-plugged volume.
-	case kvvmiVolumeStatusByName[volume.Name].HotplugVolume != nil:
+	case kvvmiDiskInfoByName[volume.Name].vs.HotplugVolume != nil:
 		return true
 
 	// 2. If kvvm has volume with hot-pluggable pvc reference then it's 100% hot-plugged volume.
@@ -235,4 +253,12 @@ func (h *BlockDeviceHandler) getBlockDeviceAttachmentName(ctx context.Context, k
 	}
 
 	return vmbdas[0].Name, nil
+}
+
+func (h *BlockDeviceHandler) getBlockDeviceBootOrder(volume virtv1.Volume, kvvmiDiskInfoByName map[string]kvvmiDiskInfo) *uint {
+	di, ok := kvvmiDiskInfoByName[volume.Name]
+	if ok {
+		return di.d.BootOrder
+	}
+	return nil
 }

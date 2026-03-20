@@ -1114,6 +1114,10 @@ spec:
                         type: string
                         description: |
                           Name of the VirtualMachineBlockDeviceAttachment resource that defines the hot-plug disk connection to the VM.
+                      bootOrder:
+                        type: integer
+                        description: |
+                          Boot order of the block device. A smaller value means a higher priority.
                 migrationState:
                   type: object
                   description: Details on the VM migration.
