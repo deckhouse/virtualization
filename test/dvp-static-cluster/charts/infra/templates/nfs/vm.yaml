@@ -110,6 +110,8 @@ spec:
         - rc-update add rpcbind
         - rc-update add rpc.statd
         - rc-update add nfs
+        - rc-update add qemu-guest-agent
+        - rc-service qemu-guest-agent start
         # 8. Apply exports forcefully
         - exportfs -arv
         # 9. Check service status
