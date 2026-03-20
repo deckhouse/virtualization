@@ -62,8 +62,8 @@ func CalculateEffectivePolicy(vm v1alpha2.VirtualMachine, vmop *v1alpha2.Virtual
 				return effectivePolicy, *autoConvergePtr, fmt.Errorf("force=true is not applicable for VM liveMigrationPolicy %s", effectivePolicy)
 			}
 		case v1alpha2.AlwaysForcedMigrationPolicy:
-			if vmop.Spec.Force != nil && !*vmop.Spec.Force {
-				return effectivePolicy, *autoConvergePtr, fmt.Errorf("force=false is not applicable for VM liveMigrationPolicy %s", effectivePolicy)
+			if vmop.Spec.Force == nil || !*vmop.Spec.Force {
+				return effectivePolicy, *autoConvergePtr, fmt.Errorf("force=true is required for VM liveMigrationPolicy %s", effectivePolicy)
 			}
 		}
 	}
