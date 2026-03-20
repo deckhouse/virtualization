@@ -397,6 +397,9 @@ func (h *SyncKvvmHandler) updateKVVM(ctx context.Context, s state.VirtualMachine
 		memory := newKVVM.Spec.Template.Spec.Domain.Memory
 		if memory != nil && memory.MaxGuest != nil && memory.MaxGuest.IsZero() {
 			// Zero maxGuest is a special value to patch KVVM to unset maxGuest.
+			// Set it to nil for next update call.
+			memory.MaxGuest = nil
+
 			// 2 operations: remove memory.maxGuest; set memory.guest.
 			// Remove is not enough, remove and set are needed both to pass the kubevirt vm-validator webhook.
 			patchBytes, err := patch.NewJSONPatch(
