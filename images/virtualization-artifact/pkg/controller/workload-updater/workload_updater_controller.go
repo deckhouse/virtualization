@@ -20,7 +20,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -28,6 +27,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/workload-updater/internal/handler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/workload-updater/internal/service"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
 
