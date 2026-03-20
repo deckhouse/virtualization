@@ -31,7 +31,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-var _ = FDescribe("TestHotplugResourcesHandler", func() {
+var _ = Describe("TestHotplugResourcesHandler", func() {
 	const (
 		name      = "vm-hotplug-resources"
 		namespace = "default"
@@ -116,5 +116,4 @@ var _ = FDescribe("TestHotplugResourcesHandler", func() {
 			},
 		),
 	)
-
 })

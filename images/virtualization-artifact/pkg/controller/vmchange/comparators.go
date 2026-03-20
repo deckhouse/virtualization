@@ -17,9 +17,9 @@ limitations under the License.
 package vmchange
 
 import (
-	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 

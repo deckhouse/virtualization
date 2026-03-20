@@ -23,7 +23,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -36,6 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
@@ -621,36 +621,6 @@ func (h *SyncKvvmHandler) isVMStopped(
 	}
 
 	return isVMStopped(kvvm) && (!isKVVMICreated(kvvm) || podStopped)
-}
-
-// detectVMSpecChanges returns true and no error if specification has changes.
-func (h *SyncKvvmHandler) detectVMSpecChanges(ctx context.Context, s state.VirtualMachineState) (bool, error) {
-	currentKvvm, err := s.KVVM(ctx)
-	if err != nil {
-		return false, err
-	}
-
-	newKvvm, err := MakeKVVMFromVMSpec(ctx, s)
-	if err != nil {
-		return false, err
-	}
-
-	return currentKvvm.Annotations[annotations.AnnVMLastAppliedSpec] != newKvvm.Annotations[annotations.AnnVMLastAppliedSpec], nil
-}
-
-// detectVMClassSpecChanges returns true and no error if specification has changes.
-func (h *SyncKvvmHandler) detectVMClassSpecChanges(ctx context.Context, s state.VirtualMachineState) (bool, error) {
-	currentKvvm, err := s.KVVM(ctx)
-	if err != nil {
-		return false, err
-	}
-
-	newKvvm, err := MakeKVVMFromVMSpec(ctx, s)
-	if err != nil {
-		return false, err
-	}
-
-	return currentKvvm.Annotations[annotations.AnnVMClassLastAppliedSpec] != newKvvm.Annotations[annotations.AnnVMClassLastAppliedSpec], nil
 }
 
 // canApplyChanges returns true if changes can be applied right now.
