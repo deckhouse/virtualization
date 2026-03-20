@@ -18,6 +18,7 @@ package vm
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -265,7 +266,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 				vmbdaNames[i] = a.Name
 			}
 			go func() {
-				vmbdaGuardErrCh <- util.EnsureVMBDAsStayAttached(ctxVMBDA,
+				vmbdaGuardErrCh <- ensureVMBDAsStayAttached(ctxVMBDA,
 					f.VirtClient().VirtualMachineBlockDeviceAttachments(f.Namespace().Name),
 					vmbdaNames, metav1.ListOptions{})
 			}()
@@ -316,6 +317,44 @@ var _ = Describe("VirtualMachineMigration", func() {
 		})
 	})
 })
+
+// ensureVMBDAsStayAttached watches VMBDAs and returns an error if any of the tracked
+// VMBDAs transitions away from the Attached phase. It runs until ctx is cancelled,
+// returning nil if all VMBDAs stayed Attached throughout.
+func ensureVMBDAsStayAttached(ctx context.Context, w util.Watcher, names []string, opts metav1.ListOptions) error {
+	if len(names) == 0 {
+		return nil
+	}
+
+	wi, err := w.Watch(ctx, opts)
+	if err != nil {
+		return err
+	}
+	defer wi.Stop()
+
+	tracked := make(map[string]struct{}, len(names))
+	for _, n := range names {
+		tracked[n] = struct{}{}
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case event, ok := <-wi.ResultChan():
+			if !ok {
+				return nil
+			}
+			vmbda, ok := event.Object.(*v1alpha2.VirtualMachineBlockDeviceAttachment)
+			if !ok {
+				continue
+			}
+			if _, ok := tracked[vmbda.Name]; ok && vmbda.Status.Phase != v1alpha2.BlockDeviceAttachmentPhaseAttached {
+				return fmt.Errorf("VMBDA %s unexpectedly transitioned to phase %q", vmbda.Name, vmbda.Status.Phase)
+			}
+		}
+	}
+}
 
 func toObjects[T crclient.Object](objs []T) []crclient.Object {
 	out := make([]crclient.Object, len(objs))
