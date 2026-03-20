@@ -26,6 +26,8 @@ import (
 // If a test case does not require the immediate storage class, this check can be skipped.
 const SkipImmediateStorageClassCheckEnv = "SKIP_IMMEDIATE_SC_CHECK"
 
+const NFS = "nfs.csi.k8s.io"
+
 func CheckStorageClassOption() error {
 	env := os.Getenv(SkipImmediateStorageClassCheckEnv)
 	switch env {

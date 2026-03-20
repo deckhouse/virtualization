@@ -51,6 +51,11 @@ var _ = Describe("VMSOPCreateVirtualMachine", Ordered, func() {
 	)
 
 	BeforeAll(func() {
+		cfg := framework.GetConfig()
+		if cfg.StorageClass.TemplateStorageClass != nil && cfg.StorageClass.TemplateStorageClass.Provisioner == framework.NFS {
+			Skip("Not working due to bug with VMBDA on NFS right now, skipping")
+		}
+
 		DeferCleanup(f.After)
 
 		f.Before()

@@ -51,6 +51,10 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, func() {
 	)
 
 	BeforeAll(func() {
+		if conf.StorageClass.TemplateStorageClass != nil && conf.StorageClass.TemplateStorageClass.Provisioner == config.NFS {
+			Skip("Concurrent snapshotting is not supported on NFS on the volumesnapshot side, skipping")
+		}
+
 		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VdSnapshots, "kustomization.yaml")
 		var err error
 		ns, err = kustomize.GetNamespace(kustomization)
