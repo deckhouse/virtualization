@@ -20,6 +20,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -47,7 +48,10 @@ func SetupController(
 	handlers := []Handler{
 		handler.NewFirmwareHandler(client, service.NewOneShotMigrationService(client, "firmware-update-"), firmwareImage, namespace, virtControllerName),
 		handler.NewNodePlacementHandler(client, service.NewOneShotMigrationService(client, "nodeplacement-update-")),
-		handler.NewHotplugHandler(client, service.NewOneShotMigrationService(client, "hotplug-resources-")),
+	}
+	if featuregates.Default().Enabled(featuregates.HotplugMemory) {
+		hotplugHandler := handler.NewHotplugHandler(client, service.NewOneShotMigrationService(client, "hotplug-resources-"))
+		handlers = append(handlers, hotplugHandler)
 	}
 	r := NewReconciler(client, handlers)
 
