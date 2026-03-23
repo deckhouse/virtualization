@@ -347,6 +347,11 @@ func (h LifeCycleHandler) handleHotPlugPodIssues(
 				Message(fmt.Sprintf("%s: %s", lastEvent.Reason, lastEvent.Message))
 			return reconcile.Result{}, true, nil
 		}
+
+		cb.Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.FailedAttachVolume).
+			Message(fmt.Sprintf("Pod %q is in ContainerCreating phase. Check the pod for more details.", hotPlugPod.Name))
+		return reconcile.Result{}, true, nil
 	}
 
 	return reconcile.Result{}, false, nil
