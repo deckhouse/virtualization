@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/nodeaffinity"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
@@ -389,56 +390,106 @@ func (s *state) ReadWriteOnceVirtualDisks(ctx context.Context) ([]*v1alpha2.Virt
 }
 
 func (s *state) PVNodeAffinityTerms(ctx context.Context) ([]corev1.NodeSelectorTerm, error) {
+	refs := s.collectBlockDeviceRefs(ctx)
+
 	var perPVTerms [][]corev1.NodeSelectorTerm
+	namespace := s.vm.Current().GetNamespace()
 
-	for _, bd := range s.bdRefs {
-		var pvcName string
-		namespace := s.vm.Current().GetNamespace()
-
-		switch bd.Kind {
-		case v1alpha2.DiskDevice:
-			vd, err := s.VirtualDisk(ctx, bd.Name)
-			if err != nil || vd == nil {
-				continue
-			}
-			pvcName = vd.Status.Target.PersistentVolumeClaim
-		case v1alpha2.ImageDevice:
-			vi, err := s.VirtualImage(ctx, bd.Name)
-			if err != nil || vi == nil {
-				continue
-			}
-			if vi.Spec.Storage != v1alpha2.StorageKubernetes && vi.Spec.Storage != v1alpha2.StoragePersistentVolumeClaim {
-				continue
-			}
-			pvcName = vi.Status.Target.PersistentVolumeClaim
-		default:
+	for _, ref := range refs {
+		pvcName, err := s.resolvePVCName(ctx, ref.Kind, ref.Name)
+		if err != nil || pvcName == "" {
 			continue
 		}
 
-		if pvcName == "" {
+		terms, err := s.pvNodeAffinityTermsForPVC(ctx, pvcName, namespace)
+		if err != nil || terms == nil {
 			continue
 		}
-
-		pvc, err := object.FetchObject(ctx, types.NamespacedName{
-			Name: pvcName, Namespace: namespace,
-		}, s.client, &corev1.PersistentVolumeClaim{})
-		if err != nil || pvc == nil || pvc.Spec.VolumeName == "" {
-			continue
-		}
-
-		pv, err := object.FetchObject(ctx, types.NamespacedName{
-			Name: pvc.Spec.VolumeName,
-		}, s.client, &corev1.PersistentVolume{})
-		if err != nil || pv == nil {
-			continue
-		}
-
-		if pv.Spec.NodeAffinity != nil && pv.Spec.NodeAffinity.Required != nil && len(pv.Spec.NodeAffinity.Required.NodeSelectorTerms) > 0 {
-			perPVTerms = append(perPVTerms, pv.Spec.NodeAffinity.Required.NodeSelectorTerms)
-		}
+		perPVTerms = append(perPVTerms, terms)
 	}
 
 	return nodeaffinity.IntersectTerms(perPVTerms), nil
+}
+
+func (s *state) collectBlockDeviceRefs(ctx context.Context) []blockDeviceRef {
+	seen := make(map[blockDeviceRef]struct{})
+	var refs []blockDeviceRef
+
+	for _, bd := range s.vm.Current().Spec.BlockDeviceRefs {
+		ref := blockDeviceRef{Name: bd.Name, Kind: bd.Kind}
+		if _, ok := seen[ref]; !ok {
+			seen[ref] = struct{}{}
+			refs = append(refs, ref)
+		}
+	}
+
+	var vmbdaList v1alpha2.VirtualMachineBlockDeviceAttachmentList
+	err := s.client.List(ctx, &vmbdaList,
+		client.InNamespace(s.vm.Current().GetNamespace()),
+		client.MatchingFields{indexer.IndexFieldVMBDAByVM: s.vm.Current().GetName()},
+	)
+	if err != nil {
+		return refs
+	}
+
+	for _, vmbda := range vmbdaList.Items {
+		if vmbda.Status.Phase != v1alpha2.BlockDeviceAttachmentPhaseAttached {
+			continue
+		}
+		ref := blockDeviceRef{
+			Name: vmbda.Spec.BlockDeviceRef.Name,
+			Kind: v1alpha2.BlockDeviceKind(vmbda.Spec.BlockDeviceRef.Kind),
+		}
+		if _, ok := seen[ref]; !ok {
+			seen[ref] = struct{}{}
+			refs = append(refs, ref)
+		}
+	}
+
+	return refs
+}
+
+func (s *state) resolvePVCName(ctx context.Context, kind v1alpha2.BlockDeviceKind, name string) (string, error) {
+	switch kind {
+	case v1alpha2.DiskDevice:
+		vd, err := s.VirtualDisk(ctx, name)
+		if err != nil || vd == nil {
+			return "", err
+		}
+		return vd.Status.Target.PersistentVolumeClaim, nil
+	case v1alpha2.ImageDevice:
+		vi, err := s.VirtualImage(ctx, name)
+		if err != nil || vi == nil {
+			return "", err
+		}
+		if vi.Spec.Storage != v1alpha2.StorageKubernetes && vi.Spec.Storage != v1alpha2.StoragePersistentVolumeClaim {
+			return "", nil
+		}
+		return vi.Status.Target.PersistentVolumeClaim, nil
+	default:
+		return "", nil
+	}
+}
+
+func (s *state) pvNodeAffinityTermsForPVC(ctx context.Context, pvcName, namespace string) ([]corev1.NodeSelectorTerm, error) {
+	pvc, err := object.FetchObject(ctx, types.NamespacedName{
+		Name: pvcName, Namespace: namespace,
+	}, s.client, &corev1.PersistentVolumeClaim{})
+	if err != nil || pvc == nil || pvc.Spec.VolumeName == "" {
+		return nil, err
+	}
+
+	pv, err := object.FetchObject(ctx, types.NamespacedName{
+		Name: pvc.Spec.VolumeName,
+	}, s.client, &corev1.PersistentVolume{})
+	if err != nil || pv == nil {
+		return nil, err
+	}
+
+	if pv.Spec.NodeAffinity != nil && pv.Spec.NodeAffinity.Required != nil && len(pv.Spec.NodeAffinity.Required.NodeSelectorTerms) > 0 {
+		return pv.Spec.NodeAffinity.Required.NodeSelectorTerms, nil
+	}
+	return nil, nil
 }
 
 func (s *state) USBDevice(ctx context.Context, name string) (*v1alpha2.USBDevice, error) {
