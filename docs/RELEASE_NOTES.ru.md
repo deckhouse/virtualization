@@ -3,6 +3,15 @@ title: "Релизы"
 weight: 70
 ---
 
+## v1.6.2
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 23 марта 2026.
+</span>
+
+### Исправления
+
+- [module] Установили минимальную версию Deckhouse 1.74.2 для работы вирутализации. В ней было исправлена валидация квот при создании дисков.
+
 ## v1.6.1
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Дата релиза: 10 марта 2026.
