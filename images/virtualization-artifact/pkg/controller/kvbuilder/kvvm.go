@@ -656,15 +656,43 @@ func (b *KVVM) ApplyPVNodeAffinity(pvTerms []corev1.NodeSelectorTerm) {
 		return
 	}
 
-	var exprs []corev1.NodeSelectorRequirement
-	for _, t := range pvTerms {
-		exprs = append(exprs, t.MatchExpressions...)
+	affinity := b.Resource.Spec.Template.Spec.Affinity
+	if affinity == nil {
+		affinity = &corev1.Affinity{}
 	}
-	if len(exprs) == 0 {
-		return
+	if affinity.NodeAffinity == nil {
+		affinity.NodeAffinity = &corev1.NodeAffinity{}
+	}
+	if affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+		affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &corev1.NodeSelector{}
 	}
 
-	b.SetAffinity(b.Resource.Spec.Template.Spec.Affinity, exprs)
+	existing := affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+	if len(existing) == 0 {
+		affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = pvTerms
+	} else {
+		var merged []corev1.NodeSelectorTerm
+		for _, existingTerm := range existing {
+			for _, pvTerm := range pvTerms {
+				m := corev1.NodeSelectorTerm{
+					MatchExpressions: append(
+						append([]corev1.NodeSelectorRequirement{}, existingTerm.MatchExpressions...),
+						pvTerm.MatchExpressions...,
+					),
+				}
+				if len(existingTerm.MatchFields) > 0 || len(pvTerm.MatchFields) > 0 {
+					m.MatchFields = append(
+						append([]corev1.NodeSelectorRequirement{}, existingTerm.MatchFields...),
+						pvTerm.MatchFields...,
+					)
+				}
+				merged = append(merged, m)
+			}
+		}
+		affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = merged
+	}
+
+	b.Resource.Spec.Template.Spec.Affinity = affinity
 }
 
 func (b *KVVM) SetUpdateVolumesStrategy(strategy *virtv1.UpdateVolumesStrategy) {
