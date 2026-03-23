@@ -448,6 +448,13 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 	if err != nil {
 		return nil, err
 	}
+
+	pvTerms, err := s.PVNodeAffinityTerms(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to collect PV node affinities: %w", err)
+	}
+	kvvmBuilder.ApplyPVNodeAffinity(pvTerms)
+
 	newKVVM := kvvmBuilder.GetResource()
 
 	err = kvbuilder.SetLastAppliedSpec(newKVVM, current)

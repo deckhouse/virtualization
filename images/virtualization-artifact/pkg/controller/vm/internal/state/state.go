@@ -54,6 +54,7 @@ type VirtualMachineState interface {
 	VMOPs(ctx context.Context) ([]*v1alpha2.VirtualMachineOperation, error)
 	Shared(fn func(s *Shared))
 	ReadWriteOnceVirtualDisks(ctx context.Context) ([]*v1alpha2.VirtualDisk, error)
+	PVNodeAffinityTerms(ctx context.Context) ([]corev1.NodeSelectorTerm, error)
 	USBDevice(ctx context.Context, name string) (*v1alpha2.USBDevice, error)
 	USBDevicesByName(ctx context.Context) (map[string]*v1alpha2.USBDevice, error)
 }
@@ -384,6 +385,92 @@ func (s *state) ReadWriteOnceVirtualDisks(ctx context.Context) ([]*v1alpha2.Virt
 	}
 
 	return nonMigratableVirtualDisks, nil
+}
+
+func (s *state) PVNodeAffinityTerms(ctx context.Context) ([]corev1.NodeSelectorTerm, error) {
+	var perPVTerms [][]corev1.NodeSelectorTerm
+
+	for _, bd := range s.bdRefs {
+		var pvcName string
+		namespace := s.vm.Current().GetNamespace()
+
+		switch bd.Kind {
+		case v1alpha2.DiskDevice:
+			vd, err := s.VirtualDisk(ctx, bd.Name)
+			if err != nil || vd == nil {
+				continue
+			}
+			pvcName = vd.Status.Target.PersistentVolumeClaim
+		case v1alpha2.ImageDevice:
+			vi, err := s.VirtualImage(ctx, bd.Name)
+			if err != nil || vi == nil {
+				continue
+			}
+			if vi.Spec.Storage != v1alpha2.StorageKubernetes && vi.Spec.Storage != v1alpha2.StoragePersistentVolumeClaim {
+				continue
+			}
+			pvcName = vi.Status.Target.PersistentVolumeClaim
+		default:
+			continue
+		}
+
+		if pvcName == "" {
+			continue
+		}
+
+		pvc, err := object.FetchObject(ctx, types.NamespacedName{
+			Name: pvcName, Namespace: namespace,
+		}, s.client, &corev1.PersistentVolumeClaim{})
+		if err != nil || pvc == nil || pvc.Spec.VolumeName == "" {
+			continue
+		}
+
+		pv, err := object.FetchObject(ctx, types.NamespacedName{
+			Name: pvc.Spec.VolumeName,
+		}, s.client, &corev1.PersistentVolume{})
+		if err != nil || pv == nil {
+			continue
+		}
+
+		if pv.Spec.NodeAffinity != nil && pv.Spec.NodeAffinity.Required != nil && len(pv.Spec.NodeAffinity.Required.NodeSelectorTerms) > 0 {
+			perPVTerms = append(perPVTerms, pv.Spec.NodeAffinity.Required.NodeSelectorTerms)
+		}
+	}
+
+	return intersectNodeSelectorTerms(perPVTerms), nil
+}
+
+func intersectNodeSelectorTerms(perPVTerms [][]corev1.NodeSelectorTerm) []corev1.NodeSelectorTerm {
+	if len(perPVTerms) == 0 {
+		return nil
+	}
+	result := perPVTerms[0]
+	for i := 1; i < len(perPVTerms); i++ {
+		result = crossProductNodeSelectorTerms(result, perPVTerms[i])
+	}
+	return result
+}
+
+func crossProductNodeSelectorTerms(a, b []corev1.NodeSelectorTerm) []corev1.NodeSelectorTerm {
+	var result []corev1.NodeSelectorTerm
+	for _, termA := range a {
+		for _, termB := range b {
+			merged := corev1.NodeSelectorTerm{
+				MatchExpressions: append(
+					append([]corev1.NodeSelectorRequirement{}, termA.MatchExpressions...),
+					termB.MatchExpressions...,
+				),
+			}
+			if len(termA.MatchFields) > 0 || len(termB.MatchFields) > 0 {
+				merged.MatchFields = append(
+					append([]corev1.NodeSelectorRequirement{}, termA.MatchFields...),
+					termB.MatchFields...,
+				)
+			}
+			result = append(result, merged)
+		}
+	}
+	return result
 }
 
 func (s *state) USBDevice(ctx context.Context, name string) (*v1alpha2.USBDevice, error) {
