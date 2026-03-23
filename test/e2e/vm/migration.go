@@ -67,9 +67,9 @@ var _ = Describe("VirtualMachineMigration", func() {
 		vmopMigrateBIOS *v1alpha2.VirtualMachineOperation
 		vmopMigrateUEFI *v1alpha2.VirtualMachineOperation
 
-		f                         = framework.NewFramework("vm-migration")
-		lsblkWcResultBIOSOriginal string
-		lsblkWcResultUEFIOriginal string
+		f                     = framework.NewFramework("vm-migration")
+		biosDiskCountOriginal string
+		uefiDiskCountOriginal string
 	)
 
 	BeforeEach(func() {
@@ -233,9 +233,9 @@ var _ = Describe("VirtualMachineMigration", func() {
 			util.UntilSSHReady(f, vmBIOS, framework.LongTimeout)
 			util.UntilSSHReady(f, vmUEFI, framework.LongTimeout)
 
-			lsblkWcResultBIOSOriginal, err = f.SSHCommand(vmBIOS.Name, f.Namespace().Name, lsblkCommand)
+			biosDiskCountOriginal, err = f.SSHCommand(vmBIOS.Name, f.Namespace().Name, lsblkCommand)
 			Expect(err).NotTo(HaveOccurred())
-			lsblkWcResultUEFIOriginal, err = f.SSHCommand(vmUEFI.Name, f.Namespace().Name, lsblkCommand)
+			uefiDiskCountOriginal, err = f.SSHCommand(vmUEFI.Name, f.Namespace().Name, lsblkCommand)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -286,12 +286,12 @@ var _ = Describe("VirtualMachineMigration", func() {
 				err = f.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vmopMigrateUEFI), vmopMigrateUEFI)
 				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
 
-				lsblkWcResultBIOS, err := f.SSHCommand(vmBIOS.Name, f.Namespace().Name, lsblkCommand)
+				biosDiskCount, err := f.SSHCommand(vmBIOS.Name, f.Namespace().Name, lsblkCommand)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(lsblkWcResultBIOS).To(Equal(lsblkWcResultBIOSOriginal))
-				lsblkWcResultUEFI, err := f.SSHCommand(vmUEFI.Name, f.Namespace().Name, lsblkCommand)
+				Expect(biosDiskCount).To(Equal(biosDiskCountOriginal))
+				uefiDiskCount, err := f.SSHCommand(vmUEFI.Name, f.Namespace().Name, lsblkCommand)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(lsblkWcResultUEFI).To(Equal(lsblkWcResultUEFIOriginal))
+				Expect(uefiDiskCount).To(Equal(uefiDiskCountOriginal))
 
 				g.Expect(vmopMigrateBIOS.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
 				g.Expect(vmopMigrateUEFI.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
@@ -343,7 +343,10 @@ func ensureVMBDAsStayAttached(ctx context.Context, w util.Watcher, names []strin
 			return nil
 		case event, ok := <-wi.ResultChan():
 			if !ok {
-				return nil
+				if ctx.Err() != nil {
+					return nil
+				}
+				return fmt.Errorf("watch channel closed unexpectedly while VMBDAs were still being monitored")
 			}
 			vmbda, ok := event.Object.(*v1alpha2.VirtualMachineBlockDeviceAttachment)
 			if !ok {
