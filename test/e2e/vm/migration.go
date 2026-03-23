@@ -122,7 +122,6 @@ var _ = Describe("VirtualMachineMigration", func() {
 				vm.WithProvisioningUserData(object.DefaultCloudInit),
 				vm.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
 				vm.WithName("vm-bios"),
-				vm.WithBootloader(v1alpha2.BIOS),
 			)
 			vmUEFI = object.NewMinimalVM("", f.Namespace().Name,
 				vm.WithBlockDeviceRefs(
@@ -139,7 +138,6 @@ var _ = Describe("VirtualMachineMigration", func() {
 				vm.WithProvisioningUserData(object.DefaultCloudInit),
 				vm.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
 				vm.WithName("vm-uefi"),
-				vm.WithBootloader(v1alpha2.EFI),
 			)
 
 			// --- Hotplug resources ---
