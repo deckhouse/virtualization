@@ -357,56 +357,6 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 	})
 })
 
-var _ = Describe("intersectNodeSelectorTerms", func() {
-	term := func(key string, nodes ...string) corev1.NodeSelectorTerm {
-		return corev1.NodeSelectorTerm{
-			MatchExpressions: []corev1.NodeSelectorRequirement{{
-				Key:      key,
-				Operator: corev1.NodeSelectorOpIn,
-				Values:   nodes,
-			}},
-		}
-	}
-
-	It("should return nil for empty input", func() {
-		Expect(intersectNodeSelectorTerms(nil)).To(BeNil())
-	})
-
-	It("should return the single PV terms as-is", func() {
-		terms := []corev1.NodeSelectorTerm{term("k", "a", "b")}
-		result := intersectNodeSelectorTerms([][]corev1.NodeSelectorTerm{terms})
-		Expect(result).To(Equal(terms))
-	})
-
-	It("should cross-product two PVs with single terms each", func() {
-		pv1 := []corev1.NodeSelectorTerm{term("k1", "a")}
-		pv2 := []corev1.NodeSelectorTerm{term("k2", "b")}
-		result := intersectNodeSelectorTerms([][]corev1.NodeSelectorTerm{pv1, pv2})
-		Expect(result).To(HaveLen(1))
-		Expect(result[0].MatchExpressions).To(HaveLen(2))
-	})
-
-	It("should cross-product two PVs with multiple terms (OR within PV, AND across PVs)", func() {
-		pv1 := []corev1.NodeSelectorTerm{term("k", "a"), term("k", "b")}
-		pv2 := []corev1.NodeSelectorTerm{term("k", "b"), term("k", "c")}
-		result := intersectNodeSelectorTerms([][]corev1.NodeSelectorTerm{pv1, pv2})
-		// Cross product: (a,b), (a,c), (b,b), (b,c)
-		Expect(result).To(HaveLen(4))
-		for _, r := range result {
-			Expect(r.MatchExpressions).To(HaveLen(2))
-		}
-	})
-
-	It("should chain three PVs correctly", func() {
-		pv1 := []corev1.NodeSelectorTerm{term("k1", "a")}
-		pv2 := []corev1.NodeSelectorTerm{term("k2", "b")}
-		pv3 := []corev1.NodeSelectorTerm{term("k3", "c")}
-		result := intersectNodeSelectorTerms([][]corev1.NodeSelectorTerm{pv1, pv2, pv3})
-		Expect(result).To(HaveLen(1))
-		Expect(result[0].MatchExpressions).To(HaveLen(3))
-	})
-})
-
 func vmFactoryByVM(vm *v1alpha2.VirtualMachine) func() *v1alpha2.VirtualMachine {
 	return func() *v1alpha2.VirtualMachine {
 		return vm

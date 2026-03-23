@@ -29,6 +29,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
+	"github.com/deckhouse/virtualization-controller/pkg/common/nodeaffinity"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
@@ -437,40 +438,7 @@ func (s *state) PVNodeAffinityTerms(ctx context.Context) ([]corev1.NodeSelectorT
 		}
 	}
 
-	return intersectNodeSelectorTerms(perPVTerms), nil
-}
-
-func intersectNodeSelectorTerms(perPVTerms [][]corev1.NodeSelectorTerm) []corev1.NodeSelectorTerm {
-	if len(perPVTerms) == 0 {
-		return nil
-	}
-	result := perPVTerms[0]
-	for i := 1; i < len(perPVTerms); i++ {
-		result = crossProductNodeSelectorTerms(result, perPVTerms[i])
-	}
-	return result
-}
-
-func crossProductNodeSelectorTerms(a, b []corev1.NodeSelectorTerm) []corev1.NodeSelectorTerm {
-	var result []corev1.NodeSelectorTerm
-	for _, termA := range a {
-		for _, termB := range b {
-			merged := corev1.NodeSelectorTerm{
-				MatchExpressions: append(
-					append([]corev1.NodeSelectorRequirement{}, termA.MatchExpressions...),
-					termB.MatchExpressions...,
-				),
-			}
-			if len(termA.MatchFields) > 0 || len(termB.MatchFields) > 0 {
-				merged.MatchFields = append(
-					append([]corev1.NodeSelectorRequirement{}, termA.MatchFields...),
-					termB.MatchFields...,
-				)
-			}
-			result = append(result, merged)
-		}
-	}
-	return result
+	return nodeaffinity.IntersectTerms(perPVTerms), nil
 }
 
 func (s *state) USBDevice(ctx context.Context, name string) (*v1alpha2.USBDevice, error) {

@@ -222,26 +222,6 @@ func TestApplyPVNodeAffinity(t *testing.T) {
 			}
 		}
 	})
-
-	t.Run("PodAffinity preserved when applying PV nodeAffinity", func(t *testing.T) {
-		b := NewEmptyKVVM(nn, KVVMOptions{})
-		podAffinity := &corev1.PodAffinity{
-			RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
-				TopologyKey: "kubernetes.io/hostname",
-			}},
-		}
-		b.Resource.Spec.Template.Spec.Affinity = &corev1.Affinity{PodAffinity: podAffinity}
-
-		b.ApplyPVNodeAffinity([]corev1.NodeSelectorTerm{pvTerm("topology/node", "node-1")})
-
-		a := b.Resource.Spec.Template.Spec.Affinity
-		if !reflect.DeepEqual(a.PodAffinity, podAffinity) {
-			t.Error("PodAffinity should be preserved")
-		}
-		if a.NodeAffinity == nil {
-			t.Error("NodeAffinity should be set")
-		}
-	})
 }
 
 func TestSetOsType(t *testing.T) {

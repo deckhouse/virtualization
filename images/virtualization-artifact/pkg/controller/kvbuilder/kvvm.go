@@ -30,6 +30,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/nodeaffinity"
 	"github.com/deckhouse/virtualization-controller/pkg/common/array"
 	"github.com/deckhouse/virtualization-controller/pkg/common/resource_builder"
 	"github.com/deckhouse/virtualization-controller/pkg/common/vm"
@@ -671,25 +672,8 @@ func (b *KVVM) ApplyPVNodeAffinity(pvTerms []corev1.NodeSelectorTerm) {
 	if len(existing) == 0 {
 		affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = pvTerms
 	} else {
-		var merged []corev1.NodeSelectorTerm
-		for _, existingTerm := range existing {
-			for _, pvTerm := range pvTerms {
-				m := corev1.NodeSelectorTerm{
-					MatchExpressions: append(
-						append([]corev1.NodeSelectorRequirement{}, existingTerm.MatchExpressions...),
-						pvTerm.MatchExpressions...,
-					),
-				}
-				if len(existingTerm.MatchFields) > 0 || len(pvTerm.MatchFields) > 0 {
-					m.MatchFields = append(
-						append([]corev1.NodeSelectorRequirement{}, existingTerm.MatchFields...),
-						pvTerm.MatchFields...,
-					)
-				}
-				merged = append(merged, m)
-			}
-		}
-		affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = merged
+		affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms =
+			nodeaffinity.CrossProductTerms(existing, pvTerms)
 	}
 
 	b.Resource.Spec.Template.Spec.Affinity = affinity
