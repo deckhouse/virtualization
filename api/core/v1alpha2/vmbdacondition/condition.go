@@ -67,6 +67,8 @@ const (
 	DeviceNotAvailableOnNode AttachedReason = "DeviceNotAvailableOnNode"
 	// HotPlugPodNotScheduled indicates that the hotplug pod cannot be scheduled on any node.
 	HotPlugPodNotScheduled AttachedReason = "HotPlugPodNotScheduled"
+	// FailedAttachVolume indicates that the hotplug pod failed to attach a volume.
+	FailedAttachVolume AttachedReason = "FailedAttachVolume"
 
 	// CapacityAvailable signifies that the capacity not reached and attaching available.
 	CapacityAvailable DiskAttachmentCapacityAvailableReason = "CapacityAvailable"
