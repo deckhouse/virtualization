@@ -159,10 +159,10 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 		node3 = "node-3"
 	)
 
-	nodeAffinityTerm := func(key string, nodes ...string) corev1.NodeSelectorTerm {
+	nodeAffinityTerm := func(nodes ...string) corev1.NodeSelectorTerm {
 		return corev1.NodeSelectorTerm{
 			MatchExpressions: []corev1.NodeSelectorRequirement{{
-				Key:      key,
+				Key:      "topology.kubernetes.io/node",
 				Operator: corev1.NodeSelectorOpIn,
 				Values:   nodes,
 			}},
@@ -244,7 +244,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 		vm := makeVM(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"})
 		vd := makeVD("local-disk", "pvc-local")
 		pvc := makePVC("pvc-local", "pv-local")
-		pv := makePV("pv-local", nodeAffinityTerm("topology.kubernetes.io/node", node1))
+		pv := makePV("pv-local", nodeAffinityTerm(node1))
 
 		s := buildState(vm, vd, pvc, pv)
 		ctx := logger.ToContext(context.TODO(), slog.Default())
@@ -262,11 +262,11 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 		)
 		vdA := makeVD("disk-a", "pvc-a")
 		pvcA := makePVC("pvc-a", "pv-a")
-		pvA := makePV("pv-a", nodeAffinityTerm("topology.kubernetes.io/node", node1, node2))
+		pvA := makePV("pv-a", nodeAffinityTerm(node1, node2))
 
 		vdB := makeVD("disk-b", "pvc-b")
 		pvcB := makePVC("pvc-b", "pv-b")
-		pvB := makePV("pv-b", nodeAffinityTerm("topology.kubernetes.io/node", node2, node3))
+		pvB := makePV("pv-b", nodeAffinityTerm(node2, node3))
 
 		s := buildState(vm, vdA, pvcA, pvA, vdB, pvcB, pvB)
 		ctx := logger.ToContext(context.TODO(), slog.Default())
@@ -287,7 +287,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 
 		vdLocal := makeVD("local-disk", "pvc-local")
 		pvcLocal := makePVC("pvc-local", "pv-local")
-		pvLocal := makePV("pv-local", nodeAffinityTerm("topology.kubernetes.io/node", node2))
+		pvLocal := makePV("pv-local", nodeAffinityTerm(node2))
 
 		s := buildState(vm, vdNet, pvcNet, pvNet, vdLocal, pvcLocal, pvLocal)
 		ctx := logger.ToContext(context.TODO(), slog.Default())
@@ -305,7 +305,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 		)
 		vdBound := makeVD("bound-disk", "pvc-bound")
 		pvcBound := makePVC("pvc-bound", "pv-bound")
-		pvBound := makePV("pv-bound", nodeAffinityTerm("topology.kubernetes.io/node", node1))
+		pvBound := makePV("pv-bound", nodeAffinityTerm(node1))
 
 		vdPending := makeVD("pending-disk", "pvc-pending")
 		pvcPending := &corev1.PersistentVolumeClaim{
@@ -325,7 +325,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 		vm := makeVM(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.ImageDevice, Name: "pvc-image"})
 		vi := makeVI("pvc-image", "pvc-vi", v1alpha2.StoragePersistentVolumeClaim)
 		pvc := makePVC("pvc-vi", "pv-vi")
-		pv := makePV("pv-vi", nodeAffinityTerm("topology.kubernetes.io/node", node3))
+		pv := makePV("pv-vi", nodeAffinityTerm(node3))
 
 		s := buildState(vm, vi, pvc, pv)
 		ctx := logger.ToContext(context.TODO(), slog.Default())
