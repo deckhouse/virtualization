@@ -65,6 +65,8 @@ const (
 	Conflict AttachedReason = "Conflict"
 	// DeviceNotAvailableOnNode indicates that the block device's PersistentVolume is not available on the node where the virtual machine is running.
 	DeviceNotAvailableOnNode AttachedReason = "DeviceNotAvailableOnNode"
+	// HotPlugPodNotScheduled indicates that the hotplug pod cannot be scheduled on any node.
+	HotPlugPodNotScheduled AttachedReason = "HotPlugPodNotScheduled"
 
 	// CapacityAvailable signifies that the capacity not reached and attaching available.
 	CapacityAvailable DiskAttachmentCapacityAvailableReason = "CapacityAvailable"
