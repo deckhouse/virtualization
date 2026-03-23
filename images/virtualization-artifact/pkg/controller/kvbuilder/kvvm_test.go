@@ -192,7 +192,7 @@ func TestApplyPVNodeAffinity(t *testing.T) {
 		}
 	})
 
-	t.Run("PV terms cross-product with multiple existing terms", func(t *testing.T) {
+	t.Run("PV expressions appended to each existing term", func(t *testing.T) {
 		b := NewEmptyKVVM(nn, KVVMOptions{})
 		b.Resource.Spec.Template.Spec.Affinity = &corev1.Affinity{
 			NodeAffinity: &corev1.NodeAffinity{
@@ -212,13 +212,13 @@ func TestApplyPVNodeAffinity(t *testing.T) {
 		b.ApplyPVNodeAffinity(pvTerms)
 
 		got := b.Resource.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
-		// 2 existing x 2 PV = 4 terms
-		if len(got) != 4 {
-			t.Fatalf("expected 4 terms (cross-product 2x2), got %d", len(got))
+		if len(got) != 2 {
+			t.Fatalf("expected 2 terms (PV expressions appended to each), got %d", len(got))
 		}
 		for i, term := range got {
-			if len(term.MatchExpressions) != 2 {
-				t.Errorf("term %d: expected 2 match expressions, got %d", i, len(term.MatchExpressions))
+			// 1 original + 2 PV expressions = 3
+			if len(term.MatchExpressions) != 3 {
+				t.Errorf("term %d: expected 3 match expressions, got %d", i, len(term.MatchExpressions))
 			}
 		}
 	})
