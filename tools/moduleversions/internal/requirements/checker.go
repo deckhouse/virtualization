@@ -94,7 +94,8 @@ func ExtractFileFromImage(image, targetFile string) (string, error) {
 
 func VerifyModuleRequirements(module string, sv SemVerRange, edition, channel string) error {
 	fmt.Printf("semver range of module %s: %s\n", module, sv)
-	prange, err := semver.ParseRange(string(sv))
+	normalizedRange := version.NormalizeSemVerRange(string(sv))
+	prange, err := semver.ParseRange(normalizedRange)
 	if err != nil {
 		fmt.Printf("semver.ParseRange failed for module %s: range=%q error=%v\n", module, sv, err)
 		return fmt.Errorf("failed to parse range for module %v: %w", module, err)
