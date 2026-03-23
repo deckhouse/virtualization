@@ -743,8 +743,9 @@ jobs:
           envsubst < ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/nfs/storageclass.yaml | kubectl apply -f -
 
           echo "[INFO] Configure default storage class"
-          chmod +x ./default-sc-configure.sh
-          ./default-sc-configure.sh
+          chmod +x ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/nfs/default-sc-configure.sh
+          ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/nfs/default-sc-configure.sh
+
 
           echo "[INFO] Show existing storageclasses"
           kubectl get storageclass
