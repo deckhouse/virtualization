@@ -15,11 +15,3 @@ spec:
   enabled: true
   source: deckhouse
   version: 1
----
-apiVersion: deckhouse.io/v1alpha2
-kind: ModulePullOverride
-metadata:
-  name: csi-nfs
-spec:
-  imageTag: main
-  scanInterval: 10m
