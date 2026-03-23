@@ -201,17 +201,8 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 		if errors.Is(err, intsvc.ErrVolumeStatusNotReady) {
 			vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseInProgress
 
-			podScheduled, podErr := h.attacher.GetHotPlugPodCondition(ctx, ad, kvvmi, corev1.PodScheduled)
-			if podErr != nil {
-				return reconcile.Result{}, podErr
-			}
-			if podScheduled != nil && podScheduled.Status == corev1.ConditionFalse && podScheduled.Message != "" {
-				vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhasePending
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(vmbdacondition.HotPlugPodNotScheduled).
-					Message(fmt.Sprintf("%s: %s", podScheduled.Reason, podScheduled.Message))
-				return reconcile.Result{}, nil
+			if result, handled, podErr := h.handleHotPlugPodIssues(ctx, ad, kvvmi, vmbda, cb); podErr != nil || handled {
+				return result, podErr
 			}
 
 			cb.
@@ -314,4 +305,61 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 	default:
 		return reconcile.Result{}, err
 	}
+}
+
+const reasonFailedAttachVolume = "FailedAttachVolume"
+
+func (h LifeCycleHandler) handleHotPlugPodIssues(
+	ctx context.Context,
+	ad *intsvc.AttachmentDisk,
+	kvvmi *virtv1.VirtualMachineInstance,
+	vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment,
+	cb *conditions.ConditionBuilder,
+) (reconcile.Result, bool, error) {
+	hotPlugPod, err := h.attacher.GetHotPlugPod(ctx, ad, kvvmi)
+	if err != nil {
+		return reconcile.Result{}, false, err
+	}
+	if hotPlugPod == nil {
+		return reconcile.Result{}, false, nil
+	}
+
+	for _, c := range hotPlugPod.Status.Conditions {
+		if c.Type == corev1.PodScheduled && c.Status == corev1.ConditionFalse && c.Message != "" {
+			vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhasePending
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vmbdacondition.HotPlugPodNotScheduled).
+				Message(fmt.Sprintf("%s: %s", c.Reason, c.Message))
+			return reconcile.Result{}, true, nil
+		}
+	}
+
+	if isContainerCreating(hotPlugPod) {
+		lastEvent, err := h.attacher.GetLastPodEvent(ctx, hotPlugPod)
+		if err != nil {
+			return reconcile.Result{}, false, err
+		}
+		if lastEvent != nil && lastEvent.Reason == reasonFailedAttachVolume {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vmbdacondition.FailedAttachVolume).
+				Message(fmt.Sprintf("%s: %s", lastEvent.Reason, lastEvent.Message))
+			return reconcile.Result{}, true, nil
+		}
+	}
+
+	return reconcile.Result{}, false, nil
+}
+
+func isContainerCreating(pod *corev1.Pod) bool {
+	if pod.Status.Phase != corev1.PodPending {
+		return false
+	}
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.State.Waiting != nil && cs.State.Waiting.Reason == "ContainerCreating" {
+			return true
+		}
+	}
+	return false
 }

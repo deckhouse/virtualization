@@ -169,6 +169,7 @@ const (
 	ReasonVirtualMachineRunning       RunningReason = "Running"
 	ReasonInternalVirtualMachineError RunningReason = "InternalVirtualMachineError"
 	ReasonPodNotStarted               RunningReason = "PodNotStarted"
+	ReasonPodContainerCreating        RunningReason = "PodContainerCreating"
 	ReasonPodTerminating              RunningReason = "PodTerminating"
 	ReasonPodNotFound                 RunningReason = "PodNotFound"
 	ReasonPodConditionMissing         RunningReason = "PodConditionMissing"
