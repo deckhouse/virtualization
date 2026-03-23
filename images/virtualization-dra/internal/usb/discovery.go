@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -51,6 +52,9 @@ func (s *AllocationStore) discoveryPluggedUSBDevices(ctx context.Context) (map[s
 			// while it is still present in sysfs because vhci_hcd has not fully released it yet.
 			isUSBIPDevice, err := isUSBIPDevice(device.Path)
 			if err != nil {
+				if os.IsNotExist(err) {
+					continue
+				}
 				return nil, nil, fmt.Errorf("failed to check if usb device is usbip device: %w", err)
 			}
 			if isUSBIPDevice {

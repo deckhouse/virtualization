@@ -28,3 +28,9 @@ func (d *Driver) Synchronize(ctx context.Context, pods []*api.PodSandbox, contai
 	d.log.Info("Synchronizing state with the runtime...", slog.Int("pods", len(pods)), slog.Int("containers", len(containers)))
 	return d.allocator.Synchronize(ctx, pods, containers)
 }
+
+// StopContainer implements NRI StopContainerInterface. We only need Synchronize; this no-op
+// satisfies the stub requirement that the plugin implements at least one "event" request handler.
+func (d *Driver) StopContainer(ctx context.Context, _ *api.PodSandbox, _ *api.Container) ([]*api.ContainerUpdate, error) {
+	return nil, nil
+}

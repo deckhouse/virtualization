@@ -157,6 +157,12 @@ func (c *USBGatewayController) queueAddAfter(key string, after time.Duration) {
 }
 
 func (c *USBGatewayController) subscribeVhci(ctx context.Context) error {
+	attachInfo, err := c.usbIP.GetAttachInfo()
+	if err != nil {
+		return err
+	}
+	c.storeAttachInfo(attachInfo)
+
 	ch, err := c.usbIP.WatchAttachInfo(ctx)
 	if err != nil {
 		return err
