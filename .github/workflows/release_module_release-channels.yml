@@ -144,7 +144,6 @@ jobs:
         if: ${{ !inputs.skip_requirements_check }}
         with:
           fetch-depth: 0
-          ref: ${{ github.event.inputs.tag }}
 
       - name: Check module requirements
         if: ${{ !inputs.skip_requirements_check }}
