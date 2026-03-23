@@ -314,6 +314,40 @@ func (s AttachmentService) IsPVAvailableOnVMNode(ctx context.Context, pvc *corev
 	return true, nil
 }
 
+func (s AttachmentService) GetHotPlugPodCondition(ctx context.Context, ad *AttachmentDisk, kvvmi *virtv1.VirtualMachineInstance, condType corev1.PodConditionType) (*corev1.PodCondition, error) {
+	if ad == nil || kvvmi == nil {
+		return nil, nil
+	}
+
+	for _, vs := range kvvmi.Status.VolumeStatus {
+		if vs.HotplugVolume == nil || vs.Name != ad.GenerateName {
+			continue
+		}
+		if vs.HotplugVolume.AttachPodName == "" {
+			return nil, nil
+		}
+
+		pod, err := object.FetchObject(ctx, types.NamespacedName{
+			Namespace: kvvmi.Namespace,
+			Name:      vs.HotplugVolume.AttachPodName,
+		}, s.client, &corev1.Pod{})
+		if err != nil {
+			return nil, err
+		}
+		if pod == nil {
+			return nil, nil
+		}
+
+		for i, c := range pod.Status.Conditions {
+			if c.Type == condType {
+				return &pod.Status.Conditions[i], nil
+			}
+		}
+		return nil, nil
+	}
+	return nil, nil
+}
+
 func isSameBlockDeviceRefs(a, b v1alpha2.VMBDAObjectRef) bool {
 	return a.Kind == b.Kind && a.Name == b.Name
 }
