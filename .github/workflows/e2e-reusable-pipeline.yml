@@ -741,7 +741,6 @@ jobs:
 
           echo "[INFO] Apply NFSStorageClass"
           envsubst < ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/nfs/storageclass.yaml | kubectl apply -f -
-          kubectl apply -f ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/nfs/storageclass.yaml
 
           echo "[INFO] Configure default storage class"
           chmod +x ./default-sc-configure.sh
