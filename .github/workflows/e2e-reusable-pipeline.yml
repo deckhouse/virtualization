@@ -697,6 +697,7 @@ jobs:
           kubectl wait --for=jsonpath='{.status.phase}'=Ready modules csi-nfs --timeout=300s
 
           echo "[INFO] Apply NFSStorageClass"
+          envsubst < ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/nfs/storageclass.yaml | kubectl apply -f -
           kubectl apply -f ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/nfs/storageclass.yaml
 
           echo "[INFO] Configure default storage class"
