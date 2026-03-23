@@ -655,3 +655,7 @@ func (b *KVVM) SetMetadata(metadata metav1.ObjectMeta) {
 func (b *KVVM) SetUpdateVolumesStrategy(strategy *virtv1.UpdateVolumesStrategy) {
 	b.Resource.Spec.UpdateVolumesStrategy = strategy
 }
+
+func (b *KVVM) SetUSBMigrationStrategy() {
+	b.SetKVVMIAnnotation(virtv1.USBMigrationStrategyAnn, string(virtv1.USBMigrationStrategyIgnore))
+}

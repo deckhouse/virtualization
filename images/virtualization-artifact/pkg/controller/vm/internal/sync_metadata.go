@@ -212,6 +212,10 @@ func (h *SyncMetadataHandler) updateKVVMSpecTemplateMetadataAnnotations(currAnno
 		res[netmanager.AnnoIPAddressCNIRequest] = v
 	}
 
+	if v, ok := currAnno[virtv1.USBMigrationStrategyAnn]; ok {
+		res[virtv1.USBMigrationStrategyAnn] = v
+	}
+
 	return commonvm.RemoveNonPropagatableAnnotations(res)
 }
 
