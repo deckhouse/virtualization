@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -199,6 +200,20 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 	if err != nil {
 		if errors.Is(err, intsvc.ErrVolumeStatusNotReady) {
 			vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseInProgress
+
+			podScheduled, podErr := h.attacher.GetHotPlugPodCondition(ctx, ad, kvvmi, corev1.PodScheduled)
+			if podErr != nil {
+				return reconcile.Result{}, podErr
+			}
+			if podScheduled != nil && podScheduled.Status == corev1.ConditionFalse && podScheduled.Message != "" {
+				vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhasePending
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vmbdacondition.HotPlugPodNotScheduled).
+					Message(fmt.Sprintf("%s: %s", podScheduled.Reason, podScheduled.Message))
+				return reconcile.Result{}, nil
+			}
+
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.AttachmentRequestSent).
