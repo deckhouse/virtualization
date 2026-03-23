@@ -78,7 +78,7 @@ func (h *MigratingHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		vm.Status.MigrationState = migrationState
 	}
 
-	err = h.syncMigratable(ctx, s, vm, kvvm, kvvmi)
+	err = h.syncMigratable(ctx, s, vm, kvvm)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to sync migratable condition: %w", err)
 	}
@@ -277,7 +277,7 @@ func (h *MigratingHandler) getVMOPCandidate(ctx context.Context, s state.Virtual
 	return nil, nil
 }
 
-func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) error {
+func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) error {
 	cb := conditions.NewConditionBuilder(vmcondition.TypeMigratable).Generation(vm.GetGeneration())
 
 	if kvvm != nil {
@@ -297,18 +297,9 @@ func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMa
 			conditions.SetCondition(cb, &vm.Status.Conditions)
 			return nil
 		case liveMigratable.Reason == virtv1.VirtualMachineInstanceReasonHostDeviceNotMigratable:
-			hostDeviceNames := getHostDeviceNamesFromKVVMI(kvvmi)
-			isAllUSB := allHostDevicesAreUSB(hostDeviceNames)
-
-			if isAllUSB {
-				cb.Status(metav1.ConditionTrue).
-					Reason(vmcondition.ReasonUSBShouldBeMigrating).
-					Message("")
-			} else {
-				cb.Status(metav1.ConditionFalse).
-					Reason(vmcondition.ReasonHostDevicesNotMigratable).
-					Message("Live migration requires that all Host Devices must be unplugged")
-			}
+			cb.Status(metav1.ConditionFalse).
+				Reason(vmcondition.ReasonHostDevicesNotMigratable).
+				Message("Live migration requires that all Host Devices must be unplugged")
 
 			conditions.SetCondition(cb, &vm.Status.Conditions)
 			return nil
@@ -353,44 +344,4 @@ func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMa
 
 func liveMigrationInProgress(migrationState *v1alpha2.VirtualMachineMigrationState) bool {
 	return migrationState != nil && migrationState.StartTimestamp != nil && migrationState.EndTimestamp == nil
-}
-
-// getHostDeviceNamesFromKVVMI returns unique host device names from both Spec and Status.
-// Either spec or status (or both) can be nil when the other has devices, e.g. after deleting hp pod.
-func getHostDeviceNamesFromKVVMI(kvvmi *virtv1.VirtualMachineInstance) []string {
-	if kvvmi == nil {
-		return nil
-	}
-	names := make(map[string]struct{})
-	if kvvmi.Spec.Domain.Devices.HostDevices != nil {
-		for _, d := range kvvmi.Spec.Domain.Devices.HostDevices {
-			if d.Name != "" {
-				names[d.Name] = struct{}{}
-			}
-		}
-	}
-	if kvvmi.Status.DeviceStatus != nil && kvvmi.Status.DeviceStatus.HostDeviceStatuses != nil {
-		for _, st := range kvvmi.Status.DeviceStatus.HostDeviceStatuses {
-			if st.Name != "" {
-				names[st.Name] = struct{}{}
-			}
-		}
-	}
-	result := make([]string, 0, len(names))
-	for n := range names {
-		result = append(result, n)
-	}
-	return result
-}
-
-func allHostDevicesAreUSB(deviceNames []string) bool {
-	if len(deviceNames) == 0 {
-		return true // no host devices visible — do not block migration (e.g. when spec/status incomplete)
-	}
-	for _, name := range deviceNames {
-		if !strings.HasPrefix(name, "usb-") {
-			return false
-		}
-	}
-	return true
 }

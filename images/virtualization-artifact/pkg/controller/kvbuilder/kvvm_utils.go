@@ -109,6 +109,7 @@ func ApplyVirtualMachineSpec(
 		return err
 	}
 
+	kvvm.SetUSBMigrationStrategy()
 	kvvm.SetMetadata(vm.ObjectMeta)
 	setNetwork(kvvm, networkSpec)
 	kvvm.SetTablet("default-0")

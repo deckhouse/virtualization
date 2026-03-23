@@ -3585,6 +3585,10 @@ spec:
                         deviceResourceClaimStatus:
                           description: DRA-related information for the device.
                           properties:
+                            allowMultipleAllocations:
+                              description: AllowMultipleAllocations is a flag to allow multiple
+                                allocations of the same device
+                              type: boolean
                             attributes:
                               description: |-
                                 Properties of the device that could be used by kubevirt and other components to learn more
@@ -3597,6 +3601,10 @@ spec:
                                   description: PCIe bus address of the allocated device.
                                   type: string
                               type: object
+                            bindsToNode:
+                              description: BindsToNode is a flag to bind the device to the
+                                node
+                              type: boolean
                             name:
                               description: Name of actual device on the host provisioned by the driver as reflected in `resourceclaim.status`.
                               type: string
@@ -3633,6 +3641,10 @@ spec:
                         deviceResourceClaimStatus:
                           description: DRA-related information for the device.
                           properties:
+                            allowMultipleAllocations:
+                              description: AllowMultipleAllocations is a flag to allow multiple
+                                allocations of the same device
+                              type: boolean
                             attributes:
                               description: |-
                                 Properties of the device that could be used by kubevirt and other components to learn more
@@ -3661,6 +3673,10 @@ spec:
                                     - deviceNumber
                                   type: object
                               type: object
+                            bindsToNode:
+                              description: BindsToNode is a flag to bind the device to the
+                                node
+                              type: boolean
                             name:
                               description: Name of actual device on the host provisioned by the driver as reflected in `resourceclaim.status`.
                               type: string
