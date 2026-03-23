@@ -46,6 +46,7 @@ func NewValidator(attachmentService *service.AttachmentService, service *service
 			validators.NewSpecMutateValidator(),
 			validators.NewAttachmentConflictValidator(attachmentService, log),
 			validators.NewVMConnectLimiterValidator(service, log),
+			validators.NewPVNodeAffinityValidator(attachmentService),
 		},
 	}
 }

@@ -1,0 +1,214 @@
+/*
+Copyright 2026 Flant JSC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package validators_test
+
+import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/validators"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+)
+
+var _ = Describe("PVNodeAffinityValidator", func() {
+	const (
+		ns    = "test-ns"
+		node1 = "node-1"
+		node2 = "node-2"
+	)
+
+	makeNode := func(name string) *corev1.Node {
+		return &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   name,
+				Labels: map[string]string{"topology.kubernetes.io/node": name},
+			},
+		}
+	}
+
+	makePV := func(name string, nodeNames ...string) *corev1.PersistentVolume {
+		pv := &corev1.PersistentVolume{ObjectMeta: metav1.ObjectMeta{Name: name}}
+		if len(nodeNames) > 0 {
+			pv.Spec.NodeAffinity = &corev1.VolumeNodeAffinity{
+				Required: &corev1.NodeSelector{
+					NodeSelectorTerms: []corev1.NodeSelectorTerm{{
+						MatchExpressions: []corev1.NodeSelectorRequirement{{
+							Key:      "topology.kubernetes.io/node",
+							Operator: corev1.NodeSelectorOpIn,
+							Values:   nodeNames,
+						}},
+					}},
+				},
+			}
+		}
+		return pv
+	}
+
+	makePVC := func(name, pvName string) *corev1.PersistentVolumeClaim {
+		return &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+			Spec:       corev1.PersistentVolumeClaimSpec{VolumeName: pvName},
+		}
+	}
+
+	makeVD := func(name, pvcName string) *v1alpha2.VirtualDisk {
+		return &v1alpha2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+			Status:     v1alpha2.VirtualDiskStatus{Target: v1alpha2.DiskTarget{PersistentVolumeClaim: pvcName}},
+		}
+	}
+
+	makeVM := func(name string, nodeName string, refs ...v1alpha2.BlockDeviceSpecRef) *v1alpha2.VirtualMachine {
+		return &v1alpha2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+			Spec:       v1alpha2.VirtualMachineSpec{BlockDeviceRefs: refs},
+			Status:     v1alpha2.VirtualMachineStatus{Node: nodeName},
+		}
+	}
+
+	It("should allow when VM is not running (no node)", func() {
+		oldVM := makeVM("vm", "", v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"})
+		newVM := makeVM("vm", "",
+			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"},
+			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk2"},
+		)
+		fakeClient := setupEnvironment(oldVM)
+		v := validators.NewPVNodeAffinityValidator(fakeClient)
+		_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
+		Expect(err).ShouldNot(HaveOccurred())
+	})
+
+	It("should allow when blockDeviceRefs unchanged", func() {
+		refs := []v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.DiskDevice, Name: "disk1"}}
+		oldVM := makeVM("vm", node1, refs...)
+		newVM := makeVM("vm", node1, refs...)
+		fakeClient := setupEnvironment(oldVM, makeNode(node1))
+		v := validators.NewPVNodeAffinityValidator(fakeClient)
+		_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
+		Expect(err).ShouldNot(HaveOccurred())
+	})
+
+	It("should allow adding a network disk (PV without nodeAffinity)", func() {
+		oldVM := makeVM("vm", node1, v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"})
+		newVM := makeVM("vm", node1,
+			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"},
+			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "net-disk"},
+		)
+		objs := []client.Object{
+			oldVM, makeNode(node1),
+			makeVD("net-disk", "pvc-net"),
+			makePVC("pvc-net", "pv-net"),
+			makePV("pv-net"), // no nodeAffinity
+		}
+		fakeClient := setupEnvironment(objs...)
+		v := validators.NewPVNodeAffinityValidator(fakeClient)
+		_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
+		Expect(err).ShouldNot(HaveOccurred())
+	})
+
+	It("should allow adding a local disk available on VM node", func() {
+		oldVM := makeVM("vm", node1, v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"})
+		newVM := makeVM("vm", node1,
+			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"},
+			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"},
+		)
+		objs := []client.Object{
+			oldVM, makeNode(node1),
+			makeVD("local-disk", "pvc-local"),
+			makePVC("pvc-local", "pv-local"),
+			makePV("pv-local", node1),
+		}
+		fakeClient := setupEnvironment(objs...)
+		v := validators.NewPVNodeAffinityValidator(fakeClient)
+		_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
+		Expect(err).ShouldNot(HaveOccurred())
+	})
+
+	It("should reject adding a local disk NOT available on VM node", func() {
+		oldVM := makeVM("vm", node1, v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"})
+		newVM := makeVM("vm", node1,
+			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"},
+			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"},
+		)
+		objs := []client.Object{
+			oldVM, makeNode(node1),
+			makeVD("local-disk", "pvc-local"),
+			makePVC("pvc-local", "pv-local"),
+			makePV("pv-local", node2), // only on node2, VM on node1
+		}
+		fakeClient := setupEnvironment(objs...)
+		v := validators.NewPVNodeAffinityValidator(fakeClient)
+		_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
+		Expect(err).Should(HaveOccurred())
+		Expect(err.Error()).Should(ContainSubstring("unable to attach disk"))
+		Expect(err.Error()).Should(ContainSubstring("local-disk"))
+	})
+
+	It("should allow adding a disk with pending PVC (WFFC, no PV yet)", func() {
+		oldVM := makeVM("vm", node1)
+		newVM := makeVM("vm", node1,
+			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "new-disk"},
+		)
+		pvcPending := &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{Name: "pvc-pending", Namespace: ns},
+			Spec:       corev1.PersistentVolumeClaimSpec{},
+		}
+		objs := []client.Object{
+			oldVM, makeNode(node1),
+			makeVD("new-disk", "pvc-pending"),
+			pvcPending,
+		}
+		fakeClient := setupEnvironment(objs...)
+		v := validators.NewPVNodeAffinityValidator(fakeClient)
+		_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
+		Expect(err).ShouldNot(HaveOccurred())
+	})
+
+	It("should reject when any of multiple new disks is incompatible", func() {
+		oldVM := makeVM("vm", node1)
+		newVM := makeVM("vm", node1,
+			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "good-disk"},
+			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "bad-disk"},
+		)
+		objs := []client.Object{
+			oldVM, makeNode(node1),
+			makeVD("good-disk", "pvc-good"),
+			makePVC("pvc-good", "pv-good"),
+			makePV("pv-good", node1),
+			makeVD("bad-disk", "pvc-bad"),
+			makePVC("pvc-bad", "pv-bad"),
+			makePV("pv-bad", node2),
+		}
+		fakeClient := setupEnvironment(objs...)
+		v := validators.NewPVNodeAffinityValidator(fakeClient)
+		_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
+		Expect(err).Should(HaveOccurred())
+		Expect(err.Error()).Should(ContainSubstring("bad-disk"))
+	})
+
+	It("should allow on create (VM not running yet)", func() {
+		vm := makeVM("vm", "", v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"})
+		fakeClient := setupEnvironment(vm)
+		v := validators.NewPVNodeAffinityValidator(fakeClient)
+		_, err := v.ValidateCreate(testutil.ContextBackgroundWithNoOpLogger(), vm)
+		Expect(err).ShouldNot(HaveOccurred())
+	})
+})

@@ -57,6 +57,7 @@ func NewValidator(client client.Client, service *service.BlockDeviceService, fea
 			validators.NewFirstDiskValidator(client),
 			validators.NewUSBDevicesValidator(client, featureGate),
 			validators.NewVMBDAConflictValidator(client),
+			validators.NewPVNodeAffinityValidator(client),
 		},
 		log: log.With("webhook", "validation"),
 	}
