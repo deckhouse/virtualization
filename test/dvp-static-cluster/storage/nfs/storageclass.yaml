@@ -1,29 +1,3 @@
----
-apiVersion: deckhouse.io/v1alpha1
-kind: ModuleConfig
-metadata:
-  name: csi-nfs
-spec:
-  enabled: true
-  source: deckhouse
-  version: 1
----
-apiVersion: deckhouse.io/v1alpha2
-kind: ModulePullOverride
-metadata:
-  name: csi-nfs
-spec:
-  imageTag: main
-  scanInterval: 10m
----
-apiVersion: deckhouse.io/v1alpha1
-kind: ModuleConfig
-metadata:
-  name: snapshot-controller
-spec:
-  enabled: true
-  version: 1
----
 apiVersion: storage.deckhouse.io/v1alpha1
 kind: NFSStorageClass
 metadata:
