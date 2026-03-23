@@ -260,13 +260,13 @@ var _ = Describe("VirtualMachineMigration", func() {
 			ctxVMBDA, cancelVMBDA := context.WithCancel(context.Background())
 			defer cancelVMBDA()
 
-			vmbdaGuardErrCh := make(chan error, 1)
+			vmbdaWatchErrCh := make(chan error, 1)
 			vmbdaNames := make([]string, len(vmbdas))
 			for i, a := range vmbdas {
 				vmbdaNames[i] = a.Name
 			}
 			go func() {
-				vmbdaGuardErrCh <- ensureVMBDAsStayAttached(ctxVMBDA,
+				vmbdaWatchErrCh <- ensureVMBDAsStayAttached(ctxVMBDA,
 					f.VirtClient().VirtualMachineBlockDeviceAttachments(f.Namespace().Name),
 					vmbdaNames, metav1.ListOptions{})
 			}()
@@ -298,7 +298,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 			}).WithPolling(time.Second).WithTimeout(framework.LongTimeout).To(Succeed())
 
 			cancelVMBDA()
-			Expect(<-vmbdaGuardErrCh).NotTo(HaveOccurred(), "VMBDAs should stay in Attached phase during migration")
+			Expect(<-vmbdaWatchErrCh).NotTo(HaveOccurred(), "VMBDAs should stay in Attached phase during migration")
 		})
 
 		// There is a known issue with the Cilium agent check.
