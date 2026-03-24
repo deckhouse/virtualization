@@ -19,7 +19,6 @@ package discover_kube_apiserver_feature_gates
 import (
 	"context"
 	"fmt"
-	"slices"
 	"strings"
 
 	"k8s.io/client-go/kubernetes"
@@ -30,8 +29,7 @@ import (
 )
 
 const (
-	featureGatesPath    = "virtualization.internal.kubeAPIServerFeatureGates"
-	draFeatureGatesPath = "virtualization.internal.hasDraFeatureGates"
+	featureGatesPath = "virtualization.internal.kubeAPIServerFeatureGates"
 
 	metricPrefix = "kubernetes_feature_enabled{"
 )
@@ -52,12 +50,6 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 	featureGates := parseEnabledFeatureGates(metricsData)
 
 	input.Values.Set(featureGatesPath, featureGates)
-
-	if slices.Contains(featureGates, "DRAResourceClaimDeviceStatus") &&
-		slices.Contains(featureGates, "DRADeviceBindingConditions") &&
-		slices.Contains(featureGates, "DRAConsumableCapacity") {
-		input.Values.Set(draFeatureGatesPath, "true")
-	}
 
 	return nil
 }

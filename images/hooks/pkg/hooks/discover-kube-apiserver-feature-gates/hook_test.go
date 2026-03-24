@@ -176,43 +176,6 @@ var _ = Describe("reconcile", func() {
 		Expect(reconcile(context.Background(), newInput())).To(Succeed())
 
 		Expect(setValues).To(HaveKeyWithValue(featureGatesPath, ConsistOf("FeatureA", "FeatureC")))
-		Expect(setValues).NotTo(HaveKey(draFeatureGatesPath))
-	})
-
-	It("should set DRA feature gates flag when both DRA gates are enabled", func() {
-		setupServer(joinLines(
-			metricsLine("DRAResourceClaimDeviceStatus", "BETA", 1),
-			metricsLine("DRADeviceBindingConditions", "BETA", 1),
-			metricsLine("DRAConsumableCapacity", "BETA", 1),
-			metricsLine("SomeOther", "BETA", 1),
-		))
-
-		setValues := make(map[string]any)
-		values.SetMock.Set(func(path string, v any) {
-			setValues[path] = v
-		})
-
-		Expect(reconcile(context.Background(), newInput())).To(Succeed())
-
-		Expect(setValues).To(HaveKey(draFeatureGatesPath))
-		Expect(setValues[draFeatureGatesPath]).To(Equal("true"))
-	})
-
-	It("should not set DRA flag when only one DRA gate is enabled", func() {
-		setupServer(joinLines(
-			metricsLine("DRAResourceClaimDeviceStatus", "BETA", 0),
-			metricsLine("DRADeviceBindingConditions", "BETA", 1),
-			metricsLine("DRAConsumableCapacity", "BETA", 0),
-		))
-
-		setValues := make(map[string]any)
-		values.SetMock.Set(func(path string, v any) {
-			setValues[path] = v
-		})
-
-		Expect(reconcile(context.Background(), newInput())).To(Succeed())
-
-		Expect(setValues).NotTo(HaveKey(draFeatureGatesPath))
 	})
 
 	It("should return error when client config fails", func() {
