@@ -373,7 +373,7 @@ func (s AttachmentService) GetLastPodEvent(ctx context.Context, pod *corev1.Pod)
 	}
 
 	last := slices.MaxFunc(eventList.Items, func(a, b corev1.Event) int {
-		return a.LastTimestamp.Time.Compare(b.LastTimestamp.Time)
+		return a.LastTimestamp.Compare(b.LastTimestamp.Time)
 	})
 
 	return &last, nil
