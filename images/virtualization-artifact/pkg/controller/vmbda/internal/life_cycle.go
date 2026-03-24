@@ -30,6 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmbdacondition"
@@ -307,8 +308,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 	}
 }
 
-const reasonFailedAttachVolume = "FailedAttachVolume"
-
 func (h LifeCycleHandler) handleHotPlugPodIssues(
 	ctx context.Context,
 	ad *intsvc.AttachmentDisk,
@@ -330,7 +329,7 @@ func (h LifeCycleHandler) handleHotPlugPodIssues(
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.HotPlugPodNotScheduled).
-				Message(fmt.Sprintf("%s: %s", c.Reason, c.Message))
+				Message(fmt.Sprintf("Hot plug pod not scheduled: %s: %s", c.Reason, c.Message))
 			return reconcile.Result{}, true, nil
 		}
 	}
@@ -340,16 +339,16 @@ func (h LifeCycleHandler) handleHotPlugPodIssues(
 		if err != nil {
 			return reconcile.Result{}, false, err
 		}
-		if lastEvent != nil && lastEvent.Reason == reasonFailedAttachVolume {
+		if lastEvent != nil && (lastEvent.Reason == watcher.ReasonFailedAttachVolume || lastEvent.Reason == watcher.ReasonFailedMount) {
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.FailedAttachVolume).
-				Message(fmt.Sprintf("%s: %s", lastEvent.Reason, lastEvent.Message))
+				Message(fmt.Sprintf("Hot plug pod failed to attach volume: %s: %s", lastEvent.Reason, lastEvent.Message))
 			return reconcile.Result{}, true, nil
 		}
 
 		cb.Status(metav1.ConditionFalse).
-			Reason(vmbdacondition.FailedAttachVolume).
+			Reason(vmbdacondition.AttachmentRequestSent).
 			Message(fmt.Sprintf("Pod %q is in ContainerCreating phase. Check the pod for more details.", hotPlugPod.Name))
 		return reconcile.Result{}, true, nil
 	}
