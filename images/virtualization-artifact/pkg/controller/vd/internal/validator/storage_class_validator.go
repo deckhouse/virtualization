@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/component-base/featuregate"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
@@ -36,13 +37,19 @@ type StorageClassValidator struct {
 	client     client.Client
 	scService  *intsvc.VirtualDiskStorageClassService
 	modeGetter volumemode.VolumeAndAccessModesGetter
+	gate       featuregate.FeatureGate
 }
 
-func NewMigrationStorageClassValidator(client client.Client, scService *intsvc.VirtualDiskStorageClassService, modeGetter volumemode.VolumeAndAccessModesGetter) *StorageClassValidator {
+func NewMigrationStorageClassValidator(client client.Client, scService *intsvc.VirtualDiskStorageClassService, modeGetter volumemode.VolumeAndAccessModesGetter, gate featuregate.FeatureGate) *StorageClassValidator {
+	if gate == nil {
+		gate = featuregates.Default()
+	}
+
 	return &StorageClassValidator{
 		client:     client,
 		scService:  scService,
 		modeGetter: modeGetter,
+		gate:       gate,
 	}
 }
 
@@ -110,7 +117,7 @@ func (v *StorageClassValidator) validateTargetStorageClassForVolumeMigration(ctx
 		return nil
 	}
 
-	if !commonvd.VolumeMigrationEnabled(featuregates.Default(), newVD) {
+	if !commonvd.VolumeMigrationEnabled(v.gate, newVD) {
 		return fmt.Errorf("storage class cannot be changed if volume migration is not enabled (EDITION=%q)", version.GetEdition())
 	}
 

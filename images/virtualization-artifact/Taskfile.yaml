@@ -50,11 +50,9 @@ tasks:
 
   test:unit:
     desc: "Run go unit tests"
-    vars:
-      edition: EE
     cmds:
       - |
-        go tool ginkgo -v -tags={{.edition}} -r pkg/
+        go tool ginkgo -v -r pkg/
 
   lint:
     desc: "Run linters locally"
