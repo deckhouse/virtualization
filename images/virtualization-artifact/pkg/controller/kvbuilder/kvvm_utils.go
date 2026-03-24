@@ -92,7 +92,6 @@ func ApplyVirtualMachineSpec(
 	vdByName map[string]*v1alpha2.VirtualDisk,
 	viByName map[string]*v1alpha2.VirtualImage,
 	cviByName map[string]*v1alpha2.ClusterVirtualImage,
-	vmbdas map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment,
 	class *v1alpha2.VirtualMachineClass,
 	ipAddress string,
 	networkSpec network.InterfaceSpecList,
@@ -110,6 +109,7 @@ func ApplyVirtualMachineSpec(
 		return err
 	}
 
+	kvvm.SetUSBMigrationStrategy()
 	kvvm.SetMetadata(vm.ObjectMeta)
 	setNetwork(kvvm, networkSpec)
 	kvvm.SetTablet("default-0")
@@ -355,7 +355,7 @@ func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName ma
 func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList) {
 	kvvm.ClearNetworkInterfaces()
 	for _, n := range networkSpec {
-		kvvm.SetNetworkInterface(n.InterfaceName, n.MAC)
+		kvvm.SetNetworkInterface(n.InterfaceName, n.MAC, n.ID)
 	}
 }
 

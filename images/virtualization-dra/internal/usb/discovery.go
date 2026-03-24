@@ -18,7 +18,11 @@ package usb
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/deckhouse/virtualization-dra/internal/featuregates"
 )
@@ -44,6 +48,19 @@ func (s *AllocationStore) discoveryPluggedUSBDevices(ctx context.Context) (map[s
 		if _, ok := busIDSet[device.BusID]; ok {
 			usbipDeviceSet.Insert(toDevice(&device))
 		} else {
+			// usb device can be not exists in attach info because usbip detached it
+			// while it is still present in sysfs because vhci_hcd has not fully released it yet.
+			isUSBIPDevice, err := isUSBIPDevice(device.Path)
+			if err != nil {
+				if os.IsNotExist(err) {
+					continue
+				}
+				return nil, nil, fmt.Errorf("failed to check if usb device is usbip device: %w", err)
+			}
+			if isUSBIPDevice {
+				continue
+			}
+
 			dev := toDevice(&device)
 			usbDeviceMap[dev.GetName(s.nodeName)] = dev
 		}
@@ -55,4 +72,15 @@ func (s *AllocationStore) discoveryPluggedUSBDevices(ctx context.Context) (map[s
 	}
 
 	return usbDeviceMap, usbipDeviceSet, nil
+}
+
+func isUSBIPDevice(devPath string) (bool, error) {
+	realPath, err := filepath.EvalSymlinks(devPath)
+	if err != nil {
+		return false, err
+	}
+
+	realPath = filepath.Clean(realPath)
+
+	return strings.Contains(realPath, "vhci_hcd"), nil
 }

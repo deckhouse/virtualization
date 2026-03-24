@@ -144,7 +144,13 @@ jobs:
         if: ${{ !inputs.skip_requirements_check }}
         with:
           fetch-depth: 0
-          ref: ${{ github.event.inputs.tag }}
+
+      - name: Login to PROD_REGISTRY
+        uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.PROD_READ_REGISTRY }}
+          registry_login: ${{ secrets.PROD_READ_REGISTRY_USER }}
+          registry_password: ${{ secrets.PROD_READ_REGISTRY_PASSWORD }}
 
       - name: Check module requirements
         if: ${{ !inputs.skip_requirements_check }}

@@ -25,8 +25,9 @@ import (
 )
 
 const (
-	ceph                = "rbd.csi.ceph.com"
-	sdsReplicatedVolume = "replicated.csi.storage.deckhouse.io"
+	Ceph                = "rbd.csi.ceph.com"
+	SDSReplicatedVolume = "replicated.csi.storage.deckhouse.io"
+	NFS                 = "nfs.csi.k8s.io"
 )
 
 // Deprecated: do not use for new e2e tests (only for legacy ones).
@@ -47,10 +48,12 @@ func (f *Framework) GetNamePrefix(storageClass *storagev1.StorageClass) (string,
 	var scPrefix string
 	if storageClass != nil {
 		switch storageClass.Provisioner {
-		case ceph:
+		case Ceph:
 			scPrefix = "ceph"
-		case sdsReplicatedVolume:
+		case SDSReplicatedVolume:
 			scPrefix = "sds-rep-vol"
+		case NFS:
+			scPrefix = "nfs"
 		default:
 			scPrefix = "unknown-csi"
 		}

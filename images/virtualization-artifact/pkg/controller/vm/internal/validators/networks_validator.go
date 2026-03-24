@@ -22,8 +22,10 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/component-base/featuregate"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	commonnetwork "github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -61,6 +63,10 @@ func (v *NetworksValidator) ValidateUpdate(_ context.Context, oldVM, newVM *v1al
 		return nil, fmt.Errorf("network configuration requires SDN to be enabled")
 	}
 
+	if err := v.validateNetworkIDsUnchanged(oldVM.Spec.Networks, newNetworksSpec, newVM.Status.Phase); err != nil {
+		return nil, err
+	}
+
 	isChanged := !equality.Semantic.DeepEqual(newNetworksSpec, oldVM.Spec.Networks)
 	if isChanged {
 		return v.validateNetworksSpec(newNetworksSpec)
@@ -74,6 +80,7 @@ func isSingleMainNet(networks []v1alpha2.NetworksSpec) bool {
 
 func (v *NetworksValidator) validateNetworksSpec(networksSpec []v1alpha2.NetworksSpec) (admission.Warnings, error) {
 	namesSet := make(map[string]struct{})
+	idsSet := make(map[int]struct{})
 	for i, network := range networksSpec {
 		typ := network.Type
 		name := network.Name
@@ -87,6 +94,14 @@ func (v *NetworksValidator) validateNetworksSpec(networksSpec []v1alpha2.Network
 		}
 
 		if err := v.validateNetworkUniqueness(typ, name, namesSet); err != nil {
+			return nil, err
+		}
+
+		if err := v.validateNetworkIDUniqueness(network, idsSet); err != nil {
+			return nil, err
+		}
+
+		if err := v.validateNetworkID(network); err != nil {
 			return nil, err
 		}
 	}
@@ -119,4 +134,79 @@ func (v *NetworksValidator) validateNetworkUniqueness(networkType, networkName s
 	}
 	namesSet[key] = struct{}{}
 	return nil
+}
+
+func (v *NetworksValidator) validateNetworkIDUniqueness(network v1alpha2.NetworksSpec, idsSet map[int]struct{}) error {
+	id := ptr.Deref(network.ID, 0)
+	if id == 0 {
+		return nil
+	}
+	if _, exists := idsSet[id]; exists {
+		networkIdentifier := v.getNetworkIdentifier(network)
+		return fmt.Errorf("network id %d is duplicated for network %s", id, networkIdentifier)
+	}
+	idsSet[id] = struct{}{}
+	return nil
+}
+
+func (v *NetworksValidator) validateNetworkIDsUnchanged(oldNetworksSpec, newNetworksSpec []v1alpha2.NetworksSpec, phase v1alpha2.MachinePhase) error {
+	oldNetworksMap := v.buildNetworksMap(oldNetworksSpec)
+	newNetworksMap := v.buildNetworksMap(newNetworksSpec)
+
+	for key, oldNetwork := range oldNetworksMap {
+		newNetwork, exists := newNetworksMap[key]
+		if !exists {
+			continue
+		}
+
+		if ptr.Deref(oldNetwork.ID, 0) == ptr.Deref(newNetwork.ID, 0) {
+			continue
+		}
+
+		if oldNetwork.ID == nil {
+			continue
+		}
+
+		if phase != v1alpha2.MachineStopped {
+			networkIdentifier := v.getNetworkIdentifier(oldNetwork)
+			return fmt.Errorf("cannot change network ID for network '%s' while VM is in phase '%s' (only allowed when VM is stopped)",
+				networkIdentifier, phase)
+		}
+	}
+
+	return nil
+}
+
+func (v *NetworksValidator) buildNetworksMap(networksSpec []v1alpha2.NetworksSpec) map[string]v1alpha2.NetworksSpec {
+	networksMap := make(map[string]v1alpha2.NetworksSpec)
+	for _, network := range networksSpec {
+		key := v.getNetworkIdentifier(network)
+		networksMap[key] = network
+	}
+	return networksMap
+}
+
+func (v *NetworksValidator) validateNetworkID(network v1alpha2.NetworksSpec) error {
+	if network.ID == nil {
+		return nil
+	}
+
+	id := *network.ID
+	if id < 1 || id > commonnetwork.MaxID {
+		networkIdentifier := v.getNetworkIdentifier(network)
+		return fmt.Errorf("network id must be between 1 and %d for network %s, got %d", commonnetwork.MaxID, networkIdentifier, id)
+	}
+
+	if network.Type == v1alpha2.NetworksTypeMain && id != 1 {
+		return fmt.Errorf("network id for network %s must be 1, got %d", network.Type, id)
+	}
+
+	return nil
+}
+
+func (v *NetworksValidator) getNetworkIdentifier(network v1alpha2.NetworksSpec) string {
+	if network.Type == v1alpha2.NetworksTypeMain {
+		return network.Type
+	}
+	return fmt.Sprintf("%s/%s", network.Type, network.Name)
 }

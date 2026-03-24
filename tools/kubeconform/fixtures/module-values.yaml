@@ -404,7 +404,6 @@ virtualization:
       parallelOutboundMigrationsPerNode: 10
     virtHandler:
       nodeCount: 1
-    hasDraFeatureGates: "true"
     kubeAPIServerFeatureGates:
       - TopologyAwareHints
       - RotateKubeletServerCertificate

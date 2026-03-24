@@ -79,7 +79,8 @@ func isResourceV1Enabled(clientset kubernetes.Interface) (bool, error) {
 }
 
 func HasDRAFeatureGates() bool {
-	return os.Getenv("HAS_DRA_FEATURE_GATES") == "true"
+	env := os.Getenv("KUBE_APISERVER_FEATURE_GATES")
+	return strings.Contains(env, "DRAResourceClaimDeviceStatus") && strings.Contains(env, "DRADeviceBindingConditions") && strings.Contains(env, "DRAConsumableCapacity")
 }
 
 func HasDRAPartitionableDevices() bool {

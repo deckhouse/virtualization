@@ -94,7 +94,8 @@ func ExtractFileFromImage(image, targetFile string) (string, error) {
 
 func VerifyModuleRequirements(module string, sv SemVerRange, edition, channel string) error {
 	fmt.Printf("semver range of module %s: %s\n", module, sv)
-	prange, err := semver.ParseRange(string(sv))
+	normalizedRange := version.NormalizeSemVerRange(string(sv))
+	prange, err := semver.ParseRange(normalizedRange)
 	if err != nil {
 		fmt.Printf("semver.ParseRange failed for module %s: range=%q error=%v\n", module, sv, err)
 		return fmt.Errorf("failed to parse range for module %v: %w", module, err)
@@ -187,8 +188,8 @@ func CheckVersionWithRetries(channel, version, moduleName string, attempts int) 
 		fmt.Printf("Verifying deckhouse (range %q) on channel %s version %s\n", c.Requirements.Deckhouse, channel, version)
 		err = VerifyModuleRequirements("deckhouse", c.Requirements.Deckhouse, e, channel)
 		if err != nil {
-			fmt.Printf("requirements of the %s module (%s) are not satisfied: on channel %s Deckhouse is currently at a version that is not in the range required by the module. %v\n",
-				moduleName, moduleFileLink, channel, err)
+			fmt.Printf("requirements of the %s module (%s) are not satisfied: on channel %s edition %s Deckhouse is currently at a version that is not in the range required by the module. %v\n",
+				moduleName, moduleFileLink, channel, e, err)
 			return err
 		}
 		fmt.Printf("Deckhouse on channel %s edition %s version %s OK!\n", channel, e, version)
