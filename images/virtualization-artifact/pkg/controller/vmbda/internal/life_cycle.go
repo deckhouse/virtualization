@@ -202,8 +202,8 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 		if errors.Is(err, intsvc.ErrVolumeStatusNotReady) {
 			vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseInProgress
 
-			if result, handled, podErr := h.handleHotPlugPodIssues(ctx, ad, kvvmi, vmbda, cb); podErr != nil || handled {
-				return result, podErr
+			if handled, podErr := h.handleHotPlugPodIssues(ctx, ad, kvvmi, vmbda, cb); podErr != nil || handled {
+				return reconcile.Result{}, podErr
 			}
 
 			cb.
@@ -314,13 +314,13 @@ func (h LifeCycleHandler) handleHotPlugPodIssues(
 	kvvmi *virtv1.VirtualMachineInstance,
 	vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment,
 	cb *conditions.ConditionBuilder,
-) (reconcile.Result, bool, error) {
+) (bool, error) {
 	hotPlugPod, err := h.attacher.GetHotPlugPod(ctx, ad, kvvmi)
 	if err != nil {
-		return reconcile.Result{}, false, err
+		return false, err
 	}
 	if hotPlugPod == nil {
-		return reconcile.Result{}, false, nil
+		return false, nil
 	}
 
 	for _, c := range hotPlugPod.Status.Conditions {
@@ -330,30 +330,30 @@ func (h LifeCycleHandler) handleHotPlugPodIssues(
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.HotPlugPodNotScheduled).
 				Message(fmt.Sprintf("Hot plug pod not scheduled: %s: %s", c.Reason, c.Message))
-			return reconcile.Result{}, true, nil
+			return true, nil
 		}
 	}
 
 	if isContainerCreating(hotPlugPod) {
 		lastEvent, err := h.attacher.GetLastPodEvent(ctx, hotPlugPod)
 		if err != nil {
-			return reconcile.Result{}, false, err
+			return false, err
 		}
 		if lastEvent != nil && (lastEvent.Reason == watcher.ReasonFailedAttachVolume || lastEvent.Reason == watcher.ReasonFailedMount) {
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.FailedAttachVolume).
 				Message(fmt.Sprintf("Hot plug pod failed to attach volume: %s: %s", lastEvent.Reason, lastEvent.Message))
-			return reconcile.Result{}, true, nil
+			return true, nil
 		}
 
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.AttachmentRequestSent).
 			Message(fmt.Sprintf("Pod %q is in ContainerCreating phase. Check the pod for more details.", hotPlugPod.Name))
-		return reconcile.Result{}, true, nil
+		return true, nil
 	}
 
-	return reconcile.Result{}, false, nil
+	return false, nil
 }
 
 func isContainerCreating(pod *corev1.Pod) bool {
