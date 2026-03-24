@@ -25,6 +25,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -45,7 +46,9 @@ var _ = Describe("StorageClassValidator", func() {
 
 		scName           = "test-sc"
 		otherSCName      = "other-sc"
+		thirdSCName      = "third-sc"
 		deprecatedSCName = "deprecated-sc"
+		sourcePVCName    = "source-pvc"
 		vmName           = "test-vm"
 		namespace        = "default"
 	)
@@ -54,6 +57,7 @@ var _ = Describe("StorageClassValidator", func() {
 		scheme = runtime.NewScheme()
 		_ = v1alpha2.AddToScheme(scheme)
 		_ = storagev1.AddToScheme(scheme)
+		_ = corev1.AddToScheme(scheme)
 
 		sc := &storagev1.StorageClass{
 			ObjectMeta: metav1.ObjectMeta{
@@ -63,6 +67,11 @@ var _ = Describe("StorageClassValidator", func() {
 		otherSC := &storagev1.StorageClass{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: otherSCName,
+			},
+		}
+		thirdSC := &storagev1.StorageClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: thirdSCName,
 			},
 		}
 		deprecatedSC := &storagev1.StorageClass{
@@ -83,8 +92,17 @@ var _ = Describe("StorageClassValidator", func() {
 				Phase: v1alpha2.MachineRunning,
 			},
 		}
+		sourcePVC := &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      sourcePVCName,
+				Namespace: namespace,
+			},
+			Spec: corev1.PersistentVolumeClaimSpec{
+				StorageClassName: ptr.To(scName),
+			},
+		}
 
-		fakeClient = fake.NewClientBuilder().WithScheme(scheme).WithObjects(sc, otherSC, deprecatedSC, vm).Build()
+		fakeClient = fake.NewClientBuilder().WithScheme(scheme).WithObjects(sc, otherSC, thirdSC, deprecatedSC, vm, sourcePVC).Build()
 		baseSCService := basevc.NewBaseStorageClassService(fakeClient)
 		vdSCService := service.NewVirtualDiskStorageClassService(baseSCService, config.VirtualDiskStorageClassSettings{})
 		modeGetter = &volumemode.VolumeAndAccessModesGetterMock{
@@ -124,7 +142,7 @@ var _ = Describe("StorageClassValidator", func() {
 		Entry("nil storage class", nil, false),
 	)
 
-	DescribeTable("ValidateUpdate", func(phase v1alpha2.DiskPhase, oldSC, newSC *string, wantErr bool) {
+	DescribeTable("ValidateUpdate", func(phase v1alpha2.DiskPhase, oldSC, newSC *string, activeMigration, wantErr bool, errSubstring string) {
 		oldVD := &v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{Generation: 1, Namespace: namespace},
 			Spec: v1alpha2.VirtualDiskSpec{
@@ -133,6 +151,14 @@ var _ = Describe("StorageClassValidator", func() {
 				},
 			},
 		}
+		if activeMigration {
+			oldVD.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{
+				SourcePVC:      sourcePVCName,
+				TargetPVC:      "target-pvc",
+				StartTimestamp: metav1.Now(),
+			}
+		}
+
 		newVD := &v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{Generation: 2, Namespace: namespace},
 			Spec: v1alpha2.VirtualDiskSpec{
@@ -160,16 +186,22 @@ var _ = Describe("StorageClassValidator", func() {
 		_, err := validator.ValidateUpdate(context.Background(), oldVD, newVD)
 		if wantErr {
 			Expect(err).To(HaveOccurred())
+			if errSubstring != "" {
+				Expect(err.Error()).To(ContainSubstring(errSubstring))
+			}
 		} else {
 			Expect(err).NotTo(HaveOccurred())
 		}
 	},
-		Entry("Pending: valid storage class", v1alpha2.DiskPending, nil, &scName, false),
-		Entry("Pending: deprecated storage class", v1alpha2.DiskPending, nil, &deprecatedSCName, true),
-		Entry("Pending: non-existent storage class", v1alpha2.DiskPending, nil, func() *string { s := "non-existent"; return &s }(), true),
-		Entry("Pending: nil storage class", v1alpha2.DiskPending, &scName, nil, false),
-		Entry("Migration: change SC (valid)", v1alpha2.DiskReady, &scName, &otherSCName, false),
-		Entry("Migration: change SC (non-existent)", v1alpha2.DiskReady, &scName, func() *string { s := "non-existent"; return &s }(), true),
+		Entry("Pending: valid storage class", v1alpha2.DiskPending, nil, &scName, false, false, ""),
+		Entry("Pending: deprecated storage class", v1alpha2.DiskPending, nil, &deprecatedSCName, false, true, ""),
+		Entry("Pending: non-existent storage class", v1alpha2.DiskPending, nil, func() *string { s := "non-existent"; return &s }(), false, true, ""),
+		Entry("Pending: nil storage class", v1alpha2.DiskPending, &scName, nil, false, false, ""),
+		Entry("Migration: change SC (valid)", v1alpha2.DiskReady, &scName, &otherSCName, false, false, ""),
+		Entry("Migration: change SC (non-existent)", v1alpha2.DiskReady, &scName, func() *string { s := "non-existent"; return &s }(), false, true, ""),
+		Entry("Active migration: deny changing to third storage class", v1alpha2.DiskReady, &otherSCName, &thirdSCName, true, true, "rollback"),
+		Entry("Active migration: allow rollback to source storage class", v1alpha2.DiskReady, &otherSCName, &scName, true, false, ""),
+		Entry("Active migration: deny clearing storage class", v1alpha2.DiskReady, &otherSCName, nil, true, true, "rollback"),
 	)
 
 	It("should fail migration if volume modes differ", func() {

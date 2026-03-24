@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/component-base/featuregate"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -111,6 +112,17 @@ func (v *StorageClassValidator) validateTargetStorageClassForVolumeMigration(ctx
 		return nil
 	}
 
+	if commonvd.IsMigrating(oldVD) {
+		sourceStorageClass, err := v.getSourcePVCStorageClass(ctx, oldVD)
+		if err != nil {
+			return err
+		}
+
+		if newVD.Spec.PersistentVolumeClaim.StorageClass == nil || *newVD.Spec.PersistentVolumeClaim.StorageClass != sourceStorageClass {
+			return fmt.Errorf("storage class can be changed during migration only to rollback to %q", sourceStorageClass)
+		}
+	}
+
 	// For run volume migration storage class must be specified in the spec.
 	// If storage class is nil, migration is canceled or not requested.
 	if newVD.Spec.PersistentVolumeClaim.StorageClass == nil {
@@ -168,4 +180,23 @@ func (v *StorageClassValidator) validateTargetStorageClassForVolumeMigration(ctx
 	}
 
 	return nil
+}
+
+func (v *StorageClassValidator) getSourcePVCStorageClass(ctx context.Context, vd *v1alpha2.VirtualDisk) (string, error) {
+	sourcePVCName := vd.Status.MigrationState.SourcePVC
+	if sourcePVCName == "" {
+		return "", fmt.Errorf("cannot determine rollback storage class: source PVC is empty")
+	}
+
+	pvc := &corev1.PersistentVolumeClaim{}
+	err := v.client.Get(ctx, client.ObjectKey{Name: sourcePVCName, Namespace: vd.Namespace}, pvc)
+	if err != nil {
+		return "", fmt.Errorf("cannot determine rollback storage class: get source PVC %q: %w", sourcePVCName, err)
+	}
+
+	if pvc.Spec.StorageClassName == nil || *pvc.Spec.StorageClassName == "" {
+		return "", fmt.Errorf("cannot determine rollback storage class: source PVC %q storageClassName is empty", sourcePVCName)
+	}
+
+	return *pvc.Spec.StorageClassName, nil
 }
