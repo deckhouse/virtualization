@@ -115,17 +115,62 @@ cpu:
 			),
 		},
 		{
-			"restart on memory.size change",
+			"restart on memory.size change: no hotplug",
+			`
+memory:
+  size: 256Mi
+`,
+			`
+memory:
+  size: 512Mi
+`,
+			assertChanges(
+				actionRequired(ActionRestart),
+				requirePathOperation("memory.size", ChangeReplace),
+			),
+		},
+		{
+			"restart on memory.size change: enable hotplug",
+			`
+memory:
+  size: 384Mi
+`,
+			`
+memory:
+  size: 2Gi
+`,
+			assertChanges(
+				actionRequired(ActionRestart),
+				requirePathOperation("memory.size", ChangeReplace),
+			),
+		},
+		{
+			"restart on memory.size change: disable hotplug",
+			`
+memory:
+  size: 3Gi
+`,
+			`
+memory:
+  size: 128Mi
+`,
+			assertChanges(
+				actionRequired(ActionRestart),
+				requirePathOperation("memory.size", ChangeReplace),
+			),
+		},
+		{
+			"immediate apply on memory.size change when hotplug is enabled",
 			`
 memory:
   size: 2Gi
 `,
 			`
 memory:
-  size: 1Gi
+  size: 4Gi
 `,
 			assertChanges(
-				actionRequired(ActionRestart),
+				actionRequired(ActionApplyImmediate),
 				requirePathOperation("memory.size", ChangeReplace),
 			),
 		},
