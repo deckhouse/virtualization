@@ -21,9 +21,11 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/validators"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -84,14 +86,26 @@ var _ = Describe("PVNodeAffinityValidator", func() {
 		}
 	}
 
+	makeKVVMI := func(name, nodeName string) *virtv1.VirtualMachineInstance {
+		return &virtv1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+			Status:     virtv1.VirtualMachineInstanceStatus{NodeName: nodeName},
+		}
+	}
+
+	makeValidator := func(objs ...client.Object) *validators.PVNodeAffinityValidator {
+		fakeClient := setupEnvironment(objs...)
+		attacher := service.NewAttachmentService(fakeClient, nil, "")
+		return validators.NewPVNodeAffinityValidator(attacher)
+	}
+
 	It("should allow when VM is not running (no node)", func() {
 		oldVM := makeVM("vm", "", v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"})
 		newVM := makeVM("vm", "",
 			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"},
 			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk2"},
 		)
-		fakeClient := setupEnvironment(oldVM)
-		v := validators.NewPVNodeAffinityValidator(fakeClient)
+		v := makeValidator(oldVM)
 		_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
@@ -100,8 +114,7 @@ var _ = Describe("PVNodeAffinityValidator", func() {
 		refs := []v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.DiskDevice, Name: "disk1"}}
 		oldVM := makeVM("vm", node1, refs...)
 		newVM := makeVM("vm", node1, refs...)
-		fakeClient := setupEnvironment(oldVM, makeNode(node1))
-		v := validators.NewPVNodeAffinityValidator(fakeClient)
+		v := makeValidator(oldVM, makeNode(node1))
 		_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
@@ -112,14 +125,12 @@ var _ = Describe("PVNodeAffinityValidator", func() {
 			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"},
 			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "net-disk"},
 		)
-		objs := []client.Object{
-			oldVM, makeNode(node1),
+		v := makeValidator(
+			oldVM, makeNode(node1), makeKVVMI("vm", node1),
 			makeVD("net-disk", "pvc-net"),
 			makePVC("pvc-net", "pv-net"),
-			makePV("pv-net"), // no nodeAffinity
-		}
-		fakeClient := setupEnvironment(objs...)
-		v := validators.NewPVNodeAffinityValidator(fakeClient)
+			makePV("pv-net"),
+		)
 		_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
@@ -130,14 +141,12 @@ var _ = Describe("PVNodeAffinityValidator", func() {
 			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"},
 			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"},
 		)
-		objs := []client.Object{
-			oldVM, makeNode(node1),
+		v := makeValidator(
+			oldVM, makeNode(node1), makeKVVMI("vm", node1),
 			makeVD("local-disk", "pvc-local"),
 			makePVC("pvc-local", "pv-local"),
 			makePV("pv-local", node1),
-		}
-		fakeClient := setupEnvironment(objs...)
-		v := validators.NewPVNodeAffinityValidator(fakeClient)
+		)
 		_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
@@ -148,14 +157,12 @@ var _ = Describe("PVNodeAffinityValidator", func() {
 			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"},
 			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"},
 		)
-		objs := []client.Object{
-			oldVM, makeNode(node1),
+		v := makeValidator(
+			oldVM, makeNode(node1), makeKVVMI("vm", node1),
 			makeVD("local-disk", "pvc-local"),
 			makePVC("pvc-local", "pv-local"),
-			makePV("pv-local", node2), // only on node2, VM on node1
-		}
-		fakeClient := setupEnvironment(objs...)
-		v := validators.NewPVNodeAffinityValidator(fakeClient)
+			makePV("pv-local", node2),
+		)
 		_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
 		Expect(err).Should(HaveOccurred())
 		Expect(err.Error()).Should(ContainSubstring("unable to attach disk"))
@@ -171,13 +178,11 @@ var _ = Describe("PVNodeAffinityValidator", func() {
 			ObjectMeta: metav1.ObjectMeta{Name: "pvc-pending", Namespace: ns},
 			Spec:       corev1.PersistentVolumeClaimSpec{},
 		}
-		objs := []client.Object{
-			oldVM, makeNode(node1),
+		v := makeValidator(
+			oldVM, makeNode(node1), makeKVVMI("vm", node1),
 			makeVD("new-disk", "pvc-pending"),
 			pvcPending,
-		}
-		fakeClient := setupEnvironment(objs...)
-		v := validators.NewPVNodeAffinityValidator(fakeClient)
+		)
 		_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
@@ -188,17 +193,15 @@ var _ = Describe("PVNodeAffinityValidator", func() {
 			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "good-disk"},
 			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "bad-disk"},
 		)
-		objs := []client.Object{
-			oldVM, makeNode(node1),
+		v := makeValidator(
+			oldVM, makeNode(node1), makeKVVMI("vm", node1),
 			makeVD("good-disk", "pvc-good"),
 			makePVC("pvc-good", "pv-good"),
 			makePV("pv-good", node1),
 			makeVD("bad-disk", "pvc-bad"),
 			makePVC("pvc-bad", "pv-bad"),
 			makePV("pv-bad", node2),
-		}
-		fakeClient := setupEnvironment(objs...)
-		v := validators.NewPVNodeAffinityValidator(fakeClient)
+		)
 		_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
 		Expect(err).Should(HaveOccurred())
 		Expect(err.Error()).Should(ContainSubstring("bad-disk"))
@@ -206,8 +209,7 @@ var _ = Describe("PVNodeAffinityValidator", func() {
 
 	It("should allow on create (VM not running yet)", func() {
 		vm := makeVM("vm", "", v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"})
-		fakeClient := setupEnvironment(vm)
-		v := validators.NewPVNodeAffinityValidator(fakeClient)
+		v := makeValidator(vm)
 		_, err := v.ValidateCreate(testutil.ContextBackgroundWithNoOpLogger(), vm)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
