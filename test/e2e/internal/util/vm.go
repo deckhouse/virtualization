@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"regexp"
-	"slices"
 	"strings"
 	"time"
 
@@ -32,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -132,7 +132,7 @@ func WaitUntilConditionOrSkipKnownVDMigrationControllerRevert(timeout time.Durat
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	err := wait.PollUntilContextTimeout(ctx, time.Second, timeout, true, func(context.Context) (bool, error) {
+	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(context.Context) (bool, error) {
 		lastErr = condition()
 		return lastErr == nil, nil
 	})
@@ -148,7 +148,7 @@ func WaitUntilConditionOrSkipKnownVDMigrationControllerRevert(timeout time.Durat
 		Fail(fmt.Sprintf("timed out waiting for condition: %v", lastErr))
 	}
 
-	Expect(err).NotTo(HaveOccurred())
+	Fail(fmt.Sprintf("unexpected poll error without condition failure: %v", err))
 }
 
 func SkipIfKnownVDMigrationControllerRevertOnTimeout(namespace string, since time.Time) {
@@ -173,122 +173,73 @@ func findKnownVDMigrationControllerRevertLog(namespace string, since time.Time) 
 	ctx, cancel := context.WithTimeout(context.Background(), framework.ShortTimeout)
 	defer cancel()
 
+	leaderPod, err := findVirtualizationControllerLeaderPod(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("find virtualization-controller leader pod: %w", err)
+	}
+	if leaderPod == nil {
+		return nil, nil
+	}
+
+	sinceTime := metav1.NewTime(since.Add(-5 * time.Second))
+	stream, err := framework.GetClients().KubeClient().CoreV1().Pods(leaderPod.Namespace).GetLogs(leaderPod.Name, &corev1.PodLogOptions{
+		Container: controller.VirtualizationController,
+		SinceTime: &sinceTime,
+		TailLines: ptr.To(int64(5000)),
+	}).Stream(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("read virtualization-controller logs from leader pod %s: %w", leaderPod.Name, err)
+	}
+
+	logs, readErr := io.ReadAll(stream)
+	closeErr := stream.Close()
+	if readErr != nil {
+		return nil, fmt.Errorf("read virtualization-controller logs from leader pod %s: %w", leaderPod.Name, readErr)
+	}
+	if closeErr != nil {
+		GinkgoWriter.Printf("Failed to close virtualization-controller log stream for pod %s: %v\n", leaderPod.Name, closeErr)
+	}
+
+	if line := findKnownVDMigrationControllerRevertLine(string(logs), namespace); line != "" {
+		return &controllerLogMatch{
+			PodName: leaderPod.Name,
+			Line:    line,
+		}, nil
+	}
+
+	return nil, nil
+}
+
+func findVirtualizationControllerLeaderPod(ctx context.Context) (*corev1.Pod, error) {
+	lease, err := framework.GetClients().KubeClient().CoordinationV1().Leases(controller.VirtualizationNamespace).Get(ctx, controller.LeaderElectionID, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get leader election lease: %w", err)
+	}
+	if lease.Spec.HolderIdentity == nil || *lease.Spec.HolderIdentity == "" {
+		return nil, nil
+	}
+
+	holderIdentity := *lease.Spec.HolderIdentity
+
 	pods, err := framework.GetClients().KubeClient().CoreV1().Pods(controller.VirtualizationNamespace).List(ctx, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("app=%s", controller.VirtualizationController),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list virtualization-controller pods: %w", err)
 	}
-	orderedPods, err := orderVirtualizationControllerPodsByLeader(ctx, pods.Items)
-	if err != nil {
-		GinkgoWriter.Printf("Failed to resolve virtualization-controller leader pod, fallback to all pods: %v\n", err)
-		orderedPods = pods.Items
-	}
 
-	sinceTime := metav1.NewTime(since.Add(-5 * time.Second))
-	for _, pod := range orderedPods {
-		stream, err := framework.GetClients().KubeClient().CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{
-			Container: controller.VirtualizationController,
-			SinceTime: &sinceTime,
-		}).Stream(ctx)
-		if err != nil {
-			GinkgoWriter.Printf("Failed to read virtualization-controller logs from pod %s: %v\n", pod.Name, err)
-			continue
-		}
-
-		logs, readErr := io.ReadAll(stream)
-		closeErr := stream.Close()
-		if readErr != nil {
-			return nil, fmt.Errorf("read virtualization-controller logs from pod %s: %w", pod.Name, readErr)
-		}
-		if closeErr != nil {
-			GinkgoWriter.Printf("Failed to close virtualization-controller log stream for pod %s: %v\n", pod.Name, closeErr)
-		}
-
-		if line := findKnownVDMigrationControllerRevertLine(string(logs), namespace); line != "" {
-			return &controllerLogMatch{
-				PodName: pod.Name,
-				Line:    line,
-			}, nil
+	for i := range pods.Items {
+		pod := &pods.Items[i]
+		if pod.Name == holderIdentity || strings.HasPrefix(holderIdentity, pod.Name+"_") {
+			return pod, nil
 		}
 	}
 
+	GinkgoWriter.Printf("Virtualization-controller leader lease holder %q does not match any pod\n", holderIdentity)
 	return nil, nil
-}
-
-func orderVirtualizationControllerPodsByLeader(ctx context.Context, pods []corev1.Pod) ([]corev1.Pod, error) {
-	if len(pods) <= 1 {
-		return pods, nil
-	}
-	if !isVirtualizationControllerLeaderElectionEnabled(pods) {
-		return pods, nil
-	}
-
-	lease, err := framework.GetClients().KubeClient().CoordinationV1().Leases(controller.VirtualizationNamespace).Get(ctx, controller.LeaderElectionID, metav1.GetOptions{})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return pods, nil
-		}
-		return nil, fmt.Errorf("get leader election lease %q: %w", controller.LeaderElectionID, err)
-	}
-	if lease.Spec.HolderIdentity == nil || *lease.Spec.HolderIdentity == "" {
-		return pods, nil
-	}
-
-	holderIdentity := *lease.Spec.HolderIdentity
-	leaderIdx := slices.IndexFunc(pods, func(pod corev1.Pod) bool {
-		return pod.Name == holderIdentity || strings.HasPrefix(holderIdentity, pod.Name+"_")
-	})
-	if leaderIdx == -1 {
-		GinkgoWriter.Printf("Virtualization-controller leader lease holder %q does not match listed pods; fallback to all pods\n", holderIdentity)
-		return pods, nil
-	}
-
-	orderedPods := make([]corev1.Pod, 0, len(pods))
-	orderedPods = append(orderedPods, pods[leaderIdx])
-	for i, pod := range pods {
-		if i == leaderIdx {
-			continue
-		}
-		orderedPods = append(orderedPods, pod)
-	}
-
-	return orderedPods, nil
-}
-
-func isVirtualizationControllerLeaderElectionEnabled(pods []corev1.Pod) bool {
-	for _, pod := range pods {
-		for _, container := range pod.Spec.Containers {
-			if container.Name != controller.VirtualizationController {
-				continue
-			}
-			return isLeaderElectionEnabledByArgs(container.Args)
-		}
-	}
-
-	// The controller uses a default value of true when the flag is not passed.
-	return true
-}
-
-func isLeaderElectionEnabledByArgs(args []string) bool {
-	enabled := true
-
-	for i, arg := range args {
-		switch {
-		case arg == "--leader-election" && i+1 < len(args) && !strings.HasPrefix(args[i+1], "--"):
-			enabled = args[i+1] != "false"
-		case arg == "--leader-election":
-			enabled = true
-		case arg == "--leader-election=true":
-			enabled = true
-		case arg == "--leader-election=false":
-			enabled = false
-		case strings.HasPrefix(arg, "--leader-election="):
-			enabled = strings.TrimPrefix(arg, "--leader-election=") != "false"
-		}
-	}
-
-	return enabled
 }
 
 func findKnownVDMigrationControllerRevertLine(logs, namespace string) string {
