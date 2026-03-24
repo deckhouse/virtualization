@@ -27,6 +27,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/validator"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -47,7 +48,7 @@ func NewValidator(client client.Client, scService *intsvc.VirtualDiskStorageClas
 			validator.NewSpecChangesValidator(scService),
 			validator.NewISOSourceValidator(client),
 			validator.NewNameValidator(),
-			validator.NewMigrationStorageClassValidator(client, scService, modeGetter),
+			validator.NewMigrationStorageClassValidator(client, scService, modeGetter, featuregates.Default()),
 		},
 	}
 }

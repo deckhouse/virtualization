@@ -32,7 +32,7 @@ import (
 	basevc "github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/service"
-	"github.com/deckhouse/virtualization-controller/pkg/version"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -92,7 +92,15 @@ var _ = Describe("StorageClassValidator", func() {
 				return corev1.PersistentVolumeFilesystem, corev1.ReadWriteOnce, nil
 			},
 		}
-		validator = NewMigrationStorageClassValidator(fakeClient, vdSCService, modeGetter)
+
+		gate, setFromMap, err := featuregates.NewUnlocked()
+		Expect(err).NotTo(HaveOccurred())
+		err = setFromMap(map[string]bool{
+			string(featuregates.VolumeMigration): true,
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		validator = NewMigrationStorageClassValidator(fakeClient, vdSCService, modeGetter, gate)
 	})
 
 	DescribeTable("ValidateCreate", func(sc *string, wantErr bool) {
@@ -116,116 +124,118 @@ var _ = Describe("StorageClassValidator", func() {
 		Entry("nil storage class", nil, false),
 	)
 
-	DescribeTable("ValidateUpdate", func(phase v1alpha2.DiskPhase, oldSC, newSC *string, setupMock func(), wantErr bool) {
-		err := runValidateUpdateTest(context.Background(), validator, phase, oldSC, newSC, setupMock, vmName, namespace)
+	DescribeTable("ValidateUpdate", func(phase v1alpha2.DiskPhase, oldSC, newSC *string, wantErr bool) {
+		oldVD := &v1alpha2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{Generation: 1, Namespace: namespace},
+			Spec: v1alpha2.VirtualDiskSpec{
+				PersistentVolumeClaim: v1alpha2.VirtualDiskPersistentVolumeClaim{
+					StorageClass: oldSC,
+				},
+			},
+		}
+		newVD := &v1alpha2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{Generation: 2, Namespace: namespace},
+			Spec: v1alpha2.VirtualDiskSpec{
+				PersistentVolumeClaim: v1alpha2.VirtualDiskPersistentVolumeClaim{
+					StorageClass: newSC,
+				},
+			},
+			Status: v1alpha2.VirtualDiskStatus{
+				Phase: phase,
+				StorageClassName: func() string {
+					if oldSC != nil {
+						return *oldSC
+					}
+					return ""
+				}(),
+				AttachedToVirtualMachines: []v1alpha2.AttachedVirtualMachine{
+					{
+						Name:    vmName,
+						Mounted: true,
+					},
+				},
+			},
+		}
+
+		_, err := validator.ValidateUpdate(context.Background(), oldVD, newVD)
 		if wantErr {
 			Expect(err).To(HaveOccurred())
 		} else {
 			Expect(err).NotTo(HaveOccurred())
 		}
 	},
-		// Pending phase tests (similar to ValidateCreate)
-		Entry("Pending: valid storage class", v1alpha2.DiskPending, nil, &scName, nil, false),
-		Entry("Pending: deprecated storage class", v1alpha2.DiskPending, nil, &deprecatedSCName, nil, true),
-		Entry("Pending: non-existent storage class", v1alpha2.DiskPending, nil, func() *string { s := "non-existent"; return &s }(), nil, true),
-		Entry("Pending: nil storage class", v1alpha2.DiskPending, &scName, nil, nil, false),
+		Entry("Pending: valid storage class", v1alpha2.DiskPending, nil, &scName, false),
+		Entry("Pending: deprecated storage class", v1alpha2.DiskPending, nil, &deprecatedSCName, true),
+		Entry("Pending: non-existent storage class", v1alpha2.DiskPending, nil, func() *string { s := "non-existent"; return &s }(), true),
+		Entry("Pending: nil storage class", v1alpha2.DiskPending, &scName, nil, false),
+		Entry("Migration: change SC (valid)", v1alpha2.DiskReady, &scName, &otherSCName, false),
+		Entry("Migration: change SC (non-existent)", v1alpha2.DiskReady, &scName, func() *string { s := "non-existent"; return &s }(), true),
 	)
 
-	if version.GetEdition() == version.EditionEE {
-		DescribeTable("ValidateUpdate (Migration)", func(phase v1alpha2.DiskPhase, oldSC, newSC *string, setupMock func(), wantErr bool) {
-			err := runValidateUpdateTest(context.Background(), validator, phase, oldSC, newSC, setupMock, vmName, namespace)
-			if wantErr {
-				Expect(err).To(HaveOccurred())
-			} else {
-				Expect(err).NotTo(HaveOccurred())
+	It("should fail migration if volume modes differ", func() {
+		modeGetter.GetVolumeAndAccessModesFunc = func(ctx context.Context, obj client.Object, storageClass *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+			if storageClass.Name == scName {
+				return corev1.PersistentVolumeFilesystem, corev1.ReadWriteOnce, nil
 			}
-		},
-			// Migration tests (Ready phase)
-			Entry("Migration: change SC (valid)", v1alpha2.DiskReady, &scName, &otherSCName, nil, false),
-			Entry("Migration: change SC (non-existent)", v1alpha2.DiskReady, &scName, func() *string { s := "non-existent"; return &s }(), nil, true),
-			Entry("Migration: different volume modes", v1alpha2.DiskReady, &scName, &otherSCName, func() {
-				modeGetter.GetVolumeAndAccessModesFunc = func(ctx context.Context, obj client.Object, storageClass *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
-					if storageClass.Name == scName {
-						return corev1.PersistentVolumeFilesystem, corev1.ReadWriteOnce, nil
-					}
-					return corev1.PersistentVolumeBlock, corev1.ReadWriteOnce, nil
-				}
-			}, true),
-		)
+			return corev1.PersistentVolumeBlock, corev1.ReadWriteOnce, nil
+		}
 
-		It("should fail migration if VD is not mounted", func() {
-			oldVD := &v1alpha2.VirtualDisk{
-				ObjectMeta: metav1.ObjectMeta{Generation: 1, Namespace: namespace},
-				Spec: v1alpha2.VirtualDiskSpec{
-					PersistentVolumeClaim: v1alpha2.VirtualDiskPersistentVolumeClaim{
-						StorageClass: &scName,
+		oldVD := &v1alpha2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{Generation: 1, Namespace: namespace},
+			Spec: v1alpha2.VirtualDiskSpec{
+				PersistentVolumeClaim: v1alpha2.VirtualDiskPersistentVolumeClaim{
+					StorageClass: &scName,
+				},
+			},
+		}
+		newVD := &v1alpha2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{Generation: 2, Namespace: namespace},
+			Spec: v1alpha2.VirtualDiskSpec{
+				PersistentVolumeClaim: v1alpha2.VirtualDiskPersistentVolumeClaim{
+					StorageClass: &otherSCName,
+				},
+			},
+			Status: v1alpha2.VirtualDiskStatus{
+				Phase:            v1alpha2.DiskReady,
+				StorageClassName: scName,
+				AttachedToVirtualMachines: []v1alpha2.AttachedVirtualMachine{
+					{
+						Name:    vmName,
+						Mounted: true,
 					},
 				},
-			}
-			newVD := &v1alpha2.VirtualDisk{
-				ObjectMeta: metav1.ObjectMeta{Generation: 2, Namespace: namespace},
-				Spec: v1alpha2.VirtualDiskSpec{
-					PersistentVolumeClaim: v1alpha2.VirtualDiskPersistentVolumeClaim{
-						StorageClass: &otherSCName,
-					},
+			},
+		}
+
+		_, err := validator.ValidateUpdate(context.Background(), oldVD, newVD)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("different volume mode"))
+	})
+
+	It("should fail migration if VD is not mounted", func() {
+		oldVD := &v1alpha2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{Generation: 1, Namespace: namespace},
+			Spec: v1alpha2.VirtualDiskSpec{
+				PersistentVolumeClaim: v1alpha2.VirtualDiskPersistentVolumeClaim{
+					StorageClass: &scName,
 				},
-				Status: v1alpha2.VirtualDiskStatus{
-					Phase:            v1alpha2.DiskReady,
-					StorageClassName: scName,
-					// AttachedToVirtualMachines is empty/nil by default, so Mounted will be false/missing
+			},
+		}
+		newVD := &v1alpha2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{Generation: 2, Namespace: namespace},
+			Spec: v1alpha2.VirtualDiskSpec{
+				PersistentVolumeClaim: v1alpha2.VirtualDiskPersistentVolumeClaim{
+					StorageClass: &otherSCName,
 				},
-			}
-			_, err := validator.ValidateUpdate(context.Background(), oldVD, newVD)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("not mounted"))
-		})
-	}
+			},
+			Status: v1alpha2.VirtualDiskStatus{
+				Phase:            v1alpha2.DiskReady,
+				StorageClassName: scName,
+				// AttachedToVirtualMachines is empty/nil by default, so Mounted will be false/missing
+			},
+		}
+		_, err := validator.ValidateUpdate(context.Background(), oldVD, newVD)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("not mounted"))
+	})
 })
-
-func runValidateUpdateTest(
-	ctx context.Context,
-	validator *StorageClassValidator,
-	phase v1alpha2.DiskPhase,
-	oldSC, newSC *string,
-	setupMock func(),
-	vmName, namespace string,
-) error {
-	if setupMock != nil {
-		setupMock()
-	}
-
-	oldVD := &v1alpha2.VirtualDisk{
-		ObjectMeta: metav1.ObjectMeta{Generation: 1, Namespace: namespace},
-		Spec: v1alpha2.VirtualDiskSpec{
-			PersistentVolumeClaim: v1alpha2.VirtualDiskPersistentVolumeClaim{
-				StorageClass: oldSC,
-			},
-		},
-	}
-	newVD := &v1alpha2.VirtualDisk{
-		ObjectMeta: metav1.ObjectMeta{Generation: 2, Namespace: namespace},
-		Spec: v1alpha2.VirtualDiskSpec{
-			PersistentVolumeClaim: v1alpha2.VirtualDiskPersistentVolumeClaim{
-				StorageClass: newSC,
-			},
-		},
-		Status: v1alpha2.VirtualDiskStatus{
-			Phase: phase,
-			StorageClassName: func() string {
-				if oldSC != nil {
-					return *oldSC
-				}
-				return ""
-			}(),
-			AttachedToVirtualMachines: []v1alpha2.AttachedVirtualMachine{
-				{
-					Name:    vmName,
-					Mounted: true,
-				},
-			},
-		},
-	}
-
-	_, err := validator.ValidateUpdate(ctx, oldVD, newVD)
-	return err
-}
