@@ -103,33 +103,24 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	}
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(nameLifeCycleHandler))
-
+	// While the pod is not running, the VMI does not set the node and the method returns nil, so it is necessary to check if there are any issues with the pod
 	if pod == nil {
-		podList, err := s.Pods(ctx)
-		if err != nil {
-			return reconcile.Result{}, err
+		cb := conditions.NewConditionBuilder(vmcondition.TypeRunning).Generation(changed.GetGeneration())
+
+		if volumeErr := h.checkPodVolumeErrors(ctx, changed, log); volumeErr != nil {
+			cb.Status(metav1.ConditionFalse).
+				Reason(vmcondition.ReasonPodVolumeErrors).
+				Message(fmt.Sprintf("Volume errors detected on Pod: %s", volumeErr.Error()))
+			conditions.SetCondition(cb, &changed.Status.Conditions)
+			return reconcile.Result{}, nil
 		}
 
-		for _, innerPod := range podList.Items {
-			if isContainerCreating(&innerPod) {
-				cb := conditions.NewConditionBuilder(vmcondition.TypeRunning).Generation(changed.GetGeneration())
+		cb.Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonPodContainerCreating).
+			Message("Pod is in ContainerCreating phase. Check the pod for more details.")
+		conditions.SetCondition(cb, &changed.Status.Conditions)
 
-				if volumeErr := h.checkPodVolumeErrors(ctx, changed, log); volumeErr != nil {
-					cb.Status(metav1.ConditionFalse).
-						Reason(vmcondition.ReasonPodNotStarted).
-						Message(volumeErr.Error())
-					conditions.SetCondition(cb, &changed.Status.Conditions)
-					return reconcile.Result{}, nil
-				}
-
-				cb.Status(metav1.ConditionFalse).
-					Reason(vmcondition.ReasonPodNotStarted).
-					Message(fmt.Sprintf("Pod %q is in ContainerCreating phase. Check the pod for more details.", innerPod.Name))
-				conditions.SetCondition(cb, &changed.Status.Conditions)
-
-				return reconcile.Result{}, nil
-			}
-		}
+		return reconcile.Result{}, nil
 	}
 
 	h.syncRunning(ctx, changed, kvvm, kvvmi, pod, log)
@@ -155,14 +146,6 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonPodNotStarted).
 			Message(volumeError.Error())
-		conditions.SetCondition(cb, &vm.Status.Conditions)
-		return
-	}
-
-	if isContainerCreating(pod) {
-		cb.Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonPodNotStarted).
-			Message(fmt.Sprintf("Pod %q is in ContainerCreating phase. Check the pod for more details.", pod.Name))
 		conditions.SetCondition(cb, &vm.Status.Conditions)
 		return
 	}
