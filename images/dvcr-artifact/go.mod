@@ -6,7 +6,7 @@ require (
 	github.com/containers/image/v5 v5.32.0
 	github.com/deckhouse/virtualization/api v0.0.0-20241220154636-ce1f73499998
 	github.com/distribution/reference v0.6.0
-	github.com/docker/cli v27.1.1+incompatible
+	github.com/docker/cli v29.2.0+incompatible
 	github.com/golang/snappy v0.0.4
 	github.com/google/go-containerregistry v0.20.0
 	github.com/google/uuid v1.6.0
