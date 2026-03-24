@@ -6,7 +6,7 @@ metadata:
   name: nfs-server
   namespace: {{ .Values.namespace }}
   labels:
-    app: nfs-server
+    app: nfs
 spec:
   type: ClusterIP
   selector:
