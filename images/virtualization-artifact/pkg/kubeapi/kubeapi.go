@@ -19,6 +19,7 @@ package kubeapi
 import (
 	"log/slog"
 	"os"
+	"strings"
 	"sync"
 
 	resourcev1 "k8s.io/api/resource/v1"
@@ -78,10 +79,16 @@ func isResourceV1Enabled(clientset kubernetes.Interface) (bool, error) {
 }
 
 func HasDRAFeatureGates() bool {
-	envValue := os.Getenv("HAS_DRA_FEATURE_GATES")
-	if envValue == "" {
-		return false
+	count := 0
+	for feature := range strings.SplitSeq(os.Getenv("KUBE_APISERVER_FEATURE_GATES"), ",") {
+		switch feature {
+		case "DRAResourceClaimDeviceStatus", "DRADeviceBindingConditions", "DRAConsumableCapacity":
+			count++
+		}
 	}
+	return count == 3
+}
 
-	return envValue == "true"
+func HasDRAPartitionableDevices() bool {
+	return strings.Contains(os.Getenv("KUBE_APISERVER_FEATURE_GATES"), "DRAPartitionableDevices")
 }
