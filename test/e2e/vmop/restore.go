@@ -67,6 +67,7 @@ const (
 	mountPoint                = "/mnt"
 	fileDataPath              = "/mnt/value"
 	additionalNetworkIP       = "192.168.1.10/24"
+	additionalInterfaceVLANID = 4006
 )
 
 var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
@@ -79,7 +80,7 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 			Skip("SDN module is not enabled")
 		}
 
-		Expect(util.IsClusterNetworkExists(f)).To(BeTrue(), fmt.Sprintf("The cluster network does not exist. Please apply the cluster network first using the command: %s", util.ClusterNetworkCreateCommand))
+		Expect(util.IsClusterNetworkExists(f, additionalInterfaceVLANID)).To(BeTrue(), fmt.Sprintf("The cluster network does not exist. Please apply the cluster network first using the command: %s", util.ClusterNetworkCreateCommand(additionalInterfaceVLANID)))
 
 		t := newRestoreTest(f)
 		if !t.IsStorageClassAvailableForTest(t.VM) {
@@ -357,7 +358,7 @@ runcmd:
 		}),
 		vmbuilder.WithNetwork(v1alpha2.NetworksSpec{
 			Type: v1alpha2.NetworksTypeClusterNetwork,
-			Name: util.ClusterNetworkName,
+			Name: util.ClusterNetworkName(additionalInterfaceVLANID),
 		}),
 	)
 
