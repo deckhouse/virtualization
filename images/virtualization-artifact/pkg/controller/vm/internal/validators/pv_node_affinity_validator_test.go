@@ -37,11 +37,11 @@ var _ = Describe("PVNodeAffinityValidator", func() {
 		node2 = "node-2"
 	)
 
-	makeNode := func(name string) *corev1.Node {
+	makeNode := func() *corev1.Node {
 		return &corev1.Node{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:   name,
-				Labels: map[string]string{"topology.kubernetes.io/node": name},
+				Name:   node1,
+				Labels: map[string]string{"topology.kubernetes.io/node": node1},
 			},
 		}
 	}
@@ -78,7 +78,7 @@ var _ = Describe("PVNodeAffinityValidator", func() {
 		}
 	}
 
-	makeVM := func(name string, nodeName string, refs ...v1alpha2.BlockDeviceSpecRef) *v1alpha2.VirtualMachine {
+	makeVM := func(name, nodeName string, refs ...v1alpha2.BlockDeviceSpecRef) *v1alpha2.VirtualMachine {
 		return &v1alpha2.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
 			Spec:       v1alpha2.VirtualMachineSpec{BlockDeviceRefs: refs},
@@ -86,9 +86,9 @@ var _ = Describe("PVNodeAffinityValidator", func() {
 		}
 	}
 
-	makeKVVMI := func(name, nodeName string) *virtv1.VirtualMachineInstance {
+	makeKVVMI := func(nodeName string) *virtv1.VirtualMachineInstance {
 		return &virtv1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+			ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: ns},
 			Status:     virtv1.VirtualMachineInstanceStatus{NodeName: nodeName},
 		}
 	}
@@ -114,7 +114,7 @@ var _ = Describe("PVNodeAffinityValidator", func() {
 		refs := []v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.DiskDevice, Name: "disk1"}}
 		oldVM := makeVM("vm", node1, refs...)
 		newVM := makeVM("vm", node1, refs...)
-		v := makeValidator(oldVM, makeNode(node1))
+		v := makeValidator(oldVM, makeNode())
 		_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
@@ -126,7 +126,7 @@ var _ = Describe("PVNodeAffinityValidator", func() {
 			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "net-disk"},
 		)
 		v := makeValidator(
-			oldVM, makeNode(node1), makeKVVMI("vm", node1),
+			oldVM, makeNode(), makeKVVMI(node1),
 			makeVD("net-disk", "pvc-net"),
 			makePVC("pvc-net", "pv-net"),
 			makePV("pv-net"),
@@ -142,7 +142,7 @@ var _ = Describe("PVNodeAffinityValidator", func() {
 			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"},
 		)
 		v := makeValidator(
-			oldVM, makeNode(node1), makeKVVMI("vm", node1),
+			oldVM, makeNode(), makeKVVMI(node1),
 			makeVD("local-disk", "pvc-local"),
 			makePVC("pvc-local", "pv-local"),
 			makePV("pv-local", node1),
@@ -158,7 +158,7 @@ var _ = Describe("PVNodeAffinityValidator", func() {
 			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"},
 		)
 		v := makeValidator(
-			oldVM, makeNode(node1), makeKVVMI("vm", node1),
+			oldVM, makeNode(), makeKVVMI(node1),
 			makeVD("local-disk", "pvc-local"),
 			makePVC("pvc-local", "pv-local"),
 			makePV("pv-local", node2),
@@ -179,7 +179,7 @@ var _ = Describe("PVNodeAffinityValidator", func() {
 			Spec:       corev1.PersistentVolumeClaimSpec{},
 		}
 		v := makeValidator(
-			oldVM, makeNode(node1), makeKVVMI("vm", node1),
+			oldVM, makeNode(), makeKVVMI(node1),
 			makeVD("new-disk", "pvc-pending"),
 			pvcPending,
 		)
@@ -194,7 +194,7 @@ var _ = Describe("PVNodeAffinityValidator", func() {
 			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "bad-disk"},
 		)
 		v := makeValidator(
-			oldVM, makeNode(node1), makeKVVMI("vm", node1),
+			oldVM, makeNode(), makeKVVMI(node1),
 			makeVD("good-disk", "pvc-good"),
 			makePVC("pvc-good", "pv-good"),
 			makePV("pv-good", node1),
