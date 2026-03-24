@@ -10,7 +10,7 @@ metadata:
 spec:
   type: ClusterIP
   selector:
-    app: nfs-server
+    app: nfs
   ports:
     - name: tcp-2049
       port: 2049
