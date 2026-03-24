@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"strconv"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -50,6 +52,16 @@ const (
 
 	MaxMemorySizeForHotplug      = 256 * 1024 * 1024 * 1024 // 256 Gi (safely limit to not overlap somewhat conservative 38 bit physical address space)
 	EnableMemoryHotplugThreshold = 1 * 1024 * 1024 * 1024   // 1 Gi (no hotplug for VMs with less than 1Gi)
+)
+
+const (
+	// VCPUTopologyDynamicCoresAnnotation annotation indicates "distributed by sockets" or "dynamic cores number" VCPU topology.
+	VCPUTopologyDynamicCoresAnnotation = "internal.virtualization.deckhouse.io/vcpu-topology-dynamic-cores"
+
+	CPUResourcesRequestsFractionAnnotation = "internal.virtualization.deckhouse.io/cpu-resources-requests-fraction"
+
+	// CPUMaxCoresPerSocket is a maximum number of cores per socket.
+	CPUMaxCoresPerSocket = 16
 )
 
 type KVVMOptions struct {
@@ -251,25 +263,35 @@ func (b *KVVM) SetCPU(cores int, coreFraction string) error {
 	if domainSpec.CPU == nil {
 		domainSpec.CPU = &virtv1.CPU{}
 	}
-	cpuRequest, err := GetCPURequest(cores, coreFraction)
+
+	fraction, err := GetCPUFraction(coreFraction)
 	if err != nil {
 		return err
 	}
-	cpuLimit := GetCPULimit(cores)
-	if domainSpec.Resources.Requests == nil {
-		domainSpec.Resources.Requests = make(map[corev1.ResourceName]resource.Quantity)
-	}
-	if domainSpec.Resources.Limits == nil {
-		domainSpec.Resources.Limits = make(map[corev1.ResourceName]resource.Quantity)
-	}
-	domainSpec.Resources.Requests[corev1.ResourceCPU] = *cpuRequest
-	domainSpec.Resources.Limits[corev1.ResourceCPU] = *cpuLimit
+	b.SetKVVMIAnnotation(CPUResourcesRequestsFractionAnnotation, strconv.Itoa(fraction))
 
-	socketsNeeded, coresNeeded := vm.CalculateCoresAndSockets(cores)
+	//cpuRequest, err := GetCPURequest(cores, coreFraction)
+	//if err != nil {
+	//	return err
+	//}
+	//cpuLimit := GetCPULimit(cores)
+	//if domainSpec.Resources.Requests == nil {
+	//	domainSpec.Resources.Requests = make(map[corev1.ResourceName]resource.Quantity)
+	//}
+	//if domainSpec.Resources.Limits == nil {
+	//	domainSpec.Resources.Limits = make(map[corev1.ResourceName]resource.Quantity)
+	//}
+	//domainSpec.Resources.Requests[corev1.ResourceCPU] = *cpuRequest
+	//domainSpec.Resources.Limits[corev1.ResourceCPU] = *cpuLimit
 
-	domainSpec.CPU.Cores = uint32(coresNeeded)
-	domainSpec.CPU.Sockets = uint32(socketsNeeded)
-	domainSpec.CPU.MaxSockets = uint32(socketsNeeded)
+	socketsNeeded, coresPerSocketNeeded := vm.CalculateCoresAndSockets(cores)
+
+	// Use "dynamic cores" hotplug strategy.
+	// Workaround: swap cores and sockets in domainSpec to bypass vm-validator webhook.
+	b.SetKVVMIAnnotation(VCPUTopologyDynamicCoresAnnotation, "")
+	domainSpec.CPU.Cores = uint32(socketsNeeded)
+	domainSpec.CPU.Sockets = uint32(coresPerSocketNeeded)
+	domainSpec.CPU.MaxSockets = CPUMaxCoresPerSocket
 	return nil
 }
 
@@ -340,6 +362,40 @@ func isVMRunningWithMemoryResources(kvvm *virtv1.VirtualMachine) bool {
 	_, hasMemoryLimits := res.Limits[corev1.ResourceMemory]
 
 	return hasMemoryRequests && hasMemoryLimits
+}
+
+func GetCPUFraction(cpuFraction string) (int, error) {
+	if cpuFraction == "" {
+		return 100, nil
+	}
+	fraction := intstr.FromString(cpuFraction)
+	value, _, err := getIntOrPercentValueSafely(&fraction)
+	if err != nil {
+		return 0, fmt.Errorf("invalid value for cpu fraction: %v", err)
+	}
+	return value, nil
+}
+
+func getIntOrPercentValueSafely(intOrStr *intstr.IntOrString) (int, bool, error) {
+	switch intOrStr.Type {
+	case intstr.Int:
+		return intOrStr.IntValue(), false, nil
+	case intstr.String:
+		isPercent := false
+		s := intOrStr.StrVal
+		if strings.HasSuffix(s, "%") {
+			isPercent = true
+			s = strings.TrimSuffix(intOrStr.StrVal, "%")
+		} else {
+			return 0, false, fmt.Errorf("invalid type: string is not a percentage")
+		}
+		v, err := strconv.Atoi(s)
+		if err != nil {
+			return 0, false, fmt.Errorf("invalid value %q: %v", intOrStr.StrVal, err)
+		}
+		return int(v), isPercent, nil
+	}
+	return 0, false, fmt.Errorf("invalid type: neither int nor percentage")
 }
 
 func GetCPURequest(cores int, coreFraction string) (*resource.Quantity, error) {

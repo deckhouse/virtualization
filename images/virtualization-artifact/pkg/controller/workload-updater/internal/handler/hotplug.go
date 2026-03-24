@@ -56,7 +56,12 @@ func (h *HotplugHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachine
 	}
 
 	cond, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceMemoryChange, kvvmi.Status.Conditions)
-	if cond.Status != corev1.ConditionTrue {
+	isMemoryHotplug := cond.Status == corev1.ConditionTrue
+
+	cond, _ = conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceVCPUChange, kvvmi.Status.Conditions)
+	isCPUHotplug := cond.Status == corev1.ConditionTrue
+
+	if !isCPUHotplug && !isMemoryHotplug {
 		return reconcile.Result{}, nil
 	}
 
