@@ -36,7 +36,6 @@ import (
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
-	"github.com/deckhouse/virtualization-controller/pkg/version"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
@@ -219,10 +218,7 @@ var _ = Describe("LifecycleHandler", func() {
 		h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
 		_, err = h.Handle(ctx, vmop)
 
-		// In EE, TargetMigration feature gate is enabled by default.
-		// Therefore, even if targetMigrationEnabled false is passed in tests for non-EE versions,
-		// in EE it will behave as if it's true.
-		if targetMigrationEnabled || version.GetEdition() == version.EditionEE {
+		if targetMigrationEnabled {
 			Expect(err).NotTo(HaveOccurred())
 
 			vmim := &virtv1.VirtualMachineInstanceMigration{}
