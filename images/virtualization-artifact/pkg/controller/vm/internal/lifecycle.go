@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -314,10 +315,15 @@ func (h *LifeCycleHandler) getPodVolumeError(ctx context.Context, pod *corev1.Po
 		return nil
 	}
 
-	for _, e := range eventList.Items {
-		if e.Type == corev1.EventTypeWarning && (e.Reason == watcher.ReasonFailedAttachVolume || e.Reason == watcher.ReasonFailedMount) {
-			return fmt.Errorf("%s: %s", e.Reason, e.Message)
-		}
+	if len(eventList.Items) == 0 {
+		return nil
+	}
+
+	last := slices.MaxFunc(eventList.Items, func(a, b corev1.Event) int {
+		return a.LastTimestamp.Compare(b.LastTimestamp.Time)
+	})
+	if last.Reason == watcher.ReasonFailedAttachVolume || last.Reason == watcher.ReasonFailedMount {
+		return fmt.Errorf("%s: %s", last.Reason, last.Message)
 	}
 
 	return nil
