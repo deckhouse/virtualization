@@ -18,12 +18,16 @@ package usb
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/deckhouse/virtualization-dra/internal/featuregates"
 )
 
-func (s *AllocationStore) discoveryPluggedUSBDevices(ctx context.Context) (DeviceSet, DeviceSet, error) {
+func (s *AllocationStore) discoveryPluggedUSBDevices(ctx context.Context) (map[string]Device, DeviceSet, error) {
 	allUSBDevices := s.monitor.GetDevices()
 
 	busIDSet := make(map[string]struct{})
@@ -37,21 +41,46 @@ func (s *AllocationStore) discoveryPluggedUSBDevices(ctx context.Context) (Devic
 		}
 	}
 
-	usbDeviceSet := NewDeviceSet()
+	usbDeviceMap := make(map[string]Device)
 	usbipDeviceSet := NewDeviceSet()
 
 	for _, device := range allUSBDevices {
 		if _, ok := busIDSet[device.BusID]; ok {
 			usbipDeviceSet.Insert(toDevice(&device))
 		} else {
-			usbDeviceSet.Insert(toDevice(&device))
+			// usb device can be not exists in attach info because usbip detached it
+			// while it is still present in sysfs because vhci_hcd has not fully released it yet.
+			isUSBIPDevice, err := isUSBIPDevice(device.Path)
+			if err != nil {
+				if os.IsNotExist(err) {
+					continue
+				}
+				return nil, nil, fmt.Errorf("failed to check if usb device is usbip device: %w", err)
+			}
+			if isUSBIPDevice {
+				continue
+			}
+
+			dev := toDevice(&device)
+			usbDeviceMap[dev.GetName(s.nodeName)] = dev
 		}
 	}
 
 	if s.log.Enabled(ctx, slog.LevelDebug) {
-		s.log.Debug("USB device set", slog.Any("usbDeviceSet", usbDeviceSet.UnsortedList()))
+		s.log.Debug("USB device set", slog.Any("usbDeviceMap", usbDeviceMap))
 		s.log.Debug("USBIP device set", slog.Any("usbipDeviceSet", usbipDeviceSet.UnsortedList()))
 	}
 
-	return usbDeviceSet, usbipDeviceSet, nil
+	return usbDeviceMap, usbipDeviceSet, nil
+}
+
+func isUSBIPDevice(devPath string) (bool, error) {
+	realPath, err := filepath.EvalSymlinks(devPath)
+	if err != nil {
+		return false, err
+	}
+
+	realPath = filepath.Clean(realPath)
+
+	return strings.Contains(realPath, "vhci_hcd"), nil
 }

@@ -3,6 +3,15 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.6.2
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: March 23, 2026.
+</span>
+
+### Fixes
+
+- [module] The `virtualization` module requires Deckhouse Kubernetes Platform version 1.74.2 or later. This version includes a fix for quota validation when creating disks.
+
 ## v1.6.1
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: March 10, 2026.

@@ -312,11 +312,6 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 }
 
 func (h LifecycleHandler) isApplicableForLiveMigrationPolicy(vmop *v1alpha2.VirtualMachineOperation, vm *v1alpha2.VirtualMachine) (string, bool) {
-	// No problems if force flag is not specified.
-	if vmop.Spec.Force == nil {
-		return "", true
-	}
-
 	effectivePolicy, autoConverge, err := livemigration.CalculateEffectivePolicy(*vm, vmop)
 	if err != nil {
 		msg := fmt.Sprintf("Operation is invalid: %v", err)

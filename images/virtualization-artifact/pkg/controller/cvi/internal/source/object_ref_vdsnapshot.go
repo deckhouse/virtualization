@@ -34,7 +34,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
-	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -200,7 +199,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *v1alpha2.C
 			Message("PVC has created: waiting to be Bound.")
 
 		cvi.Status.Progress = "0%"
-		cvi.Status.SourceUID = pointer.GetPointer(vs.UID)
+		cvi.Status.SourceUID = ptr.To(vs.UID)
 
 		return reconcile.Result{RequeueAfter: time.Second}, err
 	case pod == nil:

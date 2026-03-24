@@ -90,6 +90,8 @@ type NodeUSBDeviceAttributes struct {
 	Major int `json:"major,omitempty"`
 	// Minor device number.
 	Minor int `json:"minor,omitempty"`
+	// Device speed.
+	Speed int `json:"speed,omitempty"`
 	// Device name.
 	Name string `json:"name,omitempty"`
 	// USB vendor ID in hexadecimal format.

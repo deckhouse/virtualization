@@ -22,11 +22,11 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
-	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 )
 
 // StartVM starts VM via adding change request to the KVVM status.
@@ -55,7 +55,7 @@ func StopVM(ctx context.Context, cl client.Client, kvvmi *virtv1.VirtualMachineI
 		return err
 	}
 	if force != nil && *force {
-		return kvvmutil.DeletePodByKVVMI(ctx, cl, kvvmi, &client.DeleteOptions{GracePeriodSeconds: pointer.GetPointer(int64(0))})
+		return kvvmutil.DeletePodByKVVMI(ctx, cl, kvvmi, &client.DeleteOptions{GracePeriodSeconds: ptr.To(int64(0))})
 	}
 	return nil
 }
@@ -85,7 +85,7 @@ func RestartVM(ctx context.Context, cl client.Client, kvvm *virtv1.VirtualMachin
 		return err
 	}
 	if force {
-		return kvvmutil.DeletePodByKVVMI(ctx, cl, kvvmi, &client.DeleteOptions{GracePeriodSeconds: pointer.GetPointer(int64(0))})
+		return kvvmutil.DeletePodByKVVMI(ctx, cl, kvvmi, &client.DeleteOptions{GracePeriodSeconds: ptr.To(int64(0))})
 	}
 	return nil
 }

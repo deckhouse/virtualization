@@ -33,7 +33,6 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -134,7 +133,7 @@ func (s CreatePersistentVolumeClaimStep) Take(ctx context.Context, vi *v1alpha2.
 	}
 
 	vi.Status.Progress = "0%"
-	vi.Status.SourceUID = pointer.GetPointer(vdSnapshot.UID)
+	vi.Status.SourceUID = ptr.To(vdSnapshot.UID)
 
 	return nil, nil
 }

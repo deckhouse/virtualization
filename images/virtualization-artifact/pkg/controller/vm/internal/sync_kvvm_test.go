@@ -23,11 +23,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
-	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
@@ -97,7 +97,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 				Template: &virtv1.VirtualMachineInstanceTemplateSpec{},
 			},
 		}
-		kvvm.Spec.RunStrategy = pointer.GetPointer(virtv1.RunStrategyAlways)
+		kvvm.Spec.RunStrategy = ptr.To(virtv1.RunStrategyAlways)
 
 		Expect(kvbuilder.SetLastAppliedSpec(kvvm, &v1alpha2.VirtualMachine{
 			Spec: v1alpha2.VirtualMachineSpec{

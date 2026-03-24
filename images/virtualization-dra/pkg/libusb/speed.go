@@ -23,6 +23,7 @@ const (
 	USBDeviceSpeedLow                             // usb 1.1
 	USBDeviceSpeedFull                            // usb 1.1
 	USBDeviceSpeedHigh                            // usb 2.0
+	USBDeviceSpeedWireless                        // usb 2.5
 	USBDeviceSpeedSuper                           // usb 3.0
 	USBDeviceSpeedSuperPlus                       // usb 3.1
 )
