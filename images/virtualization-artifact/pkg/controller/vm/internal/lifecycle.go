@@ -115,12 +115,17 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 			return reconcile.Result{}, nil
 		}
 
-		cb.Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonPodContainerCreating).
-			Message("Pod is in ContainerCreating phase. Check the pod for more details.")
-		conditions.SetCondition(cb, &changed.Status.Conditions)
-
-		return reconcile.Result{}, nil
+		isVMInContainerCreating, err := h.isVMInContainerCreatingState(ctx, changed, log)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		if isVMInContainerCreating {
+			cb.Status(metav1.ConditionFalse).
+				Reason(vmcondition.ReasonPodContainerCreating).
+				Message("Pod is in ContainerCreating phase. Check the pod for more details.")
+			conditions.SetCondition(cb, &changed.Status.Conditions)
+			return reconcile.Result{}, nil
+		}
 	}
 
 	h.syncRunning(ctx, changed, kvvm, kvvmi, pod, log)
@@ -232,6 +237,26 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 
 	cb.Reason(vmcondition.ReasonVirtualMachineNotRunning).Status(metav1.ConditionFalse)
 	conditions.SetCondition(cb, &vm.Status.Conditions)
+}
+
+func (h *LifeCycleHandler) isVMInContainerCreatingState(ctx context.Context, vm *v1alpha2.VirtualMachine, log *slog.Logger) (bool, error) {
+	var podList corev1.PodList
+	err := h.client.List(ctx, &podList, &client.ListOptions{
+		Namespace: vm.Namespace,
+		LabelSelector: labels.SelectorFromSet(map[string]string{
+			virtv1.VirtualMachineNameLabel: vm.Name,
+		}),
+	})
+	if err != nil {
+		log.Error("Failed to list pods", "error", err)
+		return false, err
+	}
+
+	if len(podList.Items) == 1 {
+		return isContainerCreating(&podList.Items[0]), nil
+	}
+
+	return false, nil
 }
 
 func (h *LifeCycleHandler) checkPodVolumeErrors(ctx context.Context, vm *v1alpha2.VirtualMachine, log *slog.Logger) error {
