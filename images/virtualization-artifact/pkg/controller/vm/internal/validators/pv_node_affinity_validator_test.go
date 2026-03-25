@@ -83,8 +83,8 @@ var _ = Describe("PVNodeAffinityValidator", func() {
 		return &v1alpha2.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: ns},
 			Spec: v1alpha2.VirtualMachineSpec{
-				BlockDeviceRefs:          refs,
-				VirtualMachineClassName:  "generic",
+				BlockDeviceRefs:         refs,
+				VirtualMachineClassName: "generic",
 			},
 			Status: v1alpha2.VirtualMachineStatus{Node: nodeName},
 		}
