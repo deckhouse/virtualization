@@ -20,23 +20,30 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	k8snodeaffinity "k8s.io/component-helpers/scheduling/corev1/nodeaffinity"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/nodeaffinity"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type PVNodeAffinityValidator struct {
+	client   client.Client
 	attacher *service.AttachmentService
 }
 
-func NewPVNodeAffinityValidator(attacher *service.AttachmentService) *PVNodeAffinityValidator {
-	return &PVNodeAffinityValidator{attacher: attacher}
+func NewPVNodeAffinityValidator(client client.Client, attacher *service.AttachmentService) *PVNodeAffinityValidator {
+	return &PVNodeAffinityValidator{client: client, attacher: attacher}
 }
 
-func (v *PVNodeAffinityValidator) ValidateCreate(_ context.Context, _ *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	return nil, nil
+func (v *PVNodeAffinityValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+	return v.validateUnscheduledVM(ctx, vm, vm.Spec.BlockDeviceRefs, "create")
 }
 
 func (v *PVNodeAffinityValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
@@ -44,10 +51,14 @@ func (v *PVNodeAffinityValidator) ValidateUpdate(ctx context.Context, oldVM, new
 		return nil, nil
 	}
 
-	if newVM.Status.Node == "" {
-		return nil, nil
+	if newVM.Status.Node != "" {
+		return v.validateScheduledVM(ctx, oldVM, newVM)
 	}
 
+	return v.validateUnscheduledVM(ctx, newVM, newVM.Spec.BlockDeviceRefs, "update")
+}
+
+func (v *PVNodeAffinityValidator) validateScheduledVM(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	kvvmi, err := v.attacher.GetKVVMI(ctx, newVM)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get KVVMI for VM %q: %w", newVM.Name, err)
@@ -58,13 +69,12 @@ func (v *PVNodeAffinityValidator) ValidateUpdate(ctx context.Context, oldVM, new
 
 	oldRefs := make(map[string]struct{}, len(oldVM.Spec.BlockDeviceRefs))
 	for _, ref := range oldVM.Spec.BlockDeviceRefs {
-		key := string(ref.Kind) + "/" + ref.Name
-		oldRefs[key] = struct{}{}
+		oldRefs[string(ref.Kind)+"/"+ref.Name] = struct{}{}
 	}
 
+	var incompatibleDisks []string
 	for _, ref := range newVM.Spec.BlockDeviceRefs {
-		key := string(ref.Kind) + "/" + ref.Name
-		if _, existed := oldRefs[key]; existed {
+		if _, existed := oldRefs[string(ref.Kind)+"/"+ref.Name]; existed {
 			continue
 		}
 
@@ -89,14 +99,97 @@ func (v *PVNodeAffinityValidator) ValidateUpdate(ctx context.Context, oldVM, new
 			return nil, fmt.Errorf("failed to check PV availability: %w", err)
 		}
 		if !available {
-			return nil, fmt.Errorf(
-				"unable to attach disk %q to VM %q: the disk is not available on node %q where the VM is running",
-				ref.Name, newVM.Name, newVM.Status.Node,
-			)
+			incompatibleDisks = append(incompatibleDisks, ref.Name)
 		}
 	}
 
+	if len(incompatibleDisks) > 0 {
+		return nil, fmt.Errorf(
+			`unable to attach disks to VM %q: disks ["%s"] are not available on node %q where the VM is running`,
+			newVM.Name, strings.Join(incompatibleDisks, `", "`), newVM.Status.Node,
+		)
+	}
+
 	return nil, nil
+}
+
+func (v *PVNodeAffinityValidator) validateUnscheduledVM(ctx context.Context, vm *v1alpha2.VirtualMachine, refs []v1alpha2.BlockDeviceSpecRef, action string) (admission.Warnings, error) {
+	pvSelectors, err := v.collectPVNodeSelectors(ctx, refs, vm.Namespace)
+	if err != nil {
+		return nil, err
+	}
+	if len(pvSelectors) == 0 {
+		return nil, nil
+	}
+
+	var vmClass v1alpha2.VirtualMachineClass
+	if err := v.client.Get(ctx, types.NamespacedName{Name: vm.Spec.VirtualMachineClassName}, &vmClass); err != nil {
+		return nil, nil
+	}
+
+	var nodeList corev1.NodeList
+	if err := v.client.List(ctx, &nodeList); err != nil {
+		return nil, fmt.Errorf("failed to list nodes: %w", err)
+	}
+
+	for i := range nodeList.Items {
+		node := &nodeList.Items[i]
+		if !nodeaffinity.MatchesVMPlacement(node, vm, &vmClass) {
+			continue
+		}
+		matchesAllPVs := true
+		for _, pvSel := range pvSelectors {
+			if !pvSel.Match(node) {
+				matchesAllPVs = false
+				break
+			}
+		}
+		if matchesAllPVs {
+			return nil, nil
+		}
+	}
+
+	return nil, fmt.Errorf(
+		`unable to %s VM %q due to a topology conflict. Ensure that all disks are accessible on the nodes in accordance with the VM node placement rules (node selector, affinity, tolerations)`,
+		action, vm.Name,
+	)
+}
+
+func (v *PVNodeAffinityValidator) collectPVNodeSelectors(ctx context.Context, refs []v1alpha2.BlockDeviceSpecRef, namespace string) ([]*k8snodeaffinity.NodeSelector, error) {
+	var selectors []*k8snodeaffinity.NodeSelector
+	for _, ref := range refs {
+		ad, err := v.resolveAttachmentDisk(ctx, ref, namespace)
+		if err != nil {
+			return nil, err
+		}
+		if ad == nil || ad.PVCName == "" {
+			continue
+		}
+
+		pvc, err := v.attacher.GetPersistentVolumeClaim(ctx, ad)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get PVC %q: %w", ad.PVCName, err)
+		}
+		if pvc == nil || pvc.Spec.VolumeName == "" {
+			continue
+		}
+
+		var pv corev1.PersistentVolume
+		if err := v.client.Get(ctx, types.NamespacedName{Name: pvc.Spec.VolumeName}, &pv); err != nil {
+			continue
+		}
+
+		if pv.Spec.NodeAffinity == nil || pv.Spec.NodeAffinity.Required == nil {
+			continue
+		}
+
+		ns, err := k8snodeaffinity.NewNodeSelector(pv.Spec.NodeAffinity.Required)
+		if err != nil {
+			continue
+		}
+		selectors = append(selectors, ns)
+	}
+	return selectors, nil
 }
 
 func (v *PVNodeAffinityValidator) resolveAttachmentDisk(ctx context.Context, ref v1alpha2.BlockDeviceSpecRef, namespace string) (*service.AttachmentDisk, error) {

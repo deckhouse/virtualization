@@ -37,12 +37,13 @@ var _ = Describe("PVNodeAffinityValidator", func() {
 		node2 = "node-2"
 	)
 
-	makeNode := func() *corev1.Node {
+	makeNode := func(name string, taint ...corev1.Taint) *corev1.Node {
 		return &corev1.Node{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:   node1,
-				Labels: map[string]string{"topology.kubernetes.io/node": node1},
+				Name:   name,
+				Labels: map[string]string{"topology.kubernetes.io/node": name},
 			},
+			Spec: corev1.NodeSpec{Taints: taint},
 		}
 	}
 
@@ -81,8 +82,17 @@ var _ = Describe("PVNodeAffinityValidator", func() {
 	makeVM := func(nodeName string, refs ...v1alpha2.BlockDeviceSpecRef) *v1alpha2.VirtualMachine {
 		return &v1alpha2.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: ns},
-			Spec:       v1alpha2.VirtualMachineSpec{BlockDeviceRefs: refs},
-			Status:     v1alpha2.VirtualMachineStatus{Node: nodeName},
+			Spec: v1alpha2.VirtualMachineSpec{
+				BlockDeviceRefs:          refs,
+				VirtualMachineClassName:  "generic",
+			},
+			Status: v1alpha2.VirtualMachineStatus{Node: nodeName},
+		}
+	}
+
+	makeVMClass := func() *v1alpha2.VirtualMachineClass {
+		return &v1alpha2.VirtualMachineClass{
+			ObjectMeta: metav1.ObjectMeta{Name: "generic"},
 		}
 	}
 
@@ -96,121 +106,189 @@ var _ = Describe("PVNodeAffinityValidator", func() {
 	makeValidator := func(objs ...client.Object) *validators.PVNodeAffinityValidator {
 		fakeClient := setupEnvironment(objs...)
 		attacher := service.NewAttachmentService(fakeClient, nil, "")
-		return validators.NewPVNodeAffinityValidator(attacher)
+		return validators.NewPVNodeAffinityValidator(fakeClient, attacher)
 	}
 
-	It("should allow when VM is not running (no node)", func() {
-		oldVM := makeVM("", v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"})
-		newVM := makeVM("",
-			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"},
-			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk2"},
-		)
-		v := makeValidator(oldVM)
-		_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
-		Expect(err).ShouldNot(HaveOccurred())
+	Context("scheduled VM", func() {
+		It("should allow when blockDeviceRefs unchanged", func() {
+			refs := []v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.DiskDevice, Name: "disk1"}}
+			oldVM := makeVM(node1, refs...)
+			newVM := makeVM(node1, refs...)
+			v := makeValidator(oldVM, makeNode(node1))
+			_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
+			Expect(err).ShouldNot(HaveOccurred())
+		})
+
+		It("should allow adding a network disk", func() {
+			oldVM := makeVM(node1, v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"})
+			newVM := makeVM(node1,
+				v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"},
+				v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "net-disk"},
+			)
+			v := makeValidator(
+				oldVM, makeNode(node1), makeKVVMI(),
+				makeVD("net-disk", "pvc-net"),
+				makePVC("pvc-net", "pv-net"),
+				makePV("pv-net"),
+			)
+			_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
+			Expect(err).ShouldNot(HaveOccurred())
+		})
+
+		It("should allow adding a local disk available on VM node", func() {
+			oldVM := makeVM(node1, v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"})
+			newVM := makeVM(node1,
+				v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"},
+				v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"},
+			)
+			v := makeValidator(
+				oldVM, makeNode(node1), makeKVVMI(),
+				makeVD("local-disk", "pvc-local"),
+				makePVC("pvc-local", "pv-local"),
+				makePV("pv-local", node1),
+			)
+			_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
+			Expect(err).ShouldNot(HaveOccurred())
+		})
+
+		It("should reject adding a local disk NOT available on VM node", func() {
+			oldVM := makeVM(node1, v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"})
+			newVM := makeVM(node1,
+				v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"},
+				v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"},
+			)
+			v := makeValidator(
+				oldVM, makeNode(node1), makeKVVMI(),
+				makeVD("local-disk", "pvc-local"),
+				makePVC("pvc-local", "pv-local"),
+				makePV("pv-local", node2),
+			)
+			_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
+			Expect(err).Should(HaveOccurred())
+			Expect(err.Error()).Should(ContainSubstring("unable to attach disks"))
+			Expect(err.Error()).Should(ContainSubstring("local-disk"))
+		})
+
+		It("should list all incompatible disks in error message", func() {
+			oldVM := makeVM(node1)
+			newVM := makeVM(node1,
+				v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "bad-1"},
+				v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "bad-2"},
+			)
+			v := makeValidator(
+				oldVM, makeNode(node1), makeKVVMI(),
+				makeVD("bad-1", "pvc-1"), makePVC("pvc-1", "pv-1"), makePV("pv-1", node2),
+				makeVD("bad-2", "pvc-2"), makePVC("pvc-2", "pv-2"), makePV("pv-2", node2),
+			)
+			_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
+			Expect(err).Should(HaveOccurred())
+			Expect(err.Error()).Should(ContainSubstring("bad-1"))
+			Expect(err.Error()).Should(ContainSubstring("bad-2"))
+		})
+
+		It("should allow adding a disk with pending PVC", func() {
+			oldVM := makeVM(node1)
+			newVM := makeVM(node1,
+				v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "new-disk"},
+			)
+			v := makeValidator(
+				oldVM, makeNode(node1), makeKVVMI(),
+				makeVD("new-disk", "pvc-pending"),
+				&corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{Name: "pvc-pending", Namespace: ns},
+				},
+			)
+			_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
+			Expect(err).ShouldNot(HaveOccurred())
+		})
 	})
 
-	It("should allow when blockDeviceRefs unchanged", func() {
-		refs := []v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.DiskDevice, Name: "disk1"}}
-		oldVM := makeVM(node1, refs...)
-		newVM := makeVM(node1, refs...)
-		v := makeValidator(oldVM, makeNode())
-		_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
-		Expect(err).ShouldNot(HaveOccurred())
-	})
+	Context("unscheduled VM", func() {
+		It("should allow create when topology is compatible", func() {
+			vm := makeVM("",
+				v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"},
+			)
+			v := makeValidator(
+				vm, makeNode(node1), makeVMClass(),
+				makeVD("local-disk", "pvc-local"),
+				makePVC("pvc-local", "pv-local"),
+				makePV("pv-local", node1),
+			)
+			_, err := v.ValidateCreate(testutil.ContextBackgroundWithNoOpLogger(), vm)
+			Expect(err).ShouldNot(HaveOccurred())
+		})
 
-	It("should allow adding a network disk (PV without nodeAffinity)", func() {
-		oldVM := makeVM(node1, v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"})
-		newVM := makeVM(node1,
-			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"},
-			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "net-disk"},
-		)
-		v := makeValidator(
-			oldVM, makeNode(), makeKVVMI(),
-			makeVD("net-disk", "pvc-net"),
-			makePVC("pvc-net", "pv-net"),
-			makePV("pv-net"),
-		)
-		_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
-		Expect(err).ShouldNot(HaveOccurred())
-	})
+		It("should reject create when no node satisfies all constraints", func() {
+			vm := makeVM("",
+				v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk-a"},
+				v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk-b"},
+			)
+			v := makeValidator(
+				vm, makeNode(node1), makeNode(node2), makeVMClass(),
+				makeVD("disk-a", "pvc-a"), makePVC("pvc-a", "pv-a"), makePV("pv-a", node1),
+				makeVD("disk-b", "pvc-b"), makePVC("pvc-b", "pv-b"), makePV("pv-b", node2),
+			)
+			_, err := v.ValidateCreate(testutil.ContextBackgroundWithNoOpLogger(), vm)
+			Expect(err).Should(HaveOccurred())
+			Expect(err.Error()).Should(ContainSubstring("unable to create"))
+			Expect(err.Error()).Should(ContainSubstring("topology conflict"))
+		})
 
-	It("should allow adding a local disk available on VM node", func() {
-		oldVM := makeVM(node1, v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"})
-		newVM := makeVM(node1,
-			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"},
-			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"},
-		)
-		v := makeValidator(
-			oldVM, makeNode(), makeKVVMI(),
-			makeVD("local-disk", "pvc-local"),
-			makePVC("pvc-local", "pv-local"),
-			makePV("pv-local", node1),
-		)
-		_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
-		Expect(err).ShouldNot(HaveOccurred())
-	})
+		It("should reject update when no node satisfies all constraints", func() {
+			oldVM := makeVM("")
+			newVM := makeVM("",
+				v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk-a"},
+				v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk-b"},
+			)
+			v := makeValidator(
+				newVM, makeNode(node1), makeNode(node2), makeVMClass(),
+				makeVD("disk-a", "pvc-a"), makePVC("pvc-a", "pv-a"), makePV("pv-a", node1),
+				makeVD("disk-b", "pvc-b"), makePVC("pvc-b", "pv-b"), makePV("pv-b", node2),
+			)
+			_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
+			Expect(err).Should(HaveOccurred())
+			Expect(err.Error()).Should(ContainSubstring("unable to update"))
+		})
 
-	It("should reject adding a local disk NOT available on VM node", func() {
-		oldVM := makeVM(node1, v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"})
-		newVM := makeVM(node1,
-			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"},
-			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"},
-		)
-		v := makeValidator(
-			oldVM, makeNode(), makeKVVMI(),
-			makeVD("local-disk", "pvc-local"),
-			makePVC("pvc-local", "pv-local"),
-			makePV("pv-local", node2),
-		)
-		_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
-		Expect(err).Should(HaveOccurred())
-		Expect(err.Error()).Should(ContainSubstring("unable to attach disk"))
-		Expect(err.Error()).Should(ContainSubstring("local-disk"))
-	})
+		It("should allow when disks have no PV nodeAffinity (network storage)", func() {
+			vm := makeVM("",
+				v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "net-disk"},
+			)
+			v := makeValidator(
+				vm, makeNode(node1), makeVMClass(),
+				makeVD("net-disk", "pvc-net"),
+				makePVC("pvc-net", "pv-net"),
+				makePV("pv-net"),
+			)
+			_, err := v.ValidateCreate(testutil.ContextBackgroundWithNoOpLogger(), vm)
+			Expect(err).ShouldNot(HaveOccurred())
+		})
 
-	It("should allow adding a disk with pending PVC (WFFC, no PV yet)", func() {
-		oldVM := makeVM(node1)
-		newVM := makeVM(node1,
-			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "new-disk"},
-		)
-		pvcPending := &corev1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{Name: "pvc-pending", Namespace: ns},
-			Spec:       corev1.PersistentVolumeClaimSpec{},
-		}
-		v := makeValidator(
-			oldVM, makeNode(), makeKVVMI(),
-			makeVD("new-disk", "pvc-pending"),
-			pvcPending,
-		)
-		_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
-		Expect(err).ShouldNot(HaveOccurred())
-	})
-
-	It("should reject when any of multiple new disks is incompatible", func() {
-		oldVM := makeVM(node1)
-		newVM := makeVM(node1,
-			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "good-disk"},
-			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "bad-disk"},
-		)
-		v := makeValidator(
-			oldVM, makeNode(), makeKVVMI(),
-			makeVD("good-disk", "pvc-good"),
-			makePVC("pvc-good", "pv-good"),
-			makePV("pv-good", node1),
-			makeVD("bad-disk", "pvc-bad"),
-			makePVC("pvc-bad", "pv-bad"),
-			makePV("pv-bad", node2),
-		)
-		_, err := v.ValidateUpdate(testutil.ContextBackgroundWithNoOpLogger(), oldVM, newVM)
-		Expect(err).Should(HaveOccurred())
-		Expect(err.Error()).Should(ContainSubstring("bad-disk"))
-	})
-
-	It("should allow on create (VM not running yet)", func() {
-		vm := makeVM("", v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "disk1"})
-		v := makeValidator(vm)
-		_, err := v.ValidateCreate(testutil.ContextBackgroundWithNoOpLogger(), vm)
-		Expect(err).ShouldNot(HaveOccurred())
+		It("should reject when PV node conflicts with VMClass nodeSelector", func() {
+			vm := makeVM("",
+				v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"},
+			)
+			vmClass := &v1alpha2.VirtualMachineClass{
+				ObjectMeta: metav1.ObjectMeta{Name: "generic"},
+				Spec: v1alpha2.VirtualMachineClassSpec{
+					NodeSelector: v1alpha2.NodeSelector{
+						MatchExpressions: []corev1.NodeSelectorRequirement{{
+							Key:      "topology.kubernetes.io/node",
+							Operator: corev1.NodeSelectorOpIn,
+							Values:   []string{node2},
+						}},
+					},
+				},
+			}
+			v := makeValidator(
+				vm, makeNode(node1), makeNode(node2), vmClass,
+				makeVD("local-disk", "pvc-local"),
+				makePVC("pvc-local", "pv-local"),
+				makePV("pv-local", node1), // disk on node1, class requires node2
+			)
+			_, err := v.ValidateCreate(testutil.ContextBackgroundWithNoOpLogger(), vm)
+			Expect(err).Should(HaveOccurred())
+			Expect(err.Error()).Should(ContainSubstring("topology conflict"))
+		})
 	})
 })
