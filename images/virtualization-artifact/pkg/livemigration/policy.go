@@ -39,15 +39,18 @@ func AutoConvergeForPolicy(policy v1alpha2.LiveMigrationPolicy) (autoConverge *b
 // Also, autoConverge value may be overridden from VMOP.
 func CalculateEffectivePolicy(vm v1alpha2.VirtualMachine, vmop *v1alpha2.VirtualMachineOperation) (effectivePolicy v1alpha2.LiveMigrationPolicy, autoConverge bool, err error) {
 	effectivePolicy = config.DefaultLiveMigrationPolicy
+	overridePolicy, hasSystemOverride := config.GetSystemMigrationPolicyOverride()
 
-	if vm.Spec.LiveMigrationPolicy != "" {
+	if hasSystemOverride {
+		effectivePolicy = overridePolicy
+	} else if vm.Spec.LiveMigrationPolicy != "" {
 		effectivePolicy = vm.Spec.LiveMigrationPolicy
 	}
 
 	autoConvergePtr := AutoConvergeForPolicy(effectivePolicy)
 
-	// Override autoConverge value.
-	if vmop != nil {
+	// VMOP force may override autoConverge only when system override is not set.
+	if vmop != nil && !hasSystemOverride {
 		switch effectivePolicy {
 		case v1alpha2.PreferSafeMigrationPolicy,
 			v1alpha2.PreferForcedMigrationPolicy:
