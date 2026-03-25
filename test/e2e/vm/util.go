@@ -129,13 +129,11 @@ func untilVirtualDisksMigrationsSucceeded(f *framework.Framework) {
 	GinkgoHelper()
 
 	By("Wait until VirtualDisks migrations succeeded")
-	Eventually(func() error {
+	Eventually(func(g Gomega) {
 		e2eutil.SkipIfVDMigrationReverted(f.Namespace().Name)
 
 		vms, err := f.VirtClient().VirtualMachines(f.Namespace().Name).List(context.Background(), metav1.ListOptions{})
-		if err != nil {
-			return err
-		}
+		g.Expect(err).NotTo(HaveOccurred())
 		for _, vm := range vms.Items {
 			// TODO: remove temporary migration skip logic when both known issues are fixed:
 			// kubevirt "client socket is closed" and Volume(s)UpdateError.
@@ -143,47 +141,22 @@ func untilVirtualDisksMigrationsSucceeded(f *framework.Framework) {
 		}
 
 		vds, err := f.VirtClient().VirtualDisks(f.Namespace().Name).List(context.Background(), metav1.ListOptions{})
-		if err != nil {
-			return err
-		}
+		g.Expect(err).NotTo(HaveOccurred())
 
-		if len(vds.Items) == 0 {
-			return fmt.Errorf("virtual disk list is empty")
-		}
+		g.Expect(vds.Items).ShouldNot(BeEmpty())
 		for _, vd := range vds.Items {
-			if vd.Status.Phase != v1alpha2.DiskReady {
-				return fmt.Errorf("vd %s phase is %s, expected %s", vd.Name, vd.Status.Phase, v1alpha2.DiskReady)
-			}
-			if vd.Status.Target.PersistentVolumeClaim == "" {
-				return fmt.Errorf("vd %s target pvc is empty", vd.Name)
-			}
+			g.Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskReady))
+			g.Expect(vd.Status.Target.PersistentVolumeClaim).ShouldNot(BeEmpty())
 
 			if vd.Status.MigrationState.StartTimestamp.IsZero() {
 				// Skip the disks that are not migrated
 				continue
 			}
 
-			if vd.Status.MigrationState.EndTimestamp.IsZero() {
-				return fmt.Errorf("migration is not ended for vd %s", vd.Name)
-			}
-			if vd.Status.Target.PersistentVolumeClaim != vd.Status.MigrationState.TargetPVC {
-				return fmt.Errorf(
-					"vd %s target pvc mismatch: current=%s migration-target=%s",
-					vd.Name,
-					vd.Status.Target.PersistentVolumeClaim,
-					vd.Status.MigrationState.TargetPVC,
-				)
-			}
-			if vd.Status.MigrationState.Result != v1alpha2.VirtualDiskMigrationResultSucceeded {
-				return fmt.Errorf(
-					"vd %s migration result is %s, expected %s",
-					vd.Name,
-					vd.Status.MigrationState.Result,
-					v1alpha2.VirtualDiskMigrationResultSucceeded,
-				)
-			}
+			g.Expect(vd.Status.MigrationState.EndTimestamp.IsZero()).Should(BeFalse(), "migration is not ended for vd %s", vd.Name)
+			g.Expect(vd.Status.Target.PersistentVolumeClaim).To(Equal(vd.Status.MigrationState.TargetPVC))
+			g.Expect(vd.Status.MigrationState.Result).To(Equal(v1alpha2.VirtualDiskMigrationResultSucceeded))
 		}
-		return nil
 	}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
 }
 
