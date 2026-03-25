@@ -80,8 +80,8 @@ func SetupController(
 		internal.NewSyncPowerStateHandler(client, recorder),
 		internal.NewSyncMetadataHandler(client),
 		internal.NewLifeCycleHandler(client, recorder),
-		internal.NewMigratingHandler(migrateVolumesService),
 		internal.NewFirmwareHandler(firmwareImage),
+		internal.NewMigratingHandler(migrateVolumesService),
 		internal.NewEvictHandler(),
 		internal.NewStatisticHandler(client),
 	}
