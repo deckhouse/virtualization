@@ -603,12 +603,8 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 	log.Debug("Source PersistentVolumeClaim was deleted", slog.String("pvc.name", vd.Status.MigrationState.SourcePVC), slog.String("pvc.namespace", vd.Namespace))
 
 	// Remove quota override label from target PVC.
-	if targetPVC.Labels != nil {
-		original := targetPVC.DeepCopy()
-		delete(targetPVC.Labels, annotations.QuotaExcludeLabel)
-		if err := h.client.Patch(ctx, targetPVC, client.MergeFrom(original)); err != nil && !k8serrors.IsNotFound(err) {
-			return fmt.Errorf("remove quota override label from target PVC: %w", err)
-		}
+	if err := object.RemoveLabel(ctx, h.client, targetPVC, annotations.QuotaExcludeLabel); err != nil && !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("remove quota override label from target PVC: %w", err)
 	}
 
 	if sc := vd.Spec.PersistentVolumeClaim.StorageClass; sc != nil && *sc != "" {
