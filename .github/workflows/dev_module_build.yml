@@ -455,6 +455,9 @@ jobs:
             await e2eStatus.setInitialStatus({github, context, core});
 
   cve_scan_on_pr:
+    permissions:
+      contents: read
+      id-token: write
     name: Trivy images check
     runs-on: ${{ fromJSON(needs.set_vars.outputs.runner_type)}}
     needs:
