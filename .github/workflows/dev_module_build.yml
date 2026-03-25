@@ -462,20 +462,54 @@ jobs:
       - dev_setup_build
     steps:
       - uses: actions/checkout@v4
-      - uses: deckhouse/modules-actions/cve_scan@v6
+
+      - name: Split repository name
+        id: split
+        env:
+          REPO: ${{ github.repository }}
+        run: echo "name=${REPO##*/}" >> $GITHUB_OUTPUT
+
+      - name: Import secrets
+        id: secrets
+        uses: hashicorp/vault-action@v2
+        with:
+          url: https://seguro.flant.com
+          path: github
+          role: "${{ steps.split.outputs.name }}"
+          method: jwt
+          jwtGithubAudience: github-access-aud
+          secrets: |
+            projects/data/101ceaca-97cd-462f-aed5-070d9b9de175/registry_host DECKHOUSE_DEV_REGISTRY_HOST | DECKHOUSE_DEV_REGISTRY_HOST ;
+            projects/data/101ceaca-97cd-462f-aed5-070d9b9de175/dev-registry/writetoken login | DECKHOUSE_DEV_REGISTRY_USER ;
+            projects/data/101ceaca-97cd-462f-aed5-070d9b9de175/dev-registry/writetoken password | DECKHOUSE_DEV_REGISTRY_PASSWORD ;
+            projects/data/101ceaca-97cd-462f-aed5-070d9b9de175/registry_host DECKHOUSE_READ_REGISTRY_HOST | PROD_READ_REGISTRY ;
+            projects/data/101ceaca-97cd-462f-aed5-070d9b9de175/ssdlc-registry-read-license login | PROD_READ_REGISTRY_USER ;
+            projects/data/101ceaca-97cd-462f-aed5-070d9b9de175/ssdlc-registry-read-license password | PROD_READ_REGISTRY_PASSWORD ;
+            projects/data/24cb1d7c-717a-4f92-8547-26f632916a7a/Trivy_CVE_Scan_CI_Secrets DD_TOKEN | DD_TOKEN ;
+            projects/data/24cb1d7c-717a-4f92-8547-26f632916a7a/Trivy_CVE_Scan_CI_Secrets DD_URL | DD_URL ;
+            projects/data/24cb1d7c-717a-4f92-8547-26f632916a7a/Trivy_CVE_Scan_CI_Secrets CVE_TEST_SSH_PRIVATE_KEY | CVE_TEST_SSH_PRIVATE_KEY ;
+            projects/data/24cb1d7c-717a-4f92-8547-26f632916a7a/Trivy_CVE_Scan_CI_Secrets CVE_TEST_REPO_GIT | CVE_TEST_REPO_GIT ;
+            projects/data/24cb1d7c-717a-4f92-8547-26f632916a7a/Trivy_CVE_Scan_CI_Secrets DECKHOUSE_PRIVATE_REPO | DECKHOUSE_PRIVATE_REPO ;
+            projects/data/b050f3bd-733f-4746-9640-9df80d484074/CODEOWNERS_REPO_TOKEN CODEOWNERS_REPO_TOKEN | CODEOWNERS_REPO_TOKEN ;
+
+      - uses: deckhouse/modules-actions/cve_scan@v11
         with:
           tag: ${{needs.set_vars.outputs.modules_module_tag}}
-          tag_type: dev
-          module_name: ${{ vars.MODULE_NAME }}
-          dd_url: ${{vars.DEFECTDOJO_HOST}}
-          dd_token: ${{secrets.DEFECTDOJO_API_TOKEN}}
-          prod_registry: ${{vars.TRIVY_REGISTRY}}
-          prod_registry_user: ${{ secrets.PROD_READ_REGISTRY_USER }}
-          prod_registry_password: ${{ secrets.PROD_READ_REGISTRY_PASSWORD }}
-          dev_registry: ${{ vars.DEV_REGISTRY }}
-          dev_registry_user: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
-          dev_registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
-          deckhouse_private_repo: ${{vars.DECKHOUSE_PRIVATE_REPO}}
+          case: "External Modules"
+          external_module_name: ${{ vars.MODULE_NAME }}
+          dd_url: ${{ steps.secrets.outputs.DD_URL }}
+          dd_token: ${{ steps.secrets.outputs.DD_TOKEN }}
+          prod_registry: ${{ steps.secrets.outputs.PROD_READ_REGISTRY }}
+          prod_registry_user: ${{ steps.secrets.outputs.PROD_READ_REGISTRY_USER }}
+          prod_registry_password: ${{ steps.secrets.outputs.PROD_READ_REGISTRY_PASSWORD }}
+          dev_registry: ${{ steps.secrets.outputs.DECKHOUSE_DEV_REGISTRY_HOST }}
+          dev_registry_user: ${{ steps.secrets.outputs.DECKHOUSE_DEV_REGISTRY_USER }}
+          dev_registry_password: ${{ steps.secrets.outputs.DECKHOUSE_DEV_REGISTRY_PASSWORD }}
+          deckhouse_private_repo: ${{ steps.secrets.outputs.DECKHOUSE_PRIVATE_REPO }}
+          codeowners_repo_token: ${{ steps.secrets.outputs.CODEOWNERS_REPO_TOKEN }}
+          cve_test_repo_git: ${{ steps.secrets.outputs.CVE_TEST_REPO_GIT }}
+          cve_ssh_private_key: ${{ steps.secrets.outputs.CVE_TEST_SSH_PRIVATE_KEY }}
+          trivy_reports_log_output: "1"
 
   analyze_build:
     if: ${{ github.event.inputs.svace_enabled == 'true' || contains(github.event.pull_request.labels.*.name, 'analyze/svace') }}
