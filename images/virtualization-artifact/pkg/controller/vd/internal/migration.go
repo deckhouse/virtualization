@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	pvcspec "github.com/deckhouse/virtualization-controller/pkg/common/pvc"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
@@ -594,6 +595,17 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 	}
 
 	log.Info("Complete migration. Delete source PersistentVolumeClaim", slog.String("pvc.name", vd.Status.MigrationState.SourcePVC), slog.String("pvc.namespace", vd.Namespace))
+
+	// Remove quota override label from target PVC before deleting source PVC.
+	// During migration, the quota would be x2 for a short time, but that's expected.
+	// The main goal is to avoid x0 quota.
+	if targetPVC.Labels != nil {
+		delete(targetPVC.Labels, annotations.QuotaExcludeLabel)
+	}
+	if err := h.client.Update(ctx, targetPVC); err != nil && !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("remove quota override label from target PVC: %w", err)
+	}
+
 	err = h.deleteSourcePersistentVolumeClaim(ctx, vd)
 	if err != nil {
 		return err
@@ -661,6 +673,8 @@ func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context,
 			corev1.PersistentVolumeClaimSpec{},
 		),
 	}
+
+	annotations.AddLabel(pvc, annotations.QuotaExcludeLabel, annotations.QuotaExcludeValue)
 
 	err = h.client.Create(ctx, pvc)
 	return pvc, err
