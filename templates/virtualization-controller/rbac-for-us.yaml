@@ -110,6 +110,12 @@ rules:
   - create
   - patch
 - apiGroups:
+  - deckhouse.io
+  resources:
+  - moduleconfigs
+  verbs:
+  - get
+- apiGroups:
   - cdi.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationdatavolumes
