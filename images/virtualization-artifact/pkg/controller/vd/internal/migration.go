@@ -604,10 +604,11 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 
 	// Remove quota override label from target PVC.
 	if targetPVC.Labels != nil {
+		original := targetPVC.DeepCopy()
 		delete(targetPVC.Labels, annotations.QuotaExcludeLabel)
-	}
-	if err := h.client.Update(ctx, targetPVC); err != nil && !k8serrors.IsNotFound(err) {
-		return fmt.Errorf("remove quota override label from target PVC: %w", err)
+		if err := h.client.Patch(ctx, targetPVC, client.MergeFrom(original)); err != nil && !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("remove quota override label from target PVC: %w", err)
+		}
 	}
 
 	if sc := vd.Spec.PersistentVolumeClaim.StorageClass; sc != nil && *sc != "" {
