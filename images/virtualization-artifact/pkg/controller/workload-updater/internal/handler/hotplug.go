@@ -18,6 +18,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -81,5 +82,5 @@ func (h *HotplugHandler) Name() string {
 }
 
 func getHotplugResourcesSum(vm *v1alpha2.VirtualMachine) string {
-	return vm.Spec.Memory.Size.String()
+	return fmt.Sprintf("cpu.cores=%d,memory.size=%s", vm.Spec.CPU.Cores, vm.Spec.Memory.Size.String())
 }
