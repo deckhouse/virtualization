@@ -596,9 +596,7 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 
 	log.Info("Complete migration. Delete source PersistentVolumeClaim", slog.String("pvc.name", vd.Status.MigrationState.SourcePVC), slog.String("pvc.namespace", vd.Namespace))
 
-	// Remove quota override label from target PVC before deleting source PVC.
-	// During migration, the quota would be x2 for a short time, but that's expected.
-	// The main goal is to avoid x0 quota.
+	// Remove quota override label before deleting source PVC.
 	if targetPVC.Labels != nil {
 		delete(targetPVC.Labels, annotations.QuotaExcludeLabel)
 	}
@@ -667,14 +665,15 @@ func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context,
 			OwnerReferences: []metav1.OwnerReference{
 				service.MakeControllerOwnerReference(vd),
 			},
+			Labels: map[string]string{
+				annotations.QuotaExcludeLabel: annotations.QuotaExcludeValue,
+			},
 		},
 		Spec: ptr.Deref(
 			pvcspec.CreateSpec(&sc.Name, size, accessMode, volumeMode),
 			corev1.PersistentVolumeClaimSpec{},
 		),
 	}
-
-	annotations.AddLabel(pvc, annotations.QuotaExcludeLabel, annotations.QuotaExcludeValue)
 
 	err = h.client.Create(ctx, pvc)
 	return pvc, err
