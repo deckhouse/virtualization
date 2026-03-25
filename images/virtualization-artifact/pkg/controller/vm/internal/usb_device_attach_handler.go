@@ -164,7 +164,7 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 		}
 
 		// 4) Check free USBIP ports for new attachments from other nodes.
-		if usbDevice.Status.NodeName != "" && usbDevice.Status.NodeName != vm.Status.Node {
+		if usbDevice.Status.NodeName != "" && vm.Status.Node != "" && usbDevice.Status.NodeName != vm.Status.Node {
 			node := &corev1.Node{}
 			if err := h.client.Get(ctx, client.ObjectKey{Name: vm.Status.Node}, node); err != nil {
 				if !apierrors.IsNotFound(err) {
