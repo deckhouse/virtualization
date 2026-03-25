@@ -422,6 +422,12 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 		return errors.New("the target PersistentVolumeClaim name matched the source PersistentVolumeClaim name, please report a bug")
 	}
 
+	// Add quota override label to source PVC after target is created (prevents x0 quota).
+	sourcePVCName := vd.Status.Target.PersistentVolumeClaim
+	if err := h.addQuotaOverrideLabelToPVC(ctx, sourcePVCName, vd.Namespace); err != nil {
+		return fmt.Errorf("add quota override label to source PVC: %w", err)
+	}
+
 	vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{
 		SourcePVC:      vd.Status.Target.PersistentVolumeClaim,
 		TargetPVC:      pvc.Name,
@@ -544,6 +550,11 @@ func (h MigrationHandler) handleRevert(ctx context.Context, vd *v1alpha2.Virtual
 	}
 	log.Debug("Target PersistentVolumeClaim was deleted", slog.String("pvc.name", vd.Status.MigrationState.TargetPVC), slog.String("pvc.namespace", vd.Namespace))
 
+	// Remove quota override label from source PVC.
+	if err := h.removeQuotaOverrideLabelFromPVC(ctx, vd.Status.MigrationState.SourcePVC, vd.Namespace); err != nil {
+		return fmt.Errorf("remove quota override label from source PVC: %w", err)
+	}
+
 	vd.Status.MigrationState.EndTimestamp = metav1.Now()
 	vd.Status.MigrationState.Result = v1alpha2.VirtualDiskMigrationResultFailed
 	vd.Status.MigrationState.Message = "Migration reverted."
@@ -565,6 +576,12 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 	// revert old PVC and remove migration condition.
 	if targetPVC == nil {
 		log.Info("Target PersistentVolumeClaim is not found. Revert old PersistentVolumeClaim and remove migration condition.", slog.String("pvc.name", vd.Status.MigrationState.TargetPVC), slog.String("pvc.namespace", vd.Namespace))
+
+		// Remove quota override label from source PVC.
+		if err := h.removeQuotaOverrideLabelFromPVC(ctx, vd.Status.MigrationState.SourcePVC, vd.Namespace); err != nil {
+			return fmt.Errorf("remove quota override label from source PVC: %w", err)
+		}
+
 		vd.Status.MigrationState.EndTimestamp = metav1.Now()
 		vd.Status.MigrationState.Result = v1alpha2.VirtualDiskMigrationResultFailed
 		vd.Status.MigrationState.Message = "Migration failed: target PVC is not found."
@@ -585,6 +602,11 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 		}
 		log.Debug("Target PersistentVolumeClaim was deleted", slog.String("pvc.name", vd.Status.MigrationState.TargetPVC), slog.String("pvc.namespace", vd.Namespace))
 
+		// Remove quota override label from source PVC.
+		if err := h.removeQuotaOverrideLabelFromPVC(ctx, vd.Status.MigrationState.SourcePVC, vd.Namespace); err != nil {
+			return fmt.Errorf("remove quota override label from source PVC: %w", err)
+		}
+
 		vd.Status.MigrationState.EndTimestamp = metav1.Now()
 		vd.Status.MigrationState.Result = v1alpha2.VirtualDiskMigrationResultFailed
 		vd.Status.MigrationState.Message = "Migration failed: target PVC is not bound."
@@ -601,15 +623,6 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 		return err
 	}
 	log.Debug("Source PersistentVolumeClaim was deleted", slog.String("pvc.name", vd.Status.MigrationState.SourcePVC), slog.String("pvc.namespace", vd.Namespace))
-
-	// Remove quota override label from target PVC.
-	if targetPVC.Labels != nil {
-		original := targetPVC.DeepCopy()
-		delete(targetPVC.Labels, annotations.QuotaExcludeLabel)
-		if err := h.client.Patch(ctx, targetPVC, client.MergeFrom(original)); err != nil && !k8serrors.IsNotFound(err) {
-			return fmt.Errorf("remove quota override label from target PVC: %w", err)
-		}
-	}
 
 	if sc := vd.Spec.PersistentVolumeClaim.StorageClass; sc != nil && *sc != "" {
 		vd.Status.StorageClassName = *sc
@@ -666,9 +679,6 @@ func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context,
 			OwnerReferences: []metav1.OwnerReference{
 				service.MakeControllerOwnerReference(vd),
 			},
-			Labels: map[string]string{
-				annotations.QuotaExcludeLabel: annotations.QuotaExcludeValue,
-			},
 		},
 		Spec: ptr.Deref(
 			pvcspec.CreateSpec(&sc.Name, size, accessMode, volumeMode),
@@ -678,6 +688,43 @@ func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context,
 
 	err = h.client.Create(ctx, pvc)
 	return pvc, err
+}
+
+func (h MigrationHandler) addQuotaOverrideLabelToPVC(ctx context.Context, pvcName, namespace string) error {
+	pvc := &corev1.PersistentVolumeClaim{}
+	if err := h.client.Get(ctx, types.NamespacedName{Name: pvcName, Namespace: namespace}, pvc); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	original := pvc.DeepCopy()
+	if pvc.Labels == nil {
+		pvc.Labels = make(map[string]string)
+	}
+	pvc.Labels[annotations.QuotaExcludeLabel] = annotations.QuotaExcludeValue
+
+	return h.client.Patch(ctx, pvc, client.MergeFrom(original))
+}
+
+func (h MigrationHandler) removeQuotaOverrideLabelFromPVC(ctx context.Context, pvcName, namespace string) error {
+	pvc := &corev1.PersistentVolumeClaim{}
+	if err := h.client.Get(ctx, types.NamespacedName{Name: pvcName, Namespace: namespace}, pvc); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	if pvc.Labels == nil {
+		return nil
+	}
+
+	original := pvc.DeepCopy()
+	delete(pvc.Labels, annotations.QuotaExcludeLabel)
+
+	return h.client.Patch(ctx, pvc, client.MergeFrom(original))
 }
 
 func (h MigrationHandler) getTargetPersistentVolumeClaim(ctx context.Context, vd *v1alpha2.VirtualDisk) (*corev1.PersistentVolumeClaim, error) {
