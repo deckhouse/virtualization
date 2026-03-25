@@ -497,7 +497,7 @@ jobs:
 
       - uses: deckhouse/modules-actions/cve_scan@v11
         with:
-          tag: ${{needs.set_vars.outputs.modules_module_tag}}
+          source_tag: ${{needs.set_vars.outputs.modules_module_tag}}
           case: "External Modules"
           external_module_name: ${{ vars.MODULE_NAME }}
           dd_url: ${{ steps.secrets.outputs.DD_URL }}
