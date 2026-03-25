@@ -98,6 +98,23 @@ func (h *usbDeviceHandlerBase) hostDeviceReadyByName(kvvmi *virtv1.VirtualMachin
 	return hostDeviceReadyByName
 }
 
+func (h *usbDeviceHandlerBase) hostDeviceExistsByName(kvvmi *virtv1.VirtualMachineInstance) map[string]bool {
+	hostDeviceExistsByName := make(map[string]bool)
+	if kvvmi == nil || kvvmi.Status.DeviceStatus == nil {
+		return hostDeviceExistsByName
+	}
+
+	for _, hostDeviceStatus := range kvvmi.Status.DeviceStatus.HostDeviceStatuses {
+		if hostDeviceStatus.Name == "" {
+			continue
+		}
+
+		hostDeviceExistsByName[hostDeviceStatus.Name] = true
+	}
+
+	return hostDeviceExistsByName
+}
+
 func (h *usbDeviceHandlerBase) attachUSBDevice(
 	ctx context.Context,
 	vm *v1alpha2.VirtualMachine,
