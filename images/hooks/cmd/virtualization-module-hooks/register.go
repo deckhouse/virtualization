@@ -17,17 +17,16 @@ limitations under the License.
 package main
 
 import (
-	_ "hooks/pkg/hooks/discover-kube-apiserver-feature-gates"
-
 	_ "hooks/pkg/hooks/ca-discovery"
 	_ "hooks/pkg/hooks/copy-custom-certificate"
+	_ "hooks/pkg/hooks/discover-kube-apiserver-feature-gates"
 	_ "hooks/pkg/hooks/discovery-clusterip-service-for-dvcr"
 	_ "hooks/pkg/hooks/discovery-workload-nodes"
 	_ "hooks/pkg/hooks/dvcr-garbage-collection"
 	_ "hooks/pkg/hooks/generate-secret-for-dvcr"
 	_ "hooks/pkg/hooks/install-vmclass-generic"
 	_ "hooks/pkg/hooks/migrate-virthandler-kvm-node-labels"
-	_ "hooks/pkg/hooks/parallel-outbound-migrations-per-node"
+	_ "hooks/pkg/hooks/migration-config"
 	_ "hooks/pkg/hooks/tls-certificates-api"
 	_ "hooks/pkg/hooks/tls-certificates-api-proxy"
 	_ "hooks/pkg/hooks/tls-certificates-controller"
