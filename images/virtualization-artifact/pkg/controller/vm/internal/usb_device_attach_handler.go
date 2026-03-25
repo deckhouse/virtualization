@@ -94,6 +94,7 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 	var kvvmiLoaded bool
 	var kvvmi *virtv1.VirtualMachineInstance
 	var hostDeviceReadyByName map[string]bool
+	var hostDeviceExistsByName map[string]bool
 
 	var nextStatusRefs []v1alpha2.USBDeviceStatusRef
 	for _, usbDeviceRef := range vm.Spec.USBDevices {
@@ -163,10 +164,15 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 			continue
 		}
 
+		if hostDeviceExistsByName == nil {
+			hostDeviceExistsByName = h.hostDeviceExistsByName(kvvmi)
+		}
+
 		// 4) Check free USBIP ports only for NEW attachments from other nodes.
 		// If device already has a status (existingStatus != nil), the request was already sent.
+		// If the host device is already listed in KVVMI, attach is in progress — skip port check here.
 		// Skip re-checking to avoid stuck devices when ports are exhausted mid-flight.
-		if existingStatus == nil && usbDevice.Status.NodeName != "" && vm.Status.Node != "" && usbDevice.Status.NodeName != vm.Status.Node {
+		if existingStatus == nil && !hostDeviceExistsByName[deviceName] && usbDevice.Status.NodeName != "" && vm.Status.Node != "" && usbDevice.Status.NodeName != vm.Status.Node {
 			node := &corev1.Node{}
 			if err := h.client.Get(ctx, client.ObjectKey{Name: vm.Status.Node}, node); err != nil {
 				if !apierrors.IsNotFound(err) {
