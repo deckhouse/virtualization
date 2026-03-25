@@ -699,8 +699,11 @@ func (h MigrationHandler) deleteTargetPersistentVolumeClaim(ctx context.Context,
 
 func (h MigrationHandler) deleteSourcePersistentVolumeClaim(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
 	pvc, err := h.getSourcePersistentVolumeClaim(ctx, vd)
-	if pvc == nil || err != nil {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		return err
+	}
+	if pvc == nil {
+		return nil
 	}
 
 	return deletePersistentVolumeClaim(ctx, pvc, h.client)
