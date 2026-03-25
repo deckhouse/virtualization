@@ -1342,7 +1342,8 @@ jobs:
       - configure-storage
       - configure-virtualization
       - e2e-test
-    if: cancelled() || success()
+    # REVERT ME BEFORE MERGE
+    if: cancelled()
     steps:
       - uses: actions/checkout@v4
 
