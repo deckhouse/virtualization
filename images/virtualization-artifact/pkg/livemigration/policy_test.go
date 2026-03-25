@@ -24,10 +24,19 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
 
+	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("CalculateEffectivePolicy", func() {
+	BeforeEach(func() {
+		config.ResetSystemMigrationPolicyOverride()
+	})
+
+	AfterEach(func() {
+		config.ResetSystemMigrationPolicyOverride()
+	})
+
 	DescribeTable("effective policy and autoConverge value",
 		func(
 			vmPolicy v1alpha2.LiveMigrationPolicy,
@@ -80,6 +89,24 @@ var _ = Describe("CalculateEffectivePolicy", func() {
 
 		Entry("No VM policy with no vmop", v1alpha2.LiveMigrationPolicy(""), nil, v1alpha2.PreferSafeMigrationPolicy, false, false),
 	)
+
+	It("should use system override and ignore VM policy and VMOP force", func() {
+		ok := config.SetSystemMigrationPolicyOverride(string(v1alpha2.AlwaysForcedMigrationPolicy))
+		require.True(GinkgoT(), ok)
+
+		vm := v1alpha2.VirtualMachine{}
+		vm.Spec.LiveMigrationPolicy = v1alpha2.PreferSafeMigrationPolicy
+		vmop := &v1alpha2.VirtualMachineOperation{
+			Spec: v1alpha2.VirtualMachineOperationSpec{
+				Force: ptr.To(false),
+			},
+		}
+
+		policy, result, err := CalculateEffectivePolicy(vm, vmop)
+		require.NoError(GinkgoT(), err)
+		require.Equal(GinkgoT(), v1alpha2.AlwaysForcedMigrationPolicy, policy)
+		require.True(GinkgoT(), result)
+	})
 })
 
 func TestCalculateEffectivePolicy(t *testing.T) {

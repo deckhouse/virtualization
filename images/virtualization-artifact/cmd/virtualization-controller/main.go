@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -28,6 +29,7 @@ import (
 	"github.com/spf13/pflag"
 	resourcev1 "k8s.io/api/resource/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -311,6 +313,18 @@ func main() {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
+
+	systemMigrationPolicy := getSystemMigrationPolicyAnnotation(ctx, preManagerClient)
+	switch {
+	case systemMigrationPolicy == "":
+		appconfig.ResetSystemMigrationPolicyOverride()
+	case appconfig.SetSystemMigrationPolicyOverride(systemMigrationPolicy):
+		log.Info("System migration policy override is set", "value", systemMigrationPolicy)
+	default:
+		appconfig.ResetSystemMigrationPolicyOverride()
+		log.Warn("System migration policy override has invalid value, override disabled", "value", systemMigrationPolicy)
+	}
+
 	mCtrl, err := migration.NewController(preManagerClient, log)
 	if err != nil {
 		log.Error(err.Error())
@@ -507,4 +521,20 @@ func getEnv(env, defaultEnv string) string {
 		return e
 	}
 	return defaultEnv
+}
+
+func getSystemMigrationPolicyAnnotation(ctx context.Context, cli client.Client) string {
+	moduleConfigName := "virtualization"
+	systemMigrationPolicyAnnotation := "virtualization.deckhouse.io/system-migration-policy"
+
+	moduleConfig := &mcapi.ModuleConfig{}
+	err := cli.Get(ctx, client.ObjectKey{Name: moduleConfigName}, moduleConfig)
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			slog.Default().Error("failed to get ModuleConfig virtualization", logger.SlogErr(err))
+		}
+		return ""
+	}
+
+	return moduleConfig.GetAnnotations()[systemMigrationPolicyAnnotation]
 }
