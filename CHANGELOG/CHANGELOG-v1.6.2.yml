@@ -1,0 +1,7 @@
+module:
+  fixes:
+    - summary: >-
+        The `virtualization` module requires Deckhouse Kubernetes Platform version 1.74.2 or later.
+        This version includes a fix for quota validation when creating disks.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2133
+
