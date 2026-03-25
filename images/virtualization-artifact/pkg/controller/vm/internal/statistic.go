@@ -90,27 +90,24 @@ func (h *StatisticHandler) syncResources(changed *v1alpha2.VirtualMachine,
 		var (
 			cpuKVVMIRequest resource.Quantity
 			memorySize      resource.Quantity
-			cores           int
 			topology        v1alpha2.Topology
 			coreFraction    string
 		)
 		if kvvmi == nil {
 			memorySize = changed.Spec.Memory.Size
-			cores = changed.Spec.CPU.Cores
-			coreFraction = changed.Spec.CPU.CoreFraction
-			sockets, coresPerSocket := vm.CalculateCoresAndSockets(cores)
+			sockets, coresPerSocket := vm.CalculateCoresAndSockets(changed.Spec.CPU.Cores)
 			topology = v1alpha2.Topology{CoresPerSocket: coresPerSocket, Sockets: sockets}
+			coreFraction = changed.Spec.CPU.CoreFraction
 		} else {
 			cpuKVVMIRequest = kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceCPU]
 			memorySize = kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]
 
-			cores = h.getCoresByKVVMI(kvvmi)
 			coreFraction = h.getCoreFractionByKVVMI(kvvmi)
 			topology = h.getCurrentTopologyByKVVMI(kvvmi)
 		}
 		resources = v1alpha2.ResourcesStatus{
 			CPU: v1alpha2.CPUStatus{
-				Cores:          cores,
+				Cores:          topology.CoresPerSocket * topology.Sockets,
 				CoreFraction:   coreFraction,
 				RequestedCores: cpuKVVMIRequest,
 				Topology:       topology,
@@ -165,18 +162,31 @@ func (h *StatisticHandler) syncResources(changed *v1alpha2.VirtualMachine,
 	changed.Status.Resources = resources
 }
 
+// getCoresByKVVMI
+// TODO refactor: no need to get cores from limits after enabling CPU hotplug, kvvmi.Spec.Domain.CPU should be enough.
 func (h *StatisticHandler) getCoresByKVVMI(kvvmi *virtv1.VirtualMachineInstance) int {
 	if kvvmi == nil {
 		return -1
 	}
-	cpuKVVMILimit := kvvmi.Spec.Domain.Resources.Limits[corev1.ResourceCPU]
-	return int(cpuKVVMILimit.Value())
+
+	cpuKVVMILimit, hasLimits := kvvmi.Spec.Domain.Resources.Limits[corev1.ResourceCPU]
+	if hasLimits {
+		return int(cpuKVVMILimit.Value())
+	}
+
+	return 1
 }
 
 func (h *StatisticHandler) getCoreFractionByKVVMI(kvvmi *virtv1.VirtualMachineInstance) string {
 	if kvvmi == nil {
 		return ""
 	}
+	// Fraction is stored in annotation after enabling CPU hotplug.
+	cpuFractionStr, hasAnno := kvvmi.Annotations[""]
+	if hasAnno {
+		return cpuFractionStr + "%"
+	}
+	// Also support previous implementation: calculate from requests and limits values.
 	cpuKVVMIRequest := kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceCPU]
 	return strconv.Itoa(int(cpuKVVMIRequest.MilliValue())*100/(h.getCoresByKVVMI(kvvmi)*1000)) + "%"
 }
