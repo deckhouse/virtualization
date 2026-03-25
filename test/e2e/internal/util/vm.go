@@ -19,9 +19,7 @@ package util
 import (
 	"context"
 	"fmt"
-	"io"
 	"regexp"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -30,8 +28,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -39,7 +35,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
-	"github.com/deckhouse/virtualization/test/e2e/controller"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/rewrite"
 )
@@ -50,18 +45,6 @@ const (
 )
 
 var knownKubeVirtClientSocketClosedRe = regexp.MustCompile(`(?is)virError\(Code=1,.*internal error:\s*client\s+socket\s+is\s+closed`)
-
-var knownVDMigrationControllerRevertMessages = []string{
-	"VirtualMachine is not running. Will be reverted.",
-	"VirtualMachine is not migrating. Will be reverted.",
-	"Target PersistentVolumeClaim is not found. Revert old PersistentVolumeClaim and remove migration condition.",
-	"Target PersistentVolumeClaim is not bound. Revert old PersistentVolumeClaim and remove migration condition.",
-}
-
-type controllerLogMatch struct {
-	PodName string
-	Line    string
-}
 
 func IsKnownKubeVirtClientSocketClosedFailureReason(reason string) bool {
 	return knownKubeVirtClientSocketClosedRe.MatchString(reason)
@@ -123,137 +106,21 @@ func SkipIfKnownMigrationFailure(vm *v1alpha2.VirtualMachine) {
 	SkipIfKnownVolumesUpdateMigrationFailure(vm)
 }
 
-func WaitUntilConditionOrSkipKnownVDMigrationControllerRevert(timeout time.Duration, namespace string, condition func() error) {
+func SkipIfVDMigrationReverted(namespace string) {
 	GinkgoHelper()
 
-	waitStartedAt := time.Now()
-	var lastErr error
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(context.Context) (bool, error) {
-		lastErr = condition()
-		return lastErr == nil, nil
-	})
-	if err == nil {
+	vds, err := framework.GetClients().VirtClient().VirtualDisks(namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		GinkgoWriter.Printf("Failed to list VirtualDisks in namespace %q for revert check: %v\n", namespace, err)
 		return
 	}
 
-	if ctx.Err() == context.DeadlineExceeded {
-		SkipIfKnownVDMigrationControllerRevertOnTimeout(namespace, waitStartedAt)
-	}
-
-	if lastErr != nil {
-		Fail(fmt.Sprintf("timed out waiting for condition: %v", lastErr))
-	}
-
-	Fail(fmt.Sprintf("unexpected poll error without condition failure: %v", err))
-}
-
-func SkipIfKnownVDMigrationControllerRevertOnTimeout(namespace string, since time.Time) {
-	GinkgoHelper()
-
-	match, err := findKnownVDMigrationControllerRevertLog(namespace, since)
-	if err != nil {
-		GinkgoWriter.Printf("Failed to inspect virtualization-controller logs for namespace %q: %v\n", namespace, err)
-		return
-	}
-	if match == nil {
-		return
-	}
-
-	Skip(fmt.Sprintf(
-		"skip due to known virtualization-controller volume migration revert for namespace %s in pod %s: %s",
-		namespace, match.PodName, match.Line,
-	))
-}
-
-func findKnownVDMigrationControllerRevertLog(namespace string, since time.Time) (*controllerLogMatch, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), framework.ShortTimeout)
-	defer cancel()
-
-	leaderPod, err := findVirtualizationControllerLeaderPod(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("find virtualization-controller leader pod: %w", err)
-	}
-	if leaderPod == nil {
-		return nil, nil
-	}
-
-	sinceTime := metav1.NewTime(since.Add(-5 * time.Second))
-	stream, err := framework.GetClients().KubeClient().CoreV1().Pods(leaderPod.Namespace).GetLogs(leaderPod.Name, &corev1.PodLogOptions{
-		Container: controller.VirtualizationController,
-		SinceTime: &sinceTime,
-		TailLines: ptr.To(int64(5000)),
-	}).Stream(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("read virtualization-controller logs from leader pod %s: %w", leaderPod.Name, err)
-	}
-
-	logs, readErr := io.ReadAll(stream)
-	closeErr := stream.Close()
-	if readErr != nil {
-		return nil, fmt.Errorf("read virtualization-controller logs from leader pod %s: %w", leaderPod.Name, readErr)
-	}
-	if closeErr != nil {
-		GinkgoWriter.Printf("Failed to close virtualization-controller log stream for pod %s: %v\n", leaderPod.Name, closeErr)
-	}
-
-	if line := findKnownVDMigrationControllerRevertLine(string(logs), namespace); line != "" {
-		return &controllerLogMatch{
-			PodName: leaderPod.Name,
-			Line:    line,
-		}, nil
-	}
-
-	return nil, nil
-}
-
-func findVirtualizationControllerLeaderPod(ctx context.Context) (*corev1.Pod, error) {
-	lease, err := framework.GetClients().KubeClient().CoordinationV1().Leases(controller.VirtualizationNamespace).Get(ctx, controller.LeaderElectionID, metav1.GetOptions{})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("get leader election lease: %w", err)
-	}
-	if lease.Spec.HolderIdentity == nil || *lease.Spec.HolderIdentity == "" {
-		return nil, nil
-	}
-
-	holderIdentity := *lease.Spec.HolderIdentity
-
-	pods, err := framework.GetClients().KubeClient().CoreV1().Pods(controller.VirtualizationNamespace).List(ctx, metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("app=%s", controller.VirtualizationController),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("list virtualization-controller pods: %w", err)
-	}
-
-	for i := range pods.Items {
-		pod := &pods.Items[i]
-		if pod.Name == holderIdentity || strings.HasPrefix(holderIdentity, pod.Name+"_") {
-			return pod, nil
+	for _, vd := range vds.Items {
+		if vd.Status.MigrationState.Result == v1alpha2.VirtualDiskMigrationResultFailed &&
+			vd.Status.MigrationState.Message == "Migration reverted." {
+			Skip(fmt.Sprintf("skip: VD %s/%s migration was reverted", namespace, vd.Name))
 		}
 	}
-
-	GinkgoWriter.Printf("Virtualization-controller leader lease holder %q does not match any pod\n", holderIdentity)
-	return nil, nil
-}
-
-func findKnownVDMigrationControllerRevertLine(logs, namespace string) string {
-	for _, line := range strings.Split(logs, "\n") {
-		if !strings.Contains(line, namespace) {
-			continue
-		}
-		for _, message := range knownVDMigrationControllerRevertMessages {
-			if strings.Contains(line, message) {
-				return strings.TrimSpace(line)
-			}
-		}
-	}
-	return ""
 }
 
 func getInternalVirtualMachineInstance(vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
@@ -302,7 +169,9 @@ func UntilSSHReady(f *framework.Framework, vm *v1alpha2.VirtualMachine, timeout 
 func UntilVMMigrationSucceeded(key client.ObjectKey, timeout time.Duration) {
 	GinkgoHelper()
 
-	WaitUntilConditionOrSkipKnownVDMigrationControllerRevert(timeout, key.Namespace, func() error {
+	Eventually(func() error {
+		SkipIfVDMigrationReverted(key.Namespace)
+
 		vm, err := framework.GetClients().VirtClient().VirtualMachines(key.Namespace).Get(context.Background(), key.Name, metav1.GetOptions{})
 		if err != nil {
 			return err
@@ -327,7 +196,7 @@ func UntilVMMigrationSucceeded(key client.ObjectKey, timeout time.Duration) {
 		}
 
 		return nil
-	})
+	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
 
 func MigrateVirtualMachine(f *framework.Framework, vm *v1alpha2.VirtualMachine, options ...vmopbuilder.Option) {

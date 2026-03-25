@@ -236,7 +236,9 @@ var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), func(
 			err = patchStorageClassName(context.Background(), f, sc, vdForMigration)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.WaitUntilConditionOrSkipKnownVDMigrationControllerRevert(framework.MaxTimeout, ns, func() error {
+			Eventually(func() error {
+				util.SkipIfVDMigrationReverted(ns)
+
 				vm, err = f.VirtClient().VirtualMachines(ns).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
 				if err != nil {
 					return err
@@ -273,7 +275,7 @@ var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), func(
 				}
 
 				return fmt.Errorf("migration is not completed")
-			})
+			}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
 
 			By("Wait until VM migration succeeded")
 			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vm), framework.MaxTimeout)

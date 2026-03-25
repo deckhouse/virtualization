@@ -129,7 +129,9 @@ func untilVirtualDisksMigrationsSucceeded(f *framework.Framework) {
 	GinkgoHelper()
 
 	By("Wait until VirtualDisks migrations succeeded")
-	e2eutil.WaitUntilConditionOrSkipKnownVDMigrationControllerRevert(framework.MaxTimeout, f.Namespace().Name, func() error {
+	Eventually(func() error {
+		e2eutil.SkipIfVDMigrationReverted(f.Namespace().Name)
+
 		vms, err := f.VirtClient().VirtualMachines(f.Namespace().Name).List(context.Background(), metav1.ListOptions{})
 		if err != nil {
 			return err
@@ -182,7 +184,7 @@ func untilVirtualDisksMigrationsSucceeded(f *framework.Framework) {
 			}
 		}
 		return nil
-	})
+	}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
 }
 
 func untilVirtualDisksMigrationsFailed(f *framework.Framework) {

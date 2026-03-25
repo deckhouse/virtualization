@@ -24,7 +24,6 @@ import (
 const (
 	VirtualizationController = "virtualization-controller"
 	VirtualizationNamespace  = "d8-virtualization"
-	LeaderElectionID         = "d8-virt-operator-leader-election-helper"
 )
 
 var (
