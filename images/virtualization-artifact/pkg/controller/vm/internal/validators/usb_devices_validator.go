@@ -171,9 +171,9 @@ func (v *USBDevicesValidator) validateAvailableUSBIPPortsWithPartitionableDevice
 			continue
 		}
 
-		isHs, isSS := usb.ResolveSpeed(usbDevice.Status.Attributes.Speed)
+		isHS, isSS := usb.ResolveSpeed(usbDevice.Status.Attributes.Speed)
 		switch {
-		case isHs:
+		case isHS:
 			hsUSBFromOtherNodes = append(hsUSBFromOtherNodes, ref.Name)
 		case isSS:
 			ssUSBFromOtherNodes = append(ssUSBFromOtherNodes, ref.Name)

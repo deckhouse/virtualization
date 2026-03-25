@@ -20,10 +20,12 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	resourcev1 "k8s.io/api/resource/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -152,7 +155,7 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 		return &v1alpha2.USBDevice{
 			ObjectMeta: usbMeta,
 			Status: v1alpha2.USBDeviceStatus{
-				Attributes: v1alpha2.NodeUSBDeviceAttributes{Name: attributeName, VendorID: vid, ProductID: productID},
+				Attributes: v1alpha2.NodeUSBDeviceAttributes{Name: attributeName, VendorID: vid, ProductID: productID, Speed: 480},
 				NodeName:   "node-1",
 				Conditions: conds,
 			},
@@ -168,6 +171,19 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 			ObjectMeta: metav1.ObjectMeta{Name: vmName, Namespace: vmNamespace},
 			Status: virtv1.VirtualMachineInstanceStatus{
 				DeviceStatus: &virtv1.DeviceStatus{HostDeviceStatuses: hostDeviceStatuses},
+			},
+		}
+	}
+
+	newNode := func(name string, usedHSPorts, usedSSPorts int) *corev1.Node {
+		return &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: name,
+				Annotations: map[string]string{
+					annotations.AnnUSBIPTotalPorts:             "8",
+					annotations.AnnUSBIPHighSpeedHubUsedPorts:  strconv.Itoa(usedHSPorts),
+					annotations.AnnUSBIPSuperSpeedHubUsedPorts: strconv.Itoa(usedSSPorts),
+				},
 			},
 		}
 	}
@@ -478,6 +494,71 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 
 		status := expectSingleUSBStatus()
 		Expect(status.Attached).To(BeTrue())
+		Expect(status.Ready).To(BeTrue())
+	})
+
+	It("requeues on every reconcile while cross-node USBIP ports remain exhausted", func() {
+		vm := newVM(v1alpha2.MachineRunning)
+		vm.Status.Node = "node-2"
+
+		result, _, _, err := runHandle(
+			vm,
+			newUSBDevice(true, usbDeviceName, false),
+			newResourceClaimTemplate(),
+			newNode("node-2", 4, 0),
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.RequeueAfter).To(BeNumerically(">", 0))
+
+		mockVM := mockVirtCl.vmClients[vmNamespace]
+		Expect(mockVM.addResourceClaimCalls).To(HaveLen(0))
+		status := expectSingleUSBStatus()
+		Expect(status.Attached).To(BeFalse())
+		Expect(status.Ready).To(BeTrue())
+
+		vm.Status.USBDevices = vmResource.Changed().Status.USBDevices
+
+		result, _, _, err = runHandle(
+			vm,
+			newUSBDevice(true, usbDeviceName, false),
+			newResourceClaimTemplate(),
+			newNode("node-2", 4, 0),
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.RequeueAfter).To(BeNumerically(">", 0))
+		Expect(mockVM.addResourceClaimCalls).To(HaveLen(0))
+		status = expectSingleUSBStatus()
+		Expect(status.Attached).To(BeFalse())
+		Expect(status.Ready).To(BeTrue())
+	})
+
+	It("skips port checks once KVVMI already reflects the host device", func() {
+		vm := newVM(v1alpha2.MachineRunning, v1alpha2.USBDeviceStatusRef{
+			Name:     usbDeviceName,
+			Attached: false,
+			Ready:    true,
+		})
+		vm.Status.Node = "node-2"
+
+		hostDeviceStatus := virtv1.DeviceStatusInfo{
+			Name:  usbDeviceName,
+			Phase: virtv1.DevicePending,
+		}
+
+		result, _, _, err := runHandle(
+			vm,
+			newUSBDevice(true, usbDeviceName, false),
+			newResourceClaimTemplate(),
+			newKVVMI(hostDeviceStatus),
+			newNode("node-2", 4, 0),
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result).To(Equal(reconcile.Result{}))
+
+		mockVM := mockVirtCl.vmClients[vmNamespace]
+		Expect(mockVM.addResourceClaimCalls).To(HaveLen(1))
+		status := expectSingleUSBStatus()
+		Expect(status.Attached).To(BeFalse())
 		Expect(status.Ready).To(BeTrue())
 	})
 

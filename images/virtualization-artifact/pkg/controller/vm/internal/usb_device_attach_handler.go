@@ -168,33 +168,29 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 			hostDeviceExistsByName = h.hostDeviceExistsByName(kvvmi)
 		}
 
-		// 4) Check free USBIP ports only for NEW attachments from other nodes.
-		// If device already has a status (existingStatus != nil), the request was already sent.
-		// If the host device is already listed in KVVMI, attach is in progress — skip port check here.
-		// Skip re-checking to avoid stuck devices when ports are exhausted mid-flight.
-		if existingStatus == nil {
-			if _, exists := hostDeviceExistsByName[deviceName]; !exists && usbDevice.Status.NodeName != "" && vm.Status.Node != "" && usbDevice.Status.NodeName != vm.Status.Node {
-				node := &corev1.Node{}
-				if err := h.client.Get(ctx, client.ObjectKey{Name: vm.Status.Node}, node); err != nil {
-					if !apierrors.IsNotFound(err) {
-						return reconcile.Result{}, fmt.Errorf("failed to get node %s: %w", vm.Status.Node, err)
-					}
-					nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(existingStatus, deviceName, isReady))
-					continue
+		// 4) Check free USBIP ports for cross-node attachments until KVVMI reflects the device.
+		// Once the host device is listed in KVVMI, attach is already in progress, so skip the check.
+		if _, exists := hostDeviceExistsByName[deviceName]; !exists && usbDevice.Status.NodeName != "" && vm.Status.Node != "" && usbDevice.Status.NodeName != vm.Status.Node {
+			node := &corev1.Node{}
+			if err := h.client.Get(ctx, client.ObjectKey{Name: vm.Status.Node}, node); err != nil {
+				if !apierrors.IsNotFound(err) {
+					return reconcile.Result{}, fmt.Errorf("failed to get node %s: %w", vm.Status.Node, err)
 				}
+				nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(existingStatus, deviceName, isReady))
+				continue
+			}
 
-				hasFreePort, err := usb.CheckFreePort(node.Annotations, usbDevice.Status.Attributes.Speed)
-				if err != nil {
-					log.Error("failed to check free USBIP ports", "error", err, "device", deviceName, "node", vm.Status.Node)
-					nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(existingStatus, deviceName, isReady))
-					continue
-				}
-				if !hasFreePort {
-					log.Info("no free USBIP ports available", "device", deviceName, "speed", usbDevice.Status.Attributes.Speed, "node", vm.Status.Node)
-					nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(existingStatus, deviceName, isReady))
-					changed.Status.USBDevices = nextStatusRefs
-					return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-				}
+			hasFreePort, err := usb.CheckFreePort(node.Annotations, usbDevice.Status.Attributes.Speed)
+			if err != nil {
+				log.Error("failed to check free USBIP ports", "error", err, "device", deviceName, "node", vm.Status.Node)
+				nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(existingStatus, deviceName, isReady))
+				continue
+			}
+			if !hasFreePort {
+				log.Info("no free USBIP ports available", "device", deviceName, "speed", usbDevice.Status.Attributes.Speed, "node", vm.Status.Node)
+				nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(existingStatus, deviceName, isReady))
+				changed.Status.USBDevices = nextStatusRefs
+				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 			}
 		}
 
