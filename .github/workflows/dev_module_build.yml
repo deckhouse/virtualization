@@ -477,7 +477,7 @@ jobs:
           path: github
           role: "${{ steps.split.outputs.name }}"
           method: jwt
-          jwtGithubAudience: github-access-aud
+          jwtGithubAudience: sap-github-deckhouse-virtualization
           secrets: |
             projects/data/101ceaca-97cd-462f-aed5-070d9b9de175/registry_host DECKHOUSE_DEV_REGISTRY_HOST | DECKHOUSE_DEV_REGISTRY_HOST ;
             projects/data/101ceaca-97cd-462f-aed5-070d9b9de175/dev-registry/writetoken login | DECKHOUSE_DEV_REGISTRY_USER ;
