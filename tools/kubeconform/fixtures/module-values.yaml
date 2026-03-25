@@ -400,8 +400,11 @@ virtualization:
     moduleState: {}
     virtConfig:
       phase: Deployed
+      bandwidthPerMigration: 640Mi
+      completionTimeoutPerGiB: 800
       parallelMigrationsPerCluster: 2
       parallelOutboundMigrationsPerNode: 10
+      progressTimeout: 150
     virtHandler:
       nodeCount: 1
     kubeAPIServerFeatureGates:

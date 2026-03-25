@@ -131,9 +131,15 @@ properties:
         properties:
           phase:
             type: string
+          bandwidthPerMigration:
+            type: string
+          completionTimeoutPerGiB:
+            type: integer
           parallelMigrationsPerCluster:
             type: integer
           parallelOutboundMigrationsPerNode:
+            type: integer
+          progressTimeout:
             type: integer
       moduleConfig:
         type: object

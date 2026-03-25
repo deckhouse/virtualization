@@ -29,11 +29,7 @@ spec:
             burst: 6000
     selinuxLauncherType: container_kvm_t
     migrations:
-      bandwidthPerMigration: 640Mi
-      completionTimeoutPerGiB: 800
-      parallelMigrationsPerCluster: {{ include "kubevirt.parallel_migrations_per_cluster" . }}
-      parallelOutboundMigrationsPerNode: {{ .Values.virtualization.internal.virtConfig.parallelOutboundMigrationsPerNode }}
-      progressTimeout: 150
+      {{- include "kubevirt.migrations" . | nindent 6 }}
     smbios:
       manufacturer: Flant
       family: Deckhouse

@@ -85,3 +85,27 @@ spec:
 {{-   end -}}
 {{- end -}}
 {{- end -}}
+
+{{- define "kubevirt.bandwidth_per_migration" -}}
+{{- .Values.virtualization.internal | dig "virtConfig" "bandwidthPerMigration" "640Mi" -}}
+{{- end -}}
+
+{{- define "kubevirt.completion_timeout_per_gib" -}}
+{{- .Values.virtualization.internal | dig "virtConfig" "completionTimeoutPerGiB" 800 -}}
+{{- end -}}
+
+{{- define "kubevirt.parallel_outbound_migrations_per_node" -}}
+{{- .Values.virtualization.internal | dig "virtConfig" "parallelOutboundMigrationsPerNode" 2 -}}
+{{- end -}}
+
+{{- define "kubevirt.progress_timeout" -}}
+{{- .Values.virtualization.internal | dig "virtConfig" "progressTimeout" 150 -}}
+{{- end -}}
+
+{{- define "kubevirt.migrations" -}}
+bandwidthPerMigration: {{ include "kubevirt.bandwidth_per_migration" . }}
+completionTimeoutPerGiB: {{ include "kubevirt.completion_timeout_per_gib" . }}
+parallelMigrationsPerCluster: {{ include "kubevirt.parallel_migrations_per_cluster" . }}
+parallelOutboundMigrationsPerNode: {{ include "kubevirt.parallel_outbound_migrations_per_node" . }}
+progressTimeout: {{ include "kubevirt.progress_timeout" . }}
+{{- end -}}
