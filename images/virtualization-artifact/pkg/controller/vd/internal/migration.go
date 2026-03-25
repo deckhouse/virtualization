@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	pvcspec "github.com/deckhouse/virtualization-controller/pkg/common/pvc"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
@@ -594,11 +595,17 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 	}
 
 	log.Info("Complete migration. Delete source PersistentVolumeClaim", slog.String("pvc.name", vd.Status.MigrationState.SourcePVC), slog.String("pvc.namespace", vd.Namespace))
+
 	err = h.deleteSourcePersistentVolumeClaim(ctx, vd)
 	if err != nil {
 		return err
 	}
 	log.Debug("Source PersistentVolumeClaim was deleted", slog.String("pvc.name", vd.Status.MigrationState.SourcePVC), slog.String("pvc.namespace", vd.Namespace))
+
+	// Remove quota override label from target PVC.
+	if err := object.RemoveLabel(ctx, h.client, targetPVC, annotations.QuotaExcludeLabel); err != nil && !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("remove quota override label from target PVC: %w", err)
+	}
 
 	if sc := vd.Spec.PersistentVolumeClaim.StorageClass; sc != nil && *sc != "" {
 		vd.Status.StorageClassName = *sc
@@ -655,6 +662,9 @@ func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context,
 			OwnerReferences: []metav1.OwnerReference{
 				service.MakeControllerOwnerReference(vd),
 			},
+			Labels: map[string]string{
+				annotations.QuotaExcludeLabel: annotations.QuotaExcludeValue,
+			},
 		},
 		Spec: ptr.Deref(
 			pvcspec.CreateSpec(&sc.Name, size, accessMode, volumeMode),
@@ -685,8 +695,11 @@ func (h MigrationHandler) deleteTargetPersistentVolumeClaim(ctx context.Context,
 
 func (h MigrationHandler) deleteSourcePersistentVolumeClaim(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
 	pvc, err := h.getSourcePersistentVolumeClaim(ctx, vd)
-	if pvc == nil || err != nil {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		return err
+	}
+	if pvc == nil {
+		return nil
 	}
 
 	return deletePersistentVolumeClaim(ctx, pvc, h.client)
