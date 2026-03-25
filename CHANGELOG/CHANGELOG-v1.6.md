@@ -13,6 +13,7 @@
 ## Fixes
 
 
+ - **[module]** The `virtualization` module requires Deckhouse Kubernetes Platform version 1.74.2 or later. This version includes a fix for quota validation when creating disks. [#2133](https://github.com/deckhouse/virtualization/pull/2133)
  - **[module]** Fixed vulnerabilities CVE-2026-24051 and CVE-2025-15558. [#2057](https://github.com/deckhouse/virtualization/pull/2057)
  - **[observability]** Restored the previous placement of virtual machine dashboards due to a validation issue that could block the Deckhouse queue. [#2063](https://github.com/deckhouse/virtualization/pull/2063)
  - **[vd]** Fixed virtual disks hanging during creation in `WaitForFirstConsumer` mode on nodes with taints. [#1999](https://github.com/deckhouse/virtualization/pull/1999)
