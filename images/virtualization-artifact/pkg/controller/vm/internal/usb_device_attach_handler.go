@@ -164,11 +164,11 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 		}
 
 		// 4) Check free USBIP ports for new attachments from other nodes.
-		// Skip this check if the device is already being processed (request already sent),
-		// as the port was available when the request was made. Re-checking would cause
-		// devices to get stuck when ports are exhausted mid-flight.
-		isAlreadyProcessing := existingStatus != nil && !existingStatus.Attached
-		if !isAlreadyProcessing && usbDevice.Status.NodeName != "" && vm.Status.Node != "" && usbDevice.Status.NodeName != vm.Status.Node {
+		// Skip this check if the device is already being processed (request already sent).
+		// A device is considered "in progress" when Ready=true but not yet Attached in KVVMI.
+		// Re-checking would cause devices to get stuck when ports are exhausted mid-flight.
+		isInProgress := existingStatus != nil && existingStatus.Ready && !existingStatus.Attached
+		if !isInProgress && usbDevice.Status.NodeName != "" && vm.Status.Node != "" && usbDevice.Status.NodeName != vm.Status.Node {
 			node := &corev1.Node{}
 			if err := h.client.Get(ctx, client.ObjectKey{Name: vm.Status.Node}, node); err != nil {
 				if !apierrors.IsNotFound(err) {
