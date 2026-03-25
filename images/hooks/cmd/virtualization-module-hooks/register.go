@@ -26,6 +26,7 @@ import (
 	_ "github.com/deckhouse/virtualization/hooks/pkg/hooks/generate-secret-for-dvcr"
 	_ "github.com/deckhouse/virtualization/hooks/pkg/hooks/install-vmclass-generic"
 	_ "github.com/deckhouse/virtualization/hooks/pkg/hooks/migrate-virthandler-kvm-node-labels"
+	_ "github.com/deckhouse/virtualization/hooks/pkg/hooks/migrate-vm-network-interface-ids"
 	_ "github.com/deckhouse/virtualization/hooks/pkg/hooks/parallel-outbound-migrations-per-node"
 	_ "github.com/deckhouse/virtualization/hooks/pkg/hooks/tls-certificates-api"
 	_ "github.com/deckhouse/virtualization/hooks/pkg/hooks/tls-certificates-api-proxy"

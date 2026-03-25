@@ -39,7 +39,6 @@ import (
 	dvutil "github.com/deckhouse/virtualization-controller/pkg/common/datavolume"
 	networkpolicy "github.com/deckhouse/virtualization-controller/pkg/common/network_policy"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
@@ -392,7 +391,7 @@ func (s DiskService) GetProgress(dv *cdiv1.DataVolume, prevProgress string, opts
 
 func (s DiskService) GetCapacity(pvc *corev1.PersistentVolumeClaim) string {
 	if pvc != nil && pvc.Status.Phase == corev1.ClaimBound {
-		return pointer.GetPointer(pvc.Status.Capacity[corev1.ResourceStorage]).String()
+		return ptr.To(pvc.Status.Capacity[corev1.ResourceStorage]).String()
 	}
 
 	return ""

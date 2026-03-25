@@ -29,6 +29,7 @@ const (
 	AttrDeviceNumber = "deviceNumber"
 	AttrMajor        = "major"
 	AttrMinor        = "minor"
+	AttrSpeed        = "speed"
 	AttrSerial       = "serial"
 	AttrDevicePath   = "devicePath"
 	AttrUsbAddress   = "usbAddress"

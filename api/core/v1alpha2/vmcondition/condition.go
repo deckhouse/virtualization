@@ -258,7 +258,6 @@ const (
 	ReasonDisksNotMigratable       MigratableReason = "VirtualMachineDisksNotMigratable"
 	ReasonDisksShouldBeMigrating   MigratableReason = "VirtualMachineDisksShouldBeMigrating"
 	ReasonHostDevicesNotMigratable MigratableReason = "VirtualMachineHostDevicesNotMigratable"
-	ReasonUSBShouldBeMigrating     MigratableReason = "VirtualMachineUSBShouldBeMigrating"
 )
 
 type MigratingReason string

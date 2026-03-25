@@ -3,6 +3,30 @@ title: "Релизы"
 weight: 70
 ---
 
+## v1.6.2
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 23 марта 2026.
+</span>
+
+### Исправления
+
+- [module] Для работы модуля `virtualization` требуется Deckhouse Kubernetes Platform версии не ниже 1.74.2. В этой версии исправлена валидация квот при создании дисков.
+
+## v1.6.1
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 10 марта 2026.
+</span>
+
+### Исправления
+
+- [observability] Восстановлено прежнее расположение дашбордов виртуальных машин из-за проблемы с их валидацией, которая могла приводить к блокировке очереди Deckhouse.
+- [vm] Исправлено обнаружение USB-устройств на узлах: соответствующие ресурсы [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) могли не создаваться.
+- [vm] Исправлено клонирование виртуальной машины с подключенными USB-устройствами при использовании [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) с типом `Clone` в режиме `BestEffort`.
+
+### Безопасность
+
+- [module] Исправлены уязвимости CVE-2026-24051, CVE-2025-15558.
+
 ## v1.6.0
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Дата релиза: 2 марта 2026.

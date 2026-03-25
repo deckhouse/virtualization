@@ -32,7 +32,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
-	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -93,7 +92,6 @@ func ApplyVirtualMachineSpec(
 	vdByName map[string]*v1alpha2.VirtualDisk,
 	viByName map[string]*v1alpha2.VirtualImage,
 	cviByName map[string]*v1alpha2.ClusterVirtualImage,
-	vmbdas map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment,
 	class *v1alpha2.VirtualMachineClass,
 	ipAddress string,
 	networkSpec network.InterfaceSpecList,
@@ -111,6 +109,7 @@ func ApplyVirtualMachineSpec(
 		return err
 	}
 
+	kvvm.SetUSBMigrationStrategy()
 	kvvm.SetMetadata(vm.ObjectMeta)
 	setNetwork(kvvm, networkSpec)
 	kvvm.SetTablet("default-0")
@@ -162,7 +161,7 @@ func ApplyVirtualMachineSpec(
 				v1alpha2.StoragePersistentVolumeClaim:
 				// Attach PVC as ephemeral volume: its data will be restored to initial state on VM restart.
 				if err := kvvm.SetDisk(name, SetDiskOptions{
-					PersistentVolumeClaim: pointer.GetPointer(vi.Status.Target.PersistentVolumeClaim),
+					PersistentVolumeClaim: ptr.To(vi.Status.Target.PersistentVolumeClaim),
 					IsEphemeral:           true,
 					Serial:                GenerateSerialFromObject(vi),
 					BootOrder:             bootOrder,
@@ -171,7 +170,7 @@ func ApplyVirtualMachineSpec(
 				}
 			case v1alpha2.StorageContainerRegistry:
 				if err := kvvm.SetDisk(name, SetDiskOptions{
-					ContainerDisk: pointer.GetPointer(vi.Status.Target.RegistryURL),
+					ContainerDisk: ptr.To(vi.Status.Target.RegistryURL),
 					IsCdrom:       imageformat.IsISO(vi.Status.Format),
 					Serial:        GenerateSerialFromObject(vi),
 					BootOrder:     bootOrder,
@@ -193,7 +192,7 @@ func ApplyVirtualMachineSpec(
 
 			name := GenerateCVIDiskName(bd.Name)
 			if err := kvvm.SetDisk(name, SetDiskOptions{
-				ContainerDisk: pointer.GetPointer(cvi.Status.Target.RegistryURL),
+				ContainerDisk: ptr.To(cvi.Status.Target.RegistryURL),
 				IsCdrom:       imageformat.IsISO(cvi.Status.Format),
 				Serial:        GenerateSerialFromObject(cvi),
 				BootOrder:     bootOrder,
@@ -218,7 +217,7 @@ func ApplyVirtualMachineSpec(
 
 			name := GenerateVDDiskName(bd.Name)
 			if err := kvvm.SetDisk(name, SetDiskOptions{
-				PersistentVolumeClaim: pointer.GetPointer(pvcName),
+				PersistentVolumeClaim: ptr.To(pvcName),
 				Serial:                GenerateSerialFromObject(vd),
 				BootOrder:             bootOrder,
 			}); err != nil {
@@ -264,7 +263,7 @@ func ApplyVirtualMachineSpec(
 				}
 			}
 			if err := kvvm.SetDisk(device.VolumeName, SetDiskOptions{
-				PersistentVolumeClaim: pointer.GetPointer(pvcName),
+				PersistentVolumeClaim: ptr.To(pvcName),
 				IsHotplugged:          true,
 				Serial:                GenerateSerialFromObject(obj),
 			}); err != nil {
@@ -272,7 +271,7 @@ func ApplyVirtualMachineSpec(
 			}
 		case device.Image != "":
 			if err := kvvm.SetDisk(device.VolumeName, SetDiskOptions{
-				ContainerDisk: pointer.GetPointer(device.Image),
+				ContainerDisk: ptr.To(device.Image),
 				IsHotplugged:  true,
 				Serial:        GenerateSerialFromObject(obj),
 			}); err != nil {
@@ -335,7 +334,7 @@ func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName ma
 
 		name := GenerateVDDiskName(bd.Name)
 		opts := SetDiskOptions{
-			PersistentVolumeClaim: pointer.GetPointer(pvcName),
+			PersistentVolumeClaim: ptr.To(pvcName),
 			Serial:                GenerateSerialFromObject(vd),
 			IsHotplugged:          bd.Hotplugged,
 		}
@@ -356,7 +355,7 @@ func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName ma
 func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList) {
 	kvvm.ClearNetworkInterfaces()
 	for _, n := range networkSpec {
-		kvvm.SetNetworkInterface(n.InterfaceName, n.MAC)
+		kvvm.SetNetworkInterface(n.InterfaceName, n.MAC, n.ID)
 	}
 }
 

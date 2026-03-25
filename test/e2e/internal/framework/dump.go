@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 
 	"github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 )
@@ -45,6 +46,7 @@ func (f *Framework) saveTestCaseDump() {
 	f.saveIntvirtvmDescriptions(ft, tmpDir)
 	f.saveIntvirtvmiDescriptions(ft, tmpDir)
 	f.saveNodeAdditionalInfo(ft, tmpDir)
+	f.saveEvents(ft, tmpDir)
 }
 
 // GetFormattedTestCaseFullText returns CurrentSpecReport().FullText(), formatted with the following rules:
@@ -255,6 +257,30 @@ func (f *Framework) writeNodeList(testCaseFullText, dumpPath string) {
 		err := os.WriteFile(fileName, cmd.StdOutBytes(), 0o644)
 		if err != nil {
 			GinkgoWriter.Printf("Failed to write node list dump (wide):\nFile: %s\nError: %v\n", fileName, err)
+		}
+	}
+}
+
+func (f *Framework) saveEvents(testCaseFullText, dumpPath string) {
+	GinkgoHelper()
+	namespace := f.Namespace().Name
+	events, err := f.Clients.kubeClient.CoreV1().Events(namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		GinkgoWriter.Printf("Failed to get events:\nError: %v\n", err)
+		return
+	}
+
+	fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__events.yaml", dumpPath, testCaseFullText, namespace)
+	if len(events.Items) > 0 {
+		data, err := yaml.Marshal(events)
+		if err != nil {
+			GinkgoWriter.Printf("Failed to marshal events dump:\nFile: %s\nError: %v\n", fileName, err)
+			return
+		}
+
+		err = os.WriteFile(fileName, data, 0o644)
+		if err != nil {
+			GinkgoWriter.Printf("Failed to write events dump:\nFile: %s\nError: %v\n", fileName, err)
 		}
 	}
 }

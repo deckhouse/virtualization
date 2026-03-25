@@ -41,6 +41,11 @@ var _ = Describe("VirtualImageCreation", func() {
 	f := framework.NewFramework("vi-creation")
 
 	BeforeEach(func() {
+		sc := framework.GetConfig().StorageClass.TemplateStorageClass
+		if sc != nil && sc.Provisioner == framework.NFS {
+			Skip("VirtualImages on PVC only work with block storage classes, skipping NFS")
+		}
+
 		f.Before()
 		DeferCleanup(f.After)
 	})

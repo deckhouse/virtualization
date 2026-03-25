@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -36,7 +37,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
-	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
@@ -190,7 +190,7 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.Virtu
 		}
 
 		vi.Status.Progress = "0%"
-		vi.Status.SourceUID = pointer.GetPointer(dvcrDataSource.GetUID())
+		vi.Status.SourceUID = ptr.To(dvcrDataSource.GetUID())
 
 		var diskSize resource.Quantity
 		diskSize, err = ds.getPVCSize(dvcrDataSource)
@@ -373,7 +373,7 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virt
 			return reconcile.Result{}, err
 		}
 
-		vi.Status.SourceUID = pointer.GetPointer(dvcrDataSource.GetUID())
+		vi.Status.SourceUID = ptr.To(dvcrDataSource.GetUID())
 
 		var envSettings *importer.Settings
 		envSettings, err = ds.getEnvSettings(vi, supgen, dvcrDataSource)

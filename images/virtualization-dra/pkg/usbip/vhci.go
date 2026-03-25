@@ -64,6 +64,17 @@ const (
 	hubSpeedSuper
 )
 
+func (h hubSpeed) String() string {
+	switch h {
+	case hubSpeedHigh:
+		return "hs"
+	case hubSpeedSuper:
+		return "ss"
+	default:
+		return "unknown"
+	}
+}
+
 // https://github.com/torvalds/linux/blob/b927546677c876e26eba308550207c2ddf812a43/tools/usb/usbip/libsrc/vhci_driver.c#L243
 func newVhciDriver() (*vhciDriver, error) {
 	nports, err := getNPorts()
