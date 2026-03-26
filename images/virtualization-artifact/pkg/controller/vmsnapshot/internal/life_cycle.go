@@ -147,6 +147,20 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 			Status(readyCondition.Status).
 			Reason(conditions.CommonReason(readyCondition.Reason)).
 			Message(readyCondition.Message)
+
+		_, err = h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm, kvvmi)
+		if err != nil {
+			if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
+				log.Debug(err.Error())
+				return reconcile.Result{}, nil
+			}
+			if k8serrors.IsConflict(err) {
+				log.Debug(fmt.Sprintf("failed to unfreeze filesystem; resource update conflict error: %s", err))
+				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+			}
+			cb.Message(fmt.Sprintf("%s, %s", err.Error(), cb.Condition().Message))
+			return reconcile.Result{}, fmt.Errorf("failed to unfreeze filesystem: %w", err)
+		}
 		return reconcile.Result{}, nil
 	case v1alpha2.VirtualMachineSnapshotPhaseReady:
 		// Ensure vd snapshots aren't lost.
