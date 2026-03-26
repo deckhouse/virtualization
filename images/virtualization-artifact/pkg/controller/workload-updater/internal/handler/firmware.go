@@ -23,14 +23,14 @@ import (
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -39,7 +39,11 @@ import (
 
 const firmwareHandler = "FirmwareHandler"
 
-func NewFirmwareHandler(client client.Client, migration OneShotMigration, firmwareImage, namespace, virtControllerName string) *FirmwareHandler {
+type firmwareMigration interface {
+	OnceMigrate(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error)
+}
+
+func NewFirmwareHandler(client client.Client, migration firmwareMigration, firmwareImage, namespace, virtControllerName string) *FirmwareHandler {
 	return &FirmwareHandler{
 		client:             client,
 		oneShotMigration:   migration,
@@ -51,7 +55,7 @@ func NewFirmwareHandler(client client.Client, migration OneShotMigration, firmwa
 
 type FirmwareHandler struct {
 	client             client.Client
-	oneShotMigration   OneShotMigration
+	oneShotMigration   firmwareMigration
 	firmwareImage      string
 	namespace          string
 	virtControllerName string
@@ -70,10 +74,12 @@ func (h *FirmwareHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachin
 	ctx = logger.ToContext(ctx, log)
 
 	kvvmi := &virtv1.VirtualMachineInstance{}
-	if err := h.client.Get(ctx, object.NamespacedName(vm), kvvmi); err != nil {
-		return reconcile.Result{}, client.IgnoreNotFound(err)
+	err := h.client.Get(ctx, object.NamespacedName(vm), kvvmi)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return reconcile.Result{}, err
 	}
-	if kvvmi.Status.Phase != virtv1.Running {
+
+	if !k8serrors.IsNotFound(err) && kvvmi.Status.Phase != virtv1.Running {
 		return reconcile.Result{}, nil
 	}
 
