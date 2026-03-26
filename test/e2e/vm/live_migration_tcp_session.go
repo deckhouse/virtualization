@@ -70,24 +70,14 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", func() {
 
 	It("checks the TCP session when the virtual machine is migrated", func() {
 		By("Environment preparation", func() {
-			iperfServerDisk := vd.New(
-				vd.WithName(iperfServerName),
-				vd.WithNamespace(f.Namespace().Name),
+			iperfServerDisk := object.NewVDFromCVI(iperfServerName, f.Namespace().Name, object.PrecreatedCVIAlpineUEFI,
 				vd.WithSize(ptr.To(resource.MustParse("400Mi"))),
 				vd.WithStorageClass(&storageClass.Name),
-				vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: object.ImageURLAlpineUEFI,
-				}),
 			)
 
-			iperfClientDisk := vd.New(
-				vd.WithName(iperfClientName),
-				vd.WithNamespace(f.Namespace().Name),
+			iperfClientDisk := object.NewVDFromCVI(iperfClientName, f.Namespace().Name, object.PrecreatedCVIAlpineUEFI,
 				vd.WithSize(ptr.To(resource.MustParse("500Mi"))),
 				vd.WithStorageClass(&storageClass.Name),
-				vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: object.ImageURLAlpineUEFI,
-				}),
 			)
 
 			iperfServer = newVirtualMachine(iperfServerName, f.Namespace().Name, iperfServerDisk, object.PerfCloudInit)

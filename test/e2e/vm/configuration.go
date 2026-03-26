@@ -123,13 +123,8 @@ func NewConfigurationTest(f *framework.Framework) *configurationTest {
 }
 
 func (t *configurationTest) GenerateResources(restartApprovalMode v1alpha2.RestartApprovalMode) {
-	t.VDRoot = vdbuilder.New(
-		vdbuilder.WithName("vd-root"),
-		vdbuilder.WithNamespace(t.Framework.Namespace().Name),
+	t.VDRoot = object.NewVDFromCVI("vd-root", t.Framework.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
 		vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
-		vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-			URL: object.ImageURLAlpineBIOS,
-		}),
 	)
 
 	t.VDBlank = vdbuilder.New(
