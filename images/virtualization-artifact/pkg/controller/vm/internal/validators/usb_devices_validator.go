@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/component-base/featuregate"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -186,14 +185,8 @@ func (v *USBDevicesValidator) validateAvailableUSBIPPortsWithPartitionableDevice
 		return admission.Warnings{}, nil
 	}
 
-	node := &corev1.Node{}
-	err := v.client.Get(ctx, client.ObjectKey{Name: vm.Status.Node}, node)
-	if err != nil {
-		return admission.Warnings{}, err
-	}
-
 	if len(hsUSBFromOtherNodes) > 0 {
-		hasFree, err := usb.CheckFreePortForRequest(node.Annotations, 480, len(hsUSBFromOtherNodes))
+		hasFree, err := usb.CheckFreePortForRequestOnNodeExcludingLocalUSBs(ctx, v.client, vm.Status.Node, 480, len(hsUSBFromOtherNodes))
 		if err != nil {
 			return admission.Warnings{}, err
 		}
@@ -203,7 +196,7 @@ func (v *USBDevicesValidator) validateAvailableUSBIPPortsWithPartitionableDevice
 	}
 
 	if len(ssUSBFromOtherNodes) > 0 {
-		hasFree, err := usb.CheckFreePortForRequest(node.Annotations, 5000, len(ssUSBFromOtherNodes))
+		hasFree, err := usb.CheckFreePortForRequestOnNodeExcludingLocalUSBs(ctx, v.client, vm.Status.Node, 5000, len(ssUSBFromOtherNodes))
 		if err != nil {
 			return admission.Warnings{}, err
 		}

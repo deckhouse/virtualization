@@ -22,7 +22,6 @@ import (
 	"strings"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -171,18 +170,13 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 		// 4) Check free USBIP ports for cross-node attachments until KVVMI reflects the device.
 		// Once the host device is listed in KVVMI, attach is already in progress, so skip the check.
 		if _, exists := hostDeviceExistsByName[deviceName]; !exists && usbDevice.Status.NodeName != "" && vm.Status.Node != "" && usbDevice.Status.NodeName != vm.Status.Node {
-			node := &corev1.Node{}
-			if err := h.client.Get(ctx, client.ObjectKey{Name: vm.Status.Node}, node); err != nil {
-				if !apierrors.IsNotFound(err) {
-					return reconcile.Result{}, fmt.Errorf("failed to get node %s: %w", vm.Status.Node, err)
-				}
-				nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(existingStatus, deviceName, isReady))
-				continue
-			}
-
-			hasFreePort, err := usb.CheckFreePort(node.Annotations, usbDevice.Status.Attributes.Speed)
+			hasFreePort, err := usb.CheckFreePortOnNodeExcludingLocalUSBs(ctx, h.client, vm.Status.Node, usbDevice.Status.Attributes.Speed)
 			if err != nil {
-				log.Error("failed to check free USBIP ports", "error", err, "device", deviceName, "node", vm.Status.Node)
+				if !apierrors.IsNotFound(err) {
+					log.Error("failed to check free USBIP ports", "error", err, "device", deviceName, "node", vm.Status.Node)
+				} else {
+					log.Debug("node not found while checking free USBIP ports", "device", deviceName, "node", vm.Status.Node)
+				}
 				nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(existingStatus, deviceName, isReady))
 				continue
 			}

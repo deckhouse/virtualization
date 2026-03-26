@@ -20,6 +20,7 @@ import (
 	"strings"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/component-base/featuregate"
@@ -111,6 +112,32 @@ func TestUSBDevicesValidatorValidateCreateSucceedsWhenUSBFeatureEnabled(t *testi
 	}
 }
 
+func TestUSBDevicesValidatorValidateUpdateExcludesLocalUSBsFromPortAccounting(t *testing.T) {
+	oldVM := newVirtualMachine("vm-current", []v1alpha2.USBDeviceSpecRef{{Name: "usb-local"}})
+	oldVM.Status.Node = "node-1"
+	oldVM.Status.USBDevices = []v1alpha2.USBDeviceStatusRef{{Name: "usb-local", Attached: true}}
+
+	newVM := oldVM.DeepCopy()
+	newVM.Spec.USBDevices = []v1alpha2.USBDeviceSpecRef{{Name: "usb-local"}, {Name: "usb-remote"}}
+
+	objects := []client.Object{
+		oldVM,
+		&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-1", Annotations: map[string]string{
+			"usb.virtualization.deckhouse.io/usbip-total-ports":               "2",
+			"usb.virtualization.deckhouse.io/usbip-high-speed-hub-used-ports":  "1",
+			"usb.virtualization.deckhouse.io/usbip-super-speed-hub-used-ports": "0",
+		}}},
+		&v1alpha2.USBDevice{ObjectMeta: metav1.ObjectMeta{Name: "usb-local", Namespace: "default"}, Status: v1alpha2.USBDeviceStatus{NodeName: "node-1", Attributes: v1alpha2.NodeUSBDeviceAttributes{Speed: 480}}},
+		&v1alpha2.USBDevice{ObjectMeta: metav1.ObjectMeta{Name: "usb-remote", Namespace: "default"}, Status: v1alpha2.USBDeviceStatus{NodeName: "node-2", Attributes: v1alpha2.NodeUSBDeviceAttributes{Speed: 480}}},
+	}
+
+	validator := NewUSBDevicesValidator(newFakeClientWithUSBVMIndexer(t, objects...), newUSBFeatureGate(t, true))
+	_, err := validator.ValidateUpdate(t.Context(), oldVM, newVM)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
 func TestUSBDevicesValidatorValidateUpdateReturnsErrorWhenUSBFeatureDisabled(t *testing.T) {
 	oldVM := newVirtualMachine("vm-current", nil)
 	newVM := newVirtualMachine("vm-current", []v1alpha2.USBDeviceSpecRef{{Name: "usb-1"}})
@@ -133,12 +160,17 @@ func newFakeClientWithUSBVMIndexer(t *testing.T, objects ...client.Object) clien
 	if err := v1alpha2.AddToScheme(scheme); err != nil {
 		t.Fatalf("failed to add virtualization API scheme: %v", err)
 	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to add core API scheme: %v", err)
+	}
 
 	vmObj, vmField, vmExtractValue := indexer.IndexVMByUSBDevice()
+	vmNodeObj, vmNodeField, vmNodeExtractValue := indexer.IndexVMByNode()
 	return fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithObjects(objects...).
 		WithIndex(vmObj, vmField, vmExtractValue).
+		WithIndex(vmNodeObj, vmNodeField, vmNodeExtractValue).
 		Build()
 }
 
