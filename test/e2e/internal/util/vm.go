@@ -106,6 +106,8 @@ func SkipIfKnownMigrationFailure(vm *v1alpha2.VirtualMachine) {
 	SkipIfKnownVolumesUpdateMigrationFailure(vm)
 }
 
+// TODO: remove temporary migration skip logic when VD Migration Controller revert issue is fixed:
+// controller may revert volume migration (VM not running, VM not migrating, etc.).
 func SkipIfVDMigrationReverted(namespace string) {
 	GinkgoHelper()
 
@@ -170,6 +172,8 @@ func UntilVMMigrationSucceeded(key client.ObjectKey, timeout time.Duration) {
 	GinkgoHelper()
 
 	Eventually(func() error {
+		// TODO: remove temporary migration skip logic when VD Migration Controller revert issue is fixed:
+		// controller may revert volume migration (VM not running, VM not migrating, etc.).
 		SkipIfVDMigrationReverted(key.Namespace)
 
 		vm, err := framework.GetClients().VirtClient().VirtualMachines(key.Namespace).Get(context.Background(), key.Name, metav1.GetOptions{})

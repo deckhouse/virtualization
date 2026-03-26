@@ -237,6 +237,8 @@ var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), func(
 			Expect(err).NotTo(HaveOccurred())
 
 			Eventually(func() error {
+				// TODO: remove temporary migration skip logic when VD Migration Controller revert issue is fixed:
+				// controller may revert volume migration (VM not running, VM not migrating, etc.).
 				util.SkipIfVDMigrationReverted(ns)
 
 				vm, err = f.VirtClient().VirtualMachines(ns).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
