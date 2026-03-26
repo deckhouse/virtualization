@@ -24,8 +24,11 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -65,6 +68,14 @@ func (h *FirmwareHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachin
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(firmwareHandler))
 	ctx = logger.ToContext(ctx, log)
+
+	kvvmi := &virtv1.VirtualMachineInstance{}
+	if err := h.client.Get(ctx, object.NamespacedName(vm), kvvmi); err != nil {
+		return reconcile.Result{}, client.IgnoreNotFound(err)
+	}
+	if kvvmi.Status.Phase != virtv1.Running {
+		return reconcile.Result{}, nil
+	}
 
 	if ready, err := h.isVirtControllerUpToDate(ctx); err != nil {
 		return reconcile.Result{}, err

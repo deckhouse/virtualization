@@ -25,6 +25,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
@@ -67,6 +68,22 @@ var _ = Describe("TestFirmwareHandler", func() {
 		return vm
 	}
 
+	newKVVMI := func(phase virtv1.VirtualMachineInstancePhase) *virtv1.VirtualMachineInstance {
+		return &virtv1.VirtualMachineInstance{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: virtv1.GroupVersion.String(),
+				Kind:       "VirtualMachineInstance",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: namespace,
+			},
+			Status: virtv1.VirtualMachineInstanceStatus{
+				Phase: phase,
+			},
+		}
+	}
+
 	newVirtController := func(ready bool, launcherImage string) *appsv1.Deployment {
 		deploy := &appsv1.Deployment{
 			TypeMeta: metav1.TypeMeta{
@@ -99,8 +116,8 @@ var _ = Describe("TestFirmwareHandler", func() {
 	}
 
 	DescribeTable("FirmwareHandler should return serviceCompleteErr if migration executed",
-		func(vm *v1alpha2.VirtualMachine, deploy *appsv1.Deployment, needMigrate bool) {
-			fakeClient = setupEnvironment(vm, deploy)
+		func(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, deploy *appsv1.Deployment, needMigrate bool) {
+			fakeClient = setupEnvironment(vm, kvvmi, deploy)
 
 			mockMigration := &OneShotMigrationMock{
 				OnceMigrateFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
@@ -118,9 +135,11 @@ var _ = Describe("TestFirmwareHandler", func() {
 				Expect(err).NotTo(HaveOccurred())
 			}
 		},
-		Entry("Migration should be executed", newVM(true), newVirtController(true, firmwareImage), true),
-		Entry("Migration not should be executed", newVM(false), newVirtController(true, firmwareImage), false),
-		Entry("Migration not should be executed because virt-controller not ready", newVM(false), newVirtController(false, firmwareImage), false),
-		Entry("Migration not should be executed because virt-controller ready but has wrong image", newVM(false), newVirtController(true, "wrong-image"), false),
+		Entry("Migration should be executed", newVM(true), newKVVMI(virtv1.Running), newVirtController(true, firmwareImage), true),
+		Entry("Migration not should be executed", newVM(false), newKVVMI(virtv1.Running), newVirtController(true, firmwareImage), false),
+		Entry("Migration not should be executed because kvvmi is stopped", newVM(true), newKVVMI(virtv1.Succeeded), newVirtController(true, firmwareImage), false),
+		Entry("Migration not should be executed because kvvmi is pending", newVM(true), newKVVMI(virtv1.Pending), newVirtController(true, firmwareImage), false),
+		Entry("Migration not should be executed because virt-controller not ready", newVM(false), newKVVMI(virtv1.Running), newVirtController(false, firmwareImage), false),
+		Entry("Migration not should be executed because virt-controller ready but has wrong image", newVM(false), newKVVMI(virtv1.Running), newVirtController(true, "wrong-image"), false),
 	)
 })
