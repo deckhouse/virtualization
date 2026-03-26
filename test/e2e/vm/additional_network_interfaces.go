@@ -84,10 +84,10 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 			By("Environment preparation", func() {
 				ns := f.Namespace().Name
 
-				vdFooRoot = object.NewHTTPVDAlpineUEFIPerf("vd-foo-root", ns,
+				vdFooRoot = object.NewVDFromCVI("vd-foo-root", ns, object.PrecreatedCVIAlpineUEFIPerf,
 					vd.WithSize(ptr.To(resource.MustParse("512Mi"))),
 				)
-				vdBarRoot = object.NewHTTPVDAlpineUEFIPerf("vd-bar-root", ns,
+				vdBarRoot = object.NewVDFromCVI("vd-bar-root", ns, object.PrecreatedCVIAlpineUEFIPerf,
 					vd.WithSize(ptr.To(resource.MustParse("512Mi"))),
 				)
 
@@ -174,13 +174,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 			By("Create VM with Main network and two additional ClusterNetworks", func() {
 				ns := f.Namespace().Name
 
-				vdRoot = vd.New(
-					vd.WithName("vd-root"),
-					vd.WithNamespace(ns),
-					vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-						URL: object.ImageURLUbuntu,
-					}),
-				)
+				vdRoot = object.NewVDFromCVI("vd-root", ns, object.PrecreatedCVIUbuntu)
 
 				vm = buildVMWithNetworks("vm", ns, vdRoot.Name, "192.168.1.20", true)
 				vm.Spec.Networks = append(vm.Spec.Networks, v1alpha2.NetworksSpec{
