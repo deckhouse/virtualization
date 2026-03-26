@@ -532,6 +532,32 @@ var _ = Describe("USBDeviceAttachHandler", func() {
 		Expect(status.Ready).To(BeTrue())
 	})
 
+	It("returns error when USBIP port availability check fails unexpectedly", func() {
+		vm := newVM(v1alpha2.MachineRunning)
+		vm.Status.Node = "node-2"
+
+		badNode := &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node-2",
+				Annotations: map[string]string{
+					annotations.AnnUSBIPTotalPorts:             "invalid",
+					annotations.AnnUSBIPHighSpeedHubUsedPorts:  "0",
+					annotations.AnnUSBIPSuperSpeedHubUsedPorts: "0",
+				},
+			},
+		}
+
+		result, _, _, err := runHandle(
+			vm,
+			newUSBDevice(true, usbDeviceName, false),
+			newResourceClaimTemplate(),
+			badNode,
+		)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("failed to check free USBIP ports for device"))
+		Expect(result.RequeueAfter).To(BeNumerically(">", 0))
+	})
+
 	It("skips port checks once KVVMI already reflects the host device", func() {
 		vm := newVM(v1alpha2.MachineRunning, v1alpha2.USBDeviceStatusRef{
 			Name:     usbDeviceName,

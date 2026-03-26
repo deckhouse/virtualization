@@ -172,13 +172,13 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 		if _, exists := hostDeviceExistsByName[deviceName]; !exists && usbDevice.Status.NodeName != "" && vm.Status.Node != "" && usbDevice.Status.NodeName != vm.Status.Node {
 			hasFreePort, err := usb.CheckFreePortOnNodeExcludingLocalUSBs(ctx, h.client, vm.Status.Node, usbDevice.Status.Attributes.Speed)
 			if err != nil {
-				if !apierrors.IsNotFound(err) {
-					log.Error("failed to check free USBIP ports", "error", err, "device", deviceName, "node", vm.Status.Node)
-				} else {
+				if apierrors.IsNotFound(err) {
 					log.Debug("node not found while checking free USBIP ports", "device", deviceName, "node", vm.Status.Node)
+					nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(existingStatus, deviceName, isReady))
+					continue
 				}
-				nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(existingStatus, deviceName, isReady))
-				continue
+
+				return reconcile.Result{RequeueAfter: 5 * time.Second}, fmt.Errorf("failed to check free USBIP ports for device %s on node %s: %w", deviceName, vm.Status.Node, err)
 			}
 			if !hasFreePort {
 				log.Info("no free USBIP ports available", "device", deviceName, "speed", usbDevice.Status.Attributes.Speed, "node", vm.Status.Node)

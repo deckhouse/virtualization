@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
@@ -99,6 +100,9 @@ func countLocalAttachedUSBsOnNodeBySpeed(ctx context.Context, cl client.Client, 
 			if !ok {
 				usbDevice = &v1alpha2.USBDevice{}
 				if err := cl.Get(ctx, key, usbDevice); err != nil {
+					if apierrors.IsNotFound(err) {
+						continue
+					}
 					return 0, err
 				}
 				usbCache[key] = usbDevice

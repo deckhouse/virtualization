@@ -227,15 +227,17 @@ func (h *LifecycleHandler) syncAttached(ctx context.Context, s state.USBDeviceSt
 		if usbDevice.Status.NodeName != "" && usbDevice.Status.NodeName != vm.Status.Node {
 			hasFreePort, err := usb.CheckFreePortOnNodeExcludingLocalUSBs(ctx, h.client, vm.Status.Node, usbDevice.Status.Attributes.Speed)
 			if err != nil {
-				if !apierrors.IsNotFound(err) {
-					log.Error("failed to check free USBIP ports", "error", err, "device", usbDevice.Name, "node", vm.Status.Node)
+				if apierrors.IsNotFound(err) {
+					log.Debug("node not found while checking free USBIP ports", "device", usbDevice.Name, "node", vm.Status.Node)
+					continue
 				}
-				continue
+
+				return fmt.Errorf("failed to check free USBIP ports for USBDevice %s on node %s: %w", usbDevice.Name, vm.Status.Node, err)
 			}
 
 			if !hasFreePort {
 				noFreePort = true
-				message = fmt.Sprintf("Device is attached to VirtualMachine %s/%s, but no free USBIP ports available on node %s for speed %d.",
+				message = fmt.Sprintf("Device is requested by VirtualMachine %s/%s, but no free USBIP ports are available on node %s for speed %d.",
 					vm.Namespace, vm.Name, vm.Status.Node, usbDevice.Status.Attributes.Speed)
 				break
 			}
@@ -244,7 +246,7 @@ func (h *LifecycleHandler) syncAttached(ctx context.Context, s state.USBDeviceSt
 
 	if noFreePort {
 		reason = usbdevicecondition.NoFreeUSBIPPort
-		status = metav1.ConditionTrue
+		status = metav1.ConditionFalse
 	} else if len(attachedVMs) > 0 {
 		reason = usbdevicecondition.AttachedToVirtualMachine
 		status = metav1.ConditionTrue
