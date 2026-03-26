@@ -246,5 +246,4 @@ var _ = Describe("LifecycleHandler", func() {
 			false,                              // targetMigrationEnabled
 		),
 	)
-
 })
