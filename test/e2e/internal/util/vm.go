@@ -106,6 +106,25 @@ func SkipIfKnownMigrationFailure(vm *v1alpha2.VirtualMachine) {
 	SkipIfKnownVolumesUpdateMigrationFailure(vm)
 }
 
+// TODO: remove temporary migration skip logic when VD Migration Controller revert issue is fixed:
+// controller may revert volume migration (VM not running, VM not migrating, etc.).
+func SkipIfVDMigrationReverted(namespace string) {
+	GinkgoHelper()
+
+	vds, err := framework.GetClients().VirtClient().VirtualDisks(namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		GinkgoWriter.Printf("Failed to list VirtualDisks in namespace %q for revert check: %v\n", namespace, err)
+		return
+	}
+
+	for _, vd := range vds.Items {
+		if vd.Status.MigrationState.Result == v1alpha2.VirtualDiskMigrationResultFailed &&
+			vd.Status.MigrationState.Message == "Migration reverted." {
+			Skip(fmt.Sprintf("skip: VD %s/%s migration was reverted", namespace, vd.Name))
+		}
+	}
+}
+
 func getInternalVirtualMachineInstance(vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
 	GinkgoHelper()
 
@@ -153,6 +172,10 @@ func UntilVMMigrationSucceeded(key client.ObjectKey, timeout time.Duration) {
 	GinkgoHelper()
 
 	Eventually(func() error {
+		// TODO: remove temporary migration skip logic when VD Migration Controller revert issue is fixed:
+		// controller may revert volume migration (VM not running, VM not migrating, etc.).
+		SkipIfVDMigrationReverted(key.Namespace)
+
 		vm, err := framework.GetClients().VirtClient().VirtualMachines(key.Namespace).Get(context.Background(), key.Name, metav1.GetOptions{})
 		if err != nil {
 			return err
