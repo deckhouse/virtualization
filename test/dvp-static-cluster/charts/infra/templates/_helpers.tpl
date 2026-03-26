@@ -28,9 +28,11 @@ spec:
   blockDeviceRefs:
   - kind: VirtualDisk
     name: {{ include "infra.vd-root-name" $name }}
+{{- if ne $ctx.Values.storageType "nfs" }}
 {{- range $i, $v := $cfg.additionalDisks }}
   - kind: VirtualDisk
     name: {{ printf "%s-%d" $name $i }}
+{{- end }}
 {{- end }}
   bootloader: {{ $ctx.Values.image.bootloader }}
   liveMigrationPolicy: PreferForced
