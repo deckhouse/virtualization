@@ -1,0 +1,103 @@
+api:
+  features:
+    - summary: >-
+        VirtualDisk owner reference is now saved at snapshot time and restored when restoring from
+        snapshot, so restored disks are again owned by the restored VirtualMachine.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2032
+  fixes:
+    - summary: Improve storage class validation error messages for VirtualDisk and VirtualImage on PVC.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2115
+ci:
+  fixes:
+    - summary: e2e bootstrap cluster
+      pull_request: https://github.com/deckhouse/virtualization/pull/2064
+core:
+  features:
+    - summary: Add quota override label for PVC migration to prevent double counting.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2148
+    - summary: Reducing USB device downtime during VM migration.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2098
+  fixes:
+    - summary: Fix VM getting stuck in Maintenance mode during snapshot restore.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2144
+    - summary: >-
+        Discover kube-apiserver feature gates via metrics endpoint instead of pod command-line args
+        to correctly handle default-enabled gates.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2137
+    - summary: Fix transient publication of detaching USBIP devices as local USB devices in ResourceSlice.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2122
+    - summary: >-
+        Fix DRA USB device list generation — use capacity-only pre-allocation to avoid empty entries
+        in the resource slice.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2121
+    - summary: >-
+        Fix validation to require force=true for AlwaysForced liveMigrationPolicy. UI migrations
+        without explicit force flag are now properly rejected.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2120
+    - summary: >-
+        PreferForced live migration policy now uses autoConverge=true by default, but respects
+        force=false.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2111
+    - summary: >-
+        Fix DRA feature gates discovery by removing check for DRAResourceClaimDeviceStatus which is
+        enabled by default.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2108
+    - summary: Exit maintenance mode after restore operation failure.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2094
+    - summary: >-
+        Enable NRI hook in DRA USB driver to restore allocated device state after restart and guard
+        Prepare/Unprepare until synchronization completes.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2087
+    - summary: >-
+        Fix VirtualDisk AttachedToVirtualMachines references during clone and customized restore
+        operations.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2080
+    - summary: >-
+        Reject VM USB device attachments when USB feature gate is disabled and validate only newly
+        added USB devices on update.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2077
+dvcr:
+  fixes:
+    - summary: >-
+        Fixed VMDK disk image import failures by implementing support for streamOptimized VMDK
+        format commonly exported from VMware vSphere, Workstation, and Fusion.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2065
+    - summary: >-
+        When DVCR is out of space, a resource will contain a clearer message about it in the
+        condition.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2016
+module:
+  features:
+    - summary: >-
+        Add annotations for configuring KubeVirt migration settings (bandwidth, timeouts,
+        parallelism) via ModuleConfig.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2158
+  fixes:
+    - summary: >-
+        Limited the maximum debug verbosity level to 9 in the Virtualization controller to prevent
+        full trace-level logs from appearing when debug logging is enabled.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2101
+vd:
+  fixes:
+    - summary: Do not check datasourceReady for the exporting phase.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2060
+vm:
+  features:
+    - summary: Add garbage collection for completed/failed VM pods
+      pull_request: https://github.com/deckhouse/virtualization/pull/2091
+    - summary: separate scheduling for USB 2.0 (High-Speed) and USB 3.0 (SuperSpeed) over USBIP
+      pull_request: https://github.com/deckhouse/virtualization/pull/2045
+    - summary: add conntrack synchronization for live migration
+      pull_request: https://github.com/deckhouse/virtualization/pull/1939
+  fixes:
+    - summary: Fix eviction webhook label mismatch for hotplug pods.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2153
+    - summary: Stabilize the order of network interfaces
+      pull_request: https://github.com/deckhouse/virtualization/pull/2001
+    - summary: show CSI and volume errors in VM status
+      pull_request: https://github.com/deckhouse/virtualization/pull/1766
+vmop:
+  features:
+    - summary: add validation for local storage migration in CE edition
+      pull_request: https://github.com/deckhouse/virtualization/pull/1950
+
