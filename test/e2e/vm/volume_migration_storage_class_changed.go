@@ -68,7 +68,7 @@ var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), func(
 
 		DeferCleanup(f.After)
 
-		newVI := object.NewGeneratedHTTPVIAlpineBIOS("volume-migration-storage-class-changed-", f.Namespace().Name)
+		newVI := object.NewGeneratedVIFromCVI("volume-migration-storage-class-changed-", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS)
 		newVI, err = f.VirtClient().VirtualImages(f.Namespace().Name).Create(context.Background(), newVI, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(newVI)
