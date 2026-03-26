@@ -67,13 +67,8 @@ var _ = Describe("VMSOPCreateVirtualMachine", Ordered, func() {
 
 	It("should prepare environment", func() {
 		By("create vm", func() {
-			vd = vdbuilder.New(
-				vdbuilder.WithName("vd-root"),
-				vdbuilder.WithNamespace(f.Namespace().Name),
+			vd = object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
 				vdbuilder.WithSize(ptr.To(resource.MustParse("10Gi"))),
-				vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: object.ImageURLAlpineBIOS,
-				}),
 			)
 
 			vm = object.NewMinimalVM("vmsop-origin-", f.Namespace().Name,
