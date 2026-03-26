@@ -9,7 +9,7 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   persistentVolumeClaim:
-    size: 100G
+    size: 150G
     storageClassName: linstor-thin-r1
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2

@@ -90,6 +90,7 @@ spec:
     storageClassName: {{ $ctx.Values.storageClass }}
     {{- end }}
 
+{{ if ne $ctx.Values.storageType "nfs" }}
   {{range $i, $v := $cfg.additionalDisks }}
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -104,4 +105,5 @@ spec:
     storageClassName: {{ $ctx.Values.storageClass }}
     {{- end }}
   {{- end }}
+{{- end }}
 {{- end }}
