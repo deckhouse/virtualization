@@ -266,16 +266,11 @@ func (t *restoreModeTest) GenerateResources(restoreMode v1alpha2.SnapshotOperati
 	t.VI = vibuilder.New(
 		vibuilder.WithName("vi"),
 		vibuilder.WithNamespace(t.Framework.Namespace().Name),
-		vibuilder.WithDataSourceHTTP(object.ImageTestDataQCOW, nil, nil),
+		vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVITestDataQCOW),
 		vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
 	)
 
-	t.VDRoot = vdbuilder.New(
-		vdbuilder.WithName("vd-root"),
-		vdbuilder.WithNamespace(t.Framework.Namespace().Name),
-		vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-			URL: object.ImageURLUbuntu,
-		}),
+	t.VDRoot = object.NewVDFromCVI("vd-root", t.Framework.Namespace().Name, object.PrecreatedCVIUbuntu,
 		vdbuilder.WithAnnotation(resourceAnnotationName, resourceAnnotationValue),
 		vdbuilder.WithLabel(resourceLabelName, resourceLabelValue),
 	)

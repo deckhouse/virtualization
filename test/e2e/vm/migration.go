@@ -76,13 +76,8 @@ var _ = Describe("VirtualMachineMigration", func() {
 
 	It("verifies that migrations are successful", func() {
 		By("Environment preparation", func() {
-			vdRootBIOS = vd.New(
-				vd.WithName("vd-root-bios"),
-				vd.WithNamespace(f.Namespace().Name),
+			vdRootBIOS = object.NewVDFromCVI("vd-root-bios", f.Namespace().Name, object.PrecreatedCVIUbuntu,
 				vd.WithSize(ptr.To(resource.MustParse("10Gi"))),
-				vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: object.ImageURLUbuntu,
-				}),
 			)
 			vdBlankBIOS = vd.New(
 				vd.WithName("vd-blank-bios"),
@@ -90,13 +85,8 @@ var _ = Describe("VirtualMachineMigration", func() {
 				vd.WithSize(ptr.To(resource.MustParse("100Mi"))),
 			)
 
-			vdRootUEFI = vd.New(
-				vd.WithName("vd-root-uefi"),
-				vd.WithNamespace(f.Namespace().Name),
+			vdRootUEFI = object.NewVDFromCVI("vd-root-uefi", f.Namespace().Name, object.PrecreatedCVIAlpineUEFI,
 				vd.WithSize(ptr.To(resource.MustParse("10Gi"))),
-				vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: object.ImageURLAlpineUEFI,
-				}),
 			)
 			vdBlankUEFI = vd.New(
 				vd.WithName("vd-blank-uefi"),
@@ -151,13 +141,13 @@ var _ = Describe("VirtualMachineMigration", func() {
 			viHotplugBIOS = vi.New(
 				vi.WithName("vi-hotplug-bios"),
 				vi.WithNamespace(f.Namespace().Name),
-				vi.WithDataSourceHTTP(object.ImageTestDataQCOW, nil, nil),
+				vi.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVITestDataQCOW),
 				vi.WithStorage(v1alpha2.StorageContainerRegistry),
 			)
 			viHotplugUEFI = vi.New(
 				vi.WithName("vi-hotplug-uefi"),
 				vi.WithNamespace(f.Namespace().Name),
-				vi.WithDataSourceHTTP(object.ImageTestDataQCOW, nil, nil),
+				vi.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVITestDataQCOW),
 				vi.WithStorage(v1alpha2.StorageContainerRegistry),
 			)
 
