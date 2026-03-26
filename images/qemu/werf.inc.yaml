@@ -3,9 +3,17 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
 fromImage: builder/scratch
 import:
+# Full QEMU package with all runtime dependencies (for cdi-importer, etc.)
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
   add: /out
   to: /{{ $.ImageName }}-img
+  before: setup
+# QEMU binaries only, without shared libraries from pm dependencies.
+# Used by virt-launcher and virt-handler where relocate_binaries.sh
+# resolves shared libraries from the build environment.
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins-builder
+  add: /out
+  to: /{{ $.ImageName }}-bins
   before: setup
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
@@ -14,3 +22,10 @@ fromImage: builder/distroless
 shell:
   install:
     - pm install qemu -d /out
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins-builder
+final: false
+fromImage: builder/distroless
+shell:
+  install:
+    - pm install -1 qemu -d /out
