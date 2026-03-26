@@ -54,23 +54,29 @@ func (m *PrecreatedCVIManager) Bootstrap(ctx context.Context) {
 
 	m.cvis = object.PrecreatedClusterVirtualImages()
 
+	var created, reused []string
 	for _, cvi := range m.cvis {
-		By(fmt.Sprintf("Create or reuse precreated CVI %q in the cluster", cvi.Name))
-		created, err := m.createOrReuse(ctx, cvi)
+		wasCreated, err := m.createOrReuse(ctx, cvi)
 		Expect(err).NotTo(HaveOccurred())
-		if created {
-			By(fmt.Sprintf("Precreated CVI %q has been created", cvi.Name))
+		if wasCreated {
+			created = append(created, cvi.Name)
 		} else {
-			By(fmt.Sprintf("Precreated CVI %q already exists and will be reused", cvi.Name))
+			reused = append(reused, cvi.Name)
 		}
 	}
 
-	By("Wait until all precreated CVIs are ready")
-	util.UntilObjectPhase(string(v1alpha2.ImageReady), framework.LongTimeout, m.cvisAsObjects()...)
-
-	for _, cvi := range m.cvis {
-		By(fmt.Sprintf("Precreated CVI %q is ready", cvi.Name))
+	if len(created) > 0 {
+		for _, name := range created {
+			By(fmt.Sprintf("Precreated CVI %q has been created", name))
+		}
 	}
+	if len(reused) > 0 {
+		By(fmt.Sprintf("Reusing %d precreated CVIs that already exist in the cluster", len(reused)))
+	}
+
+	By(fmt.Sprintf("Wait until all %d precreated CVIs are ready", len(m.cvis)))
+	util.UntilObjectPhase(string(v1alpha2.ImageReady), framework.LongTimeout, m.cvisAsObjects()...)
+	By(fmt.Sprintf("All %d precreated CVIs are ready", len(m.cvis)))
 }
 
 // Cleanup deletes precreated CVIs when both POST_CLEANUP and PRECREATED_CVI_CLEANUP allow it.
