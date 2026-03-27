@@ -192,6 +192,7 @@ Where:
 
 {{< alert level="warning" >}}
 Not available in CE edition.
+{{< /alert >}}
 
 To enable security event auditing:
 
@@ -205,11 +206,8 @@ To enable security event auditing:
        audit:
          enabled: true
    ```
-{{< /alert >}}
 
-{{< alert level="info" >}}
 For a complete list of configuration options, see [Configuration](./configuration.html).
-{{< /alert >}}
 
 Events are collected by the `virtualization-audit-*` pod in the `d8-virtualization` namespace. To forward events to the cluster logging system (e.g., Loki), create a ClusterLoggingConfig:
 

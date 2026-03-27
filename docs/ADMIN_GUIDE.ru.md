@@ -192,6 +192,7 @@ spec:
 
 {{< alert level="warning" >}}
 Недоступно в CE-редакции.
+{{< /alert >}}
 
 Для активации аудита событий безопасности:
 
@@ -205,11 +206,8 @@ spec:
        audit:
          enabled: true
    ```
-{{< /alert >}}
 
-{{< alert level="info" >}}
 Полный перечень параметров конфигурации приведён в разделе [Настройки](./configuration.html).
-{{< /alert >}}
 
 События собираются подом `virtualization-audit-*` в пространстве имён `d8-virtualization`. Чтобы перенаправить события в систему логирования кластера (например, Loki), создайте ClusterLoggingConfig:
 
