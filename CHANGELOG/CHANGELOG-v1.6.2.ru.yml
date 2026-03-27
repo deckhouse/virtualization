@@ -1,0 +1,6 @@
+module:
+  fixes:
+  - summary: Для модуля виртуализации требуется платформа Deckhouse Kubernetes версии
+      1.74.2 или новее. Эта версия включает исправление проверки квот при создании
+      дисков.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2133
