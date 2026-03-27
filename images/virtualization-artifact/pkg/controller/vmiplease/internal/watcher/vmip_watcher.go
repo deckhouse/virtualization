@@ -67,7 +67,7 @@ func (w VirtualMachineIPAddressWatcher) enqueueRequests(ctx context.Context, vmi
 	err := w.client.List(ctx, &leases, &client.ListOptions{})
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to list leases: %s", err))
-		return
+		return requests
 	}
 
 	for _, lease := range leases.Items {

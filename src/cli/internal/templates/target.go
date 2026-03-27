@@ -87,10 +87,10 @@ func ParseSCPArguments(arg1, arg2 string) (local LocalSCPArgument, remote Remote
 	switch {
 	case strings.Contains(arg1, ":") && strings.Contains(arg2, ":"):
 		err = fmt.Errorf("copying from a remote location to another remote location is not supported: %q to %q", arg1, arg2)
-		return
+		return local, remote, toRemote, err
 	case !strings.Contains(arg1, ":") && !strings.Contains(arg2, ":"):
 		err = fmt.Errorf("none of the two provided locations seems to be a remote location: %q to %q", arg1, arg2)
-		return
+		return local, remote, toRemote, err
 	case strings.Contains(localArg, ":"):
 		remoteArg = arg2
 		localArg = arg1
@@ -100,9 +100,9 @@ func ParseSCPArguments(arg1, arg2 string) (local LocalSCPArgument, remote Remote
 	split := strings.SplitN(remoteArg, ":", 2)
 	remote.Namespace, remote.Name, remote.Username, err = ParseSSHTarget(split[0])
 	if err != nil {
-		return
+		return local, remote, toRemote, err
 	}
 	remote.Path = split[1]
 	local.Path = localArg
-	return
+	return local, remote, toRemote, err
 }

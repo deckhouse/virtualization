@@ -30,7 +30,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes"
@@ -195,7 +195,10 @@ func newRestConfig(transport config.ClusterTransport) (*rest.Config, error) {
 
 func TestTests(t *testing.T) {
 	RegisterFailHandler(Fail)
-	fmt.Fprintf(GinkgoWriter, "Starting test suite\n")
+	_, err := fmt.Fprintf(GinkgoWriter, "Starting test suite\n")
+	if err != nil {
+		panic(err)
+	}
 	RunSpecs(t, "Tests")
 }
 
@@ -298,7 +301,7 @@ func StartV12nControllerLogStream(logStreamByPod map[string]*el.LogStream) {
 			},
 		)
 
-		var containerStartedAt v1.Time
+		var containerStartedAt metav1.Time
 		for _, s := range p.Status.ContainerStatuses {
 			if s.Name == VirtualizationController {
 				containerStartedAt = s.State.Running.StartedAt

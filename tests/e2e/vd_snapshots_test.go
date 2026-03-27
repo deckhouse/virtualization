@@ -26,7 +26,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -353,11 +353,11 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 func CreateVirtualDiskSnapshot(vdName, snapshotName, namespace string, requiredConsistency bool, labels map[string]string) error {
 	GinkgoHelper()
 	vdSnapshot := virtv2.VirtualDiskSnapshot{
-		TypeMeta: v1.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			APIVersion: APIVersion,
 			Kind:       virtv2.VirtualDiskSnapshotKind,
 		},
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Labels:    labels,
 			Name:      snapshotName,
 			Namespace: namespace,
@@ -393,7 +393,7 @@ func CheckFileSystemFrozen(vmName, vmNamespace string) (bool, error) {
 
 	for _, condition := range vmObj.Status.Conditions {
 		if condition.Type == vmcondition.TypeFilesystemFrozen.String() {
-			return condition.Status == v1.ConditionTrue, nil
+			return condition.Status == metav1.ConditionTrue, nil
 		}
 	}
 

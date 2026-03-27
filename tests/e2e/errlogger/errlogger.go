@@ -33,7 +33,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -64,7 +64,7 @@ type LogEntry struct {
 
 type LogStream struct {
 	Cancel             context.CancelFunc
-	ContainerStartedAt v1.Time
+	ContainerStartedAt metav1.Time
 	LogStreamCmd       *exec.Cmd
 	LogStreamWaitGroup *sync.WaitGroup
 	PodName            string
@@ -96,7 +96,7 @@ func (l *LogStream) ParseStderr() {
 	scanner.Buffer(buf, maxCapacity)
 
 	for scanner.Scan() {
-		_, writeErr := GinkgoWriter.Write([]byte(fmt.Sprintf("%s%s%s\n", Red, scanner.Text(), Reset)))
+		_, writeErr := fmt.Fprintf(GinkgoWriter, "%s%s%s\n", Red, scanner.Text(), Reset)
 		Expect(writeErr).NotTo(HaveOccurred())
 	}
 	parseScanError(scanner.Err(), "STDERR")

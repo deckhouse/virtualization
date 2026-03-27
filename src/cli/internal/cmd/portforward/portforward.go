@@ -121,19 +121,19 @@ func (o *PortForward) Run(cmd *cobra.Command, args []string) error {
 func (o *PortForward) prepareCommand(defaultNamespace string, args []string) (namespace, name string, ports []forwardedPort, err error) {
 	namespace, name, err = templates.ParseTarget(args[0])
 	if err != nil {
-		return
+		return namespace, name, ports, err
 	}
 
 	ports, err = parsePorts(args[1:])
 	if err != nil {
-		return
+		return namespace, name, ports, err
 	}
 
 	if namespace == "" {
 		namespace = defaultNamespace
 	}
 
-	return
+	return namespace, name, ports, err
 }
 
 func (o *PortForward) startStdoutStream(namespace, name string, port forwardedPort) error {

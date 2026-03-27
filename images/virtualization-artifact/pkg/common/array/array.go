@@ -36,7 +36,7 @@ func SetArrayElem[T any](elems []T, newElem T, matchFunc func(v1, v2 T) bool, re
 	if !isFound {
 		res = append(res, newElem)
 	}
-	return
+	return res
 }
 
 type FilterFunc[T any] func(obj *T) (keep bool)

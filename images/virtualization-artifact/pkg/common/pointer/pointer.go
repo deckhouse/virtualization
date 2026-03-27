@@ -25,7 +25,7 @@ func ToPointersArray[T any](items []T) (res []*T) {
 	for _, item := range items {
 		res = append(res, GetPointer(item))
 	}
-	return
+	return res
 }
 
 func GetPointer[T any](obj T) *T {

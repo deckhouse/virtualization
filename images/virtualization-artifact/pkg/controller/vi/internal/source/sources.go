@@ -115,8 +115,8 @@ func setPhaseConditionForFinishedImage(
 	phase *virtv2.ImagePhase,
 	supgen *supplements.Generator,
 ) {
-	switch {
-	case pvc == nil:
+	switch pvc {
+	case nil:
 		*phase = virtv2.ImageLost
 		cb.
 			Status(metav1.ConditionFalse).

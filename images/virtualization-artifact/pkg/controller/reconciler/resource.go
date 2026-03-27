@@ -70,7 +70,7 @@ func (r *Resource[T, ST]) getObjStatus(obj T) (ret ST) {
 	if obj != r.emptyObj {
 		ret = r.objStatusGetter(obj)
 	}
-	return
+	return ret
 }
 
 func (r *Resource[T, ST]) Name() types.NamespacedName {

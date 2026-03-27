@@ -22,7 +22,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
@@ -134,7 +134,7 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", ginkgoutil.CommonE2ETestDec
 					}
 
 					activePodName := GetActiveVirtualMachinePod(&vm)
-					vmPod := v1.Pod{}
+					vmPod := corev1.Pod{}
 					err = GetObject(kc.ResourcePod, activePodName, &vmPod, kc.GetOptions{Namespace: ns})
 					if err != nil {
 						return err
@@ -179,7 +179,7 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", ginkgoutil.CommonE2ETestDec
 					}
 
 					activePodName := GetActiveVirtualMachinePod(&vm)
-					vmPod := v1.Pod{}
+					vmPod := corev1.Pod{}
 					err = GetObject(kc.ResourcePod, activePodName, &vmPod, kc.GetOptions{Namespace: ns})
 					if err != nil {
 						return err
@@ -226,7 +226,7 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", ginkgoutil.CommonE2ETestDec
 					}
 
 					activePodName := GetActiveVirtualMachinePod(&vm)
-					vmPod := v1.Pod{}
+					vmPod := corev1.Pod{}
 					err = GetObject(kc.ResourcePod, activePodName, &vmPod, kc.GetOptions{Namespace: ns})
 					if err != nil {
 						return err
@@ -271,7 +271,7 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", ginkgoutil.CommonE2ETestDec
 					}
 
 					activePodName := GetActiveVirtualMachinePod(&vm)
-					vmPod := v1.Pod{}
+					vmPod := corev1.Pod{}
 					err = GetObject(kc.ResourcePod, activePodName, &vmPod, kc.GetOptions{Namespace: ns})
 					if err != nil {
 						return err

@@ -81,7 +81,7 @@ func (s Secret) makeSecret(data map[string][]byte, secretType corev1.SecretType)
 	}
 
 	if s.OwnerReference.Name != "" {
-		secret.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
+		secret.OwnerReferences = []metav1.OwnerReference{
 			s.OwnerReference,
 		}
 	}

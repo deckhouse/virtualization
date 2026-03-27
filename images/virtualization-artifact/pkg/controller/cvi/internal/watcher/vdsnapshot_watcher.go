@@ -76,7 +76,7 @@ func (w VirtualDiskSnapshotWatcher) enqueueRequests(ctx context.Context, vdSnaps
 	})
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to list cluster virtual images: %s", err))
-		return
+		return requests
 	}
 
 	for _, cvi := range cvis.Items {
@@ -92,7 +92,7 @@ func (w VirtualDiskSnapshotWatcher) enqueueRequests(ctx context.Context, vdSnaps
 		})
 	}
 
-	return
+	return requests
 }
 
 func isSnapshotDataSource(ds virtv2.ClusterVirtualImageDataSource, vdSnapshot metav1.Object) bool {

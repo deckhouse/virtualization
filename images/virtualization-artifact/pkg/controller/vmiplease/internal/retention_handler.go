@@ -54,7 +54,7 @@ func (h *RetentionHandler) Handle(ctx context.Context, lease *virtv2.VirtualMach
 	if boundCondition.Reason == vmiplcondition.Released.String() && conditions.IsLastUpdated(boundCondition, lease) {
 		currentTime := time.Now().UTC()
 
-		duration := currentTime.Sub(boundCondition.LastTransitionTime.Time.UTC())
+		duration := currentTime.Sub(boundCondition.LastTransitionTime.UTC())
 		if duration >= h.retentionDuration {
 			log.Info(fmt.Sprintf("Released VirtualMachineIPAddressLease has not been used for more than %s. It will be deleted now.", h.retentionDuration.String()))
 

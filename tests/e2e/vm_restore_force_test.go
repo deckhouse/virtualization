@@ -24,7 +24,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -358,7 +358,7 @@ func NewVirtualMachineSnapshot(
 	labels map[string]string,
 ) *virtv2.VirtualMachineSnapshot {
 	return &virtv2.VirtualMachineSnapshot{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      vmName,
 			Namespace: vmNamespace,
 			Labels:    labels,
@@ -373,7 +373,7 @@ func NewVirtualMachineSnapshot(
 
 func NewVirtualMachineRestore(vmsnapshot *virtv2.VirtualMachineSnapshot, restoreMode virtv2.RestoreMode) *virtv2.VirtualMachineRestore {
 	return &virtv2.VirtualMachineRestore{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      vmsnapshot.Spec.VirtualMachineName,
 			Namespace: vmsnapshot.Namespace,
 			Labels:    vmsnapshot.Labels,
@@ -387,7 +387,7 @@ func NewVirtualMachineRestore(vmsnapshot *virtv2.VirtualMachineSnapshot, restore
 
 func NewVirtualMachineBlockDeviceAttachment(vmName, vmNamespace, bdName string, bdKind virtv2.VMBDAObjectRefKind, labels map[string]string) *virtv2.VirtualMachineBlockDeviceAttachment {
 	return &virtv2.VirtualMachineBlockDeviceAttachment{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      bdName,
 			Namespace: vmNamespace,
 			Labels:    labels,
@@ -404,7 +404,7 @@ func NewVirtualMachineBlockDeviceAttachment(vmName, vmNamespace, bdName string, 
 
 func NewVirtualDisk(vdName, vdNamespace string, labels map[string]string, size *resource.Quantity) *virtv2.VirtualDisk {
 	return &virtv2.VirtualDisk{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      vdName,
 			Namespace: vdNamespace,
 			Labels:    labels,

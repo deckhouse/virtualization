@@ -273,7 +273,7 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup *supplements.Ge
 		})
 
 		if len(pvc.OwnerReferences) != len(ownerReferences) {
-			pvc.ObjectMeta.OwnerReferences = ownerReferences
+			pvc.OwnerReferences = ownerReferences
 			err = s.client.Update(ctx, pvc)
 			if err != nil && !k8serrors.IsNotFound(err) {
 				return false, fmt.Errorf("update owner ref of pvc: %w", err)

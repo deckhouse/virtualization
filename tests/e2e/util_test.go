@@ -642,7 +642,7 @@ func CreateAndApplyVMOPsWithSuffix(label map[string]string, suffix string, vmopT
 		vmop, err := yaml.Marshal(GenerateVMOPWithSuffix(vmName, suffix, label, vmopType))
 		Expect(err).NotTo(HaveOccurred())
 		var cmd strings.Builder
-		cmd.WriteString(fmt.Sprintf("-n %s create -f - <<EOF\n", vmNamespace))
+		fmt.Fprintf(&cmd, "-n %s create -f - <<EOF\n", vmNamespace)
 		cmd.Write(vmop)
 		cmd.WriteString("EOF\n")
 
@@ -670,7 +670,7 @@ func GenerateVMOP(vmName string, labels map[string]string, vmopType virtv2.VMOPT
 
 func GenerateVMOPWithSuffix(vmName, suffix string, labels map[string]string, vmopType virtv2.VMOPType) *virtv2.VirtualMachineOperation {
 	res := GenerateVMOP(vmName, labels, vmopType)
-	res.ObjectMeta.Name = fmt.Sprintf("%s%s", res.ObjectMeta.Name, suffix)
+	res.Name = fmt.Sprintf("%s%s", res.Name, suffix)
 	return res
 }
 
