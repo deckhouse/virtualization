@@ -1,0 +1,65 @@
+api:
+  features:
+  - summary: 'Добавлена ​​поддержка подключения USB-устройств к виртуальным машинам
+      с помощью поля `.spec.usbDevices`. Представлены ресурсы NodeUSBDevice и USBDevice
+      для управления USB-устройствами в кластере:
+
+      - `NodeUSBDevice` (на уровне кластера): представляет USB-устройство, обнаруженное
+      на определенном узле. Позволяет назначить USB-устройство для использования в
+      определенном пространстве имен.
+
+      - `USBDevice` (в пространстве имен): представляет USB-устройство, доступное
+      для подключения к виртуальным машинам в заданном пространстве имен.'
+    pull_request: https://github.com/deckhouse/virtualization/pull/1913
+ci:
+  fixes:
+  - summary: очистка ресурсов перед запуском теста e2e
+    pull_request: https://github.com/deckhouse/virtualization/pull/2018
+  - summary: добавить повтор проверки реестра
+    pull_request: https://github.com/deckhouse/virtualization/pull/2005
+dvcr:
+  fixes:
+  - summary: Установите ограничение, чтобы ограничить задержки примерно до 1 минуты
+      для каждого шага повторной попытки.
+    pull_request: https://github.com/deckhouse/virtualization/pull/1992
+module:
+  features:
+  - summary: 'Очистка DVCR в кластерах включена по умолчанию: ежедневно в 02:00. Вы
+      можете переопределить расписание через dvcr.gc.schedule в модуле виртуализации
+      ModuleConfig.'
+    pull_request: https://github.com/deckhouse/virtualization/pull/2019
+  - summary: На панель мониторинга виртуальной машины добавлена ​​информация о модулях
+      виртуальных машин.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2002
+  - summary: Добавлена ​​панель управления «Виртуализация/Обзор» с обзором состояния
+      платформы виртуализации.
+    pull_request: https://github.com/deckhouse/virtualization/pull/1956
+vd:
+  fixes:
+  - summary: Исправлено зависание виртуальных дисков при создании в режиме WaitForFirstConsumer
+      на узлах с испорченными данными.
+    pull_request: https://github.com/deckhouse/virtualization/pull/1999
+vm:
+  fixes:
+  - summary: Если в .spec.networks указана только основная сеть, модуль sdn больше
+      не требуется.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2027
+  - summary: Сохранять специальные системные метаданные kvvm.spec.template во время
+      синхронизации vm.metadata.
+    pull_request: https://github.com/deckhouse/virtualization/pull/1994
+  - summary: Метки и аннотации теперь корректно работают на виртуальных машинах.
+    pull_request: https://github.com/deckhouse/virtualization/pull/1971
+  - summary: 'Исправлена ​​миграция виртуальной машины с дисками, подключенными через
+      VirtualMachineBlockDeviceAttachment (горячее подключение): целевой модуль мог
+      превысить ограничения памяти (OOMKilled).'
+    pull_request: https://github.com/deckhouse/virtualization/pull/1947
+vmbda:
+  fixes:
+  - summary: Исправлена ​​некорректная фаза ожидания для ресурса VirtualMachineBlockDeviceAttachment
+      во время миграции виртуальной машины.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2011
+  - summary: Чтобы удалить диски и образы, подключенные к виртуальной машине через
+      VirtualMachineBlockDeviceAttachment (горячее подключение), необходимо сначала
+      отсоединить их от виртуальной машины, удалив соответствующий vmbda. Эта информация
+      была добавлена ​​в статус `vmbda`.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2000
