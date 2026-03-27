@@ -55,18 +55,6 @@ func NewHTTPVDAlpineBIOS(name, namespace string, opts ...vd.Option) *v1alpha2.Vi
 	return vd.New(baseOpts...)
 }
 
-func NewHTTPVDAlpineUEFIPerf(name, namespace string, opts ...vd.Option) *v1alpha2.VirtualDisk {
-	baseOpts := []vd.Option{
-		vd.WithName(name),
-		vd.WithNamespace(namespace),
-		vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-			URL: ImagesURLAlpineUEFIPerf,
-		}),
-	}
-	baseOpts = append(baseOpts, opts...)
-	return vd.New(baseOpts...)
-}
-
 func NewVDFromCVI(name, namespace, cviName string, opts ...vd.Option) *v1alpha2.VirtualDisk {
 	baseOpts := []vd.Option{
 		vd.WithName(name),
