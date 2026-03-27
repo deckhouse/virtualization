@@ -244,7 +244,9 @@ func connect(ctx context.Context, ln *net.TCPListener, virtCli kubeclient.Client
 			if err != nil {
 				viewResErr <- fmt.Errorf("error encountered: %s", err.Error())
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), string(optionString))
+			if _, err = fmt.Fprintln(cmd.OutOrStdout(), string(optionString)); err != nil {
+				viewResErr <- fmt.Errorf("error encountered: %s", err.Error())
+			}
 		} else {
 			// execute VNC Viewer
 			checkAndRunVNCViewer(ctx, doneChan, viewResErr, port)
@@ -342,12 +344,12 @@ func tigerVncArgs(port int) (args []string) {
 	if klog.V(4).Enabled() {
 		args = append(args, "Log=*:stderr:100")
 	}
-	return
+	return args
 }
 
 func chickenVncArgs(port int) (args []string) {
 	args = append(args, fmt.Sprintf(listenAddressFmt, port))
-	return
+	return args
 }
 
 func realVncArgs(port int) (args []string) {
@@ -358,7 +360,7 @@ func realVncArgs(port int) (args []string) {
 	if klog.V(4).Enabled() {
 		args = append(args, "-log=*:stderr:100")
 	}
-	return
+	return args
 }
 
 func remoteViewerArgs(port int) (args []string) {
@@ -366,7 +368,7 @@ func remoteViewerArgs(port int) (args []string) {
 	if klog.V(4).Enabled() {
 		args = append(args, "--debug")
 	}
-	return
+	return args
 }
 
 func usage() string {

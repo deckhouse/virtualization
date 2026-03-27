@@ -86,7 +86,7 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *virtv2.Virt
 	})
 	if err != nil {
 		slog.Default().Error(fmt.Sprintf("failed to list virtual machine snapshots: %s", err))
-		return
+		return requests
 	}
 
 	for _, vmSnapshot := range vmSnapshots.Items {
@@ -109,5 +109,5 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *virtv2.Virt
 		}
 	}
 
-	return
+	return requests
 }

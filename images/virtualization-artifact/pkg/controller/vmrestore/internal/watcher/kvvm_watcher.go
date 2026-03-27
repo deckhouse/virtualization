@@ -63,7 +63,7 @@ func (w InternalVirtualMachineWatcher) enqueueRequests(ctx context.Context, kvvm
 	})
 	if err != nil {
 		log.Error(fmt.Sprintf("failed to list vmRestores: %s", err))
-		return
+		return requests
 	}
 
 	for _, vmRestore := range vmRestores.Items {
@@ -72,7 +72,7 @@ func (w InternalVirtualMachineWatcher) enqueueRequests(ctx context.Context, kvvm
 		err := w.client.Get(ctx, types.NamespacedName{Name: vmSnapshotName, Namespace: kvvm.GetNamespace()}, &vmSnapshot)
 		if err != nil {
 			log.Error(fmt.Sprintf("failed to get vmSnapshot: %s", err))
-			return
+			return requests
 		}
 
 		if w.isKvvmNameMatch(kvvm.Name, vmSnapshot.Spec.VirtualMachineName, vmRestore.Spec.NameReplacements) {
@@ -85,7 +85,7 @@ func (w InternalVirtualMachineWatcher) enqueueRequests(ctx context.Context, kvvm
 		}
 	}
 
-	return
+	return requests
 }
 
 func (w InternalVirtualMachineWatcher) isKvvmNameMatch(kvvmName, restoredName string, nameReplacements []virtv2.NameReplacement) bool {

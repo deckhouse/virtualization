@@ -71,7 +71,7 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *virtv2.V
 	}
 
 	if len(vdByName) == 0 {
-		return
+		return requests
 	}
 
 	var vdSnapshots virtv2.VirtualDiskSnapshotList
@@ -80,7 +80,7 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *virtv2.V
 	})
 	if err != nil {
 		slog.Default().Error(fmt.Sprintf("failed to list virtual disk snapshots: %s", err))
-		return
+		return requests
 	}
 
 	for _, vdSnapshot := range vdSnapshots.Items {
@@ -97,7 +97,7 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *virtv2.V
 		})
 	}
 
-	return
+	return requests
 }
 
 func (w VirtualMachineWatcher) filterUpdateEvents(e event.TypedUpdateEvent[*virtv2.VirtualMachine]) bool {

@@ -67,7 +67,7 @@ func (w VirtualMachineMACAddressLeaseWatcher) Watch(mgr manager.Manager, ctr con
 					}
 				}
 
-				return
+				return requests
 			}),
 			predicate.TypedFuncs[*virtv2.VirtualMachineMACAddressLease]{
 				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualMachineMACAddressLease]) bool {

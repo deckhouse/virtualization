@@ -76,7 +76,7 @@ func (w *VirtualDiskWatcher) enqueueRequestsFromVDs(ctx context.Context, vd *vir
 	})
 	if err != nil {
 		slog.Default().Error(fmt.Sprintf("failed to list vi: %s", err))
-		return
+		return requests
 	}
 
 	for _, vi := range viList.Items {
@@ -96,5 +96,5 @@ func (w *VirtualDiskWatcher) enqueueRequestsFromVDs(ctx context.Context, vd *vir
 		})
 	}
 
-	return
+	return requests
 }

@@ -56,7 +56,7 @@ func (w ClusterVirtualImageRequestEnqueuer) EnqueueRequests(ctx context.Context,
 	err := w.client.List(ctx, &cvis)
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to list cvi: %s", err))
-		return
+		return requests
 	}
 
 	for _, cvi := range cvis.Items {
@@ -84,5 +84,5 @@ func (w ClusterVirtualImageRequestEnqueuer) EnqueueRequests(ctx context.Context,
 		}
 	}
 
-	return
+	return requests
 }

@@ -74,14 +74,14 @@ func getVMSizePolicy(vm *virtv2.VirtualMachine, vmClass *virtv2.VirtualMachineCl
 
 func validateCoreFraction(vm *virtv2.VirtualMachine, sp *virtv2.SizingPolicy) (errorsArray []error) {
 	if len(sp.CoreFractions) == 0 {
-		return
+		return errorsArray
 	}
 
 	fractionStr := strings.ReplaceAll(vm.Spec.CPU.CoreFraction, "%", "")
 	fraction, err := strconv.Atoi(fractionStr)
 	if err != nil {
 		errorsArray = append(errorsArray, fmt.Errorf("unable to parse CPU core fraction: %w", err))
-		return
+		return errorsArray
 	}
 
 	hasFractionValueInPolicy := false
@@ -95,12 +95,12 @@ func validateCoreFraction(vm *virtv2.VirtualMachine, sp *virtv2.SizingPolicy) (e
 		errorsArray = append(errorsArray, fmt.Errorf("VM core fraction value %d is not within the allowed values", fraction))
 	}
 
-	return
+	return errorsArray
 }
 
 func validateMemory(vm *virtv2.VirtualMachine, sp *virtv2.SizingPolicy) (errorsArray []error) {
 	if sp.Memory == nil || sp.Memory.Max.IsZero() {
-		return
+		return errorsArray
 	}
 
 	if vm.Spec.Memory.Size.Cmp(sp.Memory.Min) == common.CmpLesser {
@@ -128,12 +128,12 @@ func validateMemory(vm *virtv2.VirtualMachine, sp *virtv2.SizingPolicy) (errorsA
 		}
 	}
 
-	return
+	return errorsArray
 }
 
 func validatePerCoreMemory(vm *virtv2.VirtualMachine, sp *virtv2.SizingPolicy) (errorsArray []error) {
 	if sp.Memory == nil || sp.Memory.PerCore.Max.IsZero() {
-		return
+		return errorsArray
 	}
 
 	// Calculate memory portion per CPU core
@@ -167,7 +167,7 @@ func validatePerCoreMemory(vm *virtv2.VirtualMachine, sp *virtv2.SizingPolicy) (
 		}
 	}
 
-	return
+	return errorsArray
 }
 
 func validateIsQuantized(value, min, max, step resource.Quantity, source string) (err error) {
@@ -178,7 +178,7 @@ func validateIsQuantized(value, min, max, step resource.Quantity, source string)
 		cmpRightResult := value.Cmp(grid[i+1])
 
 		if cmpLeftResult == common.CmpEqual || cmpRightResult == common.CmpEqual {
-			return
+			return err
 		} else if cmpLeftResult == common.CmpGreater && cmpRightResult == common.CmpLesser {
 			err = fmt.Errorf(
 				"requested %s does not match any available values, nearest valid values are [%s, %s]",
@@ -186,11 +186,11 @@ func validateIsQuantized(value, min, max, step resource.Quantity, source string)
 				grid[i].String(),
 				grid[i+1].String(),
 			)
-			return
+			return err
 		}
 	}
 
-	return
+	return err
 }
 
 func generateValidGrid(min, max, step resource.Quantity) []resource.Quantity {

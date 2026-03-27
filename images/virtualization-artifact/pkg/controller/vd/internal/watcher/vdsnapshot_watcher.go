@@ -74,7 +74,7 @@ func (w VirtualDiskSnapshotWatcher) enqueueRequests(ctx context.Context, vdSnaps
 	}, w.client, &virtv2.VirtualDisk{})
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to get virtual disk: %s", err))
-		return
+		return requests
 	}
 
 	if vd != nil {
@@ -96,7 +96,7 @@ func (w VirtualDiskSnapshotWatcher) enqueueRequests(ctx context.Context, vdSnaps
 	})
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to list virtual disks: %s", err))
-		return
+		return requests
 	}
 
 	for _, vd := range vds.Items {
@@ -113,7 +113,7 @@ func (w VirtualDiskSnapshotWatcher) enqueueRequests(ctx context.Context, vdSnaps
 		})
 	}
 
-	return
+	return requests
 }
 
 func isSnapshotDataSource(ds *virtv2.VirtualDiskDataSource, vdSnapshotName string) bool {

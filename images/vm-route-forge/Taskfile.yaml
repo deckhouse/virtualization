@@ -9,7 +9,7 @@ vars:
 tasks:
   lint:
     cmds:
-      - golangci-lint run --sort-results
+      - golangci-lint run
 
   gen:
     desc: "Generate"

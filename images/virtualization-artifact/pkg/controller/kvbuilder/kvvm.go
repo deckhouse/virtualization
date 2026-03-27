@@ -556,7 +556,7 @@ func (b *KVVM) SetNetworkInterface(name, macAddress string) {
 		Name:  name,
 		Model: devPreset.InterfaceModel,
 	}
-	iface.InterfaceBindingMethod.Bridge = &virtv1.InterfaceBridge{}
+	iface.Bridge = &virtv1.InterfaceBridge{}
 	if macAddress != "" {
 		iface.MacAddress = macAddress
 	}

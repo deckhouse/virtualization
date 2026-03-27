@@ -75,7 +75,7 @@ func (w ClusterVirtualImageWatcher) enqueueRequests(ctx context.Context, cvi *vi
 	err := w.client.List(ctx, &vmbdas)
 	if err != nil {
 		slog.Default().Error(fmt.Sprintf("failed to list vmbdas: %s", err))
-		return
+		return requests
 	}
 
 	for _, vmbda := range vmbdas.Items {
@@ -91,5 +91,5 @@ func (w ClusterVirtualImageWatcher) enqueueRequests(ctx context.Context, cvi *vi
 		})
 	}
 
-	return
+	return requests
 }

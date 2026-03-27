@@ -22,7 +22,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
@@ -241,11 +241,11 @@ func AttachBlockDevice(vmNamespace, vmName, blockDeviceName string, blockDeviceT
 
 func CreateVMBDAManifest(filePath, vmName, blockDeviceName string, blockDeviceType virtv2.VMBDAObjectRefKind, labels map[string]string) error {
 	vmbda := &virtv2.VirtualMachineBlockDeviceAttachment{
-		TypeMeta: v1.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			APIVersion: APIVersion,
 			Kind:       virtv2.VirtualMachineBlockDeviceAttachmentKind,
 		},
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:   blockDeviceName,
 			Labels: labels,
 		},

@@ -224,4 +224,4 @@ tasks:
       - _ensure:golangci-lint
     cmds:
       - |
-        golangci-lint run --sort-results
+        golangci-lint run
