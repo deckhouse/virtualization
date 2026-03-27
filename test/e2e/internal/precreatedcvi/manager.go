@@ -75,6 +75,7 @@ func (m *PrecreatedCVIManager) Bootstrap(ctx context.Context) {
 	}
 
 	By(fmt.Sprintf("Wait until all %d precreated CVIs are ready", len(m.cvis)))
+	//nolint:contextcheck // UntilObjectPhase uses Eventually.WithTimeout for cancellation, not context cancel.
 	util.UntilObjectPhase(string(v1alpha2.ImageReady), framework.LongTimeout, m.cvisAsObjects()...)
 	By(fmt.Sprintf("All %d precreated CVIs are ready", len(m.cvis)))
 }
