@@ -107,7 +107,7 @@ var _ = Describe("DataExports", label.Slow(), func() {
 					v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: vdData.Name},
 				),
 				vmbuilder.WithRunPolicy(v1alpha2.AlwaysOnUnlessStoppedManually),
-				vmbuilder.WithProvisioningUserData(object.DefaultCloudInit),
+				vmbuilder.WithProvisioningUserData(object.UbuntuCloudInit),
 			)
 
 			err := f.CreateWithDeferredDeletion(context.Background(), vm)

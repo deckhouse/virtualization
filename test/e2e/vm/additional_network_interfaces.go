@@ -159,6 +159,8 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 	)
 
 	Describe("verifies interface name persistence after removing middle ClusterNetwork", func() {
+		cloudInitOpt := vm.WithProvisioningUserData(object.UbuntuCloudInit)
+
 		var (
 			vdRoot *v1alpha2.VirtualDisk
 			vm     *v1alpha2.VirtualMachine
@@ -176,7 +178,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 
 				vdRoot = object.NewVDFromCVI("vd-root", ns, object.PrecreatedCVIUbuntu)
 
-				vm = buildVMWithNetworks("vm", ns, vdRoot.Name, "192.168.1.20", true)
+				vm = buildVMWithNetworks("vm", ns, vdRoot.Name, "192.168.1.20", true, cloudInitOpt)
 				vm.Spec.Networks = append(vm.Spec.Networks, v1alpha2.NetworksSpec{
 					Type: v1alpha2.NetworksTypeClusterNetwork,
 					Name: util.ClusterNetworkName(secondAdditionalInterfaceVLANID),
@@ -238,7 +240,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 // buildVMWithNetworks creates a VM with optional Main + ClusterNetwork.
 // If hasMain is false, only ClusterNetwork is added (VM without Main network).
 // The additional network interface is eth1 when hasMain is true, eth0 otherwise.
-func buildVMWithNetworks(name, ns, vdRootName, additionalIP string, hasMain bool) *v1alpha2.VirtualMachine {
+func buildVMWithNetworks(name, ns, vdRootName, additionalIP string, hasMain bool, extraOpts ...vm.Option) *v1alpha2.VirtualMachine {
 	opts := []vm.Option{
 		vm.WithName(name),
 		vm.WithNamespace(ns),
@@ -265,6 +267,7 @@ func buildVMWithNetworks(name, ns, vdRootName, additionalIP string, hasMain bool
 			Name: util.ClusterNetworkName(additionalInterfaceVLANID),
 		}),
 	)
+	opts = append(opts, extraOpts...)
 	return vm.New(opts...)
 }
 

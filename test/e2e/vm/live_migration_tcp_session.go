@@ -81,7 +81,7 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", func() {
 			)
 
 			iperfServer = newVirtualMachine(iperfServerName, f.Namespace().Name, iperfServerDisk, object.PerfCloudInit)
-			iperfClient = newVirtualMachine(iperfClientName, f.Namespace().Name, iperfClientDisk, object.DefaultCloudInit)
+			iperfClient = newVirtualMachine(iperfClientName, f.Namespace().Name, iperfClientDisk, object.AlpineCloudInit)
 
 			err := f.CreateWithDeferredDeletion(context.Background(), iperfServerDisk, iperfClientDisk, iperfServer, iperfClient)
 			Expect(err).NotTo(HaveOccurred())

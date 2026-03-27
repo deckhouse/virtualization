@@ -248,7 +248,7 @@ func (t *powerStateTest) GenerateResources(runPolicy v1alpha2.RunPolicy) {
 		),
 		vmbuilder.WithRestartApprovalMode(v1alpha2.Manual),
 		vmbuilder.WithRunPolicy(runPolicy),
-		vmbuilder.WithProvisioningUserData(object.DefaultCloudInit),
+		vmbuilder.WithProvisioningUserData(object.AlpineCloudInit),
 	)
 
 	t.VMBDA = vmbdabuilder.New(

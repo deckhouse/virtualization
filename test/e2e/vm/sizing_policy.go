@@ -151,7 +151,7 @@ func (t *sizingPolicyTest) GenerateSizingPolicyResources(vmClassName, vmClassNam
 		vmbuilder.WithCPU(1, ptr.To("5%")),
 		vmbuilder.WithMemory(resource.MustParse("1Gi")),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
-		vmbuilder.WithProvisioningUserData(object.DefaultCloudInit),
+		vmbuilder.WithProvisioningUserData(object.AlpineCloudInit),
 	)
 
 	t.VMClass = &v1alpha3.VirtualMachineClass{

@@ -105,7 +105,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 					},
 				),
 				vm.WithBootloader(v1alpha2.BIOS),
-				vm.WithProvisioningUserData(object.DefaultCloudInit),
+				vm.WithProvisioningUserData(object.UbuntuCloudInit),
 				vm.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
 				vm.WithName("vm-bios"),
 			)
@@ -121,7 +121,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 					},
 				),
 				vm.WithBootloader(v1alpha2.EFI),
-				vm.WithProvisioningUserData(object.DefaultCloudInit),
+				vm.WithProvisioningUserData(object.AlpineCloudInit),
 				vm.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
 				vm.WithName("vm-uefi"),
 			)
