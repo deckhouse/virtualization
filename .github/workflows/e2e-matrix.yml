@@ -346,7 +346,7 @@ jobs:
       storage_type: replicated
       nested_storageclass_name: nested-thin-r1
       branch: main
-      virtualization_tag: main
+      virtualization_tag: pr2123
       deckhouse_channel: alpha
       default_user: cloud
       go_version: "1.25.8"
