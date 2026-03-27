@@ -255,7 +255,7 @@ func (h *SyncKvvmHandler) Name() string {
 }
 
 func (h *SyncKvvmHandler) isWaiting(vm *v1alpha2.VirtualMachine) bool {
-	return !checkVirtualMachineConfiguration(vm)
+	return !virtualMachineDependenciesAreReady(vm)
 }
 
 func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineState, allChanges vmchange.SpecChanges) (bool, error) {

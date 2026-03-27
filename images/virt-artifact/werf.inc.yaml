@@ -15,7 +15,7 @@ secrets:
 shell:
   install:
   - |
-    echo rebuild 1
+    echo rebuild 11
     echo "Git clone {{ $gitRepoName }} repository..."
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $tag }} /src/kubevirt
 

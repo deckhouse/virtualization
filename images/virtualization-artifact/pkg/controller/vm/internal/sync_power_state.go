@@ -127,7 +127,7 @@ func (h *SyncPowerStateHandler) syncPowerState(
 	})
 
 	changed := s.VirtualMachine().Changed()
-	isConfigurationApplied := checkVirtualMachineConfiguration(changed)
+	isConfigurationApplied := virtualMachineDependenciesAreReady(changed)
 	maintenance, _ := conditions.GetCondition(vmcondition.TypeMaintenance, changed.Status.Conditions)
 
 	var vmAction VMAction

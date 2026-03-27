@@ -19,6 +19,7 @@ package vmchange
 import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -127,7 +128,15 @@ func compareBootloader(current, desired *v1alpha2.VirtualMachineSpec) []FieldCha
 
 // compareCPU returns changes in the cpu section.
 func compareCPU(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
-	coresChanges := compareInts("cpu.cores", current.CPU.Cores, desired.CPU.Cores, 0, ActionRestart)
+	// Cores can be changed "on the fly" using CPU Hotplug ...
+	coresChangedAction := ActionApplyImmediate
+	// ... but sockets count change requires a reboot.
+	currentSockets, _ := vm.CalculateCoresAndSockets(current.CPU.Cores)
+	desiredSockets, _ := vm.CalculateCoresAndSockets(desired.CPU.Cores)
+	if currentSockets != desiredSockets {
+		coresChangedAction = ActionRestart
+	}
+	coresChanges := compareInts("cpu.cores", current.CPU.Cores, desired.CPU.Cores, 0, coresChangedAction)
 	fractionChanges := compareStrings("cpu.coreFraction", current.CPU.CoreFraction, desired.CPU.CoreFraction, DefaultCPUCoreFraction, ActionRestart)
 
 	// Yield full replace if both fields changed.
