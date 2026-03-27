@@ -204,7 +204,7 @@ func (t *VMUSBTest) GenerateEnvironmentResources() {
 		vmbuilder.WithCPU(1, ptr.To("100%")),
 		vmbuilder.WithMemory(resource.MustParse("512Mi")),
 		vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
-		vmbuilder.WithProvisioningUserData(object.DefaultCloudInit),
+		vmbuilder.WithProvisioningUserData(object.AlpineCloudInit),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 		vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: t.VD.Name}),
 		vmbuilder.WithUSBDevices([]v1alpha2.USBDeviceSpecRef{{Name: t.NodeUSBDevice.Name}}),

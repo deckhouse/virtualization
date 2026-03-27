@@ -26,24 +26,27 @@ const (
 	ImageURLLegacyContainerImage = "cr.yandex/crpvs5j3nh1mi2tpithr/e2e/alpine/alpine-3-20:latest"
 	ImageURLCirros               = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/cirros/cirros-0.5.1.qcow2"
 	ImageURLUbuntuISO            = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/ubuntu-24.04.2-live-server-amd64.iso"
-	ImageURLDebian = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/debian/debian-12-with-tpm2-tools-amd64-20250814-2204.qcow2"
+	ImageURLDebian               = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/debian/debian-12-with-tpm2-tools-amd64-20250814-2204.qcow2"
 	// No bootable
 	ImageTestDataQCOW = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.qcow2"
 	ImageTestDataISO  = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.iso"
 	Mi256             = 256 * 1024 * 1024
 	DefaultVMClass    = "generic"
 
-	cloudInitBase = `#cloud-config
+	cloudInitBasePackages = `#cloud-config
 package_update: true
 packages:
   - qemu-guest-agent
   - curl
   - bash
   - sudo
-  - iputils
   - util-linux
   - iperf3
   - jq
+`
+	cloudInitUbuntuPackages = `  - iputils-ping
+`
+	cloudInitAlpinePackages = `  - iputils
 `
 	cloudInitUsers = `
 users:
@@ -57,12 +60,17 @@ users:
       # testcases
       - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxcXHmwaGnJ8scJaEN5RzklBPZpVSic4GdaAsKjQoeA your_email@example.com
 `
-	cloudInitDefaultRuncmd = `
+	cloudInitAlpineRuncmd = `
 runcmd:
 - "rc-update add qemu-guest-agent && rc-service qemu-guest-agent start"
 `
+	cloudInitUbuntuRuncmd = `
+runcmd:
+- "systemctl enable --now qemu-guest-agent"
+`
 
-	DefaultCloudInit = cloudInitBase + cloudInitUsers + cloudInitDefaultRuncmd
+	AlpineCloudInit = cloudInitBasePackages + cloudInitAlpinePackages + cloudInitUsers + cloudInitAlpineRuncmd
+	UbuntuCloudInit = cloudInitBasePackages + cloudInitUbuntuPackages + cloudInitUsers + cloudInitUbuntuRuncmd
 
 	cloudInitPerfWriteFiles = `
 write_files:
@@ -107,7 +115,7 @@ runcmd:
 - "rc-update add sshd && rc-service sshd start"
 `
 
-	PerfCloudInit        = cloudInitBase + cloudInitPerfWriteFiles + cloudInitUsers + cloudInitPerfRuncmd
+	PerfCloudInit        = cloudInitBasePackages + cloudInitAlpinePackages + cloudInitPerfWriteFiles + cloudInitUsers + cloudInitPerfRuncmd
 	DefaultSSHPrivateKey = `-----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
 QyNTUxOQAAACBcXFx5sGhpyfLHCWhDeUc5JQT2aVUonOBnWgLCo0KHgAAAAKDCANDUwgDQ
