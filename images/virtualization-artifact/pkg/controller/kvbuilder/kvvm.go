@@ -119,6 +119,24 @@ func (b *KVVM) SetKVVMIAnnotation(annoKey, annoValue string) {
 	b.Resource.Spec.Template.ObjectMeta.SetAnnotations(anno)
 }
 
+// RemoveKVVMIAnnotation deletes an annotation from the VMI template metadata.
+func (b *KVVM) RemoveKVVMIAnnotation(annoKey string) {
+	anno := b.Resource.Spec.Template.ObjectMeta.GetAnnotations()
+	if len(anno) == 0 {
+		return
+	}
+	if _, ok := anno[annoKey]; !ok {
+		return
+	}
+	next := maps.Clone(anno)
+	delete(next, annoKey)
+	if len(next) == 0 {
+		b.Resource.Spec.Template.ObjectMeta.Annotations = nil
+	} else {
+		b.Resource.Spec.Template.ObjectMeta.SetAnnotations(next)
+	}
+}
+
 func (b *KVVM) SetCPUModel(class *v1alpha2.VirtualMachineClass) error {
 	if b.Resource.Spec.Template.Spec.Domain.CPU == nil {
 		b.Resource.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{}

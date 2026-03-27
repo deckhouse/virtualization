@@ -179,6 +179,9 @@ var _ = Describe("SyncMetadataHandler", func() {
 	Describe("Propagating VM metadata to KVVM, KVVMI and Pod", func() {
 		It("handles a virtual machine metadata updating", func() {
 			vm := newVM()
+			// Cilium static IP on the template is kept only while the VM tracks IPAM in status.
+			vm.Status.VirtualMachineIPAddress = "vmip"
+			vm.Status.IPAddress = ipAddressAnnoValue
 			kvvm := newKVVM(vm)
 			kvvmi := newEmptyKVVMI(name, namespace)
 			pod := newEmptyPOD(name, namespace, vm.Name)
@@ -218,6 +221,20 @@ var _ = Describe("SyncMetadataHandler", func() {
 				validateObjMetadata(pod)
 				validateObjResourceStatusLabels(pod, vm)
 			})
+		})
+
+		It("drops stale Cilium IP annotation from KVVM template when VM has no IPAM status", func() {
+			vm := newVM()
+			kvvm := newKVVM(vm)
+
+			fakeClient, _, vmState = setupEnvironment(vm, kvvm)
+			h := NewSyncMetadataHandler(fakeClient)
+			_, err := h.Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred())
+
+			err = fakeClient.Get(context.Background(), client.ObjectKey{Namespace: namespace, Name: vm.Name}, kvvm)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(kvvm.Spec.Template.ObjectMeta.Annotations).ToNot(HaveKey(netmanager.AnnoIPAddressCNIRequest))
 		})
 	})
 })

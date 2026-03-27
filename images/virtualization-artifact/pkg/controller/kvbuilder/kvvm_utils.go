@@ -289,6 +289,9 @@ func ApplyVirtualMachineSpec(
 	if ipAddress != "" {
 		// Set ip address cni request annotation.
 		kvvm.SetKVVMIAnnotation(netmanager.AnnoIPAddressCNIRequest, ipAddress)
+	} else {
+		// Drop stale static IP request when the VM no longer has an allocated address.
+		kvvm.RemoveKVVMIAnnotation(netmanager.AnnoIPAddressCNIRequest)
 	}
 
 	// Set live migration annotation.
