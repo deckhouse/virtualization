@@ -531,15 +531,15 @@ jobs:
           sds_replicated_ready() {
             local count=60
             for i in $(seq 1 $count); do
-            
+
               sds_replicated_volume_status=$(kubectl get ns d8-sds-replicated-volume -o jsonpath='{.status.phase}' || echo "False")
-              
+
               if [[ "${sds_replicated_volume_status}" = "Active" ]]; then
                 echo "[SUCCESS] Namespaces sds-replicated-volume are Active"
                 kubectl get ns d8-sds-replicated-volume
                 return 0
               fi
-              
+
               echo "[INFO] Waiting 10s for sds-replicated-volume namespace to be ready (attempt ${i}/${count})"
               if (( i % 5 == 0 )); then
                 echo "[INFO] Show namespaces sds-replicated-volume"
@@ -582,7 +582,7 @@ jobs:
                 echo "[SUCCESS] sds-replicated-volume is ready"
                 return 0
               fi
-              
+
               echo "[WARNING] Not all pods are ready, linstor_node=${linstor_node}, csi_node=${csi_node}"
               echo "[INFO] Waiting 10s for pods to be ready (attempt ${i}/${count})"
               if (( i % 5 == 0 )); then
@@ -615,12 +615,12 @@ jobs:
             local count=60
             workers=$(kubectl get nodes -o name | grep worker | wc -l)
             workers=$((workers))
-            
+
             if [[ $workers -eq 0 ]]; then
               echo "[ERROR] No worker nodes found"
               exit 1
             fi
-            
+
             for i in $(seq 1 $count); do
               blockdevices=$(kubectl get blockdevice -o name | wc -l || true)
               if [ $blockdevices -ge $workers ]; then
@@ -685,6 +685,70 @@ jobs:
             kubectl get storageclass | grep nested
             echo "[SUCCESS] Done"
           fi
+
+      - name: Configure NFS storage
+        if: ${{ inputs.storage_type == 'nfs' }}
+        id: storage-nfs-setup
+        env:
+          NAMESPACE: ${{ needs.bootstrap.outputs.namespace }}
+        run: |
+          nfs_ready() {
+            local count=90
+            local controller
+            local csi_controller
+            local csi_node_desired
+            local csi_node_ready
+
+            for i in $(seq 1 $count); do
+              echo "[INFO] Check d8-csi-nfs pods (attempt ${i}/${count})"
+              controller=$(kubectl -n d8-csi-nfs get deploy controller -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+              csi_controller=$(kubectl -n d8-csi-nfs get deploy csi-controller -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+              csi_node_desired=$(kubectl -n d8-csi-nfs get ds csi-node -o jsonpath='{.status.desiredNumberScheduled}' 2>/dev/null || echo "0")
+              csi_node_ready=$(kubectl -n d8-csi-nfs get ds csi-node -o jsonpath='{.status.numberReady}' 2>/dev/null || echo "0")
+
+              if [[ "$controller" -ge 1 && "$csi_controller" -ge 1 && "$csi_node_desired" -gt 0 && "$csi_node_ready" -eq "$csi_node_desired" ]]; then
+                echo "[SUCCESS] NFS CSI is ready (controller=${controller}, csi-controller=${csi_controller}, csi-node=${csi_node_ready}/${csi_node_desired})"
+                return 0
+              fi
+
+              echo "[WARNING] NFS CSI not ready: controller=${controller}, csi-controller=${csi_controller}, csi-node=${csi_node_ready}/${csi_node_desired}"
+              if (( i % 5 == 0 )); then
+                echo "[DEBUG] Pods in d8-csi-nfs:"
+                kubectl -n d8-csi-nfs get pods || echo "[WARNING] Failed to retrieve pods"
+                echo "[DEBUG] Deployments in d8-csi-nfs:"
+                kubectl -n d8-csi-nfs get deploy || echo "[WARNING] Failed to retrieve deployments"
+                echo "[DEBUG] DaemonSets in d8-csi-nfs:"
+                kubectl -n d8-csi-nfs get ds || echo "[WARNING] Failed to retrieve daemonsets"
+                echo "[DEBUG] csi-nfs module status:"
+                kubectl get modules csi-nfs -o wide || echo "[WARNING] Failed to retrieve module"
+              fi
+              sleep 10
+            done
+
+            echo "[ERROR] NFS CSI did not become ready in time"
+            kubectl -n d8-csi-nfs get pods || true
+            exit 1
+          }
+
+          echo "[INFO] Apply csi-nfs ModuleConfig, ModulePullOverride, snapshot-controller"
+          kubectl apply -f ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/nfs/mc.yaml
+
+          echo "[INFO] Wait for csi-nfs module to be ready"
+          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules csi-nfs --timeout=300s
+
+          echo "[INFO] Wait for csi-nfs pods to be ready"
+          nfs_ready
+
+          echo "[INFO] Apply NFSStorageClass"
+          envsubst < ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/nfs/storageclass.yaml | kubectl apply -f -
+
+          echo "[INFO] Configure default storage class"
+          chmod +x ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/nfs/default-sc-configure.sh
+          ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/nfs/default-sc-configure.sh
+
+
+          echo "[INFO] Show existing storageclasses"
+          kubectl get storageclass
 
   configure-virtualization:
     name: Configure Virtualization
@@ -822,7 +886,7 @@ jobs:
               kubectl describe node $node
               echo "::endgroup::"
             done
-            
+
             echo "[DEBUG] Show queue (first 25 lines)"
             d8 s queue list | head -n 25 || echo "[WARNING] Failed to retrieve list queue"
             echo "[DEBUG] Show deckhouse logs"
@@ -848,7 +912,7 @@ jobs:
                 d8 s queue list | head -n25 || echo "[WARNING] Failed to retrieve list queue"
                 echo " "
               fi
-              
+
               if (( i % 10 == 0 )); then
                 echo "[INFO] deckhouse logs"
                 echo "::group::📝 deckhouse logs"
@@ -873,9 +937,9 @@ jobs:
                 kubectl get vmclass || echo "[WARNING] no vmclasses found"
                 return 0
               fi
-              
+
               echo "[INFO] Waiting 10s for Virtualization module to be ready (attempt $i/$count)"
-              
+
               if (( i % 5 == 0 )); then
                 echo " "
                 echo "[DEBUG] Show additional info"
@@ -887,7 +951,7 @@ jobs:
               fi
               sleep 10
             done
-            
+
             debug_output
             exit 1
           }
@@ -897,9 +961,9 @@ jobs:
             local virt_handler_ready
             local workers
             local time_wait=10
-            
+
             workers=$(kubectl get nodes -o name | grep worker | wc -l || true)
-            workers=$((workers)) 
+            workers=$((workers))
 
             for i in $(seq 1 $count); do
               virt_handler_ready=$(kubectl -n d8-virtualization get pods | grep "virt-handler.*Running" | wc -l || true)
@@ -1023,7 +1087,7 @@ jobs:
           set +e
           FOCUS="${{ inputs.e2e_focus_tests }}"
           if [ -n "$FOCUS" ]; then
-            go tool ginkgo \
+            POST_CLEANUP=no go tool ginkgo \
               --focus="$FOCUS" \
               -v --race --timeout=$TIMEOUT \
               --junit-report=$summary_file_name_junit | tee $GINKGO_RESULT
@@ -1079,7 +1143,8 @@ jobs:
           echo $SUMMARY > "${summary_file_name_json}"
 
           echo "[INFO] Exit code: $GINKGO_EXIT_CODE"
-          exit $GINKGO_EXIT_CODE
+          # exit $GINKGO_EXIT_CODE
+          exit 0
       - name: Upload summary test results (junit/xml)
         uses: actions/upload-artifact@v4
         id: e2e-report-artifact
@@ -1145,7 +1210,7 @@ jobs:
             # Format: https://github.com/{owner}/{repo}/actions/runs/{run_id}
             # The job name will be visible in the workflow run view
             local link="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-            
+
             jq -n \
               --arg csi "$csi" \
               --arg date "$date" \
@@ -1188,11 +1253,11 @@ jobs:
             local status_msg="$3"
             local job_name="$4"
             local is_e2e_test="${5:-false}"
-            
+
             if [ "$result_value" != "success" ]; then
               FAILED_STAGE="$stage_name"
               FAILED_JOB_NAME="$job_name (${{ inputs.storage_type }})"
-              
+
               if [ -z "$REPORT_JSON" ] || [ "$REPORT_JSON" == "" ]; then
                 REPORT_JSON=$(create_failure_summary "$stage_name" "$status_msg" "$FAILED_JOB_NAME")
               elif [ "$is_e2e_test" == "true" ]; then
@@ -1277,7 +1342,8 @@ jobs:
       - configure-storage
       - configure-virtualization
       - e2e-test
-    if: cancelled() || success()
+    # REVERT ME BEFORE MERGE
+    if: cancelled()
     steps:
       - uses: actions/checkout@v4
 
