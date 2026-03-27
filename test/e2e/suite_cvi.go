@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Flant JSC
+Copyright 2026 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,20 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package label
+package e2e
 
 import (
-	. "github.com/onsi/ginkgo/v2"
+	"context"
+
+	"github.com/deckhouse/virtualization/test/e2e/internal/precreatedcvi"
 )
 
-func Slow() Labels {
-	return Label("Slow")
+var precreatedCVIManager = precreatedcvi.NewPrecreatedCVIManager()
+
+func bootstrapPrecreatedCVIs() {
+	precreatedCVIManager.Bootstrap(context.Background())
 }
 
-func TPM() Labels {
-	return Label("TPM")
-}
-
-func Legacy() Labels {
-	return Label("Legacy")
+func cleanupPrecreatedCVIs() {
+	precreatedCVIManager.Cleanup(context.Background())
 }

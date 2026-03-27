@@ -39,7 +39,7 @@ func NewGeneratedHTTPVIAlpineBIOSPerf(prefix, namespace string, opts ...vi.Optio
 		vi.WithGenerateName(prefix),
 		vi.WithNamespace(namespace),
 		vi.WithDataSourceHTTP(
-			ImagesURLAlpineBIOSPerf, nil, nil,
+			ImageURLAlpineBIOSPerf, nil, nil,
 		),
 		vi.WithStorage(v1alpha2.StorageContainerRegistry),
 	}
@@ -53,6 +53,17 @@ func NewGeneratedContainerImageVI(prefix, namespace string, opts ...vi.Option) *
 		vi.WithNamespace(namespace),
 		vi.WithStorage(v1alpha2.StorageContainerRegistry),
 		vi.WithDataSourceContainerImage(ImageURLContainerImage, v1alpha2.ImagePullSecretName{}, nil),
+	}
+	baseOpts = append(baseOpts, opts...)
+	return vi.New(baseOpts...)
+}
+
+func NewGeneratedVIFromCVI(prefix, namespace, cviName string, opts ...vi.Option) *v1alpha2.VirtualImage {
+	baseOpts := []vi.Option{
+		vi.WithGenerateName(prefix),
+		vi.WithNamespace(namespace),
+		vi.WithStorage(v1alpha2.StorageContainerRegistry),
+		vi.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, cviName),
 	}
 	baseOpts = append(baseOpts, opts...)
 	return vi.New(baseOpts...)
