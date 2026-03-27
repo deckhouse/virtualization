@@ -71,7 +71,7 @@ func SetupController(
 		internal.NewUSBDeviceAttachHandler(client, virtClient),
 		internal.NewProvisioningHandler(client),
 		internal.NewAgentHandler(),
-		internal.NewFilesystemHandler(),
+		internal.NewFilesystemHandler(virtClient),
 		internal.NewSnapshottingHandler(client),
 		internal.NewPodHandler(client),
 		internal.NewSizePolicyHandler(),
