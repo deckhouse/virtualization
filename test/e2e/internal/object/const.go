@@ -38,89 +38,37 @@ const (
 	Mi256          = 256 * 1024 * 1024
 	DefaultVMClass = "generic"
 
-	cloudInitBasePackages = `#cloud-config
-package_update: true
-packages:
-  - qemu-guest-agent
-  - curl
-  - bash
-  - sudo
-  - util-linux
-  - iperf3
-  - jq
-`
-	cloudInitUbuntuPackages = `  - iputils-ping
-`
-	cloudInitAlpinePackages = `  - iputils
-`
-	cloudInitUsers = `
-users:
-  - name: cloud
-    # passwd: cloud
-    passwd: $6$rounds=4096$vln/.aPHBOI7BMYR$bBMkqQvuGs5Gyd/1H5DP4m9HjQSy.kgrxpaGEHwkX7KEFV8BS.HZWPitAtZ2Vd8ZqIZRqmlykRCagTgPejt1i.
-    shell: /bin/bash
-    sudo: ALL=(ALL) NOPASSWD:ALL
-    lock_passwd: false
-    ssh_authorized_keys:
-      # testcases
-      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxcXHmwaGnJ8scJaEN5RzklBPZpVSic4GdaAsKjQoeA your_email@example.com
-`
-	cloudInitAlpineRuncmd = `
-runcmd:
-- "rc-update add qemu-guest-agent && rc-service qemu-guest-agent start"
-`
-	cloudInitUbuntuRuncmd = `
-runcmd:
-- "systemctl enable --now qemu-guest-agent"
+	iperf3Script = `#!/bin/bash
+cat > /etc/init.d/iperf3 <<-"EOF"
+#!/sbin/openrc-run
+
+name="iperf3"
+description="iperf3 server"
+command="/usr/bin/iperf3"
+command_args="-s"
+pidfile="/run/${name}.pid"
+supervisor="supervise-daemon"
+supervise_daemon_args="--respawn-delay 2 --stdout /var/log/iperf3.log --stderr /var/log/iperf3.log"
+
+depend() {
+    need net
+}
+
+start_pre() {
+    checkpath --directory --owner root:root --mode 0755 /run
+    touch /var/log/iperf3.log
+    chmod 644 /var/log/iperf3.log
+}
+
+stop_post() {
+    logger -t iperf3 "Stopped by $(whoami) at $(date)"
+    rm -f "$pidfile"
+}
+EOF
+chmod +x /etc/init.d/iperf3
+rc-update add iperf3 default
 `
 
-	AlpineCloudInit = cloudInitBasePackages + cloudInitAlpinePackages + cloudInitUsers + cloudInitAlpineRuncmd
-	UbuntuCloudInit = cloudInitBasePackages + cloudInitUbuntuPackages + cloudInitUsers + cloudInitUbuntuRuncmd
-
-	cloudInitPerfWriteFiles = `
-write_files:
-- path: /usr/scripts/iperf3.sh
-  permissions: '0755'
-  content: |
-    #!/bin/bash
-    cat > /etc/init.d/iperf3 <<-"EOF"
-    #!/sbin/openrc-run
-
-    name="iperf3"
-    description="iperf3 server"
-    command="/usr/bin/iperf3"
-    command_args="-s"
-    pidfile="/run/${name}.pid"
-    supervisor="supervise-daemon"
-    supervise_daemon_args="--respawn-delay 2 --stdout /var/log/iperf3.log --stderr /var/log/iperf3.log"
-
-    depend() {
-        need net
-    }
-
-    start_pre() {
-        checkpath --directory --owner root:root --mode 0755 /run
-        touch /var/log/iperf3.log
-        chmod 644 /var/log/iperf3.log
-    }
-
-    stop_post() {
-        logger -t iperf3 "Stopped by $(whoami) at $(date)"
-        rm -f "$pidfile"
-    }
-    EOF
-    chmod +x /etc/init.d/iperf3
-    rc-update add iperf3 default
-`
-	cloudInitPerfRuncmd = `
-runcmd:
-- "/usr/scripts/iperf3.sh"
-- "rc-update add qemu-guest-agent && rc-service qemu-guest-agent start"
-- "rc-update add iperf3 && rc-service iperf3 start"
-- "rc-update add sshd && rc-service sshd start"
-`
-
-	PerfCloudInit        = cloudInitBasePackages + cloudInitAlpinePackages + cloudInitPerfWriteFiles + cloudInitUsers + cloudInitPerfRuncmd
 	DefaultSSHPrivateKey = `-----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
 QyNTUxOQAAACBcXFx5sGhpyfLHCWhDeUc5JQT2aVUonOBnWgLCo0KHgAAAAKDCANDUwgDQ
@@ -133,3 +81,34 @@ BPZpVSic4GdaAsKjQoeAAAAAFnlvdXJfZW1haWxAZXhhbXBsZS5jb20BAgMEBQYH
 	DefaultUser     = "cloud"
 	DefaultPassword = "cloud"
 )
+
+var AlpineCloudInit = CloudConfig{
+	PackageUpdate: true,
+	Packages:      append(basePackages, "iputils"),
+	Users:         []CloudConfigUser{DefaultCloudUser()},
+	Runcmd:        []string{"rc-update add qemu-guest-agent && rc-service qemu-guest-agent start"},
+}.Render()
+
+var UbuntuCloudInit = CloudConfig{
+	PackageUpdate: true,
+	Packages:      append(basePackages, "iputils-ping"),
+	Users:         []CloudConfigUser{DefaultCloudUser()},
+	Runcmd:        []string{"systemctl enable --now qemu-guest-agent"},
+}.Render()
+
+var PerfCloudInit = CloudConfig{
+	PackageUpdate: true,
+	Packages:      append(basePackages, "iputils"),
+	WriteFiles: []WriteFile{{
+		Path:        "/usr/scripts/iperf3.sh",
+		Permissions: "0755",
+		Content:     iperf3Script,
+	}},
+	Users: []CloudConfigUser{DefaultCloudUser()},
+	Runcmd: []string{
+		"/usr/scripts/iperf3.sh",
+		"rc-update add qemu-guest-agent && rc-service qemu-guest-agent start",
+		"rc-update add iperf3 && rc-service iperf3 start",
+		"rc-update add sshd && rc-service sshd start",
+	},
+}.Render()
