@@ -25,7 +25,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
@@ -80,22 +79,6 @@ var _ = Describe("TestFirmwareHandler", func() {
 		return newVM(metav1.ConditionTrue)
 	}
 
-	newKVVMI := func(phase virtv1.VirtualMachineInstancePhase) *virtv1.VirtualMachineInstance {
-		return &virtv1.VirtualMachineInstance{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: virtv1.GroupVersion.String(),
-				Kind:       "VirtualMachineInstance",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: namespace,
-			},
-			Status: virtv1.VirtualMachineInstanceStatus{
-				Phase: phase,
-			},
-		}
-	}
-
 	setupFirmwareEnvironment := func(vm *v1alpha2.VirtualMachine, objs ...client.Object) client.Client {
 		allObjects := []client.Object{vm}
 		allObjects = append(allObjects, objs...)
@@ -136,12 +119,8 @@ var _ = Describe("TestFirmwareHandler", func() {
 	}
 
 	DescribeTable("FirmwareHandler should return serviceCompleteErr if migration executed",
-		func(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, deploy *appsv1.Deployment, needMigrate bool) {
-			objs := []client.Object{deploy}
-			if kvvmi != nil {
-				objs = append(objs, kvvmi)
-			}
-			fakeClient = setupFirmwareEnvironment(vm, objs...)
+		func(vm *v1alpha2.VirtualMachine, deploy *appsv1.Deployment, needMigrate bool) {
+			fakeClient = setupFirmwareEnvironment(vm, deploy)
 
 			mockMigration := &firmwareMigrationStub{
 				onceMigrate: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
@@ -159,35 +138,13 @@ var _ = Describe("TestFirmwareHandler", func() {
 				Expect(err).NotTo(HaveOccurred())
 			}
 		},
-		Entry("Migration should be executed", newVMNeedMigrate(), newKVVMI(virtv1.Running), newVirtController(true, firmwareImage), true),
-		Entry("Migration should be executed when kvvmi is not found", newVMNeedMigrate(), nil, newVirtController(true, firmwareImage), true),
-		Entry("Migration not should be executed", newVMUpToDate(), newKVVMI(virtv1.Running), newVirtController(true, firmwareImage), false),
-		Entry("Migration should be executed even when kvvmi is stopped", newVMNeedMigrate(), newKVVMI(virtv1.Succeeded), newVirtController(true, firmwareImage), true),
-		Entry("Migration should be executed even when kvvmi is pending", newVMNeedMigrate(), newKVVMI(virtv1.Pending), newVirtController(true, firmwareImage), true),
-		Entry("Migration not should be executed because virt-controller not ready", newVMNeedMigrate(), newKVVMI(virtv1.Running), newVirtController(false, firmwareImage), false),
-		Entry("Migration not should be executed because virt-controller ready but has wrong image", newVMNeedMigrate(), newKVVMI(virtv1.Running), newVirtController(true, "wrong-image"), false),
+		Entry("Migration should be executed", newVMNeedMigrate(), newVirtController(true, firmwareImage), true),
+		Entry("Migration not should be executed", newVMUpToDate(), newVirtController(true, firmwareImage), false),
+		Entry("Migration not should be executed because virt-controller not ready", newVMNeedMigrate(), newVirtController(false, firmwareImage), false),
+		Entry("Migration not should be executed because virt-controller ready but has wrong image", newVMNeedMigrate(), newVirtController(true, "wrong-image"), false),
 	)
 
-	It("should call migration when kvvmi is not running", func() {
-		vm := newVMNeedMigrate()
-		kvvmi := newKVVMI(virtv1.Failed)
-		deploy := newVirtController(true, firmwareImage)
-		fakeClient = setupFirmwareEnvironment(vm, kvvmi, deploy)
-
-		migrationCalled := false
-		h := NewFirmwareHandler(fakeClient, &firmwareMigrationStub{
-			onceMigrate: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
-				migrationCalled = true
-				return true, nil
-			},
-		}, firmwareImage, virtControllerNamespace, virtControllerName)
-
-		_, err := h.Handle(ctx, vm)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(migrationCalled).To(BeTrue())
-	})
-
-	It("should continue processing when kvvmi is not found", func() {
+	It("should call migration when update is needed and virt-controller is ready", func() {
 		vm := newVMNeedMigrate()
 		deploy := newVirtController(true, firmwareImage)
 		fakeClient = setupFirmwareEnvironment(vm, deploy)
