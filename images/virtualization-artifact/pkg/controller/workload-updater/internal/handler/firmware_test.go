@@ -27,7 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
@@ -163,41 +162,13 @@ var _ = Describe("TestFirmwareHandler", func() {
 		Entry("Migration should be executed", newVMNeedMigrate(), newKVVMI(virtv1.Running), newVirtController(true, firmwareImage), true),
 		Entry("Migration should be executed when kvvmi is not found", newVMNeedMigrate(), nil, newVirtController(true, firmwareImage), true),
 		Entry("Migration not should be executed", newVMUpToDate(), newKVVMI(virtv1.Running), newVirtController(true, firmwareImage), false),
-		Entry("Migration not should be executed because kvvmi is stopped", newVMNeedMigrate(), newKVVMI(virtv1.Succeeded), newVirtController(true, firmwareImage), false),
-		Entry("Migration not should be executed because kvvmi is pending", newVMNeedMigrate(), newKVVMI(virtv1.Pending), newVirtController(true, firmwareImage), false),
+		Entry("Migration should be executed even when kvvmi is stopped", newVMNeedMigrate(), newKVVMI(virtv1.Succeeded), newVirtController(true, firmwareImage), true),
+		Entry("Migration should be executed even when kvvmi is pending", newVMNeedMigrate(), newKVVMI(virtv1.Pending), newVirtController(true, firmwareImage), true),
 		Entry("Migration not should be executed because virt-controller not ready", newVMNeedMigrate(), newKVVMI(virtv1.Running), newVirtController(false, firmwareImage), false),
 		Entry("Migration not should be executed because virt-controller ready but has wrong image", newVMNeedMigrate(), newKVVMI(virtv1.Running), newVirtController(true, "wrong-image"), false),
 	)
 
-	It("should return error when kvvmi get returns non not-found error", func() {
-		vm := newVMNeedMigrate()
-		deploy := newVirtController(true, firmwareImage)
-		kvvmiGetErr := errors.New("get kvvmi failed")
-
-		interceptClient, err := testutil.NewFakeClientWithInterceptorWithObjects(interceptor.Funcs{
-			Get: func(ctx context.Context, client client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
-				if _, ok := obj.(*virtv1.VirtualMachineInstance); ok {
-					return kvvmiGetErr
-				}
-				return client.Get(ctx, key, obj, opts...)
-			},
-		}, vm, deploy)
-		Expect(err).NotTo(HaveOccurred())
-
-		migrationCalled := false
-		h := NewFirmwareHandler(interceptClient, &firmwareMigrationStub{
-			onceMigrate: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
-				migrationCalled = true
-				return true, nil
-			},
-		}, firmwareImage, virtControllerNamespace, virtControllerName)
-
-		_, err = h.Handle(ctx, vm)
-		Expect(err).To(MatchError(kvvmiGetErr))
-		Expect(migrationCalled).To(BeFalse())
-	})
-
-	It("should not call migration when kvvmi is not running", func() {
+	It("should call migration when kvvmi is not running", func() {
 		vm := newVMNeedMigrate()
 		kvvmi := newKVVMI(virtv1.Failed)
 		deploy := newVirtController(true, firmwareImage)
@@ -213,7 +184,7 @@ var _ = Describe("TestFirmwareHandler", func() {
 
 		_, err := h.Handle(ctx, vm)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(migrationCalled).To(BeFalse())
+		Expect(migrationCalled).To(BeTrue())
 	})
 
 	It("should continue processing when kvvmi is not found", func() {
@@ -253,8 +224,7 @@ var _ = Describe("TestFirmwareHandler", func() {
 
 	It("should return error when virt-controller deployment get fails", func() {
 		vm := newVMNeedMigrate()
-		kvvmi := newKVVMI(virtv1.Running)
-		fakeClient = setupFirmwareEnvironment(vm, kvvmi)
+		fakeClient = setupFirmwareEnvironment(vm)
 
 		h := NewFirmwareHandler(fakeClient, &firmwareMigrationStub{
 			onceMigrate: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
@@ -357,6 +327,22 @@ var _ = Describe("TestFirmwareHandler", func() {
 							Containers: []corev1.Container{{
 								Name: "virt-controller",
 								Args: []string{"--launcher-image=" + firmwareImage},
+							}},
+						},
+					},
+				},
+			}
+			Expect(getVirtLauncherImage(deploy)).To(Equal(firmwareImage))
+		})
+
+		It("should return launcher image from command arguments", func() {
+			deploy := &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Name:    "virt-controller",
+								Command: []string{"virt-controller", "--launcher-image", firmwareImage},
 							}},
 						},
 					},

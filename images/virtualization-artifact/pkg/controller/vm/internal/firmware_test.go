@@ -58,9 +58,10 @@ var _ = Describe("TestFirmwareHandler", func() {
 		return vmbuilder.NewEmpty(name, namespace)
 	}
 
-	newKVVMI := func(image string) *virtv1.VirtualMachineInstance {
+	newKVVMI := func(image string, phase virtv1.VirtualMachineInstancePhase) *virtv1.VirtualMachineInstance {
 		kvvmi := newEmptyKVVMI(name, namespace)
 		kvvmi.Status.LauncherContainerImageVersion = image
+		kvvmi.Status.Phase = phase
 		return kvvmi
 	}
 
@@ -88,13 +89,15 @@ var _ = Describe("TestFirmwareHandler", func() {
 				Expect(upToDate.Reason).To(Equal(expectedReason.String()))
 			}
 		},
-		Entry("Should be up to date", newVM(), newKVVMI(expectedImage), metav1.ConditionTrue, vmcondition.ReasonFirmwareUpToDate, false),
+		Entry("Should be up to date", newVM(), newKVVMI(expectedImage, virtv1.Running), metav1.ConditionTrue, vmcondition.ReasonFirmwareUpToDate, false),
 		Entry("Should be up to date because kvvmi is not exists", newVM(), nil, metav1.ConditionTrue, vmcondition.ReasonFirmwareUpToDate, false),
-		Entry("Should be out of date 1", newVM(), newKVVMI("other-image-1"), metav1.ConditionFalse, vmcondition.ReasonFirmwareOutOfDate, true),
-		Entry("Should be out of date 2", newVM(), newKVVMI("other-image-2"), metav1.ConditionFalse, vmcondition.ReasonFirmwareOutOfDate, true),
-		Entry("Should be out of date 3", newVM(), newKVVMI("other-image-3"), metav1.ConditionFalse, vmcondition.ReasonFirmwareOutOfDate, true),
-		Entry("Should be out of date 4", newVM(), newKVVMI("other-image-4"), metav1.ConditionFalse, vmcondition.ReasonFirmwareOutOfDate, true),
-		Entry("Should be out of date 5", newVM(), newKVVMI("other-image-5"), metav1.ConditionFalse, vmcondition.ReasonFirmwareOutOfDate, true),
+		Entry("Should be up to date because kvvmi is succeeded", newVM(), newKVVMI("other-image", virtv1.Succeeded), metav1.ConditionTrue, vmcondition.ReasonFirmwareUpToDate, false),
+		Entry("Should be up to date because kvvmi is failed", newVM(), newKVVMI("other-image", virtv1.Failed), metav1.ConditionTrue, vmcondition.ReasonFirmwareUpToDate, false),
+		Entry("Should be out of date 1", newVM(), newKVVMI("other-image-1", virtv1.Running), metav1.ConditionFalse, vmcondition.ReasonFirmwareOutOfDate, true),
+		Entry("Should be out of date 2", newVM(), newKVVMI("other-image-2", virtv1.Running), metav1.ConditionFalse, vmcondition.ReasonFirmwareOutOfDate, true),
+		Entry("Should be out of date 3", newVM(), newKVVMI("other-image-3", virtv1.Running), metav1.ConditionFalse, vmcondition.ReasonFirmwareOutOfDate, true),
+		Entry("Should be out of date 4", newVM(), newKVVMI("other-image-4", virtv1.Running), metav1.ConditionFalse, vmcondition.ReasonFirmwareOutOfDate, true),
+		Entry("Should be out of date 5", newVM(), newKVVMI("other-image-5", virtv1.Running), metav1.ConditionFalse, vmcondition.ReasonFirmwareOutOfDate, true),
 	)
 
 	DescribeTable("Condition TypeFirmwareUpToDate should be in the expected state considering the VM phase",
@@ -111,22 +114,24 @@ var _ = Describe("TestFirmwareHandler", func() {
 				Expect(upToDate.Status).To(Equal(expectedStatus))
 			}
 		},
-		Entry("Running phase, condition should not be set", newVM(), v1alpha2.MachineRunning, newKVVMI(expectedImage), metav1.ConditionUnknown, false),
-		Entry("Running phase, condition should be set", newVM(), v1alpha2.MachineRunning, newKVVMI("other-image-1"), metav1.ConditionFalse, true),
+		Entry("Running phase, condition should not be set", newVM(), v1alpha2.MachineRunning, newKVVMI(expectedImage, virtv1.Running), metav1.ConditionUnknown, false),
+		Entry("Running phase, condition should be set", newVM(), v1alpha2.MachineRunning, newKVVMI("other-image-1", virtv1.Running), metav1.ConditionFalse, true),
+		Entry("Running phase, condition should not be set for succeeded kvvmi", newVM(), v1alpha2.MachineRunning, newKVVMI("other-image-1", virtv1.Succeeded), metav1.ConditionUnknown, false),
+		Entry("Running phase, condition should not be set for failed kvvmi", newVM(), v1alpha2.MachineRunning, newKVVMI("other-image-1", virtv1.Failed), metav1.ConditionUnknown, false),
 
-		Entry("Migrating phase, condition should not be set", newVM(), v1alpha2.MachineMigrating, newKVVMI(expectedImage), metav1.ConditionUnknown, false),
-		Entry("Migrating phase, condition should be set", newVM(), v1alpha2.MachineMigrating, newKVVMI("other-image-1"), metav1.ConditionFalse, true),
+		Entry("Migrating phase, condition should not be set", newVM(), v1alpha2.MachineMigrating, newKVVMI(expectedImage, virtv1.Running), metav1.ConditionUnknown, false),
+		Entry("Migrating phase, condition should be set", newVM(), v1alpha2.MachineMigrating, newKVVMI("other-image-1", virtv1.Running), metav1.ConditionFalse, true),
 
-		Entry("Stopping phase, condition should not be set", newVM(), v1alpha2.MachineStopping, newKVVMI(expectedImage), metav1.ConditionUnknown, false),
-		Entry("Stopping phase, condition should be set", newVM(), v1alpha2.MachineStopping, newKVVMI("other-image-1"), metav1.ConditionFalse, true),
+		Entry("Stopping phase, condition should not be set", newVM(), v1alpha2.MachineStopping, newKVVMI(expectedImage, virtv1.Running), metav1.ConditionUnknown, false),
+		Entry("Stopping phase, condition should be set", newVM(), v1alpha2.MachineStopping, newKVVMI("other-image-1", virtv1.Running), metav1.ConditionFalse, true),
 
-		Entry("Pending phase, condition should not be set", newVM(), v1alpha2.MachinePending, newKVVMI(expectedImage), metav1.ConditionUnknown, false),
-		Entry("Pending phase, condition should not be set", newVM(), v1alpha2.MachinePending, newKVVMI("other-image-1"), metav1.ConditionUnknown, false),
+		Entry("Pending phase, condition should not be set", newVM(), v1alpha2.MachinePending, newKVVMI(expectedImage, virtv1.Running), metav1.ConditionUnknown, false),
+		Entry("Pending phase, condition should not be set", newVM(), v1alpha2.MachinePending, newKVVMI("other-image-1", virtv1.Running), metav1.ConditionUnknown, false),
 
-		Entry("Starting phase, condition should not be set", newVM(), v1alpha2.MachineStarting, newKVVMI(expectedImage), metav1.ConditionUnknown, false),
-		Entry("Starting phase, condition should not be set", newVM(), v1alpha2.MachineStarting, newKVVMI("other-image-1"), metav1.ConditionUnknown, false),
+		Entry("Starting phase, condition should not be set", newVM(), v1alpha2.MachineStarting, newKVVMI(expectedImage, virtv1.Running), metav1.ConditionUnknown, false),
+		Entry("Starting phase, condition should not be set", newVM(), v1alpha2.MachineStarting, newKVVMI("other-image-1", virtv1.Running), metav1.ConditionUnknown, false),
 
-		Entry("Stopped phase, condition should not be set", newVM(), v1alpha2.MachineStopped, newKVVMI(expectedImage), metav1.ConditionUnknown, false),
-		Entry("Stopped phase, condition should not be set", newVM(), v1alpha2.MachineStopped, newKVVMI("other-image-1"), metav1.ConditionUnknown, false),
+		Entry("Stopped phase, condition should not be set", newVM(), v1alpha2.MachineStopped, newKVVMI(expectedImage, virtv1.Running), metav1.ConditionUnknown, false),
+		Entry("Stopped phase, condition should not be set", newVM(), v1alpha2.MachineStopped, newKVVMI("other-image-1", virtv1.Running), metav1.ConditionUnknown, false),
 	)
 })
