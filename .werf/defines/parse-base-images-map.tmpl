@@ -21,10 +21,20 @@
   # <prefix>/<name>: "sha256:abcde12345
 */}}
 {{-   $usedImagesDict := (include "project_images" . | fromJson) }}
+{{/*
+  # defaultRegistry: main repo for stable base_images
+  # altRegistry: sandbox for experimental images (e.g. builder/distroless image)
+*/}}
+{{-   $defaultRegistry := $deckhouseImages.REGISTRY_PATH }}
+{{-   $altRegistry := $deckhouseImages.ALT_REGISTRY_PATH }}
 {{-   range $k, $v := $deckhouseImages }}
-{{-     $baseImagePath := (printf "%s@%s" $deckhouseImages.REGISTRY_PATH (trimSuffix "/" $v)) }}
-{{-     if ne $k "REGISTRY_PATH" }}
-{{-       $_ := set $deckhouseImages $k $baseImagePath }}
+{{-     if and (ne $k "REGISTRY_PATH") (ne $k "ALT_REGISTRY_PATH") }}
+{{-       $registry := $defaultRegistry }}
+{{-       if and $altRegistry (eq "builder/distroless" $k) }}
+{{-         $registry = $altRegistry }}
+{{-       end }}
+{{-     $baseImagePath := (printf "%s@%s" $registry (trimSuffix "/" $v)) }}
+{{-     $_ := set $deckhouseImages $k $baseImagePath }}
 {{-     end }}
 {{-   end }}
 {{-   $_ := unset $deckhouseImages "REGISTRY_PATH" }}

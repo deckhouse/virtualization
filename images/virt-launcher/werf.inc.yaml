@@ -164,7 +164,7 @@ import:
   to: /libvirt-bins
   before: install
 - image: {{ .ModuleNamePrefix }}qemu
-  add: /BINS
+  add: /qemu-bins
   to: /qemu-bins
   before: install
 
@@ -346,41 +346,6 @@ shell:
     ln -s ../edk2/ovmf/UefiShell.iso          usr/share/OVMF
 
     cd /
-
-  - |
-    convert_version() {
-      local version="${1#v}"
-      IFS='.' read -r major minor patch <<< "$version"
-      printf "%d%03d\n" "$major" "$minor"
-    }
-
-    libvirt_version=$(convert_version {{ $version }})
-
-    echo "libvirt_version: $libvirt_version"
-
-    SYMLINC_LIST=$(cat <<EOF
-    libvirt.so.0.${libvirt_version}.0        libvirt.so.0
-    libvirt.so.0                             libvirt.so
-    libvirt-qemu.so.0.${libvirt_version}.0   libvirt-qemu.so.0
-    libvirt-qemu.so.0                        libvirt-qemu.so
-    libvirt-lxc.so.0.${libvirt_version}.0    libvirt-lxc.so.0
-    libvirt-lxc.so.0                         libvirt-lxc.so
-    libvirt-admin.so.0.${libvirt_version}.0  libvirt-admin.so.0
-    libvirt-admin.so.0                       libvirt-admin.so
-    EOF
-    )
-
-    cd /relocate
-
-    while IFS= read -r LINE; do
-      echo "Create symlinc for $LINE"
-      TARGET=$(echo $LINE | awk -F' ' '{print $1}')
-      SYMLINK=$(echo $LINE | awk -F' ' '{print $2}')
-      ln -s ../local/lib64/$TARGET usr/lib64/$SYMLINK
-    done <<< "$SYMLINC_LIST"
-
-    echo "List files in /relocate/usr/local/lib64"
-    ls -la usr/local/lib64
 
   - |
     cd /relocate

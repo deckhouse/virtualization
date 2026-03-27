@@ -91,7 +91,7 @@ import:
   - bin/umount
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
-  add: /qemu-img
+  add: /qemu-bins
   to: /relocate
   before: setup
 shell:
