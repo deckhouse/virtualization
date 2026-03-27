@@ -1,0 +1,43 @@
+ci:
+  fixes:
+    - summary: Replace deprecated nolint:stylecheck with nolint:staticcheck in Go files.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2140
+core:
+  fixes:
+    - summary: >-
+        Add unschedulable toleration for high-performance pods to allow live migration during node
+        evacuation.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2163
+    - summary: >-
+        Use StorageLiveMigratable condition for VM evacuation to correctly include VMs requiring
+        block migration.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2163
+    - summary: >-
+        Set firmware outdated condition only for running VM instances and align firmware
+        workload-updater checks with current condition-driven flow.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2162
+    - summary: >-
+        Make VirtualDisk storage class migration validation deterministic by injecting feature gate
+        and explicitly enabling VolumeMigration in unit tests.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2138
+module:
+  fixes:
+    - summary: >-
+        fixes semver parsing for module version requirements, fix deckhouse requirements to '>=
+        1.74.2'
+      pull_request: https://github.com/deckhouse/virtualization/pull/2131
+test:
+  fixes:
+    - summary: Stabilize VirtualDiskSnapshots e2e by skipping on labeled CSI VolumeSnapshot readiness lag.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2136
+    - summary: >-
+        Add e2e regression test for preserving VM additional interface naming after middle
+        ClusterNetwork removal and reboot.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2124
+vd:
+  fixes:
+    - summary: >-
+        Prevent arbitrary storage class changes during active VirtualDisk migration, allowing
+        rollback only.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2116
+
