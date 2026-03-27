@@ -10,10 +10,6 @@ import:
     add: /relocate
     to: /
     after: install
-  - image: tools/tini-v0.19.0
-    add: /usr/bin/tini
-    to: /usr/bin/tini
-    after: install
 imageSpec:
   config:
     user: 0
@@ -160,6 +156,10 @@ git:
     includePaths:
     - nsswitch.conf
 import:
+- image: tools/tini-v0.19.0
+  add: /usr/bin/tini
+  to: /relocate/usr/bin/tini
+  before: setup
 # Libvirt and QEMU libraries and binaries
 - image: {{ .ModuleNamePrefix }}packages/libvirt
   add: /libvirt
@@ -396,6 +396,7 @@ shell:
 
   - |
     setcap cap_net_bind_service=+ep /relocate/usr/bin/virt-launcher-monitor
+    setcap cap_net_bind_service=+ep /relocate/usr/bin/tini
 
   # /etc/libvirt-init will be copied back into /etc/libvirt at runtime. This is necessary because we configure libvirt to mount /etc/libvirt and set readOnlyRootFilesystem for other directories.
   # DO NOT REMOVE. node-labeler.sh uses /etc/libvirt.
