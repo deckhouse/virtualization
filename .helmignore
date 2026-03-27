@@ -6,6 +6,7 @@ images
 lib
 Makefile
 openapi
+tools
 *.md
 release.yaml
 werf*.yaml
