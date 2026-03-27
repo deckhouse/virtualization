@@ -34,19 +34,6 @@ func NewGeneratedHTTPVIAlpineBIOS(prefix, namespace string, opts ...vi.Option) *
 	return vi.New(baseOpts...)
 }
 
-func NewGeneratedHTTPVIAlpineBIOSPerf(prefix, namespace string, opts ...vi.Option) *v1alpha2.VirtualImage {
-	baseOpts := []vi.Option{
-		vi.WithGenerateName(prefix),
-		vi.WithNamespace(namespace),
-		vi.WithDataSourceHTTP(
-			ImagesURLAlpineBIOSPerf, nil, nil,
-		),
-		vi.WithStorage(v1alpha2.StorageContainerRegistry),
-	}
-	baseOpts = append(baseOpts, opts...)
-	return vi.New(baseOpts...)
-}
-
 func NewGeneratedContainerImageVI(prefix, namespace string, opts ...vi.Option) *v1alpha2.VirtualImage {
 	baseOpts := []vi.Option{
 		vi.WithGenerateName(prefix),

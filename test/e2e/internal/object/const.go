@@ -16,22 +16,27 @@ limitations under the License.
 
 package object
 
+const imageBaseURL = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru"
+
 const (
-	ImageURLAlpineUEFI           = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/alpine/alpine-3-23-3-uefi-base.qcow2"
-	ImageURLAlpineBIOS           = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/alpine/alpine-3-23-3-bios-base.qcow2"
-	ImagesURLAlpineUEFIPerf      = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/alpine/alpine-3-21-uefi-perf.qcow2"
-	ImagesURLAlpineBIOSPerf      = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/alpine/alpine-3-21-bios-perf.qcow2"
-	ImageURLUbuntu               = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/ubuntu-24.04-minimal-cloudimg-amd64.qcow2"
+	ImageURLAlpineUEFI     = imageBaseURL + "/alpine/alpine-3-23-3-uefi-base.qcow2"
+	ImageURLAlpineBIOS     = imageBaseURL + "/alpine/alpine-3-23-3-bios-base.qcow2"
+	ImageURLAlpineUEFIPerf = imageBaseURL + "/alpine/alpine-3-21-uefi-perf.qcow2"
+	ImageURLAlpineBIOSPerf = imageBaseURL + "/alpine/alpine-3-21-bios-perf.qcow2"
+	ImageURLUbuntu         = imageBaseURL + "/ubuntu/ubuntu-24.04-minimal-cloudimg-amd64.qcow2"
+	ImageURLUbuntuISO      = imageBaseURL + "/ubuntu/ubuntu-24.04.2-live-server-amd64.iso"
+	ImageURLCirros         = imageBaseURL + "/cirros/cirros-0.5.1.qcow2"
+	ImageURLDebian         = imageBaseURL + "/debian/debian-12-with-tpm2-tools-amd64-20250814-2204.qcow2"
+
 	ImageURLContainerImage       = "cr.yandex/crpvs5j3nh1mi2tpithr/e2e/alpine/alpine-image:latest"
 	ImageURLLegacyContainerImage = "cr.yandex/crpvs5j3nh1mi2tpithr/e2e/alpine/alpine-3-20:latest"
-	ImageURLCirros               = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/cirros/cirros-0.5.1.qcow2"
-	ImageURLUbuntuISO            = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/ubuntu-24.04.2-live-server-amd64.iso"
-	ImageURLDebian               = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/debian/debian-12-with-tpm2-tools-amd64-20250814-2204.qcow2"
-	// No bootable
-	ImageTestDataQCOW = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.qcow2"
-	ImageTestDataISO  = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.iso"
-	Mi256             = 256 * 1024 * 1024
-	DefaultVMClass    = "generic"
+
+	// Not bootable
+	ImageTestDataQCOW = imageBaseURL + "/test/test.qcow2"
+	ImageTestDataISO  = imageBaseURL + "/test/test.iso"
+
+	Mi256          = 256 * 1024 * 1024
+	DefaultVMClass = "generic"
 
 	cloudInitBasePackages = `#cloud-config
 package_update: true
@@ -125,7 +130,6 @@ BPZpVSic4GdaAsKjQoeAAAAAFnlvdXJfZW1haWxAZXhhbXBsZS5jb20BAgMEBQYH
 -----END OPENSSH PRIVATE KEY-----
 `
 
-	DefaultSSHPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxcXHmwaGnJ8scJaEN5RzklBPZpVSic4GdaAsKjQoeA your_email@example.com"
-	DefaultUser         = "cloud"
-	DefaultPassword     = "cloud"
+	DefaultUser     = "cloud"
+	DefaultPassword = "cloud"
 )

@@ -41,8 +41,8 @@ func PrecreatedClusterVirtualImages() []*v1alpha2.ClusterVirtualImage {
 	return []*v1alpha2.ClusterVirtualImage{
 		newPrecreatedHTTPCVI(PrecreatedCVIAlpineUEFI, ImageURLAlpineUEFI),
 		newPrecreatedHTTPCVI(PrecreatedCVIAlpineBIOS, ImageURLAlpineBIOS),
-		newPrecreatedHTTPCVI(PrecreatedCVIAlpineUEFIPerf, ImagesURLAlpineUEFIPerf),
-		newPrecreatedHTTPCVI(PrecreatedCVIAlpineBIOSPerf, ImagesURLAlpineBIOSPerf),
+		newPrecreatedHTTPCVI(PrecreatedCVIAlpineUEFIPerf, ImageURLAlpineUEFIPerf),
+		newPrecreatedHTTPCVI(PrecreatedCVIAlpineBIOSPerf, ImageURLAlpineBIOSPerf),
 		newPrecreatedHTTPCVI(PrecreatedCVIUbuntu, ImageURLUbuntu),
 		newPrecreatedHTTPCVI(PrecreatedCVIUbuntuISO, ImageURLUbuntuISO),
 		newPrecreatedContainerImageCVI(PrecreatedCVIContainerImage, ImageURLContainerImage),
