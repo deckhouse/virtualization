@@ -196,8 +196,8 @@ spec:
 Для активации аудита событий безопасности:
 
 1. Включить модули `log-shipper` и `runtime-audit-engine`.
-2. Включить аудит Kubernetes API, установив `.spec.settings.apiserver.auditPolicyEnabled: true` в модуле `control-plane-manager`.
-3. Установить `.spec.settings.audit.enabled: true` в модуле `virtualization`:
+1. Включить аудит Kubernetes API, установив `.spec.settings.apiserver.auditPolicyEnabled: true` в модуле `control-plane-manager`.
+1. Установить `.spec.settings.audit.enabled: true` в модуле `virtualization`:
 
    ```yaml
    spec:
@@ -238,28 +238,23 @@ spec:
 ```
 
 Доступные поля в логах:
-- `type` — тип события (Access to VM, VM Management и т.д.)
-- `name` — описание события
-- `request_subject` — username или serviceaccount
-- `datetime` — время события
-- `virtualmachine_name` — имя ВМ
-- `source_ip` — IP-адрес источника (для запрещённых операций)
+- `type` — тип события (Access to VM, VM Management и т.д.);
+- `name` — описание события;
+- `request_subject` — username или ServiceAccount;
+- `datetime` — время события;
+- `virtualmachine_name` — имя ВМ;
+- `source_ip` — IP-адрес источника (для запрещённых операций).
 
 ### События безопасности
 
 Система аудита фиксирует следующие события:
 
-1. **Доступ к ВМ** — подключение через console, VNC или portforward. Включает имя ВМ, ОС, версии, хранилище и адрес узла.
-
-2. **Управление ВМ** — создание, обновление, изменение или удаление ресурсов VirtualMachine.
-
-3. **Управление ВМ через операции** — start, stop, restart, migrate или evict через ресурс VirtualMachineOperation.
-
-4. **Проверка целостности** — проверка sha256 конфигурации ВМ. Логируется при изменении контрольной суммы.
-
-5. **Управление модулем** — создание, обновление или удаление ModuleConfig.
-
-6. **Запрещённые операции** — операции, заблокированные платформой. Включает пользователя, операцию, ресурс, IP-адрес и причину отказа.
+- Доступ к ВМ — подключение через console, VNC или port forward. Включает имя ВМ, ОС, версии, хранилище и адрес узла.
+- Управление ВМ — создание, обновление, изменение или удаление ресурсов [VirtualMachine](/modules/virtualization/cr.html#virtualmachine).
+- Управление ВМ через операции — Start, Stop, Restart, Migrate или Evict через ресурс [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation).
+- Проверка целостности — проверка SHA256 конфигурации ВМ. Логируется при изменении контрольной суммы.
+- Управление модулем — создание, обновление или удаление ModuleConfig.
+- Запрещённые операции — операции, заблокированные платформой. Включает пользователя, операцию, ресурс, IP-адрес и причину отказа.
 
 ## Образы
 

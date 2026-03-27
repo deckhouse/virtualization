@@ -196,8 +196,8 @@ Not available in CE edition.
 To enable security event auditing:
 
 1. Enable `log-shipper` and `runtime-audit-engine` modules.
-2. Enable Kubernetes API audit by setting `.spec.settings.apiserver.auditPolicyEnabled: true` in the `control-plane-manager` module.
-3. Set `.spec.settings.audit.enabled: true` in the `virtualization` module:
+1. Enable Kubernetes API audit by setting `.spec.settings.apiserver.auditPolicyEnabled: true` in the `control-plane-manager` module.
+1. Set `.spec.settings.audit.enabled: true` in the `virtualization` module:
 
    ```yaml
    spec:
@@ -238,28 +238,23 @@ To view events in Grafana, use a Loki query:
 ```
 
 Available fields in the logs:
-- `type` — event type (Access to VM, VM Management, etc.)
-- `name` — human-readable description
-- `request_subject` — username or serviceaccount
-- `datetime` — event timestamp
-- `virtualmachine_name` — affected VM
-- `source_ip` — request source IP (for forbidden operations)
+- `type`: Event type (Access to VM, VM Management, etc.).
+- `name`: Human-readable description.
+- `request_subject`: Username or ServiceAccount.
+- `datetime`: Event timestamp.
+- `virtualmachine_name`: Affected VM.
+- `source_ip`: Request source IP (for forbidden operations).
 
 ### Security events
 
 The audit system logs the following events:
 
-1. **Access to VM** — connection via console, VNC, or portforward. Includes VM name, OS, versions, storage, and node address.
-
-2. **VM Management** — create, update, patch, or delete operations on VirtualMachine resources.
-
-3. **VM Control Operations** — start, stop, restart, migrate, or evict via VirtualMachineOperation resource.
-
-4. **Integrity Check** — sha256 verification of VM configuration. Logs when checksum changes.
-
-5. **Module Control** — create, update, or delete operations on ModuleConfig.
-
-6. **Forbidden Operations** — operations blocked by the platform. Includes user, operation, resource, source IP, and denial reason.
+- Access to VM: Connection via console, VNC, or port forward. Includes VM name, OS, versions, storage, and node address.
+- VM Management: Create, update, patch, or delete operations on [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resources.
+- VM Control Operations: Start, stop, restart, migrate, or evict via [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource.
+- Integrity Check: SHA256 verification of VM configuration. Logs when checksum changes.
+- Module Control: Create, update, or delete operations on ModuleConfig.
+- Forbidden Operations: Operations blocked by the platform. Includes user, operation, resource, source IP, and denial reason.
 
 ## Images
 
