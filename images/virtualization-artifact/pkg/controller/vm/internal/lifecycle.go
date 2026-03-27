@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -103,6 +104,30 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	}
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(nameLifeCycleHandler))
+	// While the pod is not running, the VMI does not set the node and the method returns nil, so it is necessary to check if there are any issues with the pod
+	if pod == nil {
+		cb := conditions.NewConditionBuilder(vmcondition.TypeRunning).Generation(changed.GetGeneration())
+
+		if volumeErr := h.checkPodVolumeErrors(ctx, changed, log); volumeErr != nil {
+			cb.Status(metav1.ConditionFalse).
+				Reason(vmcondition.ReasonPodVolumeErrors).
+				Message(fmt.Sprintf("Volume errors detected on Pod: %s", volumeErr.Error()))
+			conditions.SetCondition(cb, &changed.Status.Conditions)
+			return reconcile.Result{}, nil
+		}
+
+		isVMInContainerCreating, err := h.isVMInContainerCreatingState(ctx, changed, log)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		if isVMInContainerCreating {
+			cb.Status(metav1.ConditionFalse).
+				Reason(vmcondition.ReasonPodContainerCreating).
+				Message("Pod is in ContainerCreating phase. Check the pod for more details.")
+			conditions.SetCondition(cb, &changed.Status.Conditions)
+			return reconcile.Result{}, nil
+		}
+	}
 
 	h.syncRunning(ctx, changed, kvvm, kvvmi, pod, log)
 	return reconcile.Result{}, nil
@@ -210,8 +235,29 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 	} else {
 		vm.Status.Node = ""
 	}
+
 	cb.Reason(vmcondition.ReasonVirtualMachineNotRunning).Status(metav1.ConditionFalse)
 	conditions.SetCondition(cb, &vm.Status.Conditions)
+}
+
+func (h *LifeCycleHandler) isVMInContainerCreatingState(ctx context.Context, vm *v1alpha2.VirtualMachine, log *slog.Logger) (bool, error) {
+	var podList corev1.PodList
+	err := h.client.List(ctx, &podList, &client.ListOptions{
+		Namespace: vm.Namespace,
+		LabelSelector: labels.SelectorFromSet(map[string]string{
+			virtv1.VirtualMachineNameLabel: vm.Name,
+		}),
+	})
+	if err != nil {
+		log.Error("Failed to list pods", "error", err)
+		return false, err
+	}
+
+	if len(podList.Items) == 1 {
+		return isContainerCreating(&podList.Items[0]), nil
+	}
+
+	return false, nil
 }
 
 func (h *LifeCycleHandler) checkPodVolumeErrors(ctx context.Context, vm *v1alpha2.VirtualMachine, log *slog.Logger) error {
@@ -237,6 +283,9 @@ func (h *LifeCycleHandler) checkPodVolumeErrors(ctx context.Context, vm *v1alpha
 }
 
 func isContainerCreating(pod *corev1.Pod) bool {
+	if pod == nil {
+		return false
+	}
 	if pod.Status.Phase != corev1.PodPending {
 		return false
 	}
@@ -266,10 +315,15 @@ func (h *LifeCycleHandler) getPodVolumeError(ctx context.Context, pod *corev1.Po
 		return nil
 	}
 
-	for _, e := range eventList.Items {
-		if e.Type == corev1.EventTypeWarning && (e.Reason == watcher.ReasonFailedAttachVolume || e.Reason == watcher.ReasonFailedMount) {
-			return fmt.Errorf("%s: %s", e.Reason, e.Message)
-		}
+	if len(eventList.Items) == 0 {
+		return nil
+	}
+
+	last := slices.MaxFunc(eventList.Items, func(a, b corev1.Event) int {
+		return a.LastTimestamp.Compare(b.LastTimestamp.Time)
+	})
+	if last.Reason == watcher.ReasonFailedAttachVolume || last.Reason == watcher.ReasonFailedMount {
+		return fmt.Errorf("%s: %s", last.Reason, last.Message)
 	}
 
 	return nil

@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -29,6 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmbdacondition"
@@ -199,6 +201,11 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 	if err != nil {
 		if errors.Is(err, intsvc.ErrVolumeStatusNotReady) {
 			vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseInProgress
+
+			if handled, podErr := h.handleHotPlugPodIssues(ctx, ad, kvvmi, vmbda, cb); podErr != nil || handled {
+				return reconcile.Result{}, podErr
+			}
+
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.AttachmentRequestSent).
@@ -299,4 +306,64 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 	default:
 		return reconcile.Result{}, err
 	}
+}
+
+func (h LifeCycleHandler) handleHotPlugPodIssues(
+	ctx context.Context,
+	ad *intsvc.AttachmentDisk,
+	kvvmi *virtv1.VirtualMachineInstance,
+	vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment,
+	cb *conditions.ConditionBuilder,
+) (bool, error) {
+	hotPlugPod, err := h.attacher.GetHotPlugPod(ctx, ad, kvvmi)
+	if err != nil {
+		return false, err
+	}
+	if hotPlugPod == nil {
+		return false, nil
+	}
+
+	for _, c := range hotPlugPod.Status.Conditions {
+		if c.Type == corev1.PodScheduled && c.Status == corev1.ConditionFalse && c.Message != "" {
+			vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhasePending
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vmbdacondition.HotPlugPodNotScheduled).
+				Message(fmt.Sprintf("Hot plug pod not scheduled: %s: %s", c.Reason, c.Message))
+			return true, nil
+		}
+	}
+
+	if isContainerCreating(hotPlugPod) {
+		lastEvent, err := h.attacher.GetLastPodEvent(ctx, hotPlugPod)
+		if err != nil {
+			return false, err
+		}
+		if lastEvent != nil && (lastEvent.Reason == watcher.ReasonFailedAttachVolume || lastEvent.Reason == watcher.ReasonFailedMount) {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vmbdacondition.FailedAttachVolume).
+				Message(fmt.Sprintf("Hot plug pod failed to attach volume: %s: %s", lastEvent.Reason, lastEvent.Message))
+			return true, nil
+		}
+
+		cb.Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.AttachmentRequestSent).
+			Message(fmt.Sprintf("Pod %q is in ContainerCreating phase. Check the pod for more details.", hotPlugPod.Name))
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func isContainerCreating(pod *corev1.Pod) bool {
+	if pod.Status.Phase != corev1.PodPending {
+		return false
+	}
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.State.Waiting != nil && cs.State.Waiting.Reason == "ContainerCreating" {
+			return true
+		}
+	}
+	return false
 }
