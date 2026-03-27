@@ -1085,10 +1085,9 @@ jobs:
           cp -a legacy/testdata /tmp/testdata
 
           set +e
-          POST_CLEANUP=no
           FOCUS="${{ inputs.e2e_focus_tests }}"
           if [ -n "$FOCUS" ]; then
-            go tool ginkgo \
+            POST_CLEANUP=no go tool ginkgo \
               --focus="$FOCUS" \
               -v --race --timeout=$TIMEOUT \
               --junit-report=$summary_file_name_junit | tee $GINKGO_RESULT
