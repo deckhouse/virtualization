@@ -16,7 +16,7 @@ imageSpec:
     user: 64535
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-artifact
-fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
+fromImage: builder/alt
 final: false
 shell:
   beforeInstall:

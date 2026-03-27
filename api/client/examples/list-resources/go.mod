@@ -1,6 +1,6 @@
 module github.com/deckhouse/virtualization/api/client/examples/list-resources
 
-go 1.24.13
+go 1.25.8
 
 require (
 	github.com/deckhouse/virtualization/api v0.0.0-20240322104947-2d492906a8b2
