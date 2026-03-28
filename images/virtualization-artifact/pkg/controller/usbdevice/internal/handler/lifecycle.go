@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/usb"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/usbdevice/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -192,19 +193,28 @@ func (h *LifecycleHandler) ensureResourceClaimTemplate(ctx context.Context, s st
 }
 
 func (h *LifecycleHandler) syncAttached(ctx context.Context, s state.USBDeviceState) error {
+	log := logger.FromContext(ctx).With(logger.SlogHandler(nameLifecycleHandler))
+
 	current := s.USBDevice().Current()
 	changed := s.USBDevice().Changed()
 
-	vms, err := s.VirtualMachinesUsingDevice(ctx)
+	usbDevice := changed
+
+	attachedVMs, err := s.VirtualMachinesUsingDevice(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to find VirtualMachines using USBDevice: %w", err)
+	}
+
+	referencingVMs, err := s.VirtualMachinesReferencingDevice(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to find VirtualMachines referencing USBDevice: %w", err)
 	}
 
 	var reason usbdevicecondition.AttachedReason
 	var status metav1.ConditionStatus
 	var message string
 
-	if len(vms) == 0 {
+	if len(referencingVMs) == 0 {
 		reason = usbdevicecondition.Available
 		status = metav1.ConditionFalse
 		message = "Device is available for attachment to a virtual machine."
@@ -212,11 +222,42 @@ func (h *LifecycleHandler) syncAttached(ctx context.Context, s state.USBDeviceSt
 		return nil
 	}
 
-	reason = usbdevicecondition.AttachedToVirtualMachine
-	status = metav1.ConditionTrue
-	message = fmt.Sprintf("Device is attached to %d VirtualMachines.", len(vms))
-	if len(vms) == 1 {
-		message = fmt.Sprintf("Device is attached to VirtualMachine %s/%s.", vms[0].Namespace, vms[0].Name)
+	noFreePort := false
+	for _, vm := range referencingVMs {
+		if usbDevice.Status.NodeName != "" && usbDevice.Status.NodeName != vm.Status.Node {
+			hasFreePort, err := usb.CheckFreePortOnNodeExcludingLocalUSBs(ctx, h.client, vm.Status.Node, usbDevice.Status.Attributes.Speed)
+			if err != nil {
+				if apierrors.IsNotFound(err) {
+					log.Debug("node not found while checking free USBIP ports", "device", usbDevice.Name, "node", vm.Status.Node)
+					continue
+				}
+
+				return fmt.Errorf("failed to check free USBIP ports for USBDevice %s on node %s: %w", usbDevice.Name, vm.Status.Node, err)
+			}
+
+			if !hasFreePort {
+				noFreePort = true
+				message = fmt.Sprintf("Device is requested by VirtualMachine %s/%s, but no free USBIP ports are available on node %s for speed %d.",
+					vm.Namespace, vm.Name, vm.Status.Node, usbDevice.Status.Attributes.Speed)
+				break
+			}
+		}
+	}
+
+	if noFreePort {
+		reason = usbdevicecondition.NoFreeUSBIPPort
+		status = metav1.ConditionFalse
+	} else if len(attachedVMs) > 0 {
+		reason = usbdevicecondition.AttachedToVirtualMachine
+		status = metav1.ConditionTrue
+		message = fmt.Sprintf("Device is attached to %d VirtualMachines.", len(attachedVMs))
+		if len(attachedVMs) == 1 {
+			message = fmt.Sprintf("Device is attached to VirtualMachine %s/%s.", attachedVMs[0].Namespace, attachedVMs[0].Name)
+		}
+	} else {
+		reason = usbdevicecondition.Available
+		status = metav1.ConditionFalse
+		message = "Device is requested by a virtual machine but not attached yet."
 	}
 
 	setAttachedCondition(current, &changed.Status.Conditions, status, reason, message)

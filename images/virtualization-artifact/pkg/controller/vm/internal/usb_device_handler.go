@@ -81,8 +81,8 @@ func (h *usbDeviceHandlerBase) isUSBDeviceReady(usbDevice *v1alpha2.USBDevice) b
 	return found && readyCondition.Status == metav1.ConditionTrue
 }
 
-func (h *usbDeviceHandlerBase) hostDeviceReadyByName(kvvmi *virtv1.VirtualMachineInstance) map[string]bool {
-	hostDeviceReadyByName := make(map[string]bool)
+func (h *usbDeviceHandlerBase) hostDeviceReadyByName(kvvmi *virtv1.VirtualMachineInstance) map[string]struct{} {
+	hostDeviceReadyByName := make(map[string]struct{})
 	if kvvmi == nil || kvvmi.Status.DeviceStatus == nil {
 		return hostDeviceReadyByName
 	}
@@ -92,10 +92,29 @@ func (h *usbDeviceHandlerBase) hostDeviceReadyByName(kvvmi *virtv1.VirtualMachin
 			continue
 		}
 
-		hostDeviceReadyByName[hostDeviceStatus.Name] = hostDeviceReadyByName[hostDeviceStatus.Name] || hostDeviceStatus.Phase == virtv1.DeviceReady
+		if hostDeviceStatus.Phase == virtv1.DeviceReady {
+			hostDeviceReadyByName[hostDeviceStatus.Name] = struct{}{}
+		}
 	}
 
 	return hostDeviceReadyByName
+}
+
+func (h *usbDeviceHandlerBase) hostDeviceExistsByName(kvvmi *virtv1.VirtualMachineInstance) map[string]struct{} {
+	hostDeviceExistsByName := make(map[string]struct{})
+	if kvvmi == nil || kvvmi.Status.DeviceStatus == nil {
+		return hostDeviceExistsByName
+	}
+
+	for _, hostDeviceStatus := range kvvmi.Status.DeviceStatus.HostDeviceStatuses {
+		if hostDeviceStatus.Name == "" {
+			continue
+		}
+
+		hostDeviceExistsByName[hostDeviceStatus.Name] = struct{}{}
+	}
+
+	return hostDeviceExistsByName
 }
 
 func (h *usbDeviceHandlerBase) attachUSBDevice(
