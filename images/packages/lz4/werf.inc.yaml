@@ -33,7 +33,7 @@ altPackages:
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
 final: false
-fromImage: builder/alt
+fromImage: builder/golang-alt
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src

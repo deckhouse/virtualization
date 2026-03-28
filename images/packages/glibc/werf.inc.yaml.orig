@@ -1,0 +1,117 @@
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+altPackages:
+- gcc
+- git pkg-config cmake
+- binutils
+- make bison python3
+- tree
+packages:
+- util-linux
+{{- end -}}
+
+{{- $builderDependencies := include "$name" . | fromYaml }}
+
+{{- $version := get .PackageVersion .ImageName }}
+{{- $gitRepoUrl := "glibc.git" }}
+
+{{/* Temporarily exclude images from build as submodule. TODO remove 'if' when this image is used in import section.  */}}
+{{- if eq .ModuleNamePrefix "" }}
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+  add: /out
+  to: /glibc
+  before: setup
+
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+git:
+- add: {{ .ModuleDir }}/images/packages/{{ .ImageName }}
+  to: /
+  includePaths:
+  - patches
+  stageDependencies:
+    install:
+      - '**/*'
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - |
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --revision {{ $version }} /src
+    cd /src
+    for p in /patches/*.patch ; do
+      echo -n "Apply ${p} ... "
+      git apply --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+    done
+
+
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+final: false
+fromImage: builder/alt
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $builderDependencies.altPackages | join " " }}
+
+  {{- include "alt packages clean" . | nindent 2 }}
+
+  install:
+  - |
+    OUTDIR=/out
+
+    mkdir /build
+    cd /build
+
+    # this is a workaround for the glibc build system
+    # to have most of the files in the lib64 directory,
+    # we need to set the libdir and slibdir to /usr/lib64
+    cat > configparms << EOF
+    libdir=/usr/lib64
+    slibdir=/usr/lib64
+    rootsbindir=/usr/sbin
+    EOF
+
+    ../src/configure \
+      --prefix=/usr \
+      --exec-prefix=/usr \
+      --libdir=/usr/lib64 \
+      --sbindir=/usr/sbin \
+      --disable-crypt \
+      --disable-profile \
+      --enable-bind-now \
+      --enable-obsolete-rpc \
+      --enable-stack-protector=strong \
+      --enable-fortify-source=3
+
+    make -j$(nproc)
+
+    make DESTDIR=$OUTDIR install
+    # remove systemd dir
+    rm -rf $OUTDIR/usr/lib
+    mv $OUTDIR/lib64/* $OUTDIR/usr/lib64/
+    rm -rf $OUTDIR/lib64
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
+
+    tree -hp $OUTDIR
+
+{{- end }}

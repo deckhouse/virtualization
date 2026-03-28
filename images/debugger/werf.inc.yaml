@@ -10,16 +10,18 @@ import:
 ---
 image: {{ $.ImageName }}-builder
 final: false
-fromImage: builder/alt
+fromImage: builder/golang-alt
 shell:
   install:
   - |
-    apt-get update && apt-get install --yes \
-      musl-devel-static gcc golang git 
-    
+    rm -rf /var/lib/rpm/__db*
+    apt-get update
+    apt-get install --yes \
+      musl-devel-static gcc
+
     export CGO_ENABLED=0
     export GOOS=linux
-    export GOARCH=amd64 
+    export GOARCH=amd64
 
     mkdir -p /out
     git clone --depth=1 --branch v1.25.1 https://github.com/go-delve/delve.git /src

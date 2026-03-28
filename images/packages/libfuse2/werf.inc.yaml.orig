@@ -1,0 +1,112 @@
+---
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+altPackages:
+- gcc git
+- make autoconf automake libtool pkgconfig
+- gettext-tools
+- tree
+packages:
+- systemd
+{{- end -}}
+
+{{- $builderDependencies := include "$name" . | fromYaml }}
+
+{{- $version := get .PackageVersion .ImageName }}
+{{- $gitRepoUrl := "libfuse/libfuse.git" }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+  add: /out
+  to: /{{ .ImageName }}
+  before: setup
+
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+git:
+- add: {{ .ModuleDir }}/images/packages/{{ .ImageName }}
+  to: /
+  includePaths:
+  - patches
+  stageDependencies:
+    install:
+      - '**/*'
+shell:
+  install:
+  - |
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+    cd /src
+    for p in /patches/*.patch ; do
+      echo -n "Apply ${p} ... "
+      git apply --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+    done
+
+
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+final: false
+fromImage: builder/alt
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $builderDependencies.altPackages | join " " }}
+
+  {{- include "alt packages clean" . | nindent 2 }}
+
+  install:
+  - |
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
+    OUTDIR=/out
+
+    cd /src
+
+    cp /usr/share/gettext/config.rpath .
+    autoreconf -if
+    ./configure \
+      --prefix=/usr \
+      --sbindir=/usr/sbin \
+      --libdir=/usr/lib64 \
+      --enable-lib \
+      --enable-util \
+      --disable-static
+
+    make -j$(nproc)
+    make DESTDIR=$OUTDIR install
+
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
+
+    rm -rf /out/usr/share
+    rm -rf /out/dev
+    rm -rf /out/etc
+    mv $OUTDIR/sbin $OUTDIR/usr/sbin
+
+    tree -hp /out

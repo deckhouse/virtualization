@@ -10,7 +10,7 @@ import:
   after: install
 # GNU utilities
 # deps for 031-hotplug-container-disk.patch
-- image: tools/coreutils
+- image: coreutils
   add: /
   to: /
   after: install
@@ -82,7 +82,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
 fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
 import:
-- image: tools/util-linux
+- image: util-linux
   add: /
   to: /relocate/usr
   after: setup
