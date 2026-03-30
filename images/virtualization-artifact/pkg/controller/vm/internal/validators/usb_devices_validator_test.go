@@ -123,7 +123,7 @@ func TestUSBDevicesValidatorValidateUpdateExcludesLocalUSBsFromPortAccounting(t 
 	objects := []client.Object{
 		oldVM,
 		&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-1", Annotations: map[string]string{
-			"usb.virtualization.deckhouse.io/usbip-total-ports":               "2",
+			"usb.virtualization.deckhouse.io/usbip-total-ports":                "2",
 			"usb.virtualization.deckhouse.io/usbip-high-speed-hub-used-ports":  "1",
 			"usb.virtualization.deckhouse.io/usbip-super-speed-hub-used-ports": "0",
 		}}},

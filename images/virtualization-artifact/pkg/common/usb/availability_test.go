@@ -33,29 +33,29 @@ import (
 )
 
 var _ = Describe("availability helpers", func() {
-	newNode := func(name string, totalPorts, usedHSPorts, usedSSPorts string) *corev1.Node {
-		return &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: name, Annotations: map[string]string{
-			annotations.AnnUSBIPTotalPorts:             totalPorts,
+	newNode := func(usedHSPorts string) *corev1.Node {
+		return &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-1", Annotations: map[string]string{
+			annotations.AnnUSBIPTotalPorts:             "2",
 			annotations.AnnUSBIPHighSpeedHubUsedPorts:  usedHSPorts,
-			annotations.AnnUSBIPSuperSpeedHubUsedPorts: usedSSPorts,
+			annotations.AnnUSBIPSuperSpeedHubUsedPorts: "0",
 		}}}
 	}
 
-	newVM := func(name, nodeName string, statuses ...v1alpha2.USBDeviceStatusRef) *v1alpha2.VirtualMachine {
+	newVM := func(statuses ...v1alpha2.USBDeviceStatusRef) *v1alpha2.VirtualMachine {
 		return &v1alpha2.VirtualMachine{
-			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
+			ObjectMeta: metav1.ObjectMeta{Name: "vm-1", Namespace: "default"},
 			Status: v1alpha2.VirtualMachineStatus{
-				Node:       nodeName,
+				Node:       "node-1",
 				USBDevices: statuses,
 			},
 		}
 	}
 
-	newUSBDevice := func(name, nodeName string, speed int) *v1alpha2.USBDevice {
+	newUSBDevice := func(name string, speed int) *v1alpha2.USBDevice {
 		return &v1alpha2.USBDevice{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
 			Status: v1alpha2.USBDeviceStatus{
-				NodeName: nodeName,
+				NodeName: "node-1",
 				Attributes: v1alpha2.NodeUSBDeviceAttributes{
 					Speed: speed,
 				},
@@ -78,9 +78,9 @@ var _ = Describe("availability helpers", func() {
 
 	It("excludes local attached USB devices of the same speed class from used port accounting", func() {
 		cl := newClient(
-			newNode("node-1", "2", "1", "0"),
-			newVM("vm-1", "node-1", v1alpha2.USBDeviceStatusRef{Name: "usb-local", Attached: true}),
-			newUSBDevice("usb-local", "node-1", 480),
+			newNode("1"),
+			newVM(v1alpha2.USBDeviceStatusRef{Name: "usb-local", Attached: true}),
+			newUSBDevice("usb-local", 480),
 		)
 
 		hasFree, err := CheckFreePortForRequestOnNodeExcludingLocalUSBs(context.Background(), cl, "node-1", 480, 1)
@@ -90,9 +90,9 @@ var _ = Describe("availability helpers", func() {
 
 	It("does not exclude local attached USB devices from another speed class", func() {
 		cl := newClient(
-			newNode("node-1", "2", "1", "0"),
-			newVM("vm-1", "node-1", v1alpha2.USBDeviceStatusRef{Name: "usb-local-ss", Attached: true}),
-			newUSBDevice("usb-local-ss", "node-1", 5000),
+			newNode("1"),
+			newVM(v1alpha2.USBDeviceStatusRef{Name: "usb-local-ss", Attached: true}),
+			newUSBDevice("usb-local-ss", 5000),
 		)
 
 		hasFree, err := CheckFreePortForRequestOnNodeExcludingLocalUSBs(context.Background(), cl, "node-1", 480, 1)
@@ -102,8 +102,8 @@ var _ = Describe("availability helpers", func() {
 
 	It("ignores stale VM status entries when the referenced USBDevice is missing", func() {
 		cl := newClient(
-			newNode("node-1", "2", "1", "0"),
-			newVM("vm-1", "node-1", v1alpha2.USBDeviceStatusRef{Name: "missing-usb", Attached: true}),
+			newNode("1"),
+			newVM(v1alpha2.USBDeviceStatusRef{Name: "missing-usb", Attached: true}),
 		)
 
 		hasFree, err := CheckFreePortForRequestOnNodeExcludingLocalUSBs(context.Background(), cl, "node-1", 480, 1)
@@ -113,15 +113,13 @@ var _ = Describe("availability helpers", func() {
 
 	It("clamps effective used ports to zero when excluded local devices exceed node annotations", func() {
 		cl := newClient(
-			newNode("node-1", "2", "0", "0"),
+			newNode("0"),
 			newVM(
-				"vm-1",
-				"node-1",
 				v1alpha2.USBDeviceStatusRef{Name: "usb-local-1", Attached: true},
 				v1alpha2.USBDeviceStatusRef{Name: "usb-local-2", Attached: true},
 			),
-			newUSBDevice("usb-local-1", "node-1", 480),
-			newUSBDevice("usb-local-2", "node-1", 480),
+			newUSBDevice("usb-local-1", 480),
+			newUSBDevice("usb-local-2", 480),
 		)
 
 		hasFree, err := CheckFreePortForRequestOnNodeExcludingLocalUSBs(context.Background(), cl, "node-1", 480, 1)

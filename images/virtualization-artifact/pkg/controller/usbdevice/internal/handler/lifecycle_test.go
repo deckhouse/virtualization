@@ -186,6 +186,73 @@ var _ = Describe("LifecycleHandler", func() {
 		Expect(attached.Message).To(ContainSubstring("requested by VirtualMachine"))
 	})
 
+	It("should keep AttachedToVirtualMachine when at least one VM already has device attached", func() {
+		usbDevice := &v1alpha2.USBDevice{
+			ObjectMeta: metav1.ObjectMeta{Name: "usb-device-1", Namespace: "default", UID: "usb-uid-1"},
+			Status: v1alpha2.USBDeviceStatus{Attributes: v1alpha2.NodeUSBDeviceAttributes{
+				Name:      "usb-device-1",
+				VendorID:  "1234",
+				ProductID: "5678",
+				Speed:     480,
+			}},
+		}
+
+		nodeUSBDevice := &v1alpha2.NodeUSBDevice{
+			ObjectMeta: metav1.ObjectMeta{Name: "usb-device-1"},
+			Status: v1alpha2.NodeUSBDeviceStatus{
+				Attributes: v1alpha2.NodeUSBDeviceAttributes{Name: "usb-device-1", VendorID: "1234", ProductID: "5678", Speed: 480},
+				NodeName:   "node-1",
+				Conditions: []metav1.Condition{{Type: string(nodeusbdevicecondition.ReadyType), Status: metav1.ConditionTrue, Reason: string(nodeusbdevicecondition.Ready), Message: "Node status"}},
+			},
+		}
+
+		vmAttached := &v1alpha2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: "vm-attached", Namespace: "default"},
+			Spec:       v1alpha2.VirtualMachineSpec{USBDevices: []v1alpha2.USBDeviceSpecRef{{Name: "usb-device-1"}}},
+			Status: v1alpha2.VirtualMachineStatus{
+				Node:       "node-2",
+				USBDevices: []v1alpha2.USBDeviceStatusRef{{Name: "usb-device-1", Attached: true}},
+			},
+		}
+
+		vmPending := &v1alpha2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: "vm-pending", Namespace: "default"},
+			Spec:       v1alpha2.VirtualMachineSpec{USBDevices: []v1alpha2.USBDeviceSpecRef{{Name: "usb-device-1"}}},
+			Status: v1alpha2.VirtualMachineStatus{
+				Node:       "node-2",
+				USBDevices: []v1alpha2.USBDeviceStatusRef{{Name: "usb-device-1", Attached: false}},
+			},
+		}
+
+		node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-2", Annotations: map[string]string{
+			annotations.AnnUSBIPTotalPorts:            "2",
+			annotations.AnnUSBIPHighSpeedHubUsedPorts: "1",
+		}}}
+
+		vmObj, vmField, vmExtractValue := indexer.IndexVMByUSBDevice()
+		vmNodeObj, vmNodeField, vmNodeExtractValue := indexer.IndexVMByNode()
+		cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(usbDevice, nodeUSBDevice, vmAttached, vmPending, node).WithIndex(vmObj, vmField, vmExtractValue).WithIndex(vmNodeObj, vmNodeField, vmNodeExtractValue).Build()
+
+		res := reconciler.NewResource(
+			types.NamespacedName{Name: usbDevice.Name, Namespace: usbDevice.Namespace},
+			cl,
+			func() *v1alpha2.USBDevice { return &v1alpha2.USBDevice{} },
+			func(obj *v1alpha2.USBDevice) v1alpha2.USBDeviceStatus { return obj.Status },
+		)
+		Expect(res.Fetch(ctx)).To(Succeed())
+
+		st := state.New(cl, res)
+		h := NewLifecycleHandler(cl)
+		_, err := h.Handle(ctx, st)
+		Expect(err).NotTo(HaveOccurred())
+
+		attached := meta.FindStatusCondition(res.Changed().Status.Conditions, string(usbdevicecondition.AttachedType))
+		Expect(attached).NotTo(BeNil())
+		Expect(attached.Reason).To(Equal(string(usbdevicecondition.AttachedToVirtualMachine)))
+		Expect(attached.Status).To(Equal(metav1.ConditionTrue))
+		Expect(attached.Message).To(ContainSubstring("attached to"))
+	})
+
 	It("should return error when USBIP port availability check fails unexpectedly", func() {
 		usbDevice := &v1alpha2.USBDevice{
 			ObjectMeta: metav1.ObjectMeta{Name: "usb-device-1", Namespace: "default", UID: "usb-uid-1"},

@@ -222,6 +222,17 @@ func (h *LifecycleHandler) syncAttached(ctx context.Context, s state.USBDeviceSt
 		return nil
 	}
 
+	if len(attachedVMs) > 0 {
+		reason = usbdevicecondition.AttachedToVirtualMachine
+		status = metav1.ConditionTrue
+		message = fmt.Sprintf("Device is attached to %d VirtualMachines.", len(attachedVMs))
+		if len(attachedVMs) == 1 {
+			message = fmt.Sprintf("Device is attached to VirtualMachine %s/%s.", attachedVMs[0].Namespace, attachedVMs[0].Name)
+		}
+		setAttachedCondition(current, &changed.Status.Conditions, status, reason, message)
+		return nil
+	}
+
 	noFreePort := false
 	for _, vm := range referencingVMs {
 		if usbDevice.Status.NodeName != "" && usbDevice.Status.NodeName != vm.Status.Node {
@@ -247,13 +258,6 @@ func (h *LifecycleHandler) syncAttached(ctx context.Context, s state.USBDeviceSt
 	if noFreePort {
 		reason = usbdevicecondition.NoFreeUSBIPPort
 		status = metav1.ConditionFalse
-	} else if len(attachedVMs) > 0 {
-		reason = usbdevicecondition.AttachedToVirtualMachine
-		status = metav1.ConditionTrue
-		message = fmt.Sprintf("Device is attached to %d VirtualMachines.", len(attachedVMs))
-		if len(attachedVMs) == 1 {
-			message = fmt.Sprintf("Device is attached to VirtualMachine %s/%s.", attachedVMs[0].Namespace, attachedVMs[0].Name)
-		}
 	} else {
 		reason = usbdevicecondition.Available
 		status = metav1.ConditionFalse
