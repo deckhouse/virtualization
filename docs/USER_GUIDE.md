@@ -3734,7 +3734,6 @@ The [USBDevice](/modules/virtualization/cr.html#usbdevice) resource provides sta
 - **Attached**: Indicates whether the device is attached to a virtual machine.
   - `AttachedToVirtualMachine`: Device is attached to a VM.
   - `Available`: Device is available for attachment.
-  - `NoFreeUSBIPPort`: Device is requested by a VM but cannot be attached because there are no free USBIP ports on the target node. In this case, `Attached=False`.
 
 ### Attaching USB Device to VM
 
