@@ -94,6 +94,8 @@ import:
   add: /qemu-img
   to: /qemu-img
   before: install
+  includePaths:
+  - usr
 shell:
   install:
   - |
