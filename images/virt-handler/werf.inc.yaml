@@ -94,7 +94,7 @@ import:
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-bins
   to: /qemu
-  before: setup
+  before: install
 shell:
   install:
   - |
