@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -75,6 +76,11 @@ func (s WaitingDisksReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualM
 		vdKey := types.NamespacedName{Namespace: vmop.Namespace, Name: status.Name}
 		err := s.client.Get(ctx, vdKey, &vd)
 		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				cb.Message("Waiting for resource readiness.")
+				conditions.SetCondition(cb, &vmop.Status.Conditions)
+				return &reconcile.Result{}, nil
+			}
 			return &reconcile.Result{}, fmt.Errorf("failed to get the `VirtualDisk`: %w", err)
 		}
 

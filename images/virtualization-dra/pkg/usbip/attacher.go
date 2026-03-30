@@ -18,7 +18,6 @@ package usbip
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -135,6 +134,7 @@ func (a *usbAttacher) GetAttachInfo() (AttachInfo, error) {
 				Port:       idev.port,
 				Busnum:     idev.busnum,
 				Devnum:     idev.devnum,
+				Hub:        idev.hub.String(),
 				LocalBusID: idev.localBusID,
 			})
 		}
@@ -272,8 +272,6 @@ func (a *usbAttacher) importDevice(conn *net.TCPConn, usbDevice protocol.USBDevi
 	return port, nil
 }
 
-var errNoFreePodFound = errors.New("no free port found")
-
 // https://github.com/torvalds/linux/blob/b927546677c876e26eba308550207c2ddf812a43/tools/usb/usbip/libsrc/vhci_driver.c#L334
 func (a *usbAttacher) getFreePort(speed uint32) (int, error) {
 	driver, err := newVhciDriver()
@@ -300,7 +298,7 @@ func (a *usbAttacher) getFreePort(speed uint32) (int, error) {
 		}
 	}
 
-	return -1, errNoFreePodFound
+	return -1, fmt.Errorf("no free port found")
 }
 
 func (a *usbAttacher) getSockFd(conn *net.TCPConn) (int, error) {

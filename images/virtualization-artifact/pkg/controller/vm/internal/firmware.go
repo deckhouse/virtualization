@@ -65,7 +65,7 @@ func (h *FirmwareHandler) syncFirmwareUpToDate(vm *v1alpha2.VirtualMachine, kvvm
 		return
 	}
 
-	upToDate := kvvmi == nil || kvvmi.Status.LauncherContainerImageVersion == "" || kvvmi.Status.LauncherContainerImageVersion == h.image
+	upToDate := kvvmi == nil || kvvmi.Status.Phase == virtv1.Succeeded || kvvmi.Status.Phase == virtv1.Failed || kvvmi.Status.LauncherContainerImageVersion == "" || kvvmi.Status.LauncherContainerImageVersion == h.image
 
 	cb := conditions.NewConditionBuilder(vmcondition.TypeFirmwareUpToDate).Generation(vm.GetGeneration())
 	defer func() {

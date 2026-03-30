@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -38,7 +39,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
-	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -269,7 +269,7 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *v1alpha2.Virt
 		)
 
 		vi.Status.Progress = "0%"
-		vi.Status.SourceUID = pointer.GetPointer(vdRef.GetUID())
+		vi.Status.SourceUID = ptr.To(vdRef.GetUID())
 
 		source := &cdiv1.DataVolumeSource{
 			PVC: &cdiv1.DataVolumeSourcePVC{

@@ -20,11 +20,12 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"moduleversions/internal/docs"
 	"moduleversions/internal/releases"
+	"moduleversions/internal/requirements"
 	"moduleversions/internal/version"
-
-	"github.com/spf13/cobra"
 )
 
 const defaultModuleName = "virtualization"
@@ -33,18 +34,20 @@ const defaultModuleName = "virtualization"
 func Execute() {
 	rootCmd := NewCommand()
 	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
 }
 
 // Config holds the configuration for the command.
 type Config struct {
-	Channel       string
-	Version       string
-	ModuleName    string
-	Attempt       int
-	CheckReleases bool
-	CheckDocs     bool
+	Channel           string
+	Version           string
+	ModuleName        string
+	Attempt           int
+	CheckReleases     bool
+	CheckDocs         bool
+	CheckRequirements bool
 }
 
 var cfg = &Config{}
@@ -72,16 +75,25 @@ releases.deckhouse.io (across all editions) and deckhouse.ru/modules/virtualizat
 	rootCmd.Flags().IntVarP(&cfg.Attempt, "attempt", "a", 1, "maximum number of retry attempts")
 	rootCmd.Flags().BoolVarP(&cfg.CheckReleases, "check-releases", "r", false, "check version on releases.deckhouse.io")
 	rootCmd.Flags().BoolVarP(&cfg.CheckDocs, "check-docs", "d", false, "check version on deckhouse.ru/modules/virtualization/[channel]/")
+	rootCmd.Flags().BoolVarP(&cfg.CheckRequirements, "check-requirements", "q", false, "check module requirements")
 
-	rootCmd.MarkFlagRequired("channel")
-	rootCmd.MarkFlagRequired("version")
+	err := rootCmd.MarkFlagRequired("channel")
+	if err != nil {
+		fmt.Printf("failed to mark channel flag required: %s", err.Error())
+		os.Exit(1)
+	}
+	err = rootCmd.MarkFlagRequired("version")
+	if err != nil {
+		fmt.Printf("failed to mark version flag required: %s", err.Error())
+		os.Exit(1)
+	}
 
 	return rootCmd
 }
 
 // Run executes the command logic.
 func Run(cmd *cobra.Command, args []string) error {
-	if !cfg.CheckReleases && !cfg.CheckDocs {
+	if !cfg.CheckReleases && !cfg.CheckDocs && !cfg.CheckRequirements {
 		cfg.CheckReleases = true
 		cfg.CheckDocs = true
 	}
@@ -102,6 +114,13 @@ func Run(cmd *cobra.Command, args []string) error {
 	// Verify version on deckhouse.ru documentation site
 	if cfg.CheckDocs {
 		err := docs.CheckVersionWithRetries(normalizedChannel, normalizedVersion, cfg.ModuleName, cfg.Attempt)
+		if err != nil {
+			hasError = true
+		}
+	}
+
+	if cfg.CheckRequirements {
+		err := requirements.CheckVersionWithRetries(normalizedChannel, cfg.Version, cfg.ModuleName, cfg.Attempt)
 		if err != nil {
 			hasError = true
 		}

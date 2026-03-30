@@ -3,6 +3,30 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.6.2
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: March 23, 2026.
+</span>
+
+### Fixes
+
+- [module] The `virtualization` module requires Deckhouse Kubernetes Platform version 1.74.2 or later. This version includes a fix for quota validation when creating disks.
+
+## v1.6.1
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: March 10, 2026.
+</span>
+
+### Fixes
+
+- [observability] Restored the previous placement of virtual machine dashboards due to a validation issue that could block the Deckhouse queue.
+- [vm] Fixed USB device discovery on nodes: corresponding [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resources might not have been created.
+- [vm] Fixed cloning of a virtual machine with connected USB devices when using [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) with the `Clone` type in `BestEffort` mode.
+
+### Security
+
+- [module] Fixed vulnerabilities CVE-2026-24051 and CVE-2025-15558.
+
 ## v1.6.0
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: March 2, 2026.

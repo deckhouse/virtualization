@@ -1,11 +1,11 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2026 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+     http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,25 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package pointer
+package network
 
-func CopyByPointer[T any](objP *T) *T {
-	copyObj := *objP
-	return &copyObj
-}
+import (
+	"testing"
 
-func ToPointersArray[T any](items []T) (res []*T) {
-	for _, item := range items {
-		res = append(res, GetPointer(item))
-	}
-	return res
-}
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
 
-func GetPointer[T any](obj T) *T {
-	return &obj
-}
-
-func IsEmpty[T comparable](v T) bool {
-	var empty T
-	return v == empty
+func TestNetwork(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Network Suite")
 }
