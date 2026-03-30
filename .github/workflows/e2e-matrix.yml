@@ -359,7 +359,6 @@ jobs:
       BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
 
   e2e-replicated:
-    if: github.event_name != 'pull_request'
     name: E2E Pipeline (Replicated)
     needs:
       - set-vars
@@ -368,7 +367,7 @@ jobs:
       storage_type: replicated
       nested_storageclass_name: nested-thin-r1
       branch: main
-      virtualization_tag: main
+      virtualization_tag: pr2088
       deckhouse_channel: alpha
       default_user: cloud
       go_version: "1.24.13"

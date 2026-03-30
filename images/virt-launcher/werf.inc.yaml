@@ -164,7 +164,7 @@ import:
   to: /libvirt-bins
   before: install
 - image: {{ .ModuleNamePrefix }}qemu
-  add: /BINS
+  add: /qemu-bins
   to: /qemu-bins
   before: install
 

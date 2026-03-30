@@ -14,7 +14,7 @@
   link: https://gitlab.com/qemu-project/qemu
   description: QEMU is a generic and open source machine & userspace emulator andvirtualizer.
   license: GNU General Public License, version 2
-  version: v9.2.0
+  version: v9.2.4
   id: qemu
 - name: Libvirt
   link: https://gitlab.com/libvirt/libvirt
