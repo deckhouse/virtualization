@@ -92,6 +92,8 @@ func (s ExitMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 			)
 			return &reconcile.Result{}, err
 		}
+
+		maintenanceVMCondition.Status = metav1.ConditionFalse
 	}
 
 	// If the maintenance condition was not present on the VM,
