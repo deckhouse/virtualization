@@ -92,10 +92,8 @@ import:
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
-  to: /qemu-img
-  before: install
-  includePaths:
-  - usr
+  to: /relocate
+  after: setup
 shell:
   install:
   - |
@@ -105,8 +103,6 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-    cp -a /qemu-img/. /
-    rm -rf /qemu-img
   setup:
   - |
     /relocate_binaries.sh -i "{{ $builderDependencies.binaries | join " " }}" -o /relocate
