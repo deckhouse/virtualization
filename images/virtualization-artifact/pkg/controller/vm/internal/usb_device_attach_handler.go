@@ -142,8 +142,8 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 			kvvmiLoaded = true
 		}
 
-		if hostDeviceReadyByName == nil {
-			hostDeviceReadyByName = h.hostDeviceReadyByName(kvvmi)
+		if hostDeviceReadyByName == nil || hostDeviceExistsByName == nil {
+			hostDeviceReadyByName, hostDeviceExistsByName = h.hostDeviceMapsByName(kvvmi)
 		}
 
 		// If device is already attached in KVVMI - preserve status, skip port check.
@@ -161,10 +161,6 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 				nextStatusRefs = append(nextStatusRefs, h.buildAttachedStatus(deviceName, isReady, address, isHotplugged))
 			}
 			continue
-		}
-
-		if hostDeviceExistsByName == nil {
-			hostDeviceExistsByName = h.hostDeviceExistsByName(kvvmi)
 		}
 
 		// 4) Check free USBIP ports for cross-node attachments until KVVMI reflects the device.

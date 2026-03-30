@@ -198,8 +198,6 @@ func (h *LifecycleHandler) syncAttached(ctx context.Context, s state.USBDeviceSt
 	current := s.USBDevice().Current()
 	changed := s.USBDevice().Changed()
 
-	usbDevice := changed
-
 	attachedVMs, err := s.VirtualMachinesUsingDevice(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to find VirtualMachines using USBDevice: %w", err)
@@ -210,61 +208,44 @@ func (h *LifecycleHandler) syncAttached(ctx context.Context, s state.USBDeviceSt
 		return fmt.Errorf("failed to find VirtualMachines referencing USBDevice: %w", err)
 	}
 
-	var reason usbdevicecondition.AttachedReason
-	var status metav1.ConditionStatus
-	var message string
-
 	if len(referencingVMs) == 0 {
-		reason = usbdevicecondition.Available
-		status = metav1.ConditionFalse
-		message = "Device is available for attachment to a virtual machine."
-		setAttachedCondition(current, &changed.Status.Conditions, status, reason, message)
+		setAttachedCondition(current, &changed.Status.Conditions, metav1.ConditionFalse, usbdevicecondition.Available, "Device is available for attachment to a virtual machine.")
 		return nil
 	}
 
 	if len(attachedVMs) > 0 {
-		reason = usbdevicecondition.AttachedToVirtualMachine
-		status = metav1.ConditionTrue
-		message = fmt.Sprintf("Device is attached to %d VirtualMachines.", len(attachedVMs))
+		message := fmt.Sprintf("Device is attached to %d VirtualMachines.", len(attachedVMs))
 		if len(attachedVMs) == 1 {
 			message = fmt.Sprintf("Device is attached to VirtualMachine %s/%s.", attachedVMs[0].Namespace, attachedVMs[0].Name)
 		}
-		setAttachedCondition(current, &changed.Status.Conditions, status, reason, message)
+		setAttachedCondition(current, &changed.Status.Conditions, metav1.ConditionTrue, usbdevicecondition.AttachedToVirtualMachine, message)
 		return nil
 	}
 
-	noFreePort := false
 	for _, vm := range referencingVMs {
-		if usbDevice.Status.NodeName != "" && usbDevice.Status.NodeName != vm.Status.Node {
-			hasFreePort, err := usb.CheckFreePortOnNodeExcludingLocalUSBs(ctx, h.client, vm.Status.Node, usbDevice.Status.Attributes.Speed)
-			if err != nil {
-				if apierrors.IsNotFound(err) {
-					log.Debug("node not found while checking free USBIP ports", "device", usbDevice.Name, "node", vm.Status.Node)
-					continue
-				}
+		if changed.Status.NodeName == "" || vm.Status.Node == "" || changed.Status.NodeName == vm.Status.Node {
+			continue
+		}
 
-				return fmt.Errorf("failed to check free USBIP ports for USBDevice %s on node %s: %w", usbDevice.Name, vm.Status.Node, err)
+		hasFreePort, err := usb.CheckFreePortOnNodeExcludingLocalUSBs(ctx, h.client, vm.Status.Node, changed.Status.Attributes.Speed)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				log.Debug("node not found while checking free USBIP ports", "device", changed.Name, "node", vm.Status.Node)
+				continue
 			}
 
-			if !hasFreePort {
-				noFreePort = true
-				message = fmt.Sprintf("Device is requested by VirtualMachine %s/%s, but no free USBIP ports are available on node %s for speed %d.",
-					vm.Namespace, vm.Name, vm.Status.Node, usbDevice.Status.Attributes.Speed)
-				break
-			}
+			return fmt.Errorf("failed to check free USBIP ports for USBDevice %s on node %s: %w", changed.Name, vm.Status.Node, err)
+		}
+
+		if !hasFreePort {
+			message := fmt.Sprintf("Device is requested by VirtualMachine %s/%s, but no free USBIP ports are available on node %s for speed %d.",
+				vm.Namespace, vm.Name, vm.Status.Node, changed.Status.Attributes.Speed)
+			setAttachedCondition(current, &changed.Status.Conditions, metav1.ConditionFalse, usbdevicecondition.NoFreeUSBIPPort, message)
+			return nil
 		}
 	}
 
-	if noFreePort {
-		reason = usbdevicecondition.NoFreeUSBIPPort
-		status = metav1.ConditionFalse
-	} else {
-		reason = usbdevicecondition.Available
-		status = metav1.ConditionFalse
-		message = "Device is requested by a virtual machine but not attached yet."
-	}
-
-	setAttachedCondition(current, &changed.Status.Conditions, status, reason, message)
+	setAttachedCondition(current, &changed.Status.Conditions, metav1.ConditionFalse, usbdevicecondition.Available, "Device is requested by a virtual machine but not attached yet.")
 	return nil
 }
 

@@ -58,52 +58,18 @@ func GetUsedPorts(nodeAnnotations map[string]string, hubAnnotation string) (int,
 // CheckFreePort checks if a node has free USBIP ports for the given speed.
 // Returns true if there is at least one free port, false otherwise.
 func CheckFreePort(nodeAnnotations map[string]string, speed int) (bool, error) {
-	isHS, isSS := ResolveSpeed(speed)
-
-	var hubAnnotation string
-	switch {
-	case isHS:
-		hubAnnotation = annotations.AnnUSBIPHighSpeedHubUsedPorts
-	case isSS:
-		hubAnnotation = annotations.AnnUSBIPSuperSpeedHubUsedPorts
-	default:
-		return false, fmt.Errorf("unsupported USB speed: %d", speed)
-	}
-
-	totalPortsPerHub, err := GetTotalPortsPerHub(nodeAnnotations)
-	if err != nil {
-		return false, err
-	}
-
-	usedPorts, err := GetUsedPorts(nodeAnnotations, hubAnnotation)
-	if err != nil {
-		return false, err
-	}
-
-	return usedPorts < totalPortsPerHub, nil
+	return CheckFreePortForRequest(nodeAnnotations, speed, 1)
 }
 
 // CheckFreePortForRequest checks if there are enough free ports for a specific request.
 // It adds the requested count to the currently used ports and compares with total.
 func CheckFreePortForRequest(nodeAnnotations map[string]string, speed, requestedCount int) (bool, error) {
-	isHS, isSS := ResolveSpeed(speed)
-
-	var hubAnnotation string
-	switch {
-	case isHS:
-		hubAnnotation = annotations.AnnUSBIPHighSpeedHubUsedPorts
-	case isSS:
-		hubAnnotation = annotations.AnnUSBIPSuperSpeedHubUsedPorts
-	default:
-		return false, fmt.Errorf("unsupported USB speed: %d", speed)
-	}
-
 	totalPortsPerHub, err := GetTotalPortsPerHub(nodeAnnotations)
 	if err != nil {
 		return false, err
 	}
 
-	usedPorts, err := GetUsedPorts(nodeAnnotations, hubAnnotation)
+	usedPorts, err := getUsedPortsForSpeed(nodeAnnotations, speed)
 	if err != nil {
 		return false, err
 	}

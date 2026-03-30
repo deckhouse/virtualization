@@ -93,14 +93,14 @@ func (s *usbDeviceState) VirtualMachinesReferencingDevice(ctx context.Context) (
 }
 
 func (s *usbDeviceState) VirtualMachinesUsingDevice(ctx context.Context) ([]*v1alpha2.VirtualMachine, error) {
-	vms, err := s.VirtualMachinesReferencingDevice(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	usbDevice := s.usbDevice.Current()
 	if usbDevice == nil {
 		return nil, nil
+	}
+
+	vms, err := s.VirtualMachinesReferencingDevice(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	var result []*v1alpha2.VirtualMachine

@@ -141,10 +141,6 @@ func getUSBDeviceNames(refs []v1alpha2.USBDeviceSpecRef) map[string]struct{} {
 }
 
 func (v *USBDevicesValidator) validateAvailableUSBIPPorts(ctx context.Context, vm *v1alpha2.VirtualMachine, oldUSBDevices map[string]struct{}) (admission.Warnings, error) {
-	return v.validateAvailableUSBIPPortsWithPartitionableDevices(ctx, vm, oldUSBDevices)
-}
-
-func (v *USBDevicesValidator) validateAvailableUSBIPPortsWithPartitionableDevices(ctx context.Context, vm *v1alpha2.VirtualMachine, oldUSBDevices map[string]struct{}) (admission.Warnings, error) {
 	if vm.Status.Node == "" {
 		return admission.Warnings{}, nil
 	}
