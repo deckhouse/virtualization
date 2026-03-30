@@ -16,7 +16,7 @@ shell:
   install:
   - |
     echo "Git clone {{ $gitRepoName }} repository..."
-    echo kekdtt12
+    echo kekdtt122
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v1.6.2-virtualization-fix-thawning /src/kubevirt
 
     rm -rf /src/kubevirt/.git
