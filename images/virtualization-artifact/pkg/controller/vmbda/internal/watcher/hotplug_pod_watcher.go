@@ -19,7 +19,6 @@ package watcher
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -57,9 +56,7 @@ func (w *HotPlugPodWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 				CreateFunc: func(e event.TypedCreateEvent[*corev1.Pod]) bool { return true },
 				DeleteFunc: func(e event.TypedDeleteEvent[*corev1.Pod]) bool { return true },
 				UpdateFunc: func(e event.TypedUpdateEvent[*corev1.Pod]) bool {
-					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase ||
-						!reflect.DeepEqual(e.ObjectOld.Status.Conditions, e.ObjectNew.Status.Conditions) ||
-						!reflect.DeepEqual(e.ObjectOld.Status.ContainerStatuses, e.ObjectNew.Status.ContainerStatuses)
+					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
 				},
 			},
 		),
