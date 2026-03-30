@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 var _ = Describe("Test power actions with VMs", func() {
@@ -72,6 +73,7 @@ var _ = Describe("Test power actions with VMs", func() {
 			Name:      "ns",
 		}
 		recorderMock = &eventrecord.EventRecorderLoggerMock{
+			EventFunc:  func(client.Object, string, string, string) {},
 			EventfFunc: func(client.Object, string, string, string, ...interface{}) {},
 			WithLoggingFunc: func(logger eventrecord.InfoLogger) eventrecord.EventRecorderLogger {
 				return recorderMock
@@ -120,6 +122,57 @@ var _ = Describe("Test power actions with VMs", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(kvvm.Annotations[annotations.AnnVMStartRequested]).To(Equal("true"))
 	})
+
+	It("should not auto-restart when awaiting restart but configuration is not applied", func() {
+		vm.Generation = 1
+		vm.Spec.Disruptions = &v1alpha2.Disruptions{RestartApprovalMode: v1alpha2.Automatic}
+		vm.Status.Conditions = []metav1.Condition{
+			{
+				Type:               vmcondition.TypeAwaitingRestartToApplyConfiguration.String(),
+				Status:             metav1.ConditionTrue,
+				ObservedGeneration: vm.Generation,
+				Reason:             vmcondition.ReasonChangesPendingRestart.String(),
+			},
+			{
+				Type:   vmcondition.TypeClassReady.String(),
+				Status: metav1.ConditionFalse,
+				Reason: vmcondition.ReasonClassNotReady.String(),
+			},
+		}
+
+		setupTestEnvironment()
+		err := handler.syncPowerState(ctx, vmState, kvvm, v1alpha2.ManualPolicy)
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedKVVM := &virtv1.VirtualMachine{}
+		err = fakeClient.Get(ctx, client.ObjectKeyFromObject(kvvm), updatedKVVM)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(updatedKVVM.Status.StateChangeRequests).To(BeEmpty())
+	})
+
+	It("should auto-restart when awaiting restart and configuration is applied", func() {
+		vm.Generation = 1
+		vm.Spec.Disruptions = &v1alpha2.Disruptions{RestartApprovalMode: v1alpha2.Automatic}
+		vm.Status.Conditions = []metav1.Condition{
+			{
+				Type:               vmcondition.TypeAwaitingRestartToApplyConfiguration.String(),
+				Status:             metav1.ConditionTrue,
+				ObservedGeneration: vm.Generation,
+				Reason:             vmcondition.ReasonChangesPendingRestart.String(),
+			},
+		}
+
+		setupTestEnvironment()
+		err := handler.syncPowerState(ctx, vmState, kvvm, v1alpha2.ManualPolicy)
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedKVVM := &virtv1.VirtualMachine{}
+		err = fakeClient.Get(ctx, client.ObjectKeyFromObject(kvvm), updatedKVVM)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(updatedKVVM.Status.StateChangeRequests).To(HaveLen(2))
+		Expect(updatedKVVM.Status.StateChangeRequests[0].Action).To(Equal(virtv1.StopRequest))
+		Expect(updatedKVVM.Status.StateChangeRequests[1].Action).To(Equal(virtv1.StartRequest))
+	})
 })
 
 var _ = Describe("Test action getters for different run policy", func() {
@@ -147,6 +200,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 		fakeClient, _, vmState = setupEnvironment(vm, kvvm, kvvmi, vmPod)
 
 		recorderMock = &eventrecord.EventRecorderLoggerMock{
+			EventFunc:  func(client.Object, string, string, string) {},
 			EventfFunc: func(client.Object, string, string, string, ...interface{}) {},
 			WithLoggingFunc: func(logger eventrecord.InfoLogger) eventrecord.EventRecorderLogger {
 				return recorderMock
