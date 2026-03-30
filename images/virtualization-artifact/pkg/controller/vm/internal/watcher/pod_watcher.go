@@ -19,7 +19,6 @@ package watcher
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -67,8 +66,7 @@ func (w *PodWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error
 				DeleteFunc: func(e event.TypedDeleteEvent[*corev1.Pod]) bool { return true },
 				UpdateFunc: func(e event.TypedUpdateEvent[*corev1.Pod]) bool {
 					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase ||
-						e.ObjectOld.Annotations[annotations.AnnNetworksStatus] != e.ObjectNew.Annotations[annotations.AnnNetworksStatus] ||
-						!reflect.DeepEqual(e.ObjectOld.Status.ContainerStatuses, e.ObjectNew.Status.ContainerStatuses)
+						e.ObjectOld.Annotations[annotations.AnnNetworksStatus] != e.ObjectNew.Annotations[annotations.AnnNetworksStatus]
 				},
 			},
 		),

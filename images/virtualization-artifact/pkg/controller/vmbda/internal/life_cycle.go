@@ -329,7 +329,7 @@ func (h LifeCycleHandler) handleHotPlugPodIssues(
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.HotPlugPodNotScheduled).
-				Message(fmt.Sprintf("Hot plug pod not scheduled: %s: %s", c.Reason, c.Message))
+				Message(fmt.Sprintf("Error attaching block device to virtual machine: %s: %s", c.Reason, c.Message))
 			return true, nil
 		}
 	}
@@ -343,14 +343,9 @@ func (h LifeCycleHandler) handleHotPlugPodIssues(
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.FailedAttachVolume).
-				Message(fmt.Sprintf("Hot plug pod failed to attach volume: %s: %s", lastEvent.Reason, lastEvent.Message))
+				Message(fmt.Sprintf("Error attaching block device to virtual machine: %s: %s", lastEvent.Reason, lastEvent.Message))
 			return true, nil
 		}
-
-		cb.Status(metav1.ConditionFalse).
-			Reason(vmbdacondition.AttachmentRequestSent).
-			Message(fmt.Sprintf("Pod %q is in ContainerCreating phase. Check the pod for more details.", hotPlugPod.Name))
-		return true, nil
 	}
 
 	return false, nil

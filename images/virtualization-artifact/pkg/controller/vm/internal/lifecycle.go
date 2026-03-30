@@ -55,6 +55,11 @@ type LifeCycleHandler struct {
 	recorder eventrecord.EventRecorderLogger
 }
 
+type podVolumeErrorEvent struct {
+	Reason  string
+	Message string
+}
+
 func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
 	if s.VirtualMachine().IsEmpty() {
 		return reconcile.Result{}, nil
@@ -111,19 +116,7 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		if volumeErr := h.checkPodVolumeErrors(ctx, changed, log); volumeErr != nil {
 			cb.Status(metav1.ConditionFalse).
 				Reason(vmcondition.ReasonPodVolumeErrors).
-				Message(fmt.Sprintf("Volume errors detected on Pod: %s", volumeErr.Error()))
-			conditions.SetCondition(cb, &changed.Status.Conditions)
-			return reconcile.Result{}, nil
-		}
-
-		isVMInContainerCreating, err := h.isVMInContainerCreatingState(ctx, changed, log)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		if isVMInContainerCreating {
-			cb.Status(metav1.ConditionFalse).
-				Reason(vmcondition.ReasonPodContainerCreating).
-				Message("Pod is in ContainerCreating phase. Check the pod for more details.")
+				Message(fmt.Sprintf("Error attaching block devices to virtual machine: %s: %s", volumeErr.Reason, volumeErr.Message))
 			conditions.SetCondition(cb, &changed.Status.Conditions)
 			return reconcile.Result{}, nil
 		}
@@ -150,8 +143,8 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 
 	if volumeError := h.checkPodVolumeErrors(ctx, vm, log); volumeError != nil {
 		cb.Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonPodNotStarted).
-			Message(volumeError.Error())
+			Reason(vmcondition.ReasonPodVolumeErrors).
+			Message(fmt.Sprintf("Error attaching block devices to virtual machine: %s: %s", volumeError.Reason, volumeError.Message))
 		conditions.SetCondition(cb, &vm.Status.Conditions)
 		return
 	}
@@ -163,7 +156,7 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 			if podScheduled.Message != "" {
 				cb.Status(metav1.ConditionFalse).
 					Reason(vmcondition.ReasonPodNotStarted).
-					Message(fmt.Sprintf("%s: %s", podScheduled.Reason, podScheduled.Message))
+					Message(fmt.Sprintf("Could not schedule the virtual machine: %s: %s", podScheduled.Reason, podScheduled.Message))
 				conditions.SetCondition(cb, &vm.Status.Conditions)
 			}
 
@@ -240,27 +233,7 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 	conditions.SetCondition(cb, &vm.Status.Conditions)
 }
 
-func (h *LifeCycleHandler) isVMInContainerCreatingState(ctx context.Context, vm *v1alpha2.VirtualMachine, log *slog.Logger) (bool, error) {
-	var podList corev1.PodList
-	err := h.client.List(ctx, &podList, &client.ListOptions{
-		Namespace: vm.Namespace,
-		LabelSelector: labels.SelectorFromSet(map[string]string{
-			virtv1.VirtualMachineNameLabel: vm.Name,
-		}),
-	})
-	if err != nil {
-		log.Error("Failed to list pods", "error", err)
-		return false, err
-	}
-
-	if len(podList.Items) == 1 {
-		return isContainerCreating(&podList.Items[0]), nil
-	}
-
-	return false, nil
-}
-
-func (h *LifeCycleHandler) checkPodVolumeErrors(ctx context.Context, vm *v1alpha2.VirtualMachine, log *slog.Logger) error {
+func (h *LifeCycleHandler) checkPodVolumeErrors(ctx context.Context, vm *v1alpha2.VirtualMachine, log *slog.Logger) *podVolumeErrorEvent {
 	var podList corev1.PodList
 	err := h.client.List(ctx, &podList, &client.ListOptions{
 		Namespace: vm.Namespace,
@@ -297,7 +270,7 @@ func isContainerCreating(pod *corev1.Pod) bool {
 	return false
 }
 
-func (h *LifeCycleHandler) getPodVolumeError(ctx context.Context, pod *corev1.Pod, log *slog.Logger) error {
+func (h *LifeCycleHandler) getPodVolumeError(ctx context.Context, pod *corev1.Pod, log *slog.Logger) *podVolumeErrorEvent {
 	if !isContainerCreating(pod) {
 		return nil
 	}
@@ -323,7 +296,10 @@ func (h *LifeCycleHandler) getPodVolumeError(ctx context.Context, pod *corev1.Po
 		return a.LastTimestamp.Compare(b.LastTimestamp.Time)
 	})
 	if last.Reason == watcher.ReasonFailedAttachVolume || last.Reason == watcher.ReasonFailedMount {
-		return fmt.Errorf("%s: %s", last.Reason, last.Message)
+		return &podVolumeErrorEvent{
+			Reason:  last.Reason,
+			Message: last.Message,
+		}
 	}
 
 	return nil
