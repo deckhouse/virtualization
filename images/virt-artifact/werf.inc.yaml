@@ -98,7 +98,7 @@ shell:
     - echo "Create group file"
     - |
       GROUP_FILE=/kubevirt-config-files/group
-      echo "qemu:x:107:" > $GROUP_FILE
+      echo "deckhouse:x:64535:" > $GROUP_FILE
       echo "root:x:0:" >> $GROUP_FILE
       echo "nonroot-user:x:1001:" >> $GROUP_FILE
       chmod 0644 $GROUP_FILE
@@ -106,7 +106,7 @@ shell:
     - echo "Create passwd file"
     - |
       PASSWD_FILE=/kubevirt-config-files/passwd
-      echo "qemu:x:107:107:user:/home/qemu:/bin/bash" > $PASSWD_FILE
+      echo "deckhouse:x:64535:64535:deckhouse:/home/deckhouse:/sbin/nologin" > $PASSWD_FILE
       echo "root:x:0:0:root:/root:/bin/bash" >> $PASSWD_FILE
       echo "nonroot-user:x:1001:1001::/home/nonroot-user:/bin/bash" >> $PASSWD_FILE
       chmod 0644 $PASSWD_FILE
