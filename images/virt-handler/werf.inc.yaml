@@ -69,6 +69,7 @@ binaries:
 - /usr/bin/xorriso-dd-target
 - /usr/bin/xorrisofs
 - /usr/bin/qemu-img
+- /usr/bin/qemu-nbd
 packages:
 - libisoburn nftables acl libmnl libjansson4 libnftnl
 - glibc libattr pcre2 selinux
