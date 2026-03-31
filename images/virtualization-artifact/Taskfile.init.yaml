@@ -17,9 +17,7 @@ tasks:
 
   moq:
     cmds:
-      # Use 0.4.0 to not install Go 1.23 during installation.
-      # TODO Update version after migrating to Go 1.23 in the root go.mod.
-      - go install github.com/matryer/moq@v0.4.0
+      - go install github.com/matryer/moq@v0.5.3
 
   default:
     cmds:
