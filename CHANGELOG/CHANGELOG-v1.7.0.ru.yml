@@ -1,0 +1,81 @@
+ci:
+  fixes:
+  - summary: Замените устаревший nolint:stylecheck на nolint:staticcheck в файлах
+      Go.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2140
+  - summary: загрузочный кластер e2e
+    pull_request: https://github.com/deckhouse/virtualization/pull/2064
+core:
+  fixes:
+  - summary: Сделайте проверку миграции класса хранилища VirtualDisk детерминированной,
+      внедрив функцию Gate Gate и явно включив VolumeMigration в модульных тестах.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2138
+  - summary: Исправлено создание списка USB-устройств DRA — используйте предварительное
+      выделение только емкости, чтобы избежать пустых записей в срезе ресурса.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2121
+  - summary: 'Исправлена ​​проверка политики миграции виртуальных машин AlwaysForced:
+      ресурсы VirtualMachineOperation с типом «Evict» или «Migrate» без явного «force=true»
+      теперь отклоняются для этой политики.'
+    pull_request: https://github.com/deckhouse/virtualization/pull/2120
+  - summary: Исправьте ссылки VirtualDisk AttachedToVirtualMachines во время клонирования
+      и настраиваемых операций восстановления.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2080
+  - summary: Отклонять подключения USB-устройств виртуальной машины, если функция
+      USB отключена, и проверять при обновлении только новые добавленные USB-устройства.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2077
+  - summary: Добавьте проверки быстрого подключения USB и проверку портов USBIP с
+      учетом скорости для концентраторов HS/SS.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2067
+  - summary: Исправлено создание блочных устройств из файлов VMDK (особенно для VMDK
+      в формате «streamOptimized», используемом при экспорте из VMware).
+    pull_request: https://github.com/deckhouse/virtualization/pull/2065
+module:
+  features:
+  - summary: Добавьте аннотации для настройки параметров миграции KubeVirt (пропускная
+      способность, таймауты, параллелизм) через ModuleConfig.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2158
+  fixes:
+  - summary: Ограничен максимальный уровень детализации отладки до 9 в контроллере
+      виртуализации, чтобы предотвратить появление полных журналов уровня трассировки,
+      когда включено ведение журнала отладки.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2101
+test:
+  fixes:
+  - summary: Стабилизируйте VirtualDiskSnapshots e2e, пропустив помеченную задержку
+      готовности CSI VolumeSnapshot.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2136
+  - summary: Добавьте регрессионный тест e2e для сохранения именования дополнительных
+      интерфейсов виртуальной машины после удаления и перезагрузки средней сети ClusterNetwork.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2124
+vm:
+  features:
+  - summary: Сокращение времени простоя USB-устройства во время миграции виртуальной
+      машины.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2098
+  - summary: 'Добавлен сборщик мусора для завершенных и вышедших из строя модулей
+      виртуальных машин:
+
+      - Поды старше 24 часов удаляются.
+
+      - Сохраняется не более двух завершенных модулей.'
+    pull_request: https://github.com/deckhouse/virtualization/pull/2091
+  fixes:
+  - summary: Блочные устройства теперь можно подключать и отключать, даже если виртуальная
+      машина работает на кордонированном узле.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2163
+  - summary: 'Исправлено вытеснение виртуальной машины во время опорожнения узла:
+      модули, отвечающие за подключение блочных устройств, больше не удаляются из
+      оцепленного узла до завершения миграции виртуальной машины.'
+    pull_request: https://github.com/deckhouse/virtualization/pull/2153
+  - summary: Исправлено двойное потребление квоты хранилища при миграции виртуальной
+      машины с локальным хранилищем.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2148
+  - summary: Исправлена ​​проблема, из-за которой виртуальная машина могла зависать
+      в состоянии «Обслуживание» во время восстановления из моментального снимка.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2144
+  - summary: Стабилизирована работа USB-устройств для виртуализации на Deckhouse версии
+      ≥1.76 и Kubernetes версии ≥1.33.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2137
+  - summary: 'Исправлено обнаружение USB-устройств на хосте: раньше была вероятность
+      появления дубликатов USB-устройств.'
+    pull_request: https://github.com/deckhouse/virtualization/pull/2122
