@@ -76,9 +76,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 		return reconcile.Result{}, err
 	}
 
-	var frozenConditionExists bool
+	var frozen bool
 	if vm != nil {
-		_, frozenConditionExists = conditions.GetCondition(vmcondition.TypeFilesystemFrozen, vm.Status.Conditions)
+		frozenCondition, ok := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, vm.Status.Conditions)
+		frozen = ok && frozenCondition.Status == metav1.ConditionTrue
 	}
 
 	kvvmi, err := h.snapshotter.GetVirtualMachineInstance(ctx, vm)
@@ -140,7 +141,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 			return reconcile.Result{}, err
 		}
 
-		if !canUnfreeze && frozenConditionExists {
+		if !canUnfreeze && frozen {
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 
@@ -170,7 +171,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 			cb.Message(fmt.Sprintf("%s, %s", err.Error(), cb.Condition().Message))
 			return reconcile.Result{}, fmt.Errorf("failed to unfreeze filesystem: %w", err)
 		}
-		if !canUnfreeze && frozenConditionExists {
+		if !canUnfreeze && frozen {
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 		return reconcile.Result{}, nil
