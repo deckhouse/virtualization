@@ -1,0 +1,96 @@
+ci:
+  fixes:
+    - summary: >-
+        В файлах Go заменён устаревший `nolint:stylecheck` на `nolint:staticcheck`.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2140
+    - summary: Исправлен загрузочный кластер для e2e-тестов.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2064
+core:
+  fixes:
+    - summary: >-
+        Валидация миграции StorageClass для VirtualDisk в модульных тестах сделана детерминированной:
+        подключён feature gate и явно включён VolumeMigration.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2138
+    - summary: >-
+        Исправлено формирование списка USB-устройств DRA: используется предварительное
+        выделение только по ёмкости (capacity), чтобы не появлялись пустые записи в срезе ресурса
+        (resource slice).
+      pull_request: https://github.com/deckhouse/virtualization/pull/2121
+    - summary: >-
+        Исправлена валидация для политики миграции виртуальной машины `AlwaysForced`:
+        ресурсы VirtualMachineOperation с типами `Evict` или `Migrate` без явного
+        `force=true` теперь отклоняются для этой политики.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2120
+    - summary: >-
+        Исправлены ссылки VirtualDisk в поле `AttachedToVirtualMachines` при операциях клонирования
+        и настраиваемого восстановления.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2080
+    - summary: >-
+        При отключённом feature gate для USB отклоняется подключение USB-устройств к виртуальной
+        машине; при обновлении проверяются только вновь добавленные USB-устройства.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2077
+    - summary: >-
+        Добавлены быстрые проверки при подключении USB и проверка портов USBIP с учётом скорости
+        для концентраторов HS/SS.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2067
+    - summary: >-
+        Исправлено создание блочных устройств из файлов VMDK (в особенности для VMDK в формате
+        `streamOptimized`, используемых в экспортах из VMware).
+      pull_request: https://github.com/deckhouse/virtualization/pull/2065
+module:
+  features:
+    - summary: >-
+        Добавлены аннотации для настройки параметров миграции KubeVirt (пропускная способность,
+        таймауты, параллелизм) через ModuleConfig.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2158
+  fixes:
+    - summary: >-
+        В контроллере виртуализации ограничен максимальный уровень детализации отладки до 9,
+        чтобы при включённом отладочном логировании не появлялись полные журналы уровня trace.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2101
+test:
+  fixes:
+    - summary: >-
+        Стабилизированы e2e VirtualDiskSnapshots: при помеченном лаге готовности CSI VolumeSnapshot
+        соответствующий сценарий пропускается.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2136
+    - summary: >-
+        Добавлен регрессионный e2e-тест на сохранение имён дополнительных сетевых интерфейсов
+        виртуальной машины после удаления промежуточной (средней в списке) сети ClusterNetwork и
+        перезагрузки.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2124
+vm:
+  features:
+    - summary: Сокращено время недоступности USB-устройств во время миграции виртуальной машины.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2098
+    - summary: |-
+        Добавлен сборщик мусора для завершившихся и неуспешных подов виртуальных машин:
+        - поды старше 24 часов удаляются;
+        - хранится не более двух завершённых подов.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2091
+  fixes:
+    - summary: >-
+        Блочные устройства можно подключать и отключать, даже если виртуальная машина работает
+        на узле, для которого выполнен cordon.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2163
+    - summary: >-
+        Исправлено вытеснение виртуальной машины при выполнении drain узла: поды, отвечающие за
+        подключение блочных устройств, больше не удаляются с узла, для которого выполнен cordon,
+        до окончания миграции виртуальной машины.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2153
+    - summary: >-
+        Исправлено двойное потребление квоты на хранилище при миграции виртуальной машины с
+        локальным хранилищем.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2148
+    - summary: >-
+        Исправлена проблема, из-за которой виртуальная машина могла зависнуть в состоянии
+        `Maintenance` во время восстановления из снимка.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2144
+    - summary: >-
+        Стабилизирована работа USB-устройств для виртуализации на Deckhouse Kubernetes Platform
+        версии `>=1.76` и Kubernetes версии `>=1.33`.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2137
+    - summary: >-
+        Исправлено обнаружение USB-устройств на хосте: ранее могли появляться дубликаты
+        USB-устройств.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2122
