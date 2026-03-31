@@ -1,0 +1,17 @@
+module:
+  fixes:
+  - summary: Исправлены уязвимости CVE-2026-24051 и CVE-2025-15558.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2057
+observability:
+  fixes:
+  - summary: Восстановлено предыдущее размещение информационных панелей виртуальных
+      машин из-за проблемы проверки, которая могла блокировать очередь Deckhouse.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2063
+vm:
+  fixes:
+  - summary: 'Исправлено обнаружение USB-устройств на узлах: соответствующие ресурсы
+      NodeUSBDevice могли не быть созданы.'
+    pull_request: https://github.com/deckhouse/virtualization/pull/2085
+  - summary: Исправлено клонирование виртуальной машины с подключенными USB-устройствами
+      при использовании VirtualMachineOperation с типом Clone в режиме BestEffort.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2076
