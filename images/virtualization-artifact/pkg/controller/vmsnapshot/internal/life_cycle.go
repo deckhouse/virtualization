@@ -76,6 +76,11 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 		return reconcile.Result{}, err
 	}
 
+	var frozenConditionExists bool
+	if vm != nil {
+		_, frozenConditionExists = conditions.GetCondition(vmcondition.TypeFilesystemFrozen, vm.Status.Conditions)
+	}
+
 	kvvmi, err := h.snapshotter.GetVirtualMachineInstance(ctx, vm)
 	if err != nil {
 		h.setPhaseConditionToFailed(cb, vmSnapshot, err)
@@ -113,7 +118,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 			Reason(conditions.ReasonUnknown).
 			Message("")
 
-		_, err = h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm, kvvmi)
+		canUnfreeze, err := h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm, kvvmi)
 		if err != nil {
 			if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
 				log.Debug(err.Error())
@@ -135,6 +140,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 			return reconcile.Result{}, err
 		}
 
+		if !canUnfreeze && frozenConditionExists {
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+		}
+
 		return reconcile.Result{}, nil
 	}
 
@@ -148,7 +157,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 			Reason(conditions.CommonReason(readyCondition.Reason)).
 			Message(readyCondition.Message)
 
-		_, err = h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm, kvvmi)
+		canUnfreeze, err := h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm, kvvmi)
 		if err != nil {
 			if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
 				log.Debug(err.Error())
@@ -160,6 +169,9 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 			}
 			cb.Message(fmt.Sprintf("%s, %s", err.Error(), cb.Condition().Message))
 			return reconcile.Result{}, fmt.Errorf("failed to unfreeze filesystem: %w", err)
+		}
+		if !canUnfreeze && frozenConditionExists {
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 		return reconcile.Result{}, nil
 	case v1alpha2.VirtualMachineSnapshotPhaseReady:
