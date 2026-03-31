@@ -18,7 +18,6 @@ package internal
 
 import (
 	"context"
-	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -26,21 +25,15 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
-	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
 
-const (
-	nameFilesystemHandler = "FilesystemHandler"
-	annKek                = "kek"
-)
+const nameFilesystemHandler = "FilesystemHandler"
 
-func NewFilesystemHandler(virtClient VirtClient) *FilesystemHandler {
-	return &FilesystemHandler{virtClient: virtClient}
+func NewFilesystemHandler() *FilesystemHandler {
+	return &FilesystemHandler{}
 }
 
-type FilesystemHandler struct {
-	virtClient VirtClient
-}
+type FilesystemHandler struct{}
 
 func (h *FilesystemHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
 	if s.VirtualMachine().IsEmpty() {
@@ -72,20 +65,6 @@ func (h *FilesystemHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 
 	if kvvmi == nil {
 		return reconcile.Result{}, nil
-	}
-
-	if request, ok := changed.Annotations[annKek]; ok {
-		switch request {
-		case "freeze":
-			if err = h.virtClient.VirtualMachines(changed.Namespace).Freeze(ctx, changed.Name, subv1alpha2.VirtualMachineFreeze{}); err != nil {
-				return reconcile.Result{}, fmt.Errorf("freeze virtual machine %s/%s: %w", changed.Namespace, changed.Name, err)
-			}
-		case "unfreeze":
-			if err = h.virtClient.VirtualMachines(changed.Namespace).Unfreeze(ctx, changed.Name); err != nil {
-				return reconcile.Result{}, fmt.Errorf("unfreeze virtual machine %s/%s: %w", changed.Namespace, changed.Name, err)
-			}
-		}
-		delete(changed.Annotations, annKek)
 	}
 
 	agentReady, _ := conditions.GetCondition(vmcondition.TypeAgentReady, changed.Status.Conditions)
