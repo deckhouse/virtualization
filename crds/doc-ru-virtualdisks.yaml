@@ -6,7 +6,7 @@ spec:
           description: |
             Ресурс VirtualDisk описывает желаемую конфигурацию диска виртуальной машины. VirtualDisk можно смонтировать в виртуальной машине статически, указав его в списке дисков `.spec.blockDeviceRefs`, или «на лету» – с помощью ресурса VirtualMachineBlockDeviceAttachments.
 
-            После создания VirtualDisk можно изменить только размер диска с помощью поля `.spec.persistentVolumeClaim.size`. Все остальные поля изменить нельзя.
+            После создания VirtualDisk в `.spec.persistentVolumeClaim` можно изменить поля `size` и `storageClassName`. Все остальные поля неизменяемы.
 
             **Важно:** Поле `metadata.name` должно соответствовать [правилам именования объектов Kubernetes](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/) и не должно превышать 60 символов.
           properties:

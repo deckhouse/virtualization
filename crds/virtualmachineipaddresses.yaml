@@ -121,7 +121,7 @@ spec:
 
                     * `Pending`: The resource is being created.
                     * `Bound`: The VirtualMachineIPAddress has been bound to the VirtualMachineIPAddressLease resource.
-                    * `Attached`: The VirtualMachineIPAddress resource has been bound to the VirtualMachine resource.
+                    * `Attached`: The VirtualMachineIPAddress is attached to the VirtualMachine resource.
                 observedGeneration:
                   type: integer
                   description: |
