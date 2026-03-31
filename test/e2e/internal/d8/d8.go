@@ -66,8 +66,10 @@ type D8Virtualization interface {
 type DataExportOptions struct {
 	Namespace  string
 	OutputFile string
+	// SourcePath is the file path inside the export (e.g. disk.img for filesystem-backed volumes).
+	// When set, it is passed as a positional argument after -n and before -o.
+	SourcePath string
 	Timeout    time.Duration
-	Publish    bool
 }
 
 func NewD8Virtualization(conf D8VirtualizationConf) (*D8VirtualizationCMD, error) {
@@ -174,12 +176,12 @@ func (v D8VirtualizationCMD) DataExportDownload(resourceType, name string, opts 
 	cmd := fmt.Sprintf("d8 data export download %s/%s", resourceType, name)
 	cmd = v.addNamespace(cmd, opts.Namespace)
 
-	if opts.OutputFile != "" {
-		cmd = fmt.Sprintf("%s -o %s", cmd, opts.OutputFile)
+	if opts.SourcePath != "" {
+		cmd = fmt.Sprintf("%s %s", cmd, opts.SourcePath)
 	}
 
-	if opts.Publish {
-		cmd = fmt.Sprintf("%s --publish", cmd)
+	if opts.OutputFile != "" {
+		cmd = fmt.Sprintf("%s -o %s", cmd, opts.OutputFile)
 	}
 
 	// d8 data export download always returns exit code 0 even on errors,

@@ -28,8 +28,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -53,6 +51,8 @@ const (
 	testFileValue        = "test-file-value"
 	exportedDiskFile     = "exported-disk.img"
 	exportedSnapshotFile = "exported-snapshot.img"
+	// diskImageExportFile is the filename inside a filesystem-backed (e.g. NFS) volume export.
+	diskImageExportFile = "disk.img"
 )
 
 var _ = Describe("DataExports", label.Slow(), func() {
@@ -238,29 +238,24 @@ var _ = Describe("DataExports", label.Slow(), func() {
 	})
 })
 
-func needPublishOption(f *framework.Framework) bool {
-	hostname, err := os.Hostname()
-	Expect(err).NotTo(HaveOccurred(), "Failed to get hostname")
-	var node corev1.Node
-	err = f.Clients.GenericClient().Get(
-		context.Background(),
-		types.NamespacedName{Name: hostname},
-		&node,
-	)
-	if k8serrors.IsNotFound(err) {
-		return true
+func IsNFS() bool {
+	sc := framework.GetConfig().StorageClass.TemplateStorageClass
+	if sc == nil {
+		return false
 	}
-	Expect(err).NotTo(HaveOccurred(), "Failed to get node %s", hostname)
-	return false
+	return sc.Provisioner == framework.NFS
 }
 
 func exportData(f *framework.Framework, resourceType, name, outputFile string) {
-	result := f.D8Virtualization().DataExportDownload(resourceType, name, d8.DataExportOptions{
+	opts := d8.DataExportOptions{
 		Namespace:  f.Namespace().Name,
 		OutputFile: outputFile,
-		Publish:    needPublishOption(f),
 		Timeout:    framework.LongTimeout,
-	})
+	}
+	if IsNFS() {
+		opts.SourcePath = diskImageExportFile
+	}
+	result := f.D8Virtualization().DataExportDownload(resourceType, name, opts)
 	Expect(result.WasSuccess()).To(BeTrue(), "d8 data export download failed: %s", result.StdErr())
 
 	DeferCleanup(func() {
