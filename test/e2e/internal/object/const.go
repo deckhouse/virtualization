@@ -36,7 +36,7 @@ const (
 	ImageTestDataISO  = imageBaseURL + "/test/test.iso"
 
 	Mi256          = 256 * 1024 * 1024
-	DefaultVMClass = "generic"
+	DefaultVMClass = "generic-for-e2e"
 
 	iperf3Script = `#!/bin/bash
 cat > /etc/init.d/iperf3 <<-"EOF"
