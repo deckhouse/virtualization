@@ -66,7 +66,13 @@ func DefaultCloudUser() CloudConfigUser {
 }
 
 var basePackages = []string{
-	"qemu-guest-agent", "curl", "bash", "sudo", "util-linux", "iperf3", "jq",
+	"qemu-guest-agent",
+	"curl",
+	"bash",
+	"sudo",
+	"util-linux",
+	"iperf3",
+	"jq",
 }
 
 // Render serializes the CloudConfig to a valid cloud-init user-data string
