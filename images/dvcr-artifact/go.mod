@@ -195,6 +195,7 @@ replace (
 
 // CVE Replaces
 replace (
+	github.com/docker/docker => ./staging/src/github.com/docker/docker // CVE-2026-34040,CVE-2026-33997
 	golang.org/x/crypto => golang.org/x/crypto v0.45.0 // CVE-2024-45337,CVE-2025-22869,CVE-2025-47914
 	golang.org/x/net => golang.org/x/net v0.48.0
 	golang.org/x/oauth2 => golang.org/x/oauth2 v0.34.0
