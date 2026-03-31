@@ -18,24 +18,32 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	virtv1 "kubevirt.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdscondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 type VirtualDiskReadyHandler struct {
 	snapshotter VirtualDiskReadySnapshotter
+	client      client.Client
 }
 
-func NewVirtualDiskReadyHandler(snapshotter VirtualDiskReadySnapshotter) *VirtualDiskReadyHandler {
+func NewVirtualDiskReadyHandler(snapshotter VirtualDiskReadySnapshotter, client client.Client) *VirtualDiskReadyHandler {
 	return &VirtualDiskReadyHandler{
 		snapshotter: snapshotter,
+		client:      client,
 	}
 }
 
@@ -94,6 +102,18 @@ func (h VirtualDiskReadyHandler) Handle(ctx context.Context, vdSnapshot *v1alpha
 			return reconcile.Result{}, nil
 		}
 
+		attachedToMigratingVM, err := h.isVDAttachedToMigratingVM(ctx, vd)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		if attachedToMigratingVM {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdscondition.VirtualDiskNotReadyForSnapshotting).
+				Message("Snapshot cannot be taken: the virtual disk is attached to a migrating virtual machine.")
+			return reconcile.Result{}, nil
+		}
+
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vdscondition.VirtualDiskReady).
@@ -106,4 +126,50 @@ func (h VirtualDiskReadyHandler) Handle(ctx context.Context, vdSnapshot *v1alpha
 			Message(fmt.Sprintf("The virtual disk %q is in the %q phase: waiting for it to reach the Ready phase.", vd.Name, vd.Status.Phase))
 		return reconcile.Result{}, nil
 	}
+}
+
+// isVDAttachedToMigratingVM checks that the disk is not attached to a migrating VM.
+// Returns (true, nil) if the disk is attached to a migrating VM (caller should return immediately).
+// Otherwise returns (false, nil) or (false, err).
+func (h VirtualDiskReadyHandler) isVDAttachedToMigratingVM(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+	inUse, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
+	if inUse.Status != metav1.ConditionTrue {
+		return false, nil
+	}
+
+	var vmNames []string
+
+	for _, attachedVM := range vd.Status.AttachedToVirtualMachines {
+		if attachedVM.Mounted {
+			vmNames = append(vmNames, attachedVM.Name)
+		}
+	}
+
+	if len(vmNames) != 1 {
+		return false, errors.New("disk is in InUse state but the number of VMs it is attached to is not 1; this should not happen, please report a bug")
+	}
+
+	vmName := vmNames[0]
+	vm, err := object.FetchObject(ctx, types.NamespacedName{Name: vmName, Namespace: vd.Namespace}, h.client, &v1alpha2.VirtualMachine{})
+	if err != nil {
+		return false, err
+	}
+
+	_, migratingConditionExists := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
+	if migratingConditionExists {
+		return true, nil
+	}
+
+	kvvmi, err := object.FetchObject(ctx, types.NamespacedName{Name: vmName, Namespace: vd.Namespace}, h.client, &virtv1.VirtualMachineInstance{})
+	if err != nil {
+		return false, err
+	}
+
+	if kvvmi != nil && kvvmi.Status.MigrationState != nil &&
+		kvvmi.Status.MigrationState.StartTimestamp != nil &&
+		kvvmi.Status.MigrationState.EndTimestamp == nil {
+		return true, nil
+	}
+
+	return false, nil
 }

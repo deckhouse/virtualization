@@ -78,8 +78,13 @@ func (w VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 
 					migratingOld, _ := conditions.GetCondition(vmcondition.TypeMigrating, e.ObjectOld.Status.Conditions)
 					migratingNew, _ := conditions.GetCondition(vmcondition.TypeMigrating, e.ObjectNew.Status.Conditions)
+					if !equality.Semantic.DeepEqual(migratingOld, migratingNew) {
+						return true
+					}
 
-					return !equality.Semantic.DeepEqual(migratingOld, migratingNew)
+					snapshottingOld, _ := conditions.GetCondition(vmcondition.TypeSnapshotting, e.ObjectOld.Status.Conditions)
+					snapshottingNew, _ := conditions.GetCondition(vmcondition.TypeSnapshotting, e.ObjectNew.Status.Conditions)
+					return !equality.Semantic.DeepEqual(snapshottingOld, snapshottingNew)
 				},
 			},
 		),

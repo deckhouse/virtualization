@@ -34,6 +34,7 @@ import (
 	vmservice "github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
@@ -92,7 +93,7 @@ var _ = Describe("MigratingHandler", func() {
 	}
 
 	reconcile := func() {
-		h := NewMigratingHandler(vmservice.NewMigrationVolumesService(fakeClient, MakeKVVMFromVMSpec, 10*time.Second))
+		h := NewMigratingHandler(vmservice.NewMigrationVolumesService(fakeClient, MakeKVVMFromVMSpec, 10*time.Second), fakeClient)
 		_, err := h.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
 		err = resource.Update(context.Background())
@@ -215,6 +216,36 @@ var _ = Describe("MigratingHandler", func() {
 			Expect(exists).To(BeTrue())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 			Expect(cond.Reason).To(Equal(vmcondition.ReasonMigratingInProgress.String()))
+		})
+
+		It("Should set Migratable False when attached disk has snapshot in progress", func() {
+			vdName := "vd-snapshotting"
+			vd := &v1alpha2.VirtualDisk{
+				ObjectMeta: metav1.ObjectMeta{Name: vdName, Namespace: namespace},
+				Status: v1alpha2.VirtualDiskStatus{
+					Conditions: []metav1.Condition{
+						{Type: vdcondition.SnapshottingType.String(), Status: metav1.ConditionTrue},
+					},
+				},
+			}
+			vm := newVM()
+			vm.Status.BlockDeviceRefs = []v1alpha2.BlockDeviceStatusRef{
+				{Kind: v1alpha2.DiskDevice, Name: vdName},
+			}
+			kvvmi := newKVVMI(nil)
+			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi, vd)
+			reconcile()
+
+			newVM := &v1alpha2.VirtualMachine{}
+			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
+			Expect(err).NotTo(HaveOccurred())
+
+			cond, exists := conditions.GetCondition(vmcondition.TypeMigratable, newVM.Status.Conditions)
+			Expect(exists).To(BeTrue())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(vmcondition.ReasonNonMigratable.String()))
+			Expect(cond.Message).To(ContainSubstring("snapshot is in progress on attached disk"))
+			Expect(cond.Message).To(ContainSubstring(vdName))
 		})
 	})
 })
