@@ -20,16 +20,16 @@ Release date: March 31, 2026.
 
 ### Fixes
 
-- [usb] Stabilized USB device support for virtualization on Deckhouse Kubernetes Platform version `>=1.76` and Kubernetes version `>=1.33`.
 - [vm] Fixed double storage quota consumption during migration of a virtual machine with local storage.
 - [vm] When using [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) with the `Clone` or `Restore` type, disks now also restore their association with the virtual machine (owner reference).
-- [usb] Fixed USB device detection on the host: duplicate USB devices could previously appear.
 - [vm] Fixed virtual machine eviction during node drain: pods responsible for block device attachments are no longer removed from a cordoned node before virtual machine migration is complete.
 - [vm] Block devices can now be attached and detached even if the virtual machine is running on a cordoned node.
 - [vm] Fixed validation for the `AlwaysForced` virtual machine migration policy: [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resources with the `Evict` or `Migrate` type without explicit `force=true` are now rejected for this policy.
 - [vm] Fixed an issue where a virtual machine could get stuck in the `Maintenance` state during restore from a snapshot.
 - [vm] Added storage-side error messages (from the CSI driver) to the virtual machine status for block device attachment failures.
 - [vd,vi,cvi] Fixed the creation of block devices from VMDK files (especially for VMDKs in the `streamOptimized` format used in exports from VMware).
+- [usb] Stabilized USB device support for virtualization on Deckhouse Kubernetes Platform version `>=1.76` and Kubernetes version `>=1.33`.
+- [usb] Fixed USB device detection on the host: duplicate USB devices could previously appear.
 
 ## v1.6.2
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
