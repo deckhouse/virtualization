@@ -30,6 +30,7 @@ import (
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -78,6 +79,48 @@ var _ = Describe("TestStatisticHandler", func() {
 			ActivePods: map[types.UID]string{podUID: podName},
 			NodeName:   nodeName,
 			Phase:      virtv1.Running,
+		}
+		return kvvmi
+	}
+
+	// Generate KVVMI with "dynamic cores" specifics: cores and sockets are intentionally
+	// swapped to bypass kvvm validations.
+	newKVVMIHotplug := func(cores, sockets, maxCores int, cpuFraction, memory, maxMemory string) *virtv1.VirtualMachineInstance {
+		kvvmi := newEmptyKVVMI(vmName, vmNamespace)
+		memoryGuest := resource.MustParse(memory)
+		memoryMaxGuest := resource.MustParse(maxMemory)
+
+		kvvmi.SetAnnotations(map[string]string{
+			kvbuilder.CPUResourcesRequestsFractionAnnotation: cpuFraction,
+			kvbuilder.VCPUTopologyDynamicCoresAnnotation:     "",
+		})
+		kvvmi.Spec = virtv1.VirtualMachineInstanceSpec{
+			Domain: virtv1.DomainSpec{
+				CPU: &virtv1.CPU{
+					Cores:      uint32(sockets),
+					Sockets:    uint32(cores),
+					MaxSockets: uint32(maxCores),
+					Threads:    1,
+				},
+				Memory: &virtv1.Memory{
+					Guest:    &memoryGuest,
+					MaxGuest: &memoryMaxGuest,
+				},
+				Resources: virtv1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceMemory: memoryGuest,
+					},
+				},
+			},
+		}
+		kvvmi.Status = virtv1.VirtualMachineInstanceStatus{
+			ActivePods: map[types.UID]string{podUID: podName},
+			NodeName:   nodeName,
+			Phase:      virtv1.Running,
+			CurrentCPUTopology: &virtv1.CPUTopology{
+				Cores:   uint32(sockets),
+				Sockets: uint32(cores),
+			},
 		}
 		return kvvmi
 	}
@@ -207,6 +250,57 @@ var _ = Describe("TestStatisticHandler", func() {
 				CPURuntimeOverhead: 0,
 
 				TopologyCoresPerSocket: 2,
+				TopologySockets:        1,
+
+				MemorySize:            2147483648,
+				MemoryRuntimeOverhead: 0,
+			},
+		),
+		Entry("Hotplug enabled: 8 cores, 100% fraction, 2 Gi",
+			newVM(8, ptr.To("100%"), "2Gi"),
+			newKVVMIHotplug(8, 1, 16, "100", "2Gi", "256Gi"),
+			newPod("8", "8", "2Gi", "2Gi"),
+			expectedValues{
+				CPUCores:           8,
+				CPUCoreFraction:    "100%",
+				CPURequestedCores:  8000,
+				CPURuntimeOverhead: 0,
+
+				TopologyCoresPerSocket: 8,
+				TopologySockets:        1,
+
+				MemorySize:            2147483648,
+				MemoryRuntimeOverhead: 0,
+			},
+		),
+		Entry("Hotplug enabled: 8 cores, 25% fraction, 2 Gi",
+			newVM(8, ptr.To("25%"), "2Gi"),
+			newKVVMIHotplug(8, 1, 16, "25", "2Gi", "256Gi"),
+			newPod("2", "8", "2Gi", "2Gi"),
+			expectedValues{
+				CPUCores:           8,
+				CPUCoreFraction:    "25%",
+				CPURequestedCores:  2000,
+				CPURuntimeOverhead: 0,
+
+				TopologyCoresPerSocket: 8,
+				TopologySockets:        1,
+
+				MemorySize:            2147483648,
+				MemoryRuntimeOverhead: 0,
+			},
+		),
+		Entry("Hotplug enabled: 1 core, 25% fraction, 2 Gi",
+			newVM(1, ptr.To("25%"), "2Gi"),
+			newKVVMIHotplug(1, 1, 16, "25", "2Gi", "256Gi"),
+			newPod("250m", "1", "2Gi", "2Gi"),
+			expectedValues{
+				CPUCores:           1,
+				CPUCoreFraction:    "25%",
+				CPURequestedCores:  250,
+				CPURuntimeOverhead: 0,
+
+				TopologyCoresPerSocket: 1,
 				TopologySockets:        1,
 
 				MemorySize:            2147483648,
