@@ -384,24 +384,42 @@ func (h *SyncKvvmHandler) updateKVVM(ctx context.Context, s state.VirtualMachine
 	}
 
 	if isChanged {
-		memory := newKVVM.Spec.Template.Spec.Domain.Memory
-		if memory != nil && memory.MaxGuest != nil && memory.MaxGuest.IsZero() {
-			// Zero maxGuest is a special value to patch KVVM to unset maxGuest.
-			// Set it to nil for next update call.
-			memory.MaxGuest = nil
+		// Update can't handle removing of some fields, so patch them before update.
+		{
+			jsonPatch := patch.JSONPatch{}
+			memory := newKVVM.Spec.Template.Spec.Domain.Memory
+			if memory != nil && memory.MaxGuest != nil && memory.MaxGuest.IsZero() {
+				// maxGuest=0 is an invalid value for vm-validator webhook, we use it as
+				// a special value to patch KVVM to unset maxGuest.
+				// Set it to nil for the update call.
+				memory.MaxGuest = nil
 
-			// 2 operations: remove memory.maxGuest; set memory.guest.
-			// Remove is not enough, remove and set are needed both to pass the kubevirt vm-validator webhook.
-			patchBytes, err := patch.NewJSONPatch(
-				patch.WithRemove("/spec/template/spec/domain/memory/maxGuest"),
-				patch.WithReplace("/spec/template/spec/domain/memory/guest", memory.Guest.String()),
-			).Bytes()
-			if err != nil {
-				return fmt.Errorf("prepare json patch to unset memory.maxGuest: %w", err)
+				// 2 operations: remove memory.maxGuest; set memory.guest.
+				// Remove is not enough, remove and set are needed both to pass the kubevirt vm-validator webhook.
+				jsonPatch.Append(
+					patch.WithRemove("/spec/template/spec/domain/memory/maxGuest"),
+					patch.WithReplace("/spec/template/spec/domain/memory/guest", memory.Guest.String()),
+				)
 			}
+			//if len(newKVVM.Spec.Template.Spec.Domain.Resources.Requests) == 0 {
+			//	jsonPatch.Append(
+			//		patch.WithRemove("/spec/template/spec/domain/resources/requests"),
+			//	)
+			//}
+			//if len(newKVVM.Spec.Template.Spec.Domain.Resources.Limits) == 0 {
+			//	jsonPatch.Append(
+			//		patch.WithRemove("/spec/template/spec/domain/resources/limits"),
+			//	)
+			//}
 
-			if err = h.client.Patch(ctx, newKVVM, client.RawPatch(types.JSONPatchType, patchBytes)); err != nil {
-				return fmt.Errorf("patch internal virtual machine to unset memory.maxGuest: %w", err)
+			if jsonPatch.Len() > 0 {
+				patchBytes, err := jsonPatch.Bytes()
+				if err != nil {
+					return fmt.Errorf("prepare json patch for internal virtual machine: %w", err)
+				}
+				if err = h.client.Patch(ctx, newKVVM, client.RawPatch(types.JSONPatchType, patchBytes)); err != nil {
+					return fmt.Errorf("patch internal virtual machine before update: %w", err)
+				}
 			}
 		}
 

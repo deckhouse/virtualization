@@ -264,34 +264,50 @@ func (b *KVVM) SetCPU(cores int, coreFraction string) error {
 		domainSpec.CPU = &virtv1.CPU{}
 	}
 
+	// TODO delete this in the future (around 3-4 more versions after enabling cpu hotplug by default).
+	if b.ResourceExists && isVMRunningWithCPUResources(b.Resource) {
+		cpuRequest, err := GetCPURequest(cores, coreFraction)
+		if err != nil {
+			return err
+		}
+
+		cpuLimit := GetCPULimit(cores)
+		if domainSpec.Resources.Requests == nil {
+			domainSpec.Resources.Requests = make(map[corev1.ResourceName]resource.Quantity)
+		}
+		if domainSpec.Resources.Limits == nil {
+			domainSpec.Resources.Limits = make(map[corev1.ResourceName]resource.Quantity)
+		}
+		domainSpec.Resources.Requests[corev1.ResourceCPU] = *cpuRequest
+		domainSpec.Resources.Limits[corev1.ResourceCPU] = *cpuLimit
+
+		socketsNeeded, coresNeeded := vm.CalculateCoresAndSockets(cores)
+
+		domainSpec.CPU.Cores = uint32(coresNeeded)
+		domainSpec.CPU.Sockets = uint32(socketsNeeded)
+		domainSpec.CPU.MaxSockets = uint32(socketsNeeded)
+		return nil
+	}
+
 	fraction, err := GetCPUFraction(coreFraction)
 	if err != nil {
 		return err
 	}
 	b.SetKVVMIAnnotation(CPUResourcesRequestsFractionAnnotation, strconv.Itoa(fraction))
 
-	//cpuRequest, err := GetCPURequest(cores, coreFraction)
-	//if err != nil {
-	//	return err
-	//}
-	//cpuLimit := GetCPULimit(cores)
-	//if domainSpec.Resources.Requests == nil {
-	//	domainSpec.Resources.Requests = make(map[corev1.ResourceName]resource.Quantity)
-	//}
-	//if domainSpec.Resources.Limits == nil {
-	//	domainSpec.Resources.Limits = make(map[corev1.ResourceName]resource.Quantity)
-	//}
-	//domainSpec.Resources.Requests[corev1.ResourceCPU] = *cpuRequest
-	//domainSpec.Resources.Limits[corev1.ResourceCPU] = *cpuLimit
-
-	socketsNeeded, coresPerSocketNeeded := vm.CalculateCoresAndSockets(cores)
-
 	// Use "dynamic cores" hotplug strategy.
 	// Workaround: swap cores and sockets in domainSpec to bypass vm-validator webhook.
 	b.SetKVVMIAnnotation(VCPUTopologyDynamicCoresAnnotation, "")
+	socketsNeeded, coresPerSocketNeeded := vm.CalculateCoresAndSockets(cores)
 	domainSpec.CPU.Cores = uint32(socketsNeeded)
 	domainSpec.CPU.Sockets = uint32(coresPerSocketNeeded)
 	domainSpec.CPU.MaxSockets = CPUMaxCoresPerSocket
+
+	// Remove CPU limits and requests if set by previous implementation.
+	res := &b.Resource.Spec.Template.Spec.Domain.Resources
+	delete(res.Requests, corev1.ResourceCPU)
+	delete(res.Limits, corev1.ResourceCPU)
+
 	return nil
 }
 
@@ -358,6 +374,22 @@ func (b *KVVM) setMemoryHotpluggable(memorySize resource.Quantity) {
 	res := &b.Resource.Spec.Template.Spec.Domain.Resources
 	delete(res.Requests, corev1.ResourceMemory)
 	delete(res.Limits, corev1.ResourceMemory)
+}
+
+func isVMRunningWithCPUResources(kvvm *virtv1.VirtualMachine) bool {
+	if kvvm == nil {
+		return false
+	}
+
+	if kvvm.Status.PrintableStatus != virtv1.VirtualMachineStatusRunning {
+		return false
+	}
+
+	res := kvvm.Spec.Template.Spec.Domain.Resources
+	_, hasCPURequests := res.Requests[corev1.ResourceCPU]
+	_, hasCPULimits := res.Limits[corev1.ResourceCPU]
+
+	return hasCPURequests && hasCPULimits
 }
 
 func isVMRunningWithMemoryResources(kvvm *virtv1.VirtualMachine) bool {
