@@ -119,6 +119,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 			Reason(conditions.ReasonUnknown).
 			Message("")
 
+		if !frozen {
+			return reconcile.Result{}, nil
+		}
+
 		canUnfreeze, err := h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm, kvvmi)
 		if err != nil {
 			if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
@@ -141,7 +145,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 			return reconcile.Result{}, err
 		}
 
-		if !canUnfreeze && frozen {
+		if !canUnfreeze {
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 
@@ -158,6 +162,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 			Reason(conditions.CommonReason(readyCondition.Reason)).
 			Message(readyCondition.Message)
 
+		if !frozen {
+			return reconcile.Result{}, nil
+		}
+
 		canUnfreeze, err := h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm, kvvmi)
 		if err != nil {
 			if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
@@ -171,7 +179,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 			cb.Message(fmt.Sprintf("%s, %s", err.Error(), cb.Condition().Message))
 			return reconcile.Result{}, fmt.Errorf("failed to unfreeze filesystem: %w", err)
 		}
-		if !canUnfreeze && frozen {
+		if !canUnfreeze {
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 		return reconcile.Result{}, nil
