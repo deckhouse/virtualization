@@ -278,6 +278,9 @@ func (h *MigratingHandler) getVMOPCandidate(ctx context.Context, s state.Virtual
 }
 
 func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) error {
+	if h.setUSBNonMigratable(vm) {
+		return nil
+	}
 	cb := conditions.NewConditionBuilder(vmcondition.TypeMigratable).Generation(vm.GetGeneration())
 
 	if kvvm != nil {
@@ -344,4 +347,25 @@ func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMa
 
 func liveMigrationInProgress(migrationState *v1alpha2.VirtualMachineMigrationState) bool {
 	return migrationState != nil && migrationState.StartTimestamp != nil && migrationState.EndTimestamp == nil
+}
+
+// TODO: Delete me after 1.7 version
+func (h *MigratingHandler) setUSBNonMigratable(vm *v1alpha2.VirtualMachine) bool {
+	cond, _ := conditions.GetCondition(vmcondition.TypeFirmwareUpToDate, vm.Status.Conditions)
+	if cond.Status == metav1.ConditionTrue || cond.Reason != vmcondition.ReasonFirmwareOutOfDate.String() {
+		return false
+	}
+
+	usbExists := len(vm.Spec.USBDevices) > 0
+	if !usbExists {
+		return false
+	}
+
+	cb := conditions.NewConditionBuilder(vmcondition.TypeMigratable).
+		Generation(vm.GetGeneration()).
+		Status(metav1.ConditionFalse).
+		Reason(vmcondition.ReasonNonMigratable).
+		Message("USB devices cannot be migratable on this virtualization version, firmware should be updated first. Please restart virtual machine or unplug usb devices and migrate.")
+	conditions.SetCondition(cb, &vm.Status.Conditions)
+	return true
 }
