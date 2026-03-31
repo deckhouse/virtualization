@@ -37,7 +37,7 @@ func CheckPrecreatedCVICleanupOption() error {
 	case "yes", "no", "":
 		return nil
 	default:
-		return fmt.Errorf("invalid value for %s env: %q (allowed: \"\", \"yes\", \"no\")", PrecreatedCVICleanupEnv, env)
+		return fmt.Errorf(`invalid value for %s env: %q (allowed: "", "yes", "no")`, PrecreatedCVICleanupEnv, env)
 	}
 }
 
