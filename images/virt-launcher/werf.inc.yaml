@@ -271,6 +271,17 @@ shell:
       rm -rf /$pkg
     done
 
+    echo "Create symlinks for libvirt libraries in /usr/lib64"
+    echo "libvirt installs to /usr/local/lib64 which may not be in default ld search path"
+    for lib in /usr/local/lib64/libvirt*.so*; do
+      if [ -e "$lib" ]; then
+        libname=$(basename "$lib")
+        echo "Creating symlink /usr/lib64/$libname -> $lib"
+        ln -sf "$lib" "/usr/lib64/$libname"
+      fi
+    done
+    ldconfig || true
+
     echo "Create folder hierarchy in VBINS"
     mkdir -p /VBINS/{etc,root}
     mkdir -p /VBINS/var/{log/libvirt/qemu,log/swtpm/libvirt/qemu,lib/libvirt/qemu,run/libvirt/qemu,lib/swtpm-localca,lib/libvirt/swtpm}
@@ -281,6 +292,14 @@ shell:
     echo "=====Copy qemu binaries to temp folder======"
     cp -a /qemu-bins/. /VBINS/
 
+    echo "Create symlinks for libvirt libraries in /VBINS/usr/lib64"
+    for lib in /VBINS/usr/local/lib64/libvirt*.so*; do
+      if [ -e "$lib" ]; then
+        libname=$(basename "$lib")
+        echo "Creating symlink /VBINS/usr/lib64/$libname -> ../local/lib64/$libname"
+        ln -sf "../local/lib64/$libname" "/VBINS/usr/lib64/$libname"
+      fi
+    done
 
     echo "find and copy additional libs"
     FILES=$(find /VBINS/usr/bin/ -type f)
