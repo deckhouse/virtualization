@@ -18,6 +18,7 @@ package vmchange
 
 import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -124,6 +125,8 @@ func compareBootloader(current, desired *v1alpha2.VirtualMachineSpec) []FieldCha
 }
 
 // compareCPU returns changes in the cpu section.
+// It supports CPU hotplug mechanism for cores changes.
+// It requires reboot if cpu fraction is changed or if COU hotplug is disabled.
 func compareCPU(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
 	// Cores can be changed "on the fly" using CPU Hotplug ...
 	coresChangedAction := ActionApplyImmediate
@@ -133,6 +136,12 @@ func compareCPU(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
 	if currentSockets != desiredSockets {
 		coresChangedAction = ActionRestart
 	}
+
+	// Require reboot if CPU hotplug is not enabled.
+	if !featuregates.Default().Enabled(featuregates.HotplugCPUWithLiveMigration) {
+		coresChangedAction = ActionRestart
+	}
+
 	coresChanges := compareInts("cpu.cores", current.CPU.Cores, desired.CPU.Cores, 0, coresChangedAction)
 	fractionChanges := compareStrings("cpu.coreFraction", current.CPU.CoreFraction, desired.CPU.CoreFraction, DefaultCPUCoreFraction, ActionRestart)
 

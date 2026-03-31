@@ -259,34 +259,52 @@ func (b *KVVM) SetTopologySpreadConstraint(topology []corev1.TopologySpreadConst
 }
 
 func (b *KVVM) SetCPU(cores int, coreFraction string) error {
+	// Support for VMs started with cpu configuration in requests-limits.
+	// TODO delete this in the future (around 3-4 more versions after enabling cpu hotplug by default).
+	if b.ResourceExists && isVMRunningWithCPUResources(b.Resource) {
+		return b.setCPUNonHotpluggable(cores, coreFraction)
+	}
+	return b.setCPUHotpluggable(cores, coreFraction)
+}
+
+// setCPUNonHotpluggable translates cpu configuration to requests and limit in KVVM.
+// Note: this is a first implementation, cpu hotplug is not compatible with this strategy.
+func (b *KVVM) setCPUNonHotpluggable(cores int, coreFraction string) error {
 	domainSpec := &b.Resource.Spec.Template.Spec.Domain
 	if domainSpec.CPU == nil {
 		domainSpec.CPU = &virtv1.CPU{}
 	}
+	cpuRequest, err := GetCPURequest(cores, coreFraction)
+	if err != nil {
+		return err
+	}
 
-	// TODO delete this in the future (around 3-4 more versions after enabling cpu hotplug by default).
-	if b.ResourceExists && isVMRunningWithCPUResources(b.Resource) {
-		cpuRequest, err := GetCPURequest(cores, coreFraction)
-		if err != nil {
-			return err
-		}
+	cpuLimit := GetCPULimit(cores)
+	if domainSpec.Resources.Requests == nil {
+		domainSpec.Resources.Requests = make(map[corev1.ResourceName]resource.Quantity)
+	}
+	if domainSpec.Resources.Limits == nil {
+		domainSpec.Resources.Limits = make(map[corev1.ResourceName]resource.Quantity)
+	}
+	domainSpec.Resources.Requests[corev1.ResourceCPU] = *cpuRequest
+	domainSpec.Resources.Limits[corev1.ResourceCPU] = *cpuLimit
 
-		cpuLimit := GetCPULimit(cores)
-		if domainSpec.Resources.Requests == nil {
-			domainSpec.Resources.Requests = make(map[corev1.ResourceName]resource.Quantity)
-		}
-		if domainSpec.Resources.Limits == nil {
-			domainSpec.Resources.Limits = make(map[corev1.ResourceName]resource.Quantity)
-		}
-		domainSpec.Resources.Requests[corev1.ResourceCPU] = *cpuRequest
-		domainSpec.Resources.Limits[corev1.ResourceCPU] = *cpuLimit
+	socketsNeeded, coresNeeded := vm.CalculateCoresAndSockets(cores)
 
-		socketsNeeded, coresNeeded := vm.CalculateCoresAndSockets(cores)
+	domainSpec.CPU.Cores = uint32(coresNeeded)
+	domainSpec.CPU.Sockets = uint32(socketsNeeded)
+	domainSpec.CPU.MaxSockets = uint32(socketsNeeded)
+	return nil
+}
 
-		domainSpec.CPU.Cores = uint32(coresNeeded)
-		domainSpec.CPU.Sockets = uint32(socketsNeeded)
-		domainSpec.CPU.MaxSockets = uint32(socketsNeeded)
-		return nil
+// setCPUHotpluggable translates cpu configuration to settings in domain.cpu field.
+// This field is compatible with memory hotplug.
+// Also, remove requests-limits for memory if any.
+// Note: we swap cores and sockets to bypass vm-validation webhook.
+func (b *KVVM) setCPUHotpluggable(cores int, coreFraction string) error {
+	domainSpec := &b.Resource.Spec.Template.Spec.Domain
+	if domainSpec.CPU == nil {
+		domainSpec.CPU = &virtv1.CPU{}
 	}
 
 	fraction, err := GetCPUFraction(coreFraction)
@@ -295,10 +313,10 @@ func (b *KVVM) SetCPU(cores int, coreFraction string) error {
 	}
 	b.SetKVVMIAnnotation(CPUResourcesRequestsFractionAnnotation, strconv.Itoa(fraction))
 
+	socketsNeeded, coresPerSocketNeeded := vm.CalculateCoresAndSockets(cores)
 	// Use "dynamic cores" hotplug strategy.
 	// Workaround: swap cores and sockets in domainSpec to bypass vm-validator webhook.
 	b.SetKVVMIAnnotation(VCPUTopologyDynamicCoresAnnotation, "")
-	socketsNeeded, coresPerSocketNeeded := vm.CalculateCoresAndSockets(cores)
 	domainSpec.CPU.Cores = uint32(socketsNeeded)
 	domainSpec.CPU.Sockets = uint32(coresPerSocketNeeded)
 	domainSpec.CPU.MaxSockets = CPUMaxCoresPerSocket
