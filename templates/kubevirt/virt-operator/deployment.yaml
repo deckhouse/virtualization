@@ -33,7 +33,6 @@ spec:
   resourcePolicy:
     containerPolicies:
     {{- include "kube_api_rewriter.vpa_container_policy" . | nindent 4 }}
-    {{- include "kube_rbac_proxy.vpa_container_policy" . | nindent 4 }}
     - containerName: virt-operator
       minAllowed:
         {{- include "virt_operator_resources" . | nindent 8 }}
@@ -95,26 +94,18 @@ spec:
       {{- $_ := set $rewriterSettings "WEBHOOK_KEY_FILE" "/etc/virt-operator/certificates/tls.key" }}
       {{- $_ := set $rewriterSettings "webhookCertsVolumeName" "kubevirt-operator-certs" }}
       {{- $_ := set $rewriterSettings "webhookCertsMountPath" "/etc/virt-operator/certificates" }}
+      {{- $_ := set $rewriterSettings "healthzPath" "/healthz" }}
+      {{- $_ := set $rewriterSettings "readyzPath" "/readyz" }}
+      {{- $_ := set $rewriterSettings "healthzPort" 9090 }}
+      {{- $_ := set $rewriterSettings "probeScheme" "HTTP" }}
+      {{- $_ := set $rewriterSettings "injectPodIP" true }}
+      {{- $_ := set $rewriterSettings "monitoringBindAddress" "$(POD_IP):9090" }}
       {{- include "kube_api_rewriter.sidecar_container" (tuple . $rewriterSettings) | nindent 6 }}
-      {{- $kubeRbacProxySettings := dict }}
-      {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" true }}
-      {{- $_ := set $kubeRbacProxySettings "ignorePaths" "/proxy/healthz,/proxy/readyz" }}
-      {{- $_ := set $kubeRbacProxySettings "upstreams" (list
-          (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter")
-          (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "virt-operator")
-          (dict "upstream" "http://127.0.0.1:9090/healthz" "path" "/proxy/healthz" "name" "kube-api-rewriter")
-          (dict "upstream" "http://127.0.0.1:9090/readyz" "path" "/proxy/readyz" "name" "kube-api-rewriter")
-      ) }}
-      {{- include "kube_rbac_proxy.sidecar_container" (tuple . $kubeRbacProxySettings) | nindent 6 }}
       - name: virt-operator
         {{- include "helm_lib_module_container_security_context_read_only_root_filesystem_capabilities_drop_all_pss_restricted" . | nindent 8 }}
         args:
         - --port
         - "8443"
-        - --metrics-listen
-        - 127.0.0.1
-        - --metrics-port
-        - "8080"
         - -v
         - "2"
         command:
@@ -136,13 +127,13 @@ spec:
           httpGet:
             path: /healthz
             port: 8443
-            scheme: HTTP
+            scheme: HTTPS
           initialDelaySeconds: 10
         livenessProbe:
           httpGet:
             path: /healthz
             port: 8443
-            scheme: HTTP
+            scheme: HTTPS
           initialDelaySeconds: 10
         resources:
           requests:

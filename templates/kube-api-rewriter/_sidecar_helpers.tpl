@@ -91,8 +91,15 @@ spec:
 
 
 {{- define "kube_api_rewriter.kubeconfig_env" -}}
+{{- $settings := dict -}}
+{{- if (kindIs "slice" .) -}}
+{{-   if ge (len .) 2 -}}
+{{-     $settings = index . 1 -}}
+{{-   end -}}
+{{- end -}}
+{{- $kubeconfigFilename := $settings.kubeconfigFilename | default "kube-api-rewriter.kubeconfig" -}}
 - name: KUBECONFIG
-  value: /kubeconfig.local/kube-api-rewriter.kubeconfig
+  value: /kubeconfig.local/{{ $kubeconfigFilename }}
 {{- end }}
 
 {{- define "kube_api_rewriter.kubeconfig_volume" -}}
@@ -142,6 +149,15 @@ spec:
   {{-   end -}}
   {{- end -}}
   {{- $isWebhook := hasKey $settings "WEBHOOK_ADDRESS" -}}
+  {{- $injectPodIP := $settings.injectPodIP | default false -}}
+  {{- $healthzPort := $settings.healthzPort | default 8082 -}}
+  {{- $healthzPath := $settings.healthzPath | default "/proxy/healthz" -}}
+  {{- $readyzPath := $settings.readyzPath | default "/proxy/readyz" -}}
+  {{- $clientProxyPort := $settings.clientProxyPort | default (include "kube_api_rewriter.client_proxy_port" $ctx | int) -}}
+  {{- $monitoringBindAddress := $settings.monitoringBindAddress | default "127.0.0.1:9090" -}}
+  {{- $pprofBindAddress := $settings.pprofBindAddress | default (printf ":%s" (include "kube_api_rewriter.pprof_port" $ctx)) -}}
+  {{- $pprofPort := last (splitList ":" $pprofBindAddress) | int -}}
+  {{- $probeScheme := $settings.probeScheme | default "HTTPS" -}}
 - name: {{ include "kube_api_rewriter.sidecar_name" $ctx }}
   image: {{ include "kube_api_rewriter.image" $ctx }}
   imagePullPolicy: IfNotPresent
@@ -154,8 +170,20 @@ spec:
     - name: WEBHOOK_KEY_FILE
       value: "{{ $settings.WEBHOOK_KEY_FILE }}"
     {{- end }}
+    {{- if $injectPodIP }}
+    - name: POD_IP
+      valueFrom:
+        fieldRef:
+          fieldPath: status.podIP
+    {{- end }}
+    - name: CLIENT_PROXY_PORT
+      value: "{{ $clientProxyPort }}"
     - name: MONITORING_BIND_ADDRESS
-      value: "127.0.0.1:9090"
+      value: "{{ $monitoringBindAddress }}"
+    {{- if eq (include "moduleLogLevel" $ctx) "debug" }}
+    - name: PPROF_BIND_ADDRESS
+      value: "{{ $pprofBindAddress }}"
+    {{- end }}
     {{- include "kube_api_rewriter.env" $ctx | nindent 4 }}
   resources:
     requests:
@@ -173,15 +201,15 @@ spec:
       type: RuntimeDefault
   livenessProbe:
     httpGet:
-      path: /proxy/healthz
-      port: 8082
-      scheme: HTTPS
+      path: {{ $healthzPath }}
+      port: {{ $healthzPort }}
+      scheme: {{ $probeScheme }}
     initialDelaySeconds: 10
   readinessProbe:
     httpGet:
-      path: /proxy/readyz
-      port: 8082
-      scheme: HTTPS
+      path: {{ $readyzPath }}
+      port: {{ $healthzPort }}
+      scheme: {{ $probeScheme }}
     initialDelaySeconds: 10
   terminationMessagePath: /dev/termination-log
   terminationMessagePolicy: File
@@ -191,9 +219,13 @@ spec:
   {{- end }}
   ports:
   {{- if eq (include "moduleLogLevel" $ctx) "debug" }}
-  {{-   include "kube_api_rewriter.pprof_container_port" . | nindent 4 }}
+  - containerPort: {{ $pprofPort }}
+    name: pprof
+    protocol: TCP
   {{- end }}
-  {{- if $isWebhook -}}
-  {{-   include "kube_api_rewriter.webhook_container_port" .| nindent 4 }}
+  {{- if $isWebhook }}
+  - containerPort: {{ include "kube_api_rewriter.webhook_port" $ctx }}
+    name: {{ include "kube_api_rewriter.webhook_port_name" $ctx }}
+    protocol: TCP
   {{- end -}}
 {{- end -}}
