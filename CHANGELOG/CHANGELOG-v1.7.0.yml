@@ -1,0 +1,90 @@
+ci:
+  fixes:
+    - summary: Replace deprecated nolint:stylecheck with nolint:staticcheck in Go files.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2140
+    - summary: e2e bootstrap cluster
+      pull_request: https://github.com/deckhouse/virtualization/pull/2064
+core:
+  fixes:
+    - summary: >-
+        Make VirtualDisk storage class migration validation deterministic by injecting feature gate
+        and explicitly enabling VolumeMigration in unit tests.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2138
+    - summary: >-
+        Fix DRA USB device list generation — use capacity-only pre-allocation to avoid empty entries
+        in the resource slice.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2121
+    - summary: >-
+        Fixed validation for the `AlwaysForced` virtual machine migration policy:
+        `VirtualMachineOperation` resources with the `Evict` or `Migrate` type without explicit
+        `force=true` are now rejected for this policy.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2120
+    - summary: >-
+        Fix VirtualDisk AttachedToVirtualMachines references during clone and customized restore
+        operations.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2080
+    - summary: >-
+        Reject VM USB device attachments when USB feature gate is disabled and validate only newly
+        added USB devices on update.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2077
+    - summary: Add fast-fail USB attach checks and speed-aware USBIP port validation for HS/SS hubs.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2067
+    - summary: >-
+        Fixed the creation of block devices from VMDK files (especially for VMDKs in the
+        `streamOptimized` format used in exports from VMware).
+      pull_request: https://github.com/deckhouse/virtualization/pull/2065
+module:
+  features:
+    - summary: >-
+        Add annotations for configuring KubeVirt migration settings (bandwidth, timeouts,
+        parallelism) via ModuleConfig.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2158
+  fixes:
+    - summary: >-
+        Limited the maximum debug verbosity level to 9 in the Virtualization controller to prevent
+        full trace-level logs from appearing when debug logging is enabled.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2101
+test:
+  fixes:
+    - summary: Stabilize VirtualDiskSnapshots e2e by skipping on labeled CSI VolumeSnapshot readiness lag.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2136
+    - summary: >-
+        Add e2e regression test for preserving VM additional interface naming after middle
+        ClusterNetwork removal and reboot.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2124
+vm:
+  features:
+    - summary: Reduced USB device downtime during virtual machine migration.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2098
+    - summary: |-
+        Added a garbage collector for completed and failed virtual machine pods:
+        - Pods older than 24 hours are deleted.
+        - No more than 2 completed pods are retained.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2091
+  fixes:
+    - summary: >-
+        Block devices can now be attached and detached even if the virtual machine is running on a
+        cordoned node.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2163
+    - summary: >-
+        Fixed virtual machine eviction during node drain: pods responsible for block device
+        attachments are no longer removed from a cordoned node before virtual machine migration is
+        complete.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2153
+    - summary: >-
+        Fixed double storage quota consumption during migration of a virtual machine with local
+        storage.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2148
+    - summary: >-
+        Fixed an issue where a virtual machine could get stuck in the `Maintenance` state during
+        restore from a snapshot.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2144
+    - summary: >-
+        Stabilized the operation of USB devices for virtualization on Deckhouse version ≥1.76 and
+        Kubernetes version ≥1.33.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2137
+    - summary: >-
+        Fixed the detection of USB devices on the host: previously, there was a possibility of
+        duplicate USB devices appearing.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2122
+
