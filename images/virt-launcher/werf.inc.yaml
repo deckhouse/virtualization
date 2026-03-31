@@ -163,9 +163,12 @@ import:
   add: /libvirt
   to: /libvirt-bins
   before: install
+# Full QEMU package with all runtime dependencies (libcapstone, etc.)
+# Using qemu-img instead of qemu-bins so that relocate_binaries.sh
+# can find all QEMU shared library dependencies.
 - image: {{ .ModuleNamePrefix }}qemu
-  add: /BINS
-  to: /qemu-bins
+  add: /qemu-img
+  to: /qemu-img
   before: install
 
 # EDK2 (uefi firmware)
@@ -278,10 +281,6 @@ shell:
     echo "=====Copy libvirt binaries to temp folder======"
     cp -a /libvirt-bins/. /VBINS/
 
-    echo "=====Copy qemu binaries to temp folder======"
-    cp -a /qemu-bins/. /VBINS/
-
-
     echo "find and copy additional libs"
     FILES=$(find /VBINS/usr/bin/ -type f)
     FILES+=" $(find /VBINS/usr/sbin/ -type f)"
@@ -299,12 +298,30 @@ shell:
     echo "Relocate additional libs to /VBINS"
     ./relocate_binaries.sh -i "$LIBS" -o /VBINS
 
+    echo "Copy QEMU package (with all deps) to /VBINS on top of relocated libs"
+    echo "This ensures pm-built QEMU libraries take precedence over system libs"
+    cp -a /qemu-img/. /VBINS/
+
+    echo "Create symlinks in /VBINS/usr/lib64 for libraries in /VBINS/usr/lib"
+    echo "Some pm packages install to /usr/lib but the dynamic linker searches /usr/lib64"
+    if [ -d "/VBINS/usr/lib" ]; then
+      find "/VBINS/usr/lib" -maxdepth 1 -name '*.so*' | while read lib; do
+        libname=$(basename "$lib")
+        if [ ! -e "/VBINS/usr/lib64/$libname" ]; then
+          echo "Creating symlink /VBINS/usr/lib64/$libname -> ../lib/$libname"
+          ln -sf "../lib/$libname" "/VBINS/usr/lib64/$libname"
+        fi
+      done
+    fi
+
     cp -a /VBINS/. /relocate
 
     echo "Show libs after relocation in /relocate/usr/lib64"
     ls -la /relocate/usr/lib64
+    echo "Show libs in /relocate/usr/lib"
+    ls -la /relocate/usr/lib 2>/dev/null || true
     # Cleanup
-    rm -rf /{VBINS,qemu-bins,libvirt-bins}
+    rm -rf /{VBINS,qemu-img,libvirt-bins}
 
   setup:
   - |
@@ -346,41 +363,6 @@ shell:
     ln -s ../edk2/ovmf/UefiShell.iso          usr/share/OVMF
 
     cd /
-
-  - |
-    convert_version() {
-      local version="${1#v}"
-      IFS='.' read -r major minor patch <<< "$version"
-      printf "%d%03d\n" "$major" "$minor"
-    }
-
-    libvirt_version=$(convert_version {{ $version }})
-
-    echo "libvirt_version: $libvirt_version"
-
-    SYMLINC_LIST=$(cat <<EOF
-    libvirt.so.0.${libvirt_version}.0        libvirt.so.0
-    libvirt.so.0                             libvirt.so
-    libvirt-qemu.so.0.${libvirt_version}.0   libvirt-qemu.so.0
-    libvirt-qemu.so.0                        libvirt-qemu.so
-    libvirt-lxc.so.0.${libvirt_version}.0    libvirt-lxc.so.0
-    libvirt-lxc.so.0                         libvirt-lxc.so
-    libvirt-admin.so.0.${libvirt_version}.0  libvirt-admin.so.0
-    libvirt-admin.so.0                       libvirt-admin.so
-    EOF
-    )
-
-    cd /relocate
-
-    while IFS= read -r LINE; do
-      echo "Create symlinc for $LINE"
-      TARGET=$(echo $LINE | awk -F' ' '{print $1}')
-      SYMLINK=$(echo $LINE | awk -F' ' '{print $2}')
-      ln -s ../local/lib64/$TARGET usr/lib64/$SYMLINK
-    done <<< "$SYMLINC_LIST"
-
-    echo "List files in /relocate/usr/local/lib64"
-    ls -la usr/local/lib64
 
   - |
     cd /relocate
