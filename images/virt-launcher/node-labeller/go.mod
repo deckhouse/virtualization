@@ -1,6 +1,6 @@
 module node-labeller
 
-go 1.24.13
+go 1.25.8
 
 require (
 	golang.org/x/sys v0.25.0
