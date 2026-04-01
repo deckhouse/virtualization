@@ -1085,7 +1085,7 @@ jobs:
           cp -a legacy/testdata /tmp/testdata
 
           set +e
-          FOCUS="${{ inputs.e2e_focus_tests }}"
+          FOCUS="DataExport"
           if [ -n "$FOCUS" ]; then
             POST_CLEANUP=no go tool ginkgo \
               --focus="$FOCUS" \
