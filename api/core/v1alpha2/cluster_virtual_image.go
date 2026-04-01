@@ -32,6 +32,7 @@ const (
 //
 // With this resource in the cluster, a container image is created and stored in a dedicated Deckhouse Virtualization Container Registry (DVCR).
 //
+// **Note:** The `metadata.name` field must comply with [Kubernetes object naming conventions](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/) and must not exceed 48 characters.
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization,backup.deckhouse.io/cluster-config=true}
 // +kubebuilder:resource:categories={virtualization-cluster},scope=Cluster,shortName={cvi},singular=clustervirtualimage

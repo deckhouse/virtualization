@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/usb"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -91,7 +92,8 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 
 	var kvvmiLoaded bool
 	var kvvmi *virtv1.VirtualMachineInstance
-	var hostDeviceReadyByName map[string]bool
+	var hostDeviceReadyByName map[string]struct{}
+	var hostDeviceExistsByName map[string]struct{}
 
 	var nextStatusRefs []v1alpha2.USBDeviceStatusRef
 	for _, usbDeviceRef := range vm.Spec.USBDevices {
@@ -140,11 +142,12 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 			kvvmiLoaded = true
 		}
 
-		if hostDeviceReadyByName == nil {
-			hostDeviceReadyByName = h.hostDeviceReadyByName(kvvmi)
+		if hostDeviceReadyByName == nil || hostDeviceExistsByName == nil {
+			hostDeviceReadyByName, hostDeviceExistsByName = h.hostDeviceMapsByName(kvvmi)
 		}
 
-		if hostDeviceReadyByName[deviceName] {
+		// If device is already attached in KVVMI - preserve status, skip port check.
+		if _, exists := hostDeviceReadyByName[deviceName]; exists {
 			address := h.getUSBAddressFromKVVMI(deviceName, kvvmi)
 			isHotplugged := vm.Status.Phase == v1alpha2.MachineRunning
 
@@ -158,6 +161,27 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 				nextStatusRefs = append(nextStatusRefs, h.buildAttachedStatus(deviceName, isReady, address, isHotplugged))
 			}
 			continue
+		}
+
+		// 4) Check free USBIP ports for cross-node attachments until KVVMI reflects the device.
+		// Once the host device is listed in KVVMI, attach is already in progress, so skip the check.
+		if _, exists := hostDeviceExistsByName[deviceName]; !exists && usbDevice.Status.NodeName != "" && vm.Status.Node != "" && usbDevice.Status.NodeName != vm.Status.Node {
+			hasFreePort, err := usb.CheckFreePortOnNodeExcludingLocalUSBs(ctx, h.client, vm.Status.Node, usbDevice.Status.Attributes.Speed)
+			if err != nil {
+				if apierrors.IsNotFound(err) {
+					log.Debug("node not found while checking free USBIP ports", "device", deviceName, "node", vm.Status.Node)
+					nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(existingStatus, deviceName, isReady))
+					continue
+				}
+
+				return reconcile.Result{RequeueAfter: 5 * time.Second}, fmt.Errorf("failed to check free USBIP ports for device %s on node %s: %w", deviceName, vm.Status.Node, err)
+			}
+			if !hasFreePort {
+				log.Info("no free USBIP ports available", "device", deviceName, "speed", usbDevice.Status.Attributes.Speed, "node", vm.Status.Node)
+				nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(existingStatus, deviceName, isReady))
+				changed.Status.USBDevices = nextStatusRefs
+				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+			}
 		}
 
 		requestName := h.getResourceClaimRequestName(deviceName)

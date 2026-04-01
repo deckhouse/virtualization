@@ -51,6 +51,8 @@ const (
 	Available AttachedReason = "Available"
 	// DetachedForMigration signifies that device was detached for migration (e.g. live migration).
 	DetachedForMigration AttachedReason = "DetachedForMigration"
+	// NoFreeUSBIPPort signifies that device cannot be attached because there are no free USBIP ports on the target node.
+	NoFreeUSBIPPort AttachedReason = "NoFreeUSBIPPort"
 )
 
 func (r ReadyReason) String() string {
