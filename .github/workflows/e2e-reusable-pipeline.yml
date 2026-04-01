@@ -1012,7 +1012,8 @@ jobs:
       - configure-virtualization
     steps:
       - uses: actions/checkout@v4
-        ref: chore/ci/add-nfs-to-nested-e2e
+        with:
+          ref: chore/ci/add-nfs-to-nested-e2e
 
       - name: Set up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v5
