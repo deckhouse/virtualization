@@ -1012,8 +1012,6 @@ jobs:
       - configure-virtualization
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: chore/ci/add-nfs-to-nested-e2e
 
       - name: Set up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v5
@@ -1087,9 +1085,9 @@ jobs:
           cp -a legacy/testdata /tmp/testdata
 
           set +e
-          FOCUS="DataExport"
+          FOCUS="${{ inputs.e2e_focus_tests }}"
           if [ -n "$FOCUS" ]; then
-            POST_CLEANUP=no go tool ginkgo \
+            go tool ginkgo \
               --focus="$FOCUS" \
               -v --race --timeout=$TIMEOUT \
               --junit-report=$summary_file_name_junit | tee $GINKGO_RESULT
@@ -1145,8 +1143,7 @@ jobs:
           echo $SUMMARY > "${summary_file_name_json}"
 
           echo "[INFO] Exit code: $GINKGO_EXIT_CODE"
-          # exit $GINKGO_EXIT_CODE
-          exit 0
+          exit $GINKGO_EXIT_CODE
       - name: Upload summary test results (junit/xml)
         uses: actions/upload-artifact@v4
         id: e2e-report-artifact
@@ -1344,8 +1341,7 @@ jobs:
       - configure-storage
       - configure-virtualization
       - e2e-test
-    # REVERT ME BEFORE MERGE
-    if: cancelled()
+    if: cancelled() || success()
     steps:
       - uses: actions/checkout@v4
 
