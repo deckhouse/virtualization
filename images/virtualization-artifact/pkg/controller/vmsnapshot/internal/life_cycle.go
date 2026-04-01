@@ -776,15 +776,13 @@ func (h LifeCycleHandler) fillStatusResources(ctx context.Context, vmSnapshot *v
 			return err
 		}
 
-		if vmip == nil {
-			return fmt.Errorf("the virtual machine ip address %q not found", vm.Status.VirtualMachineIPAddress)
+		if vmip != nil {
+			vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, v1alpha2.ResourceRef{
+				Kind:       vmip.Kind,
+				ApiVersion: vmip.APIVersion,
+				Name:       vmip.Name,
+			})
 		}
-
-		vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, v1alpha2.ResourceRef{
-			Kind:       vmip.Kind,
-			ApiVersion: vmip.APIVersion,
-			Name:       vmip.Name,
-		})
 	}
 
 	if len(vm.Spec.Networks) > 1 {
