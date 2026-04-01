@@ -122,6 +122,11 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 		vdsupplements.SetPVCName(vd, dv.Status.ClaimName)
 	}
 
+	isUploaderReady, err := ds.statService.IsUploaderReady(pod, svc, ing)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	switch {
 	case IsDiskProvisioningFinished(condition):
 		log.Debug("Disk provisioning finished: clean up")
@@ -190,7 +195,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 		}
 
 		if !ds.statService.IsUploadStarted(vd.GetUID(), pod) {
-			if ds.statService.IsUploaderReady(pod, svc, ing) {
+			if isUploaderReady {
 				log.Info("Waiting for the user upload", "pod.phase", pod.Status.Phase)
 
 				vd.Status.Phase = v1alpha2.DiskWaitForUserUpload
