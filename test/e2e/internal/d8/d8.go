@@ -70,6 +70,7 @@ type DataExportOptions struct {
 	// When set, it is passed as a positional argument after -n and before -o.
 	SourcePath string
 	Timeout    time.Duration
+	Publish    bool
 }
 
 func NewD8Virtualization(conf D8VirtualizationConf) (*D8VirtualizationCMD, error) {
@@ -182,6 +183,10 @@ func (v D8VirtualizationCMD) DataExportDownload(resourceType, name string, opts 
 
 	if opts.OutputFile != "" {
 		cmd = fmt.Sprintf("%s -o %s", cmd, opts.OutputFile)
+	}
+
+	if opts.Publish {
+		cmd = fmt.Sprintf("%s --publish", cmd)
 	}
 
 	// d8 data export download always returns exit code 0 even on errors,

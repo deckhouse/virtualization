@@ -28,6 +28,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -246,10 +248,27 @@ func IsNFS() bool {
 	return sc.Provisioner == framework.NFS
 }
 
+func needPublishOption(f *framework.Framework) bool {
+	hostname, err := os.Hostname()
+	Expect(err).NotTo(HaveOccurred(), "Failed to get hostname")
+	var node corev1.Node
+	err = f.Clients.GenericClient().Get(
+		context.Background(),
+		types.NamespacedName{Name: hostname},
+		&node,
+	)
+	if k8serrors.IsNotFound(err) {
+		return true
+	}
+	Expect(err).NotTo(HaveOccurred(), "Failed to get node %s", hostname)
+	return false
+}
+
 func exportData(f *framework.Framework, resourceType, name, outputFile string) {
 	opts := d8.DataExportOptions{
 		Namespace:  f.Namespace().Name,
 		OutputFile: outputFile,
+		Publish:    needPublishOption(f),
 		Timeout:    framework.LongTimeout,
 	}
 	if IsNFS() {
