@@ -17,8 +17,6 @@ limitations under the License.
 package vmchange
 
 import (
-	"github.com/deckhouse/virtualization-controller/pkg/common/vm"
-	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -122,51 +120,6 @@ func compareBootloader(current, desired *v1alpha2.VirtualMachineSpec) []FieldCha
 		string(DefaultBootloader),
 		ActionRestart,
 	)
-}
-
-// compareCPU returns changes in the cpu section.
-// It supports CPU hotplug mechanism for cores changes.
-// It requires reboot if cpu fraction is changed or if COU hotplug is disabled.
-func compareCPU(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
-	// Cores can be changed "on the fly" using CPU Hotplug ...
-	coresChangedAction := ActionApplyImmediate
-	// ... but sockets count change requires a reboot.
-	currentSockets, _ := vm.CalculateCoresAndSockets(current.CPU.Cores)
-	desiredSockets, _ := vm.CalculateCoresAndSockets(desired.CPU.Cores)
-	if currentSockets != desiredSockets {
-		coresChangedAction = ActionRestart
-	}
-
-	// Require reboot if CPU hotplug is not enabled.
-	if !featuregates.Default().Enabled(featuregates.HotplugCPUWithLiveMigration) {
-		coresChangedAction = ActionRestart
-	}
-
-	coresChanges := compareInts("cpu.cores", current.CPU.Cores, desired.CPU.Cores, 0, coresChangedAction)
-	fractionChanges := compareStrings("cpu.coreFraction", current.CPU.CoreFraction, desired.CPU.CoreFraction, DefaultCPUCoreFraction, ActionRestart)
-
-	// Yield full replace if both fields changed.
-	if HasChanges(coresChanges) && HasChanges(fractionChanges) {
-		return []FieldChange{
-			{
-				Operation:      ChangeReplace,
-				Path:           "cpu",
-				CurrentValue:   current.CPU,
-				DesiredValue:   desired.CPU,
-				ActionRequired: ActionRestart,
-			},
-		}
-	}
-
-	if HasChanges(coresChanges) {
-		return coresChanges
-	}
-
-	if HasChanges(fractionChanges) {
-		return fractionChanges
-	}
-
-	return nil
 }
 
 func compareProvisioning(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
