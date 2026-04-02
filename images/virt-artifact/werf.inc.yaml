@@ -12,6 +12,7 @@ fromImage: builder/src
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
+fromCacheVersion: new
 shell:
   install:
   - |
