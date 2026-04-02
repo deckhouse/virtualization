@@ -82,3 +82,22 @@ func TestProgress_StallBump(t *testing.T) {
 		t.Fatalf("expected stall bump to increase progress to 71, got=%d", progress)
 	}
 }
+
+func TestProgress_DegradedModeWithoutMetrics(t *testing.T) {
+	now := time.Now()
+	p := NewProgress()
+
+	progress := p.SyncProgress(Record{
+		Now:              now,
+		StartedAt:        now.Add(-2 * time.Minute),
+		PreviousProgress: 10,
+		Phase:            virtv1.MigrationRunning,
+		DataTotalMiB:     unknownMetric,
+		DataProcessedMiB: unknownMetric,
+		DataRemainingMiB: unknownMetric,
+	})
+
+	if progress < syncRangeMin || progress > syncRangeMax {
+		t.Fatalf("expected degraded-mode progress in sync range [%d,%d], got=%d", syncRangeMin, syncRangeMax, progress)
+	}
+}

@@ -251,6 +251,12 @@ var _ = Describe("LifecycleHandler", func() {
 	)
 
 	Describe("migration progress integration", func() {
+		It("should return generic failed reason for nil migration", func() {
+			h := LifecycleHandler{}
+
+			Expect(h.getFailedReason(nil)).To(Equal(vmopcondition.ReasonFailed))
+		})
+
 		It("should set syncing progress inside [10,90] for running migration", func() {
 			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
 			vmop := newVMOPMigrate()

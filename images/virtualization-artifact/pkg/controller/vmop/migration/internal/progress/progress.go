@@ -27,6 +27,10 @@ const (
 	syncRangeMin int32 = 10
 	syncRangeMax int32 = 90
 
+	// These coefficients tune the degraded-mode progress estimation when KubeVirt
+	// does not expose byte counters for migration transfer state. The algorithm
+	// keeps early stages below the sync range, maps active data synchronization
+	// into [10,90], and preserves monotonic growth with a small stall bump.
 	progressStartPercent      = 3.0
 	progressBulkCeiling       = 45.0
 	progressIterativeCeiling  = 98.0

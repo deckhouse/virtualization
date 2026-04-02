@@ -499,7 +499,11 @@ func ptrToInt32(v int32) *int32 {
 }
 
 func (h LifecycleHandler) getFailedReason(mig *virtv1.VirtualMachineInstanceMigration) vmopcondition.ReasonCompleted {
-	if mig != nil && mig.Status.MigrationState != nil {
+	if mig == nil {
+		return vmopcondition.ReasonFailed
+	}
+
+	if mig.Status.MigrationState != nil {
 		state := mig.Status.MigrationState
 		if state.AbortRequested || state.AbortStatus == virtv1.MigrationAbortSucceeded {
 			return vmopcondition.ReasonAborted
