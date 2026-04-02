@@ -32,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	migrationprogress "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/progress"
 	migrationservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -53,8 +54,6 @@ const (
 	progressSourceSuspended    int32 = 91
 	progressTargetResumed      int32 = 92
 	progressMigrationCompleted int32 = 100
-
-	syncingSecondsPerPercent = 2
 )
 
 const (
@@ -72,18 +71,20 @@ type Base interface {
 	IsApplicableOrSetFailedPhase(checker genericservice.ApplicableChecker, vmop *v1alpha2.VirtualMachineOperation, vm *v1alpha2.VirtualMachine) bool
 }
 type LifecycleHandler struct {
-	client    client.Client
-	migration *migrationservice.MigrationService
-	base      Base
-	recorder  eventrecord.EventRecorderLogger
+	client           client.Client
+	migration        *migrationservice.MigrationService
+	base             Base
+	recorder         eventrecord.EventRecorderLogger
+	progressStrategy migrationprogress.Strategy
 }
 
 func NewLifecycleHandler(client client.Client, migration *migrationservice.MigrationService, base Base, recorder eventrecord.EventRecorderLogger) *LifecycleHandler {
 	return &LifecycleHandler{
-		client:    client,
-		migration: migration,
-		base:      base,
-		recorder:  recorder,
+		client:           client,
+		migration:        migration,
+		base:             base,
+		recorder:         recorder,
+		progressStrategy: migrationprogress.NewProgress(),
 	}
 }
 
@@ -289,7 +290,7 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 
 		reason := h.getFailedReason(mig)
 		msg := h.getFailedMessage(reason, mig)
-		progress := calculateMigrationProgress(vmop, mig, reason)
+		progress := h.calculateMigrationProgress(vmop, mig, reason)
 		vmop.Status.Progress = ptrToInt32(progress)
 
 		completedCond.
@@ -320,7 +321,7 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 	if reason == vmopcondition.ReasonTargetScheduling {
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 	}
-	progress := calculateMigrationProgress(vmop, mig, reason)
+	progress := h.calculateMigrationProgress(vmop, mig, reason)
 	vmop.Status.Progress = ptrToInt32(progress)
 
 	completedCond.
@@ -437,7 +438,7 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMac
 	if reason == vmopcondition.ReasonTargetScheduling {
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 	}
-	progress := calculateMigrationProgress(vmop, mig, reason)
+	progress := h.calculateMigrationProgress(vmop, mig, reason)
 	vmop.Status.Progress = ptrToInt32(progress)
 
 	conditions.SetCondition(
@@ -585,7 +586,7 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 	return reason, message, nil
 }
 
-func calculateMigrationProgress(
+func (h LifecycleHandler) calculateMigrationProgress(
 	vmop *v1alpha2.VirtualMachineOperation,
 	mig *virtv1.VirtualMachineInstanceMigration,
 	reason vmopcondition.ReasonCompleted,
@@ -602,23 +603,8 @@ func calculateMigrationProgress(
 	case vmopcondition.ReasonTargetDiskError:
 		return progressTargetPreparing
 	case vmopcondition.ReasonSyncing:
-		start := vmop.CreationTimestamp.Time
-		if mig != nil && mig.Status.MigrationState != nil && mig.Status.MigrationState.StartTimestamp != nil {
-			start = mig.Status.MigrationState.StartTimestamp.Time
-		}
-		elapsed := time.Since(start)
-		if elapsed <= 0 {
-			return progressSyncingMin
-		}
-		seconds := elapsed.Seconds()
-		progress := progressSyncingMin + int32(minInt(int(seconds/syncingSecondsPerPercent), int(progressSyncingMax-progressSyncingMin)))
-		if progress < progressSyncingMin {
-			return progressSyncingMin
-		}
-		if progress > progressSyncingMax {
-			return progressSyncingMax
-		}
-		return progress
+		record := migrationprogress.BuildRecord(vmop, mig, time.Now())
+		return h.progressStrategy.SyncProgress(record)
 	case vmopcondition.ReasonSourceSuspended:
 		return progressSourceSuspended
 	case vmopcondition.ReasonTargetResumed:
@@ -631,13 +617,6 @@ func calculateMigrationProgress(
 		}
 		return 0
 	}
-}
-
-func minInt(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 func (h LifecycleHandler) getTargetPod(ctx context.Context, mig *virtv1.VirtualMachineInstanceMigration) (*corev1.Pod, error) {

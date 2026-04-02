@@ -52,7 +52,7 @@ func newDataMetric(vmop *v1alpha2.VirtualMachineOperation) *dataMetric {
 	if vmop.Status.Phase == v1alpha2.VMOPPhaseCompleted || vmop.Status.Phase == v1alpha2.VMOPPhaseFailed {
 		completedCond, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
 		if (completedCond.Status == metav1.ConditionTrue && (completedCond.Reason == string(vmopcondition.ReasonOperationCompleted) || completedCond.Reason == string(vmopcondition.ReasonMigrationCompleted))) ||
-			(completedCond.Status == metav1.ConditionFalse && (completedCond.Reason == string(vmopcondition.ReasonOperationFailed) || completedCond.Reason == string(vmopcondition.ReasonFailed) || completedCond.Reason == string(vmopcondition.ReasonAborted) || completedCond.Reason == string(vmopcondition.ReasonNotConverging))) {
+			(completedCond.Status == metav1.ConditionFalse && (completedCond.Reason == string(vmopcondition.ReasonOperationFailed) || completedCond.Reason == string(vmopcondition.ReasonFailed) || completedCond.Reason == string(vmopcondition.ReasonAborted) || completedCond.Reason == string(vmopcondition.ReasonNotConverging) || completedCond.Reason == string(vmopcondition.ReasonTargetUnschedulable) || completedCond.Reason == string(vmopcondition.ReasonTargetDiskError))) {
 			finishedAt = completedCond.LastTransitionTime.Unix()
 		}
 	}

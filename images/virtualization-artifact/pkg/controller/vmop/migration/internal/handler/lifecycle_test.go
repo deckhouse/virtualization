@@ -19,6 +19,7 @@ package handler
 import (
 	"context"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -31,6 +32,7 @@ import (
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
@@ -38,6 +40,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 var _ = Describe("LifecycleHandler", func() {
@@ -246,4 +249,55 @@ var _ = Describe("LifecycleHandler", func() {
 			false,                              // targetMigrationEnabled
 		),
 	)
+
+	Describe("migration progress integration", func() {
+		It("should set syncing progress inside [10,90] for running migration", func() {
+			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
+			vmop := newVMOPMigrate()
+			vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+			vmop.Status.Progress = ptr.To[int32](10)
+
+			mig := newSimpleMigration(fmt.Sprintf("vmop-%s", vmop.Name), name)
+			mig.Status.Phase = virtv1.MigrationRunning
+			mig.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				StartTimestamp: &metav1.Time{Time: time.Now().Add(-2 * time.Minute)},
+			}
+
+			fakeClient, srv = setupEnvironment(vmop, vm, mig)
+			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
+			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
+			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
+
+			_, err := h.Handle(ctx, srv.Changed())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhaseInProgress))
+			Expect(srv.Changed().Status.Progress).NotTo(BeNil())
+			Expect(*srv.Changed().Status.Progress).To(BeNumerically(">=", int32(10)))
+			Expect(*srv.Changed().Status.Progress).To(BeNumerically("<=", int32(90)))
+
+			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
+			Expect(found).To(BeTrue())
+			Expect(completed.Reason).To(Equal(vmopcondition.ReasonSyncing.String()))
+		})
+
+		It("should set progress to 100 for succeeded migration", func() {
+			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
+			vmop := newVMOPMigrate()
+			vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+
+			mig := newSimpleMigration(fmt.Sprintf("vmop-%s", vmop.Name), name)
+			mig.Status.Phase = virtv1.MigrationSucceeded
+
+			fakeClient, srv = setupEnvironment(vmop, vm, mig)
+			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
+			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
+			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
+
+			_, err := h.Handle(ctx, srv.Changed())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
+			Expect(srv.Changed().Status.Progress).NotTo(BeNil())
+			Expect(*srv.Changed().Status.Progress).To(Equal(int32(100)))
+		})
+	})
 })
