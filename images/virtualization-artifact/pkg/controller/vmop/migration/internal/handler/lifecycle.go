@@ -49,8 +49,6 @@ const (
 	progressDisksPreparing     int32 = 1
 	progressTargetScheduling   int32 = 2
 	progressTargetPreparing    int32 = 3
-	progressSyncingMin         int32 = 10
-	progressSyncingMax         int32 = 90
 	progressSourceSuspended    int32 = 91
 	progressTargetResumed      int32 = 92
 	progressMigrationCompleted int32 = 100

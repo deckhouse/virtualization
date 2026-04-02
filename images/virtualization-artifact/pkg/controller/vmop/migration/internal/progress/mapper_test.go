@@ -35,8 +35,8 @@ func TestBuildRecord_NilVMOPAndMigration(t *testing.T) {
 	if !record.StartedAt.Equal(now) {
 		t.Fatalf("expected StartedAt=%v, got %v", now, record.StartedAt)
 	}
-	if record.PreviousProgress != syncRangeMin {
-		t.Fatalf("expected PreviousProgress=%d, got %d", syncRangeMin, record.PreviousProgress)
+	if record.PreviousProgress != SyncRangeMin {
+		t.Fatalf("expected PreviousProgress=%d, got %d", SyncRangeMin, record.PreviousProgress)
 	}
 	if record.DataTotalMiB != unknownMetric || record.DataProcessedMiB != unknownMetric || record.DataRemainingMiB != unknownMetric {
 		t.Fatalf("expected unknown metrics, got total=%v processed=%v remaining=%v", record.DataTotalMiB, record.DataProcessedMiB, record.DataRemainingMiB)
@@ -105,12 +105,12 @@ func TestPreviousProgress(t *testing.T) {
 		{
 			name: "nil vmop",
 			vmop: nil,
-			want: syncRangeMin,
+			want: SyncRangeMin,
 		},
 		{
 			name: "nil progress",
 			vmop: &v1alpha2.VirtualMachineOperation{},
-			want: syncRangeMin,
+			want: SyncRangeMin,
 		},
 		{
 			name: "explicit progress",

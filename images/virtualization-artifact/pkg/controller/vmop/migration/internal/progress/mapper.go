@@ -65,7 +65,7 @@ func BuildRecord(vmop *v1alpha2.VirtualMachineOperation, mig *virtv1.VirtualMach
 
 func previousProgress(vmop *v1alpha2.VirtualMachineOperation) int32 {
 	if vmop == nil || vmop.Status.Progress == nil {
-		return syncRangeMin
+		return SyncRangeMin
 	}
 	return *vmop.Status.Progress
 }

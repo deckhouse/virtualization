@@ -415,8 +415,8 @@ var _ = Describe("LifecycleHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhaseInProgress))
 			Expect(srv.Changed().Status.Progress).NotTo(BeNil())
-			Expect(*srv.Changed().Status.Progress).To(BeNumerically(">=", int32(10)))
-			Expect(*srv.Changed().Status.Progress).To(BeNumerically("<=", int32(90)))
+			Expect(*srv.Changed().Status.Progress).To(BeNumerically(">=", migrationprogress.SyncRangeMin))
+			Expect(*srv.Changed().Status.Progress).To(BeNumerically("<=", migrationprogress.SyncRangeMax))
 
 			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
 			Expect(found).To(BeTrue())

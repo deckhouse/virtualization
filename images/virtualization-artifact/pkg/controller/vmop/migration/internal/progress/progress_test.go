@@ -62,8 +62,8 @@ func TestProgress_SyncRangeCaps(t *testing.T) {
 		DataRemainingMiB: 0,
 	})
 
-	if progress < syncRangeMin || progress > syncRangeMax {
-		t.Fatalf("expected progress in sync range [%d,%d], got=%d", syncRangeMin, syncRangeMax, progress)
+	if progress < SyncRangeMin || progress > SyncRangeMax {
+		t.Fatalf("expected progress in sync range [%d,%d], got=%d", SyncRangeMin, SyncRangeMax, progress)
 	}
 }
 
@@ -97,8 +97,8 @@ func TestProgress_DegradedModeWithoutMetrics(t *testing.T) {
 		DataRemainingMiB: unknownMetric,
 	})
 
-	if progress < syncRangeMin || progress > syncRangeMax {
-		t.Fatalf("expected degraded-mode progress in sync range [%d,%d], got=%d", syncRangeMin, syncRangeMax, progress)
+	if progress < SyncRangeMin || progress > SyncRangeMax {
+		t.Fatalf("expected degraded-mode progress in sync range [%d,%d], got=%d", SyncRangeMin, SyncRangeMax, progress)
 	}
 }
 
@@ -115,7 +115,7 @@ func TestProgress_WithMetricsInBulkPhase(t *testing.T) {
 		DataProcessedMiB: 512,
 	})
 
-	if progress <= syncRangeMin || progress >= syncRangeMax {
+	if progress <= SyncRangeMin || progress >= SyncRangeMax {
 		t.Fatalf("expected bulk progress strictly inside sync range, got=%d", progress)
 	}
 }
@@ -147,8 +147,8 @@ func TestProgress_WithMetricsInIterativePhase(t *testing.T) {
 	if iterative <= bulk {
 		t.Fatalf("expected iterative progress to be greater than bulk progress, bulk=%d iterative=%d", bulk, iterative)
 	}
-	if iterative < syncRangeMin || iterative > syncRangeMax {
-		t.Fatalf("expected iterative progress in sync range [%d,%d], got=%d", syncRangeMin, syncRangeMax, iterative)
+	if iterative < SyncRangeMin || iterative > SyncRangeMax {
+		t.Fatalf("expected iterative progress in sync range [%d,%d], got=%d", SyncRangeMin, SyncRangeMax, iterative)
 	}
 }
 
@@ -166,8 +166,8 @@ func TestProgress_UsesRemainingDataFallback(t *testing.T) {
 		DataRemainingMiB: 25,
 	})
 
-	if progress <= syncRangeMin {
-		t.Fatalf("expected fallback metric progress above syncRangeMin, got=%d", progress)
+	if progress <= SyncRangeMin {
+		t.Fatalf("expected fallback metric progress above SyncRangeMin, got=%d", progress)
 	}
 }
 
@@ -178,12 +178,12 @@ func TestProgress_ZeroElapsed(t *testing.T) {
 	progress := p.SyncProgress(Record{
 		Now:              now,
 		StartedAt:        now,
-		PreviousProgress: syncRangeMin,
+		PreviousProgress: SyncRangeMin,
 		Phase:            virtv1.MigrationPending,
 	})
 
-	if progress != syncRangeMin {
-		t.Fatalf("expected zero elapsed progress=%d, got=%d", syncRangeMin, progress)
+	if progress != SyncRangeMin {
+		t.Fatalf("expected zero elapsed progress=%d, got=%d", SyncRangeMin, progress)
 	}
 }
 
@@ -200,8 +200,8 @@ func TestProgress_VeryLargeElapsedIsCapped(t *testing.T) {
 		Iteration:        1,
 	})
 
-	if progress != syncRangeMax {
-		t.Fatalf("expected capped progress=%d, got=%d", syncRangeMax, progress)
+	if progress != SyncRangeMax {
+		t.Fatalf("expected capped progress=%d, got=%d", SyncRangeMax, progress)
 	}
 }
 
@@ -255,10 +255,10 @@ func TestProgress_StallBumpNotAppliedEarly(t *testing.T) {
 }
 
 func TestMapToSyncRangeBoundaries(t *testing.T) {
-	if got := mapToSyncRange(progressStartPercent); got != syncRangeMin {
-		t.Fatalf("expected lower boundary=%d, got=%d", syncRangeMin, got)
+	if got := mapToSyncRange(progressStartPercent); got != SyncRangeMin {
+		t.Fatalf("expected lower boundary=%d, got=%d", SyncRangeMin, got)
 	}
-	if got := mapToSyncRange(progressIterativeCeiling); got != syncRangeMax {
-		t.Fatalf("expected upper boundary=%d, got=%d", syncRangeMax, got)
+	if got := mapToSyncRange(progressIterativeCeiling); got != SyncRangeMax {
+		t.Fatalf("expected upper boundary=%d, got=%d", SyncRangeMax, got)
 	}
 }

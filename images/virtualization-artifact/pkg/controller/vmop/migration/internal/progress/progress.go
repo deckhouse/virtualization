@@ -24,8 +24,8 @@ import (
 )
 
 const (
-	syncRangeMin int32 = 10
-	syncRangeMax int32 = 90
+	SyncRangeMin int32 = 10
+	SyncRangeMax int32 = 90
 
 	// These coefficients tune the degraded-mode progress estimation when KubeVirt
 	// does not expose byte counters for migration transfer state. The algorithm
@@ -155,7 +155,7 @@ func applyMonotonicStallBump(previous, current int32, elapsedSec float64, iterat
 func mapToSyncRange(internal float64) int32 {
 	normalized := (clampFloat(internal, progressStartPercent, progressIterativeCeiling) - progressStartPercent) /
 		(progressIterativeCeiling - progressStartPercent)
-	mapped := float64(syncRangeMin) + normalized*float64(syncRangeMax-syncRangeMin)
+	mapped := float64(SyncRangeMin) + normalized*float64(SyncRangeMax-SyncRangeMin)
 	return clampSyncRange(int32(math.Round(mapped)))
 }
 
@@ -170,11 +170,11 @@ func clampFloat(v, minV, maxV float64) float64 {
 }
 
 func clampSyncRange(v int32) int32 {
-	if v < syncRangeMin {
-		return syncRangeMin
+	if v < SyncRangeMin {
+		return SyncRangeMin
 	}
-	if v > syncRangeMax {
-		return syncRangeMax
+	if v > SyncRangeMax {
+		return SyncRangeMax
 	}
 	return v
 }
