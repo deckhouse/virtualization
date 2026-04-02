@@ -94,7 +94,7 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	if vmop != nil {
 		completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
 		switch completed.Reason {
-		case vmopcondition.ReasonMigrationPrepareTarget.String(), vmopcondition.ReasonMigrationTargetReady.String(), vmopcondition.ReasonMigrationRunning.String():
+		case vmopcondition.ReasonMigrationPrepareTarget.String(), vmopcondition.ReasonMigrationTargetReady.String(), vmopcondition.ReasonMigrationRunning.String(), vmopcondition.ReasonTargetPreparing.String(), vmopcondition.ReasonSyncing.String(), vmopcondition.ReasonSourceSuspended.String(), vmopcondition.ReasonTargetResumed.String():
 			return reconcile.Result{}, nil
 		}
 	}

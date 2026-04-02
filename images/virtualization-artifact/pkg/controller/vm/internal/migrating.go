@@ -162,16 +162,16 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 
 		completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
 		switch completed.Reason {
-		case vmopcondition.ReasonMigrationPending.String():
+		case vmopcondition.ReasonMigrationPending.String(), vmopcondition.ReasonTargetScheduling.String():
 			cb.Message("Migration is awaiting start.")
 
 		case vmopcondition.ReasonQuotaExceeded.String():
 			cb.Message(fmt.Sprintf("Migration is pending: %s.", completed.Message))
 
-		case vmopcondition.ReasonMigrationPrepareTarget.String():
+		case vmopcondition.ReasonMigrationPrepareTarget.String(), vmopcondition.ReasonTargetPreparing.String(), vmopcondition.ReasonDisksPreparing.String():
 			cb.Message("Migration is awaiting target preparation.")
 
-		case vmopcondition.ReasonMigrationTargetReady.String():
+		case vmopcondition.ReasonMigrationTargetReady.String(), vmopcondition.ReasonSyncing.String(), vmopcondition.ReasonSourceSuspended.String(), vmopcondition.ReasonTargetResumed.String():
 			cb.Message("Migration is awaiting execution.")
 
 		case vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate.String():
@@ -183,7 +183,7 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 		case vmopcondition.ReasonMigrationRunning.String():
 			cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonMigratingInProgress)
 
-		case vmopcondition.ReasonOperationCompleted.String():
+		case vmopcondition.ReasonOperationCompleted.String(), vmopcondition.ReasonMigrationCompleted.String():
 			conditions.RemoveCondition(vmcondition.TypeMigrating, &vm.Status.Conditions)
 			return nil
 

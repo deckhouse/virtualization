@@ -51,8 +51,8 @@ func newDataMetric(vmop *v1alpha2.VirtualMachineOperation) *dataMetric {
 	var finishedAt int64
 	if vmop.Status.Phase == v1alpha2.VMOPPhaseCompleted || vmop.Status.Phase == v1alpha2.VMOPPhaseFailed {
 		completedCond, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
-		if (completedCond.Status == metav1.ConditionTrue && completedCond.Reason == string(vmopcondition.ReasonOperationCompleted)) ||
-			(completedCond.Status == metav1.ConditionFalse && completedCond.Reason == string(vmopcondition.ReasonOperationFailed)) {
+		if (completedCond.Status == metav1.ConditionTrue && (completedCond.Reason == string(vmopcondition.ReasonOperationCompleted) || completedCond.Reason == string(vmopcondition.ReasonMigrationCompleted))) ||
+			(completedCond.Status == metav1.ConditionFalse && (completedCond.Reason == string(vmopcondition.ReasonOperationFailed) || completedCond.Reason == string(vmopcondition.ReasonFailed) || completedCond.Reason == string(vmopcondition.ReasonAborted) || completedCond.Reason == string(vmopcondition.ReasonNotConverging))) {
 			finishedAt = completedCond.LastTransitionTime.Unix()
 		}
 	}

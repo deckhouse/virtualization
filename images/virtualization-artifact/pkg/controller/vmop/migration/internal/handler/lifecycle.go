@@ -19,6 +19,8 @@ package handler
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,6 +43,27 @@ import (
 )
 
 const lifecycleHandlerName = "LifecycleHandler"
+
+const (
+	progressDisksPreparing     int32 = 1
+	progressTargetScheduling   int32 = 2
+	progressTargetPreparing    int32 = 3
+	progressSyncingMin         int32 = 10
+	progressSyncingMax         int32 = 90
+	progressSourceSuspended    int32 = 91
+	progressTargetResumed      int32 = 92
+	progressMigrationCompleted int32 = 100
+
+	syncingSecondsPerPercent = 2
+)
+
+const (
+	messageSyncingSourceAndTarget = "Syncing source and target"
+	messageTargetPodScheduling    = "Target pod is being scheduled"
+	messageTargetPodPreparing     = "Target pod is being prepared"
+	messageTargetVMResumed        = "Target VM resumed"
+	messageSourceVMSuspended      = "Source VM suspended"
+)
 
 type Base interface {
 	Init(vmop *v1alpha2.VirtualMachineOperation)
@@ -264,43 +287,41 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
 		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "VirtualMachineOperation failed")
 
-		msg := "Migration failed"
-		if mig.Status.MigrationState != nil && mig.Status.MigrationState.FailureReason != "" {
-			msg += ": " + mig.Status.MigrationState.FailureReason
-		}
-		msgByFailedReason := getMessageByMigrationFailedReason(mig)
-		if msgByFailedReason != "" {
-			msg += ": " + msgByFailedReason
-		}
+		reason := h.getFailedReason(mig)
+		msg := h.getFailedMessage(reason, mig)
+		progress := calculateMigrationProgress(vmop, mig, reason)
+		vmop.Status.Progress = ptrToInt32(progress)
 
 		completedCond.
 			Status(metav1.ConditionFalse).
-			Reason(vmopcondition.ReasonOperationFailed).
+			Reason(reason).
 			Message(msg)
 		conditions.SetCondition(completedCond, &vmop.Status.Conditions)
 		return nil
 	case virtv1.MigrationSucceeded:
 		vmop.Status.Phase = v1alpha2.VMOPPhaseCompleted
 		h.recorder.Event(vmop, corev1.EventTypeNormal, v1alpha2.ReasonVMOPSucceeded, "VirtualMachineOperation succeeded")
+		vmop.Status.Progress = ptrToInt32(100)
 
 		completedCond.
 			Status(metav1.ConditionTrue).
-			Reason(vmopcondition.ReasonOperationCompleted)
+			Reason(vmopcondition.ReasonMigrationCompleted)
 		conditions.SetCondition(completedCond, &vmop.Status.Conditions)
 		return nil
 	}
 
 	// 3. Migration in progress. Set in progress phase
-	vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
-	reason := mapMigrationPhaseToReason[mig.Status.Phase]
-	if reason == vmopcondition.ReasonMigrationPending {
-		vmop.Status.Phase = v1alpha2.VMOPPhasePending
-	}
-
-	msg, err := h.getConditionCompletedMessageByReason(ctx, reason, mig)
+	reason, msg, err := h.getInProgressReasonAndMessage(ctx, mig)
 	if err != nil {
 		return err
 	}
+
+	vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+	if reason == vmopcondition.ReasonTargetScheduling {
+		vmop.Status.Phase = v1alpha2.VMOPPhasePending
+	}
+	progress := calculateMigrationProgress(vmop, mig, reason)
+	vmop.Status.Progress = ptrToInt32(progress)
 
 	completedCond.
 		Status(metav1.ConditionFalse).
@@ -363,6 +384,7 @@ func (h LifecycleHandler) canExecute(vmop *v1alpha2.VirtualMachineOperation, vm 
 
 	if migratable.Status == metav1.ConditionTrue {
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
+		vmop.Status.Progress = ptrToInt32(1)
 		conditions.SetCondition(
 			conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 				Generation(vmop.GetGeneration()).
@@ -406,16 +428,17 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMac
 		return err
 	}
 
-	vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
-	reason := mapMigrationPhaseToReason[mig.Status.Phase]
-	if reason == vmopcondition.ReasonMigrationPending {
-		vmop.Status.Phase = v1alpha2.VMOPPhasePending
-	}
-
-	msg, err := h.getConditionCompletedMessageByReason(ctx, reason, mig)
+	reason, msg, err := h.getInProgressReasonAndMessage(ctx, mig)
 	if err != nil {
 		return err
 	}
+
+	vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+	if reason == vmopcondition.ReasonTargetScheduling {
+		vmop.Status.Phase = v1alpha2.VMOPPhasePending
+	}
+	progress := calculateMigrationProgress(vmop, mig, reason)
+	vmop.Status.Progress = ptrToInt32(progress)
 
 	conditions.SetCondition(
 		conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
@@ -455,17 +478,6 @@ func (h LifecycleHandler) recordEvent(ctx context.Context, vmop *v1alpha2.Virtua
 	}
 }
 
-var mapMigrationPhaseToReason = map[virtv1.VirtualMachineInstanceMigrationPhase]vmopcondition.ReasonCompleted{
-	virtv1.MigrationPhaseUnset:  vmopcondition.ReasonMigrationPending,
-	virtv1.MigrationPending:     vmopcondition.ReasonMigrationPending,
-	virtv1.MigrationScheduling:  vmopcondition.ReasonMigrationPrepareTarget,
-	virtv1.MigrationScheduled:   vmopcondition.ReasonMigrationPrepareTarget,
-	virtv1.MigrationTargetReady: vmopcondition.ReasonMigrationTargetReady,
-	virtv1.MigrationRunning:     vmopcondition.ReasonMigrationRunning,
-	virtv1.MigrationSucceeded:   vmopcondition.ReasonOperationCompleted,
-	virtv1.MigrationFailed:      vmopcondition.ReasonOperationFailed,
-}
-
 func getMessageByMigrationFailedReason(mig *virtv1.VirtualMachineInstanceMigration) string {
 	cond, found := conditions.GetKVVMIMCondition(virtv1.VirtualMachineInstanceMigrationFailed, mig.Status.Conditions)
 
@@ -479,6 +491,153 @@ func getMessageByMigrationFailedReason(mig *virtv1.VirtualMachineInstanceMigrati
 	}
 
 	return ""
+}
+
+func ptrToInt32(v int32) *int32 {
+	return &v
+}
+
+func (h LifecycleHandler) getFailedReason(mig *virtv1.VirtualMachineInstanceMigration) vmopcondition.ReasonCompleted {
+	if mig != nil && mig.Status.MigrationState != nil {
+		state := mig.Status.MigrationState
+		if state.AbortRequested || state.AbortStatus == virtv1.MigrationAbortSucceeded {
+			return vmopcondition.ReasonAborted
+		}
+		if strings.Contains(strings.ToLower(state.FailureReason), "converg") || strings.Contains(strings.ToLower(state.FailureReason), "progress") {
+			return vmopcondition.ReasonNotConverging
+		}
+	}
+
+	if cond, found := conditions.GetKVVMIMCondition(virtv1.VirtualMachineInstanceMigrationFailed, mig.Status.Conditions); found {
+		reason := strings.ToLower(cond.Reason + " " + cond.Message)
+		if strings.Contains(reason, "schedul") || strings.Contains(reason, "unschedul") {
+			return vmopcondition.ReasonTargetUnschedulable
+		}
+		if strings.Contains(reason, "csi") || strings.Contains(reason, "attach") || strings.Contains(reason, "volume") || strings.Contains(reason, "disk") {
+			return vmopcondition.ReasonTargetDiskError
+		}
+	}
+
+	return vmopcondition.ReasonFailed
+}
+
+func (h LifecycleHandler) getFailedMessage(reason vmopcondition.ReasonCompleted, mig *virtv1.VirtualMachineInstanceMigration) string {
+	base := "Migration failed"
+	switch reason {
+	case vmopcondition.ReasonAborted:
+		base = "Migration aborted"
+	case vmopcondition.ReasonNotConverging:
+		base = "Migration did not converge"
+	case vmopcondition.ReasonTargetUnschedulable:
+		base = "Migration failed: target pod is unschedulable"
+	case vmopcondition.ReasonTargetDiskError:
+		base = "Migration failed: target disk attach error"
+	}
+
+	if mig != nil && mig.Status.MigrationState != nil && mig.Status.MigrationState.FailureReason != "" {
+		return fmt.Sprintf("%s: %s", base, mig.Status.MigrationState.FailureReason)
+	}
+	if msg := getMessageByMigrationFailedReason(mig); msg != "" {
+		return fmt.Sprintf("%s: %s", base, msg)
+	}
+	return base
+}
+
+func (h LifecycleHandler) getInProgressReasonAndMessage(
+	ctx context.Context,
+	mig *virtv1.VirtualMachineInstanceMigration,
+) (vmopcondition.ReasonCompleted, string, error) {
+	reason := vmopcondition.ReasonSyncing
+	message := messageSyncingSourceAndTarget
+
+	switch mig.Status.Phase {
+	case virtv1.MigrationPhaseUnset, virtv1.MigrationPending, virtv1.MigrationScheduling:
+		reason = vmopcondition.ReasonTargetScheduling
+		message = messageTargetPodScheduling
+	case virtv1.MigrationScheduled, virtv1.MigrationPreparingTarget:
+		reason = vmopcondition.ReasonTargetPreparing
+		message = messageTargetPodPreparing
+	case virtv1.MigrationTargetReady, virtv1.MigrationWaitingForSync, virtv1.MigrationSynchronizing, virtv1.MigrationRunning:
+		reason = vmopcondition.ReasonSyncing
+		message = messageSyncingSourceAndTarget
+	}
+
+	pod, err := h.getTargetPod(ctx, mig)
+	if err != nil {
+		return "", "", err
+	}
+	if isPodPendingUnschedulable(pod) {
+		return vmopcondition.ReasonTargetUnschedulable, fmt.Sprintf("Target pod %q is unschedulable", pod.Namespace+"/"+pod.Name), nil
+	}
+
+	if mig.Status.MigrationState != nil {
+		state := mig.Status.MigrationState
+		if state.TargetNodeDomainReadyTimestamp != nil {
+			reason = vmopcondition.ReasonTargetResumed
+			message = messageTargetVMResumed
+		}
+		if state.Completed {
+			reason = vmopcondition.ReasonSourceSuspended
+			message = messageSourceVMSuspended
+		}
+	}
+
+	return reason, message, nil
+}
+
+func calculateMigrationProgress(
+	vmop *v1alpha2.VirtualMachineOperation,
+	mig *virtv1.VirtualMachineInstanceMigration,
+	reason vmopcondition.ReasonCompleted,
+) int32 {
+	switch reason {
+	case vmopcondition.ReasonDisksPreparing:
+		return progressDisksPreparing
+	case vmopcondition.ReasonTargetScheduling:
+		return progressTargetScheduling
+	case vmopcondition.ReasonTargetUnschedulable:
+		return progressTargetScheduling
+	case vmopcondition.ReasonTargetPreparing:
+		return progressTargetPreparing
+	case vmopcondition.ReasonTargetDiskError:
+		return progressTargetPreparing
+	case vmopcondition.ReasonSyncing:
+		start := vmop.CreationTimestamp.Time
+		if mig != nil && mig.Status.MigrationState != nil && mig.Status.MigrationState.StartTimestamp != nil {
+			start = mig.Status.MigrationState.StartTimestamp.Time
+		}
+		elapsed := time.Since(start)
+		if elapsed <= 0 {
+			return progressSyncingMin
+		}
+		seconds := elapsed.Seconds()
+		progress := progressSyncingMin + int32(minInt(int(seconds/syncingSecondsPerPercent), int(progressSyncingMax-progressSyncingMin)))
+		if progress < progressSyncingMin {
+			return progressSyncingMin
+		}
+		if progress > progressSyncingMax {
+			return progressSyncingMax
+		}
+		return progress
+	case vmopcondition.ReasonSourceSuspended:
+		return progressSourceSuspended
+	case vmopcondition.ReasonTargetResumed:
+		return progressTargetResumed
+	case vmopcondition.ReasonMigrationCompleted:
+		return progressMigrationCompleted
+	default:
+		if vmop != nil && vmop.Status.Progress != nil {
+			return *vmop.Status.Progress
+		}
+		return 0
+	}
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func (h LifecycleHandler) getTargetPod(ctx context.Context, mig *virtv1.VirtualMachineInstanceMigration) (*corev1.Pod, error) {
@@ -521,31 +680,4 @@ func isPodPendingUnschedulable(pod *corev1.Pod) bool {
 		}
 	}
 	return false
-}
-
-func (h LifecycleHandler) getConditionCompletedMessageByReason(
-	ctx context.Context,
-	reason vmopcondition.ReasonCompleted,
-	mig *virtv1.VirtualMachineInstanceMigration,
-) (string, error) {
-	switch reason {
-	case vmopcondition.ReasonMigrationPending:
-		return "The VirtualMachineOperation for migrating the virtual machine has been queued. " +
-			"Waiting for the queue to be processed and for this operation to be executed.", nil
-
-	case vmopcondition.ReasonMigrationPrepareTarget:
-		pod, err := h.getTargetPod(ctx, mig)
-		if err != nil {
-			return "", err
-		}
-
-		if isPodPendingUnschedulable(pod) {
-			return fmt.Sprintf("Waiting for the virtual machine to be scheduled: "+
-				"target pod \"%s/%s\" is unschedulable.", pod.Namespace, pod.Name), nil
-		}
-		return "The target environment is in the process of being prepared for migration.", nil
-
-	default:
-		return "Wait until operation is completed.", nil
-	}
 }
