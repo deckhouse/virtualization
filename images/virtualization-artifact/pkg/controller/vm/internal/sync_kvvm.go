@@ -585,7 +585,10 @@ func (h *SyncKvvmHandler) detectVMSpecChanges(ctx context.Context, s state.Virtu
 		return false, err
 	}
 
-	return currentKvvm.Annotations[annotations.AnnVMLastAppliedSpec] != newKvvm.Annotations[annotations.AnnVMLastAppliedSpec], nil
+	return currentKvvm.Annotations[annotations.AnnVMLastAppliedSpec] != newKvvm.Annotations[annotations.AnnVMLastAppliedSpec] || !equality.Semantic.DeepEqual(
+		currentKvvm.Spec.Template.Spec.Domain.Devices.Disks,
+		newKvvm.Spec.Template.Spec.Domain.Devices.Disks,
+	), nil
 }
 
 // detectVMClassSpecChanges returns true and no error if specification has changes.
