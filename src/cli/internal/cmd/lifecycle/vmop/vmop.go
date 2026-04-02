@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -38,7 +37,7 @@ type VirtualMachineOperation struct {
 }
 
 type options struct {
-	force        bool
+	force        *bool
 	waitComplete bool
 	createOnly   bool
 }
@@ -56,7 +55,7 @@ func New(client kubeclient.Client, opts ...func(*VirtualMachineOperation)) *Virt
 	return vmop
 }
 
-func WithForce(force bool) func(*VirtualMachineOperation) {
+func WithForce(force *bool) func(*VirtualMachineOperation) {
 	return func(o *VirtualMachineOperation) {
 		o.options.force = force
 	}
@@ -80,7 +79,7 @@ func (v VirtualMachineOperation) Stop(ctx context.Context, vmName, vmNamespace s
 }
 
 func (v VirtualMachineOperation) Start(ctx context.Context, vmName, vmNamespace string) (msg string, err error) {
-	vmop := v.newVMOP(vmName, vmNamespace, v1alpha2.VMOPTypeStart, false)
+	vmop := v.newVMOP(vmName, vmNamespace, v1alpha2.VMOPTypeStart, nil)
 	return v.do(ctx, vmop, v.options.createOnly, v.options.waitComplete)
 }
 
@@ -237,7 +236,7 @@ func (v VirtualMachineOperation) isPhaseOrFailed(vmop *v1alpha2.VirtualMachineOp
 	return vmop.Status.Phase == phase || vmop.Status.Phase == v1alpha2.VMOPPhaseFailed
 }
 
-func (v VirtualMachineOperation) newVMOP(vmName, vmNamespace string, t v1alpha2.VMOPType, force bool) *v1alpha2.VirtualMachineOperation {
+func (v VirtualMachineOperation) newVMOP(vmName, vmNamespace string, t v1alpha2.VMOPType, force *bool) *v1alpha2.VirtualMachineOperation {
 	return &v1alpha2.VirtualMachineOperation{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       v1alpha2.VirtualMachineOperationKind,
@@ -250,7 +249,7 @@ func (v VirtualMachineOperation) newVMOP(vmName, vmNamespace string, t v1alpha2.
 		Spec: v1alpha2.VirtualMachineOperationSpec{
 			Type:           t,
 			VirtualMachine: vmName,
-			Force:          ptr.To(force),
+			Force:          force,
 		},
 	}
 }
