@@ -532,7 +532,7 @@ jobs:
           echo "[INFO] Wait 30s for reconsilation start for module sdn"
           sleep 30
           d8_queue
-          
+
           echo "[INFO] Wait for sdn modules to be ready"
           kubectl wait --for=jsonpath='{.status.phase}'=Ready modules sdn --timeout=300s
           echo "[INFO] Wait for sdn deployments to be ready"
