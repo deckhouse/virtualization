@@ -88,6 +88,10 @@ func ConvertDeviceToAttributes(device resourcev1.Device, nodeName string) v1alph
 			if attr.IntValue != nil {
 				attrs.Minor = int(*attr.IntValue)
 			}
+		case "speed":
+			if attr.IntValue != nil {
+				attrs.Speed = int(*attr.IntValue)
+			}
 		}
 	}
 

@@ -335,6 +335,13 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			}
 		}
 
+		for _, ownerRef := range vd.OwnerReferences {
+			if ownerRef.Kind == v1alpha2.VirtualMachineKind {
+				anno[annotations.AnnVirtualDiskHadOwnerReference] = "true"
+				break
+			}
+		}
+
 		vs = &vsv1.VolumeSnapshot{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: anno,

@@ -62,6 +62,11 @@ on:
         description: "Run only check version on release channel"
         default: false
 
+      skip_requirements_check:
+        type: boolean
+        description: "Skip Deckhouse version requirements check before build"
+        default: false
+
       send_results_to_loop:
         type: boolean
         description: "Send results to Loop"
@@ -106,10 +111,58 @@ jobs:
           fi
         shell: bash
 
+  check-requirements-before-build:
+    name: Check module requirements before build
+    runs-on: ubuntu-latest
+    needs: print-vars
+    if: ${{ !inputs.check_only && (inputs.ce || inputs.ee) }}
+    env:
+      GO_VERSION: "1.25.8"
+      input_channel: ${{ github.event.inputs.channel }}
+      input_version: ${{ github.event.inputs.tag }}
+    steps:
+      - name: Skip requirements check
+        if: ${{ inputs.skip_requirements_check }}
+        run: |
+          echo "Requirements check skipped by user input"
+          exit 0
+
+      - name: Install Task
+        if: ${{ !inputs.skip_requirements_check }}
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Go ${{ env.GO_VERSION }}
+        if: ${{ !inputs.skip_requirements_check }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+
+      - uses: actions/checkout@v4
+        if: ${{ !inputs.skip_requirements_check }}
+        with:
+          fetch-depth: 0
+
+      - name: Login to PROD_REGISTRY
+        uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.PROD_READ_REGISTRY }}
+          registry_login: ${{ secrets.PROD_READ_REGISTRY_USER }}
+          registry_password: ${{ secrets.PROD_READ_REGISTRY_PASSWORD }}
+
+      - name: Check module requirements
+        if: ${{ !inputs.skip_requirements_check }}
+        run: |
+          CHANNEL=$input_channel \
+          VERSION=$input_version \
+          task -d tools/moduleversions check:requirements
+
   job-CE:
     name: Edition CE
     runs-on: [self-hosted, large]
-    needs: print-vars
+    needs: [print-vars, check-requirements-before-build]
     if: inputs.ce && !inputs.check_only
     steps:
       - name: Setup Docker config
@@ -168,7 +221,7 @@ jobs:
 
   job-EE:
     name: Edition EE
-    needs: print-vars
+    needs: [print-vars, check-requirements-before-build]
     runs-on: [self-hosted, large]
     if: inputs.ee && !inputs.check_only
     steps:
@@ -358,7 +411,7 @@ jobs:
     name: Check version on release channel
     runs-on: ubuntu-latest
     env:
-      GO_VERSION: "1.24.13"
+      GO_VERSION: "1.25.8"
       input_channel: ${{ github.event.inputs.channel }}
       input_version: ${{ github.event.inputs.tag }}
     needs:

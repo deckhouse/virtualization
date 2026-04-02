@@ -348,6 +348,27 @@ enableParavirtualization: true
 				requirePathOperation("enableParavirtualization", ChangeReplace),
 			),
 		},
+		{
+			"no restart when network ids are assigned",
+			`
+networks:
+- type: Main
+- type: Network
+  name: net1
+`,
+			`
+networks:
+- type: Main
+  id: 1
+- type: Network
+  name: net1
+  id: 2
+`,
+			assertChanges(
+				actionRequired(ActionNone),
+				requirePathOperation("networks", ChangeReplace),
+			),
+		},
 	}
 
 	for _, tt := range tests {

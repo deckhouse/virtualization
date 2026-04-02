@@ -53,6 +53,8 @@ const (
 	testFileValue        = "test-file-value"
 	exportedDiskFile     = "exported-disk.img"
 	exportedSnapshotFile = "exported-snapshot.img"
+	// diskImageExportFile is the filename inside a filesystem-backed (e.g. NFS) volume export.
+	diskImageExportFile = "disk.img"
 )
 
 var _ = Describe("DataExports", label.Slow(), func() {
@@ -103,7 +105,7 @@ var _ = Describe("DataExports", label.Slow(), func() {
 				vmbuilder.WithName("vm"),
 				vmbuilder.WithNamespace(f.Namespace().Name),
 				vmbuilder.WithCPU(1, ptr.To("5%")),
-				vmbuilder.WithMemory(resource.MustParse("256Mi")),
+				vmbuilder.WithMemory(resource.MustParse("512Mi")),
 				vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 				vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
 				vmbuilder.WithBlockDeviceRefs(
@@ -238,6 +240,14 @@ var _ = Describe("DataExports", label.Slow(), func() {
 	})
 })
 
+func IsNFS() bool {
+	sc := framework.GetConfig().StorageClass.TemplateStorageClass
+	if sc == nil {
+		return false
+	}
+	return sc.Provisioner == framework.NFS
+}
+
 func needPublishOption(f *framework.Framework) bool {
 	hostname, err := os.Hostname()
 	Expect(err).NotTo(HaveOccurred(), "Failed to get hostname")
@@ -255,12 +265,16 @@ func needPublishOption(f *framework.Framework) bool {
 }
 
 func exportData(f *framework.Framework, resourceType, name, outputFile string) {
-	result := f.D8Virtualization().DataExportDownload(resourceType, name, d8.DataExportOptions{
+	opts := d8.DataExportOptions{
 		Namespace:  f.Namespace().Name,
 		OutputFile: outputFile,
 		Publish:    needPublishOption(f),
 		Timeout:    framework.LongTimeout,
-	})
+	}
+	if IsNFS() {
+		opts.SourcePath = diskImageExportFile
+	}
+	result := f.D8Virtualization().DataExportDownload(resourceType, name, opts)
 	Expect(result.WasSuccess()).To(BeTrue(), "d8 data export download failed: %s", result.StdErr())
 
 	DeferCleanup(func() {

@@ -31,6 +31,8 @@ const (
 // > This resource cannot be modified once it has been created.
 //
 // With this resource in the cluster, a container image is created and stored in a dedicated Deckhouse Virtualization Container Registry (DVCR) or PVC, with the data filled in from the source.
+//
+// **Note:** The `metadata.name` field must comply with [Kubernetes object naming conventions](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/) and must not exceed 49 characters.
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}

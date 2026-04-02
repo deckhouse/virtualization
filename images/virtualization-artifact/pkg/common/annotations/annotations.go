@@ -197,6 +197,8 @@ const (
 	AnnVirtualDiskOriginalAnnotations = AnnAPIGroupV + "/vd-original-annotations"
 	// AnnVirtualDiskOriginalLabels is the annotation for storing original VirtualDisk labels.
 	AnnVirtualDiskOriginalLabels = AnnAPIGroupV + "/vd-original-labels"
+	// AnnVirtualDiskHadOwnerReference is the annotation on VolumeSnapshot set to "true" when the source VirtualDisk had an owner reference at snapshot time; absent otherwise.
+	AnnVirtualDiskHadOwnerReference = AnnAPIGroupV + "/vd-had-owner-reference"
 	// AnnVMOPUID is an annotation on vmop that represents name of VMOP.
 	AnnVMOPUID = AnnAPIGroupV + "/vmop-uid"
 	// AnnVMOPSnapshotName is an annotation on vmop that represents name a snapshot created for VMOP.
@@ -218,9 +220,11 @@ const (
 	// AnnUSBDeviceUser is the annotation for device user (owner) in ResourceClaimTemplate.
 	AnnUSBDeviceUser = "usb.virtualization.deckhouse.io/device-user"
 
-	AnnUSBIPTotalPorts = "usb.virtualization.deckhouse.io/usbip-total-ports"
-	AnnUSBIPUsedPorts  = "usb.virtualization.deckhouse.io/usbip-used-ports"
-	AnnUSBIPAddress    = "usb.virtualization.deckhouse.io/usbip-address"
+	AnnUSBIPTotalPorts             = "usb.virtualization.deckhouse.io/usbip-total-ports"
+	AnnUSBIPUsedPorts              = "usb.virtualization.deckhouse.io/usbip-used-ports"
+	AnnUSBIPHighSpeedHubUsedPorts  = "usb.virtualization.deckhouse.io/usbip-high-speed-hub-used-ports"
+	AnnUSBIPSuperSpeedHubUsedPorts = "usb.virtualization.deckhouse.io/usbip-super-speed-hub-used-ports"
+	AnnUSBIPAddress                = "usb.virtualization.deckhouse.io/usbip-address"
 
 	// DefaultUSBDeviceGroup is the default device group ID for USB devices.
 	DefaultUSBDeviceGroup = "107"

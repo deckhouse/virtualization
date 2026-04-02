@@ -75,7 +75,7 @@ func WithCreateOnly(createOnly bool) func(*VirtualMachineOperation) {
 }
 
 func (v VirtualMachineOperation) Stop(ctx context.Context, vmName, vmNamespace string) (msg string, err error) {
-	vmop := v.newVMOP(vmName, vmNamespace, v1alpha2.VMOPTypeStop, false)
+	vmop := v.newVMOP(vmName, vmNamespace, v1alpha2.VMOPTypeStop, v.options.force)
 	return v.do(ctx, vmop, v.options.createOnly, v.options.waitComplete)
 }
 

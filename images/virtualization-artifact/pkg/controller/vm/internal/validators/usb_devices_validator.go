@@ -19,16 +19,13 @@ package validators
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"strings"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/component-base/featuregate"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/usb"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -151,7 +148,8 @@ func (v *USBDevicesValidator) validateAvailableUSBIPPorts(ctx context.Context, v
 		return admission.Warnings{}, nil
 	}
 
-	var usbFromOtherNodes []string
+	var hsUSBFromOtherNodes []string
+	var ssUSBFromOtherNodes []string
 
 	for _, ref := range vm.Spec.USBDevices {
 		if _, exists := oldUSBDevices[ref.Name]; exists {
@@ -164,46 +162,43 @@ func (v *USBDevicesValidator) validateAvailableUSBIPPorts(ctx context.Context, v
 			return admission.Warnings{}, fmt.Errorf("failed to get USB device %s: %w", ref.Name, err)
 		}
 
-		if usbDevice.Status.NodeName != vm.Status.Node {
-			usbFromOtherNodes = append(usbFromOtherNodes, ref.Name)
+		if usbDevice.Status.NodeName == vm.Status.Node {
+			continue
+		}
+
+		isHS, isSS := usb.ResolveSpeed(usbDevice.Status.Attributes.Speed)
+		switch {
+		case isHS:
+			hsUSBFromOtherNodes = append(hsUSBFromOtherNodes, ref.Name)
+		case isSS:
+			ssUSBFromOtherNodes = append(ssUSBFromOtherNodes, ref.Name)
+		default:
+			return admission.Warnings{}, fmt.Errorf("USB device %s has unsupported speed %d", ref.Name, usbDevice.Status.Attributes.Speed)
 		}
 	}
 
-	if len(usbFromOtherNodes) == 0 {
+	if len(hsUSBFromOtherNodes) == 0 && len(ssUSBFromOtherNodes) == 0 {
 		return admission.Warnings{}, nil
 	}
 
-	node := &corev1.Node{}
-	err := v.client.Get(ctx, client.ObjectKey{Name: vm.Status.Node}, node)
-	if err != nil {
-		return admission.Warnings{}, fmt.Errorf("failed to get node %s: %w", vm.Status.Node, err)
+	if len(hsUSBFromOtherNodes) > 0 {
+		hasFree, err := usb.CheckFreePortForRequestOnNodeExcludingLocalUSBs(ctx, v.client, vm.Status.Node, 480, len(hsUSBFromOtherNodes))
+		if err != nil {
+			return admission.Warnings{}, err
+		}
+		if !hasFree {
+			return admission.Warnings{}, fmt.Errorf("node %s has no available ports for sharing USB devices %v", vm.Status.Node, hsUSBFromOtherNodes)
+		}
 	}
 
-	totalPorts, exists := node.Annotations[annotations.AnnUSBIPTotalPorts]
-	if !exists {
-		return admission.Warnings{}, fmt.Errorf("node %s does not have %s annotation", vm.Status.Node, annotations.AnnUSBIPTotalPorts)
-	}
-	totalPortsInt, err := strconv.Atoi(totalPorts)
-	if err != nil {
-		return admission.Warnings{}, fmt.Errorf("failed to parse %s annotation: %w", annotations.AnnUSBIPTotalPorts, err)
-	}
-
-	// total for 2 usb hubs (2.0 and 3.0)
-	totalPortsInt /= 2
-
-	usedPorts, exists := node.Annotations[annotations.AnnUSBIPUsedPorts]
-	if !exists {
-		return admission.Warnings{}, fmt.Errorf("node %s does not have %s annotation", vm.Status.Node, annotations.AnnUSBIPUsedPorts)
-	}
-	usedPortsInt, err := strconv.Atoi(usedPorts)
-	if err != nil {
-		return admission.Warnings{}, fmt.Errorf("failed to parse %s annotation: %w", annotations.AnnUSBIPUsedPorts, err)
-	}
-
-	wantedPorts := usedPortsInt + len(usbFromOtherNodes)
-
-	if wantedPorts > totalPortsInt {
-		return admission.Warnings{}, fmt.Errorf("node %s not available ports for sharing USB devices %s. total: %d, used: %d, wanted: %d", vm.Status.Node, strings.Join(usbFromOtherNodes, ", "), totalPortsInt, usedPortsInt, wantedPorts)
+	if len(ssUSBFromOtherNodes) > 0 {
+		hasFree, err := usb.CheckFreePortForRequestOnNodeExcludingLocalUSBs(ctx, v.client, vm.Status.Node, 5000, len(ssUSBFromOtherNodes))
+		if err != nil {
+			return admission.Warnings{}, err
+		}
+		if !hasFree {
+			return admission.Warnings{}, fmt.Errorf("node %s has no available ports for sharing USB devices %v", vm.Status.Node, ssUSBFromOtherNodes)
+		}
 	}
 
 	return admission.Warnings{}, nil

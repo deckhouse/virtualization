@@ -18,11 +18,13 @@ package vm
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -38,6 +40,8 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
+
+const lsblkCommand = "lsblk -dn | wc -l"
 
 var _ = Describe("VirtualMachineMigration", func() {
 	var (
@@ -63,7 +67,9 @@ var _ = Describe("VirtualMachineMigration", func() {
 		vmopMigrateBIOS *v1alpha2.VirtualMachineOperation
 		vmopMigrateUEFI *v1alpha2.VirtualMachineOperation
 
-		f = framework.NewFramework("vm-migration")
+		f                     = framework.NewFramework("vm-migration")
+		biosDiskCountOriginal string
+		uefiDiskCountOriginal string
 	)
 
 	BeforeEach(func() {
@@ -79,7 +85,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 				vd.WithNamespace(f.Namespace().Name),
 				vd.WithSize(ptr.To(resource.MustParse("10Gi"))),
 				vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: object.ImageURLAlpineBIOS,
+					URL: object.ImageURLUbuntu,
 				}),
 			)
 			vdBlankBIOS = vd.New(
@@ -221,6 +227,14 @@ var _ = Describe("VirtualMachineMigration", func() {
 				string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.LongTimeout,
 				toObjects(vmbdas)...,
 			)
+
+			util.UntilSSHReady(f, vmBIOS, framework.LongTimeout)
+			util.UntilSSHReady(f, vmUEFI, framework.LongTimeout)
+
+			biosDiskCountOriginal, err = f.SSHCommand(vmBIOS.Name, f.Namespace().Name, lsblkCommand)
+			Expect(err).NotTo(HaveOccurred())
+			uefiDiskCountOriginal, err = f.SSHCommand(vmUEFI.Name, f.Namespace().Name, lsblkCommand)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		By("Create VMOP to trigger migration", func() {
@@ -241,6 +255,20 @@ var _ = Describe("VirtualMachineMigration", func() {
 		})
 
 		By("Wait for migration to complete", func() {
+			ctxVMBDA, cancelVMBDA := context.WithCancel(context.Background())
+			defer cancelVMBDA()
+
+			vmbdaWatchErrCh := make(chan error, 1)
+			vmbdaNames := make([]string, len(vmbdas))
+			for i, a := range vmbdas {
+				vmbdaNames[i] = a.Name
+			}
+			go func() {
+				vmbdaWatchErrCh <- ensureVMBDAsStayAttached(ctxVMBDA,
+					f.VirtClient().VirtualMachineBlockDeviceAttachments(f.Namespace().Name),
+					vmbdaNames, metav1.ListOptions{})
+			}()
+
 			Eventually(func(g Gomega) {
 				err := f.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vmBIOS), vmBIOS)
 				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
@@ -256,13 +284,19 @@ var _ = Describe("VirtualMachineMigration", func() {
 				err = f.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vmopMigrateUEFI), vmopMigrateUEFI)
 				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
 
-				// TODO: Watch vmbda phase via watch to not miss phase flickering.
-				checkVmbdasAttached(f, vmbdas) // Intentionally fail the test on a single error
-				// TODO: Verify hotplug availability from inside the VM during migration.
+				biosDiskCount, err := f.SSHCommand(vmBIOS.Name, f.Namespace().Name, lsblkCommand)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(biosDiskCount).To(Equal(biosDiskCountOriginal))
+				uefiDiskCount, err := f.SSHCommand(vmUEFI.Name, f.Namespace().Name, lsblkCommand)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(uefiDiskCount).To(Equal(uefiDiskCountOriginal))
 
 				g.Expect(vmopMigrateBIOS.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
 				g.Expect(vmopMigrateUEFI.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
 			}).WithPolling(time.Second).WithTimeout(framework.LongTimeout).To(Succeed())
+
+			cancelVMBDA()
+			Expect(<-vmbdaWatchErrCh).NotTo(HaveOccurred(), "VMBDAs should stay in Attached phase during migration")
 		})
 
 		// There is a known issue with the Cilium agent check.
@@ -274,11 +308,54 @@ var _ = Describe("VirtualMachineMigration", func() {
 		})
 
 		By("Check VM can reach external network", func() {
+			util.UntilSSHReady(f, vmBIOS, framework.MiddleTimeout)
+			util.UntilSSHReady(f, vmUEFI, framework.MiddleTimeout)
 			network.CheckExternalConnectivity(f, vmBIOS.Name, network.ExternalHost, network.HTTPStatusOk)
 			network.CheckExternalConnectivity(f, vmUEFI.Name, network.ExternalHost, network.HTTPStatusOk)
 		})
 	})
 })
+
+// ensureVMBDAsStayAttached watches VMBDAs and returns an error if any of the tracked
+// VMBDAs transitions away from the Attached phase. It runs until ctx is cancelled,
+// returning nil if all VMBDAs stayed Attached throughout.
+func ensureVMBDAsStayAttached(ctx context.Context, w util.Watcher, names []string, opts metav1.ListOptions) error {
+	if len(names) == 0 {
+		return nil
+	}
+
+	wi, err := w.Watch(ctx, opts)
+	if err != nil {
+		return err
+	}
+	defer wi.Stop()
+
+	tracked := make(map[string]struct{}, len(names))
+	for _, n := range names {
+		tracked[n] = struct{}{}
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case event, ok := <-wi.ResultChan():
+			if !ok {
+				if ctx.Err() != nil {
+					return nil
+				}
+				return fmt.Errorf("watch channel closed unexpectedly while VMBDAs were still being monitored")
+			}
+			vmbda, ok := event.Object.(*v1alpha2.VirtualMachineBlockDeviceAttachment)
+			if !ok {
+				continue
+			}
+			if _, ok := tracked[vmbda.Name]; ok && vmbda.Status.Phase != v1alpha2.BlockDeviceAttachmentPhaseAttached {
+				return fmt.Errorf("VMBDA %s unexpectedly transitioned to phase %q", vmbda.Name, vmbda.Status.Phase)
+			}
+		}
+	}
+}
 
 func toObjects[T crclient.Object](objs []T) []crclient.Object {
 	out := make([]crclient.Object, len(objs))
@@ -286,15 +363,4 @@ func toObjects[T crclient.Object](objs []T) []crclient.Object {
 		out[i] = o
 	}
 	return out
-}
-
-func checkVmbdasAttached(f *framework.Framework, attachments []*v1alpha2.VirtualMachineBlockDeviceAttachment) {
-	GinkgoHelper()
-
-	var current v1alpha2.VirtualMachineBlockDeviceAttachment
-	for _, a := range attachments {
-		err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(a), &current)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(current.Status.Phase).To(Equal(v1alpha2.BlockDeviceAttachmentPhaseAttached))
-	}
 }

@@ -31,6 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmsopcondition"
@@ -115,6 +116,9 @@ func (h *LifecycleHandler) Handle(ctx context.Context, vmsop *v1alpha2.VirtualMa
 
 	err = h.opExecutor.Execute(ctx, vmsop, vms, restorerSecret)
 	if err != nil {
+		if errors.Is(err, common.ErrQueueing) {
+			return reconcile.Result{Requeue: true}, nil
+		}
 		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonOperationFailed, fmt.Errorf("%s is failed: %w", vmsop.Spec.Type, err).Error())
 	} else {
 		msg := "VirtualMachineSnapshotOperation completed"

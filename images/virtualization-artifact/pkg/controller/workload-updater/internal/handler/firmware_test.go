@@ -33,6 +33,14 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
+type firmwareMigrationStub struct {
+	onceMigrate func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error)
+}
+
+func (s *firmwareMigrationStub) OnceMigrate(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
+	return s.onceMigrate(ctx, vm, annotationKey, annotationExpectedValue)
+}
+
 var _ = Describe("TestFirmwareHandler", func() {
 	const (
 		name      = "vm-firmware"
@@ -54,17 +62,29 @@ var _ = Describe("TestFirmwareHandler", func() {
 		fakeClient = nil
 	})
 
-	newVM := func(needMigrate bool) *v1alpha2.VirtualMachine {
+	newVM := func(firmwareUpToDateStatus metav1.ConditionStatus) *v1alpha2.VirtualMachine {
 		vm := vmbuilder.NewEmpty(name, namespace)
-		status := metav1.ConditionTrue
-		if needMigrate {
-			status = metav1.ConditionFalse
-		}
 		vm.Status.Conditions = append(vm.Status.Conditions, metav1.Condition{
 			Type:   vmcondition.TypeFirmwareUpToDate.String(),
-			Status: status,
+			Status: firmwareUpToDateStatus,
 		})
 		return vm
+	}
+
+	newVMNeedMigrate := func() *v1alpha2.VirtualMachine {
+		return newVM(metav1.ConditionFalse)
+	}
+
+	newVMUpToDate := func() *v1alpha2.VirtualMachine {
+		return newVM(metav1.ConditionTrue)
+	}
+
+	setupFirmwareEnvironment := func(vm *v1alpha2.VirtualMachine, objs ...client.Object) client.Client {
+		allObjects := []client.Object{vm}
+		allObjects = append(allObjects, objs...)
+		fakeClient, err := testutil.NewFakeClientWithObjects(allObjects...)
+		Expect(err).NotTo(HaveOccurred())
+		return fakeClient
 	}
 
 	newVirtController := func(ready bool, launcherImage string) *appsv1.Deployment {
@@ -90,9 +110,9 @@ var _ = Describe("TestFirmwareHandler", func() {
 				},
 			},
 		}
+		deploy.Status.Replicas = 1
 		if ready {
 			deploy.Status.ReadyReplicas = 1
-			deploy.Status.Replicas = 1
 		}
 
 		return deploy
@@ -100,10 +120,10 @@ var _ = Describe("TestFirmwareHandler", func() {
 
 	DescribeTable("FirmwareHandler should return serviceCompleteErr if migration executed",
 		func(vm *v1alpha2.VirtualMachine, deploy *appsv1.Deployment, needMigrate bool) {
-			fakeClient = setupEnvironment(vm, deploy)
+			fakeClient = setupFirmwareEnvironment(vm, deploy)
 
-			mockMigration := &OneShotMigrationMock{
-				OnceMigrateFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
+			mockMigration := &firmwareMigrationStub{
+				onceMigrate: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
 					return true, serviceCompleteErr
 				},
 			}
@@ -118,9 +138,179 @@ var _ = Describe("TestFirmwareHandler", func() {
 				Expect(err).NotTo(HaveOccurred())
 			}
 		},
-		Entry("Migration should be executed", newVM(true), newVirtController(true, firmwareImage), true),
-		Entry("Migration not should be executed", newVM(false), newVirtController(true, firmwareImage), false),
-		Entry("Migration not should be executed because virt-controller not ready", newVM(false), newVirtController(false, firmwareImage), false),
-		Entry("Migration not should be executed because virt-controller ready but has wrong image", newVM(false), newVirtController(true, "wrong-image"), false),
+		Entry("Migration should be executed", newVMNeedMigrate(), newVirtController(true, firmwareImage), true),
+		Entry("Migration not should be executed", newVMUpToDate(), newVirtController(true, firmwareImage), false),
+		Entry("Migration not should be executed because virt-controller not ready", newVMNeedMigrate(), newVirtController(false, firmwareImage), false),
+		Entry("Migration not should be executed because virt-controller ready but has wrong image", newVMNeedMigrate(), newVirtController(true, "wrong-image"), false),
 	)
+
+	It("should call migration when update is needed and virt-controller is ready", func() {
+		vm := newVMNeedMigrate()
+		deploy := newVirtController(true, firmwareImage)
+		fakeClient = setupFirmwareEnvironment(vm, deploy)
+
+		migrationCalled := false
+		h := NewFirmwareHandler(fakeClient, &firmwareMigrationStub{
+			onceMigrate: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
+				migrationCalled = true
+				return false, nil
+			},
+		}, firmwareImage, virtControllerNamespace, virtControllerName)
+
+		_, err := h.Handle(ctx, vm)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(migrationCalled).To(BeTrue())
+	})
+
+	It("should return nil when vm is nil", func() {
+		h := NewFirmwareHandler(nil, nil, firmwareImage, virtControllerNamespace, virtControllerName)
+
+		_, err := h.Handle(ctx, nil)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("should return nil when vm has deletion timestamp", func() {
+		vm := newVMNeedMigrate()
+		now := metav1.Now()
+		vm.DeletionTimestamp = &now
+
+		h := NewFirmwareHandler(nil, nil, firmwareImage, virtControllerNamespace, virtControllerName)
+		_, err := h.Handle(ctx, vm)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("should return error when virt-controller deployment get fails", func() {
+		vm := newVMNeedMigrate()
+		fakeClient = setupFirmwareEnvironment(vm)
+
+		h := NewFirmwareHandler(fakeClient, &firmwareMigrationStub{
+			onceMigrate: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
+				return false, nil
+			},
+		}, firmwareImage, virtControllerNamespace, virtControllerName)
+
+		_, err := h.Handle(ctx, vm)
+		Expect(err).To(HaveOccurred())
+	})
+
+	Describe("needUpdate", func() {
+		buildVMWithConditions := func(conditions []metav1.Condition) *v1alpha2.VirtualMachine {
+			vm := vmbuilder.NewEmpty(name, namespace)
+			vm.Status.Conditions = conditions
+			return vm
+		}
+
+		DescribeTable("should evaluate FirmwareUpToDate condition",
+			func(vm *v1alpha2.VirtualMachine, expected bool) {
+				h := NewFirmwareHandler(nil, nil, firmwareImage, virtControllerNamespace, virtControllerName)
+				Expect(h.needUpdate(vm)).To(Equal(expected))
+			},
+			Entry("FirmwareUpToDate is False", buildVMWithConditions([]metav1.Condition{{
+				Type:   vmcondition.TypeFirmwareUpToDate.String(),
+				Status: metav1.ConditionFalse,
+			}}), true),
+			Entry("FirmwareUpToDate is True", buildVMWithConditions([]metav1.Condition{{
+				Type:   vmcondition.TypeFirmwareUpToDate.String(),
+				Status: metav1.ConditionTrue,
+			}}), false),
+			Entry("FirmwareUpToDate is absent", buildVMWithConditions([]metav1.Condition{{
+				Type:   "SomeOtherCondition",
+				Status: metav1.ConditionTrue,
+			}}), false),
+		)
+	})
+
+	Describe("isVirtControllerUpToDate", func() {
+		It("should return error when deployment is not found", func() {
+			h := NewFirmwareHandler(setupFirmwareEnvironment(newVMNeedMigrate()), nil, firmwareImage, virtControllerNamespace, virtControllerName)
+
+			ready, err := h.isVirtControllerUpToDate(ctx)
+			Expect(err).To(HaveOccurred())
+			Expect(ready).To(BeFalse())
+		})
+
+		DescribeTable("should evaluate deployment state and launcher image",
+			func(deploy *appsv1.Deployment, expectedReady bool) {
+				h := NewFirmwareHandler(setupFirmwareEnvironment(newVMNeedMigrate(), deploy), nil, firmwareImage, virtControllerNamespace, virtControllerName)
+
+				ready, err := h.isVirtControllerUpToDate(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ready).To(Equal(expectedReady))
+			},
+			Entry("deployment is not ready", newVirtController(false, firmwareImage), false),
+			Entry("deployment is ready but image differs", newVirtController(true, "other-image"), false),
+			Entry("deployment is ready and image matches", newVirtController(true, firmwareImage), true),
+		)
+	})
+
+	Describe("getVirtLauncherImage", func() {
+		It("should return empty when virt-controller container is absent", func() {
+			deploy := &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Name: "sidecar",
+								Args: []string{"--launcher-image", firmwareImage},
+							}},
+						},
+					},
+				},
+			}
+			Expect(getVirtLauncherImage(deploy)).To(BeEmpty())
+		})
+
+		It("should return empty when launcher image argument is absent", func() {
+			deploy := &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Name: "virt-controller",
+								Args: []string{"--some-flag", "value"},
+							}},
+						},
+					},
+				},
+			}
+			Expect(getVirtLauncherImage(deploy)).To(BeEmpty())
+		})
+
+		It("should return launcher image from --launcher-image=<value>", func() {
+			deploy := &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Name: "virt-controller",
+								Args: []string{"--launcher-image=" + firmwareImage},
+							}},
+						},
+					},
+				},
+			}
+			Expect(getVirtLauncherImage(deploy)).To(Equal(firmwareImage))
+		})
+
+		It("should return launcher image from command arguments", func() {
+			deploy := &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Name:    "virt-controller",
+								Command: []string{"virt-controller", "--launcher-image", firmwareImage},
+							}},
+						},
+					},
+				},
+			}
+			Expect(getVirtLauncherImage(deploy)).To(Equal(firmwareImage))
+		})
+	})
+
+	It("should return firmware handler name", func() {
+		h := NewFirmwareHandler(nil, nil, firmwareImage, virtControllerNamespace, virtControllerName)
+		Expect(h.Name()).To(Equal(firmwareHandler))
+	})
 })

@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
@@ -41,11 +42,23 @@ type RestartOperation struct {
 }
 
 func (o RestartOperation) Execute(ctx context.Context) error {
+	key := virtualMachineKeyByVmop(o.vmop)
+
 	kvvm := &virtv1.VirtualMachine{}
-	err := o.client.Get(ctx, virtualMachineKeyByVmop(o.vmop), kvvm)
+	err := o.client.Get(ctx, key, kvvm)
 	if err != nil {
 		return err
 	}
+
+	if o.vmop.Spec.Force != nil && *o.vmop.Spec.Force {
+		kvvmi := &virtv1.VirtualMachineInstance{}
+		err = o.client.Get(ctx, key, kvvmi)
+		if err != nil {
+			return err
+		}
+		return powerstate.RestartVM(ctx, o.client, kvvm, kvvmi, true)
+	}
+
 	return kvvmutil.AddRestartAnnotation(ctx, o.client, kvvm)
 }
 

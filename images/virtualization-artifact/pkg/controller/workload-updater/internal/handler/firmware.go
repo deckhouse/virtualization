@@ -36,7 +36,11 @@ import (
 
 const firmwareHandler = "FirmwareHandler"
 
-func NewFirmwareHandler(client client.Client, migration OneShotMigration, firmwareImage, namespace, virtControllerName string) *FirmwareHandler {
+type firmwareMigration interface {
+	OnceMigrate(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error)
+}
+
+func NewFirmwareHandler(client client.Client, migration firmwareMigration, firmwareImage, namespace, virtControllerName string) *FirmwareHandler {
 	return &FirmwareHandler{
 		client:             client,
 		oneShotMigration:   migration,
@@ -48,7 +52,7 @@ func NewFirmwareHandler(client client.Client, migration OneShotMigration, firmwa
 
 type FirmwareHandler struct {
 	client             client.Client
-	oneShotMigration   OneShotMigration
+	oneShotMigration   firmwareMigration
 	firmwareImage      string
 	namespace          string
 	virtControllerName string

@@ -122,6 +122,7 @@ tasks:
           "test/e2e"
           "test/performance/tools/shatal"
           "tools/addlicense"
+          "tools/moduleversions"
         )
         for target in "${TARGETS[@]}"; do
           cp "$ROOT_CONFIG" "$target/.golangci.yaml"

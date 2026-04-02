@@ -23,15 +23,11 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"os/exec"
 	"path"
-	"strings"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -43,7 +39,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/stream"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/klog/v2"
-	"kubevirt.io/containerized-data-importer/pkg/importer"
 
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/datasource"
 	importerrs "github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/errors"
@@ -74,13 +69,6 @@ type ImageInfo struct {
 	VirtualSize uint64 `json:"virtual-size"`
 	Format      string `json:"format"`
 }
-
-const (
-	imageInfoSize        = 64 * 1024 * 1024
-	pipeBufSize          = 64 * 1024 * 1024
-	tempImageInfoPattern = "tempfile"
-	isoImageType         = "iso"
-)
 
 type DataProcessor struct {
 	ds            datasource.DataSourceInterface
@@ -413,88 +401,6 @@ func populateCommonConfigFields(cnf *v1.ConfigFile) {
 		Comment:    "streamed from the datasource",
 		EmptyLayer: false,
 	})
-}
-
-func getImageInfo(ctx context.Context, sourceReader io.ReadCloser) (ImageInfo, error) {
-	formatSourceReaders, err := importer.NewFormatReaders(sourceReader, 0)
-	if err != nil {
-		return ImageInfo{}, fmt.Errorf("error creating format readers: %w", err)
-	}
-
-	var uncompressedN int64
-	var tempImageInfoFile *os.File
-
-	klog.Infoln("Write image info to temp file")
-	{
-		tempImageInfoFile, err = os.CreateTemp("", tempImageInfoPattern)
-		if err != nil {
-			return ImageInfo{}, fmt.Errorf("error creating temp file: %w", err)
-		}
-
-		uncompressedN, err = io.CopyN(tempImageInfoFile, formatSourceReaders.TopReader(), imageInfoSize)
-		if err != nil && !errors.Is(err, io.EOF) {
-			return ImageInfo{}, fmt.Errorf("error writing to temp file: %w", err)
-		}
-
-		if err = tempImageInfoFile.Close(); err != nil {
-			return ImageInfo{}, fmt.Errorf("error closing temp file: %w", err)
-		}
-	}
-
-	klog.Infoln("Get image info from temp file")
-	var imageInfo ImageInfo
-	{
-		cmd := exec.CommandContext(ctx, "qemu-img", "info", "--output=json", tempImageInfoFile.Name())
-		rawOut, err := cmd.Output()
-		if err != nil {
-			return ImageInfo{}, fmt.Errorf("error running qemu-img info: %w", err)
-		}
-
-		klog.Infoln("Qemu-img command output:", string(rawOut))
-
-		if err = json.Unmarshal(rawOut, &imageInfo); err != nil {
-			return ImageInfo{}, fmt.Errorf("error parsing qemu-img info output: %w", err)
-		}
-
-		if imageInfo.Format != "raw" {
-			// It's necessary to read everything from the original image to avoid blocking.
-			_, err = io.Copy(&EmptyWriter{}, sourceReader)
-			if err != nil {
-				return ImageInfo{}, fmt.Errorf("error copying to nowhere: %w", err)
-			}
-
-			return imageInfo, nil
-		}
-	}
-
-	// `qemu-img` command does not support getting information about iso files.
-	// It is necessary to obtain this information in another way (using the `file` command).
-	klog.Infoln("Check the image as it may be an iso")
-	{
-		cmd := exec.CommandContext(ctx, "file", "-b", tempImageInfoFile.Name())
-		rawOut, err := cmd.Output()
-		if err != nil {
-			return ImageInfo{}, fmt.Errorf("error running file info: %w", err)
-		}
-
-		out := string(rawOut)
-
-		klog.Infoln("File command output:", out)
-
-		if strings.HasPrefix(strings.ToLower(out), isoImageType) {
-			imageInfo.Format = isoImageType
-		}
-
-		// Count uncompressed size of source image.
-		n, err := io.Copy(&EmptyWriter{}, formatSourceReaders.TopReader())
-		if err != nil {
-			return ImageInfo{}, fmt.Errorf("error copying to nowhere: %w", err)
-		}
-
-		imageInfo.VirtualSize = uint64(uncompressedN + n)
-
-		return imageInfo, nil
-	}
 }
 
 func destNameOptions(destInsecure bool) []name.Option {

@@ -992,6 +992,10 @@ spec:
                     required:
                       - type
                     properties:
+                      id:
+                        type: integer
+                        description: |
+                          The ID of the network interface.
                       type:
                         type: string
                         description: |
@@ -1404,6 +1408,10 @@ spec:
                     required:
                       - type
                     properties:
+                      id:
+                        type: integer
+                        description: |
+                          The ID of the network interface.
                       type:
                         type: string
                         description: |
