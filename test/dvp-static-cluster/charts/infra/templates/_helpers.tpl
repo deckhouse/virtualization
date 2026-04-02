@@ -54,6 +54,11 @@ spec:
       #cloud-config
       ssh_pwauth: true
       package_update: true
+      network:
+        version: 2
+        ethernets:
+          eno2:
+            dhcp4: false
       packages:
         - qemu-guest-agent
         - jq
