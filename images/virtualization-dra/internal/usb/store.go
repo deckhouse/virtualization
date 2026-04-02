@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"maps"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -59,8 +60,7 @@ func NewAllocationStore(ctx context.Context, nodeName string, cdiManager cdi.Man
 		kubeClient:                 kubeClient,
 		log:                        slog.With(slog.String("component", "usb-allocation-store")),
 		updateChannel:              make(chan resourceslice.DriverResources, 2),
-		discoverPluggedUSBDevices:  NewDeviceSet(),
-		allocatableDevices:         make(map[string]resourcev1.Device),
+		allocatableDevices:         make(map[string]Device),
 		allocatedDevices:           sets.New[string](),
 		usbipAllocatedDevicesCount: make(map[string]int),
 		resourceClaimAllocations:   make(map[types.UID][]string),
@@ -92,13 +92,14 @@ type AllocationStore struct {
 	kubeClient      kubernetes.Interface
 
 	discoverPluggedUSBDevicesInited bool
-	discoverPluggedUSBDevices       DeviceSet
 	discoverUsbIpPluggedUSBDevices  DeviceSet
-	allocatableDevices              map[string]resourcev1.Device
+	allocatableDevices              map[string]Device
 
 	allocatedDevices           sets.Set[string]
 	usbipAllocatedDevicesCount map[string]int
 	resourceClaimAllocations   map[types.UID][]string
+
+	synchronized bool
 }
 
 func (s *AllocationStore) sync(ctx context.Context) error {
@@ -112,26 +113,14 @@ func (s *AllocationStore) sync(ctx context.Context) error {
 
 	s.discoverUsbIpPluggedUSBDevices = discoverUsbIpPluggedUSBDevices
 
-	if s.discoverPluggedUSBDevicesInited && discoverPluggedUSBDevices.Equal(s.discoverPluggedUSBDevices) {
+	if s.discoverPluggedUSBDevicesInited && maps.Equal(discoverPluggedUSBDevices, s.allocatableDevices) {
 		return nil
 	}
 
-	s.discoverPluggedUSBDevices = discoverPluggedUSBDevices
+	s.allocatableDevices = discoverPluggedUSBDevices
 	s.discoverPluggedUSBDevicesInited = true
 
-	allocatableDevices := make([]resourcev1.Device, discoverPluggedUSBDevices.Len())
-	for i, usbDevice := range discoverPluggedUSBDevices.UnsortedList() {
-		allocatableDevices[i] = *convertToAPIDevice(usbDevice, s.nodeName)
-	}
-
-	allocatableDevicesByName := make(map[string]resourcev1.Device, len(allocatableDevices))
-	for _, device := range allocatableDevices {
-		allocatableDevicesByName[device.Name] = device
-	}
-
-	s.allocatableDevices = allocatableDevicesByName
-
-	s.updateChannel <- s.makeResources(allocatableDevices)
+	s.updateChannel <- s.makeResources(discoverPluggedUSBDevices)
 
 	return nil
 }
@@ -166,6 +155,10 @@ func (s *AllocationStore) UpdateChannel() chan resourceslice.DriverResources {
 func (s *AllocationStore) Prepare(ctx context.Context, claim *resourcev1.ResourceClaim) ([]*drapbv1.Device, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if !s.synchronized {
+		return nil, fmt.Errorf("prepare called before synchronize NRI Hook")
+	}
 
 	if claim.Status.Allocation == nil {
 		return nil, fmt.Errorf("claim %s/%s has no allocation", claim.Namespace, claim.Name)
@@ -226,14 +219,10 @@ func (s *AllocationStore) Prepare(ctx context.Context, claim *resourcev1.Resourc
 				return nil, fmt.Errorf("requested device is not allocatable: %v", result.Device)
 			}
 
-			opts, err := newContainerEditsOptions(&usbDevice)
-			if err != nil {
-				return nil, err
-			}
-			containerEditsOptions = opts.withUserGroup(claim)
+			containerEditsOptions = newContainerEditsOptions(&usbDevice, s.nodeName).withUserGroup(claim)
 			usbDeviceInfos = append(usbDeviceInfos, usbDeviceInfo{
 				DeviceName: result.Device,
-				UsbAddress: usbAddress(opts.Bus, opts.DeviceNum),
+				UsbAddress: usbAddressFromDev(&usbDevice),
 			})
 		}
 
@@ -380,52 +369,15 @@ func (c containerEditsOptions) withUserGroup(claim *resourcev1.ResourceClaim) co
 	return c
 }
 
-func newContainerEditsOptions(device *resourcev1.Device) (containerEditsOptions, error) {
-	opts := containerEditsOptions{
-		Name: device.Name,
+func newContainerEditsOptions(device *Device, nodeName string) containerEditsOptions {
+	return containerEditsOptions{
+		Name:       device.GetName(nodeName),
+		DevicePath: device.DevicePath,
+		DeviceNum:  device.DeviceNumber.String(),
+		Bus:        device.Bus.String(),
+		Major:      int64(device.Major),
+		Minor:      int64(device.Minor),
 	}
-
-	if attr, ok := device.Attributes[consts.AttrDevicePath]; ok {
-		if val := attr.StringValue; val != nil {
-			opts.DevicePath = *val
-		} else {
-			return opts, fmt.Errorf("devicePath attribute is not exist")
-		}
-	}
-
-	if attr, ok := device.Attributes[consts.AttrDeviceNumber]; ok {
-		if val := attr.StringValue; val != nil {
-			opts.DeviceNum = *val
-		} else {
-			return opts, fmt.Errorf("deviceNum attribute is not exist")
-		}
-	}
-
-	if attr, ok := device.Attributes[consts.AttrBus]; ok {
-		if val := attr.StringValue; val != nil {
-			opts.Bus = *val
-		} else {
-			return opts, fmt.Errorf("bus attribute is not exist")
-		}
-	}
-
-	if attr, ok := device.Attributes[consts.AttrMajor]; ok {
-		if val := attr.IntValue; val != nil {
-			opts.Major = *val
-		} else {
-			return opts, fmt.Errorf("major attribute is not exist")
-		}
-	}
-
-	if attr, ok := device.Attributes[consts.AttrMinor]; ok {
-		if val := attr.IntValue; val != nil {
-			opts.Minor = *val
-		} else {
-			return opts, fmt.Errorf("minor attribute is not exist")
-		}
-	}
-
-	return opts, nil
 }
 
 func (s *AllocationStore) isUSBGatewayRequest(result *resourcev1.DeviceRequestAllocationResult) bool {
@@ -480,24 +432,36 @@ func (s *AllocationStore) Unprepare(_ context.Context, claimUID types.UID) error
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if !s.synchronized {
+		return fmt.Errorf("unprepare called before synchronize NRI Hook")
+	}
+
 	usbGatewayEnabled := featuregates.Default().USBGatewayEnabled()
 
 	allocatedDevices := s.resourceClaimAllocations[claimUID]
+	s.log.Info("Unpreparing devices", slog.Any("devices", allocatedDevices), slog.String("claimUID", string(claimUID)))
+
 	for _, device := range allocatedDevices {
 		if usbGatewayEnabled {
-			if count := s.usbipAllocatedDevicesCount[device]; count <= 1 {
+			count := s.usbipAllocatedDevicesCount[device]
+			s.log.Info("Device attached by USBGateway", slog.String("device", device), slog.Int("count", count))
+			if count <= 1 {
+				s.log.Info("Detaching device because has only one consumer", slog.String("device", device))
 				if err := s.usbGateway.Detach(device); err != nil {
 					return fmt.Errorf("failed to detach device %s: %w", device, err)
 				}
 				delete(s.usbipAllocatedDevicesCount, device)
 			} else {
+				s.log.Info("Decrementing device consumer count", slog.String("device", device), slog.Int("newCount", count-1))
 				s.usbipAllocatedDevicesCount[device]--
 			}
 		}
 
+		s.log.Info("Deleting device from allocated devices", slog.String("device", device))
 		s.allocatedDevices.Delete(device)
 	}
 
+	s.log.Info("Deleting CDI claim spec file", slog.String("claimUID", string(claimUID)))
 	if err := s.cdi.DeleteClaimSpecFile(string(claimUID)); err != nil {
 		return fmt.Errorf("unable to delete CDI spec file for claim: %w", err)
 	}
@@ -538,15 +502,20 @@ func (s *AllocationStore) Synchronize(_ context.Context, pods []*api.PodSandbox,
 			for claimUID, deviceNames := range claimUIDDeviceNames {
 				s.resourceClaimAllocations[claimUID] = append(s.resourceClaimAllocations[claimUID], deviceNames...)
 				for _, deviceName := range deviceNames {
+					s.log.Info("Found allocated device", slog.String("claimUID", string(claimUID)), slog.String("deviceName", deviceName))
 					s.allocatedDevices.Insert(deviceName)
 
 					if _, ok := uspIPDeviceNames[deviceName]; ok {
 						s.usbipAllocatedDevicesCount[deviceName]++
+						s.log.Info("Found allocated usbip device", slog.String("deviceName", deviceName), slog.Int("count", s.usbipAllocatedDevicesCount[deviceName]))
 					}
 				}
 			}
 		}
 	}
+
+	s.synchronized = true
+
 	return nil, nil
 }
 
@@ -576,15 +545,26 @@ func parseDraEnvToClaimAllocations(envs []string) (map[types.UID][]string, error
 	return result, nil
 }
 
-func (s *AllocationStore) makeResources(devices []resourcev1.Device) resourceslice.DriverResources {
-	if len(devices) == 0 {
+func (s *AllocationStore) makeResources(devicesByName map[string]Device) resourceslice.DriverResources {
+	if len(devicesByName) == 0 {
 		return resourceslice.DriverResources{}
 	}
 
+	devices := make([]resourcev1.Device, 0, len(devicesByName))
+	for _, usbDevice := range devicesByName {
+		devices = append(devices, *usbDevice.ToAPIDevice(s.nodeName))
+	}
+
 	poolName := s.nodeName
+	var perDeviceNodeSelection *bool
 	var nodeSelector *corev1.NodeSelector
+
 	if featuregates.Default().USBGatewayEnabled() {
-		nodeSelector = getNodeSelector(s.nodeName)
+		if featuregates.Default().DRAPartitionableDevicesEnabled() {
+			perDeviceNodeSelection = ptr.To(true)
+		} else {
+			nodeSelector = getCommonNodeSelector(s.nodeName)
+		}
 	}
 
 	return resourceslice.DriverResources{
@@ -592,7 +572,8 @@ func (s *AllocationStore) makeResources(devices []resourcev1.Device) resourcesli
 			poolName: {
 				Slices: []resourceslice.Slice{
 					{
-						Devices: devices,
+						Devices:                devices,
+						PerDeviceNodeSelection: perDeviceNodeSelection,
 					},
 				},
 				NodeSelector: nodeSelector,

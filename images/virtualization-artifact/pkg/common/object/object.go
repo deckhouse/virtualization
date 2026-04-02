@@ -182,3 +182,15 @@ func RemoveAnnotation(ctx context.Context, cl client.Client, obj client.Object, 
 	}
 	return cl.Patch(ctx, obj, client.RawPatch(types.JSONPatchType, bytes))
 }
+
+func RemoveLabel(ctx context.Context, cl client.Client, obj client.Object, labelKey string) error {
+	if _, exist := obj.GetLabels()[labelKey]; !exist {
+		return nil
+	}
+	jsonOp := patch.WithRemove(fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(labelKey)))
+	bytes, err := patch.NewJSONPatch(jsonOp).Bytes()
+	if err != nil {
+		return err
+	}
+	return cl.Patch(ctx, obj, client.RawPatch(types.JSONPatchType, bytes))
+}

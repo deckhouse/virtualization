@@ -531,15 +531,15 @@ jobs:
           sds_replicated_ready() {
             local count=60
             for i in $(seq 1 $count); do
-            
+
               sds_replicated_volume_status=$(kubectl get ns d8-sds-replicated-volume -o jsonpath='{.status.phase}' || echo "False")
-              
+
               if [[ "${sds_replicated_volume_status}" = "Active" ]]; then
                 echo "[SUCCESS] Namespaces sds-replicated-volume are Active"
                 kubectl get ns d8-sds-replicated-volume
                 return 0
               fi
-              
+
               echo "[INFO] Waiting 10s for sds-replicated-volume namespace to be ready (attempt ${i}/${count})"
               if (( i % 5 == 0 )); then
                 echo "[INFO] Show namespaces sds-replicated-volume"
@@ -582,7 +582,7 @@ jobs:
                 echo "[SUCCESS] sds-replicated-volume is ready"
                 return 0
               fi
-              
+
               echo "[WARNING] Not all pods are ready, linstor_node=${linstor_node}, csi_node=${csi_node}"
               echo "[INFO] Waiting 10s for pods to be ready (attempt ${i}/${count})"
               if (( i % 5 == 0 )); then
@@ -615,12 +615,12 @@ jobs:
             local count=60
             workers=$(kubectl get nodes -o name | grep worker | wc -l)
             workers=$((workers))
-            
+
             if [[ $workers -eq 0 ]]; then
               echo "[ERROR] No worker nodes found"
               exit 1
             fi
-            
+
             for i in $(seq 1 $count); do
               blockdevices=$(kubectl get blockdevice -o name | wc -l || true)
               if [ $blockdevices -ge $workers ]; then
@@ -685,189 +685,70 @@ jobs:
             kubectl get storageclass | grep nested
             echo "[SUCCESS] Done"
           fi
-      - name: Configure ceph storage
-        if: ${{ inputs.storage_type == 'ceph' }}
-        id: storage-ceph-setup
-        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/ceph
+
+      - name: Configure NFS storage
+        if: ${{ inputs.storage_type == 'nfs' }}
+        id: storage-nfs-setup
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/nfs
+        env:
+          NAMESPACE: ${{ needs.bootstrap.outputs.namespace }}
         run: |
-          d8_queue_list() {
-            d8 s queue list | grep -Po '([0-9]+)(?= active)' || echo "[WARNING] Failed to retrieve list queue"
-          }
-
-          d8_queue() {
+          nfs_ready() {
             local count=90
-            local queue_count
-
-            for i in $(seq 1 $count) ; do
-              queue_count=$(d8_queue_list)
-              if [ -n "$queue_count" ] && [ "$queue_count" = "0" ]; then
-                echo "[SUCCESS] Queue is clear"
-                return 0
-              fi
-
-              echo "[INFO] Wait until queues are empty ${i}/${count}"
-              if (( i % 5 == 0 )); then
-                echo "[INFO] Show queue list"
-                d8 s queue list | head -n25 || echo "[WARNING] Failed to retrieve list queue"
-                echo " "
-              fi
-
-              if (( i % 10 == 0 )); then
-                echo "[INFO] deckhouse logs"
-                echo "::group::📝 deckhouse logs"
-                d8 s logs | tail -n 100
-                echo "::endgroup::"
-                echo " "
-              fi
-              sleep 10
-            done
-          }
-
-          debug_output() {
-            echo "[DEBUG] Show ceph namespace"
-            echo "::group::📦 ceph namespace"
-            kubectl get ns | grep ceph || echo "Failed to retrieve ceph ns"
-            echo "::endgroup::"
-            echo "[DEBUG] Show ModuleConfig ceph"
-            echo "::group::📦 ModuleConfig ceph"
-            kubectl get mc | grep ceph || echo "Failed to retrieve mc"
-            echo "::endgroup::"
-            echo "[DEBUG] Show ceph in resource modules"
-            echo "::group::📦 ceph in resource modules"
-            kubectl get modules -o wide | grep ceph || echo "Failed to retrieve modules"
-            echo "::endgroup::"
-            echo "[DEBUG] Show queue"
-            echo "::group::📦 queue"
-            d8 s queue list || echo "Failed to retrieve list queue"
-            echo "::endgroup::"
-            echo "[DEBUG] Show deckhouse logs"
-            echo "::group::📝 deckhouse logs"
-            d8 s logs | tail -n 100
-            echo "::endgroup::"
-          }
-
-          ceph_operator_ready() {
-            local count=60
-            local ceph_operator_status
-            local csi_ceph_status
+            local controller
+            local csi_controller
+            local csi_node_desired
+            local csi_node_ready
 
             for i in $(seq 1 $count); do
-              ceph_operator_status=$(kubectl get ns d8-operator-ceph -o jsonpath='{.status.phase}' || echo "False")
-              csi_ceph_status=$(kubectl get module csi-ceph -o jsonpath='{.status.phase}' || echo "False")
-              
-              if [[ "${ceph_operator_status}" = "Active" && "${csi_ceph_status}" = "Ready" ]]; then
-                echo "[SUCCESS] Namespaces operator-ceph and csi are Active"
+              echo "[INFO] Check d8-csi-nfs pods (attempt ${i}/${count})"
+              controller=$(kubectl -n d8-csi-nfs get deploy controller -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+              csi_controller=$(kubectl -n d8-csi-nfs get deploy csi-controller -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+              csi_node_desired=$(kubectl -n d8-csi-nfs get ds csi-node -o jsonpath='{.status.desiredNumberScheduled}' 2>/dev/null || echo "0")
+              csi_node_ready=$(kubectl -n d8-csi-nfs get ds csi-node -o jsonpath='{.status.numberReady}' 2>/dev/null || echo "0")
+
+              if [[ "$controller" -ge 1 && "$csi_controller" -ge 1 && "$csi_node_desired" -gt 0 && "$csi_node_ready" -eq "$csi_node_desired" ]]; then
+                echo "[SUCCESS] NFS CSI is ready (controller=${controller}, csi-controller=${csi_controller}, csi-node=${csi_node_ready}/${csi_node_desired})"
                 return 0
               fi
-              
-              echo "[INFO] Waiting 10s for ceph operator and csi namespaces to be ready (attempt ${i}/${count})"
-              
+
+              echo "[WARNING] NFS CSI not ready: controller=${controller}, csi-controller=${csi_controller}, csi-node=${csi_node_ready}/${csi_node_desired}"
               if (( i % 5 == 0 )); then
-                echo "[DEBUG] Get namespace"
-              kubectl get namespace | grep ceph || echo "[WARNING] Namespaces operator-ceph and csi are not ready"
-                echo "[DEBUG] Show all namespaces"
-                kubectl get namespace
-                echo "[DEBUG] Show queue (first 25 lines)"
-                d8 s queue list | head -n25 || echo "[WARNING] Failed to retrieve list queue"
-                echo " "
+                echo "[DEBUG] Pods in d8-csi-nfs:"
+                kubectl -n d8-csi-nfs get pods || echo "[WARNING] Failed to retrieve pods"
+                echo "[DEBUG] Deployments in d8-csi-nfs:"
+                kubectl -n d8-csi-nfs get deploy || echo "[WARNING] Failed to retrieve deployments"
+                echo "[DEBUG] DaemonSets in d8-csi-nfs:"
+                kubectl -n d8-csi-nfs get ds || echo "[WARNING] Failed to retrieve daemonsets"
+                echo "[DEBUG] csi-nfs module status:"
+                kubectl get modules csi-nfs -o wide || echo "[WARNING] Failed to retrieve module"
               fi
               sleep 10
             done
 
-            debug_output
+            echo "[ERROR] NFS CSI did not become ready in time"
+            kubectl -n d8-csi-nfs get pods || true
             exit 1
           }
 
-          ceph_ready() {
-            local count=90
-            local ceph_mgr
-            local ceph_mon
-            local ceph_osd
+          echo "[INFO] Apply csi-nfs ModuleConfig, ModulePullOverride, snapshot-controller"
+          kubectl apply -f mc.yaml
 
-            for i in $(seq 1 $count); do
-              echo "[INFO] Check ceph pods, mon mgr osd"
-              ceph_mgr=$(kubectl -n d8-operator-ceph get pods | grep "ceph-mgr.*Running" | wc -l || true)
-              ceph_mon=$(kubectl -n d8-operator-ceph get pods | grep "ceph-mon.*Running" | wc -l || true)
-              ceph_osd=$(kubectl -n d8-operator-ceph get pods | grep "ceph-osd.*Running" | wc -l || true)
-              
-              echo "[INFO] check if ceph pods are ready"
-              if [[ $ceph_mgr -ge 2 && $ceph_mon -ge 3 && $ceph_osd -ge 3 ]]; then
-                echo "[SUCCESS] Ceph cluster is ready"
-                return 0
-              fi
+          echo "[INFO] Wait for csi-nfs module to be ready"
+          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules csi-nfs --timeout=300s
 
-              echo "[WARNING] Not all pods are ready, ceph_mgr=${ceph_mgr}, ceph_mon=${ceph_mon}, ceph_osd=${ceph_osd}"
-              echo "[INFO] Waiting 10s for ceph operator to be ready"
-              kubectl -n d8-operator-ceph get pods || echo "Failed to retrieve pods"
-              if (( i % 5 == 0 )); then
-                echo "[DEBUG] Show ceph namespace"
-                kubectl get ns | grep ceph || echo "Failed to retrieve ceph ns"
-                echo "[DEBUG] Show ModuleConfig ceph"
-                kubectl get mc | grep ceph || echo "Failed to retrieve mc"
-                echo "[DEBUG] Show ceph in resource modules"
-                kubectl get modules -o wide | grep ceph || echo "Failed to retrieve modules"
-                echo "[DEBUG] Show queue"
-                d8 s queue list | head -n 25 || echo "Failed to retrieve list queue"
-              fi
-              echo "[INFO] Wait until all necessary pods are ready ${i}/${count}"
-              sleep 10
-            done
-            
-            debug_output
-            exit 1
-          }
+          echo "[INFO] Wait for csi-nfs pods to be ready"
+          nfs_ready
 
-          echo "[INFO] Create ceph operator and csi module config"
-          kubectl apply -f 01-mc.yaml
+          echo "[INFO] Apply NFSStorageClass"
+          envsubst < storageclass.yaml | kubectl apply -f -
 
-          echo "[INFO] Check module source"
-          kubectl get modulesources
+          echo "[INFO] Configure default storage class"
+          ./default-sc-configure.sh
 
-          echo "[INFO] Wait while queues are empty"
-          d8_queue
 
-          echo "[INFO] Wait for operator-ceph namespace to be ready"
-          ceph_operator_ready
-
-          if (kubectl get mc admission-policy-engine -o jsonpath='{.spec.enabled}') ; then
-            echo "[INFO] Label operator-ceph namespace with security.deckhouse.io/pod-policy"
-            kubectl label ns d8-operator-ceph security.deckhouse.io/pod-policy=privileged
-            echo "[INFO] Restart operator-ceph deployment"
-            kubectl -n d8-operator-ceph rollout restart deployment operator-ceph || true
-          fi
-
-          echo "[INFO] Start wait for ceph operator and csi"
-          ceph_operator_ready
-
-          echo "[INFO] Create ServiceAccounts"
-          kubectl apply -f 02-sa.yaml
-          echo "[INFO] Create ConfigMap (patch existing for configure rbd support)"
-          kubectl apply -f 03-cm.yaml
-          echo "[INFO] Create Cluster"
-          kubectl apply -f 04-cluster.yaml
-
-          echo "[INFO] Get pod in d8-operator-ceph"
-          kubectl -n d8-operator-ceph get pods
-
-          echo "[INFO] Wait for ceph operator"
-          ceph_ready
-
-          echo "[INFO] Show pods"
-          kubectl get pods -n d8-operator-ceph
-
-          kubectl apply -f 05-blockpool.yaml
-          echo "[INFO] Wait for ceph-rbd-pool-r2 blockpool to be ready, timeout 600s"
-          kubectl -n d8-operator-ceph wait --for=jsonpath='{.status.phase}'=Ready cephblockpools.ceph.rook.io ceph-rbd-pool-r2 --timeout=600s
-          kubectl apply -f 06-toolbox.yaml
-          echo "[INFO] Wait for rook-ceph-tools, timeout 300s"
-          kubectl -n d8-operator-ceph wait --for=condition=Available deployment/rook-ceph-tools --timeout=300s
-
-          echo "[INFO] Show ceph pools via rook-ceph-tools"
-          kubectl -n d8-operator-ceph exec deployments/rook-ceph-tools -c ceph-tools -- ceph osd pool ls
-
-          echo "[INFO] Configure storage class"
-          chmod +x ./ceph-configure.sh
-          ./ceph-configure.sh
+          echo "[INFO] Show existing storageclasses"
+          kubectl get storageclass
 
   configure-virtualization:
     name: Configure Virtualization
@@ -1005,7 +886,7 @@ jobs:
               kubectl describe node $node
               echo "::endgroup::"
             done
-            
+
             echo "[DEBUG] Show queue (first 25 lines)"
             d8 s queue list | head -n 25 || echo "[WARNING] Failed to retrieve list queue"
             echo "[DEBUG] Show deckhouse logs"
@@ -1031,7 +912,7 @@ jobs:
                 d8 s queue list | head -n25 || echo "[WARNING] Failed to retrieve list queue"
                 echo " "
               fi
-              
+
               if (( i % 10 == 0 )); then
                 echo "[INFO] deckhouse logs"
                 echo "::group::📝 deckhouse logs"
@@ -1056,9 +937,9 @@ jobs:
                 kubectl get vmclass || echo "[WARNING] no vmclasses found"
                 return 0
               fi
-              
+
               echo "[INFO] Waiting 10s for Virtualization module to be ready (attempt $i/$count)"
-              
+
               if (( i % 5 == 0 )); then
                 echo " "
                 echo "[DEBUG] Show additional info"
@@ -1070,7 +951,7 @@ jobs:
               fi
               sleep 10
             done
-            
+
             debug_output
             exit 1
           }
@@ -1080,9 +961,9 @@ jobs:
             local virt_handler_ready
             local workers
             local time_wait=10
-            
+
             workers=$(kubectl get nodes -o name | grep worker | wc -l || true)
-            workers=$((workers)) 
+            workers=$((workers))
 
             for i in $(seq 1 $count); do
               virt_handler_ready=$(kubectl -n d8-virtualization get pods | grep "virt-handler.*Running" | wc -l || true)
@@ -1328,7 +1209,7 @@ jobs:
             # Format: https://github.com/{owner}/{repo}/actions/runs/{run_id}
             # The job name will be visible in the workflow run view
             local link="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-            
+
             jq -n \
               --arg csi "$csi" \
               --arg date "$date" \
@@ -1371,11 +1252,11 @@ jobs:
             local status_msg="$3"
             local job_name="$4"
             local is_e2e_test="${5:-false}"
-            
+
             if [ "$result_value" != "success" ]; then
               FAILED_STAGE="$stage_name"
               FAILED_JOB_NAME="$job_name (${{ inputs.storage_type }})"
-              
+
               if [ -z "$REPORT_JSON" ] || [ "$REPORT_JSON" == "" ]; then
                 REPORT_JSON=$(create_failure_summary "$stage_name" "$status_msg" "$FAILED_JOB_NAME")
               elif [ "$is_e2e_test" == "true" ]; then

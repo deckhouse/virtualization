@@ -694,7 +694,7 @@ spec:
 EOF
 ```
 
-After creation, the `VirtualDisk` resource can be in the following states (phases):
+After creation, the `VirtualDisk` resource can be in the following phase:
 
 - `Pending`: Waiting for all dependent resources required for disk creation to be ready.
 - `Provisioning`: Disk creation process is in progress.
@@ -709,6 +709,10 @@ After creation, the `VirtualDisk` resource can be in the following states (phase
 - `Terminating`: Disk is being deleted. The disk may "hang" in this state if it is still connected to the virtual machine.
 
 As long as the disk has not reached the `Ready` phase, you can modify any fields in the `.spec` block. When changes are made, the disk creation process is restarted.
+
+{{< alert level="info" >}}
+After the disk reaches the `Ready` phase, you can still change `.spec.persistentVolumeClaim.size` and `.spec.persistentVolumeClaim.storageClassName`. All other `.spec` fields are immutable.
+{{< /alert >}}
 
 If the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified, the default `StorageClass` at the cluster level will be used, or for images if specified in [module settings](./admin_guide.html#storage-class-settings-for-disks).
 
@@ -2154,7 +2158,12 @@ How to work with bootable block devices in the web interface:
 - Go to the "Virtualization" → "Virtual Machines" section.
 - Select the required VM from the list and click on its name.
 - On the "Configuration" tab, scroll down to the "Disks and Images" section.
-- You can add, extract, delete, resize, and reorder bootable block devices in the "Boot Disks" section.
+- In the "Boot Disks" section you can:
+  - Add: Attach a new disk or image to the VM.
+  - Extract: Detach the device from the VM (the image or disk remains in the project and can be attached again to this or another VM).
+  - Delete: Remove the image or disk resource from the cluster (after deletion it cannot be reused).
+  - Resize: Change the size of the disk.
+  - Reorder: Change the boot order of devices.
 
 #### Attaching via VirtualMachineBlockDeviceAttachment (vmbda)
 
@@ -2243,7 +2252,11 @@ How to work with additional block devices in the web interface:
 - Go to the "Virtualization" → "Virtual Machines" section.
 - Select the required VM from the list and click on its name.
 - On the "Configuration" tab, scroll down to the "Disks and Images" section.
-- You can add, extract, delete, and resize additional block devices in the "Additional Disks" section.
+- In the "Additional Disks" section you can:
+  - Add: Attach a new disk or image to the VM.
+  - Extract: Detach the device from the VM (the image or disk remains in the project and can be attached again to this or another VM).
+  - Delete: Remove the image or disk resource from the cluster (after deletion it cannot be reused).
+  - Resize: Change the size of the disk.
 
 #### Disk naming in guest OS
 
@@ -2320,6 +2333,10 @@ Use stable identifiers instead of `ethX`:
 - **MAC address binding** — in `netplan`, `systemd-networkd`, or `/etc/network/interfaces` configuration (preferred for guaranteed stability)
 
 In configuration files and scripts, use stable interface names (`enpXsY`) or MAC address binding instead of `ethX` names.
+
+{{< alert level="info" >}}
+Predictable interface order works only on guest OS with systemd (e.g. Ubuntu, Debian). On Alpine and other distros without systemd the order may not match.
+{{< /alert >}}
 
 ### Organizing interaction with virtual machines
 
@@ -2874,7 +2891,13 @@ NAME             VIRTUALMACHINEIPADDRESS                              STATUS   A
 ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
 
-`VirtualMachineIPAddress` (`vmip`) resource: A project/namespace resource that is responsible for reserving leased IP addresses and binding them to virtual machines. IP addresses can be allocated automatically or by explicit request.
+[`VirtualMachineIPAddress`](/modules/virtualization/cr.html#virtualmachineipaddress) (`vmip`) resource: A project/namespace resource that is responsible for reserving leased IP addresses and binding them to virtual machines. IP addresses can be allocated automatically or by explicit request.
+
+After creation, the [`VirtualMachineIPAddress`](/modules/virtualization/cr.html#virtualmachineipaddress) resource can have the following `Phase` values:
+
+- `Pending`: Resource is being created.
+- `Bound`: [VirtualMachineIPAddress](/modules/virtualization/cr.html#virtualmachineipaddress) is bound to the [VirtualMachineIPAddressLease](/modules/virtualization/cr.html#virtualmachineipaddresslease) resource.
+- `Attached`: [VirtualMachineIPAddress](/modules/virtualization/cr.html#virtualmachineipaddress) is attached to the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
 
 By default, an ip address is automatically assigned to a virtual machine from the subnets defined in the module and is assigned to it until it is deleted. You can check the assigned ip address using the command:
 
@@ -3758,6 +3781,7 @@ The [USBDevice](/modules/virtualization/cr.html#usbdevice) resource provides sta
 - **Attached**: Indicates whether the device is attached to a virtual machine.
   - `AttachedToVirtualMachine`: Device is attached to a VM.
   - `Available`: Device is available for attachment.
+  - `NoFreeUSBIPPort`: Device is requested by a VM but cannot be attached because there are no free USBIP ports on the target node. In this case, `Attached=False`.
 
 ### Attaching USB Device to VM
 
@@ -3783,7 +3807,7 @@ The USB device is automatically forwarded to the node where the virtual machine 
 {{< /alert >}}
 
 {{< alert level="warning" >}}
-If a virtual machine with an attached USB device is migrated to another node, the USB device is automatically detached for the entire duration of the migration. After a successful migration, the device is forwarded to the new node again and reattached to the VM. If the migration fails, the device is reattached on the original node.
+During VM migration, the USB device briefly disconnects and reconnects on the new node when the VM switches to it. If migration fails, the device will remain on the original node.
 {{< /alert >}}
 
 ### Viewing USB Device Details

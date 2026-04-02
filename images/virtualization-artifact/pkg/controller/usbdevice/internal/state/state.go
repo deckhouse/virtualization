@@ -31,6 +31,7 @@ type USBDeviceState interface {
 	USBDevice() *reconciler.Resource[*v1alpha2.USBDevice, v1alpha2.USBDeviceStatus]
 	NodeUSBDevice(ctx context.Context) (*v1alpha2.NodeUSBDevice, error)
 	VirtualMachinesUsingDevice(ctx context.Context) ([]*v1alpha2.VirtualMachine, error)
+	VirtualMachinesReferencingDevice(ctx context.Context) ([]*v1alpha2.VirtualMachine, error)
 }
 
 func New(client client.Client, usbDevice *reconciler.Resource[*v1alpha2.USBDevice, v1alpha2.USBDeviceStatus]) USBDeviceState {
@@ -67,7 +68,7 @@ func (s *usbDeviceState) NodeUSBDevice(ctx context.Context) (*v1alpha2.NodeUSBDe
 	return nodeUSBDevice, nil
 }
 
-func (s *usbDeviceState) VirtualMachinesUsingDevice(ctx context.Context) ([]*v1alpha2.VirtualMachine, error) {
+func (s *usbDeviceState) VirtualMachinesReferencingDevice(ctx context.Context) ([]*v1alpha2.VirtualMachine, error) {
 	usbDevice := s.usbDevice.Current()
 	if usbDevice == nil {
 		return nil, nil
@@ -83,14 +84,31 @@ func (s *usbDeviceState) VirtualMachinesUsingDevice(ctx context.Context) ([]*v1a
 	var result []*v1alpha2.VirtualMachine
 	for i := range vmList.Items {
 		vm := &vmList.Items[i]
-		// Check if VM is in the same namespace as USBDevice
 		if vm.Namespace == usbDevice.Namespace {
-			// Verify that device is actually attached in VM status
-			for _, usbStatus := range vm.Status.USBDevices {
-				if usbStatus.Name == usbDevice.Name && usbStatus.Attached {
-					result = append(result, vm)
-					break
-				}
+			result = append(result, vm)
+		}
+	}
+
+	return result, nil
+}
+
+func (s *usbDeviceState) VirtualMachinesUsingDevice(ctx context.Context) ([]*v1alpha2.VirtualMachine, error) {
+	usbDevice := s.usbDevice.Current()
+	if usbDevice == nil {
+		return nil, nil
+	}
+
+	vms, err := s.VirtualMachinesReferencingDevice(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []*v1alpha2.VirtualMachine
+	for _, vm := range vms {
+		for _, usbStatus := range vm.Status.USBDevices {
+			if usbStatus.Name == usbDevice.Name && usbStatus.Attached {
+				result = append(result, vm)
+				break
 			}
 		}
 	}

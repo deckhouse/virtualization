@@ -22,6 +22,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	resourcev1 "k8s.io/api/resource/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -31,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/usbdevice/internal/state"
@@ -48,6 +50,7 @@ var _ = Describe("LifecycleHandler", func() {
 		ctx = logger.ToContext(context.TODO(), slog.Default())
 		scheme = apiruntime.NewScheme()
 		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
+		Expect(corev1.AddToScheme(scheme)).To(Succeed())
 		Expect(resourcev1.AddToScheme(scheme)).To(Succeed())
 	})
 
@@ -88,7 +91,8 @@ var _ = Describe("LifecycleHandler", func() {
 			}
 
 			vmObj, vmField, vmExtractValue := indexer.IndexVMByUSBDevice()
-			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).WithIndex(vmObj, vmField, vmExtractValue).Build()
+			vmNodeObj, vmNodeField, vmNodeExtractValue := indexer.IndexVMByNode()
+			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).WithIndex(vmObj, vmField, vmExtractValue).WithIndex(vmNodeObj, vmNodeField, vmNodeExtractValue).Build()
 
 			res := reconciler.NewResource(
 				types.NamespacedName{Name: usbDevice.Name, Namespace: usbDevice.Namespace},
@@ -124,6 +128,182 @@ var _ = Describe("LifecycleHandler", func() {
 		Entry("node missing", false, "", false, false, metav1.ConditionFalse, string(usbdevicecondition.NotFound), string(usbdevicecondition.Available)),
 	)
 
+	It("should set NoFreeUSBIPPort when VM references device but attach cannot start", func() {
+		usbDevice := &v1alpha2.USBDevice{
+			ObjectMeta: metav1.ObjectMeta{Name: "usb-device-1", Namespace: "default", UID: "usb-uid-1"},
+			Status: v1alpha2.USBDeviceStatus{Attributes: v1alpha2.NodeUSBDeviceAttributes{
+				Name:      "usb-device-1",
+				VendorID:  "1234",
+				ProductID: "5678",
+				Speed:     480,
+			}},
+		}
+
+		nodeUSBDevice := &v1alpha2.NodeUSBDevice{
+			ObjectMeta: metav1.ObjectMeta{Name: "usb-device-1"},
+			Status: v1alpha2.NodeUSBDeviceStatus{
+				Attributes: v1alpha2.NodeUSBDeviceAttributes{Name: "usb-device-1", VendorID: "1234", ProductID: "5678", Speed: 480},
+				NodeName:   "node-1",
+				Conditions: []metav1.Condition{{Type: string(nodeusbdevicecondition.ReadyType), Status: metav1.ConditionTrue, Reason: string(nodeusbdevicecondition.Ready), Message: "Node status"}},
+			},
+		}
+
+		vm := &v1alpha2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: "vm-1", Namespace: "default"},
+			Spec:       v1alpha2.VirtualMachineSpec{USBDevices: []v1alpha2.USBDeviceSpecRef{{Name: "usb-device-1"}}},
+			Status: v1alpha2.VirtualMachineStatus{
+				Node:       "node-2",
+				USBDevices: []v1alpha2.USBDeviceStatusRef{{Name: "usb-device-1", Attached: false}},
+			},
+		}
+
+		node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-2", Annotations: map[string]string{
+			annotations.AnnUSBIPTotalPorts:            "2",
+			annotations.AnnUSBIPHighSpeedHubUsedPorts: "1",
+		}}}
+
+		vmObj, vmField, vmExtractValue := indexer.IndexVMByUSBDevice()
+		vmNodeObj, vmNodeField, vmNodeExtractValue := indexer.IndexVMByNode()
+		cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(usbDevice, nodeUSBDevice, vm, node).WithIndex(vmObj, vmField, vmExtractValue).WithIndex(vmNodeObj, vmNodeField, vmNodeExtractValue).Build()
+
+		res := reconciler.NewResource(
+			types.NamespacedName{Name: usbDevice.Name, Namespace: usbDevice.Namespace},
+			cl,
+			func() *v1alpha2.USBDevice { return &v1alpha2.USBDevice{} },
+			func(obj *v1alpha2.USBDevice) v1alpha2.USBDeviceStatus { return obj.Status },
+		)
+		Expect(res.Fetch(ctx)).To(Succeed())
+
+		st := state.New(cl, res)
+		h := NewLifecycleHandler(cl)
+		_, err := h.Handle(ctx, st)
+		Expect(err).NotTo(HaveOccurred())
+
+		attached := meta.FindStatusCondition(res.Changed().Status.Conditions, string(usbdevicecondition.AttachedType))
+		Expect(attached).NotTo(BeNil())
+		Expect(attached.Reason).To(Equal(string(usbdevicecondition.NoFreeUSBIPPort)))
+		Expect(attached.Status).To(Equal(metav1.ConditionFalse))
+		Expect(attached.Message).To(ContainSubstring("requested by VirtualMachine"))
+	})
+
+	It("should keep AttachedToVirtualMachine when at least one VM already has device attached", func() {
+		usbDevice := &v1alpha2.USBDevice{
+			ObjectMeta: metav1.ObjectMeta{Name: "usb-device-1", Namespace: "default", UID: "usb-uid-1"},
+			Status: v1alpha2.USBDeviceStatus{Attributes: v1alpha2.NodeUSBDeviceAttributes{
+				Name:      "usb-device-1",
+				VendorID:  "1234",
+				ProductID: "5678",
+				Speed:     480,
+			}},
+		}
+
+		nodeUSBDevice := &v1alpha2.NodeUSBDevice{
+			ObjectMeta: metav1.ObjectMeta{Name: "usb-device-1"},
+			Status: v1alpha2.NodeUSBDeviceStatus{
+				Attributes: v1alpha2.NodeUSBDeviceAttributes{Name: "usb-device-1", VendorID: "1234", ProductID: "5678", Speed: 480},
+				NodeName:   "node-1",
+				Conditions: []metav1.Condition{{Type: string(nodeusbdevicecondition.ReadyType), Status: metav1.ConditionTrue, Reason: string(nodeusbdevicecondition.Ready), Message: "Node status"}},
+			},
+		}
+
+		vmAttached := &v1alpha2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: "vm-attached", Namespace: "default"},
+			Spec:       v1alpha2.VirtualMachineSpec{USBDevices: []v1alpha2.USBDeviceSpecRef{{Name: "usb-device-1"}}},
+			Status: v1alpha2.VirtualMachineStatus{
+				Node:       "node-2",
+				USBDevices: []v1alpha2.USBDeviceStatusRef{{Name: "usb-device-1", Attached: true}},
+			},
+		}
+
+		vmPending := &v1alpha2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: "vm-pending", Namespace: "default"},
+			Spec:       v1alpha2.VirtualMachineSpec{USBDevices: []v1alpha2.USBDeviceSpecRef{{Name: "usb-device-1"}}},
+			Status: v1alpha2.VirtualMachineStatus{
+				Node:       "node-2",
+				USBDevices: []v1alpha2.USBDeviceStatusRef{{Name: "usb-device-1", Attached: false}},
+			},
+		}
+
+		node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-2", Annotations: map[string]string{
+			annotations.AnnUSBIPTotalPorts:            "2",
+			annotations.AnnUSBIPHighSpeedHubUsedPorts: "1",
+		}}}
+
+		vmObj, vmField, vmExtractValue := indexer.IndexVMByUSBDevice()
+		vmNodeObj, vmNodeField, vmNodeExtractValue := indexer.IndexVMByNode()
+		cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(usbDevice, nodeUSBDevice, vmAttached, vmPending, node).WithIndex(vmObj, vmField, vmExtractValue).WithIndex(vmNodeObj, vmNodeField, vmNodeExtractValue).Build()
+
+		res := reconciler.NewResource(
+			types.NamespacedName{Name: usbDevice.Name, Namespace: usbDevice.Namespace},
+			cl,
+			func() *v1alpha2.USBDevice { return &v1alpha2.USBDevice{} },
+			func(obj *v1alpha2.USBDevice) v1alpha2.USBDeviceStatus { return obj.Status },
+		)
+		Expect(res.Fetch(ctx)).To(Succeed())
+
+		st := state.New(cl, res)
+		h := NewLifecycleHandler(cl)
+		_, err := h.Handle(ctx, st)
+		Expect(err).NotTo(HaveOccurred())
+
+		attached := meta.FindStatusCondition(res.Changed().Status.Conditions, string(usbdevicecondition.AttachedType))
+		Expect(attached).NotTo(BeNil())
+		Expect(attached.Reason).To(Equal(string(usbdevicecondition.AttachedToVirtualMachine)))
+		Expect(attached.Status).To(Equal(metav1.ConditionTrue))
+		Expect(attached.Message).To(ContainSubstring("attached to"))
+	})
+
+	It("should return error when USBIP port availability check fails unexpectedly", func() {
+		usbDevice := &v1alpha2.USBDevice{
+			ObjectMeta: metav1.ObjectMeta{Name: "usb-device-1", Namespace: "default", UID: "usb-uid-1"},
+			Status: v1alpha2.USBDeviceStatus{Attributes: v1alpha2.NodeUSBDeviceAttributes{
+				Name:      "usb-device-1",
+				VendorID:  "1234",
+				ProductID: "5678",
+				Speed:     480,
+			}},
+		}
+
+		nodeUSBDevice := &v1alpha2.NodeUSBDevice{
+			ObjectMeta: metav1.ObjectMeta{Name: "usb-device-1"},
+			Status: v1alpha2.NodeUSBDeviceStatus{
+				Attributes: v1alpha2.NodeUSBDeviceAttributes{Name: "usb-device-1", VendorID: "1234", ProductID: "5678", Speed: 480},
+				NodeName:   "node-1",
+				Conditions: []metav1.Condition{{Type: string(nodeusbdevicecondition.ReadyType), Status: metav1.ConditionTrue, Reason: string(nodeusbdevicecondition.Ready), Message: "Node status"}},
+			},
+		}
+
+		vm := &v1alpha2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: "vm-1", Namespace: "default"},
+			Spec:       v1alpha2.VirtualMachineSpec{USBDevices: []v1alpha2.USBDeviceSpecRef{{Name: "usb-device-1"}}},
+			Status:     v1alpha2.VirtualMachineStatus{Node: "node-2", USBDevices: []v1alpha2.USBDeviceStatusRef{{Name: "usb-device-1", Attached: false}}},
+		}
+
+		badNode := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-2", Annotations: map[string]string{
+			annotations.AnnUSBIPTotalPorts:             "invalid",
+			annotations.AnnUSBIPHighSpeedHubUsedPorts:  "0",
+			annotations.AnnUSBIPSuperSpeedHubUsedPorts: "0",
+		}}}
+
+		vmObj, vmField, vmExtractValue := indexer.IndexVMByUSBDevice()
+		vmNodeObj, vmNodeField, vmNodeExtractValue := indexer.IndexVMByNode()
+		cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(usbDevice, nodeUSBDevice, vm, badNode).WithIndex(vmObj, vmField, vmExtractValue).WithIndex(vmNodeObj, vmNodeField, vmNodeExtractValue).Build()
+
+		res := reconciler.NewResource(
+			types.NamespacedName{Name: usbDevice.Name, Namespace: usbDevice.Namespace},
+			cl,
+			func() *v1alpha2.USBDevice { return &v1alpha2.USBDevice{} },
+			func(obj *v1alpha2.USBDevice) v1alpha2.USBDeviceStatus { return obj.Status },
+		)
+		Expect(res.Fetch(ctx)).To(Succeed())
+
+		st := state.New(cl, res)
+		h := NewLifecycleHandler(cl)
+		_, err := h.Handle(ctx, st)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("failed to check free USBIP ports for USBDevice"))
+	})
+
 	It("should skip ResourceClaimTemplate when attribute name is empty", func() {
 		usbDevice := &v1alpha2.USBDevice{
 			ObjectMeta: metav1.ObjectMeta{Name: "usb-device-1", Namespace: "default", UID: "usb-uid-1"},
@@ -133,7 +313,8 @@ var _ = Describe("LifecycleHandler", func() {
 		objects := []client.Object{usbDevice}
 
 		vmObj, vmField, vmExtractValue := indexer.IndexVMByUSBDevice()
-		cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).WithIndex(vmObj, vmField, vmExtractValue).Build()
+		vmNodeObj, vmNodeField, vmNodeExtractValue := indexer.IndexVMByNode()
+		cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).WithIndex(vmObj, vmField, vmExtractValue).WithIndex(vmNodeObj, vmNodeField, vmNodeExtractValue).Build()
 
 		res := reconciler.NewResource(
 			types.NamespacedName{Name: usbDevice.Name, Namespace: usbDevice.Namespace},
@@ -170,7 +351,8 @@ var _ = Describe("LifecycleHandler", func() {
 			}
 
 			vmObj, vmField, vmExtractValue := indexer.IndexVMByUSBDevice()
-			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(usbDevice, nodeUSBDevice).WithIndex(vmObj, vmField, vmExtractValue).Build()
+			vmNodeObj, vmNodeField, vmNodeExtractValue := indexer.IndexVMByNode()
+			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(usbDevice, nodeUSBDevice).WithIndex(vmObj, vmField, vmExtractValue).WithIndex(vmNodeObj, vmNodeField, vmNodeExtractValue).Build()
 
 			res := reconciler.NewResource(
 				types.NamespacedName{Name: usbDevice.Name, Namespace: usbDevice.Namespace},
@@ -238,7 +420,8 @@ var _ = Describe("LifecycleHandler", func() {
 		}
 
 		vmObj, vmField, vmExtractValue := indexer.IndexVMByUSBDevice()
-		cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(usbDevice, nodeUSBDevice, template).WithIndex(vmObj, vmField, vmExtractValue).Build()
+		vmNodeObj, vmNodeField, vmNodeExtractValue := indexer.IndexVMByNode()
+		cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(usbDevice, nodeUSBDevice, template).WithIndex(vmObj, vmField, vmExtractValue).WithIndex(vmNodeObj, vmNodeField, vmNodeExtractValue).Build()
 
 		res := reconciler.NewResource(
 			types.NamespacedName{Name: usbDevice.Name, Namespace: usbDevice.Namespace},

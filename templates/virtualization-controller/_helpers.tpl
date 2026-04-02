@@ -10,7 +10,7 @@ true
   value: {{ include "moduleLogLevel" . }}
 {{- if eq (include "moduleLogLevel" .) "debug" }}
 - name: LOG_DEBUG_VERBOSITY
-  value: "10"
+  value: "9"
 {{- end }}
 - name: LOG_FORMAT
   value: {{ include "moduleLogFormat" . }}
@@ -84,6 +84,10 @@ true
   value: "24h"
 - name: GC_VMI_MIGRATION_SCHEDULE
   value: "0 0 * * *"
+- name: GC_VM_POD_TTL
+  value: "24h"
+- name: GC_VM_POD_SCHEDULE
+  value: "0 0 * * *"
 {{- if (hasKey .Values.virtualization.internal.moduleConfig "liveMigration") }}
 - name: LIVE_MIGRATION_BANDWIDTH_PER_NODE
   value: {{ .Values.virtualization.internal.moduleConfig.liveMigration.bandwidthPerNode | quote }}
@@ -112,6 +116,4 @@ true
   value: {{ .Values.global.clusterConfiguration.serviceSubnetCIDR }}
 - name: KUBE_APISERVER_FEATURE_GATES
   value: {{ .Values.virtualization.internal.kubeAPIServerFeatureGates | toJson | quote }}
-- name: HAS_DRA_FEATURE_GATES
-  value: {{ .Values.virtualization.internal.hasDraFeatureGates | quote }}
 {{- end }}

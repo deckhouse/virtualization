@@ -22,11 +22,11 @@ import (
 	"strings"
 	"time"
 
-	"moduleversions/internal/version"
-
 	"github.com/PuerkitoBio/goquery"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+
+	"moduleversions/internal/version"
 )
 
 // ChannelVersion represents a version for a specific channel and edition.
@@ -44,9 +44,9 @@ type ModuleVersionInfo struct {
 
 func (v ModuleVersionInfo) String() string {
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("Module: %s\n", v.Module))
+	fmt.Fprintf(&b, "Module: %s\n", v.Module)
 	for _, version := range v.Versions {
-		b.WriteString(fmt.Sprintf("%-7s %s %s\n", version.Edition, version.Channel, version.Number))
+		fmt.Fprintf(&b, "%-7s %s %s\n", version.Edition, version.Channel, version.Number)
 	}
 	return b.String()
 }
