@@ -1,0 +1,62 @@
+From: Deckhouse Virtualization <virtualization@deckhouse.io>
+Date: Thu, 3 Apr 2026 00:00:00 +0000
+Subject: [PATCH] OvmfPkg: write "no bootable device" event to ISA debugcon port
+
+Write a short diagnostic message to I/O port 0x402 (QEMU isa-debugcon)
+when PlatformBootManagerUnableToBoot() is called. This allows external
+monitoring tools (e.g. KubeVirt virt-launcher) to detect VM boot
+failures via the debugcon socket without requiring a DEBUG build.
+
+Unlike the DEBUG() macro, IoWrite8() is not compiled out in RELEASE
+builds, so the message is always emitted regardless of build type.
+
+---
+ OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c           | 14 ++++++++++++++
+ OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf |  1 +
+ 2 files changed, 15 insertions(+)
+
+diff --git a/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c b/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c
+index 1234567..abcdefg 100644
+--- a/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c
++++ b/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c
+@@ -12,6 +12,7 @@
+ #include <Protocol/FirmwareVolume2.h>
+ #include <Protocol/VirtioDevice.h>
+ #include <Library/PlatformBmPrintScLib.h>
+ #include <Library/Tcg2PhysicalPresenceLib.h>
+ #include <Library/XenPlatformLib.h>
++#include <Library/IoLib.h>
+ 
+@@ -2018,6 +2019,17 @@ PlatformBootManagerUnableToBoot (
+   EFI_STATUS                    Status;
+   EFI_INPUT_KEY                 Key;
+   EFI_BOOT_MANAGER_LOAD_OPTION  BootManagerMenu;
+   UINTN                         Index;
+ 
++  //
++  // Write boot failure event to ISA debugcon port (0x402).
++  // Captured by QEMU isa-debugcon device. Works in RELEASE builds
++  // unlike the DEBUG() macro which is compiled out in RELEASE.
++  //
++  {
++    CONST CHAR8  *DebugMsg = "BdsDxe: No bootable option or device was found.\r\n";
++
++    while (*DebugMsg != '\0') {
++      IoWrite8 (0x402, (UINT8)*DebugMsg++);
++    }
++  }
++
+   if (FeaturePcdGet (PcdBootRestrictToFirmware)) {
+     AsciiPrint (
+       "%a: No bootable option was found.\n",
+diff --git a/OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf b/OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf
+index 1234567..abcdefg 100644
+--- a/OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf
++++ b/OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf
+@@ -43,6 +43,7 @@
+  DevicePathLib
+  PciLib
++ IoLib
+  NvVarsFileLib
+  QemuFwCfgLib
+  QemuFwCfgS3Lib
