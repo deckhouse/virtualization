@@ -253,11 +253,13 @@ jobs:
       - name: Bootstrap cluster [dhctl-bootstrap]
         id: dhctl-bootstrap
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
-        env:
-          # Proxy settings will be added to values.yaml if proxyEnabled is true via task render-cluster-config-proxy
-          HTTP_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
-          HTTPS_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
         run: |
+          if yq eval '.deckhouse.proxyEnabled' values.yaml; then
+            export HTTP_PROXY="${{ secrets.BOOTSTRAP_DEV_PROXY }}"
+            export HTTPS_PROXY="${{ secrets.BOOTSTRAP_DEV_PROXY }}"
+            echo "Proxy settings - configured"
+          fi
+          echo "$HTTP_PROXY - HTTP_PROXY"
           task dhctl-bootstrap
         timeout-minutes: 30
       - name: Bootstrap cluster [show-connection-info]
