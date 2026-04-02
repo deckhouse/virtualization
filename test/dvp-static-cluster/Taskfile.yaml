@@ -140,7 +140,7 @@ tasks:
     desc: Add proxy if enabled
     cmds:
       - |
-        if yq eval '.deckhouse.proxyEnabled' values.yaml; then
+        if yq eval '.deckhouse.proxyEnabled == true' values.yaml; then
           yq eval --inplace '.proxy.httpProxy = env(HTTP_PROXY) | .proxy.httpsProxy = env(HTTPS_PROXY)' values.yaml
         fi
 

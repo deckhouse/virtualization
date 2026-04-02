@@ -254,7 +254,7 @@ jobs:
         id: dhctl-bootstrap
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
         run: |
-          if yq eval '.deckhouse.proxyEnabled' values.yaml; then
+          if yq eval '.deckhouse.proxyEnabled == true' values.yaml; then
             export HTTP_PROXY="${{ secrets.BOOTSTRAP_DEV_PROXY }}"
             export HTTPS_PROXY="${{ secrets.BOOTSTRAP_DEV_PROXY }}"
             echo "Proxy settings - configured"
