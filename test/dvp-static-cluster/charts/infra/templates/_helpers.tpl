@@ -36,7 +36,7 @@ spec:
   networks:
     - type: Main
     - type: ClusterNetwork
-      name: cn-4006-for-e2e-test 
+      name: cn-4006-for-e2e-test
   bootloader: {{ $ctx.Values.image.bootloader }}
   liveMigrationPolicy: PreferForced
   cpu:
