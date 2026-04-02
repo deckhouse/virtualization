@@ -103,8 +103,6 @@ func (h *StatisticHandler) syncResources(changed *v1alpha2.VirtualMachine,
 			topology = v1alpha2.Topology{CoresPerSocket: coresPerSocket, Sockets: sockets}
 			coreFraction = changed.Spec.CPU.CoreFraction
 		} else {
-			//if kvvmi.Annotations[kvbuilder.CPUResourcesRequestsFractionAnnotation]
-			//cpuKVVMIRequest = kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceCPU]
 			var err error
 			cpuKVVMIRequest, err = h.getCoresRequestedByKVVMI(kvvmi)
 			if err != nil {
@@ -267,9 +265,7 @@ func (h *StatisticHandler) getCurrentTopologyByKVVMI(kvvmi *virtv1.VirtualMachin
 
 	if _, isDynamicCores := kvvmi.Annotations[kvbuilder.VCPUTopologyDynamicCoresAnnotation]; isDynamicCores {
 		// Swap cores and sockets.
-		tmp := cores
-		cores = sockets
-		sockets = tmp
+		cores, sockets = sockets, cores
 	}
 
 	if cores > 0 && sockets > 0 {

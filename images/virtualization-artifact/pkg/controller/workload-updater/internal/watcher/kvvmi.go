@@ -63,10 +63,7 @@ func (w *KVVMIWatcher) Watch(mgr manager.Manager, ctr controller.Controller) err
 						return true
 					}
 					hotCPUChangeCondition, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceVCPUChange, e.ObjectNew.Status.Conditions)
-					if hotCPUChangeCondition.Status == corev1.ConditionTrue {
-						return true
-					}
-					return false
+					return hotCPUChangeCondition.Status == corev1.ConditionTrue
 				},
 			},
 		),

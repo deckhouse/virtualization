@@ -433,7 +433,7 @@ func GetCPUFraction(cpuFraction string) (int, error) {
 	fraction := intstr.FromString(cpuFraction)
 	value, _, err := getIntOrPercentValueSafely(&fraction)
 	if err != nil {
-		return 0, fmt.Errorf("invalid value for cpu fraction: %v", err)
+		return 0, fmt.Errorf("invalid value for cpu fraction: %w", err)
 	}
 	return value, nil
 }
@@ -443,19 +443,17 @@ func getIntOrPercentValueSafely(intOrStr *intstr.IntOrString) (int, bool, error)
 	case intstr.Int:
 		return intOrStr.IntValue(), false, nil
 	case intstr.String:
-		isPercent := false
 		s := intOrStr.StrVal
-		if strings.HasSuffix(s, "%") {
-			isPercent = true
-			s = strings.TrimSuffix(intOrStr.StrVal, "%")
-		} else {
+		if !strings.HasSuffix(s, "%") {
 			return 0, false, fmt.Errorf("invalid type: string is not a percentage")
 		}
+		s = strings.TrimSuffix(intOrStr.StrVal, "%")
+
 		v, err := strconv.Atoi(s)
 		if err != nil {
-			return 0, false, fmt.Errorf("invalid value %q: %v", intOrStr.StrVal, err)
+			return 0, false, fmt.Errorf("invalid value %q: %w", intOrStr.StrVal, err)
 		}
-		return int(v), isPercent, nil
+		return v, true, nil
 	}
 	return 0, false, fmt.Errorf("invalid type: neither int nor percentage")
 }
