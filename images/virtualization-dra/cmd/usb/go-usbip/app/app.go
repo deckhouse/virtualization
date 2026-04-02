@@ -23,6 +23,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"sigs.k8s.io/yaml"
+
+	"github.com/deckhouse/virtualization-dra/pkg/logger"
 )
 
 const long = `
@@ -37,12 +39,18 @@ const long = `
 `
 
 func NewUSBIPCommand() *cobra.Command {
+	logging := &logger.Options{}
+
 	cmd := &cobra.Command{
 		Use:           "usbip",
 		Short:         "USBIP command line tool",
 		Long:          long,
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+			logger.SetDefaultLogger(logging.Complete())
+			return nil
+		},
 	}
 
 	cmd.AddCommand(
@@ -59,6 +67,7 @@ func NewUSBIPCommand() *cobra.Command {
 	)
 
 	printer.AddFlags(cmd.PersistentFlags())
+	logging.AddFlags(cmd.PersistentFlags())
 
 	return cmd
 }

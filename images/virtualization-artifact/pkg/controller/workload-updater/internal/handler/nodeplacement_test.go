@@ -23,8 +23,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
@@ -88,4 +92,88 @@ var _ = Describe("TestNodePlacementHandler", func() {
 		Entry("Migration should be executed", true),
 		Entry("Migration not should be executed", false),
 	)
+
+	It("should return nil when vm is nil", func() {
+		h := NewNodePlacementHandler(nil, &OneShotMigrationMock{
+			OnceMigrateFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
+				return false, nil
+			},
+		})
+
+		_, err := h.Handle(ctx, nil)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("should return nil when vm has deletion timestamp", func() {
+		vm := vmbuilder.NewEmpty(name, namespace)
+		now := metav1.Now()
+		vm.DeletionTimestamp = &now
+
+		h := NewNodePlacementHandler(nil, &OneShotMigrationMock{
+			OnceMigrateFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
+				return false, nil
+			},
+		})
+
+		_, err := h.Handle(ctx, vm)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("should return error when kvvmi get fails", func() {
+		vm := vmbuilder.NewEmpty(name, namespace)
+		getErr := errors.New("get kvvmi failed")
+		interceptClient, err := testutil.NewFakeClientWithInterceptorWithObjects(interceptor.Funcs{
+			Get: func(ctx context.Context, client client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				if _, ok := obj.(*virtv1.VirtualMachineInstance); ok {
+					return getErr
+				}
+				return client.Get(ctx, key, obj, opts...)
+			},
+		}, vm)
+		Expect(err).NotTo(HaveOccurred())
+
+		h := NewNodePlacementHandler(interceptClient, &OneShotMigrationMock{
+			OnceMigrateFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
+				return false, nil
+			},
+		})
+
+		_, err = h.Handle(ctx, vm)
+		Expect(err).To(MatchError(getErr))
+	})
+
+	It("should ignore not found error when kvvmi get returns not found", func() {
+		vm := vmbuilder.NewEmpty(name, namespace)
+		notFoundErr := k8serrors.NewNotFound(schema.GroupResource{Group: virtv1.GroupVersion.Group, Resource: "virtualmachineinstances"}, name)
+		interceptClient, err := testutil.NewFakeClientWithInterceptorWithObjects(interceptor.Funcs{
+			Get: func(ctx context.Context, client client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				if _, ok := obj.(*virtv1.VirtualMachineInstance); ok {
+					return notFoundErr
+				}
+				return client.Get(ctx, key, obj, opts...)
+			},
+		}, vm)
+		Expect(err).NotTo(HaveOccurred())
+
+		h := NewNodePlacementHandler(interceptClient, &OneShotMigrationMock{
+			OnceMigrateFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
+				return false, nil
+			},
+		})
+
+		_, err = h.Handle(ctx, vm)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("should return node placement handler name", func() {
+		h := NewNodePlacementHandler(nil, nil)
+		Expect(h.Name()).To(Equal(nodePlacementHandler))
+	})
+
+	It("should return error for nil kvvmi in genNodePlacementSum", func() {
+		sum, err := genNodePlacementSum(nil)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("kvvmi is nil"))
+		Expect(sum).To(BeEmpty())
+	})
 })

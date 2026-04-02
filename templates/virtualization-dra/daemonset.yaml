@@ -143,6 +143,7 @@ spec:
       hostNetwork: true
       nodeSelector:
         kubernetes.io/os: linux
+        virtualization.deckhouse.io/containerd-version: "v2" # required for start NRI hooks. Label is added by nodegroupconfiguration-detect-containerd-version.sh
       initContainers:
         - name: init-load
           image: {{ include "helm_lib_module_image" (list . "virtualizationDraUsb") }}
@@ -164,7 +165,7 @@ spec:
           image: {{ include "helm_lib_module_image" (list . "virtualizationDraUsb") }}
           imagePullPolicy: "IfNotPresent"
           args:
-            - --feature-gates=USBGateway=true,USBNodeLocalMultiAllocation=true
+            - {{ include "virtualization-dra.featureGates" . }}
             {{/* https://github.com/deckhouse/deckhouse/pull/18139 */}}
             - --usbipd-port=4280
             {{- if eq (include "moduleLogLevel" .) "debug" }}

@@ -69,7 +69,7 @@ type AttachInfo struct {
 
 type AttachInfoItem struct {
 	Port, Busnum, Devnum int
-	LocalBusID           string
+	LocalBusID, Hub      string
 }
 
 type USBExporter interface {

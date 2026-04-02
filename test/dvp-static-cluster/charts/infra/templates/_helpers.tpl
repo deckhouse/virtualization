@@ -28,9 +28,11 @@ spec:
   blockDeviceRefs:
   - kind: VirtualDisk
     name: {{ include "infra.vd-root-name" $name }}
+{{- if ne $ctx.Values.storageType "nfs" }}
 {{- range $i, $v := $cfg.additionalDisks }}
   - kind: VirtualDisk
     name: {{ printf "%s-%d" $name $i }}
+{{- end }}
 {{- end }}
   bootloader: {{ $ctx.Values.image.bootloader }}
   liveMigrationPolicy: PreferForced
@@ -90,6 +92,7 @@ spec:
     storageClassName: {{ $ctx.Values.storageClass }}
     {{- end }}
 
+{{ if ne $ctx.Values.storageType "nfs" }}
   {{range $i, $v := $cfg.additionalDisks }}
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -104,4 +107,5 @@ spec:
     storageClassName: {{ $ctx.Values.storageClass }}
     {{- end }}
   {{- end }}
+{{- end }}
 {{- end }}

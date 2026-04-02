@@ -17,7 +17,10 @@ limitations under the License.
 package consts
 
 const (
-	USBGatewayLabel = "virtualization.deckhouse.io/usb-gateway"
+	USBGatewayLabel           = "virtualization.deckhouse.io/usb-gateway"
+	USBGatewayNodeLabel       = "virtualization.deckhouse.io/usb-gateway-node"
+	USBGatewayHighSpeedLabel  = "virtualization.deckhouse.io/usb-gateway-high-speed"
+	USBGatewaySuperSpeedLabel = "virtualization.deckhouse.io/usb-gateway-super-speed"
 )
 
 const (
@@ -25,10 +28,12 @@ const (
 )
 
 const (
-	AnnUSBDeviceAddresses = "usb.virtualization.deckhouse.io/device-addresses"
-	AnnUSBDeviceUser      = "usb.virtualization.deckhouse.io/device-user"
-	AnnUSBDeviceGroup     = "usb.virtualization.deckhouse.io/device-group"
-	AnnUSBIPTotalPorts    = "usb.virtualization.deckhouse.io/usbip-total-ports"
-	AnnUSBIPUsedPorts     = "usb.virtualization.deckhouse.io/usbip-used-ports"
-	AnnUSBIPAddress       = "usb.virtualization.deckhouse.io/usbip-address"
+	AnnUSBDeviceAddresses          = "usb.virtualization.deckhouse.io/device-addresses"
+	AnnUSBDeviceUser               = "usb.virtualization.deckhouse.io/device-user"
+	AnnUSBDeviceGroup              = "usb.virtualization.deckhouse.io/device-group"
+	AnnUSBIPTotalPorts             = "usb.virtualization.deckhouse.io/usbip-total-ports"
+	AnnUSBIPUsedPorts              = "usb.virtualization.deckhouse.io/usbip-used-ports"
+	AnnUSBIPHighSpeedHubUsedPorts  = "usb.virtualization.deckhouse.io/usbip-high-speed-hub-used-ports"
+	AnnUSBIPSuperSpeedHubUsedPorts = "usb.virtualization.deckhouse.io/usbip-super-speed-hub-used-ports"
+	AnnUSBIPAddress                = "usb.virtualization.deckhouse.io/usbip-address"
 )

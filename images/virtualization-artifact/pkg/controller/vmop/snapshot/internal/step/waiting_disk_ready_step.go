@@ -79,7 +79,7 @@ func (s WaitingDisksReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualM
 			if k8serrors.IsNotFound(err) {
 				cb.Message("Waiting for resource readiness.")
 				conditions.SetCondition(cb, &vmop.Status.Conditions)
-				return nil, nil
+				return &reconcile.Result{}, nil
 			}
 			return &reconcile.Result{}, fmt.Errorf("failed to get the `VirtualDisk`: %w", err)
 		}

@@ -19,11 +19,9 @@ package discover_kube_apiserver_feature_gates
 import (
 	"context"
 	"fmt"
-	"slices"
 	"strings"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
@@ -31,112 +29,90 @@ import (
 )
 
 const (
-	snapshotKubeAPIServerPod = "kube-apiserver-pod"
+	featureGatesPath = "virtualization.internal.kubeAPIServerFeatureGates"
 
-	featureGatesPath    = "virtualization.internal.kubeAPIServerFeatureGates"
-	draFeatureGatesPath = "virtualization.internal.hasDraFeatureGates"
+	metricPrefix = "kubernetes_feature_enabled{"
 )
 
-var _ = registry.RegisterFunc(config, Reconcile)
+var _ = registry.RegisterFunc(config, reconcile)
 
 var config = &pkg.HookConfig{
 	OnBeforeHelm: &pkg.OrderedConfig{Order: 5},
-	Kubernetes: []pkg.KubernetesConfig{
-		{
-			Name:       snapshotKubeAPIServerPod,
-			APIVersion: "v1",
-			Kind:       "Pod",
-			NamespaceSelector: &pkg.NamespaceSelector{
-				NameSelector: &pkg.NameSelector{
-					MatchNames: []string{"kube-system"},
-				},
-			},
-			LabelSelector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"component": "kube-apiserver"},
-			},
-			JqFilter: `{
-				"name": .metadata.name,
-				"command": (.spec.containers[0].command // []),
-				"args": (.spec.containers[0].args // [])
-			}`,
-			ExecuteHookOnSynchronization: ptr.To(false),
-		},
-	},
-	Queue: fmt.Sprintf("modules/%s", settings.ModuleName),
+	Queue:        fmt.Sprintf("modules/%s", settings.ModuleName),
 }
 
-func Reconcile(_ context.Context, input *pkg.HookInput) error {
-	featureGates, err := discoverFeatureGates(input)
+func reconcile(ctx context.Context, input *pkg.HookInput) error {
+	metricsData, err := fetchMetrics(ctx, input.DC)
 	if err != nil {
-		return fmt.Errorf("failed to discover feature gates: %w", err)
+		return fmt.Errorf("failed to fetch kube-apiserver metrics: %w", err)
 	}
+
+	featureGates := parseEnabledFeatureGates(metricsData)
 
 	input.Values.Set(featureGatesPath, featureGates)
-
-	if slices.Contains(featureGates, "DRADeviceBindingConditions") &&
-		slices.Contains(featureGates, "DRAResourceClaimDeviceStatus") &&
-		slices.Contains(featureGates, "DRAConsumableCapacity") {
-		input.Values.Set(draFeatureGatesPath, "true")
-	}
 
 	return nil
 }
 
-// discoverFeatureGates extracts enabled feature gates from kube-apiserver pod command/args.
-// Returns a list of enabled feature gate names (those set to "true").
-func discoverFeatureGates(input *pkg.HookInput) ([]string, error) {
-	pods := input.Snapshots.Get(snapshotKubeAPIServerPod)
-	if len(pods) == 0 {
-		return nil, fmt.Errorf("no kube-apiserver pods found")
-	}
-
-	// Use the first pod - all kube-apiserver pods should have the same feature gates
-	pod := pods[0]
-
-	var podInfo struct {
-		Command []string `json:"command"`
-		Args    []string `json:"args"`
-	}
-
-	err := pod.UnmarshalTo(&podInfo)
+func fetchMetrics(ctx context.Context, dc pkg.DependencyContainer) ([]byte, error) {
+	cfg, err := dc.GetClientConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal kube-apiserver pod: %w", err)
+		return nil, fmt.Errorf("get client config: %w", err)
 	}
 
-	allArgs := make([]string, 0, len(podInfo.Command)+len(podInfo.Args))
-	allArgs = append(allArgs, podInfo.Command...)
-	allArgs = append(allArgs, podInfo.Args...)
+	clientset, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("create kubernetes clientset: %w", err)
+	}
 
-	var enabledGates []string
+	result := clientset.RESTClient().Get().AbsPath("/metrics").Do(ctx)
+	if err := result.Error(); err != nil {
+		return nil, fmt.Errorf("request /metrics: %w", err)
+	}
 
-	for _, arg := range allArgs {
-		if !strings.HasPrefix(arg, "--feature-gates=") {
+	raw, err := result.Raw()
+	if err != nil {
+		return nil, fmt.Errorf("read metrics response: %w", err)
+	}
+
+	return raw, nil
+}
+
+// parseEnabledFeatureGates extracts feature gate names from Prometheus metrics
+// where kubernetes_feature_enabled gauge value equals 1.
+func parseEnabledFeatureGates(data []byte) []string {
+	var enabled []string
+
+	for line := range strings.SplitSeq(string(data), "\n") {
+		if !strings.HasPrefix(line, metricPrefix) {
 			continue
 		}
 
-		// Parse feature-gates value: "Gate1=true,Gate2=false,Gate3=true"
-		gatesStr := strings.TrimPrefix(arg, "--feature-gates=")
-		gates := strings.SplitSeq(gatesStr, ",")
+		if !strings.HasSuffix(strings.TrimSpace(line), " 1") {
+			continue
+		}
 
-		for gate := range gates {
-			gate = strings.TrimSpace(gate)
-			if gate == "" {
-				continue
-			}
-
-			parts := strings.SplitN(gate, "=", 2)
-			if len(parts) != 2 {
-				continue
-			}
-
-			gateName := parts[0]
-			gateValue := strings.ToLower(parts[1])
-
-			if gateValue == "true" {
-				enabledGates = append(enabledGates, gateName)
-			}
+		name := extractLabel(line, "name")
+		if name != "" {
+			enabled = append(enabled, name)
 		}
 	}
 
-	return enabledGates, nil
+	return enabled
+}
+
+func extractLabel(metric, label string) string {
+	key := label + `="`
+	idx := strings.Index(metric, key)
+	if idx < 0 {
+		return ""
+	}
+
+	start := idx + len(key)
+	end := strings.Index(metric[start:], `"`)
+	if end < 0 {
+		return ""
+	}
+
+	return metric[start : start+end]
 }

@@ -22,9 +22,9 @@ import (
 	"strings"
 	"time"
 
-	"moduleversions/internal/version"
-
 	"github.com/PuerkitoBio/goquery"
+
+	"moduleversions/internal/version"
 )
 
 const httpTimeout = 5 * time.Second

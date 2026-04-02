@@ -152,10 +152,10 @@ var _ = Describe("LifecycleHandler", func() {
 		),
 
 		// AlwaysForced cases.
-		Entry("is ok for AlwaysForced and force=nil",
+		Entry("should become Failed for AlwaysForced and force=nil",
 			newVMOPEvictPending(),
 			v1alpha2.AlwaysForcedMigrationPolicy,
-			v1alpha2.VMOPPhasePending,
+			v1alpha2.VMOPPhaseFailed,
 		),
 		Entry("should become Failed for AlwaysForced and force=false",
 			newVMOPEvictPending(vmopbuilder.WithForce(ptr.To(false))),
@@ -217,6 +217,7 @@ var _ = Describe("LifecycleHandler", func() {
 
 		h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
 		_, err = h.Handle(ctx, vmop)
+
 		if targetMigrationEnabled {
 			Expect(err).NotTo(HaveOccurred())
 

@@ -87,7 +87,6 @@ func SetupController(
 		internal.NewFirmwareHandler(firmwareImage),
 		internal.NewEvictHandler(),
 		internal.NewStatisticHandler(client),
-		internal.NewUSBDeviceMigrationHandler(client, virtClient),
 	}
 	r := NewReconciler(client, handlers...)
 

@@ -25,13 +25,14 @@ import (
 
 	"github.com/deckhouse/virtualization-dra/internal/consts"
 	"github.com/deckhouse/virtualization-dra/internal/featuregates"
+	"github.com/deckhouse/virtualization-dra/pkg/libusb"
 )
 
 func (d *Device) ToAPIDevice(nodeName string) *resourcev1.Device {
-	return convertToAPIDevice(*d, nodeName)
+	return convertToAPIDevice(d, nodeName)
 }
 
-func convertToAPIDevice(usbDevice Device, nodeName string) *resourcev1.Device {
+func convertToAPIDevice(usbDevice *Device, nodeName string) *resourcev1.Device {
 	name := usbDevice.GetName(nodeName)
 	device := &resourcev1.Device{
 		Name: name,
@@ -72,6 +73,9 @@ func convertToAPIDevice(usbDevice Device, nodeName string) *resourcev1.Device {
 			consts.AttrMinor: {
 				IntValue: ptr.To(int64(usbDevice.Minor)),
 			},
+			consts.AttrSpeed: {
+				IntValue: ptr.To(int64(usbDevice.Speed)),
+			},
 			consts.AttrSerial: {
 				StringValue: ptr.To(usbDevice.Serial),
 			},
@@ -79,12 +83,16 @@ func convertToAPIDevice(usbDevice Device, nodeName string) *resourcev1.Device {
 				StringValue: ptr.To(usbDevice.DevicePath),
 			},
 			consts.AttrUsbAddress: {
-				StringValue: ptr.To(usbAddressFromDev(&usbDevice)),
+				StringValue: ptr.To(usbAddressFromDev(usbDevice)),
 			},
 		},
 	}
 
-	if !featuregates.Default().USBGatewayEnabled() {
+	if featuregates.Default().USBGatewayEnabled() {
+		if featuregates.Default().DRAPartitionableDevicesEnabled() {
+			device.NodeSelector = getPartitionableNodeSelector(nodeName, uint32(usbDevice.Speed)) // Required DRAPartitionableDevices
+		}
+	} else {
 		device.NodeName = ptr.To(nodeName)
 	}
 
@@ -96,7 +104,37 @@ func convertToAPIDevice(usbDevice Device, nodeName string) *resourcev1.Device {
 	return device
 }
 
-func getNodeSelector(nodeName string) *corev1.NodeSelector {
+func getPartitionableNodeSelector(nodeName string, speed uint32) *corev1.NodeSelector {
+	return &corev1.NodeSelector{
+		NodeSelectorTerms: []corev1.NodeSelectorTerm{
+			{
+				MatchExpressions: []corev1.NodeSelectorRequirement{
+					{
+						Key:      "kubernetes.io/hostname",
+						Operator: corev1.NodeSelectorOpIn,
+						Values:   []string{nodeName},
+					},
+				},
+			},
+			{
+				MatchExpressions: []corev1.NodeSelectorRequirement{
+					{
+						Key:      consts.USBGatewayLabel,
+						Operator: corev1.NodeSelectorOpIn,
+						Values:   []string{"true"},
+					},
+					{
+						Key:      resolveSpeedLabel(speed),
+						Operator: corev1.NodeSelectorOpIn,
+						Values:   []string{"true"},
+					},
+				},
+			},
+		},
+	}
+}
+
+func getCommonNodeSelector(nodeName string) *corev1.NodeSelector {
 	return &corev1.NodeSelector{
 		NodeSelectorTerms: []corev1.NodeSelectorTerm{
 			{
@@ -104,12 +142,24 @@ func getNodeSelector(nodeName string) *corev1.NodeSelector {
 					{
 						Key:      consts.USBGatewayLabel,
 						Operator: corev1.NodeSelectorOpIn,
+						Values:   []string{"true"},
+					},
+					{
+						Key:      consts.USBGatewayNodeLabel,
+						Operator: corev1.NodeSelectorOpIn,
 						Values:   []string{"any", nodeName},
 					},
 				},
 			},
 		},
 	}
+}
+
+func resolveSpeedLabel(speed uint32) string {
+	if libusb.ResolveDeviceSpeed(speed) >= libusb.USBDeviceSpeedSuper {
+		return consts.USBGatewaySuperSpeedLabel
+	}
+	return consts.USBGatewayHighSpeedLabel
 }
 
 func usbAddressFromDev(dev *Device) string {

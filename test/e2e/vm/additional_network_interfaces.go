@@ -31,6 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
@@ -43,6 +44,16 @@ type additionalNetworkTestCase struct {
 	vmBarHasMainNetwork bool
 	vmFooAdditionalIP   string
 	vmBarAdditionalIP   string
+}
+
+const (
+	additionalInterfaceVLANID       = 4006
+	secondAdditionalInterfaceVLANID = 4007
+)
+
+func expectClusterNetworkExists(f *framework.Framework, vlanID int) {
+	Expect(util.IsClusterNetworkExists(f, vlanID)).To(BeTrue(),
+		fmt.Sprintf("Cluster network %s does not exist. Create it first: %s", util.ClusterNetworkName(vlanID), util.ClusterNetworkCreateCommand(vlanID)))
 }
 
 var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
@@ -64,8 +75,8 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 			Skip("SDN module is disabled. Skipping test.")
 		}
 
-		Expect(util.IsClusterNetworkExists(f)).To(BeTrue(),
-			fmt.Sprintf("Cluster network %s does not exist. Create it first: %s", util.ClusterNetworkName, util.ClusterNetworkCreateCommand))
+		expectClusterNetworkExists(f, additionalInterfaceVLANID)
+		expectClusterNetworkExists(f, secondAdditionalInterfaceVLANID)
 	})
 
 	DescribeTable("verifies additional network interfaces and connectivity before and after migration",
@@ -146,6 +157,88 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 		Entry("Main + additional network", additionalNetworkTestCase{vmBarHasMainNetwork: true, vmFooAdditionalIP: "192.168.42.10", vmBarAdditionalIP: "192.168.42.11"}),
 		Entry("Only additional network (vm-bar without Main)", additionalNetworkTestCase{vmBarHasMainNetwork: false, vmFooAdditionalIP: "192.168.42.12", vmBarAdditionalIP: "192.168.42.13"}),
 	)
+
+	Describe("verifies interface name persistence after removing middle ClusterNetwork", func() {
+		var (
+			vdRoot *v1alpha2.VirtualDisk
+			vm     *v1alpha2.VirtualMachine
+		)
+
+		const (
+			getLastInterfaceNameCmd = "ip -o link show | tail -1 | cut -d: -f2 | awk \"{print \\$1}\""
+		)
+
+		It("should preserve interface name after removing middle ClusterNetwork and rebooting", func() {
+			var lastInterfaceNameBeforeRemoval string
+
+			By("Create VM with Main network and two additional ClusterNetworks", func() {
+				ns := f.Namespace().Name
+
+				vdRoot = vd.New(
+					vd.WithName("vd-root"),
+					vd.WithNamespace(ns),
+					vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
+						URL: object.ImageURLUbuntu,
+					}),
+				)
+
+				vm = buildVMWithNetworks("vm", ns, vdRoot.Name, "192.168.1.20", true)
+				vm.Spec.Networks = append(vm.Spec.Networks, v1alpha2.NetworksSpec{
+					Type: v1alpha2.NetworksTypeClusterNetwork,
+					Name: util.ClusterNetworkName(secondAdditionalInterfaceVLANID),
+				})
+
+				err := f.CreateWithDeferredDeletion(context.Background(), vdRoot, vm)
+				Expect(err).NotTo(HaveOccurred())
+
+				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
+				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+				util.UntilConditionStatus(vmcondition.TypeNetworkReady.String(), "True", framework.LongTimeout, vm)
+			})
+
+			By("Get last interface name via SSH", func() {
+				util.UntilSSHReady(f, vm, framework.LongTimeout)
+				output, err := f.SSHCommand(vm.Name, vm.Namespace, getLastInterfaceNameCmd)
+				Expect(err).NotTo(HaveOccurred())
+				lastInterfaceNameBeforeRemoval = strings.TrimSpace(output)
+				Expect(lastInterfaceNameBeforeRemoval).NotTo(BeEmpty(), "Failed to get last interface name")
+			})
+
+			By("Remove middle ClusterNetwork from VM spec", func() {
+				err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vm), vm)
+				Expect(err).NotTo(HaveOccurred())
+				vm.Spec.Networks = []v1alpha2.NetworksSpec{vm.Spec.Networks[0], vm.Spec.Networks[2]}
+				err = f.Clients.GenericClient().Update(context.Background(), vm)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("Reboot VM via VMOP", func() {
+				err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vm), vm)
+				Expect(err).NotTo(HaveOccurred())
+
+				runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
+				previousRunningTime := runningCondition.LastTransitionTime.Time
+
+				util.RebootVirtualMachineByVMOP(f, vm)
+
+				util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(vm), previousRunningTime, framework.LongTimeout)
+				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
+				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+				util.UntilConditionStatus(vmcondition.TypeNetworkReady.String(), "True", framework.LongTimeout, vm)
+			})
+
+			By("Verify last interface name has not changed", func() {
+				util.UntilSSHReady(f, vm, framework.LongTimeout)
+				output, err := f.SSHCommand(vm.Name, vm.Namespace, getLastInterfaceNameCmd)
+				Expect(err).NotTo(HaveOccurred())
+				lastInterfaceNameAfterRemoval := strings.TrimSpace(output)
+				Expect(lastInterfaceNameAfterRemoval).NotTo(BeEmpty(), "Failed to get last interface name")
+
+				Expect(lastInterfaceNameAfterRemoval).To(Equal(lastInterfaceNameBeforeRemoval),
+					fmt.Sprintf("Interface name changed from %s to %s after removing middle ClusterNetwork", lastInterfaceNameBeforeRemoval, lastInterfaceNameAfterRemoval))
+			})
+		})
+	})
 })
 
 // buildVMWithNetworks creates a VM with optional Main + ClusterNetwork.
@@ -175,7 +268,7 @@ func buildVMWithNetworks(name, ns, vdRootName, additionalIP string, hasMain bool
 	opts = append(opts,
 		vm.WithNetwork(v1alpha2.NetworksSpec{
 			Type: v1alpha2.NetworksTypeClusterNetwork,
-			Name: util.ClusterNetworkName,
+			Name: util.ClusterNetworkName(additionalInterfaceVLANID),
 		}),
 	)
 	return vm.New(opts...)

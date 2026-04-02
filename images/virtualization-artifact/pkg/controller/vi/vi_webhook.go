@@ -75,9 +75,13 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 
 	if vi.Spec.Storage == v1alpha2.StorageKubernetes || vi.Spec.Storage == v1alpha2.StoragePersistentVolumeClaim {
 		if vi.Spec.PersistentVolumeClaim.StorageClass != nil && *vi.Spec.PersistentVolumeClaim.StorageClass != "" {
-			sc, err := v.scService.GetStorageClass(ctx, *vi.Spec.PersistentVolumeClaim.StorageClass)
+			scName := *vi.Spec.PersistentVolumeClaim.StorageClass
+			sc, err := v.scService.GetStorageClass(ctx, scName)
 			if err != nil {
 				return nil, err
+			}
+			if sc == nil {
+				return nil, fmt.Errorf("storage class %q not found", scName)
 			}
 			if v.scService.IsStorageClassDeprecated(sc) {
 				return nil, fmt.Errorf(
@@ -146,9 +150,13 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 	case newVI.Status.Phase == v1alpha2.ImagePending:
 		if newVI.Spec.Storage == v1alpha2.StorageKubernetes || newVI.Spec.Storage == v1alpha2.StoragePersistentVolumeClaim {
 			if newVI.Spec.PersistentVolumeClaim.StorageClass != nil && *newVI.Spec.PersistentVolumeClaim.StorageClass != "" {
-				sc, err := v.scService.GetStorageClass(ctx, *newVI.Spec.PersistentVolumeClaim.StorageClass)
+				scName := *newVI.Spec.PersistentVolumeClaim.StorageClass
+				sc, err := v.scService.GetStorageClass(ctx, scName)
 				if err != nil {
 					return nil, err
+				}
+				if sc == nil {
+					return nil, fmt.Errorf("target storage class %q not found", scName)
 				}
 				if v.scService.IsStorageClassDeprecated(sc) {
 					return nil, fmt.Errorf(

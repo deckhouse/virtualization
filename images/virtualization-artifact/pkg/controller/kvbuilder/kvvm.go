@@ -554,7 +554,7 @@ func (b *KVVM) ClearNetworkInterfaces() {
 	b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces = nil
 }
 
-func (b *KVVM) SetNetworkInterface(name, macAddress string) {
+func (b *KVVM) SetNetworkInterface(name, macAddress string, acpiIndex int) {
 	net := virtv1.Network{
 		Name: name,
 		NetworkSource: virtv1.NetworkSource{
@@ -571,8 +571,9 @@ func (b *KVVM) SetNetworkInterface(name, macAddress string) {
 	devPreset := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization)
 
 	iface := virtv1.Interface{
-		Name:  name,
-		Model: devPreset.InterfaceModel,
+		Name:      name,
+		Model:     devPreset.InterfaceModel,
+		ACPIIndex: acpiIndex,
 	}
 	iface.Bridge = &virtv1.InterfaceBridge{}
 	if macAddress != "" {
@@ -680,4 +681,8 @@ func (b *KVVM) ApplyPVNodeAffinity(pvTerms []corev1.NodeSelectorTerm) {
 
 func (b *KVVM) SetUpdateVolumesStrategy(strategy *virtv1.UpdateVolumesStrategy) {
 	b.Resource.Spec.UpdateVolumesStrategy = strategy
+}
+
+func (b *KVVM) SetUSBMigrationStrategy() {
+	b.SetKVVMIAnnotation(virtv1.USBMigrationStrategyAnn, string(virtv1.USBMigrationStrategyIgnore))
 }

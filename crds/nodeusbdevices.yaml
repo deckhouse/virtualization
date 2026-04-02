@@ -112,6 +112,9 @@ spec:
                     serial:
                       description: Device serial number.
                       type: string
+                    speed:
+                      description: Device speed.
+                      type: integer
                     vendorID:
                       description: USB vendor ID in hexadecimal format.
                       type: string
