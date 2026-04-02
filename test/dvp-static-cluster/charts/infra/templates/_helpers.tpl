@@ -58,7 +58,11 @@ spec:
         version: 2
         ethernets:
           eno2:
+            addresses: []
             dhcp4: false
+            dhcp6: false
+            optional: false
+            link-local: []
       packages:
         - qemu-guest-agent
         - jq
