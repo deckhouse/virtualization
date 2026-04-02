@@ -112,6 +112,22 @@ var _ = Describe("MACHandler", func() {
 	}
 
 	Describe("Condition presence and absence scenarios", func() {
+		It("should create only one additional VMMAC when one additional network is added", func() {
+			vm.Spec.Networks = []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeMain},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test-network1"},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test-network2"},
+			}
+
+			macAddress1 := newMACAddress("test-mac-address1", "aa:bb:cc:dd:ee:ff", "", "")
+			fakeClient, resource, vmState = setupEnvironment(vm, macAddress1)
+			reconcile()
+
+			vmmacList := &v1alpha2.VirtualMachineMACAddressList{}
+			err := fakeClient.List(ctx, vmmacList, client.InNamespace(namespace))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vmmacList.Items).To(HaveLen(2))
+		})
 		Describe("NetworkSpec is nil", func() {
 			It("Condition 'MACAddressReady' should have status 'True'", func() {
 				fakeClient, resource, vmState = setupEnvironment(vm)
