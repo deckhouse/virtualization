@@ -23,6 +23,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/component-base/featuregate"
 	"k8s.io/utils/ptr"
@@ -34,6 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
+	migrationprogress "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/progress"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -42,6 +44,14 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
+
+type progressStrategyStub struct {
+	value int32
+}
+
+func (s progressStrategyStub) SyncProgress(_ migrationprogress.Record) int32 {
+	return s.value
+}
 
 var _ = Describe("LifecycleHandler", func() {
 	const (
@@ -257,6 +267,133 @@ var _ = Describe("LifecycleHandler", func() {
 			Expect(h.getFailedReason(nil)).To(Equal(vmopcondition.ReasonFailed))
 		})
 
+		DescribeTable("should detect failed reason", func(mig *virtv1.VirtualMachineInstanceMigration, expected vmopcondition.ReasonCompleted) {
+			h := LifecycleHandler{}
+			Expect(h.getFailedReason(mig)).To(Equal(expected))
+		},
+			Entry("aborted by request",
+				&virtv1.VirtualMachineInstanceMigration{Status: virtv1.VirtualMachineInstanceMigrationStatus{MigrationState: &virtv1.VirtualMachineInstanceMigrationState{AbortRequested: true}}},
+				vmopcondition.ReasonAborted,
+			),
+			Entry("aborted with succeeded status",
+				&virtv1.VirtualMachineInstanceMigration{Status: virtv1.VirtualMachineInstanceMigrationStatus{MigrationState: &virtv1.VirtualMachineInstanceMigrationState{AbortStatus: virtv1.MigrationAbortSucceeded}}},
+				vmopcondition.ReasonAborted,
+			),
+			Entry("not converging from failure reason",
+				&virtv1.VirtualMachineInstanceMigration{Status: virtv1.VirtualMachineInstanceMigrationStatus{MigrationState: &virtv1.VirtualMachineInstanceMigrationState{FailureReason: "no progress during convergence"}}},
+				vmopcondition.ReasonNotConverging,
+			),
+			Entry("target unschedulable from condition",
+				&virtv1.VirtualMachineInstanceMigration{Status: virtv1.VirtualMachineInstanceMigrationStatus{Conditions: []virtv1.VirtualMachineInstanceMigrationCondition{{Type: virtv1.VirtualMachineInstanceMigrationFailed, Reason: "Unschedulable", Message: "pod is unschedulable"}}}},
+				vmopcondition.ReasonTargetUnschedulable,
+			),
+			Entry("target disk error from condition",
+				&virtv1.VirtualMachineInstanceMigration{Status: virtv1.VirtualMachineInstanceMigrationStatus{Conditions: []virtv1.VirtualMachineInstanceMigrationCondition{{Type: virtv1.VirtualMachineInstanceMigrationFailed, Reason: "VolumeAttach", Message: "csi volume attach failed"}}}},
+				vmopcondition.ReasonTargetDiskError,
+			),
+			Entry("generic failed reason",
+				&virtv1.VirtualMachineInstanceMigration{},
+				vmopcondition.ReasonFailed,
+			),
+		)
+
+		DescribeTable("should build in-progress reason and message", func(
+			phase virtv1.VirtualMachineInstanceMigrationPhase,
+			state *virtv1.VirtualMachineInstanceMigrationState,
+			pod *corev1.Pod,
+			expectedReason vmopcondition.ReasonCompleted,
+		) {
+			mig := newSimpleMigration("vmop-test", name)
+			mig.UID = "migration-uid"
+			mig.Status.Phase = phase
+			mig.Status.MigrationState = state
+
+			objects := []client.Object{mig}
+			if pod != nil {
+				objects = append(objects, pod)
+			}
+			fakeClient, err := testutil.NewFakeClientWithObjects(objects...)
+			Expect(err).NotTo(HaveOccurred())
+
+			h := LifecycleHandler{client: fakeClient}
+			reason, _, err := h.getInProgressReasonAndMessage(ctx, mig)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(reason).To(Equal(expectedReason))
+		},
+			Entry("phase unset means target scheduling",
+				virtv1.MigrationPhaseUnset,
+				nil,
+				nil,
+				vmopcondition.ReasonTargetScheduling,
+			),
+			Entry("scheduled means target preparing",
+				virtv1.MigrationScheduled,
+				nil,
+				nil,
+				vmopcondition.ReasonTargetPreparing,
+			),
+			Entry("running means syncing",
+				virtv1.MigrationRunning,
+				nil,
+				nil,
+				vmopcondition.ReasonSyncing,
+			),
+			Entry("unschedulable pod has priority",
+				virtv1.MigrationScheduling,
+				nil,
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: namespace,
+						Name:      "target-pod",
+						Labels: map[string]string{
+							virtv1.AppLabel:          "virt-launcher",
+							virtv1.MigrationJobLabel: "migration-uid",
+						},
+					},
+					Status: corev1.PodStatus{
+						Phase: corev1.PodPending,
+						Conditions: []corev1.PodCondition{{
+							Type:   corev1.PodScheduled,
+							Status: corev1.ConditionFalse,
+							Reason: corev1.PodReasonUnschedulable,
+						}},
+					},
+				},
+				vmopcondition.ReasonTargetUnschedulable,
+			),
+			Entry("target resumed after domain ready timestamp",
+				virtv1.MigrationRunning,
+				&virtv1.VirtualMachineInstanceMigrationState{TargetNodeDomainReadyTimestamp: &metav1.Time{Time: time.Now()}},
+				nil,
+				vmopcondition.ReasonTargetResumed,
+			),
+			Entry("source suspended after completed flag",
+				virtv1.MigrationRunning,
+				&virtv1.VirtualMachineInstanceMigrationState{Completed: true},
+				nil,
+				vmopcondition.ReasonSourceSuspended,
+			),
+		)
+
+		DescribeTable("should map progress by reason", func(reason vmopcondition.ReasonCompleted, initial *int32, expected int32) {
+			h := LifecycleHandler{progressStrategy: progressStrategyStub{value: 55}}
+			vmop := &v1alpha2.VirtualMachineOperation{Status: v1alpha2.VirtualMachineOperationStatus{Progress: initial}}
+			mig := &virtv1.VirtualMachineInstanceMigration{}
+
+			Expect(h.calculateMigrationProgress(vmop, mig, reason)).To(Equal(expected))
+		},
+			Entry("disks preparing", vmopcondition.ReasonDisksPreparing, nil, int32(1)),
+			Entry("target scheduling", vmopcondition.ReasonTargetScheduling, nil, int32(2)),
+			Entry("target unschedulable", vmopcondition.ReasonTargetUnschedulable, nil, int32(2)),
+			Entry("target preparing", vmopcondition.ReasonTargetPreparing, nil, int32(3)),
+			Entry("target disk error", vmopcondition.ReasonTargetDiskError, nil, int32(3)),
+			Entry("syncing delegates to strategy", vmopcondition.ReasonSyncing, nil, int32(55)),
+			Entry("source suspended", vmopcondition.ReasonSourceSuspended, nil, int32(91)),
+			Entry("target resumed", vmopcondition.ReasonTargetResumed, nil, int32(92)),
+			Entry("migration completed", vmopcondition.ReasonMigrationCompleted, nil, int32(100)),
+			Entry("unknown keeps existing progress", vmopcondition.ReasonFailed, ptr.To[int32](44), int32(44)),
+		)
+
 		It("should set syncing progress inside [10,90] for running migration", func() {
 			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
 			vmop := newVMOPMigrate()
@@ -284,6 +421,52 @@ var _ = Describe("LifecycleHandler", func() {
 			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
 			Expect(found).To(BeTrue())
 			Expect(completed.Reason).To(Equal(vmopcondition.ReasonSyncing.String()))
+		})
+
+		It("should set pending phase and progress to 2 for scheduling migration", func() {
+			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
+			vmop := newVMOPMigrate()
+			vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+
+			mig := newSimpleMigration(fmt.Sprintf("vmop-%s", vmop.Name), name)
+			mig.Status.Phase = virtv1.MigrationScheduling
+
+			fakeClient, srv = setupEnvironment(vmop, vm, mig)
+			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
+			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
+			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
+
+			_, err := h.Handle(ctx, srv.Changed())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+			Expect(srv.Changed().Status.Progress).NotTo(BeNil())
+			Expect(*srv.Changed().Status.Progress).To(Equal(int32(2)))
+		})
+
+		It("should set aborted reason and preserve progress for failed migration", func() {
+			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
+			vmop := newVMOPMigrate()
+			vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+			vmop.Status.Progress = ptr.To[int32](55)
+
+			mig := newSimpleMigration(fmt.Sprintf("vmop-%s", vmop.Name), name)
+			mig.Status.Phase = virtv1.MigrationFailed
+			mig.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{AbortRequested: true}
+
+			fakeClient, srv = setupEnvironment(vmop, vm, mig)
+			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
+			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
+			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
+
+			_, err := h.Handle(ctx, srv.Changed())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+			Expect(srv.Changed().Status.Progress).NotTo(BeNil())
+			Expect(*srv.Changed().Status.Progress).To(Equal(int32(55)))
+
+			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
+			Expect(found).To(BeTrue())
+			Expect(completed.Reason).To(Equal(vmopcondition.ReasonAborted.String()))
 		})
 
 		It("should set progress to 100 for succeeded migration", func() {

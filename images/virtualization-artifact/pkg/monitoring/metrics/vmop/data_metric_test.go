@@ -43,6 +43,16 @@ func TestIsTerminalCompletedCondition(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "aborted reason is terminal",
+			cond: metav1.Condition{Status: metav1.ConditionFalse, Reason: vmopcondition.ReasonAborted.String()},
+			want: true,
+		},
+		{
+			name: "not converging reason is terminal",
+			cond: metav1.Condition{Status: metav1.ConditionFalse, Reason: vmopcondition.ReasonNotConverging.String()},
+			want: true,
+		},
+		{
 			name: "in progress reason is not terminal",
 			cond: metav1.Condition{Status: metav1.ConditionFalse, Reason: vmopcondition.ReasonSyncing.String()},
 			want: false,

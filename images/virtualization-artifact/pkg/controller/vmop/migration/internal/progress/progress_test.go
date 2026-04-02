@@ -101,3 +101,164 @@ func TestProgress_DegradedModeWithoutMetrics(t *testing.T) {
 		t.Fatalf("expected degraded-mode progress in sync range [%d,%d], got=%d", syncRangeMin, syncRangeMax, progress)
 	}
 }
+
+func TestProgress_WithMetricsInBulkPhase(t *testing.T) {
+	now := time.Now()
+	p := NewProgress()
+
+	progress := p.SyncProgress(Record{
+		Now:              now,
+		StartedAt:        now.Add(-30 * time.Second),
+		PreviousProgress: 10,
+		Phase:            virtv1.MigrationRunning,
+		DataTotalMiB:     1024,
+		DataProcessedMiB: 512,
+	})
+
+	if progress <= syncRangeMin || progress >= syncRangeMax {
+		t.Fatalf("expected bulk progress strictly inside sync range, got=%d", progress)
+	}
+}
+
+func TestProgress_WithMetricsInIterativePhase(t *testing.T) {
+	now := time.Now()
+	p := NewProgress()
+
+	bulk := p.SyncProgress(Record{
+		Now:              now,
+		StartedAt:        now.Add(-30 * time.Second),
+		PreviousProgress: 10,
+		Phase:            virtv1.MigrationRunning,
+		DataTotalMiB:     1024,
+		DataProcessedMiB: 512,
+	})
+	iterative := p.SyncProgress(Record{
+		Now:              now,
+		StartedAt:        now.Add(-3 * time.Minute),
+		PreviousProgress: bulk,
+		Phase:            virtv1.MigrationRunning,
+		Mode:             virtv1.MigrationPostCopy,
+		Iteration:        1,
+		Throttle:         1,
+		DataTotalMiB:     1024,
+		DataRemainingMiB: 64,
+	})
+
+	if iterative <= bulk {
+		t.Fatalf("expected iterative progress to be greater than bulk progress, bulk=%d iterative=%d", bulk, iterative)
+	}
+	if iterative < syncRangeMin || iterative > syncRangeMax {
+		t.Fatalf("expected iterative progress in sync range [%d,%d], got=%d", syncRangeMin, syncRangeMax, iterative)
+	}
+}
+
+func TestProgress_UsesRemainingDataFallback(t *testing.T) {
+	now := time.Now()
+	p := NewProgress()
+
+	progress := p.SyncProgress(Record{
+		Now:              now,
+		StartedAt:        now.Add(-90 * time.Second),
+		PreviousProgress: 10,
+		Phase:            virtv1.MigrationRunning,
+		DataTotalMiB:     100,
+		DataProcessedMiB: unknownMetric,
+		DataRemainingMiB: 25,
+	})
+
+	if progress <= syncRangeMin {
+		t.Fatalf("expected fallback metric progress above syncRangeMin, got=%d", progress)
+	}
+}
+
+func TestProgress_ZeroElapsed(t *testing.T) {
+	now := time.Now()
+	p := NewProgress()
+
+	progress := p.SyncProgress(Record{
+		Now:              now,
+		StartedAt:        now,
+		PreviousProgress: syncRangeMin,
+		Phase:            virtv1.MigrationPending,
+	})
+
+	if progress != syncRangeMin {
+		t.Fatalf("expected zero elapsed progress=%d, got=%d", syncRangeMin, progress)
+	}
+}
+
+func TestProgress_VeryLargeElapsedIsCapped(t *testing.T) {
+	now := time.Now()
+	p := NewProgress()
+
+	progress := p.SyncProgress(Record{
+		Now:              now,
+		StartedAt:        now.Add(-24 * time.Hour),
+		PreviousProgress: 10,
+		Phase:            virtv1.MigrationRunning,
+		Mode:             virtv1.MigrationPostCopy,
+		Iteration:        1,
+	})
+
+	if progress != syncRangeMax {
+		t.Fatalf("expected capped progress=%d, got=%d", syncRangeMax, progress)
+	}
+}
+
+func TestIsIterative(t *testing.T) {
+	tests := []struct {
+		name     string
+		record   Record
+		elapsed  float64
+		expected bool
+	}{
+		{
+			name:     "iteration implies iterative",
+			record:   Record{Iteration: 1},
+			elapsed:  1,
+			expected: true,
+		},
+		{
+			name:     "post copy mode implies iterative",
+			record:   Record{Mode: virtv1.MigrationPostCopy},
+			elapsed:  1,
+			expected: true,
+		},
+		{
+			name:     "long running implies iterative",
+			record:   Record{Phase: virtv1.MigrationRunning},
+			elapsed:  progressBulkDurationGuess,
+			expected: true,
+		},
+		{
+			name:     "short pre-copy is not iterative",
+			record:   Record{Phase: virtv1.MigrationRunning},
+			elapsed:  progressBulkDurationGuess - 1,
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isIterative(tt.record, tt.elapsed); got != tt.expected {
+				t.Fatalf("isIterative() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestProgress_StallBumpNotAppliedEarly(t *testing.T) {
+	got := applyMonotonicStallBump(70, 70, float64(progressBulkStallSeconds-1), false)
+	if got != 70 {
+		t.Fatalf("expected no stall bump before window, got=%d", got)
+	}
+}
+
+func TestMapToSyncRangeBoundaries(t *testing.T) {
+	if got := mapToSyncRange(progressStartPercent); got != syncRangeMin {
+		t.Fatalf("expected lower boundary=%d, got=%d", syncRangeMin, got)
+	}
+	if got := mapToSyncRange(progressIterativeCeiling); got != syncRangeMax {
+		t.Fatalf("expected upper boundary=%d, got=%d", syncRangeMax, got)
+	}
+}
