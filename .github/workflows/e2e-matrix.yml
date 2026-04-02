@@ -360,6 +360,7 @@ jobs:
       BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
 
   e2e-nfs:
+    if: github.event_name != 'pull_request'
     name: E2E Pipeline (NFS)
     needs:
       - set-vars
@@ -388,7 +389,7 @@ jobs:
     name: End-to-End tests report
     needs:
       - e2e-replicated
-      - e2e-nfs
+      # - e2e-nfs
     if: ${{ always()}}
     env:
       STORAGE_TYPES: '["replicated", "nfs"]'
