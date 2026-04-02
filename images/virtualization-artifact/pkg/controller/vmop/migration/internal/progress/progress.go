@@ -153,19 +153,25 @@ func isIterative(record Record, elapsedSec float64) bool {
 
 func applyMonotonicStallBump(previous, current int32, elapsedSec float64, iterative bool) int32 {
 	prev := clampSyncRange(previous)
-	if current < prev {
-		current = prev
-	}
-	if current == prev {
-		window := float64(progressBulkStallSeconds)
-		if iterative {
-			window = float64(progressIterStallSeconds)
+	base := clampSyncRange(current)
+	if base < prev {
+		if prev-base <= 1 {
+			return prev
 		}
-		if elapsedSec >= window {
-			current = clampSyncRange(prev + 1)
-		}
+		base = prev
 	}
-	return clampSyncRange(current)
+	if base > prev {
+		return base
+	}
+
+	window := float64(progressBulkStallSeconds)
+	if iterative {
+		window = float64(progressIterStallSeconds)
+	}
+	if elapsedSec >= window {
+		return clampSyncRange(prev + 1)
+	}
+	return prev
 }
 
 func mapToSyncRange(internal float64) int32 {

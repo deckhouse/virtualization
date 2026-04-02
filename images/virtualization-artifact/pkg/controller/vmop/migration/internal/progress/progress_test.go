@@ -280,6 +280,13 @@ func TestProgress_StallBumpNotAppliedEarly(t *testing.T) {
 	}
 }
 
+func TestProgress_StallBumpDoesNotRepeatOnRegressedBase(t *testing.T) {
+	got := applyMonotonicStallBump(71, 70, float64(progressBulkStallSeconds+10), false)
+	if got != 71 {
+		t.Fatalf("expected previous progress to be preserved without repeated bump, got=%d", got)
+	}
+}
+
 func TestMapToSyncRangeBoundaries(t *testing.T) {
 	if got := mapToSyncRange(progressStartPercent); got != SyncRangeMin {
 		t.Fatalf("expected lower boundary=%d, got=%d", SyncRangeMin, got)
