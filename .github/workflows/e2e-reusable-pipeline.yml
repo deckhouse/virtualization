@@ -689,6 +689,7 @@ jobs:
       - name: Configure NFS storage
         if: ${{ inputs.storage_type == 'nfs' }}
         id: storage-nfs-setup
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/nfs
         env:
           NAMESPACE: ${{ needs.bootstrap.outputs.namespace }}
         run: |
@@ -731,7 +732,7 @@ jobs:
           }
 
           echo "[INFO] Apply csi-nfs ModuleConfig, ModulePullOverride, snapshot-controller"
-          kubectl apply -f ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/nfs/mc.yaml
+          kubectl apply -f mc.yaml
 
           echo "[INFO] Wait for csi-nfs module to be ready"
           kubectl wait --for=jsonpath='{.status.phase}'=Ready modules csi-nfs --timeout=300s
@@ -740,11 +741,10 @@ jobs:
           nfs_ready
 
           echo "[INFO] Apply NFSStorageClass"
-          envsubst < ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/nfs/storageclass.yaml | kubectl apply -f -
+          envsubst < storageclass.yaml | kubectl apply -f -
 
           echo "[INFO] Configure default storage class"
-          chmod +x ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/nfs/default-sc-configure.sh
-          ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/nfs/default-sc-configure.sh
+          ./default-sc-configure.sh
 
 
           echo "[INFO] Show existing storageclasses"
