@@ -60,6 +60,13 @@ git:
   stageDependencies:
     install:
       - '*.bin'
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}/patches
+  to: /src/patches
+  includePaths:
+  - '*.patch'
+  stageDependencies:
+    install:
+      - '*.patch'
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
@@ -89,6 +96,12 @@ shell:
         -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://gitlab.com/  \
         submodule update --init --recursive  --depth=1
     fi
+
+    echo "Applying custom patches..."
+    for p in /src/patches/*.patch; do
+      echo "Applying $p ..."
+      git apply "$p"
+    done
 
 ---
 
