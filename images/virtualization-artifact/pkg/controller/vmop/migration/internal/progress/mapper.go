@@ -27,11 +27,6 @@ import (
 const unknownMetric = -1.0
 
 // BuildRecord maps KubeVirt migration status to progress algorithm inputs.
-//
-// KubeVirt v1.6 does not expose transferred/remaining byte counters in
-// VirtualMachineInstanceMigrationStatus, therefore data metrics are mapped to
-// unknown values and Progress runs in deterministic degraded mode
-// (time+phase based with stall bump).
 func BuildRecord(vmop *v1alpha2.VirtualMachineOperation, mig *virtv1.VirtualMachineInstanceMigration, now time.Time) Record {
 	record := Record{
 		Now:              now,
@@ -58,9 +53,19 @@ func BuildRecord(vmop *v1alpha2.VirtualMachineOperation, mig *virtv1.VirtualMach
 		record.Mode = state.Mode
 		record.Iteration = mapIteration(state)
 		record.Throttle = mapThrottle(state)
+		record.DataTotalMiB = mapBytesToMiB(state.DataTotalBytes)
+		record.DataProcessedMiB = mapBytesToMiB(state.DataProcessedBytes)
+		record.DataRemainingMiB = mapBytesToMiB(state.DataRemainingBytes)
 	}
 
 	return record
+}
+
+func mapBytesToMiB(v *uint64) float64 {
+	if v == nil {
+		return unknownMetric
+	}
+	return float64(*v) / (1024.0 * 1024.0)
 }
 
 func previousProgress(vmop *v1alpha2.VirtualMachineOperation) int32 {

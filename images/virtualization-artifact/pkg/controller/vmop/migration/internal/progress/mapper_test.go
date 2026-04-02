@@ -64,12 +64,18 @@ func TestBuildRecord_UsesMigrationState(t *testing.T) {
 	now := time.Unix(1710000000, 0)
 	start := metav1.NewTime(now.Add(-5 * time.Minute))
 	autoConverge := true
+	totalBytes := uint64(1024 * 1024 * 1024)
+	processedBytes := uint64(512 * 1024 * 1024)
+	remainingBytes := uint64(256 * 1024 * 1024)
 	mig := &virtv1.VirtualMachineInstanceMigration{
 		Status: virtv1.VirtualMachineInstanceMigrationStatus{
 			Phase: virtv1.MigrationRunning,
 			MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
-				StartTimestamp: &start,
-				Mode:           virtv1.MigrationPostCopy,
+				StartTimestamp:     &start,
+				Mode:               virtv1.MigrationPostCopy,
+				DataTotalBytes:     &totalBytes,
+				DataProcessedBytes: &processedBytes,
+				DataRemainingBytes: &remainingBytes,
 				MigrationConfiguration: &virtv1.MigrationConfiguration{
 					AllowAutoConverge: &autoConverge,
 				},
@@ -93,6 +99,9 @@ func TestBuildRecord_UsesMigrationState(t *testing.T) {
 	}
 	if record.Throttle != 1.0 {
 		t.Fatalf("expected Throttle=1.0, got %v", record.Throttle)
+	}
+	if record.DataTotalMiB != 1024 || record.DataProcessedMiB != 512 || record.DataRemainingMiB != 256 {
+		t.Fatalf("expected mapped MiB counters, got total=%v processed=%v remaining=%v", record.DataTotalMiB, record.DataProcessedMiB, record.DataRemainingMiB)
 	}
 }
 
@@ -162,6 +171,17 @@ func TestMapIteration(t *testing.T) {
 				t.Fatalf("mapIteration() = %d, want %d", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestMapBytesToMiB(t *testing.T) {
+	if got := mapBytesToMiB(nil); got != unknownMetric {
+		t.Fatalf("expected unknown metric for nil, got %v", got)
+	}
+
+	bytes := uint64(3 * 1024 * 1024)
+	if got := mapBytesToMiB(&bytes); got != 3 {
+		t.Fatalf("expected 3 MiB, got %v", got)
 	}
 }
 

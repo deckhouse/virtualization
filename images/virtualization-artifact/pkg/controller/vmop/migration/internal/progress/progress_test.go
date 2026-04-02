@@ -171,6 +171,32 @@ func TestProgress_UsesRemainingDataFallback(t *testing.T) {
 	}
 }
 
+func TestMetricPercent_ClampsProcessedAboveTotal(t *testing.T) {
+	metricPct, hasMetric := metricPercent(Record{DataTotalMiB: 100, DataProcessedMiB: 200})
+	if !hasMetric {
+		t.Fatal("expected metric to be available")
+	}
+	if metricPct != 100 {
+		t.Fatalf("expected clamped metric percent=100, got=%v", metricPct)
+	}
+}
+
+func TestMetricPercent_ClampsRemainingAboveTotal(t *testing.T) {
+	metricPct, hasMetric := metricPercent(Record{DataTotalMiB: 100, DataRemainingMiB: 200})
+	if !hasMetric {
+		t.Fatal("expected metric to be available")
+	}
+	if metricPct != 0 {
+		t.Fatalf("expected clamped metric percent=0, got=%v", metricPct)
+	}
+}
+
+func TestMetricPercent_RequiresPositiveTotal(t *testing.T) {
+	if _, hasMetric := metricPercent(Record{DataTotalMiB: 0, DataProcessedMiB: 10}); hasMetric {
+		t.Fatal("expected metric to be unavailable for zero total")
+	}
+}
+
 func TestProgress_ZeroElapsed(t *testing.T) {
 	now := time.Now()
 	p := NewProgress()

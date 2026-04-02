@@ -100,12 +100,28 @@ func (p *Progress) SyncProgress(record Record) int32 {
 }
 
 func metricPercent(record Record) (float64, bool) {
-	if record.DataTotalMiB > 0 && record.DataProcessedMiB >= 0 {
-		return clampFloat((record.DataProcessedMiB/record.DataTotalMiB)*100.0, 0, 100), true
+	if record.DataTotalMiB <= 0 {
+		return 0, false
 	}
-	if record.DataTotalMiB > 0 && record.DataRemainingMiB >= 0 {
-		processed := record.DataTotalMiB - record.DataRemainingMiB
-		return clampFloat((processed/record.DataTotalMiB)*100.0, 0, 100), true
+
+	processed, hasProcessed := normalizedProcessedMiB(record)
+	if !hasProcessed {
+		return 0, false
+	}
+
+	return clampFloat((processed/record.DataTotalMiB)*100.0, 0, 100), true
+}
+
+func normalizedProcessedMiB(record Record) (float64, bool) {
+	if record.DataTotalMiB <= 0 {
+		return 0, false
+	}
+
+	if record.DataProcessedMiB >= 0 {
+		return clampFloat(record.DataProcessedMiB, 0, record.DataTotalMiB), true
+	}
+	if record.DataRemainingMiB >= 0 {
+		return clampFloat(record.DataTotalMiB-record.DataRemainingMiB, 0, record.DataTotalMiB), true
 	}
 	return 0, false
 }
