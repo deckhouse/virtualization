@@ -11,7 +11,7 @@ memory: 25Mi
 {{- end }}
 
 
-{{- if eq (include "virtualization-dra.isEnabled" .) "true" }}
+{{/* - if eq (include "virtualization-dra.isEnabled" .) "true" */}}
 
 {{- if (.Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
 ---
@@ -63,12 +63,37 @@ spec:
           Allow containers to run as root user (non-root disabled).
           Virtualization DRA component requires root privileges to access kernel-level resources and interact with system calls.
 
+    allowPrivilegeEscalation:
+      allowedValue: true
+      metadata:
+        description: |
+          Allow privilege escalation for the virt-handler container.
+          Virt-handler component requires privilege escalation to access kernel-level system calls.
+
     privileged:
       allowedValue: true
       metadata:
         description: |
           Allow privileged mode for the virtualization-dra DaemonSet.
           Virtualization DRA component requires privileged access to interact with the KVM subsystem and Linux kernel.
+
+    capabilities:
+      allowedValues:
+        add:
+          - SYS_MODULE
+        # TODO: a simple workaround before specifying proper drop values for all containers.
+        drop: []
+      metadata:
+        description: |
+          Allow Virtualization DRA component to have access to load eBPF and manage host route.
+
+    seccompProfile:
+      # TODO: a simple workaround before specifying proper seccompProfiles for all containers.
+      allowedValues:
+        - undefined
+      metadata:
+        description: |
+          Allow empty seccompProfile until specified.
 
   network:
     hostNetwork:
@@ -237,4 +262,4 @@ spec:
         - name: var-run
           hostPath:
             path: /var/run
-{{- end }}
+{{/*- end */}}
