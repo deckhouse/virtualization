@@ -99,6 +99,54 @@ func TestProgress_StallBump(t *testing.T) {
 	}
 }
 
+func TestProgress_DoesNotAdvanceTooFastBetweenRapidSyncs(t *testing.T) {
+	now := time.Now()
+	p := NewProgress()
+	uid := types.UID("vmop")
+
+	first := p.SyncProgress(Record{
+		OperationUID:     uid,
+		Now:              now,
+		StartedAt:        now.Add(-2 * time.Minute),
+		PreviousProgress: 10,
+		Phase:            virtv1.MigrationRunning,
+		DataTotalMiB:     1024,
+		DataProcessedMiB: 900,
+	})
+	second := p.SyncProgress(Record{
+		OperationUID:     uid,
+		Now:              now.Add(200 * time.Millisecond),
+		StartedAt:        now.Add(-2 * time.Minute),
+		PreviousProgress: first,
+		Phase:            virtv1.MigrationRunning,
+		DataTotalMiB:     1024,
+		DataProcessedMiB: 900,
+	})
+
+	if second != first {
+		t.Fatalf("expected no progress change during rapid resync, first=%d second=%d", first, second)
+	}
+}
+
+func TestProgress_CapsSingleBulkStep(t *testing.T) {
+	now := time.Now()
+	p := NewProgress()
+
+	progress := p.SyncProgress(Record{
+		OperationUID:     types.UID("vmop"),
+		Now:              now,
+		StartedAt:        now.Add(-2 * time.Minute),
+		PreviousProgress: 10,
+		Phase:            virtv1.MigrationRunning,
+		DataTotalMiB:     1024,
+		DataProcessedMiB: 1024,
+	})
+
+	if progress > 17 {
+		t.Fatalf("expected first bulk step to be capped, got=%d", progress)
+	}
+}
+
 func TestProgress_DegradedModeWithoutMetrics(t *testing.T) {
 	now := time.Now()
 	p := NewProgress()

@@ -28,11 +28,13 @@ const (
 	SyncRangeMin int32 = 10
 	SyncRangeMax int32 = 90
 
-	bulkCeiling      = 48.0
-	iterativeFloor   = 46.0
-	iterativeCeiling = 90.0
-	bulkStallWindow  = 45 * time.Second
-	iterStallWindow  = 25 * time.Second
+	bulkCeiling        = 48.0
+	iterativeFloor     = 46.0
+	iterativeCeiling   = 90.0
+	bulkStallWindow    = 45 * time.Second
+	iterStallWindow    = 25 * time.Second
+	bulkUpdateInterval = time.Second
+	iterUpdateInterval = 2 * time.Second
 )
 
 type Strategy interface {
@@ -98,7 +100,8 @@ func (p *Progress) SyncProgress(record Record) int32 {
 		target = iterativeTarget(record, state, prev)
 	}
 
-	next := smoothProgress(prev, target, iterative, record.Throttle)
+	metricAdvanced := metricChanged(record, state)
+	next := smoothProgress(prev, target, iterative, record.Throttle, record.Now.Sub(state.LastUpdatedAt), metricAdvanced, state.LastUpdatedAt.IsZero())
 	next = applyStatefulStall(record, state, next, iterative)
 	next = clampSyncRange(maxInt32(prev, next))
 
@@ -207,19 +210,36 @@ func isIterative(record Record) bool {
 	return record.HasIteration && record.Iteration > 0
 }
 
-func smoothProgress(current int32, target float64, iterative bool, throttle float64) int32 {
+func smoothProgress(current int32, target float64, iterative bool, throttle float64, sinceLast time.Duration, metricAdvanced, initial bool) int32 {
 	delta := target - float64(current)
 	if delta <= 0 {
 		return current
 	}
+
+	if !initial {
+		minInterval := bulkUpdateInterval
+		if iterative {
+			minInterval = iterUpdateInterval
+		}
+		if sinceLast > 0 && sinceLast < minInterval {
+			return current
+		}
+	}
+
 	factor := 0.40
+	maxStep := 6.0
 	if iterative {
 		factor = 0.28
+		maxStep = 4
+		if throttle > 0 {
+			maxStep += math.Round(throttle * 2)
+		}
+	}
+	if metricAdvanced {
+		maxStep += 1
 	}
 	step := math.Max(1, math.Round(delta*factor))
-	if iterative && throttle > 0 {
-		step += math.Round(throttle * 2)
-	}
+	step = math.Min(step, maxStep)
 	return current + int32(step)
 }
 
