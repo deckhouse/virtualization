@@ -28,13 +28,23 @@ const (
 	SyncRangeMin int32 = 10
 	SyncRangeMax int32 = 90
 
-	bulkCeiling        = 48.0
-	iterativeFloor     = 46.0
-	iterativeCeiling   = 90.0
-	bulkStallWindow    = 45 * time.Second
-	iterStallWindow    = 25 * time.Second
-	bulkUpdateInterval = time.Second
-	iterUpdateInterval = 2 * time.Second
+	bulkCeiling      = 45.0
+	iterativeFloor   = 45.0
+	iterativeCeiling = 90.0
+	thresholdFactor  = 0.05
+
+	bulkTimeRate      = 0.55
+	iterBaseTimeRate  = 0.022
+	iterThrottleRate  = 0.0012
+	bulkMetricWeight  = 0.80
+	bulkTimeWeight    = 0.20
+	iterMetricWeight  = 0.76
+	iterTimeWeight    = 0.24
+	smoothAlphaUp     = 0.18
+	smoothAlphaDown   = 0.34
+	bulkStallSeconds  = 10.0
+	iterStallSeconds  = 8.0
+	finalStallSeconds = 6.0
 )
 
 type Strategy interface {
@@ -76,6 +86,7 @@ func (p *Progress) Forget(uid types.UID) {
 
 func (p *Progress) SyncProgress(record Record) int32 {
 	state := p.getState(record)
+
 	prev := clampSyncRange(record.PreviousProgress)
 	if state.Progress > prev {
 		prev = state.Progress
@@ -85,22 +96,57 @@ func (p *Progress) SyncProgress(record Record) int32 {
 	if elapsed < 0 {
 		elapsed = 0
 	}
+	elapsedSec := elapsed.Seconds()
 
 	iterative := isIterative(record)
 	if iterative && !state.Iterative {
 		state.Iterative = true
 		state.IterativeSince = record.Now
+		p.initIterative(record, &state, elapsedSec)
 	}
 
-	target := bulkTarget(record, elapsed)
 	if iterative {
-		target = iterativeTarget(record, &state, prev)
+		observeRemaining(record, &state)
 	}
 
-	metricAdvanced := metricChanged(record, &state)
-	next := smoothProgress(prev, target, iterative, record.Throttle, record.Now.Sub(state.LastUpdatedAt), metricAdvanced, state.LastUpdatedAt.IsZero())
-	next = applyStatefulStall(record, &state, next, iterative)
-	next = clampSyncRange(maxInt32(prev, next))
+	target := bulkTarget(record, elapsedSec)
+	if iterative {
+		target = iterativeTarget(record, &state, elapsedSec)
+	}
+
+	maxStep := int32(10)
+	if iterative {
+		maxStep = 5
+	}
+
+	cap := stageCap(iterative)
+	progress := math.Max(float64(prev), math.Min(target, cap))
+	next := clampPercent(progress)
+	if next < prev {
+		next = prev
+	}
+	if next > prev+maxStep {
+		next = prev + maxStep
+	}
+
+	if next == prev && float64(next) < cap {
+		lastIncrease := state.LastIncreaseAt
+		if lastIncrease.IsZero() {
+			lastIncrease = record.StartedAt
+		}
+		stallWin := stallWindow(record, &state, iterative)
+		if record.Now.Sub(lastIncrease).Seconds() >= stallWin {
+			next++
+		}
+	}
+
+	if float64(next) > cap {
+		next = int32(cap)
+	}
+
+	if next > prev {
+		state.LastIncreaseAt = record.Now
+	}
 
 	updateMetricState(record, &state)
 	state.Progress = next
@@ -121,143 +167,161 @@ func (p *Progress) getState(record Record) State {
 	}
 	state, ok := p.store.Load(record.OperationUID)
 	if !ok {
-		state = State{Progress: clampSyncRange(record.PreviousProgress), LastMetricAt: record.Now}
+		state = State{
+			Progress:     clampSyncRange(record.PreviousProgress),
+			LastMetricAt: record.Now,
+		}
 	}
 	return state
 }
 
-func metricPercent(record Record) (float64, bool) {
-	if record.DataTotalMiB <= 0 {
-		return 0, false
+func (p *Progress) initIterative(record Record, state *State, _ float64) {
+	total := record.DataTotalMiB
+	if total <= 0 {
+		total = 1
+	}
+	if total > state.InitialTotal {
+		state.InitialTotal = total
+	}
+	if state.InitialTotal <= 0 {
+		state.InitialTotal = total
 	}
 
-	processed, hasProcessed := normalizedProcessedMiB(record)
-	if !hasProcessed {
-		return 0, false
+	remaining := maxRemaining(record)
+	if remaining <= 0 {
+		remaining = state.InitialTotal
 	}
 
-	return clampFloat((processed/record.DataTotalMiB)*100.0, 0, 100), true
+	state.Threshold = math.Max(math.Ceil(state.InitialTotal*thresholdFactor), 1)
+	state.InitialRemaining = math.Max(remaining, state.Threshold)
+	state.SmoothedRemaining = state.InitialRemaining
 }
 
-func normalizedProcessedMiB(record Record) (float64, bool) {
-	if record.DataTotalMiB <= 0 {
-		return 0, false
+func observeRemaining(record Record, state *State) {
+	remaining := maxRemaining(record)
+	if remaining <= 0 {
+		return
 	}
-	if record.DataProcessedMiB >= 0 {
-		return clampFloat(record.DataProcessedMiB, 0, record.DataTotalMiB), true
+
+	alpha := smoothAlphaUp
+	if remaining < state.SmoothedRemaining {
+		alpha = smoothAlphaDown
 	}
-	if record.DataRemainingMiB >= 0 {
-		return clampFloat(record.DataTotalMiB-record.DataRemainingMiB, 0, record.DataTotalMiB), true
+	if record.Throttle >= 0.80 {
+		alpha += 0.08
 	}
-	return 0, false
+	if alpha > 0.90 {
+		alpha = 0.90
+	}
+
+	if state.SmoothedRemaining <= 0 {
+		state.SmoothedRemaining = remaining
+	} else {
+		state.SmoothedRemaining = alpha*remaining + (1-alpha)*state.SmoothedRemaining
+	}
 }
 
-func bulkTarget(record Record, elapsed time.Duration) float64 {
-	timeTarget := float64(SyncRangeMin) + math.Min(14, elapsed.Seconds()/8)
-	metricPct, hasMetric := metricPercent(record)
-	if !hasMetric {
-		return clampFloat(timeTarget, float64(SyncRangeMin), bulkCeiling)
+func bulkTarget(record Record, elapsedSec float64) float64 {
+	total := record.DataTotalMiB
+	if total <= 0 {
+		total = 1
 	}
-	metricTarget := float64(SyncRangeMin) + (metricPct/100.0)*(bulkCeiling-float64(SyncRangeMin))
-	mixed := metricTarget*0.78 + timeTarget*0.22
-	return clampFloat(mixed, float64(SyncRangeMin), bulkCeiling)
+
+	processed := math.Max(record.DataProcessedMiB, 0)
+	metricRatio := clampFloat(processed/total, 0, 1)
+	metricPct := float64(SyncRangeMin) + (bulkCeiling-float64(SyncRangeMin))*metricRatio
+
+	timePct := float64(SyncRangeMin) + elapsedSec*bulkTimeRate
+	if timePct > bulkCeiling {
+		timePct = bulkCeiling
+	}
+
+	return bulkMetricWeight*metricPct + bulkTimeWeight*timePct
 }
 
-func iterativeTarget(record Record, state *State, current int32) float64 {
-	baseline := float64(current)
-	if record.HasIteration {
-		iterationBoost := math.Min(float64(record.Iteration), 6) * 1.5
-		baseline = math.Max(baseline, float64(current)+iterationBoost)
-	}
+func iterativeTarget(record Record, state *State, elapsedSec float64) float64 {
+	metricRatio := iterativeMetricRatio(state)
+	metricPct := iterativeFloor + (iterativeCeiling-5-iterativeFloor)*metricRatio
 
-	target := baseline
-	metricPct, hasMetric := metricPercent(record)
-	if hasMetric {
-		target = math.Max(target, iterativeMetricTarget(record, metricPct))
+	throttle := record.Throttle
+	iterSince := state.IterativeSince
+	if iterSince.IsZero() {
+		iterSince = record.Now
 	}
+	iterElapsed := math.Max(0, elapsedSec-record.Now.Sub(iterSince).Seconds()+record.Now.Sub(iterSince).Seconds())
+	iterElapsedSec := math.Max(0, record.Now.Sub(iterSince).Seconds())
 
-	iterativeSince := state.IterativeSince
-	if iterativeSince.IsZero() {
-		iterativeSince = record.Now
+	timeRate := iterBaseTimeRate + throttle*iterThrottleRate
+	timePct := iterativeFloor + iterElapsedSec*timeRate
+	if timePct > iterativeCeiling {
+		timePct = iterativeCeiling
 	}
-	iterElapsed := record.Now.Sub(iterativeSince)
-	if iterElapsed < 0 {
-		iterElapsed = 0
-	}
-	target += math.Min(10, iterElapsed.Seconds()/12)
-	if record.HasThrottle {
-		target += record.Throttle * 6
-	}
-	if !hasMetric {
-		target += math.Min(34, iterElapsed.Seconds()/20)
-	}
+	_ = iterElapsed
 
-	return clampFloat(target, float64(current), iterativeCeiling)
+	target := iterMetricWeight*metricPct + iterTimeWeight*timePct
+	return math.Min(target, iterativeCeiling)
 }
 
-func iterativeMetricTarget(record Record, metricPct float64) float64 {
-	if record.DataTotalMiB > 0 && record.DataRemainingMiB >= 0 {
-		remainingRatio := clampFloat(record.DataRemainingMiB/record.DataTotalMiB, 0.0001, 1)
-		shaped := 1 - math.Log1p(remainingRatio*9)/math.Log(10)
-		return clampFloat(iterativeFloor+shaped*(iterativeCeiling-iterativeFloor), iterativeFloor, iterativeCeiling)
+func iterativeMetricRatio(state *State) float64 {
+	if state.InitialRemaining <= state.Threshold {
+		return 1
 	}
-	return clampFloat(iterativeFloor+(metricPct/100.0)*(iterativeCeiling-iterativeFloor), iterativeFloor, iterativeCeiling)
+
+	current := math.Max(state.SmoothedRemaining, state.Threshold)
+	initial := math.Max(state.InitialRemaining, state.Threshold)
+	base := math.Log(initial / state.Threshold)
+	if base <= 0 {
+		return 1
+	}
+
+	ratio := 1 - math.Log(current/state.Threshold)/base
+	return clampFloat(ratio, 0, 1)
+}
+
+func stageCap(iterative bool) float64 {
+	if !iterative {
+		return bulkCeiling
+	}
+	return iterativeCeiling
+}
+
+func stallWindow(record Record, state *State, iterative bool) float64 {
+	if !iterative {
+		return bulkStallSeconds
+	}
+
+	if state.Progress >= int32(iterativeCeiling)-2 {
+		return 24.0
+	}
+	if state.Progress >= int32(iterativeCeiling)-5 {
+		return 14.0
+	}
+	if state.SmoothedRemaining > 0 && state.SmoothedRemaining <= state.Threshold {
+		return finalStallSeconds
+	}
+
+	window := iterStallSeconds - 3*record.Throttle
+	if window < finalStallSeconds {
+		return finalStallSeconds
+	}
+	return window
 }
 
 func isIterative(record Record) bool {
 	return record.HasIteration && record.Iteration > 0
 }
 
-func smoothProgress(current int32, target float64, iterative bool, throttle float64, sinceLast time.Duration, metricAdvanced, initial bool) int32 {
-	delta := target - float64(current)
-	if delta <= 0 {
-		return current
+func maxRemaining(record Record) float64 {
+	if record.DataRemainingMiB > 0 {
+		return record.DataRemainingMiB
 	}
-
-	if !initial {
-		minInterval := bulkUpdateInterval
-		if iterative {
-			minInterval = iterUpdateInterval
-		}
-		if sinceLast > 0 && sinceLast < minInterval {
-			return current
+	if record.DataTotalMiB > 0 && record.DataProcessedMiB >= 0 {
+		r := record.DataTotalMiB - record.DataProcessedMiB
+		if r > 0 {
+			return r
 		}
 	}
-
-	factor := 0.40
-	maxStep := 6.0
-	if iterative {
-		factor = 0.28
-		maxStep = 4
-		if throttle > 0 {
-			maxStep += math.Round(throttle * 2)
-		}
-	}
-	if metricAdvanced {
-		maxStep += 1
-	}
-	step := math.Max(1, math.Round(delta*factor))
-	step = math.Min(step, maxStep)
-	return current + int32(step)
-}
-
-func applyStatefulStall(record Record, state *State, current int32, iterative bool) int32 {
-	window := bulkStallWindow
-	if iterative {
-		window = iterStallWindow
-	}
-	lastMetricAt := state.LastMetricAt
-	if lastMetricAt.IsZero() {
-		lastMetricAt = record.Now
-	}
-	if record.Now.Sub(lastMetricAt) < window {
-		return current
-	}
-	bump := int32(1)
-	if iterative && record.HasThrottle && record.Throttle >= 0.5 {
-		bump = 2
-	}
-	return clampSyncRange(current + bump)
+	return 0
 }
 
 func updateMetricState(record Record, state *State) {
@@ -286,11 +350,15 @@ func almostEqual(a, b float64) bool {
 	return math.Abs(a-b) < 0.01
 }
 
-func maxInt32(a, b int32) int32 {
-	if a > b {
-		return a
+func clampPercent(v float64) int32 {
+	i := int32(v)
+	if i < SyncRangeMin {
+		return SyncRangeMin
 	}
-	return b
+	if i > SyncRangeMax {
+		return SyncRangeMax
+	}
+	return i
 }
 
 func clampFloat(v, minV, maxV float64) float64 {

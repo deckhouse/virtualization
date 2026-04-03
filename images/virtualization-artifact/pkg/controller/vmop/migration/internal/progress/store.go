@@ -29,14 +29,19 @@ const (
 )
 
 type State struct {
-	Progress         int32
-	Iterative        bool
-	IterativeSince   time.Time
-	LastUpdatedAt    time.Time
-	LastMetricAt     time.Time
-	LastIteration    uint32
-	LastProcessedMiB float64
-	LastRemainingMiB float64
+	Progress          int32
+	Iterative         bool
+	IterativeSince    time.Time
+	LastUpdatedAt     time.Time
+	LastMetricAt      time.Time
+	LastIteration     uint32
+	LastProcessedMiB  float64
+	LastRemainingMiB  float64
+	InitialTotal      float64
+	InitialRemaining  float64
+	SmoothedRemaining float64
+	Threshold         float64
+	LastIncreaseAt    time.Time
 }
 
 type Store struct {

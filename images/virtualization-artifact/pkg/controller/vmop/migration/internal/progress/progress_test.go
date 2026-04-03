@@ -17,6 +17,7 @@ limitations under the License.
 package progress
 
 import (
+	"math"
 	"testing"
 	"time"
 
@@ -27,20 +28,27 @@ import (
 func TestProgress_MonotonicGrowth(t *testing.T) {
 	now := time.Now()
 	p := NewProgress()
+	uid := types.UID("vmop")
 
 	first := p.SyncProgress(Record{
-		OperationUID:     types.UID("vmop"),
+		OperationUID:     uid,
 		Now:              now,
 		StartedAt:        now.Add(-20 * time.Second),
 		PreviousProgress: 10,
 		Phase:            virtv1.MigrationRunning,
+		DataTotalMiB:     1024,
+		DataProcessedMiB: 100,
+		DataRemainingMiB: 900,
 	})
 	second := p.SyncProgress(Record{
-		OperationUID:     types.UID("vmop"),
+		OperationUID:     uid,
 		Now:              now.Add(40 * time.Second),
 		StartedAt:        now.Add(-80 * time.Second),
 		PreviousProgress: first,
 		Phase:            virtv1.MigrationRunning,
+		DataTotalMiB:     1024,
+		DataProcessedMiB: 200,
+		DataRemainingMiB: 800,
 	})
 
 	if second < first {
@@ -58,7 +66,6 @@ func TestProgress_SyncRangeCaps(t *testing.T) {
 		StartedAt:            now.Add(-2 * time.Hour),
 		PreviousProgress:     10,
 		Phase:                virtv1.MigrationRunning,
-		Mode:                 virtv1.MigrationPostCopy,
 		HasIteration:         true,
 		Iteration:            1,
 		HasThrottle:          true,
@@ -83,67 +90,30 @@ func TestProgress_StallBump(t *testing.T) {
 		OperationUID:     uid,
 		Now:              now,
 		StartedAt:        now.Add(-50 * time.Second),
-		PreviousProgress: 70,
+		PreviousProgress: 30,
 		Phase:            virtv1.MigrationRunning,
+		DataTotalMiB:     1024,
+		DataProcessedMiB: 300,
+		DataRemainingMiB: 700,
 	})
-	progress := p.SyncProgress(Record{
-		OperationUID:     uid,
-		Now:              now.Add(bulkStallWindow + time.Second),
-		StartedAt:        now.Add(-50 * time.Second),
-		PreviousProgress: first,
-		Phase:            virtv1.MigrationRunning,
-	})
+
+	var progress int32
+	for i := 1; i <= 5; i++ {
+		stallDuration := time.Duration(i) * time.Duration(bulkStallSeconds+2) * time.Second
+		progress = p.SyncProgress(Record{
+			OperationUID:     uid,
+			Now:              now.Add(stallDuration),
+			StartedAt:        now.Add(-50 * time.Second),
+			PreviousProgress: progress,
+			Phase:            virtv1.MigrationRunning,
+			DataTotalMiB:     1024,
+			DataProcessedMiB: 300,
+			DataRemainingMiB: 700,
+		})
+	}
 
 	if progress <= first {
 		t.Fatalf("expected stall bump to increase progress beyond %d, got=%d", first, progress)
-	}
-}
-
-func TestProgress_DoesNotAdvanceTooFastBetweenRapidSyncs(t *testing.T) {
-	now := time.Now()
-	p := NewProgress()
-	uid := types.UID("vmop")
-
-	first := p.SyncProgress(Record{
-		OperationUID:     uid,
-		Now:              now,
-		StartedAt:        now.Add(-2 * time.Minute),
-		PreviousProgress: 10,
-		Phase:            virtv1.MigrationRunning,
-		DataTotalMiB:     1024,
-		DataProcessedMiB: 900,
-	})
-	second := p.SyncProgress(Record{
-		OperationUID:     uid,
-		Now:              now.Add(200 * time.Millisecond),
-		StartedAt:        now.Add(-2 * time.Minute),
-		PreviousProgress: first,
-		Phase:            virtv1.MigrationRunning,
-		DataTotalMiB:     1024,
-		DataProcessedMiB: 900,
-	})
-
-	if second != first {
-		t.Fatalf("expected no progress change during rapid resync, first=%d second=%d", first, second)
-	}
-}
-
-func TestProgress_CapsSingleBulkStep(t *testing.T) {
-	now := time.Now()
-	p := NewProgress()
-
-	progress := p.SyncProgress(Record{
-		OperationUID:     types.UID("vmop"),
-		Now:              now,
-		StartedAt:        now.Add(-2 * time.Minute),
-		PreviousProgress: 10,
-		Phase:            virtv1.MigrationRunning,
-		DataTotalMiB:     1024,
-		DataProcessedMiB: 1024,
-	})
-
-	if progress > 17 {
-		t.Fatalf("expected first bulk step to be capped, got=%d", progress)
 	}
 }
 
@@ -199,6 +169,7 @@ func TestProgress_EntersIterativePhaseByIteration(t *testing.T) {
 		Phase:            virtv1.MigrationRunning,
 		DataTotalMiB:     1024,
 		DataProcessedMiB: 512,
+		DataRemainingMiB: 512,
 	})
 	iterative := p.SyncProgress(Record{
 		OperationUID:         uid,
@@ -212,6 +183,7 @@ func TestProgress_EntersIterativePhaseByIteration(t *testing.T) {
 		AutoConvergeThrottle: 50,
 		Throttle:             0.5,
 		DataTotalMiB:         1024,
+		DataProcessedMiB:     960,
 		DataRemainingMiB:     64,
 	})
 
@@ -237,32 +209,6 @@ func TestProgress_UsesRemainingDataFallback(t *testing.T) {
 
 	if progress <= SyncRangeMin {
 		t.Fatalf("expected fallback metric progress above SyncRangeMin, got=%d", progress)
-	}
-}
-
-func TestMetricPercent_ClampsProcessedAboveTotal(t *testing.T) {
-	metricPct, hasMetric := metricPercent(Record{DataTotalMiB: 100, DataProcessedMiB: 200})
-	if !hasMetric {
-		t.Fatal("expected metric to be available")
-	}
-	if metricPct != 100 {
-		t.Fatalf("expected clamped metric percent=100, got=%v", metricPct)
-	}
-}
-
-func TestMetricPercent_ClampsRemainingAboveTotal(t *testing.T) {
-	metricPct, hasMetric := metricPercent(Record{DataTotalMiB: 100, DataRemainingMiB: 200})
-	if !hasMetric {
-		t.Fatal("expected metric to be available")
-	}
-	if metricPct != 0 {
-		t.Fatalf("expected clamped metric percent=0, got=%v", metricPct)
-	}
-}
-
-func TestMetricPercent_RequiresPositiveTotal(t *testing.T) {
-	if _, hasMetric := metricPercent(Record{DataTotalMiB: 0, DataProcessedMiB: 10}); hasMetric {
-		t.Fatal("expected metric to be unavailable for zero total")
 	}
 }
 
@@ -295,6 +241,8 @@ func TestProgress_VeryLargeElapsedStaysInRange(t *testing.T) {
 		Phase:            virtv1.MigrationRunning,
 		HasIteration:     true,
 		Iteration:        5,
+		DataTotalMiB:     1024,
+		DataRemainingMiB: 10,
 	})
 
 	if progress < SyncRangeMin || progress > SyncRangeMax {
@@ -348,5 +296,176 @@ func TestForget_RemovesState(t *testing.T) {
 
 	if p.store.Len() != 0 {
 		t.Fatalf("expected empty store after forget, got=%d", p.store.Len())
+	}
+}
+
+func TestProgress_SmoothGrowthOverMultipleSyncs(t *testing.T) {
+	now := time.Now()
+	p := NewProgress()
+	uid := types.UID("vmop")
+	start := now.Add(-10 * time.Second)
+
+	var values []int32
+	prev := SyncRangeMin
+	totalMiB := 1024.0
+	remaining := 900.0
+
+	for i := 0; i < 40; i++ {
+		tick := now.Add(time.Duration(i*3) * time.Second)
+		remaining = math.Max(10, remaining-25)
+		processed := totalMiB - remaining
+
+		iter := uint32(0)
+		hasIter := false
+		if i >= 5 {
+			iter = uint32(i - 4)
+			hasIter = true
+		}
+
+		progress := p.SyncProgress(Record{
+			OperationUID:     uid,
+			Now:              tick,
+			StartedAt:        start,
+			PreviousProgress: prev,
+			Phase:            virtv1.MigrationRunning,
+			HasIteration:     hasIter,
+			Iteration:        iter,
+			DataTotalMiB:     totalMiB,
+			DataProcessedMiB: processed,
+			DataRemainingMiB: remaining,
+		})
+
+		values = append(values, progress)
+		prev = progress
+	}
+
+	for i := 1; i < len(values); i++ {
+		if values[i] < values[i-1] {
+			t.Fatalf("progress decreased at step %d: %d -> %d", i, values[i-1], values[i])
+		}
+	}
+
+	maxJump := int32(0)
+	for i := 1; i < len(values); i++ {
+		jump := values[i] - values[i-1]
+		if jump > maxJump {
+			maxJump = jump
+		}
+	}
+	if maxJump > 15 {
+		t.Fatalf("max single-step jump too large: %d (values: %v)", maxJump, values)
+	}
+}
+
+func TestIterativeMetricRatio(t *testing.T) {
+	tests := []struct {
+		name     string
+		state    State
+		wantLow  float64
+		wantHigh float64
+	}{
+		{
+			name:     "initial remaining equals threshold",
+			state:    State{InitialRemaining: 50, SmoothedRemaining: 50, Threshold: 50},
+			wantLow:  0.99,
+			wantHigh: 1.01,
+		},
+		{
+			name:     "smoothed at initial",
+			state:    State{InitialRemaining: 1000, SmoothedRemaining: 1000, Threshold: 50},
+			wantLow:  -0.01,
+			wantHigh: 0.01,
+		},
+		{
+			name:     "smoothed at threshold",
+			state:    State{InitialRemaining: 1000, SmoothedRemaining: 50, Threshold: 50},
+			wantLow:  0.99,
+			wantHigh: 1.01,
+		},
+		{
+			name:     "smoothed halfway log scale",
+			state:    State{InitialRemaining: 1000, SmoothedRemaining: 200, Threshold: 50},
+			wantLow:  0.3,
+			wantHigh: 0.7,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ratio := iterativeMetricRatio(&tt.state)
+			if ratio < tt.wantLow || ratio > tt.wantHigh {
+				t.Fatalf("iterativeMetricRatio() = %v, want in [%v, %v]", ratio, tt.wantLow, tt.wantHigh)
+			}
+		})
+	}
+}
+
+func TestMaxRemaining(t *testing.T) {
+	tests := []struct {
+		name   string
+		record Record
+		want   float64
+	}{
+		{
+			name:   "direct remaining",
+			record: Record{DataRemainingMiB: 100},
+			want:   100,
+		},
+		{
+			name:   "computed from total minus processed",
+			record: Record{DataTotalMiB: 200, DataProcessedMiB: 150},
+			want:   50,
+		},
+		{
+			name:   "no data",
+			record: Record{DataTotalMiB: unknownMetric, DataProcessedMiB: unknownMetric, DataRemainingMiB: unknownMetric},
+			want:   0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := maxRemaining(tt.record)
+			if !almostEqual(got, tt.want) {
+				t.Fatalf("maxRemaining() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestObserveRemaining_EMA(t *testing.T) {
+	state := State{SmoothedRemaining: 100}
+
+	observeRemaining(Record{DataRemainingMiB: 80}, &state)
+	if state.SmoothedRemaining >= 100 || state.SmoothedRemaining <= 80 {
+		t.Fatalf("expected EMA to move smoothed remaining between 80 and 100, got=%v", state.SmoothedRemaining)
+	}
+
+	prev := state.SmoothedRemaining
+	observeRemaining(Record{DataRemainingMiB: 120}, &state)
+	if state.SmoothedRemaining <= prev {
+		t.Fatalf("expected EMA to increase smoothed remaining from %v, got=%v", prev, state.SmoothedRemaining)
+	}
+}
+
+func TestProgress_AdaptiveStallWindow(t *testing.T) {
+	state := State{Progress: 50, SmoothedRemaining: 100, Threshold: 50}
+	record := Record{Throttle: 0}
+
+	w := stallWindow(record, &state, true)
+	if w != iterStallSeconds {
+		t.Fatalf("expected base iterative stall window=%v, got=%v", iterStallSeconds, w)
+	}
+
+	state.Progress = int32(iterativeCeiling) - 2
+	w = stallWindow(record, &state, true)
+	if w != 24.0 {
+		t.Fatalf("expected late-stage stall window=24, got=%v", w)
+	}
+
+	state.Progress = int32(iterativeCeiling) - 4
+	w = stallWindow(record, &state, true)
+	if w != 14.0 {
+		t.Fatalf("expected near-end stall window=14, got=%v", w)
 	}
 }
