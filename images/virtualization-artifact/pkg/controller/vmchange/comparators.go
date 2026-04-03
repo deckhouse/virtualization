@@ -17,8 +17,6 @@ limitations under the License.
 package vmchange
 
 import (
-	"k8s.io/apimachinery/pkg/api/resource"
-
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -151,11 +149,6 @@ func compareCPU(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
 	}
 
 	return nil
-}
-
-// compareMemory returns changes in the memory section.
-func compareMemory(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
-	return compareQuantity("memory.size", current.Memory.Size, desired.Memory.Size, resource.Quantity{}, ActionRestart)
 }
 
 func compareProvisioning(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {

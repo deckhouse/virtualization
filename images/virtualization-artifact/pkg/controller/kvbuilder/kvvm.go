@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/array"
 	"github.com/deckhouse/virtualization-controller/pkg/common/resource_builder"
 	"github.com/deckhouse/virtualization-controller/pkg/common/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -46,6 +47,9 @@ const (
 
 	// GenericCPUModel specifies the base CPU model for Features and Discovery CPU model types.
 	GenericCPUModel = "qemu64"
+
+	MaxMemorySizeForHotplug      = 256 * 1024 * 1024 * 1024 // 256 Gi (safely limit to not overlap somewhat conservative 38 bit physical address space)
+	EnableMemoryHotplugThreshold = 1 * 1024 * 1024 * 1024   // 1 Gi (no hotplug for VMs with less than 1Gi)
 )
 
 type KVVMOptions struct {
@@ -269,7 +273,25 @@ func (b *KVVM) SetCPU(cores int, coreFraction string) error {
 	return nil
 }
 
+// SetMemory sets memory in kvvm.
+// There are 2 possibilities to set memory:
+// 1. Use domain.memory.guest field: it enabled memory hotplugging, but not set resources.limits.
+// 2. Explicitly set limits and requests in domain.resources. No hotplugging in this scenario.
+//
+// (1) is a new approach, and (2) should be respected for Running VMs started by previous version of the controller.
 func (b *KVVM) SetMemory(memorySize resource.Quantity) {
+	// Support for VMs started with memory size in requests-limits.
+	// TODO delete this in the future (around 3-4 more versions after enabling memory hotplug by default).
+	if b.ResourceExists && isVMRunningWithMemoryResources(b.Resource) {
+		b.setMemoryNonHotpluggable(memorySize)
+		return
+	}
+	b.setMemoryHotpluggable(memorySize)
+}
+
+// setMemoryNonHotpluggable translates memory size to requests and limits in KVVM.
+// Note: this is a first implementation, memory hotplug is not compatible with this strategy.
+func (b *KVVM) setMemoryNonHotpluggable(memorySize resource.Quantity) {
 	res := &b.Resource.Spec.Template.Spec.Domain.Resources
 	if res.Requests == nil {
 		res.Requests = make(map[corev1.ResourceName]resource.Quantity)
@@ -279,6 +301,57 @@ func (b *KVVM) SetMemory(memorySize resource.Quantity) {
 	}
 	res.Requests[corev1.ResourceMemory] = memorySize
 	res.Limits[corev1.ResourceMemory] = memorySize
+}
+
+// setMemoryHotpluggable translates memory size to settings in domain.memory field.
+// This field is compatible with memory hotplug.
+// Also, remove requests-limits for memory if any.
+func (b *KVVM) setMemoryHotpluggable(memorySize resource.Quantity) {
+	domain := &b.Resource.Spec.Template.Spec.Domain
+
+	currentMaxGuest := int64(-1)
+	if domain.Memory != nil && domain.Memory.MaxGuest != nil {
+		currentMaxGuest = domain.Memory.MaxGuest.Value()
+	}
+
+	domain.Memory = &virtv1.Memory{
+		Guest: &memorySize,
+	}
+
+	// Set maxMemory to enable hotplug for mem size >= 1Gi.
+	hotplugThreshold := resource.NewQuantity(EnableMemoryHotplugThreshold, resource.BinarySI)
+	if featuregates.Default().Enabled(featuregates.HotplugMemoryWithLiveMigration) {
+		if memorySize.Cmp(*hotplugThreshold) >= 0 {
+			maxMemory := resource.NewQuantity(MaxMemorySizeForHotplug, resource.BinarySI)
+			domain.Memory.MaxGuest = maxMemory
+		}
+	}
+	// Set maxGuest to 0 if hotplug is disabled now (mem size < 1Gi) and maxGuest was previously set.
+	// Zero value is just a flag to patch memory and remove maxGuest before updating kvvm.
+	if memorySize.Cmp(*hotplugThreshold) == -1 && currentMaxGuest > 0 {
+		domain.Memory.MaxGuest = resource.NewQuantity(0, resource.BinarySI)
+	}
+
+	// Remove memory limits and requests if set by previous implementation.
+	res := &b.Resource.Spec.Template.Spec.Domain.Resources
+	delete(res.Requests, corev1.ResourceMemory)
+	delete(res.Limits, corev1.ResourceMemory)
+}
+
+func isVMRunningWithMemoryResources(kvvm *virtv1.VirtualMachine) bool {
+	if kvvm == nil {
+		return false
+	}
+
+	if kvvm.Status.PrintableStatus != virtv1.VirtualMachineStatusRunning {
+		return false
+	}
+
+	res := kvvm.Spec.Template.Spec.Domain.Resources
+	_, hasMemoryRequests := res.Requests[corev1.ResourceMemory]
+	_, hasMemoryLimits := res.Limits[corev1.ResourceMemory]
+
+	return hasMemoryRequests && hasMemoryLimits
 }
 
 func GetCPURequest(cores int, coreFraction string) (*resource.Quantity, error) {
@@ -473,7 +546,7 @@ func (b *KVVM) SetProvisioning(p *v1alpha2.Provisioning) error {
 	}
 }
 
-func (b *KVVM) SetOsType(osType v1alpha2.OsType) error {
+func (b *KVVM) SetOSType(osType v1alpha2.OsType) error {
 	switch osType {
 	case v1alpha2.Windows:
 		// Need for `029-use-OFVM_CODE-for-linux.patch`
