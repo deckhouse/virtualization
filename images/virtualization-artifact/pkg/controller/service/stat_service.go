@@ -272,14 +272,29 @@ func (s StatService) IsImportStarted(ownerUID types.UID, pod *corev1.Pod) bool {
 	return progress.ProgressRaw() > 0
 }
 
-func (s StatService) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) bool {
+func (s StatService) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) (bool, error) {
 	if pod == nil || svc == nil || ing == nil {
-		return false
+		return false, nil
 	}
 
-	ingressIsOK := ing.Annotations[annotations.AnnUploadPath] != "" || ing.Annotations[annotations.AnnUploadURLDeprecated] != ""
+	if !podutil.IsPodReady(pod) {
+		return false, nil
+	}
 
-	return podutil.IsPodRunning(pod) && podutil.IsPodStarted(pod) && ingressIsOK
+	uploadURL, ok := ing.Annotations[annotations.AnnUploadURL]
+	if ok {
+		response, err := http.Get(uploadURL)
+		if err != nil {
+			return false, fmt.Errorf("failed to get upload server status: %w", err)
+		}
+		defer response.Body.Close()
+
+		if response.StatusCode == http.StatusOK {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func (s StatService) IsUploadStarted(ownerUID types.UID, pod *corev1.Pod) bool {
