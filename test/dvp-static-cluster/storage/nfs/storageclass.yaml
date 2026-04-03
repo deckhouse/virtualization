@@ -1,0 +1,31 @@
+apiVersion: storage.deckhouse.io/v1alpha1
+kind: NFSStorageClass
+metadata:
+  name: nfs
+spec:
+  connection:
+    host: nfs-server.${NAMESPACE}.svc.cluster.local
+    share: /
+    nfsVersion: "4.1"
+  mountOptions:
+    mountMode: hard
+    timeout: 60
+    retransmissions: 3
+  reclaimPolicy: Delete
+  volumeBindingMode: Immediate
+---
+apiVersion: storage.deckhouse.io/v1alpha1
+kind: NFSStorageClass
+metadata:
+  name: nfs-2
+spec:
+  connection:
+    host: nfs-server.${NAMESPACE}.svc.cluster.local
+    share: /
+    nfsVersion: "4.1"
+  mountOptions:
+    mountMode: hard
+    timeout: 60
+    retransmissions: 3
+  reclaimPolicy: Delete
+  volumeBindingMode: Immediate
