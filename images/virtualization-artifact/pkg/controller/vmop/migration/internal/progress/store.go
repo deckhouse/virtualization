@@ -17,10 +17,15 @@ limitations under the License.
 package progress
 
 import (
-	"sync"
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
+	utilcache "k8s.io/apimachinery/pkg/util/cache"
+)
+
+const (
+	storeMaxSize = 1024
+	storeTTL     = 30 * time.Minute
 )
 
 type State struct {
@@ -35,41 +40,35 @@ type State struct {
 }
 
 type Store struct {
-	mu     sync.RWMutex
-	states map[types.UID]State
+	cache *utilcache.LRUExpireCache
 }
 
 func NewStore() *Store {
-	return &Store{states: make(map[types.UID]State)}
+	return &Store{cache: utilcache.NewLRUExpireCache(storeMaxSize)}
 }
 
 func (s *Store) Load(uid types.UID) (State, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	state, ok := s.states[uid]
-	return state, ok
+	v, ok := s.cache.Get(uid)
+	if !ok {
+		return State{}, false
+	}
+	return v.(State), true
 }
 
 func (s *Store) Store(uid types.UID, state State) {
 	if uid == "" {
 		return
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.states[uid] = state
+	s.cache.Add(uid, state, storeTTL)
 }
 
 func (s *Store) Delete(uid types.UID) {
 	if uid == "" {
 		return
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.states, uid)
+	s.cache.Remove(uid)
 }
 
 func (s *Store) Len() int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return len(s.states)
+	return len(s.cache.Keys())
 }
