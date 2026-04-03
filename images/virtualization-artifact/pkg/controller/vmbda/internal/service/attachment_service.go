@@ -20,11 +20,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/component-helpers/scheduling/corev1/nodeaffinity"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -314,69 +312,6 @@ func (s AttachmentService) IsPVAvailableOnVMNode(ctx context.Context, pvc *corev
 	}
 
 	return true, nil
-}
-
-func (s AttachmentService) GetHotPlugPod(ctx context.Context, ad *AttachmentDisk, kvvmi *virtv1.VirtualMachineInstance) (*corev1.Pod, error) {
-	if ad == nil || kvvmi == nil {
-		return nil, nil
-	}
-
-	for _, vs := range kvvmi.Status.VolumeStatus {
-		if vs.HotplugVolume == nil || vs.Name != ad.GenerateName {
-			continue
-		}
-		if vs.HotplugVolume.AttachPodName == "" {
-			return nil, nil
-		}
-
-		return object.FetchObject(ctx, types.NamespacedName{
-			Namespace: kvvmi.Namespace,
-			Name:      vs.HotplugVolume.AttachPodName,
-		}, s.client, &corev1.Pod{})
-	}
-	return nil, nil
-}
-
-func (s AttachmentService) GetHotPlugPodCondition(ctx context.Context, ad *AttachmentDisk, kvvmi *virtv1.VirtualMachineInstance, condType corev1.PodConditionType) (*corev1.PodCondition, error) {
-	pod, err := s.GetHotPlugPod(ctx, ad, kvvmi)
-	if err != nil || pod == nil {
-		return nil, err
-	}
-
-	for i, c := range pod.Status.Conditions {
-		if c.Type == condType {
-			return &pod.Status.Conditions[i], nil
-		}
-	}
-	return nil, nil
-}
-
-func (s AttachmentService) GetLastPodEvent(ctx context.Context, pod *corev1.Pod) (*corev1.Event, error) {
-	if pod == nil {
-		return nil, nil
-	}
-
-	eventList := &corev1.EventList{}
-	err := s.client.List(ctx, eventList, &client.ListOptions{
-		Namespace: pod.Namespace,
-		FieldSelector: fields.SelectorFromSet(fields.Set{
-			"involvedObject.name": pod.Name,
-			"involvedObject.kind": "Pod",
-		}),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	if len(eventList.Items) == 0 {
-		return nil, nil
-	}
-
-	last := slices.MaxFunc(eventList.Items, func(a, b corev1.Event) int {
-		return a.LastTimestamp.Compare(b.LastTimestamp.Time)
-	})
-
-	return &last, nil
 }
 
 func isSameBlockDeviceRefs(a, b v1alpha2.VMBDAObjectRef) bool {
