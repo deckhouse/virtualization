@@ -389,28 +389,17 @@ func (h *SyncKvvmHandler) updateKVVM(ctx context.Context, s state.VirtualMachine
 			jsonPatch := patch.JSONPatch{}
 			memory := newKVVM.Spec.Template.Spec.Domain.Memory
 			if memory != nil && memory.MaxGuest != nil && memory.MaxGuest.IsZero() {
-				// maxGuest=0 is an invalid value for vm-validator webhook, we use it as
-				// a special value to patch KVVM to unset maxGuest.
-				// Set it to nil for the update call.
+				// maxGuest=0 is an invalid value for the vm-validator webhook, we use 0 as
+				// an internal special value to patch KVVM before update.
+				// Set it to nil in the spec, so Update call will not fail.
 				memory.MaxGuest = nil
 
-				// 2 operations: remove memory.maxGuest; set memory.guest.
-				// Remove is not enough, remove and set are needed both to pass the kubevirt vm-validator webhook.
+				// Removing memory.maxGuest is not enough, replace memory.guest is needed to pass the vm-validator webhook.
 				jsonPatch.Append(
 					patch.WithRemove("/spec/template/spec/domain/memory/maxGuest"),
 					patch.WithReplace("/spec/template/spec/domain/memory/guest", memory.Guest.String()),
 				)
 			}
-			//if len(newKVVM.Spec.Template.Spec.Domain.Resources.Requests) == 0 {
-			//	jsonPatch.Append(
-			//		patch.WithRemove("/spec/template/spec/domain/resources/requests"),
-			//	)
-			//}
-			//if len(newKVVM.Spec.Template.Spec.Domain.Resources.Limits) == 0 {
-			//	jsonPatch.Append(
-			//		patch.WithRemove("/spec/template/spec/domain/resources/limits"),
-			//	)
-			//}
 
 			if jsonPatch.Len() > 0 {
 				patchBytes, err := jsonPatch.Bytes()
