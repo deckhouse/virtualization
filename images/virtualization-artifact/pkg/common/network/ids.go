@@ -39,12 +39,15 @@ func EnsureNetworkInterfaceIDs(networks []v1alpha2.NetworksSpec) bool {
 	changed := false
 	used := make(map[int]struct{}, len(networks))
 
+	for i := range networks {
+		if networks[i].ID != nil && *networks[i].ID > 0 {
+			used[*networks[i].ID] = struct{}{}
+		}
+	}
+
 	nextID := StartGenericID
 	for i := range networks {
 		if networks[i].ID != nil {
-			if *networks[i].ID > 0 {
-				used[*networks[i].ID] = struct{}{}
-			}
 			continue
 		}
 
