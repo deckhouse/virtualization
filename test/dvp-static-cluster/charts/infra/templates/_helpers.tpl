@@ -33,7 +33,10 @@ spec:
   - kind: VirtualDisk
     name: {{ printf "%s-%d" $name $i }}
 {{- end }}
-{{- end }}
+  networks:
+    - type: Main
+    - type: ClusterNetwork
+      name: cn-4006-for-e2e-test
   bootloader: {{ $ctx.Values.image.bootloader }}
   liveMigrationPolicy: PreferForced
   cpu:
@@ -51,6 +54,15 @@ spec:
       #cloud-config
       ssh_pwauth: true
       package_update: true
+      network:
+        version: 2
+        ethernets:
+          eno2:
+            dhcp4: false
+            dhcp6: false
+            addresses: []
+            link-local: [ipv6]
+            optional: false
       packages:
         - qemu-guest-agent
         - jq
@@ -107,5 +119,6 @@ spec:
     storageClassName: {{ $ctx.Values.storageClass }}
     {{- end }}
   {{- end }}
+{{- end }}
 {{- end }}
 {{- end }}
