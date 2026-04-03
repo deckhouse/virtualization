@@ -90,22 +90,19 @@ func (p *Progress) SyncProgress(record Record) int32 {
 	if iterative && !state.Iterative {
 		state.Iterative = true
 		state.IterativeSince = record.Now
-		if prev < int32(iterativeFloor) {
-			prev = int32(iterativeFloor)
-		}
 	}
 
 	target := bulkTarget(record, elapsed)
 	if iterative {
-		target = iterativeTarget(record, state, prev)
+		target = iterativeTarget(record, &state, prev)
 	}
 
-	metricAdvanced := metricChanged(record, state)
+	metricAdvanced := metricChanged(record, &state)
 	next := smoothProgress(prev, target, iterative, record.Throttle, record.Now.Sub(state.LastUpdatedAt), metricAdvanced, state.LastUpdatedAt.IsZero())
-	next = applyStatefulStall(record, state, next, iterative)
+	next = applyStatefulStall(record, &state, next, iterative)
 	next = clampSyncRange(maxInt32(prev, next))
 
-	updateMetricState(record, state)
+	updateMetricState(record, &state)
 	state.Progress = next
 	state.LastUpdatedAt = record.Now
 	state.LastIteration = record.Iteration
@@ -166,10 +163,11 @@ func bulkTarget(record Record, elapsed time.Duration) float64 {
 	return clampFloat(mixed, float64(SyncRangeMin), bulkCeiling)
 }
 
-func iterativeTarget(record Record, state State, current int32) float64 {
-	baseline := math.Max(float64(current), iterativeFloor)
+func iterativeTarget(record Record, state *State, current int32) float64 {
+	baseline := float64(current)
 	if record.HasIteration {
-		baseline = math.Max(baseline, iterativeFloor+math.Min(float64(record.Iteration), 6)*1.5)
+		iterationBoost := math.Min(float64(record.Iteration), 6) * 1.5
+		baseline = math.Max(baseline, float64(current)+iterationBoost)
 	}
 
 	target := baseline
@@ -194,7 +192,7 @@ func iterativeTarget(record Record, state State, current int32) float64 {
 		target += math.Min(34, iterElapsed.Seconds()/20)
 	}
 
-	return clampFloat(target, iterativeFloor, iterativeCeiling)
+	return clampFloat(target, float64(current), iterativeCeiling)
 }
 
 func iterativeMetricTarget(record Record, metricPct float64) float64 {
@@ -243,7 +241,7 @@ func smoothProgress(current int32, target float64, iterative bool, throttle floa
 	return current + int32(step)
 }
 
-func applyStatefulStall(record Record, state State, current int32, iterative bool) int32 {
+func applyStatefulStall(record Record, state *State, current int32, iterative bool) int32 {
 	window := bulkStallWindow
 	if iterative {
 		window = iterStallWindow
@@ -262,7 +260,7 @@ func applyStatefulStall(record Record, state State, current int32, iterative boo
 	return clampSyncRange(current + bump)
 }
 
-func updateMetricState(record Record, state State) {
+func updateMetricState(record Record, state *State) {
 	if !metricChanged(record, state) {
 		return
 	}
@@ -271,7 +269,7 @@ func updateMetricState(record Record, state State) {
 	state.LastRemainingMiB = record.DataRemainingMiB
 }
 
-func metricChanged(record Record, state State) bool {
+func metricChanged(record Record, state *State) bool {
 	if state.LastMetricAt.IsZero() {
 		return true
 	}

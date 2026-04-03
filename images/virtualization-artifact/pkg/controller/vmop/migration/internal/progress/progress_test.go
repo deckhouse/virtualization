@@ -297,8 +297,8 @@ func TestProgress_VeryLargeElapsedStaysInRange(t *testing.T) {
 		Iteration:        5,
 	})
 
-	if progress < int32(iterativeFloor) || progress > SyncRangeMax {
-		t.Fatalf("expected progress in iterative range [%d,%d], got=%d", int32(iterativeFloor), SyncRangeMax, progress)
+	if progress < SyncRangeMin || progress > SyncRangeMax {
+		t.Fatalf("expected progress in range [%d,%d], got=%d", SyncRangeMin, SyncRangeMax, progress)
 	}
 }
 
