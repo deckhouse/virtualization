@@ -22,105 +22,73 @@ import (
 	"context"
 	"fmt"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
-	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
 const labelKey = "v12n-e2e-precreated"
 
-// PrecreatedCVIManager runs bootstrap and cleanup of precreated CVIs for the e2e suite.
+// Manager runs bootstrap and cleanup of precreated CVIs for the e2e suite.
 // The list of CVIs is loaded once during Bootstrap and reused in Cleanup.
-type PrecreatedCVIManager struct {
+type Manager struct {
 	cvis []*v1alpha2.ClusterVirtualImage
 }
 
-// NewPrecreatedCVIManager returns a new precreated CVI manager.
-func NewPrecreatedCVIManager() *PrecreatedCVIManager {
-	return &PrecreatedCVIManager{}
+// NewManager returns a new precreated CVI manager.
+func NewManager() *Manager {
+	return &Manager{}
 }
 
-// Bootstrap creates or reuses precreated CVIs in the cluster, then waits until all are ready.
+// Bootstrap creates or reuses precreated CVIs in the cluster.
 // Call once from SynchronizedBeforeSuite (process 1).
-func (m *PrecreatedCVIManager) Bootstrap(ctx context.Context) {
-	GinkgoHelper()
-
+func (m *Manager) Bootstrap(ctx context.Context) error {
 	m.cvis = object.PrecreatedClusterVirtualImages()
 
-	var created, reused []string
 	for _, cvi := range m.cvis {
-		wasCreated, err := m.createOrReuse(ctx, cvi)
-		Expect(err).NotTo(HaveOccurred())
-		if wasCreated {
-			created = append(created, cvi.Name)
-		} else {
-			reused = append(reused, cvi.Name)
+		if err := m.createOrReuse(ctx, cvi); err != nil {
+			return fmt.Errorf("create or reuse CVI %q: %w", cvi.Name, err)
 		}
 	}
 
-	if len(created) > 0 {
-		for _, name := range created {
-			By(fmt.Sprintf("Precreated CVI %q has been created", name))
-		}
-	}
-	if len(reused) > 0 {
-		By(fmt.Sprintf("Reusing %d precreated CVIs that already exist in the cluster", len(reused)))
-	}
-
-	By(fmt.Sprintf("Wait until all %d precreated CVIs are ready", len(m.cvis)))
-	//nolint:contextcheck // UntilObjectPhase uses Eventually.WithTimeout for cancellation, not context cancel.
-	util.UntilObjectPhase(string(v1alpha2.ImageReady), framework.LongTimeout, m.cvisAsObjects()...)
-	By(fmt.Sprintf("All %d precreated CVIs are ready", len(m.cvis)))
+	return nil
 }
 
-// Cleanup deletes precreated CVIs when both POST_CLEANUP and PRECREATED_CVI_CLEANUP allow it.
-// Call from SynchronizedAfterSuite (process 1). Uses the same CVI list as Bootstrap; if Bootstrap
-// was not run, the list is loaded from object so that cleanup can still run.
-func (m *PrecreatedCVIManager) Cleanup(ctx context.Context) {
-	GinkgoHelper()
-
-	if !config.IsCleanUpNeeded() {
-		return
-	}
-	if !config.IsPrecreatedCVICleanupNeeded() {
-		return
-	}
-
+// Cleanup deletes precreated CVIs.
+// Call from SynchronizedAfterSuite (process 1). Uses the same CVI list as Bootstrap;
+// if Bootstrap was not run, the list is loaded from object so that cleanup can still run.
+func (m *Manager) Cleanup(ctx context.Context) error {
 	if len(m.cvis) == 0 {
 		m.cvis = object.PrecreatedClusterVirtualImages()
 	}
 
 	f := framework.NewFramework("")
-	err := f.Delete(ctx, m.cvisAsObjects()...)
-	Expect(err).NotTo(HaveOccurred(), "Failed to delete precreated CVIs")
+	return f.Delete(ctx, m.CVIsAsObjects()...)
 }
 
-func (m *PrecreatedCVIManager) createOrReuse(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, error) {
-	applyLabel(cvi)
-
-	err := framework.GetClients().GenericClient().Create(ctx, cvi)
-	if err == nil {
-		return true, nil
-	}
-	if !k8serrors.IsAlreadyExists(err) {
-		return false, err
-	}
-	return false, framework.GetClients().GenericClient().Get(ctx, crclient.ObjectKeyFromObject(cvi), cvi)
-}
-
-func (m *PrecreatedCVIManager) cvisAsObjects() []crclient.Object {
+// CVIsAsObjects returns all managed CVIs as controller-runtime Objects.
+func (m *Manager) CVIsAsObjects() []crclient.Object {
 	objs := make([]crclient.Object, 0, len(m.cvis))
 	for _, cvi := range m.cvis {
 		objs = append(objs, cvi)
 	}
 	return objs
+}
+
+func (m *Manager) createOrReuse(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) error {
+	applyLabel(cvi)
+
+	err := framework.GetClients().GenericClient().Create(ctx, cvi)
+	if err == nil {
+		return nil
+	}
+	if !k8serrors.IsAlreadyExists(err) {
+		return err
+	}
+	return framework.GetClients().GenericClient().Get(ctx, crclient.ObjectKeyFromObject(cvi), cvi)
 }
 
 func applyLabel(cvi *v1alpha2.ClusterVirtualImage) {
