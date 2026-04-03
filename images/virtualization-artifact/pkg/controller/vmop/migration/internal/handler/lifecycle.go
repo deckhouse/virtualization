@@ -649,37 +649,26 @@ func (h LifecycleHandler) calculateMigrationProgress(
 }
 
 func (h LifecycleHandler) getTargetPodDiskError(ctx context.Context, pod *corev1.Pod) (string, bool) {
-	if pod == nil {
+	if pod == nil || pod.Status.Phase != corev1.PodPending || pod.DeletionTimestamp != nil {
 		return "", false
 	}
 
-	for _, cs := range pod.Status.InitContainerStatuses {
-		if cs.State.Waiting != nil && cs.State.Waiting.Reason == "ContainerCreating" {
-			break
+	eventList := &corev1.EventList{}
+	err := h.client.List(ctx, eventList, &client.ListOptions{
+		Namespace: pod.Namespace,
+		FieldSelector: fields.SelectorFromSet(fields.Set{
+			"involvedObject.name": pod.Name,
+			"involvedObject.kind": "Pod",
+		}),
+	})
+	if err != nil {
+		return "", false
+	}
+	for _, e := range eventList.Items {
+		if e.Type == corev1.EventTypeWarning && (e.Reason == reasonFailedAttachVolume || e.Reason == reasonFailedMount) {
+			return fmt.Sprintf("%s: %s", e.Reason, e.Message), true
 		}
 	}
-	for _, cs := range pod.Status.ContainerStatuses {
-		if cs.State.Waiting != nil && cs.State.Waiting.Reason == "ContainerCreating" {
-			eventList := &corev1.EventList{}
-			err := h.client.List(ctx, eventList, &client.ListOptions{
-				Namespace: pod.Namespace,
-				FieldSelector: fields.SelectorFromSet(fields.Set{
-					"involvedObject.name": pod.Name,
-					"involvedObject.kind": "Pod",
-				}),
-			})
-			if err != nil {
-				return "", false
-			}
-			for _, e := range eventList.Items {
-				if e.Type == corev1.EventTypeWarning && (e.Reason == reasonFailedAttachVolume || e.Reason == reasonFailedMount) {
-					return fmt.Sprintf("%s: %s", e.Reason, e.Message), true
-				}
-			}
-			return "", false
-		}
-	}
-
 	return "", false
 }
 
