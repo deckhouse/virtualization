@@ -469,3 +469,135 @@ func TestProgress_AdaptiveStallWindow(t *testing.T) {
 		t.Fatalf("expected near-end stall window=14, got=%v", w)
 	}
 }
+
+func makeIterativeState(p *Progress, uid types.UID, now time.Time, minRemaining float64, minRemainingAt time.Time) {
+	state := State{
+		Progress:          SyncRangeMin,
+		Iterative:         true,
+		IterativeSince:    now.Add(-30 * time.Second),
+		InitialRemaining:  500,
+		SmoothedRemaining: minRemaining + 10,
+		Threshold:         10,
+		MinRemaining:      minRemaining,
+		MinRemainingAt:    minRemainingAt,
+	}
+	p.store.Store(uid, state)
+}
+
+func TestIsNotConverging_NoAutoConverge_Stall(t *testing.T) {
+	p := NewProgress()
+	uid := types.UID("vmop-nc")
+	now := time.Now()
+	stallStart := now.Add(-15 * time.Second)
+
+	makeIterativeState(p, uid, now, 100.0, stallStart)
+
+	record := Record{
+		OperationUID:     uid,
+		Now:              now,
+		HasIteration:     true,
+		Iteration:        3,
+		AutoConverge:     false,
+		DataRemainingMiB: 100,
+	}
+
+	if !p.IsNotConverging(record) {
+		t.Fatal("expected IsNotConverging=true when AutoConverge=false, iterative, stall>10s")
+	}
+}
+
+func TestIsNotConverging_AutoConverge_ThrottleNotMax(t *testing.T) {
+	p := NewProgress()
+	uid := types.UID("vmop-nc2")
+	now := time.Now()
+	stallStart := now.Add(-15 * time.Second)
+
+	makeIterativeState(p, uid, now, 100.0, stallStart)
+
+	record := Record{
+		OperationUID:     uid,
+		Now:              now,
+		HasIteration:     true,
+		Iteration:        3,
+		AutoConverge:     true,
+		HasThrottle:      true,
+		Throttle:         0.5,
+		DataRemainingMiB: 100,
+	}
+
+	if p.IsNotConverging(record) {
+		t.Fatal("expected IsNotConverging=false when AutoConverge=true and throttle not at max")
+	}
+}
+
+func TestIsNotConverging_AutoConverge_MaxThrottle_Stall(t *testing.T) {
+	p := NewProgress()
+	uid := types.UID("vmop-nc3")
+	now := time.Now()
+	stallStart := now.Add(-15 * time.Second)
+
+	makeIterativeState(p, uid, now, 100.0, stallStart)
+
+	record := Record{
+		OperationUID:     uid,
+		Now:              now,
+		HasIteration:     true,
+		Iteration:        3,
+		AutoConverge:     true,
+		HasThrottle:      true,
+		Throttle:         0.99,
+		DataRemainingMiB: 100,
+	}
+
+	if !p.IsNotConverging(record) {
+		t.Fatal("expected IsNotConverging=true when AutoConverge=true, throttle=max, stall>10s")
+	}
+}
+
+func TestIsNotConverging_RemainingDecreased(t *testing.T) {
+	p := NewProgress()
+	uid := types.UID("vmop-nc4")
+	now := time.Now()
+
+	makeIterativeState(p, uid, now, 50.0, now)
+
+	record := Record{
+		OperationUID:     uid,
+		Now:              now,
+		HasIteration:     true,
+		Iteration:        3,
+		AutoConverge:     false,
+		DataRemainingMiB: 50,
+	}
+
+	if p.IsNotConverging(record) {
+		t.Fatal("expected IsNotConverging=false when minRemainingAt is just now (stall < 10s)")
+	}
+}
+
+func TestIsNotConverging_NotIterative(t *testing.T) {
+	p := NewProgress()
+	uid := types.UID("vmop-nc5")
+	now := time.Now()
+	stallStart := now.Add(-15 * time.Second)
+
+	state := State{
+		Progress:       SyncRangeMin,
+		Iterative:      false,
+		MinRemaining:   100,
+		MinRemainingAt: stallStart,
+	}
+	p.store.Store(uid, state)
+
+	record := Record{
+		OperationUID:     uid,
+		Now:              now,
+		HasIteration:     false,
+		AutoConverge:     false,
+		DataRemainingMiB: 100,
+	}
+
+	if p.IsNotConverging(record) {
+		t.Fatal("expected IsNotConverging=false when not iterative")
+	}
+}

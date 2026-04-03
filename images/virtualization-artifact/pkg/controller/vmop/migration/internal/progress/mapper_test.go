@@ -31,7 +31,7 @@ import (
 func TestBuildRecord_NilVMOPAndMigration(t *testing.T) {
 	now := time.Unix(1710000000, 0)
 
-	record := BuildRecord(nil, nil, false, now)
+	record := BuildRecord(nil, nil, now)
 
 	if !record.StartedAt.Equal(now) {
 		t.Fatalf("expected StartedAt=%v, got %v", now, record.StartedAt)
@@ -54,7 +54,7 @@ func TestBuildRecord_UsesVMOPCreationTimestampAndPreviousProgress(t *testing.T) 
 		Status: v1alpha2.VirtualMachineOperationStatus{Progress: ptr.To[int32](42)},
 	}
 
-	record := BuildRecord(vmop, nil, false, now)
+	record := BuildRecord(vmop, nil, now)
 
 	if record.OperationUID != vmop.UID {
 		t.Fatalf("expected OperationUID=%s, got %s", vmop.UID, record.OperationUID)
@@ -90,7 +90,7 @@ func TestBuildRecord_UsesMigrationState(t *testing.T) {
 		},
 	}
 
-	record := BuildRecord(nil, mig, false, now)
+	record := BuildRecord(nil, mig, now)
 
 	if record.Phase != virtv1.MigrationRunning {
 		t.Fatalf("expected Phase=%s, got %s", virtv1.MigrationRunning, record.Phase)
@@ -236,5 +236,58 @@ func TestMapThrottle(t *testing.T) {
 				t.Fatalf("normalizeThrottle() = %v, want %v", got, tt.wantValue)
 			}
 		})
+	}
+}
+
+func TestBuildRecord_AutoConvergeFromMigrationConfiguration(t *testing.T) {
+	now := time.Unix(1710000000, 0)
+	allowAutoConverge := true
+	mig := &virtv1.VirtualMachineInstanceMigration{
+		Status: virtv1.VirtualMachineInstanceMigrationStatus{
+			MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+				MigrationConfiguration: &virtv1.MigrationConfiguration{
+					AllowAutoConverge: &allowAutoConverge,
+				},
+			},
+		},
+	}
+
+	record := BuildRecord(nil, mig, now)
+	if !record.AutoConverge {
+		t.Fatal("expected AutoConverge=true from MigrationConfiguration.AllowAutoConverge")
+	}
+}
+
+func TestBuildRecord_AutoConverge_False_WhenNotSet(t *testing.T) {
+	now := time.Unix(1710000000, 0)
+
+	recordNoMig := BuildRecord(nil, nil, now)
+	if recordNoMig.AutoConverge {
+		t.Fatal("expected AutoConverge=false when mig is nil")
+	}
+
+	migNoConfig := &virtv1.VirtualMachineInstanceMigration{
+		Status: virtv1.VirtualMachineInstanceMigrationStatus{
+			MigrationState: &virtv1.VirtualMachineInstanceMigrationState{},
+		},
+	}
+	recordNoConfig := BuildRecord(nil, migNoConfig, now)
+	if recordNoConfig.AutoConverge {
+		t.Fatal("expected AutoConverge=false when MigrationConfiguration is nil")
+	}
+
+	allowAutoConverge := false
+	migFalse := &virtv1.VirtualMachineInstanceMigration{
+		Status: virtv1.VirtualMachineInstanceMigrationStatus{
+			MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+				MigrationConfiguration: &virtv1.MigrationConfiguration{
+					AllowAutoConverge: &allowAutoConverge,
+				},
+			},
+		},
+	}
+	recordFalse := BuildRecord(nil, migFalse, now)
+	if recordFalse.AutoConverge {
+		t.Fatal("expected AutoConverge=false when AllowAutoConverge=false")
 	}
 }

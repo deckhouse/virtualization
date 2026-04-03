@@ -26,12 +26,11 @@ import (
 
 const unknownMetric = -1.0
 
-func BuildRecord(vmop *v1alpha2.VirtualMachineOperation, mig *virtv1.VirtualMachineInstanceMigration, autoConverge bool, now time.Time) Record {
+func BuildRecord(vmop *v1alpha2.VirtualMachineOperation, mig *virtv1.VirtualMachineInstanceMigration, now time.Time) Record {
 	record := Record{
 		Now:              now,
 		StartedAt:        now,
 		PreviousProgress: previousProgress(vmop),
-		AutoConverge:     autoConverge,
 		DataTotalMiB:     unknownMetric,
 		DataProcessedMiB: unknownMetric,
 		DataRemainingMiB: unknownMetric,
@@ -58,6 +57,9 @@ func BuildRecord(vmop *v1alpha2.VirtualMachineOperation, mig *virtv1.VirtualMach
 		record.DataTotalMiB = mapBytesToMiB(state.DataTotalBytes)
 		record.DataProcessedMiB = mapBytesToMiB(state.DataProcessedBytes)
 		record.DataRemainingMiB = mapBytesToMiB(state.DataRemainingBytes)
+		if state.MigrationConfiguration != nil && state.MigrationConfiguration.AllowAutoConverge != nil {
+			record.AutoConverge = *state.MigrationConfiguration.AllowAutoConverge
+		}
 	}
 
 	return record

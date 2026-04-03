@@ -47,8 +47,9 @@ import (
 )
 
 type progressStrategyStub struct {
-	value     int32
-	forgotten []types.UID
+	value           int32
+	isNotConverging bool
+	forgotten       []types.UID
 }
 
 func (s *progressStrategyStub) SyncProgress(_ migrationprogress.Record) int32 {
@@ -56,7 +57,7 @@ func (s *progressStrategyStub) SyncProgress(_ migrationprogress.Record) int32 {
 }
 
 func (s *progressStrategyStub) IsNotConverging(_ migrationprogress.Record) bool {
-	return false
+	return s.isNotConverging
 }
 
 func (s *progressStrategyStub) Forget(uid types.UID) {
@@ -521,6 +522,313 @@ var _ = Describe("LifecycleHandler", func() {
 			Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
 			Expect(srv.Changed().Status.Progress).NotTo(BeNil())
 			Expect(*srv.Changed().Status.Progress).To(Equal(int32(100)))
+		})
+
+		It("should override Syncing with NotConverging when strategy detects stall", func() {
+			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
+			vmop := newVMOPMigrate()
+			vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+			vmop.Status.Progress = ptr.To[int32](50)
+
+			mig := newSimpleMigration(fmt.Sprintf("vmop-%s", vmop.Name), name)
+			mig.Status.Phase = virtv1.MigrationRunning
+			mig.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				StartTimestamp: &metav1.Time{Time: time.Now().Add(-2 * time.Minute)},
+			}
+
+			stub := &progressStrategyStub{value: 50, isNotConverging: true}
+
+			fakeClient, srv = setupEnvironment(vmop, vm, mig)
+			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
+			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
+			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
+			h.progressStrategy = stub
+
+			_, err := h.Handle(ctx, srv.Changed())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhaseInProgress))
+
+			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
+			Expect(found).To(BeTrue())
+			Expect(completed.Reason).To(Equal(vmopcondition.ReasonNotConverging.String()))
+		})
+
+		It("should stay Syncing when strategy does not detect stall", func() {
+			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
+			vmop := newVMOPMigrate()
+			vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+			vmop.Status.Progress = ptr.To[int32](30)
+
+			mig := newSimpleMigration(fmt.Sprintf("vmop-%s", vmop.Name), name)
+			mig.Status.Phase = virtv1.MigrationRunning
+			mig.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				StartTimestamp: &metav1.Time{Time: time.Now().Add(-1 * time.Minute)},
+			}
+
+			stub := &progressStrategyStub{value: 30, isNotConverging: false}
+
+			fakeClient, srv = setupEnvironment(vmop, vm, mig)
+			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
+			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
+			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
+			h.progressStrategy = stub
+
+			_, err := h.Handle(ctx, srv.Changed())
+			Expect(err).NotTo(HaveOccurred())
+
+			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
+			Expect(found).To(BeTrue())
+			Expect(completed.Reason).To(Equal(vmopcondition.ReasonSyncing.String()))
+		})
+
+		It("should prefer Aborted over NotConverging for terminal reason", func() {
+			h := LifecycleHandler{}
+			mig := &virtv1.VirtualMachineInstanceMigration{
+				Status: virtv1.VirtualMachineInstanceMigrationStatus{
+					MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+						AbortRequested: true,
+						FailureReason:  "no progress during convergence",
+					},
+				},
+			}
+			Expect(h.getFailedReason(mig)).To(Equal(vmopcondition.ReasonAborted))
+		})
+
+		It("should set completed condition reason on success", func() {
+			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
+			vmop := newVMOPMigrate()
+			vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+
+			mig := newSimpleMigration(fmt.Sprintf("vmop-%s", vmop.Name), name)
+			mig.Status.Phase = virtv1.MigrationSucceeded
+
+			fakeClient, srv = setupEnvironment(vmop, vm, mig)
+			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
+			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
+			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
+
+			_, err := h.Handle(ctx, srv.Changed())
+			Expect(err).NotTo(HaveOccurred())
+
+			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
+			Expect(found).To(BeTrue())
+			Expect(completed.Reason).To(Equal(vmopcondition.ReasonMigrationCompleted.String()))
+		})
+
+		It("should use OperationFailed reason when migration is nil (mig==nil path)", func() {
+			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
+			vmop := newVMOPMigrate()
+			vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+			vmop.Status.Conditions = []metav1.Condition{
+				{
+					Type:   vmopcondition.TypeSignalSent.String(),
+					Status: metav1.ConditionTrue,
+					Reason: vmopcondition.ReasonSignalSentSuccess.String(),
+				},
+			}
+
+			fakeClient, srv = setupEnvironment(vmop, vm)
+			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
+			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
+			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
+
+			_, err := h.Handle(ctx, srv.Changed())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+
+			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
+			Expect(found).To(BeTrue())
+			Expect(completed.Reason).To(Equal(vmopcondition.ReasonOperationFailed.String()))
+		})
+
+		It("should set target preparing progress (3) for scheduled migration", func() {
+			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
+			vmop := newVMOPMigrate()
+			vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+
+			mig := newSimpleMigration(fmt.Sprintf("vmop-%s", vmop.Name), name)
+			mig.Status.Phase = virtv1.MigrationScheduled
+
+			fakeClient, srv = setupEnvironment(vmop, vm, mig)
+			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
+			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
+			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
+
+			_, err := h.Handle(ctx, srv.Changed())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(srv.Changed().Status.Progress).NotTo(BeNil())
+			Expect(*srv.Changed().Status.Progress).To(Equal(int32(3)))
+
+			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
+			Expect(found).To(BeTrue())
+			Expect(completed.Reason).To(Equal(vmopcondition.ReasonTargetPreparing.String()))
+		})
+
+		It("should set target resumed progress (92) when domain ready timestamp is set", func() {
+			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
+			vmop := newVMOPMigrate()
+			vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+
+			mig := newSimpleMigration(fmt.Sprintf("vmop-%s", vmop.Name), name)
+			mig.Status.Phase = virtv1.MigrationRunning
+			mig.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				TargetNodeDomainReadyTimestamp: &metav1.Time{Time: time.Now()},
+			}
+
+			fakeClient, srv = setupEnvironment(vmop, vm, mig)
+			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
+			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
+			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
+
+			_, err := h.Handle(ctx, srv.Changed())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(srv.Changed().Status.Progress).NotTo(BeNil())
+			Expect(*srv.Changed().Status.Progress).To(Equal(int32(92)))
+
+			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
+			Expect(found).To(BeTrue())
+			Expect(completed.Reason).To(Equal(vmopcondition.ReasonTargetResumed.String()))
+		})
+
+		It("should set source suspended progress (91) when migration state completed flag is set", func() {
+			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
+			vmop := newVMOPMigrate()
+			vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+
+			mig := newSimpleMigration(fmt.Sprintf("vmop-%s", vmop.Name), name)
+			mig.Status.Phase = virtv1.MigrationRunning
+			mig.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				Completed:                      true,
+				TargetNodeDomainReadyTimestamp: &metav1.Time{Time: time.Now()},
+			}
+
+			fakeClient, srv = setupEnvironment(vmop, vm, mig)
+			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
+			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
+			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
+
+			_, err := h.Handle(ctx, srv.Changed())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(srv.Changed().Status.Progress).NotTo(BeNil())
+			Expect(*srv.Changed().Status.Progress).To(Equal(int32(91)))
+
+			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
+			Expect(found).To(BeTrue())
+			Expect(completed.Reason).To(Equal(vmopcondition.ReasonSourceSuspended.String()))
+		})
+
+		It("should preserve NotConverging reason when migration fails with generic reason", func() {
+			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
+			vmop := newVMOPMigrate()
+			vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+			vmop.Status.Progress = ptr.To[int32](60)
+			vmop.Status.Conditions = []metav1.Condition{
+				{
+					Type:   vmopcondition.TypeSignalSent.String(),
+					Status: metav1.ConditionTrue,
+					Reason: vmopcondition.ReasonSignalSentSuccess.String(),
+				},
+				{
+					Type:   vmopcondition.TypeCompleted.String(),
+					Status: metav1.ConditionFalse,
+					Reason: vmopcondition.ReasonNotConverging.String(),
+				},
+			}
+
+			mig := newSimpleMigration(fmt.Sprintf("vmop-%s", vmop.Name), name)
+			mig.Status.Phase = virtv1.MigrationFailed
+
+			fakeClient, srv = setupEnvironment(vmop, vm, mig)
+			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
+			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
+			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
+
+			_, err := h.Handle(ctx, srv.Changed())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+
+			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
+			Expect(found).To(BeTrue())
+			Expect(completed.Reason).To(Equal(vmopcondition.ReasonNotConverging.String()))
+		})
+
+		It("should NOT preserve NotConverging when migration fails with specific reason (Aborted)", func() {
+			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
+			vmop := newVMOPMigrate()
+			vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+			vmop.Status.Progress = ptr.To[int32](60)
+			vmop.Status.Conditions = []metav1.Condition{
+				{
+					Type:   vmopcondition.TypeSignalSent.String(),
+					Status: metav1.ConditionTrue,
+					Reason: vmopcondition.ReasonSignalSentSuccess.String(),
+				},
+				{
+					Type:   vmopcondition.TypeCompleted.String(),
+					Status: metav1.ConditionFalse,
+					Reason: vmopcondition.ReasonNotConverging.String(),
+				},
+			}
+
+			mig := newSimpleMigration(fmt.Sprintf("vmop-%s", vmop.Name), name)
+			mig.Status.Phase = virtv1.MigrationFailed
+			mig.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				AbortRequested: true,
+			}
+
+			fakeClient, srv = setupEnvironment(vmop, vm, mig)
+			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
+			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
+			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
+
+			_, err := h.Handle(ctx, srv.Changed())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+
+			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
+			Expect(found).To(BeTrue())
+			Expect(completed.Reason).To(Equal(vmopcondition.ReasonAborted.String()))
+		})
+
+		It("should return TargetDiskError when target pod has disk attach error", func() {
+			mig := newSimpleMigration("vmop-test", name)
+			mig.UID = "migration-uid"
+			mig.Status.Phase = virtv1.MigrationPreparingTarget
+
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespace,
+					Name:      "target-pod",
+					Labels: map[string]string{
+						virtv1.AppLabel:          "virt-launcher",
+						virtv1.MigrationJobLabel: "migration-uid",
+					},
+				},
+				Status: corev1.PodStatus{
+					Phase: corev1.PodPending,
+					ContainerStatuses: []corev1.ContainerStatus{
+						{
+							Name:  "compute",
+							State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: "ContainerCreating"}},
+						},
+					},
+				},
+			}
+			event := &corev1.Event{
+				ObjectMeta:     metav1.ObjectMeta{Namespace: namespace, Name: "disk-event"},
+				InvolvedObject: corev1.ObjectReference{Name: "target-pod", Kind: "Pod", Namespace: namespace},
+				Type:           corev1.EventTypeWarning,
+				Reason:         "FailedAttachVolume",
+				Message:        "failed to attach disk",
+			}
+
+			fakeClient, err := testutil.NewFakeClientWithObjects(mig, pod, event)
+			Expect(err).NotTo(HaveOccurred())
+
+			h := LifecycleHandler{client: fakeClient}
+			reason, _, err := h.getInProgressReasonAndMessage(ctx, mig)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(reason).To(Equal(vmopcondition.ReasonTargetDiskError))
 		})
 	})
 })

@@ -24,6 +24,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -61,6 +62,11 @@ const (
 	messageTargetPodPreparing     = "Target pod is being prepared"
 	messageTargetVMResumed        = "Target VM resumed"
 	messageSourceVMSuspended      = "Source VM suspended"
+)
+
+const (
+	reasonFailedAttachVolume = "FailedAttachVolume"
+	reasonFailedMount        = "FailedMount"
 )
 
 type Base interface {
@@ -290,6 +296,13 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "VirtualMachineOperation failed")
 
 		reason := h.getFailedReason(mig)
+		if reason == vmopcondition.ReasonFailed {
+			if prev, found := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions); found {
+				if prev.Reason == vmopcondition.ReasonNotConverging.String() {
+					reason = vmopcondition.ReasonNotConverging
+				}
+			}
+		}
 		msg := h.getFailedMessage(reason, mig)
 		progress := h.calculateMigrationProgress(vmop, mig, reason)
 		vmop.Status.Progress = ptr.To(progress)
@@ -318,10 +331,8 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 		return err
 	}
 
-	autoConverge := h.resolveAutoConverge(vmop)
-
 	if reason == vmopcondition.ReasonSyncing {
-		record := migrationprogress.BuildRecord(vmop, mig, autoConverge, time.Now())
+		record := migrationprogress.BuildRecord(vmop, mig, time.Now())
 		if h.progressStrategy != nil && h.progressStrategy.IsNotConverging(record) {
 			reason = vmopcondition.ReasonNotConverging
 			msg = "Migration is not converging: data remaining is not decreasing at maximum throttle"
@@ -581,6 +592,9 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 	if isPodPendingUnschedulable(pod) {
 		return vmopcondition.ReasonTargetUnschedulable, fmt.Sprintf("Target pod %q is unschedulable", pod.Namespace+"/"+pod.Name), nil
 	}
+	if diskErrMsg, hasDiskErr := h.getTargetPodDiskError(ctx, pod); hasDiskErr {
+		return vmopcondition.ReasonTargetDiskError, fmt.Sprintf("Target pod has disk attach error: %s", diskErrMsg), nil
+	}
 
 	if mig.Status.MigrationState != nil {
 		state := mig.Status.MigrationState
@@ -614,7 +628,7 @@ func (h LifecycleHandler) calculateMigrationProgress(
 	case vmopcondition.ReasonTargetDiskError:
 		return progressTargetPreparing
 	case vmopcondition.ReasonSyncing, vmopcondition.ReasonNotConverging:
-		record := migrationprogress.BuildRecord(vmop, mig, h.resolveAutoConverge(vmop), time.Now())
+		record := migrationprogress.BuildRecord(vmop, mig, time.Now())
 		return h.progressStrategy.SyncProgress(record)
 	case vmopcondition.ReasonSourceSuspended:
 		h.forgetProgress(vmop)
@@ -634,14 +648,39 @@ func (h LifecycleHandler) calculateMigrationProgress(
 	}
 }
 
-func (h LifecycleHandler) resolveAutoConverge(vmop *v1alpha2.VirtualMachineOperation) bool {
-	if vmop == nil {
-		return false
+func (h LifecycleHandler) getTargetPodDiskError(ctx context.Context, pod *corev1.Pod) (string, bool) {
+	if pod == nil {
+		return "", false
 	}
-	if vmop.Spec.Force != nil && *vmop.Spec.Force {
-		return true
+
+	for _, cs := range pod.Status.InitContainerStatuses {
+		if cs.State.Waiting != nil && cs.State.Waiting.Reason == "ContainerCreating" {
+			break
+		}
 	}
-	return false
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.State.Waiting != nil && cs.State.Waiting.Reason == "ContainerCreating" {
+			eventList := &corev1.EventList{}
+			err := h.client.List(ctx, eventList, &client.ListOptions{
+				Namespace: pod.Namespace,
+				FieldSelector: fields.SelectorFromSet(fields.Set{
+					"involvedObject.name": pod.Name,
+					"involvedObject.kind": "Pod",
+				}),
+			})
+			if err != nil {
+				return "", false
+			}
+			for _, e := range eventList.Items {
+				if e.Type == corev1.EventTypeWarning && (e.Reason == reasonFailedAttachVolume || e.Reason == reasonFailedMount) {
+					return fmt.Sprintf("%s: %s", e.Reason, e.Message), true
+				}
+			}
+			return "", false
+		}
+	}
+
+	return "", false
 }
 
 func (h LifecycleHandler) forgetProgress(vmop *v1alpha2.VirtualMachineOperation) {
