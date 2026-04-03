@@ -26,12 +26,13 @@ import (
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 )
 
 // TODO: When this test case is refactored with the new end-to-end test framework,
 // it should check labels and annotations on all resources: KVVM, KVVMI, and Pod.
 // KVVM must contain propagated metadata in the spec.template.metadata field.
-var _ = Describe("VirtualMachineLabelAndAnnotation", Ordered, func() {
+var _ = Describe("VirtualMachineLabelAndAnnotation", Ordered, label.Legacy(), func() {
 	const (
 		specialKey   = "specialKey"
 		specialValue = "specialValue"
@@ -62,17 +63,6 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", Ordered, func() {
 				FilenameOption: kc.Kustomize,
 			})
 			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
-		})
-	})
-
-	Context("When virtual images are applied", func() {
-		It("checks VIs phases", func() {
-			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
-			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
-				Labels:    testCaseLabel,
-				Namespace: ns,
-				Timeout:   MaxWaitTimeout,
-			})
 		})
 	})
 

@@ -82,13 +82,7 @@ var _ = Describe("DataExports", label.Slow(), func() {
 		)
 
 		By("Creating root and data disks", func() {
-			vdRoot = vdbuilder.New(
-				vdbuilder.WithName("vd-root"),
-				vdbuilder.WithNamespace(f.Namespace().Name),
-				vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: object.ImageURLUbuntu,
-				}),
-			)
+			vdRoot = object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIUbuntu)
 
 			vdData = vdbuilder.New(
 				vdbuilder.WithName("vd-data"),
@@ -113,7 +107,7 @@ var _ = Describe("DataExports", label.Slow(), func() {
 					v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: vdData.Name},
 				),
 				vmbuilder.WithRunPolicy(v1alpha2.AlwaysOnUnlessStoppedManually),
-				vmbuilder.WithProvisioningUserData(object.DefaultCloudInit),
+				vmbuilder.WithProvisioningUserData(object.UbuntuCloudInit),
 			)
 
 			err := f.CreateWithDeferredDeletion(context.Background(), vm)
