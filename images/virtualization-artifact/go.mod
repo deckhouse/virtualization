@@ -168,4 +168,4 @@ replace (
 )
 
 // Kubevirt API replaces
-replace kubevirt.io/api => github.com/deckhouse/3p-kubevirt/staging/src/kubevirt.io/api v1.6.2-v12n.16.0.20260402202241-26754f27943f
+replace kubevirt.io/api => ../../../3p-kubevirt/staging/src/kubevirt.io/api

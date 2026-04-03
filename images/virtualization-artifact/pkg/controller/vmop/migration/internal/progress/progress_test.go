@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 )
 
@@ -28,13 +29,15 @@ func TestProgress_MonotonicGrowth(t *testing.T) {
 	p := NewProgress()
 
 	first := p.SyncProgress(Record{
+		OperationUID:     types.UID("vmop"),
 		Now:              now,
 		StartedAt:        now.Add(-20 * time.Second),
 		PreviousProgress: 10,
 		Phase:            virtv1.MigrationRunning,
 	})
 	second := p.SyncProgress(Record{
-		Now:              now,
+		OperationUID:     types.UID("vmop"),
+		Now:              now.Add(40 * time.Second),
 		StartedAt:        now.Add(-80 * time.Second),
 		PreviousProgress: first,
 		Phase:            virtv1.MigrationRunning,
@@ -50,16 +53,20 @@ func TestProgress_SyncRangeCaps(t *testing.T) {
 	p := NewProgress()
 
 	progress := p.SyncProgress(Record{
-		Now:              now,
-		StartedAt:        now.Add(-2 * time.Hour),
-		PreviousProgress: 10,
-		Phase:            virtv1.MigrationRunning,
-		Mode:             virtv1.MigrationPostCopy,
-		Iteration:        1,
-		Throttle:         1,
-		DataTotalMiB:     1024,
-		DataProcessedMiB: 2048,
-		DataRemainingMiB: 0,
+		OperationUID:         types.UID("vmop"),
+		Now:                  now,
+		StartedAt:            now.Add(-2 * time.Hour),
+		PreviousProgress:     10,
+		Phase:                virtv1.MigrationRunning,
+		Mode:                 virtv1.MigrationPostCopy,
+		HasIteration:         true,
+		Iteration:            1,
+		HasThrottle:          true,
+		AutoConvergeThrottle: 100,
+		Throttle:             1,
+		DataTotalMiB:         1024,
+		DataProcessedMiB:     2048,
+		DataRemainingMiB:     0,
 	})
 
 	if progress < SyncRangeMin || progress > SyncRangeMax {
@@ -70,16 +77,25 @@ func TestProgress_SyncRangeCaps(t *testing.T) {
 func TestProgress_StallBump(t *testing.T) {
 	now := time.Now()
 	p := NewProgress()
+	uid := types.UID("vmop")
 
-	progress := p.SyncProgress(Record{
+	first := p.SyncProgress(Record{
+		OperationUID:     uid,
 		Now:              now,
 		StartedAt:        now.Add(-50 * time.Second),
 		PreviousProgress: 70,
 		Phase:            virtv1.MigrationRunning,
 	})
+	progress := p.SyncProgress(Record{
+		OperationUID:     uid,
+		Now:              now.Add(bulkStallWindow + time.Second),
+		StartedAt:        now.Add(-50 * time.Second),
+		PreviousProgress: first,
+		Phase:            virtv1.MigrationRunning,
+	})
 
-	if progress != 71 {
-		t.Fatalf("expected stall bump to increase progress to 71, got=%d", progress)
+	if progress <= first {
+		t.Fatalf("expected stall bump to increase progress beyond %d, got=%d", first, progress)
 	}
 }
 
@@ -88,6 +104,7 @@ func TestProgress_DegradedModeWithoutMetrics(t *testing.T) {
 	p := NewProgress()
 
 	progress := p.SyncProgress(Record{
+		OperationUID:     types.UID("vmop"),
 		Now:              now,
 		StartedAt:        now.Add(-2 * time.Minute),
 		PreviousProgress: 10,
@@ -107,6 +124,7 @@ func TestProgress_WithMetricsInBulkPhase(t *testing.T) {
 	p := NewProgress()
 
 	progress := p.SyncProgress(Record{
+		OperationUID:     types.UID("vmop"),
 		Now:              now,
 		StartedAt:        now.Add(-30 * time.Second),
 		PreviousProgress: 10,
@@ -120,11 +138,13 @@ func TestProgress_WithMetricsInBulkPhase(t *testing.T) {
 	}
 }
 
-func TestProgress_WithMetricsInIterativePhase(t *testing.T) {
+func TestProgress_EntersIterativePhaseByIteration(t *testing.T) {
 	now := time.Now()
 	p := NewProgress()
+	uid := types.UID("vmop")
 
 	bulk := p.SyncProgress(Record{
+		OperationUID:     uid,
 		Now:              now,
 		StartedAt:        now.Add(-30 * time.Second),
 		PreviousProgress: 10,
@@ -133,22 +153,22 @@ func TestProgress_WithMetricsInIterativePhase(t *testing.T) {
 		DataProcessedMiB: 512,
 	})
 	iterative := p.SyncProgress(Record{
-		Now:              now,
-		StartedAt:        now.Add(-3 * time.Minute),
-		PreviousProgress: bulk,
-		Phase:            virtv1.MigrationRunning,
-		Mode:             virtv1.MigrationPostCopy,
-		Iteration:        1,
-		Throttle:         1,
-		DataTotalMiB:     1024,
-		DataRemainingMiB: 64,
+		OperationUID:         uid,
+		Now:                  now.Add(40 * time.Second),
+		StartedAt:            now.Add(-3 * time.Minute),
+		PreviousProgress:     bulk,
+		Phase:                virtv1.MigrationRunning,
+		HasIteration:         true,
+		Iteration:            2,
+		HasThrottle:          true,
+		AutoConvergeThrottle: 50,
+		Throttle:             0.5,
+		DataTotalMiB:         1024,
+		DataRemainingMiB:     64,
 	})
 
 	if iterative <= bulk {
 		t.Fatalf("expected iterative progress to be greater than bulk progress, bulk=%d iterative=%d", bulk, iterative)
-	}
-	if iterative < SyncRangeMin || iterative > SyncRangeMax {
-		t.Fatalf("expected iterative progress in sync range [%d,%d], got=%d", SyncRangeMin, SyncRangeMax, iterative)
 	}
 }
 
@@ -157,6 +177,7 @@ func TestProgress_UsesRemainingDataFallback(t *testing.T) {
 	p := NewProgress()
 
 	progress := p.SyncProgress(Record{
+		OperationUID:     types.UID("vmop"),
 		Now:              now,
 		StartedAt:        now.Add(-90 * time.Second),
 		PreviousProgress: 10,
@@ -202,6 +223,7 @@ func TestProgress_ZeroElapsed(t *testing.T) {
 	p := NewProgress()
 
 	progress := p.SyncProgress(Record{
+		OperationUID:     types.UID("vmop"),
 		Now:              now,
 		StartedAt:        now,
 		PreviousProgress: SyncRangeMin,
@@ -213,21 +235,22 @@ func TestProgress_ZeroElapsed(t *testing.T) {
 	}
 }
 
-func TestProgress_VeryLargeElapsedIsCapped(t *testing.T) {
+func TestProgress_VeryLargeElapsedStaysInRange(t *testing.T) {
 	now := time.Now()
 	p := NewProgress()
 
 	progress := p.SyncProgress(Record{
+		OperationUID:     types.UID("vmop"),
 		Now:              now,
 		StartedAt:        now.Add(-24 * time.Hour),
 		PreviousProgress: 10,
 		Phase:            virtv1.MigrationRunning,
-		Mode:             virtv1.MigrationPostCopy,
-		Iteration:        1,
+		HasIteration:     true,
+		Iteration:        5,
 	})
 
-	if progress != SyncRangeMax {
-		t.Fatalf("expected capped progress=%d, got=%d", SyncRangeMax, progress)
+	if progress < int32(iterativeFloor) || progress > SyncRangeMax {
+		t.Fatalf("expected progress in iterative range [%d,%d], got=%d", int32(iterativeFloor), SyncRangeMax, progress)
 	}
 }
 
@@ -235,63 +258,42 @@ func TestIsIterative(t *testing.T) {
 	tests := []struct {
 		name     string
 		record   Record
-		elapsed  float64
 		expected bool
 	}{
 		{
 			name:     "iteration implies iterative",
-			record:   Record{Iteration: 1},
-			elapsed:  1,
+			record:   Record{HasIteration: true, Iteration: 1},
 			expected: true,
 		},
 		{
 			name:     "post copy mode implies iterative",
 			record:   Record{Mode: virtv1.MigrationPostCopy},
-			elapsed:  1,
 			expected: true,
 		},
 		{
-			name:     "long running implies iterative",
-			record:   Record{Phase: virtv1.MigrationRunning},
-			elapsed:  progressBulkDurationGuess,
-			expected: true,
-		},
-		{
-			name:     "short pre-copy is not iterative",
-			record:   Record{Phase: virtv1.MigrationRunning},
-			elapsed:  progressBulkDurationGuess - 1,
+			name:     "pre-copy without iteration is not iterative",
+			record:   Record{Mode: virtv1.MigrationPreCopy},
 			expected: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := isIterative(tt.record, tt.elapsed); got != tt.expected {
+			if got := isIterative(tt.record); got != tt.expected {
 				t.Fatalf("isIterative() = %v, want %v", got, tt.expected)
 			}
 		})
 	}
 }
 
-func TestProgress_StallBumpNotAppliedEarly(t *testing.T) {
-	got := applyMonotonicStallBump(70, 70, float64(progressBulkStallSeconds-1), false)
-	if got != 70 {
-		t.Fatalf("expected no stall bump before window, got=%d", got)
-	}
-}
+func TestForget_RemovesState(t *testing.T) {
+	p := NewProgress()
+	uid := types.UID("vmop")
+	p.store.Store(uid, State{Progress: 55})
 
-func TestProgress_StallBumpDoesNotRepeatOnRegressedBase(t *testing.T) {
-	got := applyMonotonicStallBump(71, 70, float64(progressBulkStallSeconds+10), false)
-	if got != 71 {
-		t.Fatalf("expected previous progress to be preserved without repeated bump, got=%d", got)
-	}
-}
+	p.Forget(uid)
 
-func TestMapToSyncRangeBoundaries(t *testing.T) {
-	if got := mapToSyncRange(progressStartPercent); got != SyncRangeMin {
-		t.Fatalf("expected lower boundary=%d, got=%d", SyncRangeMin, got)
-	}
-	if got := mapToSyncRange(progressIterativeCeiling); got != SyncRangeMax {
-		t.Fatalf("expected upper boundary=%d, got=%d", SyncRangeMax, got)
+	if p.store.Len() != 0 {
+		t.Fatalf("expected empty store after forget, got=%d", p.store.Len())
 	}
 }

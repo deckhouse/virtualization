@@ -20,6 +20,7 @@ import (
 	"math"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 )
 
@@ -27,76 +28,102 @@ const (
 	SyncRangeMin int32 = 10
 	SyncRangeMax int32 = 90
 
-	// These coefficients tune the degraded-mode progress estimation when KubeVirt
-	// does not expose byte counters for migration transfer state. The algorithm
-	// keeps early stages below the sync range, maps active data synchronization
-	// into [10,90], and preserves monotonic growth with a small stall bump.
-	progressStartPercent      = 3.0
-	progressBulkCeiling       = 45.0
-	progressIterativeCeiling  = 98.0
-	progressBulkWeightMetric  = 0.80
-	progressBulkWeightTime    = 0.20
-	progressIterWeightMetric  = 0.76
-	progressIterWeightTime    = 0.24
-	progressBulkTimeRate      = 0.45
-	progressIterBaseTimeRate  = 0.22
-	progressIterThrottleRate  = 0.18
-	progressBulkStallSeconds  = 45
-	progressIterStallSeconds  = 30
-	progressBulkDurationGuess = 90.0
+	bulkCeiling      = 48.0
+	iterativeFloor   = 46.0
+	iterativeCeiling = 90.0
+	bulkStallWindow  = 45 * time.Second
+	iterStallWindow  = 25 * time.Second
 )
 
 type Strategy interface {
 	SyncProgress(record Record) int32
+	Forget(uid types.UID)
 }
 
 type Record struct {
-	Now              time.Time
-	StartedAt        time.Time
-	PreviousProgress int32
-	Phase            virtv1.VirtualMachineInstanceMigrationPhase
-	Mode             virtv1.MigrationMode
-	Iteration        int32
-	Throttle         float64
-	DataTotalMiB     float64
-	DataProcessedMiB float64
-	DataRemainingMiB float64
+	OperationUID         types.UID
+	Now                  time.Time
+	StartedAt            time.Time
+	PreviousProgress     int32
+	Phase                virtv1.VirtualMachineInstanceMigrationPhase
+	Mode                 virtv1.MigrationMode
+	HasIteration         bool
+	Iteration            uint32
+	HasThrottle          bool
+	AutoConvergeThrottle uint32
+	Throttle             float64
+	DataTotalMiB         float64
+	DataProcessedMiB     float64
+	DataRemainingMiB     float64
 }
 
-type Progress struct{}
+type Progress struct {
+	store *Store
+}
 
 func NewProgress() *Progress {
-	return &Progress{}
+	return &Progress{store: NewStore()}
+}
+
+func (p *Progress) Forget(uid types.UID) {
+	if p == nil || p.store == nil || uid == "" {
+		return
+	}
+	p.store.Delete(uid)
 }
 
 func (p *Progress) SyncProgress(record Record) int32 {
-	elapsed := max(record.Now.Sub(record.StartedAt), 0)
-	elapsedSec := elapsed.Seconds()
-
-	metricPct, hasMetric := metricPercent(record)
-	var internal float64
-
-	if isIterative(record, elapsedSec) {
-		iterTime := progressBulkCeiling + math.Max(0, elapsedSec-progressBulkDurationGuess)*(progressIterBaseTimeRate+clampFloat(record.Throttle, 0, 1)*progressIterThrottleRate)
-		iterMetric := iterativeMetricPercent(record, metricPct, hasMetric)
-		if hasMetric {
-			internal = progressIterWeightMetric*iterMetric + progressIterWeightTime*iterTime
-		} else {
-			internal = iterTime
-		}
-		internal = clampFloat(internal, progressBulkCeiling, progressIterativeCeiling)
-	} else {
-		bulkTime := progressStartPercent + elapsedSec*progressBulkTimeRate
-		if hasMetric {
-			internal = progressBulkWeightMetric*metricPct + progressBulkWeightTime*bulkTime
-		} else {
-			internal = bulkTime
-		}
-		internal = clampFloat(internal, progressStartPercent, progressBulkCeiling)
+	state := p.getState(record)
+	prev := clampSyncRange(record.PreviousProgress)
+	if state.Progress > prev {
+		prev = state.Progress
 	}
 
-	syncProgress := mapToSyncRange(internal)
-	return applyMonotonicStallBump(record.PreviousProgress, syncProgress, elapsedSec, isIterative(record, elapsedSec))
+	elapsed := record.Now.Sub(record.StartedAt)
+	if elapsed < 0 {
+		elapsed = 0
+	}
+
+	iterative := isIterative(record)
+	if iterative && !state.Iterative {
+		state.Iterative = true
+		state.IterativeSince = record.Now
+		if prev < int32(iterativeFloor) {
+			prev = int32(iterativeFloor)
+		}
+	}
+
+	target := bulkTarget(record, elapsed)
+	if iterative {
+		target = iterativeTarget(record, state, prev)
+	}
+
+	next := smoothProgress(prev, target, iterative, record.Throttle)
+	next = applyStatefulStall(record, state, next, iterative)
+	next = clampSyncRange(maxInt32(prev, next))
+
+	updateMetricState(record, state)
+	state.Progress = next
+	state.LastUpdatedAt = record.Now
+	state.LastIteration = record.Iteration
+	state.Iterative = iterative
+
+	if record.OperationUID != "" {
+		p.store.Store(record.OperationUID, state)
+	}
+
+	return next
+}
+
+func (p *Progress) getState(record Record) State {
+	if p == nil || p.store == nil || record.OperationUID == "" {
+		return State{Progress: clampSyncRange(record.PreviousProgress), LastMetricAt: record.Now}
+	}
+	state, ok := p.store.Load(record.OperationUID)
+	if !ok {
+		state = State{Progress: clampSyncRange(record.PreviousProgress), LastMetricAt: record.Now}
+	}
+	return state
 }
 
 func metricPercent(record Record) (float64, bool) {
@@ -116,7 +143,6 @@ func normalizedProcessedMiB(record Record) (float64, bool) {
 	if record.DataTotalMiB <= 0 {
 		return 0, false
 	}
-
 	if record.DataProcessedMiB >= 0 {
 		return clampFloat(record.DataProcessedMiB, 0, record.DataTotalMiB), true
 	}
@@ -126,59 +152,130 @@ func normalizedProcessedMiB(record Record) (float64, bool) {
 	return 0, false
 }
 
-func iterativeMetricPercent(record Record, metricPct float64, hasMetric bool) float64 {
-	if hasMetric {
-		if record.DataTotalMiB > 0 && record.DataRemainingMiB >= 0 {
-			remainingRatio := clampFloat(record.DataRemainingMiB/record.DataTotalMiB, 0.0001, 1)
-			shaped := 1 - math.Log1p(remainingRatio*9)/math.Log(10)
-			return clampFloat(progressBulkCeiling+shaped*(progressIterativeCeiling-progressBulkCeiling), progressBulkCeiling, progressIterativeCeiling)
-		}
-		return clampFloat(progressBulkCeiling+(metricPct/100.0)*(progressIterativeCeiling-progressBulkCeiling), progressBulkCeiling, progressIterativeCeiling)
+func bulkTarget(record Record, elapsed time.Duration) float64 {
+	timeTarget := float64(SyncRangeMin) + math.Min(14, elapsed.Seconds()/8)
+	metricPct, hasMetric := metricPercent(record)
+	if !hasMetric {
+		return clampFloat(timeTarget, float64(SyncRangeMin), bulkCeiling)
 	}
-	return progressBulkCeiling
+	metricTarget := float64(SyncRangeMin) + (metricPct/100.0)*(bulkCeiling-float64(SyncRangeMin))
+	mixed := metricTarget*0.78 + timeTarget*0.22
+	return clampFloat(mixed, float64(SyncRangeMin), bulkCeiling)
 }
 
-func isIterative(record Record, elapsedSec float64) bool {
-	if record.Iteration > 0 {
+func iterativeTarget(record Record, state State, current int32) float64 {
+	baseline := math.Max(float64(current), iterativeFloor)
+	if record.HasIteration {
+		baseline = math.Max(baseline, iterativeFloor+math.Min(float64(record.Iteration), 6)*1.5)
+	}
+
+	target := baseline
+	metricPct, hasMetric := metricPercent(record)
+	if hasMetric {
+		target = math.Max(target, iterativeMetricTarget(record, metricPct))
+	}
+
+	iterativeSince := state.IterativeSince
+	if iterativeSince.IsZero() {
+		iterativeSince = record.Now
+	}
+	iterElapsed := record.Now.Sub(iterativeSince)
+	if iterElapsed < 0 {
+		iterElapsed = 0
+	}
+	target += math.Min(10, iterElapsed.Seconds()/12)
+	if record.HasThrottle {
+		target += record.Throttle * 6
+	}
+	if !hasMetric {
+		target += math.Min(34, iterElapsed.Seconds()/20)
+	}
+
+	return clampFloat(target, iterativeFloor, iterativeCeiling)
+}
+
+func iterativeMetricTarget(record Record, metricPct float64) float64 {
+	if record.DataTotalMiB > 0 && record.DataRemainingMiB >= 0 {
+		remainingRatio := clampFloat(record.DataRemainingMiB/record.DataTotalMiB, 0.0001, 1)
+		shaped := 1 - math.Log1p(remainingRatio*9)/math.Log(10)
+		return clampFloat(iterativeFloor+shaped*(iterativeCeiling-iterativeFloor), iterativeFloor, iterativeCeiling)
+	}
+	return clampFloat(iterativeFloor+(metricPct/100.0)*(iterativeCeiling-iterativeFloor), iterativeFloor, iterativeCeiling)
+}
+
+func isIterative(record Record) bool {
+	if record.HasIteration && record.Iteration > 0 {
 		return true
 	}
-	if record.Mode == virtv1.MigrationPostCopy || record.Mode == virtv1.MigrationPaused {
+	return record.Mode == virtv1.MigrationPostCopy || record.Mode == virtv1.MigrationPaused
+}
+
+func smoothProgress(current int32, target float64, iterative bool, throttle float64) int32 {
+	delta := target - float64(current)
+	if delta <= 0 {
+		return current
+	}
+	factor := 0.40
+	if iterative {
+		factor = 0.28
+	}
+	step := math.Max(1, math.Round(delta*factor))
+	if iterative && throttle > 0 {
+		step += math.Round(throttle * 2)
+	}
+	return current + int32(step)
+}
+
+func applyStatefulStall(record Record, state State, current int32, iterative bool) int32 {
+	window := bulkStallWindow
+	if iterative {
+		window = iterStallWindow
+	}
+	lastMetricAt := state.LastMetricAt
+	if lastMetricAt.IsZero() {
+		lastMetricAt = record.Now
+	}
+	if record.Now.Sub(lastMetricAt) < window {
+		return current
+	}
+	bump := int32(1)
+	if iterative && record.HasThrottle && record.Throttle >= 0.5 {
+		bump = 2
+	}
+	return clampSyncRange(current + bump)
+}
+
+func updateMetricState(record Record, state State) {
+	if !metricChanged(record, state) {
+		return
+	}
+	state.LastMetricAt = record.Now
+	state.LastProcessedMiB = record.DataProcessedMiB
+	state.LastRemainingMiB = record.DataRemainingMiB
+}
+
+func metricChanged(record Record, state State) bool {
+	if state.LastMetricAt.IsZero() {
 		return true
 	}
-	if record.Phase == virtv1.MigrationRunning || record.Phase == virtv1.MigrationSynchronizing {
-		return elapsedSec >= progressBulkDurationGuess
+	if record.DataProcessedMiB >= 0 && !almostEqual(record.DataProcessedMiB, state.LastProcessedMiB) {
+		return true
+	}
+	if record.DataRemainingMiB >= 0 && !almostEqual(record.DataRemainingMiB, state.LastRemainingMiB) {
+		return true
 	}
 	return false
 }
 
-func applyMonotonicStallBump(previous, current int32, elapsedSec float64, iterative bool) int32 {
-	prev := clampSyncRange(previous)
-	base := clampSyncRange(current)
-	if base < prev {
-		if prev-base <= 1 {
-			return prev
-		}
-		base = prev
-	}
-	if base > prev {
-		return base
-	}
-
-	window := float64(progressBulkStallSeconds)
-	if iterative {
-		window = float64(progressIterStallSeconds)
-	}
-	if elapsedSec >= window {
-		return clampSyncRange(prev + 1)
-	}
-	return prev
+func almostEqual(a, b float64) bool {
+	return math.Abs(a-b) < 0.01
 }
 
-func mapToSyncRange(internal float64) int32 {
-	normalized := (clampFloat(internal, progressStartPercent, progressIterativeCeiling) - progressStartPercent) /
-		(progressIterativeCeiling - progressStartPercent)
-	mapped := float64(SyncRangeMin) + normalized*float64(SyncRangeMax-SyncRangeMin)
-	return clampSyncRange(int32(math.Round(mapped)))
+func maxInt32(a, b int32) int32 {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 func clampFloat(v, minV, maxV float64) float64 {

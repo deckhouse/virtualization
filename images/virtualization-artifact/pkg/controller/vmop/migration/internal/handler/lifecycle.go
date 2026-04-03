@@ -608,17 +608,28 @@ func (h LifecycleHandler) calculateMigrationProgress(
 		record := migrationprogress.BuildRecord(vmop, mig, time.Now())
 		return h.progressStrategy.SyncProgress(record)
 	case vmopcondition.ReasonSourceSuspended:
+		h.forgetProgress(vmop)
 		return progressSourceSuspended
 	case vmopcondition.ReasonTargetResumed:
+		h.forgetProgress(vmop)
 		return progressTargetResumed
 	case vmopcondition.ReasonMigrationCompleted:
+		h.forgetProgress(vmop)
 		return progressMigrationCompleted
 	default:
+		h.forgetProgress(vmop)
 		if vmop != nil && vmop.Status.Progress != nil {
 			return *vmop.Status.Progress
 		}
 		return 0
 	}
+}
+
+func (h LifecycleHandler) forgetProgress(vmop *v1alpha2.VirtualMachineOperation) {
+	if h.progressStrategy == nil || vmop == nil {
+		return
+	}
+	h.progressStrategy.Forget(vmop.UID)
 }
 
 func (h LifecycleHandler) getTargetPod(ctx context.Context, mig *virtv1.VirtualMachineInstanceMigration) (*corev1.Pod, error) {

@@ -4004,6 +4004,16 @@ spec:
                       by the source runtime.
                     format: int64
                     type: integer
+                  iteration:
+                    description: Iteration is the current migration iteration reported by
+                      the source runtime.
+                    format: int32
+                    type: integer
+                  autoConvergeThrottle:
+                    description: AutoConvergeThrottle is the current auto-converge throttle
+                      reported by the source runtime.
+                    format: int32
+                    type: integer
                   endTimestamp:
                     description: The time the migration action ended
                     format: date-time

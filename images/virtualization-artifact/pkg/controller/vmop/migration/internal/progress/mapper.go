@@ -19,6 +19,7 @@ package progress
 import (
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -26,7 +27,6 @@ import (
 
 const unknownMetric = -1.0
 
-// BuildRecord maps KubeVirt migration status to progress algorithm inputs.
 func BuildRecord(vmop *v1alpha2.VirtualMachineOperation, mig *virtv1.VirtualMachineInstanceMigration, now time.Time) Record {
 	record := Record{
 		Now:              now,
@@ -38,6 +38,7 @@ func BuildRecord(vmop *v1alpha2.VirtualMachineOperation, mig *virtv1.VirtualMach
 	}
 
 	if vmop != nil {
+		record.OperationUID = vmop.UID
 		record.StartedAt = vmop.CreationTimestamp.Time
 	}
 
@@ -51,8 +52,9 @@ func BuildRecord(vmop *v1alpha2.VirtualMachineOperation, mig *virtv1.VirtualMach
 			record.StartedAt = state.StartTimestamp.Time
 		}
 		record.Mode = state.Mode
-		record.Iteration = mapIteration(state)
-		record.Throttle = mapThrottle(state)
+		record.Iteration, record.HasIteration = mapIteration(state)
+		record.AutoConvergeThrottle, record.HasThrottle = mapThrottle(state)
+		record.Throttle = normalizeThrottle(record.AutoConvergeThrottle, record.HasThrottle)
 		record.DataTotalMiB = mapBytesToMiB(state.DataTotalBytes)
 		record.DataProcessedMiB = mapBytesToMiB(state.DataProcessedBytes)
 		record.DataRemainingMiB = mapBytesToMiB(state.DataRemainingBytes)
@@ -75,30 +77,30 @@ func previousProgress(vmop *v1alpha2.VirtualMachineOperation) int32 {
 	return *vmop.Status.Progress
 }
 
-// mapIteration approximates iterative phase: post-copy and paused modes are
-// treated as iterative (>0), otherwise pre-copy stays at iteration 0.
-func mapIteration(state *virtv1.VirtualMachineInstanceMigrationState) int32 {
-	if state == nil {
-		return 0
+func mapIteration(state *virtv1.VirtualMachineInstanceMigrationState) (uint32, bool) {
+	if state == nil || state.Iteration == nil {
+		return 0, false
 	}
-	if state.Mode == virtv1.MigrationPostCopy || state.Mode == virtv1.MigrationPaused {
-		return 1
-	}
-	return 0
+	return *state.Iteration, true
 }
 
-// mapThrottle provides deterministic throttle approximation from available
-// flags: auto-converge implies elevated throttle, post-copy/paused implies max.
-func mapThrottle(state *virtv1.VirtualMachineInstanceMigrationState) float64 {
-	if state == nil {
+func mapThrottle(state *virtv1.VirtualMachineInstanceMigrationState) (uint32, bool) {
+	if state == nil || state.AutoConvergeThrottle == nil {
+		return 0, false
+	}
+	return *state.AutoConvergeThrottle, true
+}
+
+func normalizeThrottle(raw uint32, ok bool) float64 {
+	if !ok {
 		return 0
 	}
-	throttle := 0.0
-	if state.MigrationConfiguration != nil && state.MigrationConfiguration.AllowAutoConverge != nil && *state.MigrationConfiguration.AllowAutoConverge {
-		throttle = 0.7
+	return clampFloat(float64(raw)/100.0, 0, 1)
+}
+
+func operationUID(vmop *v1alpha2.VirtualMachineOperation) types.UID {
+	if vmop == nil {
+		return ""
 	}
-	if state.Mode == virtv1.MigrationPostCopy || state.Mode == virtv1.MigrationPaused {
-		throttle = 1.0
-	}
-	return throttle
+	return vmop.UID
 }

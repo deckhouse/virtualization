@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/component-base/featuregate"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -46,11 +47,16 @@ import (
 )
 
 type progressStrategyStub struct {
-	value int32
+	value     int32
+	forgotten []types.UID
 }
 
-func (s progressStrategyStub) SyncProgress(_ migrationprogress.Record) int32 {
+func (s *progressStrategyStub) SyncProgress(_ migrationprogress.Record) int32 {
 	return s.value
+}
+
+func (s *progressStrategyStub) Forget(uid types.UID) {
+	s.forgotten = append(s.forgotten, uid)
 }
 
 var _ = Describe("LifecycleHandler", func() {
@@ -376,7 +382,7 @@ var _ = Describe("LifecycleHandler", func() {
 		)
 
 		DescribeTable("should map progress by reason", func(reason vmopcondition.ReasonCompleted, initial *int32, expected int32) {
-			h := LifecycleHandler{progressStrategy: progressStrategyStub{value: 55}}
+			h := LifecycleHandler{progressStrategy: &progressStrategyStub{value: 55}}
 			vmop := &v1alpha2.VirtualMachineOperation{Status: v1alpha2.VirtualMachineOperationStatus{Progress: initial}}
 			mig := &virtv1.VirtualMachineInstanceMigration{}
 
