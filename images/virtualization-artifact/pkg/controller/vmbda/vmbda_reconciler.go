@@ -84,7 +84,6 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		watcher.NewClusterVirtualImageWatcher(mgr.GetClient()),
 		watcher.NewVirtualImageWatcherr(mgr.GetClient()),
 		watcher.NewKVVMIWatcher(mgr.GetClient()),
-		watcher.NewVolumeEventWatcher(mgr.GetClient()),
 	} {
 		err := w.Watch(mgr, ctr)
 		if err != nil {
