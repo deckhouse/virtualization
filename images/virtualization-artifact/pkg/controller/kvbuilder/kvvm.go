@@ -119,6 +119,17 @@ func (b *KVVM) SetKVVMIAnnotation(annoKey, annoValue string) {
 	b.Resource.Spec.Template.ObjectMeta.SetAnnotations(anno)
 }
 
+func (b *KVVM) RemoveKVVMIAnnotation(annoKey string) {
+	anno := b.Resource.Spec.Template.ObjectMeta.GetAnnotations()
+	if anno == nil {
+		return
+	}
+
+	delete(anno, annoKey)
+
+	b.Resource.Spec.Template.ObjectMeta.SetAnnotations(anno)
+}
+
 func (b *KVVM) SetCPUModel(class *v1alpha2.VirtualMachineClass) error {
 	if b.Resource.Spec.Template.Spec.Domain.CPU == nil {
 		b.Resource.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{}

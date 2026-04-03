@@ -290,6 +290,8 @@ func ApplyVirtualMachineSpec(
 	if ipAddress != "" {
 		// Set ip address cni request annotation.
 		kvvm.SetKVVMIAnnotation(netmanager.AnnoIPAddressCNIRequest, ipAddress)
+	} else {
+		kvvm.RemoveKVVMIAnnotation(netmanager.AnnoIPAddressCNIRequest)
 	}
 
 	// Set live migration annotation.
