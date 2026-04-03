@@ -26,6 +26,10 @@ spec:
           jsonPath: .status.phase
           name: Phase
           type: string
+        - description: VirtualMachineOperation progress in percent.
+          jsonPath: .status.progress
+          name: Progress
+          type: integer
         - description: VirtualMachineOperation type.
           jsonPath: .spec.type
           name: Type
@@ -319,6 +323,14 @@ spec:
                     - Failed
                     - Terminating
                   type: string
+                progress:
+                  description:
+                    Progress reports operation completion percentage for
+                    migration-related VMOPs (Evict/Migrate).
+                  format: int32
+                  maximum: 100
+                  minimum: 0
+                  type: integer
                 resources:
                   description:
                     Resources contains the list of resources that are affected

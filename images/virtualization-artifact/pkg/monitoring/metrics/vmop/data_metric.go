@@ -36,6 +36,20 @@ type dataMetric struct {
 	FinishedAt     int64 // Unix timestamp when operation finished (Completed/Failed) (0 = not set)
 }
 
+var successfulTerminalReasons = map[string]struct{}{
+	string(vmopcondition.ReasonOperationCompleted): {},
+	string(vmopcondition.ReasonMigrationCompleted): {},
+}
+
+var failedTerminalReasons = map[string]struct{}{
+	string(vmopcondition.ReasonOperationFailed):     {},
+	string(vmopcondition.ReasonFailed):              {},
+	string(vmopcondition.ReasonAborted):             {},
+	string(vmopcondition.ReasonNotConverging):       {},
+	string(vmopcondition.ReasonTargetUnschedulable): {},
+	string(vmopcondition.ReasonTargetDiskError):     {},
+}
+
 // DO NOT mutate VirtualMachineOperation!
 func newDataMetric(vmop *v1alpha2.VirtualMachineOperation) *dataMetric {
 	if vmop == nil {
@@ -51,8 +65,7 @@ func newDataMetric(vmop *v1alpha2.VirtualMachineOperation) *dataMetric {
 	var finishedAt int64
 	if vmop.Status.Phase == v1alpha2.VMOPPhaseCompleted || vmop.Status.Phase == v1alpha2.VMOPPhaseFailed {
 		completedCond, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
-		if (completedCond.Status == metav1.ConditionTrue && completedCond.Reason == string(vmopcondition.ReasonOperationCompleted)) ||
-			(completedCond.Status == metav1.ConditionFalse && completedCond.Reason == string(vmopcondition.ReasonOperationFailed)) {
+		if isTerminalCompletedCondition(completedCond) {
 			finishedAt = completedCond.LastTransitionTime.Unix()
 		}
 	}
@@ -68,4 +81,16 @@ func newDataMetric(vmop *v1alpha2.VirtualMachineOperation) *dataMetric {
 		StartedAt:      startedAt,
 		FinishedAt:     finishedAt,
 	}
+}
+
+func isTerminalCompletedCondition(cond metav1.Condition) bool {
+	if cond.Status == metav1.ConditionTrue {
+		_, ok := successfulTerminalReasons[cond.Reason]
+		return ok
+	}
+	if cond.Status == metav1.ConditionFalse {
+		_, ok := failedTerminalReasons[cond.Reason]
+		return ok
+	}
+	return false
 }
