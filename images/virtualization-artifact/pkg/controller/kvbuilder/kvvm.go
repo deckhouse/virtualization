@@ -279,6 +279,13 @@ func (b *KVVM) SetMemory(memorySize resource.Quantity) {
 	}
 	res.Requests[corev1.ResourceMemory] = memorySize
 	res.Limits[corev1.ResourceMemory] = memorySize
+
+	maxGuest := memorySize.DeepCopy()
+	(&maxGuest).Mul(8)
+
+	b.Resource.Spec.Template.Spec.Domain.Memory = &virtv1.Memory{
+		MaxGuest: &maxGuest,
+	}
 }
 
 func GetCPURequest(cores int, coreFraction string) (*resource.Quantity, error) {
