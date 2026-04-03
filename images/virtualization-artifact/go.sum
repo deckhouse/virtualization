@@ -51,6 +51,8 @@ github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/deckhouse/3p-kubevirt/staging/src/kubevirt.io/api v0.0.0-20260403095053-aefa74c02fee h1:FL3Sn9OL9HZZX01vWiO6t6ps8nkxH+AOilBp+Rdp6iU=
 github.com/deckhouse/3p-kubevirt/staging/src/kubevirt.io/api v0.0.0-20260403095053-aefa74c02fee/go.mod h1:wGZLfRa/b4w/V/hakmfcK0CmrAZGfpj+jN7BMt0s19E=
+github.com/deckhouse/3p-kubevirt/staging/src/kubevirt.io/api v0.0.0-20260403154920-301347b413ce h1:b6I/SUcA30j2wcOBBERbN20cKARaDAHNtSzP4XB6kgg=
+github.com/deckhouse/3p-kubevirt/staging/src/kubevirt.io/api v0.0.0-20260403154920-301347b413ce/go.mod h1:wGZLfRa/b4w/V/hakmfcK0CmrAZGfpj+jN7BMt0s19E=
 github.com/deckhouse/deckhouse/pkg/log v0.0.0-20250226105106-176cd3afcdd5 h1:PsN1E0oxC/+4zdA977txrqUCuObFL3HAuu5Xnud8m8c=
 github.com/deckhouse/deckhouse/pkg/log v0.0.0-20250226105106-176cd3afcdd5/go.mod h1:Mk5HRzkc5pIcDIZ2JJ6DPuuqnwhXVkb3you8M8Mg+4w=
 github.com/distribution/reference v0.6.0 h1:0IXCQ5g4/QMHHkarYzh5l+u8T3t73zM5QvfrDyIgxBk=

@@ -649,7 +649,7 @@ func (h LifecycleHandler) calculateMigrationProgress(
 }
 
 func (h LifecycleHandler) getTargetPodDiskError(ctx context.Context, pod *corev1.Pod) (string, bool) {
-	if pod == nil || pod.Status.Phase != corev1.PodPending || pod.DeletionTimestamp != nil {
+	if pod == nil || !isContainerCreating(pod) || pod.DeletionTimestamp != nil {
 		return "", false
 	}
 
@@ -701,6 +701,18 @@ func (h LifecycleHandler) getTargetPod(ctx context.Context, mig *virtv1.VirtualM
 	}
 
 	return nil, nil
+}
+
+func isContainerCreating(pod *corev1.Pod) bool {
+	if pod == nil || pod.Status.Phase != corev1.PodPending {
+		return false
+	}
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.State.Waiting != nil && cs.State.Waiting.Reason == "ContainerCreating" {
+			return true
+		}
+	}
+	return false
 }
 
 func isPodPendingUnschedulable(pod *corev1.Pod) bool {

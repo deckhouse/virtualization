@@ -830,5 +830,46 @@ var _ = Describe("LifecycleHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(reason).To(Equal(vmopcondition.ReasonTargetDiskError))
 		})
+
+		It("should ignore target pod disk attach error when pod is not in ContainerCreating", func() {
+			mig := newSimpleMigration("vmop-test", name)
+			mig.UID = "migration-uid"
+			mig.Status.Phase = virtv1.MigrationPreparingTarget
+
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespace,
+					Name:      "target-pod",
+					Labels: map[string]string{
+						virtv1.AppLabel:          "virt-launcher",
+						virtv1.MigrationJobLabel: "migration-uid",
+					},
+				},
+				Status: corev1.PodStatus{
+					Phase: corev1.PodPending,
+					ContainerStatuses: []corev1.ContainerStatus{
+						{
+							Name:  "compute",
+							State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: "ImagePullBackOff"}},
+						},
+					},
+				},
+			}
+			event := &corev1.Event{
+				ObjectMeta:     metav1.ObjectMeta{Namespace: namespace, Name: "disk-event"},
+				InvolvedObject: corev1.ObjectReference{Name: "target-pod", Kind: "Pod", Namespace: namespace},
+				Type:           corev1.EventTypeWarning,
+				Reason:         "FailedAttachVolume",
+				Message:        "failed to attach disk",
+			}
+
+			fakeClient, err := testutil.NewFakeClientWithObjects(mig, pod, event)
+			Expect(err).NotTo(HaveOccurred())
+
+			h := LifecycleHandler{client: fakeClient}
+			reason, _, err := h.getInProgressReasonAndMessage(ctx, mig)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(reason).To(Equal(vmopcondition.ReasonTargetPreparing))
+		})
 	})
 })
