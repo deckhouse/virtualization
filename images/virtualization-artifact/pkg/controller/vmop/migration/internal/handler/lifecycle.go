@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -289,7 +290,7 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 		reason := h.getFailedReason(mig)
 		msg := h.getFailedMessage(reason, mig)
 		progress := h.calculateMigrationProgress(vmop, mig, reason)
-		vmop.Status.Progress = ptrToInt32(progress)
+		vmop.Status.Progress = ptr.To(progress)
 
 		completedCond.
 			Status(metav1.ConditionFalse).
@@ -300,7 +301,7 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 	case virtv1.MigrationSucceeded:
 		vmop.Status.Phase = v1alpha2.VMOPPhaseCompleted
 		h.recorder.Event(vmop, corev1.EventTypeNormal, v1alpha2.ReasonVMOPSucceeded, "VirtualMachineOperation succeeded")
-		vmop.Status.Progress = ptrToInt32(100)
+		vmop.Status.Progress = ptr.To(int32(100))
 
 		completedCond.
 			Status(metav1.ConditionTrue).
@@ -320,7 +321,7 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 	}
 	progress := h.calculateMigrationProgress(vmop, mig, reason)
-	vmop.Status.Progress = ptrToInt32(progress)
+	vmop.Status.Progress = ptr.To(progress)
 
 	completedCond.
 		Status(metav1.ConditionFalse).
@@ -383,7 +384,7 @@ func (h LifecycleHandler) canExecute(vmop *v1alpha2.VirtualMachineOperation, vm 
 
 	if migratable.Status == metav1.ConditionTrue {
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
-		vmop.Status.Progress = ptrToInt32(1)
+		vmop.Status.Progress = ptr.To(int32(1))
 		conditions.SetCondition(
 			conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 				Generation(vmop.GetGeneration()).
@@ -437,7 +438,7 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMac
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 	}
 	progress := h.calculateMigrationProgress(vmop, mig, reason)
-	vmop.Status.Progress = ptrToInt32(progress)
+	vmop.Status.Progress = ptr.To(progress)
 
 	conditions.SetCondition(
 		conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
@@ -490,10 +491,6 @@ func getMessageByMigrationFailedReason(mig *virtv1.VirtualMachineInstanceMigrati
 	}
 
 	return ""
-}
-
-func ptrToInt32(v int32) *int32 {
-	return &v
 }
 
 func (h LifecycleHandler) getFailedReason(mig *virtv1.VirtualMachineInstanceMigration) vmopcondition.ReasonCompleted {
