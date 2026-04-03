@@ -494,51 +494,14 @@ jobs:
           fi
       - name: Enable SDN
         run: |
+          echo "[INFO] Enable SDN"
           d8 system module enable sdn
-
-          d8_queue_list() {
-            d8 s queue list | grep -Po '([0-9]+)(?= active)' || echo "[WARNING] Failed to retrieve list queue"
-          }
-
-          d8_queue() {
-            local count=90
-            local queue_count
-
-            for i in $(seq 1 $count) ; do
-              queue_count=$(d8_queue_list)
-              if [ -n "$queue_count" ] && [ "$queue_count" = "0" ]; then
-                echo "[SUCCESS] Queue is clear"
-                return 0
-              fi
-
-              echo "[INFO] Wait until queues are empty ${i}/${count}"
-              if (( i % 5 == 0 )); then
-                echo "[INFO] Show queue list"
-                d8 s queue list | head -n25 || echo "[WARNING] Failed to retrieve list queue"
-                echo " "
-              fi
-
-              if (( i % 10 == 0 )); then
-                echo "[INFO] deckhouse logs"
-                echo "::group::📝 deckhouse logs"
-                d8 s logs | tail -n 100
-                echo "::endgroup::"
-                echo " "
-              fi
-              sleep 10
-            done
-          }
-
-          echo "[INFO] Wait 30s for reconsilation start for module sdn"
-          sleep 30
-          d8_queue
-
-          echo "[INFO] Wait for sdn modules to be ready"
+          echo "[INFO] Wait for sdn modules to be ready, timeout: 300s"
           kubectl wait --for=jsonpath='{.status.phase}'=Ready modules sdn --timeout=300s
-          echo "[INFO] Wait for sdn deployments to be ready"
-          kubectl -n d8-sdn wait --for=condition=Available deploy --all --timeout 900s
-          echo "[INFO] Wait for sdn daemonset agent to be ready"
-          kubectl -n d8-sdn rollout status daemonset agent --timeout=900s
+          echo "[INFO] Wait for sdn deployments to be ready, timeout: 300s"
+          kubectl -n d8-sdn wait --for=condition=Available deploy --all --timeout 300s
+          echo "[INFO] Wait for sdn daemonset agent to be ready, timeout: 300s"
+          kubectl -n d8-sdn rollout status daemonset agent --timeout=300s
           echo "[SUCCESS] Done"
 
       - name: Configure ClusterNetwork
