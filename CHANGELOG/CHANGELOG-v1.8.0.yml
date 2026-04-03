@@ -1,0 +1,29 @@
+core:
+  fixes:
+    - summary: >-
+        Fixed vulnerabilities CVE-2026-25679, CVE-2026-27142, CVE-2026-27139, CVE-2026-33186,
+        CVE-2026-34040, CVE-2026-33997.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2175
+    - summary: >-
+        Set firmware outdated condition only for running VM instances and align firmware
+        workload-updater checks with current condition-driven flow.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2162
+observability:
+  fixes:
+    - summary: Fix gaps in live migration metrics.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2170
+vm:
+  fixes:
+    - summary: Remove the cilium KVVMI annotation when disconnecting the Main network.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2185
+    - summary: >-
+        Prevent over-creation of VirtualMachineMACAddress resources and fix network interface ID
+        allocation for additional VM networks.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2184
+vmop:
+  fixes:
+    - summary: >-
+        Force handling fixed for VM lifecycle operations: CLI stop now passes --force, and VMOP
+        restart now honors spec.force in controller logic.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2168
+
