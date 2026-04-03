@@ -19,7 +19,6 @@ package progress
 import (
 	"time"
 
-	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -96,11 +95,4 @@ func normalizeThrottle(raw uint32, ok bool) float64 {
 		return 0
 	}
 	return clampFloat(float64(raw)/100.0, 0, 1)
-}
-
-func operationUID(vmop *v1alpha2.VirtualMachineOperation) types.UID {
-	if vmop == nil {
-		return ""
-	}
-	return vmop.UID
 }
