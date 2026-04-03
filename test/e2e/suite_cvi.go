@@ -18,16 +18,42 @@ package e2e
 
 import (
 	"context"
+	"fmt"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/test/e2e/internal/config"
+	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precreatedcvi"
+	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var precreatedCVIManager = precreatedcvi.NewPrecreatedCVIManager()
+var cviManager = precreatedcvi.NewManager()
 
 func bootstrapPrecreatedCVIs() {
-	precreatedCVIManager.Bootstrap(context.Background())
+	GinkgoHelper()
+
+	By("Creating or reusing precreated CVIs")
+	err := cviManager.Bootstrap(context.Background())
+	Expect(err).NotTo(HaveOccurred())
+
+	cvis := cviManager.CVIsAsObjects()
+	By(fmt.Sprintf("Waiting for all %d precreated CVIs to be ready", len(cvis)))
+
+	util.UntilObjectPhase(string(v1alpha2.ImageReady), framework.LongTimeout, cvis...)
+	By(fmt.Sprintf("All %d precreated CVIs are ready", len(cvis)))
 }
 
 func cleanupPrecreatedCVIs() {
-	precreatedCVIManager.Cleanup(context.Background())
+	GinkgoHelper()
+
+	if !config.IsCleanUpNeeded() || !config.IsPrecreatedCVICleanupNeeded() {
+		return
+	}
+
+	By("Cleaning up precreated CVIs")
+	err := cviManager.Cleanup(context.Background())
+	Expect(err).NotTo(HaveOccurred(), "Failed to delete precreated CVIs")
 }
