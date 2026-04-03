@@ -1215,73 +1215,73 @@ jobs:
           STORAGE_CLASS_NAME: ${{ inputs.nested_storageclass_name }}
         working-directory: ./test/e2e/
         run: |
-          GINKGO_RESULT=$(mktemp -p $RUNNER_TEMP)
-          DATE=$(date +"%Y-%m-%d")
-          START_TIME=$(date +"%H:%M:%S")
-          summary_file_name_junit="e2e_summary_${CSI}_${DATE}.xml"
-          summary_file_name_json="e2e_summary_${CSI}_${DATE}.json"
+          # GINKGO_RESULT=$(mktemp -p $RUNNER_TEMP)
+          # DATE=$(date +"%Y-%m-%d")
+          # START_TIME=$(date +"%H:%M:%S")
+          # summary_file_name_junit="e2e_summary_${CSI}_${DATE}.xml"
+          # summary_file_name_json="e2e_summary_${CSI}_${DATE}.json"
 
-          cp -a legacy/testdata /tmp/testdata
+          # cp -a legacy/testdata /tmp/testdata
 
-          set +e
-          FOCUS="${{ inputs.e2e_focus_tests }}"
-          if [ -n "$FOCUS" ]; then
-            go tool ginkgo \
-              --focus="$FOCUS" \
-              -v --race --timeout=$TIMEOUT \
-              --junit-report=$summary_file_name_junit | tee $GINKGO_RESULT
-          else
-            go tool ginkgo \
-              -v --race --timeout=$TIMEOUT \
-              --junit-report=$summary_file_name_junit | tee $GINKGO_RESULT
-          fi
-          GINKGO_EXIT_CODE=$?
-          set -e
+          # set +e
+          # FOCUS="${{ inputs.e2e_focus_tests }}"
+          # if [ -n "$FOCUS" ]; then
+          #   go tool ginkgo \
+          #     --focus="$FOCUS" \
+          #     -v --race --timeout=$TIMEOUT \
+          #     --junit-report=$summary_file_name_junit | tee $GINKGO_RESULT
+          # else
+          #   go tool ginkgo \
+          #     -v --race --timeout=$TIMEOUT \
+          #     --junit-report=$summary_file_name_junit | tee $GINKGO_RESULT
+          # fi
+          # GINKGO_EXIT_CODE=$?
+          # set -e
 
-          RESULT=$(sed -e "s/\x1b\[[0-9;]*m//g" $GINKGO_RESULT | grep --color=never -E "FAIL!|SUCCESS!")
-          if [[ $RESULT == FAIL!* ]]; then
-            RESULT_STATUS=":x: FAIL!"
-          elif [[ $RESULT == SUCCESS!* ]]; then
-            RESULT_STATUS=":white_check_mark: SUCCESS!"
-          else
-            RESULT_STATUS=":question: UNKNOWN"
-          fi
+          # RESULT=$(sed -e "s/\x1b\[[0-9;]*m//g" $GINKGO_RESULT | grep --color=never -E "FAIL!|SUCCESS!")
+          # if [[ $RESULT == FAIL!* ]]; then
+          #   RESULT_STATUS=":x: FAIL!"
+          # elif [[ $RESULT == SUCCESS!* ]]; then
+          #   RESULT_STATUS=":white_check_mark: SUCCESS!"
+          # else
+          #   RESULT_STATUS=":question: UNKNOWN"
+          # fi
 
-          PASSED=$(echo "$RESULT" | grep -oP "\d+(?= Passed)")
-          FAILED=$(echo "$RESULT" | grep -oP "\d+(?= Failed)")
-          PENDING=$(echo "$RESULT" | grep -oP "\d+(?= Pending)")
-          SKIPPED=$(echo "$RESULT" | grep -oP "\d+(?= Skipped)")
+          # PASSED=$(echo "$RESULT" | grep -oP "\d+(?= Passed)")
+          # FAILED=$(echo "$RESULT" | grep -oP "\d+(?= Failed)")
+          # PENDING=$(echo "$RESULT" | grep -oP "\d+(?= Pending)")
+          # SKIPPED=$(echo "$RESULT" | grep -oP "\d+(?= Skipped)")
 
-          SUMMARY=$(jq -n \
-              --arg csi "$CSI" \
-              --arg date "$DATE" \
-              --arg startTime "$START_TIME" \
-              --arg branch "${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" \
-              --arg status "$RESULT_STATUS" \
-              --argjson passed "$PASSED" \
-              --argjson failed "$FAILED" \
-              --argjson pending "$PENDING" \
-              --argjson skipped "$SKIPPED" \
-              --arg link "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
-            '{
-              CSI: $csi,
-              Date: $date,
-              StartTime: $startTime,
-              Branch: $branch,
-              Status: $status,
-              Passed: $passed,
-              Failed: $failed,
-              Pending: $pending,
-              Skipped: $skipped,
-              Link: $link
-            }'
-          )
+          # SUMMARY=$(jq -n \
+          #     --arg csi "$CSI" \
+          #     --arg date "$DATE" \
+          #     --arg startTime "$START_TIME" \
+          #     --arg branch "${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" \
+          #     --arg status "$RESULT_STATUS" \
+          #     --argjson passed "$PASSED" \
+          #     --argjson failed "$FAILED" \
+          #     --argjson pending "$PENDING" \
+          #     --argjson skipped "$SKIPPED" \
+          #     --arg link "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+          #   '{
+          #     CSI: $csi,
+          #     Date: $date,
+          #     StartTime: $startTime,
+          #     Branch: $branch,
+          #     Status: $status,
+          #     Passed: $passed,
+          #     Failed: $failed,
+          #     Pending: $pending,
+          #     Skipped: $skipped,
+          #     Link: $link
+          #   }'
+          # )
 
-          echo "$SUMMARY"
-          echo "summary=$(echo "$SUMMARY" | jq -c .)" >> $GITHUB_OUTPUT
-          echo $SUMMARY > "${summary_file_name_json}"
+          # echo "$SUMMARY"
+          # echo "summary=$(echo "$SUMMARY" | jq -c .)" >> $GITHUB_OUTPUT
+          # echo $SUMMARY > "${summary_file_name_json}"
 
-          echo "[INFO] Exit code: $GINKGO_EXIT_CODE"
+          # echo "[INFO] Exit code: $GINKGO_EXIT_CODE"
           # exit $GINKGO_EXIT_CODE
           exit 1
       - name: Upload summary test results (junit/xml)
