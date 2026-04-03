@@ -566,7 +566,7 @@ jobs:
             
             echo "[INFO] Wait for ClusterNetwork cn-${cnn}-for-e2e-test to be ready"
             # TODO: remove true before merge
-            kubectl wait clusternetworks.network.deckhouse.io --for=condition=Ready cn-${cnn}-for-e2e-test --timeout 300s || true
+            kubectl wait clusternetworks.network.deckhouse.io --for=condition=Ready cn-${cnn}-for-e2e-test --timeout 30s || true
           done
 
   configure-storage:
@@ -1283,7 +1283,7 @@ jobs:
 
           echo "[INFO] Exit code: $GINKGO_EXIT_CODE"
           # exit $GINKGO_EXIT_CODE
-          exit 0
+          exit 1
       - name: Upload summary test results (junit/xml)
         uses: actions/upload-artifact@v4
         id: e2e-report-artifact
