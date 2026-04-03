@@ -1,94 +1,6 @@
-{{- /* Helpers to add kube-api-rewriter sidecar container to a pod.
-
-To connect to kube-api-rewriter main controller should has KUBECONFIG env,
-volumeMount with kubeconfig, and Pod should has volume with kubeconfig ConfigMap.
-
-These settings are provided by helpers:
-
-- kube_api_rewriter.kubeconfig_env defines KUBECONFIG env with file from the
-  mounted ConfigMap.
-- kube_api_rewriter.kubeconfig_volume_mount defines volumeMount for kubeconfig ConfigMap.
-- kube_api_rewriter.kubeconfig_volume defines volume with kubeconfig ConfigMap.
-
-Kube-api-rewriter sidecar should be the first container in the Pod, to
-main controller not fail on start.
-
-Kube-api-rewriter sidecar works in 2 modes: without webhook or with webhook rewriting.
-
-Sidecar without webhook is the simplest one:
-
-spec:
-  template:
-    spec:
-      containers:
-        {{ include "kube_api_rewriter.sidecar_container" . | nindent 8 }}
-        - name: main-controller
-          ...
-          env:
-            {{- include "kube_api_rewriter.kubeconfig_env" . | nindent 12 }}
-            ...
-          volumeMounts:
-            {{- include "kube_api_rewriter.kubeconfig_volume_mount" . | nindent 12 }}
-            ...
-      volumes:
-        {{- include "kube_api_rewriter.kubeconfig_volume" | nindent 8 }}
-        ...
-
-
-Webhook mode requires additional settings:
-
-- WEBHOOK_ADDRESS - address of the webhook in the main controller
-- WEBHOOK_CERT_FILE - path to the webhook certificate file.
-- WEBHOOK_KEY_FILE - path to the webhook key file.
-- webhookCertsVolumeName - name of the Pod volume with webhook certificates.
-- webhookCertsMountPath - path to mount the webhook certificates.
-
-The assumption here is that main controller has a webhook server and
-certificates are already mounted in the Pod, so kube-api-rewriter
-can use certificates from that volume to impersonate the webhook server.
-
-Example of adding kube-api-rewriter to the Deployment:
-
-spec:
-  template:
-    spec:
-      containers:
-      {{- $rewriterSettings := dict }}
-      {{- $_ := set $rewriterSettings "WEBHOOK_ADDRESS" "https://127.0.0.1:6443" }}
-      {{- $_ := set $rewriterSettings "WEBHOOK_CERT_FILE" "/etc/webhook-certificates/tls.crt" }}
-      {{- $_ := set $rewriterSettings "WEBHOOK_KEY_FILE" "/etc/webhook-certificates/tls.key" }}
-      {{- $_ := set $rewriterSettings "webhookCertsVolumeName" "webhook-certs" }}
-      {{- $_ := set $rewriterSettings "webhookCertsMountPath" "/etc/webhook-certificates" }}
-      {{- include "kube_api_rewriter.sidecar_container" (tuple . $rewriterSettings) | nindent 6 }}
-        - name: main-controller
-          ...
-          env:
-            {{- include "kube_api_rewriter.kubeconfig_env" . | nindent 12 }}
-            ...
-          ports:
-            - containerPort: 6443  # Goes to the WEBHOOK_ADDRESS
-              name: webhooks
-              protocol: TCP
-          volumeMounts:
-            {{- include "kube_api_rewriter.kubeconfig_volume_mount" . | nindent 12 }}
-            - name: webhook-certs
-              mountPath: /etc/webhook-certificates  # Goes to the webhookCertsMountPath
-              readOnly: true
-            ...
-      volumes:
-        {{- include "kube_api_rewriter.kubeconfig_volume" | nindent 8 }}
-        - name: webhook-certs  # Name of the existing volume goes to the webhookCertsVolumeName.
-          secret:
-            optional: true
-            secretName: webhook-certs
-        ...
-
- */ -}}
-
 {{- define "kube_api_rewriter.image" -}}
 {{- include "helm_lib_module_image" (list . "kubeApiRewriter") | toJson -}}
 {{- end -}}
-
 
 {{- define "kube_api_rewriter.kubeconfig_env" -}}
 {{- $settings := dict -}}
@@ -114,7 +26,6 @@ spec:
   mountPath: /kubeconfig.local
 {{- end }}
 
-
 {{- define "kube_api_rewriter.webhook_volume_mount" -}}
 {{- $volumeName := index . 0 -}}
 {{- $mountPath := index . 1 -}}
@@ -129,16 +40,12 @@ spec:
   protocol: TCP
 {{- end }}
 
-{{- /* Container port for the pprof server */ -}}
 {{- define "kube_api_rewriter.pprof_container_port" -}}
 - containerPort: {{ include "kube_api_rewriter.pprof_port" . }}
   name: pprof
   protocol: TCP
 {{- end }}
 
-{{- /* Sidecar container spec with kube-api-rewriter */ -}}
-{{- /* Usage without the webhook proxy: {{ include kube_api_rewriter.sidecar_container . }} */ -}}
-{{- /* Usage with the webhook: {{ include kube_api_rewriter.sidecar_container (tuple . $webhookSettings) }} */ -}}
 {{- define "kube_api_rewriter.sidecar_container" -}}
   {{- $ctx := . -}}
   {{- $settings := dict -}}
@@ -180,6 +87,10 @@ spec:
       value: "{{ $clientProxyPort }}"
     - name: MONITORING_BIND_ADDRESS
       value: "{{ $monitoringBindAddress }}"
+    {{- if $settings.monitoringAuth }}
+    - name: MONITORING_AUTH
+      value: {{ $settings.monitoringAuth | toJson | quote }}
+    {{- end }}
     {{- if eq (include "moduleLogLevel" $ctx) "debug" }}
     - name: PPROF_BIND_ADDRESS
       value: "{{ $pprofBindAddress }}"

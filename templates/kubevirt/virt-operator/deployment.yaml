@@ -100,6 +100,7 @@ spec:
       {{- $_ := set $rewriterSettings "probeScheme" "HTTP" }}
       {{- $_ := set $rewriterSettings "injectPodIP" true }}
       {{- $_ := set $rewriterSettings "monitoringBindAddress" "$(POD_IP):9090" }}
+      {{- $_ := set $rewriterSettings "monitoringAuth" (dict "group" "apps" "version" "v1" "resource" "deployments" "namespace" (printf "d8-%s" .Chart.Name) "name" "virt-operator" "subresource" "prometheus-metrics") }}
       {{- include "kube_api_rewriter.sidecar_container" (tuple . $rewriterSettings) | nindent 6 }}
       - name: virt-operator
         {{- include "helm_lib_module_container_security_context_read_only_root_filesystem_capabilities_drop_all_pss_restricted" . | nindent 8 }}
