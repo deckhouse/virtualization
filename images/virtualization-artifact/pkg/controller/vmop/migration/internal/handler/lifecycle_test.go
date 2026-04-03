@@ -273,6 +273,30 @@ var _ = Describe("LifecycleHandler", func() {
 			Expect(h.getFailedReason(nil)).To(Equal(vmopcondition.ReasonFailed))
 		})
 
+		It("should forget progress for terminating vmop", func() {
+			stub := &progressStrategyStub{}
+			vmop := newVMOPMigrate()
+			now := metav1.Now()
+			vmop.DeletionTimestamp = &now
+			h := LifecycleHandler{progressStrategy: stub}
+
+			_, err := h.Handle(ctx, vmop)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseTerminating))
+			Expect(stub.forgotten).To(Equal([]types.UID{vmop.UID}))
+		})
+
+		It("should forget progress for finished vmop", func() {
+			stub := &progressStrategyStub{}
+			vmop := newVMOPMigrate()
+			vmop.Status.Phase = v1alpha2.VMOPPhaseCompleted
+			h := LifecycleHandler{progressStrategy: stub}
+
+			_, err := h.Handle(ctx, vmop)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(stub.forgotten).To(Equal([]types.UID{vmop.UID}))
+		})
+
 		DescribeTable("should detect failed reason", func(mig *virtv1.VirtualMachineInstanceMigration, expected vmopcondition.ReasonCompleted) {
 			h := LifecycleHandler{}
 			Expect(h.getFailedReason(mig)).To(Equal(expected))

@@ -204,10 +204,7 @@ func iterativeMetricTarget(record Record, metricPct float64) float64 {
 }
 
 func isIterative(record Record) bool {
-	if record.HasIteration && record.Iteration > 0 {
-		return true
-	}
-	return record.Mode == virtv1.MigrationPostCopy || record.Mode == virtv1.MigrationPaused
+	return record.HasIteration && record.Iteration > 0
 }
 
 func smoothProgress(current int32, target float64, iterative bool, throttle float64) int32 {

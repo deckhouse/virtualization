@@ -266,9 +266,14 @@ func TestIsIterative(t *testing.T) {
 			expected: true,
 		},
 		{
-			name:     "post copy mode implies iterative",
+			name:     "post copy without iteration is not iterative",
 			record:   Record{Mode: virtv1.MigrationPostCopy},
-			expected: true,
+			expected: false,
+		},
+		{
+			name:     "paused without iteration is not iterative",
+			record:   Record{Mode: virtv1.MigrationPaused},
+			expected: false,
 		},
 		{
 			name:     "pre-copy without iteration is not iterative",

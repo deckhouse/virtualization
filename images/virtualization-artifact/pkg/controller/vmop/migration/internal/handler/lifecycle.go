@@ -90,12 +90,14 @@ func NewLifecycleHandler(client client.Client, migration *migrationservice.Migra
 func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (reconcile.Result, error) {
 	// Do not update conditions for object in the deletion state.
 	if commonvmop.IsTerminating(vmop) {
+		h.forgetProgress(vmop)
 		vmop.Status.Phase = v1alpha2.VMOPPhaseTerminating
 		return reconcile.Result{}, nil
 	}
 
 	// Ignore if VMOP is in final state.
 	if commonvmop.IsFinished(vmop) {
+		h.forgetProgress(vmop)
 		return reconcile.Result{}, nil
 	}
 
