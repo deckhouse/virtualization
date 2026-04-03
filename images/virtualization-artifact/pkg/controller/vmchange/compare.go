@@ -75,7 +75,7 @@ func (v *VMSpecComparator) comparators() []VMSpecFieldComparator {
 		vmSpecFieldComparator(compareEnableParavirtualization),
 		vmSpecFieldComparator(compareOSType),
 		vmSpecFieldComparator(compareBootloader),
-		vmSpecFieldComparator(compareCPU),
+		NewComparatorCPU(v.featureGate),
 		NewComparatorMemory(v.featureGate),
 		vmSpecFieldComparator(compareBlockDevices),
 		vmSpecFieldComparator(compareProvisioning),
