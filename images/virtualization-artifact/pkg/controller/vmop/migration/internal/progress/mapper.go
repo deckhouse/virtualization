@@ -54,9 +54,9 @@ func BuildRecord(vmop *v1alpha2.VirtualMachineOperation, mig *virtv1.VirtualMach
 		record.Iteration, record.HasIteration = mapIteration(state)
 		record.AutoConvergeThrottle, record.HasThrottle = mapThrottle(state)
 		record.Throttle = normalizeThrottle(record.AutoConvergeThrottle, record.HasThrottle)
-		record.DataTotalMiB = mapBytesToMiB(state.DataTotalBytes)
-		record.DataProcessedMiB = mapBytesToMiB(state.DataProcessedBytes)
-		record.DataRemainingMiB = mapBytesToMiB(state.DataRemainingBytes)
+		record.DataTotalMiB = mapDataTotalMiB(state)
+		record.DataProcessedMiB = mapDataProcessedMiB(state)
+		record.DataRemainingMiB = mapDataRemainingMiB(state)
 		if state.MigrationConfiguration != nil && state.MigrationConfiguration.AllowAutoConverge != nil {
 			record.AutoConverge = *state.MigrationConfiguration.AllowAutoConverge
 		}
@@ -80,17 +80,38 @@ func previousProgress(vmop *v1alpha2.VirtualMachineOperation) int32 {
 }
 
 func mapIteration(state *virtv1.VirtualMachineInstanceMigrationState) (uint32, bool) {
-	if state == nil || state.Iteration == nil {
+	if state == nil || state.TransferStatus == nil || state.TransferStatus.Iteration == nil {
 		return 0, false
 	}
-	return *state.Iteration, true
+	return *state.TransferStatus.Iteration, true
 }
 
 func mapThrottle(state *virtv1.VirtualMachineInstanceMigrationState) (uint32, bool) {
-	if state == nil || state.AutoConvergeThrottle == nil {
+	if state == nil || state.TransferStatus == nil || state.TransferStatus.AutoConvergeThrottle == nil {
 		return 0, false
 	}
-	return *state.AutoConvergeThrottle, true
+	return *state.TransferStatus.AutoConvergeThrottle, true
+}
+
+func mapDataTotalMiB(state *virtv1.VirtualMachineInstanceMigrationState) float64 {
+	if state == nil || state.TransferStatus == nil {
+		return unknownMetric
+	}
+	return mapBytesToMiB(state.TransferStatus.DataTotalBytes)
+}
+
+func mapDataProcessedMiB(state *virtv1.VirtualMachineInstanceMigrationState) float64 {
+	if state == nil || state.TransferStatus == nil {
+		return unknownMetric
+	}
+	return mapBytesToMiB(state.TransferStatus.DataProcessedBytes)
+}
+
+func mapDataRemainingMiB(state *virtv1.VirtualMachineInstanceMigrationState) float64 {
+	if state == nil || state.TransferStatus == nil {
+		return unknownMetric
+	}
+	return mapBytesToMiB(state.TransferStatus.DataRemainingBytes)
 }
 
 func normalizeThrottle(raw uint32, ok bool) float64 {

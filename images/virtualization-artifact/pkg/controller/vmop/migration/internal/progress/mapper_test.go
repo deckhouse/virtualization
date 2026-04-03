@@ -79,13 +79,15 @@ func TestBuildRecord_UsesMigrationState(t *testing.T) {
 		Status: virtv1.VirtualMachineInstanceMigrationStatus{
 			Phase: virtv1.MigrationRunning,
 			MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
-				StartTimestamp:       &start,
-				Mode:                 virtv1.MigrationPreCopy,
-				Iteration:            &iteration,
-				AutoConvergeThrottle: &autoConvergeThrottle,
-				DataTotalBytes:       &totalBytes,
-				DataProcessedBytes:   &processedBytes,
-				DataRemainingBytes:   &remainingBytes,
+				StartTimestamp: &start,
+				Mode:           virtv1.MigrationPreCopy,
+				TransferStatus: &virtv1.VirtualMachineInstanceMigrationTransferStatus{
+					Iteration:            &iteration,
+					AutoConvergeThrottle: &autoConvergeThrottle,
+					DataTotalBytes:       &totalBytes,
+					DataProcessedBytes:   &processedBytes,
+					DataRemainingBytes:   &remainingBytes,
+				},
 			},
 		},
 	}
@@ -167,8 +169,10 @@ func TestMapIteration(t *testing.T) {
 			wantSet: false,
 		},
 		{
-			name:    "explicit iteration",
-			state:   &virtv1.VirtualMachineInstanceMigrationState{Iteration: ptr.To[uint32](7)},
+			name: "explicit iteration",
+			state: &virtv1.VirtualMachineInstanceMigrationState{TransferStatus: &virtv1.VirtualMachineInstanceMigrationTransferStatus{
+				Iteration: ptr.To[uint32](7),
+			}},
 			want:    7,
 			wantSet: true,
 		},
@@ -218,8 +222,10 @@ func TestMapThrottle(t *testing.T) {
 			wantValue: 0,
 		},
 		{
-			name:      "explicit throttle",
-			state:     &virtv1.VirtualMachineInstanceMigrationState{AutoConvergeThrottle: ptr.To[uint32](70)},
+			name: "explicit throttle",
+			state: &virtv1.VirtualMachineInstanceMigrationState{TransferStatus: &virtv1.VirtualMachineInstanceMigrationTransferStatus{
+				AutoConvergeThrottle: ptr.To[uint32](70),
+			}},
 			wantRaw:   70,
 			wantSet:   true,
 			wantValue: 0.7,
