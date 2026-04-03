@@ -63,6 +63,7 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 	}
 
 	current := s.VirtualMachine().Current()
+	changedVM := s.VirtualMachine().Changed()
 
 	// Propagate user specified labels and annotations from the d8 VM to kubevirt VM.
 	kvvmNewMetadata := &metav1.ObjectMeta{}
@@ -84,7 +85,7 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 		}
 
 		if metaUpdated {
-			if err = h.patchLabelsAndAnnotations(ctx, kvvmi, kvvmiNewMetadata); err != nil && !k8serrors.IsNotFound(err) {
+			if err = h.patchLabelsAndAnnotations(ctx, kvvmi, kvvmiNewMetadata, changedVM); err != nil && !k8serrors.IsNotFound(err) {
 				return reconcile.Result{}, fmt.Errorf("failed to patch metadata KubeVirt VMI %q: %w", kvvmi.GetName(), err)
 			}
 		}
@@ -109,7 +110,7 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 			}
 
 			if metaUpdated {
-				if err = h.patchLabelsAndAnnotations(ctx, &pod, podNewMetadata); err != nil {
+				if err = h.patchLabelsAndAnnotations(ctx, &pod, podNewMetadata, changedVM); err != nil {
 					return reconcile.Result{}, fmt.Errorf("failed to patch KubeVirt Pod %q: %w", pod.GetName(), err)
 				}
 			}
@@ -127,7 +128,7 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 	}
 
 	if labelsChanged || annosChanged || kvvmMetaUpdated {
-		if err = h.patchLabelsAndAnnotations(ctx, kvvm, kvvmNewMetadata); err != nil {
+		if err = h.patchLabelsAndAnnotations(ctx, kvvm, kvvmNewMetadata, changedVM); err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed to patch metadata KubeVirt VM %q: %w", kvvm.GetName(), err)
 		}
 	}
@@ -139,7 +140,7 @@ func (h *SyncMetadataHandler) Name() string {
 	return nameSyncMetadataHandler
 }
 
-func (h *SyncMetadataHandler) patchLabelsAndAnnotations(ctx context.Context, obj client.Object, metadata *metav1.ObjectMeta) error {
+func (h *SyncMetadataHandler) patchLabelsAndAnnotations(ctx context.Context, obj client.Object, metadata *metav1.ObjectMeta, vm *v1alpha2.VirtualMachine) error {
 	jp := patch.NewJSONPatch()
 
 	newLabels := metadata.GetLabels()
@@ -172,7 +173,7 @@ func (h *SyncMetadataHandler) patchLabelsAndAnnotations(ctx context.Context, obj
 		)
 		if objIsKVVM {
 			currSpecTemplateAnno := kvvm.Spec.Template.ObjectMeta.Annotations
-			syncedSpecTemplateAnno := h.updateKVVMSpecTemplateMetadataAnnotations(currSpecTemplateAnno, newAnnotations)
+			syncedSpecTemplateAnno := h.updateKVVMSpecTemplateMetadataAnnotations(currSpecTemplateAnno, newAnnotations, vm)
 			jp.Append(
 				patch.WithTest("/spec/template/metadata/annotations", currSpecTemplateAnno),
 				patch.WithReplace("/spec/template/metadata/annotations", syncedSpecTemplateAnno),
@@ -190,7 +191,8 @@ func (h *SyncMetadataHandler) patchLabelsAndAnnotations(ctx context.Context, obj
 
 // updateKVVMSpecTemplateMetadataAnnotations ensures that the special network annotation is present if it exists.
 // It also removes well-known annotations that are dangerous to propagate.
-func (h *SyncMetadataHandler) updateKVVMSpecTemplateMetadataAnnotations(currAnno, newAnno map[string]string) map[string]string {
+// Static Cilium IP is preserved only while the VM status still tracks a VirtualMachineIPAddress / address.
+func (h *SyncMetadataHandler) updateKVVMSpecTemplateMetadataAnnotations(currAnno, newAnno map[string]string, vm *v1alpha2.VirtualMachine) map[string]string {
 	res := make(map[string]string, len(newAnno))
 	for k, v := range newAnno {
 		if k == annotations.AnnVMLastAppliedSpec || k == annotations.AnnVMClassLastAppliedSpec {
@@ -208,8 +210,11 @@ func (h *SyncMetadataHandler) updateKVVMSpecTemplateMetadataAnnotations(currAnno
 		res[virtv1.AllowPodBridgeNetworkLiveMigrationAnnotation] = v
 	}
 
-	if v, ok := currAnno[netmanager.AnnoIPAddressCNIRequest]; ok {
-		res[netmanager.AnnoIPAddressCNIRequest] = v
+	if v, ok := currAnno[netmanager.AnnoIPAddressCNIRequest]; ok && vm != nil {
+		st := vm.Status
+		if st.VirtualMachineIPAddress != "" || st.IPAddress != "" {
+			res[netmanager.AnnoIPAddressCNIRequest] = v
+		}
 	}
 
 	if v, ok := currAnno[virtv1.USBMigrationStrategyAnn]; ok {
