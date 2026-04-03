@@ -33,6 +33,8 @@ const (
 	iterativeCeiling = 90.0
 	thresholdFactor  = 0.05
 
+	notConvergingWindow = 10 * time.Second
+
 	bulkTimeRate      = 0.55
 	iterBaseTimeRate  = 0.022
 	iterThrottleRate  = 0.0012
@@ -49,6 +51,7 @@ const (
 
 type Strategy interface {
 	SyncProgress(record Record) int32
+	IsNotConverging(record Record) bool
 	Forget(uid types.UID)
 }
 
@@ -64,6 +67,7 @@ type Record struct {
 	HasThrottle          bool
 	AutoConvergeThrottle uint32
 	Throttle             float64
+	AutoConverge         bool
 	DataTotalMiB         float64
 	DataProcessedMiB     float64
 	DataRemainingMiB     float64
@@ -149,6 +153,7 @@ func (p *Progress) SyncProgress(record Record) int32 {
 	}
 
 	updateMetricState(record, &state)
+	updateMinRemaining(record, &state)
 	state.Progress = next
 	state.LastUpdatedAt = record.Now
 	state.LastIteration = record.Iteration
@@ -159,6 +164,27 @@ func (p *Progress) SyncProgress(record Record) int32 {
 	}
 
 	return next
+}
+
+func (p *Progress) IsNotConverging(record Record) bool {
+	if p == nil || p.store == nil || record.OperationUID == "" {
+		return false
+	}
+
+	state, ok := p.store.Load(record.OperationUID)
+	if !ok || !state.Iterative {
+		return false
+	}
+
+	if !isAtMaxThrottle(record) {
+		return false
+	}
+
+	if state.MinRemaining <= 0 || state.MinRemainingAt.IsZero() {
+		return false
+	}
+
+	return record.Now.Sub(state.MinRemainingAt) >= notConvergingWindow
 }
 
 func (p *Progress) getState(record Record) State {
@@ -322,6 +348,24 @@ func maxRemaining(record Record) float64 {
 		}
 	}
 	return 0
+}
+
+func updateMinRemaining(record Record, state *State) {
+	remaining := maxRemaining(record)
+	if remaining <= 0 {
+		return
+	}
+	if state.MinRemaining <= 0 || remaining < state.MinRemaining {
+		state.MinRemaining = remaining
+		state.MinRemainingAt = record.Now
+	}
+}
+
+func isAtMaxThrottle(record Record) bool {
+	if !record.AutoConverge {
+		return true
+	}
+	return record.HasThrottle && record.Throttle >= 0.99
 }
 
 func updateMetricState(record Record, state *State) {

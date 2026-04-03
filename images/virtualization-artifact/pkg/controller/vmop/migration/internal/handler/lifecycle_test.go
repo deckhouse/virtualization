@@ -55,6 +55,10 @@ func (s *progressStrategyStub) SyncProgress(_ migrationprogress.Record) int32 {
 	return s.value
 }
 
+func (s *progressStrategyStub) IsNotConverging(_ migrationprogress.Record) bool {
+	return false
+}
+
 func (s *progressStrategyStub) Forget(uid types.UID) {
 	s.forgotten = append(s.forgotten, uid)
 }

@@ -42,6 +42,8 @@ type State struct {
 	SmoothedRemaining float64
 	Threshold         float64
 	LastIncreaseAt    time.Time
+	MinRemaining      float64
+	MinRemainingAt    time.Time
 }
 
 type Store struct {

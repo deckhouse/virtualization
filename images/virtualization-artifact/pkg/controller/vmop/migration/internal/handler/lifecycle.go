@@ -318,6 +318,16 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 		return err
 	}
 
+	autoConverge := h.resolveAutoConverge(vmop)
+
+	if reason == vmopcondition.ReasonSyncing {
+		record := migrationprogress.BuildRecord(vmop, mig, autoConverge, time.Now())
+		if h.progressStrategy != nil && h.progressStrategy.IsNotConverging(record) {
+			reason = vmopcondition.ReasonNotConverging
+			msg = "Migration is not converging: data remaining is not decreasing at maximum throttle"
+		}
+	}
+
 	vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
 	if reason == vmopcondition.ReasonTargetScheduling {
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
@@ -603,8 +613,8 @@ func (h LifecycleHandler) calculateMigrationProgress(
 		return progressTargetPreparing
 	case vmopcondition.ReasonTargetDiskError:
 		return progressTargetPreparing
-	case vmopcondition.ReasonSyncing:
-		record := migrationprogress.BuildRecord(vmop, mig, time.Now())
+	case vmopcondition.ReasonSyncing, vmopcondition.ReasonNotConverging:
+		record := migrationprogress.BuildRecord(vmop, mig, h.resolveAutoConverge(vmop), time.Now())
 		return h.progressStrategy.SyncProgress(record)
 	case vmopcondition.ReasonSourceSuspended:
 		h.forgetProgress(vmop)
@@ -622,6 +632,16 @@ func (h LifecycleHandler) calculateMigrationProgress(
 		}
 		return 0
 	}
+}
+
+func (h LifecycleHandler) resolveAutoConverge(vmop *v1alpha2.VirtualMachineOperation) bool {
+	if vmop == nil {
+		return false
+	}
+	if vmop.Spec.Force != nil && *vmop.Spec.Force {
+		return true
+	}
+	return false
 }
 
 func (h LifecycleHandler) forgetProgress(vmop *v1alpha2.VirtualMachineOperation) {

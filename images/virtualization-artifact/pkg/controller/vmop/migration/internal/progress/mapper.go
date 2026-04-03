@@ -26,11 +26,12 @@ import (
 
 const unknownMetric = -1.0
 
-func BuildRecord(vmop *v1alpha2.VirtualMachineOperation, mig *virtv1.VirtualMachineInstanceMigration, now time.Time) Record {
+func BuildRecord(vmop *v1alpha2.VirtualMachineOperation, mig *virtv1.VirtualMachineInstanceMigration, autoConverge bool, now time.Time) Record {
 	record := Record{
 		Now:              now,
 		StartedAt:        now,
 		PreviousProgress: previousProgress(vmop),
+		AutoConverge:     autoConverge,
 		DataTotalMiB:     unknownMetric,
 		DataProcessedMiB: unknownMetric,
 		DataRemainingMiB: unknownMetric,
