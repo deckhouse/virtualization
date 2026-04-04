@@ -125,6 +125,9 @@ handlersLoop:
 	case strings.Contains(err.Error(), "no new finalizers can be added if the object is being deleted"):
 		logger.FromContext(ctx).Warn("Forbidden to add finalizers", logger.SlogErr(err))
 		result.RequeueAfter = 1 * time.Second
+	case k8serrors.IsNotFound(err) && strings.Contains(err.Error(), "namespaces"):
+		// No need to return an explicit requeue or requeue with error if namespace is gone, e.g. in e2e tests.
+		logger.FromContext(ctx).Warn("Namespace is gone while reconcile the object", logger.SlogErr(err))
 	default:
 		logger.FromContext(ctx).Error("Failed to update resource", logger.SlogErr(err))
 		errs = errors.Join(errs, err)
