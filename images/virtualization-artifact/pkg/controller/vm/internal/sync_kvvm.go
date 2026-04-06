@@ -654,12 +654,21 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 		h.recorder.Event(current, corev1.EventTypeNormal, v1alpha2.ReasonVMChangesApplied, message)
 		log.Debug(message, "vm.name", current.GetName(), "changes", changes)
 
-		if err := h.updateKVVM(ctx, s); err != nil {
-			return fmt.Errorf("unable to update KVVM using new VM spec: %w", err)
-		}
-
 		if err := h.patchPodNetworkAnnotation(ctx, s); err != nil {
 			return fmt.Errorf("unable to patch pod network annotation: %w", err)
+		}
+
+		ready, err := h.isNetworkReadyOnPod(ctx, s)
+		if err != nil {
+			return fmt.Errorf("unable to check pod network status: %w", err)
+		}
+		if !ready {
+			log.Info("Waiting for SDN to configure network interfaces on the pod")
+			return nil
+		}
+
+		if err := h.updateKVVM(ctx, s); err != nil {
+			return fmt.Errorf("unable to update KVVM using new VM spec: %w", err)
 		}
 
 	case vmchange.ActionNone:
@@ -715,6 +724,22 @@ func (h *SyncKvvmHandler) isVMUnschedulable(
 	}
 
 	return false
+}
+
+func (h *SyncKvvmHandler) isNetworkReadyOnPod(ctx context.Context, s state.VirtualMachineState) (bool, error) {
+	pods, err := s.Pods(ctx)
+	if err != nil {
+		return false, err
+	}
+	if pods == nil || len(pods.Items) == 0 {
+		return false, nil
+	}
+
+	errMsg, err := extractNetworkStatusFromPods(pods)
+	if err != nil {
+		return false, err
+	}
+	return errMsg == "", nil
 }
 
 func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state.VirtualMachineState) error {
