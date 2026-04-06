@@ -383,10 +383,7 @@ func (h *SyncKvvmHandler) updateKVVM(ctx context.Context, s state.VirtualMachine
 	}
 
 	// Check for changes to skip unneeded updated.
-	isChanged, err := IsKVVMChanged(currentKVVM, newKVVM)
-	if err != nil {
-		return fmt.Errorf("update internal virtual machine: detect changes: %w", err)
-	}
+	isChanged := IsKVVMChanged(currentKVVM, newKVVM)
 
 	if isChanged {
 		// Update can't handle proper reset of memory fields, so patch-after-update:
@@ -511,17 +508,16 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 }
 
 // IsKVVMChanged returns whether kvvm spec or special annotations are changed.
-func IsKVVMChanged(prevKVVM *virtv1.VirtualMachine, newKVVM *virtv1.VirtualMachine) (bool, error) {
-	isChanged := prevKVVM.Annotations[annotations.AnnVMLastAppliedSpec] != newKVVM.Annotations[annotations.AnnVMLastAppliedSpec]
-
-	if !isChanged {
-		isChanged = prevKVVM.Annotations[annotations.AnnVMClassLastAppliedSpec] != newKVVM.Annotations[annotations.AnnVMClassLastAppliedSpec]
+func IsKVVMChanged(prevKVVM, newKVVM *virtv1.VirtualMachine) bool {
+	if prevKVVM.Annotations[annotations.AnnVMLastAppliedSpec] != newKVVM.Annotations[annotations.AnnVMLastAppliedSpec] {
+		return true
 	}
 
-	if !isChanged {
-		isChanged = !reflect.DeepEqual(prevKVVM.Spec, newKVVM.Spec)
+	if prevKVVM.Annotations[annotations.AnnVMClassLastAppliedSpec] != newKVVM.Annotations[annotations.AnnVMClassLastAppliedSpec] {
+		return true
 	}
-	return isChanged, nil
+
+	return !reflect.DeepEqual(prevKVVM.Spec, newKVVM.Spec)
 }
 
 func (h *SyncKvvmHandler) loadLastAppliedSpec(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) *v1alpha2.VirtualMachineSpec {
