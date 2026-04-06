@@ -107,7 +107,15 @@ func compareNetworks(current, desired *v1alpha2.VirtualMachineSpec) []FieldChang
 func isOnlyNonMainNetworksChanged(current, desired []v1alpha2.NetworksSpec) bool {
 	currentMain := getMainNetwork(current)
 	desiredMain := getMainNetwork(desired)
-	return reflect.DeepEqual(currentMain, desiredMain)
+	currentHasMain := currentMain != nil || len(current) == 0
+	desiredHasMain := desiredMain != nil || len(desired) == 0
+	if !currentHasMain || !desiredHasMain {
+		return false
+	}
+	if currentMain == nil || desiredMain == nil {
+		return true
+	}
+	return reflect.DeepEqual(*currentMain, *desiredMain)
 }
 
 func getMainNetwork(networks []v1alpha2.NetworksSpec) *v1alpha2.NetworksSpec {

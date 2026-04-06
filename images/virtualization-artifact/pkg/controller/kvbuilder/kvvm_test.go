@@ -22,7 +22,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	virtv1 "kubevirt.io/api/core/v1"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -144,4 +146,95 @@ func TestSetOsType(t *testing.T) {
 			t.Error("TPM should be removed after changing from Windows to Generic OS")
 		}
 	})
+}
+
+func newTestKVVM() *KVVM {
+	return NewEmptyKVVM(types.NamespacedName{Name: "test", Namespace: "default"}, KVVMOptions{
+		EnableParavirtualization: true,
+	})
+}
+
+func TestSetNetworkInterfaceAbsent(t *testing.T) {
+	b := newTestKVVM()
+	b.SetNetworkInterface("default", "", 1)
+	b.SetNetworkInterface("veth_n12345678", "aa:bb:cc:dd:ee:ff", 2)
+
+	b.SetNetworkInterfaceAbsent("veth_n12345678")
+
+	for _, iface := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
+		if iface.Name == "veth_n12345678" {
+			if iface.State != virtv1.InterfaceStateAbsent {
+				t.Errorf("expected State %q, got %q", virtv1.InterfaceStateAbsent, iface.State)
+			}
+			return
+		}
+	}
+	t.Error("interface veth_n12345678 not found")
+}
+
+func TestSetNetworkInterfaceReplacesExisting(t *testing.T) {
+	b := newTestKVVM()
+	b.SetNetworkInterface("veth_n12345678", "aa:bb:cc:dd:ee:ff", 2)
+	b.SetNetworkInterfaceAbsent("veth_n12345678")
+
+	b.SetNetworkInterface("veth_n12345678", "aa:bb:cc:dd:ee:ff", 2)
+
+	for _, iface := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
+		if iface.Name == "veth_n12345678" {
+			if iface.State != "" {
+				t.Errorf("expected empty State after re-add, got %q", iface.State)
+			}
+			return
+		}
+	}
+	t.Error("interface veth_n12345678 not found")
+}
+
+func TestSetNetworkMarksRemovedAsAbsent(t *testing.T) {
+	b := newTestKVVM()
+	b.SetNetworkInterface("default", "", 1)
+	b.SetNetworkInterface("veth_n12345678", "aa:bb:cc:dd:ee:ff", 2)
+
+	setNetwork(b, network.InterfaceSpecList{
+		{InterfaceName: "default", MAC: "", ID: 1},
+	})
+
+	found := false
+	for _, iface := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
+		if iface.Name == "veth_n12345678" {
+			found = true
+			if iface.State != virtv1.InterfaceStateAbsent {
+				t.Errorf("removed interface should have State %q, got %q", virtv1.InterfaceStateAbsent, iface.State)
+			}
+		}
+		if iface.Name == "default" && iface.State != "" {
+			t.Errorf("kept interface should have empty State, got %q", iface.State)
+		}
+	}
+	if !found {
+		t.Error("removed interface should be retained with absent state, not deleted")
+	}
+}
+
+func TestSetNetworkAddsNewInterface(t *testing.T) {
+	b := newTestKVVM()
+	b.SetNetworkInterface("default", "", 1)
+
+	setNetwork(b, network.InterfaceSpecList{
+		{InterfaceName: "default", MAC: "", ID: 1},
+		{InterfaceName: "veth_n12345678", MAC: "aa:bb:cc:dd:ee:ff", ID: 2},
+	})
+
+	found := false
+	for _, iface := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
+		if iface.Name == "veth_n12345678" {
+			found = true
+			if iface.ACPIIndex != 2 {
+				t.Errorf("expected ACPIIndex 2, got %d", iface.ACPIIndex)
+			}
+		}
+	}
+	if !found {
+		t.Error("new interface should be added")
+	}
 }
