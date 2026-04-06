@@ -658,6 +658,10 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 			return fmt.Errorf("unable to update KVVM using new VM spec: %w", err)
 		}
 
+		if err := h.patchPodNetworkAnnotation(ctx, s); err != nil {
+			return fmt.Errorf("unable to patch pod network annotation: %w", err)
+		}
+
 	case vmchange.ActionNone:
 		log.Info("No changes to underlying KVVM, update last-applied-spec annotation", "vm.name", current.GetName())
 
@@ -711,6 +715,48 @@ func (h *SyncKvvmHandler) isVMUnschedulable(
 	}
 
 	return false
+}
+
+func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state.VirtualMachineState) error {
+	log := logger.FromContext(ctx)
+
+	pod, err := s.Pod(ctx)
+	if err != nil {
+		return err
+	}
+	if pod == nil {
+		return nil
+	}
+
+	current := s.VirtualMachine().Current()
+	vmmacs, err := s.VirtualMachineMACAddresses(ctx)
+	if err != nil {
+		return err
+	}
+
+	networkSpec := network.CreateNetworkSpec(current, vmmacs)
+	networkConfigStr, err := networkSpec.ToString()
+	if err != nil {
+		return fmt.Errorf("failed to serialize network spec: %w", err)
+	}
+
+	currentAnnotation := pod.Annotations[annotations.AnnNetworksSpec]
+	if currentAnnotation == networkConfigStr {
+		return nil
+	}
+
+	patch := client.MergeFrom(pod.DeepCopy())
+	if pod.Annotations == nil {
+		pod.Annotations = make(map[string]string)
+	}
+	pod.Annotations[annotations.AnnNetworksSpec] = networkConfigStr
+
+	if err := h.client.Patch(ctx, pod, patch); err != nil {
+		return fmt.Errorf("failed to patch pod %s network annotation: %w", pod.Name, err)
+	}
+
+	log.Info("Patched pod network annotation", "pod", pod.Name, "networks", networkConfigStr)
+	return nil
 }
 
 // isPlacementPolicyChanged returns true if any of the Affinity, NodePlacement, or Toleration rules have changed.

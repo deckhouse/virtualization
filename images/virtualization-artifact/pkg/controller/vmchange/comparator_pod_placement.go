@@ -89,10 +89,10 @@ func compareNetworks(current, desired *v1alpha2.VirtualMachineSpec) []FieldChang
 	desiredValue := NewValue(desired.Networks, desired.Networks == nil, false)
 
 	action := ActionRestart
-	// During upgrade from 1.6.0 to 1.7.0, network interface IDs are auto-populated for all existing VMs in the cluster.
-	// This allows avoiding a virtual machine restart during the version upgrade.
 	if isOnlyNetworkIDAutofillChange(current.Networks, desired.Networks) {
 		action = ActionNone
+	} else if isOnlyNonMainNetworksChanged(current.Networks, desired.Networks) {
+		action = ActionApplyImmediate
 	}
 
 	return compareValues(
@@ -102,6 +102,21 @@ func compareNetworks(current, desired *v1alpha2.VirtualMachineSpec) []FieldChang
 		reflect.DeepEqual(current.Networks, desired.Networks),
 		action,
 	)
+}
+
+func isOnlyNonMainNetworksChanged(current, desired []v1alpha2.NetworksSpec) bool {
+	currentMain := getMainNetwork(current)
+	desiredMain := getMainNetwork(desired)
+	return reflect.DeepEqual(currentMain, desiredMain)
+}
+
+func getMainNetwork(networks []v1alpha2.NetworksSpec) *v1alpha2.NetworksSpec {
+	for i := range networks {
+		if networks[i].Type == v1alpha2.NetworksTypeMain {
+			return &networks[i]
+		}
+	}
+	return nil
 }
 
 func isOnlyNetworkIDAutofillChange(current, desired []v1alpha2.NetworksSpec) bool {
