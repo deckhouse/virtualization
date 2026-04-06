@@ -431,11 +431,11 @@ func (h *SyncKvvmHandler) updateKVVM(ctx context.Context, s state.VirtualMachine
 // kvbuilder sets maxGuest to 0 to indicate that KVVM needs to be patched
 // to clear maxGuest value: it is not possible to clear the value with the Update
 // once it was set previously.
-func saveKVVMDomainMemoryForPatching(prevKVVM *virtv1.VirtualMachine, newKVVM *virtv1.VirtualMachine) *virtv1.Memory {
+func saveKVVMDomainMemoryForPatching(prevKVVM, newKVVM *virtv1.VirtualMachine) *virtv1.Memory {
 	prevMemory := prevKVVM.Spec.Template.Spec.Domain.Memory
 	newMemory := newKVVM.Spec.Template.Spec.Domain.Memory
-	if newMemory != nil && newMemory.MaxGuest.IsZero() &&
-		prevMemory != nil && !prevMemory.MaxGuest.IsZero() {
+	if newMemory != nil && newMemory.MaxGuest != nil && newMemory.MaxGuest.IsZero() &&
+		prevMemory != nil && prevMemory.MaxGuest != nil && !prevMemory.MaxGuest.IsZero() {
 		return newMemory.DeepCopy()
 	}
 	return nil
