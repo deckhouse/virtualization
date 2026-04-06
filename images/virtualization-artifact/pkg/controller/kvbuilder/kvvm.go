@@ -338,7 +338,7 @@ func (b *KVVM) setCPUHotpluggable(cores int, coreFraction string) error {
 func (b *KVVM) SetMemory(memorySize resource.Quantity) {
 	// Support for VMs started with memory size in requests-limits.
 	// TODO delete this in the future (around 3-4 more versions after enabling memory hotplug by default).
-	if b.ResourceExists && isVMRunningWithMemoryResources(b.Resource) {
+	if b.ResourceExists && shouldKeepMemoryNonHotpluggable(b.Resource) {
 		b.setMemoryNonHotpluggable(memorySize)
 		return
 	}
@@ -410,20 +410,23 @@ func isVMRunningWithCPUResources(kvvm *virtv1.VirtualMachine) bool {
 	return hasCPURequests && hasCPULimits
 }
 
-func isVMRunningWithMemoryResources(kvvm *virtv1.VirtualMachine) bool {
+func shouldKeepMemoryNonHotpluggable(kvvm *virtv1.VirtualMachine) bool {
 	if kvvm == nil {
 		return false
 	}
 
-	if kvvm.Status.PrintableStatus != virtv1.VirtualMachineStatusRunning {
-		return false
+	if kvvm.Status.PrintableStatus == virtv1.VirtualMachineStatusRunning || kvvm.Status.PrintableStatus == virtv1.VirtualMachineStatusMigrating {
+		// Running or Migrating machines with memory resources should keep as non-hotpluggable.
+		// Machines without memory resources should proceed as hotpluggable.
+		res := kvvm.Spec.Template.Spec.Domain.Resources
+		_, hasMemoryRequests := res.Requests[corev1.ResourceMemory]
+		_, hasMemoryLimits := res.Limits[corev1.ResourceMemory]
+
+		return hasMemoryRequests && hasMemoryLimits
 	}
 
-	res := kvvm.Spec.Template.Spec.Domain.Resources
-	_, hasMemoryRequests := res.Requests[corev1.ResourceMemory]
-	_, hasMemoryLimits := res.Limits[corev1.ResourceMemory]
-
-	return hasMemoryRequests && hasMemoryLimits
+	// Proceed as hotpluggable if machine is not Running or Migrating.
+	return false
 }
 
 func GetCPUFraction(cpuFraction string) (int, error) {

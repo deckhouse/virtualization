@@ -43,8 +43,8 @@ func NewComparatorMemory(featureGate featuregate.FeatureGate) VMSpecFieldCompara
 // Note: memory hotplug is enabled if VM has more than 1Gi of RAM.
 func (c *comparatorMemory) Compare(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
 	hotplugThreshold := resource.NewQuantity(kvbuilder.EnableMemoryHotplugThreshold, resource.BinarySI)
-	isHotpluggable := current.Memory.Size.Cmp(*hotplugThreshold) > 0
-	isHotpluggableDesired := desired.Memory.Size.Cmp(*hotplugThreshold) > 0
+	isHotpluggable := current.Memory.Size.Cmp(*hotplugThreshold) >= 0
+	isHotpluggableDesired := desired.Memory.Size.Cmp(*hotplugThreshold) >= 0
 
 	actionType := ActionRestart
 	if isHotpluggable && isHotpluggableDesired {

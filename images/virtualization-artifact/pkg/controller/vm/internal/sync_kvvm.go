@@ -377,39 +377,23 @@ func (h *SyncKvvmHandler) updateKVVM(ctx context.Context, s state.VirtualMachine
 		return fmt.Errorf("update internal virtual machine: make kvvm from the virtual machine spec: %w", err)
 	}
 
+	currentKVVM, err := s.KVVM(ctx)
+	if err != nil {
+		return fmt.Errorf("get current kvvm: %w", err)
+	}
+
 	// Check for changes to skip unneeded updated.
-	isChanged, err := IsKVVMChanged(ctx, s, newKVVM)
+	isChanged, err := IsKVVMChanged(currentKVVM, newKVVM)
 	if err != nil {
 		return fmt.Errorf("update internal virtual machine: detect changes: %w", err)
 	}
 
 	if isChanged {
-		// Update can't handle removing of some fields, so patch them before update.
-		{
-			jsonPatch := patch.JSONPatch{}
-			memory := newKVVM.Spec.Template.Spec.Domain.Memory
-			if memory != nil && memory.MaxGuest != nil && memory.MaxGuest.IsZero() {
-				// maxGuest=0 is an invalid value for the vm-validator webhook, we use 0 as
-				// an internal special value to patch KVVM before update.
-				// Set it to nil in the spec, so Update call will not fail.
-				memory.MaxGuest = nil
-
-				// Removing memory.maxGuest is not enough, replace memory.guest is needed to pass the vm-validator webhook.
-				jsonPatch.Append(
-					patch.WithRemove("/spec/template/spec/domain/memory/maxGuest"),
-					patch.WithReplace("/spec/template/spec/domain/memory/guest", memory.Guest.String()),
-				)
-			}
-
-			if jsonPatch.Len() > 0 {
-				patchBytes, err := jsonPatch.Bytes()
-				if err != nil {
-					return fmt.Errorf("prepare json patch for internal virtual machine: %w", err)
-				}
-				if err = h.client.Patch(ctx, newKVVM, client.RawPatch(types.JSONPatchType, patchBytes)); err != nil {
-					return fmt.Errorf("patch internal virtual machine before update: %w", err)
-				}
-			}
+		// Update can't handle proper reset of memory fields, so patch-after-update:
+		// (1) make memory copy, (2) reset memory in newKVVM and (3) patch memory field after update.
+		domainMemory := saveKVVMDomainMemoryForPatching(currentKVVM, newKVVM)
+		if domainMemory != nil {
+			newKVVM.Spec.Template.Spec.Domain.Memory = currentKVVM.Spec.Template.Spec.Domain.Memory
 		}
 
 		if err = h.client.Update(ctx, newKVVM); err != nil {
@@ -418,10 +402,42 @@ func (h *SyncKvvmHandler) updateKVVM(ctx context.Context, s state.VirtualMachine
 
 		log.Info("Update internal virtual machine done", "name", newKVVM.Name)
 		log.Debug("Update internal virtual machine done", "name", newKVVM.Name, "kvvm", newKVVM)
+
+		if domainMemory != nil {
+			jsonPatch := patch.JSONPatch{}
+			// Removing memory.maxGuest is not enough, replace memory.guest is needed to pass the vm-validator webhook.
+			jsonPatch.Append(
+				patch.WithRemove("/spec/template/spec/domain/memory/maxGuest"),
+				patch.WithReplace("/spec/template/spec/domain/memory/guest", domainMemory.Guest.String()),
+			)
+			patchBytes, err := jsonPatch.Bytes()
+			if err != nil {
+				return fmt.Errorf("prepare json patch for internal virtual machine: %w", err)
+			}
+			if err = h.client.Patch(ctx, newKVVM, client.RawPatch(types.JSONPatchType, patchBytes)); err != nil {
+				return fmt.Errorf("patch internal virtual machine before update: %w", err)
+			}
+		}
 	} else {
 		log.Debug("Update internal virtual machine is not needed", "name", newKVVM.Name, "kvvm", newKVVM)
 	}
 
+	return nil
+}
+
+// saveKVVMDomainMemoryForPatching returns copy of domain memory if maxGuest becomes 0.
+//
+// Note: maxGuest=0 is an invalid value for the vm-validator webhook,
+// kvbuilder sets maxGuest to 0 to indicate that KVVM needs to be patched
+// to clear maxGuest value: it is not possible to clear the value with the Update
+// once it was set previously.
+func saveKVVMDomainMemoryForPatching(prevKVVM *virtv1.VirtualMachine, newKVVM *virtv1.VirtualMachine) *virtv1.Memory {
+	prevMemory := prevKVVM.Spec.Template.Spec.Domain.Memory
+	newMemory := newKVVM.Spec.Template.Spec.Domain.Memory
+	if newMemory != nil && newMemory.MaxGuest.IsZero() &&
+		prevMemory != nil && !prevMemory.MaxGuest.IsZero() {
+		return newMemory.DeepCopy()
+	}
 	return nil
 }
 
@@ -495,20 +511,15 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 }
 
 // IsKVVMChanged returns whether kvvm spec or special annotations are changed.
-func IsKVVMChanged(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine) (bool, error) {
-	currentKVVM, err := s.KVVM(ctx)
-	if err != nil {
-		return false, fmt.Errorf("get current kvvm: %w", err)
-	}
-
-	isChanged := currentKVVM.Annotations[annotations.AnnVMLastAppliedSpec] != kvvm.Annotations[annotations.AnnVMLastAppliedSpec]
+func IsKVVMChanged(prevKVVM *virtv1.VirtualMachine, newKVVM *virtv1.VirtualMachine) (bool, error) {
+	isChanged := prevKVVM.Annotations[annotations.AnnVMLastAppliedSpec] != newKVVM.Annotations[annotations.AnnVMLastAppliedSpec]
 
 	if !isChanged {
-		isChanged = currentKVVM.Annotations[annotations.AnnVMClassLastAppliedSpec] != kvvm.Annotations[annotations.AnnVMClassLastAppliedSpec]
+		isChanged = prevKVVM.Annotations[annotations.AnnVMClassLastAppliedSpec] != newKVVM.Annotations[annotations.AnnVMClassLastAppliedSpec]
 	}
 
 	if !isChanged {
-		isChanged = !reflect.DeepEqual(kvvm.Spec, currentKVVM.Spec)
+		isChanged = !reflect.DeepEqual(prevKVVM.Spec, newKVVM.Spec)
 	}
 	return isChanged, nil
 }
