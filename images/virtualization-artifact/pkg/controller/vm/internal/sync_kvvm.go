@@ -745,17 +745,36 @@ func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state
 		return nil
 	}
 
-	patch := client.MergeFrom(pod.DeepCopy())
+	podPatch := client.MergeFrom(pod.DeepCopy())
 	if pod.Annotations == nil {
 		pod.Annotations = make(map[string]string)
 	}
 	pod.Annotations[annotations.AnnNetworksSpec] = networkConfigStr
 
-	if err := h.client.Patch(ctx, pod, patch); err != nil {
+	if err := h.client.Patch(ctx, pod, podPatch); err != nil {
 		return fmt.Errorf("failed to patch pod %s network annotation: %w", pod.Name, err)
 	}
-
 	log.Info("Patched pod network annotation", "pod", pod.Name, "networks", networkConfigStr)
+
+	kvvmi, err := s.KVVMI(ctx)
+	if err != nil {
+		return err
+	}
+	if kvvmi == nil {
+		return nil
+	}
+
+	vmiPatch := client.MergeFrom(kvvmi.DeepCopy())
+	if kvvmi.Annotations == nil {
+		kvvmi.Annotations = make(map[string]string)
+	}
+	kvvmi.Annotations[annotations.AnnNetworksSpec] = networkConfigStr
+
+	if err := h.client.Patch(ctx, kvvmi, vmiPatch); err != nil {
+		return fmt.Errorf("failed to patch VMI %s network annotation: %w", kvvmi.Name, err)
+	}
+	log.Info("Patched VMI network annotation", "vmi", kvvmi.Name, "networks", networkConfigStr)
+
 	return nil
 }
 
