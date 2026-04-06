@@ -587,14 +587,15 @@ func (b *KVVM) SetNetworkInterface(name, macAddress string, acpiIndex int) {
 		}, true,
 	)
 
-	devPreset := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization)
-
 	iface := virtv1.Interface{
-		Name:      name,
-		Model:     devPreset.InterfaceModel,
-		ACPIIndex: acpiIndex,
+		Name: name,
 	}
 	iface.Bridge = &virtv1.InterfaceBridge{}
+	if name != "default" {
+		devPreset := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization)
+		iface.Model = devPreset.InterfaceModel
+		iface.ACPIIndex = acpiIndex
+	}
 	if macAddress != "" {
 		iface.MacAddress = macAddress
 	}
