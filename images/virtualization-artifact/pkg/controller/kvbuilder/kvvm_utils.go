@@ -372,6 +372,9 @@ func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList) {
 		if _, exists := existingByName[n.InterfaceName]; exists {
 			continue
 		}
+		if n.InterfaceName == network.NameDefaultInterface {
+			continue
+		}
 		kvvm.SetNetworkInterface(n.InterfaceName, n.MAC, n.ID)
 	}
 }
