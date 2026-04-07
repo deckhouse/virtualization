@@ -31,6 +31,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/array"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/resource_builder"
 	"github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -591,7 +592,7 @@ func (b *KVVM) SetNetworkInterface(name, macAddress string, acpiIndex int) {
 		Name: name,
 	}
 	iface.Bridge = &virtv1.InterfaceBridge{}
-	if name != "default" {
+	if name != network.NameDefaultInterface {
 		devPreset := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization)
 		iface.Model = devPreset.InterfaceModel
 		iface.ACPIIndex = acpiIndex

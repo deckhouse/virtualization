@@ -734,7 +734,6 @@ func (h *SyncKvvmHandler) isNetworkReadyOnPod(ctx context.Context, s state.Virtu
 	if pods == nil || len(pods.Items) == 0 {
 		return false, nil
 	}
-
 	errMsg, err := extractNetworkStatusFromPods(pods)
 	if err != nil {
 		return false, err
@@ -759,24 +758,12 @@ func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state
 		return err
 	}
 
-	networkSpec := network.CreateNetworkSpec(current, vmmacs)
-	networkConfigStr, err := networkSpec.ToString()
+	networkConfigStr, err := network.CreateNetworkSpec(current, vmmacs).ToString()
 	if err != nil {
 		return fmt.Errorf("failed to serialize network spec: %w", err)
 	}
 
-	currentAnnotation := pod.Annotations[annotations.AnnNetworksSpec]
-	if currentAnnotation == networkConfigStr {
-		return nil
-	}
-
-	podPatch := client.MergeFrom(pod.DeepCopy())
-	if pod.Annotations == nil {
-		pod.Annotations = make(map[string]string)
-	}
-	pod.Annotations[annotations.AnnNetworksSpec] = networkConfigStr
-
-	if err := h.client.Patch(ctx, pod, podPatch); err != nil {
+	if err := h.patchAnnotationIfChanged(ctx, pod, annotations.AnnNetworksSpec, networkConfigStr); err != nil {
 		return fmt.Errorf("failed to patch pod %s network annotation: %w", pod.Name, err)
 	}
 	log.Info("Patched pod network annotation", "pod", pod.Name, "networks", networkConfigStr)
@@ -789,18 +776,26 @@ func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state
 		return nil
 	}
 
-	vmiPatch := client.MergeFrom(kvvmi.DeepCopy())
-	if kvvmi.Annotations == nil {
-		kvvmi.Annotations = make(map[string]string)
-	}
-	kvvmi.Annotations[annotations.AnnNetworksSpec] = networkConfigStr
-
-	if err := h.client.Patch(ctx, kvvmi, vmiPatch); err != nil {
+	if err := h.patchAnnotationIfChanged(ctx, kvvmi, annotations.AnnNetworksSpec, networkConfigStr); err != nil {
 		return fmt.Errorf("failed to patch VMI %s network annotation: %w", kvvmi.Name, err)
 	}
 	log.Info("Patched VMI network annotation", "vmi", kvvmi.Name, "networks", networkConfigStr)
 
 	return nil
+}
+
+func (h *SyncKvvmHandler) patchAnnotationIfChanged(ctx context.Context, obj client.Object, key, value string) error {
+	if obj.GetAnnotations()[key] == value {
+		return nil
+	}
+	patch := client.MergeFrom(obj.DeepCopyObject().(client.Object))
+	anns := obj.GetAnnotations()
+	if anns == nil {
+		anns = make(map[string]string)
+	}
+	anns[key] = value
+	obj.SetAnnotations(anns)
+	return h.client.Patch(ctx, obj, patch)
 }
 
 // isPlacementPolicyChanged returns true if any of the Affinity, NodePlacement, or Toleration rules have changed.

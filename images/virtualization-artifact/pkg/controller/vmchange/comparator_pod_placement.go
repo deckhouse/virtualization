@@ -19,6 +19,7 @@ package vmchange
 import (
 	"reflect"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -104,9 +105,12 @@ func compareNetworks(current, desired *v1alpha2.VirtualMachineSpec) []FieldChang
 	)
 }
 
+// isOnlyNonMainNetworksChanged returns true when the Main network is unchanged
+// between current and desired (so only non-Main networks differ).
+// Empty networks list is equivalent to having an implicit default Main.
 func isOnlyNonMainNetworksChanged(current, desired []v1alpha2.NetworksSpec) bool {
-	currentMain := getMainNetwork(current)
-	desiredMain := getMainNetwork(desired)
+	currentMain := network.GetMainNetworkSpec(current)
+	desiredMain := network.GetMainNetworkSpec(desired)
 	currentHasMain := currentMain != nil || len(current) == 0
 	desiredHasMain := desiredMain != nil || len(desired) == 0
 	if !currentHasMain || !desiredHasMain {
@@ -116,15 +120,6 @@ func isOnlyNonMainNetworksChanged(current, desired []v1alpha2.NetworksSpec) bool
 		return true
 	}
 	return reflect.DeepEqual(*currentMain, *desiredMain)
-}
-
-func getMainNetwork(networks []v1alpha2.NetworksSpec) *v1alpha2.NetworksSpec {
-	for i := range networks {
-		if networks[i].Type == v1alpha2.NetworksTypeMain {
-			return &networks[i]
-		}
-	}
-	return nil
 }
 
 func isOnlyNetworkIDAutofillChange(current, desired []v1alpha2.NetworksSpec) bool {
