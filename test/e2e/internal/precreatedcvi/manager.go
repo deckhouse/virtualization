@@ -85,10 +85,10 @@ func (m *Manager) createOrReuse(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 	if err == nil {
 		return nil
 	}
-	if !k8serrors.IsAlreadyExists(err) {
-		return err
+	if k8serrors.IsAlreadyExists(err) {
+		return nil
 	}
-	return framework.GetClients().GenericClient().Get(ctx, crclient.ObjectKeyFromObject(cvi), cvi)
+	return err
 }
 
 func applyLabel(cvi *v1alpha2.ClusterVirtualImage) {
