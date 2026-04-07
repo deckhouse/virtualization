@@ -92,6 +92,11 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		return reconcile.Result{}, err
 	}
 
+	isUploaderReady, err := ds.statService.IsUploaderReady(pod, svc, ing)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	switch {
 	case isDiskProvisioningFinished(condition):
 		log.Info("Cluster virtual image provisioning finished: clean up")
@@ -221,7 +226,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		}
 
 		log.Info("Provisioning...", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
-	case ds.statService.IsUploaderReady(pod, svc, ing):
+	case isUploaderReady:
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.WaitForUserUpload).
