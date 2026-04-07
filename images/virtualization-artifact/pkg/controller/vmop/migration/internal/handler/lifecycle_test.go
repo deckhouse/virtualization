@@ -31,6 +31,7 @@ import (
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
@@ -38,6 +39,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 var _ = Describe("LifecycleHandler", func() {
@@ -185,6 +187,41 @@ var _ = Describe("LifecycleHandler", func() {
 			v1alpha2.VMOPPhasePending,
 		),
 	)
+
+	It("should keep migration scheduling in progress after migration starts", func() {
+		vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
+		vm.Status.Conditions = []metav1.Condition{{
+			Type:   string(vmcondition.TypeMigrating),
+			Reason: string(vmcondition.ReasonReadyToMigrate),
+		}}
+		vmop := newVMOPMigrate()
+		vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+
+		mig := &virtv1.VirtualMachineInstanceMigration{}
+		mig.Namespace = namespace
+		mig.Name = fmt.Sprintf("vmop-%s", vmop.Name)
+		mig.Status.Phase = virtv1.MigrationScheduling
+		mig.OwnerReferences = []metav1.OwnerReference{{
+			Kind:       "VirtualMachineOperation",
+			Name:       vmop.Name,
+			UID:        vmop.UID,
+			Controller: ptr.To(true),
+		}}
+		mig.Spec.VMIName = name
+
+		fakeClient, srv = setupEnvironment(vmop, vm, mig)
+		migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
+		base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
+
+		h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
+		_, err := h.Handle(ctx, srv.Changed())
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhaseInProgress))
+		completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
+		Expect(found).To(BeTrue())
+		Expect(completed.Reason).To(Equal(vmopcondition.ReasonMigrationPrepareTarget.String()))
+	})
 
 	DescribeTable("TargetMigration", func(vmPolicy v1alpha2.LiveMigrationPolicy, nodeSelector map[string]string, targetMigrationEnabled bool) {
 		vm := newVM(vmPolicy)
