@@ -82,13 +82,10 @@ func (m *Manager) createOrReuse(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 	applyLabel(cvi)
 
 	err := framework.GetClients().GenericClient().Create(ctx, cvi)
-	if err == nil {
-		return nil
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
+		return err
 	}
-	if k8serrors.IsAlreadyExists(err) {
-		return nil
-	}
-	return err
+	return nil
 }
 
 func applyLabel(cvi *v1alpha2.ClusterVirtualImage) {
