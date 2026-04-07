@@ -153,6 +153,9 @@ func GetLastPodEvent(ctx context.Context, clientObject client.Client, pod *corev
 }
 
 func IsContainerCreating(pod *corev1.Pod) bool {
+	if pod == nil {
+		return false
+	}
 	if pod.Status.Phase != corev1.PodPending {
 		return false
 	}
