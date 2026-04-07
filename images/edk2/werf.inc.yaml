@@ -53,6 +53,13 @@ git:
   stageDependencies:
     install:
       - '*.json'
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}/patches
+  to: /src/patches
+  includePaths:
+  - '*.patch'
+  stageDependencies:
+    install:
+      - '*.patch'
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}/uefi-revocation-list
   to: /src/FIRMWARE
   includePaths:
@@ -67,6 +74,8 @@ shell:
   install:
   - |
     cd /src
+
+    echo "1234567"
 
     echo "Git clone Edk2 repository..."
     git clone \
@@ -89,6 +98,13 @@ shell:
         -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://gitlab.com/  \
         submodule update --init --recursive  --depth=1
     fi
+
+    echo "Applying patches..."
+    for p in /src/patches/*.patch; do
+      [ -f "$p" ] || continue
+      echo "Applying $p"
+      git apply "$p"
+    done
 
 ---
 
