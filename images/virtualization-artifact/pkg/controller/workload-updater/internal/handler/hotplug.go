@@ -18,6 +18,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -56,7 +57,12 @@ func (h *HotplugHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachine
 	}
 
 	cond, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceMemoryChange, kvvmi.Status.Conditions)
-	if cond.Status != corev1.ConditionTrue {
+	isMemoryHotplug := cond.Status == corev1.ConditionTrue
+
+	cond, _ = conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceVCPUChange, kvvmi.Status.Conditions)
+	isCPUHotplug := cond.Status == corev1.ConditionTrue
+
+	if !isCPUHotplug && !isMemoryHotplug {
 		return reconcile.Result{}, nil
 	}
 
@@ -76,5 +82,5 @@ func (h *HotplugHandler) Name() string {
 }
 
 func getHotplugResourcesSum(vm *v1alpha2.VirtualMachine) string {
-	return vm.Spec.Memory.Size.String()
+	return fmt.Sprintf("cpu.cores=%d,memory.size=%s", vm.Spec.CPU.Cores, vm.Spec.Memory.Size.String())
 }

@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"strconv"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -50,6 +52,16 @@ const (
 
 	MaxMemorySizeForHotplug      = 256 * 1024 * 1024 * 1024 // 256 Gi (safely limit to not overlap somewhat conservative 38 bit physical address space)
 	EnableMemoryHotplugThreshold = 1 * 1024 * 1024 * 1024   // 1 Gi (no hotplug for VMs with less than 1Gi)
+)
+
+const (
+	// VCPUTopologyDynamicCoresAnnotation annotation indicates "distributed by sockets" or "dynamic cores number" VCPU topology.
+	VCPUTopologyDynamicCoresAnnotation = "internal.virtualization.deckhouse.io/vcpu-topology-dynamic-cores"
+
+	CPUResourcesRequestsFractionAnnotation = "internal.virtualization.deckhouse.io/cpu-resources-requests-fraction"
+
+	// CPUMaxCoresPerSocket is a maximum number of cores per socket.
+	CPUMaxCoresPerSocket = 16
 )
 
 type KVVMOptions struct {
@@ -258,6 +270,17 @@ func (b *KVVM) SetTopologySpreadConstraint(topology []corev1.TopologySpreadConst
 }
 
 func (b *KVVM) SetCPU(cores int, coreFraction string) error {
+	// Support for VMs started with cpu configuration in requests-limits.
+	// TODO delete this in the future (around 3-4 more versions after enabling cpu hotplug by default).
+	if b.ResourceExists && isVMRunningWithCPUResources(b.Resource) {
+		return b.setCPUNonHotpluggable(cores, coreFraction)
+	}
+	return b.setCPUHotpluggable(cores, coreFraction)
+}
+
+// setCPUNonHotpluggable translates cpu configuration to requests and limit in KVVM.
+// Note: this is a first implementation, cpu hotplug is not compatible with this strategy.
+func (b *KVVM) setCPUNonHotpluggable(cores int, coreFraction string) error {
 	domainSpec := &b.Resource.Spec.Template.Spec.Domain
 	if domainSpec.CPU == nil {
 		domainSpec.CPU = &virtv1.CPU{}
@@ -266,6 +289,7 @@ func (b *KVVM) SetCPU(cores int, coreFraction string) error {
 	if err != nil {
 		return err
 	}
+
 	cpuLimit := GetCPULimit(cores)
 	if domainSpec.Resources.Requests == nil {
 		domainSpec.Resources.Requests = make(map[corev1.ResourceName]resource.Quantity)
@@ -284,6 +308,38 @@ func (b *KVVM) SetCPU(cores int, coreFraction string) error {
 	return nil
 }
 
+// setCPUHotpluggable translates cpu configuration to settings in domain.cpu field.
+// This field is compatible with memory hotplug.
+// Also, remove requests-limits for memory if any.
+// Note: we swap cores and sockets to bypass vm-validation webhook.
+func (b *KVVM) setCPUHotpluggable(cores int, coreFraction string) error {
+	domainSpec := &b.Resource.Spec.Template.Spec.Domain
+	if domainSpec.CPU == nil {
+		domainSpec.CPU = &virtv1.CPU{}
+	}
+
+	fraction, err := GetCPUFraction(coreFraction)
+	if err != nil {
+		return err
+	}
+	b.SetKVVMIAnnotation(CPUResourcesRequestsFractionAnnotation, strconv.Itoa(fraction))
+
+	socketsNeeded, coresPerSocketNeeded := vm.CalculateCoresAndSockets(cores)
+	// Use "dynamic cores" hotplug strategy.
+	// Workaround: swap cores and sockets in domainSpec to bypass vm-validator webhook.
+	b.SetKVVMIAnnotation(VCPUTopologyDynamicCoresAnnotation, "")
+	domainSpec.CPU.Cores = uint32(socketsNeeded)
+	domainSpec.CPU.Sockets = uint32(coresPerSocketNeeded)
+	domainSpec.CPU.MaxSockets = CPUMaxCoresPerSocket
+
+	// Remove CPU limits and requests if set by previous implementation.
+	res := &b.Resource.Spec.Template.Spec.Domain.Resources
+	delete(res.Requests, corev1.ResourceCPU)
+	delete(res.Limits, corev1.ResourceCPU)
+
+	return nil
+}
+
 // SetMemory sets memory in kvvm.
 // There are 2 possibilities to set memory:
 // 1. Use domain.memory.guest field: it enabled memory hotplugging, but not set resources.limits.
@@ -293,7 +349,7 @@ func (b *KVVM) SetCPU(cores int, coreFraction string) error {
 func (b *KVVM) SetMemory(memorySize resource.Quantity) {
 	// Support for VMs started with memory size in requests-limits.
 	// TODO delete this in the future (around 3-4 more versions after enabling memory hotplug by default).
-	if b.ResourceExists && isVMRunningWithMemoryResources(b.Resource) {
+	if b.ResourceExists && shouldKeepMemoryNonHotpluggable(b.Resource) {
 		b.setMemoryNonHotpluggable(memorySize)
 		return
 	}
@@ -349,7 +405,7 @@ func (b *KVVM) setMemoryHotpluggable(memorySize resource.Quantity) {
 	delete(res.Limits, corev1.ResourceMemory)
 }
 
-func isVMRunningWithMemoryResources(kvvm *virtv1.VirtualMachine) bool {
+func isVMRunningWithCPUResources(kvvm *virtv1.VirtualMachine) bool {
 	if kvvm == nil {
 		return false
 	}
@@ -359,10 +415,61 @@ func isVMRunningWithMemoryResources(kvvm *virtv1.VirtualMachine) bool {
 	}
 
 	res := kvvm.Spec.Template.Spec.Domain.Resources
-	_, hasMemoryRequests := res.Requests[corev1.ResourceMemory]
-	_, hasMemoryLimits := res.Limits[corev1.ResourceMemory]
+	_, hasCPURequests := res.Requests[corev1.ResourceCPU]
+	_, hasCPULimits := res.Limits[corev1.ResourceCPU]
 
-	return hasMemoryRequests && hasMemoryLimits
+	return hasCPURequests && hasCPULimits
+}
+
+func shouldKeepMemoryNonHotpluggable(kvvm *virtv1.VirtualMachine) bool {
+	if kvvm == nil {
+		return false
+	}
+
+	if kvvm.Status.PrintableStatus == virtv1.VirtualMachineStatusRunning || kvvm.Status.PrintableStatus == virtv1.VirtualMachineStatusMigrating {
+		// Running or Migrating machines with memory resources should keep as non-hotpluggable.
+		// Machines without memory resources should proceed as hotpluggable.
+		res := kvvm.Spec.Template.Spec.Domain.Resources
+		_, hasMemoryRequests := res.Requests[corev1.ResourceMemory]
+		_, hasMemoryLimits := res.Limits[corev1.ResourceMemory]
+
+		return hasMemoryRequests && hasMemoryLimits
+	}
+
+	// Proceed as hotpluggable if machine is not Running or Migrating.
+	return false
+}
+
+func GetCPUFraction(cpuFraction string) (int, error) {
+	if cpuFraction == "" {
+		return 100, nil
+	}
+	fraction := intstr.FromString(cpuFraction)
+	value, _, err := getIntOrPercentValueSafely(&fraction)
+	if err != nil {
+		return 0, fmt.Errorf("invalid value for cpu fraction: %w", err)
+	}
+	return value, nil
+}
+
+func getIntOrPercentValueSafely(intOrStr *intstr.IntOrString) (int, bool, error) {
+	switch intOrStr.Type {
+	case intstr.Int:
+		return intOrStr.IntValue(), false, nil
+	case intstr.String:
+		s := intOrStr.StrVal
+		if !strings.HasSuffix(s, "%") {
+			return 0, false, fmt.Errorf("invalid type: string is not a percentage")
+		}
+		s = strings.TrimSuffix(intOrStr.StrVal, "%")
+
+		v, err := strconv.Atoi(s)
+		if err != nil {
+			return 0, false, fmt.Errorf("invalid value %q: %w", intOrStr.StrVal, err)
+		}
+		return v, true, nil
+	}
+	return 0, false, fmt.Errorf("invalid type: neither int nor percentage")
 }
 
 func GetCPURequest(cores int, coreFraction string) (*resource.Quantity, error) {
