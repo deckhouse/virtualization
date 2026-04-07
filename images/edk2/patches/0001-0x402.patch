@@ -1,0 +1,62 @@
+diff --git a/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c b/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c
+index d9f61757cf..d2a0e5f6a1 100644
+--- a/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c
++++ b/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c
+@@ -2020,6 +2020,14 @@ PlatformBootManagerUnableToBoot (
+   EFI_BOOT_MANAGER_LOAD_OPTION  BootManagerMenu;
+   UINTN                         Index;
+ 
++  {
++    STATIC CONST CHAR8  Msg[] = "No bootable device.\r\n";
++    UINTN               i;
++    for (i = 0; i < sizeof (Msg) - 1; i++) {
++      IoWrite8 (0x402, (UINT8)Msg[i]);
++    }
++  }
++
+   if (FeaturePcdGet (PcdBootRestrictToFirmware)) {
+     AsciiPrint (
+       "%a: No bootable option was found.\n",
+diff --git a/ShellPkg/Application/Shell/Shell.c b/ShellPkg/Application/Shell/Shell.c
+index 9bacf9d8c7..ea78559516 100644
+--- a/ShellPkg/Application/Shell/Shell.c
++++ b/ShellPkg/Application/Shell/Shell.c
+@@ -359,6 +359,14 @@ UefiMain (
+   EFI_SIMPLE_TEXT_INPUT_PROTOCOL  *OldConIn;
+   SPLIT_LIST                      *Split;
+ 
++  {
++    STATIC CONST CHAR8  Msg[] = "No bootable device.\r\n";
++    UINTN               i;
++    for (i = 0; i < sizeof (Msg) - 1; i++) {
++      IoWrite8 (0x402, (UINT8)Msg[i]);
++    }
++  }
++
+   if (PcdGet8 (PcdShellSupportLevel) > 3) {
+     return (EFI_UNSUPPORTED);
+   }
+diff --git a/ShellPkg/Application/Shell/Shell.h b/ShellPkg/Application/Shell/Shell.h
+index 89b4ac6b02..cd82e6f608 100644
+--- a/ShellPkg/Application/Shell/Shell.h
++++ b/ShellPkg/Application/Shell/Shell.h
+@@ -42,6 +42,7 @@
+ #include <Library/HandleParsingLib.h>
+ #include <Library/FileHandleLib.h>
+ #include <Library/UefiHiiServicesLib.h>
++#include <Library/IoLib.h>
+ 
+ #include "ShellParametersProtocol.h"
+ #include "ShellProtocol.h"
+diff --git a/ShellPkg/Application/Shell/Shell.inf b/ShellPkg/Application/Shell/Shell.inf
+index f1e41de133..88b033bc35 100644
+--- a/ShellPkg/Application/Shell/Shell.inf
++++ b/ShellPkg/Application/Shell/Shell.inf
+@@ -66,6 +66,7 @@
+   SortLib
+   HandleParsingLib
+   UefiHiiServicesLib
++  IoLib
+ 
+ [Guids]
+   gShellVariableGuid                                      ## SOMETIMES_CONSUMES ## GUID
