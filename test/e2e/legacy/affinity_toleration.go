@@ -31,9 +31,10 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 )
 
-var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
+var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, label.Legacy(), func() {
 	const (
 		nodeLabelKey   = "kubernetes.io/hostname"
 		masterLabelKey = "node.deckhouse.io/group"
@@ -79,13 +80,6 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 		})
 
 		It("checks the resources phase", func() {
-			By(fmt.Sprintf("`VirtualImages` should be in the %q phase", v1alpha2.ImageReady), func() {
-				WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
-					Labels:    testCaseLabel,
-					Namespace: ns,
-					Timeout:   MaxWaitTimeout,
-				})
-			})
 			By(fmt.Sprintf("`VirtualMachineClasses` should be in %s phases", v1alpha2.ClassPhaseReady), func() {
 				WaitPhaseByLabel(kc.ResourceVMClass, PhaseReady, kc.WaitOptions{
 					Labels:    testCaseLabel,

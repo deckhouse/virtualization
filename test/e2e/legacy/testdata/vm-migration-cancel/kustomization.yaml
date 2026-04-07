@@ -3,7 +3,6 @@ kind: Kustomization
 namespace: testcases
 namePrefix: pr-number-or-commit-hash-
 resources:
-  - vi
   - vm
   - ns.yaml
 configurations:

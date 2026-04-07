@@ -136,13 +136,8 @@ func newSizingPolicyTest(f *framework.Framework) *sizingPolicyTest {
 }
 
 func (t *sizingPolicyTest) GenerateSizingPolicyResources(vmClassName, vmClassNameInVM string) {
-	t.VD = vdbuilder.New(
-		vdbuilder.WithName("vd"),
-		vdbuilder.WithNamespace(t.Framework.Namespace().Name),
+	t.VD = object.NewVDFromCVI("vd", t.Framework.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
 		vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
-		vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-			URL: object.ImageURLAlpineBIOS,
-		}),
 	)
 
 	t.VM = vmbuilder.New(
@@ -156,7 +151,7 @@ func (t *sizingPolicyTest) GenerateSizingPolicyResources(vmClassName, vmClassNam
 		vmbuilder.WithCPU(1, ptr.To("5%")),
 		vmbuilder.WithMemory(resource.MustParse("1Gi")),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
-		vmbuilder.WithProvisioningUserData(object.DefaultCloudInit),
+		vmbuilder.WithProvisioningUserData(object.AlpineCloudInit),
 	)
 
 	t.VMClass = &v1alpha3.VirtualMachineClass{

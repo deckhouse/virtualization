@@ -27,3 +27,7 @@ func Slow() Labels {
 func TPM() Labels {
 	return Label("TPM")
 }
+
+func Legacy() Labels {
+	return Label("Legacy")
+}
