@@ -360,18 +360,13 @@ func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList) {
 		desiredByName[n.InterfaceName] = struct{}{}
 	}
 
-	existingByName := make(map[string]struct{})
 	for _, iface := range kvvm.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
-		existingByName[iface.Name] = struct{}{}
 		if _, wanted := desiredByName[iface.Name]; !wanted {
 			kvvm.SetNetworkInterfaceAbsent(iface.Name)
 		}
 	}
 
 	for _, n := range networkSpec {
-		if _, exists := existingByName[n.InterfaceName]; exists {
-			continue
-		}
 		kvvm.SetNetworkInterface(n.InterfaceName, n.MAC, n.ID)
 	}
 }
