@@ -95,14 +95,15 @@ type PhaseGetter func(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) 
 var mapPhases = map[virtv1.VirtualMachinePrintableStatus]PhaseGetter{
 	// VirtualMachineStatusStopped indicates that the virtual machine is currently stopped and isn't expected to start.
 	virtv1.VirtualMachineStatusStopped: func(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) v1alpha2.MachinePhase {
-		if vm != nil && kvvm != nil {
-			if !checkVirtualMachineConfiguration(vm) &&
-				kvvm != nil && kvvm.Annotations[annotations.AnnVMStartRequested] == "true" {
-				return v1alpha2.MachinePending
-			}
+		if vm == nil {
+			return v1alpha2.MachineStopped
 		}
 
-		if vm != nil && vm.Status.Phase == v1alpha2.MachinePending &&
+		if !virtualMachineDependenciesAreReady(vm) && kvvm.Annotations[annotations.AnnVMStartRequested] == "true" {
+			return v1alpha2.MachinePending
+		}
+
+		if vm.Status.Phase == v1alpha2.MachinePending &&
 			(vm.Spec.RunPolicy == v1alpha2.AlwaysOnPolicy || vm.Spec.RunPolicy == v1alpha2.AlwaysOnUnlessStoppedManually) {
 			return v1alpha2.MachinePending
 		}
@@ -184,6 +185,11 @@ var mapPhases = map[virtv1.VirtualMachinePrintableStatus]PhaseGetter{
 	virtv1.VirtualMachineStatusWaitingForVolumeBinding: func(_ *v1alpha2.VirtualMachine, _ *virtv1.VirtualMachine) v1alpha2.MachinePhase {
 		return v1alpha2.MachinePending
 	},
+	// VirtualMachineStatusWaitingForReceiver indicates that this virtual machine is a receiver VM and
+	// migration should start next.
+	virtv1.VirtualMachineStatusWaitingForReceiver: func(_ *v1alpha2.VirtualMachine, _ *virtv1.VirtualMachine) v1alpha2.MachinePhase {
+		return v1alpha2.MachineMigrating
+	},
 
 	kvvmEmptyPhase: func(_ *v1alpha2.VirtualMachine, _ *virtv1.VirtualMachine) v1alpha2.MachinePhase {
 		return v1alpha2.MachinePending
@@ -251,7 +257,8 @@ func podFinal(pod corev1.Pod) bool {
 	return pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed
 }
 
-func checkVirtualMachineConfiguration(vm *v1alpha2.VirtualMachine) bool {
+// virtualMachineDependenciesAreReady returns whether VM
+func virtualMachineDependenciesAreReady(vm *v1alpha2.VirtualMachine) bool {
 	for _, c := range vm.Status.Conditions {
 		switch vmcondition.Type(c.Type) {
 		case vmcondition.TypeBlockDevicesReady:

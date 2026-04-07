@@ -49,7 +49,9 @@ func SetupController(
 		handler.NewFirmwareHandler(client, service.NewOneShotMigrationService(client, "firmware-update-"), firmwareImage, namespace, virtControllerName),
 		handler.NewNodePlacementHandler(client, service.NewOneShotMigrationService(client, "nodeplacement-update-")),
 	}
-	if featuregates.Default().Enabled(featuregates.HotplugMemoryWithLiveMigration) {
+	isMemoryHotplug := featuregates.Default().Enabled(featuregates.HotplugMemoryWithLiveMigration)
+	isCPUHotplug := featuregates.Default().Enabled(featuregates.HotplugCPUWithLiveMigration)
+	if isMemoryHotplug || isCPUHotplug {
 		hotplugHandler := handler.NewHotplugHandler(client, service.NewOneShotMigrationService(client, "hotplug-resources-"))
 		handlers = append(handlers, hotplugHandler)
 	}
