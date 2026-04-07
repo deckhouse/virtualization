@@ -282,8 +282,9 @@ func (s StatService) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *
 	}
 
 	uploadURL, ok := ing.Annotations[annotations.AnnUploadURL]
-	if ok {
-		response, err := http.Get(uploadURL)
+	if ok && uploadURL != "" {
+		client := &http.Client{Timeout: 5 * time.Second}
+		response, err := client.Get(uploadURL)
 		if err != nil {
 			return false, fmt.Errorf("failed to get upload server status: %w", err)
 		}
@@ -292,9 +293,11 @@ func (s StatService) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *
 		if response.StatusCode == http.StatusOK {
 			return true, nil
 		}
+
+		return false, nil
 	}
 
-	return false, nil
+	return ing.Annotations[annotations.AnnUploadPath] != "" || ing.Annotations[annotations.AnnUploadURLDeprecated] != "", nil
 }
 
 func (s StatService) IsUploadStarted(ownerUID types.UID, pod *corev1.Pod) bool {
