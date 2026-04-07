@@ -1,3 +1,263 @@
+diff --git a/0001-OvmfPkg-Add-SerialPortLib-for-debug-console-port-0x402.patch b/0001-OvmfPkg-Add-SerialPortLib-for-debug-console-port-0x402.patch
+new file mode 100644
+index 0000000000..ceda7ca404
+--- /dev/null
++++ b/0001-OvmfPkg-Add-SerialPortLib-for-debug-console-port-0x402.patch
+@@ -0,0 +1,254 @@
++diff --git a/OvmfPkg/Library/BaseSerialPortLibDebugCon/BaseSerialPortLibDebugCon.c b/OvmfPkg/Library/BaseSerialPortLibDebugCon/BaseSerialPortLibDebugCon.c
++new file mode 100644
++index 0000000000..4e4f20cf2d
++--- /dev/null
+++++ b/OvmfPkg/Library/BaseSerialPortLibDebugCon/BaseSerialPortLibDebugCon.c
++@@ -0,0 +1,160 @@
+++/** @file
+++  Serial Port Library backed by the QEMU debug console (I/O port 0x402).
+++
+++  Implements SerialPortLib by writing every byte to the I/O port specified
+++  by PcdDebugIoPort (default 0x402).  The port is detected at Initialize
+++  time via the Bochs/QEMU magic read-back value 0xE9.
+++
+++  Copyright (c) 2024, Intel Corporation. All rights reserved.<BR>
+++  SPDX-License-Identifier: BSD-2-Clause-Patent
+++**/
+++
+++#include <Base.h>
+++#include <Library/BaseLib.h>
+++#include <Library/IoLib.h>
+++#include <Library/PcdLib.h>
+++#include <Library/SerialPortLib.h>
+++
+++#define BOCHS_DEBUG_PORT_MAGIC  0xE9
+++
+++STATIC BOOLEAN  mDebugConDetected = FALSE;
+++
+++/**
+++  Initialize the serial device hardware.
+++
+++  Probes the QEMU debug console port.  If the magic value 0xE9 is read
+++  back, the port is considered present.
+++
+++  @retval RETURN_SUCCESS        The debug console port was detected.
+++  @retval RETURN_DEVICE_ERROR   The debug console port is not available.
+++**/
+++RETURN_STATUS
+++EFIAPI
+++SerialPortInitialize (
+++  VOID
+++  )
+++{
+++  UINT16  Port;
+++
+++  Port = PcdGet16 (PcdDebugIoPort);
+++  if (IoRead8 (Port) == BOCHS_DEBUG_PORT_MAGIC) {
+++    mDebugConDetected = TRUE;
+++    return RETURN_SUCCESS;
+++  }
+++
+++  return RETURN_DEVICE_ERROR;
+++}
+++
+++/**
+++  Write data to the QEMU debug console port.
+++
+++  @param  Buffer           Pointer to the data buffer to be written.
+++  @param  NumberOfBytes    Number of bytes to write.
+++
+++  @retval 0                The debug console port is not present.
+++  @retval >0               The number of bytes written.
+++**/
+++UINTN
+++EFIAPI
+++SerialPortWrite (
+++  IN UINT8  *Buffer,
+++  IN UINTN  NumberOfBytes
+++  )
+++{
+++  UINT16  Port;
+++  UINTN   Index;
+++
+++  if (!mDebugConDetected) {
+++    return 0;
+++  }
+++
+++  Port = PcdGet16 (PcdDebugIoPort);
+++  for (Index = 0; Index < NumberOfBytes; Index++) {
+++    IoWrite8 (Port, Buffer[Index]);
+++  }
+++
+++  return NumberOfBytes;
+++}
+++
+++/**
+++  Read is not supported on the debug console port.
+++
+++  @param  Buffer           Pointer to the data buffer to store data.
+++  @param  NumberOfBytes    Number of bytes to read.
+++
+++  @retval 0                Always returns 0 (not supported).
+++**/
+++UINTN
+++EFIAPI
+++SerialPortRead (
+++  OUT UINT8  *Buffer,
+++  IN  UINTN  NumberOfBytes
+++  )
+++{
+++  return 0;
+++}
+++
+++/**
+++  Polling is not supported on the debug console port.
+++
+++  @retval FALSE            Always returns FALSE.
+++**/
+++BOOLEAN
+++EFIAPI
+++SerialPortPoll (
+++  VOID
+++  )
+++{
+++  return FALSE;
+++}
+++
+++/**
+++  Set control bits — not supported.
+++
+++  @param  Control          Control bits to set.
+++
+++  @retval RETURN_UNSUPPORTED  Always.
+++**/
+++RETURN_STATUS
+++EFIAPI
+++SerialPortSetControl (
+++  IN UINT32  Control
+++  )
+++{
+++  return RETURN_UNSUPPORTED;
+++}
+++
+++/**
+++  Get control bits — not supported.
+++
+++  @param  Control          Pointer to receive control signals.
+++
+++  @retval RETURN_UNSUPPORTED  Always.
+++**/
+++RETURN_STATUS
+++EFIAPI
+++SerialPortGetControl (
+++  OUT UINT32  *Control
+++  )
+++{
+++  return RETURN_UNSUPPORTED;
+++}
+++
+++/**
+++  Set serial attributes — not supported.
+++
+++  @retval RETURN_UNSUPPORTED  Always.
+++**/
+++RETURN_STATUS
+++EFIAPI
+++SerialPortSetAttributes (
+++  IN OUT UINT64              *BaudRate,
+++  IN OUT UINT32              *ReceiveFifoDepth,
+++  IN OUT UINT32              *Timeout,
+++  IN OUT EFI_PARITY_TYPE     *Parity,
+++  IN OUT UINT8               *DataBits,
+++  IN OUT EFI_STOP_BITS_TYPE  *StopBits
+++  )
+++{
+++  return RETURN_UNSUPPORTED;
+++}
++diff --git a/OvmfPkg/Library/BaseSerialPortLibDebugCon/BaseSerialPortLibDebugCon.inf b/OvmfPkg/Library/BaseSerialPortLibDebugCon/BaseSerialPortLibDebugCon.inf
++new file mode 100644
++index 0000000000..8b506f9020
++--- /dev/null
+++++ b/OvmfPkg/Library/BaseSerialPortLibDebugCon/BaseSerialPortLibDebugCon.inf
++@@ -0,0 +1,34 @@
+++## @file
+++#  Serial Port Library backed by the QEMU debug console (I/O port 0x402).
+++#
+++#  This library instance implements SerialPortLib by writing bytes to the
+++#  I/O port configured via PcdDebugIoPort.  It can be used together with
+++#  BaseDebugLibSerialPort to route DEBUG() output to the QEMU debug console.
+++#
+++#  Copyright (c) 2024, Intel Corporation. All rights reserved.<BR>
+++#  SPDX-License-Identifier: BSD-2-Clause-Patent
+++#
+++##
+++
+++[Defines]
+++  INF_VERSION                    = 0x00010005
+++  BASE_NAME                      = BaseSerialPortLibDebugCon
+++  FILE_GUID                      = 53A6F6C9-3297-4A36-95E0-68C5D2A4EA1F
+++  MODULE_TYPE                    = BASE
+++  VERSION_STRING                 = 1.0
+++  LIBRARY_CLASS                  = SerialPortLib
+++
+++[Sources]
+++  BaseSerialPortLibDebugCon.c
+++
+++[Packages]
+++  MdePkg/MdePkg.dec
+++  OvmfPkg/OvmfPkg.dec
+++
+++[LibraryClasses]
+++  BaseLib
+++  IoLib
+++  PcdLib
+++
+++[Pcd]
+++  gUefiOvmfPkgTokenSpaceGuid.PcdDebugIoPort    ## CONSUMES
++diff --git a/OvmfPkg/OvmfPkgIa32.dsc b/OvmfPkg/OvmfPkgIa32.dsc
++index 7ab6af3a69..b986ab13b5 100644
++--- a/OvmfPkg/OvmfPkgIa32.dsc
+++++ b/OvmfPkg/OvmfPkgIa32.dsc
++@@ -165,7 +165,11 @@
++   CcProbeLib|MdePkg/Library/CcProbeLibNull/CcProbeLibNull.inf
++   IoLib|MdePkg/Library/BaseIoLibIntrinsic/BaseIoLibIntrinsicSev.inf
++   OemHookStatusCodeLib|MdeModulePkg/Library/OemHookStatusCodeLibNull/OemHookStatusCodeLibNull.inf
+++!ifdef $(DEBUG_ON_SERIAL_PORT)
++   SerialPortLib|PcAtChipsetPkg/Library/SerialIoLib/SerialIoLib.inf
+++!else
+++  SerialPortLib|OvmfPkg/Library/BaseSerialPortLibDebugCon/BaseSerialPortLibDebugCon.inf
+++!endif
++   MtrrLib|UefiCpuPkg/Library/MtrrLib/MtrrLib.inf
++   MicrocodeLib|UefiCpuPkg/Library/MicrocodeLib/MicrocodeLib.inf
++   CpuPageTableLib|UefiCpuPkg/Library/CpuPageTableLib/CpuPageTableLib.inf
++diff --git a/OvmfPkg/OvmfPkgIa32X64.dsc b/OvmfPkg/OvmfPkgIa32X64.dsc
++index e7fff78df9..a2535b548a 100644
++--- a/OvmfPkg/OvmfPkgIa32X64.dsc
+++++ b/OvmfPkg/OvmfPkgIa32X64.dsc
++@@ -170,7 +170,11 @@
++   CcProbeLib|MdePkg/Library/CcProbeLibNull/CcProbeLibNull.inf
++   IoLib|MdePkg/Library/BaseIoLibIntrinsic/BaseIoLibIntrinsicSev.inf
++   OemHookStatusCodeLib|MdeModulePkg/Library/OemHookStatusCodeLibNull/OemHookStatusCodeLibNull.inf
+++!ifdef $(DEBUG_ON_SERIAL_PORT)
++   SerialPortLib|PcAtChipsetPkg/Library/SerialIoLib/SerialIoLib.inf
+++!else
+++  SerialPortLib|OvmfPkg/Library/BaseSerialPortLibDebugCon/BaseSerialPortLibDebugCon.inf
+++!endif
++   MtrrLib|UefiCpuPkg/Library/MtrrLib/MtrrLib.inf
++   MicrocodeLib|UefiCpuPkg/Library/MicrocodeLib/MicrocodeLib.inf
++   CpuPageTableLib|UefiCpuPkg/Library/CpuPageTableLib/CpuPageTableLib.inf
++diff --git a/OvmfPkg/OvmfPkgX64.dsc b/OvmfPkg/OvmfPkgX64.dsc
++index 556984bdaa..51e8fe2789 100644
++--- a/OvmfPkg/OvmfPkgX64.dsc
+++++ b/OvmfPkg/OvmfPkgX64.dsc
++@@ -182,7 +182,11 @@
++   PciCapPciIoLib|OvmfPkg/Library/UefiPciCapPciIoLib/UefiPciCapPciIoLib.inf
++   IoLib|MdePkg/Library/BaseIoLibIntrinsic/BaseIoLibIntrinsicSev.inf
++   OemHookStatusCodeLib|MdeModulePkg/Library/OemHookStatusCodeLibNull/OemHookStatusCodeLibNull.inf
+++!ifdef $(DEBUG_ON_SERIAL_PORT)
++   SerialPortLib|PcAtChipsetPkg/Library/SerialIoLib/SerialIoLib.inf
+++!else
+++  SerialPortLib|OvmfPkg/Library/BaseSerialPortLibDebugCon/BaseSerialPortLibDebugCon.inf
+++!endif
++   MtrrLib|UefiCpuPkg/Library/MtrrLib/MtrrLib.inf
++   MicrocodeLib|UefiCpuPkg/Library/MicrocodeLib/MicrocodeLib.inf
++   CpuPageTableLib|UefiCpuPkg/Library/CpuPageTableLib/CpuPageTableLib.inf
 diff --git a/OvmfPkg/Library/BaseSerialPortLibDebugCon/BaseSerialPortLibDebugCon.c b/OvmfPkg/Library/BaseSerialPortLibDebugCon/BaseSerialPortLibDebugCon.c
 new file mode 100644
 index 0000000000..4e4f20cf2d
@@ -204,6 +464,49 @@ index 0000000000..8b506f9020
 +
 +[Pcd]
 +  gUefiOvmfPkgTokenSpaceGuid.PcdDebugIoPort    ## CONSUMES
+diff --git a/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c b/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c
+index d9f61757cf..cbf844df21 100644
+--- a/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c
++++ b/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c
+@@ -2020,6 +2020,12 @@ PlatformBootManagerUnableToBoot (
+   EFI_BOOT_MANAGER_LOAD_OPTION  BootManagerMenu;
+   UINTN                         Index;
+ 
++  DEBUG ((
++    DEBUG_ERROR,
++    "%a: No bootable option or device was found. Falling back to Boot Manager Menu / EFI Shell.\n",
++    gEfiCallerBaseName
++    ));
++
+   if (FeaturePcdGet (PcdBootRestrictToFirmware)) {
+     AsciiPrint (
+       "%a: No bootable option was found.\n",
+@@ -2034,6 +2040,12 @@ PlatformBootManagerUnableToBoot (
+   //
+   Status = EfiBootManagerGetBootManagerMenu (&BootManagerMenu);
+   if (EFI_ERROR (Status)) {
++    DEBUG ((
++      DEBUG_ERROR,
++      "%a: Boot Manager Menu unavailable (Status = %r). System halted.\n",
++      gEfiCallerBaseName,
++      Status
++      ));
+     return;
+   }
+ 
+@@ -2066,6 +2078,12 @@ PlatformBootManagerUnableToBoot (
+     }
+   }
+ 
++  DEBUG ((
++    DEBUG_ERROR,
++    "%a: Entering Boot Manager Menu loop.\n",
++    gEfiCallerBaseName
++    ));
++
+   for ( ; ;) {
+     EfiBootManagerBoot (&BootManagerMenu);
+   }
 diff --git a/OvmfPkg/OvmfPkgIa32.dsc b/OvmfPkg/OvmfPkgIa32.dsc
 index 7ab6af3a69..b986ab13b5 100644
 --- a/OvmfPkg/OvmfPkgIa32.dsc
