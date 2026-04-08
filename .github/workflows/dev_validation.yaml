@@ -15,7 +15,7 @@
 name: Validations
 
 env:
-  GO_VERSION: "1.25.8"
+  GO_VERSION: "1.25.9"
 on:
   pull_request:
     types: [opened, synchronize, labeled, unlabeled]
@@ -137,9 +137,9 @@ jobs:
       matrix:
         # Define two groups of components with their respective Go versions
         components:
-          - { component: virtualization-artifact, go-version: "1.25.8" }
-          - { component: vm-route-forge, go-version: "1.25.8" }
-          - { component: api, go-version: "1.25.8" }
+          - { component: virtualization-artifact, go-version: "1.25.9" }
+          - { component: vm-route-forge, go-version: "1.25.9" }
+          - { component: api, go-version: "1.25.9" }
 
     steps:
       - name: Set skip flag

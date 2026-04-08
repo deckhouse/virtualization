@@ -1,6 +1,6 @@
 module github.com/deckhouse/virtualization-controller/dvcr-importers
 
-go 1.25.8
+go 1.25.9
 
 require (
 	github.com/containers/image/v5 v5.32.0
