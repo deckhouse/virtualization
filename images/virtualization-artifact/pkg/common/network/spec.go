@@ -30,6 +30,14 @@ func CreateNetworkSpec(vm *v1alpha2.VirtualMachine, vmmacs []*v1alpha2.VirtualMa
 	macPool := NewMacAddressPool(vm, vmmacs)
 	var specs InterfaceSpecList
 
+	if len(vm.Spec.Networks) == 0 {
+		specs = append(specs, createMainInterfaceSpec(v1alpha2.NetworksSpec{
+			Type: v1alpha2.NetworksTypeMain,
+			ID:   ptr.To(ReservedMainID),
+		}))
+		return specs
+	}
+
 	for _, net := range vm.Spec.Networks {
 		if net.Type == v1alpha2.NetworksTypeMain {
 			specs = append(specs, createMainInterfaceSpec(net))
