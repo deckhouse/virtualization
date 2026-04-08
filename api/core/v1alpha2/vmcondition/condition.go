@@ -172,6 +172,7 @@ const (
 	ReasonPodTerminating              RunningReason = "PodTerminating"
 	ReasonPodNotFound                 RunningReason = "PodNotFound"
 	ReasonPodConditionMissing         RunningReason = "PodConditionMissing"
+	ReasonBootFailed                  RunningReason = "BootFailed"
 	ReasonGuestNotRunning             RunningReason = "GuestNotRunning"
 )
 
