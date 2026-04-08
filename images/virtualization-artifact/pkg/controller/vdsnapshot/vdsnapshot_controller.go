@@ -48,7 +48,7 @@ func NewController(
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
-		internal.NewVirtualDiskReadyHandler(freezer),
+		internal.NewVirtualDiskReadyHandler(freezer, mgr.GetClient()),
 		internal.NewLifeCycleHandler(freezer),
 		internal.NewDeletionHandler(freezer),
 	)

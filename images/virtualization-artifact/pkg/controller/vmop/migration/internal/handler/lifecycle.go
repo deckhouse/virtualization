@@ -36,6 +36,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
@@ -135,6 +136,23 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	// Synchronize conditions to the VMOP.
 	if commonvmop.IsOperationInProgress(vmop) {
 		log.Debug("Operation in progress, check if VM is completed", "vm.phase", vm.Status.Phase, "vmop.phase", vmop.Status.Phase)
+
+		if msg, snapshotting := h.isSnapshotInProgress(ctx, vm); snapshotting {
+			log.Info("Snapshot detected during migration, cancelling migration")
+			if err := h.migration.DeleteMigration(ctx, vmop); err != nil {
+				return reconcile.Result{}, fmt.Errorf("failed to cancel migration due to snapshot: %w", err)
+			}
+			vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+			h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "Migration cancelled due to snapshot")
+			conditions.SetCondition(
+				completedCond.
+					Reason(vmopcondition.ReasonOperationFailed).
+					Status(metav1.ConditionFalse).
+					Message(msg),
+				&vmop.Status.Conditions)
+			return reconcile.Result{}, nil
+		}
+
 		return reconcile.Result{}, h.syncOperationComplete(ctx, vmop)
 	}
 
@@ -378,9 +396,34 @@ func (h LifecycleHandler) canExecute(vmop *v1alpha2.VirtualMachineOperation, vm 
 			Generation(vmop.GetGeneration()).
 			Reason(vmopcondition.ReasonOperationFailed).
 			Status(metav1.ConditionFalse).
-			Message("VirtualMachine is not migratable, cannot be processed."),
+			Message(fmt.Sprintf("VirtualMachine is not migratable, cannot be processed: %s", migratable.Message)),
 		&vmop.Status.Conditions)
 	return false
+}
+
+// isSnapshotInProgress checks if the VM or any of its attached virtual disks
+// have an active snapshot operation. Returns a descriptive message and true if so.
+func (h LifecycleHandler) isSnapshotInProgress(ctx context.Context, vm *v1alpha2.VirtualMachine) (string, bool) {
+	snapshotting, _ := conditions.GetCondition(vmcondition.TypeSnapshotting, vm.Status.Conditions)
+	if snapshotting.Status == metav1.ConditionTrue {
+		return "Migration was cancelled because a snapshot is in progress on the virtual machine.", true
+	}
+
+	for _, bd := range vm.Status.BlockDeviceRefs {
+		if bd.Kind != v1alpha2.DiskDevice {
+			continue
+		}
+		vd, err := object.FetchObject(ctx, types.NamespacedName{Name: bd.Name, Namespace: vm.Namespace}, h.client, &v1alpha2.VirtualDisk{})
+		if err != nil || vd == nil {
+			continue
+		}
+		vdSnapshotting, _ := conditions.GetCondition(vdcondition.SnapshottingType, vd.Status.Conditions)
+		if vdSnapshotting.Status == metav1.ConditionTrue {
+			return fmt.Sprintf("Migration was cancelled because a snapshot is in progress on attached disk %q.", bd.Name), true
+		}
+	}
+
+	return "", false
 }
 
 func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation, vm *v1alpha2.VirtualMachine) error {
