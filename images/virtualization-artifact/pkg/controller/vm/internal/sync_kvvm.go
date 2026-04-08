@@ -797,7 +797,7 @@ func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state
 func (h *SyncKvvmHandler) isPlacementPolicyChanged(allChanges vmchange.SpecChanges) bool {
 	for _, c := range allChanges.GetAll() {
 		switch c.Path {
-		case "affinity", "nodeSelector", "tolerations":
+		case "affinity", "nodeSelector", "tolerations", "virtualMachineClassName", "VirtualMachineClass:spec.nodeSelector", "VirtualMachineClass:spec.tolerations":
 			if !equality.Semantic.DeepEqual(c.CurrentValue, c.DesiredValue) {
 				return true
 			}

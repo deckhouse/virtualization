@@ -152,10 +152,10 @@ var _ = Describe("LifecycleHandler", func() {
 		),
 
 		// AlwaysForced cases.
-		Entry("should become Failed for AlwaysForced and force=nil",
+		Entry("is ok for AlwaysForced and force=nil",
 			newVMOPEvictPending(),
 			v1alpha2.AlwaysForcedMigrationPolicy,
-			v1alpha2.VMOPPhaseFailed,
+			v1alpha2.VMOPPhasePending,
 		),
 		Entry("should become Failed for AlwaysForced and force=false",
 			newVMOPEvictPending(vmopbuilder.WithForce(ptr.To(false))),

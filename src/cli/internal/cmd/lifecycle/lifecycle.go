@@ -30,6 +30,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/src/cli/internal/clientconfig"
@@ -106,7 +107,8 @@ func (l *Lifecycle) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	mgr := l.getManager(client)
+	forceSet := cmd.Flags().Changed(forceFlag)
+	mgr := l.getManager(client, forceSet)
 
 	ctx, cancel := context.WithTimeout(context.Background(), l.opts.Timeout)
 	defer cancel()
@@ -166,12 +168,17 @@ func (l *Lifecycle) getNameNamespace(defaultNamespace string, args []string) (st
 	return name, namespace, nil
 }
 
-func (l *Lifecycle) getManager(client kubeclient.Client) Manager {
+func (l *Lifecycle) getManager(client kubeclient.Client, forceSet bool) Manager {
+	var forcePtr *bool
+	if forceSet {
+		forcePtr = ptr.To(l.opts.Force)
+	}
+
 	return vmop.New(
 		client,
 		vmop.WithCreateOnly(l.opts.CreateOnly),
 		vmop.WithWaitComplete(l.opts.WaitComplete),
-		vmop.WithForce(l.opts.Force),
+		vmop.WithForce(forcePtr),
 	)
 }
 

@@ -31,7 +31,7 @@ func NewMinimalVM(prefix, namespace string, opts ...vm.Option) *v1alpha2.Virtual
 		vm.WithCPU(1, ptr.To("20%")),
 		vm.WithMemory(*resource.NewQuantity(Mi256, resource.BinarySI)),
 		vm.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
-		vm.WithProvisioningUserData(DefaultCloudInit),
+		vm.WithProvisioningUserData(AlpineCloudInit),
 	}
 	baseOpts = append(baseOpts, opts...)
 	return vm.New(baseOpts...)
