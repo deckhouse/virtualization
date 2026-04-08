@@ -80,6 +80,10 @@ func (p *ProvisioningLister) ListClusterVirtualImagesInProvisioning(ctx context.
 
 	var provisioning []v1alpha2.ClusterVirtualImage
 	for _, cvi := range cviList.Items {
+		// Ignore if Terminating state.
+		if !cvi.GetDeletionTimestamp().IsZero() {
+			continue
+		}
 		cond, exists := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
 		if exists && cond.Status == metav1.ConditionFalse && cond.Reason == cvicondition.Provisioning.String() {
 			provisioning = append(provisioning, cvi)
@@ -97,6 +101,10 @@ func (p *ProvisioningLister) ListVirtualImagesInProvisioning(ctx context.Context
 
 	var provisioning []v1alpha2.VirtualImage
 	for _, vi := range viList.Items {
+		// Ignore if Terminating state.
+		if !vi.GetDeletionTimestamp().IsZero() {
+			continue
+		}
 		cond, exists := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 		if exists && cond.Status == metav1.ConditionFalse && cond.Reason == vicondition.Provisioning.String() {
 			provisioning = append(provisioning, vi)
@@ -116,6 +124,10 @@ func (p *ProvisioningLister) ListVirtualDisksInProvisioning(ctx context.Context)
 	for _, vd := range vdList.Items {
 		// Ignore disks without "import to dvcr first" stage.
 		if !vdHasDVCRStage(&vd) {
+			continue
+		}
+		// Ignore if Terminating state.
+		if !vd.GetDeletionTimestamp().IsZero() {
 			continue
 		}
 		cond, exists := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
