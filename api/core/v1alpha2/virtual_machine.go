@@ -49,6 +49,7 @@ const (
 // +kubebuilder:printcolumn:name="Migratable",priority=1,type="string",JSONPath=".status.conditions[?(@.type=='Migratable')].status",description="Is it possible to migrate a virtual machine."
 // +kubebuilder:printcolumn:name="Node",type="string",JSONPath=".status.nodeName",description="The node where the virtual machine is running."
 // +kubebuilder:printcolumn:name="IPAddress",type="string",JSONPath=".status.ipAddress",description="The IP address of the virtual machine."
+// +kubebuilder:printcolumn:name="BlockDevicesCount",priority=1,type="integer",JSONPath=".status.blockDevicesCount",description="The number of block devices attached to the virtual machine."
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time of creation resource."
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -298,6 +299,8 @@ type VirtualMachineStatus struct {
 	Stats *VirtualMachineStats `json:"stats,omitempty"`
 	// Migration info.
 	MigrationState *VirtualMachineMigrationState `json:"migrationState,omitempty"`
+	// The number of block devices attached to the virtual machine.
+	BlockDevicesCount int `json:"blockDevicesCount,omitempty"`
 	// Generating a resource that was last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 

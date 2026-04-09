@@ -144,6 +144,8 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 		h.setConditionReady(s.VirtualMachine().Changed())
 	}
 
+	changed.Status.BlockDevicesCount = len(changed.Status.BlockDeviceRefs)
+
 	return reconcile.Result{}, nil
 }
 
