@@ -664,6 +664,7 @@ jobs:
           chmod +x ../sds-node-configurator/lvg-gen.sh
           ../sds-node-configurator/lvg-gen.sh
 
+          echo "[INFO] Configur ReplicatedStorageClass and set default nested-thin-r1"
           chmod +x rsc-gen.sh
           ./rsc-gen.sh
 
@@ -897,7 +898,7 @@ jobs:
                 storage:
                   persistentVolumeClaim:
                     size: 10Gi
-                    storageClassName: ${{ inputs.nested_storageclass_name }}
+                    storageClassName: nested-thin-r1
                   type: PersistentVolumeClaim
               virtualMachineCIDRs:
                 - 192.168.10.0/24
@@ -1094,7 +1095,7 @@ jobs:
           echo "[INFO] Checking virt-handler pods "
           virt_handler_ready
 
-  e2e-test-current:
+  test-current-release:
     name: "E2E test (current-release: ${{ inputs.current_release }})"
     runs-on: ubuntu-latest
     needs:
@@ -1105,6 +1106,11 @@ jobs:
 
       - name: Install kubectl CLI
         uses: azure/setup-kubectl@v4
+      
+      - name: Setup d8
+        uses: ./.github/actions/install-d8
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup kubeconfig
         run: |
@@ -1129,7 +1135,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - bootstrap
-      - e2e-test-current
+      - test-current-release
     steps:
       - uses: actions/checkout@v4
 
@@ -1308,7 +1314,7 @@ jobs:
           echo "[INFO] Virtualization module status:"
           kubectl get modules virtualization
 
-  e2e-test-new:
+  test-new-release:
     name: "E2E test (new-release: ${{ inputs.new_release }})"
     runs-on: ubuntu-latest
     needs:
