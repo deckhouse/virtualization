@@ -26,9 +26,14 @@ on:
         description: "Next release like v1.5.0, should be greater than current-release"
         required: false # before merge to main, set to true
         type: string
+      enableBuild:
+        description: "Build release images before E2E tests"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
-  group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
+  group: "${{ github.workflow }}-${{ github.event.inputs.current-release }}-${{ github.event.inputs.next-release || 'no-next' }}"
   cancel-in-progress: true
 
 defaults:
@@ -49,10 +54,83 @@ jobs:
           echo "date-start=$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
           echo "randuuid4c=$(openssl rand -hex 2)" >> $GITHUB_OUTPUT
 
+  prepare-release-matrix:
+    name: Prepare release matrix
+    if: ${{ inputs.enableBuild }}
+    runs-on: ubuntu-latest
+    outputs:
+      list: ${{ steps.releases.outputs.list }}
+    steps:
+      - name: Prepare release refs
+        id: releases
+        env:
+          CURRENT_RELEASE: ${{ github.event.inputs.current-release }}
+          NEXT_RELEASE: ${{ github.event.inputs.next-release }}
+        run: |
+          if [[ -z "${CURRENT_RELEASE}" ]]; then
+            echo "::error title=Current release is required::Set workflow input 'current-release' to a git ref or tag that can be checked out."
+            exit 1
+          fi
+
+          releases=$(jq -cn \
+            --arg current "${CURRENT_RELEASE}" \
+            --arg next "${NEXT_RELEASE}" \
+            '[$current, $next] | map(select(. != "")) | unique')
+
+          echo "list=${releases}" >> "$GITHUB_OUTPUT"
+
+  build-release-images:
+    name: Build release image (${{ matrix.release_tag }})
+    if: ${{ inputs.enableBuild }}
+    runs-on: [self-hosted, large]
+    needs:
+      - prepare-release-matrix
+    strategy:
+      matrix:
+        release_tag: ${{ fromJSON(needs.prepare-release-matrix.outputs.list) }}
+    steps:
+      - name: Setup Docker config
+        run: |
+          echo "DOCKER_CONFIG=$(mktemp -d)" >> $GITHUB_ENV
+
+      - name: Print vars
+        run: |
+          echo MODULES_REGISTRY=${{ vars.DEV_REGISTRY }}
+          echo MODULES_MODULE_SOURCE=${{ vars.DEV_MODULE_SOURCE }}
+          echo MODULES_MODULE_NAME=${{ vars.MODULE_NAME }}
+          echo MODULES_MODULE_TAG=${{ matrix.release_tag }}
+          echo DOCKER_CONFIG=$DOCKER_CONFIG
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ matrix.release_tag }}
+
+      - uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.DEV_REGISTRY }}
+          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+
+      - uses: deckhouse/modules-actions/build@v4
+        with:
+          module_source: ${{ vars.DEV_MODULE_SOURCE }}
+          module_name: ${{ vars.MODULE_NAME }}
+          module_tag: ${{ matrix.release_tag }}
+          source_repo: ${{ secrets.SOURCE_REPO_GIT }}
+          source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
+
+      - name: Cleanup Docker config
+        if: ${{ always() }}
+        run: |
+          rm -rf "$DOCKER_CONFIG"
+
   e2e-replicated:
     name: E2E Release Pipeline (Replicated + NFS)
+    if: ${{ always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
     needs:
       - set-vars
+      - build-release-images
     uses: ./.github/workflows/e2e-test-releases-reusable-pipeline.yml
     with:
       current_release: ${{ github.event.inputs.current-release }}
