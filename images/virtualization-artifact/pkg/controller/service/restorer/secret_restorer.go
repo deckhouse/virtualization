@@ -180,6 +180,10 @@ func (r SecretRestorer) setVirtualMachineBlockDeviceAttachments(ctx context.Cont
 }
 
 func (r SecretRestorer) setVirtualMachineIPAddress(ctx context.Context, secret *corev1.Secret, vm *v1alpha2.VirtualMachine, keepIPAddress v1alpha2.KeepIPAddress) error {
+	if vm.Status.VirtualMachineIPAddress == "" {
+		return nil
+	}
+
 	vmip, err := object.FetchObject(ctx, types.NamespacedName{
 		Namespace: vm.Namespace,
 		Name:      vm.Status.VirtualMachineIPAddress,
