@@ -20,7 +20,7 @@ on:
       current-release:
         description: "Current release tag, like v1.4.1"
         required: false # before merge to main, set to true
-        default: "v1.4.1"
+        default: "v1.4.1" # before merge to main, remove
         type: string
       next-release:
         description: "Next release like v1.5.0, should be greater than current-release"
@@ -50,14 +50,14 @@ jobs:
           echo "randuuid4c=$(openssl rand -hex 2)" >> $GITHUB_OUTPUT
 
   e2e-replicated:
-    name: E2E Release Pipeline (Replicated)
+    name: E2E Release Pipeline (Replicated + NFS)
     needs:
       - set-vars
     uses: ./.github/workflows/e2e-test-releases-reusable-pipeline.yml
     with:
       current_release: ${{ github.event.inputs.current-release }}
       new_release: ${{ github.event.inputs.next-release }}
-      storage_type: replicated
+      storage_type: mixed
       nested_storageclass_name: nested-thin-r1
       branch: main
       deckhouse_channel: alpha
@@ -73,26 +73,3 @@ jobs:
       PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
       BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
 
-  e2e-nfs:
-    name: E2E Release Pipeline (NFS)
-    needs:
-      - set-vars
-    uses: ./.github/workflows/e2e-test-releases-reusable-pipeline.yml
-    with:
-      current_release: ${{ github.event.inputs.current-release }}
-      new_release: ${{ github.event.inputs.next-release }}
-      storage_type: nfs
-      nested_storageclass_name: nfs
-      branch: main
-      deckhouse_channel: alpha
-      default_user: cloud
-      go_version: "1.24.13"
-      date_start: ${{ needs.set-vars.outputs.date_start }}
-      randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
-      cluster_config_workers_memory: "9Gi"
-      cluster_config_k8s_version: "Automatic"
-    secrets:
-      DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
-      VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
-      PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
-      BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
