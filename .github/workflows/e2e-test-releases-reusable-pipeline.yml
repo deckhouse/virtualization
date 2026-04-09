@@ -644,20 +644,9 @@ jobs:
             exit 1
           }
 
-          lvg_ready() {
-            echo "[INFO] Wait for generated LVMVolumeGroup resources to be Ready"
-            if ! kubectl wait -f sds-lvg.yaml --for=jsonpath='{.status.phase}'=Ready --timeout=300s; then
-              echo "[ERROR] Generated LVMVolumeGroup resources did not become Ready"
-              kubectl get lvmvolumegroup -o wide || true
-              exit 1
-            fi
-
-            echo "[SUCCESS] Generated LVMVolumeGroup resources are Ready"
-            kubectl get lvmvolumegroup -o wide
-          }
-
           d8_queue
 
+          kubectl apply -f ../sds-node-configurator/mc.yaml
           kubectl apply -f mc.yaml
           echo "[INFO] Wait for sds-node-configurator"
           kubectl wait --for=jsonpath='{.status.phase}'=Ready modules sds-node-configurator --timeout=300s
@@ -672,9 +661,8 @@ jobs:
           echo "[INFO] Wait pods and webhooks sds-replicated pods"
           sds_pods_ready
 
-          chmod +x lvg-gen.sh
-          ./lvg-gen.sh
-          lvg_ready
+          chmod +x ../sds-node-configurator/lvg-gen.sh
+          ../sds-node-configurator/lvg-gen.sh
 
           chmod +x rsc-gen.sh
           ./rsc-gen.sh
