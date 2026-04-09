@@ -46,6 +46,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/evacuation"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/livemigration"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/migrationiface"
 	mc "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice"
@@ -96,6 +97,8 @@ const (
 
 	SdnEnabledEnv  = "SDN_ENABLED"
 	clusterUUIDEnv = "CLUSTER_UUID"
+
+	migrationSystemNetworkNameEnv = "MIGRATION_SYSTEM_NETWORK_NAME"
 )
 
 func main() {
@@ -386,6 +389,12 @@ func main() {
 
 	nodeusbdeviceLogger := logger.NewControllerLogger(nodeusbdevice.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
 	if _, err = nodeusbdevice.NewController(ctx, mgr, nodeusbdeviceLogger); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	migrationIfaceLogger := logger.NewControllerLogger(migrationiface.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = migrationiface.NewController(ctx, mgr, migrationIfaceLogger, os.Getenv(migrationSystemNetworkNameEnv)); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
