@@ -17,7 +17,7 @@
 set -euo pipefail
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-lvg_generator_script="${script_dir}/../sds-replicated/lvg-gen.sh"
+lvg_generator_script="${script_dir}/../sds-node-configurator/lvg-gen.sh"
 manifest=sds-local-lsc.yaml
 localStorageClassName=nested-local-thin
 targetThinPoolName=thin-data
@@ -43,11 +43,6 @@ if [[ -z "${lvgs}" ]]; then
   fi
 
   "${lvg_generator_script}"
-
-  if [[ -f "sds-lvg.yaml" ]]; then
-    echo "[INFO] Wait for generated LVMVolumeGroup resources to become Ready"
-    kubectl wait -f "sds-lvg.yaml" --for=jsonpath='{.status.phase}'=Ready --timeout=300s
-  fi
 
   lvgs=$(discover_lvgs)
 fi
