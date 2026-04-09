@@ -1104,6 +1104,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+
       - name: Install kubectl CLI
         uses: azure/setup-kubectl@v4
       
@@ -1117,18 +1122,76 @@ jobs:
           mkdir -p ~/.kube
           echo "${{ needs.bootstrap.outputs.kubeconfig }}" | base64 -d | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
+          kubectl config use-context nested-e2e-nested-sa
 
-      - name: "Run E2E tests on current-release (STUB)"
+      - name: Install ginkgo
+        working-directory: ./test/e2e/
+        run: |
+          echo "Install ginkgo"
+          go install tool
+
+      - name: Download dependencies
+        working-directory: ./test/e2e/
+        run: |
+          echo "Download dependencies"
+          go mod download
+
+      - name: Create vmclass for release e2e tests
+        run: |
+          if ! (kubectl get vmclass generic-for-e2e 2>/dev/null); then
+            kubectl get vmclass/generic -o json | jq 'del(.status) | del(.metadata) | .metadata = {"name":"generic-for-e2e","annotations":{"virtualmachineclass.virtualization.deckhouse.io/is-default-class":"true"}} ' | kubectl create -f -
+          fi
+
+          echo "[INFO] Showing existing vmclasses"
+          kubectl get vmclass
+
+      - name: "Run E2E tests on current-release"
+        id: release-e2e
+        env:
+          POST_CLEANUP: no
+          PRECREATED_CVI_CLEANUP: no
+          CSI: ${{ inputs.storage_type }}
+          STORAGE_CLASS_NAME: ${{ inputs.nested_storageclass_name }}
         run: |
           echo "[INFO] Current release tag: ${{ env.CURRENT_RELEASE }}"
           echo "[INFO] Storage type: ${{ inputs.storage_type }}"
           echo ""
           echo "[INFO] Verifying virtualization module is running"
-          kubectl get modules virtualization || true
-          kubectl get mpo virtualization || true
+          kubectl get modules virtualization
+          kubectl get mpo virtualization
           echo ""
-          echo "[STUB] E2E tests on current-release ${{ env.CURRENT_RELEASE }} -- PASSED"
-          echo "[INFO] Resources are intentionally left in the cluster for the upgrade test"
+          echo "[INFO] Running dedicated release suite"
+          echo "[INFO] Resources will be intentionally left in the cluster for the upgrade test"
+          cd ./test/e2e/
+          GINKGO_RESULT=$(mktemp -p "$RUNNER_TEMP")
+          junit_report="release_current_suite.xml"
+          set +e
+          go tool ginkgo \
+            -v --race --timeout=45m \
+            --junit-report="$junit_report" \
+            ./release | tee "$GINKGO_RESULT"
+          GINKGO_EXIT_CODE=$?
+          set -e
+          echo "[INFO] Exit code: $GINKGO_EXIT_CODE"
+          exit $GINKGO_EXIT_CODE
+
+      - name: Upload current-release test results
+        uses: actions/upload-artifact@v4
+        if: always() && steps.release-e2e.outcome != 'skipped'
+        with:
+          name: current-release-e2e-results-${{ github.run_id }}
+          path: test/e2e/release_current_suite.xml
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Upload resources from failed current-release tests
+        uses: actions/upload-artifact@v4
+        if: always() && steps.release-e2e.outcome != 'skipped'
+        with:
+          name: current-release-resources-from-failed-tests-${{ github.run_id }}
+          path: ${{ runner.temp }}/e2e_failed__*
+          if-no-files-found: ignore
+          retention-days: 3
 
   patch-mpo:
     name: "Patch MPO to new-release: ${{ inputs.new_release }}"
