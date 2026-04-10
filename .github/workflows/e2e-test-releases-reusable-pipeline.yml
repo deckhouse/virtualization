@@ -131,7 +131,7 @@ jobs:
         run: |
           GIT_SHORT_HASH=$(git rev-parse --short HEAD)
 
-          namespace="nightly-e2e-$STORAGE_TYPE-$GIT_SHORT_HASH-$RANDUUID4C"
+          namespace="release-test-$STORAGE_TYPE-$GIT_SHORT_HASH-$RANDUUID4C"
 
           echo "namespace=$namespace" >> $GITHUB_OUTPUT
           echo "sha_short=$GIT_SHORT_HASH" >> $GITHUB_OUTPUT
@@ -833,7 +833,7 @@ jobs:
 
           echo "[INFO] Apply NFSStorageClass"
           envsubst < storageclass.yaml | kubectl apply -f -
-          
+
           if [[ "${STORAGE_TYPE}" == "mixed" ]]; then
             echo "[INFO] Configure default storage class as ${STORAGE_TYPE}"
             ./default-sc-configure.sh
@@ -1111,7 +1111,7 @@ jobs:
 
       - name: Install kubectl CLI
         uses: azure/setup-kubectl@v4
-      
+
       - name: Setup d8
         uses: ./.github/actions/install-d8
         env:
