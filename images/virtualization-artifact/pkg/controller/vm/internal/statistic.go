@@ -316,16 +316,6 @@ func (h *StatisticHandler) syncStats(current, changed *v1alpha2.VirtualMachine, 
 	pts := NewPhaseTransitions(stats.PhasesTransitions, current.Status.Phase, changed.Status.Phase)
 
 	stats.PhasesTransitions = pts
-	changed.Status.RunningSince = nil
-	for i := len(pts) - 1; i >= 0; i-- {
-		if pts[i].Phase == v1alpha2.MachineRunning {
-			changed.Status.RunningSince = pts[i].Timestamp.DeepCopy()
-			break
-		}
-	}
-	if changed.Status.Phase != v1alpha2.MachineRunning && changed.Status.Phase != v1alpha2.MachineMigrating && changed.Status.Phase != v1alpha2.MachinePause {
-		changed.Status.RunningSince = nil
-	}
 
 	launchTimeDuration := stats.LaunchTimeDuration
 

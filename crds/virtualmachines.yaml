@@ -1256,11 +1256,6 @@ spec:
                   items:
                     type: object
                     x-kubernetes-preserve-unknown-fields: true
-                runningSince:
-                  description: The timestamp when the virtual machine most recently entered a running state.
-                  format: date-time
-                  nullable: true
-                  type: string
                 observedGeneration:
                   type: integer
                   description: Resource generation last processed by the controller.
@@ -1469,9 +1464,9 @@ spec:
           jsonPath: .status.ipAddress
           name: IPAddress
           type: string
-        - description: Time since the virtual machine has been running.
-          jsonPath: .status.runningSince
-          name: Uptime
+        - description: Time of resource creation.
+          jsonPath: .metadata.creationTimestamp
+          name: Age
           type: date
       subresources:
         status: {}
