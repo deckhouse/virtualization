@@ -18,8 +18,8 @@ package release
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -31,6 +31,7 @@ import (
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
@@ -39,20 +40,30 @@ import (
 const (
 	replicatedStorageClass = "nested-thin-r1"
 	localThinStorageClass  = "nested-local-thin"
-	diskCountCommand       = "lsblk -dn -o TYPE | grep -c '^disk$'"
+	lsblkJSONCommand       = "lsblk --bytes --json --nodeps --output NAME,SIZE,TYPE,MOUNTPOINTS"
+	minDataDiskSizeBytes   = int64(50 * 1024 * 1024)
 )
 
 var _ = Describe("CurrentReleaseSmoke", func() {
 	It("should validate alpine virtual machines on current release", func() {
 		f := framework.NewFramework("release-current")
-		DeferCleanup(f.After)
+		if config.IsCleanUpNeeded() {
+			DeferCleanup(f.After)
+		} else {
+			// Keep created resources after a successful run when POST_CLEANUP=no,
+			// but still preserve failure dumps if the spec breaks.
+			DeferCleanup(func() {
+				if CurrentSpecReport().Failed() {
+					f.After()
+				}
+			})
+		}
 		f.Before()
 
 		test := newCurrentReleaseSmokeTest(f)
 
 		By("Creating root and hotplug virtual disks")
 		Expect(f.CreateWithDeferredDeletion(context.Background(), test.diskObjects()...)).To(Succeed())
-		util.UntilObjectPhase(string(v1alpha2.DiskReady), framework.LongTimeout, test.diskObjects()...)
 
 		By("Creating virtual machines")
 		Expect(f.CreateWithDeferredDeletion(context.Background(), test.vmObjects()...)).To(Succeed())
@@ -73,15 +84,18 @@ var _ = Describe("CurrentReleaseSmoke", func() {
 			test.vmbdaLocalThin,
 		)
 
+		By("Waiting for all disks to become ready after consumers appear")
+		util.UntilObjectPhase(string(v1alpha2.DiskReady), framework.LongTimeout, test.diskObjects()...)
+
 		By("Waiting for guest agent and SSH access")
 		test.expectGuestReady(test.vmAlwaysOff)
 		test.expectGuestReady(test.vmOneHotplug)
 		test.expectGuestReady(test.vmTwoHotplug)
 
 		By("Checking attached disks inside guests")
-		test.expectDiskCount(test.vmAlwaysOff, 1)
-		test.expectDiskCount(test.vmOneHotplug, 2)
-		test.expectDiskCount(test.vmTwoHotplug, 3)
+		test.expectAdditionalDiskCount(test.vmAlwaysOff, 0)
+		test.expectAdditionalDiskCount(test.vmOneHotplug, 1)
+		test.expectAdditionalDiskCount(test.vmTwoHotplug, 2)
 	})
 })
 
@@ -103,6 +117,17 @@ type currentReleaseSmokeTest struct {
 	vmbdaOneHotplug *v1alpha2.VirtualMachineBlockDeviceAttachment
 	vmbdaReplicated *v1alpha2.VirtualMachineBlockDeviceAttachment
 	vmbdaLocalThin  *v1alpha2.VirtualMachineBlockDeviceAttachment
+}
+
+type lsblkOutput struct {
+	BlockDevices []lsblkDevice `json:"blockdevices"`
+}
+
+type lsblkDevice struct {
+	Name        string   `json:"name"`
+	Size        int64    `json:"size"`
+	Type        string   `json:"type"`
+	Mountpoints []string `json:"mountpoints"`
 }
 
 func newCurrentReleaseSmokeTest(f *framework.Framework) *currentReleaseSmokeTest {
@@ -191,10 +216,47 @@ func (t *currentReleaseSmokeTest) expectGuestReady(vm *v1alpha2.VirtualMachine) 
 	util.UntilSSHReady(t.framework, vm, framework.LongTimeout)
 }
 
-func (t *currentReleaseSmokeTest) expectDiskCount(vm *v1alpha2.VirtualMachine, expectedCount int) {
+func (t *currentReleaseSmokeTest) expectAdditionalDiskCount(vm *v1alpha2.VirtualMachine, expectedCount int) {
 	Eventually(func(g Gomega) {
-		output, err := t.framework.SSHCommand(vm.Name, vm.Namespace, diskCountCommand, framework.WithSSHTimeout(10*time.Second))
+		output, err := t.framework.SSHCommand(vm.Name, vm.Namespace, lsblkJSONCommand, framework.WithSSHTimeout(10*time.Second))
 		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(strings.TrimSpace(output)).To(Equal(fmt.Sprintf("%d", expectedCount)))
+
+		disks, err := parseLSBLKOutput(output)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		count := 0
+		for _, disk := range disks {
+			if disk.Type != "disk" {
+				continue
+			}
+			if disk.Size <= minDataDiskSizeBytes {
+				continue
+			}
+			if hasMountpoint(disk.Mountpoints, "/") {
+				continue
+			}
+			count++
+		}
+
+		g.Expect(count).To(Equal(expectedCount))
 	}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed())
+}
+
+func parseLSBLKOutput(raw string) ([]lsblkDevice, error) {
+	var output lsblkOutput
+	if err := json.Unmarshal([]byte(raw), &output); err != nil {
+		return nil, fmt.Errorf("parse lsblk json: %w", err)
+	}
+
+	return output.BlockDevices, nil
+}
+
+func hasMountpoint(mountpoints []string, expected string) bool {
+	for _, mountpoint := range mountpoints {
+		if mountpoint == expected {
+			return true
+		}
+	}
+
+	return false
 }
