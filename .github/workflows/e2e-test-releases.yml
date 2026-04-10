@@ -127,7 +127,7 @@ jobs:
           rm -rf "$DOCKER_CONFIG"
 
   e2e-replicated:
-    name: E2E Release Pipeline (Replicated + NFS)
+    name: E2E Release Pipeline (Replicated + Local + NFS)
     if: ${{ always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
     needs:
       - set-vars

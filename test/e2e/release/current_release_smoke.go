@@ -52,7 +52,6 @@ var _ = Describe("CurrentReleaseSmoke", func() {
 
 		By("Creating root and hotplug virtual disks")
 		Expect(f.CreateWithDeferredDeletion(context.Background(), test.diskObjects()...)).To(Succeed())
-		util.UntilObjectPhase(string(v1alpha2.DiskReady), framework.LongTimeout, test.diskObjects()...)
 
 		By("Creating virtual machines")
 		Expect(f.CreateWithDeferredDeletion(context.Background(), test.vmObjects()...)).To(Succeed())
