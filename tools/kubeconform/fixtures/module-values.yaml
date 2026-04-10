@@ -403,6 +403,7 @@ virtualization:
       phase: Deployed
       bandwidthPerMigration: 640Mi
       completionTimeoutPerGiB: 800
+      disableTLS: false
       parallelMigrationsPerCluster: 2
       parallelOutboundMigrationsPerNode: 10
       progressTimeout: 150
