@@ -180,18 +180,13 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *v1alpha2.Virtua
 			macAddressNamesByAddress[vmmac.Status.Address] = vmmac.Name
 		}
 
-		hasMainNetwork := len(vm.Spec.Networks) > 0 && vm.Spec.Networks[0].Type == v1alpha2.NetworksTypeMain
 		for i := range vm.Spec.Networks {
 			ns := &vm.Spec.Networks[i]
 			if ns.Type == v1alpha2.NetworksTypeMain {
 				continue
 			}
 
-			delta := 0
-			if hasMainNetwork {
-				delta = 1
-			}
-			ns.VirtualMachineMACAddressName = macAddressNamesByAddress[macAddressOrder[i-delta]]
+			ns.VirtualMachineMACAddressName = macAddressNamesByAddress[macAddressOrder[i]]
 		}
 	}
 
