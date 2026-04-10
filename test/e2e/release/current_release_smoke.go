@@ -31,6 +31,7 @@ import (
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
@@ -46,7 +47,17 @@ const (
 var _ = Describe("CurrentReleaseSmoke", func() {
 	It("should validate alpine virtual machines on current release", func() {
 		f := framework.NewFramework("release-current")
-		DeferCleanup(f.After)
+		if config.IsCleanUpNeeded() {
+			DeferCleanup(f.After)
+		} else {
+			// Keep created resources after a successful run when POST_CLEANUP=no,
+			// but still preserve failure dumps if the spec breaks.
+			DeferCleanup(func() {
+				if CurrentSpecReport().Failed() {
+					f.After()
+				}
+			})
+		}
 		f.Before()
 
 		test := newCurrentReleaseSmokeTest(f)
