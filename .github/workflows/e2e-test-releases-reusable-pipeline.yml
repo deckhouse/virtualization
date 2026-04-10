@@ -1152,6 +1152,7 @@ jobs:
           PRECREATED_CVI_CLEANUP: no
           CSI: ${{ inputs.storage_type }}
           STORAGE_CLASS_NAME: ${{ inputs.nested_storageclass_name }}
+          E2E_CONFIG: ${{ github.workspace }}/test/e2e/default_config.yaml
         run: |
           echo "[INFO] Current release tag: ${{ env.CURRENT_RELEASE }}"
           echo "[INFO] Storage type: ${{ inputs.storage_type }}"
@@ -1164,7 +1165,7 @@ jobs:
           echo "[INFO] Resources will be intentionally left in the cluster for the upgrade test"
           cd ./test/e2e/
           GINKGO_RESULT=$(mktemp -p "$RUNNER_TEMP")
-          junit_report="release_current_suite.xml"
+          junit_report="$GITHUB_WORKSPACE/test/e2e/release_current_suite.xml"
           set +e
           go tool ginkgo \
             -v --race --timeout=45m \
