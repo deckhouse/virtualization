@@ -72,6 +72,9 @@ var _ = Describe("CurrentReleaseSmoke", func() {
 			test.vmbdaLocalThin,
 		)
 
+		By("Waiting for all disks to become ready after consumers appear")
+		util.UntilObjectPhase(string(v1alpha2.DiskReady), framework.LongTimeout, test.diskObjects()...)
+
 		By("Waiting for guest agent and SSH access")
 		test.expectGuestReady(test.vmAlwaysOff)
 		test.expectGuestReady(test.vmOneHotplug)
