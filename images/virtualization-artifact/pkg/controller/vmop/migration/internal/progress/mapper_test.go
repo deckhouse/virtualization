@@ -51,7 +51,7 @@ func TestBuildRecord_UsesVMOPCreationTimestampAndPreviousProgress(t *testing.T) 
 			UID:               types.UID("vmop-uid"),
 			CreationTimestamp: metav1.NewTime(now.Add(-3 * time.Minute)),
 		},
-		Status: v1alpha2.VirtualMachineOperationStatus{Progress: ptr.To[int32](42)},
+		Status: v1alpha2.VirtualMachineOperationStatus{Progress: "42%"},
 	}
 
 	record := BuildRecord(vmop, nil, now)
@@ -135,7 +135,7 @@ func TestPreviousProgress(t *testing.T) {
 		},
 		{
 			name: "explicit progress",
-			vmop: &v1alpha2.VirtualMachineOperation{Status: v1alpha2.VirtualMachineOperationStatus{Progress: ptr.To[int32](37)}},
+			vmop: &v1alpha2.VirtualMachineOperation{Status: v1alpha2.VirtualMachineOperationStatus{Progress: "37%"}},
 			want: 37,
 		},
 	}

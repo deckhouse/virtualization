@@ -31,7 +31,7 @@ const (
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:categories={virtualization},scope=Namespaced,shortName={vmop},singular=virtualmachineoperation
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="VirtualMachineOperation phase."
-// +kubebuilder:printcolumn:name="Progress",type="integer",JSONPath=".status.progress",description="VirtualMachineOperation progress in percent."
+// +kubebuilder:printcolumn:name="Progress",type="string",JSONPath=".status.progress",description="VirtualMachineOperation progress in percent format."
 // +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.type",description="VirtualMachineOperation type."
 // +kubebuilder:printcolumn:name="VirtualMachine",type="string",JSONPath=".spec.virtualMachineName",description="VirtualMachine name."
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time of resource creation."
@@ -111,9 +111,8 @@ type VirtualMachineOperationCloneCustomization struct {
 type VirtualMachineOperationStatus struct {
 	Phase VMOPPhase `json:"phase"`
 	// Progress reports operation completion percentage for migration-related VMOPs (Evict/Migrate).
-	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:validation:Maximum=100
-	Progress *int32 `json:"progress,omitempty"`
+	// Example: `33%`.
+	Progress string `json:"progress,omitempty"`
 	// The latest detailed observations of the VirtualMachineOperation resource.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 	//  Resource generation last processed by the controller.

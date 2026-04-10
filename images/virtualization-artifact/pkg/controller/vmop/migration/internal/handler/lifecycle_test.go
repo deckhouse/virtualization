@@ -445,7 +445,7 @@ var _ = Describe("LifecycleHandler", func() {
 			),
 		)
 
-		DescribeTable("should map progress by reason", func(reason vmopcondition.ReasonCompleted, initial *int32, expected int32) {
+		DescribeTable("should map progress by reason", func(reason vmopcondition.ReasonCompleted, initial string, expected int32) {
 			h := LifecycleHandler{progressStrategy: &progressStrategyStub{value: 55}}
 			vmop := &v1alpha2.VirtualMachineOperation{Status: v1alpha2.VirtualMachineOperationStatus{Progress: initial}}
 			mig := &virtv1.VirtualMachineInstanceMigration{}
@@ -461,14 +461,14 @@ var _ = Describe("LifecycleHandler", func() {
 			Entry("source suspended", vmopcondition.ReasonSourceSuspended, nil, int32(91)),
 			Entry("target resumed", vmopcondition.ReasonTargetResumed, nil, int32(92)),
 			Entry("migration completed", vmopcondition.ReasonMigrationCompleted, nil, int32(100)),
-			Entry("unknown keeps existing progress", vmopcondition.ReasonFailed, ptr.To[int32](44), int32(44)),
+			Entry("unknown keeps existing progress", vmopcondition.ReasonFailed, "44%", int32(44)),
 		)
 
 		It("should set syncing progress inside [10,90] for running migration", func() {
 			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
 			vmop := newVMOPMigrate()
 			vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
-			vmop.Status.Progress = ptr.To[int32](10)
+			vmop.Status.Progress = "10%"
 
 			mig := newSimpleMigration(fmt.Sprintf("vmop-%s", vmop.Name), name)
 			mig.Status.Phase = virtv1.MigrationRunning
@@ -484,9 +484,9 @@ var _ = Describe("LifecycleHandler", func() {
 			_, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhaseInProgress))
-			Expect(srv.Changed().Status.Progress).NotTo(BeNil())
-			Expect(*srv.Changed().Status.Progress).To(BeNumerically(">=", migrationprogress.SyncRangeMin))
-			Expect(*srv.Changed().Status.Progress).To(BeNumerically("<=", migrationprogress.SyncRangeMax))
+			Expect(srv.Changed().Status.Progress).NotTo(BeEmpty())
+			Expect(migrationprogress.ParsePercent(srv.Changed().Status.Progress)).To(BeNumerically(">=", migrationprogress.SyncRangeMin))
+			Expect(migrationprogress.ParsePercent(srv.Changed().Status.Progress)).To(BeNumerically("<=", migrationprogress.SyncRangeMax))
 
 			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
 			Expect(found).To(BeTrue())
@@ -509,15 +509,14 @@ var _ = Describe("LifecycleHandler", func() {
 			_, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
-			Expect(srv.Changed().Status.Progress).NotTo(BeNil())
-			Expect(*srv.Changed().Status.Progress).To(Equal(int32(2)))
+			Expect(srv.Changed().Status.Progress).To(Equal("2%"))
 		})
 
 		It("should set aborted reason and preserve progress for failed migration", func() {
 			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
 			vmop := newVMOPMigrate()
 			vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
-			vmop.Status.Progress = ptr.To[int32](55)
+			vmop.Status.Progress = "55%"
 
 			mig := newSimpleMigration(fmt.Sprintf("vmop-%s", vmop.Name), name)
 			mig.Status.Phase = virtv1.MigrationFailed
@@ -531,8 +530,7 @@ var _ = Describe("LifecycleHandler", func() {
 			_, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
-			Expect(srv.Changed().Status.Progress).NotTo(BeNil())
-			Expect(*srv.Changed().Status.Progress).To(Equal(int32(55)))
+			Expect(srv.Changed().Status.Progress).To(Equal("55%"))
 
 			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
 			Expect(found).To(BeTrue())
@@ -555,15 +553,14 @@ var _ = Describe("LifecycleHandler", func() {
 			_, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
-			Expect(srv.Changed().Status.Progress).NotTo(BeNil())
-			Expect(*srv.Changed().Status.Progress).To(Equal(int32(100)))
+			Expect(srv.Changed().Status.Progress).To(Equal("100%"))
 		})
 
 		It("should override Syncing with NotConverging when strategy detects stall", func() {
 			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
 			vmop := newVMOPMigrate()
 			vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
-			vmop.Status.Progress = ptr.To[int32](50)
+			vmop.Status.Progress = "50%"
 
 			mig := newSimpleMigration(fmt.Sprintf("vmop-%s", vmop.Name), name)
 			mig.Status.Phase = virtv1.MigrationRunning
@@ -592,7 +589,7 @@ var _ = Describe("LifecycleHandler", func() {
 			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
 			vmop := newVMOPMigrate()
 			vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
-			vmop.Status.Progress = ptr.To[int32](30)
+			vmop.Status.Progress = "30%"
 
 			mig := newSimpleMigration(fmt.Sprintf("vmop-%s", vmop.Name), name)
 			mig.Status.Phase = virtv1.MigrationRunning
@@ -691,8 +688,7 @@ var _ = Describe("LifecycleHandler", func() {
 
 			_, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(srv.Changed().Status.Progress).NotTo(BeNil())
-			Expect(*srv.Changed().Status.Progress).To(Equal(int32(3)))
+			Expect(srv.Changed().Status.Progress).To(Equal("3%"))
 
 			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
 			Expect(found).To(BeTrue())
@@ -717,8 +713,7 @@ var _ = Describe("LifecycleHandler", func() {
 
 			_, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(srv.Changed().Status.Progress).NotTo(BeNil())
-			Expect(*srv.Changed().Status.Progress).To(Equal(int32(92)))
+			Expect(srv.Changed().Status.Progress).To(Equal("92%"))
 
 			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
 			Expect(found).To(BeTrue())
@@ -744,8 +739,7 @@ var _ = Describe("LifecycleHandler", func() {
 
 			_, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(srv.Changed().Status.Progress).NotTo(BeNil())
-			Expect(*srv.Changed().Status.Progress).To(Equal(int32(91)))
+			Expect(srv.Changed().Status.Progress).To(Equal("91%"))
 
 			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
 			Expect(found).To(BeTrue())
@@ -756,7 +750,7 @@ var _ = Describe("LifecycleHandler", func() {
 			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
 			vmop := newVMOPMigrate()
 			vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
-			vmop.Status.Progress = ptr.To[int32](60)
+			vmop.Status.Progress = "60%"
 			vmop.Status.Conditions = []metav1.Condition{
 				{
 					Type:   vmopcondition.TypeSignalSent.String(),
@@ -791,7 +785,7 @@ var _ = Describe("LifecycleHandler", func() {
 			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
 			vmop := newVMOPMigrate()
 			vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
-			vmop.Status.Progress = ptr.To[int32](60)
+			vmop.Status.Progress = "60%"
 			vmop.Status.Conditions = []metav1.Condition{
 				{
 					Type:   vmopcondition.TypeSignalSent.String(),

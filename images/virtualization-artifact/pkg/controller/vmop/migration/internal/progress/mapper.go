@@ -73,10 +73,10 @@ func mapBytesToMiB(v *uint64) float64 {
 }
 
 func previousProgress(vmop *v1alpha2.VirtualMachineOperation) int32 {
-	if vmop == nil || vmop.Status.Progress == nil {
+	if vmop == nil {
 		return SyncRangeMin
 	}
-	return *vmop.Status.Progress
+	return ParsePercent(vmop.Status.Progress)
 }
 
 func mapIteration(state *virtv1.VirtualMachineInstanceMigrationState) (uint32, bool) {

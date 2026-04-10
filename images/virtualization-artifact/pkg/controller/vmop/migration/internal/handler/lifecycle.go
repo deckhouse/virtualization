@@ -26,7 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -305,7 +304,7 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 		}
 		msg := h.getFailedMessage(reason, mig)
 		progress := h.calculateMigrationProgress(vmop, mig, reason)
-		vmop.Status.Progress = ptr.To(progress)
+		vmop.Status.Progress = migrationprogress.FormatPercent(progress)
 
 		completedCond.
 			Status(metav1.ConditionFalse).
@@ -316,7 +315,7 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 	case virtv1.MigrationSucceeded:
 		vmop.Status.Phase = v1alpha2.VMOPPhaseCompleted
 		h.recorder.Event(vmop, corev1.EventTypeNormal, v1alpha2.ReasonVMOPSucceeded, "VirtualMachineOperation succeeded")
-		vmop.Status.Progress = ptr.To(int32(100))
+		vmop.Status.Progress = migrationprogress.FormatPercent(100)
 
 		completedCond.
 			Status(metav1.ConditionTrue).
@@ -344,7 +343,7 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 	}
 	progress := h.calculateMigrationProgress(vmop, mig, reason)
-	vmop.Status.Progress = ptr.To(progress)
+	vmop.Status.Progress = migrationprogress.FormatPercent(progress)
 
 	completedCond.
 		Status(metav1.ConditionFalse).
@@ -407,7 +406,7 @@ func (h LifecycleHandler) canExecute(vmop *v1alpha2.VirtualMachineOperation, vm 
 
 	if migratable.Status == metav1.ConditionTrue {
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
-		vmop.Status.Progress = ptr.To(int32(1))
+		vmop.Status.Progress = migrationprogress.FormatPercent(1)
 		conditions.SetCondition(
 			conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 				Generation(vmop.GetGeneration()).
@@ -461,7 +460,7 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMac
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 	}
 	progress := h.calculateMigrationProgress(vmop, mig, reason)
-	vmop.Status.Progress = ptr.To(progress)
+	vmop.Status.Progress = migrationprogress.FormatPercent(progress)
 
 	conditions.SetCondition(
 		conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
@@ -641,8 +640,8 @@ func (h LifecycleHandler) calculateMigrationProgress(
 		return progressMigrationCompleted
 	default:
 		h.forgetProgress(vmop)
-		if vmop != nil && vmop.Status.Progress != nil {
-			return *vmop.Status.Progress
+		if vmop != nil {
+			return migrationprogress.ParsePercent(vmop.Status.Progress)
 		}
 		return 0
 	}
