@@ -18,11 +18,13 @@ package internal
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -308,4 +310,46 @@ var _ = Describe("TestStatisticHandler", func() {
 			},
 		),
 	)
+
+	It("should expose runningSince for active virtual machine phases", func() {
+		runningSince := metav1.NewTime(time.Now().Add(-10 * time.Minute).Truncate(time.Second))
+		current := newVM(1, ptr.To("50%"), "512Mi")
+		current.Status.Phase = v1alpha2.MachineRunning
+		current.Status.Stats = &v1alpha2.VirtualMachineStats{
+			PhasesTransitions: []v1alpha2.VirtualMachinePhaseTransitionTimestamp{
+				{Phase: v1alpha2.MachineStarting, Timestamp: metav1.NewTime(runningSince.Add(-15 * time.Second))},
+				{Phase: v1alpha2.MachineRunning, Timestamp: runningSince},
+			},
+		}
+		changed := current.DeepCopy()
+		changed.Status.Phase = v1alpha2.MachineMigrating
+
+		(&StatisticHandler{}).syncStats(current, changed, nil)
+
+		Expect(changed.Status.RunningSince).NotTo(BeNil())
+		Expect(changed.Status.RunningSince.Time).To(Equal(runningSince.Time))
+		Expect(changed.Status.Stats).NotTo(BeNil())
+		Expect(changed.Status.Stats.PhasesTransitions).To(HaveLen(3))
+		Expect(changed.Status.Stats.PhasesTransitions[2].Phase).To(Equal(v1alpha2.MachineMigrating))
+		Expect(changed.Status.Stats.PhasesTransitions[2].Timestamp.IsZero()).To(BeFalse())
+		Expect(changed.Status.Stats.PhasesTransitions[2].Timestamp.Time).To(BeTemporally("~", time.Now(), 2*time.Second))
+	})
+
+	It("should clear runningSince for inactive virtual machine phases", func() {
+		runningSince := metav1.NewTime(time.Now().Add(-10 * time.Minute).Truncate(time.Second))
+		current := newVM(1, ptr.To("50%"), "512Mi")
+		current.Status.Phase = v1alpha2.MachineRunning
+		current.Status.RunningSince = runningSince.DeepCopy()
+		current.Status.Stats = &v1alpha2.VirtualMachineStats{
+			PhasesTransitions: []v1alpha2.VirtualMachinePhaseTransitionTimestamp{
+				{Phase: v1alpha2.MachineRunning, Timestamp: runningSince},
+			},
+		}
+		changed := current.DeepCopy()
+		changed.Status.Phase = v1alpha2.MachineStopped
+
+		(&StatisticHandler{}).syncStats(current, changed, nil)
+
+		Expect(changed.Status.RunningSince).To(BeNil())
+	})
 })

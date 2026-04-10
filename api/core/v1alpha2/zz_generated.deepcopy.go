@@ -3510,6 +3510,10 @@ func (in *VirtualMachineStatus) DeepCopyInto(out *VirtualMachineStatus) {
 		*out = new(VirtualMachineMigrationState)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.RunningSince != nil {
+		in, out := &in.RunningSince, &out.RunningSince
+		*out = (*in).DeepCopy()
+	}
 	if in.RestartAwaitingChanges != nil {
 		in, out := &in.RestartAwaitingChanges, &out.RestartAwaitingChanges
 		*out = make([]apiextensionsv1.JSON, len(*in))
