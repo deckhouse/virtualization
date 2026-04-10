@@ -834,7 +834,7 @@ jobs:
           echo "[INFO] Apply NFSStorageClass"
           envsubst < storageclass.yaml | kubectl apply -f -
 
-          if [[ "${STORAGE_TYPE}" == "mixed" ]]; then
+          if [[ "${STORAGE_TYPE}" != "mixed" ]]; then
             echo "[INFO] Configure default storage class as ${STORAGE_TYPE}"
             ./default-sc-configure.sh
           fi
