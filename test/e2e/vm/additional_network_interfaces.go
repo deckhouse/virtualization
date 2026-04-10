@@ -84,10 +84,10 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 			By("Environment preparation", func() {
 				ns := f.Namespace().Name
 
-				vdFooRoot = object.NewHTTPVDAlpineUEFIPerf("vd-foo-root", ns,
+				vdFooRoot = object.NewVDFromCVI("vd-foo-root", ns, object.PrecreatedCVIAlpineUEFIPerf,
 					vd.WithSize(ptr.To(resource.MustParse("512Mi"))),
 				)
-				vdBarRoot = object.NewHTTPVDAlpineUEFIPerf("vd-bar-root", ns,
+				vdBarRoot = object.NewVDFromCVI("vd-bar-root", ns, object.PrecreatedCVIAlpineUEFIPerf,
 					vd.WithSize(ptr.To(resource.MustParse("512Mi"))),
 				)
 
@@ -159,6 +159,8 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 	)
 
 	Describe("verifies interface name persistence after removing middle ClusterNetwork", func() {
+		cloudInitOpt := vm.WithProvisioningUserData(object.UbuntuCloudInit)
+
 		var (
 			vdRoot *v1alpha2.VirtualDisk
 			vm     *v1alpha2.VirtualMachine
@@ -174,15 +176,9 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 			By("Create VM with Main network and two additional ClusterNetworks", func() {
 				ns := f.Namespace().Name
 
-				vdRoot = vd.New(
-					vd.WithName("vd-root"),
-					vd.WithNamespace(ns),
-					vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-						URL: object.ImageURLUbuntu,
-					}),
-				)
+				vdRoot = object.NewVDFromCVI("vd-root", ns, object.PrecreatedCVIUbuntu)
 
-				vm = buildVMWithNetworks("vm", ns, vdRoot.Name, "192.168.1.20", true)
+				vm = buildVMWithNetworks("vm", ns, vdRoot.Name, "192.168.1.20", true, cloudInitOpt)
 				vm.Spec.Networks = append(vm.Spec.Networks, v1alpha2.NetworksSpec{
 					Type: v1alpha2.NetworksTypeClusterNetwork,
 					Name: util.ClusterNetworkName(secondAdditionalInterfaceVLANID),
@@ -244,7 +240,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 // buildVMWithNetworks creates a VM with optional Main + ClusterNetwork.
 // If hasMain is false, only ClusterNetwork is added (VM without Main network).
 // The additional network interface is eth1 when hasMain is true, eth0 otherwise.
-func buildVMWithNetworks(name, ns, vdRootName, additionalIP string, hasMain bool) *v1alpha2.VirtualMachine {
+func buildVMWithNetworks(name, ns, vdRootName, additionalIP string, hasMain bool, extraOpts ...vm.Option) *v1alpha2.VirtualMachine {
 	opts := []vm.Option{
 		vm.WithName(name),
 		vm.WithNamespace(ns),
@@ -271,6 +267,7 @@ func buildVMWithNetworks(name, ns, vdRootName, additionalIP string, hasMain bool
 			Name: util.ClusterNetworkName(additionalInterfaceVLANID),
 		}),
 	)
+	opts = append(opts, extraOpts...)
 	return vm.New(opts...)
 }
 

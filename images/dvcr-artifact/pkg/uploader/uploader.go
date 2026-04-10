@@ -280,6 +280,12 @@ func (app *uploadServerApp) healthzHandler(w http.ResponseWriter, _ *http.Reques
 }
 
 func (app *uploadServerApp) validateShouldHandleRequest(w http.ResponseWriter, r *http.Request) bool {
+	// This method is used to signal that ingress is configured and the server can upload user data.
+	if r.Method == http.MethodGet {
+		w.WriteHeader(http.StatusOK)
+		return false
+	}
+
 	if r.Method != http.MethodPost && r.Method != http.MethodPut {
 		w.WriteHeader(http.StatusNotFound)
 		return false

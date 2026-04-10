@@ -176,10 +176,10 @@ var _ = Describe("LifecycleHandler", func() {
 		),
 
 		// AlwaysForced cases.
-		Entry("should become Failed for AlwaysForced and force=nil",
+		Entry("is ok for AlwaysForced and force=nil",
 			newVMOPEvictPending(),
 			v1alpha2.AlwaysForcedMigrationPolicy,
-			v1alpha2.VMOPPhaseFailed,
+			v1alpha2.VMOPPhasePending,
 		),
 		Entry("should become Failed for AlwaysForced and force=false",
 			newVMOPEvictPending(vmopbuilder.WithForce(ptr.To(false))),
@@ -209,6 +209,41 @@ var _ = Describe("LifecycleHandler", func() {
 			v1alpha2.VMOPPhasePending,
 		),
 	)
+
+	It("should keep migration scheduling in progress after migration starts", func() {
+		vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
+		vm.Status.Conditions = []metav1.Condition{{
+			Type:   string(vmcondition.TypeMigrating),
+			Reason: string(vmcondition.ReasonReadyToMigrate),
+		}}
+		vmop := newVMOPMigrate()
+		vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+
+		mig := &virtv1.VirtualMachineInstanceMigration{}
+		mig.Namespace = namespace
+		mig.Name = fmt.Sprintf("vmop-%s", vmop.Name)
+		mig.Status.Phase = virtv1.MigrationScheduling
+		mig.OwnerReferences = []metav1.OwnerReference{{
+			Kind:       "VirtualMachineOperation",
+			Name:       vmop.Name,
+			UID:        vmop.UID,
+			Controller: ptr.To(true),
+		}}
+		mig.Spec.VMIName = name
+
+		fakeClient, srv = setupEnvironment(vmop, vm, mig)
+		migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
+		base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
+
+		h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
+		_, err := h.Handle(ctx, srv.Changed())
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhaseInProgress))
+		completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
+		Expect(found).To(BeTrue())
+		Expect(completed.Reason).To(Equal(vmopcondition.ReasonMigrationPrepareTarget.String()))
+	})
 
 	DescribeTable("TargetMigration", func(vmPolicy v1alpha2.LiveMigrationPolicy, nodeSelector map[string]string, targetMigrationEnabled bool) {
 		vm := newVM(vmPolicy)

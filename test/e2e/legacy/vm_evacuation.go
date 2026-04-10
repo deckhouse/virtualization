@@ -32,9 +32,10 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 )
 
-var _ = Describe("VirtualMachineEvacuation", Ordered, func() {
+var _ = Describe("VirtualMachineEvacuation", Ordered, label.Legacy(), func() {
 	testCaseLabel := map[string]string{"testcase": "vm-evacuation"}
 	kubeClient := framework.GetClients().KubeClient()
 	var ns string

@@ -24,9 +24,10 @@ import (
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 )
 
-var _ = Describe("VirtualMachineVersions", Ordered, func() {
+var _ = Describe("VirtualMachineVersions", Ordered, label.Legacy(), func() {
 	testCaseLabel := map[string]string{"testcase": "vm-versions"}
 	var ns string
 

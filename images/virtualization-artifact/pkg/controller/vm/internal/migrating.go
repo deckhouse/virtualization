@@ -169,10 +169,10 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 			cb.Message(fmt.Sprintf("Migration is pending: %s.", completed.Message))
 
 		case vmopcondition.ReasonMigrationPrepareTarget.String(), vmopcondition.ReasonTargetPreparing.String(), vmopcondition.ReasonDisksPreparing.String():
-			cb.Message("Migration is awaiting target preparation.")
+			cb.Message("Migration is in progress: target pod is being scheduled and prepared.")
 
 		case vmopcondition.ReasonMigrationTargetReady.String(), vmopcondition.ReasonSyncing.String(), vmopcondition.ReasonSourceSuspended.String(), vmopcondition.ReasonTargetResumed.String():
-			cb.Message("Migration is awaiting execution.")
+			cb.Message("Migration is in progress: source and target are being synchronized.")
 
 		case vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate.String():
 			// 3.1 Check if virtual disks can be migrated or ready to migrate

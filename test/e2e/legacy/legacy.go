@@ -72,6 +72,9 @@ func configure() (err error) {
 	if err = config.CheckWithPostCleanUpOption(); err != nil {
 		return err
 	}
+	if err = config.CheckPrecreatedCVICleanupOption(); err != nil {
+		return err
+	}
 
 	conf = framework.GetConfig()
 	defer framework.SetConfig(conf)

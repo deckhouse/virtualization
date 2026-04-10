@@ -82,13 +82,7 @@ var _ = Describe("DataExports", label.Slow(), func() {
 		)
 
 		By("Creating root and data disks", func() {
-			vdRoot = vdbuilder.New(
-				vdbuilder.WithName("vd-root"),
-				vdbuilder.WithNamespace(f.Namespace().Name),
-				vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: object.ImageURLUbuntu,
-				}),
-			)
+			vdRoot = object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIUbuntu)
 
 			vdData = vdbuilder.New(
 				vdbuilder.WithName("vd-data"),
@@ -113,7 +107,7 @@ var _ = Describe("DataExports", label.Slow(), func() {
 					v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: vdData.Name},
 				),
 				vmbuilder.WithRunPolicy(v1alpha2.AlwaysOnUnlessStoppedManually),
-				vmbuilder.WithProvisioningUserData(object.DefaultCloudInit),
+				vmbuilder.WithProvisioningUserData(object.UbuntuCloudInit),
 			)
 
 			err := f.CreateWithDeferredDeletion(context.Background(), vm)
@@ -270,12 +264,13 @@ func exportData(f *framework.Framework, resourceType, name, outputFile string) {
 		OutputFile: outputFile,
 		Publish:    needPublishOption(f),
 		Timeout:    framework.LongTimeout,
+		Cleanup:    true,
 	}
 	if IsNFS() {
 		opts.SourcePath = diskImageExportFile
 	}
-	result := f.D8Virtualization().DataExportDownload(resourceType, name, opts)
-	Expect(result.WasSuccess()).To(BeTrue(), "d8 data export download failed: %s", result.StdErr())
+	err := f.D8Virtualization().DataExportDownload(resourceType, name, opts)
+	Expect(err).NotTo(HaveOccurred())
 
 	DeferCleanup(func() {
 		err := os.Remove(outputFile)
@@ -299,20 +294,6 @@ func createUploadDisk(f *framework.Framework, name string) *v1alpha2.VirtualDisk
 	return vd
 }
 
-func retry(maxRetries int, fn func() error) error {
-	var lastErr error
-	for attempt := 1; attempt <= maxRetries; attempt++ {
-		if err := fn(); err != nil {
-			lastErr = err
-			GinkgoWriter.Printf("Attempt %d/%d failed: %v\n", attempt, maxRetries, err)
-			time.Sleep(time.Duration(attempt) * time.Second)
-			continue
-		}
-		return nil
-	}
-	return fmt.Errorf("failed after %d attempts: %w", maxRetries, lastErr)
-}
-
 func uploadFile(f *framework.Framework, vd *v1alpha2.VirtualDisk, filePath string) {
 	err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vd), vd)
 	Expect(err).NotTo(HaveOccurred())
@@ -328,14 +309,7 @@ func uploadFile(f *framework.Framework, vd *v1alpha2.VirtualDisk, filePath strin
 	}
 	uploadURL := vd.Status.ImageUploadURLs.External
 
-	// During the upload of a VirtualDisk of type 'Upload', there is a bug:
-	//  when the VirtualDisk is in the 'DiskWaitForUserUpload' phase,
-	//  nginx may not be ready yet and can return 413 or 503 errors.
-	//  Once this bug is fixed, the retry mechanism must be removed.
-	const maxRetries = 5
-	err = retry(maxRetries, func() error {
-		return doUploadAttempt(httpClient, uploadURL, filePath)
-	})
+	err = doUploadAttempt(httpClient, uploadURL, filePath)
 	Expect(err).NotTo(HaveOccurred(), "Upload failed")
 }
 
