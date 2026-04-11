@@ -3000,6 +3000,19 @@ Important considerations when working with additional network interfaces:
 When configuring network interfaces in the guest OS, use stable identifiers (predictable names `enpXsY` or MAC address binding) instead of `ethX` names. For more details, see the [Network interface naming in guest OS](#network-interface-naming-in-guest-os) section.
 {{< /alert >}}
 
+{{< alert level="info" >}}
+On a Linux guest with multiple IPv4 interfaces in different subnets, the kernel may exhibit ARP flux: neighboring hosts can cache incorrect IPv4-to-MAC mappings, and taking one interface down may disrupt reachability to addresses on another interface. This behavior is defined by the guest OS.
+
+To fix this, run on the guest:
+
+```bash
+sysctl -w net.ipv4.conf.all.arp_ignore=1
+sysctl -w net.ipv4.conf.all.arp_announce=2
+```
+
+For more details, see the [IP sysctl](https://docs.kernel.org/networking/ip-sysctl.html) documentation.
+{{< /alert >}}
+
 Example of connecting a VM to the main cluster network and the project network `user-net`:
 
 ```yaml
