@@ -62,7 +62,6 @@ type SSHOptions struct {
 }
 
 func DefaultSSHOptions() SSHOptions {
-
 	options := SSHOptions{
 		SSHPort:                   22,
 		SSHUsername:               defaultUsername(),

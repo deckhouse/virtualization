@@ -17,7 +17,7 @@ tasks:
       - echo "Check that ~/.local/bin in your PATH"
       - echo "Installing d8v to ~/.local/bin"
       - mkdir -p ~/.local/bin
-      - cp .d8v ~/.local/bin/d8v
+      - cp ./d8v ~/.local/bin/d8v
       - task: clean
   clean:
     desc: "Clean up build artifacts"
