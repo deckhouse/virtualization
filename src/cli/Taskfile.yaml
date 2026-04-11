@@ -8,7 +8,8 @@ tasks:
   build:
     desc: "Build d8v cli"
     cmds:
-      - go build -o .out/d8v cmd/main.go
+      - echo Build binary ./d8v ...
+      - go build -o ./d8v cmd/main.go
   install:
     desc: "Install d8v cli to ~/.local/bin"
     deps: [build]
@@ -16,12 +17,12 @@ tasks:
       - echo "Check that ~/.local/bin in your PATH"
       - echo "Installing d8v to ~/.local/bin"
       - mkdir -p ~/.local/bin
-      - cp .out/d8v ~/.local/bin/d8v
+      - cp .d8v ~/.local/bin/d8v
       - task: clean
   clean:
     desc: "Clean up build artifacts"
     cmds:
-      - rm -rf .out
+      - test -f ./d8v && rm -rf ./d8v
 
   lint:
     desc: "Run linters locally"
