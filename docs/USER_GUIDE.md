@@ -3001,13 +3001,23 @@ When configuring network interfaces in the guest OS, use stable identifiers (pre
 {{< /alert >}}
 
 {{< alert level="info" >}}
-On a Linux guest with multiple IPv4 interfaces in different subnets, the kernel may exhibit ARP flux: neighboring hosts can cache incorrect IPv4-to-MAC mappings, and taking one interface down may disrupt reachability to addresses on another interface. This behavior is defined by the guest OS.
+On a Linux guest system with multiple interfaces in the same subnet, the ARP Flux issue may occur, where the kernel responds to ARP requests via any arbitrary interface rather than the one the request was received on, leading to unstable connections and packet loss due to an incorrect MAC address in the router's ARP cache.
 
-To fix this, run on the guest:
+To resolve this, set the following parameters to force the system to respond to requests strictly via the interface holding the target IP and to use the correct source address:
 
 ```bash
 sysctl -w net.ipv4.conf.all.arp_ignore=1
 sysctl -w net.ipv4.conf.all.arp_announce=2
+```
+
+Cloud-init example:
+
+```yaml
+write_files:
+  - path: /etc/sysctl.d/90-arp-strict.conf
+    content: |
+      net.ipv4.conf.all.arp_ignore=1
+      net.ipv4.conf.all.arp_announce=2
 ```
 
 For more details, see the [IP sysctl](https://docs.kernel.org/networking/ip-sysctl.html) documentation.
@@ -3638,7 +3648,7 @@ USB device passthrough follows a defined lifecycle — from device discovery on 
 
 The following steps describe the minimal workflow for attaching a USB device to a virtual machine:
 
-1. Connect the USB device to a cluster node. 
+1. Connect the USB device to a cluster node.
 1. Verify that a NodeUSBDevice resource has been created:
 
    ```bash
@@ -3846,7 +3856,7 @@ Status:
 ```
 
 {{< alert level="info" >}}
-If a USB device is physically disconnected from the node, the `Attached` condition becomes `False`.  
+If a USB device is physically disconnected from the node, the `Attached` condition becomes `False`.
 Both `USBDevice` and `NodeUSBDevice` resources update their status conditions to indicate that the device is no longer present on the host.
 {{< /alert >}}
 
@@ -3886,4 +3896,3 @@ If you are exporting data from a machine other than a cluster node (for example,
 {{< alert level="info" >}}
 To import a downloaded disk back into the cluster, upload it as an [image](#load-an-image-from-the-command-line) or as a [disk](#upload-a-disk-from-the-command-line).
 {{< /alert >}}
-
