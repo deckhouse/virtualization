@@ -21,8 +21,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"k8s.io/component-base/featuregate"
 	"sigs.k8s.io/yaml"
 
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -31,6 +33,7 @@ func TestActionRequiredOnCompare(t *testing.T) {
 		title       string
 		currentSpec string
 		desiredSpec string
+		features    []featuregate.Feature
 		assertFn    func(t *testing.T, changes SpecChanges)
 	}{
 		{
@@ -43,6 +46,7 @@ cpu:
 cpu:
   cores: 3
 `,
+			nil,
 			assertChanges(
 				actionRequired(ActionRestart),
 				requirePathOperation("cpu.cores", ChangeReplace),
@@ -60,6 +64,7 @@ cpu:
   cores: 2
   coreFraction: 40%
 `,
+			nil,
 			assertChanges(
 				actionRequired(ActionRestart),
 				requirePathOperation("cpu.coreFraction", ChangeReplace),
@@ -77,6 +82,7 @@ cpu:
   cores: 6
   coreFraction: 40%
 `,
+			nil,
 			assertChanges(
 				actionRequired(ActionRestart),
 				requirePathOperation("cpu", ChangeReplace),
@@ -93,6 +99,7 @@ cpu:
   cores: 2
   coreFraction: 100%
 `,
+			nil,
 			assertChanges(
 				actionRequired(ActionNone),
 				requirePathOperation("cpu.coreFraction", ChangeAdd),
@@ -109,21 +116,119 @@ cpu:
 cpu:
   cores: 2
 `,
+			nil,
 			assertChanges(
 				actionRequired(ActionNone),
 				requirePathOperation("cpu.coreFraction", ChangeRemove),
 			),
 		},
 		{
-			"restart on memory.size change",
+			"restart on memory.size change: no hotplug",
+			`
+memory:
+  size: 256Mi
+`,
+			`
+memory:
+  size: 512Mi
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionRestart),
+				requirePathOperation("memory.size", ChangeReplace),
+			),
+		},
+		{
+			"restart on memory.size change: enable hotplug",
+			`
+memory:
+  size: 384Mi
+`,
+			`
+memory:
+  size: 2Gi
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionRestart),
+				requirePathOperation("memory.size", ChangeReplace),
+			),
+		},
+		{
+			"restart on memory.size change: disable hotplug",
+			`
+memory:
+  size: 3Gi
+`,
+			`
+memory:
+  size: 128Mi
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionRestart),
+				requirePathOperation("memory.size", ChangeReplace),
+			),
+		},
+		{
+			"immediate apply on memory.size increase when hotplug is enabled",
 			`
 memory:
   size: 2Gi
 `,
 			`
 memory:
-  size: 1Gi
+  size: 4Gi
 `,
+			[]featuregate.Feature{featuregates.HotplugMemoryWithLiveMigration},
+			assertChanges(
+				actionRequired(ActionApplyImmediate),
+				requirePathOperation("memory.size", ChangeReplace),
+			),
+		},
+		{
+			"restart on memory.size increase when hotplug is disabled",
+			`
+memory:
+  size: 2Gi
+`,
+			`
+memory:
+  size: 4Gi
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionRestart),
+				requirePathOperation("memory.size", ChangeReplace),
+			),
+		},
+		{
+			"restart on memory.size reduce when hotplug is enabled",
+			`
+memory:
+  size: 4Gi
+`,
+			`
+memory:
+  size: 2Gi
+`,
+			[]featuregate.Feature{featuregates.HotplugMemoryWithLiveMigration},
+			assertChanges(
+				actionRequired(ActionRestart),
+				requirePathOperation("memory.size", ChangeReplace),
+			),
+		},
+		{
+			"restart on memory.size reduce when hotplug is disabled",
+			`
+memory:
+  size: 4Gi
+`,
+			`
+memory:
+  size: 2Gi
+`,
+			nil,
 			assertChanges(
 				actionRequired(ActionRestart),
 				requirePathOperation("memory.size", ChangeReplace),
@@ -137,6 +242,7 @@ blockDeviceRefs:
 - kind: VirtualImage
   name: linux
 `,
+			nil,
 			assertChanges(
 				actionRequired(ActionApplyImmediate),
 				requirePathOperation("blockDeviceRefs", ChangeAdd),
@@ -150,6 +256,7 @@ blockDeviceRefs:
   name: linux
 `,
 			``,
+			nil,
 			assertChanges(
 				actionRequired(ActionApplyImmediate),
 				requirePathOperation("blockDeviceRefs", ChangeRemove),
@@ -158,17 +265,20 @@ blockDeviceRefs:
 		{
 			"apply immediate on blockDeviceRefs add disk",
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualImage
   name: linux
 `,
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualDisk
   name: linux
 - kind: VirtualImage
   name: linux
 `,
+			nil,
 			assertChanges(
 				actionRequired(ActionApplyImmediate),
 				requirePathOperation("blockDeviceRefs.0", ChangeAdd),
@@ -177,6 +287,7 @@ blockDeviceRefs:
 		{
 			"apply immediate on blockDeviceRefs remove disk",
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualDisk
   name: linux
@@ -184,18 +295,43 @@ blockDeviceRefs:
   name: linux
 `,
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualImage
   name: linux
 `,
+			nil,
 			assertChanges(
 				actionRequired(ActionApplyImmediate),
 				requirePathOperation("blockDeviceRefs.0", ChangeRemove),
 			),
 		},
 		{
+			"restart on blockDeviceRefs remove disk with paravirt disabled",
+			`
+enableParavirtualization: false
+blockDeviceRefs:
+- kind: VirtualDisk
+  name: linux
+- kind: VirtualImage
+  name: linux
+`,
+			`
+enableParavirtualization: false
+blockDeviceRefs:
+- kind: VirtualImage
+  name: linux
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionRestart),
+				requirePathOperation("blockDeviceRefs.0", ChangeRemove),
+			),
+		},
+		{
 			"apply immediate on blockDeviceRefs change order",
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualImage
   name: linux
@@ -203,12 +339,14 @@ blockDeviceRefs:
   name: linux
 `,
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualDisk
   name: linux
 - kind: VirtualImage
   name: linux
 `,
+			nil,
 			assertChanges(
 				actionRequired(ActionApplyImmediate),
 				requirePathOperation("blockDeviceRefs.0", ChangeReplace),
@@ -218,6 +356,7 @@ blockDeviceRefs:
 		{
 			"apply immediate on blockDeviceRefs change order :: bigger",
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualImage
   name: linux
@@ -232,6 +371,7 @@ blockDeviceRefs:
 `,
 			// Change order: 12345 -> 25341
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualDisk
   name: linux
@@ -244,6 +384,7 @@ blockDeviceRefs:
 - kind: VirtualImage
   name: linux
 `,
+			nil,
 			assertChanges(
 				actionRequired(ActionApplyImmediate),
 				requirePathOperation("blockDeviceRefs.0", ChangeReplace),
@@ -261,6 +402,7 @@ provisioning:
   userData: |
     #cloudinit
 `,
+			nil,
 			assertChanges(
 				actionRequired(ActionRestart),
 				requirePathOperation("provisioning", ChangeAdd),
@@ -276,6 +418,7 @@ provisioning:
     name: cloud-init-secret
 `,
 			"",
+			nil,
 			assertChanges(
 				actionRequired(ActionRestart),
 				requirePathOperation("provisioning", ChangeRemove),
@@ -296,6 +439,7 @@ provisioning:
   userData: |
     #cloudinit
 `,
+			nil,
 			assertChanges(
 				actionRequired(ActionRestart),
 				requirePathOperation("provisioning", ChangeReplace),
@@ -317,6 +461,7 @@ provisioning:
     kind: Secret
     name: provisioning-secret
 `,
+			nil,
 			assertChanges(
 				actionRequired(ActionRestart),
 				requirePathOperation("provisioning.userDataRef.name", ChangeReplace),
@@ -330,6 +475,7 @@ enableParavirtualization: true
 			`
 enableParavirtualization: false
 `,
+			nil,
 			assertChanges(
 				actionRequired(ActionRestart),
 				requirePathOperation("enableParavirtualization", ChangeReplace),
@@ -343,6 +489,7 @@ enableParavirtualization: false
 			`
 enableParavirtualization: true
 `,
+			nil,
 			assertChanges(
 				actionRequired(ActionRestart),
 				requirePathOperation("enableParavirtualization", ChangeReplace),
@@ -364,6 +511,7 @@ networks:
   name: net1
   id: 2
 `,
+			nil,
 			assertChanges(
 				actionRequired(ActionNone),
 				requirePathOperation("networks", ChangeReplace),
@@ -377,7 +525,12 @@ networks:
 			currentSpec := loadVMSpec(t, tt.currentSpec)
 			desiredSpec := loadVMSpec(t, tt.desiredSpec)
 
-			changes = CompareVMSpecs(currentSpec, desiredSpec)
+			gate := featuregates.Default()
+			if len(tt.features) > 0 {
+				gate = newFeatureGate(t, tt.features...)
+			}
+
+			changes = NewVMSpecComparator(gate).Compare(currentSpec, desiredSpec)
 
 			defer func() {
 				if t.Failed() {
@@ -447,4 +600,24 @@ func changesToYAML(changes SpecChanges) string {
 
 	res, _ := yaml.Marshal(status)
 	return string(res)
+}
+
+func newFeatureGate(t *testing.T, enabled ...featuregate.Feature) featuregate.FeatureGate {
+	t.Helper()
+
+	gate, setFromMap, err := featuregates.NewUnlocked()
+	if err != nil {
+		t.Fatalf("failed to create feature gate: %v", err)
+	}
+
+	featureMap := map[string]bool{}
+	for _, feature := range enabled {
+		featureMap[string(feature)] = true
+	}
+
+	if err = setFromMap(featureMap); err != nil {
+		t.Fatalf("failed to set USB feature gate: %v", err)
+	}
+
+	return gate
 }

@@ -18,7 +18,7 @@ env:
   CSI: rbd.csi.ceph.com
   STORAGE_CLASS_NAME: ceph-pool-r2-csi-rbd-immediate
   CI_COMMIT_REF_NAME: ${{ github.ref_name }}
-  GO_VERSION: "1.25.8"
+  GO_VERSION: "1.25.9"
   TIMEOUT: "3h"
 
 on:
@@ -68,12 +68,6 @@ jobs:
         run: |
           echo "Download dependencies"
           go mod download
-
-      - name: Set URL
-        working-directory: ./test/e2e/
-        run: |
-          echo "Set URL"
-          task set-url:ci
 
       - name: Run E2E
         id: e2e-tests

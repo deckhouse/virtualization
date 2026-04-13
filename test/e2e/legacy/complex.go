@@ -28,6 +28,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
@@ -36,13 +37,12 @@ const (
 	antiAffinityLabel = "anti-affinity"
 )
 
-var _ = Describe("ComplexTest", Ordered, func() {
+var _ = Describe("ComplexTest", Ordered, label.Legacy(), func() {
 	var (
 		testCaseLabel            = map[string]string{"testcase": "complex-test"}
 		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "complex-test"}
 		ns                       string
 		phaseByVolumeBindingMode = util.GetExpectedDiskPhaseByVolumeBindingMode()
-		f                        = framework.NewFramework("")
 	)
 
 	AfterEach(func() {
@@ -95,17 +95,6 @@ var _ = Describe("ComplexTest", Ordered, func() {
 		})
 	})
 
-	Context("When cluster virtual images are applied", func() {
-		It("checks CVIs phases", func() {
-			By(fmt.Sprintf("CVIs should be in %s phases", PhaseReady))
-			WaitPhaseByLabel(kc.ResourceCVI, PhaseReady, kc.WaitOptions{
-				Labels:    testCaseLabel,
-				Namespace: ns,
-				Timeout:   MaxWaitTimeout,
-			})
-		})
-	})
-
 	Context("When virtual machine classes are applied", func() {
 		It("checks VMClasses phases", func() {
 			By(fmt.Sprintf("VMClasses should be in %s phases", PhaseReady))
@@ -117,23 +106,25 @@ var _ = Describe("ComplexTest", Ordered, func() {
 		})
 	})
 
-	Context("When virtual machines IP addresses are applied", func() {
-		It("patches custom VMIP with unassigned address", func() {
-			vmipName := fmt.Sprintf("%s-%s", namePrefix, "vm-custom-ip")
-			Eventually(func() error {
-				return AssignIPToVMIP(f, ns, vmipName)
-			}).WithTimeout(LongWaitDuration).WithPolling(Interval).Should(Succeed())
-		})
+	// TODO: Creating a VMIP outside the allowed range is now rejected by the webhook.
+	// Re-enable this when we figure out how to keep the test coverage.
+	// Context("When virtual machines IP addresses are applied", func() {
+	// 	It("patches custom VMIP with unassigned address", func() {
+	// 		vmipName := fmt.Sprintf("%s-%s", namePrefix, "vm-custom-ip")
+	// 		Eventually(func() error {
+	// 			return AssignIPToVMIP(f, ns, vmipName)
+	// 		}).WithTimeout(LongWaitDuration).WithPolling(Interval).Should(Succeed())
+	// 	})
 
-		It("checks VMIPs phases", func() {
-			By(fmt.Sprintf("VMIPs should be in %s phases", PhaseAttached))
-			WaitPhaseByLabel(kc.ResourceVMIP, PhaseAttached, kc.WaitOptions{
-				Labels:    testCaseLabel,
-				Namespace: ns,
-				Timeout:   MaxWaitTimeout,
-			})
-		})
-	})
+	// 	It("checks VMIPs phases", func() {
+	// 		By(fmt.Sprintf("VMIPs should be in %s phases", PhaseAttached))
+	// 		WaitPhaseByLabel(kc.ResourceVMIP, PhaseAttached, kc.WaitOptions{
+	// 			Labels:    testCaseLabel,
+	// 			Namespace: ns,
+	// 			Timeout:   MaxWaitTimeout,
+	// 		})
+	// 	})
+	// })
 
 	Context("When virtual disks are applied", func() {
 		It("checks VDs phases with consumers", func() {

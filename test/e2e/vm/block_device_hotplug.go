@@ -73,7 +73,7 @@ var _ = Describe("VirtualMachineBlockDeviceHotplug", Ordered, func() {
 			vmbuilder.WithMemory(resource.MustParse("256Mi")),
 			vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 			vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
-			vmbuilder.WithProvisioningUserData(object.DefaultCloudInit),
+			vmbuilder.WithProvisioningUserData(object.AlpineCloudInit),
 			vmbuilder.WithBlockDeviceRefs(
 				v1alpha2.BlockDeviceSpecRef{
 					Kind: v1alpha2.DiskDevice,

@@ -115,7 +115,10 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 			}
 		}
 		if createdCount < expectedMACAddresses {
-			macsToCreate := countNetworksWithMACRequest(vm.Spec.Networks, vmmacs) - createdCount
+			macsToCreate := expectedMACAddresses - len(vmmacs) - createdCount
+			if macsToCreate < 0 {
+				macsToCreate = 0
+			}
 			for i := 0; i < macsToCreate; i++ {
 				err = h.macManager.CreateMACAddress(ctx, vm, h.client, "")
 				if err != nil {
@@ -176,26 +179,4 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 
 func (h *MACHandler) Name() string {
 	return nameMACHandler
-}
-
-func countNetworksWithMACRequest(networkSpec []v1alpha2.NetworksSpec, vmmacs []*v1alpha2.VirtualMachineMACAddress) int {
-	existingMACNames := make(map[string]bool)
-	for _, vmmac := range vmmacs {
-		existingMACNames[vmmac.Name] = true
-	}
-
-	count := 0
-	for _, ns := range networkSpec {
-		if ns.Type == v1alpha2.NetworksTypeMain {
-			continue
-		}
-
-		if ns.VirtualMachineMACAddressName == "" {
-			count++
-		} else if !existingMACNames[ns.VirtualMachineMACAddressName] {
-			count++
-		}
-	}
-
-	return count
 }

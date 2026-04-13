@@ -78,6 +78,11 @@ func compareBlockDevices(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 		_, isSwapped := swapped[idx]
 		itemPath := blockDevicesItemPath(idx)
 
+		action := ActionApplyImmediate
+		if !current.EnableParavirtualization {
+			action = ActionRestart
+		}
+
 		switch {
 		case isAdded && isRemoved:
 			// Compact add+remove for the same index into one replace.
@@ -86,21 +91,21 @@ func compareBlockDevices(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 				Path:           itemPath,
 				CurrentValue:   current.BlockDeviceRefs[idx],
 				DesiredValue:   desired.BlockDeviceRefs[idx],
-				ActionRequired: ActionApplyImmediate,
+				ActionRequired: action,
 			})
 		case isAdded:
 			changes = append(changes, FieldChange{
 				Operation:      ChangeAdd,
 				Path:           itemPath,
 				DesiredValue:   desired.BlockDeviceRefs[idx],
-				ActionRequired: ActionApplyImmediate,
+				ActionRequired: action,
 			})
 		case isRemoved:
 			changes = append(changes, FieldChange{
 				Operation:      ChangeRemove,
 				Path:           itemPath,
 				CurrentValue:   current.BlockDeviceRefs[idx],
-				ActionRequired: ActionApplyImmediate,
+				ActionRequired: action,
 			})
 		case isSwapped:
 			changes = append(changes, FieldChange{
@@ -108,7 +113,7 @@ func compareBlockDevices(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 				Path:           itemPath,
 				CurrentValue:   current.BlockDeviceRefs[idx],
 				DesiredValue:   desired.BlockDeviceRefs[idx],
-				ActionRequired: ActionApplyImmediate,
+				ActionRequired: action,
 			})
 		}
 	}

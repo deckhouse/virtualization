@@ -5,9 +5,10 @@ metadata:
   name: vd-alpine-http
 spec:
   dataSource:
-    type: HTTP
-    http:
-      url: https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/alpine/alpine-3-23-3-bios-base.qcow2
+    type: ObjectRef
+    objectRef:
+      kind: ClusterVirtualImage
+      name: v12n-e2e-alpine-bios
   persistentVolumeClaim:
     storageClassName: "{{ .STORAGE_CLASS_NAME }}"
     size: 350Mi

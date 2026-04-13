@@ -5,7 +5,6 @@ namePrefix: pr-number-or-commit-hash-
 resources:
   - ns.yaml
   - vi
-  - cvi
   - overlays/image-hotplug
 configurations:
   - transformer.yaml

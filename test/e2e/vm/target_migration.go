@@ -59,9 +59,10 @@ var _ = Describe("TargetMigration", func() {
 
 	It("checks if a VirtualMachine can be migrated to the target Node", func() {
 		By("Environment preparation", func() {
-			virtualDisk := object.NewHTTPVDAlpineBIOS(
+			virtualDisk := object.NewVDFromCVI(
 				"vd-root",
 				f.Namespace().Name,
+				object.PrecreatedCVIAlpineBIOS,
 			)
 
 			virtualMachine = object.NewMinimalVM(

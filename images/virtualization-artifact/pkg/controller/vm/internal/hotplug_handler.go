@@ -57,6 +57,10 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 		return reconcile.Result{}, err
 	}
 
+	if !current.Spec.EnableParavirtualization {
+		return reconcile.Result{}, nil
+	}
+
 	if current.Status.Phase == v1alpha2.MachineMigrating {
 		log.Info("VM is migrating, skip hotplug")
 		return reconcile.Result{}, nil

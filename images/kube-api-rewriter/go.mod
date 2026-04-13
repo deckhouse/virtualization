@@ -1,6 +1,6 @@
 module github.com/deckhouse/virtualization/kube-api-rewriter
 
-go 1.25.8
+go 1.25.9
 
 require (
 	github.com/deckhouse/kube-api-rewriter v0.1.2

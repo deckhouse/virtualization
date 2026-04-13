@@ -9,5 +9,5 @@ spec:
   dataSource:
     type: ObjectRef
     objectRef:
-      kind: VirtualImage
-      name: vi-alpine-http
+      kind: ClusterVirtualImage
+      name: v12n-e2e-alpine-bios

@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"strconv"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -34,6 +36,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/nodeaffinity"
 	"github.com/deckhouse/virtualization-controller/pkg/common/resource_builder"
 	"github.com/deckhouse/virtualization-controller/pkg/common/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -47,6 +50,19 @@ const (
 
 	// GenericCPUModel specifies the base CPU model for Features and Discovery CPU model types.
 	GenericCPUModel = "qemu64"
+
+	MaxMemorySizeForHotplug      = 256 * 1024 * 1024 * 1024 // 256 Gi (safely limit to not overlap somewhat conservative 38 bit physical address space)
+	EnableMemoryHotplugThreshold = 1 * 1024 * 1024 * 1024   // 1 Gi (no hotplug for VMs with less than 1Gi)
+)
+
+const (
+	// VCPUTopologyDynamicCoresAnnotation annotation indicates "distributed by sockets" or "dynamic cores number" VCPU topology.
+	VCPUTopologyDynamicCoresAnnotation = "internal.virtualization.deckhouse.io/vcpu-topology-dynamic-cores"
+
+	CPUResourcesRequestsFractionAnnotation = "internal.virtualization.deckhouse.io/cpu-resources-requests-fraction"
+
+	// CPUMaxCoresPerSocket is a maximum number of cores per socket.
+	CPUMaxCoresPerSocket = 16
 )
 
 type KVVMOptions struct {
@@ -116,6 +132,17 @@ func (b *KVVM) SetKVVMIAnnotation(annoKey, annoValue string) {
 	}
 
 	anno[annoKey] = annoValue
+
+	b.Resource.Spec.Template.ObjectMeta.SetAnnotations(anno)
+}
+
+func (b *KVVM) RemoveKVVMIAnnotation(annoKey string) {
+	anno := b.Resource.Spec.Template.ObjectMeta.GetAnnotations()
+	if anno == nil {
+		return
+	}
+
+	delete(anno, annoKey)
 
 	b.Resource.Spec.Template.ObjectMeta.SetAnnotations(anno)
 }
@@ -244,6 +271,17 @@ func (b *KVVM) SetTopologySpreadConstraint(topology []corev1.TopologySpreadConst
 }
 
 func (b *KVVM) SetCPU(cores int, coreFraction string) error {
+	// Support for VMs started with cpu configuration in requests-limits.
+	// TODO delete this in the future (around 3-4 more versions after enabling cpu hotplug by default).
+	if b.ResourceExists && isVMRunningWithCPUResources(b.Resource) {
+		return b.setCPUNonHotpluggable(cores, coreFraction)
+	}
+	return b.setCPUHotpluggable(cores, coreFraction)
+}
+
+// setCPUNonHotpluggable translates cpu configuration to requests and limit in KVVM.
+// Note: this is a first implementation, cpu hotplug is not compatible with this strategy.
+func (b *KVVM) setCPUNonHotpluggable(cores int, coreFraction string) error {
 	domainSpec := &b.Resource.Spec.Template.Spec.Domain
 	if domainSpec.CPU == nil {
 		domainSpec.CPU = &virtv1.CPU{}
@@ -252,6 +290,7 @@ func (b *KVVM) SetCPU(cores int, coreFraction string) error {
 	if err != nil {
 		return err
 	}
+
 	cpuLimit := GetCPULimit(cores)
 	if domainSpec.Resources.Requests == nil {
 		domainSpec.Resources.Requests = make(map[corev1.ResourceName]resource.Quantity)
@@ -270,7 +309,57 @@ func (b *KVVM) SetCPU(cores int, coreFraction string) error {
 	return nil
 }
 
+// setCPUHotpluggable translates cpu configuration to settings in domain.cpu field.
+// This field is compatible with memory hotplug.
+// Also, remove requests-limits for memory if any.
+// Note: we swap cores and sockets to bypass vm-validation webhook.
+func (b *KVVM) setCPUHotpluggable(cores int, coreFraction string) error {
+	domainSpec := &b.Resource.Spec.Template.Spec.Domain
+	if domainSpec.CPU == nil {
+		domainSpec.CPU = &virtv1.CPU{}
+	}
+
+	fraction, err := GetCPUFraction(coreFraction)
+	if err != nil {
+		return err
+	}
+	b.SetKVVMIAnnotation(CPUResourcesRequestsFractionAnnotation, strconv.Itoa(fraction))
+
+	socketsNeeded, coresPerSocketNeeded := vm.CalculateCoresAndSockets(cores)
+	// Use "dynamic cores" hotplug strategy.
+	// Workaround: swap cores and sockets in domainSpec to bypass vm-validator webhook.
+	b.SetKVVMIAnnotation(VCPUTopologyDynamicCoresAnnotation, "")
+	domainSpec.CPU.Cores = uint32(socketsNeeded)
+	domainSpec.CPU.Sockets = uint32(coresPerSocketNeeded)
+	domainSpec.CPU.MaxSockets = CPUMaxCoresPerSocket
+
+	// Remove CPU limits and requests if set by previous implementation.
+	res := &b.Resource.Spec.Template.Spec.Domain.Resources
+	delete(res.Requests, corev1.ResourceCPU)
+	delete(res.Limits, corev1.ResourceCPU)
+
+	return nil
+}
+
+// SetMemory sets memory in kvvm.
+// There are 2 possibilities to set memory:
+// 1. Use domain.memory.guest field: it enabled memory hotplugging, but not set resources.limits.
+// 2. Explicitly set limits and requests in domain.resources. No hotplugging in this scenario.
+//
+// (1) is a new approach, and (2) should be respected for Running VMs started by previous version of the controller.
 func (b *KVVM) SetMemory(memorySize resource.Quantity) {
+	// Support for VMs started with memory size in requests-limits.
+	// TODO delete this in the future (around 3-4 more versions after enabling memory hotplug by default).
+	if b.ResourceExists && shouldKeepMemoryNonHotpluggable(b.Resource) {
+		b.setMemoryNonHotpluggable(memorySize)
+		return
+	}
+	b.setMemoryHotpluggable(memorySize)
+}
+
+// setMemoryNonHotpluggable translates memory size to requests and limits in KVVM.
+// Note: this is a first implementation, memory hotplug is not compatible with this strategy.
+func (b *KVVM) setMemoryNonHotpluggable(memorySize resource.Quantity) {
 	res := &b.Resource.Spec.Template.Spec.Domain.Resources
 	if res.Requests == nil {
 		res.Requests = make(map[corev1.ResourceName]resource.Quantity)
@@ -280,6 +369,108 @@ func (b *KVVM) SetMemory(memorySize resource.Quantity) {
 	}
 	res.Requests[corev1.ResourceMemory] = memorySize
 	res.Limits[corev1.ResourceMemory] = memorySize
+}
+
+// setMemoryHotpluggable translates memory size to settings in domain.memory field.
+// This field is compatible with memory hotplug.
+// Also, remove requests-limits for memory if any.
+func (b *KVVM) setMemoryHotpluggable(memorySize resource.Quantity) {
+	domain := &b.Resource.Spec.Template.Spec.Domain
+
+	currentMaxGuest := int64(-1)
+	if domain.Memory != nil && domain.Memory.MaxGuest != nil {
+		currentMaxGuest = domain.Memory.MaxGuest.Value()
+	}
+
+	domain.Memory = &virtv1.Memory{
+		Guest: &memorySize,
+	}
+
+	// Set maxMemory to enable hotplug for mem size >= 1Gi.
+	hotplugThreshold := resource.NewQuantity(EnableMemoryHotplugThreshold, resource.BinarySI)
+	if featuregates.Default().Enabled(featuregates.HotplugMemoryWithLiveMigration) {
+		if memorySize.Cmp(*hotplugThreshold) >= 0 {
+			maxMemory := resource.NewQuantity(MaxMemorySizeForHotplug, resource.BinarySI)
+			domain.Memory.MaxGuest = maxMemory
+		}
+	}
+	// Set maxGuest to 0 if hotplug is disabled now (mem size < 1Gi) and maxGuest was previously set.
+	// Zero value is just a flag to patch memory and remove maxGuest before updating kvvm.
+	if memorySize.Cmp(*hotplugThreshold) == -1 && currentMaxGuest > 0 {
+		domain.Memory.MaxGuest = resource.NewQuantity(0, resource.BinarySI)
+	}
+
+	// Remove memory limits and requests if set by previous implementation.
+	res := &b.Resource.Spec.Template.Spec.Domain.Resources
+	delete(res.Requests, corev1.ResourceMemory)
+	delete(res.Limits, corev1.ResourceMemory)
+}
+
+func isVMRunningWithCPUResources(kvvm *virtv1.VirtualMachine) bool {
+	if kvvm == nil {
+		return false
+	}
+
+	if kvvm.Status.PrintableStatus != virtv1.VirtualMachineStatusRunning {
+		return false
+	}
+
+	res := kvvm.Spec.Template.Spec.Domain.Resources
+	_, hasCPURequests := res.Requests[corev1.ResourceCPU]
+	_, hasCPULimits := res.Limits[corev1.ResourceCPU]
+
+	return hasCPURequests && hasCPULimits
+}
+
+func shouldKeepMemoryNonHotpluggable(kvvm *virtv1.VirtualMachine) bool {
+	if kvvm == nil {
+		return false
+	}
+
+	if kvvm.Status.PrintableStatus == virtv1.VirtualMachineStatusRunning || kvvm.Status.PrintableStatus == virtv1.VirtualMachineStatusMigrating {
+		// Running or Migrating machines with memory resources should keep as non-hotpluggable.
+		// Machines without memory resources should proceed as hotpluggable.
+		res := kvvm.Spec.Template.Spec.Domain.Resources
+		_, hasMemoryRequests := res.Requests[corev1.ResourceMemory]
+		_, hasMemoryLimits := res.Limits[corev1.ResourceMemory]
+
+		return hasMemoryRequests && hasMemoryLimits
+	}
+
+	// Proceed as hotpluggable if machine is not Running or Migrating.
+	return false
+}
+
+func GetCPUFraction(cpuFraction string) (int, error) {
+	if cpuFraction == "" {
+		return 100, nil
+	}
+	fraction := intstr.FromString(cpuFraction)
+	value, _, err := getIntOrPercentValueSafely(&fraction)
+	if err != nil {
+		return 0, fmt.Errorf("invalid value for cpu fraction: %w", err)
+	}
+	return value, nil
+}
+
+func getIntOrPercentValueSafely(intOrStr *intstr.IntOrString) (int, bool, error) {
+	switch intOrStr.Type {
+	case intstr.Int:
+		return intOrStr.IntValue(), false, nil
+	case intstr.String:
+		s := intOrStr.StrVal
+		if !strings.HasSuffix(s, "%") {
+			return 0, false, fmt.Errorf("invalid type: string is not a percentage")
+		}
+		s = strings.TrimSuffix(intOrStr.StrVal, "%")
+
+		v, err := strconv.Atoi(s)
+		if err != nil {
+			return 0, false, fmt.Errorf("invalid value %q: %w", intOrStr.StrVal, err)
+		}
+		return v, true, nil
+	}
+	return 0, false, fmt.Errorf("invalid type: neither int nor percentage")
 }
 
 func GetCPURequest(cores int, coreFraction string) (*resource.Quantity, error) {
@@ -321,6 +512,21 @@ func (b *KVVM) ClearDisks() {
 	b.Resource.Spec.Template.Spec.Volumes = nil
 }
 
+func (b *KVVM) getExistingDiskBus(name string) virtv1.DiskBus {
+	for _, d := range b.Resource.Spec.Template.Spec.Domain.Devices.Disks {
+		if d.Name != name {
+			continue
+		}
+		if d.CDRom != nil {
+			return d.CDRom.Bus
+		}
+		if d.Disk != nil {
+			return d.Disk.Bus
+		}
+	}
+	return ""
+}
+
 func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 	devPreset := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization)
 
@@ -332,6 +538,14 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 	} else {
 		dd.Disk = &virtv1.DiskTarget{
 			Bus: devPreset.DiskBus,
+		}
+	}
+
+	if existingBus := b.getExistingDiskBus(name); existingBus != "" {
+		if opts.IsCdrom {
+			dd.CDRom.Bus = existingBus
+		} else {
+			dd.Disk.Bus = existingBus
 		}
 	}
 
@@ -474,7 +688,7 @@ func (b *KVVM) SetProvisioning(p *v1alpha2.Provisioning) error {
 	}
 }
 
-func (b *KVVM) SetOsType(osType v1alpha2.OsType) error {
+func (b *KVVM) SetOSType(osType v1alpha2.OsType) error {
 	switch osType {
 	case v1alpha2.Windows:
 		// Need for `029-use-OFVM_CODE-for-linux.patch`
