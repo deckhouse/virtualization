@@ -902,4 +902,31 @@ var _ = Describe("LifecycleHandler", func() {
 			Expect(reason).To(Equal(vmopcondition.ReasonTargetPreparing))
 		})
 	})
+
+	DescribeTable("humanizeMigrationFailedMessage", func(message, expected string) {
+		Expect(humanizeMigrationFailedMessage(message)).To(Equal(expected))
+	},
+		Entry(
+			"should humanize unschedulable target pod timeout message",
+			"unschedulable target pod \"virt-launcher-bastion-demo-z7hcs\" was deleted due to timeout period expiration",
+			"No available nodes were found to place the target VM within the timeout period",
+		),
+		Entry(
+			"should keep other messages as is",
+			"some other migration failure",
+			"some other migration failure",
+		),
+	)
+
+	It("should use humanized message for migration failed condition", func() {
+		mig := newSimpleMigration("test", name)
+		mig.Status.Conditions = []virtv1.VirtualMachineInstanceMigrationCondition{{
+			Type:    virtv1.VirtualMachineInstanceMigrationFailed,
+			Status:  corev1.ConditionTrue,
+			Reason:  "SomeOtherReason",
+			Message: "unschedulable target pod \"virt-launcher-bastion-demo-z7hcs\" was deleted due to timeout period expiration",
+		}}
+
+		Expect(getMessageByMigrationFailedReason(mig)).To(Equal("No available nodes were found to place the target VM within the timeout period"))
+	})
 })
