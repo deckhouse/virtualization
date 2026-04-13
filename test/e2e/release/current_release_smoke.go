@@ -20,6 +20,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -45,55 +49,24 @@ const (
 	minDataDiskSizeBytes   = int64(50 * 1024 * 1024)
 	defaultRootDiskSize    = "350Mi"
 	defaultDataDiskSize    = "100Mi"
-	iperfDurationSeconds   = 5
+	releaseIPerfReportPath = "/tmp/release-upgrade-iperf-client-report.json"
+
+	releaseTestPhaseEnv          = "RELEASE_TEST_PHASE"
+	releaseTestPhasePreUpgrade   = "pre-upgrade"
+	releaseTestPhasePostUpgrade  = "post-upgrade"
+	releaseUpgradeContextPathEnv = "RELEASE_UPGRADE_CONTEXT_PATH"
+	releaseNamespaceEnv          = "RELEASE_NAMESPACE"
+	releaseUpgradeStartedAtEnv   = "RELEASE_UPGRADE_STARTED_AT"
 )
 
 var _ = Describe("CurrentReleaseSmoke", func() {
 	It("should validate current release virtual machines", func() {
-		f := framework.NewFramework("release-current")
-		f.Before()
-
-		test := newCurrentReleaseSmokeTest(f)
-
-		By("Creating root and hotplug virtual disks")
-		Expect(f.CreateWithDeferredDeletion(context.Background(), test.diskObjects()...)).To(Succeed())
-
-		By("Creating virtual machines")
-		Expect(f.CreateWithDeferredDeletion(context.Background(), test.vmObjects()...)).To(Succeed())
-		if runningVMs := test.initialRunningVMObjects(); len(runningVMs) > 0 {
-			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, runningVMs...)
+		switch getReleaseTestPhase() {
+		case releaseTestPhasePostUpgrade:
+			runPostUpgradeReleaseSmoke()
+		default:
+			runPreUpgradeReleaseSmoke()
 		}
-		if stoppedVMs := test.initialStoppedVMObjects(); len(stoppedVMs) > 0 {
-			util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.MiddleTimeout, stoppedVMs...)
-		}
-
-		By("Starting manual-policy virtual machines")
-		for _, vmScenario := range test.manualStartVMs() {
-			util.StartVirtualMachine(f, vmScenario.vm)
-		}
-		if startedVMs := test.manualStartVMObjects(); len(startedVMs) > 0 {
-			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, startedVMs...)
-		}
-
-		By("Attaching hotplug disks")
-		Expect(f.CreateWithDeferredDeletion(context.Background(), test.attachmentObjects()...)).To(Succeed())
-		util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.LongTimeout, test.attachmentObjects()...)
-
-		By("Waiting for all disks to become ready after consumers appear")
-		util.UntilObjectPhase(string(v1alpha2.DiskReady), framework.LongTimeout, test.diskObjects()...)
-
-		By("Waiting for guest agent and SSH access")
-		for _, vmScenario := range test.vms {
-			test.expectGuestReady(vmScenario.vm)
-		}
-
-		By("Checking attached disks inside guests")
-		for _, vmScenario := range test.vms {
-			test.expectAdditionalDiskCount(vmScenario.vm, vmScenario.expectedAdditionalDisks)
-		}
-
-		By("Running iperf smoke check between alpine guests")
-		test.expectIPerfConnectivity()
 	})
 })
 
@@ -149,7 +122,19 @@ type lsblkDevice struct {
 }
 
 type iperfReport struct {
-	End iperfReportEnd `json:"end"`
+	Start     iperfReportStart      `json:"start"`
+	Intervals []iperfReportInterval `json:"intervals"`
+	End       iperfReportEnd        `json:"end"`
+	Error     string                `json:"error,omitempty"`
+}
+
+type iperfReportStart struct {
+	Timestamp iperfReportTimestamp `json:"timestamp"`
+}
+
+type iperfReportTimestamp struct {
+	Time     string `json:"time"`
+	Timesecs int    `json:"timesecs"`
 }
 
 type iperfReportEnd struct {
@@ -157,18 +142,67 @@ type iperfReportEnd struct {
 	SumReceived iperfReportSummary `json:"sum_received"`
 }
 
+type iperfReportInterval struct {
+	Sum iperfReportSummary `json:"sum"`
+}
+
 type iperfReportSummary struct {
 	Bytes         int64   `json:"bytes"`
 	BitsPerSecond float64 `json:"bits_per_second"`
+	End           float64 `json:"end,omitempty"`
 }
 
-func newCurrentReleaseSmokeTest(f *framework.Framework) *currentReleaseSmokeTest {
+type releaseUpgradeContext struct {
+	Namespace       string `json:"namespace"`
+	IPerfClientVM   string `json:"iperfClientVM"`
+	IPerfServerVM   string `json:"iperfServerVM"`
+	IPerfReportPath string `json:"iperfReportPath"`
+}
+
+func runPreUpgradeReleaseSmoke() {
+	f := framework.NewFramework("release-current")
+	f.Before()
+
+	test := newCurrentReleaseSmokeTest(f, "")
+	test.createResources()
+	test.verifyVMsReady()
+	test.startLongRunningIPerf()
+	test.writeUpgradeContext()
+}
+
+func runPostUpgradeReleaseSmoke() {
+	namespace := mustGetEnv(releaseNamespaceEnv)
+	f := framework.NewFramework("")
+	test := newCurrentReleaseSmokeTest(f, namespace)
+
+	test.verifyVMsSurvivedUpgrade()
+	test.verifyIPerfContinuityAfterUpgrade()
+}
+
+func getReleaseTestPhase() string {
+	if phase := os.Getenv(releaseTestPhaseEnv); phase != "" {
+		return phase
+	}
+
+	return releaseTestPhasePreUpgrade
+}
+
+func mustGetEnv(name string) string {
+	value := os.Getenv(name)
+	Expect(value).NotTo(BeEmpty(), "environment variable %s must be set", name)
+	return value
+}
+
+func newCurrentReleaseSmokeTest(f *framework.Framework, namespace string) *currentReleaseSmokeTest {
 	test := &currentReleaseSmokeTest{
 		framework:      f,
 		vmByName:       make(map[string]*vmScenario),
 		dataDiskByName: make(map[string]*dataDiskScenario),
 	}
-	namespace := f.Namespace().Name
+	if namespace == "" {
+		Expect(f.Namespace()).NotTo(BeNil(), "framework namespace must be initialized for pre-upgrade phase")
+		namespace = f.Namespace().Name
+	}
 
 	test.vms = []*vmScenario{
 		{
@@ -291,6 +325,62 @@ func newCurrentReleaseSmokeTest(f *framework.Framework) *currentReleaseSmokeTest
 	test.iperfServer = test.vmByName["vm-alpine-iperf-server"]
 
 	return test
+}
+
+func (t *currentReleaseSmokeTest) createResources() {
+	By("Creating root and hotplug virtual disks")
+	Expect(t.framework.CreateWithDeferredDeletion(context.Background(), t.diskObjects()...)).To(Succeed())
+
+	By("Creating virtual machines")
+	Expect(t.framework.CreateWithDeferredDeletion(context.Background(), t.vmObjects()...)).To(Succeed())
+	if runningVMs := t.initialRunningVMObjects(); len(runningVMs) > 0 {
+		util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, runningVMs...)
+	}
+	if stoppedVMs := t.initialStoppedVMObjects(); len(stoppedVMs) > 0 {
+		util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.MiddleTimeout, stoppedVMs...)
+	}
+
+	By("Starting manual-policy virtual machines")
+	for _, vmScenario := range t.manualStartVMs() {
+		util.StartVirtualMachine(t.framework, vmScenario.vm)
+	}
+	if startedVMs := t.manualStartVMObjects(); len(startedVMs) > 0 {
+		util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, startedVMs...)
+	}
+
+	By("Attaching hotplug disks")
+	Expect(t.framework.CreateWithDeferredDeletion(context.Background(), t.attachmentObjects()...)).To(Succeed())
+	util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.LongTimeout, t.attachmentObjects()...)
+
+	By("Waiting for all disks to become ready after consumers appear")
+	util.UntilObjectPhase(string(v1alpha2.DiskReady), framework.LongTimeout, t.diskObjects()...)
+}
+
+func (t *currentReleaseSmokeTest) verifyVMsReady() {
+	By("Waiting for guest agent and SSH access")
+	for _, vmScenario := range t.vms {
+		t.expectGuestReady(vmScenario.vm)
+	}
+
+	By("Checking attached disks inside guests")
+	for _, vmScenario := range t.vms {
+		t.expectAdditionalDiskCount(vmScenario.vm, vmScenario.expectedAdditionalDisks)
+	}
+}
+
+func (t *currentReleaseSmokeTest) verifyVMsSurvivedUpgrade() {
+	By("Waiting for upgraded virtual machines to be running")
+	util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, t.vmObjects()...)
+
+	By("Checking guest access after module upgrade")
+	for _, vmScenario := range t.vms {
+		t.expectGuestReady(vmScenario.vm)
+	}
+
+	By("Checking attached disks after module upgrade")
+	for _, vmScenario := range t.vms {
+		t.expectAdditionalDiskCount(vmScenario.vm, vmScenario.expectedAdditionalDisks)
+	}
 }
 
 func (s *vmScenario) expectedInitialPhase() string {
@@ -456,23 +546,89 @@ func hasMountpoint(mountpoints []string, expected string) bool {
 	return false
 }
 
-func (t *currentReleaseSmokeTest) expectIPerfConnectivity() {
+func (t *currentReleaseSmokeTest) startLongRunningIPerf() {
 	GinkgoHelper()
 
 	waitForIPerfServerToStart(t.framework, t.iperfServer.vm)
 
 	serverVM := t.getVirtualMachine(t.iperfServer.vm.Name, t.iperfServer.vm.Namespace)
-	command := fmt.Sprintf("iperf3 -c %s -t %d --json", serverVM.Status.IPAddress, iperfDurationSeconds)
-	output, err := t.framework.SSHCommand(
+	command := fmt.Sprintf(
+		"nohup sh -c 'iperf3 -c %s -t 0 --json > %s 2>&1' >/dev/null 2>&1 &",
+		serverVM.Status.IPAddress,
+		releaseIPerfReportPath,
+	)
+	_, err := t.framework.SSHCommand(
 		t.iperfClient.vm.Name,
 		t.iperfClient.vm.Namespace,
 		command,
-		framework.WithSSHTimeout((iperfDurationSeconds+10)*time.Second),
 	)
-	Expect(err).NotTo(HaveOccurred(), "failed to run iperf3 client")
+	Expect(err).NotTo(HaveOccurred(), "failed to start long-running iperf3 client")
 
-	report, err := parseIPerfReport(output)
-	Expect(err).NotTo(HaveOccurred(), "failed to parse iperf3 client output")
+	waitForIPerfClientToStart(t.framework, t.iperfClient.vm)
+}
+
+func (t *currentReleaseSmokeTest) writeUpgradeContext() {
+	GinkgoHelper()
+
+	contextPath := os.Getenv(releaseUpgradeContextPathEnv)
+	if contextPath == "" {
+		return
+	}
+
+	err := os.MkdirAll(filepath.Dir(contextPath), 0o755)
+	Expect(err).NotTo(HaveOccurred())
+
+	contextData := releaseUpgradeContext{
+		Namespace:       t.iperfClient.vm.Namespace,
+		IPerfClientVM:   t.iperfClient.vm.Name,
+		IPerfServerVM:   t.iperfServer.vm.Name,
+		IPerfReportPath: releaseIPerfReportPath,
+	}
+
+	data, err := json.MarshalIndent(contextData, "", "  ")
+	Expect(err).NotTo(HaveOccurred())
+
+	err = os.WriteFile(contextPath, data, 0o644)
+	Expect(err).NotTo(HaveOccurred())
+}
+
+func (t *currentReleaseSmokeTest) verifyIPerfContinuityAfterUpgrade() {
+	GinkgoHelper()
+
+	By("Checking that the iperf client is still running after upgrade")
+	waitForIPerfClientToStart(t.framework, t.iperfClient.vm)
+
+	By("Stopping the long-running iperf client after upgrade")
+	stopIPerfClient(t.framework, t.iperfClient.vm)
+
+	By("Validating the iperf report spans the module upgrade")
+	report := getIPerfClientReport(t.framework, t.iperfClient.vm, releaseIPerfReportPath)
+	Expect(report.Error).To(BeEmpty(), "iperf3 report contains an error")
+
+	upgradeStartedAt, err := strconv.ParseInt(mustGetEnv(releaseUpgradeStartedAtEnv), 10, 64)
+	Expect(err).NotTo(HaveOccurred(), "upgrade timestamp must be a unix second")
+
+	startedAt := int64(report.Start.Timestamp.Timesecs)
+	endedAt := startedAt + int64(math.Ceil(report.End.SumSent.End))
+	Expect(startedAt).To(BeNumerically("<=", upgradeStartedAt), "iperf3 should start before the module upgrade")
+	Expect(endedAt).To(BeNumerically(">", upgradeStartedAt), "iperf3 should continue after the module upgrade")
+
+	lowerIdx, upperIdx := continuityWindowBounds(startedAt, upgradeStartedAt, len(report.Intervals))
+	Expect(upperIdx).To(BeNumerically(">=", lowerIdx), "iperf3 report must include intervals around the module upgrade")
+
+	zeroIntervals := 0
+	transmittedAroundUpgrade := int64(0)
+	for idx := lowerIdx; idx <= upperIdx; idx++ {
+		interval := report.Intervals[idx]
+		if interval.Sum.Bytes == 0 {
+			zeroIntervals++
+			continue
+		}
+		transmittedAroundUpgrade += interval.Sum.Bytes
+	}
+
+	Expect(transmittedAroundUpgrade).To(BeNumerically(">", 0), "iperf3 should transmit data around the module upgrade")
+	Expect(zeroIntervals).To(BeNumerically("<=", 1), "iperf3 should not be interrupted during the module upgrade")
 	Expect(report.End.SumSent.Bytes).To(BeNumerically(">", 0), "iperf3 client should send data")
 	Expect(report.End.SumSent.BitsPerSecond).To(BeNumerically(">", 0), "iperf3 client should report throughput")
 }
@@ -501,6 +657,79 @@ func waitForIPerfServerToStart(f *framework.Framework, vm *v1alpha2.VirtualMachi
 	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
 }
 
+func waitForIPerfClientToStart(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
+	GinkgoHelper()
+
+	command := "pgrep -x iperf3"
+	Eventually(func() error {
+		stdout, err := f.SSHCommand(vm.Name, vm.Namespace, command)
+		if err != nil {
+			return fmt.Errorf("cmd: %s\nstderr: %w", command, err)
+		}
+		if strings.TrimSpace(stdout) == "" {
+			return fmt.Errorf("iperf3 client is not running yet")
+		}
+		return nil
+	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
+}
+
+func stopIPerfClient(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
+	GinkgoHelper()
+
+	command := "pkill -INT -x iperf3"
+	Eventually(func() error {
+		_, err := f.SSHCommand(vm.Name, vm.Namespace, command)
+		if err != nil {
+			return fmt.Errorf("cmd: %s\nstderr: %w", command, err)
+		}
+		return nil
+	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
+}
+
+func getIPerfClientReport(f *framework.Framework, vm *v1alpha2.VirtualMachine, reportPath string) *iperfReport {
+	GinkgoHelper()
+
+	command := fmt.Sprintf("cat %s", reportPath)
+	var rawReport string
+	Eventually(func() error {
+		stdout, err := f.SSHCommand(vm.Name, vm.Namespace, command)
+		if err != nil {
+			return fmt.Errorf("cmd: %s\nstderr: %w", command, err)
+		}
+		report, err := parseIPerfReport(stdout)
+		if err != nil {
+			return err
+		}
+		if report.End.SumSent.End <= 0 {
+			return fmt.Errorf("iperf3 report is incomplete")
+		}
+		rawReport = stdout
+		return nil
+	}).WithTimeout(framework.LongTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
+
+	report, err := parseIPerfReport(rawReport)
+	Expect(err).NotTo(HaveOccurred())
+	return report
+}
+
+func continuityWindowBounds(startedAt, upgradeStartedAt int64, intervalCount int) (int, int) {
+	if intervalCount == 0 {
+		return 1, 0
+	}
+
+	index := int(upgradeStartedAt - startedAt)
+	if index < 0 {
+		index = 0
+	}
+	if index >= intervalCount {
+		index = intervalCount - 1
+	}
+
+	lower := max(index-1, 0)
+	upper := min(index+1, intervalCount-1)
+	return lower, upper
+}
+
 func parseIPerfReport(raw string) (*iperfReport, error) {
 	var report iperfReport
 	if err := json.Unmarshal([]byte(raw), &report); err != nil {
@@ -508,4 +737,20 @@ func parseIPerfReport(raw string) (*iperfReport, error) {
 	}
 
 	return &report, nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+
+	return b
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+
+	return b
 }
