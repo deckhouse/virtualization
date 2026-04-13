@@ -183,12 +183,6 @@ func autoCleanupHandler(cmd *cobra.Command, args []string) error {
 		return errs.ErrorOrNil()
 	}
 
-	// Update garbage collection secret and wait for termination signal.
-	secretErr := annotateGarbageCollectionSecretOnCleanupDone(context.Background(), result)
-	if secretErr != nil {
-		errs = multierror.Append(errs, secretErr)
-	}
-
 	// Testing: sleep and print errors if present.
 	time.Sleep(time.Second * 30)
 	err = errs.ErrorOrNil()
@@ -196,6 +190,12 @@ func autoCleanupHandler(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Error while cleaning up stale images after cleanup: %v\n", err)
 	}
 	// Testing end.
+
+	// Update garbage collection secret and wait for termination signal.
+	secretErr := annotateGarbageCollectionSecretOnCleanupDone(context.Background(), result)
+	if secretErr != nil {
+		errs = multierror.Append(errs, secretErr)
+	}
 
 	// Return previous errors, so Pod will be restarted without waiting.
 	err = errs.ErrorOrNil()
