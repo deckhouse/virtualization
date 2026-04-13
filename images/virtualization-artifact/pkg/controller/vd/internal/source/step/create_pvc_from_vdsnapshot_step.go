@@ -182,7 +182,13 @@ func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *v1alpha2.VirtualDisk, vs *vsv1
 		spec.VolumeMode = ptr.To(corev1.PersistentVolumeMode(volumeMode))
 	}
 
-	if vs.Status != nil && vs.Status.RestoreSize != nil {
+	if vd.Spec.PersistentVolumeClaim.Size != nil {
+		spec.Resources = corev1.VolumeResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceStorage: *vd.Spec.PersistentVolumeClaim.Size,
+			},
+		}
+	} else if vs.Status != nil && vs.Status.RestoreSize != nil {
 		spec.Resources = corev1.VolumeResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceStorage: *vs.Status.RestoreSize,
