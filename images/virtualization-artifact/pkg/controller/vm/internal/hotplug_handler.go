@@ -57,6 +57,10 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 		return reconcile.Result{}, err
 	}
 
+	if !current.Spec.EnableParavirtualization {
+		return reconcile.Result{}, nil
+	}
+
 	if current.Status.Phase == v1alpha2.MachineMigrating {
 		log.Info("VM is migrating, skip hotplug")
 		return reconcile.Result{}, nil
@@ -114,8 +118,6 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 		}
 	}
 
-	kvvmDiskBusByName := parseKVVMDiskBuses(kvvm)
-
 	// 2. Unplugging: only unplug volumes that are not in spec and not managed by VMBDA.
 	for key, vol := range kvvmDevices {
 		if _, wanted := specDevices[key]; wanted {
@@ -125,11 +127,6 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 			continue
 		}
 		if _, ok := pending[vol.name]; ok {
-			continue
-		}
-
-		if bus := kvvmDiskBusByName[vol.name]; bus == virtv1.DiskBusSATA {
-			log.Info("Skipping hot-unplug for SATA disk (requires restart)", "kind", key.kind, "name", key.name)
 			continue
 		}
 
@@ -180,21 +177,6 @@ func parseKVVMVolumes(kvvm *virtv1.VirtualMachine) (map[nameKindKey]kvvmVolume, 
 	}
 
 	return devices, pending
-}
-
-func parseKVVMDiskBuses(kvvm *virtv1.VirtualMachine) map[string]virtv1.DiskBus {
-	buses := make(map[string]virtv1.DiskBus)
-	if kvvm.Spec.Template == nil {
-		return buses
-	}
-	for _, d := range kvvm.Spec.Template.Spec.Domain.Devices.Disks {
-		if d.CDRom != nil {
-			buses[d.Name] = d.CDRom.Bus
-		} else if d.Disk != nil {
-			buses[d.Name] = d.Disk.Bus
-		}
-	}
-	return buses
 }
 
 func generateVolumeName(key nameKindKey) string {

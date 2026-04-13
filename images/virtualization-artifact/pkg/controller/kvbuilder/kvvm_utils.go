@@ -188,11 +188,6 @@ func applyBlockDeviceRefs(
 	// This is needed to support disk removal in old VMs with static disks
 	cleanupRemovedStaticDisks(kvvm, specDiskNames, hotpluggableVolumes)
 
-	// This is needed to support SATA disks removal (enableParavirtualization=false)
-	if !isVmRunning {
-		cleanupRemovedHotplugDisks(kvvm, specDiskNames)
-	}
-
 	kvvmVolumes := kvvm.Resource.Spec.Template.Spec.Volumes
 	for i, bd := range vm.Spec.BlockDeviceRefs {
 		diskName := GenerateDiskName(bd.Kind, bd.Name)
@@ -210,8 +205,7 @@ func applyBlockDeviceRefs(
 		}
 
 		_, hotpluggable := hotpluggableVolumes[diskName]
-		// isVmRunning is used to set static disks as hotpluggable on VM restart
-		if err := setBlockDeviceDisk(kvvm, bd, kvBootOrder, hotpluggable || !isVmRunning, vdByName, viByName, cviByName); err != nil {
+		if err := setBlockDeviceDisk(kvvm, bd, kvBootOrder, hotpluggable || (vm.Spec.EnableParavirtualization && !isVmRunning), vdByName, viByName, cviByName); err != nil {
 			return err
 		}
 	}
@@ -234,23 +228,6 @@ func cleanupRemovedStaticDisks(kvvm *KVVM, specDiskNames, hotpluggableVolumes ma
 	kvvm.Resource.Spec.Template.Spec.Volumes = slices.DeleteFunc(
 		kvvm.Resource.Spec.Template.Spec.Volumes,
 		func(v virtv1.Volume) bool { return isRemovedStatic(v.Name) },
-	)
-}
-
-func cleanupRemovedHotplugDisks(kvvm *KVVM, specDiskNames map[string]struct{}) {
-	isRemovedHotplug := func(name string) bool {
-		_, kind := GetOriginalDiskName(name)
-		_, inSpec := specDiskNames[name]
-		return kind != "" && !inSpec
-	}
-
-	kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks = slices.DeleteFunc(
-		kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks,
-		func(d virtv1.Disk) bool { return isRemovedHotplug(d.Name) },
-	)
-	kvvm.Resource.Spec.Template.Spec.Volumes = slices.DeleteFunc(
-		kvvm.Resource.Spec.Template.Spec.Volumes,
-		func(v virtv1.Volume) bool { return isRemovedHotplug(v.Name) },
 	)
 }
 

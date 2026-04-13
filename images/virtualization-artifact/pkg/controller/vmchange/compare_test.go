@@ -265,11 +265,13 @@ blockDeviceRefs:
 		{
 			"apply immediate on blockDeviceRefs add disk",
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualImage
   name: linux
 `,
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualDisk
   name: linux
@@ -329,6 +331,7 @@ blockDeviceRefs:
 		{
 			"apply immediate on blockDeviceRefs change order",
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualImage
   name: linux
@@ -336,6 +339,7 @@ blockDeviceRefs:
   name: linux
 `,
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualDisk
   name: linux
@@ -352,6 +356,7 @@ blockDeviceRefs:
 		{
 			"apply immediate on blockDeviceRefs change order :: bigger",
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualImage
   name: linux
@@ -366,6 +371,7 @@ blockDeviceRefs:
 `,
 			// Change order: 12345 -> 25341
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualDisk
   name: linux
