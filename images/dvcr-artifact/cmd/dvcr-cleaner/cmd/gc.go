@@ -189,6 +189,14 @@ func autoCleanupHandler(cmd *cobra.Command, args []string) error {
 		errs = multierror.Append(errs, secretErr)
 	}
 
+	// Testing: sleep and print errors if present.
+	time.Sleep(time.Second * 30)
+	err = errs.ErrorOrNil()
+	if err != nil {
+		fmt.Printf("Error while cleaning up stale images after cleanup: %v\n", err)
+	}
+	// Testing end.
+
 	// Return previous errors, so Pod will be restarted without waiting.
 	err = errs.ErrorOrNil()
 	if err != nil {
