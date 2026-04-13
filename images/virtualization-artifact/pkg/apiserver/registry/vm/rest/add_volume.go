@@ -25,10 +25,12 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
 	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/subresources"
@@ -68,7 +70,15 @@ func (r AddVolumeREST) Connect(ctx context.Context, name string, opts runtime.Ob
 		addVolumePather = newKVVMIPather("addvolume")
 	} else {
 		addVolumePather = newKVVMPather("addvolume")
-		h, err := r.genMutateRequestHook(addVolumeOpts)
+
+		ns, _ := request.NamespaceFrom(ctx)
+		vm, err := r.vmLister.VirtualMachines(ns).Get(name)
+		if err != nil {
+			return nil, fmt.Errorf("get virtual machine: %w", err)
+		}
+		devPreset := kvbuilder.DeviceOptionsPresets.Find(vm.Spec.EnableParavirtualization)
+
+		h, err := r.genMutateRequestHook(addVolumeOpts, devPreset)
 		if err != nil {
 			return nil, err
 		}
@@ -97,15 +107,15 @@ func (r AddVolumeREST) requestFromKubevirt(opts *subresources.VirtualMachineAddV
 	return opts == nil || (opts.Image == "" && opts.VolumeKind == "" && opts.PVCName == "")
 }
 
-func (r AddVolumeREST) genMutateRequestHook(opts *subresources.VirtualMachineAddVolume) (mutateRequestHook, error) {
+func (r AddVolumeREST) genMutateRequestHook(opts *subresources.VirtualMachineAddVolume, devPreset kvbuilder.DeviceOptions) (mutateRequestHook, error) {
 	var dd virtv1.DiskDevice
 	if opts.IsCdrom {
 		dd.CDRom = &virtv1.CDRomTarget{
-			Bus: virtv1.DiskBusSCSI,
+			Bus: devPreset.CdromBus,
 		}
 	} else {
 		dd.Disk = &virtv1.DiskTarget{
-			Bus: virtv1.DiskBusSCSI,
+			Bus: devPreset.DiskBus,
 		}
 	}
 	// Skip set serial for CDROM

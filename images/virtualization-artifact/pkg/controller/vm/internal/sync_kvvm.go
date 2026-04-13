@@ -639,39 +639,6 @@ func (h *SyncKvvmHandler) isVMStopped(
 	return isVMStopped(kvvm) && (!isKVVMICreated(kvvm) || podStopped)
 }
 
-// detectVMSpecChanges returns true and no error if specification has changes.
-func (h *SyncKvvmHandler) detectVMSpecChanges(ctx context.Context, s state.VirtualMachineState) (bool, error) {
-	currentKvvm, err := s.KVVM(ctx)
-	if err != nil {
-		return false, err
-	}
-
-	newKvvm, err := MakeKVVMFromVMSpec(ctx, s)
-	if err != nil {
-		return false, err
-	}
-
-	return currentKvvm.Annotations[annotations.AnnVMLastAppliedSpec] != newKvvm.Annotations[annotations.AnnVMLastAppliedSpec] || !equality.Semantic.DeepEqual(
-		currentKvvm.Spec.Template.Spec.Domain.Devices.Disks,
-		newKvvm.Spec.Template.Spec.Domain.Devices.Disks,
-	), nil
-}
-
-// detectVMClassSpecChanges returns true and no error if specification has changes.
-func (h *SyncKvvmHandler) detectVMClassSpecChanges(ctx context.Context, s state.VirtualMachineState) (bool, error) {
-	currentKvvm, err := s.KVVM(ctx)
-	if err != nil {
-		return false, err
-	}
-
-	newKvvm, err := MakeKVVMFromVMSpec(ctx, s)
-	if err != nil {
-		return false, err
-	}
-
-	return currentKvvm.Annotations[annotations.AnnVMClassLastAppliedSpec] != newKvvm.Annotations[annotations.AnnVMClassLastAppliedSpec], nil
-}
-
 // canApplyChanges returns true if changes can be applied right now.
 //
 // Wait if changes are disruptive, and approval mode is manual, and VM is still running.
