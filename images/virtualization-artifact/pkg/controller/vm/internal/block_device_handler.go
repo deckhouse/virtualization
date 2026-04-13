@@ -111,6 +111,13 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get block device status refs: %w", err)
 	}
+	blockDeviceCount := 0
+	for _, bd := range changed.Status.BlockDeviceRefs {
+		if bd.Attached {
+			blockDeviceCount++
+		}
+	}
+	changed.Status.BlockDevicesCount = blockDeviceCount
 
 	shouldStop, err = h.handleBlockDeviceConflicts(ctx, s, log)
 	if err != nil {
