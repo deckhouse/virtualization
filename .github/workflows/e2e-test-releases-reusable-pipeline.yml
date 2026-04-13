@@ -442,6 +442,11 @@ jobs:
       - name: Install kubectl CLI
         uses: azure/setup-kubectl@v4
 
+      - name: Setup d8
+        uses: ./.github/actions/install-d8
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Check nested kube-api via generated kubeconfig
         run: |
           mkdir -p ~/.kube
@@ -1101,6 +1106,8 @@ jobs:
     needs:
       - bootstrap
       - configure-virtualization
+    outputs:
+      release_namespace: ${{ steps.export-release-context.outputs.release_namespace }}
     steps:
       - uses: actions/checkout@v4
 
@@ -1148,11 +1155,11 @@ jobs:
       - name: "Run E2E tests on current-release"
         id: release-e2e
         env:
-          POST_CLEANUP: no
-          PRECREATED_CVI_CLEANUP: no
           CSI: ${{ inputs.storage_type }}
           STORAGE_CLASS_NAME: ${{ inputs.nested_storageclass_name }}
           E2E_CONFIG: ${{ github.workspace }}/test/e2e/default_config.yaml
+          RELEASE_TEST_PHASE: pre-upgrade
+          RELEASE_UPGRADE_CONTEXT_PATH: ${{ runner.temp }}/release-upgrade-context.json
         run: |
           echo "[INFO] Current release tag: ${{ env.CURRENT_RELEASE }}"
           echo "[INFO] Storage type: ${{ inputs.storage_type }}"
@@ -1167,7 +1174,7 @@ jobs:
           GINKGO_RESULT=$(mktemp -p "$RUNNER_TEMP")
           junit_report="$GITHUB_WORKSPACE/test/e2e/release_current_suite.xml"
           set +e
-          POST_CLEANUP=no go tool ginkgo \
+          go tool ginkgo \
             -v --race --timeout=45m \
             --junit-report="$junit_report" \
             ./release | tee "$GINKGO_RESULT"
@@ -1175,6 +1182,15 @@ jobs:
           set -e
           echo "[INFO] Exit code: $GINKGO_EXIT_CODE"
           exit $GINKGO_EXIT_CODE
+
+      - name: Export release upgrade context
+        id: export-release-context
+        if: success() && steps.release-e2e.outcome != 'skipped'
+        run: |
+          context_path="${{ runner.temp }}/release-upgrade-context.json"
+          echo "[INFO] Reading release upgrade context from ${context_path}"
+          cat "${context_path}"
+          echo "release_namespace=$(jq -r '.namespace' "${context_path}")" >> "$GITHUB_OUTPUT"
 
       - name: Upload current-release test results
         uses: actions/upload-artifact@v4
@@ -1200,6 +1216,8 @@ jobs:
     needs:
       - bootstrap
       - test-current-release
+    outputs:
+      upgrade_started_at: ${{ steps.patch-modulepulloverride.outputs.upgrade_started_at }}
     steps:
       - uses: actions/checkout@v4
 
@@ -1223,7 +1241,10 @@ jobs:
           kubectl get mpo virtualization -o yaml
 
       - name: "Patch ModulePullOverride to new-release: ${{ env.NEW_RELEASE }}"
+        id: patch-modulepulloverride
         run: |
+          upgrade_started_at=$(date +%s)
+          echo "upgrade_started_at=${upgrade_started_at}" >> "$GITHUB_OUTPUT"
           echo "[INFO] Patching MPO virtualization imageTag from ${{ env.CURRENT_RELEASE }} to ${{ env.NEW_RELEASE }}"
           kubectl patch mpo virtualization --type merge -p '{"spec":{"imageTag":"${{ env.NEW_RELEASE }}"}}'
 
@@ -1383,19 +1404,50 @@ jobs:
     needs:
       - bootstrap
       - patch-mpo
+      - test-current-release
     steps:
       - uses: actions/checkout@v4
 
       - name: Install kubectl CLI
         uses: azure/setup-kubectl@v4
 
+      - name: Setup d8
+        uses: ./.github/actions/install-d8
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+
+      - name: Install ginkgo
+        working-directory: ./test/e2e/
+        run: |
+          echo "Install ginkgo"
+          go install tool
+
+      - name: Download dependencies
+        working-directory: ./test/e2e/
+        run: |
+          echo "Download dependencies"
+          go mod download
+
       - name: Setup kubeconfig
         run: |
           mkdir -p ~/.kube
           echo "${{ needs.bootstrap.outputs.kubeconfig }}" | base64 -d | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
+          kubectl config use-context nested-e2e-nested-sa
 
-      - name: "Run E2E tests on new-release (STUB)"
+      - name: "Run E2E tests on new-release"
+        env:
+          CSI: ${{ inputs.storage_type }}
+          STORAGE_CLASS_NAME: ${{ inputs.nested_storageclass_name }}
+          E2E_CONFIG: ${{ github.workspace }}/test/e2e/default_config.yaml
+          RELEASE_TEST_PHASE: post-upgrade
+          RELEASE_NAMESPACE: ${{ needs.test-current-release.outputs.release_namespace }}
+          RELEASE_UPGRADE_STARTED_AT: ${{ needs.patch-mpo.outputs.upgrade_started_at }}
         run: |
           echo "[INFO] New release tag: ${{ env.NEW_RELEASE }}"
           echo "[INFO] Storage type: ${{ inputs.storage_type }}"
@@ -1404,7 +1456,11 @@ jobs:
           kubectl get modules virtualization || true
           kubectl get mpo virtualization || true
           echo ""
-          echo "[STUB] E2E tests on new-release ${{ env.NEW_RELEASE }} -- PASSED"
+          echo "[INFO] Reusing namespace: ${RELEASE_NAMESPACE}"
+          cd ./test/e2e/
+          go tool ginkgo \
+            -v --race --timeout=45m \
+            ./release
           echo "[INFO] Cluster is intentionally left running (no cleanup)"
 
   undeploy-cluster:
