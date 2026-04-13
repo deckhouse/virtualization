@@ -264,20 +264,28 @@ var _ = Describe("VirtualMachineMigration", func() {
 				g.Expect(vmopMigrateUEFI.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
 			}).WithPolling(time.Second).WithTimeout(framework.LongTimeout).To(Succeed())
 
-			By("Check access via ssh for vms", func() {
-				util.UntilSSHReady(f, vmBIOS, framework.MiddleTimeout)
-				util.UntilSSHReady(f, vmUEFI, framework.MiddleTimeout)
-			})
+			vmsToCheck := []struct {
+				vm                *v1alpha2.VirtualMachine
+				originalDiskCount string
+			}{
+				{vm: vmBIOS, originalDiskCount: biosDiskCountOriginal},
+				{vm: vmUEFI, originalDiskCount: uefiDiskCountOriginal},
+			}
 
-			By("Check disks are still attached after migration for vms", func() {
-				diskCount, err := f.SSHCommand(vmBIOS.Name, f.Namespace().Name, lsblkCommand)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(diskCount).To(Equal(biosDiskCountOriginal))
+			By("Check access via ssh for vms")
+			for _, v := range vmsToCheck {
+				util.UntilSSHReady(f, v.vm, framework.MiddleTimeout)
+			}
 
-				diskCount, err = f.SSHCommand(vmUEFI.Name, f.Namespace().Name, lsblkCommand)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(diskCount).To(Equal(uefiDiskCountOriginal))
-			})
+			By("Check disks are still attached after migration for vms")
+			for _, v := range vmsToCheck {
+				diskCount, err := f.SSHCommand(v.vm.Name, f.Namespace().Name, lsblkCommand)
+				Expect(err).NotTo(HaveOccurred(),
+					"failed to run lsblk on VM %s", v.vm.Name)
+				Expect(diskCount).To(Equal(v.originalDiskCount),
+					"disk count mismatch on VM %s after migration: got %s, expected %s",
+					v.vm.Name, diskCount, v.originalDiskCount)
+			}
 
 			cancelVMBDA()
 			Expect(<-vmbdaWatchErrCh).NotTo(HaveOccurred(), "VMBDAs should stay in Attached phase during migration")
