@@ -20,18 +20,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
@@ -42,22 +43,14 @@ const (
 	localThinStorageClass  = "nested-local-thin"
 	lsblkJSONCommand       = "lsblk --bytes --json --nodeps --output NAME,SIZE,TYPE,MOUNTPOINTS"
 	minDataDiskSizeBytes   = int64(50 * 1024 * 1024)
+	defaultRootDiskSize    = "350Mi"
+	defaultDataDiskSize    = "100Mi"
+	iperfDurationSeconds   = 5
 )
 
 var _ = Describe("CurrentReleaseSmoke", func() {
-	It("should validate alpine virtual machines on current release", func() {
+	It("should validate current release virtual machines", func() {
 		f := framework.NewFramework("release-current")
-		if config.IsCleanUpNeeded() {
-			DeferCleanup(f.After)
-		} else {
-			// Keep created resources after a successful run when POST_CLEANUP=no,
-			// but still preserve failure dumps if the spec breaks.
-			DeferCleanup(func() {
-				if CurrentSpecReport().Failed() {
-					f.After()
-				}
-			})
-		}
 		f.Before()
 
 		test := newCurrentReleaseSmokeTest(f)
@@ -67,56 +60,81 @@ var _ = Describe("CurrentReleaseSmoke", func() {
 
 		By("Creating virtual machines")
 		Expect(f.CreateWithDeferredDeletion(context.Background(), test.vmObjects()...)).To(Succeed())
-		util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, test.vmOneHotplug, test.vmTwoHotplug)
-		util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.MiddleTimeout, test.vmAlwaysOff)
+		if runningVMs := test.initialRunningVMObjects(); len(runningVMs) > 0 {
+			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, runningVMs...)
+		}
+		if stoppedVMs := test.initialStoppedVMObjects(); len(stoppedVMs) > 0 {
+			util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.MiddleTimeout, stoppedVMs...)
+		}
 
-		By("Starting the manual-policy virtual machine")
-		util.StartVirtualMachine(f, test.vmAlwaysOff)
-		util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, test.vmAlwaysOff)
+		By("Starting manual-policy virtual machines")
+		for _, vmScenario := range test.manualStartVMs() {
+			util.StartVirtualMachine(f, vmScenario.vm)
+		}
+		if startedVMs := test.manualStartVMObjects(); len(startedVMs) > 0 {
+			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, startedVMs...)
+		}
 
 		By("Attaching hotplug disks")
-		Expect(f.CreateWithDeferredDeletion(context.Background(), test.vmbdaOneHotplug, test.vmbdaReplicated, test.vmbdaLocalThin)).To(Succeed())
-		util.UntilObjectPhase(
-			string(v1alpha2.BlockDeviceAttachmentPhaseAttached),
-			framework.LongTimeout,
-			test.vmbdaOneHotplug,
-			test.vmbdaReplicated,
-			test.vmbdaLocalThin,
-		)
+		Expect(f.CreateWithDeferredDeletion(context.Background(), test.attachmentObjects()...)).To(Succeed())
+		util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.LongTimeout, test.attachmentObjects()...)
 
 		By("Waiting for all disks to become ready after consumers appear")
 		util.UntilObjectPhase(string(v1alpha2.DiskReady), framework.LongTimeout, test.diskObjects()...)
 
 		By("Waiting for guest agent and SSH access")
-		test.expectGuestReady(test.vmAlwaysOff)
-		test.expectGuestReady(test.vmOneHotplug)
-		test.expectGuestReady(test.vmTwoHotplug)
+		for _, vmScenario := range test.vms {
+			test.expectGuestReady(vmScenario.vm)
+		}
 
 		By("Checking attached disks inside guests")
-		test.expectAdditionalDiskCount(test.vmAlwaysOff, 0)
-		test.expectAdditionalDiskCount(test.vmOneHotplug, 1)
-		test.expectAdditionalDiskCount(test.vmTwoHotplug, 2)
+		for _, vmScenario := range test.vms {
+			test.expectAdditionalDiskCount(vmScenario.vm, vmScenario.expectedAdditionalDisks)
+		}
+
+		By("Running iperf smoke check between alpine guests")
+		test.expectIPerfConnectivity()
 	})
 })
 
 type currentReleaseSmokeTest struct {
-	framework *framework.Framework
+	framework      *framework.Framework
+	vms            []*vmScenario
+	dataDisks      []*dataDiskScenario
+	attachments    []*attachmentScenario
+	vmByName       map[string]*vmScenario
+	dataDiskByName map[string]*dataDiskScenario
+	iperfClient    *vmScenario
+	iperfServer    *vmScenario
+}
 
-	vmAlwaysOff  *v1alpha2.VirtualMachine
-	vmOneHotplug *v1alpha2.VirtualMachine
-	vmTwoHotplug *v1alpha2.VirtualMachine
+type vmScenario struct {
+	name                    string
+	rootDiskName            string
+	cviName                 string
+	cloudInit               string
+	runPolicy               v1alpha2.RunPolicy
+	rootDiskSize            string
+	expectedAdditionalDisks int
 
-	rootAlwaysOff  *v1alpha2.VirtualDisk
-	rootOneHotplug *v1alpha2.VirtualDisk
-	rootTwoHotplug *v1alpha2.VirtualDisk
+	rootDisk *v1alpha2.VirtualDisk
+	vm       *v1alpha2.VirtualMachine
+}
 
-	hotplugOne        *v1alpha2.VirtualDisk
-	hotplugReplicated *v1alpha2.VirtualDisk
-	hotplugLocalThin  *v1alpha2.VirtualDisk
+type dataDiskScenario struct {
+	name         string
+	storageClass string
+	size         string
 
-	vmbdaOneHotplug *v1alpha2.VirtualMachineBlockDeviceAttachment
-	vmbdaReplicated *v1alpha2.VirtualMachineBlockDeviceAttachment
-	vmbdaLocalThin  *v1alpha2.VirtualMachineBlockDeviceAttachment
+	disk *v1alpha2.VirtualDisk
+}
+
+type attachmentScenario struct {
+	name     string
+	vmName   string
+	diskName string
+
+	attachment *v1alpha2.VirtualMachineBlockDeviceAttachment
 }
 
 type lsblkOutput struct {
@@ -130,49 +148,180 @@ type lsblkDevice struct {
 	Mountpoints []string `json:"mountpoints"`
 }
 
+type iperfReport struct {
+	End iperfReportEnd `json:"end"`
+}
+
+type iperfReportEnd struct {
+	SumSent     iperfReportSummary `json:"sum_sent"`
+	SumReceived iperfReportSummary `json:"sum_received"`
+}
+
+type iperfReportSummary struct {
+	Bytes         int64   `json:"bytes"`
+	BitsPerSecond float64 `json:"bits_per_second"`
+}
+
 func newCurrentReleaseSmokeTest(f *framework.Framework) *currentReleaseSmokeTest {
-	test := &currentReleaseSmokeTest{framework: f}
+	test := &currentReleaseSmokeTest{
+		framework:      f,
+		vmByName:       make(map[string]*vmScenario),
+		dataDiskByName: make(map[string]*dataDiskScenario),
+	}
 	namespace := f.Namespace().Name
 
-	test.rootAlwaysOff = newRootDisk("vd-root-always-off", namespace)
-	test.rootOneHotplug = newRootDisk("vd-root-one-hotplug", namespace)
-	test.rootTwoHotplug = newRootDisk("vd-root-two-hotplug", namespace)
+	test.vms = []*vmScenario{
+		{
+			name:                    "vm-alpine-manual",
+			rootDiskName:            "vd-root-alpine-manual",
+			cviName:                 object.PrecreatedCVIAlpineBIOS,
+			cloudInit:               object.AlpineCloudInit,
+			runPolicy:               v1alpha2.ManualPolicy,
+			rootDiskSize:            defaultRootDiskSize,
+			expectedAdditionalDisks: 0,
+		},
+		{
+			name:                    "vm-alpine-single-hotplug",
+			rootDiskName:            "vd-root-alpine-single-hotplug",
+			cviName:                 object.PrecreatedCVIAlpineBIOS,
+			cloudInit:               object.AlpineCloudInit,
+			runPolicy:               v1alpha2.AlwaysOnUnlessStoppedManually,
+			rootDiskSize:            defaultRootDiskSize,
+			expectedAdditionalDisks: 1,
+		},
+		{
+			name:                    "vm-alpine-double-hotplug",
+			rootDiskName:            "vd-root-alpine-double-hotplug",
+			cviName:                 object.PrecreatedCVIAlpineBIOS,
+			cloudInit:               object.AlpineCloudInit,
+			runPolicy:               v1alpha2.AlwaysOnPolicy,
+			rootDiskSize:            defaultRootDiskSize,
+			expectedAdditionalDisks: 2,
+		},
+		{
+			name:                    "vm-ubuntu-replicated-five",
+			rootDiskName:            "vd-root-ubuntu-replicated-five",
+			cviName:                 object.PrecreatedCVIUbuntu,
+			cloudInit:               object.UbuntuCloudInit,
+			runPolicy:               v1alpha2.AlwaysOnUnlessStoppedManually,
+			expectedAdditionalDisks: 5,
+		},
+		{
+			name:                    "vm-ubuntu-mixed-five",
+			rootDiskName:            "vd-root-ubuntu-mixed-five",
+			cviName:                 object.PrecreatedCVIUbuntu,
+			cloudInit:               object.UbuntuCloudInit,
+			runPolicy:               v1alpha2.AlwaysOnUnlessStoppedManually,
+			expectedAdditionalDisks: 5,
+		},
+		{
+			name:                    "vm-alpine-iperf-client",
+			rootDiskName:            "vd-root-alpine-iperf-client",
+			cviName:                 object.PrecreatedCVIAlpineBIOS,
+			cloudInit:               object.AlpineCloudInit,
+			runPolicy:               v1alpha2.AlwaysOnUnlessStoppedManually,
+			rootDiskSize:            defaultRootDiskSize,
+			expectedAdditionalDisks: 2,
+		},
+		{
+			name:                    "vm-alpine-iperf-server",
+			rootDiskName:            "vd-root-alpine-iperf-server",
+			cviName:                 object.PrecreatedCVIAlpineBIOS,
+			cloudInit:               object.PerfCloudInit,
+			runPolicy:               v1alpha2.AlwaysOnUnlessStoppedManually,
+			rootDiskSize:            defaultRootDiskSize,
+			expectedAdditionalDisks: 0,
+		},
+	}
 
-	test.hotplugOne = newHotplugDisk("vd-hotplug", namespace, replicatedStorageClass)
-	test.hotplugReplicated = newHotplugDisk("vd-hotplug-replicated", namespace, replicatedStorageClass)
-	test.hotplugLocalThin = newHotplugDisk("vd-hotplug-local-thin", namespace, localThinStorageClass)
+	test.dataDisks = []*dataDiskScenario{
+		{name: "vd-data-alpine-single-hotplug-01-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
+		{name: "vd-data-alpine-double-hotplug-01-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
+		{name: "vd-data-alpine-double-hotplug-02-local", storageClass: localThinStorageClass, size: defaultDataDiskSize},
+		{name: "vd-data-ubuntu-replicated-five-01-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
+		{name: "vd-data-ubuntu-replicated-five-02-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
+		{name: "vd-data-ubuntu-replicated-five-03-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
+		{name: "vd-data-ubuntu-replicated-five-04-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
+		{name: "vd-data-ubuntu-replicated-five-05-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
+		{name: "vd-data-ubuntu-mixed-five-01-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
+		{name: "vd-data-ubuntu-mixed-five-02-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
+		{name: "vd-data-ubuntu-mixed-five-03-local", storageClass: localThinStorageClass, size: defaultDataDiskSize},
+		{name: "vd-data-ubuntu-mixed-five-04-local", storageClass: localThinStorageClass, size: defaultDataDiskSize},
+		{name: "vd-data-ubuntu-mixed-five-05-local", storageClass: localThinStorageClass, size: defaultDataDiskSize},
+		{name: "vd-data-alpine-iperf-client-01-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
+		{name: "vd-data-alpine-iperf-client-02-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
+	}
 
-	test.vmAlwaysOff = newVM("vm-always-off", namespace, v1alpha2.ManualPolicy, test.rootAlwaysOff.Name)
-	test.vmOneHotplug = newVM("vm-one-hotplug", namespace, v1alpha2.AlwaysOnUnlessStoppedManually, test.rootOneHotplug.Name)
-	test.vmTwoHotplug = newVM("vm-two-hotplug", namespace, v1alpha2.AlwaysOnPolicy, test.rootTwoHotplug.Name)
+	test.attachments = []*attachmentScenario{
+		{name: "vmbda-alpine-single-hotplug-01", vmName: "vm-alpine-single-hotplug", diskName: "vd-data-alpine-single-hotplug-01-repl"},
+		{name: "vmbda-alpine-double-hotplug-01", vmName: "vm-alpine-double-hotplug", diskName: "vd-data-alpine-double-hotplug-01-repl"},
+		{name: "vmbda-alpine-double-hotplug-02", vmName: "vm-alpine-double-hotplug", diskName: "vd-data-alpine-double-hotplug-02-local"},
+		{name: "vmbda-ubuntu-replicated-five-01", vmName: "vm-ubuntu-replicated-five", diskName: "vd-data-ubuntu-replicated-five-01-repl"},
+		{name: "vmbda-ubuntu-replicated-five-02", vmName: "vm-ubuntu-replicated-five", diskName: "vd-data-ubuntu-replicated-five-02-repl"},
+		{name: "vmbda-ubuntu-replicated-five-03", vmName: "vm-ubuntu-replicated-five", diskName: "vd-data-ubuntu-replicated-five-03-repl"},
+		{name: "vmbda-ubuntu-replicated-five-04", vmName: "vm-ubuntu-replicated-five", diskName: "vd-data-ubuntu-replicated-five-04-repl"},
+		{name: "vmbda-ubuntu-replicated-five-05", vmName: "vm-ubuntu-replicated-five", diskName: "vd-data-ubuntu-replicated-five-05-repl"},
+		{name: "vmbda-ubuntu-mixed-five-01", vmName: "vm-ubuntu-mixed-five", diskName: "vd-data-ubuntu-mixed-five-01-repl"},
+		{name: "vmbda-ubuntu-mixed-five-02", vmName: "vm-ubuntu-mixed-five", diskName: "vd-data-ubuntu-mixed-five-02-repl"},
+		{name: "vmbda-ubuntu-mixed-five-03", vmName: "vm-ubuntu-mixed-five", diskName: "vd-data-ubuntu-mixed-five-03-local"},
+		{name: "vmbda-ubuntu-mixed-five-04", vmName: "vm-ubuntu-mixed-five", diskName: "vd-data-ubuntu-mixed-five-04-local"},
+		{name: "vmbda-ubuntu-mixed-five-05", vmName: "vm-ubuntu-mixed-five", diskName: "vd-data-ubuntu-mixed-five-05-local"},
+		{name: "vmbda-alpine-iperf-client-01", vmName: "vm-alpine-iperf-client", diskName: "vd-data-alpine-iperf-client-01-repl"},
+		{name: "vmbda-alpine-iperf-client-02", vmName: "vm-alpine-iperf-client", diskName: "vd-data-alpine-iperf-client-02-repl"},
+	}
 
-	test.vmbdaOneHotplug = object.NewVMBDAFromDisk("vmbda", test.vmOneHotplug.Name, test.hotplugOne)
-	test.vmbdaReplicated = object.NewVMBDAFromDisk("vmbda1", test.vmTwoHotplug.Name, test.hotplugReplicated)
-	test.vmbdaLocalThin = object.NewVMBDAFromDisk("vmbda2", test.vmTwoHotplug.Name, test.hotplugLocalThin)
+	for _, vmScenario := range test.vms {
+		vmScenario.rootDisk = newRootDisk(vmScenario.rootDiskName, namespace, vmScenario.cviName, replicatedStorageClass, vmScenario.rootDiskSize)
+		vmScenario.vm = newVM(vmScenario.name, namespace, vmScenario.runPolicy, vmScenario.rootDisk.Name, vmScenario.cloudInit)
+		test.vmByName[vmScenario.name] = vmScenario
+	}
+
+	for _, diskScenario := range test.dataDisks {
+		diskScenario.disk = newHotplugDisk(diskScenario.name, namespace, diskScenario.storageClass, diskScenario.size)
+		test.dataDiskByName[diskScenario.name] = diskScenario
+	}
+
+	for _, attachmentScenario := range test.attachments {
+		vmScenario := test.vmByName[attachmentScenario.vmName]
+		diskScenario := test.dataDiskByName[attachmentScenario.diskName]
+		attachmentScenario.attachment = object.NewVMBDAFromDisk(attachmentScenario.name, vmScenario.vm.Name, diskScenario.disk)
+	}
+
+	test.iperfClient = test.vmByName["vm-alpine-iperf-client"]
+	test.iperfServer = test.vmByName["vm-alpine-iperf-server"]
 
 	return test
 }
 
-func newRootDisk(name, namespace string) *v1alpha2.VirtualDisk {
-	return object.NewVDFromCVI(
-		name,
-		namespace,
-		object.PrecreatedCVIAlpineBIOS,
-		vdbuilder.WithStorageClass(ptr.To(replicatedStorageClass)),
-		vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
-	)
+func (s *vmScenario) expectedInitialPhase() string {
+	if s.runPolicy == v1alpha2.ManualPolicy {
+		return string(v1alpha2.MachineStopped)
+	}
+
+	return string(v1alpha2.MachineRunning)
 }
 
-func newHotplugDisk(name, namespace, storageClass string) *v1alpha2.VirtualDisk {
+func newRootDisk(name, namespace, cviName, storageClass, size string) *v1alpha2.VirtualDisk {
+	options := []vdbuilder.Option{
+		vdbuilder.WithStorageClass(ptr.To(storageClass)),
+	}
+	if size != "" {
+		options = append(options, vdbuilder.WithSize(ptr.To(resource.MustParse(size))))
+	}
+
+	return object.NewVDFromCVI(name, namespace, cviName, options...)
+}
+
+func newHotplugDisk(name, namespace, storageClass, size string) *v1alpha2.VirtualDisk {
 	return object.NewBlankVD(
 		name,
 		namespace,
 		ptr.To(storageClass),
-		ptr.To(resource.MustParse("100Mi")),
+		ptr.To(resource.MustParse(size)),
 	)
 }
 
-func newVM(name, namespace string, runPolicy v1alpha2.RunPolicy, rootDiskName string) *v1alpha2.VirtualMachine {
+func newVM(name, namespace string, runPolicy v1alpha2.RunPolicy, rootDiskName, cloudInit string) *v1alpha2.VirtualMachine {
 	return vmbuilder.New(
 		vmbuilder.WithName(name),
 		vmbuilder.WithNamespace(namespace),
@@ -180,7 +329,7 @@ func newVM(name, namespace string, runPolicy v1alpha2.RunPolicy, rootDiskName st
 		vmbuilder.WithMemory(resource.MustParse("512Mi")),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 		vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
-		vmbuilder.WithProvisioningUserData(object.AlpineCloudInit),
+		vmbuilder.WithProvisioningUserData(cloudInit),
 		vmbuilder.WithRunPolicy(runPolicy),
 		vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
 			Kind: v1alpha2.DiskDevice,
@@ -190,22 +339,68 @@ func newVM(name, namespace string, runPolicy v1alpha2.RunPolicy, rootDiskName st
 }
 
 func (t *currentReleaseSmokeTest) diskObjects() []crclient.Object {
-	return []crclient.Object{
-		t.rootAlwaysOff,
-		t.rootOneHotplug,
-		t.rootTwoHotplug,
-		t.hotplugOne,
-		t.hotplugReplicated,
-		t.hotplugLocalThin,
+	objects := make([]crclient.Object, 0, len(t.vms)+len(t.dataDisks))
+	for _, vmScenario := range t.vms {
+		objects = append(objects, vmScenario.rootDisk)
 	}
+	for _, diskScenario := range t.dataDisks {
+		objects = append(objects, diskScenario.disk)
+	}
+	return objects
 }
 
 func (t *currentReleaseSmokeTest) vmObjects() []crclient.Object {
-	return []crclient.Object{
-		t.vmAlwaysOff,
-		t.vmOneHotplug,
-		t.vmTwoHotplug,
+	objects := make([]crclient.Object, 0, len(t.vms))
+	for _, vmScenario := range t.vms {
+		objects = append(objects, vmScenario.vm)
 	}
+	return objects
+}
+
+func (t *currentReleaseSmokeTest) attachmentObjects() []crclient.Object {
+	objects := make([]crclient.Object, 0, len(t.attachments))
+	for _, attachmentScenario := range t.attachments {
+		objects = append(objects, attachmentScenario.attachment)
+	}
+	return objects
+}
+
+func (t *currentReleaseSmokeTest) initialRunningVMObjects() []crclient.Object {
+	objects := make([]crclient.Object, 0, len(t.vms))
+	for _, vmScenario := range t.vms {
+		if vmScenario.expectedInitialPhase() == string(v1alpha2.MachineRunning) {
+			objects = append(objects, vmScenario.vm)
+		}
+	}
+	return objects
+}
+
+func (t *currentReleaseSmokeTest) initialStoppedVMObjects() []crclient.Object {
+	objects := make([]crclient.Object, 0, len(t.vms))
+	for _, vmScenario := range t.vms {
+		if vmScenario.expectedInitialPhase() == string(v1alpha2.MachineStopped) {
+			objects = append(objects, vmScenario.vm)
+		}
+	}
+	return objects
+}
+
+func (t *currentReleaseSmokeTest) manualStartVMs() []*vmScenario {
+	manualVMs := make([]*vmScenario, 0)
+	for _, vmScenario := range t.vms {
+		if vmScenario.runPolicy == v1alpha2.ManualPolicy {
+			manualVMs = append(manualVMs, vmScenario)
+		}
+	}
+	return manualVMs
+}
+
+func (t *currentReleaseSmokeTest) manualStartVMObjects() []crclient.Object {
+	objects := make([]crclient.Object, 0)
+	for _, vmScenario := range t.manualStartVMs() {
+		objects = append(objects, vmScenario.vm)
+	}
+	return objects
 }
 
 func (t *currentReleaseSmokeTest) expectGuestReady(vm *v1alpha2.VirtualMachine) {
@@ -259,4 +454,58 @@ func hasMountpoint(mountpoints []string, expected string) bool {
 	}
 
 	return false
+}
+
+func (t *currentReleaseSmokeTest) expectIPerfConnectivity() {
+	GinkgoHelper()
+
+	waitForIPerfServerToStart(t.framework, t.iperfServer.vm)
+
+	serverVM := t.getVirtualMachine(t.iperfServer.vm.Name, t.iperfServer.vm.Namespace)
+	command := fmt.Sprintf("iperf3 -c %s -t %d --json", serverVM.Status.IPAddress, iperfDurationSeconds)
+	output, err := t.framework.SSHCommand(
+		t.iperfClient.vm.Name,
+		t.iperfClient.vm.Namespace,
+		command,
+		framework.WithSSHTimeout((iperfDurationSeconds+10)*time.Second),
+	)
+	Expect(err).NotTo(HaveOccurred(), "failed to run iperf3 client")
+
+	report, err := parseIPerfReport(output)
+	Expect(err).NotTo(HaveOccurred(), "failed to parse iperf3 client output")
+	Expect(report.End.SumSent.Bytes).To(BeNumerically(">", 0), "iperf3 client should send data")
+	Expect(report.End.SumSent.BitsPerSecond).To(BeNumerically(">", 0), "iperf3 client should report throughput")
+}
+
+func (t *currentReleaseSmokeTest) getVirtualMachine(name, namespace string) *v1alpha2.VirtualMachine {
+	GinkgoHelper()
+
+	vm, err := t.framework.Clients.VirtClient().VirtualMachines(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	Expect(err).NotTo(HaveOccurred())
+	return vm
+}
+
+func waitForIPerfServerToStart(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
+	GinkgoHelper()
+
+	command := "rc-service iperf3 status --nocolor"
+	Eventually(func() error {
+		stdout, err := f.SSHCommand(vm.Name, vm.Namespace, command)
+		if err != nil {
+			return fmt.Errorf("cmd: %s\nstderr: %w", command, err)
+		}
+		if strings.Contains(stdout, "status: started") {
+			return nil
+		}
+		return fmt.Errorf("iperf3 server is not started yet: %s", stdout)
+	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
+}
+
+func parseIPerfReport(raw string) (*iperfReport, error) {
+	var report iperfReport
+	if err := json.Unmarshal([]byte(raw), &report); err != nil {
+		return nil, fmt.Errorf("parse iperf3 json: %w", err)
+	}
+
+	return &report, nil
 }
