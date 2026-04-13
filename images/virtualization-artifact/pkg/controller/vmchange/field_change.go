@@ -16,6 +16,8 @@ limitations under the License.
 
 package vmchange
 
+import "cmp"
+
 type ChangeOperation string
 
 const (
@@ -33,6 +35,12 @@ const (
 	ActionApplyImmediate ActionType = "ApplyImmediate"
 )
 
+var actionDisruptionOrder = map[ActionType]int{
+	ActionNone:           0,
+	ActionApplyImmediate: 1,
+	ActionRestart:        2,
+}
+
 type FieldChange struct {
 	Operation    ChangeOperation `json:"operation,omitempty"`
 	Path         string          `json:"path,omitempty"`
@@ -49,4 +57,32 @@ func HasChanges(changes []FieldChange) bool {
 		}
 	}
 	return false
+}
+
+// MostDisruptiveAction returns a most dangerous action from the list.
+func MostDisruptiveAction(actions ...ActionType) ActionType {
+	result := ActionNone
+	for _, action := range actions {
+		// Break immediately if 'action' is the most disruptive action.
+		if action == ActionRestart {
+			return action
+		}
+		if action.Cmp(result) == 1 {
+			result = action
+		}
+	}
+	return result
+}
+
+// Cmp returns 0 if the action is equal to 'other', -1 if the action is less harmless than 'other',
+// or 1 if the action is more disruptive than 'other'.
+func (a ActionType) Cmp(other ActionType) int {
+	aOrder, hasA := actionDisruptionOrder[a]
+	otherOrder, hasOther := actionDisruptionOrder[other]
+	if hasA && hasOther {
+		return cmp.Compare(aOrder, otherOrder)
+	}
+
+	// Should not reach here, but equal is safe.
+	return 0
 }
