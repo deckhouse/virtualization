@@ -37,17 +37,17 @@ type dataMetric struct {
 }
 
 var successfulTerminalReasons = map[string]struct{}{
-	string(vmopcondition.ReasonOperationCompleted): {},
-	string(vmopcondition.ReasonMigrationCompleted): {},
+	vmopcondition.ReasonOperationCompleted.String(): {},
+	vmopcondition.ReasonMigrationCompleted.String(): {},
 }
 
 var failedTerminalReasons = map[string]struct{}{
-	string(vmopcondition.ReasonOperationFailed):     {},
-	string(vmopcondition.ReasonFailed):              {},
-	string(vmopcondition.ReasonAborted):             {},
-	string(vmopcondition.ReasonNotConverging):       {},
-	string(vmopcondition.ReasonTargetUnschedulable): {},
-	string(vmopcondition.ReasonTargetDiskError):     {},
+	vmopcondition.ReasonOperationFailed.String():     {},
+	vmopcondition.ReasonFailed.String():              {},
+	vmopcondition.ReasonAborted.String():             {},
+	vmopcondition.ReasonNotConverging.String():       {},
+	vmopcondition.ReasonTargetUnschedulable.String(): {},
+	vmopcondition.ReasonTargetDiskError.String():     {},
 }
 
 // DO NOT mutate VirtualMachineOperation!
