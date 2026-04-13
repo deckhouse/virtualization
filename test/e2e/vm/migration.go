@@ -76,7 +76,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 
 	It("verifies that migrations are successful", func() {
 		By("Environment preparation", func() {
-			vdRootBIOS = object.NewVDFromCVI("vd-root-bios", f.Namespace().Name, object.PrecreatedCVIUbuntu,
+			vdRootBIOS = object.NewVDFromCVI("vd-root-bios", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
 				vd.WithSize(ptr.To(resource.MustParse("10Gi"))),
 			)
 			vdBlankBIOS = vd.New(
@@ -105,7 +105,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 					},
 				),
 				vm.WithBootloader(v1alpha2.BIOS),
-				vm.WithProvisioningUserData(object.UbuntuCloudInit),
+				vm.WithProvisioningUserData(object.AlpineCloudInit),
 				vm.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
 				vm.WithName("vm-bios"),
 			)
@@ -264,27 +264,24 @@ var _ = Describe("VirtualMachineMigration", func() {
 				g.Expect(vmopMigrateUEFI.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
 			}).WithPolling(time.Second).WithTimeout(framework.LongTimeout).To(Succeed())
 
-			vmsToCheck := []struct {
-				vm                *v1alpha2.VirtualMachine
-				originalDiskCount string
-			}{
-				{vm: vmBIOS, originalDiskCount: biosDiskCountOriginal},
-				{vm: vmUEFI, originalDiskCount: uefiDiskCountOriginal},
+			vmOriginalDiskCount := map[*v1alpha2.VirtualMachine]string{
+				vmBIOS: biosDiskCountOriginal,
+				vmUEFI: uefiDiskCountOriginal,
 			}
 
-			By("Check access via ssh for vms")
-			for _, v := range vmsToCheck {
-				util.UntilSSHReady(f, v.vm, framework.MiddleTimeout)
+			By("Wait until the virtual machine is accessible via SSH after migration.")
+			for vm := range vmOriginalDiskCount {
+				util.UntilSSHReady(f, vm, framework.MiddleTimeout)
 			}
 
-			By("Check disks are still attached after migration for vms")
-			for _, v := range vmsToCheck {
-				diskCount, err := f.SSHCommand(v.vm.Name, f.Namespace().Name, lsblkCommand)
-				Expect(err).NotTo(HaveOccurred(),
-					"failed to run lsblk on VM %s", v.vm.Name)
-				Expect(diskCount).To(Equal(v.originalDiskCount),
+			By("Check that the disk count of the virtual machine is equal to the disk count before migration.")
+			for vm, originalDiskCount := range vmOriginalDiskCount {
+				diskCount, err := f.SSHCommand(vm.Name, f.Namespace().Name, lsblkCommand)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(diskCount).To(Equal(originalDiskCount),
 					"disk count mismatch on VM %s after migration: got %s, expected %s",
-					v.vm.Name, diskCount, v.originalDiskCount)
+					vm.Name, diskCount, originalDiskCount,
+				)
 			}
 
 			cancelVMBDA()
