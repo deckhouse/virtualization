@@ -1463,41 +1463,41 @@ jobs:
             ./release
           echo "[INFO] Cluster is intentionally left running (no cleanup)"
 
-  undeploy-cluster:
-    name: Undeploy cluster
-    runs-on: ubuntu-latest
-    needs:
-      - bootstrap
-      - test-new-release
-    if: always()
-    steps:
-      - uses: actions/checkout@v4
+  # undeploy-cluster:
+  #   name: Undeploy cluster
+  #   runs-on: ubuntu-latest
+  #   needs:
+  #     - bootstrap
+  #     - test-new-release
+  #   if: always()
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Setup d8
-        uses: ./.github/actions/install-d8
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Setup d8
+  #       uses: ./.github/actions/install-d8
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Install Task
+  #       uses: arduino/setup-task@v2
+  #       with:
+  #         version: 3.x
+  #         repo-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download artifacts
-        uses: actions/download-artifact@v5
-        with:
-          name: ${{ inputs.storage_type }}-release-generated-files-${{ inputs.date_start }}
-          path: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/
+  #     - name: Download artifacts
+  #       uses: actions/download-artifact@v5
+  #       with:
+  #         name: ${{ inputs.storage_type }}-release-generated-files-${{ inputs.date_start }}
+  #         path: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/
 
-      - name: Configure kubectl via azure/k8s-set-context@v4
-        uses: azure/k8s-set-context@v4
-        with:
-          method: kubeconfig
-          context: e2e-cluster-nightly-e2e-virt-sa
-          kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+  #     - name: Configure kubectl via azure/k8s-set-context@v4
+  #       uses: azure/k8s-set-context@v4
+  #       with:
+  #         method: kubeconfig
+  #         context: e2e-cluster-nightly-e2e-virt-sa
+  #         kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
 
-      - name: infra-undeploy
-        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
-        run: |
-          task infra-undeploy
+  #     - name: infra-undeploy
+  #       working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+  #       run: |
+  #         task infra-undeploy
