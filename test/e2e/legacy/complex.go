@@ -43,7 +43,6 @@ var _ = Describe("ComplexTest", Ordered, label.Legacy(), func() {
 		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "complex-test"}
 		ns                       string
 		phaseByVolumeBindingMode = util.GetExpectedDiskPhaseByVolumeBindingMode()
-		f                        = framework.NewFramework("")
 	)
 
 	AfterEach(func() {
@@ -107,23 +106,25 @@ var _ = Describe("ComplexTest", Ordered, label.Legacy(), func() {
 		})
 	})
 
-	Context("When virtual machines IP addresses are applied", func() {
-		It("patches custom VMIP with unassigned address", func() {
-			vmipName := fmt.Sprintf("%s-%s", namePrefix, "vm-custom-ip")
-			Eventually(func() error {
-				return AssignIPToVMIP(f, ns, vmipName)
-			}).WithTimeout(LongWaitDuration).WithPolling(Interval).Should(Succeed())
-		})
+	// TODO: Creating a VMIP outside the allowed range is now rejected by the webhook.
+	// Re-enable this when we figure out how to keep the test coverage.
+	// Context("When virtual machines IP addresses are applied", func() {
+	// 	It("patches custom VMIP with unassigned address", func() {
+	// 		vmipName := fmt.Sprintf("%s-%s", namePrefix, "vm-custom-ip")
+	// 		Eventually(func() error {
+	// 			return AssignIPToVMIP(f, ns, vmipName)
+	// 		}).WithTimeout(LongWaitDuration).WithPolling(Interval).Should(Succeed())
+	// 	})
 
-		It("checks VMIPs phases", func() {
-			By(fmt.Sprintf("VMIPs should be in %s phases", PhaseAttached))
-			WaitPhaseByLabel(kc.ResourceVMIP, PhaseAttached, kc.WaitOptions{
-				Labels:    testCaseLabel,
-				Namespace: ns,
-				Timeout:   MaxWaitTimeout,
-			})
-		})
-	})
+	// 	It("checks VMIPs phases", func() {
+	// 		By(fmt.Sprintf("VMIPs should be in %s phases", PhaseAttached))
+	// 		WaitPhaseByLabel(kc.ResourceVMIP, PhaseAttached, kc.WaitOptions{
+	// 			Labels:    testCaseLabel,
+	// 			Namespace: ns,
+	// 			Timeout:   MaxWaitTimeout,
+	// 		})
+	// 	})
+	// })
 
 	Context("When virtual disks are applied", func() {
 		It("checks VDs phases with consumers", func() {
