@@ -442,11 +442,6 @@ jobs:
       - name: Install kubectl CLI
         uses: azure/setup-kubectl@v4
 
-      - name: Setup d8
-        uses: ./.github/actions/install-d8
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Check nested kube-api via generated kubeconfig
         run: |
           mkdir -p ~/.kube
