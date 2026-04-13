@@ -1422,6 +1422,10 @@ spec:
           jsonPath: .status.phase
           name: Phase
           type: string
+        - description: Time since the virtual machine entered the current phase.
+          jsonPath: .status.stats.phasesTransitions[-1].timestamp
+          name: PhaseAge
+          type: date
         - description: Real number of the virtual machine cores.
           jsonPath: .status.resources.cpu.cores
           name: Cores
