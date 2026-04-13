@@ -96,11 +96,15 @@ func compareBlockDevices(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 				ActionRequired: ActionApplyImmediate,
 			})
 		case isRemoved:
+			action := ActionApplyImmediate
+			if !current.EnableParavirtualization {
+				action = ActionRestart
+			}
 			changes = append(changes, FieldChange{
 				Operation:      ChangeRemove,
 				Path:           itemPath,
 				CurrentValue:   current.BlockDeviceRefs[idx],
-				ActionRequired: ActionApplyImmediate,
+				ActionRequired: action,
 			})
 		case isSwapped:
 			changes = append(changes, FieldChange{

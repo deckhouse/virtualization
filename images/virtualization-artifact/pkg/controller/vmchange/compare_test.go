@@ -177,6 +177,7 @@ blockDeviceRefs:
 		{
 			"apply immediate on blockDeviceRefs remove disk",
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualDisk
   name: linux
@@ -184,12 +185,34 @@ blockDeviceRefs:
   name: linux
 `,
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualImage
   name: linux
 `,
 			assertChanges(
 				actionRequired(ActionApplyImmediate),
+				requirePathOperation("blockDeviceRefs.0", ChangeRemove),
+			),
+		},
+		{
+			"restart on blockDeviceRefs remove disk with paravirt disabled",
+			`
+enableParavirtualization: false
+blockDeviceRefs:
+- kind: VirtualDisk
+  name: linux
+- kind: VirtualImage
+  name: linux
+`,
+			`
+enableParavirtualization: false
+blockDeviceRefs:
+- kind: VirtualImage
+  name: linux
+`,
+			assertChanges(
+				actionRequired(ActionRestart),
 				requirePathOperation("blockDeviceRefs.0", ChangeRemove),
 			),
 		},

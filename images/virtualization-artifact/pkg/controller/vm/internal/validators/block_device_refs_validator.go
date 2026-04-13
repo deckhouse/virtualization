@@ -71,8 +71,14 @@ func (v *BlockDeviceSpecRefsValidator) ValidateCreate(_ context.Context, vm *v1a
 	return nil, v.validate(vm)
 }
 
-func (v *BlockDeviceSpecRefsValidator) ValidateUpdate(_ context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	return nil, v.validate(newVM)
+func (v *BlockDeviceSpecRefsValidator) ValidateUpdate(_ context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+	var warnings admission.Warnings
+
+	if !newVM.Spec.EnableParavirtualization && hasRemovedBlockDevices(oldVM, newVM) {
+		warnings = append(warnings, "Hot-unplugging block devices with enableParavirtualization=false is not supported. Restart the VM to apply changes.")
+	}
+
+	return warnings, v.validate(newVM)
 }
 
 func (v *BlockDeviceSpecRefsValidator) noDoubles(vm *v1alpha2.VirtualMachine) error {
@@ -88,6 +94,19 @@ func (v *BlockDeviceSpecRefsValidator) noDoubles(vm *v1alpha2.VirtualMachine) er
 	}
 
 	return nil
+}
+
+func hasRemovedBlockDevices(oldVM, newVM *v1alpha2.VirtualMachine) bool {
+	newRefs := make(map[blockDeviceKey]struct{}, len(newVM.Spec.BlockDeviceRefs))
+	for _, bd := range newVM.Spec.BlockDeviceRefs {
+		newRefs[blockDeviceKey{Kind: bd.Kind, Name: bd.Name}] = struct{}{}
+	}
+	for _, bd := range oldVM.Spec.BlockDeviceRefs {
+		if _, ok := newRefs[blockDeviceKey{Kind: bd.Kind, Name: bd.Name}]; !ok {
+			return true
+		}
+	}
+	return false
 }
 
 func (v *BlockDeviceSpecRefsValidator) validateBootOrder(vm *v1alpha2.VirtualMachine) error {
