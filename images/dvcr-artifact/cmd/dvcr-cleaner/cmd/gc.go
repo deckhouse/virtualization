@@ -146,6 +146,14 @@ func autoCleanupHandler(cmd *cobra.Command, args []string) error {
 		errs = multierror.Append(errs, cleanupErr)
 	}
 
+	// Testing: sleep and print errors if present.
+	time.Sleep(time.Second * 30)
+	err = errs.ErrorOrNil()
+	if err != nil {
+		fmt.Printf("Error while cleaning up stale images after cleanup: %v\n", err)
+	}
+	// Testing end.
+
 	result := map[string]any{
 		"result":     "success",
 		"startedAt":  started,
@@ -182,14 +190,6 @@ func autoCleanupHandler(cmd *cobra.Command, args []string) error {
 	if GarbageCollectionSecretName == "" {
 		return errs.ErrorOrNil()
 	}
-
-	// Testing: sleep and print errors if present.
-	time.Sleep(time.Second * 30)
-	err = errs.ErrorOrNil()
-	if err != nil {
-		fmt.Printf("Error while cleaning up stale images after cleanup: %v\n", err)
-	}
-	// Testing end.
 
 	// Update garbage collection secret and wait for termination signal.
 	secretErr := annotateGarbageCollectionSecretOnCleanupDone(context.Background(), result)
