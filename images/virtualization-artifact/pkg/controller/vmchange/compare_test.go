@@ -298,6 +298,7 @@ blockDeviceRefs:
 - kind: VirtualImage
   name: linux
 `,
+			nil,
 			assertChanges(
 				actionRequired(ActionApplyImmediate),
 				requirePathOperation("blockDeviceRefs.0", ChangeRemove),
