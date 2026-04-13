@@ -125,7 +125,7 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 	if volumeError := h.checkVMPodVolumeErrors(ctx, vm, log); volumeError != nil {
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonPodNotStarted).
-			Message(volumeError.Error())
+			Message(service.CapitalizeFirstLetter(volumeError.Error()))
 		conditions.SetCondition(cb, &vm.Status.Conditions)
 		return
 	}
