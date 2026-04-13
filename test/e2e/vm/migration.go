@@ -264,8 +264,20 @@ var _ = Describe("VirtualMachineMigration", func() {
 				g.Expect(vmopMigrateUEFI.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
 			}).WithPolling(time.Second).WithTimeout(framework.LongTimeout).To(Succeed())
 
-			verifyDisksPreservedAfterMigration(f, vmBIOS, biosDiskCountOriginal)
-			verifyDisksPreservedAfterMigration(f, vmUEFI, uefiDiskCountOriginal)
+			By("Check access via ssh for vms", func() {
+				util.UntilSSHReady(f, vmBIOS, framework.MiddleTimeout)
+				util.UntilSSHReady(f, vmUEFI, framework.MiddleTimeout)
+			})
+
+			By("Check disks are still attached after migration for vms", func() {
+				diskCount, err := f.SSHCommand(vmBIOS.Name, f.Namespace().Name, lsblkCommand)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(diskCount).To(Equal(biosDiskCountOriginal))
+
+				diskCount, err = f.SSHCommand(vmUEFI.Name, f.Namespace().Name, lsblkCommand)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(diskCount).To(Equal(uefiDiskCountOriginal))
+			})
 
 			cancelVMBDA()
 			Expect(<-vmbdaWatchErrCh).NotTo(HaveOccurred(), "VMBDAs should stay in Attached phase during migration")
@@ -327,20 +339,6 @@ func ensureVMBDAsStayAttached(ctx context.Context, w util.Watcher, names []strin
 			}
 		}
 	}
-}
-
-func verifyDisksPreservedAfterMigration(f *framework.Framework, vm *v1alpha2.VirtualMachine, originalDiskCount string) {
-	GinkgoHelper()
-
-	By(fmt.Sprintf("Check access via ssh for vm %s", vm.Name), func() {
-		util.UntilSSHReady(f, vm, framework.MiddleTimeout)
-	})
-
-	By(fmt.Sprintf("Check disks are still attached after migration for vm %s", vm.Name), func() {
-		diskCount, err := f.SSHCommand(vm.Name, f.Namespace().Name, lsblkCommand)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(diskCount).To(Equal(originalDiskCount))
-	})
 }
 
 func toObjects[T crclient.Object](objs []T) []crclient.Object {
