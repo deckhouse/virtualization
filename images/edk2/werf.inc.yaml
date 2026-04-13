@@ -75,6 +75,8 @@ shell:
   - |
     cd /src
 
+    echo "kek231"
+
     echo "Git clone Edk2 repository..."
     git clone \
       --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} \
