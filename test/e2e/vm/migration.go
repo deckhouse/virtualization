@@ -274,13 +274,17 @@ var _ = Describe("VirtualMachineMigration", func() {
 			util.UntilSSHReady(f, vmBIOS, framework.MiddleTimeout)
 			util.UntilSSHReady(f, vmUEFI, framework.MiddleTimeout)
 
-			biosDiskCount, err := f.SSHCommand(vmBIOS.Name, f.Namespace().Name, lsblkCommand)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(biosDiskCount).To(Equal(biosDiskCountOriginal))
+			By(fmt.Sprintf("Check disks are still attached after migration for vm %s", vmBIOS.Name), func() {
+				biosDiskCount, err := f.SSHCommand(vmBIOS.Name, f.Namespace().Name, lsblkCommand)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(biosDiskCount).To(Equal(biosDiskCountOriginal))
+			})
 
-			uefiDiskCount, err := f.SSHCommand(vmUEFI.Name, f.Namespace().Name, lsblkCommand)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(uefiDiskCount).To(Equal(uefiDiskCountOriginal))
+			By(fmt.Sprintf("Check disks are still attached after migration for vm %s", vmUEFI.Name), func() {
+				uefiDiskCount, err := f.SSHCommand(vmUEFI.Name, f.Namespace().Name, lsblkCommand)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(uefiDiskCount).To(Equal(uefiDiskCountOriginal))
+			})
 
 			cancelVMBDA()
 			Expect(<-vmbdaWatchErrCh).NotTo(HaveOccurred(), "VMBDAs should stay in Attached phase during migration")
