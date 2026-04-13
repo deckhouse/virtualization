@@ -76,7 +76,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 
 	It("verifies that migrations are successful", func() {
 		By("Environment preparation", func() {
-			vdRootBIOS = object.NewVDFromCVI("vd-root-bios", f.Namespace().Name, object.PrecreatedCVIUbuntu,
+			vdRootBIOS = object.NewVDFromCVI("vd-root-bios", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
 				vd.WithSize(ptr.To(resource.MustParse("10Gi"))),
 			)
 			vdBlankBIOS = vd.New(
@@ -105,7 +105,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 					},
 				),
 				vm.WithBootloader(v1alpha2.BIOS),
-				vm.WithProvisioningUserData(object.UbuntuCloudInit),
+				vm.WithProvisioningUserData(object.AlpineCloudInit),
 				vm.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
 				vm.WithName("vm-bios"),
 			)
@@ -260,16 +260,29 @@ var _ = Describe("VirtualMachineMigration", func() {
 				err = f.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vmopMigrateUEFI), vmopMigrateUEFI)
 				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
 
-				biosDiskCount, err := f.SSHCommand(vmBIOS.Name, f.Namespace().Name, lsblkCommand)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(biosDiskCount).To(Equal(biosDiskCountOriginal))
-				uefiDiskCount, err := f.SSHCommand(vmUEFI.Name, f.Namespace().Name, lsblkCommand)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(uefiDiskCount).To(Equal(uefiDiskCountOriginal))
-
 				g.Expect(vmopMigrateBIOS.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
 				g.Expect(vmopMigrateUEFI.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
 			}).WithPolling(time.Second).WithTimeout(framework.LongTimeout).To(Succeed())
+
+			vmOriginalDiskCount := map[*v1alpha2.VirtualMachine]string{
+				vmBIOS: biosDiskCountOriginal,
+				vmUEFI: uefiDiskCountOriginal,
+			}
+
+			By("Wait until the virtual machine is accessible via SSH after migration.")
+			for vm := range vmOriginalDiskCount {
+				util.UntilSSHReady(f, vm, framework.MiddleTimeout)
+			}
+
+			By("Check that the disk count of the virtual machine is equal to the disk count before migration.")
+			for vm, originalDiskCount := range vmOriginalDiskCount {
+				diskCount, err := f.SSHCommand(vm.Name, f.Namespace().Name, lsblkCommand)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(diskCount).To(Equal(originalDiskCount),
+					"disk count mismatch on VM %s after migration: got %s, expected %s",
+					vm.Name, diskCount, originalDiskCount,
+				)
+			}
 
 			cancelVMBDA()
 			Expect(<-vmbdaWatchErrCh).NotTo(HaveOccurred(), "VMBDAs should stay in Attached phase during migration")
