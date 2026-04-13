@@ -20,12 +20,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/component-base/featuregate"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -33,6 +36,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
@@ -52,11 +56,18 @@ type syncVolumesService interface {
 	SyncVolumes(ctx context.Context, s state.VirtualMachineState, restartRequired bool) (reconcile.Result, error)
 }
 
-func NewSyncKvvmHandler(dvcrSettings *dvcr.Settings, client client.Client, recorder eventrecord.EventRecorderLogger, syncVolumesService syncVolumesService) *SyncKvvmHandler {
+func NewSyncKvvmHandler(
+	dvcrSettings *dvcr.Settings,
+	client client.Client,
+	recorder eventrecord.EventRecorderLogger,
+	featureGate featuregate.FeatureGate,
+	syncVolumesService syncVolumesService,
+) *SyncKvvmHandler {
 	return &SyncKvvmHandler{
 		dvcrSettings:       dvcrSettings,
 		client:             client,
 		recorder:           recorder,
+		featureGate:        featureGate,
 		syncVolumesService: syncVolumesService,
 	}
 }
@@ -65,6 +76,7 @@ type SyncKvvmHandler struct {
 	client             client.Client
 	recorder           eventrecord.EventRecorderLogger
 	dvcrSettings       *dvcr.Settings
+	featureGate        featuregate.FeatureGate
 	syncVolumesService syncVolumesService
 }
 
@@ -256,7 +268,7 @@ func (h *SyncKvvmHandler) Name() string {
 }
 
 func (h *SyncKvvmHandler) isWaiting(vm *v1alpha2.VirtualMachine) bool {
-	return !checkVirtualMachineConfiguration(vm)
+	return !virtualMachineDependenciesAreReady(vm)
 }
 
 func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineState, allChanges vmchange.SpecChanges) (bool, error) {
@@ -302,24 +314,14 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 		}
 		return true, nil
 	case h.isVMStopped(s.VirtualMachine().Current(), kvvm, pod):
-		// KVVM must be updated when the VM is stopped because all its components,
-		//  like VirtualDisk and other resources,
-		//  can be changed during the restoration process.
+		// KVVM should be updated when VM become stopped.
+		// It is safe to update KVVM at this point in general and also all related resources
+		// can be changed during the restoration process: e.g. VirtualDisks, VMIPs, etc.
 		// For example, the PVC of the VirtualDisk will be changed,
 		//  and the volume with this PVC must be updated in the KVVM specification.
-		hasVMChanges, err := h.detectVMSpecChanges(ctx, s)
+		err := h.updateKVVM(ctx, s)
 		if err != nil {
-			return false, fmt.Errorf("detect changes on the stopped internal virtual machine: %w", err)
-		}
-		hasVMClassChanges, err := h.detectVMClassSpecChanges(ctx, s)
-		if err != nil {
-			return false, fmt.Errorf("detect changes on the stopped internal virtual machine: %w", err)
-		}
-		if hasVMChanges || hasVMClassChanges {
-			err := h.updateKVVM(ctx, s)
-			if err != nil {
-				return false, fmt.Errorf("update stopped internal virtual machine: %w", err)
-			}
+			return false, fmt.Errorf("update internal virtual machine in 'Stopped' state: %w", err)
 		}
 		return true, nil
 	case h.hasNoneDisruptiveChanges(s.VirtualMachine().Current(), kvvm, kvvmi, allChanges):
@@ -374,18 +376,69 @@ func (h *SyncKvvmHandler) updateKVVM(ctx context.Context, s state.VirtualMachine
 		return fmt.Errorf("the virtual machine is empty, please report a bug")
 	}
 
-	kvvm, err := MakeKVVMFromVMSpec(ctx, s)
+	newKVVM, err := MakeKVVMFromVMSpec(ctx, s)
 	if err != nil {
-		return fmt.Errorf("failed to prepare the internal virtual machine: %w", err)
+		return fmt.Errorf("update internal virtual machine: make kvvm from the virtual machine spec: %w", err)
 	}
 
-	if err = h.client.Update(ctx, kvvm); err != nil {
-		return fmt.Errorf("failed to create the internal virtual machine: %w", err)
+	currentKVVM, err := s.KVVM(ctx)
+	if err != nil {
+		return fmt.Errorf("get current kvvm: %w", err)
 	}
 
-	log.Info("Update KubeVirt VM done", "name", kvvm.Name)
-	log.Debug("Update KubeVirt VM done", "name", kvvm.Name, "kvvm", kvvm)
+	// Check for changes to skip unneeded updated.
+	isChanged := IsKVVMChanged(currentKVVM, newKVVM)
 
+	if isChanged {
+		// Update can't handle proper reset of memory fields, so patch-after-update:
+		// (1) make memory copy, (2) reset memory in newKVVM and (3) patch memory field after update.
+		domainMemory := saveKVVMDomainMemoryForPatching(currentKVVM, newKVVM)
+		if domainMemory != nil {
+			newKVVM.Spec.Template.Spec.Domain.Memory = currentKVVM.Spec.Template.Spec.Domain.Memory
+		}
+
+		if err = h.client.Update(ctx, newKVVM); err != nil {
+			return fmt.Errorf("update internal virtual machine: %w", err)
+		}
+
+		log.Info("Update internal virtual machine done", "name", newKVVM.Name)
+		log.Debug("Update internal virtual machine done", "name", newKVVM.Name, "kvvm", newKVVM)
+
+		if domainMemory != nil {
+			jsonPatch := patch.JSONPatch{}
+			// Removing memory.maxGuest is not enough, replace memory.guest is needed to pass the vm-validator webhook.
+			jsonPatch.Append(
+				patch.WithRemove("/spec/template/spec/domain/memory/maxGuest"),
+				patch.WithReplace("/spec/template/spec/domain/memory/guest", domainMemory.Guest.String()),
+			)
+			patchBytes, err := jsonPatch.Bytes()
+			if err != nil {
+				return fmt.Errorf("prepare json patch for internal virtual machine: %w", err)
+			}
+			if err = h.client.Patch(ctx, newKVVM, client.RawPatch(types.JSONPatchType, patchBytes)); err != nil {
+				return fmt.Errorf("patch internal virtual machine before update: %w", err)
+			}
+		}
+	} else {
+		log.Debug("Update internal virtual machine is not needed", "name", newKVVM.Name, "kvvm", newKVVM)
+	}
+
+	return nil
+}
+
+// saveKVVMDomainMemoryForPatching returns copy of domain memory if maxGuest becomes 0.
+//
+// Note: maxGuest=0 is an invalid value for the vm-validator webhook,
+// kvbuilder sets maxGuest to 0 to indicate that KVVM needs to be patched
+// to clear maxGuest value: it is not possible to clear the value with the Update
+// once it was set previously.
+func saveKVVMDomainMemoryForPatching(prevKVVM, newKVVM *virtv1.VirtualMachine) *virtv1.Memory {
+	prevMemory := prevKVVM.Spec.Template.Spec.Domain.Memory
+	newMemory := newKVVM.Spec.Template.Spec.Domain.Memory
+	if newMemory != nil && newMemory.MaxGuest != nil && newMemory.MaxGuest.IsZero() &&
+		prevMemory != nil && prevMemory.MaxGuest != nil && !prevMemory.MaxGuest.IsZero() {
+		return newMemory.DeepCopy()
+	}
 	return nil
 }
 
@@ -411,7 +464,7 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 	bdState := NewBlockDeviceState(s)
 	err = bdState.Reload(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to relaod blockdevice state for the virtual machine: %w", err)
+		return nil, fmt.Errorf("failed to reload blockdevice state for the virtual machine: %w", err)
 	}
 	class, err := s.Class(ctx)
 	if err != nil {
@@ -461,6 +514,19 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 	}
 
 	return newKVVM, nil
+}
+
+// IsKVVMChanged returns whether kvvm spec or special annotations are changed.
+func IsKVVMChanged(prevKVVM, newKVVM *virtv1.VirtualMachine) bool {
+	if prevKVVM.Annotations[annotations.AnnVMLastAppliedSpec] != newKVVM.Annotations[annotations.AnnVMLastAppliedSpec] {
+		return true
+	}
+
+	if prevKVVM.Annotations[annotations.AnnVMClassLastAppliedSpec] != newKVVM.Annotations[annotations.AnnVMClassLastAppliedSpec] {
+		return true
+	}
+
+	return !reflect.DeepEqual(prevKVVM.Spec, newKVVM.Spec)
 }
 
 func (h *SyncKvvmHandler) loadLastAppliedSpec(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) *v1alpha2.VirtualMachineSpec {
@@ -535,7 +601,7 @@ func (h *SyncKvvmHandler) detectSpecChanges(
 
 	// Compare VM spec applied to the underlying KVVM
 	// with the current VM spec (maybe edited by the user).
-	specChanges := vmchange.CompareVMSpecs(lastSpec, currentSpec)
+	specChanges := vmchange.NewVMSpecComparator(h.featureGate).Compare(lastSpec, currentSpec)
 
 	log.Info(fmt.Sprintf("detected VM changes: empty %v, disruptive %v, actionType %v", specChanges.IsEmpty(), specChanges.IsDisruptive(), specChanges.ActionType()))
 	log.Info(fmt.Sprintf("detected VM changes JSON: %s", specChanges.ToJSON()))
@@ -742,7 +808,7 @@ func hasNonHotpluggableVolumes(kvvmi *virtv1.VirtualMachineInstance) bool {
 func (h *SyncKvvmHandler) isPlacementPolicyChanged(allChanges vmchange.SpecChanges) bool {
 	for _, c := range allChanges.GetAll() {
 		switch c.Path {
-		case "affinity", "nodeSelector", "tolerations":
+		case "affinity", "nodeSelector", "tolerations", "virtualMachineClassName", "VirtualMachineClass:spec.nodeSelector", "VirtualMachineClass:spec.tolerations":
 			if !equality.Semantic.DeepEqual(c.CurrentValue, c.DesiredValue) {
 				return true
 			}

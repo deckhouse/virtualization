@@ -60,7 +60,7 @@ type D8Virtualization interface {
 	StopVM(vmName string, opts SSHOptions) *executor.CMDResult
 	StartVM(vmName string, opts SSHOptions) *executor.CMDResult
 	RestartVM(vmName string, opts SSHOptions) *executor.CMDResult
-	DataExportDownload(resourceType, name string, opts DataExportOptions) *executor.CMDResult
+	DataExportDownload(resourceType, name string, opts DataExportOptions) error
 }
 
 type DataExportOptions struct {
@@ -71,6 +71,7 @@ type DataExportOptions struct {
 	SourcePath string
 	Timeout    time.Duration
 	Publish    bool
+	Cleanup    bool
 }
 
 func NewD8Virtualization(conf D8VirtualizationConf) (*D8VirtualizationCMD, error) {
@@ -168,7 +169,7 @@ func (v D8VirtualizationCMD) RestartVM(vmName string, opts SSHOptions) *executor
 	return v.ExecContext(ctx, cmd)
 }
 
-func (v D8VirtualizationCMD) DataExportDownload(resourceType, name string, opts DataExportOptions) *executor.CMDResult {
+func (v D8VirtualizationCMD) DataExportDownload(resourceType, name string, opts DataExportOptions) error {
 	timeout := LongTimeout
 	if opts.Timeout != 0 {
 		timeout = opts.Timeout
@@ -189,15 +190,24 @@ func (v D8VirtualizationCMD) DataExportDownload(resourceType, name string, opts 
 		cmd = fmt.Sprintf("%s --publish", cmd)
 	}
 
-	// d8 data export download always returns exit code 0 even on errors,
-	// so we pipe output through grep to check for success message.
-	// grep -q returns non-zero exit code if pattern not found.
-	cmd = fmt.Sprintf(`echo y | %s 2>&1 | grep -q "All files have been downloaded"`, cmd)
+	if opts.Cleanup {
+		cmd = fmt.Sprintf("%s --cleanup", cmd)
+	}
 
+	cmd = fmt.Sprintf("%s 2>&1", cmd)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	return v.ExecContext(ctx, cmd)
+	res := v.ExecContext(ctx, cmd)
+	if res.Error() != nil {
+		return fmt.Errorf("failed to execute command `%s`: %w:\n%s", cmd, res.Error(), res.StdOut())
+	}
+
+	if strings.Contains(res.StdOut(), "All files have been downloaded") {
+		return nil
+	}
+
+	return fmt.Errorf("failed to export data:\n%s\n%s\n%s", cmd, res.StdOut(), res.StdErr())
 }
 
 func (v D8VirtualizationCMD) addNamespace(cmd, ns string) string {

@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
@@ -42,7 +43,7 @@ const (
 	frozenReasonPollingInterval    = 1 * time.Second
 )
 
-var _ = Describe("VirtualDiskSnapshots", Ordered, func() {
+var _ = Describe("VirtualDiskSnapshots", Ordered, label.Legacy(), func() {
 	var (
 		testCaseLabel            = map[string]string{"testcase": "vd-snapshots", "id": namePrefix}
 		attachedVirtualDiskLabel = map[string]string{"attachedVirtualDisk": ""}
@@ -83,17 +84,6 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, func() {
 				FilenameOption: kc.Kustomize,
 			})
 			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
-		})
-	})
-
-	Context("When virtual images are applied:", func() {
-		It("checks VIs phases", func() {
-			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
-			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
-				Labels:    testCaseLabel,
-				Namespace: ns,
-				Timeout:   MaxWaitTimeout,
-			})
 		})
 	})
 

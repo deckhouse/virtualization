@@ -76,7 +76,9 @@ func (s *binaryWriter) Write(p []byte) (int, error) {
 	if err != nil {
 		return 0, convert(err)
 	}
-	defer w.Close()
+	defer func() {
+		_ = w.Close()
+	}()
 	n, err := w.Write(p)
 	return n, err
 }

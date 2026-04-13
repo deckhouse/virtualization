@@ -5,7 +5,6 @@ namePrefix: pr-number-or-commit-hash-
 resources:
   - ns.yaml
   - vmc.yaml
-  - vi
   - vm
 configurations:
   - transformer.yaml

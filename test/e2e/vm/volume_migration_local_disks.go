@@ -70,7 +70,7 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), fun
 
 		DeferCleanup(f.After)
 
-		newVI := object.NewGeneratedHTTPVIAlpineBIOSPerf("volume-migration-local-disks-", f.Namespace().Name)
+		newVI := object.NewGeneratedVIFromCVI("volume-migration-local-disks-", f.Namespace().Name, object.PrecreatedCVIAlpineBIOSPerf)
 		newVI, err := f.VirtClient().VirtualImages(f.Namespace().Name).Create(context.Background(), newVI, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(newVI)

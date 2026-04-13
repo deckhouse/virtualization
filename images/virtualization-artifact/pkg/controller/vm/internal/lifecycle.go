@@ -190,7 +190,7 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 		vm.Status.Versions.Qemu = kvvmi.Annotations[annotations.AnnQemuVersion]
 	}
 
-	if kvvmi != nil {
+	if kvvmi != nil && vm.Status.Phase != v1alpha2.MachineStopped {
 		vm.Status.Node = kvvmi.Status.NodeName
 
 		if vm.Status.Phase == v1alpha2.MachineRunning {

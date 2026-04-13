@@ -28,6 +28,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
@@ -36,7 +37,7 @@ const (
 	antiAffinityLabel = "anti-affinity"
 )
 
-var _ = Describe("ComplexTest", Ordered, func() {
+var _ = Describe("ComplexTest", Ordered, label.Legacy(), func() {
 	var (
 		testCaseLabel            = map[string]string{"testcase": "complex-test"}
 		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "complex-test"}
@@ -88,17 +89,6 @@ var _ = Describe("ComplexTest", Ordered, func() {
 		It("checks VIs phases", func() {
 			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
-				Labels:    testCaseLabel,
-				Namespace: ns,
-				Timeout:   MaxWaitTimeout,
-			})
-		})
-	})
-
-	Context("When cluster virtual images are applied", func() {
-		It("checks CVIs phases", func() {
-			By(fmt.Sprintf("CVIs should be in %s phases", PhaseReady))
-			WaitPhaseByLabel(kc.ResourceCVI, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,

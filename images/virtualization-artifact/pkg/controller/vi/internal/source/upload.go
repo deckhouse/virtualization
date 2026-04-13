@@ -100,6 +100,11 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		return reconcile.Result{}, err
 	}
 
+	isUploaderReady, err := ds.statService.IsUploaderReady(pod, svc, ing)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	var dvQuotaNotExceededCondition *cdiv1.DataVolumeCondition
 	var dvRunningCondition *cdiv1.DataVolumeCondition
 	if dv != nil {
@@ -172,7 +177,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		}
 
 		if !ds.statService.IsUploadStarted(vi.GetUID(), pod) {
-			if ds.statService.IsUploaderReady(pod, svc, ing) {
+			if isUploaderReady {
 				log.Info("Waiting for the user upload", "pod.phase", pod.Status.Phase)
 
 				vi.Status.Phase = v1alpha2.ImageWaitForUserUpload
@@ -357,6 +362,11 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 		return reconcile.Result{}, err
 	}
 
+	isUploaderReady, err := ds.statService.IsUploaderReady(pod, svc, ing)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	switch {
 	case IsImageProvisioningFinished(condition):
 		log.Info("Virtual image provisioning finished: clean up")
@@ -454,7 +464,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 		}
 
 		log.Info("Provisioning...", "pod.phase", pod.Status.Phase)
-	case ds.statService.IsUploaderReady(pod, svc, ing):
+	case isUploaderReady:
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.WaitForUserUpload).

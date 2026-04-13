@@ -54,8 +54,16 @@ func (w *KVVMIWatcher) Watch(mgr manager.Manager, ctr controller.Controller) err
 				CreateFunc: func(e event.TypedCreateEvent[*virtv1.VirtualMachineInstance]) bool { return false },
 				DeleteFunc: func(e event.TypedDeleteEvent[*virtv1.VirtualMachineInstance]) bool { return false },
 				UpdateFunc: func(e event.TypedUpdateEvent[*virtv1.VirtualMachineInstance]) bool {
-					cond, _ := conditions.GetKVVMICondition(conditions.VirtualMachineInstanceNodePlacementNotMatched, e.ObjectNew.Status.Conditions)
-					return cond.Status == corev1.ConditionTrue
+					nodePlacementCondition, _ := conditions.GetKVVMICondition(conditions.VirtualMachineInstanceNodePlacementNotMatched, e.ObjectNew.Status.Conditions)
+					if nodePlacementCondition.Status == corev1.ConditionTrue {
+						return true
+					}
+					hotMemoryChangeCondition, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceMemoryChange, e.ObjectNew.Status.Conditions)
+					if hotMemoryChangeCondition.Status == corev1.ConditionTrue {
+						return true
+					}
+					hotCPUChangeCondition, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceVCPUChange, e.ObjectNew.Status.Conditions)
+					return hotCPUChangeCondition.Status == corev1.ConditionTrue
 				},
 			},
 		),

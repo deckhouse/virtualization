@@ -31,9 +31,11 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/d8"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
+	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 )
 
-var _ = Describe("ImageHotplug", Ordered, func() {
+var _ = Describe("ImageHotplug", Ordered, label.Legacy(), func() {
 	const (
 		viCount  = 2
 		cviCount = 2
@@ -59,13 +61,6 @@ var _ = Describe("ImageHotplug", Ordered, func() {
 		ns, err = kustomize.GetNamespace(kustomization)
 		Expect(err).NotTo(HaveOccurred(), "%w", err)
 
-		res := kubectl.Delete(kc.DeleteOptions{
-			IgnoreNotFound: true,
-			Labels:         testCaseLabel,
-			Resource:       kc.ResourceCVI,
-		})
-		Expect(res.Error()).NotTo(HaveOccurred())
-
 		CreateNamespace(ns)
 	})
 
@@ -87,13 +82,6 @@ var _ = Describe("ImageHotplug", Ordered, func() {
 		It("checks the resources phase", func() {
 			By(fmt.Sprintf("`VirtualImages` should be in the %q phase", v1alpha2.ImageReady), func() {
 				WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
-					Labels:    testCaseLabel,
-					Namespace: ns,
-					Timeout:   MaxWaitTimeout,
-				})
-			})
-			By(fmt.Sprintf("`ClusterVirtualImages` should be in the %q phase", v1alpha2.ImageReady), func() {
-				WaitPhaseByLabel(kc.ResourceCVI, PhaseReady, kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
@@ -146,14 +134,13 @@ var _ = Describe("ImageHotplug", Ordered, func() {
 				}
 			})
 			By("`ClusterVirtualImages`", func() {
-				cviObjs := &v1alpha2.ClusterVirtualImageList{}
-				err := GetObjects(v1alpha2.ClusterVirtualImageResource, cviObjs, kc.GetOptions{
-					Labels:    testCaseLabel,
-					Namespace: ns,
-				})
-				Expect(err).NotTo(HaveOccurred(), "failed to get `ClusterVirtualImages`: %s", err)
+				// Get precreated CVIs by name (they are created in bootstrap)
+				cviNames := []string{object.PrecreatedCVIAlpineBIOSPerf, object.PrecreatedCVIUbuntuISO}
+				for _, cviName := range cviNames {
+					cviObj := &v1alpha2.ClusterVirtualImage{}
+					err := GetObject(kc.ResourceCVI, cviName, cviObj, kc.GetOptions{})
+					Expect(err).NotTo(HaveOccurred(), "failed to get CVI %q: %s", cviName, err)
 
-				for _, cviObj := range cviObjs.Items {
 					imageBlockDevices = append(imageBlockDevices, Image{
 						Kind: cviObj.Kind,
 						Name: cviObj.Name,
