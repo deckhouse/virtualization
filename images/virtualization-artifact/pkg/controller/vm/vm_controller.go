@@ -79,7 +79,7 @@ func SetupController(
 		internal.NewSizePolicyHandler(),
 		internal.NewNetworkInterfaceHandler(featuregates.Default()),
 		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder, featuregates.Default(), migrateVolumesService),
-    internal.NewHotplugHandler(attachmentService),
+		internal.NewHotplugHandler(attachmentService),
 		internal.NewSyncPowerStateHandler(client, recorder),
 		internal.NewSyncMetadataHandler(client),
 		internal.NewLifeCycleHandler(client, recorder),
