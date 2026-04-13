@@ -125,7 +125,7 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 	if volumeError := h.checkVMPodVolumeErrors(ctx, vm, log); volumeError != nil {
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonPodNotStarted).
-			Message(fmt.Sprintf("Error attaching block devices to virtual machine: %s", volumeError.Error()))
+			Message(volumeError.Error())
 		conditions.SetCondition(cb, &vm.Status.Conditions)
 		return
 	}
@@ -237,7 +237,7 @@ func (h *LifeCycleHandler) checkVMPodVolumeErrors(ctx context.Context, vm *v1alp
 			return err
 		}
 		if lastEvent != nil && (lastEvent.Reason == watcher.ReasonFailedAttachVolume || lastEvent.Reason == watcher.ReasonFailedMount) {
-			return fmt.Errorf("failed to attach volume: %s: %s", lastEvent.Reason, lastEvent.Message)
+			return fmt.Errorf("error attaching block devices to virtual machine: %s: %s", lastEvent.Reason, lastEvent.Message)
 		}
 	}
 
