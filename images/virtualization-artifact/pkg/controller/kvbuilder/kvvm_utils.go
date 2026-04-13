@@ -191,7 +191,7 @@ func applyBlockDeviceRefs(
 	kvvmVolumes := kvvm.Resource.Spec.Template.Spec.Volumes
 	for i, bd := range vm.Spec.BlockDeviceRefs {
 		diskName := GenerateDiskName(bd.Kind, bd.Name)
-		if len(kvvmVolumes) > 0 && !slices.ContainsFunc(kvvmVolumes, func(v virtv1.Volume) bool { return v.Name == diskName }) {
+		if vm.Spec.EnableParavirtualization && len(kvvmVolumes) > 0 && !slices.ContainsFunc(kvvmVolumes, func(v virtv1.Volume) bool { return v.Name == diskName }) {
 			continue
 		}
 
