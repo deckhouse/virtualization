@@ -231,18 +231,18 @@ func TestSetOsType(t *testing.T) {
 	t.Run("Change from Windows to Generic should remove TPM", func(t *testing.T) {
 		builder := NewEmptyKVVM(types.NamespacedName{Name: name, Namespace: namespace}, KVVMOptions{})
 
-		err := builder.SetOsType(v1alpha2.Windows)
+		err := builder.SetOSType(v1alpha2.Windows)
 		if err != nil {
-			t.Fatalf("SetOsType(Windows) failed: %v", err)
+			t.Fatalf("SetOSType(Windows) failed: %v", err)
 		}
 
 		if builder.Resource.Spec.Template.Spec.Domain.Devices.TPM == nil {
 			t.Error("TPM should be present after setting Windows OS")
 		}
 
-		err = builder.SetOsType(v1alpha2.GenericOs)
+		err = builder.SetOSType(v1alpha2.GenericOs)
 		if err != nil {
-			t.Fatalf("SetOsType(GenericOs) failed: %v", err)
+			t.Fatalf("SetOSType(GenericOs) failed: %v", err)
 		}
 
 		if builder.Resource.Spec.Template.Spec.Domain.Devices.TPM != nil {

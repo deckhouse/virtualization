@@ -1141,7 +1141,7 @@ var _ Stat = &StatMock{}
 //			IsUploadStartedFunc: func(ownerUID types.UID, pod *corev1.Pod) bool {
 //				panic("mock out the IsUploadStarted method")
 //			},
-//			IsUploaderReadyFunc: func(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) bool {
+//			IsUploaderReadyFunc: func(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) (bool, error) {
 //				panic("mock out the IsUploaderReady method")
 //			},
 //		}
@@ -1176,7 +1176,7 @@ type StatMock struct {
 	IsUploadStartedFunc func(ownerUID types.UID, pod *corev1.Pod) bool
 
 	// IsUploaderReadyFunc mocks the IsUploaderReady method.
-	IsUploaderReadyFunc func(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) bool
+	IsUploaderReadyFunc func(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) (bool, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -1528,7 +1528,7 @@ func (mock *StatMock) IsUploadStartedCalls() []struct {
 }
 
 // IsUploaderReady calls IsUploaderReadyFunc.
-func (mock *StatMock) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) bool {
+func (mock *StatMock) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) (bool, error) {
 	if mock.IsUploaderReadyFunc == nil {
 		panic("StatMock.IsUploaderReadyFunc: method is nil but Stat.IsUploaderReady was just called")
 	}

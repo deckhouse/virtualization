@@ -339,7 +339,7 @@ jobs:
       virtualization_tag: main
       deckhouse_channel: alpha
       default_user: cloud
-      go_version: "1.25.8"
+      go_version: "1.25.9"
       e2e_timeout: "3.5h"
       date_start: ${{ needs.set-vars.outputs.date_start }}
       randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}

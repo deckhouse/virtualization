@@ -117,3 +117,16 @@ true
 - name: KUBE_APISERVER_FEATURE_GATES
   value: {{ .Values.virtualization.internal.kubeAPIServerFeatureGates | toJson | quote }}
 {{- end }}
+
+{{- define "virtualization-controller.feature-gates-flag-args-item" }}
+{{- $gates := list }}
+{{- if (.Values.global.enabledModules | has "sdn") }}
+{{- $gates = append $gates "SDN=true" }}
+{{- end }}
+{{- range $feat := .Values.virtualization.internal.moduleConfig.featureGates }}
+{{- $gates = append $gates (printf "%s=true" $feat)}}
+{{- end }}
+{{- if gt (len $gates) 0 }}
+- --feature-gates={{$gates | join ","}}
+{{- end }}
+{{- end }}

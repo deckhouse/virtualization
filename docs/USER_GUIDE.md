@@ -1387,7 +1387,7 @@ For most modern Linux distributions, it is recommended to use `bootloader: EFI`.
 The `enableParavirtualization` parameter controls the use of the `virtio` bus for connecting virtual devices of the VM:
 
 - `true` (default) — uses the `virtio` bus for disks, network interfaces, and other devices, providing better performance.
-- `false` — uses standard device emulation (SATA for disks, e1000e for network interfaces), which may be necessary for compatibility with older operating systems.
+- `false` — uses standard device emulation (SATA for disks, e1000e for network interfaces), which may be necessary for compatibility with older operating systems. Hot-plugging block devices via `.spec.blockDeviceRefs` is not supported in this mode — changes require a VM restart. Hot-plugging via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) is still supported.
 
 {{< alert level="info" >}}
 To use paravirtualization mode (`virtio`), some operating systems require installing the corresponding drivers. If drivers are not installed, the VM may fail to boot or devices may not work correctly.
@@ -2112,9 +2112,13 @@ Block device types and access modes:
 Two attachment methods are available:
 
 - Via the VM specification (`.spec.blockDeviceRefs`): Disks are listed in the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) configuration and boot order is set for them (by position in the list or via the `bootOrder` field). Recommended when configuring the VM manually or via GitOps, or when you need to control boot order (e.g., an ISO for OS installation).
-- Via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (`vmbda`): Disk is attached via a separate resource and does not participate in boot order. Recommended for automation and when you do not have permission to edit the VM.
+- Via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (`vmbda`): Disk is attached via a separate resource and does not participate in boot order. Disks are always attached using the SCSI bus regardless of `enableParavirtualization`. Recommended for automation and when you do not have permission to edit the VM.
 
 Both methods support hotplug (add or remove without rebooting the VM).
+
+{{< alert level="warning" >}}
+For VMs with `enableParavirtualization: false`, hot-plugging via `.spec.blockDeviceRefs` is not supported. Changes to the block device list require a VM restart. Use [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) for hot-plugging disks to non-paravirtualized VMs.
+{{< /alert >}}
 
 #### Attaching via the VM specification
 

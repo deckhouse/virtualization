@@ -47,9 +47,9 @@ spec:
       name: v1alpha2
       schema:
         openAPIV3Schema:
-          description:
-            VirtualMachineBlockDeviceAttachment provides a hot plug for attaching
-            a disk to a virtual machine.
+          description: |-
+            VirtualMachineBlockDeviceAttachment provides a hot plug for attaching a disk to a virtual machine.
+            Disks are always attached using the SCSI bus, regardless of the enableParavirtualization setting.
           properties:
             apiVersion:
               description: |-

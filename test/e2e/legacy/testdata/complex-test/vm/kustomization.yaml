@@ -4,7 +4,7 @@ resources:
   - overlays/default
   - overlays/always-on
   - overlays/embedded-cloudinit
-  - overlays/custom-ip
+  # - overlays/custom-ip
   - overlays/automatic
   - overlays/vm-a-not-b
   - overlays/vm-b-not-a

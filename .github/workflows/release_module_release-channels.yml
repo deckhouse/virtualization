@@ -117,7 +117,7 @@ jobs:
     needs: print-vars
     if: ${{ !inputs.check_only && (inputs.ce || inputs.ee) }}
     env:
-      GO_VERSION: "1.25.8"
+      GO_VERSION: "1.25.9"
       input_channel: ${{ github.event.inputs.channel }}
       input_version: ${{ github.event.inputs.tag }}
     steps:
@@ -411,7 +411,7 @@ jobs:
     name: Check version on release channel
     runs-on: ubuntu-latest
     env:
-      GO_VERSION: "1.25.8"
+      GO_VERSION: "1.25.9"
       input_channel: ${{ github.event.inputs.channel }}
       input_version: ${{ github.event.inputs.tag }}
     needs:
@@ -516,52 +516,56 @@ jobs:
           DATE=$(date +"%Y-%m-%d %H:%M:%S UTC+03:00")
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-          # Determine overall status
-          OVERALL_STATUS=":white_check_mark: **SUCCESS!**"
-          if [[ "$CE_RESULT" == "failure" ]] || [[ "$EE_RESULT" == "failure" ]] || \
-             [[ "$SE_PLUS_RESULT" == "failure" ]] || [[ "$FE_RESULT" == "failure" ]] || \
-             [[ "$CHECK_RESULT" == "failure" ]]; then
-            OVERALL_STATUS=":x: **FAILED!**"
-          elif [[ "$CE_RESULT" == "cancelled" ]] || [[ "$EE_RESULT" == "cancelled" ]] || \
-               [[ "$SE_PLUS_RESULT" == "cancelled" ]] || [[ "$FE_RESULT" == "cancelled" ]] || \
-               [[ "$CHECK_RESULT" == "cancelled" ]]; then
-            OVERALL_STATUS=":warning: **CANCELLED!**"
-          fi
-
-          # Build editions status
           get_status_emoji() {
             case "$1" in
-              success) echo ":white_check_mark:" ;;
-              failure) echo ":x:" ;;
+              success)   echo ":white_check_mark:" ;;
+              failure)   echo ":x:" ;;
               cancelled) echo ":warning:" ;;
-              skipped) echo ":fast_forward:" ;;
-              *) echo ":grey_question:" ;;
+              skipped)   echo ":fast_forward:" ;;
+              *)         echo ":grey_question:" ;;
             esac
           }
 
-          EDITIONS_STATUS=""
+          # Build header row and status row dynamically
+          HEADER_ROW="| Edition |"
+          STATUS_ROW="| Status |"
+
           if [[ "$CE_ENABLED" == "true" ]]; then
-            EDITIONS_STATUS+="| CE | $(get_status_emoji $CE_RESULT) **${CE_RESULT^^}** |\n"
+            HEADER_ROW+=" CE |"
+            STATUS_ROW+=" $(get_status_emoji $CE_RESULT) |"
           fi
+
           if [[ "$EE_ENABLED" == "true" ]]; then
-            EDITIONS_STATUS+="| EE | $(get_status_emoji $EE_RESULT) **${EE_RESULT^^}** |\n"
-            EDITIONS_STATUS+="| SE Plus | $(get_status_emoji $SE_PLUS_RESULT) **${SE_PLUS_RESULT^^}** |\n"
-            EDITIONS_STATUS+="| FE | $(get_status_emoji $FE_RESULT) **${FE_RESULT^^}** |\n"
+            HEADER_ROW+=" EE |"
+            STATUS_ROW+=" $(get_status_emoji $EE_RESULT) |"
+
+            HEADER_ROW+=" SE+ |"
+            STATUS_ROW+=" $(get_status_emoji $SE_PLUS_RESULT) |"
+
+            HEADER_ROW+=" FE |"
+            STATUS_ROW+=" $(get_status_emoji $FE_RESULT) |"
           fi
+
+          HEADER_ROW+=" Check |"
+          STATUS_ROW+=" $(get_status_emoji $CHECK_RESULT) |"
+
+          # Count columns for separator
+          COL_COUNT=$(echo "$HEADER_ROW" | tr -cd '|' | wc -c)
+          COL_COUNT=$((COL_COUNT - 1))
+          SEPARATOR_ROW="|"
+          for ((i=0; i<COL_COUNT; i++)); do
+            SEPARATOR_ROW+="---|"
+          done
 
           RELEASE_SUMMARY="## :dvp: **DVP | Release ${TAG} to ${CHANNEL}**\n\n"
-          RELEASE_SUMMARY+="**Status:** ${OVERALL_STATUS}\n"
-          RELEASE_SUMMARY+="**Date:** ${DATE}\n\n"
-
-          if [[ -n "$EDITIONS_STATUS" ]]; then
-            RELEASE_SUMMARY+="| Edition | Status |\n"
-            RELEASE_SUMMARY+="|---|---|\n"
-            RELEASE_SUMMARY+="${EDITIONS_STATUS}"
-            RELEASE_SUMMARY+="\n"
-          fi
-
-          RELEASE_SUMMARY+="**Version Check:** $(get_status_emoji $CHECK_RESULT) **${CHECK_RESULT^^}**\n"
+          RELEASE_SUMMARY+="Date: ${DATE}\n"
           RELEASE_SUMMARY+="[:link: GitHub Actions Output](${RUN_URL})\n\n"
+          RELEASE_SUMMARY+="${HEADER_ROW}\n"
+          RELEASE_SUMMARY+="${SEPARATOR_ROW}\n"
+          RELEASE_SUMMARY+="${STATUS_ROW}\n"
 
           echo -e "$RELEASE_SUMMARY"
-          curl --request POST --header 'Content-Type: application/json' --data "{\"text\": \"${RELEASE_SUMMARY}\"}" $LOOP_WEBHOOK_URL
+          curl --request POST \
+                --header 'Content-Type: application/json' \
+                --data "{\"text\": \"${RELEASE_SUMMARY}\"}" \
+                $LOOP_WEBHOOK_URL

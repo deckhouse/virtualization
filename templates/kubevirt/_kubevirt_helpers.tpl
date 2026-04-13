@@ -102,9 +102,14 @@ spec:
 {{- .Values.virtualization.internal | dig "virtConfig" "progressTimeout" 150 -}}
 {{- end -}}
 
+{{- define "kubevirt.disable_tls" -}}
+{{- .Values.virtualization.internal | dig "virtConfig" "disableTLS" false -}}
+{{- end -}}
+
 {{- define "kubevirt.migrations" -}}
 bandwidthPerMigration: {{ include "kubevirt.bandwidth_per_migration" . }}
 completionTimeoutPerGiB: {{ include "kubevirt.completion_timeout_per_gib" . }}
+disableTLS: {{ include "kubevirt.disable_tls" . }}
 parallelMigrationsPerCluster: {{ include "kubevirt.parallel_migrations_per_cluster" . }}
 parallelOutboundMigrationsPerNode: {{ include "kubevirt.parallel_outbound_migrations_per_node" . }}
 progressTimeout: {{ include "kubevirt.progress_timeout" . }}

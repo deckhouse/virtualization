@@ -105,7 +105,7 @@ func ApplyVirtualMachineSpec(
 	if err := kvvm.SetRunPolicy(vm.Spec.RunPolicy); err != nil {
 		return err
 	}
-	if err := kvvm.SetOsType(vm.Spec.OsType); err != nil {
+	if err := kvvm.SetOSType(vm.Spec.OsType); err != nil {
 		return err
 	}
 	if err := kvvm.SetBootloader(vm.Spec.Bootloader); err != nil {
@@ -148,6 +148,8 @@ func ApplyVirtualMachineSpec(
 	if ipAddress != "" {
 		// Set ip address cni request annotation.
 		kvvm.SetKVVMIAnnotation(netmanager.AnnoIPAddressCNIRequest, ipAddress)
+	} else {
+		kvvm.RemoveKVVMIAnnotation(netmanager.AnnoIPAddressCNIRequest)
 	}
 
 	// Set live migration annotation.
@@ -183,12 +185,13 @@ func applyBlockDeviceRefs(
 			hotpluggableVolumes[v.Name] = struct{}{}
 		}
 	}
+	// This is needed to support disk removal in old VMs with static disks
 	cleanupRemovedStaticDisks(kvvm, specDiskNames, hotpluggableVolumes)
 
 	kvvmVolumes := kvvm.Resource.Spec.Template.Spec.Volumes
 	for i, bd := range vm.Spec.BlockDeviceRefs {
 		diskName := GenerateDiskName(bd.Kind, bd.Name)
-		if len(kvvmVolumes) > 0 && !slices.ContainsFunc(kvvmVolumes, func(v virtv1.Volume) bool { return v.Name == diskName }) {
+		if vm.Spec.EnableParavirtualization && len(kvvmVolumes) > 0 && !slices.ContainsFunc(kvvmVolumes, func(v virtv1.Volume) bool { return v.Name == diskName }) {
 			continue
 		}
 
@@ -202,8 +205,7 @@ func applyBlockDeviceRefs(
 		}
 
 		_, hotpluggable := hotpluggableVolumes[diskName]
-		// isVmRunning is used to set static disks as hotpluggable on VM restart
-		if err := setBlockDeviceDisk(kvvm, bd, kvBootOrder, hotpluggable || !isVmRunning, vdByName, viByName, cviByName); err != nil {
+		if err := setBlockDeviceDisk(kvvm, bd, kvBootOrder, hotpluggable || (vm.Spec.EnableParavirtualization && !isVmRunning), vdByName, viByName, cviByName); err != nil {
 			return err
 		}
 	}

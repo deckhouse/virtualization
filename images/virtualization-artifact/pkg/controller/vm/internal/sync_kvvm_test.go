@@ -34,7 +34,9 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	vmservice "github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmchange"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
@@ -136,7 +138,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 	}
 
 	reconcile := func() {
-		h := NewSyncKvvmHandler(nil, fakeClient, recorder, vmservice.NewMigrationVolumesService(fakeClient, MakeKVVMFromVMSpec, 10*time.Second))
+		h := NewSyncKvvmHandler(nil, fakeClient, recorder, featuregates.Default(), vmservice.NewMigrationVolumesService(fakeClient, MakeKVVMFromVMSpec, 10*time.Second))
 		_, err := h.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
 		err = resource.Update(context.Background())
@@ -318,5 +320,20 @@ var _ = Describe("SyncKvvmHandler", func() {
 
 		Entry("Pending phase with changes applied, condition should not exist", v1alpha2.MachinePending, false, metav1.ConditionUnknown, false),
 		Entry("Pending phase with changes not applied, condition should not exist", v1alpha2.MachinePending, true, metav1.ConditionUnknown, false),
+	)
+
+	DescribeTable("isPlacementPolicyChanged",
+		func(path string, expected bool) {
+			h := &SyncKvvmHandler{}
+			changes := vmchange.SpecChanges{}
+			changes.Add(vmchange.FieldChange{Path: path, CurrentValue: "old", DesiredValue: "new"})
+
+			Expect(h.isPlacementPolicyChanged(changes)).To(Equal(expected))
+		},
+		Entry("vm tolerations change", "tolerations", true),
+		Entry("vmclass tolerations change", "VirtualMachineClass:spec.tolerations", true),
+		Entry("vmclass nodeSelector change", "VirtualMachineClass:spec.nodeSelector", true),
+		Entry("vmclass name change", "virtualMachineClassName", true),
+		Entry("cpu change is not a placement policy", "cpu.cores", false),
 	)
 })

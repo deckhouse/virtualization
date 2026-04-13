@@ -65,7 +65,8 @@ var _ = Describe("HotplugHandler", func() {
 		return &v1alpha2.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{Name: vmName, Namespace: vmNamespace},
 			Spec: v1alpha2.VirtualMachineSpec{
-				BlockDeviceRefs: bdRefs,
+				EnableParavirtualization: true,
+				BlockDeviceRefs:          bdRefs,
 			},
 			Status: v1alpha2.VirtualMachineStatus{
 				Phase: phase,
