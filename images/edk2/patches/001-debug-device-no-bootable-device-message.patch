@@ -10,7 +10,7 @@ index d9f61757cf..d2a0e5f6a1 100644
 +    STATIC CONST CHAR8  Msg[] = "No bootable device.\r\n";
 +    UINTN               i;
 +    for (i = 0; i < sizeof (Msg) - 1; i++) {
-+      IoWrite8 (0x402, (UINT8)Msg[i]);
++      IoWrite8 (0x403, (UINT8)Msg[i]);
 +    }
 +  }
 +
@@ -29,7 +29,7 @@ index 9bacf9d8c7..ea78559516 100644
 +    STATIC CONST CHAR8  Msg[] = "No bootable device.\r\n";
 +    UINTN               i;
 +    for (i = 0; i < sizeof (Msg) - 1; i++) {
-+      IoWrite8 (0x402, (UINT8)Msg[i]);
++      IoWrite8 (0x403, (UINT8)Msg[i]);
 +    }
 +  }
 +
