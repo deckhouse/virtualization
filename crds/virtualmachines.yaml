@@ -867,6 +867,8 @@ spec:
 
                     > **Note**: To use the paravirtualization mode, some operating systems require installing the corresponding drivers.
 
+                    > **Note**: When set to `false`, hot-plugging block devices via `.spec.blockDeviceRefs` is not supported. Changes to block devices require a VM restart. Hot-plugging via `VirtualMachineBlockDeviceAttachment` is still supported.
+
                 osType:
                   type: string
                   enum:
