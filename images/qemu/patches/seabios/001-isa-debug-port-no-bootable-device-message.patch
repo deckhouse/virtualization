@@ -1,5 +1,5 @@
 diff --git a/src/boot.c b/src/boot.c
-index 1effd80..ec5992f 100644
+index 1effd80..db9abb4 100644
 --- a/src/boot.c
 +++ b/src/boot.c
 @@ -21,6 +21,7 @@
@@ -10,7 +10,7 @@ index 1effd80..ec5992f 100644
  
  /****************************************************************
   * Helper search functions
-@@ -960,12 +961,23 @@ boot_rom(u32 vector)
+@@ -960,12 +961,24 @@ boot_rom(u32 vector)
  }
  
  // Unable to find bootable device - warn user and eventually retry.
@@ -28,9 +28,11 @@ index 1effd80..ec5992f 100644
  boot_fail(void)
  {
 -    if (BootRetryTime == (u32)-1)
-+    if (BootRetryTime == (u32)-1) {
-         printf("No bootable device.\n");
+-        printf("No bootable device.\n");
 -    else
++    if (BootRetryTime == (u32)-1) {
++        printf("No bootable device123.\n");
++        printf("Kek\n");
 +        write_port_403("No bootable device.\n");
 +    } else
          printf("No bootable device.  Retrying in %d seconds.\n"
