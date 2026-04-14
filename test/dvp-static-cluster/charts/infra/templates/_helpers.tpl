@@ -16,6 +16,7 @@ group: {{ $prefix }}
 {{- $ctx := index . 0 -}}
 {{- $name := index . 1 -}}
 {{- $cfg := index . 2 -}}
+{{- $clusterNetworkName := index $ctx.Values "networkConfig" | default dict | index "clusterNetworkName" -}}
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
@@ -35,8 +36,10 @@ spec:
 {{- end }}
   networks:
     - type: Main
+{{- if $clusterNetworkName }}
     - type: ClusterNetwork
-      name: cn-4006-for-e2e-test
+      name: {{ $clusterNetworkName }}
+{{- end }}
   bootloader: {{ $ctx.Values.image.bootloader }}
   liveMigrationPolicy: PreferForced
   cpu:
