@@ -362,6 +362,7 @@ shell:
     cd /{{ $gitRepoName }}-{{ $version }}
 
     echo "Building patched SeaBIOS..."
+    ln -sf /usr/bin/python3 /usr/bin/python
     for cfg in roms/config.seabios-256k roms/config.seabios-128k ; do
       variant=$(echo "$cfg" | grep -oP '\d+k')
       make -C roms/seabios distclean
