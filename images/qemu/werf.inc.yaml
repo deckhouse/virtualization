@@ -375,25 +375,15 @@ shell:
             if relocsection is None:
                 state = None
                 continue""",
-        """    pending = list(anchorsections)
-    while pending:
-        section = pending.pop()
-        for reloc in section.relocs:""": """    pending = [section for section in anchorsections if section is not None]
-    while pending:
-        section = pending.pop()
-        if section is None or section.relocs is None:
+        "    pending = list(anchorsections)": "    pending = [section for section in anchorsections if section is not None]",
+        "        for reloc in section.relocs:": """        if section is None or section.relocs is None:
             continue
         for reloc in section.relocs:""",
-        """            nextsection = reloc.symbol.section
-            if nextsection not in anchorsections:""": """            nextsection = reloc.symbol.section
-            if nextsection is None:
+        "            if nextsection not in anchorsections:": """            if nextsection is None:
                 continue
             if nextsection not in anchorsections:""",
-        """    anchorsections = [entrysym.section] + [
-        section for section in allsections
-        if section.name.startswith('.fixedaddr.')]""": """    anchorsections = [section for section in ([entrysym.section if entrysym is not None else None] + [
-        section for section in allsections
-        if section.name.startswith('.fixedaddr.')]) if section is not None]""",
+        "    keepsections = findReachable(anchorsections, checkKeep, symbols)": """    anchorsections = [section for section in anchorsections if section is not None]
+    keepsections = findReachable(anchorsections, checkKeep, symbols)""",
     }
 
     for old, new in replacements.items():
