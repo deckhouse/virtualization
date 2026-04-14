@@ -47,18 +47,20 @@ import (
 )
 
 type MigrationVolumesService struct {
-	client           client.Client
-	makeKVVMFromSpec func(ctx context.Context, s state.VirtualMachineState) (*virtv1.VirtualMachine, error)
-	delay            map[types.UID]time.Time
-	delayDuration    time.Duration
+	client               client.Client
+	makeKVVMFromSpec     func(ctx context.Context, s state.VirtualMachineState, disableTapVethBridge bool) (*virtv1.VirtualMachine, error)
+	delay                map[types.UID]time.Time
+	delayDuration        time.Duration
+	disableTapVethBridge bool
 }
 
-func NewMigrationVolumesService(client client.Client, makeKVVMFromSpec func(ctx context.Context, s state.VirtualMachineState) (*virtv1.VirtualMachine, error), delayDuration time.Duration) *MigrationVolumesService {
+func NewMigrationVolumesService(client client.Client, makeKVVMFromSpec func(ctx context.Context, s state.VirtualMachineState, disableTapVethBridge bool) (*virtv1.VirtualMachine, error), delayDuration time.Duration, disableTapVethBridge bool) *MigrationVolumesService {
 	return &MigrationVolumesService{
-		client:           client,
-		makeKVVMFromSpec: makeKVVMFromSpec,
-		delay:            make(map[types.UID]time.Time),
-		delayDuration:    delayDuration,
+		client:               client,
+		makeKVVMFromSpec:     makeKVVMFromSpec,
+		delay:                make(map[types.UID]time.Time),
+		delayDuration:        delayDuration,
+		disableTapVethBridge: disableTapVethBridge,
 	}
 }
 
@@ -476,7 +478,7 @@ func (s MigrationVolumesService) fillContainerDiskImagePullPolicies(kvvm *virtv1
 }
 
 func (s MigrationVolumesService) makeKVVMFromVirtualMachineSpec(ctx context.Context, vmState state.VirtualMachineState) (*virtv1.VirtualMachine, *virtv1.VirtualMachine, error) {
-	kvvm, err := s.makeKVVMFromSpec(ctx, vmState)
+	kvvm, err := s.makeKVVMFromSpec(ctx, vmState, s.disableTapVethBridge)
 	if err != nil {
 		return nil, nil, err
 	}

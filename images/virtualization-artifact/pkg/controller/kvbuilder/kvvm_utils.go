@@ -111,6 +111,11 @@ func ApplyVirtualMachineSpec(
 
 	kvvm.SetUSBMigrationStrategy()
 	kvvm.SetMetadata(vm.ObjectMeta)
+	if kvvm.Options().DisableTapVethBridge {
+		kvvm.SetKVVMIAnnotation(annotations.AnnDisableTapVethBridge, "true")
+	} else {
+		kvvm.RemoveKVVMIAnnotation(annotations.AnnDisableTapVethBridge)
+	}
 	setNetwork(kvvm, networkSpec)
 	kvvm.SetTablet("default-0")
 	kvvm.SetNodeSelector(vm.Spec.NodeSelector, class.Spec.NodeSelector.MatchLabels)
