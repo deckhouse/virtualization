@@ -363,19 +363,17 @@ shell:
 
     echo "Building patched SeaBIOS..."
     ln -sf /usr/bin/python3 /usr/bin/python
-    for cfg in roms/config.seabios-256k roms/config.seabios-128k ; do
-      variant=$(echo "$cfg" | grep -oP '\d+k')
-      make -C roms/seabios distclean
-      cp "$cfg" roms/seabios/.config
-      make -C roms/seabios oldnoconfig
-      make -C roms/seabios -j$(nproc)
-      if [ "$variant" = "256k" ]; then
-        cp roms/seabios/out/bios.bin pc-bios/bios-256k.bin
-      else
-        cp roms/seabios/out/bios.bin pc-bios/bios.bin
-      fi
-      echo "Built SeaBIOS ${variant} from patched source"
-    done
+
+    python3 -c "
+    p = 'roms/seabios/scripts/layoutrom.py'
+    t = open(p).read()
+    t = t.replace(
+        'relocsection = sectionmap[sectionname]',
+        'relocsection = sectionmap.get(sectionname)\n            if relocsection is None:\n                state = None\n                continue')
+    open(p, 'w').write(t)
+    "
+
+    make -C roms bios -j$(nproc)
 
     /install-qemu.sh --version-num "{{ $version }}" \
                         -s /{{ $gitRepoName }}-{{ $version }} \
