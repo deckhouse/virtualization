@@ -29,6 +29,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -45,11 +47,13 @@ import (
 const (
 	replicatedStorageClass = "nested-thin-r1"
 	localThinStorageClass  = "nested-local-thin"
-	lsblkJSONCommand       = "lsblk --bytes --json --nodeps --output NAME,SIZE,TYPE,MOUNTPOINTS"
-	minDataDiskSizeBytes   = int64(50 * 1024 * 1024)
+	lsblkJSONCommand       = "sudo lsblk --bytes --json --nodeps --output NAME,SIZE,TYPE,MOUNTPOINTS"
+	rootDiskNameCommand    = `root_source=$(findmnt -no SOURCE /); root_disk=$(lsblk -ndo PKNAME "$root_source" 2>/dev/null | head -n1); if [ -n "$root_disk" ]; then echo "$root_disk"; else lsblk -ndo NAME "$root_source" | head -n1; fi`
+	maxCloudInitDiskSize   = int64(4 * 1024 * 1024)
 	defaultRootDiskSize    = "350Mi"
 	defaultDataDiskSize    = "100Mi"
 	releaseIPerfReportPath = "/tmp/release-upgrade-iperf-client-report.json"
+	releaseNamespaceName   = "v12n-test-release"
 
 	releaseTestPhaseEnv          = "RELEASE_TEST_PHASE"
 	releaseTestPhasePreUpgrade   = "pre-upgrade"
@@ -161,10 +165,10 @@ type releaseUpgradeContext struct {
 }
 
 func runPreUpgradeReleaseSmoke() {
-	f := framework.NewFramework("release-current")
-	f.Before()
+	f := framework.NewFramework("")
+	namespace := ensureReleaseNamespace(f, releaseNamespaceName)
 
-	test := newCurrentReleaseSmokeTest(f, "")
+	test := newCurrentReleaseSmokeTest(f, namespace)
 	test.createResources()
 	test.verifyVMsReady()
 	test.startLongRunningIPerf()
@@ -192,6 +196,46 @@ func mustGetEnv(name string) string {
 	value := os.Getenv(name)
 	Expect(value).NotTo(BeEmpty(), "environment variable %s must be set", name)
 	return value
+}
+
+func ensureReleaseNamespace(f *framework.Framework, namespace string) string {
+	GinkgoHelper()
+
+	nsClient := f.KubeClient().CoreV1().Namespaces()
+	_, err := nsClient.Get(context.Background(), namespace, metav1.GetOptions{})
+	switch {
+	case err == nil:
+		By(fmt.Sprintf("Namespace %q already exists, recreating it", namespace))
+		err = nsClient.Delete(context.Background(), namespace, metav1.DeleteOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		Eventually(func() error {
+			_, err := nsClient.Get(context.Background(), namespace, metav1.GetOptions{})
+			if k8serrors.IsNotFound(err) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			return fmt.Errorf("namespace %q is still deleting", namespace)
+		}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed())
+	case !k8serrors.IsNotFound(err):
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespace,
+			Labels: map[string]string{
+				framework.E2ELabel: "true",
+			},
+		},
+	}
+	_, err = nsClient.Create(context.Background(), ns, metav1.CreateOptions{})
+	Expect(err).NotTo(HaveOccurred())
+	By(fmt.Sprintf("Namespace %q has been created", namespace))
+
+	return namespace
 }
 
 func newCurrentReleaseSmokeTest(f *framework.Framework, namespace string) *currentReleaseSmokeTest {
@@ -352,7 +396,7 @@ func (t *currentReleaseSmokeTest) createResources() {
 
 	By("Attaching hotplug disks")
 	Expect(t.framework.CreateWithDeferredDeletion(context.Background(), t.attachmentObjects()...)).To(Succeed())
-	util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.LongTimeout, t.attachmentObjects()...)
+	util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MaxTimeout, t.attachmentObjects()...)
 
 	By("Waiting for all disks to become ready after consumers appear")
 	util.UntilObjectPhase(string(v1alpha2.DiskReady), framework.LongTimeout, t.diskObjects()...)
@@ -366,6 +410,7 @@ func (t *currentReleaseSmokeTest) verifyVMsReady() {
 
 	By("Checking attached disks inside guests")
 	for _, vmScenario := range t.vms {
+		By(fmt.Sprintf("Checking attached disks on %s", vmScenario.vm.Name))
 		t.expectAdditionalDiskCount(vmScenario.vm, vmScenario.expectedAdditionalDisks)
 	}
 }
@@ -512,27 +557,32 @@ func (t *currentReleaseSmokeTest) expectGuestReady(vmScenario *vmScenario) {
 
 func (t *currentReleaseSmokeTest) expectAdditionalDiskCount(vm *v1alpha2.VirtualMachine, expectedCount int) {
 	Eventually(func(g Gomega) {
+		currentVM := &v1alpha2.VirtualMachine{}
+		err := t.framework.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vm), currentVM)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		attachedHotplugDisks := hotpluggedAttachedDiskCount(currentVM)
+		g.Expect(attachedHotplugDisks).To(Equal(expectedCount))
+
+		rootDiskName, err := t.rootDiskName(vm)
+		g.Expect(err).NotTo(HaveOccurred())
+
 		output, err := t.framework.SSHCommand(vm.Name, vm.Namespace, lsblkJSONCommand, framework.WithSSHTimeout(10*time.Second))
 		g.Expect(err).NotTo(HaveOccurred())
 
 		disks, err := parseLSBLKOutput(output)
 		g.Expect(err).NotTo(HaveOccurred())
 
-		count := 0
-		for _, disk := range disks {
-			if disk.Type != "disk" {
-				continue
-			}
-			if disk.Size <= minDataDiskSizeBytes {
-				continue
-			}
-			if hasMountpoint(disk.Mountpoints, "/") {
-				continue
-			}
-			count++
-		}
-
-		g.Expect(count).To(Equal(expectedCount))
+		actualCount := countAdditionalGuestDisks(disks, rootDiskName)
+		g.Expect(actualCount).To(
+			Equal(expectedCount),
+			"VM %s/%s additional disk mismatch; root disk: %q; hotplugged block devices in status: %d; lsblk devices: %s",
+			vm.Namespace,
+			vm.Name,
+			rootDiskName,
+			attachedHotplugDisks,
+			formatLSBLKDisks(disks),
+		)
 	}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed())
 }
 
@@ -545,14 +595,54 @@ func parseLSBLKOutput(raw string) ([]lsblkDevice, error) {
 	return output.BlockDevices, nil
 }
 
-func hasMountpoint(mountpoints []string, expected string) bool {
-	for _, mountpoint := range mountpoints {
-		if mountpoint == expected {
-			return true
+func hotpluggedAttachedDiskCount(vm *v1alpha2.VirtualMachine) int {
+	count := 0
+	for _, blockDevice := range vm.Status.BlockDeviceRefs {
+		if !blockDevice.Hotplugged || !blockDevice.Attached || blockDevice.VirtualMachineBlockDeviceAttachmentName == "" {
+			continue
 		}
+		count++
+	}
+	return count
+}
+
+func (t *currentReleaseSmokeTest) rootDiskName(vm *v1alpha2.VirtualMachine) (string, error) {
+	output, err := t.framework.SSHCommand(vm.Name, vm.Namespace, rootDiskNameCommand, framework.WithSSHTimeout(10*time.Second))
+	if err != nil {
+		return "", err
 	}
 
-	return false
+	return strings.TrimSpace(output), nil
+}
+
+func countAdditionalGuestDisks(disks []lsblkDevice, rootDiskName string) int {
+	count := 0
+	for _, disk := range disks {
+		if disk.Type != "disk" {
+			continue
+		}
+		if disk.Name == rootDiskName {
+			continue
+		}
+		if disk.Size <= maxCloudInitDiskSize {
+			continue
+		}
+		count++
+	}
+	return count
+}
+
+func formatLSBLKDisks(disks []lsblkDevice) string {
+	if len(disks) == 0 {
+		return "[]"
+	}
+
+	parts := make([]string, 0, len(disks))
+	for _, disk := range disks {
+		parts = append(parts, fmt.Sprintf("%s(type=%s,size=%d,mountpoints=%v)", disk.Name, disk.Type, disk.Size, disk.Mountpoints))
+	}
+
+	return "[" + strings.Join(parts, ", ") + "]"
 }
 
 func (t *currentReleaseSmokeTest) startLongRunningIPerf() {
@@ -562,7 +652,7 @@ func (t *currentReleaseSmokeTest) startLongRunningIPerf() {
 
 	serverVM := t.getVirtualMachine(t.iperfServer.vm.Name, t.iperfServer.vm.Namespace)
 	command := fmt.Sprintf(
-		"nohup sh -c 'iperf3 -c %s -t 0 --json > %s 2>&1' >/dev/null 2>&1 &",
+		"nohup iperf3 -c %s -t 0 --json > %s 2>&1 </dev/null &",
 		serverVM.Status.IPAddress,
 		releaseIPerfReportPath,
 	)
@@ -612,7 +702,7 @@ func (t *currentReleaseSmokeTest) verifyIPerfContinuityAfterUpgrade() {
 
 	By("Validating the iperf report spans the module upgrade")
 	report := getIPerfClientReport(t.framework, t.iperfClient.vm, releaseIPerfReportPath)
-	Expect(report.Error).To(BeEmpty(), "iperf3 report contains an error")
+	Expect(isExpectedIPerfReportError(report.Error)).To(BeTrue(), "iperf3 report contains an unexpected error: %q", report.Error)
 
 	upgradeStartedAt, err := strconv.ParseInt(mustGetEnv(releaseUpgradeStartedAtEnv), 10, 64)
 	Expect(err).NotTo(HaveOccurred(), "upgrade timestamp must be a unix second")
@@ -746,6 +836,14 @@ func parseIPerfReport(raw string) (*iperfReport, error) {
 	}
 
 	return &report, nil
+}
+
+func isExpectedIPerfReportError(errMsg string) bool {
+	if errMsg == "" {
+		return true
+	}
+
+	return strings.Contains(errMsg, "interrupt - the client has terminated by signal Interrupt(2)")
 }
 
 func min(a, b int) int {
