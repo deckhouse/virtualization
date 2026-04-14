@@ -18,6 +18,8 @@ true
   value: "1"
 - name: DISABLE_HYPERV_SYNIC
   value: "1"
+- name: DISABLE_TAP_VETH_BRIDGE
+  value: {{ dig "network" "disableTapVethBridge" false .Values.virtualization.internal.moduleConfig | toString | quote }}
 - name: POD_NAMESPACE
   valueFrom:
     fieldRef:

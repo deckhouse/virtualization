@@ -67,6 +67,7 @@ const (
 type KVVMOptions struct {
 	EnableParavirtualization bool
 	OsType                   v1alpha2.OsType
+	DisableTapVethBridge     bool
 
 	// These options are for local development mode
 	DisableHypervSyNIC bool
@@ -90,6 +91,10 @@ func DefaultOptions(current *v1alpha2.VirtualMachine) KVVMOptions {
 		OsType:                   current.Spec.OsType,
 		DisableHypervSyNIC:       os.Getenv("DISABLE_HYPERV_SYNIC") == "1",
 	}
+}
+
+func (b *KVVM) Options() KVVMOptions {
+	return b.opts
 }
 
 func NewEmptyKVVM(name types.NamespacedName, opts KVVMOptions) *KVVM {
