@@ -163,8 +163,31 @@ func (r *attachRecordManager) AddEntry(e AttachEntry) error {
 	newEntries := slices.Clone(r.record.Entries)
 	newEntries = append(newEntries, e)
 
-	record := attachRecord{Entries: newEntries}
+	return r.storeLocked(attachRecord{Entries: newEntries})
+}
 
+func (r *attachRecordManager) RemoveEntryByDeviceName(deviceName string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	newEntries := make([]AttachEntry, 0, len(r.record.Entries))
+	removed := false
+	for _, entry := range r.record.Entries {
+		if entry.DeviceName == deviceName {
+			removed = true
+			continue
+		}
+		newEntries = append(newEntries, entry)
+	}
+
+	if !removed {
+		return nil
+	}
+
+	return r.storeLocked(attachRecord{Entries: newEntries})
+}
+
+func (r *attachRecordManager) storeLocked(record attachRecord) error {
 	b, err := json.Marshal(record)
 	if err != nil {
 		return err
