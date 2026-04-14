@@ -20,9 +20,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -45,8 +47,7 @@ import (
 const (
 	replicatedStorageClass = "nested-thin-r1"
 	localThinStorageClass  = "nested-local-thin"
-	lsblkJSONCommand       = "lsblk --bytes --json --nodeps --output NAME,SIZE,TYPE,MOUNTPOINTS"
-	minDataDiskSizeBytes   = int64(50 * 1024 * 1024)
+	lsblkJSONCommand       = "lsblk --bytes --json --nodeps --output NAME,SIZE,TYPE,MOUNTPOINTS,SERIAL"
 	defaultRootDiskSize    = "350Mi"
 	defaultDataDiskSize    = "100Mi"
 	releaseIPerfReportPath = "/tmp/release-upgrade-iperf-client-report.json"
@@ -120,6 +121,7 @@ type lsblkDevice struct {
 	Size        int64    `json:"size"`
 	Type        string   `json:"type"`
 	Mountpoints []string `json:"mountpoints"`
+	Serial      string   `json:"serial"`
 }
 
 type iperfReport struct {
@@ -512,27 +514,28 @@ func (t *currentReleaseSmokeTest) expectGuestReady(vmScenario *vmScenario) {
 
 func (t *currentReleaseSmokeTest) expectAdditionalDiskCount(vm *v1alpha2.VirtualMachine, expectedCount int) {
 	Eventually(func(g Gomega) {
+		currentVM := &v1alpha2.VirtualMachine{}
+		err := t.framework.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vm), currentVM)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		expectedSerials := t.hotpluggedDiskSerials(currentVM)
+		g.Expect(expectedSerials).To(HaveLen(expectedCount))
+
 		output, err := t.framework.SSHCommand(vm.Name, vm.Namespace, lsblkJSONCommand, framework.WithSSHTimeout(10*time.Second))
 		g.Expect(err).NotTo(HaveOccurred())
 
 		disks, err := parseLSBLKOutput(output)
 		g.Expect(err).NotTo(HaveOccurred())
 
-		count := 0
-		for _, disk := range disks {
-			if disk.Type != "disk" {
-				continue
-			}
-			if disk.Size <= minDataDiskSizeBytes {
-				continue
-			}
-			if hasMountpoint(disk.Mountpoints, "/") {
-				continue
-			}
-			count++
-		}
-
-		g.Expect(count).To(Equal(expectedCount))
+		actualCount := countDisksBySerial(disks, expectedSerials)
+		g.Expect(actualCount).To(
+			Equal(expectedCount),
+			"VM %s/%s additional disk mismatch; expected hotplug serials: %v; lsblk devices: %s",
+			vm.Namespace,
+			vm.Name,
+			sortedSerials(expectedSerials),
+			formatLSBLKDisks(disks),
+		)
 	}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed())
 }
 
@@ -545,14 +548,50 @@ func parseLSBLKOutput(raw string) ([]lsblkDevice, error) {
 	return output.BlockDevices, nil
 }
 
-func hasMountpoint(mountpoints []string, expected string) bool {
-	for _, mountpoint := range mountpoints {
-		if mountpoint == expected {
-			return true
+func (t *currentReleaseSmokeTest) hotpluggedDiskSerials(vm *v1alpha2.VirtualMachine) map[string]struct{} {
+	serials := make(map[string]struct{})
+	for _, blockDevice := range vm.Status.BlockDeviceRefs {
+		if !blockDevice.Hotplugged || !blockDevice.Attached || blockDevice.VirtualMachineBlockDeviceAttachmentName == "" {
+			continue
 		}
+
+		serial, ok := util.GetBlockDeviceSerialNumber(vm, blockDevice.Kind, blockDevice.Name)
+		Expect(ok).To(BeTrue(), "failed to get serial for hotplugged block device %s/%s on VM %s", blockDevice.Kind, blockDevice.Name, vm.Name)
+		serials[serial] = struct{}{}
+	}
+	return serials
+}
+
+func countDisksBySerial(disks []lsblkDevice, expectedSerials map[string]struct{}) int {
+	count := 0
+	for _, disk := range disks {
+		if disk.Type != "disk" {
+			continue
+		}
+		if _, ok := expectedSerials[disk.Serial]; !ok {
+			continue
+		}
+		count++
+	}
+	return count
+}
+
+func sortedSerials(serials map[string]struct{}) []string {
+	result := slices.Sorted(maps.Keys(serials))
+	return result
+}
+
+func formatLSBLKDisks(disks []lsblkDevice) string {
+	if len(disks) == 0 {
+		return "[]"
 	}
 
-	return false
+	parts := make([]string, 0, len(disks))
+	for _, disk := range disks {
+		parts = append(parts, fmt.Sprintf("%s(type=%s,size=%d,serial=%q,mountpoints=%v)", disk.Name, disk.Type, disk.Size, disk.Serial, disk.Mountpoints))
+	}
+
+	return "[" + strings.Join(parts, ", ") + "]"
 }
 
 func (t *currentReleaseSmokeTest) startLongRunningIPerf() {
