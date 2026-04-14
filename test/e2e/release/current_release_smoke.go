@@ -352,7 +352,7 @@ func (t *currentReleaseSmokeTest) createResources() {
 
 	By("Attaching hotplug disks")
 	Expect(t.framework.CreateWithDeferredDeletion(context.Background(), t.attachmentObjects()...)).To(Succeed())
-	util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.LongTimeout, t.attachmentObjects()...)
+	util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MaxTimeout, t.attachmentObjects()...)
 
 	By("Waiting for all disks to become ready after consumers appear")
 	util.UntilObjectPhase(string(v1alpha2.DiskReady), framework.LongTimeout, t.diskObjects()...)
