@@ -35,7 +35,7 @@ shell:
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src/{{ $gitRepoName }}-{{ $version }}
 
-    echo "1"
+    echo "12"
 
     cd /src/{{ $gitRepoName }}-{{ $version }}
 
@@ -359,6 +359,23 @@ shell:
 
   setup:
   - |
+    cd /{{ $gitRepoName }}-{{ $version }}
+
+    echo "Building patched SeaBIOS..."
+    for cfg in roms/config.seabios-256k roms/config.seabios-128k ; do
+      variant=$(echo "$cfg" | grep -oP '\d+k')
+      make -C roms/seabios distclean
+      cp "$cfg" roms/seabios/.config
+      make -C roms/seabios oldnoconfig
+      make -C roms/seabios -j$(nproc)
+      if [ "$variant" = "256k" ]; then
+        cp roms/seabios/out/bios.bin pc-bios/bios-256k.bin
+      else
+        cp roms/seabios/out/bios.bin pc-bios/bios.bin
+      fi
+      echo "Built SeaBIOS ${variant} from patched source"
+    done
+
     /install-qemu.sh --version-num "{{ $version }}" \
                         -s /{{ $gitRepoName }}-{{ $version }} \
                         -d /BINS \
