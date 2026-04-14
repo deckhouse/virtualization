@@ -1,3 +1,11 @@
+{{- define "infra.test-label" -}}
+{{- if contains "release" .Values.namespace -}}
+test: release
+{{- else -}}
+test: nightly-e2e
+{{- end -}}
+{{- end }}
+
 {{- define "infra.vm-labels" -}}
 {{- $prefix := regexReplaceAll "-\\d+$" . "" -}}
 vm: {{ . }}

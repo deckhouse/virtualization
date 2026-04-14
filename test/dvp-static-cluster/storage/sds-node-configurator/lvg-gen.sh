@@ -14,12 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-manifest=sds-lvg.yaml
+set -euo pipefail
+
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+manifest="${script_dir}/sds-lvg.yaml"
 LVMVG_SIZE=45Gi
 
 devs=$(kubectl get blockdevices.storage.deckhouse.io -o json | jq '.items[] | {name: .metadata.name, node: .status.nodeName, dev_path: .status.path}' -rc)
 
-rm -rf "${manifest}"
+rm -f "${manifest}"
 
 echo detected block devices: "$devs"
 
@@ -55,3 +58,9 @@ EOF
 done
 
 kubectl apply -f "${manifest}"
+
+echo "[INFO] Wait for generated LVMVolumeGroup resources to become Ready"
+kubectl wait -f "${manifest}" --for=jsonpath='{.status.phase}'=Ready --timeout=300s
+
+echo "[SUCCESS] Generated LVMVolumeGroup resources are Ready"
+kubectl get lvmvolumegroup -o wide

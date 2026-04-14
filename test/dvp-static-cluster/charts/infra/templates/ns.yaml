@@ -3,4 +3,4 @@ kind: Namespace
 metadata:
   name: {{ .Values.namespace }}
   labels:
-    test: nightly-e2e
+    {{- include "infra.test-label" . | nindent 4 }}

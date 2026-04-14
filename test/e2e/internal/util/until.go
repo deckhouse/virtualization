@@ -31,6 +31,8 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
+const objectGetTimeout = 10 * time.Second
+
 // UntilObjectPhase waits for an object to reach the specified phase.
 // It accepts a runtime.Object (which serves as a template with name and namespace),
 // expected phase string, and timeout duration.
@@ -90,8 +92,8 @@ func UntilConditionState(
 		for _, obj := range objs {
 			key := client.ObjectKeyFromObject(obj)
 			u := getTemplateUnstructured(obj).DeepCopy()
-			err := framework.GetClients().GenericClient().Get(context.Background(), key, u)
-			g.Expect(err).ShouldNot(HaveOccurred())
+			err := getObjectWithTimeout(key, u)
+			g.Expect(err).ShouldNot(HaveOccurred(), "failed to get object %s while waiting for condition %s", formatObjectKey(key), conditionType)
 
 			conditions, found, err := unstructured.NestedSlice(u.Object, "status", "conditions")
 			g.Expect(err).ShouldNot(HaveOccurred(), "failed to access status.conditions of %s/%s", u.GetNamespace(), u.GetName())
@@ -178,24 +180,32 @@ func untilObjectField(fieldPath, expectedValue string, timeout time.Duration, ob
 	Eventually(func(g Gomega) {
 		for _, obj := range objs {
 			key := client.ObjectKeyFromObject(obj)
-			name := obj.GetName()
-			namespace := obj.GetNamespace()
-			divider := ""
-			if namespace != "" {
-				divider = "/"
-			}
-
 			// Create a new unstructured object for each Get call
 			u := getTemplateUnstructured(obj).DeepCopy()
-			err := framework.GetClients().GenericClient().Get(context.Background(), key, u)
+			err := getObjectWithTimeout(key, u)
 			if err != nil {
-				g.Expect(err).NotTo(HaveOccurred(), "failed to get object %s%s%s", namespace, divider, name)
+				g.Expect(err).NotTo(HaveOccurred(), "failed to get object %s while waiting for %s=%s", formatObjectKey(key), fieldPath, expectedValue)
 			}
 
 			value := extractField(u, fieldPath)
-			g.Expect(value).To(Equal(expectedValue), "object %s%s%s %s is %s, expected %s", namespace, divider, name, fieldPath, value, expectedValue)
+			g.Expect(value).To(Equal(expectedValue), "object %s %s is %s, expected %s", formatObjectKey(key), fieldPath, value, expectedValue)
 		}
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+}
+
+func getObjectWithTimeout(key client.ObjectKey, obj client.Object) error {
+	ctx, cancel := context.WithTimeout(context.Background(), objectGetTimeout)
+	defer cancel()
+
+	return framework.GetClients().GenericClient().Get(ctx, key, obj)
+}
+
+func formatObjectKey(key client.ObjectKey) string {
+	if key.Namespace == "" {
+		return key.Name
+	}
+
+	return key.Namespace + "/" + key.Name
 }
 
 func getTemplateUnstructured(obj client.Object) *unstructured.Unstructured {

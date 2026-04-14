@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -170,5 +171,68 @@ var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
 		Expect(err).To(BeNil())
 		Expect(isConflicted).To(BeFalse())
 		Expect(conflictWithName).To(BeEmpty())
+	})
+})
+
+var _ = Describe("AttachmentService method IsHotPlugged", func() {
+	It("should treat the disk as hotplugged when vm status already reports it attached", func() {
+		ad := &AttachmentDisk{
+			Kind:         v1alpha2.DiskDevice,
+			Name:         "data-disk",
+			GenerateName: "vd-data-disk",
+		}
+		vm := &v1alpha2.VirtualMachine{
+			Status: v1alpha2.VirtualMachineStatus{
+				BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
+					{
+						Kind:       v1alpha2.DiskDevice,
+						Name:       "data-disk",
+						Hotplugged: true,
+					},
+				},
+			},
+		}
+		kvvmi := &virtv1.VirtualMachineInstance{
+			Status: virtv1.VirtualMachineInstanceStatus{
+				VolumeStatus: []virtv1.VolumeStatus{
+					{
+						Name: ad.GenerateName,
+						HotplugVolume: &virtv1.HotplugVolumeStatus{
+							AttachPodName: "hp-pod",
+						},
+						Phase:   virtv1.VolumePending,
+						Message: "waiting for kubevirt to mark the volume ready",
+					},
+				},
+			},
+		}
+
+		attached, err := NewAttachmentService(nil, nil, "").IsHotPlugged(ad, vm, kvvmi)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(attached).To(BeTrue())
+	})
+
+	It("should fall back to vm status when kvvmi volume status is absent", func() {
+		ad := &AttachmentDisk{
+			Kind:         v1alpha2.DiskDevice,
+			Name:         "data-disk",
+			GenerateName: "vd-data-disk",
+		}
+		vm := &v1alpha2.VirtualMachine{
+			Status: v1alpha2.VirtualMachineStatus{
+				BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
+					{
+						Kind:       v1alpha2.DiskDevice,
+						Name:       "data-disk",
+						Hotplugged: true,
+					},
+				},
+			},
+		}
+		kvvmi := &virtv1.VirtualMachineInstance{}
+
+		attached, err := NewAttachmentService(nil, nil, "").IsHotPlugged(ad, vm, kvvmi)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(attached).To(BeTrue())
 	})
 })

@@ -18,27 +18,213 @@ on:
   workflow_dispatch:
     inputs:
       current-release:
-        description: "Current release tag, like v1.4.1"
+        description: "Current release tag like v1.4.1, or PR reference like pr2034/2034"
         required: false # before merge to main, set to true
-        default: "v1.4.1"
+        default: "v1.6.3-rc.3" # before merge to main, remove
         type: string
       next-release:
-        description: "Next release like v1.5.0, should be greater than current-release"
+        description: "Next release like v1.5.0, or PR reference like pr2034/2034"
         required: false # before merge to main, set to true
+        default: "v1.7.0" # before merge to main, remove
         type: string
+      enableBuild:
+        description: "Build release images before E2E tests"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.event.inputs.current-release }}-${{ github.event.inputs.next-release || 'no-next' }}"
+  cancel-in-progress: true
 
 defaults:
   run:
     shell: bash
 
 jobs:
-  release-test:
-    name: Release test
+  set-vars:
+    name: Set vars
     runs-on: ubuntu-latest
+    outputs:
+      date_start: ${{ steps.vars.outputs.date-start }}
+      randuuid4c: ${{ steps.vars.outputs.randuuid4c }}
     steps:
-      - name: Test
+      - name: Set vars
+        id: vars
         run: |
-          echo "🏷️ [INFO] Current release tag: ${{ github.event.inputs.current-release }}"
-          echo "🔜 [INFO] Next release tag: ${{ github.event.inputs.next-release }}"
+          echo "date-start=$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+          echo "randuuid4c=$(openssl rand -hex 2)" >> $GITHUB_OUTPUT
 
-          echo "🎉 [INFO] Test from ${{ github.event.inputs.current-release }} -> ${{ github.event.inputs.next-release }} SUCCESS"
+  resolve-release-inputs:
+    name: Resolve release inputs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      current_module_tag: ${{ steps.resolve.outputs.current_module_tag }}
+      current_checkout_ref: ${{ steps.resolve.outputs.current_checkout_ref }}
+      next_module_tag: ${{ steps.resolve.outputs.next_module_tag }}
+      next_checkout_ref: ${{ steps.resolve.outputs.next_checkout_ref }}
+    steps:
+      - name: Resolve release refs
+        id: resolve
+        uses: actions/github-script@v7
+        env:
+          CURRENT_RELEASE_INPUT: ${{ github.event.inputs.current-release }}
+          NEXT_RELEASE_INPUT: ${{ github.event.inputs.next-release }}
+        with:
+          script: |
+            async function resolveReleaseInput(rawInput, inputName) {
+              const releaseInput = (rawInput || '').trim();
+
+              if (!releaseInput) {
+                core.setFailed(`Workflow input '${inputName}' is required.`);
+                return null;
+              }
+
+              const prMatch = releaseInput.match(/^(?:pr)?(\d+)$/i);
+              if (!prMatch) {
+                return {
+                  moduleTag: releaseInput,
+                  checkoutRef: releaseInput,
+                };
+              }
+
+              const prNumber = Number(prMatch[1]);
+              const { data: pullRequest } = await github.rest.pulls.get({
+                owner: 'deckhouse',
+                repo: 'virtualization',
+                pull_number: prNumber,
+              });
+
+              if (!pullRequest?.head?.ref) {
+                core.setFailed(`Pull request #${prNumber} does not have a head ref.`);
+                return null;
+              }
+
+              return {
+                moduleTag: `pr${prNumber}`,
+                checkoutRef: pullRequest.head.ref,
+              };
+            }
+
+            const currentRelease = await resolveReleaseInput(process.env.CURRENT_RELEASE_INPUT, 'current-release');
+            const nextRelease = await resolveReleaseInput(process.env.NEXT_RELEASE_INPUT, 'next-release');
+
+            if (!currentRelease || !nextRelease) {
+              return;
+            }
+
+            core.setOutput('current_module_tag', currentRelease.moduleTag);
+            core.setOutput('current_checkout_ref', currentRelease.checkoutRef);
+            core.setOutput('next_module_tag', nextRelease.moduleTag);
+            core.setOutput('next_checkout_ref', nextRelease.checkoutRef);
+
+  prepare-release-matrix:
+    name: Prepare release matrix
+    if: ${{ inputs.enableBuild }}
+    runs-on: ubuntu-latest
+    needs:
+      - resolve-release-inputs
+    outputs:
+      list: ${{ steps.releases.outputs.list }}
+    steps:
+      - name: Prepare release refs
+        id: releases
+        env:
+          CURRENT_RELEASE_MODULE_TAG: ${{ needs.resolve-release-inputs.outputs.current_module_tag }}
+          CURRENT_RELEASE_CHECKOUT_REF: ${{ needs.resolve-release-inputs.outputs.current_checkout_ref }}
+          NEXT_RELEASE_MODULE_TAG: ${{ needs.resolve-release-inputs.outputs.next_module_tag }}
+          NEXT_RELEASE_CHECKOUT_REF: ${{ needs.resolve-release-inputs.outputs.next_checkout_ref }}
+        run: |
+          if [[ -z "${CURRENT_RELEASE_MODULE_TAG}" || -z "${CURRENT_RELEASE_CHECKOUT_REF}" ]]; then
+            echo "::error title=Current release is required::Set workflow input 'current-release' to a git tag or PR reference that can be resolved."
+            exit 1
+          fi
+
+          releases=$(jq -cn \
+            --arg current_tag "${CURRENT_RELEASE_MODULE_TAG}" \
+            --arg current_ref "${CURRENT_RELEASE_CHECKOUT_REF}" \
+            --arg next_tag "${NEXT_RELEASE_MODULE_TAG}" \
+            --arg next_ref "${NEXT_RELEASE_CHECKOUT_REF}" \
+            '[
+              {module_tag: $current_tag, checkout_ref: $current_ref},
+              {module_tag: $next_tag, checkout_ref: $next_ref}
+            ] | map(select(.module_tag != "" and .checkout_ref != "")) | unique_by(.module_tag + "|" + .checkout_ref)')
+
+          echo "list=${releases}" >> "$GITHUB_OUTPUT"
+
+  build-release-images:
+    name: Build release image (${{ matrix.module_tag }})
+    if: ${{ inputs.enableBuild }}
+    runs-on: [self-hosted, large]
+    needs:
+      - prepare-release-matrix
+    strategy:
+      matrix:
+        include: ${{ fromJSON(needs.prepare-release-matrix.outputs.list) }}
+    steps:
+      - name: Setup Docker config
+        run: |
+          echo "DOCKER_CONFIG=$(mktemp -d)" >> $GITHUB_ENV
+
+      - name: Print vars
+        run: |
+          echo MODULES_REGISTRY=${{ vars.DEV_REGISTRY }}
+          echo MODULES_MODULE_SOURCE=${{ vars.DEV_MODULE_SOURCE }}
+          echo MODULES_MODULE_NAME=${{ vars.MODULE_NAME }}
+          echo MODULES_MODULE_TAG=${{ matrix.module_tag }}
+          echo CHECKOUT_REF=${{ matrix.checkout_ref }}
+          echo DOCKER_CONFIG=$DOCKER_CONFIG
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ matrix.checkout_ref }}
+
+      - uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.DEV_REGISTRY }}
+          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+
+      - uses: deckhouse/modules-actions/build@v4
+        with:
+          module_source: ${{ vars.DEV_MODULE_SOURCE }}
+          module_name: ${{ vars.MODULE_NAME }}
+          module_tag: ${{ matrix.module_tag }}
+          source_repo: ${{ secrets.SOURCE_REPO_GIT }}
+          source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
+
+      - name: Cleanup Docker config
+        if: ${{ always() }}
+        run: |
+          rm -rf "$DOCKER_CONFIG"
+
+  e2e-replicated:
+    name: E2E Release Pipeline (Replicated + Local + NFS)
+    if: ${{ always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+    needs:
+      - set-vars
+      - resolve-release-inputs
+      - build-release-images
+    uses: ./.github/workflows/e2e-test-releases-reusable-pipeline.yml
+    with:
+      current_release: ${{ needs.resolve-release-inputs.outputs.current_module_tag }}
+      new_release: ${{ needs.resolve-release-inputs.outputs.next_module_tag }}
+      storage_type: mixed
+      nested_storageclass_name: nested-thin-r1
+      branch: main
+      deckhouse_channel: alpha
+      default_user: cloud
+      go_version: "1.25.8"
+      date_start: ${{ needs.set-vars.outputs.date_start }}
+      randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
+      cluster_config_workers_memory: "9Gi"
+      cluster_config_k8s_version: "1.34"
+    secrets:
+      DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
+      VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+      PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
+      BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}

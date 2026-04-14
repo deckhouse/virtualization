@@ -4,6 +4,9 @@
   {{- $totalNodes = add $totalNodes .count -}}
 {{- end -}}
 
+{{- $masterCount := $.Values.instances.masterNodes.count | int -}}
+{{- if gt $masterCount 1 -}}
+  {{- $staticCount := sub $masterCount 1 -}}
 ---
 apiVersion: deckhouse.io/v1
 kind: NodeGroup
@@ -29,16 +32,12 @@ spec:
       matchLabels:
         role: master
 
-{{- range $_, $i := untilStep 0 (.Values.instances.masterNodes.count | int) 1}}
+{{- range $_, $i := untilStep 1 (.Values.instances.masterNodes.count | int) 1}}
   {{- $vmName := printf "%s-master-%d" $.Values.storageType $i }}
 ---
 apiVersion: deckhouse.io/v1alpha1
 kind: StaticInstance
 metadata:
-  {{- if eq $i 0 }}
-  annotations:
-    static.node.deckhouse.io/skip-bootstrap-phase: ""
-  {{- end }}
   name: {{ $vmName }}
   labels:
     role: master
@@ -47,4 +46,5 @@ spec:
   credentialsRef:
     kind: SSHCredentials
     name: mvp-static
+{{- end }}
 {{- end }}
