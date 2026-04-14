@@ -1,5 +1,7 @@
+//go:build !linux
+
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,4 +16,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package route
+package modprobe
+
+import "fmt"
+
+func LoadModules(modules ...string) error {
+	if len(modules) == 0 {
+		return nil
+	}
+	return fmt.Errorf("kernel module loading is supported only on linux")
+}
+
+func KernelRelease() (string, error) {
+	return "", fmt.Errorf("kernel module operations are supported only on linux")
+}

@@ -16,7 +16,11 @@ limitations under the License.
 
 package server
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/go-logr/logr"
+)
 
 func (s *Server) getHealthzHandler() http.Handler {
 	if s.healthzHandler != nil {
@@ -24,6 +28,8 @@ func (s *Server) getHealthzHandler() http.Handler {
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
+		if _, err := w.Write([]byte("ok")); err != nil {
+			logr.FromContextOrDiscard(r.Context()).Error(err, "failed to write healthz response")
+		}
 	})
 }

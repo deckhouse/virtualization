@@ -57,7 +57,7 @@ func NewController(
 	logger logr.Logger,
 ) (*Controller, error) {
 
-	queue := workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: controllerName})
+	queue := workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[string](), workqueue.TypedRateLimitingQueueConfig[string]{Name: controllerName})
 	log := logger.WithValues("controller", controllerName)
 	routeController := &Controller{
 		queue:        queue,
@@ -98,7 +98,7 @@ type Controller struct {
 	vmLister     virtlisters.VirtualMachineLister
 	routeWatcher Watcher
 	hasSynced    cache.InformerSynced
-	queue        workqueue.RateLimitingInterface
+	queue        workqueue.TypedRateLimitingInterface[string]
 	netlinkMgr   *netlinkmanager.Manager
 	log          logr.Logger
 }
@@ -257,7 +257,7 @@ func (c *Controller) worker(ctx context.Context) {
 		}
 		defer c.queue.Done(key)
 
-		if err := c.sync(key.(string)); err != nil {
+		if err := c.sync(key); err != nil {
 			c.log.Error(err, fmt.Sprintf("re-enqueuing VirtualMachine %v", key))
 			c.queue.AddRateLimited(key)
 		} else {

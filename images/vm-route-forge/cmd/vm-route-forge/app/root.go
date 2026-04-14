@@ -76,10 +76,7 @@ func NewVmRouteForgeCommand() *cobra.Command {
 }
 
 func setupLogger(verbosity int) {
-	debug := false
-	if verbosity > 1 {
-		debug = true
-	}
+	debug := verbosity > 1
 
 	// The logger instantiated here can be changed to any logger
 	// implementing the logr.Logger interface. This logger will

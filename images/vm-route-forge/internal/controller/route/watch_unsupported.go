@@ -1,3 +1,5 @@
+//go:build !linux
+
 /*
 Copyright 2024 Flant JSC
 
@@ -25,35 +27,49 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	vmipcache "vm-route-forge/internal/cache"
-	netlinkwrap "vm-route-forge/internal/netlinkwrap"
+	"vm-route-forge/internal/netlinkwrap"
 )
 
-type Watcher interface {
-	ResultChannel() <-chan types.NamespacedName
-	Stop()
+type unsupportedWatcher struct{}
+
+func (w *unsupportedWatcher) ResultChannel() <-chan types.NamespacedName {
+	ch := make(chan types.NamespacedName)
+	close(ch)
+	return ch
 }
 
-type KindRouteWatcher string
+func (w *unsupportedWatcher) Stop() {}
 
-const (
-	NetlinkTickerKind KindRouteWatcher = "netlinkTicker"
-	EbpfKind          KindRouteWatcher = "ebpf"
-)
+func NewEbpfWatcher(
+	ctx context.Context,
+	cidrs []*net.IPNet,
+	routeTableID int,
+	cache vmipcache.Cache,
+	nlWrapper *netlinkwrap.Funcs,
+	log logr.Logger,
+) (*unsupportedWatcher, error) {
+	_ = ctx
+	_ = cidrs
+	_ = routeTableID
+	_ = cache
+	_ = nlWrapper
+	_ = log
+	return nil, fmt.Errorf("ebpf watcher is supported only on linux")
+}
 
-func WatchFactory(ctx context.Context,
-	kind KindRouteWatcher,
+func NewNetlinkTickerWatcher(
+	ctx context.Context,
 	cidrs []*net.IPNet,
 	cache vmipcache.Cache,
 	routeTableID int,
 	nlWrapper *netlinkwrap.Funcs,
 	log logr.Logger,
-) (Watcher, error) {
-	switch kind {
-	case NetlinkTickerKind:
-		return NewNetlinkTickerWatcher(ctx, cidrs, cache, routeTableID, nlWrapper, log), nil
-	case EbpfKind:
-		return NewEbpfWatcher(ctx, cidrs, routeTableID, cache, nlWrapper, log)
-	default:
-		return nil, fmt.Errorf("unknown kind %s", kind)
-	}
+) *unsupportedWatcher {
+	_ = ctx
+	_ = cidrs
+	_ = cache
+	_ = routeTableID
+	_ = nlWrapper
+	_ = log
+	return &unsupportedWatcher{}
 }
