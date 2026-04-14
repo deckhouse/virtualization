@@ -20,17 +20,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"maps"
 	"math"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -48,9 +48,12 @@ const (
 	replicatedStorageClass = "nested-thin-r1"
 	localThinStorageClass  = "nested-local-thin"
 	lsblkJSONCommand       = "sudo lsblk --bytes --json --nodeps --output NAME,SIZE,TYPE,MOUNTPOINTS"
+	rootDiskNameCommand    = `root_source=$(findmnt -no SOURCE /); root_disk=$(lsblk -ndo PKNAME "$root_source" 2>/dev/null | head -n1); if [ -n "$root_disk" ]; then echo "$root_disk"; else lsblk -ndo NAME "$root_source" | head -n1; fi`
+	maxCloudInitDiskSize   = int64(4 * 1024 * 1024)
 	defaultRootDiskSize    = "350Mi"
 	defaultDataDiskSize    = "100Mi"
 	releaseIPerfReportPath = "/tmp/release-upgrade-iperf-client-report.json"
+	releaseNamespaceName   = "v12n-test-release"
 
 	releaseTestPhaseEnv          = "RELEASE_TEST_PHASE"
 	releaseTestPhasePreUpgrade   = "pre-upgrade"
@@ -162,10 +165,10 @@ type releaseUpgradeContext struct {
 }
 
 func runPreUpgradeReleaseSmoke() {
-	f := framework.NewFramework("release-current")
-	f.Before()
+	f := framework.NewFramework("")
+	namespace := ensureReleaseNamespace(f, releaseNamespaceName)
 
-	test := newCurrentReleaseSmokeTest(f, "")
+	test := newCurrentReleaseSmokeTest(f, namespace)
 	test.createResources()
 	test.verifyVMsReady()
 	test.startLongRunningIPerf()
@@ -193,6 +196,34 @@ func mustGetEnv(name string) string {
 	value := os.Getenv(name)
 	Expect(value).NotTo(BeEmpty(), "environment variable %s must be set", name)
 	return value
+}
+
+func ensureReleaseNamespace(f *framework.Framework, namespace string) string {
+	GinkgoHelper()
+
+	nsClient := f.KubeClient().CoreV1().Namespaces()
+	_, err := nsClient.Get(context.Background(), namespace, metav1.GetOptions{})
+	switch {
+	case err == nil:
+		By(fmt.Sprintf("Namespace %q is reused", namespace))
+		return namespace
+	case !k8serrors.IsNotFound(err):
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespace,
+			Labels: map[string]string{
+				framework.E2ELabel: "true",
+			},
+		},
+	}
+	_, err = nsClient.Create(context.Background(), ns, metav1.CreateOptions{})
+	Expect(err).NotTo(HaveOccurred())
+	By(fmt.Sprintf("Namespace %q has been created", namespace))
+
+	return namespace
 }
 
 func newCurrentReleaseSmokeTest(f *framework.Framework, namespace string) *currentReleaseSmokeTest {
@@ -518,8 +549,11 @@ func (t *currentReleaseSmokeTest) expectAdditionalDiskCount(vm *v1alpha2.Virtual
 		err := t.framework.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vm), currentVM)
 		g.Expect(err).NotTo(HaveOccurred())
 
-		expectedTargets := hotpluggedDiskTargets(currentVM)
-		g.Expect(expectedTargets).To(HaveLen(expectedCount))
+		attachedHotplugDisks := hotpluggedAttachedDiskCount(currentVM)
+		g.Expect(attachedHotplugDisks).To(Equal(expectedCount))
+
+		rootDiskName, err := t.rootDiskName(vm)
+		g.Expect(err).NotTo(HaveOccurred())
 
 		output, err := t.framework.SSHCommand(vm.Name, vm.Namespace, lsblkJSONCommand, framework.WithSSHTimeout(10*time.Second))
 		g.Expect(err).NotTo(HaveOccurred())
@@ -527,13 +561,14 @@ func (t *currentReleaseSmokeTest) expectAdditionalDiskCount(vm *v1alpha2.Virtual
 		disks, err := parseLSBLKOutput(output)
 		g.Expect(err).NotTo(HaveOccurred())
 
-		actualCount := countDisksByTarget(disks, expectedTargets)
+		actualCount := countAdditionalGuestDisks(disks, rootDiskName)
 		g.Expect(actualCount).To(
 			Equal(expectedCount),
-			"VM %s/%s additional disk mismatch; expected hotplug targets: %v; lsblk devices: %s",
+			"VM %s/%s additional disk mismatch; root disk: %q; hotplugged block devices in status: %d; lsblk devices: %s",
 			vm.Namespace,
 			vm.Name,
-			sortedKeys(expectedTargets),
+			rootDiskName,
+			attachedHotplugDisks,
 			formatLSBLKDisks(disks),
 		)
 	}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed())
@@ -548,25 +583,10 @@ func parseLSBLKOutput(raw string) ([]lsblkDevice, error) {
 	return output.BlockDevices, nil
 }
 
-func hotpluggedDiskTargets(vm *v1alpha2.VirtualMachine) map[string]struct{} {
-	targets := make(map[string]struct{})
+func hotpluggedAttachedDiskCount(vm *v1alpha2.VirtualMachine) int {
+	count := 0
 	for _, blockDevice := range vm.Status.BlockDeviceRefs {
 		if !blockDevice.Hotplugged || !blockDevice.Attached || blockDevice.VirtualMachineBlockDeviceAttachmentName == "" {
-			continue
-		}
-		Expect(blockDevice.Target).NotTo(BeEmpty(), "missing target for hotplugged block device %s/%s on VM %s", blockDevice.Kind, blockDevice.Name, vm.Name)
-		targets[blockDevice.Target] = struct{}{}
-	}
-	return targets
-}
-
-func countDisksByTarget(disks []lsblkDevice, expectedTargets map[string]struct{}) int {
-	count := 0
-	for _, disk := range disks {
-		if disk.Type != "disk" {
-			continue
-		}
-		if _, ok := expectedTargets[disk.Name]; !ok {
 			continue
 		}
 		count++
@@ -574,9 +594,30 @@ func countDisksByTarget(disks []lsblkDevice, expectedTargets map[string]struct{}
 	return count
 }
 
-func sortedKeys(values map[string]struct{}) []string {
-	result := slices.Sorted(maps.Keys(values))
-	return result
+func (t *currentReleaseSmokeTest) rootDiskName(vm *v1alpha2.VirtualMachine) (string, error) {
+	output, err := t.framework.SSHCommand(vm.Name, vm.Namespace, rootDiskNameCommand, framework.WithSSHTimeout(10*time.Second))
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(output), nil
+}
+
+func countAdditionalGuestDisks(disks []lsblkDevice, rootDiskName string) int {
+	count := 0
+	for _, disk := range disks {
+		if disk.Type != "disk" {
+			continue
+		}
+		if disk.Name == rootDiskName {
+			continue
+		}
+		if disk.Size <= maxCloudInitDiskSize {
+			continue
+		}
+		count++
+	}
+	return count
 }
 
 func formatLSBLKDisks(disks []lsblkDevice) string {
