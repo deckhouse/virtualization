@@ -117,8 +117,8 @@ func (c *USBGatewayController) Detach(deviceName string) error {
 		return fmt.Errorf("failed to unexport device %s: %w", deviceName, err)
 	}
 
-	if err := c.attachRecordManager.RemoveEntryByDeviceName(deviceName); err != nil {
-		return fmt.Errorf("failed to remove attach record for device %s: %w", deviceName, err)
+	if err := c.attachRecordManager.Refresh(); err != nil {
+		return fmt.Errorf("failed to Refresh attach record after detach for device %s: %w", deviceName, err)
 	}
 
 	return nil

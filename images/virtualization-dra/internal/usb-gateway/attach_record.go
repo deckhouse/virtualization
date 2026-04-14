@@ -118,19 +118,20 @@ func (r *attachRecordManager) Refresh() error {
 		return err
 	}
 
-	// keep only real entries
-	var newEntries []AttachEntry
+	newEntries := make([]AttachEntry, 0, len(record.Entries))
 	for _, e := range record.Entries {
 		if _, ok := ports[e.Rhport]; ok {
 			newEntries = append(newEntries, e)
 		}
 	}
 
-	record.Entries = newEntries
+	newRecord := attachRecord{Entries: newEntries}
+	if slices.Equal(record.Entries, newRecord.Entries) {
+		r.record = newRecord
+		return nil
+	}
 
-	r.record = record
-
-	return nil
+	return r.storeLocked(newRecord)
 }
 
 func (r *attachRecordManager) GetEntries() []AttachEntry {
@@ -162,27 +163,6 @@ func (r *attachRecordManager) AddEntry(e AttachEntry) error {
 
 	newEntries := slices.Clone(r.record.Entries)
 	newEntries = append(newEntries, e)
-
-	return r.storeLocked(attachRecord{Entries: newEntries})
-}
-
-func (r *attachRecordManager) RemoveEntryByDeviceName(deviceName string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	newEntries := make([]AttachEntry, 0, len(r.record.Entries))
-	removed := false
-	for _, entry := range r.record.Entries {
-		if entry.DeviceName == deviceName {
-			removed = true
-			continue
-		}
-		newEntries = append(newEntries, entry)
-	}
-
-	if !removed {
-		return nil
-	}
 
 	return r.storeLocked(attachRecord{Entries: newEntries})
 }
