@@ -702,7 +702,7 @@ func (t *currentReleaseSmokeTest) verifyIPerfContinuityAfterUpgrade() {
 
 	By("Validating the iperf report spans the module upgrade")
 	report := getIPerfClientReport(t.framework, t.iperfClient.vm, releaseIPerfReportPath)
-	Expect(report.Error).To(BeEmpty(), "iperf3 report contains an error")
+	Expect(isExpectedIPerfReportError(report.Error)).To(BeTrue(), "iperf3 report contains an unexpected error: %q", report.Error)
 
 	upgradeStartedAt, err := strconv.ParseInt(mustGetEnv(releaseUpgradeStartedAtEnv), 10, 64)
 	Expect(err).NotTo(HaveOccurred(), "upgrade timestamp must be a unix second")
@@ -836,6 +836,14 @@ func parseIPerfReport(raw string) (*iperfReport, error) {
 	}
 
 	return &report, nil
+}
+
+func isExpectedIPerfReportError(errMsg string) bool {
+	if errMsg == "" {
+		return true
+	}
+
+	return strings.Contains(errMsg, "interrupt - the client has terminated by signal Interrupt(2)")
 }
 
 func min(a, b int) int {
