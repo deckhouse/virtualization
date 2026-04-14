@@ -82,7 +82,7 @@ func (s AttachmentService) IsHotPlugged(ad *AttachmentDisk, vm *v1alpha2.Virtual
 		}
 	}
 
-	return false, nil
+	return s.isVMBlockDeviceHotPlugged(vm, ad), nil
 }
 
 func (s AttachmentService) CanHotPlug(ad *AttachmentDisk, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) (bool, error) {
@@ -167,6 +167,20 @@ func (s AttachmentService) IsAttached(vm *v1alpha2.VirtualMachine, kvvm *virtv1.
 	for _, bdRef := range vm.Status.BlockDeviceRefs {
 		if bdRef.Kind == v1alpha2.BlockDeviceKind(vmbda.Spec.BlockDeviceRef.Kind) && bdRef.Name == vmbda.Spec.BlockDeviceRef.Name {
 			return bdRef.Hotplugged && bdRef.VirtualMachineBlockDeviceAttachmentName == vmbda.Name
+		}
+	}
+
+	return false
+}
+
+func (s AttachmentService) isVMBlockDeviceHotPlugged(vm *v1alpha2.VirtualMachine, ad *AttachmentDisk) bool {
+	if vm == nil || ad == nil {
+		return false
+	}
+
+	for _, bdRef := range vm.Status.BlockDeviceRefs {
+		if bdRef.Kind == ad.Kind && bdRef.Name == ad.Name {
+			return bdRef.Hotplugged
 		}
 	}
 
