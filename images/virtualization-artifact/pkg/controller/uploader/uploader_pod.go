@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -34,6 +35,12 @@ import (
 const (
 	// destinationAuthVol is the name of the volume containing DVCR docker auth config.
 	destinationAuthVol = "dvcr-secret-vol"
+)
+
+// These constants can't be imported from "images/dvcr-artifact/pkg/uploader/uploader.go" due to conflicts with the CDI version.
+const (
+	healthzPort = 8080
+	healthzPath = "/healthz"
 )
 
 type Pod struct {
@@ -150,6 +157,15 @@ func (p *Pod) makeUploaderContainerSpec() *corev1.Container {
 		Env: p.makeUploaderContainerEnv(),
 		SecurityContext: &corev1.SecurityContext{
 			ReadOnlyRootFilesystem: ptr.To(true),
+		},
+		ReadinessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: healthzPath,
+					Port: intstr.FromInt(healthzPort),
+				},
+			},
+			InitialDelaySeconds: 5,
 		},
 	}
 

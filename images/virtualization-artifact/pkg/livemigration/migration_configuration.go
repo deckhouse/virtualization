@@ -63,6 +63,10 @@ func NewMigrationConfiguration(allowAutoConverge bool, kvconfig virtv1.KubeVirt)
 	progressTimeout := MigrationProgressTimeout
 	completionTimeoutPerGiB := MigrationCompletionTimeoutPerGiB
 	defaultUnsafeMigrationOverride := DefaultUnsafeMigrationOverride
+	disableTLS := false
+	if kvconfig.Spec.Configuration.MigrationConfiguration != nil && kvconfig.Spec.Configuration.MigrationConfiguration.DisableTLS != nil {
+		disableTLS = *kvconfig.Spec.Configuration.MigrationConfiguration.DisableTLS
+	}
 	allowPostCopy := MigrationAllowPostCopy
 	allowWorkloadDisruption := MigrationAllowWorkloadDisruption
 
@@ -77,7 +81,7 @@ func NewMigrationConfiguration(allowAutoConverge bool, kvconfig virtv1.KubeVirt)
 		AllowAutoConverge:                 &allowAutoConverge,
 		AllowPostCopy:                     &allowPostCopy,
 		AllowWorkloadDisruption:           &allowWorkloadDisruption,
-		DisableTLS:                        nil,
+		DisableTLS:                        &disableTLS,
 		Network:                           nil,
 		MatchSELinuxLevelOnMigration:      nil,
 	}

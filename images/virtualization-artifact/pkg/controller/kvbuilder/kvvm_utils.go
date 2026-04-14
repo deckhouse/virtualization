@@ -99,7 +99,7 @@ func ApplyVirtualMachineSpec(
 	if err := kvvm.SetRunPolicy(vm.Spec.RunPolicy); err != nil {
 		return err
 	}
-	if err := kvvm.SetOsType(vm.Spec.OsType); err != nil {
+	if err := kvvm.SetOSType(vm.Spec.OsType); err != nil {
 		return err
 	}
 	if err := kvvm.SetBootloader(vm.Spec.Bootloader); err != nil {
@@ -290,6 +290,8 @@ func ApplyVirtualMachineSpec(
 	if ipAddress != "" {
 		// Set ip address cni request annotation.
 		kvvm.SetKVVMIAnnotation(netmanager.AnnoIPAddressCNIRequest, ipAddress)
+	} else {
+		kvvm.RemoveKVVMIAnnotation(netmanager.AnnoIPAddressCNIRequest)
 	}
 
 	// Set live migration annotation.

@@ -30,6 +30,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
+	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
@@ -46,7 +47,6 @@ var _ = Describe("VMCheckTPM", label.TPM(), func() {
 		By("Create a VM with the TPM module.")
 		const (
 			expectedTPMVersion = "2.0"
-			imageURLDebian12   = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/debian/debian-12-with-tpm2-tools-amd64-20250814-2204.qcow2"
 			vdsize             = "4.4Gi"
 			bootLoader         = "EFI"
 			osType             = "Windows"
@@ -67,13 +67,8 @@ runcmd:
 `
 		)
 
-		vdRoot := vd.New(
-			vd.WithName("vd-root"),
+		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIDebian,
 			vd.WithSize(ptr.To(resource.MustParse(vdsize))),
-			vd.WithNamespace(f.Namespace().Name),
-			vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-				URL: imageURLDebian12,
-			}),
 		)
 		vmTPM := vm.New(
 			vm.WithName("vm-with-tpm"),

@@ -9,7 +9,7 @@ patches:
         path: /spec/blockDeviceRefs/-
         value: {
               "kind": "ClusterVirtualImage",
-              "name": "cvi-alpine-registry"
+              "name": "v12n-e2e-legacy-registry"
           }
     target:
       kind: VirtualMachine

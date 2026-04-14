@@ -397,11 +397,13 @@ virtualization:
         - 10.0.10.0/24
         - 10.0.20.0/24
         - 10.0.30.0/24
+      featureGates: []
     moduleState: {}
     virtConfig:
       phase: Deployed
       bandwidthPerMigration: 640Mi
       completionTimeoutPerGiB: 800
+      disableTLS: false
       parallelMigrationsPerCluster: 2
       parallelOutboundMigrationsPerNode: 10
       progressTimeout: 150

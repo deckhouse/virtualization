@@ -355,11 +355,28 @@ env:
       patch: '{"spec":{"template":{"metadata":{"labels":{"security.deckhouse.io/security-policy-exception": "virt-handler-ds"}}}}}'
       type: strategic
 
-    # Change host path for directory with capabilities xml files. We have custom qemu with different
-    # machine types thus it conflicts with the original kubevirt.
+{{ define "virt-handler-rewrite-host-path-volumes"}}
+volumes:
+# Directory with capabilities xml files. We have custom qemu with different
+# machine types thus it conflicts with the original kubevirt.
+- name: node-labeller
+  hostPath:
+    path: /var/run/d8-virtualization/node-labeller
+# Other directories to communicate with virt-launcher.
+# Also rewrite to prevent errors.
+- name: libvirt-runtimes
+  hostPath:
+    path: /var/run/d8-virtualization/libvirt-runtimes
+- name: virt-share-dir
+  hostPath:
+    path: /var/run/d8-virtualization/kubevirt
+- name: virt-private-dir
+  hostPath:
+    path: /var/run/d8-virtualization/kubevirt-private
+{{- end }}
     - resourceName: virt-handler
       resourceType: DaemonSet
-      patch: '{"spec":{"template":{"spec":{"volumes":[{"name":"node-labeller","hostPath":{"path":"/var/run/d8-virtualization/node-labeller"}}]}}}}'
+      patch: '{"spec":{"template":{"spec": {{include "virt-handler-rewrite-host-path-volumes" . | fromYaml | toJson }} }}}'
       type: strategic
 
   imagePullPolicy: IfNotPresent

@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"strconv"
 	"time"
@@ -30,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -68,7 +70,9 @@ func (h *StatisticHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	}
 	h.syncPods(changed, pod, pods)
 
-	h.syncResources(changed, kvvmi, pod)
+	if err := h.syncResources(changed, kvvmi, pod); err != nil {
+		return reconcile.Result{}, err
+	}
 
 	return reconcile.Result{}, nil
 }
@@ -80,48 +84,52 @@ func (h *StatisticHandler) Name() string {
 func (h *StatisticHandler) syncResources(changed *v1alpha2.VirtualMachine,
 	kvvmi *virtv1.VirtualMachineInstance,
 	pod *corev1.Pod,
-) {
+) error {
 	if changed == nil {
-		return
+		return nil
 	}
 	var resources v1alpha2.ResourcesStatus
 	switch pod {
 	case nil:
 		var (
-			cpuKVVMIRequest resource.Quantity
+			cpuKVVMIRequest *resource.Quantity
 			memorySize      resource.Quantity
-			cores           int
 			topology        v1alpha2.Topology
 			coreFraction    string
 		)
 		if kvvmi == nil {
 			memorySize = changed.Spec.Memory.Size
-			cores = changed.Spec.CPU.Cores
-			coreFraction = changed.Spec.CPU.CoreFraction
-			sockets, coresPerSocket := vm.CalculateCoresAndSockets(cores)
+			sockets, coresPerSocket := vm.CalculateCoresAndSockets(changed.Spec.CPU.Cores)
 			topology = v1alpha2.Topology{CoresPerSocket: coresPerSocket, Sockets: sockets}
+			coreFraction = changed.Spec.CPU.CoreFraction
 		} else {
-			cpuKVVMIRequest = kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceCPU]
+			var err error
+			cpuKVVMIRequest, err = h.getCoresRequestedByKVVMI(kvvmi)
+			if err != nil {
+				return err
+			}
 			memorySize = kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]
 
-			cores = h.getCoresByKVVMI(kvvmi)
 			coreFraction = h.getCoreFractionByKVVMI(kvvmi)
 			topology = h.getCurrentTopologyByKVVMI(kvvmi)
 		}
 		resources = v1alpha2.ResourcesStatus{
 			CPU: v1alpha2.CPUStatus{
-				Cores:          cores,
-				CoreFraction:   coreFraction,
-				RequestedCores: cpuKVVMIRequest,
-				Topology:       topology,
+				Cores:        topology.CoresPerSocket * topology.Sockets,
+				CoreFraction: coreFraction,
+				Topology:     topology,
 			},
 			Memory: v1alpha2.MemoryStatus{
 				Size: memorySize,
 			},
 		}
+		if cpuKVVMIRequest != nil {
+			resources.CPU.RequestedCores = *cpuKVVMIRequest
+		}
+
 	default:
 		if kvvmi == nil {
-			return
+			return nil
 		}
 		var ctr corev1.Container
 		for _, container := range pod.Spec.Containers {
@@ -130,15 +138,18 @@ func (h *StatisticHandler) syncResources(changed *v1alpha2.VirtualMachine,
 			}
 		}
 
-		cpuKVVMIRequest := kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceCPU]
+		coreFraction := h.getCoreFractionByKVVMI(kvvmi)
+		topology := h.getCurrentTopologyByKVVMI(kvvmi)
+		cores := topology.CoresPerSocket * topology.Sockets
+
+		cpuFractionRequests, err := h.getCoresRequestedByKVVMI(kvvmi)
+		if err != nil {
+			return fmt.Errorf("get core fraction by kvvmi: %w", err)
+		}
 		cpuPODRequest := ctr.Resources.Requests[corev1.ResourceCPU]
 
 		cpuOverhead := cpuPODRequest.DeepCopy()
-		cpuOverhead.Sub(cpuKVVMIRequest)
-
-		cores := h.getCoresByKVVMI(kvvmi)
-		coreFraction := h.getCoreFractionByKVVMI(kvvmi)
-		topology := h.getCurrentTopologyByKVVMI(kvvmi)
+		cpuOverhead.Sub(*cpuFractionRequests)
 
 		memoryKVVMIRequest := kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]
 		memoryPodRequest := ctr.Resources.Requests[corev1.ResourceMemory]
@@ -152,7 +163,7 @@ func (h *StatisticHandler) syncResources(changed *v1alpha2.VirtualMachine,
 			CPU: v1alpha2.CPUStatus{
 				Cores:           cores,
 				CoreFraction:    coreFraction,
-				RequestedCores:  cpuKVVMIRequest,
+				RequestedCores:  *cpuFractionRequests,
 				RuntimeOverhead: cpuOverhead,
 				Topology:        topology,
 			},
@@ -163,22 +174,75 @@ func (h *StatisticHandler) syncResources(changed *v1alpha2.VirtualMachine,
 		}
 	}
 	changed.Status.Resources = resources
+	return nil
 }
 
+// getCoresByKVVMI
+// TODO refactor: no need to get cores from limits after enabling CPU hotplug, kvvmi.Spec.Domain.CPU should be enough.
 func (h *StatisticHandler) getCoresByKVVMI(kvvmi *virtv1.VirtualMachineInstance) int {
 	if kvvmi == nil {
 		return -1
 	}
-	cpuKVVMILimit := kvvmi.Spec.Domain.Resources.Limits[corev1.ResourceCPU]
-	return int(cpuKVVMILimit.Value())
+
+	cpuKVVMILimit, hasLimits := kvvmi.Spec.Domain.Resources.Limits[corev1.ResourceCPU]
+	if hasLimits {
+		return int(cpuKVVMILimit.Value())
+	}
+
+	return 1
 }
 
 func (h *StatisticHandler) getCoreFractionByKVVMI(kvvmi *virtv1.VirtualMachineInstance) string {
 	if kvvmi == nil {
 		return ""
 	}
+	// Fraction is stored in annotation after enabling CPU hotplug.
+	cpuFractionStr, hasAnno := kvvmi.Annotations[kvbuilder.CPUResourcesRequestsFractionAnnotation]
+	if hasAnno {
+		return cpuFractionStr + "%"
+	}
+	// Also support previous implementation: calculate from requests and limits values.
 	cpuKVVMIRequest := kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceCPU]
 	return strconv.Itoa(int(cpuKVVMIRequest.MilliValue())*100/(h.getCoresByKVVMI(kvvmi)*1000)) + "%"
+}
+
+func (h *StatisticHandler) getCoresRequestedByKVVMI(kvvmi *virtv1.VirtualMachineInstance) (*resource.Quantity, error) {
+	if kvvmi == nil {
+		return nil, nil
+	}
+	// Fraction is stored in annotation after enabling CPU hotplug.
+	cpuFractionStr, hasAnno := kvvmi.Annotations[kvbuilder.CPUResourcesRequestsFractionAnnotation]
+	if hasAnno {
+		if kvvmi.Spec.Domain.CPU == nil {
+			return nil, fmt.Errorf("enabled dynamic cores with annotation %s, but missing spec.domain.cpu", kvbuilder.CPUResourcesRequestsFractionAnnotation)
+		}
+		cores := kvvmi.Spec.Domain.CPU.Cores * kvvmi.Spec.Domain.CPU.Sockets
+
+		cpuFraction, err := strconv.Atoi(cpuFractionStr)
+		if err != nil {
+			return nil, err
+		}
+
+		if cpuFraction <= 0 || cpuFraction > 100 {
+			cpuFraction = 100
+		}
+		if cpuFraction == 100 {
+			return resource.NewQuantity(int64(cores), resource.DecimalSI), nil
+		}
+
+		// Use multiplier to calculate fraction of millis.
+		requested := cores * 1000
+		// Round up, to always return integer number of millis.
+		value := int64(math.Ceil(float64(cpuFraction) * (float64(requested)) / 100))
+		return resource.NewMilliQuantity(value, resource.DecimalSI), nil
+	}
+
+	// Also support previous implementation: return cpu requests if set.
+	if reqCPU, hasCPURequests := kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceCPU]; hasCPURequests {
+		return &reqCPU, nil
+	}
+
+	return nil, nil
 }
 
 func (h *StatisticHandler) getCurrentTopologyByKVVMI(kvvmi *virtv1.VirtualMachineInstance) v1alpha2.Topology {
@@ -186,21 +250,32 @@ func (h *StatisticHandler) getCurrentTopologyByKVVMI(kvvmi *virtv1.VirtualMachin
 		return v1alpha2.Topology{}
 	}
 
+	cores := -1
+	sockets := -1
+
 	if kvvmi.Status.CurrentCPUTopology != nil {
-		return v1alpha2.Topology{
-			CoresPerSocket: int(kvvmi.Status.CurrentCPUTopology.Cores),
-			Sockets:        int(kvvmi.Status.CurrentCPUTopology.Sockets),
-		}
+		cores = int(kvvmi.Status.CurrentCPUTopology.Cores)
+		sockets = int(kvvmi.Status.CurrentCPUTopology.Sockets)
 	}
 
 	if kvvmi.Spec.Domain.CPU != nil {
+		cores = int(kvvmi.Spec.Domain.CPU.Cores)
+		sockets = int(kvvmi.Spec.Domain.CPU.Sockets)
+	}
+
+	if _, isDynamicCores := kvvmi.Annotations[kvbuilder.VCPUTopologyDynamicCoresAnnotation]; isDynamicCores {
+		// Swap cores and sockets.
+		cores, sockets = sockets, cores
+	}
+
+	if cores > 0 && sockets > 0 {
 		return v1alpha2.Topology{
-			CoresPerSocket: int(kvvmi.Spec.Domain.CPU.Cores),
-			Sockets:        int(kvvmi.Spec.Domain.CPU.Sockets),
+			CoresPerSocket: cores,
+			Sockets:        sockets,
 		}
 	}
 
-	cores := h.getCoresByKVVMI(kvvmi)
+	cores = h.getCoresByKVVMI(kvvmi)
 	sockets, coresPerSocket := vm.CalculateCoresAndSockets(cores)
 	return v1alpha2.Topology{CoresPerSocket: coresPerSocket, Sockets: sockets}
 }

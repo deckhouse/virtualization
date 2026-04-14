@@ -1,6 +1,6 @@
 module github.com/deckhouse/virtualization-controller/dvcr-importers
 
-go 1.25.8
+go 1.25.9
 
 require (
 	github.com/containers/image/v5 v5.32.0
@@ -19,7 +19,7 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/sync v0.19.0
-	golang.org/x/sys v0.40.0
+	golang.org/x/sys v0.42.0
 	k8s.io/apimachinery v0.30.2
 	k8s.io/klog/v2 v2.120.1
 	kubevirt.io/containerized-data-importer v0.0.0-00010101000000-000000000000
@@ -28,8 +28,8 @@ require (
 
 require (
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/otel/sdk v1.40.0 // indirect
-	go.opentelemetry.io/otel/sdk/metric v1.40.0 // indirect
+	go.opentelemetry.io/otel/sdk v1.43.0 // indirect
+	go.opentelemetry.io/otel/sdk/metric v1.43.0 // indirect
 )
 
 require (
@@ -113,9 +113,9 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.46.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0 // indirect
-	go.opentelemetry.io/otel v1.40.0 // indirect
-	go.opentelemetry.io/otel/metric v1.40.0 // indirect
-	go.opentelemetry.io/otel/trace v1.40.0 // indirect
+	go.opentelemetry.io/otel v1.43.0 // indirect
+	go.opentelemetry.io/otel/metric v1.43.0 // indirect
+	go.opentelemetry.io/otel/trace v1.43.0 // indirect
 	golang.org/x/crypto v0.46.0 // indirect
 	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8 // indirect
 	golang.org/x/net v0.48.0 // indirect
@@ -150,7 +150,7 @@ require (
 replace (
 	github.com/aws/aws-sdk-go => github.com/aws/aws-sdk-go v1.34.0
 	github.com/chzyer/logex => github.com/chzyer/logex v1.2.1
-	github.com/go-jose/go-jose/v3 => github.com/go-jose/go-jose/v3 v3.0.4
+	github.com/go-jose/go-jose/v3 => github.com/go-jose/go-jose/v3 v3.0.5
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20230406152840-ce21e3fe5da2
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20230324103026-3f1513df25e0
 	github.com/openshift/library-go => github.com/mhenriks/library-go v0.0.0-20230310153733-63d38b55bd5a

@@ -28,7 +28,6 @@ import (
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/builder/cvi"
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vm"
@@ -54,15 +53,12 @@ var _ = Describe("VirtualMachineMigration", func() {
 		vmUEFI      *v1alpha2.VirtualMachine
 
 		// Hotplug: disks and images attached via VMBDAs
-		vdHotplugBIOS  *v1alpha2.VirtualDisk
-		vdHotplugUEFI  *v1alpha2.VirtualDisk
-		viHotplugBIOS  *v1alpha2.VirtualImage
-		viHotplugUEFI  *v1alpha2.VirtualImage
-		cviHotplugBIOS *v1alpha2.ClusterVirtualImage
-		cviHotplugUEFI *v1alpha2.ClusterVirtualImage
-
-		vmbdas     []*v1alpha2.VirtualMachineBlockDeviceAttachment
-		allObjects []crclient.Object
+		vdHotplugBIOS *v1alpha2.VirtualDisk
+		vdHotplugUEFI *v1alpha2.VirtualDisk
+		viHotplugBIOS *v1alpha2.VirtualImage
+		viHotplugUEFI *v1alpha2.VirtualImage
+		vmbdas        []*v1alpha2.VirtualMachineBlockDeviceAttachment
+		allObjects    []crclient.Object
 
 		vmopMigrateBIOS *v1alpha2.VirtualMachineOperation
 		vmopMigrateUEFI *v1alpha2.VirtualMachineOperation
@@ -80,13 +76,8 @@ var _ = Describe("VirtualMachineMigration", func() {
 
 	It("verifies that migrations are successful", func() {
 		By("Environment preparation", func() {
-			vdRootBIOS = vd.New(
-				vd.WithName("vd-root-bios"),
-				vd.WithNamespace(f.Namespace().Name),
+			vdRootBIOS = object.NewVDFromCVI("vd-root-bios", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
 				vd.WithSize(ptr.To(resource.MustParse("10Gi"))),
-				vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: object.ImageURLUbuntu,
-				}),
 			)
 			vdBlankBIOS = vd.New(
 				vd.WithName("vd-blank-bios"),
@@ -94,13 +85,8 @@ var _ = Describe("VirtualMachineMigration", func() {
 				vd.WithSize(ptr.To(resource.MustParse("100Mi"))),
 			)
 
-			vdRootUEFI = vd.New(
-				vd.WithName("vd-root-uefi"),
-				vd.WithNamespace(f.Namespace().Name),
+			vdRootUEFI = object.NewVDFromCVI("vd-root-uefi", f.Namespace().Name, object.PrecreatedCVIAlpineUEFI,
 				vd.WithSize(ptr.To(resource.MustParse("10Gi"))),
-				vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: object.ImageURLAlpineUEFI,
-				}),
 			)
 			vdBlankUEFI = vd.New(
 				vd.WithName("vd-blank-uefi"),
@@ -119,7 +105,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 					},
 				),
 				vm.WithBootloader(v1alpha2.BIOS),
-				vm.WithProvisioningUserData(object.DefaultCloudInit),
+				vm.WithProvisioningUserData(object.AlpineCloudInit),
 				vm.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
 				vm.WithName("vm-bios"),
 			)
@@ -135,7 +121,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 					},
 				),
 				vm.WithBootloader(v1alpha2.EFI),
-				vm.WithProvisioningUserData(object.DefaultCloudInit),
+				vm.WithProvisioningUserData(object.AlpineCloudInit),
 				vm.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
 				vm.WithName("vm-uefi"),
 			)
@@ -155,23 +141,14 @@ var _ = Describe("VirtualMachineMigration", func() {
 			viHotplugBIOS = vi.New(
 				vi.WithName("vi-hotplug-bios"),
 				vi.WithNamespace(f.Namespace().Name),
-				vi.WithDataSourceHTTP(object.ImageTestDataQCOW, nil, nil),
+				vi.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVITestDataQCOW),
 				vi.WithStorage(v1alpha2.StorageContainerRegistry),
 			)
 			viHotplugUEFI = vi.New(
 				vi.WithName("vi-hotplug-uefi"),
 				vi.WithNamespace(f.Namespace().Name),
-				vi.WithDataSourceHTTP(object.ImageTestDataQCOW, nil, nil),
+				vi.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVITestDataQCOW),
 				vi.WithStorage(v1alpha2.StorageContainerRegistry),
-			)
-
-			cviHotplugBIOS = cvi.New(
-				cvi.WithName("cvi-hotplug-bios"),
-				cvi.WithDataSourceHTTP(object.ImageTestDataQCOW, nil, nil),
-			)
-			cviHotplugUEFI = cvi.New(
-				cvi.WithName("cvi-hotplug-uefi"),
-				cvi.WithDataSourceHTTP(object.ImageTestDataQCOW, nil, nil),
 			)
 
 			vmbdaVdBIOS := vmbda.New(
@@ -201,13 +178,13 @@ var _ = Describe("VirtualMachineMigration", func() {
 			vmbdaCviBIOS := vmbda.New(
 				vmbda.WithName("vmbda-cvi-bios"),
 				vmbda.WithNamespace(f.Namespace().Name),
-				vmbda.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindClusterVirtualImage, cviHotplugBIOS.Name),
+				vmbda.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindClusterVirtualImage, object.PrecreatedCVITestDataQCOW),
 				vmbda.WithVirtualMachineName(vmBIOS.Name),
 			)
 			vmbdaCviUEFI := vmbda.New(
 				vmbda.WithName("vmbda-cvi-uefi"),
 				vmbda.WithNamespace(f.Namespace().Name),
-				vmbda.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindClusterVirtualImage, cviHotplugUEFI.Name),
+				vmbda.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindClusterVirtualImage, object.PrecreatedCVITestDataQCOW),
 				vmbda.WithVirtualMachineName(vmUEFI.Name),
 			)
 			vmbdas = []*v1alpha2.VirtualMachineBlockDeviceAttachment{
@@ -217,7 +194,6 @@ var _ = Describe("VirtualMachineMigration", func() {
 			allObjects = append([]crclient.Object{
 				vdRootBIOS, vdBlankBIOS, vmBIOS, vdRootUEFI, vdBlankUEFI, vmUEFI,
 				vdHotplugBIOS, vdHotplugUEFI, viHotplugBIOS, viHotplugUEFI,
-				cviHotplugBIOS, cviHotplugUEFI,
 			}, toObjects(vmbdas)...)
 			err := f.CreateWithDeferredDeletion(context.Background(), allObjects...)
 			Expect(err).NotTo(HaveOccurred())
@@ -284,16 +260,29 @@ var _ = Describe("VirtualMachineMigration", func() {
 				err = f.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vmopMigrateUEFI), vmopMigrateUEFI)
 				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
 
-				biosDiskCount, err := f.SSHCommand(vmBIOS.Name, f.Namespace().Name, lsblkCommand)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(biosDiskCount).To(Equal(biosDiskCountOriginal))
-				uefiDiskCount, err := f.SSHCommand(vmUEFI.Name, f.Namespace().Name, lsblkCommand)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(uefiDiskCount).To(Equal(uefiDiskCountOriginal))
-
 				g.Expect(vmopMigrateBIOS.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
 				g.Expect(vmopMigrateUEFI.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
 			}).WithPolling(time.Second).WithTimeout(framework.LongTimeout).To(Succeed())
+
+			vmOriginalDiskCount := map[*v1alpha2.VirtualMachine]string{
+				vmBIOS: biosDiskCountOriginal,
+				vmUEFI: uefiDiskCountOriginal,
+			}
+
+			By("Wait until the virtual machine is accessible via SSH after migration.")
+			for vm := range vmOriginalDiskCount {
+				util.UntilSSHReady(f, vm, framework.MiddleTimeout)
+			}
+
+			By("Check that the disk count of the virtual machine is equal to the disk count before migration.")
+			for vm, originalDiskCount := range vmOriginalDiskCount {
+				diskCount, err := f.SSHCommand(vm.Name, f.Namespace().Name, lsblkCommand)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(diskCount).To(Equal(originalDiskCount),
+					"disk count mismatch on VM %s after migration: got %s, expected %s",
+					vm.Name, diskCount, originalDiskCount,
+				)
+			}
 
 			cancelVMBDA()
 			Expect(<-vmbdaWatchErrCh).NotTo(HaveOccurred(), "VMBDAs should stay in Attached phase during migration")

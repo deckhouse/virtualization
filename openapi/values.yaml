@@ -141,6 +141,8 @@ properties:
             type: integer
           progressTimeout:
             type: integer
+          disableTLS:
+            type: boolean
       moduleConfig:
         type: object
         additionalProperties: true

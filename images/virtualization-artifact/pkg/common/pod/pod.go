@@ -103,6 +103,17 @@ func IsPodStarted(pod *corev1.Pod) bool {
 	return true
 }
 
+// IsPodReady returns true if the pod's `Ready` condition status is true; otherwise, it returns false.
+func IsPodReady(pod *corev1.Pod) bool {
+	for _, c := range pod.Status.Conditions {
+		if c.Type == corev1.PodReady && c.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+
+	return false
+}
+
 // IsPodComplete returns true if a Pod is in 'Succeeded' phase, false if not.
 func IsPodComplete(pod *corev1.Pod) bool {
 	return pod != nil && pod.Status.Phase == corev1.PodSucceeded

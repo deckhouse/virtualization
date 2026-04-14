@@ -33,9 +33,10 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/d8"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 )
 
-var _ = Describe("VirtualDiskResizing", Ordered, func() {
+var _ = Describe("VirtualDiskResizing", Ordered, label.Legacy(), func() {
 	const (
 		vmCount   = 1
 		diskCount = 3
@@ -66,18 +67,6 @@ var _ = Describe("VirtualDiskResizing", Ordered, func() {
 				FilenameOption: kc.Kustomize,
 			})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
-		})
-	})
-
-	Context("When the virtual images are applied", func() {
-		It("checks `VirtualImages` phase", func() {
-			By(fmt.Sprintf("`VirtualImages` should be in the %q phases", v1alpha2.ImageReady), func() {
-				WaitPhaseByLabel(kc.ResourceVI, string(v1alpha2.ImageReady), kc.WaitOptions{
-					Labels:    testCaseLabel,
-					Namespace: ns,
-					Timeout:   MaxWaitTimeout,
-				})
-			})
 		})
 	})
 
