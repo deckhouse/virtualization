@@ -364,14 +364,45 @@ shell:
     echo "Building patched SeaBIOS..."
     ln -sf /usr/bin/python3 /usr/bin/python
 
-    python3 -c "
-    p = 'roms/seabios/scripts/layoutrom.py'
-    t = open(p).read()
-    t = t.replace(
-        'relocsection = sectionmap[sectionname]',
-        'relocsection = sectionmap.get(sectionname)\n            if relocsection is None:\n                state = None\n                continue')
-    open(p, 'w').write(t)
-    "
+    python3 - <<'PY'
+    from pathlib import Path
+
+    p = Path("roms/seabios/scripts/layoutrom.py")
+    t = p.read_text()
+
+    replacements = {
+        "relocsection = sectionmap[sectionname]": """relocsection = sectionmap.get(sectionname)
+            if relocsection is None:
+                state = None
+                continue""",
+        """    pending = list(anchorsections)
+    while pending:
+        section = pending.pop()
+        for reloc in section.relocs:""": """    pending = [section for section in anchorsections if section is not None]
+    while pending:
+        section = pending.pop()
+        if section is None or section.relocs is None:
+            continue
+        for reloc in section.relocs:""",
+        """            nextsection = reloc.symbol.section
+            if nextsection not in anchorsections:""": """            nextsection = reloc.symbol.section
+            if nextsection is None:
+                continue
+            if nextsection not in anchorsections:""",
+        """    anchorsections = [entrysym.section] + [
+        section for section in allsections
+        if section.name.startswith('.fixedaddr.')]""": """    anchorsections = [section for section in ([entrysym.section if entrysym is not None else None] + [
+        section for section in allsections
+        if section.name.startswith('.fixedaddr.')]) if section is not None]""",
+    }
+
+    for old, new in replacements.items():
+        if old not in t:
+            raise SystemExit(f"Expected snippet not found in {p}: {old!r}")
+        t = t.replace(old, new, 1)
+
+    p.write_text(t)
+    PY
 
     make -C roms bios -j$(nproc)
 
