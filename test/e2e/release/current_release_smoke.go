@@ -47,7 +47,7 @@ import (
 const (
 	replicatedStorageClass = "nested-thin-r1"
 	localThinStorageClass  = "nested-local-thin"
-	lsblkJSONCommand       = "lsblk --bytes --json --nodeps --output NAME,SIZE,TYPE,MOUNTPOINTS,SERIAL"
+	lsblkJSONCommand       = "sudo lsblk --bytes --json --nodeps --output NAME,SIZE,TYPE,MOUNTPOINTS"
 	defaultRootDiskSize    = "350Mi"
 	defaultDataDiskSize    = "100Mi"
 	releaseIPerfReportPath = "/tmp/release-upgrade-iperf-client-report.json"
@@ -121,7 +121,6 @@ type lsblkDevice struct {
 	Size        int64    `json:"size"`
 	Type        string   `json:"type"`
 	Mountpoints []string `json:"mountpoints"`
-	Serial      string   `json:"serial"`
 }
 
 type iperfReport struct {
@@ -368,6 +367,7 @@ func (t *currentReleaseSmokeTest) verifyVMsReady() {
 
 	By("Checking attached disks inside guests")
 	for _, vmScenario := range t.vms {
+		By(fmt.Sprintf("Checking attached disks on %s", vmScenario.vm.Name))
 		t.expectAdditionalDiskCount(vmScenario.vm, vmScenario.expectedAdditionalDisks)
 	}
 }
@@ -518,8 +518,8 @@ func (t *currentReleaseSmokeTest) expectAdditionalDiskCount(vm *v1alpha2.Virtual
 		err := t.framework.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vm), currentVM)
 		g.Expect(err).NotTo(HaveOccurred())
 
-		expectedSerials := t.hotpluggedDiskSerials(currentVM)
-		g.Expect(expectedSerials).To(HaveLen(expectedCount))
+		expectedTargets := hotpluggedDiskTargets(currentVM)
+		g.Expect(expectedTargets).To(HaveLen(expectedCount))
 
 		output, err := t.framework.SSHCommand(vm.Name, vm.Namespace, lsblkJSONCommand, framework.WithSSHTimeout(10*time.Second))
 		g.Expect(err).NotTo(HaveOccurred())
@@ -527,13 +527,13 @@ func (t *currentReleaseSmokeTest) expectAdditionalDiskCount(vm *v1alpha2.Virtual
 		disks, err := parseLSBLKOutput(output)
 		g.Expect(err).NotTo(HaveOccurred())
 
-		actualCount := countDisksBySerial(disks, expectedSerials)
+		actualCount := countDisksByTarget(disks, expectedTargets)
 		g.Expect(actualCount).To(
 			Equal(expectedCount),
-			"VM %s/%s additional disk mismatch; expected hotplug serials: %v; lsblk devices: %s",
+			"VM %s/%s additional disk mismatch; expected hotplug targets: %v; lsblk devices: %s",
 			vm.Namespace,
 			vm.Name,
-			sortedSerials(expectedSerials),
+			sortedKeys(expectedTargets),
 			formatLSBLKDisks(disks),
 		)
 	}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed())
@@ -548,27 +548,25 @@ func parseLSBLKOutput(raw string) ([]lsblkDevice, error) {
 	return output.BlockDevices, nil
 }
 
-func (t *currentReleaseSmokeTest) hotpluggedDiskSerials(vm *v1alpha2.VirtualMachine) map[string]struct{} {
-	serials := make(map[string]struct{})
+func hotpluggedDiskTargets(vm *v1alpha2.VirtualMachine) map[string]struct{} {
+	targets := make(map[string]struct{})
 	for _, blockDevice := range vm.Status.BlockDeviceRefs {
 		if !blockDevice.Hotplugged || !blockDevice.Attached || blockDevice.VirtualMachineBlockDeviceAttachmentName == "" {
 			continue
 		}
-
-		serial, ok := util.GetBlockDeviceSerialNumber(vm, blockDevice.Kind, blockDevice.Name)
-		Expect(ok).To(BeTrue(), "failed to get serial for hotplugged block device %s/%s on VM %s", blockDevice.Kind, blockDevice.Name, vm.Name)
-		serials[serial] = struct{}{}
+		Expect(blockDevice.Target).NotTo(BeEmpty(), "missing target for hotplugged block device %s/%s on VM %s", blockDevice.Kind, blockDevice.Name, vm.Name)
+		targets[blockDevice.Target] = struct{}{}
 	}
-	return serials
+	return targets
 }
 
-func countDisksBySerial(disks []lsblkDevice, expectedSerials map[string]struct{}) int {
+func countDisksByTarget(disks []lsblkDevice, expectedTargets map[string]struct{}) int {
 	count := 0
 	for _, disk := range disks {
 		if disk.Type != "disk" {
 			continue
 		}
-		if _, ok := expectedSerials[disk.Serial]; !ok {
+		if _, ok := expectedTargets[disk.Name]; !ok {
 			continue
 		}
 		count++
@@ -576,8 +574,8 @@ func countDisksBySerial(disks []lsblkDevice, expectedSerials map[string]struct{}
 	return count
 }
 
-func sortedSerials(serials map[string]struct{}) []string {
-	result := slices.Sorted(maps.Keys(serials))
+func sortedKeys(values map[string]struct{}) []string {
+	result := slices.Sorted(maps.Keys(values))
 	return result
 }
 
@@ -588,7 +586,7 @@ func formatLSBLKDisks(disks []lsblkDevice) string {
 
 	parts := make([]string, 0, len(disks))
 	for _, disk := range disks {
-		parts = append(parts, fmt.Sprintf("%s(type=%s,size=%d,serial=%q,mountpoints=%v)", disk.Name, disk.Type, disk.Size, disk.Serial, disk.Mountpoints))
+		parts = append(parts, fmt.Sprintf("%s(type=%s,size=%d,mountpoints=%v)", disk.Name, disk.Type, disk.Size, disk.Mountpoints))
 	}
 
 	return "[" + strings.Join(parts, ", ") + "]"
