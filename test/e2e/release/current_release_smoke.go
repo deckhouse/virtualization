@@ -205,8 +205,20 @@ func ensureReleaseNamespace(f *framework.Framework, namespace string) string {
 	_, err := nsClient.Get(context.Background(), namespace, metav1.GetOptions{})
 	switch {
 	case err == nil:
-		By(fmt.Sprintf("Namespace %q is reused", namespace))
-		return namespace
+		By(fmt.Sprintf("Namespace %q already exists, recreating it", namespace))
+		err = nsClient.Delete(context.Background(), namespace, metav1.DeleteOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		Eventually(func() error {
+			_, err := nsClient.Get(context.Background(), namespace, metav1.GetOptions{})
+			if k8serrors.IsNotFound(err) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			return fmt.Errorf("namespace %q is still deleting", namespace)
+		}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed())
 	case !k8serrors.IsNotFound(err):
 		Expect(err).NotTo(HaveOccurred())
 	}
