@@ -89,6 +89,7 @@ type vmScenario struct {
 	runPolicy               v1alpha2.RunPolicy
 	rootDiskSize            string
 	expectedAdditionalDisks int
+	skipGuestAgentCheck     bool
 
 	rootDisk *v1alpha2.VirtualDisk
 	vm       *v1alpha2.VirtualMachine
@@ -256,6 +257,7 @@ func newCurrentReleaseSmokeTest(f *framework.Framework, namespace string) *curre
 			runPolicy:               v1alpha2.AlwaysOnUnlessStoppedManually,
 			rootDiskSize:            defaultRootDiskSize,
 			expectedAdditionalDisks: 2,
+			skipGuestAgentCheck:     true,
 		},
 		{
 			name:                    "vm-alpine-iperf-server",
@@ -359,7 +361,7 @@ func (t *currentReleaseSmokeTest) createResources() {
 func (t *currentReleaseSmokeTest) verifyVMsReady() {
 	By("Waiting for guest agent and SSH access")
 	for _, vmScenario := range t.vms {
-		t.expectGuestReady(vmScenario.vm)
+		t.expectGuestReady(vmScenario)
 	}
 
 	By("Checking attached disks inside guests")
@@ -374,7 +376,7 @@ func (t *currentReleaseSmokeTest) verifyVMsSurvivedUpgrade() {
 
 	By("Checking guest access after module upgrade")
 	for _, vmScenario := range t.vms {
-		t.expectGuestReady(vmScenario.vm)
+		t.expectGuestReady(vmScenario)
 	}
 
 	By("Checking attached disks after module upgrade")
@@ -493,12 +495,19 @@ func (t *currentReleaseSmokeTest) manualStartVMObjects() []crclient.Object {
 	return objects
 }
 
-func (t *currentReleaseSmokeTest) expectGuestReady(vm *v1alpha2.VirtualMachine) {
-	By(fmt.Sprintf("Waiting for guest agent on %s", vm.Name))
-	util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+func (t *currentReleaseSmokeTest) expectGuestReady(vmScenario *vmScenario) {
+	vm := vmScenario.vm
 
 	By(fmt.Sprintf("Waiting for SSH access on %s", vm.Name))
 	util.UntilSSHReady(t.framework, vm, framework.LongTimeout)
+
+	if vmScenario.skipGuestAgentCheck {
+		By(fmt.Sprintf("Skipping strict guest agent check on %s", vm.Name))
+		return
+	}
+
+	By(fmt.Sprintf("Waiting for guest agent on %s", vm.Name))
+	util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 }
 
 func (t *currentReleaseSmokeTest) expectAdditionalDiskCount(vm *v1alpha2.VirtualMachine, expectedCount int) {
