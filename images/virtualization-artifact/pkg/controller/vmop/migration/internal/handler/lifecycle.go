@@ -508,7 +508,7 @@ func getMessageByMigrationFailedReason(mig *virtv1.VirtualMachineInstanceMigrati
 		case virtv1.VirtualMachineInstanceMigrationFailedReasonVMIDoesNotExist, virtv1.VirtualMachineInstanceMigrationFailedReasonVMIIsShutdown:
 			return "VirtualMachine is stopped"
 		default:
-			return cond.Message
+			return humanizeMigrationFailedMessage(cond.Message)
 		}
 	}
 
@@ -676,6 +676,14 @@ func (h LifecycleHandler) forgetProgress(vmop *v1alpha2.VirtualMachineOperation)
 		return
 	}
 	h.progressStrategy.Forget(vmop.UID)
+}
+
+func humanizeMigrationFailedMessage(message string) string {
+	if strings.Contains(message, "unschedulable target pod") && strings.Contains(message, "timeout period expiration") {
+		return "No available nodes were found to place the target VM within the timeout period"
+	}
+
+	return message
 }
 
 func (h LifecycleHandler) getTargetPod(ctx context.Context, mig *virtv1.VirtualMachineInstanceMigration) (*corev1.Pod, error) {
