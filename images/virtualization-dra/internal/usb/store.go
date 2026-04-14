@@ -436,22 +436,30 @@ func (s *AllocationStore) Unprepare(_ context.Context, claimUID types.UID) error
 		return fmt.Errorf("unprepare called before synchronize NRI Hook")
 	}
 
+	allocatedDevices, exists := s.resourceClaimAllocations[claimUID]
+	if !exists || len(allocatedDevices) == 0 {
+		s.log.Info("Claim is already unprepared", slog.String("claimUID", string(claimUID)))
+		return nil
+	}
+
 	usbGatewayEnabled := featuregates.Default().USBGatewayEnabled()
 
-	allocatedDevices := s.resourceClaimAllocations[claimUID]
 	s.log.Info("Unpreparing devices", slog.Any("devices", allocatedDevices), slog.String("claimUID", string(claimUID)))
 
 	for _, device := range allocatedDevices {
 		if usbGatewayEnabled {
-			count := s.usbipAllocatedDevicesCount[device]
+			count, hasCount := s.usbipAllocatedDevicesCount[device]
 			s.log.Info("Device attached by USBGateway", slog.String("device", device), slog.Int("count", count))
-			if count <= 1 {
-				s.log.Info("Detaching device because has only one consumer", slog.String("device", device))
+			switch {
+			case !hasCount || count <= 0:
+				s.log.Info("Device is already detached or has no consumers", slog.String("device", device))
+			case count == 1:
+				s.log.Info("Detaching device because it has the last consumer", slog.String("device", device))
 				if err := s.usbGateway.Detach(device); err != nil {
 					return fmt.Errorf("failed to detach device %s: %w", device, err)
 				}
 				delete(s.usbipAllocatedDevicesCount, device)
-			} else {
+			default:
 				s.log.Info("Decrementing device consumer count", slog.String("device", device), slog.Int("newCount", count-1))
 				s.usbipAllocatedDevicesCount[device]--
 			}

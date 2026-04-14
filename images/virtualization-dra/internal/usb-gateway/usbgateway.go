@@ -101,7 +101,9 @@ func (c *USBGatewayController) Detach(deviceName string) error {
 	}
 
 	entry := c.findEntry(deviceName)
-	if entry != nil {
+	if entry == nil {
+		log.Info("Device is already detached")
+	} else {
 		log.Info("Detaching USB device")
 		err = c.usbIP.Detach(entry.Rhport)
 		if err != nil {
@@ -113,6 +115,10 @@ func (c *USBGatewayController) Detach(deviceName string) error {
 	err = c.usbIP.Unexport(host, busID, port)
 	if err != nil {
 		return fmt.Errorf("failed to unexport device %s: %w", deviceName, err)
+	}
+
+	if err := c.attachRecordManager.RemoveEntryByDeviceName(deviceName); err != nil {
+		return fmt.Errorf("failed to remove attach record for device %s: %w", deviceName, err)
 	}
 
 	return nil
