@@ -93,6 +93,11 @@ on:
         type: string
         default: ""
         description: "E2E tests focus tests like 'VirtualMachineConfiguration' and so on (by default all tests are run)"
+      nested_cluster_network_name:
+        required: false
+        type: string
+        default: "cn-4006-for-e2e-test"
+        description: "ClusterNetwork name for nested VM additional network interface"
     secrets:
       DEV_REGISTRY_DOCKER_CFG:
         required: true
@@ -141,7 +146,7 @@ jobs:
         run: |
           GIT_SHORT_HASH=$(git rev-parse --short HEAD)
 
-          namespace="test-sdn-e2e-$STORAGE_TYPE-$GIT_SHORT_HASH-$RANDUUID4C"
+          namespace="nightly-e2e-$STORAGE_TYPE-$GIT_SHORT_HASH-$RANDUUID4C"
 
           echo "namespace=$namespace" >> $GITHUB_OUTPUT
           echo "sha_short=$GIT_SHORT_HASH" >> $GITHUB_OUTPUT
@@ -235,6 +240,8 @@ jobs:
                   size: ${{ inputs.cluster_config_workers_memory }}
                 additionalDisks:
                 - size: 50Gi
+          networkConfig:
+            clusterNetworkName: ${{ inputs.nested_cluster_network_name }}
           EOF
 
           mkdir -p tmp
@@ -1308,7 +1315,6 @@ jobs:
 
           echo "[INFO] Exit code: $GINKGO_EXIT_CODE"
           exit $GINKGO_EXIT_CODE
-          # exit 1
       - name: Upload summary test results (junit/xml)
         uses: actions/upload-artifact@v4
         id: e2e-report-artifact
