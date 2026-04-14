@@ -364,36 +364,6 @@ shell:
     echo "Building patched SeaBIOS..."
     ln -sf /usr/bin/python3 /usr/bin/python
 
-    python3 - <<'PY'
-    from pathlib import Path
-
-    p = Path("roms/seabios/scripts/layoutrom.py")
-    t = p.read_text()
-
-    replacements = {
-        "relocsection = sectionmap[sectionname]": """relocsection = sectionmap.get(sectionname)
-            if relocsection is None:
-                state = None
-                continue""",
-        "    pending = list(anchorsections)": "    pending = [section for section in anchorsections if section is not None]",
-        "        for reloc in section.relocs:": """        if section is None or section.relocs is None:
-            continue
-        for reloc in section.relocs:""",
-        "            if nextsection not in anchorsections:": """            if nextsection is None:
-                continue
-            if nextsection not in anchorsections:""",
-        "    keepsections = findReachable(anchorsections, checkKeep, symbols)": """    anchorsections = [section for section in anchorsections if section is not None]
-    keepsections = findReachable(anchorsections, checkKeep, symbols)""",
-    }
-
-    for old, new in replacements.items():
-        if old not in t:
-            raise SystemExit(f"Expected snippet not found in {p}: {old!r}")
-        t = t.replace(old, new, 1)
-
-    p.write_text(t)
-    PY
-
     make -C roms bios -j$(nproc)
 
     /install-qemu.sh --version-num "{{ $version }}" \
