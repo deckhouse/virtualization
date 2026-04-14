@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -29,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	ccpod "github.com/deckhouse/virtualization-controller/pkg/common/pod"
+	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
@@ -52,6 +53,15 @@ func NewLifeCycleHandler(client client.Client, recorder eventrecord.EventRecorde
 type LifeCycleHandler struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
+}
+
+type VMPodVolumeError struct {
+	Reason  string
+	Message string
+}
+
+func (e *VMPodVolumeError) Error() string {
+	return fmt.Sprintf("error attaching block devices to virtual machine: %s: %s", e.Reason, e.Message)
 }
 
 func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
@@ -103,15 +113,14 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	}
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(nameLifeCycleHandler))
-	h.syncRunning(ctx, changed, kvvm, kvvmi, pod, log)
-	return reconcile.Result{}, nil
+	return reconcile.Result{}, h.syncRunning(ctx, changed, kvvm, kvvmi, pod, log)
 }
 
 func (h *LifeCycleHandler) Name() string {
 	return nameLifeCycleHandler
 }
 
-func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, pod *corev1.Pod, log *slog.Logger) {
+func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, pod *corev1.Pod, log *slog.Logger) error {
 	cb := conditions.NewConditionBuilder(vmcondition.TypeRunning).Generation(vm.GetGeneration())
 
 	if pod != nil && pod.Status.Message != "" {
@@ -119,15 +128,24 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 			Reason(vmcondition.ReasonPodNotStarted).
 			Message(fmt.Sprintf("%s: %s", pod.Status.Reason, pod.Status.Message))
 		conditions.SetCondition(cb, &vm.Status.Conditions)
-		return
+		return nil
 	}
 
-	if volumeError := h.checkVMPodVolumeErrors(ctx, vm, log); volumeError != nil {
+	volumeError := h.checkVMPodVolumeErrors(ctx, vm, log)
+	var vmPodVolumeErr *VMPodVolumeError
+	switch {
+	case errors.As(volumeError, &vmPodVolumeErr):
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonPodNotStarted).
 			Message(service.CapitalizeFirstLetter(volumeError.Error()))
 		conditions.SetCondition(cb, &vm.Status.Conditions)
-		return
+		return nil
+	case volumeError != nil:
+		cb.Status(metav1.ConditionUnknown).
+			Reason(conditions.ReasonUnknown).
+			Message("")
+		conditions.SetCondition(cb, &vm.Status.Conditions)
+		return volumeError
 	}
 
 	if kvvm != nil {
@@ -141,7 +159,7 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 				conditions.SetCondition(cb, &vm.Status.Conditions)
 			}
 
-			return
+			return nil
 		}
 
 		// Try to extract error from kvvm Synchronized condition.
@@ -158,7 +176,7 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 				Reason(vmcondition.ReasonPodNotStarted).
 				Message(msg)
 			conditions.SetCondition(cb, &vm.Status.Conditions)
-			return
+			return nil
 		}
 
 		if isInternalVirtualMachineError(kvvm.Status.PrintableStatus) {
@@ -180,7 +198,7 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 				Reason(vmcondition.ReasonInternalVirtualMachineError).
 				Message(msg)
 			conditions.SetCondition(cb, &vm.Status.Conditions)
-			return
+			return nil
 		}
 	}
 
@@ -195,7 +213,7 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 		if vm.Status.Phase == v1alpha2.MachineRunning {
 			cb.Reason(vmcondition.ReasonVirtualMachineRunning).Status(metav1.ConditionTrue)
 			conditions.SetCondition(cb, &vm.Status.Conditions)
-			return
+			return nil
 		}
 		for _, c := range kvvmi.Status.Conditions {
 			if c.Type == virtv1.VirtualMachineInstanceReady {
@@ -203,7 +221,7 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 					Reason(getKVMIReadyReason(c.Reason)).
 					Message(c.Message)
 				conditions.SetCondition(cb, &vm.Status.Conditions)
-				return
+				return nil
 			}
 		}
 	} else {
@@ -212,6 +230,7 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 
 	cb.Reason(vmcondition.ReasonVirtualMachineNotRunning).Status(metav1.ConditionFalse)
 	conditions.SetCondition(cb, &vm.Status.Conditions)
+	return nil
 }
 
 func (h *LifeCycleHandler) checkVMPodVolumeErrors(ctx context.Context, vm *v1alpha2.VirtualMachine, log *slog.Logger) error {
@@ -228,16 +247,19 @@ func (h *LifeCycleHandler) checkVMPodVolumeErrors(ctx context.Context, vm *v1alp
 	}
 
 	for _, pod := range podList.Items {
-		if !ccpod.IsContainerCreating(&pod) {
+		if !podutil.IsContainerCreating(&pod) {
 			continue
 		}
-		lastEvent, err := ccpod.GetLastPodEvent(ctx, h.client, &pod)
+		lastEvent, err := podutil.GetLastPodEvent(ctx, h.client, &pod)
 		if err != nil {
 			log.Error("Failed to get last pod event", "error", err)
 			return err
 		}
 		if lastEvent != nil && (lastEvent.Reason == watcher.ReasonFailedAttachVolume || lastEvent.Reason == watcher.ReasonFailedMount) {
-			return fmt.Errorf("error attaching block devices to virtual machine: %s: %s", lastEvent.Reason, lastEvent.Message)
+			return &VMPodVolumeError{
+				Reason:  lastEvent.Reason,
+				Message: lastEvent.Message,
+			}
 		}
 	}
 
