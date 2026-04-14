@@ -640,7 +640,7 @@ func (t *currentReleaseSmokeTest) startLongRunningIPerf() {
 
 	serverVM := t.getVirtualMachine(t.iperfServer.vm.Name, t.iperfServer.vm.Namespace)
 	command := fmt.Sprintf(
-		"nohup sh -c 'iperf3 -c %s -t 0 --json > %s 2>&1' >/dev/null 2>&1 &",
+		"nohup iperf3 -c %s -t 0 --json > %s 2>&1 </dev/null &",
 		serverVM.Status.IPAddress,
 		releaseIPerfReportPath,
 	)
