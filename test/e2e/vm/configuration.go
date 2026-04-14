@@ -136,7 +136,7 @@ func (t *configurationTest) GenerateResources(restartApprovalMode v1alpha2.Resta
 	t.VM = vmbuilder.New(
 		vmbuilder.WithName("vm"),
 		vmbuilder.WithNamespace(t.Framework.Namespace().Name),
-		vmbuilder.WithCPU(1, ptr.To(initialCoreFraction)),
+		vmbuilder.WithCPU(1, ptr.To("50%")),
 		vmbuilder.WithMemory(resource.MustParse(initialMemorySize)),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 		vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),

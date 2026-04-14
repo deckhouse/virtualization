@@ -265,14 +265,11 @@ type IPerfReport struct {
 }
 
 func newVirtualMachine(name, namespace string, disk *v1alpha2.VirtualDisk, cloudInit string) *v1alpha2.VirtualMachine {
-	cpuCount := 1
-	coreFraction := "10%"
-
 	return vm.New(
 		vm.WithName(name),
 		vm.WithNamespace(namespace),
 		vm.WithBootloader(v1alpha2.EFI),
-		vm.WithCPU(cpuCount, &coreFraction),
+		vm.WithCPU(1, ptr.To("50%")),
 		vm.WithMemory(*resource.NewQuantity(object.Mi256, resource.BinarySI)),
 		vm.WithDisks(disk),
 		vm.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),

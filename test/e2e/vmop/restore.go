@@ -320,7 +320,7 @@ runcmd:
 		vmbuilder.WithNamespace(t.Framework.Namespace().Name),
 		vmbuilder.WithAnnotation(vmAnnotationName, vmAnnotationOriginalValue),
 		vmbuilder.WithLabel(vmLabelName, vmLabelOriginalValue),
-		vmbuilder.WithCPU(originalCPUCores, ptr.To("5%")),
+		vmbuilder.WithCPU(originalCPUCores, ptr.To("100%")),
 		vmbuilder.WithMemory(resource.MustParse(originalMemorySize)),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 		vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
