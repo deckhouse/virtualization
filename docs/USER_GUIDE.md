@@ -1384,10 +1384,10 @@ spec:
 For most modern Linux distributions, it is recommended to use `bootloader: EFI`. For Windows, `bootloader: EFI` or `bootloader: EFIWithSecureBoot` is usually required.
 {{< /alert >}}
 
-The `enableParavirtualization` parameter controls the use of the `virtio` bus for connecting virtual devices of the VM:
+The `enableParavirtualization` parameter controls the use of the `virtio` bus for connecting virtual devices to the VM. Changing the parameter value takes effect only after the VM is restarted.
 
-- `true` (default) — uses the `virtio` bus for disks, network interfaces, and other devices, providing better performance.
-- `false` — uses standard device emulation (SATA for disks, e1000e for network interfaces), which may be necessary for compatibility with older operating systems. Hot-plugging block devices via `.spec.blockDeviceRefs` is not supported in this mode — changes require a VM restart. Hot-plugging via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) is still supported.
+- `true` (default): The `virtio` bus is used for disks, network interfaces, and other devices, which provides better performance. You can change `.spec.blockDeviceRefs` on a running VM without rebooting by adding and removing devices if the disk is available on the node where the VM runs.
+- `false`: Standard device emulation is used (SATA for disks, e1000e for network interfaces), which may be required for compatibility with older guest OSes without `VirtIO` drivers. Adding a device to `.spec.blockDeviceRefs` on a running VM can usually be done without rebooting. Removing a device from the list (including ejecting an ISO image) requires a VM reboot, because hot detach for these disks relies on the `virtio-scsi` bus rather than SATA. Hot-plugging via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (`vmbda`) remains available.
 
 {{< alert level="info" >}}
 To use paravirtualization mode (`virtio`), some operating systems require installing the corresponding drivers. If drivers are not installed, the VM may fail to boot or devices may not work correctly.
@@ -2112,13 +2112,20 @@ Block device types and access modes:
 Two attachment methods are available:
 
 - Via the VM specification (`.spec.blockDeviceRefs`): Disks are listed in the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) configuration and boot order is set for them (by position in the list or via the `bootOrder` field). Recommended when configuring the VM manually or via GitOps, or when you need to control boot order (e.g., an ISO for OS installation).
-- Via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (`vmbda`): Disk is attached via a separate resource and does not participate in boot order. Disks are always attached using the SCSI bus regardless of `enableParavirtualization`. Recommended for automation and when you do not have permission to edit the VM.
+- Via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (`vmbda`): Disk is attached via a separate resource and does not participate in boot order. Disks are always attached using the `virtio-scsi` bus regardless of `enableParavirtualization`. Recommended for automation and when you do not have permission to edit the VM.
 
-Both methods support hotplug (add or remove without rebooting the VM).
+With `enableParavirtualization: true`, both methods let you attach and detach disks on a running VM without rebooting, if the disk is available on the node where the VM runs.
 
 {{< alert level="warning" >}}
-For VMs with `enableParavirtualization: false`, hot-plugging via `.spec.blockDeviceRefs` is not supported. Changes to the block device list require a VM restart. Use [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) for hot-plugging disks to non-paravirtualized VMs.
+If `enableParavirtualization: false` is set for the VM, disk behavior differs from the default mode:
+
+- For devices in `.spec.blockDeviceRefs`, SATA is used: you can usually add a disk or image to a running VM without rebooting, but removing an entry from the list (detaching a disk, ejecting an ISO image) requires a VM reboot. Account for this when using the web interface or automation;
+- For disks attached via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment), the `virtio-scsi` bus is still used, so hot attach and detach remain available, but `VirtIO` drivers for the SCSI controller must be installed in the guest OS — otherwise the disk may not appear in the system even though the `vmbda` resource is created successfully in the cluster.
+
+Full hotplug support is available when `enableParavirtualization: true`.
 {{< /alert >}}
+
+Hot-plugging (hotplug) is only possible if the storage is available on the cluster node where the virtual machine runs. When you create or update a VM, or create a `vmbda`, placement rules (`nodeSelector`, `affinity`, `tolerations`) for the volume, the VM, and the VM class are taken into account: there must be at least one valid combined placement. If the VM is already running on a specific node, a new disk must be available on that node.
 
 #### Attaching via the VM specification
 
@@ -2126,7 +2133,7 @@ The list of block devices is defined in the `.spec.blockDeviceRefs` field of the
 
 By default, boot order follows the order of devices in the list. You can set it explicitly with the optional `bootOrder` field (smaller value means higher priority). If `bootOrder` is set for at least one device, only devices with `bootOrder` set are included in the boot sequence. Allowed values: integers ≥ 1, unique within the list. When you remove a device from the list, boot order is recalculated for the remaining devices.
 
-Changing the order of devices in the list or their `bootOrder` values takes effect after a VM reboot. For example, you can attach an ISO image for OS installation with the desired boot priority, then remove it from the list after installation.
+Changing the order of devices in the list or their `bootOrder` values takes effect after a VM reboot. For example, you can attach an ISO image for OS installation with the desired boot priority, then remove it from the list after installation. If `enableParavirtualization: false`, removing the ISO from `.spec.blockDeviceRefs` may require a VM reboot.
 
 Virtual machine configuration fragment with block devices and explicit boot order:
 
@@ -2154,7 +2161,7 @@ spec:
       name: <additional-disk-name>
 ```
 
-To detach a disk, remove it from the list.
+To detach a disk, remove it from the list. If `enableParavirtualization: false`, detaching via `.spec.blockDeviceRefs` may require a VM reboot.
 
 How to work with bootable block devices in the web interface:
 
