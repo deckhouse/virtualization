@@ -46,6 +46,12 @@ var _ = Describe("VirtualMachineVersions", Ordered, label.Legacy(), func() {
 		}
 	})
 
+	AfterAll(func() {
+		DeleteTestCaseResources(ns, ResourcesToDelete{
+			KustomizationDir: conf.TestData.VMVersions,
+		})
+	})
+
 	Context("When virtualization resources are applied:", func() {
 		It("result should be succeeded", func() {
 			res := kubectl.Apply(kc.ApplyOptions{
@@ -103,11 +109,4 @@ var _ = Describe("VirtualMachineVersions", Ordered, label.Legacy(), func() {
 		}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
 	})
 
-	Context("When test is completed", func() {
-		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ns, ResourcesToDelete{
-				KustomizationDir: conf.TestData.VMVersions,
-			})
-		})
-	})
 })

@@ -70,6 +70,10 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, label.Legacy(),
 		}
 	})
 
+	AfterAll(func() {
+		DeleteTestCaseResources(ns, ResourcesToDelete{KustomizationDir: conf.TestData.AffinityToleration})
+	})
+
 	Context("When the virtualization resources are applied:", func() {
 		It("result should be succeeded", func() {
 			res := kubectl.Apply(kc.ApplyOptions{
@@ -469,11 +473,6 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, label.Legacy(),
 		})
 	})
 
-	Context("When test is completed", func() {
-		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ns, ResourcesToDelete{KustomizationDir: conf.TestData.AffinityToleration})
-		})
-	})
 })
 
 func ExpectVirtualMachineIsMigratable(vmObj *v1alpha2.VirtualMachine) {

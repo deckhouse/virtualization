@@ -56,6 +56,12 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", Ordered, label.Legacy(), fu
 		}
 	})
 
+	AfterAll(func() {
+		DeleteTestCaseResources(ns, ResourcesToDelete{
+			KustomizationDir: conf.TestData.VMLabelAnnotation,
+		})
+	})
+
 	Context("When resources are applied", func() {
 		It("result should be succeeded", func() {
 			res := kubectl.Apply(kc.ApplyOptions{
@@ -272,13 +278,6 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", Ordered, label.Legacy(), fu
 		})
 	})
 
-	Context("When test is completed", func() {
-		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ns, ResourcesToDelete{
-				KustomizationDir: conf.TestData.VMLabelAnnotation,
-			})
-		})
-	})
 })
 
 func AddLabel(resource kc.Resource, labels map[string]string, ns string, names ...string) error {

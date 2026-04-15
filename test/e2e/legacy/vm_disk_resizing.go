@@ -60,6 +60,12 @@ var _ = Describe("VirtualDiskResizing", Ordered, label.Legacy(), func() {
 		}
 	})
 
+	AfterAll(func() {
+		DeleteTestCaseResources(ns, ResourcesToDelete{
+			KustomizationDir: conf.TestData.DiskResizing,
+		})
+	})
+
 	Context("When the resources are applied", func() {
 		It("result should be succeeded", func() {
 			res := kubectl.Apply(kc.ApplyOptions{
@@ -228,13 +234,6 @@ var _ = Describe("VirtualDiskResizing", Ordered, label.Legacy(), func() {
 		})
 	})
 
-	Context("When test is completed", func() {
-		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ns, ResourcesToDelete{
-				KustomizationDir: conf.TestData.DiskResizing,
-			})
-		})
-	})
 })
 
 type VirtualMachineDisks map[string]DiskMetaData
