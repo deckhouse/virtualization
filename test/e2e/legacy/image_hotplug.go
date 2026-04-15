@@ -70,6 +70,23 @@ var _ = Describe("ImageHotplug", Ordered, label.Legacy(), func() {
 		}
 	})
 
+	AfterAll(func() {
+		resourcesToDelete := ResourcesToDelete{
+			AdditionalResources: []AdditionalResource{
+				{
+					kc.ResourceVMBDA,
+					testCaseLabel,
+				},
+			},
+		}
+
+		if config.IsCleanUpNeeded() {
+			resourcesToDelete.KustomizationDir = conf.TestData.ImageHotplug
+		}
+
+		DeleteTestCaseResources(ns, resourcesToDelete)
+	})
+
 	Context("When the virtualization resources are applied", func() {
 		It("result should be succeeded", func() {
 			res := kubectl.Apply(kc.ApplyOptions{
@@ -267,24 +284,6 @@ var _ = Describe("ImageHotplug", Ordered, label.Legacy(), func() {
 		})
 	})
 
-	Context("When test is completed", func() {
-		It("deletes test case resources", func() {
-			resourcesToDelete := ResourcesToDelete{
-				AdditionalResources: []AdditionalResource{
-					{
-						kc.ResourceVMBDA,
-						testCaseLabel,
-					},
-				},
-			}
-
-			if config.IsCleanUpNeeded() {
-				resourcesToDelete.KustomizationDir = conf.TestData.ImageHotplug
-			}
-
-			DeleteTestCaseResources(ns, resourcesToDelete)
-		})
-	})
 })
 
 type Image struct {
