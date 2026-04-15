@@ -59,17 +59,18 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState
 
 	switch {
 	case current.GetDeletionTimestamp().IsZero():
+		if !controllerutil.ContainsFinalizer(current, v1alpha2.FinalizerNodeUSBDeviceCleanup) {
+			controllerutil.AddFinalizer(changed, v1alpha2.FinalizerNodeUSBDeviceCleanup)
+			return reconcile.Result{}, nil
+		}
+
 		if shouldAutoDeleteNodeUSBDevice(current) {
-			if err := h.cleanupOwnedUSBDevices(ctx, current); err != nil {
-				return reconcile.Result{}, err
-			}
 			if err := h.client.Delete(ctx, current); err != nil && !apierrors.IsNotFound(err) {
 				return reconcile.Result{}, fmt.Errorf("failed to delete NodeUSBDevice: %w", err)
 			}
 			return reconcile.Result{}, reconciler.ErrStopHandlerChain
 		}
 
-		controllerutil.AddFinalizer(changed, v1alpha2.FinalizerNodeUSBDeviceCleanup)
 		return reconcile.Result{}, nil
 
 	default:

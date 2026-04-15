@@ -44,7 +44,7 @@ var _ = Describe("DeletionHandler", func() {
 	})
 
 	DescribeTable("Handle",
-		func(deleting, autoDelete, withOwnedUSB bool, assignedNamespace, usbNamespace string, expectFinalizerPresent, expectOwnedUSBDeleted, expectNodeDeleted bool) {
+		func(deleting, autoDelete, withOwnedUSB, withFinalizer bool, assignedNamespace, usbNamespace string, expectFinalizerPresent, expectOwnedUSBDeleted, expectNodeDeleted, expectStopChain bool) {
 			scheme := apiruntime.NewScheme()
 			Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 
@@ -59,10 +59,12 @@ var _ = Describe("DeletionHandler", func() {
 					Reason: string(nodeusbdevicecondition.NotFound),
 				}}
 			}
+			if withFinalizer {
+				node.Finalizers = []string{v1alpha2.FinalizerNodeUSBDeviceCleanup}
+			}
 			if deleting {
 				now := metav1.Now()
 				node.DeletionTimestamp = &now
-				node.Finalizers = []string{v1alpha2.FinalizerNodeUSBDeviceCleanup}
 			}
 
 			objects := []client.Object{node}
@@ -94,7 +96,7 @@ var _ = Describe("DeletionHandler", func() {
 			h := NewDeletionHandler(cl)
 			st := state.New(cl, res)
 			_, err := h.Handle(ctx, st)
-			if expectNodeDeleted {
+			if expectStopChain {
 				Expect(err).To(MatchError(reconciler.ErrStopHandlerChain))
 			} else {
 				Expect(err).NotTo(HaveOccurred())
@@ -124,11 +126,12 @@ var _ = Describe("DeletionHandler", func() {
 				Expect(err).NotTo(HaveOccurred())
 			}
 		},
-		Entry("not deleting adds finalizer", false, false, false, "", "", true, false, false),
-		Entry("auto-delete cleans owned USB before deleting node object", false, true, true, "", "test-namespace", false, true, true),
-		Entry("assigned not found device is not auto-deleted", false, true, false, "test-namespace", "", true, false, false),
-		Entry("deleting removes finalizer and owned USB", true, false, true, "", "test-namespace", false, true, false),
-		Entry("deleting removes finalizer even without owned USB", true, false, false, "", "", false, false, false),
-		Entry("deleting removes owned USB in different namespace", true, false, true, "", "previous-namespace", false, true, false),
+		Entry("not deleting adds finalizer", false, false, false, false, "", "", true, false, false, false),
+		Entry("auto-delete first adds finalizer without deleting node object", false, true, true, false, "", "test-namespace", true, false, false, false),
+		Entry("auto-delete marks node object for deletion when finalizer is already present", false, true, true, true, "", "test-namespace", true, false, false, true),
+		Entry("assigned not found device is not auto-deleted", false, true, false, true, "test-namespace", "", true, false, false, false),
+		Entry("deleting removes finalizer and owned USB", true, false, true, true, "", "test-namespace", false, true, false, false),
+		Entry("deleting removes finalizer even without owned USB", true, false, false, true, "", "", false, false, false, false),
+		Entry("deleting removes owned USB in different namespace", true, false, true, true, "", "previous-namespace", false, true, false, false),
 	)
 })
