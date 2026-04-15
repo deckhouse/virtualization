@@ -7,7 +7,7 @@ spec:
   virtualMachineClassName: generic
   cpu:
     cores: 1
-    coreFraction: 10%
+    coreFraction: 50%
   memory:
     size: 512Mi
   disruptions:
