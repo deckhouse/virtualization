@@ -21,13 +21,16 @@ import (
 	"fmt"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/nodeusbdevicecondition"
 )
 
 const (
@@ -56,6 +59,16 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState
 
 	switch {
 	case current.GetDeletionTimestamp().IsZero():
+		if shouldAutoDeleteNodeUSBDevice(current) {
+			if err := h.cleanupOwnedUSBDevices(ctx, current); err != nil {
+				return reconcile.Result{}, err
+			}
+			if err := h.client.Delete(ctx, current); err != nil && !apierrors.IsNotFound(err) {
+				return reconcile.Result{}, fmt.Errorf("failed to delete NodeUSBDevice: %w", err)
+			}
+			return reconcile.Result{}, reconciler.ErrStopHandlerChain
+		}
+
 		controllerutil.AddFinalizer(changed, v1alpha2.FinalizerNodeUSBDeviceCleanup)
 		return reconcile.Result{}, nil
 
@@ -91,4 +104,21 @@ func (h *DeletionHandler) cleanupOwnedUSBDevices(ctx context.Context, owner *v1a
 
 func (h *DeletionHandler) Name() string {
 	return nameDeletionHandler
+}
+
+func shouldAutoDeleteNodeUSBDevice(nodeUSBDevice *v1alpha2.NodeUSBDevice) bool {
+	if nodeUSBDevice == nil || nodeUSBDevice.GetDeletionTimestamp() != nil {
+		return false
+	}
+
+	if nodeUSBDevice.Spec.AssignedNamespace != "" {
+		return false
+	}
+
+	readyCondition := meta.FindStatusCondition(nodeUSBDevice.Status.Conditions, string(nodeusbdevicecondition.ReadyType))
+	if readyCondition == nil {
+		return false
+	}
+
+	return readyCondition.Status == metav1.ConditionFalse && readyCondition.Reason == string(nodeusbdevicecondition.NotFound)
 }
