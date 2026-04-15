@@ -24,37 +24,20 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
-	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
-	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
-	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
 const (
-	replicatedStorageClass = "nested-thin-r1"
-	localThinStorageClass  = "nested-local-thin"
-	lsblkJSONCommand       = "sudo lsblk --bytes --json --nodeps --output NAME,SIZE,TYPE,MOUNTPOINTS"
-	rootDiskNameCommand    = `root_source=$(findmnt -no SOURCE /); root_disk=$(lsblk -ndo PKNAME "$root_source" 2>/dev/null | head -n1); if [ -n "$root_disk" ]; then echo "$root_disk"; else lsblk -ndo NAME "$root_source" | head -n1; fi`
-	maxCloudInitDiskSize   = int64(4 * 1024 * 1024)
-	defaultRootDiskSize    = "350Mi"
-	defaultDataDiskSize    = "100Mi"
-	releaseIPerfReportPath = "/tmp/release-upgrade-iperf-client-report.json"
-	releaseNamespaceName   = "v12n-test-release"
-
 	releaseTestPhaseEnv          = "RELEASE_TEST_PHASE"
 	releaseTestPhasePreUpgrade   = "pre-upgrade"
 	releaseTestPhasePostUpgrade  = "post-upgrade"
@@ -85,85 +68,6 @@ type currentReleaseSmokeTest struct {
 	iperfServer    *vmScenario
 }
 
-type vmScenario struct {
-	name                    string
-	rootDiskName            string
-	cviName                 string
-	cloudInit               string
-	runPolicy               v1alpha2.RunPolicy
-	rootDiskSize            string
-	expectedAdditionalDisks int
-	skipGuestAgentCheck     bool
-
-	rootDisk *v1alpha2.VirtualDisk
-	vm       *v1alpha2.VirtualMachine
-}
-
-type dataDiskScenario struct {
-	name         string
-	storageClass string
-	size         string
-
-	disk *v1alpha2.VirtualDisk
-}
-
-type attachmentScenario struct {
-	name     string
-	vmName   string
-	diskName string
-
-	attachment *v1alpha2.VirtualMachineBlockDeviceAttachment
-}
-
-type lsblkOutput struct {
-	BlockDevices []lsblkDevice `json:"blockdevices"`
-}
-
-type lsblkDevice struct {
-	Name        string   `json:"name"`
-	Size        int64    `json:"size"`
-	Type        string   `json:"type"`
-	Mountpoints []string `json:"mountpoints"`
-}
-
-type iperfReport struct {
-	Start     iperfReportStart      `json:"start"`
-	Intervals []iperfReportInterval `json:"intervals"`
-	End       iperfReportEnd        `json:"end"`
-	Error     string                `json:"error,omitempty"`
-}
-
-type iperfReportStart struct {
-	Timestamp iperfReportTimestamp `json:"timestamp"`
-}
-
-type iperfReportTimestamp struct {
-	Time     string `json:"time"`
-	Timesecs int    `json:"timesecs"`
-}
-
-type iperfReportEnd struct {
-	SumSent     iperfReportSummary `json:"sum_sent"`
-	SumReceived iperfReportSummary `json:"sum_received"`
-}
-
-type iperfReportInterval struct {
-	Sum iperfReportSummary `json:"sum"`
-}
-
-type iperfReportSummary struct {
-	Bytes         int64   `json:"bytes"`
-	BitsPerSecond float64 `json:"bits_per_second"`
-	End           float64 `json:"end,omitempty"`
-}
-
-type releaseUpgradeContext struct {
-	Namespace       string `json:"namespace"`
-	IPerfClientVM   string `json:"iperfClientVM"`
-	IPerfServerVM   string `json:"iperfServerVM"`
-	IPerfReportPath string `json:"iperfReportPath"`
-}
-
 func runPreUpgradeReleaseSmoke() {
 	f := framework.NewFramework("")
 	namespace := ensureReleaseNamespace(f, releaseNamespaceName)
@@ -182,195 +86,6 @@ func runPostUpgradeReleaseSmoke() {
 
 	test.verifyVMsSurvivedUpgrade()
 	test.verifyIPerfContinuityAfterUpgrade()
-}
-
-func getReleaseTestPhase() string {
-	if phase := os.Getenv(releaseTestPhaseEnv); phase != "" {
-		return phase
-	}
-
-	return releaseTestPhasePreUpgrade
-}
-
-func mustGetEnv(name string) string {
-	value := os.Getenv(name)
-	Expect(value).NotTo(BeEmpty(), "environment variable %s must be set", name)
-	return value
-}
-
-func ensureReleaseNamespace(f *framework.Framework, namespace string) string {
-	GinkgoHelper()
-
-	nsClient := f.KubeClient().CoreV1().Namespaces()
-	_, err := nsClient.Get(context.Background(), namespace, metav1.GetOptions{})
-	switch {
-	case err == nil:
-		By(fmt.Sprintf("Namespace %q already exists, recreating it", namespace))
-		err = nsClient.Delete(context.Background(), namespace, metav1.DeleteOptions{})
-		Expect(err).NotTo(HaveOccurred())
-
-		Eventually(func() error {
-			_, err := nsClient.Get(context.Background(), namespace, metav1.GetOptions{})
-			if k8serrors.IsNotFound(err) {
-				return nil
-			}
-			if err != nil {
-				return err
-			}
-			return fmt.Errorf("namespace %q is still deleting", namespace)
-		}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed())
-	case !k8serrors.IsNotFound(err):
-		Expect(err).NotTo(HaveOccurred())
-	}
-
-	ns := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: namespace,
-			Labels: map[string]string{
-				framework.E2ELabel: "true",
-			},
-		},
-	}
-	_, err = nsClient.Create(context.Background(), ns, metav1.CreateOptions{})
-	Expect(err).NotTo(HaveOccurred())
-	By(fmt.Sprintf("Namespace %q has been created", namespace))
-
-	return namespace
-}
-
-func newCurrentReleaseSmokeTest(f *framework.Framework, namespace string) *currentReleaseSmokeTest {
-	test := &currentReleaseSmokeTest{
-		framework:      f,
-		vmByName:       make(map[string]*vmScenario),
-		dataDiskByName: make(map[string]*dataDiskScenario),
-	}
-	if namespace == "" {
-		Expect(f.Namespace()).NotTo(BeNil(), "framework namespace must be initialized for pre-upgrade phase")
-		namespace = f.Namespace().Name
-	}
-
-	test.vms = []*vmScenario{
-		{
-			name:                    "vm-alpine-manual",
-			rootDiskName:            "vd-root-alpine-manual",
-			cviName:                 object.PrecreatedCVIAlpineBIOS,
-			cloudInit:               object.AlpineCloudInit,
-			runPolicy:               v1alpha2.ManualPolicy,
-			rootDiskSize:            defaultRootDiskSize,
-			expectedAdditionalDisks: 0,
-		},
-		{
-			name:                    "vm-alpine-single-hotplug",
-			rootDiskName:            "vd-root-alpine-single-hotplug",
-			cviName:                 object.PrecreatedCVIAlpineBIOS,
-			cloudInit:               object.AlpineCloudInit,
-			runPolicy:               v1alpha2.AlwaysOnUnlessStoppedManually,
-			rootDiskSize:            defaultRootDiskSize,
-			expectedAdditionalDisks: 1,
-		},
-		{
-			name:                    "vm-alpine-double-hotplug",
-			rootDiskName:            "vd-root-alpine-double-hotplug",
-			cviName:                 object.PrecreatedCVIAlpineBIOS,
-			cloudInit:               object.AlpineCloudInit,
-			runPolicy:               v1alpha2.AlwaysOnPolicy,
-			rootDiskSize:            defaultRootDiskSize,
-			expectedAdditionalDisks: 2,
-		},
-		{
-			name:                    "vm-ubuntu-replicated-five",
-			rootDiskName:            "vd-root-ubuntu-replicated-five",
-			cviName:                 object.PrecreatedCVIUbuntu,
-			cloudInit:               object.UbuntuCloudInit,
-			runPolicy:               v1alpha2.AlwaysOnUnlessStoppedManually,
-			expectedAdditionalDisks: 5,
-		},
-		{
-			name:                    "vm-ubuntu-mixed-five",
-			rootDiskName:            "vd-root-ubuntu-mixed-five",
-			cviName:                 object.PrecreatedCVIUbuntu,
-			cloudInit:               object.UbuntuCloudInit,
-			runPolicy:               v1alpha2.AlwaysOnUnlessStoppedManually,
-			expectedAdditionalDisks: 5,
-		},
-		{
-			name:                    "vm-alpine-iperf-client",
-			rootDiskName:            "vd-root-alpine-iperf-client",
-			cviName:                 object.PrecreatedCVIAlpineBIOS,
-			cloudInit:               object.AlpineCloudInit,
-			runPolicy:               v1alpha2.AlwaysOnUnlessStoppedManually,
-			rootDiskSize:            defaultRootDiskSize,
-			expectedAdditionalDisks: 2,
-			skipGuestAgentCheck:     true,
-		},
-		{
-			name:                    "vm-alpine-iperf-server",
-			rootDiskName:            "vd-root-alpine-iperf-server",
-			cviName:                 object.PrecreatedCVIAlpineBIOS,
-			cloudInit:               object.PerfCloudInit,
-			runPolicy:               v1alpha2.AlwaysOnUnlessStoppedManually,
-			rootDiskSize:            defaultRootDiskSize,
-			expectedAdditionalDisks: 0,
-		},
-	}
-
-	test.dataDisks = []*dataDiskScenario{
-		{name: "vd-data-alpine-single-hotplug-01-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-alpine-double-hotplug-01-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-alpine-double-hotplug-02-local", storageClass: localThinStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-ubuntu-replicated-five-01-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-ubuntu-replicated-five-02-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-ubuntu-replicated-five-03-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-ubuntu-replicated-five-04-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-ubuntu-replicated-five-05-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-ubuntu-mixed-five-01-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-ubuntu-mixed-five-02-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-ubuntu-mixed-five-03-local", storageClass: localThinStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-ubuntu-mixed-five-04-local", storageClass: localThinStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-ubuntu-mixed-five-05-local", storageClass: localThinStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-alpine-iperf-client-01-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-alpine-iperf-client-02-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
-	}
-
-	test.attachments = []*attachmentScenario{
-		{name: "vmbda-alpine-single-hotplug-01", vmName: "vm-alpine-single-hotplug", diskName: "vd-data-alpine-single-hotplug-01-repl"},
-		{name: "vmbda-alpine-double-hotplug-01", vmName: "vm-alpine-double-hotplug", diskName: "vd-data-alpine-double-hotplug-01-repl"},
-		{name: "vmbda-alpine-double-hotplug-02", vmName: "vm-alpine-double-hotplug", diskName: "vd-data-alpine-double-hotplug-02-local"},
-		{name: "vmbda-ubuntu-replicated-five-01", vmName: "vm-ubuntu-replicated-five", diskName: "vd-data-ubuntu-replicated-five-01-repl"},
-		{name: "vmbda-ubuntu-replicated-five-02", vmName: "vm-ubuntu-replicated-five", diskName: "vd-data-ubuntu-replicated-five-02-repl"},
-		{name: "vmbda-ubuntu-replicated-five-03", vmName: "vm-ubuntu-replicated-five", diskName: "vd-data-ubuntu-replicated-five-03-repl"},
-		{name: "vmbda-ubuntu-replicated-five-04", vmName: "vm-ubuntu-replicated-five", diskName: "vd-data-ubuntu-replicated-five-04-repl"},
-		{name: "vmbda-ubuntu-replicated-five-05", vmName: "vm-ubuntu-replicated-five", diskName: "vd-data-ubuntu-replicated-five-05-repl"},
-		{name: "vmbda-ubuntu-mixed-five-01", vmName: "vm-ubuntu-mixed-five", diskName: "vd-data-ubuntu-mixed-five-01-repl"},
-		{name: "vmbda-ubuntu-mixed-five-02", vmName: "vm-ubuntu-mixed-five", diskName: "vd-data-ubuntu-mixed-five-02-repl"},
-		{name: "vmbda-ubuntu-mixed-five-03", vmName: "vm-ubuntu-mixed-five", diskName: "vd-data-ubuntu-mixed-five-03-local"},
-		{name: "vmbda-ubuntu-mixed-five-04", vmName: "vm-ubuntu-mixed-five", diskName: "vd-data-ubuntu-mixed-five-04-local"},
-		{name: "vmbda-ubuntu-mixed-five-05", vmName: "vm-ubuntu-mixed-five", diskName: "vd-data-ubuntu-mixed-five-05-local"},
-		{name: "vmbda-alpine-iperf-client-01", vmName: "vm-alpine-iperf-client", diskName: "vd-data-alpine-iperf-client-01-repl"},
-		{name: "vmbda-alpine-iperf-client-02", vmName: "vm-alpine-iperf-client", diskName: "vd-data-alpine-iperf-client-02-repl"},
-	}
-
-	for _, vmScenario := range test.vms {
-		vmScenario.rootDisk = newRootDisk(vmScenario.rootDiskName, namespace, vmScenario.cviName, replicatedStorageClass, vmScenario.rootDiskSize)
-		vmScenario.vm = newVM(vmScenario.name, namespace, vmScenario.runPolicy, vmScenario.rootDisk.Name, vmScenario.cloudInit)
-		test.vmByName[vmScenario.name] = vmScenario
-	}
-
-	for _, diskScenario := range test.dataDisks {
-		diskScenario.disk = newHotplugDisk(diskScenario.name, namespace, diskScenario.storageClass, diskScenario.size)
-		test.dataDiskByName[diskScenario.name] = diskScenario
-	}
-
-	for _, attachmentScenario := range test.attachments {
-		vmScenario := test.vmByName[attachmentScenario.vmName]
-		diskScenario := test.dataDiskByName[attachmentScenario.diskName]
-		attachmentScenario.attachment = object.NewVMBDAFromDisk(attachmentScenario.name, vmScenario.vm.Name, diskScenario.disk)
-	}
-
-	test.iperfClient = test.vmByName["vm-alpine-iperf-client"]
-	test.iperfServer = test.vmByName["vm-alpine-iperf-server"]
-
-	return test
 }
 
 func (t *currentReleaseSmokeTest) createResources() {
@@ -428,221 +143,6 @@ func (t *currentReleaseSmokeTest) verifyVMsSurvivedUpgrade() {
 	for _, vmScenario := range t.vms {
 		t.expectAdditionalDiskCount(vmScenario.vm, vmScenario.expectedAdditionalDisks)
 	}
-}
-
-func (s *vmScenario) expectedInitialPhase() string {
-	if s.runPolicy == v1alpha2.ManualPolicy {
-		return string(v1alpha2.MachineStopped)
-	}
-
-	return string(v1alpha2.MachineRunning)
-}
-
-func newRootDisk(name, namespace, cviName, storageClass, size string) *v1alpha2.VirtualDisk {
-	options := []vdbuilder.Option{
-		vdbuilder.WithStorageClass(ptr.To(storageClass)),
-	}
-	if size != "" {
-		options = append(options, vdbuilder.WithSize(ptr.To(resource.MustParse(size))))
-	}
-
-	return object.NewVDFromCVI(name, namespace, cviName, options...)
-}
-
-func newHotplugDisk(name, namespace, storageClass, size string) *v1alpha2.VirtualDisk {
-	return object.NewBlankVD(
-		name,
-		namespace,
-		ptr.To(storageClass),
-		ptr.To(resource.MustParse(size)),
-	)
-}
-
-func newVM(name, namespace string, runPolicy v1alpha2.RunPolicy, rootDiskName, cloudInit string) *v1alpha2.VirtualMachine {
-	return vmbuilder.New(
-		vmbuilder.WithName(name),
-		vmbuilder.WithNamespace(namespace),
-		vmbuilder.WithCPU(1, ptr.To("20%")),
-		vmbuilder.WithMemory(resource.MustParse("512Mi")),
-		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
-		vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
-		vmbuilder.WithProvisioningUserData(cloudInit),
-		vmbuilder.WithRunPolicy(runPolicy),
-		vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
-			Kind: v1alpha2.DiskDevice,
-			Name: rootDiskName,
-		}),
-	)
-}
-
-func (t *currentReleaseSmokeTest) diskObjects() []crclient.Object {
-	objects := make([]crclient.Object, 0, len(t.vms)+len(t.dataDisks))
-	for _, vmScenario := range t.vms {
-		objects = append(objects, vmScenario.rootDisk)
-	}
-	for _, diskScenario := range t.dataDisks {
-		objects = append(objects, diskScenario.disk)
-	}
-	return objects
-}
-
-func (t *currentReleaseSmokeTest) vmObjects() []crclient.Object {
-	objects := make([]crclient.Object, 0, len(t.vms))
-	for _, vmScenario := range t.vms {
-		objects = append(objects, vmScenario.vm)
-	}
-	return objects
-}
-
-func (t *currentReleaseSmokeTest) attachmentObjects() []crclient.Object {
-	objects := make([]crclient.Object, 0, len(t.attachments))
-	for _, attachmentScenario := range t.attachments {
-		objects = append(objects, attachmentScenario.attachment)
-	}
-	return objects
-}
-
-func (t *currentReleaseSmokeTest) initialRunningVMObjects() []crclient.Object {
-	objects := make([]crclient.Object, 0, len(t.vms))
-	for _, vmScenario := range t.vms {
-		if vmScenario.expectedInitialPhase() == string(v1alpha2.MachineRunning) {
-			objects = append(objects, vmScenario.vm)
-		}
-	}
-	return objects
-}
-
-func (t *currentReleaseSmokeTest) initialStoppedVMObjects() []crclient.Object {
-	objects := make([]crclient.Object, 0, len(t.vms))
-	for _, vmScenario := range t.vms {
-		if vmScenario.expectedInitialPhase() == string(v1alpha2.MachineStopped) {
-			objects = append(objects, vmScenario.vm)
-		}
-	}
-	return objects
-}
-
-func (t *currentReleaseSmokeTest) manualStartVMs() []*vmScenario {
-	manualVMs := make([]*vmScenario, 0)
-	for _, vmScenario := range t.vms {
-		if vmScenario.runPolicy == v1alpha2.ManualPolicy {
-			manualVMs = append(manualVMs, vmScenario)
-		}
-	}
-	return manualVMs
-}
-
-func (t *currentReleaseSmokeTest) manualStartVMObjects() []crclient.Object {
-	objects := make([]crclient.Object, 0)
-	for _, vmScenario := range t.manualStartVMs() {
-		objects = append(objects, vmScenario.vm)
-	}
-	return objects
-}
-
-func (t *currentReleaseSmokeTest) expectGuestReady(vmScenario *vmScenario) {
-	vm := vmScenario.vm
-
-	By(fmt.Sprintf("Waiting for SSH access on %s", vm.Name))
-	util.UntilSSHReady(t.framework, vm, framework.LongTimeout)
-
-	if vmScenario.skipGuestAgentCheck {
-		By(fmt.Sprintf("Skipping strict guest agent check on %s", vm.Name))
-		return
-	}
-
-	By(fmt.Sprintf("Waiting for guest agent on %s", vm.Name))
-	util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
-}
-
-func (t *currentReleaseSmokeTest) expectAdditionalDiskCount(vm *v1alpha2.VirtualMachine, expectedCount int) {
-	Eventually(func(g Gomega) {
-		currentVM := &v1alpha2.VirtualMachine{}
-		err := t.framework.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vm), currentVM)
-		g.Expect(err).NotTo(HaveOccurred())
-
-		attachedHotplugDisks := hotpluggedAttachedDiskCount(currentVM)
-		g.Expect(attachedHotplugDisks).To(Equal(expectedCount))
-
-		rootDiskName, err := t.rootDiskName(vm)
-		g.Expect(err).NotTo(HaveOccurred())
-
-		output, err := t.framework.SSHCommand(vm.Name, vm.Namespace, lsblkJSONCommand, framework.WithSSHTimeout(10*time.Second))
-		g.Expect(err).NotTo(HaveOccurred())
-
-		disks, err := parseLSBLKOutput(output)
-		g.Expect(err).NotTo(HaveOccurred())
-
-		actualCount := countAdditionalGuestDisks(disks, rootDiskName)
-		g.Expect(actualCount).To(
-			Equal(expectedCount),
-			"VM %s/%s additional disk mismatch; root disk: %q; hotplugged block devices in status: %d; lsblk devices: %s",
-			vm.Namespace,
-			vm.Name,
-			rootDiskName,
-			attachedHotplugDisks,
-			formatLSBLKDisks(disks),
-		)
-	}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed())
-}
-
-func parseLSBLKOutput(raw string) ([]lsblkDevice, error) {
-	var output lsblkOutput
-	if err := json.Unmarshal([]byte(raw), &output); err != nil {
-		return nil, fmt.Errorf("parse lsblk json: %w", err)
-	}
-
-	return output.BlockDevices, nil
-}
-
-func hotpluggedAttachedDiskCount(vm *v1alpha2.VirtualMachine) int {
-	count := 0
-	for _, blockDevice := range vm.Status.BlockDeviceRefs {
-		if !blockDevice.Hotplugged || !blockDevice.Attached || blockDevice.VirtualMachineBlockDeviceAttachmentName == "" {
-			continue
-		}
-		count++
-	}
-	return count
-}
-
-func (t *currentReleaseSmokeTest) rootDiskName(vm *v1alpha2.VirtualMachine) (string, error) {
-	output, err := t.framework.SSHCommand(vm.Name, vm.Namespace, rootDiskNameCommand, framework.WithSSHTimeout(10*time.Second))
-	if err != nil {
-		return "", err
-	}
-
-	return strings.TrimSpace(output), nil
-}
-
-func countAdditionalGuestDisks(disks []lsblkDevice, rootDiskName string) int {
-	count := 0
-	for _, disk := range disks {
-		if disk.Type != "disk" {
-			continue
-		}
-		if disk.Name == rootDiskName {
-			continue
-		}
-		if disk.Size <= maxCloudInitDiskSize {
-			continue
-		}
-		count++
-	}
-	return count
-}
-
-func formatLSBLKDisks(disks []lsblkDevice) string {
-	if len(disks) == 0 {
-		return "[]"
-	}
-
-	parts := make([]string, 0, len(disks))
-	for _, disk := range disks {
-		parts = append(parts, fmt.Sprintf("%s(type=%s,size=%d,mountpoints=%v)", disk.Name, disk.Type, disk.Size, disk.Mountpoints))
-	}
-
-	return "[" + strings.Join(parts, ", ") + "]"
 }
 
 func (t *currentReleaseSmokeTest) startLongRunningIPerf() {
@@ -740,124 +240,56 @@ func (t *currentReleaseSmokeTest) getVirtualMachine(name, namespace string) *v1a
 	return vm
 }
 
-func waitForIPerfServerToStart(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
-	GinkgoHelper()
+func getReleaseTestPhase() string {
+	if phase := os.Getenv(releaseTestPhaseEnv); phase != "" {
+		return phase
+	}
 
-	command := "rc-service iperf3 status --nocolor"
-	Eventually(func() error {
-		stdout, err := f.SSHCommand(vm.Name, vm.Namespace, command)
-		if err != nil {
-			return fmt.Errorf("cmd: %s\nstderr: %w", command, err)
-		}
-		if strings.Contains(stdout, "status: started") {
-			return nil
-		}
-		return fmt.Errorf("iperf3 server is not started yet: %s", stdout)
-	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
+	return releaseTestPhasePreUpgrade
 }
 
-func waitForIPerfClientToStart(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
-	GinkgoHelper()
-
-	command := "pgrep -x iperf3"
-	Eventually(func() error {
-		stdout, err := f.SSHCommand(vm.Name, vm.Namespace, command)
-		if err != nil {
-			return fmt.Errorf("cmd: %s\nstderr: %w", command, err)
-		}
-		if strings.TrimSpace(stdout) == "" {
-			return fmt.Errorf("iperf3 client is not running yet")
-		}
-		return nil
-	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
+func mustGetEnv(name string) string {
+	value := os.Getenv(name)
+	Expect(value).NotTo(BeEmpty(), "environment variable %s must be set", name)
+	return value
 }
 
-func stopIPerfClient(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
+func ensureReleaseNamespace(f *framework.Framework, namespace string) string {
 	GinkgoHelper()
 
-	command := "pkill -INT -x iperf3"
-	Eventually(func() error {
-		_, err := f.SSHCommand(vm.Name, vm.Namespace, command)
-		if err != nil {
-			return fmt.Errorf("cmd: %s\nstderr: %w", command, err)
-		}
-		return nil
-	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
-}
+	nsClient := f.KubeClient().CoreV1().Namespaces()
+	_, err := nsClient.Get(context.Background(), namespace, metav1.GetOptions{})
+	switch {
+	case err == nil:
+		By(fmt.Sprintf("Namespace %q already exists, recreating it", namespace))
+		err = nsClient.Delete(context.Background(), namespace, metav1.DeleteOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-func getIPerfClientReport(f *framework.Framework, vm *v1alpha2.VirtualMachine, reportPath string) *iperfReport {
-	GinkgoHelper()
+		Eventually(func() error {
+			_, err := nsClient.Get(context.Background(), namespace, metav1.GetOptions{})
+			if k8serrors.IsNotFound(err) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			return fmt.Errorf("namespace %q is still deleting", namespace)
+		}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed())
+	case !k8serrors.IsNotFound(err):
+		Expect(err).NotTo(HaveOccurred())
+	}
 
-	command := fmt.Sprintf("cat %s", reportPath)
-	var rawReport string
-	Eventually(func() error {
-		stdout, err := f.SSHCommand(vm.Name, vm.Namespace, command)
-		if err != nil {
-			return fmt.Errorf("cmd: %s\nstderr: %w", command, err)
-		}
-		report, err := parseIPerfReport(stdout)
-		if err != nil {
-			return err
-		}
-		if report.End.SumSent.End <= 0 {
-			return fmt.Errorf("iperf3 report is incomplete")
-		}
-		rawReport = stdout
-		return nil
-	}).WithTimeout(framework.LongTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
-
-	report, err := parseIPerfReport(rawReport)
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespace,
+			Labels: map[string]string{
+				framework.E2ELabel: "true",
+			},
+		},
+	}
+	_, err = nsClient.Create(context.Background(), ns, metav1.CreateOptions{})
 	Expect(err).NotTo(HaveOccurred())
-	return report
-}
+	By(fmt.Sprintf("Namespace %q has been created", namespace))
 
-func continuityWindowBounds(startedAt, upgradeStartedAt int64, intervalCount int) (int, int) {
-	if intervalCount == 0 {
-		return 1, 0
-	}
-
-	index := int(upgradeStartedAt - startedAt)
-	if index < 0 {
-		index = 0
-	}
-	if index >= intervalCount {
-		index = intervalCount - 1
-	}
-
-	lower := max(index-1, 0)
-	upper := min(index+1, intervalCount-1)
-	return lower, upper
-}
-
-func parseIPerfReport(raw string) (*iperfReport, error) {
-	var report iperfReport
-	if err := json.Unmarshal([]byte(raw), &report); err != nil {
-		return nil, fmt.Errorf("parse iperf3 json: %w", err)
-	}
-
-	return &report, nil
-}
-
-func isExpectedIPerfReportError(errMsg string) bool {
-	if errMsg == "" {
-		return true
-	}
-
-	return strings.Contains(errMsg, "interrupt - the client has terminated by signal Interrupt(2)")
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-
-	return b
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-
-	return b
+	return namespace
 }

@@ -1,7 +1,0 @@
-{
-  "database": "dolt",
-  "backend": "dolt",
-  "dolt_mode": "embedded",
-  "dolt_database": "virtualization2",
-  "project_id": "6116a5bf-a24c-4e17-af9f-0f6c53bc6cd4"
-}
