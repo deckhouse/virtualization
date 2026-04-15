@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/nodeusbdevicecondition"
 )
 
 var _ = Describe("DeletionHandler", func() {
@@ -43,11 +44,21 @@ var _ = Describe("DeletionHandler", func() {
 	})
 
 	DescribeTable("Handle",
-		func(deleting, withOwnedUSB bool, usbNamespace string, expectFinalizerPresent, expectOwnedUSBDeleted bool) {
+		func(deleting, autoDelete, withOwnedUSB bool, assignedNamespace, usbNamespace string, expectFinalizerPresent, expectOwnedUSBDeleted, expectNodeDeleted bool) {
 			scheme := apiruntime.NewScheme()
 			Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 
-			node := &v1alpha2.NodeUSBDevice{ObjectMeta: metav1.ObjectMeta{Name: "usb-device-1", UID: "node-usb-uid"}}
+			node := &v1alpha2.NodeUSBDevice{
+				ObjectMeta: metav1.ObjectMeta{Name: "usb-device-1", UID: "node-usb-uid"},
+				Spec:       v1alpha2.NodeUSBDeviceSpec{AssignedNamespace: assignedNamespace},
+			}
+			if autoDelete {
+				node.Status.Conditions = []metav1.Condition{{
+					Type:   string(nodeusbdevicecondition.ReadyType),
+					Status: metav1.ConditionFalse,
+					Reason: string(nodeusbdevicecondition.NotFound),
+				}}
+			}
 			if deleting {
 				now := metav1.Now()
 				node.DeletionTimestamp = &now
@@ -83,7 +94,11 @@ var _ = Describe("DeletionHandler", func() {
 			h := NewDeletionHandler(cl)
 			st := state.New(cl, res)
 			_, err := h.Handle(ctx, st)
-			Expect(err).NotTo(HaveOccurred())
+			if expectNodeDeleted {
+				Expect(err).To(MatchError(reconciler.ErrStopHandlerChain))
+			} else {
+				Expect(err).NotTo(HaveOccurred())
+			}
 
 			if expectFinalizerPresent {
 				Expect(res.Changed().GetFinalizers()).To(ContainElement(v1alpha2.FinalizerNodeUSBDeviceCleanup))
@@ -100,10 +115,20 @@ var _ = Describe("DeletionHandler", func() {
 					Expect(err).NotTo(HaveOccurred())
 				}
 			}
+
+			deletedNode := &v1alpha2.NodeUSBDevice{}
+			err = cl.Get(ctx, types.NamespacedName{Name: node.Name}, deletedNode)
+			if expectNodeDeleted {
+				Expect(err).To(HaveOccurred())
+			} else {
+				Expect(err).NotTo(HaveOccurred())
+			}
 		},
-		Entry("not deleting adds finalizer", false, false, "", true, false),
-		Entry("deleting removes finalizer and owned USB", true, true, "test-namespace", false, true),
-		Entry("deleting removes finalizer even without owned USB", true, false, "", false, false),
-		Entry("deleting removes owned USB in different namespace", true, true, "previous-namespace", false, true),
+		Entry("not deleting adds finalizer", false, false, false, "", "", true, false, false),
+		Entry("auto-delete cleans owned USB before deleting node object", false, true, true, "", "test-namespace", false, true, true),
+		Entry("assigned not found device is not auto-deleted", false, true, false, "test-namespace", "", true, false, false),
+		Entry("deleting removes finalizer and owned USB", true, false, true, "", "test-namespace", false, true, false),
+		Entry("deleting removes finalizer even without owned USB", true, false, false, "", "", false, false, false),
+		Entry("deleting removes owned USB in different namespace", true, false, true, "", "previous-namespace", false, true, false),
 	)
 })
