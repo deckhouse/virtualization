@@ -49,6 +49,7 @@ func NewController(
 		handler.NewDeletionHandler(client),
 		handler.NewReadyHandler(client),
 		handler.NewAssignedHandler(client),
+		handler.NewAttachedHandler(client),
 	}
 
 	r := NewReconciler(client, handlers...)
