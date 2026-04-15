@@ -18,10 +18,12 @@ package migrationiface
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -33,17 +35,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 )
 
-// snnniaGVK is the GroupVersionKind of sdn's
-// SystemNetworkNodeNetworkInterfaceAttachment. We talk to it via the
-// unstructured client so this controller has no compile-time dependency on
-// the sdn module's Go types — and tolerates the CRD being absent at startup.
-var snnniaGVK = schema.GroupVersionKind{
-	Group:   "network.deckhouse.io",
-	Version: "v1alpha1",
-	Kind:    "SystemNetworkNodeNetworkInterfaceAttachment",
-}
+const (
+	sdnGroup           = "network.deckhouse.io"
+	sdnVersion         = "v1alpha1"
+	sdnNodeNameLabel   = sdnGroup + "/node-name"
+	sdnInterfaceType   = sdnGroup + "/interface-type"
+	sdnInterfaceVLAN   = "VLAN"
+)
+
+var (
+	snnniaGVK = schema.GroupVersionKind{Group: sdnGroup, Version: sdnVersion, Kind: "SystemNetworkNodeNetworkInterfaceAttachment"}
+	nniGVK    = schema.GroupVersionKind{Group: sdnGroup, Version: sdnVersion, Kind: "NodeNetworkInterface"}
+)
 
 func NewReconciler(c client.Client, systemNetworkName string, log *log.Logger) *Reconciler {
 	return &Reconciler{
@@ -60,41 +66,53 @@ type Reconciler struct {
 }
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
-	// Watch Nodes directly — each Node is its own reconcile key.
-	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(),
-			&corev1.Node{},
-			&handler.TypedEnqueueRequestForObject[*corev1.Node]{},
-		),
-	); err != nil {
+	if err := ctr.Watch(source.Kind(mgr.GetCache(),
+		&corev1.Node{},
+		&handler.TypedEnqueueRequestForObject[*corev1.Node]{},
+	)); err != nil {
 		return fmt.Errorf("watch Node: %w", err)
 	}
 
-	// Watch SystemNetworkNodeNetworkInterfaceAttachment via unstructured.
-	// If the CRD is not installed, this watch will fail with NoKindMatchError —
-	// we log and continue, leaving the controller running on Node-only events
-	// (which is fine: with no SDN CRDs the desired state is "no annotation",
-	// and the Node watch alone is enough to drive eventual consistency once
-	// the CRD appears and the manager is restarted).
-	snnnia := &unstructured.Unstructured{}
-	snnnia.SetGroupVersionKind(snnniaGVK)
-	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), snnnia,
-			handler.TypedEnqueueRequestsFromMapFunc(func(_ context.Context, obj *unstructured.Unstructured) []reconcile.Request {
-				nodeName, _, _ := unstructured.NestedString(obj.Object, "status", "nodeName")
-				if nodeName == "" {
-					return nil
-				}
-				return []reconcile.Request{{NamespacedName: types.NamespacedName{Name: nodeName}}}
-			}),
-		),
-	); err != nil {
-		// Don't fail controller startup; log and proceed.
-		r.log.Warn("watch SystemNetworkNodeNetworkInterfaceAttachment failed (sdn CRD not installed?), migration interface annotation will not track sdn changes",
-			"err", err.Error())
-	}
+	r.watchSdnKind(mgr, ctr, snnniaGVK, func(obj *unstructured.Unstructured) string {
+		n, _, _ := unstructured.NestedString(obj.Object, "status", "nodeName")
+		return n
+	})
+
+	r.watchSdnKind(mgr, ctr, nniGVK, func(obj *unstructured.Unstructured) string {
+		if obj.GetLabels()[sdnInterfaceType] != sdnInterfaceVLAN {
+			return ""
+		}
+		if n := obj.GetLabels()[sdnNodeNameLabel]; n != "" {
+			return n
+		}
+		n, _, _ := unstructured.NestedString(obj.Object, "spec", "nodeName")
+		return n
+	})
 
 	return nil
+}
+
+func (r *Reconciler) watchSdnKind(
+	mgr manager.Manager,
+	ctr controller.Controller,
+	gvk schema.GroupVersionKind,
+	toNodeName func(*unstructured.Unstructured) string,
+) {
+	obj := &unstructured.Unstructured{}
+	obj.SetGroupVersionKind(gvk)
+	err := ctr.Watch(source.Kind(mgr.GetCache(), obj,
+		handler.TypedEnqueueRequestsFromMapFunc(func(_ context.Context, o *unstructured.Unstructured) []reconcile.Request {
+			if n := toNodeName(o); n != "" {
+				return []reconcile.Request{{NamespacedName: types.NamespacedName{Name: n}}}
+			}
+			return nil
+		}),
+	))
+	if err != nil {
+		// sdn CRD absent → feature idle; log once and keep the Node watch running.
+		r.log.Warn("sdn watch failed; migration interface annotation will not track sdn changes",
+			"kind", gvk.Kind, "err", err.Error())
+	}
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
@@ -111,17 +129,22 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, err
 	}
 
-	current := node.Annotations[MigrationIfaceAnnotation]
-	if current == desired {
+	if node.Annotations[annotations.AnnMigrationIface] == desired {
 		return reconcile.Result{}, nil
 	}
 
-	// Strategic merge patch on the annotation only — keeps us out of
-	// the way of any other actor patching the Node.
-	patch := fmt.Appendf(nil,
-		`{"metadata":{"annotations":{%q:%s}}}`,
-		MigrationIfaceAnnotation, jsonStringOrNull(desired),
-	)
+	var value any // nil → annotation removed
+	if desired != "" {
+		value = desired
+	}
+	patch, err := json.Marshal(map[string]any{
+		"metadata": map[string]any{
+			"annotations": map[string]any{annotations.AnnMigrationIface: value},
+		},
+	})
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 	if err := r.client.Patch(ctx, &node, client.RawPatch(types.StrategicMergePatchType, patch)); err != nil {
 		return reconcile.Result{}, fmt.Errorf("patch node %q annotation: %w", node.Name, err)
 	}
@@ -130,103 +153,49 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		"node", node.Name,
 		"systemNetwork", r.systemNetworkName,
 		"interface", desired,
-		"previous", current,
 	)
 	return reconcile.Result{}, nil
 }
 
-// resolveInterfaceForNode returns the kernel interface name to bind migration
-// to on the given node, or "" if no matching ready attachment exists.
+// resolveInterfaceForNode follows SNNNIA (filtered by systemNetworkName + nodeName)
+// → status.nodeNetworkInterfaceName → NodeNetworkInterface.status.ifName.
 func (r *Reconciler) resolveInterfaceForNode(ctx context.Context, nodeName string) (string, error) {
 	list := &unstructured.UnstructuredList{}
-	list.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   snnniaGVK.Group,
-		Version: snnniaGVK.Version,
-		Kind:    snnniaGVK.Kind + "List",
-	})
+	list.SetGroupVersionKind(schema.GroupVersionKind{Group: sdnGroup, Version: sdnVersion, Kind: snnniaGVK.Kind + "List"})
 	if err := r.client.List(ctx, list); err != nil {
-		// CRD missing → desired state is "no annotation".
-		if isNoMatchError(err) {
+		if meta.IsNoMatchError(err) {
 			return "", nil
 		}
-		return "", fmt.Errorf("list SystemNetworkNodeNetworkInterfaceAttachment: %w", err)
+		return "", fmt.Errorf("list %s: %w", snnniaGVK.Kind, err)
 	}
 
 	for i := range list.Items {
 		item := &list.Items[i]
-		statusNode, _, _ := unstructured.NestedString(item.Object, "status", "nodeName")
-		if statusNode != nodeName {
+		if sn, _, _ := unstructured.NestedString(item.Object, "spec", "systemNetworkName"); sn != r.systemNetworkName {
 			continue
 		}
-		// Spec.systemNetworkRef.name (or similar) identifies which SystemNetwork
-		// this attachment belongs to. The exact field shape is owned by sdn;
-		// be permissive and look in a few likely locations.
-		if !attachmentMatchesSystemNetwork(item, r.systemNetworkName) {
+		// IPAM-failed attachments have no status.nodeName and are correctly skipped here.
+		if sn, _, _ := unstructured.NestedString(item.Object, "status", "nodeName"); sn != nodeName {
 			continue
 		}
-		// status.vlanNodeNetworkInterfaceName is the kernel iface created by
-		// sdn for VLAN-type attachments (per sdn admin docs).
-		ifaceName, _, _ := unstructured.NestedString(item.Object, "status", "vlanNodeNetworkInterfaceName")
-		if ifaceName != "" {
-			return ifaceName, nil
+		nniName, _, _ := unstructured.NestedString(item.Object, "status", "nodeNetworkInterfaceName")
+		if nniName == "" {
+			continue
 		}
+		return r.ifNameFromNNI(ctx, nniName)
 	}
 	return "", nil
 }
 
-// attachmentMatchesSystemNetwork inspects an unstructured SNNNIA and returns
-// true if it belongs to the named SystemNetwork. The sdn API may evolve; we
-// check the locations most likely to hold the reference.
-func attachmentMatchesSystemNetwork(item *unstructured.Unstructured, systemNetworkName string) bool {
-	for _, path := range [][]string{
-		{"spec", "systemNetworkRef", "name"},
-		{"spec", "systemNetworkName"},
-		{"metadata", "labels", "network.deckhouse.io/system-network-name"},
-	} {
-		if v, ok, _ := unstructured.NestedString(item.Object, path...); ok && v == systemNetworkName {
-			return true
+func (r *Reconciler) ifNameFromNNI(ctx context.Context, nniName string) (string, error) {
+	nni := &unstructured.Unstructured{}
+	nni.SetGroupVersionKind(nniGVK)
+	if err := r.client.Get(ctx, client.ObjectKey{Name: nniName}, nni); err != nil {
+		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
+			return "", nil
 		}
+		return "", fmt.Errorf("get %s %q: %w", nniGVK.Kind, nniName, err)
 	}
-	// Fallback: ownerReference.kind=SystemNetwork with matching name.
-	for _, ref := range item.GetOwnerReferences() {
-		if ref.Kind == "SystemNetwork" && ref.Name == systemNetworkName {
-			return true
-		}
-	}
-	return false
+	ifName, _, _ := unstructured.NestedString(nni.Object, "status", "ifName")
+	return ifName, nil
 }
-
-func isNoMatchError(err error) bool {
-	if err == nil {
-		return false
-	}
-	// meta.NoKindMatchError / meta.NoResourceMatchError both report this string;
-	// keep the dependency surface minimal by string-matching.
-	return apierrors.IsNotFound(err) || containsAny(err.Error(),
-		"no matches for kind",
-		"the server could not find the requested resource",
-	)
-}
-
-func containsAny(s string, subs ...string) bool {
-	for _, sub := range subs {
-		for i := 0; i+len(sub) <= len(s); i++ {
-			if s[i:i+len(sub)] == sub {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// jsonStringOrNull renders v as a JSON string, or as JSON null when v is empty
-// (so the strategic merge patch removes the annotation key).
-func jsonStringOrNull(v string) string {
-	if v == "" {
-		return "null"
-	}
-	// minimal JSON string escaping for our use (interface names contain only
-	// [a-z0-9._-]); fall back to fmt for safety.
-	return fmt.Sprintf("%q", v)
-}
-

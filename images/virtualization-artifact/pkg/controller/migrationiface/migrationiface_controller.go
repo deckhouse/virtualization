@@ -14,11 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package migrationiface implements a controller that annotates each Node
-// with the kernel interface name of a dedicated live-migration network,
-// resolved from a SystemNetworkNodeNetworkInterfaceAttachment provided by
-// the sdn module. virt-handler reads this annotation at startup to bind
-// migration traffic to the dedicated network instead of the default pod IP.
+// Package migrationiface annotates each Node with the kernel interface name
+// of a dedicated live-migration network, resolved from sdn's
+// SystemNetworkNodeNetworkInterfaceAttachment + NodeNetworkInterface.
+// virt-handler reads the annotation (see pkg/common/annotations.AnnMigrationIface)
+// at startup to bind migration traffic to that interface.
 package migrationiface
 
 import (
@@ -33,14 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
 
-const (
-	ControllerName = "migrationiface-controller"
-
-	// MigrationIfaceAnnotation holds the kernel interface name on a Node that
-	// virt-handler should bind live-migration traffic to. Empty/absent means
-	// no override (upstream behavior).
-	MigrationIfaceAnnotation = "network.virtualization.deckhouse.io/migration-iface"
-)
+const ControllerName = "migrationiface-controller"
 
 func NewController(
 	ctx context.Context,
