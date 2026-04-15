@@ -35,8 +35,6 @@ shell:
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src/{{ $gitRepoName }}-{{ $version }}
 
-    echo "12"
-
     cd /src/{{ $gitRepoName }}-{{ $version }}
 
     if [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
@@ -63,14 +61,6 @@ shell:
       done
 
     fi
-
-    echo "Apply SeaBIOS patches"
-    for p in /patches/seabios/*.patch ; do
-      [ -f "$p" ] || continue
-      git -C roms/seabios apply --check --ignore-space-change --ignore-whitespace "$p" >/dev/null 2>&1 || continue
-      echo -n "Apply ${p} to roms/seabios ... "
-      git -C roms/seabios apply --ignore-space-change --ignore-whitespace "$p" && echo OK || (echo FAIL ; exit 1)
-    done
 
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
@@ -210,6 +200,17 @@ shell:
     export CPPFLAGS="-I/usr/include"
 
     cd /{{ $gitRepoName }}-{{ $version }}
+
+    echo "Apply SeaBIOS patches"
+    for p in /patches/seabios/*.patch ; do
+      [ -f "$p" ] || continue
+      git -C roms/seabios apply --check --ignore-space-change --ignore-whitespace "$p" >/dev/null 2>&1 || (echo "FAIL" ; exit 1)
+      echo -n "Apply ${p} to roms/seabios ... "
+      git -C roms/seabios apply --ignore-space-change --ignore-whitespace "$p" && echo OK || (echo FAIL ; exit 1)
+    done
+
+    echo "Building patched SeaBIOS..."
+    make -C roms bios V=1 PYTHON=python3 HOSTCC=gcc -j$(nproc)
 
     for p in /patches/*.patch ; do
       echo -n "Apply ${p} ... "
@@ -356,16 +357,8 @@ shell:
 
     {{- $_ := set $ "ProjectName" (list $.ImageName "qemu" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `make -j$(nproc)`) | nindent 6 }}
-
   setup:
   - |
-    cd /{{ $gitRepoName }}-{{ $version }}
-
-    echo "Building patched SeaBIOS..."
-    ln -sf /usr/bin/python3 /usr/bin/python
-
-    make -C roms bios -j$(nproc)
-
     /install-qemu.sh --version-num "{{ $version }}" \
                         -s /{{ $gitRepoName }}-{{ $version }} \
                         -d /BINS \
