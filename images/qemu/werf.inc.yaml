@@ -199,7 +199,7 @@ shell:
     export LDFLAGS="-L/usr/lib64 -L/usr/lib"
     export CPPFLAGS="-I/usr/include"
 
-    cd /{{ $gitRepoName }}-{{ $version }}
+    cd /src/{{ $gitRepoName }}-{{ $version }}
 
     echo "Apply SeaBIOS patches"
     for p in /patches/seabios/*.patch ; do
@@ -208,6 +208,8 @@ shell:
       echo -n "Apply ${p} to roms/seabios ... "
       git -C roms/seabios apply --ignore-space-change --ignore-whitespace "$p" && echo OK || (echo FAIL ; exit 1)
     done
+
+    cd /{{ $gitRepoName }}-{{ $version }}
 
     echo "Building patched SeaBIOS..."
     make -C roms bios V=1 PYTHON=python3 HOSTCC=gcc -j$(nproc)
