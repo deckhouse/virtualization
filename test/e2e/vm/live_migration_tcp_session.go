@@ -269,7 +269,7 @@ func newVirtualMachine(name, namespace string, disk *v1alpha2.VirtualDisk, cloud
 		vm.WithName(name),
 		vm.WithNamespace(namespace),
 		vm.WithBootloader(v1alpha2.EFI),
-		vm.WithCPU(1, ptr.To("50%")),
+		vm.WithCPU(1, ptr.To("100%")),
 		vm.WithMemory(*resource.NewQuantity(object.Mi256, resource.BinarySI)),
 		vm.WithDisks(disk),
 		vm.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
