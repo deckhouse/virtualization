@@ -21,6 +21,9 @@ import (
 	"fmt"
 	"reflect"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -33,6 +36,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/nodeusbdevicecondition"
 )
 
 type Watcher interface {
@@ -104,6 +108,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		changed := nodeUSBDevice.Changed()
 		changed.Status.ObservedGeneration = changed.Generation
 
+		if shouldAutoDeleteNodeUSBDevice(changed) {
+			if err := r.client.Delete(ctx, changed); err != nil && !apierrors.IsNotFound(err) {
+				return fmt.Errorf("failed to delete NodeUSBDevice: %w", err)
+			}
+			return nil
+		}
+
 		return nodeUSBDevice.Update(ctx)
 	})
 
@@ -116,4 +127,21 @@ func (r *Reconciler) factory() *v1alpha2.NodeUSBDevice {
 
 func (r *Reconciler) statusGetter(obj *v1alpha2.NodeUSBDevice) v1alpha2.NodeUSBDeviceStatus {
 	return obj.Status
+}
+
+func shouldAutoDeleteNodeUSBDevice(nodeUSBDevice *v1alpha2.NodeUSBDevice) bool {
+	if nodeUSBDevice == nil || nodeUSBDevice.GetDeletionTimestamp() != nil {
+		return false
+	}
+
+	if nodeUSBDevice.Spec.AssignedNamespace != "" {
+		return false
+	}
+
+	readyCondition := meta.FindStatusCondition(nodeUSBDevice.Status.Conditions, string(nodeusbdevicecondition.ReadyType))
+	if readyCondition == nil {
+		return false
+	}
+
+	return readyCondition.Status == metav1.ConditionFalse && readyCondition.Reason == string(nodeusbdevicecondition.NotFound)
 }
