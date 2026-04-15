@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
 
@@ -41,6 +42,10 @@ func NewController(
 	log *log.Logger,
 	systemNetworkName string,
 ) (controller.Controller, error) {
+	if !featuregates.Default().Enabled(featuregates.SDN) {
+		log.Info("SDN feature gate is disabled, migrationiface controller is disabled")
+		return nil, nil
+	}
 	if systemNetworkName == "" {
 		log.Info("MIGRATION_SYSTEM_NETWORK_NAME is empty, migrationiface controller is disabled")
 		return nil, nil

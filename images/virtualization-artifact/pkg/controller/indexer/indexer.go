@@ -76,6 +76,9 @@ const (
 
 	IndexFieldResourceSliceByPoolName = "spec.pool.name"
 	IndexFieldResourceSliceByDriver   = "spec.driver"
+
+	IndexFieldSNNNIAByNodeName          = "snnnia.status.nodeName"
+	IndexFieldSNNNIABySystemNetworkName = "snnnia.spec.systemNetworkName"
 )
 
 var IndexGetters = []IndexGetter{
@@ -114,11 +117,25 @@ var IndexGettersUSB = []IndexGetter{
 	IndexResourceSliceByDriver,
 }
 
+var IndexGettersSDN = []IndexGetter{
+	IndexSNNNIAByNodeName,
+	IndexSNNNIABySystemNetworkName,
+}
+
 type IndexGetter func() (obj client.Object, field string, extractValue client.IndexerFunc)
 
 func IndexALL(ctx context.Context, mgr manager.Manager) error {
 	if featuregates.Default().Enabled(featuregates.USB) {
 		for _, fn := range IndexGettersUSB {
+			obj, field, indexFunc := fn()
+			if err := mgr.GetFieldIndexer().IndexField(ctx, obj, field, indexFunc); err != nil {
+				return err
+			}
+		}
+	}
+
+	if featuregates.Default().Enabled(featuregates.SDN) {
+		for _, fn := range IndexGettersSDN {
 			obj, field, indexFunc := fn()
 			if err := mgr.GetFieldIndexer().IndexField(ctx, obj, field, indexFunc); err != nil {
 				return err

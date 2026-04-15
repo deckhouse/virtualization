@@ -29,21 +29,24 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 )
 
 const (
-	sdnGroup           = "network.deckhouse.io"
-	sdnVersion         = "v1alpha1"
-	sdnNodeNameLabel   = sdnGroup + "/node-name"
-	sdnInterfaceType   = sdnGroup + "/interface-type"
-	sdnInterfaceVLAN   = "VLAN"
+	sdnGroup         = "network.deckhouse.io"
+	sdnVersion       = "v1alpha1"
+	sdnNodeNameLabel = sdnGroup + "/node-name"
+	sdnInterfaceType = sdnGroup + "/interface-type"
+	sdnInterfaceVLAN = "VLAN"
 )
 
 var (
@@ -66,9 +69,20 @@ type Reconciler struct {
 }
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
+
+	nodePredicate := predicate.TypedFuncs[*corev1.Node]{
+		CreateFunc: func(event.TypedCreateEvent[*corev1.Node]) bool { return true },
+		UpdateFunc: func(e event.TypedUpdateEvent[*corev1.Node]) bool {
+			return e.ObjectOld.Annotations[annotations.AnnMigrationIface] !=
+				e.ObjectNew.Annotations[annotations.AnnMigrationIface]
+		},
+		DeleteFunc:  func(event.TypedDeleteEvent[*corev1.Node]) bool { return false },
+		GenericFunc: func(event.TypedGenericEvent[*corev1.Node]) bool { return false },
+	}
 	if err := ctr.Watch(source.Kind(mgr.GetCache(),
 		&corev1.Node{},
 		&handler.TypedEnqueueRequestForObject[*corev1.Node]{},
+		nodePredicate,
 	)); err != nil {
 		return fmt.Errorf("watch Node: %w", err)
 	}
@@ -109,7 +123,6 @@ func (r *Reconciler) watchSdnKind(
 		}),
 	))
 	if err != nil {
-		// sdn CRD absent → feature idle; log once and keep the Node watch running.
 		r.log.Warn("sdn watch failed; migration interface annotation will not track sdn changes",
 			"kind", gvk.Kind, "err", err.Error())
 	}
@@ -157,12 +170,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	return reconcile.Result{}, nil
 }
 
-// resolveInterfaceForNode follows SNNNIA (filtered by systemNetworkName + nodeName)
-// → status.nodeNetworkInterfaceName → NodeNetworkInterface.status.ifName.
 func (r *Reconciler) resolveInterfaceForNode(ctx context.Context, nodeName string) (string, error) {
 	list := &unstructured.UnstructuredList{}
 	list.SetGroupVersionKind(schema.GroupVersionKind{Group: sdnGroup, Version: sdnVersion, Kind: snnniaGVK.Kind + "List"})
-	if err := r.client.List(ctx, list); err != nil {
+	err := r.client.List(ctx, list, client.MatchingFields{
+		indexer.IndexFieldSNNNIAByNodeName:          nodeName,
+		indexer.IndexFieldSNNNIABySystemNetworkName: r.systemNetworkName,
+	})
+	if err != nil {
 		if meta.IsNoMatchError(err) {
 			return "", nil
 		}
@@ -170,15 +185,7 @@ func (r *Reconciler) resolveInterfaceForNode(ctx context.Context, nodeName strin
 	}
 
 	for i := range list.Items {
-		item := &list.Items[i]
-		if sn, _, _ := unstructured.NestedString(item.Object, "spec", "systemNetworkName"); sn != r.systemNetworkName {
-			continue
-		}
-		// IPAM-failed attachments have no status.nodeName and are correctly skipped here.
-		if sn, _, _ := unstructured.NestedString(item.Object, "status", "nodeName"); sn != nodeName {
-			continue
-		}
-		nniName, _, _ := unstructured.NestedString(item.Object, "status", "nodeNetworkInterfaceName")
+		nniName, _, _ := unstructured.NestedString(list.Items[i].Object, "status", "nodeNetworkInterfaceName")
 		if nniName == "" {
 			continue
 		}
