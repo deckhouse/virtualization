@@ -16,6 +16,7 @@ group: {{ $prefix }}
 {{- $ctx := index . 0 -}}
 {{- $name := index . 1 -}}
 {{- $cfg := index . 2 -}}
+{{- $clusterNetworkName := dig $ctx.Values "networkConfig" "clusterNetworkName" "" -}}
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
@@ -33,6 +34,11 @@ spec:
   - kind: VirtualDisk
     name: {{ printf "%s-%d" $name $i }}
 {{- end }}
+  networks:
+    - type: Main
+{{- if $clusterNetworkName }}
+    - type: ClusterNetwork
+      name: {{ $clusterNetworkName }}
 {{- end }}
   bootloader: {{ $ctx.Values.image.bootloader }}
   liveMigrationPolicy: PreferForced
@@ -51,6 +57,18 @@ spec:
       #cloud-config
       ssh_pwauth: true
       package_update: true
+      write_files:
+        - path: /etc/netplan/99-eno2.yaml
+          content: |
+            network:
+              version: 2
+              ethernets:
+                eno2:
+                  dhcp4: false
+                  dhcp6: false
+                  addresses: []
+                  link-local: []
+                  optional: true
       packages:
         - qemu-guest-agent
         - jq
@@ -68,6 +86,8 @@ spec:
             - {{ $ctx.Values.discovered.publicSSHKey }}
 
       runcmd:
+        - netplan apply
+        - ip link set eno2 up
         - systemctl enable --now qemu-guest-agent.service
       final_message: "\U0001F525\U0001F525\U0001F525 The system is finally up, after $UPTIME seconds \U0001F525\U0001F525\U0001F525"
   runPolicy: AlwaysOn
@@ -107,5 +127,6 @@ spec:
     storageClassName: {{ $ctx.Values.storageClass }}
     {{- end }}
   {{- end }}
+{{- end }}
 {{- end }}
 {{- end }}

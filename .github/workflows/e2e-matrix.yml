@@ -335,6 +335,7 @@ jobs:
     with:
       storage_type: replicated
       nested_storageclass_name: nested-thin-r1
+      nested_cluster_network_name: cn-4006-for-e2e-test
       branch: main
       virtualization_tag: main
       deckhouse_channel: alpha
@@ -359,6 +360,7 @@ jobs:
     with:
       storage_type: nfs
       nested_storageclass_name: nfs
+      nested_cluster_network_name: cn-4006-for-e2e-test
       branch: main
       virtualization_tag: main
       deckhouse_channel: alpha
