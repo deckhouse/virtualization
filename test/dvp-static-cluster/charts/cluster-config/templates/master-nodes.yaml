@@ -4,6 +4,14 @@
   {{- $totalNodes = add $totalNodes .count -}}
 {{- end -}}
 
+{{/*
+  CAPS (Cluster API Static Provider) manages static nodes, but during bootstrap it may fail
+  to take control of the first master node, which can break the bootstrap process.
+
+  To avoid this, the first master (index 0) — the one that was bootstrapped initially —
+  is intentionally excluded from CAPS management. Only masters with index >= 1 are registered
+  as StaticInstance resources and counted in the NodeGroup.
+*/}}
 {{- $masterCount := $.Values.instances.masterNodes.count | int -}}
 {{- if gt $masterCount 1 -}}
   {{- $staticCount := sub $masterCount 1 -}}
@@ -45,6 +53,6 @@ spec:
   address: {{ index $.Values.discovered.vmIPs $vmName }}
   credentialsRef:
     kind: SSHCredentials
-    name: mvp-static
+    name: dvp-stataic
 {{- end }}
 {{- end }}
