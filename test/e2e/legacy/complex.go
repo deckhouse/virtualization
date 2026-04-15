@@ -43,11 +43,26 @@ var _ = Describe("ComplexTest", Ordered, label.Legacy(), func() {
 		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "complex-test"}
 		ns                       string
 		phaseByVolumeBindingMode = util.GetExpectedDiskPhaseByVolumeBindingMode()
+		resourcesToDelete        = ResourcesToDelete{
+			AdditionalResources: []AdditionalResource{
+				{
+					kc.ResourceVMOP,
+					testCaseLabel,
+				},
+			},
+			KustomizationDir: conf.TestData.ComplexTest,
+		}
 	)
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
 			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
+		}
+	})
+
+	AfterAll(func() {
+		if config.IsCleanUpNeeded() {
+			DeleteTestCaseResources(ns, resourcesToDelete)
 		}
 	})
 
@@ -230,22 +245,6 @@ var _ = Describe("ComplexTest", Ordered, label.Legacy(), func() {
 		})
 	})
 
-	Context("When test is completed", func() {
-		It("deletes test case resources", func() {
-			if config.IsCleanUpNeeded() {
-				resourcesToDelete := ResourcesToDelete{
-					AdditionalResources: []AdditionalResource{
-						{
-							kc.ResourceVMOP,
-							testCaseLabel,
-						},
-					},
-					KustomizationDir: conf.TestData.ComplexTest,
-				}
-				DeleteTestCaseResources(ns, resourcesToDelete)
-			}
-		})
-	})
 })
 
 func AssignIPToVMIP(f *framework.Framework, vmipNamespace, vmipName string) error {
