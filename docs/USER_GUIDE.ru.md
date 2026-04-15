@@ -3661,6 +3661,12 @@ spec:
 
 Модуль виртуализации поддерживает проброс USB-устройств в виртуальные машины с использованием DRA (Dynamic Resource Allocation). В этом разделе описано, как использовать USB-устройства с виртуальными машинами.
 
+Для проброса USB требуются:
+
+- `containerd v2` — подробные требования к узлам кластера описаны в параметре [`defaultCRI`](/products/kubernetes-platform/documentation/v1/reference/api/cr.html#clusterconfiguration-defaultcri);
+- [Kubernetes](/products/kubernetes-platform/documentation/v1/reference/supported_versions.html#kubernetes) версии не ниже 1.34;
+- [Deckhouse Kubernetes Platform (DKP)](https://releases.deckhouse.ru/) версии не ниже 1.75.
+
 ### Обзор
 
 Модуль предоставляет два пользовательских ресурса для управления USB-устройствами:
