@@ -41,10 +41,10 @@ import (
 const (
 	initialCPUCores     = 1
 	initialMemorySize   = "256Mi"
-	initialCoreFraction = "5%"
+	initialCoreFraction = "100%"
 	changedCPUCores     = 2
 	changedMemorySize   = "512Mi"
-	changedCoreFraction = "10%"
+	changedCoreFraction = "50%"
 )
 
 var _ = Describe("VirtualMachineConfiguration", func() {
@@ -136,7 +136,7 @@ func (t *configurationTest) GenerateResources(restartApprovalMode v1alpha2.Resta
 	t.VM = vmbuilder.New(
 		vmbuilder.WithName("vm"),
 		vmbuilder.WithNamespace(t.Framework.Namespace().Name),
-		vmbuilder.WithCPU(1, ptr.To("50%")),
+		vmbuilder.WithCPU(1, ptr.To(initialCoreFraction)),
 		vmbuilder.WithMemory(resource.MustParse(initialMemorySize)),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 		vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
