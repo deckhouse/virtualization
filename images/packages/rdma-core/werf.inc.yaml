@@ -64,6 +64,12 @@ shell:
     OUTDIR=/out
 
     cd /src
+
+    # Fix typo in rdma-core v53.0 pyverbs source that breaks Cython parsing:
+    # f'{<Mlx5FlowActionAttr>attr).attr.type}.' -> f'{(<Mlx5FlowActionAttr>attr).attr.type}.'
+    sed -i "s|f'{<Mlx5FlowActionAttr>attr).attr.type}\.'|f'{(<Mlx5FlowActionAttr>attr).attr.type}.'|" \
+      /src/pyverbs/providers/mlx5/mlx5dv_flow.pyx
+
     cmake -GNinja \
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_INSTALL_PREFIX=/usr \
