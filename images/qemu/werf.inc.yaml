@@ -62,6 +62,14 @@ shell:
 
     fi
 
+    echo "Apply SeaBIOS patches"
+    for p in /patches/seabios/*.patch ; do
+      [ -f "$p" ] || continue
+      git -C roms/seabios apply --check --ignore-space-change --ignore-whitespace "$p" >/dev/null 2>&1 || (echo "FAIL" ; exit 1)
+      echo -n "Apply ${p} to roms/seabios ... "
+      git -C roms/seabios apply --ignore-space-change --ignore-whitespace "$p" && echo OK || (echo FAIL ; exit 1)
+    done
+
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
@@ -198,16 +206,6 @@ shell:
 
     export LDFLAGS="-L/usr/lib64 -L/usr/lib"
     export CPPFLAGS="-I/usr/include"
-
-    cd /src/{{ $gitRepoName }}-{{ $version }}
-
-    echo "Apply SeaBIOS patches"
-    for p in /patches/seabios/*.patch ; do
-      [ -f "$p" ] || continue
-      git -C roms/seabios apply --check --ignore-space-change --ignore-whitespace "$p" >/dev/null 2>&1 || (echo "FAIL" ; exit 1)
-      echo -n "Apply ${p} to roms/seabios ... "
-      git -C roms/seabios apply --ignore-space-change --ignore-whitespace "$p" && echo OK || (echo FAIL ; exit 1)
-    done
 
     cd /{{ $gitRepoName }}-{{ $version }}
 
