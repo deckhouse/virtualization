@@ -31,8 +31,7 @@ index 1effd80..db9abb4 100644
 -        printf("No bootable device.\n");
 -    else
 +    if (BootRetryTime == (u32)-1) {
-+        printf("No bootable device123.\n");
-+        printf("Kek\n");
++        printf("No bootable device.\n");
 +        write_port_403("No bootable device.\n");
 +    } else
          printf("No bootable device.  Retrying in %d seconds.\n"
