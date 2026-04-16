@@ -65,10 +65,7 @@ tasks:
       - _ensure:golangci-lint
     cmds:
       - |
-        export TMPDIR="$PWD/.tmp"
-        export GOTMPDIR="$PWD/.tmp"
-        mkdir -p "$TMPDIR"
-        golangci-lint run --allow-parallel-runners
+        golangci-lint run
 
   mirrord:run:controller:
     desc: "Run local virtualization-controller in cluster using a mirrord"
