@@ -79,7 +79,9 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 	var frozen bool
 	if vm != nil {
 		frozenCondition, ok := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, vm.Status.Conditions)
-		frozen = ok && frozenCondition.Status == metav1.ConditionTrue
+		if ok && frozenCondition.Status == metav1.ConditionTrue {
+			frozen = true
+		}
 	}
 
 	kvvmi, err := h.snapshotter.GetVirtualMachineInstance(ctx, vm)
