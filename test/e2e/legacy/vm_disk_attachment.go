@@ -67,6 +67,14 @@ var _ = Describe("VirtualDiskAttachment", Ordered, label.Legacy(), func() {
 		}
 	})
 
+	AfterAll(func() {
+		if config.IsCleanUpNeeded() {
+			DeleteTestCaseResources(ns, ResourcesToDelete{
+				KustomizationDir: conf.TestData.VMDiskAttachment,
+			})
+		}
+	})
+
 	Context("When resources are applied", func() {
 		It("result should be succeeded", func() {
 			res := kubectl.Apply(kc.ApplyOptions{
@@ -177,24 +185,6 @@ var _ = Describe("VirtualDiskAttachment", Ordered, label.Legacy(), func() {
 					return len(disksAfter.BlockDevices), nil
 				}).WithTimeout(Timeout).WithPolling(Interval).Should(Equal(diskCountBefore-1), "comparing error: 'after' must be equal 'before - 1'")
 			})
-		})
-	})
-
-	Context("When test is completed", func() {
-		It("deletes test case resources", func() {
-			if config.IsCleanUpNeeded() {
-				DeleteTestCaseResources(
-					ns,
-					ResourcesToDelete{
-						KustomizationDir: conf.TestData.VMDiskAttachment,
-						AdditionalResources: []AdditionalResource{
-							{
-								Resource: kc.ResourceVMBDA,
-								Labels:   testCaseLabel,
-							},
-						},
-					})
-			}
 		})
 	})
 })

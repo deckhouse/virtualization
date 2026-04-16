@@ -30,6 +30,7 @@ import (
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
+	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 )
@@ -67,6 +68,12 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, label.Legacy(),
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
 			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
+		}
+	})
+
+	AfterAll(func() {
+		if config.IsCleanUpNeeded() {
+			DeleteTestCaseResources(ns, ResourcesToDelete{KustomizationDir: conf.TestData.AffinityToleration})
 		}
 	})
 
@@ -466,12 +473,6 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, label.Legacy(),
 				Expect(updatedVMObj.Status.MigrationState.Target.Node).Should(Equal(targetNode))
 				Expect(updatedVMObj.Status.Node).Should(Equal(targetNode))
 			})
-		})
-	})
-
-	Context("When test is completed", func() {
-		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ns, ResourcesToDelete{KustomizationDir: conf.TestData.AffinityToleration})
 		})
 	})
 })

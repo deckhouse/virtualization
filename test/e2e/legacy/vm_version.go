@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 )
@@ -43,6 +44,14 @@ var _ = Describe("VirtualMachineVersions", Ordered, label.Legacy(), func() {
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
 			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
+		}
+	})
+
+	AfterAll(func() {
+		if config.IsCleanUpNeeded() {
+			DeleteTestCaseResources(ns, ResourcesToDelete{
+				KustomizationDir: conf.TestData.VMVersions,
+			})
 		}
 	})
 
@@ -101,13 +110,5 @@ var _ = Describe("VirtualMachineVersions", Ordered, label.Legacy(), func() {
 
 			return nil
 		}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
-	})
-
-	Context("When test is completed", func() {
-		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ns, ResourcesToDelete{
-				KustomizationDir: conf.TestData.VMVersions,
-			})
-		})
 	})
 })

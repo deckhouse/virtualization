@@ -78,6 +78,7 @@ var _ = Describe("VMSOPCreateVirtualMachine", Ordered, func() {
 						Name: vd.Name,
 					},
 				),
+				vmbuilder.WithCPU(1, ptr.To("100%")),
 			)
 
 			err := f.CreateWithDeferredDeletion(context.Background(), vd, vm)

@@ -61,19 +61,11 @@ var _ = Describe("VirtualMachineCancelMigration", Ordered, label.Legacy(), func(
 		if CurrentSpecReport().Failed() {
 			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
-		resourcesToDelete := ResourcesToDelete{
-			AdditionalResources: []AdditionalResource{
-				{
-					Resource: kc.ResourceVMOP,
-					Labels:   testCaseLabel,
-				},
-			},
-		}
-
 		if config.IsCleanUpNeeded() {
-			resourcesToDelete.KustomizationDir = conf.TestData.VMMigrationCancel
+			DeleteTestCaseResources(ns, ResourcesToDelete{
+				KustomizationDir: conf.TestData.VMMigrationCancel,
+			})
 		}
-		DeleteTestCaseResources(ns, resourcesToDelete)
 	})
 
 	It("Cancel migrate", func() {
