@@ -19,11 +19,13 @@ package vm
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -232,6 +234,116 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 
 				Expect(lastInterfaceNameAfterRemoval).To(Equal(lastInterfaceNameBeforeRemoval),
 					fmt.Sprintf("Interface name changed from %s to %s after removing middle ClusterNetwork", lastInterfaceNameBeforeRemoval, lastInterfaceNameAfterRemoval))
+			})
+		})
+	})
+
+	Describe("verifies hotplug and hotunplug of additional network interfaces", func() {
+		const countNonLoopbackInterfacesCmd = "ip -o link show | grep -v 'lo:' | wc -l"
+
+		var (
+			vdRoot *v1alpha2.VirtualDisk
+			testVM *v1alpha2.VirtualMachine
+		)
+
+		getIfaceCount := func() int {
+			GinkgoHelper()
+			output, err := f.SSHCommand(testVM.Name, testVM.Namespace, countNonLoopbackInterfacesCmd)
+			Expect(err).NotTo(HaveOccurred())
+			count, err := strconv.Atoi(strings.TrimSpace(output))
+			Expect(err).NotTo(HaveOccurred())
+			return count
+		}
+
+		expectNoRestartRequired := func() {
+			GinkgoHelper()
+			Consistently(func(g Gomega) {
+				err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(testVM), testVM)
+				g.Expect(err).NotTo(HaveOccurred())
+				cond, _ := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, testVM.Status.Conditions)
+				g.Expect(cond.Status).NotTo(Equal(metav1.ConditionTrue),
+					"VM should not require restart for non-Main network change")
+			}).WithTimeout(10 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
+		}
+
+		It("should attach and detach ClusterNetwork on a running VM without reboot", func() {
+			var initialIfaceCount int
+
+			By("Create VM with only Main network", func() {
+				ns := f.Namespace().Name
+				vdRoot = object.NewVDFromCVI("vd-root", ns, object.PrecreatedCVIUbuntu)
+
+				testVM = vm.New(
+					vm.WithName("vm-hotplug"),
+					vm.WithNamespace(ns),
+					vm.WithBootloader(v1alpha2.EFI),
+					vm.WithCPU(1, ptr.To("5%")),
+					vm.WithMemory(resource.MustParse("512Mi")),
+					vm.WithRestartApprovalMode(v1alpha2.Manual),
+					vm.WithVirtualMachineClass(object.DefaultVMClass),
+					vm.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
+					vm.WithProvisioningUserData(object.UbuntuCloudInit),
+					vm.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
+						Kind: v1alpha2.VirtualDiskKind,
+						Name: vdRoot.Name,
+					}),
+					vm.WithNetwork(v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeMain}),
+				)
+
+				err := f.CreateWithDeferredDeletion(context.Background(), vdRoot, testVM)
+				Expect(err).NotTo(HaveOccurred())
+
+				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, testVM)
+				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(testVM), framework.LongTimeout)
+				util.UntilSSHReady(f, testVM, framework.LongTimeout)
+
+				initialIfaceCount = getIfaceCount()
+				Expect(initialIfaceCount).To(BeNumerically(">=", 1),
+					"VM should have at least one non-loopback interface")
+			})
+
+			By("Hotplug: add a ClusterNetwork to spec.networks", func() {
+				err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(testVM), testVM)
+				Expect(err).NotTo(HaveOccurred())
+				testVM.Spec.Networks = append(testVM.Spec.Networks, v1alpha2.NetworksSpec{
+					Type: v1alpha2.NetworksTypeClusterNetwork,
+					Name: util.ClusterNetworkName(additionalInterfaceVLANID),
+				})
+				err = f.Clients.GenericClient().Update(context.Background(), testVM)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("Verify new interface appears in the guest OS", func() {
+				util.UntilConditionStatus(vmcondition.TypeNetworkReady.String(), "True", framework.LongTimeout, testVM)
+				Eventually(getIfaceCount).
+					WithTimeout(framework.LongTimeout).
+					WithPolling(3 * time.Second).
+					Should(Equal(initialIfaceCount+1), "new interface should appear after hotplug")
+			})
+
+			By("Verify VM did not ask for restart after hotplug", expectNoRestartRequired)
+
+			By("Hotunplug: remove the ClusterNetwork from spec.networks", func() {
+				err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(testVM), testVM)
+				Expect(err).NotTo(HaveOccurred())
+				testVM.Spec.Networks = []v1alpha2.NetworksSpec{testVM.Spec.Networks[0]}
+				err = f.Clients.GenericClient().Update(context.Background(), testVM)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("Verify interface disappears from the guest OS", func() {
+				Eventually(getIfaceCount).
+					WithTimeout(framework.LongTimeout).
+					WithPolling(3 * time.Second).
+					Should(Equal(initialIfaceCount), "interface should disappear after hotunplug")
+			})
+
+			By("Verify VM did not ask for restart after hotunplug", expectNoRestartRequired)
+
+			By("Verify VM phase stayed Running throughout", func() {
+				err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(testVM), testVM)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(testVM.Status.Phase)).To(Equal(string(v1alpha2.MachineRunning)))
 			})
 		})
 	})
