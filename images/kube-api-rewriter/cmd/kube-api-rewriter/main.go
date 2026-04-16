@@ -18,7 +18,7 @@ package main
 
 import (
 	karapp "github.com/deckhouse/kube-api-rewriter/pkg/app"
-	"github.com/deckhouse/virtualization/kube-api-rewriter/pkg/kubevirt"
+	kubevirt "github.com/deckhouse/virtualization/src/kubevirt-rules"
 )
 
 func main() {
