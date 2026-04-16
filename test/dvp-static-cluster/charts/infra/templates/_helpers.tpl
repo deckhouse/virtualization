@@ -36,6 +36,7 @@ spec:
   - kind: VirtualDisk
     name: {{ printf "%s-%d" $name $i }}
 {{- end }}
+{{- end }}
   networks:
     - type: Main
 {{- if $clusterNetworkName }}
@@ -129,6 +130,5 @@ spec:
     storageClassName: {{ $ctx.Values.storageClass }}
     {{- end }}
   {{- end }}
-{{- end }}
 {{- end }}
 {{- end }}
