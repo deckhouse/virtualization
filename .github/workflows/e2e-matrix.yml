@@ -335,11 +335,12 @@ jobs:
     with:
       storage_type: replicated
       nested_storageclass_name: nested-thin-r1
+      nested_cluster_network_name: cn-4006-for-e2e-test
       branch: main
       virtualization_tag: main
       deckhouse_channel: alpha
       default_user: cloud
-      go_version: "1.25.8"
+      go_version: "1.25.9"
       e2e_timeout: "3.5h"
       date_start: ${{ needs.set-vars.outputs.date_start }}
       randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
@@ -359,6 +360,7 @@ jobs:
     with:
       storage_type: nfs
       nested_storageclass_name: nfs
+      nested_cluster_network_name: cn-4006-for-e2e-test
       branch: main
       virtualization_tag: main
       deckhouse_channel: alpha

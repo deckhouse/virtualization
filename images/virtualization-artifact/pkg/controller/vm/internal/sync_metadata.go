@@ -34,6 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/merger"
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	commonvm "github.com/deckhouse/virtualization-controller/pkg/common/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -188,10 +189,20 @@ func (h *SyncMetadataHandler) patchLabelsAndAnnotations(ctx context.Context, obj
 	return h.client.Patch(ctx, obj, client.RawPatch(types.JSONPatchType, bytes))
 }
 
+var annotationsToKeep = []string{
+	annotations.AnnNetworksSpec,
+	virtv1.AllowPodBridgeNetworkLiveMigrationAnnotation,
+	netmanager.AnnoIPAddressCNIRequest,
+	virtv1.USBMigrationStrategyAnn,
+	kvbuilder.CPUResourcesRequestsFractionAnnotation,
+	kvbuilder.VCPUTopologyDynamicCoresAnnotation,
+}
+
 // updateKVVMSpecTemplateMetadataAnnotations ensures that the special network annotation is present if it exists.
 // It also removes well-known annotations that are dangerous to propagate.
 func (h *SyncMetadataHandler) updateKVVMSpecTemplateMetadataAnnotations(currAnno, newAnno map[string]string) map[string]string {
 	res := make(map[string]string, len(newAnno))
+
 	for k, v := range newAnno {
 		if k == annotations.AnnVMLastAppliedSpec || k == annotations.AnnVMClassLastAppliedSpec {
 			continue
@@ -200,20 +211,11 @@ func (h *SyncMetadataHandler) updateKVVMSpecTemplateMetadataAnnotations(currAnno
 		res[k] = v
 	}
 
-	if v, ok := currAnno[annotations.AnnNetworksSpec]; ok {
-		res[annotations.AnnNetworksSpec] = v
-	}
-
-	if v, ok := currAnno[virtv1.AllowPodBridgeNetworkLiveMigrationAnnotation]; ok {
-		res[virtv1.AllowPodBridgeNetworkLiveMigrationAnnotation] = v
-	}
-
-	if v, ok := currAnno[netmanager.AnnoIPAddressCNIRequest]; ok {
-		res[netmanager.AnnoIPAddressCNIRequest] = v
-	}
-
-	if v, ok := currAnno[virtv1.USBMigrationStrategyAnn]; ok {
-		res[virtv1.USBMigrationStrategyAnn] = v
+	// Restore annotations set by kvbuilder.
+	for _, keepAnno := range annotationsToKeep {
+		if v, ok := currAnno[keepAnno]; ok {
+			res[keepAnno] = v
+		}
 	}
 
 	return commonvm.RemoveNonPropagatableAnnotations(res)

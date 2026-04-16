@@ -1,6 +1,6 @@
 module github.com/deckhouse/virtualization/test/e2e
 
-go 1.25.8
+go 1.25.9
 
 tool github.com/onsi/ginkgo/v2/ginkgo
 
@@ -70,7 +70,7 @@ require (
 	golang.org/x/net v0.48.0 // indirect
 	golang.org/x/oauth2 v0.34.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/sys v0.40.0 // indirect
+	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/term v0.38.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
 	golang.org/x/time v0.11.0 // indirect

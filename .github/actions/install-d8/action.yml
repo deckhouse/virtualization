@@ -4,7 +4,7 @@ inputs:
   version:
     description: version of deckhouse-cli (like v0.25.1)
     required: false
-    default: v0.25.1
+    default: v0.29.24
 runs:
   using: "composite"
   steps:

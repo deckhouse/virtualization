@@ -23,10 +23,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"k8s.io/klog/v2"
 
 	"github.com/deckhouse/virtualization/src/cli/internal/clientconfig"
 	"github.com/deckhouse/virtualization/src/cli/internal/templates"
@@ -62,26 +62,49 @@ type SSHOptions struct {
 }
 
 func DefaultSSHOptions() SSHOptions {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		klog.Warningf("failed to determine user home directory: %v", err)
-	}
 	options := SSHOptions{
 		SSHPort:                   22,
 		SSHUsername:               defaultUsername(),
-		IdentityFilePath:          filepath.Join(homeDir, ".ssh", "id_rsa"),
+		IdentityFilePath:          filepath.Join("~", ".ssh", "id_rsa"),
 		IdentityFilePathProvided:  false,
 		KnownHostsFilePath:        "",
-		KnownHostsFilePathDefault: "",
+		KnownHostsFilePathDefault: filepath.Join("~", ".ssh", KnownHostsFileName),
 		AdditionalSSHLocalOptions: []string{},
 		WrapLocalSSH:              wrapLocalSSHDefault,
 		LocalClientName:           "ssh",
 	}
 
-	if len(homeDir) > 0 {
-		options.KnownHostsFilePathDefault = filepath.Join(homeDir, ".ssh", KnownHostsFileName)
-	}
 	return options
+}
+
+func (s *SSHOptions) ResolvePaths() error {
+	if s.IdentityFilePath != "" {
+		resolvedPath, err := resolveHomeDir(s.IdentityFilePath)
+		if err != nil {
+			return fmt.Errorf("resolve identity file path '%s': %w", s.IdentityFilePath, err)
+		}
+		s.IdentityFilePath = resolvedPath
+	}
+	if s.KnownHostsFilePath != "" {
+		resolvedPath, err := resolveHomeDir(s.KnownHostsFilePath)
+		if err != nil {
+			return fmt.Errorf("resolve known hosts file path '%s': %w", s.KnownHostsFilePath, err)
+		}
+		s.KnownHostsFilePath = resolvedPath
+	}
+	return nil
+}
+
+// resolveHomeDir substitutes beginning '~' with home dir path.
+func resolveHomeDir(path string) (string, error) {
+	if !strings.HasPrefix(path, "~") {
+		return path, nil
+	}
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("get user home directory: %w", err)
+	}
+	return filepath.Join(homeDir, strings.TrimPrefix(path, "~")), nil
 }
 
 func defaultUsername() string {
@@ -104,34 +127,40 @@ func NewCommand() *cobra.Command {
 	}
 
 	cmd := &cobra.Command{
-		Use:     "ssh VirtualMachine",
+		Use:     "ssh [-n|--namespace NAMESPACE] VIRTUAL-MACHINE-NAME",
 		Short:   "Open a SSH connection to a virtual machine.",
 		Example: usage(),
 		Args:    templates.ExactArgs("ssh", 1),
 		RunE:    c.Run,
 	}
 
-	AddCommandlineArgs(cmd.Flags(), &c.options)
+	AddCommonSSHFlags(cmd.Flags(), &c.options)
+
+	cmd.Flags().StringVarP(&c.options.SSHUsername, usernameFlag, usernameFlagShort, c.options.SSHUsername,
+		"Specify user to log into virtual machine; If unassigned, this will be empty and the SSH default will apply")
 	cmd.Flags().StringVarP(&c.command, commandToExecute, commandToExecuteShort, c.command,
-		fmt.Sprintf(`--%s='ls /': Specify a command to execute in the VM`, commandToExecute))
+		"Specify a command to execute in the VM.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 
-func AddCommandlineArgs(flagset *pflag.FlagSet, opts *SSHOptions) {
-	flagset.StringVarP(&opts.SSHUsername, usernameFlag, usernameFlagShort, opts.SSHUsername,
-		fmt.Sprintf("--%s=%s: Set this to the user you want to open the SSH connection as; If unassigned, this will be empty and the SSH default will apply", usernameFlag, opts.SSHUsername))
+func AddCommonSSHFlags(flagset *pflag.FlagSet, opts *SSHOptions) {
 	flagset.StringVarP(&opts.IdentityFilePath, IdentityFilePathFlag, identityFilePathFlagShort, opts.IdentityFilePath,
-		fmt.Sprintf("--%s=/home/user/.ssh/id_rsa: Set the path to a private key used for authenticating to the server; If not provided, the client will try to use the local ssh-agent at $SSH_AUTH_SOCK", IdentityFilePathFlag))
+		"Specify a path to a private key used for authenticating to the server; If not provided, the client will try to use the local ssh-agent at $SSH_AUTH_SOCK")
 	flagset.StringVar(&opts.KnownHostsFilePath, knownHostsFilePathFlag, opts.KnownHostsFilePathDefault,
-		fmt.Sprintf("--%s=/home/user/.ssh/%s: Set the path to the known_hosts file.", KnownHostsFileName, knownHostsFilePathFlag))
+		"Set a path to the known_hosts file.")
 	flagset.IntVarP(&opts.SSHPort, portFlag, portFlagShort, opts.SSHPort,
-		fmt.Sprintf(`--%s=22: Specify a port on the VM to send SSH traffic to`, portFlag))
+		`Specify a port to connect to`)
 
-	addAdditionalCommandlineArgs(flagset, opts)
+	addLocalSSHClientFlags(flagset, opts)
 }
 
 func (o *SSH) Run(cmd *cobra.Command, args []string) error {
+	err := o.options.ResolvePaths()
+	if err != nil {
+		return err
+	}
+
 	client, defaultNamespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
@@ -168,19 +197,30 @@ func PrepareCommand(cmd *cobra.Command, defaultNamespace string, opts *SSHOption
 }
 
 func usage() string {
-	return fmt.Sprintf(`  # Connect to 'myvm':
-  {{ProgramName}} ssh user@myvm [--%s]
+	return fmt.Sprintf(`  # Connect to virtualMachine 'myvm' in 'vms' namespace:
+  {{ProgramName}} ssh user@myvm.vms
 
-  # Connect to 'myvm' in 'mynamespace' namespace
-  {{ProgramName}} ssh user@myvm.mynamespace [--%s]
+  # Specify namespace and user with flags:
+  {{ProgramName}} ssh --namespace=vms --%s=user myvm
 
-  # Specify a username and namespace:
-  {{ProgramName}} ssh --namespace=mynamespace --%s=user myvm
+  # Specify identity file:
+  {{ProgramName}} ssh -n vms user@myvm -%s /some/path/id_rsa_for_myvm
 
-  # Connect to 'myvm' using the local ssh binary found in $PATH:
-  {{ProgramName}} ssh --%s=true user@myvm`,
-		IdentityFilePathFlag,
-		IdentityFilePathFlag,
+  # Run command instead of opening shell:
+  {{ProgramName}} ssh -n vms user@myvm -%s 'ls -la /'
+
+  # Connect using the local ssh binary found in $PATH:
+  {{ProgramName}} ssh --%s=true user@myvm
+
+  # Specify additional options for local ssh:
+  {{ProgramName}} ssh user@myvm --%s=true --%s='-o StrictHostKeyChecking=no' --%s='-o UserKnownHostsFile=/dev/null'
+`,
 		usernameFlag,
-		wrapLocalSSHFlag)
+		identityFilePathFlagShort,
+		commandToExecuteShort,
+		wrapLocalSSHFlag,
+		wrapLocalSSHFlag,
+		additionalOpts,
+		additionalOpts,
+	)
 }
