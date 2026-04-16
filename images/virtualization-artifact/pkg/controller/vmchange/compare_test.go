@@ -498,6 +498,7 @@ networks:
   name: additional
   id: 2
 `,
+			nil,
 			assertChanges(
 				actionRequired(ActionApplyImmediate),
 				requirePathOperation("networks", ChangeAdd),
@@ -518,6 +519,7 @@ networks:
   name: additional
   id: 2
 `,
+			nil,
 			assertChanges(
 				actionRequired(ActionApplyImmediate),
 				requirePathOperation("networks", ChangeReplace),
@@ -538,6 +540,7 @@ networks:
 - type: Main
   id: 1
 `,
+			nil,
 			assertChanges(
 				actionRequired(ActionApplyImmediate),
 				requirePathOperation("networks", ChangeReplace),
@@ -559,6 +562,7 @@ networks:
   name: net1
   id: 2
 `,
+			nil,
 			assertChanges(
 				actionRequired(ActionRestart),
 				requirePathOperation("networks", ChangeReplace),
@@ -582,6 +586,7 @@ networks:
   name: net1
   id: 2
 `,
+			nil,
 			assertChanges(
 				actionRequired(ActionRestart),
 				requirePathOperation("networks", ChangeReplace),
