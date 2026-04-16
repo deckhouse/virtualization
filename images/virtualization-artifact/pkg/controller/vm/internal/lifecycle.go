@@ -141,10 +141,6 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 		conditions.SetCondition(cb, &vm.Status.Conditions)
 		return nil
 	case volumeError != nil:
-		cb.Status(metav1.ConditionUnknown).
-			Reason(conditions.ReasonUnknown).
-			Message("")
-		conditions.SetCondition(cb, &vm.Status.Conditions)
 		return volumeError
 	}
 
