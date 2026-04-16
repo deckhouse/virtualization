@@ -19,13 +19,13 @@ package parallel_outbound_migrations_per_node
 import (
 	"context"
 	"fmt"
-	"hooks/pkg/settings"
 	"strconv"
 
 	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
+	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
 
 const (

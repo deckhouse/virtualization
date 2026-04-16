@@ -19,7 +19,6 @@ package validate_module_config
 import (
 	"context"
 	"encoding/json"
-	"hooks/pkg/settings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -31,6 +30,7 @@ import (
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/testing/mock"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
+	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
 
 func TestValidateModuleConfig(t *testing.T) {

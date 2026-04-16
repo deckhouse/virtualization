@@ -1,4 +1,4 @@
-module hooks
+module github.com/deckhouse/virtualization/hooks
 
 go 1.25.9
 

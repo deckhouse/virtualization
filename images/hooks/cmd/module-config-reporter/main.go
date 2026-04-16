@@ -18,10 +18,11 @@ package main
 
 import (
 	"fmt"
-	"hooks/pkg/settings"
 	"os"
 
 	"github.com/tidwall/gjson"
+
+	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
 
 /*
