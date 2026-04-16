@@ -195,7 +195,6 @@ var _ = Describe("VirtualDiskAttachment", Ordered, label.Legacy(), func() {
 			})
 		})
 	})
-
 })
 
 // lsblk JSON output

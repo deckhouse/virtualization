@@ -283,7 +283,6 @@ var _ = Describe("ImageHotplug", Ordered, label.Legacy(), func() {
 			}).WithTimeout(Timeout).WithPolling(Interval).Should(Equal(diskCountBefore), "comparing error: 'after' must be equal 'before'")
 		})
 	})
-
 })
 
 type Image struct {

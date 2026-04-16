@@ -377,7 +377,6 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, label.Legacy(), func() {
 			}
 		})
 	})
-
 })
 
 func CreateVirtualDiskSnapshot(vdName, snapshotName, namespace string, requiredConsistency bool, labels map[string]string) error {

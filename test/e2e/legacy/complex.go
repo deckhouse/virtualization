@@ -244,7 +244,6 @@ var _ = Describe("ComplexTest", Ordered, label.Legacy(), func() {
 			})
 		})
 	})
-
 })
 
 func AssignIPToVMIP(f *framework.Framework, vmipNamespace, vmipName string) error {

@@ -472,7 +472,6 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, label.Legacy(),
 			})
 		})
 	})
-
 })
 
 func ExpectVirtualMachineIsMigratable(vmObj *v1alpha2.VirtualMachine) {

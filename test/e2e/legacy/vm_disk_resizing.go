@@ -233,7 +233,6 @@ var _ = Describe("VirtualDiskResizing", Ordered, label.Legacy(), func() {
 			})
 		})
 	})
-
 })
 
 type VirtualMachineDisks map[string]DiskMetaData

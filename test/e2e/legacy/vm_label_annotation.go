@@ -277,7 +277,6 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", Ordered, label.Legacy(), fu
 			}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
 		})
 	})
-
 })
 
 func AddLabel(resource kc.Resource, labels map[string]string, ns string, names ...string) error {

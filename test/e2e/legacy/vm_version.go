@@ -108,5 +108,4 @@ var _ = Describe("VirtualMachineVersions", Ordered, label.Legacy(), func() {
 			return nil
 		}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
 	})
-
 })
