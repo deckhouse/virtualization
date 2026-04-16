@@ -88,7 +88,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, req reconcile.Request, dep
 			// Put full result JSON into annotation on deployment.
 			annotations.AddAnnotation(deploy, annotations.AnnDVCRGarbageCollectionResult, h.dvcrService.GetGarbageCollectionResult(secret))
 			// It is now possible to delete a secret.
-			return reconcile.Result{}, h.dvcrService.DeleteGarbageCollectionSecret(ctx)
+			// Test: add delay to catch race condition delete secret -> hook change values -> helm apply new version of deploy/dvcr.
+			err = h.dvcrService.DeleteGarbageCollectionSecret(ctx)
+			time.Sleep(time.Second * 10)
+			return reconcile.Result{}, err
 		}
 
 		if h.dvcrService.IsGarbageCollectionStarted(secret) {
