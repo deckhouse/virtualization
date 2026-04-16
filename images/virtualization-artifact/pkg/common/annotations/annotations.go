@@ -194,6 +194,12 @@ const (
 	// AnnNetworksStatus is the annotation for view current network configuration into Pod.
 	AnnNetworksStatus = "network.deckhouse.io/networks-status"
 
+	// AnnMigrationIface names the kernel interface that virt-handler binds
+	// live-migration traffic to. Written on Nodes by the migrationiface
+	// controller from a SystemNetwork CR (sdn module); read by virt-handler
+	// on startup.
+	AnnMigrationIface = AnnAPIGroupV + "/migration-iface"
+
 	// AnnVirtualDiskOriginalAnnotations is the annotation for storing original VirtualDisk annotations.
 	AnnVirtualDiskOriginalAnnotations = AnnAPIGroupV + "/vd-original-annotations"
 	// AnnVirtualDiskOriginalLabels is the annotation for storing original VirtualDisk labels.

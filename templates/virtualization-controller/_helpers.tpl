@@ -88,16 +88,10 @@ true
   value: "24h"
 - name: GC_VM_POD_SCHEDULE
   value: "0 0 * * *"
-{{- if (hasKey .Values.virtualization.internal.moduleConfig "liveMigration") }}
-- name: LIVE_MIGRATION_BANDWIDTH_PER_NODE
-  value: {{ .Values.virtualization.internal.moduleConfig.liveMigration.bandwidthPerNode | quote }}
-- name: LIVE_MIGRATION_MAX_MIGRATIONS_PER_NODE
-  value: {{ .Values.virtualization.internal.moduleConfig.liveMigration.maxMigrationsPerNode | quote }}
-- name: LIVE_MIGRATION_NETWORK
-  value: {{ .Values.virtualization.internal.moduleConfig.liveMigration.network | quote }}
-{{- if (hasKey .Values.virtualization.internal.moduleConfig.liveMigration "dedicated") }}
-- name: LIVE_MIGRATION_DEDICATED_INTERFACE_NAME
-  value: {{ .Values.virtualization.internal.moduleConfig.liveMigration.dedicated.interfaceName | quote }}
+{{- if (hasKey (.Values.virtualization | default dict) "liveMigration") }}
+{{- if .Values.virtualization.liveMigration.systemNetworkName }}
+- name: MIGRATION_SYSTEM_NETWORK_NAME
+  value: {{ .Values.virtualization.liveMigration.systemNetworkName | quote }}
 {{- end }}
 {{- end }}
 - name: METRICS_BIND_ADDRESS

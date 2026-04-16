@@ -252,6 +252,22 @@ properties:
               type: string
               minLength: 1
             x-examples: ["sc-1", "sc-2"]
+  liveMigration:
+    type: object
+    description: |
+      Live migration network configuration.
+    properties:
+      systemNetworkName:
+        type: string
+        minLength: 1
+        description: |
+          Name of a `SystemNetwork` (sdn module) whose per-host IP addresses
+          are used for VM live migration traffic between `virt-handler` pods.
+
+          Requires the `sdn` module. The named `SystemNetwork` must be `Ready`
+          and provision an interface on every node that runs VMs. When unset,
+          live migration traffic flows over the default node network.
+        x-examples: ["migration"]
   logLevel:
     type: string
     description: |
