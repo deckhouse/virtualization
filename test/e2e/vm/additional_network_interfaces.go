@@ -317,7 +317,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 				util.UntilConditionStatus(vmcondition.TypeNetworkReady.String(), "True", framework.LongTimeout, testVM)
 				Eventually(getIfaceCount).
 					WithTimeout(framework.LongTimeout).
-					WithPolling(3 * time.Second).
+					WithPolling(3*time.Second).
 					Should(Equal(initialIfaceCount+1), "new interface should appear after hotplug")
 			})
 
@@ -334,7 +334,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 			By("Verify interface disappears from the guest OS", func() {
 				Eventually(getIfaceCount).
 					WithTimeout(framework.LongTimeout).
-					WithPolling(3 * time.Second).
+					WithPolling(3*time.Second).
 					Should(Equal(initialIfaceCount), "interface should disappear after hotunplug")
 			})
 
