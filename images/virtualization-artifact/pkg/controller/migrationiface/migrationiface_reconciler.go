@@ -69,7 +69,6 @@ type Reconciler struct {
 }
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
-
 	nodePredicate := predicate.TypedFuncs[*corev1.Node]{
 		CreateFunc: func(event.TypedCreateEvent[*corev1.Node]) bool { return true },
 		UpdateFunc: func(e event.TypedUpdateEvent[*corev1.Node]) bool {
