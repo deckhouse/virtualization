@@ -118,19 +118,20 @@ func (r *attachRecordManager) Refresh() error {
 		return err
 	}
 
-	// keep only real entries
-	var newEntries []AttachEntry
+	newEntries := make([]AttachEntry, 0, len(record.Entries))
 	for _, e := range record.Entries {
 		if _, ok := ports[e.Rhport]; ok {
 			newEntries = append(newEntries, e)
 		}
 	}
 
-	record.Entries = newEntries
+	newRecord := attachRecord{Entries: newEntries}
+	if slices.Equal(record.Entries, newRecord.Entries) {
+		r.record = newRecord
+		return nil
+	}
 
-	r.record = record
-
-	return nil
+	return r.storeLocked(newRecord)
 }
 
 func (r *attachRecordManager) GetEntries() []AttachEntry {
@@ -163,8 +164,10 @@ func (r *attachRecordManager) AddEntry(e AttachEntry) error {
 	newEntries := slices.Clone(r.record.Entries)
 	newEntries = append(newEntries, e)
 
-	record := attachRecord{Entries: newEntries}
+	return r.storeLocked(attachRecord{Entries: newEntries})
+}
 
+func (r *attachRecordManager) storeLocked(record attachRecord) error {
 	b, err := json.Marshal(record)
 	if err != nil {
 		return err

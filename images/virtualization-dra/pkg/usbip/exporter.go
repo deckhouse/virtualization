@@ -98,11 +98,12 @@ func (e *usbExporter) Unexport(host, busID string, port int) error {
 		return fmt.Errorf("unsupported USBIP version: %d", unExportReply.Version)
 	}
 
-	if unExportReply.Status != protocol.OpStatusOk {
+	switch unExportReply.Status {
+	case protocol.OpStatusOk, protocol.OpStatusNoDev:
+		return nil
+	default:
 		return fmt.Errorf("reply failed: %s", unExportReply.Status.String())
 	}
-
-	return nil
 }
 
 func (e *usbExporter) usbipNetTCPConnect(host string, port int) (*net.TCPConn, error) {
