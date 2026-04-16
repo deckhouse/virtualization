@@ -67,7 +67,7 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *v1alpha2.Vi
 	})
 	if err != nil {
 		slog.Default().Error(fmt.Sprintf("failed to list vdsnapshots: %s", err))
-		return
+		return requests
 	}
 
 	for _, vdSnapshot := range vdSnapshots.Items {
@@ -83,7 +83,7 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *v1alpha2.Vi
 		})
 	}
 
-	return
+	return requests
 }
 
 func (w VirtualDiskWatcher) filterUpdateEvents(e event.TypedUpdateEvent[*v1alpha2.VirtualDisk]) bool {

@@ -83,7 +83,7 @@ func PrepareCommand(cmd *cobra.Command, defaultNamespace string, opts *ssh.SSHOp
 	opts.IdentityFilePathProvided = cmd.Flags().Changed(ssh.IdentityFilePathFlag)
 	local, remote, toRemote, err = templates.ParseSCPArguments(args[0], args[1])
 	if err != nil {
-		return
+		return local, remote, toRemote, err
 	}
 
 	if remote.Namespace == "" {
@@ -93,7 +93,7 @@ func PrepareCommand(cmd *cobra.Command, defaultNamespace string, opts *ssh.SSHOp
 	if len(remote.Username) > 0 {
 		opts.SSHUsername = remote.Username
 	}
-	return
+	return local, remote, toRemote, err
 }
 
 func usage() string {

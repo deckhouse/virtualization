@@ -64,7 +64,7 @@ func (c Collector) Collect(ch chan<- prometheus.Metric) {
 	defer cancel()
 	if err := c.iterator.Iter(ctx, func(m *dataMetric) (stop bool) {
 		s.Report(m)
-		return
+		return stop
 	}); err != nil {
 		c.log.Error("Failed to iterate over VMOPs", logger.SlogErr(err))
 		return

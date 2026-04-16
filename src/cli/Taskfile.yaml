@@ -8,7 +8,8 @@ tasks:
   build:
     desc: "Build d8v cli"
     cmds:
-      - go build -o .out/d8v cmd/main.go
+      - echo Build binary ./d8v ...
+      - go build -o ./d8v cmd/main.go
   install:
     desc: "Install d8v cli to ~/.local/bin"
     deps: [build]
@@ -16,12 +17,12 @@ tasks:
       - echo "Check that ~/.local/bin in your PATH"
       - echo "Installing d8v to ~/.local/bin"
       - mkdir -p ~/.local/bin
-      - cp .out/d8v ~/.local/bin/d8v
+      - cp ./d8v ~/.local/bin/d8v
       - task: clean
   clean:
     desc: "Clean up build artifacts"
     cmds:
-      - rm -rf .out
+      - test -f ./d8v && rm -rf ./d8v
 
   lint:
     desc: "Run linters locally"
@@ -37,12 +38,17 @@ tasks:
         golangci-lint run
 
   _ensure:golangci-lint:
-    desc: "Ensure golangci-lint is available"
+    desc: "Ensure golangci-lint v2+ is available"
     internal: true
     cmds:
       - |
-        echo -e >&2 "Please install golangci-lint https://golangci-lint.run/usage/install/"
-        exit 1
-    status:
-      - |
-        [ -f ./golangci-lint ] || which golangci-lint
+        GOLANGCI_LINT_MIN_VERSION="2.0"
+        if ! command -v golangci-lint &> /dev/null; then
+          echo "Installing golangci-lint..."
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
+        fi
+        CURRENT_VERSION=$(golangci-lint --version 2>/dev/null | grep -oP 'version \K[0-9]+\.[0-9]+' || echo "0.0")
+        if [ "$(printf '%s\n' "$GOLANGCI_LINT_MIN_VERSION" "$CURRENT_VERSION" | sort -V | head -n1)" != "$GOLANGCI_LINT_MIN_VERSION" ]; then
+          echo "Upgrading golangci-lint from $CURRENT_VERSION to $GOLANGCI_LINT_MIN_VERSION+"
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
+        fi

@@ -285,7 +285,7 @@ var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), func(
 func getTargetStorageClass(f *framework.Framework, storageClass *storagev1.StorageClass) (string, error) {
 	// GetVolumeAndAccessModes needs no nil object.
 	notEmptyVD := &v1alpha2.VirtualDisk{}
-	modeGetter := volumemode.NewVolumeAndAccessModesGetter(f.Clients.GenericClient(), getStorageProfile(f))
+	modeGetter := volumemode.NewVolumeAndAccessModesGetter(f.GenericClient(), getStorageProfile(f))
 
 	volumeMode, _, err := modeGetter.GetVolumeAndAccessModes(context.Background(), notEmptyVD, storageClass)
 	if err != nil {

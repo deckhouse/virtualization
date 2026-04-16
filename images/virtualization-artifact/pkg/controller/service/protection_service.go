@@ -126,7 +126,8 @@ func (s ProtectionService) GetFinalizer() string {
 }
 
 // MakeOwnerReference makes the owner reference for the controller without controller.
-// Deprecated: use MakeControllerOwnerReference instead.
+// Deprecated:
+// use MakeControllerOwnerReference instead.
 func MakeOwnerReference(owner client.Object) metav1.OwnerReference {
 	return metav1.OwnerReference{
 		APIVersion: owner.GetObjectKind().GroupVersionKind().GroupVersion().String(),

@@ -60,7 +60,7 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *v1alpha2.Vi
 	})
 	if err != nil {
 		log.Error(fmt.Sprintf("failed to list vmRestores: %s", err))
-		return
+		return requests
 	}
 
 	for _, vmRestore := range vmRestores.Items {
@@ -69,14 +69,14 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *v1alpha2.Vi
 		err := w.client.Get(ctx, types.NamespacedName{Name: vmSnapshotName, Namespace: vd.GetNamespace()}, &vmSnapshot)
 		if err != nil {
 			log.Error(fmt.Sprintf("failed to get vmSnapshot: %s", err))
-			return
+			return requests
 		}
 		for _, vdsnapshotName := range vmSnapshot.Status.VirtualDiskSnapshotNames {
 			var vdSnapshot v1alpha2.VirtualDiskSnapshot
 			err := w.client.Get(ctx, types.NamespacedName{Name: vdsnapshotName, Namespace: vd.GetNamespace()}, &vdSnapshot)
 			if err != nil {
 				log.Error(fmt.Sprintf("failed to get vdSnapshot: %s", err))
-				return
+				return requests
 			}
 
 			if w.isVdNameMatch(vd.Name, vdSnapshot.Spec.VirtualDiskName, vmRestore.Spec.NameReplacements) {
@@ -90,7 +90,7 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *v1alpha2.Vi
 		}
 	}
 
-	return
+	return requests
 }
 
 func (w VirtualDiskWatcher) isVdNameMatch(vdName, restoredName string, nameReplacements []v1alpha2.NameReplacement) bool {

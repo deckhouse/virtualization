@@ -56,7 +56,7 @@ func (w VirtualImageRequestEnqueuer) EnqueueRequests(ctx context.Context, obj cl
 	err := w.client.List(ctx, &vis)
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to list vi: %s", err))
-		return
+		return requests
 	}
 
 	for _, vi := range vis.Items {
@@ -85,5 +85,5 @@ func (w VirtualImageRequestEnqueuer) EnqueueRequests(ctx context.Context, obj cl
 		}
 	}
 
-	return
+	return requests
 }

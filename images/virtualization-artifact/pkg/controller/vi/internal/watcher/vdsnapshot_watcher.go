@@ -75,7 +75,7 @@ func (w VirtualDiskSnapshotWatcher) enqueueRequests(ctx context.Context, vdSnaps
 	})
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to list virtual images: %s", err))
-		return
+		return requests
 	}
 
 	for _, vi := range vis.Items {
@@ -92,7 +92,7 @@ func (w VirtualDiskSnapshotWatcher) enqueueRequests(ctx context.Context, vdSnaps
 		})
 	}
 
-	return
+	return requests
 }
 
 func isSnapshotDataSource(ds v1alpha2.VirtualImageDataSource, vdSnapshotName string) bool {

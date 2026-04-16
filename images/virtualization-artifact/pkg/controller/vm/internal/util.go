@@ -51,7 +51,7 @@ func addAllUnknown(vm *v1alpha2.VirtualMachine, conds ...vmcondition.Type) (upda
 		conditions.SetCondition(cb, &vm.Status.Conditions)
 		update = true
 	}
-	return
+	return update
 }
 
 func conditionStatus(status string) metav1.ConditionStatus {

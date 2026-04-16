@@ -17,9 +17,8 @@ limitations under the License.
 package main
 
 import (
-	"hooks/pkg/readiness"
-
 	"github.com/deckhouse/module-sdk/pkg/app"
+	"github.com/deckhouse/virtualization/hooks/pkg/readiness"
 )
 
 func main() {

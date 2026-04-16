@@ -116,8 +116,8 @@ func setPhaseConditionForFinishedImage(
 	phase *v1alpha2.ImagePhase,
 	supgen supplements.Generator,
 ) {
-	switch {
-	case pvc == nil:
+	switch pvc {
+	case nil:
 		*phase = v1alpha2.ImagePVCLost
 		cb.
 			Status(metav1.ConditionFalse).

@@ -80,7 +80,7 @@ tasks:
       - _ensure:golangci-lint
     cmds:
       - |
-        golangci-lint run --sort-results
+        golangci-lint run
 
   _ensure:golangci-lint:
     desc: "Ensure golangci-lint is available"

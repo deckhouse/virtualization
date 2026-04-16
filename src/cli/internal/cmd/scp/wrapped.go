@@ -49,5 +49,5 @@ func (o *SCP) buildSCPTarget(local templates.LocalSCPArgument, remote templates.
 	} else {
 		opts = append(opts, target.String(), local.Path)
 	}
-	return
+	return opts
 }
