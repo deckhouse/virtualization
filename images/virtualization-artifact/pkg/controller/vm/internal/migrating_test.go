@@ -92,7 +92,7 @@ var _ = Describe("MigratingHandler", func() {
 	}
 
 	reconcile := func() {
-		h := NewMigratingHandler(vmservice.NewMigrationVolumesService(fakeClient, MakeKVVMFromVMSpec, 10*time.Second, false))
+		h := NewMigratingHandler(vmservice.NewMigrationVolumesService(fakeClient, MakeKVVMFromVMSpec, 10*time.Second, false, false))
 		_, err := h.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
 		err = resource.Update(context.Background())

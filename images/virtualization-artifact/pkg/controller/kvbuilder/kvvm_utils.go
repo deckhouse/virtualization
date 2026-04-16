@@ -116,6 +116,11 @@ func ApplyVirtualMachineSpec(
 	} else {
 		kvvm.RemoveKVVMIAnnotation(annotations.AnnDisableTapVethBridge)
 	}
+	if kvvm.Options().DisableDHCP {
+		kvvm.SetKVVMIAnnotation(annotations.AnnDisableDHCP, "true")
+	} else {
+		kvvm.RemoveKVVMIAnnotation(annotations.AnnDisableDHCP)
+	}
 	setNetwork(kvvm, networkSpec)
 	kvvm.SetTablet("default-0")
 	kvvm.SetNodeSelector(vm.Spec.NodeSelector, class.Spec.NodeSelector.MatchLabels)

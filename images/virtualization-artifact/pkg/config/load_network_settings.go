@@ -19,13 +19,16 @@ package config
 import "os"
 
 const DisableTapVethBridgeVar = "DISABLE_TAP_VETH_BRIDGE"
+const DisableDHCPVar = "DISABLE_DHCP"
 
 type NetworkSettings struct {
 	DisableTapVethBridge bool
+	DisableDHCP          bool
 }
 
 func LoadNetworkSettingsFromEnv() NetworkSettings {
 	return NetworkSettings{
 		DisableTapVethBridge: os.Getenv(DisableTapVethBridgeVar) == "true",
+		DisableDHCP:          os.Getenv(DisableDHCPVar) == "true",
 	}
 }
