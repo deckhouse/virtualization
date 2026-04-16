@@ -240,8 +240,8 @@ jobs:
                   size: ${{ inputs.cluster_config_workers_memory }}
                 additionalDisks:
                 - size: 50Gi
-          networkConfig:
-            clusterNetworkName: ${{ inputs.nested_cluster_network_name }}
+            networkConfig:
+              clusterNetworkName: ${{ inputs.nested_cluster_network_name }}
           EOF
 
           mkdir -p tmp
