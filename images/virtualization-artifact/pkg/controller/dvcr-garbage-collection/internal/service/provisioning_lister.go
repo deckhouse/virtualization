@@ -117,7 +117,7 @@ func (p *ProvisioningLister) ListVirtualDisksInProvisioning(ctx context.Context)
 	var vdList v1alpha2.VirtualDiskList
 	err := p.client.List(ctx, &vdList)
 	if err != nil {
-		return nil, fmt.Errorf("list all VirtualDiks: %w", err)
+		return nil, fmt.Errorf("list all VirtualDisks: %w", err)
 	}
 
 	var provisioning []v1alpha2.VirtualDisk

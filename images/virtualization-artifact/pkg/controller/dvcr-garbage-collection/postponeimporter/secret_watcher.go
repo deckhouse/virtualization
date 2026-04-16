@@ -100,7 +100,7 @@ func (w *DVCRGarbageCollectionSecretWatcher[T]) enqueuePostponedResources(ctx co
 	}
 
 	if err := w.client.List(ctx, resList, &client.ListOptions{}); err != nil {
-		w.logger.Error("list %T resources: %v", obj, err)
+		w.logger.Error(fmt.Sprintf("list %T resources: %v", obj, err))
 		return nil
 	}
 
