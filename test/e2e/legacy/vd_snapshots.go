@@ -81,16 +81,6 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, label.Legacy(), func() {
 		if config.IsCleanUpNeeded() {
 			DeleteTestCaseResources(ns, ResourcesToDelete{
 				KustomizationDir: conf.TestData.VdSnapshots,
-				AdditionalResources: []AdditionalResource{
-					{
-						Resource: kc.ResourceVDSnapshot,
-						Labels:   hasNoConsumerLabel,
-					},
-					{
-						Resource: kc.ResourceVDSnapshot,
-						Labels:   attachedVirtualDiskLabel,
-					},
-				},
 			})
 		}
 	})

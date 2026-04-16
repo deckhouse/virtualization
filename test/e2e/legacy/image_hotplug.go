@@ -71,20 +71,11 @@ var _ = Describe("ImageHotplug", Ordered, label.Legacy(), func() {
 	})
 
 	AfterAll(func() {
-		resourcesToDelete := ResourcesToDelete{
-			AdditionalResources: []AdditionalResource{
-				{
-					kc.ResourceVMBDA,
-					testCaseLabel,
-				},
-			},
-		}
-
 		if config.IsCleanUpNeeded() {
-			resourcesToDelete.KustomizationDir = conf.TestData.ImageHotplug
+			DeleteTestCaseResources(ns, ResourcesToDelete{
+				KustomizationDir: conf.TestData.ImageHotplug,
+			})
 		}
-
-		DeleteTestCaseResources(ns, resourcesToDelete)
 	})
 
 	Context("When the virtualization resources are applied", func() {

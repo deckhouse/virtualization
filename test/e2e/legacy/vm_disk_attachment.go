@@ -69,17 +69,9 @@ var _ = Describe("VirtualDiskAttachment", Ordered, label.Legacy(), func() {
 
 	AfterAll(func() {
 		if config.IsCleanUpNeeded() {
-			DeleteTestCaseResources(
-				ns,
-				ResourcesToDelete{
-					KustomizationDir: conf.TestData.VMDiskAttachment,
-					AdditionalResources: []AdditionalResource{
-						{
-							Resource: kc.ResourceVMBDA,
-							Labels:   testCaseLabel,
-						},
-					},
-				})
+			DeleteTestCaseResources(ns, ResourcesToDelete{
+				KustomizationDir: conf.TestData.VMDiskAttachment,
+			})
 		}
 	})
 

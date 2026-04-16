@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 )
@@ -47,9 +48,11 @@ var _ = Describe("VirtualMachineVersions", Ordered, label.Legacy(), func() {
 	})
 
 	AfterAll(func() {
-		DeleteTestCaseResources(ns, ResourcesToDelete{
-			KustomizationDir: conf.TestData.VMVersions,
-		})
+		if config.IsCleanUpNeeded() {
+			DeleteTestCaseResources(ns, ResourcesToDelete{
+				KustomizationDir: conf.TestData.VMVersions,
+			})
+		}
 	})
 
 	Context("When virtualization resources are applied:", func() {

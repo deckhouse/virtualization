@@ -61,19 +61,11 @@ var _ = Describe("VirtualMachineEvacuation", Ordered, label.Legacy(), func() {
 		if CurrentSpecReport().Failed() {
 			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
-		resourcesToDelete := ResourcesToDelete{
-			AdditionalResources: []AdditionalResource{
-				{
-					Resource: kc.ResourceVMOP,
-					Labels:   testCaseLabel,
-				},
-			},
-		}
-
 		if config.IsCleanUpNeeded() {
-			resourcesToDelete.KustomizationDir = conf.TestData.VMEvacuation
+			DeleteTestCaseResources(ns, ResourcesToDelete{
+				KustomizationDir: conf.TestData.VMEvacuation,
+			})
 		}
-		DeleteTestCaseResources(ns, resourcesToDelete)
 	})
 
 	evacuate := func(vms []string) {

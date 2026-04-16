@@ -61,9 +61,11 @@ var _ = Describe("VirtualDiskResizing", Ordered, label.Legacy(), func() {
 	})
 
 	AfterAll(func() {
-		DeleteTestCaseResources(ns, ResourcesToDelete{
-			KustomizationDir: conf.TestData.DiskResizing,
-		})
+		if cfg.IsCleanUpNeeded() {
+			DeleteTestCaseResources(ns, ResourcesToDelete{
+				KustomizationDir: conf.TestData.DiskResizing,
+			})
+		}
 	})
 
 	Context("When the resources are applied", func() {

@@ -43,15 +43,6 @@ var _ = Describe("ComplexTest", Ordered, label.Legacy(), func() {
 		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "complex-test"}
 		ns                       string
 		phaseByVolumeBindingMode = util.GetExpectedDiskPhaseByVolumeBindingMode()
-		resourcesToDelete        = ResourcesToDelete{
-			AdditionalResources: []AdditionalResource{
-				{
-					kc.ResourceVMOP,
-					testCaseLabel,
-				},
-			},
-			KustomizationDir: conf.TestData.ComplexTest,
-		}
 	)
 
 	AfterEach(func() {
@@ -62,7 +53,9 @@ var _ = Describe("ComplexTest", Ordered, label.Legacy(), func() {
 
 	AfterAll(func() {
 		if config.IsCleanUpNeeded() {
-			DeleteTestCaseResources(ns, resourcesToDelete)
+			DeleteTestCaseResources(ns, ResourcesToDelete{
+				KustomizationDir: conf.TestData.ComplexTest,
+			})
 		}
 	})
 
