@@ -117,7 +117,7 @@ func (v *StorageClassValidator) validateTargetStorageClassForVolumeMigration(ctx
 		return err
 	}
 
-	if !(vm.Status.Phase == v1alpha2.MachineRunning || vm.Status.Phase == v1alpha2.MachineMigrating) {
+	if vm.Status.Phase != v1alpha2.MachineRunning && vm.Status.Phase != v1alpha2.MachineMigrating {
 		return fmt.Errorf("storage class cannot be changed unless the VirtualDisk is mounted to a running virtual machine")
 	}
 

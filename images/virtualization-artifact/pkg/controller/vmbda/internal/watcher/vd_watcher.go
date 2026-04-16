@@ -77,7 +77,7 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *v1alpha2.Vi
 	})
 	if err != nil {
 		slog.Default().Error(fmt.Sprintf("failed to list vmbdas: %s", err))
-		return
+		return requests
 	}
 
 	for _, vmbda := range vmbdas.Items {
@@ -93,5 +93,5 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *v1alpha2.Vi
 		})
 	}
 
-	return
+	return requests
 }

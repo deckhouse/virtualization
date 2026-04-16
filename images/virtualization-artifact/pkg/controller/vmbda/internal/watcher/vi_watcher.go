@@ -77,7 +77,7 @@ func (w VirtualImageWatcher) enqueueRequests(ctx context.Context, vi *v1alpha2.V
 	})
 	if err != nil {
 		slog.Default().Error(fmt.Sprintf("failed to list vmbdas: %s", err))
-		return
+		return requests
 	}
 
 	for _, vmbda := range vmbdas.Items {
@@ -93,5 +93,5 @@ func (w VirtualImageWatcher) enqueueRequests(ctx context.Context, vi *v1alpha2.V
 		})
 	}
 
-	return
+	return requests
 }

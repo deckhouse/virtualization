@@ -577,7 +577,7 @@ func GenerateVMOP(vmName, vmNamespace string, labels map[string]string, vmopType
 
 func GenerateVMOPWithSuffix(vmName, vmNamespace, suffix string, labels map[string]string, vmopType v1alpha2.VMOPType) *v1alpha2.VirtualMachineOperation {
 	res := GenerateVMOP(vmName, vmNamespace, labels, vmopType)
-	res.ObjectMeta.Name = fmt.Sprintf("%s%s", res.ObjectMeta.Name, suffix)
+	res.Name = fmt.Sprintf("%s%s", res.Name, suffix)
 	return res
 }
 
