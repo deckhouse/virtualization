@@ -68,6 +68,7 @@ type KVVMOptions struct {
 	EnableParavirtualization bool
 	OsType                   v1alpha2.OsType
 	DisableTapVethBridge     bool
+	DisableDHCP              bool
 
 	// These options are for local development mode
 	DisableHypervSyNIC bool

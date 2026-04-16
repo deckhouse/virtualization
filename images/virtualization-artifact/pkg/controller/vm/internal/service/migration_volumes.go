@@ -48,19 +48,21 @@ import (
 
 type MigrationVolumesService struct {
 	client               client.Client
-	makeKVVMFromSpec     func(ctx context.Context, s state.VirtualMachineState, disableTapVethBridge bool) (*virtv1.VirtualMachine, error)
+	makeKVVMFromSpec     func(ctx context.Context, s state.VirtualMachineState, disableTapVethBridge bool, disableDHCP bool) (*virtv1.VirtualMachine, error)
 	delay                map[types.UID]time.Time
 	delayDuration        time.Duration
 	disableTapVethBridge bool
+	disableDHCP          bool
 }
 
-func NewMigrationVolumesService(client client.Client, makeKVVMFromSpec func(ctx context.Context, s state.VirtualMachineState, disableTapVethBridge bool) (*virtv1.VirtualMachine, error), delayDuration time.Duration, disableTapVethBridge bool) *MigrationVolumesService {
+func NewMigrationVolumesService(client client.Client, makeKVVMFromSpec func(ctx context.Context, s state.VirtualMachineState, disableTapVethBridge bool, disableDHCP bool) (*virtv1.VirtualMachine, error), delayDuration time.Duration, disableTapVethBridge bool, disableDHCP bool) *MigrationVolumesService {
 	return &MigrationVolumesService{
 		client:               client,
 		makeKVVMFromSpec:     makeKVVMFromSpec,
 		delay:                make(map[types.UID]time.Time),
 		delayDuration:        delayDuration,
 		disableTapVethBridge: disableTapVethBridge,
+		disableDHCP:          disableDHCP,
 	}
 }
 
@@ -478,7 +480,7 @@ func (s MigrationVolumesService) fillContainerDiskImagePullPolicies(kvvm *virtv1
 }
 
 func (s MigrationVolumesService) makeKVVMFromVirtualMachineSpec(ctx context.Context, vmState state.VirtualMachineState) (*virtv1.VirtualMachine, *virtv1.VirtualMachine, error) {
-	kvvm, err := s.makeKVVMFromSpec(ctx, vmState, s.disableTapVethBridge)
+	kvvm, err := s.makeKVVMFromSpec(ctx, vmState, s.disableTapVethBridge, s.disableDHCP)
 	if err != nil {
 		return nil, nil, err
 	}

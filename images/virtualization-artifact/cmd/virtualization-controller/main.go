@@ -362,7 +362,7 @@ func main() {
 	}
 
 	vmLogger := logger.NewControllerLogger(vm.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if err = vm.SetupController(ctx, mgr, virtClient, vmLogger, dvcrSettings, firmwareImage, networkSettings.DisableTapVethBridge); err != nil {
+	if err = vm.SetupController(ctx, mgr, virtClient, vmLogger, dvcrSettings, firmwareImage, networkSettings.DisableTapVethBridge, networkSettings.DisableDHCP); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
