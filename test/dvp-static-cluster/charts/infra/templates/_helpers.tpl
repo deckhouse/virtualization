@@ -16,7 +16,9 @@ group: {{ $prefix }}
 {{- $ctx := index . 0 -}}
 {{- $name := index . 1 -}}
 {{- $cfg := index . 2 -}}
-{{- $clusterNetworkName := dig $ctx.Values "networkConfig" "clusterNetworkName" "" -}}
+{{- $networkConfig := get $ctx.Values.instances "networkConfig" | default dict -}}
+{{- $clusterNetworkName := get $networkConfig "clusterNetworkName" | default "" -}}
+
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
