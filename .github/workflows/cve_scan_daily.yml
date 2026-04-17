@@ -19,16 +19,14 @@ on:
     - cron: "0 02 * * *"
   workflow_dispatch:
     inputs:
-      tag_type:
-        type: choice
-        description: Tag type
-        required: false
-        options:
-          - release
-          - dev
       tag_name:
         description: "release version in semver minor format (example: 1.68) or specified tag from dev registry"
         required: false
+      scan_several_latest_releases:
+        description: "Scan several latest releases"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: cve-daily
@@ -42,6 +40,15 @@ jobs:
     runs-on: [self-hosted, large]
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set vars
+        id: set_vars
+        run: |
+          if [ "${{ github.event.inputs.scan_several_latest_releases }}" = "true" ]; then
+            echo "multiscan=True" >> $GITHUB_OUTPUT
+          else
+            echo "multiscan=False" >> $GITHUB_OUTPUT
+          fi
 
       - name: Split repository name
         id: split
@@ -91,3 +98,4 @@ jobs:
           cve_ssh_private_key: ${{ steps.secrets.outputs.CVE_TEST_SSH_PRIVATE_KEY }}
           trivy_reports_log_output: "1"
           latest_releases_amount: 5
+          scan_several_latest_releases: ${{ steps.set_vars.outputs.multiscan }}
