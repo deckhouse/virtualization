@@ -252,6 +252,27 @@ properties:
               type: string
               minLength: 1
             x-examples: ["sc-1", "sc-2"]
+  network:
+    type: object
+    description: |
+      Virtual machine networking settings.
+    properties:
+      disableTapVethBridge:
+        type: boolean
+        default: false
+        description: |
+          Disable tap-veth-bridge wiring for KubeVirt bridge interfaces.
+
+          When enabled, the virtualization controller adds the `virtualization.deckhouse.io/disable-tap-veth-bridge=true` annotation to the KubeVirt VirtualMachineInstance template.
+          The KubeVirt network setup then skips creating the tap-veth-bridge wiring and bridge DHCP configurator for such VMIs.
+      disableDHCP:
+        type: boolean
+        default: false
+        description: |
+          Disable bridge DHCP configurator for KubeVirt bridge interfaces.
+
+          When enabled, the virtualization controller adds the `virtualization.deckhouse.io/disable-dhcp=true` annotation to the KubeVirt VirtualMachineInstance template.
+          The KubeVirt network setup then skips creating the bridge DHCP configurator for such VMIs.
   logLevel:
     type: string
     description: |

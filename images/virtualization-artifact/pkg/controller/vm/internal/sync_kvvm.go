@@ -62,22 +62,28 @@ func NewSyncKvvmHandler(
 	recorder eventrecord.EventRecorderLogger,
 	featureGate featuregate.FeatureGate,
 	syncVolumesService syncVolumesService,
+	disableTapVethBridge bool,
+	disableDHCP bool,
 ) *SyncKvvmHandler {
 	return &SyncKvvmHandler{
-		dvcrSettings:       dvcrSettings,
-		client:             client,
-		recorder:           recorder,
-		featureGate:        featureGate,
-		syncVolumesService: syncVolumesService,
+		dvcrSettings:         dvcrSettings,
+		client:               client,
+		recorder:             recorder,
+		featureGate:          featureGate,
+		syncVolumesService:   syncVolumesService,
+		disableTapVethBridge: disableTapVethBridge,
+		disableDHCP:          disableDHCP,
 	}
 }
 
 type SyncKvvmHandler struct {
-	client             client.Client
-	recorder           eventrecord.EventRecorderLogger
-	dvcrSettings       *dvcr.Settings
-	featureGate        featuregate.FeatureGate
-	syncVolumesService syncVolumesService
+	client               client.Client
+	recorder             eventrecord.EventRecorderLogger
+	dvcrSettings         *dvcr.Settings
+	featureGate          featuregate.FeatureGate
+	syncVolumesService   syncVolumesService
+	disableTapVethBridge bool
+	disableDHCP          bool
 }
 
 func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
@@ -343,7 +349,7 @@ func (h *SyncKvvmHandler) createKVVM(ctx context.Context, s state.VirtualMachine
 	if s.VirtualMachine().IsEmpty() {
 		return fmt.Errorf("the virtual machine is empty, please report a bug")
 	}
-	kvvm, err := MakeKVVMFromVMSpec(ctx, s)
+	kvvm, err := MakeKVVMFromVMSpec(ctx, s, h.disableTapVethBridge, h.disableDHCP)
 	if err != nil {
 		return fmt.Errorf("failed to make the internal virtual machine: %w", err)
 	}
@@ -372,7 +378,7 @@ func (h *SyncKvvmHandler) updateKVVM(ctx context.Context, s state.VirtualMachine
 		return fmt.Errorf("the virtual machine is empty, please report a bug")
 	}
 
-	newKVVM, err := MakeKVVMFromVMSpec(ctx, s)
+	newKVVM, err := MakeKVVMFromVMSpec(ctx, s, h.disableTapVethBridge, h.disableDHCP)
 	if err != nil {
 		return fmt.Errorf("update internal virtual machine: make kvvm from the virtual machine spec: %w", err)
 	}
@@ -438,7 +444,7 @@ func saveKVVMDomainMemoryForPatching(prevKVVM, newKVVM *virtv1.VirtualMachine) *
 	return nil
 }
 
-func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
+func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState, disableTapVethBridge bool, disableDHCP bool) (*virtv1.VirtualMachine, error) {
 	if s.VirtualMachine().IsEmpty() {
 		return nil, nil
 	}
@@ -446,6 +452,8 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 	kvvmName := object.NamespacedName(current)
 
 	kvvmOpts := kvbuilder.DefaultOptions(current)
+	kvvmOpts.DisableTapVethBridge = disableTapVethBridge
+	kvvmOpts.DisableDHCP = disableDHCP
 
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {

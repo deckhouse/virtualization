@@ -88,6 +88,10 @@ const (
 
 	// AnnVMRestartRequested is an annotation on KVVM that represents a request to restart a virtual machine.
 	AnnVMRestartRequested = AnnAPIGroupV + "/vm-restart-requested"
+	// AnnDisableTapVethBridge disables tap-veth-bridge wiring for the VMI network setup in KubeVirt.
+	AnnDisableTapVethBridge = AnnAPIGroupV + "/disable-tap-veth-bridge"
+	// AnnDisableDHCP disables bridge DHCP configurator for the VMI network setup in KubeVirt.
+	AnnDisableDHCP = AnnAPIGroupV + "/disable-dhcp"
 
 	// AnnVMOPWorkloadUpdate is an annotation on vmop that represents a vmop created by workload-updater controller.
 	AnnVMOPWorkloadUpdate                    = AnnAPIGroupV + "/workload-update"
