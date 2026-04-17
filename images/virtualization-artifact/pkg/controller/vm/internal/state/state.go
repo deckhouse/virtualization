@@ -397,12 +397,18 @@ func (s *state) PVNodeAffinityTerms(ctx context.Context) ([]corev1.NodeSelectorT
 
 	for _, ref := range refs {
 		pvcName, err := s.resolvePVCName(ctx, ref.Kind, ref.Name)
-		if err != nil || pvcName == "" {
+		if err != nil {
+			return nil, fmt.Errorf("resolve PVC name for %s/%s: %w", ref.Kind, ref.Name, err)
+		}
+		if pvcName == "" {
 			continue
 		}
 
 		terms, err := s.pvNodeAffinityTermsForPVC(ctx, pvcName, namespace)
-		if err != nil || terms == nil {
+		if err != nil {
+			return nil, fmt.Errorf("get PV node affinity for PVC %s: %w", pvcName, err)
+		}
+		if terms == nil {
 			continue
 		}
 		perPVTerms = append(perPVTerms, terms)
