@@ -19,6 +19,7 @@ package types
 import (
 	"context"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -35,6 +36,7 @@ type DVCRService interface {
 	IsGarbageCollectionDone(secret *corev1.Secret) bool
 
 	GetGarbageCollectionResult(secret *corev1.Secret) string
+	IsGarbageCollectionResultPersisted(secret *corev1.Secret, deploy *appsv1.Deployment) bool
 	ParseGarbageCollectionResult(secret *corev1.Secret) (reason dvcrdeploymentcondition.GarbageCollectionReason, message string, err error)
 }
 

@@ -30,6 +30,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/postponeimporter"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
@@ -82,7 +84,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	return rec.Reconcile(ctx)
 }
 
-func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
+func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller, logger *log.Logger) error {
 	if err := ctr.Watch(
 		source.Kind(mgr.GetCache(), &v1alpha2.VirtualImage{},
 			&handler.TypedEnqueueRequestForObject[*v1alpha2.VirtualImage]{},
@@ -117,6 +119,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		watcher.NewDataVolumeWatcher(),
 		watcher.NewPersistentVolumeClaimWatcher(),
 		watcher.NewVirtualDiskWatcher(mgrClient),
+		postponeimporter.NewWatcher[*v1alpha2.VirtualImage](mgrClient, logger),
 	} {
 		err := w.Watch(mgr, ctr)
 		if err != nil {

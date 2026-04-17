@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package postponehandler
+package postponeimporter
 
 import (
 	"context"
@@ -42,13 +42,13 @@ type DVCRService interface {
 
 var PostponePeriod = time.Second * 15
 
-type Postpone[object client.Object] struct {
+type PostponeHandler[object client.Object] struct {
 	dvcrService DVCRService
 	recorder    eventrecord.EventRecorderLogger
 }
 
-func New[T client.Object](dvcrService DVCRService, recorder eventrecord.EventRecorderLogger) *Postpone[T] {
-	return &Postpone[T]{
+func NewHandler[T client.Object](dvcrService DVCRService, recorder eventrecord.EventRecorderLogger) *PostponeHandler[T] {
+	return &PostponeHandler[T]{
 		dvcrService: dvcrService,
 		recorder:    recorder,
 	}
@@ -57,7 +57,7 @@ func New[T client.Object](dvcrService DVCRService, recorder eventrecord.EventRec
 // Handle sets Ready condition to Provisioning for newly created resources
 // if dvcr is in the garbage collection mode.
 // Applicable for ClusterVirtualImage, VirtualImage, and VirtualDisk.
-func (p *Postpone[T]) Handle(ctx context.Context, obj T) (reconcile.Result, error) {
+func (p *PostponeHandler[T]) Handle(ctx context.Context, obj T) (reconcile.Result, error) {
 	conditionsPtr := conditions.NewConditionsAccessor(obj).Conditions()
 
 	readyCondition, readyConditionPresent := conditions.GetCondition(getReadyType(obj), *conditionsPtr)
@@ -109,7 +109,7 @@ func (p *Postpone[T]) Handle(ctx context.Context, obj T) (reconcile.Result, erro
 	return reconcile.Result{RequeueAfter: PostponePeriod}, reconciler.ErrStopHandlerChain
 }
 
-func (p *Postpone[T]) Name() string {
+func (p *PostponeHandler[T]) Name() string {
 	return "postpone-on-dvcr-garbage-collection-handler"
 }
 
