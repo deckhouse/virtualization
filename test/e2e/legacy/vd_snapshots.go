@@ -77,6 +77,14 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, label.Legacy(), func() {
 		}
 	})
 
+	AfterAll(func() {
+		if config.IsCleanUpNeeded() {
+			DeleteTestCaseResources(ns, ResourcesToDelete{
+				KustomizationDir: conf.TestData.VdSnapshots,
+			})
+		}
+	})
+
 	Context("When virtualization resources are applied:", func() {
 		It("result should be succeeded", func() {
 			res := kubectl.Apply(kc.ApplyOptions{
@@ -356,26 +364,6 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, label.Legacy(), func() {
 				).WithPolling(
 					filesystemReadyPollingInterval,
 				).Should(Succeed())
-			}
-		})
-	})
-
-	Context("When test is completed", func() {
-		It("deletes test case resources", func() {
-			if config.IsCleanUpNeeded() {
-				DeleteTestCaseResources(ns, ResourcesToDelete{
-					KustomizationDir: conf.TestData.VdSnapshots,
-					AdditionalResources: []AdditionalResource{
-						{
-							Resource: kc.ResourceVDSnapshot,
-							Labels:   hasNoConsumerLabel,
-						},
-						{
-							Resource: kc.ResourceVDSnapshot,
-							Labels:   attachedVirtualDiskLabel,
-						},
-					},
-				})
 			}
 		})
 	})

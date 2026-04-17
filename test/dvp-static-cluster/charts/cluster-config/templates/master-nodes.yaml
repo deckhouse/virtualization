@@ -4,6 +4,17 @@
   {{- $totalNodes = add $totalNodes .count -}}
 {{- end -}}
 
+{{/*
+  CAPS (Cluster API Static Provider) manages static nodes, but during bootstrap it may fail
+  to take control of the first master node, which can break the bootstrap process.
+
+  To avoid this, the first master (index 0) — the one that was bootstrapped initially —
+  is intentionally excluded from CAPS management. Only masters with index >= 1 are registered
+  as StaticInstance resources and counted in the NodeGroup.
+*/}}
+{{- $masterCount := $.Values.instances.masterNodes.count | int -}}
+{{- if gt $masterCount 1 -}}
+  {{- $staticCount := sub $masterCount 1 -}}
 ---
 apiVersion: deckhouse.io/v1
 kind: NodeGroup
@@ -24,21 +35,17 @@ spec:
       node-role.kubernetes.io/master: ""
   nodeType: Static
   staticInstances:
-    count: {{ .Values.instances.masterNodes.count }}
+    count: {{ $staticCount }}
     labelSelector:
       matchLabels:
         role: master
 
-{{- range $_, $i := untilStep 0 (.Values.instances.masterNodes.count | int) 1}}
+{{- range $_, $i := untilStep 1 $masterCount 1}}
   {{- $vmName := printf "%s-master-%d" $.Values.storageType $i }}
 ---
 apiVersion: deckhouse.io/v1alpha1
 kind: StaticInstance
 metadata:
-  {{- if eq $i 0 }}
-  annotations:
-    static.node.deckhouse.io/skip-bootstrap-phase: ""
-  {{- end }}
   name: {{ $vmName }}
   labels:
     role: master
@@ -46,5 +53,6 @@ spec:
   address: {{ index $.Values.discovered.vmIPs $vmName }}
   credentialsRef:
     kind: SSHCredentials
-    name: mvp-static
+    name: dvp-stataic
+{{- end }}
 {{- end }}

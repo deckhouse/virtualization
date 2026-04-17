@@ -86,6 +86,42 @@ const (
 	// ReasonMigrationRunning is a ReasonCompleted indicating that the migration process is currently in progress.
 	ReasonMigrationRunning ReasonCompleted = "MigrationRunning"
 
+	// ReasonDisksPreparing indicates that migration-related disk preparation is in progress.
+	ReasonDisksPreparing ReasonCompleted = "DisksPreparing"
+
+	// ReasonTargetScheduling indicates that the target pod is being scheduled.
+	ReasonTargetScheduling ReasonCompleted = "TargetScheduling"
+
+	// ReasonTargetUnschedulable indicates that the target pod cannot be scheduled.
+	ReasonTargetUnschedulable ReasonCompleted = "TargetUnschedulable"
+
+	// ReasonTargetDiskError indicates that target disk attachment failed.
+	ReasonTargetDiskError ReasonCompleted = "TargetDiskError"
+
+	// ReasonTargetPreparing indicates that target pod is being prepared.
+	ReasonTargetPreparing ReasonCompleted = "TargetPreparing"
+
+	// ReasonSyncing indicates that source and target are synchronizing migration data.
+	ReasonSyncing ReasonCompleted = "Syncing"
+
+	// ReasonNotConverging indicates that migration cannot converge even with maximum throttling.
+	ReasonNotConverging ReasonCompleted = "NotConverging"
+
+	// ReasonSourceSuspended indicates that source VM has been suspended.
+	ReasonSourceSuspended ReasonCompleted = "SourceSuspended"
+
+	// ReasonTargetResumed indicates that target VM has resumed.
+	ReasonTargetResumed ReasonCompleted = "TargetResumed"
+
+	// ReasonMigrationCompleted indicates that migration has completed successfully.
+	ReasonMigrationCompleted ReasonCompleted = "Completed"
+
+	// ReasonAborted indicates that migration has been aborted.
+	ReasonAborted ReasonCompleted = "Aborted"
+
+	// ReasonFailed indicates that migration failed for an unspecified reason.
+	ReasonFailed ReasonCompleted = "Failed"
+
 	// ReasonOtherMigrationInProgress is a ReasonCompleted indicating that there are other migrations in progress.
 	ReasonOtherMigrationInProgress ReasonCompleted = "OtherMigrationInProgress"
 

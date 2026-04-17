@@ -60,6 +60,14 @@ var _ = Describe("VirtualDiskResizing", Ordered, label.Legacy(), func() {
 		}
 	})
 
+	AfterAll(func() {
+		if cfg.IsCleanUpNeeded() {
+			DeleteTestCaseResources(ns, ResourcesToDelete{
+				KustomizationDir: conf.TestData.DiskResizing,
+			})
+		}
+	})
+
 	Context("When the resources are applied", func() {
 		It("result should be succeeded", func() {
 			res := kubectl.Apply(kc.ApplyOptions{
@@ -224,14 +232,6 @@ var _ = Describe("VirtualDiskResizing", Ordered, label.Legacy(), func() {
 					}
 					return nil
 				}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
-			})
-		})
-	})
-
-	Context("When test is completed", func() {
-		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ns, ResourcesToDelete{
-				KustomizationDir: conf.TestData.DiskResizing,
 			})
 		})
 	})
