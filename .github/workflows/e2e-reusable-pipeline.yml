@@ -1009,7 +1009,7 @@ jobs:
             name: virtualization
           spec:
             imageTag: ${{ env.VIRTUALIZATION_TAG }}
-            scanInterval: 10h
+            scanInterval: 120h
           EOF
 
           echo "[INFO] Show ModuleSource"
