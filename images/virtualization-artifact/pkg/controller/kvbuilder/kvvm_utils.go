@@ -355,7 +355,17 @@ func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName ma
 }
 
 func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList) {
-	kvvm.ClearNetworkInterfaces()
+	desiredByName := make(map[string]struct{}, len(networkSpec))
+	for _, n := range networkSpec {
+		desiredByName[n.InterfaceName] = struct{}{}
+	}
+
+	for _, iface := range kvvm.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
+		if _, wanted := desiredByName[iface.Name]; !wanted {
+			kvvm.SetNetworkInterfaceAbsent(iface.Name)
+		}
+	}
+
 	for _, n := range networkSpec {
 		kvvm.SetNetworkInterface(n.InterfaceName, n.MAC, n.ID)
 	}

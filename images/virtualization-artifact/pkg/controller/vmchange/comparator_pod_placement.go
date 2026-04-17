@@ -19,6 +19,7 @@ package vmchange
 import (
 	"reflect"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -89,10 +90,10 @@ func compareNetworks(current, desired *v1alpha2.VirtualMachineSpec) []FieldChang
 	desiredValue := NewValue(desired.Networks, desired.Networks == nil, false)
 
 	action := ActionRestart
-	// During upgrade from 1.6.0 to 1.7.0, network interface IDs are auto-populated for all existing VMs in the cluster.
-	// This allows avoiding a virtual machine restart during the version upgrade.
 	if isOnlyNetworkIDAutofillChange(current.Networks, desired.Networks) {
 		action = ActionNone
+	} else if isOnlyNonMainNetworksChanged(current.Networks, desired.Networks) {
+		action = ActionApplyImmediate
 	}
 
 	return compareValues(
@@ -102,6 +103,23 @@ func compareNetworks(current, desired *v1alpha2.VirtualMachineSpec) []FieldChang
 		reflect.DeepEqual(current.Networks, desired.Networks),
 		action,
 	)
+}
+
+// isOnlyNonMainNetworksChanged returns true when the Main network is unchanged
+// between current and desired (so only non-Main networks differ).
+// Empty networks list is equivalent to having an implicit default Main.
+func isOnlyNonMainNetworksChanged(current, desired []v1alpha2.NetworksSpec) bool {
+	currentMain := network.GetMainNetworkSpec(current)
+	desiredMain := network.GetMainNetworkSpec(desired)
+	currentHasMain := currentMain != nil || len(current) == 0
+	desiredHasMain := desiredMain != nil || len(desired) == 0
+	if !currentHasMain || !desiredHasMain {
+		return false
+	}
+	if currentMain == nil || desiredMain == nil {
+		return true
+	}
+	return reflect.DeepEqual(*currentMain, *desiredMain)
 }
 
 func isOnlyNetworkIDAutofillChange(current, desired []v1alpha2.NetworksSpec) bool {
