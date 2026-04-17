@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"strings"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	k8snodeaffinity "k8s.io/component-helpers/scheduling/corev1/nodeaffinity"
@@ -30,6 +31,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/nodeaffinity"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -124,7 +126,10 @@ func (v *PVNodeAffinityValidator) validateUnscheduledVM(ctx context.Context, vm 
 
 	var vmClass v1alpha2.VirtualMachineClass
 	if err := v.client.Get(ctx, types.NamespacedName{Name: vm.Spec.VirtualMachineClassName}, &vmClass); err != nil {
-		return nil, nil
+		if k8serrors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get VirtualMachineClass %q: %w", vm.Spec.VirtualMachineClassName, err)
 	}
 
 	var nodeList corev1.NodeList
@@ -134,7 +139,11 @@ func (v *PVNodeAffinityValidator) validateUnscheduledVM(ctx context.Context, vm 
 
 	for i := range nodeList.Items {
 		node := &nodeList.Items[i]
-		if !nodeaffinity.MatchesVMPlacement(node, vm, &vmClass) {
+		match, err := nodeaffinity.MatchesVMPlacement(node, vm, &vmClass)
+		if err != nil {
+			return nil, fmt.Errorf("match VM placement for node %q: %w", node.Name, err)
+		}
+		if !match {
 			continue
 		}
 		matchesAllPVs := true
@@ -156,6 +165,7 @@ func (v *PVNodeAffinityValidator) validateUnscheduledVM(ctx context.Context, vm 
 }
 
 func (v *PVNodeAffinityValidator) collectPVNodeSelectors(ctx context.Context, refs []v1alpha2.BlockDeviceSpecRef, namespace string) ([]*k8snodeaffinity.NodeSelector, error) {
+	log := logger.FromContext(ctx)
 	var selectors []*k8snodeaffinity.NodeSelector
 	for _, ref := range refs {
 		ad, err := v.resolveAttachmentDisk(ctx, ref, namespace)
@@ -176,16 +186,20 @@ func (v *PVNodeAffinityValidator) collectPVNodeSelectors(ctx context.Context, re
 
 		var pv corev1.PersistentVolume
 		if err := v.client.Get(ctx, types.NamespacedName{Name: pvc.Spec.VolumeName}, &pv); err != nil {
-			continue
+			if k8serrors.IsNotFound(err) {
+				continue
+			}
+			return nil, fmt.Errorf("get PersistentVolume %q: %w", pvc.Spec.VolumeName, err)
 		}
 
 		if pv.Spec.NodeAffinity == nil || pv.Spec.NodeAffinity.Required == nil {
+			log.Info("PersistentVolume has no node affinity, no topology constraint applied", "pv", pv.Name, "pvc", ad.PVCName)
 			continue
 		}
 
 		ns, err := k8snodeaffinity.NewNodeSelector(pv.Spec.NodeAffinity.Required)
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("build node selector for PV %q: %w", pvc.Spec.VolumeName, err)
 		}
 		selectors = append(selectors, ns)
 	}
@@ -193,6 +207,7 @@ func (v *PVNodeAffinityValidator) collectPVNodeSelectors(ctx context.Context, re
 }
 
 func (v *PVNodeAffinityValidator) resolveAttachmentDisk(ctx context.Context, ref v1alpha2.BlockDeviceSpecRef, namespace string) (*service.AttachmentDisk, error) {
+	log := logger.FromContext(ctx)
 	switch ref.Kind {
 	case v1alpha2.DiskDevice:
 		vd, err := v.attacher.GetVirtualDisk(ctx, ref.Name, namespace)
@@ -200,6 +215,7 @@ func (v *PVNodeAffinityValidator) resolveAttachmentDisk(ctx context.Context, ref
 			return nil, fmt.Errorf("failed to get VirtualDisk %q: %w", ref.Name, err)
 		}
 		if vd == nil {
+			log.Info("VirtualDisk not found, skipping PV node affinity check", "name", ref.Name, "namespace", namespace)
 			return nil, nil
 		}
 		return service.NewAttachmentDiskFromVirtualDisk(vd), nil
@@ -209,6 +225,7 @@ func (v *PVNodeAffinityValidator) resolveAttachmentDisk(ctx context.Context, ref
 			return nil, fmt.Errorf("failed to get VirtualImage %q: %w", ref.Name, err)
 		}
 		if vi == nil {
+			log.Info("VirtualImage not found, skipping PV node affinity check", "name", ref.Name, "namespace", namespace)
 			return nil, nil
 		}
 		return service.NewAttachmentDiskFromVirtualImage(vi), nil

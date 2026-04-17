@@ -17,6 +17,8 @@ limitations under the License.
 package nodeaffinity
 
 import (
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1helpers "k8s.io/component-helpers/scheduling/corev1"
@@ -35,11 +37,25 @@ func IntersectTerms(perPVTerms [][]corev1.NodeSelectorTerm) []corev1.NodeSelecto
 	return result
 }
 
-func MatchesVMPlacement(node *corev1.Node, vm *v1alpha2.VirtualMachine, vmClass *v1alpha2.VirtualMachineClass) bool {
-	return matchesNodeSelector(node, vm.Spec.NodeSelector) &&
-		matchesVMAffinity(node, vm.Spec.Affinity) &&
-		matchesVMClassNodeSelector(node, vmClass) &&
-		toleratesNodeTaints(node, vm.Spec.Tolerations)
+func MatchesVMPlacement(node *corev1.Node, vm *v1alpha2.VirtualMachine, vmClass *v1alpha2.VirtualMachineClass) (bool, error) {
+	if !matchesNodeSelector(node, vm.Spec.NodeSelector) {
+		return false, nil
+	}
+	match, err := matchesVMAffinity(node, vm.Spec.Affinity)
+	if err != nil {
+		return false, fmt.Errorf("match VM affinity: %w", err)
+	}
+	if !match {
+		return false, nil
+	}
+	match, err = matchesVMClassNodeSelector(node, vmClass)
+	if err != nil {
+		return false, fmt.Errorf("match VM class node selector: %w", err)
+	}
+	if !match {
+		return false, nil
+	}
+	return toleratesNodeTaints(node, vm.Spec.Tolerations), nil
 }
 
 func matchesNodeSelector(node *corev1.Node, nodeSelector map[string]string) bool {
@@ -49,37 +65,29 @@ func matchesNodeSelector(node *corev1.Node, nodeSelector map[string]string) bool
 	return labels.SelectorFromSet(nodeSelector).Matches(labels.Set(node.Labels))
 }
 
-func matchesVMAffinity(node *corev1.Node, affinity *v1alpha2.VMAffinity) bool {
+func matchesVMAffinity(node *corev1.Node, affinity *v1alpha2.VMAffinity) (bool, error) {
 	if affinity == nil || affinity.NodeAffinity == nil ||
 		affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
-		return true
+		return true, nil
 	}
-	match, err := corev1helpers.MatchNodeSelectorTerms(node, affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution)
-	if err != nil {
-		return true
-	}
-	return match
+	return corev1helpers.MatchNodeSelectorTerms(node, affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution)
 }
 
-func matchesVMClassNodeSelector(node *corev1.Node, vmClass *v1alpha2.VirtualMachineClass) bool {
+func matchesVMClassNodeSelector(node *corev1.Node, vmClass *v1alpha2.VirtualMachineClass) (bool, error) {
 	nodeSelector := vmClass.Spec.NodeSelector
 	if len(nodeSelector.MatchLabels) > 0 {
 		if !labels.SelectorFromSet(nodeSelector.MatchLabels).Matches(labels.Set(node.Labels)) {
-			return false
+			return false, nil
 		}
 	}
 	if len(nodeSelector.MatchExpressions) > 0 {
-		match, err := corev1helpers.MatchNodeSelectorTerms(node, &corev1.NodeSelector{
+		return corev1helpers.MatchNodeSelectorTerms(node, &corev1.NodeSelector{
 			NodeSelectorTerms: []corev1.NodeSelectorTerm{{
 				MatchExpressions: nodeSelector.MatchExpressions,
 			}},
 		})
-		if err != nil {
-			return true
-		}
-		return match
 	}
-	return true
+	return true, nil
 }
 
 func toleratesNodeTaints(node *corev1.Node, tolerations []corev1.Toleration) bool {
