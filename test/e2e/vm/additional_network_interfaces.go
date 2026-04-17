@@ -245,7 +245,7 @@ func buildVMWithNetworks(name, ns, vdRootName, additionalIP string, hasMain bool
 		vm.WithName(name),
 		vm.WithNamespace(ns),
 		vm.WithBootloader(v1alpha2.EFI),
-		vm.WithCPU(1, ptr.To("5%")),
+		vm.WithCPU(1, ptr.To("50%")),
 		vm.WithMemory(resource.MustParse("256Mi")),
 		vm.WithRestartApprovalMode(v1alpha2.Manual),
 		vm.WithVirtualMachineClass(object.DefaultVMClass),

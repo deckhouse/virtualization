@@ -116,7 +116,7 @@ tasks:
         sh: date +%s
     cmds:
       - kubectl apply -f {{ .TMP_DIR }}/infra.yaml
-      - kubectl -n {{ .NAMESPACE }} get all
+      - kubectl -n {{ .NAMESPACE }} get vm,vd,vi,svc,pod,deploy
       - kubectl -n {{ .NAMESPACE }} wait --for=condition=Ready pod -l app=jump-host --timeout=300s
       - kubectl -n {{ .NAMESPACE }} get vi -o name | xargs kubectl -n {{ .NAMESPACE }} wait --for='jsonpath={.status.phase}=Ready' --timeout=600s
       - kubectl -n {{ .NAMESPACE }} get vd -o name | xargs kubectl -n {{ .NAMESPACE }} wait --for='jsonpath={.status.phase}=Ready' --timeout=600s
@@ -140,7 +140,7 @@ tasks:
     desc: Add proxy if enabled
     cmds:
       - |
-        if yq eval '.deckhouse.proxyEnabled' values.yaml; then
+        if [[ $(yq eval '.deckhouse.proxyEnabled' values.yaml) == true ]]; then
           yq eval --inplace '.proxy.httpProxy = env(HTTP_PROXY) | .proxy.httpsProxy = env(HTTPS_PROXY)' values.yaml
         fi
 

@@ -150,6 +150,9 @@ func (h *StatisticHandler) syncResources(changed *v1alpha2.VirtualMachine,
 
 		cpuOverhead := cpuPODRequest.DeepCopy()
 		cpuOverhead.Sub(*cpuFractionRequests)
+		if cpuOverhead.Value() < 0 {
+			cpuOverhead.Set(0)
+		}
 
 		memoryKVVMIRequest := kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]
 		memoryPodRequest := ctr.Resources.Requests[corev1.ResourceMemory]
@@ -158,6 +161,9 @@ func (h *StatisticHandler) syncResources(changed *v1alpha2.VirtualMachine,
 		memoryOverhead.Sub(memoryKVVMIRequest)
 		mi := int64(1024 * 1024)
 		memoryOverhead = *resource.NewQuantity(int64(math.Ceil(float64(memoryOverhead.Value())/float64(mi)))*mi, resource.BinarySI)
+		if memoryOverhead.Value() < 0 {
+			memoryOverhead.Set(0)
+		}
 
 		resources = v1alpha2.ResourcesStatus{
 			CPU: v1alpha2.CPUStatus{

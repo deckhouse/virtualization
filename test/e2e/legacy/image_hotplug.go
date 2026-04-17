@@ -70,6 +70,14 @@ var _ = Describe("ImageHotplug", Ordered, label.Legacy(), func() {
 		}
 	})
 
+	AfterAll(func() {
+		if config.IsCleanUpNeeded() {
+			DeleteTestCaseResources(ns, ResourcesToDelete{
+				KustomizationDir: conf.TestData.ImageHotplug,
+			})
+		}
+	})
+
 	Context("When the virtualization resources are applied", func() {
 		It("result should be succeeded", func() {
 			res := kubectl.Apply(kc.ApplyOptions{
@@ -264,25 +272,6 @@ var _ = Describe("ImageHotplug", Ordered, label.Legacy(), func() {
 				diskCountAfter := len(disksAfter.BlockDevices)
 				return diskCountAfter, nil
 			}).WithTimeout(Timeout).WithPolling(Interval).Should(Equal(diskCountBefore), "comparing error: 'after' must be equal 'before'")
-		})
-	})
-
-	Context("When test is completed", func() {
-		It("deletes test case resources", func() {
-			resourcesToDelete := ResourcesToDelete{
-				AdditionalResources: []AdditionalResource{
-					{
-						kc.ResourceVMBDA,
-						testCaseLabel,
-					},
-				},
-			}
-
-			if config.IsCleanUpNeeded() {
-				resourcesToDelete.KustomizationDir = conf.TestData.ImageHotplug
-			}
-
-			DeleteTestCaseResources(ns, resourcesToDelete)
 		})
 	})
 })

@@ -51,6 +51,14 @@ var _ = Describe("ComplexTest", Ordered, label.Legacy(), func() {
 		}
 	})
 
+	AfterAll(func() {
+		if config.IsCleanUpNeeded() {
+			DeleteTestCaseResources(ns, ResourcesToDelete{
+				KustomizationDir: conf.TestData.ComplexTest,
+			})
+		}
+	})
+
 	BeforeAll(func() {
 		kustomization := fmt.Sprintf("%s/%s", conf.TestData.ComplexTest, "kustomization.yaml")
 		var err error
@@ -227,23 +235,6 @@ var _ = Describe("ComplexTest", Ordered, label.Legacy(), func() {
 				CheckCiliumAgents(kubectl, ns, vms...)
 				CheckExternalConnection(externalHost, httpStatusOk, ns, vms...)
 			})
-		})
-	})
-
-	Context("When test is completed", func() {
-		It("deletes test case resources", func() {
-			if config.IsCleanUpNeeded() {
-				resourcesToDelete := ResourcesToDelete{
-					AdditionalResources: []AdditionalResource{
-						{
-							kc.ResourceVMOP,
-							testCaseLabel,
-						},
-					},
-					KustomizationDir: conf.TestData.ComplexTest,
-				}
-				DeleteTestCaseResources(ns, resourcesToDelete)
-			}
 		})
 	})
 })

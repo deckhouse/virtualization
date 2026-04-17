@@ -76,6 +76,14 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 		return reconcile.Result{}, err
 	}
 
+	var frozen bool
+	if vm != nil {
+		frozenCondition, ok := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, vm.Status.Conditions)
+		if ok && frozenCondition.Status == metav1.ConditionTrue {
+			frozen = true
+		}
+	}
+
 	kvvmi, err := h.snapshotter.GetVirtualMachineInstance(ctx, vm)
 	if err != nil {
 		h.setPhaseConditionToFailed(cb, vmSnapshot, err)
@@ -113,7 +121,11 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 			Reason(conditions.ReasonUnknown).
 			Message("")
 
-		_, err = h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm, kvvmi)
+		if !frozen {
+			return reconcile.Result{}, nil
+		}
+
+		canUnfreeze, err := h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm, kvvmi)
 		if err != nil {
 			if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
 				log.Debug(err.Error())
@@ -135,6 +147,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 			return reconcile.Result{}, err
 		}
 
+		if !canUnfreeze {
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+		}
+
 		return reconcile.Result{}, nil
 	}
 
@@ -147,6 +163,27 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 			Status(readyCondition.Status).
 			Reason(conditions.CommonReason(readyCondition.Reason)).
 			Message(readyCondition.Message)
+
+		if !frozen {
+			return reconcile.Result{}, nil
+		}
+
+		canUnfreeze, err := h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm, kvvmi)
+		if err != nil {
+			if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
+				log.Debug(err.Error())
+				return reconcile.Result{}, nil
+			}
+			if k8serrors.IsConflict(err) {
+				log.Debug(fmt.Sprintf("failed to unfreeze filesystem; resource update conflict error: %s", err))
+				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+			}
+			cb.Message(fmt.Sprintf("%s, %s", err.Error(), cb.Condition().Message))
+			return reconcile.Result{}, fmt.Errorf("failed to unfreeze filesystem: %w", err)
+		}
+		if !canUnfreeze {
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+		}
 		return reconcile.Result{}, nil
 	case v1alpha2.VirtualMachineSnapshotPhaseReady:
 		// Ensure vd snapshots aren't lost.

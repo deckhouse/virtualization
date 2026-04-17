@@ -362,17 +362,6 @@ volumes:
 - name: node-labeller
   hostPath:
     path: /var/run/d8-virtualization/node-labeller
-# Other directories to communicate with virt-launcher.
-# Also rewrite to prevent errors.
-- name: libvirt-runtimes
-  hostPath:
-    path: /var/run/d8-virtualization/libvirt-runtimes
-- name: virt-share-dir
-  hostPath:
-    path: /var/run/d8-virtualization/kubevirt
-- name: virt-private-dir
-  hostPath:
-    path: /var/run/d8-virtualization/kubevirt-private
 {{- end }}
     - resourceName: virt-handler
       resourceType: DaemonSet
