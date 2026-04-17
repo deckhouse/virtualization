@@ -63,7 +63,7 @@ var _ = Describe("HotplugPod", func() {
 			Expect(f.CreateWithDeferredDeletion(context.Background(), root, blank)).To(Succeed())
 
 			var err error
-			vm = object.NewMinimalVM("hotplug-pod-", f.Namespace().Name, vmbuilder.WithDisks(root))
+			vm = object.NewMinimalVM("hotplug-pod-", f.Namespace().Name, vmbuilder.WithDisks(root), vmbuilder.WithCPU(1, ptr.To("100%")))
 			vm, err = f.VirtClient().VirtualMachines(f.Namespace().Name).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			f.DeferDelete(vm)

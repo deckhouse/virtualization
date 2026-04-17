@@ -4,12 +4,19 @@ final: false
 fromImage: builder/src
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}
-    to: /src/kube-api-rewriter
+    to: /src/images/kube-api-rewriter
     stageDependencies:
       install:
         - go.mod
         - go.sum
         - "**/*.go"
+  - add: {{ .ModuleDir }}/src/kubevirt-rules
+    to: /src/src/kubevirt-rules
+    stageDependencies:
+      install:
+        - go.mod
+        - go.sum
+        - "*.go"
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
@@ -28,10 +35,10 @@ mount:
 shell:
   install:
     - export GOPROXY=$(cat /run/secrets/GOPROXY)
-    - cd /src/kube-api-rewriter
+    - cd /src/images/kube-api-rewriter
     - go mod download
   setup:
-    - cd /src/kube-api-rewriter
+    - cd /src/images/kube-api-rewriter
     - export GOOS=linux
     - export CGO_ENABLED=0
     - export GOARCH=amd64
@@ -47,7 +54,7 @@ git:
   {{- include "image mount points" . }}
 import:
   - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
-    add: /src/kube-api-rewriter/kube-api-rewriter
+    add: /src/images/kube-api-rewriter/kube-api-rewriter
     to: /app/kube-api-rewriter
     after: install
   # Make containerd compatible directories structure.

@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2026 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kubevirt
+package kubevirtrules
 
 import (
-	. "github.com/deckhouse/kube-api-rewriter/pkg/rewriter"
+	"github.com/deckhouse/kube-api-rewriter/pkg/rewriter"
 )
 
 const (
@@ -26,15 +26,15 @@ const (
 	rootPrefix     = "virtualization.deckhouse.io"
 )
 
-var KubevirtRewriteRules = &RewriteRules{
+var KubevirtRewriteRules = &rewriter.RewriteRules{
 	KindPrefix:         "InternalVirtualization", // VirtualMachine -> InternalVirtualizationVirtualMachine
 	ResourceTypePrefix: "internalvirtualization", // virtualmachines -> internalvirtualizationvirtualmachines
 	ShortNamePrefix:    "intvirt",                // kubectl get intvirtvm
 	Categories:         []string{"intvirt"},      // kubectl get intvirt to see all KubeVirt and CDI resources.
 	Rules:              KubevirtAPIGroupsRules,
 	Webhooks:           KubevirtWebhooks,
-	Labels: MetadataReplace{
-		Names: []MetadataReplaceRule{
+	Labels: rewriter.MetadataReplace{
+		Names: []rewriter.MetadataReplaceRule{
 			{Original: "cdi.kubevirt.io", Renamed: "cdi." + internalPrefix},
 			{Original: "kubevirt.io", Renamed: "kubevirt." + internalPrefix},
 			{Original: "operator.kubevirt.io", Renamed: "operator.kubevirt." + internalPrefix},
@@ -60,7 +60,7 @@ var KubevirtRewriteRules = &RewriteRules{
 				Renamed: "app.kubernetes.io/managed-by", RenamedValue: "kubevirt-operator-internal-virtualization",
 			},
 		},
-		Prefixes: []MetadataReplaceRule{
+		Prefixes: []rewriter.MetadataReplaceRule{
 			// CDI related labels.
 			{Original: "cdi.kubevirt.io", Renamed: "cdi." + internalPrefix},
 			{Original: "operator.cdi.kubevirt.io", Renamed: "operator.cdi." + internalPrefix},
@@ -85,8 +85,8 @@ var KubevirtRewriteRules = &RewriteRules{
 			{Original: "machine-type.node.kubevirt.io", Renamed: "machine-type." + nodePrefix},
 		},
 	},
-	Annotations: MetadataReplace{
-		Prefixes: []MetadataReplaceRule{
+	Annotations: rewriter.MetadataReplace{
+		Prefixes: []rewriter.MetadataReplaceRule{
 			// CDI related annotations.
 			{Original: "cdi.kubevirt.io", Renamed: "cdi." + internalPrefix},
 			{Original: "operator.cdi.kubevirt.io", Renamed: "operator.cdi." + internalPrefix},
@@ -95,14 +95,14 @@ var KubevirtRewriteRules = &RewriteRules{
 			{Original: "certificates.kubevirt.io", Renamed: "certificates.kubevirt." + internalPrefix},
 		},
 	},
-	Finalizers: MetadataReplace{
-		Prefixes: []MetadataReplaceRule{
+	Finalizers: rewriter.MetadataReplace{
+		Prefixes: []rewriter.MetadataReplaceRule{
 			{Original: "kubevirt.io", Renamed: "kubevirt." + internalPrefix},
 			{Original: "operator.cdi.kubevirt.io", Renamed: "operator.cdi." + internalPrefix},
 		},
 	},
-	Excludes: []ExcludeRule{
-		ExcludeRule{
+	Excludes: []rewriter.ExcludeRule{
+		rewriter.ExcludeRule{
 			Kinds: []string{
 				"PersistentVolumeClaim",
 				"PersistentVolume",
@@ -112,7 +112,7 @@ var KubevirtRewriteRules = &RewriteRules{
 				"app.kubernetes.io/managed-by": "cdi-controller",
 			},
 		},
-		ExcludeRule{
+		rewriter.ExcludeRule{
 			Kinds: []string{
 				"CDI",
 			},
@@ -125,15 +125,15 @@ var KubevirtRewriteRules = &RewriteRules{
 
 // TODO create generator in golang to produce below rules from Kubevirt and CDI sources so proxy can work with future versions.
 
-var KubevirtAPIGroupsRules = map[string]APIGroupRule{
+var KubevirtAPIGroupsRules = map[string]rewriter.APIGroupRule{
 	"cdi.kubevirt.io": {
-		GroupRule: GroupRule{
+		GroupRule: rewriter.GroupRule{
 			Group:            "cdi.kubevirt.io",
 			Versions:         []string{"v1beta1"},
 			PreferredVersion: "v1beta1",
 			Renamed:          "cdi." + internalPrefix,
 		},
-		ResourceRules: map[string]ResourceRule{
+		ResourceRules: map[string]rewriter.ResourceRule{
 			// cdiconfigs.cdi.kubevirt.io
 			"cdiconfigs": {
 				Kind:             "CDIConfig",
@@ -247,13 +247,13 @@ var KubevirtAPIGroupsRules = map[string]APIGroupRule{
 		},
 	},
 	"forklift.cdi.kubevirt.io": {
-		GroupRule: GroupRule{
+		GroupRule: rewriter.GroupRule{
 			Group:            "forklift.cdi.kubevirt.io",
 			Versions:         []string{"v1beta1"},
 			PreferredVersion: "v1beta1",
 			Renamed:          "forklift.cdi." + internalPrefix,
 		},
-		ResourceRules: map[string]ResourceRule{
+		ResourceRules: map[string]rewriter.ResourceRule{
 			// openstackvolumepopulators.forklift.cdi.kubevirt.io
 			"openstackvolumepopulators": {
 				Kind:             "OpenstackVolumePopulator",
@@ -277,13 +277,13 @@ var KubevirtAPIGroupsRules = map[string]APIGroupRule{
 		},
 	},
 	"kubevirt.io": {
-		GroupRule: GroupRule{
+		GroupRule: rewriter.GroupRule{
 			Group:            "kubevirt.io",
 			Versions:         []string{"v1", "v1alpha3"},
 			PreferredVersion: "v1",
 			Renamed:          "internal.virtualization.deckhouse.io",
 		},
-		ResourceRules: map[string]ResourceRule{
+		ResourceRules: map[string]rewriter.ResourceRule{
 			// kubevirts.kubevirt.io
 			"kubevirts": {
 				Kind:             "KubeVirt",
@@ -353,13 +353,13 @@ var KubevirtAPIGroupsRules = map[string]APIGroupRule{
 		},
 	},
 	"clone.kubevirt.io": {
-		GroupRule: GroupRule{
+		GroupRule: rewriter.GroupRule{
 			Group:            "clone.kubevirt.io",
 			Versions:         []string{"v1alpha1"},
 			PreferredVersion: "v1alpha1",
 			Renamed:          "clone.internal.virtualization.deckhouse.io",
 		},
-		ResourceRules: map[string]ResourceRule{
+		ResourceRules: map[string]rewriter.ResourceRule{
 			// virtualmachineclones.clone.kubevirt.io
 			"virtualmachineclones": {
 				Kind:             "VirtualMachineClone",
@@ -374,13 +374,13 @@ var KubevirtAPIGroupsRules = map[string]APIGroupRule{
 		},
 	},
 	"export.kubevirt.io": {
-		GroupRule: GroupRule{
+		GroupRule: rewriter.GroupRule{
 			Group:            "export.kubevirt.io",
 			Versions:         []string{"v1alpha1"},
 			PreferredVersion: "v1alpha1",
 			Renamed:          "export.internal.virtualization.deckhouse.io",
 		},
-		ResourceRules: map[string]ResourceRule{
+		ResourceRules: map[string]rewriter.ResourceRule{
 			// virtualmachineexports.export.kubevirt.io
 			"virtualmachineexports": {
 				Kind:             "VirtualMachineExport",
@@ -395,13 +395,13 @@ var KubevirtAPIGroupsRules = map[string]APIGroupRule{
 		},
 	},
 	"instancetype.kubevirt.io": {
-		GroupRule: GroupRule{
+		GroupRule: rewriter.GroupRule{
 			Group:            "instancetype.kubevirt.io",
 			Versions:         []string{"v1alpha1", "v1alpha2"},
 			PreferredVersion: "v1alpha2",
 			Renamed:          "instancetype.internal.virtualization.deckhouse.io",
 		},
-		ResourceRules: map[string]ResourceRule{
+		ResourceRules: map[string]rewriter.ResourceRule{
 			// virtualmachineinstancetypes.instancetype.kubevirt.io
 			"virtualmachineinstancetypes": {
 				Kind:             "VirtualMachineInstancetype",
@@ -449,13 +449,13 @@ var KubevirtAPIGroupsRules = map[string]APIGroupRule{
 		},
 	},
 	"migrations.kubevirt.io": {
-		GroupRule: GroupRule{
+		GroupRule: rewriter.GroupRule{
 			Group:            "migrations.kubevirt.io",
 			Versions:         []string{"v1alpha1"},
 			PreferredVersion: "v1alpha1",
 			Renamed:          "migrations.internal.virtualization.deckhouse.io",
 		},
-		ResourceRules: map[string]ResourceRule{
+		ResourceRules: map[string]rewriter.ResourceRule{
 			// migrationpolicies.migrations.kubevirt.io
 			"migrationpolicies": {
 				Kind:             "MigrationPolicy",
@@ -470,13 +470,13 @@ var KubevirtAPIGroupsRules = map[string]APIGroupRule{
 		},
 	},
 	"pool.kubevirt.io": {
-		GroupRule: GroupRule{
+		GroupRule: rewriter.GroupRule{
 			Group:            "pool.kubevirt.io",
 			Versions:         []string{"v1alpha1"},
 			PreferredVersion: "v1alpha1",
 			Renamed:          "pool.internal.virtualization.deckhouse.io",
 		},
-		ResourceRules: map[string]ResourceRule{
+		ResourceRules: map[string]rewriter.ResourceRule{
 			// virtualmachinepools.pool.kubevirt.io
 			"virtualmachinepools": {
 				Kind:             "VirtualMachinePool",
@@ -491,13 +491,13 @@ var KubevirtAPIGroupsRules = map[string]APIGroupRule{
 		},
 	},
 	"snapshot.kubevirt.io": {
-		GroupRule: GroupRule{
+		GroupRule: rewriter.GroupRule{
 			Group:            "snapshot.kubevirt.io",
 			Versions:         []string{"v1alpha1"},
 			PreferredVersion: "v1alpha1",
 			Renamed:          "snapshot.internal.virtualization.deckhouse.io",
 		},
-		ResourceRules: map[string]ResourceRule{
+		ResourceRules: map[string]rewriter.ResourceRule{
 			// virtualmachinerestores.snapshot.kubevirt.io
 			"virtualmachinerestores": {
 				Kind:             "VirtualMachineRestore",
@@ -535,7 +535,7 @@ var KubevirtAPIGroupsRules = map[string]APIGroupRule{
 	},
 }
 
-var KubevirtWebhooks = map[string]WebhookRule{
+var KubevirtWebhooks = map[string]rewriter.WebhookRule{
 	// CDI webhooks.
 	// Run this in original CDI installation:
 	// kubectl get validatingwebhookconfiguration,mutatingwebhookconfiguration -l cdi.kubevirt.io -o json | jq '.items[] | .webhooks[] | {"path": .clientConfig.service.path, "group": (.rules[]|.apiGroups|join(",")), "resource": (.rules[]|.resources|join(",")) } | "\""+.path +"\": {\nPath: \"" + .path + "\",\nGroup: \"" + .group + "\",\nResource: \"" + .resource + "\",\n}," ' -r

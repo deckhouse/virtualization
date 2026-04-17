@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 )
@@ -53,6 +54,14 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", Ordered, label.Legacy(), fu
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
 			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
+		}
+	})
+
+	AfterAll(func() {
+		if config.IsCleanUpNeeded() {
+			DeleteTestCaseResources(ns, ResourcesToDelete{
+				KustomizationDir: conf.TestData.VMLabelAnnotation,
+			})
 		}
 	})
 
@@ -269,14 +278,6 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", Ordered, label.Legacy(), fu
 
 				return nil
 			}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
-		})
-	})
-
-	Context("When test is completed", func() {
-		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ns, ResourcesToDelete{
-				KustomizationDir: conf.TestData.VMLabelAnnotation,
-			})
 		})
 	})
 })

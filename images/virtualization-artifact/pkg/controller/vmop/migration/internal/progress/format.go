@@ -1,11 +1,11 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2026 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-     http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,13 +14,28 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package progress
 
 import (
-	karapp "github.com/deckhouse/kube-api-rewriter/pkg/app"
-	kubevirt "github.com/deckhouse/virtualization/src/kubevirt-rules"
+	"fmt"
+	"math"
+
+	commonpercent "github.com/deckhouse/virtualization-controller/pkg/common/percent"
 )
 
-func main() {
-	karapp.StartFromEnv(kubevirt.KubevirtRewriteRules)
+func FormatPercent(v int32) string {
+	return fmt.Sprintf("%d%%", v)
+}
+
+func ParsePercent(v string) int32 {
+	if v == "" {
+		return SyncRangeMin
+	}
+
+	parsed := commonpercent.ExtractPercentageFloat(v)
+	if math.IsNaN(parsed) {
+		return SyncRangeMin
+	}
+
+	return int32(parsed)
 }
