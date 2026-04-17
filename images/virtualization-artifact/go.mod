@@ -168,4 +168,6 @@ replace (
 )
 
 // Kubevirt API replaces
-replace kubevirt.io/api => github.com/deckhouse/3p-kubevirt/staging/src/kubevirt.io/api v0.0.0-20260403154920-301347b413ce
+// NOTE: local override for two-pool migration prototype; points at the patched fork.
+// Replace with a committed 3p-kubevirt revision before merging.
+replace kubevirt.io/api => /Users/dloktev/wrk/3p-kubevirt/staging/src/kubevirt.io/api
