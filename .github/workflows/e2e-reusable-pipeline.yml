@@ -98,6 +98,21 @@ on:
         type: string
         default: "cn-4006-for-e2e-test"
         description: "ClusterNetwork name for nested VM additional network interface"
+      apt_mirror_enabled:
+        required: false
+        type: boolean
+        default: true
+        description: "Use custom APT mirror inside VMs cloud-init (Ubuntu). When false, VMs use stock Ubuntu repositories."
+      apt_mirror_name:
+        required: false
+        type: string
+        default: "hetzner"
+        description: "APT mirror short name (used as /etc/apt/sources.list.d/<name>.list file name)"
+      apt_mirror_url:
+        required: false
+        type: string
+        default: "https://mirror.hetzner.com/ubuntu/packages"
+        description: "APT mirror base URL (without trailing slash)"
     secrets:
       DEV_REGISTRY_DOCKER_CFG:
         required: true
@@ -220,6 +235,10 @@ jobs:
             - console
             - virtualization
           instances:
+            aptMirror:
+              enabled: ${{ inputs.apt_mirror_enabled }}
+              name: ${{ inputs.apt_mirror_name }}
+              url: ${{ inputs.apt_mirror_url }}
             masterNodes:
               count: 1
               cfg:

@@ -1,20 +1,28 @@
 {{- define "cloudinit.ubuntu" -}}
-{{- $codename := .Values.image.ubuntuCodename | default "noble" -}}
+{{- $codename      := .Values.image.ubuntuCodename | default "noble" -}}
+{{- $mirror        := .Values.instances.aptMirror | default dict -}}
+{{- $mirrorEnabled := $mirror.enabled | default false -}}
+{{- $mirrorUrl     := $mirror.url     | default "" -}}
+{{- $mirrorName    := $mirror.name    | default "custom" -}}
 #cloud-config
 ssh_pwauth: true
 package_update: true
+{{- if $mirrorEnabled }}
 bootcmd:
   - mv -f /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list.d/ubuntu.sources.bak
+{{- end }}
 write_files:
-  - path: /etc/apt/sources.list.d/hetzner.list
+{{- if $mirrorEnabled }}
+  - path: /etc/apt/sources.list.d/{{ $mirrorName }}.list
     owner: root:root
     permissions: '0644'
     content: |
-      # Packages and Updates from the Hetzner Ubuntu Mirror
-      deb https://mirror.hetzner.com/ubuntu/packages {{ $codename }}           main restricted universe multiverse
-      deb https://mirror.hetzner.com/ubuntu/packages {{ $codename }}-updates   main restricted universe multiverse
-      deb https://mirror.hetzner.com/ubuntu/packages {{ $codename }}-backports main restricted universe multiverse
-      deb https://mirror.hetzner.com/ubuntu/packages {{ $codename }}-security  main restricted universe multiverse
+      # Packages and Updates from the {{ $mirrorName | title }} Ubuntu Mirror
+      deb {{ $mirrorUrl }} {{ $codename }}           main restricted universe multiverse
+      deb {{ $mirrorUrl }} {{ $codename }}-updates   main restricted universe multiverse
+      deb {{ $mirrorUrl }} {{ $codename }}-backports main restricted universe multiverse
+      deb {{ $mirrorUrl }} {{ $codename }}-security  main restricted universe multiverse
+{{- end }}
   - path: /etc/netplan/99-eno2.yaml
     content: |
       network:
@@ -26,14 +34,10 @@ write_files:
             addresses: []
             link-local: []
             optional: true
+{{- if $mirrorEnabled }}
 apt:
   preserve_sources_list: true
-  primary:
-    - arches: [default]
-      uri: https://mirror.hetzner.com/ubuntu/packages
-  security:
-    - arches: [default]
-      uri: https://mirror.hetzner.com/ubuntu/packages
+{{- end }}
 packages:
   - qemu-guest-agent
   - jq
