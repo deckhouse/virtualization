@@ -83,6 +83,7 @@ var _ = Describe("MigrationConfig", func() {
 			bandwidthPerMigrationAnnotation:             "1Gi",
 			completionTimeoutPerGiBAnnotation:           "1200",
 			parallelOutboundMigrationsPerNodeAnnotation: "5",
+			parallelSyncMigrationsPerNodeAnnotation:     "3",
 			progressTimeoutAnnotation:                   "300",
 			disableTLSAnnotation:                        "true",
 		}))
@@ -95,6 +96,8 @@ var _ = Describe("MigrationConfig", func() {
 				return gjson.Result{Type: gjson.Number, Num: defaultCompletionTimeoutPerGiB}
 			case parallelOutboundMigrationsPerNodeValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultParallelOutboundMigrationsPerNode}
+			case parallelSyncMigrationsPerNodeValuesPath:
+				return gjson.Result{Type: gjson.Number, Num: defaultParallelSyncMigrationsPerNode}
 			case progressTimeoutValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultProgressTimeout}
 			case disableTLSValuesPath:
@@ -113,6 +116,7 @@ var _ = Describe("MigrationConfig", func() {
 		Expect(setValues).To(HaveKeyWithValue(bandwidthPerMigrationValuesPath, "1Gi"))
 		Expect(setValues).To(HaveKeyWithValue(completionTimeoutPerGiBValuesPath, 1200))
 		Expect(setValues).To(HaveKeyWithValue(parallelOutboundMigrationsPerNodeValuesPath, 5))
+		Expect(setValues).To(HaveKeyWithValue(parallelSyncMigrationsPerNodeValuesPath, 3))
 		Expect(setValues).To(HaveKeyWithValue(progressTimeoutValuesPath, 300))
 		Expect(setValues).To(HaveKeyWithValue(disableTLSValuesPath, true))
 	})
@@ -127,6 +131,8 @@ var _ = Describe("MigrationConfig", func() {
 			case completionTimeoutPerGiBValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: 9999}
 			case parallelOutboundMigrationsPerNodeValuesPath:
+				return gjson.Result{Type: gjson.Number, Num: 9999}
+			case parallelSyncMigrationsPerNodeValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: 9999}
 			case progressTimeoutValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: 9999}
@@ -146,6 +152,7 @@ var _ = Describe("MigrationConfig", func() {
 		Expect(setValues).To(HaveKeyWithValue(bandwidthPerMigrationValuesPath, defaultBandwidthPerMigration))
 		Expect(setValues).To(HaveKeyWithValue(completionTimeoutPerGiBValuesPath, defaultCompletionTimeoutPerGiB))
 		Expect(setValues).To(HaveKeyWithValue(parallelOutboundMigrationsPerNodeValuesPath, defaultParallelOutboundMigrationsPerNode))
+		Expect(setValues).To(HaveKeyWithValue(parallelSyncMigrationsPerNodeValuesPath, defaultParallelSyncMigrationsPerNode))
 		Expect(setValues).To(HaveKeyWithValue(progressTimeoutValuesPath, defaultProgressTimeout))
 		Expect(setValues).To(HaveKeyWithValue(disableTLSValuesPath, defaultDisableTLS))
 	})
@@ -154,7 +161,8 @@ var _ = Describe("MigrationConfig", func() {
 		setSnapshots(newSnapshot(map[string]string{
 			bandwidthPerMigrationAnnotation:             defaultBandwidthPerMigration,
 			completionTimeoutPerGiBAnnotation:           "800",
-			parallelOutboundMigrationsPerNodeAnnotation: "1",
+			parallelOutboundMigrationsPerNodeAnnotation: "2",
+			parallelSyncMigrationsPerNodeAnnotation:     "1",
 			progressTimeoutAnnotation:                   "150",
 			disableTLSAnnotation:                        "false",
 		}))
@@ -167,6 +175,8 @@ var _ = Describe("MigrationConfig", func() {
 				return gjson.Result{Type: gjson.Number, Num: defaultCompletionTimeoutPerGiB}
 			case parallelOutboundMigrationsPerNodeValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultParallelOutboundMigrationsPerNode}
+			case parallelSyncMigrationsPerNodeValuesPath:
+				return gjson.Result{Type: gjson.Number, Num: defaultParallelSyncMigrationsPerNode}
 			case progressTimeoutValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultProgressTimeout}
 			case disableTLSValuesPath:
@@ -214,6 +224,8 @@ var _ = Describe("MigrationConfig", func() {
 				return gjson.Result{Type: gjson.Number, Num: defaultCompletionTimeoutPerGiB}
 			case parallelOutboundMigrationsPerNodeValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultParallelOutboundMigrationsPerNode}
+			case parallelSyncMigrationsPerNodeValuesPath:
+				return gjson.Result{Type: gjson.Number, Num: defaultParallelSyncMigrationsPerNode}
 			case progressTimeoutValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultProgressTimeout}
 			case disableTLSValuesPath:
@@ -243,6 +255,8 @@ var _ = Describe("MigrationConfig", func() {
 				return gjson.Result{Type: gjson.Number, Num: defaultCompletionTimeoutPerGiB}
 			case parallelOutboundMigrationsPerNodeValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultParallelOutboundMigrationsPerNode}
+			case parallelSyncMigrationsPerNodeValuesPath:
+				return gjson.Result{Type: gjson.Number, Num: defaultParallelSyncMigrationsPerNode}
 			case progressTimeoutValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultProgressTimeout}
 			case disableTLSValuesPath:

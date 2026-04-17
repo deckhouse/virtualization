@@ -1,6 +1,7 @@
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 fromImage: {{ .ModuleNamePrefix }}distroless
+fromCacheVersion: "two-pool-migration-1"
 git:
   {{- include "image mount points" . }}
 import:
