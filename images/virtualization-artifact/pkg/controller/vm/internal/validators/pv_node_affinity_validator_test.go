@@ -290,5 +290,81 @@ var _ = Describe("PVNodeAffinityValidator", func() {
 			Expect(err).Should(HaveOccurred())
 			Expect(err.Error()).Should(ContainSubstring("topology conflict"))
 		})
+
+		It("should allow when VMClass is not found", func() {
+			vm := makeVM("",
+				v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"},
+			)
+			v := makeValidator(
+				vm, makeNode(node1),
+				makeVD("local-disk", "pvc-local"),
+				makePVC("pvc-local", "pv-local"),
+				makePV("pv-local", node1),
+			)
+			_, err := v.ValidateCreate(testutil.ContextBackgroundWithNoOpLogger(), vm)
+			Expect(err).ShouldNot(HaveOccurred())
+		})
+
+		It("should allow when referenced PV is missing", func() {
+			vm := makeVM("",
+				v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"},
+			)
+			v := makeValidator(
+				vm, makeNode(node1), makeVMClass(),
+				makeVD("local-disk", "pvc-local"),
+				makePVC("pvc-local", "pv-missing"), // PV intentionally not in cluster
+			)
+			_, err := v.ValidateCreate(testutil.ContextBackgroundWithNoOpLogger(), vm)
+			Expect(err).ShouldNot(HaveOccurred())
+		})
+
+		It("should allow when referenced VirtualDisk is missing", func() {
+			vm := makeVM("",
+				v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "ghost-disk"},
+			)
+			v := makeValidator(vm, makeNode(node1), makeVMClass())
+			_, err := v.ValidateCreate(testutil.ContextBackgroundWithNoOpLogger(), vm)
+			Expect(err).ShouldNot(HaveOccurred())
+		})
+
+		It("should skip ClusterVirtualImage (no PVC backing)", func() {
+			vm := makeVM("",
+				v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.ClusterImageDevice, Name: "cvi"},
+			)
+			v := makeValidator(vm, makeNode(node1), makeVMClass())
+			_, err := v.ValidateCreate(testutil.ContextBackgroundWithNoOpLogger(), vm)
+			Expect(err).ShouldNot(HaveOccurred())
+		})
+
+		It("should reject when VirtualImage PV conflicts with VMClass nodeSelector", func() {
+			vm := makeVM("",
+				v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.ImageDevice, Name: "vi-local"},
+			)
+			vmClass := &v1alpha2.VirtualMachineClass{
+				ObjectMeta: metav1.ObjectMeta{Name: "generic"},
+				Spec: v1alpha2.VirtualMachineClassSpec{
+					NodeSelector: v1alpha2.NodeSelector{
+						MatchExpressions: []corev1.NodeSelectorRequirement{{
+							Key:      "topology.kubernetes.io/node",
+							Operator: corev1.NodeSelectorOpIn,
+							Values:   []string{node2},
+						}},
+					},
+				},
+			}
+			vi := &v1alpha2.VirtualImage{
+				ObjectMeta: metav1.ObjectMeta{Name: "vi-local", Namespace: ns},
+				Spec:       v1alpha2.VirtualImageSpec{Storage: v1alpha2.StoragePersistentVolumeClaim},
+				Status:     v1alpha2.VirtualImageStatus{Target: v1alpha2.VirtualImageStatusTarget{PersistentVolumeClaim: "pvc-vi"}},
+			}
+			v := makeValidator(
+				vm, makeNode(node1), makeNode(node2), vmClass, vi,
+				makePVC("pvc-vi", "pv-vi"),
+				makePV("pv-vi", node1),
+			)
+			_, err := v.ValidateCreate(testutil.ContextBackgroundWithNoOpLogger(), vm)
+			Expect(err).Should(HaveOccurred())
+			Expect(err.Error()).Should(ContainSubstring("topology conflict"))
+		})
 	})
 })
