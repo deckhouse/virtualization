@@ -9,7 +9,7 @@ metadata:
 spec:
   ports:
     - name: pprof
-      port: 8119
+      port: {{ include "vm_route_forge.pprof_port" . }}
       protocol: TCP
       targetPort: pprof
   selector:
