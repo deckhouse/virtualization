@@ -41,10 +41,10 @@ import (
 const (
 	initialCPUCores     = 1
 	initialMemorySize   = "256Mi"
-	initialCoreFraction = "5%"
+	initialCoreFraction = "100%"
 	changedCPUCores     = 2
 	changedMemorySize   = "512Mi"
-	changedCoreFraction = "10%"
+	changedCoreFraction = "50%"
 )
 
 var _ = Describe("VirtualMachineConfiguration", func() {

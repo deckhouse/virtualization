@@ -56,7 +56,13 @@ Use "{{ProgramName}} options" for a list of global command-line options (applies
 
 // MainUsageTemplate returns the usage template for the root command
 func MainUsageTemplate() string {
-	return `Available Commands:{{range .Commands}}{{if (or .IsAvailableCommand (eq .Name "help"))}}
+	return `Usage:{{if .Runnable}}
+  {{prepare .UseLine}}{{end}}{{if gt (len .Aliases) 0}}
+
+Aliases:
+  {{.NameAndAliases}}{{end}}
+
+Available Commands:{{range .Commands}}{{if (or .IsAvailableCommand (eq .Name "help"))}}
   {{rpad .Name .NamePadding }} {{prepare .Short}}{{end}}{{end}}
 
 Use "{{ProgramName}} <command> --help" for more information about a given command.

@@ -108,11 +108,11 @@ var _ = Describe("DeletionHandler", func() {
 		},
 			Entry("VMOP Evict 1",
 				newVmop(v1alpha2.VMOPPhaseInProgress, vmopbuilder.WithType(v1alpha2.VMOPTypeEvict), vmopbuilder.WithVirtualMachine("test-vm")),
-				newSimpleMigration("vmop-"+name, namespace, "test-vm"), true,
+				newSimpleMigration("vmop-"+name, "test-vm"), true,
 			),
 			Entry("VMOP Evict 2",
 				newVmop(v1alpha2.VMOPPhaseCompleted, vmopbuilder.WithType(v1alpha2.VMOPTypeEvict), vmopbuilder.WithVirtualMachine("test-vm")),
-				newSimpleMigration("vmop-"+name, namespace, "test-vm"), false,
+				newSimpleMigration("vmop-"+name, "test-vm"), false,
 			),
 		)
 	})

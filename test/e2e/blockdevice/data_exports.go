@@ -98,7 +98,7 @@ var _ = Describe("DataExports", label.Slow(), func() {
 			vm = vmbuilder.New(
 				vmbuilder.WithName("vm"),
 				vmbuilder.WithNamespace(f.Namespace().Name),
-				vmbuilder.WithCPU(1, ptr.To("5%")),
+				vmbuilder.WithCPU(1, ptr.To("100%")),
 				vmbuilder.WithMemory(resource.MustParse("512Mi")),
 				vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 				vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
