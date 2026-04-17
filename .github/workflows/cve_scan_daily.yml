@@ -43,13 +43,12 @@ jobs:
 
       - name: Set vars
         id: set_vars
-        run:
-          -|
-            if [ "${{ github.event.inputs.scan_several_latest_releases }}" = "true" ]; then
-              echo "multiscan=True" >> $GITHUB_OUTPUT
-            else
-              echo "multiscan=False" >> $GITHUB_OUTPUT
-            fi
+        run: |
+          if [ "${{ github.event.inputs.scan_several_latest_releases }}" = "true" ]; then
+            echo "multiscan=True" >> $GITHUB_OUTPUT
+          else
+            echo "multiscan=False" >> $GITHUB_OUTPUT
+          fi
 
       - name: Split repository name
         id: split
