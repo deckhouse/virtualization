@@ -1,0 +1,99 @@
+api:
+  fixes:
+    - summary: >-
+        Enhanced reliability of the upload server for block devices by adding readiness checks and
+        fixing configuration delays to prevent upload errors.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2178
+ci:
+  features:
+    - summary: >-
+        configuration for nested e2e cluster with configurable ClusterNetwork and configure SDN
+        inside nested cluster
+      pull_request: https://github.com/deckhouse/virtualization/pull/2181
+  fixes:
+    - summary: fix CI configuration for e2e pipeline configure virtualization step.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2233
+    - summary: Fix infrastructure config rendering for nested e2e clusters
+      pull_request: https://github.com/deckhouse/virtualization/pull/2223
+cli:
+  fixes:
+    - summary: Mute warnings about empty home directory while executing other d8 commands.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2204
+core:
+  features:
+    - summary: >-
+        Add VMOP migration progress reporting with detailed lifecycle reasons and smoother
+        sync-phase progress calculation.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2182
+  fixes:
+    - summary: Clarify VM migration failure message when no node is available for the target VM.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2209
+    - summary: >-
+        Fixed vulnerabilities CVE-2026-32280, CVE-2026-32281, CVE-2026-32282, CVE-2026-32283,
+        CVE-2026-32288, CVE-2026-32289
+      pull_request: https://github.com/deckhouse/virtualization/pull/2196
+    - summary: >-
+        Improve VM migration progress reporting while target scheduling and preparation are already
+        in progress.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2190
+    - summary: Fixed vulnerabilities CVE-2026-34986.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2188
+    - summary: Fix KVVM resync for unschedulable VMs when VMClass placement settings are changed.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2177
+    - summary: >-
+        Fixed vulnerabilities CVE-2026-25679, CVE-2026-27142, CVE-2026-27139, CVE-2026-33186,
+        CVE-2026-34040, CVE-2026-33997.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2175
+    - summary: Move virt-handler DaemonSet to hostNetwork
+      pull_request: https://github.com/deckhouse/virtualization/pull/2174
+    - summary: >-
+        Set firmware outdated condition only for running VM instances and align firmware
+        workload-updater checks with current condition-driven flow.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2162
+dvcr:
+  fixes:
+    - summary: Fix starting CVI/VI/VD import after DVCR garbage collection is done.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2193
+module:
+  features:
+    - summary: Add temporary ModuleConfig annotation to control KubeVirt live migration DisableTLS setting.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2198
+  fixes:
+    - summary: Add VM PhaseAge column while keeping Age in VirtualMachine brief output.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2203
+observability:
+  fixes:
+    - summary: Fix gaps in live migration metrics.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2170
+test:
+  fixes:
+    - summary: Increase coreFraction allocation in e2e tests for better stability.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2217
+vm:
+  features:
+    - summary: Simple implementation of CPU hotplug
+      pull_request: https://github.com/deckhouse/virtualization/pull/2147
+    - summary: >-
+        Initial implementation of memory hotplug support: change spec.memory will set new memory
+        size with live migration.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2110
+  fixes:
+    - summary: Fix VM getting stuck with a frozen filesystem when frozen during migration.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2225
+    - summary: Remove the cilium KVVMI annotation when disconnecting the Main network.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2185
+    - summary: >-
+        Prevent over-creation of VirtualMachineMACAddress resources and fix network interface ID
+        allocation for additional VM networks.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2184
+    - summary: >-
+        CLI no longer sends force=false by default, and AlwaysForced policy now rejects only
+        explicit force=false while preserving policy defaults for unset force.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2179
+vmop:
+  fixes:
+    - summary: >-
+        Force handling fixed for VM lifecycle operations: CLI stop now passes --force, and VMOP
+        restart now honors spec.force in controller logic.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2168
+
