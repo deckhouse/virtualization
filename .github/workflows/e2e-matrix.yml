@@ -16,8 +16,6 @@ name: E2E Matrix Tests (nested clusters)
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "40 4 * * *"
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
