@@ -25,7 +25,7 @@ on:
       scan_several_latest_releases:
         description: "Scan several latest releases"
         required: false
-        default: true
+        default: false
         type: boolean
 
 concurrency:
