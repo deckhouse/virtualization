@@ -935,10 +935,10 @@ ansible -m shell -a "uptime" \
 ### Как сменить StorageClass у DVCR, если PVC уже создан?
 
 {{< alert level="warning" >}}
-StorageClass хранилища DVCR можно сменить только пересозданием PVC. При этом теряются все ранее загруженные в DVCR образы, то есть фактически перестают соответствовать данным в хранилище существующие ресурсы [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) и [VirtualImage](/modules/virtualization/cr.html#virtualimage).
+StorageClass хранилища DVCR можно сменить только пересозданием PVC. При этом теряются все ранее загруженные в DVCR образы, то есть существующие ресурсы [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) и [VirtualImage](/modules/virtualization/cr.html#virtualimage) фактически перестают соответствовать данным в хранилище.
 {{< /alert >}}
 
-Поле `spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` в ModuleConfig модуля `virtualization` задаёт класс хранения тома хранилища образов виртуальных машин (DVCR). Пока в пространстве имён `d8-virtualization` существует PVC этого тома, изменить поле через API нельзя.
+Поле [`spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`](configuration.html#parameters-dvcr-storage-persistentvolumeclaim-storageclassname) в ModuleConfig модуля `virtualization` задаёт класс хранения тома хранилища образов виртуальных машин (DVCR). Пока в пространстве имён `d8-virtualization` существует PVC этого тома, изменить поле через API нельзя.
 
 У уже созданного PVC в Kubernetes нельзя сменить `storageClassName`, штатного переноса данных DVCR между классами хранения нет.
 
@@ -950,7 +950,7 @@ StorageClass хранилища DVCR можно сменить только пе
    d8 k -n d8-virtualization scale deployment dvcr --replicas=0
    ```
 
-1. Выведите список PVC в пространстве имён `d8-virtualization`, найдите PVC тома DVCR и удалите его, подставив имя ресурса вместо `<pvc-name>`:
+1. Выведите список PVC в неймспейсе `d8-virtualization`, найдите PVC тома DVCR и удалите его, подставив имя ресурса вместо `<pvc-name>`:
 
    ```shell
    d8 k get pvc -n d8-virtualization
