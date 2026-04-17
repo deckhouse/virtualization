@@ -26,6 +26,11 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
+type blockDeviceKey struct {
+	Kind v1alpha2.BlockDeviceKind
+	Name string
+}
+
 type BlockDeviceSpecRefsValidator struct{}
 
 func NewBlockDeviceSpecRefsValidator() *BlockDeviceSpecRefsValidator {
@@ -33,8 +38,11 @@ func NewBlockDeviceSpecRefsValidator() *BlockDeviceSpecRefsValidator {
 }
 
 func (v *BlockDeviceSpecRefsValidator) validate(vm *v1alpha2.VirtualMachine) error {
-	err := v.noDoubles(vm)
-	if err != nil {
+	if err := v.noDoubles(vm); err != nil {
+		return err
+	}
+
+	if err := v.validateBootOrder(vm); err != nil {
 		return err
 	}
 
@@ -63,20 +71,66 @@ func (v *BlockDeviceSpecRefsValidator) ValidateCreate(_ context.Context, vm *v1a
 	return nil, v.validate(vm)
 }
 
-func (v *BlockDeviceSpecRefsValidator) ValidateUpdate(_ context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	return nil, v.validate(newVM)
+func (v *BlockDeviceSpecRefsValidator) ValidateUpdate(_ context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+	var warnings admission.Warnings
+
+	if !newVM.Spec.EnableParavirtualization && hasBlockDeviceChanges(oldVM, newVM) {
+		warnings = append(warnings, "Hot-plugging block devices with enableParavirtualization=false is not supported. Restart the VM to apply changes.")
+	}
+
+	return warnings, v.validate(newVM)
 }
 
 func (v *BlockDeviceSpecRefsValidator) noDoubles(vm *v1alpha2.VirtualMachine) error {
-	blockDevicesByRef := make(map[v1alpha2.BlockDeviceSpecRef]struct{}, len(vm.Spec.BlockDeviceRefs))
+	seen := make(map[blockDeviceKey]struct{}, len(vm.Spec.BlockDeviceRefs))
 
 	for _, bdRef := range vm.Spec.BlockDeviceRefs {
-		if _, ok := blockDevicesByRef[bdRef]; ok {
+		key := blockDeviceKey{Kind: bdRef.Kind, Name: bdRef.Name}
+		if _, ok := seen[key]; ok {
 			return fmt.Errorf("cannot specify the same block device reference more than once: %s with name %q has a duplicate reference", bdRef.Kind, bdRef.Name)
 		}
 
-		blockDevicesByRef[bdRef] = struct{}{}
+		seen[key] = struct{}{}
 	}
 
+	return nil
+}
+
+func hasBlockDeviceChanges(oldVM, newVM *v1alpha2.VirtualMachine) bool {
+	oldRefs := make(map[blockDeviceKey]struct{}, len(oldVM.Spec.BlockDeviceRefs))
+	for _, bd := range oldVM.Spec.BlockDeviceRefs {
+		oldRefs[blockDeviceKey{Kind: bd.Kind, Name: bd.Name}] = struct{}{}
+	}
+	newRefs := make(map[blockDeviceKey]struct{}, len(newVM.Spec.BlockDeviceRefs))
+	for _, bd := range newVM.Spec.BlockDeviceRefs {
+		newRefs[blockDeviceKey{Kind: bd.Kind, Name: bd.Name}] = struct{}{}
+	}
+	for key := range oldRefs {
+		if _, ok := newRefs[key]; !ok {
+			return true
+		}
+	}
+	for key := range newRefs {
+		if _, ok := oldRefs[key]; !ok {
+			return true
+		}
+	}
+	return false
+}
+
+func (v *BlockDeviceSpecRefsValidator) validateBootOrder(vm *v1alpha2.VirtualMachine) error {
+	seen := make(map[uint]string)
+	for _, bdRef := range vm.Spec.BlockDeviceRefs {
+		if bdRef.BootOrder == nil {
+			continue
+		}
+		if *bdRef.BootOrder < 1 {
+			return fmt.Errorf("bootOrder must be >= 1, got %d for %s %q", *bdRef.BootOrder, bdRef.Kind, bdRef.Name)
+		}
+		if prev, exists := seen[*bdRef.BootOrder]; exists {
+			return fmt.Errorf("duplicate bootOrder %d: already used by %s, conflicts with %s %q", *bdRef.BootOrder, prev, bdRef.Kind, bdRef.Name)
+		}
+		seen[*bdRef.BootOrder] = fmt.Sprintf("%s/%s", bdRef.Kind, bdRef.Name)
+	}
 	return nil
 }
