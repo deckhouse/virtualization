@@ -26,7 +26,7 @@ includes:
     dir: ./src/cli
 
 vars:
-  deckhouse_lib_helm_ver: 1.55.1
+  deckhouse_lib_helm_ver: 1.71.1
   TRIVY_VERSION: 0.55.0
   target: ""
   VALIDATION_FILES: "tools/validation/{main,messages,diff,no_cyrillic,doc_changes}.go"
@@ -72,9 +72,13 @@ tasks:
     deps:
       - check-helm
     cmds:
-      - helm repo add deckhouse https://deckhouse.github.io/lib-helm
-      - helm repo update deckhouse
-      - helm dep update
+      - |
+        echo "Add deckhouse Helm repo"
+        helm repo add deckhouse https://deckhouse.github.io/lib-helm
+        echo "Update deckhouse Helm repo"
+        helm repo update deckhouse
+        echo "Update dependencies"
+        helm dep update
 
   helm-bump-helm-lib:
     deps:
