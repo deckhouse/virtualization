@@ -932,6 +932,66 @@ ansible -m shell -a "uptime" \
    dvcr Bound  pvc-6a6cedb8-1292-4440-b789-5cc9d15bbc6b  57617188Ki  RWO            linstor-thick-data-r1  7d
    ```
 
+### Как сменить StorageClass у DVCR, если PVC уже создан?
+
+{{< alert level="warning" >}}
+StorageClass хранилища DVCR можно сменить только пересозданием PVC. При этом теряются все ранее загруженные в DVCR образы, то есть существующие ресурсы [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) и [VirtualImage](/modules/virtualization/cr.html#virtualimage) фактически перестают соответствовать данным в хранилище.
+{{< /alert >}}
+
+Поле [`spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`](configuration.html#parameters-dvcr-storage-persistentvolumeclaim-storageclassname) в ModuleConfig модуля `virtualization` задаёт класс хранения тома хранилища образов виртуальных машин (DVCR). Пока в пространстве имён `d8-virtualization` существует PVC этого тома, изменить поле через API нельзя.
+
+У уже созданного PVC в Kubernetes нельзя сменить `storageClassName`, штатного переноса данных DVCR между классами хранения нет.
+
+Для того чтобы изменить StorageClass у DVCR, выполните следующие действия:
+
+1. Остановите DVCR:
+
+   ```shell
+   d8 k -n d8-virtualization scale deployment dvcr --replicas=0
+   ```
+
+1. Выведите список PVC в неймспейсе `d8-virtualization`, найдите PVC тома DVCR и удалите его, подставив имя ресурса вместо `<pvc-name>`:
+
+   ```shell
+   d8 k get pvc -n d8-virtualization
+   d8 k -n d8-virtualization delete pvc/<pvc-name>
+   ```
+
+1. Задайте новый StorageClass в ModuleConfig. Вместо `<storage-class-name>` укажите нужный класс.
+
+   ```shell
+   d8 k patch mc virtualization --type merge -p '{"spec":{"settings":{"dvcr":{"storage":{"persistentVolumeClaim":{"storageClassName":"<storage-class-name>"}}}}}}'
+   ```
+
+   Пример вывода:
+
+   ```console
+   moduleconfig.deckhouse.io/virtualization patched
+   ```
+
+1. Запустите DVCR:
+
+   ```shell
+   d8 k -n d8-virtualization scale deployment dvcr --replicas=1
+   ```
+
+1. Проверьте PVC:
+
+   ```shell
+   d8 k get pvc -n d8-virtualization
+   ```
+
+   Пример вывода:
+
+   ```console
+   NAME   STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS          VOLUMEATTRIBUTESCLASS   AGE
+   dvcr   Bound    pvc-b43f2e33-32cc-435a-aa1d-b53df35b030a   100Gi      RWO            linstor-thin-r1-hdd   <unset>                 34s
+   ```
+
+{{< alert level="warning" >}}
+Хранилище выбранного StorageClass должно быть доступно на узлах, где запускается DVCR: на system-узлах или на worker-узлах, если в кластере нет system-узлов.
+{{< /alert >}}
+
 ### Как восстановить кластер, если после смены лицензии образы из registry.deckhouse.io не загружаются?
 
 После смены лицензии на кластере с `containerd v1` и удаления устаревшей лицензии образы из `registry.deckhouse.io` могут перестать загружаться. При этом на узлах остаётся устаревший файл конфигурации `/etc/containerd/conf.d/dvcr.toml`, который не удаляется автоматически. Из-за него не запускается модуль `registry`, без которого не работает DVCR.

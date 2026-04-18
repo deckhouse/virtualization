@@ -3000,6 +3000,29 @@ Important considerations when working with additional network interfaces:
 When configuring network interfaces in the guest OS, use stable identifiers (predictable names `enpXsY` or MAC address binding) instead of `ethX` names. For more details, see the [Network interface naming in guest OS](#network-interface-naming-in-guest-os) section.
 {{< /alert >}}
 
+{{< alert level="info" >}}
+On a Linux guest system with multiple interfaces in the same subnet, the ARP Flux issue may occur, where the kernel responds to ARP requests via any arbitrary interface rather than the one the request was received on, leading to unstable connections and packet loss due to an incorrect MAC address in the router's ARP cache.
+
+To resolve this, set the following parameters to force the system to respond to requests strictly via the interface holding the target IP and to use the correct source address:
+
+```bash
+sysctl -w net.ipv4.conf.all.arp_ignore=1
+sysctl -w net.ipv4.conf.all.arp_announce=2
+```
+
+Cloud-init example:
+
+```yaml
+write_files:
+  - path: /etc/sysctl.d/90-arp-strict.conf
+    content: |
+      net.ipv4.conf.all.arp_ignore=1
+      net.ipv4.conf.all.arp_announce=2
+```
+
+For more details, see the [IP sysctl](https://docs.kernel.org/networking/ip-sysctl.html) documentation.
+{{< /alert >}}
+
 Example of connecting a VM to the main cluster network and the project network `user-net`:
 
 ```yaml
@@ -3602,6 +3625,12 @@ USB device passthrough is available only in the **Enterprise Edition (EE)** of t
 
 The virtualization module supports USB device passthrough to virtual machines using DRA (Dynamic Resource Allocation). This section describes how to use USB devices with virtual machines.
 
+USB device passthrough requires:
+
+- `containerd v2`: Detailed requirements for cluster nodes are described in the [`defaultCRI`](/products/kubernetes-platform/documentation/v1/reference/api/cr.html#clusterconfiguration-defaultcri) parameter.
+- [Kubernetes](/products/kubernetes-platform/documentation/v1/reference/supported_versions.html#kubernetes) version 1.34 or higher.
+- [Deckhouse Kubernetes Platform (DKP)](https://releases.deckhouse.io/) version 1.75 or higher.
+
 ### Overview
 
 The module provides two custom resources for managing USB devices:
@@ -3625,7 +3654,7 @@ USB device passthrough follows a defined lifecycle — from device discovery on 
 
 The following steps describe the minimal workflow for attaching a USB device to a virtual machine:
 
-1. Connect the USB device to a cluster node. 
+1. Connect the USB device to a cluster node.
 1. Verify that a NodeUSBDevice resource has been created:
 
    ```bash
@@ -3833,7 +3862,7 @@ Status:
 ```
 
 {{< alert level="info" >}}
-If a USB device is physically disconnected from the node, the `Attached` condition becomes `False`.  
+If a USB device is physically disconnected from the node, the `Attached` condition becomes `False`.
 Both `USBDevice` and `NodeUSBDevice` resources update their status conditions to indicate that the device is no longer present on the host.
 {{< /alert >}}
 
@@ -3873,4 +3902,3 @@ If you are exporting data from a machine other than a cluster node (for example,
 {{< alert level="info" >}}
 To import a downloaded disk back into the cluster, upload it as an [image](#load-an-image-from-the-command-line) or as a [disk](#upload-a-disk-from-the-command-line).
 {{< /alert >}}
-
