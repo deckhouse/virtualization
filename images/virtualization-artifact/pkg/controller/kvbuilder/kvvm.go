@@ -368,6 +368,13 @@ func (b *KVVM) setMemoryNonHotpluggable(memorySize resource.Quantity) {
 	}
 	res.Requests[corev1.ResourceMemory] = memorySize
 	res.Limits[corev1.ResourceMemory] = memorySize
+
+	maxGuest := memorySize.DeepCopy()
+	(&maxGuest).Mul(8)
+
+	b.Resource.Spec.Template.Spec.Domain.Memory = &virtv1.Memory{
+		MaxGuest: &maxGuest,
+	}
 }
 
 // setMemoryHotpluggable translates memory size to settings in domain.memory field.
