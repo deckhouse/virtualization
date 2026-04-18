@@ -25,3 +25,40 @@ import (
 const (
 	DefaultLiveMigrationPolicy = v1alpha2.PreferSafeMigrationPolicy
 )
+
+var systemMigrationPolicyOverride v1alpha2.LiveMigrationPolicy
+
+func SetSystemMigrationPolicyOverride(rawPolicy string) bool {
+	policy := v1alpha2.LiveMigrationPolicy(rawPolicy)
+	if !isValidLiveMigrationPolicy(policy) {
+		systemMigrationPolicyOverride = ""
+		return false
+	}
+	systemMigrationPolicyOverride = policy
+	return true
+}
+
+func GetSystemMigrationPolicyOverride() (v1alpha2.LiveMigrationPolicy, bool) {
+	if systemMigrationPolicyOverride == "" {
+		return "", false
+	}
+	return systemMigrationPolicyOverride, true
+}
+
+func ResetSystemMigrationPolicyOverride() {
+	systemMigrationPolicyOverride = ""
+}
+
+func isValidLiveMigrationPolicy(policy v1alpha2.LiveMigrationPolicy) bool {
+	switch policy {
+	case v1alpha2.ManualMigrationPolicy,
+		v1alpha2.NeverMigrationPolicy,
+		v1alpha2.AlwaysSafeMigrationPolicy,
+		v1alpha2.PreferSafeMigrationPolicy,
+		v1alpha2.AlwaysForcedMigrationPolicy,
+		v1alpha2.PreferForcedMigrationPolicy:
+		return true
+	default:
+		return false
+	}
+}
