@@ -41,6 +41,10 @@ var conf = tlscertificate.GenSelfSignedTLSHookConf{
 
 var genSelfSignedTLS = func(conf tlscertificate.GenSelfSignedTLSHookConf) pkg.ReconcileFunc {
 	return func(ctx context.Context, input *pkg.HookInput) error {
+		if !settings.HasModuleConfig(input) {
+			return nil
+		}
+
 		if !input.Values.Get("virtualization.audit.enabled").Bool() {
 			return nil
 		}

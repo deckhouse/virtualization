@@ -51,6 +51,10 @@ var _ = tlscertificate.RegisterInternalTLSHookEM(tlscertificate.GenSelfSignedTLS
 	CommonCAValuesPath:   fmt.Sprintf("%s.internal.rootCA", settings.ModuleName),
 
 	BeforeHookCheck: func(input *pkg.HookInput) bool {
+		if !settings.HasModuleConfig(input) {
+			return false
+		}
+
 		if dvcrGetServiceIP(input).Type == gjson.Null {
 			return false
 		}

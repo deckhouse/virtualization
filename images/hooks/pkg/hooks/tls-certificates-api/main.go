@@ -16,14 +16,17 @@ limitations under the License.
 package tls_certificates_api
 
 import (
+	"context"
 	"fmt"
 
 	"hooks/pkg/settings"
 
 	tlscertificate "github.com/deckhouse/module-sdk/common-hooks/tls-certificate"
+	"github.com/deckhouse/module-sdk/pkg"
+	"github.com/deckhouse/module-sdk/pkg/registry"
 )
 
-var _ = tlscertificate.RegisterInternalTLSHookEM(tlscertificate.GenSelfSignedTLSHookConf{
+var conf = tlscertificate.GenSelfSignedTLSHookConf{
 	CN:            settings.APICertCN,
 	TLSSecretName: "virtualization-api-tls",
 	Namespace:     settings.ModuleNamespace,
@@ -40,4 +43,16 @@ var _ = tlscertificate.RegisterInternalTLSHookEM(tlscertificate.GenSelfSignedTLS
 
 	FullValuesPathPrefix: fmt.Sprintf("%s.internal.apiserver.cert", settings.ModuleName),
 	CommonCAValuesPath:   fmt.Sprintf("%s.internal.rootCA", settings.ModuleName),
-})
+}
+
+var reconcile = func(conf tlscertificate.GenSelfSignedTLSHookConf) pkg.ReconcileFunc {
+	return func(ctx context.Context, input *pkg.HookInput) error {
+		if !settings.HasModuleConfig(input) {
+			return nil
+		}
+
+		return tlscertificate.GenSelfSignedTLS(conf)(ctx, input)
+	}
+}
+
+var _ = registry.RegisterFunc(tlscertificate.GenSelfSignedTLSConfig(conf), reconcile(conf))

@@ -55,20 +55,32 @@ var _ = Describe("ModuleConfig validation hook", func() {
 			"192.168.0.3",
 		}
 
-		validVirtualMachineCIDRs = []interface{}{
+		validVirtualMachineCIDRs = []any{
 			"10.33.0.0/24",
 			"10.35.0.0/24",
 		}
 
-		virtualMachineCIDRsOverlapWithNodeAddresses = []interface{}{
+		validSettings = map[string]any{
+			"virtualMachineCIDRs": validVirtualMachineCIDRs,
+			"dvcr": map[string]any{
+				"storage": map[string]any{
+					"type": "PersistentVolumeClaim",
+					"persistentVolumeClaim": map[string]any{
+						"size": "10Gi",
+					},
+				},
+			},
+		}
+
+		virtualMachineCIDRsOverlapWithNodeAddresses = []any{
 			"192.168.0.0/24",
 			"10.35.0.0/24",
 		}
-		virtualMachineCIDRsOverlapWithPodSubnet = []interface{}{
+		virtualMachineCIDRsOverlapWithPodSubnet = []any{
 			"10.108.0.0/14",
 			"10.35.0.0/24",
 		}
-		virtualMachineCIDRsOverlapWithServiceSubnet = []interface{}{
+		virtualMachineCIDRsOverlapWithServiceSubnet = []any{
 			"10.220.0.0/14",
 			"10.35.0.0/24",
 		}
@@ -79,12 +91,8 @@ var _ = Describe("ModuleConfig validation hook", func() {
 		values.GetMock.When(serviceSubnetCIDRPath).Then(gjson.Result{Type: gjson.String, Str: serviceSubnet})
 	}
 
-	prepareConfigValues := func(cidrs []interface{}) {
-		cfgValues := map[string]interface{}{
-			"virtualMachineCIDRs": cidrs,
-		}
-		cfgValuesBytes, _ := json.Marshal(cfgValues)
-
+	prepareConfigValues := func(cfg map[string]any) {
+		cfgValuesBytes, _ := json.Marshal(cfg)
 		configValues.GetMock.When("virtualization").Then(gjson.ParseBytes(cfgValuesBytes))
 	}
 
@@ -93,7 +101,7 @@ var _ = Describe("ModuleConfig validation hook", func() {
 		snapshots.GetMock.When(snapshotNodes).Then(nodes)
 	}
 
-	newModuleConfigSnapshot := func(cidrs []interface{}) []pkg.Snapshot {
+	newModuleConfigSnapshot := func(settingsMap map[string]any) []pkg.Snapshot {
 		return []pkg.Snapshot{
 			mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) (err error) {
 				GinkgoHelper()
@@ -101,12 +109,7 @@ var _ = Describe("ModuleConfig validation hook", func() {
 				Expect(ok).To(BeTrue())
 
 				mc.SetName("virtualization")
-
-				if cidrs != nil {
-					mc.Spec.Settings = map[string]interface{}{
-						"virtualMachineCIDRs": cidrs,
-					}
-				}
+				mc.Spec.Settings = settingsMap
 
 				return nil
 			}),
@@ -161,9 +164,9 @@ var _ = Describe("ModuleConfig validation hook", func() {
 
 	It("Should copy moduleconfig settings into internal object if config is valid", func() {
 		prepareValues(defaultPodSubnet, defaultServiceSubnet)
-		prepareConfigValues(validVirtualMachineCIDRs)
+		prepareConfigValues(validSettings)
 		prepareSnapshots(
-			newModuleConfigSnapshot(validVirtualMachineCIDRs),
+			newModuleConfigSnapshot(validSettings),
 			newNodesSnapshot(defaultNodeAddresses),
 		)
 
@@ -171,6 +174,7 @@ var _ = Describe("ModuleConfig validation hook", func() {
 			switch path {
 			case settings.InternalValuesConfigCopyPath:
 				Expect(v).To(HaveKey("virtualMachineCIDRs"))
+				Expect(v).To(HaveKey("dvcr"))
 			case settings.InternalValuesConfigValidationPath:
 				Fail("Should not set validation error")
 			default:
@@ -185,29 +189,79 @@ var _ = Describe("ModuleConfig validation hook", func() {
 		Expect(Reconcile(context.Background(), newInput())).To(Succeed())
 	})
 
-	DescribeTable("Should set validation error if virtualMachineCIDRs overlap with other addresses in cluster", func(cidrs []interface{}) {
+	DescribeTable("Should set validation error if settings are incomplete", func(settingsMap map[string]any, expectedError string) {
 		prepareValues(defaultPodSubnet, defaultServiceSubnet)
 		prepareSnapshots(
-			newModuleConfigSnapshot(cidrs),
+			newModuleConfigSnapshot(settingsMap),
 			newNodesSnapshot(defaultNodeAddresses),
 		)
+
+		validationErrorSet := false
 
 		values.SetMock.Set(func(path string, v any) {
 			switch path {
 			case settings.InternalValuesConfigCopyPath:
 				Fail("Should not copy ModuleConfig settings")
 			case settings.InternalValuesConfigValidationPath:
+				validationErrorSet = true
+				obj, ok := v.(map[string]string)
+				Expect(ok).To(BeTrue())
+				Expect(obj).To(HaveKey("error"))
+				Expect(obj["error"]).To(ContainSubstring(expectedError))
+			default:
+				Fail("unexpected path")
+			}
+		})
+		values.RemoveMock.Optional()
+		values.RemoveMock.Set(func(path string) {
+			if path == settings.InternalValuesConfigCopyPath {
+				Fail("Should not remove previous valid copied ModuleConfig")
+			}
+		})
+
+		Expect(Reconcile(context.Background(), newInput())).To(Succeed())
+		Expect(validationErrorSet).To(BeTrue(), "should set validation error")
+	},
+		Entry("settings are nil", nil, "spec.settings is empty"),
+		Entry("settings are empty", map[string]any{}, "spec.settings.virtualMachineCIDRs is required"),
+		Entry("dvcr is missing", map[string]any{
+			"virtualMachineCIDRs": validVirtualMachineCIDRs,
+		}, "spec.settings.dvcr is required"),
+	)
+
+	DescribeTable("Should set validation error if virtualMachineCIDRs overlap with other addresses in cluster", func(cidrs []any) {
+		prepareValues(defaultPodSubnet, defaultServiceSubnet)
+		invalidSettings := map[string]any{
+			"virtualMachineCIDRs": cidrs,
+			"dvcr":                validSettings["dvcr"],
+		}
+		prepareSnapshots(
+			newModuleConfigSnapshot(invalidSettings),
+			newNodesSnapshot(defaultNodeAddresses),
+		)
+
+		validationErrorSet := false
+
+		values.SetMock.Set(func(path string, v any) {
+			switch path {
+			case settings.InternalValuesConfigCopyPath:
+				Fail("Should not copy ModuleConfig settings")
+			case settings.InternalValuesConfigValidationPath:
+				validationErrorSet = true
 				Expect(v).To(HaveKey("error"))
 			default:
 				Fail("unexpected path")
 			}
 		})
-
 		values.RemoveMock.Optional()
+		values.RemoveMock.Set(func(path string) {
+			if path == settings.InternalValuesConfigCopyPath {
+				Fail("Should not remove previous valid copied ModuleConfig")
+			}
+		})
 
 		Expect(Reconcile(context.Background(), newInput())).To(Succeed())
-
-		Expect(values.RemoveMock.Calls()).To(HaveLen(0), "should not remove values")
+		Expect(validationErrorSet).To(BeTrue(), "should set validation error")
 	},
 		Entry("contain node address", virtualMachineCIDRsOverlapWithNodeAddresses),
 		Entry("overlap with podSubnet", virtualMachineCIDRsOverlapWithPodSubnet),

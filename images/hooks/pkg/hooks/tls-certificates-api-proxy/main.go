@@ -14,6 +14,7 @@ limitations under the License.
 package tls_certificates_api_proxy
 
 import (
+	"context"
 	"fmt"
 
 	"hooks/pkg/settings"
@@ -22,9 +23,10 @@ import (
 
 	tlscertificate "github.com/deckhouse/module-sdk/common-hooks/tls-certificate"
 	"github.com/deckhouse/module-sdk/pkg"
+	"github.com/deckhouse/module-sdk/pkg/registry"
 )
 
-var _ = tlscertificate.RegisterInternalTLSHookEM(tlscertificate.GenSelfSignedTLSHookConf{
+var conf = tlscertificate.GenSelfSignedTLSHookConf{
 	CN:                   settings.APIProxyCertCN,
 	TLSSecretName:        "virtualization-api-proxy-tls",
 	Namespace:            settings.ModuleNamespace,
@@ -32,4 +34,16 @@ var _ = tlscertificate.RegisterInternalTLSHookEM(tlscertificate.GenSelfSignedTLS
 	FullValuesPathPrefix: fmt.Sprintf("%s.internal.apiserver.proxyCert", settings.ModuleName),
 	CommonCAValuesPath:   fmt.Sprintf("%s.internal.rootCA", settings.ModuleName),
 	Usages:               []v1.KeyUsage{v1.UsageClientAuth},
-})
+}
+
+var reconcile = func(conf tlscertificate.GenSelfSignedTLSHookConf) pkg.ReconcileFunc {
+	return func(ctx context.Context, input *pkg.HookInput) error {
+		if !settings.HasModuleConfig(input) {
+			return nil
+		}
+
+		return tlscertificate.GenSelfSignedTLS(conf)(ctx, input)
+	}
+}
+
+var _ = registry.RegisterFunc(tlscertificate.GenSelfSignedTLSConfig(conf), reconcile(conf))

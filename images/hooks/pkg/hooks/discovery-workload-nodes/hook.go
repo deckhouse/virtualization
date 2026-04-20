@@ -81,6 +81,10 @@ var configDiscoveryService = &pkg.HookConfig{
 }
 
 func handleDiscoveryNodes(_ context.Context, input *pkg.HookInput) error {
+	if !settings.HasModuleConfig(input) {
+		return nil
+	}
+
 	nodeCount := len(input.Snapshots.Get(discoveryNodesSnapshot))
 	input.Values.Set(virtHandlerNodeCountPath, nodeCount)
 
