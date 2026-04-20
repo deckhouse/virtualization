@@ -390,7 +390,10 @@ func (s *state) ReadWriteOnceVirtualDisks(ctx context.Context) ([]*v1alpha2.Virt
 }
 
 func (s *state) PVNodeAffinityTerms(ctx context.Context) ([]corev1.NodeSelectorTerm, error) {
-	refs := s.collectBlockDeviceRefs(ctx)
+	refs, err := s.collectBlockDeviceRefs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("collect block device refs: %w", err)
+	}
 
 	var perPVTerms [][]corev1.NodeSelectorTerm
 	namespace := s.vm.Current().GetNamespace()
@@ -417,7 +420,7 @@ func (s *state) PVNodeAffinityTerms(ctx context.Context) ([]corev1.NodeSelectorT
 	return nodeaffinity.IntersectTerms(perPVTerms), nil
 }
 
-func (s *state) collectBlockDeviceRefs(ctx context.Context) []blockDeviceRef {
+func (s *state) collectBlockDeviceRefs(ctx context.Context) ([]blockDeviceRef, error) {
 	seen := make(map[blockDeviceRef]struct{})
 	var refs []blockDeviceRef
 
@@ -435,7 +438,7 @@ func (s *state) collectBlockDeviceRefs(ctx context.Context) []blockDeviceRef {
 		client.MatchingFields{indexer.IndexFieldVMBDAByVM: s.vm.Current().GetName()},
 	)
 	if err != nil {
-		return refs
+		return nil, fmt.Errorf("list VMBDAs: %w", err)
 	}
 
 	for _, vmbda := range vmbdaList.Items {
@@ -452,21 +455,27 @@ func (s *state) collectBlockDeviceRefs(ctx context.Context) []blockDeviceRef {
 		}
 	}
 
-	return refs
+	return refs, nil
 }
 
 func (s *state) resolvePVCName(ctx context.Context, kind v1alpha2.BlockDeviceKind, name string) (string, error) {
 	switch kind {
 	case v1alpha2.DiskDevice:
 		vd, err := s.VirtualDisk(ctx, name)
-		if err != nil || vd == nil {
+		if err != nil {
 			return "", err
+		}
+		if vd == nil {
+			return "", nil
 		}
 		return vd.Status.Target.PersistentVolumeClaim, nil
 	case v1alpha2.ImageDevice:
 		vi, err := s.VirtualImage(ctx, name)
-		if err != nil || vi == nil {
+		if err != nil {
 			return "", err
+		}
+		if vi == nil {
+			return "", nil
 		}
 		if vi.Spec.Storage != v1alpha2.StorageKubernetes && vi.Spec.Storage != v1alpha2.StoragePersistentVolumeClaim {
 			return "", nil
@@ -481,15 +490,21 @@ func (s *state) pvNodeAffinityTermsForPVC(ctx context.Context, pvcName, namespac
 	pvc, err := object.FetchObject(ctx, types.NamespacedName{
 		Name: pvcName, Namespace: namespace,
 	}, s.client, &corev1.PersistentVolumeClaim{})
-	if err != nil || pvc == nil || pvc.Spec.VolumeName == "" {
+	if err != nil {
 		return nil, err
+	}
+	if pvc == nil || pvc.Spec.VolumeName == "" {
+		return nil, nil
 	}
 
 	pv, err := object.FetchObject(ctx, types.NamespacedName{
 		Name: pvc.Spec.VolumeName,
 	}, s.client, &corev1.PersistentVolume{})
-	if err != nil || pv == nil {
+	if err != nil {
 		return nil, err
+	}
+	if pv == nil {
+		return nil, nil
 	}
 
 	if pv.Spec.NodeAffinity != nil && pv.Spec.NodeAffinity.Required != nil && len(pv.Spec.NodeAffinity.Required.NodeSelectorTerms) > 0 {

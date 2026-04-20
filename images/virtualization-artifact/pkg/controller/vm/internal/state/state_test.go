@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -206,7 +207,12 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 	buildState := func(vm *v1alpha2.VirtualMachine, objs ...client.Object) *state {
 		allObjs := []client.Object{vm}
 		allObjs = append(allObjs, objs...)
-		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(allObjs...).Build()
+		vmbdaIndexObj, vmbdaIndexField, vmbdaIndexFn := indexer.IndexVMBDAByVM()
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(allObjs...).
+			WithIndex(vmbdaIndexObj, vmbdaIndexField, vmbdaIndexFn).
+			Build()
 		namespacedName := types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace}
 		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 		ctx := logger.ToContext(context.TODO(), slog.Default())
