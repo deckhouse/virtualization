@@ -10,16 +10,16 @@ Release date: April 20, 2026.
 
 ### Fixes
 
-- [vm] Action is required to update the firmware on virtual machines with a connected USB device (a corresponding migration prompt will appear in the VM status):
-       - either disconnect the USB device and migrate the virtual machine;
-       - or restart the virtual machine.
+- [vm] To update the firmware on virtual machines with a connected USB device, one of the following actions is required. A corresponding message will appear in the virtual machine status:
+       - disconnect the USB device and migrate the virtual machine;
+       - restart the virtual machine.
 
-       Until the action is taken, the virtual machine will continue running, but it cannot be migrated.
-       After completing the action, the virtual machine will be updated to the current firmware version and will be ready for migration again.
+       Until then, the virtual machine will continue running, but it will not be available for migration.
+       After either action is completed, the virtual machine will be updated to the current firmware version and will be available for migration again.
 
 ### Security
 
-- [module] Fixed vulnerability:
+- [module] Fixed vulnerabilities:
   - CVE-2026-32283
   - CVE-2026-27139
   - CVE-2026-32289
