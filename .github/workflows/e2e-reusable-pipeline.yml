@@ -1268,25 +1268,22 @@ jobs:
         run: |
           DATE=$(date +"%Y-%m-%d")
           summary_file_name_junit="e2e_summary_${CSI}_${DATE}.xml"
-          summary_file_name_log="e2e_summary_${CSI}_${DATE}.log"
 
           cp -a legacy/testdata /tmp/testdata
 
           set +e
-          set -o pipefail
           FOCUS="${{ inputs.e2e_focus_tests }}"
           if [ -n "$FOCUS" ]; then
             go tool ginkgo \
               --focus="$FOCUS" \
               -v --race --timeout=$TIMEOUT \
-              --junit-report=$summary_file_name_junit 2>&1 | tee "$summary_file_name_log"
+              --junit-report=$summary_file_name_junit
           else
             go tool ginkgo \
               -v --race --timeout=$TIMEOUT \
-              --junit-report=$summary_file_name_junit 2>&1 | tee "$summary_file_name_log"
+              --junit-report=$summary_file_name_junit
           fi
-          GINKGO_EXIT_CODE=${PIPESTATUS[0]}
-          set +o pipefail
+          GINKGO_EXIT_CODE=$?
           set -e
 
           echo "[INFO] Exit code: $GINKGO_EXIT_CODE"
@@ -1298,7 +1295,6 @@ jobs:
         with:
           name: e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ steps.vars.outputs.e2e-start-time }}
           path: |
-            test/e2e/e2e_summary_*.log
             test/e2e/e2e_summary_*.xml
             test/e2e/*junit*.xml
           if-no-files-found: ignore
