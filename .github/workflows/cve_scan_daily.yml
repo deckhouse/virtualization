@@ -89,4 +89,4 @@ jobs:
           cve_ssh_private_key: ${{ steps.secrets.outputs.CVE_TEST_SSH_PRIVATE_KEY }}
           trivy_reports_log_output: "1"
           latest_releases_amount: 5
-          scan_several_latest_releases: ${{ github.event.inputs.scan_several_latest_releases && 'True' || 'False' }}
+          scan_several_latest_releases: ${{ inputs.scan_several_latest_releases && 'True' || 'False' }}
