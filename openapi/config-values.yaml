@@ -223,10 +223,12 @@ properties:
     description: |
       Enable experimental or early access features.
 
-      - `HotplugCPUWithLiveMigration` — enable live changing of cpu cores number. (Not available in CE);
-      - `HotplugMemoryWithLiveMigration` — enable live changing of memory size. (Not available in CE);
+      - `HotplugCPUWithLiveMigration` — enable live changing of cpu cores number via LiveMigration. (Not available in CE);
+      - `HotplugMemoryWithLiveMigration` — enable live changing of memory size via LiveMigration. (Not available in CE);
+      - `HotplugCPUAndMemoryWithInPlaceResize` - enable live changing of cpu cores number or memory size via InPlaceResize. (Not available in CE);
     items:
       type: string
       enum:
         - "HotplugCPUWithLiveMigration"
         - "HotplugMemoryWithLiveMigration"
+        - "HotplugCPUAndMemoryWithInPlaceResize"

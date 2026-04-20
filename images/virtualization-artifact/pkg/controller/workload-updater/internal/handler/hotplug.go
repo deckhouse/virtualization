@@ -18,10 +18,13 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/component-base/featuregate"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -29,6 +32,9 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/inplaceresize"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -36,16 +42,22 @@ import (
 
 const hotplugHandler = "HotplugHandler"
 
-func NewHotplugHandler(client client.Client, migration OneShotMigration) *HotplugHandler {
+func NewHotplugHandler(client client.Client, migration OneShotMigration, inplaceResize *inplaceresize.Service, featureGate featuregate.FeatureGate, recorder eventrecord.EventRecorderLogger) *HotplugHandler {
 	return &HotplugHandler{
 		client:           client,
 		oneShotMigration: migration,
+		inplaceResize:    inplaceResize,
+		featureGate:      featureGate,
+		recorder:         recorder,
 	}
 }
 
 type HotplugHandler struct {
 	client           client.Client
 	oneShotMigration OneShotMigration
+	inplaceResize    *inplaceresize.Service
+	featureGate      featuregate.FeatureGate
+	recorder         eventrecord.EventRecorderLogger
 }
 
 func (h *HotplugHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachine) (reconcile.Result, error) {
@@ -62,6 +74,24 @@ func (h *HotplugHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachine
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
+	if h.inplaceResize.InProgress(kvvmi) {
+		completed := h.inplaceResize.IsCompleted(kvvmi)
+		possible, err := h.inplaceResize.IsPossible(ctx, kvvmi)
+		if err != nil {
+			if errors.Is(err, inplaceresize.ErrConditionNotFound) {
+				logger.FromContext(ctx).Info("Waiting for inplace resize condition, requeue after 1 second")
+				return reconcile.Result{RequeueAfter: 1 * time.Second}, nil
+			}
+			return reconcile.Result{}, err
+		}
+
+		if possible || completed {
+			return reconcile.Result{}, nil
+		}
+		// inplace resize is not possible, but it is not complete
+		// switch to resize via live migration
+	}
+
 	cond, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceMemoryChange, kvvmi.Status.Conditions)
 	isMemoryHotplug := cond.Status == corev1.ConditionTrue
 
@@ -74,6 +104,16 @@ func (h *HotplugHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachine
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(hotplugHandler))
 	ctx = logger.ToContext(ctx, log)
+
+	if isMemoryHotplug && !h.featureGate.Enabled(featuregates.HotplugMemoryWithLiveMigration) {
+		h.recorder.WithLogging(log).Event(vm, corev1.EventTypeWarning, v1alpha2.ReasonVMHotplugMemoryNotSupported, "HotplugMemoryWithLiveMigration feature gate is not enabled")
+		return reconcile.Result{}, nil
+	}
+
+	if isCPUHotplug && !h.featureGate.Enabled(featuregates.HotplugCPUWithLiveMigration) {
+		h.recorder.WithLogging(log).Event(vm, corev1.EventTypeWarning, v1alpha2.ReasonVMHotplugCPUNotSupported, "HotplugCPUWithLiveMigration feature gate is not enabled")
+		return reconcile.Result{}, nil
+	}
 
 	migrate, err := h.oneShotMigration.OnceMigrate(ctx, vm, annotations.AnnVMOPWorkloadUpdateHotplugResourcesSum, getHotplugResourcesSum(vm))
 	if migrate {

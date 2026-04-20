@@ -25,13 +25,14 @@ import (
 )
 
 const (
-	SDN                                 featuregate.Feature = "SDN"
-	AutoMigrationIfNodePlacementChanged featuregate.Feature = "AutoMigrationIfNodePlacementChanged"
-	VolumeMigration                     featuregate.Feature = "VolumeMigration"
-	TargetMigration                     featuregate.Feature = "TargetMigration"
-	USB                                 featuregate.Feature = "USB"
-	HotplugCPUWithLiveMigration         featuregate.Feature = "HotplugCPUWithLiveMigration"
-	HotplugMemoryWithLiveMigration      featuregate.Feature = "HotplugMemoryWithLiveMigration"
+	SDN                                  featuregate.Feature = "SDN"
+	AutoMigrationIfNodePlacementChanged  featuregate.Feature = "AutoMigrationIfNodePlacementChanged"
+	VolumeMigration                      featuregate.Feature = "VolumeMigration"
+	TargetMigration                      featuregate.Feature = "TargetMigration"
+	USB                                  featuregate.Feature = "USB"
+	HotplugCPUWithLiveMigration          featuregate.Feature = "HotplugCPUWithLiveMigration"
+	HotplugMemoryWithLiveMigration       featuregate.Feature = "HotplugMemoryWithLiveMigration"
+	HotplugCPUAndMemoryWithInPlaceResize featuregate.Feature = "HotplugCPUAndMemoryWithInPlaceResize"
 )
 
 var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
@@ -65,6 +66,11 @@ var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
 		PreRelease:    featuregate.Alpha,
 	},
 	HotplugMemoryWithLiveMigration: {
+		Default:       false,
+		LockToDefault: version.GetEdition() == version.EditionCE,
+		PreRelease:    featuregate.Alpha,
+	},
+	HotplugCPUAndMemoryWithInPlaceResize: {
 		Default:       false,
 		LockToDefault: version.GetEdition() == version.EditionCE,
 		PreRelease:    featuregate.Alpha,
