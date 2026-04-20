@@ -72,6 +72,7 @@ spec:
       - HostDevicesWithDRA
       - HostDevices
       - HotplugHostDevicesWithDRA # custom feature gate - added in our KubeVirt fork, not present in upstream
+      - InPlaceResize # custom feature gate - added in our KubeVirt fork, not present in upstream
     virtualMachineOptions:
       disableSerialConsoleLog: {}
   customizeComponents:
