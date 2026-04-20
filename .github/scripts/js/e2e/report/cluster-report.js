@@ -113,10 +113,6 @@ function zeroMetrics() {
   };
 }
 
-function stripAnsi(value) {
-  return String(value || '').replace(/\x1b\[[0-9;]*m/g, '');
-}
-
 function parseJUnitReport(xmlContent) {
   const testsuitePattern = /<testsuite\b([^>]*)>/gi;
   let testsuiteMatch = testsuitePattern.exec(xmlContent);
@@ -180,37 +176,6 @@ function parseJUnitReport(xmlContent) {
     },
     failedTests: Array.from(new Set(failedTests)),
     startedAt,
-  };
-}
-
-function parseGinkgoSummaryLog(logContent) {
-  const cleanOutput = stripAnsi(logContent);
-  const summaryLine = cleanOutput
-    .split(/\r?\n/)
-    .find((line) => line.includes('FAIL!') || line.includes('SUCCESS!'));
-
-  if (!summaryLine) {
-    return null;
-  }
-
-  const passed = toInteger((summaryLine.match(/(\d+)(?=\s+Passed)/) || [])[1]);
-  const failed = toInteger((summaryLine.match(/(\d+)(?=\s+Failed)/) || [])[1]);
-  const skipped = toInteger((summaryLine.match(/(\d+)(?=\s+Skipped)/) || [])[1]);
-  const pending = toInteger((summaryLine.match(/(\d+)(?=\s+Pending)/) || [])[1]);
-  const total = passed + failed + skipped + pending;
-  const successRate = total > 0 ? Number(((passed / total) * 100).toFixed(2)) : 0;
-
-  return {
-    metrics: {
-      passed,
-      failed,
-      errors: 0,
-      skipped: skipped + pending,
-      total,
-      successRate,
-    },
-    failedTests: [],
-    startedAt: null,
   };
 }
 
@@ -286,9 +251,7 @@ async function buildClusterReport({core, context}) {
   const branchName = process.env.BRANCH_NAME
     || String(context.ref || '').replace(/^refs\/heads\//, '');
   const junitPattern = new RegExp(`^e2e_summary_${escapeRegExp(storageType)}_.*\\.xml$`);
-  const logPattern = new RegExp(`^e2e_summary_${escapeRegExp(storageType)}_.*\\.log$`);
   const junitReportPath = readFirstMatchingFile(reportsDir, junitPattern);
-  const summaryLogPath = readFirstMatchingFile(reportsDir, logPattern);
   const stageInfo = determineStage(storageType);
 
   let parsedReport = {
@@ -304,15 +267,6 @@ async function buildClusterReport({core, context}) {
       ...parseJUnitReport(fs.readFileSync(junitReportPath, 'utf8')),
       source: 'junit',
     };
-  } else if (summaryLogPath) {
-    core.warning(`JUnit report was not found for ${storageType}; falling back to ${summaryLogPath}`);
-    const fallbackReport = parseGinkgoSummaryLog(fs.readFileSync(summaryLogPath, 'utf8'));
-    if (fallbackReport) {
-      parsedReport = {
-        ...fallbackReport,
-        source: 'ginkgo-log',
-      };
-    }
   } else {
     core.warning(`JUnit report was not found for ${storageType} under ${reportsDir}`);
   }
@@ -339,7 +293,6 @@ async function buildClusterReport({core, context}) {
     metrics: parsedReport.metrics,
     failedTests: parsedReport.failedTests,
     sourceJUnitReport: junitReportPath,
-    sourceGinkgoLog: summaryLogPath,
     reportSource: parsedReport.source,
   };
 
@@ -355,5 +308,4 @@ async function buildClusterReport({core, context}) {
 module.exports = buildClusterReport;
 module.exports.determineStage = determineStage;
 module.exports.parseJUnitReport = parseJUnitReport;
-module.exports.parseGinkgoSummaryLog = parseGinkgoSummaryLog;
 module.exports.buildArtifactMissingDescriptor = buildArtifactMissingDescriptor;
