@@ -13,6 +13,23 @@
 const fs = require('fs');
 const path = require('path');
 
+const stageLabels = {
+  bootstrap: 'BOOTSTRAP CLUSTER',
+  'configure-sdn': 'CONFIGURE SDN',
+  'storage-setup': 'STORAGE SETUP',
+  'virtualization-setup': 'VIRTUALIZATION SETUP',
+  'e2e-test': 'E2E TEST',
+  success: 'SUCCESS',
+  'artifact-missing': 'TEST REPORTS NOT FOUND',
+};
+
+const preE2EStages = new Set([
+  'bootstrap',
+  'configure-sdn',
+  'storage-setup',
+  'virtualization-setup',
+]);
+
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -199,33 +216,34 @@ function parseGinkgoSummaryLog(logContent) {
 
 function getStageDescriptor(storageType, stageName, resultValue) {
   const result = (resultValue || '').trim();
-  const stageLabels = {
-    bootstrap: 'BOOTSTRAP CLUSTER',
-    'storage-setup': 'STORAGE SETUP',
-    'virtualization-setup': 'VIRTUALIZATION SETUP',
-    'e2e-test': 'E2E TEST',
-  };
+  const stageLabel = stageLabels[stageName] || stageName;
+  const reportKind = preE2EStages.has(stageName) ? 'stage-failure' : 'tests';
 
   if (result === 'cancelled') {
     return {
       failedStage: stageName,
-      failedJobName: `${stageLabels[stageName]} (${storageType})`,
+      failedStageLabel: stageLabel,
+      failedJobName: `${stageLabel} (${storageType})`,
+      reportKind,
       status: 'cancelled',
-      statusMessage: `⚠️ ${stageLabels[stageName]} CANCELLED`,
+      statusMessage: `⚠️ ${stageLabel} CANCELLED`,
     };
   }
 
   return {
     failedStage: stageName,
-    failedJobName: `${stageLabels[stageName]} (${storageType})`,
+    failedStageLabel: stageLabel,
+    failedJobName: `${stageLabel} (${storageType})`,
+    reportKind,
     status: 'failure',
-    statusMessage: `❌ ${stageLabels[stageName]} FAILED`,
+    statusMessage: `❌ ${stageLabel} FAILED`,
   };
 }
 
 function determineStage(storageType) {
   const orderedStages = [
     ['bootstrap', process.env.BOOTSTRAP_RESULT],
+    ['configure-sdn', process.env.CONFIGURE_SDN_RESULT],
     ['storage-setup', process.env.CONFIGURE_STORAGE_RESULT],
     ['virtualization-setup', process.env.CONFIGURE_VIRTUALIZATION_RESULT],
     ['e2e-test', process.env.E2E_TEST_RESULT],
@@ -239,13 +257,27 @@ function determineStage(storageType) {
 
   return {
     failedStage: 'success',
+    failedStageLabel: stageLabels.success,
     failedJobName: `E2E test (${storageType})`,
+    reportKind: 'tests',
     status: 'success',
     statusMessage: '✅ SUCCESS',
   };
 }
 
-module.exports = async function buildClusterReport({core, context}) {
+function buildArtifactMissingDescriptor(storageType) {
+  const stageLabel = stageLabels['artifact-missing'];
+  return {
+    failedStage: 'artifact-missing',
+    failedStageLabel: stageLabel,
+    failedJobName: `E2E test (${storageType})`,
+    reportKind: 'artifact-missing',
+    status: 'missing',
+    statusMessage: `⚠️ ${stageLabel}`,
+  };
+}
+
+async function buildClusterReport({core, context}) {
   const storageType = process.env.STORAGE_TYPE;
   const reportsDir = process.env.E2E_REPORT_DIR || 'test/e2e';
   const reportFile = process.env.REPORT_FILE || `e2e_report_${storageType}.json`;
@@ -285,13 +317,21 @@ module.exports = async function buildClusterReport({core, context}) {
     core.warning(`JUnit report was not found for ${storageType} under ${reportsDir}`);
   }
 
+  const effectiveStageInfo = (
+    stageInfo.reportKind === 'tests' && parsedReport.source === 'empty'
+      ? buildArtifactMissingDescriptor(storageType)
+      : stageInfo
+  );
+
   const report = {
     cluster: storageType,
     storageType,
-    status: stageInfo.status,
-    statusMessage: stageInfo.statusMessage,
-    failedStage: stageInfo.failedStage,
-    failedJobName: stageInfo.failedJobName,
+    reportKind: effectiveStageInfo.reportKind,
+    status: effectiveStageInfo.status,
+    statusMessage: effectiveStageInfo.statusMessage,
+    failedStage: effectiveStageInfo.failedStage,
+    failedStageLabel: effectiveStageInfo.failedStageLabel,
+    failedJobName: effectiveStageInfo.failedJobName,
     workflowRunId: String(context.runId),
     workflowRunUrl,
     branch: branchName,
@@ -310,4 +350,10 @@ module.exports = async function buildClusterReport({core, context}) {
   core.info(JSON.stringify(report, null, 2));
 
   return report;
-};
+}
+
+module.exports = buildClusterReport;
+module.exports.determineStage = determineStage;
+module.exports.parseJUnitReport = parseJUnitReport;
+module.exports.parseGinkgoSummaryLog = parseGinkgoSummaryLog;
+module.exports.buildArtifactMissingDescriptor = buildArtifactMissingDescriptor;

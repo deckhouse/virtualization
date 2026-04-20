@@ -1318,6 +1318,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - bootstrap
+      - configure-sdn
       - configure-storage
       - configure-virtualization
       - e2e-test
@@ -1343,13 +1344,14 @@ jobs:
           REPORT_FILE: e2e_report_${{ inputs.storage_type }}.json
           BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
           BOOTSTRAP_RESULT: ${{ needs.bootstrap.result }}
+          CONFIGURE_SDN_RESULT: ${{ needs.configure-sdn.result }}
           CONFIGURE_STORAGE_RESULT: ${{ needs.configure-storage.result }}
           CONFIGURE_VIRTUALIZATION_RESULT: ${{ needs.configure-virtualization.result }}
           E2E_TEST_RESULT: ${{ needs.e2e-test.result }}
           WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
-            const buildClusterReport = require('./.github/scripts/js/e2e/cluster-report');
+            const buildClusterReport = require('./.github/scripts/js/e2e/report/cluster-report');
             await buildClusterReport({core, context});
 
       - name: Upload E2E report artifact
