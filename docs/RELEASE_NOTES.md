@@ -11,8 +11,9 @@ Release date: April 20, 2026.
 ### Fixes
 
 - [vm] To update the firmware on virtual machines with a connected USB device, one of the following actions is required. A corresponding message will appear in the virtual machine status:
-       - disconnect the USB device and migrate the virtual machine;
-       - restart the virtual machine.
+
+       - Disconnect the USB device and migrate the virtual machine.
+       - Restart the virtual machine.
 
        Until then, the virtual machine will continue running, but it will not be available for migration.
        After either action is completed, the virtual machine will be updated to the current firmware version and will be available for migration again.
