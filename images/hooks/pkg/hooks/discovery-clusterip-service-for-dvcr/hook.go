@@ -65,6 +65,10 @@ var configDiscoveryService = &pkg.HookConfig{
 }
 
 func handleDiscoveryService(_ context.Context, input *pkg.HookInput) error {
+	if !settings.HasModuleConfig(input) {
+		return nil
+	}
+
 	clusterIP := getClusterIP(input)
 
 	if clusterIP == "" {

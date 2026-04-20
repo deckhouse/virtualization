@@ -70,6 +70,7 @@ var _ = Describe("DVCR Secrets", func() {
 	}
 
 	newInput := func() *pkg.HookInput {
+		values.GetMock.When("virtualization.internal.moduleConfig").Then(gjson.Parse(`{"dvcr":{},"virtualMachineCIDRs":["10.0.0.0/24"]}`))
 		return &pkg.HookInput{
 			Snapshots: snapshots,
 			Values:    values,
