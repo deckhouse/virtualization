@@ -122,7 +122,12 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 		vdsupplements.SetPVCName(vd, dv.Status.ClaimName)
 	}
 
-	isUploaderReady, err := ds.statService.IsUploaderReady(pod, svc, ing)
+	tlsSecret, err := supplements.GetTLSSecret(ctx, ds.client, supgen.Generator)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	isUploaderReady, err := ds.statService.IsUploaderReady(pod, svc, ing, tlsSecret)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

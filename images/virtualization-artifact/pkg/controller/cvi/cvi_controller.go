@@ -77,7 +77,7 @@ func NewController(
 	sources.Set(v1alpha2.DataSourceTypeHTTP, source.NewHTTPDataSource(recorder, stat, importer, dvcrSettings, ns))
 	sources.Set(v1alpha2.DataSourceTypeContainerImage, source.NewRegistryDataSource(recorder, stat, importer, dvcrSettings, mgr.GetClient(), ns))
 	sources.Set(v1alpha2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(recorder, stat, importer, disk, dvcrSettings, mgr.GetClient(), ns))
-	sources.Set(v1alpha2.DataSourceTypeUpload, source.NewUploadDataSource(recorder, stat, uploader, dvcrSettings, ns))
+	sources.Set(v1alpha2.DataSourceTypeUpload, source.NewUploadDataSource(recorder, stat, uploader, dvcrSettings, ns, mgr.GetClient()))
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
