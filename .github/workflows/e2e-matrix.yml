@@ -492,8 +492,10 @@ jobs:
         env:
           REPORTS_DIR: downloaded-artifacts/
           STORAGE_TYPES: ${{ env.STORAGE_TYPES }}
-          LOOP_WEBHOOK_URL: ${{ secrets.LOOP_WEBHOOK_URL }}
+          LOOP_API_BASE_URL: ${{ secrets.LOOP_API_BASE_URL }}
+          LOOP_CHANNEL_ID: ${{ secrets.LOOP_CHANNEL_ID }}
+          LOOP_TOKEN: ${{ secrets.LOOP_TOKEN }}
         with:
           script: |
-            const renderMessengerReport = require('./.github/scripts/js/e2e/messenger-report');
+            const renderMessengerReport = require('./.github/scripts/js/e2e/report/messenger-report');
             await renderMessengerReport({core});
