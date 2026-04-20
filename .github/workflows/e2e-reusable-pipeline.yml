@@ -1308,9 +1308,6 @@ jobs:
         run: |
           DATE=$(date +"%Y-%m-%d")
           summary_file_name_junit="e2e_summary_${CSI}_${DATE}.xml"
-          ginkgo_json_report="ginkgo_report_${CSI}_${DATE}.json"
-          summary_file_name_json="e2e_summary_${CSI}_${DATE}.json"
-          FOCUS="${{ inputs.e2e_focus_tests }}"
 
           cp -a legacy/testdata /tmp/testdata
 
@@ -1323,6 +1320,7 @@ jobs:
           ./scripts/precheck-prepare_ci.sh
 
           set +e
+          FOCUS="${{ inputs.e2e_focus_tests }}"
           GINKGO_ARGS=(
             -v
             --race
@@ -1352,8 +1350,6 @@ jobs:
         with:
           name: e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ steps.vars.outputs.e2e-start-time }}
           path: |
-            test/e2e/e2e_summary_*.json
-            test/e2e/ginkgo_report_*.json
             test/e2e/e2e_summary_*.xml
             test/e2e/*junit*.xml
           if-no-files-found: ignore
