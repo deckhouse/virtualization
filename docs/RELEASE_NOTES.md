@@ -31,6 +31,30 @@ Release date: March 31, 2026.
 - [usb] Stabilized USB device support for virtualization on Deckhouse Kubernetes Platform version `>=1.76` and Kubernetes version `>=1.33`.
 - [usb] Fixed USB device detection on the host: duplicate USB devices could previously appear.
 
+## v1.6.3
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: April 20, 2026.
+</span>
+
+### Security
+
+- [module] Fixed vulnerabilities:
+  - CVE-2026-32283
+  - CVE-2026-27139
+  - CVE-2026-32289
+  - CVE-2026-32288
+  - CVE-2026-32281
+  - CVE-2026-27142
+  - CVE-2026-33997
+  - CVE-2026-33726
+  - CVE-2026-32282
+  - CVE-2026-32280
+  - CVE-2026-25679
+  - CVE-2026-34040
+  - CVE-2026-34986
+  - CVE-2026-39883
+  - CVE-2026-33186
+
 ## v1.6.2
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: March 23, 2026.
