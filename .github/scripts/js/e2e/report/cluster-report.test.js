@@ -58,10 +58,11 @@ describe('cluster-report', () => {
   test('renders test report from JUnit when E2E succeeded', async () => withTempDir(async (tempDir) => {
     const xmlPath = path.join(tempDir, 'e2e_summary_replicated_2026-04-15.xml');
     fs.writeFileSync(xmlPath, `<?xml version="1.0" encoding="UTF-8"?>
-<testsuites tests="3" failures="1" errors="0" skipped="1">
-  <testsuite name="Tests" tests="3" failures="1" errors="0" skipped="1" timestamp="2026-04-15T09:30:44">
+<testsuites tests="4" failures="1" errors="1" disabled="1">
+  <testsuite name="Tests" tests="4" failures="1" errors="1" skipped="1" timestamp="2026-04-15T09:30:44">
     <testcase name="[It] passes" status="passed"></testcase>
-    <testcase name="[It] fails" status="failed"><failure message="boom">boom</failure></testcase>
+    <testcase name="[It] fails &amp; burns" status="failed"><failure message="boom">boom</failure></testcase>
+    <testcase name="[It] errors &lt;loudly&gt;" status="error"><error message="broken">broken</error></testcase>
     <testcase name="[It] skipped" status="skipped"></testcase>
   </testsuite>
 </testsuites>
@@ -80,14 +81,62 @@ describe('cluster-report', () => {
     expect(report.metrics).toEqual({
       passed: 1,
       failed: 1,
-      errors: 0,
+      errors: 1,
       skipped: 1,
-      total: 3,
-      successRate: 33.33,
+      total: 4,
+      successRate: 25,
     });
-    expect(report.failedTests).toEqual(['[It] fails']);
+    expect(report.failedTests).toEqual([
+      '[It] fails & burns',
+      '[It] errors <loudly>',
+    ]);
     expect(report.reportSource).toBe('junit');
     expect(JSON.parse(fs.readFileSync(reportFile, 'utf8')).reportKind).toBe('tests');
+  }));
+
+  test('selects the newest matching JUnit report when multiple files exist', async () => withTempDir(async (tempDir) => {
+    const olderXmlPath = path.join(tempDir, 'nested', 'e2e_summary_replicated_2026-04-15.xml');
+    const newerXmlPath = path.join(tempDir, 'e2e_summary_replicated_2026-04-16.xml');
+    fs.mkdirSync(path.dirname(olderXmlPath), {recursive: true});
+
+    fs.writeFileSync(olderXmlPath, `<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="2" failures="1" errors="0" skipped="0">
+  <testsuite name="Tests" tests="2" failures="1" errors="0" skipped="0" timestamp="2026-04-15T09:30:44">
+    <testcase name="[It] old pass" status="passed"></testcase>
+    <testcase name="[It] old fail" status="failed"><failure message="boom">boom</failure></testcase>
+  </testsuite>
+</testsuites>
+`);
+    fs.writeFileSync(newerXmlPath, `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Tests" tests="1" failures="0" errors="0" skipped="0" timestamp="2026-04-16T09:30:44">
+  <testcase name="[It] latest pass" status="passed"></testcase>
+</testsuite>
+`);
+    fs.utimesSync(olderXmlPath, new Date('2026-04-15T09:30:44Z'), new Date('2026-04-15T09:30:44Z'));
+    fs.utimesSync(newerXmlPath, new Date('2026-04-16T09:30:44Z'), new Date('2026-04-16T09:30:44Z'));
+
+    const reportFile = path.join(tempDir, 'report.json');
+    const core = createCore();
+    setStageEnv({
+      E2E_REPORT_DIR: tempDir,
+      REPORT_FILE: reportFile,
+    });
+
+    const report = await buildClusterReport({core, context: createContext()});
+
+    expect(report.sourceJUnitReport).toBe(newerXmlPath);
+    expect(report.metrics).toEqual({
+      passed: 1,
+      failed: 0,
+      errors: 0,
+      skipped: 0,
+      total: 1,
+      successRate: 100,
+    });
+    expect(report.failedTests).toEqual([]);
+    expect(core.warning).toHaveBeenCalledWith(
+      expect.stringContaining('Found multiple JUnit reports for the cluster; using the newest file')
+    );
   }));
 
   test('reports configure-sdn as the failed pre-E2E phase', async () => withTempDir(async (tempDir) => {
