@@ -12,6 +12,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const {XMLParser} = require('fast-xml-parser');
 
 const stageLabels = {
   bootstrap: 'BOOTSTRAP CLUSTER',
@@ -30,13 +31,22 @@ const preE2EStages = new Set([
   'virtualization-setup',
 ]);
 
+const junitXmlParser = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: '',
+  parseTagValue: false,
+  parseAttributeValue: false,
+  trimValues: false,
+  processEntities: true,
+});
+
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function readFirstMatchingFile(dirPath, filePattern) {
+function listMatchingFiles(dirPath, filePattern, files = []) {
   if (!fs.existsSync(dirPath)) {
-    return null;
+    return files;
   }
 
   const entries = fs.readdirSync(dirPath, {withFileTypes: true})
@@ -44,57 +54,52 @@ function readFirstMatchingFile(dirPath, filePattern) {
   for (const entry of entries) {
     const fullPath = path.join(dirPath, entry.name);
     if (entry.isDirectory()) {
-      const nestedMatch = readFirstMatchingFile(fullPath, filePattern);
-      if (nestedMatch) {
-        return nestedMatch;
-      }
+      listMatchingFiles(fullPath, filePattern, files);
       continue;
     }
 
     if (filePattern.test(entry.name)) {
-      return fullPath;
+      files.push(fullPath);
     }
   }
 
-  return null;
+  return files;
 }
 
-function decodeXmlEntities(value) {
+function pickLatestMatchingFile(dirPath, filePattern, core) {
+  const matchingFiles = listMatchingFiles(dirPath, filePattern);
+  if (matchingFiles.length === 0) {
+    return null;
+  }
+
+  const rankedFiles = matchingFiles
+    .map((filePath) => ({
+      filePath,
+      mtimeMs: fs.statSync(filePath).mtimeMs,
+    }))
+    .sort((left, right) => {
+      if (right.mtimeMs !== left.mtimeMs) {
+        return right.mtimeMs - left.mtimeMs;
+      }
+
+      return right.filePath.localeCompare(left.filePath);
+    });
+
+  if (rankedFiles.length > 1) {
+    core.warning(
+      `Found multiple JUnit reports for the cluster; using the newest file: ${rankedFiles[0].filePath}`
+    );
+  }
+
+  return rankedFiles[0].filePath;
+}
+
+function toArray(value) {
   if (!value) {
-    return '';
+    return [];
   }
 
-  const namedEntities = {
-    amp: '&',
-    apos: "'",
-    gt: '>',
-    lt: '<',
-    quot: '"',
-  };
-
-  return value.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (_, entity) => {
-    if (entity[0] === '#') {
-      const isHex = entity[1].toLowerCase() === 'x';
-      const rawCodePoint = isHex ? entity.slice(2) : entity.slice(1);
-      const codePoint = Number.parseInt(rawCodePoint, isHex ? 16 : 10);
-      return Number.isNaN(codePoint) ? _ : String.fromCodePoint(codePoint);
-    }
-
-    return namedEntities[entity] || _;
-  });
-}
-
-function parseXmlAttributes(rawAttributes) {
-  const attributes = {};
-  const pattern = /([A-Za-z_:][A-Za-z0-9_.:-]*)="([^"]*)"/g;
-  let match = pattern.exec(rawAttributes);
-
-  while (match) {
-    attributes[match[1]] = decodeXmlEntities(match[2]);
-    match = pattern.exec(rawAttributes);
-  }
-
-  return attributes;
+  return Array.isArray(value) ? value : [value];
 }
 
 function toInteger(value) {
@@ -113,57 +118,102 @@ function zeroMetrics() {
   };
 }
 
+function hasOwnProperty(object, key) {
+  return Boolean(object) && Object.prototype.hasOwnProperty.call(object, key);
+}
+
+function hasMetricAttributes(node) {
+  return ['tests', 'failures', 'errors', 'skipped', 'disabled']
+    .some((attributeName) => hasOwnProperty(node, attributeName));
+}
+
+function readMetricsFromNode(node) {
+  return {
+    total: toInteger(node && node.tests),
+    failed: toInteger(node && node.failures),
+    errors: toInteger(node && node.errors),
+    skipped: toInteger((node && (node.skipped || node.disabled)) || 0),
+  };
+}
+
+function collectSuites(suites, collectedSuites = []) {
+  for (const suite of suites) {
+    collectedSuites.push(suite);
+    collectSuites(toArray(suite.testsuite), collectedSuites);
+  }
+
+  return collectedSuites;
+}
+
+function collectMetricSuites(suites, collectedSuites = []) {
+  for (const suite of suites) {
+    const nestedSuites = toArray(suite.testsuite);
+    const hasNestedSuites = nestedSuites.length > 0;
+    const hasTestcases = toArray(suite.testcase).length > 0;
+
+    if (hasTestcases || !hasNestedSuites) {
+      collectedSuites.push(suite);
+    }
+
+    if (hasNestedSuites) {
+      collectMetricSuites(nestedSuites, collectedSuites);
+    }
+  }
+
+  return collectedSuites;
+}
+
 function parseJUnitReport(xmlContent) {
-  const testsuitePattern = /<testsuite\b([^>]*)>/gi;
-  let testsuiteMatch = testsuitePattern.exec(xmlContent);
+  const parsedXml = junitXmlParser.parse(xmlContent);
+  const testsuitesNode = parsedXml.testsuites || null;
+  const topLevelSuites = testsuitesNode
+    ? toArray(testsuitesNode.testsuite)
+    : toArray(parsedXml.testsuite);
+  const allSuites = collectSuites(topLevelSuites);
+  const metricSuites = collectMetricSuites(topLevelSuites);
+  const aggregateSource = hasMetricAttributes(testsuitesNode)
+    ? testsuitesNode
+    : topLevelSuites.length === 1 && hasMetricAttributes(topLevelSuites[0])
+      ? topLevelSuites[0]
+      : null;
+
   let total = 0;
   let failed = 0;
   let errors = 0;
   let skipped = 0;
-  let startedAt = null;
 
-  while (testsuiteMatch) {
-    const suiteAttributes = parseXmlAttributes(testsuiteMatch[1] || '');
-    total += toInteger(suiteAttributes.tests);
-    failed += toInteger(suiteAttributes.failures);
-    errors += toInteger(suiteAttributes.errors);
-    skipped += toInteger(suiteAttributes.skipped || suiteAttributes.disabled);
-    startedAt = startedAt || suiteAttributes.timestamp || null;
-    testsuiteMatch = testsuitePattern.exec(xmlContent);
-  }
-
-  if (total === 0 && failed === 0 && errors === 0 && skipped === 0) {
-    const testsuitesMatch = xmlContent.match(/<testsuites\b([^>]*)>/i);
-    const rootAttributes = parseXmlAttributes((testsuitesMatch && testsuitesMatch[1]) || '');
-    total = toInteger(rootAttributes.tests);
-    failed = toInteger(rootAttributes.failures);
-    errors = toInteger(rootAttributes.errors);
-    skipped = toInteger(rootAttributes.skipped || rootAttributes.disabled);
+  if (aggregateSource) {
+    ({total, failed, errors, skipped} = readMetricsFromNode(aggregateSource));
+  } else {
+    for (const suite of metricSuites) {
+      const suiteMetrics = readMetricsFromNode(suite);
+      total += suiteMetrics.total;
+      failed += suiteMetrics.failed;
+      errors += suiteMetrics.errors;
+      skipped += suiteMetrics.skipped;
+    }
   }
 
   const passed = Math.max(total - failed - errors - skipped, 0);
   const successRate = total > 0 ? Number(((passed / total) * 100).toFixed(2)) : 0;
-
   const failedTests = [];
-  const testcasePattern = /<testcase\b([^>]*?)(?:\/>|>([\s\S]*?)<\/testcase>)/gi;
-  let testcaseMatch = testcasePattern.exec(xmlContent);
 
-  while (testcaseMatch) {
-    const testcaseAttributes = parseXmlAttributes(testcaseMatch[1] || '');
-    const testcaseBody = testcaseMatch[2] || '';
-    const testcaseStatus = (testcaseAttributes.status || '').toLowerCase();
-    const hasFailure = /<failure\b/i.test(testcaseBody);
-    const hasError = /<error\b/i.test(testcaseBody);
+  for (const suite of allSuites) {
+    for (const testcase of toArray(suite.testcase)) {
+      const testcaseStatus = String(testcase.status || '').toLowerCase();
+      const hasFailure = testcase.failure !== undefined;
+      const hasError = testcase.error !== undefined;
 
-    if (hasFailure || hasError || testcaseStatus === 'failed' || testcaseStatus === 'error') {
-      const testcaseName = decodeXmlEntities(testcaseAttributes.name || '').trim();
-      if (testcaseName) {
-        failedTests.push(testcaseName);
+      if (hasFailure || hasError || testcaseStatus === 'failed' || testcaseStatus === 'error') {
+        const testcaseName = String(testcase.name || '').trim();
+        if (testcaseName) {
+          failedTests.push(testcaseName);
+        }
       }
     }
-
-    testcaseMatch = testcasePattern.exec(xmlContent);
   }
+
+  const startedAt = allSuites.find((suite) => suite.timestamp)?.timestamp || null;
 
   return {
     metrics: {
@@ -251,7 +301,7 @@ async function buildClusterReport({core, context}) {
   const branchName = process.env.BRANCH_NAME
     || String(context.ref || '').replace(/^refs\/heads\//, '');
   const junitPattern = new RegExp(`^e2e_summary_${escapeRegExp(storageType)}_.*\\.xml$`);
-  const junitReportPath = readFirstMatchingFile(reportsDir, junitPattern);
+  const junitReportPath = pickLatestMatchingFile(reportsDir, junitPattern, core);
   const stageInfo = determineStage(storageType);
 
   let parsedReport = {
