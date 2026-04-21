@@ -20,12 +20,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/deckhouse/module-sdk/pkg"
-	"github.com/deckhouse/module-sdk/testing/mock"
-	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/deckhouse/module-sdk/pkg"
+	"github.com/deckhouse/module-sdk/testing/mock"
+	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 )
 
 type fakeKubernetesClient struct {
@@ -110,7 +111,7 @@ func TestHasModuleConfig(t *testing.T) {
 	})
 
 	t.Run("returns error when kubernetes client cannot be created", func(t *testing.T) {
-		input := newInput(nil, staticErr("boom"))
+		input := newInput(nil, staticError("boom"))
 
 		ok, err := HasModuleConfig(context.Background(), input)
 		if err == nil {
@@ -122,6 +123,6 @@ func TestHasModuleConfig(t *testing.T) {
 	})
 }
 
-type staticErr string
+type staticError string
 
-func (e staticErr) Error() string { return string(e) }
+func (e staticError) Error() string { return string(e) }

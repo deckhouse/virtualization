@@ -20,11 +20,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/deckhouse/module-sdk/pkg"
-	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/deckhouse/module-sdk/pkg"
+	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 )
 
 func HasModuleConfig(ctx context.Context, input *pkg.HookInput) (bool, error) {

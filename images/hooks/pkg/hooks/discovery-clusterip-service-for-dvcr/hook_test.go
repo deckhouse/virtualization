@@ -25,12 +25,11 @@ import (
 	"github.com/tidwall/gjson"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"hooks/pkg/settings"
-
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/testing/mock"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
+	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
 
 func TestDiscoveryClusterIPServiceForDVCR(t *testing.T) {

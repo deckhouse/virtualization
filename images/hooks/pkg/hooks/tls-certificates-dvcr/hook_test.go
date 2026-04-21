@@ -20,19 +20,12 @@ import (
 	"context"
 	"testing"
 
-<<<<<<< HEAD
-	"github.com/deckhouse/module-sdk/pkg"
-	"github.com/deckhouse/module-sdk/testing/mock"
-	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
-	"github.com/deckhouse/virtualization/hooks/pkg/settings"
-=======
-	"hooks/pkg/settings"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/testing/mock"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
->>>>>>> e2b60b40 (after review)
-	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
 
 type fakeKubernetesClient struct {
@@ -48,12 +41,8 @@ func TestBeforeHookCheckSkipsWithoutModuleConfig(t *testing.T) {
 	dc := mock.NewDependencyContainerMock(t)
 	dc.GetK8sClientMock.Return(&fakeKubernetesClient{get: func(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error {
 		mc := obj.(*mcapi.ModuleConfig)
-<<<<<<< HEAD
-		*mc = *settings.NewModuleConfigForTest(nil)
-=======
 		mc.Name = "virtualization"
 		mc.Spec.Settings = nil
->>>>>>> e2b60b40 (after review)
 		return nil
 	}}, nil)
 

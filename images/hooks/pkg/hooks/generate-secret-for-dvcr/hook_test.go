@@ -30,7 +30,7 @@ import (
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/testing/mock"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
-	"hooks/pkg/settings"
+	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
 
 func TestSetDVCRSecrets(t *testing.T) {
