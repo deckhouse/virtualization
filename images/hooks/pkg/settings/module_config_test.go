@@ -17,52 +17,111 @@ limitations under the License.
 package settings
 
 import (
+	"context"
 	"testing"
-
-	"github.com/tidwall/gjson"
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/testing/mock"
+	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type fakeKubernetesClient struct {
+	pkg.KubernetesClient
+	get func(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error
+}
+
+func (f *fakeKubernetesClient) Get(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object, _ ...ctrlclient.GetOption) error {
+	return f.get(ctx, key, obj)
+}
+
 func TestHasModuleConfig(t *testing.T) {
-	newInput := func(values *mock.OutputPatchableValuesCollectorMock) *pkg.HookInput {
-		return &pkg.HookInput{Values: values}
+	newInput := func(client pkg.KubernetesClient, err error) *pkg.HookInput {
+		dc := mock.NewDependencyContainerMock(t)
+		dc.GetK8sClientMock.Return(client, err)
+		return &pkg.HookInput{DC: dc}
 	}
 
-	t.Run("returns false when moduleConfig is absent", func(t *testing.T) {
-		values := mock.NewPatchableValuesCollectorMock(t)
-		values.GetMock.When(InternalValuesConfigCopyPath).Then(gjson.Result{})
+	t.Run("returns false when module config does not exist", func(t *testing.T) {
+		input := newInput(&fakeKubernetesClient{get: func(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error {
+			return apierrors.NewNotFound(schema.GroupResource{Group: "deckhouse.io", Resource: "moduleconfigs"}, ModuleName)
+		}}, nil)
 
-		if HasModuleConfig(newInput(values)) {
+		ok, err := HasModuleConfig(context.Background(), input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if ok {
 			t.Fatalf("expected HasModuleConfig to return false")
 		}
 	})
 
-	t.Run("returns false when moduleConfig is not an object", func(t *testing.T) {
-		values := mock.NewPatchableValuesCollectorMock(t)
-		values.GetMock.When(InternalValuesConfigCopyPath).Then(gjson.Result{Type: gjson.String, Str: "value"})
+	t.Run("returns false when settings are nil", func(t *testing.T) {
+		input := newInput(&fakeKubernetesClient{get: func(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error {
+			mc := obj.(*mcapi.ModuleConfig)
+			*mc = *NewModuleConfigForTest(nil)
+			return nil
+		}}, nil)
 
-		if HasModuleConfig(newInput(values)) {
+		ok, err := HasModuleConfig(context.Background(), input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if ok {
 			t.Fatalf("expected HasModuleConfig to return false")
 		}
 	})
 
-	t.Run("returns false when moduleConfig is an empty object", func(t *testing.T) {
-		values := mock.NewPatchableValuesCollectorMock(t)
-		values.GetMock.When(InternalValuesConfigCopyPath).Then(gjson.Parse(`{}`))
+	t.Run("returns false when required settings are absent", func(t *testing.T) {
+		input := newInput(&fakeKubernetesClient{get: func(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error {
+			mc := obj.(*mcapi.ModuleConfig)
+			*mc = *NewModuleConfigForTest(map[string]any{})
+			return nil
+		}}, nil)
 
-		if HasModuleConfig(newInput(values)) {
+		ok, err := HasModuleConfig(context.Background(), input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if ok {
 			t.Fatalf("expected HasModuleConfig to return false")
 		}
 	})
 
-	t.Run("returns true when moduleConfig is a non-empty object", func(t *testing.T) {
-		values := mock.NewPatchableValuesCollectorMock(t)
-		values.GetMock.When(InternalValuesConfigCopyPath).Then(gjson.Parse(`{"dvcr":{},"virtualMachineCIDRs":["10.0.0.0/24"]}`))
+	t.Run("returns true when required settings exist", func(t *testing.T) {
+		input := newInput(&fakeKubernetesClient{get: func(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error {
+			mc := obj.(*mcapi.ModuleConfig)
+			*mc = *NewModuleConfigForTest(map[string]any{
+				"virtualMachineCIDRs": []any{"10.0.0.0/24"},
+				"dvcr":                map[string]any{},
+			})
+			return nil
+		}}, nil)
 
-		if !HasModuleConfig(newInput(values)) {
+		ok, err := HasModuleConfig(context.Background(), input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !ok {
 			t.Fatalf("expected HasModuleConfig to return true")
 		}
 	})
+
+	t.Run("returns error when kubernetes client cannot be created", func(t *testing.T) {
+		input := newInput(nil, staticErr("boom"))
+
+		ok, err := HasModuleConfig(context.Background(), input)
+		if err == nil {
+			t.Fatalf("expected error")
+		}
+		if ok {
+			t.Fatalf("expected HasModuleConfig to return false")
+		}
+	})
 }
+
+type staticErr string
+
+func (e staticErr) Error() string { return string(e) }

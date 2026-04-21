@@ -17,22 +17,40 @@ limitations under the License.
 package tls_certificates_dvcr
 
 import (
+	"context"
 	"testing"
-
-	"github.com/tidwall/gjson"
 
 	"hooks/pkg/settings"
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/testing/mock"
+	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func TestBeforeHookCheckSkipsWithoutModuleConfig(t *testing.T) {
-	values := mock.NewPatchableValuesCollectorMock(t)
-	values.GetMock.When(settings.InternalValuesConfigCopyPath).Then(gjson.Result{})
+type fakeKubernetesClient struct {
+	pkg.KubernetesClient
+	get func(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error
+}
 
-	input := &pkg.HookInput{Values: values}
-	if settings.HasModuleConfig(input) {
-		t.Fatalf("expected copied module config to be absent")
+func (f *fakeKubernetesClient) Get(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object, _ ...ctrlclient.GetOption) error {
+	return f.get(ctx, key, obj)
+}
+
+func TestBeforeHookCheckSkipsWithoutModuleConfig(t *testing.T) {
+	dc := mock.NewDependencyContainerMock(t)
+	dc.GetK8sClientMock.Return(&fakeKubernetesClient{get: func(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error {
+		mc := obj.(*mcapi.ModuleConfig)
+		mc.Name = "virtualization"
+		mc.Spec.Settings = nil
+		return nil
+	}}, nil)
+
+	ok, err := settings.HasModuleConfig(context.Background(), &pkg.HookInput{DC: dc})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ok {
+		t.Fatalf("expected module config check to return false")
 	}
 }
