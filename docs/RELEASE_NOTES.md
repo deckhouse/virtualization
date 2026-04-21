@@ -3,6 +3,40 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.7.1
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: April 20, 2026.
+</span>
+
+### Fixes
+
+- [vm] To update the firmware on virtual machines with a connected USB device, one of the following actions is required. A corresponding message will appear in the virtual machine status:
+
+  - Disconnect the USB device and migrate the virtual machine.
+  - Restart the virtual machine.
+
+  Until then, the virtual machine will continue running, but it will not be available for migration.
+  After either action is completed, the virtual machine will be updated to the current firmware version and will be available for migration again.
+
+### Security
+
+- [module] Fixed vulnerabilities:
+  - CVE-2026-32283
+  - CVE-2026-27139
+  - CVE-2026-32289
+  - CVE-2026-32288
+  - CVE-2026-32281
+  - CVE-2026-27142
+  - CVE-2026-33997
+  - CVE-2026-33726
+  - CVE-2026-32282
+  - CVE-2026-32280
+  - CVE-2026-25679
+  - CVE-2026-34040
+  - CVE-2026-34986
+  - CVE-2026-39883
+  - CVE-2026-33186
+
 ## v1.7.0
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: March 31, 2026.
