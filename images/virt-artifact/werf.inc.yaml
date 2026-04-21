@@ -9,7 +9,7 @@
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
-fromCacheVersion: "002"
+fromCacheVersion: "003"
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
