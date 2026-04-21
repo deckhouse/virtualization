@@ -5,7 +5,7 @@ weight: 70
 
 ## v1.7.1
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
-Дата релиза: 20 апреля 2026.
+Дата релиза: 21 апреля 2026.
 </span>
 
 ### Исправления
@@ -67,7 +67,7 @@ weight: 70
 
 ## v1.6.3
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
-Дата релиза: 20 апреля 2026.
+Дата релиза: 21 апреля 2026.
 </span>
 
 ### Безопасность
