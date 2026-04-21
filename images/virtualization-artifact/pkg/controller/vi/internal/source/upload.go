@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
@@ -53,6 +54,7 @@ type UploadDataSource struct {
 	dvcrSettings    *dvcr.Settings
 	diskService     *service.DiskService
 	recorder        eventrecord.EventRecorderLogger
+	client          client.Client
 }
 
 func NewUploadDataSource(
@@ -61,6 +63,7 @@ func NewUploadDataSource(
 	uploaderService Uploader,
 	dvcrSettings *dvcr.Settings,
 	diskService *service.DiskService,
+	client client.Client,
 ) *UploadDataSource {
 	return &UploadDataSource{
 		recorder:        recorder,
@@ -68,6 +71,7 @@ func NewUploadDataSource(
 		uploaderService: uploaderService,
 		dvcrSettings:    dvcrSettings,
 		diskService:     diskService,
+		client:          client,
 	}
 }
 
@@ -100,7 +104,12 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		return reconcile.Result{}, err
 	}
 
-	isUploaderReady, err := ds.statService.IsUploaderReady(pod, svc, ing)
+	tlsSecret, err := supplements.GetTLSSecret(ctx, ds.client, supgen)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	isUploaderReady, err := ds.statService.IsUploaderReady(pod, svc, ing, tlsSecret)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -362,7 +371,12 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 		return reconcile.Result{}, err
 	}
 
-	isUploaderReady, err := ds.statService.IsUploaderReady(pod, svc, ing)
+	tlsSecret, err := supplements.GetTLSSecret(ctx, ds.client, supgen)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	isUploaderReady, err := ds.statService.IsUploaderReady(pod, svc, ing, tlsSecret)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

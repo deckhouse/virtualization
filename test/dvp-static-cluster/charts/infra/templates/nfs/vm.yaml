@@ -53,71 +53,7 @@ spec:
   provisioning:
     type: UserData
     userData: |
-      #cloud-config
-      package_update: true
-      packages:
-        - tmux
-        - htop
-        - qemu-guest-agent
-        - nfs-utils
-        - e2fsprogs
-      users:
-        - name: cloud
-          # passwd: cloud
-          passwd: $6$rounds=4096$vln/.aPHBOI7BMYR$bBMkqQvuGs5Gyd/1H5DP4m9HjQSy.kgrxpaGEHwkX7KEFV8BS.HZWPitAtZ2Vd8ZqIZRqmlykRCagTgPejt1i.
-          shell: /bin/bash
-          sudo: ALL=(ALL) NOPASSWD:ALL
-          chpasswd: {expire: False}
-          lock_passwd: false
-          ssh_authorized_keys:
-            - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFzMcx+aKT7jfkaeQrDdsKfeuSqX/4bqR4Z6IaDsiAFI user@default
-      disk_setup:
-        /dev/sdc:
-          table_type: mbr
-          layout:
-            - 100%: ext4
-          overwrite: true
-      fs_setup:
-        - label: nfs_shared
-          filesystem: ext4
-          device: /dev/sdc
-          replace_fs: true
-      mounts:
-        - [LABEL=nfs_shared, /srv/nfs/shared, ext4, "defaults,nofail", "0", "0"]
-      runcmd:
-        # 1. Ensure the directory exists
-        - mkdir -p /srv/nfs/shared
-        # 2. Wait for the disk to be mounted (up to 60 seconds)
-        - |
-          for i in $(seq 1 60); do
-            mountpoint -q /srv/nfs/shared && break || sleep 1
-          done
-          if [ $? -ne 0 ]; then
-            echo "Disk not mounted after 60 seconds" >&2
-            exit 1
-          fi
-        # 3. Ensure rpc.statd can work by creating its required directory
-        - mkdir -p /var/lib/nfs/statd
-        - chmod 755 /var/lib/nfs/statd
-        # 4. Configure NFS exports
-        - echo "/srv/nfs/shared *(rw,fsid=0,async,no_subtree_check,no_auth_nlm,insecure,no_root_squash)" > /etc/exports
-        # 5. Forcefully restart rpcbind and related services
-        - rc-service rpcbind restart
-        - rc-service rpc.statd restart || echo "Failed to start rpc.statd" >&2
-        # 6. Start NFS service
-        - rc-service nfs restart
-        # 7. Add all services to autostart
-        - rc-update add rpcbind
-        - rc-update add rpc.statd
-        - rc-update add nfs
-        - rc-update add qemu-guest-agent
-        - rc-service qemu-guest-agent start
-        # 8. Apply exports forcefully
-        - exportfs -arv
-        # 9. Check service status
-        - rc-status
-        - exportfs -v
-      final_message: "\U0001F525\U0001F525\U0001F525 The system is finally up, after $UPTIME seconds \U0001F525\U0001F525\U0001F525"
+{{ include "cloudinit.alpine" . | indent 6 }}
   runPolicy: AlwaysOn
   virtualMachineClassName: {{ include "infra.vmclass-name" . }}
 {{ end }}

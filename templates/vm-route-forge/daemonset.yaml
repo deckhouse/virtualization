@@ -122,10 +122,10 @@ spec:
             {{- end }}
             {{- if eq (include "moduleLogLevel" .) "debug" }}
             - name: PPROF_BIND_ADDRESS
-              value: ":8119"
+              value: ":{{ include "vm_route_forge.pprof_port" . }}"
             {{- end }}
             - name: HEALTH_PROBE_BIND_ADDRESS
-              value: "127.0.0.1:8118"
+              value: "127.0.0.1:{{ include "vm_route_forge.health_port" . }}"
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
@@ -133,10 +133,10 @@ spec:
               {{- include "vm-route-forge_resources" . | nindent 14 }}
               {{- end }}
           ports:
-            - containerPort: 8119
+            - containerPort: {{ include "vm_route_forge.pprof_port" . }}
               name: pprof
               protocol: TCP
-            - containerPort: 8118
+            - containerPort: {{ include "vm_route_forge.health_port" . }}
               name: health
               protocol: TCP
             {{- include "delvePorts" (list $delve "delve/vm-route-forge") | nindent 12 }}
@@ -145,7 +145,7 @@ spec:
             httpGet:
               host: localhost
               path: /readyz
-              port: 8118
+              port: {{ include "vm_route_forge.health_port" . }}
               scheme: HTTP
             initialDelaySeconds: 5
             failureThreshold: 2
@@ -154,7 +154,7 @@ spec:
             httpGet:
               host: localhost
               path: /healthz
-              port: 8118
+              port: {{ include "vm_route_forge.health_port" . }}
               scheme: HTTP
             periodSeconds: 1
             failureThreshold: 3

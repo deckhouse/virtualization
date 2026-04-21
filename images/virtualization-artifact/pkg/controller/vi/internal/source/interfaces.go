@@ -64,7 +64,7 @@ type Stat interface {
 	step.WaitForPodStepStat
 	step.ReadyContainerRegistryStepStat
 	IsUploadStarted(ownerUID types.UID, pod *corev1.Pod) bool
-	IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) (bool, error)
+	IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress, tlsSecret *corev1.Secret) (bool, error)
 	GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *v1alpha2.StatusSpeed
 }
 

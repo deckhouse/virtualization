@@ -17,9 +17,14 @@ limitations under the License.
 package pod
 
 import (
+	"context"
+	"slices"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // MakeOwnerReference makes owner reference from a Pod
@@ -117,6 +122,49 @@ func IsPodReady(pod *corev1.Pod) bool {
 // IsPodComplete returns true if a Pod is in 'Succeeded' phase, false if not.
 func IsPodComplete(pod *corev1.Pod) bool {
 	return pod != nil && pod.Status.Phase == corev1.PodSucceeded
+}
+
+func GetLastPodEvent(ctx context.Context, clientObject client.Client, pod *corev1.Pod) (*corev1.Event, error) {
+	if pod == nil {
+		return nil, nil
+	}
+
+	eventList := &corev1.EventList{}
+	err := clientObject.List(ctx, eventList, &client.ListOptions{
+		Namespace: pod.Namespace,
+		FieldSelector: fields.SelectorFromSet(fields.Set{
+			"involvedObject.name": pod.Name,
+			"involvedObject.kind": "Pod",
+		}),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(eventList.Items) == 0 {
+		return nil, nil
+	}
+
+	last := slices.MaxFunc(eventList.Items, func(a, b corev1.Event) int {
+		return a.LastTimestamp.Compare(b.LastTimestamp.Time)
+	})
+
+	return &last, nil
+}
+
+func IsContainerCreating(pod *corev1.Pod) bool {
+	if pod == nil {
+		return false
+	}
+	if pod.Status.Phase != corev1.PodPending {
+		return false
+	}
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.State.Waiting != nil && cs.State.Waiting.Reason == "ContainerCreating" {
+			return true
+		}
+	}
+	return false
 }
 
 // QemuSubGID is the gid used as the deckhouse group in fsGroup

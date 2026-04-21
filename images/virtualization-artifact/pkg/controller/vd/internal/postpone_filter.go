@@ -22,7 +22,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/postponehandler"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/postponeimporter"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -30,12 +30,12 @@ import (
 const postponeFilterHandlerPrefix = "vd-"
 
 type PostponeHandlerPreFilter struct {
-	postponeHandler *postponehandler.Postpone[*v1alpha2.VirtualDisk]
+	postponeHandler *postponeimporter.PostponeHandler[*v1alpha2.VirtualDisk]
 }
 
 // NewPostponeHandlerPreFilter runs postpone handler only if VirtualDisk is required to import/upload
 // to DVCR first.
-func NewPostponeHandlerPreFilter(postponeHandler *postponehandler.Postpone[*v1alpha2.VirtualDisk]) *PostponeHandlerPreFilter {
+func NewPostponeHandlerPreFilter(postponeHandler *postponeimporter.PostponeHandler[*v1alpha2.VirtualDisk]) *PostponeHandlerPreFilter {
 	return &PostponeHandlerPreFilter{
 		postponeHandler: postponeHandler,
 	}
