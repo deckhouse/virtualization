@@ -40,7 +40,11 @@ var conf = tlscertificate.GenSelfSignedTLSHookConf{
 
 var reconcile = func(conf tlscertificate.GenSelfSignedTLSHookConf) pkg.ReconcileFunc {
 	return func(ctx context.Context, input *pkg.HookInput) error {
-		if !settings.HasModuleConfig(input) {
+		hasModuleConfig, err := settings.HasModuleConfig(ctx, input)
+		if err != nil {
+			return err
+		}
+		if !hasModuleConfig {
 			return nil
 		}
 

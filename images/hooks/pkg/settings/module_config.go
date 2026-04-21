@@ -16,17 +16,60 @@ limitations under the License.
 
 package settings
 
-import "github.com/deckhouse/module-sdk/pkg"
+import (
+	"context"
+	"fmt"
 
-func HasModuleConfig(input *pkg.HookInput) bool {
-	config := input.Values.Get(InternalValuesConfigCopyPath)
-	if !config.Exists() {
-		return false
+	"github.com/deckhouse/module-sdk/pkg"
+	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+func HasModuleConfig(ctx context.Context, input *pkg.HookInput) (bool, error) {
+	if input == nil || input.DC == nil {
+		return false, fmt.Errorf("dependency container is nil")
 	}
 
-	if !config.IsObject() {
-		return false
+	k8sClient, err := input.DC.GetK8sClient()
+	if err != nil {
+		return false, fmt.Errorf("get kubernetes client: %w", err)
 	}
 
-	return len(config.Map()) > 0
+	var moduleConfig mcapi.ModuleConfig
+	err = k8sClient.Get(ctx, client.ObjectKey{Name: ModuleName}, &moduleConfig)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("get ModuleConfig/%s: %w", ModuleName, err)
+	}
+
+	if moduleConfig.Spec.Settings == nil {
+		return false, nil
+	}
+
+	if _, ok := moduleConfig.Spec.Settings["virtualMachineCIDRs"]; !ok {
+		return false, nil
+	}
+
+	if _, ok := moduleConfig.Spec.Settings["dvcr"]; !ok {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+func NewModuleConfigForTest(settings map[string]any) *mcapi.ModuleConfig {
+	return &mcapi.ModuleConfig{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ModuleConfig",
+			APIVersion: "deckhouse.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Name: ModuleName},
+		Spec: mcapi.ModuleConfigSpec{
+			Settings: settings,
+		},
+	}
 }

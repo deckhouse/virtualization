@@ -78,8 +78,12 @@ var configDiscoveryService = &pkg.HookConfig{
 	Queue: fmt.Sprintf("modules/%s", settings.ModuleName),
 }
 
-func handleDiscoveryNodes(_ context.Context, input *pkg.HookInput) error {
-	if !settings.HasModuleConfig(input) {
+func handleDiscoveryNodes(ctx context.Context, input *pkg.HookInput) error {
+	hasModuleConfig, err := settings.HasModuleConfig(ctx, input)
+	if err != nil {
+		return err
+	}
+	if !hasModuleConfig {
 		return nil
 	}
 

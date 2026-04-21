@@ -20,17 +20,31 @@ import (
 	"context"
 	"testing"
 
-	"github.com/tidwall/gjson"
-
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/testing/mock"
+	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
+	"github.com/deckhouse/virtualization/hooks/pkg/settings"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func TestReconcileSkipsWithoutModuleConfig(t *testing.T) {
-	values := mock.NewPatchableValuesCollectorMock(t)
-	values.GetMock.When("virtualization.internal.moduleConfig").Then(gjson.Result{})
+type fakeKubernetesClient struct {
+	pkg.KubernetesClient
+	get func(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error
+}
 
-	input := &pkg.HookInput{Values: values}
+func (f *fakeKubernetesClient) Get(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object, _ ...ctrlclient.GetOption) error {
+	return f.get(ctx, key, obj)
+}
+
+func TestReconcileSkipsWithoutModuleConfig(t *testing.T) {
+	dc := mock.NewDependencyContainerMock(t)
+	dc.GetK8sClientMock.Return(&fakeKubernetesClient{get: func(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error {
+		mc := obj.(*mcapi.ModuleConfig)
+		*mc = *settings.NewModuleConfigForTest(nil)
+		return nil
+	}}, nil)
+
+	input := &pkg.HookInput{DC: dc}
 	if err := reconcile(conf)(context.Background(), input); err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
