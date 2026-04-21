@@ -23,7 +23,6 @@ import (
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -119,37 +118,23 @@ func (s ReadyPersistentVolumeClaimStep) Take(ctx context.Context, vi *v1alpha2.V
 		vi.Status.Phase = v1alpha2.ImageReady
 		vi.Status.Progress = "100%"
 
-		storedSize := s.pvc.Status.Capacity[corev1.ResourceStorage]
-		storedSizeBytes, ok := storedSize.AsInt64()
+		res := s.pvc.Status.Capacity[corev1.ResourceStorage]
+		intQ, ok := res.AsInt64()
 		if !ok {
-			return nil, errors.New("failed to convert stored size to int64")
-		}
-
-		unpackedSize := getUnpackedSize(s.pvc)
-		unpackedSizeBytes, ok := unpackedSize.AsInt64()
-		if !ok {
-			return nil, errors.New("failed to convert unpacked size to int64")
+			return nil, errors.New("failed to convert quantity to int64")
 		}
 
 		vi.Status.Size = v1alpha2.ImageStatusSize{
-			Stored:        storedSize.String(),
-			StoredBytes:   strconv.FormatInt(storedSizeBytes, 10),
-			Unpacked:      unpackedSize.String(),
-			UnpackedBytes: strconv.FormatInt(unpackedSizeBytes, 10),
+			Stored:        res.String(),
+			StoredBytes:   strconv.FormatInt(intQ, 10),
+			Unpacked:      res.String(),
+			UnpackedBytes: strconv.FormatInt(intQ, 10),
 		}
 
 		return &reconcile.Result{}, nil
 	default:
 		return nil, nil
 	}
-}
-
-func getUnpackedSize(pvc *corev1.PersistentVolumeClaim) resource.Quantity {
-	if requestedSize, ok := pvc.Spec.Resources.Requests[corev1.ResourceStorage]; ok && !requestedSize.IsZero() {
-		return requestedSize
-	}
-
-	return pvc.Status.Capacity[corev1.ResourceStorage]
 }
 
 func (s ReadyPersistentVolumeClaimStep) cleanUpSupplements(ctx context.Context, vi *v1alpha2.VirtualImage) error {
