@@ -3,6 +3,30 @@ title: "Релизы"
 weight: 70
 ---
 
+## v1.6.3
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 21 апреля 2026.
+</span>
+
+### Безопасность
+
+- [module] Исправлены уязвимости:
+  - CVE-2026-32283
+  - CVE-2026-27139
+  - CVE-2026-32289
+  - CVE-2026-32288
+  - CVE-2026-32281
+  - CVE-2026-27142
+  - CVE-2026-33997
+  - CVE-2026-33726
+  - CVE-2026-32282
+  - CVE-2026-32280
+  - CVE-2026-25679
+  - CVE-2026-34040
+  - CVE-2026-34986
+  - CVE-2026-39883
+  - CVE-2026-33186
+
 ## v1.6.2
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Дата релиза: 23 марта 2026.
@@ -53,6 +77,15 @@ weight: 70
 ### Прочее
 
 - [vm] Для утилиты `vlctl` добавлен флаг `--from-file` для просмотра информации о домене из локального libvirt XML-файла.
+
+## v1.5.2
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 5 марта 2026.
+</span>
+
+### Исправления
+
+- [vd] Исправлен возможный `OOMKill` при создании виртуального диска на NFS.
 
 ## v1.5.1
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">

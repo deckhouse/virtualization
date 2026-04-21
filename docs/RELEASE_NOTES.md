@@ -3,6 +3,30 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.6.3
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: April 21, 2026.
+</span>
+
+### Security
+
+- [module] Fixed vulnerabilities:
+  - CVE-2026-32283
+  - CVE-2026-27139
+  - CVE-2026-32289
+  - CVE-2026-32288
+  - CVE-2026-32281
+  - CVE-2026-27142
+  - CVE-2026-33997
+  - CVE-2026-33726
+  - CVE-2026-32282
+  - CVE-2026-32280
+  - CVE-2026-25679
+  - CVE-2026-34040
+  - CVE-2026-34986
+  - CVE-2026-39883
+  - CVE-2026-33186
+
 ## v1.6.2
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: March 23, 2026.
@@ -53,6 +77,15 @@ Release date: March 2, 2026.
 ### Other
 
 - [vm] Added the `--from-file` flag to the `vlctl` utility for viewing domain information from a local libvirt XML file.
+
+## v1.5.2
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: March 5, 2026.
+</span>
+
+### Fixes
+
+- [vd] Fixed a potential `OOMKill` during the virtual disk creation on NFS.
 
 ## v1.5.1
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
