@@ -32,7 +32,7 @@ func HasModuleConfig(ctx context.Context, input *pkg.HookInput) (bool, error) {
 		return false, fmt.Errorf("dependency container is nil")
 	}
 
-	k8sClient, err := input.DC.GetK8sClient()
+	k8sClient, err := input.DC.GetK8sClient(addModuleConfigScheme())
 	if err != nil {
 		return false, fmt.Errorf("get kubernetes client: %w", err)
 	}
@@ -59,6 +59,16 @@ func HasModuleConfig(ctx context.Context, input *pkg.HookInput) (bool, error) {
 	}
 
 	return true, nil
+}
+
+type moduleConfigSchemeOption struct{}
+
+func (moduleConfigSchemeOption) Apply(optsApplier pkg.KubernetesOptionApplier) {
+	optsApplier.WithSchemeBuilder(mcapi.SchemeBuilder)
+}
+
+func addModuleConfigScheme() pkg.KubernetesOption {
+	return moduleConfigSchemeOption{}
 }
 
 func NewModuleConfigForTest(settings map[string]any) *mcapi.ModuleConfig {

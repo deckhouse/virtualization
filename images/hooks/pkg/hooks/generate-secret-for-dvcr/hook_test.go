@@ -30,7 +30,7 @@ import (
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/testing/mock"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
-	"github.com/deckhouse/virtualization/hooks/pkg/settings"
+	"hooks/pkg/settings"
 )
 
 func TestSetDVCRSecrets(t *testing.T) {
@@ -235,3 +235,12 @@ var _ = Describe("Generate secrets", func() {
 		Expect(validateHtpasswd(password, htpasswd)).To(BeTrue())
 	})
 })
+
+type fakeKubernetesClient struct {
+	pkg.KubernetesClient
+	get func(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error
+}
+
+func (f *fakeKubernetesClient) Get(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object, _ ...ctrlclient.GetOption) error {
+	return f.get(ctx, key, obj)
+}
