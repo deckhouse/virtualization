@@ -22,10 +22,13 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -126,7 +129,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.StorageClassIsNotReady).
-				Message("Storage class in not ready")
+				Message("Storage class is not ready.")
 			conditions.SetCondition(cb, &vd.Status.Conditions)
 
 			return reconcile.Result{}, nil
@@ -134,6 +137,17 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 
 		if vd.Status.StorageClassName == "" {
 			return reconcile.Result{}, fmt.Errorf("empty storage class in status")
+		}
+
+		err := h.validateVirtualImageStorageClassMatch(ctx, vd)
+		if err != nil {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdcondition.StorageClassNotMatchingSource).
+				Message(service.CapitalizeFirstLetter(err.Error()))
+			conditions.SetCondition(cb, &vd.Status.Conditions)
+
+			return reconcile.Result{}, nil
 		}
 	}
 
@@ -153,4 +167,29 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 	}
 
 	return result, nil
+}
+
+func (h LifeCycleHandler) validateVirtualImageStorageClassMatch(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
+	if vd.Spec.DataSource == nil || vd.Spec.DataSource.Type != v1alpha2.DataSourceTypeObjectRef {
+		return nil
+	}
+
+	if vd.Spec.DataSource.ObjectRef == nil || vd.Spec.DataSource.ObjectRef.Kind != v1alpha2.VirtualDiskObjectRefKindVirtualImage {
+		return nil
+	}
+
+	vi, err := object.FetchObject(ctx, types.NamespacedName{Namespace: vd.Namespace, Name: vd.Spec.DataSource.ObjectRef.Name}, h.client, &v1alpha2.VirtualImage{})
+	if err != nil {
+		return err
+	}
+
+	if vi == nil || vi.Status.Phase != v1alpha2.ImageReady || vi.Spec.Storage == v1alpha2.StorageContainerRegistry {
+		return nil
+	}
+
+	if vi.Status.StorageClassName != vd.Status.StorageClassName {
+		return fmt.Errorf("virtual disk storage class %q does not match virtual image storage class %q", vd.Status.StorageClassName, vi.Status.StorageClassName)
+	}
+
+	return nil
 }
