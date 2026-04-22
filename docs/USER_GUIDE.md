@@ -1320,13 +1320,39 @@ Next, the system automatically determines the topology depending on the specifie
   - 8 sockets are used.
   - Cores are evenly distributed among the sockets.
   - Step change: 8 (the total number of cores must be a multiple of 8).
-  - Valid values: 72, 80, 88, 88, 96, and so on up to 248
+  - Valid values: 72, 80, 88, 96, and so on up to 248
   - Limitations: minimum 9 cores per socket.
   - Example: If `.spec.cpu.cores` = 80, topology: 8 sockets with 10 cores each.
 
 The change step indicates by how much the total number of cores can be increased or decreased so that they are evenly distributed across the sockets.
 
 The maximum possible number of cores is 248.
+
+Summary table by `spec.cpu.cores` range:
+
+| Cores range       | Number of sockets | Change step | Minimum cores per socket | Maximum cores per socket |
+|-------------------|-------------------|-------------|--------------------------|--------------------------|
+| `1 ≤ cores ≤ 16`  | 1                 | 1           | 1                        | 16                       |
+| `16 < cores ≤ 32` | 2                 | 2           | 9                        | 16                       |
+| `32 < cores ≤ 64` | 4                 | 4           | 9                        | 16                       |
+| `cores > 64`      | 8                 | 8           | 9                        | 16                       |
+
+Memory overhead does not depend on the maximum possible vCPU topology; it is calculated from actively used cores: (sockets × cores per socket × threads per core) × 8 MiB per logical CPU.
+
+Example: with `spec.cpu.cores: 20`, the status shows a topology of two sockets with 10 cores each:
+
+```yaml
+spec:
+  cpu:
+    cores: 20
+# ...
+status:
+  resources:
+    cpu:
+      topology:
+        coresPerSocket: 10
+        sockets: 2
+```
 
 The current VM topology (number of sockets and cores in each socket) is displayed in the VM status in the following format:
 
@@ -1751,16 +1777,16 @@ If the virtual machine is in a shutdown state (`.status.phase: Stopped`), the ch
 
 If the virtual machine is running (`.status.phase: Running`), the way the changes are applied depends on the type of change:
 
-| Configuration block                     | How changes are applied                                   |
-|-----------------------------------------|-----------------------------------------------------------|
-| `.metadata.annotations`                 | Applies immediately                                       |
-| `.spec.liveMigrationPolicy`             | Applies immediately                                       |
-| `.spec.runPolicy`                       | Applies immediately                                       |
-| `.spec.disruptions.restartApprovalMode` | Applies immediately                                       |
-| `.spec.affinity`                        | EE, SE+: Applies immediately, CE: Only after VM restart   |
-| `.spec.nodeSelector`                    | EE, SE+: Applies immediately, CE: Only after VM restart   |
-| `.spec.cpu.cores`                       | Usually via live migration, otherwise restart is required |
-| `.spec.*`                               | Only after VM restart                                     |
+| Configuration block                     | How changes are applied                                                                                                  |
+|-----------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
+| `.metadata.annotations`                 | Applies immediately and propagates to the VM Pod                                                                         |
+| `.spec.liveMigrationPolicy`             | Applies immediately                                                                                                      |
+| `.spec.runPolicy`                       | Applies immediately                                                                                                      |
+| `.spec.disruptions.restartApprovalMode` | Applies immediately                                                                                                      |
+| `.spec.affinity`                        | EE, SE+: Applies immediately, CE: Only after VM restart                                                                  |
+| `.spec.nodeSelector`                    | EE, SE+: Applies immediately, CE: Only after VM restart                                                                  |
+| `.spec.cpu.cores`                       | May apply immediately if hotplug is enabled (EE, SE+), see [CPU hotplug](#cpu-hotplug); otherwise a restart is required. |
+| `.spec.*`                               | Only after VM restart                                                                                                    |
 
 How to change the VM configuration in the web interface:
 
@@ -1889,29 +1915,38 @@ CPU hotplug lets you change `spec.cpu.cores` for a running VM without restart wh
 
 This functionality is disabled by default.
 
-To enable this functionality, add `HotplugCPUWithLiveMigration` to `.spec.settings.featureGates` of the `virtualization` module `ModuleConfig`.
+To enable this functionality, add `HotplugCPUWithLiveMigration` to `.spec.settings.featureGates` array in the ModuleConfig/virtualization:
 
-If the new `spec.cpu.cores` value falls within the hotplug range of the current topology and the VM is migratable, the change is applied through live migration. If the new value requires a CPU topology change or the VM is not migratable, a VM restart is required. The need for restart is reflected by the `AwaitingRestartToApplyConfiguration` condition.
+```yaml
+kind: ModuleConfig
+metadata:
+  name: virtualization
+spec:
+  settings:
+    featureGates:
+    - HotplugCPUWithLiveMigration
+```
+
+If the new `.spec.cpu.cores` value falls within the hotplug range for the current topology and the VM is migratable, the change is applied through live migration. If the new value requires a different CPU topology or the VM cannot be migrated, a VM restart is required. The need for restart is reflected by the `AwaitingRestartToApplyConfiguration` condition.
+
+Topology calculation rules and allowed change steps for `spec.cpu.cores` are described in [Automatic CPU topology configuration](#automatic-cpu-topology-configuration).
 
 Guest OS specifics:
 
 - After live migration, new vCPUs may require explicit activation inside the guest OS.
-- Automatic activation settings inside the guest OS do not affect CPU activation on reboot.
 - On Linux, added CPUs can be enabled through sysfs:
 
   ```bash
   echo 1 > /sys/devices/system/cpu/cpu1/online
   ```
 
-- To automatically enable new CPUs on Linux, configure a `udev` rule:
+- To automatically enable new CPUs on Linux, configure a `udev` rule. After that, added CPUs become visible in `cat /proc/cpuinfo` and `top`:
 
   ```bash
   cat <<'EOF' > /etc/udev/rules.d/99-hotplug-cpu.rules
   SUBSYSTEM=="cpu",ACTION=="add",RUN+="/bin/sh -c '[ ! -e /sys$devpath/online ] || echo 1 > /sys$devpath/online'"
   EOF
   ```
-
-- After that, added CPUs become visible in `cat /proc/cpuinfo` and `top`.
 
 Limitations:
 
