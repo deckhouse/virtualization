@@ -1751,15 +1751,16 @@ If the virtual machine is in a shutdown state (`.status.phase: Stopped`), the ch
 
 If the virtual machine is running (`.status.phase: Running`), the way the changes are applied depends on the type of change:
 
-| Configuration block                     | How changes are applied                                 |
-| --------------------------------------- | --------------------------------------------------------|
-| `.metadata.annotations`                 | Applies immediately                                     |
-| `.spec.liveMigrationPolicy`             | Applies immediately                                     |
-| `.spec.runPolicy`                       | Applies immediately                                     |
-| `.spec.disruptions.restartApprovalMode` | Applies immediately                                     |
-| `.spec.affinity`                        | EE, SE+: Applies immediately, CE: Only after VM restart |
-| `.spec.nodeSelector`                    | EE, SE+: Applies immediately, CE: Only after VM restart |
-| `.spec.*`                               | Only after VM restart                                   |
+| Configuration block                     | How changes are applied                                   |
+|-----------------------------------------|-----------------------------------------------------------|
+| `.metadata.annotations`                 | Applies immediately                                       |
+| `.spec.liveMigrationPolicy`             | Applies immediately                                       |
+| `.spec.runPolicy`                       | Applies immediately                                       |
+| `.spec.disruptions.restartApprovalMode` | Applies immediately                                       |
+| `.spec.affinity`                        | EE, SE+: Applies immediately, CE: Only after VM restart   |
+| `.spec.nodeSelector`                    | EE, SE+: Applies immediately, CE: Only after VM restart   |
+| `.spec.cpu.cores`                       | Usually via live migration, otherwise restart is required |
+| `.spec.*`                               | Only after VM restart                                     |
 
 How to change the VM configuration in the web interface:
 
@@ -1881,6 +1882,42 @@ How to perform the operation in the web interface:
 - On the "Configuration" tab, scroll down to the "Additional Settings" section.
 - Enable the "Auto-apply changes" switch.
 - Click on the "Save" button that appears.
+
+### CPU hotplug
+
+CPU hotplug lets you change `spec.cpu.cores` for a running VM without restart when the change can be applied through live migration. Within the current CPU topology, you can both increase and decrease the number of cores.
+
+This functionality is disabled by default.
+
+To enable this functionality, add `HotplugCPUWithLiveMigration` to `.spec.settings.featureGates` of the `virtualization` module `ModuleConfig`.
+
+If the new `spec.cpu.cores` value falls within the hotplug range of the current topology and the VM is migratable, the change is applied through live migration. If the new value requires a CPU topology change or the VM is not migratable, a VM restart is required. The need for restart is reflected by the `AwaitingRestartToApplyConfiguration` condition.
+
+Guest OS specifics:
+
+- After live migration, new vCPUs may require explicit activation inside the guest OS.
+- Automatic activation settings inside the guest OS do not affect CPU activation on reboot.
+- On Linux, added CPUs can be enabled through sysfs:
+
+  ```bash
+  echo 1 > /sys/devices/system/cpu/cpu1/online
+  ```
+
+- To automatically enable new CPUs on Linux, configure a `udev` rule:
+
+  ```bash
+  cat <<'EOF' > /etc/udev/rules.d/99-hotplug-cpu.rules
+  SUBSYSTEM=="cpu",ACTION=="add",RUN+="/bin/sh -c '[ ! -e /sys$devpath/online ] || echo 1 > /sys$devpath/online'"
+  EOF
+  ```
+
+- After that, added CPUs become visible in `cat /proc/cpuinfo` and `top`.
+
+Limitations:
+
+- Changing `spec.cpu.cores` without restart is possible only within the hotplug range of the current CPU topology.
+- If the change requires CPU topology reconfiguration, a VM restart is required.
+- When decreasing CPU count within the current topology, CPU distribution across sockets may become uneven.
 
 ### Placement of VMs by nodes
 
