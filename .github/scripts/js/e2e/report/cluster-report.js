@@ -298,6 +298,16 @@ function buildArtifactMissingDescriptor(storageType) {
   };
 }
 
+function setReportOutputs(report, reportFile, core) {
+  core.setOutput("report_file", reportFile);
+  core.setOutput("report_kind", report.reportKind || "");
+  core.setOutput("status", report.status || "");
+  core.setOutput("failed_stage", report.failedStage || "");
+  core.setOutput("failed_stage_label", report.failedStageLabel || "");
+  core.setOutput("workflow_run_url", report.workflowRunUrl || "");
+  core.setOutput("branch", report.branch || "");
+}
+
 async function buildClusterReport({ core, context }) {
   const config = readClusterConfigFromEnv();
   const workflowRunUrl =
@@ -361,7 +371,7 @@ async function buildClusterReport({ core, context }) {
 
   fs.writeFileSync(config.reportFile, `${JSON.stringify(report, null, 2)}\n`);
 
-  core.setOutput("report_file", config.reportFile);
+  setReportOutputs(report, config.reportFile, core);
   core.info(`Created report file: ${config.reportFile}`);
   core.info(JSON.stringify(report, null, 2));
 
