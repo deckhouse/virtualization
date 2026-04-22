@@ -820,6 +820,41 @@ var _ = Describe("LifecycleHandler", func() {
 			Expect(completed.Reason).To(Equal(vmopcondition.ReasonAborted.String()))
 		})
 
+		It("should return unschedulable message from target pod condition", func() {
+			mig := newSimpleMigration("vmop-test", name)
+			mig.UID = "migration-uid"
+			mig.Status.Phase = virtv1.MigrationScheduling
+
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespace,
+					Name:      "target-pod",
+					Labels: map[string]string{
+						virtv1.AppLabel:          "virt-launcher",
+						virtv1.MigrationJobLabel: "migration-uid",
+					},
+				},
+				Status: corev1.PodStatus{
+					Phase: corev1.PodPending,
+					Conditions: []corev1.PodCondition{{
+						Type:    corev1.PodScheduled,
+						Status:  corev1.ConditionFalse,
+						Reason:  corev1.PodReasonUnschedulable,
+						Message: "0/3 nodes are available: 3 Insufficient memory.",
+					}},
+				},
+			}
+
+			fakeClient, err := testutil.NewFakeClientWithObjects(mig, pod)
+			Expect(err).NotTo(HaveOccurred())
+
+			h := LifecycleHandler{client: fakeClient}
+			reason, msg, err := h.getInProgressReasonAndMessage(ctx, mig)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(reason).To(Equal(vmopcondition.ReasonTargetUnschedulable))
+			Expect(msg).To(Equal("Target pod \"default/target-pod\" is unschedulable: 0/3 nodes are available: 3 Insufficient memory."))
+		})
+
 		It("should return TargetDiskError when target pod has disk attach error", func() {
 			mig := newSimpleMigration("vmop-test", name)
 			mig.UID = "migration-uid"

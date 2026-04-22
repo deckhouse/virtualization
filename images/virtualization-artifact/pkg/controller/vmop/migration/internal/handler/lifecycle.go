@@ -588,8 +588,8 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 	if err != nil {
 		return "", "", err
 	}
-	if isPodPendingUnschedulable(pod) {
-		return vmopcondition.ReasonTargetUnschedulable, fmt.Sprintf("Target pod %q is unschedulable", pod.Namespace+"/"+pod.Name), nil
+	if unschedulableMsg, isUnschedulable := getPodPendingUnschedulableMessage(pod); isUnschedulable {
+		return vmopcondition.ReasonTargetUnschedulable, unschedulableMsg, nil
 	}
 	if diskErrMsg, hasDiskErr := h.getTargetPodDiskError(ctx, pod); hasDiskErr {
 		return vmopcondition.ReasonTargetDiskError, fmt.Sprintf("Target pod has disk attach error: %s", diskErrMsg), nil
@@ -722,20 +722,26 @@ func isContainerCreating(pod *corev1.Pod) bool {
 	return false
 }
 
-func isPodPendingUnschedulable(pod *corev1.Pod) bool {
+func getPodPendingUnschedulableMessage(pod *corev1.Pod) (string, bool) {
 	if pod == nil {
-		return false
+		return "", false
 	}
 	if pod.Status.Phase != corev1.PodPending || pod.DeletionTimestamp != nil {
-		return false
+		return "", false
 	}
 
 	for _, condition := range pod.Status.Conditions {
-		if condition.Type == corev1.PodScheduled &&
-			condition.Status == corev1.ConditionFalse &&
-			condition.Reason == corev1.PodReasonUnschedulable {
-			return true
+		if condition.Type != corev1.PodScheduled ||
+			condition.Status != corev1.ConditionFalse ||
+			condition.Reason != corev1.PodReasonUnschedulable {
+			continue
 		}
+
+		message := fmt.Sprintf("Target pod %q is unschedulable", pod.Namespace+"/"+pod.Name)
+		if condition.Message != "" {
+			message = fmt.Sprintf("%s: %s", message, condition.Message)
+		}
+		return message, true
 	}
-	return false
+	return "", false
 }
