@@ -22,7 +22,6 @@ import (
 
 	tlscertificate "github.com/deckhouse/module-sdk/common-hooks/tls-certificate"
 	"github.com/deckhouse/module-sdk/pkg"
-	"github.com/deckhouse/module-sdk/pkg/registry"
 	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
 
@@ -43,20 +42,14 @@ var conf = tlscertificate.GenSelfSignedTLSHookConf{
 
 	FullValuesPathPrefix: fmt.Sprintf("%s.internal.apiserver.cert", settings.ModuleName),
 	CommonCAValuesPath:   fmt.Sprintf("%s.internal.rootCA", settings.ModuleName),
-}
-
-var reconcile = func(conf tlscertificate.GenSelfSignedTLSHookConf) pkg.ReconcileFunc {
-	return func(ctx context.Context, input *pkg.HookInput) error {
-		hasModuleConfig, err := settings.HasModuleConfig(ctx, input)
+	BeforeHookCheck: func(input *pkg.HookInput) bool {
+		hasModuleConfig, err := settings.HasModuleConfig(context.Background(), input)
 		if err != nil {
-			return err
+			input.Logger.Error("Check module config before API TLS hook", "error", err)
+			return false
 		}
-		if !hasModuleConfig {
-			return nil
-		}
-
-		return tlscertificate.GenSelfSignedTLS(conf)(ctx, input)
-	}
+		return hasModuleConfig
+	},
 }
 
-var _ = registry.RegisterFunc(tlscertificate.GenSelfSignedTLSConfig(conf), reconcile(conf))
+var _ = tlscertificate.RegisterInternalTLSHookEM(conf)

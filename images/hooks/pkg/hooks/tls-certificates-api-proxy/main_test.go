@@ -37,7 +37,7 @@ func (f *fakeKubernetesClient) Get(ctx context.Context, key ctrlclient.ObjectKey
 	return f.get(ctx, key, obj)
 }
 
-func TestReconcileSkipsWithoutModuleConfig(t *testing.T) {
+func TestBeforeHookCheckSkipsWithoutModuleConfig(t *testing.T) {
 	dc := mock.NewDependencyContainerMock(t)
 	dc.GetK8sClientMock.Return(&fakeKubernetesClient{get: func(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error {
 		mc := obj.(*mcapi.ModuleConfig)
@@ -45,8 +45,11 @@ func TestReconcileSkipsWithoutModuleConfig(t *testing.T) {
 		return nil
 	}}, nil)
 
-	input := &pkg.HookInput{DC: dc}
-	if err := reconcile(conf)(context.Background(), input); err != nil {
-		t.Fatalf("expected nil error, got %v", err)
+	if conf.BeforeHookCheck == nil {
+		t.Fatal("expected BeforeHookCheck to be configured")
+	}
+
+	if ok := conf.BeforeHookCheck(&pkg.HookInput{DC: dc}); ok {
+		t.Fatalf("expected BeforeHookCheck to return false")
 	}
 }
