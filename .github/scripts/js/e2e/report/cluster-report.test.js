@@ -3,6 +3,7 @@ const os = require('os');
 const path = require('path');
 
 const buildClusterReport = require('./cluster-report');
+const {parseJUnitReport} = require('./cluster-report');
 
 function createCore() {
   return {
@@ -138,6 +139,56 @@ describe('cluster-report', () => {
       expect.stringContaining('Found multiple JUnit reports for the cluster; using the newest file')
     );
   }));
+
+  test('parses current replicated fixture report', () => {
+    const fixturePath = path.resolve(
+      __dirname,
+      '../../../../../tmp/test-ci/report/e2e_summary_replicated_2026-04-20.xml'
+    );
+    const parsed = parseJUnitReport(fs.readFileSync(fixturePath, 'utf8'));
+
+    expect(parsed.metrics).toEqual({
+      passed: 117,
+      failed: 11,
+      errors: 0,
+      skipped: 4,
+      total: 132,
+      successRate: 88.64,
+    });
+    expect(parsed.startedAt).toBe('2026-04-20T12:48:10');
+    expect(parsed.failedTests).toHaveLength(11);
+    expect(parsed.failedTests).toContain(
+      '[It] VirtualMachineAdditionalNetworkInterfaces verifies additional network interfaces and connectivity before and after migration Main + additional network'
+    );
+    expect(parsed.failedTests).toContain(
+      '[It] VirtualMachineOperationRestore restores a virtual machine from a snapshot BestEffort restore mode; automatic restart approval mode; always on unless stopped manually run policy [Slow]'
+    );
+  });
+
+  test('parses current nfs fixture report', () => {
+    const fixturePath = path.resolve(
+      __dirname,
+      '../../../../../tmp/test-ci/report/e2e_summary_nfs_2026-04-20.xml'
+    );
+    const parsed = parseJUnitReport(fs.readFileSync(fixturePath, 'utf8'));
+
+    expect(parsed.metrics).toEqual({
+      passed: 93,
+      failed: 8,
+      errors: 0,
+      skipped: 31,
+      total: 132,
+      successRate: 70.45,
+    });
+    expect(parsed.startedAt).toBe('2026-04-20T12:38:34');
+    expect(parsed.failedTests).toHaveLength(8);
+    expect(parsed.failedTests).toContain(
+      '[It] RWOVirtualDiskMigration should be successful two migrations in a row'
+    );
+    expect(parsed.failedTests).toContain(
+      '[It] VirtualMachineOperationRestore restores a virtual machine from a snapshot BestEffort restore mode; automatic restart approval mode; manual run policy [Slow]'
+    );
+  });
 
   test('reports configure-sdn as the failed pre-E2E phase', async () => withTempDir(async (tempDir) => {
     const reportFile = path.join(tempDir, 'report.json');
