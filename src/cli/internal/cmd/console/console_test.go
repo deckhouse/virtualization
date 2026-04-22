@@ -29,7 +29,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
-	"github.com/deckhouse/virtualization/src/cli/internal/cmd/testutil"
 )
 
 func TestConsole(t *testing.T) {
@@ -71,7 +70,7 @@ var _ = Describe("Console", func() {
 			var clientCalls int
 			clientAndNamespaceFromContext = func(context.Context) (kubeclient.Client, string, bool, error) {
 				clientCalls++
-				return testutil.NewFakeClient(), "default", false, nil
+				return nil, "default", false, nil
 			}
 
 			var connectCalls int
