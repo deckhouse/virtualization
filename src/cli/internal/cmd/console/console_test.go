@@ -24,129 +24,84 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/kubernetes/fake"
 
-	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
+	"github.com/deckhouse/virtualization/src/cli/internal/cmd/testutil"
 )
 
-type fakeKubeclient struct {
-	*fake.Clientset
+func TestConsole(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Console Command Suite")
 }
 
-func (f *fakeKubeclient) ClusterVirtualImages() virtualizationv1alpha2.ClusterVirtualImageInterface {
-	return nil
-}
+var _ = Describe("Console", func() {
+	var (
+		oldStdin                         *os.File
+		oldClientAndNamespaceFromContext func(context.Context) (kubeclient.Client, string, bool, error)
+		oldConnectFunc                   func(context.Context, string, string, kubeclient.Client, time.Duration, <-chan []byte, <-chan struct{}) error
+	)
 
-func (f *fakeKubeclient) VirtualMachines(namespace string) virtualizationv1alpha2.VirtualMachineInterface {
-	return nil
-}
+	BeforeEach(func() {
+		oldStdin = os.Stdin
+		oldClientAndNamespaceFromContext = clientAndNamespaceFromContext
+		oldConnectFunc = connectFunc
+	})
 
-func (f *fakeKubeclient) VirtualImages(namespace string) virtualizationv1alpha2.VirtualImageInterface {
-	return nil
-}
-
-func (f *fakeKubeclient) VirtualDisks(namespace string) virtualizationv1alpha2.VirtualDiskInterface {
-	return nil
-}
-
-func (f *fakeKubeclient) VirtualMachineBlockDeviceAttachments(namespace string) virtualizationv1alpha2.VirtualMachineBlockDeviceAttachmentInterface {
-	return nil
-}
-
-func (f *fakeKubeclient) VirtualMachineIPAddresses(namespace string) virtualizationv1alpha2.VirtualMachineIPAddressInterface {
-	return nil
-}
-
-func (f *fakeKubeclient) VirtualMachineIPAddressLeases() virtualizationv1alpha2.VirtualMachineIPAddressLeaseInterface {
-	return nil
-}
-
-func (f *fakeKubeclient) VirtualMachineOperations(namespace string) virtualizationv1alpha2.VirtualMachineOperationInterface {
-	return nil
-}
-
-func (f *fakeKubeclient) VirtualMachineClasses() virtualizationv1alpha2.VirtualMachineClassInterface {
-	return nil
-}
-
-func (f *fakeKubeclient) VirtualMachineMACAddresses(namespace string) virtualizationv1alpha2.VirtualMachineMACAddressInterface {
-	return nil
-}
-
-func (f *fakeKubeclient) VirtualMachineMACAddressLeases() virtualizationv1alpha2.VirtualMachineMACAddressLeaseInterface {
-	return nil
-}
-
-func (f *fakeKubeclient) NodeUSBDevices() virtualizationv1alpha2.NodeUSBDeviceInterface {
-	return nil
-}
-
-func (f *fakeKubeclient) USBDevices(namespace string) virtualizationv1alpha2.USBDeviceInterface {
-	return nil
-}
-
-func TestRunRefreshesClientBeforeReconnect(t *testing.T) {
-	oldStdin := os.Stdin
-	oldClientAndNamespaceFromContext := clientAndNamespaceFromContext
-	oldConnectFunc := connectFunc
-	defer func() {
+	AfterEach(func() {
 		os.Stdin = oldStdin
 		clientAndNamespaceFromContext = oldClientAndNamespaceFromContext
 		connectFunc = oldConnectFunc
-	}()
+	})
 
-	stdinReader, stdinWriter, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("create stdin pipe: %v", err)
-	}
-	defer stdinReader.Close()
-	os.Stdin = stdinReader
-	defer stdinWriter.Close()
+	Describe("Run", func() {
+		It("refreshes client before reconnect", func() {
+			stdinReader, stdinWriter, err := os.Pipe()
+			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(func() {
+				_ = stdinReader.Close()
+			})
+			DeferCleanup(func() {
+				_ = stdinWriter.Close()
+			})
+			os.Stdin = stdinReader
 
-	var clientCalls int
-	clientAndNamespaceFromContext = func(context.Context) (kubeclient.Client, string, bool, error) {
-		clientCalls++
-		return &fakeKubeclient{Clientset: fake.NewSimpleClientset()}, "default", false, nil
-	}
+			var clientCalls int
+			clientAndNamespaceFromContext = func(context.Context) (kubeclient.Client, string, bool, error) {
+				clientCalls++
+				return testutil.NewFakeClient(), "default", false, nil
+			}
 
-	var connectCalls int
-	connectFunc = func(_ context.Context, name, namespace string, _ kubeclient.Client, _ time.Duration, _ <-chan []byte, _ <-chan struct{}) error {
-		connectCalls++
-		if namespace != "default" {
-			t.Fatalf("unexpected namespace: %s", namespace)
-		}
-		if name != "test-vm" {
-			t.Fatalf("unexpected vm name: %s", name)
-		}
-		if connectCalls == 1 {
-			return errors.New("temporary error")
-		}
-		return nil
-	}
+			var connectCalls int
+			connectFunc = func(_ context.Context, name, namespace string, _ kubeclient.Client, _ time.Duration, _ <-chan []byte, _ <-chan struct{}) error {
+				connectCalls++
+				Expect(namespace).To(Equal("default"))
+				Expect(name).To(Equal("test-vm"))
+				if connectCalls == 1 {
+					return errors.New("temporary error")
+				}
+				return nil
+			}
 
-	cmd := &cobra.Command{}
-	cmd.SetContext(context.Background())
+			cmd := &cobra.Command{}
+			cmd.SetContext(context.Background())
 
-	go func() {
-		_ = stdinWriter.Close()
-	}()
+			go func() {
+				_ = stdinWriter.Close()
+			}()
 
-	err = (&Console{timeout: time.Second}).Run(cmd, []string{"test-vm"})
-	if err != nil {
-		t.Fatalf("Run returned error: %v", err)
-	}
-	if connectCalls != 2 {
-		t.Fatalf("expected 2 connect attempts, got %d", connectCalls)
-	}
-	if clientCalls != 2 {
-		t.Fatalf("expected client to be refreshed before each reconnect, got %d calls", clientCalls)
-	}
-}
+			err = (&Console{timeout: time.Second}).Run(cmd, []string{"test-vm"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(connectCalls).To(Equal(2))
+			Expect(clientCalls).To(Equal(2))
+		})
+	})
 
-func TestShouldWaitErrForAbnormalClosure(t *testing.T) {
-	if !ShouldWaitErr(&net.OpError{Err: errors.New("Internal error")}) {
-		t.Fatal("expected ShouldWaitErr to return true for internal error")
-	}
-}
+	Describe("ShouldWaitErr", func() {
+		It("returns true for abnormal closure errors", func() {
+			Expect(ShouldWaitErr(&net.OpError{Err: errors.New("Internal error")})).To(BeTrue())
+		})
+	})
+})
