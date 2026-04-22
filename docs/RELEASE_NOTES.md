@@ -32,7 +32,7 @@ Release date: April 22, 2026.
 
 ## v1.7.1
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
-Release date: April 20, 2026.
+Release date: April 21, 2026.
 </span>
 
 ### Fixes
