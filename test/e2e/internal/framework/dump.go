@@ -37,16 +37,18 @@ const (
 	// Linux filesystems (ext4/xfs) limit filenames to 255 bytes. We reserve ~70 bytes
 	// for the "e2e_failed__" prefix, "__<namespace>__events.yaml" suffix, and directory path.
 	maxTestNameLen = 180
+	ellipsis       = "..."
 )
 
 // truncateTestName shortens s to at most maxLen bytes while keeping the text
-// human-readable: it preserves a prefix and a suffix separated by "...".
+// human-readable: it preserves a prefix and a suffix separated by ellipsis.
 func truncateTestName(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
 	}
-	half := (maxLen - 3) / 2
-	return s[:half] + "..." + s[len(s)-(maxLen-3-half):]
+	available := maxLen - len(ellipsis)
+	half := available / 2
+	return s[:half] + ellipsis + s[len(s)-(available-half):]
 }
 
 // SaveTestCaseDump dump some resources, logs and descriptions that may help in further diagnostic.
