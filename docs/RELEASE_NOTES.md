@@ -25,10 +25,21 @@ Release date: April 22, 2026.
 
 ### Security
 
-- [core] Fixed vulnerability CVE-2026-39883.
-- [core] Fixed vulnerabilities CVE-2026-32280, CVE-2026-32281, CVE-2026-32282, CVE-2026-32283, CVE-2026-32288, CVE-2026-32289.
-- [core] Fixed vulnerability CVE-2026-34986.
-- [core] Fixed vulnerabilities CVE-2026-25679, CVE-2026-27142, CVE-2026-27139, CVE-2026-33186, CVE-2026-34040, CVE-2026-33997.
+- [module] Fixed vulnerabilities:
+  - CVE-2026-39883
+  - CVE-2026-32280
+  - CVE-2026-32281
+  - CVE-2026-32282
+  - CVE-2026-32283
+  - CVE-2026-32288
+  - CVE-2026-32289
+  - CVE-2026-34986
+  - CVE-2026-25679
+  - CVE-2026-27142
+  - CVE-2026-27139
+  - CVE-2026-33186
+  - CVE-2026-34040
+  - CVE-2026-33997
 
 ## v1.7.1
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
