@@ -3,9 +3,42 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.8.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: April 22, 2026.
+</span>
+
+### New features
+
+- [vm] Added percentage progress for virtual machine migration operations to the status of [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resources with the `Evict` and `Migrate` types.
+       - The corresponding `PROGRESS` column is displayed when running `d8 k get vmop`.
+- [vm] Added the `PHASEAGE` column to `d8 k get vm`, showing the age of the current virtual machine phase. The existing `AGE` column is preserved.
+- [vm] Added the ability to change a virtual machine's CPU without manually stopping it.
+       - To enable this functionality, add the corresponding `HotplugCPUWithLiveMigration` feature gate to `.spec.settings.featureGates` in the virtualization `ModuleConfig`.
+       - Live migration will be used to change CPU without rebooting the virtual machine.
+- [vm] Added initial support for changing virtual machine memory: changing `.spec.memory` applies the new memory size using live migration.
+       - To enable this functionality, add the corresponding `HotplugMemoryWithLiveMigration` feature gate to `.spec.settings.featureGates` in the virtualization `ModuleConfig`.
+       - Live migration will be used to change memory without rebooting the virtual machine.
+
+### Fixes
+
+- [vm] Virtual machine migration has been moved to `hostNetwork`, which noticeably speeds up the migration process.
+- [vm] Fixed an issue with an unfrozen filesystem during virtual machine snapshot creation if the freeze occurred during migration.
+- [vm] Fixed removal of the `Main` network from a virtual machine so that the virtual machine no longer uses an IP address from the virtualization CIDR.
+- [api] When uploading disks and images with the `Upload` type, the `WaitForUserUpload` phase no longer prompts users to start uploading too early, before the resource is ready for upload.
+- [nsub] Added automatic cleanup of [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resources that are no longer present on the node.
+- [vmsnapshot] Fixed snapshot creation for a virtual machine without the `Main` network.
+
+### Other
+
+- [core] Fixed vulnerability CVE-2026-39883.
+- [core] Fixed vulnerabilities CVE-2026-32280, CVE-2026-32281, CVE-2026-32282, CVE-2026-32283, CVE-2026-32288, CVE-2026-32289.
+- [core] Fixed vulnerability CVE-2026-34986.
+- [core] Fixed vulnerabilities CVE-2026-25679, CVE-2026-27142, CVE-2026-27139, CVE-2026-33186, CVE-2026-34040, CVE-2026-33997.
+
 ## v1.7.1
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
-Release date: April 20, 2026.
+Release date: April 21, 2026.
 </span>
 
 ### Fixes
@@ -67,7 +100,7 @@ Release date: March 31, 2026.
 
 ## v1.6.3
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
-Release date: April 20, 2026.
+Release date: April 21, 2026.
 </span>
 
 ### Security
