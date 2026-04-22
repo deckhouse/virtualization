@@ -17,11 +17,10 @@ limitations under the License.
 package watcher
 
 import (
-	resourcev1 "k8s.io/api/resource/v1"
-	"k8s.io/utils/ptr"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	resourcev1 "k8s.io/api/resource/v1"
+	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("ResourceSliceWatcher", func() {
