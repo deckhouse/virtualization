@@ -46,7 +46,7 @@ func TestBeforeHookCheckSkipsWithoutModuleConfig(t *testing.T) {
 		return nil
 	}}, nil)
 
-	ok, err := settings.HasModuleConfig(context.Background(), &pkg.HookInput{DC: dc})
+	ok, err := settings.CanRunWithModuleConfig(context.Background(), &pkg.HookInput{DC: dc})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -25,6 +25,7 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/module-sdk/pkg"
+	patchablevalues "github.com/deckhouse/module-sdk/pkg/patchable-values"
 	"github.com/deckhouse/module-sdk/testing/mock"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 )
@@ -38,24 +39,47 @@ func (f *fakeKubernetesClient) Get(ctx context.Context, key ctrlclient.ObjectKey
 	return f.get(ctx, key, obj)
 }
 
-func TestHasModuleConfig(t *testing.T) {
+func TestCanRunWithModuleConfig(t *testing.T) {
 	newInput := func(client pkg.KubernetesClient, err error) *pkg.HookInput {
 		dc := mock.NewDependencyContainerMock(t)
 		dc.GetK8sClientMock.Return(client, err)
 		return &pkg.HookInput{DC: dc}
 	}
 
+	t.Run("returns true when internal values copy exists", func(t *testing.T) {
+		dc := mock.NewDependencyContainerMock(t)
+		values, err := patchablevalues.NewPatchableValues(map[string]any{
+			"virtualization": map[string]any{
+				"internal": map[string]any{
+					"moduleConfig": map[string]any{},
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("create patchable values: %v", err)
+		}
+
+		input := &pkg.HookInput{DC: dc, Values: values}
+		ok, err := CanRunWithModuleConfig(context.Background(), input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !ok {
+			t.Fatalf("expected CanRunWithModuleConfig to return true")
+		}
+	})
+
 	t.Run("returns false when module config does not exist", func(t *testing.T) {
 		input := newInput(&fakeKubernetesClient{get: func(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error {
 			return apierrors.NewNotFound(schema.GroupResource{Group: "deckhouse.io", Resource: "moduleconfigs"}, ModuleName)
 		}}, nil)
 
-		ok, err := HasModuleConfig(context.Background(), input)
+		ok, err := CanRunWithModuleConfig(context.Background(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if ok {
-			t.Fatalf("expected HasModuleConfig to return false")
+			t.Fatalf("expected CanRunWithModuleConfig to return false")
 		}
 	})
 
@@ -66,12 +90,12 @@ func TestHasModuleConfig(t *testing.T) {
 			return nil
 		}}, nil)
 
-		ok, err := HasModuleConfig(context.Background(), input)
+		ok, err := CanRunWithModuleConfig(context.Background(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if ok {
-			t.Fatalf("expected HasModuleConfig to return false")
+			t.Fatalf("expected CanRunWithModuleConfig to return false")
 		}
 	})
 
@@ -82,12 +106,12 @@ func TestHasModuleConfig(t *testing.T) {
 			return nil
 		}}, nil)
 
-		ok, err := HasModuleConfig(context.Background(), input)
+		ok, err := CanRunWithModuleConfig(context.Background(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if ok {
-			t.Fatalf("expected HasModuleConfig to return false")
+			t.Fatalf("expected CanRunWithModuleConfig to return false")
 		}
 	})
 
@@ -101,24 +125,24 @@ func TestHasModuleConfig(t *testing.T) {
 			return nil
 		}}, nil)
 
-		ok, err := HasModuleConfig(context.Background(), input)
+		ok, err := CanRunWithModuleConfig(context.Background(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if !ok {
-			t.Fatalf("expected HasModuleConfig to return true")
+			t.Fatalf("expected CanRunWithModuleConfig to return true")
 		}
 	})
 
 	t.Run("returns error when kubernetes client cannot be created", func(t *testing.T) {
 		input := newInput(nil, staticError("boom"))
 
-		ok, err := HasModuleConfig(context.Background(), input)
+		ok, err := CanRunWithModuleConfig(context.Background(), input)
 		if err == nil {
 			t.Fatalf("expected error")
 		}
 		if ok {
-			t.Fatalf("expected HasModuleConfig to return false")
+			t.Fatalf("expected CanRunWithModuleConfig to return false")
 		}
 	})
 }

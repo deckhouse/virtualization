@@ -43,12 +43,12 @@ var conf = tlscertificate.GenSelfSignedTLSHookConf{
 	FullValuesPathPrefix: fmt.Sprintf("%s.internal.apiserver.cert", settings.ModuleName),
 	CommonCAValuesPath:   fmt.Sprintf("%s.internal.rootCA", settings.ModuleName),
 	BeforeHookCheck: func(input *pkg.HookInput) bool {
-		hasModuleConfig, err := settings.HasModuleConfig(context.Background(), input)
+		canRun, err := settings.CanRunWithModuleConfig(context.Background(), input)
 		if err != nil {
 			input.Logger.Error("Check module config before API TLS hook", "error", err)
 			return false
 		}
-		return hasModuleConfig
+		return canRun
 	},
 }
 

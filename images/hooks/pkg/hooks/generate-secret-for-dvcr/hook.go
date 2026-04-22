@@ -74,11 +74,11 @@ var configDVCRSecrets = &pkg.HookConfig{
 }
 
 func handlerDVCRSecrets(ctx context.Context, input *pkg.HookInput) error {
-	hasModuleConfig, err := settings.HasModuleConfig(ctx, input)
+	canRun, err := settings.CanRunWithModuleConfig(ctx, input)
 	if err != nil {
 		return err
 	}
-	if !hasModuleConfig {
+	if !canRun {
 		return nil
 	}
 

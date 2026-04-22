@@ -28,9 +28,13 @@ import (
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 )
 
-func HasModuleConfig(ctx context.Context, input *pkg.HookInput) (bool, error) {
+func CanRunWithModuleConfig(ctx context.Context, input *pkg.HookInput) (bool, error) {
 	if input == nil || input.DC == nil {
 		return false, fmt.Errorf("dependency container is nil")
+	}
+
+	if input.Values != nil && input.Values.Get(InternalValuesConfigCopyPath).Exists() {
+		return true, nil
 	}
 
 	k8sClient, err := input.DC.GetK8sClient(addModuleConfigScheme())

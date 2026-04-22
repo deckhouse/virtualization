@@ -36,12 +36,12 @@ var conf = tlscertificate.GenSelfSignedTLSHookConf{
 	CommonCAValuesPath:   fmt.Sprintf("%s.internal.rootCA", settings.ModuleName),
 	Usages:               []v1.KeyUsage{v1.UsageClientAuth},
 	BeforeHookCheck: func(input *pkg.HookInput) bool {
-		hasModuleConfig, err := settings.HasModuleConfig(context.Background(), input)
+		canRun, err := settings.CanRunWithModuleConfig(context.Background(), input)
 		if err != nil {
 			input.Logger.Error("Check module config before API proxy TLS hook", "error", err)
 			return false
 		}
-		return hasModuleConfig
+		return canRun
 	},
 }
 
