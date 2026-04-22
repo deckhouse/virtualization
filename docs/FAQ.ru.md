@@ -950,11 +950,16 @@ StorageClass хранилища DVCR можно сменить только пе
    d8 k -n d8-virtualization scale deployment dvcr --replicas=0
    ```
 
-1. Выведите список PVC в неймспейсе `d8-virtualization`, найдите PVC тома DVCR и удалите его, подставив имя ресурса вместо `<pvc-name>`:
+1. Выведите список PVC в неймспейсе `d8-virtualization` и найдите PVC тома DVCR:
 
    ```shell
    d8 k get pvc -n d8-virtualization
-   d8 k -n d8-virtualization delete pvc/<pvc-name>
+   ```
+
+1. Удалите найденный PVC, подставив имя ресурса вместо `<pvc-name>`. Если команда завершается ошибкой из-за недостаточных прав, выполните её от имени `system:sudouser`:
+
+   ```shell
+   d8 k --as system:sudouser -n d8-virtualization delete pvc/<pvc-name>
    ```
 
 1. Задайте новый StorageClass в ModuleConfig. Вместо `<storage-class-name>` укажите нужный класс.

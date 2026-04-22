@@ -952,11 +952,16 @@ To change the DVCR StorageClass, perform the following steps:
    d8 k -n d8-virtualization scale deployment dvcr --replicas=0
    ```
 
-1. List PVCs in the `d8-virtualization` namespace, find the PVC for the DVCR volume, and delete it. Replace `<pvc-name>` with the resource name:
+1. List PVCs in the `d8-virtualization` namespace and find the PVC for the DVCR volume:
 
    ```shell
    d8 k get pvc -n d8-virtualization
-   d8 k -n d8-virtualization delete pvc/<pvc-name>
+   ```
+
+1. Delete the PVC you found. Replace `<pvc-name>` with the resource name. If the command fails because of insufficient permissions, run it as `system:sudouser`:
+
+   ```shell
+   d8 k --as system:sudouser -n d8-virtualization delete pvc/<pvc-name>
    ```
 
 1. Set the new StorageClass in ModuleConfig. Replace `<storage-class-name>` with the class name you need.
