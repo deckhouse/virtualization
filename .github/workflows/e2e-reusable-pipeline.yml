@@ -126,6 +126,24 @@ on:
       artifact-name:
         description: "Name of the uploaded artifact with E2E report"
         value: ${{ jobs.prepare-report.outputs.artifact-name }}
+      report_kind:
+        description: "E2E report kind for the cluster"
+        value: ${{ jobs.prepare-report.outputs.report_kind }}
+      status:
+        description: "E2E report status for the cluster"
+        value: ${{ jobs.prepare-report.outputs.status }}
+      failed_stage:
+        description: "Failed or final stage name for the cluster"
+        value: ${{ jobs.prepare-report.outputs.failed_stage }}
+      failed_stage_label:
+        description: "Human-readable failed or final stage label for the cluster"
+        value: ${{ jobs.prepare-report.outputs.failed_stage_label }}
+      workflow_run_url:
+        description: "Workflow run URL for the cluster pipeline"
+        value: ${{ jobs.prepare-report.outputs.workflow_run_url }}
+      branch:
+        description: "Branch used for the cluster pipeline"
+        value: ${{ jobs.prepare-report.outputs.branch }}
 
 env:
   BRANCH: ${{ inputs.branch }}
@@ -1293,7 +1311,7 @@ jobs:
         id: e2e-report-artifact
         if: always() && steps.e2e-report.outcome != 'skipped'
         with:
-          name: e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ steps.vars.outputs.e2e-start-time }}
+          name: e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ inputs.date_start }}
           path: |
             test/e2e/e2e_summary_*.xml
             test/e2e/*junit*.xml
@@ -1321,6 +1339,12 @@ jobs:
     if: always()
     outputs:
       artifact-name: ${{ steps.set-artifact-name.outputs.artifact-name }}
+      report_kind: ${{ steps.determine-stage.outputs.report_kind }}
+      status: ${{ steps.determine-stage.outputs.status }}
+      failed_stage: ${{ steps.determine-stage.outputs.failed_stage }}
+      failed_stage_label: ${{ steps.determine-stage.outputs.failed_stage_label }}
+      workflow_run_url: ${{ steps.determine-stage.outputs.workflow_run_url }}
+      branch: ${{ steps.determine-stage.outputs.branch }}
     steps:
       - uses: actions/checkout@v4
 
@@ -1374,7 +1398,7 @@ jobs:
       - configure-storage
       - configure-virtualization
       - e2e-test
-    if: (cancelled() || success()) && (needs.configure-sdn.result == 'success')
+    if: cancelled() || success()
     steps:
       - uses: actions/checkout@v4
 
