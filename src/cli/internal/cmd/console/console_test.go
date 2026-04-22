@@ -27,9 +27,76 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
 
+	virtualizationfake "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/fake"
+	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 )
+
+type fakeClient struct {
+	*k8sfake.Clientset
+	virtClient *virtualizationfake.Clientset
+}
+
+func newFakeClient() *fakeClient {
+	return &fakeClient{
+		Clientset:  k8sfake.NewSimpleClientset(),
+		virtClient: virtualizationfake.NewSimpleClientset(),
+	}
+}
+
+func (f *fakeClient) ClusterVirtualImages() virtualizationv1alpha2.ClusterVirtualImageInterface {
+	return f.virtClient.VirtualizationV1alpha2().ClusterVirtualImages()
+}
+
+func (f *fakeClient) VirtualMachines(namespace string) virtualizationv1alpha2.VirtualMachineInterface {
+	return f.virtClient.VirtualizationV1alpha2().VirtualMachines(namespace)
+}
+
+func (f *fakeClient) VirtualImages(namespace string) virtualizationv1alpha2.VirtualImageInterface {
+	return f.virtClient.VirtualizationV1alpha2().VirtualImages(namespace)
+}
+
+func (f *fakeClient) VirtualDisks(namespace string) virtualizationv1alpha2.VirtualDiskInterface {
+	return f.virtClient.VirtualizationV1alpha2().VirtualDisks(namespace)
+}
+
+func (f *fakeClient) VirtualMachineBlockDeviceAttachments(namespace string) virtualizationv1alpha2.VirtualMachineBlockDeviceAttachmentInterface {
+	return f.virtClient.VirtualizationV1alpha2().VirtualMachineBlockDeviceAttachments(namespace)
+}
+
+func (f *fakeClient) VirtualMachineIPAddresses(namespace string) virtualizationv1alpha2.VirtualMachineIPAddressInterface {
+	return f.virtClient.VirtualizationV1alpha2().VirtualMachineIPAddresses(namespace)
+}
+
+func (f *fakeClient) VirtualMachineIPAddressLeases() virtualizationv1alpha2.VirtualMachineIPAddressLeaseInterface {
+	return f.virtClient.VirtualizationV1alpha2().VirtualMachineIPAddressLeases()
+}
+
+func (f *fakeClient) VirtualMachineOperations(namespace string) virtualizationv1alpha2.VirtualMachineOperationInterface {
+	return f.virtClient.VirtualizationV1alpha2().VirtualMachineOperations(namespace)
+}
+
+func (f *fakeClient) VirtualMachineClasses() virtualizationv1alpha2.VirtualMachineClassInterface {
+	return f.virtClient.VirtualizationV1alpha2().VirtualMachineClasses()
+}
+
+func (f *fakeClient) VirtualMachineMACAddresses(namespace string) virtualizationv1alpha2.VirtualMachineMACAddressInterface {
+	return f.virtClient.VirtualizationV1alpha2().VirtualMachineMACAddresses(namespace)
+}
+
+func (f *fakeClient) VirtualMachineMACAddressLeases() virtualizationv1alpha2.VirtualMachineMACAddressLeaseInterface {
+	return f.virtClient.VirtualizationV1alpha2().VirtualMachineMACAddressLeases()
+}
+
+func (f *fakeClient) NodeUSBDevices() virtualizationv1alpha2.NodeUSBDeviceInterface {
+	return f.virtClient.VirtualizationV1alpha2().NodeUSBDevices()
+}
+
+func (f *fakeClient) USBDevices(namespace string) virtualizationv1alpha2.USBDeviceInterface {
+	return f.virtClient.VirtualizationV1alpha2().USBDevices(namespace)
+}
 
 func TestConsole(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -70,7 +137,7 @@ var _ = Describe("Console", func() {
 			var clientCalls int
 			clientAndNamespaceFromContext = func(context.Context) (kubeclient.Client, string, bool, error) {
 				clientCalls++
-				return nil, "default", false, nil
+				return newFakeClient(), "default", false, nil
 			}
 
 			var connectCalls int
