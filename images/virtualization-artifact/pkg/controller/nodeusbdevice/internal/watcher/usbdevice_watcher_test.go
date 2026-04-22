@@ -17,81 +17,83 @@ limitations under the License.
 package watcher
 
 import (
-	"testing"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func TestRequestsByUSBDevice(t *testing.T) {
-	usbDevice := &v1alpha2.USBDevice{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "usb-device-1",
-			Namespace: "test-ns",
-			OwnerReferences: []metav1.OwnerReference{{
-				APIVersion: v1alpha2.SchemeGroupVersion.String(),
-				Kind:       v1alpha2.NodeUSBDeviceKind,
-				Name:       "node-usb-device-1",
-			}},
-		},
-	}
+var _ = Describe("USBDeviceWatcher", func() {
+	Describe("requestsByUSBDevice", func() {
+		It("returns a request for the owner NodeUSBDevice", func() {
+			usbDevice := &v1alpha2.USBDevice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "usb-device-1",
+					Namespace: "test-ns",
+					OwnerReferences: []metav1.OwnerReference{{
+						APIVersion: v1alpha2.SchemeGroupVersion.String(),
+						Kind:       v1alpha2.NodeUSBDeviceKind,
+						Name:       "node-usb-device-1",
+					}},
+				},
+			}
 
-	requests := requestsByUSBDevice(usbDevice)
-	if len(requests) != 1 {
-		t.Fatalf("expected 1 request, got %d", len(requests))
-	}
-	if requests[0].Name != "node-usb-device-1" {
-		t.Fatalf("unexpected request name %q", requests[0].Name)
-	}
-	if requests[0].Namespace != "" {
-		t.Fatalf("expected cluster-scoped request, got namespace %q", requests[0].Namespace)
-	}
-}
+			requests := requestsByUSBDevice(usbDevice)
 
-func TestRequestsByUSBDeviceFallsBackToName(t *testing.T) {
-	usbDevice := &v1alpha2.USBDevice{ObjectMeta: metav1.ObjectMeta{Name: "usb-device-1", Namespace: "test-ns"}}
+			Expect(requests).To(HaveLen(1))
+			Expect(requests[0].Name).To(Equal("node-usb-device-1"))
+			Expect(requests[0].Namespace).To(BeEmpty())
+		})
 
-	requests := requestsByUSBDevice(usbDevice)
-	if len(requests) != 1 {
-		t.Fatalf("expected 1 request, got %d", len(requests))
-	}
-	if requests[0].Name != "usb-device-1" {
-		t.Fatalf("unexpected fallback request name %q", requests[0].Name)
-	}
-}
+		It("falls back to the USBDevice name", func() {
+			usbDevice := &v1alpha2.USBDevice{ObjectMeta: metav1.ObjectMeta{Name: "usb-device-1", Namespace: "test-ns"}}
 
-func TestShouldProcessUSBDeviceUpdate(t *testing.T) {
-	oldObj := &v1alpha2.USBDevice{
-		ObjectMeta: metav1.ObjectMeta{Name: "usb-device-1"},
-		Status: v1alpha2.USBDeviceStatus{Conditions: []metav1.Condition{{
-			Type:   "Attached",
-			Status: metav1.ConditionFalse,
-			Reason: "Available",
-		}}},
-	}
+			requests := requestsByUSBDevice(usbDevice)
 
-	sameObj := oldObj.DeepCopy()
-	if shouldProcessUSBDeviceUpdate(oldObj, sameObj) {
-		t.Fatal("expected unchanged object update to be ignored")
-	}
+			Expect(requests).To(HaveLen(1))
+			Expect(requests[0].Name).To(Equal("usb-device-1"))
+		})
+	})
 
-	changedConditions := oldObj.DeepCopy()
-	changedConditions.Status.Conditions[0].Status = metav1.ConditionTrue
-	if !shouldProcessUSBDeviceUpdate(oldObj, changedConditions) {
-		t.Fatal("expected conditions update to be processed")
-	}
+	Describe("shouldProcessUSBDeviceUpdate", func() {
+		var oldObj *v1alpha2.USBDevice
 
-	changedOwners := oldObj.DeepCopy()
-	changedOwners.OwnerReferences = []metav1.OwnerReference{{Name: "node-usb-device-1"}}
-	if !shouldProcessUSBDeviceUpdate(oldObj, changedOwners) {
-		t.Fatal("expected owner references update to be processed")
-	}
+		BeforeEach(func() {
+			oldObj = &v1alpha2.USBDevice{
+				ObjectMeta: metav1.ObjectMeta{Name: "usb-device-1"},
+				Status: v1alpha2.USBDeviceStatus{Conditions: []metav1.Condition{{
+					Type:   "Attached",
+					Status: metav1.ConditionFalse,
+					Reason: "Available",
+				}}},
+			}
+		})
 
-	if shouldProcessUSBDeviceUpdate(nil, changedConditions) {
-		t.Fatal("expected nil old object to be ignored")
-	}
-	if shouldProcessUSBDeviceUpdate(oldObj, nil) {
-		t.Fatal("expected nil new object to be ignored")
-	}
-}
+		It("ignores unchanged objects", func() {
+			sameObj := oldObj.DeepCopy()
+
+			Expect(shouldProcessUSBDeviceUpdate(oldObj, sameObj)).To(BeFalse())
+		})
+
+		It("processes condition changes", func() {
+			changedConditions := oldObj.DeepCopy()
+			changedConditions.Status.Conditions[0].Status = metav1.ConditionTrue
+
+			Expect(shouldProcessUSBDeviceUpdate(oldObj, changedConditions)).To(BeTrue())
+		})
+
+		It("processes owner reference changes", func() {
+			changedOwners := oldObj.DeepCopy()
+			changedOwners.OwnerReferences = []metav1.OwnerReference{{Name: "node-usb-device-1"}}
+
+			Expect(shouldProcessUSBDeviceUpdate(oldObj, changedOwners)).To(BeTrue())
+		})
+
+		It("ignores nil objects", func() {
+			Expect(shouldProcessUSBDeviceUpdate(nil, oldObj)).To(BeFalse())
+			Expect(shouldProcessUSBDeviceUpdate(oldObj, nil)).To(BeFalse())
+		})
+	})
+})

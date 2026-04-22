@@ -46,12 +46,6 @@ func (w *USBDeviceWatcher) Watch(mgr manager.Manager, ctr controller.Controller)
 				return requestsByUSBDevice(usbDevice)
 			}),
 			predicate.TypedFuncs[*v1alpha2.USBDevice]{
-				CreateFunc: func(e event.TypedCreateEvent[*v1alpha2.USBDevice]) bool {
-					return e.Object != nil
-				},
-				DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha2.USBDevice]) bool {
-					return e.Object != nil
-				},
 				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.USBDevice]) bool {
 					return shouldProcessUSBDeviceUpdate(e.ObjectOld, e.ObjectNew)
 				},

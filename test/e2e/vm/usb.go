@@ -31,6 +31,7 @@ import (
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/nodeusbdevicecondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
@@ -271,7 +272,7 @@ func nodeUSBAttachedCondition(nodeUSBDevice *v1alpha2.NodeUSBDevice) *metav1.Con
 		return nil
 	}
 
-	return meta.FindStatusCondition(nodeUSBDevice.Status.Conditions, "Attached")
+	return meta.FindStatusCondition(nodeUSBDevice.Status.Conditions, string(nodeusbdevicecondition.AttachedType))
 }
 
 func (t *VMUSBTest) unassignNodeUSB() {
