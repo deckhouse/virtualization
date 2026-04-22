@@ -29,6 +29,18 @@ describe("messenger-report", () => {
   afterEach(() => {
     delete process.env.REPORTS_DIR;
     delete process.env.STORAGE_TYPES;
+    delete process.env.REPORT_FALLBACK_REPLICATED_REPORT_KIND;
+    delete process.env.REPORT_FALLBACK_REPLICATED_STATUS;
+    delete process.env.REPORT_FALLBACK_REPLICATED_FAILED_STAGE;
+    delete process.env.REPORT_FALLBACK_REPLICATED_FAILED_STAGE_LABEL;
+    delete process.env.REPORT_FALLBACK_REPLICATED_WORKFLOW_RUN_URL;
+    delete process.env.REPORT_FALLBACK_REPLICATED_BRANCH;
+    delete process.env.REPORT_FALLBACK_NFS_REPORT_KIND;
+    delete process.env.REPORT_FALLBACK_NFS_STATUS;
+    delete process.env.REPORT_FALLBACK_NFS_FAILED_STAGE;
+    delete process.env.REPORT_FALLBACK_NFS_FAILED_STAGE_LABEL;
+    delete process.env.REPORT_FALLBACK_NFS_WORKFLOW_RUN_URL;
+    delete process.env.REPORT_FALLBACK_NFS_BRANCH;
     delete process.env.LOOP_API_BASE_URL;
     delete process.env.LOOP_CHANNEL_ID;
     delete process.env.LOOP_TOKEN;
@@ -47,6 +59,7 @@ describe("messenger-report", () => {
     expect(config).toEqual({
       reportsDir: "custom-reports",
       configuredClusters: ["replicated", "nfs"],
+      reportFallbacks: {},
       loop: {
         apiUrl: "https://loop.example.invalid/api/v4/posts",
         channelId: "channel-id",
@@ -126,7 +139,51 @@ describe("messenger-report", () => {
       const result = await renderMessengerReport({ core: createCore() });
 
       expect(result.message).toContain("### Cluster failures");
-      expect(result.message).toContain("- replicated: TEST REPORTS NOT FOUND");
+      expect(result.message).toContain(
+        "- replicated: E2E REPORT ARTIFACT NOT FOUND"
+      );
+      expect(result.threadMessage).toBe("");
+    }));
+
+  test("uses workflow fallback metadata for missing cluster report", async () =>
+    withTempDir(async (tempDir) => {
+      process.env.REPORTS_DIR = tempDir;
+      process.env.STORAGE_TYPES = '["replicated"]';
+      process.env.REPORT_FALLBACK_REPLICATED_REPORT_KIND = "stage-failure";
+      process.env.REPORT_FALLBACK_REPLICATED_STATUS = "failure";
+      process.env.REPORT_FALLBACK_REPLICATED_FAILED_STAGE = "configure-sdn";
+      process.env.REPORT_FALLBACK_REPLICATED_FAILED_STAGE_LABEL =
+        "CONFIGURE SDN";
+      process.env.REPORT_FALLBACK_REPLICATED_WORKFLOW_RUN_URL =
+        "https://example.invalid/replicated";
+      process.env.REPORT_FALLBACK_REPLICATED_BRANCH = "main";
+
+      const result = await renderMessengerReport({ core: createCore() });
+
+      expect(result.message).toContain("Branch: `main`");
+      expect(result.message).toContain(
+        "- [replicated](https://example.invalid/replicated): CONFIGURE SDN"
+      );
+      expect(result.threadMessage).toBe("");
+    }));
+
+  test("preserves test-reports-missing fallback from workflow metadata", async () =>
+    withTempDir(async (tempDir) => {
+      process.env.REPORTS_DIR = tempDir;
+      process.env.STORAGE_TYPES = '["replicated"]';
+      process.env.REPORT_FALLBACK_REPLICATED_REPORT_KIND = "artifact-missing";
+      process.env.REPORT_FALLBACK_REPLICATED_STATUS = "missing";
+      process.env.REPORT_FALLBACK_REPLICATED_FAILED_STAGE = "artifact-missing";
+      process.env.REPORT_FALLBACK_REPLICATED_FAILED_STAGE_LABEL =
+        "TEST REPORTS NOT FOUND";
+      process.env.REPORT_FALLBACK_REPLICATED_WORKFLOW_RUN_URL =
+        "https://example.invalid/replicated";
+
+      const result = await renderMessengerReport({ core: createCore() });
+
+      expect(result.message).toContain(
+        "- [replicated](https://example.invalid/replicated): TEST REPORTS NOT FOUND"
+      );
       expect(result.threadMessage).toBe("");
     }));
 

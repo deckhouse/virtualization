@@ -14,17 +14,55 @@ const fs = require("fs");
 
 const { listMatchingFiles } = require("./fs-utils");
 
-function createMissingReport(clusterName) {
+const genericArtifactMissingLabel = "E2E REPORT ARTIFACT NOT FOUND";
+const testReportsMissingLabel = "TEST REPORTS NOT FOUND";
+
+function buildStatusMessage(status, stageLabel) {
+  if (status === "cancelled") {
+    return `⚠️ ${stageLabel} CANCELLED`;
+  }
+
+  if (status === "failure") {
+    return `❌ ${stageLabel} FAILED`;
+  }
+
+  if (status === "missing") {
+    return `⚠️ ${stageLabel}`;
+  }
+
+  if (status === "success") {
+    return "✅ SUCCESS";
+  }
+
+  return stageLabel;
+}
+
+function createMissingReport(clusterName, fallback = {}) {
+  const reportKind =
+    fallback.reportKind && fallback.reportKind !== "tests"
+      ? fallback.reportKind
+      : "artifact-missing";
+  const failedStage =
+    fallback.failedStage && fallback.failedStage !== "success"
+      ? fallback.failedStage
+      : "artifact-missing";
+  const failedStageLabel =
+    fallback.failedStageLabel ||
+    (fallback.reportKind === "artifact-missing"
+      ? testReportsMissingLabel
+      : genericArtifactMissingLabel);
+  const status = fallback.status || "missing";
+
   return {
     cluster: clusterName,
     storageType: clusterName,
-    reportKind: "artifact-missing",
-    status: "missing",
-    statusMessage: "⚠️ TEST REPORTS NOT FOUND",
-    failedStage: "artifact-missing",
-    failedStageLabel: "TEST REPORTS NOT FOUND",
-    branch: "",
-    workflowRunUrl: "",
+    reportKind,
+    status,
+    statusMessage: buildStatusMessage(status, failedStageLabel),
+    failedStage,
+    failedStageLabel,
+    branch: fallback.branch || "",
+    workflowRunUrl: fallback.workflowRunUrl || "",
     metrics: {
       passed: 0,
       failed: 0,
@@ -122,10 +160,57 @@ function parseConfiguredClusters(value) {
   return Array.isArray(parsedValue) ? parsedValue : [];
 }
 
+function normalizeClusterEnvKey(clusterName) {
+  return String(clusterName || "")
+    .trim()
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .toUpperCase();
+}
+
+function readReportFallbacksFromEnv(configuredClusters, env = process.env) {
+  const fallbackByCluster = {};
+
+  for (const clusterName of configuredClusters) {
+    const clusterKey = normalizeClusterEnvKey(clusterName);
+    const reportKind = env[`REPORT_FALLBACK_${clusterKey}_REPORT_KIND`] || "";
+    const status = env[`REPORT_FALLBACK_${clusterKey}_STATUS`] || "";
+    const failedStage = env[`REPORT_FALLBACK_${clusterKey}_FAILED_STAGE`] || "";
+    const failedStageLabel =
+      env[`REPORT_FALLBACK_${clusterKey}_FAILED_STAGE_LABEL`] || "";
+    const workflowRunUrl =
+      env[`REPORT_FALLBACK_${clusterKey}_WORKFLOW_RUN_URL`] || "";
+    const branch = env[`REPORT_FALLBACK_${clusterKey}_BRANCH`] || "";
+
+    if (
+      reportKind ||
+      status ||
+      failedStage ||
+      failedStageLabel ||
+      workflowRunUrl ||
+      branch
+    ) {
+      fallbackByCluster[clusterName] = {
+        reportKind,
+        status,
+        failedStage,
+        failedStageLabel,
+        workflowRunUrl,
+        branch,
+      };
+    }
+  }
+
+  return fallbackByCluster;
+}
+
 function readMessengerConfigFromEnv(env = process.env) {
+  const configuredClusters = parseConfiguredClusters(env.STORAGE_TYPES);
+
   return {
     reportsDir: env.REPORTS_DIR || "downloaded-artifacts",
-    configuredClusters: parseConfiguredClusters(env.STORAGE_TYPES),
+    configuredClusters,
+    reportFallbacks: readReportFallbacksFromEnv(configuredClusters, env),
     loop: {
       apiUrl: getLoopPostsApiUrl(env),
       channelId: String(env.LOOP_CHANNEL_ID || "").trim(),
@@ -178,7 +263,7 @@ async function postToLoopApi(
   return payload;
 }
 
-function readReports(reportsDir, configuredClusters, core) {
+function readReports(reportsDir, configuredClusters, reportFallbacks, core) {
   const reportFiles = listMatchingFiles(reportsDir, /^e2e_report_.*\.json$/);
   const reports = [];
 
@@ -198,7 +283,10 @@ function readReports(reportsDir, configuredClusters, core) {
 
   for (const clusterName of configuredClusters) {
     if (!reportsByCluster.has(clusterName)) {
-      reportsByCluster.set(clusterName, createMissingReport(clusterName));
+      reportsByCluster.set(
+        clusterName,
+        createMissingReport(clusterName, reportFallbacks[clusterName])
+      );
     }
   }
 
@@ -309,8 +397,18 @@ function buildThreadMessage(orderedReports) {
   return lines.join("\n").trim();
 }
 
-function buildMessengerMessages({ reportsDir, configuredClusters, core }) {
-  const orderedReports = readReports(reportsDir, configuredClusters, core);
+function buildMessengerMessages({
+  reportsDir,
+  configuredClusters,
+  reportFallbacks,
+  core,
+}) {
+  const orderedReports = readReports(
+    reportsDir,
+    configuredClusters,
+    reportFallbacks,
+    core
+  );
   return {
     message: buildMainMessage(orderedReports),
     threadMessage: buildThreadMessage(orderedReports),
@@ -364,6 +462,7 @@ async function renderMessengerReport({ core }) {
   const { message, threadMessage } = buildMessengerMessages({
     reportsDir: config.reportsDir,
     configuredClusters: config.configuredClusters,
+    reportFallbacks: config.reportFallbacks,
     core,
   });
 
@@ -384,4 +483,5 @@ module.exports = renderMessengerReport;
 module.exports.createMissingReport = createMissingReport;
 module.exports.buildMessengerMessages = buildMessengerMessages;
 module.exports.getLoopPostsApiUrl = getLoopPostsApiUrl;
+module.exports.readReportFallbacksFromEnv = readReportFallbacksFromEnv;
 module.exports.readMessengerConfigFromEnv = readMessengerConfigFromEnv;

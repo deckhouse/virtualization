@@ -133,8 +133,9 @@ describe("cluster-report", () => {
         REPORT_FILE: reportFile,
       });
 
+      const core = createCore();
       const report = await buildClusterReport({
-        core: createCore(),
+        core,
         context: createContext(),
       });
 
@@ -156,6 +157,19 @@ describe("cluster-report", () => {
       expect(JSON.parse(fs.readFileSync(reportFile, "utf8")).reportKind).toBe(
         "tests"
       );
+      expect(core.setOutput).toHaveBeenCalledWith("report_file", reportFile);
+      expect(core.setOutput).toHaveBeenCalledWith("report_kind", "tests");
+      expect(core.setOutput).toHaveBeenCalledWith("status", "success");
+      expect(core.setOutput).toHaveBeenCalledWith("failed_stage", "success");
+      expect(core.setOutput).toHaveBeenCalledWith(
+        "failed_stage_label",
+        "SUCCESS"
+      );
+      expect(core.setOutput).toHaveBeenCalledWith(
+        "workflow_run_url",
+        "https://github.com/test/repo/actions/runs/12345"
+      );
+      expect(core.setOutput).toHaveBeenCalledWith("branch", "main");
     }));
 
   test("selects the newest matching JUnit report when multiple files exist", async () =>
