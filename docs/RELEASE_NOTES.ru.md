@@ -5,7 +5,7 @@ weight: 70
 
 ## v1.8.0
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
-Дата релиза: 22 апреля 2026.
+Дата релиза: 23 апреля 2026.
 </span>
 
 ### Новые возможности

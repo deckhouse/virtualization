@@ -5,7 +5,7 @@ weight: 70
 
 ## v1.8.0
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
-Release date: April 22, 2026.
+Release date: April 23, 2026.
 </span>
 
 ### New features
