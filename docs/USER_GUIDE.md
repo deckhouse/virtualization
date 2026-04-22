@@ -1779,7 +1779,8 @@ If the virtual machine is running (`.status.phase: Running`), the way the change
 
 | Configuration block                     | How changes are applied                                                                                                  |
 |-----------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
-| `.metadata.annotations`                 | Applies immediately and propagates to the VM Pod                                                                         |
+| `.metadata.labels`                      | Applies immediately and propagates to the VM pod                                                                         |
+| `.metadata.annotations`                 | Applies immediately and propagates to the VM pod                                                                         |
 | `.spec.liveMigrationPolicy`             | Applies immediately                                                                                                      |
 | `.spec.runPolicy`                       | Applies immediately                                                                                                      |
 | `.spec.disruptions.restartApprovalMode` | Applies immediately                                                                                                      |
