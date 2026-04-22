@@ -19,6 +19,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -51,6 +52,10 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 	}
 
 	current := s.VirtualMachine().Current()
+
+	log.Info("DEBUG: entering HotplugHandler sleep", "vm", current.Name)
+	time.Sleep(5 * time.Second)
+	log.Info("DEBUG: leaving HotplugHandler sleep", "vm", current.Name)
 
 	kvvmi, err := s.KVVMI(ctx)
 	if err != nil || kvvmi == nil {
