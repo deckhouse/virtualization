@@ -22,8 +22,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
@@ -289,6 +292,112 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			vdcondition.DatasourceIsNotFound.String(),
 		),
 	)
+
+	It("should handle a VirtualDisk without data source", func() {
+		var sourcesMock SourcesMock
+		recorder := &eventrecord.EventRecorderLoggerMock{
+			EventFunc: func(_ client.Object, _, _, _ string) {},
+		}
+		ctx := logger.ToContext(context.TODO(), testutil.NewNoOpSlogLogger())
+		syncCalled := false
+		blank := &source.HandlerMock{
+			SyncFunc: func(_ context.Context, _ *v1alpha2.VirtualDisk) (reconcile.Result, error) {
+				syncCalled = true
+				return reconcile.Result{}, nil
+			},
+		}
+		vd := v1alpha2.VirtualDisk{
+			Status: v1alpha2.VirtualDiskStatus{
+				StorageClassName: "vd-sc",
+				Conditions: []metav1.Condition{
+					{
+						Type:   vdcondition.DatasourceReadyType.String(),
+						Status: metav1.ConditionTrue,
+					},
+					{
+						Type:   vdcondition.StorageClassReadyType.String(),
+						Status: metav1.ConditionTrue,
+					},
+				},
+			},
+		}
+
+		sourcesMock.ChangedFunc = func(_ context.Context, _ *v1alpha2.VirtualDisk) bool {
+			return false
+		}
+		handler := NewLifeCycleHandler(recorder, blank, &sourcesMock, nil)
+
+		Expect(func() {
+			_, _ = handler.Handle(ctx, &vd)
+		}).NotTo(Panic())
+		Expect(syncCalled).To(BeTrue())
+	})
+
+	It("should set a dedicated reason when storage class does not match the source virtual image", func() {
+		scheme := runtime.NewScheme()
+		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
+		Expect(storagev1.AddToScheme(scheme)).To(Succeed())
+
+		vi := &v1alpha2.VirtualImage{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "source-vi",
+				Namespace: "default",
+			},
+			Spec: v1alpha2.VirtualImageSpec{
+				Storage: v1alpha2.StoragePersistentVolumeClaim,
+			},
+			Status: v1alpha2.VirtualImageStatus{
+				Phase:            v1alpha2.ImageReady,
+				StorageClassName: "vi-sc",
+			},
+		}
+
+		k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vi).Build()
+		var sourcesMock SourcesMock
+		sourcesMock.ChangedFunc = func(_ context.Context, _ *v1alpha2.VirtualDisk) bool {
+			return false
+		}
+		recorder := &eventrecord.EventRecorderLoggerMock{
+			EventFunc: func(_ client.Object, _, _, _ string) {},
+		}
+		ctx := logger.ToContext(context.TODO(), testutil.NewNoOpSlogLogger())
+		vd := v1alpha2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "default",
+			},
+			Spec: v1alpha2.VirtualDiskSpec{
+				DataSource: &v1alpha2.VirtualDiskDataSource{
+					Type: v1alpha2.DataSourceTypeObjectRef,
+					ObjectRef: &v1alpha2.VirtualDiskObjectRef{
+						Kind: v1alpha2.VirtualDiskObjectRefKindVirtualImage,
+						Name: vi.Name,
+					},
+				},
+			},
+			Status: v1alpha2.VirtualDiskStatus{
+				StorageClassName: "vd-sc",
+				Conditions: []metav1.Condition{
+					{
+						Type:   vdcondition.DatasourceReadyType.String(),
+						Status: metav1.ConditionTrue,
+					},
+					{
+						Type:   vdcondition.StorageClassReadyType.String(),
+						Status: metav1.ConditionTrue,
+					},
+				},
+			},
+		}
+
+		handler := NewLifeCycleHandler(recorder, &source.HandlerMock{}, &sourcesMock, k8sClient)
+		_, err := handler.Handle(ctx, &vd)
+		Expect(err).NotTo(HaveOccurred())
+
+		readyCond, ok := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+		Expect(ok).To(BeTrue())
+		Expect(readyCond.Reason).To(Equal(vdcondition.StorageClassNotMatchingSource.String()))
+		Expect(readyCond.Message).To(Equal(`Virtual disk storage class "vd-sc" does not match virtual image storage class "vi-sc"`))
+	})
 })
 
 type cleanupAfterSpecChangeTestArgs struct {

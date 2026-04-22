@@ -49,6 +49,7 @@ func NewValidator(client client.Client, scService *intsvc.VirtualDiskStorageClas
 			validator.NewISOSourceValidator(client),
 			validator.NewNameValidator(),
 			validator.NewMigrationStorageClassValidator(client, scService, modeGetter, featuregates.Default()),
+			validator.NewVirtualImagePVCStorageClassValidator(client, scService),
 		},
 	}
 }
