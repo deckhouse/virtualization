@@ -538,7 +538,7 @@ jobs:
 
           for i in $(seq 1 $count); do
             nodes=$(kubectl get nodes -o name | wc -l)
-            actual=$(kubectl get nodenetworkinterfaces -o json | jq -r '.items[] | select(.status.operationalState == "Up") | .metadata.name' | wc -l) || true)
+            actual=$(kubectl get nodenetworkinterfaces -o json | jq -r '.items[] | select(.status.operationalState == "Up") | .metadata.name' | wc -l) || true
             expected=$((nodes * 2))
 
             echo "[INFO] Attempt $i/$count: expected=$expected, actual=$actual"
