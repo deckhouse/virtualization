@@ -10,30 +10,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const fs = require('fs');
-const path = require('path');
-const {XMLParser} = require('fast-xml-parser');
+const fs = require("fs");
+const { XMLParser } = require("fast-xml-parser");
+
+const { listMatchingFiles } = require("./fs-utils");
 
 const stageLabels = {
-  bootstrap: 'BOOTSTRAP CLUSTER',
-  'configure-sdn': 'CONFIGURE SDN',
-  'storage-setup': 'STORAGE SETUP',
-  'virtualization-setup': 'VIRTUALIZATION SETUP',
-  'e2e-test': 'E2E TEST',
-  success: 'SUCCESS',
-  'artifact-missing': 'TEST REPORTS NOT FOUND',
+  bootstrap: "BOOTSTRAP CLUSTER",
+  "configure-sdn": "CONFIGURE SDN",
+  "storage-setup": "STORAGE SETUP",
+  "virtualization-setup": "VIRTUALIZATION SETUP",
+  "e2e-test": "E2E TEST",
+  success: "SUCCESS",
+  "artifact-missing": "TEST REPORTS NOT FOUND",
 };
 
 const preE2EStages = new Set([
-  'bootstrap',
-  'configure-sdn',
-  'storage-setup',
-  'virtualization-setup',
+  "bootstrap",
+  "configure-sdn",
+  "storage-setup",
+  "virtualization-setup",
 ]);
 
 const junitXmlParser = new XMLParser({
   ignoreAttributes: false,
-  attributeNamePrefix: '',
+  attributeNamePrefix: "",
   parseTagValue: false,
   parseAttributeValue: false,
   trimValues: false,
@@ -41,29 +42,26 @@ const junitXmlParser = new XMLParser({
 });
 
 function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function listMatchingFiles(dirPath, filePattern, files = []) {
-  if (!fs.existsSync(dirPath)) {
-    return files;
-  }
+function readClusterConfigFromEnv(env = process.env) {
+  const storageType = env.STORAGE_TYPE;
 
-  const entries = fs.readdirSync(dirPath, {withFileTypes: true})
-    .sort((left, right) => left.name.localeCompare(right.name));
-  for (const entry of entries) {
-    const fullPath = path.join(dirPath, entry.name);
-    if (entry.isDirectory()) {
-      listMatchingFiles(fullPath, filePattern, files);
-      continue;
-    }
-
-    if (filePattern.test(entry.name)) {
-      files.push(fullPath);
-    }
-  }
-
-  return files;
+  return {
+    storageType,
+    reportsDir: env.E2E_REPORT_DIR || "test/e2e",
+    reportFile: env.REPORT_FILE || `e2e_report_${storageType}.json`,
+    workflowRunUrlOverride: env.WORKFLOW_RUN_URL || "",
+    branchNameOverride: env.BRANCH_NAME || "",
+    stageResults: {
+      bootstrap: env.BOOTSTRAP_RESULT,
+      "configure-sdn": env.CONFIGURE_SDN_RESULT,
+      "storage-setup": env.CONFIGURE_STORAGE_RESULT,
+      "virtualization-setup": env.CONFIGURE_VIRTUALIZATION_RESULT,
+      "e2e-test": env.E2E_TEST_RESULT,
+    },
+  };
 }
 
 function pickLatestMatchingFile(dirPath, filePattern, core) {
@@ -103,7 +101,7 @@ function toArray(value) {
 }
 
 function toInteger(value) {
-  const parsed = Number.parseInt(value || '0', 10);
+  const parsed = Number.parseInt(value || "0", 10);
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
@@ -123,8 +121,9 @@ function hasOwnProperty(object, key) {
 }
 
 function hasMetricAttributes(node) {
-  return ['tests', 'failures', 'errors', 'skipped', 'disabled']
-    .some((attributeName) => hasOwnProperty(node, attributeName));
+  return ["tests", "failures", "errors", "skipped", "disabled"].some(
+    (attributeName) => hasOwnProperty(node, attributeName)
+  );
 }
 
 function readMetricsFromNode(node) {
@@ -174,8 +173,8 @@ function parseJUnitReport(xmlContent) {
   const aggregateSource = hasMetricAttributes(testsuitesNode)
     ? testsuitesNode
     : topLevelSuites.length === 1 && hasMetricAttributes(topLevelSuites[0])
-      ? topLevelSuites[0]
-      : null;
+    ? topLevelSuites[0]
+    : null;
 
   let total = 0;
   let failed = 0;
@@ -183,7 +182,7 @@ function parseJUnitReport(xmlContent) {
   let skipped = 0;
 
   if (aggregateSource) {
-    ({total, failed, errors, skipped} = readMetricsFromNode(aggregateSource));
+    ({ total, failed, errors, skipped } = readMetricsFromNode(aggregateSource));
   } else {
     for (const suite of metricSuites) {
       const suiteMetrics = readMetricsFromNode(suite);
@@ -195,17 +194,23 @@ function parseJUnitReport(xmlContent) {
   }
 
   const passed = Math.max(total - failed - errors - skipped, 0);
-  const successRate = total > 0 ? Number(((passed / total) * 100).toFixed(2)) : 0;
+  const successRate =
+    total > 0 ? Number(((passed / total) * 100).toFixed(2)) : 0;
   const failedTests = [];
 
   for (const suite of allSuites) {
     for (const testcase of toArray(suite.testcase)) {
-      const testcaseStatus = String(testcase.status || '').toLowerCase();
+      const testcaseStatus = String(testcase.status || "").toLowerCase();
       const hasFailure = testcase.failure !== undefined;
       const hasError = testcase.error !== undefined;
 
-      if (hasFailure || hasError || testcaseStatus === 'failed' || testcaseStatus === 'error') {
-        const testcaseName = String(testcase.name || '').trim();
+      if (
+        hasFailure ||
+        hasError ||
+        testcaseStatus === "failed" ||
+        testcaseStatus === "error"
+      ) {
+        const testcaseName = String(testcase.name || "").trim();
         if (testcaseName) {
           failedTests.push(testcaseName);
         }
@@ -213,7 +218,8 @@ function parseJUnitReport(xmlContent) {
     }
   }
 
-  const startedAt = allSuites.find((suite) => suite.timestamp)?.timestamp || null;
+  const startedAt =
+    allSuites.find((suite) => suite.timestamp)?.timestamp || null;
 
   return {
     metrics: {
@@ -230,17 +236,17 @@ function parseJUnitReport(xmlContent) {
 }
 
 function getStageDescriptor(storageType, stageName, resultValue) {
-  const result = (resultValue || '').trim();
+  const result = (resultValue || "").trim();
   const stageLabel = stageLabels[stageName] || stageName;
-  const reportKind = preE2EStages.has(stageName) ? 'stage-failure' : 'tests';
+  const reportKind = preE2EStages.has(stageName) ? "stage-failure" : "tests";
 
-  if (result === 'cancelled') {
+  if (result === "cancelled") {
     return {
       failedStage: stageName,
       failedStageLabel: stageLabel,
       failedJobName: `${stageLabel} (${storageType})`,
       reportKind,
-      status: 'cancelled',
+      status: "cancelled",
       statusMessage: `⚠️ ${stageLabel} CANCELLED`,
     };
   }
@@ -250,86 +256,93 @@ function getStageDescriptor(storageType, stageName, resultValue) {
     failedStageLabel: stageLabel,
     failedJobName: `${stageLabel} (${storageType})`,
     reportKind,
-    status: 'failure',
+    status: "failure",
     statusMessage: `❌ ${stageLabel} FAILED`,
   };
 }
 
-function determineStage(storageType) {
+function determineStage(storageType, stageResults) {
   const orderedStages = [
-    ['bootstrap', process.env.BOOTSTRAP_RESULT],
-    ['configure-sdn', process.env.CONFIGURE_SDN_RESULT],
-    ['storage-setup', process.env.CONFIGURE_STORAGE_RESULT],
-    ['virtualization-setup', process.env.CONFIGURE_VIRTUALIZATION_RESULT],
-    ['e2e-test', process.env.E2E_TEST_RESULT],
+    ["bootstrap", stageResults.bootstrap],
+    ["configure-sdn", stageResults["configure-sdn"]],
+    ["storage-setup", stageResults["storage-setup"]],
+    ["virtualization-setup", stageResults["virtualization-setup"]],
+    ["e2e-test", stageResults["e2e-test"]],
   ];
 
   for (const [stageName, resultValue] of orderedStages) {
-    if ((resultValue || 'success') !== 'success') {
+    if ((resultValue || "success") !== "success") {
       return getStageDescriptor(storageType, stageName, resultValue);
     }
   }
 
   return {
-    failedStage: 'success',
+    failedStage: "success",
     failedStageLabel: stageLabels.success,
     failedJobName: `E2E test (${storageType})`,
-    reportKind: 'tests',
-    status: 'success',
-    statusMessage: '✅ SUCCESS',
+    reportKind: "tests",
+    status: "success",
+    statusMessage: "✅ SUCCESS",
   };
 }
 
 function buildArtifactMissingDescriptor(storageType) {
-  const stageLabel = stageLabels['artifact-missing'];
+  const stageLabel = stageLabels["artifact-missing"];
   return {
-    failedStage: 'artifact-missing',
+    failedStage: "artifact-missing",
     failedStageLabel: stageLabel,
     failedJobName: `E2E test (${storageType})`,
-    reportKind: 'artifact-missing',
-    status: 'missing',
+    reportKind: "artifact-missing",
+    status: "missing",
     statusMessage: `⚠️ ${stageLabel}`,
   };
 }
 
-async function buildClusterReport({core, context}) {
-  const storageType = process.env.STORAGE_TYPE;
-  const reportsDir = process.env.E2E_REPORT_DIR || 'test/e2e';
-  const reportFile = process.env.REPORT_FILE || `e2e_report_${storageType}.json`;
-  const workflowRunUrl = process.env.WORKFLOW_RUN_URL
-    || `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-  const branchName = process.env.BRANCH_NAME
-    || String(context.ref || '').replace(/^refs\/heads\//, '');
-  const junitPattern = new RegExp(`^e2e_summary_${escapeRegExp(storageType)}_.*\\.xml$`);
-  const junitReportPath = pickLatestMatchingFile(reportsDir, junitPattern, core);
-  const stageInfo = determineStage(storageType);
+async function buildClusterReport({ core, context }) {
+  const config = readClusterConfigFromEnv();
+  const workflowRunUrl =
+    config.workflowRunUrlOverride ||
+    `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+  const branchName =
+    config.branchNameOverride ||
+    String(context.ref || "").replace(/^refs\/heads\//, "");
+  const junitPattern = new RegExp(
+    `^e2e_summary_${escapeRegExp(config.storageType)}_.*\\.xml$`
+  );
+  const junitReportPath = pickLatestMatchingFile(
+    config.reportsDir,
+    junitPattern,
+    core
+  );
+  const stageInfo = determineStage(config.storageType, config.stageResults);
 
   let parsedReport = {
     metrics: zeroMetrics(),
     failedTests: [],
     startedAt: null,
-    source: 'empty',
+    source: "empty",
   };
 
   if (junitReportPath) {
     core.info(`Found JUnit report: ${junitReportPath}`);
     parsedReport = {
-      ...parseJUnitReport(fs.readFileSync(junitReportPath, 'utf8')),
-      source: 'junit',
+      ...parseJUnitReport(fs.readFileSync(junitReportPath, "utf8")),
+      source: "junit",
     };
   } else {
-    core.warning(`JUnit report was not found for ${storageType} under ${reportsDir}`);
+    core.warning(
+      `JUnit report was not found for ${config.storageType} under ${config.reportsDir}`
+    );
   }
 
-  const effectiveStageInfo = (
-    stageInfo.reportKind === 'tests' && parsedReport.source === 'empty'
-      ? buildArtifactMissingDescriptor(storageType)
-      : stageInfo
-  );
+  const effectiveStageInfo =
+    stageInfo.reportKind === "tests" && parsedReport.source === "empty"
+      ? buildArtifactMissingDescriptor(config.storageType)
+      : stageInfo;
 
   const report = {
-    cluster: storageType,
-    storageType,
+    cluster: config.storageType,
+    storageType: config.storageType,
     reportKind: effectiveStageInfo.reportKind,
     status: effectiveStageInfo.status,
     statusMessage: effectiveStageInfo.statusMessage,
@@ -346,10 +359,10 @@ async function buildClusterReport({core, context}) {
     reportSource: parsedReport.source,
   };
 
-  fs.writeFileSync(reportFile, `${JSON.stringify(report, null, 2)}\n`);
+  fs.writeFileSync(config.reportFile, `${JSON.stringify(report, null, 2)}\n`);
 
-  core.setOutput('report_file', reportFile);
-  core.info(`Created report file: ${reportFile}`);
+  core.setOutput("report_file", config.reportFile);
+  core.info(`Created report file: ${config.reportFile}`);
   core.info(JSON.stringify(report, null, 2));
 
   return report;
@@ -359,3 +372,4 @@ module.exports = buildClusterReport;
 module.exports.determineStage = determineStage;
 module.exports.parseJUnitReport = parseJUnitReport;
 module.exports.buildArtifactMissingDescriptor = buildArtifactMissingDescriptor;
+module.exports.readClusterConfigFromEnv = readClusterConfigFromEnv;

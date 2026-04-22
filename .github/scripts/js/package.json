@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "fmt": "prettier --write ./*.js",
+    "fmt": "prettier --write \"e2e/report/**/*.js\"",
+    "lint": "eslint \"e2e/report/**/*.js\"",
     "test": "jest"
   },
   "keywords": [],
@@ -15,6 +16,7 @@
     "@actions/github": "^5.1.1",
     "@octokit/graphql": "^4.8.0",
     "@types/node": "^16.11.11",
+    "eslint": "^10.2.1",
     "jest": "28.1.2",
     "prettier": "^2.5.0"
   },
