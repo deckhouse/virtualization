@@ -19,12 +19,14 @@ package source
 import (
 	"context"
 	"log/slog"
+	"strconv"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -167,9 +169,17 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 			},
 			Spec: corev1.PersistentVolumeClaimSpec{
 				StorageClassName: &sc.Name,
+				Resources: corev1.VolumeResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: resource.MustParse("10Gi"),
+					},
+				},
 			},
 			Status: corev1.PersistentVolumeClaimStatus{
 				Phase: corev1.ClaimBound,
+				Capacity: corev1.ResourceList{
+					corev1.ResourceStorage: resource.MustParse("12Gi"),
+				},
 			},
 		}
 	})
@@ -222,8 +232,15 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.IsZero()).To(BeTrue())
 
+			storedSize := resource.MustParse("12Gi")
+			unpackedSize := resource.MustParse("12Gi")
+
 			ExpectCondition(vi, metav1.ConditionTrue, vicondition.Ready, false)
 			Expect(vi.Status.Phase).To(Equal(v1alpha2.ImageReady))
+			Expect(vi.Status.Size.Stored).To(Equal("12Gi"))
+			Expect(vi.Status.Size.StoredBytes).To(Equal(strconv.FormatInt(storedSize.Value(), 10)))
+			Expect(vi.Status.Size.Unpacked).To(Equal("12Gi"))
+			Expect(vi.Status.Size.UnpackedBytes).To(Equal(strconv.FormatInt(unpackedSize.Value(), 10)))
 		})
 	})
 
