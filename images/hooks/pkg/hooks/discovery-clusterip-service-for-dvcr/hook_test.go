@@ -48,6 +48,7 @@ var _ = Describe("DiscoveryClusterIPServiceForDVCR", func() {
 		dc = mock.NewDependencyContainerMock(GinkgoT())
 		snapshots = mock.NewSnapshotsMock(GinkgoT())
 		values = mock.NewPatchableValuesCollectorMock(GinkgoT())
+		values.GetMock.When(settings.InternalValuesConfigCopyPath).Then(gjson.Result{})
 	})
 
 	AfterEach(func() {

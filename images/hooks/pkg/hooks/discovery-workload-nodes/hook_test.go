@@ -22,6 +22,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/tidwall/gjson"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
@@ -74,6 +75,7 @@ var _ = Describe("DiscoveryWorkloadNodes", func() {
 		dc = mock.NewDependencyContainerMock(GinkgoT())
 		snapshots = mock.NewSnapshotsMock(GinkgoT())
 		values = mock.NewPatchableValuesCollectorMock(GinkgoT())
+		values.GetMock.When(settings.InternalValuesConfigCopyPath).Then(gjson.Result{})
 	})
 
 	AfterEach(func() {
