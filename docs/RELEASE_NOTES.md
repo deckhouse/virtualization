@@ -10,26 +10,20 @@ Release date: April 22, 2026.
 
 ### New features
 
-- [vm] Added percentage progress for virtual machine migration operations to the status of [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resources with the `Evict` and `Migrate` types.
-       - The corresponding `PROGRESS` column is displayed when running `d8 k get vmop`.
-- [vm] Added the `PHASEAGE` column to `d8 k get vm`, showing the age of the current virtual machine phase. The existing `AGE` column is preserved.
-- [vm] Added the ability to change a virtual machine's CPU without manually stopping it.
-       - To enable this functionality, add the corresponding `HotplugCPUWithLiveMigration` feature gate to `.spec.settings.featureGates` in the virtualization `ModuleConfig`.
-       - Live migration will be used to change CPU without rebooting the virtual machine.
-- [vm] Added initial support for changing virtual machine memory: changing `.spec.memory` applies the new memory size using live migration.
-       - To enable this functionality, add the corresponding `HotplugMemoryWithLiveMigration` feature gate to `.spec.settings.featureGates` in the virtualization `ModuleConfig`.
-       - Live migration will be used to change memory without rebooting the virtual machine.
+- [vm] Added the `progress` field to the status of [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resources with the `Evict` and `Migrate` types to show operation progress. The corresponding `PROGRESS` column is displayed when running `d8 k get vmop`.
+- [vm] Added the ability to change the number of CPUs in a virtual machine without manually stopping it. The new value is applied via live migration. To enable this functionality, add `HotplugCPUWithLiveMigration` to `.spec.settings.featureGates` in the `ModuleConfig` of the `virtualization` module.
+- [vm] Added initial support for changing virtual machine memory without manually stopping the virtual machine. The new `.spec.memory` value is applied via live migration. To enable this functionality, add `HotplugMemoryWithLiveMigration` to `.spec.settings.featureGates` in the `ModuleConfig` of the `virtualization` module.
 
 ### Fixes
 
-- [vm] Virtual machine migration has been moved to `hostNetwork`, which noticeably speeds up the migration process.
+- [vm] Optimized virtual machine migration: it now uses `hostNetwork`, allowing the host MTU to be used instead of the pod MTU.
 - [vm] Fixed an issue with an unfrozen filesystem during virtual machine snapshot creation if the freeze occurred during migration.
-- [vm] Fixed removal of the `Main` network from a virtual machine so that the virtual machine no longer uses an IP address from the virtualization CIDR.
-- [api] When uploading disks and images with the `Upload` type, the `WaitForUserUpload` phase no longer prompts users to start uploading too early, before the resource is ready for upload.
-- [nsub] Added automatic cleanup of [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resources that are no longer present on the node.
+- [vm] Fixed removal of the `Main` network from a virtual machine: the virtual machine no longer uses an IP address from the virtualization CIDR after the network is removed.
+- [api] When uploading disks and images with the `Upload` type, the `WaitForUserUpload` phase no longer occurs prematurely while the resource is not yet ready for upload.
+- [usb] Added automatic cleanup of [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resources that are absent on the node and are not assigned to a namespace or project.
 - [vmsnapshot] Fixed snapshot creation for a virtual machine without the `Main` network.
 
-### Other
+### Security
 
 - [core] Fixed vulnerability CVE-2026-39883.
 - [core] Fixed vulnerabilities CVE-2026-32280, CVE-2026-32281, CVE-2026-32282, CVE-2026-32283, CVE-2026-32288, CVE-2026-32289.
@@ -38,18 +32,18 @@ Release date: April 22, 2026.
 
 ## v1.7.1
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
-Release date: April 21, 2026.
+Release date: April 20, 2026.
 </span>
 
 ### Fixes
 
 - [vm] To update the firmware on virtual machines with a connected USB device, one of the following actions is required. A corresponding message will appear in the virtual machine status:
 
-  - Disconnect the USB device and migrate the virtual machine.
-  - Restart the virtual machine.
+       - Disconnect the USB device and migrate the virtual machine.
+       - Restart the virtual machine.
 
-  Until then, the virtual machine will continue running, but it will not be available for migration.
-  After either action is completed, the virtual machine will be updated to the current firmware version and will be available for migration again.
+       Until then, the virtual machine will continue running, but it will not be available for migration.
+       After either action is completed, the virtual machine will be updated to the current firmware version and will be available for migration again.
 
 ### Security
 
@@ -97,30 +91,6 @@ Release date: March 31, 2026.
 - [vd,vi,cvi] Fixed the creation of block devices from VMDK files (especially for VMDKs in the `streamOptimized` format used in exports from VMware).
 - [usb] Stabilized USB device support for virtualization on Deckhouse Kubernetes Platform version `>=1.76` and Kubernetes version `>=1.33`.
 - [usb] Fixed USB device detection on the host: duplicate USB devices could previously appear.
-
-## v1.6.3
-<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
-Release date: April 21, 2026.
-</span>
-
-### Security
-
-- [module] Fixed vulnerabilities:
-  - CVE-2026-32283
-  - CVE-2026-27139
-  - CVE-2026-32289
-  - CVE-2026-32288
-  - CVE-2026-32281
-  - CVE-2026-27142
-  - CVE-2026-33997
-  - CVE-2026-33726
-  - CVE-2026-32282
-  - CVE-2026-32280
-  - CVE-2026-25679
-  - CVE-2026-34040
-  - CVE-2026-34986
-  - CVE-2026-39883
-  - CVE-2026-33186
 
 ## v1.6.2
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
