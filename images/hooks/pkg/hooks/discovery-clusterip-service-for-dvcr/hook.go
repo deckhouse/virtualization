@@ -64,7 +64,15 @@ var configDiscoveryService = &pkg.HookConfig{
 	Queue: fmt.Sprintf("modules/%s", settings.ModuleName),
 }
 
-func handleDiscoveryService(_ context.Context, input *pkg.HookInput) error {
+func handleDiscoveryService(ctx context.Context, input *pkg.HookInput) error {
+	canRun, err := settings.CanRunWithModuleConfig(ctx, input)
+	if err != nil {
+		return err
+	}
+	if !canRun {
+		return nil
+	}
+
 	clusterIP := getClusterIP(input)
 
 	if clusterIP == "" {
