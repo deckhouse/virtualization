@@ -1256,6 +1256,9 @@ spec:
                   items:
                     type: object
                     x-kubernetes-preserve-unknown-fields: true
+                blockDevicesCount:
+                  type: integer
+                  description: Number of block devices attached to the virtual machine.
                 observedGeneration:
                   type: integer
                   description: Resource generation last processed by the controller.
@@ -1464,6 +1467,11 @@ spec:
           jsonPath: .status.ipAddress
           name: IPAddress
           type: string
+        - description: The number of block devices attached to the virtual machine.
+          jsonPath: .status.blockDevicesCount
+          name: BlockDevicesCount
+          priority: 1
+          type: integer
         - description: Time of resource creation.
           jsonPath: .metadata.creationTimestamp
           name: Age
