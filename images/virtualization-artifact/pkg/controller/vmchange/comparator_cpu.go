@@ -47,15 +47,18 @@ func (c *comparatorCPU) Compare(current, desired *v1alpha2.VirtualMachineSpec) [
 		coresChangedAction = ActionRestart
 	}
 
+	fractionChangedAction := ActionApplyImmediate
+
 	// Require reboot if CPU hotplug is not enabled.
 	if !c.featureGate.Enabled(featuregates.HotplugCPUWithLiveMigration) {
 		coresChangedAction = ActionRestart
+		fractionChangedAction = ActionRestart
 	}
 
 	coresChanges := compareInts("cpu.cores", current.CPU.Cores, desired.CPU.Cores, 0, coresChangedAction)
-	fractionChanges := compareStrings("cpu.coreFraction", current.CPU.CoreFraction, desired.CPU.CoreFraction, DefaultCPUCoreFraction, ActionRestart)
+	fractionChanges := compareStrings("cpu.coreFraction", current.CPU.CoreFraction, desired.CPU.CoreFraction, DefaultCPUCoreFraction, fractionChangedAction)
 
-	// Yield full replace if both fields changed.
+	// Yield a full replace for cpu section if both fields are changed.
 	if HasChanges(coresChanges) && HasChanges(fractionChanges) {
 		return []FieldChange{
 			{
@@ -63,7 +66,7 @@ func (c *comparatorCPU) Compare(current, desired *v1alpha2.VirtualMachineSpec) [
 				Path:           "cpu",
 				CurrentValue:   current.CPU,
 				DesiredValue:   desired.CPU,
-				ActionRequired: ActionRestart,
+				ActionRequired: MostDisruptiveAction(coresChangedAction, fractionChangedAction),
 			},
 		}
 	}
