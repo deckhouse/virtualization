@@ -99,7 +99,7 @@ func (h *StatisticHandler) syncResources(changed *v1alpha2.VirtualMachine,
 		)
 		if kvvmi == nil {
 			memorySize = changed.Spec.Memory.Size
-			sockets, coresPerSocket := vm.CalculateCoresAndSockets(changed.Spec.CPU.Cores)
+			sockets, coresPerSocket, _ := vm.CalculateCoresAndSockets(changed.Spec.CPU.Cores)
 			topology = v1alpha2.Topology{CoresPerSocket: coresPerSocket, Sockets: sockets}
 			coreFraction = changed.Spec.CPU.CoreFraction
 		} else {
@@ -282,7 +282,7 @@ func (h *StatisticHandler) getCurrentTopologyByKVVMI(kvvmi *virtv1.VirtualMachin
 	}
 
 	cores = h.getCoresByKVVMI(kvvmi)
-	sockets, coresPerSocket := vm.CalculateCoresAndSockets(cores)
+	sockets, coresPerSocket, _ := vm.CalculateCoresAndSockets(cores)
 	return v1alpha2.Topology{CoresPerSocket: coresPerSocket, Sockets: sockets}
 }
 
