@@ -1,11 +1,11 @@
 {{- if eq .MODULE_EDITION "EE" }}
 ---
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}
-fromImage: {{ .ModuleNamePrefix }}distroless
+image: {{ .ImageName }}
+fromImage: distroless
 git:
   {{- include "image mount points" . }}
 import:
-- image: {{ .ModuleNamePrefix }}virtualization-artifact
+- image: virtualization-artifact
   add: /out/virtualization-audit
   to: /app/virtualization-audit
   after: install

@@ -1,14 +1,14 @@
 ---
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}
-fromImage: {{ .ModuleNamePrefix }}distroless
+image: {{ .ImageName }}
+fromImage: distroless
 git:
   {{- include "image mount points" . }}
 import:
-  - image: {{ .ModuleNamePrefix }}virtualization-dra-builder
+  - image: virtualization-dra-builder
     add: /out/virtualization-dra-usb
     to: /app/virtualization-dra-usb
     after: install
-  - image: {{ .ModuleNamePrefix }}virtualization-dra-builder
+  - image: virtualization-dra-builder
     add: /out/go-usbip
     to: /usr/bin/go-usbip
     after: install
