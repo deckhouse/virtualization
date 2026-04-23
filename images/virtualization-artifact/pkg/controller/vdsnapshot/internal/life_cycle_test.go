@@ -23,10 +23,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdscondition"
@@ -112,6 +114,21 @@ var _ = Describe("LifeCycle handler", func() {
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 			Expect(ready.Reason).To(Equal(vdscondition.Snapshotting.String()))
 			Expect(ready.Message).ToNot(BeEmpty())
+		})
+
+		It("stores requested size in volume snapshot annotations", func() {
+			size := resource.MustParse("20Gi")
+			vd.Spec.PersistentVolumeClaim.Size = &size
+
+			snapshotter.CreateVolumeSnapshotFunc = func(_ context.Context, vs *vsv1.VolumeSnapshot) (*vsv1.VolumeSnapshot, error) {
+				Expect(vs.Annotations[annotations.AnnVirtualDiskRequestedSize]).To(Equal("20Gi"))
+				return vs, nil
+			}
+
+			h := NewLifeCycleHandler(snapshotter)
+
+			_, err := h.Handle(testContext(), vdSnapshot)
+			Expect(err).To(BeNil())
 		})
 
 		It("The volume snapshot has failed", func() {

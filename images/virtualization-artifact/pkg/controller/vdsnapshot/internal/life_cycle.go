@@ -335,6 +335,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			}
 		}
 
+		if vd.Spec.PersistentVolumeClaim.Size != nil {
+			anno[annotations.AnnVirtualDiskRequestedSize] = vd.Spec.PersistentVolumeClaim.Size.String()
+		}
+
 		for _, ownerRef := range vd.OwnerReferences {
 			if ownerRef.Kind == v1alpha2.VirtualMachineKind {
 				anno[annotations.AnnVirtualDiskHadOwnerReference] = "true"
