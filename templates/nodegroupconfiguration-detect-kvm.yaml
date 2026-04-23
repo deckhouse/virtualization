@@ -30,8 +30,7 @@ spec:
     if ! grep -qE 'vmx|svm' /proc/cpuinfo; then
       bb-log-info "CPU virtualization flags (vmx/svm) not found."
       label=$kvm_disabled_label
-      bb-log-debug "Show CPU flags"
-      grep -E 'vmx|svm' /proc/cpuinfo
+      bb-log-debug "CPU virtualization flags: $(grep -E 'vmx|svm' /proc/cpuinfo)"
     fi
 
     if [[ ! -c "/dev/kvm" ]]; then
