@@ -731,17 +731,15 @@ func getPodPendingUnschedulableMessage(pod *corev1.Pod) (string, bool) {
 	}
 
 	for _, condition := range pod.Status.Conditions {
-		if condition.Type != corev1.PodScheduled ||
-			condition.Status != corev1.ConditionFalse ||
-			condition.Reason != corev1.PodReasonUnschedulable {
-			continue
+		if condition.Type == corev1.PodScheduled &&
+			condition.Status == corev1.ConditionFalse &&
+			condition.Reason == corev1.PodReasonUnschedulable {
+			message := fmt.Sprintf("Target pod %q is unschedulable", pod.Namespace+"/"+pod.Name)
+			if condition.Message != "" {
+				message = fmt.Sprintf("%s: %s", message, condition.Message)
+			}
+			return message, true
 		}
-
-		message := fmt.Sprintf("Target pod %q is unschedulable", pod.Namespace+"/"+pod.Name)
-		if condition.Message != "" {
-			message = fmt.Sprintf("%s: %s", message, condition.Message)
-		}
-		return message, true
 	}
 	return "", false
 }
