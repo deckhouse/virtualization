@@ -126,6 +126,12 @@ spec:
                           * `Assigned` — неймспейс назначен для устройства и создан соответствующий ресурс USBDevice в этом неймспейсе;
                           * `Available` — для устройства не назначен неймспейс;
                           * `InProgress` — подключение устройства к неймспейсу выполняется (создание ресурса USBDevice).
+
+                          Для типа условия Attached возможные значения:
+                          * `AttachedToVirtualMachine` — устройство подключено к виртуальной машине;
+                          * `Available` — устройство не подключено к виртуальной машине;
+                          * `DetachedForMigration` — устройство было отключено для миграции;
+                          * `NoFreeUSBIPPort` — устройство не может быть подключено, так как на целевом узле нет свободных USBIP-портов.
                         maxLength: 1024
                         minLength: 1
                         pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
@@ -147,6 +153,8 @@ spec:
                           может быть реализован Garbage Collector для автоматической очистки.
                           * `Assigned` — указывает, назначен ли неймспейс для устройства. Когда reason — "Assigned",
                           status — "True". Когда reason — "Available" или "InProgress", status — "False".
+                          * `Attached` — указывает, подключено ли устройство к виртуальной машине. Когда reason — "AttachedToVirtualMachine",
+                          status — "True". Когда reason — "Available", "DetachedForMigration" или "NoFreeUSBIPPort", status — "False".
                         maxLength: 316
                         pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                         type: string
