@@ -1,0 +1,80 @@
+api:
+  fixes:
+  - summary: При загрузке дисков и образов с типом Upload фаза WaitForUserUpload больше
+      не возникает преждевременно, пока ресурс еще не готов к загрузке.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2178
+ci:
+  features:
+  - summary: настройка вложенного кластера e2e с настраиваемой сетью ClusterNetwork
+      и настройка SDN внутри вложенного кластера
+    pull_request: https://github.com/deckhouse/virtualization/pull/2181
+  fixes:
+  - summary: очистка ресурсов кластера для ночного запуска e2e
+    pull_request: https://github.com/deckhouse/virtualization/pull/2237
+  - summary: исправить конфигурацию CI для конвейера e2e, настроить этап виртуализации.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2233
+  - summary: Исправлен рендеринг конфигурации инфраструктуры для вложенных кластеров
+      e2e.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2223
+core:
+  fixes:
+  - summary: Добавлена ​​автоматическая очистка ресурсов NodeUSBDevice, которые отсутствуют
+      на узле и не назначены пространству имен или проекту.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2220
+  - summary: Уточните сообщение об ошибке миграции виртуальной машины, когда для целевой
+      виртуальной машины не доступен ни один узел.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2209
+  - summary: Улучшите отчетность о ходе миграции виртуальных машин, пока целевое планирование
+      и подготовка уже выполняются.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2190
+  - summary: Установите условие устаревания встроенного ПО только для запущенных экземпляров
+      виртуальных машин и согласуйте проверки рабочей нагрузки обновления встроенного
+      ПО с текущим потоком, зависящим от состояния.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2162
+dvcr:
+  fixes:
+  - summary: Исправлен запуск импорта CVI/VI/VD после завершения сборки мусора DVCR.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2193
+module:
+  features:
+  - summary: Добавьте временную аннотацию ModuleConfig для управления настройкой DisableTLS
+      в режиме реального времени KubeVirt.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2198
+test:
+  fixes:
+  - summary: Увеличьте выделение coreFraction в тестах e2e для большей стабильности.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2217
+vm:
+  features:
+  - summary: Добавлено поле «прогресс» в статус ресурсов «VirtualMachineOperation»
+      с типами «Evict» и «Migrate», чтобы показать ход операции. Соответствующий столбец
+      «ПРОГРЕСС» отображается при запуске «d8 k get vmop».
+    pull_request: https://github.com/deckhouse/virtualization/pull/2182
+  - summary: Добавлена ​​возможность изменять количество процессоров в виртуальной
+      машине, не останавливая ее вручную. Новое значение применяется посредством динамической
+      миграции. Чтобы включить эту функцию, добавьте HotplugCPUWithLiveMigration в
+      .spec.settings.featureGates в ModuleConfig модуля виртуализации.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2147
+  - summary: Добавлена ​​первоначальная поддержка изменения памяти виртуальной машины
+      без остановки виртуальной машины вручную. Новое значение `.spec.memory` применяется
+      посредством динамической миграции. Чтобы включить эту функцию, добавьте HotplugMemoryWithLiveMigration
+      в .spec.settings.featureGates в ModuleConfig модуля виртуализации.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2110
+  fixes:
+  - summary: Исправлена ​​проблема с разморозкой файловой системы во время создания
+      снимка виртуальной машины, если зависание происходило во время миграции.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2225
+  - summary: 'Исправлено удаление основной сети с виртуальной машины: виртуальная
+      машина больше не использует IP-адрес из CIDR виртуализации после удаления сети.'
+    pull_request: https://github.com/deckhouse/virtualization/pull/2185
+  - summary: Предотвратите чрезмерное создание ресурсов VirtualMachineMACAddress и
+      исправьте распределение идентификаторов сетевых интерфейсов для дополнительных
+      сетей виртуальных машин.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2184
+  - summary: 'Оптимизирована миграция виртуальных машин: теперь используется «hostNetwork»,
+      что позволяет использовать MTU хоста вместо MTU модуля.'
+    pull_request: https://github.com/deckhouse/virtualization/pull/2174
+vmsnapshot:
+  fixes:
+  - summary: Исправлено создание снапшота для виртуальной машины без `Основной` сети.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2176
