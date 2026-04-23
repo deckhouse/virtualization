@@ -203,7 +203,8 @@ var _ = Describe("VirtualMachineAffinityAndToleration", func() {
 
 		var targetNode string
 		By("Setting spec.nodeSelector to another worker node and verifying migration", func() {
-			targetNode, err := defineReadyTargetNode(ctx, f, sourceNode, map[string]string{kvmEnabledLabelKey: "true", masterLabelKey: "worker"})
+			var err error
+			targetNode, err = defineReadyTargetNode(ctx, f, sourceNode, map[string]string{kvmEnabledLabelKey: "true", masterLabelKey: "worker"})
 			Expect(err).NotTo(HaveOccurred())
 
 			vmNodeSelector = getVirtualMachine(ctx, f, vmNodeSelector.Name)
@@ -259,7 +260,8 @@ var _ = Describe("VirtualMachineAffinityAndToleration", func() {
 
 		var targetNode string
 		By("Setting spec.affinity.nodeAffinity to another worker node and verifying migration", func() {
-			targetNode, err := defineReadyTargetNode(ctx, f, sourceNode, map[string]string{kvmEnabledLabelKey: "true", masterLabelKey: "worker"})
+			var err error
+			targetNode, err = defineReadyTargetNode(ctx, f, sourceNode, map[string]string{kvmEnabledLabelKey: "true", masterLabelKey: "worker"})
 			Expect(err).NotTo(HaveOccurred())
 
 			vmNodeAffinity = getVirtualMachine(ctx, f, vmNodeAffinity.Name)
