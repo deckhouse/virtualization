@@ -17,6 +17,8 @@ limitations under the License.
 package service
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"net/http"
@@ -272,7 +274,7 @@ func (s StatService) IsImportStarted(ownerUID types.UID, pod *corev1.Pod) bool {
 	return progress.ProgressRaw() > 0
 }
 
-func (s StatService) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) (bool, error) {
+func (s StatService) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress, tlsSecret *corev1.Secret) (bool, error) {
 	if pod == nil || svc == nil || ing == nil {
 		return false, nil
 	}
@@ -283,7 +285,22 @@ func (s StatService) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *
 
 	uploadURL, ok := ing.Annotations[annotations.AnnUploadURL]
 	if ok && uploadURL != "" {
-		client := &http.Client{Timeout: 5 * time.Second}
+		certPool, err := x509.SystemCertPool()
+		if err != nil {
+			certPool = x509.NewCertPool()
+		}
+
+		if tlsSecret != nil {
+			if certData, ok := tlsSecret.Data["tls.crt"]; ok && len(certData) > 0 {
+				certPool.AppendCertsFromPEM(certData)
+			}
+		}
+
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{RootCAs: certPool},
+		}
+		client := &http.Client{Transport: tr, Timeout: 5 * time.Second}
+
 		response, err := client.Get(uploadURL)
 		if err != nil {
 			return false, fmt.Errorf("failed to get upload server status: %w", err)

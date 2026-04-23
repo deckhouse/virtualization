@@ -17,6 +17,7 @@ limitations under the License.
 package tls_certificates_api_proxy
 
 import (
+	"context"
 	"fmt"
 
 	v1 "k8s.io/api/certificates/v1"
@@ -26,7 +27,7 @@ import (
 	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
 
-var _ = tlscertificate.RegisterInternalTLSHookEM(tlscertificate.GenSelfSignedTLSHookConf{
+var conf = tlscertificate.GenSelfSignedTLSHookConf{
 	CN:                   settings.APIProxyCertCN,
 	TLSSecretName:        "virtualization-api-proxy-tls",
 	Namespace:            settings.ModuleNamespace,
@@ -34,4 +35,14 @@ var _ = tlscertificate.RegisterInternalTLSHookEM(tlscertificate.GenSelfSignedTLS
 	FullValuesPathPrefix: fmt.Sprintf("%s.internal.apiserver.proxyCert", settings.ModuleName),
 	CommonCAValuesPath:   fmt.Sprintf("%s.internal.rootCA", settings.ModuleName),
 	Usages:               []v1.KeyUsage{v1.UsageClientAuth},
-})
+	BeforeHookCheck: func(input *pkg.HookInput) bool {
+		canRun, err := settings.CanRunWithModuleConfig(context.Background(), input)
+		if err != nil {
+			input.Logger.Error("Check module config before API proxy TLS hook", "error", err)
+			return false
+		}
+		return canRun
+	},
+}
+
+var _ = tlscertificate.RegisterInternalTLSHookEM(conf)

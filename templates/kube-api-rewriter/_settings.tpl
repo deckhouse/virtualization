@@ -7,13 +7,11 @@
 
 {{- define "kube_api_rewriter.pprof_port" -}}8129{{- end -}}
 
+{{- define "kube_api_rewriter.client_proxy_port" -}}23915{{- end -}}
+
 {{- define "kube_api_rewriter.env" -}}
 - name: LOG_LEVEL
   value: {{ include "moduleLogLevel" . }}
-{{- if eq (include "moduleLogLevel" .) "debug" }}
-- name: PPROF_BIND_ADDRESS
-  value: ":{{ include "kube_api_rewriter.pprof_port" . }}"
-{{- end }}
 {{- end -}}
 
 {{- define "kube_api_rewriter.resources" -}}

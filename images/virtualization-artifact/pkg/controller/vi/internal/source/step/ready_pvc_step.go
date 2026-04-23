@@ -119,7 +119,6 @@ func (s ReadyPersistentVolumeClaimStep) Take(ctx context.Context, vi *v1alpha2.V
 		vi.Status.Progress = "100%"
 
 		res := s.pvc.Status.Capacity[corev1.ResourceStorage]
-
 		intQ, ok := res.AsInt64()
 		if !ok {
 			return nil, errors.New("failed to convert quantity to int64")

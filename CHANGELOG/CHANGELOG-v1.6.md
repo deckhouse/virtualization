@@ -28,5 +28,21 @@
 ## Chore
 
 
+ - **[core]** Fixed vulnerabilities:
+    - CVE-2026-32283
+    - CVE-2026-27139
+    - CVE-2026-32289
+    - CVE-2026-32288
+    - CVE-2026-32281
+    - CVE-2026-27142
+    - CVE-2026-33997
+    - CVE-2026-33726
+    - CVE-2026-32282
+    - CVE-2026-32280
+    - CVE-2026-25679
+    - CVE-2026-34040
+    - CVE-2026-34986
+    - CVE-2026-39883
+    - CVE-2026-33186 [#2218](https://github.com/deckhouse/virtualization/pull/2218)
  - **[vm]** Added the `--from-file` flag to the `vlctl` utility for viewing domain information from a local libvirt XML file. [#2014](https://github.com/deckhouse/virtualization/pull/2014)
 

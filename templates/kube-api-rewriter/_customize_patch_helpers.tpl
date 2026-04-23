@@ -30,7 +30,7 @@ spec:
       {{- include "kube_api_rewriter.sidecar_container" (tuple $ctx $settings) | nindent 6 }}
       - name: {{ $mainContainerName }}
         env:
-        {{- include "kube_api_rewriter.kubeconfig_env" . | nindent 8 }}
+        {{- include "kube_api_rewriter.kubeconfig_env" (tuple $ctx $settings) | nindent 8 }}
         volumeMounts:
         {{- include "kube_api_rewriter.kubeconfig_volume_mount" . | nindent 8 }}
 {{- end -}}

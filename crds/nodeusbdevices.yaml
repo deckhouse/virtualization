@@ -31,6 +31,9 @@ spec:
         - jsonPath: .status.conditions[?(@.type=="Assigned")].status
           name: Assigned
           type: string
+        - jsonPath: .status.conditions[?(@.type=="Attached")].status
+          name: Attached
+          type: string
         - jsonPath: .spec.assignedNamespace
           name: Namespace
           type: string
