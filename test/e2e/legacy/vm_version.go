@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
@@ -85,5 +86,26 @@ var _ = Describe("VirtualMachineVersions", Ordered, label.Legacy(), Label(preche
 				Timeout:   MaxWaitTimeout,
 			})
 		})
+	})
+
+	Context("When virtual machines are ready:", func() {
+		It("checks qemu and libvirt version in the status", func() {
+			Eventually(func() error {
+				var vms v1alpha2.VirtualMachineList
+				err := GetObjects(kc.ResourceVM, &vms, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: ns,
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, vm := range vms.Items {
+					Expect(vm.Status.Versions.Qemu).NotTo(BeEmpty())
+					Expect(vm.Status.Versions.Libvirt).NotTo(BeEmpty())
+				}
+
+				return nil
+			}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
+		})
+
 	})
 })
