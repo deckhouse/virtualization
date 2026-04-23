@@ -47,9 +47,9 @@ const (
 	placementNoMigrationPolling = time.Second
 )
 
-var _ = Describe("VirtualMachineAffinityAndToleration", func() {
+var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 	var (
-		f   = framework.NewFramework("vm-affinity-toleration")
+		f   *framework.Framework
 		ctx context.Context
 
 		vmA *v1alpha2.VirtualMachine
@@ -57,6 +57,10 @@ var _ = Describe("VirtualMachineAffinityAndToleration", func() {
 		vmC *v1alpha2.VirtualMachine
 		vmD *v1alpha2.VirtualMachine
 	)
+
+	BeforeAll(func() {
+		f = framework.NewFramework("vm-affinity-toleration")
+	})
 
 	BeforeEach(func() {
 		DeferCleanup(f.After)
@@ -68,15 +72,11 @@ var _ = Describe("VirtualMachineAffinityAndToleration", func() {
 		By("Checking test prerequisites", func() {
 			readyNodes, err := listReadyNodes(ctx, f, map[string]string{kvmEnabledLabelKey: "true"})
 			Expect(err).NotTo(HaveOccurred())
-			if len(readyNodes) < 2 {
-				Skip("at least two ready KVM-enabled nodes are required")
-			}
+			Expect(len(readyNodes)).To(BeNumerically(">=", 2), "at least two ready KVM-enabled nodes are required, got %d", len(readyNodes))
 
 			masterNodes, err := listReadyNodes(ctx, f, map[string]string{kvmEnabledLabelKey: "true", masterLabelKey: "master"})
 			Expect(err).NotTo(HaveOccurred())
-			if len(masterNodes) == 0 {
-				Skip("at least one ready KVM-enabled master node is required")
-			}
+			Expect(len(masterNodes)).To(BeNumerically(">", 0), "at least one ready KVM-enabled master node is required, got %d", len(masterNodes))
 		})
 
 		By("Creating vm-a", func() {
@@ -85,7 +85,6 @@ var _ = Describe("VirtualMachineAffinityAndToleration", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmA)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmA), framework.LongTimeout)
 		})
 
 		By("Creating vm-b, vm-c and vm-d", func() {
@@ -102,9 +101,6 @@ var _ = Describe("VirtualMachineAffinityAndToleration", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmB, vmC, vmD)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmB), framework.LongTimeout)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmC), framework.LongTimeout)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmD), framework.LongTimeout)
 		})
 
 		var nodeA string
@@ -120,11 +116,11 @@ var _ = Describe("VirtualMachineAffinityAndToleration", func() {
 			Expect(vmC.Status.Node).NotTo(BeEmpty())
 			Expect(vmD.Status.Node).NotTo(BeEmpty())
 
-			Expect(vmC.Status.Node).To(Equal(nodeA), "vm-a and vm-c should run on the same node")
-			Expect(vmB.Status.Node).NotTo(Equal(nodeA), "vm-a and vm-b should run on different nodes")
+			Expect(vmC.Status.Node).To(Equal(nodeA), "vm-a and vm-c should run on the same node, got vm-a=%q vm-c=%q", nodeA, vmC.Status.Node)
+			Expect(vmB.Status.Node).NotTo(Equal(nodeA), "vm-a and vm-b should run on different nodes, got vm-a=%q vm-b=%q", nodeA, vmB.Status.Node)
 
 			nodeD := getNode(ctx, f, vmD.Status.Node)
-			Expect(nodeD.Labels).To(HaveKeyWithValue(masterLabelKey, "master"), "vm-d should run on a master node")
+			Expect(nodeD.Labels).To(HaveKeyWithValue(masterLabelKey, "master"), "vm-d should run on a master node, got vm-d node=%q", vmD.Status.Node)
 		})
 
 		By("Changing vm-c affinity to anti-affinity and verifying migration to another node", func() {
@@ -139,14 +135,13 @@ var _ = Describe("VirtualMachineAffinityAndToleration", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			waitForFreshVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmC), startedAt, sourceNode, nodeA, false, framework.MaxTimeout)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmC), framework.LongTimeout)
 		})
 
 		var migratedNodeC string
 		By("Verifying vm-c moved away from vm-a node", func() {
 			vmC = getVirtualMachine(ctx, f, vmC.Name)
 			migratedNodeC = vmC.Status.Node
-			Expect(migratedNodeC).NotTo(Equal(nodeA), "vm-c should run on a different node after anti-affinity update")
+			Expect(migratedNodeC).NotTo(Equal(nodeA), "vm-c should run on a different node after anti-affinity update, got old=%q new=%q", nodeA, migratedNodeC)
 		})
 
 		By("Changing vm-c anti-affinity back to affinity and verifying migration back to vm-a node", func() {
@@ -160,12 +155,11 @@ var _ = Describe("VirtualMachineAffinityAndToleration", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			waitForFreshVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmC), startedAt, migratedNodeC, nodeA, true, framework.MaxTimeout)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmC), framework.LongTimeout)
 		})
 
 		By("Verifying vm-c returned to vm-a node via status.nodeName", func() {
 			vmC = getVirtualMachine(ctx, f, vmC.Name)
-			Expect(vmC.Status.Node).To(Equal(nodeA), "vm-c should return to the same node as vm-a")
+			Expect(vmC.Status.Node).To(Equal(nodeA), "vm-c should return to the same node as vm-a, got vm-a=%q vm-c=%q", nodeA, vmC.Status.Node)
 		})
 	})
 
@@ -173,9 +167,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", func() {
 		By("Checking test prerequisites", func() {
 			workerNodes, err := listReadyNodes(ctx, f, map[string]string{kvmEnabledLabelKey: "true", masterLabelKey: "worker"})
 			Expect(err).NotTo(HaveOccurred())
-			if len(workerNodes) < 2 {
-				Skip("at least two ready KVM-enabled worker nodes are required")
-			}
+			Expect(len(workerNodes)).To(BeNumerically(">=", 2), "at least two ready KVM-enabled worker nodes are required, got %d", len(workerNodes))
 		})
 
 		vmNodeSelector := newPlacementVM("vm-node-selector", f.Namespace().Name, nil)
@@ -184,7 +176,6 @@ var _ = Describe("VirtualMachineAffinityAndToleration", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmNodeSelector)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmNodeSelector), framework.LongTimeout)
 			util.UntilConditionStatus(vmcondition.TypeMigratable.String(), string(metav1.ConditionTrue), framework.LongTimeout, vmNodeSelector)
 		})
 
@@ -214,7 +205,6 @@ var _ = Describe("VirtualMachineAffinityAndToleration", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			waitForFreshVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmNodeSelector), startedAt, sourceNode, targetNode, true, framework.MaxTimeout)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmNodeSelector), framework.LongTimeout)
 		})
 
 		By("Verifying the nodeSelector migration result via status.nodeName", func() {
@@ -230,9 +220,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", func() {
 		By("Checking test prerequisites", func() {
 			workerNodes, err := listReadyNodes(ctx, f, map[string]string{kvmEnabledLabelKey: "true", masterLabelKey: "worker"})
 			Expect(err).NotTo(HaveOccurred())
-			if len(workerNodes) < 2 {
-				Skip("at least two ready KVM-enabled worker nodes are required")
-			}
+			Expect(len(workerNodes)).To(BeNumerically(">=", 2), "at least two ready KVM-enabled worker nodes are required, got %d", len(workerNodes))
 		})
 
 		vmNodeAffinity := newPlacementVM("vm-node-affinity", f.Namespace().Name, nil)
@@ -241,7 +229,6 @@ var _ = Describe("VirtualMachineAffinityAndToleration", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmNodeAffinity)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmNodeAffinity), framework.LongTimeout)
 			util.UntilConditionStatus(vmcondition.TypeMigratable.String(), string(metav1.ConditionTrue), framework.LongTimeout, vmNodeAffinity)
 		})
 
@@ -271,7 +258,6 @@ var _ = Describe("VirtualMachineAffinityAndToleration", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			waitForFreshVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmNodeAffinity), startedAt, sourceNode, targetNode, true, framework.MaxTimeout)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmNodeAffinity), framework.LongTimeout)
 		})
 
 		By("Verifying the nodeAffinity migration result via status.nodeName", func() {
