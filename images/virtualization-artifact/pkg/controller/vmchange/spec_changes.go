@@ -218,6 +218,16 @@ func (s *SpecChanges) GetAll() []FieldChange {
 	return s.changes
 }
 
+func (s *SpecChanges) GetRestartMessages() []string {
+	msgs := make([]string, 0)
+	for _, change := range s.changes {
+		if change.RestartMessage != "" {
+			msgs = append(msgs, change.RestartMessage)
+		}
+	}
+	return msgs
+}
+
 func (s *SpecChanges) ConvertPendingChanges() ([]apiextensionsv1.JSON, error) {
 	res := make([]apiextensionsv1.JSON, 0, len(s.changes))
 	for i := range s.changes {
