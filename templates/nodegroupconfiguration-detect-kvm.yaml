@@ -28,12 +28,14 @@ spec:
     label=$kvm_enabled_label
 
     if ! grep -qE 'vmx|svm' /proc/cpuinfo; then
-      echo "CPU virtualization flags (vmx/svm) not found."
+      bb-log-info "CPU virtualization flags (vmx/svm) not found."
       label=$kvm_disabled_label
+      bb-log-debug "Show CPU flags"
+      grep -E 'vmx|svm' /proc/cpuinfo
     fi
 
     if [[ ! -c "/dev/kvm" ]]; then
-      echo "Device /dev/kvm not found."
+      bb-log-info "Device /dev/kvm not found."
       label=$kvm_disabled_label
     fi
 
@@ -51,6 +53,6 @@ spec:
         bb-log-error "failed to label node $node with label $label after $max_attempts attempts"
         exit 1
       fi
-      echo "Waiting for label node $node with label $label (attempt $attempt of $max_attempts)..."
+      bb-log-info "Waiting for label node $node with label $label (attempt $attempt of $max_attempts)..."
       sleep 5
     done
