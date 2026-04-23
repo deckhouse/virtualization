@@ -248,12 +248,12 @@ func setBlockDeviceDisk(
 			BootOrder:    bootOrder,
 			IsHotplugged: hotpluggable,
 		}
+		opts.IsCdrom = imageformat.IsISO(vi.Status.Format)
 		switch vi.Spec.Storage {
 		case v1alpha2.StorageKubernetes, v1alpha2.StoragePersistentVolumeClaim:
 			opts.PersistentVolumeClaim = ptr.To(vi.Status.Target.PersistentVolumeClaim)
 		case v1alpha2.StorageContainerRegistry:
 			opts.ContainerDisk = ptr.To(vi.Status.Target.RegistryURL)
-			opts.IsCdrom = imageformat.IsISO(vi.Status.Format)
 		default:
 			return fmt.Errorf("unexpected storage type %q for vi %s. %w", vi.Spec.Storage, vi.Name, common.ErrUnknownType)
 		}

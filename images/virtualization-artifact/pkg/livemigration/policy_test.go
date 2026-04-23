@@ -24,10 +24,19 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
 
+	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("CalculateEffectivePolicy", func() {
+	BeforeEach(func() {
+		config.ResetSystemMigrationPolicyOverride()
+	})
+
+	AfterEach(func() {
+		config.ResetSystemMigrationPolicyOverride()
+	})
+
 	DescribeTable("effective policy and autoConverge value",
 		func(
 			vmPolicy v1alpha2.LiveMigrationPolicy,
@@ -79,6 +88,53 @@ var _ = Describe("CalculateEffectivePolicy", func() {
 		Entry("AlwaysForced with force=false", v1alpha2.AlwaysForcedMigrationPolicy, ptr.To(false), v1alpha2.AlwaysForcedMigrationPolicy, true, true),
 
 		Entry("No VM policy with no vmop", v1alpha2.LiveMigrationPolicy(""), nil, v1alpha2.PreferSafeMigrationPolicy, false, false),
+	)
+
+	DescribeTable("system override takes precedence and ignores force",
+		func(
+			systemPolicy v1alpha2.LiveMigrationPolicy,
+			vmPolicy v1alpha2.LiveMigrationPolicy,
+			vmopForce *bool,
+			expectedPolicy v1alpha2.LiveMigrationPolicy,
+			expectedResult bool,
+			expectError bool,
+		) {
+			ok := config.SetSystemMigrationPolicyOverride(string(systemPolicy))
+			require.True(GinkgoT(), ok)
+
+			vm := v1alpha2.VirtualMachine{}
+			if vmPolicy != "" {
+				vm.Spec.LiveMigrationPolicy = vmPolicy
+			}
+
+			var vmop *v1alpha2.VirtualMachineOperation
+			if vmopForce != nil {
+				vmop = &v1alpha2.VirtualMachineOperation{
+					Spec: v1alpha2.VirtualMachineOperationSpec{
+						Force: vmopForce,
+					},
+				}
+			}
+
+			policy, result, err := CalculateEffectivePolicy(vm, vmop)
+
+			if expectError {
+				require.Error(GinkgoT(), err)
+			} else {
+				require.NoError(GinkgoT(), err)
+			}
+
+			require.Equal(GinkgoT(), expectedPolicy, policy)
+			require.Equal(GinkgoT(), expectedResult, result)
+		},
+
+		Entry("system override AlwaysForced overrides VM PreferSafe", v1alpha2.AlwaysForcedMigrationPolicy, v1alpha2.PreferSafeMigrationPolicy, nil, v1alpha2.AlwaysForcedMigrationPolicy, true, false),
+		Entry("system override AlwaysSafe overrides VM PreferForced", v1alpha2.AlwaysSafeMigrationPolicy, v1alpha2.PreferForcedMigrationPolicy, nil, v1alpha2.AlwaysSafeMigrationPolicy, false, false),
+		Entry("system override Never overrides default policy", v1alpha2.NeverMigrationPolicy, v1alpha2.LiveMigrationPolicy(""), nil, v1alpha2.NeverMigrationPolicy, false, false),
+		Entry("force=true is ignored when system override PreferSafe is set", v1alpha2.PreferSafeMigrationPolicy, v1alpha2.PreferSafeMigrationPolicy, ptr.To(true), v1alpha2.PreferSafeMigrationPolicy, false, false),
+		Entry("force=false is ignored when system override PreferForced is set", v1alpha2.PreferForcedMigrationPolicy, v1alpha2.PreferForcedMigrationPolicy, ptr.To(false), v1alpha2.PreferForcedMigrationPolicy, true, false),
+		Entry("AlwaysSafe with force=true does not error when system override is set", v1alpha2.AlwaysSafeMigrationPolicy, v1alpha2.PreferForcedMigrationPolicy, ptr.To(true), v1alpha2.AlwaysSafeMigrationPolicy, false, false),
+		Entry("AlwaysForced with force=false does not error when system override is set", v1alpha2.AlwaysForcedMigrationPolicy, v1alpha2.PreferSafeMigrationPolicy, ptr.To(false), v1alpha2.AlwaysForcedMigrationPolicy, true, false),
 	)
 })
 

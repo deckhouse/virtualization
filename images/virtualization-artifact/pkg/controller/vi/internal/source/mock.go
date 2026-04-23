@@ -1130,7 +1130,7 @@ var _ Stat = &StatMock{}
 //			IsUploadStartedFunc: func(ownerUID types.UID, pod *corev1.Pod) bool {
 //				panic("mock out the IsUploadStarted method")
 //			},
-//			IsUploaderReadyFunc: func(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) (bool, error) {
+//			IsUploaderReadyFunc: func(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress, tlsSecret *corev1.Secret) (bool, error) {
 //				panic("mock out the IsUploaderReady method")
 //			},
 //		}
@@ -1165,7 +1165,7 @@ type StatMock struct {
 	IsUploadStartedFunc func(ownerUID types.UID, pod *corev1.Pod) bool
 
 	// IsUploaderReadyFunc mocks the IsUploaderReady method.
-	IsUploaderReadyFunc func(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) (bool, error)
+	IsUploaderReadyFunc func(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress, tlsSecret *corev1.Secret) (bool, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -1227,6 +1227,8 @@ type StatMock struct {
 			Svc *corev1.Service
 			// Ing is the ing argument value.
 			Ing *netv1.Ingress
+			// TlsSecret is the tlsSecret argument value.
+			TlsSecret *corev1.Secret
 		}
 	}
 	lockCheckPod         sync.RWMutex
@@ -1517,23 +1519,25 @@ func (mock *StatMock) IsUploadStartedCalls() []struct {
 }
 
 // IsUploaderReady calls IsUploaderReadyFunc.
-func (mock *StatMock) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) (bool, error) {
+func (mock *StatMock) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress, tlsSecret *corev1.Secret) (bool, error) {
 	if mock.IsUploaderReadyFunc == nil {
 		panic("StatMock.IsUploaderReadyFunc: method is nil but Stat.IsUploaderReady was just called")
 	}
 	callInfo := struct {
-		Pod *corev1.Pod
-		Svc *corev1.Service
-		Ing *netv1.Ingress
+		Pod       *corev1.Pod
+		Svc       *corev1.Service
+		Ing       *netv1.Ingress
+		TlsSecret *corev1.Secret
 	}{
-		Pod: pod,
-		Svc: svc,
-		Ing: ing,
+		Pod:       pod,
+		Svc:       svc,
+		Ing:       ing,
+		TlsSecret: tlsSecret,
 	}
 	mock.lockIsUploaderReady.Lock()
 	mock.calls.IsUploaderReady = append(mock.calls.IsUploaderReady, callInfo)
 	mock.lockIsUploaderReady.Unlock()
-	return mock.IsUploaderReadyFunc(pod, svc, ing)
+	return mock.IsUploaderReadyFunc(pod, svc, ing, tlsSecret)
 }
 
 // IsUploaderReadyCalls gets all the calls that were made to IsUploaderReady.
@@ -1541,14 +1545,16 @@ func (mock *StatMock) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing 
 //
 //	len(mockedStat.IsUploaderReadyCalls())
 func (mock *StatMock) IsUploaderReadyCalls() []struct {
-	Pod *corev1.Pod
-	Svc *corev1.Service
-	Ing *netv1.Ingress
+	Pod       *corev1.Pod
+	Svc       *corev1.Service
+	Ing       *netv1.Ingress
+	TlsSecret *corev1.Secret
 } {
 	var calls []struct {
-		Pod *corev1.Pod
-		Svc *corev1.Service
-		Ing *netv1.Ingress
+		Pod       *corev1.Pod
+		Svc       *corev1.Service
+		Ing       *netv1.Ingress
+		TlsSecret *corev1.Secret
 	}
 	mock.lockIsUploaderReady.RLock()
 	calls = mock.calls.IsUploaderReady

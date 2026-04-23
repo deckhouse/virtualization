@@ -69,6 +69,7 @@ import (
 	workloadupdater "github.com/deckhouse/virtualization-controller/pkg/controller/workload-updater"
 	"github.com/deckhouse/virtualization-controller/pkg/crd"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
+	livemigrationcfg "github.com/deckhouse/virtualization-controller/pkg/livemigration"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization-controller/pkg/migration"
 	"github.com/deckhouse/virtualization-controller/pkg/version"
@@ -311,6 +312,18 @@ func main() {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
+
+	systemMigrationPolicy := livemigrationcfg.GetSystemMigrationPolicyAnnotation(ctx, preManagerClient)
+	switch {
+	case systemMigrationPolicy == "":
+		appconfig.ResetSystemMigrationPolicyOverride()
+	case appconfig.SetSystemMigrationPolicyOverride(systemMigrationPolicy):
+		log.Info("System migration policy override is set", "value", systemMigrationPolicy)
+	default:
+		appconfig.ResetSystemMigrationPolicyOverride()
+		log.Warn("System migration policy override has invalid value, override disabled", "value", systemMigrationPolicy)
+	}
+
 	mCtrl, err := migration.NewController(preManagerClient, log)
 	if err != nil {
 		log.Error(err.Error())

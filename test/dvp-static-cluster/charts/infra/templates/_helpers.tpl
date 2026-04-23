@@ -57,42 +57,7 @@ spec:
   provisioning:
     type: UserData
     userData: |
-      #cloud-config
-      ssh_pwauth: true
-      package_update: true
-      write_files:
-        - path: /etc/netplan/99-eno2.yaml
-          content: |
-            network:
-              version: 2
-              ethernets:
-                eno2:
-                  dhcp4: false
-                  dhcp6: false
-                  addresses: []
-                  link-local: []
-                  optional: true
-      packages:
-        - qemu-guest-agent
-        - jq
-        - rsync
-        - bind9-dnsutils
-      users:
-        - default
-        - name: cloud
-          passwd: {{ $ctx.Values.discovered.userPasswd }}
-          shell: /bin/bash
-          sudo: ALL=(ALL) NOPASSWD:ALL
-          chpasswd: {expire: False}
-          lock_passwd: false
-          ssh_authorized_keys:
-            - {{ $ctx.Values.discovered.publicSSHKey }}
-
-      runcmd:
-        - netplan apply
-        - ip link set eno2 up
-        - systemctl enable --now qemu-guest-agent.service
-      final_message: "\U0001F525\U0001F525\U0001F525 The system is finally up, after $UPTIME seconds \U0001F525\U0001F525\U0001F525"
+{{ include "cloudinit.ubuntu" $ctx | indent 6 }}
   runPolicy: AlwaysOn
   virtualMachineClassName: {{ include "infra.vmclass-name" $ctx }}
 ---
