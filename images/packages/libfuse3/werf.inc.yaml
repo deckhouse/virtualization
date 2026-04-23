@@ -15,17 +15,17 @@ packages:
 {{- $version := get .PackageVersion .ImageName }}
 {{- $gitRepoUrl := "libfuse/libfuse.git" }}
 
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
+image: {{ .PackagePath }}/{{ .ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+- image: {{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
   to: /libfuse3
   before: setup
 
 ---
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+image: {{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 secrets:
@@ -37,11 +37,11 @@ shell:
 
 
 ---
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+image: {{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
 import:
-- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+- image: {{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
   to: /src
   before: install

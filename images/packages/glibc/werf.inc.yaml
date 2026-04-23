@@ -15,20 +15,18 @@ packages:
 {{- $version := get .PackageVersion .ImageName }}
 {{- $gitRepoUrl := "glibc.git" }}
 
-{{/* Temporarily exclude images from build as submodule. TODO remove 'if' when this image is used in import section.  */}}
-{{- if eq .ModuleNamePrefix "" }}
 ---
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
+image: {{ .PackagePath }}/{{ .ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+- image: {{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
   to: /glibc
   before: setup
 
 ---
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+image: {{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
@@ -54,11 +52,11 @@ shell:
 
 
 ---
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+image: {{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
 import:
-- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+- image: {{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
   to: /src
   before: install
@@ -114,4 +112,3 @@ shell:
 
     tree -hp $OUTDIR
 
-{{- end }}
