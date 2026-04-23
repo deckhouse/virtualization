@@ -23,6 +23,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -30,6 +31,7 @@ import (
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/nodeusbdevicecondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
@@ -69,6 +71,15 @@ var _ = Describe("VirtualMachineUSB", func() {
 			util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 		})
 
+		By("Verifying NodeUSBDevice is not attached before VM attachment", func() {
+			Eventually(func(g Gomega) {
+				nodeUSBDevice, err := t.Framework.VirtClient().NodeUSBDevices().Get(t.ctx, t.NodeUSBDevice.Name, metav1.GetOptions{})
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(nodeUSBAttachedCondition(nodeUSBDevice)).NotTo(BeNil())
+				g.Expect(nodeUSBAttachedCondition(nodeUSBDevice).Status).To(Equal(metav1.ConditionFalse))
+			}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
+		})
+
 		By("Waiting for USB device to be attached and ready", func() {
 			Eventually(func() error {
 				vm, err := t.Framework.VirtClient().VirtualMachines(t.VM.Namespace).Get(t.ctx, t.VM.Name, metav1.GetOptions{})
@@ -82,6 +93,15 @@ var _ = Describe("VirtualMachineUSB", func() {
 				}
 
 				return fmt.Errorf("USB device %s not attached or not ready", t.NodeUSBDevice.Name)
+			}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
+		})
+
+		By("Verifying NodeUSBDevice is attached", func() {
+			Eventually(func(g Gomega) {
+				nodeUSBDevice, err := t.Framework.VirtClient().NodeUSBDevices().Get(t.ctx, t.NodeUSBDevice.Name, metav1.GetOptions{})
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(nodeUSBAttachedCondition(nodeUSBDevice)).NotTo(BeNil())
+				g.Expect(nodeUSBAttachedCondition(nodeUSBDevice).Status).To(Equal(metav1.ConditionTrue))
 			}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
 		})
 
@@ -116,6 +136,15 @@ var _ = Describe("VirtualMachineUSB", func() {
 				}
 
 				return fmt.Errorf("USB device %s not ready after migration", t.NodeUSBDevice.Name)
+			}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
+		})
+
+		By("Verifying NodeUSBDevice is attached after migration", func() {
+			Eventually(func(g Gomega) {
+				nodeUSBDevice, err := t.Framework.VirtClient().NodeUSBDevices().Get(t.ctx, t.NodeUSBDevice.Name, metav1.GetOptions{})
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(nodeUSBAttachedCondition(nodeUSBDevice)).NotTo(BeNil())
+				g.Expect(nodeUSBAttachedCondition(nodeUSBDevice).Status).To(Equal(metav1.ConditionTrue))
 			}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
 		})
 
@@ -236,6 +265,14 @@ func (t *VMUSBTest) mountUSB() {
 
 	_, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, mountCmd)
 	Expect(err).NotTo(HaveOccurred())
+}
+
+func nodeUSBAttachedCondition(nodeUSBDevice *v1alpha2.NodeUSBDevice) *metav1.Condition {
+	if nodeUSBDevice == nil {
+		return nil
+	}
+
+	return meta.FindStatusCondition(nodeUSBDevice.Status.Conditions, string(nodeusbdevicecondition.AttachedType))
 }
 
 func (t *VMUSBTest) unassignNodeUSB() {

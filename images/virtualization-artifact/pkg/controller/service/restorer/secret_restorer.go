@@ -121,10 +121,12 @@ func (r SecretRestorer) RestoreMACAddressOrder(_ context.Context, secret *corev1
 
 	var macAddressOrder []string
 	for _, ns := range vm.Status.Networks {
-		if ns.Type == v1alpha2.NetworksTypeMain {
-			continue
+		switch ns.Type {
+		case v1alpha2.NetworksTypeMain:
+			macAddressOrder = append(macAddressOrder, "")
+		default:
+			macAddressOrder = append(macAddressOrder, ns.MAC)
 		}
-		macAddressOrder = append(macAddressOrder, ns.MAC)
 	}
 	return macAddressOrder, nil
 }
@@ -180,6 +182,10 @@ func (r SecretRestorer) setVirtualMachineBlockDeviceAttachments(ctx context.Cont
 }
 
 func (r SecretRestorer) setVirtualMachineIPAddress(ctx context.Context, secret *corev1.Secret, vm *v1alpha2.VirtualMachine, keepIPAddress v1alpha2.KeepIPAddress) error {
+	if vm.Status.VirtualMachineIPAddress == "" {
+		return nil
+	}
+
 	vmip, err := object.FetchObject(ctx, types.NamespacedName{
 		Namespace: vm.Namespace,
 		Name:      vm.Status.VirtualMachineIPAddress,

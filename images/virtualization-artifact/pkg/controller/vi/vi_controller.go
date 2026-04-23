@@ -32,7 +32,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/config"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/postponehandler"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/postponeimporter"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/gc"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -82,11 +82,11 @@ func NewController(
 	sources.Set(v1alpha2.DataSourceTypeHTTP, source.NewHTTPDataSource(recorder, stat, importer, dvcr, disk))
 	sources.Set(v1alpha2.DataSourceTypeContainerImage, source.NewRegistryDataSource(recorder, stat, importer, dvcr, mgr.GetClient(), disk))
 	sources.Set(v1alpha2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(recorder, stat, importer, bounder, dvcr, mgr.GetClient(), disk))
-	sources.Set(v1alpha2.DataSourceTypeUpload, source.NewUploadDataSource(recorder, stat, uploader, dvcr, disk))
+	sources.Set(v1alpha2.DataSourceTypeUpload, source.NewUploadDataSource(recorder, stat, uploader, dvcr, disk, mgr.GetClient()))
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
-		postponehandler.New[*v1alpha2.VirtualImage](dvcrService, recorder),
+		postponeimporter.NewHandler[*v1alpha2.VirtualImage](dvcrService, recorder),
 		internal.NewStorageClassReadyHandler(recorder, scService),
 		internal.NewDatasourceReadyHandler(sources),
 		internal.NewLifeCycleHandler(recorder, sources, mgr.GetClient()),
@@ -106,7 +106,7 @@ func NewController(
 		return nil, err
 	}
 
-	err = reconciler.SetupController(ctx, mgr, viController)
+	err = reconciler.SetupController(ctx, mgr, viController, log)
 	if err != nil {
 		return nil, err
 	}

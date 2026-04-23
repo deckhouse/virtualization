@@ -804,7 +804,7 @@ func (h LifeCycleHandler) fillStatusResources(ctx context.Context, vmSnapshot *v
 		Name:       vm.Name,
 	})
 
-	if vmSnapshot.Spec.KeepIPAddress == v1alpha2.KeepIPAddressAlways {
+	if vmSnapshot.Spec.KeepIPAddress == v1alpha2.KeepIPAddressAlways && vm.Status.VirtualMachineIPAddress != "" {
 		vmip, err := object.FetchObject(ctx, types.NamespacedName{
 			Namespace: vm.Namespace,
 			Name:      vm.Status.VirtualMachineIPAddress,
@@ -824,7 +824,7 @@ func (h LifeCycleHandler) fillStatusResources(ctx context.Context, vmSnapshot *v
 		})
 	}
 
-	if len(vm.Spec.Networks) > 1 {
+	if len(vm.Spec.Networks) > 0 {
 		for _, ns := range vm.Status.Networks {
 			if ns.Type == v1alpha2.NetworksTypeMain {
 				continue

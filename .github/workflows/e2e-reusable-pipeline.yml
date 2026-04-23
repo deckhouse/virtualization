@@ -98,6 +98,21 @@ on:
         type: string
         default: "cn-4006-for-e2e-test"
         description: "ClusterNetwork name for nested VM additional network interface"
+      apt_mirror_enabled:
+        required: false
+        type: boolean
+        default: true
+        description: "Use custom APT mirror inside VMs cloud-init (Ubuntu). When false, VMs use stock Ubuntu repositories."
+      apt_mirror_name:
+        required: false
+        type: string
+        default: "hetzner"
+        description: "APT mirror short name (used as /etc/apt/sources.list.d/<name>.list file name)"
+      apt_mirror_url:
+        required: false
+        type: string
+        default: "https://mirror.hetzner.com/ubuntu/packages"
+        description: "APT mirror base URL (without trailing slash)"
     secrets:
       DEV_REGISTRY_DOCKER_CFG:
         required: true
@@ -220,6 +235,10 @@ jobs:
             - console
             - virtualization
           instances:
+            aptMirror:
+              enabled: ${{ inputs.apt_mirror_enabled }}
+              name: ${{ inputs.apt_mirror_name }}
+              url: ${{ inputs.apt_mirror_url }}
             masterNodes:
               count: 1
               cfg:
@@ -519,7 +538,7 @@ jobs:
 
           for i in $(seq 1 $count); do
             nodes=$(kubectl get nodes -o name | wc -l)
-            actual=$(kubectl get nodenetworkinterfaces -o name 2>/dev/null | wc -l) || true
+            actual=$(kubectl get nodenetworkinterfaces -o json | jq -r '.items[] | select(.status.operationalState == "Up") | .metadata.name' | wc -l) || true
             expected=$((nodes * 2))
 
             echo "[INFO] Attempt $i/$count: expected=$expected, actual=$actual"
@@ -535,11 +554,11 @@ jobs:
               echo ::group::📝 [DEBUG] show namespaces d8-sdn
               kubectl -n d8-sdn get pods || true
               echo ::endgroup::
-              
+
               echo ::group::📝 [DEBUG] show nodenetworkinterfaces d8-sdn
               kubectl get nodenetworkinterfaces || true
               echo ::endgroup::
-              
+
               echo "[INFO] Retrying in 10 seconds..."
               sleep $wait_time_seconds
             elif [ $i -lt $count ]; then
@@ -948,7 +967,7 @@ jobs:
         run: |
           REGISTRY=$(base64 -d <<< "${{secrets.DEV_REGISTRY_DOCKER_CFG}}" | jq '.auths | to_entries | .[] | .key' -r)
 
-          echo "[INFO] Apply ModuleSource prod config"
+          echo "[INFO] Apply ModuleSource dev config"
           kubectl apply -f -<<EOF
           apiVersion: deckhouse.io/v1alpha1
           kind: ModuleSource
@@ -962,7 +981,7 @@ jobs:
               scheme: HTTPS
           EOF
 
-          kubectl wait --for=jsonpath='{.status.phase}'=Active ms deckhouse-dev --timeout=30s
+          kubectl wait --for=jsonpath='{.status.phase}'=Active ms deckhouse-dev --timeout=300s
 
           echo "[INFO] Apply Virtualization module config"
           kubectl apply -f -<<EOF
@@ -990,7 +1009,7 @@ jobs:
             name: virtualization
           spec:
             imageTag: ${{ env.VIRTUALIZATION_TAG }}
-            scanInterval: 10h
+            scanInterval: 120h
           EOF
 
           echo "[INFO] Show ModuleSource"

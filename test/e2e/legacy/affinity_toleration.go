@@ -266,7 +266,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, label.Legacy(),
 						}
 
 						return nil
-					}).WithTimeout(Timeout).WithPolling(migratingStatusPollingInterval).Should(Succeed())
+					}).WithTimeout(LongWaitDuration).WithPolling(migratingStatusPollingInterval).Should(Succeed())
 				}()
 
 				wg.Wait()
