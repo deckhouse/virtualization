@@ -820,7 +820,7 @@ var _ = Describe("LifecycleHandler", func() {
 			Expect(completed.Reason).To(Equal(vmopcondition.ReasonAborted.String()))
 		})
 
-		It("should return unschedulable message from target pod condition", func() {
+		It("should return generic unschedulable message for target pod condition", func() {
 			mig := newSimpleMigration("vmop-test", name)
 			mig.UID = "migration-uid"
 			mig.Status.Phase = virtv1.MigrationScheduling
@@ -852,7 +852,7 @@ var _ = Describe("LifecycleHandler", func() {
 			reason, msg, err := h.getInProgressReasonAndMessage(ctx, mig)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(reason).To(Equal(vmopcondition.ReasonTargetUnschedulable))
-			Expect(msg).To(Equal("Target pod \"default/target-pod\" is unschedulable: 0/3 nodes are available: 3 Insufficient memory."))
+			Expect(msg).To(Equal("Target pod \"default/target-pod\" is unschedulable"))
 		})
 
 		It("should return TargetDiskError when target pod has disk attach error", func() {
