@@ -62,6 +62,14 @@ shell:
 
     fi
 
+    echo "Apply SeaBIOS patches"
+    for p in /patches/seabios/*.patch ; do
+      [ -f "$p" ] || continue
+      git -C roms/seabios apply --check --ignore-space-change --ignore-whitespace "$p" >/dev/null 2>&1 || (echo "FAIL" ; exit 1)
+      echo -n "Apply ${p} to roms/seabios ... "
+      git -C roms/seabios apply --ignore-space-change --ignore-whitespace "$p" && echo OK || (echo FAIL ; exit 1)
+    done
+
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
@@ -200,6 +208,9 @@ shell:
     export CPPFLAGS="-I/usr/include"
 
     cd /{{ $gitRepoName }}-{{ $version }}
+
+    echo "Building patched SeaBIOS..."
+    make -C roms bios V=1 PYTHON=python3 HOSTCC=gcc -j$(nproc)
 
     for p in /patches/*.patch ; do
       echo -n "Apply ${p} ... "
@@ -346,7 +357,6 @@ shell:
 
     {{- $_ := set $ "ProjectName" (list $.ImageName "qemu" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `make -j$(nproc)`) | nindent 6 }}
-
   setup:
   - |
     /install-qemu.sh --version-num "{{ $version }}" \
