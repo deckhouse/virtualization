@@ -300,7 +300,7 @@ func (b *KVVM) setCPUNonHotpluggable(cores int, coreFraction string) error {
 	domainSpec.Resources.Requests[corev1.ResourceCPU] = *cpuRequest
 	domainSpec.Resources.Limits[corev1.ResourceCPU] = *cpuLimit
 
-	socketsNeeded, coresNeeded := vm.CalculateCoresAndSockets(cores)
+	socketsNeeded, coresNeeded, _ := vm.CalculateCoresAndSockets(cores)
 
 	domainSpec.CPU.Cores = uint32(coresNeeded)
 	domainSpec.CPU.Sockets = uint32(socketsNeeded)
@@ -324,13 +324,13 @@ func (b *KVVM) setCPUHotpluggable(cores int, coreFraction string) error {
 	}
 	b.SetKVVMIAnnotation(CPUResourcesRequestsFractionAnnotation, strconv.Itoa(fraction))
 
-	socketsNeeded, coresPerSocketNeeded := vm.CalculateCoresAndSockets(cores)
+	socketsNeeded, coresPerSocketNeeded, maxCoresPerSocketNeeded := vm.CalculateCoresAndSockets(cores)
 	// Use "dynamic cores" hotplug strategy.
 	// Workaround: swap cores and sockets in domainSpec to bypass vm-validator webhook.
 	b.SetKVVMIAnnotation(VCPUTopologyDynamicCoresAnnotation, "")
 	domainSpec.CPU.Cores = uint32(socketsNeeded)
 	domainSpec.CPU.Sockets = uint32(coresPerSocketNeeded)
-	domainSpec.CPU.MaxSockets = CPUMaxCoresPerSocket
+	domainSpec.CPU.MaxSockets = uint32(maxCoresPerSocketNeeded)
 
 	// Remove CPU limits and requests if set by previous implementation.
 	res := &b.Resource.Spec.Template.Spec.Domain.Resources
