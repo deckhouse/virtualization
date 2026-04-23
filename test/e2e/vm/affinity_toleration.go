@@ -392,7 +392,7 @@ func waitForFreshVMMigration(
 
 	Eventually(func(g Gomega) {
 		vm := getVirtualMachine(ctx, f, key.Name)
-		util.SkipIfKnownMigrationFailure(vm)
+		util.SkipIfKnownMigrationFailureWithContext(ctx, vm)
 
 		state := vm.Status.MigrationState
 		g.Expect(state).NotTo(BeNil())
