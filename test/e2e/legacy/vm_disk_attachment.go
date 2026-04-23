@@ -30,6 +30,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
@@ -37,7 +38,7 @@ const unacceptableCount = -1000
 
 var APIVersion = v1alpha2.SchemeGroupVersion.String()
 
-var _ = Describe("VirtualDiskAttachment", Ordered, label.Legacy(), func() {
+var _ = Describe("VirtualDiskAttachment", Ordered, label.Legacy(), Label(precheck.NoPrecheck), func() {
 	var (
 		testCaseLabel            = map[string]string{"testcase": "vm-disk-attachment"}
 		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "vm-disk-attachment"}
@@ -46,7 +47,7 @@ var _ = Describe("VirtualDiskAttachment", Ordered, label.Legacy(), func() {
 		vdAttach                 string
 		vmName                   string
 		ns                       string
-		phaseByVolumeBindingMode = util.GetExpectedDiskPhaseByVolumeBindingMode()
+		phaseByVolumeBindingMode string
 	)
 
 	BeforeAll(func() {
@@ -59,6 +60,8 @@ var _ = Describe("VirtualDiskAttachment", Ordered, label.Legacy(), func() {
 		Expect(err).NotTo(HaveOccurred(), "%w", err)
 
 		CreateNamespace(ns)
+
+		phaseByVolumeBindingMode = util.GetExpectedDiskPhaseByVolumeBindingMode()
 	})
 
 	AfterEach(func() {

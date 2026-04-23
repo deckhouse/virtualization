@@ -38,14 +38,18 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha3"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("SizingPolicy", func() {
-	var t *sizingPolicyTest
-	f := framework.NewFramework("sizing-policy")
+var _ = Describe("SizingPolicy", Label(precheck.NoPrecheck), func() {
+	var (
+		t *sizingPolicyTest
+		f *framework.Framework
+	)
 
 	BeforeEach(func() {
+		f = framework.NewFramework("sizing-policy")
 		f.Before()
 		DeferCleanup(f.After)
 		t = newSizingPolicyTest(f)

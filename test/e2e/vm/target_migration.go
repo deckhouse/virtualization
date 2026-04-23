@@ -36,12 +36,13 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/rewrite"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
 const hostnameLabelKey = "kubernetes.io/hostname"
 
-var _ = Describe("TargetMigration", func() {
+var _ = Describe("TargetMigration", Label(precheck.NoPrecheck), func() {
 	var (
 		virtualMachine      *v1alpha2.VirtualMachine
 		targetMigrationVMOP *v1alpha2.VirtualMachineOperation
@@ -49,10 +50,11 @@ var _ = Describe("TargetMigration", func() {
 		initialNodeName    string
 		targetNodeSelector map[string]string
 
-		f = framework.NewFramework("vm-target-migration")
+		f *framework.Framework
 	)
 
 	BeforeEach(func() {
+		f = framework.NewFramework("vm-target-migration")
 		DeferCleanup(f.After)
 		f.Before()
 	})

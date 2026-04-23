@@ -37,10 +37,11 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/network"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("PowerState", func() {
+var _ = Describe("PowerState", Label(precheck.NoPrecheck), func() {
 	DescribeTable("manages power state of a virtual machine", func(runPolicy v1alpha2.RunPolicy) {
 		var namespaceSuffix string
 		switch runPolicy {

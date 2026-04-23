@@ -43,6 +43,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/d8"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
@@ -57,10 +58,11 @@ const (
 	diskImageExportFile = "disk.img"
 )
 
-var _ = Describe("DataExports", label.Slow(), func() {
-	f := framework.NewFramework("data-exports")
+var _ = Describe("DataExports", label.Slow(), Label(precheck.PrecheckSVDM, precheck.PrecheckSnapshot), func() {
+	var f *framework.Framework
 
 	BeforeEach(func() {
+		f = framework.NewFramework("data-exports")
 		moduleEnabled, err := checkStorageVolumeDataManagerEnabled()
 		Expect(err).NotTo(HaveOccurred(), "Failed to get modules")
 		if !moduleEnabled {
