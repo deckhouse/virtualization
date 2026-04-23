@@ -39,10 +39,12 @@ import (
 )
 
 const (
-	affinityHostnameLabelKey = "kubernetes.io/hostname"
-	masterLabelKey           = "node.deckhouse.io/group"
-	kvmEnabledLabelKey       = "virtualization.deckhouse.io/kvm-enabled"
-	vmLabelKey               = "vm"
+	affinityHostnameLabelKey    = "kubernetes.io/hostname"
+	masterLabelKey              = "node.deckhouse.io/group"
+	kvmEnabledLabelKey          = "virtualization.deckhouse.io/kvm-enabled"
+	vmLabelKey                  = "vm"
+	placementNoMigrationWait    = 20 * time.Second
+	placementNoMigrationPolling = time.Second
 )
 
 var _ = Describe("VirtualMachineAffinityAndToleration", func() {
@@ -166,6 +168,118 @@ var _ = Describe("VirtualMachineAffinityAndToleration", func() {
 			Expect(vmC.Status.Node).To(Equal(nodeA), "vm-c should return to the same node as vm-a")
 		})
 	})
+
+	It("keeps placement when nodeSelector points to the current node and migrates after switching it to another node", func() {
+		By("Checking test prerequisites", func() {
+			workerNodes, err := listReadyNodes(ctx, f, map[string]string{kvmEnabledLabelKey: "true", masterLabelKey: "worker"})
+			Expect(err).NotTo(HaveOccurred())
+			if len(workerNodes) < 2 {
+				Skip("at least two ready KVM-enabled worker nodes are required")
+			}
+		})
+
+		vmNodeSelector := newPlacementVM("vm-node-selector", f.Namespace().Name, nil)
+		By("Creating the virtual machine", func() {
+			err := f.CreateWithDeferredDeletion(ctx, newRootVDForPlacement(vmNodeSelector.Name, f.Namespace().Name), vmNodeSelector)
+			Expect(err).NotTo(HaveOccurred())
+
+			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmNodeSelector)
+			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmNodeSelector), framework.LongTimeout)
+			util.UntilConditionStatus(vmcondition.TypeMigratable.String(), string(metav1.ConditionTrue), framework.LongTimeout, vmNodeSelector)
+		})
+
+		var sourceNode string
+		By("Setting spec.nodeSelector to the current node and verifying that no migration happens", func() {
+			vmNodeSelector = getVirtualMachine(ctx, f, vmNodeSelector.Name)
+			sourceNode = vmNodeSelector.Status.Node
+			Expect(sourceNode).NotTo(BeEmpty())
+
+			vmNodeSelector.Spec.NodeSelector = map[string]string{affinityHostnameLabelKey: sourceNode}
+			err := f.GenericClient().Update(ctx, vmNodeSelector)
+			Expect(err).NotTo(HaveOccurred())
+
+			assertNoVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmNodeSelector), sourceNode, placementNoMigrationWait)
+		})
+
+		var targetNode string
+		By("Setting spec.nodeSelector to another worker node and verifying migration", func() {
+			targetNode, err := defineReadyTargetNode(ctx, f, sourceNode, map[string]string{kvmEnabledLabelKey: "true", masterLabelKey: "worker"})
+			Expect(err).NotTo(HaveOccurred())
+
+			vmNodeSelector = getVirtualMachine(ctx, f, vmNodeSelector.Name)
+			startedAt := time.Now().UTC()
+			vmNodeSelector.Spec.NodeSelector = map[string]string{affinityHostnameLabelKey: targetNode}
+			err = f.GenericClient().Update(ctx, vmNodeSelector)
+			Expect(err).NotTo(HaveOccurred())
+
+			waitForFreshVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmNodeSelector), startedAt, sourceNode, targetNode, true, framework.MaxTimeout)
+			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmNodeSelector), framework.LongTimeout)
+		})
+
+		By("Verifying the nodeSelector migration result via status.nodeName", func() {
+			vmNodeSelector = getVirtualMachine(ctx, f, vmNodeSelector.Name)
+			Expect(vmNodeSelector.Status.MigrationState).NotTo(BeNil())
+			Expect(vmNodeSelector.Status.MigrationState.Source.Node).To(Equal(sourceNode))
+			Expect(vmNodeSelector.Status.MigrationState.Target.Node).To(Equal(targetNode))
+			Expect(vmNodeSelector.Status.Node).To(Equal(targetNode))
+		})
+	})
+
+	It("keeps placement when nodeAffinity points to the current node and migrates after switching it to another node", func() {
+		By("Checking test prerequisites", func() {
+			workerNodes, err := listReadyNodes(ctx, f, map[string]string{kvmEnabledLabelKey: "true", masterLabelKey: "worker"})
+			Expect(err).NotTo(HaveOccurred())
+			if len(workerNodes) < 2 {
+				Skip("at least two ready KVM-enabled worker nodes are required")
+			}
+		})
+
+		vmNodeAffinity := newPlacementVM("vm-node-affinity", f.Namespace().Name, nil)
+		By("Creating the virtual machine", func() {
+			err := f.CreateWithDeferredDeletion(ctx, newRootVDForPlacement(vmNodeAffinity.Name, f.Namespace().Name), vmNodeAffinity)
+			Expect(err).NotTo(HaveOccurred())
+
+			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmNodeAffinity)
+			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmNodeAffinity), framework.LongTimeout)
+			util.UntilConditionStatus(vmcondition.TypeMigratable.String(), string(metav1.ConditionTrue), framework.LongTimeout, vmNodeAffinity)
+		})
+
+		var sourceNode string
+		By("Setting spec.affinity.nodeAffinity to the current node and verifying that no migration happens", func() {
+			vmNodeAffinity = getVirtualMachine(ctx, f, vmNodeAffinity.Name)
+			sourceNode = vmNodeAffinity.Status.Node
+			Expect(sourceNode).NotTo(BeEmpty())
+
+			vmNodeAffinity.Spec.Affinity = nodeAffinityForNode(sourceNode)
+			err := f.GenericClient().Update(ctx, vmNodeAffinity)
+			Expect(err).NotTo(HaveOccurred())
+
+			assertNoVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmNodeAffinity), sourceNode, placementNoMigrationWait)
+		})
+
+		var targetNode string
+		By("Setting spec.affinity.nodeAffinity to another worker node and verifying migration", func() {
+			targetNode, err := defineReadyTargetNode(ctx, f, sourceNode, map[string]string{kvmEnabledLabelKey: "true", masterLabelKey: "worker"})
+			Expect(err).NotTo(HaveOccurred())
+
+			vmNodeAffinity = getVirtualMachine(ctx, f, vmNodeAffinity.Name)
+			startedAt := time.Now().UTC()
+			vmNodeAffinity.Spec.Affinity = nodeAffinityForNode(targetNode)
+			err = f.GenericClient().Update(ctx, vmNodeAffinity)
+			Expect(err).NotTo(HaveOccurred())
+
+			waitForFreshVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmNodeAffinity), startedAt, sourceNode, targetNode, true, framework.MaxTimeout)
+			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmNodeAffinity), framework.LongTimeout)
+		})
+
+		By("Verifying the nodeAffinity migration result via status.nodeName", func() {
+			vmNodeAffinity = getVirtualMachine(ctx, f, vmNodeAffinity.Name)
+			Expect(vmNodeAffinity.Status.MigrationState).NotTo(BeNil())
+			Expect(vmNodeAffinity.Status.MigrationState.Source.Node).To(Equal(sourceNode))
+			Expect(vmNodeAffinity.Status.MigrationState.Target.Node).To(Equal(targetNode))
+			Expect(vmNodeAffinity.Status.Node).To(Equal(targetNode))
+		})
+	})
 })
 
 func newPlacementVM(name, namespace string, affinity *v1alpha2.VMAffinity) *v1alpha2.VirtualMachine {
@@ -213,6 +327,22 @@ func antiAffinityToVM(vmName string) *v1alpha2.VMAffinity {
 	return &v1alpha2.VMAffinity{
 		VirtualMachineAndPodAntiAffinity: &v1alpha2.VirtualMachineAndPodAntiAffinity{
 			RequiredDuringSchedulingIgnoredDuringExecution: []v1alpha2.VirtualMachineAndPodAffinityTerm{vmAffinityTerm(vmName)},
+		},
+	}
+}
+
+func nodeAffinityForNode(nodeName string) *v1alpha2.VMAffinity {
+	return &v1alpha2.VMAffinity{
+		NodeAffinity: &corev1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+				NodeSelectorTerms: []corev1.NodeSelectorTerm{{
+					MatchExpressions: []corev1.NodeSelectorRequirement{{
+						Key:      affinityHostnameLabelKey,
+						Operator: corev1.NodeSelectorOpIn,
+						Values:   []string{nodeName},
+					}},
+				}},
+			},
 		},
 	}
 }
@@ -278,6 +408,28 @@ func waitForFreshVMMigration(
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
 
+func assertNoVMMigration(
+	ctx context.Context,
+	f *framework.Framework,
+	key crclient.ObjectKey,
+	expectedNode string,
+	duration time.Duration,
+) {
+	GinkgoHelper()
+
+	Consistently(func(g Gomega) {
+		vm := getVirtualMachine(ctx, f, key.Name)
+		g.Expect(vm.Status.Node).To(Equal(expectedNode))
+		g.Expect(vm.Status.MigrationState).To(BeNil())
+
+		for _, condition := range vm.Status.Conditions {
+			if condition.Type == vmcondition.TypeMigrating.String() {
+				g.Expect(condition.Status).To(Equal(metav1.ConditionFalse))
+			}
+		}
+	}).WithTimeout(duration).WithPolling(placementNoMigrationPolling).Should(Succeed())
+}
+
 func getVirtualMachine(ctx context.Context, f *framework.Framework, name string) *v1alpha2.VirtualMachine {
 	GinkgoHelper()
 
@@ -313,4 +465,19 @@ func listReadyNodes(ctx context.Context, f *framework.Framework, labels map[stri
 	}
 
 	return readyNodes, nil
+}
+
+func defineReadyTargetNode(ctx context.Context, f *framework.Framework, currentNode string, labels map[string]string) (string, error) {
+	readyNodes, err := listReadyNodes(ctx, f, labels)
+	if err != nil {
+		return "", err
+	}
+
+	for _, node := range readyNodes {
+		if node.Name != currentNode {
+			return node.Name, nil
+		}
+	}
+
+	return "", fmt.Errorf("no alternative ready node found for current node %q", currentNode)
 }
