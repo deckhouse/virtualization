@@ -1,0 +1,29 @@
+api:
+  features:
+    - summary: >-
+        Added the Attached condition and printer column to NodeUSBDevice by mirroring USBDevice
+        attachment state.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2221
+core:
+  fixes:
+    - summary: Propagate target migration pod unschedulable details to VMOP conditions.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2261
+module:
+  fixes:
+    - summary: >-
+        Make virtualization hooks use only valid copied module config and avoid queue blocking on
+        invalid module settings.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2246
+    - summary: >-
+        Add idempotency for USB device cleanup in virtualization-dra to prevent errors on repeated
+        unprepare calls.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2216
+test:
+  fixes:
+    - summary: Increase timeout for repeated affinity migration in the legacy affinity/toleration e2e test.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2267
+    - summary: >-
+        Increase VirtualMachineSnapshot readiness timeout in VirtualMachineOperationRestore e2e test
+        to fix flakiness on NFS storage.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2254
+
