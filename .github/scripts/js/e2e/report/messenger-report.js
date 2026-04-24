@@ -17,6 +17,13 @@ const { listMatchingFiles } = require("./fs-utils");
 const genericArtifactMissingLabel = "E2E REPORT ARTIFACT NOT FOUND";
 const testReportsMissingLabel = "TEST REPORTS NOT FOUND";
 
+/**
+ * Builds a user-facing status line for a cluster row or fallback report.
+ *
+ * @param {string} status Normalized cluster status.
+ * @param {string} stageLabel Human-readable stage label.
+ * @returns {string} Rendered status message.
+ */
 function buildStatusMessage(status, stageLabel) {
   if (status === "cancelled") {
     return `⚠️ ${stageLabel} CANCELLED`;
@@ -37,6 +44,23 @@ function buildStatusMessage(status, stageLabel) {
   return stageLabel;
 }
 
+/**
+ * Creates a synthetic cluster report when the expected JSON artifact is absent.
+ *
+ * This allows the final messenger message to stay informative even when the
+ * report-preparation step failed or never produced an artifact.
+ *
+ * @param {string} clusterName Cluster or storage name.
+ * @param {{
+ *   reportKind?: string,
+ *   failedStage?: string,
+ *   failedStageLabel?: string,
+ *   status?: string,
+ *   branch?: string,
+ *   workflowRunUrl?: string
+ * }} [fallback={}] Optional fallback data propagated from workflow outputs.
+ * @returns {Record<string, any>} Synthetic report payload.
+ */
 function createMissingReport(clusterName, fallback = {}) {
   const reportKind =
     fallback.reportKind && fallback.reportKind !== "tests"
@@ -156,6 +180,12 @@ function getLoopPostsApiUrl(env = process.env) {
   return normalizeLoopApiBaseUrl(env.LOOP_API_BASE_URL);
 }
 
+/**
+ * Parses the configured cluster list passed via workflow environment variables.
+ *
+ * @param {string} value JSON-encoded cluster list.
+ * @returns {string[]} Ordered cluster names.
+ */
 function parseConfiguredClusters(value) {
   const parsedValue = JSON.parse(value || "[]");
   return Array.isArray(parsedValue) ? parsedValue : [];
@@ -169,6 +199,20 @@ function normalizeClusterEnvKey(clusterName) {
     .toUpperCase();
 }
 
+/**
+ * Reads per-cluster fallback values exported by reusable workflow jobs.
+ *
+ * @param {string[]} configuredClusters Clusters that should appear in the message.
+ * @param {NodeJS.ProcessEnv} [env=process.env] Environment variables source.
+ * @returns {Record<string, {
+ *   reportKind: string,
+ *   status: string,
+ *   failedStage: string,
+ *   failedStageLabel: string,
+ *   workflowRunUrl: string,
+ *   branch: string
+ * }>} Fallbacks indexed by cluster name.
+ */
 function readReportFallbacksFromEnv(configuredClusters, env = process.env) {
   const fallbackByCluster = {};
 
@@ -205,6 +249,21 @@ function readReportFallbacksFromEnv(configuredClusters, env = process.env) {
   return fallbackByCluster;
 }
 
+/**
+ * Reads messenger configuration from the environment prepared by the workflow.
+ *
+ * @param {NodeJS.ProcessEnv} [env=process.env] Environment variables source.
+ * @returns {{
+ *   reportsDir: string,
+ *   configuredClusters: string[],
+ *   reportFallbacks: Record<string, any>,
+ *   loop: {
+ *     apiUrl: string,
+ *     channelId: string,
+ *     token: string
+ *   }
+ * }} Normalized messenger configuration.
+ */
 function readMessengerConfigFromEnv(env = process.env) {
   const configuredClusters = parseConfiguredClusters(env.STORAGE_TYPES);
 
@@ -220,6 +279,14 @@ function readMessengerConfigFromEnv(env = process.env) {
   };
 }
 
+/**
+ * Parses a Loop API response body if it is JSON, otherwise returns an empty
+ * object and emits a warning for diagnostics.
+ *
+ * @param {string} responseText Raw response body.
+ * @param {{ warning(message: string): void }} core GitHub core API.
+ * @returns {Record<string, any>} Parsed response payload or an empty object.
+ */
 function parseLoopApiPayload(responseText, core) {
   if (!responseText) {
     return {};
@@ -235,6 +302,22 @@ function parseLoopApiPayload(responseText, core) {
   }
 }
 
+/**
+ * Sends a single post to Loop and returns the parsed API payload.
+ *
+ * @param {{
+ *   apiUrl: string,
+ *   channelId: string,
+ *   token: string,
+ *   message: string,
+ *   rootId?: string
+ * }} request Loop API request payload.
+ * @param {{
+ *   info(message: string): void,
+ *   warning(message: string): void
+ * }} core GitHub core API.
+ * @returns {Promise<Record<string, any>>} Parsed Loop API response.
+ */
 async function postToLoopApi(
   { apiUrl, channelId, token, message, rootId },
   core
@@ -264,6 +347,16 @@ async function postToLoopApi(
   return payload;
 }
 
+/**
+ * Loads report JSON files from disk and injects synthetic reports for clusters
+ * whose artifacts are missing.
+ *
+ * @param {string} reportsDir Directory containing `e2e_report_*.json`.
+ * @param {string[]} configuredClusters Clusters expected in the final report.
+ * @param {Record<string, any>} reportFallbacks Fallback data by cluster.
+ * @param {{ warning(message: string): void }} core GitHub core API.
+ * @returns {Record<string, any>[]} Ordered cluster reports.
+ */
 function readReports(reportsDir, configuredClusters, reportFallbacks, core) {
   const reportFiles = listMatchingFiles(reportsDir, /^e2e_report_.*\.json$/);
   const reports = [];
@@ -298,6 +391,12 @@ function readReports(reportsDir, configuredClusters, reportFallbacks, core) {
   return orderedReports;
 }
 
+/**
+ * Renders the top-level messenger markdown message.
+ *
+ * @param {Record<string, any>[]} orderedReports Reports ordered for display.
+ * @returns {string} Main markdown message.
+ */
 function buildMainMessage(orderedReports) {
   const reportDate = getReportDate(orderedReports);
   const branches = Array.from(
@@ -357,6 +456,12 @@ function buildMainMessage(orderedReports) {
   return lines.join("\n").trim();
 }
 
+/**
+ * Renders the thread markdown containing failed test names, if any.
+ *
+ * @param {Record<string, any>[]} orderedReports Reports ordered for display.
+ * @returns {string} Thread markdown message or an empty string.
+ */
 function buildThreadMessage(orderedReports) {
   const testsReports = orderedReports.filter(
     (report) => report.reportKind === "tests"
@@ -398,6 +503,17 @@ function buildThreadMessage(orderedReports) {
   return lines.join("\n").trim();
 }
 
+/**
+ * Reads cluster reports from disk and builds both messenger message bodies.
+ *
+ * @param {{
+ *   reportsDir: string,
+ *   configuredClusters: string[],
+ *   reportFallbacks: Record<string, any>,
+ *   core: { warning(message: string): void }
+ * }} params Message rendering inputs.
+ * @returns {{ message: string, threadMessage: string }} Rendered markdown payloads.
+ */
 function buildMessengerMessages({
   reportsDir,
   configuredClusters,
@@ -416,6 +532,25 @@ function buildMessengerMessages({
   };
 }
 
+/**
+ * Publishes the main report and optional failed-tests thread to Loop.
+ *
+ * @param {{
+ *   message: string,
+ *   threadMessage: string,
+ *   loop: {
+ *     apiUrl: string,
+ *     channelId: string,
+ *     token: string
+ *   }
+ * }} params Message payload and Loop credentials.
+ * @param {{
+ *   setOutput(name: string, value: string): void,
+ *   info(message: string): void,
+ *   warning(message: string): void
+ * }} core GitHub core API.
+ * @returns {Promise<void>}
+ */
 async function publishToLoop({ message, threadMessage, loop }, core) {
   if (!loop.apiUrl && !loop.channelId && !loop.token) {
     return;
@@ -458,6 +593,19 @@ async function publishToLoop({ message, threadMessage, loop }, core) {
   );
 }
 
+/**
+ * Entry point used by `actions/github-script` to render and optionally publish
+ * the aggregated E2E messenger report.
+ *
+ * @param {{
+ *   core: {
+ *     info(message: string): void,
+ *     warning(message: string): void,
+ *     setOutput(name: string, value: string): void
+ *   }
+ * }} params GitHub script dependencies.
+ * @returns {Promise<{ message: string, threadMessage: string }>} Rendered messages.
+ */
 async function renderMessengerReport({ core }) {
   const config = readMessengerConfigFromEnv();
   const { message, threadMessage } = buildMessengerMessages({
