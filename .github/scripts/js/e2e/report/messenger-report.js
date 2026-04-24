@@ -67,6 +67,7 @@ function createMissingReport(clusterName, fallback = {}) {
       passed: 0,
       failed: 0,
       errors: 0,
+      skipped: 0,
       total: 0,
       successRate: 0,
     },
@@ -320,18 +321,18 @@ function buildMainMessage(orderedReports) {
     lines.push("### Test results");
     lines.push("");
     lines.push(
-      "| Cluster | ✅ Passed | ❌ Failed | ⚠️ Errors | Total | Success Rate |"
+      "| Cluster | ✅ Passed | ⏭️ Skipped | ❌ Failed | ⚠️ Errors | Total | Success Rate |"
     );
-    lines.push("|---|---:|---:|---:|---:|---:|");
+    lines.push("|---|---:|---:|---:|---:|---:|---:|");
 
     for (const report of testsReports) {
       const metrics = report.metrics || {};
       lines.push(
         `| ${formatClusterLink(report)} | ${metrics.passed || 0} | ${
-          metrics.failed || 0
-        } | ${metrics.errors || 0} | ${metrics.total || 0} | ${formatRate(
-          metrics.successRate
-        )} |`
+          metrics.skipped || 0
+        } | ${metrics.failed || 0} | ${metrics.errors || 0} | ${
+          metrics.total || 0
+        } | ${formatRate(metrics.successRate)} |`
       );
     }
 
