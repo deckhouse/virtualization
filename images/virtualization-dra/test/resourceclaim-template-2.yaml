@@ -5,8 +5,8 @@ metadata:
 spec:
   metadata:
     annotations:
-      "usb.virtualization.deckhouse.io/device-user": "107"
-      "usb.virtualization.deckhouse.io/device-group": "107"
+      "usb.virtualization.deckhouse.io/device-user": "64535"
+      "usb.virtualization.deckhouse.io/device-group": "64535"
   spec:
     devices:
       requests:

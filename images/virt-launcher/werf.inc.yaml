@@ -2,16 +2,13 @@
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: true
 fromImage: {{ .ModuleNamePrefix }}distroless
+fromCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
 git:
   {{- include "image mount points" . }}
 import:
   - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries
     add: /relocate
     to: /
-    after: install
-  - image: tools/tini-v0.19.0
-    add: /usr/bin/tini
-    to: /usr/bin/tini
     after: install
 imageSpec:
   config:
@@ -139,6 +136,7 @@ packages:
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries
 final: false
 fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
+fromCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
 git:
   # Add qemu and virtqemud configs
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}/configs
@@ -158,6 +156,10 @@ git:
     includePaths:
     - nsswitch.conf
 import:
+- image: tools/tini-v0.19.0
+  add: /usr/bin/tini
+  to: /relocate/usr/bin/tini
+  before: setup
 # Libvirt and QEMU libraries and binaries
 - image: {{ .ModuleNamePrefix }}packages/libvirt
   add: /libvirt
@@ -325,10 +327,10 @@ shell:
     echo "root:x:0:" >> /relocate/etc/group
     echo "root:x:::::::" >> /relocate/etc/shadow
 
-    echo "qemu:x:107:107::/home/qemu:/bin/bash" >> /relocate/etc/passwd
-    echo "qemu:x:107:" >> /relocate/etc/group
-    mkdir -p /relocate/home/qemu
-    chown -R 107:107 /relocate/home/qemu
+    echo "deckhouse:x:64535:64535:deckhouse:/home/deckhouse:/sbin/nologin" >> /relocate/etc/passwd
+    echo "deckhouse:x:64535:" >> /relocate/etc/group
+    mkdir -p /relocate/home/deckhouse
+    chown -R 64535:64535 /relocate/home/deckhouse
 
   - |
     echo "Create symlinks for OVMF"
@@ -391,6 +393,10 @@ shell:
 
     echo "Create symlink for run -> var/run "
     ln -s var/run run
+
+  - |
+    setcap cap_net_bind_service=+ep /relocate/usr/bin/virt-launcher-monitor
+    setcap cap_net_bind_service=+ep /relocate/usr/bin/tini
 
   # /etc/libvirt-init will be copied back into /etc/libvirt at runtime. This is necessary because we configure libvirt to mount /etc/libvirt and set readOnlyRootFilesystem for other directories.
   # DO NOT REMOVE. node-labeler.sh uses /etc/libvirt.
