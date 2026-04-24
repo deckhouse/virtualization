@@ -64,32 +64,21 @@ function readClusterConfigFromEnv(env = process.env) {
   };
 }
 
-function pickLatestMatchingFile(dirPath, filePattern, core) {
+function findSingleMatchingFile(dirPath, filePattern) {
   const matchingFiles = listMatchingFiles(dirPath, filePattern);
   if (matchingFiles.length === 0) {
     return null;
   }
 
-  const rankedFiles = matchingFiles
-    .map((filePath) => ({
-      filePath,
-      mtimeMs: fs.statSync(filePath).mtimeMs,
-    }))
-    .sort((left, right) => {
-      if (right.mtimeMs !== left.mtimeMs) {
-        return right.mtimeMs - left.mtimeMs;
-      }
-
-      return right.filePath.localeCompare(left.filePath);
-    });
-
-  if (rankedFiles.length > 1) {
-    core.warning(
-      `Found multiple JUnit reports for the cluster; using the newest file: ${rankedFiles[0].filePath}`
+  if (matchingFiles.length > 1) {
+    throw new Error(
+      `Expected a single JUnit report, but found ${matchingFiles.length}: ${matchingFiles.join(
+        ", "
+      )}`
     );
   }
 
-  return rankedFiles[0].filePath;
+  return matchingFiles[0];
 }
 
 function toArray(value) {
@@ -319,11 +308,7 @@ async function buildClusterReport({ core, context }) {
   const junitPattern = new RegExp(
     `^e2e_summary_${escapeRegExp(config.storageType)}_.*\\.xml$`
   );
-  const junitReportPath = pickLatestMatchingFile(
-    config.reportsDir,
-    junitPattern,
-    core
-  );
+  const junitReportPath = findSingleMatchingFile(config.reportsDir, junitPattern);
   const stageInfo = determineStage(config.storageType, config.stageResults);
 
   let parsedReport = {
