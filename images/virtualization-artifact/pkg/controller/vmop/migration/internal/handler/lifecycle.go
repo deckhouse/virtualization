@@ -47,6 +47,7 @@ import (
 const lifecycleHandlerName = "LifecycleHandler"
 
 const (
+	progressMigrationPending   int32 = 0
 	progressDisksPreparing     int32 = 1
 	progressTargetScheduling   int32 = 2
 	progressTargetPreparing    int32 = 3
@@ -56,6 +57,7 @@ const (
 )
 
 const (
+	messageMigrationPending       = "The VirtualMachineOperation for migrating the virtual machine has been queued. Waiting for the queue to be processed and for this operation to be executed."
 	messageSyncingSourceAndTarget = "Syncing source and target"
 	messageTargetPodScheduling    = "Target pod is being scheduled"
 	messageTargetPodPreparing     = "Target pod is being prepared"
@@ -339,7 +341,7 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 	}
 
 	vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
-	if reason == vmopcondition.ReasonTargetScheduling {
+	if reason == vmopcondition.ReasonMigrationPending {
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 	}
 	progress := h.calculateMigrationProgress(vmop, mig, reason)
@@ -456,7 +458,7 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMac
 	}
 
 	vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
-	if reason == vmopcondition.ReasonTargetScheduling {
+	if reason == vmopcondition.ReasonMigrationPending {
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 	}
 	progress := h.calculateMigrationProgress(vmop, mig, reason)
@@ -573,7 +575,10 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 	message := messageSyncingSourceAndTarget
 
 	switch mig.Status.Phase {
-	case virtv1.MigrationPhaseUnset, virtv1.MigrationPending, virtv1.MigrationScheduling:
+	case virtv1.MigrationPhaseUnset, virtv1.MigrationPending:
+		reason = vmopcondition.ReasonMigrationPending
+		message = messageMigrationPending
+	case virtv1.MigrationScheduling:
 		reason = vmopcondition.ReasonTargetScheduling
 		message = messageTargetPodScheduling
 	case virtv1.MigrationScheduled, virtv1.MigrationPreparingTarget:
@@ -616,6 +621,8 @@ func (h LifecycleHandler) calculateMigrationProgress(
 	reason vmopcondition.ReasonCompleted,
 ) int32 {
 	switch reason {
+	case vmopcondition.ReasonMigrationPending:
+		return progressMigrationPending
 	case vmopcondition.ReasonDisksPreparing:
 		return progressDisksPreparing
 	case vmopcondition.ReasonTargetScheduling:
