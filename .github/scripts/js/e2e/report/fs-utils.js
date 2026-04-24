@@ -1,6 +1,14 @@
 const fs = require("fs");
 const path = require("path");
 
+/**
+ * Recursively collects files whose base name matches the provided pattern.
+ *
+ * @param {string} dirPath Directory to scan.
+ * @param {RegExp} filePattern Regular expression applied to file names.
+ * @param {string[]} [files=[]] Accumulator used during recursion.
+ * @returns {string[]} Matching file paths.
+ */
 function listMatchingFiles(dirPath, filePattern, files = []) {
   if (!fs.existsSync(dirPath)) {
     return files;
