@@ -16,6 +16,7 @@ import:
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
+fromCacheVersion: "001"
 git:
 - add: {{ .ModuleDir }}/images/packages/{{ .ImageName }}
   to: /
