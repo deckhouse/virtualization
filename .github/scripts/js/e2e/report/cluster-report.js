@@ -45,6 +45,26 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/**
+ * Reads cluster report configuration from environment variables injected by the
+ * reusable workflow or the local helper script.
+ *
+ * @param {NodeJS.ProcessEnv} [env=process.env] Environment variables source.
+ * @returns {{
+ *   storageType: string,
+ *   reportsDir: string,
+ *   reportFile: string,
+ *   workflowRunUrlOverride: string,
+ *   branchNameOverride: string,
+ *   stageResults: {
+ *     bootstrap: string|undefined,
+ *     "configure-sdn": string|undefined,
+ *     "storage-setup": string|undefined,
+ *     "virtualization-setup": string|undefined,
+ *     "e2e-test": string|undefined
+ *   }
+ * }} Normalized cluster report configuration.
+ */
 function readClusterConfigFromEnv(env = process.env) {
   const storageType = env.STORAGE_TYPE;
 
@@ -64,6 +84,17 @@ function readClusterConfigFromEnv(env = process.env) {
   };
 }
 
+/**
+ * Resolves a single JUnit report file for the current storage type.
+ *
+ * The current workflow contract produces at most one matching XML per storage.
+ * Multiple matches indicate an invalid artifact layout and should fail fast.
+ *
+ * @param {string} dirPath Directory containing downloaded JUnit artifacts.
+ * @param {RegExp} filePattern Pattern matching the expected XML file name.
+ * @returns {string|null} Matching file path or null when no report exists.
+ * @throws {Error} When more than one matching file is found.
+ */
 function findSingleMatchingFile(dirPath, filePattern) {
   const matchingFiles = listMatchingFiles(dirPath, filePattern);
   if (matchingFiles.length === 0) {
@@ -151,6 +182,24 @@ function collectMetricSuites(suites, collectedSuites = []) {
   return collectedSuites;
 }
 
+/**
+ * Parses a Ginkgo-generated JUnit XML document into metrics and failed tests
+ * used by the markdown report.
+ *
+ * @param {string} xmlContent Raw XML content.
+ * @returns {{
+ *   metrics: {
+ *     passed: number,
+ *     failed: number,
+ *     errors: number,
+ *     skipped: number,
+ *     total: number,
+ *     successRate: number
+ *   },
+ *   failedTests: string[],
+ *   startedAt: string|null
+ * }} Parsed report payload.
+ */
 function parseJUnitReport(xmlContent) {
   const parsedXml = junitXmlParser.parse(xmlContent);
   const testsuitesNode = parsedXml.testsuites || null;
@@ -224,6 +273,21 @@ function parseJUnitReport(xmlContent) {
   };
 }
 
+/**
+ * Builds a descriptor for a non-success stage result.
+ *
+ * @param {string} storageType Storage backend name.
+ * @param {string} stageName Failed or cancelled stage name.
+ * @param {string} resultValue Raw GitHub Actions result value.
+ * @returns {{
+ *   failedStage: string,
+ *   failedStageLabel: string,
+ *   failedJobName: string,
+ *   reportKind: string,
+ *   status: string,
+ *   statusMessage: string
+ * }} Descriptor used by the final cluster report.
+ */
 function getStageDescriptor(storageType, stageName, resultValue) {
   const result = (resultValue || "").trim();
   const stageLabel = stageLabels[stageName] || stageName;
@@ -250,6 +314,29 @@ function getStageDescriptor(storageType, stageName, resultValue) {
   };
 }
 
+/**
+ * Determines which workflow stage should be represented in the cluster report.
+ *
+ * The first non-success stage wins. If every stage succeeded, the cluster is
+ * treated as test-capable and the JUnit report is expected to describe results.
+ *
+ * @param {string} storageType Storage backend name.
+ * @param {{
+ *   bootstrap: string|undefined,
+ *   "configure-sdn": string|undefined,
+ *   "storage-setup": string|undefined,
+ *   "virtualization-setup": string|undefined,
+ *   "e2e-test": string|undefined
+ * }} stageResults Per-stage GitHub Actions results.
+ * @returns {{
+ *   failedStage: string,
+ *   failedStageLabel: string,
+ *   failedJobName: string,
+ *   reportKind: string,
+ *   status: string,
+ *   statusMessage: string
+ * }} Normalized stage descriptor.
+ */
 function determineStage(storageType, stageResults) {
   const orderedStages = [
     ["bootstrap", stageResults.bootstrap],
@@ -275,6 +362,20 @@ function determineStage(storageType, stageResults) {
   };
 }
 
+/**
+ * Builds a synthetic report descriptor for a successful test stage that did
+ * not produce any JUnit XML artifact.
+ *
+ * @param {string} storageType Storage backend name.
+ * @returns {{
+ *   failedStage: string,
+ *   failedStageLabel: string,
+ *   failedJobName: string,
+ *   reportKind: string,
+ *   status: string,
+ *   statusMessage: string
+ * }} Artifact-missing descriptor.
+ */
 function buildArtifactMissingDescriptor(storageType) {
   const stageLabel = stageLabels["artifact-missing"];
   return {
@@ -287,6 +388,13 @@ function buildArtifactMissingDescriptor(storageType) {
   };
 }
 
+/**
+ * Exposes the generated report fields as GitHub Actions step outputs.
+ *
+ * @param {Record<string, any>} report Final cluster report payload.
+ * @param {string} reportFile Path to the written JSON report file.
+ * @param {{ setOutput(name: string, value: string): void }} core GitHub core API.
+ */
 function setReportOutputs(report, reportFile, core) {
   core.setOutput("report_file", reportFile);
   core.setOutput("report_kind", report.reportKind || "");
@@ -297,6 +405,25 @@ function setReportOutputs(report, reportFile, core) {
   core.setOutput("branch", report.branch || "");
 }
 
+/**
+ * Builds a per-cluster JSON report from workflow stage results and an optional
+ * JUnit XML report, writes it to disk, and publishes step outputs.
+ *
+ * @param {{
+ *   core: {
+ *     info(message: string): void,
+ *     warning(message: string): void,
+ *     setOutput(name: string, value: string): void
+ *   },
+ *   context: {
+ *     serverUrl: string,
+ *     repo: { owner: string, repo: string },
+ *     runId: string|number,
+ *     ref?: string
+ *   }
+ * }} params GitHub script dependencies.
+ * @returns {Promise<Record<string, any>>} Generated cluster report.
+ */
 async function buildClusterReport({ core, context }) {
   const config = readClusterConfigFromEnv();
   const workflowRunUrl =
