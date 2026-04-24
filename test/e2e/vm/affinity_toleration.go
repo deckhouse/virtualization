@@ -419,38 +419,35 @@ func waitForStabilizedVMMigration(
 ) {
 	GinkgoHelper()
 
-	Eventually(func(g Gomega) {
+	Eventually(func() {
 		vm := getVirtualMachine(ctx, f, key.Name)
 		util.SkipIfKnownMigrationFailureWithContext(ctx, vm)
 
 		state := vm.Status.MigrationState
-		g.Expect(state).NotTo(BeNil())
-		g.Expect(state.StartTimestamp).NotTo(BeNil())
-		g.Expect(state.StartTimestamp.UTC().Before(notBefore)).To(BeFalse(), "expected a fresh migration")
-		g.Expect(state.EndTimestamp.IsZero()).To(BeFalse(), "migration is not completed")
+		Expect(state).NotTo(BeNil())
+		Expect(state.StartTimestamp).NotTo(BeNil())
+		Expect(state.StartTimestamp.UTC().Before(notBefore)).To(BeFalse(), "expected a fresh migration")
+		Expect(state.EndTimestamp.IsZero()).To(BeFalse(), "migration is not completed")
 
 		if state.Result == v1alpha2.MigrationResultFailed {
 			Fail(fmt.Sprintf("migration failed for vm %s/%s: %s", vm.Namespace, vm.Name, migrationFailureDetails(vm)))
 		}
 
-		g.Expect(state.Result).To(Equal(v1alpha2.MigrationResultSucceeded))
+		Expect(state.Result).To(Equal(v1alpha2.MigrationResultSucceeded))
 
-		g.Expect(state.Source.Node).To(Equal(sourceNode))
-		g.Expect(vm.Status.Node).To(Equal(state.Target.Node))
+		Expect(state.Source.Node).To(Equal(sourceNode))
+		Expect(vm.Status.Node).To(Equal(state.Target.Node))
 
 		switch targetExpectation {
 		case migrationTargetMustMatch:
-			g.Expect(state.Target.Node).To(Equal(targetNode))
+			Expect(state.Target.Node).To(Equal(targetNode))
 		case migrationTargetMustDiffer:
-			g.Expect(state.Target.Node).NotTo(Equal(targetNode))
+			Expect(state.Target.Node).NotTo(Equal(targetNode))
 		default:
 			Fail(fmt.Sprintf("unknown migration target expectation: %d", targetExpectation))
 		}
 
-		activePod := getActiveVirtualMachinePod(ctx, f, vm)
-		g.Expect(activePod.Spec.NodeName).To(Equal(vm.Status.Node))
-		g.Expect(activePod.Status.Phase).To(Equal(corev1.PodRunning))
-		g.Expect(isPodReady(activePod)).To(BeTrue(), "active pod %s/%s is not ready", activePod.Namespace, activePod.Name)
+		util.UntilConditionStatus(vmcondition.TypeMigratable.String(), string(metav1.ConditionTrue), framework.LongTimeout, vm)
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
 
@@ -466,34 +463,6 @@ func migrationFailureDetails(vm *v1alpha2.VirtualMachine) string {
 	return fmt.Sprintf("result=%s source=%s target=%s current=%s", vm.Status.MigrationState.Result, vm.Status.MigrationState.Source.Node, vm.Status.MigrationState.Target.Node, vm.Status.Node)
 }
 
-func getActiveVirtualMachinePod(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine) *corev1.Pod {
-	GinkgoHelper()
-
-	activePodName := ""
-	for _, pod := range vm.Status.VirtualMachinePods {
-		if pod.Active {
-			activePodName = pod.Name
-			break
-		}
-	}
-	Expect(activePodName).NotTo(BeEmpty(), "no active pod found for vm %s/%s", vm.Namespace, vm.Name)
-
-	pod := &corev1.Pod{}
-	err := f.GenericClient().Get(ctx, crclient.ObjectKey{Namespace: vm.Namespace, Name: activePodName}, pod)
-	Expect(err).NotTo(HaveOccurred())
-	return pod
-}
-
-func isPodReady(pod *corev1.Pod) bool {
-	for _, condition := range pod.Status.Conditions {
-		if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
-			return true
-		}
-	}
-
-	return false
-}
-
 func assertNoVMMigration(
 	ctx context.Context,
 	f *framework.Framework,
@@ -503,14 +472,14 @@ func assertNoVMMigration(
 ) {
 	GinkgoHelper()
 
-	Consistently(func(g Gomega) {
+	Consistently(func() {
 		vm := getVirtualMachine(ctx, f, key.Name)
-		g.Expect(vm.Status.Node).To(Equal(expectedNode))
-		g.Expect(vm.Status.MigrationState).To(BeNil())
+		Expect(vm.Status.Node).To(Equal(expectedNode))
+		Expect(vm.Status.MigrationState).To(BeNil())
 
 		for _, condition := range vm.Status.Conditions {
 			if condition.Type == vmcondition.TypeMigrating.String() {
-				g.Expect(condition.Status).To(Equal(metav1.ConditionFalse))
+				Expect(condition.Status).To(Equal(metav1.ConditionFalse))
 			}
 		}
 	}).WithTimeout(duration).WithPolling(placementNoMigrationPolling).Should(Succeed())
