@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/yaml"
@@ -229,6 +230,14 @@ func (s *SpecChanges) ConvertPendingChanges() ([]apiextensionsv1.JSON, error) {
 		res = append(res, apiextensionsv1.JSON{Raw: b})
 	}
 	return res, nil
+}
+
+func (s *SpecChanges) UpgradeBlockDeviceChangesToRestart() {
+	for i := range s.changes {
+		if strings.HasPrefix(s.changes[i].Path, BlockDevicesPath) && s.changes[i].ActionRequired == ActionApplyImmediate {
+			s.changes[i].ActionRequired = ActionRestart
+		}
+	}
 }
 
 func (s *SpecChanges) Add(changes ...FieldChange) {

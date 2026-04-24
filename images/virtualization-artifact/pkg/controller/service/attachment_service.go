@@ -124,7 +124,7 @@ func (s AttachmentService) CanHotPlug(ad *AttachmentDisk, vm *v1alpha2.VirtualMa
 	}
 
 	for _, vr := range kvvm.Status.VolumeRequests {
-		if vr.AddVolumeOptions.Name == name {
+		if vr.AddVolumeOptions != nil && vr.AddVolumeOptions.Name == name {
 			return false, ErrHotPlugRequestAlreadySent
 		}
 	}
