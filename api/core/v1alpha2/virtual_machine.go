@@ -42,6 +42,7 @@ const (
 // +kubebuilder:resource:categories={all,virtualization},scope=Namespaced,shortName={vm},singular=virtualmachine
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="The phase of the virtual machine."
 // +kubebuilder:printcolumn:name="PhaseAge",type="date",JSONPath=".status.stats.phasesTransitions[-1].timestamp",description="Time since the virtual machine entered the current phase."
+// +kubebuilder:printcolumn:name="Uptime",type="date",JSONPath=".status.runningSince",description="Time since the virtual machine started running."
 // +kubebuilder:printcolumn:name="Cores",priority=1,type="string",JSONPath=".spec.cpu.cores",description="The number of cores of the virtual machine."
 // +kubebuilder:printcolumn:name="CoreFraction",priority=1,type="string",JSONPath=".spec.cpu.coreFraction",description="Virtual machine core fraction. The range of available values is set in the `sizePolicy` parameter of the VirtualMachineClass; if it is not set, use values within the 1–100% range."
 // +kubebuilder:printcolumn:name="Memory",priority=1,type="string",JSONPath=".spec.memory.size",description="The amount of memory of the virtual machine."
@@ -299,6 +300,8 @@ type VirtualMachineStatus struct {
 	Stats *VirtualMachineStats `json:"stats,omitempty"`
 	// Migration info.
 	MigrationState *VirtualMachineMigrationState `json:"migrationState,omitempty"`
+	// RunningSince is the timestamp when the virtual machine entered the running state.
+	RunningSince *metav1.Time `json:"runningSince,omitempty"`
 	// Generating a resource that was last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 

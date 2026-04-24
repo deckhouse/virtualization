@@ -122,6 +122,7 @@ func (h *LifeCycleHandler) Name() string {
 
 func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, pod *corev1.Pod, log *slog.Logger) error {
 	cb := conditions.NewConditionBuilder(vmcondition.TypeRunning).Generation(vm.GetGeneration())
+	defer syncRunningSince(vm)
 
 	if pod != nil && pod.Status.Message != "" {
 		cb.Status(metav1.ConditionFalse).
@@ -227,6 +228,16 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 	cb.Reason(vmcondition.ReasonVirtualMachineNotRunning).Status(metav1.ConditionFalse)
 	conditions.SetCondition(cb, &vm.Status.Conditions)
 	return nil
+}
+
+func syncRunningSince(vm *v1alpha2.VirtualMachine) {
+	running, found := conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
+	if !found || running.Status != metav1.ConditionTrue {
+		vm.Status.RunningSince = nil
+		return
+	}
+
+	vm.Status.RunningSince = running.LastTransitionTime.DeepCopy()
 }
 
 func (h *LifeCycleHandler) checkVMPodVolumeErrors(ctx context.Context, vm *v1alpha2.VirtualMachine, log *slog.Logger) error {
