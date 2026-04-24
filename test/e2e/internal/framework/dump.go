@@ -206,7 +206,7 @@ func (f *Framework) writePodDescription(name, namespace, filePath, testCaseFullT
 func (f *Framework) writeVirtualMachineGuestInfo(pod corev1.Pod, filePath, testCaseFullText string) {
 	if pod.Labels != nil && pod.Status.Phase == corev1.PodRunning {
 		if value, ok := pod.Labels["kubevirt.internal.virtualization.deckhouse.io"]; ok && value == "virt-launcher" {
-			vlctlGuestInfoCmd := f.Clients.Kubectl().RawCommand(fmt.Sprintf("exec --stdin=true --tty=true %s --namespace %s -- vlctl guest info", pod.Name, pod.Namespace), ShortTimeout)
+			vlctlGuestInfoCmd := f.Clients.Kubectl().RawCommand(fmt.Sprintf("exec %s --namespace %s -- vlctl guest info", pod.Name, pod.Namespace), ShortTimeout)
 			if vlctlGuestInfoCmd.Error() != nil {
 				GinkgoWriter.Printf("Failed to get pod guest info:\nPodName: %s\nError: %s\n", pod.Name, vlctlGuestInfoCmd.StdErr())
 			}
