@@ -28,7 +28,7 @@ git:
       - '**/*'
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ $.SOURCE_REPO }}
 shell:
   install:
   - |
