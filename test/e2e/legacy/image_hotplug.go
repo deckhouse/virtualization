@@ -32,10 +32,11 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 )
 
-var _ = Describe("ImageHotplug", Ordered, label.Legacy(), func() {
+var _ = Describe("ImageHotplug", Ordered, label.Legacy(), Label(precheck.NoPrecheck), func() {
 	const (
 		viCount  = 2
 		cviCount = 2

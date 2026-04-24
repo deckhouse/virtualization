@@ -40,6 +40,9 @@ import (
 var clients = Clients{}
 
 func GetClients() Clients {
+	onceLoadConfig() // гарантируем инициализацию конфига
+	// Инициализируем клиенты если ещё не сделано
+	InitClients()
 	return clients
 }
 
@@ -87,57 +90,61 @@ func (c Clients) Git() gt.Git {
 	return c.git
 }
 
-func init() {
-	onceLoadConfig()
+// InitClients initializes Kubernetes clients.
+// This should be called before using framework clients.
+func InitClients() {
+	clientsOnce.Do(func() {
+		_ = GetConfig() // инициализирует конфиг
 
-	restConfig, err := conf.ClusterTransport.RestConfig()
-	if err != nil {
-		panic(err)
-	}
-	clients.virtClient, err = kubeclient.GetClientFromRESTConfig(restConfig)
-	if err != nil {
-		panic(err)
-	}
-	clients.kubeClient, err = kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		panic(err)
-	}
-	clients.dynamic, err = dynamic.NewForConfig(restConfig)
-	if err != nil {
-		panic(err)
-	}
-	clients.rewriteClient = rewrite.NewRewriteClient(clients.dynamic)
-	clients.kubectl, err = kubectl.NewKubectl(kubectl.KubectlConf(conf.ClusterTransport))
-	if err != nil {
-		panic(err)
-	}
-	clients.d8virtualization, err = d8.NewD8Virtualization(d8.D8VirtualizationConf(conf.ClusterTransport))
-	if err != nil {
-		panic(err)
-	}
-
-	scheme := apiruntime.NewScheme()
-	// virtv1 and cdiv1 are not registered in the scheme,
-	// The main reason is that we cannot use kubevirt types in tests because in DVP we use rewritten kubevirt types
-	// use dynamic client for get kubevirt types
-	for _, f := range []func(*apiruntime.Scheme) error{
-		v1alpha2.AddToScheme,
-		v1alpha3.AddToScheme,
-		clientgoscheme.AddToScheme,
-		dv1alpha1.AddToScheme,
-		dv1alpha2.AddToScheme,
-	} {
-		if err := f(scheme); err != nil {
+		restConfig, err := conf.ClusterTransport.RestConfig()
+		if err != nil {
 			panic(err)
 		}
-	}
-	clients.client, err = client.New(restConfig, client.Options{Scheme: scheme})
-	if err != nil {
-		panic(err)
-	}
+		clients.virtClient, err = kubeclient.GetClientFromRESTConfig(restConfig)
+		if err != nil {
+			panic(err)
+		}
+		clients.kubeClient, err = kubernetes.NewForConfig(restConfig)
+		if err != nil {
+			panic(err)
+		}
+		clients.dynamic, err = dynamic.NewForConfig(restConfig)
+		if err != nil {
+			panic(err)
+		}
+		clients.rewriteClient = rewrite.NewRewriteClient(clients.dynamic)
+		clients.kubectl, err = kubectl.NewKubectl(kubectl.KubectlConf(conf.ClusterTransport))
+		if err != nil {
+			panic(err)
+		}
+		clients.d8virtualization, err = d8.NewD8Virtualization(d8.D8VirtualizationConf(conf.ClusterTransport))
+		if err != nil {
+			panic(err)
+		}
 
-	clients.git, err = gt.NewGit()
-	if err != nil {
-		panic(err)
-	}
+		scheme := apiruntime.NewScheme()
+		// virtv1 and cdiv1 are not registered in the scheme,
+		// The main reason is that we cannot use kubevirt types in tests because in DVP we use rewritten kubevirt types
+		// use dynamic client for get kubevirt types
+		for _, f := range []func(*apiruntime.Scheme) error{
+			v1alpha2.AddToScheme,
+			v1alpha3.AddToScheme,
+			clientgoscheme.AddToScheme,
+			dv1alpha1.AddToScheme,
+			dv1alpha2.AddToScheme,
+		} {
+			if err := f(scheme); err != nil {
+				panic(err)
+			}
+		}
+		clients.client, err = client.New(restConfig, client.Options{Scheme: scheme})
+		if err != nil {
+			panic(err)
+		}
+
+		clients.git, err = gt.NewGit()
+		if err != nil {
+			panic(err)
+		}
+	})
 }

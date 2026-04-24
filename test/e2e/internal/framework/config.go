@@ -23,8 +23,9 @@ import (
 )
 
 var (
-	conf *config.Config
-	once sync.Once
+	conf        *config.Config
+	once        sync.Once
+	clientsOnce sync.Once
 )
 
 func onceLoadConfig() {
@@ -38,6 +39,8 @@ func onceLoadConfig() {
 }
 
 func GetConfig() *config.Config {
+	onceLoadConfig() // гарантируем инициализацию
+
 	copied := *conf
 	return &copied
 }
@@ -47,8 +50,4 @@ func GetConfig() *config.Config {
 // should be refactored in the future
 func SetConfig(c *config.Config) {
 	conf = c
-}
-
-func init() {
-	onceLoadConfig()
 }

@@ -26,9 +26,10 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 )
 
-var _ = Describe("VirtualMachineVersions", Ordered, label.Legacy(), func() {
+var _ = Describe("VirtualMachineVersions", Ordered, label.Legacy(), Label(precheck.NoPrecheck), func() {
 	testCaseLabel := map[string]string{"testcase": "vm-versions"}
 	var ns string
 
@@ -88,27 +89,23 @@ var _ = Describe("VirtualMachineVersions", Ordered, label.Legacy(), func() {
 	})
 
 	Context("When virtual machines are ready:", func() {
-		Eventually(func() error {
-			var vms v1alpha2.VirtualMachineList
-			err := GetObjects(kc.ResourceVM, &vms, kc.GetOptions{
-				Labels:    testCaseLabel,
-				Namespace: ns,
-			})
-			Expect(err).NotTo(HaveOccurred())
+		It("checks qemu and libvirt version in the status", func() {
+			Eventually(func() error {
+				var vms v1alpha2.VirtualMachineList
+				err := GetObjects(kc.ResourceVM, &vms, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: ns,
+				})
+				Expect(err).NotTo(HaveOccurred())
 
-			It("has qemu version in the status", func() {
 				for _, vm := range vms.Items {
 					Expect(vm.Status.Versions.Qemu).NotTo(BeEmpty())
-				}
-			})
-
-			It("has libvirt version in the status", func() {
-				for _, vm := range vms.Items {
 					Expect(vm.Status.Versions.Libvirt).NotTo(BeEmpty())
 				}
-			})
 
-			return nil
-		}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
+				return nil
+			}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
+		})
+
 	})
 })

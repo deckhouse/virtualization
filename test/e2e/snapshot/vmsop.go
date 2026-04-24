@@ -34,11 +34,12 @@ import (
 	vmsopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmsop"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("VMSOPCreateVirtualMachine", Ordered, func() {
+var _ = Describe("VMSOPCreateVirtualMachine", Ordered, Label(precheck.PrecheckSnapshot), func() {
 	var (
 		vd         *v1alpha2.VirtualDisk
 		vdBlank    *v1alpha2.VirtualDisk
@@ -47,10 +48,11 @@ var _ = Describe("VMSOPCreateVirtualMachine", Ordered, func() {
 		vmsop      *v1alpha2.VirtualMachineSnapshotOperation
 		vmbda      *v1alpha2.VirtualMachineBlockDeviceAttachment
 
-		f = framework.NewFramework("vmsop")
+		f *framework.Framework
 	)
 
 	BeforeAll(func() {
+		f = framework.NewFramework("vmsop")
 		cfg := framework.GetConfig()
 		if cfg.StorageClass.TemplateStorageClass != nil && cfg.StorageClass.TemplateStorageClass.Provisioner == framework.NFS {
 			Skip("Not working due to bug with VMBDA on NFS right now, skipping")
