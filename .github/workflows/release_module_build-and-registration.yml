@@ -21,6 +21,7 @@ env:
   MODULE_SOURCE_NAME: ${{ vars.PROD_MODULE_SOURCE_NAME }}
   MODULES_REGISTRY_LOGIN: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
   MODULES_REGISTRY_PASSWORD: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
+  MODULE_BUILD_PROFILE: "release"
   MODULES_MODULE_TAG: ${{ github.ref_name }}
   SOURCE_REPO: "${{ secrets.SOURCE_REPO }}"
   SOURCE_REPO_GIT: "${{secrets.SOURCE_REPO_GIT}}"
@@ -60,6 +61,7 @@ jobs:
           echo $MODULES_MODULE_NAME
           echo $MODULES_MODULE_SOURCE
           echo $MODULES_MODULE_TAG
+          echo $MODULE_BUILD_PROFILE
         shell: bash
         name: Show vars
 
@@ -113,6 +115,7 @@ jobs:
           echo $MODULES_MODULE_NAME
           echo $MODULES_MODULE_SOURCE
           echo $MODULES_MODULE_TAG
+          echo $MODULE_BUILD_PROFILE
         shell: bash
         name: Show vars
 
@@ -167,6 +170,7 @@ jobs:
           echo $MODULES_MODULE_NAME
           echo $MODULES_MODULE_SOURCE
           echo $MODULES_MODULE_TAG
+          echo $MODULE_BUILD_PROFILE
         shell: bash
         name: Show vars
 
@@ -221,6 +225,7 @@ jobs:
           echo $MODULES_MODULE_NAME
           echo $MODULES_MODULE_SOURCE
           echo $MODULES_MODULE_TAG
+          echo $MODULE_BUILD_PROFILE
         shell: bash
         name: Show vars
 

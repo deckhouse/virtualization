@@ -1,5 +1,6 @@
 # Edition module settings
 {{- $_ := set . "MODULE_EDITION" (env "MODULE_EDITION" "EE") }}
+{{- $_ := set . "MODULE_BUILD_PROFILE" (env "MODULE_BUILD_PROFILE" "release") }}
 
 # Component versions
 {{- $_ := set . "Firmware" dict -}}

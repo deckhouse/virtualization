@@ -49,11 +49,15 @@ shell:
   - |
     echo "Build virtualization-controller binary"
     {{- $_ := set $ "ProjectName" (list $.ImageName "virtualization-controller" | join "/") }}
+    {{- $controllerBuildTags := .MODULE_EDITION -}}
+    {{- if eq .MODULE_BUILD_PROFILE "dev" -}}
+    {{-   $controllerBuildTags = printf "%s,dev" .MODULE_EDITION -}}
+    {{- end }}
 
     {{- if eq $.DEBUG_COMPONENT "delve/virtualization-controller" }}
-    go build -tags {{ .MODULE_EDITION }} -v -a -o /out/virtualization-controller ./cmd/virtualization-controller
+    go build -tags {{ $controllerBuildTags }} -v -a -o /out/virtualization-controller ./cmd/virtualization-controller
     {{- else }}
-    {{-   $buildCommand := printf "go build -ldflags=\"-s -w\" -tags %s -v -a -o /out/virtualization-controller ./cmd/virtualization-controller" .MODULE_EDITION -}}
+    {{-   $buildCommand := printf "go build -ldflags=\"-s -w\" -tags %s -v -a -o /out/virtualization-controller ./cmd/virtualization-controller" $controllerBuildTags -}}
     {{-   include "image-build.build" (set $ "BuildCommand" $buildCommand) | nindent 4 }}
     {{- end }}
 

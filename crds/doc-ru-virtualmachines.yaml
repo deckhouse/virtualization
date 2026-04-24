@@ -687,14 +687,6 @@ spec:
                 stats:
                   description: Статистика по виртуальной машине.
                   properties:
-                    phasesTransitions:
-                      description: История по фазам.
-                      items:
-                        properties:
-                          phase:
-                            description: Фаза виртуальной машины.
-                          timestamp:
-                            description: Время перехода в данную фазу.
                     launchTimeDuration:
                       description: Информация о запуске.
                       properties:
