@@ -169,6 +169,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			waitForStabilizedVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmC), startedAt, sourceNode, nodeA, migrationTargetMustDiffer, framework.MaxTimeout)
+			util.UntilConditionStatus(vmcondition.TypeMigratable.String(), string(metav1.ConditionTrue), framework.LongTimeout, vmC)
 		})
 
 		var migratedNodeC string
@@ -189,6 +190,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			waitForStabilizedVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmC), startedAt, migratedNodeC, nodeA, migrationTargetMustMatch, framework.MaxTimeout)
+			util.UntilConditionStatus(vmcondition.TypeMigratable.String(), string(metav1.ConditionTrue), framework.LongTimeout, vmC)
 		})
 
 		By("Verifying vm-c returned to vm-a node via status.nodeName", func() {
@@ -248,6 +250,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			waitForStabilizedVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmNodeSelector), startedAt, sourceNode, targetNode, migrationTargetMustMatch, framework.MaxTimeout)
+			util.UntilConditionStatus(vmcondition.TypeMigratable.String(), string(metav1.ConditionTrue), framework.LongTimeout, vmNodeSelector)
 		})
 
 		By("Verifying the nodeSelector migration result via status.nodeName", func() {
@@ -310,6 +313,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			waitForStabilizedVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmNodeAffinity), startedAt, sourceNode, targetNode, migrationTargetMustMatch, framework.MaxTimeout)
+			util.UntilConditionStatus(vmcondition.TypeMigratable.String(), string(metav1.ConditionTrue), framework.LongTimeout, vmNodeAffinity)
 		})
 
 		By("Verifying the nodeAffinity migration result via status.nodeName", func() {
@@ -419,35 +423,33 @@ func waitForStabilizedVMMigration(
 ) {
 	GinkgoHelper()
 
-	Eventually(func() {
+	Eventually(func(g Gomega) {
 		vm := getVirtualMachine(ctx, f, key.Name)
 		util.SkipIfKnownMigrationFailureWithContext(ctx, vm)
 
 		state := vm.Status.MigrationState
-		Expect(state).NotTo(BeNil())
-		Expect(state.StartTimestamp).NotTo(BeNil())
-		Expect(state.StartTimestamp.UTC().Before(notBefore)).To(BeFalse(), "expected a fresh migration")
-		Expect(state.EndTimestamp.IsZero()).To(BeFalse(), "migration is not completed")
+		g.Expect(state).NotTo(BeNil())
+		g.Expect(state.StartTimestamp).NotTo(BeNil())
+		g.Expect(state.StartTimestamp.UTC().Before(notBefore)).To(BeFalse(), "expected a fresh migration")
+		g.Expect(state.EndTimestamp.IsZero()).To(BeFalse(), "migration is not completed")
 
 		if state.Result == v1alpha2.MigrationResultFailed {
 			Fail(fmt.Sprintf("migration failed for vm %s/%s: %s", vm.Namespace, vm.Name, migrationFailureDetails(vm)))
 		}
 
-		Expect(state.Result).To(Equal(v1alpha2.MigrationResultSucceeded))
+		g.Expect(state.Result).To(Equal(v1alpha2.MigrationResultSucceeded))
 
-		Expect(state.Source.Node).To(Equal(sourceNode))
-		Expect(vm.Status.Node).To(Equal(state.Target.Node))
+		g.Expect(state.Source.Node).To(Equal(sourceNode))
+		g.Expect(vm.Status.Node).To(Equal(state.Target.Node))
 
 		switch targetExpectation {
 		case migrationTargetMustMatch:
-			Expect(state.Target.Node).To(Equal(targetNode))
+			g.Expect(state.Target.Node).To(Equal(targetNode))
 		case migrationTargetMustDiffer:
-			Expect(state.Target.Node).NotTo(Equal(targetNode))
+			g.Expect(state.Target.Node).NotTo(Equal(targetNode))
 		default:
 			Fail(fmt.Sprintf("unknown migration target expectation: %d", targetExpectation))
 		}
-
-		util.UntilConditionStatus(vmcondition.TypeMigratable.String(), string(metav1.ConditionTrue), framework.LongTimeout, vm)
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
 
@@ -472,14 +474,14 @@ func assertNoVMMigration(
 ) {
 	GinkgoHelper()
 
-	Consistently(func() {
+	Consistently(func(g Gomega) {
 		vm := getVirtualMachine(ctx, f, key.Name)
-		Expect(vm.Status.Node).To(Equal(expectedNode))
-		Expect(vm.Status.MigrationState).To(BeNil())
+		g.Expect(vm.Status.Node).To(Equal(expectedNode))
+		g.Expect(vm.Status.MigrationState).To(BeNil())
 
 		for _, condition := range vm.Status.Conditions {
 			if condition.Type == vmcondition.TypeMigrating.String() {
-				Expect(condition.Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(condition.Status).To(Equal(metav1.ConditionFalse))
 			}
 		}
 	}).WithTimeout(duration).WithPolling(placementNoMigrationPolling).Should(Succeed())
