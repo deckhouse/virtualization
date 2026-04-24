@@ -335,4 +335,44 @@ describe("cluster-report", () => {
       expect(report.failedStageLabel).toBe("TEST REPORTS NOT FOUND");
       expect(report.status).toBe("missing");
     }));
+
+  test("keeps cancelled test stage when no reports were found", async () =>
+    withTempDir(async (tempDir) => {
+      const reportFile = path.join(tempDir, "report.json");
+      setStageEnv({
+        E2E_REPORT_DIR: tempDir,
+        REPORT_FILE: reportFile,
+        E2E_TEST_RESULT: "cancelled",
+      });
+
+      const report = await buildClusterReport({
+        core: createCore(),
+        context: createContext(),
+      });
+
+      expect(report.reportKind).toBe("tests");
+      expect(report.failedStage).toBe("e2e-test");
+      expect(report.failedStageLabel).toBe("E2E TEST");
+      expect(report.status).toBe("cancelled");
+    }));
+
+  test("keeps failed test stage when no reports were found", async () =>
+    withTempDir(async (tempDir) => {
+      const reportFile = path.join(tempDir, "report.json");
+      setStageEnv({
+        E2E_REPORT_DIR: tempDir,
+        REPORT_FILE: reportFile,
+        E2E_TEST_RESULT: "failure",
+      });
+
+      const report = await buildClusterReport({
+        core: createCore(),
+        context: createContext(),
+      });
+
+      expect(report.reportKind).toBe("tests");
+      expect(report.failedStage).toBe("e2e-test");
+      expect(report.failedStageLabel).toBe("E2E TEST");
+      expect(report.status).toBe("failure");
+    }));
 });
