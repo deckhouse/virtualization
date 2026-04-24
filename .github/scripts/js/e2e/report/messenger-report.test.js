@@ -81,10 +81,11 @@ describe("messenger-report", () => {
           startedAt: "2026-04-15T09:30:44",
           metrics: {
             passed: 12,
+            skipped: 2,
             failed: 1,
             errors: 0,
-            total: 13,
-            successRate: 92.31,
+            total: 15,
+            successRate: 80,
           },
           failedTests: ["[It] fails"],
         })
@@ -118,7 +119,7 @@ describe("messenger-report", () => {
 
       expect(result.message).toContain("### Test results");
       expect(result.message).toContain(
-        "| [replicated](https://example.invalid/replicated) | 12 | 1 | 0 | 13 | 92.31% |"
+        "| [replicated](https://example.invalid/replicated) | 12 | 2 | 1 | 0 | 15 | 80.00% |"
       );
       expect(result.message).toContain("### Cluster failures");
       expect(result.message).toContain(
@@ -200,10 +201,11 @@ describe("messenger-report", () => {
           startedAt: "2026-04-15T09:30:44",
           metrics: {
             passed: 10,
+            skipped: 1,
             failed: 1,
             errors: 0,
-            total: 11,
-            successRate: 90.91,
+            total: 12,
+            successRate: 83.33,
           },
           failedTests: ["[It] fails"],
         })
@@ -266,6 +268,7 @@ describe("messenger-report", () => {
           startedAt: "2026-04-15T09:30:44",
           metrics: {
             passed: 11,
+            skipped: 0,
             failed: 0,
             errors: 0,
             total: 11,
@@ -311,6 +314,7 @@ describe("messenger-report", () => {
           startedAt: "2026-04-15T09:30:44",
           metrics: {
             passed: 11,
+            skipped: 0,
             failed: 0,
             errors: 0,
             total: 11,
@@ -356,6 +360,7 @@ describe("messenger-report", () => {
           startedAt: "2026-04-15T09:30:44",
           metrics: {
             passed: 11,
+            skipped: 0,
             failed: 0,
             errors: 0,
             total: 11,
