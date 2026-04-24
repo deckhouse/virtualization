@@ -47,6 +47,13 @@ const (
 	placementNoMigrationPolling = time.Second
 )
 
+type migrationTargetExpectation int
+
+const (
+	migrationTargetMustMatch migrationTargetExpectation = iota
+	migrationTargetMustDiffer
+)
+
 var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 	var (
 		f   *framework.Framework
@@ -161,9 +168,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 			err := f.GenericClient().Update(ctx, vmC)
 			Expect(err).NotTo(HaveOccurred())
 
-			waitForFreshVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmC), startedAt, sourceNode, nodeA, false, framework.MaxTimeout)
-			waitForVMMigrationFinished(ctx, f, crclient.ObjectKeyFromObject(vmC), framework.LongTimeout)
-			waitForVMActivePodReady(ctx, f, crclient.ObjectKeyFromObject(vmC), framework.LongTimeout)
+			waitForStabilizedVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmC), startedAt, sourceNode, nodeA, migrationTargetMustDiffer, framework.MaxTimeout)
 		})
 
 		var migratedNodeC string
@@ -183,9 +188,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 			err := f.GenericClient().Update(ctx, vmC)
 			Expect(err).NotTo(HaveOccurred())
 
-			waitForFreshVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmC), startedAt, migratedNodeC, nodeA, true, framework.MaxTimeout)
-			waitForVMMigrationFinished(ctx, f, crclient.ObjectKeyFromObject(vmC), framework.LongTimeout)
-			waitForVMActivePodReady(ctx, f, crclient.ObjectKeyFromObject(vmC), framework.LongTimeout)
+			waitForStabilizedVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmC), startedAt, migratedNodeC, nodeA, migrationTargetMustMatch, framework.MaxTimeout)
 		})
 
 		By("Verifying vm-c returned to vm-a node via status.nodeName", func() {
@@ -244,9 +247,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 			err = f.GenericClient().Update(ctx, vmNodeSelector)
 			Expect(err).NotTo(HaveOccurred())
 
-			waitForFreshVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmNodeSelector), startedAt, sourceNode, targetNode, true, framework.MaxTimeout)
-			waitForVMMigrationFinished(ctx, f, crclient.ObjectKeyFromObject(vmNodeSelector), framework.LongTimeout)
-			waitForVMActivePodReady(ctx, f, crclient.ObjectKeyFromObject(vmNodeSelector), framework.LongTimeout)
+			waitForStabilizedVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmNodeSelector), startedAt, sourceNode, targetNode, migrationTargetMustMatch, framework.MaxTimeout)
 		})
 
 		By("Verifying the nodeSelector migration result via status.nodeName", func() {
@@ -308,9 +309,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 			err = f.GenericClient().Update(ctx, vmNodeAffinity)
 			Expect(err).NotTo(HaveOccurred())
 
-			waitForFreshVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmNodeAffinity), startedAt, sourceNode, targetNode, true, framework.MaxTimeout)
-			waitForVMMigrationFinished(ctx, f, crclient.ObjectKeyFromObject(vmNodeAffinity), framework.LongTimeout)
-			waitForVMActivePodReady(ctx, f, crclient.ObjectKeyFromObject(vmNodeAffinity), framework.LongTimeout)
+			waitForStabilizedVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmNodeAffinity), startedAt, sourceNode, targetNode, migrationTargetMustMatch, framework.MaxTimeout)
 		})
 
 		By("Verifying the nodeAffinity migration result via status.nodeName", func() {
@@ -408,14 +407,14 @@ func vmAffinityTerm(vmName string) v1alpha2.VirtualMachineAndPodAffinityTerm {
 	}
 }
 
-func waitForFreshVMMigration(
+func waitForStabilizedVMMigration(
 	ctx context.Context,
 	f *framework.Framework,
 	key crclient.ObjectKey,
 	notBefore time.Time,
 	sourceNode string,
 	targetNode string,
-	expectSameTarget bool,
+	targetExpectation migrationTargetExpectation,
 	timeout time.Duration,
 ) {
 	GinkgoHelper()
@@ -429,17 +428,29 @@ func waitForFreshVMMigration(
 		g.Expect(state.StartTimestamp).NotTo(BeNil())
 		g.Expect(state.StartTimestamp.UTC().Before(notBefore)).To(BeFalse(), "expected a fresh migration")
 		g.Expect(state.EndTimestamp.IsZero()).To(BeFalse(), "migration is not completed")
+
 		if state.Result == v1alpha2.MigrationResultFailed {
 			Fail(fmt.Sprintf("migration failed for vm %s/%s: %s", vm.Namespace, vm.Name, migrationFailureDetails(vm)))
 		}
+
 		g.Expect(state.Result).To(Equal(v1alpha2.MigrationResultSucceeded))
+
 		g.Expect(state.Source.Node).To(Equal(sourceNode))
 		g.Expect(vm.Status.Node).To(Equal(state.Target.Node))
-		if expectSameTarget {
+
+		switch targetExpectation {
+		case migrationTargetMustMatch:
 			g.Expect(state.Target.Node).To(Equal(targetNode))
-		} else {
+		case migrationTargetMustDiffer:
 			g.Expect(state.Target.Node).NotTo(Equal(targetNode))
+		default:
+			Fail(fmt.Sprintf("unknown migration target expectation: %d", targetExpectation))
 		}
+
+		activePod := getActiveVirtualMachinePod(ctx, f, vm)
+		g.Expect(activePod.Spec.NodeName).To(Equal(vm.Status.Node))
+		g.Expect(activePod.Status.Phase).To(Equal(corev1.PodRunning))
+		g.Expect(isPodReady(activePod)).To(BeTrue(), "active pod %s/%s is not ready", activePod.Namespace, activePod.Name)
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
 
@@ -455,65 +466,32 @@ func migrationFailureDetails(vm *v1alpha2.VirtualMachine) string {
 	return fmt.Sprintf("result=%s source=%s target=%s current=%s", vm.Status.MigrationState.Result, vm.Status.MigrationState.Source.Node, vm.Status.MigrationState.Target.Node, vm.Status.Node)
 }
 
-func waitForVMMigrationFinished(
-	ctx context.Context,
-	f *framework.Framework,
-	key crclient.ObjectKey,
-	timeout time.Duration,
-) {
+func getActiveVirtualMachinePod(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine) *corev1.Pod {
 	GinkgoHelper()
 
-	Eventually(func(g Gomega) {
-		vm := getVirtualMachine(ctx, f, key.Name)
-		state := vm.Status.MigrationState
-		g.Expect(state).NotTo(BeNil())
-		g.Expect(state.EndTimestamp.IsZero()).To(BeFalse(), "migration is not completed")
-
-		for _, condition := range vm.Status.Conditions {
-			if condition.Type == vmcondition.TypeMigrating.String() {
-				g.Expect(condition.Status).To(Equal(metav1.ConditionFalse))
-				return
-			}
+	activePodName := ""
+	for _, pod := range vm.Status.VirtualMachinePods {
+		if pod.Active {
+			activePodName = pod.Name
+			break
 		}
-	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+	}
+	Expect(activePodName).NotTo(BeEmpty(), "no active pod found for vm %s/%s", vm.Namespace, vm.Name)
+
+	pod := &corev1.Pod{}
+	err := f.GenericClient().Get(ctx, crclient.ObjectKey{Namespace: vm.Namespace, Name: activePodName}, pod)
+	Expect(err).NotTo(HaveOccurred())
+	return pod
 }
 
-func waitForVMActivePodReady(
-	ctx context.Context,
-	f *framework.Framework,
-	key crclient.ObjectKey,
-	timeout time.Duration,
-) {
-	GinkgoHelper()
-
-	Eventually(func(g Gomega) {
-		vm := getVirtualMachine(ctx, f, key.Name)
-		g.Expect(vm.Status.Node).NotTo(BeEmpty())
-
-		activePodName := ""
-		for _, pod := range vm.Status.VirtualMachinePods {
-			if pod.Active {
-				activePodName = pod.Name
-				break
-			}
+func isPodReady(pod *corev1.Pod) bool {
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
+			return true
 		}
-		g.Expect(activePodName).NotTo(BeEmpty(), "no active pod found for vm %s/%s", vm.Namespace, vm.Name)
+	}
 
-		pod := &corev1.Pod{}
-		err := f.GenericClient().Get(ctx, crclient.ObjectKey{Namespace: vm.Namespace, Name: activePodName}, pod)
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(pod.Spec.NodeName).To(Equal(vm.Status.Node))
-		g.Expect(pod.Status.Phase).To(Equal(corev1.PodRunning))
-
-		ready := false
-		for _, condition := range pod.Status.Conditions {
-			if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
-				ready = true
-				break
-			}
-		}
-		g.Expect(ready).To(BeTrue(), "active pod %s/%s is not ready", pod.Namespace, pod.Name)
-	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+	return false
 }
 
 func assertNoVMMigration(
