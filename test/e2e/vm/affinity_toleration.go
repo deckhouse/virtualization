@@ -163,6 +163,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 
 			waitForFreshVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmC), startedAt, sourceNode, nodeA, false, framework.MaxTimeout)
 			waitForVMMigrationFinished(ctx, f, crclient.ObjectKeyFromObject(vmC), framework.LongTimeout)
+			waitForVMActivePodReady(ctx, f, crclient.ObjectKeyFromObject(vmC), framework.LongTimeout)
 		})
 
 		var migratedNodeC string
@@ -184,6 +185,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 
 			waitForFreshVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmC), startedAt, migratedNodeC, nodeA, true, framework.MaxTimeout)
 			waitForVMMigrationFinished(ctx, f, crclient.ObjectKeyFromObject(vmC), framework.LongTimeout)
+			waitForVMActivePodReady(ctx, f, crclient.ObjectKeyFromObject(vmC), framework.LongTimeout)
 		})
 
 		By("Verifying vm-c returned to vm-a node via status.nodeName", func() {
@@ -244,6 +246,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 
 			waitForFreshVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmNodeSelector), startedAt, sourceNode, targetNode, true, framework.MaxTimeout)
 			waitForVMMigrationFinished(ctx, f, crclient.ObjectKeyFromObject(vmNodeSelector), framework.LongTimeout)
+			waitForVMActivePodReady(ctx, f, crclient.ObjectKeyFromObject(vmNodeSelector), framework.LongTimeout)
 		})
 
 		By("Verifying the nodeSelector migration result via status.nodeName", func() {
@@ -307,6 +310,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 
 			waitForFreshVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmNodeAffinity), startedAt, sourceNode, targetNode, true, framework.MaxTimeout)
 			waitForVMMigrationFinished(ctx, f, crclient.ObjectKeyFromObject(vmNodeAffinity), framework.LongTimeout)
+			waitForVMActivePodReady(ctx, f, crclient.ObjectKeyFromObject(vmNodeAffinity), framework.LongTimeout)
 		})
 
 		By("Verifying the nodeAffinity migration result via status.nodeName", func() {
@@ -471,6 +475,44 @@ func waitForVMMigrationFinished(
 				return
 			}
 		}
+	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+}
+
+func waitForVMActivePodReady(
+	ctx context.Context,
+	f *framework.Framework,
+	key crclient.ObjectKey,
+	timeout time.Duration,
+) {
+	GinkgoHelper()
+
+	Eventually(func(g Gomega) {
+		vm := getVirtualMachine(ctx, f, key.Name)
+		g.Expect(vm.Status.Node).NotTo(BeEmpty())
+
+		activePodName := ""
+		for _, pod := range vm.Status.VirtualMachinePods {
+			if pod.Active {
+				activePodName = pod.Name
+				break
+			}
+		}
+		g.Expect(activePodName).NotTo(BeEmpty(), "no active pod found for vm %s/%s", vm.Namespace, vm.Name)
+
+		pod := &corev1.Pod{}
+		err := f.GenericClient().Get(ctx, crclient.ObjectKey{Namespace: vm.Namespace, Name: activePodName}, pod)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(pod.Spec.NodeName).To(Equal(vm.Status.Node))
+		g.Expect(pod.Status.Phase).To(Equal(corev1.PodRunning))
+
+		ready := false
+		for _, condition := range pod.Status.Conditions {
+			if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
+				ready = true
+				break
+			}
+		}
+		g.Expect(ready).To(BeTrue(), "active pod %s/%s is not ready", pod.Namespace, pod.Name)
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
 
