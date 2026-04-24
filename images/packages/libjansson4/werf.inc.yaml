@@ -1,9 +1,9 @@
 ---
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
+image: {{ .PackagePath }}/{{ .ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+- image: {{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
   to: /{{ $.ImageName }}
   before: setup
@@ -11,12 +11,12 @@ import:
 ---
 {{- $version := get .PackageVersion .ImageName }}
 {{- $gitRepoUrl := "akheron/jansson.git" }}
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+image: {{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ $.SOURCE_REPO }}
 git:
 - add: {{ .ModuleDir }}/images/packages/{{ .ImageName }}
   to: /
@@ -46,14 +46,14 @@ altPackages:
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
 
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+image: {{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ $.SOURCE_REPO }}
 import:
-- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+- image: {{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
   to: /src
   before: install

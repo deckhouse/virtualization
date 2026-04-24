@@ -1,8 +1,8 @@
 ---
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}
-fromImage: {{ .ModuleNamePrefix }}distroless
+image: {{ .ImageName }}
+fromImage: distroless
 import:
-  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
+  - image: {{ .ImageName }}-cbuilder
     add: /bins
     to: /usr/local/bin
     after: setup
@@ -10,7 +10,7 @@ imageSpec:
   config:
     cmd: ["hello_bounder"]
 ---
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
+image: {{ .ImageName }}-cbuilder
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.24" "builder/golang-alt-svace-1.24" }}
 git:

@@ -6,7 +6,7 @@
 {{- $version := (split "-" $tag)._0 }}
 
 ---
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+image: {{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 secrets:
@@ -41,19 +41,18 @@ packages:
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+image: {{ .ImageName }}
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.25" "builder/golang-alt-svace-1.25" }}
 mount:
-- fromPath: ~/go-pkg-cache
-  to: /go/pkg
+{{- include "mount points for golang builds" . }}
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
 - id: GOPROXY
   value: {{ .GOPROXY }}
 import:
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+- image: {{ .ImageName }}-src-artifact
   add: /src/kubevirt
   to: /kubevirt
   before: install

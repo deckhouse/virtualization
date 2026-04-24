@@ -22,7 +22,7 @@ packages:
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+image: {{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
@@ -45,19 +45,18 @@ shell:
     rm -rf /src/containerized-data-importer/.git
 
 ---
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+image: {{ .ImageName }}
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.25" "builder/golang-alt-svace-1.25" }}
 mount:
-- fromPath: ~/go-pkg-cache
-  to: /go/pkg
+{{- include "mount points for golang builds" . }}
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
 - id: GOPROXY
   value: {{ .GOPROXY }}
 import:
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+- image: {{ .ImageName }}-src-artifact
   add: /src/containerized-data-importer
   to: /containerized-data-importer
   before: install
@@ -139,7 +138,7 @@ shell:
   - ls -la /cdi-binaries
 
 ---
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
+image: {{ .ImageName }}-cbuilder
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.25" "builder/golang-alt-svace-1.25" }}
 git:

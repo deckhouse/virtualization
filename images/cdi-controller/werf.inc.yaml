@@ -1,10 +1,10 @@
 ---
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}
-fromImage: {{ .ModuleNamePrefix }}distroless
+image: {{ .ImageName }}
+fromImage: distroless
 git:
   {{- include "image mount points" . }}
 import:
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
+- image: {{ .ImageName }}-bins
   add: /relocate
   to: /
   before: setup
@@ -22,9 +22,9 @@ packages:
 
 {{ $cdiClonerDependencies := include "cdi-controller-deps" . | fromYaml }}
 
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
+image: {{ .ImageName }}-bins
 final: false
-fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
+fromImage: base-alt-p11-binaries
 import:
 - image: tools/util-linux
   add: /
@@ -32,13 +32,13 @@ import:
   after: setup
   includePaths:
   - sbin/blockdev
-- image: {{ .ModuleNamePrefix }}cdi-artifact-cbuilder
+- image: cdi-artifact-cbuilder
   add: /bins
   to: /relocate/usr/bin
   after: setup
   includePaths:
   - printFile
-- image: {{ .ModuleNamePrefix }}cdi-artifact
+- image: cdi-artifact
   add: /cdi-binaries
   to: /usr/bin
   includePaths:

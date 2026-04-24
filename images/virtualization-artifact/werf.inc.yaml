@@ -1,5 +1,5 @@
 ---
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+image: {{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
@@ -20,11 +20,11 @@ git:
     setup:
     - "**/*.go"
 ---
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+image: {{ .ImageName }}
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.25" "builder/golang-alt-svace-1.25" }}
 import:
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+- image: {{ .ImageName }}-src-artifact
   add: /src
   to: /src
   before: install
@@ -32,8 +32,7 @@ secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
 mount:
-- fromPath: ~/go-pkg-cache
-  to: /go/pkg
+{{- include "mount points for golang builds" . }}
 shell:
   install:
   - export GOPROXY=$(cat /run/secrets/GOPROXY)

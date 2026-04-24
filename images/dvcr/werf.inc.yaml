@@ -3,12 +3,12 @@
 {{- $gitRepoUrl := (printf "%s/%s.git" "distribution" $gitRepoName) }}
 {{- $version := get $.Core $gitRepoName }}
 
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+image: {{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ $.SOURCE_REPO }}
 shell:
   install:
   - |
@@ -18,19 +18,19 @@ shell:
 
 
 ---
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}
-fromImage: {{ .ModuleNamePrefix }}distroless
+image: {{ .ImageName }}
+fromImage: distroless
 git:
   {{- include "image mount points" . }}
 import:
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
+- image: {{ .ImageName }}-builder
   add: /container-registry-binary
   to: /usr/bin
   before: setup
   includePaths:
   - registry
 # Registry configuration is stored in configmap: templates/dvcr/configmap.yaml
-- image: {{ .ModuleNamePrefix }}dvcr-artifact-bins
+- image: dvcr-artifact-bins
   add: /relocate/usr/local/bin/dvcr-cleaner
   to: /usr/local/bin/dvcr-cleaner
   before: setup
@@ -38,14 +38,13 @@ imageSpec:
   config:
     user: 64535
 ---
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
+image: {{ .ImageName }}-builder
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.25" "builder/golang-alt-svace-1.25" }}
 mount:
-  - fromPath: ~/go-pkg-cache
-    to: /go/pkg
+{{- include "mount points for golang builds" . }}
 import:
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+- image: {{ .ImageName }}-src-artifact
   add: /src/distribution
   to: /distribution
   before: install

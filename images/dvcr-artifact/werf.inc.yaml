@@ -1,5 +1,5 @@
 ---
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+image: {{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
@@ -21,14 +21,14 @@ packages:
 
 {{ $builderDeps := include "$nameDeps" . | fromYaml }}
 
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
+image: {{ .ImageName }}-builder
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.25" "builder/golang-alt-svace-1.25" }}
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
 import:
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+- image: {{ .ImageName }}-src-artifact
   add: /src
   to: /src
   before: install
@@ -91,9 +91,9 @@ packages:
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
+image: {{ .ImageName }}-bins
 final: false
-fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
+fromImage: base-alt-p11-binaries
 import:
 - image: tools/util-linux
   add: /
@@ -102,12 +102,12 @@ import:
   includePaths:
   - bin/mount
   - bin/umount
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
+- image: {{ .ImageName }}-builder
   add: /out
   to: /usr/local/bin
   before: setup
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
-- image: {{ .ModuleNamePrefix }}qemu
+- image: qemu
   add: /qemu-img
   to: /qemu-img
   before: install

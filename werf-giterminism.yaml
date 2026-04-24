@@ -22,6 +22,7 @@ config:
     allowValueIds:
     - SOURCE_REPO
     - GOPROXY
+    - DISTRO_PACKAGES_PROXY
 helm:
   allowUncommittedFiles:
   - "Chart.lock"
