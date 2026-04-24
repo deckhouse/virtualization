@@ -172,21 +172,21 @@ describe("cluster-report", () => {
       expect(core.setOutput).toHaveBeenCalledWith("branch", "main");
     }));
 
-  test("selects the newest matching JUnit report when multiple files exist", async () =>
+  test("fails when multiple matching JUnit reports exist", async () =>
     withTempDir(async (tempDir) => {
-      const olderXmlPath = path.join(
+      const firstXmlPath = path.join(
         tempDir,
         "nested",
         "e2e_summary_replicated_2026-04-15.xml"
       );
-      const newerXmlPath = path.join(
+      const secondXmlPath = path.join(
         tempDir,
         "e2e_summary_replicated_2026-04-16.xml"
       );
-      fs.mkdirSync(path.dirname(olderXmlPath), { recursive: true });
+      fs.mkdirSync(path.dirname(firstXmlPath), { recursive: true });
 
       fs.writeFileSync(
-        olderXmlPath,
+        firstXmlPath,
         `<?xml version="1.0" encoding="UTF-8"?>
 <testsuites tests="2" failures="1" errors="0" skipped="0">
   <testsuite name="Tests" tests="2" failures="1" errors="0" skipped="0" timestamp="2026-04-15T09:30:44">
@@ -197,51 +197,29 @@ describe("cluster-report", () => {
 `
       );
       fs.writeFileSync(
-        newerXmlPath,
+        secondXmlPath,
         `<?xml version="1.0" encoding="UTF-8"?>
 <testsuite name="Tests" tests="1" failures="0" errors="0" skipped="0" timestamp="2026-04-16T09:30:44">
   <testcase name="[It] latest pass" status="passed"></testcase>
 </testsuite>
 `
       );
-      fs.utimesSync(
-        olderXmlPath,
-        new Date("2026-04-15T09:30:44Z"),
-        new Date("2026-04-15T09:30:44Z")
-      );
-      fs.utimesSync(
-        newerXmlPath,
-        new Date("2026-04-16T09:30:44Z"),
-        new Date("2026-04-16T09:30:44Z")
-      );
 
       const reportFile = path.join(tempDir, "report.json");
-      const core = createCore();
       setStageEnv({
         E2E_REPORT_DIR: tempDir,
         REPORT_FILE: reportFile,
       });
 
-      const report = await buildClusterReport({
-        core,
-        context: createContext(),
-      });
-
-      expect(report.sourceJUnitReport).toBe(newerXmlPath);
-      expect(report.metrics).toEqual({
-        passed: 1,
-        failed: 0,
-        errors: 0,
-        skipped: 0,
-        total: 1,
-        successRate: 100,
-      });
-      expect(report.failedTests).toEqual([]);
-      expect(core.warning).toHaveBeenCalledWith(
-        expect.stringContaining(
-          "Found multiple JUnit reports for the cluster; using the newest file"
-        )
+      await expect(
+        buildClusterReport({
+          core: createCore(),
+          context: createContext(),
+        })
+      ).rejects.toThrow(
+        "Expected a single JUnit report, but found 2"
       );
+      expect(fs.existsSync(reportFile)).toBe(false);
     }));
 
   test("parses current replicated fixture report", () => {
