@@ -210,7 +210,7 @@ var _ = Describe("LifecycleHandler", func() {
 		),
 	)
 
-	It("should keep migration scheduling pending after migration starts", func() {
+	It("should keep migration scheduling in progress after migration starts", func() {
 		vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
 		vm.Status.Conditions = []metav1.Condition{{
 			Type:   string(vmcondition.TypeMigrating),
@@ -239,7 +239,7 @@ var _ = Describe("LifecycleHandler", func() {
 		_, err := h.Handle(ctx, srv.Changed())
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+		Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhaseInProgress))
 		Expect(srv.Changed().Status.Progress).To(Equal("2%"))
 		completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
 		Expect(found).To(BeTrue())
@@ -510,7 +510,7 @@ var _ = Describe("LifecycleHandler", func() {
 
 			_, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+			Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhaseInProgress))
 			Expect(srv.Changed().Status.Progress).To(Equal("2%"))
 		})
 

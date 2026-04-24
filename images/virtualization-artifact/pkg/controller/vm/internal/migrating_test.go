@@ -180,6 +180,25 @@ var _ = Describe("MigratingHandler", func() {
 			Expect(cond.Message).To(Equal("Migration is awaiting start."))
 		})
 
+		It("Should set active progress message when vmop is in progress with target scheduling reason", func() {
+			vm := newVM()
+			kvvmi := newKVVMI(nil)
+			vmop := newVMOP(v1alpha2.VMOPPhaseInProgress, vmopcondition.ReasonTargetScheduling.String(), true)
+			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi, vmop)
+
+			reconcile()
+
+			newVM := &v1alpha2.VirtualMachine{}
+			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
+			Expect(err).NotTo(HaveOccurred())
+
+			cond, exists := conditions.GetCondition(vmcondition.TypeMigrating, newVM.Status.Conditions)
+			Expect(exists).To(BeTrue())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(vmcondition.ReasonMigratingPending.String()))
+			Expect(cond.Message).To(Equal("Migration is in progress: target pod is being scheduled."))
+		})
+
 		It("Should set active progress message when vmop is in progress with target preparing reason", func() {
 			vm := newVM()
 			kvvmi := newKVVMI(nil)
