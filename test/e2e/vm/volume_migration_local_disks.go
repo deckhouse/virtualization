@@ -289,7 +289,7 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), fun
 			g.Expect(err).NotTo(HaveOccurred())
 			// TODO: remove temporary migration skip logic when both known issues are fixed:
 			// kubevirt "client socket is closed" and Volume(s)UpdateError.
-			util.SkipIfKnownMigrationFailure(vm)
+			//util.SkipIfKnownMigrationFailure(vm)
 
 			vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(context.Background(), vmopName2, metav1.GetOptions{})
 			g.Expect(err).NotTo(HaveOccurred())
