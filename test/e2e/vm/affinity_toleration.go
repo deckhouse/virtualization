@@ -81,7 +81,16 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 
 		By("Creating vm-a", func() {
 			vmA = newPlacementVM("vm-a", f.Namespace().Name, nil)
-			err := f.CreateWithDeferredDeletion(ctx, newRootVDForPlacement(vmA.Name, f.Namespace().Name), vmA)
+			err := f.CreateWithDeferredDeletion(
+				ctx,
+				object.NewVDFromCVI(
+					rootVDNameForVM(vmA.Name),
+					f.Namespace().Name,
+					object.PrecreatedCVIAlpineBIOS,
+					vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
+				),
+				vmA,
+			)
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmA)
@@ -93,9 +102,27 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 			vmD = newPlacementVM("vm-d", f.Namespace().Name, masterNodeAffinity())
 
 			objs := []crclient.Object{
-				newRootVDForPlacement(vmB.Name, f.Namespace().Name), vmB,
-				newRootVDForPlacement(vmC.Name, f.Namespace().Name), vmC,
-				newRootVDForPlacement(vmD.Name, f.Namespace().Name), vmD,
+				object.NewVDFromCVI(
+					rootVDNameForVM(vmB.Name),
+					f.Namespace().Name,
+					object.PrecreatedCVIAlpineBIOS,
+					vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
+				),
+				vmB,
+				object.NewVDFromCVI(
+					rootVDNameForVM(vmC.Name),
+					f.Namespace().Name,
+					object.PrecreatedCVIAlpineBIOS,
+					vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
+				),
+				vmC,
+				object.NewVDFromCVI(
+					rootVDNameForVM(vmD.Name),
+					f.Namespace().Name,
+					object.PrecreatedCVIAlpineBIOS,
+					vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
+				),
+				vmD,
 			}
 			err := f.CreateWithDeferredDeletion(ctx, objs...)
 			Expect(err).NotTo(HaveOccurred())
@@ -172,7 +199,16 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 
 		vmNodeSelector := newPlacementVM("vm-node-selector", f.Namespace().Name, nil)
 		By("Creating the virtual machine", func() {
-			err := f.CreateWithDeferredDeletion(ctx, newRootVDForPlacement(vmNodeSelector.Name, f.Namespace().Name), vmNodeSelector)
+			err := f.CreateWithDeferredDeletion(
+				ctx,
+				object.NewVDFromCVI(
+					rootVDNameForVM(vmNodeSelector.Name),
+					f.Namespace().Name,
+					object.PrecreatedCVIAlpineBIOS,
+					vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
+				),
+				vmNodeSelector,
+			)
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmNodeSelector)
@@ -225,7 +261,16 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 
 		vmNodeAffinity := newPlacementVM("vm-node-affinity", f.Namespace().Name, nil)
 		By("Creating the virtual machine", func() {
-			err := f.CreateWithDeferredDeletion(ctx, newRootVDForPlacement(vmNodeAffinity.Name, f.Namespace().Name), vmNodeAffinity)
+			err := f.CreateWithDeferredDeletion(
+				ctx,
+				object.NewVDFromCVI(
+					rootVDNameForVM(vmNodeAffinity.Name),
+					f.Namespace().Name,
+					object.PrecreatedCVIAlpineBIOS,
+					vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
+				),
+				vmNodeAffinity,
+			)
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmNodeAffinity)
@@ -288,15 +333,6 @@ func newPlacementVM(name, namespace string, affinity *v1alpha2.VMAffinity) *v1al
 	)
 	vm.Spec.Affinity = affinity
 	return vm
-}
-
-func newRootVDForPlacement(vmName, namespace string) *v1alpha2.VirtualDisk {
-	return object.NewVDFromCVI(
-		rootVDNameForVM(vmName),
-		namespace,
-		object.PrecreatedCVIAlpineBIOS,
-		vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
-	)
 }
 
 func rootVDNameForVM(vmName string) string {
