@@ -477,6 +477,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Node.js for report scripts
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: .github/scripts/js/package-lock.json
+
+      - name: Install report script dependencies
+        working-directory: .github/scripts/js
+        run: npm ci
+
       - name: Download E2E report artifacts
         uses: actions/download-artifact@v5
         continue-on-error: true
@@ -497,13 +508,13 @@ jobs:
           REPORT_FALLBACK_REPLICATED_FAILED_STAGE: ${{ needs.e2e-replicated.outputs.failed_stage }}
           REPORT_FALLBACK_REPLICATED_FAILED_STAGE_LABEL: ${{ needs.e2e-replicated.outputs.failed_stage_label }}
           REPORT_FALLBACK_REPLICATED_WORKFLOW_RUN_URL: ${{ needs.e2e-replicated.outputs.workflow_run_url }}
-          REPORT_FALLBACK_REPLICATED_BRANCH: ${{ needs.e2e-replicated.outputs.branch }}
+          REPORT_FALLBACK_REPLICATED_BRANCH: ${{ needs.e2e-replicated.outputs.branch || github.ref_name }}
           REPORT_FALLBACK_NFS_REPORT_KIND: ${{ needs.e2e-nfs.outputs.report_kind }}
           REPORT_FALLBACK_NFS_STATUS: ${{ needs.e2e-nfs.outputs.status }}
           REPORT_FALLBACK_NFS_FAILED_STAGE: ${{ needs.e2e-nfs.outputs.failed_stage }}
           REPORT_FALLBACK_NFS_FAILED_STAGE_LABEL: ${{ needs.e2e-nfs.outputs.failed_stage_label }}
           REPORT_FALLBACK_NFS_WORKFLOW_RUN_URL: ${{ needs.e2e-nfs.outputs.workflow_run_url }}
-          REPORT_FALLBACK_NFS_BRANCH: ${{ needs.e2e-nfs.outputs.branch }}
+          REPORT_FALLBACK_NFS_BRANCH: ${{ needs.e2e-nfs.outputs.branch || github.ref_name }}
           LOOP_API_BASE_URL: ${{ secrets.LOOP_API_BASE_URL }}
           LOOP_CHANNEL_ID: ${{ secrets.LOOP_CHANNEL_ID }}
           LOOP_TOKEN: ${{ secrets.LOOP_TOKEN }}

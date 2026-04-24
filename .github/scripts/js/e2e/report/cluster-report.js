@@ -346,7 +346,9 @@ async function buildClusterReport({ core, context }) {
   }
 
   const effectiveStageInfo =
-    stageInfo.reportKind === "tests" && parsedReport.source === "empty"
+    stageInfo.status === "success" &&
+    stageInfo.reportKind === "tests" &&
+    parsedReport.source === "empty"
       ? buildArtifactMissingDescriptor(config.storageType)
       : stageInfo;
 
