@@ -391,11 +391,11 @@ var _ = Describe("LifecycleHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(reason).To(Equal(expectedReason))
 		},
-			Entry("phase unset means target scheduling",
+			Entry("phase unset means migration pending",
 				virtv1.MigrationPhaseUnset,
 				nil,
 				nil,
-				vmopcondition.ReasonTargetScheduling,
+				vmopcondition.ReasonMigrationPending,
 			),
 			Entry("scheduled means target preparing",
 				virtv1.MigrationScheduled,
@@ -453,6 +453,7 @@ var _ = Describe("LifecycleHandler", func() {
 
 			Expect(h.calculateMigrationProgress(vmop, mig, reason)).To(Equal(expected))
 		},
+			Entry("migration pending", vmopcondition.ReasonMigrationPending, nil, int32(0)),
 			Entry("disks preparing", vmopcondition.ReasonDisksPreparing, nil, int32(1)),
 			Entry("target scheduling", vmopcondition.ReasonTargetScheduling, nil, int32(2)),
 			Entry("target unschedulable", vmopcondition.ReasonTargetUnschedulable, nil, int32(2)),
@@ -511,6 +512,28 @@ var _ = Describe("LifecycleHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
 			Expect(srv.Changed().Status.Progress).To(Equal("2%"))
+		})
+
+		It("should set migration pending reason and zero progress before scheduling starts", func() {
+			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
+			vmop := newVMOPMigrate()
+			vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+
+			mig := newSimpleMigration(fmt.Sprintf("vmop-%s", vmop.Name), name)
+			mig.Status.Phase = virtv1.MigrationPending
+
+			fakeClient, srv = setupEnvironment(vmop, vm, mig)
+			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
+			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
+			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
+
+			_, err := h.Handle(ctx, srv.Changed())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+			Expect(srv.Changed().Status.Progress).To(Equal("0%"))
+			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
+			Expect(found).To(BeTrue())
+			Expect(completed.Reason).To(Equal(vmopcondition.ReasonMigrationPending.String()))
 		})
 
 		It("should set aborted reason and preserve progress for failed migration", func() {
