@@ -162,6 +162,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			waitForFreshVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmC), startedAt, sourceNode, nodeA, false, framework.MaxTimeout)
+			util.UntilConditionStatus(vmcondition.TypeMigrating.String(), string(metav1.ConditionFalse), framework.LongTimeout, vmC)
 		})
 
 		var migratedNodeC string
@@ -182,6 +183,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			waitForFreshVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmC), startedAt, migratedNodeC, nodeA, true, framework.MaxTimeout)
+			util.UntilConditionStatus(vmcondition.TypeMigrating.String(), string(metav1.ConditionFalse), framework.LongTimeout, vmC)
 		})
 
 		By("Verifying vm-c returned to vm-a node via status.nodeName", func() {
@@ -241,6 +243,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			waitForFreshVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmNodeSelector), startedAt, sourceNode, targetNode, true, framework.MaxTimeout)
+			util.UntilConditionStatus(vmcondition.TypeMigrating.String(), string(metav1.ConditionFalse), framework.LongTimeout, vmNodeSelector)
 		})
 
 		By("Verifying the nodeSelector migration result via status.nodeName", func() {
@@ -303,6 +306,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			waitForFreshVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmNodeAffinity), startedAt, sourceNode, targetNode, true, framework.MaxTimeout)
+			util.UntilConditionStatus(vmcondition.TypeMigrating.String(), string(metav1.ConditionFalse), framework.LongTimeout, vmNodeAffinity)
 		})
 
 		By("Verifying the nodeAffinity migration result via status.nodeName", func() {
@@ -421,6 +425,9 @@ func waitForFreshVMMigration(
 		g.Expect(state.StartTimestamp).NotTo(BeNil())
 		g.Expect(state.StartTimestamp.UTC().Before(notBefore)).To(BeFalse(), "expected a fresh migration")
 		g.Expect(state.EndTimestamp.IsZero()).To(BeFalse(), "migration is not completed")
+		if state.Result == v1alpha2.MigrationResultFailed {
+			Fail(fmt.Sprintf("migration failed for vm %s/%s: %s", vm.Namespace, vm.Name, migrationFailureDetails(vm)))
+		}
 		g.Expect(state.Result).To(Equal(v1alpha2.MigrationResultSucceeded))
 		g.Expect(state.Source.Node).To(Equal(sourceNode))
 		g.Expect(vm.Status.Node).To(Equal(state.Target.Node))
@@ -430,6 +437,18 @@ func waitForFreshVMMigration(
 			g.Expect(state.Target.Node).NotTo(Equal(targetNode))
 		}
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+}
+
+func migrationFailureDetails(vm *v1alpha2.VirtualMachine) string {
+	GinkgoHelper()
+
+	for _, condition := range vm.Status.Conditions {
+		if condition.Type == vmcondition.TypeMigrating.String() {
+			return fmt.Sprintf("result=%s reason=%s message=%s source=%s target=%s current=%s", vm.Status.MigrationState.Result, condition.Reason, condition.Message, vm.Status.MigrationState.Source.Node, vm.Status.MigrationState.Target.Node, vm.Status.Node)
+		}
+	}
+
+	return fmt.Sprintf("result=%s source=%s target=%s current=%s", vm.Status.MigrationState.Result, vm.Status.MigrationState.Source.Node, vm.Status.MigrationState.Target.Node, vm.Status.Node)
 }
 
 func assertNoVMMigration(
