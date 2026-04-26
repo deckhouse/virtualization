@@ -170,3 +170,22 @@ rules:
   - deletecollection
   - patch
   - update
+- apiGroups:
+  - internal.virtualization.deckhouse.io
+  resources:
+  - internalvirtualizationkubevirts
+  - internalvirtualizationvirtualmachineinstances
+  - internalvirtualizationvirtualmachines
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cdi.internal.virtualization.deckhouse.io
+  resources:
+  - internalvirtualizationcdis
+  - internalvirtualizationdatavolumes
+  verbs:
+  - get
+  - list
+  - watch
