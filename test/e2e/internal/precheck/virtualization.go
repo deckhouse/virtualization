@@ -21,11 +21,10 @@ import (
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
-
-	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	dv1alpha1 "github.com/deckhouse/virtualization/test/e2e/internal/api/deckhouse/v1alpha1"
+	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
 const (
@@ -42,7 +41,7 @@ func (v *virtualizationPrecheck) Label() string {
 
 func (v *virtualizationPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 	if !isCheckEnabled(virtualizationModuleCheckEnvName) {
-		GinkgoWriter.Write([]byte("virtualization module check is disabled.\n"))
+		_, _ = GinkgoWriter.Write([]byte("virtualization module check is disabled.\n"))
 		return nil
 	}
 

@@ -41,7 +41,7 @@ func (c *storageClassPrecheck) Label() string {
 
 func (c *storageClassPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 	if !isCheckEnabled(storageClassPrecheckEnvName) {
-		GinkgoWriter.Write([]byte("StorageClass precheck is disabled.\n"))
+		_, _ = GinkgoWriter.Write([]byte("StorageClass precheck is disabled.\n"))
 		return nil
 	}
 

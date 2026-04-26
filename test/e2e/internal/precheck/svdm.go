@@ -24,7 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	dv1alpha1 "github.com/deckhouse/virtualization/test/e2e/internal/api/deckhouse/v1alpha1"
-
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
@@ -43,7 +42,7 @@ func (s *svdmPrecheck) Label() string {
 
 func (s *svdmPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 	if !isCheckEnabled(svdmModuleCheckEnvName) {
-		GinkgoWriter.Write([]byte("Storage Volume Data Manager (SVDM) module check is disabled.\n"))
+		_, _ = GinkgoWriter.Write([]byte("Storage Volume Data Manager (SVDM) module check is disabled.\n"))
 		return nil
 	}
 

@@ -50,7 +50,7 @@ func checkDummyHCDConfigured(f *framework.Framework) bool {
 
 	nodeUSBList, err := virtClient.NodeUSBDevices().List(ctx, metav1.ListOptions{})
 	if err != nil {
-		GinkgoWriter.Write([]byte(fmt.Sprintf("failed to list NodeUSBDevices: %v\n", err)))
+		_, _ = fmt.Fprintf(GinkgoWriter, "failed to list NodeUSBDevices: %v\n", err)
 		return false
 	}
 
@@ -65,13 +65,13 @@ func checkDummyHCDConfigured(f *framework.Framework) bool {
 
 func (u *usbPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 	if !isCheckEnabled(usbPrecheckEnvName) {
-		GinkgoWriter.Write([]byte("USB precheck is disabled.\n"))
+		_, _ = GinkgoWriter.Write([]byte("USB precheck is disabled.\n"))
 		return nil
 	}
 
 	if !checkDummyHCDConfigured(f) {
 		return fmt.Errorf("%s=no to disable this precheck: dummy_hcd USB device is not configured. "+
-			"Run generate_dummy_hcd_ngc.sh to configure dummy_hcd USB device.", usbPrecheckEnvName)
+			"Run generate_dummy_hcd_ngc.sh to configure dummy_hcd USB device", usbPrecheckEnvName)
 	}
 
 	return nil

@@ -44,7 +44,7 @@ func (c *vmcPrecheck) Label() string {
 
 func (c *vmcPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 	if !isCheckEnabled(vmcModuleCheckEnvName) {
-		GinkgoWriter.Write([]byte("VMC precheck is disabled.\n"))
+		_, _ = GinkgoWriter.Write([]byte("VMC precheck is disabled.\n"))
 		return nil
 	}
 

@@ -24,8 +24,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	. "github.com/onsi/ginkgo/v2"
+
+	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
 const (
@@ -49,10 +50,10 @@ type ginkgoReport struct {
 
 // specReport represents a spec in Ginkgo JSON report.
 type specReport struct {
-	ContainerHierarchyTexts  []string  `json:"ContainerHierarchyTexts"`
+	ContainerHierarchyTexts  []string   `json:"ContainerHierarchyTexts"`
 	ContainerHierarchyLabels [][]string `json:"ContainerHierarchyLabels"`
-	LeafNodeText             string    `json:"LeafNodeText"`
-	LeafNodeType             string    `json:"LeafNodeType"`
+	LeafNodeText             string     `json:"LeafNodeText"`
+	LeafNodeType             string     `json:"LeafNodeType"`
 }
 
 // Precheck defines interface for precheck implementations.
@@ -85,7 +86,7 @@ func RegisterPrecheck(p Precheck, isCommon bool) {
 
 // LoadSpecLabelsFromFile loads spec labels from file and filters by labelFilter.
 // Called from SynchronizedBeforeSuite.
-func LoadSpecLabelsFromFile(filename string, labelFilter string) {
+func LoadSpecLabelsFromFile(filename, labelFilter string) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		return
@@ -134,8 +135,11 @@ func LoadSpecLabelsFromFile(filename string, labelFilter string) {
 
 	// Filter specs based on FOCUS or LABELS filter.
 	// FOCUS filters by spec location (description), LABELS filters by labels.
+	// Parameter labelFilter takes precedence over LABELS env var.
 	focusRegex := os.Getenv("FOCUS")
-	labelFilter = os.Getenv("LABELS")
+	if labelFilter == "" {
+		labelFilter = os.Getenv("LABELS")
+	}
 
 	filteredSpecs := allSpecs
 	if focusRegex != "" || labelFilter != "" {
@@ -316,7 +320,7 @@ func validateSpecs(specs []specInfo) error {
 func Run(f *framework.Framework, labelFilter string) {
 	// Run common prechecks first (always run)
 	for _, p := range commonPrechecks {
-		GinkgoWriter.Write([]byte("Running common precheck: " + p.Label() + "\n"))
+		_, _ = GinkgoWriter.Write([]byte("Running common precheck: " + p.Label() + "\n"))
 		if err := p.Run(NewContext(), f); err != nil {
 			Fail("common precheck " + p.Label() + " failed: " + err.Error())
 		}
@@ -328,7 +332,7 @@ func Run(f *framework.Framework, labelFilter string) {
 		if p == nil {
 			continue
 		}
-		GinkgoWriter.Write([]byte("Running precheck: " + label + "\n"))
+		_, _ = GinkgoWriter.Write([]byte("Running precheck: " + label + "\n"))
 		if err := p.Run(NewContext(), f); err != nil {
 			Fail("precheck " + label + " failed: " + err.Error())
 		}
@@ -348,7 +352,7 @@ func isCheckEnabled(envName string) bool {
 func IsModuleEnabled(f *framework.Framework, moduleName string) bool {
 	module, err := f.GetModuleConfig(moduleName)
 	if err != nil {
-		GinkgoWriter.Write([]byte(fmt.Sprintf("failed to get %s module config: %v\n", moduleName, err)))
+		_, _ = fmt.Fprintf(GinkgoWriter, "failed to get %s module config: %v\n", moduleName, err)
 		return false
 	}
 	enabled := module.Spec.Enabled

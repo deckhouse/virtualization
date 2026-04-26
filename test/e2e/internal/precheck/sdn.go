@@ -24,11 +24,10 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	dv1alpha1 "github.com/deckhouse/virtualization/test/e2e/internal/api/deckhouse/v1alpha1"
+	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
 const (
@@ -76,7 +75,7 @@ func IsClusterNetworkExists(f *framework.Framework, vlanID int) bool {
 
 	_, err := f.DynamicClient().Resource(gvr).Get(context.Background(), ClusterNetworkName(vlanID), metav1.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
-		GinkgoWriter.Write([]byte(fmt.Sprintf("error checking ClusterNetwork %s: %v\n", ClusterNetworkName(vlanID), err)))
+		_, _ = fmt.Fprintf(GinkgoWriter, "error checking ClusterNetwork %s: %v\n", ClusterNetworkName(vlanID), err)
 	}
 
 	return err == nil || !k8serrors.IsNotFound(err)
@@ -91,7 +90,7 @@ func (s *sdnPrecheck) Label() string {
 
 func (s *sdnPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 	if !isCheckEnabled(sdnModuleCheckEnvName) {
-		GinkgoWriter.Write([]byte("SDN module check is disabled.\n"))
+		_, _ = GinkgoWriter.Write([]byte("SDN module check is disabled.\n"))
 		return nil
 	}
 

@@ -23,11 +23,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	dv1alpha1 "github.com/deckhouse/virtualization/test/e2e/internal/api/deckhouse/v1alpha1"
+	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
 const (
@@ -44,7 +43,7 @@ func (s *snapshotPrecheck) Label() string {
 
 func (s *snapshotPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 	if !isCheckEnabled(snapshotModuleCheckEnvName) {
-		GinkgoWriter.Write([]byte("snapshot-controller module check is disabled.\n"))
+		_, _ = GinkgoWriter.Write([]byte("snapshot-controller module check is disabled.\n"))
 		return nil
 	}
 
@@ -64,8 +63,8 @@ func (s *snapshotPrecheck) Run(ctx context.Context, f *framework.Framework) erro
 
 	// Check that at least one VolumeSnapshotClass exists
 	gvr := schema.GroupVersionResource{
-		Group:   "snapshot.storage.k8s.io",
-		Version: "v1",
+		Group:    "snapshot.storage.k8s.io",
+		Version:  "v1",
 		Resource: "volumesnapshotclasses",
 	}
 
