@@ -135,9 +135,17 @@ rules:
   resources:
   - clustervirtualimages
   - virtualmachineclasses
-  - nodeusbdevices
   verbs:
   - create
+  - delete
+  - deletecollection
+  - patch
+  - update
+- apiGroups:
+  - virtualization.deckhouse.io
+  resources:
+  - nodeusbdevices
+  verbs:
   - delete
   - deletecollection
   - patch
