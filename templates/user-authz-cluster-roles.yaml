@@ -19,8 +19,10 @@ rules:
   - virtualimages
   - virtualmachineblockdeviceattachments
   - virtualmachineipaddresses
+  - virtualmachinemacaddresses
   - virtualmachineclasses
   - virtualmachineoperations
+  - virtualmachinesnapshotoperations
   - usbdevices
   verbs:
   - get
@@ -47,6 +49,7 @@ rules:
   - virtualization.deckhouse.io
   resources:
   - virtualmachineoperations
+  - virtualmachinesnapshotoperations
   verbs:
   - create
 - apiGroups:
@@ -80,7 +83,9 @@ rules:
   - virtualdisksnapshots
   - virtualmachineblockdeviceattachments
   - virtualmachineipaddresses
+  - virtualmachinemacaddresses
   - virtualmachineoperations
+  - virtualmachinesnapshotoperations
   verbs:
   - create
   - delete
@@ -110,6 +115,8 @@ rules:
   - virtualization.deckhouse.io
   resources:
   - virtualmachineipaddressleases
+  - virtualmachinemacaddressleases
+  - nodeusbdevices
   verbs:
   - get
   - list
@@ -128,6 +135,7 @@ rules:
   resources:
   - clustervirtualimages
   - virtualmachineclasses
+  - nodeusbdevices
   verbs:
   - create
   - delete
@@ -147,16 +155,10 @@ rules:
   - virtualization.deckhouse.io
   resources:
   - virtualmachineipaddressleases
+  - virtualmachinemacaddressleases
   verbs:
   - create
   - delete
   - deletecollection
   - patch
-  - update
-- apiGroups:
-  - virtualization.deckhouse.io
-  resources:
-  - nodeusbdevices
-  verbs:
-  - delete
   - update
