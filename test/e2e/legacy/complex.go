@@ -29,6 +29,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
@@ -37,12 +38,12 @@ const (
 	antiAffinityLabel = "anti-affinity"
 )
 
-var _ = Describe("ComplexTest", Ordered, label.Legacy(), func() {
+var _ = Describe("ComplexTest", Ordered, label.Legacy(), Label(precheck.NoPrecheck), func() {
 	var (
 		testCaseLabel            = map[string]string{"testcase": "complex-test"}
 		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "complex-test"}
 		ns                       string
-		phaseByVolumeBindingMode = util.GetExpectedDiskPhaseByVolumeBindingMode()
+		phaseByVolumeBindingMode string
 	)
 
 	AfterEach(func() {
@@ -66,6 +67,8 @@ var _ = Describe("ComplexTest", Ordered, label.Legacy(), func() {
 		Expect(err).NotTo(HaveOccurred(), "%w", err)
 
 		CreateNamespace(ns)
+
+		phaseByVolumeBindingMode = util.GetExpectedDiskPhaseByVolumeBindingMode()
 	})
 
 	Context("When virtualization resources are applied", func() {

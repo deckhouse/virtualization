@@ -34,6 +34,7 @@ import (
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
@@ -41,7 +42,7 @@ const unacceptableCount = -1000
 
 var APIVersion = v1alpha2.SchemeGroupVersion.String()
 
-var _ = Describe("ImageHotplug", Ordered, label.Legacy(), func() {
+var _ = Describe("ImageHotplug", Ordered, label.Legacy(), Label(precheck.NoPrecheck), func() {
 	const (
 		viCount  = 2
 		cviCount = 2

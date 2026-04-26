@@ -58,11 +58,10 @@ var (
 	namePrefix string
 )
 
-func init() {
-	err := configure()
-	if err != nil {
-		panic(fmt.Errorf("failed to configure: %w", err))
-	}
+// Init configures the legacy package.
+// This should be called before using legacy test functions.
+func Init() error {
+	return configure()
 }
 
 func configure() (err error) {
@@ -107,10 +106,6 @@ func configure() (err error) {
 		return err
 	}
 
-	if err = config.CheckDefaultVMClass(clients.VirtClient()); err != nil {
-		return err
-	}
-
 	//nolint:staticcheck // It can be used in legacy tests.
 	namePrefix, err = framework.NewFramework("").GetNamePrefix(conf.StorageClass.TemplateStorageClass)
 	if err != nil {
@@ -125,6 +120,10 @@ func configure() (err error) {
 }
 
 func NewBeforeProcess1Body() {
+	if err := Init(); err != nil {
+		panic(fmt.Errorf("failed to init legacy: %w", err))
+	}
+
 	var kustomizationFiles []string
 	v := reflect.ValueOf(conf.TestData)
 	t := reflect.TypeOf(conf.TestData)
