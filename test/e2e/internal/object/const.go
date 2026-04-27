@@ -88,6 +88,12 @@ var HotplugCPUUdevRule = WriteFile{
 	Owner:   "root:root",
 }
 
+var HotplugMemoryUdevRule = WriteFile{
+	Path:    "/etc/udev/rules.d/99-hotplug-memory.rules",
+	Content: `SUBSYSTEM=="memory",ACTION=="add",DEVPATH=="/devices/system/memory/memory[0-9]*", TEST=="state", ATTR{state}!="online", ATTR{state}="online"`,
+	Owner:   "root:root",
+}
+
 var AlpineCloudInit = CloudConfig{
 	PackageUpdate: true,
 	Packages:      append(basePackages, "eudev", "iputils"),
@@ -98,6 +104,7 @@ var AlpineCloudInit = CloudConfig{
 	},
 	WriteFiles: []WriteFile{
 		HotplugCPUUdevRule,
+		HotplugMemoryUdevRule,
 	},
 }.Render()
 
