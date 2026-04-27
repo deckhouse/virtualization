@@ -88,7 +88,6 @@ type TestData struct {
 	VMMigration        string `yaml:"vmMigration"`
 	VMMigrationCancel  string `yaml:"vmMigrationCancel"`
 	VMEvacuation       string `yaml:"vmEvacuation"`
-	VMDiskAttachment   string `yaml:"vmDiskAttachment"`
 	VdSnapshots        string `yaml:"vdSnapshots"`
 	Sshkey             string `yaml:"sshKey"`
 	SSHUser            string `yaml:"sshUser"`
