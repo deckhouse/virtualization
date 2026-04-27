@@ -47,7 +47,7 @@ func (s *snapshotPrecheck) Run(ctx context.Context, f *framework.Framework) erro
 		return nil
 	}
 
-	if !IsModuleEnabled(f, snapshotModuleName) {
+	if !IsModuleEnabled(ctx, f, snapshotModuleName) {
 		return fmt.Errorf("%s=no to disable this precheck: snapshot-controller module should be enabled", snapshotModuleCheckEnvName)
 	}
 

@@ -367,7 +367,7 @@ func handleUploadResponse(resp *http.Response) error {
 }
 
 func checkStorageVolumeDataManagerEnabled() (bool, error) {
-	sdnModule, err := framework.NewFramework("").GetModuleConfig("storage-volume-data-manager")
+	sdnModule, err := framework.NewFramework("").GetModuleConfig(context.Background(), "storage-volume-data-manager")
 	if err != nil {
 		return false, err
 	}

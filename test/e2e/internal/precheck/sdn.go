@@ -64,7 +64,7 @@ EOF`, ClusterNetworkName(vlanID), vlanID)
 }
 
 // IsClusterNetworkExists checks if ClusterNetwork with given VLAN ID exists.
-func IsClusterNetworkExists(f *framework.Framework, vlanID int) bool {
+func IsClusterNetworkExists(ctx context.Context, f *framework.Framework, vlanID int) bool {
 	GinkgoHelper()
 
 	gvr := schema.GroupVersionResource{
@@ -73,7 +73,7 @@ func IsClusterNetworkExists(f *framework.Framework, vlanID int) bool {
 		Resource: "clusternetworks",
 	}
 
-	_, err := f.DynamicClient().Resource(gvr).Get(context.Background(), ClusterNetworkName(vlanID), metav1.GetOptions{})
+	_, err := f.DynamicClient().Resource(gvr).Get(ctx, ClusterNetworkName(vlanID), metav1.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		_, _ = fmt.Fprintf(GinkgoWriter, "error checking ClusterNetwork %s: %v\n", ClusterNetworkName(vlanID), err)
 	}
@@ -94,7 +94,7 @@ func (s *sdnPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 		return nil
 	}
 
-	if !IsModuleEnabled(f, sdnModuleName) {
+	if !IsModuleEnabled(ctx, f, sdnModuleName) {
 		return fmt.Errorf("%s=no to disable this precheck: SDN module should be enabled", sdnModuleCheckEnvName)
 	}
 
@@ -109,7 +109,7 @@ func (s *sdnPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 
 	// Check required ClusterNetworks for e2e tests
 	for _, vlanID := range []int{additionalInterfaceVLANID, secondAdditionalInterfaceVLANID} {
-		if !IsClusterNetworkExists(f, vlanID) {
+		if !IsClusterNetworkExists(ctx, f, vlanID) {
 			return fmt.Errorf("%s=no to disable this precheck: ClusterNetwork %q does not exist. Create it first: %s",
 				sdnModuleCheckEnvName, ClusterNetworkName(vlanID), ClusterNetworkCreateCommand(vlanID))
 		}

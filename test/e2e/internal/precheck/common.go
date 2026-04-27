@@ -349,8 +349,8 @@ func isCheckEnabled(envName string) bool {
 
 // IsModuleEnabled checks if a Deckhouse module is enabled.
 // Returns true if the module exists and is enabled (Spec.Enabled = true).
-func IsModuleEnabled(f *framework.Framework, moduleName string) bool {
-	module, err := f.GetModuleConfig(moduleName)
+func IsModuleEnabled(ctx context.Context, f *framework.Framework, moduleName string) bool {
+	module, err := f.GetModuleConfig(ctx, moduleName)
 	if err != nil {
 		_, _ = fmt.Fprintf(GinkgoWriter, "failed to get %s module config: %v\n", moduleName, err)
 		return false

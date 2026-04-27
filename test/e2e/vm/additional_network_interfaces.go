@@ -113,7 +113,14 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 
 			// If test fail due this timeout, rollback in test waiting for agent to be ready.
 			By("Wait for additional network interfaces to be ready", func() {
-				util.UntilConditionStatus(vmcondition.TypeNetworkReady.String(), "True", framework.LongTimeout, vmFoo, vmBar)
+				util.UntilConditionStatus(
+					context.Background(),
+					vmcondition.TypeNetworkReady.String(),
+					"True",
+					framework.LongTimeout,
+					vmFoo,
+					vmBar,
+				)
 			})
 
 			By("Check connectivity between VMs via additional network", func() {
@@ -149,7 +156,14 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 			})
 
 			By("Wait for additional network interfaces to be ready after migration", func() {
-				util.UntilConditionStatus(vmcondition.TypeNetworkReady.String(), "True", framework.LongTimeout, vmFoo, vmBar)
+				util.UntilConditionStatus(
+					context.Background(),
+					vmcondition.TypeNetworkReady.String(),
+					"True",
+					framework.LongTimeout,
+					vmFoo,
+					vmBar,
+				)
 			})
 
 			By("Check connectivity between VMs via additional network after migration", func() {
@@ -191,7 +205,13 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 
 				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
 				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
-				util.UntilConditionStatus(vmcondition.TypeNetworkReady.String(), "True", framework.LongTimeout, vm)
+				util.UntilConditionStatus(
+					context.Background(),
+					vmcondition.TypeNetworkReady.String(),
+					"True",
+					framework.LongTimeout,
+					vm,
+				)
 			})
 
 			By("Get last interface name via SSH", func() {
@@ -222,7 +242,13 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 				util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(vm), previousRunningTime, framework.LongTimeout)
 				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
 				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
-				util.UntilConditionStatus(vmcondition.TypeNetworkReady.String(), "True", framework.LongTimeout, vm)
+				util.UntilConditionStatus(
+					context.Background(),
+					vmcondition.TypeNetworkReady.String(),
+					"True",
+					framework.LongTimeout,
+					vm,
+				)
 			})
 
 			By("Verify last interface name has not changed", func() {

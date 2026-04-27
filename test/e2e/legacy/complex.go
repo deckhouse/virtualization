@@ -17,6 +17,7 @@ limitations under the License.
 package legacy
 
 import (
+	"context"
 	"fmt"
 	"maps"
 	"strings"
@@ -243,7 +244,7 @@ var _ = Describe("ComplexTest", Ordered, label.Legacy(), Label(precheck.NoPreche
 })
 
 func AssignIPToVMIP(f *framework.Framework, vmipNamespace, vmipName string) error {
-	mc, err := f.GetVirtualizationModuleConfig()
+	mc, err := f.GetVirtualizationModuleConfig(context.Background())
 	if err != nil {
 		return err
 	}

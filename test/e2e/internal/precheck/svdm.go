@@ -46,7 +46,7 @@ func (s *svdmPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 		return nil
 	}
 
-	if !IsModuleEnabled(f, svdmModuleName) {
+	if !IsModuleEnabled(ctx, f, svdmModuleName) {
 		return fmt.Errorf("%s=no to disable this precheck: Storage Volume Data Manager module should be enabled", svdmModuleCheckEnvName)
 	}
 

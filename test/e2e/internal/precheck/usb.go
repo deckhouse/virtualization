@@ -44,8 +44,7 @@ func (u *usbPrecheck) Label() string {
 
 // checkDummyHCDConfigured checks if dummy_hcd USB device is configured.
 // dummy_hcd is a virtual USB device used for testing USB passthrough.
-func checkDummyHCDConfigured(f *framework.Framework) bool {
-	ctx := context.Background()
+func checkDummyHCDConfigured(ctx context.Context, f *framework.Framework) bool {
 	virtClient := f.VirtClient()
 
 	nodeUSBList, err := virtClient.NodeUSBDevices().List(ctx, metav1.ListOptions{})
@@ -69,7 +68,7 @@ func (u *usbPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 		return nil
 	}
 
-	if !checkDummyHCDConfigured(f) {
+	if !checkDummyHCDConfigured(ctx, f) {
 		return fmt.Errorf("%s=no to disable this precheck: dummy_hcd USB device is not configured. "+
 			"Run generate_dummy_hcd_ngc.sh to configure dummy_hcd USB device", usbPrecheckEnvName)
 	}
