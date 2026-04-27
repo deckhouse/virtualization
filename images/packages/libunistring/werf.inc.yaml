@@ -16,7 +16,7 @@ final: false
 fromImage: builder/src
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.PACKAGE_CLONE_REPO }}
+  value: {{ .PACKAGE_CLONE_REPO }}
 shell:
   install:
   - |
@@ -42,7 +42,7 @@ final: false
 fromImage: builder/alt
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.PACKAGE_CLONE_REPO }}
+  value: {{ .PACKAGE_CLONE_REPO }}
 import:
 - image: {{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
