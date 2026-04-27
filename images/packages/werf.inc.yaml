@@ -14,7 +14,7 @@
 
 {{-    range $path, $content := $ImagePackages }}
 {{-      $ctx := dict }}
-{{-      $sourceRepo := printf "%s:deckhouse/3p" $Root.DECKHOUSE_PRIVATE_REPO }}
+{{-      $sourceRepo := printf "git@%s:deckhouse/3p" $Root.DECKHOUSE_PRIVATE_REPO }}
 {{-      if $Root.DistroPackagesProxy }}
 {{-        $sourceRepo = $Root.SOURCE_REPO }}
 {{-      end }}
