@@ -47,10 +47,12 @@ dependencies:
     - type: ImageDigest
       targetEnv: MODULE_IMAGE_DIGEST_{{ $ImageNameCamel }}
   {{- end }}
+import:
+- from: tools/jq
+  add: /usr/bin/jq
+  to: /usr/bin/jq
+  before: setup
 shell:
-  beforeInstall:
-  {{- include "alpine packages proxy" . | nindent 4 }}
-    - apk add --no-cache jq
   setup:
     - |
       env | grep MODULE_IMAGE_DIGEST | jq -Rn '
