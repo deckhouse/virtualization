@@ -25,7 +25,6 @@ import (
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -353,11 +352,6 @@ func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1al
 			}
 		}
 
-		requestedSize, err := getOriginalRequestedSize(ctx, client, vdSnapshot)
-		if err != nil {
-			return nil, err
-		}
-
 		vd := v1alpha2.VirtualDisk{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       v1alpha2.VirtualDiskKind,
@@ -374,9 +368,6 @@ func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1al
 						Kind: v1alpha2.VirtualDiskObjectRefKindVirtualDiskSnapshot,
 						Name: vdSnapshot.Name,
 					},
-				},
-				PersistentVolumeClaim: v1alpha2.VirtualDiskPersistentVolumeClaim{
-					Size: requestedSize,
 				},
 			},
 			Status: v1alpha2.VirtualDiskStatus{
@@ -489,34 +480,6 @@ func AddOriginalMetadata(ctx context.Context, vd *v1alpha2.VirtualDisk, vdSnapsh
 		setOriginalAnnotations(vd, vs),
 		setOriginalLabels(vd, vs),
 	)
-}
-
-func getOriginalRequestedSize(ctx context.Context, client client.Client, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (*resource.Quantity, error) {
-	vsKey := types.NamespacedName{
-		Namespace: vdSnapshot.Namespace,
-		Name:      vdSnapshot.Status.VolumeSnapshotName,
-	}
-
-	vs, err := object.FetchObject(ctx, vsKey, client, &vsv1.VolumeSnapshot{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch the volume snapshot %q: %w", vsKey.Name, err)
-	}
-
-	if vs == nil {
-		return nil, fmt.Errorf("the volume snapshot %q is nil, please report a bug", vsKey.Name)
-	}
-
-	requestedSize := vs.Annotations[annotations.AnnVirtualDiskRequestedSize]
-	if requestedSize == "" {
-		return nil, nil
-	}
-
-	size, err := resource.ParseQuantity(requestedSize)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse the original requested size %q: %w", requestedSize, err)
-	}
-
-	return &size, nil
 }
 
 func setOriginalAnnotations(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) error {
