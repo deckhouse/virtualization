@@ -1270,6 +1270,7 @@ jobs:
           DATE=$(date +"%Y-%m-%d")
           START_TIME=$(date +"%H:%M:%S")
           summary_file_name_junit="e2e_summary_${CSI}_${DATE}.xml"
+          ginkgo_json_report="e2e_summary_${CSI}_${DATE}-ginkgo-report".json"
           summary_file_name_json="e2e_summary_${CSI}_${DATE}.json"
 
           cp -a legacy/testdata /tmp/testdata
@@ -1280,10 +1281,12 @@ jobs:
             go tool ginkgo \
               --focus="$FOCUS" \
               -v --race --timeout=$TIMEOUT \
+              --json-report=$ginkgo_json_report \
               --junit-report=$summary_file_name_junit | tee $GINKGO_RESULT
           else
             go tool ginkgo \
               -v --race --timeout=$TIMEOUT \
+              --json-report=$ginkgo_json_report \
               --junit-report=$summary_file_name_junit | tee $GINKGO_RESULT
           fi
           GINKGO_EXIT_CODE=$?
