@@ -67,6 +67,9 @@ jobs:
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
       - uses: deckhouse/modules-actions/build@v4
+        env:
+          SOURCE_REPO: "${{secrets.SOURCE_REPO}}"
+          DECKHOUSE_PRIVATE_REPO: "${{secrets.DECKHOUSE_PRIVATE_REPO}}"
         with:
           module_source: ${{ vars.DEV_MODULE_SOURCE}}
           module_name: ${{ vars.MODULE_NAME }}
