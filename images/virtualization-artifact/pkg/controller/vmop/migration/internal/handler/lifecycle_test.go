@@ -210,7 +210,7 @@ var _ = Describe("LifecycleHandler", func() {
 		),
 	)
 
-	It("should keep migration scheduling pending after migration starts", func() {
+	It("should keep migration scheduling in progress after migration starts", func() {
 		vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
 		vm.Status.Conditions = []metav1.Condition{{
 			Type:   string(vmcondition.TypeMigrating),
@@ -239,7 +239,7 @@ var _ = Describe("LifecycleHandler", func() {
 		_, err := h.Handle(ctx, srv.Changed())
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+		Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhaseInProgress))
 		Expect(srv.Changed().Status.Progress).To(Equal("2%"))
 		completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
 		Expect(found).To(BeTrue())
@@ -391,11 +391,11 @@ var _ = Describe("LifecycleHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(reason).To(Equal(expectedReason))
 		},
-			Entry("phase unset means target scheduling",
+			Entry("phase unset means migration pending",
 				virtv1.MigrationPhaseUnset,
 				nil,
 				nil,
-				vmopcondition.ReasonTargetScheduling,
+				vmopcondition.ReasonMigrationPending,
 			),
 			Entry("scheduled means target preparing",
 				virtv1.MigrationScheduled,
@@ -453,6 +453,7 @@ var _ = Describe("LifecycleHandler", func() {
 
 			Expect(h.calculateMigrationProgress(vmop, mig, reason)).To(Equal(expected))
 		},
+			Entry("migration pending", vmopcondition.ReasonMigrationPending, nil, int32(0)),
 			Entry("disks preparing", vmopcondition.ReasonDisksPreparing, nil, int32(1)),
 			Entry("target scheduling", vmopcondition.ReasonTargetScheduling, nil, int32(2)),
 			Entry("target unschedulable", vmopcondition.ReasonTargetUnschedulable, nil, int32(2)),
@@ -509,8 +510,30 @@ var _ = Describe("LifecycleHandler", func() {
 
 			_, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+			Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhaseInProgress))
 			Expect(srv.Changed().Status.Progress).To(Equal("2%"))
+		})
+
+		It("should set migration pending reason and zero progress before scheduling starts", func() {
+			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
+			vmop := newVMOPMigrate()
+			vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+
+			mig := newSimpleMigration(fmt.Sprintf("vmop-%s", vmop.Name), name)
+			mig.Status.Phase = virtv1.MigrationPending
+
+			fakeClient, srv = setupEnvironment(vmop, vm, mig)
+			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
+			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
+			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
+
+			_, err := h.Handle(ctx, srv.Changed())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+			Expect(srv.Changed().Status.Progress).To(Equal("0%"))
+			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
+			Expect(found).To(BeTrue())
+			Expect(completed.Reason).To(Equal(vmopcondition.ReasonMigrationPending.String()))
 		})
 
 		It("should set aborted reason and preserve progress for failed migration", func() {
@@ -818,6 +841,41 @@ var _ = Describe("LifecycleHandler", func() {
 			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
 			Expect(found).To(BeTrue())
 			Expect(completed.Reason).To(Equal(vmopcondition.ReasonAborted.String()))
+		})
+
+		It("should return generic unschedulable message for target pod condition", func() {
+			mig := newSimpleMigration("vmop-test", name)
+			mig.UID = "migration-uid"
+			mig.Status.Phase = virtv1.MigrationScheduling
+
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespace,
+					Name:      "target-pod",
+					Labels: map[string]string{
+						virtv1.AppLabel:          "virt-launcher",
+						virtv1.MigrationJobLabel: "migration-uid",
+					},
+				},
+				Status: corev1.PodStatus{
+					Phase: corev1.PodPending,
+					Conditions: []corev1.PodCondition{{
+						Type:    corev1.PodScheduled,
+						Status:  corev1.ConditionFalse,
+						Reason:  corev1.PodReasonUnschedulable,
+						Message: "0/3 nodes are available: 3 Insufficient memory.",
+					}},
+				},
+			}
+
+			fakeClient, err := testutil.NewFakeClientWithObjects(mig, pod)
+			Expect(err).NotTo(HaveOccurred())
+
+			h := LifecycleHandler{client: fakeClient}
+			reason, msg, err := h.getInProgressReasonAndMessage(ctx, mig)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(reason).To(Equal(vmopcondition.ReasonTargetUnschedulable))
+			Expect(msg).To(Equal("Target pod \"default/target-pod\" is unschedulable"))
 		})
 
 		It("should return TargetDiskError when target pod has disk attach error", func() {
