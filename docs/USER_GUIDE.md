@@ -1410,10 +1410,10 @@ spec:
 For most modern Linux distributions, it is recommended to use `bootloader: EFI`. For Windows, `bootloader: EFI` or `bootloader: EFIWithSecureBoot` is usually required.
 {{< /alert >}}
 
-The `enableParavirtualization` parameter controls the use of the `virtio` bus for connecting virtual devices of the VM:
+The `enableParavirtualization` parameter controls the use of the `virtio` bus for connecting virtual devices to the VM. Changing the parameter value takes effect only after the VM is restarted.
 
-- `true` (default) — uses the `virtio` bus for disks, network interfaces, and other devices, providing better performance.
-- `false` — uses standard device emulation (SATA for disks, e1000e for network interfaces), which may be necessary for compatibility with older operating systems.
+- `true` (default): The `virtio` bus is used for disks, network interfaces, and other devices, which provides better performance. You can change `.spec.blockDeviceRefs` on a running VM without rebooting by adding and removing devices if the disk is available on the node where the VM runs.
+- `false`: Standard device emulation is used (SATA for disks, e1000e for network interfaces), which may be required for compatibility with older guest OSes without `VirtIO` drivers. Changes to `.spec.blockDeviceRefs` on a running VM (adding or removing disks and images, including ISO images) take effect after rebooting the VM. To attach and detach disks without rebooting, use the [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (`vmbda`) resource without changing the list in the VM specification.
 
 {{< alert level="info" >}}
 To use paravirtualization mode (`virtio`), some operating systems require installing the corresponding drivers. If drivers are not installed, the VM may fail to boot or devices may not work correctly.
@@ -2172,23 +2172,54 @@ d8 k get nodes -o custom-columns=NAME:.metadata.name,ZONE:.metadata.labels.topol
 
 ### Attaching block devices (disks and images)
 
-Block devices can be divided into two types based on how they are connected: static and dynamic (hotplug).
+You can attach disks and images to a virtual machine. They are described as block devices (BlockDevices).
 
-Block devices and their features are shown in the table below:
+Block device types and access modes:
 
-| Block device type     | Comment                                                   |
-| --------------------- | --------------------------------------------------------- |
-| `VirtualImage`        | connected in read-only mode, or as a cdrom for iso images |
-| `ClusterVirtualImage` | connected in read-only mode, or as a cdrom for iso images |
-| `VirtualDisk`         | connects in read/write mode                               |
+| Block device type                                                          | Comment                                                     |
+|----------------------------------------------------------------------------|-------------------------------------------------------------|
+| [VirtualImage](/modules/virtualization/cr.html#virtualimage)               | Connected in read-only mode, or as a CD-ROM for ISO images. |
+| [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) | Connected in read-only mode, or as a CD-ROM for ISO images. |
+| [VirtualDisk](/modules/virtualization/cr.html#virtualdisk)                 | Connected in read/write mode.                               |
 
-#### Boot Block Devices
+Two attachment methods are available:
 
-Boot block devices are defined in the virtual machine specification in the `.spec.blockDeviceRefs` block as a list. The order of the devices in this list determines the sequence in which they are loaded. Thus, if a disk or image is specified first, the loader will first try to boot from it. If it fails, the system will go to the next device in the list and try to boot from it. And so on until the first boot loader is detected.
+- Via the VM specification (`.spec.blockDeviceRefs`): Disks are listed in the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) configuration and boot order is set for them (by position in the list or via the `bootOrder` field). Recommended when configuring the VM manually or via GitOps, or when you need to control boot order (e.g., an ISO for OS installation).
+- Via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (`vmbda`): Disk is attached via a separate resource and does not participate in boot order. Disks are always attached using the `virtio-scsi` bus regardless of `enableParavirtualization`. Recommended for automation and when you do not have permission to edit the VM.
 
-Changing the composition and order of devices in the `.spec.blockDeviceRefs` block is possible only with a reboot of the virtual machine.
+With `enableParavirtualization: true`, both methods let you attach and detach disks on a running VM without rebooting, if the disk is available on the node where the VM runs. With `enableParavirtualization: false`, the `.spec.blockDeviceRefs` list on a running VM changes only after a reboot; you can still attach and detach disks without rebooting using [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (`vmbda`).
 
-VirtualMachine configuration fragment with statically connected disk and project image:
+{{< alert level="warning" >}}
+For VMs with `enableParavirtualization: false`, the following applies:
+
+- devices in `.spec.blockDeviceRefs` use the SATA bus; changes to the list on a running VM (adding or removing a disk, including an ISO image) take effect after rebooting the VM. Account for this when using the web interface and in automation;
+- disks attached through [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) use the `virtio-scsi` bus and can be attached and detached without rebooting the VM; `VirtIO` drivers for the SCSI controller must be installed in the guest OS, otherwise the disk may not appear in the OS even when the `vmbda` resource is created successfully in the cluster.
+{{< /alert >}}
+
+Hot-plugging (hotplug) is only possible if the storage is available on the cluster node where the virtual machine runs. When you create or update a VM, or create a `vmbda`, placement rules (`nodeSelector`, `affinity`, `tolerations`) for the volume, the VM, and the VM class are taken into account: there must be at least one valid combined placement. If the VM is already running on a specific node, a new disk must be available on that node.
+
+#### Attaching via the VM specification
+
+The list of block devices is defined in the `.spec.blockDeviceRefs` field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
+
+By default, boot order follows the order of devices in the list. You can set it explicitly with the optional `bootOrder` field (smaller value means higher priority). If `bootOrder` is set for at least one device, only devices with `bootOrder` set are included in the boot sequence. Allowed values: integers ≥ 1, unique within the list. When you remove a device from the list, boot order is recalculated for the remaining devices.
+
+Changing the order of devices in the list or their `bootOrder` values takes effect after a VM reboot. For example, you can attach an ISO image for OS installation with the desired boot priority, then remove it from the list after installation. If paravirtualization is disabled (`enableParavirtualization: false`), edits to `.spec.blockDeviceRefs` on a running VM, including for ISO images, apply after rebooting the VM.
+
+Virtual machine configuration fragment with block devices and explicit boot order:
+
+```yaml
+spec:
+  blockDeviceRefs:
+    - kind: VirtualDisk
+      name: <virtual-disk-name>
+      bootOrder: 1
+    - kind: VirtualImage
+      name: <virtual-image-name>
+      bootOrder: 2
+```
+
+To attach a disk to a running virtual machine, add it to the `.spec.blockDeviceRefs` list:
 
 ```yaml
 spec:
@@ -2197,7 +2228,11 @@ spec:
       name: <virtual-disk-name>
     - kind: VirtualImage
       name: <virtual-image-name>
+    - kind: VirtualDisk
+      name: <additional-disk-name>
 ```
+
+To detach a disk, remove it from the list. When `enableParavirtualization: false`, list changes on a running VM take effect after rebooting the VM.
 
 How to work with bootable block devices in the web interface:
 
@@ -2212,15 +2247,13 @@ How to work with bootable block devices in the web interface:
   - Resize: Change the size of the disk.
   - Reorder: Change the boot order of devices.
 
-#### Additional Block Devices
+#### Attaching via VirtualMachineBlockDeviceAttachment (vmbda)
 
-Additional block devices can be connected and disconnected from a virtual machine that is in a running state without having to reboot it.
+The [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) resource attaches and detaches a block device to or from a VM without changing its spec. Suited for automation and scenarios when the user does not have permission to edit the VM.
 
-The `VirtualMachineBlockDeviceAttachment` (`vmbda`) resource is used to connect additional block devices.
+Create a resource that attaches the empty disk `blank-disk` to the virtual machine `linux-vm`:
 
-As an example, create the following share that connects an empty blank-disk disk to a linux-vm virtual machine:
-
-```yaml
+```shell
 d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineBlockDeviceAttachment
@@ -2234,15 +2267,15 @@ spec:
 EOF
 ```
 
-After creation, `VirtualMachineBlockDeviceAttachment` can be in the following states (phases):
+After creation, [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) can be in the following states:
 
 - `Pending` - waiting for all dependent resources to be ready.
 - `InProgress` - the process of device connection is in progress.
 - `Attached` - the device is connected.
 
-Diagnosing problems with a resource is done by analyzing the information in the `.status.conditions` block
+Diagnosing problems with the resource is done by analyzing the information in the `.status.conditions` block.
 
-Check the state of your resource::
+Check the state of your resource:
 
 ```bash
 d8 k get vmbda attach-blank-disk
@@ -2250,8 +2283,8 @@ d8 k get vmbda attach-blank-disk
 
 Example output:
 
-```txt
-NAME              PHASE      VIRTUAL MACHINE NAME   AGE
+```console
+NAME                PHASE      VIRTUAL MACHINE NAME   AGE
 attach-blank-disk   Attached   linux-vm              3m7s
 ```
 
@@ -2263,14 +2296,14 @@ d8 v ssh cloud@linux-vm --local-ssh --command "lsblk"
 
 Example output:
 
-```txt
+```console
 NAME    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
-sda       8:0    0   10G  0 disk <--- statically mounted linux-vm-root disk
+sda       8:0    0   10G  0 disk <--- statically attached linux-vm-root disk
 |-sda1    8:1    0  9.9G  0 part /
 |-sda14   8:14   0    4M  0 part
 `-sda15   8:15   0  106M  0 part /boot/efi
 sdb       8:16   0    1M  0 disk <--- cloudinit
-sdc       8:32   0 95.9M  0 disk <--- dynamically mounted disk blank-disk
+sdc       8:32   0 95.9M  0 disk <--- dynamically attached disk blank-disk
 ```
 
 To detach the disk from the virtual machine, delete the previously created resource:
@@ -2279,9 +2312,9 @@ To detach the disk from the virtual machine, delete the previously created resou
 d8 k delete vmbda attach-blank-disk
 ```
 
-Attaching images is done by analogy. To do this, specify `VirtualImage` or `ClusterVirtualImage` and the image name as `kind`:
+Attaching images is done by analogy: set the `kind` field to VirtualImage or ClusterVirtualImage and the image name.
 
-```yaml
+```bash
 d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineBlockDeviceAttachment
