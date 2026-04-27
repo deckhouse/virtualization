@@ -49,6 +49,7 @@ type WriteFile struct {
 	Permissions string `json:"permissions,omitempty"`
 	Content     string `json:"content,omitempty"`
 	Append      bool   `json:"append,omitempty"`
+	Owner       string `json:"owner,omitempty"`
 }
 
 const defaultSSHPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxcXHmwaGnJ8scJaEN5RzklBPZpVSic4GdaAsKjQoeA your_email@example.com"
