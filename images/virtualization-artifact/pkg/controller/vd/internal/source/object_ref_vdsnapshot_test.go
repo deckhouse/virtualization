@@ -217,7 +217,6 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 			Entry("from VD spec size when it is set", "30Gi", "20Gi", "10Gi", "30Gi"),
 			Entry("from restore size when annotation and VD size are omitted", "", "", "10Gi", "10Gi"),
 		)
-
 	})
 
 	Context("VirtualDisk waits for the PVC to be Bound", func() {

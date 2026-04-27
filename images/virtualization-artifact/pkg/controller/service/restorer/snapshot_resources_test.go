@@ -105,5 +105,4 @@ var _ = Describe("SnapshotResources.Prepare", func() {
 		Expect(restoredVM.Spec.Networks[0].VirtualMachineMACAddressName).To(BeEmpty())
 		Expect(restoredVM.Spec.Networks[1].VirtualMachineMACAddressName).To(Equal("vm-mac-secondary"))
 	})
-
 })
