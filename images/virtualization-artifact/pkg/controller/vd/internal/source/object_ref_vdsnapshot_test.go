@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
@@ -34,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -179,6 +181,43 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
 			Expect(vd.Status.Target.PersistentVolumeClaim).NotTo(BeEmpty())
 		})
+
+		DescribeTable("sets PVC size",
+			func(vdSize, originalRequestedSize, restoreSize, expectedSize string) {
+				if vdSize != "" {
+					vd.Spec.PersistentVolumeClaim.Size = ptr.To(resource.MustParse(vdSize))
+				}
+				if originalRequestedSize != "" {
+					vs.Annotations = map[string]string{
+						annotations.AnnVirtualDiskRequestedSize: originalRequestedSize,
+					}
+				}
+				if restoreSize != "" {
+					vs.Status.RestoreSize = ptr.To(resource.MustParse(restoreSize))
+				}
+
+				client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vdSnapshot, vs).
+					WithInterceptorFuncs(interceptor.Funcs{
+						Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
+							pvc, ok := obj.(*corev1.PersistentVolumeClaim)
+							Expect(ok).To(BeTrue())
+							actualSize := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
+							Expect(actualSize.String()).To(Equal(expectedSize))
+							return nil
+						},
+					}).Build()
+
+				syncer := NewObjectRefVirtualDiskSnapshot(recorder, svc, client)
+
+				res, err := syncer.Sync(ctx, vd)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(res.IsZero()).To(BeTrue())
+			},
+			Entry("from original requested size annotation when VD size is omitted", "", "20Gi", "10Gi", "20Gi"),
+			Entry("from VD spec size when it is set", "30Gi", "20Gi", "10Gi", "30Gi"),
+			Entry("from restore size when annotation and VD size are omitted", "", "", "10Gi", "10Gi"),
+		)
+
 	})
 
 	Context("VirtualDisk waits for the PVC to be Bound", func() {
