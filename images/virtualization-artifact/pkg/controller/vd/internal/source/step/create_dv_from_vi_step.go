@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -68,6 +69,8 @@ func (s CreateDataVolumeFromVirtualImageStep) Take(ctx context.Context, vd *v1al
 	if s.pvc != nil || s.dv != nil {
 		return nil, nil
 	}
+
+	logger.FromContext(ctx).Info("[GOGOGO] STEP CreateDataVolumeFromVirtualImageStep")
 
 	viRefKey := types.NamespacedName{Name: vd.Spec.DataSource.ObjectRef.Name, Namespace: vd.Namespace}
 	viRef, err := object.FetchObject(ctx, viRefKey, s.client, &v1alpha2.VirtualImage{})

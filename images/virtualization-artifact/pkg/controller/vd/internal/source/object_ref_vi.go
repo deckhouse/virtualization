@@ -20,7 +20,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -71,6 +73,8 @@ func (ds ObjectRefVirtualImage) Sync(ctx context.Context, vd *v1alpha2.VirtualDi
 		return reconcile.Result{}, fmt.Errorf("fetch dv: %w", err)
 	}
 
+	logger.FromContext(ctx).Info("[GOGOGO] Reconcile virtual disk", "datavolume", safenil(dv), "pvc", safenil(pvc))
+
 	return steptaker.NewStepTakers[*v1alpha2.VirtualDisk](
 		step.NewReadyStep(ds.diskService, pvc, cb),
 		step.NewTerminatingStep(pvc),
@@ -79,6 +83,14 @@ func (ds ObjectRefVirtualImage) Sync(ctx context.Context, vd *v1alpha2.VirtualDi
 		step.NewWaitForDVStep(pvc, dv, ds.diskService, ds.client, cb),
 		step.NewWaitForPVCStep(pvc, ds.client, cb),
 	).Run(ctx, vd)
+}
+
+func safenil(o client.Object) string {
+	if o == nil || reflect.ValueOf(o).IsNil() {
+		return "nil"
+	}
+
+	return o.GetName()
 }
 
 func (ds ObjectRefVirtualImage) Validate(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
