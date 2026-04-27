@@ -1320,13 +1320,13 @@ Next, the system automatically determines the topology depending on the specifie
   - 8 sockets are used.
   - Cores are evenly distributed among the sockets.
   - Step change: 8 (the total number of cores must be a multiple of 8).
-  - Valid values: 72, 80, 88, 96, and so on up to 128.
+  - Valid values: 72, 80, 88, 96, and so on up to 248.
   - Limitations: minimum 9 cores per socket.
   - Example: If `.spec.cpu.cores` = 80, topology: 8 sockets with 10 cores each.
 
 The change step indicates by how much the total number of cores can be increased or decreased so that they are evenly distributed across the sockets.
 
-The maximum possible number of cores is 128.
+The maximum possible number of cores is 248.
 
 Summary table by `spec.cpu.cores` range:
 
@@ -1335,7 +1335,7 @@ Summary table by `spec.cpu.cores` range:
 | `1 ≤ cores ≤ 16`   | 1                 | 1           | 1                        | 16                       |
 | `16 < cores ≤ 32`  | 2                 | 2           | 9                        | 16                       |
 | `32 < cores ≤ 64`  | 4                 | 4           | 9                        | 16                       |
-| `64 < cores ≤ 128` | 8                 | 8           | 9                        | 16                       |
+| `64 < cores ≤ 248` | 8                 | 8           | 9                        | 16                       |
 
 Memory overhead does not depend on the maximum possible vCPU topology; it is calculated from actively used cores: (sockets × cores per socket × threads per core) × 8 MiB per logical CPU.
 
