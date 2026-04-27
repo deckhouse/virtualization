@@ -49,6 +49,7 @@ dependencies:
   {{- end }}
 shell:
   beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
     - apk add --no-cache jq
   setup:
     - |
