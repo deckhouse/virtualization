@@ -28,6 +28,7 @@ func TestCpuCountValidate(t *testing.T) {
 		desiredCores int
 		valid        bool
 	}{
+		// 1 socket topology
 		{1, true},
 		{2, true},
 		{3, true},
@@ -36,12 +37,14 @@ func TestCpuCountValidate(t *testing.T) {
 		{15, true},
 		{16, true},
 
+		// 2 sockets topology
 		{18, true},
 		{19, false},
 		{20, true},
 		{31, false},
 		{32, true},
 
+		// 4 sockets topology
 		{36, true},
 		{37, false},
 		{40, true},
@@ -49,12 +52,16 @@ func TestCpuCountValidate(t *testing.T) {
 		{63, false},
 		{64, true},
 
+		// 8 sockets topology
 		{72, true},
 		{76, false},
 		{80, true},
+		// Maximum cores count.
 		{248, true},
-		{256, true},
+
+		// Beyond maximum.
 		{252, false},
+		{256, false},
 	}
 
 	for i, test := range tests {
