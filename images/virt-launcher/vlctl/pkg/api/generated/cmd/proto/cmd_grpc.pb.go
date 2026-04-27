@@ -36,6 +36,8 @@ const (
 	Cmd_HotplugHostDevices_FullMethodName              = "/kubevirt.cmd.v1.Cmd/HotplugHostDevices"
 	Cmd_GetDomain_FullMethodName                       = "/kubevirt.cmd.v1.Cmd/GetDomain"
 	Cmd_GetDomainStats_FullMethodName                  = "/kubevirt.cmd.v1.Cmd/GetDomainStats"
+	Cmd_GetBlockJobsStatus_FullMethodName              = "/kubevirt.cmd.v1.Cmd/GetBlockJobsStatus"
+	Cmd_GetJobsStatus_FullMethodName                   = "/kubevirt.cmd.v1.Cmd/GetJobsStatus"
 	Cmd_GetGuestInfo_FullMethodName                    = "/kubevirt.cmd.v1.Cmd/GetGuestInfo"
 	Cmd_GetUsers_FullMethodName                        = "/kubevirt.cmd.v1.Cmd/GetUsers"
 	Cmd_GetFilesystems_FullMethodName                  = "/kubevirt.cmd.v1.Cmd/GetFilesystems"
@@ -74,6 +76,8 @@ type CmdClient interface {
 	HotplugHostDevices(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error)
 	GetDomain(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*DomainResponse, error)
 	GetDomainStats(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*DomainStatsResponse, error)
+	GetBlockJobsStatus(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*BlockJobsStatusResponse, error)
+	GetJobsStatus(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*JobsStatusResponse, error)
 	GetGuestInfo(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*GuestInfoResponse, error)
 	GetUsers(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*GuestUserListResponse, error)
 	GetFilesystems(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*GuestFilesystemsResponse, error)
@@ -269,6 +273,26 @@ func (c *cmdClient) GetDomainStats(ctx context.Context, in *EmptyRequest, opts .
 	return out, nil
 }
 
+func (c *cmdClient) GetBlockJobsStatus(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*BlockJobsStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BlockJobsStatusResponse)
+	err := c.cc.Invoke(ctx, Cmd_GetBlockJobsStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cmdClient) GetJobsStatus(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*JobsStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(JobsStatusResponse)
+	err := c.cc.Invoke(ctx, Cmd_GetJobsStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *cmdClient) GetGuestInfo(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*GuestInfoResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GuestInfoResponse)
@@ -440,6 +464,8 @@ type CmdServer interface {
 	HotplugHostDevices(context.Context, *VMIRequest) (*Response, error)
 	GetDomain(context.Context, *EmptyRequest) (*DomainResponse, error)
 	GetDomainStats(context.Context, *EmptyRequest) (*DomainStatsResponse, error)
+	GetBlockJobsStatus(context.Context, *EmptyRequest) (*BlockJobsStatusResponse, error)
+	GetJobsStatus(context.Context, *EmptyRequest) (*JobsStatusResponse, error)
 	GetGuestInfo(context.Context, *EmptyRequest) (*GuestInfoResponse, error)
 	GetUsers(context.Context, *EmptyRequest) (*GuestUserListResponse, error)
 	GetFilesystems(context.Context, *EmptyRequest) (*GuestFilesystemsResponse, error)
@@ -515,6 +541,12 @@ func (UnimplementedCmdServer) GetDomain(context.Context, *EmptyRequest) (*Domain
 }
 func (UnimplementedCmdServer) GetDomainStats(context.Context, *EmptyRequest) (*DomainStatsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDomainStats not implemented")
+}
+func (UnimplementedCmdServer) GetBlockJobsStatus(context.Context, *EmptyRequest) (*BlockJobsStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBlockJobsStatus not implemented")
+}
+func (UnimplementedCmdServer) GetJobsStatus(context.Context, *EmptyRequest) (*JobsStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetJobsStatus not implemented")
 }
 func (UnimplementedCmdServer) GetGuestInfo(context.Context, *EmptyRequest) (*GuestInfoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetGuestInfo not implemented")
@@ -888,6 +920,42 @@ func _Cmd_GetDomainStats_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Cmd_GetBlockJobsStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EmptyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CmdServer).GetBlockJobsStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Cmd_GetBlockJobsStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CmdServer).GetBlockJobsStatus(ctx, req.(*EmptyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Cmd_GetJobsStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EmptyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CmdServer).GetJobsStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Cmd_GetJobsStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CmdServer).GetJobsStatus(ctx, req.(*EmptyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Cmd_GetGuestInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(EmptyRequest)
 	if err := dec(in); err != nil {
@@ -1232,6 +1300,14 @@ var Cmd_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetDomainStats",
 			Handler:    _Cmd_GetDomainStats_Handler,
+		},
+		{
+			MethodName: "GetBlockJobsStatus",
+			Handler:    _Cmd_GetBlockJobsStatus_Handler,
+		},
+		{
+			MethodName: "GetJobsStatus",
+			Handler:    _Cmd_GetJobsStatus_Handler,
 		},
 		{
 			MethodName: "GetGuestInfo",

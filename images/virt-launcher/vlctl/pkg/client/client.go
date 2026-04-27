@@ -53,6 +53,8 @@ const (
 type LauncherClient interface {
 	GetDomain() (*api.Domain, bool, error)
 	GetDomainStats() (*api.DomainStats, bool, error)
+	GetBlockJobsStatus() (*api.BlockJobsStatus, error)
+	GetJobsStatus() (*api.JobsStatus, error)
 	GetGuestInfo() (*v1.VirtualMachineInstanceGuestAgentInfo, error)
 	GetUsers() (v1.VirtualMachineInstanceGuestOSUserList, error)
 	GetFilesystems() (v1.VirtualMachineInstanceFileSystemList, error)
@@ -172,6 +174,58 @@ func (v VirtLauncherClient) GetDomainStats() (*api.DomainStats, bool, error) {
 		exists = true
 	}
 	return stats, exists, nil
+}
+
+func (v VirtLauncherClient) GetBlockJobsStatus() (*api.BlockJobsStatus, error) {
+	result := &api.BlockJobsStatus{}
+
+	request := &cmdproto.EmptyRequest{}
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
+
+	blockJobsResponse, err := v.v1client.GetBlockJobsStatus(ctx, request)
+	var response *cmdproto.Response
+	if blockJobsResponse != nil {
+		response = blockJobsResponse.Response
+	}
+
+	if err = handleError(err, "GetBlockJobsStatus", response); err != nil || blockJobsResponse == nil {
+		return nil, err
+	}
+
+	if blockJobsResponse.BlockJobsStatus != "" {
+		if err := json.Unmarshal([]byte(blockJobsResponse.BlockJobsStatus), result); err != nil {
+			return nil, err
+		}
+	}
+
+	return result, nil
+}
+
+func (v VirtLauncherClient) GetJobsStatus() (*api.JobsStatus, error) {
+	result := &api.JobsStatus{}
+
+	request := &cmdproto.EmptyRequest{}
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
+
+	jobsResponse, err := v.v1client.GetJobsStatus(ctx, request)
+	var response *cmdproto.Response
+	if jobsResponse != nil {
+		response = jobsResponse.Response
+	}
+
+	if err = handleError(err, "GetJobsStatus", response); err != nil || jobsResponse == nil {
+		return nil, err
+	}
+
+	if jobsResponse.JobsStatus != "" {
+		if err := json.Unmarshal([]byte(jobsResponse.JobsStatus), result); err != nil {
+			return nil, err
+		}
+	}
+
+	return result, nil
 }
 
 func (v VirtLauncherClient) GetGuestInfo() (*v1.VirtualMachineInstanceGuestAgentInfo, error) {
