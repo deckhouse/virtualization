@@ -183,12 +183,11 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 		)
 
 		const (
-			getLastInterfaceNameCmd = "ip -o link show | tail -1 | cut -d: -f2 | awk \"{print \\$1}\""
+			getLastInterfaceNameCmd   = "ip -o link show | tail -1 | cut -d: -f2 | awk \"{print \\$1}\""
+			expectedLastInterfaceName = "eno3"
 		)
 
 		It("should preserve interface name after removing middle ClusterNetwork and rebooting", func() {
-			var lastInterfaceNameBeforeRemoval string
-
 			By("Create VM with Main network and two additional ClusterNetworks", func() {
 				ns := f.Namespace().Name
 
@@ -216,10 +215,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 
 			By("Get last interface name via SSH", func() {
 				util.UntilSSHReady(f, vm, framework.LongTimeout)
-				output, err := f.SSHCommand(vm.Name, vm.Namespace, getLastInterfaceNameCmd)
-				Expect(err).NotTo(HaveOccurred())
-				lastInterfaceNameBeforeRemoval = strings.TrimSpace(output)
-				Expect(lastInterfaceNameBeforeRemoval).NotTo(BeEmpty(), "Failed to get last interface name")
+				checkResultSSHCommand(f, vm.Name, vm.Namespace, getLastInterfaceNameCmd, expectedLastInterfaceName)
 			})
 
 			By("Remove middle ClusterNetwork from VM spec", func() {
@@ -253,13 +249,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 
 			By("Verify last interface name has not changed", func() {
 				util.UntilSSHReady(f, vm, framework.LongTimeout)
-				output, err := f.SSHCommand(vm.Name, vm.Namespace, getLastInterfaceNameCmd)
-				Expect(err).NotTo(HaveOccurred())
-				lastInterfaceNameAfterRemoval := strings.TrimSpace(output)
-				Expect(lastInterfaceNameAfterRemoval).NotTo(BeEmpty(), "Failed to get last interface name")
-
-				Expect(lastInterfaceNameAfterRemoval).To(Equal(lastInterfaceNameBeforeRemoval),
-					fmt.Sprintf("Interface name changed from %s to %s after removing middle ClusterNetwork", lastInterfaceNameBeforeRemoval, lastInterfaceNameAfterRemoval))
+				checkResultSSHCommand(f, vm.Name, vm.Namespace, getLastInterfaceNameCmd, expectedLastInterfaceName)
 			})
 		})
 	})
