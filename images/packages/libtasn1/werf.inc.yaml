@@ -17,7 +17,7 @@ final: false
 fromImage: builder/src
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO }}
+  value: {{ $.PACKAGE_CLONE_REPO }}
 shell:
   install:
   - |

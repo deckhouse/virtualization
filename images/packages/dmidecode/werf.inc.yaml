@@ -17,10 +17,11 @@ final: false
 fromImage: builder/src
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO }}
+  value: {{ $.PACKAGE_CLONE_REPO }}
 shell:
   install:
-  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+  - |
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
 
 ---

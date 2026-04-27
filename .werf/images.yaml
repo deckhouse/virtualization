@@ -19,6 +19,10 @@ dockerfile: Dockerfile
 {{- range $path, $content := $ImagesBuildFiles }}
 
 {{-   $ctx := dict }}
+{{-   $sourceRepo := printf "%s:deckhouse/3p" $Root.DECKHOUSE_PRIVATE_REPO }}
+{{-   if $Root.DistroPackagesProxy }}
+{{-     $sourceRepo = $Root.SOURCE_REPO }}
+{{-   end }}
 {{-   $_ := set $ctx "ImageInstructionType" "Stapel" }}
 
 {{-   $ImageData := regexReplaceAll "^images/([0-9a-z-_]+)/(Dockerfile|werf.inc.yaml)$" $path "${1}#${2}" | split "#" }}
@@ -29,7 +33,9 @@ dockerfile: Dockerfile
 {{-   $_ := set $ctx "Files" $Root.Files }}
 {{-   $_ := set $ctx "GOPROXY" $Root.GOPROXY }}
 {{-   $_ := set $ctx "SOURCE_REPO" $Root.SOURCE_REPO }}
-{{-   $_ := set $ctx "SOURCE_REPO_GIT" $Root.SOURCE_REPO_GIT }}
+{{-   $_ := set $ctx "PACKAGE_CLONE_REPO" $sourceRepo }}
+{{/* {{-   $_ := set $ctx "SOURCE_REPO_GIT" $Root.SOURCE_REPO_GIT }} */}}
+{{-   $_ := set $ctx "DECKHOUSE_PRIVATE_REPO" $Root.DECKHOUSE_PRIVATE_REPO }}
 {{-   $_ := set $ctx "DistroPackagesProxy" $Root.DistroPackagesProxy }}
 {{-   $_ := set $ctx "MODULE_EDITION" $Root.MODULE_EDITION }}
 {{-   $_ := set $ctx "DEBUG_COMPONENT" $Root.DEBUG_COMPONENT }}
