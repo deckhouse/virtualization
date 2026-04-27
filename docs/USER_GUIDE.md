@@ -2391,6 +2391,10 @@ Predictable interface order works only on guest OS with systemd (e.g. Ubuntu, De
 
 Virtual machines can be accessed directly via their fixed IP addresses. However, this approach has limitations: direct use of IP addresses requires manual management, complicates scaling, and makes the infrastructure less flexible. An alternative is services—a mechanism that abstracts access to VMs by providing logical entry points instead of binding to physical addresses.
 
+{{< alert level="info" >}}
+If connecting to a VM from a cluster node does not work, check `NetworkPolicy` in the project. Project network policies can restrict access to the VM, including connections from cluster nodes.
+{{< /alert >}}
+
 Services simplify interaction with both individual VMs and groups of similar VMs. For example, the ClusterIP service type creates a fixed internal address that can be used to access both a single VM and a group of VMs, regardless of their actual IP addresses. This allows other system components to interact with resources through a stable name or IP, automatically directing traffic to the right machines.
 
 Services also serve as a load balancing tool: they distribute requests evenly among all connected machines, ensuring fault tolerance and ease of expansion without the need to reconfigure clients.
