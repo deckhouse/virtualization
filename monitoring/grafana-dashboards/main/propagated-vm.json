@@ -360,7 +360,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (namespace,name) (rate(d8_virtualization_virtualmachine_hypervisor_cpu_usage_seconds_total{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])) \n/\n(\n  (avg by (namespace,name) ( sum by (namespace,name) (d8_virtualization_virtualmachine_cpu_cores{namespace=\"$namespace\", name=\"$name\"}) / 100))\n)",
+          "expr": "sum by (namespace,name) (rate(d8_virtualization_virtualmachine_hypervisor_cpu_usage_seconds_total{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])) \n/\n(\n  (avg by (namespace,name) ( sum by (namespace,name,pod) (d8_virtualization_virtualmachine_cpu_cores{namespace=\"$namespace\", name=\"$name\"}) / 100))\n)",
           "hide": false,
           "instant": true,
           "legendFormat": "OS Usage",
