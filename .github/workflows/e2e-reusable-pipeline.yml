@@ -421,18 +421,18 @@ jobs:
           d8vscp "${DEFAULT_USER}@${nested_master}.$NAMESPACE:/var/log/cloud-init*.log" "./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/"
 
       - name: Prepare artifact
-        if: always() && steps.dhctl-bootstrap.outcome == 'success'
+        if: success() || failure()
         run: |
-          sudo chown -fR 1001:1001 ${{ env.SETUP_CLUSTER_TYPE_PATH }}
-          yq e '.deckhouse.registryDockerCfg = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/values.yaml
+          sudo chown -fR 1001:1001 ${{ env.SETUP_CLUSTER_TYPE_PATH }} || true
+          yq e '.deckhouse.registryDockerCfg = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/values.yaml || true
           yq e 'select(.kind == "InitConfiguration").deckhouse.registryDockerCfg = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/config.yaml || echo "The config.yaml file is not generated, skipping"
           yq e '.discovered.registry_url = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/discovered-values.yaml || echo "The discovered-values.yaml file is not generated, skipping editing registry_url"
           yq e '.discovered.registry_auth = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/discovered-values.yaml || echo "The discovered-values.yaml file is not generated, skipping editing registry_auth"
-          echo "${{ steps.generate-kubeconfig.outputs.kubeconfig }}" | base64 -d | base64 -d > ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/kube-config
+          echo "${{ steps.generate-kubeconfig.outputs.kubeconfig }}" | base64 -d | base64 -d > ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/kube-config || echo "kubeconfig not available, skipping"
 
       - name: Upload generated files
         uses: actions/upload-artifact@v4
-        if: always() && steps.dhctl-bootstrap.outcome == 'success'
+        if: success() || failure()
         with:
           name: ${{ inputs.storage_type }}-generated-files-${{ inputs.date_start }}
           path: |
