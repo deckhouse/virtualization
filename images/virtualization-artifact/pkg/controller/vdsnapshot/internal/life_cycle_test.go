@@ -116,20 +116,31 @@ var _ = Describe("LifeCycle handler", func() {
 			Expect(ready.Message).ToNot(BeEmpty())
 		})
 
-		It("stores requested size in volume snapshot annotations", func() {
-			size := resource.MustParse("20Gi")
-			vd.Spec.PersistentVolumeClaim.Size = &size
+		DescribeTable("stores requested size in volume snapshot annotations",
+			func(vdSize, pvcSize, expectedSize string) {
+				if vdSize != "" {
+					size := resource.MustParse(vdSize)
+					vd.Spec.PersistentVolumeClaim.Size = &size
+				}
+				if pvcSize != "" {
+					pvc.Spec.Resources.Requests = corev1.ResourceList{
+						corev1.ResourceStorage: resource.MustParse(pvcSize),
+					}
+				}
 
-			snapshotter.CreateVolumeSnapshotFunc = func(_ context.Context, vs *vsv1.VolumeSnapshot) (*vsv1.VolumeSnapshot, error) {
-				Expect(vs.Annotations[annotations.AnnVirtualDiskRequestedSize]).To(Equal("20Gi"))
-				return vs, nil
-			}
+				snapshotter.CreateVolumeSnapshotFunc = func(_ context.Context, vs *vsv1.VolumeSnapshot) (*vsv1.VolumeSnapshot, error) {
+					Expect(vs.Annotations[annotations.AnnVirtualDiskRequestedSize]).To(Equal(expectedSize))
+					return vs, nil
+				}
 
-			h := NewLifeCycleHandler(snapshotter)
+				h := NewLifeCycleHandler(snapshotter)
 
-			_, err := h.Handle(testContext(), vdSnapshot)
-			Expect(err).To(BeNil())
-		})
+				_, err := h.Handle(testContext(), vdSnapshot)
+				Expect(err).To(BeNil())
+			},
+			Entry("from VirtualDisk spec size", "20Gi", "10Gi", "20Gi"),
+			Entry("from PVC requested size when VirtualDisk spec size is omitted", "", "10Gi", "10Gi"),
+		)
 
 		It("The volume snapshot has failed", func() {
 			snapshotter.GetVolumeSnapshotFunc = func(_ context.Context, _, _ string) (*vsv1.VolumeSnapshot, error) {
