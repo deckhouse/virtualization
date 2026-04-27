@@ -59,7 +59,7 @@ var _ = Describe("HotplugCPU", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for VM agent to be ready")
-		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
+		util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 
 		By("Checking initial CPU configuration")
 		err = f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
@@ -82,7 +82,7 @@ var _ = Describe("HotplugCPU", func() {
 
 		By("Waiting until CPU configuration is applied without restart")
 		util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(t.VM), framework.MaxTimeout)
-		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.MiddleTimeout)
+		util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 
 		By("Checking changed CPU configuration")
 		err = f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
@@ -121,7 +121,6 @@ func (t *cpuHotplugTest) generateResources(vmName string, cores int) {
 		vmbuilder.WithCPU(cores, ptr.To("10%")),
 		vmbuilder.WithMemory(*resource.NewQuantity(object.Mi256, resource.BinarySI)),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
-		vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
 		vmbuilder.WithProvisioningUserData(object.AlpineCloudInit),
 		vmbuilder.WithBlockDeviceRefs(
 			v1alpha2.BlockDeviceSpecRef{
