@@ -21,11 +21,10 @@ import (
 	"errors"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/service"
@@ -47,7 +46,15 @@ func NewVirtualImagePVCStorageClassValidator(client client.Client, scService *in
 }
 
 func (v *VirtualImagePVCStorageClassValidator) ValidateCreate(ctx context.Context, vd *v1alpha2.VirtualDisk) (admission.Warnings, error) {
-	return nil, v.validate(ctx, vd)
+	scName, err := v.extractVDStorageClassName(ctx, vd)
+	if err != nil {
+		return nil, err
+	}
+
+	vdWithStatusStorageClassName := vd.DeepCopy()
+	vdWithStatusStorageClassName.Status.StorageClassName = scName
+
+	return nil, commonvd.ValidateVirtualImageStorageClassMatch(ctx, vdWithStatusStorageClassName, v.client)
 }
 
 func (v *VirtualImagePVCStorageClassValidator) ValidateUpdate(ctx context.Context, _, newVD *v1alpha2.VirtualDisk) (admission.Warnings, error) {
@@ -56,37 +63,7 @@ func (v *VirtualImagePVCStorageClassValidator) ValidateUpdate(ctx context.Contex
 		return nil, nil
 	}
 
-	return nil, v.validate(ctx, newVD)
-}
-
-func (v *VirtualImagePVCStorageClassValidator) validate(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
-	if vd.Spec.DataSource == nil {
-		return nil
-	}
-
-	isObjectRef := vd.Spec.DataSource.Type == v1alpha2.DataSourceTypeObjectRef
-	objRef := vd.Spec.DataSource.ObjectRef
-	if isObjectRef && objRef != nil && objRef.Kind == v1alpha2.VirtualDiskObjectRefKindVirtualImage {
-		vi, err := object.FetchObject(ctx, types.NamespacedName{Namespace: vd.Namespace, Name: objRef.Name}, v.client, &v1alpha2.VirtualImage{})
-		if err != nil {
-			return err
-		}
-
-		if vi == nil || vi.Status.Phase != v1alpha2.ImageReady || vi.Spec.Storage == v1alpha2.StorageContainerRegistry {
-			return nil
-		}
-
-		vdSc, err := v.extractVDStorageClassName(ctx, vd)
-		if err != nil {
-			return err
-		}
-
-		if vdSc != vi.Status.StorageClassName {
-			return fmt.Errorf("virtual disk storage class %q does not match virtual image storage class %q", vdSc, vi.Status.StorageClassName)
-		}
-	}
-
-	return nil
+	return nil, commonvd.ValidateVirtualImageStorageClassMatch(ctx, newVD, v.client)
 }
 
 func (v *VirtualImagePVCStorageClassValidator) extractVDStorageClassName(ctx context.Context, vd *v1alpha2.VirtualDisk) (string, error) {

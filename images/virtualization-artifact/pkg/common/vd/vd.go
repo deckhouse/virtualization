@@ -17,10 +17,15 @@ limitations under the License.
 package vd
 
 import (
+	"context"
+	"fmt"
 	"log/slog"
 
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/component-base/featuregate"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -67,4 +72,29 @@ func StorageClassChanged(vd *v1alpha2.VirtualDisk) bool {
 	}
 
 	return *specSc != "" && statusSc != ""
+}
+
+func ValidateVirtualImageStorageClassMatch(ctx context.Context, vd *v1alpha2.VirtualDisk, client client.Client) error {
+	if vd.Spec.DataSource == nil || vd.Spec.DataSource.Type != v1alpha2.DataSourceTypeObjectRef {
+		return nil
+	}
+
+	if vd.Spec.DataSource.ObjectRef == nil || vd.Spec.DataSource.ObjectRef.Kind != v1alpha2.VirtualDiskObjectRefKindVirtualImage {
+		return nil
+	}
+
+	vi, err := object.FetchObject(ctx, types.NamespacedName{Namespace: vd.Namespace, Name: vd.Spec.DataSource.ObjectRef.Name}, client, &v1alpha2.VirtualImage{})
+	if err != nil {
+		return err
+	}
+
+	if vi == nil || vi.Status.Phase != v1alpha2.ImageReady || vi.Spec.Storage == v1alpha2.StorageContainerRegistry {
+		return nil
+	}
+
+	if vi.Status.StorageClassName != vd.Status.StorageClassName {
+		return fmt.Errorf("virtual disk storage class %q does not match virtual image storage class %q", vd.Status.StorageClassName, vi.Status.StorageClassName)
+	}
+
+	return nil
 }
