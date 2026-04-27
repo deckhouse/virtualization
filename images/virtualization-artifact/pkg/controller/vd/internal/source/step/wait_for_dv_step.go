@@ -19,8 +19,10 @@ package step
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -66,13 +68,25 @@ func NewWaitForDVStep(
 	}
 }
 
+func safenil(o client.Object) string {
+	if o == nil || reflect.ValueOf(o).IsNil() {
+		return "nil"
+	}
+
+	return o.GetName()
+}
+
 func (s WaitForDVStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
+	logger.FromContext(ctx).Info("[GOGOGO] STEP WaitForDVStep", "datavolume", safenil(s.dv), "sc", vd.Status.StorageClassName)
+
 	if s.dv == nil {
 		vd.Status.Phase = v1alpha2.DiskProvisioning
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Provisioning).
 			Message("Waiting for the VirtualDisk importer to be created.")
+
+		logger.FromContext(ctx).Info("[GOGOGO] STEP WaitForDVStep [importer to be created]")
 		return &reconcile.Result{}, nil
 	}
 
@@ -88,11 +102,13 @@ func (s WaitForDVStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*rec
 		return &reconcile.Result{}, nil
 	}
 	if set {
+		logger.FromContext(ctx).Info("[GOGOGO] STEP WaitForDVStep [consumer awaited]")
 		return &reconcile.Result{}, nil
 	}
 
 	ok = s.checkRunningCondition(vd)
 	if !ok {
+		logger.FromContext(ctx).Info("[GOGOGO] STEP WaitForDVStep [checkRunningCondition]")
 		return &reconcile.Result{}, nil
 	}
 
@@ -106,8 +122,11 @@ func (s WaitForDVStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*rec
 
 	set = s.setForProvisioning(vd)
 	if set {
+		logger.FromContext(ctx).Info("[GOGOGO] STEP WaitForDVStep [provisioning to the pvc]")
 		return &reconcile.Result{}, nil
 	}
+
+	logger.FromContext(ctx).Info("[GOGOGO] STEP WaitForDVStep [ok]")
 
 	return nil, nil
 }
@@ -126,6 +145,8 @@ func (s WaitForDVStep) setForProvisioning(vd *v1alpha2.VirtualDisk) (set bool) {
 }
 
 func (s WaitForDVStep) setForFirstConsumerIsAwaited(ctx context.Context, vd *v1alpha2.VirtualDisk) (set bool, err error) {
+	logger.FromContext(ctx).Info("[GOGOGO] STEP WaitForDVStep setForFirstConsumerIsAwaited 111")
+
 	if vd.Status.StorageClassName == "" {
 		return false, fmt.Errorf("StorageClassName is empty, please report a bug")
 	}
@@ -138,6 +159,9 @@ func (s WaitForDVStep) setForFirstConsumerIsAwaited(ctx context.Context, vd *v1a
 	isWFFC := sc != nil && sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer
 	dvRunningCond, _ := conditions.GetDataVolumeCondition(conditions.DVRunningConditionType, s.dv.Status.Conditions)
 	dvRunningReasonEmptyOrPending := dvRunningCond.Reason == "" || dvRunningCond.Reason == conditions.DVRunningConditionPendingReason
+
+	logger.FromContext(ctx).Info("[GOGOGO] STEP WaitForDVStep setForFirstConsumerIsAwaited 222", "isWFFC", isWFFC, "dvPhase", s.dv.Status.Phase, "dvRunningReasonEmptyOrPending", dvRunningReasonEmptyOrPending)
+
 	if isWFFC && (s.dv.Status.Phase == cdiv1.PendingPopulation || s.dv.Status.Phase == cdiv1.WaitForFirstConsumer) && dvRunningReasonEmptyOrPending {
 		vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
 		s.cb.

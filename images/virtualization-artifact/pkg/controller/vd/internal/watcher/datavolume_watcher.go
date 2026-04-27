@@ -18,7 +18,9 @@ package watcher
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -31,10 +33,14 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type DataVolumeWatcher struct{}
+type DataVolumeWatcher struct {
+	logger *log.Logger
+}
 
 func NewDataVolumeWatcher() *DataVolumeWatcher {
-	return &DataVolumeWatcher{}
+	return &DataVolumeWatcher{
+		logger: log.Default().With("watcher", strings.ToLower("DataVolume")),
+	}
 }
 
 func (w *DataVolumeWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
@@ -49,15 +55,20 @@ func (w *DataVolumeWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 			predicate.TypedFuncs[*cdiv1.DataVolume]{
 				CreateFunc: func(e event.TypedCreateEvent[*cdiv1.DataVolume]) bool { return false },
 				UpdateFunc: func(e event.TypedUpdateEvent[*cdiv1.DataVolume]) bool {
+					w.logger.Info("[GOGOGO] [DataVolumeWatcher] Event observed")
+
 					if e.ObjectOld.Status.Progress != e.ObjectNew.Status.Progress {
+						w.logger.Info("[GOGOGO] [DataVolumeWatcher] Event observed [e.ObjectOld.Status.Progress != e.ObjectNew.Status.Progress]")
 						return true
 					}
 
 					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase && e.ObjectNew.Status.Phase == cdiv1.Succeeded {
+						w.logger.Info("[GOGOGO] [DataVolumeWatcher] Event observed [e.ObjectNew.Status.Phase == cdiv1.Succeeded]")
 						return true
 					}
 
 					if e.ObjectOld.Status.ClaimName != e.ObjectNew.Status.ClaimName {
+						w.logger.Info("[GOGOGO] [DataVolumeWatcher] Event observed [e.ObjectOld.Status.ClaimName != e.ObjectNew.Status.ClaimName]")
 						return true
 					}
 
@@ -65,10 +76,12 @@ func (w *DataVolumeWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 					newDVQuotaNotExceeded, newOk := conditions.GetDataVolumeCondition(conditions.DVQoutaNotExceededConditionType, e.ObjectNew.Status.Conditions)
 
 					if !oldOk && newOk {
+						w.logger.Info("[GOGOGO] [DataVolumeWatcher] Event observed [quota]")
 						return true
 					}
 
 					if oldOk && newOk && oldDVQuotaNotExceeded != newDVQuotaNotExceeded {
+						w.logger.Info("[GOGOGO] [DataVolumeWatcher] Event observed [quota 2]")
 						return true
 					}
 
@@ -76,10 +89,19 @@ func (w *DataVolumeWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 					newDVRunning, _ := conditions.GetDataVolumeCondition(conditions.DVRunningConditionType, e.ObjectNew.Status.Conditions)
 
 					if oldDVRunning.Reason != newDVRunning.Reason {
+						w.logger.Info("[GOGOGO] [DataVolumeWatcher] Event observed [oldDVRunning.Reason != newDVRunning.Reason]")
 						return true
 					}
 
-					return newDVRunning.Reason == "Error" || newDVRunning.Reason == "ImagePullFailed"
+					f := newDVRunning.Reason == "Error" || newDVRunning.Reason == "ImagePullFailed"
+					if f {
+						w.logger.Info("[GOGOGO] [DataVolumeWatcher] Event observed [oldDVRunning.Reason != newDVRunning.Reason]")
+						return true
+					}
+
+					w.logger.Info("[GOGOGO] [DataVolumeWatcher] Event observed [FALSE]")
+
+					return false
 				},
 			},
 		),
