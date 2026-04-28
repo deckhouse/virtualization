@@ -200,6 +200,11 @@ shell:
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-operator ./cmd/virt-operator/`) | nindent 6 }}
 
     - echo ============== Build sidecars =========================
+    - |
+      cd /kubevirt
+      echo "Sidecars cmd list:"
+      ls -la cmd/sidecars/
+      echo "---"
     {{- $_ := set $ "ProjectName" (list $.ImageName "sidecars" | join "/") }}
     - |
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/sidecars ./cmd/sidecars/`) | nindent 6 }}
