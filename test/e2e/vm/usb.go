@@ -69,12 +69,7 @@ var _ = Describe("VirtualMachineUSB", func() {
 		})
 
 		By("Verifying NodeUSBDevice is not attached before VM attachment", func() {
-			Eventually(func(g Gomega) {
-				nodeUSBDevice, err := t.Framework.VirtClient().NodeUSBDevices().Get(t.ctx, t.NodeUSBDevice.Name, metav1.GetOptions{})
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(nodeUSBAttachedCondition(nodeUSBDevice)).NotTo(BeNil())
-				g.Expect(nodeUSBAttachedCondition(nodeUSBDevice).Status).To(Equal(metav1.ConditionFalse))
-			}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
+			t.waitForNodeUSBAttached(metav1.ConditionFalse)
 		})
 
 		By("Creating VM with USB device", func() {
@@ -87,27 +82,11 @@ var _ = Describe("VirtualMachineUSB", func() {
 		})
 
 		By("Waiting for USB device to be attached and ready", func() {
-			Eventually(func() error {
-				vm, err := t.Framework.VirtClient().VirtualMachines(t.VM.Namespace).Get(t.ctx, t.VM.Name, metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-
-				for _, dev := range vm.Status.USBDevices {
-					if dev.Name == t.NodeUSBDevice.Name && dev.Attached && dev.Ready {
-						return nil
-					}
-				}
-
-				return fmt.Errorf("USB device %s not attached or not ready", t.NodeUSBDevice.Name)
-			}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
+			t.waitForVMUSBReady("USB device %s not attached or not ready")
 		})
 
 		By("Verifying NodeUSBDevice is attached", func() {
-			Eventually(func(g Gomega) {
-				nodeUSBDevice, err := t.Framework.VirtClient().NodeUSBDevices().Get(t.ctx, t.NodeUSBDevice.Name, metav1.GetOptions{})
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(nodeUSBAttachedCondition(nodeUSBDevice)).NotTo(BeNil())
-				g.Expect(nodeUSBAttachedCondition(nodeUSBDevice).Status).To(Equal(metav1.ConditionTrue))
-			}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
+			t.waitForNodeUSBAttached(metav1.ConditionTrue)
 		})
 
 		By("Mounting USB device", func() {
@@ -115,10 +94,7 @@ var _ = Describe("VirtualMachineUSB", func() {
 		})
 
 		By("Writing data to USB device", func() {
-			result, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, fmt.Sprintf("echo \"%s\" | sudo tee %s && sudo sync && sudo umount /mnt/usb", t.testContent, t.testFile))
-
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(ContainSubstring(t.testContent))
+			t.writeUSBTestData()
 		})
 
 		By("Migrating VM", func() {
@@ -130,27 +106,11 @@ var _ = Describe("VirtualMachineUSB", func() {
 		})
 
 		By("Waiting for USB device to be ready after migration", func() {
-			Eventually(func() error {
-				vm, err := t.Framework.VirtClient().VirtualMachines(t.VM.Namespace).Get(t.ctx, t.VM.Name, metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-
-				for _, dev := range vm.Status.USBDevices {
-					if dev.Name == t.NodeUSBDevice.Name && dev.Attached && dev.Ready {
-						return nil
-					}
-				}
-
-				return fmt.Errorf("USB device %s not ready after migration", t.NodeUSBDevice.Name)
-			}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
+			t.waitForVMUSBReady("USB device %s not ready after migration")
 		})
 
 		By("Verifying NodeUSBDevice is attached after migration", func() {
-			Eventually(func(g Gomega) {
-				nodeUSBDevice, err := t.Framework.VirtClient().NodeUSBDevices().Get(t.ctx, t.NodeUSBDevice.Name, metav1.GetOptions{})
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(nodeUSBAttachedCondition(nodeUSBDevice)).NotTo(BeNil())
-				g.Expect(nodeUSBAttachedCondition(nodeUSBDevice).Status).To(Equal(metav1.ConditionTrue))
-			}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
+			t.waitForNodeUSBAttached(metav1.ConditionTrue)
 		})
 
 		By("Remounting USB device after migration", func() {
@@ -158,9 +118,7 @@ var _ = Describe("VirtualMachineUSB", func() {
 		})
 
 		By("Verifying data persists after migration", func() {
-			result, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, fmt.Sprintf("cat %s", t.testFile))
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(ContainSubstring(t.testContent))
+			t.verifyUSBTestData()
 		})
 	})
 })
@@ -258,6 +216,42 @@ func (t *VMUSBTest) assignNodeUSB() {
 
 		return nil
 	}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
+}
+
+func (t *VMUSBTest) waitForNodeUSBAttached(status metav1.ConditionStatus) {
+	Eventually(func(g Gomega) {
+		nodeUSBDevice, err := t.Framework.VirtClient().NodeUSBDevices().Get(t.ctx, t.NodeUSBDevice.Name, metav1.GetOptions{})
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(nodeUSBAttachedCondition(nodeUSBDevice)).NotTo(BeNil())
+		g.Expect(nodeUSBAttachedCondition(nodeUSBDevice).Status).To(Equal(status))
+	}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
+}
+
+func (t *VMUSBTest) waitForVMUSBReady(message string) {
+	Eventually(func() error {
+		vm, err := t.Framework.VirtClient().VirtualMachines(t.VM.Namespace).Get(t.ctx, t.VM.Name, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		for _, dev := range vm.Status.USBDevices {
+			if dev.Name == t.NodeUSBDevice.Name && dev.Attached && dev.Ready {
+				return nil
+			}
+		}
+
+		return fmt.Errorf(message, t.NodeUSBDevice.Name)
+	}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
+}
+
+func (t *VMUSBTest) writeUSBTestData() {
+	result, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, fmt.Sprintf("echo \"%s\" | sudo tee %s && sudo sync && sudo umount /mnt/usb", t.testContent, t.testFile))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(result).To(ContainSubstring(t.testContent))
+}
+
+func (t *VMUSBTest) verifyUSBTestData() {
+	result, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, fmt.Sprintf("cat %s", t.testFile))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(result).To(ContainSubstring(t.testContent))
 }
 
 func (t *VMUSBTest) mountUSB() {
