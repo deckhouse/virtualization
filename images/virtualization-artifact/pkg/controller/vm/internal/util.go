@@ -201,12 +201,16 @@ const (
 	failedCreatePodReason string                               = "FailedCreate"
 )
 
-func getKVMIReadyReason(kvmiReason string) conditions.Stringer {
+func getKVMIReadyReason(kvmiStatus corev1.ConditionStatus, kvmiReason string) conditions.Stringer {
 	if r, ok := mapReasons[kvmiReason]; ok {
 		return r
 	}
 
 	if kvmiReason == "" {
+		if kvmiStatus == corev1.ConditionTrue {
+			return vmcondition.ReasonVirtualMachineRunning
+		}
+
 		return conditions.ReasonUnknown
 	}
 

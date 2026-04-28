@@ -21,13 +21,26 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 var _ = Describe("LifeCycleHandler", func() {
+	Describe("getKVMIReadyReason", func() {
+		DescribeTable("maps empty Ready condition reason by status",
+			func(status corev1.ConditionStatus, expected conditions.Stringer) {
+				Expect(getKVMIReadyReason(status, "").String()).To(Equal(expected.String()))
+			},
+			Entry("true status", corev1.ConditionTrue, vmcondition.ReasonVirtualMachineRunning),
+			Entry("false status", corev1.ConditionFalse, conditions.ReasonUnknown),
+			Entry("unknown status", corev1.ConditionUnknown, conditions.ReasonUnknown),
+		)
+	})
+
 	Describe("syncRunningSince", func() {
 		It("sets runningSince from the Running condition last transition time", func() {
 			transitionTime := metav1.NewTime(time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC))

@@ -215,7 +215,7 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 		for _, c := range kvvmi.Status.Conditions {
 			if c.Type == virtv1.VirtualMachineInstanceReady {
 				cb.Status(conditionStatus(string(c.Status))).
-					Reason(getKVMIReadyReason(c.Reason)).
+					Reason(getKVMIReadyReason(c.Status, c.Reason)).
 					Message(c.Message)
 				conditions.SetCondition(cb, &vm.Status.Conditions)
 				return nil
