@@ -1432,7 +1432,7 @@ spec:
           name: PhaseAge
           type: date
         - description: Time since the virtual machine started running.
-          jsonPath: .status.runningSince
+          jsonPath: '.status.conditions[?(@.type=="Running" && @.status=="True")].lastTransitionTime'
           name: Uptime
           type: date
         - description: Real number of the virtual machine cores.
