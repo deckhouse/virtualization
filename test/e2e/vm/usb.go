@@ -265,7 +265,14 @@ func (t *VMUSBTest) assignNodeUSB() {
 func (t *VMUSBTest) mountUSB() {
 	mountCmd := `
 		set -e
+		sudo modprobe usb-storage 2>/dev/null || true
 		for i in $(seq 1 120); do
+			for host in /sys/class/scsi_host/host*; do
+				if [ -w "$host/scan" ]; then
+					echo "- - -" | sudo tee "$host/scan" >/dev/null || true
+				fi
+			done
+
 			usb_device=""
 			for block in /sys/block/*; do
 				if [ ! -e "$block" ]; then
@@ -292,7 +299,9 @@ func (t *VMUSBTest) mountUSB() {
 		done
 		if [ -z "$usb_device" ]; then
 			echo "USB block device not found" >&2
+			lsusb >&2 || true
 			lsblk -a -o PATH,TRAN,TYPE,RM,MODEL >&2 || true
+			sudo dmesg | tail -n 100 >&2 || true
 			exit 1
 		fi
 
