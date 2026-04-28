@@ -554,18 +554,17 @@ jobs:
           notes_file=$(mktemp)
           printf '%s\n' "$pr_body" > "$notes_file"
 
-          gh release create "$TAG" \
-            --repo "$REPOSITORY" \
-            --title "$TAG" \
-            --notes-file "$notes_file"
+          echo "DRY RUN: gh release create \"$TAG\" --repo \"$REPOSITORY\" --title \"$TAG\" --notes-file \"$notes_file\""
+          echo "DRY RUN: release notes source PR #${pr_number}: ${pr_url}"
+          echo "DRY RUN: release notes content start"
+          cat "$notes_file"
+          echo "DRY RUN: release notes content end"
 
-          release_url=$(gh release view "$TAG" --repo "$REPOSITORY" --json url --jq '.url')
-
-          echo "release_status=created" >> "$GITHUB_OUTPUT"
-          echo "release_url=${release_url}" >> "$GITHUB_OUTPUT"
+          echo "release_status=dry-run" >> "$GITHUB_OUTPUT"
+          echo "release_url=" >> "$GITHUB_OUTPUT"
           echo "release_pr_number=${pr_number}" >> "$GITHUB_OUTPUT"
           echo "release_pr_url=${pr_url}" >> "$GITHUB_OUTPUT"
-          echo "release_reason=GitHub release created from changelog PR #${pr_number}" >> "$GITHUB_OUTPUT"
+          echo "release_reason=Dry run: GitHub release would be created from changelog PR #${pr_number}" >> "$GITHUB_OUTPUT"
 
   send-release-results-to-loop:
     name: Send release results to Loop
@@ -581,7 +580,7 @@ jobs:
     steps:
       - name: Send results to Loop
         env:
-          LOOP_WEBHOOK_URL: ${{ secrets.LOOP_WEBHOOK_URL }}
+          LOOP_WEBHOOK_URL: ${{ secrets.LOOP_TEST_CHANNEL }}
           TAG: ${{ github.event.inputs.tag }}
           CHANNEL: ${{ github.event.inputs.channel }}
           RELEASE_TO_GITHUB: ${{ inputs.release_to_github }}
