@@ -3471,10 +3471,6 @@ func (in *VirtualMachineStats) DeepCopyInto(out *VirtualMachineStats) {
 		}
 	}
 	in.LaunchTimeDuration.DeepCopyInto(&out.LaunchTimeDuration)
-	if in.StartedAt != nil {
-		in, out := &in.StartedAt, &out.StartedAt
-		*out = (*in).DeepCopy()
-	}
 	return
 }
 

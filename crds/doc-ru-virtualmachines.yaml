@@ -704,8 +704,6 @@ spec:
                           description: Время ожидания запуска виртуальной машины. `starting` -> `running`.
                         guestOSAgentStarting:
                           description: Время ожидания запуска guestOsAgent. `running` -> `running` с guestOSAgent."
-                    startedAt:
-                      description: Время запуска виртуальной машины.
                 observedGeneration:
                   description: |
                     Поколение ресурса, которое в последний раз обрабатывалось контроллером.
