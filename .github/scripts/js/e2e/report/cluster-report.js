@@ -11,9 +11,9 @@
 // limitations under the License.
 
 const fs = require("fs");
-const { XMLParser } = require("fast-xml-parser");
 
-const { listMatchingFiles } = require("./fs-utils");
+const { findSingleMatchingFile } = require("./fs-utils");
+const { parseGinkgoReport } = require("./ginkgo-report-utils");
 
 const stageLabels = {
   bootstrap: "BOOTSTRAP CLUSTER",
@@ -32,15 +32,12 @@ const preE2EStages = new Set([
   "virtualization-setup",
 ]);
 
-const junitXmlParser = new XMLParser({
-  ignoreAttributes: false,
-  attributeNamePrefix: "",
-  parseTagValue: false,
-  parseAttributeValue: false,
-  trimValues: false,
-  processEntities: true,
-});
-
+/**
+ * Escapes special characters in a string for safe use inside a RegExp source.
+ *
+ * @param {string} value Raw string value.
+ * @returns {string} Escaped RegExp fragment.
+ */
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -85,46 +82,17 @@ function readClusterConfigFromEnv(env = process.env) {
 }
 
 /**
- * Resolves a single JUnit report file for the current storage type.
+ * Creates a zero-filled metrics object for cluster report defaults.
  *
- * The current workflow contract produces at most one matching XML per storage.
- * Multiple matches indicate an invalid artifact layout and should fail fast.
- *
- * @param {string} dirPath Directory containing downloaded JUnit artifacts.
- * @param {RegExp} filePattern Pattern matching the expected XML file name.
- * @returns {string|null} Matching file path or null when no report exists.
- * @throws {Error} When more than one matching file is found.
+ * @returns {{
+ *   passed: number,
+ *   failed: number,
+ *   errors: number,
+ *   skipped: number,
+ *   total: number,
+ *   successRate: number
+ * }} Zeroed metrics payload.
  */
-function findSingleMatchingFile(dirPath, filePattern) {
-  const matchingFiles = listMatchingFiles(dirPath, filePattern);
-  if (matchingFiles.length === 0) {
-    return null;
-  }
-
-  if (matchingFiles.length > 1) {
-    throw new Error(
-      `Expected a single JUnit report, but found ${matchingFiles.length}: ${matchingFiles.join(
-        ", "
-      )}`
-    );
-  }
-
-  return matchingFiles[0];
-}
-
-function toArray(value) {
-  if (!value) {
-    return [];
-  }
-
-  return Array.isArray(value) ? value : [value];
-}
-
-function toInteger(value) {
-  const parsed = Number.parseInt(value || "0", 10);
-  return Number.isNaN(parsed) ? 0 : parsed;
-}
-
 function zeroMetrics() {
   return {
     passed: 0,
@@ -133,143 +101,6 @@ function zeroMetrics() {
     skipped: 0,
     total: 0,
     successRate: 0,
-  };
-}
-
-function hasOwnProperty(object, key) {
-  return Boolean(object) && Object.prototype.hasOwnProperty.call(object, key);
-}
-
-function hasMetricAttributes(node) {
-  return ["tests", "failures", "errors", "skipped", "disabled"].some(
-    (attributeName) => hasOwnProperty(node, attributeName)
-  );
-}
-
-function readMetricsFromNode(node) {
-  return {
-    total: toInteger(node && node.tests),
-    failed: toInteger(node && node.failures),
-    errors: toInteger(node && node.errors),
-    skipped: toInteger((node && (node.skipped || node.disabled)) || 0),
-  };
-}
-
-function collectSuites(suites, collectedSuites = []) {
-  for (const suite of suites) {
-    collectedSuites.push(suite);
-    collectSuites(toArray(suite.testsuite), collectedSuites);
-  }
-
-  return collectedSuites;
-}
-
-function collectMetricSuites(suites, collectedSuites = []) {
-  for (const suite of suites) {
-    const nestedSuites = toArray(suite.testsuite);
-    const hasNestedSuites = nestedSuites.length > 0;
-    const hasTestcases = toArray(suite.testcase).length > 0;
-
-    if (hasTestcases || !hasNestedSuites) {
-      collectedSuites.push(suite);
-    }
-
-    if (hasNestedSuites) {
-      collectMetricSuites(nestedSuites, collectedSuites);
-    }
-  }
-
-  return collectedSuites;
-}
-
-/**
- * Parses a Ginkgo-generated JUnit XML document into metrics and failed tests
- * used by the markdown report.
- *
- * @param {string} xmlContent Raw XML content.
- * @returns {{
- *   metrics: {
- *     passed: number,
- *     failed: number,
- *     errors: number,
- *     skipped: number,
- *     total: number,
- *     successRate: number
- *   },
- *   failedTests: string[],
- *   startedAt: string|null
- * }} Parsed report payload.
- */
-function parseJUnitReport(xmlContent) {
-  const parsedXml = junitXmlParser.parse(xmlContent);
-  const testsuitesNode = parsedXml.testsuites || null;
-  const topLevelSuites = testsuitesNode
-    ? toArray(testsuitesNode.testsuite)
-    : toArray(parsedXml.testsuite);
-  const allSuites = collectSuites(topLevelSuites);
-  const metricSuites = collectMetricSuites(topLevelSuites);
-  const aggregateSource = hasMetricAttributes(testsuitesNode)
-    ? testsuitesNode
-    : topLevelSuites.length === 1 && hasMetricAttributes(topLevelSuites[0])
-    ? topLevelSuites[0]
-    : null;
-
-  let total = 0;
-  let failed = 0;
-  let errors = 0;
-  let skipped = 0;
-
-  if (aggregateSource) {
-    ({ total, failed, errors, skipped } = readMetricsFromNode(aggregateSource));
-  } else {
-    for (const suite of metricSuites) {
-      const suiteMetrics = readMetricsFromNode(suite);
-      total += suiteMetrics.total;
-      failed += suiteMetrics.failed;
-      errors += suiteMetrics.errors;
-      skipped += suiteMetrics.skipped;
-    }
-  }
-
-  const passed = Math.max(total - failed - errors - skipped, 0);
-  const successRate =
-    total > 0 ? Number(((passed / total) * 100).toFixed(2)) : 0;
-  const failedTests = [];
-
-  for (const suite of allSuites) {
-    for (const testcase of toArray(suite.testcase)) {
-      const testcaseStatus = String(testcase.status || "").toLowerCase();
-      const hasFailure = testcase.failure !== undefined;
-      const hasError = testcase.error !== undefined;
-
-      if (
-        hasFailure ||
-        hasError ||
-        testcaseStatus === "failed" ||
-        testcaseStatus === "error"
-      ) {
-        const testcaseName = String(testcase.name || "").trim();
-        if (testcaseName) {
-          failedTests.push(testcaseName);
-        }
-      }
-    }
-  }
-
-  const startedAt =
-    allSuites.find((suite) => suite.timestamp)?.timestamp || null;
-
-  return {
-    metrics: {
-      passed,
-      failed,
-      errors,
-      skipped,
-      total,
-      successRate,
-    },
-    failedTests: Array.from(new Set(failedTests)),
-    startedAt,
   };
 }
 
@@ -318,7 +149,8 @@ function getStageDescriptor(storageType, stageName, resultValue) {
  * Determines which workflow stage should be represented in the cluster report.
  *
  * The first non-success stage wins. If every stage succeeded, the cluster is
- * treated as test-capable and the JUnit report is expected to describe results.
+ * treated as test-capable and the Ginkgo JSON report is expected to describe
+ * results.
  *
  * @param {string} storageType Storage backend name.
  * @param {{
@@ -364,7 +196,7 @@ function determineStage(storageType, stageResults) {
 
 /**
  * Builds a synthetic report descriptor for a successful test stage that did
- * not produce any JUnit XML artifact.
+ * not produce any raw E2E artifact.
  *
  * @param {string} storageType Storage backend name.
  * @returns {{
@@ -407,7 +239,7 @@ function setReportOutputs(report, reportFile, core) {
 
 /**
  * Builds a per-cluster JSON report from workflow stage results and an optional
- * JUnit XML report, writes it to disk, and publishes step outputs.
+ * raw Ginkgo JSON report, writes it to disk, and publishes step outputs.
  *
  * @param {{
  *   core: {
@@ -432,10 +264,14 @@ async function buildClusterReport({ core, context }) {
   const branchName =
     config.branchNameOverride ||
     String(context.ref || "").replace(/^refs\/heads\//, "");
-  const junitPattern = new RegExp(
-    `^e2e_summary_${escapeRegExp(config.storageType)}_.*\\.xml$`
+  const rawReportPattern = new RegExp(
+    `^e2e_report_${escapeRegExp(config.storageType)}_.*\\.json$`
   );
-  const junitReportPath = findSingleMatchingFile(config.reportsDir, junitPattern);
+  const rawReportPath = findSingleMatchingFile(
+    config.reportsDir,
+    rawReportPattern,
+    "Ginkgo JSON report"
+  );
   const stageInfo = determineStage(config.storageType, config.stageResults);
 
   let parsedReport = {
@@ -445,15 +281,21 @@ async function buildClusterReport({ core, context }) {
     source: "empty",
   };
 
-  if (junitReportPath) {
-    core.info(`Found JUnit report: ${junitReportPath}`);
-    parsedReport = {
-      ...parseJUnitReport(fs.readFileSync(junitReportPath, "utf8")),
-      source: "junit",
-    };
+  if (rawReportPath) {
+    core.info(`Found Ginkgo JSON report: ${rawReportPath}`);
+    try {
+      parsedReport = {
+        ...parseGinkgoReport(fs.readFileSync(rawReportPath, "utf8"), zeroMetrics),
+        source: "ginkgo-json",
+      };
+    } catch (error) {
+      core.warning(
+        `Unable to parse Ginkgo JSON report ${rawReportPath}: ${error.message}`
+      );
+    }
   } else {
     core.warning(
-      `JUnit report was not found for ${config.storageType} under ${config.reportsDir}`
+      `Ginkgo JSON report was not found for ${config.storageType} under ${config.reportsDir}`
     );
   }
 
@@ -479,11 +321,17 @@ async function buildClusterReport({ core, context }) {
     startedAt: parsedReport.startedAt,
     metrics: parsedReport.metrics,
     failedTests: parsedReport.failedTests,
-    sourceJUnitReport: junitReportPath,
+    sourceReport: rawReportPath,
     reportSource: parsedReport.source,
   };
 
-  fs.writeFileSync(config.reportFile, `${JSON.stringify(report, null, 2)}\n`);
+  try {
+    fs.writeFileSync(config.reportFile, `${JSON.stringify(report, null, 2)}\n`);
+  } catch (error) {
+    throw new Error(
+      `Unable to write cluster report file ${config.reportFile}: ${error.message}`
+    );
+  }
 
   setReportOutputs(report, config.reportFile, core);
   core.info(`Created report file: ${config.reportFile}`);
@@ -494,6 +342,6 @@ async function buildClusterReport({ core, context }) {
 
 module.exports = buildClusterReport;
 module.exports.determineStage = determineStage;
-module.exports.parseJUnitReport = parseJUnitReport;
+module.exports.parseGinkgoReport = parseGinkgoReport;
 module.exports.buildArtifactMissingDescriptor = buildArtifactMissingDescriptor;
 module.exports.readClusterConfigFromEnv = readClusterConfigFromEnv;

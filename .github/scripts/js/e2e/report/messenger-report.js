@@ -99,6 +99,12 @@ function createMissingReport(clusterName, fallback = {}) {
   };
 }
 
+/**
+ * Escapes markdown table cell content and normalizes whitespace.
+ *
+ * @param {any} value Raw cell value.
+ * @returns {string} Sanitized table cell string.
+ */
 function sanitizeCell(value) {
   return String(value || "—")
     .replace(/\|/g, "\\|")
@@ -106,17 +112,35 @@ function sanitizeCell(value) {
     .trim();
 }
 
+/**
+ * Normalizes markdown list item content to a single trimmed line.
+ *
+ * @param {any} value Raw list item value.
+ * @returns {string} Sanitized list item string.
+ */
 function sanitizeListItem(value) {
   return String(value || "")
     .replace(/\r?\n/g, " ")
     .trim();
 }
 
+/**
+ * Formats a numeric success rate as a percentage string.
+ *
+ * @param {number|string} value Raw rate value.
+ * @returns {string} Formatted percentage.
+ */
 function formatRate(value) {
   const rate = Number(value || 0);
   return `${Number.isFinite(rate) ? rate.toFixed(2) : "0.00"}%`;
 }
 
+/**
+ * Picks a report date from the first report that exposes `startedAt`.
+ *
+ * @param {Record<string, any>[]} reports Available cluster reports.
+ * @returns {string} ISO date string (`YYYY-MM-DD`).
+ */
 function getReportDate(reports) {
   const datedReport = reports.find((report) => report.startedAt);
   if (!datedReport) {
@@ -126,6 +150,13 @@ function getReportDate(reports) {
   return String(datedReport.startedAt).slice(0, 10);
 }
 
+/**
+ * Orders reports by the configured cluster order and then by cluster name.
+ *
+ * @param {Record<string, any>[]} reports Reports to sort.
+ * @param {string[]} preferredOrder Configured cluster order.
+ * @returns {Record<string, any>[]} Sorted reports copy.
+ */
 function sortReports(reports, preferredOrder) {
   const orderMap = new Map(preferredOrder.map((name, index) => [name, index]));
 
@@ -149,6 +180,12 @@ function sortReports(reports, preferredOrder) {
   });
 }
 
+/**
+ * Renders a cluster name as a markdown link when a workflow URL is available.
+ *
+ * @param {Record<string, any>} report Cluster report payload.
+ * @returns {string} Markdown link or plain sanitized cluster name.
+ */
 function formatClusterLink(report) {
   const clusterName = sanitizeCell(report.cluster || report.storageType);
   return report.workflowRunUrl
@@ -156,6 +193,37 @@ function formatClusterLink(report) {
     : clusterName;
 }
 
+/**
+ * Extracts the normalized cluster key from a report payload.
+ *
+ * @param {Record<string, any>} report Cluster report payload.
+ * @returns {string} Cluster key or an empty string when it is missing.
+ */
+function getReportClusterKey(report) {
+  return String(report.storageType || report.cluster || "").trim();
+}
+
+/**
+ * Tells whether the report represents a missing artifact rather than a real
+ * cluster-stage failure.
+ *
+ * @param {Record<string, any>} report Cluster report payload.
+ * @returns {boolean} True when the report describes a missing artifact.
+ */
+function isMissingReport(report) {
+  return (
+    report.reportKind === "artifact-missing" ||
+    report.failedStage === "artifact-missing" ||
+    report.status === "missing"
+  );
+}
+
+/**
+ * Normalizes the configured Loop API base URL to the `/api/v4/posts` endpoint.
+ *
+ * @param {string} value Raw Loop API base URL.
+ * @returns {string} Normalized posts endpoint URL or an empty string.
+ */
 function normalizeLoopApiBaseUrl(value) {
   const trimmedValue = String(value || "")
     .trim()
@@ -176,6 +244,12 @@ function normalizeLoopApiBaseUrl(value) {
   return `${trimmedValue}/api/v4/posts`;
 }
 
+/**
+ * Reads and normalizes the Loop posts API URL from environment variables.
+ *
+ * @param {NodeJS.ProcessEnv} [env=process.env] Environment variables source.
+ * @returns {string} Normalized posts endpoint URL or an empty string.
+ */
 function getLoopPostsApiUrl(env = process.env) {
   return normalizeLoopApiBaseUrl(env.LOOP_API_BASE_URL);
 }
@@ -191,6 +265,12 @@ function parseConfiguredClusters(value) {
   return Array.isArray(parsedValue) ? parsedValue : [];
 }
 
+/**
+ * Converts a cluster name into a safe environment-variable suffix.
+ *
+ * @param {string} clusterName Raw cluster name.
+ * @returns {string} Uppercased normalized environment key fragment.
+ */
 function normalizeClusterEnvKey(clusterName) {
   return String(clusterName || "")
     .trim()
@@ -371,7 +451,14 @@ function readReports(reportsDir, configuredClusters, reportFallbacks, core) {
 
   const reportsByCluster = new Map();
   for (const report of reports) {
-    const clusterName = report.storageType || report.cluster;
+    const clusterName = getReportClusterKey(report);
+    if (!clusterName) {
+      core.warning(
+        `Skipping report without cluster name from ${report.sourceReport || "parsed JSON payload"}`
+      );
+      continue;
+    }
+
     reportsByCluster.set(clusterName, report);
   }
 
@@ -404,17 +491,21 @@ function buildMainMessage(orderedReports) {
   );
   const lines = [`## DVP | E2E on nested clusters | ${reportDate}`, ""];
 
-  if (branches.length === 1) {
+  if (branches.length === 1 && branches[0] !== "main") {
     lines.push(`Branch: \`${branches[0]}\``);
     lines.push("");
   }
 
   const testsReports = orderedReports.filter(
-    (report) => report.reportKind === "tests"
+    (report) => report.reportKind === "tests" && getReportClusterKey(report)
   );
   const nonTestReports = orderedReports.filter(
-    (report) => report.reportKind !== "tests"
+    (report) => report.reportKind !== "tests" && getReportClusterKey(report)
   );
+  const stageFailureReports = nonTestReports.filter(
+    (report) => !isMissingReport(report)
+  );
+  const missingReports = nonTestReports.filter((report) => isMissingReport(report));
 
   if (testsReports.length > 0) {
     lines.push("### Test results");
@@ -438,11 +529,26 @@ function buildMainMessage(orderedReports) {
     lines.push("");
   }
 
-  if (nonTestReports.length > 0) {
+  if (stageFailureReports.length > 0) {
     lines.push("### Cluster failures");
     lines.push("");
 
-    for (const report of nonTestReports) {
+    for (const report of stageFailureReports) {
+      lines.push(
+        `- ${formatClusterLink(report)}: ${sanitizeListItem(
+          report.failedStageLabel || report.statusMessage || report.failedStage
+        )}`
+      );
+    }
+
+    lines.push("");
+  }
+
+  if (missingReports.length > 0) {
+    lines.push("### Missing reports");
+    lines.push("");
+
+    for (const report of missingReports) {
       lines.push(
         `- ${formatClusterLink(report)}: ${sanitizeListItem(
           report.failedStageLabel || report.statusMessage || report.failedStage
@@ -457,50 +563,103 @@ function buildMainMessage(orderedReports) {
 }
 
 /**
- * Renders the thread markdown containing failed test names, if any.
+ * Tells whether the report should contribute failed-test details to the thread.
+ *
+ * @param {Record<string, any>} report Cluster report payload.
+ * @returns {boolean} True when failed-test details should be rendered.
+ */
+function hasFailedTests(report) {
+  if (Array.isArray(report.failedTests) && report.failedTests.length > 0) {
+    return true;
+  }
+
+  return Boolean(
+    (report.metrics && report.metrics.failed) ||
+      (report.metrics && report.metrics.errors)
+  );
+}
+
+/**
+ * Extracts the top-level test group name from a failed test title.
+ *
+ * For Ginkgo titles like `[It] VirtualMachineOperationRestore restores ...`,
+ * this returns `VirtualMachineOperationRestore`.
+ *
+ * @param {string} testName Full failed test name.
+ * @returns {string} Top-level test group label.
+ */
+function getFailedTestGroupName(testName) {
+  const normalizedName = sanitizeListItem(testName).replace(/^\[[^\]]+\]\s*/, "");
+  const [groupName] = normalizedName.split(/\s+/, 1);
+  return groupName || "Unknown";
+}
+
+/**
+ * Aggregates failed test names into an ordered unique group list.
+ *
+ * @param {string[]} failedTests Failed testcase names.
+ * @returns {string[]} Ordered unique group names.
+ */
+function summarizeFailedTestGroups(failedTests) {
+  const groupNames = [];
+
+  for (const testName of failedTests) {
+    const groupName = getFailedTestGroupName(testName);
+    if (!groupNames.includes(groupName)) {
+      groupNames.push(groupName);
+    }
+  }
+
+  return groupNames;
+}
+
+/**
+ * Builds the thread reply body for a single cluster with failed tests.
+ *
+ * @param {Record<string, any>} report Cluster report payload.
+ * @returns {string} Cluster-specific failed tests markdown.
+ */
+function buildFailedTestsClusterMessage(report) {
+  const clusterName = sanitizeListItem(report.cluster || report.storageType);
+  const lines = [`**${clusterName}**`];
+
+  if (Array.isArray(report.failedTests) && report.failedTests.length > 0) {
+    const failedGroups = summarizeFailedTestGroups(report.failedTests);
+    lines.push("");
+    lines.push("| Test group |");
+    lines.push("|---|");
+    for (const groupName of failedGroups) {
+      lines.push(`| ${sanitizeCell(groupName)} |`);
+    }
+  } else {
+    lines.push(
+      "- No testcase-level failures were collected, but the E2E stage reported failures."
+    );
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Renders thread markdown messages containing failed test names, if any.
  *
  * @param {Record<string, any>[]} orderedReports Reports ordered for display.
- * @returns {string} Thread markdown message or an empty string.
+ * @returns {string[]} Thread markdown messages in publish order.
  */
-function buildThreadMessage(orderedReports) {
+function buildThreadMessages(orderedReports) {
   const testsReports = orderedReports.filter(
     (report) => report.reportKind === "tests"
   );
-  const failedTestReports = testsReports.filter((report) => {
-    if (Array.isArray(report.failedTests) && report.failedTests.length > 0) {
-      return true;
-    }
-
-    return Boolean(
-      (report.metrics && report.metrics.failed) ||
-        (report.metrics && report.metrics.errors)
-    );
-  });
+  const failedTestReports = testsReports.filter(hasFailedTests);
 
   if (failedTestReports.length === 0) {
-    return "";
+    return [];
   }
 
-  const lines = ["### Failed tests", ""];
-
-  for (const report of failedTestReports) {
-    const clusterName = sanitizeListItem(report.cluster || report.storageType);
-    lines.push(`**${clusterName}**`);
-
-    if (Array.isArray(report.failedTests) && report.failedTests.length > 0) {
-      for (const testName of report.failedTests) {
-        lines.push(`- ${sanitizeListItem(testName)}`);
-      }
-    } else {
-      lines.push(
-        "- No testcase-level failures were collected, but the E2E stage reported failures."
-      );
-    }
-
-    lines.push("");
-  }
-
-  return lines.join("\n").trim();
+  return [
+    "### Failed tests",
+    ...failedTestReports.map(buildFailedTestsClusterMessage),
+  ];
 }
 
 /**
@@ -512,7 +671,11 @@ function buildThreadMessage(orderedReports) {
  *   reportFallbacks: Record<string, any>,
  *   core: { warning(message: string): void }
  * }} params Message rendering inputs.
- * @returns {{ message: string, threadMessage: string }} Rendered markdown payloads.
+ * @returns {{
+ *   message: string,
+ *   threadMessage: string,
+ *   threadMessages: string[]
+ * }} Rendered markdown payloads.
  */
 function buildMessengerMessages({
   reportsDir,
@@ -526,9 +689,11 @@ function buildMessengerMessages({
     reportFallbacks,
     core
   );
+  const threadMessages = buildThreadMessages(orderedReports);
   return {
     message: buildMainMessage(orderedReports),
-    threadMessage: buildThreadMessage(orderedReports),
+    threadMessage: threadMessages.join("\n\n"),
+    threadMessages,
   };
 }
 
@@ -537,7 +702,7 @@ function buildMessengerMessages({
  *
  * @param {{
  *   message: string,
- *   threadMessage: string,
+ *   threadMessages: string[],
  *   loop: {
  *     apiUrl: string,
  *     channelId: string,
@@ -551,7 +716,7 @@ function buildMessengerMessages({
  * }} core GitHub core API.
  * @returns {Promise<void>}
  */
-async function publishToLoop({ message, threadMessage, loop }, core) {
+async function publishToLoop({ message, threadMessages, loop }, core) {
   if (!loop.apiUrl && !loop.channelId && !loop.token) {
     return;
   }
@@ -572,14 +737,14 @@ async function publishToLoop({ message, threadMessage, loop }, core) {
     core
   );
 
-  let replyPost = null;
-  if (threadMessage) {
-    replyPost = await postToLoopApi(
+  let lastReplyPost = null;
+  for (const replyMessage of threadMessages) {
+    lastReplyPost = await postToLoopApi(
       {
         apiUrl: loop.apiUrl,
         channelId: loop.channelId,
         token: loop.token,
-        message: threadMessage,
+        message: replyMessage,
         rootId: rootPost.id,
       },
       core
@@ -589,7 +754,7 @@ async function publishToLoop({ message, threadMessage, loop }, core) {
   core.setOutput("root_post_id", rootPost.id || "");
   core.setOutput(
     "thread_post_id",
-    replyPost && replyPost.id ? replyPost.id : ""
+    lastReplyPost && lastReplyPost.id ? lastReplyPost.id : ""
   );
 }
 
@@ -604,11 +769,15 @@ async function publishToLoop({ message, threadMessage, loop }, core) {
  *     setOutput(name: string, value: string): void
  *   }
  * }} params GitHub script dependencies.
- * @returns {Promise<{ message: string, threadMessage: string }>} Rendered messages.
+ * @returns {Promise<{
+ *   message: string,
+ *   threadMessage: string,
+ *   threadMessages: string[]
+ * }>} Rendered messages.
  */
 async function renderMessengerReport({ core }) {
   const config = readMessengerConfigFromEnv();
-  const { message, threadMessage } = buildMessengerMessages({
+  const { message, threadMessage, threadMessages } = buildMessengerMessages({
     reportsDir: config.reportsDir,
     configuredClusters: config.configuredClusters,
     reportFallbacks: config.reportFallbacks,
@@ -618,14 +787,18 @@ async function renderMessengerReport({ core }) {
   core.info(message);
   core.setOutput("message", message);
   core.setOutput("thread_message", threadMessage);
+  core.setOutput("thread_messages", JSON.stringify(threadMessages));
 
   try {
-    await publishToLoop({ message, threadMessage, loop: config.loop }, core);
+    await publishToLoop(
+      { message, threadMessages, loop: config.loop },
+      core
+    );
   } catch (error) {
     core.warning(`Unable to deliver report to Loop API: ${error.message}`);
   }
 
-  return { message, threadMessage };
+  return { message, threadMessage, threadMessages };
 }
 
 module.exports = renderMessengerReport;

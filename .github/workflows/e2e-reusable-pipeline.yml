@@ -1285,8 +1285,7 @@ jobs:
         working-directory: ./test/e2e/
         run: |
           DATE=$(date +"%Y-%m-%d")
-          summary_file_name_junit="e2e_summary_${CSI}_${DATE}.xml"
-          ginkgo_json_report="e2e_summary_${CSI}_${DATE}-ginkgo-report.json"
+          e2e_report_file="e2e_report_${CSI}_${DATE}.json"
 
           cp -a legacy/testdata /tmp/testdata
 
@@ -1296,28 +1295,25 @@ jobs:
             go tool ginkgo \
               --focus="$FOCUS" \
               -v --race --timeout=$TIMEOUT \
-              --json-report=$ginkgo_json_report \
-              --junit-report=$summary_file_name_junit
+              --json-report=$e2e_report_file
           else
             go tool ginkgo \
               -v --race --timeout=$TIMEOUT \
-              --json-report=$ginkgo_json_report \
-              --junit-report=$summary_file_name_junit
+              --json-report=$e2e_report_file
           fi
           GINKGO_EXIT_CODE=$?
           set -e
 
           echo "[INFO] Exit code: $GINKGO_EXIT_CODE"
           exit $GINKGO_EXIT_CODE
-      - name: Upload summary test results (junit/xml)
+      - name: Upload summary test results (json)
         uses: actions/upload-artifact@v4
         id: e2e-report-artifact
         if: always() && steps.e2e-report.outcome != 'skipped'
         with:
           name: e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ inputs.date_start }}
           path: |
-            test/e2e/e2e_summary_*.xml
-            test/e2e/*junit*.xml
+            test/e2e/e2e_report_*.json
           if-no-files-found: ignore
           retention-days: 3
 

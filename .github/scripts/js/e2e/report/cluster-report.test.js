@@ -3,10 +3,20 @@ const os = require("os");
 const path = require("path");
 
 const buildClusterReport = require("./cluster-report");
-const { parseJUnitReport } = require("./cluster-report");
 const { determineStage } = require("./cluster-report");
+const { parseGinkgoReport } = require("./ginkgo-report-utils");
 const { readClusterConfigFromEnv } = require("./cluster-report");
 
+/**
+ * Creates a mocked GitHub Actions core object for unit tests.
+ *
+ * @returns {{
+ *   info: jest.Mock,
+ *   warning: jest.Mock,
+ *   debug: jest.Mock,
+ *   setOutput: jest.Mock
+ * }} Mocked core object.
+ */
 function createCore() {
   return {
     info: jest.fn(),
@@ -16,6 +26,16 @@ function createCore() {
   };
 }
 
+/**
+ * Creates a minimal GitHub Actions context object for unit tests.
+ *
+ * @returns {{
+ *   serverUrl: string,
+ *   repo: { owner: string, repo: string },
+ *   runId: string,
+ *   ref: string
+ * }} Mocked context object.
+ */
 function createContext() {
   return {
     serverUrl: "https://github.com",
@@ -25,6 +45,13 @@ function createContext() {
   };
 }
 
+/**
+ * Runs a test body inside a temporary directory and removes it afterwards.
+ *
+ * @template T
+ * @param {(tempDir: string) => Promise<T>|T} testFn Test body.
+ * @returns {Promise<T>} Test result.
+ */
 async function withTempDir(testFn) {
   const tempDir = fs.mkdtempSync(
     path.join(os.tmpdir(), "cluster-report-test-")
@@ -36,6 +63,11 @@ async function withTempDir(testFn) {
   }
 }
 
+/**
+ * Seeds environment variables representing workflow stage results.
+ *
+ * @param {Record<string, string>} [overrides={}] Environment overrides.
+ */
 function setStageEnv(overrides = {}) {
   process.env.STORAGE_TYPE = "replicated";
   process.env.BOOTSTRAP_RESULT = "success";
@@ -44,6 +76,97 @@ function setStageEnv(overrides = {}) {
   process.env.CONFIGURE_VIRTUALIZATION_RESULT = "success";
   process.env.E2E_TEST_RESULT = "success";
   Object.assign(process.env, overrides);
+}
+
+/**
+ * Creates a synthetic Ginkgo spec report for parser tests.
+ *
+ * @param {{
+ *   containerHierarchyTexts?: string[],
+ *   containerHierarchyLabels?: Array<string[]>,
+ *   leafNodeText?: string,
+ *   leafNodeType?: string,
+ *   leafNodeLabels?: string[],
+ *   state?: string,
+ *   startTime?: string,
+ *   endTime?: string,
+ *   failure?: Record<string, any>|undefined
+ * }} [options={}] Spec overrides.
+ * @returns {Record<string, any>} Synthetic spec report.
+ */
+function createSpecReport({
+  containerHierarchyTexts = [],
+  containerHierarchyLabels = [],
+  leafNodeText = "",
+  leafNodeType = "It",
+  leafNodeLabels = [],
+  state = "passed",
+  startTime = "2026-04-15T09:30:44Z",
+  endTime = "2026-04-15T09:31:44Z",
+  failure = undefined,
+} = {}) {
+  return {
+    ContainerHierarchyTexts: containerHierarchyTexts,
+    ContainerHierarchyLocations: [],
+    ContainerHierarchyLabels: containerHierarchyLabels,
+    LeafNodeType: leafNodeType,
+    LeafNodeLocation: {},
+    LeafNodeLabels: leafNodeLabels,
+    LeafNodeText: leafNodeText,
+    State: state,
+    StartTime: startTime,
+    EndTime: endTime,
+    RunTime: 60000000000,
+    ParallelProcess: 1,
+    ...(failure ? { Failure: failure } : {}),
+  };
+}
+
+/**
+ * Creates a serialized single-suite Ginkgo report for unit tests.
+ *
+ * @param {{ startedAt: string, specs: Record<string, any>[] }} params Report contents.
+ * @returns {string} JSON-serialized report.
+ */
+function createGinkgoReport({ startedAt, specs }) {
+  return JSON.stringify(
+    [
+      {
+        SuitePath: "/tmp/test/e2e",
+        SuiteDescription: "Tests",
+        SuiteSucceeded: false,
+        StartTime: startedAt,
+        EndTime: "2026-04-15T10:00:00Z",
+        RunTime: 1800000000000,
+        SpecReports: specs,
+      },
+    ],
+    null,
+    2
+  );
+}
+
+/**
+ * Creates a zero-filled metrics object for parser tests.
+ *
+ * @returns {{
+ *   passed: number,
+ *   failed: number,
+ *   errors: number,
+ *   skipped: number,
+ *   total: number,
+ *   successRate: number
+ * }} Zeroed metrics payload.
+ */
+function createZeroMetrics() {
+  return {
+    passed: 0,
+    failed: 0,
+    errors: 0,
+    skipped: 0,
+    total: 0,
+    successRate: 0,
+  };
 }
 
 describe("cluster-report", () => {
@@ -107,24 +230,43 @@ describe("cluster-report", () => {
     });
   });
 
-  test("renders test report from JUnit when E2E succeeded", async () =>
+  test("renders test report from Ginkgo JSON when E2E succeeded", async () =>
     withTempDir(async (tempDir) => {
-      const xmlPath = path.join(
+      const rawReportPath = path.join(
         tempDir,
-        "e2e_summary_replicated_2026-04-15.xml"
+        "e2e_report_replicated_2026-04-15.json"
       );
       fs.writeFileSync(
-        xmlPath,
-        `<?xml version="1.0" encoding="UTF-8"?>
-<testsuites tests="4" failures="1" errors="1" disabled="1">
-  <testsuite name="Tests" tests="4" failures="1" errors="1" skipped="1" timestamp="2026-04-15T09:30:44">
-    <testcase name="[It] passes" status="passed"></testcase>
-    <testcase name="[It] fails &amp; burns" status="failed"><failure message="boom">boom</failure></testcase>
-    <testcase name="[It] errors &lt;loudly&gt;" status="error"><error message="broken">broken</error></testcase>
-    <testcase name="[It] skipped" status="skipped"></testcase>
-  </testsuite>
-</testsuites>
-`
+        rawReportPath,
+        createGinkgoReport({
+          startedAt: "2026-04-15T09:30:44Z",
+          specs: [
+            createSpecReport({
+              leafNodeType: "SynchronizedBeforeSuite",
+              state: "passed",
+            }),
+            createSpecReport({
+              containerHierarchyTexts: ["Suite"],
+              leafNodeText: "passes",
+              state: "passed",
+            }),
+            createSpecReport({
+              containerHierarchyTexts: ["Suite"],
+              leafNodeText: "fails & burns",
+              state: "failed",
+              leafNodeLabels: ["Slow"],
+            }),
+            createSpecReport({
+              containerHierarchyTexts: ["Other"],
+              leafNodeText: "errors <loudly>",
+              state: "timedout",
+            }),
+            createSpecReport({
+              leafNodeText: "skipped",
+              state: "skipped",
+            }),
+          ],
+        })
       );
 
       const reportFile = path.join(tempDir, "report.json");
@@ -150,10 +292,11 @@ describe("cluster-report", () => {
         successRate: 25,
       });
       expect(report.failedTests).toEqual([
-        "[It] fails & burns",
-        "[It] errors <loudly>",
+        "[It] Suite fails & burns [Slow]",
+        "[It] Other errors <loudly>",
       ]);
-      expect(report.reportSource).toBe("junit");
+      expect(report.reportSource).toBe("ginkgo-json");
+      expect(report.sourceReport).toBe(rawReportPath);
       expect(JSON.parse(fs.readFileSync(reportFile, "utf8")).reportKind).toBe(
         "tests"
       );
@@ -172,37 +315,32 @@ describe("cluster-report", () => {
       expect(core.setOutput).toHaveBeenCalledWith("branch", "main");
     }));
 
-  test("fails when multiple matching JUnit reports exist", async () =>
+  test("fails when multiple matching Ginkgo JSON reports exist", async () =>
     withTempDir(async (tempDir) => {
-      const firstXmlPath = path.join(
+      const firstReportPath = path.join(
         tempDir,
         "nested",
-        "e2e_summary_replicated_2026-04-15.xml"
+        "e2e_report_replicated_2026-04-15.json"
       );
-      const secondXmlPath = path.join(
+      const secondReportPath = path.join(
         tempDir,
-        "e2e_summary_replicated_2026-04-16.xml"
+        "e2e_report_replicated_2026-04-16.json"
       );
-      fs.mkdirSync(path.dirname(firstXmlPath), { recursive: true });
+      fs.mkdirSync(path.dirname(firstReportPath), { recursive: true });
 
       fs.writeFileSync(
-        firstXmlPath,
-        `<?xml version="1.0" encoding="UTF-8"?>
-<testsuites tests="2" failures="1" errors="0" skipped="0">
-  <testsuite name="Tests" tests="2" failures="1" errors="0" skipped="0" timestamp="2026-04-15T09:30:44">
-    <testcase name="[It] old pass" status="passed"></testcase>
-    <testcase name="[It] old fail" status="failed"><failure message="boom">boom</failure></testcase>
-  </testsuite>
-</testsuites>
-`
+        firstReportPath,
+        createGinkgoReport({
+          startedAt: "2026-04-15T09:30:44Z",
+          specs: [createSpecReport({ leafNodeText: "old pass", state: "passed" })],
+        })
       );
       fs.writeFileSync(
-        secondXmlPath,
-        `<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="Tests" tests="1" failures="0" errors="0" skipped="0" timestamp="2026-04-16T09:30:44">
-  <testcase name="[It] latest pass" status="passed"></testcase>
-</testsuite>
-`
+        secondReportPath,
+        createGinkgoReport({
+          startedAt: "2026-04-16T09:30:44Z",
+          specs: [createSpecReport({ leafNodeText: "latest pass", state: "passed" })],
+        })
       );
 
       const reportFile = path.join(tempDir, "report.json");
@@ -217,56 +355,148 @@ describe("cluster-report", () => {
           context: createContext(),
         })
       ).rejects.toThrow(
-        "Expected a single JUnit report, but found 2"
+        "Expected a single Ginkgo JSON report, but found 2"
       );
       expect(fs.existsSync(reportFile)).toBe(false);
     }));
 
-  test("parses current replicated fixture report", () => {
-    const fixturePath = path.resolve(
-      __dirname,
-      "__fixtures__/e2e_summary_replicated_2026-04-20.xml"
+  test("falls back to missing-report status when raw Ginkgo JSON is invalid", async () =>
+    withTempDir(async (tempDir) => {
+      const rawReportPath = path.join(
+        tempDir,
+        "e2e_report_replicated_2026-04-15.json"
+      );
+      fs.writeFileSync(rawReportPath, "{not-valid-json");
+
+      const reportFile = path.join(tempDir, "report.json");
+      setStageEnv({
+        E2E_REPORT_DIR: tempDir,
+        REPORT_FILE: reportFile,
+      });
+
+      const core = createCore();
+      const report = await buildClusterReport({
+        core,
+        context: createContext(),
+      });
+
+      expect(report.reportKind).toBe("artifact-missing");
+      expect(report.failedStage).toBe("artifact-missing");
+      expect(report.status).toBe("missing");
+      expect(report.reportSource).toBe("empty");
+      expect(core.warning).toHaveBeenCalledWith(
+        expect.stringContaining("Unable to parse Ginkgo JSON report")
+      );
+    }));
+
+  test("throws a descriptive error when writing the cluster report fails", async () =>
+    withTempDir(async (tempDir) => {
+      const reportFile = path.join(tempDir, "report.json");
+      setStageEnv({
+        E2E_REPORT_DIR: tempDir,
+        REPORT_FILE: reportFile,
+      });
+
+      const writeSpy = jest
+        .spyOn(fs, "writeFileSync")
+        .mockImplementation(() => {
+          throw new Error("disk full");
+        });
+
+      try {
+        await expect(
+          buildClusterReport({
+            core: createCore(),
+            context: createContext(),
+          })
+        ).rejects.toThrow(
+          `Unable to write cluster report file ${reportFile}: disk full`
+        );
+      } finally {
+        writeSpy.mockRestore();
+      }
+    }));
+
+  test("parses CI-like nfs counts from Ginkgo JSON and ignores non-It specs", () => {
+    const specs = [
+      createSpecReport({
+        leafNodeType: "SynchronizedBeforeSuite",
+        state: "passed",
+      }),
+    ];
+
+    for (let index = 1; index <= 90; index += 1) {
+      specs.push(
+        createSpecReport({
+          containerHierarchyTexts: ["PassingSuite"],
+          leafNodeText: `passed ${index}`,
+          state: "passed",
+        })
+      );
+    }
+
+    specs.push(
+      createSpecReport({
+        containerHierarchyTexts: [
+          "VirtualMachineOperationRestore",
+          "restores a virtual machine from a snapshot",
+        ],
+        containerHierarchyLabels: [["Slow"], []],
+        leafNodeText:
+          "BestEffort restore mode; automatic restart approval mode; manual run policy",
+        state: "failed",
+      })
     );
-    const parsed = parseJUnitReport(fs.readFileSync(fixturePath, "utf8"));
+
+    for (let index = 2; index <= 7; index += 1) {
+      specs.push(
+        createSpecReport({
+          containerHierarchyTexts: ["FailingSuite"],
+          leafNodeText: `failed ${index}`,
+          state: "failed",
+        })
+      );
+    }
+
+    specs.push(
+      createSpecReport({
+        containerHierarchyTexts: ["SkippedSuite"],
+        leafNodeText: "skipped with reason",
+        state: "skipped",
+        failure: {
+          Message: "skip reason must not turn into a failure metric",
+        },
+      })
+    );
+
+    for (let index = 2; index <= 34; index += 1) {
+      specs.push(
+        createSpecReport({
+          containerHierarchyTexts: ["SkippedSuite"],
+          leafNodeText: `skipped ${index}`,
+          state: "skipped",
+        })
+      );
+    }
+
+    const parsed = parseGinkgoReport(
+      createGinkgoReport({
+        startedAt: "2026-04-28T03:11:27.708387575Z",
+        specs,
+      }),
+      createZeroMetrics
+    );
 
     expect(parsed.metrics).toEqual({
-      passed: 117,
-      failed: 11,
+      passed: 90,
+      failed: 7,
       errors: 0,
-      skipped: 4,
-      total: 132,
-      successRate: 88.64,
+      skipped: 34,
+      total: 131,
+      successRate: 68.7,
     });
-    expect(parsed.startedAt).toBe("2026-04-20T12:48:10");
-    expect(parsed.failedTests).toHaveLength(11);
-    expect(parsed.failedTests).toContain(
-      "[It] VirtualMachineAdditionalNetworkInterfaces verifies additional network interfaces and connectivity before and after migration Main + additional network"
-    );
-    expect(parsed.failedTests).toContain(
-      "[It] VirtualMachineOperationRestore restores a virtual machine from a snapshot BestEffort restore mode; automatic restart approval mode; always on unless stopped manually run policy [Slow]"
-    );
-  });
-
-  test("parses current nfs fixture report", () => {
-    const fixturePath = path.resolve(
-      __dirname,
-      "__fixtures__/e2e_summary_nfs_2026-04-20.xml"
-    );
-    const parsed = parseJUnitReport(fs.readFileSync(fixturePath, "utf8"));
-
-    expect(parsed.metrics).toEqual({
-      passed: 93,
-      failed: 8,
-      errors: 0,
-      skipped: 31,
-      total: 132,
-      successRate: 70.45,
-    });
-    expect(parsed.startedAt).toBe("2026-04-20T12:38:34");
-    expect(parsed.failedTests).toHaveLength(8);
-    expect(parsed.failedTests).toContain(
-      "[It] RWOVirtualDiskMigration should be successful two migrations in a row"
-    );
+    expect(parsed.startedAt).toBe("2026-04-28T03:11:27.708387575Z");
+    expect(parsed.failedTests).toHaveLength(7);
     expect(parsed.failedTests).toContain(
       "[It] VirtualMachineOperationRestore restores a virtual machine from a snapshot BestEffort restore mode; automatic restart approval mode; manual run policy [Slow]"
     );

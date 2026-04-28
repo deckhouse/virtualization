@@ -14,9 +14,14 @@ function listMatchingFiles(dirPath, filePattern, files = []) {
     return files;
   }
 
-  const entries = fs
-    .readdirSync(dirPath, { withFileTypes: true })
-    .sort((left, right) => left.name.localeCompare(right.name));
+  let entries;
+  try {
+    entries = fs
+      .readdirSync(dirPath, { withFileTypes: true })
+      .sort((left, right) => left.name.localeCompare(right.name));
+  } catch (error) {
+    throw new Error(`Unable to scan directory ${dirPath}: ${error.message}`);
+  }
 
   for (const entry of entries) {
     const fullPath = path.join(dirPath, entry.name);
@@ -33,6 +38,33 @@ function listMatchingFiles(dirPath, filePattern, files = []) {
   return files;
 }
 
+/**
+ * Resolves a single file matching the provided pattern.
+ *
+ * @param {string} dirPath Directory containing candidate files.
+ * @param {RegExp} filePattern Pattern matching the expected file name.
+ * @param {string} [description="file"] Human-readable file kind for errors.
+ * @returns {string|null} Matching file path or null when no match exists.
+ * @throws {Error} When more than one matching file is found.
+ */
+function findSingleMatchingFile(dirPath, filePattern, description = "file") {
+  const matchingFiles = listMatchingFiles(dirPath, filePattern);
+  if (matchingFiles.length === 0) {
+    return null;
+  }
+
+  if (matchingFiles.length > 1) {
+    throw new Error(
+      `Expected a single ${description}, but found ${matchingFiles.length}: ${matchingFiles.join(
+        ", "
+      )}`
+    );
+  }
+
+  return matchingFiles[0];
+}
+
 module.exports = {
+  findSingleMatchingFile,
   listMatchingFiles,
 };

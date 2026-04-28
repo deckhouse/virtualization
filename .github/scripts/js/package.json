@@ -19,8 +19,5 @@
     "eslint": "^10.2.1",
     "jest": "28.1.2",
     "prettier": "^2.5.0"
-  },
-  "dependencies": {
-    "fast-xml-parser": "^5.7.1"
   }
 }
