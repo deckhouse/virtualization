@@ -16,6 +16,8 @@ rules:
       - clustervirtualimages
       - virtualmachineclasses
       - virtualmachineipaddressleases
+      - virtualmachinemacaddressleases
+      - nodeusbdevices
     verbs:
       - get
       - list
