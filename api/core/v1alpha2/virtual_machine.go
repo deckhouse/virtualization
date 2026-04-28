@@ -41,7 +41,6 @@ const (
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:categories={all,virtualization},scope=Namespaced,shortName={vm},singular=virtualmachine
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="The phase of the virtual machine."
-// +kubebuilder:printcolumn:name="PhaseAge",type="date",JSONPath=".status.stats.phasesTransitions[-1].timestamp",description="Time since the virtual machine entered the current phase."
 // +kubebuilder:printcolumn:name="Uptime",type="date",JSONPath=".status.conditions[?(@.reason==\"Running\")].lastTransitionTime",description="Time since the virtual machine started running."
 // +kubebuilder:printcolumn:name="Cores",priority=1,type="string",JSONPath=".spec.cpu.cores",description="The number of cores of the virtual machine."
 // +kubebuilder:printcolumn:name="CoreFraction",priority=1,type="string",JSONPath=".spec.cpu.coreFraction",description="Virtual machine core fraction. The range of available values is set in the `sizePolicy` parameter of the VirtualMachineClass; if it is not set, use values within the 1–100% range."
