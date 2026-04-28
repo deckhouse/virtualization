@@ -13,22 +13,17 @@ spec:
       name: prometheus-token
     path: /metrics
     port: metrics
-    # relabelings:
-    # - action: labeldrop
-    #   regex: endpoint|namespace|pod|container
-    # - action: replace
-    #   replacement: linstor-controller
-    #   targetLabel: job
-    # - action: replace
-    #   replacement: cluster
-    #   targetLabel: tier
-    # - action: keep
-    #   regex: "true"
-    #   sourceLabels:
-    #   - __meta_kubernetes_endpoint_ready
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
+    metricRelabelings:
+      # rename kubevirt_cdi_* -> d8_internal_virtualization_kubevirt_cdi_*
+      - action: replace
+        regex: kubevirt_cdi_(.*)
+        replacement: d8_internal_virtualization_kubevirt_cdi_$1
+        sourceLabels:
+          - __name__
+        targetLabel: __name__
   namespaceSelector:
     matchNames:
     - d8-{{ .Chart.Name }}
