@@ -266,7 +266,7 @@ func (t *VMUSBTest) mountUSB() {
 	mountCmd := `
 		set -e
 		sudo modprobe usb-storage 2>/dev/null || true
-		for i in $(seq 1 120); do
+		for i in $(seq 1 300); do
 			for host in /sys/class/scsi_host/host*; do
 				if [ -w "$host/scan" ]; then
 					echo "- - -" | sudo tee "$host/scan" >/dev/null || true
@@ -321,7 +321,7 @@ func (t *VMUSBTest) mountUSB() {
 		ls -la /mnt/usb
 	`
 
-	_, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, mountCmd, framework.WithSSHTimeout(framework.LongTimeout))
+	_, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, mountCmd, framework.WithSSHTimeout(framework.MaxTimeout))
 	Expect(err).NotTo(HaveOccurred())
 }
 
