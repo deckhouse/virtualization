@@ -277,24 +277,21 @@ func (t *VMUSBTest) mountUSB() {
 
 		for block_path in /sys/block/*; do
 			[ -e "$block_path" ] || continue
-			device_realpath="$(readlink -f "$block_path/device" 2>/dev/null || true)"
-			case "$device_realpath" in
-				"$usb_sys_device"/*)
-					block_name="$(basename "$block_path")"
-					if [ -b "/dev/$block_name" ]; then
-						mount_device="/dev/$block_name"
-						break
-					fi
-					;;
-			esac
-			done
+			block_name="$(basename "$block_path")"
+			if [ -b "/dev/$block_name" ] && udevadm info --query=property --name "/dev/$block_name" 2>/dev/null | grep -q "ID_SERIAL_SHORT=$usb_serial"; then
+				mount_device="/dev/$block_name"
+				break
+			fi
+		done
 		[ -n "$mount_device" ] || {
 			echo "USB block device for serial $usb_serial not found" >>/tmp/usb-mount.err
 			echo "usb_sys_device=$usb_sys_device" >>/tmp/usb-mount.err
 			find "$usb_sys_device" -maxdepth 8 -print >>/tmp/usb-mount.err 2>&1 || true
 			for block_path in /sys/block/*; do
 				[ -e "$block_path" ] || continue
+				block_name="$(basename "$block_path")"
 				echo "$(basename "$block_path") -> $(readlink -f "$block_path/device" 2>/dev/null || true)" >>/tmp/usb-mount.err
+				udevadm info --query=property --name "/dev/$block_name" >>/tmp/usb-mount.err 2>&1 || true
 			done
 			exit 1
 		}
@@ -324,6 +321,7 @@ func (t *VMUSBTest) usbDiagnostics() string {
 		echo "usb serials:" && for serial_file in /sys/bus/usb/devices/*/serial; do [ -f "$serial_file" ] && echo "$serial_file=$(cat "$serial_file")"; done || true
 		echo "usb sysfs:" && find /sys/bus/usb/devices -maxdepth 3 -print || true
 		echo "lsblk:" && lsblk -a -o NAME,PATH,TYPE,TRAN,RM,SERIAL,MODEL || true
+		echo "udevadm:" && for dev in /dev/sd*; do [ -b "$dev" ] && echo "== $dev ==" && udevadm info --query=property --name "$dev"; done || true
 		echo "lsusb:" && lsusb || true
 		echo "dmesg:" && sudo dmesg | tail -n 100 || true
 	`
