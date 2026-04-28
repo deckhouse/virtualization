@@ -336,7 +336,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		}
 
 		if requestedSize := getRequestedSize(vd, pvc); requestedSize != "" {
-			anno[annotations.AnnVirtualDiskRequestedSize] = requestedSize
+			anno[annotations.AnnVirtualDiskOriginalSize] = requestedSize
 		}
 
 		for _, ownerRef := range vd.OwnerReferences {

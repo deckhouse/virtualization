@@ -116,7 +116,7 @@ var _ = Describe("LifeCycle handler", func() {
 			Expect(ready.Message).ToNot(BeEmpty())
 		})
 
-		DescribeTable("stores requested size in volume snapshot annotations",
+		DescribeTable("stores original size in volume snapshot annotations",
 			func(vdSize, pvcSize, expectedSize string) {
 				if vdSize != "" {
 					size := resource.MustParse(vdSize)
@@ -129,7 +129,7 @@ var _ = Describe("LifeCycle handler", func() {
 				}
 
 				snapshotter.CreateVolumeSnapshotFunc = func(_ context.Context, vs *vsv1.VolumeSnapshot) (*vsv1.VolumeSnapshot, error) {
-					Expect(vs.Annotations[annotations.AnnVirtualDiskRequestedSize]).To(Equal(expectedSize))
+					Expect(vs.Annotations[annotations.AnnVirtualDiskOriginalSize]).To(Equal(expectedSize))
 					return vs, nil
 				}
 

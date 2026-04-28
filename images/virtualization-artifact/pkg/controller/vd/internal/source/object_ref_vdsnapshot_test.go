@@ -183,13 +183,13 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 		})
 
 		DescribeTable("sets PVC size",
-			func(vdSize, originalRequestedSize, restoreSize, expectedSize string) {
+			func(vdSize, originalSize, restoreSize, expectedSize string) {
 				if vdSize != "" {
 					vd.Spec.PersistentVolumeClaim.Size = ptr.To(resource.MustParse(vdSize))
 				}
-				if originalRequestedSize != "" {
+				if originalSize != "" {
 					vs.Annotations = map[string]string{
-						annotations.AnnVirtualDiskRequestedSize: originalRequestedSize,
+						annotations.AnnVirtualDiskOriginalSize: originalSize,
 					}
 				}
 				if restoreSize != "" {
@@ -213,7 +213,7 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(res.IsZero()).To(BeTrue())
 			},
-			Entry("from original requested size annotation when VD size is omitted", "", "20Gi", "10Gi", "20Gi"),
+			Entry("from original size annotation when VD size is omitted", "", "20Gi", "10Gi", "20Gi"),
 			Entry("from VD spec size when it is set", "30Gi", "20Gi", "10Gi", "30Gi"),
 			Entry("from restore size when annotation and VD size are omitted", "", "", "10Gi", "10Gi"),
 		)

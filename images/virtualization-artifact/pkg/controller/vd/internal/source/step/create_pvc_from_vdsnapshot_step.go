@@ -235,11 +235,11 @@ func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *v1alpha2.VirtualDisk, vs *vsv1
 func (s CreatePVCFromVDSnapshotStep) getPVCSize(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) (*resource.Quantity, error) {
 	requestedSize := vd.Spec.PersistentVolumeClaim.Size
 	if requestedSize == nil {
-		originalRequestedSize := vs.Annotations[annotations.AnnVirtualDiskRequestedSize]
-		if originalRequestedSize != "" {
-			size, err := resource.ParseQuantity(originalRequestedSize)
+		originalSize := vs.Annotations[annotations.AnnVirtualDiskOriginalSize]
+		if originalSize != "" {
+			size, err := resource.ParseQuantity(originalSize)
 			if err != nil {
-				return nil, fmt.Errorf("failed to parse the original requested size %q: %w", originalRequestedSize, err)
+				return nil, fmt.Errorf("failed to parse the original size %q: %w", originalSize, err)
 			}
 			requestedSize = &size
 		}

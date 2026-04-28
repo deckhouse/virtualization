@@ -198,8 +198,8 @@ const (
 	AnnVirtualDiskOriginalAnnotations = AnnAPIGroupV + "/vd-original-annotations"
 	// AnnVirtualDiskOriginalLabels is the annotation for storing original VirtualDisk labels.
 	AnnVirtualDiskOriginalLabels = AnnAPIGroupV + "/vd-original-labels"
-	// AnnVirtualDiskRequestedSize is the annotation for storing original VirtualDisk requested PVC size.
-	AnnVirtualDiskRequestedSize = AnnAPIGroupV + "/vd-requested-size"
+	// AnnVirtualDiskOriginalSize is the annotation for storing original VirtualDisk requested PVC size.
+	AnnVirtualDiskOriginalSize = AnnAPIGroupV + "/vd-original-size"
 	// AnnVirtualDiskHadOwnerReference is the annotation on VolumeSnapshot set to "true" when the source VirtualDisk had an owner reference at snapshot time; absent otherwise.
 	AnnVirtualDiskHadOwnerReference = AnnAPIGroupV + "/vd-had-owner-reference"
 	// AnnVMOPUID is an annotation on vmop that represents name of VMOP.
