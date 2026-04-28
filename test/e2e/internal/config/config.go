@@ -80,17 +80,17 @@ type Config struct {
 }
 
 type TestData struct {
-	AffinityToleration string `yaml:"affinityToleration"`
-	ComplexTest        string `yaml:"complexTest"`
-	DiskResizing       string `yaml:"diskResizing"`
-	ImageHotplug       string `yaml:"imageHotplug"`
-	VMLabelAnnotation  string `yaml:"vmLabelAnnotation"`
-	VMMigration        string `yaml:"vmMigration"`
-	VMMigrationCancel  string `yaml:"vmMigrationCancel"`
-	VMEvacuation       string `yaml:"vmEvacuation"`
-	VdSnapshots        string `yaml:"vdSnapshots"`
-	Sshkey             string `yaml:"sshKey"`
-	SSHUser            string `yaml:"sshUser"`
+	ComplexTest       string `yaml:"complexTest"`
+	DiskResizing      string `yaml:"diskResizing"`
+	ImageHotplug      string `yaml:"imageHotplug"`
+	VMLabelAnnotation string `yaml:"vmLabelAnnotation"`
+	VMMigration       string `yaml:"vmMigration"`
+	VMMigrationCancel string `yaml:"vmMigrationCancel"`
+	VMEvacuation      string `yaml:"vmEvacuation"`
+	VMVersions        string `yaml:"vmVersions"`
+	VdSnapshots       string `yaml:"vdSnapshots"`
+	Sshkey            string `yaml:"sshKey"`
+	SSHUser           string `yaml:"sshUser"`
 }
 
 type StorageClass struct {

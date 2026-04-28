@@ -10,7 +10,6 @@ clusterTransport:
 helperImages:
   curlImage: "curlimages/curl"
 testData:
-  affinityToleration: "/tmp/testdata/affinity-toleration"
   complexTest: "/tmp/testdata/complex-test"
   diskResizing: "/tmp/testdata/disk-resizing"
   imageHotplug: "/tmp/testdata/image-hotplug"
