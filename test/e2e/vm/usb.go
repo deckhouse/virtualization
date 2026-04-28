@@ -269,6 +269,10 @@ func (t *VMUSBTest) mountUSB() {
 		done
 		[ -n "$usb_present" ] || { echo "USB device with serial $usb_serial not found" >/tmp/usb-mount.err; exit 1; }
 
+		for host in /sys/class/scsi_host/host*; do
+			echo "- - -" | sudo tee "$host/scan" >/dev/null || true
+		done
+
 		for dev in /dev/sd*; do
 			[ -b "$dev" ] || continue
 			if lsblk -dno TRAN,RM "$dev" 2>/dev/null | grep -Eq '^usb[[:space:]]+1$'; then
