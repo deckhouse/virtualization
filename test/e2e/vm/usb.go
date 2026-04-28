@@ -265,36 +265,31 @@ func (t *VMUSBTest) assignNodeUSB() {
 
 func (t *VMUSBTest) mountUSB() {
 	mountCmd := fmt.Sprintf(`
-		set -e
-		last_error=/tmp/usb-mount.err
+		sudo mkdir -p /mnt/usb && \
+		(sudo mountpoint -q /mnt/usb || sudo mount %s /mnt/usb 2>/tmp/usb-mount.err || sudo mount -o rw %s /mnt/usb 2>>/tmp/usb-mount.err) && \
+		ls -la /mnt/usb
+	`, t.DevicePath, t.DevicePath)
 
-		for i in $(seq 1 300); do
-			sudo mkdir -p /mnt/usb
+	Eventually(func() error {
+		_, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, mountCmd)
+		return err
+	}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed(), t.usbDiagnostics())
+}
 
-			if sudo mountpoint -q /mnt/usb; then
-				ls -la /mnt/usb
-				exit 0
-			fi
+func (t *VMUSBTest) usbDiagnostics() string {
+	diagnosticsCmd := `
+		echo "mount error:" && cat /tmp/usb-mount.err 2>/dev/null || true
+		echo "mount:" && mount || true
+		echo "lsusb:" && lsusb || true
+		echo "dmesg:" && sudo dmesg | tail -n 100 || true
+	`
 
-			: > "$last_error"
-			if sudo mount %s /mnt/usb 2>"$last_error" || sudo mount -o rw %s /mnt/usb 2>>"$last_error"; then
-				ls -la /mnt/usb
-				exit 0
-			fi
+	result, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, diagnosticsCmd, framework.WithSSHTimeout(framework.MiddleTimeout))
+	if err != nil {
+		return fmt.Sprintf("failed to collect USB diagnostics: %v", err)
+	}
 
-			sleep 1
-		done
-
-		echo "Failed to mount USB device %s" >&2
-		cat "$last_error" >&2 || true
-		mount >&2 || true
-		lsusb >&2 || true
-		sudo dmesg | tail -n 100 >&2 || true
-		exit 1
-	`, t.DevicePath, t.DevicePath, t.DevicePath)
-
-	_, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, mountCmd, framework.WithSSHTimeout(framework.MaxTimeout))
-	Expect(err).NotTo(HaveOccurred())
+	return result
 }
 
 func nodeUSBAttachedCondition(nodeUSBDevice *v1alpha2.NodeUSBDevice) *metav1.Condition {
