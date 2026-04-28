@@ -49,6 +49,28 @@ var _ = Describe("LifeCycleHandler", func() {
 			Expect(vm.Status.RunningSince.Time).To(Equal(transitionTime.Time))
 		})
 
+		It("keeps existing runningSince while the VM remains running", func() {
+			runningSince := metav1.NewTime(time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC))
+			transitionTime := metav1.NewTime(time.Date(2026, 4, 24, 12, 10, 0, 0, time.UTC))
+			vm := &v1alpha2.VirtualMachine{
+				Status: v1alpha2.VirtualMachineStatus{
+					RunningSince: &runningSince,
+					Conditions: []metav1.Condition{
+						{
+							Type:               vmcondition.TypeRunning.String(),
+							Status:             metav1.ConditionTrue,
+							LastTransitionTime: transitionTime,
+						},
+					},
+				},
+			}
+
+			syncRunningSince(vm)
+
+			Expect(vm.Status.RunningSince).NotTo(BeNil())
+			Expect(vm.Status.RunningSince.Time).To(Equal(runningSince.Time))
+		})
+
 		DescribeTable("clears runningSince when the VM is not running",
 			func(conditions []metav1.Condition) {
 				transitionTime := metav1.NewTime(time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC))

@@ -237,6 +237,10 @@ func syncRunningSince(vm *v1alpha2.VirtualMachine) {
 		return
 	}
 
+	if vm.Status.RunningSince != nil {
+		return
+	}
+
 	vm.Status.RunningSince = running.LastTransitionTime.DeepCopy()
 }
 
