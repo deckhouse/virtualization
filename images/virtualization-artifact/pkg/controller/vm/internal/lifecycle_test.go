@@ -30,10 +30,10 @@ import (
 )
 
 var _ = Describe("LifeCycleHandler", func() {
-	Describe("getKVMIReadyReason", func() {
+	Describe("getKVMIReadyConditionReason", func() {
 		DescribeTable("maps empty Ready condition reason by status",
 			func(status corev1.ConditionStatus, expected conditions.Stringer) {
-				Expect(getKVMIReadyReason(status, "").String()).To(Equal(expected.String()))
+				Expect(getKVMIReadyConditionReason(status, "").String()).To(Equal(expected.String()))
 			},
 			Entry("true status", corev1.ConditionTrue, vmcondition.ReasonVirtualMachineRunning),
 			Entry("false status", corev1.ConditionFalse, conditions.ReasonUnknown),
