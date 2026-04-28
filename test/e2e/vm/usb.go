@@ -137,6 +137,7 @@ var _ = Describe("VirtualMachineUSB", func() {
 
 				for _, dev := range vm.Status.USBDevices {
 					if dev.Name == t.NodeUSBDevice.Name && dev.Attached && dev.Ready {
+						t.DevicePath = fmt.Sprintf("/dev/bus/usb/%d/%d", dev.Address.Bus, dev.Address.Port)
 						return nil
 					}
 				}
