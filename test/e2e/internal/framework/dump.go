@@ -65,6 +65,7 @@ func (f *Framework) saveTestCaseDump() {
 	f.saveIntvirtvmiDescriptions(ft, tmpDir)
 	f.saveNodeAdditionalInfo(ft, tmpDir)
 	f.saveEvents(ft, tmpDir)
+	f.saveClusterNetworkInfo(ft, tmpDir)
 }
 
 // GetFormattedTestCaseFullText returns CurrentSpecReport().FullText(), formatted with the following rules:
@@ -300,6 +301,43 @@ func (f *Framework) saveEvents(testCaseFullText, dumpPath string) {
 		err = os.WriteFile(fileName, data, 0o644)
 		if err != nil {
 			GinkgoWriter.Printf("Failed to write events dump:\nFile: %s\nError: %v\n", fileName, err)
+		}
+	}
+}
+
+func (f *Framework) saveClusterNetworkInfo(testCaseFullText, dumpPath string) {
+	GinkgoHelper()
+
+	// Only for tests that use additional networks
+	if !strings.Contains(testCaseFullText, "virtualmachineadditionalnetworkinterfaces") {
+		return
+	}
+
+	// Get all ClusterNetwork resources
+	cmd := f.Clients.Kubectl().RawCommand("get clusternetwork -o yaml", ShortTimeout)
+	if cmd.Error() != nil {
+		GinkgoWriter.Printf("Failed to get clusternetwork:\nCmdError: %v\nStderr: %s\n", cmd.Error(), cmd.StdErr())
+	}
+
+	fileName := fmt.Sprintf("%s/e2e_failed__%s__clusternetwork.yaml", dumpPath, testCaseFullText)
+	if len(cmd.StdOutBytes()) > 0 {
+		err := os.WriteFile(fileName, cmd.StdOutBytes(), 0o644)
+		if err != nil {
+			GinkgoWriter.Printf("Failed to write clusternetwork dump:\nFile: %s\nError: %v\n", fileName, err)
+		}
+	}
+
+	// Also get CEP (Cilium Endpoints) for the namespace
+	cepCmd := f.Clients.Kubectl().RawCommand(fmt.Sprintf("get cep -n %s -o yaml", f.Namespace().Name), ShortTimeout)
+	if cepCmd.Error() != nil {
+		GinkgoWriter.Printf("Failed to get cep:\nCmdError: %v\nStderr: %s\n", cepCmd.Error(), cepCmd.StdErr())
+	}
+
+	cepFileName := fmt.Sprintf("%s/e2e_failed__%s__cep.yaml", dumpPath, testCaseFullText)
+	if len(cepCmd.StdOutBytes()) > 0 {
+		err := os.WriteFile(cepFileName, cepCmd.StdOutBytes(), 0o644)
+		if err != nil {
+			GinkgoWriter.Printf("Failed to write cep dump:\nFile: %s\nError: %v\n", cepFileName, err)
 		}
 	}
 }
