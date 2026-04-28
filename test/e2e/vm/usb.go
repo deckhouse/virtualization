@@ -292,7 +292,9 @@ func (t *VMUSBTest) mountUSB() {
 		if sudo mountpoint -q /mnt/usb; then
 			sudo umount /mnt/usb || true
 		fi
-		sudo mount "$mount_device" /mnt/usb 2>>/tmp/usb-mount.err || sudo mount -o rw "$mount_device" /mnt/usb 2>>/tmp/usb-mount.err
+		sudo mount -t auto "$mount_device" /mnt/usb 2>>/tmp/usb-mount.err || \
+			sudo mount -t vfat -o rw "$mount_device" /mnt/usb 2>>/tmp/usb-mount.err || \
+			sudo mount -o rw "$mount_device" /mnt/usb 2>>/tmp/usb-mount.err
 		ls -la /mnt/usb
 	`, serial)
 
@@ -311,6 +313,7 @@ func (t *VMUSBTest) usbDiagnostics() string {
 		echo "lsblk:" && lsblk -a -o NAME,PATH,TYPE,TRAN,RM,SERIAL,MODEL || true
 		echo "disks:" && for dev in /dev/sd*; do [ -b "$dev" ] && echo "== $dev ==" && lsblk -dno NAME,PATH,TRAN,RM,SERIAL,MODEL "$dev"; done || true
 		echo "lsusb:" && lsusb || true
+		echo "fstype:" && blkid /dev/sd* || true
 		echo "dmesg:" && sudo dmesg | tail -n 100 || true
 	`
 
