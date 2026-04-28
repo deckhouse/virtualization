@@ -82,6 +82,7 @@ var _ = Describe("VirtualMachineUSB", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, t.VM)
+			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
 			util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 		})
 
@@ -264,8 +265,26 @@ func (t *VMUSBTest) assignNodeUSB() {
 func (t *VMUSBTest) mountUSB() {
 	mountCmd := `
 		set -e
-		for i in $(seq 1 60); do
-			usb_device=$(lsblk -dpno PATH,TRAN,TYPE 2>/dev/null | awk "\$2 == \"usb\" && \$3 == \"disk\" { print \$1; exit }")
+		for i in $(seq 1 120); do
+			usb_device=""
+			for block in /sys/block/*; do
+				if [ ! -e "$block" ]; then
+					continue
+				fi
+				device_path=$(readlink -f "$block/device" 2>/dev/null || true)
+				case "$device_path" in
+					*usb*)
+						usb_device="/dev/$(basename "$block")"
+						break
+						;;
+				esac
+			done
+			if [ -z "$usb_device" ]; then
+				usb_device=$(lsblk -dpno PATH,TRAN,TYPE 2>/dev/null | awk "\$2 == \"usb\" && \$3 == \"disk\" { print \$1; exit }")
+			fi
+			if [ -z "$usb_device" ]; then
+				usb_device=$(lsblk -dpno PATH,TYPE,RM 2>/dev/null | awk "\$2 == \"disk\" && \$3 == \"1\" { print \$1; exit }")
+			fi
 			if [ -n "$usb_device" ]; then
 				break
 			fi
@@ -273,6 +292,7 @@ func (t *VMUSBTest) mountUSB() {
 		done
 		if [ -z "$usb_device" ]; then
 			echo "USB block device not found" >&2
+			lsblk -a -o PATH,TRAN,TYPE,RM,MODEL >&2 || true
 			exit 1
 		fi
 
@@ -292,7 +312,7 @@ func (t *VMUSBTest) mountUSB() {
 		ls -la /mnt/usb
 	`
 
-	_, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, mountCmd)
+	_, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, mountCmd, framework.WithSSHTimeout(framework.LongTimeout))
 	Expect(err).NotTo(HaveOccurred())
 }
 
