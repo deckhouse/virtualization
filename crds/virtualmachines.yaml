@@ -1153,11 +1153,6 @@ spec:
                         - ""
                         - "Succeeded"
                         - "Failed"
-                runningSince:
-                  description: Time when the virtual machine entered the running state.
-                  format: date-time
-                  nullable: true
-                  type: string
                 stats:
                   type: object
                   description: Virtual machine statistics.

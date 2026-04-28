@@ -300,8 +300,6 @@ type VirtualMachineStatus struct {
 	Stats *VirtualMachineStats `json:"stats,omitempty"`
 	// Migration info.
 	MigrationState *VirtualMachineMigrationState `json:"migrationState,omitempty"`
-	// RunningSince is the timestamp when the virtual machine entered the running state.
-	RunningSince *metav1.Time `json:"runningSince,omitempty"`
 	// Generating a resource that was last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 

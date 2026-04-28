@@ -684,9 +684,6 @@ spec:
                     result:
                       description: |
                         Результат миграции: `Succeeded` или `Failed`.
-                runningSince:
-                  description: |
-                    Время перехода виртуальной машины в состояние running.
                 stats:
                   description: Статистика по виртуальной машине.
                   properties:
