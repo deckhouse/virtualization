@@ -62,13 +62,10 @@ var _ = Describe("VirtualMachineUSB", func() {
 			}
 
 			t.GenerateEnvironmentResources()
-			err := f.CreateWithDeferredDeletion(context.Background(), t.VD, t.VM)
+			err := f.CreateWithDeferredDeletion(context.Background(), t.VD)
 			Expect(err).NotTo(HaveOccurred())
 
 			t.assignNodeUSB()
-
-			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, t.VM)
-			util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 		})
 
 		By("Verifying NodeUSBDevice is not attached before VM attachment", func() {
@@ -78,6 +75,14 @@ var _ = Describe("VirtualMachineUSB", func() {
 				g.Expect(nodeUSBAttachedCondition(nodeUSBDevice)).NotTo(BeNil())
 				g.Expect(nodeUSBAttachedCondition(nodeUSBDevice).Status).To(Equal(metav1.ConditionFalse))
 			}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
+		})
+
+		By("Creating VM with USB device", func() {
+			err := f.CreateWithDeferredDeletion(context.Background(), t.VM)
+			Expect(err).NotTo(HaveOccurred())
+
+			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, t.VM)
+			util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 		})
 
 		By("Waiting for USB device to be attached and ready", func() {
