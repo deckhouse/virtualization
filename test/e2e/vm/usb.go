@@ -265,42 +265,24 @@ func (t *VMUSBTest) mountUSB() {
 	Expect(serial).NotTo(BeEmpty(), "USB device serial must be set")
 
 	mountCmd := fmt.Sprintf(`
-		set -e
 		usb_serial=%q
-		sudo modprobe usb-storage 2>/dev/null || true
-
-		for host in /sys/class/scsi_host/host*; do
-			if [ -w "$host/scan" ]; then
-				echo "- - -" | sudo tee "$host/scan" >/dev/null || true
-			fi
-		done
-
-		usb_sys_device=""
 		for serial_file in /sys/bus/usb/devices/*/serial; do
 			if [ -f "$serial_file" ] && [ "$(cat "$serial_file")" = "$usb_serial" ]; then
 				usb_sys_device="$(dirname "$serial_file")"
 				break
 			fi
 		done
-		if [ -z "$usb_sys_device" ]; then
-			echo "USB device with serial $usb_serial not found" >/tmp/usb-mount.err
-			exit 1
-		fi
+		[ -n "$usb_sys_device" ] || { echo "USB device with serial $usb_serial not found" >/tmp/usb-mount.err; exit 1; }
 
-		block_name=""
 		for block_path in $(find "$usb_sys_device" -path "*/block/*" -type d 2>/dev/null); do
-			name="$(basename "$block_path")"
-			if [ -b "/dev/$name" ]; then
-				block_name="$name"
+			block_name="$(basename "$block_path")"
+			if [ -b "/dev/$block_name" ]; then
+				mount_device="/dev/$block_name"
 				break
 			fi
 		done
-		if [ -z "$block_name" ]; then
-			echo "USB block device for serial $usb_serial not found" >/tmp/usb-mount.err
-			exit 1
-		fi
+		[ -n "$mount_device" ] || { echo "USB block device for serial $usb_serial not found" >/tmp/usb-mount.err; exit 1; }
 
-		mount_device="/dev/$block_name"
 		for partition in /sys/block/$block_name/${block_name}[0-9]* /sys/block/$block_name/${block_name}p[0-9]*; do
 			if [ -e "$partition" ] && [ -b "/dev/$(basename "$partition")" ]; then
 				mount_device="/dev/$(basename "$partition")"
@@ -314,7 +296,7 @@ func (t *VMUSBTest) mountUSB() {
 	`, serial)
 
 	Eventually(func() error {
-		_, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, mountCmd)
+		_, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, mountCmd, framework.WithSSHTimeout(framework.MiddleTimeout))
 		return err
 	}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed(), t.usbDiagnostics())
 }
