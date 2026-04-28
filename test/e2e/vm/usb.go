@@ -257,11 +257,35 @@ func (t *VMUSBTest) assignNodeUSB() {
 }
 
 func (t *VMUSBTest) mountUSB() {
-	mountCmd := fmt.Sprintf(`
-		sudo mkdir -p /mnt/usb || true && \
-		sudo mount %s /mnt/usb 2>/dev/null || sudo mount -o rw %s /mnt/usb || true && \
-		ls -la /mnt/usb || true
-	`, t.DevicePath, t.DevicePath)
+	mountCmd := `
+		set -e
+		for i in $(seq 1 60); do
+			usb_device=$(lsblk -dpno PATH,TRAN,TYPE 2>/dev/null | awk "\$2 == \"usb\" && \$3 == \"disk\" { print \$1; exit }")
+			if [ -n "$usb_device" ]; then
+				break
+			fi
+			sleep 1
+		done
+		if [ -z "$usb_device" ]; then
+			echo "USB block device not found" >&2
+			exit 1
+		fi
+
+		mount_device="$usb_device"
+		for partition in "${usb_device}"[0-9]* "${usb_device}"p[0-9]*; do
+			if [ -b "$partition" ]; then
+				mount_device="$partition"
+				break
+			fi
+		done
+
+		sudo mkdir -p /mnt/usb
+		if sudo mountpoint -q /mnt/usb; then
+			sudo umount /mnt/usb
+		fi
+		sudo mount -o rw "$mount_device" /mnt/usb
+		ls -la /mnt/usb
+	`
 
 	_, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, mountCmd)
 	Expect(err).NotTo(HaveOccurred())
