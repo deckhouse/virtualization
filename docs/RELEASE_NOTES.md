@@ -3,6 +3,15 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.8.1
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: April 28, 2026.
+</span>
+
+### Исправления
+
+Fixed a potential issue where a virtual disk could get stuck in the `Provisioning` state when using a storage class with the `WaitForFirstConsumer` mode.
+
 ## v1.8.0
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: April 22, 2026.

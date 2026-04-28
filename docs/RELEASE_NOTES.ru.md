@@ -3,6 +3,15 @@ title: "Релизы"
 weight: 70
 ---
 
+## v1.8.1
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 28 апреля 2026.
+</span>
+
+### Исправления
+
+- [vd] Исправлено возможное зависание диска в состоянии `Provisioning` при использовании класса хранения с режимом `WaitForFirstConsumer`.
+
 ## v1.8.0
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Дата релиза: 22 апреля 2026.
