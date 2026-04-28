@@ -51,9 +51,7 @@ var _ = Describe("VirtualMachineVersions", func() {
 		By("Creating VirtualMachine")
 		vm := object.NewMinimalVM("vm-", f.Namespace().Name,
 			vmbuilder.WithBootloader(v1alpha2.EFI),
-			vmbuilder.WithCPU(1, ptr.To("50%")),
 			vmbuilder.WithMemory(resource.MustParse("256Mi")),
-			vmbuilder.WithRestartApprovalMode(v1alpha2.Manual),
 			vmbuilder.WithBlockDeviceRefs(
 				v1alpha2.BlockDeviceSpecRef{
 					Kind: v1alpha2.DiskDevice,
