@@ -269,39 +269,24 @@ func (t *VMUSBTest) mountUSB() {
 		: > /tmp/usb-mount.err
 		for serial_file in /sys/bus/usb/devices/*/serial; do
 			if [ -f "$serial_file" ] && [ "$(cat "$serial_file")" = "$usb_serial" ]; then
-				usb_sys_device="$(dirname "$serial_file")"
+				usb_present=1
 				break
 			fi
 		done
-		[ -n "$usb_sys_device" ] || { echo "USB device with serial $usb_serial not found" >/tmp/usb-mount.err; exit 1; }
+		[ -n "$usb_present" ] || { echo "USB device with serial $usb_serial not found" >/tmp/usb-mount.err; exit 1; }
 
-		for block_path in /sys/block/*; do
-			[ -e "$block_path" ] || continue
-			block_name="$(basename "$block_path")"
-			if [ -b "/dev/$block_name" ] && lsblk -dno TRAN,RM "/dev/$block_name" 2>/dev/null | grep -Eq '^usb[[:space:]]+1$'; then
-				mount_device="/dev/$block_name"
+		for dev in /dev/sd*; do
+			[ -b "$dev" ] || continue
+			if lsblk -dno TRAN,RM "$dev" 2>/dev/null | grep -Eq '^usb[[:space:]]+1$'; then
+				mount_device="$dev"
 				break
 			fi
-			done
+		done
 		[ -n "$mount_device" ] || {
-			echo "USB block device for serial $usb_serial not found" >>/tmp/usb-mount.err
-			echo "usb_sys_device=$usb_sys_device" >>/tmp/usb-mount.err
-			find "$usb_sys_device" -maxdepth 8 -print >>/tmp/usb-mount.err 2>&1 || true
-			for block_path in /sys/block/*; do
-				[ -e "$block_path" ] || continue
-				block_name="$(basename "$block_path")"
-				echo "$(basename "$block_path") -> $(readlink -f "$block_path/device" 2>/dev/null || true)" >>/tmp/usb-mount.err
-				lsblk -dno NAME,PATH,TRAN,RM,SERIAL,MODEL "/dev/$block_name" >>/tmp/usb-mount.err 2>&1 || true
-			done
+			echo "USB block device not found for serial $usb_serial" >>/tmp/usb-mount.err
+			lsblk -a -o NAME,PATH,TYPE,TRAN,RM,SERIAL,MODEL >>/tmp/usb-mount.err 2>&1 || true
 			exit 1
 		}
-
-		for partition in /sys/block/$block_name/${block_name}[0-9]* /sys/block/$block_name/${block_name}p[0-9]*; do
-			if [ -e "$partition" ] && [ -b "/dev/$(basename "$partition")" ]; then
-				mount_device="/dev/$(basename "$partition")"
-				break
-			fi
-		done
 
 		sudo mkdir -p /mnt/usb && \
 		(sudo mountpoint -q /mnt/usb || sudo mount "$mount_device" /mnt/usb 2>>/tmp/usb-mount.err || sudo mount -o rw "$mount_device" /mnt/usb 2>>/tmp/usb-mount.err) && \
