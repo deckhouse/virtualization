@@ -10,7 +10,7 @@ weight: 70
 
 ### Исправления
 
-- [vd] Исправлено возможное зависание диска в состоянии `Provisioning` при использовании класса хранения с режимом `WaitForFirstConsumer`.
+- [vd] Исправлено возможное зависание виртуального диска в состоянии `Provisioning` при использовании StorageClass с режимом `WaitForFirstConsumer`.
 
 ## v1.8.0
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">

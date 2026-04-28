@@ -8,9 +8,9 @@ weight: 70
 Release date: April 28, 2026.
 </span>
 
-### Исправления
+### Fixes
 
-Fixed a potential issue where a virtual disk could get stuck in the `Provisioning` state when using a storage class with the `WaitForFirstConsumer` mode.
+- [vd] Fixed a potential issue where a virtual disk could get stuck in the `Provisioning` state when using a StorageClass with `WaitForFirstConsumer` mode.
 
 ## v1.8.0
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
