@@ -303,7 +303,7 @@ func (t *VMUSBTest) mountUSB() {
 	Eventually(func() error {
 		_, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, mountCmd, framework.WithSSHTimeout(framework.MiddleTimeout))
 		return err
-	}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed(), t.usbDiagnostics())
+	}).WithTimeout(framework.MiddleTimeout).WithPolling(time.Second).Should(Succeed(), t.usbDiagnostics())
 }
 
 func (t *VMUSBTest) usbDiagnostics() string {
