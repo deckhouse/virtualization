@@ -265,12 +265,6 @@ func (t *VMUSBTest) assignNodeUSB() {
 func (t *VMUSBTest) mountUSB() {
 	mountCmd := `
 		set -e
-		root_source=$(findmnt -n -o SOURCE /)
-		root_disk="$(lsblk -no PKNAME "$root_source" 2>/dev/null || true)"
-		if [ -z "$root_disk" ]; then
-			root_disk="$(basename "$root_source")"
-		fi
-
 		for i in $(seq 1 120); do
 			usb_device=""
 			for block in /sys/block/*; do
@@ -290,14 +284,6 @@ func (t *VMUSBTest) mountUSB() {
 			fi
 			if [ -z "$usb_device" ]; then
 				usb_device=$(lsblk -dpno PATH,TYPE,RM 2>/dev/null | awk "\$2 == \"disk\" && \$3 == \"1\" { print \$1; exit }")
-			fi
-			if [ -z "$usb_device" ]; then
-				for disk in $(lsblk -dpno PATH,TYPE 2>/dev/null | awk "\$2 == \"disk\" { print \$1 }"); do
-					if [ "$(basename "$disk")" != "$root_disk" ]; then
-						usb_device="$disk"
-						break
-					fi
-				done
 			fi
 			if [ -n "$usb_device" ]; then
 				break
