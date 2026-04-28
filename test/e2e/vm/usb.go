@@ -288,8 +288,11 @@ func (t *VMUSBTest) mountUSB() {
 			exit 1
 		}
 
-		sudo mkdir -p /mnt/usb && \
-		(sudo mountpoint -q /mnt/usb || sudo mount "$mount_device" /mnt/usb 2>>/tmp/usb-mount.err || sudo mount -o rw "$mount_device" /mnt/usb 2>>/tmp/usb-mount.err) && \
+		sudo mkdir -p /mnt/usb
+		if sudo mountpoint -q /mnt/usb; then
+			sudo umount /mnt/usb || true
+		fi
+		sudo mount "$mount_device" /mnt/usb 2>>/tmp/usb-mount.err || sudo mount -o rw "$mount_device" /mnt/usb 2>>/tmp/usb-mount.err
 		ls -la /mnt/usb
 	`, serial)
 
