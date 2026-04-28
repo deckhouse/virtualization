@@ -116,7 +116,7 @@ var _ = Describe("VirtualMachineUSB", func() {
 		})
 
 		By("Writing data to USB device", func() {
-			result, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, fmt.Sprintf("echo \"%s\" | sudo tee %s", t.testContent, t.testFile))
+			result, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, fmt.Sprintf("echo \"%s\" | sudo tee %s && sudo sync && sudo umount /mnt/usb", t.testContent, t.testFile))
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(ContainSubstring(t.testContent))
