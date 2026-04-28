@@ -264,11 +264,57 @@ func (t *VMUSBTest) assignNodeUSB() {
 }
 
 func (t *VMUSBTest) mountUSB() {
+	serial := t.NodeUSBDevice.Status.Attributes.Serial
+	Expect(serial).NotTo(BeEmpty(), "USB device serial must be set")
+
 	mountCmd := fmt.Sprintf(`
+		set -e
+		usb_serial=%q
+		sudo modprobe usb-storage 2>/dev/null || true
+
+		for host in /sys/class/scsi_host/host*; do
+			if [ -w "$host/scan" ]; then
+				echo "- - -" | sudo tee "$host/scan" >/dev/null || true
+			fi
+		done
+
+		usb_sys_device=""
+		for serial_file in /sys/bus/usb/devices/*/serial; do
+			if [ -f "$serial_file" ] && [ "$(cat "$serial_file")" = "$usb_serial" ]; then
+				usb_sys_device="$(dirname "$serial_file")"
+				break
+			fi
+		done
+		if [ -z "$usb_sys_device" ]; then
+			echo "USB device with serial $usb_serial not found" >/tmp/usb-mount.err
+			exit 1
+		fi
+
+		block_name=""
+		for block_path in $(find "$usb_sys_device" -path "*/block/*" -type d 2>/dev/null); do
+			name="$(basename "$block_path")"
+			if [ -b "/dev/$name" ]; then
+				block_name="$name"
+				break
+			fi
+		done
+		if [ -z "$block_name" ]; then
+			echo "USB block device for serial $usb_serial not found" >/tmp/usb-mount.err
+			exit 1
+		fi
+
+		mount_device="/dev/$block_name"
+		for partition in /sys/block/$block_name/${block_name}[0-9]* /sys/block/$block_name/${block_name}p[0-9]*; do
+			if [ -e "$partition" ] && [ -b "/dev/$(basename "$partition")" ]; then
+				mount_device="/dev/$(basename "$partition")"
+				break
+			fi
+		done
+
 		sudo mkdir -p /mnt/usb && \
-		(sudo mountpoint -q /mnt/usb || sudo mount %s /mnt/usb 2>/tmp/usb-mount.err || sudo mount -o rw %s /mnt/usb 2>>/tmp/usb-mount.err) && \
+		(sudo mountpoint -q /mnt/usb || sudo mount "$mount_device" /mnt/usb 2>/tmp/usb-mount.err || sudo mount -o rw "$mount_device" /mnt/usb 2>>/tmp/usb-mount.err) && \
 		ls -la /mnt/usb
-	`, t.DevicePath, t.DevicePath)
+	`, serial)
 
 	Eventually(func() error {
 		_, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, mountCmd)
@@ -280,6 +326,7 @@ func (t *VMUSBTest) usbDiagnostics() string {
 	diagnosticsCmd := `
 		echo "mount error:" && cat /tmp/usb-mount.err 2>/dev/null || true
 		echo "mount:" && mount || true
+		echo "usb serials:" && for serial_file in /sys/bus/usb/devices/*/serial; do [ -f "$serial_file" ] && echo "$serial_file=$(cat "$serial_file")"; done || true
 		echo "lsusb:" && lsusb || true
 		echo "dmesg:" && sudo dmesg | tail -n 100 || true
 	`
