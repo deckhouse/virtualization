@@ -263,9 +263,14 @@ func (t *VMUSBTest) assignNodeUSB() {
 }
 
 func (t *VMUSBTest) mountUSB() {
-	mountCmd := `
+	serial := t.NodeUSBDevice.Status.Attributes.Serial
+	Expect(serial).NotTo(BeEmpty(), "USB device serial must be set")
+
+	mountCmd := fmt.Sprintf(`
 		set -e
+		usb_serial=%q
 		sudo modprobe usb-storage 2>/dev/null || true
+
 		for i in $(seq 1 300); do
 			for host in /sys/class/scsi_host/host*; do
 				if [ -w "$host/scan" ]; then
@@ -273,53 +278,32 @@ func (t *VMUSBTest) mountUSB() {
 				fi
 			done
 
-			usb_device=""
-			for block in /sys/block/*; do
-				if [ ! -e "$block" ]; then
-					continue
-				fi
-				device_path=$(readlink -f "$block/device" 2>/dev/null || true)
-				case "$device_path" in
-					*usb*)
-						usb_device="/dev/$(basename "$block")"
-						break
-						;;
-				esac
-			done
-			if [ -z "$usb_device" ]; then
-				usb_device=$(lsblk -dpno PATH,TRAN,TYPE 2>/dev/null | awk "\$2 == \"usb\" && \$3 == \"disk\" { print \$1; exit }")
-			fi
-			if [ -z "$usb_device" ]; then
-				usb_device=$(lsblk -dpno PATH,TYPE,RM 2>/dev/null | awk "\$2 == \"disk\" && \$3 == \"1\" { print \$1; exit }")
-			fi
-			if [ -n "$usb_device" ]; then
+			usb_link=$(find /dev/disk/by-id -maxdepth 1 -name "usb-*${usb_serial}*" ! -name "*-part*" 2>/dev/null | head -n 1)
+			if [ -n "$usb_link" ]; then
 				break
 			fi
 			sleep 1
 		done
-		if [ -z "$usb_device" ]; then
-			echo "USB block device not found" >&2
+
+		if [ -z "$usb_link" ]; then
+			echo "USB block device by serial ${usb_serial} not found" >&2
 			lsusb >&2 || true
-			lsblk -a -o PATH,TRAN,TYPE,RM,MODEL >&2 || true
+			find /dev/disk -maxdepth 2 -type l -print >&2 || true
+			lsblk -a -o PATH,TRAN,TYPE,RM,MODEL,SERIAL >&2 || true
 			sudo dmesg | tail -n 100 >&2 || true
 			exit 1
 		fi
 
-		mount_device="$usb_device"
-		for partition in "${usb_device}"[0-9]* "${usb_device}"p[0-9]*; do
-			if [ -b "$partition" ]; then
-				mount_device="$partition"
-				break
-			fi
-		done
-
+		mount_device=$(readlink -f "$usb_link")
 		sudo mkdir -p /mnt/usb
+
 		if sudo mountpoint -q /mnt/usb; then
 			sudo umount /mnt/usb
 		fi
+
 		sudo mount -o rw "$mount_device" /mnt/usb
 		ls -la /mnt/usb
-	`
+	`, serial)
 
 	_, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, mountCmd, framework.WithSSHTimeout(framework.MaxTimeout))
 	Expect(err).NotTo(HaveOccurred())
