@@ -263,47 +263,34 @@ func (t *VMUSBTest) assignNodeUSB() {
 }
 
 func (t *VMUSBTest) mountUSB() {
-	serial := t.NodeUSBDevice.Status.Attributes.Serial
-	Expect(serial).NotTo(BeEmpty(), "USB device serial must be set")
-
 	mountCmd := fmt.Sprintf(`
 		set -e
-		usb_serial=%q
-		sudo modprobe usb-storage 2>/dev/null || true
+		last_error=/tmp/usb-mount.err
 
 		for i in $(seq 1 300); do
-			for host in /sys/class/scsi_host/host*; do
-				if [ -w "$host/scan" ]; then
-					echo "- - -" | sudo tee "$host/scan" >/dev/null || true
-				fi
-			done
+			sudo mkdir -p /mnt/usb
 
-			usb_link=$(find /dev/disk/by-id -maxdepth 1 -name "usb-*${usb_serial}*" ! -name "*-part*" 2>/dev/null | head -n 1)
-			if [ -n "$usb_link" ]; then
-				break
+			if sudo mountpoint -q /mnt/usb; then
+				ls -la /mnt/usb
+				exit 0
 			fi
+
+			: > "$last_error"
+			if sudo mount %s /mnt/usb 2>"$last_error" || sudo mount -o rw %s /mnt/usb 2>>"$last_error"; then
+				ls -la /mnt/usb
+				exit 0
+			fi
+
 			sleep 1
 		done
 
-		if [ -z "$usb_link" ]; then
-			echo "USB block device by serial ${usb_serial} not found" >&2
-			lsusb >&2 || true
-			find /dev/disk -maxdepth 2 -type l -print >&2 || true
-			lsblk -a -o PATH,TRAN,TYPE,RM,MODEL,SERIAL >&2 || true
-			sudo dmesg | tail -n 100 >&2 || true
-			exit 1
-		fi
-
-		mount_device=$(readlink -f "$usb_link")
-		sudo mkdir -p /mnt/usb
-
-		if sudo mountpoint -q /mnt/usb; then
-			sudo umount /mnt/usb
-		fi
-
-		sudo mount -o rw "$mount_device" /mnt/usb
-		ls -la /mnt/usb
-	`, serial)
+		echo "Failed to mount USB device %s" >&2
+		cat "$last_error" >&2 || true
+		mount >&2 || true
+		lsusb >&2 || true
+		sudo dmesg | tail -n 100 >&2 || true
+		exit 1
+	`, t.DevicePath, t.DevicePath, t.DevicePath)
 
 	_, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, mountCmd, framework.WithSSHTimeout(framework.MaxTimeout))
 	Expect(err).NotTo(HaveOccurred())
