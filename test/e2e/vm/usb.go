@@ -275,16 +275,27 @@ func (t *VMUSBTest) mountUSB() {
 		done
 		[ -n "$usb_sys_device" ] || { echo "USB device with serial $usb_serial not found" >/tmp/usb-mount.err; exit 1; }
 
-		for block_path in $(find "$usb_sys_device" -path "*/block/*" -type d 2>/dev/null); do
-			block_name="$(basename "$block_path")"
-			if [ -b "/dev/$block_name" ]; then
-				mount_device="/dev/$block_name"
-				break
-			fi
-		done
+		for block_path in /sys/block/*; do
+			[ -e "$block_path" ] || continue
+			device_realpath="$(readlink -f "$block_path/device" 2>/dev/null || true)"
+			case "$device_realpath" in
+				"$usb_sys_device"/*)
+					block_name="$(basename "$block_path")"
+					if [ -b "/dev/$block_name" ]; then
+						mount_device="/dev/$block_name"
+						break
+					fi
+					;;
+			esac
+			done
 		[ -n "$mount_device" ] || {
 			echo "USB block device for serial $usb_serial not found" >>/tmp/usb-mount.err
-			find "$usb_sys_device" -maxdepth 6 -print >>/tmp/usb-mount.err 2>&1 || true
+			echo "usb_sys_device=$usb_sys_device" >>/tmp/usb-mount.err
+			find "$usb_sys_device" -maxdepth 8 -print >>/tmp/usb-mount.err 2>&1 || true
+			for block_path in /sys/block/*; do
+				[ -e "$block_path" ] || continue
+				echo "$(basename "$block_path") -> $(readlink -f "$block_path/device" 2>/dev/null || true)" >>/tmp/usb-mount.err
+			done
 			exit 1
 		}
 
