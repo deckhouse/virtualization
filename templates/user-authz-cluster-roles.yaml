@@ -24,10 +24,13 @@ rules:
   - virtualmachineoperations
   - virtualmachinesnapshotoperations
   - usbdevices
+  - nodeusbdevices
   verbs:
   - get
   - list
   - watch
+
+# Remove it in the future
 - apiGroups:
   - subresources.virtualization.deckhouse.io
   resources:
@@ -46,20 +49,11 @@ metadata:
   {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
 rules:
 - apiGroups:
-  - virtualization.deckhouse.io
-  resources:
-  - virtualmachineoperations
-  - virtualmachinesnapshotoperations
-  verbs:
-  - create
-- apiGroups:
   - subresources.virtualization.deckhouse.io
   resources:
   - virtualmachines/console
   - virtualmachines/vnc
   - virtualmachines/portforward
-  - virtualmachines/addvolume
-  - virtualmachines/removevolume
   verbs:
   - get
   - create
@@ -80,6 +74,7 @@ rules:
   - virtualmachinesnapshots
   - virtualmachinerestores
   - virtualdisks
+  - virtualimages
   - virtualdisksnapshots
   - virtualmachineblockdeviceattachments
   - virtualmachineipaddresses
@@ -101,16 +96,6 @@ metadata:
   name: d8:user-authz:virtualization:admin
   {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-controller")) | nindent 2 }}
 rules:
-- apiGroups:
-  - virtualization.deckhouse.io
-  resources:
-  - virtualimages
-  verbs:
-  - create
-  - delete
-  - deletecollection
-  - patch
-  - update
 - apiGroups:
   - virtualization.deckhouse.io
   resources:
@@ -165,7 +150,6 @@ rules:
   - virtualmachineipaddressleases
   - virtualmachinemacaddressleases
   verbs:
-  - create
   - delete
   - deletecollection
   - patch
