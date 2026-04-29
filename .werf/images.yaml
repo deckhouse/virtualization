@@ -29,6 +29,7 @@ dockerfile: Dockerfile
 
 {{-   $_ := set $ctx "ImageName" $ImageData._0 }}
 {{-   $_ := set $ctx "ModuleDir" "" }}
+{{-   $_ := set $ctx "ModuleNamePrefix" "" }}
 {{-   $_ := set $ctx "ImageBuildData" $content }}
 {{-   $_ := set $ctx "Files" $Root.Files }}
 {{-   $_ := set $ctx "GOPROXY" $Root.GOPROXY }}

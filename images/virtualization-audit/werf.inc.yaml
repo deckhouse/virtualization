@@ -1,16 +1,16 @@
 {{- if eq .MODULE_EDITION "EE" }}
 ---
-image: {{ .ImageName }}
-fromImage: distroless
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
 git:
   {{- include "image mount points" . }}
 import:
-- image: virtualization-artifact
+- image: {{ .ModuleNamePrefix }}virtualization-artifact
   add: /out/virtualization-audit
   to: /app/virtualization-audit
   after: install
 {{- if eq $.DEBUG_COMPONENT "delve/virtualization-audit" }}
-- image: debugger
+- image: {{ .ModuleNamePrefix }}debugger
   add: /app/dlv
   to: /app/dlv
   after: install

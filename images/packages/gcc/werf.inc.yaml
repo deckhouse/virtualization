@@ -1,9 +1,9 @@
 ---
-image: {{ .PackagePath }}/libgcc1
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/libgcc1
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ .PackagePath }}/{{ $.ImageName }}-builder
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
   add: /out
   to: /libgcc1
   before: setup
@@ -11,11 +11,11 @@ import:
   - usr/lib64/libgcc_s.so.1
   - usr/lib64/libstdc++.so.6
 ---
-image: {{ .PackagePath }}/{{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ .PackagePath }}/{{ $.ImageName }}-builder
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
   add: /out
   to: /gcc
   before: setup
@@ -24,7 +24,7 @@ import:
 {{- $version := get $.PackageVersion $.ImageName }}
 {{- $gitRepoUrl := "gcc.git" }}
 
-image: {{ .PackagePath }}/{{ .ImageName }}-src-artifact
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 secrets:
@@ -50,11 +50,11 @@ packages:
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ .PackagePath }}/{{ $.ImageName }}-builder
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
 import:
-- image: {{ .PackagePath }}/{{ .ImageName }}-src-artifact
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
   to: /src
   before: install

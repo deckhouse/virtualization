@@ -1,5 +1,5 @@
 ---
-image: {{ .ImageName }}-src-artifact
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
@@ -16,11 +16,11 @@ git:
     install:
     - "**/*.go"
 ---
-image: {{ .ImageName }}-builder
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.25" "builder/golang-alt-svace-1.25" }}
 import:
-- image: {{ .ImageName }}-src-artifact
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
   add: /src
   to: /src
   before: install
@@ -48,15 +48,15 @@ shell:
     {{-   include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o vm-route-forge cmd/vm-route-forge/main.go`) | nindent 6 }}
     {{- end }}
 ---
-image: {{ .ImageName }}
-fromImage: distroless
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
 import:
-- image: {{ .ImageName }}-builder
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
   add: /src/app/images/vm-route-forge/vm-route-forge
   to: /app/vm-route-forge
   after: install
 {{- if eq $.DEBUG_COMPONENT "delve/vm-route-forge" }}
-- image: debugger
+- image: {{ .ModuleNamePrefix }}debugger
   add: /app/dlv
   to: /app/dlv
   after: install

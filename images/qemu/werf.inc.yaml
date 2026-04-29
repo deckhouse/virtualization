@@ -3,7 +3,7 @@
 {{- $version := get $.Firmware $gitRepoName }}
 {{- $gitRepoUrl := "qemu/qemu.git" }}
 
-image: {{ .ImageName }}-src-artifact
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
@@ -138,19 +138,19 @@ packages:
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ .ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/golang-alt-svace-1.24" }}
 import:
-- image: {{ .ImageName }}-src-artifact
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
   add: /src/{{ $gitRepoName }}-{{ $version }}
   to: /{{ $gitRepoName }}-{{ $version }}
   before: install
-- image: {{ .ImageName }}-src-artifact
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
   add: /patches
   to: /patches
   before: install
-- image: {{ .ImageName }}-src-artifact
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
   add: /
   to: /
   before: install

@@ -1,5 +1,5 @@
 ---
-image: {{ .ImageName }}-src-artifact
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
@@ -22,11 +22,11 @@ shell:
   install:
   - cd /src
 ---
-image: go-hooks-artifact
+image: {{ .ModuleNamePrefix }}go-hooks-artifact
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.25" "builder/golang-alt-svace-1.25" }}
 import:
-  - image: {{ .ImageName }}-src-artifact
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
     add: /src
     to: /app
     before: install

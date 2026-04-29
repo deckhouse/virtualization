@@ -1,5 +1,5 @@
 ---
-image: {{ .ImageName }}-src-artifact
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
@@ -18,11 +18,11 @@ git:
         - go.sum
         - "*.go"
 ---
-image: {{ .ImageName }}-builder
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.25" "builder/golang-alt-svace-1.25" }}
 import:
-  - image: {{ .ImageName }}-src-artifact
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
     add: /src
     to: /src
     before: install
@@ -47,17 +47,17 @@ shell:
 
 ---
 
-image: {{ .ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 fromImage: builder/scratch
 git:
   {{- include "image mount points" . }}
 import:
-  - image: {{ .ImageName }}-builder
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
     add: /src/images/kube-api-rewriter/kube-api-rewriter
     to: /app/kube-api-rewriter
     after: install
   # Make containerd compatible directories structure.
-  - image: {{ .ImageName }}-builder
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
     add: /var
     to: /var
     includePaths:

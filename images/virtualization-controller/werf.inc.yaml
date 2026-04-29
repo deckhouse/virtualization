@@ -1,15 +1,15 @@
 ---
-image: {{ .ImageName }}
-fromImage: distroless
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
 git:
   {{- include "image mount points" . }}
 import:
-- image: virtualization-artifact
+- image: {{ .ModuleNamePrefix }}virtualization-artifact
   add: /out/virtualization-controller
   to: /app/virtualization-controller
   after: install
 {{- if eq $.DEBUG_COMPONENT "delve/virtualization-controller" }}
-- image: debugger
+- image: {{ .ModuleNamePrefix }}debugger
   add: /app/dlv
   to: /app/dlv
   after: install

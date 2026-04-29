@@ -1,10 +1,10 @@
 ---
-image: {{ .ImageName }}
-fromImage: distroless
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
 git:
   {{- include "image mount points" . }}
 import:
-- image: {{ .ImageName }}-bins
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
   add: /relocate
   to: /
   after: install
@@ -17,7 +17,7 @@ import:
   includePaths:
   - usr/bin/cp
   - usr/bin/coreutils
-- image: virt-artifact
+- image: {{ .ModuleNamePrefix }}virt-artifact
   add: /kubevirt-binaries/
   to: /usr/bin
   after: install
@@ -25,20 +25,20 @@ import:
   - virt-chroot
   - virt-handler
   - container-disk
-- image: virt-artifact
+- image: {{ .ModuleNamePrefix }}virt-artifact
   add: /kubevirt-config-files/.version
   to: /.version
   after: install
   includePaths:
   - .version
-- image: virt-artifact
+- image: {{ .ModuleNamePrefix }}virt-artifact
   add: /kubevirt/cmd/{{ $.ImageName }}/
   to: /etc
   after: install
   includePaths:
   - nsswitch.conf
 {{- if eq $.DEBUG_COMPONENT "delve/virt-handler" }}
-- image: debugger
+- image: {{ .ModuleNamePrefix }}debugger
   add: /app/dlv
   to: /app/dlv
   after: install
@@ -78,9 +78,9 @@ packages:
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ .ImageName }}-bins
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
-fromImage: base-alt-p11-binaries
+fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
 import:
 - image: tools/util-linux
   add: /
@@ -90,7 +90,7 @@ import:
   - bin/mount
   - bin/umount
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
-- image: qemu
+- image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /relocate
   before: setup

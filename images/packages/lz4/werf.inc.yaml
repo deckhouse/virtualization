@@ -1,9 +1,9 @@
 ---
-image: {{ .PackagePath }}/{{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ .PackagePath }}/{{ $.ImageName }}-builder
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
   add: /out
   to: /{{ $.ImageName }}
   before: setup
@@ -12,7 +12,7 @@ import:
 {{- $version := get $.PackageVersion $.ImageName }}
 {{- $gitRepoUrl := "lz4/lz4.git" }}
 
-image: {{ .PackagePath }}/{{ .ImageName }}-src-artifact
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 secrets:
@@ -31,11 +31,11 @@ altPackages:
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ .PackagePath }}/{{ $.ImageName }}-builder
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
 import:
-- image: {{ .PackagePath }}/{{ .ImageName }}-src-artifact
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
   to: /src
   before: install

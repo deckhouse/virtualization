@@ -1,11 +1,11 @@
 ---
-image: {{ .ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: true
-fromImage: distroless
+fromImage: {{ .ModuleNamePrefix }}distroless
 git:
   {{- include "image mount points" . }}
 import:
-  - image: {{ .ImageName }}-binaries
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries
     add: /relocate
     to: /
     after: install
@@ -136,9 +136,9 @@ packages:
 {{- $gitRepoName := "libvirt" }}
 {{- $version := get $.Firmware $gitRepoName }}
 
-image: {{ .ImageName }}-binaries
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries
 final: false
-fromImage: base-alt-p11-binaries
+fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
 git:
   # Add qemu and virtqemud configs
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}/configs
@@ -159,17 +159,17 @@ git:
     - nsswitch.conf
 import:
 # Libvirt and QEMU libraries and binaries
-- image: packages/libvirt
+- image: {{ .ModuleNamePrefix }}packages/libvirt
   add: /libvirt
   to: /libvirt-bins
   before: install
-- image: qemu
+- image: {{ .ModuleNamePrefix }}qemu
   add: /BINS
   to: /qemu-bins
   before: install
 
 # EDK2 (uefi firmware)
-- image: edk2
+- image: {{ .ModuleNamePrefix }}edk2
   add: /FIRMWARE/
   to: /relocate/usr/share/edk2/ovmf
   before: install
@@ -178,19 +178,19 @@ import:
   - '*.bin'
   - '*.efi'
   - '*.iso'
-- image: edk2
+- image: {{ .ModuleNamePrefix }}edk2
   add: /FIRMWARE/
   to: /relocate/usr/share/qemu/firmware
   before: install
   includePaths:
   - '*.json'
 # Import from virt artifact
-- image: virt-artifact
+- image: {{ .ModuleNamePrefix }}virt-artifact
   add: /kubevirt-config-files/.version
   to: /.version
   after: install
 
-- image: virt-artifact
+- image: {{ .ModuleNamePrefix }}virt-artifact
   add: /kubevirt-binaries/
   to: /relocate/usr/bin
   before: setup
@@ -201,13 +201,13 @@ import:
   - virt-launcher-monitor
   - virt-probe
   - virt-tail
-- image: virt-artifact
+- image: {{ .ModuleNamePrefix }}virt-artifact
   add: /kubevirt-binaries
   to: /relocate/etc/libvirt/hooks/qemu
   before: setup
   includePaths:
   - virt-launcher-hook
-- image: {{ .ImageName }}-gobuilder
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-gobuilder
   add: /binaries
   to: /usr/bin
   before: setup
@@ -218,7 +218,7 @@ import:
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 
 # Statically built.
-- image: packages/openssl
+- image: {{ .ModuleNamePrefix }}packages/openssl
   add: /openssl
   to: /relocate
   after: setup
@@ -247,7 +247,7 @@ import:
   includePaths:
   - sbin/tc
 
-- image: {{ .ImageName }}-cbuilder
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
   add: /bins
   to: /relocate/usr/bin
   before: setup
@@ -398,7 +398,7 @@ shell:
     cp -a etc/libvirt etc/libvirt-init
 
 ---
-image: {{ .ImageName }}-gobuilder
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-gobuilder
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.25" "builder/golang-alt-svace-1.25" }}
 git:
@@ -450,7 +450,7 @@ shell:
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /binaries/vlctl ./cmd/vlctl/main.go`) | nindent 6 }}
     echo "Done"
 ---
-image: {{ .ImageName }}-cbuilder
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.25" "builder/golang-alt-svace-1.25" }}
 git:

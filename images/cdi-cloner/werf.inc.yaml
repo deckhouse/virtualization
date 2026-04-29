@@ -1,10 +1,10 @@
 ---
-image: {{ .ImageName }}
-fromImage: distroless
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
 git:
   {{- include "image mount points" . }}
 import:
-- image: {{ .ImageName }}-bins
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
   add: /relocate
   to: /
   before: setup
@@ -23,23 +23,23 @@ binaries:
 
 {{ $virtCDIClonerDependencies := include "$name" . | fromYaml }}
 
-image: {{ .ImageName }}-bins
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
-fromImage: base-alt-p11-binaries
+fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
 import:
-- image: {{ .ImageName }}-gobuild
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-gobuild
   add: /cdi-binaries
   to: /usr/bin
   includePaths:
   - cloner-startup
   before: install
-- image: cdi-artifact-cbuilder
+- image: {{ .ModuleNamePrefix }}cdi-artifact-cbuilder
   add: /bins
   to: /usr/bin
   before: install
   includePaths:
   - hello
-- image: cdi-artifact
+- image: {{ .ModuleNamePrefix }}cdi-artifact
   add: /cdi-binaries
   to: /usr/bin
   includePaths:
@@ -51,7 +51,7 @@ shell:
   - |
     /relocate_binaries.sh -i "{{ $virtCDIClonerDependencies.binaries | join " " }}" -o /relocate
 ---
-image: {{ .ImageName }}-gobuild
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-gobuild
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.25" "builder/golang-alt-svace-1.25" }}
 git:

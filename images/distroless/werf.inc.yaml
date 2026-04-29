@@ -1,9 +1,9 @@
 ---
-image: {{ .ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-  - image: {{ .ImageName }}-artifact
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-artifact
     add: /relocate
     to: /
     before: setup
@@ -15,7 +15,7 @@ imageSpec:
       LC_ALL: POSIX
     user: 64535
 ---
-image: {{ .ImageName }}-artifact
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-artifact
 fromImage: builder/alt
 final: false
 shell:
