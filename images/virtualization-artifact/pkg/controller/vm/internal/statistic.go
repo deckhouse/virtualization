@@ -31,7 +31,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/vm"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -377,33 +376,32 @@ func (h *StatisticHandler) syncStats(current, changed *v1alpha2.VirtualMachine, 
 }
 
 func syncLastStartTime(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) {
-	running, found := conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
-	if !found || running.Status != metav1.ConditionTrue {
+	running := getRunningCondition(vm)
+	if running == nil || running.Status != metav1.ConditionTrue {
 		if vm.Status.Stats != nil {
 			vm.Status.Stats.LastStartTime = nil
 		}
 		return
 	}
 
-	lastStartTime := running.LastTransitionTime.DeepCopy()
-	if kvvmiRunningAt, found := getKVVMIRunningPhaseTransitionTimestamp(kvvmi); found && lastStartTime.Sub(kvvmiRunningAt.Time).Abs() > lastStartTimePhaseTransitionMaxDiff {
-		lastStartTime = kvvmiRunningAt.DeepCopy()
-		setRunningConditionLastTransitionTime(vm, *lastStartTime.DeepCopy())
+	if kvvmiRunningAt, found := getKVVMIRunningPhaseTransitionTimestamp(kvvmi); found && running.LastTransitionTime.Sub(kvvmiRunningAt.Time).Abs() > lastStartTimePhaseTransitionMaxDiff {
+		running.LastTransitionTime = *kvvmiRunningAt.DeepCopy()
 	}
 
 	if vm.Status.Stats == nil {
 		vm.Status.Stats = &v1alpha2.VirtualMachineStats{}
 	}
-	vm.Status.Stats.LastStartTime = lastStartTime
+	vm.Status.Stats.LastStartTime = running.LastTransitionTime.DeepCopy()
 }
 
-func setRunningConditionLastTransitionTime(vm *v1alpha2.VirtualMachine, lastTransitionTime metav1.Time) {
+func getRunningCondition(vm *v1alpha2.VirtualMachine) *metav1.Condition {
 	for i := range vm.Status.Conditions {
 		if vm.Status.Conditions[i].Type == vmcondition.TypeRunning.String() {
-			vm.Status.Conditions[i].LastTransitionTime = lastTransitionTime
-			return
+			return &vm.Status.Conditions[i]
 		}
 	}
+
+	return nil
 }
 
 func getKVVMIRunningPhaseTransitionTimestamp(kvvmi *virtv1.VirtualMachineInstance) (*metav1.Time, bool) {
