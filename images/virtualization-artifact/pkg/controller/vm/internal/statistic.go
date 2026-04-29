@@ -388,12 +388,22 @@ func syncLastStartTime(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachine
 	lastStartTime := running.LastTransitionTime.DeepCopy()
 	if kvvmiRunningAt, found := getKVVMIRunningPhaseTransitionTimestamp(kvvmi); found && lastStartTime.Sub(kvvmiRunningAt.Time).Abs() > lastStartTimePhaseTransitionMaxDiff {
 		lastStartTime = kvvmiRunningAt.DeepCopy()
+		setRunningConditionLastTransitionTime(vm, *lastStartTime.DeepCopy())
 	}
 
 	if vm.Status.Stats == nil {
 		vm.Status.Stats = &v1alpha2.VirtualMachineStats{}
 	}
 	vm.Status.Stats.LastStartTime = lastStartTime
+}
+
+func setRunningConditionLastTransitionTime(vm *v1alpha2.VirtualMachine, lastTransitionTime metav1.Time) {
+	for i := range vm.Status.Conditions {
+		if vm.Status.Conditions[i].Type == vmcondition.TypeRunning.String() {
+			vm.Status.Conditions[i].LastTransitionTime = lastTransitionTime
+			return
+		}
+	}
 }
 
 func getKVVMIRunningPhaseTransitionTimestamp(kvvmi *virtv1.VirtualMachineInstance) (*metav1.Time, bool) {

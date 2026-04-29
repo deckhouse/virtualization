@@ -337,6 +337,7 @@ var _ = Describe("StatisticHandler", func() {
 			Expect(vm.Status.Stats).NotTo(BeNil())
 			Expect(vm.Status.Stats.LastStartTime).NotTo(BeNil())
 			Expect(vm.Status.Stats.LastStartTime.Time).To(Equal(vmiRunningTime.Time))
+			Expect(vm.Status.Conditions[0].LastTransitionTime.Time).To(Equal(vmiRunningTime.Time))
 		})
 
 		It("sets lastStartTime from the VMI Running phase transition if it is newer than the Running condition transition by more than ten minutes", func() {
@@ -350,6 +351,7 @@ var _ = Describe("StatisticHandler", func() {
 			Expect(vm.Status.Stats).NotTo(BeNil())
 			Expect(vm.Status.Stats.LastStartTime).NotTo(BeNil())
 			Expect(vm.Status.Stats.LastStartTime.Time).To(Equal(vmiRunningTime.Time))
+			Expect(vm.Status.Conditions[0].LastTransitionTime.Time).To(Equal(vmiRunningTime.Time))
 		})
 
 		It("sets lastStartTime from the Running condition when the VMI Running phase transition does not differ by more than ten minutes", func() {
@@ -363,6 +365,7 @@ var _ = Describe("StatisticHandler", func() {
 			Expect(vm.Status.Stats).NotTo(BeNil())
 			Expect(vm.Status.Stats.LastStartTime).NotTo(BeNil())
 			Expect(vm.Status.Stats.LastStartTime.Time).To(Equal(conditionTime.Time))
+			Expect(vm.Status.Conditions[0].LastTransitionTime.Time).To(Equal(conditionTime.Time))
 		})
 
 		DescribeTable("clears lastStartTime when the VM is not running",
