@@ -269,9 +269,15 @@ func (t *VMUSBTest) mountUSB() {
 		done
 		[ -n "$usb_present" ] || { echo "USB device with serial $usb_serial not found" >/tmp/usb-mount.err; exit 1; }
 
+		sudo modprobe usb-storage
+		sudo modprobe uas || true
+
 		for host in /sys/class/scsi_host/host*; do
 			echo "- - -" | sudo tee "$host/scan" >/dev/null || true
 		done
+
+		sudo udevadm trigger
+		sudo udevadm settle
 
 		for dev in /dev/sd*; do
 			[ -b "$dev" ] || continue
