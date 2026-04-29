@@ -24,6 +24,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -33,7 +34,12 @@ import (
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
+
+const unacceptableCount = -1000
+
+var APIVersion = v1alpha2.SchemeGroupVersion.String()
 
 var _ = Describe("ImageHotplug", Ordered, label.Legacy(), func() {
 	const (
@@ -335,4 +341,77 @@ func IsBlockDeviceReadOnly(vmNamespace, vmName, blockDeviceID string) (bool, err
 	}
 	roOpt := options[0]
 	return roOpt == "ro", nil
+}
+
+// lsblk JSON output
+type Disks struct {
+	BlockDevices []BlockDevice `json:"blockdevices"`
+}
+
+type BlockDevices struct {
+	BlockDevices []BlockDevice `json:"blockdevices"`
+}
+
+type BlockDevice struct {
+	Name string `json:"name"`
+	Size string `json:"size"`
+	Type string `json:"type"`
+}
+
+func AttachBlockDevice(vmNamespace, vmName, blockDeviceName string, blockDeviceType v1alpha2.VMBDAObjectRefKind, labels map[string]string, testDataPath string) {
+	vmbdaFilePath := fmt.Sprintf("%s/vmbda/%s.yaml", testDataPath, blockDeviceName)
+	err := CreateVMBDAManifest(vmbdaFilePath, vmName, blockDeviceName, blockDeviceType, labels)
+	Expect(err).NotTo(HaveOccurred(), "%v", err)
+
+	res := kubectl.Apply(kc.ApplyOptions{
+		Filename:       []string{vmbdaFilePath},
+		FilenameOption: kc.Filename,
+		Namespace:      vmNamespace,
+	})
+	Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+}
+
+func CreateVMBDAManifest(filePath, vmName, blockDeviceName string, blockDeviceType v1alpha2.VMBDAObjectRefKind, labels map[string]string) error {
+	vmbda := &v1alpha2.VirtualMachineBlockDeviceAttachment{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: APIVersion,
+			Kind:       v1alpha2.VirtualMachineBlockDeviceAttachmentKind,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   blockDeviceName,
+			Labels: labels,
+		},
+		Spec: v1alpha2.VirtualMachineBlockDeviceAttachmentSpec{
+			VirtualMachineName: vmName,
+			BlockDeviceRef: v1alpha2.VMBDAObjectRef{
+				Kind: blockDeviceType,
+				Name: blockDeviceName,
+			},
+		},
+	}
+
+	err := util.WriteYamlObject(filePath, vmbda)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func GetDisksMetadata(vmNamespace, vmName string, disks *Disks) error {
+	GinkgoHelper()
+	cmd := "lsblk --nodeps --json"
+	res := framework.GetClients().D8Virtualization().SSHCommand(vmName, cmd, d8.SSHOptions{
+		Namespace:    vmNamespace,
+		Username:     conf.TestData.SSHUser,
+		IdentityFile: conf.TestData.Sshkey,
+	})
+	if res.Error() != nil {
+		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+	}
+	err := json.Unmarshal(res.StdOutBytes(), disks)
+	if err != nil {
+		return fmt.Errorf("failed when getting disk count\nvirtualMachine: %s/%s\nstderr: %s", vmNamespace, vmName, res.StdErr())
+	}
+	return nil
 }
