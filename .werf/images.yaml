@@ -32,7 +32,7 @@ dockerfile: Dockerfile
 {{-   $_ := set $ctx "ModuleNamePrefix" "" }}
 {{-   $_ := set $ctx "ImageBuildData" $content }}
 {{-   $_ := set $ctx "Files" $Root.Files }}
-{{-   $_ := set $ctx "GOPROXY" $Root.GOPROXY }}
+{{-   $_ := set $ctx "GOPROXY" (env "GOPROXY" "https://proxy.golang.org,direct") }}
 {{-   $_ := set $ctx "SOURCE_REPO" $Root.SOURCE_REPO }}
 {{-   $_ := set $ctx "PACKAGE_CLONE_REPO" $packageCloneRepo }}
 {{-   $_ := set $ctx "DECKHOUSE_PRIVATE_REPO" $Root.DECKHOUSE_PRIVATE_REPO }}
@@ -42,7 +42,6 @@ dockerfile: Dockerfile
 {{-   $_ := set $ctx "Firmware" $Root.Firmware }}
 {{-   $_ := set $ctx "Package" $Root.Package }}
 {{-   $_ := set $ctx "Core" $Root.Core }}
-{{-   $_ := set $ctx "GOPROXY" (env "GOPROXY" "https://proxy.golang.org,direct") }}
 {{-   $_ := set $ctx "ProjectName" $ctx.ImageName }}
 {{-   $_ := set $ctx "Commit" $Root.Commit }}
 {{-   $_ := set $ctx "SVACE_ENABLED" $Root.SVACE_ENABLED }}
