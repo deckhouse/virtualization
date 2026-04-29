@@ -36,10 +36,11 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("HotplugMemory", func() {
+var _ = Describe("HotplugMemory", Label(precheck.NoPrecheck), func() {
 	var (
 		f *framework.Framework
 		t *memoryHotplugTest

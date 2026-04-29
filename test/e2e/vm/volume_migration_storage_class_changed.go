@@ -37,21 +37,23 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/rewrite"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
 // Ordered is required due to concurrent migration limitations in the cluster to prevent test interference.
 // ContinueOnFailure ensures all independent tests run even if one fails.
-var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), func() {
+var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), Label(precheck.NoPrecheck), func() {
 	var (
-		f                      = framework.NewFramework("volume-migration-storage-class-changed")
+		f                      *framework.Framework
 		storageClass           *storagev1.StorageClass
 		vi                     *v1alpha2.VirtualImage
 		targetStorageClassName string
 	)
 
 	BeforeEach(func() {
+		f = framework.NewFramework("volume-migration-storage-class-changed")
 		storageClass = framework.GetConfig().StorageClass.TemplateStorageClass
 		if storageClass == nil {
 			Skip("TemplateStorageClass is not set.")
