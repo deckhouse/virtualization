@@ -32,7 +32,7 @@ var _ = Describe("LifeCycleHandler", func() {
 	Describe("syncLastStartTime", func() {
 		It("sets lastStartTime from the Running condition last transition time", func() {
 			transitionTime := metav1.NewTime(time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC))
-			vm := newVMWithRunningCondition(metav1.ConditionTrue, transitionTime)
+			vm := newVMWithRunningCondition(transitionTime)
 
 			syncLastStartTime(vm, nil)
 
@@ -44,7 +44,7 @@ var _ = Describe("LifeCycleHandler", func() {
 		It("sets lastStartTime from the VMI Running phase transition if it differs from the Running condition transition by more than ten minutes", func() {
 			conditionTime := metav1.NewTime(time.Date(2026, 4, 24, 12, 20, 0, 0, time.UTC))
 			vmiRunningTime := metav1.NewTime(time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC))
-			vm := newVMWithRunningCondition(metav1.ConditionTrue, conditionTime)
+			vm := newVMWithRunningCondition(conditionTime)
 			kvvmi := newKVVMIWithRunningPhaseTransition(vmiRunningTime)
 
 			syncLastStartTime(vm, kvvmi)
@@ -57,7 +57,7 @@ var _ = Describe("LifeCycleHandler", func() {
 		It("sets lastStartTime from the VMI Running phase transition if it is newer than the Running condition transition by more than ten minutes", func() {
 			conditionTime := metav1.NewTime(time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC))
 			vmiRunningTime := metav1.NewTime(time.Date(2026, 4, 24, 12, 20, 0, 0, time.UTC))
-			vm := newVMWithRunningCondition(metav1.ConditionTrue, conditionTime)
+			vm := newVMWithRunningCondition(conditionTime)
 			kvvmi := newKVVMIWithRunningPhaseTransition(vmiRunningTime)
 
 			syncLastStartTime(vm, kvvmi)
@@ -70,7 +70,7 @@ var _ = Describe("LifeCycleHandler", func() {
 		It("sets lastStartTime from the Running condition when the VMI Running phase transition does not differ by more than ten minutes", func() {
 			conditionTime := metav1.NewTime(time.Date(2026, 4, 24, 12, 9, 0, 0, time.UTC))
 			vmiRunningTime := metav1.NewTime(time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC))
-			vm := newVMWithRunningCondition(metav1.ConditionTrue, conditionTime)
+			vm := newVMWithRunningCondition(conditionTime)
 			kvvmi := newKVVMIWithRunningPhaseTransition(vmiRunningTime)
 
 			syncLastStartTime(vm, kvvmi)
@@ -107,13 +107,13 @@ var _ = Describe("LifeCycleHandler", func() {
 	})
 })
 
-func newVMWithRunningCondition(status metav1.ConditionStatus, transitionTime metav1.Time) *v1alpha2.VirtualMachine {
+func newVMWithRunningCondition(transitionTime metav1.Time) *v1alpha2.VirtualMachine {
 	return &v1alpha2.VirtualMachine{
 		Status: v1alpha2.VirtualMachineStatus{
 			Conditions: []metav1.Condition{
 				{
 					Type:               vmcondition.TypeRunning.String(),
-					Status:             status,
+					Status:             metav1.ConditionTrue,
 					LastTransitionTime: transitionTime,
 				},
 			},
