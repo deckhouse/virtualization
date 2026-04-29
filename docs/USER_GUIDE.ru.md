@@ -10,7 +10,7 @@ weight: 50
 
 ## Быстрый старт по созданию ВМ
 
-Пример создания виртуальной машины с Ubuntu 22.04.
+Пример создания виртуальной машины с Ubuntu 24.04.
 
 1. Создайте образ виртуальной машины из внешнего источника:
 
@@ -304,7 +304,7 @@ weight: 50
    apiVersion: virtualization.deckhouse.io/v1alpha2
    kind: VirtualImage
    metadata:
-     name: ubuntu-22-04
+     name: ubuntu-24-04
    spec:
      # Сохраним образ в DVCR.
      storage: ContainerRegistry
@@ -319,16 +319,16 @@ weight: 50
 1. Проверьте результат создания `VirtualImage`:
 
    ```bash
-   d8 k get virtualimage ubuntu-22-04
+   d8 k get virtualimage ubuntu-24-04
    # или более короткий вариант
-   d8 k get vi ubuntu-22-04
+   d8 k get vi ubuntu-24-04
    ```
 
    Пример вывода:
 
    ```txt
    NAME           PHASE   CDROM   PROGRESS   AGE
-   ubuntu-22-04   Ready   false   100%       23h
+   ubuntu-24-04   Ready   false   100%       23h
    ```
 
 После создания ресурс `VirtualImage` может находиться в следующих состояниях (фазах):
@@ -349,26 +349,26 @@ weight: 50
 Отследить процесс создания образа можно путем добавления ключа `-w` к предыдущей команде:
 
 ```bash
-d8 k get vi ubuntu-22-04 -w
+d8 k get vi ubuntu-24-04 -w
 ```
 
 Пример вывода:
 
 ```txt
 NAME           PHASE          CDROM   PROGRESS   AGE
-ubuntu-22-04   Provisioning   false              4s
-ubuntu-22-04   Provisioning   false   0.0%       4s
-ubuntu-22-04   Provisioning   false   28.2%      6s
-ubuntu-22-04   Provisioning   false   66.5%      8s
-ubuntu-22-04   Provisioning   false   100.0%     10s
-ubuntu-22-04   Provisioning   false   100.0%     16s
-ubuntu-22-04   Ready          false   100%       18s
+ubuntu-24-04   Provisioning   false              4s
+ubuntu-24-04   Provisioning   false   0.0%       4s
+ubuntu-24-04   Provisioning   false   28.2%      6s
+ubuntu-24-04   Provisioning   false   66.5%      8s
+ubuntu-24-04   Provisioning   false   100.0%     10s
+ubuntu-24-04   Provisioning   false   100.0%     16s
+ubuntu-24-04   Ready          false   100%       18s
 ```
 
 В описание ресурса `VirtualImage` можно получить дополнительную информацию о скачанном образе:
 
 ```bash
-d8 k describe vi ubuntu-22-04
+d8 k describe vi ubuntu-24-04
 ```
 
 Как создать образ с HTTP-сервера в веб-интерфейсе:
@@ -390,7 +390,7 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: ubuntu-22-04-pvc
+  name: ubuntu-24-04-pvc
 spec:
   # Настройки хранения проектного образа.
   storage: PersistentVolumeClaim
@@ -408,14 +408,14 @@ EOF
 Проверьте результат создания `VirtualImage`:
 
 ```bash
-d8 k get vi ubuntu-22-04-pvc
+d8 k get vi ubuntu-24-04-pvc
 ```
 
 Пример вывода:
 
 ```txt
 NAME              PHASE   CDROM   PROGRESS   AGE
-ubuntu-22-04-pvc  Ready   false   100%       23h
+ubuntu-24-04-pvc  Ready   false   100%       23h
 ```
 
 Если параметр `.spec.persistentVolumeClaim.storageClassName` не указан, то будет использован `StorageClass` по умолчанию на уровне кластера, либо для образов, если он указан в [настройках модуля](./admin_guide.html#настройки-классов-хранения-для-образов).
@@ -440,20 +440,20 @@ ubuntu-22-04-pvc  Ready   false   100%       23h
 1. Загрузите образ локально:
 
    ```bash
-   curl -L https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img -o ubuntu2204.img
+   curl -L https://cloud-images.ubuntu.com/minimal/releases/noble/release/ubuntu-24.04-minimal-cloudimg-amd64.img -o ubuntu2404.img
    ```
 
 1. Создайте `Dockerfile` со следующим содержимым:
 
    ```Dockerfile
    FROM scratch
-   COPY ubuntu2204.img /disk/ubuntu2204.img
+   COPY ubuntu2404.img /disk/ubuntu2404.img
    ```
 
 1. Соберите образ и загрузите его в container registry. В качестве container registry в примере ниже использован docker.io. Для выполнения необходимо иметь учетную запись сервиса и настроенное окружение.
 
    ```bash
-   docker build -t docker.io/<username>/ubuntu2204:latest
+   docker build -t docker.io/<username>/ubuntu2404:latest
    ```
 
    где `username` — имя пользователя, указанное при регистрации в docker.io.
@@ -461,7 +461,7 @@ ubuntu-22-04-pvc  Ready   false   100%       23h
 1. Загрузите созданный образ в container registry:
 
    ```bash
-   docker push docker.io/<username>/ubuntu2204:latest
+   docker push docker.io/<username>/ubuntu2404:latest
    ```
 
 1. Чтобы использовать этот образ, создайте в качестве примера ресурс:
@@ -471,13 +471,13 @@ ubuntu-22-04-pvc  Ready   false   100%       23h
    apiVersion: virtualization.deckhouse.io/v1alpha2
    kind: VirtualImage
    metadata:
-     name: ubuntu-2204
+     name: ubuntu-2404
    spec:
      storage: ContainerRegistry
      dataSource:
        type: ContainerImage
        containerImage:
-         image: docker.io/<username>/ubuntu2204:latest
+         image: docker.io/<username>/ubuntu2404:latest
    EOF
    ```
 
@@ -489,7 +489,7 @@ ubuntu-22-04-pvc  Ready   false   100%       23h
 - Из списка выберите «Загрузить данные из образа контейнера».
 - В открывшейся форме в поле «Имя образа» введите имя образа.
 - В поле «Хранилище» выберите `ContainerRegistry`.
-- В поле «Образ в реестре контейнеров» укажите `docker.io/<username>/ubuntu2204:latest`.
+- В поле «Образ в реестре контейнеров» укажите `docker.io/<username>/ubuntu2404:latest`.
 - Нажмите кнопку «Создать».
 - Статус образа отображается слева вверху, под именем образа.
 
@@ -759,14 +759,14 @@ blank-disk   Ready   100Mi      1m2s
 На примере ранее созданного проектного образа `VirtualImage`, рассмотрим команду позволяющую определить размер распакованного образа:
 
 ```bash
-d8 k get vi ubuntu-22-04 -o wide
+d8 k get vi ubuntu-24-04 -o wide
 ```
 
 Пример вывода:
 
 ```txt
 NAME           PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                                                       AGE
-ubuntu-22-04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-22-04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
+ubuntu-24-04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-24-04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
 ```
 
 Искомый размер указан в колонке **UNPACKEDSIZE** и равен 2.5Gi.
@@ -791,7 +791,7 @@ spec:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
-      name: ubuntu-22-04
+      name: ubuntu-24-04
 EOF
 ```
 
@@ -813,7 +813,7 @@ spec:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
-      name: ubuntu-22-04
+      name: ubuntu-24-04
 EOF
 ```
 
@@ -1008,7 +1008,7 @@ d8 k patch vd disk2 --type=merge --patch '{"spec":{"persistentVolumeClaim":{"sto
 
 ### Создание виртуальной машины
 
-Ниже представлен пример конфигурации виртуальной машины, запускающей ОС Ubuntu 22.04. В примере используется сценарий первичной инициализации виртуальной машины (cloud-init), который устанавливает гостевого агента `qemu-guest-agent` и сервис `nginx`, а также создает пользователя `cloud` с паролем `cloud`:
+Ниже представлен пример конфигурации виртуальной машины, запускающей ОС Ubuntu 24.04. В примере используется сценарий первичной инициализации виртуальной машины (cloud-init), который устанавливает гостевого агента `qemu-guest-agent` и сервис `nginx`, а также создает пользователя `cloud` с паролем `cloud`:
 
 Пароль в примере был сгенерирован с использованием команды `mkpasswd --method=SHA-512 --rounds=4096 -S saltsalt` и при необходимости вы можете его поменять на свой:
 

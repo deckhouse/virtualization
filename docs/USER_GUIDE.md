@@ -10,7 +10,7 @@ This guide is intended for users of the `virtualization` module in the Deckhouse
 
 ## Quick start on creating a VM
 
-Example of creating a virtual machine with Ubuntu 22.04.
+Example of creating a virtual machine with Ubuntu 24.04.
 
 1. Create a virtual machine image from an external source:
 
@@ -299,7 +299,7 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: ubuntu-22-04
+  name: ubuntu-24-04
 spec:
   # Save the image to DVCR
   storage: ContainerRegistry
@@ -314,16 +314,16 @@ EOF
 Check the result of the `VirtualImage` creation:
 
 ```bash
-d8 k get virtualimage ubuntu-22-04
+d8 k get virtualimage ubuntu-24-04
 # or a shorter version
-d8 k get vi ubuntu-22-04
+d8 k get vi ubuntu-24-04
 ```
 
 Example output:
 
 ```txt
 NAME           PHASE   CDROM   PROGRESS   AGE
-ubuntu-22-04   Ready   false   100%       23h
+ubuntu-24-04   Ready   false   100%       23h
 ```
 
 After creation the `VirtualImage` resource can be in the following states (phases):
@@ -344,26 +344,26 @@ Diagnosing problems with a resource is done by analyzing the information in the 
 You can trace the image creation process by adding the `-w` key to the previous command:
 
 ```bash
-d8 k get vi ubuntu-22-04 -w
+d8 k get vi ubuntu-24-04 -w
 ```
 
 Example output:
 
 ```txt
 NAME           PHASE          CDROM   PROGRESS   AGE
-ubuntu-22-04   Provisioning   false              4s
-ubuntu-22-04   Provisioning   false   0.0%       4s
-ubuntu-22-04   Provisioning   false   28.2%      6s
-ubuntu-22-04   Provisioning   false   66.5%      8s
-ubuntu-22-04   Provisioning   false   100.0%     10s
-ubuntu-22-04   Provisioning   false   100.0%     16s
-ubuntu-22-04   Ready          false   100%       18s
+ubuntu-24-04   Provisioning   false              4s
+ubuntu-24-04   Provisioning   false   0.0%       4s
+ubuntu-24-04   Provisioning   false   28.2%      6s
+ubuntu-24-04   Provisioning   false   66.5%      8s
+ubuntu-24-04   Provisioning   false   100.0%     10s
+ubuntu-24-04   Provisioning   false   100.0%     16s
+ubuntu-24-04   Ready          false   100%       18s
 ```
 
 The `VirtualImage` resource description provides additional information about the downloaded image:
 
 ```bash
-d8 k describe vi ubuntu-22-04
+d8 k describe vi ubuntu-24-04
 ```
 
 How to create an image from an HTTP server in the web interface:
@@ -385,7 +385,7 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: ubuntu-22-04-pvc
+  name: ubuntu-24-04-pvc
 spec:
   storage: PersistentVolumeClaim
   persistentVolumeClaim:
@@ -402,14 +402,14 @@ EOF
 Check the result of the `VirtualImage` creation:
 
 ```bash
-d8 k get vi ubuntu-22-04-pvc
+d8 k get vi ubuntu-24-04-pvc
 ```
 
 Example output:
 
 ```txt
 NAME              PHASE   CDROM   PROGRESS   AGE
-ubuntu-22-04-pvc  Ready   false   100%       23h
+ubuntu-24-04-pvc  Ready   false   100%       23h
 ```
 
 If the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified, the default `StorageClass` at the cluster level will be used, or for images if specified in [module settings](./admin_guide.html#storage-class-settings-for-images).
@@ -434,20 +434,20 @@ An image stored in Container Registry has a certain format. Let's look at an exa
 First, download the image locally:
 
 ```bash
-curl -L https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img -o ubuntu2204.img
+curl -L https://cloud-images.ubuntu.com/minimal/releases/noble/release/ubuntu-24.04-minimal-cloudimg-amd64.img -o ubuntu2404.img
 ```
 
 Next, create a `Dockerfile` with the following contents:
 
 ```Dockerfile
 FROM scratch
-COPY ubuntu2204.img /disk/ubuntu2204.img
+COPY ubuntu2404.img /disk/ubuntu2404.img
 ```
 
 Build the image and load it into the container registry. The example below uses docker.io as the container registry. you need to have a service account and a customized environment to run it.
 
 ```bash
-docker build -t docker.io/<username>/ubuntu2204:latest
+docker build -t docker.io/<username>/ubuntu2404:latest
 ```
 
 where `username` is the username specified when registering with docker.io.
@@ -455,7 +455,7 @@ where `username` is the username specified when registering with docker.io.
 Load the created image into the container registry:
 
 ```bash
-docker push docker.io/<username>/ubuntu2204:latest
+docker push docker.io/<username>/ubuntu2404:latest
 ```
 
 To use this image, create a resource as an example:
@@ -465,13 +465,13 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: ubuntu-2204
+  name: ubuntu-2404
 spec:
   storage: ContainerRegistry
   dataSource:
     type: ContainerImage
     containerImage:
-      image: docker.io/<username>/ubuntu2204:latest
+      image: docker.io/<username>/ubuntu2404:latest
 EOF
 ```
 
@@ -483,7 +483,7 @@ How to create an image from Container Registry in the web interface:
 - Select "Upload data from container image" from the list.
 - In the form that opens, enter the image name in the "Image Name" field.
 - In the "Storage" field, select `ContainerRegistry`.
-- In the "Image in Container Registry" field, specify `docker.io/<username>/ubuntu2204:latest`.
+- In the "Image in Container Registry" field, specify `docker.io/<username>/ubuntu2404:latest`.
 - Click the "Create" button.
 - The image status is displayed at the top left, under the image name.
 
@@ -751,14 +751,14 @@ When creating a disk, you can specify its desired size, which must be equal to o
 Using the example of the previously created image `VirtualImage`, let's consider the command that allows you to determine the size of the unpacked image:
 
 ```bash
-d8 k get vi ubuntu-22-04 -o wide
+d8 k get vi ubuntu-24-04 -o wide
 ```
 
 Example output:
 
 ```txt
 NAME           PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                                                       AGE
-ubuntu-22-04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-22-04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
+ubuntu-24-04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-24-04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
 ```
 
 The size you are looking for is specified in the **UNPACKEDSIZE** column and is 2.5Gi.
@@ -783,7 +783,7 @@ spec:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
-      name: ubuntu-22-04
+      name: ubuntu-24-04
 EOF
 ```
 
@@ -805,7 +805,7 @@ spec:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
-      name: ubuntu-22-04
+      name: ubuntu-24-04
 EOF
 ```
 
@@ -1000,7 +1000,7 @@ The full description of virtual machine configuration parameters can be found at
 
 ### Creating a virtual machine
 
-Below is an example of a simple virtual machine configuration running Ubuntu OS 22.04. The example uses the initial virtual machine initialization script (cloud-init), which installs the `qemu-guest-agent` guest agent and the `nginx` service, and creates the `cloud` user with the `cloud` password:
+Below is an example of a simple virtual machine configuration running Ubuntu OS 24.04. The example uses the initial virtual machine initialization script (cloud-init), which installs the `qemu-guest-agent` guest agent and the `nginx` service, and creates the `cloud` user with the `cloud` password:
 
 The password in the example was generated using the command `mkpasswd --method=SHA-512 --rounds=4096 -S saltsalt` and you can change it to your own if necessary:
 
