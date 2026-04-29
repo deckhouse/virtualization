@@ -501,7 +501,7 @@ jobs:
       - job-SE-Plus
       - job-FE
       - check-version-on-release-channel
-    if: ${{ !inputs.check_only && inputs.release_to_github && needs.check-version-on-release-channel.result == 'success' && (inputs.ce || inputs.ee) }}
+    if: ${{ inputs.release_to_github && needs.check-version-on-release-channel.result == 'success' && (inputs.check_only || inputs.ce || inputs.ee) }}
     permissions:
       contents: write
       pull-requests: read
