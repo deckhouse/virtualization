@@ -25,7 +25,7 @@ defaults:
 
 jobs:
   pr_summary:
-    runs-on: self-hosted
+    runs-on: [self-hosted, regular]
 
     steps:
       - name: Checkout repository
