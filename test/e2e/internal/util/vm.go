@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -182,6 +183,32 @@ func UntilSSHReady(f *framework.Framework, vm *v1alpha2.VirtualMachine, timeout 
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(result).To(ContainSubstring("test"))
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+}
+
+func UntilGuestCommandsReady(f *framework.Framework, vm *v1alpha2.VirtualMachine, commands []string, timeout time.Duration) {
+	GinkgoHelper()
+
+	cmd := fmt.Sprintf(`
+		missing=""
+		for command in %s; do
+			command -v "$command" >/dev/null 2>&1 || missing="$missing $command"
+		done
+		[ -z "$missing" ] || { echo "missing commands:$missing"; exit 1; }
+	`, shellArgs(commands))
+
+	Eventually(func() error {
+		_, err := f.SSHCommand(vm.Name, vm.Namespace, cmd, framework.WithSSHTimeout(5*time.Second))
+		return err
+	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+}
+
+func shellArgs(args []string) string {
+	quoted := make([]string, 0, len(args))
+	for _, arg := range args {
+		quoted = append(quoted, fmt.Sprintf("%q", arg))
+	}
+
+	return strings.Join(quoted, " ")
 }
 
 func UntilVMMigrationSucceeded(key client.ObjectKey, timeout time.Duration) {
