@@ -521,22 +521,31 @@ jobs:
         run: |
           set -euo pipefail
 
+          echo "Checking GitHub release for tag: $TAG"
+          echo "Repository: $REPOSITORY"
+
           gh release view "$TAG" --repo "$REPOSITORY" >/tmp/release-view.txt 2>/dev/null && release_exists=true || release_exists=false
           if [[ "$release_exists" == "true" ]]; then
+            echo "GitHub release already exists for ${TAG}, skipping"
             release_url=$(gh release view "$TAG" --repo "$REPOSITORY" --json url --jq '.url')
+            echo "Existing release URL: ${release_url}"
             echo "release_status=skipped" >> "$GITHUB_OUTPUT"
             echo "release_url=${release_url}" >> "$GITHUB_OUTPUT"
             echo "release_reason=GitHub release already exists for ${TAG}" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
+          echo "Searching merged changelog PRs for milestone ${TAG}"
           changelog_prs=$(gh pr list \
             --repo "$REPOSITORY" \
             --state merged \
             --search "label:changelog milestone:${TAG}" \
             --json number,title,url,body,milestone)
 
+          echo "$changelog_prs" | jq '.'
+
           changelog_pr_count=$(echo "$changelog_prs" | jq 'length')
+          echo "Found ${changelog_pr_count} merged changelog PR(s)"
           if [[ "$changelog_pr_count" -ne 1 ]]; then
             echo "Expected exactly one merged changelog PR for milestone ${TAG}, found ${changelog_pr_count}" >&2
             exit 1
