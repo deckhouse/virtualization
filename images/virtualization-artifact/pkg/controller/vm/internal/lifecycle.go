@@ -43,7 +43,8 @@ import (
 )
 
 const (
-	nameLifeCycleHandler                = "LifeCycleHandler"
+	nameLifeCycleHandler = "LifeCycleHandler"
+	// TODO: Remove this fallback after 2026-10-29.
 	lastStartTimePhaseTransitionMaxDiff = 10 * time.Minute
 )
 
