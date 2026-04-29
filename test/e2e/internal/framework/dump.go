@@ -37,7 +37,7 @@ const (
 	// Linux filesystems (ext4/xfs) limit filenames to 255 bytes. We reserve ~70 bytes
 	// for the "e2e_failed__" prefix, "__<namespace>__events.yaml" suffix, and directory path.
 	maxTestNameLen = 180
-	delimiter       = "..."
+	delimiter      = "..."
 )
 
 // truncateTestName shortens s to at most maxLen bytes while keeping the text
