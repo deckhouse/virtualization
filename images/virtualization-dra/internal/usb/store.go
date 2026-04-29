@@ -447,9 +447,11 @@ func (s *AllocationStore) Unprepare(_ context.Context, claimUID types.UID) error
 		for _, device := range allocatedDevices {
 			if usbGatewayEnabled {
 				count, hasCount := s.usbipAllocatedDevicesCount[device]
-				s.log.Info("Device attached by USBGateway", slog.String("device", device), slog.Int("count", count))
+				s.log.Info("Device attached by USBGateway", slog.String("device", device), slog.Int("count", count), slog.Bool("tracked", hasCount))
 				switch {
-				case !hasCount || count <= 1:
+				case !hasCount:
+					s.log.Info("Device is not tracked by USBGateway, skipping detach", slog.String("device", device))
+				case count <= 1:
 					s.log.Info("Device has no tracked consumers, attempting detach cleanup", slog.String("device", device), slog.Int("count", count))
 					if err := s.usbGateway.Detach(device); err != nil {
 						return fmt.Errorf("failed to detach device %s: %w", device, err)
