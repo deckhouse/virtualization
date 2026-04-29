@@ -1,5 +1,5 @@
 diff --git a/hw/char/debugcon.c b/hw/char/debugcon.c
-index fdb04fe..bfb3daf 100644
+index fdb04fe..0cf2325 100644
 --- a/hw/char/debugcon.c
 +++ b/hw/char/debugcon.c
 @@ -26,6 +26,7 @@
@@ -64,16 +64,17 @@ index fdb04fe..bfb3daf 100644
  }
  
  
-@@ -112,6 +139,7 @@ static void debugcon_isa_realizefn(DeviceState *dev, Error **errp)
-                           TYPE_ISA_DEBUGCON_DEVICE, 1);
-     memory_region_add_subregion(isa_address_space_io(d),
-                                 isa->iobase, &s->io);
-+    s->watch_no_bootable_device = isa->iobase == 0x403;
- }
+@@ -118,6 +145,8 @@ static Property debugcon_isa_properties[] = {
+     DEFINE_PROP_UINT32("iobase", ISADebugconState, iobase, 0xe9),
+     DEFINE_PROP_CHR("chardev",  ISADebugconState, state.chr),
+     DEFINE_PROP_UINT32("readback", ISADebugconState, state.readback, 0xe9),
++    DEFINE_PROP_BOOL("watch-no-bootable", ISADebugconState,
++                     state.watch_no_bootable_device, false),
+     DEFINE_PROP_END_OF_LIST(),
+ };
  
- static Property debugcon_isa_properties[] = {
 diff --git a/qapi/control.json b/qapi/control.json
-index 336386f..2026992 100644
+index 336386f..e1e727e 100644
 --- a/qapi/control.json
 +++ b/qapi/control.json
 @@ -209,3 +209,13 @@
@@ -84,17 +85,17 @@ index 336386f..2026992 100644
 +##
 +# @NO_BOOTABLE_DEVICE:
 +#
-+# Emitted when `isa-debugcon` at I/O port 0x403 receives the
-+# string "No bootable device.".
++# Emitted when `isa-debugcon` with enabled no-bootable watching
++# receives the string "No bootable device.".
 +#
 +# Since: 0.14
 +##
 +{ 'event': 'NO_BOOTABLE_DEVICE' }
 diff --git a/tests/qtest/qmp-test.c b/tests/qtest/qmp-test.c
-index 22957fa..76915c0 100644
+index 22957fa..9b4840e 100644
 --- a/tests/qtest/qmp-test.c
 +++ b/tests/qtest/qmp-test.c
-@@ -337,6 +337,24 @@ static void test_qmp_missing_any_arg(void)
+@@ -337,6 +337,25 @@ static void test_qmp_missing_any_arg(void)
      qtest_quit(qts);
  }
  
@@ -106,10 +107,11 @@ index 22957fa..76915c0 100644
 +
 +    qts = qtest_initf("-nodefaults -machine q35 "
 +                      "-chardev null,id=debugcon "
-+                      "-device isa-debugcon,iobase=0x403,chardev=debugcon");
++                      "-device isa-debugcon,iobase=0x402,chardev=debugcon,"
++                      "watch-no-bootable=on");
 +
 +    for (i = 0; i < sizeof(trigger) - 1; i++) {
-+        qtest_outb(qts, 0x403, trigger[i]);
++        qtest_outb(qts, 0x402, trigger[i]);
 +    }
 +
 +    qtest_qmp_eventwait(qts, "NO_BOOTABLE_DEVICE");
@@ -119,7 +121,7 @@ index 22957fa..76915c0 100644
  int main(int argc, char *argv[])
  {
      g_test_init(&argc, &argv, NULL);
-@@ -348,6 +366,8 @@ int main(int argc, char *argv[])
+@@ -348,6 +367,8 @@ int main(int argc, char *argv[])
  #endif
      qtest_add_func("qmp/preconfig", test_qmp_preconfig);
      qtest_add_func("qmp/missing-any-arg", test_qmp_missing_any_arg);
