@@ -384,7 +384,8 @@ func syncLastStartTime(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachine
 		return
 	}
 
-	if kvvmiRunningAt, found := getKVVMIRunningPhaseTransitionTimestamp(kvvmi); found && running.LastTransitionTime.Sub(kvvmiRunningAt.Time).Abs() > lastStartTimePhaseTransitionMaxDiff {
+	kvvmiRunningAt := getKVVMIRunningPhaseTransitionTimestamp(kvvmi)
+	if kvvmiRunningAt != nil && running.LastTransitionTime.Sub(kvvmiRunningAt.Time).Abs() > lastStartTimePhaseTransitionMaxDiff {
 		running.LastTransitionTime = *kvvmiRunningAt.DeepCopy()
 	}
 
@@ -404,19 +405,19 @@ func getRunningCondition(vm *v1alpha2.VirtualMachine) *metav1.Condition {
 	return nil
 }
 
-func getKVVMIRunningPhaseTransitionTimestamp(kvvmi *virtv1.VirtualMachineInstance) (*metav1.Time, bool) {
+func getKVVMIRunningPhaseTransitionTimestamp(kvvmi *virtv1.VirtualMachineInstance) *metav1.Time {
 	if kvvmi == nil {
-		return nil, false
+		return nil
 	}
 
 	for i := len(kvvmi.Status.PhaseTransitionTimestamps) - 1; i >= 0; i-- {
 		transition := kvvmi.Status.PhaseTransitionTimestamps[i]
 		if transition.Phase == virtv1.Running {
-			return &transition.PhaseTransitionTimestamp, true
+			return &transition.PhaseTransitionTimestamp
 		}
 	}
 
-	return nil, false
+	return nil
 }
 
 func osInfoIsEmpty(info virtv1.VirtualMachineInstanceGuestOSInfo) bool {
