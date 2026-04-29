@@ -1,4 +1,5 @@
 ---
+{{- if not $.DistroPackagesProxy }}
 image: {{ $.ImageName }}
 fromImage: distroless
 final: false
@@ -31,3 +32,4 @@ shell:
     git clone --depth=1 --branch v1.25.1 https://github.com/go-delve/delve.git /src
     cd /src
     go build -o /out/dlv -ldflags "-s -w" github.com/go-delve/delve/cmd/dlv
+{{- end }}
