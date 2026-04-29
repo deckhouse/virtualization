@@ -13,10 +13,12 @@ final: false
 fromImage: builder/alt
 shell:
   install:
+  {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get update && apt-get install --yes \
       musl-devel-static gcc golang git 
-    
+  {{- include "alt packages clean" . | nindent 2 }}
+  - |
     export CGO_ENABLED=0
     export GOOS=linux
     export GOARCH=amd64 
