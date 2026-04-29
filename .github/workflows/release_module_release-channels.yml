@@ -501,7 +501,7 @@ jobs:
       - job-SE-Plus
       - job-FE
       - check-version-on-release-channel
-    if: ${{ always() && inputs.release_to_github && !contains(needs.*.result, 'failure') && needs.check-version-on-release-channel.result == 'success' && (inputs.check_only || inputs.ce || inputs.ee) }}
+    if: ${{ !inputs.check_only && inputs.release_to_github && needs.check-version-on-release-channel.result == 'success' && (inputs.ce || inputs.ee) }}
     permissions:
       contents: write
       pull-requests: read
@@ -563,17 +563,18 @@ jobs:
           notes_file=$(mktemp)
           printf '%s\n' "$pr_body" > "$notes_file"
 
-          echo "DRY RUN: gh release create \"$TAG\" --repo \"$REPOSITORY\" --title \"$TAG\" --notes-file \"$notes_file\""
-          echo "DRY RUN: release notes source PR #${pr_number}: ${pr_url}"
-          echo "DRY RUN: release notes content start"
-          cat "$notes_file"
-          echo "DRY RUN: release notes content end"
+          gh release create "$TAG" \
+            --repo "$REPOSITORY" \
+            --title "$TAG" \
+            --notes-file "$notes_file"
 
-          echo "release_status=dry-run" >> "$GITHUB_OUTPUT"
-          echo "release_url=" >> "$GITHUB_OUTPUT"
+          release_url=$(gh release view "$TAG" --repo "$REPOSITORY" --json url --jq '.url')
+
+          echo "release_status=created" >> "$GITHUB_OUTPUT"
+          echo "release_url=${release_url}" >> "$GITHUB_OUTPUT"
           echo "release_pr_number=${pr_number}" >> "$GITHUB_OUTPUT"
           echo "release_pr_url=${pr_url}" >> "$GITHUB_OUTPUT"
-          echo "release_reason=Dry run: GitHub release would be created from changelog PR #${pr_number}" >> "$GITHUB_OUTPUT"
+          echo "release_reason=GitHub release created from changelog PR #${pr_number}" >> "$GITHUB_OUTPUT"
 
   send-release-results-to-loop:
     name: Send release results to Loop
@@ -589,7 +590,7 @@ jobs:
     steps:
       - name: Send results to Loop
         env:
-          LOOP_WEBHOOK_URL: ${{ secrets.LOOP_TEST_CHANNEL }}
+          LOOP_WEBHOOK_URL: ${{ secrets.LOOP_WEBHOOK_URL }}
           TAG: ${{ github.event.inputs.tag }}
           CHANNEL: ${{ github.event.inputs.channel }}
           RELEASE_TO_GITHUB: ${{ inputs.release_to_github }}
