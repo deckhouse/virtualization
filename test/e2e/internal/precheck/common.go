@@ -318,10 +318,11 @@ func validateSpecs(specs []specInfo) error {
 
 // Run executes prechecks based on loaded spec labels.
 func Run(f *framework.Framework, labelFilter string) {
+	ctx := context.Background()
 	// Run common prechecks first (always run)
 	for _, p := range commonPrechecks {
 		_, _ = GinkgoWriter.Write([]byte("Running common precheck: " + p.Label() + "\n"))
-		if err := p.Run(NewContext(), f); err != nil {
+		if err := p.Run(ctx, f); err != nil {
 			Fail("common precheck " + p.Label() + " failed: " + err.Error())
 		}
 	}
@@ -333,7 +334,7 @@ func Run(f *framework.Framework, labelFilter string) {
 			continue
 		}
 		_, _ = GinkgoWriter.Write([]byte("Running precheck: " + label + "\n"))
-		if err := p.Run(NewContext(), f); err != nil {
+		if err := p.Run(ctx, f); err != nil {
 			Fail("precheck " + label + " failed: " + err.Error())
 		}
 	}
