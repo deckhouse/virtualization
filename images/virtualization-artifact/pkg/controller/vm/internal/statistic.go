@@ -31,12 +31,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
-const nameStatisticHandler = "StatisticHandler"
+const (
+	nameStatisticHandler = "StatisticHandler"
+	// TODO: Remove this fallback after 2026-10-29.
+	lastStartTimePhaseTransitionMaxDiff = 10 * time.Minute
+)
 
 func NewStatisticHandler(client client.Client) *StatisticHandler {
 	return &StatisticHandler{client: client}
@@ -367,6 +373,42 @@ func (h *StatisticHandler) syncStats(current, changed *v1alpha2.VirtualMachine, 
 
 	stats.LaunchTimeDuration = launchTimeDuration
 	changed.Status.Stats = &stats
+	syncLastStartTime(changed, kvvmi)
+}
+
+func syncLastStartTime(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) {
+	running, found := conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
+	if !found || running.Status != metav1.ConditionTrue {
+		if vm.Status.Stats != nil {
+			vm.Status.Stats.LastStartTime = nil
+		}
+		return
+	}
+
+	lastStartTime := running.LastTransitionTime.DeepCopy()
+	if kvvmiRunningAt, found := getKVVMIRunningPhaseTransitionTimestamp(kvvmi); found && lastStartTime.Sub(kvvmiRunningAt.Time).Abs() > lastStartTimePhaseTransitionMaxDiff {
+		lastStartTime = kvvmiRunningAt.DeepCopy()
+	}
+
+	if vm.Status.Stats == nil {
+		vm.Status.Stats = &v1alpha2.VirtualMachineStats{}
+	}
+	vm.Status.Stats.LastStartTime = lastStartTime
+}
+
+func getKVVMIRunningPhaseTransitionTimestamp(kvvmi *virtv1.VirtualMachineInstance) (*metav1.Time, bool) {
+	if kvvmi == nil {
+		return nil, false
+	}
+
+	for i := len(kvvmi.Status.PhaseTransitionTimestamps) - 1; i >= 0; i-- {
+		transition := kvvmi.Status.PhaseTransitionTimestamps[i]
+		if transition.Phase == virtv1.Running {
+			return &transition.PhaseTransitionTimestamp, true
+		}
+	}
+
+	return nil, false
 }
 
 func osInfoIsEmpty(info virtv1.VirtualMachineInstanceGuestOSInfo) bool {
