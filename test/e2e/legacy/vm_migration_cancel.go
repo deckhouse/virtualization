@@ -31,9 +31,10 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 )
 
-var _ = Describe("VirtualMachineCancelMigration", Ordered, label.Legacy(), func() {
+var _ = Describe("VirtualMachineCancelMigration", Ordered, label.Legacy(), Label(precheck.NoPrecheck), func() {
 	testCaseLabel := map[string]string{"testcase": "vm-migration-cancel"}
 	var ns string
 

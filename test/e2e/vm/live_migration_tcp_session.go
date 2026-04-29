@@ -27,6 +27,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -37,10 +38,11 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("VirtualMachineLiveMigrationTCPSession", func() {
+var _ = Describe("VirtualMachineLiveMigrationTCPSession", Label(precheck.NoPrecheck), func() {
 	var (
 		iperfServer *v1alpha2.VirtualMachine
 		iperfClient *v1alpha2.VirtualMachine
@@ -50,11 +52,14 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", func() {
 		iperfServerName = "iperf-server"
 		iperfClientName = "iperf-client"
 
-		f            = framework.NewFramework("vm-live-migration-tcp-session")
-		storageClass = framework.GetConfig().StorageClass.TemplateStorageClass
+		f            *framework.Framework
+		storageClass *storagev1.StorageClass
 	)
 
 	BeforeEach(func() {
+		f = framework.NewFramework("vm-live-migration-tcp-session")
+		storageClass = framework.GetConfig().StorageClass.TemplateStorageClass
+
 		DeferCleanup(f.After)
 
 		f.Before()

@@ -316,6 +316,9 @@ jobs:
             --local-ssh=true \
             --local-ssh-opts="-o StrictHostKeyChecking=no" \
             --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+            --local-ssh-opts="-o ServerAliveInterval=15" \
+            --local-ssh-opts="-o ServerAliveCountMax=8" \
+            --local-ssh-opts="-o ConnectTimeout=10" \
             ${DEFAULT_USER}@${host}.${NAMESPACE} \
             -c "$cmd"
           }
@@ -363,6 +366,9 @@ jobs:
             --local-ssh=true \
             --local-ssh-opts="-o StrictHostKeyChecking=no" \
             --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+            --local-ssh-opts="-o ServerAliveInterval=15" \
+            --local-ssh-opts="-o ServerAliveCountMax=8" \
+            --local-ssh-opts="-o ConnectTimeout=10" \
             ${DEFAULT_USER}@${nested_master}.${NAMESPACE} \
             -c "$cmd"
           }
@@ -1270,7 +1276,7 @@ jobs:
           DATE=$(date +"%Y-%m-%d")
           START_TIME=$(date +"%H:%M:%S")
           summary_file_name_junit="e2e_summary_${CSI}_${DATE}.xml"
-          ginkgo_json_report="e2e_summary_${CSI}_${DATE}-ginkgo-report.json"
+          ginkgo_json_report="ginkgo_report_${CSI}_${DATE}.json"
           summary_file_name_json="e2e_summary_${CSI}_${DATE}.json"
 
           cp -a legacy/testdata /tmp/testdata
@@ -1345,6 +1351,7 @@ jobs:
           name: e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ steps.vars.outputs.e2e-start-time }}
           path: |
             test/e2e/e2e_summary_*.json
+            test/e2e/ginkgo_report_*.json
             test/e2e/e2e_summary_*.xml
             test/e2e/*junit*.xml
           if-no-files-found: ignore
@@ -1424,18 +1431,38 @@ jobs:
               }'
           }
 
+          # Summary report is a flat JSON object; Ginkgo JSON report is an array.
+          is_summary_report() {
+            jq -e '
+              type == "object" and
+              has("Status") and
+              has("Passed") and
+              has("Failed") and
+              has("Pending") and
+              has("Skipped")
+            ' >/dev/null 2>&1
+          }
+
           # Try to find and load E2E test report
           E2E_REPORT_FILE=""
           REPORT_JSON=""
 
-          # Search for report file in test/e2e directory
-          E2E_REPORT_FILE=$(find test/e2e -name "e2e_summary_${{ inputs.storage_type }}_*.json" -type f 2>/dev/null | head -1)
+          # Search for the generated summary file and ignore the raw Ginkgo JSON report.
+          E2E_REPORT_FILE=$(find test/e2e -type f \
+            -name "e2e_summary_${{ inputs.storage_type }}_*.json" \
+            ! -name "*-ginkgo-report.json" \
+            2>/dev/null | sort | head -1)
 
           if [ -n "$E2E_REPORT_FILE" ] && [ -f "$E2E_REPORT_FILE" ]; then
             echo "[INFO] Found E2E report file: $E2E_REPORT_FILE"
-            REPORT_JSON=$(cat "$E2E_REPORT_FILE" | jq -c .)
-            echo "[INFO] Loaded report from file"
-            echo "$REPORT_JSON" | jq .
+            REPORT_JSON=$(jq -c . "$E2E_REPORT_FILE")
+            if echo "$REPORT_JSON" | is_summary_report; then
+              echo "[INFO] Loaded summary report from file"
+              echo "$REPORT_JSON" | jq .
+            else
+              echo "[WARN] Ignoring non-summary E2E report file: $E2E_REPORT_FILE"
+              REPORT_JSON=""
+            fi
           fi
 
           # Function to process a stage

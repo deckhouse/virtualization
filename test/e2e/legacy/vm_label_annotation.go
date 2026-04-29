@@ -28,12 +28,13 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 )
 
 // TODO: When this test case is refactored with the new end-to-end test framework,
 // it should check labels and annotations on all resources: KVVM, KVVMI, and Pod.
 // KVVM must contain propagated metadata in the spec.template.metadata field.
-var _ = Describe("VirtualMachineLabelAndAnnotation", Ordered, label.Legacy(), func() {
+var _ = Describe("VirtualMachineLabelAndAnnotation", Ordered, label.Legacy(), Label(precheck.NoPrecheck), func() {
 	const (
 		specialKey   = "specialKey"
 		specialValue = "specialValue"

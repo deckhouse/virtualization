@@ -35,6 +35,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
@@ -47,7 +48,7 @@ const (
 	changedCoreFraction = "50%"
 )
 
-var _ = Describe("VirtualMachineConfiguration", func() {
+var _ = Describe("VirtualMachineConfiguration", Label(precheck.NoPrecheck), func() {
 	DescribeTable("the configuration should be applied", func(restartApprovalMode v1alpha2.RestartApprovalMode) {
 		f := framework.NewFramework(fmt.Sprintf("vm-configuration-%s", strings.ToLower(string(restartApprovalMode))))
 		t := NewConfigurationTest(f)

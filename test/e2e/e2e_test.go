@@ -26,6 +26,8 @@ import (
 
 	_ "github.com/deckhouse/virtualization/test/e2e/blockdevice"
 	"github.com/deckhouse/virtualization/test/e2e/controller"
+	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/legacy"
 	_ "github.com/deckhouse/virtualization/test/e2e/snapshot"
 	_ "github.com/deckhouse/virtualization/test/e2e/vm"
@@ -39,8 +41,22 @@ func TestE2E(t *testing.T) {
 }
 
 var _ = SynchronizedBeforeSuite(func() {
+	// Initialize test resources BEFORE running prechecks
+	// This ensures resources are available even if prechecks fail
 	controller.NewBeforeProcess1Body()
 	legacy.NewBeforeProcess1Body()
+
+	// Validate precheck labels from JSON report (created by dry-run during prepare)
+	if err := precheck.ValidateFromJSONFile(precheck.LabelsFile); err != nil {
+		Fail("precheck validation failed: " + err.Error())
+	}
+
+	// Load spec labels to determine which prechecks to run
+	precheck.LoadSpecLabelsFromFile(precheck.LabelsFile, GinkgoLabelFilter())
+	// Run prechecks based on loaded labels
+	// Must run after resource initialization to avoid panic in SynchronizedAfterSuite
+	precheck.Run(framework.NewFramework(""), GinkgoLabelFilter())
+
 	bootstrapPrecreatedCVIs()
 }, func() {})
 

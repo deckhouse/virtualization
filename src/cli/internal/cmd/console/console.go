@@ -80,17 +80,15 @@ const (
 	reconnectInterval = 2 * time.Second // Interval between reconnection attempts
 )
 
+var (
+	clientAndNamespaceFromContext = clientconfig.ClientAndNamespaceFromContext
+	connectFunc                   = connect
+)
+
 func (c *Console) Run(cmd *cobra.Command, args []string) error {
-	client, defaultNamespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	targetNamespace, name, err := templates.ParseTarget(args[0])
 	if err != nil {
 		return err
-	}
-	namespace, name, err := templates.ParseTarget(args[0])
-	if err != nil {
-		return err
-	}
-	if namespace == "" {
-		namespace = defaultNamespace
 	}
 
 	// Set terminal to raw mode once for all connections
@@ -147,7 +145,17 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 		case <-doneChan:
 			return nil
 		default:
-			err := connect(cmd.Context(), name, namespace, client, c.timeout, stdinCh, doneChan)
+			client, defaultNamespace, _, err := clientAndNamespaceFromContext(cmd.Context())
+			if err != nil {
+				return err
+			}
+
+			namespace := targetNamespace
+			if namespace == "" {
+				namespace = defaultNamespace
+			}
+
+			err = connectFunc(cmd.Context(), name, namespace, client, c.timeout, stdinCh, doneChan)
 			if err == nil {
 				return nil // Normal exit (escape sequence)
 			}

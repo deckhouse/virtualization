@@ -35,6 +35,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
@@ -54,7 +55,7 @@ const (
 	migrationTargetMustDiffer
 )
 
-var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
+var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, Label(precheck.NoPrecheck), func() {
 	var (
 		f   *framework.Framework
 		ctx context.Context
@@ -158,7 +159,13 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 		})
 
 		By("Changing vm-c affinity to anti-affinity and verifying migration to another node", func() {
-			util.UntilConditionStatus(vmcondition.TypeMigratable.String(), string(metav1.ConditionTrue), framework.LongTimeout, vmC)
+			util.UntilConditionStatus(
+				ctx,
+				vmcondition.TypeMigratable.String(),
+				string(metav1.ConditionTrue),
+				framework.LongTimeout,
+				vmC,
+			)
 
 			vmC = getVirtualMachine(ctx, f, vmC.Name)
 			sourceNode := vmC.Status.Node
@@ -168,8 +175,16 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 			err := f.GenericClient().Update(ctx, vmC)
 			Expect(err).NotTo(HaveOccurred())
 
-			waitForStabilizedVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmC), startedAt, sourceNode, nodeA, migrationTargetMustDiffer, framework.MaxTimeout)
-			util.UntilConditionStatus(vmcondition.TypeMigratable.String(), string(metav1.ConditionTrue), framework.LongTimeout, vmC)
+			waitForStabilizedVMMigration(
+				ctx,
+				f,
+				crclient.ObjectKeyFromObject(vmC),
+				startedAt,
+				sourceNode,
+				nodeA,
+				migrationTargetMustDiffer,
+				framework.MaxTimeout,
+			)
 		})
 
 		var migratedNodeC string
@@ -180,7 +195,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 		})
 
 		By("Changing vm-c anti-affinity back to affinity and verifying migration back to vm-a node", func() {
-			util.UntilConditionStatus(vmcondition.TypeMigratable.String(), string(metav1.ConditionTrue), framework.LongTimeout, vmC)
+			util.UntilConditionStatus(ctx, vmcondition.TypeMigratable.String(), string(metav1.ConditionTrue), framework.LongTimeout, vmC)
 
 			vmC = getVirtualMachine(ctx, f, vmC.Name)
 			startedAt := time.Now().UTC()
@@ -189,8 +204,16 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 			err := f.GenericClient().Update(ctx, vmC)
 			Expect(err).NotTo(HaveOccurred())
 
-			waitForStabilizedVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmC), startedAt, migratedNodeC, nodeA, migrationTargetMustMatch, framework.MaxTimeout)
-			util.UntilConditionStatus(vmcondition.TypeMigratable.String(), string(metav1.ConditionTrue), framework.LongTimeout, vmC)
+			waitForStabilizedVMMigration(
+				ctx,
+				f,
+				crclient.ObjectKeyFromObject(vmC),
+				startedAt,
+				migratedNodeC,
+				nodeA,
+				migrationTargetMustMatch,
+				framework.MaxTimeout,
+			)
 		})
 
 		By("Verifying vm-c returned to vm-a node via status.nodeName", func() {
@@ -221,7 +244,13 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmNodeSelector)
-			util.UntilConditionStatus(vmcondition.TypeMigratable.String(), string(metav1.ConditionTrue), framework.LongTimeout, vmNodeSelector)
+			util.UntilConditionStatus(
+				ctx,
+				vmcondition.TypeMigratable.String(),
+				string(metav1.ConditionTrue),
+				framework.LongTimeout,
+				vmNodeSelector,
+			)
 		})
 
 		var sourceNode string
@@ -249,8 +278,16 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 			err = f.GenericClient().Update(ctx, vmNodeSelector)
 			Expect(err).NotTo(HaveOccurred())
 
-			waitForStabilizedVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmNodeSelector), startedAt, sourceNode, targetNode, migrationTargetMustMatch, framework.MaxTimeout)
-			util.UntilConditionStatus(vmcondition.TypeMigratable.String(), string(metav1.ConditionTrue), framework.LongTimeout, vmNodeSelector)
+			waitForStabilizedVMMigration(
+				ctx,
+				f,
+				crclient.ObjectKeyFromObject(vmNodeSelector),
+				startedAt,
+				sourceNode,
+				targetNode,
+				migrationTargetMustMatch,
+				framework.MaxTimeout,
+			)
 		})
 
 		By("Verifying the nodeSelector migration result via status.nodeName", func() {
@@ -284,7 +321,13 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmNodeAffinity)
-			util.UntilConditionStatus(vmcondition.TypeMigratable.String(), string(metav1.ConditionTrue), framework.LongTimeout, vmNodeAffinity)
+			util.UntilConditionStatus(
+				ctx,
+				vmcondition.TypeMigratable.String(),
+				string(metav1.ConditionTrue),
+				framework.LongTimeout,
+				vmNodeAffinity,
+			)
 		})
 
 		var sourceNode string
@@ -312,8 +355,16 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, func() {
 			err = f.GenericClient().Update(ctx, vmNodeAffinity)
 			Expect(err).NotTo(HaveOccurred())
 
-			waitForStabilizedVMMigration(ctx, f, crclient.ObjectKeyFromObject(vmNodeAffinity), startedAt, sourceNode, targetNode, migrationTargetMustMatch, framework.MaxTimeout)
-			util.UntilConditionStatus(vmcondition.TypeMigratable.String(), string(metav1.ConditionTrue), framework.LongTimeout, vmNodeAffinity)
+			waitForStabilizedVMMigration(
+				ctx,
+				f,
+				crclient.ObjectKeyFromObject(vmNodeAffinity),
+				startedAt,
+				sourceNode,
+				targetNode,
+				migrationTargetMustMatch,
+				framework.MaxTimeout,
+			)
 		})
 
 		By("Verifying the nodeAffinity migration result via status.nodeName", func() {
@@ -450,6 +501,13 @@ func waitForStabilizedVMMigration(
 		default:
 			Fail(fmt.Sprintf("unknown migration target expectation: %d", targetExpectation))
 		}
+		util.UntilConditionStatus(
+			ctx,
+			vmcondition.TypeMigratable.String(),
+			string(metav1.ConditionTrue),
+			framework.LongTimeout,
+			vm,
+		)
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
 

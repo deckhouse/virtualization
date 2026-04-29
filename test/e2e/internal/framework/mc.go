@@ -26,14 +26,14 @@ import (
 	dv1alpha1 "github.com/deckhouse/virtualization/test/e2e/internal/api/deckhouse/v1alpha1"
 )
 
-func (f *Framework) GetModuleConfig(name string) (*dv1alpha1.ModuleConfig, error) {
+func (f *Framework) GetModuleConfig(ctx context.Context, name string) (*dv1alpha1.ModuleConfig, error) {
 	mc := &dv1alpha1.ModuleConfig{}
-	err := f.GenericClient().Get(context.Background(), client.ObjectKey{Name: name}, mc)
+	err := f.GenericClient().Get(ctx, client.ObjectKey{Name: name}, mc)
 	return mc, err
 }
 
-func (f *Framework) GetVirtualizationModuleConfig() (*VirtualizationModuleConfig, error) {
-	mc, err := f.GetModuleConfig("virtualization")
+func (f *Framework) GetVirtualizationModuleConfig(ctx context.Context) (*VirtualizationModuleConfig, error) {
+	mc, err := f.GetModuleConfig(ctx, "virtualization")
 	if err != nil {
 		return nil, err
 	}

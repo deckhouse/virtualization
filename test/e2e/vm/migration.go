@@ -37,12 +37,13 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/network"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
 const lsblkCommand = "lsblk -dn | wc -l"
 
-var _ = Describe("VirtualMachineMigration", func() {
+var _ = Describe("VirtualMachineMigration", Label(precheck.NoPrecheck), func() {
 	var (
 		// Core: VMs and their root/blank disks
 		vdRootBIOS  *v1alpha2.VirtualDisk
@@ -63,12 +64,13 @@ var _ = Describe("VirtualMachineMigration", func() {
 		vmopMigrateBIOS *v1alpha2.VirtualMachineOperation
 		vmopMigrateUEFI *v1alpha2.VirtualMachineOperation
 
-		f                     = framework.NewFramework("vm-migration")
+		f                     *framework.Framework
 		biosDiskCountOriginal string
 		uefiDiskCountOriginal string
 	)
 
 	BeforeEach(func() {
+		f = framework.NewFramework("vm-migration")
 		DeferCleanup(f.After)
 
 		f.Before()
