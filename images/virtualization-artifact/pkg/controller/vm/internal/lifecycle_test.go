@@ -41,7 +41,7 @@ var _ = Describe("LifeCycleHandler", func() {
 			Expect(vm.Status.Stats.LastStartTime.Time).To(Equal(transitionTime.Time))
 		})
 
-		It("sets lastStartTime from the VMI Running phase transition if it is older than the Running condition transition by more than ten minutes", func() {
+		It("sets lastStartTime from the VMI Running phase transition if it differs from the Running condition transition by more than ten minutes", func() {
 			conditionTime := metav1.NewTime(time.Date(2026, 4, 24, 12, 20, 0, 0, time.UTC))
 			vmiRunningTime := metav1.NewTime(time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC))
 			vm := newVMWithRunningCondition(metav1.ConditionTrue, conditionTime)
@@ -54,7 +54,20 @@ var _ = Describe("LifeCycleHandler", func() {
 			Expect(vm.Status.Stats.LastStartTime.Time).To(Equal(vmiRunningTime.Time))
 		})
 
-		It("sets lastStartTime from the Running condition when the VMI Running phase transition is not older by more than ten minutes", func() {
+		It("sets lastStartTime from the VMI Running phase transition if it is newer than the Running condition transition by more than ten minutes", func() {
+			conditionTime := metav1.NewTime(time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC))
+			vmiRunningTime := metav1.NewTime(time.Date(2026, 4, 24, 12, 20, 0, 0, time.UTC))
+			vm := newVMWithRunningCondition(metav1.ConditionTrue, conditionTime)
+			kvvmi := newKVVMIWithRunningPhaseTransition(vmiRunningTime)
+
+			syncLastStartTime(vm, kvvmi)
+
+			Expect(vm.Status.Stats).NotTo(BeNil())
+			Expect(vm.Status.Stats.LastStartTime).NotTo(BeNil())
+			Expect(vm.Status.Stats.LastStartTime.Time).To(Equal(vmiRunningTime.Time))
+		})
+
+		It("sets lastStartTime from the Running condition when the VMI Running phase transition does not differ by more than ten minutes", func() {
 			conditionTime := metav1.NewTime(time.Date(2026, 4, 24, 12, 9, 0, 0, time.UTC))
 			vmiRunningTime := metav1.NewTime(time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC))
 			vm := newVMWithRunningCondition(metav1.ConditionTrue, conditionTime)

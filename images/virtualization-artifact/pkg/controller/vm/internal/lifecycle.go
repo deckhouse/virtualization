@@ -248,7 +248,7 @@ func syncLastStartTime(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachine
 	}
 
 	lastStartTime := running.LastTransitionTime.DeepCopy()
-	if kvvmiRunningAt, found := getKVVMIRunningPhaseTransitionTimestamp(kvvmi); found && lastStartTime.Sub(kvvmiRunningAt.Time) > lastStartTimePhaseTransitionMaxDiff {
+	if kvvmiRunningAt, found := getKVVMIRunningPhaseTransitionTimestamp(kvvmi); found && lastStartTime.Sub(kvvmiRunningAt.Time).Abs() > lastStartTimePhaseTransitionMaxDiff {
 		lastStartTime = kvvmiRunningAt.DeepCopy()
 	}
 
