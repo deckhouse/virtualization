@@ -316,6 +316,9 @@ jobs:
             --local-ssh=true \
             --local-ssh-opts="-o StrictHostKeyChecking=no" \
             --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+            --local-ssh-opts="-o ServerAliveInterval=15" \
+            --local-ssh-opts="-o ServerAliveCountMax=8" \
+            --local-ssh-opts="-o ConnectTimeout=10" \
             ${DEFAULT_USER}@${host}.${NAMESPACE} \
             -c "$cmd"
           }
@@ -363,6 +366,9 @@ jobs:
             --local-ssh=true \
             --local-ssh-opts="-o StrictHostKeyChecking=no" \
             --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+            --local-ssh-opts="-o ServerAliveInterval=15" \
+            --local-ssh-opts="-o ServerAliveCountMax=8" \
+            --local-ssh-opts="-o ConnectTimeout=10" \
             ${DEFAULT_USER}@${nested_master}.${NAMESPACE} \
             -c "$cmd"
           }
