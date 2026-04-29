@@ -77,8 +77,8 @@ var _ = Describe("VirtualMachineUSB", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, t.VM)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
 			util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
+			util.UntilGuestCommandsReady(f, t.VM, []string{"sudo", "tee", "udevadm"}, framework.LongTimeout)
 		})
 
 		By("Waiting for USB device to be attached and ready", func() {
