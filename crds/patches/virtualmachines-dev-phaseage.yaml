@@ -1,0 +1,30 @@
+phaseAgeColumn:
+  description: Time since the virtual machine entered the current phase.
+  jsonPath: .status.stats.phasesTransitions[-1].timestamp
+  name: PhaseAge
+  type: date
+statsProperties:
+  phasesTransitions:
+    description: Phase history.
+    type: array
+    items:
+      type: object
+      properties:
+        phase:
+          description: Virtual machine phase.
+          type: string
+          enum:
+            - "Pending"
+            - "Running"
+            - "Degraded"
+            - "Terminating"
+            - "Stopped"
+            - "Stopping"
+            - "Starting"
+            - "Migrating"
+            - "Pause"
+        timestamp:
+          description: Time of transition to this phase.
+          format: date-time
+          nullable: true
+          type: string

@@ -21,6 +21,7 @@ env:
   MODULES_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
   MODULES_REGISTRY_LOGIN: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
   MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+  MODULE_BUILD_PROFILE: "dev"
   RELEASE_CHANNEL: ${{ github.event.inputs.channel }}
   MODULES_MODULE_TAG: ${{ github.event.inputs.tag }}
   SOURCE_REPO: "${{secrets.SOURCE_REPO}}"
@@ -72,6 +73,7 @@ jobs:
           echo MODULES_MODULE_NAME=$MODULES_MODULE_NAME
           echo RELEASE_CHANNEL=$RELEASE_CHANNEL
           echo MODULE_EDITION=$MODULE_EDITION
+          echo MODULE_BUILD_PROFILE=$MODULE_BUILD_PROFILE
           echo DOCKER_CONFIG=$DOCKER_CONFIG
         shell: bash
       - name: Validation and set MODULES_MODULE_TAG

@@ -1,0 +1,9 @@
+statsProperties:
+  phasesTransitions:
+    description: История по фазам.
+    items:
+      properties:
+        phase:
+          description: Фаза виртуальной машины.
+        timestamp:
+          description: Время перехода в данную фазу.

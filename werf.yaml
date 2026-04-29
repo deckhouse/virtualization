@@ -124,8 +124,25 @@ git:
       - templates/virtualization-dra
     {{- end }}
 shell:
+  beforeInstall:
+    - apk add --no-cache yq
   install:
     - ls -la /prep-bundle
+    - |
+      if [ "{{ .MODULE_BUILD_PROFILE }}" = "dev" ]; then
+        yq eval -i '
+          .spec.versions[] |= (
+            .additionalPrinterColumns += [load("/prep-bundle/crds/patches/virtualmachines-dev-phaseage.yaml").phaseAgeColumn] |
+            .schema.openAPIV3Schema.properties.status.properties.stats.properties += load("/prep-bundle/crds/patches/virtualmachines-dev-phaseage.yaml").statsProperties
+          )
+        ' /prep-bundle/crds/virtualmachines.yaml
+
+        yq eval -i '
+          .spec.versions[] |= (
+            .schema.openAPIV3Schema.properties.status.properties.stats.properties += load("/prep-bundle/crds/patches/doc-ru-virtualmachines-dev-phaseage.yaml").statsProperties
+          )
+        ' /prep-bundle/crds/doc-ru-virtualmachines.yaml
+      fi
 ---
 image: release-channel-version
 fromImage: builder/scratch

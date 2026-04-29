@@ -374,17 +374,3 @@ func osInfoIsEmpty(info virtv1.VirtualMachineInstanceGuestOSInfo) bool {
 	return emptyOSInfo == info
 }
 
-func NewPhaseTransitions(phaseTransitions []v1alpha2.VirtualMachinePhaseTransitionTimestamp, oldPhase, newPhase v1alpha2.MachinePhase) []v1alpha2.VirtualMachinePhaseTransitionTimestamp {
-	now := metav1.NewTime(time.Now().Truncate(time.Second))
-
-	if oldPhase != newPhase {
-		phaseTransitions = append(phaseTransitions, v1alpha2.VirtualMachinePhaseTransitionTimestamp{
-			Phase:     newPhase,
-			Timestamp: now,
-		})
-	}
-	if len(phaseTransitions) > 5 {
-		return phaseTransitions[len(phaseTransitions)-5:]
-	}
-	return phaseTransitions
-}
