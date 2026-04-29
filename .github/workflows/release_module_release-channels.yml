@@ -635,6 +635,21 @@ jobs:
           HEADER_ROW+=" Check |"
           STATUS_ROW+=" $(get_status_emoji $CHECK_RESULT) |"
 
+          if [[ "$RELEASE_TO_GITHUB" == "true" && "$CHECK_ONLY" != "true" ]]; then
+            HEADER_ROW+=" GitHub Release |"
+            if [[ "$GH_RELEASE_RESULT" == "failure" ]]; then
+              STATUS_ROW+=" :x: |"
+            elif [[ "$GH_RELEASE_STATUS" == "created" ]]; then
+              STATUS_ROW+=" :white_check_mark: |"
+            elif [[ "$GH_RELEASE_STATUS" == "dry-run" ]]; then
+              STATUS_ROW+=" :memo: |"
+            elif [[ "$GH_RELEASE_STATUS" == "skipped" ]]; then
+              STATUS_ROW+=" :fast_forward: |"
+            else
+              STATUS_ROW+=" :grey_question: |"
+            fi
+          fi
+
           COL_COUNT=$(echo "$HEADER_ROW" | tr -cd '|' | wc -c)
           COL_COUNT=$((COL_COUNT - 1))
           SEPARATOR_ROW="|"
@@ -648,27 +663,6 @@ jobs:
           RELEASE_SUMMARY+="${HEADER_ROW}\n"
           RELEASE_SUMMARY+="${SEPARATOR_ROW}\n"
           RELEASE_SUMMARY+="${STATUS_ROW}\n"
-
-          if [[ "$RELEASE_TO_GITHUB" != "true" ]]; then
-            RELEASE_SUMMARY+="\n### GitHub release\n- Status: skipped\n- Reason: disabled by workflow input\n"
-          elif [[ "$CHECK_ONLY" == "true" ]]; then
-            RELEASE_SUMMARY+="\n### GitHub release\n- Status: skipped\n- Reason: check_only mode\n"
-          elif [[ "$GH_RELEASE_RESULT" == "failure" ]]; then
-            RELEASE_SUMMARY+="\n### GitHub release\n- Status: failed\n- Reason: workflow step failed\n"
-          elif [[ -n "$GH_RELEASE_STATUS" ]]; then
-            RELEASE_SUMMARY+="\n### GitHub release\n- Status: ${GH_RELEASE_STATUS}\n"
-            if [[ -n "$GH_RELEASE_REASON" ]]; then
-              RELEASE_SUMMARY+="- Reason: ${GH_RELEASE_REASON}\n"
-            fi
-            if [[ -n "$GH_RELEASE_URL" ]]; then
-              RELEASE_SUMMARY+="- URL: ${GH_RELEASE_URL}\n"
-            fi
-            if [[ -n "$GH_RELEASE_PR_NUMBER" && -n "$GH_RELEASE_PR_URL" ]]; then
-              RELEASE_SUMMARY+="- Source PR: [#${GH_RELEASE_PR_NUMBER}](${GH_RELEASE_PR_URL})\n"
-            fi
-          else
-            RELEASE_SUMMARY+="\n### GitHub release\n- Status: skipped\n- Reason: job was not started\n"
-          fi
 
           echo -e "$RELEASE_SUMMARY"
           curl --request POST \
