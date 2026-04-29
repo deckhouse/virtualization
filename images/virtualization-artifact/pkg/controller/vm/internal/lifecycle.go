@@ -210,7 +210,7 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 			if string(c.Type) == "BootFailed" {
 				cb.Reason(vmcondition.ReasonBootFailed).Status(metav1.ConditionFalse).Message(c.Reason)
 				conditions.SetCondition(cb, &vm.Status.Conditions)
-				return
+				return nil
 			}
 		}
 
