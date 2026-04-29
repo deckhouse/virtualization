@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,7 +42,10 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
-const nameLifeCycleHandler = "LifeCycleHandler"
+const (
+	nameLifeCycleHandler                = "LifeCycleHandler"
+	lastStartTimePhaseTransitionMaxDiff = 10 * time.Minute
+)
 
 func NewLifeCycleHandler(client client.Client, recorder eventrecord.EventRecorderLogger) *LifeCycleHandler {
 	return &LifeCycleHandler{
@@ -122,6 +126,7 @@ func (h *LifeCycleHandler) Name() string {
 
 func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, pod *corev1.Pod, log *slog.Logger) error {
 	cb := conditions.NewConditionBuilder(vmcondition.TypeRunning).Generation(vm.GetGeneration())
+	defer syncLastStartTime(vm, kvvmi)
 
 	if pod != nil && pod.Status.Message != "" {
 		cb.Status(metav1.ConditionFalse).
@@ -231,6 +236,41 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 	cb.Reason(vmcondition.ReasonVirtualMachineNotRunning).Status(metav1.ConditionFalse)
 	conditions.SetCondition(cb, &vm.Status.Conditions)
 	return nil
+}
+
+func syncLastStartTime(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) {
+	running, found := conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
+	if !found || running.Status != metav1.ConditionTrue {
+		if vm.Status.Stats != nil {
+			vm.Status.Stats.LastStartTime = nil
+		}
+		return
+	}
+
+	lastStartTime := running.LastTransitionTime.DeepCopy()
+	if kvvmiRunningAt, found := getKVVMIRunningPhaseTransitionTimestamp(kvvmi); found && lastStartTime.Sub(kvvmiRunningAt.Time) > lastStartTimePhaseTransitionMaxDiff {
+		lastStartTime = kvvmiRunningAt.DeepCopy()
+	}
+
+	if vm.Status.Stats == nil {
+		vm.Status.Stats = &v1alpha2.VirtualMachineStats{}
+	}
+	vm.Status.Stats.LastStartTime = lastStartTime
+}
+
+func getKVVMIRunningPhaseTransitionTimestamp(kvvmi *virtv1.VirtualMachineInstance) (*metav1.Time, bool) {
+	if kvvmi == nil {
+		return nil, false
+	}
+
+	for i := len(kvvmi.Status.PhaseTransitionTimestamps) - 1; i >= 0; i-- {
+		transition := kvvmi.Status.PhaseTransitionTimestamps[i]
+		if transition.Phase == virtv1.Running {
+			return &transition.PhaseTransitionTimestamp, true
+		}
+	}
+
+	return nil, false
 }
 
 func (h *LifeCycleHandler) checkVMPodVolumeErrors(ctx context.Context, vm *v1alpha2.VirtualMachine, log *slog.Logger) error {
