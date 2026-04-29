@@ -1281,7 +1281,7 @@ jobs:
 
           cp -a legacy/testdata /tmp/testdata
 
-          ./test/e2e/scripts/precheck-prepare_ci.sh
+          ./scripts/precheck-prepare_ci.sh
 
           set +e
           FOCUS="${{ inputs.e2e_focus_tests }}"
