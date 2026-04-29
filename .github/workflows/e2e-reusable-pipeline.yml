@@ -1281,6 +1281,8 @@ jobs:
 
           cp -a legacy/testdata /tmp/testdata
 
+          ./scripts/precheck-prepare_ci.sh
+
           set +e
           FOCUS="${{ inputs.e2e_focus_tests }}"
           if [ -n "$FOCUS" ]; then
