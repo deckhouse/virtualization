@@ -451,15 +451,17 @@ func (s *AllocationStore) Unprepare(_ context.Context, claimUID types.UID) error
 				switch {
 				case !hasCount:
 					s.log.Info("Device is not tracked by USBGateway, skipping detach", slog.String("device", device))
-				case count <= 1:
+				case count == 1:
 					s.log.Info("Device has no tracked consumers, attempting detach cleanup", slog.String("device", device), slog.Int("count", count))
 					if err := s.usbGateway.Detach(device); err != nil {
 						return fmt.Errorf("failed to detach device %s: %w", device, err)
 					}
 					delete(s.usbipAllocatedDevicesCount, device)
-				default:
+				case count > 1:
 					s.log.Info("Decrementing device consumer count", slog.String("device", device), slog.Int("newCount", count-1))
 					s.usbipAllocatedDevicesCount[device]--
+				default:
+					s.log.Warn("Device has invalid USBGateway consumer count, skipping detach", slog.String("device", device), slog.Int("count", count))
 				}
 			}
 
