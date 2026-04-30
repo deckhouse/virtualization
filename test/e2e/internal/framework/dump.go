@@ -308,8 +308,9 @@ func (f *Framework) saveEvents(testCaseFullText, dumpPath string) {
 func (f *Framework) saveClusterNetworkInfo(testCaseFullText, dumpPath string) {
 	GinkgoHelper()
 
-	// Only for tests that use additional networks
-	if !strings.Contains(testCaseFullText, "virtualmachineadditionalnetworkinterfaces") {
+	// Only for tests that use additional networks.
+	// We use the original full text for checking because testCaseFullText may be truncated.
+	if !strings.Contains(CurrentSpecReport().FullText(), "VirtualMachineAdditionalNetworkInterfaces") {
 		return
 	}
 
