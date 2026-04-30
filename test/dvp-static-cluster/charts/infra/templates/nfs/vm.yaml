@@ -10,7 +10,9 @@ metadata:
 spec:
   persistentVolumeClaim:
     size: 150G
-    storageClassName: linstor-thin-r1
+    {{- if .Values.storageClass }}
+    storageClassName: {{ .Values.storageClass }}
+    {{- end }}
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
@@ -26,7 +28,9 @@ spec:
     type: ContainerImage
   persistentVolumeClaim:
     size: 1Gi
-    storageClassName: linstor-thin-r1
+    {{- if .Values.storageClass }}
+    storageClassName: {{ .Values.storageClass }}
+    {{- end }}
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
@@ -44,7 +48,7 @@ spec:
     name: nfs-vd-data
   bootloader: EFI
   cpu:
-    coreFraction: 20%
+    coreFraction: 50%
     cores: 1
   disruptions:
     restartApprovalMode: Automatic
