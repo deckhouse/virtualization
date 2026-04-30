@@ -30,8 +30,7 @@ secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
 mount:
-  - fromPath: ~/go-pkg-cache
-    to: /go/pkg
+{{- include "mount points for golang builds" . }}
 shell:
   install:
     - export GOPROXY=$(cat /run/secrets/GOPROXY)
@@ -43,7 +42,7 @@ shell:
     - export CGO_ENABLED=0
     - export GOARCH=amd64
     - |
-    {{- $_ := set $ "ProjectName" (list $.ImageName "kube-api-rewriter" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "kube-api-rewriter" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -v -a -o kube-api-rewriter ./cmd/kube-api-rewriter`) | nindent 6 }}
 
 ---

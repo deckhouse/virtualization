@@ -28,8 +28,7 @@ secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
 mount:
-- fromPath: ~/go-pkg-cache
-  to: /go/pkg
+{{- include "mount points for golang builds" . }}
 shell:
   install:
   - export GOPROXY=$(cat /run/secrets/GOPROXY)
@@ -41,7 +40,7 @@ shell:
   - export GOARCH=amd64
   - export CGO_ENABLED=0
   - |
-    {{- $_ := set $ "ProjectName" (list $.ImageName "vm-route-forge" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "vm-route-forge" | join "/") }}
 
     {{- if eq $.DEBUG_COMPONENT "delve/vm-route-forge" }}
     go build -o vm-route-forge cmd/vm-route-forge/main.go
@@ -57,7 +56,7 @@ import:
   to: /app/vm-route-forge
   after: install
 {{- if eq $.DEBUG_COMPONENT "delve/vm-route-forge" }}
-- image: debugger
+- image: {{ .ModuleNamePrefix }}debugger
   add: /app/dlv
   to: /app/dlv
   after: install

@@ -5,7 +5,7 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /{{ $.ImageName }}
+  to: /{{ .ImageName }}
   before: setup
 
 ---
@@ -17,14 +17,14 @@ final: false
 fromImage: builder/src
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ .PACKAGE_CLONE_REPO }}
 shell:
   install:
   - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
 ---
 
-{{- $name := print $.ImageName "-dependencies" -}}
+{{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
 - gcc make automake autoconf makeinfo

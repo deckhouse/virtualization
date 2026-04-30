@@ -1,5 +1,5 @@
 ---
-{{- $name := print $.ImageName "-dependencies" -}}
+{{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
 - gcc
@@ -35,7 +35,7 @@ final: false
 fromImage: builder/src
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ .PACKAGE_CLONE_REPO }}
 shell:
   install:
   - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
@@ -47,7 +47,7 @@ final: false
 fromImage: builder/alt
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ .PACKAGE_CLONE_REPO }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src

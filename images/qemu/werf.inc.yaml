@@ -1,6 +1,6 @@
 ---
-{{- $gitRepoName := $.ImageName }}
-{{- $version := get $.Firmware $gitRepoName }}
+{{- $gitRepoName := .ImageName }}
+{{- $version := get .Firmware $gitRepoName }}
 {{- $gitRepoUrl := "qemu/qemu.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
@@ -24,7 +24,7 @@ git:
     - '**/*'
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ .PACKAGE_CLONE_REPO }}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2}}
@@ -63,7 +63,7 @@ shell:
     fi
 
 ---
-{{- $name := print $.ImageName "-dependencies" -}}
+{{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
 - binutils
@@ -160,7 +160,7 @@ import:
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ $.PACKAGE_CLONE_REPO }}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -344,7 +344,7 @@ shell:
       --enable-xkbcommon \
       --enable-zstd
 
-    {{- $_ := set $ "ProjectName" (list $.ImageName "qemu" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "qemu" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `make -j$(nproc)`) | nindent 6 }}
 
   setup:

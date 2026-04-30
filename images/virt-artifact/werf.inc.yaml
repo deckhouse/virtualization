@@ -45,8 +45,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.25" "builder/golang-alt-svace-1.25" }}
 mount:
-- fromPath: ~/go-pkg-cache
-  to: /go/pkg
+{{- include "mount points for golang builds" . }}
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
@@ -116,18 +115,18 @@ shell:
     - export CGO_ENABLED=0
 
     - echo ============== Build container-disk ===================
-    {{- $_ := set $ "ProjectName" (list $.ImageName "container-disk" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "container-disk" | join "/") }}
     - |
     {{- include "image-build.build" (set $ "BuildCommand" `gcc -static cmd/container-disk-v2alpha/main.c -o /kubevirt-binaries/container-disk`) | nindent 6 }}
 
     - echo ============== Build virt-launcher ====================
     - export CGO_ENABLED=1
-    {{- $_ := set $ "ProjectName" (list $.ImageName "virt-launcher" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "virt-launcher" | join "/") }}
     - |
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-launcher ./cmd/virt-launcher/`) | nindent 6 }}
 
     - echo ============== Build virt-handler =====================
-    {{- $_ := set $ "ProjectName" (list $.ImageName "virt-handler" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "virt-handler" | join "/") }}
     - |
     {{- if eq $.DEBUG_COMPONENT "delve/virt-handler" }}
     go build -o /kubevirt-binaries/virt-handler ./cmd/virt-handler/
@@ -137,28 +136,28 @@ shell:
 
     - echo ============== Build virt-launcher-monitor ============
     - export CGO_ENABLED=0
-    {{- $_ := set $ "ProjectName" (list $.ImageName "virt-launcher-monitor" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "virt-launcher-monitor" | join "/") }}
     - |
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-launcher-monitor ./cmd/virt-launcher-monitor/`) | nindent 6 }}
 
     - echo ============== Build virt-tail ========================
-    {{- $_ := set $ "ProjectName" (list $.ImageName "virt-tail" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "virt-tail" | join "/") }}
     - |
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-tail ./cmd/virt-tail/`) | nindent 6 }}
 
 
     - echo ============== Build virt-freezer =====================
-    {{- $_ := set $ "ProjectName" (list $.ImageName "virt-freezer" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "virt-freezer" | join "/") }}
     - |
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-freezer ./cmd/virt-freezer/`) | nindent 6 }}
 
     - echo ============== Build virt-probe =======================
-    {{- $_ := set $ "ProjectName" (list $.ImageName "virt-probe" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "virt-probe" | join "/") }}
     - |
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-probe ./cmd/virt-probe/`) | nindent 6 }}
 
     - echo ============== Build virt-api =========================
-    {{- $_ := set $ "ProjectName" (list $.ImageName "virt-api" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "virt-api" | join "/") }}
     - |
     {{- if eq $.DEBUG_COMPONENT "delve/virt-api" }}
     go build -o /kubevirt-binaries/virt-api ./cmd/virt-api/
@@ -168,22 +167,22 @@ shell:
     - chown 64535:64535 /kubevirt-binaries/virt-api
 
     - echo ============== Build virt-chroot ======================
-    {{- $_ := set $ "ProjectName" (list $.ImageName "virt-chroot" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "virt-chroot" | join "/") }}
     - |
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-chroot ./cmd/virt-chroot/`) | nindent 6 }}
 
     - echo ============== Build virt-exportproxy =================
-    {{- $_ := set $ "ProjectName" (list $.ImageName "virt-exportproxy" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "virt-exportproxy" | join "/") }}
     - |
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-exportproxy ./cmd/virt-exportproxy/`) | nindent 6 }}
 
     - echo ============== Build virt-exportserver ================
-    {{- $_ := set $ "ProjectName" (list $.ImageName "virt-exportserver" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "virt-exportserver" | join "/") }}
     - |
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-exportserver ./cmd/virt-exportserver/`) | nindent 6 }}
 
     - echo ============== Build virt-controller ==================
-    {{- $_ := set $ "ProjectName" (list $.ImageName "virt-controller" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "virt-controller" | join "/") }}
     - |
     {{- if eq $.DEBUG_COMPONENT "delve/virt-controller" }}
     go build -o /kubevirt-binaries/virt-controller ./cmd/virt-controller/
@@ -193,21 +192,21 @@ shell:
     - chown 64535:64535 /kubevirt-binaries/virt-api
 
     - echo ============== Build virt-operator ====================
-    {{- $_ := set $ "ProjectName" (list $.ImageName "virt-operator" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "virt-operator" | join "/") }}
     - |
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-operator ./cmd/virt-operator/`) | nindent 6 }}
 
     - echo ============== Build sidecars =========================
-    {{- $_ := set $ "ProjectName" (list $.ImageName "sidecars" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "sidecars" | join "/") }}
     - |
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/sidecars ./cmd/sidecars/`) | nindent 6 }}
 
     - echo ============== Build virtctl ==========================
-    {{- $_ := set $ "ProjectName" (list $.ImageName "virtctl" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "virtctl" | join "/") }}
     - |
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virtctl ./cmd/virtctl/`) | nindent 6 }}
 
     - echo ============== Build virt-launcher-hook ===============
-    {{- $_ := set $ "ProjectName" (list $.ImageName "virt-launcher-hook" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "virt-launcher-hook" | join "/") }}
     - |
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-launcher-hook ./cmd/virt-launcher-hook/`) | nindent 6 }}

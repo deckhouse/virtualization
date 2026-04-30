@@ -15,8 +15,7 @@ secrets:
   - id: GOPROXY
     value: {{ .GOPROXY }}
 mount:
-  - fromPath: ~/go-pkg-cache
-    to: /go/pkg
+{{- include "mount points for golang builds" . }}
 shell:
   install:
     - export GOPROXY=$(cat /run/secrets/GOPROXY)
@@ -31,7 +30,7 @@ shell:
 
     - |
       echo "Build virtualization-dra-usb binary"
-      {{- $_ := set $ "ProjectName" (list $.ImageName "virtualization-dra-usb" | join "/") }}
+      {{- $_ := set $ "ProjectName" (list .ImageName "virtualization-dra-usb" | join "/") }}
 
       {{- if eq $.DEBUG_COMPONENT "delve/virtualization-dra-usb" }}
       go build -v -o /out/virtualization-dra-usb ./cmd/usb/dra
@@ -41,5 +40,5 @@ shell:
 
     - |
       echo "Build go-usbip binary"
-      {{- $_ := set $ "ProjectName" (list $.ImageName "go-usbip" | join "/") }}
+      {{- $_ := set $ "ProjectName" (list .ImageName "go-usbip" | join "/") }}
       {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -v -o /out/go-usbip ./cmd/usb/go-usbip`) | nindent 6 }}

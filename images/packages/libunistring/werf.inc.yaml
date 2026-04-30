@@ -5,7 +5,7 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /{{ $.ImageName }}
+  to: /{{ .ImageName }}
   before: setup
 
 ---
@@ -16,7 +16,7 @@ final: false
 fromImage: builder/src
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ .PACKAGE_CLONE_REPO }}
 shell:
   install:
   - |
@@ -26,7 +26,7 @@ shell:
 
 ---
 
-{{- $name := print $.ImageName "-dependencies" -}}
+{{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
 - gcc gcc-c++ git make makeinfo libtool gettext-tools
@@ -42,7 +42,7 @@ final: false
 fromImage: builder/alt
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ .PACKAGE_CLONE_REPO }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src

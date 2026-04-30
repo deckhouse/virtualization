@@ -1,4 +1,4 @@
-{{- $name := print $.ImageName "-dependencies" -}}
+{{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
 - gcc
@@ -11,8 +11,6 @@ altPackages:
 {{- $version := get .PackageVersion .ImageName }}
 {{- $gitRepoUrl := "dtc/dtc.git" }}
 
-{{/* Temporarily exclude images from build as submodule. TODO remove 'if' when this image is used in import section.  */}}
-{{- if eq .ModuleNamePrefix "" }}
 ---
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
 final: false
@@ -29,7 +27,7 @@ final: false
 fromImage: builder/src
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ $.PACKAGE_CLONE_REPO }}
 shell:
   install:
   - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
@@ -46,7 +44,7 @@ import:
   before: install
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ $.PACKAGE_CLONE_REPO }}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -67,4 +65,3 @@ shell:
     meson compile -C build
     meson install -C build
 
-{{- end }}
