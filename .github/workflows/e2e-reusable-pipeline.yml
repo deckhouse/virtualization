@@ -126,6 +126,24 @@ on:
       artifact-name:
         description: "Name of the uploaded artifact with E2E report"
         value: ${{ jobs.prepare-report.outputs.artifact-name }}
+      report_kind:
+        description: "E2E report kind for the cluster"
+        value: ${{ jobs.prepare-report.outputs.report_kind }}
+      status:
+        description: "E2E report status for the cluster"
+        value: ${{ jobs.prepare-report.outputs.status }}
+      failed_stage:
+        description: "Failed or final stage name for the cluster"
+        value: ${{ jobs.prepare-report.outputs.failed_stage }}
+      failed_stage_label:
+        description: "Human-readable failed or final stage label for the cluster"
+        value: ${{ jobs.prepare-report.outputs.failed_stage_label }}
+      workflow_run_url:
+        description: "Workflow run URL for the cluster pipeline"
+        value: ${{ jobs.prepare-report.outputs.workflow_run_url }}
+      branch:
+        description: "Branch used for the cluster pipeline"
+        value: ${{ jobs.prepare-report.outputs.branch }}
 
 env:
   BRANCH: ${{ inputs.branch }}
@@ -1306,13 +1324,8 @@ jobs:
           USB_SUPPORTED: ${{ steps.detect-k8s-version.outputs.usb-supported }}
         working-directory: ./test/e2e/
         run: |
-          GINKGO_RESULT=$(mktemp -p $RUNNER_TEMP)
           DATE=$(date +"%Y-%m-%d")
-          START_TIME=$(date +"%H:%M:%S")
           summary_file_name_junit="e2e_summary_${CSI}_${DATE}.xml"
-          ginkgo_json_report="ginkgo_report_${CSI}_${DATE}.json"
-          summary_file_name_json="e2e_summary_${CSI}_${DATE}.json"
-          FOCUS="${{ inputs.e2e_focus_tests }}"
 
           cp -a legacy/testdata /tmp/testdata
 
@@ -1325,6 +1338,7 @@ jobs:
           ./scripts/precheck-prepare_ci.sh
 
           set +e
+          FOCUS="${{ inputs.e2e_focus_tests }}"
           GINKGO_ARGS=(
             -v
             --race
@@ -1345,49 +1359,6 @@ jobs:
           GINKGO_EXIT_CODE=$?
           set -e
 
-          RESULT=$(sed -e "s/\x1b\[[0-9;]*m//g" $GINKGO_RESULT | grep --color=never -E "FAIL!|SUCCESS!")
-          if [[ $RESULT == FAIL!* ]]; then
-            RESULT_STATUS=":x: FAIL!"
-          elif [[ $RESULT == SUCCESS!* ]]; then
-            RESULT_STATUS=":white_check_mark: SUCCESS!"
-          else
-            RESULT_STATUS=":question: UNKNOWN"
-          fi
-
-          PASSED=$(echo "$RESULT" | grep -oP "\d+(?= Passed)")
-          FAILED=$(echo "$RESULT" | grep -oP "\d+(?= Failed)")
-          PENDING=$(echo "$RESULT" | grep -oP "\d+(?= Pending)")
-          SKIPPED=$(echo "$RESULT" | grep -oP "\d+(?= Skipped)")
-
-          SUMMARY=$(jq -n \
-              --arg csi "$CSI" \
-              --arg date "$DATE" \
-              --arg startTime "$START_TIME" \
-              --arg branch "${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" \
-              --arg status "$RESULT_STATUS" \
-              --argjson passed "$PASSED" \
-              --argjson failed "$FAILED" \
-              --argjson pending "$PENDING" \
-              --argjson skipped "$SKIPPED" \
-              --arg link "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
-            '{
-              CSI: $csi,
-              Date: $date,
-              StartTime: $startTime,
-              Branch: $branch,
-              Status: $status,
-              Passed: $passed,
-              Failed: $failed,
-              Pending: $pending,
-              Skipped: $skipped,
-              Link: $link
-            }'
-          )
-
-          echo "$SUMMARY"
-          echo "summary=$(echo "$SUMMARY" | jq -c .)" >> $GITHUB_OUTPUT
-          echo $SUMMARY > "${summary_file_name_json}"
-
           echo "[INFO] Exit code: $GINKGO_EXIT_CODE"
           exit $GINKGO_EXIT_CODE
       - name: Upload summary test results (junit/xml)
@@ -1395,10 +1366,8 @@ jobs:
         id: e2e-report-artifact
         if: always() && steps.e2e-report.outcome != 'skipped'
         with:
-          name: e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ steps.vars.outputs.e2e-start-time }}
+          name: e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ inputs.date_start }}
           path: |
-            test/e2e/e2e_summary_*.json
-            test/e2e/ginkgo_report_*.json
             test/e2e/e2e_summary_*.xml
             test/e2e/*junit*.xml
           if-no-files-found: ignore
@@ -1418,14 +1387,32 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - bootstrap
+      - configure-sdn
       - configure-storage
       - configure-virtualization
       - e2e-test
     if: always()
     outputs:
       artifact-name: ${{ steps.set-artifact-name.outputs.artifact-name }}
+      report_kind: ${{ steps.determine-stage.outputs.report_kind }}
+      status: ${{ steps.determine-stage.outputs.status }}
+      failed_stage: ${{ steps.determine-stage.outputs.failed_stage }}
+      failed_stage_label: ${{ steps.determine-stage.outputs.failed_stage_label }}
+      workflow_run_url: ${{ steps.determine-stage.outputs.workflow_run_url }}
+      branch: ${{ steps.determine-stage.outputs.branch }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup Node.js for report scripts
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: .github/scripts/js/package-lock.json
+
+      - name: Install report script dependencies
+        working-directory: .github/scripts/js
+        run: npm ci
 
       - name: Download E2E test results if available
         uses: actions/download-artifact@v5
@@ -1436,154 +1423,22 @@ jobs:
 
       - name: Determine failed stage and prepare report
         id: determine-stage
-        run: |
-          # Get branch name
-          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
-          if [ -z "$BRANCH_NAME" ] || [ "$BRANCH_NAME" == "refs/heads/" ]; then
-            BRANCH_NAME="${{ github.ref_name }}"
-          fi
-
-          # Function to create failure summary JSON with proper job URL
-          create_failure_summary() {
-            local stage=$1
-            local status_msg=$2
-            local job_name=$3
-            local csi="${{ inputs.storage_type }}"
-            local date=$(date +"%Y-%m-%d")
-            local start_time=$(date +"%H:%M:%S")
-            local branch="$BRANCH_NAME"
-            # Create URL pointing to the failed job in the workflow run
-            # Format: https://github.com/{owner}/{repo}/actions/runs/{run_id}
-            # The job name will be visible in the workflow run view
-            local link="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
-            jq -n \
-              --arg csi "$csi" \
-              --arg date "$date" \
-              --arg startTime "$start_time" \
-              --arg branch "$branch" \
-              --arg status "$status_msg" \
-              --arg link "$link" \
-              '{
-                CSI: $csi,
-                Date: $date,
-                StartTime: $startTime,
-                Branch: $branch,
-                Status: $status,
-                Passed: 0,
-                Failed: 0,
-                Pending: 0,
-                Skipped: 0,
-                Link: $link
-              }'
-          }
-
-          # Summary report is a flat JSON object; Ginkgo JSON report is an array.
-          is_summary_report() {
-            jq -e '
-              type == "object" and
-              has("Status") and
-              has("Passed") and
-              has("Failed") and
-              has("Pending") and
-              has("Skipped")
-            ' >/dev/null 2>&1
-          }
-
-          # Try to find and load E2E test report
-          E2E_REPORT_FILE=""
-          REPORT_JSON=""
-
-          # Search for the generated summary file and ignore the raw Ginkgo JSON report.
-          E2E_REPORT_FILE=$(find test/e2e -type f \
-            -name "e2e_summary_${{ inputs.storage_type }}_*.json" \
-            ! -name "*-ginkgo-report.json" \
-            2>/dev/null | sort | head -1)
-
-          if [ -n "$E2E_REPORT_FILE" ] && [ -f "$E2E_REPORT_FILE" ]; then
-            echo "[INFO] Found E2E report file: $E2E_REPORT_FILE"
-            REPORT_JSON=$(jq -c . "$E2E_REPORT_FILE")
-            if echo "$REPORT_JSON" | is_summary_report; then
-              echo "[INFO] Loaded summary report from file"
-              echo "$REPORT_JSON" | jq .
-            else
-              echo "[WARN] Ignoring non-summary E2E report file: $E2E_REPORT_FILE"
-              REPORT_JSON=""
-            fi
-          fi
-
-          # Function to process a stage
-          process_stage() {
-            local result_value="$1"
-            local stage_name="$2"
-            local status_msg="$3"
-            local job_name="$4"
-            local is_e2e_test="${5:-false}"
-
-            if [ "$result_value" != "success" ]; then
-              FAILED_STAGE="$stage_name"
-              FAILED_JOB_NAME="$job_name (${{ inputs.storage_type }})"
-
-              if [ -z "$REPORT_JSON" ] || [ "$REPORT_JSON" == "" ]; then
-                REPORT_JSON=$(create_failure_summary "$stage_name" "$status_msg" "$FAILED_JOB_NAME")
-              elif [ "$is_e2e_test" == "true" ]; then
-                # Special handling for e2e-test: update status if needed
-                CURRENT_STATUS=$(echo "$REPORT_JSON" | jq -r '.Status // ""')
-                if [[ "$CURRENT_STATUS" != *"FAIL"* ]] && [[ "$CURRENT_STATUS" != *"SUCCESS"* ]]; then
-                  REPORT_JSON=$(echo "$REPORT_JSON" | jq -c '.Status = ":x: E2E TEST FAILED"')
-                fi
-              fi
-              return 0  # Stage failed
-            fi
-            return 1  # Stage succeeded
-          }
-
-          # Determine which stage failed and prepare report
-          FAILED_STAGE=""
-          FAILED_JOB_NAME=""
-
-          if process_stage "${{ needs.bootstrap.result }}" "bootstrap" ":x: BOOTSTRAP CLUSTER FAILED" "Bootstrap cluster"; then
-            : # Stage failed, handled in function
-          elif process_stage "${{ needs.configure-storage.result }}" "storage-setup" ":x: STORAGE SETUP FAILED" "Configure storage"; then
-            : # Stage failed, handled in function
-          elif process_stage "${{ needs.configure-virtualization.result }}" "virtualization-setup" ":x: VIRTUALIZATION SETUP FAILED" "Configure Virtualization"; then
-            : # Stage failed, handled in function
-          elif process_stage "${{ needs.e2e-test.result }}" "e2e-test" ":x: E2E TEST FAILED" "E2E test" "true"; then
-            : # Stage failed, handled in function
-          else
-            # All stages succeeded
-            FAILED_STAGE="success"
-            FAILED_JOB_NAME="E2E test (${{ inputs.storage_type }})"
-            if [ -z "$REPORT_JSON" ] || [ "$REPORT_JSON" == "" ]; then
-              REPORT_JSON=$(create_failure_summary "success" ":white_check_mark: SUCCESS!" "$FAILED_JOB_NAME")
-            fi
-          fi
-
-          # Create structured report file with metadata
-          REPORT_FILE="e2e_report_${{ inputs.storage_type }}.json"
-          # Parse REPORT_JSON to ensure it's valid JSON before using it
-          REPORT_JSON_PARSED=$(echo "$REPORT_JSON" | jq -c .)
-          jq -n \
-            --argjson report "$REPORT_JSON_PARSED" \
-            --arg storage_type "${{ inputs.storage_type }}" \
-            --arg failed_stage "$FAILED_STAGE" \
-            --arg failed_job_name "$FAILED_JOB_NAME" \
-            --arg workflow_run_id "${{ github.run_id }}" \
-            --arg workflow_run_url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
-            '{
-              storage_type: $storage_type,
-              failed_stage: $failed_stage,
-              failed_job_name: $failed_job_name,
-              workflow_run_id: $workflow_run_id,
-              workflow_run_url: $workflow_run_url,
-              report: $report
-            }' > "$REPORT_FILE"
-
-          echo "report_file=$REPORT_FILE" >> $GITHUB_OUTPUT
-          echo "[INFO] Created report file: $REPORT_FILE"
-          echo "[INFO] Failed stage: $FAILED_STAGE"
-          echo "[INFO] Failed job: $FAILED_JOB_NAME"
-          cat "$REPORT_FILE" | jq .
+        uses: actions/github-script@v7
+        env:
+          STORAGE_TYPE: ${{ inputs.storage_type }}
+          E2E_REPORT_DIR: test/e2e
+          REPORT_FILE: e2e_report_${{ inputs.storage_type }}.json
+          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+          BOOTSTRAP_RESULT: ${{ needs.bootstrap.result }}
+          CONFIGURE_SDN_RESULT: ${{ needs.configure-sdn.result }}
+          CONFIGURE_STORAGE_RESULT: ${{ needs.configure-storage.result }}
+          CONFIGURE_VIRTUALIZATION_RESULT: ${{ needs.configure-virtualization.result }}
+          E2E_TEST_RESULT: ${{ needs.e2e-test.result }}
+          WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const buildClusterReport = require('./.github/scripts/js/e2e/report/cluster-report');
+            await buildClusterReport({core, context});
 
       - name: Upload E2E report artifact
         id: upload-artifact
@@ -1609,7 +1464,7 @@ jobs:
       - configure-storage
       - configure-virtualization
       - e2e-test
-    if: (cancelled() || success()) && (needs.configure-sdn.result == 'success')
+    if: cancelled() || success()
     steps:
       - uses: actions/checkout@v4
 
