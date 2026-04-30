@@ -35,6 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 func TestState(t *testing.T) {
@@ -360,6 +361,96 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 		terms, err := s.PVNodeAffinityTerms(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(terms).To(BeNil())
+	})
+
+	It("should use target PVC's PV node affinity during in-progress storage migration", func() {
+		vm := makeVM(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"})
+
+		vd := makeVD("local-disk", "pvc-source")
+		vd.Generation = 1
+		vd.Status.Conditions = []metav1.Condition{{
+			Type:               vdcondition.MigratingType.String(),
+			Status:             metav1.ConditionTrue,
+			ObservedGeneration: 1,
+			Reason:             "Migrating",
+		}}
+		vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{
+			SourcePVC: "pvc-source",
+			TargetPVC: "pvc-target",
+		}
+
+		pvcSource := makePVC("pvc-source", "pv-source")
+		pvSource := makePV("pv-source", nodeAffinityTerm(node1))
+		pvcTarget := makePVC("pvc-target", "pv-target")
+		pvTarget := makePV("pv-target", nodeAffinityTerm(node2))
+
+		s := buildState(vm, vd, pvcSource, pvSource, pvcTarget, pvTarget)
+		ctx := logger.ToContext(context.TODO(), slog.Default())
+		terms, err := s.PVNodeAffinityTerms(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(terms).To(HaveLen(1))
+		Expect(terms[0].MatchExpressions[0].Values).To(ConsistOf(node2),
+			"affinity should follow the migration target PVC's PV (node-2), not the source PVC's PV (node-1)")
+	})
+
+	It("should fall back to source PVC when migration condition is False (e.g. reverted)", func() {
+		vm := makeVM(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"})
+
+		vd := makeVD("local-disk", "pvc-source")
+		vd.Generation = 1
+		vd.Status.Conditions = []metav1.Condition{{
+			Type:               vdcondition.MigratingType.String(),
+			Status:             metav1.ConditionFalse,
+			ObservedGeneration: 1,
+			Reason:             "MigrationReverted",
+		}}
+		vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{
+			SourcePVC: "pvc-source",
+			TargetPVC: "pvc-target",
+		}
+
+		pvcSource := makePVC("pvc-source", "pv-source")
+		pvSource := makePV("pv-source", nodeAffinityTerm(node1))
+		pvcTarget := makePVC("pvc-target", "pv-target")
+		pvTarget := makePV("pv-target", nodeAffinityTerm(node2))
+
+		s := buildState(vm, vd, pvcSource, pvSource, pvcTarget, pvTarget)
+		ctx := logger.ToContext(context.TODO(), slog.Default())
+		terms, err := s.PVNodeAffinityTerms(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(terms).To(HaveLen(1))
+		Expect(terms[0].MatchExpressions[0].Values).To(ConsistOf(node1),
+			"affinity should fall back to source when migration is not in progress")
+	})
+
+	It("should fall back to source PVC when Migrating condition is stale (older generation)", func() {
+		vm := makeVM(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"})
+
+		vd := makeVD("local-disk", "pvc-source")
+		vd.Generation = 2
+		vd.Status.Conditions = []metav1.Condition{{
+			Type:               vdcondition.MigratingType.String(),
+			Status:             metav1.ConditionTrue,
+			ObservedGeneration: 1, // stale
+			Reason:             "Migrating",
+		}}
+		vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{
+			SourcePVC: "pvc-source",
+			TargetPVC: "pvc-target",
+		}
+
+		pvcSource := makePVC("pvc-source", "pv-source")
+		pvSource := makePV("pv-source", nodeAffinityTerm(node1))
+		pvcTarget := makePVC("pvc-target", "pv-target")
+		pvTarget := makePV("pv-target", nodeAffinityTerm(node2))
+
+		s := buildState(vm, vd, pvcSource, pvSource, pvcTarget, pvTarget)
+		ctx := logger.ToContext(context.TODO(), slog.Default())
+		terms, err := s.PVNodeAffinityTerms(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(terms).To(HaveLen(1))
+		Expect(terms[0].MatchExpressions[0].Values).To(ConsistOf(node1),
+			"affinity should fall back to source when Migrating condition is not last-updated")
 	})
 })
 
