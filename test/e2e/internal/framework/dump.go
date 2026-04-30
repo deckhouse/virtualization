@@ -327,7 +327,7 @@ func (f *Framework) saveClusterNetworkInfo(testCaseFullText, dumpPath string) {
 		}
 	}
 
-	// Also get CEP (Cilium Endpoints) for the namespace
+	// Get CEP (Cilium Endpoints) for the namespace
 	cepCmd := f.Clients.Kubectl().RawCommand(fmt.Sprintf("get cep -n %s -o yaml", f.Namespace().Name), ShortTimeout)
 	if cepCmd.Error() != nil {
 		GinkgoWriter.Printf("Failed to get cep:\nCmdError: %v\nStderr: %s\n", cepCmd.Error(), cepCmd.StdErr())
