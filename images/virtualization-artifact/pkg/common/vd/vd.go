@@ -75,7 +75,7 @@ func StorageClassChanged(vd *v1alpha2.VirtualDisk) bool {
 	return *specSc != "" && statusSc != ""
 }
 
-func ValidateVirtualImageStorageClassProvisionerMatch(ctx context.Context, vd *v1alpha2.VirtualDisk, client client.Client) error {
+func ValidateVirtualImageStorageClassProvisionerCompatibility(ctx context.Context, vd *v1alpha2.VirtualDisk, client client.Client) error {
 	if vd.Spec.DataSource == nil || vd.Spec.DataSource.Type != v1alpha2.DataSourceTypeObjectRef {
 		return nil
 	}
