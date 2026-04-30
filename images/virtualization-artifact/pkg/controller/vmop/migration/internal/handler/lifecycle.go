@@ -51,6 +51,7 @@ const (
 	progressDisksPreparing     int32 = 1
 	progressTargetScheduling   int32 = 2
 	progressTargetPreparing    int32 = 3
+	progressWaitingForSyncSlot int32 = 4
 	progressSourceSuspended    int32 = 91
 	progressTargetResumed      int32 = 92
 	progressMigrationCompleted int32 = 100
@@ -61,6 +62,7 @@ const (
 	messageSyncingSourceAndTarget = "Syncing source and target"
 	messageTargetPodScheduling    = "Target pod is being scheduled"
 	messageTargetPodPreparing     = "Target pod is being prepared"
+	messageWaitingForSyncSlot     = "Target prepared; waiting for sync slot on source node"
 	messageTargetVMResumed        = "Target VM resumed"
 	messageSourceVMSuspended      = "Source VM suspended"
 )
@@ -584,6 +586,13 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 	case virtv1.MigrationScheduled, virtv1.MigrationPreparingTarget:
 		reason = vmopcondition.ReasonTargetPreparing
 		message = messageTargetPodPreparing
+		if cond, found := conditions.GetKVVMIMCondition(virtv1.VirtualMachineInstanceMigrationWaitingForSyncSlot, mig.Status.Conditions); found && cond.Status == corev1.ConditionTrue {
+			reason = vmopcondition.ReasonWaitingForSyncSlot
+			message = messageWaitingForSyncSlot
+			if cond.Message != "" {
+				message = cond.Message
+			}
+		}
 	case virtv1.MigrationTargetReady, virtv1.MigrationWaitingForSync, virtv1.MigrationSynchronizing, virtv1.MigrationRunning:
 		reason = vmopcondition.ReasonSyncing
 		message = messageSyncingSourceAndTarget
@@ -631,6 +640,8 @@ func (h LifecycleHandler) calculateMigrationProgress(
 		return progressTargetScheduling
 	case vmopcondition.ReasonTargetPreparing:
 		return progressTargetPreparing
+	case vmopcondition.ReasonWaitingForSyncSlot:
+		return progressWaitingForSyncSlot
 	case vmopcondition.ReasonTargetDiskError:
 		return progressTargetPreparing
 	case vmopcondition.ReasonSyncing, vmopcondition.ReasonNotConverging:

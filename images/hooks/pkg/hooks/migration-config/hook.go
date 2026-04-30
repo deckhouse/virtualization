@@ -36,18 +36,21 @@ const (
 	bandwidthPerMigrationAnnotation             = "virtualization.deckhouse.io/bandwidth-per-migration"
 	completionTimeoutPerGiBAnnotation           = "virtualization.deckhouse.io/completion-timeout-per-gib"
 	parallelOutboundMigrationsPerNodeAnnotation = "virtualization.deckhouse.io/parallel-outbound-migrations-per-node"
+	parallelSyncMigrationsPerNodeAnnotation     = "virtualization.deckhouse.io/parallel-sync-migrations-per-node"
 	progressTimeoutAnnotation                   = "virtualization.deckhouse.io/progress-timeout"
 	disableTLSAnnotation                        = "virtualization.deckhouse.io/disable-tls"
 
 	bandwidthPerMigrationValuesPath             = "virtualization.internal.virtConfig.bandwidthPerMigration"
 	completionTimeoutPerGiBValuesPath           = "virtualization.internal.virtConfig.completionTimeoutPerGiB"
 	parallelOutboundMigrationsPerNodeValuesPath = "virtualization.internal.virtConfig.parallelOutboundMigrationsPerNode"
+	parallelSyncMigrationsPerNodeValuesPath     = "virtualization.internal.virtConfig.parallelSyncMigrationsPerNode"
 	progressTimeoutValuesPath                   = "virtualization.internal.virtConfig.progressTimeout"
 	disableTLSValuesPath                        = "virtualization.internal.virtConfig.disableTLS"
 
 	defaultBandwidthPerMigration             = "640Mi"
 	defaultCompletionTimeoutPerGiB           = 800
-	defaultParallelOutboundMigrationsPerNode = 1
+	defaultParallelOutboundMigrationsPerNode = 2
+	defaultParallelSyncMigrationsPerNode     = 1
 	defaultProgressTimeout                   = 150
 	defaultDisableTLS                        = false
 )
@@ -70,6 +73,11 @@ var migrationParams = []migrationParam{
 		annotation:   parallelOutboundMigrationsPerNodeAnnotation,
 		valuesPath:   parallelOutboundMigrationsPerNodeValuesPath,
 		defaultValue: defaultParallelOutboundMigrationsPerNode,
+	},
+	{
+		annotation:   parallelSyncMigrationsPerNodeAnnotation,
+		valuesPath:   parallelSyncMigrationsPerNodeValuesPath,
+		defaultValue: defaultParallelSyncMigrationsPerNode,
 	},
 	{
 		annotation:   progressTimeoutAnnotation,

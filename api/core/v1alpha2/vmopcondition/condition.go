@@ -101,6 +101,10 @@ const (
 	// ReasonTargetPreparing indicates that target pod is being prepared.
 	ReasonTargetPreparing ReasonCompleted = "TargetPreparing"
 
+	// ReasonWaitingForSyncSlot indicates that the target pod is prepared but the
+	// migration is waiting for a free data-transfer (sync) slot on the source node.
+	ReasonWaitingForSyncSlot ReasonCompleted = "WaitingForSyncSlot"
+
 	// ReasonSyncing indicates that source and target are synchronizing migration data.
 	ReasonSyncing ReasonCompleted = "Syncing"
 
