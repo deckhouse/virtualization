@@ -54,7 +54,7 @@ func (v *VirtualImagePVCStorageClassValidator) ValidateCreate(ctx context.Contex
 	vdWithStatusStorageClassName := vd.DeepCopy()
 	vdWithStatusStorageClassName.Status.StorageClassName = scName
 
-	return nil, commonvd.ValidateVirtualImageStorageClassMatch(ctx, vdWithStatusStorageClassName, v.client)
+	return nil, commonvd.ValidateVirtualImageStorageClassProvisionerMatch(ctx, vdWithStatusStorageClassName, v.client)
 }
 
 func (v *VirtualImagePVCStorageClassValidator) ValidateUpdate(ctx context.Context, _, newVD *v1alpha2.VirtualDisk) (admission.Warnings, error) {
@@ -63,7 +63,7 @@ func (v *VirtualImagePVCStorageClassValidator) ValidateUpdate(ctx context.Contex
 		return nil, nil
 	}
 
-	return nil, commonvd.ValidateVirtualImageStorageClassMatch(ctx, newVD, v.client)
+	return nil, commonvd.ValidateVirtualImageStorageClassProvisionerMatch(ctx, newVD, v.client)
 }
 
 func (v *VirtualImagePVCStorageClassValidator) extractVDStorageClassName(ctx context.Context, vd *v1alpha2.VirtualDisk) (string, error) {

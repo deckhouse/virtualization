@@ -352,7 +352,21 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			},
 		}
 
-		k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vi).Build()
+		vdSC := &storagev1.StorageClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "vd-sc",
+			},
+			Provisioner: "first.csi.example.com",
+		}
+
+		viSC := &storagev1.StorageClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "vi-sc",
+			},
+			Provisioner: "second.csi.example.com",
+		}
+
+		k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vi, vdSC, viSC).Build()
 		var sourcesMock SourcesMock
 		sourcesMock.ChangedFunc = func(_ context.Context, _ *v1alpha2.VirtualDisk) bool {
 			return false
@@ -395,8 +409,8 @@ var _ = Describe("LifeCycleHandler Run", func() {
 
 		readyCond, ok := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 		Expect(ok).To(BeTrue())
-		Expect(readyCond.Reason).To(Equal(vdcondition.StorageClassNotMatchingSource.String()))
-		Expect(readyCond.Message).To(Equal(`Virtual disk storage class "vd-sc" does not match virtual image storage class "vi-sc"`))
+		Expect(readyCond.Reason).To(Equal(vdcondition.StorageClassCSIDriverMismatch.String()))
+		Expect(readyCond.Message).To(Equal(`Virtual disk storage class "vd-sc" csi driver does not match virtual image storage class "vi-sc" csi driver`))
 	})
 })
 

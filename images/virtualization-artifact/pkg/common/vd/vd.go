@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/component-base/featuregate"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -74,7 +75,7 @@ func StorageClassChanged(vd *v1alpha2.VirtualDisk) bool {
 	return *specSc != "" && statusSc != ""
 }
 
-func ValidateVirtualImageStorageClassMatch(ctx context.Context, vd *v1alpha2.VirtualDisk, client client.Client) error {
+func ValidateVirtualImageStorageClassProvisionerMatch(ctx context.Context, vd *v1alpha2.VirtualDisk, client client.Client) error {
 	if vd.Spec.DataSource == nil || vd.Spec.DataSource.Type != v1alpha2.DataSourceTypeObjectRef {
 		return nil
 	}
@@ -92,8 +93,24 @@ func ValidateVirtualImageStorageClassMatch(ctx context.Context, vd *v1alpha2.Vir
 		return nil
 	}
 
-	if vi.Status.StorageClassName != vd.Status.StorageClassName {
-		return fmt.Errorf("virtual disk storage class %q does not match virtual image storage class %q", vd.Status.StorageClassName, vi.Status.StorageClassName)
+	vdSc, err := object.FetchObject(ctx, types.NamespacedName{Name: vd.Status.StorageClassName}, client, &storagev1.StorageClass{})
+	if err != nil {
+		return fmt.Errorf("get virtual disk storage class %q: %w", vd.Status.StorageClassName, err)
+	}
+	if vdSc == nil {
+		return fmt.Errorf("virtual disk storage class %q was not found", vd.Status.StorageClassName)
+	}
+
+	viSc, err := object.FetchObject(ctx, types.NamespacedName{Name: vi.Status.StorageClassName}, client, &storagev1.StorageClass{})
+	if err != nil {
+		return fmt.Errorf("get virtual image storage class %q: %w", vi.Status.StorageClassName, err)
+	}
+	if viSc == nil {
+		return fmt.Errorf("virtual image storage class %q was not found", vi.Status.StorageClassName)
+	}
+
+	if vdSc.Provisioner != viSc.Provisioner {
+		return fmt.Errorf("virtual disk storage class %q csi driver does not match virtual image storage class %q csi driver", vd.Status.StorageClassName, vi.Status.StorageClassName)
 	}
 
 	return nil
