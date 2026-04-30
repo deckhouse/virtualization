@@ -230,9 +230,9 @@ const (
 	AnnUSBIPAddress                = "usb.virtualization.deckhouse.io/usbip-address"
 
 	// DefaultUSBDeviceGroup is the default device group ID for USB devices.
-	DefaultUSBDeviceGroup = "107"
+	DefaultUSBDeviceGroup = "64535"
 	// DefaultUSBDeviceUser is the default device user ID for USB devices.
-	DefaultUSBDeviceUser = "107"
+	DefaultUSBDeviceUser = "64535"
 )
 
 // AddAnnotation adds an annotation to an object

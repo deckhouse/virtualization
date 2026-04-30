@@ -1,6 +1,7 @@
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 fromImage: {{ .ModuleNamePrefix }}distroless
+fromCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
 git:
   {{- include "image mount points" . }}
 import:
@@ -81,6 +82,7 @@ packages:
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
 fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
+fromCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
 import:
 - image: tools/util-linux
   add: /
@@ -113,8 +115,8 @@ shell:
     echo "root:x:0:" >> /relocate/etc/group
     echo "root:x:::::::" >> /relocate/etc/shadow
 
-    echo "qemu:x:107:107::/home/qemu:/bin/bash" >> /relocate/etc/passwd
-    echo "qemu:x:107:" >> /relocate/etc/group
-    mkdir -p /relocate/home/qemu
-    chown -R 107:107 /relocate/home/qemu
+    echo "deckhouse:x:64535:64535:deckhouse:/home/deckhouse:/sbin/nologin" >> /relocate/etc/passwd
+    echo "deckhouse:x:64535:" >> /relocate/etc/group
+    mkdir -p /relocate/home/deckhouse
+    chown -R 64535:64535 /relocate/home/deckhouse
 
