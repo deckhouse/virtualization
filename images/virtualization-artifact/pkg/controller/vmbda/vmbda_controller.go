@@ -74,7 +74,7 @@ func NewController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachineBlockDeviceAttachment{}).
-		WithValidator(NewValidator(attacher, blockDeviceService, lg)).
+		WithValidator(NewValidator(mgr.GetClient(), attacher, blockDeviceService, lg)).
 		Complete(); err != nil {
 		return nil, err
 	}
