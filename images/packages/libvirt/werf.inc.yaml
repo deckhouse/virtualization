@@ -9,8 +9,8 @@ import:
   before: setup
 
 ---
-{{- $gitRepoName := $.ImageName }}
-{{- $version := get $.Firmware $gitRepoName }}
+{{- $gitRepoName := .ImageName }}
+{{- $version := get .Firmware $gitRepoName }}
 {{- $gitRepoUrl := "libvirt/libvirt.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
@@ -53,7 +53,7 @@ shell:
     done
 
 ---
-{{- $name := print $.ImageName "-dependencies" -}}
+{{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
 - binutils
@@ -110,7 +110,7 @@ packages:
 {{ $builderDependencies := include "$name" . | fromYaml }}
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/golang-alt-svace-1.24" }}
+fromImage: {{ eq .SVACE_ENABLED "false" | ternary "builder/alt" "builder/golang-alt-svace-1.24" }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src/{{ $gitRepoName }}-{{ $version }}
