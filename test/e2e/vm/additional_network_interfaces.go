@@ -18,6 +18,7 @@ package vm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -183,12 +184,10 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 		)
 
 		const (
-			getLastInterfaceNameCmd = "ip -o link show | tail -1 | cut -d: -f2 | awk \"{print \\$1}\""
+			expectedLastInterfaceName = "eno3"
 		)
 
 		It("should preserve interface name after removing middle ClusterNetwork and rebooting", func() {
-			var lastInterfaceNameBeforeRemoval string
-
 			By("Create VM with Main network and two additional ClusterNetworks", func() {
 				ns := f.Namespace().Name
 
@@ -216,10 +215,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 
 			By("Get last interface name via SSH", func() {
 				util.UntilSSHReady(f, vm, framework.LongTimeout)
-				output, err := f.SSHCommand(vm.Name, vm.Namespace, getLastInterfaceNameCmd)
-				Expect(err).NotTo(HaveOccurred())
-				lastInterfaceNameBeforeRemoval = strings.TrimSpace(output)
-				Expect(lastInterfaceNameBeforeRemoval).NotTo(BeEmpty(), "Failed to get last interface name")
+				checkLastInterfaceName(f, vm.Name, vm.Namespace, expectedLastInterfaceName)
 			})
 
 			By("Remove middle ClusterNetwork from VM spec", func() {
@@ -253,13 +249,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 
 			By("Verify last interface name has not changed", func() {
 				util.UntilSSHReady(f, vm, framework.LongTimeout)
-				output, err := f.SSHCommand(vm.Name, vm.Namespace, getLastInterfaceNameCmd)
-				Expect(err).NotTo(HaveOccurred())
-				lastInterfaceNameAfterRemoval := strings.TrimSpace(output)
-				Expect(lastInterfaceNameAfterRemoval).NotTo(BeEmpty(), "Failed to get last interface name")
-
-				Expect(lastInterfaceNameAfterRemoval).To(Equal(lastInterfaceNameBeforeRemoval),
-					fmt.Sprintf("Interface name changed from %s to %s after removing middle ClusterNetwork", lastInterfaceNameBeforeRemoval, lastInterfaceNameAfterRemoval))
+				checkLastInterfaceName(f, vm.Name, vm.Namespace, expectedLastInterfaceName)
 			})
 		})
 	})
@@ -360,4 +350,34 @@ func checkResultSSHCommand(f *framework.Framework, vmName, vmNamespace, cmd, equ
 		}
 		return strings.TrimSpace(res), nil
 	}).WithTimeout(Timeout).WithPolling(Interval).Should(Equal(equal))
+}
+
+func checkLastInterfaceName(f *framework.Framework, vmName, vmNamespace, expected string) {
+	GinkgoHelper()
+	Eventually(func() (string, error) {
+		cmd := "ip -j link show"
+		result, err := f.SSHCommand(vmName, vmNamespace, cmd, framework.WithSSHTimeout(5*time.Second))
+		if err != nil {
+			return "", fmt.Errorf("failed to execute command: %w: %s", err, result)
+		}
+
+		var links IPLinks
+		err = json.Unmarshal([]byte(result), &links)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse ip JSON output: %w", err)
+		}
+		if len(links) == 0 {
+			return "", fmt.Errorf("no network interfaces found")
+		}
+
+		return links[len(links)-1].IFName, nil
+	}).WithTimeout(Timeout).WithPolling(Interval).Should(Equal(expected))
+}
+
+// IPLinks represents the JSON output of ip -j link show command.
+type IPLinks []IPLink
+
+// IPLink represents a single network interface in the ip JSON output.
+type IPLink struct {
+	IFName string `json:"ifname"`
 }
