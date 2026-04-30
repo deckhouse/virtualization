@@ -1,0 +1,87 @@
+api:
+  features:
+    - summary: >-
+        Added the Attached condition and printer column to NodeUSBDevice by mirroring USBDevice
+        attachment state.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2221
+ci:
+  features:
+    - summary: >-
+        Deploy Prod workflow can prepare GitHub releases from changelog PRs and report release
+        status to Loop.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2291
+  fixes:
+    - summary: >-
+        Skip USB nested e2e on Kubernetes versions below 1.34 and fall back to the default NFS
+        storage class.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2307
+    - summary: >-
+        Prevent E2E report parsing failures by separating the raw Ginkgo JSON report from the
+        summary report in CI artifacts.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2305
+    - summary: add SSH keepalive options to d8-based nested cluster access in CI and e2e helpers
+      pull_request: https://github.com/deckhouse/virtualization/pull/2301
+core:
+  features:
+    - summary: Add the Uptime printable column for VirtualMachine resources.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2279
+  fixes:
+    - summary: Preserve VirtualMachine uptime during migration by tracking the last start time in status.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2304
+    - summary: >-
+        Restore MigrationPending with 0% progress and treat target scheduling as in-progress for VM
+        migration operations.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2272
+    - summary: Propagate target migration pod unschedulable details to VMOP conditions.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2261
+    - summary: >-
+        Reconnect logic in d8 v vnc and d8 v console now refreshes client config before reconnect,
+        avoiding stale OIDC refresh token failures.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2253
+module:
+  fixes:
+    - summary: >-
+        Skip USBGateway detach cleanup for untracked USB devices and detach tracked devices only on
+        the last active consumer.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2298
+    - summary: >-
+        Make virtualization hooks use only valid copied module config and avoid queue blocking on
+        invalid module settings.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2246
+    - summary: >-
+        Add idempotency for USB device cleanup in virtualization-dra to prevent errors on repeated
+        unprepare calls.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2216
+    - summary: fix virtualization overview dashboard duplicate series issue
+      pull_request: https://github.com/deckhouse/virtualization/pull/2189
+test:
+  features:
+    - summary: >-
+        Add precheck system for e2e tests that validates cluster configuration before test
+        execution.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2269
+  fixes:
+    - summary: >-
+        Stabilized the VirtualMachineUSB e2e test by improving guest USB disk detection, remount
+        flow, and timeouts around migration.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2297
+    - summary: Improve VirtualMachineAdditionalNetworkInterfaces e2e test reliability and diagnostics.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2290
+    - summary: Increase timeout for repeated affinity migration in the legacy affinity/toleration e2e test.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2267
+    - summary: >-
+        Increase VirtualMachineSnapshot readiness timeout in VirtualMachineOperationRestore e2e test
+        to fix flakiness on NFS storage.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2254
+vd:
+  fixes:
+    - summary: Restore requested VirtualDisk size from snapshot metadata.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2278
+vm:
+  features:
+    - summary: Add domain jobs and block-jobs info subcommands to vlctl.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2280
+  fixes:
+    - summary: fix stuck block-migration jobs after abort so new migrations can start
+      pull_request: https://github.com/deckhouse/virtualization/pull/2282
+
