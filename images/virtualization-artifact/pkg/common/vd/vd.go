@@ -110,7 +110,11 @@ func ValidateVirtualImageStorageClassProvisionerMatch(ctx context.Context, vd *v
 	}
 
 	if vdSc.Provisioner != viSc.Provisioner {
-		return fmt.Errorf("virtual disk storage class %q csi driver does not match virtual image storage class %q csi driver", vd.Status.StorageClassName, vi.Status.StorageClassName)
+		return fmt.Errorf(
+			"virtual disk storage class %q provisioner does not match virtual image storage class %q provisioner: source type with different provisioners is not supported yet",
+			vd.Status.StorageClassName,
+			vi.Status.StorageClassName,
+		)
 	}
 
 	return nil

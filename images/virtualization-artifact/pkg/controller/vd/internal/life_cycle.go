@@ -142,7 +142,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 		if err != nil {
 			cb.
 				Status(metav1.ConditionFalse).
-				Reason(vdcondition.StorageClassCSIDriverMismatch).
+				Reason(vdcondition.StorageClassProvisionerMismatch).
 				Message(service.CapitalizeFirstLetter(err.Error()))
 			conditions.SetCondition(cb, &vd.Status.Conditions)
 

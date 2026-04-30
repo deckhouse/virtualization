@@ -409,8 +409,8 @@ var _ = Describe("LifeCycleHandler Run", func() {
 
 		readyCond, ok := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 		Expect(ok).To(BeTrue())
-		Expect(readyCond.Reason).To(Equal(vdcondition.StorageClassCSIDriverMismatch.String()))
-		Expect(readyCond.Message).To(Equal(`Virtual disk storage class "vd-sc" csi driver does not match virtual image storage class "vi-sc" csi driver`))
+		Expect(readyCond.Reason).To(Equal(vdcondition.StorageClassProvisionerMismatch.String()))
+		Expect(readyCond.Message).To(Equal(`Virtual disk storage class "vd-sc" provisioner does not match virtual image storage class "vi-sc" provisioner: source type with different provisioners is not supported yet`))
 	})
 })
 
