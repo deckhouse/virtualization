@@ -1,0 +1,132 @@
+diff --git a/hw/char/debugcon.c b/hw/char/debugcon.c
+index fdb04fe..0cf2325 100644
+--- a/hw/char/debugcon.c
++++ b/hw/char/debugcon.c
+@@ -26,6 +26,7 @@
+ 
+ #include "qemu/osdep.h"
+ #include "qapi/error.h"
++#include "qapi/qapi-events-control.h"
+ #include "qemu/module.h"
+ #include "chardev/char-fe.h"
+ #include "hw/isa/isa.h"
+@@ -34,6 +35,7 @@
+ #include "qom/object.h"
+ 
+ #define TYPE_ISA_DEBUGCON_DEVICE "isa-debugcon"
++#define DEBUGCON_NO_BOOTABLE_DEVICE "No bootable device."
+ OBJECT_DECLARE_SIMPLE_TYPE(ISADebugconState, ISA_DEBUGCON_DEVICE)
+ 
+ //#define DEBUG_DEBUGCON
+@@ -42,6 +44,9 @@ typedef struct DebugconState {
+     MemoryRegion io;
+     CharBackend chr;
+     uint32_t readback;
++    bool watch_no_bootable_device;
++    char match_buf[sizeof(DEBUGCON_NO_BOOTABLE_DEVICE) - 1];
++    size_t match_len;
+ } DebugconState;
+ 
+ struct ISADebugconState {
+@@ -51,6 +56,27 @@ struct ISADebugconState {
+     DebugconState state;
+ };
+ 
++static void debugcon_maybe_emit_no_bootable_device(DebugconState *s,
++                                                   unsigned char ch)
++{
++    if (!s->watch_no_bootable_device) {
++        return;
++    }
++
++    if (s->match_len < sizeof(s->match_buf)) {
++        s->match_buf[s->match_len++] = ch;
++    } else {
++        memmove(s->match_buf, s->match_buf + 1, sizeof(s->match_buf) - 1);
++        s->match_buf[sizeof(s->match_buf) - 1] = ch;
++    }
++
++    if (s->match_len == sizeof(s->match_buf) &&
++        memcmp(s->match_buf, DEBUGCON_NO_BOOTABLE_DEVICE,
++               sizeof(s->match_buf)) == 0) {
++        qapi_event_send_no_bootable_device();
++    }
++}
++
+ static void debugcon_ioport_write(void *opaque, hwaddr addr, uint64_t val,
+                                   unsigned width)
+ {
+@@ -64,6 +90,7 @@ static void debugcon_ioport_write(void *opaque, hwaddr addr, uint64_t val,
+     /* XXX this blocks entire thread. Rewrite to use
+      * qemu_chr_fe_write and background I/O callbacks */
+     qemu_chr_fe_write_all(&s->chr, &ch, 1);
++    debugcon_maybe_emit_no_bootable_device(s, ch);
+ }
+ 
+ 
+@@ -118,6 +145,8 @@ static Property debugcon_isa_properties[] = {
+     DEFINE_PROP_UINT32("iobase", ISADebugconState, iobase, 0xe9),
+     DEFINE_PROP_CHR("chardev",  ISADebugconState, state.chr),
+     DEFINE_PROP_UINT32("readback", ISADebugconState, state.readback, 0xe9),
++    DEFINE_PROP_BOOL("watch-no-bootable", ISADebugconState,
++                     state.watch_no_bootable_device, false),
+     DEFINE_PROP_END_OF_LIST(),
+ };
+ 
+diff --git a/qapi/control.json b/qapi/control.json
+index 336386f..e1e727e 100644
+--- a/qapi/control.json
++++ b/qapi/control.json
+@@ -209,3 +209,13 @@
+       '*pretty': 'bool',
+       'chardev': 'str'
+   } }
++
++##
++# @NO_BOOTABLE_DEVICE:
++#
++# Emitted when `isa-debugcon` with enabled no-bootable watching
++# receives the string "No bootable device.".
++#
++# Since: 0.14
++##
++{ 'event': 'NO_BOOTABLE_DEVICE' }
+diff --git a/tests/qtest/qmp-test.c b/tests/qtest/qmp-test.c
+index 22957fa..9b4840e 100644
+--- a/tests/qtest/qmp-test.c
++++ b/tests/qtest/qmp-test.c
+@@ -337,6 +337,25 @@ static void test_qmp_missing_any_arg(void)
+     qtest_quit(qts);
+ }
+ 
++static void test_qmp_no_bootable_device_event(void)
++{
++    static const char trigger[] = "No bootable device.";
++    QTestState *qts;
++    size_t i;
++
++    qts = qtest_initf("-nodefaults -machine q35 "
++                      "-chardev null,id=debugcon "
++                      "-device isa-debugcon,iobase=0x402,chardev=debugcon,"
++                      "watch-no-bootable=on");
++
++    for (i = 0; i < sizeof(trigger) - 1; i++) {
++        qtest_outb(qts, 0x402, trigger[i]);
++    }
++
++    qtest_qmp_eventwait(qts, "NO_BOOTABLE_DEVICE");
++    qtest_quit(qts);
++}
++
+ int main(int argc, char *argv[])
+ {
+     g_test_init(&argc, &argv, NULL);
+@@ -348,6 +367,8 @@ int main(int argc, char *argv[])
+ #endif
+     qtest_add_func("qmp/preconfig", test_qmp_preconfig);
+     qtest_add_func("qmp/missing-any-arg", test_qmp_missing_any_arg);
++    qtest_add_func("qmp/no-bootable-device-event",
++                   test_qmp_no_bootable_device_event);
+ 
+     return g_test_run();
+ }
