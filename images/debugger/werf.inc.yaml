@@ -1,15 +1,15 @@
 ---
 {{- if not $.DistroPackagesProxy }}
-image: {{ $.ImageName }}
+image: {{ .ImageName }}
 fromImage: distroless
 final: false
 import:
-- image: {{ $.ImageName }}-builder
+- image: {{ .ImageName }}-builder
   add: /out
   to: /app
   before: setup
 ---
-image: {{ $.ImageName }}-builder
+image: {{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
 secrets:

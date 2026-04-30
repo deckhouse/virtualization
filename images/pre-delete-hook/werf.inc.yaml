@@ -35,7 +35,7 @@ shell:
   - export GOARCH=amd64
   - export CGO_ENABLED=0
   - |
-    {{- $_ := set $ "ProjectName" (list $.ImageName "pre-delete-hook" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "pre-delete-hook" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -v -a -o pre-delete-hook main.go`) | nindent 6 }}
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}

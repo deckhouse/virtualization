@@ -32,7 +32,7 @@ import:
   includePaths:
   - .version
 - image: {{ .ModuleNamePrefix }}virt-artifact
-  add: /kubevirt/cmd/{{ $.ImageName }}/
+  add: /kubevirt/cmd/{{ .ImageName }}/
   to: /etc
   after: install
   includePaths:
@@ -57,7 +57,7 @@ imageSpec:
     {{- end }}
 
 ---
-{{- $name := print $.ImageName "-dependencies" -}}
+{{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 binaries:
 - /usr/bin/getfacl

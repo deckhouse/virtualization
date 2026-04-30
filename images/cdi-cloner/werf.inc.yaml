@@ -13,7 +13,7 @@ imageSpec:
     entrypoint: ["/usr/bin/cloner-startup"]
     user: 64535
 ---
-{{- $name := print $.ImageName "-dependencies" -}}
+{{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 binaries:
 - /usr/bin/cloner-startup
@@ -70,5 +70,5 @@ shell:
     cd /app
     export GOPROXY=$(cat /run/secrets/GOPROXY)
     go mod download
-    {{- $_ := set $ "ProjectName" (list $.ImageName "cdi-cloner" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "cdi-cloner" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /cdi-binaries/cloner-startup ./cmd/cloner-startup`) | nindent 6 }}

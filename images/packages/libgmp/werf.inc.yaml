@@ -1,5 +1,5 @@
 ---
-{{- $name := print $.ImageName "-dependencies" -}}
+{{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
 - flex gcc gcc-c++ libtool pkgconf gettext-tools

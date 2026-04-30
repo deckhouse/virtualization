@@ -1,9 +1,9 @@
 ---
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
   to: /libgpg-error
   includePaths:
@@ -21,7 +21,7 @@ import:
   before: setup
 
 ---
-{{- $version := get $.PackageVersion $.ImageName }}
+{{- $version := get $.PackageVersion .ImageName }}
 {{- $gitRepoUrl := "gpg/libgpg-error.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
@@ -36,7 +36,7 @@ shell:
 
 ---
 
-{{- $name := print $.ImageName "-dependencies" -}}
+{{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
 - gcc git make automake autoconf gettext-tools
@@ -44,7 +44,7 @@ packages:
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
 import:

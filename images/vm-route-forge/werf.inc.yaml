@@ -40,7 +40,7 @@ shell:
   - export GOARCH=amd64
   - export CGO_ENABLED=0
   - |
-    {{- $_ := set $ "ProjectName" (list $.ImageName "vm-route-forge" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "vm-route-forge" | join "/") }}
 
     {{- if eq $.DEBUG_COMPONENT "delve/vm-route-forge" }}
     go build -o vm-route-forge cmd/vm-route-forge/main.go

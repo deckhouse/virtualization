@@ -36,7 +36,7 @@ shell:
     fi
 ---
 
-{{- $name := print $.ImageName "-dependencies" -}}
+{{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
 - gcc gcc-c++ autoconf automake libtool make pkg-config

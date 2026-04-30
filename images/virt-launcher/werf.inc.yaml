@@ -18,7 +18,7 @@ imageSpec:
     user: 0
 
 ---
-{{- $name := print $.ImageName "-dependencies" -}}
+{{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altLibs:
   - libxfs-devel
@@ -134,7 +134,7 @@ packages:
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
 {{- $gitRepoName := "libvirt" }}
-{{- $version := get $.Firmware $gitRepoName }}
+{{- $version := get .Firmware $gitRepoName }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries
 final: false
@@ -437,7 +437,7 @@ shell:
     echo "Build node-labeller binaries"
     cd /node-labeller
     echo '== go build -ldflags="-s -w" -o /binaries/node-labeller ./cmd/node-labeller =='
-    {{- $_ := set $ "ProjectName" (list $.ImageName "node-labeller" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "node-labeller" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /binaries/node-labeller ./cmd/node-labeller`) | nindent 6 }}
     echo "Done"
   - |
@@ -446,7 +446,7 @@ shell:
     export GOARCH=amd64
     export CGO_ENABLED=0
     echo '== go build -ldflags="-s -w" -o /binaries/vlctl ./cmd/vlctl/main.go =='
-    {{- $_ := set $ "ProjectName" (list $.ImageName "vlctl" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "vlctl" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /binaries/vlctl ./cmd/vlctl/main.go`) | nindent 6 }}
     echo "Done"
 ---
@@ -476,6 +476,6 @@ shell:
     echo "Building simple app that prints I'am temp pod"
     mkdir -p /bins
 
-    {{- $_ := set $ "ProjectName" (list $.ImageName "temp_pod" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "temp_pod" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `musl-gcc -static -Os -o /bins/temp_pod temp_pod.c`) | nindent 6 }}
     strip /bins/temp_pod

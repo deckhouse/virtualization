@@ -1,8 +1,8 @@
 
-{{- $version := get $.PackageVersion $.ImageName }}
+{{- $version := get $.PackageVersion .ImageName }}
 {{- $gitRepoUrl := "linux-rdma/rdma-core.git" }}
 
-{{- $name := print $.ImageName "-dependencies" -}}
+{{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
 - gcc git make libtool libnl-devel ninja-build
@@ -19,11 +19,11 @@ packages:
 
 
 ---
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
   to: /{{ .ImageName }}
   before: setup
@@ -42,7 +42,7 @@ shell:
   - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
 ---
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
 import:
