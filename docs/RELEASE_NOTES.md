@@ -93,6 +93,10 @@ Release date: April 21, 2026.
 Release date: March 31, 2026.
 </span>
 
+### Important notes before update
+
+During the update to v1.7.0, all virtual machines will be restarted to apply deterministic identifiers for network interfaces.
+
 ### New features
 
 - [vm] The order of additional network interfaces is now deterministic and does not change after virtual machine restarts.
