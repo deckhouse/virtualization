@@ -147,6 +147,6 @@ var _ = Describe("VirtualImagePVCStorageClassValidator", func() {
 		validator := NewVirtualImagePVCStorageClassValidator(k8sClient, vdSCService)
 
 		_, err := validator.ValidateCreate(context.Background(), vd)
-		Expect(err).To(MatchError(`virtual disk storage class "vd-sc" csi driver does not match virtual image storage class "vi-sc" csi driver`))
+		Expect(err).To(MatchError(`virtual disk storage class "vd-sc" provisioner does not match virtual image storage class "vi-sc" provisioner: source type with different provisioners is not supported yet`))
 	})
 })
