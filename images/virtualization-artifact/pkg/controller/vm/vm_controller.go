@@ -51,6 +51,8 @@ func SetupController(
 	log *log.Logger,
 	dvcrSettings *dvcr.Settings,
 	firmwareImage string,
+	disableTapVethBridge bool,
+	disableDHCP bool,
 ) error {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	mgrCache := mgr.GetCache()
@@ -58,7 +60,7 @@ func SetupController(
 	blockDeviceService := service.NewBlockDeviceService(client)
 	vmClassService := service.NewVirtualMachineClassService(client)
 
-	migrateVolumesService := vmservice.NewMigrationVolumesService(client, internal.MakeKVVMFromVMSpec, 10*time.Second)
+	migrateVolumesService := vmservice.NewMigrationVolumesService(client, internal.MakeKVVMFromVMSpec, 10*time.Second, disableTapVethBridge, disableDHCP)
 
 	handlers := []Handler{
 		internal.NewMaintenanceHandler(client),
@@ -76,7 +78,7 @@ func SetupController(
 		internal.NewPodHandler(client),
 		internal.NewSizePolicyHandler(),
 		internal.NewNetworkInterfaceHandler(featuregates.Default()),
-		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder, featuregates.Default(), migrateVolumesService),
+		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder, featuregates.Default(), migrateVolumesService, disableTapVethBridge, disableDHCP),
 		internal.NewSyncPowerStateHandler(client, recorder),
 		internal.NewSyncMetadataHandler(client),
 		internal.NewLifeCycleHandler(client, recorder),

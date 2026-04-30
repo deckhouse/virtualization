@@ -13,8 +13,10 @@ secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
 shell:
+  installCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
   install:
   - |
+    echo "$date"
     echo "Git clone {{ $gitRepoName }} repository..."
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $tag }} /src/kubevirt
 
@@ -198,6 +200,11 @@ shell:
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-operator ./cmd/virt-operator/`) | nindent 6 }}
 
     - echo ============== Build sidecars =========================
+    - |
+      cd /kubevirt
+      echo "Sidecars cmd list:"
+      ls -la cmd/sidecars/
+      echo "---"
     {{- $_ := set $ "ProjectName" (list $.ImageName "sidecars" | join "/") }}
     - |
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/sidecars ./cmd/sidecars/`) | nindent 6 }}
