@@ -37,10 +37,11 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/network"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("VirtualMachineConnectivity", func() {
+var _ = Describe("VirtualMachineConnectivity", Label(precheck.NoPrecheck), func() {
 	var (
 		f *framework.Framework
 		t *VMConnectivityTest

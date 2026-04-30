@@ -31,7 +31,25 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 )
 
-const d8vContainerPrefix = "d8v"
+const (
+	d8vContainerPrefix = "d8v"
+	// maxTestNameLen is the maximum length of the test name portion in a dump filename.
+	// Linux filesystems (ext4/xfs) limit filenames to 255 bytes. We reserve ~70 bytes
+	// for the "e2e_failed__" prefix, "__<namespace>__events.yaml" suffix, and directory path.
+	maxTestNameLen = 180
+	delimiter      = "..."
+)
+
+// truncateTestName shortens s to at most maxLen bytes while keeping the text
+// human-readable: it preserves a prefix and a suffix separated by ellipsis.
+func truncateTestName(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	availableLen := maxLen - len(delimiter)
+	halfAvailableLen := availableLen / 2
+	return s[:halfAvailableLen] + delimiter + s[len(s)-(availableLen-halfAvailableLen):]
+}
 
 // SaveTestCaseDump dump some resources, logs and descriptions that may help in further diagnostic.
 //
@@ -72,7 +90,8 @@ func GetFormattedTestCaseFullText() string {
 		"`", "",
 		"'", "",
 	)
-	return replacer.Replace(strings.ToLower(CurrentSpecReport().FullText()))
+	result := replacer.Replace(strings.ToLower(CurrentSpecReport().FullText()))
+	return truncateTestName(result, maxTestNameLen)
 }
 
 // GetTMPDir returns the temporary directory used for the test case resource dump.
@@ -206,7 +225,7 @@ func (f *Framework) writePodDescription(name, namespace, filePath, testCaseFullT
 func (f *Framework) writeVirtualMachineGuestInfo(pod corev1.Pod, filePath, testCaseFullText string) {
 	if pod.Labels != nil && pod.Status.Phase == corev1.PodRunning {
 		if value, ok := pod.Labels["kubevirt.internal.virtualization.deckhouse.io"]; ok && value == "virt-launcher" {
-			vlctlGuestInfoCmd := f.Clients.Kubectl().RawCommand(fmt.Sprintf("exec --stdin=true --tty=true %s --namespace %s -- vlctl guest info", pod.Name, pod.Namespace), ShortTimeout)
+			vlctlGuestInfoCmd := f.Clients.Kubectl().RawCommand(fmt.Sprintf("exec %s --namespace %s -- vlctl guest info", pod.Name, pod.Namespace), ShortTimeout)
 			if vlctlGuestInfoCmd.Error() != nil {
 				GinkgoWriter.Printf("Failed to get pod guest info:\nPodName: %s\nError: %s\n", pod.Name, vlctlGuestInfoCmd.StdErr())
 			}

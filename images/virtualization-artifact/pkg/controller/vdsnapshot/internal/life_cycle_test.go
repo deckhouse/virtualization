@@ -23,10 +23,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdscondition"
@@ -113,6 +115,32 @@ var _ = Describe("LifeCycle handler", func() {
 			Expect(ready.Reason).To(Equal(vdscondition.Snapshotting.String()))
 			Expect(ready.Message).ToNot(BeEmpty())
 		})
+
+		DescribeTable("stores original size in volume snapshot annotations",
+			func(vdSize, pvcSize, expectedSize string) {
+				if vdSize != "" {
+					size := resource.MustParse(vdSize)
+					vd.Spec.PersistentVolumeClaim.Size = &size
+				}
+				if pvcSize != "" {
+					pvc.Spec.Resources.Requests = corev1.ResourceList{
+						corev1.ResourceStorage: resource.MustParse(pvcSize),
+					}
+				}
+
+				snapshotter.CreateVolumeSnapshotFunc = func(_ context.Context, vs *vsv1.VolumeSnapshot) (*vsv1.VolumeSnapshot, error) {
+					Expect(vs.Annotations[annotations.AnnVirtualDiskOriginalSize]).To(Equal(expectedSize))
+					return vs, nil
+				}
+
+				h := NewLifeCycleHandler(snapshotter)
+
+				_, err := h.Handle(testContext(), vdSnapshot)
+				Expect(err).To(BeNil())
+			},
+			Entry("from VirtualDisk spec size", "20Gi", "10Gi", "20Gi"),
+			Entry("from PVC requested size when VirtualDisk spec size is omitted", "", "10Gi", "10Gi"),
+		)
 
 		It("The volume snapshot has failed", func() {
 			snapshotter.GetVolumeSnapshotFunc = func(_ context.Context, _, _ string) (*vsv1.VolumeSnapshot, error) {

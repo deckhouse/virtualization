@@ -3471,6 +3471,10 @@ func (in *VirtualMachineStats) DeepCopyInto(out *VirtualMachineStats) {
 		}
 	}
 	in.LaunchTimeDuration.DeepCopyInto(&out.LaunchTimeDuration)
+	if in.LastStartTime != nil {
+		in, out := &in.LastStartTime, &out.LastStartTime
+		*out = (*in).DeepCopy()
+	}
 	return
 }
 

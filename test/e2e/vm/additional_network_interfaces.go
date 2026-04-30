@@ -37,6 +37,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/network"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
@@ -56,17 +57,18 @@ func expectClusterNetworkExists(f *framework.Framework, vlanID int) {
 		fmt.Sprintf("Cluster network %s does not exist. Create it first: %s", util.ClusterNetworkName(vlanID), util.ClusterNetworkCreateCommand(vlanID)))
 }
 
-var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
+var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoPrecheck, precheck.PrecheckSDN), func() {
 	var (
 		vdFooRoot *v1alpha2.VirtualDisk
 		vdBarRoot *v1alpha2.VirtualDisk
 		vmFoo     *v1alpha2.VirtualMachine
 		vmBar     *v1alpha2.VirtualMachine
 
-		f = framework.NewFramework("vm-additional-network")
+		f *framework.Framework
 	)
 
 	BeforeEach(func() {
+		f = framework.NewFramework("vm-additional-network")
 		DeferCleanup(f.After)
 
 		f.Before()
@@ -111,7 +113,14 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 
 			// If test fail due this timeout, rollback in test waiting for agent to be ready.
 			By("Wait for additional network interfaces to be ready", func() {
-				util.UntilConditionStatus(vmcondition.TypeNetworkReady.String(), "True", framework.LongTimeout, vmFoo, vmBar)
+				util.UntilConditionStatus(
+					context.Background(),
+					vmcondition.TypeNetworkReady.String(),
+					"True",
+					framework.LongTimeout,
+					vmFoo,
+					vmBar,
+				)
 			})
 
 			By("Check connectivity between VMs via additional network", func() {
@@ -147,7 +156,14 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 			})
 
 			By("Wait for additional network interfaces to be ready after migration", func() {
-				util.UntilConditionStatus(vmcondition.TypeNetworkReady.String(), "True", framework.LongTimeout, vmFoo, vmBar)
+				util.UntilConditionStatus(
+					context.Background(),
+					vmcondition.TypeNetworkReady.String(),
+					"True",
+					framework.LongTimeout,
+					vmFoo,
+					vmBar,
+				)
 			})
 
 			By("Check connectivity between VMs via additional network after migration", func() {
@@ -189,7 +205,13 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 
 				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
 				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
-				util.UntilConditionStatus(vmcondition.TypeNetworkReady.String(), "True", framework.LongTimeout, vm)
+				util.UntilConditionStatus(
+					context.Background(),
+					vmcondition.TypeNetworkReady.String(),
+					"True",
+					framework.LongTimeout,
+					vm,
+				)
 			})
 
 			By("Get last interface name via SSH", func() {
@@ -220,7 +242,13 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", func() {
 				util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(vm), previousRunningTime, framework.LongTimeout)
 				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
 				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
-				util.UntilConditionStatus(vmcondition.TypeNetworkReady.String(), "True", framework.LongTimeout, vm)
+				util.UntilConditionStatus(
+					context.Background(),
+					vmcondition.TypeNetworkReady.String(),
+					"True",
+					framework.LongTimeout,
+					vm,
+				)
 			})
 
 			By("Verify last interface name has not changed", func() {

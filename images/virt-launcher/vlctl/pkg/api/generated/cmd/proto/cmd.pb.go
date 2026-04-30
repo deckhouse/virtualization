@@ -1228,6 +1228,110 @@ func (x *DomainStatsResponse) GetDomainStats() string {
 	return ""
 }
 
+type BlockJobsStatusResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Response        *Response              `protobuf:"bytes,1,opt,name=response,proto3" json:"response,omitempty"`
+	BlockJobsStatus string                 `protobuf:"bytes,2,opt,name=blockJobsStatus,proto3" json:"blockJobsStatus,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *BlockJobsStatusResponse) Reset() {
+	*x = BlockJobsStatusResponse{}
+	mi := &file_proto_cmd_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BlockJobsStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BlockJobsStatusResponse) ProtoMessage() {}
+
+func (x *BlockJobsStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_cmd_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BlockJobsStatusResponse.ProtoReflect.Descriptor instead.
+func (*BlockJobsStatusResponse) Descriptor() ([]byte, []int) {
+	return file_proto_cmd_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *BlockJobsStatusResponse) GetResponse() *Response {
+	if x != nil {
+		return x.Response
+	}
+	return nil
+}
+
+func (x *BlockJobsStatusResponse) GetBlockJobsStatus() string {
+	if x != nil {
+		return x.BlockJobsStatus
+	}
+	return ""
+}
+
+type JobsStatusResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Response      *Response              `protobuf:"bytes,1,opt,name=response,proto3" json:"response,omitempty"`
+	JobsStatus    string                 `protobuf:"bytes,2,opt,name=jobsStatus,proto3" json:"jobsStatus,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JobsStatusResponse) Reset() {
+	*x = JobsStatusResponse{}
+	mi := &file_proto_cmd_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JobsStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JobsStatusResponse) ProtoMessage() {}
+
+func (x *JobsStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_cmd_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JobsStatusResponse.ProtoReflect.Descriptor instead.
+func (*JobsStatusResponse) Descriptor() ([]byte, []int) {
+	return file_proto_cmd_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *JobsStatusResponse) GetResponse() *Response {
+	if x != nil {
+		return x.Response
+	}
+	return nil
+}
+
+func (x *JobsStatusResponse) GetJobsStatus() string {
+	if x != nil {
+		return x.JobsStatus
+	}
+	return ""
+}
+
 type GuestInfoResponse struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	Response          *Response              `protobuf:"bytes,1,opt,name=response,proto3" json:"response,omitempty"`
@@ -1238,7 +1342,7 @@ type GuestInfoResponse struct {
 
 func (x *GuestInfoResponse) Reset() {
 	*x = GuestInfoResponse{}
-	mi := &file_proto_cmd_proto_msgTypes[20]
+	mi := &file_proto_cmd_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1250,7 +1354,7 @@ func (x *GuestInfoResponse) String() string {
 func (*GuestInfoResponse) ProtoMessage() {}
 
 func (x *GuestInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_cmd_proto_msgTypes[20]
+	mi := &file_proto_cmd_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1263,7 +1367,7 @@ func (x *GuestInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GuestInfoResponse.ProtoReflect.Descriptor instead.
 func (*GuestInfoResponse) Descriptor() ([]byte, []int) {
-	return file_proto_cmd_proto_rawDescGZIP(), []int{20}
+	return file_proto_cmd_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *GuestInfoResponse) GetResponse() *Response {
@@ -1290,7 +1394,7 @@ type GuestUserListResponse struct {
 
 func (x *GuestUserListResponse) Reset() {
 	*x = GuestUserListResponse{}
-	mi := &file_proto_cmd_proto_msgTypes[21]
+	mi := &file_proto_cmd_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1302,7 +1406,7 @@ func (x *GuestUserListResponse) String() string {
 func (*GuestUserListResponse) ProtoMessage() {}
 
 func (x *GuestUserListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_cmd_proto_msgTypes[21]
+	mi := &file_proto_cmd_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1315,7 +1419,7 @@ func (x *GuestUserListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GuestUserListResponse.ProtoReflect.Descriptor instead.
 func (*GuestUserListResponse) Descriptor() ([]byte, []int) {
-	return file_proto_cmd_proto_rawDescGZIP(), []int{21}
+	return file_proto_cmd_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *GuestUserListResponse) GetResponse() *Response {
@@ -1342,7 +1446,7 @@ type GuestFilesystemsResponse struct {
 
 func (x *GuestFilesystemsResponse) Reset() {
 	*x = GuestFilesystemsResponse{}
-	mi := &file_proto_cmd_proto_msgTypes[22]
+	mi := &file_proto_cmd_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1354,7 +1458,7 @@ func (x *GuestFilesystemsResponse) String() string {
 func (*GuestFilesystemsResponse) ProtoMessage() {}
 
 func (x *GuestFilesystemsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_cmd_proto_msgTypes[22]
+	mi := &file_proto_cmd_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1367,7 +1471,7 @@ func (x *GuestFilesystemsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GuestFilesystemsResponse.ProtoReflect.Descriptor instead.
 func (*GuestFilesystemsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_cmd_proto_rawDescGZIP(), []int{22}
+	return file_proto_cmd_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *GuestFilesystemsResponse) GetResponse() *Response {
@@ -1395,7 +1499,7 @@ type ExecResponse struct {
 
 func (x *ExecResponse) Reset() {
 	*x = ExecResponse{}
-	mi := &file_proto_cmd_proto_msgTypes[23]
+	mi := &file_proto_cmd_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1407,7 +1511,7 @@ func (x *ExecResponse) String() string {
 func (*ExecResponse) ProtoMessage() {}
 
 func (x *ExecResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_cmd_proto_msgTypes[23]
+	mi := &file_proto_cmd_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1420,7 +1524,7 @@ func (x *ExecResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecResponse.ProtoReflect.Descriptor instead.
 func (*ExecResponse) Descriptor() ([]byte, []int) {
-	return file_proto_cmd_proto_rawDescGZIP(), []int{23}
+	return file_proto_cmd_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ExecResponse) GetResponse() *Response {
@@ -1454,7 +1558,7 @@ type GuestPingRequest struct {
 
 func (x *GuestPingRequest) Reset() {
 	*x = GuestPingRequest{}
-	mi := &file_proto_cmd_proto_msgTypes[24]
+	mi := &file_proto_cmd_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1466,7 +1570,7 @@ func (x *GuestPingRequest) String() string {
 func (*GuestPingRequest) ProtoMessage() {}
 
 func (x *GuestPingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_cmd_proto_msgTypes[24]
+	mi := &file_proto_cmd_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1479,7 +1583,7 @@ func (x *GuestPingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GuestPingRequest.ProtoReflect.Descriptor instead.
 func (*GuestPingRequest) Descriptor() ([]byte, []int) {
-	return file_proto_cmd_proto_rawDescGZIP(), []int{24}
+	return file_proto_cmd_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *GuestPingRequest) GetDomainName() string {
@@ -1505,7 +1609,7 @@ type GuestPingResponse struct {
 
 func (x *GuestPingResponse) Reset() {
 	*x = GuestPingResponse{}
-	mi := &file_proto_cmd_proto_msgTypes[25]
+	mi := &file_proto_cmd_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1517,7 +1621,7 @@ func (x *GuestPingResponse) String() string {
 func (*GuestPingResponse) ProtoMessage() {}
 
 func (x *GuestPingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_cmd_proto_msgTypes[25]
+	mi := &file_proto_cmd_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1530,7 +1634,7 @@ func (x *GuestPingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GuestPingResponse.ProtoReflect.Descriptor instead.
 func (*GuestPingResponse) Descriptor() ([]byte, []int) {
-	return file_proto_cmd_proto_rawDescGZIP(), []int{25}
+	return file_proto_cmd_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *GuestPingResponse) GetResponse() *Response {
@@ -1550,7 +1654,7 @@ type FreezeRequest struct {
 
 func (x *FreezeRequest) Reset() {
 	*x = FreezeRequest{}
-	mi := &file_proto_cmd_proto_msgTypes[26]
+	mi := &file_proto_cmd_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1562,7 +1666,7 @@ func (x *FreezeRequest) String() string {
 func (*FreezeRequest) ProtoMessage() {}
 
 func (x *FreezeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_cmd_proto_msgTypes[26]
+	mi := &file_proto_cmd_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1575,7 +1679,7 @@ func (x *FreezeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FreezeRequest.ProtoReflect.Descriptor instead.
 func (*FreezeRequest) Descriptor() ([]byte, []int) {
-	return file_proto_cmd_proto_rawDescGZIP(), []int{26}
+	return file_proto_cmd_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *FreezeRequest) GetVmi() *VMI {
@@ -1602,7 +1706,7 @@ type MemoryDumpRequest struct {
 
 func (x *MemoryDumpRequest) Reset() {
 	*x = MemoryDumpRequest{}
-	mi := &file_proto_cmd_proto_msgTypes[27]
+	mi := &file_proto_cmd_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1614,7 +1718,7 @@ func (x *MemoryDumpRequest) String() string {
 func (*MemoryDumpRequest) ProtoMessage() {}
 
 func (x *MemoryDumpRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_cmd_proto_msgTypes[27]
+	mi := &file_proto_cmd_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1627,7 +1731,7 @@ func (x *MemoryDumpRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemoryDumpRequest.ProtoReflect.Descriptor instead.
 func (*MemoryDumpRequest) Descriptor() ([]byte, []int) {
-	return file_proto_cmd_proto_rawDescGZIP(), []int{27}
+	return file_proto_cmd_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *MemoryDumpRequest) GetVmi() *VMI {
@@ -1654,7 +1758,7 @@ type SEVInfoResponse struct {
 
 func (x *SEVInfoResponse) Reset() {
 	*x = SEVInfoResponse{}
-	mi := &file_proto_cmd_proto_msgTypes[28]
+	mi := &file_proto_cmd_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1666,7 +1770,7 @@ func (x *SEVInfoResponse) String() string {
 func (*SEVInfoResponse) ProtoMessage() {}
 
 func (x *SEVInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_cmd_proto_msgTypes[28]
+	mi := &file_proto_cmd_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1679,7 +1783,7 @@ func (x *SEVInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SEVInfoResponse.ProtoReflect.Descriptor instead.
 func (*SEVInfoResponse) Descriptor() ([]byte, []int) {
-	return file_proto_cmd_proto_rawDescGZIP(), []int{28}
+	return file_proto_cmd_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *SEVInfoResponse) GetResponse() *Response {
@@ -1706,7 +1810,7 @@ type LaunchMeasurementResponse struct {
 
 func (x *LaunchMeasurementResponse) Reset() {
 	*x = LaunchMeasurementResponse{}
-	mi := &file_proto_cmd_proto_msgTypes[29]
+	mi := &file_proto_cmd_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1718,7 +1822,7 @@ func (x *LaunchMeasurementResponse) String() string {
 func (*LaunchMeasurementResponse) ProtoMessage() {}
 
 func (x *LaunchMeasurementResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_cmd_proto_msgTypes[29]
+	mi := &file_proto_cmd_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1731,7 +1835,7 @@ func (x *LaunchMeasurementResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LaunchMeasurementResponse.ProtoReflect.Descriptor instead.
 func (*LaunchMeasurementResponse) Descriptor() ([]byte, []int) {
-	return file_proto_cmd_proto_rawDescGZIP(), []int{29}
+	return file_proto_cmd_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *LaunchMeasurementResponse) GetResponse() *Response {
@@ -1758,7 +1862,7 @@ type InjectLaunchSecretRequest struct {
 
 func (x *InjectLaunchSecretRequest) Reset() {
 	*x = InjectLaunchSecretRequest{}
-	mi := &file_proto_cmd_proto_msgTypes[30]
+	mi := &file_proto_cmd_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1770,7 +1874,7 @@ func (x *InjectLaunchSecretRequest) String() string {
 func (*InjectLaunchSecretRequest) ProtoMessage() {}
 
 func (x *InjectLaunchSecretRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_cmd_proto_msgTypes[30]
+	mi := &file_proto_cmd_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1783,7 +1887,7 @@ func (x *InjectLaunchSecretRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InjectLaunchSecretRequest.ProtoReflect.Descriptor instead.
 func (*InjectLaunchSecretRequest) Descriptor() ([]byte, []int) {
-	return file_proto_cmd_proto_rawDescGZIP(), []int{30}
+	return file_proto_cmd_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *InjectLaunchSecretRequest) GetVmi() *VMI {
@@ -1810,7 +1914,7 @@ type VMIChecksumResponse struct {
 
 func (x *VMIChecksumResponse) Reset() {
 	*x = VMIChecksumResponse{}
-	mi := &file_proto_cmd_proto_msgTypes[31]
+	mi := &file_proto_cmd_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1822,7 +1926,7 @@ func (x *VMIChecksumResponse) String() string {
 func (*VMIChecksumResponse) ProtoMessage() {}
 
 func (x *VMIChecksumResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_cmd_proto_msgTypes[31]
+	mi := &file_proto_cmd_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1835,7 +1939,7 @@ func (x *VMIChecksumResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VMIChecksumResponse.ProtoReflect.Descriptor instead.
 func (*VMIChecksumResponse) Descriptor() ([]byte, []int) {
-	return file_proto_cmd_proto_rawDescGZIP(), []int{31}
+	return file_proto_cmd_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *VMIChecksumResponse) GetResponse() *Response {
@@ -1861,7 +1965,7 @@ type MigrationProxyRequest struct {
 
 func (x *MigrationProxyRequest) Reset() {
 	*x = MigrationProxyRequest{}
-	mi := &file_proto_cmd_proto_msgTypes[32]
+	mi := &file_proto_cmd_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1873,7 +1977,7 @@ func (x *MigrationProxyRequest) String() string {
 func (*MigrationProxyRequest) ProtoMessage() {}
 
 func (x *MigrationProxyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_cmd_proto_msgTypes[32]
+	mi := &file_proto_cmd_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1886,7 +1990,7 @@ func (x *MigrationProxyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MigrationProxyRequest.ProtoReflect.Descriptor instead.
 func (*MigrationProxyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_cmd_proto_rawDescGZIP(), []int{32}
+	return file_proto_cmd_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *MigrationProxyRequest) GetAction() MigrationProxyAction {
@@ -1990,7 +2094,15 @@ const file_proto_cmd_proto_rawDesc = "" +
 	"\x06domain\x18\x02 \x01(\tR\x06domain\"n\n" +
 	"\x13DomainStatsResponse\x125\n" +
 	"\bresponse\x18\x01 \x01(\v2\x19.kubevirt.cmd.v1.ResponseR\bresponse\x12 \n" +
-	"\vdomainStats\x18\x02 \x01(\tR\vdomainStats\"x\n" +
+	"\vdomainStats\x18\x02 \x01(\tR\vdomainStats\"z\n" +
+	"\x17BlockJobsStatusResponse\x125\n" +
+	"\bresponse\x18\x01 \x01(\v2\x19.kubevirt.cmd.v1.ResponseR\bresponse\x12(\n" +
+	"\x0fblockJobsStatus\x18\x02 \x01(\tR\x0fblockJobsStatus\"k\n" +
+	"\x12JobsStatusResponse\x125\n" +
+	"\bresponse\x18\x01 \x01(\v2\x19.kubevirt.cmd.v1.ResponseR\bresponse\x12\x1e\n" +
+	"\n" +
+	"jobsStatus\x18\x02 \x01(\tR\n" +
+	"jobsStatus\"x\n" +
 	"\x11GuestInfoResponse\x125\n" +
 	"\bresponse\x18\x01 \x01(\v2\x19.kubevirt.cmd.v1.ResponseR\bresponse\x12,\n" +
 	"\x11guestInfoResponse\x18\x02 \x01(\tR\x11guestInfoResponse\"\x84\x01\n" +
@@ -2033,7 +2145,7 @@ const file_proto_cmd_proto_rawDesc = "" +
 	"\x06action\x18\x01 \x01(\x0e2%.kubevirt.cmd.v1.MigrationProxyActionR\x06action*+\n" +
 	"\x14MigrationProxyAction\x12\t\n" +
 	"\x05START\x10\x00\x12\b\n" +
-	"\x04STOP\x10\x012\xad\x15\n" +
+	"\x04STOP\x10\x012\xe5\x16\n" +
 	"\x03Cmd\x12N\n" +
 	"\x12SyncVirtualMachine\x12\x1b.kubevirt.cmd.v1.VMIRequest\x1a\x19.kubevirt.cmd.v1.Response\"\x00\x12O\n" +
 	"\x13PauseVirtualMachine\x12\x1b.kubevirt.cmd.v1.VMIRequest\x1a\x19.kubevirt.cmd.v1.Response\"\x00\x12Q\n" +
@@ -2051,7 +2163,9 @@ const file_proto_cmd_proto_rawDesc = "" +
 	"\x1fFinalizeVirtualMachineMigration\x12\x1b.kubevirt.cmd.v1.VMIRequest\x1a\x19.kubevirt.cmd.v1.Response\"\x00\x12N\n" +
 	"\x12HotplugHostDevices\x12\x1b.kubevirt.cmd.v1.VMIRequest\x1a\x19.kubevirt.cmd.v1.Response\"\x00\x12M\n" +
 	"\tGetDomain\x12\x1d.kubevirt.cmd.v1.EmptyRequest\x1a\x1f.kubevirt.cmd.v1.DomainResponse\"\x00\x12W\n" +
-	"\x0eGetDomainStats\x12\x1d.kubevirt.cmd.v1.EmptyRequest\x1a$.kubevirt.cmd.v1.DomainStatsResponse\"\x00\x12S\n" +
+	"\x0eGetDomainStats\x12\x1d.kubevirt.cmd.v1.EmptyRequest\x1a$.kubevirt.cmd.v1.DomainStatsResponse\"\x00\x12_\n" +
+	"\x12GetBlockJobsStatus\x12\x1d.kubevirt.cmd.v1.EmptyRequest\x1a(.kubevirt.cmd.v1.BlockJobsStatusResponse\"\x00\x12U\n" +
+	"\rGetJobsStatus\x12\x1d.kubevirt.cmd.v1.EmptyRequest\x1a#.kubevirt.cmd.v1.JobsStatusResponse\"\x00\x12S\n" +
 	"\fGetGuestInfo\x12\x1d.kubevirt.cmd.v1.EmptyRequest\x1a\".kubevirt.cmd.v1.GuestInfoResponse\"\x00\x12S\n" +
 	"\bGetUsers\x12\x1d.kubevirt.cmd.v1.EmptyRequest\x1a&.kubevirt.cmd.v1.GuestUserListResponse\"\x00\x12\\\n" +
 	"\x0eGetFilesystems\x12\x1d.kubevirt.cmd.v1.EmptyRequest\x1a).kubevirt.cmd.v1.GuestFilesystemsResponse\"\x00\x12B\n" +
@@ -2082,7 +2196,7 @@ func file_proto_cmd_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_cmd_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_cmd_proto_msgTypes = make([]protoimpl.MessageInfo, 36)
+var file_proto_cmd_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
 var file_proto_cmd_proto_goTypes = []any{
 	(MigrationProxyAction)(0),         // 0: kubevirt.cmd.v1.MigrationProxyAction
 	(*QemuVersionResponse)(nil),       // 1: kubevirt.cmd.v1.QemuVersionResponse
@@ -2105,22 +2219,24 @@ var file_proto_cmd_proto_goTypes = []any{
 	(*Response)(nil),                  // 18: kubevirt.cmd.v1.Response
 	(*DomainResponse)(nil),            // 19: kubevirt.cmd.v1.DomainResponse
 	(*DomainStatsResponse)(nil),       // 20: kubevirt.cmd.v1.DomainStatsResponse
-	(*GuestInfoResponse)(nil),         // 21: kubevirt.cmd.v1.GuestInfoResponse
-	(*GuestUserListResponse)(nil),     // 22: kubevirt.cmd.v1.GuestUserListResponse
-	(*GuestFilesystemsResponse)(nil),  // 23: kubevirt.cmd.v1.GuestFilesystemsResponse
-	(*ExecResponse)(nil),              // 24: kubevirt.cmd.v1.ExecResponse
-	(*GuestPingRequest)(nil),          // 25: kubevirt.cmd.v1.GuestPingRequest
-	(*GuestPingResponse)(nil),         // 26: kubevirt.cmd.v1.GuestPingResponse
-	(*FreezeRequest)(nil),             // 27: kubevirt.cmd.v1.FreezeRequest
-	(*MemoryDumpRequest)(nil),         // 28: kubevirt.cmd.v1.MemoryDumpRequest
-	(*SEVInfoResponse)(nil),           // 29: kubevirt.cmd.v1.SEVInfoResponse
-	(*LaunchMeasurementResponse)(nil), // 30: kubevirt.cmd.v1.LaunchMeasurementResponse
-	(*InjectLaunchSecretRequest)(nil), // 31: kubevirt.cmd.v1.InjectLaunchSecretRequest
-	(*VMIChecksumResponse)(nil),       // 32: kubevirt.cmd.v1.VMIChecksumResponse
-	(*MigrationProxyRequest)(nil),     // 33: kubevirt.cmd.v1.MigrationProxyRequest
-	nil,                               // 34: kubevirt.cmd.v1.VirtualMachineOptions.DisksInfoEntry
-	nil,                               // 35: kubevirt.cmd.v1.VirtualMachineOptions.InterfaceDomainAttachmentEntry
-	nil,                               // 36: kubevirt.cmd.v1.VirtualMachineOptions.InterfaceMigrationEntry
+	(*BlockJobsStatusResponse)(nil),   // 21: kubevirt.cmd.v1.BlockJobsStatusResponse
+	(*JobsStatusResponse)(nil),        // 22: kubevirt.cmd.v1.JobsStatusResponse
+	(*GuestInfoResponse)(nil),         // 23: kubevirt.cmd.v1.GuestInfoResponse
+	(*GuestUserListResponse)(nil),     // 24: kubevirt.cmd.v1.GuestUserListResponse
+	(*GuestFilesystemsResponse)(nil),  // 25: kubevirt.cmd.v1.GuestFilesystemsResponse
+	(*ExecResponse)(nil),              // 26: kubevirt.cmd.v1.ExecResponse
+	(*GuestPingRequest)(nil),          // 27: kubevirt.cmd.v1.GuestPingRequest
+	(*GuestPingResponse)(nil),         // 28: kubevirt.cmd.v1.GuestPingResponse
+	(*FreezeRequest)(nil),             // 29: kubevirt.cmd.v1.FreezeRequest
+	(*MemoryDumpRequest)(nil),         // 30: kubevirt.cmd.v1.MemoryDumpRequest
+	(*SEVInfoResponse)(nil),           // 31: kubevirt.cmd.v1.SEVInfoResponse
+	(*LaunchMeasurementResponse)(nil), // 32: kubevirt.cmd.v1.LaunchMeasurementResponse
+	(*InjectLaunchSecretRequest)(nil), // 33: kubevirt.cmd.v1.InjectLaunchSecretRequest
+	(*VMIChecksumResponse)(nil),       // 34: kubevirt.cmd.v1.VMIChecksumResponse
+	(*MigrationProxyRequest)(nil),     // 35: kubevirt.cmd.v1.MigrationProxyRequest
+	nil,                               // 36: kubevirt.cmd.v1.VirtualMachineOptions.DisksInfoEntry
+	nil,                               // 37: kubevirt.cmd.v1.VirtualMachineOptions.InterfaceDomainAttachmentEntry
+	nil,                               // 38: kubevirt.cmd.v1.VirtualMachineOptions.InterfaceMigrationEntry
 }
 var file_proto_cmd_proto_depIdxs = []int32{
 	18, // 0: kubevirt.cmd.v1.QemuVersionResponse.response:type_name -> kubevirt.cmd.v1.Response
@@ -2131,98 +2247,104 @@ var file_proto_cmd_proto_depIdxs = []int32{
 	7,  // 5: kubevirt.cmd.v1.Topology.numa_cells:type_name -> kubevirt.cmd.v1.Cell
 	9,  // 6: kubevirt.cmd.v1.VirtualMachineOptions.VirtualMachineSMBios:type_name -> kubevirt.cmd.v1.SMBios
 	8,  // 7: kubevirt.cmd.v1.VirtualMachineOptions.topology:type_name -> kubevirt.cmd.v1.Topology
-	34, // 8: kubevirt.cmd.v1.VirtualMachineOptions.DisksInfo:type_name -> kubevirt.cmd.v1.VirtualMachineOptions.DisksInfoEntry
+	36, // 8: kubevirt.cmd.v1.VirtualMachineOptions.DisksInfo:type_name -> kubevirt.cmd.v1.VirtualMachineOptions.DisksInfoEntry
 	11, // 9: kubevirt.cmd.v1.VirtualMachineOptions.clusterConfig:type_name -> kubevirt.cmd.v1.ClusterConfig
-	35, // 10: kubevirt.cmd.v1.VirtualMachineOptions.interfaceDomainAttachment:type_name -> kubevirt.cmd.v1.VirtualMachineOptions.InterfaceDomainAttachmentEntry
-	36, // 11: kubevirt.cmd.v1.VirtualMachineOptions.interfaceMigration:type_name -> kubevirt.cmd.v1.VirtualMachineOptions.InterfaceMigrationEntry
+	37, // 10: kubevirt.cmd.v1.VirtualMachineOptions.interfaceDomainAttachment:type_name -> kubevirt.cmd.v1.VirtualMachineOptions.InterfaceDomainAttachmentEntry
+	38, // 11: kubevirt.cmd.v1.VirtualMachineOptions.interfaceMigration:type_name -> kubevirt.cmd.v1.VirtualMachineOptions.InterfaceMigrationEntry
 	2,  // 12: kubevirt.cmd.v1.VMIRequest.vmi:type_name -> kubevirt.cmd.v1.VMI
 	13, // 13: kubevirt.cmd.v1.VMIRequest.options:type_name -> kubevirt.cmd.v1.VirtualMachineOptions
 	2,  // 14: kubevirt.cmd.v1.MigrationRequest.vmi:type_name -> kubevirt.cmd.v1.VMI
 	18, // 15: kubevirt.cmd.v1.DomainResponse.response:type_name -> kubevirt.cmd.v1.Response
 	18, // 16: kubevirt.cmd.v1.DomainStatsResponse.response:type_name -> kubevirt.cmd.v1.Response
-	18, // 17: kubevirt.cmd.v1.GuestInfoResponse.response:type_name -> kubevirt.cmd.v1.Response
-	18, // 18: kubevirt.cmd.v1.GuestUserListResponse.response:type_name -> kubevirt.cmd.v1.Response
-	18, // 19: kubevirt.cmd.v1.GuestFilesystemsResponse.response:type_name -> kubevirt.cmd.v1.Response
-	18, // 20: kubevirt.cmd.v1.ExecResponse.response:type_name -> kubevirt.cmd.v1.Response
-	18, // 21: kubevirt.cmd.v1.GuestPingResponse.response:type_name -> kubevirt.cmd.v1.Response
-	2,  // 22: kubevirt.cmd.v1.FreezeRequest.vmi:type_name -> kubevirt.cmd.v1.VMI
-	2,  // 23: kubevirt.cmd.v1.MemoryDumpRequest.vmi:type_name -> kubevirt.cmd.v1.VMI
-	18, // 24: kubevirt.cmd.v1.SEVInfoResponse.response:type_name -> kubevirt.cmd.v1.Response
-	18, // 25: kubevirt.cmd.v1.LaunchMeasurementResponse.response:type_name -> kubevirt.cmd.v1.Response
-	2,  // 26: kubevirt.cmd.v1.InjectLaunchSecretRequest.vmi:type_name -> kubevirt.cmd.v1.VMI
-	18, // 27: kubevirt.cmd.v1.VMIChecksumResponse.response:type_name -> kubevirt.cmd.v1.Response
-	0,  // 28: kubevirt.cmd.v1.MigrationProxyRequest.action:type_name -> kubevirt.cmd.v1.MigrationProxyAction
-	10, // 29: kubevirt.cmd.v1.VirtualMachineOptions.DisksInfoEntry.value:type_name -> kubevirt.cmd.v1.DiskInfo
-	12, // 30: kubevirt.cmd.v1.VirtualMachineOptions.InterfaceMigrationEntry.value:type_name -> kubevirt.cmd.v1.InterfaceBindingMigration
-	14, // 31: kubevirt.cmd.v1.Cmd.SyncVirtualMachine:input_type -> kubevirt.cmd.v1.VMIRequest
-	14, // 32: kubevirt.cmd.v1.Cmd.PauseVirtualMachine:input_type -> kubevirt.cmd.v1.VMIRequest
-	14, // 33: kubevirt.cmd.v1.Cmd.UnpauseVirtualMachine:input_type -> kubevirt.cmd.v1.VMIRequest
-	27, // 34: kubevirt.cmd.v1.Cmd.FreezeVirtualMachine:input_type -> kubevirt.cmd.v1.FreezeRequest
-	14, // 35: kubevirt.cmd.v1.Cmd.UnfreezeVirtualMachine:input_type -> kubevirt.cmd.v1.VMIRequest
-	14, // 36: kubevirt.cmd.v1.Cmd.SoftRebootVirtualMachine:input_type -> kubevirt.cmd.v1.VMIRequest
-	14, // 37: kubevirt.cmd.v1.Cmd.ShutdownVirtualMachine:input_type -> kubevirt.cmd.v1.VMIRequest
-	14, // 38: kubevirt.cmd.v1.Cmd.KillVirtualMachine:input_type -> kubevirt.cmd.v1.VMIRequest
-	14, // 39: kubevirt.cmd.v1.Cmd.DeleteVirtualMachine:input_type -> kubevirt.cmd.v1.VMIRequest
-	15, // 40: kubevirt.cmd.v1.Cmd.MigrateVirtualMachine:input_type -> kubevirt.cmd.v1.MigrationRequest
-	14, // 41: kubevirt.cmd.v1.Cmd.SyncMigrationTarget:input_type -> kubevirt.cmd.v1.VMIRequest
-	14, // 42: kubevirt.cmd.v1.Cmd.CancelVirtualMachineMigration:input_type -> kubevirt.cmd.v1.VMIRequest
-	14, // 43: kubevirt.cmd.v1.Cmd.SignalTargetPodCleanup:input_type -> kubevirt.cmd.v1.VMIRequest
-	14, // 44: kubevirt.cmd.v1.Cmd.FinalizeVirtualMachineMigration:input_type -> kubevirt.cmd.v1.VMIRequest
-	14, // 45: kubevirt.cmd.v1.Cmd.HotplugHostDevices:input_type -> kubevirt.cmd.v1.VMIRequest
-	17, // 46: kubevirt.cmd.v1.Cmd.GetDomain:input_type -> kubevirt.cmd.v1.EmptyRequest
-	17, // 47: kubevirt.cmd.v1.Cmd.GetDomainStats:input_type -> kubevirt.cmd.v1.EmptyRequest
-	17, // 48: kubevirt.cmd.v1.Cmd.GetGuestInfo:input_type -> kubevirt.cmd.v1.EmptyRequest
-	17, // 49: kubevirt.cmd.v1.Cmd.GetUsers:input_type -> kubevirt.cmd.v1.EmptyRequest
-	17, // 50: kubevirt.cmd.v1.Cmd.GetFilesystems:input_type -> kubevirt.cmd.v1.EmptyRequest
-	17, // 51: kubevirt.cmd.v1.Cmd.Ping:input_type -> kubevirt.cmd.v1.EmptyRequest
-	16, // 52: kubevirt.cmd.v1.Cmd.Exec:input_type -> kubevirt.cmd.v1.ExecRequest
-	25, // 53: kubevirt.cmd.v1.Cmd.GuestPing:input_type -> kubevirt.cmd.v1.GuestPingRequest
-	28, // 54: kubevirt.cmd.v1.Cmd.VirtualMachineMemoryDump:input_type -> kubevirt.cmd.v1.MemoryDumpRequest
-	17, // 55: kubevirt.cmd.v1.Cmd.GetQemuVersion:input_type -> kubevirt.cmd.v1.EmptyRequest
-	14, // 56: kubevirt.cmd.v1.Cmd.SyncVirtualMachineCPUs:input_type -> kubevirt.cmd.v1.VMIRequest
-	14, // 57: kubevirt.cmd.v1.Cmd.SyncVirtualMachineMemory:input_type -> kubevirt.cmd.v1.VMIRequest
-	17, // 58: kubevirt.cmd.v1.Cmd.GetSEVInfo:input_type -> kubevirt.cmd.v1.EmptyRequest
-	14, // 59: kubevirt.cmd.v1.Cmd.GetLaunchMeasurement:input_type -> kubevirt.cmd.v1.VMIRequest
-	31, // 60: kubevirt.cmd.v1.Cmd.InjectLaunchSecret:input_type -> kubevirt.cmd.v1.InjectLaunchSecretRequest
-	17, // 61: kubevirt.cmd.v1.Cmd.GetAppliedVMIChecksum:input_type -> kubevirt.cmd.v1.EmptyRequest
-	33, // 62: kubevirt.cmd.v1.Cmd.MigrationProxy:input_type -> kubevirt.cmd.v1.MigrationProxyRequest
-	18, // 63: kubevirt.cmd.v1.Cmd.SyncVirtualMachine:output_type -> kubevirt.cmd.v1.Response
-	18, // 64: kubevirt.cmd.v1.Cmd.PauseVirtualMachine:output_type -> kubevirt.cmd.v1.Response
-	18, // 65: kubevirt.cmd.v1.Cmd.UnpauseVirtualMachine:output_type -> kubevirt.cmd.v1.Response
-	18, // 66: kubevirt.cmd.v1.Cmd.FreezeVirtualMachine:output_type -> kubevirt.cmd.v1.Response
-	18, // 67: kubevirt.cmd.v1.Cmd.UnfreezeVirtualMachine:output_type -> kubevirt.cmd.v1.Response
-	18, // 68: kubevirt.cmd.v1.Cmd.SoftRebootVirtualMachine:output_type -> kubevirt.cmd.v1.Response
-	18, // 69: kubevirt.cmd.v1.Cmd.ShutdownVirtualMachine:output_type -> kubevirt.cmd.v1.Response
-	18, // 70: kubevirt.cmd.v1.Cmd.KillVirtualMachine:output_type -> kubevirt.cmd.v1.Response
-	18, // 71: kubevirt.cmd.v1.Cmd.DeleteVirtualMachine:output_type -> kubevirt.cmd.v1.Response
-	18, // 72: kubevirt.cmd.v1.Cmd.MigrateVirtualMachine:output_type -> kubevirt.cmd.v1.Response
-	18, // 73: kubevirt.cmd.v1.Cmd.SyncMigrationTarget:output_type -> kubevirt.cmd.v1.Response
-	18, // 74: kubevirt.cmd.v1.Cmd.CancelVirtualMachineMigration:output_type -> kubevirt.cmd.v1.Response
-	18, // 75: kubevirt.cmd.v1.Cmd.SignalTargetPodCleanup:output_type -> kubevirt.cmd.v1.Response
-	18, // 76: kubevirt.cmd.v1.Cmd.FinalizeVirtualMachineMigration:output_type -> kubevirt.cmd.v1.Response
-	18, // 77: kubevirt.cmd.v1.Cmd.HotplugHostDevices:output_type -> kubevirt.cmd.v1.Response
-	19, // 78: kubevirt.cmd.v1.Cmd.GetDomain:output_type -> kubevirt.cmd.v1.DomainResponse
-	20, // 79: kubevirt.cmd.v1.Cmd.GetDomainStats:output_type -> kubevirt.cmd.v1.DomainStatsResponse
-	21, // 80: kubevirt.cmd.v1.Cmd.GetGuestInfo:output_type -> kubevirt.cmd.v1.GuestInfoResponse
-	22, // 81: kubevirt.cmd.v1.Cmd.GetUsers:output_type -> kubevirt.cmd.v1.GuestUserListResponse
-	23, // 82: kubevirt.cmd.v1.Cmd.GetFilesystems:output_type -> kubevirt.cmd.v1.GuestFilesystemsResponse
-	18, // 83: kubevirt.cmd.v1.Cmd.Ping:output_type -> kubevirt.cmd.v1.Response
-	24, // 84: kubevirt.cmd.v1.Cmd.Exec:output_type -> kubevirt.cmd.v1.ExecResponse
-	26, // 85: kubevirt.cmd.v1.Cmd.GuestPing:output_type -> kubevirt.cmd.v1.GuestPingResponse
-	18, // 86: kubevirt.cmd.v1.Cmd.VirtualMachineMemoryDump:output_type -> kubevirt.cmd.v1.Response
-	1,  // 87: kubevirt.cmd.v1.Cmd.GetQemuVersion:output_type -> kubevirt.cmd.v1.QemuVersionResponse
-	18, // 88: kubevirt.cmd.v1.Cmd.SyncVirtualMachineCPUs:output_type -> kubevirt.cmd.v1.Response
-	18, // 89: kubevirt.cmd.v1.Cmd.SyncVirtualMachineMemory:output_type -> kubevirt.cmd.v1.Response
-	29, // 90: kubevirt.cmd.v1.Cmd.GetSEVInfo:output_type -> kubevirt.cmd.v1.SEVInfoResponse
-	30, // 91: kubevirt.cmd.v1.Cmd.GetLaunchMeasurement:output_type -> kubevirt.cmd.v1.LaunchMeasurementResponse
-	18, // 92: kubevirt.cmd.v1.Cmd.InjectLaunchSecret:output_type -> kubevirt.cmd.v1.Response
-	32, // 93: kubevirt.cmd.v1.Cmd.GetAppliedVMIChecksum:output_type -> kubevirt.cmd.v1.VMIChecksumResponse
-	18, // 94: kubevirt.cmd.v1.Cmd.MigrationProxy:output_type -> kubevirt.cmd.v1.Response
-	63, // [63:95] is the sub-list for method output_type
-	31, // [31:63] is the sub-list for method input_type
-	31, // [31:31] is the sub-list for extension type_name
-	31, // [31:31] is the sub-list for extension extendee
-	0,  // [0:31] is the sub-list for field type_name
+	18, // 17: kubevirt.cmd.v1.BlockJobsStatusResponse.response:type_name -> kubevirt.cmd.v1.Response
+	18, // 18: kubevirt.cmd.v1.JobsStatusResponse.response:type_name -> kubevirt.cmd.v1.Response
+	18, // 19: kubevirt.cmd.v1.GuestInfoResponse.response:type_name -> kubevirt.cmd.v1.Response
+	18, // 20: kubevirt.cmd.v1.GuestUserListResponse.response:type_name -> kubevirt.cmd.v1.Response
+	18, // 21: kubevirt.cmd.v1.GuestFilesystemsResponse.response:type_name -> kubevirt.cmd.v1.Response
+	18, // 22: kubevirt.cmd.v1.ExecResponse.response:type_name -> kubevirt.cmd.v1.Response
+	18, // 23: kubevirt.cmd.v1.GuestPingResponse.response:type_name -> kubevirt.cmd.v1.Response
+	2,  // 24: kubevirt.cmd.v1.FreezeRequest.vmi:type_name -> kubevirt.cmd.v1.VMI
+	2,  // 25: kubevirt.cmd.v1.MemoryDumpRequest.vmi:type_name -> kubevirt.cmd.v1.VMI
+	18, // 26: kubevirt.cmd.v1.SEVInfoResponse.response:type_name -> kubevirt.cmd.v1.Response
+	18, // 27: kubevirt.cmd.v1.LaunchMeasurementResponse.response:type_name -> kubevirt.cmd.v1.Response
+	2,  // 28: kubevirt.cmd.v1.InjectLaunchSecretRequest.vmi:type_name -> kubevirt.cmd.v1.VMI
+	18, // 29: kubevirt.cmd.v1.VMIChecksumResponse.response:type_name -> kubevirt.cmd.v1.Response
+	0,  // 30: kubevirt.cmd.v1.MigrationProxyRequest.action:type_name -> kubevirt.cmd.v1.MigrationProxyAction
+	10, // 31: kubevirt.cmd.v1.VirtualMachineOptions.DisksInfoEntry.value:type_name -> kubevirt.cmd.v1.DiskInfo
+	12, // 32: kubevirt.cmd.v1.VirtualMachineOptions.InterfaceMigrationEntry.value:type_name -> kubevirt.cmd.v1.InterfaceBindingMigration
+	14, // 33: kubevirt.cmd.v1.Cmd.SyncVirtualMachine:input_type -> kubevirt.cmd.v1.VMIRequest
+	14, // 34: kubevirt.cmd.v1.Cmd.PauseVirtualMachine:input_type -> kubevirt.cmd.v1.VMIRequest
+	14, // 35: kubevirt.cmd.v1.Cmd.UnpauseVirtualMachine:input_type -> kubevirt.cmd.v1.VMIRequest
+	29, // 36: kubevirt.cmd.v1.Cmd.FreezeVirtualMachine:input_type -> kubevirt.cmd.v1.FreezeRequest
+	14, // 37: kubevirt.cmd.v1.Cmd.UnfreezeVirtualMachine:input_type -> kubevirt.cmd.v1.VMIRequest
+	14, // 38: kubevirt.cmd.v1.Cmd.SoftRebootVirtualMachine:input_type -> kubevirt.cmd.v1.VMIRequest
+	14, // 39: kubevirt.cmd.v1.Cmd.ShutdownVirtualMachine:input_type -> kubevirt.cmd.v1.VMIRequest
+	14, // 40: kubevirt.cmd.v1.Cmd.KillVirtualMachine:input_type -> kubevirt.cmd.v1.VMIRequest
+	14, // 41: kubevirt.cmd.v1.Cmd.DeleteVirtualMachine:input_type -> kubevirt.cmd.v1.VMIRequest
+	15, // 42: kubevirt.cmd.v1.Cmd.MigrateVirtualMachine:input_type -> kubevirt.cmd.v1.MigrationRequest
+	14, // 43: kubevirt.cmd.v1.Cmd.SyncMigrationTarget:input_type -> kubevirt.cmd.v1.VMIRequest
+	14, // 44: kubevirt.cmd.v1.Cmd.CancelVirtualMachineMigration:input_type -> kubevirt.cmd.v1.VMIRequest
+	14, // 45: kubevirt.cmd.v1.Cmd.SignalTargetPodCleanup:input_type -> kubevirt.cmd.v1.VMIRequest
+	14, // 46: kubevirt.cmd.v1.Cmd.FinalizeVirtualMachineMigration:input_type -> kubevirt.cmd.v1.VMIRequest
+	14, // 47: kubevirt.cmd.v1.Cmd.HotplugHostDevices:input_type -> kubevirt.cmd.v1.VMIRequest
+	17, // 48: kubevirt.cmd.v1.Cmd.GetDomain:input_type -> kubevirt.cmd.v1.EmptyRequest
+	17, // 49: kubevirt.cmd.v1.Cmd.GetDomainStats:input_type -> kubevirt.cmd.v1.EmptyRequest
+	17, // 50: kubevirt.cmd.v1.Cmd.GetBlockJobsStatus:input_type -> kubevirt.cmd.v1.EmptyRequest
+	17, // 51: kubevirt.cmd.v1.Cmd.GetJobsStatus:input_type -> kubevirt.cmd.v1.EmptyRequest
+	17, // 52: kubevirt.cmd.v1.Cmd.GetGuestInfo:input_type -> kubevirt.cmd.v1.EmptyRequest
+	17, // 53: kubevirt.cmd.v1.Cmd.GetUsers:input_type -> kubevirt.cmd.v1.EmptyRequest
+	17, // 54: kubevirt.cmd.v1.Cmd.GetFilesystems:input_type -> kubevirt.cmd.v1.EmptyRequest
+	17, // 55: kubevirt.cmd.v1.Cmd.Ping:input_type -> kubevirt.cmd.v1.EmptyRequest
+	16, // 56: kubevirt.cmd.v1.Cmd.Exec:input_type -> kubevirt.cmd.v1.ExecRequest
+	27, // 57: kubevirt.cmd.v1.Cmd.GuestPing:input_type -> kubevirt.cmd.v1.GuestPingRequest
+	30, // 58: kubevirt.cmd.v1.Cmd.VirtualMachineMemoryDump:input_type -> kubevirt.cmd.v1.MemoryDumpRequest
+	17, // 59: kubevirt.cmd.v1.Cmd.GetQemuVersion:input_type -> kubevirt.cmd.v1.EmptyRequest
+	14, // 60: kubevirt.cmd.v1.Cmd.SyncVirtualMachineCPUs:input_type -> kubevirt.cmd.v1.VMIRequest
+	14, // 61: kubevirt.cmd.v1.Cmd.SyncVirtualMachineMemory:input_type -> kubevirt.cmd.v1.VMIRequest
+	17, // 62: kubevirt.cmd.v1.Cmd.GetSEVInfo:input_type -> kubevirt.cmd.v1.EmptyRequest
+	14, // 63: kubevirt.cmd.v1.Cmd.GetLaunchMeasurement:input_type -> kubevirt.cmd.v1.VMIRequest
+	33, // 64: kubevirt.cmd.v1.Cmd.InjectLaunchSecret:input_type -> kubevirt.cmd.v1.InjectLaunchSecretRequest
+	17, // 65: kubevirt.cmd.v1.Cmd.GetAppliedVMIChecksum:input_type -> kubevirt.cmd.v1.EmptyRequest
+	35, // 66: kubevirt.cmd.v1.Cmd.MigrationProxy:input_type -> kubevirt.cmd.v1.MigrationProxyRequest
+	18, // 67: kubevirt.cmd.v1.Cmd.SyncVirtualMachine:output_type -> kubevirt.cmd.v1.Response
+	18, // 68: kubevirt.cmd.v1.Cmd.PauseVirtualMachine:output_type -> kubevirt.cmd.v1.Response
+	18, // 69: kubevirt.cmd.v1.Cmd.UnpauseVirtualMachine:output_type -> kubevirt.cmd.v1.Response
+	18, // 70: kubevirt.cmd.v1.Cmd.FreezeVirtualMachine:output_type -> kubevirt.cmd.v1.Response
+	18, // 71: kubevirt.cmd.v1.Cmd.UnfreezeVirtualMachine:output_type -> kubevirt.cmd.v1.Response
+	18, // 72: kubevirt.cmd.v1.Cmd.SoftRebootVirtualMachine:output_type -> kubevirt.cmd.v1.Response
+	18, // 73: kubevirt.cmd.v1.Cmd.ShutdownVirtualMachine:output_type -> kubevirt.cmd.v1.Response
+	18, // 74: kubevirt.cmd.v1.Cmd.KillVirtualMachine:output_type -> kubevirt.cmd.v1.Response
+	18, // 75: kubevirt.cmd.v1.Cmd.DeleteVirtualMachine:output_type -> kubevirt.cmd.v1.Response
+	18, // 76: kubevirt.cmd.v1.Cmd.MigrateVirtualMachine:output_type -> kubevirt.cmd.v1.Response
+	18, // 77: kubevirt.cmd.v1.Cmd.SyncMigrationTarget:output_type -> kubevirt.cmd.v1.Response
+	18, // 78: kubevirt.cmd.v1.Cmd.CancelVirtualMachineMigration:output_type -> kubevirt.cmd.v1.Response
+	18, // 79: kubevirt.cmd.v1.Cmd.SignalTargetPodCleanup:output_type -> kubevirt.cmd.v1.Response
+	18, // 80: kubevirt.cmd.v1.Cmd.FinalizeVirtualMachineMigration:output_type -> kubevirt.cmd.v1.Response
+	18, // 81: kubevirt.cmd.v1.Cmd.HotplugHostDevices:output_type -> kubevirt.cmd.v1.Response
+	19, // 82: kubevirt.cmd.v1.Cmd.GetDomain:output_type -> kubevirt.cmd.v1.DomainResponse
+	20, // 83: kubevirt.cmd.v1.Cmd.GetDomainStats:output_type -> kubevirt.cmd.v1.DomainStatsResponse
+	21, // 84: kubevirt.cmd.v1.Cmd.GetBlockJobsStatus:output_type -> kubevirt.cmd.v1.BlockJobsStatusResponse
+	22, // 85: kubevirt.cmd.v1.Cmd.GetJobsStatus:output_type -> kubevirt.cmd.v1.JobsStatusResponse
+	23, // 86: kubevirt.cmd.v1.Cmd.GetGuestInfo:output_type -> kubevirt.cmd.v1.GuestInfoResponse
+	24, // 87: kubevirt.cmd.v1.Cmd.GetUsers:output_type -> kubevirt.cmd.v1.GuestUserListResponse
+	25, // 88: kubevirt.cmd.v1.Cmd.GetFilesystems:output_type -> kubevirt.cmd.v1.GuestFilesystemsResponse
+	18, // 89: kubevirt.cmd.v1.Cmd.Ping:output_type -> kubevirt.cmd.v1.Response
+	26, // 90: kubevirt.cmd.v1.Cmd.Exec:output_type -> kubevirt.cmd.v1.ExecResponse
+	28, // 91: kubevirt.cmd.v1.Cmd.GuestPing:output_type -> kubevirt.cmd.v1.GuestPingResponse
+	18, // 92: kubevirt.cmd.v1.Cmd.VirtualMachineMemoryDump:output_type -> kubevirt.cmd.v1.Response
+	1,  // 93: kubevirt.cmd.v1.Cmd.GetQemuVersion:output_type -> kubevirt.cmd.v1.QemuVersionResponse
+	18, // 94: kubevirt.cmd.v1.Cmd.SyncVirtualMachineCPUs:output_type -> kubevirt.cmd.v1.Response
+	18, // 95: kubevirt.cmd.v1.Cmd.SyncVirtualMachineMemory:output_type -> kubevirt.cmd.v1.Response
+	31, // 96: kubevirt.cmd.v1.Cmd.GetSEVInfo:output_type -> kubevirt.cmd.v1.SEVInfoResponse
+	32, // 97: kubevirt.cmd.v1.Cmd.GetLaunchMeasurement:output_type -> kubevirt.cmd.v1.LaunchMeasurementResponse
+	18, // 98: kubevirt.cmd.v1.Cmd.InjectLaunchSecret:output_type -> kubevirt.cmd.v1.Response
+	34, // 99: kubevirt.cmd.v1.Cmd.GetAppliedVMIChecksum:output_type -> kubevirt.cmd.v1.VMIChecksumResponse
+	18, // 100: kubevirt.cmd.v1.Cmd.MigrationProxy:output_type -> kubevirt.cmd.v1.Response
+	67, // [67:101] is the sub-list for method output_type
+	33, // [33:67] is the sub-list for method input_type
+	33, // [33:33] is the sub-list for extension type_name
+	33, // [33:33] is the sub-list for extension extendee
+	0,  // [0:33] is the sub-list for field type_name
 }
 
 func init() { file_proto_cmd_proto_init() }
@@ -2236,7 +2358,7 @@ func file_proto_cmd_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_cmd_proto_rawDesc), len(file_proto_cmd_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   36,
+			NumMessages:   38,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -98,6 +98,21 @@ on:
         type: string
         default: "cn-4006-for-e2e-test"
         description: "ClusterNetwork name for nested VM additional network interface"
+      apt_mirror_enabled:
+        required: false
+        type: boolean
+        default: true
+        description: "Use custom APT mirror inside VMs cloud-init (Ubuntu). When false, VMs use stock Ubuntu repositories."
+      apt_mirror_name:
+        required: false
+        type: string
+        default: "hetzner"
+        description: "APT mirror short name (used as /etc/apt/sources.list.d/<name>.list file name)"
+      apt_mirror_url:
+        required: false
+        type: string
+        default: "https://mirror.hetzner.com/ubuntu/packages"
+        description: "APT mirror base URL (without trailing slash)"
     secrets:
       DEV_REGISTRY_DOCKER_CFG:
         required: true
@@ -220,6 +235,10 @@ jobs:
             - console
             - virtualization
           instances:
+            aptMirror:
+              enabled: ${{ inputs.apt_mirror_enabled }}
+              name: ${{ inputs.apt_mirror_name }}
+              url: ${{ inputs.apt_mirror_url }}
             masterNodes:
               count: 1
               cfg:
@@ -297,6 +316,9 @@ jobs:
             --local-ssh=true \
             --local-ssh-opts="-o StrictHostKeyChecking=no" \
             --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+            --local-ssh-opts="-o ServerAliveInterval=15" \
+            --local-ssh-opts="-o ServerAliveCountMax=8" \
+            --local-ssh-opts="-o ConnectTimeout=10" \
             ${DEFAULT_USER}@${host}.${NAMESPACE} \
             -c "$cmd"
           }
@@ -344,6 +366,9 @@ jobs:
             --local-ssh=true \
             --local-ssh-opts="-o StrictHostKeyChecking=no" \
             --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+            --local-ssh-opts="-o ServerAliveInterval=15" \
+            --local-ssh-opts="-o ServerAliveCountMax=8" \
+            --local-ssh-opts="-o ConnectTimeout=10" \
             ${DEFAULT_USER}@${nested_master}.${NAMESPACE} \
             -c "$cmd"
           }
@@ -402,18 +427,18 @@ jobs:
           d8vscp "${DEFAULT_USER}@${nested_master}.$NAMESPACE:/var/log/cloud-init*.log" "./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/"
 
       - name: Prepare artifact
-        if: always() && steps.dhctl-bootstrap.outcome == 'success'
+        if: success() || failure()
         run: |
-          sudo chown -fR 1001:1001 ${{ env.SETUP_CLUSTER_TYPE_PATH }}
-          yq e '.deckhouse.registryDockerCfg = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/values.yaml
+          sudo chown -fR 1001:1001 ${{ env.SETUP_CLUSTER_TYPE_PATH }} || true
+          yq e '.deckhouse.registryDockerCfg = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/values.yaml || true
           yq e 'select(.kind == "InitConfiguration").deckhouse.registryDockerCfg = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/config.yaml || echo "The config.yaml file is not generated, skipping"
           yq e '.discovered.registry_url = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/discovered-values.yaml || echo "The discovered-values.yaml file is not generated, skipping editing registry_url"
           yq e '.discovered.registry_auth = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/discovered-values.yaml || echo "The discovered-values.yaml file is not generated, skipping editing registry_auth"
-          echo "${{ steps.generate-kubeconfig.outputs.kubeconfig }}" | base64 -d | base64 -d > ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/kube-config
+          echo "${{ steps.generate-kubeconfig.outputs.kubeconfig }}" | base64 -d | base64 -d > ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/kube-config || echo "kubeconfig not available, skipping"
 
       - name: Upload generated files
         uses: actions/upload-artifact@v4
-        if: always() && steps.dhctl-bootstrap.outcome == 'success'
+        if: success() || failure()
         with:
           name: ${{ inputs.storage_type }}-generated-files-${{ inputs.date_start }}
           path: |
@@ -519,7 +544,7 @@ jobs:
 
           for i in $(seq 1 $count); do
             nodes=$(kubectl get nodes -o name | wc -l)
-            actual=$(kubectl get nodenetworkinterfaces -o name 2>/dev/null | wc -l) || true
+            actual=$(kubectl get nodenetworkinterfaces -o json | jq -r '.items[] | select(.status.operationalState == "Up") | .metadata.name' | wc -l) || true
             expected=$((nodes * 2))
 
             echo "[INFO] Attempt $i/$count: expected=$expected, actual=$actual"
@@ -535,11 +560,11 @@ jobs:
               echo ::group::📝 [DEBUG] show namespaces d8-sdn
               kubectl -n d8-sdn get pods || true
               echo ::endgroup::
-              
+
               echo ::group::📝 [DEBUG] show nodenetworkinterfaces d8-sdn
               kubectl get nodenetworkinterfaces || true
               echo ::endgroup::
-              
+
               echo "[INFO] Retrying in 10 seconds..."
               sleep $wait_time_seconds
             elif [ $i -lt $count ]; then
@@ -948,7 +973,7 @@ jobs:
         run: |
           REGISTRY=$(base64 -d <<< "${{secrets.DEV_REGISTRY_DOCKER_CFG}}" | jq '.auths | to_entries | .[] | .key' -r)
 
-          echo "[INFO] Apply ModuleSource prod config"
+          echo "[INFO] Apply ModuleSource dev config"
           kubectl apply -f -<<EOF
           apiVersion: deckhouse.io/v1alpha1
           kind: ModuleSource
@@ -962,7 +987,7 @@ jobs:
               scheme: HTTPS
           EOF
 
-          kubectl wait --for=jsonpath='{.status.phase}'=Active ms deckhouse-dev --timeout=30s
+          kubectl wait --for=jsonpath='{.status.phase}'=Active ms deckhouse-dev --timeout=300s
 
           echo "[INFO] Apply Virtualization module config"
           kubectl apply -f -<<EOF
@@ -990,7 +1015,7 @@ jobs:
             name: virtualization
           spec:
             imageTag: ${{ env.VIRTUALIZATION_TAG }}
-            scanInterval: 10h
+            scanInterval: 120h
           EOF
 
           echo "[INFO] Show ModuleSource"
@@ -1223,6 +1248,37 @@ jobs:
           echo "Download dependencies"
           go mod download
 
+      - name: Detect Kubernetes version for E2E
+        id: detect-k8s-version
+        run: |
+          set -euo pipefail
+
+          VERSION_JSON=$(kubectl version -o json)
+          SERVER_VERSION=$(echo "$VERSION_JSON" | jq -r '.serverVersion.gitVersion')
+          SERVER_MAJOR=$(echo "$VERSION_JSON" | jq -r '.serverVersion.major' | tr -cd '0-9')
+          SERVER_MINOR=$(echo "$VERSION_JSON" | jq -r '.serverVersion.minor' | tr -cd '0-9')
+
+          if [[ -z "$SERVER_MAJOR" || -z "$SERVER_MINOR" ]]; then
+            echo "[ERROR] Failed to parse Kubernetes server version: $SERVER_VERSION"
+            exit 1
+          fi
+
+          LABEL_FILTER=""
+          USB_SUPPORTED=false
+
+          if (( SERVER_MAJOR > 1 || (SERVER_MAJOR == 1 && SERVER_MINOR >= 34) )); then
+            USB_SUPPORTED=true
+            echo "[INFO] Kubernetes server version $SERVER_VERSION supports USB E2E tests"
+          else
+            LABEL_FILTER="!usb-precheck"
+            echo "[INFO] Kubernetes server version $SERVER_VERSION does not support USB E2E tests"
+            echo "[INFO] USB-labeled specs will be excluded with label filter: $LABEL_FILTER"
+          fi
+
+          echo "server-version=$SERVER_VERSION" >> "$GITHUB_OUTPUT"
+          echo "usb-supported=$USB_SUPPORTED" >> "$GITHUB_OUTPUT"
+          echo "label-filter=$LABEL_FILTER" >> "$GITHUB_OUTPUT"
+
       - name: Create vmclass for e2e tests
         run: |
           if ! (kubectl get vmclass generic-for-e2e 2>/dev/null); then
@@ -1245,28 +1301,47 @@ jobs:
           TIMEOUT: ${{ inputs.e2e_timeout }}
           CSI: ${{ inputs.storage_type }}
           STORAGE_CLASS_NAME: ${{ inputs.nested_storageclass_name }}
+          LABELS: ${{ steps.detect-k8s-version.outputs.label-filter }}
+          SERVER_K8S_VERSION: ${{ steps.detect-k8s-version.outputs.server-version }}
+          USB_SUPPORTED: ${{ steps.detect-k8s-version.outputs.usb-supported }}
         working-directory: ./test/e2e/
         run: |
           GINKGO_RESULT=$(mktemp -p $RUNNER_TEMP)
           DATE=$(date +"%Y-%m-%d")
           START_TIME=$(date +"%H:%M:%S")
           summary_file_name_junit="e2e_summary_${CSI}_${DATE}.xml"
+          ginkgo_json_report="ginkgo_report_${CSI}_${DATE}.json"
           summary_file_name_json="e2e_summary_${CSI}_${DATE}.json"
+          FOCUS="${{ inputs.e2e_focus_tests }}"
 
           cp -a legacy/testdata /tmp/testdata
 
-          set +e
-          FOCUS="${{ inputs.e2e_focus_tests }}"
-          if [ -n "$FOCUS" ]; then
-            go tool ginkgo \
-              --focus="$FOCUS" \
-              -v --race --timeout=$TIMEOUT \
-              --junit-report=$summary_file_name_junit | tee $GINKGO_RESULT
-          else
-            go tool ginkgo \
-              -v --race --timeout=$TIMEOUT \
-              --junit-report=$summary_file_name_junit | tee $GINKGO_RESULT
+          echo "[INFO] Kubernetes server version: ${SERVER_K8S_VERSION}"
+          echo "[INFO] USB E2E supported: ${USB_SUPPORTED}"
+          if [ -n "${LABELS:-}" ]; then
+            echo "[INFO] Applying Ginkgo label filter: ${LABELS}"
           fi
+
+          ./scripts/precheck-prepare_ci.sh
+
+          set +e
+          GINKGO_ARGS=(
+            -v
+            --race
+            --timeout="$TIMEOUT"
+            --json-report="$ginkgo_json_report"
+            --junit-report="$summary_file_name_junit"
+          )
+
+          if [ -n "${LABELS:-}" ]; then
+            GINKGO_ARGS+=(--label-filter="$LABELS")
+          fi
+
+          if [ -n "$FOCUS" ]; then
+            GINKGO_ARGS+=(--focus="$FOCUS")
+          fi
+
+          go tool ginkgo "${GINKGO_ARGS[@]}" | tee $GINKGO_RESULT
           GINKGO_EXIT_CODE=$?
           set -e
 
@@ -1323,6 +1398,7 @@ jobs:
           name: e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ steps.vars.outputs.e2e-start-time }}
           path: |
             test/e2e/e2e_summary_*.json
+            test/e2e/ginkgo_report_*.json
             test/e2e/e2e_summary_*.xml
             test/e2e/*junit*.xml
           if-no-files-found: ignore
@@ -1402,18 +1478,38 @@ jobs:
               }'
           }
 
+          # Summary report is a flat JSON object; Ginkgo JSON report is an array.
+          is_summary_report() {
+            jq -e '
+              type == "object" and
+              has("Status") and
+              has("Passed") and
+              has("Failed") and
+              has("Pending") and
+              has("Skipped")
+            ' >/dev/null 2>&1
+          }
+
           # Try to find and load E2E test report
           E2E_REPORT_FILE=""
           REPORT_JSON=""
 
-          # Search for report file in test/e2e directory
-          E2E_REPORT_FILE=$(find test/e2e -name "e2e_summary_${{ inputs.storage_type }}_*.json" -type f 2>/dev/null | head -1)
+          # Search for the generated summary file and ignore the raw Ginkgo JSON report.
+          E2E_REPORT_FILE=$(find test/e2e -type f \
+            -name "e2e_summary_${{ inputs.storage_type }}_*.json" \
+            ! -name "*-ginkgo-report.json" \
+            2>/dev/null | sort | head -1)
 
           if [ -n "$E2E_REPORT_FILE" ] && [ -f "$E2E_REPORT_FILE" ]; then
             echo "[INFO] Found E2E report file: $E2E_REPORT_FILE"
-            REPORT_JSON=$(cat "$E2E_REPORT_FILE" | jq -c .)
-            echo "[INFO] Loaded report from file"
-            echo "$REPORT_JSON" | jq .
+            REPORT_JSON=$(jq -c . "$E2E_REPORT_FILE")
+            if echo "$REPORT_JSON" | is_summary_report; then
+              echo "[INFO] Loaded summary report from file"
+              echo "$REPORT_JSON" | jq .
+            else
+              echo "[WARN] Ignoring non-summary E2E report file: $E2E_REPORT_FILE"
+              REPORT_JSON=""
+            fi
           fi
 
           # Function to process a stage

@@ -41,6 +41,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
@@ -53,14 +54,15 @@ func decoratorsForVolumeMigrations() []interface{} {
 
 // Ordered is required due to concurrent migration limitations in the cluster to prevent test interference.
 // ContinueOnFailure ensures all independent tests run even if one fails.
-var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), func() {
+var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Label(precheck.NoPrecheck), func() {
 	var (
-		f            = framework.NewFramework("volume-migration-local-disks")
+		f            *framework.Framework
 		storageClass *storagev1.StorageClass
 		vi           *v1alpha2.VirtualImage
 	)
 
 	BeforeEach(func() {
+		f = framework.NewFramework("volume-migration-local-disks")
 		storageClass = framework.GetConfig().StorageClass.TemplateStorageClass
 		if storageClass == nil {
 			Skip("TemplateStorageClass is not set.")

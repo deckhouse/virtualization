@@ -36,6 +36,14 @@ import (
 // Container name is "d8v-compute", but previous versions may have "compute" container.
 const VMContainerNameSuffix = "compute"
 
+const (
+	MaxCoresPerSocketLow  = 16
+	MaxCoresPerSocketHigh = 31
+	MaxSockets            = 8
+
+	MaxCores = MaxCoresPerSocketHigh * MaxSockets
+)
+
 // CalculateCoresAndSockets calculates the number of sockets and cores per socket needed to achieve
 // the desired total number of CPU cores.
 // The function tries to minimize the number of sockets while ensuring the desired core count.
@@ -43,30 +51,31 @@ const VMContainerNameSuffix = "compute"
 // https://bugzilla.redhat.com/show_bug.cgi?id=1653453
 // The number of cores per socket and the growth of the number of sockets is chosen in such a way as
 // to have less impact on the performance of the virtual machine, as well as on compatibility with operating systems
-func CalculateCoresAndSockets(desiredCores int) (sockets, coresPerSocket int) {
-	if desiredCores < 1 {
-		return 1, 1
-	}
-
-	if desiredCores <= 16 {
-		return 1, desiredCores
-	}
+func CalculateCoresAndSockets(desiredCores int) (sockets, coresPerSocket, maxCoresPerSocket int) {
+	maxCoresPerSocket = MaxCoresPerSocketLow
 
 	switch {
-	case desiredCores <= 32:
+	case desiredCores <= 0:
+		return 1, 1, MaxCoresPerSocketLow
+	case desiredCores <= MaxCoresPerSocketLow:
+		return 1, desiredCores, MaxCoresPerSocketLow
+	case desiredCores <= MaxCoresPerSocketLow*2:
 		sockets = 2
-	case desiredCores <= 64:
+	case desiredCores <= MaxCoresPerSocketLow*4:
 		sockets = 4
 	default:
-		sockets = 8
+		sockets = MaxSockets
+		// Increased cores per socket to have maximum of 248 cores.
+		maxCoresPerSocket = MaxCoresPerSocketHigh
 	}
 
+	// Grow cores if desired count is not dividable by sockets count.
 	coresPerSocket = desiredCores / sockets
 	if desiredCores%sockets != 0 {
 		coresPerSocket++
 	}
 
-	return sockets, coresPerSocket
+	return sockets, coresPerSocket, maxCoresPerSocket
 }
 
 func ApprovalMode(vm *v1alpha2.VirtualMachine) v1alpha2.RestartApprovalMode {

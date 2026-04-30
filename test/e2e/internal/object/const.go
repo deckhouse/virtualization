@@ -82,11 +82,30 @@ BPZpVSic4GdaAsKjQoeAAAAAFnlvdXJfZW1haWxAZXhhbXBsZS5jb20BAgMEBQYH
 	DefaultPassword = "cloud"
 )
 
+var HotplugCPUUdevRule = WriteFile{
+	Path:    "/etc/udev/rules.d/99-hotplug-cpu.rules",
+	Content: `SUBSYSTEM=="cpu",ACTION=="add",RUN+="/bin/sh -c '[ ! -e /sys$devpath/online ] || echo 1 > /sys$devpath/online'"`,
+	Owner:   "root:root",
+}
+
+var HotplugMemoryUdevRule = WriteFile{
+	Path:    "/etc/udev/rules.d/99-hotplug-memory.rules",
+	Content: `SUBSYSTEM=="memory",ACTION=="add",DEVPATH=="/devices/system/memory/memory[0-9]*", TEST=="state", ATTR{state}!="online", ATTR{state}="online"`,
+	Owner:   "root:root",
+}
+
 var AlpineCloudInit = CloudConfig{
 	PackageUpdate: true,
-	Packages:      append(basePackages, "iputils"),
+	Packages:      append(basePackages, "eudev", "iputils"),
 	Users:         []CloudConfigUser{DefaultCloudUser()},
-	Runcmd:        []string{"rc-update add qemu-guest-agent && rc-service qemu-guest-agent start"},
+	Runcmd: []string{
+		"rc-update add qemu-guest-agent && rc-service qemu-guest-agent start",
+		"rc-update add udev && rc-service udev start",
+	},
+	WriteFiles: []WriteFile{
+		HotplugCPUUdevRule,
+		HotplugMemoryUdevRule,
+	},
 }.Render()
 
 var UbuntuCloudInit = CloudConfig{

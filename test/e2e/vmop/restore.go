@@ -42,6 +42,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 	"github.com/deckhouse/virtualization/test/e2e/legacy"
 )
@@ -69,7 +70,7 @@ const (
 	additionalInterfaceVLANID = 4006
 )
 
-var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
+var _ = Describe("VirtualMachineOperationRestore", label.Slow(), Label(precheck.PrecheckSnapshot, precheck.PrecheckSDN), func() {
 	DescribeTable("restores a virtual machine from a snapshot", func(restoreMode v1alpha2.SnapshotOperationMode, restartApprovalMode v1alpha2.RestartApprovalMode, runPolicy v1alpha2.RunPolicy, removeRecoverableResources bool) {
 		f := framework.NewFramework(fmt.Sprintf("vmop-restore-%s", strings.ToLower(string(restoreMode))))
 		DeferCleanup(f.After)
@@ -115,7 +116,7 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 
 			err = f.CreateWithDeferredDeletion(context.Background(), t.VMSnapshot)
 			Expect(err).NotTo(HaveOccurred())
-			util.UntilObjectPhase(string(v1alpha2.VirtualMachineSnapshotPhaseReady), framework.ShortTimeout, t.VMSnapshot)
+			util.UntilObjectPhase(string(v1alpha2.VirtualMachineSnapshotPhaseReady), framework.MiddleTimeout, t.VMSnapshot)
 		})
 		By("Changing VM", func() {
 			util.WriteFile(f, t.VM, fileDataPath, changedValueOnDisk)

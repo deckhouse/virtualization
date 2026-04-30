@@ -34,12 +34,23 @@ tasks:
 
   run:ci:
     desc: "Separate task to run e2e tests in the CI environment"
+    env:
+      FOCUS: "VirtualMachineAdditionalNetworkInterfaces"
     deps:
       - copy
       - kubectl
       - d8
+      - precheck:prepare
     cmds:
       - ./scripts/task_run_ci.sh
+
+  precheck:prepare:
+    desc: "Generate JSON report via ginkgo dry-run for precheck preparation"
+    cmds:
+      - |
+        # Run ginkgo dry-run with same filters as run task to collect only filtered specs
+        # Prechecks are executed in e2e_test.go SynchronizedBeforeSuite based on labels from this report
+        ./scripts/precheck-prepare.sh
 
   run:
     desc: "Run e2e tests"
@@ -47,6 +58,7 @@ tasks:
       - copy
       - kubectl
       - d8
+      - precheck:prepare
     cmds:
       - |
         go tool ginkgo -v \

@@ -34,9 +34,14 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
-const nameStatisticHandler = "StatisticHandler"
+const (
+	nameStatisticHandler = "StatisticHandler"
+	// TODO: Remove this fallback after 2026-10-29.
+	lastStartTimePhaseTransitionMaxDiff = 10 * time.Minute
+)
 
 func NewStatisticHandler(client client.Client) *StatisticHandler {
 	return &StatisticHandler{client: client}
@@ -99,7 +104,7 @@ func (h *StatisticHandler) syncResources(changed *v1alpha2.VirtualMachine,
 		)
 		if kvvmi == nil {
 			memorySize = changed.Spec.Memory.Size
-			sockets, coresPerSocket := vm.CalculateCoresAndSockets(changed.Spec.CPU.Cores)
+			sockets, coresPerSocket, _ := vm.CalculateCoresAndSockets(changed.Spec.CPU.Cores)
 			topology = v1alpha2.Topology{CoresPerSocket: coresPerSocket, Sockets: sockets}
 			coreFraction = changed.Spec.CPU.CoreFraction
 		} else {
@@ -282,7 +287,7 @@ func (h *StatisticHandler) getCurrentTopologyByKVVMI(kvvmi *virtv1.VirtualMachin
 	}
 
 	cores = h.getCoresByKVVMI(kvvmi)
-	sockets, coresPerSocket := vm.CalculateCoresAndSockets(cores)
+	sockets, coresPerSocket, _ := vm.CalculateCoresAndSockets(cores)
 	return v1alpha2.Topology{CoresPerSocket: coresPerSocket, Sockets: sockets}
 }
 
@@ -367,6 +372,52 @@ func (h *StatisticHandler) syncStats(current, changed *v1alpha2.VirtualMachine, 
 
 	stats.LaunchTimeDuration = launchTimeDuration
 	changed.Status.Stats = &stats
+	syncLastStartTime(changed, kvvmi)
+}
+
+func syncLastStartTime(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) {
+	running := getRunningCondition(vm)
+	if running == nil || running.Status != metav1.ConditionTrue {
+		if vm.Status.Stats != nil {
+			vm.Status.Stats.LastStartTime = nil
+		}
+		return
+	}
+
+	kvvmiRunningAt := getKVVMIRunningPhaseTransitionTimestamp(kvvmi)
+	if kvvmiRunningAt != nil && running.LastTransitionTime.Sub(kvvmiRunningAt.Time).Abs() > lastStartTimePhaseTransitionMaxDiff {
+		running.LastTransitionTime = *kvvmiRunningAt.DeepCopy()
+	}
+
+	if vm.Status.Stats == nil {
+		vm.Status.Stats = &v1alpha2.VirtualMachineStats{}
+	}
+	vm.Status.Stats.LastStartTime = running.LastTransitionTime.DeepCopy()
+}
+
+func getRunningCondition(vm *v1alpha2.VirtualMachine) *metav1.Condition {
+	for i := range vm.Status.Conditions {
+		if vm.Status.Conditions[i].Type == vmcondition.TypeRunning.String() {
+			return &vm.Status.Conditions[i]
+		}
+	}
+
+	return nil
+}
+
+func getKVVMIRunningPhaseTransitionTimestamp(kvvmi *virtv1.VirtualMachineInstance) *metav1.Time {
+	if kvvmi == nil {
+		return nil
+	}
+
+	for i := len(kvvmi.Status.PhaseTransitionTimestamps) - 1; i >= 0; i-- {
+		transition := kvvmi.Status.PhaseTransitionTimestamps[i]
+		if transition.Phase == virtv1.Running {
+			return &transition.PhaseTransitionTimestamp
+		}
+	}
+
+	return nil
 }
 
 func osInfoIsEmpty(info virtv1.VirtualMachineInstanceGuestOSInfo) bool {

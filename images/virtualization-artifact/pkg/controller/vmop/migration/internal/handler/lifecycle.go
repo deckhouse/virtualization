@@ -47,6 +47,7 @@ import (
 const lifecycleHandlerName = "LifecycleHandler"
 
 const (
+	progressMigrationPending   int32 = 0
 	progressDisksPreparing     int32 = 1
 	progressTargetScheduling   int32 = 2
 	progressTargetPreparing    int32 = 3
@@ -57,6 +58,7 @@ const (
 )
 
 const (
+	messageMigrationPending       = "The VirtualMachineOperation for migrating the virtual machine has been queued. Waiting for the queue to be processed and for this operation to be executed."
 	messageSyncingSourceAndTarget = "Syncing source and target"
 	messageTargetPodScheduling    = "Target pod is being scheduled"
 	messageTargetPodPreparing     = "Target pod is being prepared"
@@ -341,7 +343,7 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 	}
 
 	vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
-	if reason == vmopcondition.ReasonTargetScheduling {
+	if reason == vmopcondition.ReasonMigrationPending {
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 	}
 	progress := h.calculateMigrationProgress(vmop, mig, reason)
@@ -458,7 +460,7 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMac
 	}
 
 	vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
-	if reason == vmopcondition.ReasonTargetScheduling {
+	if reason == vmopcondition.ReasonMigrationPending {
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 	}
 	progress := h.calculateMigrationProgress(vmop, mig, reason)
@@ -575,7 +577,10 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 	message := messageSyncingSourceAndTarget
 
 	switch mig.Status.Phase {
-	case virtv1.MigrationPhaseUnset, virtv1.MigrationPending, virtv1.MigrationScheduling:
+	case virtv1.MigrationPhaseUnset, virtv1.MigrationPending:
+		reason = vmopcondition.ReasonMigrationPending
+		message = messageMigrationPending
+	case virtv1.MigrationScheduling:
 		reason = vmopcondition.ReasonTargetScheduling
 		message = messageTargetPodScheduling
 	case virtv1.MigrationScheduled, virtv1.MigrationPreparingTarget:
@@ -597,8 +602,8 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 	if err != nil {
 		return "", "", err
 	}
-	if isPodPendingUnschedulable(pod) {
-		return vmopcondition.ReasonTargetUnschedulable, fmt.Sprintf("Target pod %q is unschedulable", pod.Namespace+"/"+pod.Name), nil
+	if unschedulableMsg, isUnschedulable := getPodPendingUnschedulableMessage(pod); isUnschedulable {
+		return vmopcondition.ReasonTargetUnschedulable, unschedulableMsg, nil
 	}
 	if diskErrMsg, hasDiskErr := h.getTargetPodDiskError(ctx, pod); hasDiskErr {
 		return vmopcondition.ReasonTargetDiskError, fmt.Sprintf("Target pod has disk attach error: %s", diskErrMsg), nil
@@ -625,6 +630,8 @@ func (h LifecycleHandler) calculateMigrationProgress(
 	reason vmopcondition.ReasonCompleted,
 ) int32 {
 	switch reason {
+	case vmopcondition.ReasonMigrationPending:
+		return progressMigrationPending
 	case vmopcondition.ReasonDisksPreparing:
 		return progressDisksPreparing
 	case vmopcondition.ReasonTargetScheduling:
@@ -733,20 +740,18 @@ func isContainerCreating(pod *corev1.Pod) bool {
 	return false
 }
 
-func isPodPendingUnschedulable(pod *corev1.Pod) bool {
+func getPodPendingUnschedulableMessage(pod *corev1.Pod) (string, bool) {
 	if pod == nil {
-		return false
+		return "", false
 	}
 	if pod.Status.Phase != corev1.PodPending || pod.DeletionTimestamp != nil {
-		return false
+		return "", false
 	}
 
 	for _, condition := range pod.Status.Conditions {
-		if condition.Type == corev1.PodScheduled &&
-			condition.Status == corev1.ConditionFalse &&
-			condition.Reason == corev1.PodReasonUnschedulable {
-			return true
+		if condition.Type == corev1.PodScheduled && condition.Status == corev1.ConditionFalse && condition.Reason == corev1.PodReasonUnschedulable {
+			return fmt.Sprintf("Target pod %q is unschedulable", pod.Namespace+"/"+pod.Name), true
 		}
 	}
-	return false
+	return "", false
 }

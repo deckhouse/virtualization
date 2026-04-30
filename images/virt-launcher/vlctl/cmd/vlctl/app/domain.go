@@ -41,7 +41,11 @@ func NewDomainCommand() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVarP(&fromFile, "from-file", "f", false, "Read domain specification from file")
-	cmd.AddCommand(NewDomainStatsCommand())
+	cmd.AddCommand(
+		NewDomainStatsCommand(),
+		NewDomainBlockJobsCommand(),
+		NewDomainJobsCommand(),
+	)
 
 	return cmd
 }
@@ -103,6 +107,30 @@ func NewDomainStatsCommand() *cobra.Command {
 
 }
 
+func NewDomainBlockJobsCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "block-jobs",
+		Short: "Get current QEMU block jobs status",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			baseOpts := BaseOptionsFromCommand(cmd)
+			return runDomainBlockJobsCommand(baseOpts)
+		},
+	}
+}
+
+func NewDomainJobsCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "jobs",
+		Short: "Get current QEMU jobs status",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			baseOpts := BaseOptionsFromCommand(cmd)
+			return runDomainJobsCommand(baseOpts)
+		},
+	}
+}
+
 func runDomainStatsCommand(opts BaseOptions) error {
 	if err := opts.Validate(); err != nil {
 		return err
@@ -123,4 +151,42 @@ func runDomainStatsCommand(opts BaseOptions) error {
 	}
 
 	return marshalAndPrintOutput(&opts, stats)
+}
+
+func runDomainBlockJobsCommand(opts BaseOptions) error {
+	if err := opts.Validate(); err != nil {
+		return err
+	}
+
+	client, err := opts.Client()
+	if err != nil {
+		return fmt.Errorf("failed to create client: %w", err)
+	}
+	defer client.Close()
+
+	jobs, err := client.GetBlockJobsStatus()
+	if err != nil {
+		return fmt.Errorf("failed to get block jobs status: %w", err)
+	}
+
+	return marshalAndPrintOutput(&opts, jobs)
+}
+
+func runDomainJobsCommand(opts BaseOptions) error {
+	if err := opts.Validate(); err != nil {
+		return err
+	}
+
+	client, err := opts.Client()
+	if err != nil {
+		return fmt.Errorf("failed to create client: %w", err)
+	}
+	defer client.Close()
+
+	jobs, err := client.GetJobsStatus()
+	if err != nil {
+		return fmt.Errorf("failed to get jobs status: %w", err)
+	}
+
+	return marshalAndPrintOutput(&opts, jobs)
 }

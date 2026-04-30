@@ -57,6 +57,11 @@ on:
         default: true
         description: "Set to true if build is required"
 
+      release_to_github:
+        type: boolean
+        default: true
+        description: "Create GitHub release from changelog PR"
+
       check_only:
         type: boolean
         description: "Run only check version on release channel"
@@ -487,6 +492,90 @@ jobs:
           COUNT=5 \
           task -d tools/moduleversions check:docs
 
+  create-github-release:
+    name: Create GitHub release
+    runs-on: ubuntu-latest
+    needs:
+      - job-CE
+      - job-EE
+      - job-SE-Plus
+      - job-FE
+      - check-version-on-release-channel
+    if: ${{ !inputs.check_only && inputs.release_to_github && needs.check-version-on-release-channel.result == 'success' && (inputs.ce || inputs.ee) }}
+    permissions:
+      contents: write
+      pull-requests: read
+    outputs:
+      release_status: ${{ steps.release.outputs.release_status }}
+      release_url: ${{ steps.release.outputs.release_url }}
+      release_pr_number: ${{ steps.release.outputs.release_pr_number }}
+      release_pr_url: ${{ steps.release.outputs.release_pr_url }}
+      release_reason: ${{ steps.release.outputs.release_reason }}
+    steps:
+      - name: Create GitHub release from changelog PR
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.inputs.tag }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          echo "Checking GitHub release for tag: $TAG"
+          echo "Repository: $REPOSITORY"
+
+          gh release view "$TAG" --repo "$REPOSITORY" >/tmp/release-view.txt 2>/dev/null && release_exists=true || release_exists=false
+          if [[ "$release_exists" == "true" ]]; then
+            echo "GitHub release already exists for ${TAG}, skipping"
+            release_url=$(gh release view "$TAG" --repo "$REPOSITORY" --json url --jq '.url')
+            echo "Existing release URL: ${release_url}"
+            echo "release_status=skipped" >> "$GITHUB_OUTPUT"
+            echo "release_url=${release_url}" >> "$GITHUB_OUTPUT"
+            echo "release_reason=GitHub release already exists for ${TAG}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Searching merged changelog PRs for milestone ${TAG}"
+          changelog_prs=$(gh pr list \
+            --repo "$REPOSITORY" \
+            --state merged \
+            --search "label:changelog milestone:${TAG}" \
+            --json number,title,url,body,milestone)
+
+          echo "$changelog_prs" | jq '.'
+
+          changelog_pr_count=$(echo "$changelog_prs" | jq 'length')
+          echo "Found ${changelog_pr_count} merged changelog PR(s)"
+          if [[ "$changelog_pr_count" -ne 1 ]]; then
+            echo "Expected exactly one merged changelog PR for milestone ${TAG}, found ${changelog_pr_count}" >&2
+            exit 1
+          fi
+
+          pr_number=$(echo "$changelog_prs" | jq -r '.[0].number')
+          pr_url=$(echo "$changelog_prs" | jq -r '.[0].url')
+          pr_body=$(echo "$changelog_prs" | jq -r '.[0].body')
+
+          if [[ -z "${pr_body//[[:space:]]/}" ]]; then
+            echo "Changelog PR #${pr_number} body is empty" >&2
+            exit 1
+          fi
+
+          notes_file=$(mktemp)
+          printf '%s\n' "$pr_body" > "$notes_file"
+
+          gh release create "$TAG" \
+            --repo "$REPOSITORY" \
+            --title "$TAG" \
+            --notes-file "$notes_file"
+
+          release_url=$(gh release view "$TAG" --repo "$REPOSITORY" --json url --jq '.url')
+
+          echo "release_status=created" >> "$GITHUB_OUTPUT"
+          echo "release_url=${release_url}" >> "$GITHUB_OUTPUT"
+          echo "release_pr_number=${pr_number}" >> "$GITHUB_OUTPUT"
+          echo "release_pr_url=${pr_url}" >> "$GITHUB_OUTPUT"
+          echo "release_reason=GitHub release created from changelog PR #${pr_number}" >> "$GITHUB_OUTPUT"
+
   send-release-results-to-loop:
     name: Send release results to Loop
     runs-on: ubuntu-latest
@@ -496,6 +585,7 @@ jobs:
       - job-SE-Plus
       - job-FE
       - check-version-on-release-channel
+      - create-github-release
     if: ${{ always() && inputs.send_results_to_loop }}
     steps:
       - name: Send results to Loop
@@ -503,14 +593,21 @@ jobs:
           LOOP_WEBHOOK_URL: ${{ secrets.LOOP_WEBHOOK_URL }}
           TAG: ${{ github.event.inputs.tag }}
           CHANNEL: ${{ github.event.inputs.channel }}
+          RELEASE_TO_GITHUB: ${{ inputs.release_to_github }}
+          CHECK_ONLY: ${{ inputs.check_only }}
           CE_ENABLED: ${{ inputs.ce }}
           EE_ENABLED: ${{ inputs.ee }}
           CE_RESULT: ${{ needs.job-CE.result }}
           EE_RESULT: ${{ needs.job-EE.result }}
           SE_PLUS_RESULT: ${{ needs.job-SE-Plus.result }}
           FE_RESULT: ${{ needs.job-FE.result }}
-          # will be `success` only if all jobs in the matrix have succeeded
           CHECK_RESULT: ${{ needs.check-version-on-release-channel.result }}
+          GH_RELEASE_RESULT: ${{ needs.create-github-release.result }}
+          GH_RELEASE_STATUS: ${{ needs.create-github-release.outputs.release_status }}
+          GH_RELEASE_URL: ${{ needs.create-github-release.outputs.release_url }}
+          GH_RELEASE_PR_NUMBER: ${{ needs.create-github-release.outputs.release_pr_number }}
+          GH_RELEASE_PR_URL: ${{ needs.create-github-release.outputs.release_pr_url }}
+          GH_RELEASE_REASON: ${{ needs.create-github-release.outputs.release_reason }}
         run: |
           export TZ=Europe/Moscow
           DATE=$(date +"%Y-%m-%d %H:%M:%S UTC+03:00")
@@ -526,7 +623,6 @@ jobs:
             esac
           }
 
-          # Build header row and status row dynamically
           HEADER_ROW="| Edition |"
           STATUS_ROW="| Status |"
 
@@ -549,7 +645,21 @@ jobs:
           HEADER_ROW+=" Check |"
           STATUS_ROW+=" $(get_status_emoji $CHECK_RESULT) |"
 
-          # Count columns for separator
+          if [[ "$RELEASE_TO_GITHUB" == "true" && "$CHECK_ONLY" != "true" ]]; then
+            HEADER_ROW+=" GitHub Release |"
+            if [[ "$GH_RELEASE_RESULT" == "failure" ]]; then
+              STATUS_ROW+=" :x: |"
+            elif [[ "$GH_RELEASE_STATUS" == "created" ]]; then
+              STATUS_ROW+=" :white_check_mark: |"
+            elif [[ "$GH_RELEASE_STATUS" == "dry-run" ]]; then
+              STATUS_ROW+=" :memo: |"
+            elif [[ "$GH_RELEASE_STATUS" == "skipped" ]]; then
+              STATUS_ROW+=" :fast_forward: |"
+            else
+              STATUS_ROW+=" :grey_question: |"
+            fi
+          fi
+
           COL_COUNT=$(echo "$HEADER_ROW" | tr -cd '|' | wc -c)
           COL_COUNT=$((COL_COUNT - 1))
           SEPARATOR_ROW="|"
