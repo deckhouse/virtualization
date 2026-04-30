@@ -127,8 +127,8 @@ const (
 	DatasourceIsNotFound ReadyReason = "DatasourceIsNotFound"
 	// StorageClassIsNotReady indicates that Storage class is not ready.
 	StorageClassIsNotReady ReadyReason = "StorageClassIsNotReady"
-	// StorageClassNotMatchingSource indicates that the VirtualDisk storage class does not match the source storage class.
-	StorageClassNotMatchingSource ReadyReason = "StorageClassNotMatchingSource"
+	// StorageClassCSIDriverMismatch indicates that the VirtualDisk and source VirtualImage storage classes have different CSI drivers.
+	StorageClassCSIDriverMismatch ReadyReason = "StorageClassCSIDriverMismatch"
 
 	// InProgress indicates that the resize request has been detected and the operation is currently in progress.
 	InProgress ResizedReason = "InProgress"

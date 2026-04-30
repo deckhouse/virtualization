@@ -138,11 +138,11 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 			return reconcile.Result{}, fmt.Errorf("empty storage class in status")
 		}
 
-		err := commonvd.ValidateVirtualImageStorageClassMatch(ctx, vd, h.client)
+		err := commonvd.ValidateVirtualImageStorageClassProvisionerMatch(ctx, vd, h.client)
 		if err != nil {
 			cb.
 				Status(metav1.ConditionFalse).
-				Reason(vdcondition.StorageClassNotMatchingSource).
+				Reason(vdcondition.StorageClassCSIDriverMismatch).
 				Message(service.CapitalizeFirstLetter(err.Error()))
 			conditions.SetCondition(cb, &vd.Status.Conditions)
 

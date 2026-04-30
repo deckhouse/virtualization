@@ -60,6 +60,7 @@ var _ = Describe("VirtualImagePVCStorageClassValidator", func() {
 				StorageClassName: defaultSC.Name,
 			},
 		}
+
 		vd := &v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "target-vd",
@@ -106,6 +107,18 @@ var _ = Describe("VirtualImagePVCStorageClassValidator", func() {
 				StorageClassName: "vi-sc",
 			},
 		}
+		vdSC := &storagev1.StorageClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "vd-sc",
+			},
+			Provisioner: "first.csi.example.com",
+		}
+		viSC := &storagev1.StorageClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "vi-sc",
+			},
+			Provisioner: "second.csi.example.com",
+		}
 		vd := &v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "target-vd",
@@ -128,12 +141,12 @@ var _ = Describe("VirtualImagePVCStorageClassValidator", func() {
 			},
 		}
 
-		k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vi).Build()
+		k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vi, vdSC, viSC).Build()
 		baseSCService := basevc.NewBaseStorageClassService(k8sClient)
 		vdSCService := intsvc.NewVirtualDiskStorageClassService(baseSCService, config.VirtualDiskStorageClassSettings{})
 		validator := NewVirtualImagePVCStorageClassValidator(k8sClient, vdSCService)
 
 		_, err := validator.ValidateCreate(context.Background(), vd)
-		Expect(err).To(MatchError(`virtual disk storage class "vd-sc" does not match virtual image storage class "vi-sc"`))
+		Expect(err).To(MatchError(`virtual disk storage class "vd-sc" csi driver does not match virtual image storage class "vi-sc" csi driver`))
 	})
 })
