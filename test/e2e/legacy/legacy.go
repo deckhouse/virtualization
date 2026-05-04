@@ -26,6 +26,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -65,9 +66,6 @@ func Init() error {
 }
 
 func configure() (err error) {
-	if err = config.CheckStorageClassOption(); err != nil {
-		return err
-	}
 	if err = config.CheckWithPostCleanUpOption(); err != nil {
 		return err
 	}
@@ -81,15 +79,17 @@ func configure() (err error) {
 	clients := framework.GetClients()
 	kubectl = clients.Kubectl()
 
-	if conf.StorageClass.DefaultStorageClass, err = GetDefaultStorageClass(); err != nil {
-		return err
+	var scList storagev1.StorageClassList
+	if err := clients.GenericClient().List(context.Background(), &scList); err != nil {
+		return fmt.Errorf("failed to list StorageClasses: %w", err)
 	}
 
-	if !config.SkipImmediateStorageClassCheck() {
-		if conf.StorageClass.ImmediateStorageClass, err = GetImmediateStorageClass(conf.StorageClass.DefaultStorageClass.Provisioner); err != nil {
-			Fail(err.Error())
-		}
+	conf.StorageClass.DefaultStorageClass = config.FindDefaultStorageClass(&scList)
+	if conf.StorageClass.DefaultStorageClass == nil {
+		return fmt.Errorf("default StorageClass not found in the cluster")
 	}
+
+	conf.StorageClass.ImmediateStorageClass = config.FindImmediateStorageClass(conf.StorageClass.DefaultStorageClass, &scList)
 
 	scFromEnv, err := GetStorageClassFromEnv(storageClassName)
 	if err != nil {
