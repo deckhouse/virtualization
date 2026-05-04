@@ -149,10 +149,10 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 			})
 
 			By("Check VM can reach external network after migration", func() {
-				network.CheckExternalConnectivity(f, vmFoo.Name, network.ExternalHost, network.HTTPStatusOk)
+				network.CheckExternalConnectivity(f, vmFoo.Name, network.ExternalConnectivityHosts)
 
 				if tc.vmBarHasMainNetwork {
-					network.CheckExternalConnectivity(f, vmBar.Name, network.ExternalHost, network.HTTPStatusOk)
+					network.CheckExternalConnectivity(f, vmBar.Name, network.ExternalConnectivityHosts)
 				}
 			})
 
