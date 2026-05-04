@@ -52,18 +52,16 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", Label(precheck.NoPrecheck),
 		ctx := context.Background()
 
 		By("Environment preparation")
-		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS)
 		vm := object.NewMinimalVM("vm-label-annotation-", f.Namespace().Name,
 			vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
-				Kind: v1alpha2.DiskDevice,
-				Name: vdRoot.Name,
+				Kind: v1alpha2.ClusterImageDevice,
+				Name: object.PrecreatedCVIUbuntuISO,
 			}),
 		)
 
-		err := f.CreateWithDeferredDeletion(ctx, vdRoot, vm)
+		err := f.CreateWithDeferredDeletion(ctx, vm)
 		Expect(err).NotTo(HaveOccurred())
 
-		util.UntilObjectPhase(string(v1alpha2.DiskReady), framework.LongTimeout, vdRoot)
 		util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
 
 		By(fmt.Sprintf("Adding label %q=%q to VM", metadataSpecialKey, metadataSpecialValue))
@@ -122,14 +120,14 @@ func updateVirtualMachineMetadata(ctx context.Context, f *framework.Framework, v
 	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
 }
 
-func expectLabelState(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, expected bool) {
+func expectLabelState(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, isPresent bool) {
 	GinkgoHelper()
 
 	Eventually(func(g Gomega) {
 		currentVM, activePod, err := getVirtualMachineAndActivePod(ctx, f, vm)
 		g.Expect(err).NotTo(HaveOccurred())
 
-		if expected {
+		if isPresent {
 			g.Expect(currentVM.Labels).To(HaveKeyWithValue(metadataSpecialKey, metadataSpecialValue))
 			g.Expect(activePod.Labels).To(HaveKeyWithValue(metadataSpecialKey, metadataSpecialValue))
 			return
@@ -140,14 +138,14 @@ func expectLabelState(ctx context.Context, f *framework.Framework, vm *v1alpha2.
 	}).WithTimeout(framework.LongTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
 }
 
-func expectAnnotationState(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, expected bool) {
+func expectAnnotationState(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, isPresent bool) {
 	GinkgoHelper()
 
 	Eventually(func(g Gomega) {
 		currentVM, activePod, err := getVirtualMachineAndActivePod(ctx, f, vm)
 		g.Expect(err).NotTo(HaveOccurred())
 
-		if expected {
+		if isPresent {
 			g.Expect(currentVM.Annotations).To(HaveKeyWithValue(metadataSpecialKey, metadataSpecialValue))
 			g.Expect(activePod.Annotations).To(HaveKeyWithValue(metadataSpecialKey, metadataSpecialValue))
 			return
