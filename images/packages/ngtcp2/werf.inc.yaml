@@ -17,7 +17,7 @@ final: false
 fromImage: builder/src
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ .PACKAGE_CLONE_REPO }}
 shell:
   install:
   - |
@@ -44,7 +44,7 @@ shell:
 
 ---
 
-{{- $name := print $.ImageName "-dependencies" -}}
+{{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
 - gcc gcc-c++

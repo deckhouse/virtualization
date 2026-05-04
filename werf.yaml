@@ -16,7 +16,7 @@ build:
 # Source repo settings
 {{- $_ := set . "SOURCE_REPO" (env "SOURCE_REPO" "https://github.com") }}
 
-{{- $_ := set . "SOURCE_REPO_GIT" (env "SOURCE_REPO_GIT" "https://github.com") }}
+{{- $_ := set . "DECKHOUSE_PRIVATE_REPO" (env "DECKHOUSE_PRIVATE_REPO" "example.com") }}
 
 # Define packages proxy settings
 {{- $_ := set . "DistroPackagesProxy" (env "DISTRO_PACKAGES_PROXY" "") }}
@@ -47,9 +47,12 @@ dependencies:
     - type: ImageDigest
       targetEnv: MODULE_IMAGE_DIGEST_{{ $ImageNameCamel }}
   {{- end }}
+import:
+- from: tools/jq
+  add: /usr/bin/jq
+  to: /usr/bin/jq
+  before: setup
 shell:
-  beforeInstall:
-    - apk add --no-cache jq
   setup:
     - |
       env | grep MODULE_IMAGE_DIGEST | jq -Rn '

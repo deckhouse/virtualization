@@ -247,10 +247,7 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 		}
 	})
 
-	// TODO: need v1.6.2 kubevirt to fix this test
 	It("should be reverted first and completed second", func() {
-		Skip("TODO: need v1.6.2 kubevirt to fix this test")
-
 		ns := f.Namespace().Name
 
 		vm, vds := localMigrationRootAndAdditionalBuild()

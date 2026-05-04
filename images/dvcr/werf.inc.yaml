@@ -8,7 +8,7 @@ final: false
 fromImage: builder/src
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ $.SOURCE_REPO }}
 shell:
   install:
   - |
@@ -42,8 +42,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.25" "builder/golang-alt-svace-1.25" }}
 mount:
-  - fromPath: ~/go-pkg-cache
-    to: /go/pkg
+{{- include "mount points for golang builds" . }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
   add: /src/distribution
@@ -73,5 +72,5 @@ shell:
     cd distribution
 
     export VERSION={{ $version }}
-    {{- $_ := set $ "ProjectName" (list $.ImageName "dvcr" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "dvcr" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -o /container-registry-binary/ -ldflags '-s -w -X registry/version.Version=v$VERSION -X registry/version.Revision=v$VERSION' ./cmd/registry`) | nindent 6 }}

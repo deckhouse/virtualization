@@ -1,27 +1,35 @@
 ---
-image: {{ $.ImageName }}
+{{- if not $.DistroPackagesProxy }}
+image: {{ .ImageName }}
 fromImage: distroless
 final: false
 import:
-- image: {{ $.ImageName }}-builder
+- image: {{ .ImageName }}-builder
   add: /out
   to: /app
   before: setup
 ---
-image: {{ $.ImageName }}-builder
+image: {{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
+secrets:
+- id: GOPROXY
+  value: {{ .GOPROXY }}
 shell:
   install:
+  {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get update && apt-get install --yes \
       musl-devel-static gcc golang git 
-    
+  {{- include "alt packages clean" . | nindent 2 }}
+  - |
     export CGO_ENABLED=0
     export GOOS=linux
     export GOARCH=amd64 
+    export GOPROXY=$(cat /run/secrets/GOPROXY)
 
     mkdir -p /out
     git clone --depth=1 --branch v1.25.1 https://github.com/go-delve/delve.git /src
     cd /src
     go build -o /out/dlv -ldflags "-s -w" github.com/go-delve/delve/cmd/dlv
+{{- end }}

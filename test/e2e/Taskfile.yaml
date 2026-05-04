@@ -34,10 +34,13 @@ tasks:
 
   run:ci:
     desc: "Separate task to run e2e tests in the CI environment"
+    env:
+      FOCUS: "VirtualMachineAdditionalNetworkInterfaces"
     deps:
       - copy
       - kubectl
       - d8
+      - precheck:prepare
     cmds:
       - ./scripts/task_run_ci.sh
 
@@ -72,7 +75,10 @@ tasks:
           --timeout=3h \
           {{end -}}
           {{if .FOCUS -}}
-          --focus "{{ .FOCUS }}"
+          --focus "{{ .FOCUS }}" \
+          {{end -}}
+          {{if .REPEAT -}}
+          --repeat "{{ .REPEAT }}"
           {{end -}}
 
   runp:
