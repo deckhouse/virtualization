@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -57,7 +58,11 @@ func (v *VirtualImagePVCStorageClassValidator) ValidateCreate(ctx context.Contex
 	return nil, commonvd.ValidateVirtualImageStorageClassProvisionerCompatibility(ctx, vdWithStatusStorageClassName, v.client)
 }
 
-func (v *VirtualImagePVCStorageClassValidator) ValidateUpdate(ctx context.Context, _, newVD *v1alpha2.VirtualDisk) (admission.Warnings, error) {
+func (v *VirtualImagePVCStorageClassValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *v1alpha2.VirtualDisk) (admission.Warnings, error) {
+	if reflect.DeepEqual(oldVD.Spec.DataSource, newVD.Spec.DataSource) {
+		return nil, nil
+	}
+
 	ready, _ := conditions.GetCondition(vdcondition.ReadyType, newVD.Status.Conditions)
 	if source.IsDiskProvisioningFinished(ready) {
 		return nil, nil

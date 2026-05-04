@@ -24,6 +24,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
@@ -31,122 +32,203 @@ import (
 	basevc "github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 var _ = Describe("VirtualImagePVCStorageClassValidator", func() {
-	It("should use the default storage class when VirtualDisk storage class is not set", func() {
+	const (
+		namespace = "default"
+		viName    = "source-vi"
+		vdName    = "target-vd"
+	)
+
+	newScheme := func() *runtime.Scheme {
 		scheme := runtime.NewScheme()
 		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 		Expect(storagev1.AddToScheme(scheme)).To(Succeed())
+		return scheme
+	}
 
-		defaultSC := &storagev1.StorageClass{
+	ptr := func(v string) *string { return &v }
+
+	newStorageClass := func(name, provisioner string, isDefault bool) *storagev1.StorageClass {
+		sc := &storagev1.StorageClass{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "default-sc",
-				Annotations: map[string]string{
-					annotations.AnnDefaultStorageClass: "true",
-				},
+				Name: name,
 			},
+			Provisioner: provisioner,
 		}
-		vi := &v1alpha2.VirtualImage{
+		if isDefault {
+			sc.Annotations = map[string]string{
+				annotations.AnnDefaultStorageClass: "true",
+			}
+		}
+		return sc
+	}
+
+	newVirtualImage := func(scName string) *v1alpha2.VirtualImage {
+		return &v1alpha2.VirtualImage{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "source-vi",
-				Namespace: "default",
+				Name:      viName,
+				Namespace: namespace,
 			},
 			Spec: v1alpha2.VirtualImageSpec{
 				Storage: v1alpha2.StoragePersistentVolumeClaim,
 			},
 			Status: v1alpha2.VirtualImageStatus{
 				Phase:            v1alpha2.ImageReady,
-				StorageClassName: defaultSC.Name,
+				StorageClassName: scName,
 			},
 		}
+	}
 
+	newDataSource := func(name string) *v1alpha2.VirtualDiskDataSource {
+		return &v1alpha2.VirtualDiskDataSource{
+			Type: v1alpha2.DataSourceTypeObjectRef,
+			ObjectRef: &v1alpha2.VirtualDiskObjectRef{
+				Kind: v1alpha2.VirtualDiskObjectRefKindVirtualImage,
+				Name: name,
+			},
+		}
+	}
+
+	newVD := func(statusSC string, specSC *string, ds *v1alpha2.VirtualDiskDataSource) *v1alpha2.VirtualDisk {
 		vd := &v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "target-vd",
-				Namespace: "default",
+				Name:      vdName,
+				Namespace: namespace,
 			},
 			Spec: v1alpha2.VirtualDiskSpec{
-				DataSource: &v1alpha2.VirtualDiskDataSource{
-					Type: v1alpha2.DataSourceTypeObjectRef,
-					ObjectRef: &v1alpha2.VirtualDiskObjectRef{
-						Kind: v1alpha2.VirtualDiskObjectRefKindVirtualImage,
-						Name: vi.Name,
-					},
-				},
+				PersistentVolumeClaim: v1alpha2.VirtualDiskPersistentVolumeClaim{StorageClass: specSC},
+				DataSource:            ds,
 			},
 		}
+		vd.Status.StorageClassName = statusSC
+		return vd
+	}
 
-		k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(defaultSC, vi).Build()
+	newValidator := func(settings config.VirtualDiskStorageClassSettings, objs ...client.Object) *VirtualImagePVCStorageClassValidator {
+		k8sClient := fake.NewClientBuilder().WithScheme(newScheme()).WithObjects(objs...).Build()
 		baseSCService := basevc.NewBaseStorageClassService(k8sClient)
-		vdSCService := intsvc.NewVirtualDiskStorageClassService(baseSCService, config.VirtualDiskStorageClassSettings{})
-		validator := NewVirtualImagePVCStorageClassValidator(k8sClient, vdSCService)
+		vdSCService := intsvc.NewVirtualDiskStorageClassService(baseSCService, settings)
+		return NewVirtualImagePVCStorageClassValidator(k8sClient, vdSCService)
+	}
 
-		var err error
-		Expect(func() {
-			_, err = validator.ValidateCreate(context.Background(), vd)
-		}).NotTo(Panic())
-		Expect(err).NotTo(HaveOccurred())
-	})
+	type updateCase struct {
+		oldVD *v1alpha2.VirtualDisk
+		newVD *v1alpha2.VirtualDisk
+	}
 
-	It("should return a readable mismatch error", func() {
-		scheme := runtime.NewScheme()
-		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
-		Expect(storagev1.AddToScheme(scheme)).To(Succeed())
-
-		vi := &v1alpha2.VirtualImage{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "source-vi",
-				Namespace: "default",
-			},
-			Spec: v1alpha2.VirtualImageSpec{
-				Storage: v1alpha2.StoragePersistentVolumeClaim,
-			},
-			Status: v1alpha2.VirtualImageStatus{
-				Phase:            v1alpha2.ImageReady,
-				StorageClassName: "vi-sc",
-			},
-		}
-		vdSC := &storagev1.StorageClass{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "vd-sc",
-			},
-			Provisioner: "first.csi.example.com",
-		}
-		viSC := &storagev1.StorageClass{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "vi-sc",
-			},
-			Provisioner: "second.csi.example.com",
-		}
-		vd := &v1alpha2.VirtualDisk{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "target-vd",
-				Namespace: "default",
-			},
-			Spec: v1alpha2.VirtualDiskSpec{
-				PersistentVolumeClaim: v1alpha2.VirtualDiskPersistentVolumeClaim{
-					StorageClass: func() *string {
-						sc := "vd-sc"
-						return &sc
-					}(),
-				},
-				DataSource: &v1alpha2.VirtualDiskDataSource{
-					Type: v1alpha2.DataSourceTypeObjectRef,
-					ObjectRef: &v1alpha2.VirtualDiskObjectRef{
-						Kind: v1alpha2.VirtualDiskObjectRefKindVirtualImage,
-						Name: vi.Name,
-					},
-				},
-			},
-		}
-
-		k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vi, vdSC, viSC).Build()
-		baseSCService := basevc.NewBaseStorageClassService(k8sClient)
-		vdSCService := intsvc.NewVirtualDiskStorageClassService(baseSCService, config.VirtualDiskStorageClassSettings{})
-		validator := NewVirtualImagePVCStorageClassValidator(k8sClient, vdSCService)
-
+	DescribeTable("ValidateCreate", func(vd *v1alpha2.VirtualDisk, settings config.VirtualDiskStorageClassSettings, objs []client.Object, expectedErr string) {
+		validator := newValidator(settings, objs...)
 		_, err := validator.ValidateCreate(context.Background(), vd)
-		Expect(err).To(MatchError(`virtual disk storage class "vd-sc" provisioner does not match virtual image storage class "vi-sc" provisioner: source type with different provisioners is not supported yet`))
-	})
+
+		if expectedErr == "" {
+			Expect(err).NotTo(HaveOccurred())
+			return
+		}
+
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring(expectedErr))
+	},
+		Entry("uses status storage class first", func() *v1alpha2.VirtualDisk {
+			return newVD("status-sc", ptr("spec-sc"), newDataSource(viName))
+		}(), config.VirtualDiskStorageClassSettings{}, []client.Object{
+			newVirtualImage("vi-sc"),
+			newStorageClass("status-sc", "csi.example.com", false),
+			newStorageClass("spec-sc", "other.csi.example.com", false),
+			newStorageClass("vi-sc", "csi.example.com", false),
+		}, ""),
+		Entry("uses spec storage class when status is empty", func() *v1alpha2.VirtualDisk {
+			return newVD("", ptr("spec-sc"), newDataSource(viName))
+		}(), config.VirtualDiskStorageClassSettings{}, []client.Object{
+			newVirtualImage("vi-sc"),
+			newStorageClass("spec-sc", "csi.example.com", false),
+			newStorageClass("default-sc", "other.csi.example.com", true),
+			newStorageClass("vi-sc", "csi.example.com", false),
+		}, ""),
+		Entry("uses module storage class before default class", func() *v1alpha2.VirtualDisk {
+			return newVD("", nil, newDataSource(viName))
+		}(), config.VirtualDiskStorageClassSettings{
+			DefaultStorageClassName: "module-sc",
+		}, []client.Object{
+			newVirtualImage("vi-sc"),
+			newStorageClass("module-sc", "csi.example.com", false),
+			newStorageClass("default-sc", "other.csi.example.com", true),
+			newStorageClass("vi-sc", "csi.example.com", false),
+		}, ""),
+		Entry("uses default storage class as fallback", func() *v1alpha2.VirtualDisk {
+			return newVD("", nil, newDataSource(viName))
+		}(), config.VirtualDiskStorageClassSettings{}, []client.Object{
+			newVirtualImage("vi-sc"),
+			newStorageClass("default-sc", "csi.example.com", true),
+			newStorageClass("vi-sc", "csi.example.com", false),
+		}, ""),
+		Entry("returns clear error when storage class cannot be determined", func() *v1alpha2.VirtualDisk {
+			return newVD("", nil, nil)
+		}(), config.VirtualDiskStorageClassSettings{}, nil, `storage class for VirtualDisk "target-vd" cannot be determined`),
+		Entry("returns readable mismatch error", func() *v1alpha2.VirtualDisk {
+			return newVD("", ptr("vd-sc"), newDataSource(viName))
+		}(), config.VirtualDiskStorageClassSettings{}, []client.Object{
+			newVirtualImage("vi-sc"),
+			newStorageClass("vd-sc", "first.csi.example.com", false),
+			newStorageClass("vi-sc", "second.csi.example.com", false),
+		}, `virtual disk storage class "vd-sc" provisioner does not match virtual image storage class "vi-sc" provisioner`),
+	)
+
+	DescribeTable("ValidateUpdate", func(tc updateCase, objs []client.Object, expectedErr string) {
+		validator := newValidator(config.VirtualDiskStorageClassSettings{}, objs...)
+		_, err := validator.ValidateUpdate(context.Background(), tc.oldVD, tc.newVD)
+
+		if expectedErr == "" {
+			Expect(err).NotTo(HaveOccurred())
+			return
+		}
+
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring(expectedErr))
+	},
+		Entry("returns nil when data source didn't change", func() updateCase {
+			ds := newDataSource(viName)
+			return updateCase{
+				oldVD: newVD("vd-sc", ptr("vd-sc"), ds),
+				newVD: newVD("vd-sc", ptr("vd-sc"), ds),
+			}
+		}(), nil, ""),
+		Entry("skips validation after provisioning is finished", func() updateCase {
+			oldVD := newVD("vd-sc", ptr("vd-sc"), nil)
+			newVD := newVD("vd-sc", ptr("vd-sc"), newDataSource(viName))
+			newVD.Status.Conditions = []metav1.Condition{
+				{
+					Type:   vdcondition.ReadyType.String(),
+					Reason: vdcondition.Ready.String(),
+				},
+			}
+			return updateCase{oldVD: oldVD, newVD: newVD}
+		}(), nil, ""),
+		Entry("validates and returns mismatch when provisioning is not finished", func() updateCase {
+			oldVD := newVD("vd-sc", ptr("vd-sc"), nil)
+			newVD := newVD("vd-sc", ptr("vd-sc"), newDataSource(viName))
+			newVD.Status.Conditions = []metav1.Condition{
+				{
+					Type:   vdcondition.ReadyType.String(),
+					Reason: vdcondition.Provisioning.String(),
+				},
+			}
+			return updateCase{oldVD: oldVD, newVD: newVD}
+		}(), []client.Object{
+			newVirtualImage("vi-sc"),
+			newStorageClass("vd-sc", "first.csi.example.com", false),
+			newStorageClass("vi-sc", "second.csi.example.com", false),
+		}, `virtual disk storage class "vd-sc" provisioner does not match virtual image storage class "vi-sc" provisioner`),
+		Entry("validates successfully when provisioners are compatible", func() updateCase {
+			oldVD := newVD("vd-sc", ptr("vd-sc"), nil)
+			newVD := newVD("vd-sc", ptr("vd-sc"), newDataSource(viName))
+			return updateCase{oldVD: oldVD, newVD: newVD}
+		}(), []client.Object{
+			newVirtualImage("vi-sc"),
+			newStorageClass("vd-sc", "csi.example.com", false),
+			newStorageClass("vi-sc", "csi.example.com", false),
+		}, ""),
+	)
 })
