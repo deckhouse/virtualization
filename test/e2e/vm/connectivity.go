@@ -77,8 +77,8 @@ var _ = Describe("VirtualMachineConnectivity", Label(precheck.NoPrecheck), func(
 		})
 
 		By("Check VMs can reach external network", func() {
-			network.CheckExternalConnectivity(f, t.VMa.Name, network.ExternalHost, network.HTTPStatusOk)
-			network.CheckExternalConnectivity(f, t.VMb.Name, network.ExternalHost, network.HTTPStatusOk)
+			network.CheckExternalConnectivity(f, t.VMa.Name, network.ExternalConnectivityHosts)
+			network.CheckExternalConnectivity(f, t.VMb.Name, network.ExternalConnectivityHosts)
 		})
 
 		By("Check nginx status on VMs", func() {
