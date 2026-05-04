@@ -46,18 +46,6 @@ describe("messenger-report", () => {
   afterEach(() => {
     delete process.env.REPORTS_DIR;
     delete process.env.STORAGE_TYPES;
-    delete process.env.REPORT_FALLBACK_REPLICATED_REPORT_KIND;
-    delete process.env.REPORT_FALLBACK_REPLICATED_STATUS;
-    delete process.env.REPORT_FALLBACK_REPLICATED_FAILED_STAGE;
-    delete process.env.REPORT_FALLBACK_REPLICATED_FAILED_STAGE_LABEL;
-    delete process.env.REPORT_FALLBACK_REPLICATED_WORKFLOW_RUN_URL;
-    delete process.env.REPORT_FALLBACK_REPLICATED_BRANCH;
-    delete process.env.REPORT_FALLBACK_NFS_REPORT_KIND;
-    delete process.env.REPORT_FALLBACK_NFS_STATUS;
-    delete process.env.REPORT_FALLBACK_NFS_FAILED_STAGE;
-    delete process.env.REPORT_FALLBACK_NFS_FAILED_STAGE_LABEL;
-    delete process.env.REPORT_FALLBACK_NFS_WORKFLOW_RUN_URL;
-    delete process.env.REPORT_FALLBACK_NFS_BRANCH;
     delete process.env.LOOP_API_BASE_URL;
     delete process.env.LOOP_CHANNEL_ID;
     delete process.env.LOOP_TOKEN;
@@ -76,7 +64,6 @@ describe("messenger-report", () => {
     expect(config).toEqual({
       reportsDir: "custom-reports",
       configuredClusters: ["replicated", "nfs"],
-      reportFallbacks: {},
       loop: {
         apiUrl: "https://loop.example.invalid/api/v4/posts",
         channelId: "channel-id",
@@ -144,8 +131,7 @@ describe("messenger-report", () => {
       );
       expect(result.message).not.toContain("### Failed tests");
       expect(result.threadMessages).toEqual([
-        "### Failed tests",
-        "**replicated**\n\n| Test group |\n|---|\n| fails |",
+        "### Failed tests\n\n**replicated**\n\n| Test group |\n|---|\n| fails |",
       ]);
       expect(result.threadMessage).toContain("### Failed tests");
       expect(result.threadMessage).toContain("**replicated**");
@@ -163,7 +149,7 @@ describe("messenger-report", () => {
 
       expect(result.message).toContain("### Missing reports");
       expect(result.message).toContain(
-        "- replicated: E2E REPORT ARTIFACT NOT FOUND"
+        "- replicated: ⚠️ E2E REPORT ARTIFACT NOT FOUND"
       );
       expect(result.threadMessage).toBe("");
       expect(result.threadMessages).toEqual([]);
@@ -266,8 +252,7 @@ describe("messenger-report", () => {
       const result = await renderMessengerReport({ core: createCore() });
 
       expect(result.threadMessages).toEqual([
-        "### Failed tests",
-        "**replicated**\n\n| Test group |\n|---|\n| replicated |",
+        "### Failed tests\n\n**replicated**\n\n| Test group |\n|---|\n| replicated |",
         "**nfs**\n\n| Test group |\n|---|\n| nfs |",
       ]);
     }));
@@ -309,8 +294,9 @@ describe("messenger-report", () => {
       const result = await renderMessengerReport({ core: createCore() });
 
       expect(result.threadMessages).toEqual([
-        "### Failed tests",
         [
+          "### Failed tests",
+          "",
           "**nfs**",
           "",
           "| Test group |",
@@ -321,25 +307,46 @@ describe("messenger-report", () => {
       ]);
     }));
 
-  test("uses workflow fallback metadata for missing cluster report", async () =>
+  test("renders cluster status from downloaded report artifact", async () =>
     withTempDir(async (tempDir) => {
+      fs.writeFileSync(
+        path.join(tempDir, "e2e_report_replicated.json"),
+        JSON.stringify({
+          cluster: "replicated",
+          storageType: "replicated",
+          branch: "main",
+          workflowRunUrl: "https://example.invalid/replicated",
+          clusterStatus: {
+            status: "failure",
+            stage: "configure-sdn",
+            stageLabel: "CONFIGURE SDN",
+            message: "❌ CONFIGURE SDN FAILED",
+            reason: "cluster-stage-failed",
+          },
+          testStatus: {
+            status: "not-run",
+            reason: "cluster-stage-failed",
+            message: "E2E tests were not run because cluster setup did not finish",
+          },
+          metrics: {
+            passed: 0,
+            failed: 0,
+            errors: 0,
+            total: 0,
+            successRate: 0,
+          },
+          failedTests: [],
+        })
+      );
+
       process.env.REPORTS_DIR = tempDir;
-      process.env.STORAGE_TYPES = '["replicated"]';
-      process.env.REPORT_FALLBACK_REPLICATED_REPORT_KIND = "stage-failure";
-      process.env.REPORT_FALLBACK_REPLICATED_STATUS = "failure";
-      process.env.REPORT_FALLBACK_REPLICATED_FAILED_STAGE = "configure-sdn";
-      process.env.REPORT_FALLBACK_REPLICATED_FAILED_STAGE_LABEL =
-        "CONFIGURE SDN";
-      process.env.REPORT_FALLBACK_REPLICATED_WORKFLOW_RUN_URL =
-        "https://example.invalid/replicated";
-      process.env.REPORT_FALLBACK_REPLICATED_BRANCH = "main";
 
       const result = await renderMessengerReport({ core: createCore() });
 
       expect(result.message).not.toContain("Branch: `main`");
       expect(result.message).toContain("### Cluster failures");
       expect(result.message).toContain(
-        "- [replicated](https://example.invalid/replicated): CONFIGURE SDN"
+        "- [replicated](https://example.invalid/replicated): ❌ CONFIGURE SDN FAILED"
       );
       expect(result.threadMessage).toBe("");
       expect(result.threadMessages).toEqual([]);
@@ -347,39 +354,81 @@ describe("messenger-report", () => {
 
   test("shows branch line for non-main branches", async () =>
     withTempDir(async (tempDir) => {
+      fs.writeFileSync(
+        path.join(tempDir, "e2e_report_replicated.json"),
+        JSON.stringify({
+          cluster: "replicated",
+          storageType: "replicated",
+          branch: "release-1.2",
+          clusterStatus: {
+            status: "failure",
+            stage: "configure-sdn",
+            stageLabel: "CONFIGURE SDN",
+            message: "❌ CONFIGURE SDN FAILED",
+            reason: "cluster-stage-failed",
+          },
+          testStatus: {
+            status: "not-run",
+            reason: "cluster-stage-failed",
+            message: "E2E tests were not run because cluster setup did not finish",
+          },
+          metrics: {
+            passed: 0,
+            failed: 0,
+            errors: 0,
+            total: 0,
+            successRate: 0,
+          },
+          failedTests: [],
+        })
+      );
+
       process.env.REPORTS_DIR = tempDir;
-      process.env.STORAGE_TYPES = '["replicated"]';
-      process.env.REPORT_FALLBACK_REPLICATED_REPORT_KIND = "stage-failure";
-      process.env.REPORT_FALLBACK_REPLICATED_STATUS = "failure";
-      process.env.REPORT_FALLBACK_REPLICATED_FAILED_STAGE = "configure-sdn";
-      process.env.REPORT_FALLBACK_REPLICATED_FAILED_STAGE_LABEL =
-        "CONFIGURE SDN";
-      process.env.REPORT_FALLBACK_REPLICATED_WORKFLOW_RUN_URL =
-        "https://example.invalid/replicated";
-      process.env.REPORT_FALLBACK_REPLICATED_BRANCH = "release-1.2";
 
       const result = await renderMessengerReport({ core: createCore() });
 
       expect(result.message).toContain("Branch: `release-1.2`");
     }));
 
-  test("preserves test-reports-missing fallback from workflow metadata", async () =>
+  test("renders missing test report status from downloaded report artifact", async () =>
     withTempDir(async (tempDir) => {
+      fs.writeFileSync(
+        path.join(tempDir, "e2e_report_replicated.json"),
+        JSON.stringify({
+          cluster: "replicated",
+          storageType: "replicated",
+          branch: "main",
+          workflowRunUrl: "https://example.invalid/replicated",
+          clusterStatus: {
+            status: "success",
+            stage: "ready",
+            stageLabel: "CLUSTER READY",
+            message: "✅ CLUSTER READY",
+            reason: "",
+          },
+          testStatus: {
+            status: "missing",
+            reason: "ginkgo-report-missing",
+            message: "⚠️ E2E TEST REPORT NOT FOUND",
+          },
+          metrics: {
+            passed: 0,
+            failed: 0,
+            errors: 0,
+            total: 0,
+            successRate: 0,
+          },
+          failedTests: [],
+        })
+      );
+
       process.env.REPORTS_DIR = tempDir;
-      process.env.STORAGE_TYPES = '["replicated"]';
-      process.env.REPORT_FALLBACK_REPLICATED_REPORT_KIND = "artifact-missing";
-      process.env.REPORT_FALLBACK_REPLICATED_STATUS = "missing";
-      process.env.REPORT_FALLBACK_REPLICATED_FAILED_STAGE = "artifact-missing";
-      process.env.REPORT_FALLBACK_REPLICATED_FAILED_STAGE_LABEL =
-        "TEST REPORTS NOT FOUND";
-      process.env.REPORT_FALLBACK_REPLICATED_WORKFLOW_RUN_URL =
-        "https://example.invalid/replicated";
 
       const result = await renderMessengerReport({ core: createCore() });
 
       expect(result.message).toContain("### Missing reports");
       expect(result.message).toContain(
-        "- [replicated](https://example.invalid/replicated): TEST REPORTS NOT FOUND"
+        "- [replicated](https://example.invalid/replicated): ⚠️ E2E TEST REPORT NOT FOUND"
       );
       expect(result.threadMessage).toBe("");
       expect(result.threadMessages).toEqual([]);
@@ -424,17 +473,12 @@ describe("messenger-report", () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 201,
-          text: async () => JSON.stringify({ id: "thread-header-post-id" }),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 201,
-          text: async () => JSON.stringify({ id: "thread-cluster-post-id" }),
+          text: async () => JSON.stringify({ id: "thread-post-id" }),
         });
 
       const result = await renderMessengerReport({ core: createCore() });
 
-      expect(global.fetch).toHaveBeenCalledTimes(3);
+      expect(global.fetch).toHaveBeenCalledTimes(2);
       expect(global.fetch).toHaveBeenNthCalledWith(
         1,
         "https://loop.example.invalid/api/v4/posts",
@@ -452,12 +496,7 @@ describe("messenger-report", () => {
       });
       expect(JSON.parse(global.fetch.mock.calls[1][1].body)).toEqual({
         channel_id: "channel-id",
-        message: "### Failed tests",
-        root_id: "root-post-id",
-      });
-      expect(JSON.parse(global.fetch.mock.calls[2][1].body)).toEqual({
-        channel_id: "channel-id",
-        message: "**replicated**\n\n| Test group |\n|---|\n| fails |",
+        message: "### Failed tests\n\n**replicated**\n\n| Test group |\n|---|\n| fails |",
         root_id: "root-post-id",
       });
     }));

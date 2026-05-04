@@ -3,7 +3,7 @@ const os = require("os");
 const path = require("path");
 
 const buildClusterReport = require("./cluster-report");
-const { determineStage } = require("./cluster-report");
+const { buildClusterStatus } = require("./cluster-report");
 const { parseGinkgoReport } = require("./ginkgo-report-utils");
 const { readClusterConfigFromEnv } = require("./cluster-report");
 
@@ -213,24 +213,56 @@ describe("cluster-report", () => {
     });
   });
 
-  test("determines stage from explicit stage results", () => {
+  test("determines cluster setup status from explicit stage results", () => {
     expect(
-      determineStage("replicated", {
+      buildClusterStatus({
         bootstrap: "success",
         "configure-sdn": "failure",
         "storage-setup": "skipped",
         "virtualization-setup": "skipped",
-        "e2e-test": "skipped",
       })
     ).toMatchObject({
-      failedStage: "configure-sdn",
-      failedStageLabel: "CONFIGURE SDN",
-      reportKind: "stage-failure",
       status: "failure",
+      stage: "configure-sdn",
+      stageLabel: "CONFIGURE SDN",
+      reason: "cluster-stage-failed",
     });
   });
 
-  test("renders test report from Ginkgo JSON when E2E succeeded", async () =>
+  test("builds report from explicit config without reading env", async () =>
+    withTempDir(async (tempDir) => {
+      const reportFile = path.join(tempDir, "explicit-report.json");
+
+      const report = await buildClusterReport({
+        core: createCore(),
+        context: createContext(),
+        config: {
+          storageType: "nfs",
+          reportsDir: tempDir,
+          reportFile,
+          workflowRunUrl: "https://example.invalid/run/explicit",
+          branchName: "feature/report",
+          stageResults: {
+            bootstrap: "success",
+            "configure-sdn": "failure",
+            "storage-setup": "skipped",
+            "virtualization-setup": "skipped",
+            "e2e-test": "skipped",
+          },
+        },
+      });
+
+      expect(report.cluster).toBe("nfs");
+      expect(report.workflowRunUrl).toBe("https://example.invalid/run/explicit");
+      expect(report.branch).toBe("feature/report");
+      expect(report.clusterStatus).toMatchObject({
+        status: "failure",
+        stage: "configure-sdn",
+      });
+      expect(JSON.parse(fs.readFileSync(reportFile, "utf8")).cluster).toBe("nfs");
+    }));
+
+  test("marks Ginkgo JSON with failed specs as failed", async () =>
     withTempDir(async (tempDir) => {
       const rawReportPath = path.join(
         tempDir,
@@ -282,7 +314,16 @@ describe("cluster-report", () => {
       });
 
       expect(report.reportKind).toBe("tests");
-      expect(report.failedStage).toBe("success");
+      expect(report.failedStage).toBe("e2e-test");
+      expect(report.clusterStatus).toMatchObject({
+        status: "success",
+        stage: "ready",
+        stageLabel: "CLUSTER READY",
+      });
+      expect(report.testStatus).toMatchObject({
+        status: "failure",
+        reason: "ginkgo-failed",
+      });
       expect(report.metrics).toEqual({
         passed: 1,
         failed: 1,
@@ -302,11 +343,11 @@ describe("cluster-report", () => {
       );
       expect(core.setOutput).toHaveBeenCalledWith("report_file", reportFile);
       expect(core.setOutput).toHaveBeenCalledWith("report_kind", "tests");
-      expect(core.setOutput).toHaveBeenCalledWith("status", "success");
-      expect(core.setOutput).toHaveBeenCalledWith("failed_stage", "success");
+      expect(core.setOutput).toHaveBeenCalledWith("status", "failure");
+      expect(core.setOutput).toHaveBeenCalledWith("failed_stage", "e2e-test");
       expect(core.setOutput).toHaveBeenCalledWith(
         "failed_stage_label",
-        "SUCCESS"
+        "E2E TEST"
       );
       expect(core.setOutput).toHaveBeenCalledWith(
         "workflow_run_url",
@@ -383,7 +424,11 @@ describe("cluster-report", () => {
       expect(report.reportKind).toBe("artifact-missing");
       expect(report.failedStage).toBe("artifact-missing");
       expect(report.status).toBe("missing");
-      expect(report.reportSource).toBe("empty");
+      expect(report.reportSource).toBe("ginkgo-json-invalid");
+      expect(report.testStatus).toMatchObject({
+        status: "missing",
+        reason: "ginkgo-report-invalid",
+      });
       expect(core.warning).toHaveBeenCalledWith(
         expect.stringContaining("Unable to parse Ginkgo JSON report")
       );
@@ -523,6 +568,15 @@ describe("cluster-report", () => {
       expect(report.failedStage).toBe("configure-sdn");
       expect(report.failedStageLabel).toBe("CONFIGURE SDN");
       expect(report.status).toBe("failure");
+      expect(report.clusterStatus).toMatchObject({
+        status: "failure",
+        stage: "configure-sdn",
+        reason: "cluster-stage-failed",
+      });
+      expect(report.testStatus).toMatchObject({
+        status: "not-run",
+        reason: "cluster-stage-failed",
+      });
     }));
 
   test("marks missing artifacts when test stage is successful but no reports were found", async () =>
@@ -542,6 +596,11 @@ describe("cluster-report", () => {
       expect(report.failedStage).toBe("artifact-missing");
       expect(report.failedStageLabel).toBe("TEST REPORTS NOT FOUND");
       expect(report.status).toBe("missing");
+      expect(report.clusterStatus.status).toBe("success");
+      expect(report.testStatus).toMatchObject({
+        status: "missing",
+        reason: "ginkgo-report-missing",
+      });
     }));
 
   test("keeps cancelled test stage when no reports were found", async () =>
@@ -562,6 +621,11 @@ describe("cluster-report", () => {
       expect(report.failedStage).toBe("e2e-test");
       expect(report.failedStageLabel).toBe("E2E TEST");
       expect(report.status).toBe("cancelled");
+      expect(report.clusterStatus.status).toBe("success");
+      expect(report.testStatus).toMatchObject({
+        status: "cancelled",
+        reason: "e2e-cancelled",
+      });
     }));
 
   test("keeps failed test stage when no reports were found", async () =>
@@ -582,5 +646,10 @@ describe("cluster-report", () => {
       expect(report.failedStage).toBe("e2e-test");
       expect(report.failedStageLabel).toBe("E2E TEST");
       expect(report.status).toBe("failure");
+      expect(report.clusterStatus.status).toBe("success");
+      expect(report.testStatus).toMatchObject({
+        status: "failure",
+        reason: "ginkgo-report-missing",
+      });
     }));
 });

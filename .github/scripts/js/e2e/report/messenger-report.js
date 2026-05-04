@@ -15,7 +15,6 @@ const fs = require("fs");
 const { listMatchingFiles } = require("./fs-utils");
 
 const genericArtifactMissingLabel = "E2E REPORT ARTIFACT NOT FOUND";
-const testReportsMissingLabel = "TEST REPORTS NOT FOUND";
 
 /**
  * Builds a user-facing status line for a cluster row or fallback report.
@@ -51,42 +50,32 @@ function buildStatusMessage(status, stageLabel) {
  * report-preparation step failed or never produced an artifact.
  *
  * @param {string} clusterName Cluster or storage name.
- * @param {{
- *   reportKind?: string,
- *   failedStage?: string,
- *   failedStageLabel?: string,
- *   status?: string,
- *   branch?: string,
- *   workflowRunUrl?: string
- * }} [fallback={}] Optional fallback data propagated from workflow outputs.
  * @returns {Record<string, any>} Synthetic report payload.
  */
-function createMissingReport(clusterName, fallback = {}) {
-  const reportKind =
-    fallback.reportKind && fallback.reportKind !== "tests"
-      ? fallback.reportKind
-      : "artifact-missing";
-  const failedStage =
-    fallback.failedStage && fallback.failedStage !== "success"
-      ? fallback.failedStage
-      : "artifact-missing";
-  const failedStageLabel =
-    fallback.failedStageLabel ||
-    (fallback.reportKind === "artifact-missing"
-      ? testReportsMissingLabel
-      : genericArtifactMissingLabel);
-  const status = fallback.status || "missing";
-
+function createMissingReport(clusterName) {
   return {
+    schemaVersion: 1,
     cluster: clusterName,
     storageType: clusterName,
-    reportKind,
-    status,
-    statusMessage: buildStatusMessage(status, failedStageLabel),
-    failedStage,
-    failedStageLabel,
-    branch: fallback.branch || "",
-    workflowRunUrl: fallback.workflowRunUrl || "",
+    reportKind: "artifact-missing",
+    status: "missing",
+    statusMessage: buildStatusMessage("missing", genericArtifactMissingLabel),
+    failedStage: "artifact-missing",
+    failedStageLabel: genericArtifactMissingLabel,
+    branch: "",
+    workflowRunUrl: "",
+    clusterStatus: {
+      status: "missing",
+      stage: "artifact-missing",
+      stageLabel: genericArtifactMissingLabel,
+      message: buildStatusMessage("missing", genericArtifactMissingLabel),
+      reason: "cluster-report-artifact-missing",
+    },
+    testStatus: {
+      status: "not-run",
+      reason: "cluster-report-artifact-missing",
+      message: "E2E status is unavailable because cluster report artifact was not found",
+    },
     metrics: {
       passed: 0,
       failed: 0,
@@ -96,6 +85,7 @@ function createMissingReport(clusterName, fallback = {}) {
       successRate: 0,
     },
     failedTests: [],
+    reportSource: "missing-artifact",
   };
 }
 
@@ -212,10 +202,50 @@ function getReportClusterKey(report) {
  */
 function isMissingReport(report) {
   return (
+    (report.testStatus && report.testStatus.status === "missing") ||
+    (report.clusterStatus && report.clusterStatus.status === "missing") ||
     report.reportKind === "artifact-missing" ||
     report.failedStage === "artifact-missing" ||
     report.status === "missing"
   );
+}
+
+/**
+ * Tells whether the report describes a failed cluster setup stage.
+ *
+ * @param {Record<string, any>} report Cluster report payload.
+ * @returns {boolean} True for cluster-stage failures.
+ */
+function isClusterFailureReport(report) {
+  if (report.clusterStatus) {
+    return (
+      report.clusterStatus.status !== "success" &&
+      report.clusterStatus.status !== "missing"
+    );
+  }
+
+  return report.reportKind !== "tests" && !isMissingReport(report);
+}
+
+/**
+ * Tells whether the report should be rendered in the E2E test results table.
+ *
+ * @param {Record<string, any>} report Cluster report payload.
+ * @returns {boolean} True for reports with test status data.
+ */
+function isTestResultReport(report) {
+  if (report.clusterStatus && report.clusterStatus.status !== "success") {
+    return false;
+  }
+
+  if (report.testStatus) {
+    return (
+      report.testStatus.status !== "not-run" &&
+      report.testStatus.status !== "missing"
+    );
+  }
+
+  return report.reportKind === "tests";
 }
 
 /**
@@ -266,77 +296,12 @@ function parseConfiguredClusters(value) {
 }
 
 /**
- * Converts a cluster name into a safe environment-variable suffix.
- *
- * @param {string} clusterName Raw cluster name.
- * @returns {string} Uppercased normalized environment key fragment.
- */
-function normalizeClusterEnvKey(clusterName) {
-  return String(clusterName || "")
-    .trim()
-    .replace(/[^a-zA-Z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .toUpperCase();
-}
-
-/**
- * Reads per-cluster fallback values exported by reusable workflow jobs.
- *
- * @param {string[]} configuredClusters Clusters that should appear in the message.
- * @param {NodeJS.ProcessEnv} [env=process.env] Environment variables source.
- * @returns {Record<string, {
- *   reportKind: string,
- *   status: string,
- *   failedStage: string,
- *   failedStageLabel: string,
- *   workflowRunUrl: string,
- *   branch: string
- * }>} Fallbacks indexed by cluster name.
- */
-function readReportFallbacksFromEnv(configuredClusters, env = process.env) {
-  const fallbackByCluster = {};
-
-  for (const clusterName of configuredClusters) {
-    const clusterKey = normalizeClusterEnvKey(clusterName);
-    const reportKind = env[`REPORT_FALLBACK_${clusterKey}_REPORT_KIND`] || "";
-    const status = env[`REPORT_FALLBACK_${clusterKey}_STATUS`] || "";
-    const failedStage = env[`REPORT_FALLBACK_${clusterKey}_FAILED_STAGE`] || "";
-    const failedStageLabel =
-      env[`REPORT_FALLBACK_${clusterKey}_FAILED_STAGE_LABEL`] || "";
-    const workflowRunUrl =
-      env[`REPORT_FALLBACK_${clusterKey}_WORKFLOW_RUN_URL`] || "";
-    const branch = env[`REPORT_FALLBACK_${clusterKey}_BRANCH`] || "";
-
-    if (
-      reportKind ||
-      status ||
-      failedStage ||
-      failedStageLabel ||
-      workflowRunUrl ||
-      branch
-    ) {
-      fallbackByCluster[clusterName] = {
-        reportKind,
-        status,
-        failedStage,
-        failedStageLabel,
-        workflowRunUrl,
-        branch,
-      };
-    }
-  }
-
-  return fallbackByCluster;
-}
-
-/**
  * Reads messenger configuration from the environment prepared by the workflow.
  *
  * @param {NodeJS.ProcessEnv} [env=process.env] Environment variables source.
  * @returns {{
  *   reportsDir: string,
  *   configuredClusters: string[],
- *   reportFallbacks: Record<string, any>,
  *   loop: {
  *     apiUrl: string,
  *     channelId: string,
@@ -350,7 +315,6 @@ function readMessengerConfigFromEnv(env = process.env) {
   return {
     reportsDir: env.REPORTS_DIR || "downloaded-artifacts",
     configuredClusters,
-    reportFallbacks: readReportFallbacksFromEnv(configuredClusters, env),
     loop: {
       apiUrl: getLoopPostsApiUrl(env),
       channelId: String(env.LOOP_CHANNEL_ID || "").trim(),
@@ -433,11 +397,10 @@ async function postToLoopApi(
  *
  * @param {string} reportsDir Directory containing `e2e_report_*.json`.
  * @param {string[]} configuredClusters Clusters expected in the final report.
- * @param {Record<string, any>} reportFallbacks Fallback data by cluster.
  * @param {{ warning(message: string): void }} core GitHub core API.
  * @returns {Record<string, any>[]} Ordered cluster reports.
  */
-function readReports(reportsDir, configuredClusters, reportFallbacks, core) {
+function readReports(reportsDir, configuredClusters, core) {
   const reportFiles = listMatchingFiles(reportsDir, /^e2e_report_.*\.json$/);
   const reports = [];
 
@@ -464,10 +427,7 @@ function readReports(reportsDir, configuredClusters, reportFallbacks, core) {
 
   for (const clusterName of configuredClusters) {
     if (!reportsByCluster.has(clusterName)) {
-      reportsByCluster.set(
-        clusterName,
-        createMissingReport(clusterName, reportFallbacks[clusterName])
-      );
+      reportsByCluster.set(clusterName, createMissingReport(clusterName));
     }
   }
 
@@ -497,15 +457,17 @@ function buildMainMessage(orderedReports) {
   }
 
   const testsReports = orderedReports.filter(
-    (report) => report.reportKind === "tests" && getReportClusterKey(report)
+    (report) => isTestResultReport(report) && getReportClusterKey(report)
   );
-  const nonTestReports = orderedReports.filter(
-    (report) => report.reportKind !== "tests" && getReportClusterKey(report)
+  const stageFailureReports = orderedReports.filter(
+    (report) => isClusterFailureReport(report) && getReportClusterKey(report)
   );
-  const stageFailureReports = nonTestReports.filter(
-    (report) => !isMissingReport(report)
+  const missingReports = orderedReports.filter(
+    (report) =>
+      isMissingReport(report) &&
+      !isClusterFailureReport(report) &&
+      getReportClusterKey(report)
   );
-  const missingReports = nonTestReports.filter((report) => isMissingReport(report));
 
   if (testsReports.length > 0) {
     lines.push("### Test results");
@@ -536,7 +498,10 @@ function buildMainMessage(orderedReports) {
     for (const report of stageFailureReports) {
       lines.push(
         `- ${formatClusterLink(report)}: ${sanitizeListItem(
-          report.failedStageLabel || report.statusMessage || report.failedStage
+          (report.clusterStatus && report.clusterStatus.message) ||
+            report.statusMessage ||
+            report.failedStageLabel ||
+            report.failedStage
         )}`
       );
     }
@@ -549,9 +514,17 @@ function buildMainMessage(orderedReports) {
     lines.push("");
 
     for (const report of missingReports) {
+      const missingMessage =
+        report.clusterStatus && report.clusterStatus.status === "missing"
+          ? report.clusterStatus.message
+          : report.testStatus && report.testStatus.message;
       lines.push(
         `- ${formatClusterLink(report)}: ${sanitizeListItem(
-          report.failedStageLabel || report.statusMessage || report.failedStage
+          missingMessage ||
+            (report.clusterStatus && report.clusterStatus.message) ||
+            report.statusMessage ||
+            report.failedStageLabel ||
+            report.failedStage
         )}`
       );
     }
@@ -574,6 +547,9 @@ function hasFailedTests(report) {
   }
 
   return Boolean(
+    report.testStatus &&
+      (report.testStatus.status === "failure" ||
+        report.testStatus.status === "cancelled") ||
     (report.metrics && report.metrics.failed) ||
       (report.metrics && report.metrics.errors)
   );
@@ -633,7 +609,10 @@ function buildFailedTestsClusterMessage(report) {
     }
   } else {
     lines.push(
-      "- No testcase-level failures were collected, but the E2E stage reported failures."
+      `- ${
+        sanitizeListItem(report.testStatus && report.testStatus.message) ||
+        "No testcase-level failures were collected, but the E2E stage reported failures."
+      }`
     );
   }
 
@@ -648,7 +627,7 @@ function buildFailedTestsClusterMessage(report) {
  */
 function buildThreadMessages(orderedReports) {
   const testsReports = orderedReports.filter(
-    (report) => report.reportKind === "tests"
+    (report) => isTestResultReport(report)
   );
   const failedTestReports = testsReports.filter(hasFailedTests);
 
@@ -656,10 +635,12 @@ function buildThreadMessages(orderedReports) {
     return [];
   }
 
-  return [
-    "### Failed tests",
-    ...failedTestReports.map(buildFailedTestsClusterMessage),
-  ];
+  return failedTestReports.map((report, index) => {
+    const clusterMessage = buildFailedTestsClusterMessage(report);
+    return index === 0
+      ? ["### Failed tests", clusterMessage].join("\n\n")
+      : clusterMessage;
+  });
 }
 
 /**
@@ -668,7 +649,6 @@ function buildThreadMessages(orderedReports) {
  * @param {{
  *   reportsDir: string,
  *   configuredClusters: string[],
- *   reportFallbacks: Record<string, any>,
  *   core: { warning(message: string): void }
  * }} params Message rendering inputs.
  * @returns {{
@@ -680,13 +660,11 @@ function buildThreadMessages(orderedReports) {
 function buildMessengerMessages({
   reportsDir,
   configuredClusters,
-  reportFallbacks,
   core,
 }) {
   const orderedReports = readReports(
     reportsDir,
     configuredClusters,
-    reportFallbacks,
     core
   );
   const threadMessages = buildThreadMessages(orderedReports);
@@ -767,7 +745,8 @@ async function publishToLoop({ message, threadMessages, loop }, core) {
  *     info(message: string): void,
  *     warning(message: string): void,
  *     setOutput(name: string, value: string): void
- *   }
+ *   },
+ *   reportsDir?: string
  * }} params GitHub script dependencies.
  * @returns {Promise<{
  *   message: string,
@@ -775,12 +754,11 @@ async function publishToLoop({ message, threadMessages, loop }, core) {
  *   threadMessages: string[]
  * }>} Rendered messages.
  */
-async function renderMessengerReport({ core }) {
+async function renderMessengerReport({ core, reportsDir }) {
   const config = readMessengerConfigFromEnv();
   const { message, threadMessage, threadMessages } = buildMessengerMessages({
-    reportsDir: config.reportsDir,
+    reportsDir: reportsDir || config.reportsDir,
     configuredClusters: config.configuredClusters,
-    reportFallbacks: config.reportFallbacks,
     core,
   });
 
@@ -805,5 +783,4 @@ module.exports = renderMessengerReport;
 module.exports.createMissingReport = createMissingReport;
 module.exports.buildMessengerMessages = buildMessengerMessages;
 module.exports.getLoopPostsApiUrl = getLoopPostsApiUrl;
-module.exports.readReportFallbacksFromEnv = readReportFallbacksFromEnv;
 module.exports.readMessengerConfigFromEnv = readMessengerConfigFromEnv;
