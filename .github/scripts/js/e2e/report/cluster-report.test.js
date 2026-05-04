@@ -4,7 +4,7 @@ const path = require("path");
 
 const buildClusterReport = require("./cluster-report");
 const { buildClusterStatus } = require("./cluster-report");
-const { parseGinkgoReport } = require("./ginkgo-report-utils");
+const { parseGinkgoReport } = require("./shared/ginkgo-report-utils");
 const { readClusterConfigFromEnv } = require("./cluster-report");
 
 /**
@@ -204,7 +204,7 @@ describe("cluster-report", () => {
       workflowRunUrlOverride: "https://example.invalid/run/1",
       branchNameOverride: "release",
       stageResults: {
-        bootstrap: "success",
+        "bootstrap": "success",
         "configure-sdn": "failure",
         "storage-setup": "skipped",
         "virtualization-setup": "skipped",
@@ -216,7 +216,7 @@ describe("cluster-report", () => {
   test("determines cluster setup status from explicit stage results", () => {
     expect(
       buildClusterStatus({
-        bootstrap: "success",
+        "bootstrap": "success",
         "configure-sdn": "failure",
         "storage-setup": "skipped",
         "virtualization-setup": "skipped",
@@ -243,7 +243,7 @@ describe("cluster-report", () => {
           workflowRunUrl: "https://example.invalid/run/explicit",
           branchName: "feature/report",
           stageResults: {
-            bootstrap: "success",
+            "bootstrap": "success",
             "configure-sdn": "failure",
             "storage-setup": "skipped",
             "virtualization-setup": "skipped",

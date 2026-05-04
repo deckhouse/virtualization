@@ -1,0 +1,79 @@
+/**
+ * Normalizes the configured Loop API base URL to the `/api/v4/posts` endpoint.
+ *
+ * @param {string} value Raw Loop API base URL.
+ * @returns {string} Normalized posts endpoint URL or an empty string.
+ */
+function normalizeLoopApiBaseUrl(value) {
+  const trimmedValue = String(value || "")
+    .trim()
+    .replace(/\/+$/, "");
+
+  if (!trimmedValue) {
+    return "";
+  }
+
+  if (trimmedValue.endsWith("/api/v4/posts")) {
+    return trimmedValue;
+  }
+
+  if (trimmedValue.endsWith("/api/v4")) {
+    return `${trimmedValue}/posts`;
+  }
+
+  return `${trimmedValue}/api/v4/posts`;
+}
+
+/**
+ * Reads and normalizes the Loop posts API URL from environment variables.
+ *
+ * @param {NodeJS.ProcessEnv} [env=process.env] Environment variables source.
+ * @returns {string} Normalized posts endpoint URL or an empty string.
+ */
+function getLoopPostsApiUrl(env = process.env) {
+  return normalizeLoopApiBaseUrl(env.LOOP_API_BASE_URL);
+}
+
+/**
+ * Parses the configured cluster list passed via workflow environment variables.
+ *
+ * @param {string} value JSON-encoded cluster list.
+ * @returns {string[]} Ordered cluster names.
+ */
+function parseConfiguredClusters(value) {
+  const parsedValue = JSON.parse(value || "[]");
+  return Array.isArray(parsedValue) ? parsedValue : [];
+}
+
+/**
+ * Reads messenger configuration from the environment prepared by the workflow.
+ *
+ * @param {NodeJS.ProcessEnv} [env=process.env] Environment variables source.
+ * @returns {{
+ *   reportsDir: string,
+ *   configuredClusters: string[],
+ *   loop: {
+ *     apiUrl: string,
+ *     channelId: string,
+ *     token: string
+ *   }
+ * }} Normalized messenger configuration.
+ */
+function readMessengerConfigFromEnv(env = process.env) {
+  const configuredClusters = parseConfiguredClusters(env.STORAGE_TYPES);
+
+  return {
+    reportsDir: env.REPORTS_DIR || "downloaded-artifacts",
+    configuredClusters,
+    loop: {
+      apiUrl: getLoopPostsApiUrl(env),
+      channelId: String(env.LOOP_CHANNEL_ID || "").trim(),
+      token: String(env.LOOP_TOKEN || "").trim(),
+    },
+  };
+}
+
+module.exports = {
+  getLoopPostsApiUrl,
+  readMessengerConfigFromEnv,
+};

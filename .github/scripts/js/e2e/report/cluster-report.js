@@ -12,16 +12,16 @@
 
 const fs = require("fs");
 
-const { findSingleMatchingFile } = require("./fs-utils");
-const { parseGinkgoReport } = require("./ginkgo-report-utils");
+const { findSingleMatchingFile } = require("./shared/fs-utils");
+const { parseGinkgoReport } = require("./shared/ginkgo-report-utils");
 
 const stageLabels = {
-  bootstrap: "BOOTSTRAP CLUSTER",
+  "bootstrap": "BOOTSTRAP CLUSTER",
   "configure-sdn": "CONFIGURE SDN",
   "storage-setup": "STORAGE SETUP",
   "virtualization-setup": "VIRTUALIZATION SETUP",
   "e2e-test": "E2E TEST",
-  ready: "CLUSTER READY",
+  "ready": "CLUSTER READY",
   "artifact-missing": "TEST REPORTS NOT FOUND",
 };
 
@@ -54,7 +54,7 @@ function escapeRegExp(value) {
  *   workflowRunUrlOverride: string,
  *   branchNameOverride: string,
  *   stageResults: {
- *     bootstrap: string|undefined,
+ *     "bootstrap": string|undefined,
  *     "configure-sdn": string|undefined,
  *     "storage-setup": string|undefined,
  *     "virtualization-setup": string|undefined,
@@ -72,7 +72,7 @@ function readClusterConfigFromEnv(env = process.env) {
     workflowRunUrlOverride: env.WORKFLOW_RUN_URL || "",
     branchNameOverride: env.BRANCH_NAME || "",
     stageResults: {
-      bootstrap: env.BOOTSTRAP_RESULT,
+      "bootstrap": env.BOOTSTRAP_RESULT,
       "configure-sdn": env.CONFIGURE_SDN_RESULT,
       "storage-setup": env.CONFIGURE_STORAGE_RESULT,
       "virtualization-setup": env.CONFIGURE_VIRTUALIZATION_RESULT,
@@ -150,7 +150,7 @@ function normalizeJobResult(resultValue) {
  * Builds the cluster setup status from pre-E2E workflow stages.
  *
  * @param {{
- *   bootstrap: string|undefined,
+ *   "bootstrap": string|undefined,
  *   "configure-sdn": string|undefined,
  *   "storage-setup": string|undefined,
  *   "virtualization-setup": string|undefined
@@ -366,7 +366,7 @@ function setReportOutputs(report, reportFile, core) {
  *     workflowRunUrl?: string,
  *     branchName?: string,
  *     stageResults: {
- *       bootstrap: string|undefined,
+ *       "bootstrap": string|undefined,
  *       "configure-sdn": string|undefined,
  *       "storage-setup": string|undefined,
  *       "virtualization-setup": string|undefined,

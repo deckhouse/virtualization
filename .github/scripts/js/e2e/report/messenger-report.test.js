@@ -485,7 +485,7 @@ describe("messenger-report", () => {
         expect.objectContaining({
           method: "POST",
           headers: expect.objectContaining({
-            Authorization: "Bearer loop-token",
+            "Authorization": "Bearer loop-token",
             "Content-Type": "application/json",
           }),
         })
