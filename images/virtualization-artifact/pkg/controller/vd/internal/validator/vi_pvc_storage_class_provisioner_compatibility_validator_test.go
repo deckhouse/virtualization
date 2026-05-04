@@ -66,7 +66,7 @@ var _ = Describe("VirtualImagePVCStorageClassValidator", func() {
 		return sc
 	}
 
-	newVirtualImage := func(scName string) *v1alpha2.VirtualImage {
+	newVirtualImage := func() *v1alpha2.VirtualImage {
 		return &v1alpha2.VirtualImage{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      viName,
@@ -77,17 +77,17 @@ var _ = Describe("VirtualImagePVCStorageClassValidator", func() {
 			},
 			Status: v1alpha2.VirtualImageStatus{
 				Phase:            v1alpha2.ImageReady,
-				StorageClassName: scName,
+				StorageClassName: "vi-sc",
 			},
 		}
 	}
 
-	newDataSource := func(name string) *v1alpha2.VirtualDiskDataSource {
+	newDataSource := func() *v1alpha2.VirtualDiskDataSource {
 		return &v1alpha2.VirtualDiskDataSource{
 			Type: v1alpha2.DataSourceTypeObjectRef,
 			ObjectRef: &v1alpha2.VirtualDiskObjectRef{
 				Kind: v1alpha2.VirtualDiskObjectRefKindVirtualImage,
-				Name: name,
+				Name: viName,
 			},
 		}
 	}
@@ -132,35 +132,35 @@ var _ = Describe("VirtualImagePVCStorageClassValidator", func() {
 		Expect(err.Error()).To(ContainSubstring(expectedErr))
 	},
 		Entry("uses status storage class first", func() *v1alpha2.VirtualDisk {
-			return newVD("status-sc", ptr("spec-sc"), newDataSource(viName))
+			return newVD("status-sc", ptr("spec-sc"), newDataSource())
 		}(), config.VirtualDiskStorageClassSettings{}, []client.Object{
-			newVirtualImage("vi-sc"),
+			newVirtualImage(),
 			newStorageClass("status-sc", "csi.example.com", false),
 			newStorageClass("spec-sc", "other.csi.example.com", false),
 			newStorageClass("vi-sc", "csi.example.com", false),
 		}, ""),
 		Entry("uses spec storage class when status is empty", func() *v1alpha2.VirtualDisk {
-			return newVD("", ptr("spec-sc"), newDataSource(viName))
+			return newVD("", ptr("spec-sc"), newDataSource())
 		}(), config.VirtualDiskStorageClassSettings{}, []client.Object{
-			newVirtualImage("vi-sc"),
+			newVirtualImage(),
 			newStorageClass("spec-sc", "csi.example.com", false),
 			newStorageClass("default-sc", "other.csi.example.com", true),
 			newStorageClass("vi-sc", "csi.example.com", false),
 		}, ""),
 		Entry("uses module storage class before default class", func() *v1alpha2.VirtualDisk {
-			return newVD("", nil, newDataSource(viName))
+			return newVD("", nil, newDataSource())
 		}(), config.VirtualDiskStorageClassSettings{
 			DefaultStorageClassName: "module-sc",
 		}, []client.Object{
-			newVirtualImage("vi-sc"),
+			newVirtualImage(),
 			newStorageClass("module-sc", "csi.example.com", false),
 			newStorageClass("default-sc", "other.csi.example.com", true),
 			newStorageClass("vi-sc", "csi.example.com", false),
 		}, ""),
 		Entry("uses default storage class as fallback", func() *v1alpha2.VirtualDisk {
-			return newVD("", nil, newDataSource(viName))
+			return newVD("", nil, newDataSource())
 		}(), config.VirtualDiskStorageClassSettings{}, []client.Object{
-			newVirtualImage("vi-sc"),
+			newVirtualImage(),
 			newStorageClass("default-sc", "csi.example.com", true),
 			newStorageClass("vi-sc", "csi.example.com", false),
 		}, ""),
@@ -168,9 +168,9 @@ var _ = Describe("VirtualImagePVCStorageClassValidator", func() {
 			return newVD("", nil, nil)
 		}(), config.VirtualDiskStorageClassSettings{}, nil, `storage class for VirtualDisk "target-vd" cannot be determined`),
 		Entry("returns readable mismatch error", func() *v1alpha2.VirtualDisk {
-			return newVD("", ptr("vd-sc"), newDataSource(viName))
+			return newVD("", ptr("vd-sc"), newDataSource())
 		}(), config.VirtualDiskStorageClassSettings{}, []client.Object{
-			newVirtualImage("vi-sc"),
+			newVirtualImage(),
 			newStorageClass("vd-sc", "first.csi.example.com", false),
 			newStorageClass("vi-sc", "second.csi.example.com", false),
 		}, `virtual disk storage class "vd-sc" provisioner does not match virtual image storage class "vi-sc" provisioner`),
@@ -189,7 +189,7 @@ var _ = Describe("VirtualImagePVCStorageClassValidator", func() {
 		Expect(err.Error()).To(ContainSubstring(expectedErr))
 	},
 		Entry("returns nil when data source didn't change", func() updateCase {
-			ds := newDataSource(viName)
+			ds := newDataSource()
 			return updateCase{
 				oldVD: newVD("vd-sc", ptr("vd-sc"), ds),
 				newVD: newVD("vd-sc", ptr("vd-sc"), ds),
@@ -197,7 +197,7 @@ var _ = Describe("VirtualImagePVCStorageClassValidator", func() {
 		}(), nil, ""),
 		Entry("skips validation after provisioning is finished", func() updateCase {
 			oldVD := newVD("vd-sc", ptr("vd-sc"), nil)
-			newVD := newVD("vd-sc", ptr("vd-sc"), newDataSource(viName))
+			newVD := newVD("vd-sc", ptr("vd-sc"), newDataSource())
 			newVD.Status.Conditions = []metav1.Condition{
 				{
 					Type:   vdcondition.ReadyType.String(),
@@ -208,7 +208,7 @@ var _ = Describe("VirtualImagePVCStorageClassValidator", func() {
 		}(), nil, ""),
 		Entry("validates and returns mismatch when provisioning is not finished", func() updateCase {
 			oldVD := newVD("vd-sc", ptr("vd-sc"), nil)
-			newVD := newVD("vd-sc", ptr("vd-sc"), newDataSource(viName))
+			newVD := newVD("vd-sc", ptr("vd-sc"), newDataSource())
 			newVD.Status.Conditions = []metav1.Condition{
 				{
 					Type:   vdcondition.ReadyType.String(),
@@ -217,16 +217,16 @@ var _ = Describe("VirtualImagePVCStorageClassValidator", func() {
 			}
 			return updateCase{oldVD: oldVD, newVD: newVD}
 		}(), []client.Object{
-			newVirtualImage("vi-sc"),
+			newVirtualImage(),
 			newStorageClass("vd-sc", "first.csi.example.com", false),
 			newStorageClass("vi-sc", "second.csi.example.com", false),
 		}, `virtual disk storage class "vd-sc" provisioner does not match virtual image storage class "vi-sc" provisioner`),
 		Entry("validates successfully when provisioners are compatible", func() updateCase {
 			oldVD := newVD("vd-sc", ptr("vd-sc"), nil)
-			newVD := newVD("vd-sc", ptr("vd-sc"), newDataSource(viName))
+			newVD := newVD("vd-sc", ptr("vd-sc"), newDataSource())
 			return updateCase{oldVD: oldVD, newVD: newVD}
 		}(), []client.Object{
-			newVirtualImage("vi-sc"),
+			newVirtualImage(),
 			newStorageClass("vd-sc", "csi.example.com", false),
 			newStorageClass("vi-sc", "csi.example.com", false),
 		}, ""),
