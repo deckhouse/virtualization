@@ -1549,26 +1549,23 @@ jobs:
       - name: Determine failed stage and prepare report
         id: determine-stage
         uses: actions/github-script@v7
+        env:
+          STORAGE_TYPE: ${{ inputs.storage_type }}
+          REPORTS_DIR: test/e2e
+          REPORT_FILE: ${{ format('e2e_report_{0}.json', inputs.storage_type) }}
+          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+          WORKFLOW_RUN_URL: ${{ format('{0}/{1}/actions/runs/{2}', github.server_url, github.repository, github.run_id) }}
+          BOOTSTRAP_RESULT: ${{ needs.bootstrap.result }}
+          CONFIGURE_SDN_RESULT: ${{ needs.configure-sdn.result }}
+          STORAGE_SETUP_RESULT: ${{ needs.configure-storage.result }}
+          VIRTUALIZATION_SETUP_RESULT: ${{ needs.configure-virtualization.result }}
+          E2E_TEST_RESULT: ${{ needs.e2e-test.result }}
         with:
           script: |
             const buildClusterReport = require('./.github/scripts/js/e2e/report/cluster-report');
             await buildClusterReport({
               core,
               context,
-              config: {
-                storageType: ${{ toJson(inputs.storage_type) }},
-                reportsDir: 'test/e2e',
-                reportFile: ${{ toJson(format('e2e_report_{0}.json', inputs.storage_type)) }},
-                branchName: ${{ toJson(github.head_ref || github.ref_name) }},
-                workflowRunUrl: ${{ toJson(format('{0}/{1}/actions/runs/{2}', github.server_url, github.repository, github.run_id)) }},
-                stageResults: {
-                  bootstrap: ${{ toJson(needs.bootstrap.result) }},
-                  'configure-sdn': ${{ toJson(needs.configure-sdn.result) }},
-                  'storage-setup': ${{ toJson(needs.configure-storage.result) }},
-                  'virtualization-setup': ${{ toJson(needs.configure-virtualization.result) }},
-                  'e2e-test': ${{ toJson(needs.e2e-test.result) }},
-                },
-              },
             });
 
       - name: Upload E2E report artifact

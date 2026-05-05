@@ -72,7 +72,9 @@ function parseConfiguredClusters(value) {
  * }} Normalized messenger configuration.
  */
 function readMessengerConfigFromEnv(env = process.env) {
-  const configuredClusters = parseConfiguredClusters(env.EXPECTED_STORAGE_TYPES);
+  const configuredClusters = parseConfiguredClusters(
+    env.EXPECTED_STORAGE_TYPES
+  );
 
   return {
     reportsDir: env.REPORTS_DIR || "downloaded-artifacts",

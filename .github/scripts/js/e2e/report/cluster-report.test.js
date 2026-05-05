@@ -15,8 +15,9 @@ const os = require("os");
 const path = require("path");
 
 const buildClusterReport = require("./cluster-report");
-const { buildClusterStatus } = require("./cluster-report");
+const { readClusterReportConfigFromEnv } = require("./cluster-report");
 const { parseGinkgoReport } = require("./shared/ginkgo-report-utils");
+const { buildClusterStatus } = require("./shared/report-model");
 
 /**
  * Creates a mocked GitHub Actions core object for unit tests.
@@ -87,7 +88,7 @@ function createClusterConfig(overrides = {}) {
     reportFile: "e2e_report_replicated.json",
     ...overrides,
     stageResults: {
-      "bootstrap": "success",
+      bootstrap: "success",
       "configure-sdn": "success",
       "storage-setup": "success",
       "virtualization-setup": "success",
@@ -192,19 +193,32 @@ function createZeroMetrics() {
 }
 
 describe("cluster-report", () => {
-  test("requires explicit config", async () => {
+  afterEach(() => {
+    delete process.env.STORAGE_TYPE;
+    delete process.env.REPORTS_DIR;
+    delete process.env.REPORT_FILE;
+    delete process.env.WORKFLOW_RUN_URL;
+    delete process.env.BRANCH_NAME;
+    delete process.env.BOOTSTRAP_RESULT;
+    delete process.env.CONFIGURE_SDN_RESULT;
+    delete process.env.STORAGE_SETUP_RESULT;
+    delete process.env.VIRTUALIZATION_SETUP_RESULT;
+    delete process.env.E2E_TEST_RESULT;
+  });
+
+  test("requires storage type when config is absent", async () => {
     await expect(
       buildClusterReport({
         core: createCore(),
         context: createContext(),
       })
-    ).rejects.toThrow("buildClusterReport requires a config object");
+    ).rejects.toThrow("buildClusterReport requires storageType");
   });
 
   test("determines cluster setup status from explicit stage results", () => {
     expect(
       buildClusterStatus({
-        "bootstrap": "success",
+        bootstrap: "success",
         "configure-sdn": "failure",
         "storage-setup": "skipped",
         "virtualization-setup": "skipped",
@@ -231,7 +245,7 @@ describe("cluster-report", () => {
           workflowRunUrl: "https://example.invalid/run/explicit",
           branchName: "feature/report",
           stageResults: {
-            "bootstrap": "success",
+            bootstrap: "success",
             "configure-sdn": "failure",
             "storage-setup": "skipped",
             "virtualization-setup": "skipped",
@@ -241,13 +255,53 @@ describe("cluster-report", () => {
       });
 
       expect(report.cluster).toBe("nfs");
-      expect(report.workflowRunUrl).toBe("https://example.invalid/run/explicit");
+      expect(report.workflowRunUrl).toBe(
+        "https://example.invalid/run/explicit"
+      );
       expect(report.branch).toBe("feature/report");
       expect(report.clusterStatus).toMatchObject({
         status: "failure",
         stage: "configure-sdn",
       });
-      expect(JSON.parse(fs.readFileSync(reportFile, "utf8")).cluster).toBe("nfs");
+      expect(JSON.parse(fs.readFileSync(reportFile, "utf8")).cluster).toBe(
+        "nfs"
+      );
+    }));
+
+  test("builds report from environment config", async () =>
+    withTempDir(async (tempDir) => {
+      const reportFile = path.join(tempDir, "env-report.json");
+      process.env.STORAGE_TYPE = "replicated";
+      process.env.REPORTS_DIR = tempDir;
+      process.env.REPORT_FILE = reportFile;
+      process.env.WORKFLOW_RUN_URL = "https://example.invalid/run/from-env";
+      process.env.BRANCH_NAME = "feature/from-env";
+      process.env.BOOTSTRAP_RESULT = "success";
+      process.env.CONFIGURE_SDN_RESULT = "success";
+      process.env.STORAGE_SETUP_RESULT = "success";
+      process.env.VIRTUALIZATION_SETUP_RESULT = "success";
+      process.env.E2E_TEST_RESULT = "success";
+
+      expect(readClusterReportConfigFromEnv()).toMatchObject({
+        storageType: "replicated",
+        reportsDir: tempDir,
+        reportFile,
+        branchName: "feature/from-env",
+      });
+
+      const report = await buildClusterReport({
+        core: createCore(),
+        context: createContext(),
+      });
+
+      expect(report.cluster).toBe("replicated");
+      expect(report.workflowRunUrl).toBe(
+        "https://example.invalid/run/from-env"
+      );
+      expect(report.branch).toBe("feature/from-env");
+      expect(JSON.parse(fs.readFileSync(reportFile, "utf8")).cluster).toBe(
+        "replicated"
+      );
     }));
 
   test("marks Ginkgo JSON with failed specs as failed", async () =>
@@ -362,14 +416,18 @@ describe("cluster-report", () => {
         firstReportPath,
         createGinkgoReport({
           startedAt: "2026-04-15T09:30:44Z",
-          specs: [createSpecReport({ leafNodeText: "old pass", state: "passed" })],
+          specs: [
+            createSpecReport({ leafNodeText: "old pass", state: "passed" }),
+          ],
         })
       );
       fs.writeFileSync(
         secondReportPath,
         createGinkgoReport({
           startedAt: "2026-04-16T09:30:44Z",
-          specs: [createSpecReport({ leafNodeText: "latest pass", state: "passed" })],
+          specs: [
+            createSpecReport({ leafNodeText: "latest pass", state: "passed" }),
+          ],
         })
       );
 
@@ -385,9 +443,7 @@ describe("cluster-report", () => {
           context: createContext(),
           config,
         })
-      ).rejects.toThrow(
-        "Expected a single Ginkgo JSON report, but found 2"
-      );
+      ).rejects.toThrow("Expected a single Ginkgo JSON report, but found 2");
       expect(fs.existsSync(reportFile)).toBe(false);
     }));
 

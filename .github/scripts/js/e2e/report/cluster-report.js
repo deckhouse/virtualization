@@ -14,23 +14,12 @@ const fs = require("fs");
 
 const { findSingleMatchingFile } = require("./shared/fs-utils");
 const { parseGinkgoReport } = require("./shared/ginkgo-report-utils");
-
-const stageMessage = {
-  "bootstrap": "BOOTSTRAP CLUSTER",
-  "configure-sdn": "CONFIGURE SDN",
-  "storage-setup": "STORAGE SETUP",
-  "virtualization-setup": "VIRTUALIZATION SETUP",
-  "e2e-test": "E2E TEST",
-  "ready": "CLUSTER READY",
-  "artifact-missing": "TEST REPORTS NOT FOUND",
-};
-
-const clusterSetupStages = [
-  "bootstrap",
-  "configure-sdn",
-  "storage-setup",
-  "virtualization-setup",
-];
+const {
+  buildClusterStatus,
+  buildReportSummary,
+  buildTestStatus,
+  zeroMetrics,
+} = require("./shared/report-model");
 
 /**
  * @typedef {Record<string, string|undefined>} StageResults
@@ -71,253 +60,147 @@ const clusterSetupStages = [
  * @typedef {Object} ClusterReportParams
  * @property {ClusterReportCore} core
  * @property {ClusterReportContext} context
- * @property {ClusterReportConfig} config
+ * @property {ClusterReportConfig} [config]
  */
 
-/**
- * Escapes special characters in a string for safe use inside a RegExp source.
- *
- * @param {string} value Raw string value.
- * @returns {string} Escaped RegExp fragment.
- */
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/**
- * Creates a zero-filled metrics object for cluster report defaults.
- *
- * @returns {{
- *   passed: number,
- *   failed: number,
- *   errors: number,
- *   skipped: number,
- *   total: number,
- *   successRate: number
- * }} Zeroed metrics payload.
- */
-function zeroMetrics() {
+function readClusterReportConfigFromEnv(env = process.env) {
+  const storageType = String(env.STORAGE_TYPE || "").trim();
+
   return {
-    passed: 0,
-    failed: 0,
-    errors: 0,
-    skipped: 0,
-    total: 0,
-    successRate: 0,
+    storageType,
+    reportsDir: env.REPORTS_DIR || "test/e2e",
+    reportFile: env.REPORT_FILE || `e2e_report_${storageType}.json`,
+    workflowRunUrl: String(env.WORKFLOW_RUN_URL || "").trim(),
+    branchName: String(env.BRANCH_NAME || "").trim(),
+    stageResults: {
+      bootstrap: env.BOOTSTRAP_RESULT,
+      "configure-sdn": env.CONFIGURE_SDN_RESULT,
+      "storage-setup": env.STORAGE_SETUP_RESULT,
+      "virtualization-setup": env.VIRTUALIZATION_SETUP_RESULT,
+      "e2e-test": env.E2E_TEST_RESULT,
+    },
   };
 }
 
-/**
- * Builds a user-facing status line for a workflow stage.
- *
- * @param {string} status Normalized stage status.
- * @param {string} stageLabel Human-readable stage label.
- * @returns {string} Rendered status message.
- */
-function buildStatusMessage(status, stageLabel) {
-  if (status === "success") {
-    return `✅ ${stageLabel}`;
+function requireClusterReportConfig(config) {
+  if (!config.storageType) {
+    throw new Error("buildClusterReport requires storageType");
   }
 
-  if (status === "cancelled") {
-    return `⚠️ ${stageLabel} CANCELLED`;
+  if (!config.reportsDir) {
+    throw new Error("buildClusterReport requires reportsDir");
   }
 
-  if (status === "missing") {
-    return `⚠️ ${stageLabel}`;
-  }
-
-  if (status === "not-run") {
-    return `⚠️ ${stageLabel} NOT RUN`;
-  }
-
-  return `❌ ${stageLabel} FAILED`;
-}
-
-/**
- * Normalizes a GitHub Actions job result into the report status vocabulary.
- *
- * @param {string|undefined} resultValue Raw GitHub Actions result value.
- * @returns {"success"|"failure"|"cancelled"|"skipped"} Normalized result.
- */
-function normalizeJobResult(resultValue) {
-  const result = String(resultValue || "success").trim();
-  if (result === "cancelled" || result === "skipped" || result === "success") {
-    return result;
-  }
-
-  return "failure";
-}
-
-/**
- * Builds the cluster setup status from pre-E2E workflow stages.
- *
- * @param {StageResults} stageResults Per-stage GitHub Actions results.
- * @returns {{
- *   status: string,
- *   stage: string,
- *   stageLabel: string,
- *   message: string,
- *   reason: string
- * }} Normalized cluster setup status.
- */
-function buildClusterStatus(stageResults) {
-  for (const stageName of clusterSetupStages) {
-    const stageResult = normalizeJobResult(stageResults[stageName]);
-    if (stageResult !== "success") {
-      const stageLabel = stageMessage[stageName] || stageName;
-      return {
-        status: stageResult === "cancelled" ? "cancelled" : "failure",
-        stage: stageName,
-        stageLabel,
-        message: buildStatusMessage(stageResult, stageLabel),
-        reason:
-          stageResult === "cancelled"
-            ? "cluster-stage-cancelled"
-            : "cluster-stage-failed",
-      };
-    }
+  if (!config.reportFile) {
+    throw new Error("buildClusterReport requires reportFile");
   }
 
   return {
-    status: "success",
-    stage: "ready",
-    stageLabel: stageMessage.ready,
-    message: buildStatusMessage("success", stageMessage.ready),
-    reason: "",
+    ...config,
+    stageResults: config.stageResults || {},
   };
 }
 
-/**
- * Builds E2E test status from test job result and Ginkgo report availability.
- *
- * @param {string|undefined} testResult Raw E2E job result.
- * @param {string} reportSource Parsed report source.
- * @param {{ status: string }} clusterStatus Cluster setup status.
- * @param {GinkgoMetrics} [metrics={}] Parsed Ginkgo metrics.
- * @returns {{
- *   status: string,
- *   reason: string,
- *   message: string
- * }} Normalized test status.
- */
-function buildTestStatus(testResult, reportSource, clusterStatus, metrics = {}) {
-  const stageLabel = stageMessage["e2e-test"];
-
-  if (clusterStatus.status !== "success") {
-    return {
-      status: "not-run",
-      reason: "cluster-stage-failed",
-      message: "E2E tests were not run because cluster setup did not finish",
-    };
+function getWorkflowRunUrl(config, context) {
+  if (config.workflowRunUrl) {
+    return config.workflowRunUrl;
   }
 
-  const normalizedResult = normalizeJobResult(testResult);
-
-  if (reportSource === "ginkgo-json") {
-    const hasReportedFailures =
-      Number(metrics.failed || 0) > 0 || Number(metrics.errors || 0) > 0;
-    const status =
-      normalizedResult === "success" && hasReportedFailures
-        ? "failure"
-        : normalizedResult;
-
-    return {
-      status,
-      reason: status === "success" ? "" : "ginkgo-failed",
-      message:
-        status === "success"
-          ? "✅ E2E TESTS PASSED"
-          : buildStatusMessage(status, stageLabel),
-    };
-  }
-
-  if (reportSource === "ginkgo-json-invalid") {
-    return {
-      status: "missing",
-      reason: "ginkgo-report-invalid",
-      message: "⚠️ E2E TEST REPORT IS INVALID",
-    };
-  }
-
-  if (normalizedResult === "success") {
-    return {
-      status: "missing",
-      reason: "ginkgo-report-missing",
-      message: "⚠️ E2E TEST REPORT NOT FOUND",
-    };
-  }
-
-  if (normalizedResult === "cancelled") {
-    return {
-      status: "cancelled",
-      reason: "e2e-cancelled",
-      message: buildStatusMessage("cancelled", stageLabel),
-    };
-  }
-
-  if (normalizedResult === "skipped") {
-    return {
-      status: "not-run",
-      reason: "e2e-skipped",
-      message: buildStatusMessage("not-run", stageLabel),
-    };
-  }
-
-  return {
-    status: "failure",
-    reason: "ginkgo-report-missing",
-    message: "❌ E2E TESTS FAILED, GINKGO REPORT NOT FOUND",
-  };
+  return `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
 }
 
-/**
- * Builds flat summary fields derived from cluster and test statuses.
- *
- * @param {string} storageType Storage backend name.
- * @param {{ status: string, stage: string, stageLabel: string, message: string }} clusterStatus Cluster setup status.
- * @param {{ status: string, message: string }} testStatus Test status.
- * @returns {{
- *   failedStage: string,
- *   failedStageLabel: string,
- *   failedJobName: string,
- *   reportKind: string,
- *   status: string,
- *   statusMessage: string
- * }} Report summary descriptor.
- */
-function buildReportSummary(storageType, clusterStatus, testStatus) {
-  if (clusterStatus.status !== "success") {
+function getBranchName(config, context) {
+  return (
+    config.branchName || String(context.ref || "").replace(/^refs\/heads\//, "")
+  );
+}
+
+function findGinkgoReport(config) {
+  const rawReportPattern = new RegExp(
+    `^e2e_report_${escapeRegExp(config.storageType)}_.*\\.json$`
+  );
+
+  return findSingleMatchingFile(
+    config.reportsDir,
+    rawReportPattern,
+    "Ginkgo JSON report"
+  );
+}
+
+function parseGinkgoReportFile(rawReportPath, core) {
+  if (!rawReportPath) {
     return {
-      failedStage: clusterStatus.stage,
-      failedStageLabel: clusterStatus.stageLabel,
-      failedJobName: `${clusterStatus.stageLabel} (${storageType})`,
-      reportKind: "stage-failure",
-      status: clusterStatus.status,
-      statusMessage: clusterStatus.message,
+      metrics: zeroMetrics(),
+      failedTests: [],
+      startedAt: null,
+      source: "empty",
     };
   }
 
-  if (testStatus.status === "missing") {
-    const stageLabel = stageMessage["artifact-missing"];
+  core.info(`Found Ginkgo JSON report: ${rawReportPath}`);
+  try {
     return {
-      failedStage: "artifact-missing",
-      failedStageLabel: stageLabel,
-      failedJobName: `E2E test (${storageType})`,
-      reportKind: "artifact-missing",
-      status: "missing",
-      statusMessage: testStatus.message,
+      ...parseGinkgoReport(fs.readFileSync(rawReportPath, "utf8"), zeroMetrics),
+      source: "ginkgo-json",
+    };
+  } catch (error) {
+    core.warning(
+      `Unable to parse Ginkgo JSON report ${rawReportPath}: ${error.message}`
+    );
+    return {
+      metrics: zeroMetrics(),
+      failedTests: [],
+      startedAt: null,
+      source: "ginkgo-json-invalid",
     };
   }
+}
+
+function buildReportPayload({
+  config,
+  context,
+  workflowRunUrl,
+  branchName,
+  parsedReport,
+  rawReportPath,
+}) {
+  const clusterStatus = buildClusterStatus(config.stageResults);
+  const testStatus = buildTestStatus(
+    config.stageResults["e2e-test"],
+    parsedReport.source,
+    clusterStatus,
+    parsedReport.metrics
+  );
+  const reportSummary = buildReportSummary(
+    config.storageType,
+    clusterStatus,
+    testStatus
+  );
 
   return {
-    failedStage: testStatus.status === "success" ? "success" : "e2e-test",
-    failedStageLabel:
-      testStatus.status === "success" ? "SUCCESS" : stageMessage["e2e-test"],
-    failedJobName: `E2E test (${storageType})`,
-    reportKind: "tests",
-    status: testStatus.status,
-    statusMessage: testStatus.message,
+    schemaVersion: 1,
+    cluster: config.storageType,
+    storageType: config.storageType,
+    reportKind: reportSummary.reportKind,
+    status: reportSummary.status,
+    statusMessage: reportSummary.statusMessage,
+    failedStage: reportSummary.failedStage,
+    failedStageLabel: reportSummary.failedStageLabel,
+    failedJobName: reportSummary.failedJobName,
+    workflowRunId: String(context.runId),
+    workflowRunUrl,
+    branch: branchName,
+    clusterStatus,
+    testStatus,
+    startedAt: parsedReport.startedAt,
+    metrics: parsedReport.metrics,
+    failedTests: parsedReport.failedTests,
+    sourceReport: rawReportPath,
+    reportSource: parsedReport.source,
   };
 }
 
@@ -344,98 +227,46 @@ function setReportOutputs(report, reportFile, core) {
  *
  * @param {ClusterReportParams} params GitHub script dependencies.
  * @returns {Promise<Record<string, any>>} Generated cluster report.
- * @throws {Error} If `config` is missing or the report file cannot be written.
+ * @throws {Error} If config is incomplete or the report file cannot be written.
  */
 async function buildClusterReport({ core, context, config } = {}) {
-  if (!config) {
-    throw new Error("buildClusterReport requires a config object");
-  }
-
-  const workflowRunUrl =
-    config.workflowRunUrl ||
-    `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-  const branchName =
-    config.branchName || String(context.ref || "").replace(/^refs\/heads\//, "");
-  const rawReportPattern = new RegExp(
-    `^e2e_report_${escapeRegExp(config.storageType)}_.*\\.json$`
+  const resolvedConfig = requireClusterReportConfig(
+    config || readClusterReportConfigFromEnv()
   );
-  const rawReportPath = findSingleMatchingFile(
-    config.reportsDir,
-    rawReportPattern,
-    "Ginkgo JSON report"
-  );
-  const clusterStatus = buildClusterStatus(config.stageResults);
 
-  let parsedReport = {
-    metrics: zeroMetrics(),
-    failedTests: [],
-    startedAt: null,
-    source: "empty",
-  };
+  const workflowRunUrl = getWorkflowRunUrl(resolvedConfig, context);
+  const branchName = getBranchName(resolvedConfig, context);
+  const rawReportPath = findGinkgoReport(resolvedConfig);
 
-  if (rawReportPath) {
-    core.info(`Found Ginkgo JSON report: ${rawReportPath}`);
-    try {
-      parsedReport = {
-        ...parseGinkgoReport(fs.readFileSync(rawReportPath, "utf8"), zeroMetrics),
-        source: "ginkgo-json",
-      };
-    } catch (error) {
-      parsedReport.source = "ginkgo-json-invalid";
-      core.warning(
-        `Unable to parse Ginkgo JSON report ${rawReportPath}: ${error.message}`
-      );
-    }
-  } else {
+  if (!rawReportPath) {
     core.warning(
-      `Ginkgo JSON report was not found for ${config.storageType} under ${config.reportsDir}`
+      `Ginkgo JSON report was not found for ${resolvedConfig.storageType} under ${resolvedConfig.reportsDir}`
     );
   }
 
-  const testStatus = buildTestStatus(
-    config.stageResults["e2e-test"],
-    parsedReport.source,
-    clusterStatus,
-    parsedReport.metrics
-  );
-  const reportSummary = buildReportSummary(
-    config.storageType,
-    clusterStatus,
-    testStatus
-  );
-
-  const report = {
-    schemaVersion: 1,
-    cluster: config.storageType,
-    storageType: config.storageType,
-    reportKind: reportSummary.reportKind,
-    status: reportSummary.status,
-    statusMessage: reportSummary.statusMessage,
-    failedStage: reportSummary.failedStage,
-    failedStageLabel: reportSummary.failedStageLabel,
-    failedJobName: reportSummary.failedJobName,
-    workflowRunId: String(context.runId),
+  const parsedReport = parseGinkgoReportFile(rawReportPath, core);
+  const report = buildReportPayload({
+    config: resolvedConfig,
+    context,
     workflowRunUrl,
-    branch: branchName,
-    clusterStatus,
-    testStatus,
-    startedAt: parsedReport.startedAt,
-    metrics: parsedReport.metrics,
-    failedTests: parsedReport.failedTests,
-    sourceReport: rawReportPath,
-    reportSource: parsedReport.source,
-  };
+    branchName,
+    parsedReport,
+    rawReportPath,
+  });
 
   try {
-    fs.writeFileSync(config.reportFile, `${JSON.stringify(report, null, 2)}\n`);
+    fs.writeFileSync(
+      resolvedConfig.reportFile,
+      `${JSON.stringify(report, null, 2)}\n`
+    );
   } catch (error) {
     throw new Error(
-      `Unable to write cluster report file ${config.reportFile}: ${error.message}`
+      `Unable to write cluster report file ${resolvedConfig.reportFile}: ${error.message}`
     );
   }
 
-  setReportOutputs(report, config.reportFile, core);
-  core.info(`Created report file: ${config.reportFile}`);
+  setReportOutputs(report, resolvedConfig.reportFile, core);
+  core.info(`Created report file: ${resolvedConfig.reportFile}`);
   core.info(JSON.stringify(report, null, 2));
 
   return report;
@@ -443,3 +274,4 @@ async function buildClusterReport({ core, context, config } = {}) {
 
 module.exports = buildClusterReport;
 module.exports.buildClusterStatus = buildClusterStatus;
+module.exports.readClusterReportConfigFromEnv = readClusterReportConfigFromEnv;

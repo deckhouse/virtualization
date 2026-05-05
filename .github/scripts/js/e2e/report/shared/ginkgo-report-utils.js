@@ -90,7 +90,9 @@ function formatSpecName(specReport) {
  * @returns {"passed"|"failed"|"errors"|"skipped"} Metrics key.
  */
 function metricKeyForState(state) {
-  const normalizedState = String(state || "").trim().toLowerCase();
+  const normalizedState = String(state || "")
+    .trim()
+    .toLowerCase();
 
   if (normalizedState === "passed") {
     return "passed";

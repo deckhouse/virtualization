@@ -71,7 +71,9 @@ function readReports(reportsDir, configuredClusters, core) {
     const clusterName = getReportClusterKey(report);
     if (!clusterName) {
       core.warning(
-        `Skipping report without cluster name from ${report.sourceReport || "parsed JSON payload"}`
+        `Skipping report without cluster name from ${
+          report.sourceReport || "parsed JSON payload"
+        }`
       );
       continue;
     }
@@ -98,16 +100,8 @@ function readReports(reportsDir, configuredClusters, core) {
  *   threadMessages: string[]
  * }} Rendered markdown payloads.
  */
-function buildMessengerMessages({
-  reportsDir,
-  configuredClusters,
-  core,
-}) {
-  const orderedReports = readReports(
-    reportsDir,
-    configuredClusters,
-    core
-  );
+function buildMessengerMessages({ reportsDir, configuredClusters, core }) {
+  const orderedReports = readReports(reportsDir, configuredClusters, core);
   const threadMessages = buildThreadMessages(orderedReports);
   return {
     message: buildMainMessage(orderedReports),
@@ -141,10 +135,7 @@ async function renderMessengerReport({ core, reportsDir }) {
   core.setOutput("thread_messages", JSON.stringify(threadMessages));
 
   try {
-    await publishToLoop(
-      { message, threadMessages, loop: config.loop },
-      core
-    );
+    await publishToLoop({ message, threadMessages, loop: config.loop }, core);
   } catch (error) {
     core.warning(`Unable to deliver report to Loop API: ${error.message}`);
   }

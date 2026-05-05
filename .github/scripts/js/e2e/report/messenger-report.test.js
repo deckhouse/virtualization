@@ -338,7 +338,8 @@ describe("messenger-report", () => {
           testStatus: {
             status: "not-run",
             reason: "cluster-stage-failed",
-            message: "E2E tests were not run because cluster setup did not finish",
+            message:
+              "E2E tests were not run because cluster setup did not finish",
           },
           metrics: {
             passed: 0,
@@ -382,7 +383,8 @@ describe("messenger-report", () => {
           testStatus: {
             status: "not-run",
             reason: "cluster-stage-failed",
-            message: "E2E tests were not run because cluster setup did not finish",
+            message:
+              "E2E tests were not run because cluster setup did not finish",
           },
           metrics: {
             passed: 0,
@@ -497,7 +499,7 @@ describe("messenger-report", () => {
         expect.objectContaining({
           method: "POST",
           headers: expect.objectContaining({
-            "Authorization": "Bearer loop-token",
+            Authorization: "Bearer loop-token",
             "Content-Type": "application/json",
           }),
         })
@@ -508,7 +510,8 @@ describe("messenger-report", () => {
       });
       expect(JSON.parse(global.fetch.mock.calls[1][1].body)).toEqual({
         channel_id: "channel-id",
-        message: "### Failed tests\n\n**replicated**\n\n| Test group |\n|---|\n| fails |",
+        message:
+          "### Failed tests\n\n**replicated**\n\n| Test group |\n|---|\n| fails |",
         root_id: "root-post-id",
       });
     }));

@@ -10,34 +10,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+const {
+  buildStatusMessage,
+  isClusterFailureReport,
+  isMissingReport,
+  isTestResultReport,
+  zeroMetrics,
+} = require("../shared/report-model");
+
 const genericArtifactMissingLabel = "E2E REPORT ARTIFACT NOT FOUND";
-
-/**
- * Builds a user-facing status line for a cluster row or fallback report.
- *
- * @param {string} status Normalized cluster status.
- * @param {string} stageLabel Human-readable stage label.
- * @returns {string} Rendered status message.
- */
-function buildStatusMessage(status, stageLabel) {
-  if (status === "cancelled") {
-    return `⚠️ ${stageLabel} CANCELLED`;
-  }
-
-  if (status === "failure") {
-    return `❌ ${stageLabel} FAILED`;
-  }
-
-  if (status === "missing") {
-    return `⚠️ ${stageLabel}`;
-  }
-
-  if (status === "success") {
-    return "✅ SUCCESS";
-  }
-
-  return stageLabel;
-}
 
 /**
  * Creates a synthetic cluster report when the expected JSON artifact is absent.
@@ -70,16 +51,10 @@ function createMissingReport(clusterName) {
     testStatus: {
       status: "not-run",
       reason: "cluster-report-artifact-missing",
-      message: "E2E status is unavailable because cluster report artifact was not found",
+      message:
+        "E2E status is unavailable because cluster report artifact was not found",
     },
-    metrics: {
-      passed: 0,
-      failed: 0,
-      errors: 0,
-      skipped: 0,
-      total: 0,
-      successRate: 0,
-    },
+    metrics: zeroMetrics(),
     failedTests: [],
     reportSource: "missing-artifact",
   };
@@ -138,61 +113,6 @@ function sortReports(reports, preferredOrder) {
  */
 function getReportClusterKey(report) {
   return String(report.storageType || report.cluster || "").trim();
-}
-
-/**
- * Tells whether the report represents a missing artifact rather than a real
- * cluster-stage failure.
- *
- * @param {Record<string, any>} report Cluster report payload.
- * @returns {boolean} True when the report describes a missing artifact.
- */
-function isMissingReport(report) {
-  return (
-    (report.testStatus && report.testStatus.status === "missing") ||
-    (report.clusterStatus && report.clusterStatus.status === "missing") ||
-    report.reportKind === "artifact-missing" ||
-    report.failedStage === "artifact-missing" ||
-    report.status === "missing"
-  );
-}
-
-/**
- * Tells whether the report describes a failed cluster setup stage.
- *
- * @param {Record<string, any>} report Cluster report payload.
- * @returns {boolean} True for cluster-stage failures.
- */
-function isClusterFailureReport(report) {
-  if (report.clusterStatus) {
-    return (
-      report.clusterStatus.status !== "success" &&
-      report.clusterStatus.status !== "missing"
-    );
-  }
-
-  return report.reportKind !== "tests" && !isMissingReport(report);
-}
-
-/**
- * Tells whether the report should be rendered in the E2E test results table.
- *
- * @param {Record<string, any>} report Cluster report payload.
- * @returns {boolean} True for reports with test status data.
- */
-function isTestResultReport(report) {
-  if (report.clusterStatus && report.clusterStatus.status !== "success") {
-    return false;
-  }
-
-  if (report.testStatus) {
-    return (
-      report.testStatus.status !== "not-run" &&
-      report.testStatus.status !== "missing"
-    );
-  }
-
-  return report.reportKind === "tests";
 }
 
 module.exports = {

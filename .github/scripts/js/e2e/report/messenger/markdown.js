@@ -43,24 +43,7 @@ function formatClusterLink(report) {
     : clusterName;
 }
 
-/**
- * Builds the main E2E messenger report body.
- *
- * @param {Array<Record<string, any>>} orderedReports Cluster reports in display order.
- * @returns {string} Markdown message body.
- */
-function buildMainMessage(orderedReports) {
-  const reportDate = getReportDate(orderedReports);
-  const branches = Array.from(
-    new Set(orderedReports.map((report) => report.branch).filter(Boolean))
-  );
-  const lines = [`## DVP | E2E on nested clusters | ${reportDate}`, ""];
-
-  if (branches.length === 1 && branches[0] !== "main") {
-    lines.push(`Branch: \`${branches[0]}\``);
-    lines.push("");
-  }
-
+function splitReportsBySection(orderedReports) {
   const testsReports = orderedReports.filter(
     (report) => isTestResultReport(report) && getReportClusterKey(report)
   );
@@ -73,6 +56,26 @@ function buildMainMessage(orderedReports) {
       !isClusterFailureReport(report) &&
       getReportClusterKey(report)
   );
+
+  return {
+    testsReports,
+    stageFailureReports,
+    missingReports,
+  };
+}
+
+function renderBranchLine(orderedReports) {
+  const branches = Array.from(
+    new Set(orderedReports.map((report) => report.branch).filter(Boolean))
+  );
+
+  return branches.length === 1 && branches[0] !== "main"
+    ? [`Branch: \`${branches[0]}\``, ""]
+    : [];
+}
+
+function renderTestResultsSection(testsReports) {
+  const lines = [];
 
   if (testsReports.length > 0) {
     lines.push("### Test results");
@@ -96,6 +99,12 @@ function buildMainMessage(orderedReports) {
     lines.push("");
   }
 
+  return lines;
+}
+
+function renderClusterFailuresSection(stageFailureReports) {
+  const lines = [];
+
   if (stageFailureReports.length > 0) {
     lines.push("### Cluster failures");
     lines.push("");
@@ -113,6 +122,12 @@ function buildMainMessage(orderedReports) {
 
     lines.push("");
   }
+
+  return lines;
+}
+
+function renderMissingReportsSection(missingReports) {
+  const lines = [];
 
   if (missingReports.length > 0) {
     lines.push("### Missing reports");
@@ -137,6 +152,28 @@ function buildMainMessage(orderedReports) {
     lines.push("");
   }
 
+  return lines;
+}
+
+/**
+ * Builds the main E2E messenger report body.
+ *
+ * @param {Array<Record<string, any>>} orderedReports Cluster reports in display order.
+ * @returns {string} Markdown message body.
+ */
+function buildMainMessage(orderedReports) {
+  const reportDate = getReportDate(orderedReports);
+  const { testsReports, stageFailureReports, missingReports } =
+    splitReportsBySection(orderedReports);
+  const lines = [
+    `## DVP | E2E on nested clusters | ${reportDate}`,
+    "",
+    ...renderBranchLine(orderedReports),
+    ...renderTestResultsSection(testsReports),
+    ...renderClusterFailuresSection(stageFailureReports),
+    ...renderMissingReportsSection(missingReports),
+  ];
+
   return lines.join("\n").trim();
 }
 
@@ -146,16 +183,19 @@ function hasFailedTests(report) {
   }
 
   return Boolean(
-    report.testStatus &&
+    (report.testStatus &&
       (report.testStatus.status === "failure" ||
-        report.testStatus.status === "cancelled") ||
-    (report.metrics && report.metrics.failed) ||
+        report.testStatus.status === "cancelled")) ||
+      (report.metrics && report.metrics.failed) ||
       (report.metrics && report.metrics.errors)
   );
 }
 
 function getFailedTestGroupName(testName) {
-  const normalizedName = sanitizeListItem(testName).replace(/^\[[^\]]+\]\s*/, "");
+  const normalizedName = sanitizeListItem(testName).replace(
+    /^\[[^\]]+\]\s*/,
+    ""
+  );
   const [groupName] = normalizedName.split(/\s+/, 1);
   return groupName || "Unknown";
 }
@@ -173,7 +213,7 @@ function summarizeFailedTestGroups(failedTests) {
   return groupNames;
 }
 
-function buildFailedTestsClusterMessage(report) {
+function renderFailedTestsThreadMessage(report) {
   const clusterName = sanitizeListItem(report.cluster || report.storageType);
   const lines = [`**${clusterName}**`];
 
@@ -204,8 +244,8 @@ function buildFailedTestsClusterMessage(report) {
  * @returns {string[]} Markdown thread message bodies.
  */
 function buildThreadMessages(orderedReports) {
-  const testsReports = orderedReports.filter(
-    (report) => isTestResultReport(report)
+  const testsReports = orderedReports.filter((report) =>
+    isTestResultReport(report)
   );
   const failedTestReports = testsReports.filter(hasFailedTests);
 
@@ -214,7 +254,7 @@ function buildThreadMessages(orderedReports) {
   }
 
   return failedTestReports.map((report, index) => {
-    const clusterMessage = buildFailedTestsClusterMessage(report);
+    const clusterMessage = renderFailedTestsThreadMessage(report);
     return index === 0
       ? ["### Failed tests", clusterMessage].join("\n\n")
       : clusterMessage;

@@ -49,9 +49,11 @@ describe("fs-utils", () => {
 
   test("throws a descriptive error when a directory cannot be scanned", async () =>
     withTempDir((tempDir) => {
-      const readdirSpy = jest.spyOn(fs, "readdirSync").mockImplementation(() => {
-        throw new Error("permission denied");
-      });
+      const readdirSpy = jest
+        .spyOn(fs, "readdirSync")
+        .mockImplementation(() => {
+          throw new Error("permission denied");
+        });
 
       try {
         expect(() => listMatchingFiles(tempDir, /\.json$/)).toThrow(

@@ -67,9 +67,9 @@ function findSingleMatchingFile(dirPath, filePattern, description = "file") {
 
   if (matchingFiles.length > 1) {
     throw new Error(
-      `Expected a single ${description}, but found ${matchingFiles.length}: ${matchingFiles.join(
-        ", "
-      )}`
+      `Expected a single ${description}, but found ${
+        matchingFiles.length
+      }: ${matchingFiles.join(", ")}`
     );
   }
 
