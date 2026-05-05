@@ -1230,6 +1230,16 @@ jobs:
           echo "[INFO] Checking virt-handler pods "
           virt_handler_ready
 
+          echo "[INFO] Switch virtualization module to maintenance mode"
+          kubectl patch mc virtualization --type merge --patch '{"spec":{"maintenance":"NoResourceReconciliation"}}'
+          if [[ "${{ inputs.storage_type }}" == "replicated" ]]; then
+            echo "[INFO] Switch sds-replicated-volume module to maintenance mode"
+            kubectl patch mc sds-replicated-volume --type merge --patch '{"spec":{"maintenance":"NoResourceReconciliation"}}'
+          elif [[ "${{ inputs.storage_type }}" == "nfs" ]]; then
+            echo "[INFO] Switch csi-nfs module to maintenance mode"
+            kubectl patch mc csi-nfs --type merge --patch '{"spec":{"maintenance":"NoResourceReconciliation"}}'
+          fi
+
   e2e-test:
     name: E2E test
     runs-on: ubuntu-latest
