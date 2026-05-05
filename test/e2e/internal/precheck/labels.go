@@ -42,6 +42,9 @@ const (
 	// PrecheckUSB - test requires USB device with dummy_hcd to be configured.
 	PrecheckUSB = "usb-precheck"
 
+	// PrecheckPostCleanup - test requires postcleanup to be configured.
+	PrecheckPostCleanup = "postcleanup-precheck"
+
 	// NoPrecheck - test doesn't require any prechecks.
 	// Use this label for tests that don't depend on cluster configuration.
 	NoPrecheck = "no-precheck"
@@ -57,6 +60,7 @@ func KnownPrecheckLabels() []string {
 		PrecheckSnapshot,
 		PrecheckVirtualization,
 		PrecheckUSB,
+		PrecheckPostCleanup,
 		NoPrecheck,
 	}
 }
