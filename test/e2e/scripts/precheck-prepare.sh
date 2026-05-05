@@ -19,17 +19,22 @@
 
 set -e
 
-# Build ginkgo command
-CMD="go tool ginkgo --json-report=/tmp/e2e-specs.json --dry-run --no-color"
+# Build ginkgo command. Use an array to preserve args with spaces.
+CMD=(
+  go tool ginkgo
+  --json-report=/tmp/e2e-specs.json
+  --dry-run
+  --no-color
+)
 
-# Add label filter based on environment variables
-if [ -n "$FOCUS" ]; then
-    CMD="$CMD --focus=$FOCUS"
-elif [ -n "$LABELS" ]; then
-    CMD="$CMD --label-filter=$LABELS"
+# Add filter based on environment variables.
+if [ -n "${FOCUS:-}" ]; then
+  CMD+=(--focus "$FOCUS")
+elif [ -n "${LABELS:-}" ]; then
+  CMD+=(--label-filter "$LABELS")
 fi
 
-# Run with suppressed stdout, but show stderr
-$CMD 2>&1 > /dev/null
+# Run with suppressed stdout, but show stderr.
+"${CMD[@]}" 2>&1 > /dev/null
 
 echo "Precheck prepare completed"

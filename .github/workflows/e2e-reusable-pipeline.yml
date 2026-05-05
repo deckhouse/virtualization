@@ -836,18 +836,18 @@ jobs:
 
             echo "[ERROR] Blockdevices is not 3"
             echo "[DEBUG] Show cluster nodes"
-            kubectl get nodes
+            kubectl get nodes || echo "[WARNING] Failed to get cluster nodes"
             echo "[DEBUG] Show blockdevices"
-            kubectl get blockdevice
+            kubectl get blockdevice || echo "[WARNING] Failed to get blockdevices"
             echo "[DEBUG] Show sds namespaces"
-            kubectl get ns | grep sds || echo "ns sds is not found"
+            kubectl get ns | grep sds || echo "[WARNING] Namespace sds is not found"
             echo "[DEBUG] Show pods in sds-replicated-volume"
             echo "::group::📦 pods in sds-replicated-volume"
-            kubectl -n d8-sds-replicated-volume get pods || true
+            kubectl -n d8-sds-replicated-volume get pods || echo "[WARNING] Failed to get pods in sds-replicated-volume"
             echo "::endgroup::"
             echo "[DEBUG] Show deckhouse logs"
             echo "::group::📝 deckhouse logs"
-            d8 s logs | tail -n 100
+            d8 s logs | tail -n 100 || echo "[WARNING] Failed to get deckhouse logs"
             echo "::endgroup::"
             exit 1
           }
@@ -971,10 +971,35 @@ jobs:
 
       - name: Configure Virtualization
         run: |
+          kubectl_apply_with_retry() {
+            local count=6
+            local delay=10
+            local manifest
+            manifest="$(mktemp)"
+            cat > "$manifest"
+
+            for i in $(seq 1 "$count"); do
+              echo "[INFO] kubectl apply attempt ${i}/${count}"
+              if kubectl apply -f "$manifest"; then
+                rm -f "$manifest"
+                return 0
+              fi
+
+              if [ "$i" -lt "$count" ]; then
+                echo "[WARN] kubectl apply failed, retrying in ${delay}s"
+                sleep "$delay"
+              fi
+            done
+
+            echo "[ERROR] kubectl apply failed after ${count} attempts"
+            rm -f "$manifest"
+            return 1
+          }
+
           REGISTRY=$(base64 -d <<< "${{secrets.DEV_REGISTRY_DOCKER_CFG}}" | jq '.auths | to_entries | .[] | .key' -r)
 
           echo "[INFO] Apply ModuleSource dev config"
-          kubectl apply -f -<<EOF
+          kubectl_apply_with_retry <<EOF
           apiVersion: deckhouse.io/v1alpha1
           kind: ModuleSource
           metadata:
@@ -990,7 +1015,7 @@ jobs:
           kubectl wait --for=jsonpath='{.status.phase}'=Active ms deckhouse-dev --timeout=300s
 
           echo "[INFO] Apply Virtualization module config"
-          kubectl apply -f -<<EOF
+          kubectl_apply_with_retry <<EOF
           apiVersion: deckhouse.io/v1alpha1
           kind: ModuleConfig
           metadata:
@@ -1070,7 +1095,7 @@ jobs:
             echo "[DEBUG] Show cluster StorageClasses"
             kubectl get storageclasses || true
             echo "[DEBUG] Show cluster nodes"
-            kubectl get node
+            kubectl get node || true
 
             echo "[DEBUG] Show cluster node yaml and describe"
             NODES=$(kubectl get no -o jsonpath='{range .items[?(@.metadata.name)]}{.metadata.name}{"\n"}{end}')
@@ -1158,27 +1183,33 @@ jobs:
             local workers
             local time_wait=10
 
-            workers=$(kubectl get nodes -o name | grep worker | wc -l || true)
-            workers=$((workers))
-
             for i in $(seq 1 $count); do
+              workers=$(kubectl get nodes -o name | grep worker | wc -l || true)
+              workers=$((workers))
+              if [[ $workers -eq 0 ]]; then
+                echo "[WARNING] No worker nodes found, keep waiting"
+                echo "[INFO] Wait ${time_wait}s virt-handler pods are ready (attempt $i/$count)"
+                sleep ${time_wait}
+                continue
+              fi
+
               virt_handler_ready=$(kubectl -n d8-virtualization get pods | grep "virt-handler.*Running" | wc -l || true)
 
               if [[ $virt_handler_ready -ge $workers ]]; then
-                echo "[SUCCESS] virt-handlers pods are ready"
+                echo "[SUCCESS] virt-handlers pods are ready $virt_handler_ready/$workers"
                 return 0
               fi
 
-              echo "[INFO] virt-handler pods $virt_handler_ready/$workers "
+              echo "[INFO] virt-handler pods $virt_handler_ready/$workers"
               echo "[INFO] Wait ${time_wait}s virt-handler pods are ready (attempt $i/$count)"
               if (( i % 5 == 0 )); then
                 echo "[DEBUG] Show pods in namespace d8-virtualization"
                 echo "::group::📦 virtualization pods"
-                kubectl -n d8-virtualization get pods || echo "No pods in virtualization namespace found"
+                kubectl -n d8-virtualization get pods || echo "[WARNING] No pods in virtualization namespace found"
                 echo "::endgroup::"
                 echo "[DEBUG] Show cluster nodes"
                 echo "::group::📦 cluster nodes"
-                kubectl get node
+                kubectl get node || echo "[WARNING] Failed to get cluster nodes"
                 echo "::endgroup::"
               fi
               sleep ${time_wait}
