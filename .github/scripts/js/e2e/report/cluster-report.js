@@ -15,7 +15,7 @@ const fs = require("fs");
 const { findSingleMatchingFile } = require("./shared/fs-utils");
 const { parseGinkgoReport } = require("./shared/ginkgo-report-utils");
 
-const stageLabels = {
+const stageMessage = {
   "bootstrap": "BOOTSTRAP CLUSTER",
   "configure-sdn": "CONFIGURE SDN",
   "storage-setup": "STORAGE SETUP",
@@ -165,7 +165,7 @@ function buildClusterStatus(stageResults) {
   for (const stageName of clusterSetupStages) {
     const stageResult = normalizeJobResult(stageResults[stageName]);
     if (stageResult !== "success") {
-      const stageLabel = stageLabels[stageName] || stageName;
+      const stageLabel = stageMessage[stageName] || stageName;
       return {
         status: stageResult === "cancelled" ? "cancelled" : "failure",
         stage: stageName,
@@ -182,8 +182,8 @@ function buildClusterStatus(stageResults) {
   return {
     status: "success",
     stage: "ready",
-    stageLabel: stageLabels.ready,
-    message: buildStatusMessage("success", stageLabels.ready),
+    stageLabel: stageMessage.ready,
+    message: buildStatusMessage("success", stageMessage.ready),
     reason: "",
   };
 }
@@ -202,7 +202,7 @@ function buildClusterStatus(stageResults) {
  * }} Normalized test status.
  */
 function buildTestStatus(testResult, reportSource, clusterStatus, metrics = {}) {
-  const stageLabel = stageLabels["e2e-test"];
+  const stageLabel = stageMessage["e2e-test"];
 
   if (clusterStatus.status !== "success") {
     return {
@@ -299,7 +299,7 @@ function buildLegacyDescriptor(storageType, clusterStatus, testStatus) {
   }
 
   if (testStatus.status === "missing") {
-    const stageLabel = stageLabels["artifact-missing"];
+    const stageLabel = stageMessage["artifact-missing"];
     return {
       failedStage: "artifact-missing",
       failedStageLabel: stageLabel,
@@ -313,7 +313,7 @@ function buildLegacyDescriptor(storageType, clusterStatus, testStatus) {
   return {
     failedStage: testStatus.status === "success" ? "success" : "e2e-test",
     failedStageLabel:
-      testStatus.status === "success" ? "SUCCESS" : stageLabels["e2e-test"],
+      testStatus.status === "success" ? "SUCCESS" : stageMessage["e2e-test"],
     failedJobName: `E2E test (${storageType})`,
     reportKind: "tests",
     status: testStatus.status,
