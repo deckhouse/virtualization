@@ -29,13 +29,33 @@ const {
 } = require("./messenger/markdown");
 
 /**
+ * @typedef {Object} MessengerReportCore
+ * @property {function(string): void} warning
+ * @property {function(string): void} [info]
+ * @property {function(string, string): void} [setOutput]
+ */
+
+/**
+ * @typedef {Object} MessengerMessagesParams
+ * @property {string} reportsDir
+ * @property {string[]} configuredClusters
+ * @property {MessengerReportCore} core
+ */
+
+/**
+ * @typedef {Object} RenderMessengerReportParams
+ * @property {MessengerReportCore} core
+ * @property {string} [reportsDir]
+ */
+
+/**
  * Loads report JSON files from disk and injects synthetic reports for clusters
  * whose artifacts are missing.
  *
  * @param {string} reportsDir Directory containing `e2e_report_*.json`.
  * @param {string[]} configuredClusters Clusters expected in the final report.
- * @param {{ warning(message: string): void }} core GitHub core API.
- * @returns {Record<string, any>[]} Ordered cluster reports.
+ * @param {MessengerReportCore} core GitHub core API.
+ * @returns {Array<Record<string, any>>} Ordered cluster reports.
  */
 function readReports(reportsDir, configuredClusters, core) {
   const reportFiles = listMatchingFiles(reportsDir, /^e2e_report_.*\.json$/);
@@ -74,11 +94,7 @@ function readReports(reportsDir, configuredClusters, core) {
 /**
  * Reads cluster reports from disk and builds both messenger message bodies.
  *
- * @param {{
- *   reportsDir: string,
- *   configuredClusters: string[],
- *   core: { warning(message: string): void }
- * }} params Message rendering inputs.
+ * @param {MessengerMessagesParams} params Message rendering inputs.
  * @returns {{
  *   message: string,
  *   threadMessage: string,
@@ -107,14 +123,7 @@ function buildMessengerMessages({
  * Entry point used by `actions/github-script` to render and optionally publish
  * the aggregated E2E messenger report.
  *
- * @param {{
- *   core: {
- *     info(message: string): void,
- *     warning(message: string): void,
- *     setOutput(name: string, value: string): void
- *   },
- *   reportsDir?: string
- * }} params GitHub script dependencies.
+ * @param {RenderMessengerReportParams} params GitHub script dependencies.
  * @returns {Promise<{
  *   message: string,
  *   threadMessage: string,

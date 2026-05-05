@@ -1,9 +1,32 @@
 /**
+ * @typedef {Object} LoopClientCore
+ * @property {function(string): void} warning
+ * @property {function(string): void} [info]
+ * @property {function(string, string): void} [setOutput]
+ */
+
+/**
+ * @typedef {Object} LoopPostRequest
+ * @property {string} apiUrl
+ * @property {string} channelId
+ * @property {string} token
+ * @property {string} message
+ * @property {string} [rootId]
+ */
+
+/**
+ * @typedef {Object} LoopPublishParams
+ * @property {string} message
+ * @property {string[]} threadMessages
+ * @property {{ apiUrl: string, channelId: string, token: string }} loop
+ */
+
+/**
  * Parses a Loop API response body if it is JSON, otherwise returns an empty
  * object and emits a warning for diagnostics.
  *
  * @param {string} responseText Raw response body.
- * @param {{ warning(message: string): void }} core GitHub core API.
+ * @param {LoopClientCore} core GitHub core API.
  * @returns {Record<string, any>} Parsed response payload or an empty object.
  */
 function parseLoopApiPayload(responseText, core) {
@@ -24,17 +47,8 @@ function parseLoopApiPayload(responseText, core) {
 /**
  * Sends a single post to Loop and returns the parsed API payload.
  *
- * @param {{
- *   apiUrl: string,
- *   channelId: string,
- *   token: string,
- *   message: string,
- *   rootId?: string
- * }} request Loop API request payload.
- * @param {{
- *   info(message: string): void,
- *   warning(message: string): void
- * }} core GitHub core API.
+ * @param {LoopPostRequest} request Loop API request payload.
+ * @param {LoopClientCore} core GitHub core API.
  * @returns {Promise<Record<string, any>>} Parsed Loop API response.
  */
 async function postToLoopApi(
@@ -69,20 +83,8 @@ async function postToLoopApi(
 /**
  * Publishes the main report and optional failed-tests thread to Loop.
  *
- * @param {{
- *   message: string,
- *   threadMessages: string[],
- *   loop: {
- *     apiUrl: string,
- *     channelId: string,
- *     token: string
- *   }
- * }} params Message payload and Loop credentials.
- * @param {{
- *   setOutput(name: string, value: string): void,
- *   info(message: string): void,
- *   warning(message: string): void
- * }} core GitHub core API.
+ * @param {LoopPublishParams} params Message payload and Loop credentials.
+ * @param {LoopClientCore} core GitHub core API.
  * @returns {Promise<void>}
  */
 async function publishToLoop({ message, threadMessages, loop }, core) {

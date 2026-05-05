@@ -76,7 +76,7 @@ function createMissingReport(clusterName) {
 /**
  * Picks a report date from the first report that exposes `startedAt`.
  *
- * @param {Record<string, any>[]} reports Available cluster reports.
+ * @param {Array<Record<string, any>>} reports Available cluster reports.
  * @returns {string} ISO date string (`YYYY-MM-DD`).
  */
 function getReportDate(reports) {
@@ -91,9 +91,9 @@ function getReportDate(reports) {
 /**
  * Orders reports by the configured cluster order and then by cluster name.
  *
- * @param {Record<string, any>[]} reports Reports to sort.
+ * @param {Array<Record<string, any>>} reports Reports to sort.
  * @param {string[]} preferredOrder Configured cluster order.
- * @returns {Record<string, any>[]} Sorted reports copy.
+ * @returns {Array<Record<string, any>>} Sorted reports copy.
  */
 function sortReports(reports, preferredOrder) {
   const orderMap = new Map(preferredOrder.map((name, index) => [name, index]));

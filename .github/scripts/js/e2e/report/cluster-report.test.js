@@ -49,7 +49,7 @@ function createContext() {
  * Runs a test body inside a temporary directory and removes it afterwards.
  *
  * @template T
- * @param {(tempDir: string) => Promise<T>|T} testFn Test body.
+ * @param {function(string): (Promise<T>|T)} testFn Test body.
  * @returns {Promise<T>} Test result.
  */
 async function withTempDir(testFn) {
@@ -79,19 +79,22 @@ function setStageEnv(overrides = {}) {
 }
 
 /**
+ * @typedef {Object} SpecReportOptions
+ * @property {string[]} [containerHierarchyTexts]
+ * @property {Array<string[]>} [containerHierarchyLabels]
+ * @property {string} [leafNodeText]
+ * @property {string} [leafNodeType]
+ * @property {string[]} [leafNodeLabels]
+ * @property {string} [state]
+ * @property {string} [startTime]
+ * @property {string} [endTime]
+ * @property {Record<string, any>|undefined} [failure]
+ */
+
+/**
  * Creates a synthetic Ginkgo spec report for parser tests.
  *
- * @param {{
- *   containerHierarchyTexts?: string[],
- *   containerHierarchyLabels?: Array<string[]>,
- *   leafNodeText?: string,
- *   leafNodeType?: string,
- *   leafNodeLabels?: string[],
- *   state?: string,
- *   startTime?: string,
- *   endTime?: string,
- *   failure?: Record<string, any>|undefined
- * }} [options={}] Spec overrides.
+ * @param {SpecReportOptions} [options={}] Spec overrides.
  * @returns {Record<string, any>} Synthetic spec report.
  */
 function createSpecReport({
@@ -125,7 +128,7 @@ function createSpecReport({
 /**
  * Creates a serialized single-suite Ginkgo report for unit tests.
  *
- * @param {{ startedAt: string, specs: Record<string, any>[] }} params Report contents.
+ * @param {{ startedAt: string, specs: Array<Record<string, any>> }} params Report contents.
  * @returns {string} JSON-serialized report.
  */
 function createGinkgoReport({ startedAt, specs }) {

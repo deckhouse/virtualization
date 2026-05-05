@@ -33,6 +33,50 @@ const clusterSetupStages = [
 ];
 
 /**
+ * @typedef {Record<string, string|undefined>} StageResults
+ */
+
+/**
+ * @typedef {Object} GinkgoMetrics
+ * @property {number} [failed]
+ * @property {number} [errors]
+ */
+
+/**
+ * @typedef {Object} ClusterReportCore
+ * @property {function(string): void} info
+ * @property {function(string): void} warning
+ * @property {function(string, string): void} setOutput
+ */
+
+/**
+ * @typedef {Object} ClusterReportContext
+ * @property {string} serverUrl
+ * @property {{ owner: string, repo: string }} repo
+ * @property {string|number} runId
+ * @property {string} [ref]
+ */
+
+/**
+ * @typedef {Object} ClusterReportConfig
+ * @property {string} storageType
+ * @property {string} reportsDir
+ * @property {string} reportFile
+ * @property {string} [workflowRunUrl]
+ * @property {string} [workflowRunUrlOverride]
+ * @property {string} [branchName]
+ * @property {string} [branchNameOverride]
+ * @property {StageResults} stageResults
+ */
+
+/**
+ * @typedef {Object} ClusterReportParams
+ * @property {ClusterReportCore} core
+ * @property {ClusterReportContext} context
+ * @property {ClusterReportConfig} [config]
+ */
+
+/**
  * Escapes special characters in a string for safe use inside a RegExp source.
  *
  * @param {string} value Raw string value.
@@ -47,20 +91,7 @@ function escapeRegExp(value) {
  * reusable workflow or the local helper script.
  *
  * @param {NodeJS.ProcessEnv} [env=process.env] Environment variables source.
- * @returns {{
- *   storageType: string,
- *   reportsDir: string,
- *   reportFile: string,
- *   workflowRunUrlOverride: string,
- *   branchNameOverride: string,
- *   stageResults: {
- *     "bootstrap": string|undefined,
- *     "configure-sdn": string|undefined,
- *     "storage-setup": string|undefined,
- *     "virtualization-setup": string|undefined,
- *     "e2e-test": string|undefined
- *   }
- * }} Normalized cluster report configuration.
+ * @returns {ClusterReportConfig} Normalized cluster report configuration.
  */
 function readClusterConfigFromEnv(env = process.env) {
   const storageType = env.STORAGE_TYPE;
@@ -149,12 +180,7 @@ function normalizeJobResult(resultValue) {
 /**
  * Builds the cluster setup status from pre-E2E workflow stages.
  *
- * @param {{
- *   "bootstrap": string|undefined,
- *   "configure-sdn": string|undefined,
- *   "storage-setup": string|undefined,
- *   "virtualization-setup": string|undefined
- * }} stageResults Per-stage GitHub Actions results.
+ * @param {StageResults} stageResults Per-stage GitHub Actions results.
  * @returns {{
  *   status: string,
  *   stage: string,
@@ -196,10 +222,7 @@ function buildClusterStatus(stageResults) {
  * @param {string|undefined} testResult Raw E2E job result.
  * @param {string} reportSource Parsed report source.
  * @param {{ status: string }} clusterStatus Cluster setup status.
- * @param {{
- *   failed?: number,
- *   errors?: number
- * }} [metrics={}] Parsed Ginkgo metrics.
+ * @param {GinkgoMetrics} [metrics={}] Parsed Ginkgo metrics.
  * @returns {{
  *   status: string,
  *   reason: string,
@@ -331,7 +354,7 @@ function buildLegacyDescriptor(storageType, clusterStatus, testStatus) {
  *
  * @param {Record<string, any>} report Final cluster report payload.
  * @param {string} reportFile Path to the written JSON report file.
- * @param {{ setOutput(name: string, value: string): void }} core GitHub core API.
+ * @param {ClusterReportCore} core GitHub core API.
  */
 function setReportOutputs(report, reportFile, core) {
   core.setOutput("report_file", reportFile);
@@ -347,33 +370,7 @@ function setReportOutputs(report, reportFile, core) {
  * Builds a per-cluster JSON report from workflow stage results and an optional
  * raw Ginkgo JSON report, writes it to disk, and publishes step outputs.
  *
- * @param {{
- *   core: {
- *     info(message: string): void,
- *     warning(message: string): void,
- *     setOutput(name: string, value: string): void
- *   },
- *   context: {
- *     serverUrl: string,
- *     repo: { owner: string, repo: string },
- *     runId: string|number,
- *     ref?: string
- *   },
- *   config?: {
- *     storageType: string,
- *     reportsDir: string,
- *     reportFile: string,
- *     workflowRunUrl?: string,
- *     branchName?: string,
- *     stageResults: {
- *       "bootstrap": string|undefined,
- *       "configure-sdn": string|undefined,
- *       "storage-setup": string|undefined,
- *       "virtualization-setup": string|undefined,
- *       "e2e-test": string|undefined
- *     }
- *   }
- * }} params GitHub script dependencies.
+ * @param {ClusterReportParams} params GitHub script dependencies.
  * @returns {Promise<Record<string, any>>} Generated cluster report.
  */
 async function buildClusterReport({ core, context, config: explicitConfig }) {

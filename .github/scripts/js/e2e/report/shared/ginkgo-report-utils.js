@@ -1,4 +1,14 @@
 /**
+ * @typedef {Object} GinkgoMetrics
+ * @property {number} passed
+ * @property {number} failed
+ * @property {number} errors
+ * @property {number} skipped
+ * @property {number} total
+ * @property {number} successRate
+ */
+
+/**
  * Normalizes a value into an array.
  *
  * @param {any} value Input value.
@@ -90,23 +100,9 @@ function metricKeyForState(state) {
  * markdown report.
  *
  * @param {string} jsonContent Raw JSON content.
- * @param {() => {
- *   passed: number,
- *   failed: number,
- *   errors: number,
- *   skipped: number,
- *   total: number,
- *   successRate: number
- * }} createZeroMetrics Factory creating a zeroed metrics object.
+ * @param {function(): GinkgoMetrics} createZeroMetrics Factory creating a zeroed metrics object.
  * @returns {{
- *   metrics: {
- *     passed: number,
- *     failed: number,
- *     errors: number,
- *     skipped: number,
- *     total: number,
- *     successRate: number
- *   },
+ *   metrics: GinkgoMetrics,
  *   failedTests: string[],
  *   startedAt: string|null
  * }} Parsed report payload.

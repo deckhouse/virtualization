@@ -8,7 +8,7 @@ const { listMatchingFiles } = require("./fs-utils");
  * Runs a test body inside a temporary directory and removes it afterwards.
  *
  * @template T
- * @param {(tempDir: string) => Promise<T>|T} testFn Test body.
+ * @param {function(string): (Promise<T>|T)} testFn Test body.
  * @returns {Promise<T>} Test result.
  */
 async function withTempDir(testFn) {
