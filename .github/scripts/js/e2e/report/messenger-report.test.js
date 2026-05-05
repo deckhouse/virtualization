@@ -45,7 +45,7 @@ async function withTempDir(testFn) {
 describe("messenger-report", () => {
   afterEach(() => {
     delete process.env.REPORTS_DIR;
-    delete process.env.STORAGE_TYPES;
+    delete process.env.EXPECTED_STORAGE_TYPES;
     delete process.env.LOOP_API_BASE_URL;
     delete process.env.LOOP_CHANNEL_ID;
     delete process.env.LOOP_TOKEN;
@@ -55,7 +55,7 @@ describe("messenger-report", () => {
   test("reads normalized messenger config from env", () => {
     const config = readMessengerConfigFromEnv({
       REPORTS_DIR: "custom-reports",
-      STORAGE_TYPES: '["replicated","nfs"]',
+      EXPECTED_STORAGE_TYPES: '["replicated","nfs"]',
       LOOP_API_BASE_URL: "https://loop.example.invalid/api/v4/",
       LOOP_CHANNEL_ID: " channel-id ",
       LOOP_TOKEN: " token ",
@@ -117,7 +117,7 @@ describe("messenger-report", () => {
       );
 
       process.env.REPORTS_DIR = tempDir;
-      process.env.STORAGE_TYPES = '["replicated","nfs"]';
+      process.env.EXPECTED_STORAGE_TYPES = '["replicated","nfs"]';
 
       const result = await renderMessengerReport({ core: createCore() });
 
@@ -143,7 +143,7 @@ describe("messenger-report", () => {
   test("creates artifact-missing entry for absent cluster report", async () =>
     withTempDir(async (tempDir) => {
       process.env.REPORTS_DIR = tempDir;
-      process.env.STORAGE_TYPES = '["replicated"]';
+      process.env.EXPECTED_STORAGE_TYPES = '["replicated"]';
 
       const result = await renderMessengerReport({ core: createCore() });
 
@@ -189,7 +189,7 @@ describe("messenger-report", () => {
       );
 
       process.env.REPORTS_DIR = tempDir;
-      process.env.STORAGE_TYPES = '["nfs"]';
+      process.env.EXPECTED_STORAGE_TYPES = '["nfs"]';
 
       const core = createCore();
       const result = await renderMessengerReport({ core });
@@ -247,7 +247,7 @@ describe("messenger-report", () => {
       );
 
       process.env.REPORTS_DIR = tempDir;
-      process.env.STORAGE_TYPES = '["replicated","nfs"]';
+      process.env.EXPECTED_STORAGE_TYPES = '["replicated","nfs"]';
 
       const result = await renderMessengerReport({ core: createCore() });
 
@@ -289,7 +289,7 @@ describe("messenger-report", () => {
       );
 
       process.env.REPORTS_DIR = tempDir;
-      process.env.STORAGE_TYPES = '["nfs"]';
+      process.env.EXPECTED_STORAGE_TYPES = '["nfs"]';
 
       const result = await renderMessengerReport({ core: createCore() });
 
@@ -458,7 +458,7 @@ describe("messenger-report", () => {
       );
 
       process.env.REPORTS_DIR = tempDir;
-      process.env.STORAGE_TYPES = '["replicated"]';
+      process.env.EXPECTED_STORAGE_TYPES = '["replicated"]';
       process.env.LOOP_API_BASE_URL = "https://loop.example.invalid";
       process.env.LOOP_CHANNEL_ID = "channel-id";
       process.env.LOOP_TOKEN = "loop-token";
@@ -525,7 +525,7 @@ describe("messenger-report", () => {
       );
 
       process.env.REPORTS_DIR = tempDir;
-      process.env.STORAGE_TYPES = '["replicated"]';
+      process.env.EXPECTED_STORAGE_TYPES = '["replicated"]';
       process.env.LOOP_API_BASE_URL = "https://loop.example.invalid";
       process.env.LOOP_CHANNEL_ID = "channel-id";
       process.env.LOOP_TOKEN = "loop-token";
@@ -572,7 +572,7 @@ describe("messenger-report", () => {
       );
 
       process.env.REPORTS_DIR = tempDir;
-      process.env.STORAGE_TYPES = '["replicated"]';
+      process.env.EXPECTED_STORAGE_TYPES = '["replicated"]';
       process.env.LOOP_API_BASE_URL = "https://loop.example.invalid";
       process.env.LOOP_CHANNEL_ID = "channel-id";
       process.env.LOOP_TOKEN = "loop-token";
@@ -619,7 +619,7 @@ describe("messenger-report", () => {
       );
 
       process.env.REPORTS_DIR = tempDir;
-      process.env.STORAGE_TYPES = '["replicated"]';
+      process.env.EXPECTED_STORAGE_TYPES = '["replicated"]';
       process.env.LOOP_API_BASE_URL = "https://loop.example.invalid";
       process.env.LOOP_CHANNEL_ID = "channel-id";
       process.env.LOOP_TOKEN = "loop-token";
