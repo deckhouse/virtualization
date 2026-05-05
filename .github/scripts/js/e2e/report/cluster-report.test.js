@@ -64,10 +64,15 @@ function createContext() {
  * @returns {Record<string, any>} Mocked GitHub client.
  */
 function createGithub(jobConclusions) {
-  const jobs = Object.entries(jobConclusions).map(([name, conclusion]) => ({
-    name,
-    conclusion,
-  }));
+  const jobs = Object.entries(jobConclusions).map(
+    ([name, conclusion], index) => ({
+      name,
+      conclusion,
+      html_url: `https://github.com/test/repo/actions/runs/12345/job/${
+        index + 1
+      }`,
+    })
+  );
 
   return {
     rest: {
@@ -299,21 +304,49 @@ describe("cluster-report", () => {
         core: createCore(),
         context: createContext(),
         github: createGithub({
-          "Bootstrap cluster": "success",
-          "Configure SDN": "success",
-          "Configure storage": "success",
-          "Configure Virtualization": "success",
-          "E2E test": "success",
+          "E2E Pipeline (Replicated) / Bootstrap cluster": "success",
+          "E2E Pipeline (Replicated) / Configure SDN": "success",
+          "E2E Pipeline (Replicated) / Configure storage": "success",
+          "E2E Pipeline (Replicated) / Configure Virtualization": "success",
+          "E2E Pipeline (Replicated) / E2E test": "success",
         }),
       });
 
       expect(report.cluster).toBe("replicated");
       expect(report.workflowRunUrl).toBe(
-        "https://github.com/test/repo/actions/runs/12345"
+        "https://github.com/test/repo/actions/runs/12345/job/5"
       );
       expect(report.branch).toBe("main");
       expect(JSON.parse(fs.readFileSync(reportFile, "utf8")).cluster).toBe(
         "replicated"
+      );
+    }));
+
+  test("links report to the matching failed workflow job", async () =>
+    withTempDir(async (tempDir) => {
+      const reportFile = path.join(tempDir, "env-report.json");
+      process.env.STORAGE_TYPE = "nfs";
+      process.env.REPORTS_DIR = tempDir;
+      process.env.REPORT_FILE = reportFile;
+
+      const report = await buildClusterReport({
+        core: createCore(),
+        context: createContext(),
+        github: createGithub({
+          "E2E Pipeline (NFS) / Bootstrap cluster": "success",
+          "E2E Pipeline (NFS) / Configure SDN": "failure",
+          "E2E Pipeline (NFS) / Configure storage": "skipped",
+          "E2E Pipeline (NFS) / Configure Virtualization": "skipped",
+          "E2E Pipeline (NFS) / E2E test": "skipped",
+        }),
+      });
+
+      expect(report.clusterStatus).toMatchObject({
+        status: "failure",
+        stage: "configure-sdn",
+      });
+      expect(report.workflowRunUrl).toBe(
+        "https://github.com/test/repo/actions/runs/12345/job/2"
       );
     }));
 

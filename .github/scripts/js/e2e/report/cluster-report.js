@@ -26,6 +26,10 @@ const {
  */
 
 /**
+ * @typedef {Record<string, string|undefined>} StageUrls
+ */
+
+/**
  * @typedef {Object} GinkgoMetrics
  * @property {number} [failed]
  * @property {number} [errors]
@@ -52,6 +56,7 @@ const {
  * @property {string} reportsDir
  * @property {string} reportFile
  * @property {StageResults} stageResults
+ * @property {StageUrls} [stageJobUrls]
  */
 
 /**
@@ -68,6 +73,11 @@ const workflowStageJobs = {
   "storage-setup": "Configure storage",
   "virtualization-setup": "Configure Virtualization",
   "e2e-test": "E2E test",
+};
+
+const workflowPipelineJobs = {
+  replicated: "E2E Pipeline (Replicated)",
+  nfs: "E2E Pipeline (NFS)",
 };
 
 function escapeRegExp(value) {
@@ -100,6 +110,7 @@ function requireClusterReportConfig(config) {
   return {
     ...config,
     stageResults: config.stageResults || {},
+    stageJobUrls: config.stageJobUrls || {},
   };
 }
 
@@ -123,17 +134,32 @@ async function listWorkflowRunJobs(github, context) {
     per_page: 100,
   };
 
+  if (github.paginate) {
+    return github.paginate(github.rest.actions.listJobsForWorkflowRun, params);
+  }
+
   const response = await github.rest.actions.listJobsForWorkflowRun(params);
   return response.data.jobs || [];
 }
 
-async function readStageResultsFromWorkflowRun(github, context, core) {
+function findWorkflowJob(jobs, storageType, jobName) {
+  const pipelineJobName = workflowPipelineJobs[storageType];
+  const nestedJobName = pipelineJobName ? `${pipelineJobName} / ${jobName}` : "";
+
+  return (
+    jobs.find((job) => job.name === nestedJobName) ||
+    jobs.find((job) => job.name === jobName) ||
+    jobs.find((job) => String(job.name || "").endsWith(` / ${jobName}`))
+  );
+}
+
+async function readStageDetailsFromWorkflowRun(github, context, config, core) {
   const jobs = await listWorkflowRunJobs(github, context);
-  const jobsByName = new Map(jobs.map((job) => [job.name, job]));
   const stageResults = {};
+  const stageJobUrls = {};
 
   for (const [stageName, jobName] of Object.entries(workflowStageJobs)) {
-    const job = jobsByName.get(jobName);
+    const job = findWorkflowJob(jobs, config.storageType, jobName);
     if (!job) {
       core.warning(`Unable to find workflow job "${jobName}" for E2E report`);
       stageResults[stageName] = "skipped";
@@ -141,9 +167,10 @@ async function readStageResultsFromWorkflowRun(github, context, core) {
     }
 
     stageResults[stageName] = job.conclusion || "skipped";
+    stageJobUrls[stageName] = job.html_url || "";
   }
 
-  return stageResults;
+  return { stageResults, stageJobUrls };
 }
 
 function findGinkgoReport(config) {
@@ -190,7 +217,7 @@ function parseGinkgoReportFile(rawReportPath, core) {
 function buildReportPayload({
   config,
   context,
-  workflowRunUrl,
+  fallbackWorkflowRunUrl,
   branchName,
   parsedReport,
   rawReportPath,
@@ -206,6 +233,11 @@ function buildReportPayload({
     config.storageType,
     clusterStatus,
     testStatus
+  );
+  const workflowRunUrl = getReportJobUrl(
+    reportSummary,
+    config.stageJobUrls,
+    fallbackWorkflowRunUrl
   );
 
   return {
@@ -229,6 +261,22 @@ function buildReportPayload({
     sourceReport: rawReportPath,
     reportSource: parsedReport.source,
   };
+}
+
+function getReportJobUrl(
+  reportSummary,
+  stageJobUrls = {},
+  fallbackWorkflowRunUrl
+) {
+  if (reportSummary.failedStage && stageJobUrls[reportSummary.failedStage]) {
+    return stageJobUrls[reportSummary.failedStage];
+  }
+
+  if (stageJobUrls["e2e-test"]) {
+    return stageJobUrls["e2e-test"];
+  }
+
+  return fallbackWorkflowRunUrl;
 }
 
 /**
@@ -262,14 +310,17 @@ async function buildClusterReport({ core, context, github, config } = {}) {
   );
 
   if (!config || !config.stageResults) {
-    resolvedConfig.stageResults = await readStageResultsFromWorkflowRun(
+    const stageDetails = await readStageDetailsFromWorkflowRun(
       github,
       context,
+      resolvedConfig,
       core
     );
+    resolvedConfig.stageResults = stageDetails.stageResults;
+    resolvedConfig.stageJobUrls = stageDetails.stageJobUrls;
   }
 
-  const workflowRunUrl = getWorkflowRunUrl(context);
+  const fallbackWorkflowRunUrl = getWorkflowRunUrl(context);
   const branchName = getBranchName(context);
   const rawReportPath = findGinkgoReport(resolvedConfig);
 
@@ -283,7 +334,7 @@ async function buildClusterReport({ core, context, github, config } = {}) {
   const report = buildReportPayload({
     config: resolvedConfig,
     context,
-    workflowRunUrl,
+    fallbackWorkflowRunUrl,
     branchName,
     parsedReport,
     rawReportPath,
