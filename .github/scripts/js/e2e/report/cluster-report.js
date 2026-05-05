@@ -198,7 +198,7 @@ function parseGinkgoReportFile(rawReportPath, core) {
   core.info(`Found Ginkgo JSON report: ${rawReportPath}`);
   try {
     return {
-      ...parseGinkgoReport(fs.readFileSync(rawReportPath, "utf8"), zeroMetrics),
+      ...parseGinkgoReport(fs.readFileSync(rawReportPath, "utf8")),
       source: "ginkgo-json",
     };
   } catch (error) {

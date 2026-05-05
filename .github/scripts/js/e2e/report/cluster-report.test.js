@@ -197,29 +197,6 @@ function createGinkgoReport({ startedAt, specs }) {
   );
 }
 
-/**
- * Creates a zero-filled metrics object for parser tests.
- *
- * @returns {{
- *   passed: number,
- *   failed: number,
- *   errors: number,
- *   skipped: number,
- *   total: number,
- *   successRate: number
- * }} Zeroed metrics payload.
- */
-function createZeroMetrics() {
-  return {
-    passed: 0,
-    failed: 0,
-    errors: 0,
-    skipped: 0,
-    total: 0,
-    successRate: 0,
-  };
-}
-
 describe("cluster-report", () => {
   afterEach(() => {
     delete process.env.STORAGE_TYPE;
@@ -622,8 +599,7 @@ describe("cluster-report", () => {
       createGinkgoReport({
         startedAt: "2026-04-28T03:11:27.708387575Z",
         specs,
-      }),
-      createZeroMetrics
+      })
     );
 
     expect(parsed.metrics).toEqual({

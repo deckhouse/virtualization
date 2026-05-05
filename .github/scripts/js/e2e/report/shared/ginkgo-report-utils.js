@@ -10,6 +10,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+const { zeroMetrics } = require("./report-model");
+
 /**
  * @typedef {Object} GinkgoMetrics
  * @property {number} passed
@@ -114,16 +116,15 @@ function metricKeyForState(state) {
  * markdown report.
  *
  * @param {string} jsonContent Raw JSON content.
- * @param {function(): GinkgoMetrics} createZeroMetrics Factory creating a zeroed metrics object.
  * @returns {{
  *   metrics: GinkgoMetrics,
  *   failedTests: string[],
  *   startedAt: string|null
  * }} Parsed report payload.
  */
-function parseGinkgoReport(jsonContent, createZeroMetrics) {
+function parseGinkgoReport(jsonContent) {
   const suites = toArray(JSON.parse(jsonContent));
-  const metrics = createZeroMetrics();
+  const metrics = zeroMetrics();
   const failedTests = [];
   const startedAt =
     suites.find((suite) => suite && suite.StartTime)?.StartTime || null;
