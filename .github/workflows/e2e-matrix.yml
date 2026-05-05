@@ -490,11 +490,10 @@ jobs:
         id: render-report
         uses: actions/github-script@v7
         env:
-          EXPECTED_STORAGE_TYPES: '["replicated","nfs"]'
           LOOP_API_BASE_URL: ${{ secrets.LOOP_API_BASE_URL }}
           LOOP_CHANNEL_ID: ${{ secrets.LOOP_CHANNEL_ID }}
           LOOP_TOKEN: ${{ secrets.LOOP_TOKEN }}
         with:
           script: |
             const renderMessengerReport = require('./.github/scripts/js/e2e/report/messenger-report');
-            await renderMessengerReport({core, reportsDir: 'downloaded-artifacts/'});
+            await renderMessengerReport({core});

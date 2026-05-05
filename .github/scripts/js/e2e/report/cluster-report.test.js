@@ -58,6 +58,29 @@ function createContext() {
 }
 
 /**
+ * Creates a minimal GitHub API client mock for workflow job discovery.
+ *
+ * @param {Record<string, string>} jobConclusions Job conclusion by job name.
+ * @returns {Record<string, any>} Mocked GitHub client.
+ */
+function createGithub(jobConclusions) {
+  const jobs = Object.entries(jobConclusions).map(([name, conclusion]) => ({
+    name,
+    conclusion,
+  }));
+
+  return {
+    rest: {
+      actions: {
+        listJobsForWorkflowRun: jest.fn().mockResolvedValue({
+          data: { jobs },
+        }),
+      },
+    },
+  };
+}
+
+/**
  * Runs a test body inside a temporary directory and removes it afterwards.
  *
  * @template T
@@ -197,13 +220,6 @@ describe("cluster-report", () => {
     delete process.env.STORAGE_TYPE;
     delete process.env.REPORTS_DIR;
     delete process.env.REPORT_FILE;
-    delete process.env.WORKFLOW_RUN_URL;
-    delete process.env.BRANCH_NAME;
-    delete process.env.BOOTSTRAP_RESULT;
-    delete process.env.CONFIGURE_SDN_RESULT;
-    delete process.env.STORAGE_SETUP_RESULT;
-    delete process.env.VIRTUALIZATION_SETUP_RESULT;
-    delete process.env.E2E_TEST_RESULT;
   });
 
   test("requires storage type when config is absent", async () => {
@@ -242,8 +258,6 @@ describe("cluster-report", () => {
           storageType: "nfs",
           reportsDir: tempDir,
           reportFile,
-          workflowRunUrl: "https://example.invalid/run/explicit",
-          branchName: "feature/report",
           stageResults: {
             bootstrap: "success",
             "configure-sdn": "failure",
@@ -256,9 +270,9 @@ describe("cluster-report", () => {
 
       expect(report.cluster).toBe("nfs");
       expect(report.workflowRunUrl).toBe(
-        "https://example.invalid/run/explicit"
+        "https://github.com/test/repo/actions/runs/12345"
       );
-      expect(report.branch).toBe("feature/report");
+      expect(report.branch).toBe("main");
       expect(report.clusterStatus).toMatchObject({
         status: "failure",
         stage: "configure-sdn",
@@ -274,31 +288,30 @@ describe("cluster-report", () => {
       process.env.STORAGE_TYPE = "replicated";
       process.env.REPORTS_DIR = tempDir;
       process.env.REPORT_FILE = reportFile;
-      process.env.WORKFLOW_RUN_URL = "https://example.invalid/run/from-env";
-      process.env.BRANCH_NAME = "feature/from-env";
-      process.env.BOOTSTRAP_RESULT = "success";
-      process.env.CONFIGURE_SDN_RESULT = "success";
-      process.env.STORAGE_SETUP_RESULT = "success";
-      process.env.VIRTUALIZATION_SETUP_RESULT = "success";
-      process.env.E2E_TEST_RESULT = "success";
 
       expect(readClusterReportConfigFromEnv()).toMatchObject({
         storageType: "replicated",
         reportsDir: tempDir,
         reportFile,
-        branchName: "feature/from-env",
       });
 
       const report = await buildClusterReport({
         core: createCore(),
         context: createContext(),
+        github: createGithub({
+          "Bootstrap cluster": "success",
+          "Configure SDN": "success",
+          "Configure storage": "success",
+          "Configure Virtualization": "success",
+          "E2E test": "success",
+        }),
       });
 
       expect(report.cluster).toBe("replicated");
       expect(report.workflowRunUrl).toBe(
-        "https://example.invalid/run/from-env"
+        "https://github.com/test/repo/actions/runs/12345"
       );
-      expect(report.branch).toBe("feature/from-env");
+      expect(report.branch).toBe("main");
       expect(JSON.parse(fs.readFileSync(reportFile, "utf8")).cluster).toBe(
         "replicated"
       );

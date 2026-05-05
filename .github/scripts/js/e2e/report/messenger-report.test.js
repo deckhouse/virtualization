@@ -67,7 +67,6 @@ describe("messenger-report", () => {
   test("reads normalized messenger config from env", () => {
     const config = readMessengerConfigFromEnv({
       REPORTS_DIR: "custom-reports",
-      EXPECTED_STORAGE_TYPES: '["replicated","nfs"]',
       LOOP_API_BASE_URL: "https://loop.example.invalid/api/v4/",
       LOOP_CHANNEL_ID: " channel-id ",
       LOOP_TOKEN: " token ",
@@ -82,6 +81,13 @@ describe("messenger-report", () => {
         token: "token",
       },
     });
+  });
+
+  test("uses default configured clusters when env override is absent", () => {
+    const config = readMessengerConfigFromEnv({});
+
+    expect(config.configuredClusters).toEqual(["replicated", "nfs"]);
+    expect(config.reportsDir).toBe("downloaded-artifacts");
   });
 
   test("renders test results, stage failures, and per-cluster thread replies", async () =>

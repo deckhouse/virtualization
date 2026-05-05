@@ -57,8 +57,10 @@ function parseConfiguredClusters(value) {
   return Array.isArray(parsedValue) ? parsedValue : [];
 }
 
+const defaultConfiguredClusters = ["replicated", "nfs"];
+
 /**
- * Reads messenger configuration from the environment prepared by the workflow.
+ * Reads messenger configuration from the environment.
  *
  * @param {NodeJS.ProcessEnv} [env=process.env] Environment variables source.
  * @returns {{
@@ -72,9 +74,9 @@ function parseConfiguredClusters(value) {
  * }} Normalized messenger configuration.
  */
 function readMessengerConfigFromEnv(env = process.env) {
-  const configuredClusters = parseConfiguredClusters(
-    env.EXPECTED_STORAGE_TYPES
-  );
+  const configuredClusters = env.EXPECTED_STORAGE_TYPES
+    ? parseConfiguredClusters(env.EXPECTED_STORAGE_TYPES)
+    : defaultConfiguredClusters;
 
   return {
     reportsDir: env.REPORTS_DIR || "downloaded-artifacts",

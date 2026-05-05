@@ -51,8 +51,6 @@ const {
  * @property {string} storageType
  * @property {string} reportsDir
  * @property {string} reportFile
- * @property {string} [workflowRunUrl]
- * @property {string} [branchName]
  * @property {StageResults} stageResults
  */
 
@@ -60,8 +58,17 @@ const {
  * @typedef {Object} ClusterReportParams
  * @property {ClusterReportCore} core
  * @property {ClusterReportContext} context
+ * @property {any} [github]
  * @property {ClusterReportConfig} [config]
  */
+
+const workflowStageJobs = {
+  bootstrap: "Bootstrap cluster",
+  "configure-sdn": "Configure SDN",
+  "storage-setup": "Configure storage",
+  "virtualization-setup": "Configure Virtualization",
+  "e2e-test": "E2E test",
+};
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -74,15 +81,6 @@ function readClusterReportConfigFromEnv(env = process.env) {
     storageType,
     reportsDir: env.REPORTS_DIR || "test/e2e",
     reportFile: env.REPORT_FILE || `e2e_report_${storageType}.json`,
-    workflowRunUrl: String(env.WORKFLOW_RUN_URL || "").trim(),
-    branchName: String(env.BRANCH_NAME || "").trim(),
-    stageResults: {
-      bootstrap: env.BOOTSTRAP_RESULT,
-      "configure-sdn": env.CONFIGURE_SDN_RESULT,
-      "storage-setup": env.STORAGE_SETUP_RESULT,
-      "virtualization-setup": env.VIRTUALIZATION_SETUP_RESULT,
-      "e2e-test": env.E2E_TEST_RESULT,
-    },
   };
 }
 
@@ -105,18 +103,47 @@ function requireClusterReportConfig(config) {
   };
 }
 
-function getWorkflowRunUrl(config, context) {
-  if (config.workflowRunUrl) {
-    return config.workflowRunUrl;
-  }
-
+function getWorkflowRunUrl(context) {
   return `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
 }
 
-function getBranchName(config, context) {
-  return (
-    config.branchName || String(context.ref || "").replace(/^refs\/heads\//, "")
-  );
+function getBranchName(context) {
+  return String(context.ref || "").replace(/^refs\/heads\//, "");
+}
+
+async function listWorkflowRunJobs(github, context) {
+  if (!github || !github.rest || !github.rest.actions) {
+    throw new Error("buildClusterReport requires github client");
+  }
+
+  const params = {
+    owner: context.repo.owner,
+    repo: context.repo.repo,
+    run_id: context.runId,
+    per_page: 100,
+  };
+
+  const response = await github.rest.actions.listJobsForWorkflowRun(params);
+  return response.data.jobs || [];
+}
+
+async function readStageResultsFromWorkflowRun(github, context, core) {
+  const jobs = await listWorkflowRunJobs(github, context);
+  const jobsByName = new Map(jobs.map((job) => [job.name, job]));
+  const stageResults = {};
+
+  for (const [stageName, jobName] of Object.entries(workflowStageJobs)) {
+    const job = jobsByName.get(jobName);
+    if (!job) {
+      core.warning(`Unable to find workflow job "${jobName}" for E2E report`);
+      stageResults[stageName] = "skipped";
+      continue;
+    }
+
+    stageResults[stageName] = job.conclusion || "skipped";
+  }
+
+  return stageResults;
 }
 
 function findGinkgoReport(config) {
@@ -229,13 +256,21 @@ function setReportOutputs(report, reportFile, core) {
  * @returns {Promise<Record<string, any>>} Generated cluster report.
  * @throws {Error} If config is incomplete or the report file cannot be written.
  */
-async function buildClusterReport({ core, context, config } = {}) {
+async function buildClusterReport({ core, context, github, config } = {}) {
   const resolvedConfig = requireClusterReportConfig(
     config || readClusterReportConfigFromEnv()
   );
 
-  const workflowRunUrl = getWorkflowRunUrl(resolvedConfig, context);
-  const branchName = getBranchName(resolvedConfig, context);
+  if (!config || !config.stageResults) {
+    resolvedConfig.stageResults = await readStageResultsFromWorkflowRun(
+      github,
+      context,
+      core
+    );
+  }
+
+  const workflowRunUrl = getWorkflowRunUrl(context);
+  const branchName = getBranchName(context);
   const rawReportPath = findGinkgoReport(resolvedConfig);
 
   if (!rawReportPath) {
