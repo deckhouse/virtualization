@@ -169,9 +169,9 @@ function buildMainMessage(orderedReports) {
     `## DVP | E2E on nested clusters | ${reportDate}`,
     "",
     ...renderBranchLine(orderedReports),
-    ...renderTestResultsSection(testsReports),
     ...renderClusterFailuresSection(stageFailureReports),
     ...renderMissingReportsSection(missingReports),
+    ...renderTestResultsSection(testsReports),
   ];
 
   return lines.join("\n").trim();
