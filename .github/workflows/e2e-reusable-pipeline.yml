@@ -971,10 +971,35 @@ jobs:
 
       - name: Configure Virtualization
         run: |
+          kubectl_apply_with_retry() {
+            local count=6
+            local delay=10
+            local manifest
+            manifest="$(mktemp)"
+            cat > "$manifest"
+
+            for i in $(seq 1 "$count"); do
+              echo "[INFO] kubectl apply attempt ${i}/${count}"
+              if kubectl apply -f "$manifest"; then
+                rm -f "$manifest"
+                return 0
+              fi
+
+              if [ "$i" -lt "$count" ]; then
+                echo "[WARN] kubectl apply failed, retrying in ${delay}s"
+                sleep "$delay"
+              fi
+            done
+
+            echo "[ERROR] kubectl apply failed after ${count} attempts"
+            rm -f "$manifest"
+            return 1
+          }
+
           REGISTRY=$(base64 -d <<< "${{secrets.DEV_REGISTRY_DOCKER_CFG}}" | jq '.auths | to_entries | .[] | .key' -r)
 
           echo "[INFO] Apply ModuleSource dev config"
-          kubectl apply -f -<<EOF
+          kubectl_apply_with_retry <<EOF
           apiVersion: deckhouse.io/v1alpha1
           kind: ModuleSource
           metadata:
@@ -990,7 +1015,7 @@ jobs:
           kubectl wait --for=jsonpath='{.status.phase}'=Active ms deckhouse-dev --timeout=300s
 
           echo "[INFO] Apply Virtualization module config"
-          kubectl apply -f -<<EOF
+          kubectl_apply_with_retry <<EOF
           apiVersion: deckhouse.io/v1alpha1
           kind: ModuleConfig
           metadata:
