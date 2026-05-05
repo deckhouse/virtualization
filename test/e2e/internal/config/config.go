@@ -39,7 +39,7 @@ func GetConfig() (*Config, error) {
 	}
 	data, err := os.ReadFile(cfg)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read config file %q: %w", cfg, err)
 	}
 	var conf Config
 
@@ -76,7 +76,9 @@ type Config struct {
 	LogFilter        []string         `yaml:"logFilter"`
 	CleanupResources []string         `yaml:"cleanupResources"`
 	RegexpLogFilter  []regexp.Regexp  `yaml:"regexpLogFilter"`
-	StorageClass     StorageClass
+	IsCleanupNeeded  bool             `yaml:"isCleanupNeeded"`
+
+	StorageClass StorageClass
 }
 
 type TestData struct {
@@ -130,6 +132,10 @@ type HelperImages struct {
 }
 
 func (c *Config) setEnvs() error {
+	// isCleanupNeeded: env var has priority over yaml config
+	if e, ok := os.LookupEnv("POST_CLEANUP"); ok {
+		c.IsCleanupNeeded = e != "no"
+	}
 	// ClusterTransport
 	if e, ok := os.LookupEnv("E2E_CLUSTERTRANSPORT_KUBECONFIG"); ok {
 		c.ClusterTransport.KubeConfig = e
