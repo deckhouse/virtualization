@@ -63,9 +63,7 @@ const clusterSetupStages = [
  * @property {string} reportsDir
  * @property {string} reportFile
  * @property {string} [workflowRunUrl]
- * @property {string} [workflowRunUrlOverride]
  * @property {string} [branchName]
- * @property {string} [branchNameOverride]
  * @property {StageResults} stageResults
  */
 
@@ -73,7 +71,7 @@ const clusterSetupStages = [
  * @typedef {Object} ClusterReportParams
  * @property {ClusterReportCore} core
  * @property {ClusterReportContext} context
- * @property {ClusterReportConfig} [config]
+ * @property {ClusterReportConfig} config
  */
 
 /**
@@ -84,32 +82,6 @@ const clusterSetupStages = [
  */
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/**
- * Reads cluster report configuration from environment variables injected by the
- * reusable workflow or the local helper script.
- *
- * @param {NodeJS.ProcessEnv} [env=process.env] Environment variables source.
- * @returns {ClusterReportConfig} Normalized cluster report configuration.
- */
-function readClusterConfigFromEnv(env = process.env) {
-  const storageType = env.STORAGE_TYPE;
-
-  return {
-    storageType,
-    reportsDir: env.E2E_REPORT_DIR || "test/e2e",
-    reportFile: env.REPORT_FILE || `e2e_report_${storageType}.json`,
-    workflowRunUrlOverride: env.WORKFLOW_RUN_URL || "",
-    branchNameOverride: env.BRANCH_NAME || "",
-    stageResults: {
-      "bootstrap": env.BOOTSTRAP_RESULT,
-      "configure-sdn": env.CONFIGURE_SDN_RESULT,
-      "storage-setup": env.CONFIGURE_STORAGE_RESULT,
-      "virtualization-setup": env.CONFIGURE_VIRTUALIZATION_RESULT,
-      "e2e-test": env.E2E_TEST_RESULT,
-    },
-  };
 }
 
 /**
@@ -372,17 +344,18 @@ function setReportOutputs(report, reportFile, core) {
  *
  * @param {ClusterReportParams} params GitHub script dependencies.
  * @returns {Promise<Record<string, any>>} Generated cluster report.
+ * @throws {Error} If `config` is missing or the report file cannot be written.
  */
-async function buildClusterReport({ core, context, config: explicitConfig }) {
-  const config = explicitConfig || readClusterConfigFromEnv();
+async function buildClusterReport({ core, context, config } = {}) {
+  if (!config) {
+    throw new Error("buildClusterReport requires a config object");
+  }
+
   const workflowRunUrl =
     config.workflowRunUrl ||
-    config.workflowRunUrlOverride ||
     `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
   const branchName =
-    config.branchName ||
-    config.branchNameOverride ||
-    String(context.ref || "").replace(/^refs\/heads\//, "");
+    config.branchName || String(context.ref || "").replace(/^refs\/heads\//, "");
   const rawReportPattern = new RegExp(
     `^e2e_report_${escapeRegExp(config.storageType)}_.*\\.json$`
   );
@@ -470,7 +443,3 @@ async function buildClusterReport({ core, context, config: explicitConfig }) {
 
 module.exports = buildClusterReport;
 module.exports.buildClusterStatus = buildClusterStatus;
-module.exports.buildTestStatus = buildTestStatus;
-module.exports.parseGinkgoReport = parseGinkgoReport;
-module.exports.buildLegacyDescriptor = buildLegacyDescriptor;
-module.exports.readClusterConfigFromEnv = readClusterConfigFromEnv;

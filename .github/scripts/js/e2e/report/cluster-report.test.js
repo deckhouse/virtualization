@@ -5,7 +5,6 @@ const path = require("path");
 const buildClusterReport = require("./cluster-report");
 const { buildClusterStatus } = require("./cluster-report");
 const { parseGinkgoReport } = require("./shared/ginkgo-report-utils");
-const { readClusterConfigFromEnv } = require("./cluster-report");
 
 /**
  * Creates a mocked GitHub Actions core object for unit tests.
@@ -64,18 +63,26 @@ async function withTempDir(testFn) {
 }
 
 /**
- * Seeds environment variables representing workflow stage results.
+ * Creates explicit cluster report config for unit tests.
  *
- * @param {Record<string, string>} [overrides={}] Environment overrides.
+ * @param {Partial<Record<string, any>>} [overrides={}] Config overrides.
+ * @returns {Record<string, any>} Cluster report config.
  */
-function setStageEnv(overrides = {}) {
-  process.env.STORAGE_TYPE = "replicated";
-  process.env.BOOTSTRAP_RESULT = "success";
-  process.env.CONFIGURE_SDN_RESULT = "success";
-  process.env.CONFIGURE_STORAGE_RESULT = "success";
-  process.env.CONFIGURE_VIRTUALIZATION_RESULT = "success";
-  process.env.E2E_TEST_RESULT = "success";
-  Object.assign(process.env, overrides);
+function createClusterConfig(overrides = {}) {
+  return {
+    storageType: "replicated",
+    reportsDir: "test/e2e",
+    reportFile: "e2e_report_replicated.json",
+    ...overrides,
+    stageResults: {
+      "bootstrap": "success",
+      "configure-sdn": "success",
+      "storage-setup": "success",
+      "virtualization-setup": "success",
+      "e2e-test": "success",
+      ...(overrides.stageResults || {}),
+    },
+  };
 }
 
 /**
@@ -173,47 +180,13 @@ function createZeroMetrics() {
 }
 
 describe("cluster-report", () => {
-  afterEach(() => {
-    delete process.env.STORAGE_TYPE;
-    delete process.env.E2E_REPORT_DIR;
-    delete process.env.REPORT_FILE;
-    delete process.env.BRANCH_NAME;
-    delete process.env.WORKFLOW_RUN_URL;
-    delete process.env.BOOTSTRAP_RESULT;
-    delete process.env.CONFIGURE_SDN_RESULT;
-    delete process.env.CONFIGURE_STORAGE_RESULT;
-    delete process.env.CONFIGURE_VIRTUALIZATION_RESULT;
-    delete process.env.E2E_TEST_RESULT;
-  });
-
-  test("reads cluster config from env", () => {
-    const config = readClusterConfigFromEnv({
-      STORAGE_TYPE: "replicated",
-      E2E_REPORT_DIR: "custom-reports",
-      REPORT_FILE: "custom.json",
-      WORKFLOW_RUN_URL: "https://example.invalid/run/1",
-      BRANCH_NAME: "release",
-      BOOTSTRAP_RESULT: "success",
-      CONFIGURE_SDN_RESULT: "failure",
-      CONFIGURE_STORAGE_RESULT: "skipped",
-      CONFIGURE_VIRTUALIZATION_RESULT: "skipped",
-      E2E_TEST_RESULT: "skipped",
-    });
-
-    expect(config).toEqual({
-      storageType: "replicated",
-      reportsDir: "custom-reports",
-      reportFile: "custom.json",
-      workflowRunUrlOverride: "https://example.invalid/run/1",
-      branchNameOverride: "release",
-      stageResults: {
-        "bootstrap": "success",
-        "configure-sdn": "failure",
-        "storage-setup": "skipped",
-        "virtualization-setup": "skipped",
-        "e2e-test": "skipped",
-      },
-    });
+  test("requires explicit config", async () => {
+    await expect(
+      buildClusterReport({
+        core: createCore(),
+        context: createContext(),
+      })
+    ).rejects.toThrow("buildClusterReport requires a config object");
   });
 
   test("determines cluster setup status from explicit stage results", () => {
@@ -305,15 +278,16 @@ describe("cluster-report", () => {
       );
 
       const reportFile = path.join(tempDir, "report.json");
-      setStageEnv({
-        E2E_REPORT_DIR: tempDir,
-        REPORT_FILE: reportFile,
+      const config = createClusterConfig({
+        reportsDir: tempDir,
+        reportFile,
       });
 
       const core = createCore();
       const report = await buildClusterReport({
         core,
         context: createContext(),
+        config,
       });
 
       expect(report.reportKind).toBe("tests");
@@ -388,15 +362,16 @@ describe("cluster-report", () => {
       );
 
       const reportFile = path.join(tempDir, "report.json");
-      setStageEnv({
-        E2E_REPORT_DIR: tempDir,
-        REPORT_FILE: reportFile,
+      const config = createClusterConfig({
+        reportsDir: tempDir,
+        reportFile,
       });
 
       await expect(
         buildClusterReport({
           core: createCore(),
           context: createContext(),
+          config,
         })
       ).rejects.toThrow(
         "Expected a single Ginkgo JSON report, but found 2"
@@ -413,15 +388,16 @@ describe("cluster-report", () => {
       fs.writeFileSync(rawReportPath, "{not-valid-json");
 
       const reportFile = path.join(tempDir, "report.json");
-      setStageEnv({
-        E2E_REPORT_DIR: tempDir,
-        REPORT_FILE: reportFile,
+      const config = createClusterConfig({
+        reportsDir: tempDir,
+        reportFile,
       });
 
       const core = createCore();
       const report = await buildClusterReport({
         core,
         context: createContext(),
+        config,
       });
 
       expect(report.reportKind).toBe("artifact-missing");
@@ -440,9 +416,9 @@ describe("cluster-report", () => {
   test("throws a descriptive error when writing the cluster report fails", async () =>
     withTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "report.json");
-      setStageEnv({
-        E2E_REPORT_DIR: tempDir,
-        REPORT_FILE: reportFile,
+      const config = createClusterConfig({
+        reportsDir: tempDir,
+        reportFile,
       });
 
       const writeSpy = jest
@@ -456,6 +432,7 @@ describe("cluster-report", () => {
           buildClusterReport({
             core: createCore(),
             context: createContext(),
+            config,
           })
         ).rejects.toThrow(
           `Unable to write cluster report file ${reportFile}: disk full`
@@ -553,18 +530,21 @@ describe("cluster-report", () => {
   test("reports configure-sdn as the failed pre-E2E phase", async () =>
     withTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "report.json");
-      setStageEnv({
-        E2E_REPORT_DIR: tempDir,
-        REPORT_FILE: reportFile,
-        CONFIGURE_SDN_RESULT: "failure",
-        CONFIGURE_STORAGE_RESULT: "skipped",
-        CONFIGURE_VIRTUALIZATION_RESULT: "skipped",
-        E2E_TEST_RESULT: "skipped",
+      const config = createClusterConfig({
+        reportsDir: tempDir,
+        reportFile,
+        stageResults: {
+          "configure-sdn": "failure",
+          "storage-setup": "skipped",
+          "virtualization-setup": "skipped",
+          "e2e-test": "skipped",
+        },
       });
 
       const report = await buildClusterReport({
         core: createCore(),
         context: createContext(),
+        config,
       });
 
       expect(report.reportKind).toBe("stage-failure");
@@ -585,14 +565,15 @@ describe("cluster-report", () => {
   test("marks missing artifacts when test stage is successful but no reports were found", async () =>
     withTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "report.json");
-      setStageEnv({
-        E2E_REPORT_DIR: tempDir,
-        REPORT_FILE: reportFile,
+      const config = createClusterConfig({
+        reportsDir: tempDir,
+        reportFile,
       });
 
       const report = await buildClusterReport({
         core: createCore(),
         context: createContext(),
+        config,
       });
 
       expect(report.reportKind).toBe("artifact-missing");
@@ -609,15 +590,18 @@ describe("cluster-report", () => {
   test("keeps cancelled test stage when no reports were found", async () =>
     withTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "report.json");
-      setStageEnv({
-        E2E_REPORT_DIR: tempDir,
-        REPORT_FILE: reportFile,
-        E2E_TEST_RESULT: "cancelled",
+      const config = createClusterConfig({
+        reportsDir: tempDir,
+        reportFile,
+        stageResults: {
+          "e2e-test": "cancelled",
+        },
       });
 
       const report = await buildClusterReport({
         core: createCore(),
         context: createContext(),
+        config,
       });
 
       expect(report.reportKind).toBe("tests");
@@ -634,15 +618,18 @@ describe("cluster-report", () => {
   test("keeps failed test stage when no reports were found", async () =>
     withTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "report.json");
-      setStageEnv({
-        E2E_REPORT_DIR: tempDir,
-        REPORT_FILE: reportFile,
-        E2E_TEST_RESULT: "failure",
+      const config = createClusterConfig({
+        reportsDir: tempDir,
+        reportFile,
+        stageResults: {
+          "e2e-test": "failure",
+        },
       });
 
       const report = await buildClusterReport({
         core: createCore(),
         context: createContext(),
+        config,
       });
 
       expect(report.reportKind).toBe("tests");

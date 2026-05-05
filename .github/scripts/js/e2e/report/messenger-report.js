@@ -14,10 +14,7 @@ const fs = require("fs");
 
 const { listMatchingFiles } = require("./shared/fs-utils");
 const { publishToLoop } = require("./messenger/loop-client");
-const {
-  getLoopPostsApiUrl,
-  readMessengerConfigFromEnv,
-} = require("./messenger/config");
+const { readMessengerConfigFromEnv } = require("./messenger/config");
 const {
   createMissingReport,
   getReportClusterKey,
@@ -156,7 +153,3 @@ async function renderMessengerReport({ core, reportsDir }) {
 }
 
 module.exports = renderMessengerReport;
-module.exports.createMissingReport = createMissingReport;
-module.exports.buildMessengerMessages = buildMessengerMessages;
-module.exports.getLoopPostsApiUrl = getLoopPostsApiUrl;
-module.exports.readMessengerConfigFromEnv = readMessengerConfigFromEnv;

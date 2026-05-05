@@ -3,7 +3,7 @@ const os = require("os");
 const path = require("path");
 
 const renderMessengerReport = require("./messenger-report");
-const { readMessengerConfigFromEnv } = require("./messenger-report");
+const { readMessengerConfigFromEnv } = require("./messenger/config");
 
 /**
  * Creates a mocked GitHub Actions core object for unit tests.

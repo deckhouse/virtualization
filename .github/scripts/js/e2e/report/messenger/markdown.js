@@ -31,6 +31,12 @@ function formatClusterLink(report) {
     : clusterName;
 }
 
+/**
+ * Builds the main E2E messenger report body.
+ *
+ * @param {Array<Record<string, any>>} orderedReports Cluster reports in display order.
+ * @returns {string} Markdown message body.
+ */
 function buildMainMessage(orderedReports) {
   const reportDate = getReportDate(orderedReports);
   const branches = Array.from(
@@ -179,6 +185,12 @@ function buildFailedTestsClusterMessage(report) {
   return lines.join("\n");
 }
 
+/**
+ * Builds optional failed-tests thread messages for clusters with failed tests.
+ *
+ * @param {Array<Record<string, any>>} orderedReports Cluster reports in display order.
+ * @returns {string[]} Markdown thread message bodies.
+ */
 function buildThreadMessages(orderedReports) {
   const testsReports = orderedReports.filter(
     (report) => isTestResultReport(report)
