@@ -1539,15 +1539,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js for report scripts
-        uses: actions/setup-node@v6
-        with:
-          node-version: "20"
-
-      - name: Install report script dependencies
-        working-directory: .github/scripts/js
-        run: npm install
-
       - name: Download E2E test results if available
         uses: actions/download-artifact@v8
         continue-on-error: true

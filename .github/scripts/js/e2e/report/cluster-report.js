@@ -272,7 +272,7 @@ function buildTestStatus(testResult, reportSource, clusterStatus, metrics = {}) 
 }
 
 /**
- * Determines which legacy status fields should be exposed as step outputs.
+ * Builds flat summary fields derived from cluster and test statuses.
  *
  * @param {string} storageType Storage backend name.
  * @param {{ status: string, stage: string, stageLabel: string, message: string }} clusterStatus Cluster setup status.
@@ -284,9 +284,9 @@ function buildTestStatus(testResult, reportSource, clusterStatus, metrics = {}) 
  *   reportKind: string,
  *   status: string,
  *   statusMessage: string
- * }} Legacy descriptor.
+ * }} Report summary descriptor.
  */
-function buildLegacyDescriptor(storageType, clusterStatus, testStatus) {
+function buildReportSummary(storageType, clusterStatus, testStatus) {
   if (clusterStatus.status !== "success") {
     return {
       failedStage: clusterStatus.stage,
@@ -398,7 +398,7 @@ async function buildClusterReport({ core, context, config } = {}) {
     clusterStatus,
     parsedReport.metrics
   );
-  const legacyDescriptor = buildLegacyDescriptor(
+  const reportSummary = buildReportSummary(
     config.storageType,
     clusterStatus,
     testStatus
@@ -408,12 +408,12 @@ async function buildClusterReport({ core, context, config } = {}) {
     schemaVersion: 1,
     cluster: config.storageType,
     storageType: config.storageType,
-    reportKind: legacyDescriptor.reportKind,
-    status: legacyDescriptor.status,
-    statusMessage: legacyDescriptor.statusMessage,
-    failedStage: legacyDescriptor.failedStage,
-    failedStageLabel: legacyDescriptor.failedStageLabel,
-    failedJobName: legacyDescriptor.failedJobName,
+    reportKind: reportSummary.reportKind,
+    status: reportSummary.status,
+    statusMessage: reportSummary.statusMessage,
+    failedStage: reportSummary.failedStage,
+    failedStageLabel: reportSummary.failedStageLabel,
+    failedJobName: reportSummary.failedJobName,
     workflowRunId: String(context.runId),
     workflowRunUrl,
     branch: branchName,
