@@ -29,7 +29,6 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	cfg "github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/d8"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
@@ -62,7 +61,7 @@ var _ = Describe("VirtualDiskResizing", Ordered, label.Legacy(), Label(precheck.
 	})
 
 	AfterAll(func() {
-		if cfg.IsCleanUpNeeded() {
+		if conf.IsCleanupNeeded {
 			DeleteTestCaseResources(ns, ResourcesToDelete{
 				KustomizationDir: conf.TestData.DiskResizing,
 			})
@@ -170,7 +169,7 @@ var _ = Describe("VirtualDiskResizing", Ordered, label.Legacy(), Label(precheck.
 				go func() {
 					defer GinkgoRecover()
 					defer wg.Done()
-					ResizeDisks(addedSize, conf, ns, vds...)
+					ResizeDisks(addedSize, ns, vds...)
 				}()
 				wg.Wait()
 			})
@@ -270,7 +269,7 @@ func WaitBlockDeviceRefsAttached(namespace string, vms ...string) {
 	}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
 }
 
-func ResizeDisks(addedSize *resource.Quantity, config *cfg.Config, ns string, virtualDisks ...string) {
+func ResizeDisks(addedSize *resource.Quantity, ns string, virtualDisks ...string) {
 	GinkgoHelper()
 	wg := &sync.WaitGroup{}
 	for _, vd := range virtualDisks {

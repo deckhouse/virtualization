@@ -79,7 +79,7 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, label.Legacy(), Label(precheck
 	})
 
 	AfterAll(func() {
-		if config.IsCleanUpNeeded() {
+		if conf.IsCleanupNeeded {
 			DeleteTestCaseResources(ns, ResourcesToDelete{
 				KustomizationDir: conf.TestData.VdSnapshots,
 			})

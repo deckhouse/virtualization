@@ -157,7 +157,7 @@ func NewBeforeProcess1Body() {
 }
 
 func NewAfterAllProcessBody() {
-	if config.IsCleanUpNeeded() {
+	if conf.IsCleanupNeeded {
 		Expect(Cleanup()).To(Succeed())
 	}
 }
