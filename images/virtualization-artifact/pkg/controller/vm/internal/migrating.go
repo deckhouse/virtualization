@@ -162,8 +162,11 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 
 		completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
 		switch completed.Reason {
-		case vmopcondition.ReasonMigrationPending.String(), vmopcondition.ReasonTargetScheduling.String():
+		case vmopcondition.ReasonMigrationPending.String():
 			cb.Message("Migration is awaiting start.")
+
+		case vmopcondition.ReasonTargetScheduling.String():
+			cb.Message("Migration is in progress: target pod is being scheduled.")
 
 		case vmopcondition.ReasonQuotaExceeded.String():
 			cb.Message(fmt.Sprintf("Migration is pending: %s.", completed.Message))

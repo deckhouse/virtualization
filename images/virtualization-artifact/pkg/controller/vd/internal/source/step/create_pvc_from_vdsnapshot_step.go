@@ -18,6 +18,7 @@ package step
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -25,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -118,7 +120,25 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 		return &reconcile.Result{}, nil
 	}
 
-	pvc := s.buildPVC(vd, vs)
+	pvc, err := s.buildPVC(vd, vs)
+	if err != nil {
+		if errors.Is(err, service.ErrInsufficientPVCSize) {
+			vd.Status.Phase = v1alpha2.DiskFailed
+			s.cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdcondition.ProvisioningFailed).
+				Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+			s.recorder.Event(
+				vd,
+				corev1.EventTypeWarning,
+				v1alpha2.ReasonDataSourceSyncFailed,
+				err.Error(),
+			)
+			return &reconcile.Result{}, nil
+		}
+
+		return nil, err
+	}
 
 	err = s.client.Create(ctx, pvc)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
@@ -138,7 +158,7 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 	return nil, nil
 }
 
-func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) *corev1.PersistentVolumeClaim {
+func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) (*corev1.PersistentVolumeClaim, error) {
 	var storageClassName string
 	if vd.Spec.PersistentVolumeClaim.StorageClass != nil && *vd.Spec.PersistentVolumeClaim.StorageClass != "" {
 		storageClassName = *vd.Spec.PersistentVolumeClaim.StorageClass
@@ -182,10 +202,15 @@ func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *v1alpha2.VirtualDisk, vs *vsv1
 		spec.VolumeMode = ptr.To(corev1.PersistentVolumeMode(volumeMode))
 	}
 
-	if vs.Status != nil && vs.Status.RestoreSize != nil {
+	size, err := s.getPVCSize(vd, vs)
+	if err != nil {
+		return nil, err
+	}
+
+	if size != nil {
 		spec.Resources = corev1.VolumeResourceRequirements{
 			Requests: corev1.ResourceList{
-				corev1.ResourceStorage: *vs.Status.RestoreSize,
+				corev1.ResourceStorage: *size,
 			},
 		}
 	}
@@ -204,7 +229,32 @@ func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *v1alpha2.VirtualDisk, vs *vsv1
 			},
 		},
 		Spec: spec,
+	}, nil
+}
+
+func (s CreatePVCFromVDSnapshotStep) getPVCSize(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) (*resource.Quantity, error) {
+	requestedSize := vd.Spec.PersistentVolumeClaim.Size
+	if requestedSize == nil {
+		originalSize := vs.Annotations[annotations.AnnVirtualDiskOriginalSize]
+		if originalSize != "" {
+			size, err := resource.ParseQuantity(originalSize)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse the original size %q: %w", originalSize, err)
+			}
+			requestedSize = &size
+		}
 	}
+
+	if vs.Status == nil || vs.Status.RestoreSize == nil {
+		return requestedSize, nil
+	}
+
+	size, err := service.GetValidatedPVCSize(requestedSize, *vs.Status.RestoreSize)
+	if err != nil {
+		return nil, err
+	}
+
+	return &size, nil
 }
 
 func (s CreatePVCFromVDSnapshotStep) validateStorageClassCompatibility(ctx context.Context, vd *v1alpha2.VirtualDisk, vdSnapshot *v1alpha2.VirtualDiskSnapshot, vs *vsv1.VolumeSnapshot) error {

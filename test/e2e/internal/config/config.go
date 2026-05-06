@@ -39,7 +39,7 @@ func GetConfig() (*Config, error) {
 	}
 	data, err := os.ReadFile(cfg)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read config file %q: %w", cfg, err)
 	}
 	var conf Config
 
@@ -76,23 +76,21 @@ type Config struct {
 	LogFilter        []string         `yaml:"logFilter"`
 	CleanupResources []string         `yaml:"cleanupResources"`
 	RegexpLogFilter  []regexp.Regexp  `yaml:"regexpLogFilter"`
-	StorageClass     StorageClass
+	IsCleanupNeeded  bool             `yaml:"isCleanupNeeded"`
+
+	StorageClass StorageClass
 }
 
 type TestData struct {
-	AffinityToleration string `yaml:"affinityToleration"`
-	ComplexTest        string `yaml:"complexTest"`
-	DiskResizing       string `yaml:"diskResizing"`
-	ImageHotplug       string `yaml:"imageHotplug"`
-	VMLabelAnnotation  string `yaml:"vmLabelAnnotation"`
-	VMMigration        string `yaml:"vmMigration"`
-	VMMigrationCancel  string `yaml:"vmMigrationCancel"`
-	VMEvacuation       string `yaml:"vmEvacuation"`
-	VMDiskAttachment   string `yaml:"vmDiskAttachment"`
-	VMVersions         string `yaml:"vmVersions"`
-	VdSnapshots        string `yaml:"vdSnapshots"`
-	Sshkey             string `yaml:"sshKey"`
-	SSHUser            string `yaml:"sshUser"`
+	ComplexTest       string `yaml:"complexTest"`
+	DiskResizing      string `yaml:"diskResizing"`
+	ImageHotplug      string `yaml:"imageHotplug"`
+	VMMigration       string `yaml:"vmMigration"`
+	VMMigrationCancel string `yaml:"vmMigrationCancel"`
+	VMEvacuation      string `yaml:"vmEvacuation"`
+	VdSnapshots       string `yaml:"vdSnapshots"`
+	Sshkey            string `yaml:"sshKey"`
+	SSHUser           string `yaml:"sshUser"`
 }
 
 type StorageClass struct {
@@ -134,6 +132,10 @@ type HelperImages struct {
 }
 
 func (c *Config) setEnvs() error {
+	// isCleanupNeeded: env var has priority over yaml config
+	if e, ok := os.LookupEnv("POST_CLEANUP"); ok {
+		c.IsCleanupNeeded = e != "no"
+	}
 	// ClusterTransport
 	if e, ok := os.LookupEnv("E2E_CLUSTERTRANSPORT_KUBECONFIG"); ok {
 		c.ClusterTransport.KubeConfig = e

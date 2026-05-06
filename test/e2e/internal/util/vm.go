@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -52,13 +53,18 @@ func IsKnownKubeVirtClientSocketClosedFailureReason(reason string) bool {
 
 // TODO: remove temporary migration skip logic when issue "client socket is closed" is fixed:
 func SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(vm *v1alpha2.VirtualMachine) {
+	SkipIfKnownKubeVirtClientSocketClosedMigrationFailureWithContext(context.Background(), vm)
+}
+
+// TODO: remove temporary migration skip logic when issue "client socket is closed" is fixed:
+func SkipIfKnownKubeVirtClientSocketClosedMigrationFailureWithContext(ctx context.Context, vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
 	if vm == nil {
 		return
 	}
 
-	intvirtvmi, err := getInternalVirtualMachineInstance(vm)
+	intvirtvmi, err := getInternalVirtualMachineInstance(ctx, vm)
 	Expect(err).NotTo(HaveOccurred())
 	if intvirtvmi == nil || intvirtvmi.Status.MigrationState == nil {
 		return
@@ -77,13 +83,18 @@ func IsKnownVolumesUpdateFailureReason(reason string) bool {
 
 // TODO: remove temporary migration skip logic when known issue "VolumesUpdateError" is fixed:
 func SkipIfKnownVolumesUpdateMigrationFailure(vm *v1alpha2.VirtualMachine) {
+	SkipIfKnownVolumesUpdateMigrationFailureWithContext(context.Background(), vm)
+}
+
+// TODO: remove temporary migration skip logic when known issue "VolumesUpdateError" is fixed:
+func SkipIfKnownVolumesUpdateMigrationFailureWithContext(ctx context.Context, vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
 	if vm == nil {
 		return
 	}
 
-	intvirtvmi, err := getInternalVirtualMachineInstance(vm)
+	intvirtvmi, err := getInternalVirtualMachineInstance(ctx, vm)
 	Expect(err).NotTo(HaveOccurred())
 	if intvirtvmi == nil {
 		return
@@ -100,10 +111,16 @@ func SkipIfKnownVolumesUpdateMigrationFailure(vm *v1alpha2.VirtualMachine) {
 // TODO: remove temporary migration skip logic when both known issues are fixed:
 // kubevirt "client socket is closed" and VolumesUpdateError.
 func SkipIfKnownMigrationFailure(vm *v1alpha2.VirtualMachine) {
+	SkipIfKnownMigrationFailureWithContext(context.Background(), vm)
+}
+
+// TODO: remove temporary migration skip logic when both known issues are fixed:
+// kubevirt "client socket is closed" and VolumesUpdateError.
+func SkipIfKnownMigrationFailureWithContext(ctx context.Context, vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
-	SkipIfKnownKubeVirtClientSocketClosedMigrationFailure(vm)
-	SkipIfKnownVolumesUpdateMigrationFailure(vm)
+	SkipIfKnownKubeVirtClientSocketClosedMigrationFailureWithContext(ctx, vm)
+	SkipIfKnownVolumesUpdateMigrationFailureWithContext(ctx, vm)
 }
 
 // TODO: remove temporary migration skip logic when VD Migration Controller revert issue is fixed:
@@ -125,11 +142,11 @@ func SkipIfVDMigrationReverted(namespace string) {
 	}
 }
 
-func getInternalVirtualMachineInstance(vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
+func getInternalVirtualMachineInstance(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
 	GinkgoHelper()
 
 	obj := &rewrite.VirtualMachineInstance{}
-	err := framework.GetClients().RewriteClient().Get(context.Background(), vm.Name, obj, rewrite.InNamespace(vm.Namespace))
+	err := framework.GetClients().RewriteClient().Get(ctx, vm.Name, obj, rewrite.InNamespace(vm.Namespace))
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, nil
@@ -166,6 +183,32 @@ func UntilSSHReady(f *framework.Framework, vm *v1alpha2.VirtualMachine, timeout 
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(result).To(ContainSubstring("test"))
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+}
+
+func UntilGuestCommandsReady(f *framework.Framework, vm *v1alpha2.VirtualMachine, commands []string, timeout time.Duration) {
+	GinkgoHelper()
+
+	cmd := fmt.Sprintf(`
+		missing=""
+		for command in %s; do
+			command -v "$command" >/dev/null 2>&1 || missing="$missing $command"
+		done
+		[ -z "$missing" ] || { echo "missing commands:$missing"; exit 1; }
+	`, shellArgs(commands))
+
+	Eventually(func() error {
+		_, err := f.SSHCommand(vm.Name, vm.Namespace, cmd, framework.WithSSHTimeout(5*time.Second))
+		return err
+	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+}
+
+func shellArgs(args []string) string {
+	quoted := make([]string, 0, len(args))
+	for _, arg := range args {
+		quoted = append(quoted, fmt.Sprintf("%q", arg))
+	}
+
+	return strings.Join(quoted, " ")
 }
 
 func UntilVMMigrationSucceeded(key client.ObjectKey, timeout time.Duration) {

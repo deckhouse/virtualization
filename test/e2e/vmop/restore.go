@@ -24,6 +24,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
@@ -39,11 +40,12 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
+	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
-	"github.com/deckhouse/virtualization/test/e2e/legacy"
 )
 
 const (
@@ -69,7 +71,7 @@ const (
 	additionalInterfaceVLANID = 4006
 )
 
-var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
+var _ = Describe("VirtualMachineOperationRestore", label.Slow(), Label(precheck.PrecheckSnapshot, precheck.PrecheckSDN), func() {
 	DescribeTable("restores a virtual machine from a snapshot", func(restoreMode v1alpha2.SnapshotOperationMode, restartApprovalMode v1alpha2.RestartApprovalMode, runPolicy v1alpha2.RunPolicy, removeRecoverableResources bool) {
 		f := framework.NewFramework(fmt.Sprintf("vmop-restore-%s", strings.ToLower(string(restoreMode))))
 		DeferCleanup(f.After)
@@ -83,7 +85,7 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 
 		t := newRestoreTest(f)
 		if !t.IsStorageClassAvailableForTest(t.VM) {
-			Skip("Storage class is not available for test")
+			Skip("Temporary skip on sds-replicated-volume until snapshot functionality is fixed")
 		}
 
 		By("Environment preparation", func() {
@@ -532,13 +534,12 @@ func (t *restoreModeTest) CheckAdditionalNetworkInterface(vm *v1alpha2.VirtualMa
 func (t *restoreModeTest) IsStorageClassAvailableForTest(vm *v1alpha2.VirtualMachine) bool {
 	GinkgoHelper()
 
-	sc, err := legacy.GetDefaultStorageClass()
+	var scList storagev1.StorageClassList
+	err := framework.GetClients().GenericClient().List(context.Background(), &scList)
 	Expect(err).NotTo(HaveOccurred())
 
-	if sc.Provisioner != "replicated.csi.storage.deckhouse.io" {
-		return true
-	}
+	sc := config.FindDefaultStorageClass(&scList)
+	Expect(sc).NotTo(BeNil())
 
-	placementCount, ok := sc.Parameters["replicated.csi.storage.deckhouse.io/placementCount"]
-	return ok && placementCount == "1"
+	return sc.Provisioner != framework.SDSReplicatedVolume
 }

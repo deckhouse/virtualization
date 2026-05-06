@@ -31,13 +31,15 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("VMCheckTPM", label.TPM(), func() {
-	f := framework.NewFramework("vm-tpm-check")
+var _ = Describe("VMCheckTPM", label.TPM(), Label(precheck.NoPrecheck), func() {
+	var f *framework.Framework
 
 	BeforeEach(func() {
+		f = framework.NewFramework("vm-tpm-check")
 		DeferCleanup(f.After)
 
 		f.Before()

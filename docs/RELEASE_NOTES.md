@@ -3,6 +3,19 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.8.1
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: April 28, 2026.
+</span>
+
+### Fixes
+
+- [vd] Fixed a potential issue where a virtual disk could get stuck in the `Provisioning` state when using a StorageClass with `WaitForFirstConsumer` mode.
+- [module] Fixed incorrect resource calculations on the `Virtualization / Overview` dashboard that could occur during virtual machine migration.
+- [cdi] CDI metrics now use `d8_internal_virtualization_kubevirt_cdi_*` names, matching other internal virtualization metrics.
+- [module] Added missing RBAC permissions for virtualization resources, including virtual machine MAC addresses, snapshot operations, and node USB devices.
+- [observability] Fixed CPU usage calculation on the virtual machine dashboard in HA clusters, where duplicated controller metrics could affect the displayed value.
+
 ## v1.8.0
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: April 22, 2026.
@@ -82,7 +95,7 @@ Release date: March 31, 2026.
 
 ### New features
 
-- [vm] The order of additional network interfaces is now deterministic and does not change after virtual machine restarts.
+- [vm] The order of additional network interfaces is now deterministic and does not change after virtual machine restarts. For this to work for virtual machines created on earlier versions, they must be restarted.
 - [vm] Added a mechanism to prevent TCP connection drops during live migration of a virtual machine.
 - [vm] Reduced USB device downtime during virtual machine migration.
 - [vm] Added a garbage collector for completed and failed virtual machine pods:

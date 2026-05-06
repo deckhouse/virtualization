@@ -213,8 +213,12 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 		}
 		for _, c := range kvvmi.Status.Conditions {
 			if c.Type == virtv1.VirtualMachineInstanceReady {
+				reason := getKVMIReadyReason(c.Reason)
+				if c.Status == corev1.ConditionTrue && c.Reason == "" {
+					reason = vmcondition.ReasonVirtualMachineRunning
+				}
 				cb.Status(conditionStatus(string(c.Status))).
-					Reason(getKVMIReadyReason(c.Reason)).
+					Reason(reason).
 					Message(c.Message)
 				conditions.SetCondition(cb, &vm.Status.Conditions)
 				return nil

@@ -53,8 +53,11 @@ func (w *DataVolumeWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 						return true
 					}
 
-					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase && e.ObjectNew.Status.Phase == cdiv1.Succeeded {
-						return true
+					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase {
+						switch e.ObjectNew.Status.Phase {
+						case cdiv1.Succeeded, cdiv1.WaitForFirstConsumer, cdiv1.PendingPopulation:
+							return true
+						}
 					}
 
 					if e.ObjectOld.Status.ClaimName != e.ObjectNew.Status.ClaimName {
