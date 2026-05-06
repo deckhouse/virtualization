@@ -84,7 +84,7 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), Label(precheck.
 
 		t := newRestoreTest(f)
 		if !t.IsStorageClassAvailableForTest(t.VM) {
-			Skip("Storage class is not available for test")
+			Skip("Temporary skip on sds-replicated-volume until snapshot functionality is fixed")
 		}
 
 		By("Environment preparation", func() {
@@ -536,10 +536,5 @@ func (t *restoreModeTest) IsStorageClassAvailableForTest(vm *v1alpha2.VirtualMac
 	sc, err := legacy.GetDefaultStorageClass()
 	Expect(err).NotTo(HaveOccurred())
 
-	if sc.Provisioner != "replicated.csi.storage.deckhouse.io" {
-		return true
-	}
-
-	placementCount, ok := sc.Parameters["replicated.csi.storage.deckhouse.io/placementCount"]
-	return ok && placementCount == "1"
+	return sc.Provisioner != framework.SDSReplicatedVolume
 }
