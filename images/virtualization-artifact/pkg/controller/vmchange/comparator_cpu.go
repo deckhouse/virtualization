@@ -49,6 +49,11 @@ func (c *comparatorCPU) Compare(current, desired *v1alpha2.VirtualMachineSpec) [
 		coresRestartMsg = "Changing the number of CPU cores requires changing the CPU topology (number of sockets)."
 		coresChangedAction = ActionRestart
 	}
+	// ... cores count decrease also requires a reboot.
+	if desired.CPU.Cores < current.CPU.Cores {
+		coresRestartMsg = "Decreasing the number of CPU cores requires restart."
+		coresChangedAction = ActionRestart
+	}
 
 	fractionChangedAction := ActionApplyImmediate
 
