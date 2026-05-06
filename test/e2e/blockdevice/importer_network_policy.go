@@ -26,14 +26,17 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("ImporterNetworkPolicy", func() {
+var _ = Describe("ImporterNetworkPolicy", Label(precheck.NoPrecheck), func() {
 	const testName = "importer-network-policy"
-	f := framework.NewFramework("")
+
+	var f *framework.Framework
 
 	BeforeEach(func() {
+		f = framework.NewFramework("")
 		f.Before()
 		DeferCleanup(f.After)
 	})

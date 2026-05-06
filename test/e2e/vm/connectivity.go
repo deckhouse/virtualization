@@ -37,10 +37,11 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/network"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("VirtualMachineConnectivity", func() {
+var _ = Describe("VirtualMachineConnectivity", Label(precheck.NoPrecheck), func() {
 	var (
 		f *framework.Framework
 		t *VMConnectivityTest
@@ -76,8 +77,8 @@ var _ = Describe("VirtualMachineConnectivity", func() {
 		})
 
 		By("Check VMs can reach external network", func() {
-			network.CheckExternalConnectivity(f, t.VMa.Name, network.ExternalHost, network.HTTPStatusOk)
-			network.CheckExternalConnectivity(f, t.VMb.Name, network.ExternalHost, network.HTTPStatusOk)
+			network.CheckExternalConnectivity(f, t.VMa.Name, network.ExternalConnectivityHosts)
+			network.CheckExternalConnectivity(f, t.VMb.Name, network.ExternalConnectivityHosts)
 		})
 
 		By("Check nginx status on VMs", func() {

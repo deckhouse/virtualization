@@ -43,7 +43,11 @@ func (v *CPUCountValidator) ValidateUpdate(_ context.Context, _, newVM *v1alpha2
 func (v *CPUCountValidator) Validate(vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	cores := vm.Spec.CPU.Cores
 
-	sockets, coresPerSocket := commonvm.CalculateCoresAndSockets(cores)
+	if cores > commonvm.MaxCores {
+		return nil, fmt.Errorf("number of cores should not exceed %d", commonvm.MaxCores)
+	}
+
+	sockets, coresPerSocket, _ := commonvm.CalculateCoresAndSockets(cores)
 
 	if cores == sockets*coresPerSocket {
 		return nil, nil

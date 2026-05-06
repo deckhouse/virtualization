@@ -74,6 +74,11 @@ var (
 	customPort    = 0
 )
 
+var (
+	clientAndNamespaceFromContext = clientconfig.ClientAndNamespaceFromContext
+	connectFunc                   = connect
+)
+
 func NewCommand() *cobra.Command {
 	vnc := &VNC{}
 	cmd := &cobra.Command{
@@ -94,16 +99,9 @@ func NewCommand() *cobra.Command {
 type VNC struct{}
 
 func (o *VNC) Run(cmd *cobra.Command, args []string) error {
-	client, defaultNamespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	targetNamespace, vmName, err := templates.ParseTarget(args[0])
 	if err != nil {
 		return err
-	}
-	namespace, vmName, err := templates.ParseTarget(args[0])
-	if err != nil {
-		return err
-	}
-	if namespace == "" {
-		namespace = defaultNamespace
 	}
 
 	// Format the listening address to account for the port (ex: 127.0.0.0:5900)
@@ -130,9 +128,19 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		case <-cmd.Context().Done():
 			return nil
 		default:
+			client, defaultNamespace, _, err := clientAndNamespaceFromContext(cmd.Context())
+			if err != nil {
+				return err
+			}
+
+			namespace := targetNamespace
+			if namespace == "" {
+				namespace = defaultNamespace
+			}
+
 			cmd.Printf("Connecting to %s VNC...\n", vmName)
 
-			err := connect(cmd.Context(), ln, client, cmd, namespace, vmName)
+			err = connectFunc(cmd.Context(), ln, client, cmd, namespace, vmName)
 			if err != nil {
 				if strings.Contains(err.Error(), "not found") {
 					return err

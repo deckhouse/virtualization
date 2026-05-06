@@ -26,14 +26,14 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/d8"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 )
 
-var _ = Describe("VirtualMachineCancelMigration", Ordered, label.Legacy(), func() {
+var _ = Describe("VirtualMachineCancelMigration", Ordered, label.Legacy(), Label(precheck.NoPrecheck), func() {
 	testCaseLabel := map[string]string{"testcase": "vm-migration-cancel"}
 	var ns string
 
@@ -61,7 +61,7 @@ var _ = Describe("VirtualMachineCancelMigration", Ordered, label.Legacy(), func(
 		if CurrentSpecReport().Failed() {
 			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
-		if config.IsCleanUpNeeded() {
+		if conf.IsCleanupNeeded {
 			DeleteTestCaseResources(ns, ResourcesToDelete{
 				KustomizationDir: conf.TestData.VMMigrationCancel,
 			})

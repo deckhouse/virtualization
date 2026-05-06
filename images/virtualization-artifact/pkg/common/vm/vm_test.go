@@ -27,45 +27,50 @@ import (
 
 func TestCalculateCoresAndSockets(t *testing.T) {
 	tests := []struct {
-		desiredCores int
-		sockets      int
-		cores        int
+		desiredCores   int
+		sockets        int
+		cores          int
+		coresPerSocket int
 	}{
-		{-1, 1, 1},
-		{1, 1, 1},
-		{2, 1, 2},
-		{3, 1, 3},
-		{4, 1, 4},
-		{5, 1, 5},
-		{15, 1, 15},
-		{16, 1, 16},
+		{-1, 1, 1, 16},
+		{1, 1, 1, 16},
+		{2, 1, 2, 16},
+		{3, 1, 3, 16},
+		{4, 1, 4, 16},
+		{5, 1, 5, 16},
+		{15, 1, 15, 16},
+		{16, 1, 16, 16},
 
-		{18, 2, 9},
-		{19, 2, 10},
-		{20, 2, 10},
-		{31, 2, 16},
-		{32, 2, 16},
+		{18, 2, 9, 16},
+		{19, 2, 10, 16},
+		{20, 2, 10, 16},
+		{31, 2, 16, 16},
+		{32, 2, 16, 16},
 
-		{36, 4, 9},
-		{37, 4, 10},
-		{40, 4, 10},
-		{60, 4, 15},
-		{63, 4, 16},
-		{64, 4, 16},
+		{36, 4, 9, 16},
+		{37, 4, 10, 16},
+		{40, 4, 10, 16},
+		{60, 4, 15, 16},
+		{63, 4, 16, 16},
+		{64, 4, 16, 16},
 
-		{72, 8, 9},
-		{76, 8, 10},
-		{80, 8, 10},
-		{248, 8, 31},
-		{256, 8, 32},
-		{252, 8, 32},
+		{72, 8, 9, 31},
+		{76, 8, 10, 31},
+		{80, 8, 10, 31},
+		{248, 8, 31, 31},
+		{252, 8, 32, 31},
+		{256, 8, 32, 31},
 	}
 
 	for _, test := range tests {
 		t.Run("", func(t *testing.T) {
-			sockets, cores := CalculateCoresAndSockets(test.desiredCores)
+			sockets, cores, coresPerSocket := CalculateCoresAndSockets(test.desiredCores)
 			if cores != test.cores && sockets != test.sockets {
-				t.Errorf("For %d cores, expected %d sockets and %d cores, got  %d sockets and %d cores", test.desiredCores, test.sockets, test.cores, sockets, cores)
+				t.Errorf("For %d cores, expected topology %ds/%dc/%dmax, got %ds/%dc/%dmax",
+					test.desiredCores,
+					test.sockets, test.cores, test.coresPerSocket,
+					sockets, cores, coresPerSocket,
+				)
 			}
 		})
 	}

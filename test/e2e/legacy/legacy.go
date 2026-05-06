@@ -26,6 +26,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -58,17 +59,13 @@ var (
 	namePrefix string
 )
 
-func init() {
-	err := configure()
-	if err != nil {
-		panic(fmt.Errorf("failed to configure: %w", err))
-	}
+// Init configures the legacy package.
+// This should be called before using legacy test functions.
+func Init() error {
+	return configure()
 }
 
 func configure() (err error) {
-	if err = config.CheckStorageClassOption(); err != nil {
-		return err
-	}
 	if err = config.CheckWithPostCleanUpOption(); err != nil {
 		return err
 	}
@@ -82,15 +79,17 @@ func configure() (err error) {
 	clients := framework.GetClients()
 	kubectl = clients.Kubectl()
 
-	if conf.StorageClass.DefaultStorageClass, err = GetDefaultStorageClass(); err != nil {
-		return err
+	var scList storagev1.StorageClassList
+	if err := clients.GenericClient().List(context.Background(), &scList); err != nil {
+		return fmt.Errorf("failed to list StorageClasses: %w", err)
 	}
 
-	if !config.SkipImmediateStorageClassCheck() {
-		if conf.StorageClass.ImmediateStorageClass, err = GetImmediateStorageClass(conf.StorageClass.DefaultStorageClass.Provisioner); err != nil {
-			Fail(err.Error())
-		}
+	conf.StorageClass.DefaultStorageClass = config.FindDefaultStorageClass(&scList)
+	if conf.StorageClass.DefaultStorageClass == nil {
+		return fmt.Errorf("default StorageClass not found in the cluster")
 	}
+
+	conf.StorageClass.ImmediateStorageClass = config.FindImmediateStorageClass(conf.StorageClass.DefaultStorageClass, &scList)
 
 	scFromEnv, err := GetStorageClassFromEnv(storageClassName)
 	if err != nil {
@@ -104,10 +103,6 @@ func configure() (err error) {
 	}
 
 	if err = SetStorageClass(testDataDir, map[string]string{storageClassName: conf.StorageClass.TemplateStorageClass.Name}); err != nil {
-		return err
-	}
-
-	if err = config.CheckDefaultVMClass(clients.VirtClient()); err != nil {
 		return err
 	}
 
@@ -125,6 +120,10 @@ func configure() (err error) {
 }
 
 func NewBeforeProcess1Body() {
+	if err := Init(); err != nil {
+		panic(fmt.Errorf("failed to init legacy: %w", err))
+	}
+
 	var kustomizationFiles []string
 	v := reflect.ValueOf(conf.TestData)
 	t := reflect.TypeOf(conf.TestData)
@@ -158,7 +157,7 @@ func NewBeforeProcess1Body() {
 }
 
 func NewAfterAllProcessBody() {
-	if config.IsCleanUpNeeded() {
+	if conf.IsCleanupNeeded {
 		Expect(Cleanup()).To(Succeed())
 	}
 }

@@ -41,8 +41,8 @@ func UntilObjectPhase(expectedPhase string, timeout time.Duration, objs ...clien
 }
 
 // UntilConditionReason waits for the specified conditionType in status.conditions to have the given reason value for all provided objects.
-func UntilConditionReason(conditionType, expectedReason string, timeout time.Duration, objs ...client.Object) {
-	UntilConditionState(conditionType, timeout, struct {
+func UntilConditionReason(ctx context.Context, conditionType, expectedReason string, timeout time.Duration, objs ...client.Object) {
+	UntilConditionState(ctx, conditionType, timeout, struct {
 		Reason       string
 		Status       string
 		Message      string
@@ -56,8 +56,8 @@ func UntilConditionReason(conditionType, expectedReason string, timeout time.Dur
 }
 
 // UntilConditionStatus waits for the specified conditionType in status.conditions to have the given status value for all provided objects.
-func UntilConditionStatus(conditionType, expectedStatus string, timeout time.Duration, objs ...client.Object) {
-	UntilConditionState(conditionType, timeout, struct {
+func UntilConditionStatus(ctx context.Context, conditionType, expectedStatus string, timeout time.Duration, objs ...client.Object) {
+	UntilConditionState(ctx, conditionType, timeout, struct {
 		Reason       string
 		Status       string
 		Message      string
@@ -73,6 +73,7 @@ func UntilConditionStatus(conditionType, expectedStatus string, timeout time.Dur
 // UntilConditionState generalizes condition field checks ("reason", "status", "message") for the specified conditionType.
 // You can specify which fields to check by setting the corresponding flags to true and providing their expected values.
 func UntilConditionState(
+	ctx context.Context,
 	conditionType string,
 	timeout time.Duration,
 	checkOptions struct {
@@ -90,7 +91,7 @@ func UntilConditionState(
 		for _, obj := range objs {
 			key := client.ObjectKeyFromObject(obj)
 			u := getTemplateUnstructured(obj).DeepCopy()
-			err := framework.GetClients().GenericClient().Get(context.Background(), key, u)
+			err := framework.GetClients().GenericClient().Get(ctx, key, u)
 			g.Expect(err).ShouldNot(HaveOccurred())
 
 			conditions, found, err := unstructured.NestedSlice(u.Object, "status", "conditions")

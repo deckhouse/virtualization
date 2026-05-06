@@ -29,13 +29,15 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("VirtualDiskProvisioning", func() {
-	f := framework.NewFramework("vd-provisioning")
+var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
+	var f *framework.Framework
 
 	BeforeEach(func() {
+		f = framework.NewFramework("vd-provisioning")
 		sc := framework.GetConfig().StorageClass.TemplateStorageClass
 		if sc != nil && sc.Provisioner == framework.NFS {
 			Skip("VirtualImages on PVC only work with block storage classes, skipping NFS")
