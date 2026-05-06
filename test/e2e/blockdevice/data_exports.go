@@ -28,8 +28,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -40,7 +38,6 @@ import (
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/test/e2e/internal/d8"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
@@ -155,11 +152,11 @@ var _ = Describe("DataExports", label.Slow(), Label(precheck.PrecheckSVDM, prech
 		})
 
 		By("Exporting VirtualDisk to local file", func() {
-			exportData(f, "vd", vdData.Name, exportedDiskFile)
+			DataExport(f, "vd", vdData.Name, exportedDiskFile)
 		})
 
 		By("Exporting VirtualDiskSnapshot to local file", func() {
-			exportData(f, "vds", vdSnapshot.Name, exportedSnapshotFile)
+			DataExport(f, "vds", vdSnapshot.Name, exportedSnapshotFile)
 		})
 
 		By("Deleting the original data disk", func() {
@@ -235,50 +232,6 @@ var _ = Describe("DataExports", label.Slow(), Label(precheck.PrecheckSVDM, prech
 		})
 	})
 })
-
-func IsNFS() bool {
-	sc := framework.GetConfig().StorageClass.TemplateStorageClass
-	if sc == nil {
-		return false
-	}
-	return sc.Provisioner == framework.NFS
-}
-
-func needPublishOption(f *framework.Framework) bool {
-	hostname, err := os.Hostname()
-	Expect(err).NotTo(HaveOccurred(), "Failed to get hostname")
-	var node corev1.Node
-	err = f.Clients.GenericClient().Get(
-		context.Background(),
-		types.NamespacedName{Name: hostname},
-		&node,
-	)
-	if k8serrors.IsNotFound(err) {
-		return true
-	}
-	Expect(err).NotTo(HaveOccurred(), "Failed to get node %s", hostname)
-	return false
-}
-
-func exportData(f *framework.Framework, resourceType, name, outputFile string) {
-	opts := d8.DataExportOptions{
-		Namespace:  f.Namespace().Name,
-		OutputFile: outputFile,
-		Publish:    needPublishOption(f),
-		Timeout:    framework.LongTimeout,
-		Cleanup:    true,
-	}
-	if IsNFS() {
-		opts.SourcePath = diskImageExportFile
-	}
-	err := f.D8Virtualization().DataExportDownload(resourceType, name, opts)
-	Expect(err).NotTo(HaveOccurred())
-
-	DeferCleanup(func() {
-		err := os.Remove(outputFile)
-		Expect(err == nil || errors.Is(err, os.ErrNotExist)).To(BeTrue(), "Failed to remove exported file %s: %v", outputFile, err)
-	})
-}
 
 func createUploadDisk(f *framework.Framework, name string) *v1alpha2.VirtualDisk {
 	vd := vdbuilder.New(
