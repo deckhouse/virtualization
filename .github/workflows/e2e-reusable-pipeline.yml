@@ -438,28 +438,14 @@ jobs:
           yq e '.discovered.registry_auth = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/discovered-values.yaml || echo "The discovered-values.yaml file is not generated, skipping editing registry_auth"
           echo "${{ steps.generate-kubeconfig.outputs.kubeconfig }}" | base64 -d | base64 -d > ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/kube-config || echo "kubeconfig not available, skipping"
 
-      - name: Encrypt generated files artifact
-        if: success() || failure()
-        env:
-          GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
-          ARTIFACT_NAME: ${STORAGE_TYPE}-generated-files-${E2E_START_TIME}
-        run: |
-          pushd ${{ env.SETUP_CLUSTER_TYPE_PATH }}
-          zip -r $RUNNER_TEMP/${ARTIFACT_NAME}.zip tmp values.yaml
-          popd
-          gpg --symmetric --batch --yes --pinentry-mode loopback \
-            --passphrase "$GPG_PASSPHRASE" \
-            --cipher-algo AES256 \
-            --output $RUNNER_TEMP/${ARTIFACT_NAME}.zip.gpg \
-            $RUNNER_TEMP/${ARTIFACT_NAME}.zip
-          rm -f $RUNNER_TEMP/${ARTIFACT_NAME}.zip
-
       - name: Upload generated files
         uses: actions/upload-artifact@v4
         if: success() || failure()
         with:
-          name: ${{ env.STORAGE_TYPE }}-generated-files-${{ env.E2E_START_TIME }}
-          path: ${{ runner.temp }}/${{ env.STORAGE_TYPE }}-generated-files-${{ env.E2E_START_TIME }}.zip.gpg
+          name: ${{ inputs.storage_type }}-generated-files-${{ inputs.date_start }}
+          path: |
+            ${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp
+            ${{ env.SETUP_CLUSTER_TYPE_PATH }}/values.yaml
           overwrite: true
           include-hidden-files: true
           retention-days: 3
@@ -468,7 +454,7 @@ jobs:
         if: always()
         env:
           GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
-          ARTIFACT_NAME: ${STORAGE_TYPE}-generated-files-ssh-${E2E_START_TIME}
+          ARTIFACT_NAME: ${{ env.STORAGE_TYPE }}-generated-files-ssh-${{ env.E2E_START_TIME }}
         run: |
           pushd ${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp
           zip -r $RUNNER_TEMP/${ARTIFACT_NAME}.zip ssh
@@ -494,7 +480,7 @@ jobs:
         if: always()
         env:
           GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
-          ARTIFACT_NAME: ${STORAGE_TYPE}-generated-files-kubeconfig-${E2E_START_TIME}
+          ARTIFACT_NAME: ${{ env.STORAGE_TYPE }}-generated-files-kubeconfig-${{ env.E2E_START_TIME }}
         run: |
           gpg --symmetric --batch --yes --pinentry-mode loopback \
             --passphrase "$GPG_PASSPHRASE" \
@@ -1477,7 +1463,7 @@ jobs:
         if: always() && steps.e2e-report.outcome != 'skipped'
         env:
           GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
-          ARTIFACT_NAME: e2e-test-results-${STORAGE_TYPE}-${GITHUB_RUN_ID}-${E2E_START_TIME}
+          ARTIFACT_NAME: e2e-test-results-${{ env.STORAGE_TYPE }}-${{ github.run_id }}-${{ env.E2E_START_TIME }}
         run: |
           shopt -s nullglob
           files=(
@@ -1512,7 +1498,7 @@ jobs:
         if: always() && steps.e2e-report.outcome != 'skipped'
         env:
           GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
-          ARTIFACT_NAME: resources_from_failed_tests-${STORAGE_TYPE}-${E2E_START_TIME}
+          ARTIFACT_NAME: resources_from_failed_tests-${{ env.STORAGE_TYPE }}-${{ env.E2E_START_TIME }}
         run: |
           shopt -s nullglob
           files=($RUNNER_TEMP/e2e_failed__*)
