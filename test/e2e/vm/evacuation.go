@@ -150,9 +150,9 @@ func newEvacuationVM(name, namespace, cviName string, bootloader v1alpha2.Bootlo
 func evacuateVirtualMachines(ctx context.Context, f *framework.Framework, vms ...*v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
-	pods := make([]corev1.Pod, 0, len(vms))
+	var pods []corev1.Pod
 	Eventually(func(g Gomega) {
-		pods = pods[:0]
+		pods = []corev1.Pod{}
 		for _, vm := range vms {
 			var currentVM v1alpha2.VirtualMachine
 			err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), &currentVM)
