@@ -51,13 +51,6 @@ Additionally, the storage class in the tests can be defined by the environment v
 STORAGE_CLASS_NAME=linstor-thin-r1 task run
 ```
 
-### Immediate Storage Class
-Some test cases depend on an immediate storage class. You can skip the immediate storage class check if a test case does not require it.
-
-```bash
-FOCUS="VirtualMachineVersions" SKIP_IMMEDIATE_SC_CHECK="yes" task e2e:run
-```
-
 ### E2E configuration
 
 Temp directories, prefixes, images and ssh settings can be set in the

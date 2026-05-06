@@ -100,8 +100,7 @@ func (c *Config) SetImmediateStorageClass(ctx context.Context, k8sClient client.
 
 	immediateSC := FindImmediateStorageClass(c.StorageClass.DefaultStorageClass, &scList)
 	if immediateSC == nil {
-		return fmt.Errorf("immediate StorageClass not found for provisioner %q; "+
-			"set SKIP_IMMEDIATE_SC_CHECK=yes to skip this check",
+		return fmt.Errorf("immediate StorageClass not found for provisioner %q",
 			c.StorageClass.DefaultStorageClass.Provisioner)
 	}
 
