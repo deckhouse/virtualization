@@ -1960,6 +1960,48 @@ Limitations:
 - If the change requires CPU topology reconfiguration, a VM restart is required.
 - When decreasing CPU count within the current topology, CPU distribution across sockets may become uneven.
 
+### Memory hotplug
+
+Memory hotplug lets you increase `spec.memory.size` for a running VM without restart when the change can be applied through live migration. Decreasing memory always requires a VM restart.
+
+This functionality is disabled by default.
+
+To enable this functionality, add `HotplugMemoryWithLiveMigration` to `.spec.settings.featureGates` array in the ModuleConfig/virtualization:
+
+```yaml
+kind: ModuleConfig
+metadata:
+  name: virtualization
+spec:
+  settings:
+    featureGates:
+    - HotplugMemoryWithLiveMigration
+```
+
+If the new `spec.memory.size` is greater than the current value and the VM is migratable, the change is applied through live migration. If you need to shrink memory, the VM originally had less than 1 GiB of memory, or the VM cannot be migrated, a VM restart is required. The need for restart is reflected by the `AwaitingRestartToApplyConfiguration` condition.
+
+Guest OS specifics:
+
+- After live migration, newly added memory blocks may require explicit activation inside the guest OS; memory configured at VM creation does not require extra activation.
+- On Linux, added memory can be enabled through sysfs (see device names in `ls /sys/bus/memory/devices/`):
+
+  ```bash
+  echo 1 > /sys/bus/memory/devices/memoryXXX/online
+  ```
+
+- To automatically enable added memory on Linux, configure a `udev` rule. After that, added memory becomes visible in `free` and `lsmem`:
+
+  ```bash
+  cat <<'EOF' > /etc/udev/rules.d/99-hotplug-memory.rules
+  SUBSYSTEM=="memory",ACTION=="add",DEVPATH=="/devices/system/memory/memory[0-9]*", TEST=="state", ATTR{state}!="online", ATTR{state}="online"
+  EOF
+  ```
+
+Limitations:
+
+- Increasing memory without restart is possible only if the VM memory size is at least 1 GiB. If the VM was created with less than 1 GiB, any memory size change requires a restart.
+- In the current module version, the maximum VM memory size is limited to 256 GiB.
+
 ### Placement of VMs by nodes
 
 The following methods can be used to manage the placement of virtual machines (placement parameters) across nodes:
