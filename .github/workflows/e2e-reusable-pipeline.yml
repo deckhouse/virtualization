@@ -475,6 +475,7 @@ jobs:
           overwrite: true
           include-hidden-files: true
           retention-days: 3
+          archive: false
 
       - name: Encrypt kubeconfig artifact
         if: always()
@@ -496,6 +497,7 @@ jobs:
           overwrite: true
           include-hidden-files: true
           retention-days: 3
+          archive: false
 
   configure-sdn:
     name: Configure SDN
@@ -1493,6 +1495,7 @@ jobs:
           path: ${{ runner.temp }}/e2e-test-results-${{ env.STORAGE_TYPE }}-${{ github.run_id }}-${{ env.E2E_START_TIME }}.zip.gpg
           if-no-files-found: ignore
           retention-days: 3
+          archive: false
 
       - name: Encrypt resources from failed tests artifact
         if: always() && steps.e2e-report.outcome != 'skipped'
@@ -1524,6 +1527,7 @@ jobs:
           path: ${{ runner.temp }}/resources_from_failed_tests-${{ env.STORAGE_TYPE }}-${{ env.E2E_START_TIME }}.zip.gpg
           if-no-files-found: ignore
           retention-days: 3
+          archive: false
 
   prepare-report:
     name: Prepare E2E report
