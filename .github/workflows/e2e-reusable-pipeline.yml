@@ -1521,8 +1521,7 @@ jobs:
             exit 0
           fi
           pushd $RUNNER_TEMP
-          zip -r $RUNNER_TEMP/${ARTIFACT_NAME}.zip $(printf '%s
-' "${files[@]##$RUNNER_TEMP/}")
+          zip -r $RUNNER_TEMP/${ARTIFACT_NAME}.zip ${files[@]##$RUNNER_TEMP/}
           popd
           gpg --symmetric --batch --yes --pinentry-mode loopback \
             --passphrase "$GPG_PASSPHRASE" \
