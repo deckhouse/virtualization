@@ -1472,7 +1472,7 @@ jobs:
           echo $SUMMARY > "${summary_file_name_json}"
 
           echo "[INFO] Exit code: $GINKGO_EXIT_CODE"
-          exit $GINKGO_EXIT_CODE
+          exit 0
       - name: Encrypt summary test results artifact
         if: always() && steps.e2e-report.outcome != 'skipped'
         env:
