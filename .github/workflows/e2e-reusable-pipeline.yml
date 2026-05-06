@@ -137,6 +137,8 @@ env:
   GO_VERSION: ${{ inputs.go_version }}
   SETUP_CLUSTER_TYPE_PATH: test/dvp-static-cluster
   K8S_VERSION: ${{ inputs.cluster_config_k8s_version }}
+  STORAGE_TYPE: ${{ inputs.storage_type }}
+  E2E_START_TIME: ${{ inputs.date_start }}
 
 defaults:
   run:
@@ -440,23 +442,24 @@ jobs:
         if: success() || failure()
         env:
           GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
+          ARTIFACT_NAME: ${STORAGE_TYPE}-generated-files-${E2E_START_TIME}
         run: |
           pushd ${{ env.SETUP_CLUSTER_TYPE_PATH }}
-          zip -r $RUNNER_TEMP/${{ inputs.storage_type }}-generated-files-${{ inputs.date_start }}.zip tmp values.yaml
+          zip -r $RUNNER_TEMP/${ARTIFACT_NAME}.zip tmp values.yaml
           popd
           gpg --symmetric --batch --yes --pinentry-mode loopback \
             --passphrase "$GPG_PASSPHRASE" \
             --cipher-algo AES256 \
-            --output $RUNNER_TEMP/${{ inputs.storage_type }}-generated-files-${{ inputs.date_start }}.zip.gpg \
-            $RUNNER_TEMP/${{ inputs.storage_type }}-generated-files-${{ inputs.date_start }}.zip
-          rm -f $RUNNER_TEMP/${{ inputs.storage_type }}-generated-files-${{ inputs.date_start }}.zip
+            --output $RUNNER_TEMP/${ARTIFACT_NAME}.zip.gpg \
+            $RUNNER_TEMP/${ARTIFACT_NAME}.zip
+          rm -f $RUNNER_TEMP/${ARTIFACT_NAME}.zip
 
       - name: Upload generated files
         uses: actions/upload-artifact@v4
         if: success() || failure()
         with:
-          name: ${{ inputs.storage_type }}-generated-files-${{ inputs.date_start }}
-          path: ${{ runner.temp }}/${{ inputs.storage_type }}-generated-files-${{ inputs.date_start }}.zip.gpg
+          name: ${{ env.STORAGE_TYPE }}-generated-files-${{ env.E2E_START_TIME }}
+          path: ${{ runner.temp }}/${{ env.STORAGE_TYPE }}-generated-files-${{ env.E2E_START_TIME }}.zip.gpg
           overwrite: true
           include-hidden-files: true
           retention-days: 3
@@ -465,23 +468,24 @@ jobs:
         if: always()
         env:
           GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
+          ARTIFACT_NAME: ${STORAGE_TYPE}-generated-files-ssh-${E2E_START_TIME}
         run: |
           pushd ${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp
-          zip -r $RUNNER_TEMP/${{ inputs.storage_type }}-generated-files-ssh-${{ inputs.date_start }}.zip ssh
+          zip -r $RUNNER_TEMP/${ARTIFACT_NAME}.zip ssh
           popd
           gpg --symmetric --batch --yes --pinentry-mode loopback \
             --passphrase "$GPG_PASSPHRASE" \
             --cipher-algo AES256 \
-            --output $RUNNER_TEMP/${{ inputs.storage_type }}-generated-files-ssh-${{ inputs.date_start }}.zip.gpg \
-            $RUNNER_TEMP/${{ inputs.storage_type }}-generated-files-ssh-${{ inputs.date_start }}.zip
-          rm -f $RUNNER_TEMP/${{ inputs.storage_type }}-generated-files-ssh-${{ inputs.date_start }}.zip
+            --output $RUNNER_TEMP/${ARTIFACT_NAME}.zip.gpg \
+            $RUNNER_TEMP/${ARTIFACT_NAME}.zip
+          rm -f $RUNNER_TEMP/${ARTIFACT_NAME}.zip
 
       - name: Upload ssh config
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ${{ inputs.storage_type }}-generated-files-ssh-${{ inputs.date_start }}
-          path: ${{ runner.temp }}/${{ inputs.storage_type }}-generated-files-ssh-${{ inputs.date_start }}.zip.gpg
+          name: ${{ env.STORAGE_TYPE }}-generated-files-ssh-${{ env.E2E_START_TIME }}
+          path: ${{ runner.temp }}/${{ env.STORAGE_TYPE }}-generated-files-ssh-${{ env.E2E_START_TIME }}.zip.gpg
           overwrite: true
           include-hidden-files: true
           retention-days: 3
@@ -490,18 +494,19 @@ jobs:
         if: always()
         env:
           GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
+          ARTIFACT_NAME: ${STORAGE_TYPE}-generated-files-kubeconfig-${E2E_START_TIME}
         run: |
           gpg --symmetric --batch --yes --pinentry-mode loopback \
             --passphrase "$GPG_PASSPHRASE" \
             --cipher-algo AES256 \
-            --output $RUNNER_TEMP/${{ inputs.storage_type }}-generated-files-kubeconfig-${{ inputs.date_start }}.gpg \
+            --output $RUNNER_TEMP/${ARTIFACT_NAME}.gpg \
             ${{ env.SETUP_CLUSTER_TYPE_PATH }}/kube-config
 
       - name: Upload kubeconfig
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.storage_type }}-generated-files-kubeconfig-${{ inputs.date_start }}
-          path: ${{ runner.temp }}/${{ inputs.storage_type }}-generated-files-kubeconfig-${{ inputs.date_start }}.gpg
+          name: ${{ env.STORAGE_TYPE }}-generated-files-kubeconfig-${{ env.E2E_START_TIME }}
+          path: ${{ runner.temp }}/${{ env.STORAGE_TYPE }}-generated-files-kubeconfig-${{ env.E2E_START_TIME }}.gpg
           overwrite: true
           include-hidden-files: true
           retention-days: 3
@@ -1370,10 +1375,8 @@ jobs:
 
       - name: Set vars
         id: vars
-        env:
-          DATE_START: ${{ inputs.date_start }}
         run: |
-          echo "e2e-start-time=$DATE_START" >> $GITHUB_OUTPUT
+          echo "e2e-start-time=${E2E_START_TIME}" >> $GITHUB_OUTPUT
 
       - name: Run E2E
         id: e2e-report
@@ -1474,6 +1477,7 @@ jobs:
         if: always() && steps.e2e-report.outcome != 'skipped'
         env:
           GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
+          ARTIFACT_NAME: e2e-test-results-${STORAGE_TYPE}-${GITHUB_RUN_ID}-${E2E_START_TIME}
         run: |
           shopt -s nullglob
           files=(
@@ -1486,21 +1490,21 @@ jobs:
             echo "[INFO] No E2E summary files found, skipping encryption"
             exit 0
           fi
-          zip -r $RUNNER_TEMP/e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ steps.vars.outputs.e2e-start-time }}.zip "${files[@]}"
+          zip -r $RUNNER_TEMP/${ARTIFACT_NAME}.zip "${files[@]}"
           gpg --symmetric --batch --yes --pinentry-mode loopback \
             --passphrase "$GPG_PASSPHRASE" \
             --cipher-algo AES256 \
-            --output $RUNNER_TEMP/e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ steps.vars.outputs.e2e-start-time }}.zip.gpg \
-            $RUNNER_TEMP/e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ steps.vars.outputs.e2e-start-time }}.zip
-          rm -f $RUNNER_TEMP/e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ steps.vars.outputs.e2e-start-time }}.zip
+            --output $RUNNER_TEMP/${ARTIFACT_NAME}.zip.gpg \
+            $RUNNER_TEMP/${ARTIFACT_NAME}.zip
+          rm -f $RUNNER_TEMP/${ARTIFACT_NAME}.zip
 
       - name: Upload summary test results (junit/xml)
         uses: actions/upload-artifact@v4
         id: e2e-report-artifact
         if: always() && steps.e2e-report.outcome != 'skipped'
         with:
-          name: e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ steps.vars.outputs.e2e-start-time }}
-          path: ${{ runner.temp }}/e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ steps.vars.outputs.e2e-start-time }}.zip.gpg
+          name: e2e-test-results-${{ env.STORAGE_TYPE }}-${{ github.run_id }}-${{ env.E2E_START_TIME }}
+          path: ${{ runner.temp }}/e2e-test-results-${{ env.STORAGE_TYPE }}-${{ github.run_id }}-${{ env.E2E_START_TIME }}.zip.gpg
           if-no-files-found: ignore
           retention-days: 3
 
@@ -1508,6 +1512,7 @@ jobs:
         if: always() && steps.e2e-report.outcome != 'skipped'
         env:
           GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
+          ARTIFACT_NAME: resources_from_failed_tests-${STORAGE_TYPE}-${E2E_START_TIME}
         run: |
           shopt -s nullglob
           files=($RUNNER_TEMP/e2e_failed__*)
@@ -1516,22 +1521,22 @@ jobs:
             exit 0
           fi
           pushd $RUNNER_TEMP
-          zip -r $RUNNER_TEMP/resources_from_failed_tests-${{ inputs.storage_type }}-${{ steps.vars.outputs.e2e-start-time }}.zip $(printf '%s
+          zip -r $RUNNER_TEMP/${ARTIFACT_NAME}.zip $(printf '%s
 ' "${files[@]##$RUNNER_TEMP/}")
           popd
           gpg --symmetric --batch --yes --pinentry-mode loopback \
             --passphrase "$GPG_PASSPHRASE" \
             --cipher-algo AES256 \
-            --output $RUNNER_TEMP/resources_from_failed_tests-${{ inputs.storage_type }}-${{ steps.vars.outputs.e2e-start-time }}.zip.gpg \
-            $RUNNER_TEMP/resources_from_failed_tests-${{ inputs.storage_type }}-${{ steps.vars.outputs.e2e-start-time }}.zip
-          rm -f $RUNNER_TEMP/resources_from_failed_tests-${{ inputs.storage_type }}-${{ steps.vars.outputs.e2e-start-time }}.zip
+            --output $RUNNER_TEMP/${ARTIFACT_NAME}.zip.gpg \
+            $RUNNER_TEMP/${ARTIFACT_NAME}.zip
+          rm -f $RUNNER_TEMP/${ARTIFACT_NAME}.zip
 
       - name: Upload resources from failed tests
         uses: actions/upload-artifact@v4
         if: always() && steps.e2e-report.outcome != 'skipped'
         with:
-          name: resources_from_failed_tests-${{ inputs.storage_type }}-${{ steps.vars.outputs.e2e-start-time }}
-          path: ${{ runner.temp }}/resources_from_failed_tests-${{ inputs.storage_type }}-${{ steps.vars.outputs.e2e-start-time }}.zip.gpg
+          name: resources_from_failed_tests-${{ env.STORAGE_TYPE }}-${{ env.E2E_START_TIME }}
+          path: ${{ runner.temp }}/resources_from_failed_tests-${{ env.STORAGE_TYPE }}-${{ env.E2E_START_TIME }}.zip.gpg
           if-no-files-found: ignore
           retention-days: 3
 
@@ -1553,7 +1558,7 @@ jobs:
         uses: actions/download-artifact@v5
         continue-on-error: true
         with:
-          name: e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ inputs.date_start }}
+          name: e2e-test-results-${{ env.STORAGE_TYPE }}-${{ github.run_id }}-${{ env.E2E_START_TIME }}
           path: ${{ runner.temp }}/encrypted-e2e-results
 
       - name: Decrypt E2E test results if available
@@ -1562,16 +1567,16 @@ jobs:
           GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
         run: |
           mkdir -p test/e2e
-          artifact_path=${{ runner.temp }}/encrypted-e2e-results/e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ inputs.date_start }}.zip.gpg
+          artifact_path=${{ runner.temp }}/encrypted-e2e-results/e2e-test-results-${{ env.STORAGE_TYPE }}-${{ github.run_id }}-${{ env.E2E_START_TIME }}.zip.gpg
           if [ ! -f "$artifact_path" ]; then
             echo "[INFO] Encrypted E2E results artifact not found, skipping decryption"
             exit 0
           fi
           gpg --decrypt --batch --yes --pinentry-mode loopback \
             --passphrase "$GPG_PASSPHRASE" \
-            --output $RUNNER_TEMP/e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ inputs.date_start }}.zip \
+            --output $RUNNER_TEMP/e2e-test-results-${STORAGE_TYPE}-${GITHUB_RUN_ID}-${E2E_START_TIME}.zip \
             "$artifact_path"
-          unzip -o $RUNNER_TEMP/e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ inputs.date_start }}.zip
+          unzip -o $RUNNER_TEMP/e2e-test-results-${STORAGE_TYPE}-${GITHUB_RUN_ID}-${E2E_START_TIME}.zip
 
       - name: Determine failed stage and prepare report
         id: determine-stage
