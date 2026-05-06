@@ -88,10 +88,11 @@ var _ = Describe("TestStatisticHandler", func() {
 
 	// Generate KVVMI with "dynamic cores" specifics: cores and sockets are intentionally
 	// swapped to bypass kvvm validations.
-	newKVVMIHotplug := func(cores, sockets, maxCores int, cpuFraction, memory, maxMemory string) *virtv1.VirtualMachineInstance {
+	newKVVMIHotplug := func(cores, sockets, maxCores int, cpuFraction, memory string) *virtv1.VirtualMachineInstance {
 		kvvmi := newEmptyKVVMI(vmName, vmNamespace)
 		memoryGuest := resource.MustParse(memory)
-		memoryMaxGuest := resource.MustParse(maxMemory)
+
+		memoryMaxGuest := resource.NewQuantity(kvbuilder.MaxMemorySizeForHotplug, resource.BinarySI)
 
 		kvvmi.SetAnnotations(map[string]string{
 			kvbuilder.CPUResourcesRequestsFractionAnnotation: cpuFraction,
@@ -107,7 +108,7 @@ var _ = Describe("TestStatisticHandler", func() {
 				},
 				Memory: &virtv1.Memory{
 					Guest:    &memoryGuest,
-					MaxGuest: &memoryMaxGuest,
+					MaxGuest: memoryMaxGuest,
 				},
 				Resources: virtv1.ResourceRequirements{
 					Requests: corev1.ResourceList{
@@ -261,7 +262,7 @@ var _ = Describe("TestStatisticHandler", func() {
 		),
 		Entry("Hotplug enabled: 8 cores, 100% fraction, 2 Gi",
 			newVM(8, ptr.To("100%"), "2Gi"),
-			newKVVMIHotplug(8, 1, 16, "100", "2Gi", "256Gi"),
+			newKVVMIHotplug(8, 1, 16, "100", "2Gi"),
 			newPod("8", "8", "2Gi", "2Gi"),
 			expectedValues{
 				CPUCores:           8,
@@ -278,7 +279,7 @@ var _ = Describe("TestStatisticHandler", func() {
 		),
 		Entry("Hotplug enabled: 8 cores, 25% fraction, 2 Gi",
 			newVM(8, ptr.To("25%"), "2Gi"),
-			newKVVMIHotplug(8, 1, 16, "25", "2Gi", "256Gi"),
+			newKVVMIHotplug(8, 1, 16, "25", "2Gi"),
 			newPod("2", "8", "2Gi", "2Gi"),
 			expectedValues{
 				CPUCores:           8,
@@ -295,7 +296,7 @@ var _ = Describe("TestStatisticHandler", func() {
 		),
 		Entry("Hotplug enabled: 1 core, 25% fraction, 2 Gi",
 			newVM(1, ptr.To("25%"), "2Gi"),
-			newKVVMIHotplug(1, 1, 16, "25", "2Gi", "256Gi"),
+			newKVVMIHotplug(1, 1, 16, "25", "2Gi"),
 			newPod("250m", "1", "2Gi", "2Gi"),
 			expectedValues{
 				CPUCores:           1,
@@ -308,6 +309,74 @@ var _ = Describe("TestStatisticHandler", func() {
 
 				MemorySize:            2147483648,
 				MemoryRuntimeOverhead: 0,
+			},
+		),
+		Entry("Hotplug enabled: 24 cores, 25% fraction, 2 Gi",
+			newVM(1, ptr.To("25%"), "2Gi"),
+			newKVVMIHotplug(12, 2, 16, "25", "2Gi"),
+			newPod("6", "24", "2Gi", "2Gi"),
+			expectedValues{
+				CPUCores:           24,
+				CPUCoreFraction:    "25%",
+				CPURequestedCores:  6000,
+				CPURuntimeOverhead: 0,
+
+				TopologyCoresPerSocket: 12,
+				TopologySockets:        2,
+
+				MemorySize:            2147483648,
+				MemoryRuntimeOverhead: 0,
+			},
+		),
+		Entry("Hotplug enabled: max cores, 24 cores, 50% fraction, 2 Gi",
+			newVM(1, ptr.To("50%"), "2Gi"),
+			newKVVMIHotplug(32, 8, 32, "50", "2Gi"),
+			newPod("6", "24", "2Gi", "2Gi"),
+			expectedValues{
+				CPUCores:           256,
+				CPUCoreFraction:    "50%",
+				CPURequestedCores:  128000,
+				CPURuntimeOverhead: 0,
+
+				TopologyCoresPerSocket: 32,
+				TopologySockets:        8,
+
+				MemorySize:            2147483648,
+				MemoryRuntimeOverhead: 0,
+			},
+		),
+		Entry("Memory overhead for Pod with equal limits and requests",
+			newVM(1, ptr.To("25%"), "2Gi"),
+			newKVVMIHotplug(1, 1, 16, "25", "3Gi"),
+			newPod("250m", "1", "4Gi", "4Gi"),
+			expectedValues{
+				CPUCores:           1,
+				CPUCoreFraction:    "25%",
+				CPURequestedCores:  250,
+				CPURuntimeOverhead: 0,
+
+				TopologyCoresPerSocket: 1,
+				TopologySockets:        1,
+
+				MemorySize:            3 * 1024 * 1024 * 1024,
+				MemoryRuntimeOverhead: 1024 * 1024 * 1024,
+			},
+		),
+		Entry("Memory overhead for Pod with limits greater than requests",
+			newVM(1, ptr.To("25%"), "2Gi"),
+			newKVVMIHotplug(1, 1, 16, "25", "3Gi"),
+			newPod("250m", "1", "4Gi", "4156Mi"), // Overhead is 1Gi+60Mi
+			expectedValues{
+				CPUCores:           1,
+				CPUCoreFraction:    "25%",
+				CPURequestedCores:  250,
+				CPURuntimeOverhead: 0,
+
+				TopologyCoresPerSocket: 1,
+				TopologySockets:        1,
+
+				MemorySize:            3 * 1024 * 1024 * 1024,
+				MemoryRuntimeOverhead: 1024*1024*1024 + 60*1024*1024,
 			},
 		),
 	)
