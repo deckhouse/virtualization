@@ -54,7 +54,7 @@ var _ = Describe("ComplexTest", Ordered, label.Legacy(), Label(precheck.NoPreche
 	})
 
 	AfterAll(func() {
-		if config.IsCleanUpNeeded() {
+		if conf.IsCleanupNeeded {
 			DeleteTestCaseResources(ns, ResourcesToDelete{
 				KustomizationDir: conf.TestData.ComplexTest,
 			})

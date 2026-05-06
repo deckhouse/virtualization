@@ -1,5 +1,7 @@
 namespaceSuffix: "e2e"
 
+isCleanupNeeded: true
+
 clusterTransport:
   kubeConfig: ""
   token: ""

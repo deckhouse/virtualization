@@ -30,7 +30,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
@@ -67,7 +66,7 @@ var _ = Describe("VirtualMachineEvacuation", Ordered, label.Legacy(), Label(prec
 		if CurrentSpecReport().Failed() {
 			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
-		if config.IsCleanUpNeeded() {
+		if conf.IsCleanupNeeded {
 			DeleteTestCaseResources(ns, ResourcesToDelete{
 				KustomizationDir: conf.TestData.VMEvacuation,
 			})

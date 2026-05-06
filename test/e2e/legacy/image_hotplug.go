@@ -78,7 +78,7 @@ var _ = Describe("ImageHotplug", Ordered, label.Legacy(), Label(precheck.NoPrech
 	})
 
 	AfterAll(func() {
-		if config.IsCleanUpNeeded() {
+		if conf.IsCleanupNeeded {
 			DeleteTestCaseResources(ns, ResourcesToDelete{
 				KustomizationDir: conf.TestData.ImageHotplug,
 			})
