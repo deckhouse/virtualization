@@ -30,8 +30,11 @@ const (
 	// PrecheckSVDM - test requires SVDM module to be enabled.
 	PrecheckSVDM = "svdm-precheck"
 
-	// PrecheckStorageClass - test requires default StorageClass to be configured.
-	PrecheckStorageClass = "storageclass-precheck"
+	// PrecheckDefaultStorageClass - test requires default StorageClass to be configured.
+	PrecheckDefaultStorageClass = "defaultstorageclass-precheck"
+
+	// PrecheckImmediateStorageClass - test requires immediate StorageClass with same provisioner as default.
+	PrecheckImmediateStorageClass = "immediatestorageclass-precheck"
 
 	// PrecheckSnapshot - test requires snapshot-controller module to be enabled.
 	PrecheckSnapshot = "snapshot-precheck"
@@ -53,7 +56,8 @@ func KnownPrecheckLabels() []string {
 		PrecheckSDN,
 		PrecheckVMC,
 		PrecheckSVDM,
-		PrecheckStorageClass,
+		PrecheckDefaultStorageClass,
+		PrecheckImmediateStorageClass,
 		PrecheckSnapshot,
 		PrecheckVirtualization,
 		PrecheckUSB,

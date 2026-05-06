@@ -24,6 +24,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
@@ -39,12 +40,12 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
+	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
-	"github.com/deckhouse/virtualization/test/e2e/legacy"
 )
 
 const (
@@ -533,8 +534,12 @@ func (t *restoreModeTest) CheckAdditionalNetworkInterface(vm *v1alpha2.VirtualMa
 func (t *restoreModeTest) IsStorageClassAvailableForTest(vm *v1alpha2.VirtualMachine) bool {
 	GinkgoHelper()
 
-	sc, err := legacy.GetDefaultStorageClass()
+	var scList storagev1.StorageClassList
+	err := framework.GetClients().GenericClient().List(context.Background(), &scList)
 	Expect(err).NotTo(HaveOccurred())
+
+	sc := config.FindDefaultStorageClass(&scList)
+	Expect(sc).NotTo(BeNil())
 
 	return sc.Provisioner != framework.SDSReplicatedVolume
 }
