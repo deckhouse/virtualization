@@ -420,6 +420,7 @@ jobs:
     uses: ./.github/workflows/e2e-reusable-pipeline.yml
     with:
       storage_type: replicated
+      pipeline_job_name: "E2E Pipeline (Replicated)"
       nested_storageclass_name: nested-thin-r1
       nested_cluster_network_name: cn-4006-for-e2e-test
       branch: main
@@ -447,6 +448,7 @@ jobs:
     uses: ./.github/workflows/e2e-reusable-pipeline.yml
     with:
       storage_type: nfs
+      pipeline_job_name: "E2E Pipeline (NFS)"
       nested_storageclass_name: nfs
       nested_cluster_network_name: cn-4006-for-e2e-test
       branch: main

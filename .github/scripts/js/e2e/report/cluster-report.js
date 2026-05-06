@@ -75,11 +75,6 @@ const workflowStageJobs = {
   "e2e-test": "E2E test",
 };
 
-const workflowPipelineJobs = {
-  replicated: "E2E Pipeline (Replicated)",
-  nfs: "E2E Pipeline (NFS)",
-};
-
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -89,6 +84,7 @@ function readClusterReportConfigFromEnv(env = process.env) {
 
   return {
     storageType,
+    pipelineJobName: String(env.PIPELINE_JOB_NAME || "").trim(),
     reportsDir: env.REPORTS_DIR || "test/e2e",
     reportFile: env.REPORT_FILE || `e2e_report_${storageType}.json`,
   };
@@ -142,8 +138,7 @@ async function listWorkflowRunJobs(github, context) {
   return response.data.jobs || [];
 }
 
-function findWorkflowJob(jobs, storageType, jobName) {
-  const pipelineJobName = workflowPipelineJobs[storageType];
+function findWorkflowJob(jobs, pipelineJobName, jobName) {
   const nestedJobName = pipelineJobName ? `${pipelineJobName} / ${jobName}` : "";
 
   return (
@@ -159,7 +154,7 @@ async function readStageDetailsFromWorkflowRun(github, context, config, core) {
   const stageJobUrls = {};
 
   for (const [stageName, jobName] of Object.entries(workflowStageJobs)) {
-    const job = findWorkflowJob(jobs, config.storageType, jobName);
+    const job = findWorkflowJob(jobs, config.pipelineJobName, jobName);
     if (!job) {
       core.warning(`Unable to find workflow job "${jobName}" for E2E report`);
       stageResults[stageName] = "skipped";

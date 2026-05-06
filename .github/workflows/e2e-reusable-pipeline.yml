@@ -113,6 +113,11 @@ on:
         type: string
         default: "https://mirror.hetzner.com/ubuntu/packages"
         description: "APT mirror base URL (without trailing slash)"
+      pipeline_job_name:
+        required: false
+        type: string
+        default: ""
+        description: "Display name of the calling pipeline job in the parent workflow (e.g. 'E2E Pipeline (Replicated)'). Used to resolve per-stage job URLs in the report."
     secrets:
       DEV_REGISTRY_DOCKER_CFG:
         required: true
@@ -1551,6 +1556,7 @@ jobs:
         uses: actions/github-script@v7
         env:
           STORAGE_TYPE: ${{ inputs.storage_type }}
+          PIPELINE_JOB_NAME: ${{ inputs.pipeline_job_name }}
         with:
           script: |
             const buildClusterReport = require('./.github/scripts/js/e2e/report/cluster-report');

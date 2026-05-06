@@ -202,6 +202,7 @@ describe("cluster-report", () => {
     delete process.env.STORAGE_TYPE;
     delete process.env.REPORTS_DIR;
     delete process.env.REPORT_FILE;
+    delete process.env.PIPELINE_JOB_NAME;
   });
 
   test("requires storage type when config is absent", async () => {
@@ -268,11 +269,13 @@ describe("cluster-report", () => {
     withTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "env-report.json");
       process.env.STORAGE_TYPE = "replicated";
+      process.env.PIPELINE_JOB_NAME = "E2E Pipeline (Replicated)";
       process.env.REPORTS_DIR = tempDir;
       process.env.REPORT_FILE = reportFile;
 
       expect(readClusterReportConfigFromEnv()).toMatchObject({
         storageType: "replicated",
+        pipelineJobName: "E2E Pipeline (Replicated)",
         reportsDir: tempDir,
         reportFile,
       });
@@ -303,6 +306,7 @@ describe("cluster-report", () => {
     withTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "env-report.json");
       process.env.STORAGE_TYPE = "nfs";
+      process.env.PIPELINE_JOB_NAME = "E2E Pipeline (NFS)";
       process.env.REPORTS_DIR = tempDir;
       process.env.REPORT_FILE = reportFile;
 
