@@ -155,9 +155,10 @@ func (h *StatisticHandler) syncResources(changed *v1alpha2.VirtualMachine,
 		}
 
 		memoryKVVMIRequest := kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]
-		memoryPodRequest := ctr.Resources.Requests[corev1.ResourceMemory]
+		// Kubevirt makes memory limits equal or slightly greater than requests. See https://github.com/deckhouse/virtualization/pull/1947
+		memoryPodLimit := ctr.Resources.Limits[corev1.ResourceMemory]
 
-		memoryOverhead := memoryPodRequest.DeepCopy()
+		memoryOverhead := memoryPodLimit.DeepCopy()
 		memoryOverhead.Sub(memoryKVVMIRequest)
 		mi := int64(1024 * 1024)
 		memoryOverhead = *resource.NewQuantity(int64(math.Ceil(float64(memoryOverhead.Value())/float64(mi)))*mi, resource.BinarySI)
