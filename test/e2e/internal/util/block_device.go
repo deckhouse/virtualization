@@ -18,6 +18,7 @@ package util
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -193,4 +194,35 @@ func GetExpectedDiskPhaseByVolumeBindingMode() string {
 	default:
 		return string(v1alpha2.DiskReady)
 	}
+}
+
+// GetDiskCount returns the number of block devices attached to a VM.
+// Uses lsblk --nodeps --json to get the list of block devices.
+func GetDiskCount(f *framework.Framework, vmName, vmNamespace string) (int, error) {
+	cmd := "lsblk --nodeps --json"
+	result, err := f.SSHCommand(vmName, vmNamespace, cmd)
+	if err != nil {
+		return 0, fmt.Errorf("failed to execute command: %w: %s", err, result)
+	}
+
+	var disks Disks
+	err = json.Unmarshal([]byte(result), &disks)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse lsblk output: %w", err)
+	}
+
+	return len(disks.BlockDevices), nil
+}
+
+// Disks represents the JSON output of lsblk --nodeps --json command.
+// It contains a list of block devices attached to the VM.
+type Disks struct {
+	BlockDevices []BlockDevice `json:"blockdevices"`
+}
+
+// BlockDevice represents a single block device in the lsblk JSON output.
+type BlockDevice struct {
+	Name string `json:"name"`
+	Size string `json:"size"`
+	Type string `json:"type"`
 }

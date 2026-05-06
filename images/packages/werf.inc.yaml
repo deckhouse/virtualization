@@ -15,16 +15,15 @@
 {{-    range $path, $content := $ImagePackages }}
 {{-      $ctx := dict }}
 {{-      $_ := set $ctx "ImageInstructionType" "Stapel" }}
-
 {{-      $ImageData := regexReplaceAll $packageImagePathRegex $path "${1}#${2}#${3}" | split "#" }}
 
 {{-      $_ := set $ctx "PackagePath" $ImageData._0 }}
 {{-      $_ := set $ctx "ImageName" $ImageData._1 }}
-{{-      $_ := set $ctx "ModuleNamePrefix" $Root.ModuleNamePrefix }}
 {{-      $_ := set $ctx "ModuleDir" $Root.ModuleDir }}
+{{-      $_ := set $ctx "ModuleNamePrefix" $Root.ModuleNamePrefix }}
 {{-      $_ := set $ctx "ImageBuildData" $content }}
 {{-      $_ := set $ctx "SOURCE_REPO" $Root.SOURCE_REPO }}
-{{-      $_ := set $ctx "SOURCE_REPO_GIT" $Root.SOURCE_REPO_GIT }}
+{{-      $_ := set $ctx "PACKAGE_CLONE_REPO" $Root.PACKAGE_CLONE_REPO }}
 {{-      $_ := set $ctx "MODULE_EDITION" $Root.MODULE_EDITION }}
 {{-      $_ := set $ctx "PackageVersion" $Root.Package }}
 {{-      $_ := set $ctx "GOPROXY" $Root.GOPROXY }}

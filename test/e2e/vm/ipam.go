@@ -34,15 +34,17 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 )
 
-var _ = Describe("IPAM", func() {
+var _ = Describe("IPAM", Label(precheck.NoPrecheck), func() {
 	var (
-		f   = framework.NewFramework("ipam")
+		f   *framework.Framework
 		ctx context.Context
 	)
 
 	BeforeEach(func() {
+		f = framework.NewFramework("ipam")
 		f.Before()
 		ctx = context.Background()
 	})

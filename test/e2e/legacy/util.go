@@ -25,7 +25,6 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"text/template"
@@ -43,7 +42,6 @@ import (
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
-	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/d8"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
@@ -286,63 +284,6 @@ func SetStorageClass(tmplRoot string, storageClasse map[string]string) error {
 		}
 		return nil
 	})
-}
-
-func GetDefaultStorageClass() (*storagev1.StorageClass, error) {
-	var scList storagev1.StorageClassList
-	res := kubectl.List(kc.ResourceStorageClass, kc.GetOptions{Output: "json"})
-	if !res.WasSuccess() {
-		return nil, errors.New(res.StdErr())
-	}
-
-	err := json.Unmarshal([]byte(res.StdOut()), &scList)
-	if err != nil {
-		return nil, err
-	}
-
-	var defaultClasses []*storagev1.StorageClass
-	for idx := range scList.Items {
-		if scList.Items[idx].Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
-			defaultClasses = append(defaultClasses, &scList.Items[idx])
-		}
-	}
-
-	if len(defaultClasses) == 0 {
-		return nil, errors.New("default StorageClass not found in the cluster: please set a default StorageClass")
-	}
-
-	// Primary sort by creation timestamp, newest first
-	// Secondary sort by class name, ascending order
-	sort.Slice(defaultClasses, func(i, j int) bool {
-		if defaultClasses[i].CreationTimestamp.UnixNano() == defaultClasses[j].CreationTimestamp.UnixNano() {
-			return defaultClasses[i].Name < defaultClasses[j].Name
-		}
-		return defaultClasses[i].CreationTimestamp.UnixNano() > defaultClasses[j].CreationTimestamp.UnixNano()
-	})
-
-	return defaultClasses[0], nil
-}
-
-func GetImmediateStorageClass(provisioner string) (*storagev1.StorageClass, error) {
-	scl := &storagev1.StorageClassList{}
-	err := GetObjects(kc.ResourceStorageClass, scl, kc.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	for _, sc := range scl.Items {
-		if sc.VolumeBindingMode == nil {
-			continue
-		}
-		if sc.Provisioner == provisioner && *sc.VolumeBindingMode == storagev1.VolumeBindingImmediate {
-			return &sc, nil
-		}
-	}
-
-	return nil, fmt.Errorf("immediate storage class does not found; please set up immediate storage class with the %q provisioner; to skip the immediate storage class check, set %s=yes",
-		provisioner,
-		config.SkipImmediateStorageClassCheckEnv,
-	)
 }
 
 func GetWaitForFirstConsumerStorageClass() (*storagev1.StorageClass, error) {

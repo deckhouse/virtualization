@@ -40,6 +40,7 @@ type FieldChange struct {
 	DesiredValue interface{}     `json:"desiredValue,omitempty"`
 
 	ActionRequired ActionType `json:"-"`
+	RestartMessage string     `json:"-"`
 }
 
 func HasChanges(changes []FieldChange) bool {

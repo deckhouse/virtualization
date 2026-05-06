@@ -27,19 +27,22 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 )
 
-var _ = Describe("VirtualMachineEvacuation", Ordered, label.Legacy(), func() {
+var _ = Describe("VirtualMachineEvacuation", Ordered, label.Legacy(), Label(precheck.NoPrecheck), func() {
 	testCaseLabel := map[string]string{"testcase": "vm-evacuation"}
-	kubeClient := framework.GetClients().KubeClient()
-	var ns string
 
+	var (
+		ns         string
+		kubeClient kubernetes.Interface
+	)
 	BeforeAll(func() {
 		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMEvacuation, "kustomization.yaml")
 		var err error
@@ -47,6 +50,8 @@ var _ = Describe("VirtualMachineEvacuation", Ordered, label.Legacy(), func() {
 		Expect(err).NotTo(HaveOccurred(), "%w", err)
 
 		CreateNamespace(ns)
+
+		kubeClient = framework.GetClients().KubeClient()
 	})
 
 	BeforeEach(func() {
@@ -61,7 +66,7 @@ var _ = Describe("VirtualMachineEvacuation", Ordered, label.Legacy(), func() {
 		if CurrentSpecReport().Failed() {
 			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
-		if config.IsCleanUpNeeded() {
+		if conf.IsCleanupNeeded {
 			DeleteTestCaseResources(ns, ResourcesToDelete{
 				KustomizationDir: conf.TestData.VMEvacuation,
 			})

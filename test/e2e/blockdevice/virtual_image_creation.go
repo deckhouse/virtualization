@@ -34,13 +34,15 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("VirtualImageCreation", func() {
-	f := framework.NewFramework("vi-creation")
+var _ = Describe("VirtualImageCreation", Label(precheck.PrecheckSnapshot), func() {
+	var f *framework.Framework
 
 	BeforeEach(func() {
+		f = framework.NewFramework("vi-creation")
 		sc := framework.GetConfig().StorageClass.TemplateStorageClass
 		if sc != nil && sc.Provisioner == framework.NFS {
 			Skip("VirtualImages on PVC only work with block storage classes, skipping NFS")

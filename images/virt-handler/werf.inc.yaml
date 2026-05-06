@@ -32,13 +32,13 @@ import:
   includePaths:
   - .version
 - image: {{ .ModuleNamePrefix }}virt-artifact
-  add: /kubevirt/cmd/{{ $.ImageName }}/
+  add: /kubevirt/cmd/{{ .ImageName }}/
   to: /etc
   after: install
   includePaths:
   - nsswitch.conf
 {{- if eq $.DEBUG_COMPONENT "delve/virt-handler" }}
-- image: debugger
+- image: {{ .ModuleNamePrefix }}debugger
   add: /app/dlv
   to: /app/dlv
   after: install
@@ -57,7 +57,7 @@ imageSpec:
     {{- end }}
 
 ---
-{{- $name := print $.ImageName "-dependencies" -}}
+{{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 binaries:
 - /usr/bin/getfacl

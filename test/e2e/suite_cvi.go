@@ -49,7 +49,7 @@ func bootstrapPrecreatedCVIs() {
 func cleanupPrecreatedCVIs() {
 	GinkgoHelper()
 
-	if !config.IsCleanUpNeeded() || !config.IsPrecreatedCVICleanupNeeded() {
+	if !framework.GetConfig().IsCleanupNeeded || !config.IsPrecreatedCVICleanupNeeded() {
 		return
 	}
 

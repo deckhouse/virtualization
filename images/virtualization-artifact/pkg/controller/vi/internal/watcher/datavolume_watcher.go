@@ -49,14 +49,16 @@ func (w *DataVolumeWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 			),
 			predicate.TypedFuncs[*cdiv1.DataVolume]{
 				CreateFunc: func(e event.TypedCreateEvent[*cdiv1.DataVolume]) bool { return false },
-				DeleteFunc: func(e event.TypedDeleteEvent[*cdiv1.DataVolume]) bool { return false },
 				UpdateFunc: func(e event.TypedUpdateEvent[*cdiv1.DataVolume]) bool {
 					if e.ObjectOld.Status.Progress != e.ObjectNew.Status.Progress {
 						return true
 					}
 
-					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase && e.ObjectNew.Status.Phase == cdiv1.Succeeded {
-						return true
+					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase {
+						switch e.ObjectNew.Status.Phase {
+						case cdiv1.Succeeded, cdiv1.WaitForFirstConsumer, cdiv1.PendingPopulation:
+							return true
+						}
 					}
 
 					if e.ObjectOld.Status.ClaimName != e.ObjectNew.Status.ClaimName {
@@ -77,6 +79,7 @@ func (w *DataVolumeWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 					dvRunning := service.GetDataVolumeCondition(cdiv1.DataVolumeRunning, e.ObjectNew.Status.Conditions)
 					return dvRunning != nil && dvRunning.Reason == "Error"
 				},
+				DeleteFunc: func(e event.TypedDeleteEvent[*cdiv1.DataVolume]) bool { return false },
 			},
 		),
 	); err != nil {
