@@ -134,17 +134,12 @@ function renderMissingReportsSection(missingReports) {
     lines.push("");
 
     for (const report of missingReports) {
-      const missingMessage =
-        report.clusterStatus && report.clusterStatus.status === "missing"
-          ? report.clusterStatus.message
-          : report.testStatus && report.testStatus.message;
       lines.push(
         `- ${formatClusterLink(report)}: ${sanitizeListItem(
-          missingMessage ||
+          report.statusMessage ||
+            (report.testStatus && report.testStatus.message) ||
             (report.clusterStatus && report.clusterStatus.message) ||
-            report.statusMessage ||
-            report.failedStageLabel ||
-            report.failedStage
+            report.failedStageLabel
         )}`
       );
     }
@@ -183,9 +178,7 @@ function hasFailedTests(report) {
   }
 
   return Boolean(
-    (report.testStatus &&
-      (report.testStatus.status === "failure" ||
-        report.testStatus.status === "cancelled")) ||
+    (report.testStatus && report.testStatus.status === "failure") ||
       (report.metrics && report.metrics.failed) ||
       (report.metrics && report.metrics.errors)
   );
@@ -201,16 +194,7 @@ function getFailedTestGroupName(testName) {
 }
 
 function summarizeFailedTestGroups(failedTests) {
-  const groupNames = [];
-
-  for (const testName of failedTests) {
-    const groupName = getFailedTestGroupName(testName);
-    if (!groupNames.includes(groupName)) {
-      groupNames.push(groupName);
-    }
-  }
-
-  return groupNames;
+  return [...new Set(failedTests.map(getFailedTestGroupName))];
 }
 
 function renderFailedTestsThreadMessage(report) {

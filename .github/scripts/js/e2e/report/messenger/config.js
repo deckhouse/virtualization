@@ -46,18 +46,25 @@ function getLoopPostsApiUrl(env = process.env) {
   return normalizeLoopApiBaseUrl(env.LOOP_API_BASE_URL);
 }
 
+// Fallback used only when EXPECTED_STORAGE_TYPES is not set (e.g. local runs or tests).
+// In CI the list is passed explicitly via the EXPECTED_STORAGE_TYPES env variable.
+const defaultConfiguredClusters = ["replicated", "nfs"];
+
 /**
  * Parses the configured cluster list passed via workflow environment variables.
+ * Returns the default cluster list when the value is absent or contains invalid JSON.
  *
  * @param {string} value JSON-encoded cluster list.
  * @returns {string[]} Ordered cluster names.
  */
 function parseConfiguredClusters(value) {
-  const parsedValue = JSON.parse(value || "[]");
-  return Array.isArray(parsedValue) ? parsedValue : [];
+  try {
+    const parsed = JSON.parse(value || "[]");
+    return Array.isArray(parsed) ? parsed : defaultConfiguredClusters;
+  } catch {
+    return defaultConfiguredClusters;
+  }
 }
-
-const defaultConfiguredClusters = ["replicated", "nfs"];
 
 /**
  * Reads messenger configuration from the environment.

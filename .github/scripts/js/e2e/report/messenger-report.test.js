@@ -173,10 +173,10 @@ describe("messenger-report", () => {
       expect(result.threadMessages).toEqual([]);
     }));
 
-  test("skips invalid reports without cluster identity", async () =>
+  test("derives cluster key from filename when storageType/cluster fields are absent", async () =>
     withTempDir(async (tempDir) => {
       fs.writeFileSync(
-        path.join(tempDir, "e2e_report_invalid.json"),
+        path.join(tempDir, "e2e_report_extra.json"),
         JSON.stringify({
           reportKind: "stage-failure",
           failedStage: "configure-sdn",
@@ -212,11 +212,14 @@ describe("messenger-report", () => {
       const core = createCore();
       const result = await renderMessengerReport({ core });
 
+      // "nfs" is in the configured list and is rendered normally.
       expect(result.message).toContain("### Test results");
-      expect(result.message).not.toContain("### Cluster failures");
       expect(result.message).not.toContain("- —:");
+      // "extra" is not in the configured list; it is appended as an extra cluster failure.
+      expect(result.message).toContain("### Cluster failures");
+      expect(result.message).toContain("- extra: CONFIGURE SDN");
       expect(core.warning).toHaveBeenCalledWith(
-        "Skipping report without cluster name from parsed JSON payload"
+        expect.stringContaining('missing storageType/cluster fields; using filename-derived key "extra"')
       );
     }));
 

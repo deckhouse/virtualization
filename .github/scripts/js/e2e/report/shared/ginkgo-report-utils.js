@@ -43,12 +43,14 @@ function toArray(value) {
  * @returns {string[]} Flattened unique labels.
  */
 function flattenLabels(labelGroups) {
+  const seen = new Set();
   const labels = [];
 
   for (const group of toArray(labelGroups)) {
     for (const label of toArray(group)) {
       const normalizedLabel = String(label || "").trim();
-      if (normalizedLabel && !labels.includes(normalizedLabel)) {
+      if (normalizedLabel && !seen.has(normalizedLabel)) {
+        seen.add(normalizedLabel);
         labels.push(normalizedLabel);
       }
     }
@@ -70,10 +72,10 @@ function formatSpecName(specReport) {
     .map((part) => String(part || "").trim())
     .filter(Boolean);
   const leafText = String(specReport.LeafNodeText || "").trim();
-  const labels = [
+  const labels = [...new Set([
     ...flattenLabels(specReport.ContainerHierarchyLabels),
     ...flattenLabels(specReport.LeafNodeLabels),
-  ].filter((label, index, array) => array.indexOf(label) === index);
+  ])];
   const labelSuffix = labels.map((label) => `[${label}]`).join(" ");
   const body = [...hierarchyParts, leafText].filter(Boolean).join(" ");
 

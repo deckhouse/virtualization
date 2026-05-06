@@ -76,36 +76,6 @@ function getReportDate(reports) {
 }
 
 /**
- * Orders reports by the configured cluster order and then by cluster name.
- *
- * @param {Array<Record<string, any>>} reports Reports to sort.
- * @param {string[]} preferredOrder Configured cluster order.
- * @returns {Array<Record<string, any>>} Sorted reports copy.
- */
-function sortReports(reports, preferredOrder) {
-  const orderMap = new Map(preferredOrder.map((name, index) => [name, index]));
-
-  return [...reports].sort((left, right) => {
-    const leftKey = left.storageType || left.cluster;
-    const rightKey = right.storageType || right.cluster;
-    const leftOrder = orderMap.has(leftKey)
-      ? orderMap.get(leftKey)
-      : Number.MAX_SAFE_INTEGER;
-    const rightOrder = orderMap.has(rightKey)
-      ? orderMap.get(rightKey)
-      : Number.MAX_SAFE_INTEGER;
-
-    if (leftOrder !== rightOrder) {
-      return leftOrder - rightOrder;
-    }
-
-    return String(left.cluster || left.storageType).localeCompare(
-      String(right.cluster || right.storageType)
-    );
-  });
-}
-
-/**
  * Extracts the normalized cluster key from a report payload.
  *
  * @param {Record<string, any>} report Cluster report payload.
@@ -122,5 +92,4 @@ module.exports = {
   isClusterFailureReport,
   isMissingReport,
   isTestResultReport,
-  sortReports,
 };

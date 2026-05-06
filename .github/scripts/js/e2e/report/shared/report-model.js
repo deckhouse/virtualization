@@ -11,12 +11,12 @@
 // limitations under the License.
 
 const stageMessage = {
-  bootstrap: "BOOTSTRAP CLUSTER",
+  "bootstrap": "BOOTSTRAP CLUSTER",
   "configure-sdn": "CONFIGURE SDN",
   "storage-setup": "STORAGE SETUP",
   "virtualization-setup": "VIRTUALIZATION SETUP",
   "e2e-test": "E2E TEST",
-  ready: "CLUSTER READY",
+  "ready": "CLUSTER READY",
   "artifact-missing": "TEST REPORTS NOT FOUND",
 };
 

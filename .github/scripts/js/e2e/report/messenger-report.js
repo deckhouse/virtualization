@@ -11,6 +11,7 @@
 // limitations under the License.
 
 const fs = require("fs");
+const path = require("path");
 
 const { listMatchingFiles } = require("./shared/fs-utils");
 const { publishToLoop } = require("./messenger/loop-client");
@@ -18,7 +19,6 @@ const { readMessengerConfigFromEnv } = require("./messenger/config");
 const {
   createMissingReport,
   getReportClusterKey,
-  sortReports,
 } = require("./messenger/model");
 const {
   buildMainMessage,
@@ -46,8 +46,28 @@ const {
  */
 
 /**
+ * Derives a cluster key from a report file path using the naming convention
+ * `e2e_report_<storageType>[_suffix].json`.
+ *
+ * This is a fallback used only when the report JSON itself does not contain
+ * `storageType` or `cluster` fields, which should not happen in normal CI runs
+ * because `buildClusterReport` validates both fields before writing the file.
+ *
+ * @param {string} reportFile Absolute or relative path to the report file.
+ * @returns {string} Extracted storage type, or an empty string when not parseable.
+ */
+function clusterKeyFromFilename(reportFile) {
+  const match = path.basename(reportFile).match(/^e2e_report_([^_.]+)/);
+  return match ? match[1] : "";
+}
+
+/**
  * Loads report JSON files from disk and injects synthetic reports for clusters
  * whose artifacts are missing.
+ *
+ * The result is ordered as follows:
+ *  1. Configured clusters in their declared order (missing ones get synthetic reports).
+ *  2. Any extra clusters found on disk, sorted alphabetically.
  *
  * @param {string} reportsDir Directory containing `e2e_report_*.json`.
  * @param {string[]} configuredClusters Clusters expected in the final report.
@@ -56,38 +76,51 @@ const {
  */
 function readReports(reportsDir, configuredClusters, core) {
   const reportFiles = listMatchingFiles(reportsDir, /^e2e_report_.*\.json$/);
-  const reports = [];
+  const reportsByCluster = new Map();
 
   for (const reportFile of reportFiles) {
     try {
-      reports.push(JSON.parse(fs.readFileSync(reportFile, "utf8")));
+      const report = JSON.parse(fs.readFileSync(reportFile, "utf8"));
+      const reportKey = getReportClusterKey(report);
+      const clusterName = reportKey || clusterKeyFromFilename(reportFile);
+      if (!clusterName) {
+        core.warning(
+          `Skipping report with no identifiable cluster name: ${reportFile}`
+        );
+        continue;
+      }
+      if (!reportKey) {
+        core.warning(
+          `Report ${reportFile} is missing storageType/cluster fields; using filename-derived key "${clusterName}"`
+        );
+      }
+      // Ensure the report object carries the cluster identity used for rendering.
+      const resolvedReport = reportKey
+        ? report
+        : { ...report, storageType: clusterName, cluster: clusterName };
+      reportsByCluster.set(clusterName, resolvedReport);
     } catch (error) {
       core.warning(`Unable to parse ${reportFile}: ${error.message}`);
     }
   }
 
-  const reportsByCluster = new Map();
-  for (const report of reports) {
-    const clusterName = getReportClusterKey(report);
-    if (!clusterName) {
-      core.warning(
-        `Skipping report without cluster name from ${
-          report.sourceReport || "parsed JSON payload"
-        }`
-      );
-      continue;
-    }
+  // Configured clusters first, in declared order; missing ones get synthetic reports.
+  const result = configuredClusters.map(
+    (name) => reportsByCluster.get(name) ?? createMissingReport(name)
+  );
 
-    reportsByCluster.set(clusterName, report);
-  }
-
-  for (const clusterName of configuredClusters) {
-    if (!reportsByCluster.has(clusterName)) {
-      reportsByCluster.set(clusterName, createMissingReport(clusterName));
+  // Any extra clusters not in the configured list, sorted alphabetically.
+  const extras = [];
+  for (const [key, report] of reportsByCluster) {
+    if (!configuredClusters.includes(key)) {
+      extras.push(report);
     }
   }
+  extras.sort((a, b) =>
+    getReportClusterKey(a).localeCompare(getReportClusterKey(b))
+  );
 
-  return sortReports(Array.from(reportsByCluster.values()), configuredClusters);
+  return [...result, ...extras];
 }
 
 /**

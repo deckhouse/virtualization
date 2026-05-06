@@ -490,6 +490,7 @@ jobs:
         id: render-report
         uses: actions/github-script@v7
         env:
+          EXPECTED_STORAGE_TYPES: '["replicated","nfs"]'
           LOOP_API_BASE_URL: ${{ secrets.LOOP_API_BASE_URL }}
           LOOP_CHANNEL_ID: ${{ secrets.LOOP_CHANNEL_ID }}
           LOOP_TOKEN: ${{ secrets.LOOP_TOKEN }}
