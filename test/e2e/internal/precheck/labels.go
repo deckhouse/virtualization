@@ -48,6 +48,10 @@ const (
 	// PrecheckPostCleanup - test requires postcleanup to be configured.
 	PrecheckPostCleanup = "postcleanup-precheck"
 
+	// PrecheckPrecreatedCVI - test requires precreated ClusterVirtualImages to be available.
+	// This is a common precheck that runs for all tests automatically.
+	PrecheckPrecreatedCVI = "precreatedcvi-precheck"
+
 	// NoPrecheck - test doesn't require any prechecks.
 	// Use this label for tests that don't depend on cluster configuration.
 	NoPrecheck = "no-precheck"
@@ -65,6 +69,7 @@ func KnownPrecheckLabels() []string {
 		PrecheckVirtualization,
 		PrecheckUSB,
 		PrecheckPostCleanup,
+		PrecheckPrecreatedCVI,
 		NoPrecheck,
 	}
 }

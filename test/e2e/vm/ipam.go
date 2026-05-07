@@ -149,7 +149,7 @@ var _ = Describe("IPAM", Label(precheck.NoPrecheck), func() {
 			})
 
 			By("Wait virtual machine to be running", func() {
-				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+				util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 			})
 
 			By("Verify vmip attached to vm", func() {

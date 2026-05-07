@@ -98,8 +98,8 @@ var _ = Describe("DiskAttachment", Label(precheck.NoPrecheck), func() {
 			expectedDiskPhase := util.GetExpectedDiskPhaseByVolumeBindingMode()
 
 			By("Wait for resources to be ready", func() {
-				util.UntilObjectPhase(expectedDiskPhase, framework.LongTimeout, vdBlank)
-				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
+				util.UntilObjectPhase(ctx, expectedDiskPhase, framework.LongTimeout, vdBlank)
+				util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
 				util.UntilSSHReady(f, vm, framework.MiddleTimeout)
 			})
 		})
@@ -114,7 +114,7 @@ var _ = Describe("DiskAttachment", Label(precheck.NoPrecheck), func() {
 			err := f.CreateWithDeferredDeletion(ctx, vmbda)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.LongTimeout, vmbda)
+			util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.LongTimeout, vmbda)
 		})
 
 		By("Verify disk count increased by 1", func() {

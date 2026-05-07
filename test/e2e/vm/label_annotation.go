@@ -62,7 +62,7 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", Label(precheck.NoPrecheck),
 		err := f.CreateWithDeferredDeletion(ctx, vm)
 		Expect(err).NotTo(HaveOccurred())
 
-		util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
+		util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
 
 		By(fmt.Sprintf("Adding label %q=%q to VM", metadataSpecialKey, metadataSpecialValue))
 		updateVirtualMachineMetadata(ctx, f, vm, func(current *v1alpha2.VirtualMachine) {
