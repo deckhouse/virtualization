@@ -101,14 +101,18 @@ FOCUS="VirtualMachineConnectivity" POST_CLEANUP=no task run
 
 ### PostCleanUp option
 
-POST_CLEANUP defines an environment variable used to explicitly request the deletion of created/used resources.
+`POST_CLEANUP` defines an environment variable used to explicitly request the deletion of created/used resources.
+
+Valid values:
+- `yes` or "" (empty) - perform cleanup after tests (default)
+- `no` - skip cleanup after tests
 
 You can also control cleanup behavior via the `isCleanupNeeded` field in `default_config.yaml`:
 ```yaml
 isCleanupNeeded: true  # default: cleanup enabled
 ```
 
-The POST_CLEANUP environment variable takes precedence over the YAML config.
+The `POST_CLEANUP` environment variable takes precedence over the YAML config.
 
 For example, run a test in no-cleanup mode:
 ```bash

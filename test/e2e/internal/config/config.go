@@ -132,7 +132,7 @@ type HelperImages struct {
 
 func (c *Config) setEnvs() error {
 	// isCleanupNeeded: env var has priority over yaml config
-	if e, ok := os.LookupEnv("POST_CLEANUP"); ok {
+	if e, ok := os.LookupEnv(PostCleanupEnv); ok {
 		c.IsCleanupNeeded = e != "no"
 	}
 	// ClusterTransport
