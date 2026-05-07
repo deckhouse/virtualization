@@ -19,6 +19,7 @@ package vm
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -26,15 +27,19 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	vmipoption "github.com/deckhouse/virtualization-controller/pkg/builder/vmip"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
+	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
 var _ = Describe("IPAM", Label(precheck.NoPrecheck), func() {
@@ -116,6 +121,58 @@ var _ = Describe("IPAM", Label(precheck.NoPrecheck), func() {
 			err = f.CreateWithDeferredDeletion(ctx, vmipStatic)
 			Expect(err).NotTo(HaveOccurred())
 			WaitToBeBound(ctx, f, vmipStatic.Name)
+		})
+
+		It("Create vm with static ip", func() {
+			var (
+				vmipStatic *v1alpha2.VirtualMachineIPAddress
+				vm         *v1alpha2.VirtualMachine
+			)
+
+			By("Create an intermediate vmip to allocate a new ip address", func() {
+				vmipStatic = object.NewVirtualMachineIPAddress("vmip-static", f.Namespace().Name, vmipoption.WithTypeAuto())
+				err := f.CreateWithDeferredDeletion(ctx, vmipStatic)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("Create vm with static ip", func() {
+				vd := object.NewVDFromCVI("vd-with-static-ip", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS)
+				err := f.CreateWithDeferredDeletion(ctx, vd)
+				Expect(err).NotTo(HaveOccurred())
+
+				vm = object.NewMinimalVM("vm-with-static-ip", f.Namespace().Name, vmbuilder.WithIpAddress(vmipStatic.Name), vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
+					Kind: v1alpha2.VirtualDiskKind,
+					Name: vd.Name,
+				}))
+				err = f.CreateWithDeferredDeletion(ctx, vm)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("Wait virtual machine to be running", func() {
+				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+			})
+
+			By("Verify vmip attached to vm", func() {
+				var err error
+				vmipStatic, err = f.VirtClient().VirtualMachineIPAddresses(f.Namespace().Name).Get(ctx, vmipStatic.Name, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				cond, _ := conditions.GetCondition(vmipcondition.AttachedType, vmipStatic.Status.Conditions)
+				Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			})
+
+			By("Verify ip address on vm", func() {
+				vm = getVirtualMachine(ctx, f, vm.Name)
+				cond, _ := conditions.GetCondition(vmcondition.TypeIPAddressReady, vm.Status.Conditions)
+				Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+				Expect(vm.Status.IPAddress).To(Equal(vmipStatic.Status.Address))
+
+				expectAddr := fmt.Sprintf("%s/32", vmipStatic.Status.Address)
+				Eventually(func(g Gomega) {
+					result, err := f.SSHCommand(vm.Name, vm.Namespace, "ip -brief -4 address show eth0")
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(result).Should(ContainSubstring(expectAddr))
+				}).WithTimeout(framework.ShortTimeout).WithPolling(time.Second).Should(Succeed())
+			})
 		})
 	})
 })

@@ -47,8 +47,6 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 		DeferCleanup(f.After)
 	})
 
-	// Other cases are currently covered in ComplexTest
-	// After splitting ComplexTest, the remaining disk provisioning checks will also be located here
 	It("verifies that a VirtualDisk is provisioned successfully from a VirtualImage on a PVC", func() {
 		var (
 			vi *v1alpha2.VirtualImage
@@ -88,6 +86,93 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 
 		By("Waiting for VirtualDisk to be ready", func() {
 			util.UntilObjectPhase(string(v1alpha2.DiskReady), framework.LongTimeout, vd)
+		})
+	})
+
+	It("verifies that a VirtualDisk is provisioned successfully from a VirtualImage on dvcr", func() {
+		var (
+			vi *v1alpha2.VirtualImage
+			vd *v1alpha2.VirtualDisk
+		)
+		By("Creating VirtualImage", func() {
+			vi = object.NewGeneratedVIFromCVI("vi-", f.Namespace().Name, object.PrecreatedCVIAlpineUEFI)
+			err := f.CreateWithDeferredDeletion(context.Background(), vi)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		By("Waiting for VirtualImage to be ready", func() {
+			util.UntilObjectPhase(string(v1alpha2.ImageReady), framework.LongTimeout, vi)
+		})
+
+		By("Creating VirtualDisk", func() {
+			vd = object.NewVDFromVI("vd", f.Namespace().Name, vi, vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))))
+			err := f.CreateWithDeferredDeletion(context.Background(), vd)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		By("Waiting for VirtualDisk to be ready", func() {
+			util.UntilObjectPhase(string(v1alpha2.DiskReady), framework.LongTimeout, vd)
+		})
+
+		By("Creating VirtualMachine and waiting for VirtualMachine to be ready", func() {
+			vm := object.NewMinimalVM("vm-", f.Namespace().Name, vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
+				Kind: v1alpha2.VirtualDiskKind,
+				Name: vd.Name,
+			}))
+			err := f.CreateWithDeferredDeletion(context.Background(), vm)
+			Expect(err).NotTo(HaveOccurred())
+
+			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
+		})
+	})
+
+	It("verifies that a VirtualDisk is provisioned successfully from a ClusterVirtualImage", func() {
+		var vd *v1alpha2.VirtualDisk
+
+		By("Creating VirtualDisk", func() {
+			vd = object.NewVDFromCVI("vd", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS, vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))))
+			err := f.CreateWithDeferredDeletion(context.Background(), vd)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		By("Waiting for VirtualDisk to be ready", func() {
+			util.UntilObjectPhase(string(v1alpha2.DiskReady), framework.LongTimeout, vd)
+		})
+
+		By("Creating VirtualMachine and waiting for VirtualMachine to be ready", func() {
+			vm := object.NewMinimalVM("vm-", f.Namespace().Name, vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
+				Kind: v1alpha2.VirtualDiskKind,
+				Name: vd.Name,
+			}))
+			err := f.CreateWithDeferredDeletion(context.Background(), vm)
+			Expect(err).NotTo(HaveOccurred())
+
+			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
+		})
+	})
+
+	It("verifies that a VirtualDisk is provisioned successfully from a http", func() {
+		var vd *v1alpha2.VirtualDisk
+
+		By("Creating VirtualDisk", func() {
+			vd = object.NewHTTPVDAlpineBIOS("vd", f.Namespace().Name, vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))))
+			err := f.CreateWithDeferredDeletion(context.Background(), vd)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		By("Waiting for VirtualDisk to be ready", func() {
+			util.UntilObjectPhase(string(v1alpha2.DiskReady), framework.LongTimeout, vd)
+		})
+
+		By("Creating VirtualMachine and waiting for VirtualMachine to be ready", func() {
+			vm := object.NewMinimalVM("vm-", f.Namespace().Name, vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
+				Kind: v1alpha2.VirtualDiskKind,
+				Name: vd.Name,
+			}))
+			err := f.CreateWithDeferredDeletion(context.Background(), vm)
+			Expect(err).NotTo(HaveOccurred())
+
+			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
 		})
 	})
 })
