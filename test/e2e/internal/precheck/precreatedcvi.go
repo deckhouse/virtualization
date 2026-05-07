@@ -63,7 +63,7 @@ func (p *precreatedCVIPrecheck) Run(ctx context.Context, f *framework.Framework)
 
 	// Wait for all CVIs to become ready
 	By(fmt.Sprintf("Waiting for all %d precreated CVIs to be ready", len(cvis)))
-	p.waitForCVIsReady(cvis)
+	p.waitForCVIsReady(ctx, cvis)
 
 	By(fmt.Sprintf("All %d precreated CVIs are ready", len(cvis)))
 	return nil
@@ -112,7 +112,7 @@ func (p *precreatedCVIPrecheck) ensureCVIs(ctx context.Context, f *framework.Fra
 	return nil
 }
 
-func (p *precreatedCVIPrecheck) waitForCVIsReady(cvis []*v1alpha2.ClusterVirtualImage) {
+func (p *precreatedCVIPrecheck) waitForCVIsReady(ctx context.Context, cvis []*v1alpha2.ClusterVirtualImage) {
 	GinkgoHelper()
 
 	// Convert []*ClusterVirtualImage to []client.Object for util.UntilObjectPhase
@@ -122,7 +122,7 @@ func (p *precreatedCVIPrecheck) waitForCVIsReady(cvis []*v1alpha2.ClusterVirtual
 	}
 
 	// Use util's polling with 5 minute timeout
-	util.UntilObjectPhase(string(v1alpha2.ImageReady), framework.LongTimeout, objs...)
+	util.UntilObjectPhase(ctx, string(v1alpha2.ImageReady), framework.LongTimeout, objs...)
 }
 
 // Register precreatedCVI precheck as common (runs for all tests).

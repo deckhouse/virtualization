@@ -40,11 +40,13 @@ import (
 
 var _ = Describe("VirtualMachineUSB", Label(precheck.PrecheckUSB), func() {
 	var (
-		f *framework.Framework
-		t *VMUSBTest
+		f   *framework.Framework
+		t   *VMUSBTest
+		ctx context.Context
 	)
 
 	BeforeEach(func() {
+		ctx = context.Background()
 		f = framework.NewFramework("vm-usb")
 		DeferCleanup(func() {
 			t.unassignNodeUSB()
@@ -52,18 +54,18 @@ var _ = Describe("VirtualMachineUSB", Label(precheck.PrecheckUSB), func() {
 		})
 
 		f.Before()
-		t = NewVMUSBTest(f)
+		t = NewVMUSBTest(ctx, f)
 	})
 
 	It("should write data to USB device and preserve after reconnection", func() {
 		By("Environment preparation", func() {
 			// TODO: Move all preflight checks to the `SynchronizedBeforeSuite` to ensure they are executed in a synchronized context.
-			if !t.checkDummyHCDConfigured() {
+			if !t.checkDummyHCDConfigured(ctx) {
 				Skip("dummy_hcd is not configured. Run generate_dummy_hcd_ngc.sh first.")
 			}
 
-			t.GenerateEnvironmentResources()
-			err := f.CreateWithDeferredDeletion(context.Background(), t.VD)
+			t.GenerateEnvironmentResources(ctx)
+			err := f.CreateWithDeferredDeletion(ctx, t.VD)
 			Expect(err).NotTo(HaveOccurred())
 
 			t.assignNodeUSB()
@@ -74,10 +76,10 @@ var _ = Describe("VirtualMachineUSB", Label(precheck.PrecheckUSB), func() {
 		})
 
 		By("Creating VM with USB device", func() {
-			err := f.CreateWithDeferredDeletion(context.Background(), t.VM)
+			err := f.CreateWithDeferredDeletion(ctx, t.VM)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, t.VM)
+			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, t.VM)
 			util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 			util.UntilGuestCommandsReady(f, t.VM, []string{"sudo", "tee", "udevadm"}, framework.LongTimeout)
 		})
@@ -102,7 +104,7 @@ var _ = Describe("VirtualMachineUSB", Label(precheck.PrecheckUSB), func() {
 			util.MigrateVirtualMachine(f, t.VM)
 			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
 
-			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
+			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
 			util.UntilSSHReady(f, t.VM, framework.ShortTimeout)
 		})
 
@@ -136,17 +138,16 @@ type VMUSBTest struct {
 	testContent string
 }
 
-func NewVMUSBTest(f *framework.Framework) *VMUSBTest {
+func NewVMUSBTest(ctx context.Context, f *framework.Framework) *VMUSBTest {
 	return &VMUSBTest{
 		Framework:   f,
-		ctx:         context.Background(),
+		ctx:         ctx,
 		testFile:    "/mnt/usb/testfile.txt",
 		testContent: "Hello USB " + time.Now().Format(time.RFC3339),
 	}
 }
 
-func (t *VMUSBTest) checkDummyHCDConfigured() bool {
-	ctx := context.Background()
+func (t *VMUSBTest) checkDummyHCDConfigured(ctx context.Context) bool {
 	virtClient := t.Framework.VirtClient()
 
 	nodeUSBList, err := virtClient.NodeUSBDevices().List(ctx, metav1.ListOptions{})
@@ -167,8 +168,7 @@ func (t *VMUSBTest) checkDummyHCDConfigured() bool {
 	return false
 }
 
-func (t *VMUSBTest) GenerateEnvironmentResources() {
-	ctx := context.Background()
+func (t *VMUSBTest) GenerateEnvironmentResources(ctx context.Context) {
 	virtClient := t.Framework.VirtClient()
 
 	nodeUSBList, err := virtClient.NodeUSBDevices().List(ctx, metav1.ListOptions{})
