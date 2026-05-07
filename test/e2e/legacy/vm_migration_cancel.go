@@ -38,9 +38,6 @@ var _ = Describe("VirtualMachineCancelMigration", Ordered, label.Legacy(), Label
 	var ns string
 
 	BeforeAll(func() {
-		// TODO: Remove Skip after fixing the issue.
-		Skip("This test case is not working everytime. Should be fixed.")
-
 		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMMigrationCancel, "kustomization.yaml")
 		var err error
 		ns, err = kustomize.GetNamespace(kustomization)
@@ -87,7 +84,7 @@ var _ = Describe("VirtualMachineCancelMigration", Ordered, label.Legacy(), Label
 
 		for _, name := range vmNames {
 			By(fmt.Sprintf("Exec SSHCommand for virtualmachine %s/%s", ns, name))
-			res := framework.GetClients().D8Virtualization().SSHCommand(name, "sudo nohup stress-ng --vm 1 --vm-bytes 100% --timeout 300s &>/dev/null &", d8.SSHOptions{
+			res := framework.GetClients().D8Virtualization().SSHCommand(name, "nohup stress-ng --cpu 4 --vm 4 --vm-bytes 90% --vm-keep --vm-populate --vm-method all --timeout 1h &>/dev/null &", d8.SSHOptions{
 				Namespace:    ns,
 				Username:     conf.TestData.SSHUser,
 				IdentityFile: conf.TestData.Sshkey,

@@ -5,9 +5,8 @@ metadata:
 spec:
   persistentVolumeClaim:
     storageClassName: "{{ .STORAGE_CLASS_NAME }}"
-    size: 350Mi
   dataSource:
     type: ObjectRef
     objectRef:
       kind: ClusterVirtualImage
-      name: v12n-e2e-alpine-bios
+      name: v12n-e2e-ubuntu

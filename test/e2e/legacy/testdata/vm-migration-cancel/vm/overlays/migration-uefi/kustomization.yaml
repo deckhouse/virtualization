@@ -4,5 +4,4 @@ nameSuffix: -migration-uefi
 resources:
   - ../../base
 patches:
-  - path: vd.image.patch.yaml
   - path: vm.bootloader.patch.yaml
