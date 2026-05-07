@@ -424,7 +424,8 @@ jobs:
       nested_cluster_network_name: cn-4006-for-e2e-test
       branch: main
       virtualization_tag: main
-      deckhouse_channel: pr18746
+      deckhouse_channel: main
+      # deckhouse_channel: pr18746
       # deckhouse_channel: alpha
       default_user: cloud
       go_version: "1.25.9"
@@ -451,7 +452,8 @@ jobs:
       nested_cluster_network_name: cn-4006-for-e2e-test
       branch: main
       virtualization_tag: main
-      deckhouse_channel: pr18746
+      deckhouse_channel: main
+      # deckhouse_channel: pr18746
       # deckhouse_channel: alpha
       default_user: cloud
       go_version: "1.24.13"
