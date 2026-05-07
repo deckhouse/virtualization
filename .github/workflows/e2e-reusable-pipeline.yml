@@ -166,7 +166,8 @@ jobs:
           echo "namespace=$namespace" >> $GITHUB_OUTPUT
           echo "sha_short=$GIT_SHORT_HASH" >> $GITHUB_OUTPUT
 
-          REGISTRY=$(base64 -d <<< ${{secrets.PROD_IO_REGISTRY_DOCKER_CFG}} | jq '.auths | to_entries | .[] | .key' -r)
+          REGISTRY=$(base64 -d <<< ${{secrets.DEV_REGISTRY_DOCKER_CFG}} | jq '.auths | to_entries | .[] | .key' -r)
+          # REGISTRY=$(base64 -d <<< ${{secrets.PROD_IO_REGISTRY_DOCKER_CFG}} | jq '.auths | to_entries | .[] | .key' -r)
           echo "registry=$REGISTRY" >> $GITHUB_OUTPUT
 
       - name: Install htpasswd utility
@@ -189,8 +190,10 @@ jobs:
         env:
           REGISTRY: ${{ steps.vars.outputs.registry }}
         run: |
-          USERNAME=$(base64 -d <<< "${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}" | jq -r '.auths | to_entries | .[] | .value.auth' | base64 -d | cut -d ':' -f1)
-          PASSWORD=$(base64 -d <<< "${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}" | jq -r '.auths | to_entries | .[] | .value.auth' | base64 -d | cut -d ':' -f2)
+          # USERNAME=$(base64 -d <<< "${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}" | jq -r '.auths | to_entries | .[] | .value.auth' | base64 -d | cut -d ':' -f1)
+          # PASSWORD=$(base64 -d <<< "${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}" | jq -r '.auths | to_entries | .[] | .value.auth' | base64 -d | cut -d ':' -f2)
+          USERNAME=$(base64 -d <<< "${{ secrets.DEV_REGISTRY_DOCKER_CFG }}" | jq -r '.auths | to_entries | .[] | .value.auth' | base64 -d | cut -d ':' -f1)
+          PASSWORD=$(base64 -d <<< "${{ secrets.DEV_REGISTRY_DOCKER_CFG }}" | jq -r '.auths | to_entries | .[] | .value.auth' | base64 -d | cut -d ':' -f2)
           echo "::add-mask::$USERNAME"
           echo "::add-mask::$PASSWORD"
           echo "$PASSWORD" | docker login "$REGISTRY" --username "$USERNAME" --password-stdin
