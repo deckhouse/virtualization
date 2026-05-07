@@ -161,7 +161,7 @@ function buildMainMessage(orderedReports) {
   const { testsReports, stageFailureReports, missingReports } =
     splitReportsBySection(orderedReports);
   const lines = [
-    `## DVP | E2E on nested clusters | ${reportDate}`,
+    `## :dvp: DVP | E2E on nested clusters | ${reportDate}`,
     "",
     ...renderBranchLine(orderedReports),
     ...renderClusterFailuresSection(stageFailureReports),
