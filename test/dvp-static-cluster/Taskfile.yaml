@@ -165,7 +165,8 @@ tasks:
     deps:
       - render-cluster-config
     vars:
-      DeckhouseInstallImage: "registry.deckhouse.io/deckhouse/ee/install"
+      # DeckhouseInstallImage: "registry.deckhouse.io/deckhouse/ee/install"
+      DeckhouseInstallImage: "dev-registry.deckhouse.io/sys/deckhouse-oss/install"
       prefix:
         sh: yq eval '.storageType' values.yaml
       start_time:
