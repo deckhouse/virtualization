@@ -66,10 +66,6 @@ func Init() error {
 }
 
 func configure() (err error) {
-	if err = config.CheckPrecreatedCVICleanupOption(); err != nil {
-		return err
-	}
-
 	conf = framework.GetConfig()
 	defer framework.SetConfig(conf)
 
