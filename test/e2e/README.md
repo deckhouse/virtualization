@@ -94,9 +94,9 @@ task runp
 - Set LABELS to run tests with specific label(https://onsi.github.io/ginkgo/#spec-labels).
 - Manage timeouts for new e2e tests (not for legacy tests) using env variables `E2E_SHORT_TIMEOUT`, `E2E_MIDDLE_TIMEOUT`, `E2E_LONG_TIMEOUT` and `E2E_MAX_TIMEOUT`.
 
-For example, to run only the "ComplexTest" and leave all created resources in the cluster, use the following command: 
+For example, to run only one test and leave all created resources in the cluster, use the following command:
 ```bash
-FOCUS="ComplexTest" POST_CLEANUP=no task run
+FOCUS="VirtualMachineConnectivity" POST_CLEANUP=no task run
 ```
 
 ### PostCleanUp option

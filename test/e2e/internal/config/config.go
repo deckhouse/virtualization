@@ -82,7 +82,6 @@ type Config struct {
 }
 
 type TestData struct {
-	ComplexTest       string `yaml:"complexTest"`
 	DiskResizing      string `yaml:"diskResizing"`
 	ImageHotplug      string `yaml:"imageHotplug"`
 	VMMigration       string `yaml:"vmMigration"`

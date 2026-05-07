@@ -12,7 +12,6 @@ clusterTransport:
 helperImages:
   curlImage: "curlimages/curl"
 testData:
-  complexTest: "/tmp/testdata/complex-test"
   diskResizing: "/tmp/testdata/disk-resizing"
   imageHotplug: "/tmp/testdata/image-hotplug"
   sizingPolicy: "/tmp/testdata/sizing-policy"
