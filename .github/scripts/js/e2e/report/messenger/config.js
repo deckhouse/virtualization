@@ -42,9 +42,10 @@ const defaultConfiguredClusters = ["replicated", "nfs"];
 
 /**
  * Parses the configured cluster list passed via workflow environment variables.
- * Returns the default cluster list when the value is absent or contains invalid JSON.
+ * Returns the default cluster list when the value is absent, is not valid JSON,
+ * or parses to a non-array value (e.g. an object `{}`).
  *
- * @param {string} value JSON-encoded cluster list.
+ * @param {string} value JSON-encoded array of cluster names, e.g. '["replicated","nfs"]'.
  * @returns {string[]} Ordered cluster names.
  */
 function parseConfiguredClusters(value) {

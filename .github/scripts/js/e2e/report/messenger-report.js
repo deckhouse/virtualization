@@ -83,9 +83,10 @@ function readReports(reportsDir, configuredClusters, core) {
   );
 
   // Any extra clusters not in the configured list, sorted alphabetically.
+  const configuredSet = new Set(configuredClusters);
   const extras = [];
   for (const [key, report] of reportsByCluster) {
-    if (!configuredClusters.includes(key)) {
+    if (!configuredSet.has(key)) {
       extras.push(report);
     }
   }

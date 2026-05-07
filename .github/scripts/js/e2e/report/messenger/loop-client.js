@@ -110,6 +110,12 @@ async function makeThreadedReportInLoop({ message, threadMessages, loop }, core)
     core
   );
 
+  if (!rootPost.id) {
+    throw new Error(
+      "Loop API did not return a post id; thread replies cannot be attached"
+    );
+  }
+
   let lastReplyPost = null;
   for (const replyMessage of threadMessages) {
     lastReplyPost = await postToLoopApi(

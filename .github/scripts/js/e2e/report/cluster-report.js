@@ -32,12 +32,6 @@ const {
  */
 
 /**
- * @typedef {Object} GinkgoMetrics
- * @property {number} [failed]
- * @property {number} [errors]
- */
-
-/**
  * @typedef {Object} ClusterReportCore
  * @property {function(string): void} info
  * @property {function(string): void} warning
@@ -55,6 +49,7 @@ const {
 /**
  * @typedef {Object} ClusterReportConfig
  * @property {string} storageType
+ * @property {string} pipelineJobName
  * @property {string} reportsDir
  * @property {string} reportFile
  * @property {StageResults} stageResults
@@ -350,5 +345,4 @@ async function buildClusterReport({ core, context, github, config } = {}) {
 }
 
 module.exports = buildClusterReport;
-module.exports.buildClusterStatus = buildClusterStatus;
 module.exports.readClusterReportConfigFromEnv = readClusterReportConfigFromEnv;

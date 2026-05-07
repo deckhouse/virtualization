@@ -70,6 +70,10 @@ function buildStatusMessage(status, stageLabel) {
     return `⚠️ ${stageLabel} CANCELLED`;
   }
 
+  if (status === "skipped") {
+    return `⚠️ ${stageLabel} SKIPPED`;
+  }
+
   if (status === "missing") {
     return `⚠️ ${stageLabel}`;
   }
@@ -95,15 +99,23 @@ function buildClusterStatus(stageResults) {
     const stageResult = normalizeJobResult(stageResults[stageName]);
     if (stageResult !== "success") {
       const stageLabel = stageMessage[stageName] || stageName;
+      const status =
+        stageResult === "cancelled"
+          ? "cancelled"
+          : stageResult === "skipped"
+            ? "skipped"
+            : "failure";
       return {
-        status: stageResult === "cancelled" ? "cancelled" : "failure",
+        status,
         stage: stageName,
         stageLabel,
         message: buildStatusMessage(stageResult, stageLabel),
         reason:
           stageResult === "cancelled"
             ? "cluster-stage-cancelled"
-            : "cluster-stage-failed",
+            : stageResult === "skipped"
+              ? "cluster-stage-skipped"
+              : "cluster-stage-failed",
       };
     }
   }
@@ -272,9 +284,7 @@ module.exports = {
   isClusterFailureReport,
   isMissingReport,
   isTestResultReport,
-  normalizeJobResult,
   REPORT_FILE_PATTERN,
   reportFileName,
-  stageMessage,
   zeroMetrics,
 };

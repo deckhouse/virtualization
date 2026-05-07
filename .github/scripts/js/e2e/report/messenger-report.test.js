@@ -540,7 +540,7 @@ describe("messenger-report", () => {
       });
     }));
 
-  test("tolerates an empty Loop API response body", async () =>
+  test("warns when Loop API returns an empty response body (no post id)", async () =>
     withTempDir(async (tempDir) => {
       fs.writeFileSync(
         path.join(tempDir, "e2e_report_replicated.json"),
@@ -578,16 +578,16 @@ describe("messenger-report", () => {
 
       await renderMessengerReport({ core });
 
+      // Empty body → no post id → thread replies cannot be sent → warning emitted.
       expect(global.fetch).toHaveBeenCalledTimes(1);
-      expect(core.warning).not.toHaveBeenCalledWith(
-        expect.stringContaining("Unable to deliver report to Loop API")
+      expect(core.warning).toHaveBeenCalledWith(
+        expect.stringContaining("Loop API did not return a post id")
       );
+      // Report outputs are still set because the message was built before sending.
       expect(core.setOutput).toHaveBeenCalledWith("thread_messages", "[]");
-      expect(core.setOutput).toHaveBeenCalledWith("root_post_id", "");
-      expect(core.setOutput).toHaveBeenCalledWith("thread_post_id", "");
     }));
 
-  test("tolerates an invalid JSON Loop API response body", async () =>
+  test("warns when Loop API returns a non-JSON response body (no post id)", async () =>
     withTempDir(async (tempDir) => {
       fs.writeFileSync(
         path.join(tempDir, "e2e_report_replicated.json"),
@@ -625,13 +625,16 @@ describe("messenger-report", () => {
 
       await renderMessengerReport({ core });
 
+      // Non-JSON body → parse warning → no post id → delivery warning.
       expect(global.fetch).toHaveBeenCalledTimes(1);
       expect(core.warning).toHaveBeenCalledWith(
         expect.stringContaining("Loop API returned a non-JSON response body")
       );
+      expect(core.warning).toHaveBeenCalledWith(
+        expect.stringContaining("Loop API did not return a post id")
+      );
+      // Report outputs are still set because the message was built before sending.
       expect(core.setOutput).toHaveBeenCalledWith("thread_messages", "[]");
-      expect(core.setOutput).toHaveBeenCalledWith("root_post_id", "");
-      expect(core.setOutput).toHaveBeenCalledWith("thread_post_id", "");
     }));
 
   test("logs readable Loop API errors for failed responses", async () =>

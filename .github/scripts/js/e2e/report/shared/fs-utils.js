@@ -13,17 +13,9 @@
 const fs = require("fs");
 const path = require("path");
 
-/**
- * Recursively collects files whose base name matches the provided pattern.
- *
- * @param {string} dirPath Directory to scan.
- * @param {RegExp} filePattern Regular expression applied to file names.
- * @param {string[]} [files=[]] Accumulator used during recursion.
- * @returns {string[]} Matching file paths.
- */
-function listMatchingFiles(dirPath, filePattern, files = []) {
+function collectMatchingFiles(dirPath, filePattern, acc) {
   if (!fs.existsSync(dirPath)) {
-    return files;
+    return;
   }
 
   let entries;
@@ -38,16 +30,24 @@ function listMatchingFiles(dirPath, filePattern, files = []) {
   for (const entry of entries) {
     const fullPath = path.join(dirPath, entry.name);
     if (entry.isDirectory()) {
-      listMatchingFiles(fullPath, filePattern, files);
-      continue;
-    }
-
-    if (filePattern.test(entry.name)) {
-      files.push(fullPath);
+      collectMatchingFiles(fullPath, filePattern, acc);
+    } else if (filePattern.test(entry.name)) {
+      acc.push(fullPath);
     }
   }
+}
 
-  return files;
+/**
+ * Recursively collects files whose base name matches the provided pattern.
+ *
+ * @param {string} dirPath Directory to scan.
+ * @param {RegExp} filePattern Regular expression applied to file names.
+ * @returns {string[]} Matching file paths.
+ */
+function listMatchingFiles(dirPath, filePattern) {
+  const acc = [];
+  collectMatchingFiles(dirPath, filePattern, acc);
+  return acc;
 }
 
 /**

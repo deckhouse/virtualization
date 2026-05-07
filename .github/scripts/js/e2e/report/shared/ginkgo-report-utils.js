@@ -167,9 +167,5 @@ function parseGinkgoReport(jsonContent) {
 }
 
 module.exports = {
-  flattenLabels,
-  formatSpecName,
-  getMetricKeyForState,
   parseGinkgoReport,
-  toArray,
 };
