@@ -458,7 +458,6 @@ jobs:
         uses: actions/upload-artifact@v7
         if: success() || failure()
         with:
-          name: ${{ env.STORAGE_TYPE }}-generated-files-${{ env.E2E_START_TIME }}
           path: ${{ runner.temp }}/${{ env.STORAGE_TYPE }}-generated-files-${{ env.E2E_START_TIME }}.zip.gpg
           overwrite: true
           include-hidden-files: true
@@ -485,7 +484,6 @@ jobs:
         uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: ${{ env.STORAGE_TYPE }}-generated-files-ssh-${{ env.E2E_START_TIME }}
           path: ${{ runner.temp }}/${{ env.STORAGE_TYPE }}-generated-files-ssh-${{ env.E2E_START_TIME }}.zip.gpg
           overwrite: true
           include-hidden-files: true
@@ -507,7 +505,6 @@ jobs:
       - name: Upload kubeconfig
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ env.STORAGE_TYPE }}-generated-files-kubeconfig-${{ env.E2E_START_TIME }}
           path: ${{ runner.temp }}/${{ env.STORAGE_TYPE }}-generated-files-kubeconfig-${{ env.E2E_START_TIME }}.gpg
           overwrite: true
           include-hidden-files: true
@@ -1501,7 +1498,6 @@ jobs:
         id: e2e-report-artifact
         if: always() && steps.e2e-report.outcome != 'skipped'
         with:
-          name: e2e-test-results-${{ env.STORAGE_TYPE }}-${{ github.run_id }}-${{ env.E2E_START_TIME }}
           path: ${{ runner.temp }}/e2e-test-results-${{ env.STORAGE_TYPE }}-${{ github.run_id }}-${{ env.E2E_START_TIME }}.zip.gpg
           if-no-files-found: ignore
           retention-days: 3
@@ -1533,7 +1529,6 @@ jobs:
         uses: actions/upload-artifact@v7
         if: always() && steps.e2e-report.outcome != 'skipped'
         with:
-          name: resources_from_failed_tests-${{ env.STORAGE_TYPE }}-${{ env.E2E_START_TIME }}
           path: ${{ runner.temp }}/resources_from_failed_tests-${{ env.STORAGE_TYPE }}-${{ env.E2E_START_TIME }}.zip.gpg
           if-no-files-found: ignore
           retention-days: 3
@@ -1557,7 +1552,7 @@ jobs:
         uses: actions/download-artifact@v8
         continue-on-error: true
         with:
-          name: e2e-test-results-${{ env.STORAGE_TYPE }}-${{ github.run_id }}-${{ env.E2E_START_TIME }}
+          name: e2e-test-results-${{ env.STORAGE_TYPE }}-${{ github.run_id }}-${{ env.E2E_START_TIME }}.zip.gpg
           path: ${{ runner.temp }}/encrypted-e2e-results
 
       - name: Decrypt E2E test results if available
@@ -1770,7 +1765,7 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v8
         with:
-          name: ${{ env.STORAGE_TYPE }}-generated-files-${{ env.E2E_START_TIME }}
+          name: ${{ env.STORAGE_TYPE }}-generated-files-${{ env.E2E_START_TIME }}.zip.gpg
           path: ${{ runner.temp }}/encrypted-generated-files
 
       - name: Decrypt generated files artifact
