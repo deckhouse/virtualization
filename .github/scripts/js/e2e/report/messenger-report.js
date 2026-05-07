@@ -11,10 +11,10 @@
 // limitations under the License.
 
 const fs = require("fs");
-const path = require("path");
 
 const { listMatchingFiles } = require("./shared/fs-utils");
-const { publishToLoop } = require("./messenger/loop-client");
+const { REPORT_FILE_PATTERN } = require("./shared/report-model");
+const { makeThreadedReportInLoop } = require("./messenger/loop-client");
 const { readMessengerConfigFromEnv } = require("./messenger/config");
 const {
   createMissingReport,
@@ -46,22 +46,6 @@ const {
  */
 
 /**
- * Derives a cluster key from a report file path using the naming convention
- * `e2e_report_<storageType>[_suffix].json`.
- *
- * This is a fallback used only when the report JSON itself does not contain
- * `storageType` or `cluster` fields, which should not happen in normal CI runs
- * because `buildClusterReport` validates both fields before writing the file.
- *
- * @param {string} reportFile Absolute or relative path to the report file.
- * @returns {string} Extracted storage type, or an empty string when not parseable.
- */
-function clusterKeyFromFilename(reportFile) {
-  const match = path.basename(reportFile).match(/^e2e_report_([^_.]+)/);
-  return match ? match[1] : "";
-}
-
-/**
  * Loads report JSON files from disk and injects synthetic reports for clusters
  * whose artifacts are missing.
  *
@@ -75,32 +59,21 @@ function clusterKeyFromFilename(reportFile) {
  * @returns {Array<Record<string, any>>} Ordered cluster reports.
  */
 function readReports(reportsDir, configuredClusters, core) {
-  const reportFiles = listMatchingFiles(reportsDir, /^e2e_report_.*\.json$/);
+  const reportFiles = listMatchingFiles(reportsDir, REPORT_FILE_PATTERN);
   const reportsByCluster = new Map();
 
   for (const reportFile of reportFiles) {
     try {
       const report = JSON.parse(fs.readFileSync(reportFile, "utf8"));
-      const reportKey = getReportClusterKey(report);
-      const clusterName = reportKey || clusterKeyFromFilename(reportFile);
+      const clusterName = getReportClusterKey(report);
       if (!clusterName) {
-        core.warning(
-          `Skipping report with no identifiable cluster name: ${reportFile}`
-        );
-        continue;
+        // cluster-report.js always writes storageType; a missing key means
+        // the file is corrupt or was not produced by this pipeline.
+        throw new Error(`report is missing storageType/cluster fields`);
       }
-      if (!reportKey) {
-        core.warning(
-          `Report ${reportFile} is missing storageType/cluster fields; using filename-derived key "${clusterName}"`
-        );
-      }
-      // Ensure the report object carries the cluster identity used for rendering.
-      const resolvedReport = reportKey
-        ? report
-        : { ...report, storageType: clusterName, cluster: clusterName };
-      reportsByCluster.set(clusterName, resolvedReport);
+      reportsByCluster.set(clusterName, report);
     } catch (error) {
-      core.warning(`Unable to parse ${reportFile}: ${error.message}`);
+      core.warning(`Unable to load ${reportFile}: ${error.message}`);
     }
   }
 
@@ -167,10 +140,12 @@ async function renderMessengerReport({ core, reportsDir }) {
   core.setOutput("thread_message", threadMessage);
   core.setOutput("thread_messages", JSON.stringify(threadMessages));
 
-  try {
-    await publishToLoop({ message, threadMessages, loop: config.loop }, core);
-  } catch (error) {
-    core.warning(`Unable to deliver report to Loop API: ${error.message}`);
+  if (config.loop) {
+    try {
+      await makeThreadedReportInLoop({ message, threadMessages, loop: config.loop }, core);
+    } catch (error) {
+      core.warning(`Unable to deliver report to Loop API: ${error.message}`);
+    }
   }
 
   return { message, threadMessage, threadMessages };

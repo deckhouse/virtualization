@@ -36,16 +36,6 @@ function normalizeLoopApiBaseUrl(value) {
   return `${trimmedValue}/api/v4/posts`;
 }
 
-/**
- * Reads and normalizes the Loop posts API URL from environment variables.
- *
- * @param {NodeJS.ProcessEnv} [env=process.env] Environment variables source.
- * @returns {string} Normalized posts endpoint URL or an empty string.
- */
-function getLoopPostsApiUrl(env = process.env) {
-  return normalizeLoopApiBaseUrl(env.LOOP_API_BASE_URL);
-}
-
 // Fallback used only when EXPECTED_STORAGE_TYPES is not set (e.g. local runs or tests).
 // In CI the list is passed explicitly via the EXPECTED_STORAGE_TYPES env variable.
 const defaultConfiguredClusters = ["replicated", "nfs"];
@@ -67,17 +57,40 @@ function parseConfiguredClusters(value) {
 }
 
 /**
+ * Reads Loop credentials from the environment.
+ *
+ * Returns `null` when none of the Loop variables are set, indicating that the
+ * messenger integration is intentionally disabled (e.g. local runs or forks).
+ * Throws when only some variables are present — that is always a configuration
+ * mistake and should surface as an error rather than a silent no-op.
+ *
+ * @param {NodeJS.ProcessEnv} [env=process.env] Environment variables source.
+ * @returns {{ apiUrl: string, channelId: string, token: string } | null}
+ */
+function readLoopConfig(env = process.env) {
+  const apiUrl = normalizeLoopApiBaseUrl(env.LOOP_API_BASE_URL);
+  const channelId = String(env.LOOP_CHANNEL_ID || "").trim();
+  const token = String(env.LOOP_TOKEN || "").trim();
+
+  if (!apiUrl && !channelId && !token) {
+    return null;
+  }
+  if (!apiUrl || !channelId || !token) {
+    throw new Error(
+      "LOOP_CHANNEL_ID, LOOP_TOKEN, and LOOP_API_BASE_URL are required"
+    );
+  }
+  return { apiUrl, channelId, token };
+}
+
+/**
  * Reads messenger configuration from the environment.
  *
  * @param {NodeJS.ProcessEnv} [env=process.env] Environment variables source.
  * @returns {{
  *   reportsDir: string,
  *   configuredClusters: string[],
- *   loop: {
- *     apiUrl: string,
- *     channelId: string,
- *     token: string
- *   }
+ *   loop: { apiUrl: string, channelId: string, token: string } | null
  * }} Normalized messenger configuration.
  */
 function readMessengerConfigFromEnv(env = process.env) {
@@ -88,15 +101,11 @@ function readMessengerConfigFromEnv(env = process.env) {
   return {
     reportsDir: env.REPORTS_DIR || "downloaded-artifacts",
     configuredClusters,
-    loop: {
-      apiUrl: getLoopPostsApiUrl(env),
-      channelId: String(env.LOOP_CHANNEL_ID || "").trim(),
-      token: String(env.LOOP_TOKEN || "").trim(),
-    },
+    loop: readLoopConfig(env),
   };
 }
 
 module.exports = {
-  getLoopPostsApiUrl,
+  readLoopConfig,
   readMessengerConfigFromEnv,
 };

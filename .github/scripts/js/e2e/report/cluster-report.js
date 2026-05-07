@@ -15,9 +15,11 @@ const fs = require("fs");
 const { findSingleMatchingFile } = require("./shared/fs-utils");
 const { parseGinkgoReport } = require("./shared/ginkgo-report-utils");
 const {
+  archivedReportPattern,
   buildClusterStatus,
   buildReportSummary,
   buildTestStatus,
+  reportFileName,
   zeroMetrics,
 } = require("./shared/report-model");
 
@@ -68,16 +70,12 @@ const {
  */
 
 const workflowStageJobs = {
-  bootstrap: "Bootstrap cluster",
+  "bootstrap": "Bootstrap cluster",
   "configure-sdn": "Configure SDN",
   "storage-setup": "Configure storage",
   "virtualization-setup": "Configure Virtualization",
   "e2e-test": "E2E test",
 };
-
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 function readClusterReportConfigFromEnv(env = process.env) {
   const storageType = String(env.STORAGE_TYPE || "").trim();
@@ -86,7 +84,7 @@ function readClusterReportConfigFromEnv(env = process.env) {
     storageType,
     pipelineJobName: String(env.PIPELINE_JOB_NAME || "").trim(),
     reportsDir: env.REPORTS_DIR || "test/e2e",
-    reportFile: env.REPORT_FILE || `e2e_report_${storageType}.json`,
+    reportFile: env.REPORT_FILE || reportFileName(storageType),
   };
 }
 
@@ -169,9 +167,7 @@ async function readStageDetailsFromWorkflowRun(github, context, config, core) {
 }
 
 function findGinkgoReport(config) {
-  const rawReportPattern = new RegExp(
-    `^e2e_report_${escapeRegExp(config.storageType)}_.*\\.json$`
-  );
+  const rawReportPattern = archivedReportPattern(config.storageType);
 
   return findSingleMatchingFile(
     config.reportsDir,

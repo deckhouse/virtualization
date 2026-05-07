@@ -10,6 +10,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/** Matches every `e2e_report_*.json` file produced by the pipeline. */
+const REPORT_FILE_PATTERN = /^e2e_report_.*\.json$/;
+
+/**
+ * Returns the canonical report file name for a given storage type.
+ * @param {string} storageType
+ * @returns {string}
+ */
+function reportFileName(storageType) {
+  return `e2e_report_${storageType}.json`;
+}
+
+/**
+ * Returns a regex that matches dated archive copies of a report file,
+ * e.g. `e2e_report_replicated_2026-04-15.json`.
+ * @param {string} storageType
+ * @returns {RegExp}
+ */
+function archivedReportPattern(storageType) {
+  const escaped = storageType.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`^e2e_report_${escaped}_.*\\.json$`);
+}
+
 const stageMessage = {
   "bootstrap": "BOOTSTRAP CLUSTER",
   "configure-sdn": "CONFIGURE SDN",
@@ -241,6 +264,7 @@ function isTestResultReport(report) {
 }
 
 module.exports = {
+  archivedReportPattern,
   buildClusterStatus,
   buildReportSummary,
   buildStatusMessage,
@@ -249,6 +273,8 @@ module.exports = {
   isMissingReport,
   isTestResultReport,
   normalizeJobResult,
+  REPORT_FILE_PATTERN,
+  reportFileName,
   stageMessage,
   zeroMetrics,
 };

@@ -93,7 +93,7 @@ function formatSpecName(specReport) {
  * @param {string} state Raw `SpecReport.State` value.
  * @returns {"passed"|"failed"|"errors"|"skipped"} Metrics key.
  */
-function metricKeyForState(state) {
+function getMetricKeyForState(state) {
   const normalizedState = String(state || "")
     .trim()
     .toLowerCase();
@@ -133,12 +133,16 @@ function parseGinkgoReport(jsonContent) {
 
   for (const suite of suites) {
     for (const specReport of toArray(suite && suite.SpecReports)) {
+      // SpecReports can contain suite-level setup/teardown entries
+      // (BeforeSuite, AfterSuite, etc.) in addition to regular specs.
+      // `Specify` is a pure alias for `It` and serializes to the same
+      // "It" value. We only count actual spec nodes in the metrics.
       if (String(specReport && specReport.LeafNodeType) !== "It") {
         continue;
       }
 
       metrics.total += 1;
-      const metricKey = metricKeyForState(specReport.State);
+      const metricKey = getMetricKeyForState(specReport.State);
       metrics[metricKey] += 1;
 
       if (metricKey === "failed" || metricKey === "errors") {
@@ -165,7 +169,7 @@ function parseGinkgoReport(jsonContent) {
 module.exports = {
   flattenLabels,
   formatSpecName,
-  metricKeyForState,
+  getMetricKeyForState,
   parseGinkgoReport,
   toArray,
 };

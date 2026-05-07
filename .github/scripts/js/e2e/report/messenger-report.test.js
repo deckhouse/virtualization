@@ -83,6 +83,21 @@ describe("messenger-report", () => {
     });
   });
 
+  test("returns null loop config when no Loop credentials are set", () => {
+    const config = readMessengerConfigFromEnv({});
+
+    expect(config.loop).toBeNull();
+  });
+
+  test("throws when Loop credentials are only partially configured", () => {
+    expect(() =>
+      readMessengerConfigFromEnv({
+        LOOP_API_BASE_URL: "https://loop.example.invalid",
+        // LOOP_CHANNEL_ID and LOOP_TOKEN intentionally absent
+      })
+    ).toThrow("LOOP_CHANNEL_ID, LOOP_TOKEN, and LOOP_API_BASE_URL are required");
+  });
+
   test("uses default configured clusters when env override is absent", () => {
     const config = readMessengerConfigFromEnv({});
 
@@ -173,15 +188,16 @@ describe("messenger-report", () => {
       expect(result.threadMessages).toEqual([]);
     }));
 
-  test("derives cluster key from filename when storageType/cluster fields are absent", async () =>
+  test("warns and skips report files that are missing storageType/cluster fields", async () =>
     withTempDir(async (tempDir) => {
       fs.writeFileSync(
-        path.join(tempDir, "e2e_report_extra.json"),
+        path.join(tempDir, "e2e_report_corrupt.json"),
         JSON.stringify({
           reportKind: "stage-failure",
           failedStage: "configure-sdn",
           failedStageLabel: "CONFIGURE SDN",
           status: "failure",
+          // no storageType / cluster fields
         })
       );
 
@@ -212,14 +228,13 @@ describe("messenger-report", () => {
       const core = createCore();
       const result = await renderMessengerReport({ core });
 
-      // "nfs" is in the configured list and is rendered normally.
+      // The valid "nfs" report is still rendered normally.
       expect(result.message).toContain("### Test results");
-      expect(result.message).not.toContain("- —:");
-      // "extra" is not in the configured list; it is appended as an extra cluster failure.
-      expect(result.message).toContain("### Cluster failures");
-      expect(result.message).toContain("- extra: CONFIGURE SDN");
+      // The corrupt file is dropped; no phantom entry appears in the output.
+      expect(result.message).not.toContain("corrupt");
+      // A warning is emitted so the problem is visible in CI logs.
       expect(core.warning).toHaveBeenCalledWith(
-        expect.stringContaining('missing storageType/cluster fields; using filename-derived key "extra"')
+        expect.stringContaining("report is missing storageType/cluster fields")
       );
     }));
 

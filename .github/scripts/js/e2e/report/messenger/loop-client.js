@@ -99,17 +99,7 @@ async function postToLoopApi(
  * @param {LoopClientCore} core GitHub core API.
  * @returns {Promise<void>}
  */
-async function publishToLoop({ message, threadMessages, loop }, core) {
-  if (!loop.apiUrl && !loop.channelId && !loop.token) {
-    return;
-  }
-
-  if (!loop.apiUrl || !loop.channelId || !loop.token) {
-    throw new Error(
-      "LOOP_CHANNEL_ID, LOOP_TOKEN, and LOOP_API_BASE_URL are required"
-    );
-  }
-
+async function makeThreadedReportInLoop({ message, threadMessages, loop }, core) {
   const rootPost = await postToLoopApi(
     {
       apiUrl: loop.apiUrl,
@@ -142,5 +132,5 @@ async function publishToLoop({ message, threadMessages, loop }, core) {
 }
 
 module.exports = {
-  publishToLoop,
+  makeThreadedReportInLoop,
 };
