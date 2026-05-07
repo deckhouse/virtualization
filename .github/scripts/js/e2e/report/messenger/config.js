@@ -59,7 +59,7 @@ const defaultConfiguredClusters = ["replicated", "nfs"];
  */
 function parseConfiguredClusters(value) {
   try {
-    const parsed = JSON.parse(value || "[]");
+    const parsed = JSON.parse(value || "{}");
     return Array.isArray(parsed) ? parsed : defaultConfiguredClusters;
   } catch {
     return defaultConfiguredClusters;
