@@ -1361,11 +1361,6 @@ jobs:
           echo "[INFO] Showing exists vmclasses"
           kubectl get vmclass
 
-      - name: Set vars
-        id: vars
-        run: |
-          echo "e2e-start-time=${E2E_START_TIME}" >> $GITHUB_OUTPUT
-
       - name: Run E2E
         id: e2e-report
         env:
