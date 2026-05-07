@@ -1468,40 +1468,19 @@ jobs:
 
           echo "[INFO] Exit code: $GINKGO_EXIT_CODE"
           exit 0
-      - name: Encrypt summary test results artifact
-        if: always() && steps.e2e-report.outcome != 'skipped'
-        env:
-          GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
-          ARTIFACT_NAME: e2e-test-results-${{ env.STORAGE_TYPE }}-${{ github.run_id }}-${{ env.E2E_START_TIME }}
-        run: |
-          shopt -s nullglob
-          files=(
-            test/e2e/e2e_summary_*.json
-            test/e2e/ginkgo_report_*.json
-            test/e2e/e2e_summary_*.xml
-            test/e2e/*junit*.xml
-          )
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "[INFO] No E2E summary files found, skipping encryption"
-            exit 0
-          fi
-          zip -r $RUNNER_TEMP/${ARTIFACT_NAME}.zip "${files[@]}"
-          gpg --symmetric --batch --yes --pinentry-mode loopback \
-            --passphrase "$GPG_PASSPHRASE" \
-            --cipher-algo AES256 \
-            --output $RUNNER_TEMP/${ARTIFACT_NAME}.zip.gpg \
-            $RUNNER_TEMP/${ARTIFACT_NAME}.zip
-          rm -f $RUNNER_TEMP/${ARTIFACT_NAME}.zip
-
       - name: Upload summary test results (junit/xml)
         uses: actions/upload-artifact@v7
         id: e2e-report-artifact
         if: always() && steps.e2e-report.outcome != 'skipped'
         with:
-          path: ${{ runner.temp }}/e2e-test-results-${{ env.STORAGE_TYPE }}-${{ github.run_id }}-${{ env.E2E_START_TIME }}.zip.gpg
+          name: e2e-test-results-${{ env.STORAGE_TYPE }}-${{ github.run_id }}-${{ env.E2E_START_TIME }}
+          path: |
+            test/e2e/e2e_summary_*.json
+            test/e2e/ginkgo_report_*.json
+            test/e2e/e2e_summary_*.xml
+            test/e2e/*junit*.xml
           if-no-files-found: ignore
           retention-days: 3
-          archive: false
 
       - name: Encrypt resources from failed tests artifact
         if: always() && steps.e2e-report.outcome != 'skipped'
@@ -1552,25 +1531,8 @@ jobs:
         uses: actions/download-artifact@v8
         continue-on-error: true
         with:
-          name: e2e-test-results-${{ env.STORAGE_TYPE }}-${{ github.run_id }}-${{ env.E2E_START_TIME }}.zip.gpg
-          path: ${{ runner.temp }}/encrypted-e2e-results
-
-      - name: Decrypt E2E test results if available
-        continue-on-error: true
-        env:
-          GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
-        run: |
-          mkdir -p test/e2e
-          artifact_path=${{ runner.temp }}/encrypted-e2e-results/e2e-test-results-${{ env.STORAGE_TYPE }}-${{ github.run_id }}-${{ env.E2E_START_TIME }}.zip.gpg
-          if [ ! -f "$artifact_path" ]; then
-            echo "[INFO] Encrypted E2E results artifact not found, skipping decryption"
-            exit 0
-          fi
-          gpg --decrypt --batch --yes --pinentry-mode loopback \
-            --passphrase "$GPG_PASSPHRASE" \
-            --output $RUNNER_TEMP/e2e-test-results-${STORAGE_TYPE}-${GITHUB_RUN_ID}-${E2E_START_TIME}.zip \
-            "$artifact_path"
-          unzip -o $RUNNER_TEMP/e2e-test-results-${STORAGE_TYPE}-${GITHUB_RUN_ID}-${E2E_START_TIME}.zip
+          name: e2e-test-results-${{ env.STORAGE_TYPE }}-${{ github.run_id }}-${{ env.E2E_START_TIME }}
+          path: test/e2e/
 
       - name: Determine failed stage and prepare report
         id: determine-stage
