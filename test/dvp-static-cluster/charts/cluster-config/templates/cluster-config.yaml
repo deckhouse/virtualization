@@ -27,7 +27,9 @@ proxy:
 apiVersion: deckhouse.io/v1
 kind: InitConfiguration
 deckhouse:
-  imagesRepo: registry.deckhouse.io/deckhouse/ee
+{{/*  imagesRepo: registry.deckhouse.io/deckhouse/ee */}}
+  devBranch: {{ .Values.deckhouse.channel }}
+  imagesRepo: dev-registry.deckhouse.io/sys/deckhouse-oss
   registryDockerCfg: {{ .Values.deckhouse.registryDockerCfg }}
 ---
 apiVersion: deckhouse.io/v1
