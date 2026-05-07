@@ -1554,7 +1554,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Download E2E test results if available
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           name: e2e-test-results-${{ env.STORAGE_TYPE }}-${{ github.run_id }}-${{ env.E2E_START_TIME }}
@@ -1768,7 +1768,7 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: ${{ env.STORAGE_TYPE }}-generated-files-${{ env.E2E_START_TIME }}
           path: ${{ runner.temp }}/encrypted-generated-files
