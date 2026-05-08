@@ -19,6 +19,7 @@ package vm
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -91,7 +92,15 @@ var _ = Describe("VirtualMachineUSB", Label(precheck.PrecheckUSB), func() {
 		})
 
 		By("Mounting USB device", func() {
-			t.mountUSB()
+			GinkgoWriter.Println("Finding USB device")
+			mountDevice := t.findUSBMountDevice()
+			GinkgoWriter.Println("Found USB device:", mountDevice)
+
+			GinkgoWriter.Println("Formatting USB device")
+			t.formatUSBDevice(mountDevice)
+
+			GinkgoWriter.Println("Mounting USB device")
+			t.mountUSBDevice(mountDevice)
 		})
 
 		By("Writing data to USB device", func() {
@@ -115,7 +124,12 @@ var _ = Describe("VirtualMachineUSB", Label(precheck.PrecheckUSB), func() {
 		})
 
 		By("Remounting USB device after migration", func() {
-			t.mountUSB()
+			GinkgoWriter.Println("Finding USB device")
+			mountDevice := t.findUSBMountDevice()
+			GinkgoWriter.Println("Found USB device:", mountDevice)
+
+			GinkgoWriter.Println("Remounting USB device")
+			t.mountUSBDevice(mountDevice)
 		})
 
 		By("Verifying data persists after migration", func() {
@@ -182,6 +196,8 @@ func (t *VMUSBTest) GenerateEnvironmentResources() {
 		}
 	}
 	Expect(freeUSB).NotTo(BeNil(), "no free USB devices available")
+
+	GinkgoWriter.Println("Found free USB device:", freeUSB.Name)
 
 	t.NodeUSBDevice = freeUSB
 
@@ -255,11 +271,11 @@ func (t *VMUSBTest) verifyUSBTestData() {
 	Expect(result).To(ContainSubstring(t.testContent))
 }
 
-func (t *VMUSBTest) mountUSB() {
+func (t *VMUSBTest) findUSBMountDevice() string {
 	serial := t.NodeUSBDevice.Status.Attributes.Serial
 	Expect(serial).NotTo(BeEmpty(), "USB device serial must be set")
 
-	mountCmd := fmt.Sprintf(`
+	findDeviceCmd := fmt.Sprintf(`
 		usb_serial=%q
 		: > /tmp/usb-mount.err
 		for serial_file in /sys/bus/usb/devices/*/serial; do
@@ -293,20 +309,69 @@ func (t *VMUSBTest) mountUSB() {
 			exit 1
 		}
 
+		echo "$mount_device"
+	`, serial)
+
+	var mountDevice string
+
+	Eventually(func() error {
+		result, err := t.Framework.SSHCommand(
+			t.VM.Name,
+			t.VM.Namespace,
+			findDeviceCmd,
+			framework.WithSSHTimeout(framework.ShortTimeout),
+		)
+		if err != nil {
+			return err
+		}
+		mountDevice = strings.TrimSpace(result)
+		if mountDevice == "" {
+			return fmt.Errorf("empty mount device output")
+		}
+
+		return nil
+	}).WithTimeout(framework.MiddleTimeout).WithPolling(time.Second).Should(Succeed(), t.usbDiagnostics())
+
+	return mountDevice
+}
+
+func (t *VMUSBTest) formatUSBDevice(mountDevice string) {
+	formatCmd := fmt.Sprintf(`
+		: > /tmp/usb-mount.err
+		sudo mkfs.vfat -I %q 2>>/tmp/usb-mount.err
+	`, mountDevice)
+
+	Eventually(func() error {
+		_, err := t.Framework.SSHCommand(
+			t.VM.Name,
+			t.VM.Namespace,
+			formatCmd,
+			framework.WithSSHTimeout(framework.ShortTimeout),
+		)
+		return err
+	}).WithTimeout(framework.MiddleTimeout).WithPolling(time.Second).Should(Succeed(), t.usbDiagnostics())
+}
+
+func (t *VMUSBTest) mountUSBDevice(mountDevice string) {
+	mountCmd := fmt.Sprintf(`
+		: > /tmp/usb-mount.err
 		sudo mkdir -p /mnt/usb
 		if sudo mountpoint -q /mnt/usb; then
 			sudo umount /mnt/usb || true
 		fi
-		sudo mount -t auto "$mount_device" /mnt/usb 2>>/tmp/usb-mount.err || \
-			sudo mount -t vfat -o rw "$mount_device" /mnt/usb 2>>/tmp/usb-mount.err || \
-			sudo mount -o rw "$mount_device" /mnt/usb 2>>/tmp/usb-mount.err
+		sudo mount %q /mnt/usb 2>>/tmp/usb-mount.err
 		ls -la /mnt/usb
-	`, serial)
+	`, mountDevice)
 
 	Eventually(func() error {
-		_, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, mountCmd, framework.WithSSHTimeout(framework.MiddleTimeout))
+		_, err := t.Framework.SSHCommand(
+			t.VM.Name,
+			t.VM.Namespace,
+			mountCmd,
+			framework.WithSSHTimeout(framework.MiddleTimeout),
+		)
 		return err
-	}).WithTimeout(framework.MiddleTimeout).WithPolling(time.Second).Should(Succeed(), t.usbDiagnostics())
+	}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed(), t.usbDiagnostics())
 }
 
 func (t *VMUSBTest) usbDiagnostics() string {
