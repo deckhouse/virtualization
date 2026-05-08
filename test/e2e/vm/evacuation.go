@@ -154,17 +154,10 @@ func evacuateVirtualMachines(ctx context.Context, f *framework.Framework, vms ..
 	Eventually(func(g Gomega) {
 		pods = []corev1.Pod{}
 		for _, vm := range vms {
-			var currentVM v1alpha2.VirtualMachine
-			err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), &currentVM)
+			_, pod, err := util.GetVirtualMachineAndActivePod(ctx, f, vm)
 			g.Expect(err).NotTo(HaveOccurred())
-
-			activePodName, err := getActiveVirtualMachinePodName(&currentVM)
-			g.Expect(err).NotTo(HaveOccurred())
-
-			var pod corev1.Pod
-			err = f.GenericClient().Get(ctx, crclient.ObjectKey{Namespace: vm.Namespace, Name: activePodName}, &pod)
-			g.Expect(err).NotTo(HaveOccurred())
-			pods = append(pods, pod)
+			g.Expect(pod).NotTo(BeNil())
+			pods = append(pods, *pod)
 		}
 	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
 
