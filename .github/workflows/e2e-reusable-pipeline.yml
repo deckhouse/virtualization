@@ -1390,7 +1390,7 @@ jobs:
           summary_file_name_junit="e2e_summary_${CSI}_${DATE}.xml"
           ginkgo_json_report="ginkgo_report_${CSI}_${DATE}.json"
           summary_file_name_json="e2e_summary_${CSI}_${DATE}.json"
-          FOCUS="VirtualMachineMigration"
+          FOCUS="${{ inputs.e2e_focus_tests }}"
 
           cp -a legacy/testdata /tmp/testdata
 
@@ -1467,7 +1467,7 @@ jobs:
           echo $SUMMARY > "${summary_file_name_json}"
 
           echo "[INFO] Exit code: $GINKGO_EXIT_CODE"
-          exit 0
+          exit $GINKGO_EXIT_CODE
       - name: Upload summary test results (junit/xml)
         uses: actions/upload-artifact@v7
         id: e2e-report-artifact
