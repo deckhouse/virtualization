@@ -40,13 +40,11 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var (
-	validAbortStatuses = []virtv1.MigrationAbortStatus{
-		virtv1.MigrationAbortInProgress,
-		virtv1.MigrationAbortSucceeded,
-		virtv1.MigrationAbortFailed,
-	}
-)
+var validAbortStatuses = []virtv1.MigrationAbortStatus{
+	virtv1.MigrationAbortInProgress,
+	virtv1.MigrationAbortSucceeded,
+	virtv1.MigrationAbortFailed,
+}
 
 const stressCommand = "nohup stress-ng --cpu 4 --vm 4 --vm-bytes 90% --vm-keep --vm-populate --vm-method all --timeout 1h </dev/null >/dev/null 2>errlog &"
 
