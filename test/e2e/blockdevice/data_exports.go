@@ -44,6 +44,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
@@ -57,11 +58,15 @@ const (
 	diskImageExportFile = "disk.img"
 )
 
-var _ = Describe("DataExports", label.Slow(), func() {
-	f := framework.NewFramework("data-exports")
-
+var _ = Describe("DataExports", label.Slow(), Label(precheck.PrecheckSVDM, precheck.PrecheckSnapshot), func() {
+	var (
+		f   *framework.Framework
+		ctx context.Context
+	)
 	BeforeEach(func() {
-		moduleEnabled, err := checkStorageVolumeDataManagerEnabled()
+		ctx = context.Background()
+		f = framework.NewFramework("data-exports")
+		moduleEnabled, err := checkStorageVolumeDataManagerEnabled(ctx)
 		Expect(err).NotTo(HaveOccurred(), "Failed to get modules")
 		if !moduleEnabled {
 			Skip("Module 'storage-volume-data-manager' is disabled. Skipping all tests with using this module.")
@@ -90,7 +95,7 @@ var _ = Describe("DataExports", label.Slow(), func() {
 				vdbuilder.WithPersistentVolumeClaim(nil, ptr.To(resource.MustParse("51Mi"))),
 			)
 
-			err := f.CreateWithDeferredDeletion(context.Background(), vdRoot, vdData)
+			err := f.CreateWithDeferredDeletion(ctx, vdRoot, vdData)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -98,7 +103,7 @@ var _ = Describe("DataExports", label.Slow(), func() {
 			vm = vmbuilder.New(
 				vmbuilder.WithName("vm"),
 				vmbuilder.WithNamespace(f.Namespace().Name),
-				vmbuilder.WithCPU(1, ptr.To("5%")),
+				vmbuilder.WithCPU(1, ptr.To("100%")),
 				vmbuilder.WithMemory(resource.MustParse("512Mi")),
 				vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 				vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
@@ -110,17 +115,17 @@ var _ = Describe("DataExports", label.Slow(), func() {
 				vmbuilder.WithProvisioningUserData(object.UbuntuCloudInit),
 			)
 
-			err := f.CreateWithDeferredDeletion(context.Background(), vm)
+			err := f.CreateWithDeferredDeletion(ctx, vm)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		By("Waiting for VM agent to be ready", func() {
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+			util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 		})
 
 		By("Writing test data to the data disk", func() {
-			util.CreateBlockDeviceFilesystem(f, vm, v1alpha2.DiskDevice, vdData.Name, "ext4")
-			util.MountBlockDevice(f, vm, v1alpha2.DiskDevice, vdData.Name, mountPointData)
+			util.CreateBlockDeviceFilesystem(ctx, f, vm, v1alpha2.DiskDevice, vdData.Name, "ext4")
+			util.MountBlockDevice(ctx, f, vm, v1alpha2.DiskDevice, vdData.Name, mountPointData)
 			util.WriteFile(f, vm, fileDataPath, testFileValue)
 			util.UnmountBlockDevice(f, vm, mountPointData)
 		})
@@ -132,11 +137,11 @@ var _ = Describe("DataExports", label.Slow(), func() {
 				vmopbuilder.WithType(v1alpha2.VMOPTypeStop),
 				vmopbuilder.WithVirtualMachine(vm.Name),
 			)
-			err := f.CreateWithDeferredDeletion(context.Background(), vmopStop)
+			err := f.CreateWithDeferredDeletion(ctx, vmopStop)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilObjectPhase(string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout, vmopStop)
-			util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.ShortTimeout, vm)
+			util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout, vmopStop)
+			util.UntilObjectPhase(ctx, string(v1alpha2.MachineStopped), framework.ShortTimeout, vm)
 		})
 
 		By("Creating snapshot of the data disk", func() {
@@ -147,26 +152,26 @@ var _ = Describe("DataExports", label.Slow(), func() {
 				vdsnapshotbuilder.WithRequiredConsistency(true),
 			)
 
-			err := f.CreateWithDeferredDeletion(context.Background(), vdSnapshot)
+			err := f.CreateWithDeferredDeletion(ctx, vdSnapshot)
 			Expect(err).NotTo(HaveOccurred())
-			util.UntilObjectPhase(string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.ShortTimeout, vdSnapshot)
+			util.UntilObjectPhase(ctx, string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.ShortTimeout, vdSnapshot)
 		})
 
 		By("Exporting VirtualDisk to local file", func() {
-			exportData(f, "vd", vdData.Name, exportedDiskFile)
+			exportData(ctx, f, "vd", vdData.Name, exportedDiskFile)
 		})
 
 		By("Exporting VirtualDiskSnapshot to local file", func() {
-			exportData(f, "vds", vdSnapshot.Name, exportedSnapshotFile)
+			exportData(ctx, f, "vds", vdSnapshot.Name, exportedSnapshotFile)
 		})
 
 		By("Deleting the original data disk", func() {
-			err := f.Delete(context.Background(), vdData)
+			err := f.Delete(ctx, vdData)
 			Expect(err).NotTo(HaveOccurred())
 
 			Eventually(func(g Gomega) {
 				var vd v1alpha2.VirtualDisk
-				err := f.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
+				err := f.Clients.GenericClient().Get(ctx, types.NamespacedName{
 					Namespace: vdData.Namespace,
 					Name:      vdData.Name,
 				}, &vd)
@@ -176,31 +181,31 @@ var _ = Describe("DataExports", label.Slow(), func() {
 		})
 
 		By("Creating disk from exported VirtualDisk", func() {
-			vdFromDiskExport = createUploadDisk(f, "vd-restored-from-disk")
+			vdFromDiskExport = createUploadDisk(ctx, f, "vd-restored-from-disk")
 		})
 
 		By("Uploading exported disk image", func() {
-			uploadFile(f, vdFromDiskExport, exportedDiskFile)
+			uploadFile(ctx, f, vdFromDiskExport, exportedDiskFile)
 		})
 
 		By("Waiting for disk from VirtualDisk export to be ready", func() {
-			util.UntilObjectPhase(util.GetExpectedDiskPhaseByVolumeBindingMode(), framework.LongTimeout, vdFromDiskExport)
+			util.UntilObjectPhase(ctx, util.GetExpectedDiskPhaseByVolumeBindingMode(), framework.LongTimeout, vdFromDiskExport)
 		})
 
 		By("Creating disk from exported VirtualDiskSnapshot", func() {
-			vdFromSnapshotExport = createUploadDisk(f, "vd-restored-from-snapshot")
+			vdFromSnapshotExport = createUploadDisk(ctx, f, "vd-restored-from-snapshot")
 		})
 
 		By("Uploading exported snapshot image", func() {
-			uploadFile(f, vdFromSnapshotExport, exportedSnapshotFile)
+			uploadFile(ctx, f, vdFromSnapshotExport, exportedSnapshotFile)
 		})
 
 		By("Waiting for disk from snapshot export to be ready", func() {
-			util.UntilObjectPhase(util.GetExpectedDiskPhaseByVolumeBindingMode(), framework.LongTimeout, vdFromSnapshotExport)
+			util.UntilObjectPhase(ctx, util.GetExpectedDiskPhaseByVolumeBindingMode(), framework.LongTimeout, vdFromSnapshotExport)
 		})
 
 		By("Attaching restored disks to VM", func() {
-			err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vm), vm)
+			err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), vm)
 			Expect(err).NotTo(HaveOccurred())
 
 			vm.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{
@@ -209,24 +214,24 @@ var _ = Describe("DataExports", label.Slow(), func() {
 				{Kind: v1alpha2.DiskDevice, Name: vdFromSnapshotExport.Name},
 			}
 
-			err = f.Clients.GenericClient().Update(context.Background(), vm)
+			err = f.Clients.GenericClient().Update(ctx, vm)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		By("Starting the VM", func() {
-			util.StartVirtualMachine(f, vm)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+			util.StartVirtualMachine(ctx, f, vm)
+			util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 		})
 
 		By("Verifying data on disk restored from VirtualDisk export", func() {
-			util.MountBlockDevice(f, vm, v1alpha2.DiskDevice, vdFromDiskExport.Name, mountPointData)
+			util.MountBlockDevice(ctx, f, vm, v1alpha2.DiskDevice, vdFromDiskExport.Name, mountPointData)
 			restoredValue := util.ReadFile(f, vm, fileDataPath)
 			Expect(restoredValue).To(Equal(testFileValue), "Data should match original")
 			util.UnmountBlockDevice(f, vm, mountPointData)
 		})
 
 		By("Verifying data on disk restored from VirtualDiskSnapshot export", func() {
-			util.MountBlockDevice(f, vm, v1alpha2.DiskDevice, vdFromSnapshotExport.Name, mountPointData)
+			util.MountBlockDevice(ctx, f, vm, v1alpha2.DiskDevice, vdFromSnapshotExport.Name, mountPointData)
 			restoredValue := util.ReadFile(f, vm, fileDataPath)
 			Expect(restoredValue).To(Equal(testFileValue), "Data should match original")
 			util.UnmountBlockDevice(f, vm, mountPointData)
@@ -242,12 +247,12 @@ func IsNFS() bool {
 	return sc.Provisioner == framework.NFS
 }
 
-func needPublishOption(f *framework.Framework) bool {
+func needPublishOption(ctx context.Context, f *framework.Framework) bool {
 	hostname, err := os.Hostname()
 	Expect(err).NotTo(HaveOccurred(), "Failed to get hostname")
 	var node corev1.Node
 	err = f.Clients.GenericClient().Get(
-		context.Background(),
+		ctx,
 		types.NamespacedName{Name: hostname},
 		&node,
 	)
@@ -258,11 +263,11 @@ func needPublishOption(f *framework.Framework) bool {
 	return false
 }
 
-func exportData(f *framework.Framework, resourceType, name, outputFile string) {
+func exportData(ctx context.Context, f *framework.Framework, resourceType, name, outputFile string) {
 	opts := d8.DataExportOptions{
 		Namespace:  f.Namespace().Name,
 		OutputFile: outputFile,
-		Publish:    needPublishOption(f),
+		Publish:    needPublishOption(ctx, f),
 		Timeout:    framework.LongTimeout,
 		Cleanup:    true,
 	}
@@ -278,7 +283,7 @@ func exportData(f *framework.Framework, resourceType, name, outputFile string) {
 	})
 }
 
-func createUploadDisk(f *framework.Framework, name string) *v1alpha2.VirtualDisk {
+func createUploadDisk(ctx context.Context, f *framework.Framework, name string) *v1alpha2.VirtualDisk {
 	vd := vdbuilder.New(
 		vdbuilder.WithName(name),
 		vdbuilder.WithNamespace(f.Namespace().Name),
@@ -287,15 +292,15 @@ func createUploadDisk(f *framework.Framework, name string) *v1alpha2.VirtualDisk
 		}),
 	)
 
-	err := f.CreateWithDeferredDeletion(context.Background(), vd)
+	err := f.CreateWithDeferredDeletion(ctx, vd)
 	Expect(err).NotTo(HaveOccurred())
-	util.UntilObjectPhase(string(v1alpha2.DiskWaitForUserUpload), framework.LongTimeout, vd)
+	util.UntilObjectPhase(ctx, string(v1alpha2.DiskWaitForUserUpload), framework.LongTimeout, vd)
 
 	return vd
 }
 
-func uploadFile(f *framework.Framework, vd *v1alpha2.VirtualDisk, filePath string) {
-	err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vd), vd)
+func uploadFile(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk, filePath string) {
+	err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vd), vd)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(vd.Status.ImageUploadURLs).NotTo(BeNil(), "ImageUploadURLs should be set")
 	Expect(vd.Status.ImageUploadURLs.External).NotTo(BeEmpty(), "External upload URL should be set")
@@ -364,8 +369,8 @@ func handleUploadResponse(resp *http.Response) error {
 	return fmt.Errorf("upload failed with status %d: %s", resp.StatusCode, body)
 }
 
-func checkStorageVolumeDataManagerEnabled() (bool, error) {
-	sdnModule, err := framework.NewFramework("").GetModuleConfig("storage-volume-data-manager")
+func checkStorageVolumeDataManagerEnabled(ctx context.Context) (bool, error) {
+	sdnModule, err := framework.NewFramework("").GetModuleConfig(ctx, "storage-volume-data-manager")
 	if err != nil {
 		return false, err
 	}

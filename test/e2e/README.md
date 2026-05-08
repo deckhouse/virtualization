@@ -51,13 +51,6 @@ Additionally, the storage class in the tests can be defined by the environment v
 STORAGE_CLASS_NAME=linstor-thin-r1 task run
 ```
 
-### Immediate Storage Class
-Some test cases depend on an immediate storage class. You can skip the immediate storage class check if a test case does not require it.
-
-```bash
-FOCUS="VirtualMachineVersions" SKIP_IMMEDIATE_SC_CHECK="yes" task e2e:run
-```
-
 ### E2E configuration
 
 Temp directories, prefixes, images and ssh settings can be set in the
@@ -97,18 +90,29 @@ task runp
 ### Debugging options
 
 - Use the FOCUS environment variable to run a specific test.
-- Set POST_CLEANUP=no to disable cleanup after tests.
+- Set POST_CLEANUP=no to disable cleanup after tests (takes precedence over isCleanupNeeded in config).
 - Set LABELS to run tests with specific label(https://onsi.github.io/ginkgo/#spec-labels).
 - Manage timeouts for new e2e tests (not for legacy tests) using env variables `E2E_SHORT_TIMEOUT`, `E2E_MIDDLE_TIMEOUT`, `E2E_LONG_TIMEOUT` and `E2E_MAX_TIMEOUT`.
 
-For example, to run only the "ComplexTest" and leave all created resources in the cluster, use the following command: 
+For example, to run only one test and leave all created resources in the cluster, use the following command:
 ```bash
-FOCUS="ComplexTest" POST_CLEANUP=no task run
+FOCUS="VirtualMachineConnectivity" POST_CLEANUP=no task run
 ```
 
 ### PostCleanUp option
 
-POST_CLEANUP defines an environment variable used to explicitly request the deletion of created/used resources.
+`POST_CLEANUP` defines an environment variable used to explicitly request the deletion of created/used resources.
+
+Valid values:
+- `yes` or "" (empty) - perform cleanup after tests (default)
+- `no` - skip cleanup after tests
+
+You can also control cleanup behavior via the `isCleanupNeeded` field in `default_config.yaml`:
+```yaml
+isCleanupNeeded: true  # default: cleanup enabled
+```
+
+The `POST_CLEANUP` environment variable takes precedence over the YAML config.
 
 For example, run a test in no-cleanup mode:
 ```bash

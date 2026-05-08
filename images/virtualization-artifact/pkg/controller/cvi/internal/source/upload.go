@@ -24,6 +24,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
@@ -48,6 +49,7 @@ type UploadDataSource struct {
 	dvcrSettings        *dvcr.Settings
 	controllerNamespace string
 	recorder            eventrecord.EventRecorderLogger
+	client              client.Client
 }
 
 func NewUploadDataSource(
@@ -56,6 +58,7 @@ func NewUploadDataSource(
 	uploaderService Uploader,
 	dvcrSettings *dvcr.Settings,
 	controllerNamespace string,
+	client client.Client,
 ) *UploadDataSource {
 	return &UploadDataSource{
 		statService:         statService,
@@ -63,6 +66,7 @@ func NewUploadDataSource(
 		dvcrSettings:        dvcrSettings,
 		controllerNamespace: controllerNamespace,
 		recorder:            recorder,
+		client:              client,
 	}
 }
 
@@ -92,7 +96,12 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		return reconcile.Result{}, err
 	}
 
-	isUploaderReady, err := ds.statService.IsUploaderReady(pod, svc, ing)
+	tlsSecret, err := supplements.GetTLSSecret(ctx, ds.client, supgen)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	isUploaderReady, err := ds.statService.IsUploaderReady(pod, svc, ing, tlsSecret)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

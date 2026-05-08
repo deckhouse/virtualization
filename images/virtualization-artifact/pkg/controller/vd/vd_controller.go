@@ -29,7 +29,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/config"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/postponehandler"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/postponeimporter"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/service"
@@ -82,7 +82,7 @@ func NewController(
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
-		internal.NewPostponeHandlerPreFilter(postponehandler.New[*v1alpha2.VirtualDisk](dvcrService, recorder)),
+		internal.NewPostponeHandlerPreFilter(postponeimporter.NewHandler[*v1alpha2.VirtualDisk](dvcrService, recorder)),
 		internal.NewInitHandler(),
 		internal.NewStorageClassReadyHandler(scService),
 		internal.NewDatasourceReadyHandler(recorder, blank, sources),
@@ -107,7 +107,7 @@ func NewController(
 		return nil, err
 	}
 
-	err = reconciler.SetupController(ctx, mgr, vdController)
+	err = reconciler.SetupController(ctx, mgr, vdController, log)
 	if err != nil {
 		return nil, err
 	}

@@ -391,4 +391,69 @@ var _ = Describe("LifeCycle handler", func() {
 			Expect(vmSnapshot.Status.Consistent).To(BeNil())
 		})
 	})
+
+	Context("fill status resources", func() {
+		It("includes a mac address resource for a single non-main network", func() {
+			vmmac := &v1alpha2.VirtualMachineMACAddress{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       v1alpha2.VirtualMachineMACAddressKind,
+					APIVersion: v1alpha2.SchemeGroupVersion.String(),
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "vm-mac-secondary",
+					Namespace: vm.Namespace,
+				},
+			}
+
+			vm.Spec.Networks = []v1alpha2.NetworksSpec{
+				{
+					Type: v1alpha2.NetworksTypeNetwork,
+				},
+			}
+			vm.Status.Networks = []v1alpha2.NetworksStatus{
+				{
+					Type:                         v1alpha2.NetworksTypeNetwork,
+					VirtualMachineMACAddressName: vmmac.Name,
+				},
+			}
+
+			var err error
+			fakeClient, err = testutil.NewFakeClientWithObjects(vd, vm, vmSnapshot, vdSnapshot, vmmac)
+			Expect(err).NotTo(HaveOccurred())
+
+			h := NewLifeCycleHandler(recorder, snapshotter, storer, fakeClient)
+			err = h.fillStatusResources(testContext(), vmSnapshot, vm)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(vmSnapshot.Status.Resources).To(ContainElement(v1alpha2.ResourceRef{
+				Kind:       vmmac.Kind,
+				ApiVersion: vmmac.APIVersion,
+				Name:       vmmac.Name,
+			}))
+		})
+
+		It("skips virtual machine ip address lookup when the status reference is empty", func() {
+			vm.Spec.Networks = nil
+			vm.Status.Networks = nil
+			vm.Spec.BlockDeviceRefs = nil
+			vm.Status.BlockDeviceRefs = nil
+			vmSnapshot.Spec.KeepIPAddress = v1alpha2.KeepIPAddressAlways
+			vm.Status.VirtualMachineIPAddress = ""
+
+			var err error
+			fakeClient, err = testutil.NewFakeClientWithObjects(vm, vmSnapshot)
+			Expect(err).NotTo(HaveOccurred())
+
+			h := NewLifeCycleHandler(recorder, snapshotter, storer, fakeClient)
+			err = h.fillStatusResources(testContext(), vmSnapshot, vm)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vmSnapshot.Status.Resources).To(Equal([]v1alpha2.ResourceRef{
+				{
+					Kind:       vm.Kind,
+					ApiVersion: vm.APIVersion,
+					Name:       vm.Name,
+				},
+			}))
+		})
+	})
 })

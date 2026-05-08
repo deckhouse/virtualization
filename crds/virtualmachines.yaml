@@ -1197,6 +1197,11 @@ spec:
                           description: Waiting time for the guestOsAgent to start. `running` -> `running` with guestOSAgent.
                           nullable: true
                           type: string
+                    lastStartTime:
+                      description: Time when the virtual machine last started running.
+                      format: date-time
+                      nullable: true
+                      type: string
                 conditions:
                   description: State of the running virtual machine.
                   items:
@@ -1422,9 +1427,9 @@ spec:
           jsonPath: .status.phase
           name: Phase
           type: string
-        - description: Time since the virtual machine entered the current phase.
-          jsonPath: .status.stats.phasesTransitions[-1].timestamp
-          name: PhaseAge
+        - description: Time since the virtual machine started running.
+          jsonPath: .status.stats.lastStartTime
+          name: Uptime
           type: date
         - description: Real number of the virtual machine cores.
           jsonPath: .status.resources.cpu.cores

@@ -42,8 +42,8 @@ rules:
   - virtualization.deckhouse.io
   resources:
   - virtualmachineipaddressleases
+  - virtualmachinemacaddressleases
   verbs:
-  - create
   - update
   - patch
   - delete

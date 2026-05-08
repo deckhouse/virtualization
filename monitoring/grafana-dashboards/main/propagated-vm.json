@@ -303,7 +303,7 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
-      "description": "Shows the current CPU core usage percentage of the virtual machine, including OS usage, hypervisor overhead, and CPU reservation levels.",
+      "description": "Shows the current OS CPU core usage percentage of the virtual machine, excluding hypervisor overhead.",
       "fieldConfig": {
         "defaults": {
           "decimals": 1,
@@ -360,7 +360,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (namespace,name) (rate(d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])) \n/\n(\n    sum by (namespace,name) (d8_virtualization_virtualmachine_cpu_cores{namespace=\"$namespace\", name=\"$name\"}) / 100\n)",
+          "expr": "sum by (namespace,name) (rate(d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])) \n/\n(\n  (avg by (namespace,name) ( sum by (namespace,name,pod) (d8_virtualization_virtualmachine_cpu_cores{namespace=\"$namespace\", name=\"$name\"}) / 100))\n)",
           "hide": false,
           "instant": true,
           "legendFormat": "OS Usage",

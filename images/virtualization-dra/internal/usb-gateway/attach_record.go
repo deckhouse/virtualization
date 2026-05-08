@@ -119,17 +119,29 @@ func (r *attachRecordManager) Refresh() error {
 	}
 
 	// keep only real entries
-	var newEntries []AttachEntry
+	newEntries := make([]AttachEntry, 0, len(record.Entries))
 	for _, e := range record.Entries {
 		if _, ok := ports[e.Rhport]; ok {
 			newEntries = append(newEntries, e)
 		}
 	}
 
-	record.Entries = newEntries
+	newRecord := attachRecord{Entries: newEntries}
+	if slices.Equal(record.Entries, newRecord.Entries) {
+		r.record = newRecord
+		return nil
+	}
 
-	r.record = record
+	b, err = json.Marshal(newRecord)
+	if err != nil {
+		return err
+	}
 
+	if err = os.WriteFile(r.recordFile, b, 0o600); err != nil {
+		return err
+	}
+
+	r.record = newRecord
 	return nil
 }
 

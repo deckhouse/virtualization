@@ -37,6 +37,11 @@ type LifeCycleHandler struct {
 	provisioningLister dvcrtypes.ProvisioningLister
 }
 
+var (
+	gcStatusPollingInterval    = time.Second * 20
+	resultPersistRetryInterval = time.Second
+)
+
 func NewLifeCycleHandler(client client.Client, dvcrService dvcrtypes.DVCRService, provisioningLister dvcrtypes.ProvisioningLister) *LifeCycleHandler {
 	return &LifeCycleHandler{
 		client:             client,
@@ -74,11 +79,17 @@ func (h LifeCycleHandler) Handle(ctx context.Context, req reconcile.Request, dep
 			return reconcile.Result{}, fmt.Errorf("fetch garbage collection secret: %w", err)
 		}
 		if secret == nil || secret.GetDeletionTimestamp() != nil {
-			// Secret is gone, no action required.
+			// Secret is gone, nothing to clean up:
+			// - Keep deployment conditions for informational purposes.
+			// - Postponed CVI/VI/VD will start importers themselves.
 			return reconcile.Result{}, nil
 		}
 
 		if h.dvcrService.IsGarbageCollectionDone(secret) {
+			if h.dvcrService.IsGarbageCollectionResultPersisted(secret, deploy) {
+				return reconcile.Result{}, h.dvcrService.DeleteGarbageCollectionSecret(ctx)
+			}
+
 			// Extract error or success message from the result.
 			reason, msg, err := h.dvcrService.ParseGarbageCollectionResult(secret)
 			if err != nil {
@@ -87,17 +98,34 @@ func (h LifeCycleHandler) Handle(ctx context.Context, req reconcile.Request, dep
 			dvcrcondition.UpdateGarbageCollectionCondition(deploy, reason, "%s", msg)
 			// Put full result JSON into annotation on deployment.
 			annotations.AddAnnotation(deploy, annotations.AnnDVCRGarbageCollectionResult, h.dvcrService.GetGarbageCollectionResult(secret))
-			// It is now possible to delete a secret.
-			return reconcile.Result{}, h.dvcrService.DeleteGarbageCollectionSecret(ctx)
+			// Requeue to delete secret only after deployment update succeeds.
+			return reconcile.Result{RequeueAfter: resultPersistRetryInterval}, nil
 		}
 
 		if h.dvcrService.IsGarbageCollectionStarted(secret) {
+			hasCreationTimestamp := !secret.GetCreationTimestamp().Time.IsZero()
+			waitDuration := time.Since(secret.GetCreationTimestamp().Time)
+			if hasCreationTimestamp && waitDuration > dvcrtypes.GarbageCollectionTimeout {
+				if h.dvcrService.IsGarbageCollectionResultPersisted(secret, deploy) {
+					return reconcile.Result{}, h.dvcrService.DeleteGarbageCollectionSecret(ctx)
+				}
+
+				dvcrcondition.UpdateGarbageCollectionCondition(deploy,
+					dvcrdeploymentcondition.Error,
+					"Wait for garbage collection more than %s timeout: %s elapsed, garbage collection canceled",
+					dvcrtypes.GarbageCollectionTimeout.String(),
+					waitDuration.Truncate(time.Second).String(),
+				)
+				annotations.AddAnnotation(deploy, annotations.AnnDVCRGarbageCollectionResult, "")
+				return reconcile.Result{RequeueAfter: resultPersistRetryInterval}, nil
+			}
+
 			dvcrcondition.UpdateGarbageCollectionCondition(deploy,
 				dvcrdeploymentcondition.InProgress,
 				"Wait for garbage collection to finish.",
 			)
 			// Wait for done annotation appears on secret.
-			return reconcile.Result{}, nil
+			return reconcile.Result{RequeueAfter: gcStatusPollingInterval}, nil
 		}
 
 		// No special annotation, check for provisioners to finish.
@@ -116,22 +144,27 @@ func (h LifeCycleHandler) Handle(ctx context.Context, req reconcile.Request, dep
 				dvcrdeploymentcondition.InProgress,
 				"Wait for garbage collection to finish.",
 			)
-			return reconcile.Result{}, nil
+			return reconcile.Result{RequeueAfter: gcStatusPollingInterval}, nil
 		}
 
 		// Cancel garbage collection if wait for provisioners for too long.
 		hasCreationTimestamp := !secret.GetCreationTimestamp().Time.IsZero()
 		waitDuration := time.Since(secret.GetCreationTimestamp().Time)
 		if hasCreationTimestamp && waitDuration > dvcrtypes.WaitProvisionersTimeout {
+			if h.dvcrService.IsGarbageCollectionResultPersisted(secret, deploy) {
+				return reconcile.Result{}, h.dvcrService.DeleteGarbageCollectionSecret(ctx)
+			}
+
 			// Wait for provisioners timed out: report error and stop garbage collection.
 			dvcrcondition.UpdateGarbageCollectionCondition(deploy,
 				dvcrdeploymentcondition.Error,
-				"Wait for resources provisioners more than %s timeout: %s elapsed, garbage collection canceled",
+				"Wait for %d resources provisioners to finish more than %s timeout: %s elapsed, garbage collection canceled",
+				remainInProvisioning,
 				dvcrtypes.WaitProvisionersTimeout.String(),
-				waitDuration.String(),
+				waitDuration.Truncate(time.Second).String(),
 			)
 			annotations.AddAnnotation(deploy, annotations.AnnDVCRGarbageCollectionResult, "")
-			return reconcile.Result{}, h.dvcrService.DeleteGarbageCollectionSecret(ctx)
+			return reconcile.Result{RequeueAfter: resultPersistRetryInterval}, nil
 		}
 
 		// Use requeue to wait for provisioners to finish.
@@ -139,7 +172,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, req reconcile.Request, dep
 			dvcrdeploymentcondition.InProgress,
 			"Wait for cvi/vi/vd finish provisioning: %d resources remain.", remainInProvisioning,
 		)
-		return reconcile.Result{RequeueAfter: time.Second * 20}, nil
+		return reconcile.Result{RequeueAfter: gcStatusPollingInterval}, nil
 	}
 
 	return reconcile.Result{}, nil

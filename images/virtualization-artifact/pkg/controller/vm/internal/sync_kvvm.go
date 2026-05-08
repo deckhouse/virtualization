@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -215,10 +216,15 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonConfigurationNotApplied).
 			Message("Waiting for the user to restart in order to apply the configuration changes.")
+		restartMessages := changes.GetRestartMessages()
+		additionalMessage := ""
+		if len(restartMessages) > 0 {
+			additionalMessage = strings.Join(restartMessages, " ")
+		}
 		cbAwaitingRestart.
 			Status(metav1.ConditionTrue).
 			Reason(vmcondition.ReasonChangesPendingRestart).
-			Message("Waiting for the user to restart in order to apply the configuration changes.")
+			Message("Waiting for the user to restart in order to apply the configuration changes. " + additionalMessage)
 	case classChanged:
 		h.recorder.Event(current, corev1.EventTypeNormal, v1alpha2.ReasonErrRestartAwaitingChanges, "Restart required to propagate changes from the vmclass spec")
 		cbConfApplied.

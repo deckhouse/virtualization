@@ -24,6 +24,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
@@ -39,11 +40,12 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
+	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
-	"github.com/deckhouse/virtualization/test/e2e/legacy"
 )
 
 const (
@@ -69,8 +71,9 @@ const (
 	additionalInterfaceVLANID = 4006
 )
 
-var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
+var _ = Describe("VirtualMachineOperationRestore", label.Slow(), Label(precheck.PrecheckSnapshot, precheck.PrecheckSDN), func() {
 	DescribeTable("restores a virtual machine from a snapshot", func(restoreMode v1alpha2.SnapshotOperationMode, restartApprovalMode v1alpha2.RestartApprovalMode, runPolicy v1alpha2.RunPolicy, removeRecoverableResources bool) {
+		ctx := context.Background()
 		f := framework.NewFramework(fmt.Sprintf("vmop-restore-%s", strings.ToLower(string(restoreMode))))
 		DeferCleanup(f.After)
 		f.Before()
@@ -82,45 +85,45 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 		Expect(util.IsClusterNetworkExists(f, additionalInterfaceVLANID)).To(BeTrue(), fmt.Sprintf("The cluster network does not exist. Please apply the cluster network first using the command: %s", util.ClusterNetworkCreateCommand(additionalInterfaceVLANID)))
 
 		t := newRestoreTest(f)
-		if !t.IsStorageClassAvailableForTest(t.VM) {
-			Skip("Storage class is not available for test")
+		if !t.IsStorageClassAvailableForTest(ctx, t.VM) {
+			Skip("Temporary skip on sds-replicated-volume until snapshot functionality is fixed")
 		}
 
 		By("Environment preparation", func() {
 			t.GenerateResources(restoreMode, restartApprovalMode, runPolicy)
 			err := f.CreateWithDeferredDeletion(
-				context.Background(), t.VI, t.VDRoot, t.VDBlank, t.VM, t.VMBDA, t.VDBlankWithNoFstabEntry, t.VMBDAWithNoFstabEntry,
+				ctx, t.VI, t.VDRoot, t.VDBlank, t.VM, t.VMBDA, t.VDBlankWithNoFstabEntry, t.VMBDAWithNoFstabEntry,
 			)
 			Expect(err).NotTo(HaveOccurred())
 			if t.VM.Spec.RunPolicy == v1alpha2.ManualPolicy {
-				util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.LongTimeout, t.VM)
-				util.StartVirtualMachine(f, t.VM)
+				util.UntilObjectPhase(ctx, string(v1alpha2.MachineStopped), framework.LongTimeout, t.VM)
+				util.StartVirtualMachine(ctx, f, t.VM)
 			}
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
-			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA, t.VMBDAWithNoFstabEntry)
+			util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
+			util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA, t.VMBDAWithNoFstabEntry)
 
-			util.CreateBlockDeviceFilesystem(f, t.VM, v1alpha2.DiskDevice, t.VDBlank.Name, "ext4")
-			util.MountBlockDevice(f, t.VM, v1alpha2.DiskDevice, t.VDBlank.Name, mountPoint)
-			util.RegisterFstabEntry(f, t.VM, v1alpha2.DiskDevice, t.VDBlank.Name)
+			util.CreateBlockDeviceFilesystem(ctx, f, t.VM, v1alpha2.DiskDevice, t.VDBlank.Name, "ext4")
+			util.MountBlockDevice(ctx, f, t.VM, v1alpha2.DiskDevice, t.VDBlank.Name, mountPoint)
+			util.RegisterFstabEntry(ctx, f, t.VM, v1alpha2.DiskDevice, t.VDBlank.Name)
 			util.WriteFile(f, t.VM, fileDataPath, originalValueOnDisk)
 
-			util.CreateBlockDeviceFilesystem(f, t.VM, v1alpha2.DiskDevice, t.VDBlankWithNoFstabEntry.Name, "ext4")
-			util.MountBlockDevice(f, t.VM, v1alpha2.DiskDevice, t.VDBlankWithNoFstabEntry.Name, mountPoint)
+			util.CreateBlockDeviceFilesystem(ctx, f, t.VM, v1alpha2.DiskDevice, t.VDBlankWithNoFstabEntry.Name, "ext4")
+			util.MountBlockDevice(ctx, f, t.VM, v1alpha2.DiskDevice, t.VDBlankWithNoFstabEntry.Name, mountPoint)
 			util.WriteFile(f, t.VM, fileDataPath, originalValueOnDisk)
 			// Unmount the disk to ensure nothing affects the hash.
 			util.UnmountBlockDevice(f, t.VM, mountPoint)
-			t.BlockDeviceHash = util.GetBlockDeviceHash(f, t.VM, v1alpha2.DiskDevice, t.VDBlankWithNoFstabEntry.Name)
+			t.BlockDeviceHash = util.GetBlockDeviceHash(ctx, f, t.VM, v1alpha2.DiskDevice, t.VDBlankWithNoFstabEntry.Name)
 
 			t.CheckAdditionalNetworkInterface(t.VM, additionalNetworkIP)
 
-			err = f.CreateWithDeferredDeletion(context.Background(), t.VMSnapshot)
+			err = f.CreateWithDeferredDeletion(ctx, t.VMSnapshot)
 			Expect(err).NotTo(HaveOccurred())
-			util.UntilObjectPhase(string(v1alpha2.VirtualMachineSnapshotPhaseReady), framework.ShortTimeout, t.VMSnapshot)
+			util.UntilObjectPhase(ctx, string(v1alpha2.VirtualMachineSnapshotPhaseReady), framework.MiddleTimeout, t.VMSnapshot)
 		})
 		By("Changing VM", func() {
 			util.WriteFile(f, t.VM, fileDataPath, changedValueOnDisk)
 
-			err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
+			err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 			Expect(err).NotTo(HaveOccurred())
 
 			runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, t.VM.Status.Conditions)
@@ -130,7 +133,7 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 			t.VM.Labels[vmLabelName] = vmLabelChangedValue
 			t.VM.Spec.CPU.Cores = changedCPUCores
 			t.VM.Spec.Memory.Size = resource.MustParse(changedMemorySize)
-			err = f.Clients.GenericClient().Update(context.Background(), t.VM)
+			err = f.Clients.GenericClient().Update(ctx, t.VM)
 			Expect(err).NotTo(HaveOccurred())
 
 			if util.IsRestartRequired(t.VM, 3*time.Second) {
@@ -138,12 +141,12 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 			}
 
 			util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), runningLastTransitionTime, framework.LongTimeout)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.ShortTimeout)
-			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
+			util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(t.VM), framework.ShortTimeout)
+			util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
 		})
 		By("Check that VM is in changed state", func() {
 			Expect(util.ReadFile(f, t.VM, fileDataPath)).To(Equal(changedValueOnDisk))
-			err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
+			err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(t.VM.Annotations[vmAnnotationName]).To(Equal(vmAnnotationChangedValue))
 			Expect(t.VM.Labels[vmLabelName]).To(Equal(vmLabelChangedValue))
@@ -152,37 +155,37 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 		})
 		By("Resource preparation", func() {
 			if removeRecoverableResources {
-				t.RemoveRecoverableResources()
+				t.RemoveRecoverableResources(ctx)
 			}
 		})
 		By("Restore VM from snapshot", func() {
-			t.RestoreVM(t.VM, t.VMOPRestore)
+			t.RestoreVM(ctx, t.VM, t.VMOPRestore)
 		})
 		By("Check VM after restore", func() {
-			t.CheckVMAfterRestore(t.VM, t.VDRoot, t.VDBlank, t.VDBlankWithNoFstabEntry, t.VMBDA, t.VMBDAWithNoFstabEntry, t.VMOPRestore)
+			t.CheckVMAfterRestore(ctx, t.VM, t.VDRoot, t.VDBlank, t.VDBlankWithNoFstabEntry, t.VMBDA, t.VMBDAWithNoFstabEntry, t.VMOPRestore)
 		})
 		By("After restoration, verify that labels and annotations are preserved on the resources", func() {
-			err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VDRoot), t.VDRoot)
+			err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VDRoot), t.VDRoot)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(t.VDRoot.Annotations[resourceAnnotationName]).To(Equal(resourceAnnotationValue))
 			Expect(t.VDRoot.Labels[resourceLabelName]).To(Equal(resourceLabelValue))
 
-			err = f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VDBlank), t.VDBlank)
+			err = f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VDBlank), t.VDBlank)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(t.VDBlank.Annotations[resourceAnnotationName]).To(Equal(resourceAnnotationValue))
 			Expect(t.VDBlank.Labels[resourceLabelName]).To(Equal(resourceLabelValue))
 
-			err = f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VMBDA), t.VMBDA)
+			err = f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VMBDA), t.VMBDA)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(t.VMBDA.Annotations[resourceAnnotationName]).To(Equal(resourceAnnotationValue))
 			Expect(t.VMBDA.Labels[resourceLabelName]).To(Equal(resourceLabelValue))
 
-			err = f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VDBlankWithNoFstabEntry), t.VDBlankWithNoFstabEntry)
+			err = f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VDBlankWithNoFstabEntry), t.VDBlankWithNoFstabEntry)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(t.VDBlankWithNoFstabEntry.Annotations[resourceAnnotationName]).To(Equal(resourceAnnotationValue))
 			Expect(t.VDBlankWithNoFstabEntry.Labels[resourceLabelName]).To(Equal(resourceLabelValue))
 
-			err = f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VMBDAWithNoFstabEntry), t.VMBDAWithNoFstabEntry)
+			err = f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VMBDAWithNoFstabEntry), t.VMBDAWithNoFstabEntry)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(t.VMBDAWithNoFstabEntry.Annotations[resourceAnnotationName]).To(Equal(resourceAnnotationValue))
 			Expect(t.VMBDAWithNoFstabEntry.Labels[resourceLabelName]).To(Equal(resourceLabelValue))
@@ -320,7 +323,7 @@ runcmd:
 		vmbuilder.WithNamespace(t.Framework.Namespace().Name),
 		vmbuilder.WithAnnotation(vmAnnotationName, vmAnnotationOriginalValue),
 		vmbuilder.WithLabel(vmLabelName, vmLabelOriginalValue),
-		vmbuilder.WithCPU(originalCPUCores, ptr.To("5%")),
+		vmbuilder.WithCPU(originalCPUCores, ptr.To("100%")),
 		vmbuilder.WithMemory(resource.MustParse(originalMemorySize)),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 		vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
@@ -386,47 +389,47 @@ runcmd:
 	)
 }
 
-func (t *restoreModeTest) RemoveRecoverableResources() {
+func (t *restoreModeTest) RemoveRecoverableResources(ctx context.Context) {
 	GinkgoHelper()
 
 	util.StopVirtualMachineFromOS(t.Framework, t.VM)
-	util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.ShortTimeout, t.VM)
+	util.UntilObjectPhase(ctx, string(v1alpha2.MachineStopped), framework.ShortTimeout, t.VM)
 
-	err := t.Framework.Delete(context.Background(), t.VDRoot, t.VDBlank, t.VMBDA, t.VDBlankWithNoFstabEntry, t.VMBDAWithNoFstabEntry)
+	err := t.Framework.Delete(ctx, t.VDRoot, t.VDBlank, t.VMBDA, t.VDBlankWithNoFstabEntry, t.VMBDAWithNoFstabEntry)
 	Expect(err).NotTo(HaveOccurred())
 
 	// Wait for resources to be deleted before proceeding.
 	Eventually(func(g Gomega) {
 		var vdRootLocal v1alpha2.VirtualDisk
-		err = t.Framework.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
+		err = t.Framework.Clients.GenericClient().Get(ctx, types.NamespacedName{
 			Namespace: t.VDRoot.Namespace,
 			Name:      t.VDRoot.Name,
 		}, &vdRootLocal)
 		g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
 
 		var vdBlankLocal v1alpha2.VirtualDisk
-		err = t.Framework.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
+		err = t.Framework.Clients.GenericClient().Get(ctx, types.NamespacedName{
 			Namespace: t.VDBlank.Namespace,
 			Name:      t.VDBlank.Name,
 		}, &vdBlankLocal)
 		g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
 
 		var vmbdaLocal v1alpha2.VirtualMachineBlockDeviceAttachment
-		err = t.Framework.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
+		err = t.Framework.Clients.GenericClient().Get(ctx, types.NamespacedName{
 			Namespace: t.VMBDA.Namespace,
 			Name:      t.VMBDA.Name,
 		}, &vmbdaLocal)
 		g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
 
 		var vdBlankWithNoFstabEntryLocal v1alpha2.VirtualDisk
-		err = t.Framework.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
+		err = t.Framework.Clients.GenericClient().Get(ctx, types.NamespacedName{
 			Namespace: t.VDBlankWithNoFstabEntry.Namespace,
 			Name:      t.VDBlankWithNoFstabEntry.Name,
 		}, &vdBlankWithNoFstabEntryLocal)
 		g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
 
 		var vmbdaWithNoFstabEntryLocal v1alpha2.VirtualMachineBlockDeviceAttachment
-		err = t.Framework.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
+		err = t.Framework.Clients.GenericClient().Get(ctx, types.NamespacedName{
 			Namespace: t.VMBDAWithNoFstabEntry.Namespace,
 			Name:      t.VMBDAWithNoFstabEntry.Name,
 		}, &vmbdaWithNoFstabEntryLocal)
@@ -435,6 +438,7 @@ func (t *restoreModeTest) RemoveRecoverableResources() {
 }
 
 func (t *restoreModeTest) CheckVMAfterRestore(
+	ctx context.Context,
 	vm *v1alpha2.VirtualMachine,
 	vdRoot, vdBlank, vdBlankWithNoFstabEntry *v1alpha2.VirtualDisk,
 	vmbda, vmbdaWithNoFstabEntry *v1alpha2.VirtualMachineBlockDeviceAttachment,
@@ -442,7 +446,7 @@ func (t *restoreModeTest) CheckVMAfterRestore(
 ) {
 	GinkgoHelper()
 
-	err := t.Framework.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vm), vm)
+	err := t.Framework.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), vm)
 	Expect(err).NotTo(HaveOccurred())
 
 	// In DryRun mode, the VM should remain unchanged and VMOPRestore should contain
@@ -450,7 +454,7 @@ func (t *restoreModeTest) CheckVMAfterRestore(
 	// the VM should be restored to the snapshot state.
 	switch vmopRestore.Spec.Restore.Mode {
 	case v1alpha2.SnapshotOperationModeDryRun:
-		err := t.Framework.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vmopRestore), vmopRestore)
+		err := t.Framework.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vmopRestore), vmopRestore)
 		Expect(err).NotTo(HaveOccurred())
 
 		t.CheckResourceReadyForRestore(vmopRestore, v1alpha2.VirtualMachineKind, vm.Name)
@@ -460,7 +464,7 @@ func (t *restoreModeTest) CheckVMAfterRestore(
 		t.CheckResourceReadyForRestore(vmopRestore, v1alpha2.VirtualDiskKind, vdBlankWithNoFstabEntry.Name)
 		t.CheckResourceReadyForRestore(vmopRestore, v1alpha2.VirtualMachineBlockDeviceAttachmentKind, vmbdaWithNoFstabEntry.Name)
 
-		Expect(util.GetBlockDeviceHash(t.Framework, vm, v1alpha2.DiskDevice, vdBlankWithNoFstabEntry.Name)).To(Equal(t.BlockDeviceHash))
+		Expect(util.GetBlockDeviceHash(ctx, t.Framework, vm, v1alpha2.DiskDevice, vdBlankWithNoFstabEntry.Name)).To(Equal(t.BlockDeviceHash))
 		Expect(util.ReadFile(t.Framework, vm, fileDataPath)).To(Equal(changedValueOnDisk))
 		Expect(vm.Annotations[vmAnnotationName]).To(Equal(vmAnnotationChangedValue))
 		Expect(vm.Labels[vmLabelName]).To(Equal(vmLabelChangedValue))
@@ -498,12 +502,12 @@ func (t *restoreModeTest) getResourceInfoFromVMOP(vmopRestore *v1alpha2.VirtualM
 	return nil
 }
 
-func (t *restoreModeTest) RestoreVM(vm *v1alpha2.VirtualMachine, vmopRestore *v1alpha2.VirtualMachineOperation) {
+func (t *restoreModeTest) RestoreVM(ctx context.Context, vm *v1alpha2.VirtualMachine, vmopRestore *v1alpha2.VirtualMachineOperation) {
 	GinkgoHelper()
 
-	err := t.Framework.CreateWithDeferredDeletion(context.Background(), vmopRestore)
+	err := t.Framework.CreateWithDeferredDeletion(ctx, vmopRestore)
 	Expect(err).NotTo(HaveOccurred())
-	util.UntilObjectPhase(string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout, t.VMOPRestore)
+	util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout, t.VMOPRestore)
 
 	if vmopRestore.Spec.Restore.Mode == v1alpha2.SnapshotOperationModeDryRun {
 		return
@@ -513,12 +517,12 @@ func (t *restoreModeTest) RestoreVM(vm *v1alpha2.VirtualMachine, vmopRestore *v1
 	// if runPolicy == ManualPolicy, the VM should be started
 	// cannot use isRestartRequired here, because we might skip the stopped phase
 	if t.VM.Spec.RunPolicy == v1alpha2.ManualPolicy {
-		util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.ShortTimeout, t.VM)
-		util.StartVirtualMachine(t.Framework, t.VM)
+		util.UntilObjectPhase(ctx, string(v1alpha2.MachineStopped), framework.ShortTimeout, t.VM)
+		util.StartVirtualMachine(ctx, t.Framework, t.VM)
 	}
 
-	util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
-	util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
+	util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
+	util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
 }
 
 func (t *restoreModeTest) CheckAdditionalNetworkInterface(vm *v1alpha2.VirtualMachine, ip string) {
@@ -529,16 +533,15 @@ func (t *restoreModeTest) CheckAdditionalNetworkInterface(vm *v1alpha2.VirtualMa
 	Expect(cmdOut).To(ContainSubstring(fmt.Sprintf("inet %s", ip)))
 }
 
-func (t *restoreModeTest) IsStorageClassAvailableForTest(vm *v1alpha2.VirtualMachine) bool {
+func (t *restoreModeTest) IsStorageClassAvailableForTest(ctx context.Context, vm *v1alpha2.VirtualMachine) bool {
 	GinkgoHelper()
 
-	sc, err := legacy.GetDefaultStorageClass()
+	var scList storagev1.StorageClassList
+	err := framework.GetClients().GenericClient().List(ctx, &scList)
 	Expect(err).NotTo(HaveOccurred())
 
-	if sc.Provisioner != "replicated.csi.storage.deckhouse.io" {
-		return true
-	}
+	sc := config.FindDefaultStorageClass(&scList)
+	Expect(sc).NotTo(BeNil())
 
-	placementCount, ok := sc.Parameters["replicated.csi.storage.deckhouse.io/placementCount"]
-	return ok && placementCount == "1"
+	return sc.Provisioner != framework.SDSReplicatedVolume
 }

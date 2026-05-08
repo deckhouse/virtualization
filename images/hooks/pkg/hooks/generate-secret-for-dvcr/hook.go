@@ -73,7 +73,15 @@ var configDVCRSecrets = &pkg.HookConfig{
 	Queue: fmt.Sprintf("modules/%s", settings.ModuleName),
 }
 
-func handlerDVCRSecrets(_ context.Context, input *pkg.HookInput) error {
+func handlerDVCRSecrets(ctx context.Context, input *pkg.HookInput) error {
+	canRun, err := settings.CanRunWithModuleConfig(ctx, input)
+	if err != nil {
+		return err
+	}
+	if !canRun {
+		return nil
+	}
+
 	dataFromSecret, err := getDVCRSecretsFromSecrets(input)
 	if err != nil {
 		return err

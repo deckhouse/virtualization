@@ -380,6 +380,10 @@ func annotateGarbageCollectionSecretOnCleanupDone(ctx context.Context, result ma
 		return err
 	}
 
+	if secret == nil {
+		return fmt.Errorf("garbage collection secret not found")
+	}
+
 	if secret.Annotations == nil {
 		secret.Annotations = make(map[string]string)
 	}

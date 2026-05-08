@@ -71,3 +71,15 @@ func UpdateGarbageCollectionCondition(deploy *appsv1.Deployment, reason dvcrdepl
 	}
 	deploy.Status.Conditions = filteredConditions
 }
+
+func GetGarbageCollectionCondition(deploy *appsv1.Deployment) appsv1.DeploymentCondition {
+	if deploy == nil {
+		return appsv1.DeploymentCondition{}
+	}
+	for _, cond := range deploy.Status.Conditions {
+		if cond.Type == dvcrdeploymentcondition.GarbageCollectionType {
+			return cond
+		}
+	}
+	return appsv1.DeploymentCondition{}
+}

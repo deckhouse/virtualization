@@ -33,7 +33,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi/internal/source"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/postponehandler"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/postponeimporter"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/gc"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -77,11 +77,11 @@ func NewController(
 	sources.Set(v1alpha2.DataSourceTypeHTTP, source.NewHTTPDataSource(recorder, stat, importer, dvcrSettings, ns))
 	sources.Set(v1alpha2.DataSourceTypeContainerImage, source.NewRegistryDataSource(recorder, stat, importer, dvcrSettings, mgr.GetClient(), ns))
 	sources.Set(v1alpha2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(recorder, stat, importer, disk, dvcrSettings, mgr.GetClient(), ns))
-	sources.Set(v1alpha2.DataSourceTypeUpload, source.NewUploadDataSource(recorder, stat, uploader, dvcrSettings, ns))
+	sources.Set(v1alpha2.DataSourceTypeUpload, source.NewUploadDataSource(recorder, stat, uploader, dvcrSettings, ns, mgr.GetClient()))
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
-		postponehandler.New[*v1alpha2.ClusterVirtualImage](dvcrService, recorder),
+		postponeimporter.NewHandler[*v1alpha2.ClusterVirtualImage](dvcrService, recorder),
 		internal.NewDatasourceReadyHandler(sources),
 		internal.NewLifeCycleHandler(sources, mgr.GetClient()),
 		internal.NewImagePresenceHandler(dvcr.NewImageChecker(mgr.GetClient(), dvcrSettings)),
@@ -100,7 +100,7 @@ func NewController(
 		return nil, err
 	}
 
-	err = reconciler.SetupController(ctx, mgr, cviController)
+	err = reconciler.SetupController(ctx, mgr, cviController, log)
 	if err != nil {
 		return nil, err
 	}

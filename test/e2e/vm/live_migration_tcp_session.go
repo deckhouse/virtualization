@@ -27,6 +27,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -37,10 +38,11 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("VirtualMachineLiveMigrationTCPSession", func() {
+var _ = Describe("VirtualMachineLiveMigrationTCPSession", Label(precheck.NoPrecheck), func() {
 	var (
 		iperfServer *v1alpha2.VirtualMachine
 		iperfClient *v1alpha2.VirtualMachine
@@ -50,11 +52,16 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", func() {
 		iperfServerName = "iperf-server"
 		iperfClientName = "iperf-client"
 
-		f            = framework.NewFramework("vm-live-migration-tcp-session")
-		storageClass = framework.GetConfig().StorageClass.TemplateStorageClass
+		f            *framework.Framework
+		storageClass *storagev1.StorageClass
+		ctx          context.Context
 	)
 
 	BeforeEach(func() {
+		ctx = context.Background()
+		f = framework.NewFramework("vm-live-migration-tcp-session")
+		storageClass = framework.GetConfig().StorageClass.TemplateStorageClass
+
 		DeferCleanup(f.After)
 
 		f.Before()
@@ -83,10 +90,10 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", func() {
 			iperfServer = newVirtualMachine(iperfServerName, f.Namespace().Name, iperfServerDisk, object.PerfCloudInit)
 			iperfClient = newVirtualMachine(iperfClientName, f.Namespace().Name, iperfClientDisk, object.AlpineCloudInit)
 
-			err := f.CreateWithDeferredDeletion(context.Background(), iperfServerDisk, iperfClientDisk, iperfServer, iperfClient)
+			err := f.CreateWithDeferredDeletion(ctx, iperfServerDisk, iperfClientDisk, iperfServer, iperfClient)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, iperfServer, iperfClient)
+			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, iperfServer, iperfClient)
 		})
 
 		By("Wait for the iPerf server to start", func() {
@@ -96,7 +103,7 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", func() {
 		By("Run the iPerf client", func() {
 			Expect(isAlpineSSHDStarted(f, iperfClient.Name, iperfClient.Namespace)).To(BeTrue(), "the SSHD service status should be `started`")
 
-			iperfServer, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(context.Background(), iperfServer.Name, metav1.GetOptions{})
+			iperfServer, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(ctx, iperfServer.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			cmd := fmt.Sprintf("nohup iperf3 -c %s -t 0 --json > ~/%s 2>&1 < /dev/null &", iperfServer.Status.IPAddress, reportName)
@@ -116,7 +123,7 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", func() {
 		})
 
 		By("Check the iPerf client report", func() {
-			iperfServer, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(context.Background(), iperfServerName, metav1.GetOptions{})
+			iperfServer, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(ctx, iperfServerName, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			stopIPerfClient(iperfClient.Name, f.Namespace().Name, f)
 			report = getIPerfClientReport(iperfClient.Name, f.Namespace().Name, reportName, f)
@@ -265,14 +272,11 @@ type IPerfReport struct {
 }
 
 func newVirtualMachine(name, namespace string, disk *v1alpha2.VirtualDisk, cloudInit string) *v1alpha2.VirtualMachine {
-	cpuCount := 1
-	coreFraction := "10%"
-
 	return vm.New(
 		vm.WithName(name),
 		vm.WithNamespace(namespace),
 		vm.WithBootloader(v1alpha2.EFI),
-		vm.WithCPU(cpuCount, &coreFraction),
+		vm.WithCPU(1, ptr.To("100%")),
 		vm.WithMemory(*resource.NewQuantity(object.Mi256, resource.BinarySI)),
 		vm.WithDisks(disk),
 		vm.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),

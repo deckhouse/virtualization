@@ -63,6 +63,112 @@ spec:
 '{{ include "kubevirt.delve_strategic_patch" . | fromYaml | toJson }}'
 {{- end }}
 
+{{- define "kubevirt.virt_handler_ports_json_patch" -}}
+'[
+  {
+    "op":"replace",
+    "path":"/spec/template/spec/containers/0/ports",
+    "value":[
+      {
+        "containerPort":{{ include "virt_handler.port" . | int }},
+        "name":"metrics",
+        "protocol":"TCP"
+      },
+      {
+        "containerPort":{{ include "virt_handler.console_server_port" . | int }},
+        "name":"console",
+        "protocol":"TCP"
+      }
+    ]
+  }
+]'
+{{- end -}}
+
+{{- define "kubevirt.virt_api_args_strategic_patch" -}}
+spec:
+  template:
+    spec:
+      containers:
+      - name: virt-api
+        args:
+        - --port
+        - "8443"
+        - --console-server-port
+        - {{ include "virt_handler.console_server_port" . | quote }}
+        - --subresources-only
+        - -v
+        - "2"
+{{- end -}}
+
+{{- define "kubevirt.virt_api_args_strategic_patch_json" -}}
+'{{ include "kubevirt.virt_api_args_strategic_patch" . | fromYaml | toJson }}'
+{{- end }}
+
+{{- define "kubevirt.virt_handler_args_strategic_patch" -}}
+spec:
+  template:
+    spec:
+      containers:
+      - name: virt-handler
+        args:
+        - --port
+        - {{ include "virt_handler.port" . | quote }}
+        - --hostname-override
+        - $(NODE_NAME)
+        - --pod-ip-address
+        - $(MY_POD_IP)
+        - --max-metric-requests
+        - "3"
+        - --console-server-port
+        - {{ include "virt_handler.console_server_port" . | quote }}
+        - --migration-port-range-enabled
+        - "true"
+        - --migration-port-range-first
+        - {{ include "virt_handler.migration_port_first" . | quote }}
+        - --migration-port-range-last
+        - {{ include "virt_handler.migration_port_last" . | quote }}
+        - --graceful-shutdown-seconds
+        - "315"
+        - -v
+        - "2"
+{{- end -}}
+
+{{- define "kubevirt.virt_handler_args_strategic_patch_json" -}}
+'{{ include "kubevirt.virt_handler_args_strategic_patch" . | fromYaml | toJson }}'
+{{- end }}
+
+{{- define "kubevirt.virt_handler_probes_strategic_patch" -}}
+spec:
+  template:
+    spec:
+      containers:
+      - name: virt-handler
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: {{ include "virt_handler.port" . | int }}
+            scheme: HTTPS
+          failureThreshold: 3
+          initialDelaySeconds: 15
+          periodSeconds: 45
+          successThreshold: 1
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: {{ include "virt_handler.port" . | int }}
+            scheme: HTTPS
+          failureThreshold: 3
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          successThreshold: 1
+          timeoutSeconds: 10
+{{- end -}}
+
+{{- define "kubevirt.virt_handler_probes_strategic_patch_json" -}}
+'{{ include "kubevirt.virt_handler_probes_strategic_patch" . | fromYaml | toJson }}'
+{{- end }}
+
 {{/* Calculate parallel migrations per cluster.
  This template returns:
   - Count of nodes with virt-handler if kubevirt config is in 'Deployed' phase.

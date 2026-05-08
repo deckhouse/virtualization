@@ -18,6 +18,7 @@ package util
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -34,10 +35,10 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
-func GetBlockDevicePath(f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) string {
+func GetBlockDevicePath(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) string {
 	GinkgoHelper()
 
-	serial, ok := GetBlockDeviceSerialNumber(vm, bdKind, bdName)
+	serial, ok := GetBlockDeviceSerialNumber(ctx, vm, bdKind, bdName)
 	Expect(ok).To(BeTrue(), "failed to get block device serial number")
 
 	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
@@ -45,10 +46,10 @@ func GetBlockDevicePath(f *framework.Framework, vm *v1alpha2.VirtualMachine, bdK
 	return devicePath
 }
 
-func CreateBlockDeviceFilesystem(f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName, fsType string) {
+func CreateBlockDeviceFilesystem(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName, fsType string) {
 	GinkgoHelper()
 
-	serial, ok := GetBlockDeviceSerialNumber(vm, bdKind, bdName)
+	serial, ok := GetBlockDeviceSerialNumber(ctx, vm, bdKind, bdName)
 	Expect(ok).To(BeTrue(), "failed to get block device serial number")
 
 	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
@@ -58,10 +59,10 @@ func CreateBlockDeviceFilesystem(f *framework.Framework, vm *v1alpha2.VirtualMac
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func MountBlockDevice(f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName, mountPoint string) {
+func MountBlockDevice(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName, mountPoint string) {
 	GinkgoHelper()
 
-	serial, ok := GetBlockDeviceSerialNumber(vm, bdKind, bdName)
+	serial, ok := GetBlockDeviceSerialNumber(ctx, vm, bdKind, bdName)
 	Expect(ok).To(BeTrue(), "failed to get block device serial number")
 
 	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
@@ -78,10 +79,10 @@ func UnmountBlockDevice(f *framework.Framework, vm *v1alpha2.VirtualMachine, mou
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func RegisterFstabEntry(f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) {
+func RegisterFstabEntry(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) {
 	GinkgoHelper()
 
-	serial, ok := GetBlockDeviceSerialNumber(vm, bdKind, bdName)
+	serial, ok := GetBlockDeviceSerialNumber(ctx, vm, bdKind, bdName)
 	Expect(ok).To(BeTrue(), "failed to get block device serial number")
 
 	cmd := fmt.Sprintf(`UUID=$(lsblk -o SERIAL,UUID | grep %s | awk "{print \$2}"); echo "UUID=$UUID /mnt ext4 defaults 0 0" | sudo tee -a /etc/fstab`, serial)
@@ -89,10 +90,10 @@ func RegisterFstabEntry(f *framework.Framework, vm *v1alpha2.VirtualMachine, bdK
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func GetBlockDeviceHash(f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) string {
+func GetBlockDeviceHash(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) string {
 	GinkgoHelper()
 
-	serial, ok := GetBlockDeviceSerialNumber(vm, bdKind, bdName)
+	serial, ok := GetBlockDeviceSerialNumber(ctx, vm, bdKind, bdName)
 	Expect(ok).To(BeTrue(), "failed to get block device serial number")
 
 	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
@@ -127,12 +128,12 @@ func GetBlockDeviceBySerial(f *framework.Framework, vm *v1alpha2.VirtualMachine,
 	return "", errors.New("no block device found")
 }
 
-func GetBlockDeviceSerialNumber(vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) (string, bool) {
+func GetBlockDeviceSerialNumber(ctx context.Context, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) (string, bool) {
 	unstructuredVMI, err := framework.GetClients().DynamicClient().Resource(schema.GroupVersionResource{
 		Group:    "internal.virtualization.deckhouse.io",
 		Version:  "v1",
 		Resource: "internalvirtualizationvirtualmachineinstances",
-	}).Namespace(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+	}).Namespace(vm.Namespace).Get(ctx, vm.Name, metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred())
 
 	var kvvmi virtv1.VirtualMachineInstance
@@ -193,4 +194,35 @@ func GetExpectedDiskPhaseByVolumeBindingMode() string {
 	default:
 		return string(v1alpha2.DiskReady)
 	}
+}
+
+// GetDiskCount returns the number of block devices attached to a VM.
+// Uses lsblk --nodeps --json to get the list of block devices.
+func GetDiskCount(f *framework.Framework, vmName, vmNamespace string) (int, error) {
+	cmd := "lsblk --nodeps --json"
+	result, err := f.SSHCommand(vmName, vmNamespace, cmd)
+	if err != nil {
+		return 0, fmt.Errorf("failed to execute command: %w: %s", err, result)
+	}
+
+	var disks Disks
+	err = json.Unmarshal([]byte(result), &disks)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse lsblk output: %w", err)
+	}
+
+	return len(disks.BlockDevices), nil
+}
+
+// Disks represents the JSON output of lsblk --nodeps --json command.
+// It contains a list of block devices attached to the VM.
+type Disks struct {
+	BlockDevices []BlockDevice `json:"blockdevices"`
+}
+
+// BlockDevice represents a single block device in the lsblk JSON output.
+type BlockDevice struct {
+	Name string `json:"name"`
+	Size string `json:"size"`
+	Type string `json:"type"`
 }

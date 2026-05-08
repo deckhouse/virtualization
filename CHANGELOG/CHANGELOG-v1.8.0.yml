@@ -1,0 +1,88 @@
+api:
+  fixes:
+    - summary: >-
+        When uploading disks and images with the `Upload` type, the `WaitForUserUpload` phase no
+        longer occurs prematurely while the resource is not yet ready for upload.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2178
+ci:
+  features:
+    - summary: >-
+        configuration for nested e2e cluster with configurable ClusterNetwork and configure SDN
+        inside nested cluster
+      pull_request: https://github.com/deckhouse/virtualization/pull/2181
+  fixes:
+    - summary: cleanup cluster resourses for run nightly e2e
+      pull_request: https://github.com/deckhouse/virtualization/pull/2237
+    - summary: fix CI configuration for e2e pipeline configure virtualization step.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2233
+    - summary: Fix infrastructure config rendering for nested e2e clusters
+      pull_request: https://github.com/deckhouse/virtualization/pull/2223
+core:
+  fixes:
+    - summary: >-
+        Added automatic cleanup of `NodeUSBDevice` resources that are absent on the node and are not
+        assigned to a namespace or project.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2220
+    - summary: Clarify VM migration failure message when no node is available for the target VM.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2209
+    - summary: >-
+        Improve VM migration progress reporting while target scheduling and preparation are already
+        in progress.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2190
+    - summary: >-
+        Set firmware outdated condition only for running VM instances and align firmware
+        workload-updater checks with current condition-driven flow.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2162
+dvcr:
+  fixes:
+    - summary: Fix starting CVI/VI/VD import after DVCR garbage collection is done.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2193
+module:
+  features:
+    - summary: Add temporary ModuleConfig annotation to control KubeVirt live migration DisableTLS setting.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2198
+test:
+  fixes:
+    - summary: Increase coreFraction allocation in e2e tests for better stability.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2217
+vm:
+  features:
+    - summary: >-
+        Added the `progress` field to the status of `VirtualMachineOperation` resources with the
+        `Evict` and `Migrate` types to show operation progress. The corresponding `PROGRESS` column
+        is displayed when running `d8 k get vmop`
+      pull_request: https://github.com/deckhouse/virtualization/pull/2182
+    - summary: >-
+        Added the ability to change the number of CPUs in a virtual machine without manually
+        stopping it. The new value is applied via live migration. To enable this functionality, add
+        `HotplugCPUWithLiveMigration` to `.spec.settings.featureGates` in the `ModuleConfig` of the
+        `virtualization` module.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2147
+    - summary: >-
+        Added initial support for changing virtual machine memory without manually stopping the
+        virtual machine. The new `.spec.memory` value is applied via live migration. To enable this
+        functionality, add `HotplugMemoryWithLiveMigration` to `.spec.settings.featureGates` in the
+        `ModuleConfig` of the `virtualization` module.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2110
+  fixes:
+    - summary: >-
+        Fixed an issue with an unfrozen filesystem during virtual machine snapshot creation if the
+        freeze occurred during migration.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2225
+    - summary: >-
+        Fixed removal of the `Main` network from a virtual machine: the virtual machine no longer
+        uses an IP address from the virtualization CIDR after the network is removed.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2185
+    - summary: >-
+        Prevent over-creation of VirtualMachineMACAddress resources and fix network interface ID
+        allocation for additional VM networks.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2184
+    - summary: >-
+        Optimized virtual machine migration: it now uses `hostNetwork`, allowing the host MTU to be
+        used instead of the pod MTU.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2174
+vmsnapshot:
+  fixes:
+    - summary: Fixed snapshot creation for a virtual machine without the `Main` network.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2176
+

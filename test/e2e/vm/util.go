@@ -78,6 +78,7 @@ func onlyRootBuild(f *framework.Framework, vi *v1alpha2.VirtualImage, root build
 				Name: root.name,
 			},
 		),
+		vmbuilder.WithCPU(1, ptr.To("100%")),
 	)
 	vds := []*v1alpha2.VirtualDisk{newRootVD(f, root, vi)}
 	return vm, vds
@@ -95,6 +96,7 @@ func rootAndAdditionalBuild(f *framework.Framework, vi *v1alpha2.VirtualImage, r
 				Name: additional.name,
 			},
 		),
+		vmbuilder.WithCPU(1, ptr.To("100%")),
 	)
 	vds := []*v1alpha2.VirtualDisk{
 		newRootVD(f, root, vi),
@@ -117,6 +119,7 @@ func onlyAdditionalBuild(f *framework.Framework, vi *v1alpha2.VirtualImage, root
 				Name: additional.name,
 			},
 		),
+		vmbuilder.WithCPU(1, ptr.To("100%")),
 	)
 	vds := []*v1alpha2.VirtualDisk{
 		newRootVD(f, root, vi),

@@ -35,10 +35,11 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("VMSOPCreateVirtualMachine", Ordered, func() {
+var _ = Describe("VMSOPCreateVirtualMachine", Ordered, Label(precheck.PrecheckSnapshot), func() {
 	var (
 		vd         *v1alpha2.VirtualDisk
 		vdBlank    *v1alpha2.VirtualDisk
@@ -47,10 +48,13 @@ var _ = Describe("VMSOPCreateVirtualMachine", Ordered, func() {
 		vmsop      *v1alpha2.VirtualMachineSnapshotOperation
 		vmbda      *v1alpha2.VirtualMachineBlockDeviceAttachment
 
-		f = framework.NewFramework("vmsop")
+		ctx context.Context
+		f   *framework.Framework
 	)
 
 	BeforeAll(func() {
+		ctx = context.Background()
+		f = framework.NewFramework("vmsop")
 		cfg := framework.GetConfig()
 		if cfg.StorageClass.TemplateStorageClass != nil && cfg.StorageClass.TemplateStorageClass.Provisioner == framework.NFS {
 			Skip("Not working due to bug with VMBDA on NFS right now, skipping")
@@ -78,12 +82,13 @@ var _ = Describe("VMSOPCreateVirtualMachine", Ordered, func() {
 						Name: vd.Name,
 					},
 				),
+				vmbuilder.WithCPU(1, ptr.To("100%")),
 			)
 
-			err := f.CreateWithDeferredDeletion(context.Background(), vd, vm)
+			err := f.CreateWithDeferredDeletion(ctx, vd, vm)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+			util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 		})
 
 		By("create vmbda", func() {
@@ -99,10 +104,10 @@ var _ = Describe("VMSOPCreateVirtualMachine", Ordered, func() {
 				vmbdabuilder.WithVirtualMachineName(vm.Name),
 				vmbdabuilder.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindVirtualDisk, vdBlank.Name),
 			)
-			err := f.CreateWithDeferredDeletion(context.Background(), vmbda, vdBlank)
+			err := f.CreateWithDeferredDeletion(ctx, vmbda, vdBlank)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.LongTimeout, vmbda)
+			util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.LongTimeout, vmbda)
 		})
 
 		By("create vmsnapshot", func() {
@@ -114,10 +119,10 @@ var _ = Describe("VMSOPCreateVirtualMachine", Ordered, func() {
 				vmsbuilder.WithRequiredConsistency(false),
 			)
 
-			err := f.CreateWithDeferredDeletion(context.Background(), vmsnapshot)
+			err := f.CreateWithDeferredDeletion(ctx, vmsnapshot)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilObjectPhase(string(v1alpha2.VirtualMachineSnapshotPhaseReady), framework.LongTimeout, vmsnapshot)
+			util.UntilObjectPhase(ctx, string(v1alpha2.VirtualMachineSnapshotPhaseReady), framework.LongTimeout, vmsnapshot)
 		})
 	})
 
@@ -140,10 +145,10 @@ var _ = Describe("VMSOPCreateVirtualMachine", Ordered, func() {
 					}),
 				)
 
-				err := f.CreateWithDeferredDeletion(context.Background(), vmsop)
+				err := f.CreateWithDeferredDeletion(ctx, vmsop)
 				Expect(err).NotTo(HaveOccurred())
 
-				util.UntilObjectPhase(string(v1alpha2.VMSOPPhaseCompleted), framework.LongTimeout, vmsop)
+				util.UntilObjectPhase(ctx, string(v1alpha2.VMSOPPhaseCompleted), framework.LongTimeout, vmsop)
 			})
 
 			By("Check that resounsec doesn't exist for DryRun mode", func() {
@@ -151,16 +156,16 @@ var _ = Describe("VMSOPCreateVirtualMachine", Ordered, func() {
 					return
 				}
 
-				err := f.VirtClient().VirtualMachines(f.Namespace().Name).Delete(context.Background(), clonedName(vm.Name), metav1.DeleteOptions{})
+				err := f.VirtClient().VirtualMachines(f.Namespace().Name).Delete(ctx, clonedName(vm.Name), metav1.DeleteOptions{})
 				Expect(err).To(HaveOccurred())
 
-				err = f.VirtClient().VirtualMachineBlockDeviceAttachments(f.Namespace().Name).Delete(context.Background(), clonedName(vmbda.Name), metav1.DeleteOptions{})
+				err = f.VirtClient().VirtualMachineBlockDeviceAttachments(f.Namespace().Name).Delete(ctx, clonedName(vmbda.Name), metav1.DeleteOptions{})
 				Expect(err).To(HaveOccurred())
 
-				err = f.VirtClient().VirtualDisks(f.Namespace().Name).Delete(context.Background(), clonedName(vd.Name), metav1.DeleteOptions{})
+				err = f.VirtClient().VirtualDisks(f.Namespace().Name).Delete(ctx, clonedName(vd.Name), metav1.DeleteOptions{})
 				Expect(err).To(HaveOccurred())
 
-				err = f.VirtClient().VirtualDisks(f.Namespace().Name).Delete(context.Background(), clonedName(vdBlank.Name), metav1.DeleteOptions{})
+				err = f.VirtClient().VirtualDisks(f.Namespace().Name).Delete(ctx, clonedName(vdBlank.Name), metav1.DeleteOptions{})
 				Expect(err).To(HaveOccurred())
 			})
 
@@ -169,14 +174,14 @@ var _ = Describe("VMSOPCreateVirtualMachine", Ordered, func() {
 					return
 				}
 
-				createdVM, err := f.VirtClient().VirtualMachines(f.Namespace().Name).Get(context.Background(), clonedName(vm.Name), metav1.GetOptions{})
+				createdVM, err := f.VirtClient().VirtualMachines(f.Namespace().Name).Get(ctx, clonedName(vm.Name), metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				createdVMBDA, err := f.VirtClient().VirtualMachineBlockDeviceAttachments(f.Namespace().Name).Get(context.Background(), clonedName(vmbda.Name), metav1.GetOptions{})
+				createdVMBDA, err := f.VirtClient().VirtualMachineBlockDeviceAttachments(f.Namespace().Name).Get(ctx, clonedName(vmbda.Name), metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(createdVM), framework.LongTimeout)
-				util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.LongTimeout, createdVMBDA)
+				util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(createdVM), framework.LongTimeout)
+				util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.LongTimeout, createdVMBDA)
 			})
 
 			By("Delete created Resources", func() {
@@ -184,16 +189,16 @@ var _ = Describe("VMSOPCreateVirtualMachine", Ordered, func() {
 					return
 				}
 
-				err := f.VirtClient().VirtualMachines(f.Namespace().Name).Delete(context.Background(), clonedName(vm.Name), metav1.DeleteOptions{})
+				err := f.VirtClient().VirtualMachines(f.Namespace().Name).Delete(ctx, clonedName(vm.Name), metav1.DeleteOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				err = f.VirtClient().VirtualMachineBlockDeviceAttachments(f.Namespace().Name).Delete(context.Background(), clonedName(vmbda.Name), metav1.DeleteOptions{})
+				err = f.VirtClient().VirtualMachineBlockDeviceAttachments(f.Namespace().Name).Delete(ctx, clonedName(vmbda.Name), metav1.DeleteOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				err = f.VirtClient().VirtualDisks(f.Namespace().Name).Delete(context.Background(), clonedName(vd.Name), metav1.DeleteOptions{})
+				err = f.VirtClient().VirtualDisks(f.Namespace().Name).Delete(ctx, clonedName(vd.Name), metav1.DeleteOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				err = f.VirtClient().VirtualDisks(f.Namespace().Name).Delete(context.Background(), clonedName(vdBlank.Name), metav1.DeleteOptions{})
+				err = f.VirtClient().VirtualDisks(f.Namespace().Name).Delete(ctx, clonedName(vdBlank.Name), metav1.DeleteOptions{})
 				Expect(err).NotTo(HaveOccurred())
 			})
 		},

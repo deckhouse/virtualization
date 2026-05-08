@@ -78,7 +78,15 @@ var configDiscoveryService = &pkg.HookConfig{
 	Queue: fmt.Sprintf("modules/%s", settings.ModuleName),
 }
 
-func handleDiscoveryNodes(_ context.Context, input *pkg.HookInput) error {
+func handleDiscoveryNodes(ctx context.Context, input *pkg.HookInput) error {
+	canRun, err := settings.CanRunWithModuleConfig(ctx, input)
+	if err != nil {
+		return err
+	}
+	if !canRun {
+		return nil
+	}
+
 	nodeCount := len(input.Snapshots.Get(discoveryNodesSnapshot))
 	input.Values.Set(virtHandlerNodeCountPath, nodeCount)
 

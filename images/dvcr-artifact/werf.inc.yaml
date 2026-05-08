@@ -11,7 +11,7 @@ git:
     - go.sum
     - "**/*.go"
 ---
-{{- $nameDeps := print $.ImageName "-dependencies" -}}
+{{- $nameDeps := print .ImageName "-dependencies" -}}
 {{- define "$nameDeps" -}}
 packages:
 - libnbd
@@ -54,18 +54,18 @@ shell:
     export CGO_ENABLED=1
     export GOARCH=amd64
   - |
-    {{- $_ := set $ "ProjectName" (list $.ImageName "dvcr-importer" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "dvcr-importer" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /out/dvcr-importer ./cmd/dvcr-importer`) | nindent 6 }}
-    {{- $_ := set $ "ProjectName" (list $.ImageName "dvcr-uploader" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "dvcr-uploader" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /out/dvcr-uploader ./cmd/dvcr-uploader`) | nindent 6 }}
   - |
     export CGO_ENABLED=0
-    {{- $_ := set $ "ProjectName" (list $.ImageName "dvcr-cleaner" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "dvcr-cleaner" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /out/dvcr-cleaner ./cmd/dvcr-cleaner`) | nindent 6 }}
   - chown -R 64535:64535 /out
 
 ---
-{{- $name := print $.ImageName "-dependencies" -}}
+{{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 binaries:
 - /usr/local/bin/dvcr-importer

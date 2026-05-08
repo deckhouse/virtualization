@@ -29,14 +29,14 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	cfg "github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/d8"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 )
 
-var _ = Describe("VirtualDiskResizing", Ordered, label.Legacy(), func() {
+var _ = Describe("VirtualDiskResizing", Ordered, label.Legacy(), Label(precheck.NoPrecheck), func() {
 	const (
 		vmCount   = 1
 		diskCount = 3
@@ -57,6 +57,14 @@ var _ = Describe("VirtualDiskResizing", Ordered, label.Legacy(), func() {
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
 			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
+		}
+	})
+
+	AfterAll(func() {
+		if conf.IsCleanupNeeded {
+			DeleteTestCaseResources(ns, ResourcesToDelete{
+				KustomizationDir: conf.TestData.DiskResizing,
+			})
 		}
 	})
 
@@ -161,7 +169,7 @@ var _ = Describe("VirtualDiskResizing", Ordered, label.Legacy(), func() {
 				go func() {
 					defer GinkgoRecover()
 					defer wg.Done()
-					ResizeDisks(addedSize, conf, ns, vds...)
+					ResizeDisks(addedSize, ns, vds...)
 				}()
 				wg.Wait()
 			})
@@ -227,14 +235,6 @@ var _ = Describe("VirtualDiskResizing", Ordered, label.Legacy(), func() {
 			})
 		})
 	})
-
-	Context("When test is completed", func() {
-		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ns, ResourcesToDelete{
-				KustomizationDir: conf.TestData.DiskResizing,
-			})
-		})
-	})
 })
 
 type VirtualMachineDisks map[string]DiskMetaData
@@ -269,7 +269,7 @@ func WaitBlockDeviceRefsAttached(namespace string, vms ...string) {
 	}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
 }
 
-func ResizeDisks(addedSize *resource.Quantity, config *cfg.Config, ns string, virtualDisks ...string) {
+func ResizeDisks(addedSize *resource.Quantity, ns string, virtualDisks ...string) {
 	GinkgoHelper()
 	wg := &sync.WaitGroup{}
 	for _, vd := range virtualDisks {
