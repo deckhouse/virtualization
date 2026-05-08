@@ -22,7 +22,6 @@ testData:
   sizingPolicy: "/tmp/testdata/sizing-policy"
   vmConfiguration: "/tmp/testdata/vm-configuration"
   vmMigration: "/tmp/testdata/vm-migration"
-  vmMigrationCancel: "/tmp/testdata/vm-migration-cancel"
   vdSnapshots: "/tmp/testdata/vd-snapshots"
   sshKey: "/tmp/testdata/sshkeys/id_ed"
   sshUser: "cloud"
