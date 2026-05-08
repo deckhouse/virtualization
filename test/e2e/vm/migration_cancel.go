@@ -113,8 +113,8 @@ var _ = Describe("VirtualMachineCancelMigration", Label(precheck.NoPrecheck), fu
 		)
 		Expect(err).NotTo(HaveOccurred())
 
-		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmBIOS), framework.LongTimeout)
-		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmUEFI), framework.LongTimeout)
+		util.UntilVMAgentReady(context.Background(), crclient.ObjectKeyFromObject(vmBIOS), framework.LongTimeout)
+		util.UntilVMAgentReady(context.Background(), crclient.ObjectKeyFromObject(vmUEFI), framework.LongTimeout)
 		util.UntilSSHReady(f, vmBIOS, framework.MiddleTimeout)
 		util.UntilSSHReady(f, vmUEFI, framework.MiddleTimeout)
 
