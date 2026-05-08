@@ -109,17 +109,11 @@ func compareNetworks(current, desired *v1alpha2.VirtualMachineSpec) []FieldChang
 // between current and desired (so only non-Main networks differ).
 // Empty networks list is equivalent to having an implicit default Main.
 func isOnlyNonMainNetworksChanged(current, desired []v1alpha2.NetworksSpec) bool {
-	currentMain := network.GetMainNetworkSpec(current)
-	desiredMain := network.GetMainNetworkSpec(desired)
-	currentHasMain := currentMain != nil || len(current) == 0
-	desiredHasMain := desiredMain != nil || len(desired) == 0
-	if !currentHasMain || !desiredHasMain {
-		return false
-	}
-	if currentMain == nil || desiredMain == nil {
-		return true
-	}
-	return reflect.DeepEqual(*currentMain, *desiredMain)
+	return hasMainNetwork(current) == hasMainNetwork(desired)
+}
+
+func hasMainNetwork(networks []v1alpha2.NetworksSpec) bool {
+	return len(networks) == 0 || network.GetMainNetworkSpec(networks) != nil
 }
 
 func isOnlyNetworkIDAutofillChange(current, desired []v1alpha2.NetworksSpec) bool {

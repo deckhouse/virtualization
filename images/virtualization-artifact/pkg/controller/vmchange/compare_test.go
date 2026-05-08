@@ -569,20 +569,64 @@ networks:
 			),
 		},
 		{
-			"restart when main network id changes",
+			"apply immediate when removing non-main network from VM without main",
 			`
 networks:
-- type: Main
-  id: 1
-- type: Network
+- type: ClusterNetwork
+  name: net1
+  id: 2
+- type: ClusterNetwork
+  name: net2
+  id: 3
+`,
+			`
+networks:
+- type: ClusterNetwork
+  name: net1
+  id: 2
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionApplyImmediate),
+				requirePathOperation("networks", ChangeReplace),
+			),
+		},
+		{
+			"apply immediate when adding non-main network to VM without main",
+			`
+networks:
+- type: ClusterNetwork
+  name: net1
+  id: 2
+`,
+			`
+networks:
+- type: ClusterNetwork
+  name: net1
+  id: 2
+- type: ClusterNetwork
+  name: net2
+  id: 3
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionApplyImmediate),
+				requirePathOperation("networks", ChangeReplace),
+			),
+		},
+		{
+			"restart when only-non-main spec gains main network",
+			`
+networks:
+- type: ClusterNetwork
   name: net1
   id: 2
 `,
 			`
 networks:
 - type: Main
-  id: 5
-- type: Network
+  id: 1
+- type: ClusterNetwork
   name: net1
   id: 2
 `,
