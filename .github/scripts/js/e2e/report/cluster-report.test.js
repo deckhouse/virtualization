@@ -203,6 +203,7 @@ describe("cluster-report", () => {
     delete process.env.REPORTS_DIR;
     delete process.env.REPORT_FILE;
     delete process.env.PIPELINE_JOB_NAME;
+    delete process.env.NEEDS_CONTEXT;
   });
 
   test("requires storage type when config is absent", async () => {
@@ -272,6 +273,13 @@ describe("cluster-report", () => {
       process.env.PIPELINE_JOB_NAME = "E2E Pipeline (Replicated)";
       process.env.REPORTS_DIR = tempDir;
       process.env.REPORT_FILE = reportFile;
+      process.env.NEEDS_CONTEXT = JSON.stringify({
+        "bootstrap":              { result: "success" },
+        "configure-sdn":          { result: "success" },
+        "configure-storage":      { result: "success" },
+        "configure-virtualization": { result: "success" },
+        "e2e-test":               { result: "success" },
+      });
 
       expect(readClusterReportConfigFromEnv()).toMatchObject({
         storageType: "replicated",
@@ -283,18 +291,11 @@ describe("cluster-report", () => {
       const report = await buildClusterReport({
         core: createCore(),
         context: createContext(),
-        github: createGithub({
-          "E2E Pipeline (Replicated) / Bootstrap cluster": "success",
-          "E2E Pipeline (Replicated) / Configure SDN": "success",
-          "E2E Pipeline (Replicated) / Configure storage": "success",
-          "E2E Pipeline (Replicated) / Configure Virtualization": "success",
-          "E2E Pipeline (Replicated) / E2E test": "success",
-        }),
       });
 
       expect(report.cluster).toBe("replicated");
       expect(report.workflowRunUrl).toBe(
-        "https://github.com/test/repo/actions/runs/12345/job/5"
+        "https://github.com/test/repo/actions/runs/12345"
       );
       expect(report.branch).toBe("main");
       expect(JSON.parse(fs.readFileSync(reportFile, "utf8")).cluster).toBe(
@@ -302,13 +303,50 @@ describe("cluster-report", () => {
       );
     }));
 
-  test("links report to the matching failed workflow job", async () =>
+  test("reads stage results from env vars", async () =>
     withTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "env-report.json");
       process.env.STORAGE_TYPE = "nfs";
       process.env.PIPELINE_JOB_NAME = "E2E Pipeline (NFS)";
       process.env.REPORTS_DIR = tempDir;
       process.env.REPORT_FILE = reportFile;
+      process.env.NEEDS_CONTEXT = JSON.stringify({
+        "bootstrap":              { result: "success" },
+        "configure-sdn":          { result: "failure" },
+        "configure-storage":      { result: "skipped" },
+        "configure-virtualization": { result: "skipped" },
+        "e2e-test":               { result: "skipped" },
+      });
+
+      const report = await buildClusterReport({
+        core: createCore(),
+        context: createContext(),
+      });
+
+      expect(report.clusterStatus).toMatchObject({
+        status: "failure",
+        stage: "configure-sdn",
+      });
+      // No github — falls back to workflow run URL
+      expect(report.workflowRunUrl).toBe(
+        "https://github.com/test/repo/actions/runs/12345"
+      );
+    }));
+
+  test("fetches job URLs from GitHub API", async () =>
+    withTempDir(async (tempDir) => {
+      const reportFile = path.join(tempDir, "env-report.json");
+      process.env.STORAGE_TYPE = "nfs";
+      process.env.PIPELINE_JOB_NAME = "E2E Pipeline (NFS)";
+      process.env.REPORTS_DIR = tempDir;
+      process.env.REPORT_FILE = reportFile;
+      process.env.NEEDS_CONTEXT = JSON.stringify({
+        "bootstrap":              { result: "success" },
+        "configure-sdn":          { result: "failure" },
+        "configure-storage":      { result: "skipped" },
+        "configure-virtualization": { result: "skipped" },
+        "e2e-test":               { result: "skipped" },
+      });
 
       const report = await buildClusterReport({
         core: createCore(),
@@ -326,8 +364,36 @@ describe("cluster-report", () => {
         status: "failure",
         stage: "configure-sdn",
       });
+      // github provided — URL points to the specific failed job
       expect(report.workflowRunUrl).toBe(
         "https://github.com/test/repo/actions/runs/12345/job/2"
+      );
+    }));
+
+  test("works without github (no job URLs)", async () =>
+    withTempDir(async (tempDir) => {
+      const reportFile = path.join(tempDir, "env-report.json");
+      process.env.STORAGE_TYPE = "replicated";
+      process.env.REPORTS_DIR = tempDir;
+      process.env.REPORT_FILE = reportFile;
+      process.env.NEEDS_CONTEXT = JSON.stringify({
+        "bootstrap":              { result: "success" },
+        "configure-sdn":          { result: "success" },
+        "configure-storage":      { result: "success" },
+        "configure-virtualization": { result: "success" },
+        "e2e-test":               { result: "success" },
+      });
+
+      const report = await buildClusterReport({
+        core: createCore(),
+        context: createContext(),
+        // no github
+      });
+
+      expect(report.cluster).toBe("replicated");
+      // stageJobUrls is empty — falls back to workflow run URL
+      expect(report.workflowRunUrl).toBe(
+        "https://github.com/test/repo/actions/runs/12345"
       );
     }));
 

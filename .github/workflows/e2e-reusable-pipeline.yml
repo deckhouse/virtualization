@@ -1557,6 +1557,7 @@ jobs:
         env:
           STORAGE_TYPE: ${{ inputs.storage_type }}
           PIPELINE_JOB_NAME: ${{ inputs.pipeline_job_name }}
+          NEEDS_CONTEXT: ${{ toJSON(needs) }}
         with:
           script: |
             const buildClusterReport = require('./.github/scripts/js/e2e/report/cluster-report');

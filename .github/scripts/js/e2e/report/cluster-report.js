@@ -64,13 +64,13 @@ const {
  * @property {ClusterReportConfig} [config]
  */
 
-const workflowStageJobs = {
-  "bootstrap": "Bootstrap cluster",
-  "configure-sdn": "Configure SDN",
-  "storage-setup": "Configure storage",
-  "virtualization-setup": "Configure Virtualization",
-  "e2e-test": "E2E test",
-};
+const workflowStages = [
+  { name: "bootstrap",            displayName: "Bootstrap cluster",        needsJobId: "bootstrap" },
+  { name: "configure-sdn",        displayName: "Configure SDN",            needsJobId: "configure-sdn" },
+  { name: "storage-setup",        displayName: "Configure storage",        needsJobId: "configure-storage" },
+  { name: "virtualization-setup", displayName: "Configure Virtualization", needsJobId: "configure-virtualization" },
+  { name: "e2e-test",             displayName: "E2E test",                 needsJobId: "e2e-test" },
+];
 
 function readClusterReportConfigFromEnv(env = process.env) {
   const storageType = String(env.STORAGE_TYPE || "").trim();
@@ -96,11 +96,7 @@ function requireClusterReportConfig(config) {
     throw new Error("buildClusterReport requires reportFile");
   }
 
-  return {
-    ...config,
-    stageResults: config.stageResults || {},
-    stageJobUrls: config.stageJobUrls || {},
-  };
+  return { ...config };
 }
 
 function getWorkflowRunUrl(context) {
@@ -141,24 +137,35 @@ function findWorkflowJob(jobs, pipelineJobName, jobName) {
   );
 }
 
-async function readStageDetailsFromWorkflowRun(github, context, config, core) {
-  const jobs = await listWorkflowRunJobs(github, context);
-  const stageResults = {};
-  const stageJobUrls = {};
-
-  for (const [stageName, jobName] of Object.entries(workflowStageJobs)) {
-    const job = findWorkflowJob(jobs, config.pipelineJobName, jobName);
-    if (!job) {
-      core.warning(`Unable to find workflow job "${jobName}" for E2E report`);
-      stageResults[stageName] = "skipped";
-      continue;
-    }
-
-    stageResults[stageName] = job.conclusion || "skipped";
-    stageJobUrls[stageName] = job.html_url || "";
+function readStageResultsFromEnv(env = process.env) {
+  let needs = {};
+  try {
+    needs = JSON.parse(env.NEEDS_CONTEXT || "{}");
+  } catch {
+    // malformed JSON — treat all stages as skipped
   }
 
-  return { stageResults, stageJobUrls };
+  const stageResults = {};
+  for (const { name, needsJobId } of workflowStages) {
+    stageResults[name] = String((needs[needsJobId] || {}).result || "").trim() || "skipped";
+  }
+  return stageResults;
+}
+
+async function readStageJobUrlsFromApi(github, context, config, core) {
+  const jobs = await listWorkflowRunJobs(github, context);
+  const stageJobUrls = {};
+
+  for (const { name, displayName } of workflowStages) {
+    const job = findWorkflowJob(jobs, config.pipelineJobName, displayName);
+    if (job) {
+      stageJobUrls[name] = job.html_url || "";
+    } else {
+      core.warning(`Unable to find workflow job "${displayName}" for E2E report`);
+    }
+  }
+
+  return stageJobUrls;
 }
 
 function findGinkgoReport(config) {
@@ -295,15 +302,17 @@ async function buildClusterReport({ core, context, github, config } = {}) {
     config || readClusterReportConfigFromEnv()
   );
 
-  if (!config || !config.stageResults) {
-    const stageDetails = await readStageDetailsFromWorkflowRun(
+  if (!resolvedConfig.stageResults) {
+    resolvedConfig.stageResults = readStageResultsFromEnv();
+  }
+
+  if (!resolvedConfig.stageJobUrls && github) {
+    resolvedConfig.stageJobUrls = await readStageJobUrlsFromApi(
       github,
       context,
       resolvedConfig,
       core
     );
-    resolvedConfig.stageResults = stageDetails.stageResults;
-    resolvedConfig.stageJobUrls = stageDetails.stageJobUrls;
   }
 
   const fallbackWorkflowRunUrl = getWorkflowRunUrl(context);
