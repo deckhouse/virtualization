@@ -110,12 +110,7 @@ function buildClusterStatus(stageResults) {
         stage: stageName,
         stageLabel,
         message: buildStatusMessage(stageResult, stageLabel),
-        reason:
-          stageResult === "cancelled"
-            ? "cluster-stage-cancelled"
-            : stageResult === "skipped"
-              ? "cluster-stage-skipped"
-              : "cluster-stage-failed",
+        reason: `cluster-stage-${status}`,
       };
     }
   }
@@ -140,7 +135,7 @@ function buildTestStatus(
   if (clusterStatus.status !== "success") {
     return {
       status: "not-run",
-      reason: "cluster-stage-failed",
+      reason: `cluster-stage-${clusterStatus.status}`,
       message: "E2E tests were not run because cluster setup did not finish",
     };
   }

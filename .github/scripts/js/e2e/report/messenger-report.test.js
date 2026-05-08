@@ -357,11 +357,11 @@ describe("messenger-report", () => {
             stage: "configure-sdn",
             stageLabel: "CONFIGURE SDN",
             message: "❌ CONFIGURE SDN FAILED",
-            reason: "cluster-stage-failed",
+            reason: "cluster-stage-failure",
           },
           testStatus: {
             status: "not-run",
-            reason: "cluster-stage-failed",
+            reason: "cluster-stage-failure",
             message:
               "E2E tests were not run because cluster setup did not finish",
           },
@@ -402,11 +402,11 @@ describe("messenger-report", () => {
             stage: "configure-sdn",
             stageLabel: "CONFIGURE SDN",
             message: "❌ CONFIGURE SDN FAILED",
-            reason: "cluster-stage-failed",
+            reason: "cluster-stage-failure",
           },
           testStatus: {
             status: "not-run",
-            reason: "cluster-stage-failed",
+            reason: "cluster-stage-failure",
             message:
               "E2E tests were not run because cluster setup did not finish",
           },

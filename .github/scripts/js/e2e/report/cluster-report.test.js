@@ -227,7 +227,7 @@ describe("cluster-report", () => {
       status: "failure",
       stage: "configure-sdn",
       stageLabel: "CONFIGURE SDN",
-      reason: "cluster-stage-failed",
+      reason: "cluster-stage-failure",
     });
   });
 
@@ -714,11 +714,11 @@ describe("cluster-report", () => {
       expect(report.clusterStatus).toMatchObject({
         status: "failure",
         stage: "configure-sdn",
-        reason: "cluster-stage-failed",
+        reason: "cluster-stage-failure",
       });
       expect(report.testStatus).toMatchObject({
         status: "not-run",
-        reason: "cluster-stage-failed",
+        reason: "cluster-stage-failure",
       });
     }));
 
