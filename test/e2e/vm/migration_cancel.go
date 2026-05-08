@@ -187,7 +187,6 @@ var _ = Describe("VirtualMachineCancelMigration", Label(precheck.NoPrecheck), fu
 		Eventually(func() error {
 			for _, vm := range []*v1alpha2.VirtualMachine{vmBIOS, vmUEFI} {
 				kvvmi, err := util.GetKVVMI(context.Background(), f, vm.Name, vm.Namespace)
-
 				if err != nil {
 					return err
 				}
