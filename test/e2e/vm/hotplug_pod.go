@@ -38,17 +38,19 @@ import (
 
 var _ = Describe("HotplugPod", Label(precheck.NoPrecheck), func() {
 	var (
-		f  *framework.Framework
-		vi *v1alpha2.VirtualImage
+		f   *framework.Framework
+		vi  *v1alpha2.VirtualImage
+		ctx context.Context
 	)
 
 	BeforeEach(func() {
+		ctx = context.Background()
 		f = framework.NewFramework("hotplug-pod")
 		f.Before()
 		DeferCleanup(f.After)
 
 		newVI := object.NewGeneratedHTTPVIAlpineBIOSPerf("hotplug-pod-", f.Namespace().Name)
-		newVI, err := f.VirtClient().VirtualImages(f.Namespace().Name).Create(context.Background(), newVI, metav1.CreateOptions{})
+		newVI, err := f.VirtClient().VirtualImages(f.Namespace().Name).Create(ctx, newVI, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(newVI)
 		vi = newVI
@@ -62,27 +64,27 @@ var _ = Describe("HotplugPod", Label(precheck.NoPrecheck), func() {
 		By("Create VM", func() {
 			root := object.NewVDFromVI("root", f.Namespace().Name, vi)
 			blank = object.NewBlankVD("blank", f.Namespace().Name, nil, ptr.To(resource.MustParse("100Mi")))
-			Expect(f.CreateWithDeferredDeletion(context.Background(), root, blank)).To(Succeed())
+			Expect(f.CreateWithDeferredDeletion(ctx, root, blank)).To(Succeed())
 
 			var err error
 			vm = object.NewMinimalVM("hotplug-pod-", f.Namespace().Name, vmbuilder.WithDisks(root), vmbuilder.WithCPU(1, ptr.To("100%")))
-			vm, err = f.VirtClient().VirtualMachines(f.Namespace().Name).Create(context.Background(), vm, metav1.CreateOptions{})
+			vm, err = f.VirtClient().VirtualMachines(f.Namespace().Name).Create(ctx, vm, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			f.DeferDelete(vm)
 		})
 
 		By("Wait until VM agent is ready", func() {
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+			util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 		})
 
 		By("Attaching disk", func() {
 			vmbda := object.NewVMBDAFromDisk(vm.Name, vm.Name, blank)
-			Expect(f.CreateWithDeferredDeletion(context.Background(), vmbda)).To(Succeed())
-			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, vmbda)
+			Expect(f.CreateWithDeferredDeletion(ctx, vmbda)).To(Succeed())
+			util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, vmbda)
 		})
 
 		By("Evict hp pod", func() {
-			pods, err := f.KubeClient().CoreV1().Pods(f.Namespace().Name).List(context.Background(), metav1.ListOptions{
+			pods, err := f.KubeClient().CoreV1().Pods(f.Namespace().Name).List(ctx, metav1.ListOptions{
 				LabelSelector: labels.SelectorFromSet(map[string]string{
 					"kubevirt.internal.virtualization.deckhouse.io": "d8v-hotplug-disk",
 				}).String(),
@@ -92,7 +94,7 @@ var _ = Describe("HotplugPod", Label(precheck.NoPrecheck), func() {
 
 			pod := pods.Items[0]
 
-			err = f.KubeClient().CoreV1().Pods(pod.GetNamespace()).EvictV1(context.Background(), &policyv1.Eviction{
+			err = f.KubeClient().CoreV1().Pods(pod.GetNamespace()).EvictV1(ctx, &policyv1.Eviction{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      pod.GetName(),
 					Namespace: pod.GetNamespace(),

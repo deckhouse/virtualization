@@ -65,10 +65,12 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 		vmFoo     *v1alpha2.VirtualMachine
 		vmBar     *v1alpha2.VirtualMachine
 
-		f *framework.Framework
+		ctx context.Context
+		f   *framework.Framework
 	)
 
 	BeforeEach(func() {
+		ctx = context.Background()
 		f = framework.NewFramework("vm-additional-network")
 		DeferCleanup(f.After)
 
@@ -98,24 +100,24 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 				vmFoo = buildVMWithNetworks("vm-foo", ns, vdFooRoot.Name, tc.vmFooAdditionalIP, true)
 				vmBar = buildVMWithNetworks("vm-bar", ns, vdBarRoot.Name, tc.vmBarAdditionalIP, tc.vmBarHasMainNetwork)
 
-				err := f.CreateWithDeferredDeletion(context.Background(), vdFooRoot, vdBarRoot, vmFoo, vmBar)
+				err := f.CreateWithDeferredDeletion(ctx, vdFooRoot, vdBarRoot, vmFoo, vmBar)
 				Expect(err).NotTo(HaveOccurred())
 
-				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmFoo, vmBar)
+				util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vmFoo, vmBar)
 				util.UntilSSHReady(f, vmFoo, framework.LongTimeout)
 				if tc.vmBarHasMainNetwork {
 					util.UntilSSHReady(f, vmBar, framework.LongTimeout)
 				}
 
 				By(fmt.Sprintf("Wait until vms %s and %s in phase running", vmFoo.GetName(), vmBar.GetName()), func() {
-					util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmFoo, vmBar)
+					util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vmFoo, vmBar)
 				})
 			})
 
 			// If test fail due this timeout, rollback in test waiting for agent to be ready.
 			By("Wait for additional network interfaces to be ready", func() {
 				util.UntilConditionStatus(
-					context.Background(),
+					ctx,
 					vmcondition.TypeNetworkReady.String(),
 					"True",
 					framework.LongTimeout,
@@ -139,11 +141,11 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 			})
 
 			By("Check Cilium agents after migration", func() {
-				err := network.CheckCiliumAgents(context.Background(), f.Kubectl(), vmFoo.Name, f.Namespace().Name)
+				err := network.CheckCiliumAgents(ctx, f.Kubectl(), vmFoo.Name, f.Namespace().Name)
 				Expect(err).NotTo(HaveOccurred(), "Cilium agents check for VM %s", vmFoo.Name)
 
 				if tc.vmBarHasMainNetwork {
-					err = network.CheckCiliumAgents(context.Background(), f.Kubectl(), vmBar.Name, f.Namespace().Name)
+					err = network.CheckCiliumAgents(ctx, f.Kubectl(), vmBar.Name, f.Namespace().Name)
 					Expect(err).NotTo(HaveOccurred(), "Cilium agents check for VM %s", vmBar.Name)
 				}
 			})
@@ -158,7 +160,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 
 			By("Wait for additional network interfaces to be ready after migration", func() {
 				util.UntilConditionStatus(
-					context.Background(),
+					ctx,
 					vmcondition.TypeNetworkReady.String(),
 					"True",
 					framework.LongTimeout,
@@ -199,13 +201,13 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 					Name: util.ClusterNetworkName(secondAdditionalInterfaceVLANID),
 				})
 
-				err := f.CreateWithDeferredDeletion(context.Background(), vdRoot, vm)
+				err := f.CreateWithDeferredDeletion(ctx, vdRoot, vm)
 				Expect(err).NotTo(HaveOccurred())
 
-				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
-				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+				util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
+				util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 				util.UntilConditionStatus(
-					context.Background(),
+					ctx,
 					vmcondition.TypeNetworkReady.String(),
 					"True",
 					framework.LongTimeout,
@@ -219,15 +221,15 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 			})
 
 			By("Remove middle ClusterNetwork from VM spec", func() {
-				err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vm), vm)
+				err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), vm)
 				Expect(err).NotTo(HaveOccurred())
 				vm.Spec.Networks = []v1alpha2.NetworksSpec{vm.Spec.Networks[0], vm.Spec.Networks[2]}
-				err = f.Clients.GenericClient().Update(context.Background(), vm)
+				err = f.Clients.GenericClient().Update(ctx, vm)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("Reboot VM via VMOP", func() {
-				err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vm), vm)
+				err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), vm)
 				Expect(err).NotTo(HaveOccurred())
 
 				runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
@@ -236,10 +238,10 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 				util.RebootVirtualMachineByVMOP(f, vm)
 
 				util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(vm), previousRunningTime, framework.LongTimeout)
-				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
-				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+				util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
+				util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 				util.UntilConditionStatus(
-					context.Background(),
+					ctx,
 					vmcondition.TypeNetworkReady.String(),
 					"True",
 					framework.LongTimeout,

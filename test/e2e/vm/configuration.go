@@ -50,6 +50,7 @@ const (
 
 var _ = Describe("VirtualMachineConfiguration", Label(precheck.NoPrecheck), func() {
 	DescribeTable("the configuration should be applied", func(restartApprovalMode v1alpha2.RestartApprovalMode) {
+		ctx := context.Background()
 		f := framework.NewFramework(fmt.Sprintf("vm-configuration-%s", strings.ToLower(string(restartApprovalMode))))
 		t := NewConfigurationTest(f)
 
@@ -58,14 +59,14 @@ var _ = Describe("VirtualMachineConfiguration", Label(precheck.NoPrecheck), func
 
 		By("Environment preparation")
 		t.GenerateResources(restartApprovalMode)
-		err := f.CreateWithDeferredDeletion(context.Background(), t.VM, t.VDRoot, t.VDBlank)
+		err := f.CreateWithDeferredDeletion(ctx, t.VM, t.VDRoot, t.VDBlank)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for VM agent to be ready")
-		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
+		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
 
 		By("Checking initial configuration")
-		err = f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
+		err = f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(t.VM.Status.Resources.CPU.Cores).To(Equal(initialCPUCores))
 		Expect(t.VM.Status.Resources.Memory.Size).To(Equal(resource.MustParse(initialMemorySize)))
@@ -73,7 +74,7 @@ var _ = Describe("VirtualMachineConfiguration", Label(precheck.NoPrecheck), func
 		Expect(util.IsVDAttached(t.VM, t.VDBlank)).To(BeFalse())
 
 		By("Applying changes")
-		err = f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
+		err = f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 		Expect(err).NotTo(HaveOccurred())
 		runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, t.VM.Status.Conditions)
 		previousRunningTime := runningCondition.LastTransitionTime.Time
@@ -85,7 +86,7 @@ var _ = Describe("VirtualMachineConfiguration", Label(precheck.NoPrecheck), func
 			Kind: v1alpha2.DiskDevice,
 			Name: t.VDBlank.Name,
 		})
-		err = f.Clients.GenericClient().Update(context.Background(), t.VM)
+		err = f.Clients.GenericClient().Update(ctx, t.VM)
 		Expect(err).NotTo(HaveOccurred())
 
 		if util.IsRestartRequired(t.VM, 3*time.Second) {
@@ -94,10 +95,10 @@ var _ = Describe("VirtualMachineConfiguration", Label(precheck.NoPrecheck), func
 
 		By("Waiting for VM to be rebooted")
 		util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), previousRunningTime, framework.LongTimeout)
-		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.MiddleTimeout)
+		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(t.VM), framework.MiddleTimeout)
 
 		By("Checking changed configuration")
-		err = f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
+		err = f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(t.VM.Status.Resources.CPU.Cores).To(Equal(changedCPUCores))
 		Expect(t.VM.Status.Resources.Memory.Size).To(Equal(resource.MustParse(changedMemorySize)))
