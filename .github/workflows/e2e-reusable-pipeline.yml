@@ -511,6 +511,42 @@ jobs:
           retention-days: 3
           archive: false
 
+      - name: Add encrypted artifacts help to job summary
+        if: always()
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          ## Encrypted artifacts
+
+          Some uploaded artifacts in this workflow are encrypted with GPG symmetric encryption.
+
+          Secret used for decryption passphrase:
+          - `E2E_ARTIFACTS_GPG_PASSPHRASE`
+
+          Encrypted artifact types:
+          - `*-generated-files-*.zip.gpg`
+          - `*-generated-files-ssh-*.zip.gpg`
+          - `*-generated-files-kubeconfig-*.gpg`
+          - `resources_from_failed_tests-*.zip.gpg`
+
+          Decrypt commands:
+
+          ```bash
+          # zip.gpg artifact
+          gpg --decrypt --batch --yes --pinentry-mode loopback \
+            --passphrase "$E2E_ARTIFACTS_GPG_PASSPHRASE" \
+            --output artifact.zip \
+            artifact.zip.gpg
+
+          unzip -o artifact.zip
+
+          # single-file .gpg artifact
+          gpg --decrypt --batch --yes --pinentry-mode loopback \
+            --passphrase "$E2E_ARTIFACTS_GPG_PASSPHRASE" \
+            --output kube-config \
+            artifact.gpg
+          ```
+          EOF
+
   configure-sdn:
     name: Configure SDN
     runs-on: ubuntu-latest
