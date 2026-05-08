@@ -26,12 +26,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
@@ -109,7 +112,12 @@ var _ = Describe("VirtualMachineBlockDeviceHotplug", Ordered, Label(precheck.NoP
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Verifying no restart is required")
-		Expect(util.IsRestartRequired(vm, 5*time.Second)).To(BeFalse())
+		Consistently(func(g Gomega) {
+			g.Expect(f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vm), vm)).To(Succeed())
+			needRestart, _ := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, vm.Status.Conditions)
+			g.Expect(needRestart.Status).NotTo(Equal(metav1.ConditionTrue))
+			g.Expect(vm.Status.RestartAwaitingChanges).To(BeNil())
+		}, 5*time.Second, time.Second).Should(Succeed())
 
 		By("Waiting for disk to be attached")
 		Eventually(func(g Gomega) {
@@ -143,7 +151,12 @@ var _ = Describe("VirtualMachineBlockDeviceHotplug", Ordered, Label(precheck.NoP
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Verifying no restart is required")
-		Expect(util.IsRestartRequired(vm, 5*time.Second)).To(BeFalse())
+		Consistently(func(g Gomega) {
+			g.Expect(f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vm), vm)).To(Succeed())
+			needRestart, _ := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, vm.Status.Conditions)
+			g.Expect(needRestart.Status).NotTo(Equal(metav1.ConditionTrue))
+			g.Expect(vm.Status.RestartAwaitingChanges).To(BeNil())
+		}, 5*time.Second, time.Second).Should(Succeed())
 
 		By("Waiting for disk to be detached")
 		Eventually(func(g Gomega) {
