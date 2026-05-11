@@ -29,6 +29,14 @@ spec:
             Provides a resource for creating snapshots of existing virtual disks, which can be used as data sources for generating new virtual disks.
 
             When running, a VolumeSnapshot resource is created.
+          x-examples:
+            - apiVersion: virtualization.deckhouse.io/v1alpha2
+              kind: VirtualDiskSnapshot
+              metadata:
+                name: linux-vm-root-snapshot
+              spec:
+                requiredConsistency: true
+                virtualDiskName: linux-vm-root
           required:
             - spec
           properties:

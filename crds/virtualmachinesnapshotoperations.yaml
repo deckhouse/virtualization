@@ -44,6 +44,19 @@ spec:
           description:
             VirtualMachineSnapshotOperation enables declarative management
             of virtual machine snapshot state changes.
+          x-examples:
+            - apiVersion: virtualization.deckhouse.io/v1alpha2
+              kind: VirtualMachineSnapshotOperation
+              metadata:
+                name: clone-database-from-snapshot
+              spec:
+                type: CreateVirtualMachine
+                virtualMachineSnapshotName: database-snapshot
+                createVirtualMachine:
+                  mode: Strict
+                  customization:
+                    namePrefix: clone-
+                    nameSuffix: -prod
           properties:
             apiVersion:
               description: |-

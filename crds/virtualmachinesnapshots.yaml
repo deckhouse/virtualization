@@ -41,6 +41,15 @@ spec:
           description:
             VirtualMachineSnapshot provides a resource for creating snapshots
             of virtual machines.
+          x-examples:
+            - apiVersion: virtualization.deckhouse.io/v1alpha2
+              kind: VirtualMachineSnapshot
+              metadata:
+                name: linux-vm-snapshot
+              spec:
+                virtualMachineName: linux-vm
+                requiredConsistency: true
+                keepIPAddress: Never
           properties:
             apiVersion:
               description: |-

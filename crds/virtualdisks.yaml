@@ -60,6 +60,15 @@ spec:
             Once a VirtualDisk is created, the following fields in `.spec.persistentVolumeClaim` can be changed: `size` and `storageClassName`. All other fields are immutable.
 
             **Note:** The `metadata.name` field must comply with [Kubernetes object naming conventions](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/) and must not exceed 60 characters.
+          x-examples:
+            - apiVersion: virtualization.deckhouse.io/v1alpha2
+              kind: VirtualDisk
+              metadata:
+                name: blank-disk
+              spec:
+                persistentVolumeClaim:
+                  storageClassName: rv-thin-r2
+                  size: 100Mi
           properties:
             apiVersion:
               description: |-
