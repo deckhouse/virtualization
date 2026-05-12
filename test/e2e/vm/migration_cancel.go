@@ -156,13 +156,11 @@ func untilKVVMIMigrationStateIsNotEmpty(ctx context.Context, timeout time.Durati
 func untilAbortStatusExists(ctx context.Context, timeout time.Duration, vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
-	var (
-		validAbortStatuses = []virtv1.MigrationAbortStatus{
-			virtv1.MigrationAbortInProgress,
-			virtv1.MigrationAbortSucceeded,
-			virtv1.MigrationAbortFailed,
-		}
-	)
+	validAbortStatuses := []virtv1.MigrationAbortStatus{
+		virtv1.MigrationAbortInProgress,
+		virtv1.MigrationAbortSucceeded,
+		virtv1.MigrationAbortFailed,
+	}
 
 	Eventually(func() error {
 		kvvmi, err := util.GetInternalVirtualMachineInstance(ctx, vm)
