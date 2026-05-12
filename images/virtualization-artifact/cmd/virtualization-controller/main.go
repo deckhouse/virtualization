@@ -263,6 +263,11 @@ func main() {
 			BindAddress: metricsBindAddr,
 		},
 		HealthProbeBindAddress: healthProbeBindAddr,
+		// Route unstructured reads through the cache so field-index lookups are served locally
+		// instead of hitting the apiserver.
+		Client: client.Options{
+			Cache: &client.CacheOptions{Unstructured: true},
+		},
 	}
 	if pprofBindAddr != "" {
 		managerOpts.PprofBindAddress = pprofBindAddr
