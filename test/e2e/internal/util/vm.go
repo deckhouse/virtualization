@@ -357,7 +357,7 @@ func GetActivePodName(vm *v1alpha2.VirtualMachine) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("no active pod found for virtual machine %s", vm.Name)
+	return "", fmt.Errorf("no active pod found for virtual machine %s/%s", vm.Namespace, vm.Name)
 }
 
 func UntilVirtualMachineRebooted(key client.ObjectKey, previousRunningTime time.Time, timeout time.Duration) {

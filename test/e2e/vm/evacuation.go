@@ -73,8 +73,8 @@ var _ = Describe("VirtualMachineEvacuation", Label(precheck.NoPrecheck), func() 
 		)
 		Expect(err).NotTo(HaveOccurred())
 
-		util.UntilVMAgentReady(context.Background(), crclient.ObjectKeyFromObject(vmBIOS), framework.LongTimeout)
-		util.UntilVMAgentReady(context.Background(), crclient.ObjectKeyFromObject(vmUEFI), framework.LongTimeout)
+		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vmBIOS), framework.LongTimeout)
+		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vmUEFI), framework.LongTimeout)
 
 		By("Evacuate virtual machines by active pod eviction")
 		evacuateVirtualMachines(ctx, f, vmBIOS, vmUEFI)
