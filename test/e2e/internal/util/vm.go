@@ -28,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -65,7 +64,7 @@ func SkipIfKnownKubeVirtClientSocketClosedMigrationFailureWithContext(ctx contex
 		return
 	}
 
-	intvirtvmi, err := getInternalVirtualMachineInstance(ctx, vm)
+	intvirtvmi, err := GetInternalVirtualMachineInstance(ctx, vm)
 	Expect(err).NotTo(HaveOccurred())
 	if intvirtvmi == nil || intvirtvmi.Status.MigrationState == nil {
 		return
@@ -95,7 +94,7 @@ func SkipIfKnownVolumesUpdateMigrationFailureWithContext(ctx context.Context, vm
 		return
 	}
 
-	intvirtvmi, err := getInternalVirtualMachineInstance(ctx, vm)
+	intvirtvmi, err := GetInternalVirtualMachineInstance(ctx, vm)
 	Expect(err).NotTo(HaveOccurred())
 	if intvirtvmi == nil {
 		return
@@ -143,7 +142,7 @@ func SkipIfVDMigrationReverted(namespace string) {
 	}
 }
 
-func getInternalVirtualMachineInstance(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
+func GetInternalVirtualMachineInstance(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
 	GinkgoHelper()
 
 	obj := &rewrite.VirtualMachineInstance{}
@@ -359,23 +358,6 @@ func GetActivePodName(vm *v1alpha2.VirtualMachine) (string, error) {
 	}
 
 	return "", fmt.Errorf("no active pod found for virtual machine %s/%s", vm.Namespace, vm.Name)
-}
-
-func GetKVVMI(ctx context.Context, f *framework.Framework, name, namespace string) (*virtv1.VirtualMachineInstance, error) {
-	unstructuredKVVMI, err := f.DynamicClient().Resource(rewrite.VirtualMachineInstance{}.GVR()).
-		Namespace(namespace).
-		Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	var kvvmi virtv1.VirtualMachineInstance
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredKVVMI.Object, &kvvmi)
-	if err != nil {
-		return nil, err
-	}
-
-	return &kvvmi, nil
 }
 
 func UntilVirtualMachineRebooted(key client.ObjectKey, previousRunningTime time.Time, timeout time.Duration) {

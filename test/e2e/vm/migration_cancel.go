@@ -18,18 +18,15 @@ package vm
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
-	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
@@ -40,211 +37,158 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var validAbortStatuses = []virtv1.MigrationAbortStatus{
-	virtv1.MigrationAbortInProgress,
-	virtv1.MigrationAbortSucceeded,
-	virtv1.MigrationAbortFailed,
-}
+var _ = DescribeTable("VirtualMachineCancelMigration", Label(precheck.NoPrecheck), func(bootloaderType v1alpha2.BootloaderType) {
+	const stressngCmd = "nohup stress-ng --cpu 4 --vm 4 --vm-bytes 90% --vm-keep --vm-populate --vm-method all --timeout 1h </dev/null >/dev/null 2>errlog &"
 
-const stressCommand = "nohup stress-ng --cpu 4 --vm 4 --vm-bytes 90% --vm-keep --vm-populate --vm-method all --timeout 1h </dev/null >/dev/null 2>errlog &"
+	ctx := context.Background()
+	var suffix string
+	switch bootloaderType {
+	case v1alpha2.BIOS:
+		suffix = "bios"
+	case v1alpha2.EFI:
+		suffix = "efi"
+	case v1alpha2.EFIWithSecureBoot:
+		suffix = "efi-secureboot"
+	default:
+		Fail("Unknown bootloader type")
+	}
+	f := framework.NewFramework(fmt.Sprintf("vm-migration-cancel-%s", suffix))
+	DeferCleanup(f.After)
+	f.Before()
 
-var _ = Describe("VirtualMachineCancelMigration", Label(precheck.NoPrecheck), func() {
-	var (
-		f *framework.Framework
+	By("Environment preparation")
+	vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIUbuntu)
+	vdBlank := object.NewBlankVD("vd-blank", f.Namespace().Name, nil, ptr.To(resource.MustParse("100Mi")))
 
-		vmBIOS *v1alpha2.VirtualMachine
-		vmUEFI *v1alpha2.VirtualMachine
-
-		migrationVMOPNames []string
+	vm := object.NewMinimalVM("", f.Namespace().Name,
+		vmbuilder.WithName("vm"),
+		vmbuilder.WithBootloader(bootloaderType),
+		vmbuilder.WithCPU(4, ptr.To("100%")),
+		vmbuilder.WithMemory(resource.MustParse("4Gi")),
+		vmbuilder.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
+		vmbuilder.WithBlockDeviceRefs(
+			v1alpha2.BlockDeviceSpecRef{
+				Kind: v1alpha2.VirtualDiskKind,
+				Name: vdRoot.Name,
+			},
+			v1alpha2.BlockDeviceSpecRef{
+				Kind: v1alpha2.VirtualDiskKind,
+				Name: vdBlank.Name,
+			},
+		),
 	)
 
-	BeforeEach(func() {
-		f = framework.NewFramework("vm-migration-cancel")
-		DeferCleanup(f.After)
-		f.Before()
-	})
+	err := f.CreateWithDeferredDeletion(ctx,
+		vdRoot, vdBlank, vm,
+	)
+	Expect(err).NotTo(HaveOccurred())
 
-	It("Cancel migrate", func() {
-		By("Environment preparation")
-		vdRootBIOS := object.NewVDFromCVI("vd-root-bios", f.Namespace().Name, object.PrecreatedCVIUbuntu)
-		vdBlankBIOS := object.NewBlankVD("vd-blank-bios", f.Namespace().Name, nil, ptr.To(resource.MustParse("100Mi")))
+	util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
+	util.UntilSSHReady(f, vm, framework.MiddleTimeout)
 
-		vdRootUEFI := object.NewVDFromCVI("vd-root-uefi", f.Namespace().Name, object.PrecreatedCVIUbuntu)
-		vdBlankUEFI := object.NewBlankVD("vd-blank-uefi", f.Namespace().Name, nil, ptr.To(resource.MustParse("100Mi")))
+	By("Create memory pressure inside the virtual machine")
+	_, err = f.SSHCommand(vm.Name, vm.Namespace, stressngCmd)
+	Expect(err).NotTo(HaveOccurred())
 
-		vmBIOS = object.NewMinimalVM("", f.Namespace().Name,
-			vmbuilder.WithName("vm-bios"),
-			vmbuilder.WithBootloader(v1alpha2.BIOS),
-			vmbuilder.WithCPU(4, ptr.To("100%")),
-			vmbuilder.WithMemory(resource.MustParse("4Gi")),
-			vmbuilder.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
-			vmbuilder.WithBlockDeviceRefs(
-				v1alpha2.BlockDeviceSpecRef{
-					Kind: v1alpha2.VirtualDiskKind,
-					Name: vdRootBIOS.Name,
-				},
-				v1alpha2.BlockDeviceSpecRef{
-					Kind: v1alpha2.VirtualDiskKind,
-					Name: vdBlankBIOS.Name,
-				},
-			),
-		)
-		vmUEFI = object.NewMinimalVM("", f.Namespace().Name,
-			vmbuilder.WithName("vm-uefi"),
-			vmbuilder.WithBootloader(v1alpha2.EFI),
-			vmbuilder.WithCPU(4, ptr.To("100%")),
-			vmbuilder.WithMemory(resource.MustParse("4Gi")),
-			vmbuilder.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
-			vmbuilder.WithBlockDeviceRefs(
-				v1alpha2.BlockDeviceSpecRef{
-					Kind: v1alpha2.VirtualDiskKind,
-					Name: vdRootUEFI.Name,
-				},
-				v1alpha2.BlockDeviceSpecRef{
-					Kind: v1alpha2.VirtualDiskKind,
-					Name: vdBlankUEFI.Name,
-				},
-			),
-		)
-
-		err := f.CreateWithDeferredDeletion(context.Background(),
-			vdRootBIOS, vdBlankBIOS, vmBIOS,
-			vdRootUEFI, vdBlankUEFI, vmUEFI,
-		)
-		Expect(err).NotTo(HaveOccurred())
-
-		util.UntilVMAgentReady(context.Background(), crclient.ObjectKeyFromObject(vmBIOS), framework.LongTimeout)
-		util.UntilVMAgentReady(context.Background(), crclient.ObjectKeyFromObject(vmUEFI), framework.LongTimeout)
-		util.UntilSSHReady(f, vmBIOS, framework.MiddleTimeout)
-		util.UntilSSHReady(f, vmUEFI, framework.MiddleTimeout)
-
-		By("Create memory pressure inside virtual machines")
-		vmList := []*v1alpha2.VirtualMachine{vmBIOS, vmUEFI}
-		for _, vm := range vmList {
-			By(fmt.Sprintf("Exec StressNG command for virtualmachine %s/%s", vm.Namespace, vm.Name))
-			_, err := f.SSHCommand(vm.Name, vm.Namespace, stressCommand)
-			Expect(err).NotTo(HaveOccurred())
+	By("Wait for stress-ng to increase memory pressure")
+	Consistently(func() error {
+		_, err := f.SSHCommand(vm.Name, vm.Namespace, "test ! -s errlog")
+		if err != nil {
+			return err
 		}
 
-		By("Wait until stress-ng loads the memory more heavily")
-		Consistently(func() error {
-			for _, vm := range vmList {
-				_, err := f.SSHCommand(vm.Name, vm.Namespace, "test ! -s errlog")
-				if err != nil {
-					return err
-				}
-			}
+		return nil
+	}).WithTimeout(20 * time.Second).WithPolling(time.Second).ShouldNot(HaveOccurred())
 
-			return nil
-		}).WithTimeout(20 * time.Second).WithPolling(time.Second).ShouldNot(HaveOccurred())
+	By("Create migration VMOPs")
+	evictVMOP := vmopbuilder.New(
+		vmopbuilder.WithName("vmop-evict"),
+		vmopbuilder.WithNamespace(vm.Namespace),
+		vmopbuilder.WithType(v1alpha2.VMOPTypeEvict),
+		vmopbuilder.WithVirtualMachine(vm.Name),
+	)
 
-		By("Create migration VMOPs")
-		for _, vm := range []*v1alpha2.VirtualMachine{vmBIOS, vmUEFI} {
-			vmop := vmopbuilder.New(
-				vmopbuilder.WithGenerateName(fmt.Sprintf("%s-evict-", util.VmopE2ePrefix)),
-				vmopbuilder.WithNamespace(vm.Namespace),
-				vmopbuilder.WithType(v1alpha2.VMOPTypeEvict),
-				vmopbuilder.WithVirtualMachine(vm.Name),
-			)
+	err = f.CreateWithDeferredDeletion(ctx, evictVMOP)
+	Expect(err).NotTo(HaveOccurred())
 
-			err := f.CreateWithDeferredDeletion(context.Background(), vmop)
-			Expect(err).NotTo(HaveOccurred())
-			migrationVMOPNames = append(migrationVMOPNames, vmop.Name)
+	By("Ensure the VMOP is in the InProgress phase")
+	util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseInProgress), framework.MiddleTimeout, evictVMOP)
+
+	By("Ensure the KVVMI has a migration state")
+	untilKVVMIMigrationStateIsNotEmpty(ctx, framework.MiddleTimeout, vm)
+
+	By("Remove the VMOP")
+	err = f.GenericClient().Delete(ctx, evictVMOP)
+	Expect(err).NotTo(HaveOccurred())
+
+	By("Ensure the VMOP is removed")
+	util.UntilObjectsDeleted(ctx, framework.MiddleTimeout, evictVMOP)
+
+	By("Ensure the KubeVirt VMI has an abort status")
+	untilAbortStatusExists(ctx, framework.MiddleTimeout, vm)
+},
+	Entry("BIOS bootloader", v1alpha2.BIOS),
+	Entry("UEFI bootloader", v1alpha2.EFI),
+	Entry("UEFI bootloader with secure boot", v1alpha2.EFIWithSecureBoot),
+)
+
+func untilKVVMIMigrationStateIsNotEmpty(ctx context.Context, timeout time.Duration, vm *v1alpha2.VirtualMachine) {
+	GinkgoHelper()
+
+	Eventually(func() error {
+		kvvmi, err := util.GetInternalVirtualMachineInstance(ctx, vm)
+		if err != nil {
+			return err
 		}
 
-		By("Collect migration VMOP names, delete them and verify they are gone")
-		var migrationVMOPs []*v1alpha2.VirtualMachineOperation
-
-		Eventually(func() error {
-			migrationVMOPs = nil
-			vmopInProgressCount := 0
-
-			for _, vmopName := range migrationVMOPNames {
-				vmop := &v1alpha2.VirtualMachineOperation{}
-				err := f.GenericClient().Get(context.Background(), crclient.ObjectKey{Namespace: f.Namespace().Name, Name: vmopName}, vmop)
-				if err != nil {
-					return err
-				}
-				migrationVMOPs = append(migrationVMOPs, vmop)
-
-				switch vmop.Status.Phase {
-				case v1alpha2.VMOPPhaseCompleted, v1alpha2.VMOPPhaseFailed:
-					Fail(fmt.Sprintf("vmop %s is in %s", vmop.Name, vmop.Status.Phase))
-				case v1alpha2.VMOPPhaseInProgress:
-					vmopInProgressCount++
-				default:
-					return fmt.Errorf("retry, waiting while vmop %s will be in InProgress phase", vmop.Name)
-				}
-			}
-
-			if vmopInProgressCount != len(migrationVMOPNames) {
-				return errors.New("retry: not all VMOPs are in InProgress phase")
-			}
-
-			return nil
-		}).WithTimeout(framework.ShortTimeout).WithPolling(time.Second).ShouldNot(HaveOccurred())
-
-		Eventually(func() error {
-			for _, vm := range []*v1alpha2.VirtualMachine{vmBIOS, vmUEFI} {
-				kvvmi, err := util.GetKVVMI(context.Background(), f, vm.Name, vm.Namespace)
-				if err != nil {
-					return err
-				}
-
-				if kvvmi.Status.MigrationState == nil {
-					return fmt.Errorf("%s kvvmi migration state is empty", kvvmi.Name)
-				}
-
-			}
-
-			return nil
-		}).WithTimeout(framework.MiddleTimeout).WithPolling(time.Second).ShouldNot(HaveOccurred())
-
-		for _, vmop := range migrationVMOPs {
-			err := f.GenericClient().Delete(context.Background(), vmop)
-			Expect(err).NotTo(HaveOccurred())
+		if kvvmi == nil {
+			return fmt.Errorf("retry because KVVMI not found for %s/%s VM", vm.Namespace, vm.Name)
 		}
 
-		Eventually(func() error {
-			for _, vmop := range migrationVMOPs {
-				err := f.GenericClient().Get(context.Background(), crclient.ObjectKey{Namespace: f.Namespace().Name, Name: vmop.Name}, vmop)
-				if err == nil {
-					return fmt.Errorf("retry because VMOP %s/%s still exists", vmop.Namespace, vmop.Name)
-				}
-				if !k8serrors.IsNotFound(err) {
-					return fmt.Errorf("unexpected error while checking VMOP %s/%s deletion: %w", vmop.Namespace, vmop.Name, err)
-				}
-			}
+		if kvvmi.Status.MigrationState == nil {
+			return fmt.Errorf("%s KVVMI migration state is empty", kvvmi.Name)
+		}
 
-			return nil
-		}).WithTimeout(framework.ShortTimeout).WithPolling(time.Second).ShouldNot(HaveOccurred())
+		return nil
+	}).WithTimeout(timeout).WithPolling(time.Second).ShouldNot(HaveOccurred())
+}
 
-		By("Abort status should be exists in Kubevirt VMIs")
-		Eventually(func() error {
-			vmList := []*v1alpha2.VirtualMachine{vmBIOS, vmUEFI}
-			for _, vm := range vmList {
-				kvvmi, err := util.GetKVVMI(context.Background(), f, vm.Name, vm.Namespace)
-				if err != nil {
-					return fmt.Errorf("retry because %w", err)
-				}
+func untilAbortStatusExists(ctx context.Context, timeout time.Duration, vm *v1alpha2.VirtualMachine) {
+	GinkgoHelper()
 
-				migrationState := kvvmi.Status.MigrationState
-				if migrationState == nil {
-					return fmt.Errorf("retry because migration state is nil for VMI %s/%s", vm.Namespace, vm.Name)
-				}
-				if !migrationState.AbortRequested {
-					return fmt.Errorf("retry because migration abort requested is false for VMI %s/%s", vm.Namespace, vm.Name)
-				}
+	var (
+		validAbortStatuses = []virtv1.MigrationAbortStatus{
+			virtv1.MigrationAbortInProgress,
+			virtv1.MigrationAbortSucceeded,
+			virtv1.MigrationAbortFailed,
+		}
+	)
 
-				if !slices.Contains(validAbortStatuses, migrationState.AbortStatus) {
-					return fmt.Errorf("retry because migration abort status is %s for VMI %s/%s", migrationState.AbortStatus, vm.Namespace, vm.Name)
-				}
+	Eventually(func() error {
+		kvvmi, err := util.GetInternalVirtualMachineInstance(ctx, vm)
+		if err != nil {
+			return fmt.Errorf("retry because %w", err)
+		}
 
-				if migrationState.EndTimestamp.IsZero() {
-					return fmt.Errorf("retry because migration is not finished yet for VMI %s/%s", vm.Namespace, vm.Name)
-				}
-			}
-			return nil
-		}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).ShouldNot(HaveOccurred())
-	})
-})
+		if kvvmi == nil {
+			return fmt.Errorf("retry because KVVMI not found for %s/%s VM", vm.Namespace, vm.Name)
+		}
+
+		migrationState := kvvmi.Status.MigrationState
+		if migrationState == nil {
+			return fmt.Errorf("retry because migration state is nil for VMI %s/%s", vm.Namespace, vm.Name)
+		}
+		if !migrationState.AbortRequested {
+			return fmt.Errorf("retry because migration abort requested is false for VMI %s/%s", vm.Namespace, vm.Name)
+		}
+
+		if !slices.Contains(validAbortStatuses, migrationState.AbortStatus) {
+			return fmt.Errorf("retry because migration abort status is %s for VMI %s/%s", migrationState.AbortStatus, vm.Namespace, vm.Name)
+		}
+
+		if migrationState.EndTimestamp.IsZero() {
+			return fmt.Errorf("retry because migration is not finished yet for VMI %s/%s", vm.Namespace, vm.Name)
+		}
+		return nil
+	}).WithTimeout(timeout).WithPolling(time.Second).ShouldNot(HaveOccurred())
+}
