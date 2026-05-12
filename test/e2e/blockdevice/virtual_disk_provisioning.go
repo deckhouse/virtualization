@@ -113,10 +113,6 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		By("Waiting for VirtualDisk to be ready", func() {
-			util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.LongTimeout, vd)
-		})
-
 		By("Creating VirtualMachine and waiting for VirtualMachine to be ready", func() {
 			vm := object.NewMinimalVM("vm-", f.Namespace().Name, vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.VirtualDiskKind,
@@ -126,6 +122,10 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
+		})
+
+		By("Waiting for VirtualDisk to be ready", func() {
+			util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.LongTimeout, vd)
 		})
 	})
 
@@ -138,10 +138,6 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		By("Waiting for VirtualDisk to be ready", func() {
-			util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.LongTimeout, vd)
-		})
-
 		By("Creating VirtualMachine and waiting for VirtualMachine to be ready", func() {
 			vm := object.NewMinimalVM("vm-", f.Namespace().Name, vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.VirtualDiskKind,
@@ -151,6 +147,10 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
+		})
+
+		By("Waiting for VirtualDisk to be ready", func() {
+			util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.LongTimeout, vd)
 		})
 	})
 
@@ -163,10 +163,6 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		By("Waiting for VirtualDisk to be ready", func() {
-			util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.LongTimeout, vd)
-		})
-
 		By("Creating VirtualMachine and waiting for VirtualMachine to be ready", func() {
 			vm := object.NewMinimalVM("vm-", f.Namespace().Name, vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.VirtualDiskKind,
@@ -176,6 +172,10 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
+		})
+
+		By("Waiting for VirtualDisk to be ready", func() {
+			util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.LongTimeout, vd)
 		})
 	})
 })
