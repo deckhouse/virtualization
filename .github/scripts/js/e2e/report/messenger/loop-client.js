@@ -14,7 +14,6 @@
  * @typedef {Object} LoopClientCore
  * @property {function(string): void} warning
  * @property {function(string): void} [info]
- * @property {function(string, string): void} [setOutput]
  */
 
 /**
@@ -116,9 +115,8 @@ async function makeThreadedReportInLoop({ message, threadMessages, loop }, core)
     );
   }
 
-  let lastReplyPost = null;
   for (const replyMessage of threadMessages) {
-    lastReplyPost = await postToLoopApi(
+    await postToLoopApi(
       {
         apiUrl: loop.apiUrl,
         channelId: loop.channelId,
@@ -129,12 +127,6 @@ async function makeThreadedReportInLoop({ message, threadMessages, loop }, core)
       core
     );
   }
-
-  core.setOutput("root_post_id", rootPost.id || "");
-  core.setOutput(
-    "thread_post_id",
-    lastReplyPost && lastReplyPost.id ? lastReplyPost.id : ""
-  );
 }
 
 module.exports = {

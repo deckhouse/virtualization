@@ -23,7 +23,6 @@ const { readMessengerConfigFromEnv } = require("./messenger/config");
  * @returns {{
  *   info: jest.Mock,
  *   warning: jest.Mock,
- *   debug: jest.Mock,
  *   setOutput: jest.Mock
  * }} Mocked core object.
  */
@@ -31,7 +30,6 @@ function createCore() {
   return {
     info: jest.fn(),
     warning: jest.fn(),
-    debug: jest.fn(),
     setOutput: jest.fn(),
   };
 }
@@ -166,11 +164,6 @@ describe("messenger-report", () => {
       expect(result.threadMessages).toEqual([
         "### Failed tests\n\n**replicated**\n\n| Test group |\n|---|\n| fails |",
       ]);
-      expect(result.threadMessage).toContain("### Failed tests");
-      expect(result.threadMessage).toContain("**replicated**");
-      expect(result.threadMessage).toContain("| Test group |");
-      expect(result.threadMessage).toContain("| fails |");
-      expect(result.threadMessage).not.toContain("**nfs**\n|");
     }));
 
   test("creates artifact-missing entry for absent cluster report", async () =>
@@ -184,7 +177,6 @@ describe("messenger-report", () => {
       expect(result.message).toContain(
         "- replicated: ⚠️ E2E REPORT ARTIFACT NOT FOUND"
       );
-      expect(result.threadMessage).toBe("");
       expect(result.threadMessages).toEqual([]);
     }));
 
@@ -385,7 +377,6 @@ describe("messenger-report", () => {
       expect(result.message).toContain(
         "- [replicated](https://example.invalid/replicated): ❌ CONFIGURE SDN FAILED"
       );
-      expect(result.threadMessage).toBe("");
       expect(result.threadMessages).toEqual([]);
     }));
 
@@ -468,7 +459,6 @@ describe("messenger-report", () => {
       expect(result.message).toContain(
         "- [replicated](https://example.invalid/replicated): ⚠️ E2E TEST REPORT NOT FOUND"
       );
-      expect(result.threadMessage).toBe("");
       expect(result.threadMessages).toEqual([]);
     }));
 

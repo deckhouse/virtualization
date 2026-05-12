@@ -25,7 +25,6 @@ const { buildClusterStatus } = require("./shared/report-model");
  * @returns {{
  *   info: jest.Mock,
  *   warning: jest.Mock,
- *   debug: jest.Mock,
  *   setOutput: jest.Mock
  * }} Mocked core object.
  */
@@ -33,7 +32,6 @@ function createCore() {
   return {
     info: jest.fn(),
     warning: jest.fn(),
-    debug: jest.fn(),
     setOutput: jest.fn(),
   };
 }
@@ -60,14 +58,13 @@ function createContext() {
 /**
  * Creates a minimal GitHub API client mock for workflow job discovery.
  *
- * @param {Record<string, string>} jobConclusions Job conclusion by job name.
+ * @param {string[]} jobNames Workflow job names.
  * @returns {Record<string, any>} Mocked GitHub client.
  */
-function createGithub(jobConclusions) {
-  const jobs = Object.entries(jobConclusions).map(
-    ([name, conclusion], index) => ({
+function createGithub(jobNames) {
+  const jobs = jobNames.map(
+    (name, index) => ({
       name,
-      conclusion,
       html_url: `https://github.com/test/repo/actions/runs/12345/job/${
         index + 1
       }`,
@@ -351,13 +348,13 @@ describe("cluster-report", () => {
       const report = await buildClusterReport({
         core: createCore(),
         context: createContext(),
-        github: createGithub({
-          "E2E Pipeline (NFS) / Bootstrap cluster": "success",
-          "E2E Pipeline (NFS) / Configure SDN": "failure",
-          "E2E Pipeline (NFS) / Configure storage": "skipped",
-          "E2E Pipeline (NFS) / Configure Virtualization": "skipped",
-          "E2E Pipeline (NFS) / E2E test": "skipped",
-        }),
+        github: createGithub([
+          "E2E Pipeline (NFS) / Bootstrap cluster",
+          "E2E Pipeline (NFS) / Configure SDN",
+          "E2E Pipeline (NFS) / Configure storage",
+          "E2E Pipeline (NFS) / Configure Virtualization",
+          "E2E Pipeline (NFS) / E2E test",
+        ]),
       });
 
       expect(report.clusterStatus).toMatchObject({

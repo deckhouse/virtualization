@@ -103,7 +103,6 @@ function readReports(reportsDir, configuredClusters, core) {
  * @param {MessengerMessagesParams} params Message rendering inputs.
  * @returns {{
  *   message: string,
- *   threadMessage: string,
  *   threadMessages: string[]
  * }} Rendered markdown payloads.
  */
@@ -112,7 +111,6 @@ function buildMessengerMessages({ reportsDir, configuredClusters, core }) {
   const threadMessages = buildThreadMessages(orderedReports);
   return {
     message: buildMainMessage(orderedReports),
-    threadMessage: threadMessages.join("\n\n"),
     threadMessages,
   };
 }
@@ -124,13 +122,12 @@ function buildMessengerMessages({ reportsDir, configuredClusters, core }) {
  * @param {RenderMessengerReportParams} params GitHub script dependencies.
  * @returns {Promise<{
  *   message: string,
- *   threadMessage: string,
  *   threadMessages: string[]
  * }>} Rendered messages.
  */
 async function renderMessengerReport({ core, reportsDir }) {
   const config = readMessengerConfigFromEnv();
-  const { message, threadMessage, threadMessages } = buildMessengerMessages({
+  const { message, threadMessages } = buildMessengerMessages({
     reportsDir: reportsDir || config.reportsDir,
     configuredClusters: config.configuredClusters,
     core,
@@ -138,7 +135,6 @@ async function renderMessengerReport({ core, reportsDir }) {
 
   core.info(message);
   core.setOutput("message", message);
-  core.setOutput("thread_message", threadMessage);
   core.setOutput("thread_messages", JSON.stringify(threadMessages));
 
   if (config.loop) {
@@ -149,7 +145,7 @@ async function renderMessengerReport({ core, reportsDir }) {
     }
   }
 
-  return { message, threadMessage, threadMessages };
+  return { message, threadMessages };
 }
 
 module.exports = renderMessengerReport;
