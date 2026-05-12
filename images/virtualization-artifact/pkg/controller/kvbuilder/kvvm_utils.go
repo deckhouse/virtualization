@@ -361,9 +361,14 @@ func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList) {
 	}
 
 	for _, iface := range kvvm.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
-		if _, wanted := desiredByName[iface.Name]; !wanted {
-			kvvm.SetNetworkInterfaceAbsent(iface.Name)
+		if _, wanted := desiredByName[iface.Name]; wanted {
+			continue
 		}
+		if iface.Name == network.NameDefaultInterface {
+			kvvm.RemoveNetworkInterface(iface.Name)
+			continue
+		}
+		kvvm.SetNetworkInterfaceAbsent(iface.Name)
 	}
 
 	for _, n := range networkSpec {

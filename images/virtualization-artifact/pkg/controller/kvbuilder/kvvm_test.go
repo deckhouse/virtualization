@@ -216,6 +216,27 @@ func TestSetNetworkMarksRemovedAsAbsent(t *testing.T) {
 	}
 }
 
+func TestSetNetworkRemovesDefaultEntirely(t *testing.T) {
+	b := newTestKVVM()
+	b.SetNetworkInterface("default", "", 1)
+	b.SetNetworkInterface("veth_n12345678", "aa:bb:cc:dd:ee:ff", 2)
+
+	setNetwork(b, network.InterfaceSpecList{
+		{InterfaceName: "veth_n12345678", MAC: "aa:bb:cc:dd:ee:ff", ID: 2},
+	})
+
+	for _, iface := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
+		if iface.Name == "default" {
+			t.Fatalf("default interface must be removed from KVVM template when Main is dropped (KubeVirt rejects State: absent on default)")
+		}
+	}
+	for _, n := range b.Resource.Spec.Template.Spec.Networks {
+		if n.Name == "default" {
+			t.Fatalf("default network entry must be removed alongside the interface")
+		}
+	}
+}
+
 func TestSetNetworkAddsNewInterface(t *testing.T) {
 	b := newTestKVVM()
 	b.SetNetworkInterface("default", "", 1)

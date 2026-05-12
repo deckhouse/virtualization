@@ -753,6 +753,26 @@ func (b *KVVM) SetNetworkInterfaceAbsent(name string) {
 	}
 }
 
+func (b *KVVM) RemoveNetworkInterface(name string) {
+	ifaces := b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces
+	filtered := ifaces[:0]
+	for _, iface := range ifaces {
+		if iface.Name != name {
+			filtered = append(filtered, iface)
+		}
+	}
+	b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces = filtered
+
+	nets := b.Resource.Spec.Template.Spec.Networks
+	filteredNets := nets[:0]
+	for _, n := range nets {
+		if n.Name != name {
+			filteredNets = append(filteredNets, n)
+		}
+	}
+	b.Resource.Spec.Template.Spec.Networks = filteredNets
+}
+
 func (b *KVVM) SetNetworkInterface(name, macAddress string, acpiIndex int) {
 	net := virtv1.Network{
 		Name: name,
