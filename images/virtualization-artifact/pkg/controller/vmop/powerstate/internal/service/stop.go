@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -42,6 +43,9 @@ type StopOperation struct {
 func (o StopOperation) Execute(ctx context.Context) error {
 	kvvmi := &virtv1.VirtualMachineInstance{}
 	err := o.client.Get(ctx, virtualMachineKeyByVmop(o.vmop), kvvmi)
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
