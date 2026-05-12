@@ -59,7 +59,7 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 		)
 
 		By("Creating VirtualImage from precreated CVI", func() {
-			vi = object.NewGeneratedVIFromCVI("vi-", f.Namespace().Name, object.PrecreatedCVIAlpineUEFI)
+			vi = object.NewGeneratedVIFromCVI("vi-", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS)
 
 			err := f.CreateWithDeferredDeletion(ctx, vi)
 			Expect(err).NotTo(HaveOccurred())
@@ -106,7 +106,7 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 			vm *v1alpha2.VirtualMachine
 		)
 		By("Creating VirtualImage", func() {
-			vi = object.NewGeneratedVIFromCVI("vi-", f.Namespace().Name, object.PrecreatedCVIAlpineUEFI)
+			vi = object.NewGeneratedVIFromCVI("vi-", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS)
 			err := f.CreateWithDeferredDeletion(ctx, vi)
 			Expect(err).NotTo(HaveOccurred())
 		})
