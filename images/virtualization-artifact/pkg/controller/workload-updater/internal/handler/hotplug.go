@@ -82,5 +82,5 @@ func (h *HotplugHandler) Name() string {
 }
 
 func getHotplugResourcesSum(vm *v1alpha2.VirtualMachine) string {
-	return fmt.Sprintf("cpu.cores=%d,cpu.fraction=%s,memory.size=%s", vm.Spec.CPU.Cores, vm.Spec.CPU.CoreFraction, vm.Spec.Memory.Size.String())
+	return fmt.Sprintf("cpu.cores=%d,cpu.coreFraction=%s,memory.size=%s", vm.Spec.CPU.Cores, vm.Spec.CPU.CoreFraction, vm.Spec.Memory.Size.String())
 }

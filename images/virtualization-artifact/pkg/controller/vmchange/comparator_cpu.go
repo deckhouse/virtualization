@@ -35,8 +35,8 @@ func NewComparatorCPU(featureGate featuregate.FeatureGate) VMSpecFieldComparator
 }
 
 // Compare returns changes in the cpu section.
-// // It supports CPU hotplug mechanism for cores changes.
-// // It requires reboot if cpu fraction is changed or if COU hotplug is disabled.
+// It returns "apply immediate" when cpu core fraction is changed or
+// CPU cores change is compatible with hotplug.
 func (c *comparatorCPU) Compare(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
 	coresRestartMsg := ""
 
