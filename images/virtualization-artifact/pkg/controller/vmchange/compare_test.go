@@ -71,7 +71,7 @@ cpu:
 			),
 		},
 		{
-			"restart on cpu section change",
+			"restart on cpu section change when hotplug is disabled",
 			`
 cpu:
   cores: 2
@@ -85,6 +85,24 @@ cpu:
 			nil,
 			assertChanges(
 				actionRequired(ActionRestart),
+				requirePathOperation("cpu", ChangeReplace),
+			),
+		},
+		{
+			"immediate apply on cpu section change when hotplug is enabled",
+			`
+cpu:
+  cores: 2
+  coreFraction: 60%
+`,
+			`
+cpu:
+  cores: 6
+  coreFraction: 40%
+`,
+			[]featuregate.Feature{featuregates.HotplugCPUWithLiveMigration},
+			assertChanges(
+				actionRequired(ActionApplyImmediate),
 				requirePathOperation("cpu", ChangeReplace),
 			),
 		},
