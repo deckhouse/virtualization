@@ -20,7 +20,11 @@ import (
 	"fmt"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -83,7 +87,7 @@ func TestNetworksValidateCreate(t *testing.T) {
 			if test.sdnEnabled {
 				_ = setFromMap(map[string]bool{string(featuregates.SDN): true})
 			}
-			networkValidator := NewNetworksValidator(featureGate)
+			networkValidator := NewNetworksValidator(nil, featureGate)
 
 			_, err := networkValidator.ValidateCreate(t.Context(), vm)
 			if test.valid && err != nil {
@@ -330,7 +334,7 @@ func TestNetworksValidateUpdate(t *testing.T) {
 					string(featuregates.SDN): true,
 				})
 			}
-			networkValidator := NewNetworksValidator(featureGate)
+			networkValidator := NewNetworksValidator(nil, featureGate)
 			_, err := networkValidator.ValidateUpdate(t.Context(), oldVM, newVM)
 
 			if test.valid && err != nil {
@@ -347,4 +351,86 @@ func TestNetworksValidateUpdate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func newUnstructured(gvk schema.GroupVersionKind, name, namespace string) *unstructured.Unstructured {
+	u := &unstructured.Unstructured{}
+	u.SetGroupVersionKind(gvk)
+	u.SetName(name)
+	if namespace != "" {
+		u.SetNamespace(namespace)
+	}
+	return u
+}
+
+func TestNetworksValidatesExistence(t *testing.T) {
+	scheme := runtime.NewScheme()
+	scheme.AddKnownTypeWithName(clusterNetworkGVK, &unstructured.Unstructured{})
+	scheme.AddKnownTypeWithName(networkGVK, &unstructured.Unstructured{})
+
+	existingCN := newUnstructured(clusterNetworkGVK, "exists-cn", "")
+	existingNet := newUnstructured(networkGVK, "exists-net", "default")
+
+	cli := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(existingCN, existingNet).
+		Build()
+
+	featureGate, _, setFromMap, _ := featuregates.New()
+	_ = setFromMap(map[string]bool{string(featuregates.SDN): true})
+	v := NewNetworksValidator(cli, featureGate)
+
+	t.Run("create: missing networks are allowed (no existence check)", func(t *testing.T) {
+		vm := &v1alpha2.VirtualMachine{}
+		vm.Namespace = "default"
+		vm.Spec.Networks = []v1alpha2.NetworksSpec{mainNetwork, {Type: v1alpha2.NetworksTypeClusterNetwork, Name: "ghost"}}
+		if _, err := v.ValidateCreate(t.Context(), vm); err != nil {
+			t.Fatalf("ValidateCreate must not check network existence; got: %v", err)
+		}
+	})
+
+	t.Run("update: adding existing ClusterNetwork passes", func(t *testing.T) {
+		oldVM := &v1alpha2.VirtualMachine{}
+		oldVM.Namespace = "default"
+		oldVM.Spec.Networks = []v1alpha2.NetworksSpec{mainNetwork}
+		newVM := oldVM.DeepCopy()
+		newVM.Spec.Networks = append(newVM.Spec.Networks, v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "exists-cn"})
+		if _, err := v.ValidateUpdate(t.Context(), oldVM, newVM); err != nil {
+			t.Fatalf("expected no error; got: %v", err)
+		}
+	})
+
+	t.Run("update: adding existing Network passes", func(t *testing.T) {
+		oldVM := &v1alpha2.VirtualMachine{}
+		oldVM.Namespace = "default"
+		oldVM.Spec.Networks = []v1alpha2.NetworksSpec{mainNetwork}
+		newVM := oldVM.DeepCopy()
+		newVM.Spec.Networks = append(newVM.Spec.Networks, v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeNetwork, Name: "exists-net"})
+		if _, err := v.ValidateUpdate(t.Context(), oldVM, newVM); err != nil {
+			t.Fatalf("expected no error; got: %v", err)
+		}
+	})
+
+	t.Run("update: existing networks are not re-checked", func(t *testing.T) {
+		oldVM := &v1alpha2.VirtualMachine{}
+		oldVM.Namespace = "default"
+		oldVM.Spec.Networks = []v1alpha2.NetworksSpec{mainNetwork, {Type: v1alpha2.NetworksTypeClusterNetwork, Name: "ghost"}}
+		newVM := oldVM.DeepCopy()
+		// Add another non-Main network; existing "ghost" should not be re-checked.
+		newVM.Spec.Networks = append(newVM.Spec.Networks, v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "exists-cn"})
+		if _, err := v.ValidateUpdate(t.Context(), oldVM, newVM); err != nil {
+			t.Fatalf("expected no error for adding an existing network when prior spec had a missing one; got: %v", err)
+		}
+	})
+
+	t.Run("update: adding a missing network is rejected", func(t *testing.T) {
+		oldVM := &v1alpha2.VirtualMachine{}
+		oldVM.Namespace = "default"
+		oldVM.Spec.Networks = []v1alpha2.NetworksSpec{mainNetwork, {Type: v1alpha2.NetworksTypeClusterNetwork, Name: "exists-cn"}}
+		newVM := oldVM.DeepCopy()
+		newVM.Spec.Networks = append(newVM.Spec.Networks, v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "ghost"})
+		if _, err := v.ValidateUpdate(t.Context(), oldVM, newVM); err == nil {
+			t.Fatalf("expected error when adding a missing network")
+		}
+	})
 }

@@ -21,8 +21,13 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/component-base/featuregate"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	commonnetwork "github.com/deckhouse/virtualization-controller/pkg/common/network"
@@ -30,12 +35,19 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
+var (
+	networkGVK        = schema.GroupVersionKind{Group: "network.deckhouse.io", Version: "v1alpha1", Kind: "Network"}
+	clusterNetworkGVK = schema.GroupVersionKind{Group: "network.deckhouse.io", Version: "v1alpha1", Kind: "ClusterNetwork"}
+)
+
 type NetworksValidator struct {
+	client      client.Client
 	featureGate featuregate.FeatureGate
 }
 
-func NewNetworksValidator(featureGate featuregate.FeatureGate) *NetworksValidator {
+func NewNetworksValidator(c client.Client, featureGate featuregate.FeatureGate) *NetworksValidator {
 	return &NetworksValidator{
+		client:      c,
 		featureGate: featureGate,
 	}
 }
@@ -53,7 +65,7 @@ func (v *NetworksValidator) ValidateCreate(_ context.Context, vm *v1alpha2.Virtu
 	return v.validateNetworksSpec(networksSpec)
 }
 
-func (v *NetworksValidator) ValidateUpdate(_ context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+func (v *NetworksValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	newNetworksSpec := newVM.Spec.Networks
 	if len(newNetworksSpec) == 0 {
 		return nil, nil
@@ -68,10 +80,65 @@ func (v *NetworksValidator) ValidateUpdate(_ context.Context, oldVM, newVM *v1al
 	}
 
 	isChanged := !equality.Semantic.DeepEqual(newNetworksSpec, oldVM.Spec.Networks)
-	if isChanged {
-		return v.validateNetworksSpec(newNetworksSpec)
+	if !isChanged {
+		return nil, nil
+	}
+
+	if warn, err := v.validateNetworksSpec(newNetworksSpec); err != nil {
+		return warn, err
+	}
+
+	added := networksAdded(oldVM.Spec.Networks, newNetworksSpec)
+	if len(added) == 0 {
+		return nil, nil
+	}
+	return v.validateNetworksExist(ctx, newVM.Namespace, added)
+}
+
+func (v *NetworksValidator) validateNetworksExist(ctx context.Context, namespace string, networks []v1alpha2.NetworksSpec) (admission.Warnings, error) {
+	if v.client == nil {
+		return nil, nil
+	}
+	for _, n := range networks {
+		switch n.Type {
+		case v1alpha2.NetworksTypeClusterNetwork:
+			obj := &unstructured.Unstructured{}
+			obj.SetGroupVersionKind(clusterNetworkGVK)
+			err := v.client.Get(ctx, types.NamespacedName{Name: n.Name}, obj)
+			if k8serrors.IsNotFound(err) {
+				return nil, fmt.Errorf("ClusterNetwork %q referenced in spec.networks does not exist", n.Name)
+			}
+			if err != nil {
+				return nil, fmt.Errorf("failed to verify ClusterNetwork %q: %w", n.Name, err)
+			}
+		case v1alpha2.NetworksTypeNetwork:
+			obj := &unstructured.Unstructured{}
+			obj.SetGroupVersionKind(networkGVK)
+			err := v.client.Get(ctx, types.NamespacedName{Name: n.Name, Namespace: namespace}, obj)
+			if k8serrors.IsNotFound(err) {
+				return nil, fmt.Errorf("Network %q referenced in spec.networks does not exist in namespace %q", n.Name, namespace)
+			}
+			if err != nil {
+				return nil, fmt.Errorf("failed to verify Network %q: %w", n.Name, err)
+			}
+		}
 	}
 	return nil, nil
+}
+
+func networksAdded(oldSpec, newSpec []v1alpha2.NetworksSpec) []v1alpha2.NetworksSpec {
+	oldKey := func(n v1alpha2.NetworksSpec) string { return n.Type + "/" + n.Name }
+	old := make(map[string]struct{}, len(oldSpec))
+	for _, n := range oldSpec {
+		old[oldKey(n)] = struct{}{}
+	}
+	var added []v1alpha2.NetworksSpec
+	for _, n := range newSpec {
+		if _, ok := old[oldKey(n)]; !ok {
+			added = append(added, n)
+		}
+	}
+	return added
 }
 
 func isSingleMainNet(networks []v1alpha2.NetworksSpec) bool {
