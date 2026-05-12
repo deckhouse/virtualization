@@ -226,8 +226,6 @@ shell:
       --block-drv-ro-whitelist="vdi,vmdk,vhdx,vpc,https" \
       --disable-alsa \
       --disable-auth-pam \
-      --enable-avx2 \
-      --disable-avx512bw \
       --disable-block-drv-whitelist-in-tools \
       --disable-bochs \
       --disable-bpf \
