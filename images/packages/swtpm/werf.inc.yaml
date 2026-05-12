@@ -17,14 +17,14 @@ final: false
 fromImage: builder/src
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ .PACKAGE_CLONE_REPO }}
 shell:
   install:
   - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 ---
 
 
-{{- $name := print $.ImageName "-dependencies" -}}
+{{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
 - expect socat twisted-core-tools gcc
@@ -96,7 +96,7 @@ shell:
       --with-tss-group=root \
       --libdir=/usr/lib64
 
-    {{- $_ := set $ "ProjectName" (list $.ImageName "swtpm" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "swtpm" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `make -j$(nproc)`) | nindent 6 }}
 
     make DESTDIR=$OUTDIR install

@@ -21,6 +21,7 @@ import (
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -50,16 +51,29 @@ func (w *DVCRGarbageCollectionSecretWatcher) Watch(mgr manager.Manager, ctr cont
 			mgr.GetCache(),
 			&corev1.Secret{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, secret *corev1.Secret) []reconcile.Request {
-				if secret.GetNamespace() == dvcrtypes.ModuleNamespace && secret.GetName() == dvcrtypes.DVCRGarbageCollectionSecretName {
-					return []reconcile.Request{{NamespacedName: client.ObjectKeyFromObject(secret)}}
-				}
-				return nil
+				return []reconcile.Request{{NamespacedName: client.ObjectKeyFromObject(secret)}}
 			}),
 			predicate.TypedFuncs[*corev1.Secret]{
+				CreateFunc: func(e event.TypedCreateEvent[*corev1.Secret]) bool {
+					return IsDVCRGarbageCollectionSecret(e.Object)
+				},
 				UpdateFunc: func(e event.TypedUpdateEvent[*corev1.Secret]) bool {
+					if !IsDVCRGarbageCollectionSecret(e.ObjectNew) {
+						return false
+					}
 					return !reflect.DeepEqual(e.ObjectNew.GetAnnotations(), e.ObjectOld.GetAnnotations())
+				},
+				DeleteFunc: func(e event.TypedDeleteEvent[*corev1.Secret]) bool {
+					return IsDVCRGarbageCollectionSecret(e.Object)
 				},
 			},
 		),
 	)
+}
+
+func IsDVCRGarbageCollectionSecret(secret metav1.Object) bool {
+	if secret == nil {
+		return false
+	}
+	return secret.GetNamespace() == dvcrtypes.ModuleNamespace && secret.GetName() == dvcrtypes.DVCRGarbageCollectionSecretName
 }

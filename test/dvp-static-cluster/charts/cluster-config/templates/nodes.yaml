@@ -38,7 +38,7 @@ spec:
   address: {{ index $.Values.discovered.vmIPs $vmName }}
   credentialsRef:
     kind: SSHCredentials
-    name: mvp-static
+    name: dvp-stataic
   {{- end }}
 
 {{- end }}

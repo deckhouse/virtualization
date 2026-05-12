@@ -101,17 +101,22 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 		input.Values.Set(settings.InternalValuesConfigValidationPath, map[string]string{
 			"error": fmt.Sprintf("ModuleConfig/virtualization is invalid: %v", err),
 		})
-	} else {
-		// Module is valid, remove moduleConfigValidation object to indicate valid state for the readiness probe.
-		input.Values.Remove(settings.InternalValuesConfigValidationPath)
-		// Copy valid settings from config values to apply them in helm templates.
-		copyModuleConfigSettingsIntoInternalValues(input)
+		return nil
 	}
+
+	// Module is valid, remove moduleConfigValidation object to indicate valid state for the readiness probe.
+	input.Values.Remove(settings.InternalValuesConfigValidationPath)
+	// Copy valid settings from config values to apply them in helm templates.
+	copyModuleConfigSettingsIntoInternalValues(input)
 
 	return nil
 }
 
 func validateModuleConfigSettings(mc *mcapi.ModuleConfig, nodes []corev1.Node, podSubnet, serviceSubnet netip.Prefix) error {
+	if err := validateRequiredModuleConfigSettings(mc); err != nil {
+		return err
+	}
+
 	CIDRs, err := moduleconfig.ParseCIDRs(mc.Spec.Settings)
 	if err != nil {
 		return err
@@ -145,6 +150,26 @@ func validateModuleConfigSettings(mc *mcapi.ModuleConfig, nodes []corev1.Node, p
 func copyModuleConfigSettingsIntoInternalValues(input *pkg.HookInput) {
 	cfg := input.ConfigValues.Get("virtualization")
 	input.Values.Set(settings.InternalValuesConfigCopyPath, cfg.Value())
+}
+
+func validateRequiredModuleConfigSettings(mc *mcapi.ModuleConfig) error {
+	if mc == nil {
+		return fmt.Errorf("moduleConfig is nil")
+	}
+
+	if mc.Spec.Settings == nil {
+		return fmt.Errorf("spec.settings is empty")
+	}
+
+	if _, ok := mc.Spec.Settings["virtualMachineCIDRs"]; !ok {
+		return fmt.Errorf("spec.settings.virtualMachineCIDRs is required")
+	}
+
+	if _, ok := mc.Spec.Settings["dvcr"]; !ok {
+		return fmt.Errorf("spec.settings.dvcr is required")
+	}
+
+	return nil
 }
 
 func moduleConfigFromSnapshot(input *pkg.HookInput) (*mcapi.ModuleConfig, error) {

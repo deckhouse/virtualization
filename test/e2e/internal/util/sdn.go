@@ -54,7 +54,7 @@ EOF`, ClusterNetworkName(vlanID), vlanID)
 func IsSdnModuleEnabled(f *framework.Framework) bool {
 	GinkgoHelper()
 
-	sdnModule, err := f.GetModuleConfig("sdn")
+	sdnModule, err := f.GetModuleConfig(context.Background(), "sdn")
 	Expect(err).NotTo(HaveOccurred())
 	enabled := sdnModule.Spec.Enabled
 

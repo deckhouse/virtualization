@@ -186,7 +186,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *v1alpha2.Virtua
 				continue
 			}
 
-			ns.VirtualMachineMACAddressName = macAddressNamesByAddress[macAddressOrder[i-1]]
+			ns.VirtualMachineMACAddressName = macAddressNamesByAddress[macAddressOrder[i]]
 		}
 	}
 

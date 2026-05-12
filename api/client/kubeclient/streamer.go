@@ -69,10 +69,10 @@ type wsConn struct {
 }
 
 func (c *wsConn) SetDeadline(t time.Time) error {
-	if err := c.Conn.SetWriteDeadline(t); err != nil {
+	if err := c.SetWriteDeadline(t); err != nil {
 		return err
 	}
-	return c.Conn.SetReadDeadline(t)
+	return c.SetReadDeadline(t)
 }
 
 func NewWebsocketStreamer(conn *websocket.Conn, done chan struct{}) *wsStreamer {

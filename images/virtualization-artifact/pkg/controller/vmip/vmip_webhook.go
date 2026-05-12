@@ -65,21 +65,19 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 		return nil, fmt.Errorf("the VirtualMachineIPAddress validation is failed: %w", err)
 	}
 
-	var warnings admission.Warnings
-
 	if vmip.Spec.StaticIP != "" {
 		err = v.validateAllocatedIPAddresses(ctx, vmip.Spec.StaticIP)
 		switch {
 		case err == nil:
 			// OK.
 		case errors.Is(err, service.ErrIPAddressOutOfRange):
-			warnings = append(warnings, fmt.Sprintf("The requested address %s is out of the valid range", vmip.Spec.StaticIP))
+			return nil, fmt.Errorf("the requested address %s is out of the valid range", vmip.Spec.StaticIP)
 		default:
 			return nil, err
 		}
 	}
 
-	return warnings, nil
+	return nil, nil
 }
 
 func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {

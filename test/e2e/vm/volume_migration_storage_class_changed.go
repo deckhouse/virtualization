@@ -37,26 +37,30 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/rewrite"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
 // Ordered is required due to concurrent migration limitations in the cluster to prevent test interference.
 // ContinueOnFailure ensures all independent tests run even if one fails.
-var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), func() {
+var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), Label(precheck.NoPrecheck), func() {
 	var (
-		f                      = framework.NewFramework("volume-migration-storage-class-changed")
+		f                      *framework.Framework
+		ctx                    context.Context
 		storageClass           *storagev1.StorageClass
 		vi                     *v1alpha2.VirtualImage
 		targetStorageClassName string
 	)
 
 	BeforeEach(func() {
+		ctx = context.Background()
+		f = framework.NewFramework("volume-migration-storage-class-changed")
 		storageClass = framework.GetConfig().StorageClass.TemplateStorageClass
 		if storageClass == nil {
 			Skip("TemplateStorageClass is not set.")
 		}
-		targetStorageClass, err := getTargetStorageClass(f, storageClass)
+		targetStorageClass, err := getTargetStorageClass(ctx, f, storageClass)
 		Expect(err).NotTo(HaveOccurred())
 
 		if targetStorageClass == "" {
@@ -69,7 +73,7 @@ var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), func(
 		DeferCleanup(f.After)
 
 		newVI := object.NewGeneratedVIFromCVI("volume-migration-storage-class-changed-", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS)
-		newVI, err = f.VirtClient().VirtualImages(f.Namespace().Name).Create(context.Background(), newVI, metav1.CreateOptions{})
+		newVI, err = f.VirtClient().VirtualImages(f.Namespace().Name).Create(ctx, newVI, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(newVI)
 		vi = newVI
@@ -110,13 +114,13 @@ var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), func(
 
 		vm, vds := build()
 
-		vm, err := f.VirtClient().VirtualMachines(ns).Create(context.Background(), vm, metav1.CreateOptions{})
+		vm, err := f.VirtClient().VirtualMachines(ns).Create(ctx, vm, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(vm)
 
 		var vdsForMigration []*v1alpha2.VirtualDisk
 		for _, vd := range vds {
-			vd, err := f.VirtClient().VirtualDisks(ns).Create(context.Background(), vd, metav1.CreateOptions{})
+			vd, err := f.VirtClient().VirtualDisks(ns).Create(ctx, vd, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			f.DeferDelete(vd)
 
@@ -126,10 +130,10 @@ var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), func(
 		}
 		Expect(vdsForMigration).Should(HaveLen(len(disksForMigration)))
 
-		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
 		By("Patch VD with new storage class")
-		err = patchStorageClassName(context.Background(), f, targetStorageClassName, vdsForMigration...)
+		err = patchStorageClassName(ctx, f, targetStorageClassName, vdsForMigration...)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Wait until VM migration succeeded")
@@ -138,10 +142,10 @@ var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), func(
 		untilVirtualDisksMigrationsSucceeded(f)
 
 		for _, vdForMigration := range vdsForMigration {
-			migratedVD, err := f.VirtClient().VirtualDisks(ns).Get(context.Background(), vdForMigration.GetName(), metav1.GetOptions{})
+			migratedVD, err := f.VirtClient().VirtualDisks(ns).Get(ctx, vdForMigration.GetName(), metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
-			pvc, err := f.KubeClient().CoreV1().PersistentVolumeClaims(ns).Get(context.Background(), migratedVD.Status.Target.PersistentVolumeClaim, metav1.GetOptions{})
+			pvc, err := f.KubeClient().CoreV1().PersistentVolumeClaims(ns).Get(ctx, migratedVD.Status.Target.PersistentVolumeClaim, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(pvc.Spec.StorageClassName).NotTo(BeNil())
 			Expect(*pvc.Spec.StorageClassName).To(Equal(targetStorageClassName))
@@ -160,13 +164,13 @@ var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), func(
 
 		vm, vds := build()
 
-		vm, err := f.VirtClient().VirtualMachines(ns).Create(context.Background(), vm, metav1.CreateOptions{})
+		vm, err := f.VirtClient().VirtualMachines(ns).Create(ctx, vm, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(vm)
 
 		var vdsForMigration []*v1alpha2.VirtualDisk
 		for _, vd := range vds {
-			vd, err := f.VirtClient().VirtualDisks(ns).Create(context.Background(), vd, metav1.CreateOptions{})
+			vd, err := f.VirtClient().VirtualDisks(ns).Create(ctx, vd, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			f.DeferDelete(vd)
 
@@ -176,14 +180,14 @@ var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), func(
 		}
 		Expect(vdsForMigration).Should(HaveLen(len(disksForMigration)))
 
-		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
 		By("Patch VD with new storage class")
-		err = patchStorageClassName(context.Background(), f, targetStorageClassName, vdsForMigration...)
+		err = patchStorageClassName(ctx, f, targetStorageClassName, vdsForMigration...)
 		Expect(err).NotTo(HaveOccurred())
 
 		Eventually(func() error {
-			vm, err = f.VirtClient().VirtualMachines(ns).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
+			vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -195,7 +199,7 @@ var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), func(
 			}
 
 			// revert migration
-			err = patchStorageClassName(context.Background(), f, storageClass.Name, vdsForMigration...)
+			err = patchStorageClassName(ctx, f, storageClass.Name, vdsForMigration...)
 			Expect(err).NotTo(HaveOccurred())
 
 			return nil
@@ -220,12 +224,12 @@ var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), func(
 		}
 
 		f.DeferDelete(objs...)
-		err := f.CreateWithDeferredDeletion(context.Background(), objs...)
+		err := f.CreateWithDeferredDeletion(ctx, objs...)
 		Expect(err).NotTo(HaveOccurred())
 
-		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
-		vdForMigration, err := f.VirtClient().VirtualDisks(ns).Get(context.Background(), vdRootName, metav1.GetOptions{})
+		vdForMigration, err := f.VirtClient().VirtualDisks(ns).Get(ctx, vdRootName, metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
 		toStorageClasses := []string{targetStorageClassName, storageClass.Name}
@@ -233,7 +237,7 @@ var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), func(
 		for _, sc := range toStorageClasses {
 			By(fmt.Sprintf("Patch VD %s with new storage class %s", vdForMigration.Name, sc))
 
-			err = patchStorageClassName(context.Background(), f, sc, vdForMigration)
+			err = patchStorageClassName(ctx, f, sc, vdForMigration)
 			Expect(err).NotTo(HaveOccurred())
 
 			Eventually(func() error {
@@ -241,7 +245,7 @@ var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), func(
 				// controller may revert volume migration (VM not running, VM not migrating, etc.).
 				util.SkipIfVDMigrationReverted(ns)
 
-				vm, err = f.VirtClient().VirtualMachines(ns).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
+				vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -250,7 +254,7 @@ var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), func(
 				util.SkipIfKnownMigrationFailure(vm)
 
 				var lastVMOP *v1alpha2.VirtualMachineOperation
-				vmops, err := f.VirtClient().VirtualMachineOperations(ns).List(context.Background(), metav1.ListOptions{})
+				vmops, err := f.VirtClient().VirtualMachineOperations(ns).List(ctx, metav1.ListOptions{})
 				if err != nil {
 					return err
 				}
@@ -284,10 +288,10 @@ var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), func(
 
 			untilVirtualDisksMigrationsSucceeded(f)
 
-			migratedVD, err := f.VirtClient().VirtualDisks(ns).Get(context.Background(), vdForMigration.GetName(), metav1.GetOptions{})
+			migratedVD, err := f.VirtClient().VirtualDisks(ns).Get(ctx, vdForMigration.GetName(), metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
-			pvc, err := f.KubeClient().CoreV1().PersistentVolumeClaims(ns).Get(context.Background(), migratedVD.Status.Target.PersistentVolumeClaim, metav1.GetOptions{})
+			pvc, err := f.KubeClient().CoreV1().PersistentVolumeClaims(ns).Get(ctx, migratedVD.Status.Target.PersistentVolumeClaim, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(pvc.Spec.StorageClassName).NotTo(BeNil())
 			Expect(*pvc.Spec.StorageClassName).To(Equal(sc))
@@ -296,17 +300,17 @@ var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), func(
 	})
 })
 
-func getTargetStorageClass(f *framework.Framework, storageClass *storagev1.StorageClass) (string, error) {
+func getTargetStorageClass(ctx context.Context, f *framework.Framework, storageClass *storagev1.StorageClass) (string, error) {
 	// GetVolumeAndAccessModes needs no nil object.
 	notEmptyVD := &v1alpha2.VirtualDisk{}
 	modeGetter := volumemode.NewVolumeAndAccessModesGetter(f.GenericClient(), getStorageProfile(f))
 
-	volumeMode, _, err := modeGetter.GetVolumeAndAccessModes(context.Background(), notEmptyVD, storageClass)
+	volumeMode, _, err := modeGetter.GetVolumeAndAccessModes(ctx, notEmptyVD, storageClass)
 	if err != nil {
 		return "", err
 	}
 
-	scList, err := f.KubeClient().StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
+	scList, err := f.KubeClient().StorageV1().StorageClasses().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -322,7 +326,7 @@ func getTargetStorageClass(f *framework.Framework, storageClass *storagev1.Stora
 			continue
 		}
 
-		nextVolumeMode, _, err := modeGetter.GetVolumeAndAccessModes(context.Background(), notEmptyVD, &sc)
+		nextVolumeMode, _, err := modeGetter.GetVolumeAndAccessModes(ctx, notEmptyVD, &sc)
 		if err != nil {
 			GinkgoWriter.Printf("Skipping storage class %s: cannot get volume mode: %s\n", sc.Name, err)
 			continue

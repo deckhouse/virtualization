@@ -101,7 +101,7 @@ func (v D8VirtualizationCMD) SSHCommand(vmName, command string, opts SSHOptions)
 	}
 
 	localSSHOpts := "--local-ssh-opts='-o StrictHostKeyChecking=no' --local-ssh-opts='-o UserKnownHostsFile=/dev/null' --local-ssh-opts='-o LogLevel=ERROR'"
-	localSSHOpts = fmt.Sprintf("%s --local-ssh-opts='-o ConnectTimeout=%s'", localSSHOpts, timeout.String())
+	localSSHOpts = fmt.Sprintf("%s --local-ssh-opts='-o ServerAliveInterval=15' --local-ssh-opts='-o ServerAliveCountMax=8' --local-ssh-opts='-o ConnectTimeout=10'", localSSHOpts)
 
 	cmd := fmt.Sprintf("%s ssh %s -c '%s' --local-ssh=true %s", v.cmd, vmName, command, localSSHOpts)
 	cmd = v.addNamespace(cmd, opts.Namespace)

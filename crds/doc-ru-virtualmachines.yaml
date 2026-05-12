@@ -626,7 +626,9 @@ spec:
                           `.metadata.generation`, на основе которого было установлено условие.
                           Например, если `.metadata.generation` в настоящее время имеет значение `12`, а `.status.conditions[x].observedgeneration` имеет значение `9`, то условие устарело.
                       reason:
-                        description: Краткая причина последнего перехода состояния.
+                        description: |
+                          Краткая причина последнего перехода состояния.
+                          Значение `Running` используется для отображения времени работы ВМ в колонке `Uptime`.
                       status:
                         description: |
                           Статус условия. Возможные значения: `True`, `False`, `Unknown`.
@@ -704,6 +706,8 @@ spec:
                           description: Время ожидания запуска виртуальной машины. `starting` -> `running`.
                         guestOSAgentStarting:
                           description: Время ожидания запуска guestOsAgent. `running` -> `running` с guestOSAgent."
+                    lastStartTime:
+                      description: Время последнего запуска виртуальной машины.
                 observedGeneration:
                   description: |
                     Поколение ресурса, которое в последний раз обрабатывалось контроллером.

@@ -21,6 +21,7 @@ package command
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"strings"
@@ -43,6 +44,9 @@ import (
 	"github.com/deckhouse/virtualization/src/cli/internal/templates"
 )
 
+// NewCommand defines command and flags configuration for cobra.
+// Warning: d8 cli calls all configurations for all commands, so
+// do not print warnings or errors here, postpone such actions to runtime (RunE).
 func NewCommand(programName string) *cobra.Command {
 	// programName used in cobra templates to display either `d8 virtualization` or `d8vctl`
 	cobra.AddTemplateFunc(
@@ -60,8 +64,8 @@ func NewCommand(programName string) *cobra.Command {
 	)
 
 	virtCmd := &cobra.Command{
-		Use:           programName,
-		Short:         programName + " controls virtual machine related operations on your kubernetes cluster.",
+		Use:           fmt.Sprintf("%s command [options]", programName),
+		Short:         "Commands to work with Deckhouse Virtualization Platform.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {

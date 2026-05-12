@@ -17,6 +17,7 @@ limitations under the License.
 package tls_certificates_dvcr
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/tidwall/gjson"
@@ -51,6 +52,15 @@ var _ = tlscertificate.RegisterInternalTLSHookEM(tlscertificate.GenSelfSignedTLS
 	CommonCAValuesPath:   fmt.Sprintf("%s.internal.rootCA", settings.ModuleName),
 
 	BeforeHookCheck: func(input *pkg.HookInput) bool {
+		canRun, err := settings.CanRunWithModuleConfig(context.Background(), input)
+		if err != nil {
+			input.Logger.Error("Check module config before DVCR TLS hook", "error", err)
+			return false
+		}
+		if !canRun {
+			return false
+		}
+
 		return dvcrGetServiceIP(input).Type != gjson.Null
 	},
 })

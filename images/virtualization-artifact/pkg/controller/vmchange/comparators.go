@@ -17,8 +17,6 @@ limitations under the License.
 package vmchange
 
 import (
-	"k8s.io/apimachinery/pkg/api/resource"
-
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -122,40 +120,6 @@ func compareBootloader(current, desired *v1alpha2.VirtualMachineSpec) []FieldCha
 		string(DefaultBootloader),
 		ActionRestart,
 	)
-}
-
-// compareCPU returns changes in the cpu section.
-func compareCPU(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
-	coresChanges := compareInts("cpu.cores", current.CPU.Cores, desired.CPU.Cores, 0, ActionRestart)
-	fractionChanges := compareStrings("cpu.coreFraction", current.CPU.CoreFraction, desired.CPU.CoreFraction, DefaultCPUCoreFraction, ActionRestart)
-
-	// Yield full replace if both fields changed.
-	if HasChanges(coresChanges) && HasChanges(fractionChanges) {
-		return []FieldChange{
-			{
-				Operation:      ChangeReplace,
-				Path:           "cpu",
-				CurrentValue:   current.CPU,
-				DesiredValue:   desired.CPU,
-				ActionRequired: ActionRestart,
-			},
-		}
-	}
-
-	if HasChanges(coresChanges) {
-		return coresChanges
-	}
-
-	if HasChanges(fractionChanges) {
-		return fractionChanges
-	}
-
-	return nil
-}
-
-// compareMemory returns changes in the memory section.
-func compareMemory(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
-	return compareQuantity("memory.size", current.Memory.Size, desired.Memory.Size, resource.Quantity{}, ActionRestart)
 }
 
 func compareProvisioning(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {

@@ -108,6 +108,26 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 
 			Expect(kvvmi.Status.MigrationState.MigrationConfiguration).ShouldNot(BeNil(), "Should set migrationConfiguration")
 		})
+
+		It("Should propagate DisableTLS from KubeVirt config", func() {
+			vm := newVM()
+			kvvmi := newKVVMI()
+			kvvmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
+
+			kvConfig := newKVConfig()
+			kvConfig.Spec.Configuration.MigrationConfiguration = &virtv1.MigrationConfiguration{
+				DisableTLS: ptr.To(true),
+			}
+
+			fakeClient := setupEnvironment(kvvmi, vm, kvConfig)
+			h := NewDynamicSettingsHandler(fakeClient)
+			_, err := h.Handle(ctx, kvvmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(kvvmi.Status.MigrationState.MigrationConfiguration).ShouldNot(BeNil(), "Should set migrationConfiguration")
+			Expect(kvvmi.Status.MigrationState.MigrationConfiguration.DisableTLS).ShouldNot(BeNil(), "Should propagate DisableTLS")
+			Expect(*kvvmi.Status.MigrationState.MigrationConfiguration.DisableTLS).To(BeTrue())
+		})
 	})
 
 	When("Observe KVVMI with completed migration", func() {

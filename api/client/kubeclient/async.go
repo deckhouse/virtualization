@@ -49,7 +49,7 @@ func (aws *asyncWSRoundTripper) WebsocketCallback(ws *websocket.Conn, resp *http
 		if resp != nil && resp.StatusCode != http.StatusOK {
 			return enrichError(err, resp)
 		}
-		return fmt.Errorf("Can't connect to websocket: %s\n", err.Error())
+		return fmt.Errorf("can't connect to websocket: %w", err)
 	}
 	aws.Connection <- ws
 
@@ -105,7 +105,9 @@ func asyncSubresourceHelper(
 		}
 
 		if response != nil {
-			defer response.Body.Close()
+			defer func() {
+				_ = response.Body.Close()
+			}()
 			switch response.StatusCode {
 			case http.StatusOK:
 			case http.StatusNotFound:
@@ -165,7 +167,7 @@ func enrichError(httpErr error, resp *http.Response) error {
 	if resp == nil {
 		return httpErr
 	}
-	httpErr = fmt.Errorf("Can't connect to websocket (%d): %s\n", resp.StatusCode, httpErr.Error())
+	httpErr = fmt.Errorf("can't connect to websocket (%d): %w", resp.StatusCode, httpErr)
 	status := &metav1.Status{}
 
 	if resp.Header.Get("Content-Type") != "application/json" {
@@ -201,7 +203,9 @@ type WebsocketRoundTripper struct {
 func (d *WebsocketRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 	conn, resp, err := d.Dialer.Dial(r.URL.String(), r.Header)
 	if err == nil {
-		defer conn.Close()
+		defer func() {
+			_ = conn.Close()
+		}()
 	}
 	return resp, d.Do(conn, resp, err)
 }

@@ -39,14 +39,15 @@ func NewCommand() *cobra.Command {
 	c.options.LocalClientName = "scp"
 
 	cmd := &cobra.Command{
-		Use:     "scp VirtualMachine)",
-		Short:   "SCP files from/to a virtual machine.",
+		Use:     "scp [flags] SOURCE TARGET",
+		Short:   "Secure file CoPy from/to a virtual machine.",
 		Example: usage(),
 		Args:    templates.ExactArgs("scp", 2),
 		RunE:    c.Run,
 	}
 
-	ssh.AddCommandlineArgs(cmd.Flags(), &c.options)
+	ssh.AddCommonSSHFlags(cmd.Flags(), &c.options)
+
 	cmd.Flags().BoolVarP(&c.recursive, recursiveFlag, recursiveFlagShort, c.recursive,
 		"Recursively copy entire directories")
 	cmd.Flags().BoolVar(&c.preserve, preserveFlag, c.preserve,
@@ -62,6 +63,11 @@ type SCP struct {
 }
 
 func (o *SCP) Run(cmd *cobra.Command, args []string) error {
+	err := o.options.ResolvePaths()
+	if err != nil {
+		return err
+	}
+
 	client, defaultNamespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err

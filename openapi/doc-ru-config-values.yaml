@@ -174,3 +174,12 @@ properties:
 
       Работает для следующих компонентов:
       - `virtualization-controller`
+  featureGates:
+    type: array
+    description: |
+      Включение экспериментальных или недостаточно обкатанных возможностей.
+
+      - `HotplugCPUWithLiveMigration` — включить изменение количества ядер процессора без перезагрузки. (Не доступно в CE);
+      - `HotplugMemoryWithLiveMigration` — включить изменение размера памяти без перезагрузки. (Не доступно в CE);
+    items:
+      type: string

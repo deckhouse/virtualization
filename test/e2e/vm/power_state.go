@@ -37,10 +37,11 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/network"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("PowerState", func() {
+var _ = Describe("PowerState", Label(precheck.NoPrecheck), func() {
 	DescribeTable("manages power state of a virtual machine", func(runPolicy v1alpha2.RunPolicy) {
 		var namespaceSuffix string
 		switch runPolicy {
@@ -51,6 +52,7 @@ var _ = Describe("PowerState", func() {
 		case v1alpha2.ManualPolicy:
 			namespaceSuffix = "manual"
 		}
+		ctx := context.Background()
 		f := framework.NewFramework(fmt.Sprintf("power-state-%s", namespaceSuffix))
 		DeferCleanup(f.After)
 		f.Before()
@@ -60,17 +62,17 @@ var _ = Describe("PowerState", func() {
 		By("Environment preparation", func() {
 			t.GenerateResources(runPolicy)
 			err := f.CreateWithDeferredDeletion(
-				context.Background(), t.VI, t.VDRoot, t.VDBlank, t.VM, t.VMBDA,
+				ctx, t.VI, t.VDRoot, t.VDBlank, t.VM, t.VMBDA,
 			)
 			Expect(err).NotTo(HaveOccurred())
 
 			if t.VM.Spec.RunPolicy == v1alpha2.ManualPolicy {
-				util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.LongTimeout, t.VM)
-				util.StartVirtualMachine(f, t.VM)
+				util.UntilObjectPhase(ctx, string(v1alpha2.MachineStopped), framework.LongTimeout, t.VM)
+				util.StartVirtualMachine(ctx, f, t.VM)
 			}
 
-			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, t.VM)
-			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
+			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, t.VM)
+			util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
 			util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 		})
 
@@ -81,31 +83,31 @@ var _ = Describe("PowerState", func() {
 				vmopbuilder.WithType(v1alpha2.VMOPTypeStop),
 				vmopbuilder.WithVirtualMachine(t.VM.Name),
 			)
-			err := f.CreateWithDeferredDeletion(context.Background(), vmopStop)
+			err := f.CreateWithDeferredDeletion(ctx, vmopStop)
 			Expect(err).NotTo(HaveOccurred())
 
 			switch t.VM.Spec.RunPolicy {
 			case v1alpha2.AlwaysOnPolicy:
-				util.UntilObjectPhase(string(v1alpha2.VMOPPhaseFailed), framework.ShortTimeout, vmopStop)
-				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
-				util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
+				util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseFailed), framework.ShortTimeout, vmopStop)
+				util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
+				util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
 			case v1alpha2.AlwaysOnUnlessStoppedManually, v1alpha2.ManualPolicy:
-				util.UntilObjectPhase(string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout, vmopStop)
-				util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.ShortTimeout, t.VM)
+				util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout, vmopStop)
+				util.UntilObjectPhase(ctx, string(v1alpha2.MachineStopped), framework.ShortTimeout, t.VM)
 			}
 		})
 
 		By("Start VM by VMOP", func() {
 			if t.VM.Spec.RunPolicy != v1alpha2.AlwaysOnPolicy {
-				util.StartVirtualMachine(f, t.VM)
-				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.MiddleTimeout, t.VM)
-				util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
+				util.StartVirtualMachine(ctx, f, t.VM)
+				util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.MiddleTimeout, t.VM)
+				util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
 				util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 			}
 		})
 
 		By("Shutdown VM by SSH", func() {
-			err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
+			err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 			Expect(err).NotTo(HaveOccurred())
 			runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, t.VM.Status.Conditions)
 			runningLastTransitionTime := runningCondition.LastTransitionTime.Time
@@ -115,25 +117,25 @@ var _ = Describe("PowerState", func() {
 			switch t.VM.Spec.RunPolicy {
 			case v1alpha2.AlwaysOnPolicy:
 				util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), runningLastTransitionTime, framework.LongTimeout)
-				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
-				util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
+				util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
+				util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
 				util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 			case v1alpha2.AlwaysOnUnlessStoppedManually, v1alpha2.ManualPolicy:
-				util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.LongTimeout, t.VM)
+				util.UntilObjectPhase(ctx, string(v1alpha2.MachineStopped), framework.LongTimeout, t.VM)
 			}
 		})
 
 		By("Start VM by VMOP", func() {
 			if t.VM.Spec.RunPolicy != v1alpha2.AlwaysOnPolicy {
-				util.StartVirtualMachine(f, t.VM)
-				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.MiddleTimeout, t.VM)
-				util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
+				util.StartVirtualMachine(ctx, f, t.VM)
+				util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.MiddleTimeout, t.VM)
+				util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
 				util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 			}
 		})
 
 		By("Reboot VM by VMOP", func() {
-			err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
+			err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 			Expect(err).NotTo(HaveOccurred())
 
 			runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, t.VM.Status.Conditions)
@@ -145,18 +147,18 @@ var _ = Describe("PowerState", func() {
 				vmopbuilder.WithType(v1alpha2.VMOPTypeRestart),
 				vmopbuilder.WithVirtualMachine(t.VM.Name),
 			)
-			err = f.CreateWithDeferredDeletion(context.Background(), vmopRestart)
+			err = f.CreateWithDeferredDeletion(ctx, vmopRestart)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilObjectPhase(string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout, vmopRestart)
+			util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout, vmopRestart)
 			util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), runningLastTransitionTime, framework.MiddleTimeout)
-			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
-			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
+			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
+			util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
 			util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 		})
 
 		By("Reboot VM by SSH", func() {
-			err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
+			err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 			Expect(err).NotTo(HaveOccurred())
 
 			runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, t.VM.Status.Conditions)
@@ -165,15 +167,15 @@ var _ = Describe("PowerState", func() {
 			util.RebootVirtualMachineBySSH(f, t.VM)
 
 			util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), runningLastTransitionTime, framework.LongTimeout)
-			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
-			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
+			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
+			util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
 			util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 		})
 
 		By("Check VM can reach external network", func() {
-			err := network.CheckCiliumAgents(context.Background(), f.Kubectl(), t.VM.Name, f.Namespace().Name)
+			err := network.CheckCiliumAgents(ctx, f.Kubectl(), t.VM.Name, f.Namespace().Name)
 			Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", t.VM.Name)
-			network.CheckExternalConnectivity(f, t.VM.Name, network.ExternalHost, network.HTTPStatusOk)
+			network.CheckExternalConnectivity(f, t.VM.Name, network.ExternalConnectivityHosts)
 		})
 	},
 		Entry(
@@ -228,7 +230,7 @@ func (t *powerStateTest) GenerateResources(runPolicy v1alpha2.RunPolicy) {
 	t.VM = vmbuilder.New(
 		vmbuilder.WithName("vm"),
 		vmbuilder.WithNamespace(t.Framework.Namespace().Name),
-		vmbuilder.WithCPU(1, ptr.To("10%")),
+		vmbuilder.WithCPU(1, ptr.To("100%")),
 		vmbuilder.WithMemory(resource.MustParse("512Mi")),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 		vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),

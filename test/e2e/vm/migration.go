@@ -37,12 +37,13 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/network"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
 const lsblkCommand = "lsblk -dn | wc -l"
 
-var _ = Describe("VirtualMachineMigration", func() {
+var _ = Describe("VirtualMachineMigration", Label(precheck.NoPrecheck), func() {
 	var (
 		// Core: VMs and their root/blank disks
 		vdRootBIOS  *v1alpha2.VirtualDisk
@@ -63,12 +64,16 @@ var _ = Describe("VirtualMachineMigration", func() {
 		vmopMigrateBIOS *v1alpha2.VirtualMachineOperation
 		vmopMigrateUEFI *v1alpha2.VirtualMachineOperation
 
-		f                     = framework.NewFramework("vm-migration")
+		f   *framework.Framework
+		ctx context.Context
+
 		biosDiskCountOriginal string
 		uefiDiskCountOriginal string
 	)
 
 	BeforeEach(func() {
+		ctx = context.Background()
+		f = framework.NewFramework("vm-migration")
 		DeferCleanup(f.After)
 
 		f.Before()
@@ -76,7 +81,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 
 	It("verifies that migrations are successful", func() {
 		By("Environment preparation", func() {
-			vdRootBIOS = object.NewVDFromCVI("vd-root-bios", f.Namespace().Name, object.PrecreatedCVIUbuntu,
+			vdRootBIOS = object.NewVDFromCVI("vd-root-bios", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
 				vd.WithSize(ptr.To(resource.MustParse("10Gi"))),
 			)
 			vdBlankBIOS = vd.New(
@@ -104,8 +109,9 @@ var _ = Describe("VirtualMachineMigration", func() {
 						Name: vdBlankBIOS.Name,
 					},
 				),
+				vm.WithCPU(1, ptr.To("100%")),
 				vm.WithBootloader(v1alpha2.BIOS),
-				vm.WithProvisioningUserData(object.UbuntuCloudInit),
+				vm.WithProvisioningUserData(object.AlpineCloudInit),
 				vm.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
 				vm.WithName("vm-bios"),
 			)
@@ -120,6 +126,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 						Name: vdBlankUEFI.Name,
 					},
 				),
+				vm.WithCPU(1, ptr.To("100%")),
 				vm.WithBootloader(v1alpha2.EFI),
 				vm.WithProvisioningUserData(object.AlpineCloudInit),
 				vm.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
@@ -195,11 +202,12 @@ var _ = Describe("VirtualMachineMigration", func() {
 				vdRootBIOS, vdBlankBIOS, vmBIOS, vdRootUEFI, vdBlankUEFI, vmUEFI,
 				vdHotplugBIOS, vdHotplugUEFI, viHotplugBIOS, viHotplugUEFI,
 			}, toObjects(vmbdas)...)
-			err := f.CreateWithDeferredDeletion(context.Background(), allObjects...)
+			err := f.CreateWithDeferredDeletion(ctx, allObjects...)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmBIOS, vmUEFI)
+			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vmBIOS, vmUEFI)
 			util.UntilObjectPhase(
+				ctx,
 				string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.LongTimeout,
 				toObjects(vmbdas)...,
 			)
@@ -226,12 +234,12 @@ var _ = Describe("VirtualMachineMigration", func() {
 				vmopbuilder.WithType(v1alpha2.VMOPTypeEvict),
 				vmopbuilder.WithVirtualMachine(vmUEFI.Name),
 			)
-			err := f.CreateWithDeferredDeletion(context.Background(), vmopMigrateBIOS, vmopMigrateUEFI)
+			err := f.CreateWithDeferredDeletion(ctx, vmopMigrateBIOS, vmopMigrateUEFI)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		By("Wait for migration to complete", func() {
-			ctxVMBDA, cancelVMBDA := context.WithCancel(context.Background())
+			ctxVMBDA, cancelVMBDA := context.WithCancel(ctx)
 			defer cancelVMBDA()
 
 			vmbdaWatchErrCh := make(chan error, 1)
@@ -246,30 +254,43 @@ var _ = Describe("VirtualMachineMigration", func() {
 			}()
 
 			Eventually(func(g Gomega) {
-				err := f.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vmBIOS), vmBIOS)
+				err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vmBIOS), vmBIOS)
 				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
-				err = f.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vmUEFI), vmUEFI)
+				err = f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vmUEFI), vmUEFI)
 				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
 				// TODO: remove temporary migration skip logic when both known issues are fixed:
 				// kubevirt "client socket is closed" and Volume(s)UpdateError.
 				util.SkipIfKnownMigrationFailure(vmBIOS)
 				util.SkipIfKnownMigrationFailure(vmUEFI)
 
-				err = f.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vmopMigrateBIOS), vmopMigrateBIOS)
+				err = f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vmopMigrateBIOS), vmopMigrateBIOS)
 				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
-				err = f.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vmopMigrateUEFI), vmopMigrateUEFI)
+				err = f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vmopMigrateUEFI), vmopMigrateUEFI)
 				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
-
-				biosDiskCount, err := f.SSHCommand(vmBIOS.Name, f.Namespace().Name, lsblkCommand)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(biosDiskCount).To(Equal(biosDiskCountOriginal))
-				uefiDiskCount, err := f.SSHCommand(vmUEFI.Name, f.Namespace().Name, lsblkCommand)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(uefiDiskCount).To(Equal(uefiDiskCountOriginal))
 
 				g.Expect(vmopMigrateBIOS.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
 				g.Expect(vmopMigrateUEFI.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
 			}).WithPolling(time.Second).WithTimeout(framework.LongTimeout).To(Succeed())
+
+			vmOriginalDiskCount := map[*v1alpha2.VirtualMachine]string{
+				vmBIOS: biosDiskCountOriginal,
+				vmUEFI: uefiDiskCountOriginal,
+			}
+
+			By("Wait until the virtual machine is accessible via SSH after migration.")
+			for vm := range vmOriginalDiskCount {
+				util.UntilSSHReady(f, vm, framework.MiddleTimeout)
+			}
+
+			By("Check that the disk count of the virtual machine is equal to the disk count before migration.")
+			for vm, originalDiskCount := range vmOriginalDiskCount {
+				diskCount, err := f.SSHCommand(vm.Name, f.Namespace().Name, lsblkCommand)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(diskCount).To(Equal(originalDiskCount),
+					"disk count mismatch on VM %s after migration: got %s, expected %s",
+					vm.Name, diskCount, originalDiskCount,
+				)
+			}
 
 			cancelVMBDA()
 			Expect(<-vmbdaWatchErrCh).NotTo(HaveOccurred(), "VMBDAs should stay in Attached phase during migration")
@@ -277,17 +298,17 @@ var _ = Describe("VirtualMachineMigration", func() {
 
 		// There is a known issue with the Cilium agent check.
 		By("Check Cilium agents are properly configured for the VM", func() {
-			err := network.CheckCiliumAgents(context.Background(), f.Kubectl(), vmBIOS.Name, f.Namespace().Name)
+			err := network.CheckCiliumAgents(ctx, f.Kubectl(), vmBIOS.Name, f.Namespace().Name)
 			Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", vmBIOS.Name)
-			err = network.CheckCiliumAgents(context.Background(), f.Kubectl(), vmUEFI.Name, f.Namespace().Name)
+			err = network.CheckCiliumAgents(ctx, f.Kubectl(), vmUEFI.Name, f.Namespace().Name)
 			Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", vmUEFI.Name)
 		})
 
 		By("Check VM can reach external network", func() {
 			util.UntilSSHReady(f, vmBIOS, framework.MiddleTimeout)
 			util.UntilSSHReady(f, vmUEFI, framework.MiddleTimeout)
-			network.CheckExternalConnectivity(f, vmBIOS.Name, network.ExternalHost, network.HTTPStatusOk)
-			network.CheckExternalConnectivity(f, vmUEFI.Name, network.ExternalHost, network.HTTPStatusOk)
+			network.CheckExternalConnectivity(f, vmBIOS.Name, network.ExternalConnectivityHosts)
+			network.CheckExternalConnectivity(f, vmUEFI.Name, network.ExternalConnectivityHosts)
 		})
 	})
 })

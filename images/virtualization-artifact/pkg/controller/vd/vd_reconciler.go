@@ -26,6 +26,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/postponeimporter"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/watcher"
@@ -84,7 +86,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	return rec.Reconcile(ctx)
 }
 
-func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
+func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller, logger *log.Logger) error {
 	vdFromVIEnqueuer := watchers.NewVirtualDiskRequestEnqueuer(mgr.GetClient(), &v1alpha2.VirtualImage{}, v1alpha2.VirtualDiskObjectRefKindVirtualImage)
 	viWatcher := watchers.NewObjectRefWatcher(watchers.NewVirtualImageFilter(), vdFromVIEnqueuer)
 	if err := viWatcher.Run(mgr, ctr); err != nil {
@@ -106,6 +108,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		watcher.NewDataVolumeWatcher(),
 		watcher.NewVirtualMachineWatcher(),
 		watcher.NewResourceQuotaWatcher(mgrClient),
+		postponeimporter.NewWatcher[*v1alpha2.VirtualDisk](mgrClient, logger),
 	} {
 		err := w.Watch(mgr, ctr)
 		if err != nil {

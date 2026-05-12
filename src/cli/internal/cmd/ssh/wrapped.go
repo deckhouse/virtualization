@@ -31,11 +31,11 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func addAdditionalCommandlineArgs(flagset *pflag.FlagSet, opts *SSHOptions) {
+func addLocalSSHClientFlags(flagset *pflag.FlagSet, opts *SSHOptions) {
 	flagset.StringArrayVarP(&opts.AdditionalSSHLocalOptions, additionalOpts, additionalOptsShort, opts.AdditionalSSHLocalOptions,
-		fmt.Sprintf(`--%s="-o StrictHostKeyChecking=no" : Additional options to be passed to the local ssh. This is applied only if local-ssh=true`, additionalOpts))
+		"Additional options to be passed to the ssh client if --local-ssh=true is set")
 	flagset.BoolVar(&opts.WrapLocalSSH, wrapLocalSSHFlag, opts.WrapLocalSSH,
-		fmt.Sprintf("--%s=true: Set this to true to use the SSH/SCP client available on your system by using this command as ProxyCommand; If set to false, this will establish a SSH/SCP connection with limited capabilities provided by this client", wrapLocalSSHFlag))
+		"Use the SSH/SCP client available on your system by using this command as ProxyCommand; Default is false: use embedded SSH client with limited capabilities")
 }
 
 func RunLocalClient(cmd *cobra.Command, namespace, name string, options *SSHOptions, clientArgs []string) error {

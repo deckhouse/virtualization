@@ -16,7 +16,9 @@ rules:
       - virtualimages
       - virtualmachineblockdeviceattachments
       - virtualmachineipaddresses
+      - virtualmachinemacaddresses
       - virtualmachineoperations
+      - virtualmachinesnapshotoperations
       - virtualmachinerestores
       - virtualmachines
       - virtualmachinesnapshots

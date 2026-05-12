@@ -35,14 +35,14 @@ import (
 // It accepts a runtime.Object (which serves as a template with name and namespace),
 // expected phase string, and timeout duration.
 // The GVK is automatically extracted from the object via the client's scheme.
-func UntilObjectPhase(expectedPhase string, timeout time.Duration, objs ...client.Object) {
+func UntilObjectPhase(ctx context.Context, expectedPhase string, timeout time.Duration, objs ...client.Object) {
 	GinkgoHelper()
-	untilObjectField("status.phase", expectedPhase, timeout, objs...)
+	untilObjectField(ctx, "status.phase", expectedPhase, timeout, objs...)
 }
 
 // UntilConditionReason waits for the specified conditionType in status.conditions to have the given reason value for all provided objects.
-func UntilConditionReason(conditionType, expectedReason string, timeout time.Duration, objs ...client.Object) {
-	UntilConditionState(conditionType, timeout, struct {
+func UntilConditionReason(ctx context.Context, conditionType, expectedReason string, timeout time.Duration, objs ...client.Object) {
+	UntilConditionState(ctx, conditionType, timeout, struct {
 		Reason       string
 		Status       string
 		Message      string
@@ -56,8 +56,8 @@ func UntilConditionReason(conditionType, expectedReason string, timeout time.Dur
 }
 
 // UntilConditionStatus waits for the specified conditionType in status.conditions to have the given status value for all provided objects.
-func UntilConditionStatus(conditionType, expectedStatus string, timeout time.Duration, objs ...client.Object) {
-	UntilConditionState(conditionType, timeout, struct {
+func UntilConditionStatus(ctx context.Context, conditionType, expectedStatus string, timeout time.Duration, objs ...client.Object) {
+	UntilConditionState(ctx, conditionType, timeout, struct {
 		Reason       string
 		Status       string
 		Message      string
@@ -73,6 +73,7 @@ func UntilConditionStatus(conditionType, expectedStatus string, timeout time.Dur
 // UntilConditionState generalizes condition field checks ("reason", "status", "message") for the specified conditionType.
 // You can specify which fields to check by setting the corresponding flags to true and providing their expected values.
 func UntilConditionState(
+	ctx context.Context,
 	conditionType string,
 	timeout time.Duration,
 	checkOptions struct {
@@ -90,7 +91,7 @@ func UntilConditionState(
 		for _, obj := range objs {
 			key := client.ObjectKeyFromObject(obj)
 			u := getTemplateUnstructured(obj).DeepCopy()
-			err := framework.GetClients().GenericClient().Get(context.Background(), key, u)
+			err := framework.GetClients().GenericClient().Get(ctx, key, u)
 			g.Expect(err).ShouldNot(HaveOccurred())
 
 			conditions, found, err := unstructured.NestedSlice(u.Object, "status", "conditions")
@@ -150,9 +151,9 @@ func UntilConditionState(
 // It accepts a runtime.Object (which serves as a template with name and namespace),
 // expected state string, and timeout duration.
 // The GVK is automatically extracted from the object via the client's scheme.
-func UntilObjectState(expectedState string, timeout time.Duration, objs ...client.Object) {
+func UntilObjectState(ctx context.Context, expectedState string, timeout time.Duration, objs ...client.Object) {
 	GinkgoHelper()
-	untilObjectField("status.state", expectedState, timeout, objs...)
+	untilObjectField(ctx, "status.state", expectedState, timeout, objs...)
 }
 
 // extractField extracts a string value from an unstructured object at the provided fieldPath (dot-separated, e.g. "status.phase" or "metadata.name").
@@ -174,7 +175,7 @@ func extractField(obj client.Object, fieldPath string) string {
 // fieldPath (dot-separated path to the field, e.g. "status.phase" or "metadata.name"),
 // expected value string, field name for error messages, and timeout duration.
 // The GVK is automatically extracted from the object via the client's scheme.
-func untilObjectField(fieldPath, expectedValue string, timeout time.Duration, objs ...client.Object) {
+func untilObjectField(ctx context.Context, fieldPath, expectedValue string, timeout time.Duration, objs ...client.Object) {
 	Eventually(func(g Gomega) {
 		for _, obj := range objs {
 			key := client.ObjectKeyFromObject(obj)
@@ -187,7 +188,7 @@ func untilObjectField(fieldPath, expectedValue string, timeout time.Duration, ob
 
 			// Create a new unstructured object for each Get call
 			u := getTemplateUnstructured(obj).DeepCopy()
-			err := framework.GetClients().GenericClient().Get(context.Background(), key, u)
+			err := framework.GetClients().GenericClient().Get(ctx, key, u)
 			if err != nil {
 				g.Expect(err).NotTo(HaveOccurred(), "failed to get object %s%s%s", namespace, divider, name)
 			}

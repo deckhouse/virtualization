@@ -1,5 +1,13 @@
 namespaceSuffix: "e2e"
 
+# isCleanupNeeded controls cleanup of resources created during test execution (VMs, VDs, namespaces, etc.)
+# Enabled by default. Set to false to skip cleanup for debugging.
+isCleanupNeeded: true
+# isPrecreatedCVICleanupNeeded controls cleanup of precreated ClusterVirtualImages shared across test runs
+# Disabled by default: CVIs persist between runs for faster execution.
+# Set to true to delete them after the suite.
+isPrecreatedCVICleanupNeeded: false
+
 clusterTransport:
   kubeConfig: ""
   token: ""
@@ -10,18 +18,13 @@ clusterTransport:
 helperImages:
   curlImage: "curlimages/curl"
 testData:
-  affinityToleration: "/tmp/testdata/affinity-toleration"
-  complexTest: "/tmp/testdata/complex-test"
   diskResizing: "/tmp/testdata/disk-resizing"
   imageHotplug: "/tmp/testdata/image-hotplug"
   sizingPolicy: "/tmp/testdata/sizing-policy"
   vmConfiguration: "/tmp/testdata/vm-configuration"
-  vmLabelAnnotation: "/tmp/testdata/vm-label-annotation"
   vmMigration: "/tmp/testdata/vm-migration"
   vmMigrationCancel: "/tmp/testdata/vm-migration-cancel"
   vmEvacuation: "/tmp/testdata/vm-evacuation"
-  vmDiskAttachment: "/tmp/testdata/vm-disk-attachment"
-  vmVersions: "/tmp/testdata/vm-versions"
   vdSnapshots: "/tmp/testdata/vd-snapshots"
   sshKey: "/tmp/testdata/sshkeys/id_ed"
   sshUser: "cloud"

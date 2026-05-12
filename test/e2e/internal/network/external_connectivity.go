@@ -19,6 +19,7 @@ package network
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -26,16 +27,30 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
-const (
-	HTTPStatusOk = "200"
-	ExternalHost = "https://flant.ru"
-)
+var ExternalConnectivityHosts = []string{
+	"https://flant.ru",
+	"https://google.com",
+	"https://ya.ru",
+}
 
-func CheckExternalConnectivity(f *framework.Framework, vmName, host, expectedHTTPCode string) {
+func CheckExternalConnectivity(f *framework.Framework, vmName string, hosts []string) {
 	GinkgoHelper()
 
-	cmd := fmt.Sprintf("curl -o /dev/null -k -s -w \"%%{http_code}\\n\" %s", host)
-	httpCode, err := f.SSHCommand(vmName, f.Namespace().Name, cmd)
-	Expect(err).NotTo(HaveOccurred(), "failed external connectivity check for VM %s", vmName)
-	Expect(strings.TrimSpace(httpCode)).To(Equal(expectedHTTPCode), "HTTP response code from %s should be %s, got %s", host, expectedHTTPCode, httpCode)
+	cmd := fmt.Sprintf(`set -e
+for host in %s; do
+	if curl --head -k -sS -o /dev/null --connect-timeout 5 --max-time 15 "$host"; then
+		echo "$host"
+		exit 0
+	fi
+done
+exit 1`, strings.Join(hosts, " "))
+
+	reachableHost, err := f.SSHCommand(
+		vmName,
+		f.Namespace().Name,
+		cmd,
+		framework.WithSSHTimeout(time.Minute),
+	)
+	Expect(err).NotTo(HaveOccurred(), "VM %s should have outbound connectivity via at least one host from %v", vmName, hosts)
+	Expect(strings.TrimSpace(reachableHost)).NotTo(BeEmpty(), "VM %s should report a reachable external host from %v", vmName, hosts)
 }

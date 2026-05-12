@@ -62,7 +62,7 @@ nodeSelector:
 {{- end }}
 
 {{- define "hasValidModuleConfig" -}}
-{{- if (hasKey .Values.virtualization.internal "moduleConfig" ) -}}
+{{- if (hasKey .Values.virtualization.internal "moduleConfig") -}}
 true
 {{- end }}
 {{- end }}

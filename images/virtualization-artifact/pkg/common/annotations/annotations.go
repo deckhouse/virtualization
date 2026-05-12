@@ -90,9 +90,10 @@ const (
 	AnnVMRestartRequested = AnnAPIGroupV + "/vm-restart-requested"
 
 	// AnnVMOPWorkloadUpdate is an annotation on vmop that represents a vmop created by workload-updater controller.
-	AnnVMOPWorkloadUpdate                 = AnnAPIGroupV + "/workload-update"
-	AnnVMOPWorkloadUpdateImage            = AnnAPIGroupV + "/workload-update-image"
-	AnnVMOPWorkloadUpdateNodePlacementSum = AnnAPIGroupV + "/workload-update-node-placement-sum"
+	AnnVMOPWorkloadUpdate                    = AnnAPIGroupV + "/workload-update"
+	AnnVMOPWorkloadUpdateImage               = AnnAPIGroupV + "/workload-update-image"
+	AnnVMOPWorkloadUpdateNodePlacementSum    = AnnAPIGroupV + "/workload-update-node-placement-sum"
+	AnnVMOPWorkloadUpdateHotplugResourcesSum = AnnAPIGroupV + "/workload-update-hotplug-resources-sum"
 	// AnnVMRestore is an annotation on a resource that indicates it was created by the vmrestore controller; the value is the UID of the `VirtualMachineRestore` resource.
 	AnnVMRestore = AnnAPIGroupV + "/vmrestore"
 	// AnnVMOPEvacuation is an annotation on vmop that represents a vmop created by evacuation controller
@@ -203,6 +204,8 @@ const (
 	AnnVirtualDiskOriginalAnnotations = AnnAPIGroupV + "/vd-original-annotations"
 	// AnnVirtualDiskOriginalLabels is the annotation for storing original VirtualDisk labels.
 	AnnVirtualDiskOriginalLabels = AnnAPIGroupV + "/vd-original-labels"
+	// AnnVirtualDiskOriginalSize is the annotation for storing original VirtualDisk requested PVC size.
+	AnnVirtualDiskOriginalSize = AnnAPIGroupV + "/vd-original-size"
 	// AnnVirtualDiskHadOwnerReference is the annotation on VolumeSnapshot set to "true" when the source VirtualDisk had an owner reference at snapshot time; absent otherwise.
 	AnnVirtualDiskHadOwnerReference = AnnAPIGroupV + "/vd-had-owner-reference"
 	// AnnVMOPUID is an annotation on vmop that represents name of VMOP.

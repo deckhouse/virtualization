@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"k8s.io/utils/ptr"
 
@@ -36,16 +37,19 @@ const (
 	completionTimeoutPerGiBAnnotation           = "virtualization.deckhouse.io/completion-timeout-per-gib"
 	parallelOutboundMigrationsPerNodeAnnotation = "virtualization.deckhouse.io/parallel-outbound-migrations-per-node"
 	progressTimeoutAnnotation                   = "virtualization.deckhouse.io/progress-timeout"
+	disableTLSAnnotation                        = "virtualization.deckhouse.io/disable-tls"
 
 	bandwidthPerMigrationValuesPath             = "virtualization.internal.virtConfig.bandwidthPerMigration"
 	completionTimeoutPerGiBValuesPath           = "virtualization.internal.virtConfig.completionTimeoutPerGiB"
 	parallelOutboundMigrationsPerNodeValuesPath = "virtualization.internal.virtConfig.parallelOutboundMigrationsPerNode"
 	progressTimeoutValuesPath                   = "virtualization.internal.virtConfig.progressTimeout"
+	disableTLSValuesPath                        = "virtualization.internal.virtConfig.disableTLS"
 
 	defaultBandwidthPerMigration             = "640Mi"
 	defaultCompletionTimeoutPerGiB           = 800
 	defaultParallelOutboundMigrationsPerNode = 1
 	defaultProgressTimeout                   = 150
+	defaultDisableTLS                        = false
 )
 
 // migrationParams defines migration parameters configurable via ModuleConfig annotations.
@@ -72,6 +76,11 @@ var migrationParams = []migrationParam{
 		valuesPath:   progressTimeoutValuesPath,
 		defaultValue: defaultProgressTimeout,
 	},
+	{
+		annotation:   disableTLSAnnotation,
+		valuesPath:   disableTLSValuesPath,
+		defaultValue: defaultDisableTLS,
+	},
 }
 
 type migrationParam struct {
@@ -87,6 +96,12 @@ func (p migrationParam) resolve(annos map[string]string) (any, error) {
 	}
 
 	switch p.defaultValue.(type) {
+	case bool:
+		v, err := strconv.ParseBool(strings.ToLower(val))
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse %q annotation: %w", p.annotation, err)
+		}
+		return v, nil
 	case int:
 		v, err := strconv.Atoi(val)
 		if err != nil {
@@ -102,6 +117,8 @@ func (p migrationParam) resolve(annos map[string]string) (any, error) {
 
 func (p migrationParam) getCurrent(input *pkg.HookInput) any {
 	switch p.defaultValue.(type) {
+	case bool:
+		return input.Values.Get(p.valuesPath).Bool()
 	case int:
 		return int(input.Values.Get(p.valuesPath).Int())
 	case string:

@@ -30,7 +30,8 @@ const (
 	CronSourceNamespace             = "__cron_source__"
 	CronSourceRunGC                 = "run-gc"
 
-	WaitProvisionersTimeout = time.Hour * 2
+	WaitProvisionersTimeout  = time.Hour * 2
+	GarbageCollectionTimeout = time.Hour * 2
 )
 
 func DVCRDeploymentKey() types.NamespacedName {

@@ -56,6 +56,22 @@ func setAssignedCondition(
 	conditions.SetCondition(cb, target)
 }
 
+func setAttachedCondition(
+	nodeUSBDevice *v1alpha2.NodeUSBDevice,
+	target *[]metav1.Condition,
+	status metav1.ConditionStatus,
+	reason nodeusbdevicecondition.AttachedReason,
+	message string,
+) {
+	cb := conditions.NewConditionBuilder(nodeusbdevicecondition.AttachedType).
+		Generation(nodeUSBDevice.GetGeneration()).
+		Status(status).
+		Reason(reason).
+		Message(message)
+
+	conditions.SetCondition(cb, target)
+}
+
 func isDeviceAbsentOnHost(conditions []metav1.Condition) bool {
 	readyCondition := meta.FindStatusCondition(conditions, string(nodeusbdevicecondition.ReadyType))
 	if readyCondition == nil {

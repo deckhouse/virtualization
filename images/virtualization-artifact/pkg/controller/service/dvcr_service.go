@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	dvcrcondition "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/condition"
 	dvcrdeploymentcondition "github.com/deckhouse/virtualization/api/core/v1alpha2/dvcr-deployment-condition"
 )
 
@@ -113,8 +115,11 @@ func (d *DVCRService) InitiateGarbageCollectionMode(ctx context.Context) error {
 
 func (d *DVCRService) SwitchToGarbageCollectionMode(ctx context.Context) error {
 	secret, err := d.GetGarbageCollectionSecret(ctx)
-	if secret == nil {
+	if err != nil {
 		return fmt.Errorf("get garbage collection secret to update: %w", err)
+	}
+	if secret == nil {
+		return fmt.Errorf("get garbage collection secret to update: not found")
 	}
 
 	objAnnotations := secret.GetAnnotations()
@@ -156,6 +161,23 @@ func (d *DVCRService) GetGarbageCollectionResult(secret *corev1.Secret) string {
 		return ""
 	}
 	return string(secret.Data["result"])
+}
+
+func (d *DVCRService) IsGarbageCollectionResultPersisted(secret *corev1.Secret, deploy *appsv1.Deployment) bool {
+	if secret == nil || deploy == nil {
+		return false
+	}
+
+	// Check that deploy has a recently updated condition with Completed or Error reason.
+	// Ignore condition updated by the previous garbage collection cycle.
+	cond := dvcrcondition.GetGarbageCollectionCondition(deploy)
+	if cond.Reason == dvcrdeploymentcondition.Error.String() || cond.Reason == dvcrdeploymentcondition.Completed.String() {
+		return cond.LastUpdateTime.After(secret.CreationTimestamp.Time)
+	}
+
+	// Last resort: check that success result is saved in annotation.
+	result := d.GetGarbageCollectionResult(secret)
+	return result != "" && result == deploy.GetAnnotations()[annotations.AnnDVCRGarbageCollectionResult]
 }
 
 type GarbageCollectionResult struct {

@@ -19,6 +19,7 @@ package reconciler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -102,7 +103,8 @@ handlersLoop:
 		switch {
 		case err == nil: // OK.
 		case errors.Is(err, ErrStopHandlerChain):
-			log.Debug("Handler chain execution stopped")
+			msg := fmt.Sprintf("Handler %s stopped chain execution", name)
+			log.Debug(msg)
 			result = MergeResults(result, res)
 			break handlersLoop
 		case k8serrors.IsConflict(err):

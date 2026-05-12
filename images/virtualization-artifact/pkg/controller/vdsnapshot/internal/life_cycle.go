@@ -335,6 +335,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			}
 		}
 
+		if requestedSize := getRequestedSize(vd, pvc); requestedSize != "" {
+			anno[annotations.AnnVirtualDiskOriginalSize] = requestedSize
+		}
+
 		for _, ownerRef := range vd.OwnerReferences {
 			if ownerRef.Kind == v1alpha2.VirtualMachineKind {
 				anno[annotations.AnnVirtualDiskHadOwnerReference] = "true"
@@ -482,6 +486,23 @@ func getVirtualMachine(ctx context.Context, vd *v1alpha2.VirtualDisk, snapshotte
 	default:
 		return nil, fmt.Errorf("the virtual disk %q is attached to multiple virtual machines", vd.Name)
 	}
+}
+
+func getRequestedSize(vd *v1alpha2.VirtualDisk, pvc *corev1.PersistentVolumeClaim) string {
+	if vd.Spec.PersistentVolumeClaim.Size != nil {
+		return vd.Spec.PersistentVolumeClaim.Size.String()
+	}
+
+	if pvc == nil {
+		return ""
+	}
+
+	requestedSize := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
+	if requestedSize.IsZero() {
+		return ""
+	}
+
+	return requestedSize.String()
 }
 
 func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.VirtualDiskSnapshotPhase, err error) {

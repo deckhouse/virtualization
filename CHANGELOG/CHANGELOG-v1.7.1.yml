@@ -1,0 +1,19 @@
+vm:
+  fixes:
+    - summary: Action is required to update the firmware on virtual machines with a connected USB device.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2166
+      impact: >-
+        Action is required to update the firmware on virtual machines with a connected USB device (a
+        corresponding migration prompt will appear in the VM status):
+
+        - either disconnect the USB device and migrate the virtual machine;
+
+        - or restart the virtual machine.
+
+
+        Until the action is taken, the virtual machine will continue running, but it cannot be
+        migrated.
+
+        After completing the action, the virtual machine will be updated to the current firmware
+        version and will be ready for migration again.
+

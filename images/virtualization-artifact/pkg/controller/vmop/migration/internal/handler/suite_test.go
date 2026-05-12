@@ -62,7 +62,7 @@ func setupEnvironment(vmop *v1alpha2.VirtualMachineOperation, objs ...client.Obj
 	return fakeClient, srv
 }
 
-func newSimpleMigration(name, namespace, vm string) *virtv1.VirtualMachineInstanceMigration {
+func newSimpleMigration(name, vm string) *virtv1.VirtualMachineInstanceMigration {
 	return &virtv1.VirtualMachineInstanceMigration{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: virtv1.SchemeGroupVersion.String(),
@@ -70,7 +70,7 @@ func newSimpleMigration(name, namespace, vm string) *virtv1.VirtualMachineInstan
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: namespace,
+			Namespace: "default",
 		},
 		Spec: virtv1.VirtualMachineInstanceMigrationSpec{
 			VMIName: vm,

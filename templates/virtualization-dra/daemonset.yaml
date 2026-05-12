@@ -167,7 +167,8 @@ spec:
           args:
             - {{ include "virtualization-dra.featureGates" . }}
             {{/* https://github.com/deckhouse/deckhouse/pull/18139 */}}
-            - --usbipd-port=4280
+            - --usbipd-port={{ include "virtualization_dra.usbipd_port" . }}
+            - --healthz-port={{ include "virtualization_dra.health_port" . }}
             {{- if eq (include "moduleLogLevel" .) "debug" }}
             - --log-level=debug
             - --log-debug-verbosity=10
@@ -189,23 +190,23 @@ spec:
               {{- include "virtualization-dra_resources" . | nindent 14 }}
               {{- end }}
           ports:
-            - containerPort: 4280
+            - containerPort: {{ include "virtualization_dra.usbipd_port" . }}
               name: usbipd
               protocol: TCP
-            - containerPort: 51515
+            - containerPort: {{ include "virtualization_dra.health_port" . }}
               name: health
               protocol: TCP
             {{- include "delvePorts" (list $delve "delve/virtualization-dra") | nindent 12 }}
           {{- if ne "delve/virtualization-dra" ($delve | dig "debug" "component" "<missing>") }}
           readinessProbe:
             grpc:
-              port: 51515
+              port: {{ include "virtualization_dra.health_port" . }}
               service: liveness
             failureThreshold: 3
             periodSeconds: 10
           livenessProbe:
             grpc:
-              port: 51515
+              port: {{ include "virtualization_dra.health_port" . }}
               service: liveness
             failureThreshold: 3
             periodSeconds: 10

@@ -24,6 +24,8 @@ const (
 	AssignedType Type = "Assigned"
 	// ReadyType indicates whether the device is ready to use.
 	ReadyType Type = "Ready"
+	// AttachedType indicates whether the device is attached to a virtual machine.
+	AttachedType Type = "Attached"
 )
 
 func (t Type) String() string {
@@ -35,6 +37,8 @@ type (
 	AssignedReason string
 	// ReadyReason represents the various reasons for the `Ready` condition type.
 	ReadyReason string
+	// AttachedReason represents the various reasons for the `Attached` condition type.
+	AttachedReason string
 )
 
 const (
@@ -51,6 +55,15 @@ const (
 	NotReady ReadyReason = "NotReady"
 	// NotFound signifies that device is absent on the host.
 	NotFound ReadyReason = "NotFound"
+
+	// AttachedToVirtualMachine signifies that device is attached to a virtual machine.
+	AttachedToVirtualMachine AttachedReason = "AttachedToVirtualMachine"
+	// AttachedAvailable signifies that device is available for attachment to a virtual machine.
+	AttachedAvailable AttachedReason = "Available"
+	// DetachedForMigration signifies that device was detached for migration (e.g. live migration).
+	DetachedForMigration AttachedReason = "DetachedForMigration"
+	// NoFreeUSBIPPort signifies that device cannot be attached because there are no free USBIP ports on the target node.
+	NoFreeUSBIPPort AttachedReason = "NoFreeUSBIPPort"
 )
 
 func (r AssignedReason) String() string {
@@ -58,5 +71,9 @@ func (r AssignedReason) String() string {
 }
 
 func (r ReadyReason) String() string {
+	return string(r)
+}
+
+func (r AttachedReason) String() string {
 	return string(r)
 }

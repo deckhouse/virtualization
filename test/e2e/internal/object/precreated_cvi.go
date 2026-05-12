@@ -21,7 +21,10 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
+const imageBaseURL = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru"
+
 const (
+	// Precreated CVI names
 	PrecreatedCVIAlpineUEFI     = "v12n-e2e-alpine-uefi"
 	PrecreatedCVIAlpineBIOS     = "v12n-e2e-alpine-bios"
 	PrecreatedCVIAlpineUEFIPerf = "v12n-e2e-alpine-uefi-perf"
@@ -34,6 +37,23 @@ const (
 	PrecreatedCVIDebian         = "v12n-e2e-debian"
 	PrecreatedCVITestDataQCOW   = "v12n-e2e-testdata-qcow"
 	PrecreatedCVITestDataISO    = "v12n-e2e-testdata-iso"
+
+	// Image URLs
+	ImageURLAlpineUEFI     = imageBaseURL + "/alpine/alpine-3-23-3-uefi-base.qcow2"
+	ImageURLAlpineBIOS     = imageBaseURL + "/alpine/alpine-3-23-3-bios-base.qcow2"
+	ImageURLAlpineUEFIPerf = imageBaseURL + "/alpine/alpine-3-21-uefi-perf.qcow2"
+	ImageURLAlpineBIOSPerf = imageBaseURL + "/alpine/alpine-3-21-bios-perf.qcow2"
+	ImageURLUbuntu         = imageBaseURL + "/ubuntu/ubuntu-24.04-minimal-cloudimg-amd64.qcow2"
+	ImageURLUbuntuISO      = imageBaseURL + "/ubuntu/ubuntu-24.04.2-live-server-amd64.iso"
+	ImageURLCirros         = imageBaseURL + "/cirros/cirros-0.5.1.qcow2"
+	ImageURLDebian         = imageBaseURL + "/debian/debian-12-with-tpm2-tools-amd64-20250814-2204.qcow2"
+
+	ImageURLContainerImage       = "cr.yandex/crpvs5j3nh1mi2tpithr/e2e/alpine/alpine-image:latest"
+	ImageURLLegacyContainerImage = "cr.yandex/crpvs5j3nh1mi2tpithr/e2e/alpine/alpine-3-20:latest"
+
+	// Test data (not bootable)
+	ImageTestDataQCOW = imageBaseURL + "/test/test.qcow2"
+	ImageTestDataISO  = imageBaseURL + "/test/test.iso"
 )
 
 // PrecreatedClusterVirtualImages returns the suite-wide CVIs shared by e2e tests.

@@ -31,7 +31,25 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 )
 
-const d8vContainerPrefix = "d8v"
+const (
+	d8vContainerPrefix = "d8v"
+	// maxTestNameLen is the maximum length of the test name portion in a dump filename.
+	// Linux filesystems (ext4/xfs) limit filenames to 255 bytes. We reserve ~70 bytes
+	// for the "e2e_failed__" prefix, "__<namespace>__events.yaml" suffix, and directory path.
+	maxTestNameLen = 180
+	delimiter      = "..."
+)
+
+// truncateTestName shortens s to at most maxLen bytes while keeping the text
+// human-readable: it preserves a prefix and a suffix separated by ellipsis.
+func truncateTestName(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	availableLen := maxLen - len(delimiter)
+	halfAvailableLen := availableLen / 2
+	return s[:halfAvailableLen] + delimiter + s[len(s)-(availableLen-halfAvailableLen):]
+}
 
 // SaveTestCaseDump dump some resources, logs and descriptions that may help in further diagnostic.
 //
@@ -47,6 +65,7 @@ func (f *Framework) saveTestCaseDump() {
 	f.saveIntvirtvmiDescriptions(ft, tmpDir)
 	f.saveNodeAdditionalInfo(ft, tmpDir)
 	f.saveEvents(ft, tmpDir)
+	f.saveClusterNetworkInfo(ft, tmpDir)
 }
 
 // GetFormattedTestCaseFullText returns CurrentSpecReport().FullText(), formatted with the following rules:
@@ -72,7 +91,8 @@ func GetFormattedTestCaseFullText() string {
 		"`", "",
 		"'", "",
 	)
-	return replacer.Replace(strings.ToLower(CurrentSpecReport().FullText()))
+	result := replacer.Replace(strings.ToLower(CurrentSpecReport().FullText()))
+	return truncateTestName(result, maxTestNameLen)
 }
 
 // GetTMPDir returns the temporary directory used for the test case resource dump.
@@ -206,7 +226,7 @@ func (f *Framework) writePodDescription(name, namespace, filePath, testCaseFullT
 func (f *Framework) writeVirtualMachineGuestInfo(pod corev1.Pod, filePath, testCaseFullText string) {
 	if pod.Labels != nil && pod.Status.Phase == corev1.PodRunning {
 		if value, ok := pod.Labels["kubevirt.internal.virtualization.deckhouse.io"]; ok && value == "virt-launcher" {
-			vlctlGuestInfoCmd := f.Clients.Kubectl().RawCommand(fmt.Sprintf("exec --stdin=true --tty=true %s --namespace %s -- vlctl guest info", pod.Name, pod.Namespace), ShortTimeout)
+			vlctlGuestInfoCmd := f.Clients.Kubectl().RawCommand(fmt.Sprintf("exec %s --namespace %s -- vlctl guest info", pod.Name, pod.Namespace), ShortTimeout)
 			if vlctlGuestInfoCmd.Error() != nil {
 				GinkgoWriter.Printf("Failed to get pod guest info:\nPodName: %s\nError: %s\n", pod.Name, vlctlGuestInfoCmd.StdErr())
 			}
@@ -281,6 +301,44 @@ func (f *Framework) saveEvents(testCaseFullText, dumpPath string) {
 		err = os.WriteFile(fileName, data, 0o644)
 		if err != nil {
 			GinkgoWriter.Printf("Failed to write events dump:\nFile: %s\nError: %v\n", fileName, err)
+		}
+	}
+}
+
+func (f *Framework) saveClusterNetworkInfo(testCaseFullText, dumpPath string) {
+	GinkgoHelper()
+
+	// Only for tests that use additional networks.
+	// We use the original full text for checking because testCaseFullText may be truncated.
+	if !strings.Contains(CurrentSpecReport().FullText(), "VirtualMachineAdditionalNetworkInterfaces") {
+		return
+	}
+
+	// Get all ClusterNetwork resources
+	cmd := f.Clients.Kubectl().RawCommand("get clusternetwork -o yaml", ShortTimeout)
+	if cmd.Error() != nil {
+		GinkgoWriter.Printf("Failed to get clusternetwork:\nCmdError: %v\nStderr: %s\n", cmd.Error(), cmd.StdErr())
+	}
+
+	fileName := fmt.Sprintf("%s/e2e_failed__%s__clusternetwork.yaml", dumpPath, testCaseFullText)
+	if len(cmd.StdOutBytes()) > 0 {
+		err := os.WriteFile(fileName, cmd.StdOutBytes(), 0o644)
+		if err != nil {
+			GinkgoWriter.Printf("Failed to write clusternetwork dump:\nFile: %s\nError: %v\n", fileName, err)
+		}
+	}
+
+	// Get CEP (Cilium Endpoints) for the namespace
+	cepCmd := f.Clients.Kubectl().RawCommand(fmt.Sprintf("get cep -n %s -o yaml", f.Namespace().Name), ShortTimeout)
+	if cepCmd.Error() != nil {
+		GinkgoWriter.Printf("Failed to get cep:\nCmdError: %v\nStderr: %s\n", cepCmd.Error(), cepCmd.StdErr())
+	}
+
+	cepFileName := fmt.Sprintf("%s/e2e_failed__%s__cep.yaml", dumpPath, testCaseFullText)
+	if len(cepCmd.StdOutBytes()) > 0 {
+		err := os.WriteFile(cepFileName, cepCmd.StdOutBytes(), 0o644)
+		if err != nil {
+			GinkgoWriter.Printf("Failed to write cep dump:\nFile: %s\nError: %v\n", cepFileName, err)
 		}
 	}
 }

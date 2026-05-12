@@ -22,6 +22,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	commonvm "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -42,16 +43,15 @@ func (v *CPUCountValidator) ValidateUpdate(_ context.Context, _, newVM *v1alpha2
 func (v *CPUCountValidator) Validate(vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	cores := vm.Spec.CPU.Cores
 
-	switch {
-	case cores <= 16:
-		return nil, nil
-	case cores > 16 && cores <= 32 && cores%2 != 0:
-		return nil, fmt.Errorf("the requested number of cores must be a multiple of 2")
-	case cores > 32 && cores <= 64 && cores%4 != 0:
-		return nil, fmt.Errorf("the requested number of cores must be a multiple of 4")
-	case cores > 64 && cores%8 != 0:
-		return nil, fmt.Errorf("the requested number of cores must be a multiple of 8")
+	if cores > commonvm.MaxCores {
+		return nil, fmt.Errorf("number of cores should not exceed %d", commonvm.MaxCores)
 	}
 
-	return nil, nil
+	sockets, coresPerSocket, _ := commonvm.CalculateCoresAndSockets(cores)
+
+	if cores == sockets*coresPerSocket {
+		return nil, nil
+	}
+
+	return nil, fmt.Errorf("the requested number of cores must be a multiple of %d", sockets)
 }

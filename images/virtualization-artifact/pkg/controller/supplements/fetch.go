@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -171,5 +172,18 @@ func FetchSupplement[T client.Object](
 		return empty, err
 	}
 
+	return obj, nil
+}
+
+// GetTLSSecret fetches the TLS secret for the uploader ingress with fallback to legacy naming.
+func GetTLSSecret(ctx context.Context, c client.Client, gen Generator) (*corev1.Secret, error) {
+	var secret corev1.Secret
+	obj, err := FetchSupplement(ctx, c, gen, SupplementUploaderTLSSecret, &secret)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get TLS secret: %w", err)
+	}
+	if obj == nil {
+		return nil, nil
+	}
 	return obj, nil
 }
