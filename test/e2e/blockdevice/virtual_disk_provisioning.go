@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/ptr"
+	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
@@ -75,7 +76,7 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		By("Creating VirtualMachine", func() {
+		By("Creating VirtualMachine and waiting for VirtualMachine to be running", func() {
 			vm = object.NewMinimalVM("vm-", f.Namespace().Name, vmbuilder.WithBlockDeviceRefs(
 				v1alpha2.BlockDeviceSpecRef{
 					Kind: v1alpha2.VirtualDiskKind,
@@ -85,6 +86,12 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 
 			err := f.CreateWithDeferredDeletion(ctx, vm)
 			Expect(err).NotTo(HaveOccurred())
+
+			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
+		})
+
+		By("Waiting for guest agent to be ready", func() {
+			util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 		})
 
 		By("Waiting for VirtualDisk to be ready", func() {
@@ -96,6 +103,7 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 		var (
 			vi *v1alpha2.VirtualImage
 			vd *v1alpha2.VirtualDisk
+			vm *v1alpha2.VirtualMachine
 		)
 		By("Creating VirtualImage", func() {
 			vi = object.NewGeneratedVIFromCVI("vi-", f.Namespace().Name, object.PrecreatedCVIAlpineUEFI)
@@ -113,8 +121,8 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		By("Creating VirtualMachine and waiting for VirtualMachine to be ready", func() {
-			vm := object.NewMinimalVM("vm-", f.Namespace().Name, vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
+		By("Creating VirtualMachine and waiting for VirtualMachine to be running", func() {
+			vm = object.NewMinimalVM("vm-", f.Namespace().Name, vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.VirtualDiskKind,
 				Name: vd.Name,
 			}))
@@ -122,6 +130,10 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
+		})
+
+		By("Waiting for guest agent to be ready", func() {
+			util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 		})
 
 		By("Waiting for VirtualDisk to be ready", func() {
@@ -130,7 +142,10 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 	})
 
 	It("verifies that a VirtualDisk is provisioned successfully from a ClusterVirtualImage", func() {
-		var vd *v1alpha2.VirtualDisk
+		var (
+			vd *v1alpha2.VirtualDisk
+			vm *v1alpha2.VirtualMachine
+		)
 
 		By("Creating VirtualDisk", func() {
 			vd = object.NewVDFromCVI("vd", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS, vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))))
@@ -138,8 +153,8 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		By("Creating VirtualMachine and waiting for VirtualMachine to be ready", func() {
-			vm := object.NewMinimalVM("vm-", f.Namespace().Name, vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
+		By("Creating VirtualMachine and waiting for VirtualMachine to be running", func() {
+			vm = object.NewMinimalVM("vm-", f.Namespace().Name, vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.VirtualDiskKind,
 				Name: vd.Name,
 			}))
@@ -147,6 +162,10 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
+		})
+
+		By("Waiting for guest agent to be ready", func() {
+			util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 		})
 
 		By("Waiting for VirtualDisk to be ready", func() {
@@ -155,7 +174,10 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 	})
 
 	It("verifies that a VirtualDisk is provisioned successfully from a http", func() {
-		var vd *v1alpha2.VirtualDisk
+		var (
+			vd *v1alpha2.VirtualDisk
+			vm *v1alpha2.VirtualMachine
+		)
 
 		By("Creating VirtualDisk", func() {
 			vd = object.NewHTTPVDAlpineBIOS("vd", f.Namespace().Name, vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))))
@@ -163,8 +185,8 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		By("Creating VirtualMachine and waiting for VirtualMachine to be ready", func() {
-			vm := object.NewMinimalVM("vm-", f.Namespace().Name, vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
+		By("Creating VirtualMachine and waiting for VirtualMachine to be running", func() {
+			vm = object.NewMinimalVM("vm-", f.Namespace().Name, vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.VirtualDiskKind,
 				Name: vd.Name,
 			}))
@@ -172,6 +194,10 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
+		})
+
+		By("Waiting for guest agent to be ready", func() {
+			util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 		})
 
 		By("Waiting for VirtualDisk to be ready", func() {
