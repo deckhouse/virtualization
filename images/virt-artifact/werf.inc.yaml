@@ -7,6 +7,7 @@
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+fromCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
 final: false
 fromImage: builder/src
 secrets:
@@ -42,6 +43,7 @@ packages:
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.25" "builder/golang-alt-svace-1.25" }}
 mount:
