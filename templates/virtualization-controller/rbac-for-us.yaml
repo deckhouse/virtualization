@@ -108,6 +108,7 @@ rules:
   - network.deckhouse.io
   resources:
   - systemnetworknodenetworkinterfaceattachments
+  - nodenetworkinterfaces
   verbs:
   - get
   - list
