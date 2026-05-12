@@ -62,6 +62,28 @@ var _ = Describe("BaseVMOPService", func() {
 			Expect(completed.Reason).To(Equal(vmopcondition.ReasonSuperseded.String()))
 		})
 
+		It("marks an older stop operation as superseded by force stop", func(ctx SpecContext) {
+			oldVMOP := newVMOP("old-stop", v1alpha2.VMOPTypeStop, false, time.Now().Add(-time.Minute))
+			newVMOP := newVMOP("new-force-stop", v1alpha2.VMOPTypeStop, true, time.Now())
+
+			client, err := testutil.NewFakeClientWithObjects(oldVMOP)
+			Expect(err).NotTo(HaveOccurred())
+
+			svc := NewBaseVMOPService(client, &eventrecord.EventRecorderLoggerMock{})
+			should, err := svc.ShouldExecuteOrSupersedeOrSetFailedPhase(ctx, newVMOP)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(should).To(BeTrue())
+
+			changed := &v1alpha2.VirtualMachineOperation{}
+			Expect(client.Get(ctx, types.NamespacedName{Name: oldVMOP.Name, Namespace: oldVMOP.Namespace}, changed)).To(Succeed())
+			Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
+
+			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, changed.Status.Conditions)
+			Expect(found).To(BeTrue())
+			Expect(completed.Status).To(Equal(metav1.ConditionTrue))
+			Expect(completed.Reason).To(Equal(vmopcondition.ReasonSuperseded.String()))
+		})
+
 		It("fails a forbidden newer operation", func(ctx SpecContext) {
 			oldVMOP := newVMOP("old-stop", v1alpha2.VMOPTypeStop, false, time.Now().Add(-time.Minute))
 			newVMOP := newVMOP("new-start", v1alpha2.VMOPTypeStart, false, time.Now())
