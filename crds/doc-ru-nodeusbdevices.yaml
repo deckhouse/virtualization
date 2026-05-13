@@ -4,9 +4,8 @@ spec:
       schema:
         openAPIV3Schema:
           description: |
-            Представляет USB-устройство, обнаруженное на конкретном узле в кластере.
-            Этот ресурс создаётся автоматически системой DRA (Dynamic Resource Allocation),
-            когда USB-устройство обнаруживается на узле.
+            Представляет USB-устройство, обнаруженное на конкретном узле кластера (cluster-wide-ресурс).
+            Создаётся контроллером модуля по объектам ResourceSlice в API Kubernetes, которые публикует DRA-драйвер.
           properties:
             apiVersion:
               description: |-

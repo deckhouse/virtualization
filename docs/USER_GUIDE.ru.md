@@ -3822,22 +3822,22 @@ spec:
 
 ### Обзор
 
-Модуль предоставляет два пользовательских ресурса для управления USB-устройствами:
+Модуль предоставляет два кастомных ресурса для управления USB-устройствами:
 
-- [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) (cluster-scoped) — представляет USB-устройство, обнаруженное на конкретном узле. Создаётся автоматически системой DRA при обнаружении USB-устройства на узле.
-- [USBDevice](/modules/virtualization/cr.html#usbdevice) (namespace-scoped) — представляет USB-устройство, доступное для подключения к виртуальным машинам в заданном неймспейсе.
+- [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) (cluster-wide-ресурс) — представляет USB-устройство, обнаруженное на конкретном узле.
+- [USBDevice](/modules/virtualization/cr.html#usbdevice) (namespaced-ресурс) — представляет USB-устройство, доступное для подключения к виртуальным машинам в заданном неймспейсе.
 
 ### Принцип работы
 
 Проброс USB-устройства проходит через последовательный жизненный цикл — от обнаружения устройства на узле до подключения к виртуальной машине:
 
-1. Драйвер DRA автоматически обнаруживает USB-устройства на узлах кластера и создаёт ресурсы [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice).
+1. DRA-драйвер обнаруживает USB-устройства на узлах и публикует сведения о них в API Kubernetes как ResourceSlice. Контроллер модуля создаёт ресурсы [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) по этим данным.
 
-1. Администратор назначает неймспейс ресурсу [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice), установив поле `.spec.assignedNamespace`. Это делает устройство доступным в этом неймспейсе.
+1. Администратор назначает неймспейс ресурсу [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice), задав параметр ресурса `.spec.assignedNamespace`. Это делает устройство доступным в этом неймспейсе.
 
-1. После назначения неймспейса контроллер автоматически создаёт соответствующий ресурс [USBDevice](/modules/virtualization/cr.html#usbdevice) в этом неймспейсе.
+1. После назначения неймспейса контроллер модуля создаёт в нём ресурс [USBDevice](/modules/virtualization/cr.html#usbdevice).
 
-1. Устройство [USBDevice](/modules/virtualization/cr.html#usbdevice) подключается к виртуальной машине путём добавления в поле `.spec.usbDevices` ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine).
+1. Устройство [USBDevice](/modules/virtualization/cr.html#usbdevice) подключается к виртуальной машине путём добавления в параметр ресурса `.spec.usbDevices` ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine).
 
 ### Быстрый старт
 
@@ -3850,7 +3850,7 @@ spec:
    d8 k get nodeusbdevice
    ```
 
-1. Назначьте неймспейс ресурсу [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice), установив `.spec.assignedNamespace`:
+1. Назначьте неймспейс ресурсу [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice), задав параметр ресурса `.spec.assignedNamespace`:
 
    ```bash
    d8 k apply -f - <<EOF
@@ -3869,7 +3869,7 @@ spec:
    d8 k get usbdevice -n my-project
    ```
 
-1. Добавьте устройство в поле `.spec.usbDevices` ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine):
+1. Добавьте устройство в параметр ресурса `.spec.usbDevices` ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine):
 
    ```bash
    d8 k apply -f - <<EOF
@@ -3886,7 +3886,7 @@ spec:
 
 ### NodeUSBDevice
 
-Ресурс [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) отражает состояние физического USB-устройства, обнаруженного на узле кластера. Это cluster-scoped ресурс, представляющий физическое USB-устройство на узле. Он создаётся автоматически системой DRA.
+Ресурс [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) отражает состояние физического USB-устройства, обнаруженного на узле кластера. Это cluster-wide-ресурс, представляющий физическое USB-устройство на узле.
 
 Пример просмотра всех обнаруженных USB-устройств:
 
@@ -3918,7 +3918,7 @@ logitech-webcam     node-2         True    True      my-project   15m
 
 #### Назначение неймспейса USB-устройству
 
-Перед подключением USB-устройства к виртуальной машине его необходимо сделать доступным в конкретном неймспейсе. Для этого установите поле `.spec.assignedNamespace`:
+Перед подключением USB-устройства к виртуальной машине его необходимо сделать доступным в конкретном неймспейсе. Для этого задайте параметр ресурса `.spec.assignedNamespace`:
 
 ```bash
 d8 k apply -f - <<EOF
@@ -3931,11 +3931,11 @@ spec:
 EOF
 ```
 
-После назначения неймспейса соответствующий ресурс [USBDevice](/modules/virtualization/cr.html#usbdevice) автоматически создаётся в указанном неймспейсе.
+После назначения неймспейса в нём автоматически появляется ресурс [USBDevice](/modules/virtualization/cr.html#usbdevice).
 
 ### USBDevice
 
-[USBDevice](/modules/virtualization/cr.html#usbdevice) — это namespace-scoped ресурс, представляющий USB-устройство, доступное для подключения к виртуальным машинам в заданном неймспейсе. Создаётся автоматически, когда [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) имеет назначенный неймспейс.
+[USBDevice](/modules/virtualization/cr.html#usbdevice) — это namespaced-ресурс, представляющий USB-устройство, доступное для подключения к виртуальным машинам в заданном неймспейсе. Появляется автоматически, когда у связанного [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) задан неймспейс в параметре ресурса `.spec.assignedNamespace`.
 
 Пример просмотра USB-устройств в неймспейсе:
 
@@ -3952,7 +3952,7 @@ logitech-webcam    node-2   Logitech       Webcam C920         ABC123456   False
 
 #### Атрибуты USBDevice
 
-Ресурс [USBDevice](/modules/virtualization/cr.html#usbdevice) содержит подробную информацию о физическом USB-устройстве в статусных полях. Эти атрибуты доступны в `.status.attributes`:
+Ресурс [USBDevice](/modules/virtualization/cr.html#usbdevice) содержит подробную информацию о физическом USB-устройстве. Атрибуты перечислены в `.status.attributes`:
 
 - `vendorID` — USB идентификатор производителя (шестнадцатеричный формат);
 - `productID` — USB идентификатор продукта (шестнадцатеричный формат);
@@ -3979,7 +3979,7 @@ logitech-webcam    node-2   Logitech       Webcam C920         ABC123456   False
 
 ### Подключение USB-устройства к ВМ
 
-После появления ресурса [USBDevice](/modules/virtualization/cr.html#usbdevice) в неймспейсе его можно подключить к виртуальной машине. Для этого добавьте устройство в поле `.spec.usbDevices` ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine):
+После появления ресурса [USBDevice](/modules/virtualization/cr.html#usbdevice) в неймспейсе его можно подключить к виртуальной машине. Для этого добавьте устройство в параметр ресурса `.spec.usbDevices` ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine):
 
 ```bash
 d8 k apply -f - <<EOF

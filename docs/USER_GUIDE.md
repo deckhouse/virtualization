@@ -3793,20 +3793,20 @@ USB device passthrough requires:
 
 The module provides two custom resources for managing USB devices:
 
-- [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) (cluster-scoped) — represents a USB device discovered on a specific node. Created automatically by the DRA system when a USB device is detected on a node.
-- [USBDevice](/modules/virtualization/cr.html#usbdevice) (namespace-scoped) — represents a USB device available for attachment to virtual machines in a given namespace.
+- [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) (cluster-wide resource) — represents a USB device discovered on a specific node.
+- [USBDevice](/modules/virtualization/cr.html#usbdevice) (namespaced resource) — represents a USB device available for attachment to virtual machines in a given namespace.
 
 ### How It Works
 
 USB device passthrough follows a defined lifecycle — from device discovery on a node to attachment to a virtual machine:
 
-1. The DRA driver automatically discovers USB devices on cluster nodes and creates [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resources.
+1. The DRA driver discovers USB devices on cluster nodes and publishes them to the Kubernetes API as ResourceSlices. The module controller creates [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resources from that data.
 
-1. An administrator assigns a namespace to the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource by setting the `.spec.assignedNamespace` field. This makes the device available in that namespace.
+1. An administrator assigns a namespace to the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource by setting the `.spec.assignedNamespace` resource field. This makes the device available in that namespace.
 
-1. After the namespace is assigned, the controller automatically creates a corresponding [USBDevice](/modules/virtualization/cr.html#usbdevice) resource in that namespace.
+1. After the namespace is assigned, the module controller automatically creates a corresponding [USBDevice](/modules/virtualization/cr.html#usbdevice) resource in that namespace.
 
-1. The [USBDevice](/modules/virtualization/cr.html#usbdevice) is attached to a virtual machine by adding it to the `.spec.usbDevices` field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
+1. The [USBDevice](/modules/virtualization/cr.html#usbdevice) is attached to a virtual machine by adding it to the `.spec.usbDevices` resource field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
 
 ### Quick Start
 
@@ -3819,7 +3819,7 @@ The following steps describe the minimal workflow for attaching a USB device to 
    d8 k get nodeusbdevice
    ```
 
-1. Assign a namespace to the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) by setting `.spec.assignedNamespace`.
+1. Assign a namespace to the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) by setting the `.spec.assignedNamespace` resource field.
 
    ```bash
    d8 k apply -f - <<EOF
@@ -3838,7 +3838,7 @@ The following steps describe the minimal workflow for attaching a USB device to 
    d8 k get usbdevice -n my-project
    ```
 
-1. Add the device to the `.spec.usbDevices` field of a [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
+1. Add the device to the `.spec.usbDevices` resource field of a [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
 
    ```bash
    d8 k apply -f - <<EOF
@@ -3855,7 +3855,7 @@ The following steps describe the minimal workflow for attaching a USB device to 
 
 ### NodeUSBDevice
 
-[NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource reflects the state of a physical USB device detected on a cluster node. It is a cluster-scoped resource that represents a physical USB device on a node. It is created automatically by the DRA system.
+[NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource reflects the state of a physical USB device detected on a cluster node. It is a cluster-wide resource that represents a physical USB device on a node.
 
 Example of viewing all discovered USB devices:
 
@@ -3887,7 +3887,7 @@ The status of a [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) r
 
 #### Assigning a Namespace
 
-Before a USB device can be attached to a virtual machine, it must be exposed to a specific namespace. To make a USB device available in a specific namespace, set the `.spec.assignedNamespace` field:
+Before a USB device can be attached to a virtual machine, it must be exposed to a specific namespace. To make a USB device available in a specific namespace, set the `.spec.assignedNamespace` resource field:
 
 ```bash
 d8 k apply -f - <<EOF
@@ -3904,7 +3904,7 @@ After assigning the namespace, a corresponding [USBDevice](/modules/virtualizati
 
 ### USBDevice
 
-Once a namespace is assigned to a [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice), a corresponding [USBDevice](/modules/virtualization/cr.html#usbdevice) resource is created in automatically that namespace. It is a namespace-scoped resource that represents a USB device available for attachment to virtual machines within a given namespace.
+When the related [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) has the `.spec.assignedNamespace` resource field set, a corresponding [USBDevice](/modules/virtualization/cr.html#usbdevice) resource is created in that namespace. It is a namespaced resource that represents a USB device available for attachment to virtual machines within a given namespace.
 
 Example of viewing USB devices in a namespace:
 
@@ -3921,7 +3921,7 @@ logitech-webcam    node-2   Logitech       Webcam C920         ABC123456   False
 
 #### USBDevice Attributes
 
-The [USBDevice](/modules/virtualization/cr.html#usbdevice) resource exposes detailed information about the physical USB device through its status fields. This attributes are available in `.status.attributes`:
+The [USBDevice](/modules/virtualization/cr.html#usbdevice) resource exposes detailed information about the physical USB device. These attributes are available in `.status.attributes`:
 
 - `vendorID`: USB vendor ID (hexadecimal format).
 - `productID`: USB product ID (hexadecimal format).
@@ -3948,7 +3948,7 @@ The [USBDevice](/modules/virtualization/cr.html#usbdevice) resource provides sta
 
 ### Attaching USB Device to VM
 
-After the [USBDevice](/modules/virtualization/cr.html#usbdevice) resource is available in a namespace, it can be attached to a virtual machine. To attach a USB device to a virtual machine, add the device to the `.spec.usbDevices` field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource specification:
+After the [USBDevice](/modules/virtualization/cr.html#usbdevice) resource is available in a namespace, it can be attached to a virtual machine. To attach a USB device to a virtual machine, add the device to the `.spec.usbDevices` resource field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource specification:
 
 ```bash
 d8 k apply -f - <<EOF
