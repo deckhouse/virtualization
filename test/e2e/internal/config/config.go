@@ -92,7 +92,6 @@ type TestData struct {
 	ImageHotplug      string `yaml:"imageHotplug"`
 	VMMigration       string `yaml:"vmMigration"`
 	VMMigrationCancel string `yaml:"vmMigrationCancel"`
-	VMEvacuation      string `yaml:"vmEvacuation"`
 	VdSnapshots       string `yaml:"vdSnapshots"`
 	Sshkey            string `yaml:"sshKey"`
 	SSHUser           string `yaml:"sshUser"`
