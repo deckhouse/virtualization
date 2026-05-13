@@ -52,7 +52,7 @@ var _ = Describe("VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
 
 	It("resizes virtual disks", func() {
 		By("Environment preparation")
-		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIAlpineBIOSPerf, vd.WithSize(ptr.To(resource.MustParse("1Gi"))))
+		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIUbuntu, vd.WithSize(ptr.To(resource.MustParse("4Gi"))))
 		vdBlank := object.NewBlankVD("vd-blank", f.Namespace().Name, nil, ptr.To(resource.MustParse("100Mi")))
 		vdAttach := object.NewBlankVD("vd-attach", f.Namespace().Name, nil, ptr.To(resource.MustParse("100Mi")))
 
@@ -76,7 +76,12 @@ var _ = Describe("VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
+		util.UntilSSHReady(f, vm, framework.MiddleTimeout)
 		util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, vmbda)
+
+		vdRootLsblkSize := util.GetBlockDeviceLsblkSize(ctx, f, vm, v1alpha2.VirtualDiskKind, vdRoot.Name)
+		vdBlankLsblkSize := util.GetBlockDeviceLsblkSize(ctx, f, vm, v1alpha2.VirtualDiskKind, vdBlank.Name)
+		vdAttachLsblkSize := util.GetBlockDeviceLsblkSize(ctx, f, vm, v1alpha2.VirtualDiskKind, vdAttach.Name)
 
 		By("Resize the disks")
 		ctxVDWatch, cancelVDWatch := context.WithCancel(ctx)
@@ -116,6 +121,8 @@ var _ = Describe("VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
 
 		By("Verify that disks report the new size")
 		util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.MiddleTimeout, vdRoot, vdBlank, vdAttach)
+		util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.ShortTimeout, vm)
+		util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, vmbda)
 
 		err = f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vdRoot), vdRoot)
 		Expect(err).NotTo(HaveOccurred())
@@ -127,6 +134,14 @@ var _ = Describe("VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
 		Expect(newVDRootSize.Cmp(resource.MustParse(vdRoot.Status.Capacity)))
 		Expect(newVDBlankSize.Cmp(resource.MustParse(vdBlank.Status.Capacity)))
 		Expect(newVDAttachSize.Cmp(resource.MustParse(vdAttach.Status.Capacity)))
+
+		newVDRootLsblkSize := util.GetBlockDeviceLsblkSize(ctx, f, vm, v1alpha2.VirtualDiskKind, vdRoot.Name)
+		newVDBlankLsblkSize := util.GetBlockDeviceLsblkSize(ctx, f, vm, v1alpha2.VirtualDiskKind, vdBlank.Name)
+		newVDAttachLsblkSize := util.GetBlockDeviceLsblkSize(ctx, f, vm, v1alpha2.VirtualDiskKind, vdAttach.Name)
+
+		Expect(newVDRootLsblkSize).NotTo(Equal(vdRootLsblkSize))
+		Expect(newVDBlankLsblkSize).NotTo(Equal(vdBlankLsblkSize))
+		Expect(newVDAttachLsblkSize).NotTo(Equal(vdAttachLsblkSize))
 	})
 })
 

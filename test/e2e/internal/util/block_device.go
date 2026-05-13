@@ -105,6 +105,19 @@ func GetBlockDeviceHash(ctx context.Context, f *framework.Framework, vm *v1alpha
 	return strings.TrimSpace(cmdOut)
 }
 
+func GetBlockDeviceLsblkSize(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) string {
+	GinkgoHelper()
+
+	serial, ok := GetBlockDeviceSerialNumber(ctx, vm, bdKind, bdName)
+	Expect(ok).To(BeTrue(), "failed to get block device serial number")
+
+	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
+
+	cmdOut, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo lsblk -o SIZE %s | sed \"s/SIZE//g\"", devicePath))
+	Expect(err).NotTo(HaveOccurred())
+	return strings.TrimSpace(cmdOut)
+}
+
 func GetBlockDeviceBySerial(f *framework.Framework, vm *v1alpha2.VirtualMachine, serial string) (string, error) {
 	cmdOut, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo lsblk -o PATH,SERIAL | grep %s | awk \"{print \\$1, \\$2}\"", serial))
 	if err != nil {
