@@ -38,7 +38,11 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-const unacceptableCount = -1000
+const (
+	DiskIDPrefix      = "scsi-0QEMU_QEMU_HARDDISK"
+	CdRomIDPrefix     = "scsi-0QEMU_QEMU_CD-ROM_drive-ua"
+	unacceptableCount = -1000
+)
 
 var APIVersion = v1alpha2.SchemeGroupVersion.String()
 
@@ -415,4 +419,23 @@ func GetDisksMetadata(vmNamespace, vmName string, disks *Disks) error {
 		return fmt.Errorf("failed when getting disk count\nvirtualMachine: %s/%s\nstderr: %s", vmNamespace, vmName, res.StdErr())
 	}
 	return nil
+}
+
+func WaitBlockDeviceRefsAttached(namespace string, vms ...string) {
+	GinkgoHelper()
+	Eventually(func() error {
+		for _, vmName := range vms {
+			vm := v1alpha2.VirtualMachine{}
+			err := GetObject(v1alpha2.VirtualMachineResource, vmName, &vm, kc.GetOptions{Namespace: namespace})
+			if err != nil {
+				return fmt.Errorf("virtualMachine: %s\nstderr: %w", vmName, err)
+			}
+			for _, bd := range vm.Status.BlockDeviceRefs {
+				if !bd.Attached {
+					return fmt.Errorf("virtualMachine: %s\nblockDeviceRefs: %#v", vmName, bd)
+				}
+			}
+		}
+		return nil
+	}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
 }
