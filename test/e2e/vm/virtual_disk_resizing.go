@@ -75,7 +75,7 @@ var _ = Describe("VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
 		err := f.CreateWithDeferredDeletion(ctx, vdRoot, vdBlank, vdAttach, vm, vmbda)
 		Expect(err).NotTo(HaveOccurred())
 
-		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+		util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
 		util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, vmbda)
 
 		By("Resize the disks")
