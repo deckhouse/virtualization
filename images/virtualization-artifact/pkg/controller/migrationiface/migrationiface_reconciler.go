@@ -145,7 +145,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	var value any // nil → annotation removed
+	var value any
 	if desired != "" {
 		value = desired
 	}

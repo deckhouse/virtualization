@@ -52,12 +52,13 @@ func SetupController(
 	ctx context.Context,
 	mgr manager.Manager,
 	log *log.Logger,
+	systemNetworkName string,
 ) error {
 	client := mgr.GetClient()
 
 	controllers := []SubController{
 		powerstate.NewController(client, mgr),
-		migration.NewController(client, mgr, featuregates.Default()),
+		migration.NewController(client, mgr, featuregates.Default(), systemNetworkName),
 		snapshot.NewController(client, mgr),
 	}
 

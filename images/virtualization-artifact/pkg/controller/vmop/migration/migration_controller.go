@@ -34,7 +34,7 @@ const (
 	controllerName = "vmop-migration-controller"
 )
 
-func NewController(client client.Client, mgr manager.Manager, featureGate featuregate.FeatureGate) *Controller {
+func NewController(client client.Client, mgr manager.Manager, featureGate featuregate.FeatureGate, systemNetworkName string) *Controller {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, controllerName)
 	baseSvc := genericservice.NewBaseVMOPService(client, recorder)
 	migration := service.NewMigrationService(client, featureGate)
@@ -46,7 +46,7 @@ func NewController(client client.Client, mgr manager.Manager, featureGate featur
 		},
 		handlers: []reconciler.Handler[*v1alpha2.VirtualMachineOperation]{
 			handler.NewDeletionHandler(migration),
-			handler.NewLifecycleHandler(client, migration, baseSvc, recorder),
+			handler.NewLifecycleHandler(client, migration, baseSvc, recorder, systemNetworkName),
 		},
 	}
 }

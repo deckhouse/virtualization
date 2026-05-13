@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -77,20 +78,22 @@ type Base interface {
 	IsApplicableOrSetFailedPhase(checker genericservice.ApplicableChecker, vmop *v1alpha2.VirtualMachineOperation, vm *v1alpha2.VirtualMachine) bool
 }
 type LifecycleHandler struct {
-	client           client.Client
-	migration        *migrationservice.MigrationService
-	base             Base
-	recorder         eventrecord.EventRecorderLogger
-	progressStrategy migrationprogress.Strategy
+	client            client.Client
+	migration         *migrationservice.MigrationService
+	base              Base
+	recorder          eventrecord.EventRecorderLogger
+	progressStrategy  migrationprogress.Strategy
+	systemNetworkName string
 }
 
-func NewLifecycleHandler(client client.Client, migration *migrationservice.MigrationService, base Base, recorder eventrecord.EventRecorderLogger) *LifecycleHandler {
+func NewLifecycleHandler(client client.Client, migration *migrationservice.MigrationService, base Base, recorder eventrecord.EventRecorderLogger, systemNetworkName string) *LifecycleHandler {
 	return &LifecycleHandler{
-		client:           client,
-		migration:        migration,
-		base:             base,
-		recorder:         recorder,
-		progressStrategy: migrationprogress.NewProgress(),
+		client:            client,
+		migration:         migration,
+		base:              base,
+		recorder:          recorder,
+		progressStrategy:  migrationprogress.NewProgress(),
+		systemNetworkName: systemNetworkName,
 	}
 }
 
@@ -200,6 +203,21 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	isApplicable := h.base.IsApplicableOrSetFailedPhase(h.migration, vmop, vm)
 	if !isApplicable {
 		return reconcile.Result{}, nil
+	}
+
+	// Check if SystemNetwork is configured and ready
+	if h.systemNetworkName != "" {
+		if msg, ok := h.checkMigrationNetwork(ctx, vm); !ok {
+			vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+			h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, msg)
+			conditions.SetCondition(
+				completedCond.
+					Reason(vmopcondition.ReasonMigrationNetworkUnavailable).
+					Status(metav1.ConditionFalse).
+					Message(msg),
+				&vmop.Status.Conditions)
+			return reconcile.Result{}, nil
+		}
 	}
 
 	// 6.1 Check if force flag is applicable for effective liveMigrationPolicy.
@@ -727,6 +745,24 @@ func isContainerCreating(pod *corev1.Pod) bool {
 		}
 	}
 	return false
+}
+
+func (h *LifecycleHandler) checkMigrationNetwork(ctx context.Context, vm *v1alpha2.VirtualMachine) (string, bool) {
+	nodeName := vm.Status.Node
+	if nodeName == "" {
+		return "Virtual machine is not scheduled to any node", false
+	}
+	var node corev1.Node
+	if err := h.client.Get(ctx, client.ObjectKey{Name: nodeName}, &node); err != nil {
+		return fmt.Sprintf("failed to get source node %q: %v", nodeName, err), false
+	}
+	if node.Annotations[annotations.AnnMigrationIface] == "" {
+		return fmt.Sprintf(
+			"source node %q has no dedicated migration interface for network %q",
+			nodeName, h.systemNetworkName,
+		), false
+	}
+	return "", true
 }
 
 func getPodPendingUnschedulableMessage(pod *corev1.Pod) (string, bool) {
