@@ -108,9 +108,7 @@ var _ = Describe("VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
 		newVDAttachSize, err := increaseDiskSize(ctx, f, vdAttach)
 		Expect(err).NotTo(HaveOccurred())
 
-		Eventually(func() bool {
-			return vdWasResizing.Load()
-		}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(BeTrue())
+		Eventually(vdWasResizing.Load).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(BeTrue())
 
 		cancelVDWatch()
 		Expect(<-vdWatchErrCh).ShouldNot(HaveOccurred())
