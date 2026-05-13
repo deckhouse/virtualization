@@ -38,7 +38,7 @@ import (
 )
 
 var _ = DescribeTable("VirtualMachineCancelMigration", Label(precheck.NoPrecheck), func(bootloaderType v1alpha2.BootloaderType) {
-	const stressngCmd = "nohup stress-ng --cpu 4 --vm 4 --vm-bytes 90% --vm-keep --vm-populate --vm-method all --timeout 1h </dev/null >/dev/null 2>errlog &"
+	const stressngCmd = "nohup stress-ng --cpu 4 --vm 4 --vm-bytes 90% --vm-keep --vm-populate --vm-method all --timeout 3m </dev/null >/dev/null 2>errlog &"
 
 	ctx := context.Background()
 	var suffix string
@@ -92,12 +92,7 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(precheck.NoPrecheck
 
 	By("Wait for stress-ng to increase memory pressure")
 	Consistently(func() error {
-		_, err := f.SSHCommand(vm.Name, vm.Namespace, "test ! -s errlog")
-		if err != nil {
-			return err
-		}
-
-		return nil
+		return checkStressNGErrorLogIsEmpty(f, vm)
 	}).WithTimeout(20 * time.Second).WithPolling(time.Second).ShouldNot(HaveOccurred())
 
 	By("Create migration VMOPs")
@@ -115,7 +110,7 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(precheck.NoPrecheck
 	util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseInProgress), framework.MiddleTimeout, evictVMOP)
 
 	By("Ensure the KVVMI has a migration state")
-	untilKVVMIMigrationStateIsNotEmpty(ctx, framework.MiddleTimeout, vm)
+	untilKVVMIMigrationStateExists(ctx, framework.MiddleTimeout, vm)
 
 	By("Remove the VMOP")
 	err = f.GenericClient().Delete(ctx, evictVMOP)
@@ -124,7 +119,11 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(precheck.NoPrecheck
 	By("Ensure the VMOP is removed")
 	util.UntilObjectsDeleted(ctx, framework.MiddleTimeout, evictVMOP)
 
-	By("Ensure the KubeVirt VMI has an abort status")
+	By("Ensure stress-ng error log is empty")
+	err = checkStressNGErrorLogIsEmpty(f, vm)
+	Expect(err).NotTo(HaveOccurred())
+
+	By("Ensure the KVVMI has an abort status")
 	untilAbortStatusExists(ctx, framework.MiddleTimeout, vm)
 },
 	Entry("BIOS bootloader", v1alpha2.BIOS),
@@ -132,7 +131,7 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(precheck.NoPrecheck
 	Entry("UEFI bootloader with secure boot", v1alpha2.EFIWithSecureBoot),
 )
 
-func untilKVVMIMigrationStateIsNotEmpty(ctx context.Context, timeout time.Duration, vm *v1alpha2.VirtualMachine) {
+func untilKVVMIMigrationStateExists(ctx context.Context, timeout time.Duration, vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
 	Eventually(func() error {
@@ -159,7 +158,6 @@ func untilAbortStatusExists(ctx context.Context, timeout time.Duration, vm *v1al
 	validAbortStatuses := []virtv1.MigrationAbortStatus{
 		virtv1.MigrationAbortInProgress,
 		virtv1.MigrationAbortSucceeded,
-		virtv1.MigrationAbortFailed,
 	}
 
 	Eventually(func() error {
@@ -174,19 +172,24 @@ func untilAbortStatusExists(ctx context.Context, timeout time.Duration, vm *v1al
 
 		migrationState := kvvmi.Status.MigrationState
 		if migrationState == nil {
-			return fmt.Errorf("retry because migration state is nil for VMI %s/%s", vm.Namespace, vm.Name)
+			return fmt.Errorf("retry because migration state is nil for KVVMI %s/%s", vm.Namespace, vm.Name)
 		}
 		if !migrationState.AbortRequested {
-			return fmt.Errorf("retry because migration abort requested is false for VMI %s/%s", vm.Namespace, vm.Name)
+			return fmt.Errorf("retry because migration abort requested is false for KVVMI %s/%s", vm.Namespace, vm.Name)
 		}
 
 		if !slices.Contains(validAbortStatuses, migrationState.AbortStatus) {
-			return fmt.Errorf("retry because migration abort status is %s for VMI %s/%s", migrationState.AbortStatus, vm.Namespace, vm.Name)
+			return fmt.Errorf("retry because migration abort status is %s for KVVMI %s/%s", migrationState.AbortStatus, vm.Namespace, vm.Name)
 		}
 
 		if migrationState.EndTimestamp.IsZero() {
-			return fmt.Errorf("retry because migration is not finished yet for VMI %s/%s", vm.Namespace, vm.Name)
+			return fmt.Errorf("retry because migration is not finished yet for KVVMI %s/%s", vm.Namespace, vm.Name)
 		}
 		return nil
 	}).WithTimeout(timeout).WithPolling(time.Second).ShouldNot(HaveOccurred())
+}
+
+func checkStressNGErrorLogIsEmpty(f *framework.Framework, vm *v1alpha2.VirtualMachine) error {
+	_, err := f.SSHCommand(vm.Name, vm.Namespace, "test ! -s errlog")
+	return err
 }
