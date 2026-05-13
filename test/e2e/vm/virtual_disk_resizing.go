@@ -76,7 +76,7 @@ var _ = Describe("VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
-		util.UntilSSHReady(f, vm, framework.MiddleTimeout)
+		util.UntilSSHReady(f, vm, framework.LongTimeout)
 		util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, vmbda)
 
 		vdRootLsblkSize := util.GetBlockDeviceLsblkSize(ctx, f, vm, v1alpha2.VirtualDiskKind, vdRoot.Name)
@@ -131,9 +131,9 @@ var _ = Describe("VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
 		err = f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vdAttach), vdAttach)
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(newVDRootSize.Cmp(resource.MustParse(vdRoot.Status.Capacity)))
-		Expect(newVDBlankSize.Cmp(resource.MustParse(vdBlank.Status.Capacity)))
-		Expect(newVDAttachSize.Cmp(resource.MustParse(vdAttach.Status.Capacity)))
+		Expect(newVDRootSize.Cmp(resource.MustParse(vdRoot.Status.Capacity))).To(BeZero())
+		Expect(newVDBlankSize.Cmp(resource.MustParse(vdBlank.Status.Capacity))).To(BeZero())
+		Expect(newVDAttachSize.Cmp(resource.MustParse(vdAttach.Status.Capacity))).To(BeZero())
 
 		newVDRootLsblkSize := util.GetBlockDeviceLsblkSize(ctx, f, vm, v1alpha2.VirtualDiskKind, vdRoot.Name)
 		newVDBlankLsblkSize := util.GetBlockDeviceLsblkSize(ctx, f, vm, v1alpha2.VirtualDiskKind, vdBlank.Name)

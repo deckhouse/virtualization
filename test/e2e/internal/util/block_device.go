@@ -112,6 +112,7 @@ func GetBlockDeviceLsblkSize(ctx context.Context, f *framework.Framework, vm *v1
 	Expect(ok).To(BeTrue(), "failed to get block device serial number")
 
 	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
+	Expect(err).NotTo(HaveOccurred(), "failed to get device by serial")
 
 	cmdOut, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo lsblk -o SIZE %s | sed \"s/SIZE//g\"", devicePath))
 	Expect(err).NotTo(HaveOccurred())
