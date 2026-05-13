@@ -18,7 +18,6 @@ clusterTransport:
 helperImages:
   curlImage: "curlimages/curl"
 testData:
-  diskResizing: "/tmp/testdata/disk-resizing"
   imageHotplug: "/tmp/testdata/image-hotplug"
   sizingPolicy: "/tmp/testdata/sizing-policy"
   vmConfiguration: "/tmp/testdata/vm-configuration"

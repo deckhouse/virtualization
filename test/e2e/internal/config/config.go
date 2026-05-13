@@ -88,7 +88,6 @@ type Config struct {
 }
 
 type TestData struct {
-	DiskResizing      string `yaml:"diskResizing"`
 	ImageHotplug      string `yaml:"imageHotplug"`
 	VMMigration       string `yaml:"vmMigration"`
 	VMMigrationCancel string `yaml:"vmMigrationCancel"`
