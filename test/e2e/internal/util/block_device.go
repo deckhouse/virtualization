@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -105,7 +106,7 @@ func GetBlockDeviceHash(ctx context.Context, f *framework.Framework, vm *v1alpha
 	return strings.TrimSpace(cmdOut)
 }
 
-func GetBlockDeviceLsblkSize(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) string {
+func GetBlockDeviceLsblkSize(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) resource.Quantity {
 	GinkgoHelper()
 
 	serial, ok := GetBlockDeviceSerialNumber(ctx, vm, bdKind, bdName)
@@ -114,9 +115,15 @@ func GetBlockDeviceLsblkSize(ctx context.Context, f *framework.Framework, vm *v1
 	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
 	Expect(err).NotTo(HaveOccurred(), "failed to get device by serial")
 
-	cmdOut, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo lsblk -o SIZE %s | sed \"s/SIZE//g\"", devicePath))
+	cmdOut, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo lsblk --json -o SIZE %s", devicePath))
 	Expect(err).NotTo(HaveOccurred())
-	return strings.TrimSpace(cmdOut)
+
+	var disks Disks
+	err = json.Unmarshal([]byte(cmdOut), &disks)
+	Expect(err).NotTo(HaveOccurred(), "failed to parse lsblk output")
+	Expect(disks.BlockDevices).NotTo(BeEmpty(), "lsblk output does not contain block devices")
+
+	return resource.MustParse(strings.TrimSpace(disks.BlockDevices[0].Size))
 }
 
 func GetBlockDeviceBySerial(f *framework.Framework, vm *v1alpha2.VirtualMachine, serial string) (string, error) {

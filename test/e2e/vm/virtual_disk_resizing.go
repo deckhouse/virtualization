@@ -19,6 +19,7 @@ package vm
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -30,6 +31,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
@@ -87,7 +89,7 @@ var _ = Describe("VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
 		ctxVDWatch, cancelVDWatch := context.WithCancel(ctx)
 		defer cancelVDWatch()
 		vdWatchErrCh := make(chan error, 1)
-		vdWasResizingCh := make(chan bool, 1)
+		var vdWasResizing atomic.Bool
 
 		go func() {
 			wasResizing, err := ensureVDWasResizing(
@@ -95,7 +97,7 @@ var _ = Describe("VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
 				f.VirtClient().VirtualDisks(f.Namespace().Name),
 				[]*v1alpha2.VirtualDisk{vdRoot, vdBlank, vdAttach},
 			)
-			vdWasResizingCh <- wasResizing
+			vdWasResizing.Store(wasResizing)
 			vdWatchErrCh <- err
 		}()
 
@@ -107,13 +109,7 @@ var _ = Describe("VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		Eventually(func() bool {
-			wasResizing := false
-			select {
-			case v := <-vdWasResizingCh:
-				wasResizing = v
-			default:
-			}
-			return wasResizing
+			return vdWasResizing.Load()
 		}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(BeTrue())
 
 		cancelVDWatch()
@@ -139,9 +135,11 @@ var _ = Describe("VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
 		newVDBlankLsblkSize := util.GetBlockDeviceLsblkSize(ctx, f, vm, v1alpha2.VirtualDiskKind, vdBlank.Name)
 		newVDAttachLsblkSize := util.GetBlockDeviceLsblkSize(ctx, f, vm, v1alpha2.VirtualDiskKind, vdAttach.Name)
 
-		Expect(newVDRootLsblkSize).NotTo(Equal(vdRootLsblkSize))
-		Expect(newVDBlankLsblkSize).NotTo(Equal(vdBlankLsblkSize))
-		Expect(newVDAttachLsblkSize).NotTo(Equal(vdAttachLsblkSize))
+		Expect(newVDRootLsblkSize.Cmp(vdRootLsblkSize)).To(Equal(common.CmpGreater))
+		Expect(newVDBlankLsblkSize.Cmp(vdBlankLsblkSize)).To(Equal(common.CmpGreater))
+		Expect(newVDAttachLsblkSize.Cmp(vdAttachLsblkSize)).To(Equal(common.CmpGreater))
+
+		untilDisksArePresentAndAttachedInVMStatus(ctx, f, framework.ShortTimeout, vm, vdRoot, vdBlank, vdAttach)
 	})
 })
 
@@ -155,7 +153,7 @@ func increaseDiskSize(ctx context.Context, f *framework.Framework, vd *v1alpha2.
 		return resource.Quantity{}, fmt.Errorf("virtual disk %s/%s must have PVC size in spec", vd.Namespace, vd.Name)
 	}
 	size := *vd.Spec.PersistentVolumeClaim.Size
-	size.Add(resource.MustParse("1Gi"))
+	size.Add(resource.MustParse("100Mi"))
 	vd.Spec.PersistentVolumeClaim.Size = ptr.To(size)
 
 	err = f.GenericClient().Update(ctx, vd)
@@ -224,4 +222,24 @@ func ensureVDWasResizing(ctx context.Context, w util.Watcher, vds []*v1alpha2.Vi
 			}
 		}
 	}
+}
+
+func untilDisksArePresentAndAttachedInVMStatus(ctx context.Context, f *framework.Framework, timeout time.Duration, vm *v1alpha2.VirtualMachine, vds ...*v1alpha2.VirtualDisk) {
+	GinkgoHelper()
+
+	Eventually(func(g Gomega) {
+		err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), vm)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		statusActiveDisks := make(map[string]struct{})
+		for _, bd := range vm.Status.BlockDeviceRefs {
+			if bd.Kind == v1alpha2.VirtualDiskKind && bd.Attached {
+				statusActiveDisks[bd.Name] = struct{}{}
+			}
+		}
+
+		for _, vd := range vds {
+			g.Expect(statusActiveDisks).To(HaveKey(vd.Name))
+		}
+	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
