@@ -53,7 +53,6 @@ var _ = Describe("VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
 	It("resizes virtual disks", func() {
 		By("Environment preparation")
 		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIAlpineBIOSPerf, vd.WithSize(ptr.To(resource.MustParse("1Gi"))))
-
 		vdBlank := object.NewBlankVD("vd-blank", f.Namespace().Name, nil, ptr.To(resource.MustParse("100Mi")))
 		vdAttach := object.NewBlankVD("vd-attach", f.Namespace().Name, nil, ptr.To(resource.MustParse("100Mi")))
 
