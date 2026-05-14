@@ -64,7 +64,7 @@ func SkipIfKnownKubeVirtClientSocketClosedMigrationFailureWithContext(ctx contex
 		return
 	}
 
-	intvirtvmi, err := getInternalVirtualMachineInstance(ctx, vm)
+	intvirtvmi, err := GetInternalVirtualMachineInstance(ctx, vm)
 	Expect(err).NotTo(HaveOccurred())
 	if intvirtvmi == nil || intvirtvmi.Status.MigrationState == nil {
 		return
@@ -94,7 +94,7 @@ func SkipIfKnownVolumesUpdateMigrationFailureWithContext(ctx context.Context, vm
 		return
 	}
 
-	intvirtvmi, err := getInternalVirtualMachineInstance(ctx, vm)
+	intvirtvmi, err := GetInternalVirtualMachineInstance(ctx, vm)
 	Expect(err).NotTo(HaveOccurred())
 	if intvirtvmi == nil {
 		return
@@ -142,7 +142,7 @@ func SkipIfVDMigrationReverted(namespace string) {
 	}
 }
 
-func getInternalVirtualMachineInstance(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
+func GetInternalVirtualMachineInstance(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
 	GinkgoHelper()
 
 	obj := &rewrite.VirtualMachineInstance{}

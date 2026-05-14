@@ -18,11 +18,13 @@ package util
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -53,6 +55,18 @@ func UntilConditionReason(ctx context.Context, conditionType, expectedReason str
 		Reason:      expectedReason,
 		CheckReason: true,
 	}, objs...)
+}
+
+// UntilObjectsDeleted waits for objects to be deleted.
+func UntilObjectsDeleted(ctx context.Context, timeout time.Duration, objs ...client.Object) {
+	GinkgoHelper()
+	Eventually(func(g Gomega) {
+		for _, obj := range objs {
+			u := getTemplateUnstructured(obj).DeepCopy()
+			err := framework.GetClients().GenericClient().Get(ctx, client.ObjectKeyFromObject(obj), u)
+			g.Expect(k8serrors.IsNotFound(err)).To(BeTrue(), fmt.Sprintf("object %s must be removed", extractObjectNamespacedNameString(obj)))
+		}
+	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
 
 // UntilConditionStatus waits for the specified conditionType in status.conditions to have the given status value for all provided objects.
@@ -179,22 +193,16 @@ func untilObjectField(ctx context.Context, fieldPath, expectedValue string, time
 	Eventually(func(g Gomega) {
 		for _, obj := range objs {
 			key := client.ObjectKeyFromObject(obj)
-			name := obj.GetName()
-			namespace := obj.GetNamespace()
-			divider := ""
-			if namespace != "" {
-				divider = "/"
-			}
 
 			// Create a new unstructured object for each Get call
 			u := getTemplateUnstructured(obj).DeepCopy()
 			err := framework.GetClients().GenericClient().Get(ctx, key, u)
 			if err != nil {
-				g.Expect(err).NotTo(HaveOccurred(), "failed to get object %s%s%s", namespace, divider, name)
+				g.Expect(err).NotTo(HaveOccurred(), "failed to get object %s", extractObjectNamespacedNameString(obj))
 			}
 
 			value := extractField(u, fieldPath)
-			g.Expect(value).To(Equal(expectedValue), "object %s%s%s %s is %s, expected %s", namespace, divider, name, fieldPath, value, expectedValue)
+			g.Expect(value).To(Equal(expectedValue), "object %s %s is %s, expected %s", extractObjectNamespacedNameString(obj), fieldPath, value, expectedValue)
 		}
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
@@ -226,4 +234,15 @@ func getTemplateUnstructured(obj client.Object) *unstructured.Unstructured {
 		templateUnstructured.SetGroupVersionKind(gvk)
 	}
 	return templateUnstructured
+}
+
+func extractObjectNamespacedNameString(obj client.Object) string {
+	name := obj.GetName()
+	namespace := obj.GetNamespace()
+	divider := ""
+	if namespace != "" {
+		divider = "/"
+	}
+
+	return fmt.Sprintf("%s%s%s", namespace, divider, name)
 }
