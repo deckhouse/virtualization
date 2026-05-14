@@ -44,58 +44,6 @@ const (
 	hotplugPolling             = 5 * time.Second
 )
 
-func setupVM(f *framework.Framework, withBlank bool) (
-	vm *v1alpha2.VirtualMachine, vdRoot, vdBlank *v1alpha2.VirtualDisk, initialDiskCount int,
-) {
-	vdRoot = vdbuilder.New(
-		vdbuilder.WithName("vd-root"),
-		vdbuilder.WithNamespace(f.Namespace().Name),
-		vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
-		vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-			URL: object.ImageURLAlpineBIOS,
-		}),
-	)
-
-	vdBlank = vdbuilder.New(
-		vdbuilder.WithName("vd-blank"),
-		vdbuilder.WithNamespace(f.Namespace().Name),
-		vdbuilder.WithSize(ptr.To(resource.MustParse("100Mi"))),
-	)
-
-	refs := []v1alpha2.BlockDeviceSpecRef{
-		{Kind: v1alpha2.DiskDevice, Name: vdRoot.Name},
-	}
-	if withBlank {
-		refs = append(refs, v1alpha2.BlockDeviceSpecRef{
-			Kind: v1alpha2.DiskDevice,
-			Name: vdBlank.Name,
-		})
-	}
-
-	vm = vmbuilder.New(
-		vmbuilder.WithName("vm"),
-		vmbuilder.WithNamespace(f.Namespace().Name),
-		vmbuilder.WithCPU(1, ptr.To("5%")),
-		vmbuilder.WithMemory(resource.MustParse("256Mi")),
-		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
-		vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
-		vmbuilder.WithProvisioningUserData(object.AlpineCloudInit),
-		vmbuilder.WithBlockDeviceRefs(refs...),
-		vmbuilder.WithRestartApprovalMode(v1alpha2.Manual),
-	)
-
-	err := f.CreateWithDeferredDeletion(context.Background(), vm, vdRoot, vdBlank)
-	Expect(err).NotTo(HaveOccurred())
-
-	By("Waiting for SSH to be ready")
-	util.UntilSSHReady(f, vm, framework.LongTimeout)
-
-	By("Recording initial disk count")
-	initialDiskCount, err = util.GetDiskCount(f, vm.Name, vm.Namespace)
-	Expect(err).NotTo(HaveOccurred())
-	return vm, vdRoot, vdBlank, initialDiskCount
-}
-
 var _ = Describe("VirtualMachineBlockDeviceHotplugAttach", Label(precheck.NoPrecheck), func() {
 	f := framework.NewFramework("vm-bd-hotplug-attach")
 
@@ -142,7 +90,8 @@ var _ = Describe("VirtualMachineBlockDeviceHotplugAttach", Label(precheck.NoPrec
 		Eventually(func(g Gomega) {
 			count, sshErr := util.GetDiskCount(f, vm.Name, vm.Namespace)
 			g.Expect(sshErr).NotTo(HaveOccurred())
-			g.Expect(count).To(Equal(expected))
+			g.Expect(count).To(Equal(expected),
+				"expected %d block devices in guest after hotplug, got %d", expected, count)
 		}).WithTimeout(framework.MiddleTimeout).WithPolling(hotplugPolling).Should(Succeed())
 	})
 })
@@ -196,7 +145,60 @@ var _ = Describe("VirtualMachineBlockDeviceHotplugDetach", Label(precheck.NoPrec
 		Eventually(func(g Gomega) {
 			count, sshErr := util.GetDiskCount(f, vm.Name, vm.Namespace)
 			g.Expect(sshErr).NotTo(HaveOccurred())
-			g.Expect(count).To(Equal(expected))
+			g.Expect(count).To(Equal(expected),
+				"expected %d block devices in guest after unplug, got %d", expected, count)
 		}).WithTimeout(framework.MiddleTimeout).WithPolling(hotplugPolling).Should(Succeed())
 	})
 })
+
+func setupVM(f *framework.Framework, withBlank bool) (
+	vm *v1alpha2.VirtualMachine, vdRoot, vdBlank *v1alpha2.VirtualDisk, initialDiskCount int,
+) {
+	vdRoot = vdbuilder.New(
+		vdbuilder.WithName("vd-root"),
+		vdbuilder.WithNamespace(f.Namespace().Name),
+		vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
+		vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
+			URL: object.ImageURLAlpineBIOS,
+		}),
+	)
+
+	vdBlank = vdbuilder.New(
+		vdbuilder.WithName("vd-blank"),
+		vdbuilder.WithNamespace(f.Namespace().Name),
+		vdbuilder.WithSize(ptr.To(resource.MustParse("100Mi"))),
+	)
+
+	refs := []v1alpha2.BlockDeviceSpecRef{
+		{Kind: v1alpha2.DiskDevice, Name: vdRoot.Name},
+	}
+	if withBlank {
+		refs = append(refs, v1alpha2.BlockDeviceSpecRef{
+			Kind: v1alpha2.DiskDevice,
+			Name: vdBlank.Name,
+		})
+	}
+
+	vm = vmbuilder.New(
+		vmbuilder.WithName("vm"),
+		vmbuilder.WithNamespace(f.Namespace().Name),
+		vmbuilder.WithCPU(1, ptr.To("5%")),
+		vmbuilder.WithMemory(resource.MustParse("256Mi")),
+		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
+		vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
+		vmbuilder.WithProvisioningUserData(object.AlpineCloudInit),
+		vmbuilder.WithBlockDeviceRefs(refs...),
+		vmbuilder.WithRestartApprovalMode(v1alpha2.Manual),
+	)
+
+	err := f.CreateWithDeferredDeletion(context.Background(), vm, vdRoot, vdBlank)
+	Expect(err).NotTo(HaveOccurred())
+
+	By("Waiting for SSH to be ready")
+	util.UntilSSHReady(f, vm, framework.LongTimeout)
+
+	By("Recording initial disk count")
+	initialDiskCount, err = util.GetDiskCount(f, vm.Name, vm.Namespace)
+	Expect(err).NotTo(HaveOccurred())
+	return vm, vdRoot, vdBlank, initialDiskCount
+}
