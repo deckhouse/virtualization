@@ -25,7 +25,7 @@ env:
   MODULES_MODULE_TAG: ${{ github.event.inputs.tag }}
   SOURCE_REPO: "${{secrets.SOURCE_REPO}}"
   SOURCE_REPO_GIT: "${{secrets.SOURCE_REPO_GIT}}"
-  GO_VERSION: "1.25.10
+  GO_VERSION: "1.25.10"
   MODULE_EDITION: "EE"
 
 on:
