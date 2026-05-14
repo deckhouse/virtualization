@@ -208,7 +208,7 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 
 		for _, c := range kvvmi.Status.Conditions {
 			if string(c.Type) == "BootFailed" {
-				cb.Reason(vmcondition.ReasonBootFailed).Status(metav1.ConditionTrue).Message(c.Reason)
+				cb.Reason(vmcondition.ReasonBootFailed).Status(metav1.ConditionTrue).Message(c.Message)
 				conditions.SetCondition(cb, &vm.Status.Conditions)
 				return nil
 			}
