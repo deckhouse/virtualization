@@ -1203,6 +1203,17 @@ How to start VM migration in the web interface:
 - Select `Migrate` from the pop-up menu.
 - Confirm or cancel the migration in the pop-up window.
 
+#### Dedicated migration network
+
+By default, live migration traffic flows over the node's default network and competes with workload traffic. You can also route it over a dedicated VLAN provisioned by the [`sdn`](https://deckhouse.io/modules/sdn/) module.
+
+Prerequisites:
+
+- The `sdn` module is enabled.
+- A `SystemNetwork` resource exists and is in the `Ready` state.
+
+To enable the feature, set `spec.settings.liveMigration.systemNetworkName` on the `virtualization` ModuleConfig to the name of the prepared `SystemNetwork`. Once configured, every VM migration in the cluster runs over the specified `SystemNetwork` VLAN.
+
 #### Maintenance mode
 
 When working on nodes with virtual machines running, there is a risk of disrupting their performance. To avoid this, you can put a node into the maintenance mode and migrate the virtual machines to other free nodes.

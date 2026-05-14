@@ -157,6 +157,15 @@ properties:
         default: false
         description: |
           Включение контроллера аудита.
+  liveMigration:
+    description: |
+      Параметры сети живой миграции виртуальных машин.
+    properties:
+      systemNetworkName:
+        description: |
+          Имя ресурса `SystemNetwork` (из модуля sdn), IP-адреса которого на узлах будут использоваться для трафика живой миграции между подами `virt-handler`.
+
+          Требуется включенный модуль `sdn`. Если параметр не задан, трафик миграции идёт по сети узла по умолчанию.
   logLevel:
     type: string
     description: |
