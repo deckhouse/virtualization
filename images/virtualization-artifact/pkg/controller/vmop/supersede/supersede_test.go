@@ -17,6 +17,7 @@ limitations under the License.
 package supersede
 
 import (
+	"fmt"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -32,34 +33,13 @@ func TestSupersede(t *testing.T) {
 }
 
 var _ = Describe("CanSupersede", func() {
-	DescribeTable("allowed combinations",
-		func(oldType v1alpha2.VMOPType, oldForce bool, newType v1alpha2.VMOPType, newForce bool) {
-			Expect(CanSupersede(vmop(oldType, oldForce), vmop(newType, newForce))).To(BeTrue())
-		},
-		Entry("start by stop", v1alpha2.VMOPTypeStart, false, v1alpha2.VMOPTypeStop, false),
-		Entry("start by force stop", v1alpha2.VMOPTypeStart, false, v1alpha2.VMOPTypeStop, true),
-		Entry("start by restart", v1alpha2.VMOPTypeStart, false, v1alpha2.VMOPTypeRestart, false),
-		Entry("start by force restart", v1alpha2.VMOPTypeStart, false, v1alpha2.VMOPTypeRestart, true),
-		Entry("stop by force stop", v1alpha2.VMOPTypeStop, false, v1alpha2.VMOPTypeStop, true),
-		Entry("migrate by stop", v1alpha2.VMOPTypeMigrate, false, v1alpha2.VMOPTypeStop, false),
-		Entry("migrate by force stop", v1alpha2.VMOPTypeMigrate, false, v1alpha2.VMOPTypeStop, true),
-		Entry("evict by stop", v1alpha2.VMOPTypeEvict, false, v1alpha2.VMOPTypeStop, false),
-		Entry("restart by stop", v1alpha2.VMOPTypeRestart, false, v1alpha2.VMOPTypeStop, false),
-		Entry("force restart by force stop", v1alpha2.VMOPTypeRestart, true, v1alpha2.VMOPTypeStop, true),
-	)
-
-	DescribeTable("forbidden combinations",
-		func(oldType v1alpha2.VMOPType, oldForce bool, newType v1alpha2.VMOPType, newForce bool) {
-			Expect(CanSupersede(vmop(oldType, oldForce), vmop(newType, newForce))).To(BeFalse())
-		},
-		Entry("start by start", v1alpha2.VMOPTypeStart, false, v1alpha2.VMOPTypeStart, false),
-		Entry("stop by stop", v1alpha2.VMOPTypeStop, false, v1alpha2.VMOPTypeStop, false),
-		Entry("force stop by force stop", v1alpha2.VMOPTypeStop, true, v1alpha2.VMOPTypeStop, true),
-		Entry("stop by start", v1alpha2.VMOPTypeStop, false, v1alpha2.VMOPTypeStart, false),
-		Entry("migrate by migrate", v1alpha2.VMOPTypeMigrate, false, v1alpha2.VMOPTypeMigrate, false),
-		Entry("restore by stop", v1alpha2.VMOPTypeRestore, false, v1alpha2.VMOPTypeStop, true),
-		Entry("clone by stop", v1alpha2.VMOPTypeClone, false, v1alpha2.VMOPTypeStop, true),
-	)
+	Describe("matrix combinations", func() {
+		for _, entry := range supersedeMatrixEntries() {
+			It(entry.name, func() {
+				Expect(CanSupersede(vmop(entry.oldType, entry.oldForce), vmop(entry.newType, entry.newForce))).To(Equal(entry.expected))
+			})
+		}
+	})
 
 	It("denies operations for different virtual machines", func() {
 		oldVMOP := vmop(v1alpha2.VMOPTypeStart, false)
@@ -68,7 +48,81 @@ var _ = Describe("CanSupersede", func() {
 
 		Expect(CanSupersede(oldVMOP, newVMOP)).To(BeFalse())
 	})
+
+	DescribeTable("denies nil operations",
+		func(oldVMOP, newVMOP *v1alpha2.VirtualMachineOperation) {
+			Expect(CanSupersede(oldVMOP, newVMOP)).To(BeFalse())
+		},
+		Entry("nil old operation", nil, vmop(v1alpha2.VMOPTypeStop, false)),
+		Entry("nil new operation", vmop(v1alpha2.VMOPTypeStart, false), nil),
+		Entry("nil operations", nil, nil),
+	)
 })
+
+type supersedeMatrixEntry struct {
+	name     string
+	oldType  v1alpha2.VMOPType
+	oldForce bool
+	newType  v1alpha2.VMOPType
+	newForce bool
+	expected bool
+}
+
+func supersedeMatrixEntries() []supersedeMatrixEntry {
+	vmopTypes := []v1alpha2.VMOPType{
+		v1alpha2.VMOPTypeStart,
+		v1alpha2.VMOPTypeStop,
+		v1alpha2.VMOPTypeMigrate,
+		v1alpha2.VMOPTypeEvict,
+		v1alpha2.VMOPTypeRestart,
+		v1alpha2.VMOPTypeRestore,
+		v1alpha2.VMOPTypeClone,
+	}
+	forces := []bool{false, true}
+
+	var entries []supersedeMatrixEntry
+	for _, oldType := range vmopTypes {
+		for _, oldForce := range forces {
+			for _, newType := range vmopTypes {
+				for _, newForce := range forces {
+					entries = append(entries, supersedeMatrixEntry{
+						name:     fmt.Sprintf("%s force=%t by %s force=%t", oldType, oldForce, newType, newForce),
+						oldType:  oldType,
+						oldForce: oldForce,
+						newType:  newType,
+						newForce: newForce,
+						expected: expectedCanSupersede(oldType, oldForce, newType, newForce),
+					})
+				}
+			}
+		}
+	}
+
+	return entries
+}
+
+func expectedCanSupersede(oldType v1alpha2.VMOPType, oldForce bool, newType v1alpha2.VMOPType, newForce bool) bool {
+	switch oldType {
+	case v1alpha2.VMOPTypeStart:
+		return newType == v1alpha2.VMOPTypeStop
+	case v1alpha2.VMOPTypeStop:
+		if oldForce {
+			return false
+		}
+		return newType == v1alpha2.VMOPTypeStop && newForce ||
+			newType == v1alpha2.VMOPTypeRestart && newForce
+	case v1alpha2.VMOPTypeMigrate, v1alpha2.VMOPTypeEvict:
+		return newType == v1alpha2.VMOPTypeStop || newType == v1alpha2.VMOPTypeRestart
+	case v1alpha2.VMOPTypeRestart:
+		if oldForce {
+			return false
+		}
+		return newType == v1alpha2.VMOPTypeStop && newForce ||
+			newType == v1alpha2.VMOPTypeRestart && newForce
+	default:
+		return false
+	}
+}
 
 func vmop(vmopType v1alpha2.VMOPType, force bool) *v1alpha2.VirtualMachineOperation {
 	return &v1alpha2.VirtualMachineOperation{

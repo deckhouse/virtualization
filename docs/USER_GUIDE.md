@@ -1756,7 +1756,7 @@ A list of possible operations is given in the table below:
 | `d8 v evict`     | `Evict`     | Evict the VM to another host   |
 | `d8 v migrate`   | `Migrate`   | Migrate the VM to another host |
 
-Only one active operation is executed for a VM at a time. If a new operation is compatible with an already active operation, it can supersede the older operation. The older operation is completed with `status.phase: Completed` and the `Completed` condition reason `Superseded`, while the new operation continues execution. For example, `Stop` can supersede an active `Start`, and `Stop` with `force: true` can supersede a regular `Stop`.
+Only one active operation is executed for a VM at a time. If a new operation is compatible with an already active operation, it can supersede the older operation. The older operation is completed with `status.phase: Completed` and the `Completed` condition reason `Superseded`, while the new operation continues execution. For example, `Stop` can supersede an active `Start`, `Stop` with `force: true` can supersede a regular `Stop`, and `Restart` can supersede an active `Migrate` or `Evict`.
 
 If operations are incompatible, the new operation is rejected until the active operation finishes. Restore and clone operations do not supersede other VM operations.
 

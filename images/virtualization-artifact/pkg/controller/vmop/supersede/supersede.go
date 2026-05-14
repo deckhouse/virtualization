@@ -30,18 +30,26 @@ func CanSupersede(oldVMOP, newVMOP *v1alpha2.VirtualMachineOperation) bool {
 		return false
 	}
 
+	oldForce := ptr.Deref(oldVMOP.Spec.Force, false)
 	newForce := ptr.Deref(newVMOP.Spec.Force, false)
 
 	switch oldVMOP.Spec.Type {
 	case v1alpha2.VMOPTypeStart:
-		return newVMOP.Spec.Type == v1alpha2.VMOPTypeStop || newVMOP.Spec.Type == v1alpha2.VMOPTypeRestart
+		return newVMOP.Spec.Type == v1alpha2.VMOPTypeStop
 	case v1alpha2.VMOPTypeStop:
-		oldForce := ptr.Deref(oldVMOP.Spec.Force, false)
-		return !oldForce && newVMOP.Spec.Type == v1alpha2.VMOPTypeStop && newForce
+		if oldForce {
+			return false
+		}
+		return newVMOP.Spec.Type == v1alpha2.VMOPTypeStop && newForce ||
+			newVMOP.Spec.Type == v1alpha2.VMOPTypeRestart && newForce
 	case v1alpha2.VMOPTypeMigrate, v1alpha2.VMOPTypeEvict:
-		return newVMOP.Spec.Type == v1alpha2.VMOPTypeStop
+		return newVMOP.Spec.Type == v1alpha2.VMOPTypeStop || newVMOP.Spec.Type == v1alpha2.VMOPTypeRestart
 	case v1alpha2.VMOPTypeRestart:
-		return newVMOP.Spec.Type == v1alpha2.VMOPTypeStop
+		if oldForce {
+			return false
+		}
+		return newVMOP.Spec.Type == v1alpha2.VMOPTypeStop && newForce ||
+			newVMOP.Spec.Type == v1alpha2.VMOPTypeRestart && newForce
 	default:
 		return false
 	}
