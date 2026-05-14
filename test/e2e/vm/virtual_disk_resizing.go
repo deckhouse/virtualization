@@ -137,7 +137,7 @@ var _ = Describe("VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
 		Expect(newVDBlankLsblkSize.Cmp(vdBlankLsblkSize)).To(Equal(common.CmpGreater))
 		Expect(newVDAttachLsblkSize.Cmp(vdAttachLsblkSize)).To(Equal(common.CmpGreater))
 
-		untilDisksArePresentAndAttachedInVMStatus(ctx, f, framework.ShortTimeout, vm, vdRoot, vdBlank, vdAttach)
+		util.UntilDisksArePresentAndAttachedInVMStatus(ctx, f, framework.ShortTimeout, vm, vdRoot, vdBlank, vdAttach)
 	})
 })
 
@@ -222,22 +222,3 @@ func ensureVDWasResizing(ctx context.Context, w util.Watcher, vds []*v1alpha2.Vi
 	}
 }
 
-func untilDisksArePresentAndAttachedInVMStatus(ctx context.Context, f *framework.Framework, timeout time.Duration, vm *v1alpha2.VirtualMachine, vds ...*v1alpha2.VirtualDisk) {
-	GinkgoHelper()
-
-	Eventually(func(g Gomega) {
-		err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), vm)
-		g.Expect(err).NotTo(HaveOccurred())
-
-		statusActiveDisks := make(map[string]struct{})
-		for _, bd := range vm.Status.BlockDeviceRefs {
-			if bd.Kind == v1alpha2.VirtualDiskKind && bd.Attached {
-				statusActiveDisks[bd.Name] = struct{}{}
-			}
-		}
-
-		for _, vd := range vds {
-			g.Expect(statusActiveDisks).To(HaveKey(vd.Name))
-		}
-	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
-}
