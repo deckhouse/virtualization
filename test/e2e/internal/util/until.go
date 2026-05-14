@@ -64,7 +64,7 @@ func UntilObjectsDeleted(ctx context.Context, timeout time.Duration, objs ...cli
 		for _, obj := range objs {
 			u := getTemplateUnstructured(obj).DeepCopy()
 			err := framework.GetClients().GenericClient().Get(ctx, client.ObjectKeyFromObject(obj), u)
-			g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+			g.Expect(k8serrors.IsNotFound(err)).To(BeTrue(), fmt.Sprintf("object %s must be removed", extractObjectNamespacedNameString(obj)))
 		}
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
