@@ -160,6 +160,32 @@ tasks:
         kubectl -n {{ .NAMESPACE }} get all -l infra=jump-host || true
         kubectl -n {{ .NAMESPACE }} delete all -l infra=jump-host || true
 
+  discover-jumphost-ext-ip:
+    desc: Discover jump-host external IP
+    silent: true
+    cmds:
+      - |
+        for attempt in 1 2 3; do
+          ip=$(
+            kubectl -n {{ .NAMESPACE }} exec deployment/jump-host -- sh -c '
+              dig @resolver4.opendns.com myip.opendns.com A +short +time=2 +tries=1 2>/dev/null
+              dig @1.1.1.1 whoami.cloudflare CH TXT +short +time=2 +tries=1 2>/dev/null
+              dig @ns1.google.com o-o.myaddr.l.google.com TXT +short +time=2 +tries=1 2>/dev/null
+              dig @ns1-1.akamaitech.net whoami.akamai.net A +short +time=2 +tries=1 2>/dev/null
+            ' | tr -d '"' | awk '/^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/ { print; exit }'
+          )
+
+          if [ -n "$ip" ]; then
+            echo "$ip"
+            exit 0
+          fi
+
+          sleep "$attempt"
+        done
+
+        echo "failed to discover jump-host external IP" >&2
+        exit 1
+
   dhctl-bootstrap:
     desc: Bootstrap DKP over DVP
     deps:
@@ -170,14 +196,14 @@ tasks:
         sh: yq eval '.storageType' values.yaml
       start_time:
         sh: date +%s
-      JUMPHOST_EXT_IP:
-        sh: kubectl -n {{ .NAMESPACE }} exec deployment/jump-host -- dig @resolver4.opendns.com myip.opendns.com +short
       JUMPHOST_NODEPORT:
         sh: kubectl -n {{ .NAMESPACE }} get svc jump-host -o json | jq '.spec.ports[] | select(.port==2222) | .nodePort'
       MASTER_NODE_IP:
         sh: kubectl -n {{ .NAMESPACE }} get vm {{.prefix}}-master-0 -o jsonpath="{.status.ipAddress}"
     cmds:
       - |
+        JUMPHOST_EXT_IP="$(task discover-jumphost-ext-ip)"
+
         docker run --pull=always \
         -v "{{ .TMP_DIR }}/config.yaml:/config.yaml" \
         -v "{{ .SSH_DIR }}:/tmp/.ssh/" \
@@ -189,7 +215,7 @@ tasks:
             --ssh-host={{ .MASTER_NODE_IP }} \
             --ssh-user={{ .DEFAULT_USER }} \
               --ssh-bastion-port={{ .JUMPHOST_NODEPORT }} \
-              --ssh-bastion-host={{ .JUMPHOST_EXT_IP }} \
+              --ssh-bastion-host="$JUMPHOST_EXT_IP" \
               --ssh-bastion-user=user \
             {{.CLI_ARGS}}
       - |
