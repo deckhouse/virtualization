@@ -129,6 +129,7 @@ describe("messenger-report", () => {
             {
               name: "[It] fails",
               reason: "command timed out",
+              message: "Unexpected error:\ncommand timed out\noccurred",
             },
           ],
         })
@@ -171,7 +172,23 @@ describe("messenger-report", () => {
       );
       expect(result.message).not.toContain("### Failed tests");
       expect(result.threadMessages).toEqual([
-        "### Failed tests\n\n**replicated**\n\n| Tests | Reason |\n|---|---|\n| fails | command timed out |",
+        [
+          "### Failed tests",
+          "",
+          "**replicated**",
+          "",
+          "| Tests | Reason |",
+          "|---|---|",
+          "| fails | command timed out |",
+          "",
+          "**Details**",
+          "",
+          "_fails_",
+          "",
+          "```text",
+          "Unexpected error:\ncommand timed out\noccurred",
+          "```",
+        ].join("\n"),
       ]);
     }));
 

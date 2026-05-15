@@ -480,10 +480,13 @@ describe("cluster-report", () => {
         {
           name: "[It] Suite fails & burns [Slow]",
           reason: "failed to execute command sudo lsblk: signal: killed",
+          message:
+            "Unexpected error:\n    <*fmt.wrapError | 0xc000f24540>:\n    failed to execute command sudo lsblk: signal: killed\noccurred",
         },
         {
           name: "[It] Other errors <loudly>",
           reason: "timed out waiting for VM to become ready",
+          message: "timed out waiting for VM to become ready",
         },
       ]);
       expect(report.reportSource).toBe("ginkgo-json");

@@ -123,6 +123,11 @@ function isGenericFailureLine(line) {
   );
 }
 
+function getFailureMessage(specReport) {
+  const failure = (specReport && specReport.Failure) || {};
+  return String(failure.Message || failure.ForwardedPanic || "").trim();
+}
+
 function truncateReason(reason) {
   const maxLength = 300;
   return reason.length > maxLength
@@ -137,8 +142,7 @@ function truncateReason(reason) {
  * @returns {string} Failure reason.
  */
 function formatFailureReason(specReport) {
-  const failure = (specReport && specReport.Failure) || {};
-  const message = String(failure.Message || failure.ForwardedPanic || "");
+  const message = getFailureMessage(specReport);
   const lines = message
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -160,7 +164,7 @@ function formatFailureReason(specReport) {
  * @returns {{
  *   metrics: GinkgoMetrics,
  *   failedTests: string[],
- *   failedTestDetails: Array<{name: string, reason: string}>,
+ *   failedTestDetails: Array<{name: string, reason: string, message: string}>,
  *   startedAt: string|null
  * }} Parsed report payload.
  */
@@ -193,6 +197,7 @@ function parseGinkgoReport(jsonContent) {
           failedTestDetails.push({
             name: specName,
             reason: formatFailureReason(specReport),
+            message: getFailureMessage(specReport),
           });
         }
       }
