@@ -20,10 +20,13 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -77,10 +80,27 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
 		By("Creating snapshot")
+		ctxVMWatch, cancelVMWatch := context.WithCancel(ctx)
+		defer cancelVMWatch()
+		vmWatchErrCh := make(chan error, 1)
+		var vmWasFrozen atomic.Bool
+		go func() {
+			wasFrozen, err := ensureVMWasFrozenInProgress(
+				ctxVMWatch,
+				f.VirtClient().VirtualMachines(f.Namespace().Name),
+				vm,
+			)
+			vmWasFrozen.Store(wasFrozen)
+			vmWatchErrCh <- err
+		}()
+
 		vdSnapshot := generateVDSnapshot("vdsnapshot", vd)
 
 		err = f.CreateWithDeferredDeletion(ctx, vdSnapshot)
 		Expect(err).NotTo(HaveOccurred())
+		Eventually(vmWasFrozen.Load).WithTimeout(framework.MiddleTimeout).WithPolling(time.Second).Should(BeTrue())
+		cancelVMWatch()
+		Expect(<-vmWatchErrCh).ShouldNot(HaveOccurred())
 
 		By("Waiting for ready snapshot phase")
 		util.UntilObjectPhase(ctx, string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.MiddleTimeout, vdSnapshot)
@@ -147,11 +167,28 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, vmbda)
 
 		By("Creating snapshots")
+		ctxVMWatch, cancelVMWatch := context.WithCancel(ctx)
+		defer cancelVMWatch()
+		vmWatchErrCh := make(chan error, 1)
+		var vmWasFrozen atomic.Bool
+		go func() {
+			wasFrozen, err := ensureVMWasFrozenInProgress(
+				ctxVMWatch,
+				f.VirtClient().VirtualMachines(f.Namespace().Name),
+				vm,
+			)
+			vmWasFrozen.Store(wasFrozen)
+			vmWatchErrCh <- err
+		}()
+
 		vdSnapshotRoot := generateVDSnapshot("vdsnapshot-root", vdRoot)
 		vdSnapshotAttach := generateVDSnapshot("vdsnapshot-attach", vdAttach)
 
 		err = f.CreateWithDeferredDeletion(ctx, vdSnapshotRoot, vdSnapshotAttach)
 		Expect(err).NotTo(HaveOccurred())
+		Eventually(vmWasFrozen.Load).WithTimeout(framework.MiddleTimeout).WithPolling(time.Second).Should(BeTrue())
+		cancelVMWatch()
+		Expect(<-vmWatchErrCh).ShouldNot(HaveOccurred())
 
 		By("Waiting for ready snapshots phase")
 		util.UntilObjectPhase(ctx, string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.MiddleTimeout, vdSnapshotRoot, vdSnapshotAttach)
@@ -189,7 +226,24 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, vmbda)
 
 		By("Creating snapshots")
+		ctxVMWatch, cancelVMWatch := context.WithCancel(ctx)
+		defer cancelVMWatch()
+		vmWatchErrCh := make(chan error, 1)
+		var vmWasFrozen atomic.Bool
+		go func() {
+			wasFrozen, err := ensureVMWasFrozenInProgress(
+				ctxVMWatch,
+				f.VirtClient().VirtualMachines(f.Namespace().Name),
+				vm,
+			)
+			vmWasFrozen.Store(wasFrozen)
+			vmWatchErrCh <- err
+		}()
+
 		vdSnapshots := burstVDSnapshotsCreation(ctx, f, []*v1alpha2.VirtualDisk{vdRoot, vdAttach}, 5)
+		Eventually(vmWasFrozen.Load).WithTimeout(framework.MiddleTimeout).WithPolling(time.Second).Should(BeTrue())
+		cancelVMWatch()
+		Expect(<-vmWatchErrCh).ShouldNot(HaveOccurred())
 
 		By("Waiting for ready snapshots phase")
 		util.UntilObjectPhase(ctx, string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.MiddleTimeout, toObjects(vdSnapshots)...)
@@ -266,6 +320,49 @@ func checkDiskAttachedToVM(ctx context.Context, f *framework.Framework, vm *v1al
 	Expect(err).NotTo(HaveOccurred())
 
 	Expect(util.IsDiskAttachedToVM(&innerVM, vd)).To(BeTrue(), "disk must be present in VM status")
+}
+
+// ensureVMWasFrozenInProgress watches VM events and returns true once the tracked
+// VM reaches FilesystemFrozen=True before context cancellation.
+func ensureVMWasFrozenInProgress(ctx context.Context, w util.Watcher, vm *v1alpha2.VirtualMachine) (bool, error) {
+	if vm == nil || vm.Name == "" {
+		return false, fmt.Errorf("tracked virtual machine is nil or has an empty name")
+	}
+
+	frozenCondition, frozenConditionExists := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, vm.Status.Conditions)
+	if frozenConditionExists && frozenCondition.Status == metav1.ConditionTrue {
+		return true, nil
+	}
+
+	wi, err := w.Watch(ctx, metav1.ListOptions{})
+	if err != nil {
+		return false, err
+	}
+	defer wi.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return false, nil
+		case event, ok := <-wi.ResultChan():
+			if !ok {
+				if ctx.Err() != nil {
+					return false, nil
+				}
+				return false, fmt.Errorf("watch channel closed unexpectedly while VM freeze condition was being monitored")
+			}
+
+			currentVM, ok := event.Object.(*v1alpha2.VirtualMachine)
+			if !ok || currentVM.Name != vm.Name {
+				continue
+			}
+
+			frozenCondition, frozenConditionExists := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, currentVM.Status.Conditions)
+			if frozenConditionExists && frozenCondition.Status == metav1.ConditionTrue {
+				return true, nil
+			}
+		}
+	}
 }
 
 func burstVDSnapshotsCreation(ctx context.Context, f *framework.Framework, vds []*v1alpha2.VirtualDisk, cnt int) []*v1alpha2.VirtualDiskSnapshot {
