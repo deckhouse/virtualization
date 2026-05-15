@@ -1,0 +1,12 @@
+diff --git a/target/i386/cpu.c b/target/i386/cpu.c
+index 78308a82a0..b88063f234 100644
+--- a/target/i386/cpu.c
++++ b/target/i386/cpu.c
+@@ -3708,6 +3708,7 @@ static const X86CPUDefinition builtin_x86_defs[] = {
+             CPUID_PGE | CPUID_MTRR | CPUID_SEP | CPUID_APIC | CPUID_CX8 |
+             CPUID_MCE | CPUID_PAE | CPUID_MSR | CPUID_TSC | CPUID_PSE |
+             CPUID_DE | CPUID_FP87,
++        .filtered_features[FEAT_1_EDX] = CPUID_HT,
+         .features[FEAT_1_ECX] =
+             CPUID_EXT_POPCNT | CPUID_EXT_SSE42 | CPUID_EXT_SSE41 |
+             CPUID_EXT_CX16 | CPUID_EXT_SSSE3 | CPUID_EXT_SSE3,
