@@ -44,9 +44,9 @@ const (
 	frozenReasonPollingInterval    = 1 * time.Second
 )
 
-var _ = Describe("VirtualDiskSnapshots", Ordered, label.Legacy(), Label(precheck.PrecheckSnapshot), func() {
+var _ = Describe("VirtualDiskSnapshots", Ordered, label.Legacy(), Label(precheck.PrecheckImmediateStorageClass, precheck.PrecheckSnapshot), func() {
 	var (
-		testCaseLabel            = map[string]string{"testcase": "vd-snapshots", "id": namePrefix}
+		testCaseLabel            map[string]string
 		attachedVirtualDiskLabel = map[string]string{"attachedVirtualDisk": ""}
 		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "vd-snapshots"}
 		vmAutomaticWithHotplug   = map[string]string{"vm": "automatic-with-hotplug"}
@@ -54,6 +54,9 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, label.Legacy(), Label(precheck
 	)
 
 	BeforeAll(func() {
+		// Initialize testCaseLabel after Init() has set namePrefix
+		testCaseLabel = map[string]string{"testcase": "vd-snapshots", "id": namePrefix}
+
 		if conf.StorageClass.TemplateStorageClass != nil && conf.StorageClass.TemplateStorageClass.Provisioner == config.NFS {
 			Skip("Concurrent snapshotting is not supported on NFS on the volumesnapshot side, skipping")
 		}
@@ -63,13 +66,10 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, label.Legacy(), Label(precheck
 		ns, err = kustomize.GetNamespace(kustomization)
 		Expect(err).NotTo(HaveOccurred(), "%w", err)
 
+		Expect(conf.StorageClass.ImmediateStorageClass).NotTo(BeNil(), "immediate storage class cannot be nil; please set up the immediate storage class in the cluster")
+		setDiskImmediateStorageClass()
+
 		CreateNamespace(ns)
-
-		if !config.SkipImmediateStorageClassCheck() {
-			Expect(conf.StorageClass.ImmediateStorageClass).NotTo(BeNil(), "immediate storage class cannot be nil; please set up the immediate storage class in the cluster")
-
-			setDiskImmediateStorageClass()
-		}
 	})
 
 	AfterEach(func() {
@@ -79,7 +79,7 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, label.Legacy(), Label(precheck
 	})
 
 	AfterAll(func() {
-		if config.IsCleanUpNeeded() {
+		if conf.IsCleanupNeeded {
 			DeleteTestCaseResources(ns, ResourcesToDelete{
 				KustomizationDir: conf.TestData.VdSnapshots,
 			})
@@ -103,9 +103,6 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, label.Legacy(), Label(precheck
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
-			}
-			if config.SkipImmediateStorageClassCheck() {
-				waitOpts.ExcludedLabels = []string{"hasNoConsumer"}
 			}
 			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, waitOpts)
 		})
@@ -134,12 +131,6 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, label.Legacy(), Label(precheck
 	})
 
 	Context(fmt.Sprintf("When unattached VDs in phase %s:", PhaseReady), func() {
-		BeforeEach(func() {
-			if config.SkipImmediateStorageClassCheck() {
-				Skip("Set immediate storage class for run this test case")
-			}
-		})
-
 		It("creates VDs snapshots with `requiredConsistency`", func() {
 			res := kubectl.List(kc.ResourceVD, kc.GetOptions{
 				Labels:    hasNoConsumerLabel,

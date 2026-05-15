@@ -101,7 +101,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, Label(precheck.
 			)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmA)
+			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vmA)
 		})
 
 		By("Creating vm-b, vm-c and vm-d", func() {
@@ -135,7 +135,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, Label(precheck.
 			err := f.CreateWithDeferredDeletion(ctx, objs...)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmB, vmC, vmD)
+			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vmB, vmC, vmD)
 		})
 
 		var nodeA string
@@ -243,7 +243,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, Label(precheck.
 			)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmNodeSelector)
+			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vmNodeSelector)
 			util.UntilConditionStatus(
 				ctx,
 				vmcondition.TypeMigratable.String(),
@@ -320,7 +320,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, Label(precheck.
 			)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmNodeAffinity)
+			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vmNodeAffinity)
 			util.UntilConditionStatus(
 				ctx,
 				vmcondition.TypeMigratable.String(),

@@ -29,7 +29,6 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal"
-	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vmbdametrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vmbda"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
@@ -45,7 +44,7 @@ func NewController(
 	lg *log.Logger,
 	ns string,
 ) (controller.Controller, error) {
-	attacher := intsvc.NewAttachmentService(mgr.GetClient(), virtClient, ns)
+	attacher := service.NewAttachmentService(mgr.GetClient(), virtClient, ns)
 	blockDeviceService := service.NewBlockDeviceService(mgr.GetClient())
 
 	reconciler := NewReconciler(
@@ -75,7 +74,7 @@ func NewController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachineBlockDeviceAttachment{}).
-		WithValidator(NewValidator(attacher, blockDeviceService, lg)).
+		WithValidator(NewValidator(mgr.GetClient(), attacher, blockDeviceService, lg)).
 		Complete(); err != nil {
 		return nil, err
 	}

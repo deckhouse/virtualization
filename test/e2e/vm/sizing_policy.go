@@ -65,12 +65,12 @@ var _ = Describe("SizingPolicy", Label(precheck.NoPrecheck), func() {
 
 		err := f.CreateWithDeferredDeletion(ctx, t.VMClass)
 		Expect(err).NotTo(HaveOccurred())
-		util.UntilObjectPhase(string(v1alpha2.ClassPhaseReady), framework.ShortTimeout, t.VMClass)
+		util.UntilObjectPhase(ctx, string(v1alpha2.ClassPhaseReady), framework.ShortTimeout, t.VMClass)
 		err = f.CreateWithDeferredDeletion(ctx, t.VD, t.VM)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for VM agent to be ready")
-		util.UntilVMAgentReady(client.ObjectKeyFromObject(t.VM), framework.LongTimeout)
+		util.UntilVMAgentReady(ctx, client.ObjectKeyFromObject(t.VM), framework.LongTimeout)
 
 		By("Validating VM by VMClass")
 		t.ValidateVirtualMachineByClass(t.VMClass, t.VM)
@@ -98,7 +98,7 @@ var _ = Describe("SizingPolicy", Label(precheck.NoPrecheck), func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for VM to be ready")
-		util.UntilVMAgentReady(client.ObjectKeyFromObject(t.VM), framework.LongTimeout)
+		util.UntilVMAgentReady(ctx, client.ObjectKeyFromObject(t.VM), framework.LongTimeout)
 
 		By("Validating VM by VMClass")
 		t.ValidateVirtualMachineByClass(t.VMClass, t.VM)
@@ -133,7 +133,7 @@ var _ = Describe("SizingPolicy", Label(precheck.NoPrecheck), func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for VM to be ready")
-		util.UntilVMAgentReady(client.ObjectKeyFromObject(t.VM), framework.LongTimeout)
+		util.UntilVMAgentReady(ctx, client.ObjectKeyFromObject(t.VM), framework.LongTimeout)
 
 		By("Validating VM by VMClass")
 		t.ValidateVirtualMachineByClass(t.VMClass, t.VM)

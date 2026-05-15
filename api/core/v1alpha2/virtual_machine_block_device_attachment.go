@@ -24,6 +24,7 @@ const (
 )
 
 // VirtualMachineBlockDeviceAttachment provides a hot plug for attaching a disk to a virtual machine.
+// Disks are always attached using the SCSI bus, regardless of the enableParavirtualization setting.
 //
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}

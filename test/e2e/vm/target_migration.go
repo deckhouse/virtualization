@@ -50,10 +50,12 @@ var _ = Describe("TargetMigration", Label(precheck.NoPrecheck), func() {
 		initialNodeName    string
 		targetNodeSelector map[string]string
 
-		f *framework.Framework
+		f   *framework.Framework
+		ctx context.Context
 	)
 
 	BeforeEach(func() {
+		ctx = context.Background()
 		f = framework.NewFramework("vm-target-migration")
 		DeferCleanup(f.After)
 		f.Before()
@@ -74,42 +76,42 @@ var _ = Describe("TargetMigration", Label(precheck.NoPrecheck), func() {
 				vm.WithDisks(virtualDisk),
 			)
 
-			err := f.CreateWithDeferredDeletion(context.Background(), virtualDisk, virtualMachine)
+			err := f.CreateWithDeferredDeletion(ctx, virtualDisk, virtualMachine)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, virtualMachine)
+			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, virtualMachine)
 		})
 
 		By("Migrate the `VirtualMachine`", func() {
-			virtualMachine, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(context.Background(), virtualMachine.Name, metav1.GetOptions{})
+			virtualMachine, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(ctx, virtualMachine.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			initialNodeName = virtualMachine.Status.Node
-			targetNodeSelector, err = defineTargetNodeSelector(f, initialNodeName)
+			targetNodeSelector, err = defineTargetNodeSelector(ctx, f, initialNodeName)
 			Expect(err).NotTo(HaveOccurred())
 
 			targetMigrationVMOP = newTargetMigrationVMOP(virtualMachine, targetNodeSelector)
-			err = f.CreateWithDeferredDeletion(context.Background(), targetMigrationVMOP)
+			err = f.CreateWithDeferredDeletion(ctx, targetMigrationVMOP)
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilVMMigrationSucceeded(client.ObjectKeyFromObject(virtualMachine), framework.MaxTimeout)
-			util.UntilObjectPhase(string(v1alpha2.VMOPPhaseCompleted), framework.ShortTimeout, targetMigrationVMOP)
+			util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseCompleted), framework.ShortTimeout, targetMigrationVMOP)
 		})
 
 		By("Check the result", func() {
-			targetMigrationVMOP, err := f.Clients.VirtClient().VirtualMachineOperations(f.Namespace().Name).Get(context.Background(), targetMigrationVMOP.Name, metav1.GetOptions{})
+			targetMigrationVMOP, err := f.Clients.VirtClient().VirtualMachineOperations(f.Namespace().Name).Get(ctx, targetMigrationVMOP.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(targetMigrationVMOP.Spec.Migrate).NotTo(BeNil())
 			Expect(targetMigrationVMOP.Spec.Migrate.NodeSelector).To(HaveKey(hostnameLabelKey))
 
-			intvirtvmim, err := getVirtualMachineInstanceMigration(f, fmt.Sprintf("vmop-%s", targetMigrationVMOP.Name))
+			intvirtvmim, err := getVirtualMachineInstanceMigration(ctx, f, fmt.Sprintf("vmop-%s", targetMigrationVMOP.Name))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(intvirtvmim).NotTo(BeNil())
 			Expect(intvirtvmim.Spec.AddedNodeSelector).To(HaveKey(hostnameLabelKey))
 			Expect(intvirtvmim.Status.Phase).To(Equal(virtv1.MigrationSucceeded))
 
-			virtualMachine, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(context.Background(), virtualMachine.Name, metav1.GetOptions{})
+			virtualMachine, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(ctx, virtualMachine.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(initialNodeName).NotTo(Equal(virtualMachine.Status.Node))
@@ -128,10 +130,10 @@ func newTargetMigrationVMOP(virtualMachine *v1alpha2.VirtualMachine, nodeSelecto
 	)
 }
 
-func defineTargetNodeSelector(f *framework.Framework, currentNodeName string) (map[string]string, error) {
+func defineTargetNodeSelector(ctx context.Context, f *framework.Framework, currentNodeName string) (map[string]string, error) {
 	nodes := &corev1.NodeList{}
 	err := f.Clients.GenericClient().List(
-		context.Background(),
+		ctx,
 		nodes,
 		client.MatchingLabels(
 			map[string]string{
@@ -163,9 +165,9 @@ func defineTargetNodeSelector(f *framework.Framework, currentNodeName string) (m
 	return nil, errors.New("could not define a target node for the virtual machine")
 }
 
-func getVirtualMachineInstanceMigration(f *framework.Framework, name string) (*virtv1.VirtualMachineInstanceMigration, error) {
+func getVirtualMachineInstanceMigration(ctx context.Context, f *framework.Framework, name string) (*virtv1.VirtualMachineInstanceMigration, error) {
 	obj := &rewrite.VirtualMachineInstanceMigration{}
-	err := f.RewriteClient().Get(context.Background(), name, obj, rewrite.InNamespace(f.Namespace().Name))
+	err := f.RewriteClient().Get(ctx, name, obj, rewrite.InNamespace(f.Namespace().Name))
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, nil

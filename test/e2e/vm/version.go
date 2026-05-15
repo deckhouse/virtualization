@@ -35,9 +35,12 @@ import (
 )
 
 var _ = Describe("VirtualMachineVersions", Label(precheck.NoPrecheck), func() {
-	var f *framework.Framework
-
+	var (
+		f   *framework.Framework
+		ctx context.Context
+	)
 	BeforeEach(func() {
+		ctx = context.Background()
 		f = framework.NewFramework("vm-versions")
 		DeferCleanup(f.After)
 		f.Before()
@@ -60,15 +63,15 @@ var _ = Describe("VirtualMachineVersions", Label(precheck.NoPrecheck), func() {
 		)
 
 		By("Creating resources")
-		err := f.CreateWithDeferredDeletion(context.Background(), vdRoot, vm)
+		err := f.CreateWithDeferredDeletion(ctx, vdRoot, vm)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for VirtualMachine to be Running")
-		util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
+		util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
 
 		By("Checking VM status has qemu and libvirt versions")
 		Eventually(func(g Gomega) {
-			err := f.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vm), vm)
+			err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), vm)
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(vm.Status.Versions).NotTo(BeNil())
 			g.Expect(vm.Status.Versions.Qemu).NotTo(BeEmpty())

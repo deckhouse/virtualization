@@ -189,11 +189,17 @@ kubeconfig_set_current_context() {
 }
 
 check_kubeconfig() {
-  if kubectl --kubeconfig "${FILE_NAME}" get no >/dev/null 2>&1; then
+  local output
+
+  if output=$(kubectl --kubeconfig "${FILE_NAME}" get no 2>&1); then
     return 0
   fi
 
-  log_error "Failed to get resources via generated kubeconfig"
+  log_warning "Generated kubeconfig is not ready yet"
+  echo "${output}"
+  kubectl --kubeconfig "${FILE_NAME}" auth can-i get nodes 2>&1 || true
+  kubectl get clusterrolebinding "user-authz:${SA_CAR_NAME}:super-admin" -o wide 2>&1 || true
+
   if [[ -f "${FILE_NAME}" ]]; then
     cat "${FILE_NAME}"
   fi
@@ -203,8 +209,8 @@ check_kubeconfig() {
 generate_kubeconfig() {
   log_info "Create kubeconfig"
 
-  local max_attempts=10
-  local retry_wait_seconds=5
+  local max_attempts=60
+  local retry_wait_seconds=10
   local attempt_number
 
   for ((attempt_number = 1; attempt_number <= max_attempts; attempt_number++)); do

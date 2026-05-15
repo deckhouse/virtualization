@@ -1,6 +1,6 @@
 module github.com/deckhouse/virtualization/api/client/examples/resourceclaim
 
-go 1.25.9
+go 1.25.10
 
 require (
 	github.com/deckhouse/virtualization/api v1.6.1

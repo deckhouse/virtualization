@@ -22,8 +22,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
@@ -62,7 +60,7 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", Label(precheck.NoPrecheck),
 		err := f.CreateWithDeferredDeletion(ctx, vm)
 		Expect(err).NotTo(HaveOccurred())
 
-		util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
+		util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
 
 		By(fmt.Sprintf("Adding label %q=%q to VM", metadataSpecialKey, metadataSpecialValue))
 		updateVirtualMachineMetadata(ctx, f, vm, func(current *v1alpha2.VirtualMachine) {
@@ -124,7 +122,7 @@ func expectLabelState(ctx context.Context, f *framework.Framework, vm *v1alpha2.
 	GinkgoHelper()
 
 	Eventually(func(g Gomega) {
-		currentVM, activePod, err := getVirtualMachineAndActivePod(ctx, f, vm)
+		currentVM, activePod, err := util.GetVirtualMachineAndActivePod(ctx, f, vm)
 		g.Expect(err).NotTo(HaveOccurred())
 
 		if isPresent {
@@ -142,7 +140,7 @@ func expectAnnotationState(ctx context.Context, f *framework.Framework, vm *v1al
 	GinkgoHelper()
 
 	Eventually(func(g Gomega) {
-		currentVM, activePod, err := getVirtualMachineAndActivePod(ctx, f, vm)
+		currentVM, activePod, err := util.GetVirtualMachineAndActivePod(ctx, f, vm)
 		g.Expect(err).NotTo(HaveOccurred())
 
 		if isPresent {
@@ -154,33 +152,4 @@ func expectAnnotationState(ctx context.Context, f *framework.Framework, vm *v1al
 		g.Expect(currentVM.Annotations).NotTo(HaveKey(metadataSpecialKey))
 		g.Expect(activePod.Annotations).NotTo(HaveKey(metadataSpecialKey))
 	}).WithTimeout(framework.LongTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
-}
-
-func getVirtualMachineAndActivePod(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine) (*v1alpha2.VirtualMachine, *corev1.Pod, error) {
-	currentVM, err := f.VirtClient().VirtualMachines(vm.Namespace).Get(ctx, vm.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	activePodName, err := getActiveVirtualMachinePodName(currentVM)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	activePod, err := f.KubeClient().CoreV1().Pods(vm.Namespace).Get(ctx, activePodName, metav1.GetOptions{})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return currentVM, activePod, nil
-}
-
-func getActiveVirtualMachinePodName(vm *v1alpha2.VirtualMachine) (string, error) {
-	for _, pod := range vm.Status.VirtualMachinePods {
-		if pod.Active {
-			return pod.Name, nil
-		}
-	}
-
-	return "", fmt.Errorf("active pod was not found for vm %s/%s", vm.Namespace, vm.Name)
 }
