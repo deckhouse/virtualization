@@ -192,65 +192,46 @@ function findGinkgoOutput(config) {
   );
 }
 
-function parseGinkgoReportFile(rawReportPath, core) {
-  if (!rawReportPath) {
-    return {
-      metrics: zeroMetrics(),
-      failedTests: [],
-      failedTestDetails: [],
-      startedAt: null,
-      source: "empty",
-    };
-  }
-
-  core.info(`Found Ginkgo JSON report: ${rawReportPath}`);
-  try {
-    return {
-      ...parseGinkgoReport(fs.readFileSync(rawReportPath, "utf8")),
-      source: "ginkgo-json",
-    };
-  } catch (error) {
-    core.warning(
-      `Unable to parse Ginkgo JSON report ${rawReportPath}: ${error.message}`
-    );
-    return {
-      metrics: zeroMetrics(),
-      failedTests: [],
-      failedTestDetails: [],
-      startedAt: null,
-      source: "ginkgo-json-invalid",
-    };
-  }
+function emptyParsedReport(source) {
+  return {
+    metrics: zeroMetrics(),
+    failedTests: [],
+    failedTestDetails: [],
+    startedAt: null,
+    source,
+  };
 }
 
-function parseGinkgoOutputFile(outputPath, core) {
-  if (!outputPath) {
-    return {
-      metrics: zeroMetrics(),
-      failedTests: [],
-      failedTestDetails: [],
-      startedAt: null,
-      source: "empty",
-    };
+const ginkgoJsonSource = {
+  label: "Ginkgo JSON report",
+  okSource: "ginkgo-json",
+  invalidSource: "ginkgo-json-invalid",
+  parse: parseGinkgoReport,
+};
+
+const ginkgoOutputSource = {
+  label: "Ginkgo output log",
+  okSource: "ginkgo-output",
+  invalidSource: "ginkgo-output-invalid",
+  parse: parseGinkgoOutput,
+};
+
+function parseGinkgoFile(filePath, core, source) {
+  if (!filePath) {
+    return emptyParsedReport("empty");
   }
 
-  core.info(`Found Ginkgo output log: ${outputPath}`);
+  core.info(`Found ${source.label}: ${filePath}`);
   try {
     return {
-      ...parseGinkgoOutput(fs.readFileSync(outputPath, "utf8")),
-      source: "ginkgo-output",
+      ...source.parse(fs.readFileSync(filePath, "utf8")),
+      source: source.okSource,
     };
   } catch (error) {
     core.warning(
-      `Unable to parse Ginkgo output log ${outputPath}: ${error.message}`
+      `Unable to parse ${source.label} ${filePath}: ${error.message}`
     );
-    return {
-      metrics: zeroMetrics(),
-      failedTests: [],
-      failedTestDetails: [],
-      startedAt: null,
-      source: "ginkgo-output-invalid",
-    };
+    return emptyParsedReport(source.invalidSource);
   }
 }
 
@@ -260,8 +241,7 @@ function buildReportPayload({
   fallbackWorkflowRunUrl,
   branchName,
   parsedReport,
-  rawReportPath,
-  outputPath,
+  sourcePath,
 }) {
   const clusterStatus = buildClusterStatus(config.stageResults);
   const testStatus = buildTestStatus(
@@ -300,7 +280,7 @@ function buildReportPayload({
     metrics: parsedReport.metrics,
     failedTests: parsedReport.failedTests,
     failedTestDetails: parsedReport.failedTestDetails,
-    sourceReport: rawReportPath || outputPath,
+    sourceReport: sourcePath,
     reportSource: parsedReport.source,
   };
 }
@@ -368,6 +348,7 @@ async function buildClusterReport({ core, context, github, config } = {}) {
   const branchName = getBranchName(context);
   const rawReportPath = findGinkgoReport(resolvedConfig);
   const outputPath = rawReportPath ? null : findGinkgoOutput(resolvedConfig);
+  const sourcePath = rawReportPath || outputPath;
 
   if (!rawReportPath) {
     core.warning(
@@ -376,16 +357,15 @@ async function buildClusterReport({ core, context, github, config } = {}) {
   }
 
   const parsedReport = rawReportPath
-    ? parseGinkgoReportFile(rawReportPath, core)
-    : parseGinkgoOutputFile(outputPath, core);
+    ? parseGinkgoFile(rawReportPath, core, ginkgoJsonSource)
+    : parseGinkgoFile(outputPath, core, ginkgoOutputSource);
   const report = buildReportPayload({
     config: resolvedConfig,
     context,
     fallbackWorkflowRunUrl,
     branchName,
     parsedReport,
-    rawReportPath,
-    outputPath,
+    sourcePath,
   });
 
   try {

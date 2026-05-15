@@ -121,11 +121,15 @@ function formatFailureReason(specReport) {
   );
 }
 
-function isSuiteNodeFailure(specReport) {
-  const leafNodeType = String(specReport && specReport.LeafNodeType).trim();
-  const metricKey = getMetricKeyForState(specReport && specReport.State);
+const failureStates = new Set(["failed", "errors"]);
 
-  return leafNodeType !== "It" && (metricKey === "failed" || metricKey === "errors");
+function isSuiteNodeFailure(specReport) {
+  const leafNodeType = String((specReport && specReport.LeafNodeType) || "").trim();
+  if (!leafNodeType || leafNodeType === "It") {
+    return false;
+  }
+
+  return failureStates.has(getMetricKeyForState(specReport && specReport.State));
 }
 
 function buildFailureDetail(specReport) {
@@ -183,7 +187,7 @@ function parseGinkgoReport(jsonContent) {
       const metricKey = getMetricKeyForState(specReport.State);
       metrics[metricKey] += 1;
 
-      if (metricKey === "failed" || metricKey === "errors") {
+      if (failureStates.has(metricKey)) {
         const failureDetail = buildFailureDetail(specReport);
         if (failureDetail) {
           failedTests.push(failureDetail.name);
@@ -214,42 +218,66 @@ function parseGinkgoReport(jsonContent) {
   };
 }
 
-function extractFailedSuiteNode(output) {
-  const failedNodeMatch =
-    output.match(/\[(SynchronizedBeforeSuite|BeforeSuite|SynchronizedAfterSuite|AfterSuite)\]\s+\[FAILED\]/) ||
-    output.match(/\[FAIL\]\s+\[(SynchronizedBeforeSuite|BeforeSuite|SynchronizedAfterSuite|AfterSuite)\]/);
+const suiteNodeTypes = [
+  "SynchronizedBeforeSuite",
+  "BeforeSuite",
+  "SynchronizedAfterSuite",
+  "AfterSuite",
+];
 
-  return failedNodeMatch ? failedNodeMatch[1] : "";
+const suiteNodePattern = new RegExp(
+  `\\[(?:FAIL\\]\\s+\\[)?(${suiteNodeTypes.join("|")})\\](?:\\s+\\[FAILED\\])?`
+);
+
+// Lines that mark the end of the failure block in Ginkgo stdout. Anything
+// after these belongs to the next suite section or the summary footer.
+const reasonStopPrefixes = [
+  "------------------------------",
+  "[SynchronizedAfterSuite]",
+  "[ReportAfterSuite]",
+  "Summarizing ",
+];
+
+const maxReasonLines = 6;
+
+function findFailedSuiteNode(output) {
+  const match = output.match(suiteNodePattern);
+  if (!match) {
+    return "";
+  }
+
+  // Make sure we only treat the match as a failure when [FAILED] is involved.
+  return match[0].includes("FAIL") ? match[1] : "";
+}
+
+function isReasonStopLine(line) {
+  return reasonStopPrefixes.some((prefix) => line.startsWith(prefix));
+}
+
+function isReasonNoiseLine(line, failedMarker) {
+  return line.startsWith(failedMarker) || line.startsWith("/");
 }
 
 function extractFailureReasonFromOutput(output, suiteNodeType) {
   const failedMarker = `[${suiteNodeType}] [FAILED]`;
   const failedIndex = output.indexOf(failedMarker);
   const failureBlock = failedIndex >= 0 ? output.slice(failedIndex) : output;
-  const lines = failureBlock.split(/\r?\n/);
   const reasonLines = [];
 
-  for (const line of lines) {
-    const trimmedLine = line.trim();
-    if (!trimmedLine) {
+  for (const rawLine of failureBlock.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) {
       continue;
     }
-
-    if (
-      trimmedLine.startsWith("------------------------------") ||
-      trimmedLine.startsWith("[SynchronizedAfterSuite]") ||
-      trimmedLine.startsWith("[ReportAfterSuite]") ||
-      trimmedLine.startsWith("Summarizing ")
-    ) {
+    if (isReasonStopLine(line)) {
       break;
     }
-
-    if (trimmedLine.startsWith(failedMarker) || trimmedLine.startsWith("/")) {
+    if (isReasonNoiseLine(line, failedMarker)) {
       continue;
     }
 
-    reasonLines.push(trimmedLine.replace(/^\[FAILED\]\s*/, ""));
-    if (reasonLines.length >= 6) {
+    reasonLines.push(line.replace(/^\[FAILED\]\s*/, ""));
+    if (reasonLines.length >= maxReasonLines) {
       break;
     }
   }
@@ -259,24 +287,23 @@ function extractFailureReasonFromOutput(output, suiteNodeType) {
 
 function parseGinkgoOutput(outputContent) {
   const output = String(outputContent || "");
-  const metrics = zeroMetrics();
-  const suiteNodeType = extractFailedSuiteNode(output);
-  const failedTests = [];
-  const failedTestDetails = [];
-
-  if (suiteNodeType) {
-    const name = `[${suiteNodeType}]`;
-    const reason = extractFailureReasonFromOutput(output, suiteNodeType);
-    failedTests.push(name);
-    failedTestDetails.push({ name, reason });
-  }
-
-  return {
-    metrics,
-    failedTests,
-    failedTestDetails,
+  const suiteNodeType = findFailedSuiteNode(output);
+  const result = {
+    metrics: zeroMetrics(),
+    failedTests: [],
+    failedTestDetails: [],
     startedAt: null,
   };
+
+  if (!suiteNodeType) {
+    return result;
+  }
+
+  const name = `[${suiteNodeType}]`;
+  const reason = extractFailureReasonFromOutput(output, suiteNodeType);
+  result.failedTests.push(name);
+  result.failedTestDetails.push({ name, reason });
+  return result;
 }
 
 module.exports = {

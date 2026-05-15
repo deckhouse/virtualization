@@ -201,12 +201,20 @@ function hasFailedTests(report) {
 }
 
 function getFailedTestGroupName(testName) {
-  const normalizedName = sanitizeListItem(testName).replace(
-    /^\[[^\]]+\]\s*/,
-    ""
-  );
-  const [groupName] = normalizedName.split(/\s+/, 1);
-  return groupName || "Unknown";
+  const sanitizedName = sanitizeListItem(testName);
+  const leadingTagMatch = sanitizedName.match(/^\[([^\]]+)\]\s*(.*)$/);
+  const leadingTag = leadingTagMatch ? leadingTagMatch[1].trim() : "";
+  const remainder = leadingTagMatch ? leadingTagMatch[2].trim() : sanitizedName;
+
+  // Suite-level entries such as "[SynchronizedBeforeSuite]" or
+  // "[SynchronizedAfterSuite]" have no body after the leading tag.
+  // In that case the tag itself is the most informative group name.
+  if (!remainder) {
+    return leadingTag || "Unknown";
+  }
+
+  const [groupName] = remainder.split(/\s+/, 1);
+  return groupName || leadingTag || "Unknown";
 }
 
 function getFailedTestEntries(report) {
