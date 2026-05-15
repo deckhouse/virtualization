@@ -265,8 +265,7 @@ function summarizeFailedTestGroups(failedTestEntries) {
 }
 
 function renderFailedTestsThreadMessage(report) {
-  const clusterName = sanitizeListItem(report.cluster || report.storageType);
-  const lines = [`**${clusterName}**`];
+  const lines = [`**${formatClusterLink(report)}**`];
 
   if (Array.isArray(report.failedTests) && report.failedTests.length > 0) {
     const failedGroups = summarizeFailedTestGroups(

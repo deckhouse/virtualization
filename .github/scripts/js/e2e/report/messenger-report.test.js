@@ -175,7 +175,7 @@ describe("messenger-report", () => {
         [
           "### Failed tests",
           "",
-          "**replicated**",
+          "**[replicated](https://example.invalid/replicated)**",
           "",
           "| Tests | Reason |",
           "|---|---|",
@@ -306,8 +306,8 @@ describe("messenger-report", () => {
       const result = await renderMessengerReport({ core: createCore() });
 
       expect(result.threadMessages).toEqual([
-        "### Failed tests\n\n**replicated**\n\n| Tests | Reason |\n|---|---|\n| replicated | — |",
-        "**nfs**\n\n| Tests | Reason |\n|---|---|\n| nfs | — |",
+        "### Failed tests\n\n**[replicated](https://example.invalid/replicated)**\n\n| Tests | Reason |\n|---|---|\n| replicated | — |",
+        "**[nfs](https://example.invalid/nfs)**\n\n| Tests | Reason |\n|---|---|\n| nfs | — |",
       ]);
     }));
 
@@ -351,7 +351,7 @@ describe("messenger-report", () => {
         [
           "### Failed tests",
           "",
-          "**nfs**",
+          "**[nfs](https://example.invalid/nfs)**",
           "",
           "| Tests | Reason |",
           "|---|---|",
@@ -551,7 +551,7 @@ describe("messenger-report", () => {
       expect(JSON.parse(global.fetch.mock.calls[1][1].body)).toEqual({
         channel_id: "channel-id",
         message:
-          "### Failed tests\n\n**replicated**\n\n| Tests | Reason |\n|---|---|\n| fails | — |",
+          "### Failed tests\n\n**[replicated](https://example.invalid/replicated)**\n\n| Tests | Reason |\n|---|---|\n| fails | — |",
         root_id: "root-post-id",
       });
     }));
