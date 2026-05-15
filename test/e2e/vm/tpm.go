@@ -36,9 +36,12 @@ import (
 )
 
 var _ = Describe("VMCheckTPM", label.TPM(), Label(precheck.NoPrecheck), func() {
-	var f *framework.Framework
-
+	var (
+		f   *framework.Framework
+		ctx context.Context
+	)
 	BeforeEach(func() {
+		ctx = context.Background()
 		f = framework.NewFramework("vm-tpm-check")
 		DeferCleanup(f.After)
 
@@ -83,9 +86,9 @@ runcmd:
 			vm.WithOsType(osType),
 			vm.WithProvisioningUserData(cloudInit),
 		)
-		err := f.CreateWithDeferredDeletion(context.Background(), vdRoot, vmTPM)
+		err := f.CreateWithDeferredDeletion(ctx, vdRoot, vmTPM)
 		Expect(err).NotTo(HaveOccurred())
-		util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmTPM)
+		util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vmTPM)
 		util.UntilSSHReady(f, vmTPM, framework.LongTimeout)
 
 		By(fmt.Sprintf("Checks that the VM has the TPM module version %s.", expectedTPMVersion))

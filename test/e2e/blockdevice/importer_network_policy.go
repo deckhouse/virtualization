@@ -33,9 +33,12 @@ import (
 var _ = Describe("ImporterNetworkPolicy", Label(precheck.NoPrecheck), func() {
 	const testName = "importer-network-policy"
 
-	var f *framework.Framework
-
+	var (
+		f   *framework.Framework
+		ctx context.Context
+	)
 	BeforeEach(func() {
+		ctx = context.Background()
 		f = framework.NewFramework("")
 		f.Before()
 		DeferCleanup(f.After)
@@ -44,37 +47,37 @@ var _ = Describe("ImporterNetworkPolicy", Label(precheck.NoPrecheck), func() {
 	It("test network policy isolation for vi importer", func() {
 		By("Create isolated project")
 		project := object.NewIsolatedProject(testName, framework.NamespaceBasePrefix)
-		err := f.CreateWithDeferredDeletion(context.Background(), project)
+		err := f.CreateWithDeferredDeletion(ctx, project)
 		Expect(err).NotTo(HaveOccurred())
-		util.UntilObjectState("Deployed", framework.ShortTimeout, project)
+		util.UntilObjectState(ctx, "Deployed", framework.ShortTimeout, project)
 
 		By("Create virtual image")
 		vi := object.NewGeneratedHTTPVIAlpineBIOS("vi-", project.Name)
-		err = f.CreateWithDeferredDeletion(context.Background(), vi)
+		err = f.CreateWithDeferredDeletion(ctx, vi)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Check VI will be in ready phase")
-		util.UntilObjectPhase(string(v1alpha2.ImageReady), framework.LongTimeout, vi)
+		util.UntilObjectPhase(ctx, string(v1alpha2.ImageReady), framework.LongTimeout, vi)
 	})
 
 	It("test network policy isolation for vd importer", func() {
 		By("Create isolated project")
 		project := object.NewIsolatedProject(testName, framework.NamespaceBasePrefix)
-		err := f.CreateWithDeferredDeletion(context.Background(), project)
+		err := f.CreateWithDeferredDeletion(ctx, project)
 		Expect(err).NotTo(HaveOccurred())
-		util.UntilObjectState("Deployed", framework.ShortTimeout, project)
+		util.UntilObjectState(ctx, "Deployed", framework.ShortTimeout, project)
 
 		By("Create virtual disk")
 		vd := object.NewHTTPVDAlpineBIOS("vd", project.Name)
-		err = f.CreateWithDeferredDeletion(context.Background(), vd)
+		err = f.CreateWithDeferredDeletion(ctx, vd)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Create virtual machine")
 		vm := object.NewMinimalVM("vm-", project.Name, vmbuilder.WithDisks(vd))
-		err = f.CreateWithDeferredDeletion(context.Background(), vm)
+		err = f.CreateWithDeferredDeletion(ctx, vm)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Check VD will be in ready phase")
-		util.UntilObjectPhase(string(v1alpha2.DiskReady), framework.LongTimeout, vd)
+		util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.LongTimeout, vd)
 	})
 })

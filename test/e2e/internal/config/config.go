@@ -76,21 +76,23 @@ type Config struct {
 	LogFilter        []string         `yaml:"logFilter"`
 	CleanupResources []string         `yaml:"cleanupResources"`
 	RegexpLogFilter  []regexp.Regexp  `yaml:"regexpLogFilter"`
-	IsCleanupNeeded  bool             `yaml:"isCleanupNeeded"`
+	// IsCleanupNeeded controls cleanup of resources created during test execution (VMs, VDs, namespaces, etc.).
+	// Enabled by default (POST_CLEANUP=yes or unset). Set to false to skip cleanup for debugging.
+	IsCleanupNeeded bool `yaml:"isCleanupNeeded"`
+	// IsPrecreatedCVICleanupNeeded controls cleanup of precreated ClusterVirtualImages that are shared across test runs.
+	// Disabled by default (PRECREATED_CVI_CLEANUP=no): CVIs persist between runs for faster execution.
+	// Set to true to delete them after the suite.
+	IsPrecreatedCVICleanupNeeded bool `yaml:"isPrecreatedCVICleanupNeeded"`
 
 	StorageClass StorageClass
 }
 
 type TestData struct {
-	ComplexTest       string `yaml:"complexTest"`
-	DiskResizing      string `yaml:"diskResizing"`
-	ImageHotplug      string `yaml:"imageHotplug"`
-	VMMigration       string `yaml:"vmMigration"`
-	VMMigrationCancel string `yaml:"vmMigrationCancel"`
-	VMEvacuation      string `yaml:"vmEvacuation"`
-	VdSnapshots       string `yaml:"vdSnapshots"`
-	Sshkey            string `yaml:"sshKey"`
-	SSHUser           string `yaml:"sshUser"`
+	ImageHotplug string `yaml:"imageHotplug"`
+	VMMigration  string `yaml:"vmMigration"`
+	VdSnapshots  string `yaml:"vdSnapshots"`
+	Sshkey       string `yaml:"sshKey"`
+	SSHUser      string `yaml:"sshUser"`
 }
 
 type StorageClass struct {
@@ -133,8 +135,12 @@ type HelperImages struct {
 
 func (c *Config) setEnvs() error {
 	// isCleanupNeeded: env var has priority over yaml config
-	if e, ok := os.LookupEnv("POST_CLEANUP"); ok {
+	if e, ok := os.LookupEnv(PostCleanupEnv); ok {
 		c.IsCleanupNeeded = e != "no"
+	}
+	// isPrecreatedCVICleanupNeeded: env var has priority over yaml config
+	if e, ok := os.LookupEnv("PRECREATED_CVI_CLEANUP"); ok {
+		c.IsPrecreatedCVICleanupNeeded = e == "yes"
 	}
 	// ClusterTransport
 	if e, ok := os.LookupEnv("E2E_CLUSTERTRANSPORT_KUBECONFIG"); ok {

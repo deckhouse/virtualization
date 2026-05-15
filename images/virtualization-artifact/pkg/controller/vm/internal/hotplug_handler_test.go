@@ -285,4 +285,45 @@ var _ = Describe("HotplugHandler", func() {
 		Expect(result).To(Equal(reconcile.Result{}))
 		Expect(mockSvc.HotPlugDiskCalls()).To(BeEmpty())
 	})
+
+	Context("EnableParavirtualization=false", func() {
+		It("should not hotplug a disk", func() {
+			vm := newVM(v1alpha2.MachineRunning, v1alpha2.BlockDeviceSpecRef{
+				Kind: v1alpha2.DiskDevice, Name: vdName,
+			})
+			vm.Spec.EnableParavirtualization = false
+			kvvm := newKVVM(nil)
+			kvvmi := newEmptyKVVMI(vmName, vmNamespace)
+			vd := newVD(vdName, vdPVCName)
+
+			result, err := runHandle(vm, kvvm, kvvmi, vd)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(Equal(reconcile.Result{}))
+			Expect(mockSvc.HotPlugDiskCalls()).To(BeEmpty())
+			Expect(mockSvc.UnplugDiskCalls()).To(BeEmpty())
+		})
+
+		It("should not unplug a hotpluggable disk removed from spec", func() {
+			vm := newVM(v1alpha2.MachineRunning)
+			vm.Spec.EnableParavirtualization = false
+			kvvm := newKVVM([]virtv1.Volume{
+				{
+					Name: "vd-" + vdName,
+					VolumeSource: virtv1.VolumeSource{
+						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{ClaimName: vdPVCName},
+							Hotpluggable:                      true,
+						},
+					},
+				},
+			})
+			kvvmi := newEmptyKVVMI(vmName, vmNamespace)
+
+			result, err := runHandle(vm, kvvm, kvvmi)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(Equal(reconcile.Result{}))
+			Expect(mockSvc.HotPlugDiskCalls()).To(BeEmpty())
+			Expect(mockSvc.UnplugDiskCalls()).To(BeEmpty())
+		})
+	})
 })

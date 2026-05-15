@@ -23,7 +23,7 @@ env:
   MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
   SOURCE_REPO: "${{secrets.SOURCE_REPO}}"
   DECKHOUSE_PRIVATE_REPO: "${{secrets.DECKHOUSE_PRIVATE_REPO}}"
-  GO_VERSION: "1.25.9"
+  GO_VERSION: "1.25.10"
   GOLANGCI_LINT_VERSION: "2.11.1"
   TRIVY_DISABLE_VEX_NOTICE: "true"
 
@@ -215,7 +215,7 @@ jobs:
           go-version: "${{ env.GO_VERSION }}"
 
       - name: Install Task
-        uses: arduino/setup-task@v2
+        uses: go-task/setup-task@v2
         with:
           version: 3.x
           repo-token: ${{ secrets.GITHUB_TOKEN }}
@@ -284,7 +284,7 @@ jobs:
     name: Run yaml linter
     steps:
       - name: Install Task
-        uses: arduino/setup-task@v2
+        uses: go-task/setup-task@v2
         with:
           version: 3.x
           repo-token: ${{ secrets.GITHUB_TOKEN }}
@@ -306,7 +306,7 @@ jobs:
           go-version: "${{ env.GO_VERSION }}"
 
       - name: Install Task
-        uses: arduino/setup-task@v2
+        uses: go-task/setup-task@v2
         with:
           version: 3.x
           repo-token: ${{ secrets.GITHUB_TOKEN }}
@@ -392,7 +392,7 @@ jobs:
           go-version: "${{ env.GO_VERSION }}"
 
       - name: Install Task
-        uses: arduino/setup-task@v2
+        uses: go-task/setup-task@v2
         with:
           version: 3.x
           repo-token: ${{ secrets.GITHUB_TOKEN }}
@@ -623,7 +623,7 @@ jobs:
           go-version: "${{ env.GO_VERSION }}"
 
       - name: Install Task
-        uses: arduino/setup-task@v2
+        uses: go-task/setup-task@v2
         with:
           version: 3.x
           repo-token: ${{ secrets.GITHUB_TOKEN }}

@@ -17,6 +17,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -54,14 +55,12 @@ var _ = SynchronizedBeforeSuite(func() {
 	// Load spec labels to determine which prechecks to run
 	precheck.LoadSpecLabelsFromFile(precheck.LabelsFile, GinkgoLabelFilter())
 	// Run prechecks based on loaded labels
-	// Must run after resource initialization to avoid panic in SynchronizedAfterSuite
 	precheck.Run(framework.NewFramework(""), GinkgoLabelFilter())
-
-	bootstrapPrecreatedCVIs()
 }, func() {})
 
 var _ = SynchronizedAfterSuite(func() {
-	cleanupPrecreatedCVIs()
+	// Cleanup precreated CVIs if PRECREATED_CVI_CLEANUP=yes
+	precheck.CleanupPrecreatedCVIs(context.Background(), framework.NewFramework(""))
 }, func() {
 	legacy.NewAfterAllProcessBody()
 	controller.NewAfterAllProcessBody()
