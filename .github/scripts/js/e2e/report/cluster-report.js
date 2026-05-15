@@ -183,6 +183,7 @@ function parseGinkgoReportFile(rawReportPath, core) {
     return {
       metrics: zeroMetrics(),
       failedTests: [],
+      failedTestDetails: [],
       startedAt: null,
       source: "empty",
     };
@@ -201,6 +202,7 @@ function parseGinkgoReportFile(rawReportPath, core) {
     return {
       metrics: zeroMetrics(),
       failedTests: [],
+      failedTestDetails: [],
       startedAt: null,
       source: "ginkgo-json-invalid",
     };
@@ -251,6 +253,7 @@ function buildReportPayload({
     startedAt: parsedReport.startedAt,
     metrics: parsedReport.metrics,
     failedTests: parsedReport.failedTests,
+    failedTestDetails: parsedReport.failedTestDetails,
     sourceReport: rawReportPath,
     reportSource: parsedReport.source,
   };

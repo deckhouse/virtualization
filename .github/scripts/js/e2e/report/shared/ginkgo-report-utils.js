@@ -113,6 +113,45 @@ function getMetricKeyForState(state) {
   return "errors";
 }
 
+function isGenericFailureLine(line) {
+  return (
+    line === "Unexpected error:" ||
+    line === "occurred" ||
+    /^<[^>]+>:?$/.test(line) ||
+    line === "{" ||
+    line === "}"
+  );
+}
+
+function truncateReason(reason) {
+  const maxLength = 300;
+  return reason.length > maxLength
+    ? `${reason.slice(0, maxLength - 1).trimEnd()}…`
+    : reason;
+}
+
+/**
+ * Extracts a compact human-readable failure reason from a Ginkgo spec report.
+ *
+ * @param {Record<string, any>} specReport Raw Ginkgo spec report entry.
+ * @returns {string} Failure reason.
+ */
+function formatFailureReason(specReport) {
+  const failure = (specReport && specReport.Failure) || {};
+  const message = String(failure.Message || failure.ForwardedPanic || "");
+  const lines = message
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const reason = lines.find((line) => !isGenericFailureLine(line));
+
+  if (reason) {
+    return truncateReason(reason);
+  }
+
+  return truncateReason(String(specReport.State || "failed").trim());
+}
+
 /**
  * Parses a Ginkgo JSON report into metrics and failed test names used by the
  * markdown report.
@@ -121,6 +160,7 @@ function getMetricKeyForState(state) {
  * @returns {{
  *   metrics: GinkgoMetrics,
  *   failedTests: string[],
+ *   failedTestDetails: Array<{name: string, reason: string}>,
  *   startedAt: string|null
  * }} Parsed report payload.
  */
@@ -128,6 +168,7 @@ function parseGinkgoReport(jsonContent) {
   const suites = toArray(JSON.parse(jsonContent));
   const metrics = zeroMetrics();
   const failedTests = [];
+  const failedTestDetails = [];
   const startedAt =
     suites.find((suite) => suite && suite.StartTime)?.StartTime || null;
 
@@ -149,19 +190,32 @@ function parseGinkgoReport(jsonContent) {
         const specName = formatSpecName(specReport);
         if (specName) {
           failedTests.push(specName);
+          failedTestDetails.push({
+            name: specName,
+            reason: formatFailureReason(specReport),
+          });
         }
       }
     }
   }
 
+  const completedSpecs = metrics.passed + metrics.failed + metrics.errors;
   metrics.successRate =
-    metrics.total > 0
-      ? Number(((metrics.passed / metrics.total) * 100).toFixed(2))
+    completedSpecs > 0
+      ? Number(((metrics.passed / completedSpecs) * 100).toFixed(2))
       : 0;
 
   return {
     metrics,
     failedTests: Array.from(new Set(failedTests)),
+    failedTestDetails: Array.from(
+      new Map(
+        failedTestDetails.map((test) => [
+          `${test.name}\u0000${test.reason}`,
+          test,
+        ])
+      ).values()
+    ),
     startedAt,
   };
 }

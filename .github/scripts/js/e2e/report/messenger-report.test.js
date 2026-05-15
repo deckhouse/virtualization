@@ -93,7 +93,9 @@ describe("messenger-report", () => {
         LOOP_API_BASE_URL: "https://loop.example.invalid",
         // LOOP_CHANNEL_ID and LOOP_TOKEN intentionally absent
       })
-    ).toThrow("LOOP_CHANNEL_ID, LOOP_TOKEN, and LOOP_API_BASE_URL are required");
+    ).toThrow(
+      "LOOP_CHANNEL_ID, LOOP_TOKEN, and LOOP_API_BASE_URL are required"
+    );
   });
 
   test("uses default configured clusters when env override is absent", () => {
@@ -123,6 +125,12 @@ describe("messenger-report", () => {
             successRate: 80,
           },
           failedTests: ["[It] fails"],
+          failedTestDetails: [
+            {
+              name: "[It] fails",
+              reason: "command timed out",
+            },
+          ],
         })
       );
 
@@ -154,15 +162,16 @@ describe("messenger-report", () => {
 
       expect(result.message).toContain("### Test results");
       expect(result.message).toContain(
-        "| [replicated](https://example.invalid/replicated) | 12 | 2 | 1 | 0 | 15 | 80.00% |"
+        "| [replicated](https://example.invalid/replicated) | 12 | 2 | 1 | 15 | 80.00% |"
       );
+      expect(result.message).not.toContain("⚠️ Errors");
       expect(result.message).toContain("### Cluster failures");
       expect(result.message).toContain(
         "- [nfs](https://example.invalid/nfs): CONFIGURE SDN"
       );
       expect(result.message).not.toContain("### Failed tests");
       expect(result.threadMessages).toEqual([
-        "### Failed tests\n\n**replicated**\n\n| Test group |\n|---|\n| fails |",
+        "### Failed tests\n\n**replicated**\n\n| Tests | Reason |\n|---|---|\n| fails | command timed out |",
       ]);
     }));
 
@@ -280,8 +289,8 @@ describe("messenger-report", () => {
       const result = await renderMessengerReport({ core: createCore() });
 
       expect(result.threadMessages).toEqual([
-        "### Failed tests\n\n**replicated**\n\n| Test group |\n|---|\n| replicated |",
-        "**nfs**\n\n| Test group |\n|---|\n| nfs |",
+        "### Failed tests\n\n**replicated**\n\n| Tests | Reason |\n|---|---|\n| replicated | — |",
+        "**nfs**\n\n| Tests | Reason |\n|---|---|\n| nfs | — |",
       ]);
     }));
 
@@ -327,10 +336,10 @@ describe("messenger-report", () => {
           "",
           "**nfs**",
           "",
-          "| Test group |",
-          "|---|",
-          "| VirtualMachineOperationRestore |",
-          "| VirtualMachineAdditionalNetworkInterfaces |",
+          "| Tests | Reason |",
+          "|---|---|",
+          "| VirtualMachineOperationRestore | — |",
+          "| VirtualMachineAdditionalNetworkInterfaces | — |",
         ].join("\n"),
       ]);
     }));
@@ -525,7 +534,7 @@ describe("messenger-report", () => {
       expect(JSON.parse(global.fetch.mock.calls[1][1].body)).toEqual({
         channel_id: "channel-id",
         message:
-          "### Failed tests\n\n**replicated**\n\n| Test group |\n|---|\n| fails |",
+          "### Failed tests\n\n**replicated**\n\n| Tests | Reason |\n|---|---|\n| fails | — |",
         root_id: "root-post-id",
       });
     }));

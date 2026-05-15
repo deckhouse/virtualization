@@ -78,21 +78,37 @@ function renderTestResultsSection(testsReports) {
   const lines = [];
 
   if (testsReports.length > 0) {
+    const hasGinkgoErrors = testsReports.some(
+      (report) => Number((report.metrics || {}).errors || 0) > 0
+    );
+
     lines.push("### Test results");
     lines.push("");
     lines.push(
-      "| Cluster | ✅ Passed | ⏭️ Skipped | ❌ Failed | ⚠️ Errors | Total | Success Rate |"
+      hasGinkgoErrors
+        ? "| Cluster | ✅ Passed | ⏭️ Skipped | ❌ Failed | ⚠️ Errors | Total | Success Rate |"
+        : "| Cluster | ✅ Passed | ⏭️ Skipped | ❌ Failed | Total | Success Rate |"
     );
-    lines.push("|---|---:|---:|---:|---:|---:|---:|");
+    lines.push(
+      hasGinkgoErrors
+        ? "|---|---:|---:|---:|---:|---:|---:|"
+        : "|---|---:|---:|---:|---:|---:|"
+    );
 
     for (const report of testsReports) {
       const metrics = report.metrics || {};
       lines.push(
-        `| ${formatClusterLink(report)} | ${metrics.passed || 0} | ${
-          metrics.skipped || 0
-        } | ${metrics.failed || 0} | ${metrics.errors || 0} | ${
-          metrics.total || 0
-        } | ${formatRate(metrics.successRate)} |`
+        hasGinkgoErrors
+          ? `| ${formatClusterLink(report)} | ${metrics.passed || 0} | ${
+              metrics.skipped || 0
+            } | ${metrics.failed || 0} | ${metrics.errors || 0} | ${
+              metrics.total || 0
+            } | ${formatRate(metrics.successRate)} |`
+          : `| ${formatClusterLink(report)} | ${metrics.passed || 0} | ${
+              metrics.skipped || 0
+            } | ${metrics.failed || 0} | ${metrics.total || 0} | ${formatRate(
+              metrics.successRate
+            )} |`
       );
     }
 
@@ -193,8 +209,39 @@ function getFailedTestGroupName(testName) {
   return groupName || "Unknown";
 }
 
-function summarizeFailedTestGroups(failedTests) {
-  return [...new Set(failedTests.map(getFailedTestGroupName))];
+function getFailedTestEntries(report) {
+  if (
+    Array.isArray(report.failedTestDetails) &&
+    report.failedTestDetails.length > 0
+  ) {
+    return report.failedTestDetails.map((test) => ({
+      name: test.name,
+      reason: test.reason,
+    }));
+  }
+
+  return (report.failedTests || []).map((testName) => ({
+    name: testName,
+    reason: "",
+  }));
+}
+
+function summarizeFailedTestGroups(failedTestEntries) {
+  const groups = new Map();
+
+  for (const test of failedTestEntries) {
+    const groupName = getFailedTestGroupName(test.name);
+    const reason = sanitizeListItem(test.reason) || "—";
+    if (!groups.has(groupName)) {
+      groups.set(groupName, new Set());
+    }
+    groups.get(groupName).add(reason);
+  }
+
+  return Array.from(groups, ([name, reasons]) => ({
+    name,
+    reason: Array.from(reasons).join("<br>"),
+  }));
 }
 
 function renderFailedTestsThreadMessage(report) {
@@ -202,12 +249,16 @@ function renderFailedTestsThreadMessage(report) {
   const lines = [`**${clusterName}**`];
 
   if (Array.isArray(report.failedTests) && report.failedTests.length > 0) {
-    const failedGroups = summarizeFailedTestGroups(report.failedTests);
+    const failedGroups = summarizeFailedTestGroups(
+      getFailedTestEntries(report)
+    );
     lines.push("");
-    lines.push("| Test group |");
-    lines.push("|---|");
-    for (const groupName of failedGroups) {
-      lines.push(`| ${sanitizeCell(groupName)} |`);
+    lines.push("| Tests | Reason |");
+    lines.push("|---|---|");
+    for (const group of failedGroups) {
+      lines.push(
+        `| ${sanitizeCell(group.name)} | ${sanitizeCell(group.reason)} |`
+      );
     }
   } else {
     lines.push(

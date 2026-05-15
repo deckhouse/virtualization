@@ -419,11 +419,18 @@ describe("cluster-report", () => {
               leafNodeText: "fails & burns",
               state: "failed",
               leafNodeLabels: ["Slow"],
+              failure: {
+                Message:
+                  "Unexpected error:\n    <*fmt.wrapError | 0xc000f24540>:\n    failed to execute command sudo lsblk: signal: killed\noccurred",
+              },
             }),
             createSpecReport({
               containerHierarchyTexts: ["Other"],
               leafNodeText: "errors <loudly>",
               state: "timedout",
+              failure: {
+                Message: "timed out waiting for VM to become ready",
+              },
             }),
             createSpecReport({
               leafNodeText: "skipped",
@@ -463,11 +470,21 @@ describe("cluster-report", () => {
         errors: 1,
         skipped: 1,
         total: 4,
-        successRate: 25,
+        successRate: 33.33,
       });
       expect(report.failedTests).toEqual([
         "[It] Suite fails & burns [Slow]",
         "[It] Other errors <loudly>",
+      ]);
+      expect(report.failedTestDetails).toEqual([
+        {
+          name: "[It] Suite fails & burns [Slow]",
+          reason: "failed to execute command sudo lsblk: signal: killed",
+        },
+        {
+          name: "[It] Other errors <loudly>",
+          reason: "timed out waiting for VM to become ready",
+        },
       ]);
       expect(report.reportSource).toBe("ginkgo-json");
       expect(report.sourceReport).toBe(rawReportPath);
@@ -675,7 +692,7 @@ describe("cluster-report", () => {
       errors: 0,
       skipped: 34,
       total: 131,
-      successRate: 68.7,
+      successRate: 92.78,
     });
     expect(parsed.startedAt).toBe("2026-04-28T03:11:27.708387575Z");
     expect(parsed.failedTests).toHaveLength(7);
