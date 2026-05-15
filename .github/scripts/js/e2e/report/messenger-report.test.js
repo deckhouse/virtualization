@@ -128,8 +128,7 @@ describe("messenger-report", () => {
           failedTestDetails: [
             {
               name: "[It] fails",
-              reason: "command timed out",
-              message: "Unexpected error:\ncommand timed out\noccurred",
+              reason: "Unexpected error:\ncommand timed out\noccurred",
             },
           ],
         })
@@ -179,15 +178,7 @@ describe("messenger-report", () => {
           "",
           "| Tests | Reason |",
           "|---|---|",
-          "| fails | command timed out |",
-          "",
-          "**Details**",
-          "",
-          "_fails_",
-          "",
-          "```text",
-          "Unexpected error:\ncommand timed out\noccurred",
-          "```",
+          "| fails | Unexpected error: command timed out occurred |",
         ].join("\n"),
       ]);
     }));

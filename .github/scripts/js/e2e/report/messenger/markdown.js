@@ -217,21 +217,13 @@ function getFailedTestEntries(report) {
     return report.failedTestDetails.map((test) => ({
       name: test.name,
       reason: test.reason,
-      message: test.message,
     }));
   }
 
   return (report.failedTests || []).map((testName) => ({
     name: testName,
     reason: "",
-    message: "",
   }));
-}
-
-function sanitizeCodeBlock(value) {
-  return String(value || "")
-    .replace(/```/g, "`\u200b``")
-    .trim();
 }
 
 function summarizeFailedTestGroups(failedTestEntries) {
@@ -243,24 +235,16 @@ function summarizeFailedTestGroups(failedTestEntries) {
     if (!groups.has(groupName)) {
       groups.set(groupName, {
         reasons: new Set(),
-        details: [],
       });
     }
 
     const group = groups.get(groupName);
     group.reasons.add(reason);
-    if (test.message) {
-      group.details.push({
-        name: groupName,
-        message: test.message,
-      });
-    }
   }
 
   return Array.from(groups, ([name, group]) => ({
     name,
-    reason: Array.from(group.reasons).join("<br>"),
-    details: group.details,
+    reason: Array.from(group.reasons).join("; "),
   }));
 }
 
@@ -278,20 +262,6 @@ function renderFailedTestsThreadMessage(report) {
       lines.push(
         `| ${sanitizeCell(group.name)} | ${sanitizeCell(group.reason)} |`
       );
-    }
-
-    const details = failedGroups.flatMap((group) => group.details || []);
-    if (details.length > 0) {
-      lines.push("");
-      lines.push("**Details**");
-      for (const detail of details) {
-        lines.push("");
-        lines.push(`_${sanitizeListItem(detail.name)}_`);
-        lines.push("");
-        lines.push("```text");
-        lines.push(sanitizeCodeBlock(detail.message));
-        lines.push("```");
-      }
     }
   } else {
     lines.push(

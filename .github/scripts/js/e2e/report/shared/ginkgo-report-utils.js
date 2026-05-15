@@ -113,47 +113,12 @@ function getMetricKeyForState(state) {
   return "errors";
 }
 
-function isGenericFailureLine(line) {
-  return (
-    line === "Unexpected error:" ||
-    line === "occurred" ||
-    /^<[^>]+>:?$/.test(line) ||
-    line === "{" ||
-    line === "}"
-  );
-}
-
-function getFailureMessage(specReport) {
-  const failure = (specReport && specReport.Failure) || {};
-  return String(failure.Message || failure.ForwardedPanic || "").trim();
-}
-
-function truncateReason(reason) {
-  const maxLength = 300;
-  return reason.length > maxLength
-    ? `${reason.slice(0, maxLength - 1).trimEnd()}…`
-    : reason;
-}
-
-/**
- * Extracts a compact human-readable failure reason from a Ginkgo spec report.
- *
- * @param {Record<string, any>} specReport Raw Ginkgo spec report entry.
- * @returns {string} Failure reason.
- */
 function formatFailureReason(specReport) {
-  const message = getFailureMessage(specReport);
-  const lines = message
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  const reason = lines.find((line) => !isGenericFailureLine(line));
-
-  if (reason) {
-    return truncateReason(reason);
-  }
-
-  return truncateReason(String(specReport.State || "failed").trim());
+  const failure = (specReport && specReport.Failure) || {};
+  return (
+    String(failure.Message || failure.ForwardedPanic || "").trim() ||
+    String(specReport.State || "failed").trim()
+  );
 }
 
 /**
@@ -164,7 +129,7 @@ function formatFailureReason(specReport) {
  * @returns {{
  *   metrics: GinkgoMetrics,
  *   failedTests: string[],
- *   failedTestDetails: Array<{name: string, reason: string, message: string}>,
+ *   failedTestDetails: Array<{name: string, reason: string}>,
  *   startedAt: string|null
  * }} Parsed report payload.
  */
@@ -197,7 +162,6 @@ function parseGinkgoReport(jsonContent) {
           failedTestDetails.push({
             name: specName,
             reason: formatFailureReason(specReport),
-            message: getFailureMessage(specReport),
           });
         }
       }
