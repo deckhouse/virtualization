@@ -42,14 +42,14 @@ type Validator struct {
 	log        *log.Logger
 }
 
-func NewValidator(client client.Client, service *service.BlockDeviceService, featureGate featuregate.FeatureGate, log *log.Logger) *Validator {
+func NewValidator(client client.Client, blockDeviceService *service.BlockDeviceService, attachmentService *service.AttachmentService, featureGate featuregate.FeatureGate, log *log.Logger) *Validator {
 	return &Validator{
 		validators: []VirtualMachineValidator{
 			validators.NewMetaValidator(client),
 			validators.NewIPAMValidator(client),
 			validators.NewBlockDeviceSpecRefsValidator(),
 			validators.NewSizingPolicyValidator(client),
-			validators.NewBlockDeviceLimiterValidator(service, log),
+			validators.NewBlockDeviceLimiterValidator(blockDeviceService, log),
 			validators.NewAffinityValidator(),
 			validators.NewTopologySpreadConstraintValidator(),
 			validators.NewCPUCountValidator(),
@@ -57,6 +57,7 @@ func NewValidator(client client.Client, service *service.BlockDeviceService, fea
 			validators.NewFirstDiskValidator(client),
 			validators.NewUSBDevicesValidator(client, featureGate),
 			validators.NewVMBDAConflictValidator(client),
+			validators.NewPVNodeAffinityValidator(client, attachmentService),
 		},
 		log: log.With("webhook", "validation"),
 	}
