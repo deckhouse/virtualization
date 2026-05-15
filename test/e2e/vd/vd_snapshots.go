@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package vm
+package vd
 
 import (
 	"context"
@@ -246,7 +246,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		Expect(<-vmWatchErrCh).ShouldNot(HaveOccurred())
 
 		By("Waiting for ready snapshots phase")
-		util.UntilObjectPhase(ctx, string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.MiddleTimeout, toObjects(vdSnapshots)...)
+		util.UntilObjectPhase(ctx, string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.MiddleTimeout, util.ToObjects(vdSnapshots)...)
 
 		By("Checking VirtualDiskSnapshots consistency and VolumeSnapshot readiness")
 		for _, vdSnapshot := range vdSnapshots {

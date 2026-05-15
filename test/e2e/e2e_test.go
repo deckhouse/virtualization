@@ -31,6 +31,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/legacy"
 	_ "github.com/deckhouse/virtualization/test/e2e/snapshot"
+	_ "github.com/deckhouse/virtualization/test/e2e/vd"
 	_ "github.com/deckhouse/virtualization/test/e2e/vm"
 	_ "github.com/deckhouse/virtualization/test/e2e/vmop"
 )

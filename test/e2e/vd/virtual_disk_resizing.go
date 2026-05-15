@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package vm
+package vd
 
 import (
 	"context"
@@ -221,4 +221,3 @@ func ensureVDWasResizing(ctx context.Context, w util.Watcher, vds []*v1alpha2.Vi
 		}
 	}
 }
-

@@ -201,7 +201,7 @@ var _ = Describe("VirtualMachineMigration", Label(precheck.NoPrecheck), func() {
 			allObjects = append([]crclient.Object{
 				vdRootBIOS, vdBlankBIOS, vmBIOS, vdRootUEFI, vdBlankUEFI, vmUEFI,
 				vdHotplugBIOS, vdHotplugUEFI, viHotplugBIOS, viHotplugUEFI,
-			}, toObjects(vmbdas)...)
+			}, util.ToObjects(vmbdas)...)
 			err := f.CreateWithDeferredDeletion(ctx, allObjects...)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -209,7 +209,7 @@ var _ = Describe("VirtualMachineMigration", Label(precheck.NoPrecheck), func() {
 			util.UntilObjectPhase(
 				ctx,
 				string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.LongTimeout,
-				toObjects(vmbdas)...,
+				util.ToObjects(vmbdas)...,
 			)
 
 			util.UntilSSHReady(f, vmBIOS, framework.LongTimeout)
@@ -352,12 +352,4 @@ func ensureVMBDAsStayAttached(ctx context.Context, w util.Watcher, names []strin
 			}
 		}
 	}
-}
-
-func toObjects[T crclient.Object](objs []T) []crclient.Object {
-	out := make([]crclient.Object, len(objs))
-	for i, o := range objs {
-		out[i] = o
-	}
-	return out
 }
