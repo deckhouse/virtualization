@@ -608,6 +608,70 @@ describe("cluster-report", () => {
       ]);
     }));
 
+  test("parses real Ginkgo BeforeSuite failure stdout", async () =>
+    withTempDir(async (tempDir) => {
+      const outputPath = path.join(
+        tempDir,
+        "e2e_output_replicated_2026-05-14.log"
+      );
+      fs.writeFileSync(
+        outputPath,
+        [
+          "Will run 93 of 94 specs",
+          "------------------------------",
+          "[SynchronizedBeforeSuite]",
+          "/home/runner/work/virtualization/virtualization/test/e2e/e2e_test.go:44",
+          "PASS: all 94 specs have precheck labels",
+          "  STEP: Ensuring 12 precreated CVIs are available @ 05/14/26 13:57:36.142",
+          "  CVI \"v12n-e2e-testdata-iso\" exists but not ready (phase: Pending), waiting...",
+          "  [FAILED] in [SynchronizedBeforeSuite] - /home/runner/work/.../until.go:207 @ 05/14/26 14:02:37.61",
+          "[SynchronizedBeforeSuite] [FAILED] [307.964 seconds]",
+          "[SynchronizedBeforeSuite]",
+          "/home/runner/work/virtualization/virtualization/test/e2e/e2e_test.go:44",
+          "",
+          "  [FAILED] Timed out after 300.001s.",
+          "  The function passed to Eventually failed at /home/runner/work/.../until.go:205 with:",
+          "  object v12n-e2e-testdata-iso status.phase is Pending, expected Ready",
+          "  Expected",
+          "      <string>: Pending",
+          "  to equal",
+          "      <string>: Ready",
+          "------------------------------",
+          "[SynchronizedAfterSuite]",
+          "/home/runner/work/virtualization/virtualization/test/e2e/e2e_test.go:61",
+          "[SynchronizedAfterSuite] PASSED [3.649 seconds]",
+          "------------------------------",
+          "Summarizing 1 Failure:",
+          "  [FAIL] [SynchronizedBeforeSuite]",
+          "Ran 0 of 94 Specs in 311.615 seconds",
+          "FAIL! -- A BeforeSuite node failed so all tests were skipped.",
+        ].join("\n")
+      );
+
+      const reportFile = path.join(tempDir, "report.json");
+      const report = await buildClusterReport({
+        core: createCore(),
+        context: createContext(),
+        config: createClusterConfig({
+          reportsDir: tempDir,
+          reportFile,
+          stageResults: { "e2e-test": "failure" },
+        }),
+      });
+
+      expect(report.reportSource).toBe("ginkgo-output");
+      expect(report.failedTests).toEqual(["[SynchronizedBeforeSuite]"]);
+      const detail = report.failedTestDetails[0];
+      expect(detail.name).toBe("[SynchronizedBeforeSuite]");
+      expect(detail.reason).toContain("Timed out after 300.001s.");
+      expect(detail.reason).toContain(
+        "object v12n-e2e-testdata-iso status.phase is Pending, expected Ready"
+      );
+      // The plain "[SynchronizedBeforeSuite]" header that follows the
+      // "[FAILED] [307.964 seconds]" line must not leak into the reason.
+      expect(detail.reason.split("\n")[0]).not.toBe("[SynchronizedBeforeSuite]");
+    }));
+
   test("fails when multiple matching Ginkgo JSON reports exist", async () =>
     withTempDir(async (tempDir) => {
       const firstReportPath = path.join(

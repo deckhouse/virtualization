@@ -225,8 +225,14 @@ const suiteNodeTypes = [
   "AfterSuite",
 ];
 
+// Match Ginkgo failure markers for suite-level nodes in two forms:
+//   1. "[<SuiteNode>] [FAILED]"   — main failure line in the stdout body.
+//   2. "[FAIL] [<SuiteNode>]"     — line from the "Summarizing N Failure:" footer.
+// Both forms guarantee that the matched suite node actually failed, so we
+// never confuse them with the plain "[<SuiteNode>]" section header.
+const suiteNodeAlternatives = suiteNodeTypes.join("|");
 const suiteNodePattern = new RegExp(
-  `\\[(?:FAIL\\]\\s+\\[)?(${suiteNodeTypes.join("|")})\\](?:\\s+\\[FAILED\\])?`
+  `(?:\\[(${suiteNodeAlternatives})\\]\\s+\\[FAILED\\])|(?:\\[FAIL\\]\\s+\\[(${suiteNodeAlternatives})\\])`
 );
 
 // Lines that mark the end of the failure block in Ginkgo stdout. Anything
@@ -246,20 +252,26 @@ function findFailedSuiteNode(output) {
     return "";
   }
 
-  // Make sure we only treat the match as a failure when [FAILED] is involved.
-  return match[0].includes("FAIL") ? match[1] : "";
+  // The pattern has two alternatives, so the captured node name is in
+  // either group 1 ("[X] [FAILED]") or group 2 ("[FAIL] [X]").
+  return match[1] || match[2] || "";
 }
 
 function isReasonStopLine(line) {
   return reasonStopPrefixes.some((prefix) => line.startsWith(prefix));
 }
 
-function isReasonNoiseLine(line, failedMarker) {
-  return line.startsWith(failedMarker) || line.startsWith("/");
+function isReasonNoiseLine(line, suiteHeader, failedMarker) {
+  return (
+    line === suiteHeader ||
+    line.startsWith(failedMarker) ||
+    line.startsWith("/")
+  );
 }
 
 function extractFailureReasonFromOutput(output, suiteNodeType) {
-  const failedMarker = `[${suiteNodeType}] [FAILED]`;
+  const suiteHeader = `[${suiteNodeType}]`;
+  const failedMarker = `${suiteHeader} [FAILED]`;
   const failedIndex = output.indexOf(failedMarker);
   const failureBlock = failedIndex >= 0 ? output.slice(failedIndex) : output;
   const reasonLines = [];
@@ -272,7 +284,7 @@ function extractFailureReasonFromOutput(output, suiteNodeType) {
     if (isReasonStopLine(line)) {
       break;
     }
-    if (isReasonNoiseLine(line, failedMarker)) {
+    if (isReasonNoiseLine(line, suiteHeader, failedMarker)) {
       continue;
     }
 
