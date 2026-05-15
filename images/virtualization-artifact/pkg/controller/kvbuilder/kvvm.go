@@ -511,6 +511,21 @@ func (b *KVVM) ClearDisks() {
 	b.Resource.Spec.Template.Spec.Volumes = nil
 }
 
+func (b *KVVM) getExistingDiskBus(name string) virtv1.DiskBus {
+	for _, d := range b.Resource.Spec.Template.Spec.Domain.Devices.Disks {
+		if d.Name != name {
+			continue
+		}
+		if d.CDRom != nil {
+			return d.CDRom.Bus
+		}
+		if d.Disk != nil {
+			return d.Disk.Bus
+		}
+	}
+	return ""
+}
+
 func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 	devPreset := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization)
 
@@ -522,6 +537,14 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 	} else {
 		dd.Disk = &virtv1.DiskTarget{
 			Bus: devPreset.DiskBus,
+		}
+	}
+
+	if existingBus := b.getExistingDiskBus(name); existingBus != "" {
+		if opts.IsCdrom {
+			dd.CDRom.Bus = existingBus
+		} else {
+			dd.Disk.Bus = existingBus
 		}
 	}
 

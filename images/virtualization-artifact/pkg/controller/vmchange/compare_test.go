@@ -253,7 +253,7 @@ memory:
 			),
 		},
 		{
-			"restart on blockDeviceRefs section add",
+			"apply immediate on blockDeviceRefs section add",
 			``,
 			`
 blockDeviceRefs:
@@ -262,12 +262,12 @@ blockDeviceRefs:
 `,
 			nil,
 			assertChanges(
-				actionRequired(ActionRestart),
+				actionRequired(ActionApplyImmediate),
 				requirePathOperation("blockDeviceRefs", ChangeAdd),
 			),
 		},
 		{
-			"restart on blockDeviceRefs section remove",
+			"apply immediate on blockDeviceRefs section remove",
 			`
 blockDeviceRefs:
 - kind: VirtualImage
@@ -276,18 +276,20 @@ blockDeviceRefs:
 			``,
 			nil,
 			assertChanges(
-				actionRequired(ActionRestart),
+				actionRequired(ActionApplyImmediate),
 				requirePathOperation("blockDeviceRefs", ChangeRemove),
 			),
 		},
 		{
-			"restart on blockDeviceRefs add disk",
+			"apply immediate on blockDeviceRefs add disk",
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualImage
   name: linux
 `,
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualDisk
   name: linux
@@ -296,13 +298,14 @@ blockDeviceRefs:
 `,
 			nil,
 			assertChanges(
-				actionRequired(ActionRestart),
+				actionRequired(ActionApplyImmediate),
 				requirePathOperation("blockDeviceRefs.0", ChangeAdd),
 			),
 		},
 		{
-			"restart on blockDeviceRefs remove disk",
+			"apply immediate on blockDeviceRefs remove disk",
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualDisk
   name: linux
@@ -310,6 +313,29 @@ blockDeviceRefs:
   name: linux
 `,
 			`
+enableParavirtualization: true
+blockDeviceRefs:
+- kind: VirtualImage
+  name: linux
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionApplyImmediate),
+				requirePathOperation("blockDeviceRefs.0", ChangeRemove),
+			),
+		},
+		{
+			"restart on blockDeviceRefs remove disk with paravirt disabled",
+			`
+enableParavirtualization: false
+blockDeviceRefs:
+- kind: VirtualDisk
+  name: linux
+- kind: VirtualImage
+  name: linux
+`,
+			`
+enableParavirtualization: false
 blockDeviceRefs:
 - kind: VirtualImage
   name: linux
@@ -321,8 +347,9 @@ blockDeviceRefs:
 			),
 		},
 		{
-			"restart on blockDeviceRefs change order",
+			"apply immediate on blockDeviceRefs change order",
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualImage
   name: linux
@@ -330,6 +357,7 @@ blockDeviceRefs:
   name: linux
 `,
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualDisk
   name: linux
@@ -338,14 +366,15 @@ blockDeviceRefs:
 `,
 			nil,
 			assertChanges(
-				actionRequired(ActionRestart),
+				actionRequired(ActionApplyImmediate),
 				requirePathOperation("blockDeviceRefs.0", ChangeReplace),
 				requirePathOperation("blockDeviceRefs.1", ChangeReplace),
 			),
 		},
 		{
-			"restart on blockDeviceRefs change order :: bigger",
+			"apply immediate on blockDeviceRefs change order :: bigger",
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualImage
   name: linux
@@ -360,6 +389,7 @@ blockDeviceRefs:
 `,
 			// Change order: 12345 -> 25341
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualDisk
   name: linux
@@ -374,7 +404,7 @@ blockDeviceRefs:
 `,
 			nil,
 			assertChanges(
-				actionRequired(ActionRestart),
+				actionRequired(ActionApplyImmediate),
 				requirePathOperation("blockDeviceRefs.0", ChangeReplace),
 				requirePathOperation("blockDeviceRefs.1", ChangeReplace),
 				requirePathOperation("blockDeviceRefs.4", ChangeReplace),
