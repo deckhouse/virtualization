@@ -33,6 +33,17 @@ function archivedReportPattern(storageType) {
   return new RegExp(`^e2e_report_${escaped}_.*\\.json$`);
 }
 
+/**
+ * Returns a regex that matches Ginkgo stdout/stderr fallback logs,
+ * e.g. `e2e_output_replicated_2026-04-15.log`.
+ * @param {string} storageType
+ * @returns {RegExp}
+ */
+function ginkgoOutputPattern(storageType) {
+  const escaped = storageType.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`^e2e_output_${escaped}_.*\\.log$`);
+}
+
 const stageMessage = {
   "bootstrap": "BOOTSTRAP CLUSTER",
   "configure-sdn": "CONFIGURE SDN",
@@ -142,7 +153,7 @@ function buildTestStatus(
 
   const normalizedResult = normalizeJobResult(testResult);
 
-  if (reportSource === "ginkgo-json") {
+  if (reportSource === "ginkgo-json" || reportSource === "ginkgo-output") {
     const hasReportedFailures =
       Number(metrics.failed || 0) > 0 || Number(metrics.errors || 0) > 0;
     const status =
@@ -276,6 +287,7 @@ module.exports = {
   buildReportSummary,
   buildStatusMessage,
   buildTestStatus,
+  ginkgoOutputPattern,
   isClusterFailureReport,
   isMissingReport,
   isTestResultReport,

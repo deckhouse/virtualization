@@ -13,12 +13,16 @@
 const fs = require("fs");
 
 const { findSingleMatchingFile } = require("./shared/fs-utils");
-const { parseGinkgoReport } = require("./shared/ginkgo-report-utils");
+const {
+  parseGinkgoOutput,
+  parseGinkgoReport,
+} = require("./shared/ginkgo-report-utils");
 const {
   archivedReportPattern,
   buildClusterStatus,
   buildReportSummary,
   buildTestStatus,
+  ginkgoOutputPattern,
   reportFileName,
   zeroMetrics,
 } = require("./shared/report-model");
@@ -178,6 +182,16 @@ function findGinkgoReport(config) {
   );
 }
 
+function findGinkgoOutput(config) {
+  const outputPattern = ginkgoOutputPattern(config.storageType);
+
+  return findSingleMatchingFile(
+    config.reportsDir,
+    outputPattern,
+    "Ginkgo output log"
+  );
+}
+
 function parseGinkgoReportFile(rawReportPath, core) {
   if (!rawReportPath) {
     return {
@@ -209,6 +223,37 @@ function parseGinkgoReportFile(rawReportPath, core) {
   }
 }
 
+function parseGinkgoOutputFile(outputPath, core) {
+  if (!outputPath) {
+    return {
+      metrics: zeroMetrics(),
+      failedTests: [],
+      failedTestDetails: [],
+      startedAt: null,
+      source: "empty",
+    };
+  }
+
+  core.info(`Found Ginkgo output log: ${outputPath}`);
+  try {
+    return {
+      ...parseGinkgoOutput(fs.readFileSync(outputPath, "utf8")),
+      source: "ginkgo-output",
+    };
+  } catch (error) {
+    core.warning(
+      `Unable to parse Ginkgo output log ${outputPath}: ${error.message}`
+    );
+    return {
+      metrics: zeroMetrics(),
+      failedTests: [],
+      failedTestDetails: [],
+      startedAt: null,
+      source: "ginkgo-output-invalid",
+    };
+  }
+}
+
 function buildReportPayload({
   config,
   context,
@@ -216,6 +261,7 @@ function buildReportPayload({
   branchName,
   parsedReport,
   rawReportPath,
+  outputPath,
 }) {
   const clusterStatus = buildClusterStatus(config.stageResults);
   const testStatus = buildTestStatus(
@@ -254,7 +300,7 @@ function buildReportPayload({
     metrics: parsedReport.metrics,
     failedTests: parsedReport.failedTests,
     failedTestDetails: parsedReport.failedTestDetails,
-    sourceReport: rawReportPath,
+    sourceReport: rawReportPath || outputPath,
     reportSource: parsedReport.source,
   };
 }
@@ -321,6 +367,7 @@ async function buildClusterReport({ core, context, github, config } = {}) {
   const fallbackWorkflowRunUrl = getWorkflowRunUrl(context);
   const branchName = getBranchName(context);
   const rawReportPath = findGinkgoReport(resolvedConfig);
+  const outputPath = rawReportPath ? null : findGinkgoOutput(resolvedConfig);
 
   if (!rawReportPath) {
     core.warning(
@@ -328,7 +375,9 @@ async function buildClusterReport({ core, context, github, config } = {}) {
     );
   }
 
-  const parsedReport = parseGinkgoReportFile(rawReportPath, core);
+  const parsedReport = rawReportPath
+    ? parseGinkgoReportFile(rawReportPath, core)
+    : parseGinkgoOutputFile(outputPath, core);
   const report = buildReportPayload({
     config: resolvedConfig,
     context,
@@ -336,6 +385,7 @@ async function buildClusterReport({ core, context, github, config } = {}) {
     branchName,
     parsedReport,
     rawReportPath,
+    outputPath,
   });
 
   try {

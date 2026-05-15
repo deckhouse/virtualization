@@ -121,6 +121,25 @@ function formatFailureReason(specReport) {
   );
 }
 
+function isSuiteNodeFailure(specReport) {
+  const leafNodeType = String(specReport && specReport.LeafNodeType).trim();
+  const metricKey = getMetricKeyForState(specReport && specReport.State);
+
+  return leafNodeType !== "It" && (metricKey === "failed" || metricKey === "errors");
+}
+
+function buildFailureDetail(specReport) {
+  const specName = formatSpecName(specReport);
+  if (!specName) {
+    return null;
+  }
+
+  return {
+    name: specName,
+    reason: formatFailureReason(specReport),
+  };
+}
+
 /**
  * Parses a Ginkgo JSON report into metrics and failed test names used by the
  * markdown report.
@@ -143,6 +162,15 @@ function parseGinkgoReport(jsonContent) {
 
   for (const suite of suites) {
     for (const specReport of toArray(suite && suite.SpecReports)) {
+      if (isSuiteNodeFailure(specReport)) {
+        const failureDetail = buildFailureDetail(specReport);
+        if (failureDetail) {
+          failedTests.push(failureDetail.name);
+          failedTestDetails.push(failureDetail);
+        }
+        continue;
+      }
+
       // SpecReports can contain suite-level setup/teardown entries
       // (BeforeSuite, AfterSuite, etc.) in addition to regular specs.
       // `Specify` is a pure alias for `It` and serializes to the same
@@ -156,13 +184,10 @@ function parseGinkgoReport(jsonContent) {
       metrics[metricKey] += 1;
 
       if (metricKey === "failed" || metricKey === "errors") {
-        const specName = formatSpecName(specReport);
-        if (specName) {
-          failedTests.push(specName);
-          failedTestDetails.push({
-            name: specName,
-            reason: formatFailureReason(specReport),
-          });
+        const failureDetail = buildFailureDetail(specReport);
+        if (failureDetail) {
+          failedTests.push(failureDetail.name);
+          failedTestDetails.push(failureDetail);
         }
       }
     }
@@ -189,6 +214,72 @@ function parseGinkgoReport(jsonContent) {
   };
 }
 
+function extractFailedSuiteNode(output) {
+  const failedNodeMatch =
+    output.match(/\[(SynchronizedBeforeSuite|BeforeSuite|SynchronizedAfterSuite|AfterSuite)\]\s+\[FAILED\]/) ||
+    output.match(/\[FAIL\]\s+\[(SynchronizedBeforeSuite|BeforeSuite|SynchronizedAfterSuite|AfterSuite)\]/);
+
+  return failedNodeMatch ? failedNodeMatch[1] : "";
+}
+
+function extractFailureReasonFromOutput(output, suiteNodeType) {
+  const failedMarker = `[${suiteNodeType}] [FAILED]`;
+  const failedIndex = output.indexOf(failedMarker);
+  const failureBlock = failedIndex >= 0 ? output.slice(failedIndex) : output;
+  const lines = failureBlock.split(/\r?\n/);
+  const reasonLines = [];
+
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine) {
+      continue;
+    }
+
+    if (
+      trimmedLine.startsWith("------------------------------") ||
+      trimmedLine.startsWith("[SynchronizedAfterSuite]") ||
+      trimmedLine.startsWith("[ReportAfterSuite]") ||
+      trimmedLine.startsWith("Summarizing ")
+    ) {
+      break;
+    }
+
+    if (trimmedLine.startsWith(failedMarker) || trimmedLine.startsWith("/")) {
+      continue;
+    }
+
+    reasonLines.push(trimmedLine.replace(/^\[FAILED\]\s*/, ""));
+    if (reasonLines.length >= 6) {
+      break;
+    }
+  }
+
+  return reasonLines.join("\n") || "Ginkgo suite setup failed";
+}
+
+function parseGinkgoOutput(outputContent) {
+  const output = String(outputContent || "");
+  const metrics = zeroMetrics();
+  const suiteNodeType = extractFailedSuiteNode(output);
+  const failedTests = [];
+  const failedTestDetails = [];
+
+  if (suiteNodeType) {
+    const name = `[${suiteNodeType}]`;
+    const reason = extractFailureReasonFromOutput(output, suiteNodeType);
+    failedTests.push(name);
+    failedTestDetails.push({ name, reason });
+  }
+
+  return {
+    metrics,
+    failedTests,
+    failedTestDetails,
+    startedAt: null,
+  };
+}
+
 module.exports = {
+  parseGinkgoOutput,
   parseGinkgoReport,
 };

@@ -1445,6 +1445,7 @@ jobs:
         run: |
           DATE=$(date +"%Y-%m-%d")
           e2e_report_file="e2e_report_${CSI}_${DATE}.json"
+          e2e_output_file="e2e_output_${CSI}_${DATE}.log"
           FOCUS="${{ inputs.e2e_focus_tests }}"
 
           cp -a legacy/testdata /tmp/testdata
@@ -1473,8 +1474,8 @@ jobs:
             GINKGO_ARGS+=(--focus="$FOCUS")
           fi
 
-          go tool ginkgo "${GINKGO_ARGS[@]}"
-          GINKGO_EXIT_CODE=$?
+          go tool ginkgo "${GINKGO_ARGS[@]}" 2>&1 | tee "$e2e_output_file"
+          GINKGO_EXIT_CODE=${PIPESTATUS[0]}
           set -e
 
           echo "[INFO] Exit code: $GINKGO_EXIT_CODE"
@@ -1488,6 +1489,7 @@ jobs:
           name: e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ inputs.date_start }}
           path: |
             test/e2e/e2e_report_*.json
+            test/e2e/e2e_output_*.log
           if-no-files-found: ignore
           overwrite: true
           retention-days: 3
