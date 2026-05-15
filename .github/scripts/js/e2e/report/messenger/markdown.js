@@ -74,48 +74,84 @@ function renderBranchLine(orderedReports) {
     : [];
 }
 
-function renderTestResultsSection(testsReports) {
-  const lines = [];
+// Test-results table columns. Each column declares its header, its alignment
+// for the markdown separator row, and how to render the value for a cluster.
+// The "Errors" column is included only when at least one cluster reported
+// Ginkgo errors, so successful runs stay compact.
+function buildTestResultsColumns(hasGinkgoErrors) {
+  const columns = [
+    {
+      header: ":dvp: Cluster",
+      align: "---",
+      value: (report) => formatClusterLink(report),
+    },
+    {
+      header: "✅ Passed",
+      align: "---:",
+      value: (_report, metrics) => metrics.passed || 0,
+    },
+    {
+      header: "⏭️ Skipped",
+      align: "---:",
+      value: (_report, metrics) => metrics.skipped || 0,
+    },
+    {
+      header: "❌ Failed",
+      align: "---:",
+      value: (_report, metrics) => metrics.failed || 0,
+    },
+  ];
 
-  if (testsReports.length > 0) {
-    const hasGinkgoErrors = testsReports.some(
-      (report) => Number((report.metrics || {}).errors || 0) > 0
-    );
-
-    lines.push("### Test results");
-    lines.push("");
-    lines.push(
-      hasGinkgoErrors
-        ? "| :dvp: Cluster | ✅ Passed | ⏭️ Skipped | ❌ Failed | ⚠️ Errors | 📊 Total | 📈 Success Rate |"
-        : "| :dvp: Cluster | ✅ Passed | ⏭️ Skipped | ❌ Failed | 📊 Total | 📈 Success Rate |"
-    );
-    lines.push(
-      hasGinkgoErrors
-        ? "|---|---:|---:|---:|---:|---:|---:|"
-        : "|---|---:|---:|---:|---:|---:|"
-    );
-
-    for (const report of testsReports) {
-      const metrics = report.metrics || {};
-      lines.push(
-        hasGinkgoErrors
-          ? `| ${formatClusterLink(report)} | ${metrics.passed || 0} | ${
-              metrics.skipped || 0
-            } | ${metrics.failed || 0} | ${metrics.errors || 0} | ${
-              metrics.total || 0
-            } | ${formatRate(metrics.successRate)} |`
-          : `| ${formatClusterLink(report)} | ${metrics.passed || 0} | ${
-              metrics.skipped || 0
-            } | ${metrics.failed || 0} | ${metrics.total || 0} | ${formatRate(
-              metrics.successRate
-            )} |`
-      );
-    }
-
-    lines.push("");
+  if (hasGinkgoErrors) {
+    columns.push({
+      header: "⚠️ Errors",
+      align: "---:",
+      value: (_report, metrics) => metrics.errors || 0,
+    });
   }
 
-  return lines;
+  columns.push(
+    {
+      header: "📊 Total",
+      align: "---:",
+      value: (_report, metrics) => metrics.total || 0,
+    },
+    {
+      header: "📈 Success Rate",
+      align: "---:",
+      value: (_report, metrics) => formatRate(metrics.successRate),
+    }
+  );
+
+  return columns;
+}
+
+function buildMarkdownRow(cells) {
+  return `| ${cells.join(" | ")} |`;
+}
+
+function renderTestResultsSection(testsReports) {
+  if (testsReports.length === 0) {
+    return [];
+  }
+
+  const hasGinkgoErrors = testsReports.some(
+    (report) => Number((report.metrics || {}).errors || 0) > 0
+  );
+  const columns = buildTestResultsColumns(hasGinkgoErrors);
+  const rows = [
+    buildMarkdownRow(columns.map((column) => column.header)),
+    buildMarkdownRow(columns.map((column) => column.align)),
+  ];
+
+  for (const report of testsReports) {
+    const metrics = report.metrics || {};
+    rows.push(
+      buildMarkdownRow(columns.map((column) => column.value(report, metrics)))
+    );
+  }
+
+  return ["### Test results", "", ...rows, ""];
 }
 
 function renderClusterFailuresSection(stageFailureReports) {
@@ -234,20 +270,16 @@ function getFailedTestEntries(report) {
   }));
 }
 
-function summarizeFailedTestGroups(failedTestEntries) {
+function summarizeFailedTestGroups(report) {
   const groups = new Map();
 
-  for (const test of failedTestEntries) {
+  for (const test of getFailedTestEntries(report)) {
     const groupName = getFailedTestGroupName(test.name);
     const reason = sanitizeListItem(test.reason) || "—";
     if (!groups.has(groupName)) {
-      groups.set(groupName, {
-        reasons: new Set(),
-      });
+      groups.set(groupName, { reasons: new Set() });
     }
-
-    const group = groups.get(groupName);
-    group.reasons.add(reason);
+    groups.get(groupName).reasons.add(reason);
   }
 
   return Array.from(groups, ([name, group]) => ({
@@ -260,9 +292,7 @@ function renderFailedTestsThreadMessage(report) {
   const lines = [`**${formatClusterLink(report)}**`];
 
   if (Array.isArray(report.failedTests) && report.failedTests.length > 0) {
-    const failedGroups = summarizeFailedTestGroups(
-      getFailedTestEntries(report)
-    );
+    const failedGroups = summarizeFailedTestGroups(report);
     lines.push("");
     lines.push("| Tests | Reason |");
     lines.push("|---|---|");
