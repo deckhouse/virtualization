@@ -983,7 +983,7 @@ var _ = Describe("LifecycleHandler", func() {
 			ifName     = "eth0.999"
 		)
 
-		makeNode := func(name string, annotationVal string) *corev1.Node {
+		makeNode := func(name, annotationVal string) *corev1.Node {
 			n := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: name}}
 			if annotationVal != "" {
 				n.Annotations = map[string]string{annotations.AnnMigrationIface: annotationVal}

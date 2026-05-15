@@ -57,8 +57,8 @@ func newFakeClient(objs ...client.Object) client.WithWatch {
 	return b.Build()
 }
 
-func newNode(name, annotationVal string) *corev1.Node {
-	n := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: name}}
+func newNode(annotationVal string) *corev1.Node {
+	n := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: testNode}}
 	if annotationVal != "" {
 		n.Annotations = map[string]string{annotations.AnnMigrationIface: annotationVal}
 	}
@@ -79,10 +79,10 @@ func newSNNNIA(name, sn, nodeName, nniName string) *unstructured.Unstructured {
 	return u
 }
 
-func newNNI(name, ifName string) *unstructured.Unstructured {
+func newNNI(ifName string) *unstructured.Unstructured {
 	u := &unstructured.Unstructured{}
 	u.SetGroupVersionKind(nniGVK)
-	u.SetName(name)
+	u.SetName(testNNIName)
 	if ifName != "" {
 		_ = unstructured.SetNestedField(u.Object, ifName, "status", "ifName")
 	}
@@ -106,50 +106,50 @@ var _ = Describe("Reconciler", func() {
 		Expect(err).NotTo(HaveOccurred())
 	}
 
-	getNode := func(c client.Client, nodeName string) *corev1.Node {
+	getNode := func(c client.Client) *corev1.Node {
 		GinkgoHelper()
 		n := &corev1.Node{}
-		Expect(c.Get(context.Background(), client.ObjectKey{Name: nodeName}, n)).To(Succeed())
+		Expect(c.Get(context.Background(), client.ObjectKey{Name: testNode}, n)).To(Succeed())
 		return n
 	}
 
 	It("sets the annotation from SNNNIA + NNI when the node has none", func() {
 		c := newFakeClient(
-			newNode(testNode, ""),
+			newNode(""),
 			newSNNNIA("attachment-1", testSystemNetworkName, testNode, testNNIName),
-			newNNI(testNNIName, testIfName),
+			newNNI(testIfName),
 		)
 		reconcileNode(c, testNode)
-		Expect(getNode(c, testNode).Annotations[annotations.AnnMigrationIface]).To(Equal(testIfName))
+		Expect(getNode(c).Annotations[annotations.AnnMigrationIface]).To(Equal(testIfName))
 	})
 
 	It("does not patch when annotation already matches the resolved value", func() {
-		node := newNode(testNode, testIfName)
+		node := newNode(testIfName)
 		c := newFakeClient(
 			node,
 			newSNNNIA("attachment-1", testSystemNetworkName, testNode, testNNIName),
-			newNNI(testNNIName, testIfName),
+			newNNI(testIfName),
 		)
 		rvBefore := node.ResourceVersion
 
 		reconcileNode(c, testNode)
 
-		got := getNode(c, testNode)
+		got := getNode(c)
 		Expect(got.Annotations[annotations.AnnMigrationIface]).To(Equal(testIfName))
 		Expect(got.ResourceVersion).To(Equal(rvBefore), "ResourceVersion bump indicates a spurious patch")
 	})
 
 	It("clears a stale annotation when no matching SNNNIA exists", func() {
-		c := newFakeClient(newNode(testNode, "stale-iface"))
+		c := newFakeClient(newNode("stale-iface"))
 		reconcileNode(c, testNode)
-		_, present := getNode(c, testNode).Annotations[annotations.AnnMigrationIface]
+		_, present := getNode(c).Annotations[annotations.AnnMigrationIface]
 		Expect(present).To(BeFalse())
 	})
 
 	It("is a no-op when node has no annotation and resolver returns empty", func() {
-		c := newFakeClient(newNode(testNode, ""))
+		c := newFakeClient(newNode(""))
 		reconcileNode(c, testNode)
-		_, present := getNode(c, testNode).Annotations[annotations.AnnMigrationIface]
+		_, present := getNode(c).Annotations[annotations.AnnMigrationIface]
 		Expect(present).To(BeFalse())
 	})
 
@@ -162,22 +162,22 @@ var _ = Describe("Reconciler", func() {
 
 	It("skips SNNNIA for a different SystemNetwork", func() {
 		c := newFakeClient(
-			newNode(testNode, ""),
+			newNode(""),
 			newSNNNIA("attachment-other", "other-sn", testNode, testNNIName),
-			newNNI(testNNIName, testIfName),
+			newNNI(testIfName),
 		)
 		reconcileNode(c, testNode)
-		_, present := getNode(c, testNode).Annotations[annotations.AnnMigrationIface]
+		_, present := getNode(c).Annotations[annotations.AnnMigrationIface]
 		Expect(present).To(BeFalse(), "must not annotate from an attachment belonging to another SystemNetwork")
 	})
 
 	It("skips SNNNIA without status.nodeName (IPAM-failed attachments)", func() {
 		c := newFakeClient(
-			newNode(testNode, ""),
+			newNode(""),
 			newSNNNIA("attachment-ipam-failed", testSystemNetworkName, "", ""),
 		)
 		reconcileNode(c, testNode)
-		_, present := getNode(c, testNode).Annotations[annotations.AnnMigrationIface]
+		_, present := getNode(c).Annotations[annotations.AnnMigrationIface]
 		Expect(present).To(BeFalse())
 	})
 
@@ -195,7 +195,7 @@ var _ = Describe("Reconciler", func() {
 		It("returns empty when the NNI has no status.ifName yet", func() {
 			c := newFakeClient(
 				newSNNNIA("attachment-1", testSystemNetworkName, testNode, testNNIName),
-				newNNI(testNNIName, ""),
+				newNNI(""),
 			)
 			r = NewReconciler(c, testSystemNetworkName, log.NewNop())
 			got, err := r.resolveInterfaceForNode(context.Background(), testNode)
