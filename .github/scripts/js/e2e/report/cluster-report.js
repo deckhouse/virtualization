@@ -182,6 +182,16 @@ function findGinkgoReport(config) {
   );
 }
 
+/**
+ * Locates a single Ginkgo stdout/stderr fallback log for the configured
+ * storage type. Used as a fallback report source when the primary
+ * `e2e_report_*.json` file is missing (for example, when Ginkgo failed in
+ * a suite setup node and produced no JSON report).
+ *
+ * @param {ClusterReportConfig} config Resolved cluster report config.
+ * @returns {string|null} Path to the log file, or null when none exists.
+ * @throws {Error} When more than one matching log file is found.
+ */
 function findGinkgoOutput(config) {
   const outputPattern = ginkgoOutputPattern(config.storageType);
 
@@ -192,6 +202,20 @@ function findGinkgoOutput(config) {
   );
 }
 
+/**
+ * Builds a parsed-report payload used as a placeholder when no source data
+ * is available, so the downstream report builder can keep working with a
+ * uniform shape.
+ *
+ * @param {string} source Source label to record on the placeholder.
+ * @returns {{
+ *   metrics: ReturnType<typeof zeroMetrics>,
+ *   failedTests: string[],
+ *   failedTestDetails: Array<{name: string, reason: string}>,
+ *   startedAt: null,
+ *   source: string,
+ * }} Empty parsed-report payload.
+ */
 function emptyParsedReport(source) {
   return {
     metrics: zeroMetrics(),
@@ -216,6 +240,36 @@ const ginkgoOutputSource = {
   parse: parseGinkgoOutput,
 };
 
+/**
+ * @typedef {Object} GinkgoSourceDescriptor
+ * @property {string} label Human-readable source name for log lines and warnings.
+ * @property {string} okSource Source tag stored on a successful parse result.
+ * @property {string} invalidSource Source tag stored when parsing fails.
+ * @property {function(string): {
+ *   metrics: ReturnType<typeof zeroMetrics>,
+ *   failedTests: string[],
+ *   failedTestDetails: Array<{name: string, reason: string}>,
+ *   startedAt: string|null,
+ * }} parse Parser function for the source content.
+ */
+
+/**
+ * Reads and parses a Ginkgo source file (JSON report or stdout log) using
+ * the provided source descriptor. Returns an empty placeholder when the
+ * file path is missing or the parser throws, so the caller always receives
+ * a consistent parsed-report shape.
+ *
+ * @param {string|null} filePath Path to the source file, or null/empty.
+ * @param {ClusterReportCore} core GitHub Actions core API.
+ * @param {GinkgoSourceDescriptor} source Source descriptor.
+ * @returns {{
+ *   metrics: ReturnType<typeof zeroMetrics>,
+ *   failedTests: string[],
+ *   failedTestDetails: Array<{name: string, reason: string}>,
+ *   startedAt: string|null,
+ *   source: string,
+ * }} Parsed report payload with a source tag.
+ */
 function parseGinkgoFile(filePath, core, source) {
   if (!filePath) {
     return emptyParsedReport("empty");

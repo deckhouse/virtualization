@@ -74,10 +74,26 @@ function renderBranchLine(orderedReports) {
     : [];
 }
 
-// Test-results table columns. Each column declares its header, its alignment
-// for the markdown separator row, and how to render the value for a cluster.
-// The "Errors" column is included only when at least one cluster reported
-// Ginkgo errors, so successful runs stay compact.
+/**
+ * @typedef {Object} TestResultsColumn
+ * @property {string} header Column header text rendered in the markdown row.
+ * @property {string} align Column alignment for the markdown separator row
+ *   (for example, "---" or "---:").
+ * @property {function(Record<string, any>, Record<string, any>): (string|number)} value
+ *   Cell renderer that receives the cluster report and its metrics object.
+ */
+
+/**
+ * Builds the column descriptors for the test-results markdown table.
+ *
+ * Each column declares its header, its alignment for the markdown
+ * separator row, and how to render the value for a cluster. The "Errors"
+ * column is included only when at least one cluster reported Ginkgo
+ * errors, so successful runs stay compact.
+ *
+ * @param {boolean} hasGinkgoErrors Whether any cluster reported Ginkgo errors.
+ * @returns {TestResultsColumn[]} Ordered list of columns to render.
+ */
 function buildTestResultsColumns(hasGinkgoErrors) {
   const columns = [
     {
@@ -126,6 +142,12 @@ function buildTestResultsColumns(hasGinkgoErrors) {
   return columns;
 }
 
+/**
+ * Joins a list of cells into a single markdown table row.
+ *
+ * @param {Array<string|number>} cells Ordered cell values for one row.
+ * @returns {string} Markdown row string framed with pipe characters.
+ */
 function buildMarkdownRow(cells) {
   return `| ${cells.join(" | ")} |`;
 }
@@ -270,6 +292,16 @@ function getFailedTestEntries(report) {
   }));
 }
 
+/**
+ * Aggregates failed test entries from a cluster report into a deduplicated
+ * list of "group" rows for the failed-tests thread message. Tests are
+ * grouped by the first word of their leaf node text (or by the leading
+ * Ginkgo tag for suite-level failures); reasons for the same group are
+ * deduplicated and joined with "; ".
+ *
+ * @param {Record<string, any>} report Cluster report payload.
+ * @returns {Array<{name: string, reason: string}>} Group rows for the thread table.
+ */
 function summarizeFailedTestGroups(report) {
   const groups = new Map();
 

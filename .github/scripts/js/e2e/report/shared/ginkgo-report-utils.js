@@ -246,6 +246,14 @@ const reasonStopPrefixes = [
 
 const maxReasonLines = 6;
 
+/**
+ * Detects the first suite-level Ginkgo node that failed in the given stdout.
+ * Returns the suite node name (for example, "SynchronizedBeforeSuite") or
+ * an empty string when there is no suite failure marker in the output.
+ *
+ * @param {string} output Raw Ginkgo stdout/stderr content.
+ * @returns {string} Suite node name or "" when no failure was detected.
+ */
 function findFailedSuiteNode(output) {
   const match = output.match(suiteNodePattern);
   if (!match) {
@@ -269,6 +277,19 @@ function isReasonNoiseLine(line, suiteHeader, failedMarker) {
   );
 }
 
+/**
+ * Extracts a short human-readable failure reason for a failed suite-level
+ * node from Ginkgo stdout. Walks the failure block starting at the
+ * "[<SuiteNode>] [FAILED]" marker, skipping section headers and source
+ * file locations, and stops at the next suite/report section or summary
+ * footer. The result is at most `maxReasonLines` non-empty lines joined
+ * with a newline, or a generic fallback string when nothing meaningful
+ * was found.
+ *
+ * @param {string} output Raw Ginkgo stdout/stderr content.
+ * @param {string} suiteNodeType Suite node name returned by `findFailedSuiteNode`.
+ * @returns {string} Multi-line reason string for the failed suite node.
+ */
 function extractFailureReasonFromOutput(output, suiteNodeType) {
   const suiteHeader = `[${suiteNodeType}]`;
   const failedMarker = `${suiteHeader} [FAILED]`;
@@ -297,6 +318,21 @@ function extractFailureReasonFromOutput(output, suiteNodeType) {
   return reasonLines.join("\n") || "Ginkgo suite setup failed";
 }
 
+/**
+ * Parses raw Ginkgo stdout/stderr output as a fallback report source for
+ * cases when the JSON report is missing. Currently surfaces only
+ * suite-level failures (BeforeSuite/AfterSuite); regular spec metrics are
+ * left at zero because per-spec accounting cannot be reliably recovered
+ * from plain text.
+ *
+ * @param {string} outputContent Raw Ginkgo output content.
+ * @returns {{
+ *   metrics: GinkgoMetrics,
+ *   failedTests: string[],
+ *   failedTestDetails: Array<{name: string, reason: string}>,
+ *   startedAt: null,
+ * }} Parsed fallback payload.
+ */
 function parseGinkgoOutput(outputContent) {
   const output = String(outputContent || "");
   const suiteNodeType = findFailedSuiteNode(output);
