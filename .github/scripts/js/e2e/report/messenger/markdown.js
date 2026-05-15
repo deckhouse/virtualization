@@ -86,8 +86,8 @@ function renderTestResultsSection(testsReports) {
     lines.push("");
     lines.push(
       hasGinkgoErrors
-        ? "| Cluster | ✅ Passed | ⏭️ Skipped | ❌ Failed | ⚠️ Errors | Total | Success Rate |"
-        : "| Cluster | ✅ Passed | ⏭️ Skipped | ❌ Failed | Total | Success Rate |"
+        ? "| :dvp: Cluster | ✅ Passed | ⏭️ Skipped | ❌ Failed | ⚠️ Errors | 📊 Total | 📈 Success Rate |"
+        : "| :dvp: Cluster | ✅ Passed | ⏭️ Skipped | ❌ Failed | 📊 Total | 📈 Success Rate |"
     );
     lines.push(
       hasGinkgoErrors
