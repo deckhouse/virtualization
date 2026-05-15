@@ -319,7 +319,7 @@ func (b *KVVM) setCPUHotpluggable(cores int, coreFraction string) error {
 		domainSpec.CPU = &virtv1.CPU{}
 	}
 
-	fraction, err := GetCPUFraction(coreFraction)
+	fraction, err := ParseCPUCoreFraction(coreFraction)
 	if err != nil {
 		return err
 	}
@@ -441,14 +441,14 @@ func shouldKeepMemoryNonHotpluggable(kvvm *virtv1.VirtualMachine) bool {
 	return false
 }
 
-func GetCPUFraction(cpuFraction string) (int, error) {
+func ParseCPUCoreFraction(cpuFraction string) (int, error) {
 	if cpuFraction == "" {
 		return 100, nil
 	}
 	fraction := intstr.FromString(cpuFraction)
 	value, _, err := getIntOrPercentValueSafely(&fraction)
 	if err != nil {
-		return 0, fmt.Errorf("invalid value for cpu fraction: %w", err)
+		return 0, fmt.Errorf("invalid value for cpu core fraction: %w", err)
 	}
 	return value, nil
 }

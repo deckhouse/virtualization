@@ -18,11 +18,13 @@ package util
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -35,9 +37,9 @@ import (
 // It accepts a runtime.Object (which serves as a template with name and namespace),
 // expected phase string, and timeout duration.
 // The GVK is automatically extracted from the object via the client's scheme.
-func UntilObjectPhase(expectedPhase string, timeout time.Duration, objs ...client.Object) {
+func UntilObjectPhase(ctx context.Context, expectedPhase string, timeout time.Duration, objs ...client.Object) {
 	GinkgoHelper()
-	untilObjectField("status.phase", expectedPhase, timeout, objs...)
+	untilObjectField(ctx, "status.phase", expectedPhase, timeout, objs...)
 }
 
 // UntilConditionReason waits for the specified conditionType in status.conditions to have the given reason value for all provided objects.
@@ -53,6 +55,18 @@ func UntilConditionReason(ctx context.Context, conditionType, expectedReason str
 		Reason:      expectedReason,
 		CheckReason: true,
 	}, objs...)
+}
+
+// UntilObjectsDeleted waits for objects to be deleted.
+func UntilObjectsDeleted(ctx context.Context, timeout time.Duration, objs ...client.Object) {
+	GinkgoHelper()
+	Eventually(func(g Gomega) {
+		for _, obj := range objs {
+			u := getTemplateUnstructured(obj).DeepCopy()
+			err := framework.GetClients().GenericClient().Get(ctx, client.ObjectKeyFromObject(obj), u)
+			g.Expect(k8serrors.IsNotFound(err)).To(BeTrue(), fmt.Sprintf("object %s must be removed", extractObjectNamespacedNameString(obj)))
+		}
+	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
 
 // UntilConditionStatus waits for the specified conditionType in status.conditions to have the given status value for all provided objects.
@@ -151,9 +165,9 @@ func UntilConditionState(
 // It accepts a runtime.Object (which serves as a template with name and namespace),
 // expected state string, and timeout duration.
 // The GVK is automatically extracted from the object via the client's scheme.
-func UntilObjectState(expectedState string, timeout time.Duration, objs ...client.Object) {
+func UntilObjectState(ctx context.Context, expectedState string, timeout time.Duration, objs ...client.Object) {
 	GinkgoHelper()
-	untilObjectField("status.state", expectedState, timeout, objs...)
+	untilObjectField(ctx, "status.state", expectedState, timeout, objs...)
 }
 
 // extractField extracts a string value from an unstructured object at the provided fieldPath (dot-separated, e.g. "status.phase" or "metadata.name").
@@ -175,26 +189,20 @@ func extractField(obj client.Object, fieldPath string) string {
 // fieldPath (dot-separated path to the field, e.g. "status.phase" or "metadata.name"),
 // expected value string, field name for error messages, and timeout duration.
 // The GVK is automatically extracted from the object via the client's scheme.
-func untilObjectField(fieldPath, expectedValue string, timeout time.Duration, objs ...client.Object) {
+func untilObjectField(ctx context.Context, fieldPath, expectedValue string, timeout time.Duration, objs ...client.Object) {
 	Eventually(func(g Gomega) {
 		for _, obj := range objs {
 			key := client.ObjectKeyFromObject(obj)
-			name := obj.GetName()
-			namespace := obj.GetNamespace()
-			divider := ""
-			if namespace != "" {
-				divider = "/"
-			}
 
 			// Create a new unstructured object for each Get call
 			u := getTemplateUnstructured(obj).DeepCopy()
-			err := framework.GetClients().GenericClient().Get(context.Background(), key, u)
+			err := framework.GetClients().GenericClient().Get(ctx, key, u)
 			if err != nil {
-				g.Expect(err).NotTo(HaveOccurred(), "failed to get object %s%s%s", namespace, divider, name)
+				g.Expect(err).NotTo(HaveOccurred(), "failed to get object %s", extractObjectNamespacedNameString(obj))
 			}
 
 			value := extractField(u, fieldPath)
-			g.Expect(value).To(Equal(expectedValue), "object %s%s%s %s is %s, expected %s", namespace, divider, name, fieldPath, value, expectedValue)
+			g.Expect(value).To(Equal(expectedValue), "object %s %s is %s, expected %s", extractObjectNamespacedNameString(obj), fieldPath, value, expectedValue)
 		}
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
@@ -226,4 +234,15 @@ func getTemplateUnstructured(obj client.Object) *unstructured.Unstructured {
 		templateUnstructured.SetGroupVersionKind(gvk)
 	}
 	return templateUnstructured
+}
+
+func extractObjectNamespacedNameString(obj client.Object) string {
+	name := obj.GetName()
+	namespace := obj.GetNamespace()
+	divider := ""
+	if namespace != "" {
+		divider = "/"
+	}
+
+	return fmt.Sprintf("%s%s%s", namespace, divider, name)
 }

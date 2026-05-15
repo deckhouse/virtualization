@@ -54,9 +54,11 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", Label(precheck.NoPrech
 
 		f            *framework.Framework
 		storageClass *storagev1.StorageClass
+		ctx          context.Context
 	)
 
 	BeforeEach(func() {
+		ctx = context.Background()
 		f = framework.NewFramework("vm-live-migration-tcp-session")
 		storageClass = framework.GetConfig().StorageClass.TemplateStorageClass
 
@@ -88,10 +90,10 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", Label(precheck.NoPrech
 			iperfServer = newVirtualMachine(iperfServerName, f.Namespace().Name, iperfServerDisk, object.PerfCloudInit)
 			iperfClient = newVirtualMachine(iperfClientName, f.Namespace().Name, iperfClientDisk, object.AlpineCloudInit)
 
-			err := f.CreateWithDeferredDeletion(context.Background(), iperfServerDisk, iperfClientDisk, iperfServer, iperfClient)
+			err := f.CreateWithDeferredDeletion(ctx, iperfServerDisk, iperfClientDisk, iperfServer, iperfClient)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, iperfServer, iperfClient)
+			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, iperfServer, iperfClient)
 		})
 
 		By("Wait for the iPerf server to start", func() {
@@ -101,7 +103,7 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", Label(precheck.NoPrech
 		By("Run the iPerf client", func() {
 			Expect(isAlpineSSHDStarted(f, iperfClient.Name, iperfClient.Namespace)).To(BeTrue(), "the SSHD service status should be `started`")
 
-			iperfServer, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(context.Background(), iperfServer.Name, metav1.GetOptions{})
+			iperfServer, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(ctx, iperfServer.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			cmd := fmt.Sprintf("nohup iperf3 -c %s -t 0 --json > ~/%s 2>&1 < /dev/null &", iperfServer.Status.IPAddress, reportName)
@@ -121,7 +123,7 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", Label(precheck.NoPrech
 		})
 
 		By("Check the iPerf client report", func() {
-			iperfServer, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(context.Background(), iperfServerName, metav1.GetOptions{})
+			iperfServer, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(ctx, iperfServerName, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			stopIPerfClient(iperfClient.Name, f.Namespace().Name, f)
 			report = getIPerfClientReport(iperfClient.Name, f.Namespace().Name, reportName, f)

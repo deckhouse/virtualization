@@ -23,11 +23,15 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 
+	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
 const (
-	postCleanupPrecheckEnvName = "POST_CLEANUP"
+	// POST_CLEANUP_PRECHECK controls whether the precheck runs.
+	// Precheck validates that POST_CLEANUP has a valid value.
+	// Set to "no" to disable precheck execution.
+	postCleanupPrecheckEnvName = "POST_CLEANUP_PRECHECK"
 )
 
 // postcleanupPrecheck implements Precheck interface for postcleanup option.
@@ -44,13 +48,13 @@ func (c *postcleanupPrecheck) Run(ctx context.Context, f *framework.Framework) e
 		return nil
 	}
 
-	// Validate POST_CLEANUP env var
-	env := os.Getenv(postCleanupPrecheckEnvName)
+	// Validate POST_CLEANUP env var (controls cleanup behavior)
+	env := os.Getenv(config.PostCleanupEnv)
 	switch env {
 	case "yes", "no", "":
 		// valid values
 	default:
-		return fmt.Errorf("invalid value for the %s env: %q (allowed: \"\", \"yes\", \"no\")", postCleanupPrecheckEnvName, env)
+		return fmt.Errorf("invalid value for the %s env: %q (allowed: \"\", \"yes\", \"no\")", config.PostCleanupEnv, env)
 	}
 
 	return nil

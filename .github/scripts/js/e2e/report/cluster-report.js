@@ -1,0 +1,357 @@
+// Copyright 2026 Flant JSC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//     http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+const fs = require("fs");
+
+const { findSingleMatchingFile } = require("./shared/fs-utils");
+const { parseGinkgoReport } = require("./shared/ginkgo-report-utils");
+const {
+  archivedReportPattern,
+  buildClusterStatus,
+  buildReportSummary,
+  buildTestStatus,
+  reportFileName,
+  zeroMetrics,
+} = require("./shared/report-model");
+
+/**
+ * @typedef {Record<string, string|undefined>} StageResults
+ */
+
+/**
+ * @typedef {Record<string, string|undefined>} StageUrls
+ */
+
+/**
+ * @typedef {Object} ClusterReportCore
+ * @property {function(string): void} info
+ * @property {function(string): void} warning
+ * @property {function(string, string): void} setOutput
+ */
+
+/**
+ * @typedef {Object} ClusterReportContext
+ * @property {string} serverUrl
+ * @property {{ owner: string, repo: string }} repo
+ * @property {string|number} runId
+ * @property {string} [ref]
+ */
+
+/**
+ * @typedef {Object} ClusterReportConfig
+ * @property {string} storageType
+ * @property {string} pipelineJobName
+ * @property {string} reportsDir
+ * @property {string} reportFile
+ * @property {StageResults} stageResults
+ * @property {StageUrls} [stageJobUrls]
+ */
+
+/**
+ * @typedef {Object} ClusterReportParams
+ * @property {ClusterReportCore} core
+ * @property {ClusterReportContext} context
+ * @property {any} [github]
+ * @property {ClusterReportConfig} [config]
+ */
+
+const workflowStages = [
+  { name: "bootstrap",            displayName: "Bootstrap cluster",        needsJobId: "bootstrap" },
+  { name: "configure-sdn",        displayName: "Configure SDN",            needsJobId: "configure-sdn" },
+  { name: "storage-setup",        displayName: "Configure storage",        needsJobId: "configure-storage" },
+  { name: "virtualization-setup", displayName: "Configure Virtualization", needsJobId: "configure-virtualization" },
+  { name: "e2e-test",             displayName: "E2E test",                 needsJobId: "e2e-test" },
+];
+
+function readClusterReportConfigFromEnv(env = process.env) {
+  const storageType = String(env.STORAGE_TYPE || "").trim();
+
+  return {
+    storageType,
+    pipelineJobName: String(env.PIPELINE_JOB_NAME || "").trim(),
+    reportsDir: env.REPORTS_DIR || "test/e2e",
+    reportFile: env.REPORT_FILE || reportFileName(storageType),
+  };
+}
+
+function requireClusterReportConfig(config) {
+  if (!config.storageType) {
+    throw new Error("buildClusterReport requires storageType");
+  }
+
+  if (!config.reportsDir) {
+    throw new Error("buildClusterReport requires reportsDir");
+  }
+
+  if (!config.reportFile) {
+    throw new Error("buildClusterReport requires reportFile");
+  }
+
+  return { ...config };
+}
+
+function getWorkflowRunUrl(context) {
+  return `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+}
+
+function getBranchName(context) {
+  return String(context.ref || "").replace(/^refs\/heads\//, "");
+}
+
+async function listWorkflowRunJobs(github, context) {
+  if (!github || !github.rest || !github.rest.actions) {
+    throw new Error("buildClusterReport requires github client");
+  }
+
+  const params = {
+    owner: context.repo.owner,
+    repo: context.repo.repo,
+    run_id: context.runId,
+    per_page: 100,
+  };
+
+  if (github.paginate) {
+    return github.paginate(github.rest.actions.listJobsForWorkflowRun, params);
+  }
+
+  const response = await github.rest.actions.listJobsForWorkflowRun(params);
+  return response.data.jobs || [];
+}
+
+function findWorkflowJob(jobs, pipelineJobName, jobName) {
+  const nestedJobName = pipelineJobName ? `${pipelineJobName} / ${jobName}` : "";
+
+  return (
+    jobs.find((job) => job.name === nestedJobName) ||
+    jobs.find((job) => job.name === jobName) ||
+    jobs.find((job) => String(job.name || "").endsWith(` / ${jobName}`))
+  );
+}
+
+function readStageResultsFromEnv(env = process.env) {
+  let needs = {};
+  try {
+    needs = JSON.parse(env.NEEDS_CONTEXT || "{}");
+  } catch {
+    // malformed JSON — treat all stages as skipped
+  }
+
+  const stageResults = {};
+  for (const { name, needsJobId } of workflowStages) {
+    stageResults[name] = String((needs[needsJobId] || {}).result || "").trim() || "skipped";
+  }
+  return stageResults;
+}
+
+async function readStageJobUrlsFromApi(github, context, config, core) {
+  const jobs = await listWorkflowRunJobs(github, context);
+  const stageJobUrls = {};
+
+  for (const { name, displayName } of workflowStages) {
+    const job = findWorkflowJob(jobs, config.pipelineJobName, displayName);
+    if (job) {
+      stageJobUrls[name] = job.html_url || "";
+    } else {
+      core.warning(`Unable to find workflow job "${displayName}" for E2E report`);
+    }
+  }
+
+  return stageJobUrls;
+}
+
+function findGinkgoReport(config) {
+  const rawReportPattern = archivedReportPattern(config.storageType);
+
+  return findSingleMatchingFile(
+    config.reportsDir,
+    rawReportPattern,
+    "Ginkgo JSON report"
+  );
+}
+
+function parseGinkgoReportFile(rawReportPath, core) {
+  if (!rawReportPath) {
+    return {
+      metrics: zeroMetrics(),
+      failedTests: [],
+      startedAt: null,
+      source: "empty",
+    };
+  }
+
+  core.info(`Found Ginkgo JSON report: ${rawReportPath}`);
+  try {
+    return {
+      ...parseGinkgoReport(fs.readFileSync(rawReportPath, "utf8")),
+      source: "ginkgo-json",
+    };
+  } catch (error) {
+    core.warning(
+      `Unable to parse Ginkgo JSON report ${rawReportPath}: ${error.message}`
+    );
+    return {
+      metrics: zeroMetrics(),
+      failedTests: [],
+      startedAt: null,
+      source: "ginkgo-json-invalid",
+    };
+  }
+}
+
+function buildReportPayload({
+  config,
+  context,
+  fallbackWorkflowRunUrl,
+  branchName,
+  parsedReport,
+  rawReportPath,
+}) {
+  const clusterStatus = buildClusterStatus(config.stageResults);
+  const testStatus = buildTestStatus(
+    config.stageResults["e2e-test"],
+    parsedReport.source,
+    clusterStatus,
+    parsedReport.metrics
+  );
+  const reportSummary = buildReportSummary(
+    config.storageType,
+    clusterStatus,
+    testStatus
+  );
+  const workflowRunUrl = getReportJobUrl(
+    reportSummary,
+    config.stageJobUrls,
+    fallbackWorkflowRunUrl
+  );
+
+  return {
+    schemaVersion: 1,
+    cluster: config.storageType,
+    storageType: config.storageType,
+    reportKind: reportSummary.reportKind,
+    status: reportSummary.status,
+    statusMessage: reportSummary.statusMessage,
+    failedStage: reportSummary.failedStage,
+    failedStageLabel: reportSummary.failedStageLabel,
+    failedJobName: reportSummary.failedJobName,
+    workflowRunId: String(context.runId),
+    workflowRunUrl,
+    branch: branchName,
+    clusterStatus,
+    testStatus,
+    startedAt: parsedReport.startedAt,
+    metrics: parsedReport.metrics,
+    failedTests: parsedReport.failedTests,
+    sourceReport: rawReportPath,
+    reportSource: parsedReport.source,
+  };
+}
+
+function getReportJobUrl(
+  reportSummary,
+  stageJobUrls = {},
+  fallbackWorkflowRunUrl
+) {
+  if (reportSummary.failedStage && stageJobUrls[reportSummary.failedStage]) {
+    return stageJobUrls[reportSummary.failedStage];
+  }
+
+  if (stageJobUrls["e2e-test"]) {
+    return stageJobUrls["e2e-test"];
+  }
+
+  return fallbackWorkflowRunUrl;
+}
+
+/**
+ * Exposes the generated report fields as GitHub Actions step outputs.
+ *
+ * @param {Record<string, any>} report Final cluster report payload.
+ * @param {string} reportFile Path to the written JSON report file.
+ * @param {ClusterReportCore} core GitHub core API.
+ */
+function setReportOutputs(report, reportFile, core) {
+  core.setOutput("report_file", reportFile);
+  core.setOutput("report_kind", report.reportKind || "");
+  core.setOutput("status", report.status || "");
+  core.setOutput("failed_stage", report.failedStage || "");
+  core.setOutput("failed_stage_label", report.failedStageLabel || "");
+  core.setOutput("workflow_run_url", report.workflowRunUrl || "");
+  core.setOutput("branch", report.branch || "");
+}
+
+/**
+ * Builds a per-cluster JSON report from workflow stage results and an optional
+ * raw Ginkgo JSON report, writes it to disk, and publishes step outputs.
+ *
+ * @param {ClusterReportParams} params GitHub script dependencies.
+ * @returns {Promise<Record<string, any>>} Generated cluster report.
+ * @throws {Error} If config is incomplete or the report file cannot be written.
+ */
+async function buildClusterReport({ core, context, github, config } = {}) {
+  const resolvedConfig = requireClusterReportConfig(
+    config || readClusterReportConfigFromEnv()
+  );
+
+  if (!resolvedConfig.stageResults) {
+    resolvedConfig.stageResults = readStageResultsFromEnv();
+  }
+
+  if (!resolvedConfig.stageJobUrls && github) {
+    resolvedConfig.stageJobUrls = await readStageJobUrlsFromApi(
+      github,
+      context,
+      resolvedConfig,
+      core
+    );
+  }
+
+  const fallbackWorkflowRunUrl = getWorkflowRunUrl(context);
+  const branchName = getBranchName(context);
+  const rawReportPath = findGinkgoReport(resolvedConfig);
+
+  if (!rawReportPath) {
+    core.warning(
+      `Ginkgo JSON report was not found for ${resolvedConfig.storageType} under ${resolvedConfig.reportsDir}`
+    );
+  }
+
+  const parsedReport = parseGinkgoReportFile(rawReportPath, core);
+  const report = buildReportPayload({
+    config: resolvedConfig,
+    context,
+    fallbackWorkflowRunUrl,
+    branchName,
+    parsedReport,
+    rawReportPath,
+  });
+
+  try {
+    fs.writeFileSync(
+      resolvedConfig.reportFile,
+      `${JSON.stringify(report, null, 2)}\n`
+    );
+  } catch (error) {
+    throw new Error(
+      `Unable to write cluster report file ${resolvedConfig.reportFile}: ${error.message}`
+    );
+  }
+
+  setReportOutputs(report, resolvedConfig.reportFile, core);
+  core.info(`Created report file: ${resolvedConfig.reportFile}`);
+  core.info(JSON.stringify(report, null, 2));
+
+  return report;
+}
+
+module.exports = buildClusterReport;
+module.exports.readClusterReportConfigFromEnv = readClusterReportConfigFromEnv;
