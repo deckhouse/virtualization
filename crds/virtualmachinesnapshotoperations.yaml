@@ -48,15 +48,21 @@ spec:
             - apiVersion: virtualization.deckhouse.io/v1alpha2
               kind: VirtualMachineSnapshotOperation
               metadata:
-                name: clone-database-from-snapshot
+                name: clone-linux-vm-from-snapshot
               spec:
                 type: CreateVirtualMachine
-                virtualMachineSnapshotName: database-snapshot
+                virtualMachineSnapshotName: linux-vm-snapshot
                 createVirtualMachine:
                   mode: Strict
-                  customization:
-                    namePrefix: clone-
-                    nameSuffix: -prod
+                  nameReplacement:
+                    - from:
+                        kind: VirtualMachine
+                        name: linux-vm
+                      to: linux-vm-clone
+                    - from:
+                        kind: VirtualDisk
+                        name: linux-vm-root
+                      to: linux-vm-clone-root
           properties:
             apiVersion:
               description: |-

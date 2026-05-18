@@ -64,11 +64,16 @@ spec:
             - apiVersion: virtualization.deckhouse.io/v1alpha2
               kind: VirtualDisk
               metadata:
-                name: blank-disk
+                name: linux-vm-root
               spec:
                 persistentVolumeClaim:
                   storageClassName: rv-thin-r2
-                  size: 100Mi
+                  size: 10Gi
+                dataSource:
+                  type: ObjectRef
+                  objectRef:
+                    kind: VirtualImage
+                    name: ubuntu-24-04
           properties:
             apiVersion:
               description: |-

@@ -47,6 +47,7 @@ spec:
                 name: restore-linux-vm
               spec:
                 virtualMachineSnapshotName: linux-vm-snapshot
+                restoreMode: Safe
           properties:
             apiVersion:
               description: |-
