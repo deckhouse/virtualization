@@ -287,37 +287,7 @@ virtualization.internal.virtConfig.parallelInboundMigrationsPerNode
 
 Решение отклонено.
 
-### Альтернатива 2: ограничить `parallelMigrationsPerCluster` до 1
-
-Суть: разрешить только одну live migration во всём кластере.
-
-Преимущества:
-
-- уже поддерживается KubeVirt;
-- не требует патчей.
-
-Недостатки:
-
-- слишком сильное ограничение;
-- блокирует независимые миграции между разными node;
-- ухудшает drain, evacuation и обновления.
-
-Решение отклонено.
-
-### Альтернатива 3: использовать только Kubernetes scheduler constraints
-
-Суть: добавить anti-affinity/topology spread для target pods, чтобы на node не попадало больше одного migration target pod.
-
-Недостатки:
-
-- scheduler constraints плохо выражают состояние active migration;
-- pod может остаться pending, но KubeVirt migration status будет зависеть от scheduler timeout;
-- сложно корректно связать target pods разных миграций;
-- не даёт явной очереди и понятной причины ожидания.
-
-Решение отклонено.
-
-### Альтернатива 4: простой подсчёт активных миграций без Lease
+### Альтернатива 2: простой подсчёт активных миграций без Lease
 
 Суть: перед продолжением миграции list-ить все migrations и считать active incoming на target node.
 
