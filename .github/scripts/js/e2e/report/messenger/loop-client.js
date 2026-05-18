@@ -17,19 +17,17 @@
  */
 
 /**
- * @typedef {Object} LoopPostRequest
+ * @typedef {Object} LoopCredentials
  * @property {string} apiUrl
  * @property {string} channelId
  * @property {string} token
- * @property {string} message
- * @property {string} [rootId]
  */
 
 /**
  * @typedef {Object} LoopPublishParams
  * @property {string} message
  * @property {string[]} threadMessages
- * @property {{ apiUrl: string, channelId: string, token: string }} loop
+ * @property {LoopCredentials} loop
  */
 
 /**
@@ -58,22 +56,21 @@ function parseLoopApiPayload(responseText, core) {
 /**
  * Sends a single post to Loop and returns the parsed API payload.
  *
- * @param {LoopPostRequest} request Loop API request payload.
+ * @param {LoopCredentials} loop Loop API credentials.
+ * @param {string} message Post body.
+ * @param {string} [rootId] Optional thread root id for reply posts.
  * @param {LoopClientCore} core GitHub core API.
  * @returns {Promise<Record<string, any>>} Parsed Loop API response.
  */
-async function postToLoopApi(
-  { apiUrl, channelId, token, message, rootId },
-  core
-) {
-  const response = await fetch(apiUrl, {
+async function postToLoopApi(loop, message, rootId, core) {
+  const response = await fetch(loop.apiUrl, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${loop.token}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      channel_id: channelId,
+      channel_id: loop.channelId,
       message,
       ...(rootId ? { root_id: rootId } : {}),
     }),
@@ -99,15 +96,7 @@ async function postToLoopApi(
  * @returns {Promise<void>}
  */
 async function makeThreadedReportInLoop({ message, threadMessages, loop }, core) {
-  const rootPost = await postToLoopApi(
-    {
-      apiUrl: loop.apiUrl,
-      channelId: loop.channelId,
-      token: loop.token,
-      message,
-    },
-    core
-  );
+  const rootPost = await postToLoopApi(loop, message, undefined, core);
 
   if (!rootPost.id) {
     throw new Error(
@@ -116,16 +105,7 @@ async function makeThreadedReportInLoop({ message, threadMessages, loop }, core)
   }
 
   for (const replyMessage of threadMessages) {
-    await postToLoopApi(
-      {
-        apiUrl: loop.apiUrl,
-        channelId: loop.channelId,
-        token: loop.token,
-        message: replyMessage,
-        rootId: rootPost.id,
-      },
-      core
-    );
+    await postToLoopApi(loop, replyMessage, rootPost.id, core);
   }
 }
 

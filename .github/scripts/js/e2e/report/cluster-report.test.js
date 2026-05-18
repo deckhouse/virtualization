@@ -11,30 +11,15 @@
 // limitations under the License.
 
 const fs = require("fs");
-const os = require("os");
 const path = require("path");
 
 const buildClusterReport = require("./cluster-report");
 const { readClusterReportConfigFromEnv } = require("./cluster-report");
 const { parseGinkgoReport } = require("./shared/ginkgo-report-utils");
 const { buildClusterStatus } = require("./shared/report-model");
+const { createCore, withTempDir } = require("./shared/test-utils");
 
-/**
- * Creates a mocked GitHub Actions core object for unit tests.
- *
- * @returns {{
- *   info: jest.Mock,
- *   warning: jest.Mock,
- *   setOutput: jest.Mock
- * }} Mocked core object.
- */
-function createCore() {
-  return {
-    info: jest.fn(),
-    warning: jest.fn(),
-    setOutput: jest.fn(),
-  };
-}
+const inTempDir = (testFn) => withTempDir("cluster-report-test", testFn);
 
 /**
  * Creates a minimal GitHub Actions context object for unit tests.
@@ -80,24 +65,6 @@ function createGithub(jobNames) {
       },
     },
   };
-}
-
-/**
- * Runs a test body inside a temporary directory and removes it afterwards.
- *
- * @template T
- * @param {function(string): (Promise<T>|T)} testFn Test body.
- * @returns {Promise<T>} Test result.
- */
-async function withTempDir(testFn) {
-  const tempDir = fs.mkdtempSync(
-    path.join(os.tmpdir(), "cluster-report-test-")
-  );
-  try {
-    return await testFn(tempDir);
-  } finally {
-    fs.rmSync(tempDir, { recursive: true, force: true });
-  }
 }
 
 /**
@@ -229,7 +196,7 @@ describe("cluster-report", () => {
   });
 
   test("builds report from explicit config without reading env", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "explicit-report.json");
 
       const report = await buildClusterReport({
@@ -264,7 +231,7 @@ describe("cluster-report", () => {
     }));
 
   test("builds report from environment config", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "env-report.json");
       process.env.STORAGE_TYPE = "replicated";
       process.env.PIPELINE_JOB_NAME = "E2E Pipeline (Replicated)";
@@ -301,7 +268,7 @@ describe("cluster-report", () => {
     }));
 
   test("reads stage results from env vars", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "env-report.json");
       process.env.STORAGE_TYPE = "nfs";
       process.env.PIPELINE_JOB_NAME = "E2E Pipeline (NFS)";
@@ -331,7 +298,7 @@ describe("cluster-report", () => {
     }));
 
   test("fetches job URLs from GitHub API", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "env-report.json");
       process.env.STORAGE_TYPE = "nfs";
       process.env.PIPELINE_JOB_NAME = "E2E Pipeline (NFS)";
@@ -368,7 +335,7 @@ describe("cluster-report", () => {
     }));
 
   test("works without github (no job URLs)", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "env-report.json");
       process.env.STORAGE_TYPE = "replicated";
       process.env.REPORTS_DIR = tempDir;
@@ -395,7 +362,7 @@ describe("cluster-report", () => {
     }));
 
   test("marks Ginkgo JSON with failed specs as failed", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const rawReportPath = path.join(
         tempDir,
         "e2e_report_replicated_2026-04-15.json"
@@ -419,11 +386,18 @@ describe("cluster-report", () => {
               leafNodeText: "fails & burns",
               state: "failed",
               leafNodeLabels: ["Slow"],
+              failure: {
+                Message:
+                  "Unexpected error:\n    <*fmt.wrapError | 0xc000f24540>:\n    failed to execute command sudo lsblk: signal: killed\noccurred",
+              },
             }),
             createSpecReport({
               containerHierarchyTexts: ["Other"],
               leafNodeText: "errors <loudly>",
               state: "timedout",
+              failure: {
+                Message: "timed out waiting for VM to become ready",
+              },
             }),
             createSpecReport({
               leafNodeText: "skipped",
@@ -463,11 +437,22 @@ describe("cluster-report", () => {
         errors: 1,
         skipped: 1,
         total: 4,
-        successRate: 25,
+        successRate: 33.33,
       });
       expect(report.failedTests).toEqual([
         "[It] Suite fails & burns [Slow]",
         "[It] Other errors <loudly>",
+      ]);
+      expect(report.failedTestDetails).toEqual([
+        {
+          name: "[It] Suite fails & burns [Slow]",
+          reason:
+            "Unexpected error:\n    <*fmt.wrapError | 0xc000f24540>:\n    failed to execute command sudo lsblk: signal: killed\noccurred",
+        },
+        {
+          name: "[It] Other errors <loudly>",
+          reason: "timed out waiting for VM to become ready",
+        },
       ]);
       expect(report.reportSource).toBe("ginkgo-json");
       expect(report.sourceReport).toBe(rawReportPath);
@@ -489,8 +474,173 @@ describe("cluster-report", () => {
       expect(core.setOutput).toHaveBeenCalledWith("branch", "main");
     }));
 
+  test("captures suite-level failures from Ginkgo JSON", async () =>
+    inTempDir(async (tempDir) => {
+      const rawReportPath = path.join(
+        tempDir,
+        "e2e_report_replicated_2026-04-15.json"
+      );
+      fs.writeFileSync(
+        rawReportPath,
+        createGinkgoReport({
+          startedAt: "2026-04-15T09:30:44Z",
+          specs: [
+            createSpecReport({
+              leafNodeType: "SynchronizedBeforeSuite",
+              state: "failed",
+              failure: {
+                Message:
+                  "object v12n-e2e-testdata-iso status.phase is Pending, expected Ready",
+              },
+            }),
+          ],
+        })
+      );
+
+      const reportFile = path.join(tempDir, "report.json");
+      const report = await buildClusterReport({
+        core: createCore(),
+        context: createContext(),
+        config: createClusterConfig({
+          reportsDir: tempDir,
+          reportFile,
+          stageResults: {
+            "e2e-test": "failure",
+          },
+        }),
+      });
+
+      expect(report.reportKind).toBe("tests");
+      expect(report.status).toBe("failure");
+      expect(report.metrics).toMatchObject({
+        passed: 0,
+        failed: 0,
+        errors: 0,
+        total: 0,
+      });
+      expect(report.failedTestDetails).toEqual([
+        {
+          name: "[SynchronizedBeforeSuite]",
+          reason:
+            "object v12n-e2e-testdata-iso status.phase is Pending, expected Ready",
+        },
+      ]);
+    }));
+
+  test("uses Ginkgo output log when JSON report is missing", async () =>
+    inTempDir(async (tempDir) => {
+      const outputPath = path.join(
+        tempDir,
+        "e2e_output_replicated_2026-04-15.log"
+      );
+      fs.writeFileSync(
+        outputPath,
+        [
+          "[SynchronizedBeforeSuite] [FAILED] [307.964 seconds]",
+          "[FAILED] Timed out after 300.001s.",
+          "The function passed to Eventually failed with:",
+          "object v12n-e2e-testdata-iso status.phase is Pending, expected Ready",
+          "------------------------------",
+          "Summarizing 1 Failure:",
+          "  [FAIL] [SynchronizedBeforeSuite]",
+        ].join("\n")
+      );
+
+      const reportFile = path.join(tempDir, "report.json");
+      const report = await buildClusterReport({
+        core: createCore(),
+        context: createContext(),
+        config: createClusterConfig({
+          reportsDir: tempDir,
+          reportFile,
+          stageResults: {
+            "e2e-test": "failure",
+          },
+        }),
+      });
+
+      expect(report.reportKind).toBe("tests");
+      expect(report.status).toBe("failure");
+      expect(report.reportSource).toBe("ginkgo-output");
+      expect(report.sourceReport).toBe(outputPath);
+      expect(report.failedTestDetails).toEqual([
+        {
+          name: "[SynchronizedBeforeSuite]",
+          reason: [
+            "Timed out after 300.001s.",
+            "The function passed to Eventually failed with:",
+            "object v12n-e2e-testdata-iso status.phase is Pending, expected Ready",
+          ].join("\n"),
+        },
+      ]);
+    }));
+
+  test("parses real Ginkgo BeforeSuite failure stdout", async () =>
+    inTempDir(async (tempDir) => {
+      const outputPath = path.join(
+        tempDir,
+        "e2e_output_replicated_2026-05-14.log"
+      );
+      fs.writeFileSync(
+        outputPath,
+        [
+          "Will run 93 of 94 specs",
+          "------------------------------",
+          "[SynchronizedBeforeSuite]",
+          "/home/runner/work/virtualization/virtualization/test/e2e/e2e_test.go:44",
+          "PASS: all 94 specs have precheck labels",
+          "  STEP: Ensuring 12 precreated CVIs are available @ 05/14/26 13:57:36.142",
+          "  CVI \"v12n-e2e-testdata-iso\" exists but not ready (phase: Pending), waiting...",
+          "  [FAILED] in [SynchronizedBeforeSuite] - /home/runner/work/.../until.go:207 @ 05/14/26 14:02:37.61",
+          "[SynchronizedBeforeSuite] [FAILED] [307.964 seconds]",
+          "[SynchronizedBeforeSuite]",
+          "/home/runner/work/virtualization/virtualization/test/e2e/e2e_test.go:44",
+          "",
+          "  [FAILED] Timed out after 300.001s.",
+          "  The function passed to Eventually failed at /home/runner/work/.../until.go:205 with:",
+          "  object v12n-e2e-testdata-iso status.phase is Pending, expected Ready",
+          "  Expected",
+          "      <string>: Pending",
+          "  to equal",
+          "      <string>: Ready",
+          "------------------------------",
+          "[SynchronizedAfterSuite]",
+          "/home/runner/work/virtualization/virtualization/test/e2e/e2e_test.go:61",
+          "[SynchronizedAfterSuite] PASSED [3.649 seconds]",
+          "------------------------------",
+          "Summarizing 1 Failure:",
+          "  [FAIL] [SynchronizedBeforeSuite]",
+          "Ran 0 of 94 Specs in 311.615 seconds",
+          "FAIL! -- A BeforeSuite node failed so all tests were skipped.",
+        ].join("\n")
+      );
+
+      const reportFile = path.join(tempDir, "report.json");
+      const report = await buildClusterReport({
+        core: createCore(),
+        context: createContext(),
+        config: createClusterConfig({
+          reportsDir: tempDir,
+          reportFile,
+          stageResults: { "e2e-test": "failure" },
+        }),
+      });
+
+      expect(report.reportSource).toBe("ginkgo-output");
+      expect(report.failedTests).toEqual(["[SynchronizedBeforeSuite]"]);
+      const detail = report.failedTestDetails[0];
+      expect(detail.name).toBe("[SynchronizedBeforeSuite]");
+      expect(detail.reason).toContain("Timed out after 300.001s.");
+      expect(detail.reason).toContain(
+        "object v12n-e2e-testdata-iso status.phase is Pending, expected Ready"
+      );
+      // The plain "[SynchronizedBeforeSuite]" header that follows the
+      // "[FAILED] [307.964 seconds]" line must not leak into the reason.
+      expect(detail.reason.split("\n")[0]).not.toBe("[SynchronizedBeforeSuite]");
+    }));
+
   test("fails when multiple matching Ginkgo JSON reports exist", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const firstReportPath = path.join(
         tempDir,
         "nested",
@@ -538,7 +688,7 @@ describe("cluster-report", () => {
     }));
 
   test("falls back to missing-report status when raw Ginkgo JSON is invalid", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const rawReportPath = path.join(
         tempDir,
         "e2e_report_replicated_2026-04-15.json"
@@ -572,7 +722,7 @@ describe("cluster-report", () => {
     }));
 
   test("throws a descriptive error when writing the cluster report fails", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "report.json");
       const config = createClusterConfig({
         reportsDir: tempDir,
@@ -675,7 +825,7 @@ describe("cluster-report", () => {
       errors: 0,
       skipped: 34,
       total: 131,
-      successRate: 68.7,
+      successRate: 92.78,
     });
     expect(parsed.startedAt).toBe("2026-04-28T03:11:27.708387575Z");
     expect(parsed.failedTests).toHaveLength(7);
@@ -685,7 +835,7 @@ describe("cluster-report", () => {
   });
 
   test("reports configure-sdn as the failed pre-E2E phase", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "report.json");
       const config = createClusterConfig({
         reportsDir: tempDir,
@@ -720,7 +870,7 @@ describe("cluster-report", () => {
     }));
 
   test("marks missing artifacts when test stage is successful but no reports were found", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "report.json");
       const config = createClusterConfig({
         reportsDir: tempDir,
@@ -745,7 +895,7 @@ describe("cluster-report", () => {
     }));
 
   test("keeps cancelled test stage when no reports were found", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "report.json");
       const config = createClusterConfig({
         reportsDir: tempDir,
@@ -773,7 +923,7 @@ describe("cluster-report", () => {
     }));
 
   test("keeps failed test stage when no reports were found", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "report.json");
       const config = createClusterConfig({
         reportsDir: tempDir,
