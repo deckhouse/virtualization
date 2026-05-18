@@ -414,6 +414,22 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			}
 		}
 
+		// Check if we can unfreeze now or need to wait for other VDSnapshots.
+		canUnfreeze, err := h.snapshotter.CanUnfreezeWithVirtualDiskSnapshot(ctx, vdSnapshot.Name, vm, kvvmi)
+		if err != nil {
+			setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
+			return reconcile.Result{}, err
+		}
+		if !canUnfreeze {
+			log.Debug("waiting for other virtual disk snapshots to be ready before unfreezing filesystem")
+			vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseInProgress
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdscondition.Snapshotting).
+				Message(service.CapitalizeFirstLetter("Waiting for other virtual disk snapshots to be ready before unfreezing filesystem."))
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+		}
+
 		err = h.unfreezeFilesystem(ctx, vdSnapshot.Name, vm, kvvmi)
 		if err != nil {
 			if k8serrors.IsConflict(err) {
