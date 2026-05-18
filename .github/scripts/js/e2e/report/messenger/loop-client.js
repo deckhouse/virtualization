@@ -166,11 +166,25 @@ async function makeThreadedReportInLoop(
 
   for (const reply of threadMessages) {
     const files = Array.isArray(reply.files) ? reply.files : [];
-    const fileIds = await Promise.all(
-      files.map((file) =>
-        uploadFileToLoop(loop, file.name, file.buffer, core, file.mimeType)
-      )
-    );
+    let fileIds = [];
+    if (files.length > 0) {
+      try {
+        fileIds = await Promise.all(
+          files.map((file) =>
+            uploadFileToLoop(loop, file.name, file.buffer, core, file.mimeType)
+          )
+        );
+      } catch (error) {
+        // Posting the reply without attachments is preferable to losing the
+        // whole thread (e.g. failed-tests table) when Loop rejects file
+        // uploads, typically with HTTP 403 when the bot token lacks the
+        // upload_file permission.
+        core.warning(
+          `Loop file upload failed; posting reply without attachments: ${error.message}`
+        );
+        fileIds = [];
+      }
+    }
     await postToLoopApi(loop, reply.message, rootPost.id, core, fileIds);
   }
 }

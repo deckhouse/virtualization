@@ -10,7 +10,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const { uploadFileToLoop } = require("./loop-client");
+const {
+  uploadFileToLoop,
+  makeThreadedReportInLoop,
+} = require("./loop-client");
 const { createCore } = require("../shared/test-utils");
 
 describe("loop-client", () => {
@@ -52,5 +55,74 @@ describe("loop-client", () => {
     expect(body.get("channel_id")).toBe("channel-id");
     expect(body.get("files").name).toBe("chart.png");
     await expect(body.get("files").text()).resolves.toBe("image-bytes");
+  });
+
+  test("posts the reply without attachments when file upload fails", async () => {
+    const loop = {
+      apiUrl: "https://loop.example.invalid/api/v4/posts",
+      channelId: "channel-id",
+      token: "loop-token",
+    };
+    const core = createCore();
+    const responses = [
+      {
+        ok: true,
+        status: 201,
+        text: async () => JSON.stringify({ id: "root-post-id" }),
+      },
+      {
+        ok: false,
+        status: 403,
+        text: async () =>
+          JSON.stringify({
+            id: "api.context.permissions.app_error",
+            message: "permission denied",
+          }),
+      },
+      {
+        ok: true,
+        status: 201,
+        text: async () => JSON.stringify({ id: "reply-post-id" }),
+      },
+    ];
+    global.fetch = jest.fn().mockImplementation(() =>
+      Promise.resolve(responses.shift())
+    );
+
+    await makeThreadedReportInLoop(
+      {
+        message: "main",
+        threadMessages: [
+          {
+            message: "reply",
+            files: [
+              {
+                name: "chart.png",
+                buffer: Buffer.from("image-bytes"),
+                mimeType: "image/png",
+              },
+            ],
+          },
+        ],
+        loop,
+      },
+      core
+    );
+
+    expect(global.fetch).toHaveBeenCalledTimes(3);
+    expect(global.fetch.mock.calls[0][0]).toBe(loop.apiUrl);
+    expect(global.fetch.mock.calls[1][0]).toBe(
+      "https://loop.example.invalid/api/v4/files"
+    );
+    expect(global.fetch.mock.calls[2][0]).toBe(loop.apiUrl);
+
+    const replyBody = JSON.parse(global.fetch.mock.calls[2][1].body);
+    expect(replyBody.root_id).toBe("root-post-id");
+    expect(replyBody.message).toBe("reply");
+    expect(replyBody).not.toHaveProperty("file_ids");
+
+    expect(core.warning).toHaveBeenCalledWith(
+      expect.stringContaining("Loop file upload failed; posting reply without attachments")
+    );
   });
 });
