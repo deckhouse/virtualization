@@ -81,28 +81,21 @@ function zeroMetrics() {
   };
 }
 
+// Status → template used by buildStatusMessage. The "%s" placeholder is
+// replaced with stageLabel; any status not listed here falls through to
+// the generic "failure" rendering.
+const statusMessageTemplates = {
+  success: "✅ %s",
+  cancelled: "⚠️ %s CANCELLED",
+  skipped: "⚠️ %s SKIPPED",
+  missing: "⚠️ %s",
+  "not-run": "⚠️ %s NOT RUN",
+  failure: "❌ %s FAILED",
+};
+
 function buildStatusMessage(status, stageLabel) {
-  if (status === "success") {
-    return `✅ ${stageLabel}`;
-  }
-
-  if (status === "cancelled") {
-    return `⚠️ ${stageLabel} CANCELLED`;
-  }
-
-  if (status === "skipped") {
-    return `⚠️ ${stageLabel} SKIPPED`;
-  }
-
-  if (status === "missing") {
-    return `⚠️ ${stageLabel}`;
-  }
-
-  if (status === "not-run") {
-    return `⚠️ ${stageLabel} NOT RUN`;
-  }
-
-  return `❌ ${stageLabel} FAILED`;
+  const template = statusMessageTemplates[status] || statusMessageTemplates.failure;
+  return template.replace("%s", stageLabel);
 }
 
 function normalizeJobResult(resultValue) {
