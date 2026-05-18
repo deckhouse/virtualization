@@ -197,13 +197,164 @@ holderIdentity: <migration-uid>
 - если lease существует, но владелец уже terminal или отсутствует, lease можно перехватить;
 - release удаляет lease или очищает `holderIdentity`, только если lease принадлежит текущей миграции.
 
+### Детали реализации Lease
+
+Lease должен быть отдельным служебным объектом, который представляет один inbound slot конкретной target node.
+
+Рекомендуемый формат имени:
+
+```text
+incoming-migration-<node-name-hash>
+```
+
+Использовать только raw node name в имени нежелательно: имя node может быть длинным или содержать символы, которые потребуют нормализации. Поэтому безопаснее формировать имя из стабильного hash, а исходное имя node хранить в label или annotation.
+
+Рекомендуемый объект:
+
+```yaml
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  namespace: d8-virtualization
+  name: incoming-migration-<node-name-hash>
+  labels:
+    virtualization.deckhouse.io/component: inbound-migration-limiter
+    virtualization.deckhouse.io/target-node-hash: <node-name-hash>
+  annotations:
+    virtualization.deckhouse.io/target-node: <target-node>
+    virtualization.deckhouse.io/migration-namespace: <migration-namespace>
+    virtualization.deckhouse.io/migration-name: <migration-name>
+    virtualization.deckhouse.io/migration-uid: <migration-uid>
+spec:
+  holderIdentity: <migration-namespace>/<migration-name>/<migration-uid>
+  leaseDurationSeconds: 300
+  acquireTime: <now>
+  renewTime: <now>
+```
+
+`holderIdentity` должен содержать не только UID, но и namespace/name. Это упрощает проверку владельца без list-а всех migrations во всех namespaces.
+
+OwnerReference на `VirtualMachineInstanceMigration` добавлять не нужно, потому что migration namespaced, а lease хранится в namespace control plane. Cross-namespace owner reference для namespaced объектов некорректен. Очистка должна выполняться явно через `Release` и через stale lease recovery.
+
+### TryAcquire
+
+`TryAcquire(ctx, migration, targetNode)` должен работать так:
+
+1. Построить lease name по `targetNode`.
+2. Выполнить `Get` lease.
+3. Если lease не найден:
+   - создать lease с holder текущей migration;
+   - если create завершился conflict/already exists, повторить `Get` и перейти к обычной проверке владельца.
+4. Если lease найден и принадлежит текущей migration:
+   - обновить `renewTime`;
+   - вернуть `true`.
+5. Если lease найден и принадлежит другой migration:
+   - проверить, жива ли migration-владелец;
+   - если владелец существует и не terminal, вернуть `false`;
+   - если владелец отсутствует или terminal, попытаться перехватить lease через `Update` с текущим `resourceVersion`.
+6. Если update завершился conflict, вернуть retryable error или повторить короткий цикл reread/update.
+
+Псевдокод:
+
+```go
+func (l *LeaseIncomingMigrationLimiter) TryAcquire(ctx context.Context, mig *virtv1.VirtualMachineInstanceMigration, targetNode string) (bool, error) {
+    lease, err := l.getLease(ctx, targetNode)
+    if apierrors.IsNotFound(err) {
+        return l.createLease(ctx, mig, targetNode)
+    }
+    if err != nil {
+        return false, err
+    }
+
+    if isHeldBy(lease, mig) {
+        return true, l.renewLease(ctx, lease, mig)
+    }
+
+    alive, err := l.holderMigrationIsActive(ctx, lease)
+    if err != nil {
+        return false, err
+    }
+    if alive {
+        return false, nil
+    }
+
+    return l.stealLease(ctx, lease, mig, targetNode)
+}
+```
+
+### Проверка владельца
+
+Проверка владельца lease должна использовать annotations:
+
+```text
+virtualization.deckhouse.io/migration-namespace
+virtualization.deckhouse.io/migration-name
+virtualization.deckhouse.io/migration-uid
+```
+
+Алгоритм:
+
+1. Если annotations неполные — считать lease stale.
+2. Сделать `Get` `VirtualMachineInstanceMigration` по namespace/name из annotations.
+3. Если объект не найден — lease stale.
+4. Если UID объекта отличается от UID в annotation — lease stale.
+5. Если migration находится в terminal phase — lease stale.
+6. Иначе lease занят активной migration.
+
+Terminal phases:
+
+```text
+MigrationSucceeded
+MigrationFailed
+```
+
+### Release
+
+`Release(ctx, migration, targetNode)` должен быть идемпотентным:
+
+1. Получить lease по target node.
+2. Если lease отсутствует — успешно завершить.
+3. Если lease принадлежит другой migration — ничего не делать.
+4. Если lease принадлежит текущей migration — удалить lease.
+5. Если delete получил `NotFound` — успешно завершить.
+
+Удаление lease предпочтительнее очистки `holderIdentity`, потому что отсутствие lease проще обрабатывать в `TryAcquire`, а stale пустые lease не будут накапливаться.
+
+### Renew
+
+Так как lease используется не для leader election, а как атомарный slot, постоянный renew не обязателен. Достаточно обновлять `renewTime` при каждом reconcile migration, которая уже владеет lease.
+
+`leaseDurationSeconds` нужен только как дополнительная диагностическая и safety-информация. Нельзя освобождать lease только по истечению времени, если migration-владелец всё ещё существует и не terminal: долгие live migrations допустимы.
+
+### Требования к client/cache
+
+Операции `Get/Create/Update/Delete` для Lease желательно выполнять через non-cached client или APIReader, если это доступно в месте интеграции. Это снижает риск решений на устаревшем cache.
+
+Даже при cached read корректность должна обеспечиваться optimistic concurrency Kubernetes API:
+
+- создать lease сможет только одна migration;
+- перехват stale lease выполняется через `resourceVersion`;
+- conflict приводит к повторному reconcile.
+
+### RBAC
+
+`virt-controller` должен получить права на leases в namespace `d8-virtualization`:
+
+```text
+apiGroups: ["coordination.k8s.io"]
+resources: ["leases"]
+verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+```
+
+`list/watch` нужны только если реализация использует informer/cache или периодический cleanup. Для минимальной реализации достаточно `get/create/update/delete`, но в controller-runtime окружении часто проще выдать полный набор read/write verbs для leases.
+
 ### Обработка stale lease
 
 Lease может остаться после аварийного завершения controller-а или удаления migration resource.
 
 При обнаружении занятого lease controller должен проверить владельца:
 
-1. найти `VirtualMachineInstanceMigration` по UID владельца;
+1. найти `VirtualMachineInstanceMigration` по namespace/name и сверить UID владельца;
 2. если владелец отсутствует или terminal, считать lease stale;
 3. перехватить lease через optimistic update с `resourceVersion`.
 
