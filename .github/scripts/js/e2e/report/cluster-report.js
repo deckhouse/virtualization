@@ -172,36 +172,6 @@ async function readStageJobUrlsFromApi(github, context, config, core) {
   return stageJobUrls;
 }
 
-function findGinkgoReport(config) {
-  const rawReportPattern = archivedReportPattern(config.storageType);
-
-  return findSingleMatchingFile(
-    config.reportsDir,
-    rawReportPattern,
-    "Ginkgo JSON report"
-  );
-}
-
-/**
- * Locates a single Ginkgo stdout/stderr fallback log for the configured
- * storage type. Used as a fallback report source when the primary
- * `e2e_report_*.json` file is missing (for example, when Ginkgo failed in
- * a suite setup node and produced no JSON report).
- *
- * @param {ClusterReportConfig} config Resolved cluster report config.
- * @returns {string|null} Path to the log file, or null when none exists.
- * @throws {Error} When more than one matching log file is found.
- */
-function findGinkgoOutput(config) {
-  const outputPattern = ginkgoOutputPattern(config.storageType);
-
-  return findSingleMatchingFile(
-    config.reportsDir,
-    outputPattern,
-    "Ginkgo output log"
-  );
-}
-
 /**
  * Builds a parsed-report payload used as a placeholder when no source data
  * is available, so the downstream report builder can keep working with a
@@ -231,6 +201,7 @@ const ginkgoJsonSource = {
   okSource: "ginkgo-json",
   invalidSource: "ginkgo-json-invalid",
   parse: parseGinkgoReport,
+  pattern: archivedReportPattern,
 };
 
 const ginkgoOutputSource = {
@@ -238,6 +209,7 @@ const ginkgoOutputSource = {
   okSource: "ginkgo-output",
   invalidSource: "ginkgo-output-invalid",
   parse: parseGinkgoOutput,
+  pattern: ginkgoOutputPattern,
 };
 
 /**
@@ -251,7 +223,25 @@ const ginkgoOutputSource = {
  *   failedTestDetails: Array<{name: string, reason: string}>,
  *   startedAt: string|null,
  * }} parse Parser function for the source content.
+ * @property {function(string): RegExp} pattern Builds the file-name regex for the source.
  */
+
+/**
+ * Locates a single Ginkgo source file (JSON report or stdout fallback log)
+ * for the configured storage type. Throws when more than one matching file
+ * exists; returns null when none is found.
+ *
+ * @param {ClusterReportConfig} config Resolved cluster report config.
+ * @param {GinkgoSourceDescriptor} source Source descriptor.
+ * @returns {string|null} Path to the source file, or null when none exists.
+ */
+function findGinkgoSource(config, source) {
+  return findSingleMatchingFile(
+    config.reportsDir,
+    source.pattern(config.storageType),
+    source.label
+  );
+}
 
 /**
  * Reads and parses a Ginkgo source file (JSON report or stdout log) using
@@ -400,9 +390,12 @@ async function buildClusterReport({ core, context, github, config } = {}) {
 
   const fallbackWorkflowRunUrl = getWorkflowRunUrl(context);
   const branchName = getBranchName(context);
-  const rawReportPath = findGinkgoReport(resolvedConfig);
-  const outputPath = rawReportPath ? null : findGinkgoOutput(resolvedConfig);
+  const rawReportPath = findGinkgoSource(resolvedConfig, ginkgoJsonSource);
+  const outputPath = rawReportPath
+    ? null
+    : findGinkgoSource(resolvedConfig, ginkgoOutputSource);
   const sourcePath = rawReportPath || outputPath;
+  const sourceDescriptor = rawReportPath ? ginkgoJsonSource : ginkgoOutputSource;
 
   if (!rawReportPath) {
     core.warning(
@@ -410,9 +403,7 @@ async function buildClusterReport({ core, context, github, config } = {}) {
     );
   }
 
-  const parsedReport = rawReportPath
-    ? parseGinkgoFile(rawReportPath, core, ginkgoJsonSource)
-    : parseGinkgoFile(outputPath, core, ginkgoOutputSource);
+  const parsedReport = parseGinkgoFile(sourcePath, core, sourceDescriptor);
   const report = buildReportPayload({
     config: resolvedConfig,
     context,
