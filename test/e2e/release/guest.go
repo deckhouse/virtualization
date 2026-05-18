@@ -33,8 +33,8 @@ import (
 )
 
 const (
-	lsblkJSONCommand    = "sudo lsblk --bytes --json --nodeps --output NAME,SIZE,TYPE,MOUNTPOINTS"
-	rootDiskNameCommand = `root_source=$(findmnt -no SOURCE /); root_disk=$(lsblk -ndo PKNAME "$root_source" 2>/dev/null | head -n1); if [ -n "$root_disk" ]; then echo "$root_disk"; else lsblk -ndo NAME "$root_source" | head -n1; fi`
+	lsblkJSONCommand     = "sudo lsblk --bytes --json --nodeps --output NAME,SIZE,TYPE,MOUNTPOINTS"
+	rootDiskNameCommand  = `root_source=$(findmnt -no SOURCE /); root_disk=$(lsblk -ndo PKNAME "$root_source" 2>/dev/null | head -n1); if [ -n "$root_disk" ]; then echo "$root_disk"; else lsblk -ndo NAME "$root_source" | head -n1; fi`
 	maxCloudInitDiskSize = int64(4 * 1024 * 1024)
 )
 
@@ -61,7 +61,7 @@ func (t *currentReleaseSmokeTest) expectGuestReady(vmScenario *vmScenario) {
 	}
 
 	By(fmt.Sprintf("Waiting for guest agent on %s", vm.Name))
-	util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+	util.UntilVMAgentReady(context.Background(), crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 }
 
 func (t *currentReleaseSmokeTest) expectAdditionalDiskCount(vm *v1alpha2.VirtualMachine, expectedCount int) {

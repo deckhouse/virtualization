@@ -89,32 +89,34 @@ func runPostUpgradeReleaseSmoke() {
 }
 
 func (t *currentReleaseSmokeTest) createResources() {
+	ctx := context.Background()
+
 	By("Creating root and hotplug virtual disks")
-	Expect(t.framework.CreateWithDeferredDeletion(context.Background(), t.diskObjects()...)).To(Succeed())
+	Expect(t.framework.CreateWithDeferredDeletion(ctx, t.diskObjects()...)).To(Succeed())
 
 	By("Creating virtual machines")
-	Expect(t.framework.CreateWithDeferredDeletion(context.Background(), t.vmObjects()...)).To(Succeed())
+	Expect(t.framework.CreateWithDeferredDeletion(ctx, t.vmObjects()...)).To(Succeed())
 	if runningVMs := t.initialRunningVMObjects(); len(runningVMs) > 0 {
-		util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, runningVMs...)
+		util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, runningVMs...)
 	}
 	if stoppedVMs := t.initialStoppedVMObjects(); len(stoppedVMs) > 0 {
-		util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.MiddleTimeout, stoppedVMs...)
+		util.UntilObjectPhase(ctx, string(v1alpha2.MachineStopped), framework.MiddleTimeout, stoppedVMs...)
 	}
 
 	By("Starting manual-policy virtual machines")
 	for _, vmScenario := range t.manualStartVMs() {
-		util.StartVirtualMachine(t.framework, vmScenario.vm)
+		util.StartVirtualMachine(ctx, t.framework, vmScenario.vm)
 	}
 	if startedVMs := t.manualStartVMObjects(); len(startedVMs) > 0 {
-		util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, startedVMs...)
+		util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, startedVMs...)
 	}
 
 	By("Attaching hotplug disks")
-	Expect(t.framework.CreateWithDeferredDeletion(context.Background(), t.attachmentObjects()...)).To(Succeed())
-	util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MaxTimeout, t.attachmentObjects()...)
+	Expect(t.framework.CreateWithDeferredDeletion(ctx, t.attachmentObjects()...)).To(Succeed())
+	util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MaxTimeout, t.attachmentObjects()...)
 
 	By("Waiting for all disks to become ready after consumers appear")
-	util.UntilObjectPhase(string(v1alpha2.DiskReady), framework.LongTimeout, t.diskObjects()...)
+	util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.LongTimeout, t.diskObjects()...)
 }
 
 func (t *currentReleaseSmokeTest) verifyVMsReady() {
@@ -132,7 +134,7 @@ func (t *currentReleaseSmokeTest) verifyVMsReady() {
 
 func (t *currentReleaseSmokeTest) verifyVMsSurvivedUpgrade() {
 	By("Waiting for upgraded virtual machines to be running")
-	util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, t.vmObjects()...)
+	util.UntilObjectPhase(context.Background(), string(v1alpha2.MachineRunning), framework.LongTimeout, t.vmObjects()...)
 
 	By("Checking guest access after module upgrade")
 	for _, vmScenario := range t.vms {
