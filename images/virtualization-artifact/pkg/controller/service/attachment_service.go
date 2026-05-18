@@ -74,6 +74,10 @@ func (s AttachmentService) IsHotPlugged(ad *AttachmentDisk, vm *v1alpha2.Virtual
 				return true, nil
 			}
 
+			if vs.Phase == virtv1.HotplugVolumeUnMounted {
+				return false, nil
+			}
+
 			return false, fmt.Errorf("%w: %s", ErrVolumeStatusNotReady, vs.Message)
 		}
 	}
@@ -124,7 +128,7 @@ func (s AttachmentService) CanHotPlug(ad *AttachmentDisk, vm *v1alpha2.VirtualMa
 	}
 
 	for _, vr := range kvvm.Status.VolumeRequests {
-		if vr.AddVolumeOptions.Name == name {
+		if vr.AddVolumeOptions != nil && vr.AddVolumeOptions.Name == name {
 			return false, ErrHotPlugRequestAlreadySent
 		}
 	}

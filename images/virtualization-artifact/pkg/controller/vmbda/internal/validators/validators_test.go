@@ -14,10 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package validators_test
 
-import "sigs.k8s.io/controller-runtime/pkg/client"
+import (
+	"testing"
 
-//go:generate go tool moq -rm -out mock.go . Client
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
 
-type Client = client.Client
+func TestVMBDAValidators(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "VMBDA Validators")
+}

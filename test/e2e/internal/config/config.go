@@ -88,13 +88,11 @@ type Config struct {
 }
 
 type TestData struct {
-	DiskResizing      string `yaml:"diskResizing"`
-	ImageHotplug      string `yaml:"imageHotplug"`
-	VMMigration       string `yaml:"vmMigration"`
-	VMMigrationCancel string `yaml:"vmMigrationCancel"`
-	VdSnapshots       string `yaml:"vdSnapshots"`
-	Sshkey            string `yaml:"sshKey"`
-	SSHUser           string `yaml:"sshUser"`
+	ImageHotplug string `yaml:"imageHotplug"`
+	VMMigration  string `yaml:"vmMigration"`
+	VdSnapshots  string `yaml:"vdSnapshots"`
+	Sshkey       string `yaml:"sshKey"`
+	SSHUser      string `yaml:"sshUser"`
 }
 
 type StorageClass struct {

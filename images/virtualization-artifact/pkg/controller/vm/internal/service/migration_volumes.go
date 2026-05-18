@@ -238,6 +238,9 @@ func (s MigrationVolumesService) patchVolumes(ctx context.Context, kvvm *virtv1.
 	patchBytes, err := patch.NewJSONPatch(
 		patch.WithReplace("/spec/updateVolumesStrategy", kvvm.Spec.UpdateVolumesStrategy),
 		patch.WithReplace("/spec/template/spec/volumes", kvvm.Spec.Template.Spec.Volumes),
+		// Affinity is patched together with volumes because the migration target PVCs
+		// can resolve to a different node than the source.
+		patch.WithReplace("/spec/template/spec/affinity", kvvm.Spec.Template.Spec.Affinity),
 	).Bytes()
 	if err != nil {
 		return err
