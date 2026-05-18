@@ -109,21 +109,18 @@ function normalizeJobResult(resultValue) {
 
 function buildClusterStatus(stageResults) {
   for (const stageName of clusterSetupStages) {
+    // normalizeJobResult only ever returns success/cancelled/skipped/failure,
+    // so once we know it isn't success, stageResult is already the final
+    // status name we want to propagate.
     const stageResult = normalizeJobResult(stageResults[stageName]);
     if (stageResult !== "success") {
       const stageLabel = stageMessage[stageName] || stageName;
-      const status =
-        stageResult === "cancelled"
-          ? "cancelled"
-          : stageResult === "skipped"
-            ? "skipped"
-            : "failure";
       return {
-        status,
+        status: stageResult,
         stage: stageName,
         stageLabel,
         message: buildStatusMessage(stageResult, stageLabel),
-        reason: `cluster-stage-${status}`,
+        reason: `cluster-stage-${stageResult}`,
       };
     }
   }
