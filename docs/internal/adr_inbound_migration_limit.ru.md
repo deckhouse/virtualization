@@ -70,9 +70,11 @@ parallelInboundMigrationsPerNode: <N>
 maxIncomingMigrationsPerNode = 1
 ```
 
-Миграция может перейти к активной фазе только если на её target node нет другой активной входящей миграции.
+При этом механизм должен проектироваться не как single-lock, а как slot-based limiter: один `Lease` соответствует одному inbound slot на target node. Лимит `1` является частным случаем с одним slot. Если в будущем потребуется разрешить, например, `5` одновременных входящих миграций на target node, controller будет использовать пять lease-slots для этой node.
 
-Если target node уже занята другой active incoming migration, текущая миграция остаётся в ожидающем состоянии и повторно reconcile-ится позже.
+Миграция может перейти к активной фазе только если на её target node есть свободный inbound slot или slot уже принадлежит этой миграции.
+
+Если все inbound slots target node заняты другими active incoming migrations, текущая миграция остаётся в ожидающем состоянии и повторно reconcile-ится позже.
 
 ## Определения
 
@@ -141,7 +143,7 @@ func reconcileMigration(migration *VirtualMachineInstanceMigration) error {
         return continueDefaultMigrationFlow(migration)
     }
 
-    acquired, err := incomingLimiter.TryAcquire(ctx, migration, targetNode)
+    acquired, err := incomingLimiter.TryAcquire(ctx, migration, targetNode, parallelInboundMigrationsPerNode)
     if err != nil {
         return err
     }
@@ -175,27 +177,40 @@ if migration.IsFinal() {
 2. обе видят, что активных входящих миграций нет;
 3. обе продолжают выполнение.
 
-Чтобы гарантировать `<= 1`, limiter должен использовать атомарный механизм захвата slot.
+Чтобы гарантировать соблюдение лимита, limiter должен использовать атомарный механизм захвата slot.
 
 Рекомендуемая реализация — Kubernetes `Lease` из `coordination.k8s.io/v1`.
 
 ### Lease model
 
-Для каждой target node создаётся lease:
+Один `Lease` представляет один inbound slot target node.
+
+При лимите `1` для target node доступен один slot:
 
 ```text
 namespace: d8-virtualization
-name: incoming-migration-<safe-node-name>
-holderIdentity: <migration-uid>
+name: incoming-migration-<node-name-hash>-0
+holderIdentity: <migration-namespace>/<migration-name>/<migration-uid>
+```
+
+При лимите `5` для той же target node доступны пять независимых slots:
+
+```text
+incoming-migration-<node-name-hash>-0
+incoming-migration-<node-name-hash>-1
+incoming-migration-<node-name-hash>-2
+incoming-migration-<node-name-hash>-3
+incoming-migration-<node-name-hash>-4
 ```
 
 Правила:
 
-- если lease отсутствует, миграция создаёт его со своим `UID`;
-- если lease существует и `holderIdentity` равен `UID` текущей миграции, миграция продолжает выполнение;
-- если lease существует и принадлежит другой non-final миграции, текущая миграция остаётся pending;
-- если lease существует, но владелец уже terminal или отсутствует, lease можно перехватить;
-- release удаляет lease или очищает `holderIdentity`, только если lease принадлежит текущей миграции.
+- если один из slot leases отсутствует, миграция может создать его со своим holder;
+- если один из slot leases уже принадлежит текущей миграции, миграция продолжает выполнение и обновляет `renewTime`;
+- если slot lease принадлежит другой non-final миграции, этот slot считается занятым;
+- если slot lease существует, но владелец уже terminal или отсутствует, slot можно перехватить;
+- если все slots заняты другими active migrations, текущая миграция остаётся pending;
+- release удаляет только тот slot lease, который принадлежит текущей миграции.
 
 ### Детали реализации Lease
 
@@ -204,8 +219,10 @@ Lease должен быть отдельным служебным объекто
 Рекомендуемый формат имени:
 
 ```text
-incoming-migration-<node-name-hash>
+incoming-migration-<node-name-hash>-<slot-index>
 ```
+
+`slot-index` — число от `0` до `parallelInboundMigrationsPerNode - 1`.
 
 Использовать только raw node name в имени нежелательно: имя node может быть длинным или содержать символы, которые потребуют нормализации. Поэтому безопаснее формировать имя из стабильного hash, а исходное имя node хранить в label или annotation.
 
@@ -216,10 +233,11 @@ apiVersion: coordination.k8s.io/v1
 kind: Lease
 metadata:
   namespace: d8-virtualization
-  name: incoming-migration-<node-name-hash>
+  name: incoming-migration-<node-name-hash>-<slot-index>
   labels:
     virtualization.deckhouse.io/component: inbound-migration-limiter
     virtualization.deckhouse.io/target-node-hash: <node-name-hash>
+    virtualization.deckhouse.io/slot-index: "<slot-index>"
   annotations:
     virtualization.deckhouse.io/target-node: <target-node>
     virtualization.deckhouse.io/migration-namespace: <migration-namespace>
@@ -238,34 +256,70 @@ OwnerReference на `VirtualMachineInstanceMigration` добавлять не н
 
 ### TryAcquire
 
-`TryAcquire(ctx, migration, targetNode)` должен работать так:
+`TryAcquire(ctx, migration, targetNode, limit)` должен работать так:
 
-1. Построить lease name по `targetNode`.
-2. Выполнить `Get` lease.
-3. Если lease не найден:
-   - создать lease с holder текущей migration;
-   - если create завершился conflict/already exists, повторить `Get` и перейти к обычной проверке владельца.
-4. Если lease найден и принадлежит текущей migration:
+1. Построить список lease names по `targetNode` и текущему лимиту: `0..parallelInboundMigrationsPerNode-1`.
+2. Сначала проверить все slots и найти lease, который уже принадлежит текущей migration.
+3. Если такой lease найден:
    - обновить `renewTime`;
    - вернуть `true`.
-5. Если lease найден и принадлежит другой migration:
-   - проверить, жива ли migration-владелец;
-   - если владелец существует и не terminal, вернуть `false`;
-   - если владелец отсутствует или terminal, попытаться перехватить lease через `Update` с текущим `resourceVersion`.
-6. Если update завершился conflict, вернуть retryable error или повторить короткий цикл reread/update.
+4. Если текущая migration ещё не владеет slot-ом, пройти по всем slots и попытаться занять первый доступный:
+   - если lease не найден — создать lease с holder текущей migration;
+   - если create завершился conflict/already exists — перейти к следующему reread/retry;
+   - если lease принадлежит другой migration — проверить владельца;
+   - если владелец существует и не terminal — считать slot занятым и перейти к следующему;
+   - если владелец отсутствует или terminal — попытаться перехватить slot через `Update` с текущим `resourceVersion`.
+5. Если один из slots успешно создан или перехвачен — вернуть `true`.
+6. Если все slots заняты активными владельцами — вернуть `false`.
+7. Если update завершился conflict, повторить короткий цикл reread/update или вернуть retryable error.
 
 Псевдокод:
 
 ```go
-func (l *LeaseIncomingMigrationLimiter) TryAcquire(ctx context.Context, mig *virtv1.VirtualMachineInstanceMigration, targetNode string) (bool, error) {
-    lease, err := l.getLease(ctx, targetNode)
+func (l *LeaseIncomingMigrationLimiter) TryAcquire(ctx context.Context, mig *virtv1.VirtualMachineInstanceMigration, targetNode string, limit int) (bool, error) {
+    slots := l.slotNames(targetNode, limit)
+
+    for _, slot := range slots {
+        lease, err := l.getLease(ctx, slot)
+        if apierrors.IsNotFound(err) {
+            continue
+        }
+        if err != nil {
+            return false, err
+        }
+        if isHeldBy(lease, mig) {
+            return true, l.renewLease(ctx, lease, mig)
+        }
+    }
+
+    for _, slot := range slots {
+        acquired, err := l.tryAcquireSlot(ctx, mig, targetNode, slot)
+        if err != nil {
+            if apierrors.IsConflict(err) || apierrors.IsAlreadyExists(err) {
+                continue
+            }
+            return false, err
+        }
+        if acquired {
+            return true, nil
+        }
+    }
+
+    return false, nil
+}
+```
+
+`tryAcquireSlot` внутри выполняет create, проверку владельца и steal stale slot для одного конкретного lease name.
+
+```go
+func (l *LeaseIncomingMigrationLimiter) tryAcquireSlot(ctx context.Context, mig *virtv1.VirtualMachineInstanceMigration, targetNode string, slot string) (bool, error) {
+    lease, err := l.getLease(ctx, slot)
     if apierrors.IsNotFound(err) {
-        return l.createLease(ctx, mig, targetNode)
+        return l.createLease(ctx, mig, targetNode, slot)
     }
     if err != nil {
         return false, err
     }
-
     if isHeldBy(lease, mig) {
         return true, l.renewLease(ctx, lease, mig)
     }
@@ -312,11 +366,13 @@ MigrationFailed
 
 `Release(ctx, migration, targetNode)` должен быть идемпотентным:
 
-1. Получить lease по target node.
-2. Если lease отсутствует — успешно завершить.
-3. Если lease принадлежит другой migration — ничего не делать.
+1. Построить список lease names по target node и текущему лимиту.
+2. Найти slot lease, принадлежащий текущей migration.
+3. Если такой lease отсутствует — успешно завершить.
 4. Если lease принадлежит текущей migration — удалить lease.
 5. Если delete получил `NotFound` — успешно завершить.
+
+Если лимит был уменьшен после того, как migration заняла slot с индексом за пределами нового лимита, `Release` всё равно должен уметь найти и удалить её lease. Для этого release может дополнительно list-ить leases по labels `component=inbound-migration-limiter` и `target-node-hash=<hash>`, а затем фильтровать holder текущей migration.
 
 Удаление lease предпочтительнее очистки `holderIdentity`, потому что отсутствие lease проще обрабатывать в `TryAcquire`, а stale пустые lease не будут накапливаться.
 
@@ -332,9 +388,10 @@ MigrationFailed
 
 Даже при cached read корректность должна обеспечиваться optimistic concurrency Kubernetes API:
 
-- создать lease сможет только одна migration;
+- конкретный slot lease сможет создать только одна migration;
+- разные migrations могут одновременно занять разные slot leases в пределах лимита;
 - перехват stale lease выполняется через `resourceVersion`;
-- conflict приводит к повторному reconcile.
+- conflict приводит к проверке следующего slot или повторному reconcile.
 
 ### RBAC
 
@@ -369,7 +426,7 @@ Lease может остаться после аварийного заверше
 ```text
 phase: Pending
 condition/reason: TargetNodeIncomingMigrationLimitExceeded
-message: Target node already has an active incoming migration.
+message: Target node has no free inbound migration slots.
 ```
 
 На уровне `VirtualMachineOperation` можно использовать существующий pending mapping:
@@ -400,18 +457,21 @@ TargetNodeIncomingMigrationLimitExceeded
 parallelInboundMigrationsPerNode = 1
 ```
 
+Даже при фиксированном значении реализация должна использовать slot-based модель, чтобы изменение лимита до `5` или другого значения не требовало переделки алгоритма.
+
 Преимущества:
 
 - минимальные изменения публичного API;
 - не требует новых ModuleConfig параметров;
-- закрывает исходное требование.
+- закрывает исходное требование;
+- оставляет простой путь к будущему конфигурируемому лимиту.
 
 ### Возможное развитие
 
 Позже можно сделать настройку конфигурируемой через ModuleConfig annotation и Helm values:
 
 ```yaml
-virtualization.deckhouse.io/parallel-inbound-migrations-per-node: "1"
+virtualization.deckhouse.io/parallel-inbound-migrations-per-node: "5"
 ```
 
 Внутренний values path:
@@ -461,7 +521,7 @@ virtualization.internal.virtConfig.parallelInboundMigrationsPerNode
 
 ### Положительные
 
-- На target node будет не более одной активной входящей live migration.
+- На target node будет не более настроенного числа активных входящих live migrations; на первом этапе — не более одной.
 - Остальные миграции будут ждать, а не падать.
 - Ограничение будет работать независимо от источника миграции.
 - Снижается риск перегрузки target node сетью, CPU, памятью и storage attach операциями.
@@ -488,22 +548,23 @@ virtualization.internal.virtConfig.parallelInboundMigrationsPerNode
 
 ```go
 type IncomingMigrationLimiter interface {
-    TryAcquire(ctx context.Context, migration *virtv1.VirtualMachineInstanceMigration, targetNode string) (bool, error)
-    Release(ctx context.Context, migration *virtv1.VirtualMachineInstanceMigration, targetNode string) error
+    TryAcquire(ctx context.Context, migration *virtv1.VirtualMachineInstanceMigration, targetNode string, limit int) (bool, error)
+    Release(ctx context.Context, migration *virtv1.VirtualMachineInstanceMigration, targetNode string, limit int) error
 }
 ```
 
-Реализация должна использовать `coordination.k8s.io/v1 Lease`.
+Реализация должна использовать `coordination.k8s.io/v1 Lease`. Один Lease соответствует одному inbound slot; количество slots равно `limit`.
 
 ### Шаг 3. Интегрировать limiter в migration reconcile
 
 Логика:
 
 1. определить target node;
-2. если миграция входит в active incoming phase — вызвать `TryAcquire`;
-3. если slot занят — оставить migration pending и requeue;
-4. если slot получен — продолжить стандартный flow;
-5. на terminal phase вызвать `Release`.
+2. определить текущий inbound limit;
+3. если миграция входит в active incoming phase — вызвать `TryAcquire`;
+4. если все slots заняты — оставить migration pending и requeue;
+5. если slot получен — продолжить стандартный flow;
+6. на terminal phase вызвать `Release`.
 
 ### Шаг 4. Синхронизировать диагностику в virtualization-controller
 
@@ -524,13 +585,16 @@ type IncomingMigrationLimiter interface {
 
 Нужны unit/integration тесты для patched KubeVirt logic:
 
-1. одна миграция на target node получает lease и продолжается;
-2. вторая миграция на ту же target node остаётся pending;
-3. миграция на другую target node продолжается;
-4. после завершения первой миграции вторая получает lease;
-5. stale lease от отсутствующей migration перехватывается;
-6. lease, принадлежащий текущей migration, не блокирует повторный reconcile;
-7. concurrent `TryAcquire` не выдаёт slot двум migration одновременно.
+1. одна миграция на target node получает slot lease и продолжается;
+2. при лимите `1` вторая миграция на ту же target node остаётся pending;
+3. при лимите `5` пять миграций на одну target node получают разные slot leases;
+4. при лимите `5` шестая миграция на ту же target node остаётся pending;
+5. миграция на другую target node продолжается;
+6. после завершения первой миграции ожидающая миграция получает освободившийся slot;
+7. stale lease от отсутствующей migration перехватывается;
+8. lease, принадлежащий текущей migration, не блокирует повторный reconcile;
+9. concurrent `TryAcquire` не выдаёт один и тот же slot двум migration одновременно;
+10. уменьшение лимита не мешает `Release` удалить slot lease, уже занятый текущей migration.
 
 Для virtualization-controller нужны тесты mapping-а статуса:
 
@@ -547,6 +611,6 @@ type IncomingMigrationLimiter interface {
 
 ## Рекомендация
 
-Реализовать limiter в patched KubeVirt `virt-controller` через Kubernetes Lease.
+Реализовать slot-based limiter в patched KubeVirt `virt-controller` через Kubernetes Lease: один Lease соответствует одному inbound slot target node.
 
-На первом этапе использовать фиксированный лимит `1`, без изменения публичного API. В `VMOP` отображать ожидание как `Pending`, не переводя операцию в `Failed`.
+На первом этапе использовать фиксированный лимит `1`, без изменения публичного API. При будущем переходе на лимит `5` или другое значение достаточно изменить количество доступных slots. В `VMOP` отображать ожидание как `Pending`, не переводя операцию в `Failed`.
