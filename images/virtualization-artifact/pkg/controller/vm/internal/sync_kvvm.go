@@ -419,12 +419,12 @@ func (h *SyncKvvmHandler) updateKVVM(ctx context.Context, s state.VirtualMachine
 				patch.WithReplace("/spec/template/spec/domain/memory/guest", domainMemory.Guest.String()),
 			)
 		}
-		newCPU := newKVVM.Spec.Template.Spec.Domain.CPU
-		if newCPU != nil && len(newCPU.Features) == 0 {
-			jsonPatch.Append(
-				patch.WithRemove("/spec/template/spec/domain/cpu/features"),
-			)
-		}
+		//newCPU := newKVVM.Spec.Template.Spec.Domain.CPU
+		//if newCPU != nil && len(newCPU.Features) == 0 {
+		//	jsonPatch.Append(
+		//		patch.WithRemove("/spec/template/spec/domain/cpu/features"),
+		//	)
+		//}
 		if jsonPatch.Len() > 0 {
 			patchBytes, err := jsonPatch.Bytes()
 			if err != nil {
