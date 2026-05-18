@@ -368,6 +368,26 @@ var _ = Describe("LifecycleHandler", func() {
 			),
 		)
 
+		It("should keep migration pending for inbound target node limit", func() {
+			mig := newSimpleMigration("vmop-test", name)
+			mig.Status.Phase = virtv1.MigrationPending
+			mig.Status.Conditions = []virtv1.VirtualMachineInstanceMigrationCondition{{
+				Type:    virtv1.VirtualMachineInstanceMigrationConditionType(reasonTargetNodeIncomingMigrationLimitExceeded),
+				Status:  corev1.ConditionTrue,
+				Reason:  reasonTargetNodeIncomingMigrationLimitExceeded,
+				Message: messageTargetNodeIncomingMigrationLimitExceeded,
+			}}
+
+			fakeClient, err := testutil.NewFakeClientWithObjects(mig)
+			Expect(err).NotTo(HaveOccurred())
+
+			h := LifecycleHandler{client: fakeClient}
+			reason, msg, err := h.getInProgressReasonAndMessage(ctx, mig)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(reason).To(Equal(vmopcondition.ReasonMigrationPending))
+			Expect(msg).To(Equal(messageTargetNodeIncomingMigrationLimitExceeded))
+		})
+
 		DescribeTable("should build in-progress reason and message", func(
 			phase virtv1.VirtualMachineInstanceMigrationPhase,
 			state *virtv1.VirtualMachineInstanceMigrationState,

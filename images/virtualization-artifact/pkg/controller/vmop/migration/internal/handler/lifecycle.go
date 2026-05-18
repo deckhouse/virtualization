@@ -70,6 +70,9 @@ const (
 const (
 	reasonFailedAttachVolume = "FailedAttachVolume"
 	reasonFailedMount        = "FailedMount"
+
+	reasonTargetNodeIncomingMigrationLimitExceeded  = "TargetNodeIncomingMigrationLimitExceeded"
+	messageTargetNodeIncomingMigrationLimitExceeded = "Target node has no free inbound migration slots."
 )
 
 type Base interface {
@@ -591,6 +594,9 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 	case virtv1.MigrationPhaseUnset, virtv1.MigrationPending:
 		reason = vmopcondition.ReasonMigrationPending
 		message = messageMigrationPending
+		if _, found := conditions.GetKVVMIMCondition(virtv1.VirtualMachineInstanceMigrationConditionType(reasonTargetNodeIncomingMigrationLimitExceeded), mig.Status.Conditions); found {
+			message = messageTargetNodeIncomingMigrationLimitExceeded
+		}
 	case virtv1.MigrationScheduling:
 		reason = vmopcondition.ReasonTargetScheduling
 		message = messageTargetPodScheduling
