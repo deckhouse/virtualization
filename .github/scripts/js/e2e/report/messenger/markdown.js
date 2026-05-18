@@ -86,10 +86,8 @@ function renderBranchLine(orderedReports) {
 /**
  * Builds the column descriptors for the test-results markdown table.
  *
- * Each column declares its header, its alignment for the markdown
- * separator row, and how to render the value for a cluster. The "Errors"
- * column is included only when at least one cluster reported Ginkgo
- * errors, so successful runs stay compact.
+ * The "Errors" column is included only when at least one cluster reported
+ * Ginkgo errors, so successful runs stay compact.
  *
  * @param {boolean} hasGinkgoErrors Whether any cluster reported Ginkgo errors.
  * @returns {TestResultsColumn[]} Ordered list of columns to render.
