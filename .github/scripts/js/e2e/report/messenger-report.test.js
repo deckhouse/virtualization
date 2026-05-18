@@ -11,46 +11,13 @@
 // limitations under the License.
 
 const fs = require("fs");
-const os = require("os");
 const path = require("path");
 
 const renderMessengerReport = require("./messenger-report");
 const { readMessengerConfigFromEnv } = require("./messenger/config");
+const { createCore, withTempDir } = require("./shared/test-utils");
 
-/**
- * Creates a mocked GitHub Actions core object for unit tests.
- *
- * @returns {{
- *   info: jest.Mock,
- *   warning: jest.Mock,
- *   setOutput: jest.Mock
- * }} Mocked core object.
- */
-function createCore() {
-  return {
-    info: jest.fn(),
-    warning: jest.fn(),
-    setOutput: jest.fn(),
-  };
-}
-
-/**
- * Runs a test body inside a temporary directory and removes it afterwards.
- *
- * @template T
- * @param {function(string): (Promise<T>|T)} testFn Test body.
- * @returns {Promise<T>} Test result.
- */
-async function withTempDir(testFn) {
-  const tempDir = fs.mkdtempSync(
-    path.join(os.tmpdir(), "messenger-report-test-")
-  );
-  try {
-    return await testFn(tempDir);
-  } finally {
-    fs.rmSync(tempDir, { recursive: true, force: true });
-  }
-}
+const inTempDir = (testFn) => withTempDir("messenger-report-test", testFn);
 
 describe("messenger-report", () => {
   afterEach(() => {
@@ -106,7 +73,7 @@ describe("messenger-report", () => {
   });
 
   test("renders test results, stage failures, and per-cluster thread replies", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       fs.writeFileSync(
         path.join(tempDir, "e2e_report_replicated.json"),
         JSON.stringify({
@@ -184,7 +151,7 @@ describe("messenger-report", () => {
     }));
 
   test("creates artifact-missing entry for absent cluster report", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       process.env.REPORTS_DIR = tempDir;
       process.env.EXPECTED_STORAGE_TYPES = '["replicated"]';
 
@@ -198,7 +165,7 @@ describe("messenger-report", () => {
     }));
 
   test("warns and skips report files that are missing storageType/cluster fields", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       fs.writeFileSync(
         path.join(tempDir, "e2e_report_corrupt.json"),
         JSON.stringify({
@@ -248,7 +215,7 @@ describe("messenger-report", () => {
     }));
 
   test("splits failed tests into separate thread messages per cluster", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       fs.writeFileSync(
         path.join(tempDir, "e2e_report_replicated.json"),
         JSON.stringify({
@@ -303,7 +270,7 @@ describe("messenger-report", () => {
     }));
 
   test("groups failed tests by top-level describe name", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       fs.writeFileSync(
         path.join(tempDir, "e2e_report_nfs.json"),
         JSON.stringify({
@@ -353,7 +320,7 @@ describe("messenger-report", () => {
     }));
 
   test("renders cluster status from downloaded report artifact", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       fs.writeFileSync(
         path.join(tempDir, "e2e_report_replicated.json"),
         JSON.stringify({
@@ -398,7 +365,7 @@ describe("messenger-report", () => {
     }));
 
   test("shows branch line for non-main branches", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       fs.writeFileSync(
         path.join(tempDir, "e2e_report_replicated.json"),
         JSON.stringify({
@@ -437,7 +404,7 @@ describe("messenger-report", () => {
     }));
 
   test("renders missing test report status from downloaded report artifact", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       fs.writeFileSync(
         path.join(tempDir, "e2e_report_replicated.json"),
         JSON.stringify({
@@ -480,7 +447,7 @@ describe("messenger-report", () => {
     }));
 
   test("posts main report and per-cluster failed tests thread via Loop API", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       fs.writeFileSync(
         path.join(tempDir, "e2e_report_replicated.json"),
         JSON.stringify({
@@ -548,7 +515,7 @@ describe("messenger-report", () => {
     }));
 
   test("warns when Loop API returns an empty response body (no post id)", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       fs.writeFileSync(
         path.join(tempDir, "e2e_report_replicated.json"),
         JSON.stringify({
@@ -595,7 +562,7 @@ describe("messenger-report", () => {
     }));
 
   test("warns when Loop API returns a non-JSON response body (no post id)", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       fs.writeFileSync(
         path.join(tempDir, "e2e_report_replicated.json"),
         JSON.stringify({
@@ -645,7 +612,7 @@ describe("messenger-report", () => {
     }));
 
   test("logs readable Loop API errors for failed responses", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       fs.writeFileSync(
         path.join(tempDir, "e2e_report_replicated.json"),
         JSON.stringify({

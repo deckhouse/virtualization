@@ -11,30 +11,16 @@
 // limitations under the License.
 
 const fs = require("fs");
-const os = require("os");
 const path = require("path");
 
 const { listMatchingFiles } = require("./fs-utils");
+const { withTempDir } = require("./test-utils");
 
-/**
- * Runs a test body inside a temporary directory and removes it afterwards.
- *
- * @template T
- * @param {function(string): (Promise<T>|T)} testFn Test body.
- * @returns {Promise<T>} Test result.
- */
-async function withTempDir(testFn) {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "fs-utils-test-"));
-  try {
-    return await testFn(tempDir);
-  } finally {
-    fs.rmSync(tempDir, { recursive: true, force: true });
-  }
-}
+const inTempDir = (testFn) => withTempDir("fs-utils-test", testFn);
 
 describe("fs-utils", () => {
   test("returns sorted matching files recursively", async () =>
-    withTempDir((tempDir) => {
+    inTempDir((tempDir) => {
       const nestedDir = path.join(tempDir, "nested");
       fs.mkdirSync(nestedDir, { recursive: true });
       fs.writeFileSync(path.join(tempDir, "b.json"), "{}\n");
@@ -48,7 +34,7 @@ describe("fs-utils", () => {
     }));
 
   test("throws a descriptive error when a directory cannot be scanned", async () =>
-    withTempDir((tempDir) => {
+    inTempDir((tempDir) => {
       const readdirSpy = jest
         .spyOn(fs, "readdirSync")
         .mockImplementation(() => {

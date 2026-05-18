@@ -11,30 +11,15 @@
 // limitations under the License.
 
 const fs = require("fs");
-const os = require("os");
 const path = require("path");
 
 const buildClusterReport = require("./cluster-report");
 const { readClusterReportConfigFromEnv } = require("./cluster-report");
 const { parseGinkgoReport } = require("./shared/ginkgo-report-utils");
 const { buildClusterStatus } = require("./shared/report-model");
+const { createCore, withTempDir } = require("./shared/test-utils");
 
-/**
- * Creates a mocked GitHub Actions core object for unit tests.
- *
- * @returns {{
- *   info: jest.Mock,
- *   warning: jest.Mock,
- *   setOutput: jest.Mock
- * }} Mocked core object.
- */
-function createCore() {
-  return {
-    info: jest.fn(),
-    warning: jest.fn(),
-    setOutput: jest.fn(),
-  };
-}
+const inTempDir = (testFn) => withTempDir("cluster-report-test", testFn);
 
 /**
  * Creates a minimal GitHub Actions context object for unit tests.
@@ -80,24 +65,6 @@ function createGithub(jobNames) {
       },
     },
   };
-}
-
-/**
- * Runs a test body inside a temporary directory and removes it afterwards.
- *
- * @template T
- * @param {function(string): (Promise<T>|T)} testFn Test body.
- * @returns {Promise<T>} Test result.
- */
-async function withTempDir(testFn) {
-  const tempDir = fs.mkdtempSync(
-    path.join(os.tmpdir(), "cluster-report-test-")
-  );
-  try {
-    return await testFn(tempDir);
-  } finally {
-    fs.rmSync(tempDir, { recursive: true, force: true });
-  }
 }
 
 /**
@@ -229,7 +196,7 @@ describe("cluster-report", () => {
   });
 
   test("builds report from explicit config without reading env", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "explicit-report.json");
 
       const report = await buildClusterReport({
@@ -264,7 +231,7 @@ describe("cluster-report", () => {
     }));
 
   test("builds report from environment config", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "env-report.json");
       process.env.STORAGE_TYPE = "replicated";
       process.env.PIPELINE_JOB_NAME = "E2E Pipeline (Replicated)";
@@ -301,7 +268,7 @@ describe("cluster-report", () => {
     }));
 
   test("reads stage results from env vars", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "env-report.json");
       process.env.STORAGE_TYPE = "nfs";
       process.env.PIPELINE_JOB_NAME = "E2E Pipeline (NFS)";
@@ -331,7 +298,7 @@ describe("cluster-report", () => {
     }));
 
   test("fetches job URLs from GitHub API", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "env-report.json");
       process.env.STORAGE_TYPE = "nfs";
       process.env.PIPELINE_JOB_NAME = "E2E Pipeline (NFS)";
@@ -368,7 +335,7 @@ describe("cluster-report", () => {
     }));
 
   test("works without github (no job URLs)", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "env-report.json");
       process.env.STORAGE_TYPE = "replicated";
       process.env.REPORTS_DIR = tempDir;
@@ -395,7 +362,7 @@ describe("cluster-report", () => {
     }));
 
   test("marks Ginkgo JSON with failed specs as failed", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const rawReportPath = path.join(
         tempDir,
         "e2e_report_replicated_2026-04-15.json"
@@ -508,7 +475,7 @@ describe("cluster-report", () => {
     }));
 
   test("captures suite-level failures from Ginkgo JSON", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const rawReportPath = path.join(
         tempDir,
         "e2e_report_replicated_2026-04-15.json"
@@ -561,7 +528,7 @@ describe("cluster-report", () => {
     }));
 
   test("uses Ginkgo output log when JSON report is missing", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const outputPath = path.join(
         tempDir,
         "e2e_output_replicated_2026-04-15.log"
@@ -609,7 +576,7 @@ describe("cluster-report", () => {
     }));
 
   test("parses real Ginkgo BeforeSuite failure stdout", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const outputPath = path.join(
         tempDir,
         "e2e_output_replicated_2026-05-14.log"
@@ -673,7 +640,7 @@ describe("cluster-report", () => {
     }));
 
   test("fails when multiple matching Ginkgo JSON reports exist", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const firstReportPath = path.join(
         tempDir,
         "nested",
@@ -721,7 +688,7 @@ describe("cluster-report", () => {
     }));
 
   test("falls back to missing-report status when raw Ginkgo JSON is invalid", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const rawReportPath = path.join(
         tempDir,
         "e2e_report_replicated_2026-04-15.json"
@@ -755,7 +722,7 @@ describe("cluster-report", () => {
     }));
 
   test("throws a descriptive error when writing the cluster report fails", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "report.json");
       const config = createClusterConfig({
         reportsDir: tempDir,
@@ -868,7 +835,7 @@ describe("cluster-report", () => {
   });
 
   test("reports configure-sdn as the failed pre-E2E phase", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "report.json");
       const config = createClusterConfig({
         reportsDir: tempDir,
@@ -903,7 +870,7 @@ describe("cluster-report", () => {
     }));
 
   test("marks missing artifacts when test stage is successful but no reports were found", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "report.json");
       const config = createClusterConfig({
         reportsDir: tempDir,
@@ -928,7 +895,7 @@ describe("cluster-report", () => {
     }));
 
   test("keeps cancelled test stage when no reports were found", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "report.json");
       const config = createClusterConfig({
         reportsDir: tempDir,
@@ -956,7 +923,7 @@ describe("cluster-report", () => {
     }));
 
   test("keeps failed test stage when no reports were found", async () =>
-    withTempDir(async (tempDir) => {
+    inTempDir(async (tempDir) => {
       const reportFile = path.join(tempDir, "report.json");
       const config = createClusterConfig({
         reportsDir: tempDir,
