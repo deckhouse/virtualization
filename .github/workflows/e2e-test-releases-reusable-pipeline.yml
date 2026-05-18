@@ -1044,6 +1044,8 @@ jobs:
                 kubectl -n d8-virtualization get pods || echo "[WARNING] Pods in namespace virtualization is not ready"
                 kubectl get pvc -n d8-virtualization || echo "[WARNING] PVC in namespace virtualization is not ready"
                 echo " "
+                echo "d8-virtualization module status: $virtualization_status"
+                echo " "
               fi
               sleep 10
             done
