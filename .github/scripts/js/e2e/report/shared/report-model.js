@@ -14,6 +14,17 @@
 const REPORT_FILE_PATTERN = /^e2e_report_.*\.json$/;
 
 /**
+ * Escapes characters with special meaning in a regex literal so the value
+ * can be safely interpolated into `new RegExp(...)`.
+ *
+ * @param {string} value Raw string to escape.
+ * @returns {string} Regex-safe string.
+ */
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
  * Returns the canonical report file name for a given storage type.
  * @param {string} storageType
  * @returns {string}
@@ -29,8 +40,7 @@ function reportFileName(storageType) {
  * @returns {RegExp}
  */
 function archivedReportPattern(storageType) {
-  const escaped = storageType.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`^e2e_report_${escaped}_.*\\.json$`);
+  return new RegExp(`^e2e_report_${escapeRegExp(storageType)}_.*\\.json$`);
 }
 
 /**
@@ -40,8 +50,7 @@ function archivedReportPattern(storageType) {
  * @returns {RegExp}
  */
 function ginkgoOutputPattern(storageType) {
-  const escaped = storageType.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`^e2e_output_${escaped}_.*\\.log$`);
+  return new RegExp(`^e2e_output_${escapeRegExp(storageType)}_.*\\.log$`);
 }
 
 const stageMessage = {
