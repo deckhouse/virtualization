@@ -87,17 +87,13 @@ function readClusterReportConfigFromEnv(env = process.env) {
   };
 }
 
+const requiredClusterReportConfigKeys = ["storageType", "reportsDir", "reportFile"];
+
 function requireClusterReportConfig(config) {
-  if (!config.storageType) {
-    throw new Error("buildClusterReport requires storageType");
-  }
-
-  if (!config.reportsDir) {
-    throw new Error("buildClusterReport requires reportsDir");
-  }
-
-  if (!config.reportFile) {
-    throw new Error("buildClusterReport requires reportFile");
+  for (const key of requiredClusterReportConfigKeys) {
+    if (!config[key]) {
+      throw new Error(`buildClusterReport requires ${key}`);
+    }
   }
 
   return { ...config };
