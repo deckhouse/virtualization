@@ -488,6 +488,15 @@ jobs:
           path: downloaded-artifacts/
           merge-multiple: false
 
+      - name: Set up Node.js for report rendering
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install E2E report dependencies
+        run: npm install
+        working-directory: .github/scripts/js
+
       - name: Send results to channel
         id: render-report
         uses: actions/github-script@v7

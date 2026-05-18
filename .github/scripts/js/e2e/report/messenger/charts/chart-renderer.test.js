@@ -1,0 +1,57 @@
+// Copyright 2026 Flant JSC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//     http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+jest.mock("chartjs-node-canvas", () => ({
+  ChartJSNodeCanvas: jest.fn().mockImplementation(() => ({
+    renderToBuffer: jest.fn().mockResolvedValue(Buffer.from("png")),
+  })),
+}));
+
+const { renderClusterCharts } = require("./chart-renderer");
+
+describe("chart-renderer", () => {
+  test("returns no files when spec timings are empty", async () => {
+    await expect(renderClusterCharts({ specTimings: [] })).resolves.toEqual([]);
+  });
+
+  test("renders four cluster chart images", async () => {
+    const files = await renderClusterCharts({
+      cluster: "replicated",
+      specTimings: [
+        { name: "slow", group: "VM", state: "passed", runtimeMs: 90000 },
+      ],
+    });
+
+    expect(files).toEqual([
+      {
+        name: "replicated-top-slowest.png",
+        buffer: Buffer.from("png"),
+        mimeType: "image/png",
+      },
+      {
+        name: "replicated-duration-histogram.png",
+        buffer: Buffer.from("png"),
+        mimeType: "image/png",
+      },
+      {
+        name: "replicated-feature-totals.png",
+        buffer: Buffer.from("png"),
+        mimeType: "image/png",
+      },
+      {
+        name: "replicated-status-stacked.png",
+        buffer: Buffer.from("png"),
+        mimeType: "image/png",
+      },
+    ]);
+  });
+});

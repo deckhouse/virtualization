@@ -13,7 +13,12 @@
 const fs = require("fs");
 const path = require("path");
 
+jest.mock("./messenger/charts/chart-renderer", () => ({
+  renderClusterCharts: jest.fn().mockResolvedValue([]),
+}));
+
 const renderMessengerReport = require("./messenger-report");
+const { renderClusterCharts } = require("./messenger/charts/chart-renderer");
 const { readMessengerConfigFromEnv } = require("./messenger/config");
 const { createCore, withTempDir } = require("./shared/test-utils");
 
@@ -27,6 +32,8 @@ describe("messenger-report", () => {
     delete process.env.LOOP_CHANNEL_ID;
     delete process.env.LOOP_TOKEN;
     delete global.fetch;
+    renderClusterCharts.mockReset();
+    renderClusterCharts.mockResolvedValue([]);
   });
 
   test("reads normalized messenger config from env", () => {
@@ -136,17 +143,21 @@ describe("messenger-report", () => {
       expect(result.message).toContain(
         "- [nfs](https://example.invalid/nfs): CONFIGURE SDN"
       );
+      expect(result.message).not.toContain("### Top slowest tests");
       expect(result.message).not.toContain("### Failed tests");
       expect(result.threadMessages).toEqual([
-        [
-          "### Failed tests",
-          "",
-          "**[replicated](https://example.invalid/replicated)**",
-          "",
-          "| Tests | Reason |",
-          "|---|---|",
-          "| fails | Unexpected error: command timed out occurred |",
-        ].join("\n"),
+        {
+          message: [
+            "### Failed tests",
+            "",
+            "**[replicated](https://example.invalid/replicated)**",
+            "",
+            "| Tests | Reason |",
+            "|---|---|",
+            "| fails | Unexpected error: command timed out occurred |",
+          ].join("\n"),
+          files: [],
+        },
       ]);
     }));
 
@@ -162,6 +173,67 @@ describe("messenger-report", () => {
         "- replicated: ⚠️ E2E REPORT ARTIFACT NOT FOUND"
       );
       expect(result.threadMessages).toEqual([]);
+    }));
+
+  test("renders top slowest tests and duration chart thread payloads", async () =>
+    inTempDir(async (tempDir) => {
+      const chartFile = {
+        name: "replicated-top-slowest.png",
+        buffer: Buffer.from("png"),
+        mimeType: "image/png",
+      };
+      renderClusterCharts.mockResolvedValue([chartFile]);
+      fs.writeFileSync(
+        path.join(tempDir, "e2e_report_replicated.json"),
+        JSON.stringify({
+          cluster: "replicated",
+          storageType: "replicated",
+          reportKind: "tests",
+          branch: "main",
+          workflowRunUrl: "https://example.invalid/replicated",
+          startedAt: "2026-04-15T09:30:44",
+          metrics: {
+            passed: 3,
+            skipped: 0,
+            failed: 0,
+            errors: 0,
+            total: 3,
+            successRate: 100,
+          },
+          failedTests: [],
+          specTimings: [
+            { name: "fast", group: "VM", state: "passed", runtimeMs: 1000 },
+            {
+              name: "slow | pipe",
+              group: "Disk",
+              state: "passed",
+              runtimeMs: 90000,
+            },
+            { name: "medium", group: "VM", state: "passed", runtimeMs: 30000 },
+          ],
+        })
+      );
+
+      process.env.REPORTS_DIR = tempDir;
+      process.env.EXPECTED_STORAGE_TYPES = '["replicated"]';
+
+      const core = createCore();
+      const result = await renderMessengerReport({ core });
+
+      expect(result.message).toContain("### Top slowest tests");
+      expect(result.message).toContain(
+        "| [replicated](https://example.invalid/replicated) | slow \\| pipe | 1m 30s |"
+      );
+      expect(result.threadMessages).toEqual([
+        {
+          message: expect.stringContaining("### Test durations"),
+          files: [chartFile],
+        },
+      ]);
+      expect(core.setOutput).toHaveBeenCalledWith(
+        "thread_messages",
+        JSON.stringify([result.threadMessages[0].message])
+      );
     }));
 
   test("warns and skips report files that are missing storageType/cluster fields", async () =>
@@ -264,8 +336,16 @@ describe("messenger-report", () => {
       const result = await renderMessengerReport({ core: createCore() });
 
       expect(result.threadMessages).toEqual([
-        "### Failed tests\n\n**[replicated](https://example.invalid/replicated)**\n\n| Tests | Reason |\n|---|---|\n| replicated | — |",
-        "**[nfs](https://example.invalid/nfs)**\n\n| Tests | Reason |\n|---|---|\n| nfs | — |",
+        {
+          message:
+            "### Failed tests\n\n**[replicated](https://example.invalid/replicated)**\n\n| Tests | Reason |\n|---|---|\n| replicated | — |",
+          files: [],
+        },
+        {
+          message:
+            "**[nfs](https://example.invalid/nfs)**\n\n| Tests | Reason |\n|---|---|\n| nfs | — |",
+          files: [],
+        },
       ]);
     }));
 
@@ -306,16 +386,19 @@ describe("messenger-report", () => {
       const result = await renderMessengerReport({ core: createCore() });
 
       expect(result.threadMessages).toEqual([
-        [
-          "### Failed tests",
-          "",
-          "**[nfs](https://example.invalid/nfs)**",
-          "",
-          "| Tests | Reason |",
-          "|---|---|",
-          "| VirtualMachineOperationRestore | — |",
-          "| VirtualMachineAdditionalNetworkInterfaces | — |",
-        ].join("\n"),
+        {
+          message: [
+            "### Failed tests",
+            "",
+            "**[nfs](https://example.invalid/nfs)**",
+            "",
+            "| Tests | Reason |",
+            "|---|---|",
+            "| VirtualMachineOperationRestore | — |",
+            "| VirtualMachineAdditionalNetworkInterfaces | — |",
+          ].join("\n"),
+          files: [],
+        },
       ]);
     }));
 
@@ -448,6 +531,12 @@ describe("messenger-report", () => {
 
   test("posts main report and per-cluster failed tests thread via Loop API", async () =>
     inTempDir(async (tempDir) => {
+      const chartFile = {
+        name: "replicated-top-slowest.png",
+        buffer: Buffer.from("png"),
+        mimeType: "image/png",
+      };
+      renderClusterCharts.mockResolvedValue([chartFile]);
       fs.writeFileSync(
         path.join(tempDir, "e2e_report_replicated.json"),
         JSON.stringify({
@@ -466,6 +555,9 @@ describe("messenger-report", () => {
             successRate: 83.33,
           },
           failedTests: ["[It] fails"],
+          specTimings: [
+            { name: "slow", group: "VM", state: "failed", runtimeMs: 90000 },
+          ],
         })
       );
 
@@ -485,12 +577,17 @@ describe("messenger-report", () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 201,
+          text: async () => JSON.stringify({ file_infos: [{ id: "file-id" }] }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 201,
           text: async () => JSON.stringify({ id: "thread-post-id" }),
         });
 
       const result = await renderMessengerReport({ core: createCore() });
 
-      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(global.fetch).toHaveBeenCalledTimes(3);
       expect(global.fetch).toHaveBeenNthCalledWith(
         1,
         "https://loop.example.invalid/api/v4/posts",
@@ -506,11 +603,37 @@ describe("messenger-report", () => {
         channel_id: "channel-id",
         message: result.message,
       });
-      expect(JSON.parse(global.fetch.mock.calls[1][1].body)).toEqual({
+      expect(global.fetch).toHaveBeenNthCalledWith(
+        2,
+        "https://loop.example.invalid/api/v4/files",
+        expect.objectContaining({
+          method: "POST",
+          headers: {
+            Authorization: "Bearer loop-token",
+          },
+        })
+      );
+      expect(JSON.parse(global.fetch.mock.calls[2][1].body)).toEqual({
         channel_id: "channel-id",
-        message:
-          "### Failed tests\n\n**[replicated](https://example.invalid/replicated)**\n\n| Tests | Reason |\n|---|---|\n| fails | — |",
+        message: [
+          "### Failed tests",
+          "",
+          "**[replicated](https://example.invalid/replicated)**",
+          "",
+          "| Tests | Reason |",
+          "|---|---|",
+          "| fails | — |",
+          "",
+          "### Test durations",
+          "",
+          "Attached charts:",
+          "- Top slowest specs",
+          "- Duration distribution",
+          "- Total duration by feature",
+          "- Duration by feature and status",
+        ].join("\n"),
         root_id: "root-post-id",
+        file_ids: ["file-id"],
       });
     }));
 

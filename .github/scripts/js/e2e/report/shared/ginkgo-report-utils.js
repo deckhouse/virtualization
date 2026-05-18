@@ -72,10 +72,12 @@ function formatSpecName(specReport) {
     .map((part) => String(part || "").trim())
     .filter(Boolean);
   const leafText = String(specReport.LeafNodeText || "").trim();
-  const labels = [...new Set([
-    ...flattenLabels(specReport.ContainerHierarchyLabels),
-    ...flattenLabels(specReport.LeafNodeLabels),
-  ])];
+  const labels = [
+    ...new Set([
+      ...flattenLabels(specReport.ContainerHierarchyLabels),
+      ...flattenLabels(specReport.LeafNodeLabels),
+    ]),
+  ];
   const labelSuffix = labels.map((label) => `[${label}]`).join(" ");
   const body = [...hierarchyParts, leafText].filter(Boolean).join(" ");
 
@@ -84,6 +86,11 @@ function formatSpecName(specReport) {
     .join(" ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function runtimeMs(value) {
+  const runtime = Number(value || 0);
+  return Number.isFinite(runtime) ? Math.round(runtime / 1_000_000) : 0;
 }
 
 /**
@@ -124,12 +131,16 @@ function formatFailureReason(specReport) {
 const failureStates = new Set(["failed", "errors"]);
 
 function isSuiteNodeFailure(specReport) {
-  const leafNodeType = String((specReport && specReport.LeafNodeType) || "").trim();
+  const leafNodeType = String(
+    (specReport && specReport.LeafNodeType) || ""
+  ).trim();
   if (!leafNodeType || leafNodeType === "It") {
     return false;
   }
 
-  return failureStates.has(getMetricKeyForState(specReport && specReport.State));
+  return failureStates.has(
+    getMetricKeyForState(specReport && specReport.State)
+  );
 }
 
 function buildFailureDetail(specReport) {
@@ -153,6 +164,8 @@ function buildFailureDetail(specReport) {
  *   metrics: GinkgoMetrics,
  *   failedTests: string[],
  *   failedTestDetails: Array<{name: string, reason: string}>,
+ *   specTimings: Array<{name: string, group: string, state: string, runtimeMs: number, labels: string[]}>,
+ *   suiteTotalMs: number,
  *   startedAt: string|null
  * }} Parsed report payload.
  */
@@ -161,10 +174,14 @@ function parseGinkgoReport(jsonContent) {
   const metrics = zeroMetrics();
   const failedTests = [];
   const failedTestDetails = [];
+  const specTimings = [];
   const startedAt =
     suites.find((suite) => suite && suite.StartTime)?.StartTime || null;
+  let suiteTotalMs = 0;
 
   for (const suite of suites) {
+    suiteTotalMs += runtimeMs(suite && suite.RunTime);
+
     for (const specReport of toArray(suite && suite.SpecReports)) {
       if (isSuiteNodeFailure(specReport)) {
         const failureDetail = buildFailureDetail(specReport);
@@ -186,6 +203,20 @@ function parseGinkgoReport(jsonContent) {
       metrics.total += 1;
       const metricKey = getMetricKeyForState(specReport.State);
       metrics[metricKey] += 1;
+      const hierarchyParts = toArray(specReport.ContainerHierarchyTexts)
+        .map((part) => String(part || "").trim())
+        .filter(Boolean);
+      const leafText = String(specReport.LeafNodeText || "").trim();
+      specTimings.push({
+        name: leafText,
+        group: hierarchyParts[0] || leafText,
+        state: metricKey,
+        runtimeMs: runtimeMs(specReport.RunTime),
+        labels: flattenLabels([
+          ...toArray(specReport.ContainerHierarchyLabels),
+          ...toArray(specReport.LeafNodeLabels),
+        ]),
+      });
 
       if (failureStates.has(metricKey)) {
         const failureDetail = buildFailureDetail(specReport);
@@ -214,6 +245,8 @@ function parseGinkgoReport(jsonContent) {
         ])
       ).values()
     ),
+    specTimings,
+    suiteTotalMs,
     startedAt,
   };
 }
@@ -330,6 +363,8 @@ function extractFailureReasonFromOutput(output, suiteNodeType) {
  *   metrics: GinkgoMetrics,
  *   failedTests: string[],
  *   failedTestDetails: Array<{name: string, reason: string}>,
+ *   specTimings: [],
+ *   suiteTotalMs: 0,
  *   startedAt: null,
  * }} Parsed fallback payload.
  */
@@ -340,6 +375,8 @@ function parseGinkgoOutput(outputContent) {
     metrics: zeroMetrics(),
     failedTests: [],
     failedTestDetails: [],
+    specTimings: [],
+    suiteTotalMs: 0,
     startedAt: null,
   };
 

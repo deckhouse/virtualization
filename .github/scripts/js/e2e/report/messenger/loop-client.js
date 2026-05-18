@@ -26,7 +26,7 @@
 /**
  * @typedef {Object} LoopPublishParams
  * @property {string} message
- * @property {string[]} threadMessages
+ * @property {Array<{message: string, files: Array<{name: string, buffer: Buffer, mimeType: string}>}>} threadMessages
  * @property {LoopCredentials} loop
  */
 
@@ -60,20 +60,24 @@ function parseLoopApiPayload(responseText, core) {
  * @param {string} message Post body.
  * @param {string} [rootId] Optional thread root id for reply posts.
  * @param {LoopClientCore} core GitHub core API.
+ * @param {string[]} [fileIds] Uploaded Loop file ids to attach.
  * @returns {Promise<Record<string, any>>} Parsed Loop API response.
  */
-async function postToLoopApi(loop, message, rootId, core) {
+async function postToLoopApi(loop, message, rootId, core, fileIds = []) {
+  const body = {
+    channel_id: loop.channelId,
+    message,
+    ...(rootId ? { root_id: rootId } : {}),
+    ...(fileIds.length > 0 ? { file_ids: fileIds } : {}),
+  };
+
   const response = await fetch(loop.apiUrl, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${loop.token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      channel_id: loop.channelId,
-      message,
-      ...(rootId ? { root_id: rootId } : {}),
-    }),
+    body: JSON.stringify(body),
   });
   const responseText = await response.text();
 
@@ -88,6 +92,59 @@ async function postToLoopApi(loop, message, rootId, core) {
   return payload;
 }
 
+function getFilesApiUrl(apiUrl) {
+  return String(apiUrl || "").replace(/\/posts$/, "/files");
+}
+
+/**
+ * Uploads a single file to Loop and returns the created file id.
+ *
+ * @param {LoopCredentials} loop Loop API credentials.
+ * @param {string} fileName File name shown in Loop.
+ * @param {Buffer} buffer File content.
+ * @param {LoopClientCore} core GitHub core API.
+ * @param {string} [mimeType] File MIME type.
+ * @returns {Promise<string>} Uploaded Loop file id.
+ */
+async function uploadFileToLoop(
+  loop,
+  fileName,
+  buffer,
+  core,
+  mimeType = "image/png"
+) {
+  const formData = new FormData();
+  formData.append("channel_id", loop.channelId);
+  formData.append("files", new Blob([buffer], { type: mimeType }), fileName);
+
+  const response = await fetch(getFilesApiUrl(loop.apiUrl), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${loop.token}`,
+    },
+    body: formData,
+  });
+  const responseText = await response.text();
+
+  if (!response.ok) {
+    throw new Error(
+      `Loop file upload failed with status ${response.status}: ${responseText}`
+    );
+  }
+
+  const payload = parseLoopApiPayload(responseText, core);
+  const fileId =
+    payload.file_infos && payload.file_infos[0] && payload.file_infos[0].id;
+  if (!fileId) {
+    throw new Error("Loop API did not return uploaded file id");
+  }
+
+  core.info(
+    `Loop API accepted file ${fileName} with status ${response.status}`
+  );
+  return fileId;
+}
+
 /**
  * Publishes the main report and optional failed-tests thread to Loop.
  *
@@ -95,7 +152,10 @@ async function postToLoopApi(loop, message, rootId, core) {
  * @param {LoopClientCore} core GitHub core API.
  * @returns {Promise<void>}
  */
-async function makeThreadedReportInLoop({ message, threadMessages, loop }, core) {
+async function makeThreadedReportInLoop(
+  { message, threadMessages, loop },
+  core
+) {
   const rootPost = await postToLoopApi(loop, message, undefined, core);
 
   if (!rootPost.id) {
@@ -104,11 +164,18 @@ async function makeThreadedReportInLoop({ message, threadMessages, loop }, core)
     );
   }
 
-  for (const replyMessage of threadMessages) {
-    await postToLoopApi(loop, replyMessage, rootPost.id, core);
+  for (const reply of threadMessages) {
+    const files = Array.isArray(reply.files) ? reply.files : [];
+    const fileIds = await Promise.all(
+      files.map((file) =>
+        uploadFileToLoop(loop, file.name, file.buffer, core, file.mimeType)
+      )
+    );
+    await postToLoopApi(loop, reply.message, rootPost.id, core, fileIds);
   }
 }
 
 module.exports = {
   makeThreadedReportInLoop,
+  uploadFileToLoop,
 };

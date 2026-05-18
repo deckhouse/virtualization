@@ -19,5 +19,9 @@
     "eslint": "^10.2.1",
     "jest": "28.1.2",
     "prettier": "^2.5.0"
+  },
+  "dependencies": {
+    "chart.js": "^4.5.1",
+    "chartjs-node-canvas": "^5.0.0"
   }
 }

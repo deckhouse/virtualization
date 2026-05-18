@@ -1,0 +1,56 @@
+// Copyright 2026 Flant JSC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//     http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+const { uploadFileToLoop } = require("./loop-client");
+const { createCore } = require("../shared/test-utils");
+
+describe("loop-client", () => {
+  afterEach(() => {
+    delete global.fetch;
+  });
+
+  test("uploads files to Loop multipart endpoint", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      text: async () => JSON.stringify({ file_infos: [{ id: "file-id" }] }),
+    });
+
+    const fileId = await uploadFileToLoop(
+      {
+        apiUrl: "https://loop.example.invalid/api/v4/posts",
+        channelId: "channel-id",
+        token: "loop-token",
+      },
+      "chart.png",
+      Buffer.from("image-bytes"),
+      createCore(),
+      "image/png"
+    );
+
+    expect(fileId).toBe("file-id");
+    expect(global.fetch).toHaveBeenCalledWith(
+      "https://loop.example.invalid/api/v4/files",
+      expect.objectContaining({
+        method: "POST",
+        headers: {
+          Authorization: "Bearer loop-token",
+        },
+      })
+    );
+
+    const body = global.fetch.mock.calls[0][1].body;
+    expect(body.get("channel_id")).toBe("channel-id");
+    expect(body.get("files").name).toBe("chart.png");
+    await expect(body.get("files").text()).resolves.toBe("image-bytes");
+  });
+});

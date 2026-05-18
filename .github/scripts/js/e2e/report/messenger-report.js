@@ -14,6 +14,7 @@ const fs = require("fs");
 
 const { listMatchingFiles } = require("./shared/fs-utils");
 const { REPORT_FILE_PATTERN } = require("./shared/report-model");
+const { renderClusterCharts } = require("./messenger/charts/chart-renderer");
 const { makeThreadedReportInLoop } = require("./messenger/loop-client");
 const { readMessengerConfigFromEnv } = require("./messenger/config");
 const {
@@ -103,12 +104,18 @@ function readReports(reportsDir, configuredClusters, core) {
  * @param {MessengerMessagesParams} params Message rendering inputs.
  * @returns {{
  *   message: string,
- *   threadMessages: string[]
+ *   threadMessages: Array<{message: string, files: Array<Record<string, any>>}>
  * }} Rendered markdown payloads.
  */
-function buildMessengerMessages({ reportsDir, configuredClusters, core }) {
+async function buildMessengerMessages({
+  reportsDir,
+  configuredClusters,
+  core,
+}) {
   const orderedReports = readReports(reportsDir, configuredClusters, core);
-  const threadMessages = buildThreadMessages(orderedReports);
+  const threadMessages = await buildThreadMessages(orderedReports, {
+    renderClusterCharts,
+  });
   return {
     message: buildMainMessage(orderedReports),
     threadMessages,
@@ -122,12 +129,12 @@ function buildMessengerMessages({ reportsDir, configuredClusters, core }) {
  * @param {RenderMessengerReportParams} params GitHub script dependencies.
  * @returns {Promise<{
  *   message: string,
- *   threadMessages: string[]
+ *   threadMessages: Array<{message: string, files: Array<Record<string, any>>}>
  * }>} Rendered messages.
  */
 async function renderMessengerReport({ core, reportsDir }) {
   const config = readMessengerConfigFromEnv();
-  const { message, threadMessages } = buildMessengerMessages({
+  const { message, threadMessages } = await buildMessengerMessages({
     reportsDir: reportsDir || config.reportsDir,
     configuredClusters: config.configuredClusters,
     core,
@@ -135,11 +142,17 @@ async function renderMessengerReport({ core, reportsDir }) {
 
   core.info(message);
   core.setOutput("message", message);
-  core.setOutput("thread_messages", JSON.stringify(threadMessages));
+  core.setOutput(
+    "thread_messages",
+    JSON.stringify(threadMessages.map((threadMessage) => threadMessage.message))
+  );
 
   if (config.loop) {
     try {
-      await makeThreadedReportInLoop({ message, threadMessages, loop: config.loop }, core);
+      await makeThreadedReportInLoop(
+        { message, threadMessages, loop: config.loop },
+        core
+      );
     } catch (error) {
       core.warning(`Unable to deliver report to Loop API: ${error.message}`);
     }

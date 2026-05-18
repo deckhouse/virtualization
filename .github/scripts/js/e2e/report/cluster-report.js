@@ -69,11 +69,27 @@ const {
  */
 
 const workflowStages = [
-  { name: "bootstrap",            displayName: "Bootstrap cluster",        needsJobId: "bootstrap" },
-  { name: "configure-sdn",        displayName: "Configure SDN",            needsJobId: "configure-sdn" },
-  { name: "storage-setup",        displayName: "Configure storage",        needsJobId: "configure-storage" },
-  { name: "virtualization-setup", displayName: "Configure Virtualization", needsJobId: "configure-virtualization" },
-  { name: "e2e-test",             displayName: "E2E test",                 needsJobId: "e2e-test" },
+  {
+    name: "bootstrap",
+    displayName: "Bootstrap cluster",
+    needsJobId: "bootstrap",
+  },
+  {
+    name: "configure-sdn",
+    displayName: "Configure SDN",
+    needsJobId: "configure-sdn",
+  },
+  {
+    name: "storage-setup",
+    displayName: "Configure storage",
+    needsJobId: "configure-storage",
+  },
+  {
+    name: "virtualization-setup",
+    displayName: "Configure Virtualization",
+    needsJobId: "configure-virtualization",
+  },
+  { name: "e2e-test", displayName: "E2E test", needsJobId: "e2e-test" },
 ];
 
 function readClusterReportConfigFromEnv(env = process.env) {
@@ -87,7 +103,11 @@ function readClusterReportConfigFromEnv(env = process.env) {
   };
 }
 
-const requiredClusterReportConfigKeys = ["storageType", "reportsDir", "reportFile"];
+const requiredClusterReportConfigKeys = [
+  "storageType",
+  "reportsDir",
+  "reportFile",
+];
 
 function requireClusterReportConfig(config) {
   for (const key of requiredClusterReportConfigKeys) {
@@ -128,7 +148,9 @@ async function listWorkflowRunJobs(github, context) {
 }
 
 function findWorkflowJob(jobs, pipelineJobName, jobName) {
-  const nestedJobName = pipelineJobName ? `${pipelineJobName} / ${jobName}` : "";
+  const nestedJobName = pipelineJobName
+    ? `${pipelineJobName} / ${jobName}`
+    : "";
 
   return (
     jobs.find((job) => job.name === nestedJobName) ||
@@ -147,7 +169,8 @@ function readStageResultsFromEnv(env = process.env) {
 
   const stageResults = {};
   for (const { name, needsJobId } of workflowStages) {
-    stageResults[name] = String((needs[needsJobId] || {}).result || "").trim() || "skipped";
+    stageResults[name] =
+      String((needs[needsJobId] || {}).result || "").trim() || "skipped";
   }
   return stageResults;
 }
@@ -161,7 +184,9 @@ async function readStageJobUrlsFromApi(github, context, config, core) {
     if (job) {
       stageJobUrls[name] = job.html_url || "";
     } else {
-      core.warning(`Unable to find workflow job "${displayName}" for E2E report`);
+      core.warning(
+        `Unable to find workflow job "${displayName}" for E2E report`
+      );
     }
   }
 
@@ -178,6 +203,8 @@ async function readStageJobUrlsFromApi(github, context, config, core) {
  *   metrics: ReturnType<typeof zeroMetrics>,
  *   failedTests: string[],
  *   failedTestDetails: Array<{name: string, reason: string}>,
+ *   specTimings: Array<Record<string, any>>,
+ *   suiteTotalMs: number,
  *   startedAt: null,
  *   source: string,
  * }} Empty parsed-report payload.
@@ -187,6 +214,8 @@ function emptyParsedReport(source) {
     metrics: zeroMetrics(),
     failedTests: [],
     failedTestDetails: [],
+    specTimings: [],
+    suiteTotalMs: 0,
     startedAt: null,
     source,
   };
@@ -217,6 +246,8 @@ const ginkgoOutputSource = {
  *   metrics: ReturnType<typeof zeroMetrics>,
  *   failedTests: string[],
  *   failedTestDetails: Array<{name: string, reason: string}>,
+ *   specTimings: Array<Record<string, any>>,
+ *   suiteTotalMs: number,
  *   startedAt: string|null,
  * }} parse Parser function for the source content.
  * @property {function(string): RegExp} pattern Builds the file-name regex for the source.
@@ -252,6 +283,8 @@ function findGinkgoSource(config, source) {
  *   metrics: ReturnType<typeof zeroMetrics>,
  *   failedTests: string[],
  *   failedTestDetails: Array<{name: string, reason: string}>,
+ *   specTimings: Array<Record<string, any>>,
+ *   suiteTotalMs: number,
  *   startedAt: string|null,
  *   source: string,
  * }} Parsed report payload with a source tag.
@@ -320,6 +353,8 @@ function buildReportPayload({
     metrics: parsedReport.metrics,
     failedTests: parsedReport.failedTests,
     failedTestDetails: parsedReport.failedTestDetails,
+    specTimings: parsedReport.specTimings || [],
+    suiteTotalMs: parsedReport.suiteTotalMs || 0,
     sourceReport: sourcePath,
     reportSource: parsedReport.source,
   };
@@ -391,7 +426,9 @@ async function buildClusterReport({ core, context, github, config } = {}) {
     ? null
     : findGinkgoSource(resolvedConfig, ginkgoOutputSource);
   const sourcePath = rawReportPath || outputPath;
-  const sourceDescriptor = rawReportPath ? ginkgoJsonSource : ginkgoOutputSource;
+  const sourceDescriptor = rawReportPath
+    ? ginkgoJsonSource
+    : ginkgoOutputSource;
 
   if (!rawReportPath) {
     core.warning(

@@ -54,12 +54,12 @@ function ginkgoOutputPattern(storageType) {
 }
 
 const stageMessage = {
-  "bootstrap": "BOOTSTRAP CLUSTER",
+  bootstrap: "BOOTSTRAP CLUSTER",
   "configure-sdn": "CONFIGURE SDN",
   "storage-setup": "STORAGE SETUP",
   "virtualization-setup": "VIRTUALIZATION SETUP",
   "e2e-test": "E2E TEST",
-  "ready": "CLUSTER READY",
+  ready: "CLUSTER READY",
   "artifact-missing": "TEST REPORTS NOT FOUND",
 };
 
@@ -94,7 +94,8 @@ const statusMessageTemplates = {
 };
 
 function buildStatusMessage(status, stageLabel) {
-  const template = statusMessageTemplates[status] || statusMessageTemplates.failure;
+  const template =
+    statusMessageTemplates[status] || statusMessageTemplates.failure;
   return template.replace("%s", stageLabel);
 }
 

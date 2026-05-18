@@ -47,14 +47,12 @@ function createContext() {
  * @returns {Record<string, any>} Mocked GitHub client.
  */
 function createGithub(jobNames) {
-  const jobs = jobNames.map(
-    (name, index) => ({
-      name,
-      html_url: `https://github.com/test/repo/actions/runs/12345/job/${
-        index + 1
-      }`,
-    })
-  );
+  const jobs = jobNames.map((name, index) => ({
+    name,
+    html_url: `https://github.com/test/repo/actions/runs/12345/job/${
+      index + 1
+    }`,
+  }));
 
   return {
     rest: {
@@ -238,11 +236,11 @@ describe("cluster-report", () => {
       process.env.REPORTS_DIR = tempDir;
       process.env.REPORT_FILE = reportFile;
       process.env.NEEDS_CONTEXT = JSON.stringify({
-        "bootstrap":              { result: "success" },
-        "configure-sdn":          { result: "success" },
-        "configure-storage":      { result: "success" },
+        bootstrap: { result: "success" },
+        "configure-sdn": { result: "success" },
+        "configure-storage": { result: "success" },
         "configure-virtualization": { result: "success" },
-        "e2e-test":               { result: "success" },
+        "e2e-test": { result: "success" },
       });
 
       expect(readClusterReportConfigFromEnv()).toMatchObject({
@@ -275,11 +273,11 @@ describe("cluster-report", () => {
       process.env.REPORTS_DIR = tempDir;
       process.env.REPORT_FILE = reportFile;
       process.env.NEEDS_CONTEXT = JSON.stringify({
-        "bootstrap":              { result: "success" },
-        "configure-sdn":          { result: "failure" },
-        "configure-storage":      { result: "skipped" },
+        bootstrap: { result: "success" },
+        "configure-sdn": { result: "failure" },
+        "configure-storage": { result: "skipped" },
         "configure-virtualization": { result: "skipped" },
-        "e2e-test":               { result: "skipped" },
+        "e2e-test": { result: "skipped" },
       });
 
       const report = await buildClusterReport({
@@ -305,11 +303,11 @@ describe("cluster-report", () => {
       process.env.REPORTS_DIR = tempDir;
       process.env.REPORT_FILE = reportFile;
       process.env.NEEDS_CONTEXT = JSON.stringify({
-        "bootstrap":              { result: "success" },
-        "configure-sdn":          { result: "failure" },
-        "configure-storage":      { result: "skipped" },
+        bootstrap: { result: "success" },
+        "configure-sdn": { result: "failure" },
+        "configure-storage": { result: "skipped" },
         "configure-virtualization": { result: "skipped" },
-        "e2e-test":               { result: "skipped" },
+        "e2e-test": { result: "skipped" },
       });
 
       const report = await buildClusterReport({
@@ -341,11 +339,11 @@ describe("cluster-report", () => {
       process.env.REPORTS_DIR = tempDir;
       process.env.REPORT_FILE = reportFile;
       process.env.NEEDS_CONTEXT = JSON.stringify({
-        "bootstrap":              { result: "success" },
-        "configure-sdn":          { result: "success" },
-        "configure-storage":      { result: "success" },
+        bootstrap: { result: "success" },
+        "configure-sdn": { result: "success" },
+        "configure-storage": { result: "success" },
         "configure-virtualization": { result: "success" },
-        "e2e-test":               { result: "success" },
+        "e2e-test": { result: "success" },
       });
 
       const report = await buildClusterReport({
@@ -454,11 +452,43 @@ describe("cluster-report", () => {
           reason: "timed out waiting for VM to become ready",
         },
       ]);
+      expect(report.suiteTotalMs).toBe(1800000);
+      expect(report.specTimings).toEqual([
+        {
+          name: "passes",
+          group: "Suite",
+          state: "passed",
+          runtimeMs: 60000,
+          labels: [],
+        },
+        {
+          name: "fails & burns",
+          group: "Suite",
+          state: "failed",
+          runtimeMs: 60000,
+          labels: ["Slow"],
+        },
+        {
+          name: "errors <loudly>",
+          group: "Other",
+          state: "errors",
+          runtimeMs: 60000,
+          labels: [],
+        },
+        {
+          name: "skipped",
+          group: "skipped",
+          state: "skipped",
+          runtimeMs: 60000,
+          labels: [],
+        },
+      ]);
       expect(report.reportSource).toBe("ginkgo-json");
       expect(report.sourceReport).toBe(rawReportPath);
-      expect(JSON.parse(fs.readFileSync(reportFile, "utf8")).reportKind).toBe(
-        "tests"
-      );
+      const persistedReport = JSON.parse(fs.readFileSync(reportFile, "utf8"));
+      expect(persistedReport.reportKind).toBe("tests");
+      expect(persistedReport.specTimings).toEqual(report.specTimings);
+      expect(persistedReport.suiteTotalMs).toBe(1800000);
       expect(core.setOutput).toHaveBeenCalledWith("report_file", reportFile);
       expect(core.setOutput).toHaveBeenCalledWith("report_kind", "tests");
       expect(core.setOutput).toHaveBeenCalledWith("status", "failure");
@@ -590,7 +620,7 @@ describe("cluster-report", () => {
           "/home/runner/work/virtualization/virtualization/test/e2e/e2e_test.go:44",
           "PASS: all 94 specs have precheck labels",
           "  STEP: Ensuring 12 precreated CVIs are available @ 05/14/26 13:57:36.142",
-          "  CVI \"v12n-e2e-testdata-iso\" exists but not ready (phase: Pending), waiting...",
+          '  CVI "v12n-e2e-testdata-iso" exists but not ready (phase: Pending), waiting...',
           "  [FAILED] in [SynchronizedBeforeSuite] - /home/runner/work/.../until.go:207 @ 05/14/26 14:02:37.61",
           "[SynchronizedBeforeSuite] [FAILED] [307.964 seconds]",
           "[SynchronizedBeforeSuite]",
@@ -636,7 +666,9 @@ describe("cluster-report", () => {
       );
       // The plain "[SynchronizedBeforeSuite]" header that follows the
       // "[FAILED] [307.964 seconds]" line must not leak into the reason.
-      expect(detail.reason.split("\n")[0]).not.toBe("[SynchronizedBeforeSuite]");
+      expect(detail.reason.split("\n")[0]).not.toBe(
+        "[SynchronizedBeforeSuite]"
+      );
     }));
 
   test("fails when multiple matching Ginkgo JSON reports exist", async () =>
@@ -828,6 +860,8 @@ describe("cluster-report", () => {
       successRate: 92.78,
     });
     expect(parsed.startedAt).toBe("2026-04-28T03:11:27.708387575Z");
+    expect(parsed.specTimings).toHaveLength(131);
+    expect(parsed.suiteTotalMs).toBe(1800000);
     expect(parsed.failedTests).toHaveLength(7);
     expect(parsed.failedTests).toContain(
       "[It] VirtualMachineOperationRestore restores a virtual machine from a snapshot BestEffort restore mode; automatic restart approval mode; manual run policy [Slow]"
