@@ -133,18 +133,13 @@ jobs:
         run: |
           GIT_SHORT_HASH=$(git rev-parse --short HEAD)
 
-          namespace="release-test-$STORAGE_TYPE-$GIT_SHORT_HASH-$RANDUUID4C"
+          namespace="nightly-e2e-$STORAGE_TYPE-$GIT_SHORT_HASH-$RANDUUID4C"
 
           echo "namespace=$namespace" >> $GITHUB_OUTPUT
           echo "sha_short=$GIT_SHORT_HASH" >> $GITHUB_OUTPUT
 
           REGISTRY=$(base64 -d <<< ${{secrets.PROD_IO_REGISTRY_DOCKER_CFG}} | jq '.auths | to_entries | .[] | .key' -r)
-          USERNAME=$(base64 -d <<< ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }} | jq '.auths | to_entries | .[] | .value.auth' -r | base64 -d | cut -d ':' -f1)
-          PASSWORD=$(base64 -d <<< ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }} | jq '.auths | to_entries | .[] | .value.auth' -r | base64 -d | cut -d ':' -f2)
-
           echo "registry=$REGISTRY" >> $GITHUB_OUTPUT
-          echo "username=$USERNAME" >> $GITHUB_OUTPUT
-          echo "password=$PASSWORD" >> $GITHUB_OUTPUT
 
       - name: Install htpasswd utility
         run: |
@@ -163,11 +158,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Log in to private registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ steps.vars.outputs.registry }}
-          username: ${{ steps.vars.outputs.username }}
-          password: ${{ steps.vars.outputs.password }}
+        env:
+          REGISTRY: ${{ steps.vars.outputs.registry }}
+        run: |
+          USERNAME=$(base64 -d <<< "${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}" | jq -r '.auths | to_entries | .[] | .value.auth' | base64 -d | cut -d ':' -f1)
+          PASSWORD=$(base64 -d <<< "${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}" | jq -r '.auths | to_entries | .[] | .value.auth' | base64 -d | cut -d ':' -f2)
+          echo "::add-mask::$USERNAME"
+          echo "::add-mask::$PASSWORD"
+          echo "$PASSWORD" | docker login "$REGISTRY" --username "$USERNAME" --password-stdin
 
       - name: Configure kubectl via azure/k8s-set-context@v4
         uses: azure/k8s-set-context@v4
@@ -245,11 +243,15 @@ jobs:
       - name: Bootstrap cluster [dhctl-bootstrap]
         id: dhctl-bootstrap
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
-        env:
-          HTTP_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
-          HTTPS_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
         run: |
+          if [[ $(yq eval '.deckhouse.proxyEnabled' values.yaml) == true ]]; then
+            export HTTP_PROXY="${{ secrets.BOOTSTRAP_DEV_PROXY }}"
+            export HTTPS_PROXY="${{ secrets.BOOTSTRAP_DEV_PROXY }}"
+            echo "Proxy settings - configured"
+          fi
+
           task dhctl-bootstrap
+          echo "[SUCCESS] Done"
         timeout-minutes: 30
       - name: Bootstrap cluster [show-connection-info]
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
