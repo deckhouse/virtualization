@@ -36,17 +36,6 @@ function formatRate(value) {
   return `${Number.isFinite(rate) ? rate.toFixed(2) : "0.00"}%`;
 }
 
-function formatDuration(runtimeMs) {
-  const durationSeconds = Number(runtimeMs || 0) / 1000;
-  if (durationSeconds < 60) {
-    return `${durationSeconds.toFixed(1)}s`;
-  }
-
-  const minutes = Math.floor(durationSeconds / 60);
-  const seconds = Math.round(durationSeconds % 60);
-  return `${minutes}m ${seconds}s`;
-}
-
 function formatClusterLink(report) {
   const clusterName = sanitizeCell(report.cluster || report.storageType);
   return report.workflowRunUrl
@@ -176,65 +165,6 @@ function renderTestResultsSection(testsReports) {
   return ["### Test results", "", ...rows, ""];
 }
 
-function renderDurationBar(runtimeMs, maxRuntimeMs, width = 10) {
-  if (!maxRuntimeMs) {
-    return "";
-  }
-
-  const filled = Math.max(
-    1,
-    Math.round((Number(runtimeMs || 0) / maxRuntimeMs) * width)
-  );
-  return `${"█".repeat(Math.min(width, filled))}${"░".repeat(
-    Math.max(0, width - filled)
-  )}`;
-}
-
-function renderTopSlowestSection(testsReports) {
-  const rows = [];
-
-  for (const report of testsReports) {
-    const timings = Array.isArray(report.specTimings) ? report.specTimings : [];
-    const topTimings = timings
-      .slice()
-      .sort(
-        (left, right) =>
-          Number(right.runtimeMs || 0) - Number(left.runtimeMs || 0) ||
-          String(left.name || "").localeCompare(String(right.name || ""))
-      )
-      .slice(0, 3);
-
-    for (const timing of topTimings) {
-      rows.push({ report, timing });
-    }
-  }
-
-  if (rows.length === 0) {
-    return [];
-  }
-
-  const maxRuntimeMs = Math.max(
-    ...rows.map(({ timing }) => Number(timing.runtimeMs || 0))
-  );
-  const tableRows = [
-    "| Cluster | Test | Duration | Bar |",
-    "|---|---|---:|---|",
-  ];
-
-  for (const { report, timing } of rows) {
-    tableRows.push(
-      buildMarkdownRow([
-        formatClusterLink(report),
-        sanitizeCell(timing.name),
-        formatDuration(timing.runtimeMs),
-        renderDurationBar(timing.runtimeMs, maxRuntimeMs),
-      ])
-    );
-  }
-
-  return ["### Top slowest tests", "", ...tableRows, ""];
-}
-
 /**
  * Renders a `### <title>` section followed by a bullet list of
  * `- <cluster link>: <message>` rows, one per report. Returns an empty
@@ -303,7 +233,6 @@ function buildMainMessage(orderedReports) {
       getMissingReportMessage
     ),
     ...renderTestResultsSection(testsReports),
-    ...renderTopSlowestSection(testsReports),
   ];
 
   return lines.join("\n").trim();
@@ -412,26 +341,8 @@ function hasSpecTimings(report) {
   return Array.isArray(report.specTimings) && report.specTimings.length > 0;
 }
 
-function renderChartCaption(files, chartsUnavailable) {
-  if (files.length === 0 && !chartsUnavailable) {
-    return "";
-  }
-
-  const lines = ["### Test durations"];
-  if (files.length > 0) {
-    lines.push("");
-    lines.push("Attached charts:");
-    lines.push("- Top slowest specs");
-    lines.push("- Duration distribution");
-    lines.push("- Total duration by feature");
-    lines.push("- Duration by feature and status");
-  }
-  if (chartsUnavailable) {
-    lines.push("");
-    lines.push("Charts unavailable.");
-  }
-
-  return lines.join("\n");
+function renderChartCaption(_files, chartsUnavailable) {
+  return chartsUnavailable ? "Charts unavailable." : "";
 }
 
 /**

@@ -175,7 +175,7 @@ describe("messenger-report", () => {
       expect(result.threadMessages).toEqual([]);
     }));
 
-  test("renders top slowest tests and duration chart thread payloads", async () =>
+  test("attaches duration chart files to thread reply without a text caption", async () =>
     inTempDir(async (tempDir) => {
       const chartFile = {
         name: "replicated-top-slowest.png",
@@ -220,16 +220,19 @@ describe("messenger-report", () => {
       const core = createCore();
       const result = await renderMessengerReport({ core });
 
-      expect(result.message).toContain("### Top slowest tests");
-      expect(result.message).toContain(
-        "| [replicated](https://example.invalid/replicated) | slow \\| pipe | 1m 30s |"
-      );
+      expect(result.message).not.toContain("### Top slowest tests");
       expect(result.threadMessages).toEqual([
         {
-          message: expect.stringContaining("### Test durations"),
+          message: "**[replicated](https://example.invalid/replicated)**",
           files: [chartFile],
         },
       ]);
+      expect(result.threadMessages[0].message).not.toContain(
+        "### Test durations"
+      );
+      expect(result.threadMessages[0].message).not.toContain(
+        "Attached charts:"
+      );
       expect(core.setOutput).toHaveBeenCalledWith(
         "thread_messages",
         JSON.stringify([result.threadMessages[0].message])
@@ -669,14 +672,6 @@ describe("messenger-report", () => {
           "| Tests | Reason |",
           "|---|---|",
           "| fails | — |",
-          "",
-          "### Test durations",
-          "",
-          "Attached charts:",
-          "- Top slowest specs",
-          "- Duration distribution",
-          "- Total duration by feature",
-          "- Duration by feature and status",
         ].join("\n"),
         root_id: "root-post-id",
         file_ids: ["file-id"],
