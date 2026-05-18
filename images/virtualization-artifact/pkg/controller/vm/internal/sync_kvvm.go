@@ -410,22 +410,13 @@ func (h *SyncKvvmHandler) updateKVVM(ctx context.Context, s state.VirtualMachine
 		log.Info("Update internal virtual machine done", "name", newKVVM.Name)
 		log.Debug("Update internal virtual machine done", "name", newKVVM.Name, "kvvm", newKVVM)
 
-		// Add patches to remove fields with "omitempty" annotation.
-		jsonPatch := patch.JSONPatch{}
 		if domainMemory != nil {
+			jsonPatch := patch.JSONPatch{}
 			// Removing memory.maxGuest is not enough, replace memory.guest is needed to pass the vm-validator webhook.
 			jsonPatch.Append(
 				patch.WithRemove("/spec/template/spec/domain/memory/maxGuest"),
 				patch.WithReplace("/spec/template/spec/domain/memory/guest", domainMemory.Guest.String()),
 			)
-		}
-		//newCPU := newKVVM.Spec.Template.Spec.Domain.CPU
-		//if newCPU != nil && len(newCPU.Features) == 0 {
-		//	jsonPatch.Append(
-		//		patch.WithRemove("/spec/template/spec/domain/cpu/features"),
-		//	)
-		//}
-		if jsonPatch.Len() > 0 {
 			patchBytes, err := jsonPatch.Bytes()
 			if err != nil {
 				return fmt.Errorf("prepare json patch for internal virtual machine: %w", err)
