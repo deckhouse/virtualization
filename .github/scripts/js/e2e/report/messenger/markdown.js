@@ -44,23 +44,14 @@ function formatClusterLink(report) {
 }
 
 function splitReportsBySection(orderedReports) {
-  const testsReports = orderedReports.filter(
-    (report) => isTestResultReport(report) && getReportClusterKey(report)
-  );
-  const stageFailureReports = orderedReports.filter(
-    (report) => isClusterFailureReport(report) && getReportClusterKey(report)
-  );
-  const missingReports = orderedReports.filter(
-    (report) =>
-      isMissingReport(report) &&
-      !isClusterFailureReport(report) &&
-      getReportClusterKey(report)
-  );
+  const reports = orderedReports.filter(getReportClusterKey);
 
   return {
-    testsReports,
-    stageFailureReports,
-    missingReports,
+    testsReports: reports.filter(isTestResultReport),
+    stageFailureReports: reports.filter(isClusterFailureReport),
+    missingReports: reports.filter(
+      (report) => isMissingReport(report) && !isClusterFailureReport(report)
+    ),
   };
 }
 
@@ -174,52 +165,47 @@ function renderTestResultsSection(testsReports) {
   return ["### Test results", "", ...rows, ""];
 }
 
-function renderClusterFailuresSection(stageFailureReports) {
-  const lines = [];
-
-  if (stageFailureReports.length > 0) {
-    lines.push("### Cluster failures");
-    lines.push("");
-
-    for (const report of stageFailureReports) {
-      lines.push(
-        `- ${formatClusterLink(report)}: ${sanitizeListItem(
-          (report.clusterStatus && report.clusterStatus.message) ||
-            report.statusMessage ||
-            report.failedStageLabel ||
-            report.failedStage
-        )}`
-      );
-    }
-
-    lines.push("");
+/**
+ * Renders a `### <title>` section followed by a bullet list of
+ * `- <cluster link>: <message>` rows, one per report. Returns an empty
+ * array when there are no reports so callers can spread the result into
+ * the main message without conditional logic.
+ *
+ * @param {string} title Section heading text (without the leading `### `).
+ * @param {Array<Record<string, any>>} reports Reports to render.
+ * @param {function(Record<string, any>): string} getMessage Extracts the
+ *   per-cluster message string from a report.
+ * @returns {string[]} Markdown lines for the section.
+ */
+function renderBulletSection(title, reports, getMessage) {
+  if (reports.length === 0) {
+    return [];
   }
 
-  return lines;
+  const bullets = reports.map(
+    (report) =>
+      `- ${formatClusterLink(report)}: ${sanitizeListItem(getMessage(report))}`
+  );
+
+  return [`### ${title}`, "", ...bullets, ""];
 }
 
-function renderMissingReportsSection(missingReports) {
-  const lines = [];
+function getClusterFailureMessage(report) {
+  return (
+    (report.clusterStatus && report.clusterStatus.message) ||
+    report.statusMessage ||
+    report.failedStageLabel ||
+    report.failedStage
+  );
+}
 
-  if (missingReports.length > 0) {
-    lines.push("### Missing reports");
-    lines.push("");
-
-    for (const report of missingReports) {
-      lines.push(
-        `- ${formatClusterLink(report)}: ${sanitizeListItem(
-          report.statusMessage ||
-            (report.testStatus && report.testStatus.message) ||
-            (report.clusterStatus && report.clusterStatus.message) ||
-            report.failedStageLabel
-        )}`
-      );
-    }
-
-    lines.push("");
-  }
-
-  return lines;
+function getMissingReportMessage(report) {
+  return (
+    report.statusMessage ||
+    (report.testStatus && report.testStatus.message) ||
+    (report.clusterStatus && report.clusterStatus.message) ||
+    report.failedStageLabel
+  );
 }
 
 /**
@@ -236,8 +222,16 @@ function buildMainMessage(orderedReports) {
     `## :dvp: DVP | E2E on nested clusters | ${reportDate}`,
     "",
     ...renderBranchLine(orderedReports),
-    ...renderClusterFailuresSection(stageFailureReports),
-    ...renderMissingReportsSection(missingReports),
+    ...renderBulletSection(
+      "Cluster failures",
+      stageFailureReports,
+      getClusterFailureMessage
+    ),
+    ...renderBulletSection(
+      "Missing reports",
+      missingReports,
+      getMissingReportMessage
+    ),
     ...renderTestResultsSection(testsReports),
   ];
 
