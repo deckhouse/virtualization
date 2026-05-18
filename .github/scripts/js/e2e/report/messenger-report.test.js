@@ -236,6 +236,52 @@ describe("messenger-report", () => {
       );
     }));
 
+  test("warns and surfaces a placeholder when chart rendering fails", async () =>
+    inTempDir(async (tempDir) => {
+      renderClusterCharts.mockRejectedValue(new Error("canvas unavailable"));
+      fs.writeFileSync(
+        path.join(tempDir, "e2e_report_replicated.json"),
+        JSON.stringify({
+          cluster: "replicated",
+          storageType: "replicated",
+          reportKind: "tests",
+          branch: "main",
+          workflowRunUrl: "https://example.invalid/replicated",
+          startedAt: "2026-04-15T09:30:44",
+          metrics: {
+            passed: 1,
+            skipped: 0,
+            failed: 0,
+            errors: 0,
+            total: 1,
+            successRate: 100,
+          },
+          failedTests: [],
+          specTimings: [
+            { name: "slow", group: "VM", state: "passed", runtimeMs: 90000 },
+          ],
+        })
+      );
+
+      process.env.REPORTS_DIR = tempDir;
+      process.env.EXPECTED_STORAGE_TYPES = '["replicated"]';
+
+      const core = createCore();
+      const result = await renderMessengerReport({ core });
+
+      expect(core.warning).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "Unable to render duration charts for cluster replicated"
+        )
+      );
+      expect(result.threadMessages).toEqual([
+        {
+          message: expect.stringContaining("Charts unavailable."),
+          files: [],
+        },
+      ]);
+    }));
+
   test("warns and skips report files that are missing storageType/cluster fields", async () =>
     inTempDir(async (tempDir) => {
       fs.writeFileSync(

@@ -17,18 +17,29 @@ const {
   buildTopNConfig,
 } = require("./chart-config");
 
-let ChartJSNodeCanvas;
+let canvasInstance;
 
+// Module-level singleton: ChartJSNodeCanvas startup (loading chart.js + setting
+// up the cairo-backed canvas) is non-trivial, and the renderer is stateless
+// between renderToBuffer calls. Reusing it across clusters keeps memory usage
+// flat when the messenger report grows.
 function loadChartRenderer() {
-  if (!ChartJSNodeCanvas) {
-    ({ ChartJSNodeCanvas } = require("chartjs-node-canvas"));
+  if (!canvasInstance) {
+    const { ChartJSNodeCanvas } = require("chartjs-node-canvas");
+    canvasInstance = new ChartJSNodeCanvas({
+      width: 1280,
+      height: 720,
+      backgroundColour: "#ffffff",
+    });
   }
 
-  return new ChartJSNodeCanvas({
-    width: 1280,
-    height: 720,
-    backgroundColour: "#ffffff",
-  });
+  return canvasInstance;
+}
+
+function sanitizeFilenamePart(value) {
+  const fallback = "cluster";
+  const safe = String(value || fallback).replace(/[^a-zA-Z0-9_-]+/g, "_");
+  return safe || fallback;
 }
 
 async function renderClusterCharts(report) {
@@ -46,7 +57,9 @@ async function renderClusterCharts(report) {
     buildFeatureTotalsConfig(report.specTimings),
     buildStatusStackedConfig(report.specTimings),
   ];
-  const clusterName = String(report.cluster || report.storageType || "cluster");
+  const clusterName = sanitizeFilenamePart(
+    report.cluster || report.storageType || "cluster"
+  );
 
   return Promise.all(
     configs.map(async ({ name, config }) => ({

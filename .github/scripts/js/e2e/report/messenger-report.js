@@ -115,6 +115,7 @@ async function buildMessengerMessages({
   const orderedReports = readReports(reportsDir, configuredClusters, core);
   const threadMessages = await buildThreadMessages(orderedReports, {
     renderClusterCharts,
+    core,
   });
   return {
     message: buildMainMessage(orderedReports),

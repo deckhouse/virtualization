@@ -438,12 +438,15 @@ function renderChartCaption(files, chartsUnavailable) {
  * Builds optional per-cluster thread messages for failed tests and duration charts.
  *
  * @param {Array<Record<string, any>>} orderedReports Cluster reports in display order.
- * @param {{renderClusterCharts?: function(Record<string, any>): Promise<Array<{name: string, buffer: Buffer, mimeType: string}>>}} [options]
+ * @param {{
+ *   renderClusterCharts?: function(Record<string, any>): Promise<Array<{name: string, buffer: Buffer, mimeType: string}>>,
+ *   core?: {warning?: function(string): void}
+ * }} [options]
  * @returns {Promise<Array<{message: string, files: Array<{name: string, buffer: Buffer, mimeType: string}>}>>} Markdown thread payloads.
  */
 async function buildThreadMessages(
   orderedReports,
-  { renderClusterCharts } = {}
+  { renderClusterCharts, core } = {}
 ) {
   const testsReports = orderedReports.filter((report) =>
     isTestResultReport(report)
@@ -459,8 +462,15 @@ async function buildThreadMessages(
     if (renderClusterCharts && hasSpecTimings(report)) {
       try {
         files = await renderClusterCharts(report);
-      } catch {
+      } catch (error) {
         chartsUnavailable = true;
+        if (core && typeof core.warning === "function") {
+          core.warning(
+            `Unable to render duration charts for cluster ${
+              getReportClusterKey(report) || "unknown"
+            }: ${error.message}`
+          );
+        }
       }
     }
 
