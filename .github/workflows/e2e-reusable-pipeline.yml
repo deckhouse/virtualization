@@ -561,10 +561,10 @@ jobs:
 
           unzip -o artifact.zip
 
-          # same, but with simultaneous decryption and dearchiving to stdout
+          # same, but with simultaneous decryption and extraction of the whole archive
           gpg --decrypt --batch --yes --pinentry-mode loopback \
             --passphrase "$E2E_ARTIFACTS_GPG_PASSPHRASE" \
-            artifact.zip.gpg | funzip > extracted-file
+            artifact.zip.gpg > artifact.zip && unzip -o artifact.zip
 
           # single-file .gpg artifact
           gpg --decrypt --batch --yes --pinentry-mode loopback \
