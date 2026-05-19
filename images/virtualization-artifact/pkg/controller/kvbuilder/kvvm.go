@@ -188,7 +188,7 @@ func (b *KVVM) SetCPUModel(class *v1alpha2.VirtualMachineClass) error {
 			features = append(features, virtv1.CPUFeature{Name: "svm", Policy: "optional"})
 		}
 		if !hasHT {
-			features = append(features, virtv1.CPUFeature{Name: HTCPUFeature, Policy: "optional"})
+			features = append(features, virtv1.CPUFeature{Name: HTCPUFeature, Policy: "require"})
 		}
 		cpu.Features = features
 	default:

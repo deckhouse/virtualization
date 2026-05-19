@@ -229,7 +229,7 @@ func TestSetCPUModel(t *testing.T) {
 	name := "test-name"
 	namespace := "test-namespace"
 
-	t.Run("should add optional ht feature for discovery cpu", func(t *testing.T) {
+	t.Run("should add required ht feature for discovery cpu", func(t *testing.T) {
 		builder := NewEmptyKVVM(types.NamespacedName{Name: name, Namespace: namespace}, KVVMOptions{})
 		class := &v1alpha2.VirtualMachineClass{
 			Spec: v1alpha2.VirtualMachineClassSpec{
@@ -245,8 +245,8 @@ func TestSetCPUModel(t *testing.T) {
 		}
 
 		features := builder.Resource.Spec.Template.Spec.Domain.CPU.Features
-		if !containsCPUFeature(features, virtv1.CPUFeature{Name: HTCPUFeature, Policy: "optional"}) {
-			t.Fatalf("expected optional ht feature to be added, got %#v", features)
+		if !containsCPUFeature(features, virtv1.CPUFeature{Name: HTCPUFeature, Policy: "require"}) {
+			t.Fatalf("expected required ht feature to be added, got %#v", features)
 		}
 	})
 
