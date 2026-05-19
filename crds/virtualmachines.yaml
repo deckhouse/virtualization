@@ -49,20 +49,7 @@ spec:
                   size: 1Gi
                 provisioning:
                   type: UserData
-                  userData: |
-                    #cloud-config
-                    package_update: true
-                    packages:
-                      - qemu-guest-agent
-                    runcmd:
-                      - systemctl enable --now qemu-guest-agent.service
-                    ssh_pwauth: true
-                    users:
-                      - name: cloud
-                        passwd: "$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/"
-                        shell: /bin/bash
-                        sudo: ALL=(ALL) NOPASSWD:ALL
-                        lock_passwd: false
+                  userData: <USER_DATA>
                 blockDeviceRefs:
                   - kind: VirtualDisk
                     name: linux-vm-root
