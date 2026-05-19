@@ -52,8 +52,21 @@ func CreateNetworkPolicy(ctx context.Context, c client.Client, obj metav1.Object
 					},
 				},
 			},
+			Ingress: []netv1.NetworkPolicyIngressRule{
+				{
+					From: []netv1.NetworkPolicyPeer{
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"module": "virtualization",
+								},
+							},
+						},
+					},
+				},
+			},
 			Egress:      []netv1.NetworkPolicyEgressRule{{}},
-			PolicyTypes: []netv1.PolicyType{netv1.PolicyTypeEgress},
+			PolicyTypes: []netv1.PolicyType{netv1.PolicyTypeIngress, netv1.PolicyTypeEgress},
 		},
 	}
 
