@@ -152,6 +152,8 @@ func (b *KVVM) SetCPUModel(class *v1alpha2.VirtualMachineClass) error {
 		b.Resource.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{}
 	}
 	cpu := b.Resource.Spec.Template.Spec.Domain.CPU
+	// Reset features to handle vmclass changes: only discovery type sets features.
+	cpu.Features = nil
 
 	switch class.Spec.CPU.Type {
 	case v1alpha2.CPUTypeHost:
