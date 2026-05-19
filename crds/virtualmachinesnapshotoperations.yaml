@@ -48,10 +48,10 @@ spec:
             - apiVersion: virtualization.deckhouse.io/v1alpha2
               kind: VirtualMachineSnapshotOperation
               metadata:
-                name: <vmsop-name>
+                name: vmsop-name
               spec:
                 type: CreateVirtualMachine
-                virtualMachineSnapshotName: <name of the VM snapshot from which to clone>
+                virtualMachineSnapshotName: vm-snapshot-clone
                 createVirtualMachine:
                   mode: DryRun | Strict | BestEffort
                   nameReplacements: []
