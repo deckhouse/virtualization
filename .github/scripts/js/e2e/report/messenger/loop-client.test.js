@@ -10,10 +10,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const {
-  uploadFileToLoop,
-  makeThreadedReportInLoop,
-} = require("./loop-client");
+const { uploadFileToLoop, makeThreadedReportInLoop } = require("./loop-client");
 const { createCore } = require("../shared/test-utils");
 
 describe("loop-client", () => {
@@ -57,6 +54,72 @@ describe("loop-client", () => {
     await expect(body.get("files").text()).resolves.toBe("image-bytes");
   });
 
+  test("posts the reply with uploaded chart file ids", async () => {
+    const loop = {
+      apiUrl: "https://loop.example.invalid/api/v4/posts",
+      channelId: "channel-id",
+      token: "loop-token",
+    };
+    const responses = [
+      {
+        ok: true,
+        status: 201,
+        text: async () => JSON.stringify({ id: "root-post-id" }),
+      },
+      {
+        ok: true,
+        status: 201,
+        text: async () => JSON.stringify({ file_infos: [{ id: "file-one" }] }),
+      },
+      {
+        ok: true,
+        status: 201,
+        text: async () => JSON.stringify({ file_infos: [{ id: "file-two" }] }),
+      },
+      {
+        ok: true,
+        status: 201,
+        text: async () => JSON.stringify({ id: "reply-post-id" }),
+      },
+    ];
+    global.fetch = jest
+      .fn()
+      .mockImplementation(() => Promise.resolve(responses.shift()));
+
+    await makeThreadedReportInLoop(
+      {
+        message: "main",
+        threadMessages: [
+          {
+            message: "reply",
+            files: [
+              {
+                name: "top-slowest.png",
+                buffer: Buffer.from("one"),
+                mimeType: "image/png",
+              },
+              {
+                name: "status-stacked.png",
+                buffer: Buffer.from("two"),
+                mimeType: "image/png",
+              },
+            ],
+          },
+        ],
+        loop,
+      },
+      createCore()
+    );
+
+    expect(global.fetch).toHaveBeenCalledTimes(4);
+    expect(JSON.parse(global.fetch.mock.calls[3][1].body)).toEqual({
+      channel_id: "channel-id",
+      message: "reply",
+      root_id: "root-post-id",
+      file_ids: ["file-one", "file-two"],
+    });
+  });
+
   test("posts the reply without attachments when file upload fails", async () => {
     const loop = {
       apiUrl: "https://loop.example.invalid/api/v4/posts",
@@ -85,9 +148,9 @@ describe("loop-client", () => {
         text: async () => JSON.stringify({ id: "reply-post-id" }),
       },
     ];
-    global.fetch = jest.fn().mockImplementation(() =>
-      Promise.resolve(responses.shift())
-    );
+    global.fetch = jest
+      .fn()
+      .mockImplementation(() => Promise.resolve(responses.shift()));
 
     await makeThreadedReportInLoop(
       {
@@ -122,7 +185,58 @@ describe("loop-client", () => {
     expect(replyBody).not.toHaveProperty("file_ids");
 
     expect(core.warning).toHaveBeenCalledWith(
-      expect.stringContaining("Loop file upload failed; posting reply without attachments")
+      expect.stringContaining(
+        "Loop file upload failed; posting reply without attachments"
+      )
     );
+  });
+
+  test("fails when strict file upload mode is enabled", async () => {
+    const loop = {
+      apiUrl: "https://loop.example.invalid/api/v4/posts",
+      channelId: "channel-id",
+      token: "loop-token",
+      strictFileUploads: true,
+    };
+    const responses = [
+      {
+        ok: true,
+        status: 201,
+        text: async () => JSON.stringify({ id: "root-post-id" }),
+      },
+      {
+        ok: false,
+        status: 403,
+        text: async () => "permission denied",
+      },
+    ];
+    global.fetch = jest
+      .fn()
+      .mockImplementation(() => Promise.resolve(responses.shift()));
+
+    await expect(
+      makeThreadedReportInLoop(
+        {
+          message: "main",
+          threadMessages: [
+            {
+              message: "reply",
+              files: [
+                {
+                  name: "chart.png",
+                  buffer: Buffer.from("image-bytes"),
+                  mimeType: "image/png",
+                },
+              ],
+            },
+          ],
+          loop,
+        },
+        createCore()
+      )
+    ).rejects.toThrow(
+      "Loop file upload failed with status 403: permission denied"
+    );
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 });

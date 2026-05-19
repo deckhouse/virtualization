@@ -31,6 +31,8 @@ describe("messenger-report", () => {
     delete process.env.LOOP_API_BASE_URL;
     delete process.env.LOOP_CHANNEL_ID;
     delete process.env.LOOP_TOKEN;
+    delete process.env.LOOP_STRICT_DELIVERY;
+    delete process.env.LOOP_STRICT_FILE_UPLOAD;
     delete global.fetch;
     renderClusterCharts.mockReset();
     renderClusterCharts.mockResolvedValue([]);
@@ -51,6 +53,8 @@ describe("messenger-report", () => {
         apiUrl: "https://loop.example.invalid/api/v4/posts",
         channelId: "channel-id",
         token: "token",
+        strictDelivery: false,
+        strictFileUploads: false,
       },
     });
   });
@@ -816,6 +820,49 @@ describe("messenger-report", () => {
       expect(global.fetch).toHaveBeenCalledTimes(1);
       expect(core.warning).toHaveBeenCalledWith(
         "Unable to deliver report to Loop API: Loop API request failed with status 500: server exploded"
+      );
+    }));
+
+  test("fails local delivery when strict Loop delivery mode is enabled", async () =>
+    inTempDir(async (tempDir) => {
+      fs.writeFileSync(
+        path.join(tempDir, "e2e_report_replicated.json"),
+        JSON.stringify({
+          cluster: "replicated",
+          storageType: "replicated",
+          reportKind: "tests",
+          branch: "main",
+          workflowRunUrl: "https://example.invalid/replicated",
+          startedAt: "2026-04-15T09:30:44",
+          metrics: {
+            passed: 11,
+            skipped: 0,
+            failed: 0,
+            errors: 0,
+            total: 11,
+            successRate: 100,
+          },
+          failedTests: [],
+        })
+      );
+
+      process.env.REPORTS_DIR = tempDir;
+      process.env.EXPECTED_STORAGE_TYPES = '["replicated"]';
+      process.env.LOOP_API_BASE_URL = "https://loop.example.invalid";
+      process.env.LOOP_CHANNEL_ID = "channel-id";
+      process.env.LOOP_TOKEN = "loop-token";
+      process.env.LOOP_STRICT_DELIVERY = "1";
+
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: async () => "server exploded",
+      });
+
+      await expect(
+        renderMessengerReport({ core: createCore() })
+      ).rejects.toThrow(
+        "Loop API request failed with status 500: server exploded"
       );
     }));
 });

@@ -156,6 +156,9 @@ async function renderMessengerReport({ core, reportsDir }) {
       );
     } catch (error) {
       core.warning(`Unable to deliver report to Loop API: ${error.message}`);
+      if (config.loop.strictDelivery) {
+        throw error;
+      }
     }
   }
 

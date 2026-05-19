@@ -57,6 +57,10 @@ function parseConfiguredClusters(value) {
   }
 }
 
+function parseBooleanEnv(value) {
+  return ["1", "true", "yes"].includes(String(value || "").toLowerCase());
+}
+
 /**
  * Reads Loop credentials from the environment.
  *
@@ -66,7 +70,7 @@ function parseConfiguredClusters(value) {
  * mistake and should surface as an error rather than a silent no-op.
  *
  * @param {NodeJS.ProcessEnv} [env=process.env] Environment variables source.
- * @returns {{ apiUrl: string, channelId: string, token: string } | null}
+ * @returns {{ apiUrl: string, channelId: string, token: string, strictDelivery: boolean, strictFileUploads: boolean } | null}
  */
 function readLoopConfig(env = process.env) {
   const apiUrl = normalizeLoopApiBaseUrl(env.LOOP_API_BASE_URL);
@@ -81,7 +85,13 @@ function readLoopConfig(env = process.env) {
       "LOOP_CHANNEL_ID, LOOP_TOKEN, and LOOP_API_BASE_URL are required"
     );
   }
-  return { apiUrl, channelId, token };
+  return {
+    apiUrl,
+    channelId,
+    token,
+    strictDelivery: parseBooleanEnv(env.LOOP_STRICT_DELIVERY),
+    strictFileUploads: parseBooleanEnv(env.LOOP_STRICT_FILE_UPLOAD),
+  };
 }
 
 /**
@@ -91,7 +101,7 @@ function readLoopConfig(env = process.env) {
  * @returns {{
  *   reportsDir: string,
  *   configuredClusters: string[],
- *   loop: { apiUrl: string, channelId: string, token: string } | null
+ *   loop: { apiUrl: string, channelId: string, token: string, strictDelivery: boolean, strictFileUploads: boolean } | null
  * }} Normalized messenger configuration.
  */
 function readMessengerConfigFromEnv(env = process.env) {

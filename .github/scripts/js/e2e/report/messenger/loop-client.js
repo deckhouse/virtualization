@@ -27,7 +27,7 @@
  * @typedef {Object} LoopPublishParams
  * @property {string} message
  * @property {Array<{message: string, files: Array<{name: string, buffer: Buffer, mimeType: string}>}>} threadMessages
- * @property {LoopCredentials} loop
+ * @property {LoopCredentials & {strictFileUploads?: boolean}} loop
  */
 
 /**
@@ -175,6 +175,10 @@ async function makeThreadedReportInLoop(
           )
         );
       } catch (error) {
+        if (loop.strictFileUploads) {
+          throw error;
+        }
+
         // Posting the reply without attachments is preferable to losing the
         // whole thread (e.g. failed-tests table) when Loop rejects file
         // uploads, typically with HTTP 403 when the bot token lacks the
