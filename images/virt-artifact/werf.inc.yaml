@@ -16,8 +16,8 @@ shell:
   install:
   - |
     echo "Git clone {{ $gitRepoName }} repository..."
-    echo "kek231dddd"
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v1.6.2-virtualization-no-bootable /src/kubevirt
+    echo "kek231dddd1"
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch chore/vm/receive-qmp /src/kubevirt
 
     rm -rf /src/kubevirt/.git
 
