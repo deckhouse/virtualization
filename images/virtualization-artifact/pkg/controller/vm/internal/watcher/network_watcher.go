@@ -34,6 +34,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	commonnetwork "github.com/deckhouse/virtualization-controller/pkg/common/network"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -48,13 +49,13 @@ type NetworkWatcher struct {
 }
 
 func (w *NetworkWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	if err := w.watchOne(mgr, ctr, commonnetwork.ClusterNetworkGVK, v1alpha2.NetworksTypeClusterNetwork, true); err != nil {
+	if err := w.watchOne(mgr, ctr, commonnetwork.ClusterNetworkGVK, indexer.IndexFieldVMByClusterNetwork, true); err != nil {
 		return err
 	}
-	return w.watchOne(mgr, ctr, commonnetwork.NetworkGVK, v1alpha2.NetworksTypeNetwork, false)
+	return w.watchOne(mgr, ctr, commonnetwork.NetworkGVK, indexer.IndexFieldVMByNetwork, false)
 }
 
-func (w *NetworkWatcher) watchOne(mgr manager.Manager, ctr controller.Controller, gvk schema.GroupVersionKind, networkType string, clusterScoped bool) error {
+func (w *NetworkWatcher) watchOne(mgr manager.Manager, ctr controller.Controller, gvk schema.GroupVersionKind, indexField string, clusterScoped bool) error {
 	obj := &unstructured.Unstructured{}
 	obj.SetGroupVersionKind(gvk)
 
@@ -63,7 +64,7 @@ func (w *NetworkWatcher) watchOne(mgr manager.Manager, ctr controller.Controller
 			mgr.GetCache(),
 			obj,
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, o *unstructured.Unstructured) []reconcile.Request {
-				return w.enqueueVMsReferencingNetwork(ctx, o, networkType, clusterScoped)
+				return w.enqueueVMsReferencingNetwork(ctx, o, indexField, clusterScoped)
 			}),
 			predicate.TypedFuncs[*unstructured.Unstructured]{
 				CreateFunc: func(e event.TypedCreateEvent[*unstructured.Unstructured]) bool { return true },
@@ -79,28 +80,22 @@ func (w *NetworkWatcher) watchOne(mgr manager.Manager, ctr controller.Controller
 	return nil
 }
 
-func (w *NetworkWatcher) enqueueVMsReferencingNetwork(ctx context.Context, obj *unstructured.Unstructured, networkType string, clusterScoped bool) []reconcile.Request {
+func (w *NetworkWatcher) enqueueVMsReferencingNetwork(ctx context.Context, obj *unstructured.Unstructured, indexField string, clusterScoped bool) []reconcile.Request {
 	var vms v1alpha2.VirtualMachineList
-	listOpts := &client.ListOptions{}
+	listOpts := []client.ListOption{client.MatchingFields{indexField: obj.GetName()}}
 	if !clusterScoped {
-		listOpts.Namespace = obj.GetNamespace()
+		listOpts = append(listOpts, client.InNamespace(obj.GetNamespace()))
 	}
-	if err := w.client.List(ctx, &vms, listOpts); err != nil {
+	if err := w.client.List(ctx, &vms, listOpts...); err != nil {
 		log.Default().Error(fmt.Sprintf("network watcher: failed to list VMs: %s", err))
 		return nil
 	}
 
-	wantName := obj.GetName()
-	var requests []reconcile.Request
+	requests := make([]reconcile.Request, 0, len(vms.Items))
 	for _, vm := range vms.Items {
-		for _, ns := range vm.Spec.Networks {
-			if ns.Type == networkType && ns.Name == wantName {
-				requests = append(requests, reconcile.Request{
-					NamespacedName: types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace},
-				})
-				break
-			}
-		}
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace},
+		})
 	}
 	return requests
 }

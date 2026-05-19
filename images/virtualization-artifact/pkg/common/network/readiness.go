@@ -35,8 +35,6 @@ var (
 	ClusterNetworkGVK = schema.GroupVersionKind{Group: "network.deckhouse.io", Version: "v1alpha1", Kind: "ClusterNetwork"}
 )
 
-// SpecKey returns a stable "<Type>/<Name>" identifier for a NetworksSpec entry,
-// used in log messages and condition text.
 func SpecKey(ns v1alpha2.NetworksSpec) string {
 	return fmt.Sprintf("%s/%s", ns.Type, ns.Name)
 }

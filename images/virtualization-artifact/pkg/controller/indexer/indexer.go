@@ -33,12 +33,14 @@ const (
 )
 
 const (
-	IndexFieldVMByClass     = "spec.virtualMachineClassName"
-	IndexFieldVMByVD        = "spec.blockDeviceRefs.VirtualDisk"
-	IndexFieldVMByVI        = "spec.blockDeviceRefs.VirtualImage"
-	IndexFieldVMByCVI       = "spec.blockDeviceRefs.ClusterVirtualImage"
-	IndexFieldVMByUSBDevice = "spec.usbDevices.name"
-	IndexFieldVMByNode      = "status.node"
+	IndexFieldVMByClass          = "spec.virtualMachineClassName"
+	IndexFieldVMByVD             = "spec.blockDeviceRefs.VirtualDisk"
+	IndexFieldVMByVI             = "spec.blockDeviceRefs.VirtualImage"
+	IndexFieldVMByCVI            = "spec.blockDeviceRefs.ClusterVirtualImage"
+	IndexFieldVMByUSBDevice      = "spec.usbDevices.name"
+	IndexFieldVMByNode           = "status.node"
+	IndexFieldVMByNetwork        = "spec.networks.Network.name"
+	IndexFieldVMByClusterNetwork = "spec.networks.ClusterNetwork.name"
 
 	IndexFieldVDByVDSnapshot  = "vd,spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
 	IndexFieldVIByVDSnapshot  = "vi,spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
@@ -84,6 +86,8 @@ var IndexGetters = []IndexGetter{
 	IndexVMByVI,
 	IndexVMByCVI,
 	IndexVMByNode,
+	IndexVMByNetwork,
+	IndexVMByClusterNetwork,
 	IndexVMByProvisioningSecret,
 	IndexVMSnapshotByVM,
 	IndexVMSnapshotByVDSnapshot,
@@ -171,6 +175,32 @@ func IndexVMByNode() (obj client.Object, field string, extractValue client.Index
 		}
 		return []string{vm.Status.Node}
 	}
+}
+
+func IndexVMByNetwork() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &v1alpha2.VirtualMachine{}, IndexFieldVMByNetwork, func(object client.Object) []string {
+		return getNetworkNamesByType(object, v1alpha2.NetworksTypeNetwork)
+	}
+}
+
+func IndexVMByClusterNetwork() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &v1alpha2.VirtualMachine{}, IndexFieldVMByClusterNetwork, func(object client.Object) []string {
+		return getNetworkNamesByType(object, v1alpha2.NetworksTypeClusterNetwork)
+	}
+}
+
+func getNetworkNamesByType(obj client.Object, typ string) []string {
+	vm, ok := obj.(*v1alpha2.VirtualMachine)
+	if !ok || vm == nil {
+		return nil
+	}
+	var names []string
+	for _, n := range vm.Spec.Networks {
+		if n.Type == typ && n.Name != "" {
+			names = append(names, n.Name)
+		}
+	}
+	return names
 }
 
 func IndexVMByProvisioningSecret() (obj client.Object, field string, extractValue client.IndexerFunc) {

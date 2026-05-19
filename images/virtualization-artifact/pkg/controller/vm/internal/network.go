@@ -102,7 +102,7 @@ func (h *NetworkInterfaceHandler) evaluateAdditionalNetworks(ctx context.Context
 	}
 	if len(pending) > 0 {
 		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonNetworkNotReady).
-			Message(fmt.Sprintf("Waiting for the following networks to become Ready: %s. They will be attached automatically once available.", strings.Join(pending, ", ")))
+			Message(fmt.Sprintf("Waiting for the following networks to become Ready: %s", strings.Join(pending, ", ")))
 		return nil
 	}
 
