@@ -167,7 +167,6 @@ func (b *KVVM) SetCPUModel(class *v1alpha2.VirtualMachineClass) error {
 		cpu.Model = GenericCPUModel
 		features := make([]virtv1.CPUFeature, 0, len(class.Status.CpuFeatures.Enabled)+2)
 		hasSvm := false
-		hasVMX := false
 		hasHT := false
 		for _, feature := range class.Status.CpuFeatures.Enabled {
 			policy := "require"
@@ -176,9 +175,6 @@ func (b *KVVM) SetCPUModel(class *v1alpha2.VirtualMachineClass) error {
 			}
 			if feature == "svm" {
 				hasSvm = true
-			}
-			if feature == "vmx" {
-				hasVMX = true
 			}
 			if feature == HTCPUFeature {
 				hasHT = true
@@ -191,7 +187,7 @@ func (b *KVVM) SetCPUModel(class *v1alpha2.VirtualMachineClass) error {
 		if !hasSvm {
 			features = append(features, virtv1.CPUFeature{Name: "svm", Policy: "optional"})
 		}
-		if hasVMX && !hasHT {
+		if !hasHT {
 			features = append(features, virtv1.CPUFeature{Name: HTCPUFeature, Policy: "optional"})
 		}
 		cpu.Features = features

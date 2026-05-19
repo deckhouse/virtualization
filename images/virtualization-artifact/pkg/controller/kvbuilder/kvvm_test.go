@@ -229,14 +229,14 @@ func TestSetCPUModel(t *testing.T) {
 	name := "test-name"
 	namespace := "test-namespace"
 
-	t.Run("should add optional ht feature for intel x86 discovery cpu", func(t *testing.T) {
+	t.Run("should add optional ht feature for discovery cpu", func(t *testing.T) {
 		builder := NewEmptyKVVM(types.NamespacedName{Name: name, Namespace: namespace}, KVVMOptions{})
 		class := &v1alpha2.VirtualMachineClass{
 			Spec: v1alpha2.VirtualMachineClassSpec{
 				CPU: v1alpha2.CPU{Type: v1alpha2.CPUTypeDiscovery},
 			},
 			Status: v1alpha2.VirtualMachineClassStatus{
-				CpuFeatures: v1alpha2.CpuFeatures{Enabled: []string{"vmx", "aes"}},
+				CpuFeatures: v1alpha2.CpuFeatures{Enabled: []string{"aes"}},
 			},
 		}
 
@@ -247,27 +247,6 @@ func TestSetCPUModel(t *testing.T) {
 		features := builder.Resource.Spec.Template.Spec.Domain.CPU.Features
 		if !containsCPUFeature(features, virtv1.CPUFeature{Name: HTCPUFeature, Policy: "optional"}) {
 			t.Fatalf("expected optional ht feature to be added, got %#v", features)
-		}
-	})
-
-	t.Run("should not add ht feature for amd discovery cpu", func(t *testing.T) {
-		builder := NewEmptyKVVM(types.NamespacedName{Name: name, Namespace: namespace}, KVVMOptions{})
-		class := &v1alpha2.VirtualMachineClass{
-			Spec: v1alpha2.VirtualMachineClassSpec{
-				CPU: v1alpha2.CPU{Type: v1alpha2.CPUTypeDiscovery},
-			},
-			Status: v1alpha2.VirtualMachineClassStatus{
-				CpuFeatures: v1alpha2.CpuFeatures{Enabled: []string{"svm", "aes"}},
-			},
-		}
-
-		if err := builder.SetCPUModel(class); err != nil {
-			t.Fatalf("SetCPUModel() failed: %v", err)
-		}
-
-		features := builder.Resource.Spec.Template.Spec.Domain.CPU.Features
-		if containsCPUFeature(features, virtv1.CPUFeature{Name: HTCPUFeature, Policy: "optional"}) {
-			t.Fatalf("did not expect optional ht feature for amd cpu, got %#v", features)
 		}
 	})
 
