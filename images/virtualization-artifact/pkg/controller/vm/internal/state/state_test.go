@@ -569,6 +569,48 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 			"affinity should follow the migration target PVC's PV (node-2), not the source PVC's PV (node-1)")
 	})
 
+	It("should use target PVC storage class for unbound target PVC during migration", func() {
+		vm := makeVM(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"})
+
+		vd := makeVD("local-disk", "pvc-source")
+		vd.Generation = 1
+		vd.Status.StorageClassName = "source-sc"
+		vd.Status.Conditions = []metav1.Condition{{
+			Type:               vdcondition.MigratingType.String(),
+			Status:             metav1.ConditionTrue,
+			ObservedGeneration: 1,
+			Reason:             "Migrating",
+		}}
+		vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{
+			SourcePVC: "pvc-source",
+			TargetPVC: "pvc-target",
+		}
+
+		pvcSource := makePVC("pvc-source", "pv-source")
+		pvSource := makePV("pv-source", nodeAffinityTerm(node1))
+		pvSource.Spec.StorageClassName = "source-sc"
+		pvSource.Status.Phase = corev1.VolumeBound
+
+		targetSC := "target-sc"
+		pvcTarget := &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{Name: "pvc-target", Namespace: ns},
+			Spec: corev1.PersistentVolumeClaimSpec{
+				StorageClassName: &targetSC,
+			},
+		}
+		pvAvailTarget := makePV("pv-target-avail", nodeAffinityTerm(node2))
+		pvAvailTarget.Spec.StorageClassName = "target-sc"
+		pvAvailTarget.Status.Phase = corev1.VolumeAvailable
+
+		s := buildState(vm, vd, pvcSource, pvSource, pvcTarget, pvAvailTarget)
+		ctx := logger.ToContext(context.TODO(), slog.Default())
+		terms, err := s.PVNodeAffinityTerms(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(terms).To(HaveLen(1))
+		Expect(terms[0].MatchExpressions[0].Values).To(ConsistOf(node2),
+			"affinity for unbound target PVC should use target storage class, not source VD status class")
+	})
+
 	It("should fall back to source PVC when migration condition is False (e.g. reverted)", func() {
 		vm := makeVM(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"})
 

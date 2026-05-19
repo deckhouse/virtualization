@@ -579,6 +579,12 @@ func (s *state) nodeAffinityTermsFromUnboundPVC(ctx context.Context, kind v1alph
 	if err != nil {
 		return nil, fmt.Errorf("resolve StorageClass for %s/%s: %w", kind, name, err)
 	}
+	// During migration we intentionally do not trust VD status storage class for target PVC,
+	// because it can still point to the source PVC class while the source VM pod is running.
+	// In this case use target PVC storage class if it is already set.
+	if storageClassName == "" && pvc.Spec.StorageClassName != nil {
+		storageClassName = *pvc.Spec.StorageClassName
+	}
 	if storageClassName == "" {
 		return nil, nil
 	}
