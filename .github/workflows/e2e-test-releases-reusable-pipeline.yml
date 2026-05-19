@@ -97,6 +97,8 @@ on:
         required: true
       DEV_MODULES_REGISTRY_PASSWORD:
         required: true
+      E2E_ARTIFACTS_GPG_PASSPHRASE:
+        required: true
 
 env:
   BRANCH: ${{ inputs.branch }}
@@ -107,6 +109,8 @@ env:
   GO_VERSION: ${{ inputs.go_version }}
   SETUP_CLUSTER_TYPE_PATH: test/dvp-static-cluster
   K8S_VERSION: ${{ inputs.cluster_config_k8s_version }}
+  STORAGE_TYPE: ${{ inputs.storage_type }}
+  E2E_START_TIME: ${{ inputs.date_start }}
 
 defaults:
   run:
@@ -147,7 +151,7 @@ jobs:
           sudo apt-get install -y apache2-utils
 
       - name: Install Task
-        uses: arduino/setup-task@v2
+        uses: go-task/setup-task@v2
         with:
           version: 3.x
           repo-token: ${{ secrets.GITHUB_TOKEN }}
@@ -385,45 +389,131 @@ jobs:
           d8vscp "${DEFAULT_USER}@${nested_master}.$NAMESPACE:/var/log/cloud-init*.log" "./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/"
 
       - name: Prepare artifact
-        if: always() && steps.dhctl-bootstrap.outcome == 'success'
+        if: success() || failure()
         run: |
-          sudo chown -fR 1001:1001 ${{ env.SETUP_CLUSTER_TYPE_PATH }}
-          yq e '.deckhouse.registryDockerCfg = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/values.yaml
+          sudo chown -fR 1001:1001 ${{ env.SETUP_CLUSTER_TYPE_PATH }} || true
+          yq e '.deckhouse.registryDockerCfg = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/values.yaml || true
           yq e 'select(.kind == "InitConfiguration").deckhouse.registryDockerCfg = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/config.yaml || echo "The config.yaml file is not generated, skipping"
           yq e '.discovered.registry_url = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/discovered-values.yaml || echo "The discovered-values.yaml file is not generated, skipping editing registry_url"
           yq e '.discovered.registry_auth = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/discovered-values.yaml || echo "The discovered-values.yaml file is not generated, skipping editing registry_auth"
-          echo "${{ steps.generate-kubeconfig.outputs.kubeconfig }}" | base64 -d | base64 -d > ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/kube-config
+          echo "${{ steps.generate-kubeconfig.outputs.kubeconfig }}" | base64 -d | base64 -d > ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/kube-config || echo "kubeconfig not available, skipping"
+
+      - name: Encrypt generated files artifact
+        if: success() || failure()
+        env:
+          GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
+          ARTIFACT_NAME: ${{ env.STORAGE_TYPE }}-release-generated-files-${{ env.E2E_START_TIME }}
+        run: |
+          pushd ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+          zip -r $RUNNER_TEMP/${ARTIFACT_NAME}.zip tmp values.yaml
+          popd
+          gpg --symmetric --batch --yes --pinentry-mode loopback \
+            --passphrase "$GPG_PASSPHRASE" \
+            --cipher-algo AES256 \
+            --output $RUNNER_TEMP/${ARTIFACT_NAME}.zip.gpg \
+            $RUNNER_TEMP/${ARTIFACT_NAME}.zip
+          rm -f $RUNNER_TEMP/${ARTIFACT_NAME}.zip
 
       - name: Upload generated files
-        uses: actions/upload-artifact@v4
-        if: always() && steps.dhctl-bootstrap.outcome == 'success'
+        uses: actions/upload-artifact@v7
+        if: success() || failure()
         with:
-          name: ${{ inputs.storage_type }}-release-generated-files-${{ inputs.date_start }}
-          path: |
-            ${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp
-            ${{ env.SETUP_CLUSTER_TYPE_PATH }}/values.yaml
+          name: ${{ env.STORAGE_TYPE }}-release-generated-files-${{ env.E2E_START_TIME }}.zip.gpg
+          path: ${{ runner.temp }}/${{ env.STORAGE_TYPE }}-release-generated-files-${{ env.E2E_START_TIME }}.zip.gpg
           overwrite: true
           include-hidden-files: true
           retention-days: 3
+          archive: false
+
+      - name: Encrypt ssh config artifact
+        if: always()
+        env:
+          GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
+          ARTIFACT_NAME: ${{ env.STORAGE_TYPE }}-release-generated-files-ssh-${{ env.E2E_START_TIME }}
+        run: |
+          pushd ${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp
+          zip -r $RUNNER_TEMP/${ARTIFACT_NAME}.zip ssh
+          popd
+          gpg --symmetric --batch --yes --pinentry-mode loopback \
+            --passphrase "$GPG_PASSPHRASE" \
+            --cipher-algo AES256 \
+            --output $RUNNER_TEMP/${ARTIFACT_NAME}.zip.gpg \
+            $RUNNER_TEMP/${ARTIFACT_NAME}.zip
+          rm -f $RUNNER_TEMP/${ARTIFACT_NAME}.zip
 
       - name: Upload ssh config
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: ${{ inputs.storage_type }}-release-generated-files-ssh-${{ inputs.date_start }}
-          path: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/ssh
+          name: ${{ env.STORAGE_TYPE }}-release-generated-files-ssh-${{ env.E2E_START_TIME }}.zip.gpg
+          path: ${{ runner.temp }}/${{ env.STORAGE_TYPE }}-release-generated-files-ssh-${{ env.E2E_START_TIME }}.zip.gpg
           overwrite: true
           include-hidden-files: true
           retention-days: 3
+          archive: false
+
+      - name: Encrypt kubeconfig artifact
+        if: always()
+        env:
+          GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
+          ARTIFACT_NAME: ${{ env.STORAGE_TYPE }}-release-generated-files-kubeconfig-${{ env.E2E_START_TIME }}
+        run: |
+          gpg --symmetric --batch --yes --pinentry-mode loopback \
+            --passphrase "$GPG_PASSPHRASE" \
+            --cipher-algo AES256 \
+            --output $RUNNER_TEMP/${ARTIFACT_NAME}.gpg \
+            ${{ env.SETUP_CLUSTER_TYPE_PATH }}/kube-config
 
       - name: Upload kubeconfig
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
+        if: always()
         with:
-          name: ${{ inputs.storage_type }}-release-generated-files-kubeconfig-${{ inputs.date_start }}
-          path: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/kube-config
+          name: ${{ env.STORAGE_TYPE }}-release-generated-files-kubeconfig-${{ env.E2E_START_TIME }}.gpg
+          path: ${{ runner.temp }}/${{ env.STORAGE_TYPE }}-release-generated-files-kubeconfig-${{ env.E2E_START_TIME }}.gpg
           overwrite: true
           include-hidden-files: true
           retention-days: 3
+          archive: false
+
+      - name: Add encrypted artifacts help to job summary
+        if: always()
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          ## Encrypted artifacts
+
+          Some uploaded artifacts in this workflow are encrypted with GPG symmetric encryption.
+
+          Secret used for decryption passphrase:
+          - `E2E_ARTIFACTS_GPG_PASSPHRASE`
+
+          Encrypted artifact types:
+          - `*-release-generated-files-*.zip.gpg`
+          - `*-release-generated-files-ssh-*.zip.gpg`
+          - `*-release-generated-files-kubeconfig-*.gpg`
+
+          Decrypt commands:
+
+          ```bash
+          # zip.gpg artifact
+          gpg --decrypt --batch --yes --pinentry-mode loopback \
+            --passphrase "$E2E_ARTIFACTS_GPG_PASSPHRASE" \
+            --output artifact.zip \
+            artifact.zip.gpg
+
+          unzip -o artifact.zip
+
+          # same, but with simultaneous decryption and extraction of the whole archive
+          gpg --decrypt --batch --yes --pinentry-mode loopback \
+            --passphrase "$E2E_ARTIFACTS_GPG_PASSPHRASE" \
+            artifact.zip.gpg > artifact.zip && unzip -o artifact.zip
+
+          # single-file .gpg artifact
+          gpg --decrypt --batch --yes --pinentry-mode loopback \
+            --passphrase "$E2E_ARTIFACTS_GPG_PASSPHRASE" \
+            --output kube-config \
+            artifact.gpg
+          ```
+          EOF
 
   configure-storage:
     name: Configure storage
@@ -433,7 +523,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Task
-        uses: arduino/setup-task@v2
+        uses: go-task/setup-task@v2
         with:
           version: 3.x
           repo-token: ${{ secrets.GITHUB_TOKEN }}
@@ -1194,16 +1284,17 @@ jobs:
           echo "release_namespace=$(jq -r '.namespace' "${context_path}")" >> "$GITHUB_OUTPUT"
 
       - name: Upload current-release test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always() && steps.release-e2e.outcome != 'skipped'
         with:
           name: current-release-e2e-results-${{ github.run_id }}
           path: test/e2e/release_current_suite.xml
           if-no-files-found: ignore
+          overwrite: true
           retention-days: 3
 
       - name: Upload resources from failed current-release tests
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always() && steps.release-e2e.outcome != 'skipped'
         with:
           name: current-release-resources-from-failed-tests-${{ github.run_id }}
@@ -1412,42 +1503,3 @@ jobs:
             -v --race --timeout=45m \
             ./release
           echo "[INFO] Cluster is intentionally left running (no cleanup)"
-
-  # undeploy-cluster:
-  #   name: Undeploy cluster
-  #   runs-on: ubuntu-latest
-  #   needs:
-  #     - bootstrap
-  #     - test-new-release
-  #   if: always()
-  #   steps:
-  #     - uses: actions/checkout@v4
-
-  #     - name: Setup d8
-  #       uses: ./.github/actions/install-d8
-  #       env:
-  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  #     - name: Install Task
-  #       uses: arduino/setup-task@v2
-  #       with:
-  #         version: 3.x
-  #         repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-  #     - name: Download artifacts
-  #       uses: actions/download-artifact@v5
-  #       with:
-  #         name: ${{ inputs.storage_type }}-release-generated-files-${{ inputs.date_start }}
-  #         path: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/
-
-  #     - name: Configure kubectl via azure/k8s-set-context@v4
-  #       uses: azure/k8s-set-context@v4
-  #       with:
-  #         method: kubeconfig
-  #         context: e2e-cluster-nightly-e2e-virt-sa
-  #         kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
-
-  #     - name: infra-undeploy
-  #       working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
-  #       run: |
-  #         task infra-undeploy
