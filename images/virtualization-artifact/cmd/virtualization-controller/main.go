@@ -348,7 +348,7 @@ func main() {
 	}
 
 	vdLogger := logger.NewControllerLogger(vd.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = vd.NewController(ctx, mgr, vdLogger, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, vdStorageClassSettings); err != nil {
+	if _, err = vd.NewController(ctx, mgr, vdLogger, importSettings.ImporterImage, importSettings.DiskImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, vdStorageClassSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

@@ -58,6 +58,7 @@ func NewController(
 	mgr manager.Manager,
 	log *log.Logger,
 	importerImage string,
+	diskImporterImage string,
 	uploaderImage string,
 	requirements corev1.ResourceRequirements,
 	dvcr *dvcr.Settings,
@@ -67,7 +68,12 @@ func NewController(
 	protection := service.NewProtectionService(mgr.GetClient(), v1alpha2.FinalizerVDProtection)
 	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
-	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection, ControllerName)
+	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection, ControllerName, service.DiskImporterConfig{
+		Image:                diskImporterImage,
+		ResourceRequirements: requirements,
+		PullPolicy:           PodPullPolicy,
+		Verbose:              PodVerbose,
+	})
 	scService := intsvc.NewVirtualDiskStorageClassService(service.NewBaseStorageClassService(mgr.GetClient()), storageClassSettings)
 	dvcrService := service.NewDVCRService(mgr.GetClient())
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)

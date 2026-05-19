@@ -52,6 +52,10 @@ func NewWaitForPVCStep(
 }
 
 func (s WaitForPVCStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
+	if vd.Status.Progress == "" {
+		vd.Status.Progress = "0%"
+	}
+
 	if s.pvc == nil {
 		vd.Status.Phase = v1alpha2.DiskProvisioning
 		s.cb.

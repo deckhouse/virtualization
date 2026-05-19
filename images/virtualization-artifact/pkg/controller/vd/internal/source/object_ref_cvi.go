@@ -66,18 +66,22 @@ func (ds ObjectRefClusterVirtualImage) Sync(ctx context.Context, vd *v1alpha2.Vi
 		return reconcile.Result{}, fmt.Errorf("fetch pvc: %w", err)
 	}
 
-	dv, err := object.FetchObject(ctx, supgen.DataVolume(), ds.client, &cdiv1.DataVolume{})
+	cviRefKey := types.NamespacedName{Name: vd.Spec.DataSource.ObjectRef.Name}
+	cviRef, err := object.FetchObject(ctx, cviRefKey, ds.client, &v1alpha2.ClusterVirtualImage{})
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("fetch dv: %w", err)
+		return reconcile.Result{}, fmt.Errorf("fetch cvi %q: %w", cviRefKey, err)
+	}
+	var importSource *cdiv1.DataVolumeSource
+	if cviRef != nil {
+		importSource = step.BuildClusterVirtualImageDataVolumeSource(vd, cviRef)
 	}
 
 	return steptaker.NewStepTakers[*v1alpha2.VirtualDisk](
 		step.NewReadyStep(ds.diskService, pvc, cb),
 		step.NewTerminatingStep(pvc),
-		step.NewCreateDataVolumeFromClusterVirtualImageStep(pvc, dv, ds.diskService, ds.client, cb),
-		step.NewEnsureNodePlacementStep(pvc, dv, ds.diskService, ds.client, cb),
-		step.NewWaitForDVStep(pvc, dv, ds.diskService, ds.client, cb),
+		step.NewCreateDataVolumeFromClusterVirtualImageStep(pvc, nil, ds.diskService, ds.client, cb),
 		step.NewWaitForPVCStep(pvc, ds.client, cb),
+		step.NewWaitForObjectRefImportStep(pvc, importSource, ds.diskService, ds.client, cb),
 	).Run(ctx, vd)
 }
 

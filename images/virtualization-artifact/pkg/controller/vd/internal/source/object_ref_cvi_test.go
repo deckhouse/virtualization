@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -62,9 +62,6 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 		Expect(storagev1.AddToScheme(scheme)).To(Succeed())
 
 		svc = &ObjectRefVirtualImageDiskServiceMock{
-			GetProgressFunc: func(_ *cdiv1.DataVolume, _ string, _ ...service.GetProgressOption) string {
-				return "10%"
-			},
 			GetCapacityFunc: func(_ *corev1.PersistentVolumeClaim) string {
 				return "100Mi"
 			},
@@ -73,6 +70,9 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			},
 			ProtectFunc: func(_ context.Context, _ supplements.Generator, _ client.Object, _ *cdiv1.DataVolume, _ *corev1.PersistentVolumeClaim) error {
 				return nil
+			},
+			EnsureObjectRefDiskImportFunc: func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *cdiv1.DataVolumeSource, _ *v1alpha2.VirtualDisk, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
+				return corev1.PodRunning, nil
 			},
 		}
 
@@ -155,7 +155,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 				},
 			}
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cvi, sc).Build()
-			svc.StartFunc = func(_ context.Context, _ resource.Quantity, _ *storagev1.StorageClass, _ *cdiv1.DataVolumeSource, _ client.Object, _ supplements.DataVolumeSupplement, _ ...service.Option) error {
+			svc.StartObjectRefDiskImportFunc = func(_ context.Context, _ resource.Quantity, _ *storagev1.StorageClass, _ *cdiv1.DataVolumeSource, _ *v1alpha2.VirtualDisk, _ *provisioner.NodePlacement) error {
 				dvCreated = true
 				return nil
 			}
@@ -176,12 +176,6 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 	})
 
 	Context("VirtualDisk waits for the PVC to be Bound", func() {
-		BeforeEach(func() {
-			svc.CheckProvisioningFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim) error {
-				return nil
-			}
-		})
-
 		It("waits for the first consumer", func() {
 			dv.Status.Phase = cdiv1.PendingPopulation
 			dv.Status.Conditions = []cdiv1.DataVolumeCondition{

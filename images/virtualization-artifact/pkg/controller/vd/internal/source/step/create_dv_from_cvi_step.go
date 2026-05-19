@@ -123,6 +123,10 @@ func (s CreateDataVolumeFromClusterVirtualImageStep) getPVCSize(vd *v1alpha2.Vir
 }
 
 func (s CreateDataVolumeFromClusterVirtualImageStep) getSource(vd *v1alpha2.VirtualDisk, cviRef *v1alpha2.ClusterVirtualImage) *cdiv1.DataVolumeSource {
+	return BuildClusterVirtualImageDataVolumeSource(vd, cviRef)
+}
+
+func BuildClusterVirtualImageDataVolumeSource(vd *v1alpha2.VirtualDisk, cviRef *v1alpha2.ClusterVirtualImage) *cdiv1.DataVolumeSource {
 	supgen := vdsupplements.NewGenerator(vd)
 
 	url := common.DockerRegistrySchemePrefix + cviRef.Status.Target.RegistryURL

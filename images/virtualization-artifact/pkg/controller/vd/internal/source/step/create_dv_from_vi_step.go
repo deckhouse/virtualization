@@ -126,6 +126,10 @@ func (s CreateDataVolumeFromVirtualImageStep) getPVCSize(vd *v1alpha2.VirtualDis
 }
 
 func (s CreateDataVolumeFromVirtualImageStep) getSource(vd *v1alpha2.VirtualDisk, viRef *v1alpha2.VirtualImage) (*cdiv1.DataVolumeSource, error) {
+	return BuildVirtualImageDataVolumeSource(vd, viRef)
+}
+
+func BuildVirtualImageDataVolumeSource(vd *v1alpha2.VirtualDisk, viRef *v1alpha2.VirtualImage) (*cdiv1.DataVolumeSource, error) {
 	switch viRef.Spec.Storage {
 	case v1alpha2.StoragePersistentVolumeClaim, v1alpha2.StorageKubernetes:
 		return &cdiv1.DataVolumeSource{

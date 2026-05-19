@@ -1,0 +1,7 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}cdi-importer
+imageSpec:
+  config:
+    entrypoint: ["/usr/bin/cdi-importer", "-alsologtostderr"]
+    user: 64535

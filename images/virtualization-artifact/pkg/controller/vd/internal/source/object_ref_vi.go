@@ -66,18 +66,25 @@ func (ds ObjectRefVirtualImage) Sync(ctx context.Context, vd *v1alpha2.VirtualDi
 		return reconcile.Result{}, fmt.Errorf("fetch pvc: %w", err)
 	}
 
-	dv, err := object.FetchObject(ctx, supgen.DataVolume(), ds.client, &cdiv1.DataVolume{})
+	viRefKey := types.NamespacedName{Name: vd.Spec.DataSource.ObjectRef.Name, Namespace: vd.Namespace}
+	viRef, err := object.FetchObject(ctx, viRefKey, ds.client, &v1alpha2.VirtualImage{})
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("fetch dv: %w", err)
+		return reconcile.Result{}, fmt.Errorf("fetch vi %q: %w", viRefKey, err)
+	}
+	var importSource *cdiv1.DataVolumeSource
+	if viRef != nil {
+		importSource, err = step.BuildVirtualImageDataVolumeSource(vd, viRef)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("build import source: %w", err)
+		}
 	}
 
 	return steptaker.NewStepTakers[*v1alpha2.VirtualDisk](
 		step.NewReadyStep(ds.diskService, pvc, cb),
 		step.NewTerminatingStep(pvc),
-		step.NewCreateDataVolumeFromVirtualImageStep(pvc, dv, ds.diskService, ds.client, cb),
-		step.NewEnsureNodePlacementStep(pvc, dv, ds.diskService, ds.client, cb),
-		step.NewWaitForDVStep(pvc, dv, ds.diskService, ds.client, cb),
+		step.NewCreateDataVolumeFromVirtualImageStep(pvc, nil, ds.diskService, ds.client, cb),
 		step.NewWaitForPVCStep(pvc, ds.client, cb),
+		step.NewWaitForObjectRefImportStep(pvc, importSource, ds.diskService, ds.client, cb),
 	).Run(ctx, vd)
 }
 

@@ -103,6 +103,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	for _, w := range []Watcher{
 		watcher.NewVirtualDiskWatcher(),
 		watcher.NewPersistentVolumeClaimWatcher(mgrClient),
+		watcher.NewPodWatcher(mgrClient),
 		watcher.NewVirtualDiskSnapshotWatcher(mgrClient),
 		watcher.NewStorageClassWatcher(mgrClient),
 		watcher.NewDataVolumeWatcher(),

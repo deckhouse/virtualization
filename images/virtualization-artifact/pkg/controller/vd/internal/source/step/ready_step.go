@@ -80,6 +80,10 @@ func (s ReadyStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconci
 	}
 
 	vdsupplements.SetPVCName(vd, s.pvc.Name)
+	if phase := s.pvc.GetAnnotations()["virtualization.deckhouse.io/object-ref-import.phase"]; phase != "" && phase != string(corev1.PodSucceeded) {
+		log.Debug("ObjectRef import is not completed yet")
+		return nil, nil
+	}
 
 	switch s.pvc.Status.Phase {
 	case corev1.ClaimLost:

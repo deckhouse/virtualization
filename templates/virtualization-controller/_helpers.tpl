@@ -24,6 +24,8 @@ true
       fieldPath: metadata.namespace
 - name: IMPORTER_IMAGE
   value: {{ include "helm_lib_module_image" (list . "dvcrImporter") }}
+- name: DISK_IMPORTER_IMAGE
+  value: {{ include "helm_lib_module_image" (list . "virtualDiskImporter") }}
 - name: UPLOADER_IMAGE
   value: {{ include "helm_lib_module_image" (list . "dvcrUploader") }}
 - name: BOUNDER_IMAGE

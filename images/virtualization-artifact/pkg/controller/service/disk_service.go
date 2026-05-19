@@ -48,12 +48,23 @@ import (
 )
 
 type DiskService struct {
-	client         client.Client
-	dvcrSettings   *dvcr.Settings
-	protection     *ProtectionService
-	controllerName string
+	client               client.Client
+	dvcrSettings         *dvcr.Settings
+	protection           *ProtectionService
+	controllerName       string
+	diskImporterImage    string
+	resourceRequirements corev1.ResourceRequirements
+	pullPolicy           string
+	verbose              string
 
 	volumeAndAccessModesGetter volumemode.VolumeAndAccessModesGetter
+}
+
+type DiskImporterConfig struct {
+	Image                string
+	ResourceRequirements corev1.ResourceRequirements
+	PullPolicy           string
+	Verbose              string
 }
 
 func NewDiskService(
@@ -61,12 +72,24 @@ func NewDiskService(
 	dvcrSettings *dvcr.Settings,
 	protection *ProtectionService,
 	controllerName string,
+	diskImporterConfig ...DiskImporterConfig,
 ) *DiskService {
+	var cfg DiskImporterConfig
+	var requirements corev1.ResourceRequirements
+	if len(diskImporterConfig) > 0 {
+		cfg = diskImporterConfig[0]
+		requirements = cfg.ResourceRequirements
+	}
+
 	return &DiskService{
 		client:                     client,
 		dvcrSettings:               dvcrSettings,
 		protection:                 protection,
 		controllerName:             controllerName,
+		diskImporterImage:          cfg.Image,
+		resourceRequirements:       requirements,
+		pullPolicy:                 cfg.PullPolicy,
+		verbose:                    cfg.Verbose,
 		volumeAndAccessModesGetter: volumemode.NewVolumeAndAccessModesGetter(client, nil),
 	}
 }

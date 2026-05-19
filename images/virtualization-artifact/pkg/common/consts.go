@@ -34,6 +34,8 @@ const (
 	UploaderPort = 80
 	// ImporterPodImageNameVar is a name of variable with the image name for the importer Pod
 	ImporterPodImageNameVar = "IMPORTER_IMAGE"
+	// DiskImporterPodImageNameVar is a name of variable with the image name for the VirtualDisk CDI importer Pod.
+	DiskImporterPodImageNameVar = "DISK_IMPORTER_IMAGE"
 	// UploaderPodImageNameVar is a name of variable with the image name for the uploader Pod
 	UploaderPodImageNameVar = "UPLOADER_IMAGE"
 	// BounderPodImageNameVar is a name of variable with the image name for the bounder Pod

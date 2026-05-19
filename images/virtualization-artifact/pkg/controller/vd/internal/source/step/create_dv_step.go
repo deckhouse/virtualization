@@ -35,13 +35,13 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type CreateDataVolumeStepDiskService interface {
 	Start(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *cdiv1.DataVolumeSource, obj client.Object, sup supplements.DataVolumeSupplement, opts ...service.Option) error
+	StartObjectRefDiskImport(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *cdiv1.DataVolumeSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error
 }
 
 type CreateDataVolumeStep struct {
@@ -76,8 +76,6 @@ func (s CreateDataVolumeStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk
 		return nil, nil
 	}
 
-	supgen := vdsupplements.NewGenerator(vd)
-
 	vd.Status.Progress = "0%"
 
 	sc, err := object.FetchObject(ctx, types.NamespacedName{Name: vd.Status.StorageClassName}, s.client, &storagev1.StorageClass{})
@@ -97,7 +95,7 @@ func (s CreateDataVolumeStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk
 		return nil, fmt.Errorf("failed to get importer tolerations: %w", err)
 	}
 
-	err = s.disk.Start(ctx, s.size, sc, s.source, vd, supgen, service.WithNodePlacement(nodePlacement))
+	err = s.disk.StartObjectRefDiskImport(ctx, s.size, sc, s.source, vd, nodePlacement)
 	switch {
 	case err == nil:
 		// OK.

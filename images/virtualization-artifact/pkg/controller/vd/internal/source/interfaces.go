@@ -44,16 +44,14 @@ type BlankDataSourceDiskService interface {
 
 type ObjectRefVirtualImageDiskService interface {
 	step.ReadyStepDiskService
-	step.WaitForDVStepDiskService
 	step.CreateDataVolumeStepDiskService
-	step.EnsureNodePlacementStepDiskService
+	step.WaitForObjectRefImportStepDiskService
 }
 
 type ObjectRefClusterVirtualImageDiskService interface {
 	step.ReadyStepDiskService
-	step.WaitForDVStepDiskService
 	step.CreateDataVolumeStepDiskService
-	step.EnsureNodePlacementStepDiskService
+	step.WaitForObjectRefImportStepDiskService
 }
 
 type ObjectRefVirtualDiskSnapshotDiskService interface {

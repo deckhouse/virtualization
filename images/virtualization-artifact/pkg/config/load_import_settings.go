@@ -32,16 +32,22 @@ const (
 )
 
 type ImportSettings struct {
-	ImporterImage string
-	UploaderImage string
-	BounderImage  string
-	Requirements  corev1.ResourceRequirements
+	ImporterImage     string
+	DiskImporterImage string
+	UploaderImage     string
+	BounderImage      string
+	Requirements      corev1.ResourceRequirements
 }
 
 func LoadImportSettingsFromEnv() (ImportSettings, error) {
 	var settings ImportSettings
 	var err error
 	settings.ImporterImage, err = GetRequiredEnvVar(common.ImporterPodImageNameVar)
+	if err != nil {
+		return ImportSettings{}, err
+	}
+
+	settings.DiskImporterImage, err = GetRequiredEnvVar(common.DiskImporterPodImageNameVar)
 	if err != nil {
 		return ImportSettings{}, err
 	}
