@@ -25,7 +25,7 @@ Effect:
 
 ## 002-no-bootable-qmp.patch
 
-Adds a `NO_BOOTABLE_DEVICE` QMP event that is emitted when `isa-debugcon` sees the exact
+Adds a `NO_BOOTABLE_DEVICE` QMP event that is emitted when `isa-debugcon` device receives the exact
 string `No bootable device.` in the debug output stream.
 
 Why this patch is kept:
