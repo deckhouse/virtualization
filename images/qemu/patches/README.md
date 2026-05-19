@@ -32,7 +32,7 @@ Why this patch is kept:
 
 - Management components can detect a boot failure through QMP instead of parsing debug logs.
 - The event provides a stable signal that can be consumed by automation.
-- It is intended to work together with firmware changes that print the marker string to the
+- It is intended to work together with firmware changes that output the marker string to the
   debug port.
 
 Effect:
