@@ -339,6 +339,15 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 
 		return true, nil
 	case allChanges.IsEmpty():
+		outOfSync, err := h.networksOutOfSync(ctx, s, kvvm)
+		if err != nil {
+			return false, fmt.Errorf("check network sync: %w", err)
+		}
+		if outOfSync {
+			if err := h.applyNetworkReadinessSync(ctx, s); err != nil {
+				return false, fmt.Errorf("apply network readiness sync: %w", err)
+			}
+		}
 		return true, nil
 	default:
 		// Delay changes propagation to KVVM until user restarts VM.
@@ -790,6 +799,52 @@ func (h *SyncKvvmHandler) isVMUnschedulable(
 	}
 
 	return false
+}
+
+func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine) (bool, error) {
+	if kvvm == nil {
+		return false, nil
+	}
+	filteredVM, err := filterReadyNetworks(ctx, s.Client(), s.VirtualMachine().Current())
+	if err != nil {
+		return false, err
+	}
+	vmmacs, err := s.VirtualMachineMACAddresses(ctx)
+	if err != nil {
+		return false, err
+	}
+	desired := network.CreateNetworkSpec(filteredVM, vmmacs)
+	actual := make(map[string]struct{})
+	for _, iface := range kvvm.Spec.Template.Spec.Domain.Devices.Interfaces {
+		if iface.State == virtv1.InterfaceStateAbsent {
+			continue
+		}
+		actual[iface.Name] = struct{}{}
+	}
+	if len(desired) != len(actual) {
+		return true, nil
+	}
+	for _, spec := range desired {
+		if _, ok := actual[spec.InterfaceName]; !ok {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (h *SyncKvvmHandler) applyNetworkReadinessSync(ctx context.Context, s state.VirtualMachineState) error {
+	if err := h.patchPodNetworkAnnotation(ctx, s); err != nil {
+		return fmt.Errorf("patch pod network annotation: %w", err)
+	}
+	ready, err := h.isNetworkReadyOnPod(ctx, s)
+	if err != nil {
+		return fmt.Errorf("check pod network status: %w", err)
+	}
+	if !ready {
+		logger.FromContext(ctx).Info("Waiting for SDN to configure network interfaces on the pod before updating KVVM")
+		return nil
+	}
+	return h.updateKVVM(ctx, s)
 }
 
 func filterReadyNetworks(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine) (*v1alpha2.VirtualMachine, error) {
