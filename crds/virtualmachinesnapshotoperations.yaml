@@ -54,8 +54,8 @@ spec:
                 virtualMachineSnapshotName: <name of the VM snapshot from which to clone>
                 createVirtualMachine:
                   mode: DryRun | Strict | BestEffort
-                  nameReplacements: [ ]
-                  customization: { }
+                  nameReplacements: []
+                  customization: {}
           properties:
             apiVersion:
               description: |-
