@@ -41,6 +41,7 @@ import (
 )
 
 type VirtualMachineState interface {
+	Client() client.Client
 	VirtualMachine() *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]
 	KVVM(ctx context.Context) (*virtv1.VirtualMachine, error)
 	KVVMI(ctx context.Context) (*virtv1.VirtualMachineInstance, error)
@@ -100,6 +101,10 @@ func (s *state) fill() {
 	for ref := range mapRefs {
 		s.bdRefs = append(s.bdRefs, ref)
 	}
+}
+
+func (s *state) Client() client.Client {
+	return s.client
 }
 
 func (s *state) Shared(fn func(s *Shared)) {

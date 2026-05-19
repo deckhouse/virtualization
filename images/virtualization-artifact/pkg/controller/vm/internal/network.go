@@ -73,29 +73,53 @@ func (h *NetworkInterfaceHandler) Handle(ctx context.Context, s state.VirtualMac
 	}()
 
 	if !hasOnlyDefaultNetwork(vm) {
-		if !h.featureGate.Enabled(featuregates.SDN) {
-			cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonSDNModuleDisabled).Message("For additional network interfaces, please enable SDN module")
-			return reconcile.Result{}, nil
-		}
-
-		pods, err := s.Pods(ctx)
-		if err != nil {
+		if err := h.evaluateAdditionalNetworks(ctx, s, vm, cb); err != nil {
 			return reconcile.Result{}, err
-		}
-
-		errMsg, err := extractNetworkStatusFromPods(pods)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		if errMsg != "" {
-			cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonNetworkNotReady).Message(errMsg)
-		} else {
-			cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonNetworkReady).Message("")
 		}
 	}
 
 	return h.UpdateNetworkStatus(ctx, s, vm)
+}
+
+// evaluateAdditionalNetworks sets cb based on whether additional networks are
+// usable: requires SDN feature gate, then that referenced Networks/ClusterNetworks
+// are Ready, and finally that SDN reports the per-pod interfaces healthy.
+func (h *NetworkInterfaceHandler) evaluateAdditionalNetworks(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine, cb *conditions.ConditionBuilder) error {
+	if !h.featureGate.Enabled(featuregates.SDN) {
+		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonSDNModuleDisabled).Message("For additional network interfaces, please enable SDN module")
+		return nil
+	}
+
+	var pending []string
+	for _, ns := range vm.Spec.Networks {
+		ready, err := network.IsNetworkSpecReady(ctx, s.Client(), vm.Namespace, ns)
+		if err != nil {
+			return err
+		}
+		if !ready {
+			pending = append(pending, network.SpecKey(ns))
+		}
+	}
+	if len(pending) > 0 {
+		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonNetworkNotReady).
+			Message(fmt.Sprintf("Waiting for the following networks to become Ready: %s. They will be attached automatically once available.", strings.Join(pending, ", ")))
+		return nil
+	}
+
+	pods, err := s.Pods(ctx)
+	if err != nil {
+		return err
+	}
+	errMsg, err := extractNetworkStatusFromPods(pods)
+	if err != nil {
+		return err
+	}
+	if errMsg != "" {
+		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonNetworkNotReady).Message(errMsg)
+		return nil
+	}
+	cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonNetworkReady).Message("")
+	return nil
 }
 
 func hasOnlyDefaultNetwork(vm *v1alpha2.VirtualMachine) bool {

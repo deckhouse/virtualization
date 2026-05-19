@@ -23,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/component-base/featuregate"
 	"k8s.io/utils/ptr"
@@ -33,11 +32,6 @@ import (
 	commonnetwork "github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-)
-
-var (
-	networkGVK        = schema.GroupVersionKind{Group: "network.deckhouse.io", Version: "v1alpha1", Kind: "Network"}
-	clusterNetworkGVK = schema.GroupVersionKind{Group: "network.deckhouse.io", Version: "v1alpha1", Kind: "ClusterNetwork"}
 )
 
 type NetworksValidator struct {
@@ -103,7 +97,7 @@ func (v *NetworksValidator) validateNetworksExist(ctx context.Context, namespace
 		switch n.Type {
 		case v1alpha2.NetworksTypeClusterNetwork:
 			obj := &unstructured.Unstructured{}
-			obj.SetGroupVersionKind(clusterNetworkGVK)
+			obj.SetGroupVersionKind(commonnetwork.ClusterNetworkGVK)
 			err := v.client.Get(ctx, types.NamespacedName{Name: n.Name}, obj)
 			if k8serrors.IsNotFound(err) {
 				return nil, fmt.Errorf("ClusterNetwork %q referenced in spec.networks does not exist", n.Name)
@@ -113,7 +107,7 @@ func (v *NetworksValidator) validateNetworksExist(ctx context.Context, namespace
 			}
 		case v1alpha2.NetworksTypeNetwork:
 			obj := &unstructured.Unstructured{}
-			obj.SetGroupVersionKind(networkGVK)
+			obj.SetGroupVersionKind(commonnetwork.NetworkGVK)
 			err := v.client.Get(ctx, types.NamespacedName{Name: n.Name, Namespace: namespace}, obj)
 			if k8serrors.IsNotFound(err) {
 				return nil, fmt.Errorf("Network %q referenced in spec.networks does not exist in namespace %q", n.Name, namespace)

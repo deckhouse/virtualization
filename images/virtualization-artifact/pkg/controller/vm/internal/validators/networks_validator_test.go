@@ -26,6 +26,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	commonnetwork "github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -365,11 +366,11 @@ func newUnstructured(gvk schema.GroupVersionKind, name, namespace string) *unstr
 
 func TestNetworksValidatesExistence(t *testing.T) {
 	scheme := runtime.NewScheme()
-	scheme.AddKnownTypeWithName(clusterNetworkGVK, &unstructured.Unstructured{})
-	scheme.AddKnownTypeWithName(networkGVK, &unstructured.Unstructured{})
+	scheme.AddKnownTypeWithName(commonnetwork.ClusterNetworkGVK, &unstructured.Unstructured{})
+	scheme.AddKnownTypeWithName(commonnetwork.NetworkGVK, &unstructured.Unstructured{})
 
-	existingCN := newUnstructured(clusterNetworkGVK, "exists-cn", "")
-	existingNet := newUnstructured(networkGVK, "exists-net", "default")
+	existingCN := newUnstructured(commonnetwork.ClusterNetworkGVK, "exists-cn", "")
+	existingNet := newUnstructured(commonnetwork.NetworkGVK, "exists-net", "default")
 
 	cli := fake.NewClientBuilder().
 		WithScheme(scheme).

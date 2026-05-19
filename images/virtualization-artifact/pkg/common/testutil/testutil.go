@@ -22,6 +22,7 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -31,10 +32,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	commonnetwork "github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha3"
 )
+
+func registerNetworkGVKs(scheme *apiruntime.Scheme) {
+	scheme.AddKnownTypeWithName(commonnetwork.NetworkGVK, &unstructured.Unstructured{})
+	scheme.AddKnownTypeWithName(commonnetwork.ClusterNetworkGVK, &unstructured.Unstructured{})
+}
 
 func NewFakeClientWithObjects(objs ...client.Object) (client.WithWatch, error) {
 	scheme := apiruntime.NewScheme()
@@ -50,6 +57,7 @@ func NewFakeClientWithObjects(objs ...client.Object) (client.WithWatch, error) {
 			return nil, err
 		}
 	}
+	registerNetworkGVKs(scheme)
 	var newObjs []client.Object
 	for _, obj := range objs {
 		if reflect.ValueOf(obj).IsNil() {
@@ -79,6 +87,7 @@ func NewFakeClientWithInterceptorWithObjects(interceptor interceptor.Funcs, objs
 			return nil, err
 		}
 	}
+	registerNetworkGVKs(scheme)
 	var newObjs []client.Object
 	for _, obj := range objs {
 		if reflect.ValueOf(obj).IsNil() {

@@ -495,7 +495,11 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 		return nil, err
 	}
 
-	networkSpec := network.CreateNetworkSpec(current, vmmacs)
+	filteredVM, err := filterReadyNetworks(ctx, s.Client(), current)
+	if err != nil {
+		return nil, err
+	}
+	networkSpec := network.CreateNetworkSpec(filteredVM, vmmacs)
 
 	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {
@@ -788,6 +792,28 @@ func (h *SyncKvvmHandler) isVMUnschedulable(
 	return false
 }
 
+func filterReadyNetworks(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine) (*v1alpha2.VirtualMachine, error) {
+	if c == nil || vm == nil || len(vm.Spec.Networks) == 0 {
+		return vm, nil
+	}
+	kept := make([]v1alpha2.NetworksSpec, 0, len(vm.Spec.Networks))
+	for _, ns := range vm.Spec.Networks {
+		ready, err := network.IsNetworkSpecReady(ctx, c, vm.Namespace, ns)
+		if err != nil {
+			return nil, fmt.Errorf("check readiness for network %s: %w", network.SpecKey(ns), err)
+		}
+		if ready {
+			kept = append(kept, ns)
+		}
+	}
+	if len(kept) == len(vm.Spec.Networks) {
+		return vm, nil
+	}
+	out := vm.DeepCopy()
+	out.Spec.Networks = kept
+	return out, nil
+}
+
 func hasNetworkChange(changes vmchange.SpecChanges) bool {
 	for _, c := range changes.GetAll() {
 		if c.Path == "networks" {
@@ -829,7 +855,12 @@ func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state
 		return err
 	}
 
-	networkConfigStr, err := network.CreateNetworkSpec(current, vmmacs).ToString()
+	filteredVM, err := filterReadyNetworks(ctx, s.Client(), current)
+	if err != nil {
+		return err
+	}
+
+	networkConfigStr, err := network.CreateNetworkSpec(filteredVM, vmmacs).ToString()
 	if err != nil {
 		return fmt.Errorf("failed to serialize network spec: %w", err)
 	}
