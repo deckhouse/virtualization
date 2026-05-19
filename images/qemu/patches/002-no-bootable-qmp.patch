@@ -88,7 +88,7 @@ index 336386f..e1e727e 100644
 +# Emitted when `isa-debugcon` with enabled no-bootable watching
 +# receives the string "No bootable device.".
 +#
-+# Since: 0.14
++# Since: 9.2
 +##
 +{ 'event': 'NO_BOOTABLE_DEVICE' }
 diff --git a/tests/qtest/qmp-test.c b/tests/qtest/qmp-test.c
