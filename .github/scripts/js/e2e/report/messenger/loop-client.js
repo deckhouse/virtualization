@@ -1,0 +1,114 @@
+// Copyright 2026 Flant JSC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//     http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @typedef {Object} LoopClientCore
+ * @property {function(string): void} warning
+ * @property {function(string): void} [info]
+ */
+
+/**
+ * @typedef {Object} LoopCredentials
+ * @property {string} apiUrl
+ * @property {string} channelId
+ * @property {string} token
+ */
+
+/**
+ * @typedef {Object} LoopPublishParams
+ * @property {string} message
+ * @property {string[]} threadMessages
+ * @property {LoopCredentials} loop
+ */
+
+/**
+ * Parses a Loop API response body if it is JSON, otherwise returns an empty
+ * object and emits a warning for diagnostics.
+ *
+ * @param {string} responseText Raw response body.
+ * @param {LoopClientCore} core GitHub core API.
+ * @returns {Record<string, any>} Parsed response payload or an empty object.
+ */
+function parseLoopApiPayload(responseText, core) {
+  if (!responseText) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(responseText);
+  } catch (error) {
+    core.warning(
+      `Loop API returned a non-JSON response body: ${error.message}`
+    );
+    return {};
+  }
+}
+
+/**
+ * Sends a single post to Loop and returns the parsed API payload.
+ *
+ * @param {LoopCredentials} loop Loop API credentials.
+ * @param {string} message Post body.
+ * @param {string} [rootId] Optional thread root id for reply posts.
+ * @param {LoopClientCore} core GitHub core API.
+ * @returns {Promise<Record<string, any>>} Parsed Loop API response.
+ */
+async function postToLoopApi(loop, message, rootId, core) {
+  const response = await fetch(loop.apiUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${loop.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      channel_id: loop.channelId,
+      message,
+      ...(rootId ? { root_id: rootId } : {}),
+    }),
+  });
+  const responseText = await response.text();
+
+  if (!response.ok) {
+    throw new Error(
+      `Loop API request failed with status ${response.status}: ${responseText}`
+    );
+  }
+
+  const payload = parseLoopApiPayload(responseText, core);
+  core.info(`Loop API accepted report with status ${response.status}`);
+  return payload;
+}
+
+/**
+ * Publishes the main report and optional failed-tests thread to Loop.
+ *
+ * @param {LoopPublishParams} params Message payload and Loop credentials.
+ * @param {LoopClientCore} core GitHub core API.
+ * @returns {Promise<void>}
+ */
+async function makeThreadedReportInLoop({ message, threadMessages, loop }, core) {
+  const rootPost = await postToLoopApi(loop, message, undefined, core);
+
+  if (!rootPost.id) {
+    throw new Error(
+      "Loop API did not return a post id; thread replies cannot be attached"
+    );
+  }
+
+  for (const replyMessage of threadMessages) {
+    await postToLoopApi(loop, replyMessage, rootPost.id, core);
+  }
+}
+
+module.exports = {
+  makeThreadedReportInLoop,
+};

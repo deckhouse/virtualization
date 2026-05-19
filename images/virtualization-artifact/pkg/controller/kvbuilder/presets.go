@@ -45,7 +45,7 @@ var DeviceOptionsPresets DeviceOptionsList = []DeviceOptions{
 	{
 		EnableParavirtualization: true,
 		DiskBus:                  virtv1.DiskBusSCSI,
-		CdromBus:                 virtv1.DiskBusSATA,
+		CdromBus:                 virtv1.DiskBusSCSI,
 		InterfaceModel:           "virtio",
 	},
 	{

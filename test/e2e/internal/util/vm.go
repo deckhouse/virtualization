@@ -64,7 +64,7 @@ func SkipIfKnownKubeVirtClientSocketClosedMigrationFailureWithContext(ctx contex
 		return
 	}
 
-	intvirtvmi, err := getInternalVirtualMachineInstance(ctx, vm)
+	intvirtvmi, err := GetInternalVirtualMachineInstance(ctx, vm)
 	Expect(err).NotTo(HaveOccurred())
 	if intvirtvmi == nil || intvirtvmi.Status.MigrationState == nil {
 		return
@@ -94,7 +94,7 @@ func SkipIfKnownVolumesUpdateMigrationFailureWithContext(ctx context.Context, vm
 		return
 	}
 
-	intvirtvmi, err := getInternalVirtualMachineInstance(ctx, vm)
+	intvirtvmi, err := GetInternalVirtualMachineInstance(ctx, vm)
 	Expect(err).NotTo(HaveOccurred())
 	if intvirtvmi == nil {
 		return
@@ -142,7 +142,7 @@ func SkipIfVDMigrationReverted(namespace string) {
 	}
 }
 
-func getInternalVirtualMachineInstance(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
+func GetInternalVirtualMachineInstance(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
 	GinkgoHelper()
 
 	obj := &rewrite.VirtualMachineInstance{}
@@ -308,7 +308,7 @@ func RebootVirtualMachineByVMOP(f *framework.Framework, vm *v1alpha2.VirtualMach
 func RebootVirtualMachineByPodDeletion(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
-	activePodName, err := getActivePodName(vm)
+	activePodName, err := GetActivePodName(vm)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(activePodName).NotTo(BeEmpty())
 
@@ -323,14 +323,41 @@ func RebootVirtualMachineByPodDeletion(f *framework.Framework, vm *v1alpha2.Virt
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func getActivePodName(vm *v1alpha2.VirtualMachine) (string, error) {
+func GetVirtualMachineAndActivePod(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine) (*v1alpha2.VirtualMachine, *corev1.Pod, error) {
+	var currentVM v1alpha2.VirtualMachine
+	err := f.GenericClient().Get(ctx, client.ObjectKey{
+		Namespace: vm.Namespace,
+		Name:      vm.Name,
+	}, &currentVM)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	activePodName, err := GetActivePodName(&currentVM)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var activePod corev1.Pod
+	err = f.GenericClient().Get(ctx, client.ObjectKey{
+		Namespace: vm.Namespace,
+		Name:      activePodName,
+	}, &activePod)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return &currentVM, &activePod, nil
+}
+
+func GetActivePodName(vm *v1alpha2.VirtualMachine) (string, error) {
 	for _, pod := range vm.Status.VirtualMachinePods {
 		if pod.Active {
 			return pod.Name, nil
 		}
 	}
 
-	return "", fmt.Errorf("no active pod found for virtual machine %s", vm.Name)
+	return "", fmt.Errorf("no active pod found for virtual machine %s/%s", vm.Namespace, vm.Name)
 }
 
 func UntilVirtualMachineRebooted(key client.ObjectKey, previousRunningTime time.Time, timeout time.Duration) {
