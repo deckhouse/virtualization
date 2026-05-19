@@ -549,7 +549,6 @@ jobs:
           - `*-generated-files-*.zip.gpg`
           - `*-generated-files-ssh-*.zip.gpg`
           - `*-generated-files-kubeconfig-*.gpg`
-          - `resources_from_failed_tests-*.zip.gpg`
 
           Decrypt commands:
 
@@ -561,6 +560,11 @@ jobs:
             artifact.zip.gpg
 
           unzip -o artifact.zip
+
+          # same, but with simultaneous decryption and dearchiving to stdout
+          gpg --decrypt --batch --yes --pinentry-mode loopback \
+            --passphrase "$E2E_ARTIFACTS_GPG_PASSPHRASE" \
+            artifact.zip.gpg | funzip > extracted-file
 
           # single-file .gpg artifact
           gpg --decrypt --batch --yes --pinentry-mode loopback \
@@ -1494,36 +1498,14 @@ jobs:
           overwrite: true
           retention-days: 3
 
-      - name: Encrypt resources from failed tests artifact
-        if: always() && steps.e2e-report.outcome != 'skipped'
-        env:
-          GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
-          ARTIFACT_NAME: resources_from_failed_tests-${{ env.STORAGE_TYPE }}-${{ env.E2E_START_TIME }}
-        run: |
-          shopt -s nullglob
-          files=($RUNNER_TEMP/e2e_failed__*)
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "[INFO] No failed test resources found, skipping encryption"
-            exit 0
-          fi
-          pushd $RUNNER_TEMP
-          zip -r $RUNNER_TEMP/${ARTIFACT_NAME}.zip ${files[@]##$RUNNER_TEMP/}
-          popd
-          gpg --symmetric --batch --yes --pinentry-mode loopback \
-            --passphrase "$GPG_PASSPHRASE" \
-            --cipher-algo AES256 \
-            --output $RUNNER_TEMP/${ARTIFACT_NAME}.zip.gpg \
-            $RUNNER_TEMP/${ARTIFACT_NAME}.zip
-          rm -f $RUNNER_TEMP/${ARTIFACT_NAME}.zip
-
       - name: Upload resources from failed tests
         uses: actions/upload-artifact@v7
         if: always() && steps.e2e-report.outcome != 'skipped'
         with:
-          path: ${{ runner.temp }}/resources_from_failed_tests-${{ env.STORAGE_TYPE }}-${{ env.E2E_START_TIME }}.zip.gpg
+          name: resources_from_failed_tests-${{ env.STORAGE_TYPE }}-${{ env.E2E_START_TIME }}
+          path: ${{ runner.temp }}/e2e_failed__*
           if-no-files-found: ignore
           retention-days: 3
-          archive: false
 
   prepare-report:
     name: Prepare E2E report
