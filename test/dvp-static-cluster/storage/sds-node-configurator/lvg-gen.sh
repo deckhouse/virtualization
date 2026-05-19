@@ -18,7 +18,8 @@ set -euo pipefail
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 manifest="${script_dir}/sds-lvg.yaml"
-LVMVG_SIZE=45Gi
+LVMVG_SIZE_PERCENT="${LVMVG_SIZE_PERCENT:-65}"
+LVMVG_SIZE="${LVMVG_SIZE_PERCENT}%"
 
 devs=$(kubectl get blockdevices.storage.deckhouse.io -o json | jq '.items[] | {name: .metadata.name, node: .status.nodeName, dev_path: .status.path}' -rc)
 
@@ -31,7 +32,7 @@ for line in ${devs}; do
   dev_node=$(echo $line | jq -r '.node');
   node_name=$(echo $dev_node | grep -o 'worker.*');
   dev_path=$(echo $line | jq -r '.dev_path' | cut -d "/" -f3);
-  echo "${dev_node} ${dev_name}"
+  echo "${dev_node} ${dev_name} -> thin pool ${LVMVG_SIZE}"
 cat << EOF >> "${manifest}"
 ---
 apiVersion: storage.deckhouse.io/v1alpha1

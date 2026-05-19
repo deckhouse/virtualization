@@ -224,7 +224,7 @@ jobs:
                 memory:
                   size: ${{ inputs.cluster_config_workers_memory }}
                 additionalDisks:
-                - size: 100Gi
+                - size: 250Gi
           EOF
 
           mkdir -p tmp
