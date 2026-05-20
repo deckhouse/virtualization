@@ -3,6 +3,25 @@ title: "Релизы"
 weight: 70
 ---
 
+## v1.8.2
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 20 мая 2026.
+</span>
+
+### Безопасность
+
+- [module] Исправлены уязвимости:
+  - CVE-2026-29181
+  - CVE-2026-33811
+  - CVE-2026-33814
+  - CVE-2026-39820
+  - CVE-2026-39823
+  - CVE-2026-39825
+  - CVE-2026-39826
+  - CVE-2026-39836
+  - CVE-2026-41520
+  - CVE-2026-42499
+
 ## v1.8.1
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Дата релиза: 28 апреля 2026.
