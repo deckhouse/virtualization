@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -132,13 +133,6 @@ func (h *NetworkInterfaceHandler) Name() string {
 }
 
 func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine) (reconcile.Result, error) {
-	// check that vmmacName is not removed when deleting a network interface from the spec, as it is still in use
-	if len(vm.Status.Networks) > len(vm.Spec.Networks) {
-		if vm.Status.Phase != v1alpha2.MachinePending && vm.Status.Phase != v1alpha2.MachineStopped {
-			return reconcile.Result{}, nil
-		}
-	}
-
 	if hasOnlyDefaultNetwork(vm) {
 		vm.Status.Networks = []v1alpha2.NetworksStatus{
 			{
@@ -151,6 +145,11 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 	}
 
 	kvvm, err := s.KVVM(ctx)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -192,6 +191,26 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 			MAC:                          macAddressesByInterfaceName[interfaceSpec.InterfaceName],
 			VirtualMachineMACAddressName: vmmacNamesByAddress[interfaceSpec.MAC],
 		})
+	}
+
+	// Network hot-unplug: retain a status entry the user removed from spec until
+	// KubeVirt fully detaches and drops the iface from KVVMI. The next reconcile
+	// then drops the entry, vmmac becomes unattached, deletion handler releases the MAC.
+	for _, prev := range vm.Status.Networks {
+		if prev.Type == v1alpha2.NetworksTypeMain || prev.MAC == "" {
+			continue
+		}
+		if slices.ContainsFunc(networksStatus, func(ns v1alpha2.NetworksStatus) bool {
+			return ns.Type == prev.Type && ns.Name == prev.Name
+		}) {
+			continue
+		}
+		if kvvmi == nil || !slices.ContainsFunc(kvvmi.Spec.Domain.Devices.Interfaces, func(i virtv1.Interface) bool {
+			return strings.EqualFold(i.MacAddress, prev.MAC)
+		}) {
+			continue
+		}
+		networksStatus = append(networksStatus, prev)
 	}
 
 	vm.Status.Networks = networksStatus
