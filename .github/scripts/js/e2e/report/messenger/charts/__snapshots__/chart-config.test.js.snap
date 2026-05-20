@@ -259,6 +259,7 @@ Array [
             "text": "It/Entry duration buckets by status",
           },
           "valueLabels": Object {
+            "calloutSmallStackedLabels": true,
             "formatter": [Function],
           },
         },

@@ -177,6 +177,19 @@ function drawValueLabels(chart, _args, options) {
 
       if (isHorizontal) {
         const barWidth = Math.abs(props.x - props.base);
+        if (isStacked && options.calloutSmallStackedLabels && barWidth <= 34) {
+          const offsets = [-12, -4, 4, 12];
+          const dataset = data.datasets[meta.index] || {};
+          ctx.textAlign = "left";
+          ctx.fillStyle = dataset.backgroundColor || "#24292f";
+          ctx.fillText(
+            label,
+            props.x + 6,
+            props.y + (offsets[meta.index] || 0)
+          );
+          ctx.fillStyle = "#24292f";
+          return;
+        }
         ctx.textAlign = isStacked && barWidth > 34 ? "center" : "left";
         ctx.fillText(
           label,
@@ -376,7 +389,10 @@ function durationBuckets({ all }) {
             text: "It/Entry duration buckets by status",
           },
           legend: { display: true },
-          valueLabels: { formatter: formatCount },
+          valueLabels: {
+            formatter: formatCount,
+            calloutSmallStackedLabels: true,
+          },
         },
         scales: {
           x: {
