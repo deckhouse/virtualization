@@ -255,16 +255,13 @@ func ensureVMWasFrozen(ctx context.Context, f *framework.Framework, vm *v1alpha2
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
 
-func generateVDSnapshot(name string, vd *v1alpha2.VirtualDisk, opts ...vdsnapshotbuilder.Option) *v1alpha2.VirtualDiskSnapshot {
-	baseOpts := []vdsnapshotbuilder.Option{
+func generateVDSnapshot(name string, vd *v1alpha2.VirtualDisk) *v1alpha2.VirtualDiskSnapshot {
+	return vdsnapshotbuilder.New([]vdsnapshotbuilder.Option{
 		vdsnapshotbuilder.WithName(name),
 		vdsnapshotbuilder.WithNamespace(vd.Namespace),
 		vdsnapshotbuilder.WithVirtualDiskName(vd.Name),
 		vdsnapshotbuilder.WithRequiredConsistency(true),
-	}
-	baseOpts = append(baseOpts, opts...)
-
-	return vdsnapshotbuilder.New(baseOpts...)
+	}...)
 }
 
 func checkVMUnfrozen(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine) {
