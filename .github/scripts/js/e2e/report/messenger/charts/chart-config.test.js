@@ -25,32 +25,29 @@ describe("chart-config", () => {
     expect(buildClusterChartConfigs(specTimings)).toMatchSnapshot();
   });
 
-  test("returns the five chart configs in display order", () => {
+  test("returns the four chart configs in display order", () => {
     const configs = buildClusterChartConfigs(specTimings);
     expect(configs.map(({ name }) => name)).toEqual([
-      "status-doughnut",
-      "pareto-slowest",
-      "pass-rate-per-feature",
-      "quantiles-per-feature",
-      "feature-totals",
+      "feature-duration-status",
+      "slowest-specs",
+      "duration-buckets",
+      "failed-and-slow-specs",
     ]);
   });
 
   test("handles an empty spec timings list", () => {
     const configs = buildClusterChartConfigs([]);
-    expect(configs).toHaveLength(5);
+    expect(configs).toHaveLength(4);
     const labelsByName = Object.fromEntries(
       configs.map(({ name, config }) => [name, config.data.labels])
     );
-    expect(labelsByName["status-doughnut"]).toEqual([
-      "passed",
-      "failed",
-      "errors",
-      "skipped",
+    expect(labelsByName["feature-duration-status"]).toEqual([]);
+    expect(labelsByName["slowest-specs"]).toEqual([]);
+    expect(labelsByName["duration-buckets"]).toEqual([
+      "Slow >300s",
+      "Medium 60-300s",
+      "Fast <60s",
     ]);
-    expect(labelsByName["pareto-slowest"]).toEqual([]);
-    expect(labelsByName["pass-rate-per-feature"]).toEqual([]);
-    expect(labelsByName["quantiles-per-feature"]).toEqual([]);
-    expect(labelsByName["feature-totals"]).toEqual([]);
+    expect(labelsByName["failed-and-slow-specs"]).toEqual([]);
   });
 });

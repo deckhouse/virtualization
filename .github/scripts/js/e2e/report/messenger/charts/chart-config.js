@@ -19,16 +19,9 @@ const STATUS_COLORS = {
   skipped: "#8b949e",
 };
 
-const PALETTE = {
-  bar: "#58a6ff",
-  cumulative: "#a371f7",
-  total: "#f0883e",
-  p50: "#58a6ff",
-  p90: "#d29922",
-  max: "#f85149",
-};
-
 const DEFAULT_TOP_N = 15;
+const SLOW_THRESHOLD_MS = 300_000;
+const MEDIUM_THRESHOLD_MS = 60_000;
 
 function toSeconds(ms) {
   return Number((ms / 1000).toFixed(2));
@@ -37,32 +30,22 @@ function toSeconds(ms) {
 function normalize(timing) {
   const rawState = String((timing && timing.state) || "errors");
   const rawGroup = (timing && (timing.group || timing.name)) || "Ungrouped";
+  const name = String((timing && timing.name) || "Unnamed spec");
+  const group = String(rawGroup);
   return {
-    name: String((timing && timing.name) || "Unnamed spec"),
-    group: String(rawGroup),
+    name,
+    group,
+    fullName: group === name ? name : `${group} / ${name}`,
     state: STATUSES.includes(rawState) ? rawState : "errors",
     runtimeMs: Math.max(0, Number((timing && timing.runtimeMs) || 0)),
   };
 }
 
-// Linear-interpolated quantile over a numerically sorted (asc) array.
-// Mirrors Excel's PERCENTILE.INC / numpy's default percentile method.
-function quantile(sortedAsc, q) {
-  if (sortedAsc.length === 0) {
-    return 0;
-  }
-  if (sortedAsc.length === 1) {
-    return sortedAsc[0];
-  }
-  const pos = (sortedAsc.length - 1) * q;
-  const base = Math.floor(pos);
-  const upper = sortedAsc[base + 1];
-  return upper === undefined
-    ? sortedAsc[base]
-    : sortedAsc[base] + (pos - base) * (upper - sortedAsc[base]);
+function emptyStatusCount() {
+  return { passed: 0, failed: 0, errors: 0, skipped: 0 };
 }
 
-function emptyStatusCount() {
+function emptyStatusDurations() {
   return { passed: 0, failed: 0, errors: 0, skipped: 0 };
 }
 
@@ -82,19 +65,91 @@ function aggregate(specTimings) {
     let bucket = byGroup.get(timing.group);
     if (!bucket) {
       bucket = {
-        durations: [],
         statusCount: emptyStatusCount(),
+        statusDurations: emptyStatusDurations(),
         total: 0,
       };
       byGroup.set(timing.group, bucket);
     }
-    bucket.durations.push(timing.runtimeMs);
     bucket.statusCount[timing.state] += 1;
+    bucket.statusDurations[timing.state] += timing.runtimeMs;
     bucket.total += timing.runtimeMs;
   }
 
   return { all, byGroup, byStatus, totalMs };
 }
+
+function formatSeconds(seconds) {
+  return `${Number(seconds || 0).toFixed(seconds >= 10 ? 0 : 1)}s`;
+}
+
+function formatCount(count) {
+  return String(Number(count || 0));
+}
+
+function drawValueLabels(chart, _args, options) {
+  const { ctx, data } = chart;
+  const formatter = options && options.formatter;
+  if (typeof formatter !== "function") {
+    return;
+  }
+
+  ctx.save();
+  ctx.font = "12px sans-serif";
+  ctx.fillStyle = "#24292f";
+  ctx.textBaseline = "middle";
+
+  chart.getSortedVisibleDatasetMetas().forEach((meta) => {
+    meta.data.forEach((element, dataIndex) => {
+      const rawValue = data.datasets[meta.index].data[dataIndex];
+      if (!rawValue) {
+        return;
+      }
+
+      const label = formatter(rawValue, {
+        chart,
+        dataIndex,
+        datasetIndex: meta.index,
+      });
+      if (!label) {
+        return;
+      }
+
+      const props = element.getProps(["x", "y", "base"], true);
+      const isHorizontal = chart.options.indexAxis === "y";
+      const isStacked = Boolean(
+        isHorizontal
+          ? chart.options.scales &&
+              chart.options.scales.x &&
+              chart.options.scales.x.stacked
+          : chart.options.scales &&
+              chart.options.scales.y &&
+              chart.options.scales.y.stacked
+      );
+
+      if (isHorizontal) {
+        const barWidth = Math.abs(props.x - props.base);
+        ctx.textAlign = isStacked && barWidth > 34 ? "center" : "left";
+        ctx.fillText(
+          label,
+          isStacked && barWidth > 34 ? (props.x + props.base) / 2 : props.x + 6,
+          props.y
+        );
+        return;
+      }
+
+      ctx.textAlign = "center";
+      ctx.fillText(label, props.x, props.y - 8);
+    });
+  });
+
+  ctx.restore();
+}
+
+const valueLabelsPlugin = {
+  id: "valueLabels",
+  afterDatasetsDraw: drawValueLabels,
+};
 
 function baseOptions(title, extra = {}) {
   return {
@@ -108,82 +163,44 @@ function baseOptions(title, extra = {}) {
   };
 }
 
-function statusDoughnut({ byStatus }) {
-  return {
-    name: "status-doughnut",
-    config: {
-      type: "doughnut",
-      data: {
-        labels: STATUSES,
-        datasets: [
-          {
-            data: STATUSES.map((status) => byStatus[status]),
-            backgroundColor: STATUSES.map((status) => STATUS_COLORS[status]),
-          },
-        ],
-      },
-      options: baseOptions("E2E spec status distribution"),
-    },
-  };
-}
-
-function paretoSlowest({ all, totalMs }, topN = DEFAULT_TOP_N) {
+function slowestSpecs({ all }, topN = DEFAULT_TOP_N) {
   const top = [...all]
     .sort(
       (left, right) =>
-        right.runtimeMs - left.runtimeMs || left.name.localeCompare(right.name)
+        right.runtimeMs - left.runtimeMs ||
+        left.fullName.localeCompare(right.fullName)
     )
     .slice(0, topN);
 
-  let runningMs = 0;
-  const cumulativePercents = top.map((timing) => {
-    runningMs += timing.runtimeMs;
-    return totalMs > 0 ? Number(((runningMs / totalMs) * 100).toFixed(1)) : 0;
-  });
-
   return {
-    name: "pareto-slowest",
+    name: "slowest-specs",
     config: {
       type: "bar",
       data: {
-        labels: top.map((timing) => timing.name),
+        labels: top.map((timing) => timing.fullName),
         datasets: [
           {
-            type: "bar",
             label: "Duration, seconds",
             data: top.map((timing) => toSeconds(timing.runtimeMs)),
-            backgroundColor: PALETTE.bar,
-            xAxisID: "x",
-            order: 2,
-          },
-          {
-            type: "line",
-            label: "Cumulative % of suite time",
-            data: cumulativePercents,
-            borderColor: PALETTE.cumulative,
-            backgroundColor: PALETTE.cumulative,
-            xAxisID: "x1",
-            order: 1,
+            backgroundColor: top.map((timing) => STATUS_COLORS[timing.state]),
           },
         ],
       },
-      options: baseOptions("Top slowest E2E specs (Pareto)", {
+      options: baseOptions("Top slowest E2E specs", {
         indexAxis: "y",
+        plugins: {
+          title: { display: true, text: "Top slowest E2E specs" },
+          legend: { display: false },
+          valueLabels: { formatter: formatSeconds },
+        },
         scales: {
           x: {
             beginAtZero: true,
-            position: "bottom",
             title: { display: true, text: "Duration, seconds" },
-          },
-          x1: {
-            beginAtZero: true,
-            max: 100,
-            position: "top",
-            grid: { drawOnChartArea: false },
-            title: { display: true, text: "Cumulative %" },
           },
         },
       }),
+      plugins: [valueLabelsPlugin],
     },
   };
 }
@@ -192,15 +209,16 @@ function sortedGroups(byGroup, compareFn) {
   return [...byGroup.entries()].sort(compareFn);
 }
 
-function passRatePerFeature({ byGroup }) {
+function problemCount(group) {
+  return group.statusCount.failed + group.statusCount.errors;
+}
+
+function featureDurationStatus({ byGroup }) {
   // Most-broken features go to the top: failures desc, then total runtime desc,
   // then alphabetical for a stable order.
   const entries = sortedGroups(byGroup, (left, right) => {
-    const failsLeft = left[1].statusCount.failed + left[1].statusCount.errors;
-    const failsRight =
-      right[1].statusCount.failed + right[1].statusCount.errors;
     return (
-      failsRight - failsLeft ||
+      problemCount(right[1]) - problemCount(left[1]) ||
       right[1].total - left[1].total ||
       left[0].localeCompare(right[0])
     );
@@ -209,132 +227,169 @@ function passRatePerFeature({ byGroup }) {
   const labels = entries.map(([name]) => name);
   const datasets = STATUSES.map((status) => ({
     label: status,
-    data: entries.map(([, group]) => {
-      const total = STATUSES.reduce(
-        (sum, candidate) => sum + group.statusCount[candidate],
-        0
-      );
-      return total > 0
-        ? Number(((group.statusCount[status] / total) * 100).toFixed(1))
-        : 0;
-    }),
+    data: entries.map(([, group]) => toSeconds(group.statusDurations[status])),
     backgroundColor: STATUS_COLORS[status],
   }));
 
   return {
-    name: "pass-rate-per-feature",
+    name: "feature-duration-status",
     config: {
       type: "bar",
       data: { labels, datasets },
-      options: baseOptions("Pass rate by feature, %", {
+      options: baseOptions("E2E duration by feature and status", {
         indexAxis: "y",
+        plugins: {
+          title: {
+            display: true,
+            text: "E2E duration by feature and status",
+          },
+          legend: { display: true },
+          valueLabels: { formatter: formatSeconds },
+        },
         scales: {
           x: {
             stacked: true,
             beginAtZero: true,
-            max: 100,
-            title: { display: true, text: "% of specs" },
+            title: { display: true, text: "Duration, seconds" },
           },
           y: { stacked: true },
         },
       }),
+      plugins: [valueLabelsPlugin],
     },
   };
 }
 
-function quantilesPerFeature({ byGroup }) {
-  const entries = sortedGroups(
-    byGroup,
-    (left, right) =>
-      right[1].total - left[1].total || left[0].localeCompare(right[0])
-  );
-  const sortedDurations = entries.map(([, group]) =>
-    [...group.durations].sort((left, right) => left - right)
-  );
+function durationBucket(timing) {
+  if (timing.runtimeMs > SLOW_THRESHOLD_MS) {
+    return "slow";
+  }
+  if (timing.runtimeMs >= MEDIUM_THRESHOLD_MS) {
+    return "medium";
+  }
+  return "fast";
+}
+
+function durationBuckets({ all }) {
+  const buckets = [
+    { key: "slow", label: "Slow >300s", counts: emptyStatusCount() },
+    { key: "medium", label: "Medium 60-300s", counts: emptyStatusCount() },
+    { key: "fast", label: "Fast <60s", counts: emptyStatusCount() },
+  ];
+  const byBucket = new Map(buckets.map((bucket) => [bucket.key, bucket]));
+  for (const timing of all) {
+    byBucket.get(durationBucket(timing)).counts[timing.state] += 1;
+  }
 
   return {
-    name: "quantiles-per-feature",
+    name: "duration-buckets",
     config: {
       type: "bar",
       data: {
-        labels: entries.map(([name]) => name),
-        datasets: [
-          {
-            label: "p50",
-            data: sortedDurations.map((durations) =>
-              toSeconds(quantile(durations, 0.5))
-            ),
-            backgroundColor: PALETTE.p50,
-          },
-          {
-            label: "p90",
-            data: sortedDurations.map((durations) =>
-              toSeconds(quantile(durations, 0.9))
-            ),
-            backgroundColor: PALETTE.p90,
-          },
-          {
-            label: "max",
-            data: sortedDurations.map((durations) =>
-              toSeconds(durations[durations.length - 1] || 0)
-            ),
-            backgroundColor: PALETTE.max,
-          },
-        ],
+        labels: buckets.map((bucket) => bucket.label),
+        datasets: STATUSES.map((status) => ({
+          label: status,
+          data: buckets.map((bucket) => bucket.counts[status]),
+          backgroundColor: STATUS_COLORS[status],
+        })),
       },
-      options: baseOptions("Spec duration p50/p90/max by feature, seconds", {
-        scales: {
-          y: {
-            beginAtZero: true,
-            title: { display: true, text: "Seconds" },
+      options: baseOptions("E2E specs by duration bucket and status", {
+        indexAxis: "y",
+        plugins: {
+          title: {
+            display: true,
+            text: "E2E specs by duration bucket and status",
           },
+          legend: { display: true },
+          valueLabels: { formatter: formatCount },
+        },
+        scales: {
+          x: {
+            stacked: true,
+            beginAtZero: true,
+            ticks: { precision: 0 },
+            title: { display: true, text: "Specs" },
+          },
+          y: { stacked: true },
         },
       }),
+      plugins: [valueLabelsPlugin],
     },
   };
 }
 
-function featureTotals({ byGroup }) {
-  const entries = sortedGroups(
-    byGroup,
+function failedAndSlowSpecs({ all }, topN = DEFAULT_TOP_N) {
+  const sorted = [...all].sort(
     (left, right) =>
-      right[1].total - left[1].total || left[0].localeCompare(right[0])
+      right.runtimeMs - left.runtimeMs ||
+      left.fullName.localeCompare(right.fullName)
   );
+  const selected = [];
+  const seen = new Set();
+
+  for (const timing of sorted) {
+    if (!["failed", "errors"].includes(timing.state)) {
+      continue;
+    }
+    selected.push(timing);
+    seen.add(timing.fullName);
+  }
+
+  for (const timing of sorted) {
+    if (selected.length >= topN) {
+      break;
+    }
+    if (seen.has(timing.fullName)) {
+      continue;
+    }
+    selected.push(timing);
+    seen.add(timing.fullName);
+  }
 
   return {
-    name: "feature-totals",
+    name: "failed-and-slow-specs",
     config: {
       type: "bar",
       data: {
-        labels: entries.map(([name]) => name),
+        labels: selected.map((timing) => timing.fullName),
         datasets: [
           {
-            label: "Total duration, seconds",
-            data: entries.map(([, group]) => toSeconds(group.total)),
-            backgroundColor: PALETTE.total,
+            label: "Duration, seconds",
+            data: selected.map((timing) => toSeconds(timing.runtimeMs)),
+            backgroundColor: selected.map(
+              (timing) => STATUS_COLORS[timing.state]
+            ),
           },
         ],
       },
-      options: baseOptions("Total duration by feature", {
+      options: baseOptions("Failed/error specs and slowest successful specs", {
         indexAxis: "y",
+        plugins: {
+          title: {
+            display: true,
+            text: "Failed/error specs and slowest successful specs",
+          },
+          legend: { display: false },
+          valueLabels: { formatter: formatSeconds },
+        },
         scales: {
           x: {
             beginAtZero: true,
-            title: { display: true, text: "Seconds" },
+            title: { display: true, text: "Duration, seconds" },
           },
         },
       }),
+      plugins: [valueLabelsPlugin],
     },
   };
 }
 
 // Order of charts matches the order of attachments in the messenger thread.
 const CHART_BUILDERS = [
-  statusDoughnut,
-  paretoSlowest,
-  passRatePerFeature,
-  quantilesPerFeature,
-  featureTotals,
+  featureDurationStatus,
+  slowestSpecs,
+  durationBuckets,
+  failedAndSlowSpecs,
 ];
 
 function buildClusterChartConfigs(specTimings) {

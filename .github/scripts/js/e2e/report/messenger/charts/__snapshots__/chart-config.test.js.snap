@@ -7,135 +7,10 @@ Array [
       "data": Object {
         "datasets": Array [
           Object {
-            "backgroundColor": Array [
-              "#3fb950",
-              "#f85149",
-              "#d29922",
-              "#8b949e",
-            ],
-            "data": Array [
-              2,
-              1,
-              1,
-              1,
-            ],
-          },
-        ],
-        "labels": Array [
-          "passed",
-          "failed",
-          "errors",
-          "skipped",
-        ],
-      },
-      "options": Object {
-        "animation": false,
-        "plugins": Object {
-          "legend": Object {
-            "display": true,
-          },
-          "title": Object {
-            "display": true,
-            "text": "E2E spec status distribution",
-          },
-        },
-        "responsive": false,
-      },
-      "type": "doughnut",
-    },
-    "name": "status-doughnut",
-  },
-  Object {
-    "config": Object {
-      "data": Object {
-        "datasets": Array [
-          Object {
-            "backgroundColor": "#58a6ff",
-            "data": Array [
-              601,
-              301,
-              60,
-              45,
-              10,
-            ],
-            "label": "Duration, seconds",
-            "order": 2,
-            "type": "bar",
-            "xAxisID": "x",
-          },
-          Object {
-            "backgroundColor": "#a371f7",
-            "borderColor": "#a371f7",
-            "data": Array [
-              59.1,
-              88.7,
-              94.6,
-              99,
-              100,
-            ],
-            "label": "Cumulative % of suite time",
-            "order": 1,
-            "type": "line",
-            "xAxisID": "x1",
-          },
-        ],
-        "labels": Array [
-          "error",
-          "slow fail",
-          "medium skip",
-          "passing peer",
-          "fast pass",
-        ],
-      },
-      "options": Object {
-        "animation": false,
-        "indexAxis": "y",
-        "plugins": Object {
-          "legend": Object {
-            "display": true,
-          },
-          "title": Object {
-            "display": true,
-            "text": "Top slowest E2E specs (Pareto)",
-          },
-        },
-        "responsive": false,
-        "scales": Object {
-          "x": Object {
-            "beginAtZero": true,
-            "position": "bottom",
-            "title": Object {
-              "display": true,
-              "text": "Duration, seconds",
-            },
-          },
-          "x1": Object {
-            "beginAtZero": true,
-            "grid": Object {
-              "drawOnChartArea": false,
-            },
-            "max": 100,
-            "position": "top",
-            "title": Object {
-              "display": true,
-              "text": "Cumulative %",
-            },
-          },
-        },
-      },
-      "type": "bar",
-    },
-    "name": "pareto-slowest",
-  },
-  Object {
-    "config": Object {
-      "data": Object {
-        "datasets": Array [
-          Object {
             "backgroundColor": "#3fb950",
             "data": Array [
               0,
-              66.7,
+              55,
               0,
             ],
             "label": "passed",
@@ -144,7 +19,7 @@ Array [
             "backgroundColor": "#f85149",
             "data": Array [
               0,
-              33.3,
+              301,
               0,
             ],
             "label": "failed",
@@ -152,7 +27,7 @@ Array [
           Object {
             "backgroundColor": "#d29922",
             "data": Array [
-              100,
+              601,
               0,
               0,
             ],
@@ -163,7 +38,7 @@ Array [
             "data": Array [
               0,
               0,
-              100,
+              60,
             ],
             "label": "skipped",
           },
@@ -183,18 +58,20 @@ Array [
           },
           "title": Object {
             "display": true,
-            "text": "Pass rate by feature, %",
+            "text": "E2E duration by feature and status",
+          },
+          "valueLabels": Object {
+            "formatter": [Function],
           },
         },
         "responsive": false,
         "scales": Object {
           "x": Object {
             "beginAtZero": true,
-            "max": 100,
             "stacked": true,
             "title": Object {
               "display": true,
-              "text": "% of specs",
+              "text": "Duration, seconds",
             },
           },
           "y": Object {
@@ -202,92 +79,127 @@ Array [
           },
         },
       },
+      "plugins": Array [
+        Object {
+          "afterDatasetsDraw": [Function],
+          "id": "valueLabels",
+        },
+      ],
       "type": "bar",
     },
-    "name": "pass-rate-per-feature",
+    "name": "feature-duration-status",
   },
   Object {
     "config": Object {
       "data": Object {
         "datasets": Array [
           Object {
-            "backgroundColor": "#58a6ff",
-            "data": Array [
-              601,
-              45,
-              60,
+            "backgroundColor": Array [
+              "#d29922",
+              "#f85149",
+              "#8b949e",
+              "#3fb950",
+              "#3fb950",
             ],
-            "label": "p50",
-          },
-          Object {
-            "backgroundColor": "#d29922",
-            "data": Array [
-              601,
-              249.8,
-              60,
-            ],
-            "label": "p90",
-          },
-          Object {
-            "backgroundColor": "#f85149",
             "data": Array [
               601,
               301,
               60,
+              45,
+              10,
             ],
-            "label": "max",
+            "label": "Duration, seconds",
           },
         ],
         "labels": Array [
-          "Network",
-          "VM",
-          "Disk",
+          "Network / error",
+          "VM / slow fail",
+          "Disk / medium skip",
+          "VM / passing peer",
+          "VM / fast pass",
         ],
       },
       "options": Object {
         "animation": false,
+        "indexAxis": "y",
         "plugins": Object {
           "legend": Object {
-            "display": true,
+            "display": false,
           },
           "title": Object {
             "display": true,
-            "text": "Spec duration p50/p90/max by feature, seconds",
+            "text": "Top slowest E2E specs",
+          },
+          "valueLabels": Object {
+            "formatter": [Function],
           },
         },
         "responsive": false,
         "scales": Object {
-          "y": Object {
+          "x": Object {
             "beginAtZero": true,
             "title": Object {
               "display": true,
-              "text": "Seconds",
+              "text": "Duration, seconds",
             },
           },
         },
       },
+      "plugins": Array [
+        Object {
+          "afterDatasetsDraw": [Function],
+          "id": "valueLabels",
+        },
+      ],
       "type": "bar",
     },
-    "name": "quantiles-per-feature",
+    "name": "slowest-specs",
   },
   Object {
     "config": Object {
       "data": Object {
         "datasets": Array [
           Object {
-            "backgroundColor": "#f0883e",
+            "backgroundColor": "#3fb950",
             "data": Array [
-              601,
-              356,
-              60,
+              0,
+              0,
+              2,
             ],
-            "label": "Total duration, seconds",
+            "label": "passed",
+          },
+          Object {
+            "backgroundColor": "#f85149",
+            "data": Array [
+              1,
+              0,
+              0,
+            ],
+            "label": "failed",
+          },
+          Object {
+            "backgroundColor": "#d29922",
+            "data": Array [
+              1,
+              0,
+              0,
+            ],
+            "label": "errors",
+          },
+          Object {
+            "backgroundColor": "#8b949e",
+            "data": Array [
+              0,
+              1,
+              0,
+            ],
+            "label": "skipped",
           },
         ],
         "labels": Array [
-          "Network",
-          "VM",
-          "Disk",
+          "Slow >300s",
+          "Medium 60-300s",
+          "Fast <60s",
         ],
       },
       "options": Object {
@@ -299,7 +211,83 @@ Array [
           },
           "title": Object {
             "display": true,
-            "text": "Total duration by feature",
+            "text": "E2E specs by duration bucket and status",
+          },
+          "valueLabels": Object {
+            "formatter": [Function],
+          },
+        },
+        "responsive": false,
+        "scales": Object {
+          "x": Object {
+            "beginAtZero": true,
+            "stacked": true,
+            "ticks": Object {
+              "precision": 0,
+            },
+            "title": Object {
+              "display": true,
+              "text": "Specs",
+            },
+          },
+          "y": Object {
+            "stacked": true,
+          },
+        },
+      },
+      "plugins": Array [
+        Object {
+          "afterDatasetsDraw": [Function],
+          "id": "valueLabels",
+        },
+      ],
+      "type": "bar",
+    },
+    "name": "duration-buckets",
+  },
+  Object {
+    "config": Object {
+      "data": Object {
+        "datasets": Array [
+          Object {
+            "backgroundColor": Array [
+              "#d29922",
+              "#f85149",
+              "#8b949e",
+              "#3fb950",
+              "#3fb950",
+            ],
+            "data": Array [
+              601,
+              301,
+              60,
+              45,
+              10,
+            ],
+            "label": "Duration, seconds",
+          },
+        ],
+        "labels": Array [
+          "Network / error",
+          "VM / slow fail",
+          "Disk / medium skip",
+          "VM / passing peer",
+          "VM / fast pass",
+        ],
+      },
+      "options": Object {
+        "animation": false,
+        "indexAxis": "y",
+        "plugins": Object {
+          "legend": Object {
+            "display": false,
+          },
+          "title": Object {
+            "display": true,
+            "text": "Failed/error specs and slowest successful specs",
+          },
+          "valueLabels": Object {
+            "formatter": [Function],
           },
         },
         "responsive": false,
@@ -308,14 +296,20 @@ Array [
             "beginAtZero": true,
             "title": Object {
               "display": true,
-              "text": "Seconds",
+              "text": "Duration, seconds",
             },
           },
         },
       },
+      "plugins": Array [
+        Object {
+          "afterDatasetsDraw": [Function],
+          "id": "valueLabels",
+        },
+      ],
       "type": "bar",
     },
-    "name": "feature-totals",
+    "name": "failed-and-slow-specs",
   },
 ]
 `;

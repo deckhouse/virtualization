@@ -23,7 +23,7 @@ describe("chart-renderer", () => {
     await expect(renderClusterCharts({ specTimings: [] })).resolves.toEqual([]);
   });
 
-  test("renders five cluster chart images", async () => {
+  test("renders four cluster chart images", async () => {
     const files = await renderClusterCharts({
       cluster: "replicated",
       specTimings: [
@@ -32,11 +32,10 @@ describe("chart-renderer", () => {
     });
 
     expect(files.map(({ name }) => name)).toEqual([
-      "replicated-status-doughnut.png",
-      "replicated-pareto-slowest.png",
-      "replicated-pass-rate-per-feature.png",
-      "replicated-quantiles-per-feature.png",
-      "replicated-feature-totals.png",
+      "replicated-feature-duration-status.png",
+      "replicated-slowest-specs.png",
+      "replicated-duration-buckets.png",
+      "replicated-failed-and-slow-specs.png",
     ]);
     for (const file of files) {
       expect(file.buffer).toEqual(Buffer.from("png"));
