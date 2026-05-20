@@ -187,6 +187,10 @@ Array [
       "type": "bar",
     },
     "name": "slowest-specs",
+    "size": Object {
+      "height": 720,
+      "width": 1920,
+    },
   },
   Object {
     "config": Object {

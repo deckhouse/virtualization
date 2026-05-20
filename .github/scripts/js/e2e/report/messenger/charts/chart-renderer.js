@@ -12,23 +12,28 @@
 
 const { buildClusterChartConfigs } = require("./chart-config");
 
-let canvasInstance;
+const defaultChartSize = { width: 1280, height: 640 };
+const canvasInstances = new Map();
 
 // Module-level singleton: ChartJSNodeCanvas startup (loading chart.js + setting
 // up the cairo-backed canvas) is non-trivial, and the renderer is stateless
 // between renderToBuffer calls. Reusing it across clusters keeps memory usage
 // flat when the messenger report grows.
-function loadChartRenderer() {
-  if (!canvasInstance) {
+function loadChartRenderer({ width, height } = defaultChartSize) {
+  const rendererKey = `${width}x${height}`;
+  if (!canvasInstances.has(rendererKey)) {
     const { ChartJSNodeCanvas } = require("chartjs-node-canvas");
-    canvasInstance = new ChartJSNodeCanvas({
-      width: 1280,
-      height: 640,
-      backgroundColour: "#ffffff",
-    });
+    canvasInstances.set(
+      rendererKey,
+      new ChartJSNodeCanvas({
+        width,
+        height,
+        backgroundColour: "#ffffff",
+      })
+    );
   }
 
-  return canvasInstance;
+  return canvasInstances.get(rendererKey);
 }
 
 function sanitizeFilenamePart(value) {
@@ -45,18 +50,20 @@ async function renderClusterCharts(report) {
     return [];
   }
 
-  const renderer = loadChartRenderer();
   const configs = buildClusterChartConfigs(report.specTimings);
   const clusterName = sanitizeFilenamePart(
     report.cluster || report.storageType || "cluster"
   );
 
   return Promise.all(
-    configs.map(async ({ name, config }) => ({
-      name: `${clusterName}-${name}.png`,
-      buffer: await renderer.renderToBuffer(config, "image/png"),
-      mimeType: "image/png",
-    }))
+    configs.map(async ({ name, config, size }) => {
+      const renderer = loadChartRenderer(size || defaultChartSize);
+      return {
+        name: `${clusterName}-${name}.png`,
+        buffer: await renderer.renderToBuffer(config, "image/png"),
+        mimeType: "image/png",
+      };
+    })
   );
 }
 
