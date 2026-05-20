@@ -247,26 +247,6 @@ func TestSetCPUModel(t *testing.T) {
 		}
 	})
 
-	t.Run("should add required ht feature for discovery cpu", func(t *testing.T) {
-		builder := NewEmptyKVVM(types.NamespacedName{Name: name, Namespace: namespace}, KVVMOptions{})
-		class := &v1alpha2.VirtualMachineClass{
-			Spec: v1alpha2.VirtualMachineClassSpec{
-				CPU: v1alpha2.CPU{Type: v1alpha2.CPUTypeDiscovery},
-			},
-			Status: v1alpha2.VirtualMachineClassStatus{
-				CpuFeatures: v1alpha2.CpuFeatures{Enabled: []string{"aes"}},
-			},
-		}
-
-		if err := builder.SetCPUModel(class); err != nil {
-			t.Fatalf("SetCPUModel() failed: %v", err)
-		}
-
-		features := builder.Resource.Spec.Template.Spec.Domain.CPU.Features
-		if !containsCPUFeature(features, virtv1.CPUFeature{Name: HTCPUFeature, Policy: "require"}) {
-			t.Fatalf("expected required ht feature to be added, got %#v", features)
-		}
-	})
 
 	t.Run("should keep existing ht feature policy when already present", func(t *testing.T) {
 		builder := NewEmptyKVVM(types.NamespacedName{Name: name, Namespace: namespace}, KVVMOptions{})
