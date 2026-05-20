@@ -163,7 +163,7 @@ func (b *KVVM) SetCPUModel(class *v1alpha2.VirtualMachineClass) error {
 		cpu.Model = virtv1.CPUModeHostPassthrough
 	case v1alpha2.CPUTypeModel:
 		cpu.Model = class.Spec.CPU.Model
-		cpu.Features = []virtv1.CPUFeature{{Name: HTCPUFeature, Policy: "require"}}
+		cpu.Features = []virtv1.CPUFeature{{Name: HTCPUFeature, Policy: "optional"}}
 	case v1alpha2.CPUTypeDiscovery, v1alpha2.CPUTypeFeatures:
 		cpu.Model = GenericCPUModel
 		features := make([]virtv1.CPUFeature, 0, len(class.Status.CpuFeatures.Enabled)+1)
