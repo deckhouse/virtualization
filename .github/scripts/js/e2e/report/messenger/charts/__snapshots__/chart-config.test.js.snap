@@ -58,7 +58,7 @@ Array [
           },
           "title": Object {
             "display": true,
-            "text": "E2E duration by feature and status",
+            "text": "Overall durations for Describes",
           },
           "valueLabels": Object {
             "formatter": [Function],
@@ -143,13 +143,22 @@ Array [
       "options": Object {
         "animation": false,
         "indexAxis": "y",
+        "layout": Object {
+          "padding": Object {
+            "bottom": 8,
+            "top": 16,
+          },
+        },
         "plugins": Object {
           "legend": Object {
-            "display": false,
+            "display": true,
+            "labels": Object {
+              "generateLabels": [Function],
+            },
           },
           "title": Object {
             "display": true,
-            "text": "Top slowest E2E specs",
+            "text": "Top slowest successful specs and failed specs (It/Entry)",
           },
           "valueLabels": Object {
             "formatter": [Function],
@@ -159,6 +168,9 @@ Array [
         "scales": Object {
           "x": Object {
             "beginAtZero": true,
+            "ticks": Object {
+              "stepSize": 60,
+            },
             "title": Object {
               "display": true,
               "text": "Duration, seconds",
@@ -182,6 +194,8 @@ Array [
         "datasets": Array [
           Object {
             "backgroundColor": "#3fb950",
+            "barPercentage": 0.5,
+            "categoryPercentage": 0.6,
             "data": Array [
               0,
               0,
@@ -191,6 +205,8 @@ Array [
           },
           Object {
             "backgroundColor": "#f85149",
+            "barPercentage": 0.5,
+            "categoryPercentage": 0.6,
             "data": Array [
               1,
               0,
@@ -200,6 +216,8 @@ Array [
           },
           Object {
             "backgroundColor": "#d29922",
+            "barPercentage": 0.5,
+            "categoryPercentage": 0.6,
             "data": Array [
               1,
               0,
@@ -209,6 +227,8 @@ Array [
           },
           Object {
             "backgroundColor": "#8b949e",
+            "barPercentage": 0.5,
+            "categoryPercentage": 0.6,
             "data": Array [
               0,
               1,
@@ -232,7 +252,7 @@ Array [
           },
           "title": Object {
             "display": true,
-            "text": "E2E specs by duration bucket and status",
+            "text": "It/Entry duration buckets by status",
           },
           "valueLabels": Object {
             "formatter": [Function],

@@ -23,7 +23,7 @@ function loadChartRenderer() {
     const { ChartJSNodeCanvas } = require("chartjs-node-canvas");
     canvasInstance = new ChartJSNodeCanvas({
       width: 1280,
-      height: 720,
+      height: 640,
       backgroundColour: "#ffffff",
     });
   }

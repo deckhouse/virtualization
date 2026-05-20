@@ -100,6 +100,41 @@ function formatSlowestSpecLabel(seconds, { chart, dataIndex, datasetIndex }) {
   return `${formatSeconds(seconds)}${suffix}`;
 }
 
+function slowestSpecsLegendLabels() {
+  return [
+    {
+      text: "Fast <60s",
+      fillStyle: DURATION_COLORS.fast,
+      strokeStyle: DURATION_COLORS.fast,
+      lineWidth: 0,
+    },
+    {
+      text: "Medium 60-300s",
+      fillStyle: DURATION_COLORS.medium,
+      strokeStyle: DURATION_COLORS.medium,
+      lineWidth: 0,
+    },
+    {
+      text: "Slow >300s",
+      fillStyle: DURATION_COLORS.slow,
+      strokeStyle: DURATION_COLORS.slow,
+      lineWidth: 0,
+    },
+    {
+      text: "Failed border",
+      fillStyle: "#ffffff",
+      strokeStyle: STATUS_COLORS.failed,
+      lineWidth: 3,
+    },
+    {
+      text: "Error border",
+      fillStyle: "#ffffff",
+      strokeStyle: STATUS_COLORS.errors,
+      lineWidth: 3,
+    },
+  ];
+}
+
 function drawValueLabels(chart, _args, options) {
   const { ctx, data } = chart;
   const formatter = options && options.formatter;
@@ -210,20 +245,33 @@ function slowestSpecs({ all }, topN = DEFAULT_TOP_N) {
           },
         ],
       },
-      options: baseOptions("Top slowest E2E specs", {
-        indexAxis: "y",
-        plugins: {
-          title: { display: true, text: "Top slowest E2E specs" },
-          legend: { display: false },
-          valueLabels: { formatter: formatSlowestSpecLabel },
-        },
-        scales: {
-          x: {
-            beginAtZero: true,
-            title: { display: true, text: "Duration, seconds" },
+      options: baseOptions(
+        "Top slowest successful specs and failed specs (It/Entry)",
+        {
+          indexAxis: "y",
+          plugins: {
+            title: {
+              display: true,
+              text: "Top slowest successful specs and failed specs (It/Entry)",
+            },
+            legend: {
+              display: true,
+              labels: { generateLabels: slowestSpecsLegendLabels },
+            },
+            valueLabels: { formatter: formatSlowestSpecLabel },
           },
-        },
-      }),
+          scales: {
+            x: {
+              beginAtZero: true,
+              ticks: { stepSize: 60 },
+              title: { display: true, text: "Duration, seconds" },
+            },
+          },
+          layout: {
+            padding: { top: 16, bottom: 8 },
+          },
+        }
+      ),
       plugins: [valueLabelsPlugin],
     },
   };
@@ -260,12 +308,12 @@ function featureDurationStatus({ byGroup }) {
     config: {
       type: "bar",
       data: { labels, datasets },
-      options: baseOptions("E2E duration by feature and status", {
+      options: baseOptions("Overall durations for Describes", {
         indexAxis: "y",
         plugins: {
           title: {
             display: true,
-            text: "E2E duration by feature and status",
+            text: "Overall durations for Describes",
           },
           legend: { display: true },
           valueLabels: { formatter: formatSeconds },
@@ -315,14 +363,16 @@ function durationBuckets({ all }) {
           label: status,
           data: buckets.map((bucket) => bucket.counts[status]),
           backgroundColor: STATUS_COLORS[status],
+          barPercentage: 0.5,
+          categoryPercentage: 0.6,
         })),
       },
-      options: baseOptions("E2E specs by duration bucket and status", {
+      options: baseOptions("It/Entry duration buckets by status", {
         indexAxis: "y",
         plugins: {
           title: {
             display: true,
-            text: "E2E specs by duration bucket and status",
+            text: "It/Entry duration buckets by status",
           },
           legend: { display: true },
           valueLabels: { formatter: formatCount },
