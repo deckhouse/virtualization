@@ -460,6 +460,10 @@ spec:
                           description: Waiting time for dependent resources.
                           nullable: true
                           type: string
+                        waitingForFirstConsumer:
+                          description: Waiting time in WaitForFirstConsumer phase.
+                          nullable: true
+                          type: string
                       type: object
                   type: object
                 storageClassName:

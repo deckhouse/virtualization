@@ -175,6 +175,7 @@ func setPhaseConditionForPVCProvisioningDisk(
 	switch {
 	case err == nil:
 		if dv == nil {
+			addWaitingForFirstConsumerDuration(vd, vdcondition.Provisioning.String())
 			vd.Status.Phase = v1alpha2.DiskProvisioning
 			cb.
 				Status(metav1.ConditionFalse).
@@ -193,6 +194,7 @@ func setPhaseConditionForPVCProvisioningDisk(
 			return nil
 		}
 
+		addWaitingForFirstConsumerDuration(vd, vdcondition.Provisioning.String())
 		vd.Status.Phase = v1alpha2.DiskProvisioning
 		cb.
 			Status(metav1.ConditionFalse).
@@ -200,6 +202,7 @@ func setPhaseConditionForPVCProvisioningDisk(
 			Message("Import is in the process of provisioning to PVC.")
 		return nil
 	case errors.Is(err, service.ErrDataVolumeNotRunning):
+		addWaitingForFirstConsumerDuration(vd, vdcondition.ProvisioningFailed.String())
 		vd.Status.Phase = v1alpha2.DiskFailed
 		cb.
 			Status(metav1.ConditionFalse).
@@ -209,6 +212,31 @@ func setPhaseConditionForPVCProvisioningDisk(
 	default:
 		return err
 	}
+}
+
+func addWaitingForFirstConsumerDuration(vd *v1alpha2.VirtualDisk, nextReason string) {
+	readyCondition, ok := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+	if !ok || readyCondition.Reason != vdcondition.WaitingForFirstConsumer.String() || nextReason == vdcondition.WaitingForFirstConsumer.String() {
+		return
+	}
+
+	if readyCondition.LastTransitionTime.IsZero() {
+		return
+	}
+
+	wffcDuration := time.Since(readyCondition.LastTransitionTime.Time).Truncate(time.Second)
+	if wffcDuration <= 0 {
+		return
+	}
+
+	if vd.Status.Stats.CreationDuration.WaitingForFirstConsumer == nil {
+		vd.Status.Stats.CreationDuration.WaitingForFirstConsumer = &metav1.Duration{
+			Duration: wffcDuration,
+		}
+		return
+	}
+
+	vd.Status.Stats.CreationDuration.WaitingForFirstConsumer.Duration += wffcDuration
 }
 
 func setPhaseConditionFromPodError(

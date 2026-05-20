@@ -1624,6 +1624,11 @@ func (in *VirtualDiskStatsCreationDuration) DeepCopyInto(out *VirtualDiskStatsCr
 		*out = new(v1.Duration)
 		**out = **in
 	}
+	if in.WaitingForFirstConsumer != nil {
+		in, out := &in.WaitingForFirstConsumer, &out.WaitingForFirstConsumer
+		*out = new(v1.Duration)
+		**out = **in
+	}
 	if in.DVCRProvisioning != nil {
 		in, out := &in.DVCRProvisioning, &out.DVCRProvisioning
 		*out = new(v1.Duration)
