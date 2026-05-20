@@ -25,19 +25,18 @@ describe("chart-config", () => {
     expect(buildClusterChartConfigs(specTimings)).toMatchSnapshot();
   });
 
-  test("returns the four chart configs in display order", () => {
+  test("returns the three chart configs in display order", () => {
     const configs = buildClusterChartConfigs(specTimings);
     expect(configs.map(({ name }) => name)).toEqual([
       "feature-duration-status",
       "slowest-specs",
       "duration-buckets",
-      "failed-and-slow-specs",
     ]);
   });
 
   test("handles an empty spec timings list", () => {
     const configs = buildClusterChartConfigs([]);
-    expect(configs).toHaveLength(4);
+    expect(configs).toHaveLength(3);
     const labelsByName = Object.fromEntries(
       configs.map(({ name, config }) => [name, config.data.labels])
     );
@@ -48,6 +47,5 @@ describe("chart-config", () => {
       "Medium 60-300s",
       "Fast <60s",
     ]);
-    expect(labelsByName["failed-and-slow-specs"]).toEqual([]);
   });
 });

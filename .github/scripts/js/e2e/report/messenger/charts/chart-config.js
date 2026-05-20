@@ -318,79 +318,8 @@ function durationBuckets({ all }) {
   };
 }
 
-function failedAndSlowSpecs({ all }, topN = DEFAULT_TOP_N) {
-  const sorted = [...all].sort(
-    (left, right) =>
-      right.runtimeMs - left.runtimeMs ||
-      left.fullName.localeCompare(right.fullName)
-  );
-  const selected = [];
-  const seen = new Set();
-
-  for (const timing of sorted) {
-    if (!["failed", "errors"].includes(timing.state)) {
-      continue;
-    }
-    selected.push(timing);
-    seen.add(timing.fullName);
-  }
-
-  for (const timing of sorted) {
-    if (selected.length >= topN) {
-      break;
-    }
-    if (seen.has(timing.fullName)) {
-      continue;
-    }
-    selected.push(timing);
-    seen.add(timing.fullName);
-  }
-
-  return {
-    name: "failed-and-slow-specs",
-    config: {
-      type: "bar",
-      data: {
-        labels: selected.map((timing) => timing.fullName),
-        datasets: [
-          {
-            label: "Duration, seconds",
-            data: selected.map((timing) => toSeconds(timing.runtimeMs)),
-            backgroundColor: selected.map(
-              (timing) => STATUS_COLORS[timing.state]
-            ),
-          },
-        ],
-      },
-      options: baseOptions("Failed/error specs and slowest successful specs", {
-        indexAxis: "y",
-        plugins: {
-          title: {
-            display: true,
-            text: "Failed/error specs and slowest successful specs",
-          },
-          legend: { display: false },
-          valueLabels: { formatter: formatSeconds },
-        },
-        scales: {
-          x: {
-            beginAtZero: true,
-            title: { display: true, text: "Duration, seconds" },
-          },
-        },
-      }),
-      plugins: [valueLabelsPlugin],
-    },
-  };
-}
-
 // Order of charts matches the order of attachments in the messenger thread.
-const CHART_BUILDERS = [
-  featureDurationStatus,
-  slowestSpecs,
-  durationBuckets,
-  failedAndSlowSpecs,
-];
+const CHART_BUILDERS = [featureDurationStatus, slowestSpecs, durationBuckets];
 
 function buildClusterChartConfigs(specTimings) {
   const data = aggregate(specTimings);
