@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package vd
+package blockdevice
 
 import (
 	"context"
@@ -92,6 +92,7 @@ var _ = Describe("VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
 		var vdWasResizing atomic.Bool
 
 		go func() {
+			GinkgoRecover()
 			wasResizing, err := ensureVDWasResizing(
 				ctxVDWatch,
 				f.VirtClient().VirtualDisks(f.Namespace().Name),

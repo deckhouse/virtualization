@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package vd
+package blockdevice
 
 import (
 	"context"
@@ -50,12 +50,13 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 	var (
 		f   *framework.Framework
 		ctx context.Context
+		cfg *config.Config
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
 		f = framework.NewFramework(vdSnapshotNSPrefix)
-		cfg := framework.GetConfig()
+		cfg = framework.GetConfig()
 		if cfg.StorageClass.TemplateStorageClass != nil && cfg.StorageClass.TemplateStorageClass.Provisioner == config.NFS {
 			Skip("Concurrent snapshotting is not supported on NFS on the VolumeSnapshot side, skipping")
 		}
@@ -80,19 +81,8 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
 		By("Creating snapshot")
-		ctxVMWatch, cancelVMWatch := context.WithCancel(ctx)
+		cancelVMWatch, vmWasFrozen, vmWatchErrCh := startVMFreezeWatch(ctx, f, vm)
 		defer cancelVMWatch()
-		vmWatchErrCh := make(chan error, 1)
-		var vmWasFrozen atomic.Bool
-		go func() {
-			wasFrozen, err := ensureVMWasFrozenInProgress(
-				ctxVMWatch,
-				f.VirtClient().VirtualMachines(f.Namespace().Name),
-				vm,
-			)
-			vmWasFrozen.Store(wasFrozen)
-			vmWatchErrCh <- err
-		}()
 
 		vdSnapshot := generateVDSnapshot("vdsnapshot", vd)
 
@@ -117,15 +107,11 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 
 	It("validates snapshots for a disk with no consumer", func() {
 		By("Environment preparation")
-		defaultSC, scList := util.GetDefaultStorageClass(ctx, f)
-		immediateSC := config.FindImmediateStorageClass(defaultSC, scList)
-		Expect(immediateSC).NotTo(BeNil(), "immediate storage class cannot be nil")
-
 		vd := object.NewVDFromCVI(
 			"vd-no-consumer",
 			f.Namespace().Name,
 			object.PrecreatedCVIAlpineBIOS,
-			vdbuilder.WithStorageClass(ptr.To(immediateSC.Name)),
+			vdbuilder.WithStorageClass(ptr.To(cfg.StorageClass.ImmediateStorageClass.Name)),
 		)
 
 		err := f.CreateWithDeferredDeletion(ctx, vd)
@@ -167,19 +153,8 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, vmbda)
 
 		By("Creating snapshots")
-		ctxVMWatch, cancelVMWatch := context.WithCancel(ctx)
+		cancelVMWatch, vmWasFrozen, vmWatchErrCh := startVMFreezeWatch(ctx, f, vm)
 		defer cancelVMWatch()
-		vmWatchErrCh := make(chan error, 1)
-		var vmWasFrozen atomic.Bool
-		go func() {
-			wasFrozen, err := ensureVMWasFrozenInProgress(
-				ctxVMWatch,
-				f.VirtClient().VirtualMachines(f.Namespace().Name),
-				vm,
-			)
-			vmWasFrozen.Store(wasFrozen)
-			vmWatchErrCh <- err
-		}()
 
 		vdSnapshotRoot := generateVDSnapshot("vdsnapshot-root", vdRoot)
 		vdSnapshotAttach := generateVDSnapshot("vdsnapshot-attach", vdAttach)
@@ -226,21 +201,10 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, vmbda)
 
 		By("Creating snapshots")
-		ctxVMWatch, cancelVMWatch := context.WithCancel(ctx)
+		cancelVMWatch, vmWasFrozen, vmWatchErrCh := startVMFreezeWatch(ctx, f, vm)
 		defer cancelVMWatch()
-		vmWatchErrCh := make(chan error, 1)
-		var vmWasFrozen atomic.Bool
-		go func() {
-			wasFrozen, err := ensureVMWasFrozenInProgress(
-				ctxVMWatch,
-				f.VirtClient().VirtualMachines(f.Namespace().Name),
-				vm,
-			)
-			vmWasFrozen.Store(wasFrozen)
-			vmWatchErrCh <- err
-		}()
 
-		vdSnapshots := burstVDSnapshotsCreation(ctx, f, []*v1alpha2.VirtualDisk{vdRoot, vdAttach}, 5)
+		vdSnapshots := concurentlyVDSnapshotsCreation(ctx, f, []*v1alpha2.VirtualDisk{vdRoot, vdAttach}, 5)
 		Eventually(vmWasFrozen.Load).WithTimeout(framework.MiddleTimeout).WithPolling(time.Second).Should(BeTrue())
 		cancelVMWatch()
 		Expect(<-vmWatchErrCh).ShouldNot(HaveOccurred())
@@ -304,22 +268,22 @@ func generateVDSnapshot(name string, vd *v1alpha2.VirtualDisk, opts ...vdsnapsho
 func checkVMUnfrozen(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
-	var innerVM v1alpha2.VirtualMachine
-	err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), &innerVM)
+	var currentVM v1alpha2.VirtualMachine
+	err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), &currentVM)
 	Expect(err).NotTo(HaveOccurred())
 
-	_, frozenConditionExists := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, innerVM.Status.Conditions)
+	_, frozenConditionExists := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, currentVM.Status.Conditions)
 	Expect(frozenConditionExists).To(BeFalse(), "frozen condition must not exist")
 }
 
 func checkDiskAttachedToVM(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, vd *v1alpha2.VirtualDisk) {
 	GinkgoHelper()
 
-	var innerVM v1alpha2.VirtualMachine
-	err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), &innerVM)
+	var currentVM v1alpha2.VirtualMachine
+	err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), &currentVM)
 	Expect(err).NotTo(HaveOccurred())
 
-	Expect(util.IsDiskAttachedToVM(&innerVM, vd)).To(BeTrue(), "disk must be present in VM status")
+	Expect(util.IsVDAttached(&currentVM, vd)).To(BeTrue(), "disk must be present in VM status")
 }
 
 // ensureVMWasFrozenInProgress watches VM events and returns true once the tracked
@@ -365,7 +329,27 @@ func ensureVMWasFrozenInProgress(ctx context.Context, w util.Watcher, vm *v1alph
 	}
 }
 
-func burstVDSnapshotsCreation(ctx context.Context, f *framework.Framework, vds []*v1alpha2.VirtualDisk, cnt int) []*v1alpha2.VirtualDiskSnapshot {
+func startVMFreezeWatch(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine) (context.CancelFunc, *atomic.Bool, <-chan error) {
+	GinkgoHelper()
+
+	ctxVMWatch, cancelVMWatch := context.WithCancel(ctx)
+	vmWatchErrCh := make(chan error, 1)
+	vmWasFrozen := &atomic.Bool{}
+	go func() {
+		GinkgoRecover()
+		wasFrozen, err := ensureVMWasFrozenInProgress(
+			ctxVMWatch,
+			f.VirtClient().VirtualMachines(f.Namespace().Name),
+			vm,
+		)
+		vmWasFrozen.Store(wasFrozen)
+		vmWatchErrCh <- err
+	}()
+
+	return cancelVMWatch, vmWasFrozen, vmWatchErrCh
+}
+
+func concurentlyVDSnapshotsCreation(ctx context.Context, f *framework.Framework, vds []*v1alpha2.VirtualDisk, cnt int) []*v1alpha2.VirtualDiskSnapshot {
 	GinkgoHelper()
 
 	var vdSnapshots []*v1alpha2.VirtualDiskSnapshot
@@ -385,6 +369,7 @@ func burstVDSnapshotsCreation(ctx context.Context, f *framework.Framework, vds [
 
 	for _, vdSnapshot := range vdSnapshots {
 		go func(vdSnapshot *v1alpha2.VirtualDiskSnapshot) {
+			GinkgoRecover()
 			defer wg.Done()
 			err := f.GenericClient().Create(ctx, vdSnapshot)
 			Expect(err).NotTo(HaveOccurred())
