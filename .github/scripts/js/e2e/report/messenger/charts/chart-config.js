@@ -222,7 +222,7 @@ function slowestSpecs({ all }, topN = DEFAULT_TOP_N) {
 
   return {
     name: "slowest-specs",
-    size: { width: 1920, height: 720 },
+    size: { width: 2048, height: 720 },
     config: {
       type: "bar",
       data: {
