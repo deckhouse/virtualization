@@ -166,8 +166,9 @@ func (b *KVVM) SetCPUModel(class *v1alpha2.VirtualMachineClass) error {
 		cpu.Features = []virtv1.CPUFeature{{Name: HTCPUFeature, Policy: "optional"}}
 	case v1alpha2.CPUTypeDiscovery, v1alpha2.CPUTypeFeatures:
 		cpu.Model = GenericCPUModel
-		features := make([]virtv1.CPUFeature, 0, len(class.Status.CpuFeatures.Enabled)+1)
+		features := make([]virtv1.CPUFeature, 0, len(class.Status.CpuFeatures.Enabled)+2)
 		hasSvm := false
+		hasHT := false
 		for _, feature := range class.Status.CpuFeatures.Enabled {
 			policy := "require"
 			if feature == "invtsc" {
@@ -176,6 +177,9 @@ func (b *KVVM) SetCPUModel(class *v1alpha2.VirtualMachineClass) error {
 			if feature == "svm" {
 				hasSvm = true
 			}
+			if feature == HTCPUFeature {
+				hasHT = true
+			}
 			features = append(features, virtv1.CPUFeature{
 				Name:   feature,
 				Policy: policy,
@@ -183,6 +187,9 @@ func (b *KVVM) SetCPUModel(class *v1alpha2.VirtualMachineClass) error {
 		}
 		if !hasSvm {
 			features = append(features, virtv1.CPUFeature{Name: "svm", Policy: "optional"})
+		}
+		if !hasHT {
+			features = append(features, virtv1.CPUFeature{Name: HTCPUFeature, Policy: "optional"})
 		}
 		cpu.Features = features
 	default:
