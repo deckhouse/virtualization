@@ -28,7 +28,6 @@ import (
 
 func main() {
 	logs.InitLogs()
-
 	if err := app.NewAPIServerCommand().ExecuteContext(genericapiserver.SetupSignalContext()); err != nil {
 		logs.FlushLogs()
 		_, _ = fmt.Fprintf(os.Stderr, "ERROR:%v\n", err)
