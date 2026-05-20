@@ -19,6 +19,12 @@ const STATUS_COLORS = {
   skipped: "#8b949e",
 };
 
+const DURATION_COLORS = {
+  fast: "#76e3ea",
+  medium: "#58a6ff",
+  slow: "#a371f7",
+};
+
 const DEFAULT_TOP_N = 15;
 const SLOW_THRESHOLD_MS = 300_000;
 const MEDIUM_THRESHOLD_MS = 60_000;
@@ -85,6 +91,13 @@ function formatSeconds(seconds) {
 
 function formatCount(count) {
   return String(Number(count || 0));
+}
+
+function formatSlowestSpecLabel(seconds, { chart, dataIndex, datasetIndex }) {
+  const dataset = chart.data.datasets[datasetIndex] || {};
+  const state = (dataset.states || [])[dataIndex];
+  const suffix = ["failed", "errors"].includes(state) ? ` [${state}]` : "";
+  return `${formatSeconds(seconds)}${suffix}`;
 }
 
 function drawValueLabels(chart, _args, options) {
@@ -182,7 +195,18 @@ function slowestSpecs({ all }, topN = DEFAULT_TOP_N) {
           {
             label: "Duration, seconds",
             data: top.map((timing) => toSeconds(timing.runtimeMs)),
-            backgroundColor: top.map((timing) => STATUS_COLORS[timing.state]),
+            backgroundColor: top.map(
+              (timing) => DURATION_COLORS[durationBucket(timing)]
+            ),
+            borderColor: top.map((timing) =>
+              ["failed", "errors"].includes(timing.state)
+                ? STATUS_COLORS[timing.state]
+                : "transparent"
+            ),
+            borderWidth: top.map((timing) =>
+              ["failed", "errors"].includes(timing.state) ? 3 : 0
+            ),
+            states: top.map((timing) => timing.state),
           },
         ],
       },
@@ -191,7 +215,7 @@ function slowestSpecs({ all }, topN = DEFAULT_TOP_N) {
         plugins: {
           title: { display: true, text: "Top slowest E2E specs" },
           legend: { display: false },
-          valueLabels: { formatter: formatSeconds },
+          valueLabels: { formatter: formatSlowestSpecLabel },
         },
         scales: {
           x: {

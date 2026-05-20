@@ -95,11 +95,25 @@ Array [
         "datasets": Array [
           Object {
             "backgroundColor": Array [
+              "#a371f7",
+              "#a371f7",
+              "#58a6ff",
+              "#76e3ea",
+              "#76e3ea",
+            ],
+            "borderColor": Array [
               "#d29922",
               "#f85149",
-              "#8b949e",
-              "#3fb950",
-              "#3fb950",
+              "transparent",
+              "transparent",
+              "transparent",
+            ],
+            "borderWidth": Array [
+              3,
+              3,
+              0,
+              0,
+              0,
             ],
             "data": Array [
               601,
@@ -109,6 +123,13 @@ Array [
               10,
             ],
             "label": "Duration, seconds",
+            "states": Array [
+              "errors",
+              "failed",
+              "skipped",
+              "passed",
+              "passed",
+            ],
           },
         ],
         "labels": Array [
