@@ -23,35 +23,24 @@ describe("chart-renderer", () => {
     await expect(renderClusterCharts({ specTimings: [] })).resolves.toEqual([]);
   });
 
-  test("renders four cluster chart images", async () => {
+  test("renders five cluster chart images", async () => {
     const files = await renderClusterCharts({
       cluster: "replicated",
       specTimings: [
-        { name: "slow", group: "VM", state: "passed", runtimeMs: 90000 },
+        { name: "slow", group: "VM", state: "passed", runtimeMs: 90_000 },
       ],
     });
 
-    expect(files).toEqual([
-      {
-        name: "replicated-top-slowest.png",
-        buffer: Buffer.from("png"),
-        mimeType: "image/png",
-      },
-      {
-        name: "replicated-duration-histogram.png",
-        buffer: Buffer.from("png"),
-        mimeType: "image/png",
-      },
-      {
-        name: "replicated-feature-totals.png",
-        buffer: Buffer.from("png"),
-        mimeType: "image/png",
-      },
-      {
-        name: "replicated-status-stacked.png",
-        buffer: Buffer.from("png"),
-        mimeType: "image/png",
-      },
+    expect(files.map(({ name }) => name)).toEqual([
+      "replicated-status-doughnut.png",
+      "replicated-pareto-slowest.png",
+      "replicated-pass-rate-per-feature.png",
+      "replicated-quantiles-per-feature.png",
+      "replicated-feature-totals.png",
     ]);
+    for (const file of files) {
+      expect(file.buffer).toEqual(Buffer.from("png"));
+      expect(file.mimeType).toBe("image/png");
+    }
   });
 });

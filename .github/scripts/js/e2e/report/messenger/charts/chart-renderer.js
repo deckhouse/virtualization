@@ -10,12 +10,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const {
-  buildDurationHistogramConfig,
-  buildFeatureTotalsConfig,
-  buildStatusStackedConfig,
-  buildTopNConfig,
-} = require("./chart-config");
+const { buildClusterChartConfigs } = require("./chart-config");
 
 let canvasInstance;
 
@@ -51,12 +46,7 @@ async function renderClusterCharts(report) {
   }
 
   const renderer = loadChartRenderer();
-  const configs = [
-    buildTopNConfig(report.specTimings),
-    buildDurationHistogramConfig(report.specTimings),
-    buildFeatureTotalsConfig(report.specTimings),
-    buildStatusStackedConfig(report.specTimings),
-  ];
+  const configs = buildClusterChartConfigs(report.specTimings);
   const clusterName = sanitizeFilenamePart(
     report.cluster || report.storageType || "cluster"
   );

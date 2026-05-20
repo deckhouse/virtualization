@@ -10,34 +10,47 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const {
-  buildDurationHistogramConfig,
-  buildFeatureTotalsConfig,
-  buildStatusStackedConfig,
-  buildTopNConfig,
-} = require("./chart-config");
+const { buildClusterChartConfigs } = require("./chart-config");
 
 const specTimings = [
   { name: "fast pass", group: "VM", state: "passed", runtimeMs: 10_000 },
   { name: "medium skip", group: "Disk", state: "skipped", runtimeMs: 60_000 },
   { name: "slow fail", group: "VM", state: "failed", runtimeMs: 301_000 },
   { name: "error", group: "Network", state: "errors", runtimeMs: 601_000 },
+  { name: "passing peer", group: "VM", state: "passed", runtimeMs: 45_000 },
 ];
 
 describe("chart-config", () => {
-  test("builds deterministic top-N config", () => {
-    expect(buildTopNConfig(specTimings, 3)).toMatchSnapshot();
+  test("builds deterministic cluster chart configs", () => {
+    expect(buildClusterChartConfigs(specTimings)).toMatchSnapshot();
   });
 
-  test("builds deterministic duration histogram config", () => {
-    expect(buildDurationHistogramConfig(specTimings)).toMatchSnapshot();
+  test("returns the five chart configs in display order", () => {
+    const configs = buildClusterChartConfigs(specTimings);
+    expect(configs.map(({ name }) => name)).toEqual([
+      "status-doughnut",
+      "pareto-slowest",
+      "pass-rate-per-feature",
+      "quantiles-per-feature",
+      "feature-totals",
+    ]);
   });
 
-  test("builds deterministic feature totals config", () => {
-    expect(buildFeatureTotalsConfig(specTimings)).toMatchSnapshot();
-  });
-
-  test("builds deterministic status stacked config", () => {
-    expect(buildStatusStackedConfig(specTimings)).toMatchSnapshot();
+  test("handles an empty spec timings list", () => {
+    const configs = buildClusterChartConfigs([]);
+    expect(configs).toHaveLength(5);
+    const labelsByName = Object.fromEntries(
+      configs.map(({ name, config }) => [name, config.data.labels])
+    );
+    expect(labelsByName["status-doughnut"]).toEqual([
+      "passed",
+      "failed",
+      "errors",
+      "skipped",
+    ]);
+    expect(labelsByName["pareto-slowest"]).toEqual([]);
+    expect(labelsByName["pass-rate-per-feature"]).toEqual([]);
+    expect(labelsByName["quantiles-per-feature"]).toEqual([]);
+    expect(labelsByName["feature-totals"]).toEqual([]);
   });
 });

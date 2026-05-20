@@ -182,7 +182,7 @@ describe("messenger-report", () => {
   test("attaches duration chart files to thread reply without a text caption", async () =>
     inTempDir(async (tempDir) => {
       const chartFile = {
-        name: "replicated-top-slowest.png",
+        name: "replicated-pareto-slowest.png",
         buffer: Buffer.from("png"),
         mimeType: "image/png",
       };
@@ -585,7 +585,7 @@ describe("messenger-report", () => {
   test("posts main report and per-cluster failed tests thread via Loop API", async () =>
     inTempDir(async (tempDir) => {
       const chartFile = {
-        name: "replicated-top-slowest.png",
+        name: "replicated-pareto-slowest.png",
         buffer: Buffer.from("png"),
         mimeType: "image/png",
       };

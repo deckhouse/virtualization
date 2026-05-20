@@ -1,220 +1,321 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`chart-config builds deterministic duration histogram config 1`] = `
-Object {
-  "config": Object {
-    "data": Object {
-      "datasets": Array [
-        Object {
-          "backgroundColor": "#a371f7",
-          "data": Array [
-            1,
-            1,
-            0,
-            1,
-            1,
-          ],
-          "label": "Specs",
-        },
-      ],
-      "labels": Array [
-        "0-30s",
-        "30-60s",
-        "60-300s",
-        "300-600s",
-        ">600s",
-      ],
-    },
-    "options": Object {
-      "animation": false,
-      "plugins": Object {
-        "legend": Object {
-          "display": true,
-        },
-        "title": Object {
-          "display": true,
-          "text": "E2E spec duration distribution",
-        },
+exports[`chart-config builds deterministic cluster chart configs 1`] = `
+Array [
+  Object {
+    "config": Object {
+      "data": Object {
+        "datasets": Array [
+          Object {
+            "backgroundColor": Array [
+              "#3fb950",
+              "#f85149",
+              "#d29922",
+              "#8b949e",
+            ],
+            "data": Array [
+              2,
+              1,
+              1,
+              1,
+            ],
+          },
+        ],
+        "labels": Array [
+          "passed",
+          "failed",
+          "errors",
+          "skipped",
+        ],
       },
-      "responsive": false,
-      "scales": Object {
-        "y": Object {
-          "beginAtZero": true,
-          "ticks": Object {
-            "precision": 0,
+      "options": Object {
+        "animation": false,
+        "plugins": Object {
+          "legend": Object {
+            "display": true,
+          },
+          "title": Object {
+            "display": true,
+            "text": "E2E spec status distribution",
+          },
+        },
+        "responsive": false,
+      },
+      "type": "doughnut",
+    },
+    "name": "status-doughnut",
+  },
+  Object {
+    "config": Object {
+      "data": Object {
+        "datasets": Array [
+          Object {
+            "backgroundColor": "#58a6ff",
+            "data": Array [
+              601,
+              301,
+              60,
+              45,
+              10,
+            ],
+            "label": "Duration, seconds",
+            "order": 2,
+            "type": "bar",
+            "xAxisID": "x",
+          },
+          Object {
+            "backgroundColor": "#a371f7",
+            "borderColor": "#a371f7",
+            "data": Array [
+              59.1,
+              88.7,
+              94.6,
+              99,
+              100,
+            ],
+            "label": "Cumulative % of suite time",
+            "order": 1,
+            "type": "line",
+            "xAxisID": "x1",
+          },
+        ],
+        "labels": Array [
+          "error",
+          "slow fail",
+          "medium skip",
+          "passing peer",
+          "fast pass",
+        ],
+      },
+      "options": Object {
+        "animation": false,
+        "indexAxis": "y",
+        "plugins": Object {
+          "legend": Object {
+            "display": true,
+          },
+          "title": Object {
+            "display": true,
+            "text": "Top slowest E2E specs (Pareto)",
+          },
+        },
+        "responsive": false,
+        "scales": Object {
+          "x": Object {
+            "beginAtZero": true,
+            "position": "bottom",
+            "title": Object {
+              "display": true,
+              "text": "Duration, seconds",
+            },
+          },
+          "x1": Object {
+            "beginAtZero": true,
+            "grid": Object {
+              "drawOnChartArea": false,
+            },
+            "max": 100,
+            "position": "top",
+            "title": Object {
+              "display": true,
+              "text": "Cumulative %",
+            },
           },
         },
       },
+      "type": "bar",
     },
-    "type": "bar",
+    "name": "pareto-slowest",
   },
-  "name": "duration-histogram",
-}
-`;
-
-exports[`chart-config builds deterministic feature totals config 1`] = `
-Object {
-  "config": Object {
-    "data": Object {
-      "datasets": Array [
-        Object {
-          "backgroundColor": "#f0883e",
-          "data": Array [
-            601,
-            311,
-            60,
-          ],
-          "label": "Total duration, seconds",
+  Object {
+    "config": Object {
+      "data": Object {
+        "datasets": Array [
+          Object {
+            "backgroundColor": "#3fb950",
+            "data": Array [
+              0,
+              66.7,
+              0,
+            ],
+            "label": "passed",
+          },
+          Object {
+            "backgroundColor": "#f85149",
+            "data": Array [
+              0,
+              33.3,
+              0,
+            ],
+            "label": "failed",
+          },
+          Object {
+            "backgroundColor": "#d29922",
+            "data": Array [
+              100,
+              0,
+              0,
+            ],
+            "label": "errors",
+          },
+          Object {
+            "backgroundColor": "#8b949e",
+            "data": Array [
+              0,
+              0,
+              100,
+            ],
+            "label": "skipped",
+          },
+        ],
+        "labels": Array [
+          "Network",
+          "VM",
+          "Disk",
+        ],
+      },
+      "options": Object {
+        "animation": false,
+        "indexAxis": "y",
+        "plugins": Object {
+          "legend": Object {
+            "display": true,
+          },
+          "title": Object {
+            "display": true,
+            "text": "Pass rate by feature, %",
+          },
         },
-      ],
-      "labels": Array [
-        "Network",
-        "VM",
-        "Disk",
-      ],
-    },
-    "options": Object {
-      "animation": false,
-      "plugins": Object {
-        "legend": Object {
-          "display": true,
-        },
-        "title": Object {
-          "display": true,
-          "text": "E2E duration by feature",
+        "responsive": false,
+        "scales": Object {
+          "x": Object {
+            "beginAtZero": true,
+            "max": 100,
+            "stacked": true,
+            "title": Object {
+              "display": true,
+              "text": "% of specs",
+            },
+          },
+          "y": Object {
+            "stacked": true,
+          },
         },
       },
-      "responsive": false,
-      "scales": Object {
-        "y": Object {
-          "beginAtZero": true,
-        },
-      },
+      "type": "bar",
     },
-    "type": "bar",
+    "name": "pass-rate-per-feature",
   },
-  "name": "feature-totals",
-}
-`;
-
-exports[`chart-config builds deterministic status stacked config 1`] = `
-Object {
-  "config": Object {
-    "data": Object {
-      "datasets": Array [
-        Object {
-          "backgroundColor": "#3fb950",
-          "data": Array [
-            0,
-            0,
-            10,
-          ],
-          "label": "passed",
+  Object {
+    "config": Object {
+      "data": Object {
+        "datasets": Array [
+          Object {
+            "backgroundColor": "#58a6ff",
+            "data": Array [
+              601,
+              45,
+              60,
+            ],
+            "label": "p50",
+          },
+          Object {
+            "backgroundColor": "#d29922",
+            "data": Array [
+              601,
+              249.8,
+              60,
+            ],
+            "label": "p90",
+          },
+          Object {
+            "backgroundColor": "#f85149",
+            "data": Array [
+              601,
+              301,
+              60,
+            ],
+            "label": "max",
+          },
+        ],
+        "labels": Array [
+          "Network",
+          "VM",
+          "Disk",
+        ],
+      },
+      "options": Object {
+        "animation": false,
+        "plugins": Object {
+          "legend": Object {
+            "display": true,
+          },
+          "title": Object {
+            "display": true,
+            "text": "Spec duration p50/p90/max by feature, seconds",
+          },
         },
-        Object {
-          "backgroundColor": "#f85149",
-          "data": Array [
-            0,
-            0,
-            301,
-          ],
-          "label": "failed",
-        },
-        Object {
-          "backgroundColor": "#d29922",
-          "data": Array [
-            0,
-            601,
-            0,
-          ],
-          "label": "errors",
-        },
-        Object {
-          "backgroundColor": "#8b949e",
-          "data": Array [
-            60,
-            0,
-            0,
-          ],
-          "label": "skipped",
-        },
-      ],
-      "labels": Array [
-        "Disk",
-        "Network",
-        "VM",
-      ],
-    },
-    "options": Object {
-      "animation": false,
-      "plugins": Object {
-        "legend": Object {
-          "display": true,
-        },
-        "title": Object {
-          "display": true,
-          "text": "E2E duration by feature and status",
+        "responsive": false,
+        "scales": Object {
+          "y": Object {
+            "beginAtZero": true,
+            "title": Object {
+              "display": true,
+              "text": "Seconds",
+            },
+          },
         },
       },
-      "responsive": false,
-      "scales": Object {
-        "x": Object {
-          "stacked": true,
-        },
-        "y": Object {
-          "beginAtZero": true,
-          "stacked": true,
-        },
-      },
+      "type": "bar",
     },
-    "type": "bar",
+    "name": "quantiles-per-feature",
   },
-  "name": "status-stacked",
-}
-`;
-
-exports[`chart-config builds deterministic top-N config 1`] = `
-Object {
-  "config": Object {
-    "data": Object {
-      "datasets": Array [
-        Object {
-          "backgroundColor": "#58a6ff",
-          "data": Array [
-            601,
-            301,
-            60,
-          ],
-          "label": "Duration, seconds",
+  Object {
+    "config": Object {
+      "data": Object {
+        "datasets": Array [
+          Object {
+            "backgroundColor": "#f0883e",
+            "data": Array [
+              601,
+              356,
+              60,
+            ],
+            "label": "Total duration, seconds",
+          },
+        ],
+        "labels": Array [
+          "Network",
+          "VM",
+          "Disk",
+        ],
+      },
+      "options": Object {
+        "animation": false,
+        "indexAxis": "y",
+        "plugins": Object {
+          "legend": Object {
+            "display": true,
+          },
+          "title": Object {
+            "display": true,
+            "text": "Total duration by feature",
+          },
         },
-      ],
-      "labels": Array [
-        "error",
-        "slow fail",
-        "medium skip",
-      ],
-    },
-    "options": Object {
-      "animation": false,
-      "indexAxis": "y",
-      "plugins": Object {
-        "legend": Object {
-          "display": true,
-        },
-        "title": Object {
-          "display": true,
-          "text": "Top slowest E2E specs",
+        "responsive": false,
+        "scales": Object {
+          "x": Object {
+            "beginAtZero": true,
+            "title": Object {
+              "display": true,
+              "text": "Seconds",
+            },
+          },
         },
       },
-      "responsive": false,
-      "scales": Object {
-        "x": Object {
-          "beginAtZero": true,
-        },
-      },
+      "type": "bar",
     },
-    "type": "bar",
+    "name": "feature-totals",
   },
-  "name": "top-slowest",
-}
+]
 `;

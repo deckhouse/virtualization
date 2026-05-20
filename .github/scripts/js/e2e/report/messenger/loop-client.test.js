@@ -94,12 +94,12 @@ describe("loop-client", () => {
             message: "reply",
             files: [
               {
-                name: "top-slowest.png",
+                name: "pareto-slowest.png",
                 buffer: Buffer.from("one"),
                 mimeType: "image/png",
               },
               {
-                name: "status-stacked.png",
+                name: "pass-rate-per-feature.png",
                 buffer: Buffer.from("two"),
                 mimeType: "image/png",
               },
