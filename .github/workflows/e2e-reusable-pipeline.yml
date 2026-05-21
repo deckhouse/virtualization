@@ -1503,7 +1503,7 @@ jobs:
         if: always() && steps.e2e-report.outcome != 'skipped'
         with:
           name: resources_from_failed_tests-${{ env.STORAGE_TYPE }}-${{ env.E2E_START_TIME }}
-          path: ${{ runner.temp }}/e2e_failed__*
+          path: ${{ runner.temp }}/e2e_failed/
           if-no-files-found: ignore
           retention-days: 3
 
