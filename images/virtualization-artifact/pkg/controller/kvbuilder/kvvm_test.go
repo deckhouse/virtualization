@@ -22,6 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -222,6 +223,89 @@ func TestApplyPVNodeAffinity(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestSetCPUModel(t *testing.T) {
+	name := "test-name"
+	namespace := "test-namespace"
+
+	t.Run("should add required ht feature for model cpu", func(t *testing.T) {
+		builder := NewEmptyKVVM(types.NamespacedName{Name: name, Namespace: namespace}, KVVMOptions{})
+		class := &v1alpha2.VirtualMachineClass{
+			Spec: v1alpha2.VirtualMachineClassSpec{
+				CPU: v1alpha2.CPU{Type: v1alpha2.CPUTypeModel, Model: "Nehalem"},
+			},
+		}
+
+		if err := builder.SetCPUModel(class); err != nil {
+			t.Fatalf("SetCPUModel() failed: %v", err)
+		}
+
+		features := builder.Resource.Spec.Template.Spec.Domain.CPU.Features
+		if !containsCPUFeature(features, virtv1.CPUFeature{Name: HTCPUFeature, Policy: "require"}) {
+			t.Fatalf("expected required ht feature to be added for model cpu, got %#v", features)
+		}
+	})
+
+	t.Run("should add required ht feature for discovery cpu", func(t *testing.T) {
+		builder := NewEmptyKVVM(types.NamespacedName{Name: name, Namespace: namespace}, KVVMOptions{})
+		class := &v1alpha2.VirtualMachineClass{
+			Spec: v1alpha2.VirtualMachineClassSpec{
+				CPU: v1alpha2.CPU{Type: v1alpha2.CPUTypeDiscovery},
+			},
+			Status: v1alpha2.VirtualMachineClassStatus{
+				CpuFeatures: v1alpha2.CpuFeatures{Enabled: []string{"aes"}},
+			},
+		}
+
+		if err := builder.SetCPUModel(class); err != nil {
+			t.Fatalf("SetCPUModel() failed: %v", err)
+		}
+
+		features := builder.Resource.Spec.Template.Spec.Domain.CPU.Features
+		if !containsCPUFeature(features, virtv1.CPUFeature{Name: HTCPUFeature, Policy: "require"}) {
+			t.Fatalf("expected required ht feature to be added, got %#v", features)
+		}
+	})
+
+	t.Run("should keep existing ht feature policy when already present", func(t *testing.T) {
+		builder := NewEmptyKVVM(types.NamespacedName{Name: name, Namespace: namespace}, KVVMOptions{})
+		class := &v1alpha2.VirtualMachineClass{
+			Spec: v1alpha2.VirtualMachineClassSpec{
+				CPU: v1alpha2.CPU{Type: v1alpha2.CPUTypeFeatures},
+			},
+			Status: v1alpha2.VirtualMachineClassStatus{
+				CpuFeatures: v1alpha2.CpuFeatures{Enabled: []string{"vmx", HTCPUFeature}},
+			},
+		}
+
+		if err := builder.SetCPUModel(class); err != nil {
+			t.Fatalf("SetCPUModel() failed: %v", err)
+		}
+
+		features := builder.Resource.Spec.Template.Spec.Domain.CPU.Features
+		htCount := 0
+		for _, feature := range features {
+			if feature.Name == HTCPUFeature {
+				htCount++
+				if feature.Policy != "require" {
+					t.Fatalf("expected existing ht policy to stay require, got %#v", feature)
+				}
+			}
+		}
+		if htCount != 1 {
+			t.Fatalf("expected exactly one ht feature, got %#v", features)
+		}
+	})
+}
+
+func containsCPUFeature(features []virtv1.CPUFeature, expected virtv1.CPUFeature) bool {
+	for _, feature := range features {
+		if feature == expected {
+			return true
+		}
+	}
+	return false
 }
 
 func TestSetOsType(t *testing.T) {
