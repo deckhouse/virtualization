@@ -40,14 +40,6 @@ spec:
           description:
             VirtualMachineRestore provides a resource for restoring a virtual
             machine and all associated resources from a snapshot.
-          x-examples:
-            - apiVersion: virtualization.deckhouse.io/v1alpha2
-              kind: VirtualMachineRestore
-              metadata:
-                name: restore-linux-vm
-              spec:
-                virtualMachineSnapshotName: linux-vm-snapshot
-                restoreMode: Safe
           properties:
             apiVersion:
               description: |-
