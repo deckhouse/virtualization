@@ -128,6 +128,8 @@ d8_ready() {
     log_success "Deckhouse is Ready!"
     log_info "Checking module user-authn"
     module_ready user-authn
+    log_info "Checking module user-authz"
+    module_ready user-authz
     log_info "Checking queues"
     d8_queue
   else
