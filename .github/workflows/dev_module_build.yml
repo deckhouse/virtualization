@@ -664,7 +664,7 @@ jobs:
         with:
           name: resources_from_failed_tests
           retention-days: 2
-          path: ${{ runner.temp }}/e2e_failed__*
+          path: ${{ runner.temp }}/e2e_failed/
           if-no-files-found: ignore
 
       - name: Cleanup E2E resources on cancel
