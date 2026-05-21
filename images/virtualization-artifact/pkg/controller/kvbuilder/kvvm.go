@@ -50,6 +50,7 @@ const (
 
 	// GenericCPUModel specifies the base CPU model for Features and Discovery CPU model types.
 	GenericCPUModel = "qemu64"
+	HTCPUFeature    = "ht"
 
 	MaxMemorySizeForHotplug      = 256 * 1024 * 1024 * 1024 // 256 Gi (safely limit to not overlap somewhat conservative 38 bit physical address space)
 	EnableMemoryHotplugThreshold = 1 * 1024 * 1024 * 1024   // 1 Gi (no hotplug for VMs with less than 1Gi)
@@ -162,12 +163,13 @@ func (b *KVVM) SetCPUModel(class *v1alpha2.VirtualMachineClass) error {
 		cpu.Model = virtv1.CPUModeHostPassthrough
 	case v1alpha2.CPUTypeModel:
 		cpu.Model = class.Spec.CPU.Model
+		cpu.Features = []virtv1.CPUFeature{{Name: HTCPUFeature, Policy: "require"}}
 	case v1alpha2.CPUTypeDiscovery, v1alpha2.CPUTypeFeatures:
 		cpu.Model = GenericCPUModel
-		l := len(class.Status.CpuFeatures.Enabled)
-		features := make([]virtv1.CPUFeature, l, l+1)
+		features := make([]virtv1.CPUFeature, 0, len(class.Status.CpuFeatures.Enabled)+2)
 		hasSvm := false
-		for i, feature := range class.Status.CpuFeatures.Enabled {
+		hasHT := false
+		for _, feature := range class.Status.CpuFeatures.Enabled {
 			policy := "require"
 			if feature == "invtsc" {
 				policy = "optional"
@@ -175,13 +177,19 @@ func (b *KVVM) SetCPUModel(class *v1alpha2.VirtualMachineClass) error {
 			if feature == "svm" {
 				hasSvm = true
 			}
-			features[i] = virtv1.CPUFeature{
+			if feature == HTCPUFeature {
+				hasHT = true
+			}
+			features = append(features, virtv1.CPUFeature{
 				Name:   feature,
 				Policy: policy,
-			}
+			})
 		}
 		if !hasSvm {
 			features = append(features, virtv1.CPUFeature{Name: "svm", Policy: "optional"})
+		}
+		if !hasHT {
+			features = append(features, virtv1.CPUFeature{Name: HTCPUFeature, Policy: "optional"})
 		}
 		cpu.Features = features
 	default:
