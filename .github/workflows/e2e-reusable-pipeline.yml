@@ -1653,7 +1653,8 @@ jobs:
       - configure-storage
       - configure-virtualization
       - e2e-test
-    if: always()
+    # if: always()
+    if: always() && (cancelled() || success()) && (needs.e2e-test.result == 'success')
     steps:
       - uses: actions/checkout@v4
 
