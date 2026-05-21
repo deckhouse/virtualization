@@ -527,6 +527,9 @@ func (h LifecycleHandler) getFailedReason(mig *virtv1.VirtualMachineInstanceMigr
 		if state.AbortRequested || state.AbortStatus == virtv1.MigrationAbortSucceeded {
 			return vmopcondition.ReasonAborted
 		}
+		if reason := vmopcondition.ReasonCompleted(state.FailureReason); reason == vmopcondition.ReasonTargetHandlerShutdown || reason == vmopcondition.ReasonSourceHandlerShutdown {
+			return reason
+		}
 		if strings.Contains(strings.ToLower(state.FailureReason), "converg") || strings.Contains(strings.ToLower(state.FailureReason), "progress") {
 			return vmopcondition.ReasonNotConverging
 		}
@@ -548,7 +551,7 @@ func (h LifecycleHandler) getFailedReason(mig *virtv1.VirtualMachineInstanceMigr
 func (h LifecycleHandler) getFailedMessage(reason vmopcondition.ReasonCompleted, mig *virtv1.VirtualMachineInstanceMigration) string {
 	base := "Migration failed"
 	switch reason {
-	case vmopcondition.ReasonAborted:
+	case vmopcondition.ReasonAborted, vmopcondition.ReasonTargetHandlerShutdown, vmopcondition.ReasonSourceHandlerShutdown:
 		base = "Migration aborted"
 	case vmopcondition.ReasonNotConverging:
 		base = "Migration did not converge"

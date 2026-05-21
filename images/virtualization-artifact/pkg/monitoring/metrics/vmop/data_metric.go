@@ -42,12 +42,14 @@ var successfulTerminalReasons = map[string]struct{}{
 }
 
 var failedTerminalReasons = map[string]struct{}{
-	vmopcondition.ReasonOperationFailed.String():     {},
-	vmopcondition.ReasonFailed.String():              {},
-	vmopcondition.ReasonAborted.String():             {},
-	vmopcondition.ReasonNotConverging.String():       {},
-	vmopcondition.ReasonTargetUnschedulable.String(): {},
-	vmopcondition.ReasonTargetDiskError.String():     {},
+	vmopcondition.ReasonOperationFailed.String():       {},
+	vmopcondition.ReasonFailed.String():                {},
+	vmopcondition.ReasonAborted.String():               {},
+	vmopcondition.ReasonNotConverging.String():         {},
+	vmopcondition.ReasonTargetUnschedulable.String():   {},
+	vmopcondition.ReasonTargetDiskError.String():       {},
+	vmopcondition.ReasonTargetHandlerShutdown.String(): {},
+	vmopcondition.ReasonSourceHandlerShutdown.String(): {},
 }
 
 // DO NOT mutate VirtualMachineOperation!

@@ -362,9 +362,33 @@ var _ = Describe("LifecycleHandler", func() {
 				&virtv1.VirtualMachineInstanceMigration{Status: virtv1.VirtualMachineInstanceMigrationStatus{Conditions: []virtv1.VirtualMachineInstanceMigrationCondition{{Type: virtv1.VirtualMachineInstanceMigrationFailed, Reason: "VolumeAttach", Message: "csi volume attach failed"}}}},
 				vmopcondition.ReasonTargetDiskError,
 			),
+			Entry("target virt-handler shutdown from failure reason",
+				&virtv1.VirtualMachineInstanceMigration{Status: virtv1.VirtualMachineInstanceMigrationStatus{MigrationState: &virtv1.VirtualMachineInstanceMigrationState{FailureReason: vmopcondition.ReasonTargetHandlerShutdown.String()}}},
+				vmopcondition.ReasonTargetHandlerShutdown,
+			),
+			Entry("source virt-handler shutdown from failure reason",
+				&virtv1.VirtualMachineInstanceMigration{Status: virtv1.VirtualMachineInstanceMigrationStatus{MigrationState: &virtv1.VirtualMachineInstanceMigrationState{FailureReason: vmopcondition.ReasonSourceHandlerShutdown.String()}}},
+				vmopcondition.ReasonSourceHandlerShutdown,
+			),
 			Entry("generic failed reason",
 				&virtv1.VirtualMachineInstanceMigration{},
 				vmopcondition.ReasonFailed,
+			),
+		)
+
+		DescribeTable("should render handler-shutdown failure message", func(reason vmopcondition.ReasonCompleted, mig *virtv1.VirtualMachineInstanceMigration, expected string) {
+			h := LifecycleHandler{}
+			Expect(h.getFailedMessage(reason, mig)).To(Equal(expected))
+		},
+			Entry("target shutdown",
+				vmopcondition.ReasonTargetHandlerShutdown,
+				&virtv1.VirtualMachineInstanceMigration{Status: virtv1.VirtualMachineInstanceMigrationStatus{MigrationState: &virtv1.VirtualMachineInstanceMigrationState{TargetNode: "worker-1", FailureReason: vmopcondition.ReasonTargetHandlerShutdown.String()}}},
+				"Migration aborted: TargetHandlerShutdown",
+			),
+			Entry("source shutdown",
+				vmopcondition.ReasonSourceHandlerShutdown,
+				&virtv1.VirtualMachineInstanceMigration{Status: virtv1.VirtualMachineInstanceMigrationStatus{MigrationState: &virtv1.VirtualMachineInstanceMigrationState{SourceNode: "master-0", FailureReason: vmopcondition.ReasonSourceHandlerShutdown.String()}}},
+				"Migration aborted: SourceHandlerShutdown",
 			),
 		)
 
