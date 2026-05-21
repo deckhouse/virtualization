@@ -59,7 +59,7 @@ func truncateTestName(s string, maxLen int) string {
 func (f *Framework) saveTestCaseDump() {
 	ft := GetFormattedTestCaseFullText()
 	tmpDir := GetTMPDir()
-	dumpDir := path.Join(tmpDir, ft)
+	dumpDir := path.Join(tmpDir, "e2e_failed", ft)
 
 	err := os.MkdirAll(dumpDir, 0o755)
 	if err != nil {
