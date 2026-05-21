@@ -10,20 +10,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+const mockRenderToBuffer = jest.fn().mockResolvedValue(Buffer.from("png"));
+
 jest.mock("chartjs-node-canvas", () => ({
   ChartJSNodeCanvas: jest.fn().mockImplementation(() => ({
-    renderToBuffer: jest.fn().mockResolvedValue(Buffer.from("png")),
+    renderToBuffer: mockRenderToBuffer,
   })),
 }));
 
 const { renderClusterCharts } = require("./chart-renderer");
+const { ChartJSNodeCanvas } = require("chartjs-node-canvas");
 
 describe("chart-renderer", () => {
   test("returns no files when spec timings are empty", async () => {
     await expect(renderClusterCharts({ specTimings: [] })).resolves.toEqual([]);
   });
 
-  test("renders three cluster chart images", async () => {
+  test("renders messenger cluster chart images", async () => {
     const files = await renderClusterCharts({
       cluster: "replicated",
       specTimings: [
@@ -33,12 +36,18 @@ describe("chart-renderer", () => {
 
     expect(files.map(({ name }) => name)).toEqual([
       "replicated-feature-duration-status.png",
-      "replicated-slowest-specs.png",
-      "replicated-duration-buckets.png",
     ]);
     for (const file of files) {
       expect(file.buffer).toEqual(Buffer.from("png"));
       expect(file.mimeType).toBe("image/png");
     }
+    expect(ChartJSNodeCanvas).toHaveBeenCalledWith(
+      expect.objectContaining({ width: 1280, height: 640 })
+    );
+    expect(
+      mockRenderToBuffer.mock.calls.every(
+        ([config]) => config.options.devicePixelRatio === 2
+      )
+    ).toBe(true);
   });
 });

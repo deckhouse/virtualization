@@ -10,7 +10,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const { buildClusterChartConfigs } = require("./chart-config");
+const { buildClusterChartConfigs, slowestSpecs } = require("./chart-config");
+const { aggregate } = require("./data");
 
 const specTimings = [
   { name: "fast pass", group: "VM", state: "passed", runtimeMs: 10_000 },
@@ -25,27 +26,52 @@ describe("chart-config", () => {
     expect(buildClusterChartConfigs(specTimings)).toMatchSnapshot();
   });
 
-  test("returns the three chart configs in display order", () => {
+  test("returns the messenger chart config in display order", () => {
     const configs = buildClusterChartConfigs(specTimings);
     expect(configs.map(({ name }) => name)).toEqual([
       "feature-duration-status",
-      "slowest-specs",
-      "duration-buckets",
     ]);
   });
 
   test("handles an empty spec timings list", () => {
     const configs = buildClusterChartConfigs([]);
-    expect(configs).toHaveLength(3);
+    expect(configs).toHaveLength(1);
     const labelsByName = Object.fromEntries(
       configs.map(({ name, config }) => [name, config.data.labels])
     );
     expect(labelsByName["feature-duration-status"]).toEqual([]);
-    expect(labelsByName["slowest-specs"]).toEqual([]);
-    expect(labelsByName["duration-buckets"]).toEqual([
-      "Slow >300s",
-      "Medium 60-300s",
-      "Fast <60s",
+  });
+
+  test("normalizes non-numeric runtimes to zero", () => {
+    const configs = buildClusterChartConfigs([
+      { runtimeMs: "slow", name: "x", group: "g", state: "passed" },
     ]);
+    const numericValues = configs.flatMap(({ config }) =>
+      config.data.datasets.flatMap((dataset) =>
+        dataset.data.filter((value) => typeof value === "number")
+      )
+    );
+
+    expect(numericValues).toContain(0);
+    expect(numericValues.some((value) => Number.isNaN(value))).toBe(false);
+  });
+
+  test("builds slowest specs sorted by duration descending", () => {
+    const chart = slowestSpecs(
+      aggregate([
+        { name: "middle", group: "VM", state: "passed", runtimeMs: 90_000 },
+        { name: "slow b", group: "VM", state: "passed", runtimeMs: 180_000 },
+        { name: "slow a", group: "Disk", state: "passed", runtimeMs: 180_000 },
+        { name: "fast", group: "Network", state: "passed", runtimeMs: 10_000 },
+      ])
+    );
+
+    expect(chart.config.data.labels).toEqual([
+      "Disk / slow a",
+      "VM / slow b",
+      "VM / middle",
+      "Network / fast",
+    ]);
+    expect(chart.config.data.datasets[0].data).toEqual([180, 180, 90, 10]);
   });
 });

@@ -50,6 +50,36 @@ tasks:
       - which jq >/dev/null || (echo "jq not found."; exit 1)
     silent: true
 
+  report:render:slowest:
+    desc: "Render slowest-specs chart for one Describe (DESCRIBE=..., JSON=...)"
+    silent: true
+    vars:
+      JSON: '{{.JSON | default ""}}'
+      DESCRIBE: '{{.DESCRIBE | default ""}}'
+      OUT_DIR: '{{.OUT_DIR | default "tmp/test-ci/report/out"}}'
+    cmds:
+      - test -n "{{.JSON}}" || (echo "JSON=... is required"; exit 1)
+      - test -n "{{.DESCRIBE}}" || (echo "DESCRIBE=... is required"; exit 1)
+      - >-
+        node .github/scripts/js/e2e/report/render-slowest-for-describe.js 
+        --json "{{.JSON}}" 
+        --describe "{{.DESCRIBE}}" --out-dir "{{.OUT_DIR}}"
+
+  report:render:top-slowest:
+    desc: "Render slowest-specs charts for top-N slowest Describes"
+    silent: true
+    vars:
+      REPORTS_DIR: '{{.REPORTS_DIR | default "tmp/test-ci/report/out"}}'
+      OUT_DIR: '{{.OUT_DIR | default "tmp/test-ci/report/out"}}'
+      TOP_N: "{{.TOP_N | default 5}}"
+    cmds:
+      - mkdir -p "{{.OUT_DIR}}" "{{.REPORTS_DIR}}"
+      - >-
+        node .github/scripts/js/e2e/report/render-top-describes.js
+        --reports-dir "{{.REPORTS_DIR}}"
+        --out-dir "{{.OUT_DIR}}"
+        --top-n "{{.TOP_N}}"
+
   check-helm:
     cmds:
       - which helm >/dev/null || (echo "helm not found."; exit 1)

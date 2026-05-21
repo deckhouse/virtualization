@@ -209,7 +209,7 @@ function parseGinkgoReport(jsonContent) {
       const leafText = String(specReport.LeafNodeText || "").trim();
       specTimings.push({
         name: leafText,
-        group: hierarchyParts[0] || leafText,
+        group: hierarchyParts[0] || "Top-level Its",
         state: metricKey,
         runtimeMs: runtimeMs(specReport.RunTime),
         labels: flattenLabels([

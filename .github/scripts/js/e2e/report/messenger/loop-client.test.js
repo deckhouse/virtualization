@@ -94,12 +94,12 @@ describe("loop-client", () => {
             message: "reply",
             files: [
               {
-                name: "slowest-specs.png",
+                name: "feature-duration-status.png",
                 buffer: Buffer.from("one"),
                 mimeType: "image/png",
               },
               {
-                name: "feature-duration-status.png",
+                name: "feature-duration-status-2.png",
                 buffer: Buffer.from("two"),
                 mimeType: "image/png",
               },
@@ -120,7 +120,7 @@ describe("loop-client", () => {
     });
   });
 
-  test("posts the reply without attachments when file upload fails", async () => {
+  test("posts the reply with successful attachments when one upload fails", async () => {
     const loop = {
       apiUrl: "https://loop.example.invalid/api/v4/posts",
       channelId: "channel-id",
@@ -132,6 +132,11 @@ describe("loop-client", () => {
         ok: true,
         status: 201,
         text: async () => JSON.stringify({ id: "root-post-id" }),
+      },
+      {
+        ok: true,
+        status: 201,
+        text: async () => JSON.stringify({ file_infos: [{ id: "file-one" }] }),
       },
       {
         ok: false,
@@ -160,8 +165,13 @@ describe("loop-client", () => {
             message: "reply",
             files: [
               {
-                name: "chart.png",
-                buffer: Buffer.from("image-bytes"),
+                name: "feature-duration-status.png",
+                buffer: Buffer.from("one"),
+                mimeType: "image/png",
+              },
+              {
+                name: "feature-duration-status-2.png",
+                buffer: Buffer.from("two"),
                 mimeType: "image/png",
               },
             ],
@@ -172,23 +182,27 @@ describe("loop-client", () => {
       core
     );
 
-    expect(global.fetch).toHaveBeenCalledTimes(3);
+    expect(global.fetch).toHaveBeenCalledTimes(4);
     expect(global.fetch.mock.calls[0][0]).toBe(loop.apiUrl);
     expect(global.fetch.mock.calls[1][0]).toBe(
       "https://loop.example.invalid/api/v4/files"
     );
-    expect(global.fetch.mock.calls[2][0]).toBe(loop.apiUrl);
+    expect(global.fetch.mock.calls[2][0]).toBe(
+      "https://loop.example.invalid/api/v4/files"
+    );
+    expect(global.fetch.mock.calls[3][0]).toBe(loop.apiUrl);
 
-    const replyBody = JSON.parse(global.fetch.mock.calls[2][1].body);
+    const replyBody = JSON.parse(global.fetch.mock.calls[3][1].body);
     expect(replyBody.root_id).toBe("root-post-id");
     expect(replyBody.message).toBe("reply");
-    expect(replyBody).not.toHaveProperty("file_ids");
+    expect(replyBody.file_ids).toEqual(["file-one"]);
 
     expect(core.warning).toHaveBeenCalledWith(
       expect.stringContaining(
-        "Loop file upload failed; posting reply without attachments"
+        "Loop file upload failed for one attachment: Loop file upload failed with status 403"
       )
     );
+    expect(core.warning).toHaveBeenCalledTimes(1);
   });
 
   test("fails when strict file upload mode is enabled", async () => {
@@ -235,8 +249,45 @@ describe("loop-client", () => {
         createCore()
       )
     ).rejects.toThrow(
-      "Loop file upload failed with status 403: permission denied"
+      "Strict file uploads enabled; at least one attachment failed"
     );
     expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  test("uses injected fetch without touching the global fetch", async () => {
+    const originalFetch = globalThis.fetch;
+    const loop = {
+      apiUrl: "https://loop.example.invalid/api/v4/posts",
+      channelId: "channel-id",
+      token: "loop-token",
+    };
+    const responses = [
+      {
+        ok: true,
+        status: 201,
+        text: async () => JSON.stringify({ id: "root-post-id" }),
+      },
+      {
+        ok: true,
+        status: 201,
+        text: async () => JSON.stringify({ id: "reply-post-id" }),
+      },
+    ];
+    const fetch = jest
+      .fn()
+      .mockImplementation(() => Promise.resolve(responses.shift()));
+
+    await makeThreadedReportInLoop(
+      {
+        message: "main",
+        threadMessages: [{ message: "reply", files: [] }],
+        loop,
+      },
+      createCore(),
+      { fetch }
+    );
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(globalThis.fetch).toBe(originalFetch);
   });
 });

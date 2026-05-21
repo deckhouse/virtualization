@@ -10,17 +10,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const { buildClusterChartConfigs } = require("./chart-config");
+const { buildClusterChartConfigs } = require(".");
 
-const defaultChartSize = { width: 1280, height: 640 };
+const defaultChartSize = { width: 1280, height: 640, pixelRatio: 2 };
 const canvasInstances = new Map();
 
 // Module-level singleton: ChartJSNodeCanvas startup (loading chart.js + setting
 // up the cairo-backed canvas) is non-trivial, and the renderer is stateless
 // between renderToBuffer calls. Reusing it across clusters keeps memory usage
 // flat when the messenger report grows.
-function loadChartRenderer({ width, height } = defaultChartSize) {
-  const rendererKey = `${width}x${height}`;
+function loadChartRenderer({ width, height, pixelRatio } = defaultChartSize) {
+  const rendererKey = `${width}x${height}@${pixelRatio}`;
   if (!canvasInstances.has(rendererKey)) {
     const { ChartJSNodeCanvas } = require("chartjs-node-canvas");
     canvasInstances.set(
@@ -34,6 +34,32 @@ function loadChartRenderer({ width, height } = defaultChartSize) {
   }
 
   return canvasInstances.get(rendererKey);
+}
+
+function normalizeChartSize(size) {
+  return {
+    ...defaultChartSize,
+    ...(size || {}),
+  };
+}
+
+function withDevicePixelRatio(config, pixelRatio) {
+  return {
+    ...config,
+    options: {
+      ...(config.options || {}),
+      devicePixelRatio: pixelRatio,
+    },
+  };
+}
+
+async function renderChartBuffer({ config, size }) {
+  const chartSize = normalizeChartSize(size);
+  const renderer = loadChartRenderer(chartSize);
+  return renderer.renderToBuffer(
+    withDevicePixelRatio(config, chartSize.pixelRatio),
+    "image/png"
+  );
 }
 
 function sanitizeFilenamePart(value) {
@@ -57,10 +83,9 @@ async function renderClusterCharts(report) {
 
   return Promise.all(
     configs.map(async ({ name, config, size }) => {
-      const renderer = loadChartRenderer(size || defaultChartSize);
       return {
         name: `${clusterName}-${name}.png`,
-        buffer: await renderer.renderToBuffer(config, "image/png"),
+        buffer: await renderChartBuffer({ config, size }),
         mimeType: "image/png",
       };
     })
@@ -69,4 +94,6 @@ async function renderClusterCharts(report) {
 
 module.exports = {
   renderClusterCharts,
+  renderChartBuffer,
+  sanitizeFilenamePart,
 };

@@ -61,9 +61,17 @@ function parseLoopApiPayload(responseText, core) {
  * @param {string} [rootId] Optional thread root id for reply posts.
  * @param {LoopClientCore} core GitHub core API.
  * @param {string[]} [fileIds] Uploaded Loop file ids to attach.
+ * @param {{fetch?: typeof fetch}} [options] Optional HTTP client dependencies.
  * @returns {Promise<Record<string, any>>} Parsed Loop API response.
  */
-async function postToLoopApi(loop, message, rootId, core, fileIds = []) {
+async function postToLoopApi(
+  loop,
+  message,
+  rootId,
+  core,
+  fileIds = [],
+  { fetch: fetchFn = globalThis.fetch } = {}
+) {
   const body = {
     channel_id: loop.channelId,
     message,
@@ -71,7 +79,7 @@ async function postToLoopApi(loop, message, rootId, core, fileIds = []) {
     ...(fileIds.length > 0 ? { file_ids: fileIds } : {}),
   };
 
-  const response = await fetch(loop.apiUrl, {
+  const response = await fetchFn(loop.apiUrl, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${loop.token}`,
@@ -103,7 +111,8 @@ function getFilesApiUrl(apiUrl) {
  * @param {string} fileName File name shown in Loop.
  * @param {Buffer} buffer File content.
  * @param {LoopClientCore} core GitHub core API.
- * @param {string} [mimeType] File MIME type.
+ * @param {string} mimeType File MIME type.
+ * @param {{fetch?: typeof fetch}} [options] Optional HTTP client dependencies.
  * @returns {Promise<string>} Uploaded Loop file id.
  */
 async function uploadFileToLoop(
@@ -111,13 +120,14 @@ async function uploadFileToLoop(
   fileName,
   buffer,
   core,
-  mimeType = "image/png"
+  mimeType,
+  { fetch: fetchFn = globalThis.fetch } = {}
 ) {
   const formData = new FormData();
   formData.append("channel_id", loop.channelId);
   formData.append("files", new Blob([buffer], { type: mimeType }), fileName);
 
-  const response = await fetch(getFilesApiUrl(loop.apiUrl), {
+  const response = await fetchFn(getFilesApiUrl(loop.apiUrl), {
     method: "POST",
     headers: {
       Authorization: `Bearer ${loop.token}`,
@@ -150,13 +160,17 @@ async function uploadFileToLoop(
  *
  * @param {LoopPublishParams} params Message payload and Loop credentials.
  * @param {LoopClientCore} core GitHub core API.
+ * @param {{fetch?: typeof fetch}} [options] Optional HTTP client dependencies.
  * @returns {Promise<void>}
  */
 async function makeThreadedReportInLoop(
   { message, threadMessages, loop },
-  core
+  core,
+  { fetch: fetchFn = globalThis.fetch } = {}
 ) {
-  const rootPost = await postToLoopApi(loop, message, undefined, core);
+  const rootPost = await postToLoopApi(loop, message, undefined, core, [], {
+    fetch: fetchFn,
+  });
 
   if (!rootPost.id) {
     throw new Error(
@@ -168,28 +182,32 @@ async function makeThreadedReportInLoop(
     const files = Array.isArray(reply.files) ? reply.files : [];
     let fileIds = [];
     if (files.length > 0) {
-      try {
-        fileIds = await Promise.all(
-          files.map((file) =>
-            uploadFileToLoop(loop, file.name, file.buffer, core, file.mimeType)
-          )
-        );
-      } catch (error) {
-        if (loop.strictFileUploads) {
-          throw error;
-        }
+      const results = await Promise.allSettled(
+        files.map((file) =>
+          uploadFileToLoop(loop, file.name, file.buffer, core, file.mimeType, {
+            fetch: fetchFn,
+          })
+        )
+      );
+      fileIds = results
+        .filter((result) => result.status === "fulfilled")
+        .map((result) => result.value);
 
-        // Posting the reply without attachments is preferable to losing the
-        // whole thread (e.g. failed-tests table) when Loop rejects file
-        // uploads, typically with HTTP 403 when the bot token lacks the
-        // upload_file permission.
-        core.warning(
-          `Loop file upload failed; posting reply without attachments: ${error.message}`
+      const failures = results.filter((result) => result.status === "rejected");
+      for (const failure of failures) {
+        const reason = failure.reason;
+        const details = reason && reason.message ? reason.message : reason;
+        core.warning(`Loop file upload failed for one attachment: ${details}`);
+      }
+      if (loop.strictFileUploads && failures.length > 0) {
+        throw new Error(
+          "Strict file uploads enabled; at least one attachment failed"
         );
-        fileIds = [];
       }
     }
-    await postToLoopApi(loop, reply.message, rootPost.id, core, fileIds);
+    await postToLoopApi(loop, reply.message, rootPost.id, core, fileIds, {
+      fetch: fetchFn,
+    });
   }
 }
 

@@ -477,7 +477,7 @@ describe("cluster-report", () => {
         },
         {
           name: "skipped",
-          group: "skipped",
+          group: "Top-level Its",
           state: "skipped",
           runtimeMs: 60000,
           labels: [],

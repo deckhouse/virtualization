@@ -10,4 +10,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module.exports = require(".");
+const { aggregate } = require("./data");
+const featureDurationStatus = require("./builders/feature-duration-status");
+const slowestSpecs = require("./builders/slowest-specs");
+
+// Order of charts matches the order of attachments in the messenger thread.
+const CHART_BUILDERS = [featureDurationStatus];
+
+function buildClusterChartConfigs(specTimings) {
+  const data = aggregate(specTimings);
+  return CHART_BUILDERS.map((build) => build(data));
+}
+
+module.exports = {
+  CHART_BUILDERS,
+  buildClusterChartConfigs,
+  slowestSpecs,
+};
