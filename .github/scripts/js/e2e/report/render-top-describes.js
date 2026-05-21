@@ -70,7 +70,7 @@ function readReport(jsonPath) {
 async function renderTopDescribesForCluster({
   jsonPath,
   storage,
-  outDir = "tmp/ci-report/out",
+  outDir = "tmp",
   topN = 5,
 }) {
   const report = readReport(jsonPath);
@@ -96,7 +96,7 @@ async function renderTopDescribesForCluster({
 async function renderTopDescribes({
   core = console,
   reportsDir = "downloaded-artifacts",
-  outDir = "tmp/ci-report/out",
+  outDir = "tmp",
   topN = 5,
 } = {}) {
   const reportFiles = listMatchingFiles(reportsDir, REPORT_FILE_PATTERN);
@@ -131,7 +131,7 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
     console.log(
-      "Usage: node .github/scripts/js/e2e/report/render-top-describes.js [--reports-dir downloaded-artifacts] [--out-dir tmp/ci-report/out] [--top-n 5]"
+      "Usage: node .github/scripts/js/e2e/report/render-top-describes.js [--reports-dir downloaded-artifacts] [--out-dir tmp] [--top-n 5]"
     );
     return;
   }

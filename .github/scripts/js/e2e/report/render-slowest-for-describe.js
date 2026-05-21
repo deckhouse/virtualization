@@ -92,7 +92,7 @@ function availableDescribes(specTimings) {
 async function renderSlowestForDescribe({
   jsonPath,
   describe,
-  outDir = "tmp/test-ci/report/out",
+  outDir = "tmp",
   storage,
 }) {
   if (!jsonPath) {
@@ -147,7 +147,7 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
     console.log(
-      "Usage: node .github/scripts/js/e2e/report/render-slowest-for-describe.js --json <report.json> --describe <Describe> [--out-dir <dir>] [--storage <name>]"
+      "Usage: node .github/scripts/js/e2e/report/render-slowest-for-describe.js --json <report.json> --describe <Describe> [--out-dir tmp] [--storage <name>]"
     );
     return;
   }

@@ -528,5 +528,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: e2e-report-slowest-by-describe
-          path: tmp/ci-report/out/charts/
+          path: tmp/charts/
           if-no-files-found: warn
