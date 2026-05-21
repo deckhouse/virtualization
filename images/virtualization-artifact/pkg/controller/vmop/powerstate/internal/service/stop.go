@@ -57,7 +57,8 @@ func (o StopOperation) IsApplicableForVMPhase(phase v1alpha2.MachinePhase) bool 
 		phase == v1alpha2.MachineDegraded ||
 		phase == v1alpha2.MachineStarting ||
 		phase == v1alpha2.MachinePause ||
-		phase == v1alpha2.MachinePending
+		phase == v1alpha2.MachinePending ||
+		phase == v1alpha2.MachineStopping && isForceRequested(o.vmop)
 }
 
 func (o StopOperation) IsApplicableForRunPolicy(runPolicy v1alpha2.RunPolicy) bool {
