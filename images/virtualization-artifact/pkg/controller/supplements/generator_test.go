@@ -48,7 +48,9 @@ var _ = Describe("Generator", func() {
 
 				Expect(result.Name).To(HavePrefix("d8v-"))
 				Expect(result.Name).To(ContainSubstring(expectedPrefix))
-				Expect(result.Name).To(ContainSubstring(name))
+				if expectedPrefix != "importer" {
+					Expect(result.Name).To(ContainSubstring(name))
+				}
 				Expect(result.Name).To(HaveSuffix(string(uid)))
 			},
 			Entry("DVCRAuthSecret", func(g Generator) types.NamespacedName { return g.DVCRAuthSecret() }, "dvcr-auth"),

@@ -214,12 +214,14 @@ func (s DiskService) EnsureSupplementPVCImport(ctx context.Context, target *core
 		}
 	}
 
-	pod, err := object.FetchObject(ctx, types.NamespacedName{Name: target.Name, Namespace: target.Namespace}, s.client, &corev1.Pod{})
+	podKey := sup.ImporterPod()
+	target.Annotations[annotations.AnnPVCImportPod] = podKey.Name
+	pod, err := object.FetchObject(ctx, podKey, s.client, &corev1.Pod{})
 	if err != nil {
 		return "", fmt.Errorf("fetch importer pod: %w", err)
 	}
 	if pod == nil {
-		pod = s.makePVCImporterPod(target, source, sourceClaim, scratch.Name, nodePlacement)
+		pod = s.makePVCImporterPod(podKey.Name, target, source, sourceClaim, scratch.Name, nodePlacement)
 		if err := s.client.Create(ctx, pod); err != nil && !k8serrors.IsAlreadyExists(err) {
 			return "", fmt.Errorf("create importer pod: %w", err)
 		}
@@ -363,9 +365,9 @@ func scratchPVCSize(targetSize resource.Quantity) resource.Quantity {
 	return size
 }
 
-func (s DiskService) makePVCImporterPod(target *corev1.PersistentVolumeClaim, source *PVCImportSource, sourceClaim *corev1.PersistentVolumeClaim, scratchName string, nodePlacement *provisioner.NodePlacement) *corev1.Pod {
+func (s DiskService) makePVCImporterPod(podName string, target *corev1.PersistentVolumeClaim, source *PVCImportSource, sourceClaim *corev1.PersistentVolumeClaim, scratchName string, nodePlacement *provisioner.NodePlacement) *corev1.Pod {
 	podAnnotations := map[string]string{annotations.AnnPVCImportCreatedBy: "yes"}
-	target.Annotations[annotations.AnnPVCImportPod] = target.Name
+	target.Annotations[annotations.AnnPVCImportPod] = podName
 
 	container := corev1.Container{
 		Name:            "d8v-cdi-importer",
@@ -457,7 +459,7 @@ func (s DiskService) makePVCImporterPod(target *corev1.PersistentVolumeClaim, so
 	pod := &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        target.Name,
+			Name:        podName,
 			Namespace:   target.Namespace,
 			Annotations: podAnnotations,
 			OwnerReferences: []metav1.OwnerReference{{
@@ -489,14 +491,17 @@ func (s DiskService) patchTargetImportPhase(ctx context.Context, target *corev1.
 		copy.Annotations = map[string]string{}
 	}
 	copy.Annotations[annotations.AnnPVCImportPhase] = string(phase)
-	copy.Annotations[annotations.AnnPVCImportPod] = target.Name
 	return s.client.Patch(ctx, copy, client.MergeFrom(target))
 }
 
 func (s DiskService) cleanupPVCImport(ctx context.Context, target *corev1.PersistentVolumeClaim) (bool, error) {
 	var deleted bool
+	podName := target.Annotations[annotations.AnnPVCImportPod]
+	if podName == "" {
+		podName = target.Name
+	}
 	for _, obj := range []client.Object{
-		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: target.Name, Namespace: target.Namespace}},
+		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: podName, Namespace: target.Namespace}},
 		&corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: target.Name + "-scratch", Namespace: target.Namespace}},
 	} {
 		err := s.client.Delete(ctx, obj)

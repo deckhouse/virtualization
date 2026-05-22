@@ -31,7 +31,7 @@ const (
 	tplDVCRCABundle        = "d8v-%s-dvcr-ca-%s-%s"
 	tplCABundle            = "d8v-%s-ca-%s-%s"
 	tplImagePullSecret     = "d8v-%s-pull-image-%s-%s"
-	tplImporterPod         = "d8v-%s-importer-%s-%s"
+	tplImporterPod         = "d8v-%s-importer-%s"
 	tplBounderPod          = "d8v-%s-bounder-%s-%s"
 	tplUploaderPod         = "d8v-%s-uploader-%s-%s"
 	tplUploaderTLSSecret   = "d8v-%s-tls-%s-%s"
@@ -138,7 +138,11 @@ func (g *generator) ImagePullSecret() types.NamespacedName {
 
 // ImporterPod generates name for importer Pod.
 func (g *generator) ImporterPod() types.NamespacedName {
-	return g.generateName(tplImporterPod, kvalidation.DNS1123SubdomainMaxLength)
+	name := fmt.Sprintf(tplImporterPod, g.prefix, g.UID())
+	return types.NamespacedName{
+		Name:      name,
+		Namespace: g.namespace,
+	}
 }
 
 // BounderPod generates name for bounder Pod.

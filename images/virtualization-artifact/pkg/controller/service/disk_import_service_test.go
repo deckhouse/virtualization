@@ -80,6 +80,7 @@ func TestDiskServiceEnsurePVCImportIsResumable(t *testing.T) {
 	ctx := context.Background()
 	vd := diskImportTestVD()
 	target := diskImportTargetPVC(vd)
+	importerPodName := diskImportImporterPodName(vd)
 	c := fake.NewClientBuilder().WithScheme(diskImportTestScheme(t)).WithObjects(target).Build()
 	svc := NewDiskService(c, nil, nil, "test", DiskImporterConfig{Image: "disk-importer:latest", PullPolicy: string(corev1.PullIfNotPresent), Verbose: "3"})
 
@@ -93,10 +94,10 @@ func TestDiskServiceEnsurePVCImportIsResumable(t *testing.T) {
 
 	for _, key := range []types.NamespacedName{
 		{Name: target.Name + "-scratch", Namespace: target.Namespace},
-		{Name: target.Name, Namespace: target.Namespace},
+		{Name: importerPodName, Namespace: target.Namespace},
 	} {
 		obj := &corev1.PersistentVolumeClaim{}
-		if key.Name == target.Name {
+		if key.Name == importerPodName {
 			pod := &corev1.Pod{}
 			if err := c.Get(ctx, key, pod); err != nil {
 				t.Fatalf("pod %s not found: %v", key.Name, err)
@@ -109,7 +110,7 @@ func TestDiskServiceEnsurePVCImportIsResumable(t *testing.T) {
 	}
 
 	pod := &corev1.Pod{}
-	if err := c.Get(ctx, types.NamespacedName{Name: target.Name, Namespace: target.Namespace}, pod); err != nil {
+	if err := c.Get(ctx, types.NamespacedName{Name: importerPodName, Namespace: target.Namespace}, pod); err != nil {
 		t.Fatalf("get pod: %v", err)
 	}
 
@@ -139,7 +140,7 @@ func TestDiskServiceEnsurePVCImportIsResumable(t *testing.T) {
 	if err := c.Get(ctx, types.NamespacedName{Name: target.Name + "-scratch", Namespace: target.Namespace}, &corev1.PersistentVolumeClaim{}); client.IgnoreNotFound(err) == nil && err == nil {
 		t.Fatalf("scratch pvc still exists")
 	}
-	if err := c.Get(ctx, types.NamespacedName{Name: target.Name, Namespace: target.Namespace}, &corev1.Pod{}); client.IgnoreNotFound(err) == nil && err == nil {
+	if err := c.Get(ctx, types.NamespacedName{Name: importerPodName, Namespace: target.Namespace}, &corev1.Pod{}); client.IgnoreNotFound(err) == nil && err == nil {
 		t.Fatalf("import pod still exists")
 	}
 }
@@ -222,6 +223,7 @@ func TestDiskServiceEnsurePVCCloneHostAssistedUsesShelllessQemuImgCommand(t *tes
 	ctx := context.Background()
 	vd := diskImportTestVD()
 	target := diskImportTargetPVC(vd)
+	importerPodName := diskImportImporterPodName(vd)
 	target.Annotations[annotations.AnnPVCImportSource] = sourcePVC
 	target.Annotations[annotations.AnnPVCImportCloneStrategy] = cloneStrategyHost
 	target.Annotations[annotations.AnnPVCImportEndpoint] = "default/source"
@@ -241,7 +243,7 @@ func TestDiskServiceEnsurePVCCloneHostAssistedUsesShelllessQemuImgCommand(t *tes
 	}
 
 	pod := &corev1.Pod{}
-	if err := c.Get(ctx, types.NamespacedName{Name: target.Name, Namespace: target.Namespace}, pod); err != nil {
+	if err := c.Get(ctx, types.NamespacedName{Name: importerPodName, Namespace: target.Namespace}, pod); err != nil {
 		t.Fatalf("get import pod: %v", err)
 	}
 	if len(pod.Spec.Containers) != 1 {
@@ -351,6 +353,10 @@ func diskImportTestVD() *v1alpha2.VirtualDisk {
 		},
 		Status: v1alpha2.VirtualDiskStatus{Target: v1alpha2.DiskTarget{PersistentVolumeClaim: "d8v-vd-22222222-2222-2222-2222-222222222222-abcde"}},
 	}
+}
+
+func diskImportImporterPodName(vd *v1alpha2.VirtualDisk) string {
+	return "d8v-vd-importer-" + string(vd.UID)
 }
 
 func diskImportTargetPVC(vd *v1alpha2.VirtualDisk) *corev1.PersistentVolumeClaim {
