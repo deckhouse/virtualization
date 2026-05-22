@@ -356,7 +356,7 @@ func diskImportTestVD() *v1alpha2.VirtualDisk {
 }
 
 func diskImportImporterPodName(vd *v1alpha2.VirtualDisk) string {
-	return "d8v-vd-importer-" + string(vd.UID)
+	return "d8v-vd-pvc-importer-" + string(vd.UID)
 }
 
 func diskImportTargetPVC(vd *v1alpha2.VirtualDisk) *corev1.PersistentVolumeClaim {

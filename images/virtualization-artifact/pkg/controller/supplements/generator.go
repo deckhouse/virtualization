@@ -32,6 +32,7 @@ const (
 	tplCABundle            = "d8v-%s-ca-%s-%s"
 	tplImagePullSecret     = "d8v-%s-pull-image-%s-%s"
 	tplImporterPod         = "d8v-%s-importer-%s"
+	tplPVCImporterPod      = "d8v-%s-pvc-importer-%s"
 	tplBounderPod          = "d8v-%s-bounder-%s-%s"
 	tplUploaderPod         = "d8v-%s-uploader-%s-%s"
 	tplUploaderTLSSecret   = "d8v-%s-tls-%s-%s"
@@ -44,6 +45,7 @@ type Generator interface {
 
 	BounderPod() types.NamespacedName
 	ImporterPod() types.NamespacedName
+	PVCImporterPod() types.NamespacedName
 	UploaderPod() types.NamespacedName
 	UploaderService() types.NamespacedName
 	UploaderIngress() types.NamespacedName
@@ -139,6 +141,18 @@ func (g *generator) ImagePullSecret() types.NamespacedName {
 // ImporterPod generates name for importer Pod.
 func (g *generator) ImporterPod() types.NamespacedName {
 	name := fmt.Sprintf(tplImporterPod, g.prefix, g.UID())
+	return types.NamespacedName{
+		Name:      name,
+		Namespace: g.namespace,
+	}
+}
+
+// PVCImporterPod generates name for the cdi-importer Pod that imports data
+// from DVCR into the target PersistentVolumeClaim. It is intentionally
+// distinct from ImporterPod() to avoid colliding with the dvcr-importer Pod
+// that runs in the first import phase.
+func (g *generator) PVCImporterPod() types.NamespacedName {
+	name := fmt.Sprintf(tplPVCImporterPod, g.prefix, g.UID())
 	return types.NamespacedName{
 		Name:      name,
 		Namespace: g.namespace,

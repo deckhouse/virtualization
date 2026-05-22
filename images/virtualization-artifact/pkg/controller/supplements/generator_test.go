@@ -48,7 +48,7 @@ var _ = Describe("Generator", func() {
 
 				Expect(result.Name).To(HavePrefix("d8v-"))
 				Expect(result.Name).To(ContainSubstring(expectedPrefix))
-				if expectedPrefix != "importer" {
+				if expectedPrefix != "importer" && expectedPrefix != "pvc-importer" {
 					Expect(result.Name).To(ContainSubstring(name))
 				}
 				Expect(result.Name).To(HaveSuffix(string(uid)))
@@ -59,6 +59,7 @@ var _ = Describe("Generator", func() {
 			Entry("CABundleConfigMap", func(g Generator) types.NamespacedName { return g.CABundleConfigMap() }, "ca"),
 			Entry("ImagePullSecret", func(g Generator) types.NamespacedName { return g.ImagePullSecret() }, "pull-image"),
 			Entry("ImporterPod", func(g Generator) types.NamespacedName { return g.ImporterPod() }, "importer"),
+			Entry("PVCImporterPod", func(g Generator) types.NamespacedName { return g.PVCImporterPod() }, "pvc-importer"),
 			Entry("BounderPod", func(g Generator) types.NamespacedName { return g.BounderPod() }, "bounder"),
 			Entry("UploaderPod", func(g Generator) types.NamespacedName { return g.UploaderPod() }, "uploader"),
 			Entry("UploaderService", func(g Generator) types.NamespacedName { return g.UploaderService() }, "vi"),
@@ -86,6 +87,7 @@ var _ = Describe("Generator", func() {
 			Entry("CABundleConfigMap - 253 limit", func(g Generator) types.NamespacedName { return g.CABundleConfigMap() }, kvalidation.DNS1123SubdomainMaxLength),
 			Entry("ImagePullSecret - 253 limit", func(g Generator) types.NamespacedName { return g.ImagePullSecret() }, kvalidation.DNS1123SubdomainMaxLength),
 			Entry("ImporterPod - 253 limit", func(g Generator) types.NamespacedName { return g.ImporterPod() }, kvalidation.DNS1123SubdomainMaxLength),
+			Entry("PVCImporterPod - 253 limit", func(g Generator) types.NamespacedName { return g.PVCImporterPod() }, kvalidation.DNS1123SubdomainMaxLength),
 			Entry("BounderPod - 253 limit", func(g Generator) types.NamespacedName { return g.BounderPod() }, kvalidation.DNS1123SubdomainMaxLength),
 			Entry("UploaderPod - 253 limit", func(g Generator) types.NamespacedName { return g.UploaderPod() }, kvalidation.DNS1123SubdomainMaxLength),
 			Entry("UploaderService - 63 limit", func(g Generator) types.NamespacedName { return g.UploaderService() }, kvalidation.DNS1123LabelMaxLength),

@@ -214,7 +214,7 @@ func (s DiskService) EnsureSupplementPVCImport(ctx context.Context, target *core
 		}
 	}
 
-	podKey := sup.ImporterPod()
+	podKey := sup.PVCImporterPod()
 	target.Annotations[annotations.AnnPVCImportPod] = podKey.Name
 	pod, err := object.FetchObject(ctx, podKey, s.client, &corev1.Pod{})
 	if err != nil {
