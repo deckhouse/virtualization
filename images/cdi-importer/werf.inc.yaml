@@ -8,7 +8,7 @@ import:
   add: /relocate
   to: /
   before: setup
-# Binaries are built from images/cdi-artifact/containerized-data-importer by images/cdi-artifact/werf.inc.yaml.
+# Binaries are built from images/cdi-artifact by images/cdi-artifact/werf.inc.yaml.
 imageSpec:
   config:
     entrypoint: ["/usr/bin/cdi-importer", "-alsologtostderr"]

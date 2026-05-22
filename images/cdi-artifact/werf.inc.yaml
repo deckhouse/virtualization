@@ -28,8 +28,8 @@ secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
 git:
-- add: {{ .ModuleDir }}/images/{{ .ImageName }}/containerized-data-importer
-  to: /containerized-data-importer
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}
+  to: /src
   stageDependencies:
     install:
     - go.mod
@@ -38,6 +38,7 @@ git:
     - '**/*'
   excludePaths:
   - .git
+  - werf.inc.yaml
 import:
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
@@ -54,12 +55,12 @@ shell:
     export GOPROXY=$(cat /run/secrets/GOPROXY)
 
     echo Download Go modules.
-    cd /containerized-data-importer
+    cd /src
     go mod download
 
   setup:
   - mkdir /cdi-binaries
-  - cd /containerized-data-importer
+  - cd /src
 
   - export GOOS=linux
   - export GOARCH=amd64

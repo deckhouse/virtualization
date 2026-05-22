@@ -1,6 +1,6 @@
 # A list of pre-created mount points for containerd strict mode.
 #
-# See images/cdi-artifact/containerized-data-importer/pkg/controller/import-controller.go.
+# See images/cdi-artifact/pkg/controller/import-controller.go.
 #
 # Some volume mounts are ignored:
 # - /extraheaders - Etra headers not implemented in virtualization-controller.
