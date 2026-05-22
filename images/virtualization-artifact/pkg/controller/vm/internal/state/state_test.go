@@ -213,10 +213,12 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 		allObjs := []client.Object{vm}
 		allObjs = append(allObjs, objs...)
 		vmbdaIndexObj, vmbdaIndexField, vmbdaIndexFn := indexer.IndexVMBDAByVM()
+		pvByStorageClassIndexObj, pvByStorageClassIndexField, pvByStorageClassIndexFn := indexer.IndexPVByStorageClass()
 		fakeClient := fake.NewClientBuilder().
 			WithScheme(scheme).
 			WithObjects(allObjs...).
 			WithIndex(vmbdaIndexObj, vmbdaIndexField, vmbdaIndexFn).
+			WithIndex(pvByStorageClassIndexObj, pvByStorageClassIndexField, pvByStorageClassIndexFn).
 			Build()
 		namespacedName := types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace}
 		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)

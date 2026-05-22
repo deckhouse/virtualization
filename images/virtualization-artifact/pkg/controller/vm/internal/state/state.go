@@ -512,7 +512,10 @@ func (s *state) resolveStorageClassName(ctx context.Context, kind v1alpha2.Block
 		}
 		// During migration, status.StorageClassName can still point to the old PVC's class.
 		// Avoid using it for the target PVC; rely on target PVC fields instead.
-		if vd.Status.MigrationState.TargetPVC == pvcName {
+		migrating, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
+		if migrating.Status == metav1.ConditionTrue &&
+			conditions.IsLastUpdated(migrating, vd) &&
+			vd.Status.MigrationState.TargetPVC == pvcName {
 			return "", nil
 		}
 		return commonvd.ResolveStorageClassName(ctx, vd, nil)
@@ -590,7 +593,7 @@ func (s *state) nodeAffinityTermsFromUnboundPVC(ctx context.Context, kind v1alph
 	}
 
 	var pvList corev1.PersistentVolumeList
-	if err := s.client.List(ctx, &pvList); err != nil {
+	if err := s.client.List(ctx, &pvList, client.MatchingFields{indexer.IndexFieldPVByStorageClass: storageClassName}); err != nil {
 		return nil, fmt.Errorf("list PVs: %w", err)
 	}
 
@@ -642,7 +645,7 @@ func (s *state) nodeAffinityTermsFromStorageClassTopology(ctx context.Context, s
 		Name string `json:"name"`
 	}
 	if err := yaml.Unmarshal([]byte(lvgParam), &lvgs); err != nil {
-		return nil, nil
+		return nil, err
 	}
 
 	var nodeNames []string
