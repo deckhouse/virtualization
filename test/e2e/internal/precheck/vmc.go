@@ -115,11 +115,15 @@ func (c *vmcPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 		return fmt.Errorf("%s=no to disable this precheck: cluster has no default class, e2e tests require %q to be default. Run: kubectl annotate vmclass/%s virtualmachineclass.virtualization.deckhouse.io/is-default-class=true",
 			vmcModuleCheckEnvName, defaultVMClassName, defaultVMClassName)
 	case e2eClass == nil && defaultClass == nil:
-		return fmt.Errorf("%s=no to disable this precheck: cluster has no default class and no %q class. Run: kubectl get vmclass/generic -o json | jq 'del(.status) | .metadata.annotations = {\"virtualmachineclass.virtualization.deckhouse.io/is-default-class\":\"true\"}' | kubectl create -f -",
-			vmcModuleCheckEnvName, defaultVMClassName)
+		return fmt.Errorf("%s=no to disable this precheck: cluster has no default class and no %q class. Run: %s",
+			vmcModuleCheckEnvName, defaultVMClassName, cmdCopyGenericAsDefaultClass(defaultVMClassName))
 	}
 
 	return nil
+}
+
+func cmdCopyGenericAsDefaultClass(targetVMClassName string) string {
+	return fmt.Sprintf(`kubectl get vmclass/generic -o json | jq 'del(.status) | del(.metadata) | .metadata = {"name":"%s","annotations":{"virtualmachineclass.virtualization.deckhouse.io/is-default-class":"true"}} ' | kubectl create -f -`, targetVMClassName)
 }
 
 // Register VMC precheck as common (runs for all tests).
