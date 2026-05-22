@@ -57,8 +57,8 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		}
 	})
 
-	It("validates snapshot lifecycle for disk with one consumer", func() {
-		f := framework.NewFramework("virtual-disk-snapshots-disk-with-one-consumer")
+	It("validates snapshot lifecycle for running VM's disk", func() {
+		f := framework.NewFramework("virtual-disk-snapshots-running-vm-disk")
 		f.Before()
 		DeferCleanup(f.After)
 
