@@ -140,14 +140,9 @@ async function uploadFileToLoop(loop, fileName, buffer, core, mimeType, { fetch:
  * @param {{fetch?: typeof fetch}} [options] Optional HTTP client dependencies.
  * @returns {Promise<void>}
  */
-async function makeThreadedReportInLoop(
-  { message, threadMessages, loop },
-  core,
-  { fetch: fetchFn = globalThis.fetch } = {}
-) {
-  const rootPost = await postToLoopApi(loop, message, undefined, core, [], {
-    fetch: fetchFn,
-  });
+async function makeThreadedReportInLoop({ message, threadMessages, loop }, core, { 
+  fetch: fetchFn = globalThis.fetch } = {}) {
+  const rootPost = await postToLoopApi(loop, message, undefined, core, [], { fetch: fetchFn });
 
   if (!rootPost.id) {
     throw new Error("Loop API did not return a post id; thread replies cannot be attached");

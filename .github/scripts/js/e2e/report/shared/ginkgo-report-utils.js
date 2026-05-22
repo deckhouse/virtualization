@@ -72,13 +72,18 @@ function formatSpecName(specReport) {
     .map((part) => String(part || "").trim())
     .filter(Boolean);
   const leafText = String(specReport.LeafNodeText || "").trim();
-  const labels = [
-    ...new Set([...flattenLabels(specReport.ContainerHierarchyLabels), ...flattenLabels(specReport.LeafNodeLabels)]),
-  ];
+  const labels = [...new Set([
+    ...flattenLabels(specReport.ContainerHierarchyLabels),
+    ...flattenLabels(specReport.LeafNodeLabels),
+  ])];
   const labelSuffix = labels.map((label) => `[${label}]`).join(" ");
   const body = [...hierarchyParts, leafText].filter(Boolean).join(" ");
 
-  return [`[${nodeType}]`, body, labelSuffix].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+  rreturn [`[${nodeType}]`, body, labelSuffix]
+  .filter(Boolean)
+  .join(" ")
+  .replace(/\s+/g, " ")
+  .trim();
 }
 
 function runtimeMs(value) {
@@ -115,7 +120,10 @@ function getMetricKeyForState(state) {
 
 function formatFailureReason(specReport) {
   const failure = (specReport && specReport.Failure) || {};
-  return String(failure.Message || failure.ForwardedPanic || "").trim() || String(specReport.State || "failed").trim();
+  return (
+    String(failure.Message || failure.ForwardedPanic || "").trim() ||
+    String(specReport.State || "failed").trim()
+  );
 }
 
 const failureStates = new Set(["failed", "errors"]);
@@ -211,13 +219,21 @@ function parseGinkgoReport(jsonContent) {
   }
 
   const completedSpecs = metrics.passed + metrics.failed + metrics.errors;
-  metrics.successRate = completedSpecs > 0 ? Number(((metrics.passed / completedSpecs) * 100).toFixed(2)) : 0;
+  metrics.successRate =
+    completedSpecs > 0
+      ? Number(((metrics.passed / completedSpecs) * 100).toFixed(2))
+      : 0;
 
   return {
     metrics,
     failedTests: Array.from(new Set(failedTests)),
     failedTestDetails: Array.from(
-      new Map(failedTestDetails.map((test) => [`${test.name}\u0000${test.reason}`, test])).values()
+      new Map(
+        failedTestDetails.map((test) => [
+          `${test.name}\u0000${test.reason}`,
+          test,
+        ])
+      ).values()
     ),
     specTimings,
     suiteTotalMs,
@@ -225,7 +241,12 @@ function parseGinkgoReport(jsonContent) {
   };
 }
 
-const suiteNodeTypes = ["SynchronizedBeforeSuite", "BeforeSuite", "SynchronizedAfterSuite", "AfterSuite"];
+const suiteNodeTypes = [
+  "SynchronizedBeforeSuite",
+  "BeforeSuite",
+  "SynchronizedAfterSuite",
+  "AfterSuite",
+];
 
 // Match Ginkgo failure markers for suite-level nodes in two forms:
 //   1. "[<SuiteNode>] [FAILED]"   — main failure line in the stdout body.
@@ -272,7 +293,11 @@ function isReasonStopLine(line) {
 }
 
 function isReasonNoiseLine(line, suiteHeader, failedMarker) {
-  return line === suiteHeader || line.startsWith(failedMarker) || line.startsWith("/");
+  return (
+    line === suiteHeader ||
+    line.startsWith(failedMarker) ||
+    line.startsWith("/")
+  );
 }
 
 /**

@@ -66,27 +66,11 @@ const {
  */
 
 const workflowStages = [
-  {
-    name: "bootstrap",
-    displayName: "Bootstrap cluster",
-    needsJobId: "bootstrap",
-  },
-  {
-    name: "configure-sdn",
-    displayName: "Configure SDN",
-    needsJobId: "configure-sdn",
-  },
-  {
-    name: "storage-setup",
-    displayName: "Configure storage",
-    needsJobId: "configure-storage",
-  },
-  {
-    name: "virtualization-setup",
-    displayName: "Configure Virtualization",
-    needsJobId: "configure-virtualization",
-  },
-  { name: "e2e-test", displayName: "E2E test", needsJobId: "e2e-test" },
+  { name: "bootstrap",            displayName: "Bootstrap cluster",        needsJobId: "bootstrap" },
+  { name: "configure-sdn",        displayName: "Configure SDN",            needsJobId: "configure-sdn" },
+  { name: "storage-setup",        displayName: "Configure storage",        needsJobId: "configure-storage" },
+  { name: "virtualization-setup", displayName: "Configure Virtualization", needsJobId: "configure-virtualization" },
+  { name: "e2e-test",             displayName: "E2E test",                 needsJobId: "e2e-test" },
 ];
 
 function readClusterReportConfigFromEnv(env = process.env) {
@@ -251,7 +235,11 @@ const ginkgoOutputSource = {
  * @returns {string|null} Path to the source file, or null when none exists.
  */
 function findGinkgoSource(config, source) {
-  return findSingleMatchingFile(config.reportsDir, source.pattern(config.storageType), source.label);
+  return findSingleMatchingFile(
+    config.reportsDir,
+    source.pattern(config.storageType),
+    source.label
+  );
 }
 
 /**
@@ -285,12 +273,21 @@ function parseGinkgoFile(filePath, core, source) {
       source: source.okSource,
     };
   } catch (error) {
-    core.warning(`Unable to parse ${source.label} ${filePath}: ${error.message}`);
+    core.warning(
+      `Unable to parse ${source.label} ${filePath}: ${error.message}`
+    );
     return emptyParsedReport(source.invalidSource);
   }
 }
 
-function buildReportPayload({ config, context, fallbackWorkflowRunUrl, branchName, parsedReport, sourcePath }) {
+function buildReportPayload({
+  config,
+  context,
+  fallbackWorkflowRunUrl,
+  branchName,
+  parsedReport,
+  sourcePath,
+}) {
   const clusterStatus = buildClusterStatus(config.stageResults);
   const testStatus = buildTestStatus(
     config.stageResults["e2e-test"],
@@ -298,8 +295,16 @@ function buildReportPayload({ config, context, fallbackWorkflowRunUrl, branchNam
     clusterStatus,
     parsedReport.metrics
   );
-  const reportSummary = buildReportSummary(config.storageType, clusterStatus, testStatus);
-  const workflowRunUrl = getReportJobUrl(reportSummary, config.stageJobUrls, fallbackWorkflowRunUrl);
+  const reportSummary = buildReportSummary(
+    config.storageType,
+    clusterStatus,
+    testStatus
+  );
+  const workflowRunUrl = getReportJobUrl(
+    reportSummary,
+    config.stageJobUrls,
+    fallbackWorkflowRunUrl
+  );
 
   return {
     schemaVersion: 1,
@@ -327,7 +332,11 @@ function buildReportPayload({ config, context, fallbackWorkflowRunUrl, branchNam
   };
 }
 
-function getReportJobUrl(reportSummary, stageJobUrls = {}, fallbackWorkflowRunUrl) {
+function getReportJobUrl(
+  reportSummary,
+  stageJobUrls = {},
+  fallbackWorkflowRunUrl
+) {
   if (reportSummary.failedStage && stageJobUrls[reportSummary.failedStage]) {
     return stageJobUrls[reportSummary.failedStage];
   }
