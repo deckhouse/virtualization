@@ -1,6 +1,6 @@
 module github.com/deckhouse/virtualization-controller
 
-go 1.25.9
+go 1.25.10
 
 tool (
 	github.com/matryer/moq
