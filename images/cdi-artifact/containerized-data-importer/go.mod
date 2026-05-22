@@ -57,14 +57,9 @@ require (
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
 	github.com/vbatts/tar-split v0.11.5 // indirect
-	go.opentelemetry.io/otel v1.39.0 // indirect
-	go.opentelemetry.io/otel/metric v1.39.0 // indirect
-	go.opentelemetry.io/otel/trace v1.39.0 // indirect
 	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8 // indirect
 	golang.org/x/net v0.48.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217 // indirect
-	google.golang.org/grpc v1.79.3 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
@@ -117,3 +112,6 @@ replace (
 )
 
 replace golang.org/x/crypto => golang.org/x/crypto v0.45.0 // CVE-2024-45337,CVE-2025-22869,CVE-2025-47914
+
+// Use reduced github.com/docker/docker module: only compare is needed for CDI.
+replace github.com/docker/docker => ./staging/src/github.com/docker/docker // CVE-2026-34040,CVE-2026-33997,CVE-2026-41567,CVE-2026-42306,CVE-2026-41568
