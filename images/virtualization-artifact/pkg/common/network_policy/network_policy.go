@@ -29,6 +29,10 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 )
 
+const (
+	moduleNamespaceLabelName = "module"
+)
+
 func CreateNetworkPolicy(ctx context.Context, c client.Client, obj metav1.Object, sup supplements.DataVolumeSupplement, finalizer string) error {
 	npName := sup.NetworkPolicy()
 	networkPolicy := netv1.NetworkPolicy{
@@ -52,8 +56,29 @@ func CreateNetworkPolicy(ctx context.Context, c client.Client, obj metav1.Object
 					},
 				},
 			},
+			Ingress: []netv1.NetworkPolicyIngressRule{
+				{
+					From: []netv1.NetworkPolicyPeer{
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchExpressions: []metav1.LabelSelectorRequirement{
+									{
+										Key:      moduleNamespaceLabelName,
+										Operator: metav1.LabelSelectorOpIn,
+										Values: []string{
+											"console",
+											"ingress-nginx",
+											"virtualization",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 			Egress:      []netv1.NetworkPolicyEgressRule{{}},
-			PolicyTypes: []netv1.PolicyType{netv1.PolicyTypeEgress},
+			PolicyTypes: []netv1.PolicyType{netv1.PolicyTypeIngress, netv1.PolicyTypeEgress},
 		},
 	}
 
