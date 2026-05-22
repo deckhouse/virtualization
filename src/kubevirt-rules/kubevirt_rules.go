@@ -108,6 +108,82 @@ var KubevirtAPIGroupsRules = map[string]rewriter.APIGroupRule{
 			},
 		},
 	},
+	"kubevirt.io": {
+		GroupRule: rewriter.GroupRule{
+			Group:            "kubevirt.io",
+			Versions:         []string{"v1", "v1alpha3"},
+			PreferredVersion: "v1",
+			Renamed:          internalPrefix,
+		},
+		ResourceRules: map[string]rewriter.ResourceRule{
+			// kubevirts.kubevirt.io
+			"kubevirts": {
+				Kind:             "KubeVirt",
+				ListKind:         "KubeVirtList",
+				Plural:           "kubevirts",
+				Singular:         "kubevirt",
+				Versions:         []string{"v1", "v1alpha3"},
+				PreferredVersion: "v1",
+				Categories:       []string{"all"},
+				ShortNames:       []string{"kv", "kvs"},
+			},
+			// virtualmachines.kubevirt.io
+			"virtualmachines": {
+				Kind:             "VirtualMachine",
+				ListKind:         "VirtualMachineList",
+				Plural:           "virtualmachines",
+				Singular:         "virtualmachine",
+				Versions:         []string{"v1", "v1alpha3"},
+				PreferredVersion: "v1",
+				Categories:       []string{"all"},
+				ShortNames:       []string{"vm", "vms"},
+			},
+			// virtualmachineinstances.kubevirt.io
+			"virtualmachineinstances": {
+				Kind:             "VirtualMachineInstance",
+				ListKind:         "VirtualMachineInstanceList",
+				Plural:           "virtualmachineinstances",
+				Singular:         "virtualmachineinstance",
+				Versions:         []string{"v1", "v1alpha3"},
+				PreferredVersion: "v1",
+				Categories:       []string{"all"},
+				ShortNames:       []string{"vmi", "vmsi"},
+			},
+			// virtualmachineinstancemigrations.kubevirt.io
+			"virtualmachineinstancemigrations": {
+				Kind:             "VirtualMachineInstanceMigration",
+				ListKind:         "VirtualMachineInstanceMigrationList",
+				Plural:           "virtualmachineinstancemigrations",
+				Singular:         "virtualmachineinstancemigration",
+				Versions:         []string{"v1", "v1alpha3"},
+				PreferredVersion: "v1",
+				Categories:       []string{"all"},
+				ShortNames:       []string{"vmim", "vmims"},
+			},
+			// virtualmachineinstancepresets.kubevirt.io
+			"virtualmachineinstancepresets": {
+				Kind:             "VirtualMachineInstancePreset",
+				ListKind:         "VirtualMachineInstancePresetList",
+				Plural:           "virtualmachineinstancepresets",
+				Singular:         "virtualmachineinstancepreset",
+				Versions:         []string{"v1", "v1alpha3"},
+				PreferredVersion: "v1",
+				Categories:       []string{"all"},
+				ShortNames:       []string{"vmipreset", "vmipresets"},
+			},
+			// virtualmachineinstancereplicasets.kubevirt.io
+			"virtualmachineinstancereplicasets": {
+				Kind:             "VirtualMachineInstanceReplicaSet",
+				ListKind:         "VirtualMachineInstanceReplicaSetList",
+				Plural:           "virtualmachineinstancereplicasets",
+				Singular:         "virtualmachineinstancereplicaset",
+				Versions:         []string{"v1", "v1alpha3"},
+				PreferredVersion: "v1",
+				Categories:       []string{"all"},
+				ShortNames:       []string{"vmirs", "vmirss"},
+			},
+		},
+	},
 	"clone.kubevirt.io": {
 		GroupRule: rewriter.GroupRule{
 			Group:            "clone.kubevirt.io",
