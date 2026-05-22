@@ -40,10 +40,10 @@ func GetBlockDevicePath(ctx context.Context, f *framework.Framework, vm *v1alpha
 	GinkgoHelper()
 
 	serial, ok := GetBlockDeviceSerialNumber(ctx, vm, bdKind, bdName)
-	Expect(ok).To(BeTrue(), "failed to get block device serial number")
+	Expect(ok).To(BeTrue(), fmt.Sprintf("failed to get block device %s/%s serial number", bdKind, bdName))
 
 	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
-	Expect(err).NotTo(HaveOccurred(), "failed to get device by serial")
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to get device %s/%s by serial", bdKind, bdName))
 	return devicePath
 }
 
@@ -51,58 +51,58 @@ func CreateBlockDeviceFilesystem(ctx context.Context, f *framework.Framework, vm
 	GinkgoHelper()
 
 	serial, ok := GetBlockDeviceSerialNumber(ctx, vm, bdKind, bdName)
-	Expect(ok).To(BeTrue(), "failed to get block device serial number")
+	Expect(ok).To(BeTrue(), fmt.Sprintf("failed to get block device %s/%s serial number", bdKind, bdName))
 
 	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
-	Expect(err).NotTo(HaveOccurred(), "failed to get device by serial")
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to get device %s/%s by serial", bdKind, bdName))
 
 	_, err = f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo mkfs.%s %s", fsType, devicePath))
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to create %s filesystem on block device %s/%s", fsType, bdKind, bdName))
 }
 
 func MountBlockDevice(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName, mountPoint string) {
 	GinkgoHelper()
 
 	serial, ok := GetBlockDeviceSerialNumber(ctx, vm, bdKind, bdName)
-	Expect(ok).To(BeTrue(), "failed to get block device serial number")
+	Expect(ok).To(BeTrue(), fmt.Sprintf("failed to get block device %s/%s serial number", bdKind, bdName))
 
 	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
-	Expect(err).NotTo(HaveOccurred(), "failed to get device by serial")
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to get device %s/%s by serial", bdKind, bdName))
 
 	_, err = f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo mount %s %s", devicePath, mountPoint))
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to mount block device %s/%s to %s", bdKind, bdName, mountPoint))
 }
 
 func UnmountBlockDevice(f *framework.Framework, vm *v1alpha2.VirtualMachine, mountPoint string) {
 	GinkgoHelper()
 
 	_, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo umount %s", mountPoint))
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to unmount %s", mountPoint))
 }
 
 func RegisterFstabEntry(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) {
 	GinkgoHelper()
 
 	serial, ok := GetBlockDeviceSerialNumber(ctx, vm, bdKind, bdName)
-	Expect(ok).To(BeTrue(), "failed to get block device serial number")
+	Expect(ok).To(BeTrue(), fmt.Sprintf("failed to get block device %s/%s serial number", bdKind, bdName))
 
 	cmd := fmt.Sprintf(`UUID=$(lsblk -o SERIAL,UUID | grep %s | awk "{print \$2}"); echo "UUID=$UUID /mnt ext4 defaults 0 0" | sudo tee -a /etc/fstab`, serial)
 	_, err := f.SSHCommand(vm.Name, vm.Namespace, cmd)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to register fstab entry for block device %s/%s", bdKind, bdName))
 }
 
 func GetBlockDeviceHash(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) string {
 	GinkgoHelper()
 
 	serial, ok := GetBlockDeviceSerialNumber(ctx, vm, bdKind, bdName)
-	Expect(ok).To(BeTrue(), "failed to get block device serial number")
+	Expect(ok).To(BeTrue(), fmt.Sprintf("failed to get block device %s/%s serial number", bdKind, bdName))
 
 	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
-	Expect(err).NotTo(HaveOccurred(), "failed to get device by serial")
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to get device %s/%s by serial", bdKind, bdName))
 
 	// We use dd to ensure the entire disk is read.
 	cmdOut, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo dd if=%s bs=4M | sha256sum | awk \"{print \\$1}\"", devicePath))
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to get hash for block device %s/%s", bdKind, bdName))
 	return strings.TrimSpace(cmdOut)
 }
 
@@ -110,13 +110,13 @@ func GetBlockDeviceLsblkSize(ctx context.Context, f *framework.Framework, vm *v1
 	GinkgoHelper()
 
 	serial, ok := GetBlockDeviceSerialNumber(ctx, vm, bdKind, bdName)
-	Expect(ok).To(BeTrue(), "failed to get block device serial number")
+	Expect(ok).To(BeTrue(), fmt.Sprintf("failed to get block device %s/%s serial number", bdKind, bdName))
 
 	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
-	Expect(err).NotTo(HaveOccurred(), "failed to get device by serial")
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to get device %s/%s by serial", bdKind, bdName))
 
 	cmdOut, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo lsblk --json -o SIZE %s", devicePath))
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to get lsblk size for block device %s/%s", bdKind, bdName))
 
 	var disks Disks
 	err = json.Unmarshal([]byte(cmdOut), &disks)
@@ -155,11 +155,11 @@ func GetBlockDeviceSerialNumber(ctx context.Context, vm *v1alpha2.VirtualMachine
 		Version:  "v1",
 		Resource: "internalvirtualizationvirtualmachineinstances",
 	}).Namespace(vm.Namespace).Get(ctx, vm.Name, metav1.GetOptions{})
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to get InternalVirtualizationVirtualMachineInstance %s/%s", vm.Namespace, vm.Name))
 
 	var kvvmi virtv1.VirtualMachineInstance
 	err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredVMI.Object, &kvvmi)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to convert InternalVirtualizationVirtualMachineInstance %s/%s to kubevirt VMI", vm.Namespace, vm.Name))
 
 	var blockDeviceName string
 	switch bdKind {
@@ -188,14 +188,14 @@ func WriteFile(f *framework.Framework, vm *v1alpha2.VirtualMachine, path, value 
 	// Escape single quotes in value to prevent command injection.
 	escapedValue := strings.ReplaceAll(value, "'", "'\"'\"'")
 	_, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo bash -c \"echo '%s' > %s\"", escapedValue, path))
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to write file %s on vm %s/%s", path, vm.Namespace, vm.Name))
 }
 
 func ReadFile(f *framework.Framework, vm *v1alpha2.VirtualMachine, path string) string {
 	GinkgoHelper()
 
 	cmdOut, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo cat %s", path))
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to read file %s on vm %s/%s", path, vm.Namespace, vm.Name))
 	return strings.TrimSpace(cmdOut)
 }
 
