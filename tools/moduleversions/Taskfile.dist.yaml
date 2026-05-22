@@ -13,7 +13,7 @@ tasks:
       - go mod download
 
   check:releases:
-    desc: "Check version on release site (https://releases.deckhouse.io/ee/modules/virtualization)"
+    desc: "Check version on release site (https://releases.deckhouse.io/modules/virtualization)"
     vars:
       COUNT: "{{ .COUNT | default 5 }}"
     deps:

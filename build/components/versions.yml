@@ -3,7 +3,7 @@ firmware:
   libvirt: v10.9.0
   edk2: stable202411
 core:
-  3p-kubevirt: v1.6.2-v12n.32
+  3p-kubevirt: v1.6.2-v12n.35
   distribution: 2.8.3
 package:
   acl: v2.3.1
