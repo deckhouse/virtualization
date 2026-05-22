@@ -138,7 +138,7 @@ var _ = Describe("VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
 		Expect(newVDBlankLsblkSize.Cmp(vdBlankLsblkSize)).To(Equal(common.CmpGreater))
 		Expect(newVDAttachLsblkSize.Cmp(vdAttachLsblkSize)).To(Equal(common.CmpGreater))
 
-		util.UntilDisksArePresentAndAttachedInVMStatus(ctx, f, framework.ShortTimeout, vm, vdRoot, vdBlank, vdAttach)
+		util.UntilDisksAreAttachedInVMStatus(ctx, f, framework.ShortTimeout, vm, vdRoot, vdBlank, vdAttach)
 	})
 })
 

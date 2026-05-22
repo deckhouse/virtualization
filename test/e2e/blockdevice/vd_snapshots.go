@@ -57,7 +57,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		}
 	})
 
-	It("validates snapshots for a plain VM scenario", func() {
+	It("validates snapshot lifecycle for a single VM", func() {
 		f := framework.NewFramework("virtual-disk-snapshots-plain")
 		f.Before()
 		DeferCleanup(f.After)
@@ -87,14 +87,14 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		By("Waiting for ready snapshot phase")
 		util.UntilObjectPhase(ctx, string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.MiddleTimeout, vdSnapshot)
 
-		By("Checking VirtualDiskSnapshot consistency and VolumeSnapshot readiness")
+		By("Checking VirtualDiskSnapshot consistency")
 		checkVdSnapshotConsistentlyAndReadyToUse(ctx, f, vdSnapshot)
 
 		By("Ensuring the virtual machine filesystem is unfrozen")
 		checkVMUnfrozen(ctx, f, vm)
 
 		By("Ensuring the disk is attached to the VM")
-		checkDiskAttachedToVM(ctx, f, vm, vd)
+		util.UntilDisksAreAttachedInVMStatus(ctx, f, framework.ShortTimeout, vm, vd)
 	})
 
 	It("validates snapshots for a disk with no consumer", func() {
@@ -124,7 +124,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		By("Waiting for ready snapshot phase")
 		util.UntilObjectPhase(ctx, string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.MiddleTimeout, vdSnapshot)
 
-		By("Checking VirtualDiskSnapshot consistency and VolumeSnapshot readiness")
+		By("Checking VirtualDiskSnapshot consistency")
 		checkVdSnapshotConsistentlyAndReadyToUse(ctx, f, vdSnapshot)
 	})
 
@@ -163,7 +163,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		By("Waiting for ready snapshots phase")
 		util.UntilObjectPhase(ctx, string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.MiddleTimeout, vdSnapshotRoot, vdSnapshotAttach)
 
-		By("Checking VirtualDiskSnapshots consistency and VolumeSnapshot readiness")
+		By("Checking VirtualDiskSnapshots consistency")
 		checkVdSnapshotConsistentlyAndReadyToUse(ctx, f, vdSnapshotRoot)
 		checkVdSnapshotConsistentlyAndReadyToUse(ctx, f, vdSnapshotAttach)
 
@@ -171,8 +171,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		checkVMUnfrozen(ctx, f, vm)
 
 		By("Ensuring disks are attached to the VM")
-		checkDiskAttachedToVM(ctx, f, vm, vdRoot)
-		checkDiskAttachedToVM(ctx, f, vm, vdAttach)
+		util.UntilDisksAreAttachedInVMStatus(ctx, f, framework.ShortTimeout, vm, vdRoot, vdAttach)
 	})
 
 	It("validates concurrent snapshots", func() {
@@ -206,7 +205,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		By("Waiting for ready snapshots phase")
 		util.UntilObjectPhase(ctx, string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.MiddleTimeout, util.ToObjects(vdSnapshots)...)
 
-		By("Checking VirtualDiskSnapshots consistency and VolumeSnapshot readiness")
+		By("Checking VirtualDiskSnapshots consistency")
 		for _, vdSnapshot := range vdSnapshots {
 			checkVdSnapshotConsistentlyAndReadyToUse(ctx, f, vdSnapshot)
 		}
@@ -215,8 +214,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		checkVMUnfrozen(ctx, f, vm)
 
 		By("Ensuring disks are attached to the VM")
-		checkDiskAttachedToVM(ctx, f, vm, vdRoot)
-		checkDiskAttachedToVM(ctx, f, vm, vdAttach)
+		util.UntilDisksAreAttachedInVMStatus(ctx, f, framework.ShortTimeout, vm, vdRoot, vdAttach)
 	})
 })
 
@@ -256,12 +254,12 @@ func ensureVMWasFrozen(ctx context.Context, f *framework.Framework, vm *v1alpha2
 }
 
 func generateVDSnapshot(name string, vd *v1alpha2.VirtualDisk) *v1alpha2.VirtualDiskSnapshot {
-	return vdsnapshotbuilder.New([]vdsnapshotbuilder.Option{
+	return vdsnapshotbuilder.New(
 		vdsnapshotbuilder.WithName(name),
 		vdsnapshotbuilder.WithNamespace(vd.Namespace),
 		vdsnapshotbuilder.WithVirtualDiskName(vd.Name),
 		vdsnapshotbuilder.WithRequiredConsistency(true),
-	}...)
+	)
 }
 
 func checkVMUnfrozen(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine) {
@@ -273,16 +271,6 @@ func checkVMUnfrozen(ctx context.Context, f *framework.Framework, vm *v1alpha2.V
 
 	_, frozenConditionExists := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, currentVM.Status.Conditions)
 	Expect(frozenConditionExists).To(BeFalse(), "frozen condition must not exist")
-}
-
-func checkDiskAttachedToVM(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, vd *v1alpha2.VirtualDisk) {
-	GinkgoHelper()
-
-	var currentVM v1alpha2.VirtualMachine
-	err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), &currentVM)
-	Expect(err).NotTo(HaveOccurred())
-
-	Expect(util.IsVDAttached(&currentVM, vd)).To(BeTrue(), "disk must be present in VM status")
 }
 
 func concurentlyVDSnapshotsCreation(ctx context.Context, f *framework.Framework, vds []*v1alpha2.VirtualDisk, cnt int) []*v1alpha2.VirtualDiskSnapshot {

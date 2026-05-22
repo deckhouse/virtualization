@@ -246,7 +246,7 @@ func UntilVMMigrationSucceeded(key client.ObjectKey, timeout time.Duration) {
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
 
-func UntilDisksArePresentAndAttachedInVMStatus(
+func UntilDisksAreAttachedInVMStatus(
 	ctx context.Context,
 	f *framework.Framework,
 	timeout time.Duration,
