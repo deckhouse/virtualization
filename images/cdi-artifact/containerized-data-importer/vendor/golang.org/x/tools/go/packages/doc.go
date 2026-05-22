@@ -83,9 +83,6 @@ See the Example function for typical usage.
 alternative build systems, by installing an appropriate "driver"
 program for the build system and specifying its location in the
 GOPACKAGESDRIVER environment variable.
-For example,
-https://github.com/bazelbuild/rules_go/wiki/Editor-and-tool-integration
-explains how to use the driver for Bazel.
 
 The driver program is responsible for interpreting patterns in its
 preferred notation and reporting information about the packages that
@@ -111,7 +108,7 @@ The go/build.Package structure encodes too much of the 'go build' way
 of organizing projects, leaving us in need of a data type that describes a
 package of Go source code independent of the underlying build system.
 We wanted something that works equally well with go build and vgo, and
-also other build systems such as Bazel and Blaze, making it possible to
+also other build systems, making it possible to
 construct analysis tools that work in all these environments.
 Tools such as errcheck and staticcheck were essentially unavailable to
 the Go community at Google, and some of Google's internal tools for Go
@@ -124,8 +121,7 @@ executes an external query tool appropriate to the current workspace.
 
 Loading packages always returns the complete import graph "all the way down",
 even if all you want is information about a single package, because the query
-mechanisms of all the build systems we currently support ({go,vgo} list, and
-blaze/bazel aspect-based query) cannot provide detailed information
+mechanisms of all the build systems we currently support cannot provide detailed information
 about one package without visiting all its dependencies too, so there is
 no additional asymptotic cost to providing transitive information.
 (This property might not be true of a hypothetical 5th build system.)
@@ -218,7 +214,7 @@ Questions & Tasks
   failed builds, import failures, import cycles, and so on, in a call to
   Load?
 
-- Support bazel, blaze, and go1.10 list, not just go1.11 list.
+- Support older go list variants, not just go1.11 list.
 
 - Handle (and test) various partial success cases, e.g.
   a mixture of good packages and:

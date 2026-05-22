@@ -8,7 +8,7 @@ import:
   add: /relocate
   to: /
   before: setup
-# Source https://github.com/kubevirt/containerized-data-importer/blob/v1.60.3/cmd/cdi-importer/BUILD.bazel
+# Binaries are built from images/cdi-artifact/containerized-data-importer by images/cdi-artifact/werf.inc.yaml.
 imageSpec:
   config:
     entrypoint: ["/usr/bin/cdi-importer", "-alsologtostderr"]
