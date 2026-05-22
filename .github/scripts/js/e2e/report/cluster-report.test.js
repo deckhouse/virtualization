@@ -495,7 +495,10 @@ describe("cluster-report", () => {
       expect(core.setOutput).toHaveBeenCalledWith("report_kind", "tests");
       expect(core.setOutput).toHaveBeenCalledWith("status", "failure");
       expect(core.setOutput).toHaveBeenCalledWith("failed_stage", "e2e-test");
-      expect(core.setOutput).toHaveBeenCalledWith("failed_stage_label", "E2E TEST");
+      expect(core.setOutput).toHaveBeenCalledWith(
+        "failed_stage_label",
+        "E2E TEST"
+      );
       expect(core.setOutput).toHaveBeenCalledWith(
         "workflow_run_url",
         "https://github.com/test/repo/actions/runs/12345"
@@ -518,7 +521,8 @@ describe("cluster-report", () => {
               leafNodeType: "SynchronizedBeforeSuite",
               state: "failed",
               failure: {
-                Message: "object v12n-e2e-testdata-iso status.phase is Pending, expected Ready",
+                Message:
+                  "object v12n-e2e-testdata-iso status.phase is Pending, expected Ready",
               },
             }),
           ],
@@ -549,14 +553,18 @@ describe("cluster-report", () => {
       expect(report.failedTestDetails).toEqual([
         {
           name: "[SynchronizedBeforeSuite]",
-          reason: "object v12n-e2e-testdata-iso status.phase is Pending, expected Ready",
+          reason:
+            "object v12n-e2e-testdata-iso status.phase is Pending, expected Ready",
         },
       ]);
     }));
 
   test("uses Ginkgo output log when JSON report is missing", async () =>
     inTempDir(async (tempDir) => {
-      const outputPath = path.join(tempDir, "e2e_output_replicated_2026-04-15.log");
+      const outputPath = path.join(
+        tempDir,
+        "e2e_output_replicated_2026-04-15.log"
+      );
       fs.writeFileSync(
         outputPath,
         [
@@ -601,7 +609,10 @@ describe("cluster-report", () => {
 
   test("parses real Ginkgo BeforeSuite failure stdout", async () =>
     inTempDir(async (tempDir) => {
-      const outputPath = path.join(tempDir, "e2e_output_replicated_2026-05-14.log");
+      const outputPath = path.join(
+        tempDir,
+        "e2e_output_replicated_2026-05-14.log"
+      );
       fs.writeFileSync(
         outputPath,
         [
@@ -611,7 +622,7 @@ describe("cluster-report", () => {
           "/home/runner/work/virtualization/virtualization/test/e2e/e2e_test.go:44",
           "PASS: all 94 specs have precheck labels",
           "  STEP: Ensuring 12 precreated CVIs are available @ 05/14/26 13:57:36.142",
-          '  CVI "v12n-e2e-testdata-iso" exists but not ready (phase: Pending), waiting...',
+          "  CVI \"v12n-e2e-testdata-iso\" exists but not ready (phase: Pending), waiting...",
           "  [FAILED] in [SynchronizedBeforeSuite] - /home/runner/work/.../until.go:207 @ 05/14/26 14:02:37.61",
           "[SynchronizedBeforeSuite] [FAILED] [307.964 seconds]",
           "[SynchronizedBeforeSuite]",
@@ -677,14 +688,18 @@ describe("cluster-report", () => {
         firstReportPath,
         createGinkgoReport({
           startedAt: "2026-04-15T09:30:44Z",
-          specs: [createSpecReport({ leafNodeText: "old pass", state: "passed" })],
+          specs: [
+            createSpecReport({ leafNodeText: "old pass", state: "passed" }),
+          ],
         })
       );
       fs.writeFileSync(
         secondReportPath,
         createGinkgoReport({
           startedAt: "2026-04-16T09:30:44Z",
-          specs: [createSpecReport({ leafNodeText: "latest pass", state: "passed" })],
+          specs: [
+            createSpecReport({ leafNodeText: "latest pass", state: "passed" }),
+          ],
         })
       );
 
@@ -706,7 +721,10 @@ describe("cluster-report", () => {
 
   test("falls back to missing-report status when raw Ginkgo JSON is invalid", async () =>
     inTempDir(async (tempDir) => {
-      const rawReportPath = path.join(tempDir, "e2e_report_replicated_2026-04-15.json");
+      const rawReportPath = path.join(
+        tempDir,
+        "e2e_report_replicated_2026-04-15.json"
+      );
       fs.writeFileSync(rawReportPath, "{not-valid-json");
 
       const reportFile = path.join(tempDir, "report.json");
@@ -743,9 +761,11 @@ describe("cluster-report", () => {
         reportFile,
       });
 
-      const writeSpy = jest.spyOn(fs, "writeFileSync").mockImplementation(() => {
-        throw new Error("disk full");
-      });
+      const writeSpy = jest
+        .spyOn(fs, "writeFileSync")
+        .mockImplementation(() => {
+          throw new Error("disk full");
+        });
 
       try {
         await expect(
@@ -787,7 +807,8 @@ describe("cluster-report", () => {
           "restores a virtual machine from a snapshot",
         ],
         containerHierarchyLabels: [["Slow"], []],
-        leafNodeText: "BestEffort restore mode; automatic restart approval mode; manual run policy",
+        leafNodeText:
+          "BestEffort restore mode; automatic restart approval mode; manual run policy",
         state: "failed",
       })
     );
