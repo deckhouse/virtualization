@@ -209,12 +209,6 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualIma
 
 		setPhaseConditionForFinishedImage(pvc, cb, &vi.Status.Phase, supgen)
 
-		// Protect Ready Disk and underlying PVC.
-		err = ds.diskService.Protect(ctx, supgen, vi, pvc)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
 		// Unprotect import time supplements to delete them later.
 		err = ds.importerService.Unprotect(ctx, pod, supgen)
 		if err != nil {

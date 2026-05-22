@@ -22,7 +22,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
@@ -40,7 +39,6 @@ const readyStep = "ready"
 type ReadyStepDiskService interface {
 	GetCapacity(pvc *corev1.PersistentVolumeClaim) string
 	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
-	Protect(ctx context.Context, sup supplements.Generator, owner client.Object, pvc *corev1.PersistentVolumeClaim) error
 }
 
 type ReadyStep struct {
@@ -111,15 +109,9 @@ func (s ReadyStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconci
 
 		log.Debug("PVC is Bound")
 
-		supgen := vdsupplements.NewGenerator(vd)
-		err := s.diskService.Protect(ctx, supgen, vd, s.pvc)
-		if err != nil {
-			return nil, fmt.Errorf("protect underlying pvc: %w", err)
-		}
-
 		if object.ShouldCleanupSubResources(vd) {
-			_, err = s.diskService.CleanUpSupplements(ctx, supgen)
-			if err != nil {
+			supgen := vdsupplements.NewGenerator(vd)
+			if _, err := s.diskService.CleanUpSupplements(ctx, supgen); err != nil {
 				return nil, fmt.Errorf("clean up supplements: %w", err)
 			}
 		}

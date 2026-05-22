@@ -111,6 +111,7 @@ func (s DiskService) StartPVCImport(ctx context.Context, pvcSize resource.Quanti
 			Name:        vd.Status.Target.PersistentVolumeClaim,
 			Namespace:   vd.Namespace,
 			Annotations: s.pvcImportAnnotations(source, pvcSize),
+			Finalizers:  s.diskProtectionFinalizers(),
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion:         v1alpha2.SchemeGroupVersion.String(),
 				Kind:               v1alpha2.VirtualDiskKind,
@@ -153,6 +154,7 @@ func (s DiskService) StartSupplementPVCImport(ctx context.Context, pvcSize resou
 			Name:            sup.PersistentVolumeClaim().Name,
 			Namespace:       sup.PersistentVolumeClaim().Namespace,
 			Annotations:     s.pvcImportAnnotations(source, pvcSize),
+			Finalizers:      s.diskProtectionFinalizers(),
 			OwnerReferences: []metav1.OwnerReference{ownerReferenceForObject(owner)},
 		},
 		Spec: *pvc.CreateSpec(&sc.Name, pvcSize, accessMode, volumeMode),
@@ -244,6 +246,22 @@ func (s DiskService) EnsureSupplementPVCImport(ctx context.Context, target *core
 // describe how its contents should be imported. The source can be a DVCR
 // registry image (used by Upload/HTTP/Registry and ObjectRef CVI/VI data
 // sources) or another PVC (used when cloning from a VirtualDisk).
+// diskProtectionFinalizers returns the finalizer slice applied to PVCs that
+// belong to a VirtualDisk/VirtualImage. The finalizer ensures the controller
+// has a chance to perform explicit cleanup before garbage collection deletes
+// the PVC. It is applied at creation time so no separate Protect call is
+// required afterwards.
+func (s DiskService) diskProtectionFinalizers() []string {
+	if s.protection == nil {
+		return nil
+	}
+	finalizer := s.protection.GetFinalizer()
+	if finalizer == "" {
+		return nil
+	}
+	return []string{finalizer}
+}
+
 func (s DiskService) pvcImportAnnotations(source *PVCImportSource, size resource.Quantity) map[string]string {
 	anno := map[string]string{
 		annotations.AnnPVCImportPod:       "",
@@ -609,6 +627,7 @@ func (s DiskService) makePVCCloneTarget(pvcSize resource.Quantity, sc *storagev1
 			Name:        vd.Status.Target.PersistentVolumeClaim,
 			Namespace:   vd.Namespace,
 			Annotations: pvcAnnotations,
+			Finalizers:  s.diskProtectionFinalizers(),
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion:         v1alpha2.SchemeGroupVersion.String(),
 				Kind:               v1alpha2.VirtualDiskKind,

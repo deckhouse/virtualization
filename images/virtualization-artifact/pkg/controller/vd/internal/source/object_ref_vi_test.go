@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
@@ -74,9 +73,6 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 			},
 			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, error) {
 				return false, nil
-			},
-			ProtectFunc: func(_ context.Context, _ supplements.Generator, _ client.Object, _ *corev1.PersistentVolumeClaim) error {
-				return nil
 			},
 			EnsurePVCImportFunc: func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ *v1alpha2.VirtualDisk, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
 				return corev1.PodRunning, nil

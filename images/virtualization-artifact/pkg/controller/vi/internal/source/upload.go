@@ -114,12 +114,6 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 
 		setPhaseConditionForFinishedImage(pvc, cb, &vi.Status.Phase, supgen)
 
-		// Protect Ready Disk and underlying PVC.
-		err = ds.diskService.Protect(ctx, supgen, vi, pvc)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
 		// Unprotect upload time supplements to delete them later.
 		err = ds.uploaderService.Unprotect(ctx, supgen, pod, svc, ing)
 		if err != nil {

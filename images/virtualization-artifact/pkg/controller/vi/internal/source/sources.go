@@ -258,9 +258,6 @@ func reconcilePVCImportFromDVCR(
 		vi.Status.Phase = v1alpha2.ImageProvisioning
 		cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("Import is in the process of provisioning to PVC.")
 		vi.Status.Progress = "50.0%"
-		if err := disk.Protect(ctx, supgen, vi, pvc); err != nil {
-			return reconcile.Result{}, err
-		}
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 }
@@ -321,9 +318,6 @@ func reconcilePVCImportFromReadySource(
 		vi.Status.Phase = v1alpha2.ImageProvisioning
 		vi.Status.Progress = "0%"
 		cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("Import is in the process of provisioning to PVC.")
-		if err := disk.Protect(ctx, supgen, vi, pvc); err != nil {
-			return reconcile.Result{}, err
-		}
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 }

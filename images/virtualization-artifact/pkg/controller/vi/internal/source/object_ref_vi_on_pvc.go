@@ -205,12 +205,6 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 
 		setPhaseConditionForFinishedImage(pvc, cb, &vi.Status.Phase, supgen)
 
-		// Protect Ready Disk and underlying PVC.
-		err = ds.diskService.Protect(ctx, supgen, vi, pvc)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
 		err = ds.diskService.Unprotect(ctx, supgen)
 		if err != nil {
 			return reconcile.Result{}, err

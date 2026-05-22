@@ -120,9 +120,6 @@ var _ = Describe("RegistryDataSource", func() {
 			},
 			CleanUpFunc:            func(_ context.Context, _ supplements.Generator) (bool, error) { return false, nil },
 			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, error) { return false, nil },
-			ProtectFunc: func(_ context.Context, _ supplements.Generator, _ client.Object, _ *corev1.PersistentVolumeClaim) error {
-				return nil
-			},
 		}
 
 		importerSvc = &RegistryDataSourceImporterServiceMock{

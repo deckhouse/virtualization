@@ -75,9 +75,6 @@ var _ = Describe("Blank", func() {
 			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, error) {
 				return false, nil
 			},
-			ProtectFunc: func(_ context.Context, _ supplements.Generator, _ client.Object, _ *corev1.PersistentVolumeClaim) error {
-				return nil
-			},
 		}
 
 		sc = &storagev1.StorageClass{
