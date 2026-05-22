@@ -351,6 +351,9 @@ func (s DiskService) ensurePVCImportScratch(ctx context.Context, target *corev1.
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: target.Namespace,
+			Labels: map[string]string{
+				annotations.QuotaExcludeLabel: annotations.QuotaExcludeValue,
+			},
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion:         "v1",
 				Kind:               "PersistentVolumeClaim",
@@ -480,6 +483,9 @@ func (s DiskService) makePVCImporterPod(podName string, target *corev1.Persisten
 			Name:        podName,
 			Namespace:   target.Namespace,
 			Annotations: podAnnotations,
+			Labels: map[string]string{
+				annotations.QuotaExcludeLabel: annotations.QuotaExcludeValue,
+			},
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion:         "v1",
 				Kind:               "PersistentVolumeClaim",
