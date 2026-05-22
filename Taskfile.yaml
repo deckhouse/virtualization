@@ -61,8 +61,8 @@ tasks:
       - test -n "{{.JSON}}" || (echo "JSON=... is required"; exit 1)
       - test -n "{{.DESCRIBE}}" || (echo "DESCRIBE=... is required"; exit 1)
       - >-
-        node .github/scripts/js/e2e/report/render-slowest-for-describe.js 
-        --json "{{.JSON}}" 
+        python3 .github/scripts/python/e2e_report/charts.py slowest
+        --json "{{.JSON}}"
         --describe "{{.DESCRIBE}}" --out-dir "{{.OUT_DIR}}"
 
   report:render:top-slowest:
@@ -75,7 +75,7 @@ tasks:
     cmds:
       - mkdir -p "{{.OUT_DIR}}" "{{.REPORTS_DIR}}"
       - >-
-        node .github/scripts/js/e2e/report/render-top-describes.js
+        python3 .github/scripts/python/e2e_report/charts.py top
         --reports-dir "{{.REPORTS_DIR}}"
         --out-dir "{{.OUT_DIR}}"
         --top-n "{{.TOP_N}}"

@@ -341,23 +341,23 @@ function hasSpecTimings(report) {
   return Array.isArray(report.specTimings) && report.specTimings.length > 0;
 }
 
-function renderChartCaption(_files, chartsUnavailable) {
+function buildChartCaption(_files, chartsUnavailable) {
   return chartsUnavailable ? "Charts unavailable." : "";
 }
 
 /**
- * Builds optional per-cluster thread messages for failed tests and duration charts.
+ * Builds optional per-cluster thread messages for failed tests and chart attachments.
  *
  * @param {Array<Record<string, any>>} orderedReports Cluster reports in display order.
  * @param {{
- *   renderClusterCharts?: function(Record<string, any>): Promise<Array<{name: string, buffer: Buffer, mimeType: string}>>,
+ *   getClusterChartFiles?: function(Record<string, any>): Promise<Array<{name: string, buffer: Buffer, mimeType: string}>>,
  *   core?: {warning?: function(string): void}
  * }} [options]
  * @returns {Promise<Array<{message: string, files: Array<{name: string, buffer: Buffer, mimeType: string}>}>>} Markdown thread payloads.
  */
 async function buildThreadMessages(
   orderedReports,
-  { renderClusterCharts, core } = {}
+  { getClusterChartFiles, core } = {}
 ) {
   const testsReports = orderedReports.filter((report) =>
     isTestResultReport(report)
@@ -370,14 +370,14 @@ async function buildThreadMessages(
     let files = [];
     let chartsUnavailable = false;
 
-    if (renderClusterCharts && hasSpecTimings(report)) {
+    if (getClusterChartFiles && hasSpecTimings(report)) {
       try {
-        files = await renderClusterCharts(report);
+        files = await getClusterChartFiles(report);
       } catch (error) {
         chartsUnavailable = true;
         if (core && typeof core.warning === "function") {
           core.warning(
-            `Unable to render duration charts for cluster ${
+            `Unable to prepare duration chart files for cluster ${
               getReportClusterKey(report) || "unknown"
             }: ${error.message}`
           );
@@ -401,7 +401,7 @@ async function buildThreadMessages(
       messageParts.push(`**${formatClusterLink(report)}**`);
     }
 
-    const chartCaption = renderChartCaption(files, chartsUnavailable);
+    const chartCaption = buildChartCaption(files, chartsUnavailable);
     if (chartCaption) {
       messageParts.push(chartCaption);
     }

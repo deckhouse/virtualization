@@ -489,26 +489,39 @@ jobs:
           path: downloaded-artifacts/
           merge-multiple: false
 
-      # Node 20 is required because actions/github-script@v7 ships with Node 20
-      # and chartjs-node-canvas pulls a native `canvas` binding whose ABI must
-      # match the runtime that ultimately requires it. Bump together with
-      # actions/github-script when v8 (Node 22) is available.
       - name: Set up Node.js for report rendering
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: .github/scripts/js/package-lock.json
+          cache-dependency-path: .github/scripts/js/package.json
+
+      - name: Set up Python for chart rendering
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: .github/scripts/python/requirements.txt
 
       - name: Install E2E report dependencies
-        run: npm ci
+        run: |
+          npm install
+          python3 -m pip install -r ../python/requirements.txt
         working-directory: .github/scripts/js
+
+      - name: Generate messenger chart files
+        run: >-
+          python3 .github/scripts/python/e2e_report/charts.py messenger-all
+          --reports-dir downloaded-artifacts
+          --out-dir tmp/messenger-charts
+          --manifest tmp/messenger-charts/manifest.json
 
       - name: Send results to channel
         id: render-report
         uses: actions/github-script@v7
         env:
           EXPECTED_STORAGE_TYPES: '["replicated","nfs"]'
+          CHARTS_MANIFEST: tmp/messenger-charts/manifest.json
           LOOP_API_BASE_URL: ${{ secrets.LOOP_API_BASE_URL }}
           LOOP_CHANNEL_ID: ${{ secrets.LOOP_CHANNEL_ID }}
           LOOP_TOKEN: ${{ secrets.LOOP_TOKEN }}
@@ -518,11 +531,11 @@ jobs:
             await renderMessengerReport({core});
 
       - name: Render top-5 slowest Describes per cluster
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const renderTopDescribes = require('./.github/scripts/js/e2e/report/render-top-describes');
-            await renderTopDescribes({core});
+        run: >-
+          python3 .github/scripts/python/e2e_report/charts.py top
+          --reports-dir downloaded-artifacts
+          --out-dir tmp
+          --top-n 5
 
       - name: Upload top-5 slowest Describe charts
         uses: actions/upload-artifact@v4

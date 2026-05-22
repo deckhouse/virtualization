@@ -13,12 +13,12 @@
 const fs = require("fs");
 const path = require("path");
 
-jest.mock("./messenger/charts/chart-renderer", () => ({
-  renderClusterCharts: jest.fn().mockResolvedValue([]),
+jest.mock("./messenger/chart-files", () => ({
+  getClusterChartFiles: jest.fn().mockResolvedValue([]),
 }));
 
 const renderMessengerReport = require("./messenger-report");
-const { renderClusterCharts } = require("./messenger/charts/chart-renderer");
+const { getClusterChartFiles } = require("./messenger/chart-files");
 const { readMessengerConfigFromEnv } = require("./messenger/config");
 const { createCore, withTempDir } = require("./shared/test-utils");
 
@@ -34,8 +34,8 @@ describe("messenger-report", () => {
     delete process.env.LOOP_STRICT_DELIVERY;
     delete process.env.LOOP_STRICT_FILE_UPLOAD;
     delete global.fetch;
-    renderClusterCharts.mockReset();
-    renderClusterCharts.mockResolvedValue([]);
+    getClusterChartFiles.mockReset();
+    getClusterChartFiles.mockResolvedValue([]);
   });
 
   test("reads normalized messenger config from env", () => {
@@ -186,7 +186,7 @@ describe("messenger-report", () => {
         buffer: Buffer.from("png"),
         mimeType: "image/png",
       };
-      renderClusterCharts.mockResolvedValue([chartFile]);
+      getClusterChartFiles.mockResolvedValue([chartFile]);
       fs.writeFileSync(
         path.join(tempDir, "e2e_report_replicated.json"),
         JSON.stringify({
@@ -243,9 +243,11 @@ describe("messenger-report", () => {
       );
     }));
 
-  test("warns and surfaces a placeholder when chart rendering fails", async () =>
+  test("warns and surfaces a placeholder when chart files are unavailable", async () =>
     inTempDir(async (tempDir) => {
-      renderClusterCharts.mockRejectedValue(new Error("canvas unavailable"));
+      getClusterChartFiles.mockRejectedValue(
+        new Error("chart cli unavailable")
+      );
       fs.writeFileSync(
         path.join(tempDir, "e2e_report_replicated.json"),
         JSON.stringify({
@@ -278,7 +280,7 @@ describe("messenger-report", () => {
 
       expect(core.warning).toHaveBeenCalledWith(
         expect.stringContaining(
-          "Unable to render duration charts for cluster replicated"
+          "Unable to prepare duration chart files for cluster replicated"
         )
       );
       expect(result.threadMessages).toEqual([
@@ -589,7 +591,7 @@ describe("messenger-report", () => {
         buffer: Buffer.from("png"),
         mimeType: "image/png",
       };
-      renderClusterCharts.mockResolvedValue([chartFile]);
+      getClusterChartFiles.mockResolvedValue([chartFile]);
       fs.writeFileSync(
         path.join(tempDir, "e2e_report_replicated.json"),
         JSON.stringify({

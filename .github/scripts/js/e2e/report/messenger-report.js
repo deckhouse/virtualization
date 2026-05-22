@@ -14,7 +14,7 @@ const fs = require("fs");
 
 const { listMatchingFiles } = require("./shared/fs-utils");
 const { REPORT_FILE_PATTERN } = require("./shared/report-model");
-const { renderClusterCharts } = require("./messenger/charts/chart-renderer");
+const { getClusterChartFiles } = require("./messenger/chart-files");
 const { makeThreadedReportInLoop } = require("./messenger/loop-client");
 const { readMessengerConfigFromEnv } = require("./messenger/config");
 const {
@@ -114,7 +114,7 @@ async function buildMessengerMessages({
 }) {
   const orderedReports = readReports(reportsDir, configuredClusters, core);
   const threadMessages = await buildThreadMessages(orderedReports, {
-    renderClusterCharts,
+    getClusterChartFiles,
     core,
   });
   return {
