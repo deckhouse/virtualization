@@ -219,6 +219,7 @@ shell:
 
     ./configure \
       --target-list="x86_64-softmmu" \
+      --extra-cflags="-march=x86-64-v2" \
       --with-pkgversion="-dvp" \
       --with-coroutine=ucontext \
       --tls-priority="@QEMU,SYSTEM" \
