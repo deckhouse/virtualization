@@ -5,9 +5,9 @@ metadata:
     heritage: deckhouse
     module: virtualization
     app.kubernetes.io/component: virtualization-controller
-  name: internalvirtualizationstorageprofiles.internal.virtualization.deckhouse.io
+  name: internalvirtualizationstorageprofiles.cdi.internal.virtualization.deckhouse.io
 spec:
-  group: internal.virtualization.deckhouse.io
+  group: cdi.internal.virtualization.deckhouse.io
   names:
     categories:
     - intvirt

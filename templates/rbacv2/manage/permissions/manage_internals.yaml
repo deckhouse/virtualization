@@ -11,7 +11,7 @@ metadata:
   name: d8:manage:permission:subsystem:virtualization:manage_internals
 rules:
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - cdi.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationstorageprofiles
   verbs:

@@ -92,7 +92,7 @@ var KubevirtAPIGroupsRules = map[string]rewriter.APIGroupRule{
 			Group:            "cdi.kubevirt.io",
 			Versions:         []string{"v1beta1"},
 			PreferredVersion: "v1beta1",
-			Renamed:          internalPrefix,
+			Renamed:          "cdi." + internalPrefix,
 		},
 		ResourceRules: map[string]rewriter.ResourceRule{
 			// storageprofiles.cdi.kubevirt.io
