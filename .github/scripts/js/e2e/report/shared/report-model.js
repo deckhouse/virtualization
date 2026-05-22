@@ -63,12 +63,7 @@ const stageMessage = {
   "artifact-missing": "TEST REPORTS NOT FOUND",
 };
 
-const clusterSetupStages = [
-  "bootstrap",
-  "configure-sdn",
-  "storage-setup",
-  "virtualization-setup",
-];
+const clusterSetupStages = ["bootstrap", "configure-sdn", "storage-setup", "virtualization-setup"];
 
 function zeroMetrics() {
   return {
@@ -94,8 +89,7 @@ const statusMessageTemplates = {
 };
 
 function buildStatusMessage(status, stageLabel) {
-  const template =
-    statusMessageTemplates[status] || statusMessageTemplates.failure;
+  const template = statusMessageTemplates[status] || statusMessageTemplates.failure;
   return template.replace("%s", stageLabel);
 }
 
@@ -135,12 +129,7 @@ function buildClusterStatus(stageResults) {
   };
 }
 
-function buildTestStatus(
-  testResult,
-  reportSource,
-  clusterStatus,
-  metrics = {}
-) {
+function buildTestStatus(testResult, reportSource, clusterStatus, metrics = {}) {
   const stageLabel = stageMessage["e2e-test"];
 
   if (clusterStatus.status !== "success") {
@@ -154,20 +143,13 @@ function buildTestStatus(
   const normalizedResult = normalizeJobResult(testResult);
 
   if (reportSource === "ginkgo-json" || reportSource === "ginkgo-output") {
-    const hasReportedFailures =
-      Number(metrics.failed || 0) > 0 || Number(metrics.errors || 0) > 0;
-    const status =
-      normalizedResult === "success" && hasReportedFailures
-        ? "failure"
-        : normalizedResult;
+    const hasReportedFailures = Number(metrics.failed || 0) > 0 || Number(metrics.errors || 0) > 0;
+    const status = normalizedResult === "success" && hasReportedFailures ? "failure" : normalizedResult;
 
     return {
       status,
       reason: status === "success" ? "" : "ginkgo-failed",
-      message:
-        status === "success"
-          ? "✅ E2E TESTS PASSED"
-          : buildStatusMessage(status, stageLabel),
+      message: status === "success" ? "✅ E2E TESTS PASSED" : buildStatusMessage(status, stageLabel),
     };
   }
 
@@ -236,8 +218,7 @@ function buildReportSummary(storageType, clusterStatus, testStatus) {
 
   return {
     failedStage: testStatus.status === "success" ? "success" : "e2e-test",
-    failedStageLabel:
-      testStatus.status === "success" ? "SUCCESS" : stageMessage["e2e-test"],
+    failedStageLabel: testStatus.status === "success" ? "SUCCESS" : stageMessage["e2e-test"],
     failedJobName: `E2E test (${storageType})`,
     reportKind: "tests",
     status: testStatus.status,
@@ -257,10 +238,7 @@ function isMissingReport(report) {
 
 function isClusterFailureReport(report) {
   if (report.clusterStatus) {
-    return (
-      report.clusterStatus.status !== "success" &&
-      report.clusterStatus.status !== "missing"
-    );
+    return report.clusterStatus.status !== "success" && report.clusterStatus.status !== "missing";
   }
 
   return report.reportKind !== "tests" && !isMissingReport(report);
@@ -272,10 +250,7 @@ function isTestResultReport(report) {
   }
 
   if (report.testStatus) {
-    return (
-      report.testStatus.status !== "not-run" &&
-      report.testStatus.status !== "missing"
-    );
+    return report.testStatus.status !== "not-run" && report.testStatus.status !== "missing";
   }
 
   return report.reportKind === "tests";

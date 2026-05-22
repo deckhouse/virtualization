@@ -49,9 +49,7 @@ function createContext() {
 function createGithub(jobNames) {
   const jobs = jobNames.map((name, index) => ({
     name,
-    html_url: `https://github.com/test/repo/actions/runs/12345/job/${
-      index + 1
-    }`,
+    html_url: `https://github.com/test/repo/actions/runs/12345/job/${index + 1}`,
   }));
 
   return {
@@ -215,17 +213,13 @@ describe("cluster-report", () => {
       });
 
       expect(report.cluster).toBe("nfs");
-      expect(report.workflowRunUrl).toBe(
-        "https://github.com/test/repo/actions/runs/12345"
-      );
+      expect(report.workflowRunUrl).toBe("https://github.com/test/repo/actions/runs/12345");
       expect(report.branch).toBe("main");
       expect(report.clusterStatus).toMatchObject({
         status: "failure",
         stage: "configure-sdn",
       });
-      expect(JSON.parse(fs.readFileSync(reportFile, "utf8")).cluster).toBe(
-        "nfs"
-      );
+      expect(JSON.parse(fs.readFileSync(reportFile, "utf8")).cluster).toBe("nfs");
     }));
 
   test("builds report from environment config", async () =>
@@ -256,13 +250,9 @@ describe("cluster-report", () => {
       });
 
       expect(report.cluster).toBe("replicated");
-      expect(report.workflowRunUrl).toBe(
-        "https://github.com/test/repo/actions/runs/12345"
-      );
+      expect(report.workflowRunUrl).toBe("https://github.com/test/repo/actions/runs/12345");
       expect(report.branch).toBe("main");
-      expect(JSON.parse(fs.readFileSync(reportFile, "utf8")).cluster).toBe(
-        "replicated"
-      );
+      expect(JSON.parse(fs.readFileSync(reportFile, "utf8")).cluster).toBe("replicated");
     }));
 
   test("reads stage results from env vars", async () =>
@@ -290,9 +280,7 @@ describe("cluster-report", () => {
         stage: "configure-sdn",
       });
       // No github — falls back to workflow run URL
-      expect(report.workflowRunUrl).toBe(
-        "https://github.com/test/repo/actions/runs/12345"
-      );
+      expect(report.workflowRunUrl).toBe("https://github.com/test/repo/actions/runs/12345");
     }));
 
   test("fetches job URLs from GitHub API", async () =>
@@ -327,9 +315,7 @@ describe("cluster-report", () => {
         stage: "configure-sdn",
       });
       // github provided — URL points to the specific failed job
-      expect(report.workflowRunUrl).toBe(
-        "https://github.com/test/repo/actions/runs/12345/job/2"
-      );
+      expect(report.workflowRunUrl).toBe("https://github.com/test/repo/actions/runs/12345/job/2");
     }));
 
   test("works without github (no job URLs)", async () =>
@@ -354,17 +340,12 @@ describe("cluster-report", () => {
 
       expect(report.cluster).toBe("replicated");
       // stageJobUrls is empty — falls back to workflow run URL
-      expect(report.workflowRunUrl).toBe(
-        "https://github.com/test/repo/actions/runs/12345"
-      );
+      expect(report.workflowRunUrl).toBe("https://github.com/test/repo/actions/runs/12345");
     }));
 
   test("marks Ginkgo JSON with failed specs as failed", async () =>
     inTempDir(async (tempDir) => {
-      const rawReportPath = path.join(
-        tempDir,
-        "e2e_report_replicated_2026-04-15.json"
-      );
+      const rawReportPath = path.join(tempDir, "e2e_report_replicated_2026-04-15.json");
       fs.writeFileSync(
         rawReportPath,
         createGinkgoReport({
@@ -437,10 +418,7 @@ describe("cluster-report", () => {
         total: 4,
         successRate: 33.33,
       });
-      expect(report.failedTests).toEqual([
-        "[It] Suite fails & burns [Slow]",
-        "[It] Other errors <loudly>",
-      ]);
+      expect(report.failedTests).toEqual(["[It] Suite fails & burns [Slow]", "[It] Other errors <loudly>"]);
       expect(report.failedTestDetails).toEqual([
         {
           name: "[It] Suite fails & burns [Slow]",
@@ -493,10 +471,7 @@ describe("cluster-report", () => {
       expect(core.setOutput).toHaveBeenCalledWith("report_kind", "tests");
       expect(core.setOutput).toHaveBeenCalledWith("status", "failure");
       expect(core.setOutput).toHaveBeenCalledWith("failed_stage", "e2e-test");
-      expect(core.setOutput).toHaveBeenCalledWith(
-        "failed_stage_label",
-        "E2E TEST"
-      );
+      expect(core.setOutput).toHaveBeenCalledWith("failed_stage_label", "E2E TEST");
       expect(core.setOutput).toHaveBeenCalledWith(
         "workflow_run_url",
         "https://github.com/test/repo/actions/runs/12345"
@@ -506,10 +481,7 @@ describe("cluster-report", () => {
 
   test("captures suite-level failures from Ginkgo JSON", async () =>
     inTempDir(async (tempDir) => {
-      const rawReportPath = path.join(
-        tempDir,
-        "e2e_report_replicated_2026-04-15.json"
-      );
+      const rawReportPath = path.join(tempDir, "e2e_report_replicated_2026-04-15.json");
       fs.writeFileSync(
         rawReportPath,
         createGinkgoReport({
@@ -519,8 +491,7 @@ describe("cluster-report", () => {
               leafNodeType: "SynchronizedBeforeSuite",
               state: "failed",
               failure: {
-                Message:
-                  "object v12n-e2e-testdata-iso status.phase is Pending, expected Ready",
+                Message: "object v12n-e2e-testdata-iso status.phase is Pending, expected Ready",
               },
             }),
           ],
@@ -551,18 +522,14 @@ describe("cluster-report", () => {
       expect(report.failedTestDetails).toEqual([
         {
           name: "[SynchronizedBeforeSuite]",
-          reason:
-            "object v12n-e2e-testdata-iso status.phase is Pending, expected Ready",
+          reason: "object v12n-e2e-testdata-iso status.phase is Pending, expected Ready",
         },
       ]);
     }));
 
   test("uses Ginkgo output log when JSON report is missing", async () =>
     inTempDir(async (tempDir) => {
-      const outputPath = path.join(
-        tempDir,
-        "e2e_output_replicated_2026-04-15.log"
-      );
+      const outputPath = path.join(tempDir, "e2e_output_replicated_2026-04-15.log");
       fs.writeFileSync(
         outputPath,
         [
@@ -607,10 +574,7 @@ describe("cluster-report", () => {
 
   test("parses real Ginkgo BeforeSuite failure stdout", async () =>
     inTempDir(async (tempDir) => {
-      const outputPath = path.join(
-        tempDir,
-        "e2e_output_replicated_2026-05-14.log"
-      );
+      const outputPath = path.join(tempDir, "e2e_output_replicated_2026-05-14.log");
       fs.writeFileSync(
         outputPath,
         [
@@ -661,45 +625,30 @@ describe("cluster-report", () => {
       const detail = report.failedTestDetails[0];
       expect(detail.name).toBe("[SynchronizedBeforeSuite]");
       expect(detail.reason).toContain("Timed out after 300.001s.");
-      expect(detail.reason).toContain(
-        "object v12n-e2e-testdata-iso status.phase is Pending, expected Ready"
-      );
+      expect(detail.reason).toContain("object v12n-e2e-testdata-iso status.phase is Pending, expected Ready");
       // The plain "[SynchronizedBeforeSuite]" header that follows the
       // "[FAILED] [307.964 seconds]" line must not leak into the reason.
-      expect(detail.reason.split("\n")[0]).not.toBe(
-        "[SynchronizedBeforeSuite]"
-      );
+      expect(detail.reason.split("\n")[0]).not.toBe("[SynchronizedBeforeSuite]");
     }));
 
   test("fails when multiple matching Ginkgo JSON reports exist", async () =>
     inTempDir(async (tempDir) => {
-      const firstReportPath = path.join(
-        tempDir,
-        "nested",
-        "e2e_report_replicated_2026-04-15.json"
-      );
-      const secondReportPath = path.join(
-        tempDir,
-        "e2e_report_replicated_2026-04-16.json"
-      );
+      const firstReportPath = path.join(tempDir, "nested", "e2e_report_replicated_2026-04-15.json");
+      const secondReportPath = path.join(tempDir, "e2e_report_replicated_2026-04-16.json");
       fs.mkdirSync(path.dirname(firstReportPath), { recursive: true });
 
       fs.writeFileSync(
         firstReportPath,
         createGinkgoReport({
           startedAt: "2026-04-15T09:30:44Z",
-          specs: [
-            createSpecReport({ leafNodeText: "old pass", state: "passed" }),
-          ],
+          specs: [createSpecReport({ leafNodeText: "old pass", state: "passed" })],
         })
       );
       fs.writeFileSync(
         secondReportPath,
         createGinkgoReport({
           startedAt: "2026-04-16T09:30:44Z",
-          specs: [
-            createSpecReport({ leafNodeText: "latest pass", state: "passed" }),
-          ],
+          specs: [createSpecReport({ leafNodeText: "latest pass", state: "passed" })],
         })
       );
 
@@ -721,10 +670,7 @@ describe("cluster-report", () => {
 
   test("falls back to missing-report status when raw Ginkgo JSON is invalid", async () =>
     inTempDir(async (tempDir) => {
-      const rawReportPath = path.join(
-        tempDir,
-        "e2e_report_replicated_2026-04-15.json"
-      );
+      const rawReportPath = path.join(tempDir, "e2e_report_replicated_2026-04-15.json");
       fs.writeFileSync(rawReportPath, "{not-valid-json");
 
       const reportFile = path.join(tempDir, "report.json");
@@ -748,9 +694,7 @@ describe("cluster-report", () => {
         status: "missing",
         reason: "ginkgo-report-invalid",
       });
-      expect(core.warning).toHaveBeenCalledWith(
-        expect.stringContaining("Unable to parse Ginkgo JSON report")
-      );
+      expect(core.warning).toHaveBeenCalledWith(expect.stringContaining("Unable to parse Ginkgo JSON report"));
     }));
 
   test("throws a descriptive error when writing the cluster report fails", async () =>
@@ -761,11 +705,9 @@ describe("cluster-report", () => {
         reportFile,
       });
 
-      const writeSpy = jest
-        .spyOn(fs, "writeFileSync")
-        .mockImplementation(() => {
-          throw new Error("disk full");
-        });
+      const writeSpy = jest.spyOn(fs, "writeFileSync").mockImplementation(() => {
+        throw new Error("disk full");
+      });
 
       try {
         await expect(
@@ -774,9 +716,7 @@ describe("cluster-report", () => {
             context: createContext(),
             config,
           })
-        ).rejects.toThrow(
-          `Unable to write cluster report file ${reportFile}: disk full`
-        );
+        ).rejects.toThrow(`Unable to write cluster report file ${reportFile}: disk full`);
       } finally {
         writeSpy.mockRestore();
       }
@@ -802,13 +742,9 @@ describe("cluster-report", () => {
 
     specs.push(
       createSpecReport({
-        containerHierarchyTexts: [
-          "VirtualMachineOperationRestore",
-          "restores a virtual machine from a snapshot",
-        ],
+        containerHierarchyTexts: ["VirtualMachineOperationRestore", "restores a virtual machine from a snapshot"],
         containerHierarchyLabels: [["Slow"], []],
-        leafNodeText:
-          "BestEffort restore mode; automatic restart approval mode; manual run policy",
+        leafNodeText: "BestEffort restore mode; automatic restart approval mode; manual run policy",
         state: "failed",
       })
     );

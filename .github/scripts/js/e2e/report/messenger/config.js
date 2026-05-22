@@ -81,9 +81,7 @@ function readLoopConfig(env = process.env) {
     return null;
   }
   if (!apiUrl || !channelId || !token) {
-    throw new Error(
-      "LOOP_CHANNEL_ID, LOOP_TOKEN, and LOOP_API_BASE_URL are required"
-    );
+    throw new Error("LOOP_CHANNEL_ID, LOOP_TOKEN, and LOOP_API_BASE_URL are required");
   }
   return {
     apiUrl,

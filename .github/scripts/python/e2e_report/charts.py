@@ -10,15 +10,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Render E2E report charts for CI and local debugging.
+
+Subcommands:
+- messenger-all renders feature-duration-status PNGs and writes a manifest.
+- slowest renders one slowest-specs PNG for a selected Describe.
+- top renders slowest-specs PNGs for the top-N slowest Describes.
+
+The manifest schema is {"clusters": {"cluster": [{"name", "path", "mimeType"}]}}.
+"""
+
 from __future__ import annotations
 
 import argparse
 import json
 import math
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import matplotlib
 
@@ -28,8 +39,10 @@ import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.ticker import FuncFormatter, MultipleLocator  # noqa: E402
 
 
-STATUSES = ("passed", "failed", "errors", "skipped")
-STATUS_COLORS = {
+StatusName = Literal["passed", "failed", "errors", "skipped"]
+
+STATUSES: tuple[StatusName, ...] = ("passed", "failed", "errors", "skipped")
+STATUS_COLORS: dict[StatusName, str] = {
     "passed": "#00b83f",
     "failed": "#ff3333",
     "errors": "#d9a300",
@@ -40,6 +53,8 @@ DURATION_COLORS = {
     "medium": "#3fb950",
     "slow": "#238636",
 }
+SLOW_THRESHOLD_MS = 300_000
+MEDIUM_THRESHOLD_MS = 60_000
 DEFAULT_TOP_N = 15
 REPORT_FILE_PATTERN = re.compile(r"^e2e_report_.*\.json$")
 
@@ -57,11 +72,13 @@ class Timing:
 
 
 def sanitize_filename_part(value: Any) -> str:
+    """Return a path-safe file name part for user-controlled chart labels."""
     safe = re.sub(r"[^a-zA-Z0-9_-]+", "_", str(value or "cluster"))
     return safe or "cluster"
 
 
 def to_seconds(ms: float) -> float:
+    """Convert milliseconds to rounded seconds for chart labels."""
     return round(float(ms) / 1000, 2)
 
 
@@ -110,29 +127,41 @@ def aggregate(spec_timings: list[dict[str, Any]] | None) -> tuple[list[Timing], 
 
 
 def duration_bucket(timing: Timing) -> str:
-    if timing.runtime_ms > 300_000:
+    if timing.runtime_ms > SLOW_THRESHOLD_MS:
         return "slow"
-    if timing.runtime_ms >= 60_000:
+    if timing.runtime_ms >= MEDIUM_THRESHOLD_MS:
         return "medium"
     return "fast"
 
 
 def format_seconds(seconds: float) -> str:
+    """Format seconds compactly for bar labels."""
     return f"{seconds:.0f}s" if seconds >= 10 else f"{seconds:.1f}s"
 
 
 def format_axis_seconds(value: float, _position: int) -> str:
+    """Format axis ticks as integer seconds."""
     return f"{int(value):,}"
 
 
 def next_tick(value: float, step: int) -> int:
+    """Round value up to the next axis tick."""
     if value <= 0:
         return step
     return int(math.ceil(value / step) * step)
 
 
-def render_feature_duration_status(report: dict[str, Any], output_dir: Path) -> dict[str, str]:
-    _, by_group = aggregate(report.get("specTimings") or [])
+def _cluster_key(report: dict[str, Any]) -> str:
+    return str(report.get("storageType") or report.get("cluster") or "").strip()
+
+
+def _compute_feature_segments(
+    by_group: dict[str, dict[str, Any]],
+) -> tuple[
+    list[str],
+    list[tuple[StatusName, list[float], list[float]]],
+    list[float],
+]:
     entries = sorted(
         by_group.items(),
         key=lambda item: (
@@ -142,28 +171,18 @@ def render_feature_duration_status(report: dict[str, Any], output_dir: Path) -> 
         ),
     )
     labels = [name for name, _ in entries]
-    height = max(6.4, 0.75 + len(labels) * 0.285)
-    fig, ax = plt.subplots(figsize=(10.24, height), dpi=100)
     left = [0.0] * len(entries)
+    segments: list[tuple[StatusName, list[float], list[float]]] = []
 
     for status in STATUSES:
         values = [to_seconds(group["status_durations"][status]) for _, group in entries]
-        ax.barh(labels, values, left=left, label=status, color=STATUS_COLORS[status], height=0.72)
-        for row, (offset, value) in enumerate(zip(left, values)):
-            if value <= 0:
-                continue
-            ax.text(
-                offset + value / 2,
-                row,
-                format_seconds(value),
-                ha="center",
-                va="center",
-                fontsize=6,
-                color="#333333",
-            )
+        segments.append((status, values, left.copy()))
         left = [current + value for current, value in zip(left, values)]
 
-    x_limit = next_tick(max(left, default=0), 60)
+    return labels, segments, left
+
+
+def _apply_axes_style(ax: Any, labels: list[str], x_limit: int) -> None:
     ax.set_xlim(0, x_limit)
     ax.set_title("Overall durations for Describes", fontsize=8, pad=12)
     ax.set_xlabel("Duration, seconds", fontsize=7)
@@ -190,7 +209,32 @@ def render_feature_duration_status(report: dict[str, Any], output_dir: Path) -> 
         spine.set_color("#dddddd")
         spine.set_linewidth(0.5)
 
-    cluster_name = sanitize_filename_part(report.get("cluster") or report.get("storageType") or "cluster")
+
+def render_feature_duration_status(report: dict[str, Any], output_dir: Path) -> dict[str, str]:
+    _, by_group = aggregate(report.get("specTimings") or [])
+    labels, segments, left = _compute_feature_segments(by_group)
+    height = max(6.4, 0.75 + len(labels) * 0.285)
+    fig, ax = plt.subplots(figsize=(10.24, height), dpi=100)
+
+    for status, values, segment_left in segments:
+        ax.barh(labels, values, left=segment_left, label=status, color=STATUS_COLORS[status], height=0.72)
+        for row, (offset, value) in enumerate(zip(segment_left, values)):
+            if value <= 0:
+                continue
+            ax.text(
+                offset + value / 2,
+                row,
+                format_seconds(value),
+                ha="center",
+                va="center",
+                fontsize=6,
+                color="#333333",
+            )
+
+    x_limit = next_tick(max(left, default=0), 60)
+    _apply_axes_style(ax, labels, x_limit)
+
+    cluster_name = sanitize_filename_part(_cluster_key(report) or "cluster")
     return save_figure(fig, output_dir / f"{cluster_name}-feature-duration-status.png")
 
 
@@ -212,7 +256,8 @@ def render_slowest_specs(
     ]
     line_widths = [2 if timing.state in {"failed", "errors"} else 0 for timing in top]
 
-    fig, ax = plt.subplots(figsize=(20.48, 7.2), dpi=100)
+    height = max(4.0, 0.6 + len(labels) * 0.45)
+    fig, ax = plt.subplots(figsize=(20.48, height), dpi=100)
     ax.barh(labels, values, color=colors, edgecolor=edge_colors, linewidth=line_widths)
     ax.set_title("Top slowest successful specs and failed specs (It/Entry)")
     ax.set_xlabel("Duration, seconds")
@@ -242,18 +287,22 @@ def save_figure(fig: plt.Figure, target_path: Path) -> dict[str, str]:
     }
 
 
-def runtime_ms(value: Any) -> int:
+def runtime_ns_to_ms(value: Any) -> int:
+    """Ginkgo SpecReport.RunTime is in nanoseconds; round to milliseconds."""
     try:
         runtime = float(value or 0)
     except (TypeError, ValueError):
         return 0
-    return round(runtime / 1_000_000) if math.isfinite(runtime) else 0
+    if not math.isfinite(runtime) or runtime < 0:
+        return 0
+    return round(runtime / 1_000_000)
 
 
-def metric_key_for_state(state: Any) -> str:
+def metric_key_for_state(state: Any) -> StatusName:
     normalized = str(state or "").strip().lower()
     if normalized in {"passed", "failed"}:
         return normalized
+    # Keep the same pending-to-skipped collapse as shared/report-model.js.
     if normalized in {"skipped", "pending"}:
         return "skipped"
     return "errors"
@@ -279,7 +328,7 @@ def parse_ginkgo_report(payload: Any) -> list[dict[str, Any]]:
                     "name": str(spec_report.get("LeafNodeText") or "").strip(),
                     "group": hierarchy[0] if hierarchy else "Top-level Its",
                     "state": metric_key_for_state(spec_report.get("State")),
-                    "runtimeMs": runtime_ms(spec_report.get("RunTime")),
+                    "runtimeMs": runtime_ns_to_ms(spec_report.get("RunTime")),
                 }
             )
 
@@ -288,7 +337,7 @@ def parse_ginkgo_report(payload: Any) -> list[dict[str, Any]]:
 
 def read_report(json_path: str | Path) -> dict[str, Any]:
     path = Path(json_path)
-    payload = json.loads(path.read_text())
+    payload = json.loads(path.read_text(encoding="utf-8"))
     if isinstance(payload, dict) and isinstance(payload.get("specTimings"), list):
         return payload
     return {"specTimings": parse_ginkgo_report(payload)}
@@ -318,7 +367,7 @@ def derive_storage_type(report_path: str | Path, fallback_storage: str | None = 
 
 
 def report_cluster_key(report: dict[str, Any]) -> str:
-    return str(report.get("cluster") or report.get("storageType") or "").strip()
+    return _cluster_key(report)
 
 
 def top_describes(spec_timings: list[dict[str, Any]] | None, top_n: int = 5) -> list[str]:
@@ -360,20 +409,19 @@ def render_messenger_charts(
     manifest = {"clusters": clusters}
     target_path = Path(manifest_path)
     target_path.parent.mkdir(parents=True, exist_ok=True)
-    target_path.write_text(json.dumps(manifest, indent=2, sort_keys=True))
+    target_path.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
     return manifest
 
 
-def render_slowest_for_describe(
-    json_path: str | Path,
+def _render_slowest_for_report(
+    report: dict[str, Any],
+    storage_name: str,
     describe: str,
-    out_dir: str | Path = "tmp",
-    storage: str | None = None,
+    output_dir: Path,
 ) -> dict[str, str]:
     if not describe:
         raise ValueError("--describe is required")
 
-    report = read_report(json_path)
     spec_timings = report.get("specTimings") or []
     filtered_timings = [
         timing for timing in spec_timings if str(timing.get("group") or "") == describe
@@ -387,12 +435,22 @@ def render_slowest_for_describe(
         ]
         raise ValueError("\n".join(lines))
 
+    return render_slowest_specs(filtered_timings, storage_name, describe, output_dir)
+
+
+def render_slowest_for_describe(
+    json_path: str | Path,
+    describe: str,
+    out_dir: str | Path = "tmp",
+    storage: str | None = None,
+) -> dict[str, str]:
+    report = read_report(json_path)
     storage_name = (
         storage
-        or str(report.get("storageType") or report.get("cluster") or "").strip()
+        or _cluster_key(report)
         or derive_storage_type(json_path)
     )
-    return render_slowest_specs(filtered_timings, storage_name, describe, Path(out_dir) / "charts")
+    return _render_slowest_for_report(report, storage_name, describe, Path(out_dir))
 
 
 def list_report_files(reports_dir: str | Path) -> list[Path]:
@@ -412,52 +470,92 @@ def render_top_describes(
         report = read_report(report_file)
         storage_name = report_cluster_key(report) or derive_storage_type(report_file)
         for describe in top_describes(report.get("specTimings") or [], top_n):
-            rendered_files.append(
-                render_slowest_for_describe(
-                    report_file,
-                    describe,
-                    out_dir=out_dir,
-                    storage=storage_name,
+            try:
+                rendered_files.append(
+                    _render_slowest_for_report(
+                        report,
+                        storage_name,
+                        describe,
+                        Path(out_dir),
+                    )
                 )
-            )
+            except Exception as error:
+                print(
+                    f'Failed to render Describe "{describe}" from "{report_file}": {error}',
+                    file=sys.stderr,
+                )
     return rendered_files
 
 
-def print_json(files: list[dict[str, str]]) -> None:
-    print(json.dumps(files, separators=(",", ":")))
+def collect_messenger_debug(reports_dir: str | Path) -> dict[str, dict[str, Any]]:
+    clusters: dict[str, dict[str, Any]] = {}
+    for report_file in list_report_files(reports_dir):
+        report = read_report(report_file)
+        cluster_name = report_cluster_key(report) or derive_storage_type(report_file)
+        _, by_group = aggregate(report.get("specTimings") or [])
+        clusters[cluster_name] = by_group
+    return {"clusters": clusters}
 
 
-def main() -> None:
+def collect_top_debug(reports_dir: str | Path, top_n: int) -> dict[str, dict[str, Any]]:
+    clusters: dict[str, dict[str, Any]] = {}
+    for report_file in list_report_files(reports_dir):
+        report = read_report(report_file)
+        cluster_name = report_cluster_key(report) or derive_storage_type(report_file)
+        clusters[cluster_name] = {
+            "topDescribes": top_describes(report.get("specTimings") or [], top_n),
+        }
+    return {"clusters": clusters}
+
+
+def write_debug_json(payload: Any, debug_json_path: str | Path) -> None:
+    target_path = Path(debug_json_path)
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    target_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Render E2E report charts")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    messenger = subparsers.add_parser("messenger", help="Render charts for one messenger report")
-    messenger.add_argument("--json", required=True)
-    messenger.add_argument("--out-dir", default="tmp")
-
     messenger_all = subparsers.add_parser("messenger-all", help="Render messenger charts and write a manifest")
     messenger_all.add_argument("--reports-dir", default="downloaded-artifacts")
-    messenger_all.add_argument("--out-dir", default="tmp/messenger-charts")
+    messenger_all.add_argument(
+        "--out-dir",
+        default="tmp/messenger-charts",
+        help="Literal directory for rendered PNG files.",
+    )
     messenger_all.add_argument("--manifest", default="tmp/messenger-charts/manifest.json")
+    messenger_all.add_argument("--debug-json", help="Write aggregate debug data to this JSON path.")
 
     slowest = subparsers.add_parser("slowest", help="Render slowest specs for one Describe")
     slowest.add_argument("--json", required=True)
     slowest.add_argument("--describe", required=True)
-    slowest.add_argument("--out-dir", default="tmp")
+    slowest.add_argument(
+        "--out-dir",
+        default="tmp",
+        help="Literal directory for the rendered PNG file.",
+    )
     slowest.add_argument("--storage")
 
     top = subparsers.add_parser("top", help="Render slowest specs for top-N Describes")
     top.add_argument("--reports-dir", default="downloaded-artifacts")
-    top.add_argument("--out-dir", default="tmp")
+    top.add_argument(
+        "--out-dir",
+        default="tmp",
+        help="Literal directory for rendered PNG files.",
+    )
     top.add_argument("--top-n", type=int, default=5)
+    top.add_argument("--debug-json", help="Write aggregate debug data to this JSON path.")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
-    if args.command == "messenger":
-        print_json(render_cluster_charts(read_report(args.json), Path(args.out_dir)))
-        return
     if args.command == "messenger-all":
+        if not list_report_files(args.reports_dir):
+            raise SystemExit(f'No report files found in "{args.reports_dir}".')
         render_messenger_charts(args.reports_dir, args.out_dir, args.manifest)
+        if args.debug_json:
+            write_debug_json(collect_messenger_debug(args.reports_dir), args.debug_json)
         print(args.manifest)
         return
     if args.command == "slowest":
@@ -465,7 +563,11 @@ def main() -> None:
         print(file["path"])
         return
     if args.command == "top":
+        if not list_report_files(args.reports_dir):
+            raise SystemExit(f'No report files found in "{args.reports_dir}".')
         files = render_top_describes(args.reports_dir, args.out_dir, args.top_n)
+        if args.debug_json:
+            write_debug_json(collect_top_debug(args.reports_dir, args.top_n), args.debug_json)
         for file in files:
             print(file["path"])
 

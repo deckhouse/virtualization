@@ -27,10 +27,7 @@ describe("chart-files", () => {
 
   test("loads chart files listed in the Python manifest", async () =>
     withTempDir("chart-files", async (tempDir) => {
-      const chartPath = path.join(
-        tempDir,
-        "replicated-feature-duration-status.png"
-      );
+      const chartPath = path.join(tempDir, "replicated-feature-duration-status.png");
       const manifestPath = path.join(tempDir, "manifest.json");
       fs.writeFileSync(chartPath, Buffer.from("png"));
       fs.writeFileSync(
@@ -51,9 +48,7 @@ describe("chart-files", () => {
 
       const files = await getClusterChartFiles({ cluster: "replicated" });
 
-      expect(files.map(({ name }) => name)).toEqual([
-        "replicated-feature-duration-status.png",
-      ]);
+      expect(files.map(({ name }) => name)).toEqual(["replicated-feature-duration-status.png"]);
       expect(files[0].buffer).toEqual(Buffer.from("png"));
       expect(files[0].mimeType).toBe("image/png");
     }));

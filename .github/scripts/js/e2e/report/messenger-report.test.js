@@ -71,9 +71,7 @@ describe("messenger-report", () => {
         LOOP_API_BASE_URL: "https://loop.example.invalid",
         // LOOP_CHANNEL_ID and LOOP_TOKEN intentionally absent
       })
-    ).toThrow(
-      "LOOP_CHANNEL_ID, LOOP_TOKEN, and LOOP_API_BASE_URL are required"
-    );
+    ).toThrow("LOOP_CHANNEL_ID, LOOP_TOKEN, and LOOP_API_BASE_URL are required");
   });
 
   test("uses default configured clusters when env override is absent", () => {
@@ -144,9 +142,7 @@ describe("messenger-report", () => {
       );
       expect(result.message).not.toContain("⚠️ Errors");
       expect(result.message).toContain("### Cluster failures");
-      expect(result.message).toContain(
-        "- [nfs](https://example.invalid/nfs): CONFIGURE SDN"
-      );
+      expect(result.message).toContain("- [nfs](https://example.invalid/nfs): CONFIGURE SDN");
       expect(result.message).not.toContain("### Top slowest tests");
       expect(result.message).not.toContain("### Failed tests");
       expect(result.threadMessages).toEqual([
@@ -173,9 +169,7 @@ describe("messenger-report", () => {
       const result = await renderMessengerReport({ core: createCore() });
 
       expect(result.message).toContain("### Missing reports");
-      expect(result.message).toContain(
-        "- replicated: ⚠️ E2E REPORT ARTIFACT NOT FOUND"
-      );
+      expect(result.message).toContain("- replicated: ⚠️ E2E REPORT ARTIFACT NOT FOUND");
       expect(result.threadMessages).toEqual([]);
     }));
 
@@ -231,12 +225,8 @@ describe("messenger-report", () => {
           files: [chartFile],
         },
       ]);
-      expect(result.threadMessages[0].message).not.toContain(
-        "### Test durations"
-      );
-      expect(result.threadMessages[0].message).not.toContain(
-        "Attached charts:"
-      );
+      expect(result.threadMessages[0].message).not.toContain("### Test durations");
+      expect(result.threadMessages[0].message).not.toContain("Attached charts:");
       expect(core.setOutput).toHaveBeenCalledWith(
         "thread_messages",
         JSON.stringify([result.threadMessages[0].message])
@@ -245,9 +235,7 @@ describe("messenger-report", () => {
 
   test("warns and surfaces a placeholder when chart files are unavailable", async () =>
     inTempDir(async (tempDir) => {
-      getClusterChartFiles.mockRejectedValue(
-        new Error("chart cli unavailable")
-      );
+      getClusterChartFiles.mockRejectedValue(new Error("chart cli unavailable"));
       fs.writeFileSync(
         path.join(tempDir, "e2e_report_replicated.json"),
         JSON.stringify({
@@ -266,9 +254,7 @@ describe("messenger-report", () => {
             successRate: 100,
           },
           failedTests: [],
-          specTimings: [
-            { name: "slow", group: "VM", state: "passed", runtimeMs: 90000 },
-          ],
+          specTimings: [{ name: "slow", group: "VM", state: "passed", runtimeMs: 90000 }],
         })
       );
 
@@ -279,9 +265,7 @@ describe("messenger-report", () => {
       const result = await renderMessengerReport({ core });
 
       expect(core.warning).toHaveBeenCalledWith(
-        expect.stringContaining(
-          "Unable to prepare duration chart files for cluster replicated"
-        )
+        expect.stringContaining("Unable to prepare duration chart files for cluster replicated")
       );
       expect(result.threadMessages).toEqual([
         {
@@ -397,8 +381,7 @@ describe("messenger-report", () => {
           files: [],
         },
         {
-          message:
-            "**[nfs](https://example.invalid/nfs)**\n\n| Tests | Reason |\n|---|---|\n| nfs | — |",
+          message: "**[nfs](https://example.invalid/nfs)**\n\n| Tests | Reason |\n|---|---|\n| nfs | — |",
           files: [],
         },
       ]);
@@ -476,8 +459,7 @@ describe("messenger-report", () => {
           testStatus: {
             status: "not-run",
             reason: "cluster-stage-failure",
-            message:
-              "E2E tests were not run because cluster setup did not finish",
+            message: "E2E tests were not run because cluster setup did not finish",
           },
           metrics: {
             passed: 0,
@@ -496,9 +478,7 @@ describe("messenger-report", () => {
 
       expect(result.message).not.toContain("Branch: `main`");
       expect(result.message).toContain("### Cluster failures");
-      expect(result.message).toContain(
-        "- [replicated](https://example.invalid/replicated): ❌ CONFIGURE SDN FAILED"
-      );
+      expect(result.message).toContain("- [replicated](https://example.invalid/replicated): ❌ CONFIGURE SDN FAILED");
       expect(result.threadMessages).toEqual([]);
     }));
 
@@ -520,8 +500,7 @@ describe("messenger-report", () => {
           testStatus: {
             status: "not-run",
             reason: "cluster-stage-failure",
-            message:
-              "E2E tests were not run because cluster setup did not finish",
+            message: "E2E tests were not run because cluster setup did not finish",
           },
           metrics: {
             passed: 0,
@@ -610,9 +589,7 @@ describe("messenger-report", () => {
             successRate: 83.33,
           },
           failedTests: ["[It] fails"],
-          specTimings: [
-            { name: "slow", group: "VM", state: "failed", runtimeMs: 90000 },
-          ],
+          specTimings: [{ name: "slow", group: "VM", state: "failed", runtimeMs: 90000 }],
         })
       );
 
@@ -724,9 +701,7 @@ describe("messenger-report", () => {
 
       // Empty body → no post id → thread replies cannot be sent → warning emitted.
       expect(global.fetch).toHaveBeenCalledTimes(1);
-      expect(core.warning).toHaveBeenCalledWith(
-        expect.stringContaining("Loop API did not return a post id")
-      );
+      expect(core.warning).toHaveBeenCalledWith(expect.stringContaining("Loop API did not return a post id"));
       // Report outputs are still set because the message was built before sending.
       expect(core.setOutput).toHaveBeenCalledWith("thread_messages", "[]");
     }));
@@ -771,12 +746,8 @@ describe("messenger-report", () => {
 
       // Non-JSON body → parse warning → no post id → delivery warning.
       expect(global.fetch).toHaveBeenCalledTimes(1);
-      expect(core.warning).toHaveBeenCalledWith(
-        expect.stringContaining("Loop API returned a non-JSON response body")
-      );
-      expect(core.warning).toHaveBeenCalledWith(
-        expect.stringContaining("Loop API did not return a post id")
-      );
+      expect(core.warning).toHaveBeenCalledWith(expect.stringContaining("Loop API returned a non-JSON response body"));
+      expect(core.warning).toHaveBeenCalledWith(expect.stringContaining("Loop API did not return a post id"));
       // Report outputs are still set because the message was built before sending.
       expect(core.setOutput).toHaveBeenCalledWith("thread_messages", "[]");
     }));
@@ -861,9 +832,7 @@ describe("messenger-report", () => {
         text: async () => "server exploded",
       });
 
-      await expect(
-        renderMessengerReport({ core: createCore() })
-      ).rejects.toThrow(
+      await expect(renderMessengerReport({ core: createCore() })).rejects.toThrow(
         "Loop API request failed with status 500: server exploded"
       );
     }));

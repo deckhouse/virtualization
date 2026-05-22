@@ -44,5 +44,4 @@ function getClusterChartFiles(report) {
 
 module.exports = {
   getClusterChartFiles,
-  readChartManifest,
 };

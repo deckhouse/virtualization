@@ -46,9 +46,7 @@ function parseLoopApiPayload(responseText, core) {
   try {
     return JSON.parse(responseText);
   } catch (error) {
-    core.warning(
-      `Loop API returned a non-JSON response body: ${error.message}`
-    );
+    core.warning(`Loop API returned a non-JSON response body: ${error.message}`);
     return {};
   }
 }
@@ -64,14 +62,7 @@ function parseLoopApiPayload(responseText, core) {
  * @param {{fetch?: typeof fetch}} [options] Optional HTTP client dependencies.
  * @returns {Promise<Record<string, any>>} Parsed Loop API response.
  */
-async function postToLoopApi(
-  loop,
-  message,
-  rootId,
-  core,
-  fileIds = [],
-  { fetch: fetchFn = globalThis.fetch } = {}
-) {
+async function postToLoopApi(loop, message, rootId, core, fileIds = [], { fetch: fetchFn = globalThis.fetch } = {}) {
   const body = {
     channel_id: loop.channelId,
     message,
@@ -90,9 +81,7 @@ async function postToLoopApi(
   const responseText = await response.text();
 
   if (!response.ok) {
-    throw new Error(
-      `Loop API request failed with status ${response.status}: ${responseText}`
-    );
+    throw new Error(`Loop API request failed with status ${response.status}: ${responseText}`);
   }
 
   const payload = parseLoopApiPayload(responseText, core);
@@ -115,14 +104,7 @@ function getFilesApiUrl(apiUrl) {
  * @param {{fetch?: typeof fetch}} [options] Optional HTTP client dependencies.
  * @returns {Promise<string>} Uploaded Loop file id.
  */
-async function uploadFileToLoop(
-  loop,
-  fileName,
-  buffer,
-  core,
-  mimeType,
-  { fetch: fetchFn = globalThis.fetch } = {}
-) {
+async function uploadFileToLoop(loop, fileName, buffer, core, mimeType, { fetch: fetchFn = globalThis.fetch } = {}) {
   const formData = new FormData();
   formData.append("channel_id", loop.channelId);
   formData.append("files", new Blob([buffer], { type: mimeType }), fileName);
@@ -137,21 +119,16 @@ async function uploadFileToLoop(
   const responseText = await response.text();
 
   if (!response.ok) {
-    throw new Error(
-      `Loop file upload failed with status ${response.status}: ${responseText}`
-    );
+    throw new Error(`Loop file upload failed with status ${response.status}: ${responseText}`);
   }
 
   const payload = parseLoopApiPayload(responseText, core);
-  const fileId =
-    payload.file_infos && payload.file_infos[0] && payload.file_infos[0].id;
+  const fileId = payload.file_infos && payload.file_infos[0] && payload.file_infos[0].id;
   if (!fileId) {
     throw new Error("Loop API did not return uploaded file id");
   }
 
-  core.info(
-    `Loop API accepted file ${fileName} with status ${response.status}`
-  );
+  core.info(`Loop API accepted file ${fileName} with status ${response.status}`);
   return fileId;
 }
 
@@ -173,9 +150,7 @@ async function makeThreadedReportInLoop(
   });
 
   if (!rootPost.id) {
-    throw new Error(
-      "Loop API did not return a post id; thread replies cannot be attached"
-    );
+    throw new Error("Loop API did not return a post id; thread replies cannot be attached");
   }
 
   for (const reply of threadMessages) {
@@ -189,9 +164,7 @@ async function makeThreadedReportInLoop(
           })
         )
       );
-      fileIds = results
-        .filter((result) => result.status === "fulfilled")
-        .map((result) => result.value);
+      fileIds = results.filter((result) => result.status === "fulfilled").map((result) => result.value);
 
       const failures = results.filter((result) => result.status === "rejected");
       for (const failure of failures) {
@@ -200,9 +173,7 @@ async function makeThreadedReportInLoop(
         core.warning(`Loop file upload failed for one attachment: ${details}`);
       }
       if (loop.strictFileUploads && failures.length > 0) {
-        throw new Error(
-          "Strict file uploads enabled; at least one attachment failed"
-        );
+        throw new Error("Strict file uploads enabled; at least one attachment failed");
       }
     }
     await postToLoopApi(loop, reply.message, rootPost.id, core, fileIds, {

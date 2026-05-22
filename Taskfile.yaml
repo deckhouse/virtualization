@@ -63,7 +63,7 @@ tasks:
       - >-
         python3 .github/scripts/python/e2e_report/charts.py slowest
         --json "{{.JSON}}"
-        --describe "{{.DESCRIBE}}" --out-dir "{{.OUT_DIR}}"
+        --describe "{{.DESCRIBE}}" --out-dir "{{.OUT_DIR}}/charts"
 
   report:render:top-slowest:
     desc: "Render slowest-specs charts for top-N slowest Describes"
@@ -77,7 +77,7 @@ tasks:
       - >-
         python3 .github/scripts/python/e2e_report/charts.py top
         --reports-dir "{{.REPORTS_DIR}}"
-        --out-dir "{{.OUT_DIR}}"
+        --out-dir "{{.OUT_DIR}}/charts"
         --top-n "{{.TOP_N}}"
 
   check-helm:

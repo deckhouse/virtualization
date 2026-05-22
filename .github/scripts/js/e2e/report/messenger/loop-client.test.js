@@ -82,9 +82,7 @@ describe("loop-client", () => {
         text: async () => JSON.stringify({ id: "reply-post-id" }),
       },
     ];
-    global.fetch = jest
-      .fn()
-      .mockImplementation(() => Promise.resolve(responses.shift()));
+    global.fetch = jest.fn().mockImplementation(() => Promise.resolve(responses.shift()));
 
     await makeThreadedReportInLoop(
       {
@@ -153,9 +151,7 @@ describe("loop-client", () => {
         text: async () => JSON.stringify({ id: "reply-post-id" }),
       },
     ];
-    global.fetch = jest
-      .fn()
-      .mockImplementation(() => Promise.resolve(responses.shift()));
+    global.fetch = jest.fn().mockImplementation(() => Promise.resolve(responses.shift()));
 
     await makeThreadedReportInLoop(
       {
@@ -184,12 +180,8 @@ describe("loop-client", () => {
 
     expect(global.fetch).toHaveBeenCalledTimes(4);
     expect(global.fetch.mock.calls[0][0]).toBe(loop.apiUrl);
-    expect(global.fetch.mock.calls[1][0]).toBe(
-      "https://loop.example.invalid/api/v4/files"
-    );
-    expect(global.fetch.mock.calls[2][0]).toBe(
-      "https://loop.example.invalid/api/v4/files"
-    );
+    expect(global.fetch.mock.calls[1][0]).toBe("https://loop.example.invalid/api/v4/files");
+    expect(global.fetch.mock.calls[2][0]).toBe("https://loop.example.invalid/api/v4/files");
     expect(global.fetch.mock.calls[3][0]).toBe(loop.apiUrl);
 
     const replyBody = JSON.parse(global.fetch.mock.calls[3][1].body);
@@ -198,9 +190,7 @@ describe("loop-client", () => {
     expect(replyBody.file_ids).toEqual(["file-one"]);
 
     expect(core.warning).toHaveBeenCalledWith(
-      expect.stringContaining(
-        "Loop file upload failed for one attachment: Loop file upload failed with status 403"
-      )
+      expect.stringContaining("Loop file upload failed for one attachment: Loop file upload failed with status 403")
     );
     expect(core.warning).toHaveBeenCalledTimes(1);
   });
@@ -224,9 +214,7 @@ describe("loop-client", () => {
         text: async () => "permission denied",
       },
     ];
-    global.fetch = jest
-      .fn()
-      .mockImplementation(() => Promise.resolve(responses.shift()));
+    global.fetch = jest.fn().mockImplementation(() => Promise.resolve(responses.shift()));
 
     await expect(
       makeThreadedReportInLoop(
@@ -248,9 +236,7 @@ describe("loop-client", () => {
         },
         createCore()
       )
-    ).rejects.toThrow(
-      "Strict file uploads enabled; at least one attachment failed"
-    );
+    ).rejects.toThrow("Strict file uploads enabled; at least one attachment failed");
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
@@ -273,9 +259,7 @@ describe("loop-client", () => {
         text: async () => JSON.stringify({ id: "reply-post-id" }),
       },
     ];
-    const fetch = jest
-      .fn()
-      .mockImplementation(() => Promise.resolve(responses.shift()));
+    const fetch = jest.fn().mockImplementation(() => Promise.resolve(responses.shift()));
 
     await makeThreadedReportInLoop(
       {

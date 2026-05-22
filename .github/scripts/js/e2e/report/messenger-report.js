@@ -17,14 +17,8 @@ const { REPORT_FILE_PATTERN } = require("./shared/report-model");
 const { getClusterChartFiles } = require("./messenger/chart-files");
 const { makeThreadedReportInLoop } = require("./messenger/loop-client");
 const { readMessengerConfigFromEnv } = require("./messenger/config");
-const {
-  createMissingReport,
-  getReportClusterKey,
-} = require("./messenger/model");
-const {
-  buildMainMessage,
-  buildThreadMessages,
-} = require("./messenger/markdown");
+const { createMissingReport, getReportClusterKey } = require("./messenger/model");
+const { buildMainMessage, buildThreadMessages } = require("./messenger/markdown");
 
 /**
  * @typedef {Object} MessengerReportCore
@@ -79,9 +73,7 @@ function readReports(reportsDir, configuredClusters, core) {
   }
 
   // Configured clusters first, in declared order; missing ones get synthetic reports.
-  const result = configuredClusters.map(
-    (name) => reportsByCluster.get(name) ?? createMissingReport(name)
-  );
+  const result = configuredClusters.map((name) => reportsByCluster.get(name) ?? createMissingReport(name));
 
   // Any extra clusters not in the configured list, sorted alphabetically.
   const configuredSet = new Set(configuredClusters);
@@ -91,9 +83,7 @@ function readReports(reportsDir, configuredClusters, core) {
       extras.push(report);
     }
   }
-  extras.sort((a, b) =>
-    getReportClusterKey(a).localeCompare(getReportClusterKey(b))
-  );
+  extras.sort((a, b) => getReportClusterKey(a).localeCompare(getReportClusterKey(b)));
 
   return [...result, ...extras];
 }
@@ -107,11 +97,7 @@ function readReports(reportsDir, configuredClusters, core) {
  *   threadMessages: Array<{message: string, files: Array<Record<string, any>>}>
  * }} Rendered markdown payloads.
  */
-async function buildMessengerMessages({
-  reportsDir,
-  configuredClusters,
-  core,
-}) {
+async function buildMessengerMessages({ reportsDir, configuredClusters, core }) {
   const orderedReports = readReports(reportsDir, configuredClusters, core);
   const threadMessages = await buildThreadMessages(orderedReports, {
     getClusterChartFiles,
@@ -143,17 +129,11 @@ async function renderMessengerReport({ core, reportsDir }) {
 
   core.info(message);
   core.setOutput("message", message);
-  core.setOutput(
-    "thread_messages",
-    JSON.stringify(threadMessages.map((threadMessage) => threadMessage.message))
-  );
+  core.setOutput("thread_messages", JSON.stringify(threadMessages.map((threadMessage) => threadMessage.message)));
 
   if (config.loop) {
     try {
-      await makeThreadedReportInLoop(
-        { message, threadMessages, loop: config.loop },
-        core
-      );
+      await makeThreadedReportInLoop({ message, threadMessages, loop: config.loop }, core);
     } catch (error) {
       core.warning(`Unable to deliver report to Loop API: ${error.message}`);
       if (config.loop.strictDelivery) {

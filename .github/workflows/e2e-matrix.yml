@@ -503,11 +503,17 @@ jobs:
           cache: pip
           cache-dependency-path: .github/scripts/python/requirements.txt
 
-      - name: Install E2E report dependencies
-        run: |
-          npm install
-          python3 -m pip install -r ../python/requirements.txt
+      - name: Install JS report deps
+        run: npm install
         working-directory: .github/scripts/js
+
+      - name: Install Python chart deps
+        run: python3 -m pip install -r .github/scripts/python/requirements.txt
+
+      - name: Show installed Python tooling
+        run: |
+          python3 -V
+          python3 -m pip list
 
       - name: Generate messenger chart files
         run: >-
@@ -534,7 +540,7 @@ jobs:
         run: >-
           python3 .github/scripts/python/e2e_report/charts.py top
           --reports-dir downloaded-artifacts
-          --out-dir tmp
+          --out-dir tmp/charts
           --top-n 5
 
       - name: Upload top-5 slowest Describe charts
