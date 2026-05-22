@@ -27,19 +27,19 @@ import (
 
 	"github.com/containers/image/v5/docker"
 	"github.com/containers/image/v5/image"
-	"github.com/containers/image/v5/manifest"
 	"github.com/containers/image/v5/oci/archive"
 	"github.com/containers/image/v5/pkg/blobinfocache"
 	"github.com/containers/image/v5/types"
 	"github.com/pkg/errors"
 
 	"k8s.io/klog/v2"
-
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 const (
 	whFilePrefix = ".wh."
+
+	registrySchemeDocker = "docker"
+	registrySchemeOCI    = "oci-archive"
 )
 
 func commandTimeoutContext() (context.Context, context.CancelFunc) {
@@ -89,9 +89,9 @@ func parseImageName(img string) (types.ImageReference, error) {
 		return nil, errors.Errorf(`Invalid image name "%s", expected colon-separated transport:reference`, img)
 	}
 	switch parts[0] {
-	case cdiv1.RegistrySchemeDocker:
+	case registrySchemeDocker:
 		return docker.ParseReference(parts[1])
-	case cdiv1.RegistrySchemeOci:
+	case registrySchemeOCI:
 		return archive.ParseReference(parts[1])
 	}
 	return nil, errors.Errorf(`Invalid image name "%s", unknown transport`, img)
@@ -240,38 +240,6 @@ func copyRegistryImage(url, destDir, pathPrefix, accessKey, secKey, certDir stri
 	return info, nil
 }
 
-// GetImageDigest returns the digest of the container image at url.
-// url: source registry url.
-// accessKey: accessKey for the registry described in url.
-// secKey: secretKey for the registry described in url.
-// certDir: directory public CA keys are stored for registry identity verification
-// insecureRegistry: boolean if true will allow insecure registries.
-func GetImageDigest(url, accessKey, secKey, certDir string, insecureRegistry bool) (string, error) {
-	klog.Infof("Inspecting image from '%v'", url)
-
-	ctx, cancel := commandTimeoutContext()
-	defer cancel()
-	srcCtx := buildSourceContext(accessKey, secKey, certDir, insecureRegistry)
-
-	src, err := readImageSource(ctx, srcCtx, url)
-	if err != nil {
-		return "", err
-	}
-	defer closeImage(src)
-
-	imageManifest, _, err := src.GetManifest(context.Background(), nil)
-	if err != nil {
-		return "", err
-	}
-
-	digest, err := manifest.Digest(imageManifest)
-	if err != nil {
-		return "", err
-	}
-
-	return digest.String(), nil
-}
-
 // CopyRegistryImage download image from registry with docker image API. It will extract first file under the pathPrefix
 // url: source registry url.
 // destDir: the scratch space destination.
@@ -282,16 +250,4 @@ func GetImageDigest(url, accessKey, secKey, certDir string, insecureRegistry boo
 // insecureRegistry: boolean if true will allow insecure registries.
 func CopyRegistryImage(url, destDir, pathPrefix, accessKey, secKey, certDir string, insecureRegistry bool) (*types.ImageInspectInfo, error) {
 	return copyRegistryImage(url, destDir, pathPrefix, accessKey, secKey, certDir, insecureRegistry, true)
-}
-
-// CopyRegistryImageAll download image from registry with docker image API. It will extract all files under the pathPrefix
-// url: source registry url.
-// destDir: the scratch space destination.
-// pathPrefix: path to extract files from.
-// accessKey: accessKey for the registry described in url.
-// secKey: secretKey for the registry described in url.
-// certDir: directory public CA keys are stored for registry identity verification
-// insecureRegistry: boolean if true will allow insecure registries.
-func CopyRegistryImageAll(url, destDir, pathPrefix, accessKey, secKey, certDir string, insecureRegistry bool) (*types.ImageInspectInfo, error) {
-	return copyRegistryImage(url, destDir, pathPrefix, accessKey, secKey, certDir, insecureRegistry, false)
 }

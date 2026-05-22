@@ -22,7 +22,7 @@ binaries:
   - /usr/lib64/nbdkit/filters/*.so
   - /usr/lib64/nbdkit/plugins/*.so
   # CDI binaries
-  - /usr/bin/cdi-image-size-detection /usr/bin/cdi-importer /usr/bin/cdi-source-update-poller
+  - /usr/bin/cdi-importer
   # QEMU bins
   - /usr/bin/qemu-img
 # do not include glibc, it will be replaced by one from qemu-img
@@ -59,9 +59,7 @@ import:
   to: /usr/bin
   before: setup
   includePaths:
-  - cdi-image-size-detection
   - cdi-importer
-  - cdi-source-update-poller
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /qemu-img

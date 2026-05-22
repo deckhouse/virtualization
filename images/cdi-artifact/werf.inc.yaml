@@ -5,7 +5,6 @@
 {{- define "$name" -}}
 binaries:
 - /cdi-binaries/cdi-importer
-- /cdi-binaries/cdi-source-update-poller
 packages:
 - libnbd
 - libxml2
@@ -35,7 +34,6 @@ git:
     install:
     - go.mod
     - go.sum
-    - vendor/**/*
     setup:
     - '**/*'
   excludePaths:
@@ -58,11 +56,6 @@ shell:
     cd /containerized-data-importer
     go mod download
 
-    go mod vendor
-
-    # Apply patch for json-patch from 3p-cdi repo
-    git apply --ignore-space-change --ignore-whitespace patches/replace-op-for-evanphx-json-patch-v5-lib.patch
-
   setup:
   - mkdir /cdi-binaries
   - cd /containerized-data-importer
@@ -70,24 +63,12 @@ shell:
   - export GOOS=linux
   - export GOARCH=amd64
   - export CGO_ENABLED=0
-  - export X_FLAGS="-X kubevirt.io/containerized-data-importer/pkg/version.gitVersion=v{{ $version }}-patched"
-
-  - echo ============== Build cdi-image-size-detection  ===========
-  - |
-    {{- $_ := set $ "ProjectName" (list .ImageName "cdi-image-size-detection" | join "/") }}
-    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /cdi-binaries/cdi-image-size-detection ./tools/cdi-image-size-detection`) | nindent 6 }}
-
   - export CGO_ENABLED=1
 
   - echo ============== Build cdi-importer ===========
   - |
     {{- $_ := set $ "ProjectName" (list .ImageName "cdi-importer" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /cdi-binaries/cdi-importer ./cmd/cdi-importer`) | nindent 6 }}
-
-  - echo ============== Build cdi-source-update-poller  ===========
-  - |
-    {{- $_ := set $ "ProjectName" (list .ImageName "cdi-source-update-poller" | join "/") }}
-    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /cdi-binaries/cdi-source-update-poller ./tools/cdi-source-update-poller`) | nindent 6 }}
 
   - chown -R 64535:64535 /cdi-binaries/*
   - ls -la /cdi-binaries

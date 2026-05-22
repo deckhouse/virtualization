@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -18,7 +17,6 @@ import (
 )
 
 const (
-	nbdVddkLibraryPath    = "/opt/vmware-vix-disklib-distrib"
 	startupTimeoutSeconds = 15
 	defaultUserAgent      = "cdi-nbdkit-importer"
 )
@@ -37,20 +35,13 @@ type NbdkitLogWatcher interface {
 
 // Nbdkit plugins
 const (
-	NbdkitCurlPlugin     NbdkitPlugin = "curl"
-	NbdkitFilePlugin     NbdkitPlugin = "file"
-	NbdkitVddkPlugin     NbdkitPlugin = "vddk"
-	NbdkitVddkMockPlugin NbdkitPlugin = "/opt/testing/libvddk-test-plugin.so"
+	NbdkitCurlPlugin NbdkitPlugin = "curl"
 )
 
 // Nbdkit filters
 const (
-	NbdkitXzFilter           NbdkitFilter = "xz"
-	NbdkitTarFilter          NbdkitFilter = "tar"
-	NbdkitGzipFilter         NbdkitFilter = "gzip"
-	NbdkitRetryFilter        NbdkitFilter = "retry"
-	NbdkitCacheExtentsFilter NbdkitFilter = "cacheextents"
-	NbdkitReadAheadFilter    NbdkitFilter = "readahead"
+	NbdkitRetryFilter     NbdkitFilter = "retry"
+	NbdkitReadAheadFilter NbdkitFilter = "readahead"
 )
 
 // Nbdkit represents struct for an nbdkit instance
@@ -73,14 +64,6 @@ type NbdkitOperation interface {
 	KillNbdkit() error
 	AddEnvVariable(v string)
 	AddFilter(filter NbdkitFilter)
-}
-
-// NewNbdkit creates a new Nbdkit instance with an nbdkit plugin and pid file
-func NewNbdkit(plugin NbdkitPlugin, nbdkitPidFile string) *Nbdkit {
-	return &Nbdkit{
-		NbdPidFile: nbdkitPidFile,
-		plugin:     plugin,
-	}
 }
 
 // NewNbdkitCurl creates a new Nbdkit instance with the curl plugin
@@ -126,64 +109,6 @@ func NewNbdkitCurl(nbdkitPidFile, user, password, certDir, socket string, extraH
 	return n, nil
 }
 
-// Keep these in a struct to keep NewNbdkitVddk from going over the argument limit
-type NbdKitVddkPluginArgs struct {
-	Server     string
-	Username   string
-	Password   string
-	Thumbprint string
-	Moref      string
-	Snapshot   string
-}
-
-// NewNbdkitVddk creates a new Nbdkit instance with the vddk plugin
-func NewNbdkitVddk(nbdkitPidFile, socket string, args NbdKitVddkPluginArgs) (NbdkitOperation, error) {
-	pluginArgs := []string{
-		"libdir=" + nbdVddkLibraryPath,
-	}
-	if args.Server != "" {
-		pluginArgs = append(pluginArgs, "server="+args.Server)
-	}
-	if args.Username != "" {
-		pluginArgs = append(pluginArgs, "user="+args.Username)
-	}
-	if args.Password != "" {
-		passwordfile, err := writePasswordFile(args.Password)
-		if err != nil {
-			return nil, err
-		}
-		pluginArgs = append(pluginArgs, "password=+"+passwordfile)
-	}
-	if args.Thumbprint != "" {
-		pluginArgs = append(pluginArgs, "thumbprint="+args.Thumbprint)
-	}
-	if args.Moref != "" {
-		pluginArgs = append(pluginArgs, "vm=moref="+args.Moref)
-	}
-	if args.Snapshot != "" {
-		pluginArgs = append(pluginArgs, "snapshot="+args.Snapshot)
-		pluginArgs = append(pluginArgs, "transports=file:nbdssl:nbd")
-	}
-	pluginArgs = append(pluginArgs, "--verbose")
-	pluginArgs = append(pluginArgs, "-D", "nbdkit.backend.datapath=0")
-	pluginArgs = append(pluginArgs, "-D", "vddk.datapath=0")
-	pluginArgs = append(pluginArgs, "-D", "vddk.stats=1")
-	p := getVddkPluginPath()
-	n := &Nbdkit{
-		NbdPidFile: nbdkitPidFile,
-		plugin:     p,
-		pluginArgs: pluginArgs,
-		Socket:     socket,
-	}
-
-	n.AddFilter(NbdkitRetryFilter)
-	n.AddFilter(NbdkitCacheExtentsFilter)
-	if err := n.validatePlugin(); err != nil {
-		return nil, err
-	}
-	return n, nil
-}
-
 func writePasswordFile(password string) (string, error) {
 	f, err := os.CreateTemp("", "password")
 	if err != nil {
@@ -220,21 +145,11 @@ func (n *Nbdkit) AddFilter(filter NbdkitFilter) {
 	n.filters = append(n.filters, filter)
 }
 
-func getVddkPluginPath() NbdkitPlugin {
-	_, err := os.Stat(string(NbdkitVddkMockPlugin))
-	if !os.IsNotExist(err) {
-		return NbdkitVddkMockPlugin
-	}
-	return NbdkitVddkPlugin
-}
-
 func (n *Nbdkit) getSourceArg(s string) string {
 	var source string
 	switch n.plugin {
 	case NbdkitCurlPlugin:
 		source = fmt.Sprintf("url=%s", s)
-	case NbdkitVddkPlugin, NbdkitVddkMockPlugin:
-		source = fmt.Sprintf("file=%s", s)
 	default:
 		source = s
 	}
@@ -390,49 +305,6 @@ func (n *Nbdkit) KillNbdkit() error {
 		n.LogWatcher.Stop()
 	}
 	return err
-}
-
-// validatePlugins tests VDDK and any other plugins before starting nbdkit for real
-func (n *Nbdkit) validatePlugin() error {
-	walker := func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			return nil
-		}
-		klog.Infof("%s: %d %s", path, info.Size(), info.Mode())
-		return nil
-	}
-
-	klog.Infof("Checking nbdkit plugin directory tree:")
-	err := filepath.Walk("/usr/lib64/nbdkit", walker)
-	if err != nil {
-		klog.Warningf("Unable to get nbdkit plugin directory tree: %v", err)
-	}
-	if n.plugin == NbdkitVddkPlugin {
-		klog.Infof("Checking VDDK library directory tree:")
-		err = filepath.Walk("/opt/vmware-vix-disklib-distrib", walker)
-		if err != nil {
-			klog.Warningf("Unable to get VDDK library directory tree: %v", err)
-		}
-	}
-	args := []string{
-		"--dump-plugin",
-		string(n.plugin),
-		"libdir=" + nbdVddkLibraryPath,
-	}
-	nbdkit := exec.Command("nbdkit", args...)
-	nbdkit.Env = n.Env
-	out, err := nbdkit.CombinedOutput()
-	if out != nil {
-		klog.Infof("Output from nbdkit --dump-plugin %s: %s", string(n.plugin), out)
-	}
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 type mockNbdkit struct{}
