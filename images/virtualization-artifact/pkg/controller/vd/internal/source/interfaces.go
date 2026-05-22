@@ -28,7 +28,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-//go:generate go tool moq -rm -out mock.go . Handler BlankDataSourceDiskService ObjectRefVirtualImageDiskService ObjectRefClusterVirtualImageDiskService ObjectRefVirtualDiskSnapshotDiskService UploadDataSourceDiskService UploadDataSourceUploaderService UploadDataSourceStatService HTTPDataSourceDiskService HTTPDataSourceImporterService HTTPDataSourceStatService RegistryDataSourceDiskService RegistryDataSourceImporterService RegistryDataSourceStatService
+//go:generate go tool moq -rm -out mock.go . Handler BlankDataSourceDiskService ObjectRefVirtualImageDiskService ObjectRefVirtualImageStatService ObjectRefClusterVirtualImageDiskService ObjectRefClusterVirtualImageStatService ObjectRefVirtualDiskSnapshotDiskService UploadDataSourceDiskService UploadDataSourceUploaderService UploadDataSourceStatService HTTPDataSourceDiskService HTTPDataSourceImporterService HTTPDataSourceStatService RegistryDataSourceDiskService RegistryDataSourceImporterService RegistryDataSourceStatService
 
 type Handler interface {
 	Name() string
@@ -50,10 +50,18 @@ type ObjectRefVirtualImageDiskService interface {
 	step.WaitForPVCImportStepDiskService
 }
 
+type ObjectRefVirtualImageStatService interface {
+	step.WaitForPVCImportStepStatService
+}
+
 type ObjectRefClusterVirtualImageDiskService interface {
 	step.ReadyStepDiskService
 	step.PVCImportStepDiskService
 	step.WaitForPVCImportStepDiskService
+}
+
+type ObjectRefClusterVirtualImageStatService interface {
+	step.WaitForPVCImportStepStatService
 }
 
 type ObjectRefVirtualDiskSnapshotDiskService interface {
@@ -82,6 +90,7 @@ type UploadDataSourceUploaderService interface {
 type UploadDataSourceStatService interface {
 	step.WaitForUserUploadStepStatService
 	step.PVCImportFromDVCRStepStatService
+	step.WaitForPVCImportStepStatService
 }
 
 type HTTPDataSourceDiskService interface {
@@ -104,6 +113,7 @@ type HTTPDataSourceImporterService interface {
 type HTTPDataSourceStatService interface {
 	step.WaitForDVCRImporterStepStatService
 	step.PVCImportFromDVCRStepStatService
+	step.WaitForPVCImportStepStatService
 }
 
 type RegistryDataSourceDiskService interface {
@@ -126,4 +136,5 @@ type RegistryDataSourceImporterService interface {
 type RegistryDataSourceStatService interface {
 	step.WaitForDVCRImporterStepStatService
 	step.PVCImportFromDVCRStepStatService
+	step.WaitForPVCImportStepStatService
 }

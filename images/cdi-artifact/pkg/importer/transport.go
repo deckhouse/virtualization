@@ -33,6 +33,11 @@ import (
 	"github.com/pkg/errors"
 
 	"k8s.io/klog/v2"
+
+	"kubevirt.io/containerized-data-importer/pkg/common"
+	metrics "kubevirt.io/containerized-data-importer/pkg/monitoring/metrics/cdi-importer"
+	"kubevirt.io/containerized-data-importer/pkg/util"
+	prometheusutil "kubevirt.io/containerized-data-importer/pkg/util/prometheus"
 )
 
 const (
@@ -40,7 +45,56 @@ const (
 
 	registrySchemeDocker = "docker"
 	registrySchemeOCI    = "oci-archive"
+
+	// transferScratchMaxProgress is the upper bound of the TransferScratch
+	// phase contribution to the overall import progress (0..100). The remaining
+	// half (50..100) is occupied by the Convert phase, see qemu.reportProgress.
+	transferScratchMaxProgress = 49.0
 )
+
+// scaledProgressMetric adapts a 0..100 prometheus.ProgressMetric so that the
+// underlying counter advances only within the [low, high] sub-range. It is
+// used to project the per-layer download progress reported by
+// prometheusutil.ProgressReader (which always works in 0..100) into the
+// 0..transferScratchMaxProgress slice of the shared import_progress counter.
+type scaledProgressMetric struct {
+	base      prometheusutil.ProgressMetric
+	low, high float64
+}
+
+func (s scaledProgressMetric) Get() (float64, error) {
+	cur, err := s.base.Get()
+	if err != nil {
+		return 0, err
+	}
+	if cur <= s.low {
+		return 0, nil
+	}
+	if cur >= s.high {
+		return 100, nil
+	}
+	return (cur - s.low) * 100.0 / (s.high - s.low), nil
+}
+
+func (s scaledProgressMetric) Add(delta float64) {
+	if delta <= 0 {
+		return
+	}
+	s.base.Add(delta * (s.high - s.low) / 100.0)
+}
+
+func (s scaledProgressMetric) Delete() { s.base.Delete() }
+
+// transferProgressMetric returns a 0..transferScratchMaxProgress projection of
+// the shared import_progress counter that ProgressReader can drive in 0..100.
+func transferProgressMetric() prometheusutil.ProgressMetric {
+	ownerUID, _ := util.ParseEnvVar(common.OwnerUID, false)
+	return scaledProgressMetric{
+		base: metrics.Progress(ownerUID),
+		low:  0,
+		high: transferScratchMaxProgress,
+	}
+}
 
 func commandTimeoutContext() (context.Context, context.CancelFunc) {
 	return context.WithCancel(context.Background())
@@ -129,6 +183,14 @@ func processLayer(ctx context.Context,
 	if err != nil {
 		klog.Errorf("Could not read layer: %v", err)
 		return false, errors.Wrap(err, "Could not read layer")
+	}
+	// Track download progress of the current layer in the lower half of the
+	// shared import_progress counter (0..transferScratchMaxProgress). The
+	// Convert phase later fills 50..100.
+	if layer.Size > 0 {
+		progressReader := prometheusutil.NewProgressReader(reader, transferProgressMetric(), uint64(layer.Size))
+		progressReader.StartTimedUpdate()
+		reader = progressReader
 	}
 	fr, err := NewFormatReaders(reader, 0)
 	if err != nil {

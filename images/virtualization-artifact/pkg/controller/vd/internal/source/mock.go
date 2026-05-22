@@ -835,6 +835,90 @@ func (mock *ObjectRefVirtualImageDiskServiceMock) StartPVCImportCalls() []struct
 	return calls
 }
 
+// Ensure, that ObjectRefVirtualImageStatServiceMock does implement ObjectRefVirtualImageStatService.
+// If this is not the case, regenerate this file with moq.
+var _ ObjectRefVirtualImageStatService = &ObjectRefVirtualImageStatServiceMock{}
+
+// ObjectRefVirtualImageStatServiceMock is a mock implementation of ObjectRefVirtualImageStatService.
+//
+//	func TestSomethingThatUsesObjectRefVirtualImageStatService(t *testing.T) {
+//
+//		// make and configure a mocked ObjectRefVirtualImageStatService
+//		mockedObjectRefVirtualImageStatService := &ObjectRefVirtualImageStatServiceMock{
+//			GetProgressFunc: func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string {
+//				panic("mock out the GetProgress method")
+//			},
+//		}
+//
+//		// use mockedObjectRefVirtualImageStatService in code that requires ObjectRefVirtualImageStatService
+//		// and then make assertions.
+//
+//	}
+type ObjectRefVirtualImageStatServiceMock struct {
+	// GetProgressFunc mocks the GetProgress method.
+	GetProgressFunc func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// GetProgress holds details about calls to the GetProgress method.
+		GetProgress []struct {
+			// OwnerUID is the ownerUID argument value.
+			OwnerUID types.UID
+			// Pod is the pod argument value.
+			Pod *corev1.Pod
+			// PrevProgress is the prevProgress argument value.
+			PrevProgress string
+			// Opts is the opts argument value.
+			Opts []service.GetProgressOption
+		}
+	}
+	lockGetProgress sync.RWMutex
+}
+
+// GetProgress calls GetProgressFunc.
+func (mock *ObjectRefVirtualImageStatServiceMock) GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string {
+	if mock.GetProgressFunc == nil {
+		panic("ObjectRefVirtualImageStatServiceMock.GetProgressFunc: method is nil but ObjectRefVirtualImageStatService.GetProgress was just called")
+	}
+	callInfo := struct {
+		OwnerUID     types.UID
+		Pod          *corev1.Pod
+		PrevProgress string
+		Opts         []service.GetProgressOption
+	}{
+		OwnerUID:     ownerUID,
+		Pod:          pod,
+		PrevProgress: prevProgress,
+		Opts:         opts,
+	}
+	mock.lockGetProgress.Lock()
+	mock.calls.GetProgress = append(mock.calls.GetProgress, callInfo)
+	mock.lockGetProgress.Unlock()
+	return mock.GetProgressFunc(ownerUID, pod, prevProgress, opts...)
+}
+
+// GetProgressCalls gets all the calls that were made to GetProgress.
+// Check the length with:
+//
+//	len(mockedObjectRefVirtualImageStatService.GetProgressCalls())
+func (mock *ObjectRefVirtualImageStatServiceMock) GetProgressCalls() []struct {
+	OwnerUID     types.UID
+	Pod          *corev1.Pod
+	PrevProgress string
+	Opts         []service.GetProgressOption
+} {
+	var calls []struct {
+		OwnerUID     types.UID
+		Pod          *corev1.Pod
+		PrevProgress string
+		Opts         []service.GetProgressOption
+	}
+	mock.lockGetProgress.RLock()
+	calls = mock.calls.GetProgress
+	mock.lockGetProgress.RUnlock()
+	return calls
+}
+
 // Ensure, that ObjectRefClusterVirtualImageDiskServiceMock does implement ObjectRefClusterVirtualImageDiskService.
 // If this is not the case, regenerate this file with moq.
 var _ ObjectRefClusterVirtualImageDiskService = &ObjectRefClusterVirtualImageDiskServiceMock{}
@@ -1152,6 +1236,90 @@ func (mock *ObjectRefClusterVirtualImageDiskServiceMock) StartPVCImportCalls() [
 	mock.lockStartPVCImport.RLock()
 	calls = mock.calls.StartPVCImport
 	mock.lockStartPVCImport.RUnlock()
+	return calls
+}
+
+// Ensure, that ObjectRefClusterVirtualImageStatServiceMock does implement ObjectRefClusterVirtualImageStatService.
+// If this is not the case, regenerate this file with moq.
+var _ ObjectRefClusterVirtualImageStatService = &ObjectRefClusterVirtualImageStatServiceMock{}
+
+// ObjectRefClusterVirtualImageStatServiceMock is a mock implementation of ObjectRefClusterVirtualImageStatService.
+//
+//	func TestSomethingThatUsesObjectRefClusterVirtualImageStatService(t *testing.T) {
+//
+//		// make and configure a mocked ObjectRefClusterVirtualImageStatService
+//		mockedObjectRefClusterVirtualImageStatService := &ObjectRefClusterVirtualImageStatServiceMock{
+//			GetProgressFunc: func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string {
+//				panic("mock out the GetProgress method")
+//			},
+//		}
+//
+//		// use mockedObjectRefClusterVirtualImageStatService in code that requires ObjectRefClusterVirtualImageStatService
+//		// and then make assertions.
+//
+//	}
+type ObjectRefClusterVirtualImageStatServiceMock struct {
+	// GetProgressFunc mocks the GetProgress method.
+	GetProgressFunc func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// GetProgress holds details about calls to the GetProgress method.
+		GetProgress []struct {
+			// OwnerUID is the ownerUID argument value.
+			OwnerUID types.UID
+			// Pod is the pod argument value.
+			Pod *corev1.Pod
+			// PrevProgress is the prevProgress argument value.
+			PrevProgress string
+			// Opts is the opts argument value.
+			Opts []service.GetProgressOption
+		}
+	}
+	lockGetProgress sync.RWMutex
+}
+
+// GetProgress calls GetProgressFunc.
+func (mock *ObjectRefClusterVirtualImageStatServiceMock) GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string {
+	if mock.GetProgressFunc == nil {
+		panic("ObjectRefClusterVirtualImageStatServiceMock.GetProgressFunc: method is nil but ObjectRefClusterVirtualImageStatService.GetProgress was just called")
+	}
+	callInfo := struct {
+		OwnerUID     types.UID
+		Pod          *corev1.Pod
+		PrevProgress string
+		Opts         []service.GetProgressOption
+	}{
+		OwnerUID:     ownerUID,
+		Pod:          pod,
+		PrevProgress: prevProgress,
+		Opts:         opts,
+	}
+	mock.lockGetProgress.Lock()
+	mock.calls.GetProgress = append(mock.calls.GetProgress, callInfo)
+	mock.lockGetProgress.Unlock()
+	return mock.GetProgressFunc(ownerUID, pod, prevProgress, opts...)
+}
+
+// GetProgressCalls gets all the calls that were made to GetProgress.
+// Check the length with:
+//
+//	len(mockedObjectRefClusterVirtualImageStatService.GetProgressCalls())
+func (mock *ObjectRefClusterVirtualImageStatServiceMock) GetProgressCalls() []struct {
+	OwnerUID     types.UID
+	Pod          *corev1.Pod
+	PrevProgress string
+	Opts         []service.GetProgressOption
+} {
+	var calls []struct {
+		OwnerUID     types.UID
+		Pod          *corev1.Pod
+		PrevProgress string
+		Opts         []service.GetProgressOption
+	}
+	mock.lockGetProgress.RLock()
+	calls = mock.calls.GetProgress
+	mock.lockGetProgress.RUnlock()
 	return calls
 }
 

@@ -31,6 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/steptaker"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
@@ -99,7 +100,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk)
 		step.NewWaitForDVCRImporterStep(pod, ds.statService, ds.importerService, ds.client, cb),
 		step.NewPVCImportFromDVCRStep(pvc, pod, ds.statService, ds.diskService, ds.client, ds.recorder, cb, "The Registry DataSource import to PVC has started"),
 		step.NewWaitForPVCStep(pvc, ds.client, cb),
-		step.NewWaitForPVCImportStep(pvc, step.DVCRPodPVCImportSource(pod, ds.statService), ds.diskService, ds.client, cb),
+		step.NewWaitForPVCImportStep(pvc, step.DVCRPodPVCImportSource(pod, ds.statService), ds.diskService, ds.statService, service.NewScaleOption(50, 100), ds.client, cb),
 	).Run(ctx, vd)
 }
 

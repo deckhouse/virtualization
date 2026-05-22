@@ -338,7 +338,9 @@ var _ = Describe("HTTPDataSource", func() {
 			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
 			res, err := newSyncer(cl).Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res.IsZero()).To(BeTrue())
+			// The step requeues every 2s to refresh vd.Status.Progress from
+			// the cdi-importer pod metrics while the import is in flight.
+			Expect(res.RequeueAfter).ToNot(BeZero())
 
 			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)

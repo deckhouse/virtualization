@@ -267,6 +267,13 @@ func Validate(url *url.URL, availableSize int64) error {
 	return qemuIterface.Validate(url, availableSize)
 }
 
+// convertProgressBase is the offset that the Convert phase contribution starts
+// from in the overall import_progress counter (0..100). The TransferScratch
+// phase occupies 0..convertProgressBase; the Convert phase fills
+// convertProgressBase..100. The actual fraction reported by qemu-img is
+// halved when projected (see reportProgress).
+const convertProgressBase = 50.0
+
 func reportProgress(line string) {
 	// (45.34/100%)
 	matches := re.FindStringSubmatch(line)
@@ -274,9 +281,14 @@ func reportProgress(line string) {
 		klog.V(1).Info(matches[1])
 		// Don't need to check for an error, the regex made sure its a number we can parse.
 		v, _ := strconv.ParseFloat(matches[1], 64)
+		if v <= 0 {
+			return
+		}
+		// Project qemu's 0..100 into convertProgressBase..100.
+		scaled := convertProgressBase + v*((100.0-convertProgressBase)/100.0)
 		progress, err := metrics.Progress(ownerUID).Get()
-		if err == nil && v > 0 && v > progress {
-			metrics.Progress(ownerUID).Add(v - progress)
+		if err == nil && scaled > progress {
+			metrics.Progress(ownerUID).Add(scaled - progress)
 		}
 	}
 }

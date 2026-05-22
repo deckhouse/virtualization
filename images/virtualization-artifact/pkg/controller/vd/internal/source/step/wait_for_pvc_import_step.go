@@ -23,9 +23,11 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -33,8 +35,18 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
+// pvcImportProgressRequeue is how often the step refreshes vd.Status.Progress
+// from the cdi-importer pod metrics while the import is in flight.
+const pvcImportProgressRequeue = 2 * time.Second
+
 type WaitForPVCImportStepDiskService interface {
 	EnsurePVCImport(ctx context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) (corev1.PodPhase, error)
+}
+
+// WaitForPVCImportStepStatService is the subset of StatService used to extract
+// the cdi-importer pod's progress and project it into vd.Status.Progress.
+type WaitForPVCImportStepStatService interface {
+	GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string
 }
 
 // PVCImportSourceProvider builds the PVCImportSource used by WaitForPVCImportStep.
@@ -46,10 +58,19 @@ type PVCImportSourceProvider func(ctx context.Context, vd *v1alpha2.VirtualDisk)
 // PVCImportSource) into the target PersistentVolumeClaim and reflects its
 // progress in the VirtualDisk status. It is a no-op until the PVC has been
 // created and reached the Bound phase.
+//
+// While the import is running the step requeues every pvcImportProgressRequeue
+// and republishes vd.Status.Progress from the cdi-importer pod's
+// kubevirt_cdi_import_progress_total metric (0..100). When progressScale is
+// set, the value is projected into the [progressScale.Low, progressScale.High]
+// slice of the disk-wide progress (e.g. 50..100 for HTTP / Registry / Upload
+// data sources where the first 50% is already filled by the DVCR phase).
 type WaitForPVCImportStep struct {
 	pvc            *corev1.PersistentVolumeClaim
 	sourceProvider PVCImportSourceProvider
 	disk           WaitForPVCImportStepDiskService
+	stat           WaitForPVCImportStepStatService
+	progressScale  *service.ScaleOption
 	client         client.Client
 	cb             *conditions.ConditionBuilder
 }
@@ -58,6 +79,8 @@ func NewWaitForPVCImportStep(
 	pvc *corev1.PersistentVolumeClaim,
 	sourceProvider PVCImportSourceProvider,
 	disk WaitForPVCImportStepDiskService,
+	stat WaitForPVCImportStepStatService,
+	progressScale *service.ScaleOption,
 	client client.Client,
 	cb *conditions.ConditionBuilder,
 ) *WaitForPVCImportStep {
@@ -65,6 +88,8 @@ func NewWaitForPVCImportStep(
 		pvc:            pvc,
 		sourceProvider: sourceProvider,
 		disk:           disk,
+		stat:           stat,
+		progressScale:  progressScale,
 		client:         client,
 		cb:             cb,
 	}
@@ -99,11 +124,41 @@ func (s WaitForPVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk
 	case corev1.PodFailed:
 		vd.Status.Phase = v1alpha2.DiskFailed
 		s.cb.Status(metav1.ConditionFalse).Reason(vdcondition.ProvisioningFailed).Message("VirtualDisk importer Pod failed.")
+		return &reconcile.Result{}, nil
 	default:
 		vd.Status.Phase = v1alpha2.DiskProvisioning
 		s.cb.Status(metav1.ConditionFalse).Reason(vdcondition.Provisioning).Message("Import is in the process of provisioning to the PersistentVolumeClaim.")
+
+		if err := s.refreshProgressFromPod(ctx, vd); err != nil {
+			return nil, err
+		}
+
+		return &reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
 	}
-	return &reconcile.Result{}, nil
+}
+
+// refreshProgressFromPod queries the cdi-importer pod (named after the target
+// PVC) for its progress metric and updates vd.Status.Progress. Silently keeps
+// the previous value when stat/pod is missing or metrics are not yet readable.
+func (s WaitForPVCImportStep) refreshProgressFromPod(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
+	if s.stat == nil {
+		return nil
+	}
+
+	pod, err := object.FetchObject(ctx, types.NamespacedName{Name: s.pvc.Name, Namespace: s.pvc.Namespace}, s.client, &corev1.Pod{})
+	if err != nil {
+		return fmt.Errorf("fetch cdi-importer pod: %w", err)
+	}
+	if pod == nil {
+		return nil
+	}
+
+	var opts []service.GetProgressOption
+	if s.progressScale != nil {
+		opts = append(opts, s.progressScale)
+	}
+	vd.Status.Progress = s.stat.GetProgress(vd.GetUID(), pod, vd.Status.Progress, opts...)
+	return nil
 }
 
 // StaticPVCImportSource returns a PVCImportSourceProvider that always returns

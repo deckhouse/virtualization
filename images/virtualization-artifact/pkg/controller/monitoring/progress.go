@@ -57,17 +57,32 @@ func GetImportProgressFromPod(ownerUID string, pod *corev1.Pod) (*ImportProgress
 	return extractProgress(progressReport, ownerUID)
 }
 
-// extractProgress parses final report and extracts metrics:
-// registry_progress{ownerUID="b856691e-1038-11e9-a5ab-525500d15501"} 47.68095477934807
-// registry_current_speed{ownerUID="b856691e-1038-11e9-a5ab-525500d15501"} 2.12e+06
-// registry_average_speed{ownerUID="b856691e-1038-11e9-a5ab-525500d15501"} 2.3832862149406234e+06
+// extractProgress parses the final report and extracts metrics. Two metric
+// families are recognized:
+//
+//   - registry_progress / registry_current_speed / registry_average_speed are
+//     emitted by dvcr-importer / dvcr-uploader pods (the "first half" import
+//     into DVCR for HTTP / Registry / Upload data sources).
+//   - kubevirt_cdi_import_progress_total is emitted by the cdi-importer pod
+//     (the "second half" import from DVCR into the target PVC; for ObjectRef
+//     CVI / VI it is also the only import pod).
+//
+// Example lines:
+//
+//	registry_progress{ownerUID="b856691e-1038-11e9-a5ab-525500d15501"} 47.6809
+//	registry_current_speed{ownerUID="b856691e-1038-11e9-a5ab-525500d15501"} 2.12e+06
+//	registry_average_speed{ownerUID="b856691e-1038-11e9-a5ab-525500d15501"} 2.38e+06
+//	kubevirt_cdi_import_progress_total{ownerUID="b856691e-1038-11e9-a5ab-525500d15501"} 73.42
 func extractProgress(report, ownerUID string) (*ImportProgress, error) {
 	if report == "" {
 		return nil, nil
 	}
 
 	// Note: invalid float format will be checked later using ParseFloat.
-	progressRe := regexp.MustCompile(`registry_progress\{ownerUID\="` + ownerUID + `"\} ([0-9e\+\-\.]+)`)
+	// Match either the dvcr-importer's registry_progress or the cdi-importer's
+	// kubevirt_cdi_import_progress_total metric. Both are reported in the same
+	// 0..100 scale, so either value is a valid pod-local progress percentage.
+	progressRe := regexp.MustCompile(`(?:registry_progress|kubevirt_cdi_import_progress_total)\{ownerUID\="` + ownerUID + `"\} ([0-9e\+\-\.]+)`)
 	avgSpeedRe := regexp.MustCompile(`registry_average_speed\{ownerUID\="` + ownerUID + `"\} ([0-9e\+\-\.]+)`)
 	curSpeedRe := regexp.MustCompile(`registry_current_speed\{ownerUID\="` + ownerUID + `"\} ([0-9e\+\-\.]+)`)
 
@@ -78,7 +93,7 @@ func extractProgress(report, ownerUID string) (*ImportProgress, error) {
 		raw := match[1]
 		val, err := strconv.ParseFloat(raw, 64)
 		if err != nil {
-			return nil, fmt.Errorf("parse registry_progress metric: %w", err)
+			return nil, fmt.Errorf("parse import progress metric: %w", err)
 		}
 		res.progress = val
 	}

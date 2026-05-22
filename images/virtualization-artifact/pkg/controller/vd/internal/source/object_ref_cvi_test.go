@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -50,6 +51,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 		sc     *storagev1.StorageClass
 		pvc    *corev1.PersistentVolumeClaim
 		svc    *ObjectRefVirtualImageDiskServiceMock
+		stat   *ObjectRefClusterVirtualImageStatServiceMock
 	)
 
 	BeforeEach(func() {
@@ -59,6 +61,12 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 		Expect(corev1.AddToScheme(scheme)).To(Succeed())
 		Expect(storagev1.AddToScheme(scheme)).To(Succeed())
+
+		stat = &ObjectRefClusterVirtualImageStatServiceMock{
+			GetProgressFunc: func(_ types.UID, _ *corev1.Pod, prev string, _ ...service.GetProgressOption) string {
+				return prev
+			},
+		}
 
 		svc = &ObjectRefVirtualImageDiskServiceMock{
 			GetCapacityFunc: func(_ *corev1.PersistentVolumeClaim) string {
@@ -149,7 +157,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 				return nil
 			}
 
-			syncer := NewObjectRefClusterVirtualImage(svc, fakeClient)
+			syncer := NewObjectRefClusterVirtualImage(svc, stat, fakeClient)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -170,7 +178,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingWaitForFirstConsumer)
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
 
-			syncer := NewObjectRefClusterVirtualImage(svc, client)
+			syncer := NewObjectRefClusterVirtualImage(svc, stat, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -187,7 +195,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingImmediate)
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
 
-			syncer := NewObjectRefClusterVirtualImage(svc, client)
+			syncer := NewObjectRefClusterVirtualImage(svc, stat, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -205,7 +213,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			pvc.Status.Phase = corev1.ClaimBound
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
 
-			syncer := NewObjectRefClusterVirtualImage(svc, client)
+			syncer := NewObjectRefClusterVirtualImage(svc, stat, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -226,7 +234,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 				return corev1.PodSucceeded, nil
 			}
 
-			syncer := NewObjectRefClusterVirtualImage(svc, client)
+			syncer := NewObjectRefClusterVirtualImage(svc, stat, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -250,7 +258,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
 
-			syncer := NewObjectRefClusterVirtualImage(svc, client)
+			syncer := NewObjectRefClusterVirtualImage(svc, stat, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -266,7 +274,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			vd.Status.Target.PersistentVolumeClaim = pvc.Name
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
 
-			syncer := NewObjectRefClusterVirtualImage(svc, client)
+			syncer := NewObjectRefClusterVirtualImage(svc, stat, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())

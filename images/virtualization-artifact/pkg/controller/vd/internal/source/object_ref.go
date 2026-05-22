@@ -40,14 +40,15 @@ type ObjectRefDataSource struct {
 
 func NewObjectRefDataSource(
 	recorder eventrecord.EventRecorderLogger,
+	statService *service.StatService,
 	diskService *service.DiskService,
 	client client.Client,
 ) *ObjectRefDataSource {
 	return &ObjectRefDataSource{
 		diskService:      diskService,
 		vdSnapshotSyncer: NewObjectRefVirtualDiskSnapshot(recorder, diskService, client),
-		viSyncer:         NewObjectRefVirtualImage(diskService, client),
-		cviSyncer:        NewObjectRefClusterVirtualImage(diskService, client),
+		viSyncer:         NewObjectRefVirtualImage(diskService, statService, client),
+		cviSyncer:        NewObjectRefClusterVirtualImage(diskService, statService, client),
 	}
 }
 

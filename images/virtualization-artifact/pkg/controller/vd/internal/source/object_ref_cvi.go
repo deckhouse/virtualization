@@ -38,15 +38,18 @@ import (
 
 type ObjectRefClusterVirtualImage struct {
 	diskService ObjectRefClusterVirtualImageDiskService
+	statService ObjectRefClusterVirtualImageStatService
 	client      client.Client
 }
 
 func NewObjectRefClusterVirtualImage(
 	diskService ObjectRefClusterVirtualImageDiskService,
+	statService ObjectRefClusterVirtualImageStatService,
 	client client.Client,
 ) *ObjectRefClusterVirtualImage {
 	return &ObjectRefClusterVirtualImage{
 		diskService: diskService,
+		statService: statService,
 		client:      client,
 	}
 }
@@ -81,7 +84,7 @@ func (ds ObjectRefClusterVirtualImage) Sync(ctx context.Context, vd *v1alpha2.Vi
 		step.NewTerminatingStep(pvc),
 		step.NewPVCImportFromClusterVirtualImageStep(pvc, ds.diskService, ds.client, cb),
 		step.NewWaitForPVCStep(pvc, ds.client, cb),
-		step.NewWaitForPVCImportStep(pvc, step.StaticPVCImportSource(importSource), ds.diskService, ds.client, cb),
+		step.NewWaitForPVCImportStep(pvc, step.StaticPVCImportSource(importSource), ds.diskService, ds.statService, nil, ds.client, cb),
 	).Run(ctx, vd)
 }
 
