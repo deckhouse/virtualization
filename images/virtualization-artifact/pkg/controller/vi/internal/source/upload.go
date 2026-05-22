@@ -225,10 +225,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 			"The Upload DataSource import to PVC has started",
 		)
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
-		handled, result, err := reconcilePVCImportFromDVCR(ctx, vi, pod, pvc, source, cb, supgen, ds.statService, ds.diskService)
-		if handled {
-			return result, err
-		}
+		return reconcilePVCImportFromDVCR(ctx, vi, pod, pvc, source, cb, supgen, ds.statService, ds.diskService)
 	}
 
 	return reconcile.Result{RequeueAfter: time.Second}, nil

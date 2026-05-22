@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/deckhouse/deckhouse/pkg/log"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -38,6 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
 
@@ -214,13 +214,13 @@ func addWatches(mgr manager.Manager, ctr controller.Controller) error {
 		}),
 		predicate.TypedFuncs[*corev1.PersistentVolume]{
 			CreateFunc: func(e event.TypedCreateEvent[*corev1.PersistentVolume]) bool {
-				return e.Object.Spec.StorageClassName != "" && e.Object.Spec.PersistentVolumeSource.HostPath != nil
+				return e.Object.Spec.StorageClassName != "" && e.Object.Spec.HostPath != nil
 			},
 			UpdateFunc: func(e event.TypedUpdateEvent[*corev1.PersistentVolume]) bool {
-				return e.ObjectNew.Spec.StorageClassName != "" && e.ObjectNew.Spec.PersistentVolumeSource.HostPath != nil
+				return e.ObjectNew.Spec.StorageClassName != "" && e.ObjectNew.Spec.HostPath != nil
 			},
 			DeleteFunc: func(e event.TypedDeleteEvent[*corev1.PersistentVolume]) bool {
-				return e.Object.Spec.StorageClassName != "" && e.Object.Spec.PersistentVolumeSource.HostPath != nil
+				return e.Object.Spec.StorageClassName != "" && e.Object.Spec.HostPath != nil
 			},
 		},
 	)); err != nil {

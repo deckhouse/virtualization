@@ -19,6 +19,7 @@ package step
 import (
 	"context"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -126,5 +127,5 @@ func (s CreateImporterStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 		Reason(vdcondition.Provisioning).
 		Message("DVCR Provisioner not found: create the new one.")
 
-	return &reconcile.Result{Requeue: true}, nil
+	return &reconcile.Result{RequeueAfter: time.Second}, nil
 }

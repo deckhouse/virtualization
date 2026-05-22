@@ -19,6 +19,7 @@ package step
 import (
 	"context"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -94,7 +95,7 @@ func (s WaitForPVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk
 
 	switch phase {
 	case corev1.PodSucceeded:
-		return &reconcile.Result{Requeue: true}, nil
+		return &reconcile.Result{RequeueAfter: time.Second}, nil
 	case corev1.PodFailed:
 		vd.Status.Phase = v1alpha2.DiskFailed
 		s.cb.Status(metav1.ConditionFalse).Reason(vdcondition.ProvisioningFailed).Message("VirtualDisk importer Pod failed.")

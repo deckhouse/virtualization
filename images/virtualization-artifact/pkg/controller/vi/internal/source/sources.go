@@ -190,7 +190,7 @@ func reconcilePVCImportFromDVCR(
 	supgen supplements.Generator,
 	stat Stat,
 	disk *service.DiskService,
-) (bool, reconcile.Result, error) {
+) (reconcile.Result, error) {
 	if pvc == nil {
 		if err := stat.CheckPod(pod); err != nil {
 			vi.Status.Phase = v1alpha2.ImageFailed
@@ -200,9 +200,9 @@ func reconcilePVCImportFromDVCR(
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.ProvisioningFailed).
 					Message(service.CapitalizeFirstLetter(err.Error() + "."))
-				return true, reconcile.Result{}, nil
+				return reconcile.Result{}, nil
 			default:
-				return true, reconcile.Result{}, err
+				return reconcile.Result{}, err
 			}
 		}
 
@@ -213,18 +213,18 @@ func reconcilePVCImportFromDVCR(
 		if err != nil {
 			setPhaseConditionToFailed(cb, &vi.Status.Phase, err)
 			if errors.Is(err, service.ErrInsufficientPVCSize) {
-				return true, reconcile.Result{}, nil
+				return reconcile.Result{}, nil
 			}
-			return true, reconcile.Result{}, err
+			return reconcile.Result{}, err
 		}
 
 		sc, err := disk.GetStorageClass(ctx, vi.Status.StorageClassName)
 		if err != nil {
-			return true, reconcile.Result{}, err
+			return reconcile.Result{}, err
 		}
 		err = disk.StartSupplementPVCImport(ctx, diskSize, sc, source, vi, supgen, nil)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, cb); err != nil || updated {
-			return true, reconcile.Result{}, err
+			return reconcile.Result{}, err
 		}
 
 		vi.Status.Phase = v1alpha2.ImageProvisioning
@@ -232,12 +232,12 @@ func reconcilePVCImportFromDVCR(
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
 			Message("PVC Provisioner not found: create the new one.")
-		return true, reconcile.Result{RequeueAfter: time.Second}, nil
+		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
 	phase, err := disk.EnsureSupplementPVCImport(ctx, pvc, source, vi, supgen, nil)
 	if err != nil {
-		return true, reconcile.Result{}, err
+		return reconcile.Result{}, err
 	}
 
 	vi.Status.Target.PersistentVolumeClaim = pvc.Name
@@ -249,19 +249,19 @@ func reconcilePVCImportFromDVCR(
 		vi.Status.Size = stat.GetSize(pod)
 		vi.Status.CDROM = stat.GetCDROM(pod)
 		vi.Status.DownloadSpeed = stat.GetDownloadSpeed(vi.GetUID(), pod)
-		return true, reconcile.Result{RequeueAfter: time.Second}, nil
+		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case corev1.PodFailed:
 		vi.Status.Phase = v1alpha2.ImageFailed
 		cb.Status(metav1.ConditionFalse).Reason(vicondition.ProvisioningFailed).Message("VirtualImage importer Pod failed.")
-		return true, reconcile.Result{}, nil
+		return reconcile.Result{}, nil
 	default:
 		vi.Status.Phase = v1alpha2.ImageProvisioning
 		cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("Import is in the process of provisioning to PVC.")
 		vi.Status.Progress = "50.0%"
 		if err := disk.Protect(ctx, supgen, vi, pvc); err != nil {
-			return true, reconcile.Result{}, err
+			return reconcile.Result{}, err
 		}
-		return true, reconcile.Result{RequeueAfter: time.Second}, nil
+		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 }
 

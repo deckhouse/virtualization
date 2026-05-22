@@ -190,7 +190,7 @@ var _ = Describe("RegistryDataSource", func() {
 			cl := fake.NewClientBuilder().WithScheme(scheme).Build()
 			res, err := newSyncer(cl).Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res.Requeue).To(BeTrue())
+			Expect(res.RequeueAfter).ToNot(BeZero())
 
 			Expect(started).To(BeTrue())
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)

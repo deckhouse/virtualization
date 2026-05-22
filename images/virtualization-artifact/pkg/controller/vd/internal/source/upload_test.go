@@ -178,7 +178,7 @@ var _ = Describe("UploadDataSource", func() {
 			cl := fake.NewClientBuilder().WithScheme(scheme).Build()
 			res, err := newSyncer(cl).Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res.Requeue).To(BeTrue())
+			Expect(res.RequeueAfter).ToNot(BeZero())
 
 			Expect(started).To(BeTrue())
 			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))

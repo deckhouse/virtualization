@@ -166,7 +166,7 @@ var _ = Describe("HTTPDataSource", func() {
 			cl := fake.NewClientBuilder().WithScheme(scheme).Build()
 			res, err := newSyncer(cl).Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res.Requeue).To(BeTrue())
+			Expect(res.RequeueAfter).ToNot(BeZero())
 
 			Expect(started).To(BeTrue())
 			Expect(gotSettings).ToNot(BeNil())
@@ -352,7 +352,7 @@ var _ = Describe("HTTPDataSource", func() {
 			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
 			res, err := newSyncer(cl).Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res.Requeue).To(BeTrue())
+			Expect(res.RequeueAfter).ToNot(BeZero())
 		})
 	})
 

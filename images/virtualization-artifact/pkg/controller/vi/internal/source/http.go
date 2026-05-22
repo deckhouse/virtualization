@@ -283,10 +283,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualIma
 			"The HTTP DataSource import has started",
 		)
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
-		handled, result, err := reconcilePVCImportFromDVCR(ctx, vi, pod, pvc, source, cb, supgen, ds.statService, ds.diskService)
-		if handled {
-			return result, err
-		}
+		return reconcilePVCImportFromDVCR(ctx, vi, pod, pvc, source, cb, supgen, ds.statService, ds.diskService)
 	}
 
 	return reconcile.Result{RequeueAfter: time.Second}, nil

@@ -68,8 +68,7 @@ func (w PersistentVolumeClaimWatcher) Watch(mgr manager.Manager, ctr controller.
 
 func (w PersistentVolumeClaimWatcher) enqueueRequestsFromOwnerRefsRecursively(_ context.Context, obj client.Object) (requests []reconcile.Request) {
 	for _, ownerRef := range obj.GetOwnerReferences() {
-		switch ownerRef.Kind {
-		case v1alpha2.VirtualDiskKind:
+		if ownerRef.Kind == v1alpha2.VirtualDiskKind {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      ownerRef.Name,

@@ -52,9 +52,7 @@ func NewPodWatcher(client client.Client) *PodWatcher {
 func (w PodWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
 		source.Kind(mgr.GetCache(), &corev1.Pod{},
-			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, pod *corev1.Pod) []reconcile.Request {
-				return w.enqueueRequestsFromPVC(ctx, pod)
-			}),
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequestsFromPVC),
 			predicate.TypedFuncs[*corev1.Pod]{
 				UpdateFunc: func(e event.TypedUpdateEvent[*corev1.Pod]) bool {
 					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase

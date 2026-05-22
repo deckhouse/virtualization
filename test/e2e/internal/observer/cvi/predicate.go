@@ -32,7 +32,7 @@ func BeFailed() Predicate {
 		}
 		if cond := findCondition(i.Status.Conditions, cvicondition.ReadyType.String()); cond != nil {
 			if isConditionFresh(cond, i) && cond.Reason == cvicondition.ProvisioningFailed.String() {
-				return true, fmt.Errorf("Ready condition reports ProvisioningFailed: %s", cond.Message)
+				return true, fmt.Errorf("ready condition reports ProvisioningFailed: %s", cond.Message)
 			}
 		}
 		return false, nil
@@ -60,7 +60,7 @@ func BeReady() Predicate {
 			)
 		case condIsReady && !phaseIsReady:
 			return false, fmt.Errorf(
-				"Ready condition is True/%s but phase is %q, expected %q",
+				"ready condition is True/%s but phase is %q, expected %q",
 				cvicondition.Ready, i.Status.Phase, v1alpha2.ImageReady,
 			)
 		case !phaseIsReady:

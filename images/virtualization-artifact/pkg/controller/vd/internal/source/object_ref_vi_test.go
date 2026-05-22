@@ -133,7 +133,6 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 				},
 			},
 		}
-
 	})
 
 	Context("VirtualDisk has just been created", func() {
@@ -231,7 +230,7 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res.Requeue).To(BeTrue())
+			Expect(res.RequeueAfter).ToNot(BeZero())
 		})
 	})
 

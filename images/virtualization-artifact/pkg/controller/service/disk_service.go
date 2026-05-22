@@ -244,13 +244,6 @@ func (s DiskService) GetStorageProfile(ctx context.Context, name string) (*cdiv1
 	return object.FetchObject(ctx, types.NamespacedName{Name: name}, s.client, &cdiv1.StorageProfile{})
 }
 
-func (s DiskService) isImmediateBindingMode(sc *storagev1.StorageClass) bool {
-	if sc == nil {
-		return false
-	}
-	return sc.GetAnnotations()[annotations.AnnVirtualDiskBindingMode] == string(storagev1.VolumeBindingImmediate)
-}
-
 func (s DiskService) GetStorageClass(ctx context.Context, scName string) (*storagev1.StorageClass, error) {
 	return object.FetchObject(ctx, types.NamespacedName{Name: scName}, s.client, &storagev1.StorageClass{})
 }

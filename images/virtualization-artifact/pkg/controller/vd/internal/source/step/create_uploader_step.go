@@ -19,6 +19,7 @@ package step
 import (
 	"context"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
@@ -126,7 +127,7 @@ func (s CreateUploaderStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 		Reason(vdcondition.Provisioning).
 		Message("DVCR Provisioner not found: create the new one.")
 
-	return &reconcile.Result{Requeue: true}, nil
+	return &reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
 func (s CreateUploaderStep) getEnvSettings(vd *v1alpha2.VirtualDisk, supgen supplements.Generator) *uploader.Settings {
