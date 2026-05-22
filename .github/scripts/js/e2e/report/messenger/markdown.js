@@ -38,7 +38,9 @@ function formatRate(value) {
 
 function formatClusterLink(report) {
   const clusterName = sanitizeCell(report.cluster || report.storageType);
-  return report.workflowRunUrl ? `[${clusterName}](${report.workflowRunUrl})` : clusterName;
+  return report.workflowRunUrl
+    ? `[${clusterName}](${report.workflowRunUrl})`
+    : clusterName;
 }
 
 function splitReportsBySection(orderedReports) {
@@ -47,14 +49,20 @@ function splitReportsBySection(orderedReports) {
   return {
     testsReports: reports.filter(isTestResultReport),
     stageFailureReports: reports.filter(isClusterFailureReport),
-    missingReports: reports.filter((report) => isMissingReport(report) && !isClusterFailureReport(report)),
+    missingReports: reports.filter(
+      (report) => isMissingReport(report) && !isClusterFailureReport(report)
+    ),
   };
 }
 
 function renderBranchLine(orderedReports) {
-  const branches = Array.from(new Set(orderedReports.map((report) => report.branch).filter(Boolean)));
+  const branches = Array.from(
+    new Set(orderedReports.map((report) => report.branch).filter(Boolean))
+  );
 
-  return branches.length === 1 && branches[0] !== "main" ? [`Branch: \`${branches[0]}\``, ""] : [];
+  return branches.length === 1 && branches[0] !== "main"
+    ? [`Branch: \`${branches[0]}\``, ""]
+    : [];
 }
 
 /**
@@ -138,7 +146,9 @@ function renderTestResultsSection(testsReports) {
     return [];
   }
 
-  const hasGinkgoErrors = testsReports.some((report) => Number((report.metrics || {}).errors || 0) > 0);
+  const hasGinkgoErrors = testsReports.some(
+    (report) => Number((report.metrics || {}).errors || 0) > 0
+  );
   const columns = buildTestResultsColumns(hasGinkgoErrors);
   const rows = [
     buildMarkdownRow(columns.map((column) => column.header)),
@@ -147,7 +157,9 @@ function renderTestResultsSection(testsReports) {
 
   for (const report of testsReports) {
     const metrics = report.metrics || {};
-    rows.push(buildMarkdownRow(columns.map((column) => column.value(report, metrics))));
+    rows.push(
+      buildMarkdownRow(columns.map((column) => column.value(report, metrics)))
+    );
   }
 
   return ["### Test results", "", ...rows, ""];
@@ -170,7 +182,10 @@ function renderBulletSection(title, reports, getMessage) {
     return [];
   }
 
-  const bullets = reports.map((report) => `- ${formatClusterLink(report)}: ${sanitizeListItem(getMessage(report))}`);
+  const bullets = reports.map(
+    (report) =>
+      `- ${formatClusterLink(report)}: ${sanitizeListItem(getMessage(report))}`
+  );
 
   return [`### ${title}`, "", ...bullets, ""];
 }
@@ -201,13 +216,22 @@ function getMissingReportMessage(report) {
  */
 function buildMainMessage(orderedReports) {
   const reportDate = getReportDate(orderedReports);
-  const { testsReports, stageFailureReports, missingReports } = splitReportsBySection(orderedReports);
+  const { testsReports, stageFailureReports, missingReports } =
+    splitReportsBySection(orderedReports);
   const lines = [
     `## :dvp: DVP | E2E on nested clusters | ${reportDate}`,
     "",
     ...renderBranchLine(orderedReports),
-    ...renderBulletSection("Cluster failures", stageFailureReports, getClusterFailureMessage),
-    ...renderBulletSection("Missing reports", missingReports, getMissingReportMessage),
+    ...renderBulletSection(
+      "Cluster failures",
+      stageFailureReports,
+      getClusterFailureMessage
+    ),
+    ...renderBulletSection(
+      "Missing reports",
+      missingReports,
+      getMissingReportMessage
+    ),
     ...renderTestResultsSection(testsReports),
   ];
 
@@ -244,7 +268,10 @@ function getFailedTestGroupName(testName) {
 }
 
 function getFailedTestEntries(report) {
-  if (Array.isArray(report.failedTestDetails) && report.failedTestDetails.length > 0) {
+  if (
+    Array.isArray(report.failedTestDetails) &&
+    report.failedTestDetails.length > 0
+  ) {
     return report.failedTestDetails.map((test) => ({
       name: test.name,
       reason: test.reason,
@@ -294,7 +321,9 @@ function renderFailedTestsThreadMessage(report) {
     lines.push("| Tests | Reason |");
     lines.push("|---|---|");
     for (const group of failedGroups) {
-      lines.push(`| ${sanitizeCell(group.name)} | ${sanitizeCell(group.reason)} |`);
+      lines.push(
+        `| ${sanitizeCell(group.name)} | ${sanitizeCell(group.reason)} |`
+      );
     }
   } else {
     lines.push(
@@ -358,7 +387,9 @@ async function buildThreadMessages(orderedReports, { getClusterChartFiles, core 
     if (hasFailedTests(report)) {
       const clusterMessage = renderFailedTestsThreadMessage(report);
       messageParts.push(
-        renderedFailedTestsHeading ? clusterMessage : ["### Failed tests", clusterMessage].join("\n\n")
+        renderedFailedTestsHeading
+          ? clusterMessage
+          : ["### Failed tests", clusterMessage].join("\n\n")
       );
       renderedFailedTestsHeading = true;
     } else {

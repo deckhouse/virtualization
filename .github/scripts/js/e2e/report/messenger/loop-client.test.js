@@ -190,7 +190,9 @@ describe("loop-client", () => {
     expect(replyBody.file_ids).toEqual(["file-one"]);
 
     expect(core.warning).toHaveBeenCalledWith(
-      expect.stringContaining("Loop file upload failed for one attachment: Loop file upload failed with status 403")
+      expect.stringContaining(
+        "Loop file upload failed for one attachment: Loop file upload failed with status 403"
+      )
     );
     expect(core.warning).toHaveBeenCalledTimes(1);
   });
@@ -214,7 +216,9 @@ describe("loop-client", () => {
         text: async () => "permission denied",
       },
     ];
-    global.fetch = jest.fn().mockImplementation(() => Promise.resolve(responses.shift()));
+    global.fetch = jest
+      .fn()
+      .mockImplementation(() => Promise.resolve(responses.shift()));
 
     await expect(
       makeThreadedReportInLoop(

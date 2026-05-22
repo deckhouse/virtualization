@@ -13,7 +13,10 @@
 const fs = require("fs");
 
 const { findSingleMatchingFile } = require("./shared/fs-utils");
-const { parseGinkgoOutput, parseGinkgoReport } = require("./shared/ginkgo-report-utils");
+const {
+  parseGinkgoOutput,
+  parseGinkgoReport,
+} = require("./shared/ginkgo-report-utils");
 const {
   archivedReportPattern,
   buildClusterStatus,
@@ -374,20 +377,29 @@ function setReportOutputs(report, reportFile, core) {
  * @throws {Error} If config is incomplete or the report file cannot be written.
  */
 async function buildClusterReport({ core, context, github, config } = {}) {
-  const resolvedConfig = requireClusterReportConfig(config || readClusterReportConfigFromEnv());
+  const resolvedConfig = requireClusterReportConfig(
+    config || readClusterReportConfigFromEnv()
+  );
 
   if (!resolvedConfig.stageResults) {
     resolvedConfig.stageResults = readStageResultsFromEnv();
   }
 
   if (!resolvedConfig.stageJobUrls && github) {
-    resolvedConfig.stageJobUrls = await readStageJobUrlsFromApi(github, context, resolvedConfig, core);
+    resolvedConfig.stageJobUrls = await readStageJobUrlsFromApi(
+      github,
+      context,
+      resolvedConfig,
+      core
+    );
   }
 
   const fallbackWorkflowRunUrl = getWorkflowRunUrl(context);
   const branchName = getBranchName(context);
   const rawReportPath = findGinkgoSource(resolvedConfig, ginkgoJsonSource);
-  const outputPath = rawReportPath ? null : findGinkgoSource(resolvedConfig, ginkgoOutputSource);
+  const outputPath = rawReportPath
+    ? null
+    : findGinkgoSource(resolvedConfig, ginkgoOutputSource);
   const sourcePath = rawReportPath || outputPath;
   const sourceDescriptor = rawReportPath ? ginkgoJsonSource : ginkgoOutputSource;
 
@@ -408,9 +420,14 @@ async function buildClusterReport({ core, context, github, config } = {}) {
   });
 
   try {
-    fs.writeFileSync(resolvedConfig.reportFile, `${JSON.stringify(report, null, 2)}\n`);
+    fs.writeFileSync(
+      resolvedConfig.reportFile,
+      `${JSON.stringify(report, null, 2)}\n`
+    );
   } catch (error) {
-    throw new Error(`Unable to write cluster report file ${resolvedConfig.reportFile}: ${error.message}`);
+    throw new Error(
+      `Unable to write cluster report file ${resolvedConfig.reportFile}: ${error.message}`
+    );
   }
 
   setReportOutputs(report, resolvedConfig.reportFile, core);

@@ -79,11 +79,11 @@ function formatSpecName(specReport) {
   const labelSuffix = labels.map((label) => `[${label}]`).join(" ");
   const body = [...hierarchyParts, leafText].filter(Boolean).join(" ");
 
-  rreturn [`[${nodeType}]`, body, labelSuffix]
-  .filter(Boolean)
-  .join(" ")
-  .replace(/\s+/g, " ")
-  .trim();
+  return [`[${nodeType}]`, body, labelSuffix]
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function runtimeMs(value) {
@@ -169,7 +169,8 @@ function parseGinkgoReport(jsonContent) {
   const failedTests = [];
   const failedTestDetails = [];
   const specTimings = [];
-  const startedAt = suites.find((suite) => suite && suite.StartTime)?.StartTime || null;
+  const startedAt =
+    suites.find((suite) => suite && suite.StartTime)?.StartTime || null;
   let suiteTotalMs = 0;
 
   for (const suite of suites) {
@@ -205,7 +206,10 @@ function parseGinkgoReport(jsonContent) {
         group: hierarchyParts[0] || "Top-level Its",
         state: metricKey,
         runtimeMs: runtimeMs(specReport.RunTime),
-        labels: flattenLabels([...toArray(specReport.ContainerHierarchyLabels), ...toArray(specReport.LeafNodeLabels)]),
+        labels: flattenLabels([
+          ...toArray(specReport.ContainerHierarchyLabels),
+          ...toArray(specReport.LeafNodeLabels),
+        ]),
       });
 
       if (failureStates.has(metricKey)) {

@@ -381,7 +381,8 @@ describe("messenger-report", () => {
           files: [],
         },
         {
-          message: "**[nfs](https://example.invalid/nfs)**\n\n| Tests | Reason |\n|---|---|\n| nfs | — |",
+          message:
+            "**[nfs](https://example.invalid/nfs)**\n\n| Tests | Reason |\n|---|---|\n| nfs | — |",
           files: [],
         },
       ]);
@@ -478,7 +479,9 @@ describe("messenger-report", () => {
 
       expect(result.message).not.toContain("Branch: `main`");
       expect(result.message).toContain("### Cluster failures");
-      expect(result.message).toContain("- [replicated](https://example.invalid/replicated): ❌ CONFIGURE SDN FAILED");
+      expect(result.message).toContain(
+        "- [replicated](https://example.invalid/replicated): ❌ CONFIGURE SDN FAILED"
+      );
       expect(result.threadMessages).toEqual([]);
     }));
 
@@ -701,7 +704,9 @@ describe("messenger-report", () => {
 
       // Empty body → no post id → thread replies cannot be sent → warning emitted.
       expect(global.fetch).toHaveBeenCalledTimes(1);
-      expect(core.warning).toHaveBeenCalledWith(expect.stringContaining("Loop API did not return a post id"));
+      expect(core.warning).toHaveBeenCalledWith(
+        expect.stringContaining("Loop API did not return a post id")
+      );
       // Report outputs are still set because the message was built before sending.
       expect(core.setOutput).toHaveBeenCalledWith("thread_messages", "[]");
     }));
@@ -746,8 +751,12 @@ describe("messenger-report", () => {
 
       // Non-JSON body → parse warning → no post id → delivery warning.
       expect(global.fetch).toHaveBeenCalledTimes(1);
-      expect(core.warning).toHaveBeenCalledWith(expect.stringContaining("Loop API returned a non-JSON response body"));
-      expect(core.warning).toHaveBeenCalledWith(expect.stringContaining("Loop API did not return a post id"));
+      expect(core.warning).toHaveBeenCalledWith(
+        expect.stringContaining("Loop API returned a non-JSON response body")
+      );
+      expect(core.warning).toHaveBeenCalledWith(
+        expect.stringContaining("Loop API did not return a post id")
+      );
       // Report outputs are still set because the message was built before sending.
       expect(core.setOutput).toHaveBeenCalledWith("thread_messages", "[]");
     }));
