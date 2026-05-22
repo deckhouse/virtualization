@@ -313,7 +313,7 @@ jobs:
 
           task dhctl-bootstrap
           echo "[SUCCESS] Done"
-        timeout-minutes: 30
+        timeout-minutes: 60
       - name: Bootstrap cluster [show-connection-info]
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
         run: |
