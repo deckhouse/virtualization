@@ -190,7 +190,7 @@ func (s DiskService) EnsureSupplementPVCImport(ctx context.Context, target *core
 
 	phase := corev1.PodPhase(target.Annotations[annotations.AnnPVCImportPhase])
 	if phase == corev1.PodSucceeded {
-		_, err := s.cleanupPVCImport(ctx, target)
+		_, err := s.cleanupPVCImport(ctx, sup, target)
 		return phase, err
 	}
 
@@ -234,7 +234,7 @@ func (s DiskService) EnsureSupplementPVCImport(ctx context.Context, target *core
 		}
 	}
 	if pod.Status.Phase == corev1.PodSucceeded {
-		_, err := s.cleanupPVCImport(ctx, target)
+		_, err := s.cleanupPVCImport(ctx, sup, target)
 		return pod.Status.Phase, err
 	}
 	return pod.Status.Phase, nil
@@ -494,11 +494,11 @@ func (s DiskService) patchTargetImportPhase(ctx context.Context, target *corev1.
 	return s.client.Patch(ctx, copy, client.MergeFrom(target))
 }
 
-func (s DiskService) cleanupPVCImport(ctx context.Context, target *corev1.PersistentVolumeClaim) (bool, error) {
+func (s DiskService) cleanupPVCImport(ctx context.Context, sup supplements.Generator, target *corev1.PersistentVolumeClaim) (bool, error) {
 	var deleted bool
 	podName := target.Annotations[annotations.AnnPVCImportPod]
 	if podName == "" {
-		podName = target.Name
+		podName = sup.PVCImporterPod().Name
 	}
 	for _, obj := range []client.Object{
 		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: podName, Namespace: target.Namespace}},

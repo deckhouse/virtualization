@@ -167,7 +167,7 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup supplements.Gen
 			Namespace: sup.PersistentVolumeClaim().Namespace,
 		},
 	}
-	importSupplementsDeleted, err := s.cleanupPVCImport(ctx, target)
+	importSupplementsDeleted, err := s.cleanupPVCImport(ctx, sup, target)
 	if err != nil {
 		return false, fmt.Errorf("delete pvc import supplements: %w", err)
 	}
