@@ -47,7 +47,6 @@ type Generator interface {
 	UploaderPod() types.NamespacedName
 	UploaderService() types.NamespacedName
 	UploaderIngress() types.NamespacedName
-	DataVolume() types.NamespacedName
 	PersistentVolumeClaim() types.NamespacedName
 	CABundleConfigMap() types.NamespacedName
 	DVCRAuthSecret() types.NamespacedName
@@ -57,13 +56,14 @@ type Generator interface {
 	ImagePullSecret() types.NamespacedName
 	NetworkPolicy() types.NamespacedName
 	CommonSupplement() types.NamespacedName
+	CommonResourceName() types.NamespacedName
 
 	LegacyBounderPod() types.NamespacedName
 	LegacyImporterPod() types.NamespacedName
 	LegacyUploaderPod() types.NamespacedName
 	LegacyUploaderService() types.NamespacedName
 	LegacyUploaderIngress() types.NamespacedName
-	LegacyDataVolume() types.NamespacedName
+	LegacyCommonResourceName() types.NamespacedName
 	LegacyPersistentVolumeClaim() types.NamespacedName
 	LegacyCABundleConfigMap() types.NamespacedName
 	LegacyDVCRAuthSecret() types.NamespacedName
@@ -116,8 +116,7 @@ func (g *generator) DVCRAuthSecret() types.NamespacedName {
 	return g.generateName(tplDVCRAuthSecret, kvalidation.DNS1123SubdomainMaxLength)
 }
 
-// DVCRAuthSecretForDV returns name and namespace for auth Secret copy
-// compatible with DataVolume: with accessKeyId and secretKey fields.
+// DVCRAuthSecretForDV returns name and namespace for CDI-compatible auth Secret copy.
 func (g *generator) DVCRAuthSecretForDV() types.NamespacedName {
 	return g.generateName(tplDVCRAuthSecretForDV, kvalidation.DNS1123SubdomainMaxLength)
 }
@@ -167,9 +166,8 @@ func (g *generator) UploaderTLSSecretForIngress() types.NamespacedName {
 	return g.generateName(tplUploaderTLSSecret, kvalidation.DNS1123SubdomainMaxLength)
 }
 
-// DataVolume generates name for underlying DataVolume.
-// DataVolume is always one for vmd/vmi, so prefix is used.
-func (g *generator) DataVolume() types.NamespacedName {
+// CommonResourceName generates the shared resource name used by older resource layouts.
+func (g *generator) CommonResourceName() types.NamespacedName {
 	return g.generateName(tplCommon, kvalidation.DNS1123SubdomainMaxLength)
 }
 
@@ -204,8 +202,7 @@ func (g *generator) LegacyDVCRAuthSecret() types.NamespacedName {
 	return g.shortenNamespaced(name)
 }
 
-// LegacyDVCRAuthSecretForDV returns old format name for auth Secret copy
-// compatible with DataVolume: with accessKeyId and secretKey fields.
+// LegacyDVCRAuthSecretForDV returns old format name for CDI-compatible auth Secret copy.
 func (g *generator) LegacyDVCRAuthSecretForDV() types.NamespacedName {
 	name := fmt.Sprintf("%s-dvcr-auth-dv-%s", g.prefix, g.name)
 	return g.shortenNamespaced(name)
@@ -265,14 +262,13 @@ func (g *generator) LegacyUploaderTLSSecretForIngress() types.NamespacedName {
 	return g.shortenNamespaced(name)
 }
 
-// LegacyDataVolume generates old format name for underlying DataVolume.
-// DataVolume is always one for vmd/vmi, so prefix is used.
-func (g *generator) LegacyDataVolume() types.NamespacedName {
-	dvName := fmt.Sprintf("%s-%s-%s", g.prefix, g.name, string(g.uid))
-	return g.shortenNamespaced(dvName)
+// LegacyCommonResourceName generates the shared resource name used by older resource layouts.
+func (g *generator) LegacyCommonResourceName() types.NamespacedName {
+	name := fmt.Sprintf("%s-%s-%s", g.prefix, g.name, string(g.uid))
+	return g.shortenNamespaced(name)
 }
 
 // LegacyPersistentVolumeClaim generates old format name for underlying PersistentVolumeClaim.
 func (g *generator) LegacyPersistentVolumeClaim() types.NamespacedName {
-	return g.LegacyDataVolume()
+	return g.LegacyCommonResourceName()
 }

@@ -71,6 +71,12 @@ func (w PodWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error 
 
 func (w PodWatcher) enqueueRequestsFromPVC(ctx context.Context, pod *corev1.Pod) []reconcile.Request {
 	for _, ownerRef := range pod.OwnerReferences {
+		if ownerRef.Kind == v1alpha2.VirtualDiskKind {
+			return []reconcile.Request{{
+				NamespacedName: types.NamespacedName{Name: ownerRef.Name, Namespace: pod.Namespace},
+			}}
+		}
+
 		if ownerRef.Kind != "PersistentVolumeClaim" {
 			continue
 		}

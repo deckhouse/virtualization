@@ -389,7 +389,7 @@ var _ = Describe("Source validations and helpers", func() {
 
 			source, err := ds.getSource(supgen, dvcrSource)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(*source.Registry.URL).To(Equal("docker://registry.example/source"))
+			Expect(source.Registry.URL).To(Equal("docker://registry.example/source"))
 		})
 
 		It("rejects not ready dvcr source in helper methods", func() {
@@ -441,7 +441,7 @@ var _ = Describe("Source validations and helpers", func() {
 			q, err := registry.getPVCSize(&corev1.Pod{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(q).To(Equal(resource.MustParse("2Gi")))
-			Expect(*registry.getSource(supgen, "registry.example/image").Registry.URL).To(Equal("docker://registry.example/image"))
+			Expect(registry.getSource(supgen, "registry.example/image").Registry.URL).To(Equal("docker://registry.example/image"))
 		})
 
 		It("covers http helpers", func() {
@@ -455,7 +455,7 @@ var _ = Describe("Source validations and helpers", func() {
 			q, err := httpDS.getPVCSize(&corev1.Pod{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(q).To(Equal(resource.MustParse("3Gi")))
-			Expect(*httpDS.getSource(supgen, "registry.example/image").Registry.URL).To(Equal("docker://registry.example/image"))
+			Expect(httpDS.getSource(supgen, "registry.example/image").Registry.URL).To(Equal("docker://registry.example/image"))
 		})
 
 		It("covers upload helpers", func() {
@@ -469,7 +469,7 @@ var _ = Describe("Source validations and helpers", func() {
 			q, err := upload.getPVCSize(&corev1.Pod{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(q).To(Equal(resource.MustParse("4Gi")))
-			Expect(*upload.getSource(supgen, "registry.example/image").Registry.URL).To(Equal("docker://registry.example/image"))
+			Expect(upload.getSource(supgen, "registry.example/image").Registry.URL).To(Equal("docker://registry.example/image"))
 		})
 	})
 
@@ -480,6 +480,18 @@ var _ = Describe("Source validations and helpers", func() {
 			setPhaseConditionToFailed(cb, &phase, errors.New("plain error"))
 			Expect(phase).To(Equal(v1alpha2.ImageFailed))
 			Expect(cb.Condition().Message).To(Equal("Plain error"))
+		})
+
+		It("keeps upload status in Provisioning after upload progress appears", func() {
+			cb := conditions.NewConditionBuilder(vicondition.ReadyType)
+			vi := newVI()
+			vi.Status.Progress = "41.9%"
+
+			Expect(hasUploadProgress(vi.Status.Progress)).To(BeTrue())
+			setUploadProvisioningPhaseCondition(cb, vi)
+
+			Expect(vi.Status.Phase).To(Equal(v1alpha2.ImageProvisioning))
+			Expect(cb.Condition().Reason).To(Equal(vicondition.Provisioning.String()))
 		})
 	})
 })

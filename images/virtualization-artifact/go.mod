@@ -151,6 +151,8 @@ require (
 
 replace github.com/deckhouse/virtualization/api => ./../../api
 
+replace kubevirt.io/containerized-data-importer-api => ../cdi-artifact/containerized-data-importer/staging/src/kubevirt.io/containerized-data-importer-api
+
 replace (
 	k8s.io/api => k8s.io/api v0.34.2
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.34.2

@@ -1,0 +1,70 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["importer.go"],
+    importpath = "kubevirt.io/containerized-data-importer/cmd/cdi-importer",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/common:go_default_library",
+        "//pkg/controller/common:go_default_library",
+        "//pkg/image:go_default_library",
+        "//pkg/importer:go_default_library",
+        "//pkg/util:go_default_library",
+        "//pkg/util/prometheus:go_default_library",
+        "//staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
+        "//vendor/k8s.io/klog/v2:go_default_library",
+        "//vendor/k8s.io/utils/ptr:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "cdi-importer",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)
+
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_image",
+)
+
+container_image(
+    name = "cdi-importer-image",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "//conditions:default": "amd64",
+    }),
+    base = ":importer_base",
+    directory = "/usr/bin",
+    entrypoint = [
+        "/usr/bin/cdi-importer",
+        "-alsologtostderr",
+    ],
+    files = [
+        ":cdi-importer",
+        "//cmd/openstack-populator",
+        "//cmd/ovirt-populator",
+        "//tools/cdi-containerimage-server",
+        "//tools/cdi-image-size-detection",
+        "//tools/cdi-source-update-poller",
+    ],
+    user = "1001",
+    visibility = ["//visibility:public"],
+)
+
+container_image(
+    name = "importer_base",
+    tars = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": [
+            "//rpm:cdi_importer_base_aarch64",
+            "//:ca_anchors_tar",
+        ],
+        "//conditions:default": [
+            "//rpm:cdi_importer_base_x86_64",
+            "//:ca_anchors_tar",
+        ],
+    }),
+)

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -43,28 +44,60 @@ import (
 )
 
 const (
-	AnnObjectRefImportPhase         = "virtualization.deckhouse.io/object-ref-import.phase"
-	AnnObjectRefImportPod           = "virtualization.deckhouse.io/object-ref-import.pod"
-	AnnObjectRefImportSource        = "virtualization.deckhouse.io/object-ref-import.source"
-	AnnObjectRefImportEndpoint      = "virtualization.deckhouse.io/object-ref-import.endpoint"
-	AnnObjectRefImportSecret        = "virtualization.deckhouse.io/object-ref-import.secret"
-	AnnObjectRefImportCertConfigMap = "virtualization.deckhouse.io/object-ref-import.cert-config-map"
-	AnnObjectRefImportImageSize     = "virtualization.deckhouse.io/object-ref-import.image-size"
-	AnnObjectRefImportCreatedBy     = "virtualization.deckhouse.io/object-ref-import.created-by"
-
-	cdiDataVolName     = "cdi-data-vol"
-	cdiScratchVolName  = "cdi-scratch-vol"
-	cdiImporterDataDir = "/data"
-	cdiScratchDataDir  = "/scratch"
-	cdiWriteBlockPath  = "/dev/cdi-block-volume"
-	cdiSourceBlockPath = "/dev/source-block-volume"
-	sourceRegistry     = "registry"
-	sourcePVC          = "pvc"
+	cdiDataVolName        = "cdi-data-vol"
+	cdiScratchVolName     = "cdi-scratch-vol"
+	cdiImporterDataDir    = "/data"
+	cdiScratchDataDir     = "/scratch"
+	cdiWriteBlockPath     = "/dev/cdi-block-volume"
+	cdiSourceBlockPath    = "/dev/source-block-volume"
+	sourceRegistry        = "registry"
+	sourcePVC             = "pvc"
+	cloneStrategySnapshot = "snapshot"
+	cloneStrategyCSI      = "csi-clone"
+	cloneStrategyHost     = "host-assisted"
 )
 
-func (s DiskService) StartObjectRefDiskImport(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *cdiv1.DataVolumeSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error {
+type PVCImportSource struct {
+	Registry *PVCImportSourceRegistry
+	PVC      *PVCImportSourcePVC
+}
+
+type PVCImportSourceRegistry struct {
+	URL           string
+	Secret        string
+	CertConfigMap string
+}
+
+type PVCImportSourcePVC struct {
+	Name      string
+	Namespace string
+}
+
+func NewPVCRegistryImportSource(url, secret, certConfigMap string) *PVCImportSource {
+	return &PVCImportSource{
+		Registry: &PVCImportSourceRegistry{
+			URL:           url,
+			Secret:        secret,
+			CertConfigMap: certConfigMap,
+		},
+	}
+}
+
+func NewPVCPVCImportSource(name, namespace string) *PVCImportSource {
+	return &PVCImportSource{
+		PVC: &PVCImportSourcePVC{
+			Name:      name,
+			Namespace: namespace,
+		},
+	}
+}
+
+func (s DiskService) StartPVCImport(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error {
 	if sc == nil {
 		return fmt.Errorf("cannot create import PVC: StorageClass must not be nil")
+	}
+	if source != nil && source.PVC != nil {
+		return s.startPVCClone(ctx, pvcSize, sc, source.PVC, vd, nodePlacement)
 	}
 
 	volumeMode, accessMode, err := s.GetVolumeAndAccessModes(ctx, vd, sc)
@@ -77,7 +110,7 @@ func (s DiskService) StartObjectRefDiskImport(ctx context.Context, pvcSize resou
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        vd.Status.Target.PersistentVolumeClaim,
 			Namespace:   vd.Namespace,
-			Annotations: s.objectRefImportAnnotations(source, pvcSize),
+			Annotations: s.pvcImportAnnotations(source, pvcSize),
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion:         v1alpha2.SchemeGroupVersion.String(),
 				Kind:               v1alpha2.VirtualDiskKind,
@@ -104,17 +137,68 @@ func (s DiskService) StartObjectRefDiskImport(ctx context.Context, pvcSize resou
 	return nil
 }
 
-func (s DiskService) EnsureObjectRefDiskImport(ctx context.Context, target *corev1.PersistentVolumeClaim, source *cdiv1.DataVolumeSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) (corev1.PodPhase, error) {
-	phase := corev1.PodPhase(target.Annotations[AnnObjectRefImportPhase])
-	if phase == corev1.PodSucceeded {
-		return phase, s.cleanupObjectRefDiskImport(ctx, target)
+func (s DiskService) StartSupplementPVCImport(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) error {
+	if sc == nil {
+		return fmt.Errorf("cannot create import PVC: StorageClass must not be nil")
 	}
 
-	if err := s.ensureObjectRefImportSupplements(ctx, target, vd); err != nil {
+	volumeMode, accessMode, err := s.GetVolumeAndAccessModes(ctx, owner, sc)
+	if err != nil {
+		return fmt.Errorf("get volume and access modes: %w", err)
+	}
+
+	target := &corev1.PersistentVolumeClaim{
+		TypeMeta: metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            sup.PersistentVolumeClaim().Name,
+			Namespace:       sup.PersistentVolumeClaim().Namespace,
+			Annotations:     s.pvcImportAnnotations(source, pvcSize),
+			OwnerReferences: []metav1.OwnerReference{ownerReferenceForObject(owner)},
+		},
+		Spec: *pvc.CreateSpec(&sc.Name, pvcSize, accessMode, volumeMode),
+	}
+
+	if nodePlacement != nil {
+		if err := provisioner.KeepNodePlacementTolerations(nodePlacement, target); err != nil {
+			return fmt.Errorf("keep node placement: %w", err)
+		}
+	}
+
+	err = s.client.Create(ctx, target)
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
+		return err
+	}
+
+	return nil
+}
+
+func (s DiskService) EnsurePVCImport(ctx context.Context, target *corev1.PersistentVolumeClaim, source *PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) (corev1.PodPhase, error) {
+	sup := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	return s.EnsureSupplementPVCImport(ctx, target, source, vd, sup, nodePlacement)
+}
+
+func (s DiskService) EnsureSupplementPVCImport(ctx context.Context, target *corev1.PersistentVolumeClaim, source *PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) (corev1.PodPhase, error) {
+	if source != nil && source.PVC != nil && isSmartCloneStrategy(target.Annotations[annotations.AnnPVCImportCloneStrategy]) {
+		if target.Status.Phase == corev1.ClaimBound {
+			if err := s.patchTargetImportPhase(ctx, target, corev1.PodSucceeded); err != nil {
+				return "", err
+			}
+			return corev1.PodSucceeded, s.cleanupPVCImportClone(ctx, target)
+		}
+		return corev1.PodPending, nil
+	}
+
+	phase := corev1.PodPhase(target.Annotations[annotations.AnnPVCImportPhase])
+	if phase == corev1.PodSucceeded {
+		_, err := s.cleanupPVCImport(ctx, target)
+		return phase, err
+	}
+
+	if err := s.ensurePVCImportSupplements(ctx, target, sup); err != nil {
 		return "", err
 	}
 
-	scratch, err := s.ensureObjectRefScratchPVC(ctx, target)
+	scratch, err := s.ensurePVCImportScratch(ctx, target)
 	if err != nil {
 		return "", err
 	}
@@ -135,7 +219,7 @@ func (s DiskService) EnsureObjectRefDiskImport(ctx context.Context, target *core
 		return "", fmt.Errorf("fetch importer pod: %w", err)
 	}
 	if pod == nil {
-		pod = s.makeObjectRefImporterPod(target, source, sourceClaim, scratch.Name, vd, nodePlacement)
+		pod = s.makePVCImporterPod(target, source, sourceClaim, scratch.Name, nodePlacement)
 		if err := s.client.Create(ctx, pod); err != nil && !k8serrors.IsAlreadyExists(err) {
 			return "", fmt.Errorf("create importer pod: %w", err)
 		}
@@ -148,42 +232,46 @@ func (s DiskService) EnsureObjectRefDiskImport(ctx context.Context, target *core
 		}
 	}
 	if pod.Status.Phase == corev1.PodSucceeded {
-		return pod.Status.Phase, s.cleanupObjectRefDiskImport(ctx, target)
+		_, err := s.cleanupPVCImport(ctx, target)
+		return pod.Status.Phase, err
 	}
 	return pod.Status.Phase, nil
 }
 
-func (s DiskService) objectRefImportAnnotations(source *cdiv1.DataVolumeSource, size resource.Quantity) map[string]string {
+// pvcImportAnnotations builds the annotations applied on a target PVC to
+// describe how its contents should be imported. The source can be a DVCR
+// registry image (used by Upload/HTTP/Registry and ObjectRef CVI/VI data
+// sources) or another PVC (used when cloning from a VirtualDisk).
+func (s DiskService) pvcImportAnnotations(source *PVCImportSource, size resource.Quantity) map[string]string {
 	anno := map[string]string{
-		AnnObjectRefImportPod:       "",
-		AnnObjectRefImportPhase:     string(corev1.PodPending),
-		AnnObjectRefImportImageSize: size.String(),
+		annotations.AnnPVCImportPod:       "",
+		annotations.AnnPVCImportPhase:     string(corev1.PodPending),
+		annotations.AnnPVCImportImageSize: size.String(),
 	}
 	if source != nil && source.Registry != nil {
-		anno[AnnObjectRefImportSource] = sourceRegistry
-		if source.Registry.URL != nil {
-			anno[AnnObjectRefImportEndpoint] = *source.Registry.URL
+		anno[annotations.AnnPVCImportSource] = sourceRegistry
+		if source.Registry.URL != "" {
+			anno[annotations.AnnPVCImportEndpoint] = source.Registry.URL
 		}
-		if source.Registry.SecretRef != nil {
-			anno[AnnObjectRefImportSecret] = *source.Registry.SecretRef
+		if source.Registry.Secret != "" {
+			anno[annotations.AnnPVCImportSecret] = source.Registry.Secret
 		}
-		if source.Registry.CertConfigMap != nil {
-			anno[AnnObjectRefImportCertConfigMap] = *source.Registry.CertConfigMap
+		if source.Registry.CertConfigMap != "" {
+			anno[annotations.AnnPVCImportCertConfigMap] = source.Registry.CertConfigMap
 		}
 	}
 	if source != nil && source.PVC != nil {
-		anno[AnnObjectRefImportSource] = sourcePVC
-		anno[AnnObjectRefImportEndpoint] = source.PVC.Namespace + "/" + source.PVC.Name
+		anno[annotations.AnnPVCImportSource] = sourcePVC
+		anno[annotations.AnnPVCImportEndpoint] = source.PVC.Namespace + "/" + source.PVC.Name
 	}
 	return anno
 }
 
-func (s DiskService) ensureObjectRefImportSupplements(ctx context.Context, target *corev1.PersistentVolumeClaim, vd *v1alpha2.VirtualDisk) error {
+func (s DiskService) ensurePVCImportSupplements(ctx context.Context, target *corev1.PersistentVolumeClaim, supGen supplements.Generator) error {
 	if s.dvcrSettings == nil {
 		return nil
 	}
 
-	supGen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
 	ownerRef := metav1.OwnerReference{
 		APIVersion:         "v1",
 		Kind:               "PersistentVolumeClaim",
@@ -226,7 +314,7 @@ func (s DiskService) ensureObjectRefImportSupplements(ctx context.Context, targe
 	return nil
 }
 
-func (s DiskService) ensureObjectRefScratchPVC(ctx context.Context, target *corev1.PersistentVolumeClaim) (*corev1.PersistentVolumeClaim, error) {
+func (s DiskService) ensurePVCImportScratch(ctx context.Context, target *corev1.PersistentVolumeClaim) (*corev1.PersistentVolumeClaim, error) {
 	name := target.Name + "-scratch"
 	scratch, err := object.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: target.Namespace}, s.client, &corev1.PersistentVolumeClaim{})
 	if err != nil {
@@ -236,7 +324,7 @@ func (s DiskService) ensureObjectRefScratchPVC(ctx context.Context, target *core
 		return scratch, nil
 	}
 
-	size := target.Spec.Resources.Requests[corev1.ResourceStorage]
+	size := scratchPVCSize(target.Spec.Resources.Requests[corev1.ResourceStorage])
 	volumeMode := corev1.PersistentVolumeFilesystem
 	scratch = &corev1.PersistentVolumeClaim{
 		TypeMeta: metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
@@ -264,9 +352,20 @@ func (s DiskService) ensureObjectRefScratchPVC(ctx context.Context, target *core
 	return scratch, nil
 }
 
-func (s DiskService) makeObjectRefImporterPod(target *corev1.PersistentVolumeClaim, source *cdiv1.DataVolumeSource, sourceClaim *corev1.PersistentVolumeClaim, scratchName string, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) *corev1.Pod {
-	annotations := map[string]string{AnnObjectRefImportCreatedBy: "yes"}
-	target.Annotations[AnnObjectRefImportPod] = target.Name
+func scratchPVCSize(targetSize resource.Quantity) resource.Quantity {
+	size := targetSize.DeepCopy()
+	minOverhead := resource.MustParse("256Mi")
+	overhead := *resource.NewQuantity(targetSize.Value()/10, targetSize.Format)
+	if overhead.Cmp(minOverhead) < 0 {
+		overhead = minOverhead
+	}
+	size.Add(overhead)
+	return size
+}
+
+func (s DiskService) makePVCImporterPod(target *corev1.PersistentVolumeClaim, source *PVCImportSource, sourceClaim *corev1.PersistentVolumeClaim, scratchName string, nodePlacement *provisioner.NodePlacement) *corev1.Pod {
+	podAnnotations := map[string]string{annotations.AnnPVCImportCreatedBy: "yes"}
+	target.Annotations[annotations.AnnPVCImportPod] = target.Name
 
 	container := corev1.Container{
 		Name:            "d8v-cdi-importer",
@@ -276,9 +375,9 @@ func (s DiskService) makeObjectRefImporterPod(target *corev1.PersistentVolumeCla
 		Args:            []string{"-v=" + s.verbose},
 		Env: []corev1.EnvVar{
 			{Name: common.ImporterSource, Value: sourceRegistry},
-			{Name: common.ImporterEndpoint, Value: target.Annotations[AnnObjectRefImportEndpoint]},
-			{Name: common.ImporterContentType, Value: string(cdiv1.DataVolumeKubeVirt)},
-			{Name: common.ImporterImageSize, Value: target.Annotations[AnnObjectRefImportImageSize]},
+			{Name: common.ImporterEndpoint, Value: target.Annotations[annotations.AnnPVCImportEndpoint]},
+			{Name: common.ImporterContentType, Value: "kubevirt"},
+			{Name: common.ImporterImageSize, Value: target.Annotations[annotations.AnnPVCImportImageSize]},
 			{Name: common.OwnerUID, Value: string(target.UID)},
 			{Name: common.FilesystemOverheadVar, Value: "0"},
 			{Name: common.InsecureTLSVar, Value: "false"},
@@ -290,7 +389,7 @@ func (s DiskService) makeObjectRefImporterPod(target *corev1.PersistentVolumeCla
 	if s.resourceRequirements.Requests != nil || s.resourceRequirements.Limits != nil {
 		container.Resources = s.resourceRequirements
 	}
-	if secretName := target.Annotations[AnnObjectRefImportSecret]; secretName != "" {
+	if secretName := target.Annotations[annotations.AnnPVCImportSecret]; secretName != "" {
 		container.Env = append(container.Env, corev1.EnvVar{
 			Name: common.ImporterAccessKeyID,
 			ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{
@@ -305,7 +404,7 @@ func (s DiskService) makeObjectRefImporterPod(target *corev1.PersistentVolumeCla
 			}},
 		})
 	}
-	if target.Annotations[AnnObjectRefImportCertConfigMap] != "" {
+	if target.Annotations[annotations.AnnPVCImportCertConfigMap] != "" {
 		container.Env = append(container.Env, corev1.EnvVar{Name: common.ImporterCertDirVar, Value: common.ImporterCertDir})
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{Name: "cert-vol", MountPath: common.ImporterCertDir})
 	}
@@ -320,7 +419,7 @@ func (s DiskService) makeObjectRefImporterPod(target *corev1.PersistentVolumeCla
 		{Name: cdiDataVolName, VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: target.Name}}},
 		{Name: cdiScratchVolName, VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: scratchName}}},
 	}
-	if certConfigMap := target.Annotations[AnnObjectRefImportCertConfigMap]; certConfigMap != "" {
+	if certConfigMap := target.Annotations[annotations.AnnPVCImportCertConfigMap]; certConfigMap != "" {
 		volumes = append(volumes, corev1.Volume{
 			Name: "cert-vol",
 			VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
@@ -342,8 +441,8 @@ func (s DiskService) makeObjectRefImporterPod(target *corev1.PersistentVolumeCla
 			targetPath = cdiWriteBlockPath
 		}
 
-		container.Command = []string{"/bin/sh", "-c"}
-		container.Args = []string{fmt.Sprintf("qemu-img convert -p -O raw %q %q", sourcePath, targetPath)}
+		container.Command = []string{"/usr/bin/qemu-img"}
+		container.Args = []string{"convert", "-p", "-O", "raw", sourcePath, targetPath}
 		container.Env = nil
 		container.Ports = nil
 		volumes = append(volumes, corev1.Volume{
@@ -360,7 +459,7 @@ func (s DiskService) makeObjectRefImporterPod(target *corev1.PersistentVolumeCla
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        target.Name,
 			Namespace:   target.Namespace,
-			Annotations: annotations,
+			Annotations: podAnnotations,
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion:         "v1",
 				Kind:               "PersistentVolumeClaim",
@@ -389,20 +488,285 @@ func (s DiskService) patchTargetImportPhase(ctx context.Context, target *corev1.
 	if copy.Annotations == nil {
 		copy.Annotations = map[string]string{}
 	}
-	copy.Annotations[AnnObjectRefImportPhase] = string(phase)
-	copy.Annotations[AnnObjectRefImportPod] = target.Name
+	copy.Annotations[annotations.AnnPVCImportPhase] = string(phase)
+	copy.Annotations[annotations.AnnPVCImportPod] = target.Name
 	return s.client.Patch(ctx, copy, client.MergeFrom(target))
 }
 
-func (s DiskService) cleanupObjectRefDiskImport(ctx context.Context, target *corev1.PersistentVolumeClaim) error {
+func (s DiskService) cleanupPVCImport(ctx context.Context, target *corev1.PersistentVolumeClaim) (bool, error) {
+	var deleted bool
 	for _, obj := range []client.Object{
 		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: target.Name, Namespace: target.Namespace}},
 		&corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: target.Name + "-scratch", Namespace: target.Namespace}},
 	} {
 		err := s.client.Delete(ctx, obj)
-		if err != nil && !k8serrors.IsNotFound(err) {
+		switch {
+		case err == nil:
+			deleted = true
+		case !k8serrors.IsNotFound(err):
+			return false, err
+		}
+	}
+	return deleted, nil
+}
+
+func ownerReferenceForObject(obj client.Object) metav1.OwnerReference {
+	gvk := obj.GetObjectKind().GroupVersionKind()
+	return metav1.OwnerReference{
+		APIVersion:         gvk.GroupVersion().String(),
+		Kind:               gvk.Kind,
+		Name:               obj.GetName(),
+		UID:                obj.GetUID(),
+		Controller:         ptr.To(true),
+		BlockOwnerDeletion: ptr.To(true),
+	}
+}
+
+func (s DiskService) startPVCClone(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *PVCImportSourcePVC, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error {
+	sourceClaim, err := object.FetchObject(ctx, types.NamespacedName{Name: source.Name, Namespace: source.Namespace}, s.client, &corev1.PersistentVolumeClaim{})
+	if err != nil {
+		return fmt.Errorf("fetch source pvc: %w", err)
+	}
+	if sourceClaim == nil {
+		return fmt.Errorf("source pvc %s/%s not found", source.Namespace, source.Name)
+	}
+
+	volumeMode, accessMode, err := s.GetVolumeAndAccessModes(ctx, vd, sc)
+	if err != nil {
+		return fmt.Errorf("get volume and access modes: %w", err)
+	}
+
+	strategy := s.choosePVCCloneStrategy(ctx, sourceClaim, sc, volumeMode)
+	target := s.makePVCCloneTarget(pvcSize, sc, accessMode, volumeMode, sourceClaim, vd, strategy)
+	if nodePlacement != nil {
+		if err := provisioner.KeepNodePlacementTolerations(nodePlacement, target); err != nil {
+			return fmt.Errorf("keep node placement: %w", err)
+		}
+	}
+
+	if strategy == cloneStrategySnapshot {
+		if err := s.ensureCloneSnapshot(ctx, sourceClaim, target, vd); err != nil {
 			return err
 		}
+	}
+
+	err = s.client.Create(ctx, target)
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
+		return err
+	}
+	return nil
+}
+
+func (s DiskService) choosePVCCloneStrategy(ctx context.Context, sourceClaim *corev1.PersistentVolumeClaim, targetSC *storagev1.StorageClass, targetVolumeMode corev1.PersistentVolumeMode) string {
+	sourceSC, err := s.getPVCStorageClass(ctx, sourceClaim)
+	if err != nil || sourceSC == nil {
+		return cloneStrategyHost
+	}
+
+	preferred := cloneStrategySnapshot
+	if sp, err := object.FetchObject(ctx, types.NamespacedName{Name: targetSC.Name}, s.client, &cdiv1.StorageProfile{}); err == nil && sp != nil && sp.Status.CloneStrategy != nil {
+		switch *sp.Status.CloneStrategy {
+		case cdiv1.CloneStrategyCsiClone:
+			preferred = cloneStrategyCSI
+		case cdiv1.CloneStrategyHostAssisted:
+			preferred = cloneStrategyHost
+		case cdiv1.CloneStrategySnapshot:
+			preferred = cloneStrategySnapshot
+		}
+	}
+
+	if preferred == cloneStrategySnapshot && s.canSnapshotClone(ctx, sourceClaim, sourceSC, targetSC, targetVolumeMode) {
+		return cloneStrategySnapshot
+	}
+	if preferred != cloneStrategyHost && s.canCSIClone(sourceClaim, sourceSC, targetSC, targetVolumeMode) {
+		return cloneStrategyCSI
+	}
+	if preferred == cloneStrategyCSI && s.canSnapshotClone(ctx, sourceClaim, sourceSC, targetSC, targetVolumeMode) {
+		return cloneStrategySnapshot
+	}
+	return cloneStrategyHost
+}
+
+func (s DiskService) makePVCCloneTarget(pvcSize resource.Quantity, sc *storagev1.StorageClass, accessMode corev1.PersistentVolumeAccessMode, volumeMode corev1.PersistentVolumeMode, sourceClaim *corev1.PersistentVolumeClaim, vd *v1alpha2.VirtualDisk, strategy string) *corev1.PersistentVolumeClaim {
+	pvcSize = pvcCloneTargetSize(pvcSize, sourceClaim)
+	pvcAnnotations := map[string]string{
+		annotations.AnnPVCImportSource:        sourcePVC,
+		annotations.AnnPVCImportEndpoint:      sourceClaim.Namespace + "/" + sourceClaim.Name,
+		annotations.AnnPVCImportCloneStrategy: strategy,
+		annotations.AnnPVCImportImageSize:     pvcSize.String(),
+		annotations.AnnPVCImportPhase:         string(corev1.PodPending),
+		annotations.AnnPVCImportPod:           "",
+	}
+
+	target := &corev1.PersistentVolumeClaim{
+		TypeMeta: metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        vd.Status.Target.PersistentVolumeClaim,
+			Namespace:   vd.Namespace,
+			Annotations: pvcAnnotations,
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion:         v1alpha2.SchemeGroupVersion.String(),
+				Kind:               v1alpha2.VirtualDiskKind,
+				Name:               vd.Name,
+				UID:                vd.UID,
+				Controller:         ptr.To(true),
+				BlockOwnerDeletion: ptr.To(true),
+			}},
+		},
+		Spec: *pvc.CreateSpec(&sc.Name, pvcSize, accessMode, volumeMode),
+	}
+
+	switch strategy {
+	case cloneStrategySnapshot:
+		snapshotName := target.Name + "-clone-snapshot"
+		target.Annotations[annotations.AnnPVCImportCloneSnapshot] = snapshotName
+		target.Spec.DataSource = &corev1.TypedLocalObjectReference{
+			APIGroup: ptr.To("snapshot.storage.k8s.io"),
+			Kind:     "VolumeSnapshot",
+			Name:     snapshotName,
+		}
+		target.Spec.DataSourceRef = &corev1.TypedObjectReference{
+			APIGroup: ptr.To("snapshot.storage.k8s.io"),
+			Kind:     "VolumeSnapshot",
+			Name:     snapshotName,
+		}
+	case cloneStrategyCSI:
+		target.Spec.DataSource = &corev1.TypedLocalObjectReference{
+			Kind: "PersistentVolumeClaim",
+			Name: sourceClaim.Name,
+		}
+		target.Spec.DataSourceRef = &corev1.TypedObjectReference{
+			Kind: "PersistentVolumeClaim",
+			Name: sourceClaim.Name,
+		}
+	}
+	return target
+}
+
+func pvcCloneTargetSize(requested resource.Quantity, sourceClaim *corev1.PersistentVolumeClaim) resource.Quantity {
+	size := requested.DeepCopy()
+	for _, candidate := range []resource.Quantity{
+		sourceClaim.Spec.Resources.Requests[corev1.ResourceStorage],
+		sourceClaim.Status.Capacity[corev1.ResourceStorage],
+	} {
+		if !candidate.IsZero() && size.Cmp(candidate) < 0 {
+			size = candidate.DeepCopy()
+		}
+	}
+	return size
+}
+
+func (s DiskService) ensureCloneSnapshot(ctx context.Context, sourceClaim, target *corev1.PersistentVolumeClaim, vd *v1alpha2.VirtualDisk) error {
+	snapshotName := target.Annotations[annotations.AnnPVCImportCloneSnapshot]
+	if snapshotName == "" {
+		return fmt.Errorf("clone snapshot annotation is empty")
+	}
+	existing, err := object.FetchObject(ctx, types.NamespacedName{Name: snapshotName, Namespace: target.Namespace}, s.client, &vsv1.VolumeSnapshot{})
+	if err != nil {
+		return fmt.Errorf("fetch clone snapshot: %w", err)
+	}
+	if existing != nil {
+		return nil
+	}
+
+	sourceSC, err := s.getPVCStorageClass(ctx, sourceClaim)
+	if err != nil {
+		return err
+	}
+	snapshotClass := s.snapshotClassForProvisioner(ctx, sourceSC.Provisioner)
+	if snapshotClass == "" {
+		return fmt.Errorf("no compatible VolumeSnapshotClass found for provisioner %q", sourceSC.Provisioner)
+	}
+
+	vs := &vsv1.VolumeSnapshot{
+		TypeMeta: metav1.TypeMeta{Kind: "VolumeSnapshot", APIVersion: "snapshot.storage.k8s.io/v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      snapshotName,
+			Namespace: target.Namespace,
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion:         v1alpha2.SchemeGroupVersion.String(),
+				Kind:               v1alpha2.VirtualDiskKind,
+				Name:               vd.Name,
+				UID:                vd.UID,
+				Controller:         ptr.To(false),
+				BlockOwnerDeletion: ptr.To(true),
+			}},
+		},
+		Spec: vsv1.VolumeSnapshotSpec{
+			Source: vsv1.VolumeSnapshotSource{
+				PersistentVolumeClaimName: ptr.To(sourceClaim.Name),
+			},
+			VolumeSnapshotClassName: ptr.To(snapshotClass),
+		},
+	}
+	if err := s.client.Create(ctx, vs); err != nil && !k8serrors.IsAlreadyExists(err) {
+		return fmt.Errorf("create clone snapshot: %w", err)
+	}
+	return nil
+}
+
+func (s DiskService) canSnapshotClone(ctx context.Context, sourceClaim *corev1.PersistentVolumeClaim, sourceSC, targetSC *storagev1.StorageClass, targetVolumeMode corev1.PersistentVolumeMode) bool {
+	return sourceSC.Provisioner == targetSC.Provisioner &&
+		volumeModesEqual(sourceClaim, targetVolumeMode) &&
+		s.snapshotClassForProvisioner(ctx, sourceSC.Provisioner) != ""
+}
+
+func (s DiskService) canCSIClone(sourceClaim *corev1.PersistentVolumeClaim, sourceSC, targetSC *storagev1.StorageClass, targetVolumeMode corev1.PersistentVolumeMode) bool {
+	return sourceClaim.Namespace != "" &&
+		sourceSC.Provisioner == targetSC.Provisioner &&
+		volumeModesEqual(sourceClaim, targetVolumeMode)
+}
+
+func (s DiskService) getPVCStorageClass(ctx context.Context, claim *corev1.PersistentVolumeClaim) (*storagev1.StorageClass, error) {
+	if claim.Spec.StorageClassName == nil || *claim.Spec.StorageClassName == "" {
+		return nil, fmt.Errorf("source pvc %s/%s has no storageClassName", claim.Namespace, claim.Name)
+	}
+	sc, err := object.FetchObject(ctx, types.NamespacedName{Name: *claim.Spec.StorageClassName}, s.client, &storagev1.StorageClass{})
+	if err != nil {
+		return nil, fmt.Errorf("fetch source storage class: %w", err)
+	}
+	if sc == nil {
+		return nil, fmt.Errorf("source storage class %q not found", *claim.Spec.StorageClassName)
+	}
+	return sc, nil
+}
+
+func (s DiskService) snapshotClassForProvisioner(ctx context.Context, provisioner string) string {
+	var list vsv1.VolumeSnapshotClassList
+	if err := s.client.List(ctx, &list); err != nil {
+		return ""
+	}
+	for _, item := range list.Items {
+		if item.Driver == provisioner {
+			return item.Name
+		}
+	}
+	return ""
+}
+
+func volumeModesEqual(sourceClaim *corev1.PersistentVolumeClaim, targetVolumeMode corev1.PersistentVolumeMode) bool {
+	sourceMode := corev1.PersistentVolumeFilesystem
+	if sourceClaim.Spec.VolumeMode != nil {
+		sourceMode = *sourceClaim.Spec.VolumeMode
+	}
+	return sourceMode == targetVolumeMode
+}
+
+func isSmartCloneStrategy(strategy string) bool {
+	return strategy == cloneStrategySnapshot || strategy == cloneStrategyCSI
+}
+
+func (s DiskService) cleanupPVCImportClone(ctx context.Context, target *corev1.PersistentVolumeClaim) error {
+	if target.Annotations[annotations.AnnPVCImportCloneStrategy] != cloneStrategySnapshot {
+		return nil
+	}
+	snapshotName := target.Annotations[annotations.AnnPVCImportCloneSnapshot]
+	if snapshotName == "" {
+		return nil
+	}
+	err := s.client.Delete(ctx, &vsv1.VolumeSnapshot{ObjectMeta: metav1.ObjectMeta{Name: snapshotName, Namespace: target.Namespace}})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return err
 	}
 	return nil
 }

@@ -23,11 +23,9 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -195,20 +193,9 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 	log, _ := logger.GetDataSourceContext(ctx, objectRefDataSource)
 
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
-	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
 	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
-	}
-
-	var dvQuotaNotExceededCondition *cdiv1.DataVolumeCondition
-	var dvRunningCondition *cdiv1.DataVolumeCondition
-	if dv != nil {
-		dvQuotaNotExceededCondition = service.GetDataVolumeCondition(DVQoutaNotExceededConditionType, dv.Status.Conditions)
-		dvRunningCondition = service.GetDataVolumeCondition(DVRunningConditionType, dv.Status.Conditions)
 	}
 
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
@@ -219,20 +206,20 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 		setPhaseConditionForFinishedImage(pvc, cb, &vi.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC.
-		err = ds.diskService.Protect(ctx, supgen, vi, nil, pvc)
+		err = ds.diskService.Protect(ctx, supgen, vi, pvc)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		err = ds.diskService.Unprotect(ctx, supgen, dv)
+		err = ds.diskService.Unprotect(ctx, supgen)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
 		return CleanUpSupplements(ctx, vi, ds)
-	case object.AnyTerminating(dv, pvc):
+	case object.AnyTerminating(pvc):
 		log.Info("Waiting for supplements to be terminated")
-	case dv == nil:
+	default:
 		ds.recorder.Event(
 			vi,
 			corev1.EventTypeNormal,
@@ -255,88 +242,14 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 			return reconcile.Result{}, err
 		}
 
-		source := &cdiv1.DataVolumeSource{
-			PVC: &cdiv1.DataVolumeSourcePVC{
-				Name:      viRef.Status.Target.PersistentVolumeClaim,
-				Namespace: viRef.Namespace,
-			},
-		}
+		source := service.NewPVCPVCImportSource(viRef.Status.Target.PersistentVolumeClaim, viRef.Namespace)
 
-		var sc *storagev1.StorageClass
-		sc, err = ds.diskService.GetStorageClass(ctx, vi.Status.StorageClassName)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		err = ds.diskService.StartImmediate(ctx, size, sc, source, vi, supgen)
-		if updated, err := setPhaseConditionFromStorageError(err, vi, cb); err != nil || updated {
-			return reconcile.Result{}, err
-		}
-
-		vi.Status.Phase = v1alpha2.ImageProvisioning
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vicondition.Provisioning).
-			Message("PVC Provisioner not found: create the new one.")
-
-		return reconcile.Result{RequeueAfter: time.Second}, nil
-	case dvQuotaNotExceededCondition != nil && dvQuotaNotExceededCondition.Status == corev1.ConditionFalse:
-		vi.Status.Phase = v1alpha2.ImagePending
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vicondition.QuotaExceeded).
-			Message(dvQuotaNotExceededCondition.Message)
-		return reconcile.Result{}, nil
-	case dvRunningCondition != nil && dvRunningCondition.Status != corev1.ConditionTrue && dvRunningCondition.Reason == DVImagePullFailedReason:
-		vi.Status.Phase = v1alpha2.ImagePending
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vicondition.ImagePullFailed).
-			Message(dvRunningCondition.Message)
-		ds.recorder.Event(vi, corev1.EventTypeWarning, vicondition.ImagePullFailed.String(), dvRunningCondition.Message)
-		return reconcile.Result{}, nil
-	case pvc == nil:
-		vi.Status.Phase = v1alpha2.ImageProvisioning
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vicondition.Provisioning).
-			Message("PVC not found: waiting for creation.")
-		return reconcile.Result{RequeueAfter: time.Second}, nil
-	case ds.diskService.IsImportDone(dv, pvc):
-		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
-		ds.recorder.Event(
-			vi,
-			corev1.EventTypeNormal,
-			v1alpha2.ReasonDataSourceSyncCompleted,
-			"The ObjectRef DataSource import has completed",
-		)
-
-		vi.Status.Phase = v1alpha2.ImageReady
-		cb.
-			Status(metav1.ConditionTrue).
-			Reason(vicondition.Ready).
-			Message("")
-		vi.Status.Size = viRef.Status.Size
-		vi.Status.CDROM = viRef.Status.CDROM
-		vi.Status.Format = viRef.Status.Format
-		vi.Status.Progress = "100%"
-		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
-	default:
-		log.Info("Provisioning to PVC is in progress", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
-
-		vi.Status.Progress = ds.diskService.GetProgress(dv, vi.Status.Progress, service.NewScaleOption(0, 100))
-		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
-
-		err = ds.diskService.Protect(ctx, supgen, vi, dv, pvc)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		err = setPhaseConditionForPVCProvisioningImage(ctx, dv, vi, pvc, cb, ds.diskService)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		return reconcile.Result{}, nil
+		return reconcilePVCImportFromReadySource(ctx, vi, pvc, source, size, cb, supgen, ds.diskService, func() {
+			ds.recorder.Event(vi, corev1.EventTypeNormal, v1alpha2.ReasonDataSourceSyncCompleted, "The ObjectRef DataSource import has completed")
+			vi.Status.Size = viRef.Status.Size
+			vi.Status.CDROM = viRef.Status.CDROM
+			vi.Status.Format = viRef.Status.Format
+		})
 	}
 
 	return reconcile.Result{RequeueAfter: time.Second}, nil

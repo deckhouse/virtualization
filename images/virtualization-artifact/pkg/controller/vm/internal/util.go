@@ -110,8 +110,7 @@ var mapPhases = map[virtv1.VirtualMachinePrintableStatus]PhaseGetter{
 
 		return v1alpha2.MachineStopped
 	},
-	// VirtualMachineStatusProvisioning indicates that cluster resources associated with the virtual machine
-	// (e.g., DataVolumes) are being provisioned and prepared.
+	// VirtualMachineStatusProvisioning indicates that cluster resources associated with the virtual machine are being provisioned and prepared.
 	virtv1.VirtualMachineStatusProvisioning: func(_ *v1alpha2.VirtualMachine, _ *virtv1.VirtualMachine) v1alpha2.MachinePhase {
 		return v1alpha2.MachineStarting
 	},
@@ -137,8 +136,7 @@ var mapPhases = map[virtv1.VirtualMachinePrintableStatus]PhaseGetter{
 	virtv1.VirtualMachineStatusStopping: func(_ *v1alpha2.VirtualMachine, _ *virtv1.VirtualMachine) v1alpha2.MachinePhase {
 		return v1alpha2.MachineStopping
 	},
-	// VirtualMachineStatusTerminating indicates that the virtual machine is in the process of deletion,
-	// as well as its associated resources (VirtualMachineInstance, DataVolumes, …).
+	// VirtualMachineStatusTerminating indicates that the virtual machine and its associated resources are being deleted.
 	virtv1.VirtualMachineStatusTerminating: func(_ *v1alpha2.VirtualMachine, _ *virtv1.VirtualMachine) v1alpha2.MachinePhase {
 		return v1alpha2.MachineTerminating
 	},
@@ -175,8 +173,7 @@ var mapPhases = map[virtv1.VirtualMachinePrintableStatus]PhaseGetter{
 	virtv1.VirtualMachineStatusPvcNotFound: func(_ *v1alpha2.VirtualMachine, _ *virtv1.VirtualMachine) v1alpha2.MachinePhase {
 		return v1alpha2.MachinePending
 	},
-	// VirtualMachineStatusDataVolumeError indicates that an error has been reported by one of the DataVolumes
-	// referenced by the virtual machines.
+	// KubeVirt keeps this status reason for compatibility with older volume flows.
 	virtv1.VirtualMachineStatusDataVolumeError: func(_ *v1alpha2.VirtualMachine, _ *virtv1.VirtualMachine) v1alpha2.MachinePhase {
 		return v1alpha2.MachinePending
 	},

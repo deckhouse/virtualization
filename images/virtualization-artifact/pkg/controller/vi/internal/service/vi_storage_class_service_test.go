@@ -254,7 +254,7 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 			})
 		})
 		When("a storage profile has the volume mode `Block` and the access mode `ReadWriteOnce`", func() {
-			It("returns an error", func() {
+			It("does not return an error", func() {
 				sp := &cdiv1.StorageProfile{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "BlockStorageClass",
@@ -274,7 +274,7 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 					},
 				}
 				err := service.ValidateClaimPropertySets(sp)
-				Expect(err).To(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 	})

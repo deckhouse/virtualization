@@ -25,7 +25,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -135,10 +134,6 @@ func setPhaseConditionForFinishedDisk(
 	}
 }
 
-type CheckImportProcess interface {
-	CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
-}
-
 func setPhaseConditionFromStorageError(err error, vd *v1alpha2.VirtualDisk, cb *conditions.ConditionBuilder) (bool, error) {
 	switch {
 	case err == nil:
@@ -159,55 +154,6 @@ func setPhaseConditionFromStorageError(err error, vd *v1alpha2.VirtualDisk, cb *
 		return true, nil
 	default:
 		return false, err
-	}
-}
-
-func setPhaseConditionForPVCProvisioningDisk(
-	ctx context.Context,
-	dv *cdiv1.DataVolume,
-	vd *v1alpha2.VirtualDisk,
-	pvc *corev1.PersistentVolumeClaim,
-	sc *storagev1.StorageClass,
-	cb *conditions.ConditionBuilder,
-	checker CheckImportProcess,
-) error {
-	err := checker.CheckImportProcess(ctx, dv, pvc)
-	switch {
-	case err == nil:
-		if dv == nil {
-			vd.Status.Phase = v1alpha2.DiskProvisioning
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vdcondition.Provisioning).
-				Message("Waiting for the pvc importer to be created")
-			return nil
-		}
-
-		dvRunningCond, _ := conditions.GetDataVolumeCondition(conditions.DVRunningConditionType, dv.Status.Conditions)
-		if isStorageClassWFFC(sc) && (dv.Status.Phase == cdiv1.PendingPopulation || dv.Status.Phase == cdiv1.WaitForFirstConsumer) && dvRunningCond.Reason == "" {
-			vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vdcondition.WaitingForFirstConsumer).
-				Message("The provisioning has been suspended: a created and scheduled virtual machine is awaited")
-			return nil
-		}
-
-		vd.Status.Phase = v1alpha2.DiskProvisioning
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.Provisioning).
-			Message("Import is in the process of provisioning to PVC.")
-		return nil
-	case errors.Is(err, service.ErrDataVolumeNotRunning):
-		vd.Status.Phase = v1alpha2.DiskFailed
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.ProvisioningFailed).
-			Message(service.CapitalizeFirstLetter(err.Error()))
-		return nil
-	default:
-		return err
 	}
 }
 
@@ -280,20 +226,12 @@ func setPhaseConditionFromProvisioningError(
 	provisioningErr error,
 	cb *conditions.ConditionBuilder,
 	vd *v1alpha2.VirtualDisk,
-	dv *cdiv1.DataVolume,
 	cleaner Cleaner,
 	c client.Client,
 ) error {
 	switch {
-	case errors.Is(provisioningErr, service.ErrDataVolumeProvisionerUnschedulable):
+	case errors.Is(provisioningErr, service.ErrProvisionerUnschedulable):
 		nodePlacement, err := getNodePlacement(ctx, c, vd)
-		if err != nil {
-			err = errors.Join(provisioningErr, err)
-			setPhaseConditionToFailed(cb, &vd.Status.Phase, err)
-			return err
-		}
-
-		isChanged, err := provisioner.IsNodePlacementChanged(nodePlacement, dv)
 		if err != nil {
 			err = errors.Join(provisioningErr, err)
 			setPhaseConditionToFailed(cb, &vd.Status.Phase, err)
@@ -302,7 +240,7 @@ func setPhaseConditionFromProvisioningError(
 
 		vd.Status.Phase = v1alpha2.DiskProvisioning
 
-		if isChanged {
+		if nodePlacement != nil {
 			supgen := vdsupplements.NewGenerator(vd)
 
 			_, err = cleaner.CleanUp(ctx, supgen)
@@ -363,10 +301,3 @@ func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.
 func isStorageClassWFFC(sc *storagev1.StorageClass) bool {
 	return sc != nil && sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer
 }
-
-const (
-	DVRunningConditionType          cdiv1.DataVolumeConditionType = "Running"
-	DVQoutaNotExceededConditionType cdiv1.DataVolumeConditionType = "QuotaNotExceeded"
-
-	DVImagePullFailedReason = "ImagePullFailed"
-)

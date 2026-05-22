@@ -54,8 +54,6 @@ github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSs
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1VwoXQT9A3Wy9MM3WgvqSxFWenqJduM=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-xdr v0.0.0-20161123171359-e6a2ba005892/go.mod h1:CTDl0pzVzE5DEzZhPfvhY/9sPFMQIxaJ9VAMs9AagrE=
-github.com/deckhouse/3p-containerized-data-importer v1.60.4-0.20241108122445-9cf23c40b9ca h1:lHwPwd/8WkUDyWzhAhz5nsySYIwPeyd6UPx+z8KSEKY=
-github.com/deckhouse/3p-containerized-data-importer v1.60.4-0.20241108122445-9cf23c40b9ca/go.mod h1:DPCIifnmTNK8C1dC/HKe4sfZX+V7ocfwLHPC0yiOJ/A=
 github.com/deckhouse/virtualization/api v0.0.0-20241220154636-ce1f73499998 h1:qEb5uYPiBpVI7YqLly/zaPRpeifRWd6QqmRL0KPFTO8=
 github.com/deckhouse/virtualization/api v0.0.0-20241220154636-ce1f73499998/go.mod h1:t+6i4NC43RfNLqcZqkEc5vxY1ypKceqmOOKlVEq0cYA=
 github.com/distribution/reference v0.6.0 h1:0IXCQ5g4/QMHHkarYzh5l+u8T3t73zM5QvfrDyIgxBk=
@@ -694,8 +692,6 @@ k8s.io/utils v0.0.0-20230726121419-3b25d923346b h1:sgn3ZU783SCgtaSJjpcVVlRqd6GSn
 k8s.io/utils v0.0.0-20230726121419-3b25d923346b/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
 kubevirt.io/api v1.0.0 h1:RBdXP5CDhE0v5qL2OUQdrYyRrHe/F68Z91GWqBDF6nw=
 kubevirt.io/api v1.0.0/go.mod h1:CJ4vZsaWhVN3jNbyc9y3lIZhw8nUHbWjap0xHABQiqc=
-kubevirt.io/containerized-data-importer-api v1.60.3 h1:kQEXi7scpzUa0RPf3/3MKk1Kmem0ZlqqiuK3kDF5L2I=
-kubevirt.io/containerized-data-importer-api v1.60.3/go.mod h1:8mwrkZIdy8j/LmCyKt2wFXbiMavLUIqDaegaIF67CZs=
 kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90 h1:QMrd0nKP0BGbnxTqakhDZAUhGKxPiPiN5gSDqKUmGGc=
 kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90/go.mod h1:018lASpFYBsYN6XwmA2TIrPCx6e0gviTd/ZNtSitKgc=
 libguestfs.org/libnbd v1.11.5 h1:jRCRxzbeZksdj6e3sp+5/vfDfWx1s/uYyJB0qjgb8MI=

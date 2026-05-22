@@ -42,7 +42,7 @@ func (g *VirtualDiskGenerator) SetClaimName(name string) {
 	g.claimName = name
 }
 
-func (g *VirtualDiskGenerator) DataVolume() types.NamespacedName {
+func (g *VirtualDiskGenerator) CommonResourceName() types.NamespacedName {
 	return g.PersistentVolumeClaim()
 }
 

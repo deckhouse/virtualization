@@ -25,7 +25,6 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
@@ -77,14 +76,6 @@ func (s *sourcesCleanerStub) CleanUp(context.Context, *v1alpha2.VirtualImage) (b
 func (s *sourcesCleanerStub) CleanUpSupplements(context.Context, *v1alpha2.VirtualImage) (reconcile.Result, error) {
 	s.cleanupSupplementsCalls++
 	return s.cleanupSupplementsResult, s.cleanupSupplementsErr
-}
-
-type sourcesImportCheckerStub struct {
-	err error
-}
-
-func (s sourcesImportCheckerStub) CheckImportProcess(context.Context, *cdiv1.DataVolume, *corev1.PersistentVolumeClaim) error {
-	return s.err
 }
 
 var _ = Describe("Sources helpers", func() {
@@ -214,39 +205,6 @@ var _ = Describe("Sources helpers", func() {
 		},
 		Entry("marks pvc lost when pvc is missing", nil, v1alpha2.ImagePVCLost, metav1.ConditionFalse, vicondition.PVCLost.String(), "PVC default/d8v-vi-image-uid not found."),
 		Entry("marks image ready when pvc exists", &corev1.PersistentVolumeClaim{}, v1alpha2.ImageReady, metav1.ConditionTrue, vicondition.Ready.String(), ""),
-	)
-
-	DescribeTable(
-		"setPhaseConditionForPVCProvisioningImage",
-		func(
-			dv *cdiv1.DataVolume,
-			checkerErr error,
-			expectedPhase v1alpha2.ImagePhase,
-			expectedStatus metav1.ConditionStatus,
-			expectedReason string,
-			expectedMessage string,
-			expectedErr error,
-		) {
-			vi := newVI()
-			cb := conditions.NewConditionBuilder(vicondition.ReadyType)
-
-			err := setPhaseConditionForPVCProvisioningImage(context.Background(), dv, vi, nil, cb, sourcesImportCheckerStub{err: checkerErr})
-			if expectedErr == nil {
-				Expect(err).ToNot(HaveOccurred())
-			} else {
-				Expect(err).To(MatchError(expectedErr))
-			}
-
-			Expect(vi.Status.Phase).To(Equal(expectedPhase))
-			Expect(cb.Condition().Status).To(Equal(expectedStatus))
-			Expect(cb.Condition().Reason).To(Equal(expectedReason))
-			Expect(cb.Condition().Message).To(Equal(expectedMessage))
-		},
-		Entry("waits for pvc importer creation when dv is absent", nil, nil, v1alpha2.ImageProvisioning, metav1.ConditionFalse, vicondition.Provisioning.String(), "Waiting for the pvc importer to be created", nil),
-		Entry("reports provisioning in progress", &cdiv1.DataVolume{}, nil, v1alpha2.ImageProvisioning, metav1.ConditionFalse, vicondition.Provisioning.String(), "Import is in the process of provisioning to PVC.", nil),
-		Entry("handles data volume not running", &cdiv1.DataVolume{}, service.ErrDataVolumeNotRunning, v1alpha2.ImageProvisioning, metav1.ConditionFalse, vicondition.ProvisioningFailed.String(), "Pvc importer is not running", nil),
-		Entry("handles missing default storage class", &cdiv1.DataVolume{}, service.ErrDefaultStorageClassNotFound, v1alpha2.ImagePending, metav1.ConditionFalse, vicondition.ProvisioningFailed.String(), "Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass.", nil),
-		Entry("returns unexpected error", &cdiv1.DataVolume{}, errors.New("boom"), v1alpha2.ImagePhase(""), metav1.ConditionUnknown, conditions.ReasonUnknown.String(), "", errors.New("boom")),
 	)
 
 	DescribeTable(

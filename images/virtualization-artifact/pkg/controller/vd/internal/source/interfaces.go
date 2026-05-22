@@ -19,6 +19,8 @@ package source
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -26,7 +28,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-//go:generate go tool moq -rm -out mock.go . Handler BlankDataSourceDiskService ObjectRefVirtualImageDiskService ObjectRefClusterVirtualImageDiskService ObjectRefVirtualDiskSnapshotDiskService
+//go:generate go tool moq -rm -out mock.go . Handler BlankDataSourceDiskService ObjectRefVirtualImageDiskService ObjectRefClusterVirtualImageDiskService ObjectRefVirtualDiskSnapshotDiskService UploadDataSourceDiskService UploadDataSourceUploaderService UploadDataSourceStatService HTTPDataSourceDiskService HTTPDataSourceImporterService HTTPDataSourceStatService RegistryDataSourceDiskService RegistryDataSourceImporterService RegistryDataSourceStatService
 
 type Handler interface {
 	Name() string
@@ -44,16 +46,84 @@ type BlankDataSourceDiskService interface {
 
 type ObjectRefVirtualImageDiskService interface {
 	step.ReadyStepDiskService
-	step.CreateDataVolumeStepDiskService
-	step.WaitForObjectRefImportStepDiskService
+	step.PVCImportStepDiskService
+	step.WaitForPVCImportStepDiskService
 }
 
 type ObjectRefClusterVirtualImageDiskService interface {
 	step.ReadyStepDiskService
-	step.CreateDataVolumeStepDiskService
-	step.WaitForObjectRefImportStepDiskService
+	step.PVCImportStepDiskService
+	step.WaitForPVCImportStepDiskService
 }
 
 type ObjectRefVirtualDiskSnapshotDiskService interface {
 	step.ReadyStepDiskService
+}
+
+type UploadDataSourceDiskService interface {
+	step.ReadyStepDiskService
+	step.PVCImportStepDiskService
+	step.WaitForPVCImportStepDiskService
+
+	GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
+}
+
+type UploadDataSourceUploaderService interface {
+	step.CreateUploaderStepUploaderService
+	step.WaitForUserUploadStepUploaderService
+	step.CleanUpUploaderStepUploaderService
+
+	GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)
+	GetService(ctx context.Context, sup supplements.Generator) (*corev1.Service, error)
+	GetIngress(ctx context.Context, sup supplements.Generator) (*netv1.Ingress, error)
+}
+
+type UploadDataSourceStatService interface {
+	step.WaitForUserUploadStepStatService
+	step.PVCImportFromDVCRStepStatService
+}
+
+type HTTPDataSourceDiskService interface {
+	step.ReadyStepDiskService
+	step.PVCImportStepDiskService
+	step.WaitForPVCImportStepDiskService
+
+	GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
+}
+
+type HTTPDataSourceImporterService interface {
+	step.CreateImporterStepImporterService
+	step.WaitForDVCRImporterStepImporterService
+	step.CleanUpImporterStepImporterService
+
+	GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)
+}
+
+type HTTPDataSourceStatService interface {
+	step.WaitForDVCRImporterStepStatService
+	step.PVCImportFromDVCRStepStatService
+}
+
+type RegistryDataSourceDiskService interface {
+	step.ReadyStepDiskService
+	step.PVCImportStepDiskService
+	step.WaitForPVCImportStepDiskService
+
+	GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
+}
+
+type RegistryDataSourceImporterService interface {
+	step.CreateImporterStepImporterService
+	step.WaitForDVCRImporterStepImporterService
+	step.CleanUpImporterStepImporterService
+
+	GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)
+}
+
+type RegistryDataSourceStatService interface {
+	step.WaitForDVCRImporterStepStatService
+	step.PVCImportFromDVCRStepStatService
 }

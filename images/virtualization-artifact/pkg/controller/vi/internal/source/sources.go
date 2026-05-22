@@ -23,8 +23,8 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
@@ -106,10 +106,6 @@ func IsImageProvisioningFinished(c metav1.Condition) bool {
 	return c.Reason == vicondition.Ready.String()
 }
 
-type CheckImportProcess interface {
-	CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
-}
-
 func setPhaseConditionForFinishedImage(
 	pvc *corev1.PersistentVolumeClaim,
 	cb *conditions.ConditionBuilder,
@@ -138,51 +134,6 @@ func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.
 		Status(metav1.ConditionFalse).
 		Reason(vicondition.ProvisioningFailed).
 		Message(service.CapitalizeFirstLetter(err.Error()))
-}
-
-func setPhaseConditionForPVCProvisioningImage(
-	ctx context.Context,
-	dv *cdiv1.DataVolume,
-	vi *v1alpha2.VirtualImage,
-	pvc *corev1.PersistentVolumeClaim,
-	cb *conditions.ConditionBuilder,
-	checker CheckImportProcess,
-) error {
-	err := checker.CheckImportProcess(ctx, dv, pvc)
-	switch {
-	case err == nil:
-		if dv == nil {
-			vi.Status.Phase = v1alpha2.ImageProvisioning
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vicondition.Provisioning).
-				Message("Waiting for the pvc importer to be created")
-			return nil
-		}
-
-		vi.Status.Phase = v1alpha2.ImageProvisioning
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vicondition.Provisioning).
-			Message("Import is in the process of provisioning to PVC.")
-		return nil
-	case errors.Is(err, service.ErrDataVolumeNotRunning):
-		vi.Status.Phase = v1alpha2.ImageProvisioning
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vicondition.ProvisioningFailed).
-			Message(service.CapitalizeFirstLetter(err.Error()))
-		return nil
-	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
-		vi.Status.Phase = v1alpha2.ImagePending
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vicondition.ProvisioningFailed).
-			Message("Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass.")
-		return nil
-	default:
-		return err
-	}
 }
 
 func setPhaseConditionFromPodError(cb *conditions.ConditionBuilder, vi *v1alpha2.VirtualImage, err error) error {
@@ -229,6 +180,154 @@ func setPhaseConditionFromStorageError(err error, vi *v1alpha2.VirtualImage, cb 
 	}
 }
 
+func reconcilePVCImportFromDVCR(
+	ctx context.Context,
+	vi *v1alpha2.VirtualImage,
+	pod *corev1.Pod,
+	pvc *corev1.PersistentVolumeClaim,
+	source *service.PVCImportSource,
+	cb *conditions.ConditionBuilder,
+	supgen supplements.Generator,
+	stat Stat,
+	disk *service.DiskService,
+) (bool, reconcile.Result, error) {
+	if pvc == nil {
+		if err := stat.CheckPod(pod); err != nil {
+			vi.Status.Phase = v1alpha2.ImageFailed
+			switch {
+			case errors.Is(err, service.ErrProvisioningFailed):
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vicondition.ProvisioningFailed).
+					Message(service.CapitalizeFirstLetter(err.Error() + "."))
+				return true, reconcile.Result{}, nil
+			default:
+				return true, reconcile.Result{}, err
+			}
+		}
+
+		vi.Status.Progress = "50.0%"
+		vi.Status.DownloadSpeed = stat.GetDownloadSpeed(vi.GetUID(), pod)
+
+		diskSize, err := getPVCSizeFromPod(stat, pod)
+		if err != nil {
+			setPhaseConditionToFailed(cb, &vi.Status.Phase, err)
+			if errors.Is(err, service.ErrInsufficientPVCSize) {
+				return true, reconcile.Result{}, nil
+			}
+			return true, reconcile.Result{}, err
+		}
+
+		sc, err := disk.GetStorageClass(ctx, vi.Status.StorageClassName)
+		if err != nil {
+			return true, reconcile.Result{}, err
+		}
+		err = disk.StartSupplementPVCImport(ctx, diskSize, sc, source, vi, supgen, nil)
+		if updated, err := setPhaseConditionFromStorageError(err, vi, cb); err != nil || updated {
+			return true, reconcile.Result{}, err
+		}
+
+		vi.Status.Phase = v1alpha2.ImageProvisioning
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.Provisioning).
+			Message("PVC Provisioner not found: create the new one.")
+		return true, reconcile.Result{RequeueAfter: time.Second}, nil
+	}
+
+	phase, err := disk.EnsureSupplementPVCImport(ctx, pvc, source, vi, supgen, nil)
+	if err != nil {
+		return true, reconcile.Result{}, err
+	}
+
+	vi.Status.Target.PersistentVolumeClaim = pvc.Name
+	switch phase {
+	case corev1.PodSucceeded:
+		vi.Status.Phase = v1alpha2.ImageReady
+		cb.Status(metav1.ConditionTrue).Reason(vicondition.Ready).Message("")
+		vi.Status.Progress = "100%"
+		vi.Status.Size = stat.GetSize(pod)
+		vi.Status.CDROM = stat.GetCDROM(pod)
+		vi.Status.DownloadSpeed = stat.GetDownloadSpeed(vi.GetUID(), pod)
+		return true, reconcile.Result{RequeueAfter: time.Second}, nil
+	case corev1.PodFailed:
+		vi.Status.Phase = v1alpha2.ImageFailed
+		cb.Status(metav1.ConditionFalse).Reason(vicondition.ProvisioningFailed).Message("VirtualImage importer Pod failed.")
+		return true, reconcile.Result{}, nil
+	default:
+		vi.Status.Phase = v1alpha2.ImageProvisioning
+		cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("Import is in the process of provisioning to PVC.")
+		vi.Status.Progress = "50.0%"
+		if err := disk.Protect(ctx, supgen, vi, pvc); err != nil {
+			return true, reconcile.Result{}, err
+		}
+		return true, reconcile.Result{RequeueAfter: time.Second}, nil
+	}
+}
+
+func getPVCSizeFromPod(stat Stat, pod *corev1.Pod) (resource.Quantity, error) {
+	unpackedSize, err := resource.ParseQuantity(stat.GetSize(pod).UnpackedBytes)
+	if err != nil {
+		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", stat.GetSize(pod).UnpackedBytes, err)
+	}
+	if unpackedSize.IsZero() {
+		return resource.Quantity{}, errors.New("got zero unpacked size from data source")
+	}
+	return service.GetValidatedPVCSize(&unpackedSize, unpackedSize)
+}
+
+func reconcilePVCImportFromReadySource(
+	ctx context.Context,
+	vi *v1alpha2.VirtualImage,
+	pvc *corev1.PersistentVolumeClaim,
+	source *service.PVCImportSource,
+	size resource.Quantity,
+	cb *conditions.ConditionBuilder,
+	supgen supplements.Generator,
+	disk *service.DiskService,
+	ready func(),
+) (reconcile.Result, error) {
+	if pvc == nil {
+		sc, err := disk.GetStorageClass(ctx, vi.Status.StorageClassName)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		err = disk.StartSupplementPVCImport(ctx, size, sc, source, vi, supgen, nil)
+		if updated, err := setPhaseConditionFromStorageError(err, vi, cb); err != nil || updated {
+			return reconcile.Result{}, err
+		}
+		vi.Status.Phase = v1alpha2.ImageProvisioning
+		cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("PVC Provisioner not found: create the new one.")
+		return reconcile.Result{RequeueAfter: time.Second}, nil
+	}
+
+	phase, err := disk.EnsureSupplementPVCImport(ctx, pvc, source, vi, supgen, nil)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	vi.Status.Target.PersistentVolumeClaim = pvc.Name
+	switch phase {
+	case corev1.PodSucceeded:
+		vi.Status.Phase = v1alpha2.ImageReady
+		cb.Status(metav1.ConditionTrue).Reason(vicondition.Ready).Message("")
+		vi.Status.Progress = "100%"
+		ready()
+		return reconcile.Result{RequeueAfter: time.Second}, nil
+	case corev1.PodFailed:
+		vi.Status.Phase = v1alpha2.ImageFailed
+		cb.Status(metav1.ConditionFalse).Reason(vicondition.ProvisioningFailed).Message("VirtualImage importer Pod failed.")
+		return reconcile.Result{}, nil
+	default:
+		vi.Status.Phase = v1alpha2.ImageProvisioning
+		vi.Status.Progress = "0%"
+		cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("Import is in the process of provisioning to PVC.")
+		if err := disk.Protect(ctx, supgen, vi, pvc); err != nil {
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{RequeueAfter: time.Second}, nil
+	}
+}
+
 const retryPeriod = 1
 
 func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *v1alpha2.ImagePhase, err error, creationTimestamp metav1.Time) reconcile.Result {
@@ -245,10 +344,3 @@ func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *v1al
 	cb.Message(fmt.Sprintf("Quota exceeded: %s; Retry in %d minute.", err, retryPeriod))
 	return reconcile.Result{RequeueAfter: retryPeriod * time.Minute}
 }
-
-const (
-	DVRunningConditionType          cdiv1.DataVolumeConditionType = "Running"
-	DVQoutaNotExceededConditionType cdiv1.DataVolumeConditionType = "QuotaNotExceeded"
-
-	DVImagePullFailedReason = "ImagePullFailed"
-)

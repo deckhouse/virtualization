@@ -19,10 +19,8 @@ spec:
   matchConstraints:
     resourceRules:
       - apiGroups:
-          - "cdi.internal.virtualization.deckhouse.io"
           - "clone.internal.virtualization.deckhouse.io"
           - "export.internal.virtualization.deckhouse.io"
-          - "forklift.cdi.internal.virtualization.deckhouse.io"
           - "instancetype.internal.virtualization.deckhouse.io"
           - "internal.virtualization.deckhouse.io"
           - "pool.internal.virtualization.deckhouse.io"
@@ -40,11 +38,6 @@ spec:
         request.userInfo.username.startsWith("system:serviceaccount:kube-system:") ||
         request.userInfo.username.startsWith("system:serviceaccount:d8-system:") ||
         request.userInfo.username in [
-          "system:serviceaccount:d8-virtualization:cdi-apiserver",
-          "system:serviceaccount:d8-virtualization:cdi-cronjob",
-          "system:serviceaccount:d8-virtualization:cdi-operator",
-          "system:serviceaccount:d8-virtualization:cdi-sa",
-          "system:serviceaccount:d8-virtualization:cdi-uploadproxy",
           "system:serviceaccount:d8-virtualization:kubevirt-internal-virtualization-apiserver",
           "system:serviceaccount:d8-virtualization:kubevirt-internal-virtualization-controller",
           "system:serviceaccount:d8-virtualization:kubevirt-internal-virtualization-exportproxy",

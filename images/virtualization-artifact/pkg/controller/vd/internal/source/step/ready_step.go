@@ -22,7 +22,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -41,7 +40,7 @@ const readyStep = "ready"
 type ReadyStepDiskService interface {
 	GetCapacity(pvc *corev1.PersistentVolumeClaim) string
 	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
-	Protect(ctx context.Context, sup supplements.Generator, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
+	Protect(ctx context.Context, sup supplements.Generator, owner client.Object, pvc *corev1.PersistentVolumeClaim) error
 }
 
 type ReadyStep struct {
@@ -80,8 +79,8 @@ func (s ReadyStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconci
 	}
 
 	vdsupplements.SetPVCName(vd, s.pvc.Name)
-	if phase := s.pvc.GetAnnotations()["virtualization.deckhouse.io/object-ref-import.phase"]; phase != "" && phase != string(corev1.PodSucceeded) {
-		log.Debug("ObjectRef import is not completed yet")
+	if phase := s.pvc.GetAnnotations()[annotations.AnnPVCImportPhase]; phase != "" && phase != string(corev1.PodSucceeded) {
+		log.Debug("PVC import is not completed yet")
 		return nil, nil
 	}
 
@@ -113,7 +112,7 @@ func (s ReadyStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconci
 		log.Debug("PVC is Bound")
 
 		supgen := vdsupplements.NewGenerator(vd)
-		err := s.diskService.Protect(ctx, supgen, vd, nil, s.pvc)
+		err := s.diskService.Protect(ctx, supgen, vd, s.pvc)
 		if err != nil {
 			return nil, fmt.Errorf("protect underlying pvc: %w", err)
 		}

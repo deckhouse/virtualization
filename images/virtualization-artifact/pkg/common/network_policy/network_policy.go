@@ -29,7 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 )
 
-func CreateNetworkPolicy(ctx context.Context, c client.Client, obj metav1.Object, sup supplements.DataVolumeSupplement, finalizer string) error {
+func CreateNetworkPolicy(ctx context.Context, c client.Client, obj metav1.Object, sup supplements.Generator, finalizer string) error {
 	npName := sup.NetworkPolicy()
 	networkPolicy := netv1.NetworkPolicy{
 		TypeMeta: metav1.TypeMeta{

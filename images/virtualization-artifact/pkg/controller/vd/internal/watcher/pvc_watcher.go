@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -35,8 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/common/datavolume"
-	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -69,7 +66,7 @@ func (w PersistentVolumeClaimWatcher) Watch(mgr manager.Manager, ctr controller.
 	return nil
 }
 
-func (w PersistentVolumeClaimWatcher) enqueueRequestsFromOwnerRefsRecursively(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
+func (w PersistentVolumeClaimWatcher) enqueueRequestsFromOwnerRefsRecursively(_ context.Context, obj client.Object) (requests []reconcile.Request) {
 	for _, ownerRef := range obj.GetOwnerReferences() {
 		switch ownerRef.Kind {
 		case v1alpha2.VirtualDiskKind:
@@ -79,21 +76,6 @@ func (w PersistentVolumeClaimWatcher) enqueueRequestsFromOwnerRefsRecursively(ct
 					Namespace: obj.GetNamespace(),
 				},
 			})
-		case datavolume.DataVolumeKind:
-			dv, err := object.FetchObject(ctx, types.NamespacedName{
-				Name:      ownerRef.Name,
-				Namespace: obj.GetNamespace(),
-			}, w.client, &cdiv1.DataVolume{})
-			if err != nil {
-				w.logger.Error(fmt.Sprintf("failed to fetch dv: %s", err))
-				continue
-			}
-
-			if dv == nil {
-				continue
-			}
-
-			requests = append(requests, w.enqueueRequestsFromOwnerRefsRecursively(ctx, dv)...)
 		}
 	}
 

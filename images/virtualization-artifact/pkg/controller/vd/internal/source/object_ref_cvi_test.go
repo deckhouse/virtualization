@@ -28,11 +28,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -48,7 +49,6 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 		vd     *v1alpha2.VirtualDisk
 		sc     *storagev1.StorageClass
 		pvc    *corev1.PersistentVolumeClaim
-		dv     *cdiv1.DataVolume
 		svc    *ObjectRefVirtualImageDiskServiceMock
 	)
 
@@ -58,7 +58,6 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 		scheme = runtime.NewScheme()
 		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 		Expect(corev1.AddToScheme(scheme)).To(Succeed())
-		Expect(cdiv1.AddToScheme(scheme)).To(Succeed())
 		Expect(storagev1.AddToScheme(scheme)).To(Succeed())
 
 		svc = &ObjectRefVirtualImageDiskServiceMock{
@@ -68,10 +67,10 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, error) {
 				return false, nil
 			},
-			ProtectFunc: func(_ context.Context, _ supplements.Generator, _ client.Object, _ *cdiv1.DataVolume, _ *corev1.PersistentVolumeClaim) error {
+			ProtectFunc: func(_ context.Context, _ supplements.Generator, _ client.Object, _ *corev1.PersistentVolumeClaim) error {
 				return nil
 			},
-			EnsureObjectRefDiskImportFunc: func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *cdiv1.DataVolumeSource, _ *v1alpha2.VirtualDisk, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
+			EnsurePVCImportFunc: func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ *v1alpha2.VirtualDisk, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
 				return corev1.PodRunning, nil
 			},
 		}
@@ -135,28 +134,19 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			},
 		}
 
-		dv = &cdiv1.DataVolume{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      supgen.DataVolume().Name,
-				Namespace: vd.Namespace,
-			},
-			Status: cdiv1.DataVolumeStatus{
-				ClaimName: pvc.Name,
-			},
-		}
 	})
 
 	Context("VirtualDisk has just been created", func() {
-		It("must create DataVolume", func() {
-			var dvCreated bool
+		It("must start PVC import", func() {
+			var importStarted bool
 			vd.Status = v1alpha2.VirtualDiskStatus{
 				Target: v1alpha2.DiskTarget{
 					PersistentVolumeClaim: "test-pvc",
 				},
 			}
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cvi, sc).Build()
-			svc.StartObjectRefDiskImportFunc = func(_ context.Context, _ resource.Quantity, _ *storagev1.StorageClass, _ *cdiv1.DataVolumeSource, _ *v1alpha2.VirtualDisk, _ *provisioner.NodePlacement) error {
-				dvCreated = true
+			svc.StartPVCImportFunc = func(_ context.Context, _ resource.Quantity, _ *storagev1.StorageClass, _ *service.PVCImportSource, _ *v1alpha2.VirtualDisk, _ *provisioner.NodePlacement) error {
+				importStarted = true
 				return nil
 			}
 
@@ -166,7 +156,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.IsZero()).To(BeTrue())
 
-			Expect(dvCreated).To(BeTrue())
+			Expect(importStarted).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
 			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
@@ -177,16 +167,9 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 
 	Context("VirtualDisk waits for the PVC to be Bound", func() {
 		It("waits for the first consumer", func() {
-			dv.Status.Phase = cdiv1.PendingPopulation
-			dv.Status.Conditions = []cdiv1.DataVolumeCondition{
-				{
-					Type:   cdiv1.DataVolumeRunning,
-					Status: corev1.ConditionFalse,
-					Reason: "",
-				},
-			}
+			pvc.Status.Phase = corev1.ClaimPending
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingWaitForFirstConsumer)
-			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, dv, sc).Build()
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
 
 			syncer := NewObjectRefClusterVirtualImage(svc, client)
 
@@ -203,7 +186,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 		It("is in provisioning", func() {
 			pvc.Status.Phase = corev1.ClaimPending
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingImmediate)
-			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, dv, sc).Build()
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
 
 			syncer := NewObjectRefClusterVirtualImage(svc, client)
 
@@ -220,9 +203,8 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 
 	Context("VirtualDisk is ready", func() {
 		It("checks that the VirtualDisk is ready", func() {
-			dv.Status.Phase = cdiv1.Succeeded
 			pvc.Status.Phase = corev1.ClaimBound
-			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(dv, pvc).Build()
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
 
 			syncer := NewObjectRefClusterVirtualImage(svc, client)
 
@@ -233,6 +215,23 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			ExpectCondition(vd, metav1.ConditionTrue, vdcondition.Ready, false)
 			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskReady))
 			ExpectStats(vd)
+		})
+
+		It("requeues when the import has just completed", func() {
+			pvc.Status.Phase = corev1.ClaimBound
+			pvc.Annotations = map[string]string{
+				annotations.AnnPVCImportPhase: string(corev1.PodRunning),
+			}
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, cvi).Build()
+			svc.EnsurePVCImportFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ *v1alpha2.VirtualDisk, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
+				return corev1.PodSucceeded, nil
+			}
+
+			syncer := NewObjectRefClusterVirtualImage(svc, client)
+
+			res, err := syncer.Sync(ctx, vd)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.Requeue).To(BeTrue())
 		})
 	})
 

@@ -379,15 +379,6 @@ rules:
   - list
   - watch
 - apiGroups:
-  - cdi.internal.virtualization.deckhouse.io
-  resources:
-  - internalvirtualizationdatasources
-  - internalvirtualizationdatavolumes
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
   - instancetype.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationvirtualmachineinstancetypes
@@ -607,12 +598,6 @@ rules:
   - virtualmachineinstances/softreboot
   verbs:
   - update
-- apiGroups:
-  - cdi.internal.virtualization.deckhouse.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
 - apiGroups:
   - k8s.cni.cncf.io
   resources:

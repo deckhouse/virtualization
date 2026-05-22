@@ -100,8 +100,7 @@ global:
       - deckhouse.io/v1alpha1/ClusterAuthorizationRule
       - deckhouse.io/v1alpha1/DexProvider
       - deckhouse.io/v1beta1/DeploymentMetric
-      - cdi.internal.virtualization.deckhouse.io/v1beta1/InternalVirtualizationCDI
-      - cdi.internal.virtualization.deckhouse.io/v1beta1/InternalVirtualizationDataVolume
+      - internal.virtualization.deckhouse.io/v1beta1/InternalVirtualizationStorageProfile
       - templates.gatekeeper.sh/v1alpha1/ConstraintTemplate
       - cilium.io/v2alpha1/CiliumNodeConfig
       - deckhouse.io/v1alpha1/LocalPathProvisioner

@@ -127,13 +127,15 @@ func (svc *VirtualImageStorageClassService) ValidateClaimPropertySets(sp *cdiv1.
 	}
 
 	for _, cps := range sp.Status.ClaimPropertySets {
-		if slices.Contains(cps.AccessModes, corev1.ReadWriteMany) && *cps.VolumeMode == corev1.PersistentVolumeBlock {
+		if (slices.Contains(cps.AccessModes, corev1.ReadWriteOnce) || slices.Contains(cps.AccessModes, corev1.ReadWriteMany)) &&
+			cps.VolumeMode != nil &&
+			*cps.VolumeMode == corev1.PersistentVolumeBlock {
 			return nil
 		}
 	}
 
 	return fmt.Errorf(
-		"the storage class %q lacks of capabilities to support 'Virtual Images on PVC' function; use StorageClass that supports volume mode 'Block' and access mode 'ReadWriteMany'",
+		"the storage class %q lacks of capabilities to support 'Virtual Images on PVC' function; use StorageClass that supports volume mode 'Block' and access mode 'ReadWriteOnce' or 'ReadWriteMany'",
 		sp.Name,
 	)
 }

@@ -22,9 +22,9 @@ import (
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
-func rewriteCDIV1beta1(resource string) schema.GroupVersionResource {
+func rewriteVirtualizationV1beta1(resource string) schema.GroupVersionResource {
 	return schema.GroupVersionResource{
-		Group:    "cdi.internal.virtualization.deckhouse.io",
+		Group:    "internal.virtualization.deckhouse.io",
 		Version:  "v1beta1",
 		Resource: resource,
 	}
@@ -48,7 +48,7 @@ type StorageProfile struct {
 
 func (StorageProfile) GVR() schema.GroupVersionResource {
 	resource := rewriteInternalVirtualizationResource("storageprofiles")
-	return rewriteCDIV1beta1(resource)
+	return rewriteVirtualizationV1beta1(resource)
 }
 
 type VirtualMachineInstanceMigration struct {

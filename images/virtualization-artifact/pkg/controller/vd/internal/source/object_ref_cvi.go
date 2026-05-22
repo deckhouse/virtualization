@@ -23,13 +23,13 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/steptaker"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -71,17 +71,17 @@ func (ds ObjectRefClusterVirtualImage) Sync(ctx context.Context, vd *v1alpha2.Vi
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("fetch cvi %q: %w", cviRefKey, err)
 	}
-	var importSource *cdiv1.DataVolumeSource
+	var importSource *service.PVCImportSource
 	if cviRef != nil {
-		importSource = step.BuildClusterVirtualImageDataVolumeSource(vd, cviRef)
+		importSource = step.BuildClusterVirtualImagePVCImportSource(vd, cviRef)
 	}
 
 	return steptaker.NewStepTakers[*v1alpha2.VirtualDisk](
 		step.NewReadyStep(ds.diskService, pvc, cb),
 		step.NewTerminatingStep(pvc),
-		step.NewCreateDataVolumeFromClusterVirtualImageStep(pvc, nil, ds.diskService, ds.client, cb),
+		step.NewPVCImportFromClusterVirtualImageStep(pvc, ds.diskService, ds.client, cb),
 		step.NewWaitForPVCStep(pvc, ds.client, cb),
-		step.NewWaitForObjectRefImportStep(pvc, importSource, ds.diskService, ds.client, cb),
+		step.NewWaitForPVCImportStep(pvc, step.StaticPVCImportSource(importSource), ds.diskService, ds.client, cb),
 	).Run(ctx, vd)
 }
 

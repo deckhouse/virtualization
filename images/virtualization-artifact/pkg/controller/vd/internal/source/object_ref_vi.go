@@ -23,13 +23,13 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/steptaker"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -71,9 +71,9 @@ func (ds ObjectRefVirtualImage) Sync(ctx context.Context, vd *v1alpha2.VirtualDi
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("fetch vi %q: %w", viRefKey, err)
 	}
-	var importSource *cdiv1.DataVolumeSource
+	var importSource *service.PVCImportSource
 	if viRef != nil {
-		importSource, err = step.BuildVirtualImageDataVolumeSource(vd, viRef)
+		importSource, err = step.BuildVirtualImagePVCImportSource(vd, viRef)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("build import source: %w", err)
 		}
@@ -82,9 +82,9 @@ func (ds ObjectRefVirtualImage) Sync(ctx context.Context, vd *v1alpha2.VirtualDi
 	return steptaker.NewStepTakers[*v1alpha2.VirtualDisk](
 		step.NewReadyStep(ds.diskService, pvc, cb),
 		step.NewTerminatingStep(pvc),
-		step.NewCreateDataVolumeFromVirtualImageStep(pvc, nil, ds.diskService, ds.client, cb),
+		step.NewPVCImportFromVirtualImageStep(pvc, ds.diskService, ds.client, cb),
 		step.NewWaitForPVCStep(pvc, ds.client, cb),
-		step.NewWaitForObjectRefImportStep(pvc, importSource, ds.diskService, ds.client, cb),
+		step.NewWaitForPVCImportStep(pvc, step.StaticPVCImportSource(importSource), ds.diskService, ds.client, cb),
 	).Run(ctx, vd)
 }
 

@@ -23,8 +23,8 @@ import (
 
 var (
 	ErrDefaultStorageClassNotFound        = errors.New("default storage class not found")
-	ErrDataVolumeNotRunning               = errors.New("pvc importer is not running")
-	ErrDataVolumeProvisionerUnschedulable = errors.New("provisioner unschedulable")
+	ErrImporterNotRunning               = errors.New("pvc importer is not running")
+	ErrProvisionerUnschedulable = errors.New("provisioner unschedulable")
 )
 
 type NoSizingPolicyMatchError struct {
