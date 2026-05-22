@@ -14,7 +14,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
-	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -250,7 +250,7 @@ var _ BlankDataSourceDiskService = &BlankDataSourceDiskServiceMock{}
 //			GetCapacityFunc: func(pvc *corev1.PersistentVolumeClaim) string {
 //				panic("mock out the GetCapacity method")
 //			},
-//			GetVolumeAndAccessModesFunc: func(ctx context.Context, obj client.Object, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+//			GetVolumeAndAccessModesFunc: func(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 //				panic("mock out the GetVolumeAndAccessModes method")
 //			},
 //			ProtectFunc: func(ctx context.Context, sup supplements.Generator, owner client.Object, pvc *corev1.PersistentVolumeClaim) error {
@@ -273,7 +273,7 @@ type BlankDataSourceDiskServiceMock struct {
 	GetCapacityFunc func(pvc *corev1.PersistentVolumeClaim) string
 
 	// GetVolumeAndAccessModesFunc mocks the GetVolumeAndAccessModes method.
-	GetVolumeAndAccessModesFunc func(ctx context.Context, obj client.Object, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
+	GetVolumeAndAccessModesFunc func(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
 
 	// ProtectFunc mocks the Protect method.
 	ProtectFunc func(ctx context.Context, sup supplements.Generator, owner client.Object, pvc *corev1.PersistentVolumeClaim) error
@@ -306,7 +306,7 @@ type BlankDataSourceDiskServiceMock struct {
 			// Obj is the obj argument value.
 			Obj client.Object
 			// Sc is the sc argument value.
-			Sc *storagev1.StorageClass
+			Sc *v1.StorageClass
 		}
 		// Protect holds details about calls to the Protect method.
 		Protect []struct {
@@ -432,14 +432,14 @@ func (mock *BlankDataSourceDiskServiceMock) GetCapacityCalls() []struct {
 }
 
 // GetVolumeAndAccessModes calls GetVolumeAndAccessModesFunc.
-func (mock *BlankDataSourceDiskServiceMock) GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+func (mock *BlankDataSourceDiskServiceMock) GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 	if mock.GetVolumeAndAccessModesFunc == nil {
 		panic("BlankDataSourceDiskServiceMock.GetVolumeAndAccessModesFunc: method is nil but BlankDataSourceDiskService.GetVolumeAndAccessModes was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
 		Obj client.Object
-		Sc  *storagev1.StorageClass
+		Sc  *v1.StorageClass
 	}{
 		Ctx: ctx,
 		Obj: obj,
@@ -458,12 +458,12 @@ func (mock *BlankDataSourceDiskServiceMock) GetVolumeAndAccessModes(ctx context.
 func (mock *BlankDataSourceDiskServiceMock) GetVolumeAndAccessModesCalls() []struct {
 	Ctx context.Context
 	Obj client.Object
-	Sc  *storagev1.StorageClass
+	Sc  *v1.StorageClass
 } {
 	var calls []struct {
 		Ctx context.Context
 		Obj client.Object
-		Sc  *storagev1.StorageClass
+		Sc  *v1.StorageClass
 	}
 	mock.lockGetVolumeAndAccessModes.RLock()
 	calls = mock.calls.GetVolumeAndAccessModes
@@ -537,7 +537,7 @@ var _ ObjectRefVirtualImageDiskService = &ObjectRefVirtualImageDiskServiceMock{}
 //			ProtectFunc: func(ctx context.Context, sup supplements.Generator, owner client.Object, pvc *corev1.PersistentVolumeClaim) error {
 //				panic("mock out the Protect method")
 //			},
-//			StartPVCImportFunc: func(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error {
+//			StartPVCImportFunc: func(ctx context.Context, pvcSize resource.Quantity, sc *v1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error {
 //				panic("mock out the StartPVCImport method")
 //			},
 //		}
@@ -560,7 +560,7 @@ type ObjectRefVirtualImageDiskServiceMock struct {
 	ProtectFunc func(ctx context.Context, sup supplements.Generator, owner client.Object, pvc *corev1.PersistentVolumeClaim) error
 
 	// StartPVCImportFunc mocks the StartPVCImport method.
-	StartPVCImportFunc func(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error
+	StartPVCImportFunc func(ctx context.Context, pvcSize resource.Quantity, sc *v1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -607,7 +607,7 @@ type ObjectRefVirtualImageDiskServiceMock struct {
 			// PvcSize is the pvcSize argument value.
 			PvcSize resource.Quantity
 			// Sc is the sc argument value.
-			Sc *storagev1.StorageClass
+			Sc *v1.StorageClass
 			// Source is the source argument value.
 			Source *service.PVCImportSource
 			// Vd is the vd argument value.
@@ -784,14 +784,14 @@ func (mock *ObjectRefVirtualImageDiskServiceMock) ProtectCalls() []struct {
 }
 
 // StartPVCImport calls StartPVCImportFunc.
-func (mock *ObjectRefVirtualImageDiskServiceMock) StartPVCImport(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error {
+func (mock *ObjectRefVirtualImageDiskServiceMock) StartPVCImport(ctx context.Context, pvcSize resource.Quantity, sc *v1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error {
 	if mock.StartPVCImportFunc == nil {
 		panic("ObjectRefVirtualImageDiskServiceMock.StartPVCImportFunc: method is nil but ObjectRefVirtualImageDiskService.StartPVCImport was just called")
 	}
 	callInfo := struct {
 		Ctx           context.Context
 		PvcSize       resource.Quantity
-		Sc            *storagev1.StorageClass
+		Sc            *v1.StorageClass
 		Source        *service.PVCImportSource
 		Vd            *v1alpha2.VirtualDisk
 		NodePlacement *provisioner.NodePlacement
@@ -816,7 +816,7 @@ func (mock *ObjectRefVirtualImageDiskServiceMock) StartPVCImport(ctx context.Con
 func (mock *ObjectRefVirtualImageDiskServiceMock) StartPVCImportCalls() []struct {
 	Ctx           context.Context
 	PvcSize       resource.Quantity
-	Sc            *storagev1.StorageClass
+	Sc            *v1.StorageClass
 	Source        *service.PVCImportSource
 	Vd            *v1alpha2.VirtualDisk
 	NodePlacement *provisioner.NodePlacement
@@ -824,7 +824,7 @@ func (mock *ObjectRefVirtualImageDiskServiceMock) StartPVCImportCalls() []struct
 	var calls []struct {
 		Ctx           context.Context
 		PvcSize       resource.Quantity
-		Sc            *storagev1.StorageClass
+		Sc            *v1.StorageClass
 		Source        *service.PVCImportSource
 		Vd            *v1alpha2.VirtualDisk
 		NodePlacement *provisioner.NodePlacement
@@ -857,7 +857,7 @@ var _ ObjectRefClusterVirtualImageDiskService = &ObjectRefClusterVirtualImageDis
 //			ProtectFunc: func(ctx context.Context, sup supplements.Generator, owner client.Object, pvc *corev1.PersistentVolumeClaim) error {
 //				panic("mock out the Protect method")
 //			},
-//			StartPVCImportFunc: func(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error {
+//			StartPVCImportFunc: func(ctx context.Context, pvcSize resource.Quantity, sc *v1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error {
 //				panic("mock out the StartPVCImport method")
 //			},
 //		}
@@ -880,7 +880,7 @@ type ObjectRefClusterVirtualImageDiskServiceMock struct {
 	ProtectFunc func(ctx context.Context, sup supplements.Generator, owner client.Object, pvc *corev1.PersistentVolumeClaim) error
 
 	// StartPVCImportFunc mocks the StartPVCImport method.
-	StartPVCImportFunc func(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error
+	StartPVCImportFunc func(ctx context.Context, pvcSize resource.Quantity, sc *v1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -927,7 +927,7 @@ type ObjectRefClusterVirtualImageDiskServiceMock struct {
 			// PvcSize is the pvcSize argument value.
 			PvcSize resource.Quantity
 			// Sc is the sc argument value.
-			Sc *storagev1.StorageClass
+			Sc *v1.StorageClass
 			// Source is the source argument value.
 			Source *service.PVCImportSource
 			// Vd is the vd argument value.
@@ -1104,14 +1104,14 @@ func (mock *ObjectRefClusterVirtualImageDiskServiceMock) ProtectCalls() []struct
 }
 
 // StartPVCImport calls StartPVCImportFunc.
-func (mock *ObjectRefClusterVirtualImageDiskServiceMock) StartPVCImport(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error {
+func (mock *ObjectRefClusterVirtualImageDiskServiceMock) StartPVCImport(ctx context.Context, pvcSize resource.Quantity, sc *v1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error {
 	if mock.StartPVCImportFunc == nil {
 		panic("ObjectRefClusterVirtualImageDiskServiceMock.StartPVCImportFunc: method is nil but ObjectRefClusterVirtualImageDiskService.StartPVCImport was just called")
 	}
 	callInfo := struct {
 		Ctx           context.Context
 		PvcSize       resource.Quantity
-		Sc            *storagev1.StorageClass
+		Sc            *v1.StorageClass
 		Source        *service.PVCImportSource
 		Vd            *v1alpha2.VirtualDisk
 		NodePlacement *provisioner.NodePlacement
@@ -1136,7 +1136,7 @@ func (mock *ObjectRefClusterVirtualImageDiskServiceMock) StartPVCImport(ctx cont
 func (mock *ObjectRefClusterVirtualImageDiskServiceMock) StartPVCImportCalls() []struct {
 	Ctx           context.Context
 	PvcSize       resource.Quantity
-	Sc            *storagev1.StorageClass
+	Sc            *v1.StorageClass
 	Source        *service.PVCImportSource
 	Vd            *v1alpha2.VirtualDisk
 	NodePlacement *provisioner.NodePlacement
@@ -1144,7 +1144,7 @@ func (mock *ObjectRefClusterVirtualImageDiskServiceMock) StartPVCImportCalls() [
 	var calls []struct {
 		Ctx           context.Context
 		PvcSize       resource.Quantity
-		Sc            *storagev1.StorageClass
+		Sc            *v1.StorageClass
 		Source        *service.PVCImportSource
 		Vd            *v1alpha2.VirtualDisk
 		NodePlacement *provisioner.NodePlacement
@@ -1361,7 +1361,7 @@ var _ UploadDataSourceDiskService = &UploadDataSourceDiskServiceMock{}
 //			ProtectFunc: func(ctx context.Context, sup supplements.Generator, owner client.Object, pvc *corev1.PersistentVolumeClaim) error {
 //				panic("mock out the Protect method")
 //			},
-//			StartPVCImportFunc: func(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error {
+//			StartPVCImportFunc: func(ctx context.Context, pvcSize resource.Quantity, sc *v1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error {
 //				panic("mock out the StartPVCImport method")
 //			},
 //		}
@@ -1390,7 +1390,7 @@ type UploadDataSourceDiskServiceMock struct {
 	ProtectFunc func(ctx context.Context, sup supplements.Generator, owner client.Object, pvc *corev1.PersistentVolumeClaim) error
 
 	// StartPVCImportFunc mocks the StartPVCImport method.
-	StartPVCImportFunc func(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error
+	StartPVCImportFunc func(ctx context.Context, pvcSize resource.Quantity, sc *v1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -1451,7 +1451,7 @@ type UploadDataSourceDiskServiceMock struct {
 			// PvcSize is the pvcSize argument value.
 			PvcSize resource.Quantity
 			// Sc is the sc argument value.
-			Sc *storagev1.StorageClass
+			Sc *v1.StorageClass
 			// Source is the source argument value.
 			Source *service.PVCImportSource
 			// Vd is the vd argument value.
@@ -1702,14 +1702,14 @@ func (mock *UploadDataSourceDiskServiceMock) ProtectCalls() []struct {
 }
 
 // StartPVCImport calls StartPVCImportFunc.
-func (mock *UploadDataSourceDiskServiceMock) StartPVCImport(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error {
+func (mock *UploadDataSourceDiskServiceMock) StartPVCImport(ctx context.Context, pvcSize resource.Quantity, sc *v1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error {
 	if mock.StartPVCImportFunc == nil {
 		panic("UploadDataSourceDiskServiceMock.StartPVCImportFunc: method is nil but UploadDataSourceDiskService.StartPVCImport was just called")
 	}
 	callInfo := struct {
 		Ctx           context.Context
 		PvcSize       resource.Quantity
-		Sc            *storagev1.StorageClass
+		Sc            *v1.StorageClass
 		Source        *service.PVCImportSource
 		Vd            *v1alpha2.VirtualDisk
 		NodePlacement *provisioner.NodePlacement
@@ -1734,7 +1734,7 @@ func (mock *UploadDataSourceDiskServiceMock) StartPVCImport(ctx context.Context,
 func (mock *UploadDataSourceDiskServiceMock) StartPVCImportCalls() []struct {
 	Ctx           context.Context
 	PvcSize       resource.Quantity
-	Sc            *storagev1.StorageClass
+	Sc            *v1.StorageClass
 	Source        *service.PVCImportSource
 	Vd            *v1alpha2.VirtualDisk
 	NodePlacement *provisioner.NodePlacement
@@ -1742,7 +1742,7 @@ func (mock *UploadDataSourceDiskServiceMock) StartPVCImportCalls() []struct {
 	var calls []struct {
 		Ctx           context.Context
 		PvcSize       resource.Quantity
-		Sc            *storagev1.StorageClass
+		Sc            *v1.StorageClass
 		Source        *service.PVCImportSource
 		Vd            *v1alpha2.VirtualDisk
 		NodePlacement *provisioner.NodePlacement
@@ -2667,7 +2667,7 @@ var _ HTTPDataSourceDiskService = &HTTPDataSourceDiskServiceMock{}
 //			ProtectFunc: func(ctx context.Context, sup supplements.Generator, owner client.Object, pvc *corev1.PersistentVolumeClaim) error {
 //				panic("mock out the Protect method")
 //			},
-//			StartPVCImportFunc: func(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error {
+//			StartPVCImportFunc: func(ctx context.Context, pvcSize resource.Quantity, sc *v1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error {
 //				panic("mock out the StartPVCImport method")
 //			},
 //		}
@@ -2696,7 +2696,7 @@ type HTTPDataSourceDiskServiceMock struct {
 	ProtectFunc func(ctx context.Context, sup supplements.Generator, owner client.Object, pvc *corev1.PersistentVolumeClaim) error
 
 	// StartPVCImportFunc mocks the StartPVCImport method.
-	StartPVCImportFunc func(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error
+	StartPVCImportFunc func(ctx context.Context, pvcSize resource.Quantity, sc *v1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -2757,7 +2757,7 @@ type HTTPDataSourceDiskServiceMock struct {
 			// PvcSize is the pvcSize argument value.
 			PvcSize resource.Quantity
 			// Sc is the sc argument value.
-			Sc *storagev1.StorageClass
+			Sc *v1.StorageClass
 			// Source is the source argument value.
 			Source *service.PVCImportSource
 			// Vd is the vd argument value.
@@ -3008,14 +3008,14 @@ func (mock *HTTPDataSourceDiskServiceMock) ProtectCalls() []struct {
 }
 
 // StartPVCImport calls StartPVCImportFunc.
-func (mock *HTTPDataSourceDiskServiceMock) StartPVCImport(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error {
+func (mock *HTTPDataSourceDiskServiceMock) StartPVCImport(ctx context.Context, pvcSize resource.Quantity, sc *v1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error {
 	if mock.StartPVCImportFunc == nil {
 		panic("HTTPDataSourceDiskServiceMock.StartPVCImportFunc: method is nil but HTTPDataSourceDiskService.StartPVCImport was just called")
 	}
 	callInfo := struct {
 		Ctx           context.Context
 		PvcSize       resource.Quantity
-		Sc            *storagev1.StorageClass
+		Sc            *v1.StorageClass
 		Source        *service.PVCImportSource
 		Vd            *v1alpha2.VirtualDisk
 		NodePlacement *provisioner.NodePlacement
@@ -3040,7 +3040,7 @@ func (mock *HTTPDataSourceDiskServiceMock) StartPVCImport(ctx context.Context, p
 func (mock *HTTPDataSourceDiskServiceMock) StartPVCImportCalls() []struct {
 	Ctx           context.Context
 	PvcSize       resource.Quantity
-	Sc            *storagev1.StorageClass
+	Sc            *v1.StorageClass
 	Source        *service.PVCImportSource
 	Vd            *v1alpha2.VirtualDisk
 	NodePlacement *provisioner.NodePlacement
@@ -3048,7 +3048,7 @@ func (mock *HTTPDataSourceDiskServiceMock) StartPVCImportCalls() []struct {
 	var calls []struct {
 		Ctx           context.Context
 		PvcSize       resource.Quantity
-		Sc            *storagev1.StorageClass
+		Sc            *v1.StorageClass
 		Source        *service.PVCImportSource
 		Vd            *v1alpha2.VirtualDisk
 		NodePlacement *provisioner.NodePlacement
@@ -3649,7 +3649,7 @@ var _ RegistryDataSourceDiskService = &RegistryDataSourceDiskServiceMock{}
 //			ProtectFunc: func(ctx context.Context, sup supplements.Generator, owner client.Object, pvc *corev1.PersistentVolumeClaim) error {
 //				panic("mock out the Protect method")
 //			},
-//			StartPVCImportFunc: func(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error {
+//			StartPVCImportFunc: func(ctx context.Context, pvcSize resource.Quantity, sc *v1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error {
 //				panic("mock out the StartPVCImport method")
 //			},
 //		}
@@ -3678,7 +3678,7 @@ type RegistryDataSourceDiskServiceMock struct {
 	ProtectFunc func(ctx context.Context, sup supplements.Generator, owner client.Object, pvc *corev1.PersistentVolumeClaim) error
 
 	// StartPVCImportFunc mocks the StartPVCImport method.
-	StartPVCImportFunc func(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error
+	StartPVCImportFunc func(ctx context.Context, pvcSize resource.Quantity, sc *v1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -3739,7 +3739,7 @@ type RegistryDataSourceDiskServiceMock struct {
 			// PvcSize is the pvcSize argument value.
 			PvcSize resource.Quantity
 			// Sc is the sc argument value.
-			Sc *storagev1.StorageClass
+			Sc *v1.StorageClass
 			// Source is the source argument value.
 			Source *service.PVCImportSource
 			// Vd is the vd argument value.
@@ -3990,14 +3990,14 @@ func (mock *RegistryDataSourceDiskServiceMock) ProtectCalls() []struct {
 }
 
 // StartPVCImport calls StartPVCImportFunc.
-func (mock *RegistryDataSourceDiskServiceMock) StartPVCImport(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error {
+func (mock *RegistryDataSourceDiskServiceMock) StartPVCImport(ctx context.Context, pvcSize resource.Quantity, sc *v1.StorageClass, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error {
 	if mock.StartPVCImportFunc == nil {
 		panic("RegistryDataSourceDiskServiceMock.StartPVCImportFunc: method is nil but RegistryDataSourceDiskService.StartPVCImport was just called")
 	}
 	callInfo := struct {
 		Ctx           context.Context
 		PvcSize       resource.Quantity
-		Sc            *storagev1.StorageClass
+		Sc            *v1.StorageClass
 		Source        *service.PVCImportSource
 		Vd            *v1alpha2.VirtualDisk
 		NodePlacement *provisioner.NodePlacement
@@ -4022,7 +4022,7 @@ func (mock *RegistryDataSourceDiskServiceMock) StartPVCImport(ctx context.Contex
 func (mock *RegistryDataSourceDiskServiceMock) StartPVCImportCalls() []struct {
 	Ctx           context.Context
 	PvcSize       resource.Quantity
-	Sc            *storagev1.StorageClass
+	Sc            *v1.StorageClass
 	Source        *service.PVCImportSource
 	Vd            *v1alpha2.VirtualDisk
 	NodePlacement *provisioner.NodePlacement
@@ -4030,7 +4030,7 @@ func (mock *RegistryDataSourceDiskServiceMock) StartPVCImportCalls() []struct {
 	var calls []struct {
 		Ctx           context.Context
 		PvcSize       resource.Quantity
-		Sc            *storagev1.StorageClass
+		Sc            *v1.StorageClass
 		Source        *service.PVCImportSource
 		Vd            *v1alpha2.VirtualDisk
 		NodePlacement *provisioner.NodePlacement
