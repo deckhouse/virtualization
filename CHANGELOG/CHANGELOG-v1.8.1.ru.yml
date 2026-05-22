@@ -1,0 +1,17 @@
+cdi:
+  fixes:
+  - summary: Переименуйте метрики kubevirt_cdi_* в d8_internal_virtualization_kubevirt_cdi_*
+      с помощью metricRelabelings
+    pull_request: https://github.com/deckhouse/virtualization/pull/2289
+module:
+  fixes:
+  - summary: Добавлены недостающие разрешения RBAC для ресурсов виртуализации, включая
+      MAC-адреса виртуальных машин, операции моментальных снимков и USB-устройства
+      узла.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2276
+vd:
+  fixes:
+  - summary: Исправлена ​​потенциальная проблема, из-за которой виртуальный диск мог
+      зависать в состоянии подготовки при использовании класса хранилища с режимом
+      WaitForFirstConsumer.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2292
