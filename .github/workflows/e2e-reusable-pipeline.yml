@@ -161,7 +161,7 @@ jobs:
         run: |
           GIT_SHORT_HASH=$(git rev-parse --short HEAD)
 
-          namespace="nightly-e2e-$STORAGE_TYPE-$GIT_SHORT_HASH-$RANDUUID4C"
+          namespace="testboot-e2e-$STORAGE_TYPE-$GIT_SHORT_HASH-$RANDUUID4C"
 
           echo "namespace=$namespace" >> $GITHUB_OUTPUT
           echo "sha_short=$GIT_SHORT_HASH" >> $GITHUB_OUTPUT
