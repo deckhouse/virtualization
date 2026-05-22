@@ -114,13 +114,14 @@ tasks:
     vars:
       start_time:
         sh: date +%s
+      timeout: 900s
     cmds:
       - kubectl apply -f {{ .TMP_DIR }}/infra.yaml
       - kubectl -n {{ .NAMESPACE }} get vm,vd,vi,svc,pod,deploy
       - kubectl -n {{ .NAMESPACE }} wait --for=condition=Ready pod -l app=jump-host --timeout=300s
-      - kubectl -n {{ .NAMESPACE }} get vi -o name | xargs kubectl -n {{ .NAMESPACE }} wait --for='jsonpath={.status.phase}=Ready' --timeout=600s
-      - kubectl -n {{ .NAMESPACE }} get vd -o name | xargs kubectl -n {{ .NAMESPACE }} wait --for='jsonpath={.status.phase}=Ready' --timeout=600s
-      - kubectl -n {{ .NAMESPACE }} get vm -o name | xargs kubectl -n {{ .NAMESPACE }} wait --for='jsonpath={.status.phase}=Running' --timeout=600s
+      - kubectl -n {{ .NAMESPACE }} get vi -o name | xargs kubectl -n {{ .NAMESPACE }} wait --for='jsonpath={.status.phase}=Ready' --timeout={{ .timeout }}
+      - kubectl -n {{ .NAMESPACE }} get vd -o name | xargs kubectl -n {{ .NAMESPACE }} wait --for='jsonpath={.status.phase}=Ready' --timeout={{ .timeout }}
+      - kubectl -n {{ .NAMESPACE }} get vm -o name | xargs kubectl -n {{ .NAMESPACE }} wait --for='jsonpath={.status.phase}=Running' --timeout={{ .timeout }}
       - kubectl -n {{ .NAMESPACE }} get vm -o name | xargs kubectl -n {{ .NAMESPACE }} wait --for='jsonpath={.status.conditions[?(@.type=="AgentReady")].status}=True' --timeout=300s
       - |
         export end_time=$(date +%s)
