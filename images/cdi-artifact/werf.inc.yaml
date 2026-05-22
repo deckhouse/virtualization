@@ -38,6 +38,7 @@ git:
     - '**/*'
   excludePaths:
   - .git
+import:
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   install:
