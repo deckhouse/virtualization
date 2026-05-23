@@ -55,6 +55,7 @@ var _ = Describe("HTTPDataSource", func() {
 		sc           *storagev1.StorageClass
 		pvc          *corev1.PersistentVolumeClaim
 		disk         *HTTPDataSourceDiskServiceMock
+		pvcSvc       *DataSourcePVCServiceMock
 		importerSvc  *HTTPDataSourceImporterServiceMock
 		stat         *HTTPDataSourceStatServiceMock
 		recorder     eventrecord.EventRecorderLogger
@@ -118,6 +119,16 @@ var _ = Describe("HTTPDataSource", func() {
 			},
 			CleanUpFunc:            func(_ context.Context, _ supplements.Generator) (bool, error) { return false, nil },
 			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, error) { return false, nil },
+			GetVolumeAndAccessModesFunc: func(_ context.Context, _ client.Object, _ *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+				return corev1.PersistentVolumeFilesystem, corev1.ReadWriteOnce, nil
+			},
+		}
+
+		pvcSvc = &DataSourcePVCServiceMock{
+			FinalizersFunc: func() []string { return nil },
+			ImportFunc: func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
+				return corev1.PodRunning, nil
+			},
 		}
 
 		importerSvc = &HTTPDataSourceImporterServiceMock{
@@ -144,7 +155,7 @@ var _ = Describe("HTTPDataSource", func() {
 	})
 
 	newSyncer := func(c client.Client) *HTTPDataSource {
-		return NewHTTPDataSource(recorder, stat, importerSvc, disk, dvcrSettings, c)
+		return NewHTTPDataSource(recorder, stat, importerSvc, disk, pvcSvc, dvcrSettings, c)
 	}
 
 	Context("VirtualDisk has just been created (no importer pod yet)", func() {
@@ -246,11 +257,11 @@ var _ = Describe("HTTPDataSource", func() {
 
 		It("kicks off the PVC import", func() {
 			var started bool
-			disk.StartPVCImportFunc = func(_ context.Context, _ resource.Quantity, _ *storagev1.StorageClass, source *service.PVCImportSource, _ *v1alpha2.VirtualDisk, _ *provisioner.NodePlacement) error {
+			pvcSvc.ImportFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim, source *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
 				started = true
 				Expect(source).ToNot(BeNil())
 				Expect(source.Registry).ToNot(BeNil())
-				return nil
+				return corev1.PodPending, nil
 			}
 
 			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sc).Build()
@@ -326,7 +337,7 @@ var _ = Describe("HTTPDataSource", func() {
 		})
 
 		It("drives EnsurePVCImport with a registry source built from the importer pod", func() {
-			disk.EnsurePVCImportFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim, source *service.PVCImportSource, _ *v1alpha2.VirtualDisk, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
+			pvcSvc.ImportFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim, source *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
 				Expect(source).ToNot(BeNil())
 				Expect(source.Registry).ToNot(BeNil())
 				return corev1.PodRunning, nil
@@ -344,7 +355,7 @@ var _ = Describe("HTTPDataSource", func() {
 		})
 
 		It("requeues when EnsurePVCImport reports Succeeded", func() {
-			disk.EnsurePVCImportFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ *v1alpha2.VirtualDisk, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
+			pvcSvc.ImportFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
 				return corev1.PodSucceeded, nil
 			}
 

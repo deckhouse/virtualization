@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
@@ -50,6 +51,7 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 		sc     *storagev1.StorageClass
 		pvc    *corev1.PersistentVolumeClaim
 		svc    *ObjectRefVirtualImageDiskServiceMock
+		pvcSvc *DataSourcePVCServiceMock
 		stat   *ObjectRefVirtualImageStatServiceMock
 	)
 
@@ -74,7 +76,14 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, error) {
 				return false, nil
 			},
-			EnsurePVCImportFunc: func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ *v1alpha2.VirtualDisk, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
+			GetVolumeAndAccessModesFunc: func(_ context.Context, _ kclient.Object, _ *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+				return corev1.PersistentVolumeFilesystem, corev1.ReadWriteOnce, nil
+			},
+		}
+
+		pvcSvc = &DataSourcePVCServiceMock{
+			FinalizersFunc: func() []string { return nil },
+			ImportFunc: func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ kclient.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
 				return corev1.PodRunning, nil
 			},
 		}
@@ -143,17 +152,18 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 		It("must start PVC import", func() {
 			var importStarted bool
 			vd.Status = v1alpha2.VirtualDiskStatus{
+				StorageClassName: sc.Name,
 				Target: v1alpha2.DiskTarget{
 					PersistentVolumeClaim: "test-pvc",
 				},
 			}
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vi, sc).Build()
-			svc.StartPVCImportFunc = func(_ context.Context, _ resource.Quantity, _ *storagev1.StorageClass, _ *service.PVCImportSource, _ *v1alpha2.VirtualDisk, _ *provisioner.NodePlacement) error {
+			pvcSvc.ImportFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ kclient.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
 				importStarted = true
-				return nil
+				return corev1.PodPending, nil
 			}
 
-			syncer := NewObjectRefVirtualImage(svc, stat, fakeClient)
+			syncer := NewObjectRefVirtualImage(svc, pvcSvc, stat, fakeClient)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -174,7 +184,7 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingWaitForFirstConsumer)
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
 
-			syncer := NewObjectRefVirtualImage(svc, stat, client)
+			syncer := NewObjectRefVirtualImage(svc, pvcSvc, stat, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -191,7 +201,7 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingImmediate)
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
 
-			syncer := NewObjectRefVirtualImage(svc, stat, client)
+			syncer := NewObjectRefVirtualImage(svc, pvcSvc, stat, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -209,7 +219,7 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 			pvc.Status.Phase = corev1.ClaimBound
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
 
-			syncer := NewObjectRefVirtualImage(svc, stat, client)
+			syncer := NewObjectRefVirtualImage(svc, pvcSvc, stat, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -226,11 +236,11 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 				annotations.AnnPVCImportPhase: string(corev1.PodRunning),
 			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, vi).Build()
-			svc.EnsurePVCImportFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ *v1alpha2.VirtualDisk, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
+			pvcSvc.ImportFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ kclient.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
 				return corev1.PodSucceeded, nil
 			}
 
-			syncer := NewObjectRefVirtualImage(svc, stat, client)
+			syncer := NewObjectRefVirtualImage(svc, pvcSvc, stat, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -254,7 +264,7 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
 
-			syncer := NewObjectRefVirtualImage(svc, stat, client)
+			syncer := NewObjectRefVirtualImage(svc, pvcSvc, stat, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -270,7 +280,7 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 			vd.Status.Target.PersistentVolumeClaim = pvc.Name
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
 
-			syncer := NewObjectRefVirtualImage(svc, stat, client)
+			syncer := NewObjectRefVirtualImage(svc, pvcSvc, stat, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())

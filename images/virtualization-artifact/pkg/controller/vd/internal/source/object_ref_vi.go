@@ -29,7 +29,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/steptaker"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -38,17 +37,20 @@ import (
 
 type ObjectRefVirtualImage struct {
 	diskService ObjectRefVirtualImageDiskService
+	pvcService  DataSourcePVCService
 	statService ObjectRefVirtualImageStatService
 	client      client.Client
 }
 
 func NewObjectRefVirtualImage(
 	diskService ObjectRefVirtualImageDiskService,
+	pvcService DataSourcePVCService,
 	statService ObjectRefVirtualImageStatService,
 	client client.Client,
 ) *ObjectRefVirtualImage {
 	return &ObjectRefVirtualImage{
 		diskService: diskService,
+		pvcService:  pvcService,
 		statService: statService,
 		client:      client,
 	}
@@ -69,25 +71,12 @@ func (ds ObjectRefVirtualImage) Sync(ctx context.Context, vd *v1alpha2.VirtualDi
 		return reconcile.Result{}, fmt.Errorf("fetch pvc: %w", err)
 	}
 
-	viRefKey := types.NamespacedName{Name: vd.Spec.DataSource.ObjectRef.Name, Namespace: vd.Namespace}
-	viRef, err := object.FetchObject(ctx, viRefKey, ds.client, &v1alpha2.VirtualImage{})
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("fetch vi %q: %w", viRefKey, err)
-	}
-	var importSource *service.PVCImportSource
-	if viRef != nil {
-		importSource, err = step.BuildVirtualImagePVCImportSource(vd, viRef)
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("build import source: %w", err)
-		}
-	}
-
 	return steptaker.NewStepTakers[*v1alpha2.VirtualDisk](
 		step.NewReadyStep(ds.diskService, pvc, cb),
 		step.NewTerminatingStep(pvc),
-		step.NewPVCImportFromVirtualImageStep(pvc, ds.diskService, ds.client, cb),
+		step.NewPVCImportFromVirtualImageStep(pvc, ds.diskService, ds.pvcService, ds.client, cb),
 		step.NewWaitForPVCStep(pvc, ds.client, cb),
-		step.NewWaitForPVCImportStep(pvc, step.StaticPVCImportSource(importSource), ds.diskService, ds.statService, nil, ds.client, cb),
+		step.NewWaitForPVCImportStep(pvc, step.VirtualImagePVCImportSource(ds.client), ds.pvcService, ds.statService, nil, ds.client, cb),
 	).Run(ctx, vd)
 }
 

@@ -54,6 +54,7 @@ type PVCImportFromDVCRStep struct {
 	pod       *corev1.Pod
 	stat      PVCImportFromDVCRStepStatService
 	disk      PVCImportStepDiskService
+	pvcSvc    PVCService
 	client    client.Client
 	recorder  eventrecord.EventRecorderLogger
 	cb        *conditions.ConditionBuilder
@@ -65,6 +66,7 @@ func NewPVCImportFromDVCRStep(
 	pod *corev1.Pod,
 	stat PVCImportFromDVCRStepStatService,
 	disk PVCImportStepDiskService,
+	pvcSvc PVCService,
 	client client.Client,
 	recorder eventrecord.EventRecorderLogger,
 	cb *conditions.ConditionBuilder,
@@ -75,6 +77,7 @@ func NewPVCImportFromDVCRStep(
 		pod:       pod,
 		stat:      stat,
 		disk:      disk,
+		pvcSvc:    pvcSvc,
 		client:    client,
 		recorder:  recorder,
 		cb:        cb,
@@ -126,7 +129,7 @@ func (s PVCImportFromDVCRStep) Take(ctx context.Context, vd *v1alpha2.VirtualDis
 
 	source := BuildDVCRPVCImportSource(vd, s.stat.GetDVCRImageName(s.pod))
 
-	return NewPVCImportStep(s.disk, s.client, source, size, s.cb).Take(ctx, vd)
+	return NewPVCImportStep(s.disk, s.pvcSvc, s.client, source, size, s.cb).Take(ctx, vd)
 }
 
 func (s PVCImportFromDVCRStep) getPVCSize(vd *v1alpha2.VirtualDisk) (resource.Quantity, error) {

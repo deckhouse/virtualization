@@ -42,6 +42,7 @@ import (
 type PVCImportFromVirtualImageStep struct {
 	pvc    *corev1.PersistentVolumeClaim
 	disk   PVCImportStepDiskService
+	pvcSvc PVCService
 	client client.Client
 	cb     *conditions.ConditionBuilder
 }
@@ -49,12 +50,14 @@ type PVCImportFromVirtualImageStep struct {
 func NewPVCImportFromVirtualImageStep(
 	pvc *corev1.PersistentVolumeClaim,
 	disk PVCImportStepDiskService,
+	pvcSvc PVCService,
 	client client.Client,
 	cb *conditions.ConditionBuilder,
 ) *PVCImportFromVirtualImageStep {
 	return &PVCImportFromVirtualImageStep{
 		pvc:    pvc,
 		disk:   disk,
+		pvcSvc: pvcSvc,
 		client: client,
 		cb:     cb,
 	}
@@ -105,7 +108,7 @@ func (s PVCImportFromVirtualImageStep) Take(ctx context.Context, vd *v1alpha2.Vi
 		return nil, err
 	}
 
-	return NewPVCImportStep(s.disk, s.client, source, size, s.cb).Take(ctx, vd)
+	return NewPVCImportStep(s.disk, s.pvcSvc, s.client, source, size, s.cb).Take(ctx, vd)
 }
 
 func (s PVCImportFromVirtualImageStep) getPVCSize(vd *v1alpha2.VirtualDisk, viRef *v1alpha2.VirtualImage) (resource.Quantity, error) {

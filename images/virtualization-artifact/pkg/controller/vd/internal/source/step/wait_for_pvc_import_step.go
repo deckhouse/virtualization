@@ -28,9 +28,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -38,10 +38,6 @@ import (
 // pvcImportProgressRequeue is how often the step refreshes vd.Status.Progress
 // from the cdi-importer pod metrics while the import is in flight.
 const pvcImportProgressRequeue = 2 * time.Second
-
-type WaitForPVCImportStepDiskService interface {
-	EnsurePVCImport(ctx context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) (corev1.PodPhase, error)
-}
 
 // WaitForPVCImportStepStatService is the subset of StatService used to extract
 // the cdi-importer pod's progress and project it into vd.Status.Progress.
@@ -68,7 +64,7 @@ type PVCImportSourceProvider func(ctx context.Context, vd *v1alpha2.VirtualDisk)
 type WaitForPVCImportStep struct {
 	pvc            *corev1.PersistentVolumeClaim
 	sourceProvider PVCImportSourceProvider
-	disk           WaitForPVCImportStepDiskService
+	pvcSvc         PVCService
 	stat           WaitForPVCImportStepStatService
 	progressScale  *service.ScaleOption
 	client         client.Client
@@ -78,7 +74,7 @@ type WaitForPVCImportStep struct {
 func NewWaitForPVCImportStep(
 	pvc *corev1.PersistentVolumeClaim,
 	sourceProvider PVCImportSourceProvider,
-	disk WaitForPVCImportStepDiskService,
+	pvcSvc PVCService,
 	stat WaitForPVCImportStepStatService,
 	progressScale *service.ScaleOption,
 	client client.Client,
@@ -87,7 +83,7 @@ func NewWaitForPVCImportStep(
 	return &WaitForPVCImportStep{
 		pvc:            pvc,
 		sourceProvider: sourceProvider,
-		disk:           disk,
+		pvcSvc:         pvcSvc,
 		stat:           stat,
 		progressScale:  progressScale,
 		client:         client,
@@ -113,9 +109,10 @@ func (s WaitForPVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk
 		}
 	}
 
-	phase, err := s.disk.EnsurePVCImport(ctx, s.pvc, source, vd, nodePlacement)
+	sup := vdsupplements.NewGenerator(vd)
+	phase, err := s.pvcSvc.Import(ctx, s.pvc, source, vd, sup, nodePlacement)
 	if err != nil {
-		return nil, fmt.Errorf("ensure pvc import: %w", err)
+		return nil, fmt.Errorf("pvc import: %w", err)
 	}
 
 	switch phase {
@@ -186,5 +183,49 @@ func DVCRPodPVCImportSource(pod *corev1.Pod, stat interface {
 			return nil, nil
 		}
 		return BuildDVCRPVCImportSource(vd, dvcrImageName), nil
+	}
+}
+
+// ClusterVirtualImagePVCImportSource returns a PVCImportSourceProvider that
+// fetches the referenced ClusterVirtualImage on demand and builds a
+// registry-backed PVCImportSource. The fetch happens only when the step
+// actually needs the source (i.e. while the import is in flight), so the data
+// source handler does not have to fetch the CVI on every reconcile.
+func ClusterVirtualImagePVCImportSource(c client.Client) PVCImportSourceProvider {
+	return func(ctx context.Context, vd *v1alpha2.VirtualDisk) (*service.PVCImportSource, error) {
+		if vd.Spec.DataSource == nil || vd.Spec.DataSource.ObjectRef == nil {
+			return nil, nil
+		}
+		key := types.NamespacedName{Name: vd.Spec.DataSource.ObjectRef.Name}
+		cviRef, err := object.FetchObject(ctx, key, c, &v1alpha2.ClusterVirtualImage{})
+		if err != nil {
+			return nil, fmt.Errorf("fetch cvi %q: %w", key, err)
+		}
+		if cviRef == nil {
+			return nil, nil
+		}
+		return BuildClusterVirtualImagePVCImportSource(vd, cviRef), nil
+	}
+}
+
+// VirtualImagePVCImportSource returns a PVCImportSourceProvider that fetches
+// the referenced VirtualImage on demand and builds the appropriate
+// PVCImportSource (registry-backed for DVCR storage, PVC-backed for in-cluster
+// PVC storage). The fetch happens only when the step actually needs the
+// source.
+func VirtualImagePVCImportSource(c client.Client) PVCImportSourceProvider {
+	return func(ctx context.Context, vd *v1alpha2.VirtualDisk) (*service.PVCImportSource, error) {
+		if vd.Spec.DataSource == nil || vd.Spec.DataSource.ObjectRef == nil {
+			return nil, nil
+		}
+		key := types.NamespacedName{Name: vd.Spec.DataSource.ObjectRef.Name, Namespace: vd.Namespace}
+		viRef, err := object.FetchObject(ctx, key, c, &v1alpha2.VirtualImage{})
+		if err != nil {
+			return nil, fmt.Errorf("fetch vi %q: %w", key, err)
+		}
+		if viRef == nil {
+			return nil, nil
+		}
+		return BuildVirtualImagePVCImportSource(vd, viRef)
 	}
 }

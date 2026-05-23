@@ -43,6 +43,7 @@ type HTTPDataSource struct {
 	statService     HTTPDataSourceStatService
 	importerService HTTPDataSourceImporterService
 	diskService     HTTPDataSourceDiskService
+	pvcService      DataSourcePVCService
 	dvcrSettings    *dvcr.Settings
 	client          client.Client
 	recorder        eventrecord.EventRecorderLogger
@@ -53,6 +54,7 @@ func NewHTTPDataSource(
 	statService HTTPDataSourceStatService,
 	importerService HTTPDataSourceImporterService,
 	diskService HTTPDataSourceDiskService,
+	pvcService DataSourcePVCService,
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 ) *HTTPDataSource {
@@ -60,6 +62,7 @@ func NewHTTPDataSource(
 		statService:     statService,
 		importerService: importerService,
 		diskService:     diskService,
+		pvcService:      pvcService,
 		dvcrSettings:    dvcrSettings,
 		client:          client,
 		recorder:        recorder,
@@ -93,9 +96,9 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 		step.NewTerminatingStep(pvc),
 		step.NewCreateImporterStep(pvc, pod, ds.buildEnvSettings, ds.importerService, ds.recorder, cb, "The HTTP DataSource import to DVCR has started"),
 		step.NewWaitForDVCRImporterStep(pod, ds.statService, ds.importerService, ds.client, cb),
-		step.NewPVCImportFromDVCRStep(pvc, pod, ds.statService, ds.diskService, ds.client, ds.recorder, cb, "The HTTP DataSource import to PVC has started"),
+		step.NewPVCImportFromDVCRStep(pvc, pod, ds.statService, ds.diskService, ds.pvcService, ds.client, ds.recorder, cb, "The HTTP DataSource import to PVC has started"),
 		step.NewWaitForPVCStep(pvc, ds.client, cb),
-		step.NewWaitForPVCImportStep(pvc, step.DVCRPodPVCImportSource(pod, ds.statService), ds.diskService, ds.statService, service.NewScaleOption(50, 100), ds.client, cb),
+		step.NewWaitForPVCImportStep(pvc, step.DVCRPodPVCImportSource(pod, ds.statService), ds.pvcService, ds.statService, service.NewScaleOption(50, 100), ds.client, cb),
 	).Run(ctx, vd)
 }
 

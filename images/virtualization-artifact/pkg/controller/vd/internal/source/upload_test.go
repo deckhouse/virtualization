@@ -56,6 +56,7 @@ var _ = Describe("UploadDataSource", func() {
 		sc           *storagev1.StorageClass
 		pvc          *corev1.PersistentVolumeClaim
 		disk         *UploadDataSourceDiskServiceMock
+		pvcSvc       *DataSourcePVCServiceMock
 		uploaderSvc  *UploadDataSourceUploaderServiceMock
 		stat         *UploadDataSourceStatServiceMock
 		recorder     eventrecord.EventRecorderLogger
@@ -119,6 +120,16 @@ var _ = Describe("UploadDataSource", func() {
 			},
 			CleanUpFunc:            func(_ context.Context, _ supplements.Generator) (bool, error) { return false, nil },
 			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, error) { return false, nil },
+			GetVolumeAndAccessModesFunc: func(_ context.Context, _ client.Object, _ *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+				return corev1.PersistentVolumeFilesystem, corev1.ReadWriteOnce, nil
+			},
+		}
+
+		pvcSvc = &DataSourcePVCServiceMock{
+			FinalizersFunc: func() []string { return nil },
+			ImportFunc: func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
+				return corev1.PodRunning, nil
+			},
 		}
 
 		uploaderSvc = &UploadDataSourceUploaderServiceMock{
@@ -155,7 +166,7 @@ var _ = Describe("UploadDataSource", func() {
 	})
 
 	newSyncer := func(c client.Client) *UploadDataSource {
-		return NewUploadDataSource(recorder, stat, uploaderSvc, disk, dvcrSettings, c)
+		return NewUploadDataSource(recorder, stat, uploaderSvc, disk, pvcSvc, dvcrSettings, c)
 	}
 
 	Context("VirtualDisk has just been created (no uploader supplements yet)", func() {
@@ -316,11 +327,11 @@ var _ = Describe("UploadDataSource", func() {
 
 		It("starts the PVC import using a registry source", func() {
 			var started bool
-			disk.StartPVCImportFunc = func(_ context.Context, _ resource.Quantity, _ *storagev1.StorageClass, source *service.PVCImportSource, _ *v1alpha2.VirtualDisk, _ *provisioner.NodePlacement) error {
+			pvcSvc.ImportFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim, source *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
 				started = true
 				Expect(source).ToNot(BeNil())
 				Expect(source.Registry).ToNot(BeNil())
-				return nil
+				return corev1.PodPending, nil
 			}
 
 			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sc).Build()

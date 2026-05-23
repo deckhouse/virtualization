@@ -81,10 +81,11 @@ func NewController(
 	blank := source.NewBlankDataSource(recorder, disk, mgr.GetClient())
 
 	sources := source.NewSources()
-	sources.Set(v1alpha2.DataSourceTypeHTTP, source.NewHTTPDataSource(recorder, stat, importer, disk, dvcr, mgr.GetClient()))
-	sources.Set(v1alpha2.DataSourceTypeContainerImage, source.NewRegistryDataSource(recorder, stat, importer, disk, dvcr, mgr.GetClient()))
+	pvcSvc := disk.PersistentVolumeClaim()
+	sources.Set(v1alpha2.DataSourceTypeHTTP, source.NewHTTPDataSource(recorder, stat, importer, disk, pvcSvc, dvcr, mgr.GetClient()))
+	sources.Set(v1alpha2.DataSourceTypeContainerImage, source.NewRegistryDataSource(recorder, stat, importer, disk, pvcSvc, dvcr, mgr.GetClient()))
 	sources.Set(v1alpha2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(recorder, stat, disk, mgr.GetClient()))
-	sources.Set(v1alpha2.DataSourceTypeUpload, source.NewUploadDataSource(recorder, stat, uploader, disk, dvcr, mgr.GetClient()))
+	sources.Set(v1alpha2.DataSourceTypeUpload, source.NewUploadDataSource(recorder, stat, uploader, disk, pvcSvc, dvcr, mgr.GetClient()))
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),

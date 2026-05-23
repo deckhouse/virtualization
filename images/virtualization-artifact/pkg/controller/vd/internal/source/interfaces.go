@@ -28,13 +28,22 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-//go:generate go tool moq -rm -out mock.go . Handler BlankDataSourceDiskService ObjectRefVirtualImageDiskService ObjectRefVirtualImageStatService ObjectRefClusterVirtualImageDiskService ObjectRefClusterVirtualImageStatService ObjectRefVirtualDiskSnapshotDiskService UploadDataSourceDiskService UploadDataSourceUploaderService UploadDataSourceStatService HTTPDataSourceDiskService HTTPDataSourceImporterService HTTPDataSourceStatService RegistryDataSourceDiskService RegistryDataSourceImporterService RegistryDataSourceStatService
+//go:generate go tool moq -rm -out mock.go . Handler BlankDataSourceDiskService DataSourcePVCService ObjectRefVirtualImageDiskService ObjectRefVirtualImageStatService ObjectRefClusterVirtualImageDiskService ObjectRefClusterVirtualImageStatService ObjectRefVirtualDiskSnapshotDiskService UploadDataSourceDiskService UploadDataSourceUploaderService UploadDataSourceStatService HTTPDataSourceDiskService HTTPDataSourceImporterService HTTPDataSourceStatService RegistryDataSourceDiskService RegistryDataSourceImporterService RegistryDataSourceStatService
 
 type Handler interface {
 	Name() string
 	Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error)
 	CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error)
 	Validate(ctx context.Context, vd *v1alpha2.VirtualDisk) error
+}
+
+// DataSourcePVCService is the contract every VD data source uses to populate
+// the target PersistentVolumeClaim. It is implemented by
+// *service.PersistentVolumeClaimService and is passed to data sources
+// alongside DiskService so steps that build a target PVC descriptor can hand
+// it off to Import.
+type DataSourcePVCService interface {
+	step.PVCService
 }
 
 type BlankDataSourceDiskService interface {
@@ -47,7 +56,6 @@ type BlankDataSourceDiskService interface {
 type ObjectRefVirtualImageDiskService interface {
 	step.ReadyStepDiskService
 	step.PVCImportStepDiskService
-	step.WaitForPVCImportStepDiskService
 }
 
 type ObjectRefVirtualImageStatService interface {
@@ -57,7 +65,6 @@ type ObjectRefVirtualImageStatService interface {
 type ObjectRefClusterVirtualImageDiskService interface {
 	step.ReadyStepDiskService
 	step.PVCImportStepDiskService
-	step.WaitForPVCImportStepDiskService
 }
 
 type ObjectRefClusterVirtualImageStatService interface {
@@ -71,7 +78,6 @@ type ObjectRefVirtualDiskSnapshotDiskService interface {
 type UploadDataSourceDiskService interface {
 	step.ReadyStepDiskService
 	step.PVCImportStepDiskService
-	step.WaitForPVCImportStepDiskService
 
 	GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
@@ -96,7 +102,6 @@ type UploadDataSourceStatService interface {
 type HTTPDataSourceDiskService interface {
 	step.ReadyStepDiskService
 	step.PVCImportStepDiskService
-	step.WaitForPVCImportStepDiskService
 
 	GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
@@ -119,7 +124,6 @@ type HTTPDataSourceStatService interface {
 type RegistryDataSourceDiskService interface {
 	step.ReadyStepDiskService
 	step.PVCImportStepDiskService
-	step.WaitForPVCImportStepDiskService
 
 	GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)

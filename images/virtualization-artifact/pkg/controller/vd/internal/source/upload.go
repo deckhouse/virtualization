@@ -41,6 +41,7 @@ type UploadDataSource struct {
 	statService     UploadDataSourceStatService
 	uploaderService UploadDataSourceUploaderService
 	diskService     UploadDataSourceDiskService
+	pvcService      DataSourcePVCService
 	dvcrSettings    *dvcr.Settings
 	recorder        eventrecord.EventRecorderLogger
 	client          client.Client
@@ -51,6 +52,7 @@ func NewUploadDataSource(
 	statService UploadDataSourceStatService,
 	uploaderService UploadDataSourceUploaderService,
 	diskService UploadDataSourceDiskService,
+	pvcService DataSourcePVCService,
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 ) *UploadDataSource {
@@ -58,6 +60,7 @@ func NewUploadDataSource(
 		statService:     statService,
 		uploaderService: uploaderService,
 		diskService:     diskService,
+		pvcService:      pvcService,
 		dvcrSettings:    dvcrSettings,
 		client:          client,
 		recorder:        recorder,
@@ -99,9 +102,9 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 		step.NewTerminatingStep(pvc),
 		step.NewCreateUploaderStep(pvc, pod, svc, ing, ds.uploaderService, ds.dvcrSettings, ds.recorder, cb),
 		step.NewWaitForUserUploadStep(pod, svc, ing, ds.statService, ds.uploaderService, ds.client, cb),
-		step.NewPVCImportFromDVCRStep(pvc, pod, ds.statService, ds.diskService, ds.client, ds.recorder, cb, "The Upload DataSource import to PVC has started"),
+		step.NewPVCImportFromDVCRStep(pvc, pod, ds.statService, ds.diskService, ds.pvcService, ds.client, ds.recorder, cb, "The Upload DataSource import to PVC has started"),
 		step.NewWaitForPVCStep(pvc, ds.client, cb),
-		step.NewWaitForPVCImportStep(pvc, step.DVCRPodPVCImportSource(pod, ds.statService), ds.diskService, ds.statService, service.NewScaleOption(50, 100), ds.client, cb),
+		step.NewWaitForPVCImportStep(pvc, step.DVCRPodPVCImportSource(pod, ds.statService), ds.pvcService, ds.statService, service.NewScaleOption(50, 100), ds.client, cb),
 	).Run(ctx, vd)
 }
 

@@ -44,14 +44,11 @@ import (
 )
 
 type DiskService struct {
-	client               client.Client
-	dvcrSettings         *dvcr.Settings
-	protection           *ProtectionService
-	controllerName       string
-	diskImporterImage    string
-	resourceRequirements corev1.ResourceRequirements
-	pullPolicy           string
-	verbose              string
+	client         client.Client
+	dvcrSettings   *dvcr.Settings
+	protection     *ProtectionService
+	controllerName string
+	pvc            *PersistentVolumeClaimService
 
 	volumeAndAccessModesGetter volumemode.VolumeAndAccessModesGetter
 }
@@ -71,10 +68,8 @@ func NewDiskService(
 	diskImporterConfig ...DiskImporterConfig,
 ) *DiskService {
 	var cfg DiskImporterConfig
-	var requirements corev1.ResourceRequirements
 	if len(diskImporterConfig) > 0 {
 		cfg = diskImporterConfig[0]
-		requirements = cfg.ResourceRequirements
 	}
 
 	return &DiskService{
@@ -82,12 +77,18 @@ func NewDiskService(
 		dvcrSettings:               dvcrSettings,
 		protection:                 protection,
 		controllerName:             controllerName,
-		diskImporterImage:          cfg.Image,
-		resourceRequirements:       requirements,
-		pullPolicy:                 cfg.PullPolicy,
-		verbose:                    cfg.Verbose,
+		pvc:                        NewPersistentVolumeClaimService(client, dvcrSettings, protection, cfg),
 		volumeAndAccessModesGetter: volumemode.NewVolumeAndAccessModesGetter(client, nil),
 	}
+}
+
+// PersistentVolumeClaim returns the PersistentVolumeClaimService that this
+// DiskService delegates target-PVC creation and import orchestration to.
+// Steps and data sources should call PersistentVolumeClaim().Import to drive
+// a target PVC towards Bound + populated state instead of orchestrating
+// scratch PVCs / cdi-importer pods themselves.
+func (s DiskService) PersistentVolumeClaim() *PersistentVolumeClaimService {
+	return s.pvc
 }
 
 func (s DiskService) GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
@@ -167,7 +168,7 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup supplements.Gen
 			Namespace: sup.PersistentVolumeClaim().Namespace,
 		},
 	}
-	importSupplementsDeleted, err := s.cleanupPVCImport(ctx, sup, target)
+	importSupplementsDeleted, err := s.pvc.Cleanup(ctx, sup, target)
 	if err != nil {
 		return false, fmt.Errorf("delete pvc import supplements: %w", err)
 	}

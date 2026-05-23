@@ -33,33 +33,77 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	commonpvc "github.com/deckhouse/virtualization-controller/pkg/common/pvc"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func TestDiskServiceStartPVCImportCreatesTargetPVC(t *testing.T) {
+func newTestPVCService(c client.Client) *PersistentVolumeClaimService {
+	return NewPersistentVolumeClaimService(c, nil, nil, DiskImporterConfig{
+		Image:      "disk-importer:latest",
+		PullPolicy: string(corev1.PullIfNotPresent),
+		Verbose:    "3",
+	})
+}
+
+func newTestVDSupplements(vd *v1alpha2.VirtualDisk) supplements.Generator {
+	return &testVDSupplements{
+		Generator: supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID),
+		claimName: vd.Status.Target.PersistentVolumeClaim,
+	}
+}
+
+type testVDSupplements struct {
+	supplements.Generator
+	claimName string
+}
+
+func (t *testVDSupplements) PersistentVolumeClaim() types.NamespacedName {
+	return types.NamespacedName{Name: t.claimName, Namespace: t.Namespace()}
+}
+
+func (t *testVDSupplements) CommonResourceName() types.NamespacedName {
+	return t.PersistentVolumeClaim()
+}
+
+func newTestTargetPVC(vd *v1alpha2.VirtualDisk, sc *storagev1.StorageClass, size resource.Quantity) *corev1.PersistentVolumeClaim {
+	return &corev1.PersistentVolumeClaim{
+		TypeMeta: metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      vd.Status.Target.PersistentVolumeClaim,
+			Namespace: vd.Namespace,
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion:         v1alpha2.SchemeGroupVersion.String(),
+				Kind:               v1alpha2.VirtualDiskKind,
+				Name:               vd.Name,
+				UID:                vd.UID,
+				Controller:         ptr.To(true),
+				BlockOwnerDeletion: ptr.To(true),
+			}},
+		},
+		Spec: *commonpvc.CreateSpec(&sc.Name, size, corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem),
+	}
+}
+
+func TestPVCServiceImportCreatesTargetPVCWithRegistrySource(t *testing.T) {
 	ctx := context.Background()
 	c := fake.NewClientBuilder().WithScheme(diskImportTestScheme(t)).Build()
-	svc := NewDiskService(c, nil, nil, "test", DiskImporterConfig{Image: "disk-importer:latest", PullPolicy: string(corev1.PullIfNotPresent), Verbose: "3"})
+	svc := newTestPVCService(c)
 
 	url := "docker://registry.example/image:tag"
 	secret := "auth"
 	cert := "ca"
 	vd := diskImportTestVD()
-	sc := &storagev1.StorageClass{ObjectMeta: metav1.ObjectMeta{
-		Name: "fast",
-		Annotations: map[string]string{
-			annotations.AnnVirtualDiskVolumeMode: string(corev1.PersistentVolumeFilesystem),
-			annotations.AnnVirtualDiskAccessMode: string(corev1.ReadWriteOnce),
-		},
-	}}
+	sc := &storagev1.StorageClass{ObjectMeta: metav1.ObjectMeta{Name: "fast"}}
+	target := newTestTargetPVC(vd, sc, resource.MustParse("1Gi"))
+	sup := newTestVDSupplements(vd)
 
-	err := svc.StartPVCImport(ctx, resource.MustParse("1Gi"), sc, NewPVCRegistryImportSource(url, secret, cert), vd, nil)
-	if err != nil {
-		t.Fatalf("StartPVCImport failed: %v", err)
+	if _, err := svc.Import(ctx, target, NewPVCRegistryImportSource(url, secret, cert), vd, sup, nil); err != nil {
+		t.Fatalf("Import failed: %v", err)
 	}
 
 	pvc := &corev1.PersistentVolumeClaim{}
-	if err := c.Get(ctx, types.NamespacedName{Name: vd.Status.Target.PersistentVolumeClaim, Namespace: vd.Namespace}, pvc); err != nil {
+	if err := c.Get(ctx, types.NamespacedName{Name: target.Name, Namespace: target.Namespace}, pvc); err != nil {
 		t.Fatalf("target pvc not found: %v", err)
 	}
 	if got := pvc.Annotations[annotations.AnnPVCImportSource]; got != sourceRegistry {
@@ -76,37 +120,21 @@ func TestDiskServiceStartPVCImportCreatesTargetPVC(t *testing.T) {
 	}
 }
 
-func TestDiskServiceEnsurePVCImportIsResumable(t *testing.T) {
+func TestPVCServiceImportIsResumable(t *testing.T) {
 	ctx := context.Background()
 	vd := diskImportTestVD()
 	target := diskImportTargetPVC(vd)
 	importerPodName := diskImportImporterPodName(vd)
 	c := fake.NewClientBuilder().WithScheme(diskImportTestScheme(t)).WithObjects(target).Build()
-	svc := NewDiskService(c, nil, nil, "test", DiskImporterConfig{Image: "disk-importer:latest", PullPolicy: string(corev1.PullIfNotPresent), Verbose: "3"})
+	svc := newTestPVCService(c)
+	sup := newTestVDSupplements(vd)
 
-	phase, err := svc.EnsurePVCImport(ctx, target, NewPVCRegistryImportSource("", "", ""), vd, nil)
+	phase, err := svc.Import(ctx, target, NewPVCRegistryImportSource("", "", ""), vd, sup, nil)
 	if err != nil {
-		t.Fatalf("EnsurePVCImport failed: %v", err)
+		t.Fatalf("Import failed: %v", err)
 	}
 	if phase != corev1.PodPending {
-		t.Fatalf("unexpected phase after first ensure: %s", phase)
-	}
-
-	for _, key := range []types.NamespacedName{
-		{Name: target.Name + "-scratch", Namespace: target.Namespace},
-		{Name: importerPodName, Namespace: target.Namespace},
-	} {
-		obj := &corev1.PersistentVolumeClaim{}
-		if key.Name == importerPodName {
-			pod := &corev1.Pod{}
-			if err := c.Get(ctx, key, pod); err != nil {
-				t.Fatalf("pod %s not found: %v", key.Name, err)
-			}
-			continue
-		}
-		if err := c.Get(ctx, key, obj); err != nil {
-			t.Fatalf("scratch pvc %s not found: %v", key.Name, err)
-		}
+		t.Fatalf("unexpected phase after first Import: %s", phase)
 	}
 
 	pod := &corev1.Pod{}
@@ -130,9 +158,9 @@ func TestDiskServiceEnsurePVCImportIsResumable(t *testing.T) {
 		t.Fatalf("refresh target: %v", err)
 	}
 
-	phase, err = svc.EnsurePVCImport(ctx, target, NewPVCRegistryImportSource("", "", ""), vd, nil)
+	phase, err = svc.Import(ctx, target, NewPVCRegistryImportSource("", "", ""), vd, sup, nil)
 	if err != nil {
-		t.Fatalf("EnsurePVCImport after pod success failed: %v", err)
+		t.Fatalf("Import after pod success failed: %v", err)
 	}
 	if phase != corev1.PodSucceeded {
 		t.Fatalf("unexpected final phase: %s", phase)
@@ -145,7 +173,7 @@ func TestDiskServiceEnsurePVCImportIsResumable(t *testing.T) {
 	}
 }
 
-func TestDiskServiceStartPVCCloneUsesVolumeSnapshotWhenPossible(t *testing.T) {
+func TestPVCServiceImportPicksVolumeSnapshotStrategyWhenPossible(t *testing.T) {
 	ctx := context.Background()
 	vd := diskImportTestVD()
 	sc := diskImportStorageClass()
@@ -155,32 +183,33 @@ func TestDiskServiceStartPVCCloneUsesVolumeSnapshotWhenPossible(t *testing.T) {
 		Driver:     sc.Provisioner,
 	}
 	c := fake.NewClientBuilder().WithScheme(diskImportTestScheme(t)).WithObjects(sc, sourceClaim, snapshotClass).Build()
-	svc := NewDiskService(c, nil, nil, "test")
+	svc := newTestPVCService(c)
+	sup := newTestVDSupplements(vd)
+	target := newTestTargetPVC(vd, sc, resource.MustParse("1Gi"))
 
-	err := svc.StartPVCImport(ctx, resource.MustParse("1Gi"), sc, NewPVCPVCImportSource(sourceClaim.Name, sourceClaim.Namespace), vd, nil)
-	if err != nil {
-		t.Fatalf("StartPVCImport failed: %v", err)
+	if _, err := svc.Import(ctx, target, NewPVCPVCImportSource(sourceClaim.Name, sourceClaim.Namespace), vd, sup, nil); err != nil {
+		t.Fatalf("Import failed: %v", err)
 	}
 
-	target := &corev1.PersistentVolumeClaim{}
-	if err := c.Get(ctx, types.NamespacedName{Name: vd.Status.Target.PersistentVolumeClaim, Namespace: vd.Namespace}, target); err != nil {
+	created := &corev1.PersistentVolumeClaim{}
+	if err := c.Get(ctx, types.NamespacedName{Name: target.Name, Namespace: target.Namespace}, created); err != nil {
 		t.Fatalf("target pvc not found: %v", err)
 	}
-	if got := target.Annotations[annotations.AnnPVCImportCloneStrategy]; got != cloneStrategySnapshot {
+	if got := created.Annotations[annotations.AnnPVCImportCloneStrategy]; got != cloneStrategySnapshot {
 		t.Fatalf("unexpected clone strategy: %q", got)
 	}
-	if got := target.Annotations[annotations.AnnPVCImportPhase]; got != string(corev1.PodPending) {
+	if got := created.Annotations[annotations.AnnPVCImportPhase]; got != string(corev1.PodPending) {
 		t.Fatalf("unexpected import phase: %q", got)
 	}
-	if target.Spec.DataSourceRef == nil || target.Spec.DataSourceRef.Kind != "VolumeSnapshot" {
-		t.Fatalf("target pvc does not reference VolumeSnapshot: %#v", target.Spec.DataSourceRef)
+	if created.Spec.DataSourceRef == nil || created.Spec.DataSourceRef.Kind != "VolumeSnapshot" {
+		t.Fatalf("target pvc does not reference VolumeSnapshot: %#v", created.Spec.DataSourceRef)
 	}
-	if got, want := target.Spec.Resources.Requests[corev1.ResourceStorage], resource.MustParse("2Gi"); got.Cmp(want) != 0 {
+	if got, want := created.Spec.Resources.Requests[corev1.ResourceStorage], resource.MustParse("2Gi"); got.Cmp(want) != 0 {
 		t.Fatalf("unexpected target size: got %s, want %s", got.String(), want.String())
 	}
 
 	snapshot := &vsv1.VolumeSnapshot{}
-	if err := c.Get(ctx, types.NamespacedName{Name: target.Annotations[annotations.AnnPVCImportCloneSnapshot], Namespace: vd.Namespace}, snapshot); err != nil {
+	if err := c.Get(ctx, types.NamespacedName{Name: created.Annotations[annotations.AnnPVCImportCloneSnapshot], Namespace: vd.Namespace}, snapshot); err != nil {
 		t.Fatalf("clone snapshot not found: %v", err)
 	}
 	if snapshot.Spec.Source.PersistentVolumeClaimName == nil || *snapshot.Spec.Source.PersistentVolumeClaimName != sourceClaim.Name {
@@ -188,7 +217,7 @@ func TestDiskServiceStartPVCCloneUsesVolumeSnapshotWhenPossible(t *testing.T) {
 	}
 }
 
-func TestDiskServiceEnsurePVCCloneMarksSucceededAndCleansSnapshot(t *testing.T) {
+func TestPVCServiceImportSmartCloneMarksSucceededAndCleansSnapshot(t *testing.T) {
 	ctx := context.Background()
 	vd := diskImportTestVD()
 	target := diskImportTargetPVC(vd)
@@ -198,11 +227,12 @@ func TestDiskServiceEnsurePVCCloneMarksSucceededAndCleansSnapshot(t *testing.T) 
 	target.Annotations[annotations.AnnPVCImportPhase] = string(corev1.PodPending)
 	snapshot := &vsv1.VolumeSnapshot{ObjectMeta: metav1.ObjectMeta{Name: target.Annotations[annotations.AnnPVCImportCloneSnapshot], Namespace: target.Namespace}}
 	c := fake.NewClientBuilder().WithScheme(diskImportTestScheme(t)).WithObjects(target, snapshot).Build()
-	svc := NewDiskService(c, nil, nil, "test")
+	svc := newTestPVCService(c)
+	sup := newTestVDSupplements(vd)
 
-	phase, err := svc.EnsurePVCImport(ctx, target, NewPVCPVCImportSource("source", "default"), vd, nil)
+	phase, err := svc.Import(ctx, target, NewPVCPVCImportSource("source", "default"), vd, sup, nil)
 	if err != nil {
-		t.Fatalf("EnsurePVCImport failed: %v", err)
+		t.Fatalf("Import failed: %v", err)
 	}
 	if phase != corev1.PodSucceeded {
 		t.Fatalf("unexpected phase: %s", phase)
@@ -219,7 +249,7 @@ func TestDiskServiceEnsurePVCCloneMarksSucceededAndCleansSnapshot(t *testing.T) 
 	}
 }
 
-func TestDiskServiceEnsurePVCCloneHostAssistedUsesShelllessQemuImgCommand(t *testing.T) {
+func TestPVCServiceImportHostAssistedUsesQemuImgConvert(t *testing.T) {
 	ctx := context.Background()
 	vd := diskImportTestVD()
 	target := diskImportTargetPVC(vd)
@@ -232,11 +262,12 @@ func TestDiskServiceEnsurePVCCloneHostAssistedUsesShelllessQemuImgCommand(t *tes
 	sourceClaim := diskImportSourcePVC()
 	sourceClaim.Spec.VolumeMode = ptr.To(corev1.PersistentVolumeBlock)
 	c := fake.NewClientBuilder().WithScheme(diskImportTestScheme(t)).WithObjects(target, sourceClaim).Build()
-	svc := NewDiskService(c, nil, nil, "test", DiskImporterConfig{Image: "disk-importer:latest", PullPolicy: string(corev1.PullIfNotPresent), Verbose: "3"})
+	svc := newTestPVCService(c)
+	sup := newTestVDSupplements(vd)
 
-	phase, err := svc.EnsurePVCImport(ctx, target, NewPVCPVCImportSource(sourceClaim.Name, sourceClaim.Namespace), vd, nil)
+	phase, err := svc.Import(ctx, target, NewPVCPVCImportSource(sourceClaim.Name, sourceClaim.Namespace), vd, sup, nil)
 	if err != nil {
-		t.Fatalf("EnsurePVCImport failed: %v", err)
+		t.Fatalf("Import failed: %v", err)
 	}
 	if phase != corev1.PodPending {
 		t.Fatalf("unexpected phase: %s", phase)
@@ -264,28 +295,29 @@ func TestDiskServiceEnsurePVCCloneHostAssistedUsesShelllessQemuImgCommand(t *tes
 	}
 }
 
-func TestDiskServiceStartPVCCloneFallsBackToCSIClone(t *testing.T) {
+func TestPVCServiceImportFallsBackToCSIClone(t *testing.T) {
 	ctx := context.Background()
 	vd := diskImportTestVD()
 	sc := diskImportStorageClass()
 	sourceClaim := diskImportSourcePVC()
 	c := fake.NewClientBuilder().WithScheme(diskImportTestScheme(t)).WithObjects(sc, sourceClaim).Build()
-	svc := NewDiskService(c, nil, nil, "test")
+	svc := newTestPVCService(c)
+	sup := newTestVDSupplements(vd)
+	target := newTestTargetPVC(vd, sc, resource.MustParse("1Gi"))
 
-	err := svc.StartPVCImport(ctx, resource.MustParse("1Gi"), sc, NewPVCPVCImportSource(sourceClaim.Name, sourceClaim.Namespace), vd, nil)
-	if err != nil {
-		t.Fatalf("StartPVCImport failed: %v", err)
+	if _, err := svc.Import(ctx, target, NewPVCPVCImportSource(sourceClaim.Name, sourceClaim.Namespace), vd, sup, nil); err != nil {
+		t.Fatalf("Import failed: %v", err)
 	}
 
-	target := &corev1.PersistentVolumeClaim{}
-	if err := c.Get(ctx, types.NamespacedName{Name: vd.Status.Target.PersistentVolumeClaim, Namespace: vd.Namespace}, target); err != nil {
+	created := &corev1.PersistentVolumeClaim{}
+	if err := c.Get(ctx, types.NamespacedName{Name: target.Name, Namespace: target.Namespace}, created); err != nil {
 		t.Fatalf("target pvc not found: %v", err)
 	}
-	if got := target.Annotations[annotations.AnnPVCImportCloneStrategy]; got != cloneStrategyCSI {
+	if got := created.Annotations[annotations.AnnPVCImportCloneStrategy]; got != cloneStrategyCSI {
 		t.Fatalf("unexpected clone strategy: %q", got)
 	}
-	if target.Spec.DataSourceRef == nil || target.Spec.DataSourceRef.Kind != "PersistentVolumeClaim" || target.Spec.DataSourceRef.Name != sourceClaim.Name {
-		t.Fatalf("target pvc does not reference source PVC: %#v", target.Spec.DataSourceRef)
+	if created.Spec.DataSourceRef == nil || created.Spec.DataSourceRef.Kind != "PersistentVolumeClaim" || created.Spec.DataSourceRef.Name != sourceClaim.Name {
+		t.Fatalf("target pvc does not reference source PVC: %#v", created.Spec.DataSourceRef)
 	}
 }
 
