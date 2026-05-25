@@ -138,7 +138,6 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 			{
 				ID:   network.ReservedMainID,
 				Type: v1alpha2.NetworksTypeMain,
-				Name: network.NameDefaultInterface,
 			},
 		}
 		return reconcile.Result{}, nil
@@ -179,7 +178,6 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 			networksStatus = append(networksStatus, v1alpha2.NetworksStatus{
 				ID:   interfaceSpec.ID,
 				Type: v1alpha2.NetworksTypeMain,
-				Name: network.NameDefaultInterface,
 			})
 			continue
 		}
