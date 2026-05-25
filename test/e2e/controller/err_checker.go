@@ -80,12 +80,12 @@ func (l *LogChecker) Start() error {
 			l.mu.Lock()
 			defer l.mu.Unlock()
 			if err != nil && !errors.Is(err, context.Canceled) {
-				switch {
-				case l.ctx.Err() != nil:
+				// TODO: Find an alternative way to store Virtualization Controller errors without streaming.
+				// `http2.GoAwayError` likely appears when the context is canceled and readers are closed.
+				// It should not cause tests to fail.
+				if strings.Contains(err.Error(), "GOAWAY") {
 					ginkgo.GinkgoWriter.Printf("Warning! %v\n", err)
-				case strings.Contains(err.Error(), "GOAWAY"):
-					ginkgo.GinkgoWriter.Printf("Warning! %v\n", err)
-				default:
+				} else {
 					l.resultErr = errors.Join(l.resultErr, err)
 				}
 			}
@@ -97,10 +97,10 @@ func (l *LogChecker) Start() error {
 
 func (l *LogChecker) Stop() error {
 	l.cancel()
+	l.wg.Wait()
 	for _, c := range l.closers {
 		_ = c.Close()
 	}
-	l.wg.Wait()
 
 	if l.resultErr != nil {
 		return l.resultErr

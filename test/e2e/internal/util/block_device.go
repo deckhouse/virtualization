@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -110,50 +109,25 @@ func GetBlockDeviceHash(ctx context.Context, f *framework.Framework, vm *v1alpha
 func GetBlockDeviceLsblkSize(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) resource.Quantity {
 	GinkgoHelper()
 
-	var size resource.Quantity
-	Eventually(func(g Gomega) {
-		quantity, err := tryGetBlockDeviceLsblkSize(ctx, f, vm, bdKind, bdName)
-		g.Expect(err).NotTo(HaveOccurred(), "failed to get lsblk size for block device %s/%s", bdKind, bdName)
-		size = quantity
-	}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed())
-
-	return size
-}
-
-func tryGetBlockDeviceLsblkSize(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) (resource.Quantity, error) {
 	serial, ok := GetBlockDeviceSerialNumber(ctx, vm, bdKind, bdName)
-	if !ok {
-		return resource.Quantity{}, fmt.Errorf("failed to get block device %s/%s serial number", bdKind, bdName)
-	}
+	Expect(ok).To(BeTrue(), fmt.Sprintf("failed to get block device %s/%s serial number", bdKind, bdName))
 
-	cmdOut, err := f.SSHCommand(vm.Name, vm.Namespace, "sudo lsblk --nodeps --json -o PATH,SERIAL,SIZE")
-	if err != nil {
-		return resource.Quantity{}, fmt.Errorf("failed to get lsblk output for block device %s/%s: %w", bdKind, bdName, err)
-	}
+	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to get device %s/%s by serial", bdKind, bdName))
+
+	cmdOut, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo lsblk --json -o SIZE %s", devicePath))
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to get lsblk size for block device %s/%s", bdKind, bdName))
 
 	var disks Disks
-	if err = json.Unmarshal([]byte(cmdOut), &disks); err != nil {
-		return resource.Quantity{}, fmt.Errorf("failed to parse lsblk output: %w", err)
-	}
+	err = json.Unmarshal([]byte(cmdOut), &disks)
+	Expect(err).NotTo(HaveOccurred(), "failed to parse lsblk output")
+	Expect(disks.BlockDevices).NotTo(BeEmpty(), "lsblk output does not contain block devices")
 
-	for _, blockDevice := range disks.BlockDevices {
-		if blockDevice.Serial != serial {
-			continue
-		}
-
-		quantity, err := resource.ParseQuantity(strings.TrimSpace(blockDevice.Size))
-		if err != nil {
-			return resource.Quantity{}, fmt.Errorf("failed to parse lsblk size: %w", err)
-		}
-
-		return quantity, nil
-	}
-
-	return resource.Quantity{}, fmt.Errorf("lsblk output does not contain block device with serial %s", serial)
+	return resource.MustParse(strings.TrimSpace(disks.BlockDevices[0].Size))
 }
 
-func GetBlockDeviceBySerial(f *framework.Framework, vm *v1alpha2.VirtualMachine, serial string, options ...framework.SSHCommandOption) (string, error) {
-	cmdOut, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo lsblk --nodeps --noheadings -o PATH,SERIAL | awk \"\\$2 == \\\"%s\\\" {print \\$1, \\$2; exit}\"", serial), options...)
+func GetBlockDeviceBySerial(f *framework.Framework, vm *v1alpha2.VirtualMachine, serial string) (string, error) {
+	cmdOut, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo lsblk -o PATH,SERIAL | grep %s | awk \"{print \\$1, \\$2}\"", serial))
 	if err != nil {
 		return "", err
 	}
@@ -163,7 +137,7 @@ func GetBlockDeviceBySerial(f *framework.Framework, vm *v1alpha2.VirtualMachine,
 		return "", errors.New("shell out is empty")
 	}
 
-	columns := strings.Fields(cmdLines[0])
+	columns := strings.Split(strings.TrimSpace(cmdLines[0]), " ")
 	if len(columns) != 2 {
 		return "", errors.New("shell out columns mismatch")
 	}
@@ -269,9 +243,7 @@ type Disks struct {
 
 // BlockDevice represents a single block device in the lsblk JSON output.
 type BlockDevice struct {
-	Name   string `json:"name"`
-	Path   string `json:"path"`
-	Serial string `json:"serial"`
-	Size   string `json:"size"`
-	Type   string `json:"type"`
+	Name string `json:"name"`
+	Size string `json:"size"`
+	Type string `json:"type"`
 }
