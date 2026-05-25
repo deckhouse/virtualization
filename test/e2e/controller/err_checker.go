@@ -80,11 +80,12 @@ func (l *LogChecker) Start() error {
 			l.mu.Lock()
 			defer l.mu.Unlock()
 			if err != nil && !errors.Is(err, context.Canceled) {
-				if l.ctx.Err() != nil {
+				switch {
+				case l.ctx.Err() != nil:
 					ginkgo.GinkgoWriter.Printf("Warning! %v\n", err)
-				} else if strings.Contains(err.Error(), "GOAWAY") {
+				case strings.Contains(err.Error(), "GOAWAY"):
 					ginkgo.GinkgoWriter.Printf("Warning! %v\n", err)
-				} else {
+				default:
 					l.resultErr = errors.Join(l.resultErr, err)
 				}
 			}
