@@ -33,8 +33,6 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
-const objectGetTimeout = 10 * time.Second
-
 // UntilObjectPhase waits for an object to reach the specified phase.
 // It accepts a runtime.Object (which serves as a template with name and namespace),
 // expected phase string, and timeout duration.
@@ -207,21 +205,6 @@ func untilObjectField(ctx context.Context, fieldPath, expectedValue string, time
 			g.Expect(value).To(Equal(expectedValue), "object %s %s is %s, expected %s", extractObjectNamespacedNameString(obj), fieldPath, value, expectedValue)
 		}
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
-}
-
-func getObjectWithTimeout(key client.ObjectKey, obj client.Object) error {
-	ctx, cancel := context.WithTimeout(context.Background(), objectGetTimeout)
-	defer cancel()
-
-	return framework.GetClients().GenericClient().Get(ctx, key, obj)
-}
-
-func formatObjectKey(key client.ObjectKey) string {
-	if key.Namespace == "" {
-		return key.Name
-	}
-
-	return key.Namespace + "/" + key.Name
 }
 
 func getTemplateUnstructured(obj client.Object) *unstructured.Unstructured {

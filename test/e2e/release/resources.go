@@ -17,8 +17,9 @@ limitations under the License.
 package release
 
 import (
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func (t *currentReleaseSmokeTest) diskObjects() []crclient.Object {
