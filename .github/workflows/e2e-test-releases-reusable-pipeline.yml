@@ -51,6 +51,11 @@ on:
         required: true
         type: string
         description: "Nested storage class name"
+      nested_cluster_network_name:
+        required: false
+        type: string
+        default: "cn-4006-for-e2e-test"
+        description: "ClusterNetwork name for nested VM additional network interface"
       virtualization_image_url:
         required: false
         type: string
@@ -81,6 +86,21 @@ on:
         type: string
         default: "1.25.10"
         description: "Go version"
+      apt_mirror_enabled:
+        required: false
+        type: boolean
+        default: true
+        description: "Use custom APT mirror inside VMs cloud-init (Ubuntu). When false, VMs use stock Ubuntu repositories."
+      apt_mirror_name:
+        required: false
+        type: string
+        default: "hetzner"
+        description: "APT mirror short name (used as /etc/apt/sources.list.d/<name>.list file name)"
+      apt_mirror_url:
+        required: false
+        type: string
+        default: "https://mirror.hetzner.com/ubuntu/packages"
+        description: "APT mirror base URL (without trailing slash)"
     secrets:
       DEV_REGISTRY_DOCKER_CFG:
         required: true
@@ -205,6 +225,10 @@ jobs:
             - console
             - virtualization
           instances:
+            aptMirror:
+              enabled: ${{ inputs.apt_mirror_enabled }}
+              name: ${{ inputs.apt_mirror_name }}
+              url: ${{ inputs.apt_mirror_url }}
             masterNodes:
               count: 1
               cfg:
@@ -225,6 +249,8 @@ jobs:
                   size: ${{ inputs.cluster_config_workers_memory }}
                 additionalDisks:
                 - size: 250Gi
+            networkConfig:
+              clusterNetworkName: ${{ inputs.nested_cluster_network_name }}
           EOF
 
           mkdir -p tmp
