@@ -202,7 +202,7 @@ jobs:
         run: |
           rm -rf "$DOCKER_CONFIG"
 
-  e2e-replicated:
+  e2e-release:
     name: E2E Release Pipeline (Replicated + Local + NFS)
     if: ${{ always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
     needs:
@@ -215,7 +215,6 @@ jobs:
       new_release: ${{ needs.resolve-release-inputs.outputs.next_module_tag }}
       storage_type: mixed
       nested_storageclass_name: nested-thin-r1
-      branch: main
       deckhouse_channel: alpha
       default_user: cloud
       go_version: "1.25.8"

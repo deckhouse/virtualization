@@ -51,11 +51,6 @@ on:
         required: true
         type: string
         description: "Nested storage class name"
-      branch:
-        required: false
-        type: string
-        default: "main"
-        description: "Branch to use"
       virtualization_image_url:
         required: false
         type: string
@@ -101,7 +96,6 @@ on:
         required: true
 
 env:
-  BRANCH: ${{ inputs.branch }}
   CURRENT_RELEASE: ${{ inputs.current_release }}
   NEW_RELEASE: ${{ inputs.new_release }}
   DECKHOUSE_CHANNEL: ${{ inputs.deckhouse_channel }}
@@ -127,7 +121,7 @@ jobs:
       kubeconfig: ${{ steps.generate-kubeconfig.outputs.kubeconfig }}
       namespace: ${{ steps.vars.outputs.namespace }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set outputs
         env:
@@ -258,7 +252,11 @@ jobs:
 
           task dhctl-bootstrap
           echo "[SUCCESS] Done"
-        timeout-minutes: 30
+        timeout-minutes: 60
+      - name: Label cluster to prevent delition
+        run: |
+          kubectl label namespace ${{ steps.vars.outputs.namespace }} e2e-cluster/do-not-stop-vm-on-e2e-run=true
+          kubectl label vmclass ${{ steps.vars.outputs.namespace }}-cpu e2e-cluster/do-not-stop-vm-on-e2e-run=true
       - name: Bootstrap cluster [show-connection-info]
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
         run: |
@@ -365,8 +363,8 @@ jobs:
           echo " "
 
           echo "[INFO] Kubeconf to github output"
-          CONFIG=$(cat ${kubeConfigPath} | base64 -w 0)
-          CONFIG=$(echo $CONFIG | base64 -w 0)
+          CONFIG=$(cat "${kubeConfigPath}" | base64 -w 0)
+          CONFIG=$(echo "${CONFIG}" | base64 -w 0)
           echo "kubeconfig=$CONFIG" >> $GITHUB_OUTPUT
 
       - name: cloud-init logs
@@ -522,7 +520,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: bootstrap
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Task
         uses: go-task/setup-task@v2
@@ -683,7 +681,7 @@ jobs:
       - configure-sdn
       - bootstrap
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Task
         uses: go-task/setup-task@v2
@@ -737,7 +735,7 @@ jobs:
 
       - name: Configure replicated storage
         id: storage-replicated-setup
-        if: ${{ inputs.storage_type == 'replicated' || inputs.storage_type == 'mixed'}}
+        if: ${{ inputs.storage_type == 'replicated' || inputs.storage_type == 'mixed' }}
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/sds-replicated
         run: |
           d8_queue_list() {
@@ -921,7 +919,7 @@ jobs:
           chmod +x ../sds-node-configurator/lvg-gen.sh
           ../sds-node-configurator/lvg-gen.sh
 
-          echo "[INFO] Configur ReplicatedStorageClass and set default nested-thin-r1"
+          echo "[INFO] Configure ReplicatedStorageClass and set default nested-thin-r1"
           chmod +x rsc-gen.sh
           ./rsc-gen.sh
 
@@ -1106,7 +1104,7 @@ jobs:
       - bootstrap
       - configure-storage
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install kubectl CLI
         uses: azure/setup-kubectl@v4
       - name: Setup d8
@@ -1363,7 +1361,7 @@ jobs:
     outputs:
       release_namespace: ${{ steps.export-release-context.outputs.release_namespace }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v5
@@ -1465,8 +1463,8 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
 
-  patch-mpo:
-    name: "Patch MPO to new-release: ${{ inputs.new_release }}"
+  patch-modulepulloverride:
+    name: "Patch ModulePullOverride to new-release: ${{ inputs.new_release }}"
     runs-on: ubuntu-latest
     needs:
       - bootstrap
@@ -1474,7 +1472,7 @@ jobs:
     outputs:
       upgrade_started_at: ${{ steps.patch-modulepulloverride.outputs.upgrade_started_at }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install kubectl CLI
         uses: azure/setup-kubectl@v4
@@ -1595,7 +1593,7 @@ jobs:
             sleep "$sleep_interval"
           done
 
-      - name: Show MPO state after upgrade
+      - name: Show ModulePullOverride state after upgrade
         run: |
           echo "[INFO] ModulePullOverride after upgrade:"
           kubectl get mpo virtualization -o yaml
@@ -1607,10 +1605,10 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - bootstrap
-      - patch-mpo
+      - patch-modulepulloverride
       - test-current-release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install kubectl CLI
         uses: azure/setup-kubectl@v4
@@ -1651,7 +1649,7 @@ jobs:
           E2E_CONFIG: ${{ github.workspace }}/test/e2e/default_config.yaml
           RELEASE_TEST_PHASE: post-upgrade
           RELEASE_NAMESPACE: ${{ needs.test-current-release.outputs.release_namespace }}
-          RELEASE_UPGRADE_STARTED_AT: ${{ needs.patch-mpo.outputs.upgrade_started_at }}
+          RELEASE_UPGRADE_STARTED_AT: ${{ needs.patch-modulepulloverride.outputs.upgrade_started_at }}
         run: |
           echo "[INFO] New release tag: ${{ env.NEW_RELEASE }}"
           echo "[INFO] Storage type: ${{ inputs.storage_type }}"
