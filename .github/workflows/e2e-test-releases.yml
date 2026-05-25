@@ -215,6 +215,7 @@ jobs:
       new_release: ${{ needs.resolve-release-inputs.outputs.next_module_tag }}
       storage_type: mixed
       nested_storageclass_name: nested-thin-r1
+      nested_cluster_network_name: cn-4006-for-e2e-test
       deckhouse_channel: alpha
       default_user: cloud
       go_version: "1.25.8"
