@@ -214,7 +214,7 @@ func (t *currentReleaseSmokeTest) verifyIPerfContinuityAfterUpgrade() {
 	Expect(startedAt).To(BeNumerically("<=", upgradeStartedAt), "iperf3 should start before the module upgrade")
 	Expect(endedAt).To(BeNumerically(">", upgradeStartedAt), "iperf3 should continue after the module upgrade")
 
-	lowerIdx, upperIdx := continuityWindowBounds(startedAt, upgradeStartedAt, len(report.Intervals))
+	lowerIdx, upperIdx := continuityWindowBounds(startedAt, upgradeStartedAt, report.Intervals)
 	Expect(upperIdx).To(BeNumerically(">=", lowerIdx), "iperf3 report must include intervals around the module upgrade")
 
 	zeroIntervals := 0

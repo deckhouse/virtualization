@@ -60,6 +60,7 @@ type iperfReportInterval struct {
 type iperfReportSummary struct {
 	Bytes         int64   `json:"bytes"`
 	BitsPerSecond float64 `json:"bits_per_second"`
+	Start         float64 `json:"start,omitempty"`
 	End           float64 `json:"end,omitempty"`
 }
 
@@ -141,22 +142,27 @@ func getIPerfClientReport(f *framework.Framework, vm *v1alpha2.VirtualMachine, r
 }
 
 // continuityWindowBounds returns the index range [lower, upper] of iperf intervals
-// around the upgrade timestamp. Assumes default 1-second reporting intervals.
-func continuityWindowBounds(startedAt, upgradeStartedAt int64, intervalCount int) (int, int) {
-	if intervalCount == 0 {
+// around the upgrade timestamp.
+func continuityWindowBounds(startedAt, upgradeStartedAt int64, intervals []iperfReportInterval) (int, int) {
+	if len(intervals) == 0 {
 		return 1, 0
 	}
 
-	index := int(upgradeStartedAt - startedAt)
-	if index < 0 {
-		index = 0
-	}
-	if index >= intervalCount {
-		index = intervalCount - 1
+	upgradeOffset := float64(upgradeStartedAt - startedAt)
+	index := len(intervals) - 1
+	for idx, interval := range intervals {
+		if upgradeOffset < interval.Sum.Start {
+			index = idx
+			break
+		}
+		if upgradeOffset >= interval.Sum.Start && upgradeOffset < interval.Sum.End {
+			index = idx
+			break
+		}
 	}
 
 	lower := max(index-1, 0)
-	upper := min(index+1, intervalCount-1)
+	upper := min(index+1, len(intervals)-1)
 	return lower, upper
 }
 
