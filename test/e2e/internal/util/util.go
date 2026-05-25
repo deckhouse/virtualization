@@ -50,3 +50,11 @@ func UnmarshalResource(filePath string, obj client.Object) error {
 
 	return nil
 }
+
+func ToObjects[T client.Object](objs []T) []client.Object {
+	out := make([]client.Object, len(objs))
+	for i, o := range objs {
+		out[i] = o
+	}
+	return out
+}
