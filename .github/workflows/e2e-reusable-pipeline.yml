@@ -1402,7 +1402,7 @@ jobs:
             GINKGO_ARGS+=(--focus="$FOCUS")
           fi
 
-          go tool ginkgo "${GINKGO_ARGS[@]}" 2>&1 | tee "$e2e_output_file"
+          go tool ginkgo "${GINKGO_ARGS[@]}" . 2>&1 | tee "$e2e_output_file"
           GINKGO_EXIT_CODE=${PIPESTATUS[0]}
           set -e
 
