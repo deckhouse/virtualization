@@ -364,3 +364,40 @@ func TestSetNetworkAddsNewInterface(t *testing.T) {
 		t.Error("new interface should be added")
 	}
 }
+
+func TestSetNetworkKeepsDefaultFirstWhenMainAddedLast(t *testing.T) {
+	b := newTestKVVM()
+	b.SetNetworkInterface("veth_cn11111111", "aa:bb:cc:dd:ee:01", 2)
+	b.SetNetworkInterface("veth_n22222222", "aa:bb:cc:dd:ee:02", 3)
+
+	setNetwork(b, network.InterfaceSpecList{
+		{InterfaceName: "default", MAC: "", ID: 1},
+		{InterfaceName: "veth_cn11111111", MAC: "aa:bb:cc:dd:ee:01", ID: 2},
+		{InterfaceName: "veth_n22222222", MAC: "aa:bb:cc:dd:ee:02", ID: 3},
+	})
+
+	ifaces := b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces
+	if got := ifaces[0].Name; got != "default" {
+		t.Errorf("default interface must be first, got order: %v", interfaceNames(ifaces))
+	}
+	nets := b.Resource.Spec.Template.Spec.Networks
+	if got := nets[0].Name; got != "default" {
+		t.Errorf("default network must be first, got order: %v", networkNames(nets))
+	}
+}
+
+func interfaceNames(ifaces []virtv1.Interface) []string {
+	names := make([]string, len(ifaces))
+	for i, iface := range ifaces {
+		names[i] = iface.Name
+	}
+	return names
+}
+
+func networkNames(nets []virtv1.Network) []string {
+	names := make([]string, len(nets))
+	for i, n := range nets {
+		names[i] = n.Name
+	}
+	return names
+}

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -780,23 +781,13 @@ func (b *KVVM) SetNetworkInterfaceAbsent(name string) {
 }
 
 func (b *KVVM) RemoveNetworkInterface(name string) {
-	ifaces := b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces
-	filtered := ifaces[:0]
-	for _, iface := range ifaces {
-		if iface.Name != name {
-			filtered = append(filtered, iface)
-		}
-	}
-	b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces = filtered
-
-	nets := b.Resource.Spec.Template.Spec.Networks
-	filteredNets := nets[:0]
-	for _, n := range nets {
-		if n.Name != name {
-			filteredNets = append(filteredNets, n)
-		}
-	}
-	b.Resource.Spec.Template.Spec.Networks = filteredNets
+	spec := &b.Resource.Spec.Template.Spec
+	spec.Domain.Devices.Interfaces = slices.DeleteFunc(spec.Domain.Devices.Interfaces, func(i virtv1.Interface) bool {
+		return i.Name == name
+	})
+	spec.Networks = slices.DeleteFunc(spec.Networks, func(n virtv1.Network) bool {
+		return n.Name == name
+	})
 }
 
 func (b *KVVM) SetNetworkInterface(name, macAddress string, acpiIndex int) {

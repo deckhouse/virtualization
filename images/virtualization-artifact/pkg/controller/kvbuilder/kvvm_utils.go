@@ -345,7 +345,7 @@ func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList) {
 		desiredByName[n.InterfaceName] = struct{}{}
 	}
 
-	for _, iface := range kvvm.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
+	for _, iface := range slices.Clone(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Interfaces) {
 		if _, wanted := desiredByName[iface.Name]; wanted {
 			continue
 		}
@@ -358,6 +358,29 @@ func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList) {
 
 	for _, n := range networkSpec {
 		kvvm.SetNetworkInterface(n.InterfaceName, n.MAC, n.ID)
+	}
+
+	moveDefaultNetworkToFront(kvvm)
+}
+
+func moveDefaultNetworkToFront(kvvm *KVVM) {
+	spec := &kvvm.Resource.Spec.Template.Spec
+	slices.SortStableFunc(spec.Domain.Devices.Interfaces, func(a, b virtv1.Interface) int {
+		return defaultNameFirst(a.Name, b.Name)
+	})
+	slices.SortStableFunc(spec.Networks, func(a, b virtv1.Network) int {
+		return defaultNameFirst(a.Name, b.Name)
+	})
+}
+
+func defaultNameFirst(a, b string) int {
+	switch {
+	case a == network.NameDefaultInterface:
+		return -1
+	case b == network.NameDefaultInterface:
+		return 1
+	default:
+		return 0
 	}
 }
 
