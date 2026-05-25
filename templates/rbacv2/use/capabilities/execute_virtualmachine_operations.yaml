@@ -18,3 +18,10 @@ rules:
   - patch
   - delete
   - deletecollection
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - list
+  - watch
