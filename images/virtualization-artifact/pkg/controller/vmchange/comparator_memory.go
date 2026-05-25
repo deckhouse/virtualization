@@ -25,6 +25,8 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
+const MemoryPath = "memory"
+
 type comparatorMemory struct {
 	featureGate featuregate.FeatureGate
 }

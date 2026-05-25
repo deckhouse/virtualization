@@ -250,6 +250,16 @@ func (s *SpecChanges) UpgradeBlockDeviceChangesToRestart() {
 	}
 }
 
+func (s *SpecChanges) UpgradeHotplugComputeChangesToRestart() {
+	for i := range s.changes {
+		isCPUChange := strings.HasPrefix(s.changes[i].Path, CPUPath)
+		isMemoryChange := strings.HasPrefix(s.changes[i].Path, MemoryPath)
+		if (isCPUChange || isMemoryChange) && s.changes[i].ActionRequired == ActionApplyImmediate {
+			s.changes[i].ActionRequired = ActionRestart
+		}
+	}
+}
+
 func (s *SpecChanges) Add(changes ...FieldChange) {
 	if s.changes == nil {
 		s.changes = make([]FieldChange, 0)

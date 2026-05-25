@@ -157,6 +157,10 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			if kvvmiErr == nil && hasNonHotpluggableVolumes(kvvmi) {
 				changes.UpgradeBlockDeviceChangesToRestart()
 			}
+			// Require restart for CPU and memory changes if VM is non migratable.
+			if h.isVMNonMigratable(current) {
+				changes.UpgradeHotplugComputeChangesToRestart()
+			}
 			allChanges.Add(changes.GetAll()...)
 		}
 		if class != nil {
@@ -822,6 +826,13 @@ func (h *SyncKvvmHandler) isVMUnschedulable(
 	}
 
 	return false
+}
+
+func (h *SyncKvvmHandler) isVMNonMigratable(
+	vm *v1alpha2.VirtualMachine,
+) bool {
+	vmMigratable, has := conditions.GetCondition(vmcondition.TypeMigratable, vm.Status.Conditions)
+	return has && vmMigratable.Status == metav1.ConditionFalse
 }
 
 func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine) (bool, error) {
