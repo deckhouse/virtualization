@@ -19,6 +19,7 @@ package precheck
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -101,29 +102,46 @@ func (c *vmcPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 		return name
 	}
 
-	// Check if default VMClass exists and is correct
-	switch {
-	case e2eClass != nil && defaultClass != nil && getVMClassName(defaultClass) == defaultVMClassName:
-		// OK
-	case e2eClass != nil && defaultClass != nil:
-		return fmt.Errorf("%s=no to disable this precheck: cluster has wrong default class %q, e2e tests require %q to be default",
-			vmcModuleCheckEnvName, getVMClassName(defaultClass), defaultVMClassName)
-	case e2eClass == nil && defaultClass != nil:
-		return fmt.Errorf("%s=no to disable this precheck: cluster has wrong default class %q, e2e tests require %q to be default",
-			vmcModuleCheckEnvName, getVMClassName(defaultClass), defaultVMClassName)
-	case e2eClass != nil && defaultClass == nil:
-		return fmt.Errorf("%s=no to disable this precheck: cluster has no default class, e2e tests require %q to be default. Run: kubectl annotate vmclass/%s virtualmachineclass.virtualization.deckhouse.io/is-default-class=true",
-			vmcModuleCheckEnvName, defaultVMClassName, defaultVMClassName)
-	case e2eClass == nil && defaultClass == nil:
-		return fmt.Errorf("%s=no to disable this precheck: cluster has no default class and no %q class. Run: %s",
-			vmcModuleCheckEnvName, defaultVMClassName, cmdCopyGenericAsDefaultClass(defaultVMClassName))
+	if e2eClass != nil && defaultClass != nil && getVMClassName(defaultClass) == defaultVMClassName {
+		// Everything is OK: correct default VMClass is present in the cluster.
+		return nil
 	}
 
-	return nil
+	issues := make([]string, 0)
+	cmds := make([]string, 0)
+
+	if defaultClass != nil {
+		issues = append(issues, fmt.Sprintf("cluster has wrong default vmclass %q", getVMClassName(defaultClass)))
+		cmds = append(cmds, cmdRemoveDefaultAnnotation(getVMClassName(defaultClass)))
+	} else {
+		issues = append(issues, "cluster has no default vmclass")
+	}
+
+	if e2eClass != nil {
+		issues = append(issues, fmt.Sprintf("e2e tests require vmclass %q to be default", defaultVMClassName))
+		cmds = append(cmds, cmdSetDefaultAnnotation(defaultVMClassName))
+	} else {
+		issues = append(issues, fmt.Sprintf("e2e tests require vmclass %q to present and be default", defaultVMClassName))
+		cmds = append(cmds, cmdCopyGenericAsDefaultClass(defaultVMClassName))
+	}
+
+	return fmt.Errorf("%s=no to disable this precheck: %s. Run command to fix cluster: %s",
+		vmcModuleCheckEnvName,
+		strings.Join(issues, "; "),
+		strings.Join(cmds, " && "),
+	)
 }
 
 func cmdCopyGenericAsDefaultClass(targetVMClassName string) string {
 	return fmt.Sprintf(`kubectl get vmclass/generic -o json | jq 'del(.status) | del(.metadata) | .metadata = {"name":"%s","annotations":{"virtualmachineclass.virtualization.deckhouse.io/is-default-class":"true"}} ' | kubectl create -f -`, targetVMClassName)
+}
+
+func cmdRemoveDefaultAnnotation(targetVMClassName string) string {
+	return fmt.Sprintf(`kubectl annotate vmclass/%s virtualmachineclass.virtualization.deckhouse.io/is-default-class=-`, targetVMClassName)
+}
+
+func cmdSetDefaultAnnotation(targetVMClassName string) string {
+	return fmt.Sprintf(`kubectl annotate vmclass/%s virtualmachineclass.virtualization.deckhouse.io/is-default-class=true`, targetVMClassName)
 }
 
 // Register VMC precheck as common (runs for all tests).
