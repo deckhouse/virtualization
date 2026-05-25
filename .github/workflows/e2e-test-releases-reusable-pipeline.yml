@@ -279,7 +279,7 @@ jobs:
           task dhctl-bootstrap
           echo "[SUCCESS] Done"
         timeout-minutes: 60
-      - name: Label cluster to prevent delition
+      - name: Label cluster to prevent deletion
         run: |
           kubectl label namespace ${{ steps.vars.outputs.namespace }} e2e-cluster/do-not-stop-vm-on-e2e-run=true
           kubectl label vmclass ${{ steps.vars.outputs.namespace }}-cpu e2e-cluster/do-not-stop-vm-on-e2e-run=true
