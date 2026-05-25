@@ -152,25 +152,10 @@ const (
 	AnnDataExportRequest = "storage.deckhouse.io/data-export-request"
 
 	// PVC import annotations.
-	// These are set on the target PVC and on the importer Pod that copies data
-	// into the PVC (from DVCR or from another PVC during a clone).
+	// These are set on the target PVC to keep import state across reconciliations.
 	//
 	// AnnPVCImportPhase tracks the lifecycle phase of the PVC import.
 	AnnPVCImportPhase = AnnAPIGroupV + "/pvc-import.phase"
-	// AnnPVCImportPod is set to the importer Pod name on the target PVC.
-	AnnPVCImportPod = AnnAPIGroupV + "/pvc-import.pod"
-	// AnnPVCImportSource indicates the import source type ("registry" or "pvc").
-	AnnPVCImportSource = AnnAPIGroupV + "/pvc-import.source"
-	// AnnPVCImportEndpoint is the source endpoint (DVCR URL or sourceNS/sourceName).
-	AnnPVCImportEndpoint = AnnAPIGroupV + "/pvc-import.endpoint"
-	// AnnPVCImportSecret is the name of the auth secret to access the source.
-	AnnPVCImportSecret = AnnAPIGroupV + "/pvc-import.secret"
-	// AnnPVCImportCertConfigMap is the name of the CA bundle ConfigMap.
-	AnnPVCImportCertConfigMap = AnnAPIGroupV + "/pvc-import.cert-config-map"
-	// AnnPVCImportImageSize is the requested image size on the target PVC.
-	AnnPVCImportImageSize = AnnAPIGroupV + "/pvc-import.image-size"
-	// AnnPVCImportCreatedBy is set to "yes" on importer Pods created by the controller.
-	AnnPVCImportCreatedBy = AnnAPIGroupV + "/pvc-import.created-by"
 	// AnnPVCImportCloneStrategy stores the strategy used for PVC-to-PVC cloning.
 	AnnPVCImportCloneStrategy = AnnAPIGroupV + "/pvc-import.clone-strategy"
 	// AnnPVCImportCloneSnapshot stores the name of the VolumeSnapshot used for snapshot-based cloning.

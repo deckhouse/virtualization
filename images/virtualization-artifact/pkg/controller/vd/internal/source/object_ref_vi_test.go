@@ -83,7 +83,7 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 
 		pvcSvc = &DataSourcePVCServiceMock{
 			FinalizersFunc: func() []string { return nil },
-			ImportFunc: func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ kclient.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
+			WaitForImportFunc: func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ kclient.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
 				return corev1.PodRunning, nil
 			},
 		}
@@ -158,9 +158,9 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 				},
 			}
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vi, sc).Build()
-			pvcSvc.ImportFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ kclient.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
+			pvcSvc.CreateTargetFunc = func(_ context.Context, _ types.NamespacedName, _ string, _ resource.Quantity, _ *service.PVCImportSource, _ kclient.Object, _ service.VolumeAndAccessModesGetter, _ *provisioner.NodePlacement) error {
 				importStarted = true
-				return corev1.PodPending, nil
+				return nil
 			}
 
 			syncer := NewObjectRefVirtualImage(svc, pvcSvc, stat, fakeClient)
@@ -236,7 +236,7 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 				annotations.AnnPVCImportPhase: string(corev1.PodRunning),
 			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, vi).Build()
-			pvcSvc.ImportFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ kclient.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
+			pvcSvc.WaitForImportFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ kclient.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
 				return corev1.PodSucceeded, nil
 			}
 

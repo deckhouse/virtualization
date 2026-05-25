@@ -23,9 +23,8 @@ import (
 )
 
 // PVCImportSource describes where a target PersistentVolumeClaim should pull
-// its data from when populated by PersistentVolumeClaimService.Import. Either
-// Registry or PVC may be set; both nil is valid for blank PVCs that do not
-// need any pre-population.
+// its data from. Either Registry or PVC may be set; both nil is valid for blank
+// PVCs that do not need any pre-population.
 type PVCImportSource struct {
 	Registry *PVCImportSourceRegistry
 	PVC      *PVCImportSourcePVC

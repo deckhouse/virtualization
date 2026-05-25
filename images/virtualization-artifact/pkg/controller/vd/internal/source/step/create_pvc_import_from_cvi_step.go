@@ -39,7 +39,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
-type PVCImportFromClusterVirtualImageStep struct {
+type StartImportFromClusterVirtualImageStep struct {
 	pvc    *corev1.PersistentVolumeClaim
 	disk   PVCImportStepDiskService
 	pvcSvc PVCService
@@ -47,14 +47,14 @@ type PVCImportFromClusterVirtualImageStep struct {
 	cb     *conditions.ConditionBuilder
 }
 
-func NewPVCImportFromClusterVirtualImageStep(
+func NewStartImportFromClusterVirtualImageStep(
 	pvc *corev1.PersistentVolumeClaim,
 	disk PVCImportStepDiskService,
 	pvcSvc PVCService,
 	client client.Client,
 	cb *conditions.ConditionBuilder,
-) *PVCImportFromClusterVirtualImageStep {
-	return &PVCImportFromClusterVirtualImageStep{
+) *StartImportFromClusterVirtualImageStep {
+	return &StartImportFromClusterVirtualImageStep{
 		pvc:    pvc,
 		disk:   disk,
 		pvcSvc: pvcSvc,
@@ -63,7 +63,7 @@ func NewPVCImportFromClusterVirtualImageStep(
 	}
 }
 
-func (s PVCImportFromClusterVirtualImageStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
+func (s StartImportFromClusterVirtualImageStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
 	if s.pvc != nil {
 		return nil, nil
 	}
@@ -108,7 +108,7 @@ func (s PVCImportFromClusterVirtualImageStep) Take(ctx context.Context, vd *v1al
 	return NewPVCImportStep(s.disk, s.pvcSvc, s.client, source, size, s.cb).Take(ctx, vd)
 }
 
-func (s PVCImportFromClusterVirtualImageStep) getPVCSize(vd *v1alpha2.VirtualDisk, cviRef *v1alpha2.ClusterVirtualImage) (resource.Quantity, error) {
+func (s StartImportFromClusterVirtualImageStep) getPVCSize(vd *v1alpha2.VirtualDisk, cviRef *v1alpha2.ClusterVirtualImage) (resource.Quantity, error) {
 	unpackedSize, err := resource.ParseQuantity(cviRef.Status.Size.UnpackedBytes)
 	if err != nil {
 		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", cviRef.Status.Size.UnpackedBytes, err)
@@ -121,7 +121,7 @@ func (s PVCImportFromClusterVirtualImageStep) getPVCSize(vd *v1alpha2.VirtualDis
 	return service.GetValidatedPVCSize(vd.Spec.PersistentVolumeClaim.Size, unpackedSize)
 }
 
-func (s PVCImportFromClusterVirtualImageStep) getSource(vd *v1alpha2.VirtualDisk, cviRef *v1alpha2.ClusterVirtualImage) *service.PVCImportSource {
+func (s StartImportFromClusterVirtualImageStep) getSource(vd *v1alpha2.VirtualDisk, cviRef *v1alpha2.ClusterVirtualImage) *service.PVCImportSource {
 	return BuildClusterVirtualImagePVCImportSource(vd, cviRef)
 }
 

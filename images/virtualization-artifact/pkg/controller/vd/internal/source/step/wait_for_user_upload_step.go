@@ -42,6 +42,11 @@ type WaitForUserUploadStepStatService interface {
 	CheckPod(pod *corev1.Pod) error
 	IsUploadStarted(ownerUID types.UID, pod *corev1.Pod) bool
 	IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress, tlsSecret *corev1.Secret) (bool, error)
+}
+
+type WaitForDVCRUploaderStepStatService interface {
+	CheckPod(pod *corev1.Pod) error
+	IsUploadStarted(ownerUID types.UID, pod *corev1.Pod) bool
 	GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string
 	GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *v1alpha2.StatusSpeed
 }
@@ -49,7 +54,6 @@ type WaitForUserUploadStepStatService interface {
 type WaitForUserUploadStepUploaderService interface {
 	GetExternalURL(ctx context.Context, ing *netv1.Ingress) string
 	GetInClusterURL(ctx context.Context, svc *corev1.Service) string
-	Protect(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
 }
 
 type WaitForUserUploadStep struct {
@@ -89,41 +93,75 @@ func (s WaitForUserUploadStep) Take(ctx context.Context, vd *v1alpha2.VirtualDis
 
 	supgen := vdsupplements.NewGenerator(vd)
 	uploadStarted := s.stat.IsUploadStarted(vd.GetUID(), s.pod) || hasUploadProgress(vd.Status.Progress)
-
-	if err := s.stat.CheckPod(s.pod); err != nil {
-		return s.handlePodError(ctx, vd, err, uploadStarted)
+	if uploadStarted {
+		return nil, nil
 	}
 
+	if err := s.stat.CheckPod(s.pod); err != nil {
+		return s.handlePodError(ctx, vd, err)
+	}
+
+	tlsSecret, err := supplements.GetTLSSecret(ctx, s.client, supgen.Generator)
+	if err != nil {
+		return nil, fmt.Errorf("fetch uploader tls secret: %w", err)
+	}
+
+	isUploaderReady, err := s.stat.IsUploaderReady(s.pod, s.svc, s.ing, tlsSecret)
+	if err != nil {
+		return nil, fmt.Errorf("check uploader readiness: %w", err)
+	}
+
+	if isUploaderReady {
+		vd.Status.Phase = v1alpha2.DiskWaitForUserUpload
+		s.cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.WaitForUserUpload).
+			Message("Waiting for the user upload.")
+		vd.Status.ImageUploadURLs = &v1alpha2.ImageUploadURLs{
+			External:  s.uploader.GetExternalURL(ctx, s.ing),
+			InCluster: s.uploader.GetInClusterURL(ctx, s.svc),
+		}
+	} else {
+		vd.Status.Phase = v1alpha2.DiskProvisioning
+		s.cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.Provisioning).
+			Message(fmt.Sprintf("Waiting for the uploader %q to be ready to process the user's upload.", s.pod.Name))
+	}
+
+	return &reconcile.Result{RequeueAfter: time.Second}, nil
+}
+
+type WaitForDVCRUploaderStep struct {
+	pod  *corev1.Pod
+	stat WaitForDVCRUploaderStepStatService
+	cb   *conditions.ConditionBuilder
+}
+
+func NewWaitForDVCRUploaderStep(
+	pod *corev1.Pod,
+	stat WaitForDVCRUploaderStepStatService,
+	cb *conditions.ConditionBuilder,
+) *WaitForDVCRUploaderStep {
+	return &WaitForDVCRUploaderStep{
+		pod:  pod,
+		stat: stat,
+		cb:   cb,
+	}
+}
+
+func (s WaitForDVCRUploaderStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
+	if s.pod == nil || podutil.IsPodComplete(s.pod) {
+		return nil, nil
+	}
+
+	uploadStarted := s.stat.IsUploadStarted(vd.GetUID(), s.pod) || hasUploadProgress(vd.Status.Progress)
 	if !uploadStarted {
-		tlsSecret, err := supplements.GetTLSSecret(ctx, s.client, supgen.Generator)
-		if err != nil {
-			return nil, fmt.Errorf("fetch uploader tls secret: %w", err)
-		}
+		return nil, nil
+	}
 
-		isUploaderReady, err := s.stat.IsUploaderReady(s.pod, s.svc, s.ing, tlsSecret)
-		if err != nil {
-			return nil, fmt.Errorf("check uploader readiness: %w", err)
-		}
-
-		if isUploaderReady {
-			vd.Status.Phase = v1alpha2.DiskWaitForUserUpload
-			s.cb.
-				Status(metav1.ConditionFalse).
-				Reason(vdcondition.WaitForUserUpload).
-				Message("Waiting for the user upload.")
-			vd.Status.ImageUploadURLs = &v1alpha2.ImageUploadURLs{
-				External:  s.uploader.GetExternalURL(ctx, s.ing),
-				InCluster: s.uploader.GetInClusterURL(ctx, s.svc),
-			}
-		} else {
-			vd.Status.Phase = v1alpha2.DiskProvisioning
-			s.cb.
-				Status(metav1.ConditionFalse).
-				Reason(vdcondition.Provisioning).
-				Message(fmt.Sprintf("Waiting for the uploader %q to be ready to process the user's upload.", s.pod.Name))
-		}
-
-		return &reconcile.Result{RequeueAfter: time.Second}, nil
+	if err := s.stat.CheckPod(s.pod); err != nil {
+		return handleUploaderPodError(vd, err, s.cb, true)
 	}
 
 	vd.Status.Phase = v1alpha2.DiskProvisioning
@@ -135,19 +173,19 @@ func (s WaitForUserUploadStep) Take(ctx context.Context, vd *v1alpha2.VirtualDis
 	vd.Status.Progress = s.stat.GetProgress(vd.GetUID(), s.pod, vd.Status.Progress, service.NewScaleOption(0, 50))
 	vd.Status.DownloadSpeed = s.stat.GetDownloadSpeed(vd.GetUID(), s.pod)
 
-	if err := s.uploader.Protect(ctx, supgen, s.pod, s.svc, s.ing); err != nil {
-		return nil, fmt.Errorf("protect uploader supplements: %w", err)
-	}
-
 	return &reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
-func (s WaitForUserUploadStep) handlePodError(_ context.Context, vd *v1alpha2.VirtualDisk, podErr error, uploadStarted bool) (*reconcile.Result, error) {
+func (s WaitForUserUploadStep) handlePodError(_ context.Context, vd *v1alpha2.VirtualDisk, podErr error) (*reconcile.Result, error) {
+	return handleUploaderPodError(vd, podErr, s.cb, false)
+}
+
+func handleUploaderPodError(vd *v1alpha2.VirtualDisk, podErr error, cb *conditions.ConditionBuilder, uploadStarted bool) (*reconcile.Result, error) {
 	switch {
 	case errors.Is(podErr, service.ErrNotInitialized), errors.Is(podErr, service.ErrNotScheduled):
 		if uploadStarted {
 			vd.Status.Phase = v1alpha2.DiskProvisioning
-			s.cb.
+			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.Provisioning).
 				Message("Import is in the process of provisioning to DVCR.")
@@ -155,21 +193,21 @@ func (s WaitForUserUploadStep) handlePodError(_ context.Context, vd *v1alpha2.Vi
 		}
 
 		vd.Status.Phase = v1alpha2.DiskProvisioning
-		s.cb.
+		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Provisioning).
 			Message(service.CapitalizeFirstLetter(podErr.Error()) + ".")
 		return &reconcile.Result{}, nil
 	case errors.Is(podErr, service.ErrProvisioningFailed):
 		vd.Status.Phase = v1alpha2.DiskFailed
-		s.cb.
+		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningFailed).
 			Message(service.CapitalizeFirstLetter(podErr.Error()) + ".")
 		return &reconcile.Result{}, nil
 	default:
 		vd.Status.Phase = v1alpha2.DiskFailed
-		s.cb.
+		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningFailed).
 			Message(service.CapitalizeFirstLetter(fmt.Errorf("unexpected error: %w", podErr).Error()) + ".")

@@ -40,19 +40,18 @@ import (
 )
 
 const (
-	cdiDataVolName     = "cdi-data-vol"
-	cdiScratchVolName  = "cdi-scratch-vol"
-	cdiImporterDataDir = "/data"
-	cdiScratchDataDir  = "/scratch"
-	cdiWriteBlockPath  = "/dev/cdi-block-volume"
-	cdiSourceBlockPath = "/dev/source-block-volume"
-	sourceRegistry     = "registry"
-	sourcePVC          = "pvc"
+	pvcImporterDataVolName     = "pvc-importer-data-vol"
+	pvcImporterScratchVolName  = "pvc-importer-scratch-vol"
+	pvcImporterDataDir         = "/data"
+	pvcImporterScratchDataDir  = "/scratch"
+	pvcImporterWriteBlockPath  = "/dev/pvc-importer-block-volume"
+	pvcImporterSourceBlockPath = "/dev/source-block-volume"
+	sourceRegistry             = "registry"
 )
 
-// PVCImporterService drives the cdi-importer pod that fills a target PVC with
+// PVCImporterService drives the pvc-importer pod that fills a target PVC with
 // data fetched from a registry (DVCR) or another PVC. It owns the scratch PVC
-// and the cdi-importer pod and is intentionally agnostic of VirtualDisk and
+// and the pvc-importer pod and is intentionally agnostic of VirtualDisk and
 // VirtualImage; callers pass the target PVC, a PVCImportSource, an owner
 // client.Object (used for OwnerReferences on the supplemental secret/configmap
 // copies) and a supplements.Generator that yields stable names for the helper
@@ -61,7 +60,7 @@ const (
 // Callers create the target PVC themselves (with their own owner reference and
 // finalizer) and then ask PVCImporterService to perform the rest of the
 // import: copy DVCR auth/cert supplements, ensure the scratch PVC, ensure the
-// cdi-importer pod, and clean up the helper resources when the import has
+// pvc-importer pod, and clean up the helper resources when the import has
 // finished.
 type PVCImporterService struct {
 	client               client.Client
@@ -73,7 +72,7 @@ type PVCImporterService struct {
 }
 
 // NewPVCImporterService returns a PVCImporterService configured with the
-// cdi-importer pod settings (image, resources, pull policy, verbosity) and
+// pvc-importer pod settings (image, resources, pull policy, verbosity) and
 // the DVCR settings used to derive auth/CA supplements.
 func NewPVCImporterService(
 	c client.Client,
@@ -93,55 +92,70 @@ func NewPVCImporterService(
 	}
 }
 
-// Ensure runs one reconciliation step of the import: it makes sure the helper
-// secret/configmap copies exist, the scratch PVC exists, and the cdi-importer
-// pod has been created. The returned phase mirrors the current cdi-importer
-// pod phase; once it is corev1.PodSucceeded the helper resources are torn
-// down automatically.
+// Import starts the import: it makes sure the helper
+// secret/configmap copies exist, the scratch PVC exists, and the pvc-importer
+// pod has been created.
 //
-// The caller is responsible for creating the target PVC up front; Ensure does
+// The caller is responsible for creating the target PVC up front; Import does
 // not validate ownership or finalizers on it.
-func (s *PVCImporterService) Ensure(ctx context.Context, target *corev1.PersistentVolumeClaim, source *PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) (corev1.PodPhase, error) {
+func (s *PVCImporterService) Import(ctx context.Context, target *corev1.PersistentVolumeClaim, source *PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) error {
 	phase := corev1.PodPhase(target.Annotations[annotations.AnnPVCImportPhase])
 	if phase == corev1.PodSucceeded {
-		_, err := s.CleanUp(ctx, sup, target)
-		return phase, err
+		return nil
 	}
 
 	if err := s.ensureSupplements(ctx, target, owner, sup); err != nil {
-		return "", err
+		return err
 	}
 
 	scratch, err := s.ensureScratch(ctx, target)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	var sourceClaim *corev1.PersistentVolumeClaim
 	if source != nil && source.PVC != nil {
 		sourceClaim, err = object.FetchObject(ctx, types.NamespacedName{Name: source.PVC.Name, Namespace: source.PVC.Namespace}, s.client, &corev1.PersistentVolumeClaim{})
 		if err != nil {
-			return "", fmt.Errorf("fetch source pvc: %w", err)
+			return fmt.Errorf("fetch source pvc: %w", err)
 		}
 		if sourceClaim == nil {
-			return "", fmt.Errorf("source pvc %s/%s not found", source.PVC.Namespace, source.PVC.Name)
+			return fmt.Errorf("source pvc %s/%s not found", source.PVC.Namespace, source.PVC.Name)
 		}
 	}
 
 	podKey := sup.PVCImporterPod()
-	target.Annotations[annotations.AnnPVCImportPod] = podKey.Name
 	pod, err := object.FetchObject(ctx, podKey, s.client, &corev1.Pod{})
 	if err != nil {
-		return "", fmt.Errorf("fetch importer pod: %w", err)
+		return fmt.Errorf("fetch importer pod: %w", err)
 	}
 	if pod == nil {
 		pod = s.makeImporterPod(podKey.Name, target, source, sourceClaim, scratch.Name, nodePlacement)
 		if err := s.client.Create(ctx, pod); err != nil && !k8serrors.IsAlreadyExists(err) {
-			return "", fmt.Errorf("create importer pod: %w", err)
+			return fmt.Errorf("create importer pod: %w", err)
 		}
-		return corev1.PodPending, s.patchTargetImportPhase(ctx, target, corev1.PodPending)
+		return s.patchTargetImportPhase(ctx, target, corev1.PodPending)
+	}
+	return nil
+}
+
+func (s *PVCImporterService) Wait(ctx context.Context, target *corev1.PersistentVolumeClaim, sup supplements.Generator) (corev1.PodPhase, error) {
+	phase := corev1.PodPhase(target.Annotations[annotations.AnnPVCImportPhase])
+	if phase == corev1.PodSucceeded {
+		_, err := s.CleanUp(ctx, sup, target)
+		return phase, err
 	}
 
+	pod, err := object.FetchObject(ctx, sup.PVCImporterPod(), s.client, &corev1.Pod{})
+	if err != nil {
+		return "", fmt.Errorf("fetch importer pod: %w", err)
+	}
+	if pod == nil {
+		return corev1.PodPending, nil
+	}
+	if pod.Status.Phase == "" {
+		return corev1.PodPending, nil
+	}
 	if pod.Status.Phase != "" && pod.Status.Phase != phase {
 		if err := s.patchTargetImportPhase(ctx, target, pod.Status.Phase); err != nil {
 			return "", err
@@ -154,18 +168,14 @@ func (s *PVCImporterService) Ensure(ctx context.Context, target *corev1.Persiste
 	return pod.Status.Phase, nil
 }
 
-// CleanUp removes the cdi-importer pod and the scratch PVC associated with
+// CleanUp removes the pvc-importer pod and the scratch PVC associated with
 // the target PVC. The pod name is taken from target's annotation when
 // available and falls back to the generator-issued name. CleanUp is
 // idempotent: missing resources are ignored.
 func (s *PVCImporterService) CleanUp(ctx context.Context, sup supplements.Generator, target *corev1.PersistentVolumeClaim) (bool, error) {
 	var deleted bool
-	podName := target.Annotations[annotations.AnnPVCImportPod]
-	if podName == "" {
-		podName = sup.PVCImporterPod().Name
-	}
 	for _, obj := range []client.Object{
-		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: podName, Namespace: target.Namespace}},
+		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: sup.PVCImporterPod().Name, Namespace: target.Namespace}},
 		&corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: target.Name + "-scratch", Namespace: target.Namespace}},
 	} {
 		err := s.client.Delete(ctx, obj)
@@ -177,35 +187,6 @@ func (s *PVCImporterService) CleanUp(ctx context.Context, sup supplements.Genera
 		}
 	}
 	return deleted, nil
-}
-
-// PVCImportAnnotations builds the annotation map used at target PVC creation
-// time to describe how the cdi-importer pod should populate it. The source
-// can be a DVCR registry image (Upload/HTTP/Registry/ObjectRef CVI/VI) or
-// another PVC (clone from a VirtualDisk).
-func (s *PVCImporterService) PVCImportAnnotations(source *PVCImportSource, size resource.Quantity) map[string]string {
-	anno := map[string]string{
-		annotations.AnnPVCImportPod:       "",
-		annotations.AnnPVCImportPhase:     string(corev1.PodPending),
-		annotations.AnnPVCImportImageSize: size.String(),
-	}
-	if source != nil && source.Registry != nil {
-		anno[annotations.AnnPVCImportSource] = sourceRegistry
-		if source.Registry.URL != "" {
-			anno[annotations.AnnPVCImportEndpoint] = source.Registry.URL
-		}
-		if source.Registry.Secret != "" {
-			anno[annotations.AnnPVCImportSecret] = source.Registry.Secret
-		}
-		if source.Registry.CertConfigMap != "" {
-			anno[annotations.AnnPVCImportCertConfigMap] = source.Registry.CertConfigMap
-		}
-	}
-	if source != nil && source.PVC != nil {
-		anno[annotations.AnnPVCImportSource] = sourcePVC
-		anno[annotations.AnnPVCImportEndpoint] = source.PVC.Namespace + "/" + source.PVC.Name
-	}
-	return anno
 }
 
 // ensureSupplements copies the DVCR auth secret and CA bundle into the
@@ -313,35 +294,38 @@ func scratchPVCSize(targetSize resource.Quantity) resource.Quantity {
 	return size
 }
 
-// makeImporterPod builds the cdi-importer pod descriptor. The pod is owned by
+// makeImporterPod builds the pvc-importer pod descriptor. The pod is owned by
 // the target PVC and labelled to be excluded from namespace quota accounting.
 func (s *PVCImporterService) makeImporterPod(podName string, target *corev1.PersistentVolumeClaim, source *PVCImportSource, sourceClaim *corev1.PersistentVolumeClaim, scratchName string, nodePlacement *provisioner.NodePlacement) *corev1.Pod {
-	podAnnotations := map[string]string{annotations.AnnPVCImportCreatedBy: "yes"}
-	target.Annotations[annotations.AnnPVCImportPod] = podName
+	registryEndpoint := ""
+	if source != nil && source.Registry != nil {
+		registryEndpoint = source.Registry.URL
+	}
+	imageSize := target.Spec.Resources.Requests[corev1.ResourceStorage]
 
 	container := corev1.Container{
-		Name:            "d8v-cdi-importer",
+		Name:            "d8v-pvc-importer",
 		Image:           s.image,
 		ImagePullPolicy: corev1.PullPolicy(s.pullPolicy),
-		Command:         []string{"/usr/bin/cdi-importer"},
+		Command:         []string{"/usr/bin/pvc-importer"},
 		Args:            []string{"-v=" + s.verbose},
 		Env: []corev1.EnvVar{
 			{Name: common.ImporterSource, Value: sourceRegistry},
-			{Name: common.ImporterEndpoint, Value: target.Annotations[annotations.AnnPVCImportEndpoint]},
+			{Name: common.ImporterEndpoint, Value: registryEndpoint},
 			{Name: common.ImporterContentType, Value: "kubevirt"},
-			{Name: common.ImporterImageSize, Value: target.Annotations[annotations.AnnPVCImportImageSize]},
+			{Name: common.ImporterImageSize, Value: imageSize.String()},
 			{Name: common.OwnerUID, Value: string(target.UID)},
 			{Name: common.FilesystemOverheadVar, Value: "0"},
 			{Name: common.InsecureTLSVar, Value: "false"},
-			{Name: "PREALLOCATION", Value: "false"},
 		},
-		VolumeMounts: []corev1.VolumeMount{{Name: cdiScratchVolName, MountPath: cdiScratchDataDir}, {Name: "tmp", MountPath: "/tmp"}},
+		VolumeMounts: []corev1.VolumeMount{{Name: pvcImporterScratchVolName, MountPath: pvcImporterScratchDataDir}, {Name: "tmp", MountPath: "/tmp"}},
 		Ports:        []corev1.ContainerPort{{Name: "metrics", ContainerPort: 8443, Protocol: corev1.ProtocolTCP}},
 	}
 	if s.resourceRequirements.Requests != nil || s.resourceRequirements.Limits != nil {
 		container.Resources = s.resourceRequirements
 	}
-	if secretName := target.Annotations[annotations.AnnPVCImportSecret]; secretName != "" {
+	if source != nil && source.Registry != nil && source.Registry.Secret != "" {
+		secretName := source.Registry.Secret
 		container.Env = append(container.Env, corev1.EnvVar{
 			Name: common.ImporterAccessKeyID,
 			ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{
@@ -356,41 +340,41 @@ func (s *PVCImporterService) makeImporterPod(podName string, target *corev1.Pers
 			}},
 		})
 	}
-	if target.Annotations[annotations.AnnPVCImportCertConfigMap] != "" {
+	if source != nil && source.Registry != nil && source.Registry.CertConfigMap != "" {
 		container.Env = append(container.Env, corev1.EnvVar{Name: common.ImporterCertDirVar, Value: common.ImporterCertDir})
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{Name: "cert-vol", MountPath: common.ImporterCertDir})
 	}
 	if target.Spec.VolumeMode != nil && *target.Spec.VolumeMode == corev1.PersistentVolumeBlock {
-		container.VolumeDevices = []corev1.VolumeDevice{{Name: cdiDataVolName, DevicePath: cdiWriteBlockPath}}
+		container.VolumeDevices = []corev1.VolumeDevice{{Name: pvcImporterDataVolName, DevicePath: pvcImporterWriteBlockPath}}
 	} else {
-		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{Name: cdiDataVolName, MountPath: cdiImporterDataDir})
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{Name: pvcImporterDataVolName, MountPath: pvcImporterDataDir})
 	}
 
 	volumes := []corev1.Volume{
 		{Name: "tmp", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
-		{Name: cdiDataVolName, VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: target.Name}}},
-		{Name: cdiScratchVolName, VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: scratchName}}},
+		{Name: pvcImporterDataVolName, VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: target.Name}}},
+		{Name: pvcImporterScratchVolName, VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: scratchName}}},
 	}
-	if certConfigMap := target.Annotations[annotations.AnnPVCImportCertConfigMap]; certConfigMap != "" {
+	if source != nil && source.Registry != nil && source.Registry.CertConfigMap != "" {
 		volumes = append(volumes, corev1.Volume{
 			Name: "cert-vol",
 			VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{Name: certConfigMap},
+				LocalObjectReference: corev1.LocalObjectReference{Name: source.Registry.CertConfigMap},
 			}},
 		})
 	}
 	if source != nil && source.PVC != nil && sourceClaim != nil {
 		sourcePath := "/source/disk.img"
 		if sourceClaim.Spec.VolumeMode != nil && *sourceClaim.Spec.VolumeMode == corev1.PersistentVolumeBlock {
-			sourcePath = cdiSourceBlockPath
-			container.VolumeDevices = append(container.VolumeDevices, corev1.VolumeDevice{Name: "source-vol", DevicePath: cdiSourceBlockPath})
+			sourcePath = pvcImporterSourceBlockPath
+			container.VolumeDevices = append(container.VolumeDevices, corev1.VolumeDevice{Name: "source-vol", DevicePath: pvcImporterSourceBlockPath})
 		} else {
 			container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{Name: "source-vol", MountPath: "/source", ReadOnly: true})
 		}
 
-		targetPath := cdiImporterDataDir + "/disk.img"
+		targetPath := pvcImporterDataDir + "/disk.img"
 		if target.Spec.VolumeMode != nil && *target.Spec.VolumeMode == corev1.PersistentVolumeBlock {
-			targetPath = cdiWriteBlockPath
+			targetPath = pvcImporterWriteBlockPath
 		}
 
 		container.Command = []string{"/usr/bin/qemu-img"}
@@ -409,9 +393,8 @@ func (s *PVCImporterService) makeImporterPod(podName string, target *corev1.Pers
 	pod := &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        podName,
-			Namespace:   target.Namespace,
-			Annotations: podAnnotations,
+			Name:      podName,
+			Namespace: target.Namespace,
 			Labels: map[string]string{
 				annotations.QuotaExcludeLabel: annotations.QuotaExcludeValue,
 			},
@@ -438,7 +421,7 @@ func (s *PVCImporterService) makeImporterPod(podName string, target *corev1.Pers
 	return pod
 }
 
-// patchTargetImportPhase mirrors the cdi-importer pod phase onto the target
+// patchTargetImportPhase mirrors the pvc-importer pod phase onto the target
 // PVC's annotation so external observers and other reconciliations can read
 // the import progress without having to look up the helper pod.
 func (s *PVCImporterService) patchTargetImportPhase(ctx context.Context, target *corev1.PersistentVolumeClaim, phase corev1.PodPhase) error {

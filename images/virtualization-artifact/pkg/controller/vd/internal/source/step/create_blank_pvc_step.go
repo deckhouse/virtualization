@@ -24,7 +24,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -32,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	pvcspec "github.com/deckhouse/virtualization-controller/pkg/common/pvc"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -47,9 +47,15 @@ type VolumeAndAccessModesGetter interface {
 	GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
 }
 
+type BlankPVCService interface {
+	Finalizers() []string
+	CreateBlank(ctx context.Context, target *corev1.PersistentVolumeClaim, nodePlacement *provisioner.NodePlacement) error
+}
+
 type CreateBlankPVCStep struct {
 	pvc        *corev1.PersistentVolumeClaim
 	modeGetter VolumeAndAccessModesGetter
+	pvcSvc     BlankPVCService
 	client     client.Client
 	cb         *conditions.ConditionBuilder
 }
@@ -57,12 +63,14 @@ type CreateBlankPVCStep struct {
 func NewCreateBlankPVCStep(
 	pvc *corev1.PersistentVolumeClaim,
 	modeGetter VolumeAndAccessModesGetter,
+	pvcSvc BlankPVCService,
 	client client.Client,
 	cb *conditions.ConditionBuilder,
 ) *CreateBlankPVCStep {
 	return &CreateBlankPVCStep{
 		pvc:        pvc,
 		modeGetter: modeGetter,
+		pvcSvc:     pvcSvc,
 		client:     client,
 		cb:         cb,
 	}
@@ -98,11 +106,9 @@ func (s CreateBlankPVCStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 	key := vdsupplements.NewGenerator(vd).PersistentVolumeClaim()
 	pvc := corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      key.Name,
-			Namespace: key.Namespace,
-			Finalizers: []string{
-				v1alpha2.FinalizerVDProtection,
-			},
+			Name:       key.Name,
+			Namespace:  key.Namespace,
+			Finalizers: s.pvcSvc.Finalizers(),
 			OwnerReferences: []metav1.OwnerReference{
 				service.MakeOwnerReference(vd),
 			},
@@ -116,8 +122,13 @@ func (s CreateBlankPVCStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 	log := logger.FromContext(ctx).With(logger.SlogStep(createStep)).With("pvc.name", pvc.Name)
 	log.Debug("Create new PVC")
 
-	err = s.client.Create(ctx, &pvc)
-	if err != nil && !k8serrors.IsAlreadyExists(err) {
+	nodePlacement, err := GetNodePlacement(ctx, s.client, vd)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get importer tolerations: %w", err)
+	}
+
+	err = s.pvcSvc.CreateBlank(ctx, &pvc, nodePlacement)
+	if err != nil {
 		if strings.Contains(err.Error(), "exceeded quota") {
 			log.Debug("Quota exceeded during PVC creation")
 

@@ -44,6 +44,7 @@ type Handler interface {
 // it off to Import.
 type DataSourcePVCService interface {
 	step.PVCService
+	step.BlankPVCService
 }
 
 type BlankDataSourceDiskService interface {
@@ -95,7 +96,8 @@ type UploadDataSourceUploaderService interface {
 
 type UploadDataSourceStatService interface {
 	step.WaitForUserUploadStepStatService
-	step.PVCImportFromDVCRStepStatService
+	step.WaitForDVCRUploaderStepStatService
+	step.StartImportFromDVCRStepStatService
 	step.WaitForPVCImportStepStatService
 }
 
@@ -117,7 +119,7 @@ type HTTPDataSourceImporterService interface {
 
 type HTTPDataSourceStatService interface {
 	step.WaitForDVCRImporterStepStatService
-	step.PVCImportFromDVCRStepStatService
+	step.StartImportFromDVCRStepStatService
 	step.WaitForPVCImportStepStatService
 }
 
@@ -139,6 +141,6 @@ type RegistryDataSourceImporterService interface {
 
 type RegistryDataSourceStatService interface {
 	step.WaitForDVCRImporterStepStatService
-	step.PVCImportFromDVCRStepStatService
+	step.StartImportFromDVCRStepStatService
 	step.WaitForPVCImportStepStatService
 }

@@ -96,8 +96,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 		step.NewTerminatingStep(pvc),
 		step.NewCreateImporterStep(pvc, pod, ds.buildEnvSettings, ds.importerService, ds.recorder, cb, "The HTTP DataSource import to DVCR has started"),
 		step.NewWaitForDVCRImporterStep(pod, ds.statService, ds.importerService, ds.client, cb),
-		step.NewPVCImportFromDVCRStep(pvc, pod, ds.statService, ds.diskService, ds.pvcService, ds.client, ds.recorder, cb, "The HTTP DataSource import to PVC has started"),
-		step.NewWaitForPVCStep(pvc, ds.client, cb),
+		step.NewStartImportFromDVCRStep(pvc, pod, ds.statService, ds.diskService, ds.pvcService, ds.client, cb),
 		step.NewWaitForPVCImportStep(pvc, step.DVCRPodPVCImportSource(pod, ds.statService), ds.pvcService, ds.statService, service.NewScaleOption(50, 100), ds.client, cb),
 	).Run(ctx, vd)
 }

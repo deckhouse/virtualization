@@ -28,7 +28,6 @@ const (
 	InsecureTLSVar        = "INSECURE_TLS"
 	CacheMode             = "CACHE_MODE"
 	CacheModeTryNone      = "TRYNONE"
-	Preallocation         = "PREALLOCATION"
 	FilesystemOverheadVar = "FILESYSTEM_OVERHEAD"
 	OwnerUID              = "OWNER_UID"
 

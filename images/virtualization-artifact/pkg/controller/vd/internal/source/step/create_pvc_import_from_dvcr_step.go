@@ -34,58 +34,51 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
-	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
-type PVCImportFromDVCRStepStatService interface {
+type StartImportFromDVCRStepStatService interface {
 	GetSize(pod *corev1.Pod) v1alpha2.ImageStatusSize
 	GetFormat(pod *corev1.Pod) string
 	GetDVCRImageName(pod *corev1.Pod) string
 	GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *v1alpha2.StatusSpeed
 }
 
-// PVCImportFromDVCRStep starts the PVC import from DVCR once the helper Pod
+// StartImportFromDVCRStep starts the PVC import from DVCR once the helper Pod
 // (uploader or importer) has finished populating DVCR. It is a no-op while the
 // PVC already exists or the Pod has not yet succeeded.
-type PVCImportFromDVCRStep struct {
-	pvc       *corev1.PersistentVolumeClaim
-	pod       *corev1.Pod
-	stat      PVCImportFromDVCRStepStatService
-	disk      PVCImportStepDiskService
-	pvcSvc    PVCService
-	client    client.Client
-	recorder  eventrecord.EventRecorderLogger
-	cb        *conditions.ConditionBuilder
-	eventText string
+type StartImportFromDVCRStep struct {
+	pvc    *corev1.PersistentVolumeClaim
+	pod    *corev1.Pod
+	stat   StartImportFromDVCRStepStatService
+	disk   PVCImportStepDiskService
+	pvcSvc PVCService
+	client client.Client
+	cb     *conditions.ConditionBuilder
 }
 
-func NewPVCImportFromDVCRStep(
+func NewStartImportFromDVCRStep(
 	pvc *corev1.PersistentVolumeClaim,
 	pod *corev1.Pod,
-	stat PVCImportFromDVCRStepStatService,
+	stat StartImportFromDVCRStepStatService,
 	disk PVCImportStepDiskService,
 	pvcSvc PVCService,
 	client client.Client,
-	recorder eventrecord.EventRecorderLogger,
 	cb *conditions.ConditionBuilder,
-	eventText string,
-) *PVCImportFromDVCRStep {
-	return &PVCImportFromDVCRStep{
-		pvc:       pvc,
-		pod:       pod,
-		stat:      stat,
-		disk:      disk,
-		pvcSvc:    pvcSvc,
-		client:    client,
-		recorder:  recorder,
-		cb:        cb,
-		eventText: eventText,
+) *StartImportFromDVCRStep {
+	return &StartImportFromDVCRStep{
+		pvc:    pvc,
+		pod:    pod,
+		stat:   stat,
+		disk:   disk,
+		pvcSvc: pvcSvc,
+		client: client,
+		cb:     cb,
 	}
 }
 
-func (s PVCImportFromDVCRStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
+func (s StartImportFromDVCRStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
 	if s.pvc != nil {
 		return nil, nil
 	}
@@ -93,13 +86,6 @@ func (s PVCImportFromDVCRStep) Take(ctx context.Context, vd *v1alpha2.VirtualDis
 	if !podutil.IsPodComplete(s.pod) {
 		return nil, nil
 	}
-
-	s.recorder.Event(
-		vd,
-		corev1.EventTypeNormal,
-		v1alpha2.ReasonDataSourceSyncStarted,
-		s.eventText,
-	)
 
 	vd.Status.Progress = "50%"
 	vd.Status.DownloadSpeed = s.stat.GetDownloadSpeed(vd.GetUID(), s.pod)
@@ -132,7 +118,7 @@ func (s PVCImportFromDVCRStep) Take(ctx context.Context, vd *v1alpha2.VirtualDis
 	return NewPVCImportStep(s.disk, s.pvcSvc, s.client, source, size, s.cb).Take(ctx, vd)
 }
 
-func (s PVCImportFromDVCRStep) getPVCSize(vd *v1alpha2.VirtualDisk) (resource.Quantity, error) {
+func (s StartImportFromDVCRStep) getPVCSize(vd *v1alpha2.VirtualDisk) (resource.Quantity, error) {
 	unpackedSize, err := resource.ParseQuantity(s.stat.GetSize(s.pod).UnpackedBytes)
 	if err != nil {
 		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", s.stat.GetSize(s.pod).UnpackedBytes, err)

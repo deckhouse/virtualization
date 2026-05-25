@@ -15,6 +15,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -462,11 +463,20 @@ var _ DataSourcePVCService = &DataSourcePVCServiceMock{}
 //
 //		// make and configure a mocked DataSourcePVCService
 //		mockedDataSourcePVCService := &DataSourcePVCServiceMock{
+//			CreateBlankFunc: func(ctx context.Context, target *corev1.PersistentVolumeClaim, nodePlacement *provisioner.NodePlacement) error {
+//				panic("mock out the CreateBlank method")
+//			},
+//			CreateTargetFunc: func(ctx context.Context, key types.NamespacedName, storageClassName string, size resource.Quantity, source *service.PVCImportSource, owner client.Object, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) error {
+//				panic("mock out the CreateTarget method")
+//			},
 //			FinalizersFunc: func() []string {
 //				panic("mock out the Finalizers method")
 //			},
-//			ImportFunc: func(ctx context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) (corev1.PodPhase, error) {
+//			ImportFunc: func(ctx context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) error {
 //				panic("mock out the Import method")
+//			},
+//			WaitForImportFunc: func(ctx context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) (corev1.PodPhase, error) {
+//				panic("mock out the WaitForImport method")
 //			},
 //		}
 //
@@ -475,14 +485,51 @@ var _ DataSourcePVCService = &DataSourcePVCServiceMock{}
 //
 //	}
 type DataSourcePVCServiceMock struct {
+	// CreateBlankFunc mocks the CreateBlank method.
+	CreateBlankFunc func(ctx context.Context, target *corev1.PersistentVolumeClaim, nodePlacement *provisioner.NodePlacement) error
+
+	// CreateTargetFunc mocks the CreateTarget method.
+	CreateTargetFunc func(ctx context.Context, key types.NamespacedName, storageClassName string, size resource.Quantity, source *service.PVCImportSource, owner client.Object, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) error
+
 	// FinalizersFunc mocks the Finalizers method.
 	FinalizersFunc func() []string
 
 	// ImportFunc mocks the Import method.
-	ImportFunc func(ctx context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) (corev1.PodPhase, error)
+	ImportFunc func(ctx context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) error
+
+	// WaitForImportFunc mocks the WaitForImport method.
+	WaitForImportFunc func(ctx context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) (corev1.PodPhase, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
+		// CreateBlank holds details about calls to the CreateBlank method.
+		CreateBlank []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Target is the target argument value.
+			Target *corev1.PersistentVolumeClaim
+			// NodePlacement is the nodePlacement argument value.
+			NodePlacement *provisioner.NodePlacement
+		}
+		// CreateTarget holds details about calls to the CreateTarget method.
+		CreateTarget []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Key is the key argument value.
+			Key types.NamespacedName
+			// StorageClassName is the storageClassName argument value.
+			StorageClassName string
+			// Size is the size argument value.
+			Size resource.Quantity
+			// Source is the source argument value.
+			Source *service.PVCImportSource
+			// Owner is the owner argument value.
+			Owner client.Object
+			// ModeGetter is the modeGetter argument value.
+			ModeGetter service.VolumeAndAccessModesGetter
+			// NodePlacement is the nodePlacement argument value.
+			NodePlacement *provisioner.NodePlacement
+		}
 		// Finalizers holds details about calls to the Finalizers method.
 		Finalizers []struct {
 		}
@@ -501,9 +548,127 @@ type DataSourcePVCServiceMock struct {
 			// NodePlacement is the nodePlacement argument value.
 			NodePlacement *provisioner.NodePlacement
 		}
+		// WaitForImport holds details about calls to the WaitForImport method.
+		WaitForImport []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Target is the target argument value.
+			Target *corev1.PersistentVolumeClaim
+			// Source is the source argument value.
+			Source *service.PVCImportSource
+			// Owner is the owner argument value.
+			Owner client.Object
+			// Sup is the sup argument value.
+			Sup supplements.Generator
+			// NodePlacement is the nodePlacement argument value.
+			NodePlacement *provisioner.NodePlacement
+		}
 	}
-	lockFinalizers sync.RWMutex
-	lockImport     sync.RWMutex
+	lockCreateBlank   sync.RWMutex
+	lockCreateTarget  sync.RWMutex
+	lockFinalizers    sync.RWMutex
+	lockImport        sync.RWMutex
+	lockWaitForImport sync.RWMutex
+}
+
+// CreateBlank calls CreateBlankFunc.
+func (mock *DataSourcePVCServiceMock) CreateBlank(ctx context.Context, target *corev1.PersistentVolumeClaim, nodePlacement *provisioner.NodePlacement) error {
+	if mock.CreateBlankFunc == nil {
+		panic("DataSourcePVCServiceMock.CreateBlankFunc: method is nil but DataSourcePVCService.CreateBlank was just called")
+	}
+	callInfo := struct {
+		Ctx           context.Context
+		Target        *corev1.PersistentVolumeClaim
+		NodePlacement *provisioner.NodePlacement
+	}{
+		Ctx:           ctx,
+		Target:        target,
+		NodePlacement: nodePlacement,
+	}
+	mock.lockCreateBlank.Lock()
+	mock.calls.CreateBlank = append(mock.calls.CreateBlank, callInfo)
+	mock.lockCreateBlank.Unlock()
+	return mock.CreateBlankFunc(ctx, target, nodePlacement)
+}
+
+// CreateBlankCalls gets all the calls that were made to CreateBlank.
+// Check the length with:
+//
+//	len(mockedDataSourcePVCService.CreateBlankCalls())
+func (mock *DataSourcePVCServiceMock) CreateBlankCalls() []struct {
+	Ctx           context.Context
+	Target        *corev1.PersistentVolumeClaim
+	NodePlacement *provisioner.NodePlacement
+} {
+	var calls []struct {
+		Ctx           context.Context
+		Target        *corev1.PersistentVolumeClaim
+		NodePlacement *provisioner.NodePlacement
+	}
+	mock.lockCreateBlank.RLock()
+	calls = mock.calls.CreateBlank
+	mock.lockCreateBlank.RUnlock()
+	return calls
+}
+
+// CreateTarget calls CreateTargetFunc.
+func (mock *DataSourcePVCServiceMock) CreateTarget(ctx context.Context, key types.NamespacedName, storageClassName string, size resource.Quantity, source *service.PVCImportSource, owner client.Object, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) error {
+	if mock.CreateTargetFunc == nil {
+		panic("DataSourcePVCServiceMock.CreateTargetFunc: method is nil but DataSourcePVCService.CreateTarget was just called")
+	}
+	callInfo := struct {
+		Ctx              context.Context
+		Key              types.NamespacedName
+		StorageClassName string
+		Size             resource.Quantity
+		Source           *service.PVCImportSource
+		Owner            client.Object
+		ModeGetter       service.VolumeAndAccessModesGetter
+		NodePlacement    *provisioner.NodePlacement
+	}{
+		Ctx:              ctx,
+		Key:              key,
+		StorageClassName: storageClassName,
+		Size:             size,
+		Source:           source,
+		Owner:            owner,
+		ModeGetter:       modeGetter,
+		NodePlacement:    nodePlacement,
+	}
+	mock.lockCreateTarget.Lock()
+	mock.calls.CreateTarget = append(mock.calls.CreateTarget, callInfo)
+	mock.lockCreateTarget.Unlock()
+	return mock.CreateTargetFunc(ctx, key, storageClassName, size, source, owner, modeGetter, nodePlacement)
+}
+
+// CreateTargetCalls gets all the calls that were made to CreateTarget.
+// Check the length with:
+//
+//	len(mockedDataSourcePVCService.CreateTargetCalls())
+func (mock *DataSourcePVCServiceMock) CreateTargetCalls() []struct {
+	Ctx              context.Context
+	Key              types.NamespacedName
+	StorageClassName string
+	Size             resource.Quantity
+	Source           *service.PVCImportSource
+	Owner            client.Object
+	ModeGetter       service.VolumeAndAccessModesGetter
+	NodePlacement    *provisioner.NodePlacement
+} {
+	var calls []struct {
+		Ctx              context.Context
+		Key              types.NamespacedName
+		StorageClassName string
+		Size             resource.Quantity
+		Source           *service.PVCImportSource
+		Owner            client.Object
+		ModeGetter       service.VolumeAndAccessModesGetter
+		NodePlacement    *provisioner.NodePlacement
+	}
+	mock.lockCreateTarget.RLock()
+	calls = mock.calls.CreateTarget
+	mock.lockCreateTarget.RUnlock()
+	return calls
 }
 
 // Finalizers calls FinalizersFunc.
@@ -534,7 +699,7 @@ func (mock *DataSourcePVCServiceMock) FinalizersCalls() []struct {
 }
 
 // Import calls ImportFunc.
-func (mock *DataSourcePVCServiceMock) Import(ctx context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) (corev1.PodPhase, error) {
+func (mock *DataSourcePVCServiceMock) Import(ctx context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) error {
 	if mock.ImportFunc == nil {
 		panic("DataSourcePVCServiceMock.ImportFunc: method is nil but DataSourcePVCService.Import was just called")
 	}
@@ -582,6 +747,58 @@ func (mock *DataSourcePVCServiceMock) ImportCalls() []struct {
 	mock.lockImport.RLock()
 	calls = mock.calls.Import
 	mock.lockImport.RUnlock()
+	return calls
+}
+
+// WaitForImport calls WaitForImportFunc.
+func (mock *DataSourcePVCServiceMock) WaitForImport(ctx context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) (corev1.PodPhase, error) {
+	if mock.WaitForImportFunc == nil {
+		panic("DataSourcePVCServiceMock.WaitForImportFunc: method is nil but DataSourcePVCService.WaitForImport was just called")
+	}
+	callInfo := struct {
+		Ctx           context.Context
+		Target        *corev1.PersistentVolumeClaim
+		Source        *service.PVCImportSource
+		Owner         client.Object
+		Sup           supplements.Generator
+		NodePlacement *provisioner.NodePlacement
+	}{
+		Ctx:           ctx,
+		Target:        target,
+		Source:        source,
+		Owner:         owner,
+		Sup:           sup,
+		NodePlacement: nodePlacement,
+	}
+	mock.lockWaitForImport.Lock()
+	mock.calls.WaitForImport = append(mock.calls.WaitForImport, callInfo)
+	mock.lockWaitForImport.Unlock()
+	return mock.WaitForImportFunc(ctx, target, source, owner, sup, nodePlacement)
+}
+
+// WaitForImportCalls gets all the calls that were made to WaitForImport.
+// Check the length with:
+//
+//	len(mockedDataSourcePVCService.WaitForImportCalls())
+func (mock *DataSourcePVCServiceMock) WaitForImportCalls() []struct {
+	Ctx           context.Context
+	Target        *corev1.PersistentVolumeClaim
+	Source        *service.PVCImportSource
+	Owner         client.Object
+	Sup           supplements.Generator
+	NodePlacement *provisioner.NodePlacement
+} {
+	var calls []struct {
+		Ctx           context.Context
+		Target        *corev1.PersistentVolumeClaim
+		Source        *service.PVCImportSource
+		Owner         client.Object
+		Sup           supplements.Generator
+		NodePlacement *provisioner.NodePlacement
+	}
+	mock.lockWaitForImport.RLock()
+	calls = mock.calls.WaitForImport
+	mock.lockWaitForImport.RUnlock()
 	return calls
 }
 
@@ -1513,9 +1730,6 @@ var _ UploadDataSourceUploaderService = &UploadDataSourceUploaderServiceMock{}
 //			GetServiceFunc: func(ctx context.Context, sup supplements.Generator) (*corev1.Service, error) {
 //				panic("mock out the GetService method")
 //			},
-//			ProtectFunc: func(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error {
-//				panic("mock out the Protect method")
-//			},
 //			StartFunc: func(ctx context.Context, settings *uploader.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error {
 //				panic("mock out the Start method")
 //			},
@@ -1543,9 +1757,6 @@ type UploadDataSourceUploaderServiceMock struct {
 
 	// GetServiceFunc mocks the GetService method.
 	GetServiceFunc func(ctx context.Context, sup supplements.Generator) (*corev1.Service, error)
-
-	// ProtectFunc mocks the Protect method.
-	ProtectFunc func(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
 
 	// StartFunc mocks the Start method.
 	StartFunc func(ctx context.Context, settings *uploader.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
@@ -1594,19 +1805,6 @@ type UploadDataSourceUploaderServiceMock struct {
 			// Sup is the sup argument value.
 			Sup supplements.Generator
 		}
-		// Protect holds details about calls to the Protect method.
-		Protect []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
-			// Sup is the sup argument value.
-			Sup supplements.Generator
-			// Pod is the pod argument value.
-			Pod *corev1.Pod
-			// Svc is the svc argument value.
-			Svc *corev1.Service
-			// Ing is the ing argument value.
-			Ing *netv1.Ingress
-		}
 		// Start holds details about calls to the Start method.
 		Start []struct {
 			// Ctx is the ctx argument value.
@@ -1629,7 +1827,6 @@ type UploadDataSourceUploaderServiceMock struct {
 	lockGetIngress      sync.RWMutex
 	lockGetPod          sync.RWMutex
 	lockGetService      sync.RWMutex
-	lockProtect         sync.RWMutex
 	lockStart           sync.RWMutex
 }
 
@@ -1846,54 +2043,6 @@ func (mock *UploadDataSourceUploaderServiceMock) GetServiceCalls() []struct {
 	mock.lockGetService.RLock()
 	calls = mock.calls.GetService
 	mock.lockGetService.RUnlock()
-	return calls
-}
-
-// Protect calls ProtectFunc.
-func (mock *UploadDataSourceUploaderServiceMock) Protect(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error {
-	if mock.ProtectFunc == nil {
-		panic("UploadDataSourceUploaderServiceMock.ProtectFunc: method is nil but UploadDataSourceUploaderService.Protect was just called")
-	}
-	callInfo := struct {
-		Ctx context.Context
-		Sup supplements.Generator
-		Pod *corev1.Pod
-		Svc *corev1.Service
-		Ing *netv1.Ingress
-	}{
-		Ctx: ctx,
-		Sup: sup,
-		Pod: pod,
-		Svc: svc,
-		Ing: ing,
-	}
-	mock.lockProtect.Lock()
-	mock.calls.Protect = append(mock.calls.Protect, callInfo)
-	mock.lockProtect.Unlock()
-	return mock.ProtectFunc(ctx, sup, pod, svc, ing)
-}
-
-// ProtectCalls gets all the calls that were made to Protect.
-// Check the length with:
-//
-//	len(mockedUploadDataSourceUploaderService.ProtectCalls())
-func (mock *UploadDataSourceUploaderServiceMock) ProtectCalls() []struct {
-	Ctx context.Context
-	Sup supplements.Generator
-	Pod *corev1.Pod
-	Svc *corev1.Service
-	Ing *netv1.Ingress
-} {
-	var calls []struct {
-		Ctx context.Context
-		Sup supplements.Generator
-		Pod *corev1.Pod
-		Svc *corev1.Service
-		Ing *netv1.Ingress
-	}
-	mock.lockProtect.RLock()
-	calls = mock.calls.Protect
-	mock.lockProtect.RUnlock()
 	return calls
 }
 

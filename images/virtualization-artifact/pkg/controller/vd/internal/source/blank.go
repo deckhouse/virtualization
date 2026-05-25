@@ -39,13 +39,15 @@ const blankDataSource = "blank"
 
 type BlankDataSource struct {
 	diskService BlankDataSourceDiskService
+	pvcService  DataSourcePVCService
 	recorder    eventrecord.EventRecorderLogger
 	client      client.Client
 }
 
-func NewBlankDataSource(recorder eventrecord.EventRecorderLogger, diskService BlankDataSourceDiskService, client client.Client) *BlankDataSource {
+func NewBlankDataSource(recorder eventrecord.EventRecorderLogger, diskService BlankDataSourceDiskService, pvcService DataSourcePVCService, client client.Client) *BlankDataSource {
 	return &BlankDataSource{
 		diskService: diskService,
+		pvcService:  pvcService,
 		recorder:    recorder,
 		client:      client,
 	}
@@ -71,7 +73,7 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (r
 	return steptaker.NewStepTakers[*v1alpha2.VirtualDisk](
 		step.NewReadyStep(ds.diskService, pvc, cb),
 		step.NewTerminatingStep(pvc),
-		step.NewCreateBlankPVCStep(pvc, ds.diskService, ds.client, cb),
+		step.NewCreateBlankPVCStep(pvc, ds.diskService, ds.pvcService, ds.client, cb),
 		step.NewWaitForPVCStep(pvc, ds.client, cb),
 	).Run(ctx, vd)
 }

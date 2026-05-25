@@ -65,11 +65,7 @@ func main() {
 	contentType, _ := util.ParseEnvVar(common.ImporterContentType, false)
 	imageSize, _ := util.ParseEnvVar(common.ImporterImageSize, false)
 	filesystemOverhead, _ := strconv.ParseFloat(os.Getenv(common.FilesystemOverheadVar), 64)
-	preallocation, err := strconv.ParseBool(os.Getenv(common.Preallocation))
-	if err != nil {
-		klog.Errorf(`the %s environment variable is with a wrong value "%s"; should be "true" or "false"`, common.Preallocation, os.Getenv(common.Preallocation))
-		os.Exit(1)
-	}
+	preallocation := false
 
 	volumeMode := v1.PersistentVolumeBlock
 	if _, err := os.Stat(common.WriteBlockPath); os.IsNotExist(err) {

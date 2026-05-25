@@ -39,7 +39,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
-type PVCImportFromVirtualImageStep struct {
+type StartImportFromVirtualImageStep struct {
 	pvc    *corev1.PersistentVolumeClaim
 	disk   PVCImportStepDiskService
 	pvcSvc PVCService
@@ -47,14 +47,14 @@ type PVCImportFromVirtualImageStep struct {
 	cb     *conditions.ConditionBuilder
 }
 
-func NewPVCImportFromVirtualImageStep(
+func NewStartImportFromVirtualImageStep(
 	pvc *corev1.PersistentVolumeClaim,
 	disk PVCImportStepDiskService,
 	pvcSvc PVCService,
 	client client.Client,
 	cb *conditions.ConditionBuilder,
-) *PVCImportFromVirtualImageStep {
-	return &PVCImportFromVirtualImageStep{
+) *StartImportFromVirtualImageStep {
+	return &StartImportFromVirtualImageStep{
 		pvc:    pvc,
 		disk:   disk,
 		pvcSvc: pvcSvc,
@@ -63,7 +63,7 @@ func NewPVCImportFromVirtualImageStep(
 	}
 }
 
-func (s PVCImportFromVirtualImageStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
+func (s StartImportFromVirtualImageStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
 	if s.pvc != nil {
 		return nil, nil
 	}
@@ -111,7 +111,7 @@ func (s PVCImportFromVirtualImageStep) Take(ctx context.Context, vd *v1alpha2.Vi
 	return NewPVCImportStep(s.disk, s.pvcSvc, s.client, source, size, s.cb).Take(ctx, vd)
 }
 
-func (s PVCImportFromVirtualImageStep) getPVCSize(vd *v1alpha2.VirtualDisk, viRef *v1alpha2.VirtualImage) (resource.Quantity, error) {
+func (s StartImportFromVirtualImageStep) getPVCSize(vd *v1alpha2.VirtualDisk, viRef *v1alpha2.VirtualImage) (resource.Quantity, error) {
 	unpackedSize, err := resource.ParseQuantity(viRef.Status.Size.UnpackedBytes)
 	if err != nil {
 		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", viRef.Status.Size.UnpackedBytes, err)
@@ -124,7 +124,7 @@ func (s PVCImportFromVirtualImageStep) getPVCSize(vd *v1alpha2.VirtualDisk, viRe
 	return service.GetValidatedPVCSize(vd.Spec.PersistentVolumeClaim.Size, unpackedSize)
 }
 
-func (s PVCImportFromVirtualImageStep) getSource(vd *v1alpha2.VirtualDisk, viRef *v1alpha2.VirtualImage) (*service.PVCImportSource, error) {
+func (s StartImportFromVirtualImageStep) getSource(vd *v1alpha2.VirtualDisk, viRef *v1alpha2.VirtualImage) (*service.PVCImportSource, error) {
 	return BuildVirtualImagePVCImportSource(vd, viRef)
 }
 

@@ -128,7 +128,7 @@ var _ = Describe("RegistryDataSource", func() {
 
 		pvcSvc = &DataSourcePVCServiceMock{
 			FinalizersFunc: func() []string { return nil },
-			ImportFunc: func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
+			WaitForImportFunc: func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
 				return corev1.PodRunning, nil
 			},
 		}
@@ -261,11 +261,11 @@ var _ = Describe("RegistryDataSource", func() {
 
 		It("kicks off the PVC import using a registry source", func() {
 			var started bool
-			pvcSvc.ImportFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim, source *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
+			pvcSvc.CreateTargetFunc = func(_ context.Context, _ types.NamespacedName, _ string, _ resource.Quantity, source *service.PVCImportSource, _ client.Object, _ service.VolumeAndAccessModesGetter, _ *provisioner.NodePlacement) error {
 				started = true
 				Expect(source).ToNot(BeNil())
 				Expect(source.Registry).ToNot(BeNil())
-				return corev1.PodPending, nil
+				return nil
 			}
 
 			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sc).Build()

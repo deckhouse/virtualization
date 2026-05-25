@@ -78,10 +78,9 @@ func NewController(
 	dvcrService := service.NewDVCRService(mgr.GetClient())
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 
-	blank := source.NewBlankDataSource(recorder, disk, mgr.GetClient())
-
 	sources := source.NewSources()
 	pvcSvc := disk.PersistentVolumeClaim()
+	blank := source.NewBlankDataSource(recorder, disk, pvcSvc, mgr.GetClient())
 	sources.Set(v1alpha2.DataSourceTypeHTTP, source.NewHTTPDataSource(recorder, stat, importer, disk, pvcSvc, dvcr, mgr.GetClient()))
 	sources.Set(v1alpha2.DataSourceTypeContainerImage, source.NewRegistryDataSource(recorder, stat, importer, disk, pvcSvc, dvcr, mgr.GetClient()))
 	sources.Set(v1alpha2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(recorder, stat, disk, mgr.GetClient()))

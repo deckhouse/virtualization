@@ -23,14 +23,11 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	commonpvc "github.com/deckhouse/virtualization-controller/pkg/common/pvc"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
@@ -38,35 +35,6 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
-
-// buildVITargetPVC assembles the target PVC descriptor for a VirtualImage
-// (Name/Namespace/OwnerRef/Finalizers/base Spec). The actual import strategy
-// and helper resources are decided inside
-// PersistentVolumeClaimService.Import once the descriptor reaches it.
-func buildVITargetPVC(ctx context.Context, vi *v1alpha2.VirtualImage, sc *storagev1.StorageClass, size resource.Quantity, supgen supplements.Generator, disk *service.DiskService) (*corev1.PersistentVolumeClaim, error) {
-	volumeMode, accessMode, err := disk.GetVolumeAndAccessModes(ctx, vi, sc)
-	if err != nil {
-		return nil, err
-	}
-	target := &corev1.PersistentVolumeClaim{
-		TypeMeta: metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:       supgen.PersistentVolumeClaim().Name,
-			Namespace:  supgen.PersistentVolumeClaim().Namespace,
-			Finalizers: disk.PersistentVolumeClaim().Finalizers(),
-			OwnerReferences: []metav1.OwnerReference{{
-				APIVersion:         v1alpha2.SchemeGroupVersion.String(),
-				Kind:               v1alpha2.VirtualImageKind,
-				Name:               vi.Name,
-				UID:                vi.UID,
-				Controller:         ptr.To(true),
-				BlockOwnerDeletion: ptr.To(true),
-			}},
-		},
-		Spec: *commonpvc.CreateSpec(&sc.Name, size, accessMode, volumeMode),
-	}
-	return target, nil
-}
 
 type Handler interface {
 	StoreToDVCR(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error)
@@ -250,15 +218,19 @@ func reconcilePVCImportFromDVCR(
 			return reconcile.Result{}, err
 		}
 
-		sc, err := disk.GetStorageClass(ctx, vi.Status.StorageClassName)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		target, err := buildVITargetPVC(ctx, vi, sc, diskSize, supgen, disk)
+		err = disk.PersistentVolumeClaim().CreateTarget(ctx, supgen.PersistentVolumeClaim(), vi.Status.StorageClassName, diskSize, source, vi, disk, nil)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, cb); err != nil || updated {
 			return reconcile.Result{}, err
 		}
-		if _, err := disk.PersistentVolumeClaim().Import(ctx, target, source, vi, supgen, nil); err != nil {
+
+		target, err := disk.GetPersistentVolumeClaim(ctx, supgen)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("fetch target pvc: %w", err)
+		}
+		if target == nil {
+			return reconcile.Result{RequeueAfter: time.Second}, nil
+		}
+		if err := disk.PersistentVolumeClaim().Import(ctx, target, source, vi, supgen, nil); err != nil {
 			return reconcile.Result{}, err
 		}
 
@@ -270,7 +242,7 @@ func reconcilePVCImportFromDVCR(
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
-	phase, err := disk.PersistentVolumeClaim().Import(ctx, pvc, source, vi, supgen, nil)
+	phase, err := disk.PersistentVolumeClaim().WaitForImport(ctx, pvc, source, vi, supgen, nil)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -320,15 +292,19 @@ func reconcilePVCImportFromReadySource(
 	ready func(),
 ) (reconcile.Result, error) {
 	if pvc == nil {
-		sc, err := disk.GetStorageClass(ctx, vi.Status.StorageClassName)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		target, err := buildVITargetPVC(ctx, vi, sc, size, supgen, disk)
+		err := disk.PersistentVolumeClaim().CreateTarget(ctx, supgen.PersistentVolumeClaim(), vi.Status.StorageClassName, size, source, vi, disk, nil)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, cb); err != nil || updated {
 			return reconcile.Result{}, err
 		}
-		if _, err := disk.PersistentVolumeClaim().Import(ctx, target, source, vi, supgen, nil); err != nil {
+
+		target, err := disk.GetPersistentVolumeClaim(ctx, supgen)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("fetch target pvc: %w", err)
+		}
+		if target == nil {
+			return reconcile.Result{RequeueAfter: time.Second}, nil
+		}
+		if err := disk.PersistentVolumeClaim().Import(ctx, target, source, vi, supgen, nil); err != nil {
 			return reconcile.Result{}, err
 		}
 		vi.Status.Phase = v1alpha2.ImageProvisioning
@@ -336,7 +312,7 @@ func reconcilePVCImportFromReadySource(
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
-	phase, err := disk.PersistentVolumeClaim().Import(ctx, pvc, source, vi, supgen, nil)
+	phase, err := disk.PersistentVolumeClaim().WaitForImport(ctx, pvc, source, vi, supgen, nil)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

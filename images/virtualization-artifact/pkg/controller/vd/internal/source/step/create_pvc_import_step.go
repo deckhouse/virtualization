@@ -26,13 +26,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
-	"github.com/deckhouse/virtualization-controller/pkg/common/pvc"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
@@ -48,22 +46,21 @@ type PVCImportStepDiskService interface {
 	VolumeAndAccessModesGetter
 }
 
-// PVCService is the contract every PVC-import step relies on to actually
-// populate a target PersistentVolumeClaim. Steps build the target PVC
-// descriptor (metadata + base spec) and hand the rest off to Import; the
-// service decides whether to use a smart clone (Snapshot / CSI) or the
-// cdi-importer pod, and creates every helper resource it needs.
+// PVCService is the contract every PVC-import step relies on to create and
+// populate a target PersistentVolumeClaim.
 type PVCService interface {
 	Finalizers() []string
-	Import(ctx context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) (corev1.PodPhase, error)
+	CreateTarget(ctx context.Context, key types.NamespacedName, storageClassName string, size resource.Quantity, source *service.PVCImportSource, owner client.Object, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) error
+	Import(ctx context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) error
+	WaitForImport(ctx context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) (corev1.PodPhase, error)
 }
 
 // PVCImportStep is the step that initiates target PVC creation for a
 // VirtualDisk import. It assembles the target PVC descriptor (Name,
 // Namespace, OwnerReferences, Finalizers, base Spec) and calls
-// PersistentVolumeClaimService.Import, which then determines the import
-// strategy and provisions every underlying resource needed (scratch PVC,
-// cdi-importer pod, DVCR auth/CA copies, VolumeSnapshot, etc.).
+// PersistentVolumeClaimService.CreateTarget, which determines the import
+// strategy and creates the target PVC with the annotations/dataSource needed
+// by the wait step.
 //
 // The step is idempotent: subsequent invocations are no-ops once the target
 // PVC already exists.
@@ -118,46 +115,35 @@ func (s PVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*rec
 		return nil, fmt.Errorf("storage class %q not found", vd.Status.StorageClassName)
 	}
 
-	volumeMode, accessMode, err := s.disk.GetVolumeAndAccessModes(ctx, vd, sc)
-	switch {
-	case err == nil:
-	case errors.Is(err, volumemode.ErrStorageProfileNotFound):
-		vd.Status.Phase = v1alpha2.DiskFailed
-		s.cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.ProvisioningFailed).
-			Message("StorageProfile not found in the cluster: Please check a StorageProfile name in the cluster.")
-		return &reconcile.Result{}, nil
-	default:
-		return nil, fmt.Errorf("get volume and access modes: %w", err)
-	}
-
 	nodePlacement, err := GetNodePlacement(ctx, s.client, vd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get importer tolerations: %w", err)
 	}
 
-	target := &corev1.PersistentVolumeClaim{
-		TypeMeta: metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:       vd.Status.Target.PersistentVolumeClaim,
-			Namespace:  vd.Namespace,
-			Finalizers: s.pvc.Finalizers(),
-			OwnerReferences: []metav1.OwnerReference{{
-				APIVersion:         v1alpha2.SchemeGroupVersion.String(),
-				Kind:               v1alpha2.VirtualDiskKind,
-				Name:               vd.Name,
-				UID:                vd.UID,
-				Controller:         ptr.To(true),
-				BlockOwnerDeletion: ptr.To(true),
-			}},
-		},
-		Spec: *pvc.CreateSpec(&sc.Name, s.size, accessMode, volumeMode),
+	key := types.NamespacedName{Name: vd.Status.Target.PersistentVolumeClaim, Namespace: vd.Namespace}
+	if err := s.pvc.CreateTarget(ctx, key, sc.Name, s.size, s.source, vd, s.disk, nodePlacement); err != nil {
+		if errors.Is(err, volumemode.ErrStorageProfileNotFound) {
+			vd.Status.Phase = v1alpha2.DiskFailed
+			s.cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdcondition.ProvisioningFailed).
+				Message("StorageProfile not found in the cluster: Please check a StorageProfile name in the cluster.")
+			return &reconcile.Result{}, nil
+		}
+		return nil, fmt.Errorf("create target pvc: %w", err)
+	}
+
+	target, err := object.FetchObject(ctx, key, s.client, &corev1.PersistentVolumeClaim{})
+	if err != nil {
+		return nil, fmt.Errorf("fetch target pvc: %w", err)
+	}
+	if target == nil {
+		return nil, nil
 	}
 
 	sup := vdsupplements.NewGenerator(vd)
-	if _, err := s.pvc.Import(ctx, target, s.source, vd, sup, nodePlacement); err != nil {
-		return nil, fmt.Errorf("pvc import: %w", err)
+	if err := s.pvc.Import(ctx, target, s.source, vd, sup, nodePlacement); err != nil {
+		return nil, fmt.Errorf("import to pvc: %w", err)
 	}
 	return nil, nil
 }

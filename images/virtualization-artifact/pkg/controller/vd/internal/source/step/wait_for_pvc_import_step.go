@@ -22,6 +22,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -92,8 +93,40 @@ func NewWaitForPVCImportStep(
 }
 
 func (s WaitForPVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
-	if s.pvc == nil || s.pvc.Status.Phase != corev1.ClaimBound {
-		return nil, nil
+	if vd.Status.Progress == "" {
+		vd.Status.Progress = "0%"
+	}
+
+	if s.pvc == nil {
+		vd.Status.Phase = v1alpha2.DiskProvisioning
+		s.cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.Provisioning).
+			Message("Waiting for the underlying PersistentVolumeClaim to be created by controller.")
+		return &reconcile.Result{}, nil
+	}
+
+	if s.pvc.Status.Phase != corev1.ClaimBound {
+		wffc, err := s.isWFFC(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("is wffc: %w", err)
+		}
+
+		if wffc {
+			vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
+			s.cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdcondition.WaitingForFirstConsumer).
+				Message("Awaiting the creation and scheduling of the VirtualMachine with the attached VirtualDisk.")
+			return &reconcile.Result{}, nil
+		}
+
+		vd.Status.Phase = v1alpha2.DiskProvisioning
+		s.cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.Provisioning).
+			Message(fmt.Sprintf("Waiting for the PersistentVolumeClaim %q to be Bound.", s.pvc.Name))
+		return &reconcile.Result{}, nil
 	}
 
 	nodePlacement, err := GetNodePlacement(ctx, s.client, vd)
@@ -110,7 +143,7 @@ func (s WaitForPVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk
 	}
 
 	sup := vdsupplements.NewGenerator(vd)
-	phase, err := s.pvcSvc.Import(ctx, s.pvc, source, vd, sup, nodePlacement)
+	phase, err := s.pvcSvc.WaitForImport(ctx, s.pvc, source, vd, sup, nodePlacement)
 	if err != nil {
 		return nil, fmt.Errorf("pvc import: %w", err)
 	}
@@ -134,6 +167,24 @@ func (s WaitForPVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk
 	}
 }
 
+func (s WaitForPVCImportStep) isWFFC(ctx context.Context) (bool, error) {
+	if s.pvc.Spec.StorageClassName == nil || *s.pvc.Spec.StorageClassName == "" {
+		return false, nil
+	}
+
+	scKey := types.NamespacedName{Name: *s.pvc.Spec.StorageClassName}
+	sc, err := object.FetchObject(ctx, scKey, s.client, &storagev1.StorageClass{})
+	if err != nil {
+		return false, fmt.Errorf("fetch storage class: %w", err)
+	}
+
+	if sc == nil || sc.VolumeBindingMode == nil || *sc.VolumeBindingMode != storagev1.VolumeBindingWaitForFirstConsumer {
+		return false, nil
+	}
+
+	return true, nil
+}
+
 // refreshProgressFromPod queries the cdi-importer pod (named after the target
 // PVC) for its progress metric and updates vd.Status.Progress. Silently keeps
 // the previous value when stat/pod is missing or metrics are not yet readable.
@@ -142,9 +193,10 @@ func (s WaitForPVCImportStep) refreshProgressFromPod(ctx context.Context, vd *v1
 		return nil
 	}
 
-	pod, err := object.FetchObject(ctx, types.NamespacedName{Name: s.pvc.Name, Namespace: s.pvc.Namespace}, s.client, &corev1.Pod{})
+	podName := vdsupplements.NewGenerator(vd).PVCImporterPod().Name
+	pod, err := object.FetchObject(ctx, types.NamespacedName{Name: podName, Namespace: s.pvc.Namespace}, s.client, &corev1.Pod{})
 	if err != nil {
-		return fmt.Errorf("fetch cdi-importer pod: %w", err)
+		return fmt.Errorf("fetch pvc-importer pod: %w", err)
 	}
 	if pod == nil {
 		return nil

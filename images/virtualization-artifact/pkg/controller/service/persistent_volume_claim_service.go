@@ -34,6 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
+	commonpvc "github.com/deckhouse/virtualization-controller/pkg/common/pvc"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 )
@@ -62,6 +63,10 @@ type PersistentVolumeClaimService struct {
 	client     client.Client
 	importer   *PVCImporterService
 	protection *ProtectionService
+}
+
+type VolumeAndAccessModesGetter interface {
+	GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
 }
 
 // NewPersistentVolumeClaimService constructs a PersistentVolumeClaimService
@@ -95,32 +100,75 @@ func (s *PersistentVolumeClaimService) Finalizers() []string {
 	return []string{finalizer}
 }
 
-// Import drives one reconciliation step toward populating target with data
-// from source. On the first call (target does not yet exist in the cluster)
-// it picks the most appropriate strategy, augments target.Spec with the
-// strategy-specific dataSource, ensures any required helper resources, and
-// creates the target PVC. Subsequent calls are idempotent: they ensure the
-// helper resources are still in place and report the current import phase.
-//
-// The returned phase mirrors the cdi-importer pod phase or, for smart clones,
-// is derived from the target PVC binding state. Once it is corev1.PodSucceeded
-// the helper resources are torn down automatically.
-//
-// The caller does not need to know which strategy is in use; that decision is
-// fully encapsulated.
-func (s *PersistentVolumeClaimService) Import(ctx context.Context, target *corev1.PersistentVolumeClaim, source *PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) (corev1.PodPhase, error) {
-	existing, err := object.FetchObject(ctx, types.NamespacedName{Name: target.Name, Namespace: target.Namespace}, s.client, &corev1.PersistentVolumeClaim{})
+func (s *PersistentVolumeClaimService) CreateTarget(ctx context.Context, key types.NamespacedName, storageClassName string, size resource.Quantity, source *PVCImportSource, owner client.Object, modeGetter VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) error {
+	existing, err := object.FetchObject(ctx, key, s.client, &corev1.PersistentVolumeClaim{})
 	if err != nil {
-		return "", fmt.Errorf("fetch target pvc: %w", err)
+		return fmt.Errorf("fetch target pvc: %w", err)
 	}
-	if existing == nil {
-		if err := s.createTarget(ctx, target, source, owner, nodePlacement); err != nil {
-			return "", err
+	if existing != nil {
+		return nil
+	}
+
+	sc, err := object.FetchObject(ctx, types.NamespacedName{Name: storageClassName}, s.client, &storagev1.StorageClass{})
+	if err != nil {
+		return fmt.Errorf("fetch storage class: %w", err)
+	}
+	if sc == nil {
+		return fmt.Errorf("storage class %q not found", storageClassName)
+	}
+
+	volumeMode, accessMode, err := modeGetter.GetVolumeAndAccessModes(ctx, owner, sc)
+	if err != nil {
+		return err
+	}
+
+	target := &corev1.PersistentVolumeClaim{
+		TypeMeta: metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            key.Name,
+			Namespace:       key.Namespace,
+			Finalizers:      s.Finalizers(),
+			OwnerReferences: []metav1.OwnerReference{MakeControllerOwnerReference(owner)},
+		},
+		Spec: *commonpvc.CreateSpec(&sc.Name, size, accessMode, volumeMode),
+	}
+
+	return s.createTarget(ctx, target, source, owner, nodePlacement)
+}
+
+func (s *PersistentVolumeClaimService) CreateBlank(ctx context.Context, target *corev1.PersistentVolumeClaim, nodePlacement *provisioner.NodePlacement) error {
+	if nodePlacement != nil {
+		if err := provisioner.KeepNodePlacementTolerations(nodePlacement, target); err != nil {
+			return fmt.Errorf("keep node placement: %w", err)
+		}
+	}
+
+	if err := s.client.Create(ctx, target); err != nil && !k8serrors.IsAlreadyExists(err) {
+		return fmt.Errorf("create blank pvc: %w", err)
+	}
+	return nil
+}
+
+func (s *PersistentVolumeClaimService) WaitForImport(ctx context.Context, target *corev1.PersistentVolumeClaim, source *PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) (corev1.PodPhase, error) {
+	if source != nil && source.PVC != nil && isSmartCloneStrategy(target.Annotations[annotations.AnnPVCImportCloneStrategy]) {
+		if target.Status.Phase == corev1.ClaimBound {
+			if err := s.importer.patchTargetImportPhase(ctx, target, corev1.PodSucceeded); err != nil {
+				return "", err
+			}
+			return corev1.PodSucceeded, s.cleanupCloneSnapshot(ctx, target)
 		}
 		return corev1.PodPending, nil
 	}
 
-	return s.drive(ctx, existing, source, owner, sup, nodePlacement)
+	return s.importer.Wait(ctx, target, sup)
+}
+
+func (s *PersistentVolumeClaimService) Import(ctx context.Context, target *corev1.PersistentVolumeClaim, source *PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) error {
+	if source != nil && source.PVC != nil && isSmartCloneStrategy(target.Annotations[annotations.AnnPVCImportCloneStrategy]) {
+		return nil
+	}
+
+	return s.importer.Import(ctx, target, source, owner, sup, nodePlacement)
 }
 
 // Cleanup removes every helper resource the import has used (cdi-importer
@@ -146,10 +194,7 @@ func (s *PersistentVolumeClaimService) createTarget(ctx context.Context, target 
 		target.Annotations = map[string]string{}
 	}
 
-	size := target.Spec.Resources.Requests[corev1.ResourceStorage]
-	for k, v := range s.importer.PVCImportAnnotations(source, size) {
-		target.Annotations[k] = v
-	}
+	target.Annotations[annotations.AnnPVCImportPhase] = string(corev1.PodPending)
 
 	if source != nil && source.PVC != nil {
 		if err := s.prepareCloneTarget(ctx, target, source.PVC, owner); err != nil {
@@ -227,25 +272,6 @@ func (s *PersistentVolumeClaimService) prepareCloneTarget(ctx context.Context, t
 		}
 	}
 	return nil
-}
-
-// drive moves an already-created target PVC import forward. For smart clone
-// strategies the PVC is populated by Kubernetes itself, so drive only watches
-// the binding state and tears down the helper VolumeSnapshot once the target
-// becomes Bound. For everything else drive delegates to PVCImporterService,
-// which owns the cdi-importer pod path.
-func (s *PersistentVolumeClaimService) drive(ctx context.Context, target *corev1.PersistentVolumeClaim, source *PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) (corev1.PodPhase, error) {
-	if source != nil && source.PVC != nil && isSmartCloneStrategy(target.Annotations[annotations.AnnPVCImportCloneStrategy]) {
-		if target.Status.Phase == corev1.ClaimBound {
-			if err := s.importer.patchTargetImportPhase(ctx, target, corev1.PodSucceeded); err != nil {
-				return "", err
-			}
-			return corev1.PodSucceeded, s.cleanupCloneSnapshot(ctx, target)
-		}
-		return corev1.PodPending, nil
-	}
-
-	return s.importer.Ensure(ctx, target, source, owner, sup, nodePlacement)
 }
 
 func (s *PersistentVolumeClaimService) choosePVCCloneStrategy(ctx context.Context, sourceClaim *corev1.PersistentVolumeClaim, targetSC *storagev1.StorageClass, targetVolumeMode corev1.PersistentVolumeMode) string {

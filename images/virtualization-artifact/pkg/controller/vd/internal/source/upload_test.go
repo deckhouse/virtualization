@@ -127,19 +127,16 @@ var _ = Describe("UploadDataSource", func() {
 
 		pvcSvc = &DataSourcePVCServiceMock{
 			FinalizersFunc: func() []string { return nil },
-			ImportFunc: func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
+			WaitForImportFunc: func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
 				return corev1.PodRunning, nil
 			},
 		}
 
 		uploaderSvc = &UploadDataSourceUploaderServiceMock{
-			GetPodFunc:     func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) { return nil, nil },
-			GetServiceFunc: func(_ context.Context, _ supplements.Generator) (*corev1.Service, error) { return nil, nil },
-			GetIngressFunc: func(_ context.Context, _ supplements.Generator) (*netv1.Ingress, error) { return nil, nil },
-			CleanUpFunc:    func(_ context.Context, _ supplements.Generator) (bool, error) { return false, nil },
-			ProtectFunc: func(_ context.Context, _ supplements.Generator, _ *corev1.Pod, _ *corev1.Service, _ *netv1.Ingress) error {
-				return nil
-			},
+			GetPodFunc:          func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) { return nil, nil },
+			GetServiceFunc:      func(_ context.Context, _ supplements.Generator) (*corev1.Service, error) { return nil, nil },
+			GetIngressFunc:      func(_ context.Context, _ supplements.Generator) (*netv1.Ingress, error) { return nil, nil },
+			CleanUpFunc:         func(_ context.Context, _ supplements.Generator) (bool, error) { return false, nil },
 			GetExternalURLFunc:  func(_ context.Context, _ *netv1.Ingress) string { return "https://upload.example.com" },
 			GetInClusterURLFunc: func(_ context.Context, _ *corev1.Service) string { return "http://upload.svc/upload" },
 		}
@@ -283,7 +280,7 @@ var _ = Describe("UploadDataSource", func() {
 			stat.IsUploadStartedFunc = func(_ types.UID, _ *corev1.Pod) bool { return true }
 		})
 
-		It("reports DiskProvisioning while uploading to DVCR and protects the uploader", func() {
+		It("reports DiskProvisioning while uploading to DVCR", func() {
 			cl := fake.NewClientBuilder().WithScheme(scheme).Build()
 			res, err := newSyncer(cl).Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -291,7 +288,6 @@ var _ = Describe("UploadDataSource", func() {
 
 			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
-			Expect(uploaderSvc.ProtectCalls()).To(HaveLen(1))
 		})
 
 		It("keeps DiskProvisioning on transient uploader pod errors after upload has started", func() {
@@ -327,11 +323,11 @@ var _ = Describe("UploadDataSource", func() {
 
 		It("starts the PVC import using a registry source", func() {
 			var started bool
-			pvcSvc.ImportFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim, source *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
+			pvcSvc.CreateTargetFunc = func(_ context.Context, _ types.NamespacedName, _ string, _ resource.Quantity, source *service.PVCImportSource, _ client.Object, _ service.VolumeAndAccessModesGetter, _ *provisioner.NodePlacement) error {
 				started = true
 				Expect(source).ToNot(BeNil())
 				Expect(source.Registry).ToNot(BeNil())
-				return corev1.PodPending, nil
+				return nil
 			}
 
 			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sc).Build()
