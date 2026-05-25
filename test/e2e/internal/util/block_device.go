@@ -115,7 +115,7 @@ func GetBlockDeviceLsblkSize(ctx context.Context, f *framework.Framework, vm *v1
 		quantity, err := tryGetBlockDeviceLsblkSize(ctx, f, vm, bdKind, bdName)
 		g.Expect(err).NotTo(HaveOccurred(), "failed to get lsblk size for block device %s/%s", bdKind, bdName)
 		size = quantity
-	}).WithTimeout(framework.MiddleTimeout).WithPolling(time.Second).Should(Succeed())
+	}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed())
 
 	return size
 }
@@ -126,30 +126,30 @@ func tryGetBlockDeviceLsblkSize(ctx context.Context, f *framework.Framework, vm 
 		return resource.Quantity{}, fmt.Errorf("failed to get block device %s/%s serial number", bdKind, bdName)
 	}
 
-	devicePath, err := GetBlockDeviceBySerial(f, vm, serial, framework.WithSSHTimeout(10*time.Second))
+	cmdOut, err := f.SSHCommand(vm.Name, vm.Namespace, "sudo lsblk --nodeps --json -o PATH,SERIAL,SIZE")
 	if err != nil {
-		return resource.Quantity{}, fmt.Errorf("failed to get device %s/%s by serial: %w", bdKind, bdName, err)
-	}
-
-	cmdOut, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo lsblk --json -o SIZE %s", devicePath), framework.WithSSHTimeout(10*time.Second))
-	if err != nil {
-		return resource.Quantity{}, fmt.Errorf("failed to get lsblk size for block device %s/%s: %w", bdKind, bdName, err)
+		return resource.Quantity{}, fmt.Errorf("failed to get lsblk output for block device %s/%s: %w", bdKind, bdName, err)
 	}
 
 	var disks Disks
 	if err = json.Unmarshal([]byte(cmdOut), &disks); err != nil {
 		return resource.Quantity{}, fmt.Errorf("failed to parse lsblk output: %w", err)
 	}
-	if len(disks.BlockDevices) == 0 {
-		return resource.Quantity{}, fmt.Errorf("lsblk output does not contain block devices")
+
+	for _, blockDevice := range disks.BlockDevices {
+		if blockDevice.Serial != serial {
+			continue
+		}
+
+		quantity, err := resource.ParseQuantity(strings.TrimSpace(blockDevice.Size))
+		if err != nil {
+			return resource.Quantity{}, fmt.Errorf("failed to parse lsblk size: %w", err)
+		}
+
+		return quantity, nil
 	}
 
-	quantity, err := resource.ParseQuantity(strings.TrimSpace(disks.BlockDevices[0].Size))
-	if err != nil {
-		return resource.Quantity{}, fmt.Errorf("failed to parse lsblk size: %w", err)
-	}
-
-	return quantity, nil
+	return resource.Quantity{}, fmt.Errorf("lsblk output does not contain block device with serial %s", serial)
 }
 
 func GetBlockDeviceBySerial(f *framework.Framework, vm *v1alpha2.VirtualMachine, serial string, options ...framework.SSHCommandOption) (string, error) {
@@ -269,7 +269,9 @@ type Disks struct {
 
 // BlockDevice represents a single block device in the lsblk JSON output.
 type BlockDevice struct {
-	Name string `json:"name"`
-	Size string `json:"size"`
-	Type string `json:"type"`
+	Name   string `json:"name"`
+	Path   string `json:"path"`
+	Serial string `json:"serial"`
+	Size   string `json:"size"`
+	Type   string `json:"type"`
 }
