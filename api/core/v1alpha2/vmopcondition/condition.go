@@ -101,6 +101,14 @@ const (
 	// ReasonTargetDiskError indicates that target disk attachment failed.
 	ReasonTargetDiskError ReasonCompleted = "TargetDiskError"
 
+	// ReasonTargetHandlerShutdown indicates that virt-handler on the target node
+	// was shut down during the live migration, breaking the migration proxy channel.
+	ReasonTargetHandlerShutdown ReasonCompleted = "TargetHandlerShutdown"
+
+	// ReasonSourceHandlerShutdown indicates that virt-handler on the source node
+	// was shut down during the live migration, breaking the migration proxy channel.
+	ReasonSourceHandlerShutdown ReasonCompleted = "SourceHandlerShutdown"
+
 	// ReasonTargetPreparing indicates that target pod is being prepared.
 	ReasonTargetPreparing ReasonCompleted = "TargetPreparing"
 
