@@ -191,13 +191,17 @@ async function makeThreadedReportInLoop(
         .map((result) => result.value);
 
       const failures = results.filter((result) => result.status === "rejected");
-      for (const failure of failures) {
+      const failureDetails = failures.map((failure) => {
         const reason = failure.reason;
-        const details = reason && reason.message ? reason.message : reason;
+        return reason && reason.message ? reason.message : String(reason);
+      });
+      for (const details of failureDetails) {
         core.warning(`Loop file upload failed for one attachment: ${details}`);
       }
       if (loop.strictFileUploads && failures.length > 0) {
-        throw new Error("Strict file uploads enabled; at least one attachment failed");
+        throw new Error(
+          `Strict file uploads enabled; at least one attachment failed: ${failureDetails.join("; ")}`
+        );
       }
     }
     await postToLoopApi(loop, reply.message, rootPost.id, core, fileIds, {
