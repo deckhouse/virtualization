@@ -13,10 +13,7 @@
 const fs = require("fs");
 
 const { findSingleMatchingFile } = require("./shared/fs-utils");
-const {
-  parseGinkgoOutput,
-  parseGinkgoReport,
-} = require("./shared/ginkgo-report-utils");
+const { parseGinkgoOutput, parseGinkgoReport } = require("./shared/ginkgo-report-utils");
 const {
   archivedReportPattern,
   buildClusterStatus,
@@ -69,11 +66,11 @@ const {
  */
 
 const workflowStages = [
-  { name: "bootstrap",            displayName: "Bootstrap cluster",        needsJobId: "bootstrap" },
-  { name: "configure-sdn",        displayName: "Configure SDN",            needsJobId: "configure-sdn" },
-  { name: "storage-setup",        displayName: "Configure storage",        needsJobId: "configure-storage" },
+  { name: "bootstrap", displayName: "Bootstrap cluster", needsJobId: "bootstrap" },
+  { name: "configure-sdn", displayName: "Configure SDN", needsJobId: "configure-sdn" },
+  { name: "storage-setup", displayName: "Configure storage", needsJobId: "configure-storage" },
   { name: "virtualization-setup", displayName: "Configure Virtualization", needsJobId: "configure-virtualization" },
-  { name: "e2e-test",             displayName: "E2E test",                 needsJobId: "e2e-test" },
+  { name: "e2e-test", displayName: "E2E test", needsJobId: "e2e-test" },
 ];
 
 function readClusterReportConfigFromEnv(env = process.env) {
@@ -238,11 +235,7 @@ const ginkgoOutputSource = {
  * @returns {string|null} Path to the source file, or null when none exists.
  */
 function findGinkgoSource(config, source) {
-  return findSingleMatchingFile(
-    config.reportsDir,
-    source.pattern(config.storageType),
-    source.label
-  );
+  return findSingleMatchingFile(config.reportsDir, source.pattern(config.storageType), source.label);
 }
 
 /**
@@ -276,21 +269,12 @@ function parseGinkgoFile(filePath, core, source) {
       source: source.okSource,
     };
   } catch (error) {
-    core.warning(
-      `Unable to parse ${source.label} ${filePath}: ${error.message}`
-    );
+    core.warning(`Unable to parse ${source.label} ${filePath}: ${error.message}`);
     return emptyParsedReport(source.invalidSource);
   }
 }
 
-function buildReportPayload({
-  config,
-  context,
-  fallbackWorkflowRunUrl,
-  branchName,
-  parsedReport,
-  sourcePath,
-}) {
+function buildReportPayload({ config, context, fallbackWorkflowRunUrl, branchName, parsedReport, sourcePath }) {
   const clusterStatus = buildClusterStatus(config.stageResults);
   const testStatus = buildTestStatus(
     config.stageResults["e2e-test"],
@@ -298,16 +282,8 @@ function buildReportPayload({
     clusterStatus,
     parsedReport.metrics
   );
-  const reportSummary = buildReportSummary(
-    config.storageType,
-    clusterStatus,
-    testStatus
-  );
-  const workflowRunUrl = getReportJobUrl(
-    reportSummary,
-    config.stageJobUrls,
-    fallbackWorkflowRunUrl
-  );
+  const reportSummary = buildReportSummary(config.storageType, clusterStatus, testStatus);
+  const workflowRunUrl = getReportJobUrl(reportSummary, config.stageJobUrls, fallbackWorkflowRunUrl);
 
   return {
     schemaVersion: 1,
@@ -335,11 +311,7 @@ function buildReportPayload({
   };
 }
 
-function getReportJobUrl(
-  reportSummary,
-  stageJobUrls = {},
-  fallbackWorkflowRunUrl
-) {
+function getReportJobUrl(reportSummary, stageJobUrls = {}, fallbackWorkflowRunUrl) {
   if (reportSummary.failedStage && stageJobUrls[reportSummary.failedStage]) {
     return stageJobUrls[reportSummary.failedStage];
   }
@@ -377,29 +349,20 @@ function setReportOutputs(report, reportFile, core) {
  * @throws {Error} If config is incomplete or the report file cannot be written.
  */
 async function buildClusterReport({ core, context, github, config } = {}) {
-  const resolvedConfig = requireClusterReportConfig(
-    config || readClusterReportConfigFromEnv()
-  );
+  const resolvedConfig = requireClusterReportConfig(config || readClusterReportConfigFromEnv());
 
   if (!resolvedConfig.stageResults) {
     resolvedConfig.stageResults = readStageResultsFromEnv();
   }
 
   if (!resolvedConfig.stageJobUrls && github) {
-    resolvedConfig.stageJobUrls = await readStageJobUrlsFromApi(
-      github,
-      context,
-      resolvedConfig,
-      core
-    );
+    resolvedConfig.stageJobUrls = await readStageJobUrlsFromApi(github, context, resolvedConfig, core);
   }
 
   const fallbackWorkflowRunUrl = getWorkflowRunUrl(context);
   const branchName = getBranchName(context);
   const rawReportPath = findGinkgoSource(resolvedConfig, ginkgoJsonSource);
-  const outputPath = rawReportPath
-    ? null
-    : findGinkgoSource(resolvedConfig, ginkgoOutputSource);
+  const outputPath = rawReportPath ? null : findGinkgoSource(resolvedConfig, ginkgoOutputSource);
   const sourcePath = rawReportPath || outputPath;
   const sourceDescriptor = rawReportPath ? ginkgoJsonSource : ginkgoOutputSource;
 
@@ -420,14 +383,9 @@ async function buildClusterReport({ core, context, github, config } = {}) {
   });
 
   try {
-    fs.writeFileSync(
-      resolvedConfig.reportFile,
-      `${JSON.stringify(report, null, 2)}\n`
-    );
+    fs.writeFileSync(resolvedConfig.reportFile, `${JSON.stringify(report, null, 2)}\n`);
   } catch (error) {
-    throw new Error(
-      `Unable to write cluster report file ${resolvedConfig.reportFile}: ${error.message}`
-    );
+    throw new Error(`Unable to write cluster report file ${resolvedConfig.reportFile}: ${error.message}`);
   }
 
   setReportOutputs(report, resolvedConfig.reportFile, core);

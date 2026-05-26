@@ -188,55 +188,9 @@ describe("loop-client", () => {
     expect(replyBody.file_ids).toEqual(["file-one"]);
 
     expect(core.warning).toHaveBeenCalledWith(
-      expect.stringContaining(
-        "Loop file upload failed for one attachment: Loop file upload failed with status 403"
-      )
+      expect.stringContaining("Loop file upload failed for one attachment: Loop file upload failed with status 403")
     );
     expect(core.warning).toHaveBeenCalledTimes(1);
-  });
-
-  test("fails when strict file upload mode is enabled", async () => {
-    const loop = createLoop({
-      strictFileUploads: true,
-    });
-    const responses = [
-      {
-        ok: true,
-        status: 201,
-        text: async () => JSON.stringify({ id: "root-post-id" }),
-      },
-      {
-        ok: false,
-        status: 403,
-        text: async () => "permission denied",
-      },
-    ];
-    global.fetch = jest
-      .fn()
-      .mockImplementation(() => Promise.resolve(responses.shift()));
-
-    await expect(
-      makeThreadedReportInLoop(
-        {
-          message: "main",
-          threadMessages: [
-            {
-              message: "reply",
-              files: [
-                {
-                  name: "chart.png",
-                  buffer: Buffer.from("image-bytes"),
-                  mimeType: "image/png",
-                },
-              ],
-            },
-          ],
-          loop,
-        },
-        createCore()
-      )
-    ).rejects.toThrow("Strict file uploads enabled; at least one attachment failed");
-    expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
   test("uses injected fetch without touching the global fetch", async () => {

@@ -31,8 +31,6 @@ describe("messenger-report", () => {
     delete process.env.LOOP_API_BASE_URL;
     delete process.env.LOOP_CHANNEL_ID;
     delete process.env.LOOP_TOKEN;
-    delete process.env.LOOP_STRICT_DELIVERY;
-    delete process.env.LOOP_STRICT_FILE_UPLOAD;
     delete global.fetch;
     getClusterChartFiles.mockReset();
     getClusterChartFiles.mockResolvedValue([]);
@@ -54,8 +52,6 @@ describe("messenger-report", () => {
         filesApiUrl: "https://loop.example.invalid/api/v4/files",
         channelId: "channel-id",
         token: "token",
-        strictDelivery: false,
-        strictFileUploads: false,
       },
     });
   });
@@ -307,6 +303,7 @@ describe("messenger-report", () => {
             successRate: 80,
           },
           failedTests: ["[It] nfs fails"],
+          failedTestDetails: [{ name: "[It] nfs fails", reason: "" }],
         })
       );
 
@@ -346,6 +343,7 @@ describe("messenger-report", () => {
             successRate: 92.31,
           },
           failedTests: ["[It] replicated fails"],
+          failedTestDetails: [{ name: "[It] replicated fails", reason: "" }],
         })
       );
 
@@ -367,6 +365,7 @@ describe("messenger-report", () => {
             successRate: 80,
           },
           failedTests: ["[It] nfs fails"],
+          failedTestDetails: [{ name: "[It] nfs fails", reason: "" }],
         })
       );
 
@@ -382,8 +381,7 @@ describe("messenger-report", () => {
           files: [],
         },
         {
-          message:
-            "**[nfs](https://example.invalid/nfs)**\n\n| Tests | Reason |\n|---|---|\n| nfs | — |",
+          message: "**[nfs](https://example.invalid/nfs)**\n\n| Tests | Reason |\n|---|---|\n| nfs | — |",
           files: [],
         },
       ]);
@@ -416,6 +414,36 @@ describe("messenger-report", () => {
             "[It] VirtualMachineOperationRestore restores a virtual machine from a snapshot BestEffort restore mode; automatic restart approval mode; always on unless stopped manually run policy [Slow]",
             "[It] VirtualMachineOperationRestore restores a virtual machine from a snapshot BestEffort restore mode; automatic restart approval mode; manual run policy [Slow]",
             "[It] VirtualMachineAdditionalNetworkInterfaces verifies interface name persistence after removing middle ClusterNetwork should preserve interface name after removing middle ClusterNetwork and rebooting",
+          ],
+          failedTestDetails: [
+            {
+              name: "[It] VirtualMachineOperationRestore restores a virtual machine from a snapshot BestEffort restore mode; manual restart approval mode; always on unless stopped manually run policy [Slow]",
+              reason: "",
+            },
+            {
+              name: "[It] VirtualMachineOperationRestore restores a virtual machine from a snapshot Strict restore mode; manual restart approval mode; always on unless stopped manually run policy [Slow]",
+              reason: "",
+            },
+            {
+              name: "[It] VirtualMachineOperationRestore restores a virtual machine from a snapshot BestEffort restore mode; manual restart approval mode; always on unless stopped manually run policy; with resource deletion [Slow]",
+              reason: "",
+            },
+            {
+              name: "[It] VirtualMachineOperationRestore restores a virtual machine from a snapshot Strict restore mode; manual restart approval mode; always on unless stopped manually run policy; with resource deletion [Slow]",
+              reason: "",
+            },
+            {
+              name: "[It] VirtualMachineOperationRestore restores a virtual machine from a snapshot BestEffort restore mode; automatic restart approval mode; always on unless stopped manually run policy [Slow]",
+              reason: "",
+            },
+            {
+              name: "[It] VirtualMachineOperationRestore restores a virtual machine from a snapshot BestEffort restore mode; automatic restart approval mode; manual run policy [Slow]",
+              reason: "",
+            },
+            {
+              name: "[It] VirtualMachineAdditionalNetworkInterfaces verifies interface name persistence after removing middle ClusterNetwork should preserve interface name after removing middle ClusterNetwork and rebooting",
+              reason: "",
+            },
           ],
         })
       );
@@ -480,9 +508,7 @@ describe("messenger-report", () => {
 
       expect(result.message).not.toContain("Branch: `main`");
       expect(result.message).toContain("### Cluster failures");
-      expect(result.message).toContain(
-        "- [replicated](https://example.invalid/replicated): ❌ CONFIGURE SDN FAILED"
-      );
+      expect(result.message).toContain("- [replicated](https://example.invalid/replicated): ❌ CONFIGURE SDN FAILED");
       expect(result.threadMessages).toEqual([]);
     }));
 
@@ -593,6 +619,7 @@ describe("messenger-report", () => {
             successRate: 83.33,
           },
           failedTests: ["[It] fails"],
+          failedTestDetails: [{ name: "[It] fails", reason: "" }],
           specTimings: [{ name: "slow", group: "VM", state: "failed", runtimeMs: 90000 }],
         })
       );
@@ -705,9 +732,7 @@ describe("messenger-report", () => {
 
       // Empty body → no post id → thread replies cannot be sent → warning emitted.
       expect(global.fetch).toHaveBeenCalledTimes(1);
-      expect(core.warning).toHaveBeenCalledWith(
-        expect.stringContaining("Loop API did not return a post id")
-      );
+      expect(core.warning).toHaveBeenCalledWith(expect.stringContaining("Loop API did not return a post id"));
       // Report outputs are still set because the message was built before sending.
       expect(core.setOutput).toHaveBeenCalledWith("thread_messages", "[]");
     }));
@@ -752,12 +777,8 @@ describe("messenger-report", () => {
 
       // Non-JSON body → parse warning → no post id → delivery warning.
       expect(global.fetch).toHaveBeenCalledTimes(1);
-      expect(core.warning).toHaveBeenCalledWith(
-        expect.stringContaining("Loop API returned a non-JSON response body")
-      );
-      expect(core.warning).toHaveBeenCalledWith(
-        expect.stringContaining("Loop API did not return a post id")
-      );
+      expect(core.warning).toHaveBeenCalledWith(expect.stringContaining("Loop API returned a non-JSON response body"));
+      expect(core.warning).toHaveBeenCalledWith(expect.stringContaining("Loop API did not return a post id"));
       // Report outputs are still set because the message was built before sending.
       expect(core.setOutput).toHaveBeenCalledWith("thread_messages", "[]");
     }));
@@ -803,47 +824,6 @@ describe("messenger-report", () => {
       expect(global.fetch).toHaveBeenCalledTimes(1);
       expect(core.warning).toHaveBeenCalledWith(
         "Unable to deliver report to Loop API: Loop API request failed with status 500: server exploded"
-      );
-    }));
-
-  test("fails local delivery when strict Loop delivery mode is enabled", async () =>
-    inTempDir(async (tempDir) => {
-      fs.writeFileSync(
-        path.join(tempDir, "e2e_report_replicated.json"),
-        JSON.stringify({
-          cluster: "replicated",
-          storageType: "replicated",
-          reportKind: "tests",
-          branch: "main",
-          workflowRunUrl: "https://example.invalid/replicated",
-          startedAt: "2026-04-15T09:30:44",
-          metrics: {
-            passed: 11,
-            skipped: 0,
-            failed: 0,
-            errors: 0,
-            total: 11,
-            successRate: 100,
-          },
-          failedTests: [],
-        })
-      );
-
-      process.env.REPORTS_DIR = tempDir;
-      process.env.EXPECTED_STORAGE_TYPES = '["replicated"]';
-      process.env.LOOP_API_BASE_URL = "https://loop.example.invalid";
-      process.env.LOOP_CHANNEL_ID = "channel-id";
-      process.env.LOOP_TOKEN = "loop-token";
-      process.env.LOOP_STRICT_DELIVERY = "1";
-
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: false,
-        status: 500,
-        text: async () => "server exploded",
-      });
-
-      await expect(renderMessengerReport({ core: createCore() })).rejects.toThrow(
-        "Loop API request failed with status 500: server exploded"
       );
     }));
 });
