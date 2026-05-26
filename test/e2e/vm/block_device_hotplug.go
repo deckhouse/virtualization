@@ -197,6 +197,9 @@ func setupVM(f *framework.Framework, withBlank bool) (
 	By("Waiting for SSH to be ready")
 	util.UntilSSHReady(f, vm, framework.LongTimeout)
 
+	By("Waiting for 'lsblk' to be ready for use")
+	util.UntilGuestCommandsReady(f, vm, []string{"lsblk"}, framework.MiddleTimeout)
+
 	By("Recording initial disk count")
 	initialDiskCount, err = util.GetDiskCount(f, vm.Name, vm.Namespace)
 	Expect(err).NotTo(HaveOccurred())

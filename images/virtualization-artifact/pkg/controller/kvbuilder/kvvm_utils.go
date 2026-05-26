@@ -186,12 +186,13 @@ func applyBlockDeviceRefs(
 		}
 	}
 	// This is needed to support disk removal in old VMs with static disks
-	cleanupRemovedStaticDisks(kvvm, specDiskNames, hotpluggableVolumes)
+	cleanupRemovedStaticDisks(kvvm, specDiskNames, hotpluggableVolumes, isVmRunning)
 
 	kvvmVolumes := kvvm.Resource.Spec.Template.Spec.Volumes
 	for i, bd := range vm.Spec.BlockDeviceRefs {
 		diskName := GenerateDiskName(bd.Kind, bd.Name)
-		if vm.Spec.EnableParavirtualization && len(kvvmVolumes) > 0 && !slices.ContainsFunc(kvvmVolumes, func(v virtv1.Volume) bool { return v.Name == diskName }) {
+		// When VM is stopped, update disks unconditionally.
+		if isVmRunning && vm.Spec.EnableParavirtualization && len(kvvmVolumes) > 0 && !slices.ContainsFunc(kvvmVolumes, func(v virtv1.Volume) bool { return v.Name == diskName }) {
 			continue
 		}
 
@@ -213,11 +214,15 @@ func applyBlockDeviceRefs(
 	return nil
 }
 
-func cleanupRemovedStaticDisks(kvvm *KVVM, specDiskNames, hotpluggableVolumes map[string]struct{}) {
+func cleanupRemovedStaticDisks(kvvm *KVVM, specDiskNames, hotpluggableVolumes map[string]struct{}, isVmRunning bool) {
 	isRemovedStatic := func(name string) bool {
 		_, kind := GetOriginalDiskName(name)
 		_, inSpec := specDiskNames[name]
 		_, hotpluggable := hotpluggableVolumes[name]
+		// When VM is stopped, remove all disks that are not in VM spec.
+		if !isVmRunning {
+			return kind != "" && !inSpec
+		}
 		return kind != "" && !inSpec && !hotpluggable
 	}
 
