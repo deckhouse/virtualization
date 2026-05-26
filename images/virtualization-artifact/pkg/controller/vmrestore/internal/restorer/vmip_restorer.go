@@ -143,12 +143,12 @@ func (v *VirtualMachineIPAddressOverrideValidator) ValidateWithForce(ctx context
 		return nil
 	}
 
-	if existed.Status.Phase == v1alpha2.VirtualMachineIPAddressPhaseAttached && existed.Status.VirtualMachine == vmName {
-		return ErrAlreadyExists
+	if existed.Status.VirtualMachine != "" && existed.Status.VirtualMachine != vmName {
+		return fmt.Errorf("the virtual machine ip address %q is %w and cannot be used for the restored virtual machine", vmipKey.Name, ErrAlreadyInUse)
 	}
 
-	if existed.Status.Phase == v1alpha2.VirtualMachineIPAddressPhaseAttached || existed.Status.VirtualMachine != "" {
-		return fmt.Errorf("the virtual machine ip address %q is %w and cannot be used for the restored virtual machine", vmipKey.Name, ErrAlreadyInUse)
+	if existed.Status.Phase == v1alpha2.VirtualMachineIPAddressPhaseAttached {
+		return ErrAlreadyExists
 	}
 
 	return nil

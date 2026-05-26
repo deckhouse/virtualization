@@ -139,12 +139,12 @@ func (v *VirtualMachineMACAddressOverrideValidator) ValidateWithForce(ctx contex
 		return nil
 	}
 
-	if existed.Status.Phase == v1alpha2.VirtualMachineMACAddressPhaseAttached && existed.Status.VirtualMachine == vmName {
-		return ErrAlreadyExists
+	if existed.Status.VirtualMachine != "" && existed.Status.VirtualMachine != vmName {
+		return fmt.Errorf("the virtual machine mac address %q is %w and cannot be used for the restored virtual machine", vmmacKey.Name, ErrAlreadyInUse)
 	}
 
-	if existed.Status.Phase == v1alpha2.VirtualMachineMACAddressPhaseAttached || existed.Status.VirtualMachine != "" {
-		return fmt.Errorf("the virtual machine mac address %q is %w and cannot be used for the restored virtual machine", vmmacKey.Name, ErrAlreadyInUse)
+	if existed.Status.Phase == v1alpha2.VirtualMachineMACAddressPhaseAttached {
+		return ErrAlreadyExists
 	}
 
 	return nil
