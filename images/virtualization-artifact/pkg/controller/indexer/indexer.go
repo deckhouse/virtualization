@@ -71,6 +71,7 @@ const (
 
 	IndexFieldEventByInvolvedObjectName        = "involvedObject.name"
 	IndexFieldEventByInvolvedObjectKind        = "involvedObject.kind"
+	IndexFieldPVByStorageClass                 = "spec.storageClassName"
 	IndexFieldUSBDeviceByName                  = "metadata.name"
 	IndexFieldNodeUSBDeviceByAssignedNamespace = "spec.assignedNamespace"
 
@@ -104,6 +105,7 @@ var IndexGetters = []IndexGetter{
 	IndexVMIPLeaseByVMIP,
 	IndexEventByInvolvedObjectName,
 	IndexEventByInvolvedObjectKind,
+	IndexPVByStorageClass,
 }
 
 var IndexGettersUSB = []IndexGetter{
