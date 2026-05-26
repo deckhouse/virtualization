@@ -9,7 +9,7 @@ const (
 	ImporterVolumePath = "/data"
 	DiskImageName      = "disk.img"
 	ImporterWritePath  = ImporterVolumePath + "/" + DiskImageName
-	WriteBlockPath     = "/dev/cdi-block-volume"
+	WriteBlockPath     = "/dev/pvc-importer-block-volume"
 	ImporterDataDir    = "/data"
 	ScratchDataDir     = "/scratch"
 	NbdkitLogPath      = "/tmp/nbdkit.log"
