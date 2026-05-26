@@ -13,6 +13,16 @@
 const { uploadFileToLoop, makeThreadedReportInLoop } = require("./loop-client");
 const { createCore } = require("../shared/test-utils");
 
+function createLoop(overrides = {}) {
+  return {
+    postsApiUrl: "https://loop.example.invalid/api/v4/posts",
+    filesApiUrl: "https://loop.example.invalid/api/v4/files",
+    channelId: "channel-id",
+    token: "loop-token",
+    ...overrides,
+  };
+}
+
 describe("loop-client", () => {
   afterEach(() => {
     delete global.fetch;
@@ -26,11 +36,7 @@ describe("loop-client", () => {
     });
 
     const fileId = await uploadFileToLoop(
-      {
-        apiUrl: "https://loop.example.invalid/api/v4/posts",
-        channelId: "channel-id",
-        token: "loop-token",
-      },
+      createLoop(),
       "chart.png",
       Buffer.from("image-bytes"),
       createCore(),
@@ -55,11 +61,7 @@ describe("loop-client", () => {
   });
 
   test("posts the reply with uploaded chart file ids", async () => {
-    const loop = {
-      apiUrl: "https://loop.example.invalid/api/v4/posts",
-      channelId: "channel-id",
-      token: "loop-token",
-    };
+    const loop = createLoop();
     const responses = [
       {
         ok: true,
@@ -119,11 +121,7 @@ describe("loop-client", () => {
   });
 
   test("posts the reply with successful attachments when one upload fails", async () => {
-    const loop = {
-      apiUrl: "https://loop.example.invalid/api/v4/posts",
-      channelId: "channel-id",
-      token: "loop-token",
-    };
+    const loop = createLoop();
     const core = createCore();
     const responses = [
       {
@@ -179,10 +177,10 @@ describe("loop-client", () => {
     );
 
     expect(global.fetch).toHaveBeenCalledTimes(4);
-    expect(global.fetch.mock.calls[0][0]).toBe(loop.apiUrl);
-    expect(global.fetch.mock.calls[1][0]).toBe("https://loop.example.invalid/api/v4/files");
-    expect(global.fetch.mock.calls[2][0]).toBe("https://loop.example.invalid/api/v4/files");
-    expect(global.fetch.mock.calls[3][0]).toBe(loop.apiUrl);
+    expect(global.fetch.mock.calls[0][0]).toBe(loop.postsApiUrl);
+    expect(global.fetch.mock.calls[1][0]).toBe(loop.filesApiUrl);
+    expect(global.fetch.mock.calls[2][0]).toBe(loop.filesApiUrl);
+    expect(global.fetch.mock.calls[3][0]).toBe(loop.postsApiUrl);
 
     const replyBody = JSON.parse(global.fetch.mock.calls[3][1].body);
     expect(replyBody.root_id).toBe("root-post-id");
@@ -198,12 +196,9 @@ describe("loop-client", () => {
   });
 
   test("fails when strict file upload mode is enabled", async () => {
-    const loop = {
-      apiUrl: "https://loop.example.invalid/api/v4/posts",
-      channelId: "channel-id",
-      token: "loop-token",
+    const loop = createLoop({
       strictFileUploads: true,
-    };
+    });
     const responses = [
       {
         ok: true,
@@ -246,11 +241,7 @@ describe("loop-client", () => {
 
   test("uses injected fetch without touching the global fetch", async () => {
     const originalFetch = globalThis.fetch;
-    const loop = {
-      apiUrl: "https://loop.example.invalid/api/v4/posts",
-      channelId: "channel-id",
-      token: "loop-token",
-    };
+    const loop = createLoop();
     const responses = [
       {
         ok: true,

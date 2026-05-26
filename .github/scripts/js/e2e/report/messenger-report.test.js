@@ -50,7 +50,8 @@ describe("messenger-report", () => {
       reportsDir: "custom-reports",
       configuredClusters: ["replicated", "nfs"],
       loop: {
-        apiUrl: "https://loop.example.invalid/api/v4/posts",
+        postsApiUrl: "https://loop.example.invalid/api/v4/posts",
+        filesApiUrl: "https://loop.example.invalid/api/v4/files",
         channelId: "channel-id",
         token: "token",
         strictDelivery: false,

@@ -18,7 +18,8 @@
 
 /**
  * @typedef {Object} LoopCredentials
- * @property {string} apiUrl
+ * @property {string} postsApiUrl
+ * @property {string} filesApiUrl
  * @property {string} channelId
  * @property {string} token
  */
@@ -79,7 +80,7 @@ async function postToLoopApi(
     ...(fileIds.length > 0 ? { file_ids: fileIds } : {}),
   };
 
-  const response = await fetchFn(loop.apiUrl, {
+  const response = await fetchFn(loop.postsApiUrl, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${loop.token}`,
@@ -98,10 +99,6 @@ async function postToLoopApi(
   const payload = parseLoopApiPayload(responseText, core);
   core.info(`Loop API accepted report with status ${response.status}`);
   return payload;
-}
-
-function getFilesApiUrl(apiUrl) {
-  return String(apiUrl || "").replace(/\/posts$/, "/files");
 }
 
 /**
@@ -127,7 +124,7 @@ async function uploadFileToLoop(
   formData.append("channel_id", loop.channelId);
   formData.append("files", new Blob([buffer], { type: mimeType }), fileName);
 
-  const response = await fetchFn(getFilesApiUrl(loop.apiUrl), {
+  const response = await fetchFn(loop.filesApiUrl, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${loop.token}`,

@@ -10,30 +10,55 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+const loopApiRootSegments = ["api", "v4"];
+
+function getUrlPathSegments(url) {
+  return url.pathname.split("/").filter(Boolean);
+}
+
+function buildUrlPath(segments) {
+  return `/${segments.join("/")}`;
+}
+
+function findLoopApiRootIndex(segments) {
+  return segments.findIndex(
+    (segment, index) =>
+      segment === loopApiRootSegments[0] &&
+      segments[index + 1] === loopApiRootSegments[1]
+  );
+}
+
+function buildLoopEndpointUrl(apiBaseUrl, endpoint) {
+  const url = new URL(apiBaseUrl);
+  url.pathname = buildUrlPath([...getUrlPathSegments(url), endpoint]);
+  return url.toString();
+}
+
 /**
- * Normalizes the configured Loop API base URL to the `/api/v4/posts` endpoint.
+ * Normalizes the configured Loop API base URL to the `/api/v4` root.
  *
  * @param {string} value Raw Loop API base URL.
- * @returns {string} Normalized posts endpoint URL or an empty string.
+ * @returns {string} Normalized API root URL or an empty string.
  */
 function normalizeLoopApiBaseUrl(value) {
-  const trimmedValue = String(value || "")
-    .trim()
-    .replace(/\/+$/, "");
+  const rawValue = String(value || "").trim();
 
-  if (!trimmedValue) {
+  if (!rawValue) {
     return "";
   }
 
-  if (trimmedValue.endsWith("/api/v4/posts")) {
-    return trimmedValue;
-  }
+  const url = new URL(rawValue);
+  const pathSegments = getUrlPathSegments(url);
+  const apiRootIndex = findLoopApiRootIndex(pathSegments);
+  const apiRootSegments =
+    apiRootIndex === -1
+      ? [...pathSegments, ...loopApiRootSegments]
+      : pathSegments.slice(0, apiRootIndex + loopApiRootSegments.length);
 
-  if (trimmedValue.endsWith("/api/v4")) {
-    return `${trimmedValue}/posts`;
-  }
-
-  return `${trimmedValue}/api/v4/posts`;
+  url.pathname = buildUrlPath(apiRootSegments);
+  url.search = "";
+  url.hash = "";
+  return url.toString();
 }
 
 // Fallback used only when EXPECTED_STORAGE_TYPES is not set (e.g. local runs or tests).
@@ -70,21 +95,22 @@ function parseBooleanEnv(value) {
  * mistake and should surface as an error rather than a silent no-op.
  *
  * @param {NodeJS.ProcessEnv} [env=process.env] Environment variables source.
- * @returns {{ apiUrl: string, channelId: string, token: string, strictDelivery: boolean, strictFileUploads: boolean } | null}
+ * @returns {{ postsApiUrl: string, filesApiUrl: string, channelId: string, token: string, strictDelivery: boolean, strictFileUploads: boolean } | null}
  */
 function readLoopConfig(env = process.env) {
-  const apiUrl = normalizeLoopApiBaseUrl(env.LOOP_API_BASE_URL);
+  const apiBaseUrl = normalizeLoopApiBaseUrl(env.LOOP_API_BASE_URL);
   const channelId = String(env.LOOP_CHANNEL_ID || "").trim();
   const token = String(env.LOOP_TOKEN || "").trim();
 
-  if (!apiUrl && !channelId && !token) {
+  if (!apiBaseUrl && !channelId && !token) {
     return null;
   }
-  if (!apiUrl || !channelId || !token) {
+  if (!apiBaseUrl || !channelId || !token) {
     throw new Error("LOOP_CHANNEL_ID, LOOP_TOKEN, and LOOP_API_BASE_URL are required");
   }
   return {
-    apiUrl,
+    postsApiUrl: buildLoopEndpointUrl(apiBaseUrl, "posts"),
+    filesApiUrl: buildLoopEndpointUrl(apiBaseUrl, "files"),
     channelId,
     token,
     strictDelivery: parseBooleanEnv(env.LOOP_STRICT_DELIVERY),
@@ -99,7 +125,7 @@ function readLoopConfig(env = process.env) {
  * @returns {{
  *   reportsDir: string,
  *   configuredClusters: string[],
- *   loop: { apiUrl: string, channelId: string, token: string, strictDelivery: boolean, strictFileUploads: boolean } | null
+ *   loop: { postsApiUrl: string, filesApiUrl: string, channelId: string, token: string, strictDelivery: boolean, strictFileUploads: boolean } | null
  * }} Normalized messenger configuration.
  */
 function readMessengerConfigFromEnv(env = process.env) {
