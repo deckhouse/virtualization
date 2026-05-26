@@ -208,6 +208,17 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 
 		if vm.Status.Phase == v1alpha2.MachineRunning {
 			cb.Reason(vmcondition.ReasonVirtualMachineRunning).Status(metav1.ConditionTrue)
+
+			for _, c := range kvvmi.Status.Conditions {
+				if c.Type == "BootFailed" {
+					cb.Status(conditionStatus(string(c.Status))).
+						Reason(vmcondition.ReasonNoBootableDeviceFound).
+						Message("Among all the virtual machine’s block devices, there is no device from which it can boot.")
+					conditions.SetCondition(cb, &vm.Status.Conditions)
+					return nil
+				}
+			}
+
 			conditions.SetCondition(cb, &vm.Status.Conditions)
 			return nil
 		}

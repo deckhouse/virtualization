@@ -167,6 +167,7 @@ func (r RunningReason) String() string {
 const (
 	ReasonVirtualMachineNotRunning    RunningReason = "NotRunning"
 	ReasonVirtualMachineRunning       RunningReason = "Running"
+	ReasonNoBootableDeviceFound       RunningReason = "NoBootableDevice"
 	ReasonInternalVirtualMachineError RunningReason = "InternalVirtualMachineError"
 	ReasonPodNotStarted               RunningReason = "PodNotStarted"
 	ReasonPodTerminating              RunningReason = "PodTerminating"
