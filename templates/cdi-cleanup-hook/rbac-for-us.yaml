@@ -1,0 +1,122 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cdi-cleanup-hook
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "cdi-cleanup-hook")) | nindent 2 }}
+imagePullSecrets:
+- name: virtualization-module-registry
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cdi-cleanup-hook
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "cdi-cleanup-hook")) | nindent 2 }}
+rules:
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - secrets
+  - serviceaccounts
+  - services
+  verbs:
+  - get
+  - delete
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
+  - rolebindings
+  verbs:
+  - get
+  - delete
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - get
+  - delete
+- apiGroups:
+  - autoscaling.k8s.io
+  resources:
+  - verticalpodautoscalers
+  verbs:
+  - get
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: d8:virtualization:cdi-cleanup-hook
+  {{- include "helm_lib_module_labels" (list . (dict "app" "cdi-cleanup-hook")) | nindent 2 }}
+rules:
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - delete
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  - validatingwebhookconfigurations
+  verbs:
+  - get
+  - delete
+- apiGroups:
+  - apiregistration.k8s.io
+  resources:
+  - apiservices
+  verbs:
+  - get
+  - delete
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterroles
+  - clusterrolebindings
+  verbs:
+  - get
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cdi-cleanup-hook
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "cdi-cleanup-hook")) | nindent 2 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cdi-cleanup-hook
+subjects:
+- kind: ServiceAccount
+  name: cdi-cleanup-hook
+  namespace: d8-{{ .Chart.Name }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: d8:virtualization:cdi-cleanup-hook
+  {{- include "helm_lib_module_labels" (list . (dict "app" "cdi-cleanup-hook")) | nindent 2 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: d8:virtualization:cdi-cleanup-hook
+subjects:
+- kind: ServiceAccount
+  name: cdi-cleanup-hook
+  namespace: d8-{{ .Chart.Name }}

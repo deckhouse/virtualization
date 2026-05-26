@@ -1,0 +1,373 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cdi-crd-cleanup-hook
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "cdi-crd-cleanup-hook")) | nindent 2 }}
+  annotations:
+    "helm.sh/hook": post-upgrade
+    "helm.sh/hook-weight": "13"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      name: cdi-crd-cleanup-hook
+      {{- include "helm_lib_module_labels" (list . (dict "app" "cdi-crd-cleanup-hook")) | nindent 6 }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: cdi-cleanup-hook
+      containers:
+      - name: cdi-crd-cleanup-hook
+        {{- include "helm_lib_module_container_security_context_read_only_root_filesystem_capabilities_drop_all_pss_restricted" . | nindent 8 }}
+        image: {{ include "helm_lib_module_image" (list . "preDeleteHook") }}
+        env:
+        - name: WAIT_TIMEOUT
+          value: 300s
+        - name: RESOURCES
+          value: |
+            [
+              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"cdis.cdi.kubevirt.io"},
+              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"cdiconfigs.cdi.kubevirt.io"},
+              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"datavolumes.cdi.kubevirt.io"},
+              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"dataimportcrons.cdi.kubevirt.io"},
+              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"datasources.cdi.kubevirt.io"},
+              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"objecttransfers.cdi.kubevirt.io"},
+              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"openstackvolumepopulators.forklift.cdi.kubevirt.io"},
+              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"ovirtvolumepopulators.forklift.cdi.kubevirt.io"},
+              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"storageprofiles.cdi.kubevirt.io"},
+              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"volumeclonesources.cdi.kubevirt.io"},
+              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"volumeimportsources.cdi.kubevirt.io"},
+              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"volumeuploadsources.cdi.kubevirt.io"},
+              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"internalvirtualizationcdis.cdi.internal.virtualization.deckhouse.io"},
+              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"internalvirtualizationdatavolumes.cdi.internal.virtualization.deckhouse.io"},
+              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"internalvirtualizationdataimportcrons.cdi.internal.virtualization.deckhouse.io"},
+              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"internalvirtualizationdatasources.cdi.internal.virtualization.deckhouse.io"},
+              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"internalvirtualizationobjecttransfers.cdi.internal.virtualization.deckhouse.io"},
+              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"internalvirtualizationvolumeclonesources.cdi.internal.virtualization.deckhouse.io"},
+              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"internalvirtualizationvolumeimportsources.cdi.internal.virtualization.deckhouse.io"},
+              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"internalvirtualizationvolumeuploadsources.cdi.internal.virtualization.deckhouse.io"},
+              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"internalvirtualizationstorageprofiles.internal.virtualization.deckhouse.io"}
+            ]
+        resources:
+          requests:
+            {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}
+            cpu: 10m
+            memory: 150Mi
+      {{- include "helm_lib_tolerations" (tuple . "any-node") | nindent 6 }}
+      {{- include "helm_lib_module_pod_security_context_run_as_user_deckhouse" . | nindent 6 }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cdi-operator-cleanup-hook
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "cdi-operator-cleanup-hook")) | nindent 2 }}
+  annotations:
+    "helm.sh/hook": post-upgrade
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      name: cdi-operator-cleanup-hook
+      {{- include "helm_lib_module_labels" (list . (dict "app" "cdi-operator-cleanup-hook")) | nindent 6 }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: cdi-cleanup-hook
+      containers:
+      - name: cdi-operator-cleanup-hook
+        {{- include "helm_lib_module_container_security_context_read_only_root_filesystem_capabilities_drop_all_pss_restricted" . | nindent 8 }}
+        image: {{ include "helm_lib_module_image" (list . "preDeleteHook") }}
+        env:
+        - name: WAIT_TIMEOUT
+          value: 300s
+        - name: RESOURCES
+          value: |
+            [
+              {
+                "gvr": {
+                  "Group": "apps",
+                  "Version": "v1",
+                  "Resource": "deployments"
+                },
+                "namespace": "d8-{{ .Chart.Name }}",
+                "name": "cdi-operator"
+              },
+              {
+                "gvr": {
+                  "Group": "policy",
+                  "Version": "v1",
+                  "Resource": "poddisruptionbudgets"
+                },
+                "namespace": "d8-{{ .Chart.Name }}",
+                "name": "cdi-operator"
+              },
+              {
+                "gvr": {
+                  "Group": "autoscaling.k8s.io",
+                  "Version": "v1",
+                  "Resource": "verticalpodautoscalers"
+                },
+                "namespace": "d8-{{ .Chart.Name }}",
+                "name": "cdi-operator"
+              }
+            ]
+        resources:
+          requests:
+            {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}
+            cpu: 10m
+            memory: 150Mi
+      {{- include "helm_lib_tolerations" (tuple . "any-node") | nindent 6 }}
+      {{- include "helm_lib_module_pod_security_context_run_as_user_deckhouse" . | nindent 6 }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cdi-admission-cleanup-hook
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "cdi-admission-cleanup-hook")) | nindent 2 }}
+  annotations:
+    "helm.sh/hook": post-upgrade
+    "helm.sh/hook-weight": "11"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      name: cdi-admission-cleanup-hook
+      {{- include "helm_lib_module_labels" (list . (dict "app" "cdi-admission-cleanup-hook")) | nindent 6 }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: cdi-cleanup-hook
+      containers:
+      - name: cdi-admission-cleanup-hook
+        {{- include "helm_lib_module_container_security_context_read_only_root_filesystem_capabilities_drop_all_pss_restricted" . | nindent 8 }}
+        image: {{ include "helm_lib_module_image" (list . "preDeleteHook") }}
+        env:
+        - name: WAIT_TIMEOUT
+          value: 300s
+        - name: RESOURCES
+          value: |
+            [
+              {
+                "gvr": {
+                  "Group": "admissionregistration.k8s.io",
+                  "Version": "v1",
+                  "Resource": "mutatingwebhookconfigurations"
+                },
+                "name": "cdi-internal-virtualization-api-datavolume-mutate"
+              },
+              {
+                "gvr": {
+                  "Group": "admissionregistration.k8s.io",
+                  "Version": "v1",
+                  "Resource": "mutatingwebhookconfigurations"
+                },
+                "name": "cdi-internal-virtualization-api-pvc-mutate"
+              },
+              {
+                "gvr": {
+                  "Group": "admissionregistration.k8s.io",
+                  "Version": "v1",
+                  "Resource": "validatingwebhookconfigurations"
+                },
+                "name": "cdi-internal-virtualization-api-dataimportcron-validate"
+              },
+              {
+                "gvr": {
+                  "Group": "admissionregistration.k8s.io",
+                  "Version": "v1",
+                  "Resource": "validatingwebhookconfigurations"
+                },
+                "name": "cdi-internal-virtualization-api-populator-validate"
+              },
+              {
+                "gvr": {
+                  "Group": "admissionregistration.k8s.io",
+                  "Version": "v1",
+                  "Resource": "validatingwebhookconfigurations"
+                },
+                "name": "cdi-internal-virtualization-api-datavolume-validate"
+              },
+              {
+                "gvr": {
+                  "Group": "admissionregistration.k8s.io",
+                  "Version": "v1",
+                  "Resource": "validatingwebhookconfigurations"
+                },
+                "name": "cdi-internal-virtualization-api-validate"
+              },
+              {
+                "gvr": {
+                  "Group": "admissionregistration.k8s.io",
+                  "Version": "v1",
+                  "Resource": "validatingwebhookconfigurations"
+                },
+                "name": "cdi-internal-virtualization-objecttransfer-api-validate"
+              },
+              {
+                "gvr": {
+                  "Group": "apiregistration.k8s.io",
+                  "Version": "v1",
+                  "Resource": "apiservices"
+                },
+                "name": "v1beta1.upload.cdi.kubevirt.io"
+              },
+              {
+                "gvr": {
+                  "Group": "apiregistration.k8s.io",
+                  "Version": "v1",
+                  "Resource": "apiservices"
+                },
+                "name": "v1beta1.upload.cdi.internal.virtualization.deckhouse.io"
+              },
+              {"gvr":{"Group":"rbac.authorization.k8s.io","Version":"v1","Resource":"clusterroles"},"name":"d8:containerized-data-importer:cdi-operator"},
+              {"gvr":{"Group":"rbac.authorization.k8s.io","Version":"v1","Resource":"clusterrolebindings"},"name":"d8:containerized-data-importer:cdi-operator"},
+              {"gvr":{"Group":"rbac.authorization.k8s.io","Version":"v1","Resource":"clusterrolebindings"},"name":"d8:{{ .Chart.Name }}:cdi-operator-rbac-proxy"},
+              {"gvr":{"Group":"rbac.authorization.k8s.io","Version":"v1","Resource":"clusterrolebindings"},"name":"d8:{{ .Chart.Name }}:cdi-deployment-rbac-proxy"}
+            ]
+        resources:
+          requests:
+            {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}
+            cpu: 10m
+            memory: 150Mi
+      {{- include "helm_lib_tolerations" (tuple . "any-node") | nindent 6 }}
+      {{- include "helm_lib_module_pod_security_context_run_as_user_deckhouse" . | nindent 6 }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cdi-runtime-cleanup-hook
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "cdi-runtime-cleanup-hook")) | nindent 2 }}
+  annotations:
+    "helm.sh/hook": post-upgrade
+    "helm.sh/hook-weight": "12"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      name: cdi-runtime-cleanup-hook
+      {{- include "helm_lib_module_labels" (list . (dict "app" "cdi-runtime-cleanup-hook")) | nindent 6 }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: cdi-cleanup-hook
+      containers:
+      - name: cdi-runtime-cleanup-hook
+        {{- include "helm_lib_module_container_security_context_read_only_root_filesystem_capabilities_drop_all_pss_restricted" . | nindent 8 }}
+        image: {{ include "helm_lib_module_image" (list . "preDeleteHook") }}
+        env:
+        - name: WAIT_TIMEOUT
+          value: 300s
+        - name: RESOURCES
+          value: |
+            [
+              {
+                "gvr": {
+                  "Group": "apps",
+                  "Version": "v1",
+                  "Resource": "deployments"
+                },
+                "namespace": "d8-{{ .Chart.Name }}",
+                "name": "cdi-apiserver"
+              },
+              {
+                "gvr": {
+                  "Group": "apps",
+                  "Version": "v1",
+                  "Resource": "deployments"
+                },
+                "namespace": "d8-{{ .Chart.Name }}",
+                "name": "cdi-deployment"
+              },
+              {
+                "gvr": {
+                  "Group": "",
+                  "Version": "v1",
+                  "Resource": "services"
+                },
+                "namespace": "d8-{{ .Chart.Name }}",
+                "name": "cdi-api"
+              },
+              {
+                "gvr": {
+                  "Group": "",
+                  "Version": "v1",
+                  "Resource": "services"
+                },
+                "namespace": "d8-{{ .Chart.Name }}",
+                "name": "cdi-prometheus-metrics"
+              },
+              {
+                "gvr": {
+                  "Group": "",
+                  "Version": "v1",
+                  "Resource": "services"
+                },
+                "namespace": "d8-{{ .Chart.Name }}",
+                "name": "cdi-uploadproxy"
+              },
+              {"gvr":{"Group":"","Version":"v1","Resource":"configmaps"},"namespace":"d8-{{ .Chart.Name }}","name":"cdi-operator-leader-election-helper"},
+              {"gvr":{"Group":"","Version":"v1","Resource":"configmaps"},"namespace":"d8-{{ .Chart.Name }}","name":"cdi-apiserver-signer-bundle"},
+              {"gvr":{"Group":"","Version":"v1","Resource":"configmaps"},"namespace":"d8-{{ .Chart.Name }}","name":"cdi-uploadproxy-signer-bundle"},
+              {"gvr":{"Group":"","Version":"v1","Resource":"configmaps"},"namespace":"d8-{{ .Chart.Name }}","name":"cdi-uploadserver-signer-bundle"},
+              {"gvr":{"Group":"","Version":"v1","Resource":"configmaps"},"namespace":"d8-{{ .Chart.Name }}","name":"cdi-uploadserver-client-signer-bundle"},
+              {"gvr":{"Group":"","Version":"v1","Resource":"secrets"},"namespace":"d8-{{ .Chart.Name }}","name":"cdi-apiserver-signer"},
+              {"gvr":{"Group":"","Version":"v1","Resource":"secrets"},"namespace":"d8-{{ .Chart.Name }}","name":"cdi-apiserver-server-cert"},
+              {"gvr":{"Group":"","Version":"v1","Resource":"secrets"},"namespace":"d8-{{ .Chart.Name }}","name":"cdi-uploadproxy-signer"},
+              {"gvr":{"Group":"","Version":"v1","Resource":"secrets"},"namespace":"d8-{{ .Chart.Name }}","name":"cdi-uploadproxy-server-cert"},
+              {"gvr":{"Group":"","Version":"v1","Resource":"secrets"},"namespace":"d8-{{ .Chart.Name }}","name":"cdi-uploadserver-signer"},
+              {"gvr":{"Group":"","Version":"v1","Resource":"secrets"},"namespace":"d8-{{ .Chart.Name }}","name":"cdi-uploadserver-client-signer"},
+              {"gvr":{"Group":"","Version":"v1","Resource":"secrets"},"namespace":"d8-{{ .Chart.Name }}","name":"cdi-uploadserver-client-cert"},
+              {"gvr":{"Group":"","Version":"v1","Resource":"serviceaccounts"},"namespace":"d8-{{ .Chart.Name }}","name":"cdi-operator"},
+              {"gvr":{"Group":"","Version":"v1","Resource":"serviceaccounts"},"namespace":"d8-{{ .Chart.Name }}","name":"cdi-apiserver"},
+              {"gvr":{"Group":"","Version":"v1","Resource":"serviceaccounts"},"namespace":"d8-{{ .Chart.Name }}","name":"cdi-sa"},
+              {"gvr":{"Group":"rbac.authorization.k8s.io","Version":"v1","Resource":"roles"},"namespace":"d8-{{ .Chart.Name }}","name":"cdi-operator"},
+              {"gvr":{"Group":"rbac.authorization.k8s.io","Version":"v1","Resource":"roles"},"namespace":"d8-{{ .Chart.Name }}","name":"cdi-apiserver"},
+              {"gvr":{"Group":"rbac.authorization.k8s.io","Version":"v1","Resource":"roles"},"namespace":"d8-{{ .Chart.Name }}","name":"cdi-deployment"},
+              {"gvr":{"Group":"rbac.authorization.k8s.io","Version":"v1","Resource":"rolebindings"},"namespace":"d8-{{ .Chart.Name }}","name":"cdi-operator"},
+              {"gvr":{"Group":"rbac.authorization.k8s.io","Version":"v1","Resource":"rolebindings"},"namespace":"d8-{{ .Chart.Name }}","name":"cdi-apiserver"},
+              {"gvr":{"Group":"rbac.authorization.k8s.io","Version":"v1","Resource":"rolebindings"},"namespace":"d8-{{ .Chart.Name }}","name":"cdi-deployment"},
+              {
+                "gvr": {
+                  "Group": "policy",
+                  "Version": "v1",
+                  "Resource": "poddisruptionbudgets"
+                },
+                "namespace": "d8-{{ .Chart.Name }}",
+                "name": "cdi-apiserver"
+              },
+              {
+                "gvr": {
+                  "Group": "policy",
+                  "Version": "v1",
+                  "Resource": "poddisruptionbudgets"
+                },
+                "namespace": "d8-{{ .Chart.Name }}",
+                "name": "cdi-deployment"
+              },
+              {
+                "gvr": {
+                  "Group": "autoscaling.k8s.io",
+                  "Version": "v1",
+                  "Resource": "verticalpodautoscalers"
+                },
+                "namespace": "d8-{{ .Chart.Name }}",
+                "name": "cdi-apiserver"
+              },
+              {
+                "gvr": {
+                  "Group": "autoscaling.k8s.io",
+                  "Version": "v1",
+                  "Resource": "verticalpodautoscalers"
+                },
+                "namespace": "d8-{{ .Chart.Name }}",
+                "name": "cdi-deployment"
+              }
+            ]
+        resources:
+          requests:
+            {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}
+            cpu: 10m
+            memory: 150Mi
+      {{- include "helm_lib_tolerations" (tuple . "any-node") | nindent 6 }}
+      {{- include "helm_lib_module_pod_security_context_run_as_user_deckhouse" . | nindent 6 }}
