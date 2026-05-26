@@ -1781,17 +1781,18 @@ If the virtual machine is in a shutdown state (`.status.phase: Stopped`), the ch
 
 If the virtual machine is running (`.status.phase: Running`), the way the changes are applied depends on the type of change:
 
-| Configuration block                     | How changes are applied                                                                                                  |
-|-----------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
-| `.metadata.labels`                      | Applies immediately and propagates to the VM pod                                                                         |
-| `.metadata.annotations`                 | Applies immediately and propagates to the VM pod                                                                         |
-| `.spec.liveMigrationPolicy`             | Applies immediately                                                                                                      |
-| `.spec.runPolicy`                       | Applies immediately                                                                                                      |
-| `.spec.disruptions.restartApprovalMode` | Applies immediately                                                                                                      |
-| `.spec.affinity`                        | EE, SE+: Applies immediately, CE: Only after VM restart                                                                  |
-| `.spec.nodeSelector`                    | EE, SE+: Applies immediately, CE: Only after VM restart                                                                  |
-| `.spec.cpu.cores`                       | May apply immediately if hotplug is enabled (EE, SE+), see [CPU hotplug](#cpu-hotplug); otherwise a restart is required. |
-| `.spec.*`                               | Only after VM restart                                                                                                    |
+| Configuration block                     | How changes are applied                                                                                                                                                                                                                 |
+|-----------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `.metadata.labels`                      | Applies immediately and propagates to the VM pod                                                                                                                                                                                        |
+| `.metadata.annotations`                 | Applies immediately and propagates to the VM pod                                                                                                                                                                                        |
+| `.spec.liveMigrationPolicy`             | Applies immediately                                                                                                                                                                                                                     |
+| `.spec.runPolicy`                       | Applies immediately                                                                                                                                                                                                                     |
+| `.spec.disruptions.restartApprovalMode` | Applies immediately                                                                                                                                                                                                                     |
+| `.spec.affinity`                        | EE, SE+: Applies immediately, CE: Only after VM restart                                                                                                                                                                                 |
+| `.spec.nodeSelector`                    | EE, SE+: Applies immediately, CE: Only after VM restart                                                                                                                                                                                 |
+| `.spec.cpu.cores`                       | May apply immediately if hotplug is enabled (EE, SE+), see [CPU hotplug](#cpu-hotplug); otherwise a restart is required.                                                                                                                |
+| `.spec.networks`                        | Adding or removing `Network` or `ClusterNetwork` on a running VM applies without reboot. Changes to `Main` or the order of existing networks require a VM restart (see [Additional network interfaces](#additional-network-interfaces)) |
+| `.spec.*`                               | Only after VM restart                                                                                                                                                                                                                   |
 
 How to change the VM configuration in the web interface:
 
