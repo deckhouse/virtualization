@@ -51,9 +51,9 @@ const (
 // PVCImportSource (DVCR registry image, another PVC, or nothing for a blank
 // target) and let the service decide *how* to populate the PVC: a smart clone
 // via VolumeSnapshot, a CSI clone via dataSource, a host-assisted copy via
-// the cdi-importer pod, or any other strategy that may be added in the
+// the pvc-importer pod, or any other strategy that may be added in the
 // future. The service also creates and cleans up every helper resource the
-// chosen strategy needs (scratch PVC, cdi-importer pod, secret/configmap
+// chosen strategy needs (scratch PVC, pvc-importer pod, secret/configmap
 // copies of DVCR auth/CA, VolumeSnapshot, etc.).
 //
 // PersistentVolumeClaimService is intentionally agnostic of VirtualDisk and
@@ -70,7 +70,7 @@ type VolumeAndAccessModesGetter interface {
 }
 
 // NewPersistentVolumeClaimService constructs a PersistentVolumeClaimService
-// configured with the cdi-importer pod settings and the DVCR settings used to
+// configured with the pvc-importer pod settings and the DVCR settings used to
 // derive auth/CA supplements.
 func NewPersistentVolumeClaimService(
 	c client.Client,
@@ -171,7 +171,7 @@ func (s *PersistentVolumeClaimService) Import(ctx context.Context, target *corev
 	return s.importer.Import(ctx, target, source, owner, sup, nodePlacement)
 }
 
-// Cleanup removes every helper resource the import has used (cdi-importer
+// Cleanup removes every helper resource the import has used (pvc-importer
 // pod, scratch PVC, clone VolumeSnapshot). It is idempotent and safe to call
 // multiple times.
 func (s *PersistentVolumeClaimService) Cleanup(ctx context.Context, sup supplements.Generator, target *corev1.PersistentVolumeClaim) (bool, error) {

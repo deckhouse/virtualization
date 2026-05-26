@@ -86,7 +86,7 @@ func NewDiskService(
 // DiskService delegates target-PVC creation and import orchestration to.
 // Steps and data sources should call PersistentVolumeClaim().Import to drive
 // a target PVC towards Bound + populated state instead of orchestrating
-// scratch PVCs / cdi-importer pods themselves.
+// scratch PVCs / pvc-importer pods themselves.
 func (s DiskService) PersistentVolumeClaim() *PersistentVolumeClaimService {
 	return s.pvc
 }

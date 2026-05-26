@@ -32,7 +32,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"kubevirt.io/containerized-data-importer/pkg/common"
-	metrics "kubevirt.io/containerized-data-importer/pkg/monitoring/metrics/cdi-importer"
+	metrics "kubevirt.io/containerized-data-importer/pkg/monitoring/metrics/pvc-importer"
 	"kubevirt.io/containerized-data-importer/pkg/system"
 	"kubevirt.io/containerized-data-importer/pkg/util"
 )

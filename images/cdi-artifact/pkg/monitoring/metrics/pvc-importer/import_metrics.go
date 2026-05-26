@@ -1,4 +1,4 @@
-package cdiimporter
+package pvcimporter
 
 import (
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"

@@ -347,7 +347,7 @@ var _ = Describe("HTTPDataSource", func() {
 			res, err := newSyncer(cl).Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
 			// The step requeues every 2s to refresh vd.Status.Progress from
-			// the cdi-importer pod metrics while the import is in flight.
+			// the pvc-importer pod metrics while the import is in flight.
 			Expect(res.RequeueAfter).ToNot(BeZero())
 
 			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))

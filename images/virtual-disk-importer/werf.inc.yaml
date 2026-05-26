@@ -1,7 +1,7 @@
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
-fromImage: {{ .ModuleNamePrefix }}cdi-importer
+fromImage: {{ .ModuleNamePrefix }}pvc-importer
 imageSpec:
   config:
-    entrypoint: ["/usr/bin/cdi-importer", "-alsologtostderr"]
+    entrypoint: ["/usr/bin/pvc-importer", "-alsologtostderr"]
     user: 64535

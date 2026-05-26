@@ -11,18 +11,18 @@ import:
 # Binaries are built from images/cdi-artifact by images/cdi-artifact/werf.inc.yaml.
 imageSpec:
   config:
-    entrypoint: ["/usr/bin/cdi-importer", "-alsologtostderr"]
+    entrypoint: ["/usr/bin/pvc-importer", "-alsologtostderr"]
     user: 64535
 
 ---
-{{- define "cdi-importer-deps" -}}
+{{- define "pvc-importer-deps" -}}
 binaries:
   # nbd bins and libs
   - /usr/sbin/nbdkit
   - /usr/lib64/nbdkit/filters/*.so
   - /usr/lib64/nbdkit/plugins/*.so
-  # CDI binaries
-  - /usr/bin/cdi-importer
+  # PVC importer binary
+  - /usr/bin/pvc-importer
   # QEMU bins
   - /usr/bin/qemu-img
 # do not include glibc, it will be replaced by one from qemu-img
@@ -40,7 +40,7 @@ packages:
 - linux-pam zstd
 {{- end -}}
 
-{{ $cdiImporterDependencies := include "cdi-importer-deps" . | fromYaml }}
+{{ $pvcImporterDependencies := include "pvc-importer-deps" . | fromYaml }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
@@ -59,17 +59,17 @@ import:
   to: /usr/bin
   before: setup
   includePaths:
-  - cdi-importer
+  - pvc-importer
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /qemu-img
   before: install
-{{- include "importPackageImages" (list . $cdiImporterDependencies.packages "install") -}}
+{{- include "importPackageImages" (list . $pvcImporterDependencies.packages "install") -}}
 shell:
   install:
   - |
     echo "Install packages"
-    PKGS="{{ $cdiImporterDependencies.packages | join " " }}"
+    PKGS="{{ $pvcImporterDependencies.packages | join " " }}"
     PKGS+=" qemu-img"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
@@ -77,4 +77,4 @@ shell:
     done
   setup:
   - |
-    /relocate_binaries.sh -i "{{ $cdiImporterDependencies.binaries | join " " }}" -o /relocate
+    /relocate_binaries.sh -i "{{ $pvcImporterDependencies.binaries | join " " }}" -o /relocate

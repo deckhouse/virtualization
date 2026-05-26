@@ -71,11 +71,11 @@ func (s ReadyStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconci
 	}
 
 	vdsupplements.SetPVCName(vd, s.pvc.Name)
-	// AnnPVCImportPhase is set on PVCs that go through the cdi-importer pipeline
+	// AnnPVCImportPhase is set on PVCs that go through the pvc-importer pipeline
 	// (HTTP/Registry/Upload/ObjectRef CVI+VI/Clone). Blank and VDSnapshot data
 	// sources never set it, so an empty phase means "no in-cluster import is
 	// running" and we may fall through to the PVC.Status.Phase check below.
-	// When it is set, we wait until the cdi-importer pod has succeeded before
+	// When it is set, we wait until the pvc-importer pod has succeeded before
 	// declaring the disk Ready.
 	if phase := s.pvc.GetAnnotations()[annotations.AnnPVCImportPhase]; phase != "" && phase != string(corev1.PodSucceeded) {
 		return nil, nil

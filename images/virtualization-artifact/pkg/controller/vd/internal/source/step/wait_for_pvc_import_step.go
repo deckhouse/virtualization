@@ -37,11 +37,11 @@ import (
 )
 
 // pvcImportProgressRequeue is how often the step refreshes vd.Status.Progress
-// from the cdi-importer pod metrics while the import is in flight.
+// from the pvc-importer pod metrics while the import is in flight.
 const pvcImportProgressRequeue = 2 * time.Second
 
 // WaitForPVCImportStepStatService is the subset of StatService used to extract
-// the cdi-importer pod's progress and project it into vd.Status.Progress.
+// the pvc-importer pod's progress and project it into vd.Status.Progress.
 type WaitForPVCImportStepStatService interface {
 	GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string
 }
@@ -57,7 +57,7 @@ type PVCImportSourceProvider func(ctx context.Context, vd *v1alpha2.VirtualDisk)
 // created and reached the Bound phase.
 //
 // While the import is running the step requeues every pvcImportProgressRequeue
-// and republishes vd.Status.Progress from the cdi-importer pod's
+// and republishes vd.Status.Progress from the pvc-importer pod's
 // kubevirt_cdi_import_progress_total metric (0..100). When progressScale is
 // set, the value is projected into the [progressScale.Low, progressScale.High]
 // slice of the disk-wide progress (e.g. 50..100 for HTTP / Registry / Upload
@@ -185,7 +185,7 @@ func (s WaitForPVCImportStep) isWFFC(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-// refreshProgressFromPod queries the cdi-importer pod (named after the target
+// refreshProgressFromPod queries the pvc-importer pod (named after the target
 // PVC) for its progress metric and updates vd.Status.Progress. Silently keeps
 // the previous value when stat/pod is missing or metrics are not yet readable.
 func (s WaitForPVCImportStep) refreshProgressFromPod(ctx context.Context, vd *v1alpha2.VirtualDisk) error {

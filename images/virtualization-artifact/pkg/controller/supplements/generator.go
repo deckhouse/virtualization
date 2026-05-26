@@ -147,7 +147,7 @@ func (g *generator) ImporterPod() types.NamespacedName {
 	}
 }
 
-// PVCImporterPod generates name for the cdi-importer Pod that imports data
+// PVCImporterPod generates name for the pvc-importer Pod that imports data
 // from DVCR into the target PersistentVolumeClaim. It is intentionally
 // distinct from ImporterPod() to avoid colliding with the dvcr-importer Pod
 // that runs in the first import phase.

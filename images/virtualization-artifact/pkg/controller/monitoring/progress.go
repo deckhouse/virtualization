@@ -63,7 +63,7 @@ func GetImportProgressFromPod(ownerUID string, pod *corev1.Pod) (*ImportProgress
 //   - registry_progress / registry_current_speed / registry_average_speed are
 //     emitted by dvcr-importer / dvcr-uploader pods (the "first half" import
 //     into DVCR for HTTP / Registry / Upload data sources).
-//   - kubevirt_cdi_import_progress_total is emitted by the cdi-importer pod
+//   - kubevirt_cdi_import_progress_total is emitted by the pvc-importer pod
 //     (the "second half" import from DVCR into the target PVC; for ObjectRef
 //     CVI / VI it is also the only import pod).
 //
@@ -79,7 +79,7 @@ func extractProgress(report, ownerUID string) (*ImportProgress, error) {
 	}
 
 	// Note: invalid float format will be checked later using ParseFloat.
-	// Match either the dvcr-importer's registry_progress or the cdi-importer's
+	// Match either the dvcr-importer's registry_progress or the pvc-importer's
 	// kubevirt_cdi_import_progress_total metric. Both are reported in the same
 	// 0..100 scale, so either value is a valid pod-local progress percentage.
 	progressRe := regexp.MustCompile(`(?:registry_progress|kubevirt_cdi_import_progress_total)\{ownerUID\="` + ownerUID + `"\} ([0-9e\+\-\.]+)`)

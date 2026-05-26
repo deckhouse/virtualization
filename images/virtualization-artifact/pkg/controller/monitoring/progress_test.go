@@ -36,8 +36,8 @@ registry_current_speed{ownerUID="11"} 2.345632345432e+6
 }
 
 // Test_ExtractProgress_CDIImporter verifies the parser accepts the
-// cdi-importer's progress metric name and returns the value as the pod-local
-// progress. cdi-importer does not emit registry_*_speed series, so download
+// pvc-importer's progress metric name and returns the value as the pod-local
+// progress. pvc-importer does not emit registry_*_speed series, so download
 // speed remains zero in this case.
 func Test_ExtractProgress_CDIImporter(t *testing.T) {
 	p, err := extractProgress(`
@@ -53,7 +53,7 @@ kubevirt_cdi_import_progress_total{ownerUID="22"} 73.42
 		t.Fatalf("expected 73.42, got %v", p.ProgressRaw())
 	}
 	if p.AvgSpeedRaw() != 0 || p.CurSpeedRaw() != 0 {
-		t.Fatalf("expected zero speed (cdi-importer does not emit speed), got avg=%d cur=%d", p.AvgSpeedRaw(), p.CurSpeedRaw())
+		t.Fatalf("expected zero speed (pvc-importer does not emit speed), got avg=%d cur=%d", p.AvgSpeedRaw(), p.CurSpeedRaw())
 	}
 }
 
