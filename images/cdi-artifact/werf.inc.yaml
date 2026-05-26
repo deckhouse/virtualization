@@ -4,7 +4,7 @@
 {{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 binaries:
-- /cdi-binaries/pvc-importer
+- /cdi-binaries/cdi-importer
 packages:
 - libnbd
 - libxml2
@@ -67,10 +67,10 @@ shell:
   - export CGO_ENABLED=0
   - export CGO_ENABLED=1
 
-  - echo ============== Build pvc-importer ===========
+  - echo ============== Build cdi-importer ===========
   - |
-    {{- $_ := set $ "ProjectName" (list .ImageName "pvc-importer" | join "/") }}
-    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /cdi-binaries/pvc-importer ./cmd/cdi-importer`) | nindent 6 }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "cdi-importer" | join "/") }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /cdi-binaries/cdi-importer ./cmd/cdi-importer`) | nindent 6 }}
 
   - chown -R 64535:64535 /cdi-binaries/*
   - ls -la /cdi-binaries
