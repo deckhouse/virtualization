@@ -33,7 +33,6 @@ spec:
               {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"objecttransfers.cdi.kubevirt.io"},
               {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"openstackvolumepopulators.forklift.cdi.kubevirt.io"},
               {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"ovirtvolumepopulators.forklift.cdi.kubevirt.io"},
-              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"storageprofiles.cdi.kubevirt.io"},
               {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"volumeclonesources.cdi.kubevirt.io"},
               {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"volumeimportsources.cdi.kubevirt.io"},
               {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"volumeuploadsources.cdi.kubevirt.io"},
@@ -43,8 +42,7 @@ spec:
               {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"internalvirtualizationobjecttransfers.cdi.internal.virtualization.deckhouse.io"},
               {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"internalvirtualizationvolumeclonesources.cdi.internal.virtualization.deckhouse.io"},
               {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"internalvirtualizationvolumeimportsources.cdi.internal.virtualization.deckhouse.io"},
-              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"internalvirtualizationvolumeuploadsources.cdi.internal.virtualization.deckhouse.io"},
-              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"internalvirtualizationstorageprofiles.internal.virtualization.deckhouse.io"}
+              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"internalvirtualizationvolumeuploadsources.cdi.internal.virtualization.deckhouse.io"}
             ]
         resources:
           requests:
