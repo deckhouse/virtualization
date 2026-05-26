@@ -10,27 +10,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const loopApiRootSegments = ["api", "v4"];
-
-function getUrlPathSegments(url) {
-  return url.pathname.split("/").filter(Boolean);
-}
-
-function buildUrlPath(segments) {
-  return `/${segments.join("/")}`;
-}
-
-function findLoopApiRootIndex(segments) {
-  return segments.findIndex(
-    (segment, index) =>
-      segment === loopApiRootSegments[0] &&
-      segments[index + 1] === loopApiRootSegments[1]
-  );
-}
+const loopApiRootPath = "/api/v4";
 
 function buildLoopEndpointUrl(apiBaseUrl, endpoint) {
   const url = new URL(apiBaseUrl);
-  url.pathname = buildUrlPath([...getUrlPathSegments(url), endpoint]);
+  url.pathname = `${url.pathname}/${endpoint}`;
   return url.toString();
 }
 
@@ -48,14 +32,14 @@ function normalizeLoopApiBaseUrl(value) {
   }
 
   const url = new URL(rawValue);
-  const pathSegments = getUrlPathSegments(url);
-  const apiRootIndex = findLoopApiRootIndex(pathSegments);
-  const apiRootSegments =
-    apiRootIndex === -1
-      ? [...pathSegments, ...loopApiRootSegments]
-      : pathSegments.slice(0, apiRootIndex + loopApiRootSegments.length);
+  const apiRootIndex = url.pathname.indexOf(loopApiRootPath);
 
-  url.pathname = buildUrlPath(apiRootSegments);
+  if (apiRootIndex === -1) {
+    const separator = url.pathname.endsWith("/") ? "" : "/";
+    url.pathname = `${url.pathname}${separator}${loopApiRootPath.slice(1)}`;
+  } else {
+    url.pathname = url.pathname.slice(0, apiRootIndex + loopApiRootPath.length);
+  }
   url.search = "";
   url.hash = "";
   return url.toString();
