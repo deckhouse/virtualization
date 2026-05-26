@@ -488,13 +488,6 @@ jobs:
           path: downloaded-artifacts/
           merge-multiple: false
 
-      - name: Set up Node.js for report rendering
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: .github/scripts/js/package.json
-
       - name: Set up Python for chart rendering
         uses: actions/setup-python@v5
         with:
@@ -502,21 +495,12 @@ jobs:
           cache: pip
           cache-dependency-path: .github/scripts/python/requirements.txt
 
-      - name: Install JS report deps
-        run: npm install
-        working-directory: .github/scripts/js
-
       - name: Install Python chart deps
-        run: python3 -m pip install -r .github/scripts/python/requirements.txt
-
-      - name: Show installed Python tooling
-        run: |
-          python3 -V
-          python3 -m pip list
+        run: python -m pip install -r .github/scripts/python/requirements.txt
 
       - name: Generate messenger chart files
         run: >-
-          python3 .github/scripts/python/e2e_report/charts.py messenger-all
+          python .github/scripts/python/e2e_report/charts.py messenger-all
           --reports-dir downloaded-artifacts
           --out-dir tmp/messenger-charts
           --manifest tmp/messenger-charts/manifest.json
@@ -536,7 +520,7 @@ jobs:
 
       - name: Render top-5 slowest Describes per cluster
         run: >-
-          python3 .github/scripts/python/e2e_report/charts.py top
+          python .github/scripts/python/e2e_report/charts.py top
           --reports-dir downloaded-artifacts
           --out-dir tmp/charts
           --top-n 5
