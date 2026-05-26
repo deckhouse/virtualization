@@ -53,14 +53,14 @@ function parseLoopApiPayload(responseText, core) {
 }
 
 function createLoopClient({ loop, core, fetch: fetchFn = globalThis.fetch }) {
-  async function loopRequest(url, init, errorPrefix) {
+  async function loopRequest(url, init, { errorPrefix, successLog }) {
     const response = await fetchFn(url, init);
     const responseText = await response.text();
     if (!response.ok) {
       throw new Error(`${errorPrefix} failed with status ${response.status}: ${responseText}`);
     }
     const payload = parseLoopApiPayload(responseText, core);
-    core.info(`Loop API accepted ${errorPrefix.toLowerCase()} with status ${response.status}`);
+    core.info(`Loop API accepted ${successLog} with status ${response.status}`);
     return payload;
   }
 
@@ -81,7 +81,7 @@ function createLoopClient({ loop, core, fetch: fetchFn = globalThis.fetch }) {
         },
         body: JSON.stringify(body),
       },
-      "Loop API request"
+      { errorPrefix: "Loop API request", successLog: "post" }
     );
   }
 
@@ -98,7 +98,7 @@ function createLoopClient({ loop, core, fetch: fetchFn = globalThis.fetch }) {
         },
         body: formData,
       },
-      "Loop file upload"
+      { errorPrefix: "Loop file upload", successLog: `file ${name}` }
     );
     const fileId = payload.file_infos && payload.file_infos[0] && payload.file_infos[0].id;
     if (!fileId) {

@@ -60,6 +60,18 @@ function flattenLabels(labelGroups) {
 }
 
 /**
+ * Derives a unique list of failed test names from the canonical
+ * `failedTestDetails` array. Kept module-private because the dedupe
+ * semantics are an internal detail of both Ginkgo parsers in this file.
+ *
+ * @param {Array<{name: string, reason: string}>} failedTestDetails Detailed failures.
+ * @returns {string[]} Unique failed test names preserving first occurrence order.
+ */
+function deriveFailedTestNames(failedTestDetails) {
+  return Array.from(new Set(failedTestDetails.map((test) => test.name)));
+}
+
+/**
  * Splits a raw Ginkgo SpecReport into stable, normalized parts used by
  * both the human-readable test name and per-spec timings.
  *
@@ -231,7 +243,7 @@ function parseGinkgoReport(jsonContent) {
 
   return {
     metrics,
-    failedTests: Array.from(new Set(dedupedDetails.map((test) => test.name))),
+    failedTests: deriveFailedTestNames(dedupedDetails),
     failedTestDetails: dedupedDetails,
     specTimings,
     suiteTotalMs,
@@ -367,7 +379,7 @@ function parseGinkgoOutput(outputContent) {
   const failedTestDetails = [{ name, reason }];
   return {
     metrics: zeroMetrics(),
-    failedTests: Array.from(new Set(failedTestDetails.map((test) => test.name))),
+    failedTests: deriveFailedTestNames(failedTestDetails),
     failedTestDetails,
     specTimings: [],
     suiteTotalMs: 0,
