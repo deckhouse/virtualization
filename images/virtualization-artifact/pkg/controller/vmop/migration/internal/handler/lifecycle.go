@@ -596,6 +596,10 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 		message = messageMigrationPending
 		if _, found := conditions.GetKVVMIMCondition(virtv1.VirtualMachineInstanceMigrationConditionType(reasonTargetNodeIncomingMigrationLimitExceeded), mig.Status.Conditions); found {
 			message = messageTargetNodeIncomingMigrationLimitExceeded
+		} else if waiting, err := h.isWaitingForInboundMigrationSlot(ctx, mig); err != nil {
+			return reason, message, err
+		} else if waiting {
+			message = messageTargetNodeIncomingMigrationLimitExceeded
 		}
 	case virtv1.MigrationScheduling:
 		reason = vmopcondition.ReasonTargetScheduling
@@ -755,6 +759,20 @@ func humanizeMigrationFailedMessage(message string) string {
 	}
 
 	return message
+}
+
+func (h LifecycleHandler) isWaitingForInboundMigrationSlot(ctx context.Context, mig *virtv1.VirtualMachineInstanceMigration) (bool, error) {
+	if mig == nil || mig.Spec.VMIName == "" {
+		return false, nil
+	}
+
+	var kvvmi virtv1.VirtualMachineInstance
+	err := h.client.Get(ctx, types.NamespacedName{Namespace: mig.Namespace, Name: mig.Spec.VMIName}, &kvvmi)
+	if err != nil {
+		return false, client.IgnoreNotFound(err)
+	}
+
+	return livemigration.IsInboundMigrationSlotWaiting(&kvvmi), nil
 }
 
 func (h LifecycleHandler) getTargetPod(ctx context.Context, mig *virtv1.VirtualMachineInstanceMigration) (*corev1.Pod, error) {
