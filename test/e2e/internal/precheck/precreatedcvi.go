@@ -88,6 +88,25 @@ func (p *precreatedCVIPrecheck) ensureCVIs(ctx context.Context, f *framework.Fra
 		err := k8sClient.Get(ctx, client.ObjectKey{Name: cvi.GetName()}, existing)
 
 		if err == nil {
+			if existing.Status.Phase == v1alpha2.ImageLost {
+				_, _ = fmt.Fprintf(GinkgoWriter,
+					"CVI %q exists but its DVCR image is lost, recreating it...\n",
+					cvi.GetName())
+
+				if err := k8sClient.Delete(ctx, existing); err != nil && !k8serrors.IsNotFound(err) {
+					return fmt.Errorf("failed to delete lost CVI %q: %w", cvi.GetName(), err)
+				}
+
+				util.UntilObjectsDeleted(ctx, framework.ShortTimeout, existing)
+
+				err = k8sClient.Create(ctx, cvi)
+				if err != nil && !k8serrors.IsAlreadyExists(err) {
+					return fmt.Errorf("failed to recreate lost CVI %q: %w", cvi.GetName(), err)
+				}
+
+				continue
+			}
+
 			// CVI already exists, verify it's ready
 			if existing.Status.Phase != v1alpha2.ImageReady {
 				_, _ = fmt.Fprintf(GinkgoWriter,
