@@ -26,7 +26,6 @@ spec:
         - name: RESOURCES
           value: |
             [
-              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"cdis.cdi.kubevirt.io"},
               {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"cdiconfigs.cdi.kubevirt.io"},
               {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"datavolumes.cdi.kubevirt.io"},
               {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"dataimportcrons.cdi.kubevirt.io"},
@@ -38,7 +37,6 @@ spec:
               {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"volumeclonesources.cdi.kubevirt.io"},
               {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"volumeimportsources.cdi.kubevirt.io"},
               {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"volumeuploadsources.cdi.kubevirt.io"},
-              {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"internalvirtualizationcdis.cdi.internal.virtualization.deckhouse.io"},
               {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"internalvirtualizationdatavolumes.cdi.internal.virtualization.deckhouse.io"},
               {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"internalvirtualizationdataimportcrons.cdi.internal.virtualization.deckhouse.io"},
               {"gvr":{"Group":"apiextensions.k8s.io","Version":"v1","Resource":"customresourcedefinitions"},"name":"internalvirtualizationdatasources.cdi.internal.virtualization.deckhouse.io"},
