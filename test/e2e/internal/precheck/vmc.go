@@ -125,7 +125,7 @@ func (c *vmcPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 		cmds = append(cmds, cmdCopyGenericAsDefaultClass(defaultVMClassName))
 	}
 
-	return fmt.Errorf("%s=no to disable this precheck: %s. Run command to fix cluster: %s",
+	return fmt.Errorf("%s=no to disable this precheck. Cluster has issues: %s. Run command to fix: %s",
 		vmcModuleCheckEnvName,
 		strings.Join(issues, "; "),
 		strings.Join(cmds, " && "),
