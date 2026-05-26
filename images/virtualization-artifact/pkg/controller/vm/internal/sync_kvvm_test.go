@@ -43,7 +43,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
-var _ = FDescribe("SyncKvvmHandler", func() {
+var _ = Describe("SyncKvvmHandler", func() {
 	const (
 		name      = "vm-sync"
 		namespace = "default"
