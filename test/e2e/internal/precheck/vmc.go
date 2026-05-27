@@ -30,9 +30,10 @@ import (
 
 const (
 	vmcModuleCheckEnvName = "VMC_PRECHECK"
-	defaultVMClassName    = "generic-for-e2e"
+	requiredVMClassName   = "generic-for-e2e"
 
-	vmClassVersion = "v1alpha3"
+	vmClassVersion         = "v1alpha3"
+	defaultClassAnnotation = "virtualmachineclass.virtualization.deckhouse.io/is-default-class"
 )
 
 // vmcPrecheck implements Precheck interface for VMC/VMClass.
@@ -61,55 +62,47 @@ func (c *vmcPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 		return fmt.Errorf("%s=no to disable this precheck: list VirtualMachineClasses: %w", vmcModuleCheckEnvName, err)
 	}
 
-	var e2eClass map[string]interface{}
-	var defaultClass map[string]interface{}
+	var requiredClass map[string]interface{} // VMClass with requiredVMClassName
+	var defaultClass map[string]interface{}  // VMClass with is-default-class annotation
 
+	// Single pass through all VMClasses
 	for i := range vmClasses.Items {
 		vmClass := vmClasses.Items[i].Object
-		name, ok := vmClass["metadata"].(map[string]interface{})["name"].(string)
-		if !ok {
-			continue
-		}
 
-		if name == defaultVMClassName {
-			e2eClass = vmClass
-		}
-
-		// Check for default annotation
 		metadata, ok := vmClass["metadata"].(map[string]interface{})
 		if !ok {
 			continue
 		}
+
+		name, ok := metadata["name"].(string)
+		if !ok {
+			continue
+		}
+
+		// Check if this is the required e2e class
+		if name == requiredVMClassName {
+			requiredClass = vmClass
+		}
+
+		// Check for default annotation
 		annotations, ok := metadata["annotations"].(map[string]interface{})
 		if !ok {
 			continue
 		}
-		if _, ok := annotations["virtualmachineclass.virtualization.deckhouse.io/is-default-class"]; ok {
+		if _, isDefault := annotations[defaultClassAnnotation]; isDefault {
 			defaultClass = vmClass
 		}
 	}
 
-	// Helper to get name from vmClass
-	getVMClassName := func(m map[string]interface{}) string {
-		if m == nil {
-			return ""
-		}
-		metadata, ok := m["metadata"].(map[string]interface{})
-		if !ok {
-			return ""
-		}
-		name, _ := metadata["name"].(string)
-		return name
-	}
-
-	if e2eClass != nil && defaultClass != nil && getVMClassName(defaultClass) == defaultVMClassName {
-		// Everything is OK: correct default VMClass is present in the cluster.
+	// Check if everything is OK: required class exists AND it is the default
+	if requiredClass != nil && defaultClass != nil && getVMClassName(defaultClass) == requiredVMClassName {
 		return nil
 	}
 
-	issues := make([]string, 0)
-	cmds := make([]string, 0)
+	// Build issues and fix commands
+	var issues, cmds []string
 
+	// Handle default class issue
 	if defaultClass != nil {
 		issues = append(issues, fmt.Sprintf("cluster has wrong default vmclass %q", getVMClassName(defaultClass)))
 		cmds = append(cmds, cmdRemoveDefaultAnnotation(getVMClassName(defaultClass)))
@@ -117,12 +110,15 @@ func (c *vmcPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 		issues = append(issues, "cluster has no default vmclass")
 	}
 
-	if e2eClass != nil {
-		issues = append(issues, fmt.Sprintf("e2e tests require vmclass %q to be default", defaultVMClassName))
-		cmds = append(cmds, cmdSetDefaultAnnotation(defaultVMClassName))
+	// Handle required class issue
+	if requiredClass != nil {
+		// Required class exists but is not default - just need to set annotation
+		issues = append(issues, fmt.Sprintf("e2e tests require vmclass %q to be default", requiredVMClassName))
+		cmds = append(cmds, cmdSetDefaultAnnotation(requiredVMClassName))
 	} else {
-		issues = append(issues, fmt.Sprintf("e2e tests require vmclass %q to present and be default", defaultVMClassName))
-		cmds = append(cmds, cmdCopyGenericAsDefaultClass(defaultVMClassName))
+		// Required class doesn't exist - need to create it
+		issues = append(issues, fmt.Sprintf("e2e tests require vmclass %q to present and be default", requiredVMClassName))
+		cmds = append(cmds, cmdCopyGenericAsDefaultClass(requiredVMClassName))
 	}
 
 	return fmt.Errorf("%s=no to disable this precheck. Cluster has issues: %s. Run command to fix: %s",
@@ -130,6 +126,19 @@ func (c *vmcPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 		strings.Join(issues, "; "),
 		strings.Join(cmds, " && "),
 	)
+}
+
+// getVMClassName extracts name from VMClass object
+func getVMClassName(m map[string]interface{}) string {
+	if m == nil {
+		return ""
+	}
+	metadata, ok := m["metadata"].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	name, _ := metadata["name"].(string)
+	return name
 }
 
 func cmdCopyGenericAsDefaultClass(targetVMClassName string) string {
