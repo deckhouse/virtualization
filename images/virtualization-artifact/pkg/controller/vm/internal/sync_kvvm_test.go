@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/component-base/featuregate"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -55,6 +56,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 		reconcileObj *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]
 		vmState      state.VirtualMachineState
 		recorder     *eventrecord.EventRecorderLoggerMock
+		featureGates featuregate.FeatureGate
 	)
 
 	BeforeEach(func() {
@@ -62,6 +64,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 		fakeClient = nil
 		reconcileObj = nil
 		vmState = nil
+		featureGates = nil
 		recorder = &eventrecord.EventRecorderLoggerMock{
 			EventFunc:       func(_ client.Object, _, _, _ string) {},
 			EventfFunc:      func(_ client.Object, _, _, _ string, _ ...interface{}) {},
@@ -205,7 +208,10 @@ var _ = Describe("SyncKvvmHandler", func() {
 	}
 
 	reconcile := func() {
-		h := NewSyncKvvmHandler(nil, fakeClient, recorder, featuregates.Default(), vmservice.NewMigrationVolumesService(fakeClient, MakeKVVMFromVMSpec, 10*time.Second))
+		if featureGates == nil {
+			featureGates = featuregates.Default()
+		}
+		h := NewSyncKvvmHandler(nil, fakeClient, recorder, featureGates, vmservice.NewMigrationVolumesService(fakeClient, MakeKVVMFromVMSpec, 10*time.Second))
 		_, err := h.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
 		err = reconcileObj.Update(context.Background())
@@ -302,7 +308,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 	)
 
 	DescribeTable("AwaitingRestart Condition for NonMigratable VM",
-		func(phase v1alpha2.MachinePhase, mutateFn func(fakeClient client.WithWatch, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine), expectedStatus metav1.ConditionStatus, expectedExistence bool) {
+		func(phase v1alpha2.MachinePhase, featureGate featuregate.FeatureGate, mutateFn func(fakeClient client.WithWatch, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine), expectedStatus metav1.ConditionStatus, expectedExistence bool) {
 			ip := makeVMIP()
 			vmClass := makeVMClass()
 
@@ -321,6 +327,8 @@ var _ = Describe("SyncKvvmHandler", func() {
 
 			fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, kvvmi, ip, vmClass)
 
+			featureGates = featureGate
+
 			reconcile()
 
 			newVM := &v1alpha2.VirtualMachine{}
@@ -333,8 +341,10 @@ var _ = Describe("SyncKvvmHandler", func() {
 				Expect(awaitCond.Status).To(Equal(expectedStatus))
 			}
 		},
-		Entry("should present on hotplugging cpu.cores", v1alpha2.MachineRunning, mutateCPUCores(3), metav1.ConditionTrue, true),
-		Entry("should present on hotplugging memory.size", v1alpha2.MachineRunning, mutateMemorySize("4Gi"), metav1.ConditionTrue, true),
+		Entry("should present on cpu.cores change", v1alpha2.MachineRunning, nil, mutateCPUCores(3), metav1.ConditionTrue, true),
+		Entry("should present on cpu.cores change when hotplug enabled", v1alpha2.MachineRunning, newFeatureGateEnableCPUHotplug(), mutateCPUCores(3), metav1.ConditionTrue, true),
+		Entry("should present on memory.size change", v1alpha2.MachineRunning, nil, mutateMemorySize("4Gi"), metav1.ConditionTrue, true),
+		Entry("should present on memory.size change when hotplug enabled", v1alpha2.MachineRunning, newFeatureGateEnableMemoryHotplug(), mutateMemorySize("4Gi"), metav1.ConditionTrue, true),
 	)
 
 	DescribeTable("ConfigurationApplied Condition Tests",
@@ -436,3 +446,26 @@ var _ = Describe("SyncKvvmHandler", func() {
 		Entry("cpu change is not a placement policy", "cpu.cores", false),
 	)
 })
+
+func newFeatureGate(enabled ...featuregate.Feature) featuregate.FeatureGate {
+	GinkgoHelper()
+
+	gate, setFromMap, err := featuregates.NewUnlocked()
+	Expect(err).NotTo(HaveOccurred())
+	featureMap := map[string]bool{}
+	for _, feature := range enabled {
+		featureMap[string(feature)] = true
+	}
+	err = setFromMap(featureMap)
+	Expect(err).NotTo(HaveOccurred())
+
+	return gate
+}
+
+func newFeatureGateEnableCPUHotplug() featuregate.FeatureGate {
+	return newFeatureGate(featuregates.HotplugCPUWithLiveMigration)
+}
+
+func newFeatureGateEnableMemoryHotplug() featuregate.FeatureGate {
+	return newFeatureGate(featuregates.HotplugMemoryWithLiveMigration)
+}
