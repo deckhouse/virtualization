@@ -228,6 +228,7 @@ import:
   after: setup
   includePaths:
   - sbin/hwclock
+  - sbin/nologin
 
 # GNU utilities
 - image: tools/coreutils
