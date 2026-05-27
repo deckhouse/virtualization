@@ -94,6 +94,10 @@ func DefaultOptions(current *v1alpha2.VirtualMachine) KVVMOptions {
 	}
 }
 
+func (b *KVVM) Options() KVVMOptions {
+	return b.opts
+}
+
 func NewEmptyKVVM(name types.NamespacedName, opts KVVMOptions) *KVVM {
 	return &KVVM{
 		opts: opts,
@@ -811,7 +815,11 @@ func (b *KVVM) SetNetworkInterface(name, macAddress string, acpiIndex int) {
 		Model:     devPreset.InterfaceModel,
 		ACPIIndex: acpiIndex,
 	}
-	iface.Bridge = &virtv1.InterfaceBridge{}
+	if name == "default" {
+		iface.Binding = &virtv1.PluginBinding{Name: "bpfbridge"}
+	} else {
+		iface.Bridge = &virtv1.InterfaceBridge{}
+	}
 	if macAddress != "" {
 		iface.MacAddress = macAddress
 	}
