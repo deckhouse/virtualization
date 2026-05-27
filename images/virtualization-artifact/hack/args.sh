@@ -36,7 +36,7 @@ function parse_flag() {
     local DEFAULT="${3:-}"
 
     local RESULT=""
-    for f in ${FLAGS[*]}; do
+    for f in "${FLAGS[@]}"; do
         case "${f}" in
         --${NAME}=*|-${SHORT_NAME}=*)
             RESULT="${f#*=}"

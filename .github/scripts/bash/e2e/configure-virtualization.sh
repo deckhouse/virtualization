@@ -11,6 +11,9 @@ source "${SCRIPT_DIR}/deckhouse.sh"
 require_env DEV_REGISTRY_DOCKER_CFG
 require_env NESTED_STORAGE_CLASS_NAME
 require_env VIRTUALIZATION_TAG
+: "${DEV_REGISTRY_DOCKER_CFG:?}"
+: "${NESTED_STORAGE_CLASS_NAME:?}"
+: "${VIRTUALIZATION_TAG:?}"
 
 kubectl_apply_with_retry() {
   local count=20
