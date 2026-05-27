@@ -213,7 +213,7 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 				if c.Type == "BootFailed" {
 					cb.Status(conditionStatus(string(c.Status))).
 						Reason(vmcondition.ReasonNoBootableDeviceFound).
-						Message("Among all the virtual machine’s block devices, there is no device from which it can boot.")
+						Message(fmt.Sprintf("%s Check virtual machine’s block devices, check OS image is compatible with the chosen bootloader %q.", c.Message, vm.Spec.Bootloader))
 					conditions.SetCondition(cb, &vm.Status.Conditions)
 					return nil
 				}
