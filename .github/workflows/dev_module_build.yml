@@ -325,6 +325,52 @@ jobs:
           task virtualization-controller:init
           task virtualization-controller:test:unit
 
+  test_scripts_js:
+    runs-on: ubuntu-22.04
+    name: Run JS unit tests
+    env:
+      NODE_VERSION: "24"
+    steps:
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: "${{ env.NODE_VERSION }}"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Install JS dependencies
+        working-directory: .github/scripts/js
+        run: npm install
+
+      - name: Run JS unit tests
+        working-directory: .github/scripts/js
+        run: npm test
+
+  test_scripts_python:
+    runs-on: ubuntu-22.04
+    name: Run Python unit tests
+    env:
+      PYTHON_VERSION: "3.12"
+    steps:
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "${{ env.PYTHON_VERSION }}"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Install Python dependencies
+        working-directory: .github/scripts/python
+        run: pip install -r requirements.txt
+
+      - name: Run Python unit tests
+        working-directory: .github/scripts/python
+        run: python -m unittest discover -p '*_test.py' -v
+
   dev_setup_build:
     runs-on: ${{ fromJSON(needs.set_vars.outputs.runner_type)}}
     name: Build and Push images
