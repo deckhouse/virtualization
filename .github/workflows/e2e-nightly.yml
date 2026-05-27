@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: E2E Matrix Tests (nested clusters)
+name: E2E Nightly
 
 on:
   workflow_dispatch:
@@ -417,7 +417,7 @@ jobs:
     name: E2E Pipeline (Replicated)
     needs:
       - set-vars
-    uses: ./.github/workflows/e2e-reusable-pipeline.yml
+    uses: ./.github/workflows/e2e-nightly-reusable-pipeline.yml
     with:
       storage_type: replicated
       pipeline_job_name: "E2E Pipeline (Replicated)"
@@ -445,7 +445,7 @@ jobs:
     name: E2E Pipeline (NFS)
     needs:
       - set-vars
-    uses: ./.github/workflows/e2e-reusable-pipeline.yml
+    uses: ./.github/workflows/e2e-nightly-reusable-pipeline.yml
     with:
       storage_type: nfs
       pipeline_job_name: "E2E Pipeline (NFS)"

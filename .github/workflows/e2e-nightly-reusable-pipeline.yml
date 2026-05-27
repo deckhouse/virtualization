@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: E2E Pipeline (Reusable)
+name: E2E Nightly Pipeline (Reusable)
 
 on:
   workflow_call:
