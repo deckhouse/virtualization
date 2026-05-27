@@ -112,18 +112,21 @@ func GetBlockDeviceLsblkSize(ctx context.Context, f *framework.Framework, vm *v1
 	serial, ok := GetBlockDeviceSerialNumber(ctx, vm, bdKind, bdName)
 	Expect(ok).To(BeTrue(), fmt.Sprintf("failed to get block device %s/%s serial number", bdKind, bdName))
 
-	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
-	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to get device %s/%s by serial", bdKind, bdName))
-
-	cmdOut, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo lsblk --json -o SIZE %s", devicePath))
-	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to get lsblk size for block device %s/%s", bdKind, bdName))
+	cmdOut, err := f.SSHCommand(vm.Name, vm.Namespace, "sudo lsblk --nodeps --json -o SERIAL,SIZE")
+	Expect(err).NotTo(HaveOccurred())
 
 	var disks Disks
 	err = json.Unmarshal([]byte(cmdOut), &disks)
 	Expect(err).NotTo(HaveOccurred(), "failed to parse lsblk output")
-	Expect(disks.BlockDevices).NotTo(BeEmpty(), "lsblk output does not contain block devices")
 
-	return resource.MustParse(strings.TrimSpace(disks.BlockDevices[0].Size))
+	for _, blockDevice := range disks.BlockDevices {
+		if blockDevice.Serial == serial {
+			return resource.MustParse(strings.TrimSpace(blockDevice.Size))
+		}
+	}
+
+	Fail(fmt.Sprintf("lsblk output does not contain block device with serial %s", serial))
+	return resource.Quantity{}
 }
 
 func GetBlockDeviceBySerial(f *framework.Framework, vm *v1alpha2.VirtualMachine, serial string) (string, error) {
@@ -243,7 +246,8 @@ type Disks struct {
 
 // BlockDevice represents a single block device in the lsblk JSON output.
 type BlockDevice struct {
-	Name string `json:"name"`
-	Size string `json:"size"`
-	Type string `json:"type"`
+	Name   string `json:"name"`
+	Serial string `json:"serial"`
+	Size   string `json:"size"`
+	Type   string `json:"type"`
 }
