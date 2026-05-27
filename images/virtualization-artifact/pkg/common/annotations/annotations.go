@@ -94,8 +94,6 @@ const (
 	AnnVMOPWorkloadUpdateImage               = AnnAPIGroupV + "/workload-update-image"
 	AnnVMOPWorkloadUpdateNodePlacementSum    = AnnAPIGroupV + "/workload-update-node-placement-sum"
 	AnnVMOPWorkloadUpdateHotplugResourcesSum = AnnAPIGroupV + "/workload-update-hotplug-resources-sum"
-	// AnnVMRestore is an annotation on a resource that indicates it was created by the vmrestore controller; the value is the UID of the `VirtualMachineRestore` resource.
-	AnnVMRestore = AnnAPIGroupV + "/vmrestore"
 	// AnnVMOPEvacuation is an annotation on vmop that represents a vmop created by evacuation controller
 	AnnVMOPEvacuation = AnnAPIGroupV + "/evacuation"
 	// AnnVMOPVolumeMigration is an annotation on vmop that represents a vmop created by volume-migration controller

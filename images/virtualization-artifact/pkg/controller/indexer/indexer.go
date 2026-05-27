@@ -53,8 +53,6 @@ const (
 	IndexFieldVMSnapshotByVM         = "spec.virtualMachineName"
 	IndexFieldVMSnapshotByVDSnapshot = "status.virtualDiskSnapshotNames"
 
-	IndexFieldVMRestoreByVMSnapshot = "spec.virtualMachineSnapshotName"
-
 	IndexFieldVMIPByVM      = "status.virtualMachine"
 	IndexFieldVMIPByAddress = "spec.staticIP|status.address"
 
@@ -88,7 +86,6 @@ var IndexGetters = []IndexGetter{
 	IndexVMByProvisioningSecret,
 	IndexVMSnapshotByVM,
 	IndexVMSnapshotByVDSnapshot,
-	IndexVMRestoreByVMSnapshot,
 	IndexVMIPByVM,
 	IndexVDByVDSnapshot,
 	IndexVDByStorageClass,

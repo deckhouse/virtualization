@@ -35,7 +35,6 @@ function source::settings {
     ALLOWED_RESOURCE_GEN_CRD=("VirtualMachineClass"
                               "VirtualMachineBlockDeviceAttachment"
                               "VirtualMachineSnapshot"
-                              "VirtualMachineRestore"
                               "VirtualMachineOperation"
                               "VirtualMachineSnapshotOperation"
                               "VirtualDisk"
