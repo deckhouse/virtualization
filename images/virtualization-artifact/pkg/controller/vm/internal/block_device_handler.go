@@ -275,10 +275,11 @@ func (h *BlockDeviceHandler) updateFinalizers(ctx context.Context, vm *v1alpha2.
 
 func NewBlockDeviceState(s state.VirtualMachineState) BlockDevicesState {
 	return BlockDevicesState{
-		s:         s,
-		VIByName:  make(map[string]*v1alpha2.VirtualImage),
-		CVIByName: make(map[string]*v1alpha2.ClusterVirtualImage),
-		VDByName:  make(map[string]*v1alpha2.VirtualDisk),
+		s:                     s,
+		VIByName:              make(map[string]*v1alpha2.VirtualImage),
+		CVIByName:             make(map[string]*v1alpha2.ClusterVirtualImage),
+		VDByName:              make(map[string]*v1alpha2.VirtualDisk),
+		VMBDAByBlockDeviceRef: make(map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment),
 	}
 }
 
@@ -287,6 +288,9 @@ type BlockDevicesState struct {
 	VIByName  map[string]*v1alpha2.VirtualImage
 	CVIByName map[string]*v1alpha2.ClusterVirtualImage
 	VDByName  map[string]*v1alpha2.VirtualDisk
+	// VMBDAByBlockDeviceRef contains VMBDA objects keyed by block device reference.
+	// Used to filter out hotplug disks that should not be removed from KVVM spec.
+	VMBDAByBlockDeviceRef map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment
 }
 
 func (s *BlockDevicesState) Reload(ctx context.Context) error {
@@ -302,8 +306,13 @@ func (s *BlockDevicesState) Reload(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	vmbdaByRef, err := s.s.VirtualMachineBlockDeviceAttachments(ctx)
+	if err != nil {
+		return err
+	}
 	s.VIByName = viByName
 	s.CVIByName = ciByName
 	s.VDByName = vdByName
+	s.VMBDAByBlockDeviceRef = vmbdaByRef
 	return nil
 }

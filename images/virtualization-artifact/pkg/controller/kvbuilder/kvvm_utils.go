@@ -97,6 +97,7 @@ func ApplyVirtualMachineSpec(
 	vdByName map[string]*v1alpha2.VirtualDisk,
 	viByName map[string]*v1alpha2.VirtualImage,
 	cviByName map[string]*v1alpha2.ClusterVirtualImage,
+	vmbdaByBlockDeviceRef map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment,
 	class *v1alpha2.VirtualMachineClass,
 	ipAddress string,
 	networkSpec network.InterfaceSpecList,
@@ -130,7 +131,7 @@ func ApplyVirtualMachineSpec(
 		return err
 	}
 
-	if err := applyBlockDeviceRefs(kvvm, vm, isVmRunning, vdByName, viByName, cviByName); err != nil {
+	if err := applyBlockDeviceRefs(kvvm, vm, isVmRunning, vdByName, viByName, cviByName, vmbdaByBlockDeviceRef); err != nil {
 		return err
 	}
 
@@ -166,6 +167,7 @@ func applyBlockDeviceRefs(
 	vdByName map[string]*v1alpha2.VirtualDisk,
 	viByName map[string]*v1alpha2.VirtualImage,
 	cviByName map[string]*v1alpha2.ClusterVirtualImage,
+	vmbdaByBlockDeviceRef map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment,
 ) error {
 	hasExplicitBootOrder := false
 	for _, bd := range vm.Spec.BlockDeviceRefs {
@@ -185,8 +187,16 @@ func applyBlockDeviceRefs(
 			hotpluggableVolumes[v.Name] = struct{}{}
 		}
 	}
+	vmbdaDiskNames := make(map[string]struct{}, len(vmbdaByBlockDeviceRef))
+	for ref := range vmbdaByBlockDeviceRef {
+		diskName := GenerateDiskName(v1alpha2.BlockDeviceKind(ref.Kind), ref.Name)
+		if diskName != "" {
+			vmbdaDiskNames[diskName] = struct{}{}
+		}
+	}
+
 	// This is needed to support disk removal in old VMs with static disks
-	cleanupRemovedStaticDisks(kvvm, specDiskNames, hotpluggableVolumes, isVmRunning)
+	cleanupRemovedStaticDisks(kvvm, specDiskNames, hotpluggableVolumes, vmbdaDiskNames, isVmRunning)
 
 	kvvmVolumes := kvvm.Resource.Spec.Template.Spec.Volumes
 	for i, bd := range vm.Spec.BlockDeviceRefs {
@@ -214,11 +224,20 @@ func applyBlockDeviceRefs(
 	return nil
 }
 
-func cleanupRemovedStaticDisks(kvvm *KVVM, specDiskNames, hotpluggableVolumes map[string]struct{}, isVmRunning bool) {
+func cleanupRemovedStaticDisks(kvvm *KVVM, specDiskNames, hotpluggableVolumes, vmbdaDiskNames map[string]struct{}, isVmRunning bool) {
+	// Disks attached via VMBDA should not be removed from KVVM spec even when VM is stopped.
+	// If VMBDA exists, the disk is associated with this VM - VMBDA controller will
+	// handle cleanup when VMBDA is deleted.
 	isRemovedStatic := func(name string) bool {
 		_, kind := GetOriginalDiskName(name)
 		_, inSpec := specDiskNames[name]
 		_, hotpluggable := hotpluggableVolumes[name]
+		_, attachedViaVMBDA := vmbdaDiskNames[name]
+
+		// Don't remove disks that are attached via VMBDA.
+		if attachedViaVMBDA {
+			return false
+		}
 		// When VM is stopped, remove all disks that are not in VM spec.
 		if !isVmRunning {
 			return kind != "" && !inSpec

@@ -86,7 +86,7 @@ var _ = Describe("cleanupRemovedStaticDisks", func() {
 				oldDisk1Name: {}, // hotpluggable
 			}
 
-			cleanupRemovedStaticDisks(kvvm, specDiskNames, hotpluggableVolumes, false)
+			cleanupRemovedStaticDisks(kvvm, specDiskNames, hotpluggableVolumes, nil, false)
 
 			// Should remove old-disk-1 (hotpluggable) and old-disk-2 (non-hotpluggable)
 			// because VM is stopped
@@ -105,12 +105,33 @@ var _ = Describe("cleanupRemovedStaticDisks", func() {
 				oldDisk1Name: {}, // hotpluggable - should NOT be removed
 			}
 
-			cleanupRemovedStaticDisks(kvvm, specDiskNames, hotpluggableVolumes, true)
+			cleanupRemovedStaticDisks(kvvm, specDiskNames, hotpluggableVolumes, nil, true)
 
 			// Should only remove old-disk-2 (non-hotpluggable)
 			// old-disk-1 should stay because it's hotpluggable
 			Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(HaveLen(1))
 			Expect(kvvm.Resource.Spec.Template.Spec.Volumes[0].Name).To(Equal(oldDisk1Name))
+			Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
+			Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(oldDisk1Name))
+		})
+
+		It("should not remove disk attached via VMBDA when VM is stopped", func() {
+			specDiskNames := map[string]struct{}{
+				newDisk1Name: {},
+			}
+			hotpluggableVolumes := map[string]struct{}{}
+
+			// Simulate disk attached via VMBDA
+			vmbdaDiskNames := map[string]struct{}{
+				oldDisk1Name: {},
+			}
+
+			cleanupRemovedStaticDisks(kvvm, specDiskNames, hotpluggableVolumes, vmbdaDiskNames, false)
+
+			// old-disk-1 should stay because it's attached via VMBDA
+			Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(HaveLen(1))
+			Expect(kvvm.Resource.Spec.Template.Spec.Volumes[0].Name).To(Equal(oldDisk1Name))
+			// old-disk-2 should be removed because it's not in spec and not attached via VMBDA
 			Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
 			Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(oldDisk1Name))
 		})
