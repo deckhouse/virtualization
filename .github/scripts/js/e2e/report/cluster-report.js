@@ -13,12 +13,13 @@
 const fs = require("fs");
 
 const { findSingleMatchingFile } = require("./shared/fs-utils");
-const { parseGinkgoReport } = require("./shared/ginkgo-report-utils");
+const { parseGinkgoOutput, parseGinkgoReport } = require("./shared/ginkgo-report-utils");
 const {
   archivedReportPattern,
   buildClusterStatus,
   buildReportSummary,
   buildTestStatus,
+  ginkgoOutputPattern,
   reportFileName,
   zeroMetrics,
 } = require("./shared/report-model");
@@ -65,11 +66,11 @@ const {
  */
 
 const workflowStages = [
-  { name: "bootstrap",            displayName: "Bootstrap cluster",        needsJobId: "bootstrap" },
-  { name: "configure-sdn",        displayName: "Configure SDN",            needsJobId: "configure-sdn" },
-  { name: "storage-setup",        displayName: "Configure storage",        needsJobId: "configure-storage" },
+  { name: "bootstrap", displayName: "Bootstrap cluster", needsJobId: "bootstrap" },
+  { name: "configure-sdn", displayName: "Configure SDN", needsJobId: "configure-sdn" },
+  { name: "storage-setup", displayName: "Configure storage", needsJobId: "configure-storage" },
   { name: "virtualization-setup", displayName: "Configure Virtualization", needsJobId: "configure-virtualization" },
-  { name: "e2e-test",             displayName: "E2E test",                 needsJobId: "e2e-test" },
+  { name: "e2e-test", displayName: "E2E test", needsJobId: "e2e-test" },
 ];
 
 function readClusterReportConfigFromEnv(env = process.env) {
@@ -83,17 +84,13 @@ function readClusterReportConfigFromEnv(env = process.env) {
   };
 }
 
+const requiredClusterReportConfigKeys = ["storageType", "reportsDir", "reportFile"];
+
 function requireClusterReportConfig(config) {
-  if (!config.storageType) {
-    throw new Error("buildClusterReport requires storageType");
-  }
-
-  if (!config.reportsDir) {
-    throw new Error("buildClusterReport requires reportsDir");
-  }
-
-  if (!config.reportFile) {
-    throw new Error("buildClusterReport requires reportFile");
+  for (const key of requiredClusterReportConfigKeys) {
+    if (!config[key]) {
+      throw new Error(`buildClusterReport requires ${key}`);
+    }
   }
 
   return { ...config };
@@ -168,53 +165,116 @@ async function readStageJobUrlsFromApi(github, context, config, core) {
   return stageJobUrls;
 }
 
-function findGinkgoReport(config) {
-  const rawReportPattern = archivedReportPattern(config.storageType);
-
-  return findSingleMatchingFile(
-    config.reportsDir,
-    rawReportPattern,
-    "Ginkgo JSON report"
-  );
+/**
+ * Builds a parsed-report payload used as a placeholder when no source data
+ * is available, so the downstream report builder can keep working with a
+ * uniform shape.
+ *
+ * @param {string} source Source label to record on the placeholder.
+ * @returns {{
+ *   metrics: ReturnType<typeof zeroMetrics>,
+ *   failedTests: string[],
+ *   failedTestDetails: Array<{name: string, reason: string}>,
+ *   specTimings: Array<Record<string, any>>,
+ *   suiteTotalMs: number,
+ *   startedAt: null,
+ *   source: string,
+ * }} Empty parsed-report payload.
+ */
+function emptyParsedReport(source) {
+  return {
+    metrics: zeroMetrics(),
+    failedTests: [],
+    failedTestDetails: [],
+    specTimings: [],
+    suiteTotalMs: 0,
+    startedAt: null,
+    source,
+  };
 }
 
-function parseGinkgoReportFile(rawReportPath, core) {
-  if (!rawReportPath) {
-    return {
-      metrics: zeroMetrics(),
-      failedTests: [],
-      startedAt: null,
-      source: "empty",
-    };
+const ginkgoJsonSource = {
+  label: "Ginkgo JSON report",
+  okSource: "ginkgo-json",
+  invalidSource: "ginkgo-json-invalid",
+  parse: parseGinkgoReport,
+  pattern: archivedReportPattern,
+};
+
+const ginkgoOutputSource = {
+  label: "Ginkgo output log",
+  okSource: "ginkgo-output",
+  invalidSource: "ginkgo-output-invalid",
+  parse: parseGinkgoOutput,
+  pattern: ginkgoOutputPattern,
+};
+
+/**
+ * @typedef {Object} GinkgoSourceDescriptor
+ * @property {string} label Human-readable source name for log lines and warnings.
+ * @property {string} okSource Source tag stored on a successful parse result.
+ * @property {string} invalidSource Source tag stored when parsing fails.
+ * @property {function(string): {
+ *   metrics: ReturnType<typeof zeroMetrics>,
+ *   failedTests: string[],
+ *   failedTestDetails: Array<{name: string, reason: string}>,
+ *   specTimings: Array<Record<string, any>>,
+ *   suiteTotalMs: number,
+ *   startedAt: string|null,
+ * }} parse Parser function for the source content.
+ * @property {function(string): RegExp} pattern Builds the file-name regex for the source.
+ */
+
+/**
+ * Locates a single Ginkgo source file (JSON report or stdout fallback log)
+ * for the configured storage type. Throws when more than one matching file
+ * exists; returns null when none is found.
+ *
+ * @param {ClusterReportConfig} config Resolved cluster report config.
+ * @param {GinkgoSourceDescriptor} source Source descriptor.
+ * @returns {string|null} Path to the source file, or null when none exists.
+ */
+function findGinkgoSource(config, source) {
+  return findSingleMatchingFile(config.reportsDir, source.pattern(config.storageType), source.label);
+}
+
+/**
+ * Reads and parses a Ginkgo source file (JSON report or stdout log) using
+ * the provided source descriptor. Returns an empty placeholder when the
+ * file path is missing or the parser throws, so the caller always receives
+ * a consistent parsed-report shape.
+ *
+ * @param {string|null} filePath Path to the source file, or null/empty.
+ * @param {ClusterReportCore} core GitHub Actions core API.
+ * @param {GinkgoSourceDescriptor} source Source descriptor.
+ * @returns {{
+ *   metrics: ReturnType<typeof zeroMetrics>,
+ *   failedTests: string[],
+ *   failedTestDetails: Array<{name: string, reason: string}>,
+ *   specTimings: Array<Record<string, any>>,
+ *   suiteTotalMs: number,
+ *   startedAt: string|null,
+ *   source: string,
+ * }} Parsed report payload with a source tag.
+ */
+function parseGinkgoFile(filePath, core, source) {
+  if (!filePath) {
+    return emptyParsedReport("empty");
   }
 
-  core.info(`Found Ginkgo JSON report: ${rawReportPath}`);
+  core.info(`Found ${source.label}: ${filePath}`);
   try {
     return {
-      ...parseGinkgoReport(fs.readFileSync(rawReportPath, "utf8")),
-      source: "ginkgo-json",
+      ...source.parse(fs.readFileSync(filePath, "utf8")),
+      source: source.okSource,
     };
   } catch (error) {
-    core.warning(
-      `Unable to parse Ginkgo JSON report ${rawReportPath}: ${error.message}`
-    );
-    return {
-      metrics: zeroMetrics(),
-      failedTests: [],
-      startedAt: null,
-      source: "ginkgo-json-invalid",
-    };
+    core.warning(`Unable to parse ${source.label} ${filePath}: ${error.message}`);
+    return emptyParsedReport(source.invalidSource);
   }
 }
 
-function buildReportPayload({
-  config,
-  context,
-  fallbackWorkflowRunUrl,
-  branchName,
-  parsedReport,
-  rawReportPath,
-}) {
+function buildReportPayload({ config, context, fallbackWorkflowRunUrl, branchName, parsedReport, sourcePath }) {
   const clusterStatus = buildClusterStatus(config.stageResults);
   const testStatus = buildTestStatus(
     config.stageResults["e2e-test"],
@@ -222,16 +282,8 @@ function buildReportPayload({
     clusterStatus,
     parsedReport.metrics
   );
-  const reportSummary = buildReportSummary(
-    config.storageType,
-    clusterStatus,
-    testStatus
-  );
-  const workflowRunUrl = getReportJobUrl(
-    reportSummary,
-    config.stageJobUrls,
-    fallbackWorkflowRunUrl
-  );
+  const reportSummary = buildReportSummary(config.storageType, clusterStatus, testStatus);
+  const workflowRunUrl = getReportJobUrl(reportSummary, config.stageJobUrls, fallbackWorkflowRunUrl);
 
   return {
     schemaVersion: 1,
@@ -251,16 +303,15 @@ function buildReportPayload({
     startedAt: parsedReport.startedAt,
     metrics: parsedReport.metrics,
     failedTests: parsedReport.failedTests,
-    sourceReport: rawReportPath,
+    failedTestDetails: parsedReport.failedTestDetails,
+    specTimings: parsedReport.specTimings || [],
+    suiteTotalMs: parsedReport.suiteTotalMs || 0,
+    sourceReport: sourcePath,
     reportSource: parsedReport.source,
   };
 }
 
-function getReportJobUrl(
-  reportSummary,
-  stageJobUrls = {},
-  fallbackWorkflowRunUrl
-) {
+function getReportJobUrl(reportSummary, stageJobUrls = {}, fallbackWorkflowRunUrl) {
   if (reportSummary.failedStage && stageJobUrls[reportSummary.failedStage]) {
     return stageJobUrls[reportSummary.failedStage];
   }
@@ -298,26 +349,22 @@ function setReportOutputs(report, reportFile, core) {
  * @throws {Error} If config is incomplete or the report file cannot be written.
  */
 async function buildClusterReport({ core, context, github, config } = {}) {
-  const resolvedConfig = requireClusterReportConfig(
-    config || readClusterReportConfigFromEnv()
-  );
+  const resolvedConfig = requireClusterReportConfig(config || readClusterReportConfigFromEnv());
 
   if (!resolvedConfig.stageResults) {
     resolvedConfig.stageResults = readStageResultsFromEnv();
   }
 
   if (!resolvedConfig.stageJobUrls && github) {
-    resolvedConfig.stageJobUrls = await readStageJobUrlsFromApi(
-      github,
-      context,
-      resolvedConfig,
-      core
-    );
+    resolvedConfig.stageJobUrls = await readStageJobUrlsFromApi(github, context, resolvedConfig, core);
   }
 
   const fallbackWorkflowRunUrl = getWorkflowRunUrl(context);
   const branchName = getBranchName(context);
-  const rawReportPath = findGinkgoReport(resolvedConfig);
+  const rawReportPath = findGinkgoSource(resolvedConfig, ginkgoJsonSource);
+  const outputPath = rawReportPath ? null : findGinkgoSource(resolvedConfig, ginkgoOutputSource);
+  const sourcePath = rawReportPath || outputPath;
+  const sourceDescriptor = rawReportPath ? ginkgoJsonSource : ginkgoOutputSource;
 
   if (!rawReportPath) {
     core.warning(
@@ -325,25 +372,20 @@ async function buildClusterReport({ core, context, github, config } = {}) {
     );
   }
 
-  const parsedReport = parseGinkgoReportFile(rawReportPath, core);
+  const parsedReport = parseGinkgoFile(sourcePath, core, sourceDescriptor);
   const report = buildReportPayload({
     config: resolvedConfig,
     context,
     fallbackWorkflowRunUrl,
     branchName,
     parsedReport,
-    rawReportPath,
+    sourcePath,
   });
 
   try {
-    fs.writeFileSync(
-      resolvedConfig.reportFile,
-      `${JSON.stringify(report, null, 2)}\n`
-    );
+    fs.writeFileSync(resolvedConfig.reportFile, `${JSON.stringify(report, null, 2)}\n`);
   } catch (error) {
-    throw new Error(
-      `Unable to write cluster report file ${resolvedConfig.reportFile}: ${error.message}`
-    );
+    throw new Error(`Unable to write cluster report file ${resolvedConfig.reportFile}: ${error.message}`);
   }
 
   setReportOutputs(report, resolvedConfig.reportFile, core);

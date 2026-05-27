@@ -14,6 +14,17 @@
 const REPORT_FILE_PATTERN = /^e2e_report_.*\.json$/;
 
 /**
+ * Escapes characters with special meaning in a regex literal so the value
+ * can be safely interpolated into `new RegExp(...)`.
+ *
+ * @param {string} value Raw string to escape.
+ * @returns {string} Regex-safe string.
+ */
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
  * Returns the canonical report file name for a given storage type.
  * @param {string} storageType
  * @returns {string}
@@ -29,26 +40,30 @@ function reportFileName(storageType) {
  * @returns {RegExp}
  */
 function archivedReportPattern(storageType) {
-  const escaped = storageType.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`^e2e_report_${escaped}_.*\\.json$`);
+  return new RegExp(`^e2e_report_${escapeRegExp(storageType)}_.*\\.json$`);
+}
+
+/**
+ * Returns a regex that matches Ginkgo stdout/stderr fallback logs,
+ * e.g. `e2e_output_replicated_2026-04-15.log`.
+ * @param {string} storageType
+ * @returns {RegExp}
+ */
+function ginkgoOutputPattern(storageType) {
+  return new RegExp(`^e2e_output_${escapeRegExp(storageType)}_.*\\.log$`);
 }
 
 const stageMessage = {
-  "bootstrap": "BOOTSTRAP CLUSTER",
+  bootstrap: "BOOTSTRAP CLUSTER",
   "configure-sdn": "CONFIGURE SDN",
   "storage-setup": "STORAGE SETUP",
   "virtualization-setup": "VIRTUALIZATION SETUP",
   "e2e-test": "E2E TEST",
-  "ready": "CLUSTER READY",
+  ready: "CLUSTER READY",
   "artifact-missing": "TEST REPORTS NOT FOUND",
 };
 
-const clusterSetupStages = [
-  "bootstrap",
-  "configure-sdn",
-  "storage-setup",
-  "virtualization-setup",
-];
+const clusterSetupStages = ["bootstrap", "configure-sdn", "storage-setup", "virtualization-setup"];
 
 function zeroMetrics() {
   return {
@@ -61,28 +76,21 @@ function zeroMetrics() {
   };
 }
 
+// Status → template used by buildStatusMessage. The "%s" placeholder is
+// replaced with stageLabel; any status not listed here falls through to
+// the generic "failure" rendering.
+const statusMessageTemplates = {
+  success: "✅ %s",
+  cancelled: "⚠️ %s CANCELLED",
+  skipped: "⚠️ %s SKIPPED",
+  missing: "⚠️ %s",
+  "not-run": "⚠️ %s NOT RUN",
+  failure: "❌ %s FAILED",
+};
+
 function buildStatusMessage(status, stageLabel) {
-  if (status === "success") {
-    return `✅ ${stageLabel}`;
-  }
-
-  if (status === "cancelled") {
-    return `⚠️ ${stageLabel} CANCELLED`;
-  }
-
-  if (status === "skipped") {
-    return `⚠️ ${stageLabel} SKIPPED`;
-  }
-
-  if (status === "missing") {
-    return `⚠️ ${stageLabel}`;
-  }
-
-  if (status === "not-run") {
-    return `⚠️ ${stageLabel} NOT RUN`;
-  }
-
-  return `❌ ${stageLabel} FAILED`;
+  const template = statusMessageTemplates[status] || statusMessageTemplates.failure;
+  return template.replace("%s", stageLabel);
 }
 
 function normalizeJobResult(resultValue) {
@@ -96,21 +104,18 @@ function normalizeJobResult(resultValue) {
 
 function buildClusterStatus(stageResults) {
   for (const stageName of clusterSetupStages) {
+    // normalizeJobResult only ever returns success/cancelled/skipped/failure,
+    // so once we know it isn't success, stageResult is already the final
+    // status name we want to propagate.
     const stageResult = normalizeJobResult(stageResults[stageName]);
     if (stageResult !== "success") {
       const stageLabel = stageMessage[stageName] || stageName;
-      const status =
-        stageResult === "cancelled"
-          ? "cancelled"
-          : stageResult === "skipped"
-            ? "skipped"
-            : "failure";
       return {
-        status,
+        status: stageResult,
         stage: stageName,
         stageLabel,
         message: buildStatusMessage(stageResult, stageLabel),
-        reason: `cluster-stage-${status}`,
+        reason: `cluster-stage-${stageResult}`,
       };
     }
   }
@@ -124,12 +129,7 @@ function buildClusterStatus(stageResults) {
   };
 }
 
-function buildTestStatus(
-  testResult,
-  reportSource,
-  clusterStatus,
-  metrics = {}
-) {
+function buildTestStatus(testResult, reportSource, clusterStatus, metrics = {}) {
   const stageLabel = stageMessage["e2e-test"];
 
   if (clusterStatus.status !== "success") {
@@ -142,21 +142,14 @@ function buildTestStatus(
 
   const normalizedResult = normalizeJobResult(testResult);
 
-  if (reportSource === "ginkgo-json") {
-    const hasReportedFailures =
-      Number(metrics.failed || 0) > 0 || Number(metrics.errors || 0) > 0;
-    const status =
-      normalizedResult === "success" && hasReportedFailures
-        ? "failure"
-        : normalizedResult;
+  if (reportSource === "ginkgo-json" || reportSource === "ginkgo-output") {
+    const hasReportedFailures = Number(metrics.failed || 0) > 0 || Number(metrics.errors || 0) > 0;
+    const status = normalizedResult === "success" && hasReportedFailures ? "failure" : normalizedResult;
 
     return {
       status,
       reason: status === "success" ? "" : "ginkgo-failed",
-      message:
-        status === "success"
-          ? "✅ E2E TESTS PASSED"
-          : buildStatusMessage(status, stageLabel),
+      message: status === "success" ? "✅ E2E TESTS PASSED" : buildStatusMessage(status, stageLabel),
     };
   }
 
@@ -225,8 +218,7 @@ function buildReportSummary(storageType, clusterStatus, testStatus) {
 
   return {
     failedStage: testStatus.status === "success" ? "success" : "e2e-test",
-    failedStageLabel:
-      testStatus.status === "success" ? "SUCCESS" : stageMessage["e2e-test"],
+    failedStageLabel: testStatus.status === "success" ? "SUCCESS" : stageMessage["e2e-test"],
     failedJobName: `E2E test (${storageType})`,
     reportKind: "tests",
     status: testStatus.status,
@@ -246,10 +238,7 @@ function isMissingReport(report) {
 
 function isClusterFailureReport(report) {
   if (report.clusterStatus) {
-    return (
-      report.clusterStatus.status !== "success" &&
-      report.clusterStatus.status !== "missing"
-    );
+    return report.clusterStatus.status !== "success" && report.clusterStatus.status !== "missing";
   }
 
   return report.reportKind !== "tests" && !isMissingReport(report);
@@ -261,10 +250,7 @@ function isTestResultReport(report) {
   }
 
   if (report.testStatus) {
-    return (
-      report.testStatus.status !== "not-run" &&
-      report.testStatus.status !== "missing"
-    );
+    return report.testStatus.status !== "not-run" && report.testStatus.status !== "missing";
   }
 
   return report.reportKind === "tests";
@@ -276,6 +262,7 @@ module.exports = {
   buildReportSummary,
   buildStatusMessage,
   buildTestStatus,
+  ginkgoOutputPattern,
   isClusterFailureReport,
   isMissingReport,
   isTestResultReport,

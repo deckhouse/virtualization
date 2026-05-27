@@ -1,4 +1,4 @@
-{{ if eq .Values.storageType "nfs" }}
+{{ if or (eq .Values.storageType "nfs") (eq .Values.storageType "mixed") }}
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk

@@ -1,13 +1,12 @@
 module moduleversions
 
-go 1.25.6
+go 1.25.10
 
 require (
 	github.com/PuerkitoBio/goquery v1.10.3
 	github.com/blang/semver/v4 v4.0.0
 	github.com/google/go-containerregistry v0.21.1
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/text v0.26.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

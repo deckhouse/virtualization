@@ -91,7 +91,7 @@ func (f *Framework) SSHCommand(vmName, vmNamespace, command string, options ...S
 	})
 
 	if !res.WasSuccess() {
-		return "", fmt.Errorf("failed to execute command %s: %w: %s", command, res.Error(), res.StdErr())
+		return "", fmt.Errorf("failed to execute command %s: %s: %s", command, res.Error().Error(), res.StdErr())
 	}
 
 	return res.StdOut(), nil

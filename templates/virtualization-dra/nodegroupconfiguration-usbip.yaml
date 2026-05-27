@@ -25,28 +25,44 @@ spec:
     # See the License for the specific language governing permissions and
     # limitations under the License.
 
-    pkg=""
+    kernel_release="$(uname -r)"
     bundle="$(bb-is-bundle)"
+    module_dir="/lib/modules/${kernel_release}/kernel/drivers/usb/usbip"
+    modules=("usbip-core.ko" "usbip-host.ko" "vhci-hcd.ko")
+    packages=()
+
+    modules_exist=true
+    for module in "${modules[@]}"; do
+      if [[ ! -e "${module_dir}/${module}" && ! -e "${module_dir}/${module}.zst" ]]; then
+        modules_exist=false
+        break
+      fi
+    done
+
+    if [[ "$modules_exist" == "true" ]]; then
+      bb-log-info "usbip kernel modules already exist for kernel ${kernel_release}."
+      return 0
+    fi
 
     if bb-is-distro-like? "debian"; then
-    # Debian, Ubuntu, Astra (Debian-based): modules in linux-modules-extra-$(uname -r)
-    pkg="linux-modules-extra-$(uname -r)"
+      packages=("linux-modules-extra-${kernel_release}")
     elif bb-is-distro-like? "rhel" || bb-is-distro-like? "centos" || bb-is-distro-like? "fedora"; then
-    # RHEL, CentOS, Fedora, ROSA, REDOS: kernel-modules-extra (match by ID or ID_LIKE)
-    pkg="kernel-modules-extra"
+      packages=("kernel-modules-extra-${kernel_release}" "kernel-modules-extra")
     elif [[ "$bundle" == "altlinux" ]]; then
-    # Alt Linux
-    pkg="kernel-modules-extra"
+      packages=("kernel-modules-extra")
     else
-    bb-log-warn "Unsupported OS for usbip kernel modules: bundle=${bundle}. Skipping."
-    return 1
+      bb-log-warn "Unsupported OS for usbip kernel modules: bundle=${bundle}. Skipping."
+      return 0
     fi
 
-    if [[ -z "$pkg" ]]; then
-    bb-log-warn "Could not determine package for usbip kernel modules."
-    return 1
-    fi
+    for pkg in "${packages[@]}"; do
+      bb-log-info "Installing package for usbip kernel modules (usbip_core, usbip_host, vhci_hcd): ${pkg}"
+      if bb-pkg install "$pkg"; then
+        return 0
+      fi
+      bb-log-warn "Failed to install package for usbip kernel modules: ${pkg}"
+    done
 
-    bb-log-info "Installing package for usbip kernel modules (usbip_core, usbip_host, vhci_hcd): ${pkg}"
-    bb-pkg install "$pkg"
+    bb-log-warn "Could not install a package with usbip kernel modules for kernel ${kernel_release}."
+    return 0
 {{- end }}
