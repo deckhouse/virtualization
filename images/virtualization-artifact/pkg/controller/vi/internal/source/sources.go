@@ -242,6 +242,10 @@ func reconcilePVCImportFromDVCR(
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
+	if err := disk.PersistentVolumeClaim().Import(ctx, pvc, source, vi, supgen, nil); err != nil {
+		return reconcile.Result{}, err
+	}
+
 	phase, err := disk.PersistentVolumeClaim().WaitForImport(ctx, pvc, source, vi, supgen, nil)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -310,6 +314,10 @@ func reconcilePVCImportFromReadySource(
 		vi.Status.Phase = v1alpha2.ImageProvisioning
 		cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("PVC Provisioner not found: create the new one.")
 		return reconcile.Result{RequeueAfter: time.Second}, nil
+	}
+
+	if err := disk.PersistentVolumeClaim().Import(ctx, pvc, source, vi, supgen, nil); err != nil {
+		return reconcile.Result{}, err
 	}
 
 	phase, err := disk.PersistentVolumeClaim().WaitForImport(ctx, pvc, source, vi, supgen, nil)

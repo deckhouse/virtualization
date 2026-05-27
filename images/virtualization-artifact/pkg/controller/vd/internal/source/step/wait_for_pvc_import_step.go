@@ -143,6 +143,10 @@ func (s WaitForPVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk
 	}
 
 	sup := vdsupplements.NewGenerator(vd)
+	if err := s.pvcSvc.Import(ctx, s.pvc, source, vd, sup, nodePlacement); err != nil {
+		return nil, fmt.Errorf("import to pvc: %w", err)
+	}
+
 	phase, err := s.pvcSvc.WaitForImport(ctx, s.pvc, source, vd, sup, nodePlacement)
 	if err != nil {
 		return nil, fmt.Errorf("pvc import: %w", err)

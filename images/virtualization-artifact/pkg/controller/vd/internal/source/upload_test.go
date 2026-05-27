@@ -127,6 +127,9 @@ var _ = Describe("UploadDataSource", func() {
 
 		pvcSvc = &DataSourcePVCServiceMock{
 			FinalizersFunc: func() []string { return nil },
+			ImportFunc: func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) error {
+				return nil
+			},
 			WaitForImportFunc: func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
 				return corev1.PodRunning, nil
 			},
@@ -391,6 +394,36 @@ var _ = Describe("UploadDataSource", func() {
 			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskReady))
 			ExpectCondition(vd, metav1.ConditionTrue, vdcondition.Ready, false)
 			ExpectStats(vd)
+		})
+	})
+
+	Context("Target PVC already exists and import resources were not created yet", func() {
+		BeforeEach(func() {
+			pvc.Status.Phase = corev1.ClaimBound
+			pvc.Annotations = map[string]string{annotations.AnnPVCImportPhase: string(corev1.PodPending)}
+		})
+
+		It("resumes by starting the PVC import before waiting for it", func() {
+			var imported bool
+			pvcSvc.ImportFunc = func(_ context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) error {
+				imported = true
+				Expect(target.Name).To(Equal(pvc.Name))
+				Expect(source).To(BeNil())
+				return nil
+			}
+			pvcSvc.WaitForImportFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
+				Expect(imported).To(BeTrue())
+				return corev1.PodPending, nil
+			}
+
+			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
+			res, err := newSyncer(cl).Sync(ctx, vd)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.RequeueAfter).ToNot(BeZero())
+
+			Expect(imported).To(BeTrue())
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
+			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
 		})
 	})
 

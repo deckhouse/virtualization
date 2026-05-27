@@ -24,7 +24,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
@@ -87,6 +91,30 @@ var _ = Describe("Sources helpers", func() {
 				UID:         "vi-uid",
 				Annotations: map[string]string{},
 			},
+		}
+	}
+
+	newScheme := func() *runtime.Scheme {
+		scheme := runtime.NewScheme()
+		Expect(corev1.AddToScheme(scheme)).To(Succeed())
+		return scheme
+	}
+
+	newBoundImportPVC := func(name, namespace string) *corev1.PersistentVolumeClaim {
+		return &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        name,
+				Namespace:   namespace,
+				UID:         types.UID(name + "-uid"),
+				Annotations: map[string]string{annotations.AnnPVCImportPhase: string(corev1.PodPending)},
+			},
+			Spec: corev1.PersistentVolumeClaimSpec{
+				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+				Resources: corev1.VolumeResourceRequirements{
+					Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("1Gi")},
+				},
+			},
+			Status: corev1.PersistentVolumeClaimStatus{Phase: corev1.ClaimBound},
 		}
 	}
 
@@ -181,6 +209,51 @@ var _ = Describe("Sources helpers", func() {
 	It("detects finished image provisioning by ready reason", func() {
 		Expect(IsImageProvisioningFinished(metav1.Condition{Reason: vicondition.Ready.String()})).To(BeTrue())
 		Expect(IsImageProvisioningFinished(metav1.Condition{Reason: vicondition.Provisioning.String()})).To(BeFalse())
+	})
+
+	Describe("PVC import resume", func() {
+		It("starts the PVC import for an existing target PVC created from DVCR", func() {
+			ctx := context.Background()
+			vi := newVI()
+			vi.Status.StorageClassName = "sc"
+			pvc := newBoundImportPVC("target", vi.Namespace)
+			client := fake.NewClientBuilder().WithScheme(newScheme()).WithObjects(pvc).Build()
+			disk := service.NewDiskService(client, nil, nil, "vi-controller", service.DiskImporterConfig{Image: "pvc-importer", Verbose: "1"})
+			supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
+			source := service.NewPVCRegistryImportSource("docker://registry.example/image", "", "")
+			cb := conditions.NewConditionBuilder(vicondition.ReadyType)
+
+			result, err := reconcilePVCImportFromDVCR(ctx, vi, &corev1.Pod{}, pvc, source, cb, supgen, nil, disk)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.RequeueAfter).ToNot(BeZero())
+
+			pod := &corev1.Pod{}
+			Expect(client.Get(ctx, supgen.PVCImporterPod(), pod)).To(Succeed())
+			Expect(vi.Status.Phase).To(Equal(v1alpha2.ImageProvisioning))
+			Expect(cb.Condition().Reason).To(Equal(vicondition.Provisioning.String()))
+		})
+
+		It("starts the PVC import for an existing target PVC created from another PVC", func() {
+			ctx := context.Background()
+			vi := newVI()
+			vi.Status.StorageClassName = "sc"
+			pvc := newBoundImportPVC("target", vi.Namespace)
+			sourcePVC := newBoundImportPVC("source", vi.Namespace)
+			client := fake.NewClientBuilder().WithScheme(newScheme()).WithObjects(pvc, sourcePVC).Build()
+			disk := service.NewDiskService(client, nil, nil, "vi-controller", service.DiskImporterConfig{Image: "pvc-importer", Verbose: "1"})
+			supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
+			source := service.NewPVCPVCImportSource(sourcePVC.Name, sourcePVC.Namespace)
+			cb := conditions.NewConditionBuilder(vicondition.ReadyType)
+
+			result, err := reconcilePVCImportFromReadySource(ctx, vi, pvc, source, resource.MustParse("1Gi"), cb, supgen, disk, func() {})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.RequeueAfter).ToNot(BeZero())
+
+			pod := &corev1.Pod{}
+			Expect(client.Get(ctx, supgen.PVCImporterPod(), pod)).To(Succeed())
+			Expect(vi.Status.Phase).To(Equal(v1alpha2.ImageProvisioning))
+			Expect(cb.Condition().Reason).To(Equal(vicondition.Provisioning.String()))
+		})
 	})
 
 	DescribeTable(

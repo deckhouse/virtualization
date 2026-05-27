@@ -128,6 +128,9 @@ var _ = Describe("RegistryDataSource", func() {
 
 		pvcSvc = &DataSourcePVCServiceMock{
 			FinalizersFunc: func() []string { return nil },
+			ImportFunc: func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) error {
+				return nil
+			},
 			WaitForImportFunc: func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
 				return corev1.PodRunning, nil
 			},
@@ -328,6 +331,44 @@ var _ = Describe("RegistryDataSource", func() {
 			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskReady))
 			ExpectCondition(vd, metav1.ConditionTrue, vdcondition.Ready, false)
 			ExpectStats(vd)
+		})
+	})
+
+	Context("PVC is Bound and the import is still in flight", func() {
+		BeforeEach(func() {
+			pvc.Status.Phase = corev1.ClaimBound
+			pvc.Annotations = map[string]string{annotations.AnnPVCImportPhase: string(corev1.PodPending)}
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "importer", Namespace: vd.Namespace},
+				Status:     corev1.PodStatus{Phase: corev1.PodSucceeded},
+			}
+			importerSvc.GetPodFunc = func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) { return pod, nil }
+		})
+
+		It("resumes by starting the PVC import when the target PVC already exists", func() {
+			var imported bool
+			pvcSvc.ImportFunc = func(_ context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) error {
+				imported = true
+				Expect(target.Name).To(Equal(pvc.Name))
+				Expect(source).ToNot(BeNil())
+				Expect(source.Registry).ToNot(BeNil())
+				return nil
+			}
+			pvcSvc.WaitForImportFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim, source *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
+				Expect(imported).To(BeTrue())
+				Expect(source).ToNot(BeNil())
+				Expect(source.Registry).ToNot(BeNil())
+				return corev1.PodPending, nil
+			}
+
+			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
+			res, err := newSyncer(cl).Sync(ctx, vd)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.RequeueAfter).ToNot(BeZero())
+
+			Expect(imported).To(BeTrue())
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
+			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
 		})
 	})
 
