@@ -44,6 +44,15 @@ tasks:
     cmds:
       - ./scripts/task_run_ci.sh
 
+  e2e:ci:
+    desc: "Run e2e tests in GitHub Actions"
+    deps:
+      - copy
+      - kubectl
+      - d8
+    cmds:
+      - bash ./scripts/e2e-ci.sh
+
   precheck:prepare:
     desc: "Generate JSON report via ginkgo dry-run for precheck preparation"
     cmds:

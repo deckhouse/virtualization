@@ -229,71 +229,20 @@ jobs:
 
       - name: Generate values.yaml
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
-        run: |
-          defaultStorageClass=$(kubectl get storageclass -o json \
-            | jq -r '.items[] | select(.metadata.annotations."storageclass.kubernetes.io/is-default-class" == "true") | .metadata.name')
-
-          cat <<EOF > values.yaml
-          namespace: ${{ steps.vars.outputs.namespace }}
-          storageType: ${{ inputs.storage_type }}
-          storageClass: ${defaultStorageClass}
-          sa: dkp-sa
-          deckhouse:
-            channel: ${{ env.DECKHOUSE_CHANNEL }}
-            podSubnetCIDR: ${{ inputs.pod_subnet_cidr }}
-            serviceSubnetCIDR: ${{ inputs.service_subnet_cidr }}
-            kubernetesVersion: ${{ env.K8S_VERSION }}
-            registryDockerCfg: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
-            bundle: Default
-            proxyEnabled: false
-          image:
-            url: ${{ inputs.virtualization_image_url }}
-            defaultUser: ${{ env.DEFAULT_USER }}
-            bootloader: BIOS
-          ingressHosts:
-            - api
-            - grafana
-            - dex
-            - prometheus
-            - console
-            - virtualization
-          instances:
-            aptMirror:
-              enabled: ${{ inputs.apt_mirror_enabled }}
-              name: ${{ inputs.apt_mirror_name }}
-              url: ${{ inputs.apt_mirror_url }}
-            masterNodes:
-              count: 1
-              cfg:
-                rootDiskSize: 60Gi
-                cpu:
-                  cores: 4
-                  coreFraction: 50%
-                memory:
-                  size: 12Gi
-            additionalNodes:
-            - name: worker
-              count: 3
-              cfg:
-                cpu:
-                  cores: 6
-                  coreFraction: 50%
-                memory:
-                  size: ${{ inputs.cluster_config_workers_memory }}
-                additionalDisks:
-                - size: 50Gi
-            networkConfig:
-              clusterNetworkName: ${{ inputs.nested_cluster_network_name }}
-          EOF
-
-          mkdir -p tmp
-          touch tmp/discovered-values.yaml
-
-          export REGISTRY=$(base64 -d <<< ${{secrets.DEV_REGISTRY_DOCKER_CFG}} | jq '.auths | to_entries | .[] | .key' -r)
-          export AUTH=$(base64 -d <<< ${{ secrets.DEV_REGISTRY_DOCKER_CFG }} | jq '.auths | to_entries | .[] | .value.auth' -r)
-
-          yq eval --inplace '.discovered.registry_url = env(REGISTRY)' tmp/discovered-values.yaml
-          yq eval --inplace '.discovered.registry_auth = env(AUTH)' tmp/discovered-values.yaml
+        env:
+          NAMESPACE: ${{ steps.vars.outputs.namespace }}
+          STORAGE_TYPE: ${{ inputs.storage_type }}
+          POD_SUBNET_CIDR: ${{ inputs.pod_subnet_cidr }}
+          SERVICE_SUBNET_CIDR: ${{ inputs.service_subnet_cidr }}
+          PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
+          DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
+          VIRTUALIZATION_IMAGE_URL: ${{ inputs.virtualization_image_url }}
+          APT_MIRROR_ENABLED: ${{ inputs.apt_mirror_enabled }}
+          APT_MIRROR_NAME: ${{ inputs.apt_mirror_name }}
+          APT_MIRROR_URL: ${{ inputs.apt_mirror_url }}
+          CLUSTER_CONFIG_WORKERS_MEMORY: ${{ inputs.cluster_config_workers_memory }}
+          NESTED_CLUSTER_NETWORK_NAME: ${{ inputs.nested_cluster_network_name }}
+        run: bash ${{ github.workspace }}/.github/scripts/bash/e2e/render-dvp-static-values.sh
 
       - name: Bootstrap cluster [infra-deploy]
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
@@ -506,7 +455,6 @@ jobs:
           checkout: "false"
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-
       - name: Check nested kube-api via generated kubeconfig
         uses: ./.github/actions/use-nested-kubeconfig
         with:
@@ -624,7 +572,6 @@ jobs:
           checkout: "false"
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-
       - name: Check nested kube-api via generated kubeconfig
         uses: ./.github/actions/use-nested-kubeconfig
         with:
@@ -633,39 +580,7 @@ jobs:
         id: storage-replicated-setup
         if: ${{ inputs.storage_type == 'replicated' }}
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/sds-replicated
-        run: |
-          source "${GITHUB_WORKSPACE}/.github/scripts/bash/e2e/wait-sds-replicated.sh"
-
-          d8_queue
-
-          kubectl apply -f ../sds-node-configurator/mc.yaml
-          kubectl apply -f mc.yaml
-          echo "[INFO] Wait for sds-node-configurator"
-          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules sds-node-configurator --timeout=300s
-
-          echo "[INFO] Wait for sds-replicated-volume to be ready"
-          sds_replicated_ready
-          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules sds-replicated-volume --timeout=300s
-
-          echo "[INFO] Wait BlockDevice are ready"
-          blockdevices_ready
-
-          echo "[INFO] Wait pods and webhooks sds-replicated pods"
-          sds_pods_ready
-
-          chmod +x ../sds-node-configurator/lvg-gen.sh
-          ../sds-node-configurator/lvg-gen.sh
-
-          chmod +x rsc-gen.sh
-          ./rsc-gen.sh
-
-          echo "[INFO] Show existing storageclasses"
-          if ! kubectl get storageclass | grep -q nested; then
-            echo "[WARNING] No nested storageclasses"
-          else
-            kubectl get storageclass | grep nested
-            echo "[SUCCESS] Done"
-          fi
+        run: bash ${{ github.workspace }}/.github/scripts/bash/e2e/configure-sds-replicated.sh
 
       - name: Configure NFS storage
         if: ${{ inputs.storage_type == 'nfs' }}
@@ -673,63 +588,7 @@ jobs:
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/nfs
         env:
           NAMESPACE: ${{ needs.bootstrap.outputs.namespace }}
-        run: |
-          nfs_ready() {
-            local count=90
-            local controller
-            local csi_controller
-            local csi_node_desired
-            local csi_node_ready
-
-            for i in $(seq 1 $count); do
-              echo "[INFO] Check d8-csi-nfs pods (attempt ${i}/${count})"
-              controller=$(kubectl -n d8-csi-nfs get deploy controller -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-              csi_controller=$(kubectl -n d8-csi-nfs get deploy csi-controller -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-              csi_node_desired=$(kubectl -n d8-csi-nfs get ds csi-node -o jsonpath='{.status.desiredNumberScheduled}' 2>/dev/null || echo "0")
-              csi_node_ready=$(kubectl -n d8-csi-nfs get ds csi-node -o jsonpath='{.status.numberReady}' 2>/dev/null || echo "0")
-
-              if [[ "$controller" -ge 1 && "$csi_controller" -ge 1 && "$csi_node_desired" -gt 0 && "$csi_node_ready" -eq "$csi_node_desired" ]]; then
-                echo "[SUCCESS] NFS CSI is ready (controller=${controller}, csi-controller=${csi_controller}, csi-node=${csi_node_ready}/${csi_node_desired})"
-                return 0
-              fi
-
-              echo "[WARNING] NFS CSI not ready: controller=${controller}, csi-controller=${csi_controller}, csi-node=${csi_node_ready}/${csi_node_desired}"
-              if (( i % 5 == 0 )); then
-                echo "[DEBUG] Pods in d8-csi-nfs:"
-                kubectl -n d8-csi-nfs get pods || echo "[WARNING] Failed to retrieve pods"
-                echo "[DEBUG] Deployments in d8-csi-nfs:"
-                kubectl -n d8-csi-nfs get deploy || echo "[WARNING] Failed to retrieve deployments"
-                echo "[DEBUG] DaemonSets in d8-csi-nfs:"
-                kubectl -n d8-csi-nfs get ds || echo "[WARNING] Failed to retrieve daemonsets"
-                echo "[DEBUG] csi-nfs module status:"
-                kubectl get modules csi-nfs -o wide || echo "[WARNING] Failed to retrieve module"
-              fi
-              sleep 10
-            done
-
-            echo "[ERROR] NFS CSI did not become ready in time"
-            kubectl -n d8-csi-nfs get pods || true
-            exit 1
-          }
-
-          echo "[INFO] Apply csi-nfs ModuleConfig, ModulePullOverride, snapshot-controller"
-          kubectl apply -f mc.yaml
-
-          echo "[INFO] Wait for csi-nfs module to be ready"
-          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules csi-nfs --timeout=300s
-
-          echo "[INFO] Wait for csi-nfs pods to be ready"
-          nfs_ready
-
-          echo "[INFO] Apply NFSStorageClass"
-          envsubst < storageclass.yaml | kubectl apply -f -
-
-          echo "[INFO] Configure default storage class"
-          ./default-sc-configure.sh
-
-
-          echo "[INFO] Show existing storageclasses"
-          kubectl get storageclass
+        run: bash ${{ github.workspace }}/.github/scripts/bash/e2e/configure-csi-nfs.sh
 
   configure-virtualization:
     name: Configure Virtualization
@@ -827,34 +686,7 @@ jobs:
 
       - name: Detect Kubernetes version for E2E
         id: detect-k8s-version
-        run: |
-          set -euo pipefail
-
-          VERSION_JSON=$(kubectl version -o json)
-          SERVER_VERSION=$(echo "$VERSION_JSON" | jq -r '.serverVersion.gitVersion')
-          SERVER_MAJOR=$(echo "$VERSION_JSON" | jq -r '.serverVersion.major' | tr -cd '0-9')
-          SERVER_MINOR=$(echo "$VERSION_JSON" | jq -r '.serverVersion.minor' | tr -cd '0-9')
-
-          if [[ -z "$SERVER_MAJOR" || -z "$SERVER_MINOR" ]]; then
-            echo "[ERROR] Failed to parse Kubernetes server version: $SERVER_VERSION"
-            exit 1
-          fi
-
-          LABEL_FILTER=""
-          USB_SUPPORTED=false
-
-          if (( SERVER_MAJOR > 1 || (SERVER_MAJOR == 1 && SERVER_MINOR >= 34) )); then
-            USB_SUPPORTED=true
-            echo "[INFO] Kubernetes server version $SERVER_VERSION supports USB E2E tests"
-          else
-            LABEL_FILTER="!usb-precheck"
-            echo "[INFO] Kubernetes server version $SERVER_VERSION does not support USB E2E tests"
-            echo "[INFO] USB-labeled specs will be excluded with label filter: $LABEL_FILTER"
-          fi
-
-          echo "server-version=$SERVER_VERSION" >> "$GITHUB_OUTPUT"
-          echo "usb-supported=$USB_SUPPORTED" >> "$GITHUB_OUTPUT"
-          echo "label-filter=$LABEL_FILTER" >> "$GITHUB_OUTPUT"
+        run: bash .github/scripts/bash/e2e/detect-k8s-version.sh
 
       - name: Create vmclass for e2e tests
         run: |
@@ -874,45 +706,9 @@ jobs:
           LABELS: ${{ steps.detect-k8s-version.outputs.label-filter }}
           SERVER_K8S_VERSION: ${{ steps.detect-k8s-version.outputs.server-version }}
           USB_SUPPORTED: ${{ steps.detect-k8s-version.outputs.usb-supported }}
+          FOCUS: ${{ inputs.e2e_focus_tests }}
         working-directory: ./test/e2e/
-        run: |
-          DATE=$(date +"%Y-%m-%d")
-          e2e_report_file="e2e_report_${CSI}_${DATE}.json"
-          e2e_output_file="e2e_output_${CSI}_${DATE}.log"
-          FOCUS="${{ inputs.e2e_focus_tests }}"
-
-          cp -a legacy/testdata /tmp/testdata
-
-          echo "[INFO] Kubernetes server version: ${SERVER_K8S_VERSION}"
-          echo "[INFO] USB E2E supported: ${USB_SUPPORTED}"
-          if [ -n "${LABELS:-}" ]; then
-            echo "[INFO] Applying Ginkgo label filter: ${LABELS}"
-          fi
-
-          ./scripts/precheck-prepare_ci.sh
-
-          set +e
-          GINKGO_ARGS=(
-            -v
-            --race
-            --timeout="$TIMEOUT"
-            --json-report="$e2e_report_file"
-          )
-
-          if [ -n "${LABELS:-}" ]; then
-            GINKGO_ARGS+=(--label-filter="$LABELS")
-          fi
-
-          if [ -n "$FOCUS" ]; then
-            GINKGO_ARGS+=(--focus="$FOCUS")
-          fi
-
-          go tool ginkgo "${GINKGO_ARGS[@]}" . 2>&1 | tee "$e2e_output_file"
-          GINKGO_EXIT_CODE=${PIPESTATUS[0]}
-          set -e
-
-          echo "[INFO] Exit code: $GINKGO_EXIT_CODE"
-          exit $GINKGO_EXIT_CODE
+        run: task e2e:ci
 
       - name: Upload summary test results (json)
         uses: actions/upload-artifact@v7
