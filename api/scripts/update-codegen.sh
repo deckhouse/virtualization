@@ -43,7 +43,6 @@ function source::settings {
                               "NodeUSBDevice"
                               "USBDevice")
 
-    # shellcheck disable=SC1091 # kube_codegen.sh is resolved from the Go module cache at runtime.
     source "${CODEGEN_PKG}/kube_codegen.sh"
 }
 
@@ -87,7 +86,7 @@ function generate::crds {
         if ! [[ " ${ALLOWED_RESOURCE_GEN_CRD[*]} " =~ [[:space:]]$(cat "$file" | yq '.spec.names.kind')[[:space:]] ]]; then
             continue
         fi
-        cp "$file" "${ROOT}/crds/$(echo "$file" | awk -Fio_ '{print $2}')"
+        cp "$file" "${ROOT}/crds/$(echo $file | awk -Fio_ '{print $2}')"
     done
 }
 

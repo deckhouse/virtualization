@@ -109,7 +109,6 @@ DIR="$(dirname "$0")"
 ROOT="${DIR}/../../../"
 cd "$ROOT"
 
-# shellcheck source=images/virtualization-artifact/hack/args.sh
 source "${DIR}/args.sh"
 set_flags_args "$@"
 
