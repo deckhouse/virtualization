@@ -279,21 +279,9 @@ jobs:
           NAMESPACE: ${{ steps.vars.outputs.namespace }}
           PREFIX: ${{ inputs.storage_type }}
         run: |
-          nested_master=$(kubectl -n ${NAMESPACE} get vm -l group=${PREFIX}-master -o jsonpath="{.items[0].metadata.name}")
+          source "${GITHUB_WORKSPACE}/.github/scripts/bash/e2e/d8-ssh.sh"
 
-          d8vssh() {
-            local host=$1
-            local cmd=$2
-            d8 v ssh -i ./tmp/ssh/cloud \
-            --local-ssh=true \
-            --local-ssh-opts="-o StrictHostKeyChecking=no" \
-            --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-            --local-ssh-opts="-o ServerAliveInterval=15" \
-            --local-ssh-opts="-o ServerAliveCountMax=8" \
-            --local-ssh-opts="-o ConnectTimeout=10" \
-            ${DEFAULT_USER}@${host}.${NAMESPACE} \
-            -c "$cmd"
-          }
+          nested_master=$(kubectl -n ${NAMESPACE} get vm -l group=${PREFIX}-master -o jsonpath="{.items[0].metadata.name}")
 
           echo "[INFO] Pods in namespace $NAMESPACE"
           kubectl get pods -n "${NAMESPACE}"
@@ -319,31 +307,9 @@ jobs:
           NAMESPACE: ${{ steps.vars.outputs.namespace }}
           PREFIX: ${{ inputs.storage_type }}
         run: |
+          source "${GITHUB_WORKSPACE}/.github/scripts/bash/e2e/d8-ssh.sh"
+
           nested_master=$(kubectl -n ${NAMESPACE} get vm -l group=${PREFIX}-master -o jsonpath="{.items[0].metadata.name}")
-
-          d8vscp() {
-            local source=$1
-            local dest=$2
-            d8 v scp -i ./tmp/ssh/cloud \
-              --local-ssh=true \
-              --local-ssh-opts="-o StrictHostKeyChecking=no" \
-              --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-              "$source" "$dest"
-            echo "d8vscp: $source -> $dest - done"
-          }
-
-          d8vssh() {
-            local cmd=$1
-            d8 v ssh -i ./tmp/ssh/cloud \
-            --local-ssh=true \
-            --local-ssh-opts="-o StrictHostKeyChecking=no" \
-            --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-            --local-ssh-opts="-o ServerAliveInterval=15" \
-            --local-ssh-opts="-o ServerAliveCountMax=8" \
-            --local-ssh-opts="-o ConnectTimeout=10" \
-            ${DEFAULT_USER}@${nested_master}.${NAMESPACE} \
-            -c "$cmd"
-          }
 
           echo "[INFO] Copy script for generating kubeconfig in nested cluster"
           echo "[INFO] Copy scripts/gen-kubeconfig.sh to master"
@@ -383,18 +349,9 @@ jobs:
           NAMESPACE: ${{ steps.vars.outputs.namespace }}
           PREFIX: ${{ inputs.storage_type }}
         run: |
-          nested_master=$(kubectl -n ${NAMESPACE} get vm -l group=${PREFIX}-master -o jsonpath="{.items[0].metadata.name}")
+          source "${GITHUB_WORKSPACE}/.github/scripts/bash/e2e/d8-ssh.sh"
 
-          d8vscp() {
-            local source=$1
-            local dest=$2
-            d8 v scp -i ./tmp/ssh/cloud \
-              --local-ssh=true \
-              --local-ssh-opts="-o StrictHostKeyChecking=no" \
-              --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-              "$source" "$dest"
-            echo "d8vscp: $source -> $dest - done"
-          }
+          nested_master=$(kubectl -n ${NAMESPACE} get vm -l group=${PREFIX}-master -o jsonpath="{.items[0].metadata.name}")
 
           d8vscp "${DEFAULT_USER}@${nested_master}.$NAMESPACE:/var/log/cloud-init*.log" "./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/"
 
