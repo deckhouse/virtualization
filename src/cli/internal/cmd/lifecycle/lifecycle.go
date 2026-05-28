@@ -17,9 +17,12 @@ limitations under the License.
 package lifecycle
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 	"time"
 
@@ -29,6 +32,7 @@ import (
 	"golang.org/x/text/language"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 
@@ -72,10 +76,13 @@ type Lifecycle struct {
 	cmd           Command
 	opts          Options
 	migrationOpts MigrationOpts
+
+	resultErr error
 }
 
 func DefaultOptions() Options {
 	return Options{
+		Confirm:      os.Getenv(confirmEnv) == "yes",
 		Force:        false,
 		WaitComplete: false,
 		CreateOnly:   false,
@@ -87,11 +94,27 @@ func DefaultOptions() Options {
 // although in reality, it is `false`. This flag should be refactored.
 // Consider changing it to a `silence` flag, which could be useful in scripting.
 type Options struct {
+	Confirm      bool
 	Force        bool
 	WaitComplete bool
 	CreateOnly   bool
 	All          bool
+	Selector     map[string]string
 	Timeout      time.Duration
+}
+
+func (o *Options) validate(args []string) error {
+	if len(args) > 0 && o.All {
+		return fmt.Errorf("cannot use --all flag with specific keys")
+	}
+	if len(args) > 0 && len(o.Selector) > 0 {
+		return fmt.Errorf("cannot use --label-selector flag with specific keys")
+	}
+	if o.All && len(o.Selector) > 0 {
+		return fmt.Errorf("cannot use --all and --label-selector flags together")
+	}
+
+	return nil
 }
 
 type MigrationOpts struct {
@@ -104,17 +127,27 @@ func (l *Lifecycle) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if len(args) > 0 && l.opts.All {
-		return fmt.Errorf("cannot use --all flag with specific keys")
+	if err = l.opts.validate(args); err != nil {
+		return err
 	}
 
 	var keys []types.NamespacedName
-	if l.opts.All {
-		keys, err = l.getVirtualMachines(cmd.Context(), defaultNamespace, client)
+
+	switch {
+	case l.opts.All:
+		keys, err = l.getVirtualMachines(cmd.Context(), defaultNamespace, client, metav1.ListOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to get virtual machines in namespace %q: %w", defaultNamespace, err)
 		}
-	} else {
+	case len(l.opts.Selector) > 0:
+		selector := labels.SelectorFromSet(l.opts.Selector).String()
+		opts := metav1.ListOptions{LabelSelector: selector}
+
+		keys, err = l.getVirtualMachines(cmd.Context(), defaultNamespace, client, opts)
+		if err != nil {
+			return fmt.Errorf("failed to get virtual machines in namespace %q with selector: %q: %w", defaultNamespace, selector, err)
+		}
+	default:
 		keys, err = l.getNamespacedNames(defaultNamespace, args)
 		if err != nil {
 			return fmt.Errorf("failed to parse keys: %w", err)
@@ -134,39 +167,79 @@ func (l *Lifecycle) Run(cmd *cobra.Command, args []string) error {
 	switch l.cmd {
 	case Stop:
 		for _, key := range keys {
-			cmd.Printf("Stopping virtual machine %q\n", key.String())
-			msg, err := mgr.Stop(ctx, key.Name, key.Namespace)
-			l.handleMsgError(cmd, msg, err)
+			l.withConfirm(cmd, Stop, key, func() {
+				cmd.Printf("Stopping virtual machine %q\n", key.String())
+				msg, err := mgr.Stop(ctx, key.Name, key.Namespace)
+				l.handleMsgError(cmd, msg, err)
+			})
 		}
 	case Start:
 		for _, key := range keys {
-			cmd.Printf("Starting virtual machine %q\n", key.String())
-			msg, err := mgr.Start(ctx, key.Name, key.Namespace)
-			l.handleMsgError(cmd, msg, err)
+			l.withConfirm(cmd, Start, key, func() {
+				cmd.Printf("Starting virtual machine %q\n", key.String())
+				msg, err := mgr.Start(ctx, key.Name, key.Namespace)
+				l.handleMsgError(cmd, msg, err)
+			})
 		}
 	case Restart:
 		for _, key := range keys {
-			cmd.Printf("Restarting virtual machine %q\n", key.String())
-			msg, err := mgr.Restart(ctx, key.Name, key.Namespace)
-			l.handleMsgError(cmd, msg, err)
+			l.withConfirm(cmd, Restart, key, func() {
+				cmd.Printf("Restarting virtual machine %q\n", key.String())
+				msg, err := mgr.Restart(ctx, key.Name, key.Namespace)
+				l.handleMsgError(cmd, msg, err)
+			})
 		}
 	case Evict:
 		for _, key := range keys {
-			cmd.Printf("Evicting virtual machine %q\n", key.String())
-			msg, err := mgr.Evict(ctx, key.Name, key.Namespace)
-			l.handleMsgError(cmd, msg, err)
+			l.withConfirm(cmd, Evict, key, func() {
+				cmd.Printf("Evicting virtual machine %q\n", key.String())
+				msg, err := mgr.Evict(ctx, key.Name, key.Namespace)
+				l.handleMsgError(cmd, msg, err)
+			})
 		}
 	case Migrate:
 		for _, key := range keys {
-			cmd.Printf("Migrating virtual machine %q\n", key.String())
-			msg, err := mgr.Migrate(ctx, key.Name, key.Namespace, l.migrationOpts.TargetNodeName)
-			l.handleMsgError(cmd, msg, err)
+			targetNodeName := l.migrationOpts.TargetNodeName
+
+			if err := l.validateNodeName(cmd, key.Name, targetNodeName); err != nil {
+				l.handleMsgError(cmd, "", err)
+				continue
+			}
+
+			l.withConfirm(cmd, Migrate, key, func() {
+				cmd.Printf("Migrating virtual machine %q\n", key.String())
+				msg, err := mgr.Migrate(ctx, key.Name, key.Namespace, targetNodeName)
+				l.handleMsgError(cmd, msg, err)
+			})
 		}
 	default:
 		return fmt.Errorf("invalid command %q", l.cmd)
 	}
 
-	return nil
+	return l.resultErr
+}
+
+func (l *Lifecycle) withConfirm(cmd *cobra.Command, command Command, key types.NamespacedName, fn func()) {
+	if l.opts.Confirm {
+		fn()
+		return
+	}
+
+	cmd.Printf("Are you sure you want to execute command %q for virtual machine %q? [y/N] ", command, key.String())
+	reader := bufio.NewReader(cmd.InOrStdin())
+	answer, err := reader.ReadString('\n')
+	if err != nil && !errors.Is(err, io.EOF) {
+		cmd.PrintErrf("Error: failed to read confirmation: %s\n", err)
+		return
+	}
+
+	answer = strings.TrimSpace(strings.ToLower(answer))
+	if answer != "y" && answer != "yes" {
+		cmd.Printf("Skipping virtual machine %q\n", key.String())
+		return
+	}
+
+	fn()
 }
 
 func (l *Lifecycle) handleMsgError(cmd *cobra.Command, msg string, err error) {
@@ -175,6 +248,10 @@ func (l *Lifecycle) handleMsgError(cmd *cobra.Command, msg string, err error) {
 	}
 	if err != nil {
 		cmd.Printf("Error: %s\n", err.Error())
+
+		if l.resultErr == nil {
+			l.resultErr = fmt.Errorf("something went wrong: %w", err)
+		}
 	}
 }
 
@@ -220,8 +297,8 @@ func (l *Lifecycle) getNamespacedNames(defaultNamespace string, args []string) (
 	return keys, nil
 }
 
-func (l *Lifecycle) getVirtualMachines(ctx context.Context, namespace string, client kubeclient.Client) ([]types.NamespacedName, error) {
-	vmList, err := client.VirtualMachines(namespace).List(ctx, metav1.ListOptions{})
+func (l *Lifecycle) getVirtualMachines(ctx context.Context, namespace string, client kubeclient.Client, opts metav1.ListOptions) ([]types.NamespacedName, error) {
+	vmList, err := client.VirtualMachines(namespace).List(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +325,7 @@ func (l *Lifecycle) getManager(client kubeclient.Client, forceSet, severalVms bo
 	)
 }
 
-func (l *Lifecycle) ValidateNodeName(cmd *cobra.Command, vmName, targetNodeName string) error {
+func (l *Lifecycle) validateNodeName(cmd *cobra.Command, vmName, targetNodeName string) error {
 	if !cmd.Flags().Changed("target-node-name") {
 		return nil
 	}
@@ -282,22 +359,30 @@ func (l *Lifecycle) ValidateNodeName(cmd *cobra.Command, vmName, targetNodeName 
 }
 
 const (
+	confirmFlag, confirmFlagShort       = "yes", "y"
 	forceFlag, forceFlagShort           = "force", "f"
 	waitFlag, waitFlagShort             = "wait", "w"
 	createOnlyFlag, createOnlyFlagShort = "create-only", "c"
-	allFlag, allFlagShort               = "all", "a"
+	allFlag                             = "all"
+	selectorFlag, selectorFlagShort     = "label-selector", "l"
 	timeoutFlag, timeoutFlagShort       = "timeout", "t"
+
+	confirmEnv = "D8_VIRTUALIZATION_LIFECYCLE_CONFIRM"
 )
 
 func AddCommandLineArgs(flagset *pflag.FlagSet, opts *Options) {
+	flagset.BoolVarP(&opts.Confirm, confirmFlag, confirmFlagShort, opts.Confirm,
+		"Set this flag to confirm the action without prompting for confirmation.")
 	flagset.BoolVarP(&opts.Force, forceFlag, forceFlagShort, opts.Force,
 		"Set this flag to force the operation.")
 	flagset.BoolVarP(&opts.WaitComplete, waitFlag, waitFlagShort, opts.WaitComplete,
 		"Set this flag to wait for the operation to complete.")
 	flagset.BoolVarP(&opts.CreateOnly, createOnlyFlag, createOnlyFlagShort, opts.CreateOnly,
 		"Set this flag to only create the action without status warnings or notifications.")
-	flagset.BoolVarP(&opts.All, allFlag, allFlagShort, opts.All,
+	flagset.BoolVar(&opts.All, allFlag, opts.All,
 		"Set this flag to apply the action to all VMs.")
+	flagset.StringToStringVarP(&opts.Selector, selectorFlag, selectorFlagShort, opts.Selector,
+		"Set this flag to apply the action to VMs with the specified labels.")
 	flagset.DurationVarP(&opts.Timeout, timeoutFlag, timeoutFlagShort, opts.Timeout,
 		"Set this flag to change the timeout.")
 }
