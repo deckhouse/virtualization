@@ -167,7 +167,7 @@ jobs:
     steps:
       - name: Setup Docker config
         run: |
-          echo "DOCKER_CONFIG=$(mktemp -d)" >> $GITHUB_ENV
+          echo "DOCKER_CONFIG=$(mktemp -d)" >> "$GITHUB_ENV"
 
       - name: Print vars
         run: |
@@ -176,7 +176,7 @@ jobs:
           echo MODULES_MODULE_NAME=${{ vars.MODULE_NAME }}
           echo MODULES_MODULE_TAG=${{ matrix.module_tag }}
           echo CHECKOUT_REF=${{ matrix.checkout_ref }}
-          echo DOCKER_CONFIG=$DOCKER_CONFIG
+          echo "DOCKER_CONFIG=$DOCKER_CONFIG"
 
       - uses: actions/checkout@v4
         with:

@@ -176,6 +176,7 @@ tasks:
           -v "$PWD:/mnt" \
           -w /mnt \
           koalaman/shellcheck-alpine:v0.10.0 \
+          shellcheck \
           .github/scripts/bash/e2e/*.sh \
           api/scripts/update-codegen.sh \
           images/virtualization-artifact/hack/args.sh \

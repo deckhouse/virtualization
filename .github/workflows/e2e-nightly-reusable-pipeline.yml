@@ -190,11 +190,11 @@ jobs:
 
           namespace="nightly-e2e-$STORAGE_TYPE-$GIT_SHORT_HASH-$RANDUUID4C"
 
-          echo "namespace=$namespace" >> $GITHUB_OUTPUT
-          echo "sha_short=$GIT_SHORT_HASH" >> $GITHUB_OUTPUT
+          echo "namespace=$namespace" >> "$GITHUB_OUTPUT"
+          echo "sha_short=$GIT_SHORT_HASH" >> "$GITHUB_OUTPUT"
 
-          REGISTRY=$(base64 -d <<< ${{secrets.PROD_IO_REGISTRY_DOCKER_CFG}} | jq '.auths | to_entries | .[] | .key' -r)
-          echo "registry=$REGISTRY" >> $GITHUB_OUTPUT
+          REGISTRY=$(base64 -d <<< "${{secrets.PROD_IO_REGISTRY_DOCKER_CFG}}" | jq '.auths | to_entries | .[] | .key' -r)
+          echo "registry=$REGISTRY" >> "$GITHUB_OUTPUT"
 
       - name: Install htpasswd utility
         run: |
@@ -271,7 +271,7 @@ jobs:
           NAMESPACE: ${{ steps.vars.outputs.namespace }}
         if: always() && steps.dhctl-bootstrap.outcome == 'success'
         run: |
-          kubectl -n $NAMESPACE create secret generic ssh-key --from-file=${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/ssh/cloud
+          kubectl -n "$NAMESPACE" create secret generic ssh-key --from-file="${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/ssh/cloud"
 
       - name: Get info about nested cluster and master VM
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
@@ -281,7 +281,7 @@ jobs:
         run: |
           source "${GITHUB_WORKSPACE}/.github/scripts/bash/e2e/d8-ssh.sh"
 
-          nested_master=$(kubectl -n ${NAMESPACE} get vm -l group=${PREFIX}-master -o jsonpath="{.items[0].metadata.name}")
+          nested_master=$(kubectl -n "${NAMESPACE}" get vm -l "group=${PREFIX}-master" -o jsonpath="{.items[0].metadata.name}")
 
           echo "[INFO] Pods in namespace $NAMESPACE"
           kubectl get pods -n "${NAMESPACE}"
@@ -309,7 +309,7 @@ jobs:
         run: |
           source "${GITHUB_WORKSPACE}/.github/scripts/bash/e2e/d8-ssh.sh"
 
-          nested_master=$(kubectl -n ${NAMESPACE} get vm -l group=${PREFIX}-master -o jsonpath="{.items[0].metadata.name}")
+          nested_master=$(kubectl -n "${NAMESPACE}" get vm -l "group=${PREFIX}-master" -o jsonpath="{.items[0].metadata.name}")
 
           echo "[INFO] Copy script for generating kubeconfig in nested cluster"
           echo "[INFO] Copy scripts/gen-kubeconfig.sh to master"
@@ -335,13 +335,13 @@ jobs:
 
           echo "[INFO] Set rights for kubeconfig"
           echo "[INFO] sudo chown 1001:1001 ${kubeConfigPath}"
-          sudo chown 1001:1001 ${kubeConfigPath}
+          sudo chown 1001:1001 "${kubeConfigPath}"
           echo " "
 
           echo "[INFO] Kubeconf to github output"
-          CONFIG=$(cat ${kubeConfigPath} | base64 -w 0)
-          CONFIG=$(echo $CONFIG | base64 -w 0)
-          echo "kubeconfig=$CONFIG" >> $GITHUB_OUTPUT
+          CONFIG=$(base64 -w 0 < "${kubeConfigPath}")
+          CONFIG=$(echo "${CONFIG}" | base64 -w 0)
+          echo "kubeconfig=$CONFIG" >> "$GITHUB_OUTPUT"
 
       - name: cloud-init logs
         if: steps.dhctl-bootstrap.outcome == 'failure'
@@ -351,7 +351,7 @@ jobs:
         run: |
           source "${GITHUB_WORKSPACE}/.github/scripts/bash/e2e/d8-ssh.sh"
 
-          nested_master=$(kubectl -n ${NAMESPACE} get vm -l group=${PREFIX}-master -o jsonpath="{.items[0].metadata.name}")
+          nested_master=$(kubectl -n "${NAMESPACE}" get vm -l "group=${PREFIX}-master" -o jsonpath="{.items[0].metadata.name}")
 
           d8vscp "${DEFAULT_USER}@${nested_master}.$NAMESPACE:/var/log/cloud-init*.log" "./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/"
 
@@ -428,7 +428,7 @@ jobs:
           success=false
           wait_time_seconds=5
 
-          for i in $(seq 1 $count); do
+          for i in $(seq 1 "$count"); do
             nodes=$(kubectl get nodes -o name | wc -l)
             actual=$(kubectl get nodenetworkinterfaces -o json | jq -r '.items[] | select(.status.operationalState == "Up") | .metadata.name' | wc -l) || true
             expected=$((nodes * 2))
@@ -452,10 +452,10 @@ jobs:
               echo ::endgroup::
 
               echo "[INFO] Retrying in 10 seconds..."
-              sleep $wait_time_seconds
-            elif [ $i -lt $count ]; then
+              sleep "$wait_time_seconds"
+            elif [ "$i" -lt "$count" ]; then
               echo "[INFO] Retrying in 10 seconds..."
-              sleep $wait_time_seconds
+              sleep "$wait_time_seconds"
             fi
           done
 
@@ -474,7 +474,7 @@ jobs:
 
           for nic in $extraNic; do
             echo "[INFO] Label nodenetworkinterface $nic nic-group=extra"
-            kubectl label nodenetworkinterfaces $nic nic-group=extra
+            kubectl label nodenetworkinterfaces "$nic" nic-group=extra
           done
 
           kubectl get nodenetworkinterface -l nic-group=extra
@@ -746,7 +746,7 @@ jobs:
         id: set-artifact-name
         run: |
           ARTIFACT_NAME="e2e-report-${{ inputs.storage_type }}-${{ github.run_id }}-${{ inputs.date_start }}"
-          echo "artifact-name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
+          echo "artifact-name=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
           echo "[INFO] Artifact name: $ARTIFACT_NAME"
 
   undeploy-cluster:
@@ -779,12 +779,12 @@ jobs:
           GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
           ARTIFACT_NAME: ${{ env.STORAGE_TYPE }}-generated-files-${{ env.E2E_START_TIME }}
         run: |
-          artifact_path=${{ runner.temp }}/encrypted-generated-files/${ARTIFACT_NAME}.zip.gpg
+          artifact_path="${{ runner.temp }}/encrypted-generated-files/${ARTIFACT_NAME}.zip.gpg"
           gpg --decrypt --batch --yes --pinentry-mode loopback \
             --passphrase "$GPG_PASSPHRASE" \
-            --output $RUNNER_TEMP/${ARTIFACT_NAME}.zip \
+            --output "${RUNNER_TEMP}/${ARTIFACT_NAME}.zip" \
             "$artifact_path"
-          unzip -o $RUNNER_TEMP/${ARTIFACT_NAME}.zip -d ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+          unzip -o "${RUNNER_TEMP}/${ARTIFACT_NAME}.zip" -d "${{ env.SETUP_CLUSTER_TYPE_PATH }}"
 
       - name: Configure kubectl via azure/k8s-set-context@v4
         uses: azure/k8s-set-context@v4
