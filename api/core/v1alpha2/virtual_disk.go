@@ -97,7 +97,7 @@ type VirtualDiskStatsCreationDuration struct {
 	// Waiting time for dependent resources.
 	// +nullable
 	WaitingForDependencies *metav1.Duration `json:"waitingForDependencies,omitempty"`
-	// Waiting time in WaitForFirstConsumer phase.
+	// Waiting time in the `WaitForFirstConsumer` phase.
 	// +nullable
 	WaitingForFirstConsumer *metav1.Duration `json:"waitingForFirstConsumer,omitempty"`
 	// Duration of the loading into DVCR.
