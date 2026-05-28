@@ -46,14 +46,14 @@ jobs:
     name: Set vars
     runs-on: ubuntu-latest
     outputs:
-      date_start: ${{ steps.vars.outputs.date-start }}
+      date_start: ${{ steps.vars.outputs.date_start }}
       randuuid4c: ${{ steps.vars.outputs.randuuid4c }}
     steps:
+      - uses: actions/checkout@v6
+
       - name: Set vars
         id: vars
-        run: |
-          echo "date-start=$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
-          echo "randuuid4c=$(openssl rand -hex 2)" >> $GITHUB_OUTPUT
+        uses: ./.github/actions/gen-run-id
 
   resolve-release-inputs:
     name: Resolve release inputs

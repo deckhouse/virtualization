@@ -1,0 +1,18 @@
+name: Generate E2E run id
+description: Generate timestamp and short random suffix for E2E workflow runs.
+outputs:
+  date_start:
+    description: Timestamp in %Y%m%d-%H%M%S format.
+    value: ${{ steps.vars.outputs.date-start }}
+  randuuid4c:
+    description: Four random hexadecimal characters.
+    value: ${{ steps.vars.outputs.randuuid4c }}
+runs:
+  using: composite
+  steps:
+    - name: Generate run id
+      id: vars
+      shell: bash
+      run: |
+        echo "date-start=$(date +%Y%m%d-%H%M%S)" >> "$GITHUB_OUTPUT"
+        echo "randuuid4c=$(openssl rand -hex 2)" >> "$GITHUB_OUTPUT"
