@@ -461,7 +461,7 @@ spec:
                           nullable: true
                           type: string
                         waitingForFirstConsumer:
-                          description: Waiting time in WaitForFirstConsumer phase.
+                          description: Waiting time in the `WaitForFirstConsumer` phase.
                           nullable: true
                           type: string
                       type: object
