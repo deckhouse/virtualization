@@ -2,7 +2,7 @@
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: true
 fromImage: {{ .ModuleNamePrefix }}distroless
-fromCacheVersion: "2026-05-28-1"
+fromCacheVersion: "2026-05-28-2"
 git:
   {{- include "image mount points" . }}
 import:
@@ -136,7 +136,7 @@ packages:
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries
 final: false
 fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
-fromCacheVersion: "2026-05-28-1"
+fromCacheVersion: "2026-05-28-2"
 git:
   # Add qemu and virtqemud configs
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}/configs
