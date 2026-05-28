@@ -29,7 +29,6 @@ func NewMigrateCommand() *cobra.Command {
 		Use:     "migrate (VirtualMachine)",
 		Short:   "Migrate a virtual machine.",
 		Example: lifecycle.Usage(),
-		Args:    templates.ExactArgs("migrate", 1),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			vmName := args[0]
 			err := lifecycle.ValidateNodeName(cmd, vmName, lifecycle.migrationOpts.TargetNodeName)

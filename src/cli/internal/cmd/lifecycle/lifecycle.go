@@ -90,6 +90,7 @@ type Options struct {
 	Force        bool
 	WaitComplete bool
 	CreateOnly   bool
+	All          bool
 	Timeout      time.Duration
 }
 
@@ -102,40 +103,79 @@ func (l *Lifecycle) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	name, namespace, err := l.getNameNamespace(defaultNamespace, args)
-	key := types.NamespacedName{Namespace: namespace, Name: name}
-	if err != nil {
-		return err
+
+	if len(args) > 0 && l.opts.All {
+		return fmt.Errorf("cannot use --all flag with specific keys")
 	}
+
+	var keys []types.NamespacedName
+	if l.opts.All {
+		keys, err = l.getVirtualMachines(cmd.Context(), defaultNamespace, client)
+		if err != nil {
+			return fmt.Errorf("failed to get virtual machines in namespace %q: %w", defaultNamespace, err)
+		}
+	} else {
+		keys, err = l.getNamespacedNames(defaultNamespace, args)
+		if err != nil {
+			return fmt.Errorf("failed to parse keys: %w", err)
+		}
+	}
+
+	if len(keys) == 0 {
+		return fmt.Errorf("no one virtual machine found for execute command")
+	}
+
 	forceSet := cmd.Flags().Changed(forceFlag)
-	mgr := l.getManager(client, forceSet)
+	mgr := l.getManager(client, forceSet, len(keys) > 1)
 
 	ctx, cancel := context.WithTimeout(context.Background(), l.opts.Timeout)
 	defer cancel()
-	var msg string
+
 	switch l.cmd {
 	case Stop:
-		cmd.Printf("Stopping virtual machine %q\n", key.String())
-		msg, err = mgr.Stop(ctx, name, namespace)
+		for _, key := range keys {
+			cmd.Printf("Stopping virtual machine %q\n", key.String())
+			msg, err := mgr.Stop(ctx, key.Name, key.Namespace)
+			l.handleMsgError(cmd, msg, err)
+		}
 	case Start:
-		cmd.Printf("Starting virtual machine %q\n", key.String())
-		msg, err = mgr.Start(ctx, name, namespace)
+		for _, key := range keys {
+			cmd.Printf("Starting virtual machine %q\n", key.String())
+			msg, err := mgr.Start(ctx, key.Name, key.Namespace)
+			l.handleMsgError(cmd, msg, err)
+		}
 	case Restart:
-		cmd.Printf("Restarting virtual machine %q\n", key.String())
-		msg, err = mgr.Restart(ctx, name, namespace)
+		for _, key := range keys {
+			cmd.Printf("Restarting virtual machine %q\n", key.String())
+			msg, err := mgr.Restart(ctx, key.Name, key.Namespace)
+			l.handleMsgError(cmd, msg, err)
+		}
 	case Evict:
-		cmd.Printf("Evicting virtual machine %q\n", key.String())
-		msg, err = mgr.Evict(ctx, name, namespace)
+		for _, key := range keys {
+			cmd.Printf("Evicting virtual machine %q\n", key.String())
+			msg, err := mgr.Evict(ctx, key.Name, key.Namespace)
+			l.handleMsgError(cmd, msg, err)
+		}
 	case Migrate:
-		cmd.Printf("Migrating virtual machine %q\n", key.String())
-		msg, err = mgr.Migrate(ctx, name, namespace, l.migrationOpts.TargetNodeName)
+		for _, key := range keys {
+			cmd.Printf("Migrating virtual machine %q\n", key.String())
+			msg, err := mgr.Migrate(ctx, key.Name, key.Namespace, l.migrationOpts.TargetNodeName)
+			l.handleMsgError(cmd, msg, err)
+		}
 	default:
 		return fmt.Errorf("invalid command %q", l.cmd)
 	}
+
+	return nil
+}
+
+func (l *Lifecycle) handleMsgError(cmd *cobra.Command, msg string, err error) {
 	if msg != "" {
-		cmd.Printf("%s", msg)
+		cmd.Printf("%s\n", msg)
 	}
-	return err
+	if err != nil {
+		cmd.Printf("Error: %s\n", err.Error())
+	}
 }
 
 func (l *Lifecycle) Usage() string {
@@ -157,18 +197,44 @@ func (l *Lifecycle) Usage() string {
 	return usage
 }
 
-func (l *Lifecycle) getNameNamespace(defaultNamespace string, args []string) (string, string, error) {
-	namespace, name, err := templates.ParseTarget(args[0])
+func (l *Lifecycle) getNamespacedName(defaultNamespace, arg string) (types.NamespacedName, error) {
+	namespace, name, err := templates.ParseTarget(arg)
 	if err != nil {
-		return "", "", err
+		return types.NamespacedName{}, err
 	}
 	if namespace == "" {
 		namespace = defaultNamespace
 	}
-	return name, namespace, nil
+	return types.NamespacedName{Namespace: namespace, Name: name}, nil
 }
 
-func (l *Lifecycle) getManager(client kubeclient.Client, forceSet bool) Manager {
+func (l *Lifecycle) getNamespacedNames(defaultNamespace string, args []string) ([]types.NamespacedName, error) {
+	var keys []types.NamespacedName
+	for _, arg := range args {
+		key, err := l.getNamespacedName(defaultNamespace, arg)
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, key)
+	}
+	return keys, nil
+}
+
+func (l *Lifecycle) getVirtualMachines(ctx context.Context, namespace string, client kubeclient.Client) ([]types.NamespacedName, error) {
+	vmList, err := client.VirtualMachines(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	var keys []types.NamespacedName
+	for _, vm := range vmList.Items {
+		keys = append(keys, types.NamespacedName{Namespace: vm.Namespace, Name: vm.Name})
+	}
+
+	return keys, nil
+}
+
+func (l *Lifecycle) getManager(client kubeclient.Client, forceSet, severalVms bool) Manager {
 	var forcePtr *bool
 	if forceSet {
 		forcePtr = ptr.To(l.opts.Force)
@@ -176,7 +242,7 @@ func (l *Lifecycle) getManager(client kubeclient.Client, forceSet bool) Manager 
 
 	return vmop.New(
 		client,
-		vmop.WithCreateOnly(l.opts.CreateOnly),
+		vmop.WithCreateOnly(l.opts.CreateOnly || severalVms),
 		vmop.WithWaitComplete(l.opts.WaitComplete),
 		vmop.WithForce(forcePtr),
 	)
@@ -219,6 +285,7 @@ const (
 	forceFlag, forceFlagShort           = "force", "f"
 	waitFlag, waitFlagShort             = "wait", "w"
 	createOnlyFlag, createOnlyFlagShort = "create-only", "c"
+	allFlag, allFlagShort               = "all", "a"
 	timeoutFlag, timeoutFlagShort       = "timeout", "t"
 )
 
@@ -229,6 +296,8 @@ func AddCommandLineArgs(flagset *pflag.FlagSet, opts *Options) {
 		"Set this flag to wait for the operation to complete.")
 	flagset.BoolVarP(&opts.CreateOnly, createOnlyFlag, createOnlyFlagShort, opts.CreateOnly,
 		"Set this flag to only create the action without status warnings or notifications.")
+	flagset.BoolVarP(&opts.All, allFlag, allFlagShort, opts.All,
+		"Set this flag to apply the action to all VMs.")
 	flagset.DurationVarP(&opts.Timeout, timeoutFlag, timeoutFlagShort, opts.Timeout,
 		"Set this flag to change the timeout.")
 }
