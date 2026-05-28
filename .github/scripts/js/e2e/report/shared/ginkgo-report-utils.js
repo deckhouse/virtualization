@@ -60,6 +60,43 @@ function flattenLabels(labelGroups) {
 }
 
 /**
+ * Derives a unique list of failed test names from the canonical
+ * `failedTestDetails` array. Kept module-private because the dedupe
+ * semantics are an internal detail of both Ginkgo parsers in this file.
+ *
+ * @param {Array<{name: string, reason: string}>} failedTestDetails Detailed failures.
+ * @returns {string[]} Unique failed test names preserving first occurrence order.
+ */
+function deriveFailedTestNames(failedTestDetails) {
+  return Array.from(new Set(failedTestDetails.map((test) => test.name)));
+}
+
+/**
+ * Splits a raw Ginkgo SpecReport into stable, normalized parts used by
+ * both the human-readable test name and per-spec timings.
+ *
+ * @param {Record<string, any>} specReport Raw Ginkgo spec report entry.
+ * @returns {{
+ *   nodeType: string,
+ *   hierarchyParts: string[],
+ *   leafText: string,
+ *   labels: string[],
+ * }}
+ */
+function extractSpecParts(specReport) {
+  const nodeType = String(specReport.LeafNodeType || "Spec").trim();
+  const hierarchyParts = toArray(specReport.ContainerHierarchyTexts)
+    .map((part) => String(part || "").trim())
+    .filter(Boolean);
+  const leafText = String(specReport.LeafNodeText || "").trim();
+  const labels = [
+    ...new Set([...flattenLabels(specReport.ContainerHierarchyLabels), ...flattenLabels(specReport.LeafNodeLabels)]),
+  ];
+
+  return { nodeType, hierarchyParts, leafText, labels };
+}
+
+/**
  * Builds a human-readable test name close to the JUnit testcase naming that
  * existing reports already expose to messenger output.
  *
@@ -67,23 +104,16 @@ function flattenLabels(labelGroups) {
  * @returns {string} Formatted test name.
  */
 function formatSpecName(specReport) {
-  const nodeType = String(specReport.LeafNodeType || "Spec").trim();
-  const hierarchyParts = toArray(specReport.ContainerHierarchyTexts)
-    .map((part) => String(part || "").trim())
-    .filter(Boolean);
-  const leafText = String(specReport.LeafNodeText || "").trim();
-  const labels = [...new Set([
-    ...flattenLabels(specReport.ContainerHierarchyLabels),
-    ...flattenLabels(specReport.LeafNodeLabels),
-  ])];
+  const { nodeType, hierarchyParts, leafText, labels } = extractSpecParts(specReport);
   const labelSuffix = labels.map((label) => `[${label}]`).join(" ");
   const body = [...hierarchyParts, leafText].filter(Boolean).join(" ");
 
-  return [`[${nodeType}]`, body, labelSuffix]
-    .filter(Boolean)
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return [`[${nodeType}]`, body, labelSuffix].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+}
+
+function runtimeMs(value) {
+  const runtime = Number(value || 0);
+  return Number.isFinite(runtime) ? Math.round(runtime / 1_000_000) : 0;
 }
 
 /**
@@ -115,10 +145,7 @@ function getMetricKeyForState(state) {
 
 function formatFailureReason(specReport) {
   const failure = (specReport && specReport.Failure) || {};
-  return (
-    String(failure.Message || failure.ForwardedPanic || "").trim() ||
-    String(specReport.State || "failed").trim()
-  );
+  return String(failure.Message || failure.ForwardedPanic || "").trim() || String(specReport.State || "failed").trim();
 }
 
 const failureStates = new Set(["failed", "errors"]);
@@ -153,23 +180,26 @@ function buildFailureDetail(specReport) {
  *   metrics: GinkgoMetrics,
  *   failedTests: string[],
  *   failedTestDetails: Array<{name: string, reason: string}>,
+ *   specTimings: Array<{name: string, group: string, state: string, runtimeMs: number, labels: string[]}>,
+ *   suiteTotalMs: number,
  *   startedAt: string|null
  * }} Parsed report payload.
  */
 function parseGinkgoReport(jsonContent) {
   const suites = toArray(JSON.parse(jsonContent));
   const metrics = zeroMetrics();
-  const failedTests = [];
   const failedTestDetails = [];
-  const startedAt =
-    suites.find((suite) => suite && suite.StartTime)?.StartTime || null;
+  const specTimings = [];
+  const startedAt = suites.find((suite) => suite && suite.StartTime)?.StartTime || null;
+  let suiteTotalMs = 0;
 
   for (const suite of suites) {
+    suiteTotalMs += runtimeMs(suite && suite.RunTime);
+
     for (const specReport of toArray(suite && suite.SpecReports)) {
       if (isSuiteNodeFailure(specReport)) {
         const failureDetail = buildFailureDetail(specReport);
         if (failureDetail) {
-          failedTests.push(failureDetail.name);
           failedTestDetails.push(failureDetail);
         }
         continue;
@@ -186,11 +216,18 @@ function parseGinkgoReport(jsonContent) {
       metrics.total += 1;
       const metricKey = getMetricKeyForState(specReport.State);
       metrics[metricKey] += 1;
+      const { hierarchyParts, leafText, labels } = extractSpecParts(specReport);
+      specTimings.push({
+        name: leafText,
+        group: hierarchyParts[0] || "Top-level Its",
+        state: metricKey,
+        runtimeMs: runtimeMs(specReport.RunTime),
+        labels,
+      });
 
       if (failureStates.has(metricKey)) {
         const failureDetail = buildFailureDetail(specReport);
         if (failureDetail) {
-          failedTests.push(failureDetail.name);
           failedTestDetails.push(failureDetail);
         }
       }
@@ -198,32 +235,23 @@ function parseGinkgoReport(jsonContent) {
   }
 
   const completedSpecs = metrics.passed + metrics.failed + metrics.errors;
-  metrics.successRate =
-    completedSpecs > 0
-      ? Number(((metrics.passed / completedSpecs) * 100).toFixed(2))
-      : 0;
+  metrics.successRate = completedSpecs > 0 ? Number(((metrics.passed / completedSpecs) * 100).toFixed(2)) : 0;
+
+  const dedupedDetails = Array.from(
+    new Map(failedTestDetails.map((test) => [`${test.name}\u0000${test.reason}`, test])).values()
+  );
 
   return {
     metrics,
-    failedTests: Array.from(new Set(failedTests)),
-    failedTestDetails: Array.from(
-      new Map(
-        failedTestDetails.map((test) => [
-          `${test.name}\u0000${test.reason}`,
-          test,
-        ])
-      ).values()
-    ),
+    failedTests: deriveFailedTestNames(dedupedDetails),
+    failedTestDetails: dedupedDetails,
+    specTimings,
+    suiteTotalMs,
     startedAt,
   };
 }
 
-const suiteNodeTypes = [
-  "SynchronizedBeforeSuite",
-  "BeforeSuite",
-  "SynchronizedAfterSuite",
-  "AfterSuite",
-];
+const suiteNodeTypes = ["SynchronizedBeforeSuite", "BeforeSuite", "SynchronizedAfterSuite", "AfterSuite"];
 
 // Match Ginkgo failure markers for suite-level nodes in two forms:
 //   1. "[<SuiteNode>] [FAILED]"   — main failure line in the stdout body.
@@ -270,11 +298,7 @@ function isReasonStopLine(line) {
 }
 
 function isReasonNoiseLine(line, suiteHeader, failedMarker) {
-  return (
-    line === suiteHeader ||
-    line.startsWith(failedMarker) ||
-    line.startsWith("/")
-  );
+  return line === suiteHeader || line.startsWith(failedMarker) || line.startsWith("/");
 }
 
 /**
@@ -330,28 +354,37 @@ function extractFailureReasonFromOutput(output, suiteNodeType) {
  *   metrics: GinkgoMetrics,
  *   failedTests: string[],
  *   failedTestDetails: Array<{name: string, reason: string}>,
+ *   specTimings: [],
+ *   suiteTotalMs: 0,
  *   startedAt: null,
  * }} Parsed fallback payload.
  */
 function parseGinkgoOutput(outputContent) {
   const output = String(outputContent || "");
   const suiteNodeType = findFailedSuiteNode(output);
-  const result = {
-    metrics: zeroMetrics(),
-    failedTests: [],
-    failedTestDetails: [],
-    startedAt: null,
-  };
 
   if (!suiteNodeType) {
-    return result;
+    return {
+      metrics: zeroMetrics(),
+      failedTests: [],
+      failedTestDetails: [],
+      specTimings: [],
+      suiteTotalMs: 0,
+      startedAt: null,
+    };
   }
 
   const name = `[${suiteNodeType}]`;
   const reason = extractFailureReasonFromOutput(output, suiteNodeType);
-  result.failedTests.push(name);
-  result.failedTestDetails.push({ name, reason });
-  return result;
+  const failedTestDetails = [{ name, reason }];
+  return {
+    metrics: zeroMetrics(),
+    failedTests: deriveFailedTestNames(failedTestDetails),
+    failedTestDetails,
+    specTimings: [],
+    suiteTotalMs: 0,
+    startedAt: null,
+  };
 }
 
 module.exports = {

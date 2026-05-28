@@ -18,8 +18,6 @@ package validator
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"reflect"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -27,7 +25,6 @@ import (
 
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -47,7 +44,7 @@ func NewVirtualImagePVCStorageClassValidator(client client.Client, scService *in
 }
 
 func (v *VirtualImagePVCStorageClassValidator) ValidateCreate(ctx context.Context, vd *v1alpha2.VirtualDisk) (admission.Warnings, error) {
-	scName, err := v.extractVDStorageClassName(ctx, vd)
+	scName, err := commonvd.ResolveStorageClassName(ctx, vd, v.scService)
 	if err != nil {
 		return nil, err
 	}
@@ -69,34 +66,4 @@ func (v *VirtualImagePVCStorageClassValidator) ValidateUpdate(ctx context.Contex
 	}
 
 	return nil, commonvd.ValidateVirtualImageStorageClassProvisionerCompatibility(ctx, newVD, v.client)
-}
-
-func (v *VirtualImagePVCStorageClassValidator) extractVDStorageClassName(ctx context.Context, vd *v1alpha2.VirtualDisk) (string, error) {
-	if vd.Status.StorageClassName != "" {
-		return vd.Status.StorageClassName, nil
-	}
-
-	if vd.Spec.PersistentVolumeClaim.StorageClass != nil {
-		return *vd.Spec.PersistentVolumeClaim.StorageClass, nil
-	}
-
-	moduleStorageClass, err := v.scService.GetModuleStorageClass(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	if moduleStorageClass != nil {
-		return moduleStorageClass.Name, nil
-	}
-
-	defaultStorageClass, err := v.scService.GetDefaultStorageClass(ctx)
-	if err != nil && !errors.Is(err, service.ErrDefaultStorageClassNotFound) {
-		return "", err
-	}
-
-	if defaultStorageClass != nil {
-		return defaultStorageClass.Name, nil
-	}
-
-	return "", fmt.Errorf("storage class for VirtualDisk %q cannot be determined", vd.Name)
 }

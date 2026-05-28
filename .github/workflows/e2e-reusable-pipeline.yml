@@ -957,6 +957,7 @@ jobs:
 
           d8_queue
 
+          kubectl apply -f ../sds-node-configurator/mc.yaml
           kubectl apply -f mc.yaml
           echo "[INFO] Wait for sds-node-configurator"
           kubectl wait --for=jsonpath='{.status.phase}'=Ready modules sds-node-configurator --timeout=300s
@@ -971,8 +972,8 @@ jobs:
           echo "[INFO] Wait pods and webhooks sds-replicated pods"
           sds_pods_ready
 
-          chmod +x lvg-gen.sh
-          ./lvg-gen.sh
+          chmod +x ../sds-node-configurator/lvg-gen.sh
+          ../sds-node-configurator/lvg-gen.sh
 
           chmod +x rsc-gen.sh
           ./rsc-gen.sh
@@ -1401,7 +1402,7 @@ jobs:
             GINKGO_ARGS+=(--focus="$FOCUS")
           fi
 
-          go tool ginkgo "${GINKGO_ARGS[@]}" 2>&1 | tee "$e2e_output_file"
+          go tool ginkgo "${GINKGO_ARGS[@]}" . 2>&1 | tee "$e2e_output_file"
           GINKGO_EXIT_CODE=${PIPESTATUS[0]}
           set -e
 

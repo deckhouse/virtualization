@@ -55,8 +55,6 @@ const (
 	IndexFieldVMSnapshotByVM         = "spec.virtualMachineName"
 	IndexFieldVMSnapshotByVDSnapshot = "status.virtualDiskSnapshotNames"
 
-	IndexFieldVMRestoreByVMSnapshot = "spec.virtualMachineSnapshotName"
-
 	IndexFieldVMIPByVM      = "status.virtualMachine"
 	IndexFieldVMIPByAddress = "spec.staticIP|status.address"
 
@@ -73,6 +71,7 @@ const (
 
 	IndexFieldEventByInvolvedObjectName        = "involvedObject.name"
 	IndexFieldEventByInvolvedObjectKind        = "involvedObject.kind"
+	IndexFieldPVByStorageClass                 = "spec.storageClassName"
 	IndexFieldUSBDeviceByName                  = "metadata.name"
 	IndexFieldNodeUSBDeviceByAssignedNamespace = "spec.assignedNamespace"
 
@@ -91,7 +90,6 @@ var IndexGetters = []IndexGetter{
 	IndexVMByProvisioningSecret,
 	IndexVMSnapshotByVM,
 	IndexVMSnapshotByVDSnapshot,
-	IndexVMRestoreByVMSnapshot,
 	IndexVMIPByVM,
 	IndexVDByVDSnapshot,
 	IndexVDByStorageClass,
@@ -108,6 +106,7 @@ var IndexGetters = []IndexGetter{
 	IndexVMIPLeaseByVMIP,
 	IndexEventByInvolvedObjectName,
 	IndexEventByInvolvedObjectKind,
+	IndexPVByStorageClass,
 }
 
 var IndexGettersUSB = []IndexGetter{

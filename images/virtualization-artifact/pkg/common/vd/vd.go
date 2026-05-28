@@ -18,6 +18,7 @@ package vd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -27,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -73,6 +75,53 @@ func StorageClassChanged(vd *v1alpha2.VirtualDisk) bool {
 	}
 
 	return *specSc != "" && statusSc != ""
+}
+
+type VirtualDiskStorageClassResolver interface {
+	GetModuleStorageClass(ctx context.Context) (*storagev1.StorageClass, error)
+	GetDefaultStorageClass(ctx context.Context) (*storagev1.StorageClass, error)
+}
+
+// ResolveStorageClassName resolves storage class name for a VirtualDisk
+// with the same precedence as VD handlers:
+// 1. vd.Status.StorageClassName
+// 2. vd.Spec.PersistentVolumeClaim.StorageClass
+// 3. module default storage class (if resolver is provided)
+// 4. cluster default storage class (if resolver is provided)
+func ResolveStorageClassName(ctx context.Context, vd *v1alpha2.VirtualDisk, resolver VirtualDiskStorageClassResolver) (string, error) {
+	if vd == nil {
+		return "", nil
+	}
+
+	if vd.Status.StorageClassName != "" {
+		return vd.Status.StorageClassName, nil
+	}
+
+	if vd.Spec.PersistentVolumeClaim.StorageClass != nil && *vd.Spec.PersistentVolumeClaim.StorageClass != "" {
+		return *vd.Spec.PersistentVolumeClaim.StorageClass, nil
+	}
+
+	if resolver == nil {
+		return "", nil
+	}
+
+	moduleStorageClass, err := resolver.GetModuleStorageClass(ctx)
+	if err != nil {
+		return "", err
+	}
+	if moduleStorageClass != nil {
+		return moduleStorageClass.Name, nil
+	}
+
+	defaultStorageClass, err := resolver.GetDefaultStorageClass(ctx)
+	if err != nil && !errors.Is(err, service.ErrDefaultStorageClassNotFound) {
+		return "", err
+	}
+	if defaultStorageClass != nil {
+		return defaultStorageClass.Name, nil
+	}
+
+	return "", fmt.Errorf("storage class for VirtualDisk %q cannot be determined", vd.Name)
 }
 
 func ValidateVirtualImageStorageClassProvisionerCompatibility(ctx context.Context, vd *v1alpha2.VirtualDisk, client client.Client) error {

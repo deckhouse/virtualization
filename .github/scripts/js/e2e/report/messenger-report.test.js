@@ -13,7 +13,12 @@
 const fs = require("fs");
 const path = require("path");
 
+jest.mock("./messenger/chart-files", () => ({
+  getClusterChartFiles: jest.fn().mockResolvedValue([]),
+}));
+
 const renderMessengerReport = require("./messenger-report");
+const { getClusterChartFiles } = require("./messenger/chart-files");
 const { readMessengerConfigFromEnv } = require("./messenger/config");
 const { createCore, withTempDir } = require("./shared/test-utils");
 
@@ -27,6 +32,8 @@ describe("messenger-report", () => {
     delete process.env.LOOP_CHANNEL_ID;
     delete process.env.LOOP_TOKEN;
     delete global.fetch;
+    getClusterChartFiles.mockReset();
+    getClusterChartFiles.mockResolvedValue([]);
   });
 
   test("reads normalized messenger config from env", () => {
@@ -41,7 +48,8 @@ describe("messenger-report", () => {
       reportsDir: "custom-reports",
       configuredClusters: ["replicated", "nfs"],
       loop: {
-        apiUrl: "https://loop.example.invalid/api/v4/posts",
+        postsApiUrl: "https://loop.example.invalid/api/v4/posts",
+        filesApiUrl: "https://loop.example.invalid/api/v4/files",
         channelId: "channel-id",
         token: "token",
       },
@@ -60,9 +68,7 @@ describe("messenger-report", () => {
         LOOP_API_BASE_URL: "https://loop.example.invalid",
         // LOOP_CHANNEL_ID and LOOP_TOKEN intentionally absent
       })
-    ).toThrow(
-      "LOOP_CHANNEL_ID, LOOP_TOKEN, and LOOP_API_BASE_URL are required"
-    );
+    ).toThrow("LOOP_CHANNEL_ID, LOOP_TOKEN, and LOOP_API_BASE_URL are required");
   });
 
   test("uses default configured clusters when env override is absent", () => {
@@ -133,20 +139,22 @@ describe("messenger-report", () => {
       );
       expect(result.message).not.toContain("⚠️ Errors");
       expect(result.message).toContain("### Cluster failures");
-      expect(result.message).toContain(
-        "- [nfs](https://example.invalid/nfs): CONFIGURE SDN"
-      );
+      expect(result.message).toContain("- [nfs](https://example.invalid/nfs): CONFIGURE SDN");
+      expect(result.message).not.toContain("### Top slowest tests");
       expect(result.message).not.toContain("### Failed tests");
       expect(result.threadMessages).toEqual([
-        [
-          "### Failed tests",
-          "",
-          "**[replicated](https://example.invalid/replicated)**",
-          "",
-          "| Tests | Reason |",
-          "|---|---|",
-          "| fails | Unexpected error: command timed out occurred |",
-        ].join("\n"),
+        {
+          message: [
+            "### Failed tests",
+            "",
+            "**[replicated](https://example.invalid/replicated)**",
+            "",
+            "| Tests | Reason |",
+            "|---|---|",
+            "| fails | Unexpected error: command timed out occurred |",
+          ].join("\n"),
+          files: [],
+        },
       ]);
     }));
 
@@ -158,10 +166,110 @@ describe("messenger-report", () => {
       const result = await renderMessengerReport({ core: createCore() });
 
       expect(result.message).toContain("### Missing reports");
-      expect(result.message).toContain(
-        "- replicated: ⚠️ E2E REPORT ARTIFACT NOT FOUND"
-      );
+      expect(result.message).toContain("- replicated: ⚠️ E2E REPORT ARTIFACT NOT FOUND");
       expect(result.threadMessages).toEqual([]);
+    }));
+
+  test("attaches duration chart files to thread reply without a text caption", async () =>
+    inTempDir(async (tempDir) => {
+      const chartFile = {
+        name: "replicated-feature-duration-status.png",
+        buffer: Buffer.from("png"),
+        mimeType: "image/png",
+      };
+      getClusterChartFiles.mockResolvedValue([chartFile]);
+      fs.writeFileSync(
+        path.join(tempDir, "e2e_report_replicated.json"),
+        JSON.stringify({
+          cluster: "replicated",
+          storageType: "replicated",
+          reportKind: "tests",
+          branch: "main",
+          workflowRunUrl: "https://example.invalid/replicated",
+          startedAt: "2026-04-15T09:30:44",
+          metrics: {
+            passed: 3,
+            skipped: 0,
+            failed: 0,
+            errors: 0,
+            total: 3,
+            successRate: 100,
+          },
+          failedTests: [],
+          specTimings: [
+            { name: "fast", group: "VM", state: "passed", runtimeMs: 1000 },
+            {
+              name: "slow | pipe",
+              group: "Disk",
+              state: "passed",
+              runtimeMs: 90000,
+            },
+            { name: "medium", group: "VM", state: "passed", runtimeMs: 30000 },
+          ],
+        })
+      );
+
+      process.env.REPORTS_DIR = tempDir;
+      process.env.EXPECTED_STORAGE_TYPES = '["replicated"]';
+
+      const core = createCore();
+      const result = await renderMessengerReport({ core });
+
+      expect(result.message).not.toContain("### Top slowest tests");
+      expect(result.threadMessages).toEqual([
+        {
+          message: "**[replicated](https://example.invalid/replicated)**",
+          files: [chartFile],
+        },
+      ]);
+      expect(result.threadMessages[0].message).not.toContain("### Test durations");
+      expect(result.threadMessages[0].message).not.toContain("Attached charts:");
+      expect(core.setOutput).toHaveBeenCalledWith(
+        "thread_messages",
+        JSON.stringify([result.threadMessages[0].message])
+      );
+    }));
+
+  test("warns and surfaces a placeholder when chart files are unavailable", async () =>
+    inTempDir(async (tempDir) => {
+      getClusterChartFiles.mockRejectedValue(new Error("chart cli unavailable"));
+      fs.writeFileSync(
+        path.join(tempDir, "e2e_report_replicated.json"),
+        JSON.stringify({
+          cluster: "replicated",
+          storageType: "replicated",
+          reportKind: "tests",
+          branch: "main",
+          workflowRunUrl: "https://example.invalid/replicated",
+          startedAt: "2026-04-15T09:30:44",
+          metrics: {
+            passed: 1,
+            skipped: 0,
+            failed: 0,
+            errors: 0,
+            total: 1,
+            successRate: 100,
+          },
+          failedTests: [],
+          specTimings: [{ name: "slow", group: "VM", state: "passed", runtimeMs: 90000 }],
+        })
+      );
+
+      process.env.REPORTS_DIR = tempDir;
+      process.env.EXPECTED_STORAGE_TYPES = '["replicated"]';
+
+      const core = createCore();
+      const result = await renderMessengerReport({ core });
+
+      expect(core.warning).toHaveBeenCalledWith(
+        expect.stringContaining("Unable to prepare duration chart files for cluster replicated")
+      );
+      expect(result.threadMessages).toEqual([
+        {
+          message: expect.stringContaining("Charts unavailable."),
+          files: [],
+        },
+      ]);
     }));
 
   test("warns and skips report files that are missing storageType/cluster fields", async () =>
@@ -195,6 +303,7 @@ describe("messenger-report", () => {
             successRate: 80,
           },
           failedTests: ["[It] nfs fails"],
+          failedTestDetails: [{ name: "[It] nfs fails", reason: "" }],
         })
       );
 
@@ -234,6 +343,7 @@ describe("messenger-report", () => {
             successRate: 92.31,
           },
           failedTests: ["[It] replicated fails"],
+          failedTestDetails: [{ name: "[It] replicated fails", reason: "" }],
         })
       );
 
@@ -255,6 +365,7 @@ describe("messenger-report", () => {
             successRate: 80,
           },
           failedTests: ["[It] nfs fails"],
+          failedTestDetails: [{ name: "[It] nfs fails", reason: "" }],
         })
       );
 
@@ -264,8 +375,15 @@ describe("messenger-report", () => {
       const result = await renderMessengerReport({ core: createCore() });
 
       expect(result.threadMessages).toEqual([
-        "### Failed tests\n\n**[replicated](https://example.invalid/replicated)**\n\n| Tests | Reason |\n|---|---|\n| replicated | — |",
-        "**[nfs](https://example.invalid/nfs)**\n\n| Tests | Reason |\n|---|---|\n| nfs | — |",
+        {
+          message:
+            "### Failed tests\n\n**[replicated](https://example.invalid/replicated)**\n\n| Tests | Reason |\n|---|---|\n| replicated | — |",
+          files: [],
+        },
+        {
+          message: "**[nfs](https://example.invalid/nfs)**\n\n| Tests | Reason |\n|---|---|\n| nfs | — |",
+          files: [],
+        },
       ]);
     }));
 
@@ -297,6 +415,36 @@ describe("messenger-report", () => {
             "[It] VirtualMachineOperationRestore restores a virtual machine from a snapshot BestEffort restore mode; automatic restart approval mode; manual run policy [Slow]",
             "[It] VirtualMachineAdditionalNetworkInterfaces verifies interface name persistence after removing middle ClusterNetwork should preserve interface name after removing middle ClusterNetwork and rebooting",
           ],
+          failedTestDetails: [
+            {
+              name: "[It] VirtualMachineOperationRestore restores a virtual machine from a snapshot BestEffort restore mode; manual restart approval mode; always on unless stopped manually run policy [Slow]",
+              reason: "",
+            },
+            {
+              name: "[It] VirtualMachineOperationRestore restores a virtual machine from a snapshot Strict restore mode; manual restart approval mode; always on unless stopped manually run policy [Slow]",
+              reason: "",
+            },
+            {
+              name: "[It] VirtualMachineOperationRestore restores a virtual machine from a snapshot BestEffort restore mode; manual restart approval mode; always on unless stopped manually run policy; with resource deletion [Slow]",
+              reason: "",
+            },
+            {
+              name: "[It] VirtualMachineOperationRestore restores a virtual machine from a snapshot Strict restore mode; manual restart approval mode; always on unless stopped manually run policy; with resource deletion [Slow]",
+              reason: "",
+            },
+            {
+              name: "[It] VirtualMachineOperationRestore restores a virtual machine from a snapshot BestEffort restore mode; automatic restart approval mode; always on unless stopped manually run policy [Slow]",
+              reason: "",
+            },
+            {
+              name: "[It] VirtualMachineOperationRestore restores a virtual machine from a snapshot BestEffort restore mode; automatic restart approval mode; manual run policy [Slow]",
+              reason: "",
+            },
+            {
+              name: "[It] VirtualMachineAdditionalNetworkInterfaces verifies interface name persistence after removing middle ClusterNetwork should preserve interface name after removing middle ClusterNetwork and rebooting",
+              reason: "",
+            },
+          ],
         })
       );
 
@@ -306,16 +454,19 @@ describe("messenger-report", () => {
       const result = await renderMessengerReport({ core: createCore() });
 
       expect(result.threadMessages).toEqual([
-        [
-          "### Failed tests",
-          "",
-          "**[nfs](https://example.invalid/nfs)**",
-          "",
-          "| Tests | Reason |",
-          "|---|---|",
-          "| VirtualMachineOperationRestore | — |",
-          "| VirtualMachineAdditionalNetworkInterfaces | — |",
-        ].join("\n"),
+        {
+          message: [
+            "### Failed tests",
+            "",
+            "**[nfs](https://example.invalid/nfs)**",
+            "",
+            "| Tests | Reason |",
+            "|---|---|",
+            "| VirtualMachineOperationRestore | — |",
+            "| VirtualMachineAdditionalNetworkInterfaces | — |",
+          ].join("\n"),
+          files: [],
+        },
       ]);
     }));
 
@@ -338,8 +489,7 @@ describe("messenger-report", () => {
           testStatus: {
             status: "not-run",
             reason: "cluster-stage-failure",
-            message:
-              "E2E tests were not run because cluster setup did not finish",
+            message: "E2E tests were not run because cluster setup did not finish",
           },
           metrics: {
             passed: 0,
@@ -358,9 +508,7 @@ describe("messenger-report", () => {
 
       expect(result.message).not.toContain("Branch: `main`");
       expect(result.message).toContain("### Cluster failures");
-      expect(result.message).toContain(
-        "- [replicated](https://example.invalid/replicated): ❌ CONFIGURE SDN FAILED"
-      );
+      expect(result.message).toContain("- [replicated](https://example.invalid/replicated): ❌ CONFIGURE SDN FAILED");
       expect(result.threadMessages).toEqual([]);
     }));
 
@@ -382,8 +530,7 @@ describe("messenger-report", () => {
           testStatus: {
             status: "not-run",
             reason: "cluster-stage-failure",
-            message:
-              "E2E tests were not run because cluster setup did not finish",
+            message: "E2E tests were not run because cluster setup did not finish",
           },
           metrics: {
             passed: 0,
@@ -448,6 +595,12 @@ describe("messenger-report", () => {
 
   test("posts main report and per-cluster failed tests thread via Loop API", async () =>
     inTempDir(async (tempDir) => {
+      const chartFile = {
+        name: "replicated-feature-duration-status.png",
+        buffer: Buffer.from("png"),
+        mimeType: "image/png",
+      };
+      getClusterChartFiles.mockResolvedValue([chartFile]);
       fs.writeFileSync(
         path.join(tempDir, "e2e_report_replicated.json"),
         JSON.stringify({
@@ -466,6 +619,8 @@ describe("messenger-report", () => {
             successRate: 83.33,
           },
           failedTests: ["[It] fails"],
+          failedTestDetails: [{ name: "[It] fails", reason: "" }],
+          specTimings: [{ name: "slow", group: "VM", state: "failed", runtimeMs: 90000 }],
         })
       );
 
@@ -485,12 +640,17 @@ describe("messenger-report", () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 201,
+          text: async () => JSON.stringify({ file_infos: [{ id: "file-id" }] }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 201,
           text: async () => JSON.stringify({ id: "thread-post-id" }),
         });
 
       const result = await renderMessengerReport({ core: createCore() });
 
-      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(global.fetch).toHaveBeenCalledTimes(3);
       expect(global.fetch).toHaveBeenNthCalledWith(
         1,
         "https://loop.example.invalid/api/v4/posts",
@@ -506,11 +666,29 @@ describe("messenger-report", () => {
         channel_id: "channel-id",
         message: result.message,
       });
-      expect(JSON.parse(global.fetch.mock.calls[1][1].body)).toEqual({
+      expect(global.fetch).toHaveBeenNthCalledWith(
+        2,
+        "https://loop.example.invalid/api/v4/files",
+        expect.objectContaining({
+          method: "POST",
+          headers: {
+            Authorization: "Bearer loop-token",
+          },
+        })
+      );
+      expect(JSON.parse(global.fetch.mock.calls[2][1].body)).toEqual({
         channel_id: "channel-id",
-        message:
-          "### Failed tests\n\n**[replicated](https://example.invalid/replicated)**\n\n| Tests | Reason |\n|---|---|\n| fails | — |",
+        message: [
+          "### Failed tests",
+          "",
+          "**[replicated](https://example.invalid/replicated)**",
+          "",
+          "| Tests | Reason |",
+          "|---|---|",
+          "| fails | — |",
+        ].join("\n"),
         root_id: "root-post-id",
+        file_ids: ["file-id"],
       });
     }));
 
@@ -554,9 +732,7 @@ describe("messenger-report", () => {
 
       // Empty body → no post id → thread replies cannot be sent → warning emitted.
       expect(global.fetch).toHaveBeenCalledTimes(1);
-      expect(core.warning).toHaveBeenCalledWith(
-        expect.stringContaining("Loop API did not return a post id")
-      );
+      expect(core.warning).toHaveBeenCalledWith(expect.stringContaining("Loop API did not return a post id"));
       // Report outputs are still set because the message was built before sending.
       expect(core.setOutput).toHaveBeenCalledWith("thread_messages", "[]");
     }));
@@ -601,12 +777,8 @@ describe("messenger-report", () => {
 
       // Non-JSON body → parse warning → no post id → delivery warning.
       expect(global.fetch).toHaveBeenCalledTimes(1);
-      expect(core.warning).toHaveBeenCalledWith(
-        expect.stringContaining("Loop API returned a non-JSON response body")
-      );
-      expect(core.warning).toHaveBeenCalledWith(
-        expect.stringContaining("Loop API did not return a post id")
-      );
+      expect(core.warning).toHaveBeenCalledWith(expect.stringContaining("Loop API returned a non-JSON response body"));
+      expect(core.warning).toHaveBeenCalledWith(expect.stringContaining("Loop API did not return a post id"));
       // Report outputs are still set because the message was built before sending.
       expect(core.setOutput).toHaveBeenCalledWith("thread_messages", "[]");
     }));

@@ -62,7 +62,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmac"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmaclease"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmrestore"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/volumemigration"
@@ -423,12 +422,6 @@ func main() {
 
 	vmsnapshotLogger := logger.NewControllerLogger(vmsnapshot.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
 	if err = vmsnapshot.NewController(ctx, mgr, vmsnapshotLogger, virtClient); err != nil {
-		log.Error(err.Error())
-		os.Exit(1)
-	}
-
-	vmrestoreLogger := logger.NewControllerLogger(vmrestore.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if err = vmrestore.NewController(ctx, mgr, vmrestoreLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

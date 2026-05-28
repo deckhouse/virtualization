@@ -19,6 +19,7 @@ package precheck
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,9 +30,10 @@ import (
 
 const (
 	vmcModuleCheckEnvName = "VMC_PRECHECK"
-	defaultVMClassName    = "generic-for-e2e"
+	requiredVMClassName   = "generic-for-e2e"
 
-	vmClassVersion = "v1alpha3"
+	vmClassVersion         = "v1alpha3"
+	defaultClassAnnotation = "virtualmachineclass.virtualization.deckhouse.io/is-default-class"
 )
 
 // vmcPrecheck implements Precheck interface for VMC/VMClass.
@@ -60,66 +62,95 @@ func (c *vmcPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 		return fmt.Errorf("%s=no to disable this precheck: list VirtualMachineClasses: %w", vmcModuleCheckEnvName, err)
 	}
 
-	var e2eClass map[string]interface{}
-	var defaultClass map[string]interface{}
+	var requiredClass map[string]interface{} // VMClass with requiredVMClassName
+	var defaultClass map[string]interface{}  // VMClass with is-default-class annotation
 
+	// Single pass through all VMClasses
 	for i := range vmClasses.Items {
 		vmClass := vmClasses.Items[i].Object
-		name, ok := vmClass["metadata"].(map[string]interface{})["name"].(string)
-		if !ok {
-			continue
-		}
 
-		if name == defaultVMClassName {
-			e2eClass = vmClass
-		}
-
-		// Check for default annotation
 		metadata, ok := vmClass["metadata"].(map[string]interface{})
 		if !ok {
 			continue
 		}
+
+		name, ok := metadata["name"].(string)
+		if !ok {
+			continue
+		}
+
+		// Check if this is the required e2e class
+		if name == requiredVMClassName {
+			requiredClass = vmClass
+		}
+
+		// Check for default annotation
 		annotations, ok := metadata["annotations"].(map[string]interface{})
 		if !ok {
 			continue
 		}
-		if _, ok := annotations["virtualmachineclass.virtualization.deckhouse.io/is-default-class"]; ok {
+		if _, isDefault := annotations[defaultClassAnnotation]; isDefault {
 			defaultClass = vmClass
 		}
 	}
 
-	// Helper to get name from vmClass
-	getVMClassName := func(m map[string]interface{}) string {
-		if m == nil {
-			return ""
-		}
-		metadata, ok := m["metadata"].(map[string]interface{})
-		if !ok {
-			return ""
-		}
-		name, _ := metadata["name"].(string)
-		return name
+	// Check if everything is OK: required class exists AND it is the default
+	if requiredClass != nil && defaultClass != nil && getVMClassName(defaultClass) == requiredVMClassName {
+		return nil
 	}
 
-	// Check if default VMClass exists and is correct
-	switch {
-	case e2eClass != nil && defaultClass != nil && getVMClassName(defaultClass) == defaultVMClassName:
-		// OK
-	case e2eClass != nil && defaultClass != nil:
-		return fmt.Errorf("%s=no to disable this precheck: cluster has wrong default class %q, e2e tests require %q to be default",
-			vmcModuleCheckEnvName, getVMClassName(defaultClass), defaultVMClassName)
-	case e2eClass == nil && defaultClass != nil:
-		return fmt.Errorf("%s=no to disable this precheck: cluster has wrong default class %q, e2e tests require %q to be default",
-			vmcModuleCheckEnvName, getVMClassName(defaultClass), defaultVMClassName)
-	case e2eClass != nil && defaultClass == nil:
-		return fmt.Errorf("%s=no to disable this precheck: cluster has no default class, e2e tests require %q to be default. Run: kubectl annotate vmclass/%s virtualmachineclass.virtualization.deckhouse.io/is-default-class=true",
-			vmcModuleCheckEnvName, defaultVMClassName, defaultVMClassName)
-	case e2eClass == nil && defaultClass == nil:
-		return fmt.Errorf("%s=no to disable this precheck: cluster has no default class and no %q class. Run: kubectl get vmclass/generic -o json | jq 'del(.status) | .metadata.annotations = {\"virtualmachineclass.virtualization.deckhouse.io/is-default-class\":\"true\"}' | kubectl create -f -",
-			vmcModuleCheckEnvName, defaultVMClassName)
+	// Build issues and fix commands
+	var issues, cmds []string
+
+	// Handle default class issue
+	if defaultClass != nil {
+		issues = append(issues, fmt.Sprintf("cluster has wrong default vmclass %q", getVMClassName(defaultClass)))
+		cmds = append(cmds, cmdRemoveDefaultAnnotation(getVMClassName(defaultClass)))
+	} else {
+		issues = append(issues, "cluster has no default vmclass")
 	}
 
-	return nil
+	// Handle required class issue
+	if requiredClass != nil {
+		// Required class exists but is not default - just need to set annotation
+		issues = append(issues, fmt.Sprintf("e2e tests require vmclass %q to be default", requiredVMClassName))
+		cmds = append(cmds, cmdSetDefaultAnnotation(requiredVMClassName))
+	} else {
+		// Required class doesn't exist - need to create it
+		issues = append(issues, fmt.Sprintf("e2e tests require vmclass %q to present and be default", requiredVMClassName))
+		cmds = append(cmds, cmdCopyGenericAsDefaultClass(requiredVMClassName))
+	}
+
+	return fmt.Errorf("%s=no to disable this precheck. Cluster has issues: %s. Run command to fix: %s",
+		vmcModuleCheckEnvName,
+		strings.Join(issues, "; "),
+		strings.Join(cmds, " && "),
+	)
+}
+
+// getVMClassName extracts name from VMClass object
+func getVMClassName(m map[string]interface{}) string {
+	if m == nil {
+		return ""
+	}
+	metadata, ok := m["metadata"].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	name, _ := metadata["name"].(string)
+	return name
+}
+
+func cmdCopyGenericAsDefaultClass(targetVMClassName string) string {
+	return fmt.Sprintf(`kubectl get vmclass/generic -o json | jq 'del(.status) | del(.metadata) | .metadata = {"name":"%s","annotations":{"virtualmachineclass.virtualization.deckhouse.io/is-default-class":"true"}} ' | kubectl create -f -`, targetVMClassName)
+}
+
+func cmdRemoveDefaultAnnotation(targetVMClassName string) string {
+	return fmt.Sprintf(`kubectl annotate vmclass/%s virtualmachineclass.virtualization.deckhouse.io/is-default-class=-`, targetVMClassName)
+}
+
+func cmdSetDefaultAnnotation(targetVMClassName string) string {
+	return fmt.Sprintf(`kubectl annotate vmclass/%s virtualmachineclass.virtualization.deckhouse.io/is-default-class=true`, targetVMClassName)
 }
 
 // Register VMC precheck as common (runs for all tests).

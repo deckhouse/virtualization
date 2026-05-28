@@ -142,9 +142,6 @@ func rewriteObject(obj client.Object) {
 	case v1alpha2.VirtualMachineClassKind:
 		class := obj.(*v1alpha2.VirtualMachineClass)
 		conds = class.Status.Conditions
-	case v1alpha2.VirtualMachineRestoreKind:
-		restore := obj.(*v1alpha2.VirtualMachineRestore)
-		conds = restore.Status.Conditions
 	case v1alpha2.VirtualMachineSnapshotKind:
 		snap := obj.(*v1alpha2.VirtualMachineSnapshot)
 		conds = snap.Status.Conditions
