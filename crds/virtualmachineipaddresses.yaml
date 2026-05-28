@@ -28,8 +28,7 @@ spec:
               metadata:
                 name: linux-vm-custom-ip
               spec:
-                type: Static
-                staticIP: 10.66.20.77
+                type: Auto
           properties:
             apiVersion:
               type: string
