@@ -194,6 +194,13 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk)
 		if isStorageClassWFFC(sc) && len(vd.Status.AttachedToVirtualMachines) != 1 {
 			vd.Status.Progress = "50%"
 			vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
+			setReadyConditionWithWFFCAccounting(
+				vd,
+				cb,
+				metav1.ConditionFalse,
+				vdcondition.WaitingForFirstConsumer,
+				"The provisioning has been suspended: a created and scheduled virtual machine is awaited.",
+			)
 			return reconcile.Result{}, nil
 		}
 
