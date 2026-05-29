@@ -110,7 +110,7 @@ func (v *NetworksValidator) validateNetworksExist(ctx context.Context, namespace
 			obj.SetGroupVersionKind(commonnetwork.NetworkGVK)
 			err := v.client.Get(ctx, types.NamespacedName{Name: n.Name, Namespace: namespace}, obj)
 			if k8serrors.IsNotFound(err) {
-				return nil, fmt.Errorf("Network %q referenced in spec.networks does not exist in namespace %q", n.Name, namespace)
+				return nil, fmt.Errorf("network %q referenced in spec.networks does not exist in namespace %q", n.Name, namespace)
 			}
 			if err != nil {
 				return nil, fmt.Errorf("failed to verify Network %q: %w", n.Name, err)

@@ -315,8 +315,8 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 				err := f.CreateWithDeferredDeletion(context.Background(), vdRoot, testVM)
 				Expect(err).NotTo(HaveOccurred())
 
-				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, testVM)
-				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(testVM), framework.LongTimeout)
+				util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, testVM)
+				util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(testVM), framework.LongTimeout)
 				util.UntilSSHReady(f, testVM, framework.LongTimeout)
 
 				initialIfaceCount = getIfaceCount()
@@ -336,7 +336,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 			})
 
 			By("Verify new interface appears in the guest OS", func() {
-				util.UntilConditionStatus(vmcondition.TypeNetworkReady.String(), "True", framework.LongTimeout, testVM)
+				util.UntilConditionStatus(ctx, vmcondition.TypeNetworkReady.String(), "True", framework.LongTimeout, testVM)
 				Eventually(getIfaceCount).
 					WithTimeout(framework.LongTimeout).
 					WithPolling(3*time.Second).
