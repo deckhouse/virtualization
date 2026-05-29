@@ -21,7 +21,6 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
 require_env GITHUB_OUTPUT
-: "${GITHUB_OUTPUT:?}"
 
 version_json="$(kubectl version -o json)"
 server_version="$(echo "${version_json}" | jq -r '.serverVersion.gitVersion')"
