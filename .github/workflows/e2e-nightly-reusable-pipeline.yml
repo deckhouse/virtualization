@@ -178,7 +178,7 @@ jobs:
       kubeconfig: ${{ steps.generate-kubeconfig.outputs.kubeconfig }}
       namespace: ${{ steps.vars.outputs.namespace }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set outputs
         env:
@@ -200,8 +200,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y apache2-utils
-
-      - uses: actions/checkout@v6
 
       - name: Setup E2E toolchain
         uses: ./.github/actions/setup-e2e-toolchain
@@ -609,14 +607,12 @@ jobs:
       - configure-storage
       - configure-virtualization
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v5
         with:
           go-version: "${{ env.GO_VERSION }}"
-
-      - uses: actions/checkout@v6
 
       - name: Setup E2E toolchain
         uses: ./.github/actions/setup-e2e-toolchain
@@ -708,7 +704,7 @@ jobs:
       workflow_run_url: ${{ steps.determine-stage.outputs.workflow_run_url }}
       branch: ${{ steps.determine-stage.outputs.branch }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download E2E test results if available
         uses: actions/download-artifact@v8

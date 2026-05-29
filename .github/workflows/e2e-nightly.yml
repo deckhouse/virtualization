@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Configure kubectl via azure/k8s-set-context@v4
         uses: azure/k8s-set-context@v4
@@ -52,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Configure kubectl via azure/k8s-set-context@v4
         uses: azure/k8s-set-context@v4
         with:
@@ -139,7 +139,7 @@ jobs:
       - e2e-nfs
     if: ${{ always()}}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download E2E report artifacts
         uses: actions/download-artifact@v8
@@ -188,7 +188,7 @@ jobs:
           --top-n 5
 
       - name: Upload top-5 slowest Describe charts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-report-slowest-by-describe
           path: tmp/charts/
