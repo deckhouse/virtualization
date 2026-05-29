@@ -2,13 +2,14 @@
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/hack/dockerized#L15
 {{- $gitRepoName := "3p-kubevirt" }}
 {{- $gitRepoUrl := (printf "%s/%s" "deckhouse" $gitRepoName) }}
-{{- $tag := get $.Core $gitRepoName }}
-{{- $version := (split "-" $tag)._0 }}
+{{- $tag := "fix/network/net-admin" }}
+{{- $version := "v1.6.2" }}
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
+fromCacheVersion: "2026-05-28-2"
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
@@ -44,6 +45,7 @@ packages:
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.25" "builder/golang-alt-svace-1.25" }}
+fromCacheVersion: "2026-05-28-2"
 mount:
 {{- include "mount points for golang builds" . }}
 secrets:
