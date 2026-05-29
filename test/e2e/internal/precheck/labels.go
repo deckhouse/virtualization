@@ -45,6 +45,9 @@ const (
 	// PrecheckUSB - test requires USB device with dummy_hcd to be configured.
 	PrecheckUSB = "usb-precheck"
 
+	// PrecheckAffinityToleration - test requires enough ready KVM-enabled master/worker nodes.
+	PrecheckAffinityToleration = "affinity-toleration-precheck"
+
 	// PrecheckPostCleanup - test requires postcleanup to be configured.
 	PrecheckPostCleanup = "postcleanup-precheck"
 
@@ -68,6 +71,7 @@ func KnownPrecheckLabels() []string {
 		PrecheckSnapshot,
 		PrecheckVirtualization,
 		PrecheckUSB,
+		PrecheckAffinityToleration,
 		PrecheckPostCleanup,
 		PrecheckPrecreatedCVI,
 		NoPrecheck,
