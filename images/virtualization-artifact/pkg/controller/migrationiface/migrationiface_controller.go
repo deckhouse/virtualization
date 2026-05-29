@@ -46,10 +46,6 @@ func NewController(
 		log.Info("SDN feature gate is disabled, migrationiface controller is disabled")
 		return nil, nil
 	}
-	if systemNetworkName == "" {
-		log.Info("MIGRATION_SYSTEM_NETWORK_NAME is empty, migrationiface controller is disabled")
-		return nil, nil
-	}
 
 	r := NewReconciler(mgr.GetClient(), systemNetworkName, log)
 
