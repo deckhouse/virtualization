@@ -246,6 +246,7 @@ jobs:
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
         run: |
           task infra-deploy
+
       - name: Bootstrap cluster [dhctl-bootstrap]
         id: dhctl-bootstrap
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
@@ -259,6 +260,7 @@ jobs:
           task dhctl-bootstrap
           echo "[SUCCESS] Done"
         timeout-minutes: 60
+
       - name: Bootstrap cluster [show-connection-info]
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
         run: |

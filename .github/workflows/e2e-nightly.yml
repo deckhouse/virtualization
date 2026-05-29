@@ -39,6 +39,7 @@ jobs:
           method: kubeconfig
           context: e2e-cluster-nightly-e2e-virt-sa
           kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+
       - name: Delete nested clusters
         env:
           LABEL_SELECTOR: test=nightly-e2e
@@ -53,14 +54,17 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+
       - name: Configure kubectl via azure/k8s-set-context@v4
         uses: azure/k8s-set-context@v4
         with:
           method: kubeconfig
           context: e2e-cluster-nightly-e2e-virt-sa
           kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+
       - name: Power off VMs to free resources for nested cluster setup
         run: .github/scripts/bash/e2e/power-off-nested-vms.sh
+
   set-vars:
     name: Set vars
     needs: power-off-vms-for-nested
