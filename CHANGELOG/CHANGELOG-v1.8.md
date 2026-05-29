@@ -4,6 +4,7 @@
 
 
  - **[vm]** Added the `progress` field to the status of `VirtualMachineOperation` resources with the `Evict` and `Migrate` types to show operation progress. The corresponding `PROGRESS` column is displayed when running `d8 k get vmop` [#2182](https://github.com/deckhouse/virtualization/pull/2182)
+ - **[vm]** Added the ability to change the number of CPUs in a virtual machine without manually stopping it. The new value is applied via live migration. To enable this functionality, add `HotplugCPUWithLiveMigration` to `.spec.settings.featureGates` in the `ModuleConfig` of the `virtualization` module. [#2147](https://github.com/deckhouse/virtualization/pull/2147)
  - **[vm]** Added initial support for changing virtual machine memory without manually stopping the virtual machine. The new `.spec.memory` value is applied via live migration. To enable this functionality, add `HotplugMemoryWithLiveMigration` to `.spec.settings.featureGates` in the `ModuleConfig` of the `virtualization` module. [#2110](https://github.com/deckhouse/virtualization/pull/2110)
 
 ## Fixes
@@ -21,6 +22,18 @@
 ## Chore
 
 
+ - **[core]** Fixed vulnerability:
+    - CVE-2026-29181
+    - CVE-2026-33811
+    - CVE-2026-33814
+    - CVE-2026-39820
+    - CVE-2026-39823
+    - CVE-2026-39825
+    - CVE-2026-39826
+    - CVE-2026-39836
+    - CVE-2026-41520
+    - CVE-2026-42499 [#2343](https://github.com/deckhouse/virtualization/pull/2343)
+ - **[core]** Fix vulnerability CVE-2026-39883. [#2200](https://github.com/deckhouse/virtualization/pull/2200)
  - **[core]** Fixed vulnerabilities CVE-2026-32280, CVE-2026-32281, CVE-2026-32282, CVE-2026-32283, CVE-2026-32288, CVE-2026-32289 [#2196](https://github.com/deckhouse/virtualization/pull/2196)
  - **[core]** Fixed vulnerabilities CVE-2026-34986. [#2188](https://github.com/deckhouse/virtualization/pull/2188)
  - **[core]** Fixed vulnerabilities CVE-2026-25679, CVE-2026-27142, CVE-2026-27139, CVE-2026-33186, CVE-2026-34040, CVE-2026-33997. [#2175](https://github.com/deckhouse/virtualization/pull/2175)

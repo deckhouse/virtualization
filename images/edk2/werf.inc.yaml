@@ -53,6 +53,13 @@ git:
   stageDependencies:
     install:
       - '*.json'
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}/patches
+  to: /src/patches
+  includePaths:
+  - '*.patch'
+  stageDependencies:
+    install:
+      - '*.patch'
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}/uefi-revocation-list
   to: /src/FIRMWARE
   includePaths:
@@ -89,6 +96,13 @@ shell:
         -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://gitlab.com/  \
         submodule update --init --recursive  --depth=1
     fi
+
+    echo "Applying patches..."
+    for p in /src/patches/*.patch; do
+      [ -f "$p" ] || continue
+      echo -n "Apply ${p} ... "
+      git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+    done
 
 ---
 

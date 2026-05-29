@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -179,6 +180,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 
 	Describe("verifies interface name persistence after removing middle ClusterNetwork", func() {
 		cloudInitOpt := vm.WithProvisioningUserData(object.UbuntuCloudInit)
+		memoryOpt := vm.WithMemory(resource.MustParse("512Mi"))
 
 		var (
 			vdRoot *v1alpha2.VirtualDisk
@@ -195,7 +197,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 
 				vdRoot = object.NewVDFromCVI("vd-root", ns, object.PrecreatedCVIUbuntu)
 
-				vm = buildVMWithNetworks("vm", ns, vdRoot.Name, "192.168.1.20", true, cloudInitOpt)
+				vm = buildVMWithNetworks("vm", ns, vdRoot.Name, "192.168.1.20", true, cloudInitOpt, memoryOpt)
 				vm.Spec.Networks = append(vm.Spec.Networks, v1alpha2.NetworksSpec{
 					Type: v1alpha2.NetworksTypeClusterNetwork,
 					Name: util.ClusterNetworkName(secondAdditionalInterfaceVLANID),
@@ -326,39 +328,49 @@ runcmd:
 func checkConnectivityBetweenVMs(f *framework.Framework, vmFoo, vmBar *v1alpha2.VirtualMachine, vmBarHasMainNetwork bool, vmBarAdditionalIP, vmFooAdditionalIP string) {
 	GinkgoHelper()
 
-	pingCmd := "ping -c 2 -W 2 -w 5 -q %s 2>&1 | grep -o \"[0-9]\\+%%\\s*packet loss\"" // %% -> % in output
-	expectedOut := "0% packet loss"
+	pingCmd := "ping -c 2 -W 2 -w 5 -q %s"
+	expectedPacketLoss := "0"
 
 	By(fmt.Sprintf("VM %s should have connectivity to %s (vm-bar)", vmFoo.Name, vmBarAdditionalIP))
-	checkResultSSHCommand(f, vmFoo.Name, vmFoo.Namespace, fmt.Sprintf(pingCmd, vmBarAdditionalIP), expectedOut)
+	checkPingPacketLoss(f, vmFoo.Name, vmFoo.Namespace, fmt.Sprintf(pingCmd, vmBarAdditionalIP), expectedPacketLoss)
 
 	if vmBarHasMainNetwork {
 		By(fmt.Sprintf("VM %s should have connectivity to %s (vm-foo)", vmBar.Name, vmFooAdditionalIP))
-		checkResultSSHCommand(f, vmBar.Name, vmBar.Namespace, fmt.Sprintf(pingCmd, vmFooAdditionalIP), expectedOut)
+		checkPingPacketLoss(f, vmBar.Name, vmBar.Namespace, fmt.Sprintf(pingCmd, vmFooAdditionalIP), expectedPacketLoss)
 	}
 }
 
 const (
 	Interval = 1 * time.Second
 	Timeout  = 90 * time.Second
+	// SSH command timeout should be safely above command-level deadlines (e.g. ping -w 5)
+	// to avoid killing healthy commands at the timeout boundary.
+	SSHCommandTimeout = 15 * time.Second
 )
 
-func checkResultSSHCommand(f *framework.Framework, vmName, vmNamespace, cmd, equal string) {
+func checkPingPacketLoss(f *framework.Framework, vmName, vmNamespace, cmd, expectedPacketLoss string) {
 	GinkgoHelper()
+	packetLossRE := regexp.MustCompile(`([0-9]+)%\s*packet loss`)
+
 	Eventually(func() (string, error) {
-		res, err := f.SSHCommand(vmName, vmNamespace, cmd, framework.WithSSHTimeout(5*time.Second))
+		res, err := f.SSHCommand(vmName, vmNamespace, cmd, framework.WithSSHTimeout(SSHCommandTimeout))
 		if err != nil {
 			return "", fmt.Errorf("cmd: %s\nstderr: %w", cmd, err)
 		}
-		return strings.TrimSpace(res), nil
-	}).WithTimeout(Timeout).WithPolling(Interval).Should(Equal(equal))
+		match := packetLossRE.FindStringSubmatch(res)
+		if len(match) < 2 {
+			return "", fmt.Errorf("cmd: %s\nfailed to parse packet loss from output: %q", cmd, strings.TrimSpace(res))
+		}
+
+		return match[1], nil
+	}).WithTimeout(Timeout).WithPolling(Interval).Should(Equal(expectedPacketLoss))
 }
 
 func checkLastInterfaceName(f *framework.Framework, vmName, vmNamespace, expected string) {
 	GinkgoHelper()
 	Eventually(func() (string, error) {
 		cmd := "ip -j link show"
-		result, err := f.SSHCommand(vmName, vmNamespace, cmd, framework.WithSSHTimeout(5*time.Second))
+		result, err := f.SSHCommand(vmName, vmNamespace, cmd, framework.WithSSHTimeout(SSHCommandTimeout))
 		if err != nil {
 			return "", fmt.Errorf("failed to execute command: %w: %s", err, result)
 		}

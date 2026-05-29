@@ -246,6 +246,25 @@ func UntilVMMigrationSucceeded(key client.ObjectKey, timeout time.Duration) {
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
 
+func UntilDisksAreAttachedInVMStatus(
+	ctx context.Context,
+	f *framework.Framework,
+	timeout time.Duration,
+	vm *v1alpha2.VirtualMachine,
+	vds ...*v1alpha2.VirtualDisk,
+) {
+	GinkgoHelper()
+
+	Eventually(func(g Gomega) {
+		err := f.GenericClient().Get(ctx, client.ObjectKeyFromObject(vm), vm)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		for _, vd := range vds {
+			g.Expect(IsVDAttached(vm, vd)).To(BeTrue())
+		}
+	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+}
+
 func MigrateVirtualMachine(f *framework.Framework, vm *v1alpha2.VirtualMachine, options ...vmopbuilder.Option) {
 	GinkgoHelper()
 

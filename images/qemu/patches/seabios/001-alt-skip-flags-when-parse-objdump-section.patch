@@ -1,0 +1,13 @@
+diff --git a/scripts/layoutrom.py b/scripts/layoutrom.py
+index 6616721..4f655dc 100755
+--- a/scripts/layoutrom.py
++++ b/scripts/layoutrom.py
+@@ -564,7 +564,7 @@ def parseObjDump(file, fileid):
+ 
+         if state == 'section':
+             try:
+-                idx, name, size, vma, lma, fileoff, align = line.split()
++                idx, name, size, vma, lma, fileoff, align, *_flags = line.split()
+                 if align[:3] != '2**':
+                     continue
+                 section = Section()

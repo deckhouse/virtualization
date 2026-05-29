@@ -96,6 +96,14 @@ rules:
   - list
   - watch
 - apiGroups:
+  - storage.deckhouse.io
+  resources:
+  - lvmvolumegroups
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - ""
   resources:
   - nodes

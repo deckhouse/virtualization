@@ -3,6 +3,25 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.8.2
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: May 20, 2026.
+</span>
+
+### Security
+
+- [module] Fixed vulnerabilities:
+  - CVE-2026-29181
+  - CVE-2026-33811
+  - CVE-2026-33814
+  - CVE-2026-39820
+  - CVE-2026-39823
+  - CVE-2026-39825
+  - CVE-2026-39826
+  - CVE-2026-39836
+  - CVE-2026-41520
+  - CVE-2026-42499
+
 ## v1.8.1
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: April 28, 2026.
@@ -53,6 +72,25 @@ Release date: April 22, 2026.
   - CVE-2026-33186
   - CVE-2026-34040
   - CVE-2026-33997
+
+## v1.7.2
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: May 20, 2026.
+</span>
+
+### Security
+
+- [module] Fixed vulnerabilities:
+  - CVE-2026-29181
+  - CVE-2026-33811
+  - CVE-2026-33814
+  - CVE-2026-39820
+  - CVE-2026-39823
+  - CVE-2026-39825
+  - CVE-2026-39826
+  - CVE-2026-39836
+  - CVE-2026-41520
+  - CVE-2026-42499
 
 ## v1.7.1
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">

@@ -21,17 +21,22 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/nodeaffinity"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
@@ -410,7 +415,7 @@ func (s *state) PVNodeAffinityTerms(ctx context.Context) ([]corev1.NodeSelectorT
 			continue
 		}
 
-		terms, err := s.pvNodeAffinityTermsForPVC(ctx, pvcName, namespace)
+		terms, err := s.pvNodeAffinityTermsForPVC(ctx, ref.Kind, ref.Name, pvcName, namespace)
 		if err != nil {
 			return nil, fmt.Errorf("get PV node affinity for PVC %s: %w", pvcName, err)
 		}
@@ -495,19 +500,66 @@ func (s *state) resolvePVCName(ctx context.Context, kind v1alpha2.BlockDeviceKin
 	}
 }
 
-func (s *state) pvNodeAffinityTermsForPVC(ctx context.Context, pvcName, namespace string) ([]corev1.NodeSelectorTerm, error) {
+func (s *state) resolveStorageClassName(ctx context.Context, kind v1alpha2.BlockDeviceKind, name, pvcName string) (string, error) {
+	switch kind {
+	case v1alpha2.DiskDevice:
+		vd, err := s.VirtualDisk(ctx, name)
+		if err != nil {
+			return "", err
+		}
+		if vd == nil {
+			return "", nil
+		}
+		// During migration, status.StorageClassName can still point to the old PVC's class.
+		// Avoid using it for the target PVC; rely on target PVC fields instead.
+		migrating, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
+		if migrating.Status == metav1.ConditionTrue &&
+			conditions.IsLastUpdated(migrating, vd) &&
+			vd.Status.MigrationState.TargetPVC == pvcName {
+			return "", nil
+		}
+		return commonvd.ResolveStorageClassName(ctx, vd, nil)
+	case v1alpha2.ImageDevice:
+		vi, err := s.VirtualImage(ctx, name)
+		if err != nil {
+			return "", err
+		}
+		if vi == nil {
+			return "", nil
+		}
+		if vi.Status.StorageClassName != "" {
+			return vi.Status.StorageClassName, nil
+		}
+		if vi.Spec.PersistentVolumeClaim.StorageClass != nil {
+			return *vi.Spec.PersistentVolumeClaim.StorageClass, nil
+		}
+		return "", nil
+	default:
+		return "", nil
+	}
+}
+
+func (s *state) pvNodeAffinityTermsForPVC(ctx context.Context, kind v1alpha2.BlockDeviceKind, name, pvcName, namespace string) ([]corev1.NodeSelectorTerm, error) {
 	pvc, err := object.FetchObject(ctx, types.NamespacedName{
 		Name: pvcName, Namespace: namespace,
 	}, s.client, &corev1.PersistentVolumeClaim{})
 	if err != nil {
 		return nil, err
 	}
-	if pvc == nil || pvc.Spec.VolumeName == "" {
+	if pvc == nil {
 		return nil, nil
 	}
 
+	if pvc.Spec.VolumeName != "" {
+		return s.nodeAffinityTermsFromBoundPV(ctx, pvc.Spec.VolumeName)
+	}
+
+	return s.nodeAffinityTermsFromUnboundPVC(ctx, kind, name, pvcName, pvc)
+}
+
+func (s *state) nodeAffinityTermsFromBoundPV(ctx context.Context, pvName string) ([]corev1.NodeSelectorTerm, error) {
 	pv, err := object.FetchObject(ctx, types.NamespacedName{
-		Name: pvc.Spec.VolumeName,
+		Name: pvName,
 	}, s.client, &corev1.PersistentVolume{})
 	if err != nil {
 		return nil, err
@@ -520,6 +572,126 @@ func (s *state) pvNodeAffinityTermsForPVC(ctx context.Context, pvcName, namespac
 		return pv.Spec.NodeAffinity.Required.NodeSelectorTerms, nil
 	}
 	return nil, nil
+}
+
+// nodeAffinityTermsFromUnboundPVC determines node affinity for an unbound PVC by:
+// 1. Looking for pre-provisioned Available PVs (static provisioning case).
+// 2. If none found, deriving topology from StorageClass + LVMVolumeGroup (dynamic provisioning case).
+func (s *state) nodeAffinityTermsFromUnboundPVC(ctx context.Context, kind v1alpha2.BlockDeviceKind, name, pvcName string, pvc *corev1.PersistentVolumeClaim) ([]corev1.NodeSelectorTerm, error) {
+	storageClassName, err := s.resolveStorageClassName(ctx, kind, name, pvcName)
+	if err != nil {
+		return nil, fmt.Errorf("resolve StorageClass for %s/%s: %w", kind, name, err)
+	}
+	// During migration we intentionally do not trust VD status storage class for target PVC,
+	// because it can still point to the source PVC class while the source VM pod is running.
+	// In this case use target PVC storage class if it is already set.
+	if storageClassName == "" && pvc.Spec.StorageClassName != nil {
+		storageClassName = *pvc.Spec.StorageClassName
+	}
+	if storageClassName == "" {
+		return nil, nil
+	}
+
+	var pvList corev1.PersistentVolumeList
+	if err := s.client.List(ctx, &pvList, client.MatchingFields{indexer.IndexFieldPVByStorageClass: storageClassName}); err != nil {
+		return nil, fmt.Errorf("list PVs: %w", err)
+	}
+
+	var allTerms []corev1.NodeSelectorTerm
+	for i := range pvList.Items {
+		pv := &pvList.Items[i]
+		if pv.Status.Phase != corev1.VolumeAvailable {
+			continue
+		}
+		if pv.Spec.StorageClassName != storageClassName {
+			continue
+		}
+		if pv.Spec.NodeAffinity == nil || pv.Spec.NodeAffinity.Required == nil {
+			continue
+		}
+		allTerms = append(allTerms, pv.Spec.NodeAffinity.Required.NodeSelectorTerms...)
+	}
+
+	if len(allTerms) > 0 {
+		return allTerms, nil
+	}
+
+	return s.nodeAffinityTermsFromStorageClassTopology(ctx, storageClassName)
+}
+
+const (
+	localCSIProvisioner  = "local.csi.storage.deckhouse.io"
+	lvmVolumeGroupsParam = "local.csi.storage.deckhouse.io/lvm-volume-groups"
+)
+
+// nodeAffinityTermsFromStorageClassTopology resolves node topology for dynamic provisioning
+// by reading the StorageClass parameters and looking up LVMVolumeGroup resources to determine
+// which nodes can provision volumes for this StorageClass.
+func (s *state) nodeAffinityTermsFromStorageClassTopology(ctx context.Context, storageClassName string) ([]corev1.NodeSelectorTerm, error) {
+	sc, err := object.FetchObject(ctx, types.NamespacedName{Name: storageClassName}, s.client, &storagev1.StorageClass{})
+	if err != nil {
+		return nil, fmt.Errorf("get StorageClass %s: %w", storageClassName, err)
+	}
+	if sc == nil || sc.Provisioner != localCSIProvisioner {
+		return nil, nil
+	}
+
+	lvgParam, ok := sc.Parameters[lvmVolumeGroupsParam]
+	if !ok || lvgParam == "" {
+		return nil, nil
+	}
+
+	var lvgs []struct {
+		Name string `json:"name"`
+	}
+	if err := yaml.Unmarshal([]byte(lvgParam), &lvgs); err != nil {
+		return nil, err
+	}
+
+	var nodeNames []string
+	for _, lvg := range lvgs {
+		nodeName, err := s.getNodeNameFromLVMVolumeGroup(ctx, lvg.Name)
+		if err != nil {
+			return nil, err
+		}
+		if nodeName != "" {
+			nodeNames = append(nodeNames, nodeName)
+		}
+	}
+
+	if len(nodeNames) == 0 {
+		return nil, nil
+	}
+
+	return []corev1.NodeSelectorTerm{{
+		MatchExpressions: []corev1.NodeSelectorRequirement{{
+			Key:      corev1.LabelHostname,
+			Operator: corev1.NodeSelectorOpIn,
+			Values:   nodeNames,
+		}},
+	}}, nil
+}
+
+var lvmVolumeGroupGVK = schema.GroupVersionKind{
+	Group:   "storage.deckhouse.io",
+	Version: "v1alpha1",
+	Kind:    "LVMVolumeGroup",
+}
+
+func (s *state) getNodeNameFromLVMVolumeGroup(ctx context.Context, name string) (string, error) {
+	lvg := &unstructured.Unstructured{}
+	lvg.SetGroupVersionKind(lvmVolumeGroupGVK)
+
+	err := s.client.Get(ctx, types.NamespacedName{Name: name}, lvg)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return "", nil
+		}
+		return "", fmt.Errorf("get LVMVolumeGroup %s: %w", name, err)
+	}
+
+	nodeName, _, _ := unstructured.NestedString(lvg.Object, "spec", "local", "nodeName")
+	return nodeName, nil
 }
 
 func (s *state) USBDevice(ctx context.Context, name string) (*v1alpha2.USBDevice, error) {

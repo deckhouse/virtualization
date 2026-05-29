@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -53,6 +54,9 @@ func (o RestartOperation) Execute(ctx context.Context) error {
 	if o.vmop.Spec.Force != nil && *o.vmop.Spec.Force {
 		kvvmi := &virtv1.VirtualMachineInstance{}
 		err = o.client.Get(ctx, key, kvvmi)
+		if apierrors.IsNotFound(err) {
+			return kvvmutil.AddStartAnnotation(ctx, o.client, kvvm)
+		}
 		if err != nil {
 			return err
 		}
@@ -66,7 +70,8 @@ func (o RestartOperation) IsApplicableForVMPhase(phase v1alpha2.MachinePhase) bo
 	return phase == v1alpha2.MachineRunning ||
 		phase == v1alpha2.MachineDegraded ||
 		phase == v1alpha2.MachineStarting ||
-		phase == v1alpha2.MachinePause
+		phase == v1alpha2.MachinePause ||
+		phase == v1alpha2.MachineStopping && isForceRequested(o.vmop)
 }
 
 func (o RestartOperation) IsApplicableForRunPolicy(runPolicy v1alpha2.RunPolicy) bool {

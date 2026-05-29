@@ -90,7 +90,6 @@ type Config struct {
 type TestData struct {
 	ImageHotplug string `yaml:"imageHotplug"`
 	VMMigration  string `yaml:"vmMigration"`
-	VdSnapshots  string `yaml:"vdSnapshots"`
 	Sshkey       string `yaml:"sshKey"`
 	SSHUser      string `yaml:"sshUser"`
 }

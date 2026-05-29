@@ -24,8 +24,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -148,6 +151,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 		v1alpha2.AddToScheme,
 		virtv1.AddToScheme,
 		corev1.AddToScheme,
+		storagev1.AddToScheme,
 	} {
 		err := f(scheme)
 		Expect(err).NotTo(HaveOccurred())
@@ -209,10 +213,12 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 		allObjs := []client.Object{vm}
 		allObjs = append(allObjs, objs...)
 		vmbdaIndexObj, vmbdaIndexField, vmbdaIndexFn := indexer.IndexVMBDAByVM()
+		pvByStorageClassIndexObj, pvByStorageClassIndexField, pvByStorageClassIndexFn := indexer.IndexPVByStorageClass()
 		fakeClient := fake.NewClientBuilder().
 			WithScheme(scheme).
 			WithObjects(allObjs...).
 			WithIndex(vmbdaIndexObj, vmbdaIndexField, vmbdaIndexFn).
+			WithIndex(pvByStorageClassIndexObj, pvByStorageClassIndexField, pvByStorageClassIndexFn).
 			Build()
 		namespacedName := types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace}
 		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
@@ -305,7 +311,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 		Expect(terms[0].MatchExpressions[0].Values).To(ConsistOf(node2))
 	})
 
-	It("should skip new WFFC disks where PVC is pending (no PV yet)", func() {
+	It("should skip unbound PVC when no available PVs match and SC is not local CSI", func() {
 		vm := makeVM(
 			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "bound-disk"},
 			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "pending-disk"},
@@ -315,17 +321,189 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 		pvBound := makePV("pv-bound", nodeAffinityTerm(node1))
 
 		vdPending := makeVD("pending-disk", "pvc-pending")
+		vdPending.Status.StorageClassName = "some-other-storage"
 		pvcPending := &corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{Name: "pvc-pending", Namespace: ns},
-			Spec:       corev1.PersistentVolumeClaimSpec{}, // no VolumeName yet
+		}
+		otherSC := &storagev1.StorageClass{
+			ObjectMeta:  metav1.ObjectMeta{Name: "some-other-storage"},
+			Provisioner: "some-other-provisioner",
 		}
 
-		s := buildState(vm, vdBound, pvcBound, pvBound, vdPending, pvcPending)
+		s := buildState(vm, vdBound, pvcBound, pvBound, vdPending, pvcPending, otherSC)
 		ctx := logger.ToContext(context.TODO(), slog.Default())
 		terms, err := s.PVNodeAffinityTerms(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(terms).To(HaveLen(1))
 		Expect(terms[0].MatchExpressions[0].Values).To(ConsistOf(node1))
+	})
+
+	It("should derive node affinity from LVMVolumeGroup for local CSI dynamic provisioning", func() {
+		vm := makeVM(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"})
+		vd := makeVD("local-disk", "pvc-local")
+		vd.Status.StorageClassName = "local-storage-class-thin"
+		pvcLocal := &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{Name: "pvc-local", Namespace: ns},
+		}
+		localSC := &storagev1.StorageClass{
+			ObjectMeta:  metav1.ObjectMeta{Name: "local-storage-class-thin"},
+			Provisioner: localCSIProvisioner,
+			Parameters: map[string]string{
+				lvmVolumeGroupsParam: "- name: vg-data-node-1\n  thin:\n    poolName: thin-data\n",
+			},
+		}
+		lvg := &unstructured.Unstructured{}
+		lvg.SetGroupVersionKind(schema.GroupVersionKind{
+			Group: "storage.deckhouse.io", Version: "v1alpha1", Kind: "LVMVolumeGroup",
+		})
+		lvg.SetName("vg-data-node-1")
+		_ = unstructured.SetNestedField(lvg.Object, node1, "spec", "local", "nodeName")
+
+		s := buildState(vm, vd, pvcLocal, localSC, lvg)
+		ctx := logger.ToContext(context.TODO(), slog.Default())
+		terms, err := s.PVNodeAffinityTerms(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(terms).To(HaveLen(1))
+		Expect(terms[0].MatchExpressions).To(HaveLen(1))
+		Expect(terms[0].MatchExpressions[0].Key).To(Equal(corev1.LabelHostname))
+		Expect(terms[0].MatchExpressions[0].Values).To(ConsistOf(node1))
+	})
+
+	It("should intersect bound PV terms with LVMVolumeGroup topology", func() {
+		vm := makeVM(
+			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "bound-disk"},
+			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"},
+		)
+		vdBound := makeVD("bound-disk", "pvc-bound")
+		pvcBound := makePVC("pvc-bound", "pv-bound")
+		pvBound := makePV("pv-bound", nodeAffinityTerm(node1, node2))
+
+		vdLocal := makeVD("local-disk", "pvc-local")
+		vdLocal.Status.StorageClassName = "local-storage-class-thin"
+		pvcLocal := &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{Name: "pvc-local", Namespace: ns},
+		}
+		localSC := &storagev1.StorageClass{
+			ObjectMeta:  metav1.ObjectMeta{Name: "local-storage-class-thin"},
+			Provisioner: localCSIProvisioner,
+			Parameters: map[string]string{
+				lvmVolumeGroupsParam: "- name: vg-data-node-1\n  thin:\n    poolName: thin-data\n",
+			},
+		}
+		lvg := &unstructured.Unstructured{}
+		lvg.SetGroupVersionKind(schema.GroupVersionKind{
+			Group: "storage.deckhouse.io", Version: "v1alpha1", Kind: "LVMVolumeGroup",
+		})
+		lvg.SetName("vg-data-node-1")
+		_ = unstructured.SetNestedField(lvg.Object, node1, "spec", "local", "nodeName")
+
+		s := buildState(vm, vdBound, pvcBound, pvBound, vdLocal, pvcLocal, localSC, lvg)
+		ctx := logger.ToContext(context.TODO(), slog.Default())
+		terms, err := s.PVNodeAffinityTerms(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(terms).NotTo(BeEmpty())
+	})
+
+	It("should collect node affinity from available PVs for unbound WFFC PVC", func() {
+		vm := makeVM(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "wffc-disk"})
+		vd := makeVD("wffc-disk", "pvc-wffc")
+		vd.Status.StorageClassName = "local-storage"
+		pvcWFFC := &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{Name: "pvc-wffc", Namespace: ns},
+		}
+
+		pvAvail1 := makePV("pv-avail-1", nodeAffinityTerm(node1))
+		pvAvail1.Spec.StorageClassName = "local-storage"
+		pvAvail1.Status.Phase = corev1.VolumeAvailable
+
+		pvAvail2 := makePV("pv-avail-2", nodeAffinityTerm(node2))
+		pvAvail2.Spec.StorageClassName = "local-storage"
+		pvAvail2.Status.Phase = corev1.VolumeAvailable
+
+		pvBound := makePV("pv-bound-other", nodeAffinityTerm(node3))
+		pvBound.Spec.StorageClassName = "local-storage"
+		pvBound.Status.Phase = corev1.VolumeBound
+
+		s := buildState(vm, vd, pvcWFFC, pvAvail1, pvAvail2, pvBound)
+		ctx := logger.ToContext(context.TODO(), slog.Default())
+		terms, err := s.PVNodeAffinityTerms(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(terms).To(HaveLen(2), "should have terms from 2 available PVs (not the bound one)")
+	})
+
+	It("should use VirtualDisk status storage class when PVC storage class is empty", func() {
+		vm := makeVM(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "wffc-disk"})
+		vd := makeVD("wffc-disk", "pvc-wffc")
+		vd.Status.StorageClassName = "local-storage"
+		pvcWFFC := &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{Name: "pvc-wffc", Namespace: ns},
+		}
+
+		pvAvail := makePV("pv-avail-1", nodeAffinityTerm(node2))
+		pvAvail.Spec.StorageClassName = "local-storage"
+		pvAvail.Status.Phase = corev1.VolumeAvailable
+
+		s := buildState(vm, vd, pvcWFFC, pvAvail)
+		ctx := logger.ToContext(context.TODO(), slog.Default())
+		terms, err := s.PVNodeAffinityTerms(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(terms).To(HaveLen(1))
+		Expect(terms[0].MatchExpressions).To(HaveLen(1))
+		Expect(terms[0].MatchExpressions[0].Values).To(ConsistOf(node2))
+	})
+
+	It("should use VirtualDisk spec storage class when PVC and status storage classes are empty", func() {
+		vm := makeVM(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "wffc-disk"})
+		vd := makeVD("wffc-disk", "pvc-wffc")
+		sc := "local-storage"
+		vd.Spec.PersistentVolumeClaim.StorageClass = &sc
+		pvcWFFC := &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{Name: "pvc-wffc", Namespace: ns},
+		}
+
+		pvAvail := makePV("pv-avail-1", nodeAffinityTerm(node3))
+		pvAvail.Spec.StorageClassName = "local-storage"
+		pvAvail.Status.Phase = corev1.VolumeAvailable
+
+		s := buildState(vm, vd, pvcWFFC, pvAvail)
+		ctx := logger.ToContext(context.TODO(), slog.Default())
+		terms, err := s.PVNodeAffinityTerms(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(terms).To(HaveLen(1))
+		Expect(terms[0].MatchExpressions).To(HaveLen(1))
+		Expect(terms[0].MatchExpressions[0].Values).To(ConsistOf(node3))
+	})
+
+	It("should intersect available PV terms with bound disk terms", func() {
+		vm := makeVM(
+			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "bound-disk"},
+			v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "wffc-disk"},
+		)
+
+		vdBound := makeVD("bound-disk", "pvc-bound")
+		pvcBound := makePVC("pvc-bound", "pv-bound")
+		pvBound := makePV("pv-bound", nodeAffinityTerm(node1, node2))
+
+		vdWFFC := makeVD("wffc-disk", "pvc-wffc")
+		vdWFFC.Status.StorageClassName = "local-storage"
+		pvcWFFC := &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{Name: "pvc-wffc", Namespace: ns},
+		}
+		pvAvail1 := makePV("pv-avail-1", nodeAffinityTerm(node2))
+		pvAvail1.Spec.StorageClassName = "local-storage"
+		pvAvail1.Status.Phase = corev1.VolumeAvailable
+
+		pvAvail2 := makePV("pv-avail-2", nodeAffinityTerm(node3))
+		pvAvail2.Spec.StorageClassName = "local-storage"
+		pvAvail2.Status.Phase = corev1.VolumeAvailable
+
+		s := buildState(vm, vdBound, pvcBound, pvBound, vdWFFC, pvcWFFC, pvAvail1, pvAvail2)
+		ctx := logger.ToContext(context.TODO(), slog.Default())
+		terms, err := s.PVNodeAffinityTerms(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		// bound-disk allows node1,node2; wffc-disk allows node2,node3
+		// intersection (cross-product) should yield terms matching node2
+		Expect(terms).NotTo(BeEmpty())
 	})
 
 	It("should collect PV nodeAffinity from VirtualImage with PVC storage", func() {
@@ -391,6 +569,48 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 		Expect(terms).To(HaveLen(1))
 		Expect(terms[0].MatchExpressions[0].Values).To(ConsistOf(node2),
 			"affinity should follow the migration target PVC's PV (node-2), not the source PVC's PV (node-1)")
+	})
+
+	It("should use target PVC storage class for unbound target PVC during migration", func() {
+		vm := makeVM(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"})
+
+		vd := makeVD("local-disk", "pvc-source")
+		vd.Generation = 1
+		vd.Status.StorageClassName = "source-sc"
+		vd.Status.Conditions = []metav1.Condition{{
+			Type:               vdcondition.MigratingType.String(),
+			Status:             metav1.ConditionTrue,
+			ObservedGeneration: 1,
+			Reason:             "Migrating",
+		}}
+		vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{
+			SourcePVC: "pvc-source",
+			TargetPVC: "pvc-target",
+		}
+
+		pvcSource := makePVC("pvc-source", "pv-source")
+		pvSource := makePV("pv-source", nodeAffinityTerm(node1))
+		pvSource.Spec.StorageClassName = "source-sc"
+		pvSource.Status.Phase = corev1.VolumeBound
+
+		targetSC := "target-sc"
+		pvcTarget := &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{Name: "pvc-target", Namespace: ns},
+			Spec: corev1.PersistentVolumeClaimSpec{
+				StorageClassName: &targetSC,
+			},
+		}
+		pvAvailTarget := makePV("pv-target-avail", nodeAffinityTerm(node2))
+		pvAvailTarget.Spec.StorageClassName = "target-sc"
+		pvAvailTarget.Status.Phase = corev1.VolumeAvailable
+
+		s := buildState(vm, vd, pvcSource, pvSource, pvcTarget, pvAvailTarget)
+		ctx := logger.ToContext(context.TODO(), slog.Default())
+		terms, err := s.PVNodeAffinityTerms(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(terms).To(HaveLen(1))
+		Expect(terms[0].MatchExpressions[0].Values).To(ConsistOf(node2),
+			"affinity for unbound target PVC should use target storage class, not source VD status class")
 	})
 
 	It("should fall back to source PVC when migration condition is False (e.g. reverted)", func() {

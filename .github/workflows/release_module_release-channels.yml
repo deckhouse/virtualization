@@ -463,17 +463,17 @@ jobs:
         env:
           input_check_only: ${{ inputs.check_only }}
         run: |
-          # When check_only is true, we don't want to wait 120 seconds
+          # When check_only is true, we don't want to wait before checking
           # because we just want to check the version we're interested in on the website
           if [ $input_check_only = false ]; then
-            echo "Waiting for site to update (versions are usually updated within 2 minutes)..."
-            sleep 120
+            echo "Waiting for site to update (versions are usually updated within 5 minutes)..."
+            sleep 300
           fi
 
-          echo "Test that version deployed on site, retrying 5 times with delay of 60 seconds"
+          echo "Test that version deployed on site, retrying 10 times with delay of 60 seconds"
           CHANNEL=$input_channel \
           VERSION=$input_version \
-          COUNT=5 \
+          COUNT=10 \
           task -d tools/moduleversions check:releases
       - name: Check version on site ${{ matrix.check }}
         if: ${{ matrix.check == 'documentation' && always() }}

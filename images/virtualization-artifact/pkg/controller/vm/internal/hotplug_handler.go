@@ -94,7 +94,8 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 	var errs []error
 
 	// 1. Hotplugging
-	for key := range specDevices {
+	for _, bd := range current.Spec.BlockDeviceRefs {
+		key := nameKindKey{kind: bd.Kind, name: bd.Name}
 		volName := generateVolumeName(key)
 		if _, onKVVM := kvvmDevices[key]; onKVVM {
 			continue
