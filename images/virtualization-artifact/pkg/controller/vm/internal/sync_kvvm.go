@@ -726,11 +726,12 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 		log.Debug(message, "vm.name", current.GetName(), "changes", changes)
 
 		if hasNetworkChange(changes) {
-			if err := h.patchPodNetworkAnnotation(ctx, s); err != nil {
+			desired, err := h.patchPodNetworkAnnotation(ctx, s)
+			if err != nil {
 				return fmt.Errorf("unable to patch pod network annotation: %w", err)
 			}
 
-			ready, err := h.isNetworkReadyOnPod(ctx, s)
+			ready, err := h.isNetworkReadyOnPod(ctx, s, desired)
 			if err != nil {
 				return fmt.Errorf("unable to check pod network status: %w", err)
 			}
@@ -833,10 +834,11 @@ func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.Virtual
 }
 
 func (h *SyncKvvmHandler) applyNetworkReadinessSync(ctx context.Context, s state.VirtualMachineState) error {
-	if err := h.patchPodNetworkAnnotation(ctx, s); err != nil {
+	desired, err := h.patchPodNetworkAnnotation(ctx, s)
+	if err != nil {
 		return fmt.Errorf("patch pod network annotation: %w", err)
 	}
-	ready, err := h.isNetworkReadyOnPod(ctx, s)
+	ready, err := h.isNetworkReadyOnPod(ctx, s, desired)
 	if err != nil {
 		return fmt.Errorf("check pod network status: %w", err)
 	}
@@ -878,7 +880,7 @@ func hasNetworkChange(changes vmchange.SpecChanges) bool {
 	return false
 }
 
-func (h *SyncKvvmHandler) isNetworkReadyOnPod(ctx context.Context, s state.VirtualMachineState) (bool, error) {
+func (h *SyncKvvmHandler) isNetworkReadyOnPod(ctx context.Context, s state.VirtualMachineState, desired []string) (bool, error) {
 	pods, err := s.Pods(ctx)
 	if err != nil {
 		return false, err
@@ -886,42 +888,53 @@ func (h *SyncKvvmHandler) isNetworkReadyOnPod(ctx context.Context, s state.Virtu
 	if pods == nil || len(pods.Items) == 0 {
 		return false, nil
 	}
-	errMsg, err := extractNetworkStatusFromPods(pods)
+	errMsg, err := extractNetworkStatusFromPods(pods, desired)
 	if err != nil {
 		return false, err
 	}
 	return errMsg == "", nil
 }
 
-func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state.VirtualMachineState) error {
+// patchPodNetworkAnnotation writes the desired networks-spec annotation onto
+// the virt-launcher pod and returns the names of additional networks it wrote.
+// The names let the caller assert SDN has already reflected each one in networks status
+func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state.VirtualMachineState) ([]string, error) {
 	log := logger.FromContext(ctx)
 
 	pod, err := s.Pod(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if pod == nil {
-		return nil
+		return nil, nil
 	}
 
 	current := s.VirtualMachine().Current()
 	vmmacs, err := s.VirtualMachineMACAddresses(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	filteredVM, err := filterReadyNetworks(ctx, s.Client(), current)
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	var desired []string
+	for _, n := range filteredVM.Spec.Networks {
+		if n.Type == v1alpha2.NetworksTypeMain {
+			continue
+		}
+		desired = append(desired, n.Name)
 	}
 
 	networkConfigStr, err := network.CreateNetworkSpec(filteredVM, vmmacs).ToString()
 	if err != nil {
-		return fmt.Errorf("failed to serialize network spec: %w", err)
+		return nil, fmt.Errorf("failed to serialize network spec: %w", err)
 	}
 
 	if pod.Annotations[annotations.AnnNetworksSpec] == networkConfigStr {
-		return nil
+		return desired, nil
 	}
 
 	patch := client.MergeFrom(pod.DeepCopy())
@@ -930,11 +943,11 @@ func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state
 	}
 	pod.Annotations[annotations.AnnNetworksSpec] = networkConfigStr
 	if err := h.client.Patch(ctx, pod, patch); err != nil {
-		return fmt.Errorf("failed to patch pod %s network annotation: %w", pod.Name, err)
+		return nil, fmt.Errorf("failed to patch pod %s network annotation: %w", pod.Name, err)
 	}
 	log.Info("Patched pod network annotation", "pod", pod.Name, "networks", networkConfigStr)
 
-	return nil
+	return desired, nil
 }
 
 // isPlacementPolicyChanged returns true if any of the Affinity, NodePlacement, or Toleration rules have changed.

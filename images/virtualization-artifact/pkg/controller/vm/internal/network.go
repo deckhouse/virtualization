@@ -91,7 +91,7 @@ func (h *NetworkInterfaceHandler) evaluateAdditionalNetworks(ctx context.Context
 		return nil
 	}
 
-	var pending []string
+	var pending, desired []string
 	for _, ns := range vm.Spec.Networks {
 		ready, err := network.IsNetworkSpecReady(ctx, s.Client(), vm.Namespace, ns)
 		if err != nil {
@@ -99,6 +99,10 @@ func (h *NetworkInterfaceHandler) evaluateAdditionalNetworks(ctx context.Context
 		}
 		if !ready {
 			pending = append(pending, network.SpecKey(ns))
+			continue
+		}
+		if ns.Type != v1alpha2.NetworksTypeMain {
+			desired = append(desired, ns.Name)
 		}
 	}
 	if len(pending) > 0 {
@@ -111,7 +115,7 @@ func (h *NetworkInterfaceHandler) evaluateAdditionalNetworks(ctx context.Context
 	if err != nil {
 		return err
 	}
-	errMsg, err := extractNetworkStatusFromPods(pods)
+	errMsg, err := extractNetworkStatusFromPods(pods, desired)
 	if err != nil {
 		return err
 	}
@@ -215,7 +219,7 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 	return reconcile.Result{}, nil
 }
 
-func extractNetworkStatusFromPods(pods *corev1.PodList) (string, error) {
+func extractNetworkStatusFromPods(pods *corev1.PodList, desired []string) (string, error) {
 	var errorMessages []string
 
 	if len(pods.Items) == 0 {
@@ -243,6 +247,19 @@ func extractNetworkStatusFromPods(pods *corev1.PodList) (string, error) {
 		}
 
 		podErrorMessages := collectInterfaceErrors(interfacesStatus)
+
+		if len(desired) > 0 {
+			present := make(map[string]struct{}, len(interfacesStatus))
+			for _, ifs := range interfacesStatus {
+				present[ifs.Name] = struct{}{}
+			}
+			for _, name := range desired {
+				if _, ok := present[name]; !ok {
+					podErrorMessages = append(podErrorMessages, fmt.Sprintf("(%s): waiting for SDN to report status", name))
+				}
+			}
+		}
+
 		if len(podErrorMessages) > 0 {
 			errorMessages = append(errorMessages, fmt.Sprintf("[%s]: %s", pod.Name, strings.Join(podErrorMessages, "; ")))
 		}
