@@ -78,10 +78,11 @@ wait_for_sdn_module() {
 }
 
 wait_for_sdn_workloads() {
-  echo "[INFO] Wait for sdn deployments to be ready, timeout: 300s"
-  kubectl -n d8-sdn wait --for=condition=Available deploy --all --timeout 300s
-  echo "[INFO] Wait for sdn daemonset agent to be ready, timeout: 300s"
-  kubectl -n d8-sdn rollout status daemonset agent --timeout=300s
+  local timeout=600
+  echo "[INFO] Wait for sdn deployments to be ready, timeout: ${timeout}s"
+  kubectl -n d8-sdn wait --for=condition=Available deploy --all --timeout="${timeout}s"
+  echo "[INFO] Wait for sdn daemonset agent to be ready, timeout: ${timeout}s"
+  kubectl -n d8-sdn rollout status daemonset agent --timeout="${timeout}s"
 }
 
 wait_for_sdn_admission_endpoint() {
