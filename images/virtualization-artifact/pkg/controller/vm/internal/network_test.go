@@ -44,12 +44,12 @@ func newReadyNetwork(name, namespace string) *unstructured.Unstructured {
 	u.SetGroupVersionKind(commonnetwork.NetworkGVK)
 	u.SetName(name)
 	u.SetNamespace(namespace)
-	_ = unstructured.SetNestedSlice(u.Object, []interface{}{
+	Expect(unstructured.SetNestedSlice(u.Object, []interface{}{
 		map[string]interface{}{
 			"type":   "Ready",
 			"status": "True",
 		},
-	}, "status", "conditions")
+	}, "status", "conditions")).To(Succeed())
 	return u
 }
 

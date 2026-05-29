@@ -102,7 +102,11 @@ func (w *NetworkWatcher) enqueueVMsReferencingNetwork(ctx context.Context, obj *
 
 func readyConditionStatus(obj *unstructured.Unstructured) string {
 	conds, found, err := unstructured.NestedSlice(obj.Object, "status", "conditions")
-	if err != nil || !found {
+	if err != nil {
+		log.Default().Error(fmt.Sprintf("network watcher: read status.conditions of %s/%s: %s", obj.GetKind(), obj.GetName(), err))
+		return ""
+	}
+	if !found {
 		return ""
 	}
 	for _, c := range conds {
@@ -110,11 +114,19 @@ func readyConditionStatus(obj *unstructured.Unstructured) string {
 		if !ok {
 			continue
 		}
-		t, _, _ := unstructured.NestedString(m, "type")
+		t, _, err := unstructured.NestedString(m, "type")
+		if err != nil {
+			log.Default().Error(fmt.Sprintf("network watcher: read condition.type of %s/%s: %s", obj.GetKind(), obj.GetName(), err))
+			return ""
+		}
 		if t != "Ready" {
 			continue
 		}
-		s, _, _ := unstructured.NestedString(m, "status")
+		s, _, err := unstructured.NestedString(m, "status")
+		if err != nil {
+			log.Default().Error(fmt.Sprintf("network watcher: read Ready condition.status of %s/%s: %s", obj.GetKind(), obj.GetName(), err))
+			return ""
+		}
 		return s
 	}
 	return ""

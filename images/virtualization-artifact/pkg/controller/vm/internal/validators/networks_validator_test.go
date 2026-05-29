@@ -84,13 +84,18 @@ func TestNetworksValidateCreate(t *testing.T) {
 			vm := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: test.networks}}
 
 			// Create feature gate with SDN
-			featureGate, _, setFromMap, _ := featuregates.New()
+			featureGate, _, setFromMap, err := featuregates.New()
+			if err != nil {
+				t.Fatalf("featuregates.New: %v", err)
+			}
 			if test.sdnEnabled {
-				_ = setFromMap(map[string]bool{string(featuregates.SDN): true})
+				if err := setFromMap(map[string]bool{string(featuregates.SDN): true}); err != nil {
+					t.Fatalf("setFromMap: %v", err)
+				}
 			}
 			networkValidator := NewNetworksValidator(nil, featureGate)
 
-			_, err := networkValidator.ValidateCreate(t.Context(), vm)
+			_, err = networkValidator.ValidateCreate(t.Context(), vm)
 			if test.valid && err != nil {
 				t.Errorf("Validation failed for spec %v: expected valid, but got an error: %v", test.networks, err)
 			}
@@ -329,14 +334,19 @@ func TestNetworksValidateUpdate(t *testing.T) {
 			}
 
 			// Create feature gate with SDN
-			featureGate, _, setFromMap, _ := featuregates.New()
+			featureGate, _, setFromMap, err := featuregates.New()
+			if err != nil {
+				t.Fatalf("featuregates.New: %v", err)
+			}
 			if test.sdnEnabled {
-				_ = setFromMap(map[string]bool{
+				if err := setFromMap(map[string]bool{
 					string(featuregates.SDN): true,
-				})
+				}); err != nil {
+					t.Fatalf("setFromMap: %v", err)
+				}
 			}
 			networkValidator := NewNetworksValidator(nil, featureGate)
-			_, err := networkValidator.ValidateUpdate(t.Context(), oldVM, newVM)
+			_, err = networkValidator.ValidateUpdate(t.Context(), oldVM, newVM)
 
 			if test.valid && err != nil {
 				t.Errorf(
@@ -377,8 +387,13 @@ func TestNetworksValidatesExistence(t *testing.T) {
 		WithObjects(existingCN, existingNet).
 		Build()
 
-	featureGate, _, setFromMap, _ := featuregates.New()
-	_ = setFromMap(map[string]bool{string(featuregates.SDN): true})
+	featureGate, _, setFromMap, err := featuregates.New()
+	if err != nil {
+		t.Fatalf("featuregates.New: %v", err)
+	}
+	if err := setFromMap(map[string]bool{string(featuregates.SDN): true}); err != nil {
+		t.Fatalf("setFromMap: %v", err)
+	}
 	v := NewNetworksValidator(cli, featureGate)
 
 	t.Run("create: missing networks are allowed (no existence check)", func(t *testing.T) {

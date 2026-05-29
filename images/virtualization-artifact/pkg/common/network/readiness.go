@@ -60,25 +60,34 @@ func IsNetworkSpecReady(ctx context.Context, c client.Client, namespace string, 
 		}
 		return false, err
 	}
-	return isReadyTrue(obj), nil
+	return isReadyTrue(obj)
 }
 
-func isReadyTrue(obj *unstructured.Unstructured) bool {
+func isReadyTrue(obj *unstructured.Unstructured) (bool, error) {
 	conds, found, err := unstructured.NestedSlice(obj.Object, "status", "conditions")
-	if err != nil || !found {
-		return false
+	if err != nil {
+		return false, fmt.Errorf("read status.conditions of %s/%s: %w", obj.GetKind(), obj.GetName(), err)
+	}
+	if !found {
+		return false, nil
 	}
 	for _, c := range conds {
 		condMap, ok := c.(map[string]any)
 		if !ok {
 			continue
 		}
-		typ, _, _ := unstructured.NestedString(condMap, "type")
+		typ, _, err := unstructured.NestedString(condMap, "type")
+		if err != nil {
+			return false, fmt.Errorf("read condition.type of %s/%s: %w", obj.GetKind(), obj.GetName(), err)
+		}
 		if typ != "Ready" {
 			continue
 		}
-		status, _, _ := unstructured.NestedString(condMap, "status")
-		return status == string(metav1.ConditionTrue)
+		status, _, err := unstructured.NestedString(condMap, "status")
+		if err != nil {
+			return false, fmt.Errorf("read Ready condition.status of %s/%s: %w", obj.GetKind(), obj.GetName(), err)
+		}
+		return status == string(metav1.ConditionTrue), nil
 	}
-	return false
+	return false, nil
 }
