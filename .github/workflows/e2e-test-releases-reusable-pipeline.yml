@@ -43,6 +43,11 @@ on:
         type: string
         default: "8Gi"
         description: "Set memory for workers node in cluster config"
+      cluster_config_additional_disk_size:
+        required: false
+        type: string
+        default: "250Gi"
+        description: "Set additional disk size for workers node in cluster config"
       storage_type:
         required: true
         type: string
@@ -157,8 +162,6 @@ jobs:
           echo "namespace=$namespace" >> "$GITHUB_OUTPUT"
           echo "sha_short=$GIT_SHORT_HASH" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v6
-
       - name: Setup E2E toolchain
         uses: ./.github/actions/setup-e2e-toolchain
         with:
@@ -182,74 +185,25 @@ jobs:
 
       - name: Generate values.yaml
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
-        run: |
-          defaultStorageClass=$(kubectl get storageclass -o json \
-            | jq -r '.items[] | select(.metadata.annotations."storageclass.kubernetes.io/is-default-class" == "true") | .metadata.name')
-
-          cat <<EOF > values.yaml
-          namespace: ${{ steps.vars.outputs.namespace }}
-          storageType: ${{ inputs.storage_type }}
-          storageClass: ${defaultStorageClass}
-          sa: dkp-sa
-          enabledModules:
-            - console
-          deckhouse:
-            channel: ${{ env.DECKHOUSE_CHANNEL }}
-            podSubnetCIDR: ${{ inputs.pod_subnet_cidr }}
-            serviceSubnetCIDR: ${{ inputs.service_subnet_cidr }}
-            kubernetesVersion: ${{ env.K8S_VERSION }}
-            registryDockerCfg: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
-            bundle: Default
-            proxyEnabled: false
-          image:
-            url: ${{ inputs.virtualization_image_url }}
-            defaultUser: ${{ env.DEFAULT_USER }}
-            bootloader: BIOS
-          ingressHosts:
-            - api
-            - grafana
-            - dex
-            - prometheus
-            - console
-            - virtualization
-          instances:
-            aptMirror:
-              enabled: ${{ inputs.apt_mirror_enabled }}
-              name: ${{ inputs.apt_mirror_name }}
-              url: ${{ inputs.apt_mirror_url }}
-            masterNodes:
-              count: 1
-              cfg:
-                rootDiskSize: 60Gi
-                cpu:
-                  cores: 4
-                  coreFraction: 50%
-                memory:
-                  size: 12Gi
-            additionalNodes:
-            - name: worker
-              count: 3
-              cfg:
-                cpu:
-                  cores: 6
-                  coreFraction: 50%
-                memory:
-                  size: ${{ inputs.cluster_config_workers_memory }}
-                additionalDisks:
-                - size: 250Gi
-            networkConfig:
-              clusterNetworkName: ${{ inputs.nested_cluster_network_name }}
-          EOF
-
-          mkdir -p tmp
-          touch tmp/discovered-values.yaml
-
-          REGISTRY=$(base64 -d <<< "${{secrets.DEV_REGISTRY_DOCKER_CFG}}" | jq '.auths | to_entries | .[] | .key' -r)
-          AUTH=$(base64 -d <<< "${{ secrets.DEV_REGISTRY_DOCKER_CFG }}" | jq '.auths | to_entries | .[] | .value.auth' -r)
-          export REGISTRY AUTH
-
-          yq eval --inplace '.discovered.registry_url = env(REGISTRY)' tmp/discovered-values.yaml
-          yq eval --inplace '.discovered.registry_auth = env(AUTH)' tmp/discovered-values.yaml
+        env:
+          NAMESPACE: ${{ steps.vars.outputs.namespace }}
+          STORAGE_TYPE: ${{ inputs.storage_type }}
+          DECKHOUSE_CHANNEL: ${{ env.DECKHOUSE_CHANNEL }}
+          POD_SUBNET_CIDR: ${{ inputs.pod_subnet_cidr }}
+          SERVICE_SUBNET_CIDR: ${{ inputs.service_subnet_cidr }}
+          K8S_VERSION: ${{ env.K8S_VERSION }}
+          PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
+          DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
+          VIRTUALIZATION_IMAGE_URL: ${{ inputs.virtualization_image_url }}
+          DEFAULT_USER: ${{ env.DEFAULT_USER }}
+          APT_MIRROR_ENABLED: ${{ inputs.apt_mirror_enabled }}
+          APT_MIRROR_NAME: ${{ inputs.apt_mirror_name }}
+          APT_MIRROR_URL: ${{ inputs.apt_mirror_url }}
+          CLUSTER_CONFIG_WORKERS_MEMORY: ${{ inputs.cluster_config_workers_memory }}
+          ADDITIONAL_DISK_SIZE: ${{ inputs.cluster_config_additional_disk_size }}
+          NESTED_CLUSTER_NETWORK_NAME: ${{ inputs.nested_cluster_network_name }}
+          ENABLED_MODULES: console
+        run: bash "${E2E_SCRIPT_DIR}/render-dvp-static-values.sh"
 
       - name: Bootstrap cluster [infra-deploy]
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
@@ -258,10 +212,12 @@ jobs:
       - name: Bootstrap cluster [dhctl-bootstrap]
         id: dhctl-bootstrap
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+        env:
+          BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
         run: |
           if [[ $(yq eval '.deckhouse.proxyEnabled' values.yaml) == true ]]; then
-            export HTTP_PROXY="${{ secrets.BOOTSTRAP_DEV_PROXY }}"
-            export HTTPS_PROXY="${{ secrets.BOOTSTRAP_DEV_PROXY }}"
+            export HTTP_PROXY="$BOOTSTRAP_DEV_PROXY"
+            export HTTPS_PROXY="$BOOTSTRAP_DEV_PROXY"
             echo "Proxy settings - configured"
           fi
 
@@ -532,8 +488,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "${{ env.GO_VERSION }}"
-
-      - uses: actions/checkout@v6
 
       - name: Setup E2E toolchain
         uses: ./.github/actions/setup-e2e-toolchain

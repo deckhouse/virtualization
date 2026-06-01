@@ -33,19 +33,28 @@ require_env APT_MIRROR_ENABLED
 require_env APT_MIRROR_NAME
 require_env APT_MIRROR_URL
 require_env CLUSTER_CONFIG_WORKERS_MEMORY
+require_env ADDITIONAL_DISK_SIZE
 require_env NESTED_CLUSTER_NETWORK_NAME
 require_env DEV_REGISTRY_DOCKER_CFG
-: "${DEV_REGISTRY_DOCKER_CFG:?}"
 
 default_storage_class="$(kubectl get storageclass -o json \
   | jq -r '.items[] | select(.metadata.annotations."storageclass.kubernetes.io/is-default-class" == "true") | .metadata.name')"
 
+if [[ -z "${default_storage_class}" ]]; then
+  echo "No default StorageClass found in the cluster" >&2
+  exit 1
+fi
+
 export DEFAULT_STORAGE_CLASS="${default_storage_class}"
-envsubst < values.yaml.tmpl > values.yaml
+
+envsubst '${NAMESPACE} ${STORAGE_TYPE} ${DEFAULT_STORAGE_CLASS} ${DECKHOUSE_CHANNEL} ${POD_SUBNET_CIDR} ${SERVICE_SUBNET_CIDR} ${K8S_VERSION} ${PROD_IO_REGISTRY_DOCKER_CFG} ${VIRTUALIZATION_IMAGE_URL} ${DEFAULT_USER} ${APT_MIRROR_ENABLED} ${APT_MIRROR_NAME} ${APT_MIRROR_URL} ${CLUSTER_CONFIG_WORKERS_MEMORY} ${ADDITIONAL_DISK_SIZE} ${ENABLED_MODULES} ${NESTED_CLUSTER_NETWORK_NAME}' \
+  < values.yaml.tmpl > values.yaml
 
 mkdir -p tmp
 touch tmp/discovered-values.yaml
 
+# DEV_REGISTRY_DOCKER_CFG is validated by require_env above.
+# shellcheck disable=SC2154
 registry="$(base64 -d <<< "${DEV_REGISTRY_DOCKER_CFG}" | jq '.auths | to_entries | .[] | .key' -r)"
 auth="$(base64 -d <<< "${DEV_REGISTRY_DOCKER_CFG}" | jq '.auths | to_entries | .[] | .value.auth' -r)"
 

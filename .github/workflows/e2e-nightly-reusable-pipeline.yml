@@ -35,6 +35,11 @@ on:
         type: string
         default: "8Gi"
         description: "Set memory for workers node in cluster config"
+      cluster_config_additional_disk_size:
+        required: false
+        type: string
+        default: "50Gi"
+        description: "Set additional disk size for workers node in cluster config"
       storage_type:
         required: true
         type: string
@@ -220,15 +225,20 @@ jobs:
         env:
           NAMESPACE: ${{ steps.vars.outputs.namespace }}
           STORAGE_TYPE: ${{ inputs.storage_type }}
+          DECKHOUSE_CHANNEL: ${{ env.DECKHOUSE_CHANNEL }}
           POD_SUBNET_CIDR: ${{ inputs.pod_subnet_cidr }}
           SERVICE_SUBNET_CIDR: ${{ inputs.service_subnet_cidr }}
+          K8S_VERSION: ${{ env.K8S_VERSION }}
           PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
           DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
           VIRTUALIZATION_IMAGE_URL: ${{ inputs.virtualization_image_url }}
+          DEFAULT_USER: ${{ env.DEFAULT_USER }}
           APT_MIRROR_ENABLED: ${{ inputs.apt_mirror_enabled }}
           APT_MIRROR_NAME: ${{ inputs.apt_mirror_name }}
           APT_MIRROR_URL: ${{ inputs.apt_mirror_url }}
           CLUSTER_CONFIG_WORKERS_MEMORY: ${{ inputs.cluster_config_workers_memory }}
+          ADDITIONAL_DISK_SIZE: ${{ inputs.cluster_config_additional_disk_size }}
+          ENABLED_MODULES: ""
           NESTED_CLUSTER_NETWORK_NAME: ${{ inputs.nested_cluster_network_name }}
         run: bash "${E2E_SCRIPT_DIR}/render-dvp-static-values.sh"
 

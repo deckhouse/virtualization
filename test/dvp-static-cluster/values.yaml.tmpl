@@ -2,6 +2,7 @@ namespace: ${NAMESPACE}
 storageType: ${STORAGE_TYPE}
 storageClass: ${DEFAULT_STORAGE_CLASS}
 sa: dkp-sa
+enabledModules: [${ENABLED_MODULES}]
 deckhouse:
   channel: ${DECKHOUSE_CHANNEL}
   podSubnetCIDR: ${POD_SUBNET_CIDR}
@@ -45,6 +46,6 @@ instances:
         memory:
           size: ${CLUSTER_CONFIG_WORKERS_MEMORY}
         additionalDisks:
-          - size: 50Gi
+          - size: ${ADDITIONAL_DISK_SIZE}
   networkConfig:
     clusterNetworkName: ${NESTED_CLUSTER_NETWORK_NAME}
