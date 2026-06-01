@@ -166,7 +166,7 @@ The table lists the main components of the virtualization control plane and the 
 | `virtualization-api-*`        | master            |                                       |
 | `virtualization-controller-*` | master            |                                       |
 | `virtualization-audit-*`      | system/worker     |                                       |
-| `dvcr-*`                      | system/worker     | Storage must be available on the node |
+| `dvcr-*`                      | system            | Storage must be available on the node |
 | `virt-handler-*`              | All cluster nodes |                                       |
 | `vm-route-forge-*`            | All cluster nodes |                                       |
 
