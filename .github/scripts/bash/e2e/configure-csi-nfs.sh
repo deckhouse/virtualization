@@ -70,8 +70,14 @@ nfs_ready
 echo "[INFO] Apply NFSStorageClass"
 envsubst < storageclass.yaml | kubectl apply -f -
 
-echo "[INFO] Configure default storage class"
-./default-sc-configure.sh
+configure_default_sc="${CONFIGURE_DEFAULT_SC:-true}"
+if [[ "${configure_default_sc}" == "true" ]]; then
+  echo "[INFO] Configure default storage class"
+  # The workflow runs this script from test/dvp-static-cluster/storage/nfs.
+  ./default-sc-configure.sh
+else
+  echo "[INFO] Skip default storage class configuration"
+fi
 
 echo "[INFO] Show existing storageclasses"
 kubectl get storageclass
