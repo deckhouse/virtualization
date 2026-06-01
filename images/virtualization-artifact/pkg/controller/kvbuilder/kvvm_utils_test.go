@@ -93,27 +93,6 @@ var _ = Describe("cleanupRemovedStaticDisks", func() {
 			Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(HaveLen(0))
 			Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(0))
 		})
-	})
-
-	Describe("when VM is running (isVmRunning=true)", func() {
-		It("should only remove non-hotpluggable disks that are not in VM spec", func() {
-			specDiskNames := map[string]struct{}{
-				newDisk1Name: {},
-				newDisk2Name: {},
-			}
-			hotpluggableVolumes := map[string]struct{}{
-				oldDisk1Name: {}, // hotpluggable - should NOT be removed
-			}
-
-			cleanupRemovedStaticDisks(kvvm, specDiskNames, hotpluggableVolumes, nil, true)
-
-			// Should only remove old-disk-2 (non-hotpluggable)
-			// old-disk-1 should stay because it's hotpluggable
-			Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(kvvm.Resource.Spec.Template.Spec.Volumes[0].Name).To(Equal(oldDisk1Name))
-			Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
-			Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(oldDisk1Name))
-		})
 
 		It("should not remove disk attached via VMBDA when VM is stopped", func() {
 			specDiskNames := map[string]struct{}{
@@ -132,6 +111,27 @@ var _ = Describe("cleanupRemovedStaticDisks", func() {
 			Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(HaveLen(1))
 			Expect(kvvm.Resource.Spec.Template.Spec.Volumes[0].Name).To(Equal(oldDisk1Name))
 			// old-disk-2 should be removed because it's not in spec and not attached via VMBDA
+			Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
+			Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(oldDisk1Name))
+		})
+	})
+
+	Describe("when VM is running (isVmRunning=true)", func() {
+		It("should only remove non-hotpluggable disks that are not in VM spec", func() {
+			specDiskNames := map[string]struct{}{
+				newDisk1Name: {},
+				newDisk2Name: {},
+			}
+			hotpluggableVolumes := map[string]struct{}{
+				oldDisk1Name: {}, // hotpluggable - should NOT be removed
+			}
+
+			cleanupRemovedStaticDisks(kvvm, specDiskNames, hotpluggableVolumes, nil, true)
+
+			// Should only remove old-disk-2 (non-hotpluggable)
+			// old-disk-1 should stay because it's hotpluggable
+			Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(HaveLen(1))
+			Expect(kvvm.Resource.Spec.Template.Spec.Volumes[0].Name).To(Equal(oldDisk1Name))
 			Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
 			Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(oldDisk1Name))
 		})
