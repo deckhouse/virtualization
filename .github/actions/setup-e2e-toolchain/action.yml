@@ -17,6 +17,10 @@ inputs:
     description: Install kubectl via azure/setup-kubectl.
     required: false
     default: "true"
+  install-htpasswd:
+    description: Install htpasswd via apache2-utils.
+    required: false
+    default: "false"
   github-token:
     description: GitHub token passed to go-task/setup-task.
     required: false
@@ -54,3 +58,10 @@ runs:
     - name: Install kubectl CLI
       if: inputs.install-kubectl == 'true'
       uses: azure/setup-kubectl@v4
+
+    - name: Install htpasswd utility
+      if: inputs.install-htpasswd == 'true'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y apache2-utils

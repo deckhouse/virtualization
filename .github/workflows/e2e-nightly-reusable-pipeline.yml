@@ -194,30 +194,19 @@ jobs:
           echo "namespace=$namespace" >> "$GITHUB_OUTPUT"
           echo "sha_short=$GIT_SHORT_HASH" >> "$GITHUB_OUTPUT"
 
-          REGISTRY=$(base64 -d <<< "${{secrets.PROD_IO_REGISTRY_DOCKER_CFG}}" | jq '.auths | to_entries | .[] | .key' -r)
-          echo "registry=$REGISTRY" >> "$GITHUB_OUTPUT"
-
-      - name: Install htpasswd utility
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y apache2-utils
-
       - name: Setup E2E toolchain
         uses: ./.github/actions/setup-e2e-toolchain
         with:
           checkout: "false"
           install-kubectl: "false"
+          install-htpasswd: "true"
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Log in to private registry
-        env:
-          REGISTRY: ${{ steps.vars.outputs.registry }}
-        run: |
-          USERNAME=$(base64 -d <<< "${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}" | jq -r '.auths | to_entries | .[] | .value.auth' | base64 -d | cut -d ':' -f1)
-          PASSWORD=$(base64 -d <<< "${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}" | jq -r '.auths | to_entries | .[] | .value.auth' | base64 -d | cut -d ':' -f2)
-          echo "::add-mask::$USERNAME"
-          echo "::add-mask::$PASSWORD"
-          echo "$PASSWORD" | docker login "$REGISTRY" --username "$USERNAME" --password-stdin
+        id: registry-login
+        uses: ./.github/actions/registry-login
+        with:
+          docker_cfg: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
 
       - name: Configure kubectl via azure/k8s-set-context@v4
         uses: azure/k8s-set-context@v4
