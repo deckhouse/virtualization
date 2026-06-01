@@ -39,7 +39,7 @@ const (
 	AnnIntegrityCoreChecksumApplied = AnnIntegrityGroup + "core-spec-checksum-applied"
 
 	// AnnAPIGroup is the APIGroup for virtualization-controller.
-	AnnAPIGroup = "virt.deckhouse.io"
+	AnnAPIGroup = "internal.virtualization.deckhouse.io"
 
 	// AnnCreatedBy is a pod annotation indicating if the pod was created by the PVC.
 	AnnCreatedBy = AnnAPIGroup + "/storage.createdByController"
