@@ -49,6 +49,7 @@ func NewValidator(client client.Client, blockDeviceService *service.BlockDeviceS
 			validators.NewIPAMValidator(client),
 			validators.NewBlockDeviceSpecRefsValidator(),
 			validators.NewSizingPolicyValidator(client),
+			validators.NewHotplugResourcesValidator(client),
 			validators.NewBlockDeviceLimiterValidator(blockDeviceService, log),
 			validators.NewAffinityValidator(),
 			validators.NewTopologySpreadConstraintValidator(),
