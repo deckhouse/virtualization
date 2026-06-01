@@ -20,7 +20,12 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=.github/scripts/bash/e2e/common.sh
 source "${SCRIPT_DIR}/common.sh"
 
-require_env GITHUB_OUTPUT
+if [ "$#" -ne 1 ]; then
+  echo "[ERROR] Usage: $0 <github-output>" >&2
+  exit 1
+fi
+
+github_output="$1"
 
 version_json="$(kubectl version -o json)"
 server_version="$(echo "${version_json}" | jq -r '.serverVersion.gitVersion')"
@@ -48,4 +53,4 @@ fi
   echo "server-version=${server_version}"
   echo "usb-supported=${usb_supported}"
   echo "label-filter=${label_filter}"
-} >> "${GITHUB_OUTPUT}"
+} >> "${github_output}"

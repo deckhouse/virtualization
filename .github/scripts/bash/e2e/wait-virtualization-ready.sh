@@ -156,3 +156,33 @@ virt_handler_ready() {
   debug_output
   return 1
 }
+
+enable_maintenance_mode() {
+  if [ "$#" -ne 1 ]; then
+    echo "[ERROR] Usage: enable_maintenance_mode <storage-type>" >&2
+    return 1
+  fi
+
+  local storage_type="$1"
+
+  echo "[INFO] Switch virtualization module to maintenance mode"
+  kubectl patch mc virtualization --type merge --patch '{"spec":{"maintenance":"NoResourceReconciliation"}}'
+
+  case "${storage_type}" in
+  replicated)
+    echo "[INFO] Switch sds-replicated-volume module to maintenance mode"
+    kubectl patch mc sds-replicated-volume --type merge --patch '{"spec":{"maintenance":"NoResourceReconciliation"}}'
+    ;;
+  nfs)
+    echo "[INFO] Switch csi-nfs module to maintenance mode"
+    kubectl patch mc csi-nfs --type merge --patch '{"spec":{"maintenance":"NoResourceReconciliation"}}'
+    ;;
+  local)
+    echo "[INFO] Switch sds-local-volume module to maintenance mode"
+    kubectl patch mc sds-local-volume --type merge --patch '{"spec":{"maintenance":"NoResourceReconciliation"}}'
+    ;;
+  *)
+    echo "[INFO] No storage module maintenance mode patch for storage type: ${storage_type}"
+    ;;
+  esac
+}

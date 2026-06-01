@@ -122,6 +122,7 @@ env:
   DEFAULT_USER: ${{ inputs.default_user }}
   GO_VERSION: ${{ inputs.go_version }}
   SETUP_CLUSTER_TYPE_PATH: test/dvp-static-cluster
+  E2E_SCRIPT_DIR: ${{ github.workspace }}/.github/scripts/bash/e2e
   K8S_VERSION: ${{ inputs.cluster_config_k8s_version }}
   STORAGE_TYPE: ${{ inputs.storage_type }}
   E2E_START_TIME: ${{ inputs.date_start }}
@@ -298,93 +299,53 @@ jobs:
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
         env:
           NAMESPACE: ${{ steps.vars.outputs.namespace }}
-          PREFIX: ${{ inputs.storage_type }}
+          STORAGE_TYPE: ${{ inputs.storage_type }}
+          DEFAULT_USER: ${{ env.DEFAULT_USER }}
         run: |
-          source "${GITHUB_WORKSPACE}/.github/scripts/bash/e2e/d8-ssh.sh"
-
-          nested_master=$(kubectl -n "${NAMESPACE}" get vm -l "group=${PREFIX}-master" -o jsonpath="{.items[0].metadata.name}")
-
-          echo "[INFO] Pods in namespace $NAMESPACE"
-          kubectl get pods -n "${NAMESPACE}"
-          echo ""
-
-          echo "[INFO] VMs in namespace $NAMESPACE"
-          kubectl get vm -n "${NAMESPACE}"
-          echo ""
-
-          echo "[INFO] VDs in namespace $NAMESPACE"
-          kubectl get vd -n "${NAMESPACE}"
-          echo ""
-
-          echo "Check connection to master"
-          d8vssh "${nested_master}" 'echo master os-release: ; cat /etc/os-release; echo " "; echo master hostname: ; hostname'
-          echo ""
+          bash "${E2E_SCRIPT_DIR}/show-nested-cluster-info.sh" \
+            "${NAMESPACE}" \
+            "${STORAGE_TYPE}" \
+            "${DEFAULT_USER}"
 
       - name: Generate nested kubeconfig
         id: generate-kubeconfig
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
         env:
-          kubeConfigPath: tmp/kube.config
+          KUBE_CONFIG_PATH: tmp/kube.config
           NAMESPACE: ${{ steps.vars.outputs.namespace }}
-          PREFIX: ${{ inputs.storage_type }}
+          STORAGE_TYPE: ${{ inputs.storage_type }}
+          DEFAULT_USER: ${{ env.DEFAULT_USER }}
         run: |
-          source "${GITHUB_WORKSPACE}/.github/scripts/bash/e2e/d8-ssh.sh"
-
-          nested_master=$(kubectl -n "${NAMESPACE}" get vm -l "group=${PREFIX}-master" -o jsonpath="{.items[0].metadata.name}")
-
-          echo "[INFO] Copy script for generating kubeconfig in nested cluster"
-          echo "[INFO] Copy scripts/gen-kubeconfig.sh to master"
-          d8vscp "./scripts/gen-kubeconfig.sh" "${DEFAULT_USER}@${nested_master}.${NAMESPACE}:/tmp/gen-kubeconfig.sh"
-          echo ""
-          d8vscp "./scripts/deckhouse-queue.sh" "${DEFAULT_USER}@${nested_master}.${NAMESPACE}:/tmp/deckhouse-queue.sh"
-          echo ""
-
-          echo "[INFO] Set file exec permissions"
-          d8vssh 'chmod +x /tmp/{gen-kubeconfig.sh,deckhouse-queue.sh}'
-          d8vssh 'ls -la /tmp/'
-          echo "[INFO] Check d8 queue in nested cluster"
-          d8vssh 'sudo /tmp/deckhouse-queue.sh'
-
-          echo "[INFO] Generate kube conf in nested cluster"
-          echo "[INFO] Run gen-kubeconfig.sh in nested cluster"
-          d8vssh "sudo /tmp/gen-kubeconfig.sh nested-sa nested nested-e2e /${kubeConfigPath}"
-          echo ""
-
-          echo "[INFO] Copy kubeconfig to runner"
-          echo "[INFO] ${DEFAULT_USER}@${nested_master}.$NAMESPACE:/${kubeConfigPath} ./${kubeConfigPath}"
-          d8vscp "${DEFAULT_USER}@${nested_master}.$NAMESPACE:/${kubeConfigPath}" "./${kubeConfigPath}"
-
-          echo "[INFO] Set rights for kubeconfig"
-          echo "[INFO] sudo chown 1001:1001 ${kubeConfigPath}"
-          sudo chown 1001:1001 "${kubeConfigPath}"
-          echo " "
-
-          echo "[INFO] Kubeconf to github output"
-          CONFIG=$(cat "${kubeConfigPath}" | base64 -w 0)
-          CONFIG=$(echo "${CONFIG}" | base64 -w 0)
-          echo "kubeconfig=$CONFIG" >> "$GITHUB_OUTPUT"
+          bash "${E2E_SCRIPT_DIR}/gen-nested-kubeconfig.sh" \
+            "${KUBE_CONFIG_PATH}" \
+            "${NAMESPACE}" \
+            "${STORAGE_TYPE}" \
+            "${DEFAULT_USER}" \
+            "$GITHUB_OUTPUT"
 
       - name: cloud-init logs
         if: steps.dhctl-bootstrap.outcome == 'failure'
         env:
           NAMESPACE: ${{ steps.vars.outputs.namespace }}
-          PREFIX: ${{ inputs.storage_type }}
+          STORAGE_TYPE: ${{ inputs.storage_type }}
+          DEFAULT_USER: ${{ env.DEFAULT_USER }}
+          SETUP_CLUSTER_TYPE_PATH: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
         run: |
-          source "${GITHUB_WORKSPACE}/.github/scripts/bash/e2e/d8-ssh.sh"
-
-          nested_master=$(kubectl -n "${NAMESPACE}" get vm -l "group=${PREFIX}-master" -o jsonpath="{.items[0].metadata.name}")
-
-          d8vscp "${DEFAULT_USER}@${nested_master}.$NAMESPACE:/var/log/cloud-init*.log" "./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/"
+          bash "${E2E_SCRIPT_DIR}/collect-cloud-init-logs.sh" \
+            "${NAMESPACE}" \
+            "${STORAGE_TYPE}" \
+            "${DEFAULT_USER}" \
+            "${SETUP_CLUSTER_TYPE_PATH}"
 
       - name: Prepare artifact
         if: success() || failure()
+        env:
+          SETUP_CLUSTER_TYPE_PATH: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+          KUBECONFIG_B64: ${{ steps.generate-kubeconfig.outputs.kubeconfig }}
         run: |
-          sudo chown -fR 1001:1001 ${{ env.SETUP_CLUSTER_TYPE_PATH }} || true
-          yq e '.deckhouse.registryDockerCfg = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/values.yaml || true
-          yq e 'select(.kind == "InitConfiguration").deckhouse.registryDockerCfg = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/config.yaml || echo "The config.yaml file is not generated, skipping"
-          yq e '.discovered.registry_url = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/discovered-values.yaml || echo "The discovered-values.yaml file is not generated, skipping editing registry_url"
-          yq e '.discovered.registry_auth = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/discovered-values.yaml || echo "The discovered-values.yaml file is not generated, skipping editing registry_auth"
-          echo "${{ steps.generate-kubeconfig.outputs.kubeconfig }}" | base64 -d | base64 -d > ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/kube-config || echo "kubeconfig not available, skipping"
+          bash "${E2E_SCRIPT_DIR}/prepare-artifact.sh" \
+            "${SETUP_CLUSTER_TYPE_PATH}" \
+            "${KUBECONFIG_B64}"
 
       - name: Encrypt and upload generated files artifact
         if: success() || failure()
@@ -438,53 +399,10 @@ jobs:
         with:
           kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
       - name: Enable SDN
-        run: bash ${{ github.workspace }}/.github/scripts/bash/e2e/enable-sdn.sh
+        run: bash "${E2E_SCRIPT_DIR}/enable-sdn.sh"
 
       - name: Wait for nodenetworkinterfaces to be ready
-        run: |
-          count=60
-          success=false
-          wait_time_seconds=5
-
-          for i in $(seq 1 "$count"); do
-            nodes=$(kubectl get nodes -o name | wc -l)
-            actual=$(kubectl get nodenetworkinterfaces -o json | jq -r '.items[] | select(.status.operationalState == "Up") | .metadata.name' | wc -l) || true
-            expected=$((nodes * 2))
-
-            echo "[INFO] Attempt $i/$count: expected=$expected, actual=$actual"
-
-            if [ "$actual" -ge "$expected" ]; then
-              echo "[SUCCESS] All nodenetworkinterfaces are present (expected=$expected, actual=$actual)"
-              kubectl get nodenetworkinterfaces
-              success=true
-              break
-            fi
-
-            if (( i % 5 == 0 )) ; then
-              echo "::group::[DEBUG] show namespaces d8-sdn"
-              kubectl -n d8-sdn get pods || true
-              echo "::endgroup::"
-
-              echo "::group::[DEBUG] show nodenetworkinterfaces d8-sdn"
-              kubectl get nodenetworkinterfaces || true
-              echo "::endgroup::"
-
-              echo "[INFO] Retrying in 10 seconds..."
-              sleep "$wait_time_seconds"
-            elif [ "$i" -lt "$count" ]; then
-              echo "[INFO] Retrying in 10 seconds..."
-              sleep "$wait_time_seconds"
-            fi
-          done
-
-          if [ "$success" = false ]; then
-            echo "[ERROR] Failed to get all nodenetworkinterfaces after $count attempts (expected=$expected)"
-            echo "[DEBUG] Show namespaces d8-sdn"
-            kubectl -n d8-sdn get pods || true
-            echo "[DEBUG] Show nodenetworkinterfaces d8-sdn"
-            kubectl get nodenetworkinterfaces || true
-            exit 1
-          fi
+        run: bash "${E2E_SCRIPT_DIR}/wait-nodenetworkinterfaces.sh"
 
       - name: Configure ClusterNetwork
         run: |
@@ -497,7 +415,7 @@ jobs:
 
           kubectl get nodenetworkinterface -l nic-group=extra
 
-          cat <<'EOF' | bash .github/scripts/bash/e2e/apply-clusternetworks.sh
+          cat <<'EOF' | bash "${E2E_SCRIPT_DIR}/apply-clusternetworks.sh"
           ---
           apiVersion: network.deckhouse.io/v1alpha1
           kind: ClusterNetwork
@@ -553,13 +471,13 @@ jobs:
         id: storage-replicated-setup
         if: ${{ inputs.storage_type == 'replicated' || inputs.storage_type == 'mixed' }}
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/sds-replicated
-        run: bash ${{ github.workspace }}/.github/scripts/bash/e2e/configure-sds-replicated.sh
+        run: bash "${E2E_SCRIPT_DIR}/configure-sds-replicated.sh"
 
       - name: Configure sds-local-volume
         if: ${{ inputs.storage_type == 'local' || inputs.storage_type == 'mixed' }}
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/sds-local-volume
         run: |
-          source "${GITHUB_WORKSPACE}/.github/scripts/bash/e2e/deckhouse.sh"
+          source "${E2E_SCRIPT_DIR}/deckhouse.sh"
 
           sds_local_volume_ready() {
             local count=90
@@ -632,7 +550,7 @@ jobs:
           NAMESPACE: ${{ needs.bootstrap.outputs.namespace }}
           STORAGE_TYPE: ${{ inputs.storage_type }}
           CONFIGURE_DEFAULT_SC: ${{ inputs.storage_type != 'mixed' }}
-        run: bash ${{ github.workspace }}/.github/scripts/bash/e2e/configure-csi-nfs.sh
+        run: bash "${E2E_SCRIPT_DIR}/configure-csi-nfs.sh"
 
   configure-virtualization:
     name: Configure Virtualization (current-release)
@@ -713,7 +631,7 @@ jobs:
           kubectl get mpo virtualization
       - name: Wait for Virtualization to be ready
         run: |
-          source .github/scripts/bash/e2e/wait-virtualization-ready.sh
+          source "${E2E_SCRIPT_DIR}/wait-virtualization-ready.sh"
 
           echo " "
           echo "[INFO] Waiting for Virtualization module to be ready"
@@ -768,13 +686,7 @@ jobs:
           go mod download
 
       - name: Create vmclass for release e2e tests
-        run: |
-          if ! (kubectl get vmclass generic-for-e2e 2>/dev/null); then
-            kubectl get vmclass/generic -o json | jq 'del(.status) | del(.metadata) | .metadata = {"name":"generic-for-e2e","annotations":{"virtualmachineclass.virtualization.deckhouse.io/is-default-class":"true"}} ' | kubectl create -f -
-          fi
-
-          echo "[INFO] Showing existing vmclasses"
-          kubectl get vmclass
+        run: bash "${E2E_SCRIPT_DIR}/create-e2e-vmclass.sh"
 
       - name: "Run E2E tests on current-release"
         id: release-e2e

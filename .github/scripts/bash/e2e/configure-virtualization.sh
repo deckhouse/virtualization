@@ -18,6 +18,17 @@ for env_var in "${required_env_vars[@]}"; do
   require_env "${env_var}"
 done
 
+required_env_value() {
+  local name="$1"
+
+  require_env "$name"
+  printf '%s' "${!name}"
+}
+
+dev_registry_docker_cfg="$(required_env_value DEV_REGISTRY_DOCKER_CFG)"
+nested_storage_class_name="$(required_env_value NESTED_STORAGE_CLASS_NAME)"
+virtualization_tag="$(required_env_value VIRTUALIZATION_TAG)"
+
 kubectl_apply_with_retry() {
   local count=20
   local delay=10
@@ -142,7 +153,7 @@ wait_for_virtualization_dev_source() {
 
 apply_module_source() {
   local registry
-  registry="$(base64 -d <<< "$DEV_REGISTRY_DOCKER_CFG" | jq '.auths | to_entries | .[] | .key' -r)"
+  registry="$(base64 -d <<< "$dev_registry_docker_cfg" | jq '.auths | to_entries | .[] | .key' -r)"
 
   echo "[INFO] Apply ModuleSource dev config"
   kubectl_apply_with_retry <<EOF
@@ -153,7 +164,7 @@ metadata:
 spec:
   registry:
     ca: ""
-    dockerCfg: "${DEV_REGISTRY_DOCKER_CFG}"
+    dockerCfg: "${dev_registry_docker_cfg}"
     repo: "${registry}/sys/deckhouse-oss/modules"
     scheme: HTTPS
 EOF
@@ -173,7 +184,7 @@ spec:
       storage:
         persistentVolumeClaim:
           size: 10Gi
-          storageClassName: ${NESTED_STORAGE_CLASS_NAME}
+          storageClassName: ${nested_storage_class_name}
         type: PersistentVolumeClaim
     virtualMachineCIDRs:
       - 192.168.10.0/24
@@ -185,7 +196,7 @@ kind: ModulePullOverride
 metadata:
   name: virtualization
 spec:
-  imageTag: ${VIRTUALIZATION_TAG}
+  imageTag: ${virtualization_tag}
   scanInterval: 120h
 EOF
 }
