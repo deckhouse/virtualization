@@ -3,6 +3,42 @@ title: "Релизы"
 weight: 70
 ---
 
+## v1.9.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 1 июня 2026.
+</span>
+
+### Новые возможности
+
+- [vm] Добавлена поддержка hotplug блочных устройств через изменение `.spec.blockDeviceRefs` у работающей ВМ.
+- [vm] Добавлена возможность изменять `coreFraction` у работающей ВМ без её ручной остановки. Новое значение применяется через живую миграцию.
+- [vm] Для ресурсов [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) добавлена колонка `Uptime`, показывающая время с момента запуска ВМ.
+- [vm] В статус ВМ добавлено сообщение «No bootable device», если ВМ не может найти загрузочный диск.
+- [vmop] Совместимые ресурсы [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) теперь могут заменять другую активную операцию над ВМ.
+- [vm] Добавлена валидация, запрещающая подключение виртуального диска к ВМ, если он недоступен на узлах её 
+планирования.
+- [usb] Для ресурса [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) добавлены условие `Attached` и колонка `ATTACHED`, отражающие состояние подключения USB-устройства в неймспейсе.
+- [vmrestore] Удалён устаревший ресурс [VirtualMachineRestore](/modules/virtualization/cr.html#virtualmachinerestore). Вместо него используйте ресурс [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) с типом `Clone` или `Restore`, а также ресурс [VirtualMachineSnapshotOperation](/modules/virtualization/cr.html#virtualmachinesnapshotoperation).
+
+### Исправления
+
+- [vm] Исправлена миграция ВМ с hotplug-томами на файловой системе.
+- [vm] Исправлено обновление дисков у остановленных ВМ со StorageClass в режиме `WaitForFirstConsumer`.
+- [vm] Исправлено размещение подов ВМ с локальными дисками и hotplug-томами.
+- [vm] Исправлены проблемы планирования после смены [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) с типа `Discovery` на другой.
+- [vm] Исправлено зависание фоновых задач миграции после прерывания, из-за которого новые миграции могли не запускаться.
+- [vm] Исправлено размещение ВМ: она запускается только на узле, где доступны все её диски, в том числе подключённые через hotplug.
+- [vm] Исправлено сохранение порядка устройств в `.spec.blockDeviceRefs` при hotplug.
+- [vm] Улучшена работа гостевых ОС Windows в кластерах с частыми изменениями частоты CPU.
+- [core] Исправлено отключение hotplug-дисков на узле после неуспешной миграции ВМ, из-за которого могли блокироваться последующие операции с ВМ.
+- [vd] Время в фазе `WaitForFirstConsumer` больше не включается в метрику `totalProvisioning` виртуальных дисков.
+- [module] Исправлена проблема, из-за которой некорректные настройки ModuleConfig модуля `virtualization` могли блокировать очередь Deckhouse.
+- [observability] Исправлено дублирование серий на дашборде `Virtualization / Overview`.
+
+### Прочее
+
+- [vm] Для утилиты `vlctl` добавлены подкоманды `domain jobs` и `block-jobs`.
+
 ## v1.8.3
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Дата релиза: 3 июня 2026.

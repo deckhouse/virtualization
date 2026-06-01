@@ -3,6 +3,41 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.9.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: June 1, 2026.
+</span>
+
+### New features
+
+- [vm] You can now hot-plug block devices by editing `.spec.blockDeviceRefs` on a running VM.
+- [vm] You can now change `coreFraction` on a running VM without manually stopping it. The new value is applied via live migration.
+- [vm] Added the `Uptime` column to [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resources. It shows how long the VM has been running.
+- [vm] The VM status now includes a "No bootable device" message when the VM cannot find a bootable disk.
+- [vmop] A compatible [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) can now supersede another active operation on the same VM.
+- [vm] Attaching a virtual disk to a VM is now rejected if the disk is not available on any node where the VM can be scheduled.
+- [usb] Added the `Attached` condition and `ATTACHED` column to [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice), showing whether the USB device is attached in the namespace.
+- [vmrestore] Removed the deprecated [VirtualMachineRestore](/modules/virtualization/cr.html#virtualmachinerestore) resource. Use [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) with the `Clone` or `Restore` type or [VirtualMachineSnapshotOperation](/modules/virtualization/cr.html#virtualmachinesnapshotoperation) instead.
+
+### Fixes
+
+- [vm] Fixed VM migration for filesystem-backed hotplug volumes.
+- [vm] Fixed disk updates for stopped VMs that use a StorageClass with `WaitForFirstConsumer` mode.
+- [vm] Fixed VM pod placement for VMs with local disks and hotplug volumes.
+- [vm] Fixed scheduling issues after changing the [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) from the `Discovery` type to another.
+- [vm] Fixed migration background tasks getting stuck after interruption, which could prevent new migrations from starting.
+- [vm] Fixed VM placement: a VM is now scheduled only on a node where all of its disks are available, including hot-plugged ones.
+- [vm] Fixed preservation of the device order in `.spec.blockDeviceRefs` during hotplug.
+- [vm] Improved handling of Windows guest OS in clusters with frequent CPU frequency changes.
+- [core] Fixed hotplug disks not being unmounted on the node after a failed VM migration, which could block subsequent VM operations.
+- [vd] The `totalProvisioning` metric for virtual disks no longer includes time spent in the `WaitForFirstConsumer` phase.
+- [module] Fixed an issue where invalid settings in the `virtualization` module ModuleConfig could block the Deckhouse queue.
+- [observability] Fixed duplicate series on the `Virtualization / Overview` dashboard.
+
+### Other
+
+- [vm] Added the `domain jobs` and `block-jobs` subcommands to the `vlctl` utility.
+
 ## v1.8.3
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: June 3, 2026.
