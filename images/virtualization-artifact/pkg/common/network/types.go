@@ -37,13 +37,16 @@ func HasMainNetworkStatus(networks []v1alpha2.NetworksStatus) bool {
 }
 
 func HasMainNetworkSpec(networks []v1alpha2.NetworksSpec) bool {
-	for _, network := range networks {
-		if network.Type == v1alpha2.NetworksTypeMain {
-			return true
+	return GetMainNetworkSpec(networks) != nil
+}
+
+func GetMainNetworkSpec(networks []v1alpha2.NetworksSpec) *v1alpha2.NetworksSpec {
+	for i := range networks {
+		if networks[i].Type == v1alpha2.NetworksTypeMain {
+			return &networks[i]
 		}
 	}
-
-	return false
+	return nil
 }
 
 type InterfaceSpec struct {
