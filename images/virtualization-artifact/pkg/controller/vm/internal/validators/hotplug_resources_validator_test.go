@@ -19,15 +19,14 @@ package validators_test
 import (
 	"context"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/validators"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -55,23 +54,23 @@ var _ = Describe("HotplugResourcesValidator", func() {
 			Expect(err.Error()).To(ContainSubstring(tc.wantError))
 		},
 		Entry("should skip validation when cpu and memory are unchanged", testCase{
-			oldVM:     newVMForHotplugValidation("vm", "default", 4, "50%", "8Gi"),
-			newVM:     newVMForHotplugValidation("vm", "default", 4, "50%", "8Gi"),
+			oldVM:     newVMForHotplugValidation(4, "50%", "8Gi"),
+			newVM:     newVMForHotplugValidation(4, "50%", "8Gi"),
 			wantError: "",
 		}),
 		Entry("should fail when hotplug cores exceed allowed maximum", testCase{
-			oldVM:     newVMForHotplugValidation("vm", "default", 64, "100%", "64Gi"),
-			newVM:     newVMForHotplugValidation("vm", "default", 129, "100%", "64Gi"),
+			oldVM:     newVMForHotplugValidation(64, "100%", "64Gi"),
+			newVM:     newVMForHotplugValidation(129, "100%", "64Gi"),
 			wantError: "hotplug CPU cores should not exceed 128",
 		}),
 		Entry("should fail when hotplug memory exceeds allowed maximum", testCase{
-			oldVM:     newVMForHotplugValidation("vm", "default", 16, "100%", "128Gi"),
-			newVM:     newVMForHotplugValidation("vm", "default", 16, "100%", "257Gi"),
+			oldVM:     newVMForHotplugValidation(16, "100%", "128Gi"),
+			newVM:     newVMForHotplugValidation(16, "100%", "257Gi"),
 			wantError: "hotplug memory should not exceed 256Gi",
 		}),
 		Entry("should fail when quota is insufficient during migration", testCase{
-			oldVM: newVMForHotplugValidation("vm", "default", 2, "100%", "8Gi"),
-			newVM: newVMForHotplugValidation("vm", "default", 4, "100%", "8Gi"),
+			oldVM: newVMForHotplugValidation(2, "100%", "8Gi"),
+			newVM: newVMForHotplugValidation(4, "100%", "8Gi"),
 			objects: []client.Object{
 				newResourceQuota(
 					"default",
@@ -84,8 +83,8 @@ var _ = Describe("HotplugResourcesValidator", func() {
 			wantError: "insufficient project quota",
 		}),
 		Entry("should pass when quota is sufficient", testCase{
-			oldVM: newVMForHotplugValidation("vm", "default", 2, "100%", "8Gi"),
-			newVM: newVMForHotplugValidation("vm", "default", 4, "100%", "8Gi"),
+			oldVM: newVMForHotplugValidation(2, "100%", "8Gi"),
+			newVM: newVMForHotplugValidation(4, "100%", "8Gi"),
 			objects: []client.Object{
 				newResourceQuota(
 					"default",
@@ -100,11 +99,11 @@ var _ = Describe("HotplugResourcesValidator", func() {
 	)
 })
 
-func newVMForHotplugValidation(name, namespace string, cores int, coreFraction, memory string) *v1alpha2.VirtualMachine {
+func newVMForHotplugValidation(cores int, coreFraction, memory string) *v1alpha2.VirtualMachine {
 	return &v1alpha2.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
+			Name:      "vm",
+			Namespace: "default",
 		},
 		Spec: v1alpha2.VirtualMachineSpec{
 			CPU: v1alpha2.CPUSpec{

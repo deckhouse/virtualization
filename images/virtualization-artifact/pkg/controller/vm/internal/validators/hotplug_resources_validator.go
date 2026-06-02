@@ -57,7 +57,7 @@ func (v *HotplugResourcesValidator) ValidateUpdate(ctx context.Context, oldVM, n
 		return nil, err
 	}
 
-	if err := v.validateProjectQuota(ctx, oldVM, newVM); err != nil {
+	if err := v.validateProjectQuota(ctx, newVM); err != nil {
 		return nil, err
 	}
 
@@ -86,8 +86,8 @@ func validateHotplugRanges(vm *v1alpha2.VirtualMachine) error {
 	return nil
 }
 
-func (v *HotplugResourcesValidator) validateProjectQuota(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) error {
-	newCPU, newMemory, err := getHotplugRequests(oldVM, newVM)
+func (v *HotplugResourcesValidator) validateProjectQuota(ctx context.Context, newVM *v1alpha2.VirtualMachine) error {
+	newCPU, newMemory, err := getHotplugRequests(newVM)
 	if err != nil {
 		return err
 	}
@@ -110,7 +110,7 @@ func (v *HotplugResourcesValidator) validateProjectQuota(ctx context.Context, ol
 	return nil
 }
 
-func getHotplugRequests(_ *v1alpha2.VirtualMachine, newVM *v1alpha2.VirtualMachine) (newCPU, newMemory resource.Quantity, err error) {
+func getHotplugRequests(newVM *v1alpha2.VirtualMachine) (newCPU, newMemory resource.Quantity, err error) {
 	var newCPUReq *resource.Quantity
 
 	newCPUReq, err = kvbuilder.GetCPURequest(newVM.Spec.CPU.Cores, newVM.Spec.CPU.CoreFraction)
