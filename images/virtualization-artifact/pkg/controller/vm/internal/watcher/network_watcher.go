@@ -52,9 +52,6 @@ type NetworkWatcher struct {
 }
 
 func (w *NetworkWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	// Network and ClusterNetwork are SDN module CRDs. When SDN is disabled they
-	// are absent from the cluster, and watching a missing CRD fails the controller
-	// startup, so skip the watch entirely.
 	if !w.featureGate.Enabled(featuregates.SDN) {
 		return nil
 	}
