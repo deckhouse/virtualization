@@ -28,7 +28,6 @@ func NewStartCommand() *cobra.Command {
 		Use:     "start (VirtualMachine)",
 		Short:   "Start a virtual machine.",
 		Example: lifecycle.Usage(),
-		Args:    templates.ExactArgs("start", 1),
 		RunE:    lifecycle.Run,
 	}
 	AddCommandLineArgs(cmd.Flags(), &lifecycle.opts)

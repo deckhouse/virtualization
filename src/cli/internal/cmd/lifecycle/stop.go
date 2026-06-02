@@ -28,7 +28,6 @@ func NewStopCommand() *cobra.Command {
 		Use:     "stop (VirtualMachine)",
 		Short:   "Stop a virtual machine.",
 		Example: lifecycle.Usage(),
-		Args:    templates.ExactArgs("stop", 1),
 		RunE:    lifecycle.Run,
 	}
 	AddCommandLineArgs(cmd.Flags(), &lifecycle.opts)
