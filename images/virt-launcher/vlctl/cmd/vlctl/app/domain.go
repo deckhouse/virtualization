@@ -104,13 +104,14 @@ func runDomainCommand(opts BaseOptions, fromFile bool) error {
 }
 
 func resolveXMLDir() (string, error) {
-	if _, err := os.Stat(xmlDirNonRoot); err != nil {
-		if os.IsNotExist(err) {
-			return xmlDir, nil
-		}
-		return "", err
+	_, err := os.Stat(xmlDirNonRoot)
+	if err == nil {
+		return xmlDirNonRoot
 	}
-	return xmlDirNonRoot, nil
+	if os.IsNotExist(err) {
+		return xmlDir, nil
+	}
+	return "", err
 }
 
 func NewDomainStatsCommand() *cobra.Command {
