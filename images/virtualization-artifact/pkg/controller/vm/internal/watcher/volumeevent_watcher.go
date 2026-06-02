@@ -36,7 +36,17 @@ import (
 const (
 	ReasonFailedAttachVolume = "FailedAttachVolume"
 	ReasonFailedMount        = "FailedMount"
+	ReasonFailedMapVolume    = "FailedMapVolume"
 )
+
+func IsVolumeErrorReason(reason string) bool {
+	switch reason {
+	case ReasonFailedAttachVolume, ReasonFailedMount, ReasonFailedMapVolume:
+		return true
+	default:
+		return false
+	}
+}
 
 func NewVolumeEventWatcher(client client.Client) *VolumeEventWatcher {
 	return &VolumeEventWatcher{
@@ -58,7 +68,7 @@ func (w *VolumeEventWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 					return nil
 				}
 
-				if e.Reason != ReasonFailedAttachVolume && e.Reason != ReasonFailedMount {
+				if !IsVolumeErrorReason(e.Reason) {
 					return nil
 				}
 
@@ -87,7 +97,7 @@ func (w *VolumeEventWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 			predicate.TypedFuncs[*corev1.Event]{
 				CreateFunc: func(e event.TypedCreateEvent[*corev1.Event]) bool {
 					return e.Object.Type == corev1.EventTypeWarning &&
-						(e.Object.Reason == ReasonFailedAttachVolume || e.Object.Reason == ReasonFailedMount)
+						IsVolumeErrorReason(e.Object.Reason)
 				},
 				UpdateFunc: func(e event.TypedUpdateEvent[*corev1.Event]) bool {
 					return false

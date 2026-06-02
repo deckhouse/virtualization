@@ -266,7 +266,7 @@ func (h *LifeCycleHandler) checkVMPodVolumeErrors(ctx context.Context, vm *v1alp
 			log.Error("Failed to get last pod event", "error", err)
 			return err
 		}
-		if lastEvent != nil && (lastEvent.Reason == watcher.ReasonFailedAttachVolume || lastEvent.Reason == watcher.ReasonFailedMount) {
+		if lastEvent != nil && watcher.IsVolumeErrorReason(lastEvent.Reason) {
 			return &VMPodVolumeError{
 				Reason:  lastEvent.Reason,
 				Message: lastEvent.Message,
