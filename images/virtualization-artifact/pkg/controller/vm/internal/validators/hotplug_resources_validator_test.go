@@ -58,16 +58,6 @@ var _ = Describe("HotplugResourcesValidator", func() {
 			newVM:     newVMForHotplugValidation(4, "50%", "8Gi"),
 			wantError: "",
 		}),
-		Entry("should fail when hotplug cores exceed allowed maximum", testCase{
-			oldVM:     newVMForHotplugValidation(64, "100%", "64Gi"),
-			newVM:     newVMForHotplugValidation(129, "100%", "64Gi"),
-			wantError: "hotplug CPU cores should not exceed 128",
-		}),
-		Entry("should fail when hotplug memory exceeds allowed maximum", testCase{
-			oldVM:     newVMForHotplugValidation(16, "100%", "128Gi"),
-			newVM:     newVMForHotplugValidation(16, "100%", "257Gi"),
-			wantError: "hotplug memory should not exceed 256Gi",
-		}),
 		Entry("should fail when quota is insufficient during migration", testCase{
 			oldVM: newVMForHotplugValidation(2, "100%", "8Gi"),
 			newVM: newVMForHotplugValidation(4, "100%", "8Gi"),

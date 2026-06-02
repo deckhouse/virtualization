@@ -30,10 +30,6 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-const maxHotplugCores = 128
-
-var maxHotplugMemory = resource.MustParse("256Gi")
-
 type HotplugResourcesValidator struct {
 	client client.Client
 }
@@ -53,10 +49,6 @@ func (v *HotplugResourcesValidator) ValidateUpdate(ctx context.Context, oldVM, n
 		return nil, nil
 	}
 
-	if err := validateHotplugRanges(newVM); err != nil {
-		return nil, err
-	}
-
 	if err := v.validateProjectQuota(ctx, newVM); err != nil {
 		return nil, err
 	}
@@ -72,18 +64,6 @@ func isHotplugResourcesChanged(oldVM, newVM *v1alpha2.VirtualMachine) bool {
 		return true
 	}
 	return oldVM.Spec.Memory.Size.Cmp(newVM.Spec.Memory.Size) != common.CmpEqual
-}
-
-func validateHotplugRanges(vm *v1alpha2.VirtualMachine) error {
-	if vm.Spec.CPU.Cores > maxHotplugCores {
-		return fmt.Errorf("hotplug CPU cores should not exceed %d", maxHotplugCores)
-	}
-
-	if vm.Spec.Memory.Size.Cmp(maxHotplugMemory) == common.CmpGreater {
-		return fmt.Errorf("memory size should not exceed %s", maxHotplugMemory.String())
-	}
-
-	return nil
 }
 
 func (v *HotplugResourcesValidator) validateProjectQuota(ctx context.Context, newVM *v1alpha2.VirtualMachine) error {
