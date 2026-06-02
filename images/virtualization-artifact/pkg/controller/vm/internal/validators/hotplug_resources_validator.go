@@ -80,7 +80,7 @@ func validateHotplugRanges(vm *v1alpha2.VirtualMachine) error {
 	}
 
 	if vm.Spec.Memory.Size.Cmp(maxHotplugMemory) == common.CmpGreater {
-		return fmt.Errorf("hotplug memory should not exceed %s", maxHotplugMemory.String())
+		return fmt.Errorf("memory size should not exceed %s", maxHotplugMemory.String())
 	}
 
 	return nil
