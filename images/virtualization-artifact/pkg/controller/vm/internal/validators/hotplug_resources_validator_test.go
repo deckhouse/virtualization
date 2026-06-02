@@ -89,6 +89,7 @@ var _ = Describe("HotplugResourcesValidator", func() {
 	)
 })
 
+//nolint:unparam // memory is always "8Gi" in tests, but kept for flexibility
 func newVMForHotplugValidation(cores int, coreFraction, memory string) *v1alpha2.VirtualMachine {
 	return &v1alpha2.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
