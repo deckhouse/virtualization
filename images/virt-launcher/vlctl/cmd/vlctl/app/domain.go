@@ -25,7 +25,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const xmlDir = "/var/run/libvirt/qemu"
+const (
+	xmlDir        = "/var/run/libvirt/qemu"
+	xmlDirNonRoot = "/var/run/libvirt/qemu/run"
+)
 
 func NewDomainCommand() *cobra.Command {
 	var fromFile bool
@@ -55,13 +58,19 @@ func runDomainCommand(opts BaseOptions, fromFile bool) error {
 		if opts.Output != outputXml {
 			return fmt.Errorf("output format must be xml when reading from file")
 		}
-		entries, err := os.ReadDir(xmlDir)
+
+		dir, err := resolveXMLDir()
+		if err != nil {
+			return fmt.Errorf("failed to resolve xml dir: %w", err)
+		}
+
+		entries, err := os.ReadDir(dir)
 		if err != nil {
 			return fmt.Errorf("failed to read domain xml dir: %w", err)
 		}
 		for _, entry := range entries {
 			if strings.HasSuffix(entry.Name(), ".xml") {
-				b, err := os.ReadFile(filepath.Join(xmlDir, entry.Name()))
+				b, err := os.ReadFile(filepath.Join(dir, entry.Name()))
 				if err != nil {
 					return fmt.Errorf("failed to read domain xml file: %w", err)
 				}
@@ -92,6 +101,16 @@ func runDomainCommand(opts BaseOptions, fromFile bool) error {
 	}
 
 	return marshalAndPrintOutput(&opts, domain.Spec)
+}
+
+func resolveXMLDir() (string, error) {
+	if _, err := os.Stat(xmlDirNonRoot); err != nil {
+		if os.IsNotExist(err) {
+			return xmlDir, nil
+		}
+		return "", err
+	}
+	return xmlDirNonRoot, nil
 }
 
 func NewDomainStatsCommand() *cobra.Command {
