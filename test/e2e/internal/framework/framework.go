@@ -72,7 +72,7 @@ func (f *Framework) Before() {
 func (f *Framework) After() {
 	GinkgoHelper()
 
-	if GetConfig().IsCleanupNeeded {
+	if GetConfig().IsCleanupNeeded() {
 		defer func() {
 			if f.namespace != nil {
 				By("Cleanup: delete namespace")

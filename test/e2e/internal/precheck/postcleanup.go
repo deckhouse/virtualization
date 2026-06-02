@@ -51,10 +51,17 @@ func (c *postcleanupPrecheck) Run(ctx context.Context, f *framework.Framework) e
 	// Validate POST_CLEANUP env var (controls cleanup behavior)
 	env := os.Getenv(config.PostCleanupEnv)
 	switch env {
-	case "yes", "no", "":
+	case string(config.PostCleanupAlways), string(config.PostCleanupNever), string(config.PostCleanupNoOnFailure), "", "yes", "true", "0", "no", "false", "1", "2":
 		// valid values
 	default:
-		return fmt.Errorf("invalid value for the %s env: %q (allowed: \"\", \"yes\", \"no\")", config.PostCleanupEnv, env)
+		return fmt.Errorf(
+			"invalid value for the %s env: %q (allowed: \"\", %q, %q, %q)",
+			config.PostCleanupEnv,
+			env,
+			config.PostCleanupAlways,
+			config.PostCleanupNever,
+			config.PostCleanupNoOnFailure,
+		)
 	}
 
 	return nil

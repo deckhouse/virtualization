@@ -55,6 +55,8 @@ type InterfaceSpec struct {
 	Name          string `json:"name"`
 	InterfaceName string `json:"ifName"`
 	MAC           string `json:"-"`
+	UID           int    `json:"uid"`
+	GID           int    `json:"gid"`
 }
 
 type InterfaceStatus struct {

@@ -53,6 +53,8 @@ func CreateNetworkSpec(vm *v1alpha2.VirtualMachine, vmmacs []*v1alpha2.VirtualMa
 	return specs
 }
 
+const deckhouseUID = 64535
+
 func createMainInterfaceSpec(net v1alpha2.NetworksSpec) InterfaceSpec {
 	return InterfaceSpec{
 		ID:            ptr.Deref(net.ID, 0),
@@ -60,6 +62,8 @@ func createMainInterfaceSpec(net v1alpha2.NetworksSpec) InterfaceSpec {
 		Name:          net.Name,
 		InterfaceName: NameDefaultInterface,
 		MAC:           "",
+		UID:           deckhouseUID,
+		GID:           deckhouseUID,
 	}
 }
 
@@ -70,6 +74,8 @@ func createAdditionalInterfaceSpec(net v1alpha2.NetworksSpec, mac string) Interf
 		Name:          net.Name,
 		InterfaceName: generateInterfaceName(mac, net.Type),
 		MAC:           mac,
+		UID:           deckhouseUID,
+		GID:           deckhouseUID,
 	}
 }
 

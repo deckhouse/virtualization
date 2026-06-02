@@ -28,7 +28,6 @@ func NewRestartCommand() *cobra.Command {
 		Use:     "restart (VirtualMachine)",
 		Short:   "Restart a virtual machine.",
 		Example: lifecycle.Usage(),
-		Args:    templates.ExactArgs("restart", 1),
 		RunE:    lifecycle.Run,
 	}
 	AddCommandLineArgs(cmd.Flags(), &lifecycle.opts)
