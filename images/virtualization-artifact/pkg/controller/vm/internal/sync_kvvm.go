@@ -53,6 +53,8 @@ import (
 
 const nameSyncKvvmHandler = "SyncKvvmHandler"
 
+var errWaitForNetworkReady = errors.New("wait for SDN to configure network interfaces on the pod")
+
 type syncVolumesService interface {
 	SyncVolumes(ctx context.Context, s state.VirtualMachineState, restartRequired bool) (reconcile.Result, error)
 }
@@ -197,7 +199,8 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 
 	// 3. Create or update KVVM.
 	synced, kvvmSyncErr := h.syncKVVM(ctx, s, allChanges)
-	if kvvmSyncErr != nil {
+	waitForNetwork := errors.Is(kvvmSyncErr, errWaitForNetworkReady)
+	if kvvmSyncErr != nil && !waitForNetwork {
 		errs = errors.Join(errs, fmt.Errorf("failed to sync the internal virtual machine: %w", kvvmSyncErr))
 	}
 
@@ -208,6 +211,11 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 
 	// 4. Set ConfigurationApplied condition.
 	switch {
+	case waitForNetwork:
+		cbConfApplied.
+			Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonConfigurationNotApplied).
+			Message("Waiting for SDN to configure network interfaces on the pod.")
 	case kvvmSyncErr != nil:
 		h.recorder.Event(current, corev1.EventTypeWarning, v1alpha2.ReasonErrVmNotSynced, kvvmSyncErr.Error())
 		cbConfApplied.
@@ -265,6 +273,9 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	result, migrateVolumesErr := h.syncVolumesService.SyncVolumes(ctx, s, cbAwaitingRestart.Condition().Status == metav1.ConditionTrue)
 	if migrateVolumesErr != nil {
 		errs = errors.Join(errs, fmt.Errorf("failed to sync migrating volumes: %w", migrateVolumesErr))
+	}
+	if waitForNetwork && result.RequeueAfter == 0 {
+		result.RequeueAfter = 5 * time.Second
 	}
 	return result, errs
 }
@@ -750,7 +761,7 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 				msg := "Waiting for SDN to configure network interfaces on the pod"
 				log.Info(msg)
 				h.recorder.Event(current, corev1.EventTypeNormal, v1alpha2.ReasonVMChangesApplied, msg)
-				return nil
+				return errWaitForNetworkReady
 			}
 		}
 
@@ -855,7 +866,7 @@ func (h *SyncKvvmHandler) applyNetworkReadinessSync(ctx context.Context, s state
 	}
 	if !ready {
 		logger.FromContext(ctx).Info("Waiting for SDN to configure network interfaces on the pod before updating KVVM")
-		return nil
+		return errWaitForNetworkReady
 	}
 	return h.updateKVVM(ctx, s)
 }
