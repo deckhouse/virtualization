@@ -47,16 +47,22 @@ fi
 
 export DEFAULT_STORAGE_CLASS="${default_storage_class}"
 
-envsubst '${NAMESPACE} ${STORAGE_TYPE} ${DEFAULT_STORAGE_CLASS} ${DECKHOUSE_CHANNEL} ${POD_SUBNET_CIDR} ${SERVICE_SUBNET_CIDR} ${K8S_VERSION} ${PROD_IO_REGISTRY_DOCKER_CFG} ${VIRTUALIZATION_IMAGE_URL} ${DEFAULT_USER} ${APT_MIRROR_ENABLED} ${APT_MIRROR_NAME} ${APT_MIRROR_URL} ${CLUSTER_CONFIG_WORKERS_MEMORY} ${ADDITIONAL_DISK_SIZE} ${ENABLED_MODULES} ${NESTED_CLUSTER_NETWORK_NAME}' \
+# Derive the envsubst whitelist from the template so it never drifts: only the
+# placeholders actually used in values.yaml.tmpl are substituted, everything else
+# is left intact.
+envsubst_variables="$(grep -oE '\$\{[A-Z0-9_]+\}' values.yaml.tmpl | sort -u | tr '\n' ' ')"
+
+envsubst "${envsubst_variables}" \
   < values.yaml.tmpl > values.yaml
 
 mkdir -p tmp
 touch tmp/discovered-values.yaml
 
-# DEV_REGISTRY_DOCKER_CFG is validated by require_env above.
-# shellcheck disable=SC2154
-registry="$(base64 -d <<< "${DEV_REGISTRY_DOCKER_CFG}" | jq '.auths | to_entries | .[] | .key' -r)"
-auth="$(base64 -d <<< "${DEV_REGISTRY_DOCKER_CFG}" | jq '.auths | to_entries | .[] | .value.auth' -r)"
+# shellcheck disable=SC2153,SC2154
+dev_registry_docker_cfg="$(base64 -d <<< "${DEV_REGISTRY_DOCKER_CFG}")"
+registry="$(jq -r '.auths | to_entries[0].key' <<< "${dev_registry_docker_cfg}")"
+auth="$(jq -r '.auths | to_entries[0].value.auth' <<< "${dev_registry_docker_cfg}")"
 
-REGISTRY="${registry}" yq eval --inplace '.discovered.registry_url = env(REGISTRY)' tmp/discovered-values.yaml
-AUTH="${auth}" yq eval --inplace '.discovered.registry_auth = env(AUTH)' tmp/discovered-values.yaml
+REGISTRY="${registry}" AUTH="${auth}" yq eval --inplace \
+  '.discovered.registry_url = env(REGISTRY) | .discovered.registry_auth = env(AUTH)' \
+  tmp/discovered-values.yaml
