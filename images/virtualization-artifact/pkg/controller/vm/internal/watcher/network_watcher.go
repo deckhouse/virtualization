@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/component-base/featuregate"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -35,20 +36,28 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	commonnetwork "github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 // NewNetworkWatcher enqueues VMs that reference a Network or ClusterNetwork
 // when that network's Ready condition changes.
-func NewNetworkWatcher(c client.Client) *NetworkWatcher {
-	return &NetworkWatcher{client: c}
+func NewNetworkWatcher(c client.Client, featureGate featuregate.FeatureGate) *NetworkWatcher {
+	return &NetworkWatcher{client: c, featureGate: featureGate}
 }
 
 type NetworkWatcher struct {
-	client client.Client
+	client      client.Client
+	featureGate featuregate.FeatureGate
 }
 
 func (w *NetworkWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
+	// Network and ClusterNetwork are SDN module CRDs. When SDN is disabled they
+	// are absent from the cluster, and watching a missing CRD fails the controller
+	// startup, so skip the watch entirely.
+	if !w.featureGate.Enabled(featuregates.SDN) {
+		return nil
+	}
 	if err := w.watchOne(mgr, ctr, commonnetwork.ClusterNetworkGVK, indexer.IndexFieldVMByClusterNetwork, true); err != nil {
 		return err
 	}
