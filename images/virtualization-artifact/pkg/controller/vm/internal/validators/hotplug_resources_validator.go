@@ -138,7 +138,7 @@ func checkQuotaForResource(quota *corev1.ResourceQuota, resourceName corev1.Reso
 	}
 
 	if newReq.Cmp(hard) == common.CmpGreater {
-		return fmt.Errorf("hotplug %s request %s exceeds project quota %q hard limit %s", resourceName, newReq.String(), quota.GetName(), hard.String())
+		return fmt.Errorf("%s request %s exceeds project quota %q hard limit %s", resourceName, newReq.String(), quota.GetName(), hard.String())
 	}
 
 	duringMigration := used.DeepCopy()
