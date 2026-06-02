@@ -28,11 +28,10 @@ import (
 )
 
 const (
-	affinityTolerationPrecheckEnvName   = "AFFINITY_TOLERATION_PRECHECK"
-	affinityTolerationNodeGroupLabelKey = "node.deckhouse.io/group"
-	affinityTolerationKVMLabelKey       = "virtualization.deckhouse.io/kvm-enabled"
+	affinityTolerationPrecheckEnvName = "AFFINITY_TOLERATION_PRECHECK"
+	nodeGroupLabelKey                 = "node.deckhouse.io/group"
+	kvmLabelKey                       = "virtualization.deckhouse.io/kvm-enabled"
 
-	minReadyKVMNodes       = 2
 	minReadyKVMMasterNodes = 1
 	minReadyKVMWorkerNodes = 2
 )
@@ -50,17 +49,9 @@ func (a *affinityTolerationPrecheck) Run(ctx context.Context, f *framework.Frame
 		return nil
 	}
 
-	kvmNodes, err := listReadyNodesByLabels(ctx, f, map[string]string{affinityTolerationKVMLabelKey: "true"})
-	if err != nil {
-		return fmt.Errorf("%s=no to disable this precheck: failed to list ready KVM-enabled nodes: %w", affinityTolerationPrecheckEnvName, err)
-	}
-	if len(kvmNodes) < minReadyKVMNodes {
-		return fmt.Errorf("%s=no to disable this precheck: at least %d ready KVM-enabled nodes are required, got %d", affinityTolerationPrecheckEnvName, minReadyKVMNodes, len(kvmNodes))
-	}
-
 	masterNodes, err := listReadyNodesByLabels(ctx, f, map[string]string{
-		affinityTolerationKVMLabelKey:       "true",
-		affinityTolerationNodeGroupLabelKey: "master",
+		kvmLabelKey:       "true",
+		nodeGroupLabelKey: "master",
 	})
 	if err != nil {
 		return fmt.Errorf("%s=no to disable this precheck: failed to list ready KVM-enabled master nodes: %w", affinityTolerationPrecheckEnvName, err)
@@ -70,8 +61,8 @@ func (a *affinityTolerationPrecheck) Run(ctx context.Context, f *framework.Frame
 	}
 
 	workerNodes, err := listReadyNodesByLabels(ctx, f, map[string]string{
-		affinityTolerationKVMLabelKey:       "true",
-		affinityTolerationNodeGroupLabelKey: "worker",
+		kvmLabelKey:       "true",
+		nodeGroupLabelKey: "worker",
 	})
 	if err != nil {
 		return fmt.Errorf("%s=no to disable this precheck: failed to list ready KVM-enabled worker nodes: %w", affinityTolerationPrecheckEnvName, err)
