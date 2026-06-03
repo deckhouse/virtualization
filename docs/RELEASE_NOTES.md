@@ -8,8 +8,10 @@ weight: 70
 Release date: June 3, 2026.
 </span>
 
-- [vm] Fixed migration for virtual machines with additional network interfaces. Migration ports are now assigned by the DHCP server of the Cilium module.
-- [vm] Fixed the removal of service pods (`d8v-hp-*`) when detaching virtual machine disks.
+### Fixes
+
+- [vm] Fixed an issue that blocked virtual machine migration for VMs with additional network interfaces.
+- [vm] Fixed duplicate service pods (`d8v-hp-*`) when hot-unplugging disks from VMs.
 
 ## v1.8.2
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
