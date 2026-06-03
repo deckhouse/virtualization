@@ -1,0 +1,9 @@
+vm:
+  fixes:
+    - summary: >-
+        Fixed an issue that blocked virtual machine migration for VMs with additional network
+        interfaces.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2427
+    - summary: Fixed duplicate service pods (`d8v-hp-*`) when hot-unplugging disks from VMs.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2422
+
