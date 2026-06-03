@@ -16,6 +16,11 @@ limitations under the License.
 
 package config
 
+import (
+	"fmt"
+	"os"
+)
+
 // PrecreatedCVICleanupEnv defines an environment variable to explicitly enable deletion of precreated CVIs after the suite.
 //
 // By default, precreated CVIs are not deleted: they are shared across runs and may be reused.
@@ -23,5 +28,21 @@ package config
 const PrecreatedCVICleanupEnv = "PRECREATED_CVI_CLEANUP"
 
 // PostCleanupEnv defines an environment variable used to explicitly request the deletion of created/used resources.
-// Valid values: "yes", "no", or "" (default = yes).
+// Valid values: "always", "never", "no-on-failure", or "" (default = always).
 const PostCleanupEnv = "POST_CLEANUP"
+
+func LoadPostCleanupMode() (PostCleanupMode, error) {
+	if e, ok := os.LookupEnv(PostCleanupEnv); ok {
+		switch e {
+		case string(PostCleanupAlways), "yes", "true", "0", "":
+			return PostCleanupAlways, nil
+		case string(PostCleanupNever), "no", "false", "1":
+			return PostCleanupNever, nil
+		case string(PostCleanupNoOnFailure), "2":
+			return PostCleanupNoOnFailure, nil
+		default:
+			return "", fmt.Errorf("invalid value for %s: %s", PostCleanupEnv, e)
+		}
+	}
+	return PostCleanupAlways, nil
+}

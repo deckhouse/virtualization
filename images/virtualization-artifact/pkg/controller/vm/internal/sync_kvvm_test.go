@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
@@ -100,6 +101,9 @@ var _ = Describe("SyncKvvmHandler", func() {
 			},
 		}
 		kvvm.Spec.RunStrategy = ptr.To(virtv1.RunStrategyAlways)
+		kvvm.Spec.Template.Spec.Domain.Devices.Interfaces = []virtv1.Interface{
+			{Name: network.NameDefaultInterface},
+		}
 
 		Expect(kvbuilder.SetLastAppliedSpec(kvvm, &v1alpha2.VirtualMachine{
 			Spec: v1alpha2.VirtualMachineSpec{
@@ -321,6 +325,42 @@ var _ = Describe("SyncKvvmHandler", func() {
 		Entry("Pending phase with changes applied, condition should not exist", v1alpha2.MachinePending, false, metav1.ConditionUnknown, false),
 		Entry("Pending phase with changes not applied, condition should not exist", v1alpha2.MachinePending, true, metav1.ConditionUnknown, false),
 	)
+
+	It("keeps ConfigurationApplied False and requeues while SDN is not ready", func() {
+		ip := &v1alpha2.VirtualMachineIPAddress{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-ip", Namespace: namespace},
+			Spec:       v1alpha2.VirtualMachineIPAddressSpec{Type: v1alpha2.VirtualMachineIPAddressTypeStatic, StaticIP: "192.168.1.10"},
+			Status:     v1alpha2.VirtualMachineIPAddressStatus{Address: "192.168.1.10", Phase: v1alpha2.VirtualMachineIPAddressPhaseAttached},
+		}
+		vmClass := &v1alpha2.VirtualMachineClass{
+			ObjectMeta: metav1.ObjectMeta{Name: "vmclass"},
+			Spec: v1alpha2.VirtualMachineClassSpec{
+				CPU:          v1alpha2.CPU{Type: v1alpha2.CPUTypeHost},
+				NodeSelector: v1alpha2.NodeSelector{MatchLabels: map[string]string{"node1": "node1"}},
+			},
+		}
+
+		vm := newVM(v1alpha2.MachineRunning)
+		kvvm := newKVVM(vm)
+		// Drop the interface so the desired network is out of sync with the KVVM,
+		// and provide no pod so SDN reports the interface as not ready.
+		kvvm.Spec.Template.Spec.Domain.Devices.Interfaces = nil
+
+		fakeClient, resource, vmState = setupEnvironment(vm, kvvm, ip, vmClass)
+
+		h := NewSyncKvvmHandler(nil, fakeClient, recorder, featuregates.Default(), vmservice.NewMigrationVolumesService(fakeClient, MakeKVVMFromVMSpec, 10*time.Second))
+		result, err := h.Handle(ctx, vmState)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.RequeueAfter).To(BeNumerically(">", 0))
+		Expect(resource.Update(context.Background())).To(Succeed())
+
+		updatedVM := &v1alpha2.VirtualMachine{}
+		Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), updatedVM)).To(Succeed())
+		cond, exists := conditions.GetCondition(vmcondition.TypeConfigurationApplied, updatedVM.Status.Conditions)
+		Expect(exists).To(BeTrue())
+		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+		Expect(cond.Reason).To(Equal(vmcondition.ReasonConfigurationNotApplied.String()))
+	})
 
 	DescribeTable("isPlacementPolicyChanged",
 		func(path string, expected bool) {

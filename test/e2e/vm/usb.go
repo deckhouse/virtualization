@@ -19,6 +19,7 @@ package vm
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -188,14 +189,15 @@ func (t *VMUSBTest) GenerateEnvironmentResources(ctx context.Context) {
 	nodeUSBList, err := virtClient.NodeUSBDevices().List(ctx, metav1.ListOptions{})
 	Expect(err).NotTo(HaveOccurred())
 
-	var freeUSB *v1alpha2.NodeUSBDevice
+	var freeUSBs []*v1alpha2.NodeUSBDevice
 	for i := range nodeUSBList.Items {
 		if nodeUSBList.Items[i].Status.Attributes.VendorID == "1d6b" && nodeUSBList.Items[i].Status.Attributes.ProductID == "0104" && nodeUSBList.Items[i].Spec.AssignedNamespace == "" {
-			freeUSB = &nodeUSBList.Items[i]
-			break
+			freeUSBs = append(freeUSBs, &nodeUSBList.Items[i])
 		}
 	}
-	Expect(freeUSB).NotTo(BeNil(), "no free USB devices available")
+	Expect(freeUSBs).NotTo(BeEmpty(), "no free USB devices available")
+
+	freeUSB := freeUSBs[rand.New(rand.NewSource(time.Now().UnixNano())).Intn(len(freeUSBs))]
 
 	GinkgoWriter.Println("Found free USB device:", freeUSB.Name)
 

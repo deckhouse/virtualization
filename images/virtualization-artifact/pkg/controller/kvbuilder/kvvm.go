@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -770,6 +771,25 @@ func (b *KVVM) ClearNetworkInterfaces() {
 	b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces = nil
 }
 
+func (b *KVVM) SetNetworkInterfaceAbsent(name string) {
+	for i, iface := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
+		if iface.Name == name {
+			b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces[i].State = virtv1.InterfaceStateAbsent
+			return
+		}
+	}
+}
+
+func (b *KVVM) RemoveNetworkInterface(name string) {
+	spec := &b.Resource.Spec.Template.Spec
+	spec.Domain.Devices.Interfaces = slices.DeleteFunc(spec.Domain.Devices.Interfaces, func(i virtv1.Interface) bool {
+		return i.Name == name
+	})
+	spec.Networks = slices.DeleteFunc(spec.Networks, func(n virtv1.Network) bool {
+		return n.Name == name
+	})
+}
+
 func (b *KVVM) SetNetworkInterface(name, macAddress string, acpiIndex int) {
 	net := virtv1.Network{
 		Name: name,
@@ -796,15 +816,16 @@ func (b *KVVM) SetNetworkInterface(name, macAddress string, acpiIndex int) {
 		iface.MacAddress = macAddress
 	}
 
-	ifaceExists := false
-	for _, i := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
-		if i.Name == name {
-			ifaceExists = true
+	updated := false
+	for i, existing := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
+		if existing.Name == name {
+			b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces[i] = iface
+			updated = true
 			break
 		}
 	}
 
-	if !ifaceExists {
+	if !updated {
 		b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces = append(b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces, iface)
 	}
 }

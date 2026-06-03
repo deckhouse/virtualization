@@ -535,6 +535,155 @@ networks:
 				requirePathOperation("networks", ChangeReplace),
 			),
 		},
+		{
+			"apply immediate when adding non-main network to nil networks",
+			``,
+			`
+networks:
+- type: Main
+  id: 1
+- type: ClusterNetwork
+  name: additional
+  id: 2
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionApplyImmediate),
+				requirePathOperation("networks", ChangeAdd),
+			),
+		},
+		{
+			"apply immediate when adding non-main network to existing main",
+			`
+networks:
+- type: Main
+  id: 1
+`,
+			`
+networks:
+- type: Main
+  id: 1
+- type: ClusterNetwork
+  name: additional
+  id: 2
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionApplyImmediate),
+				requirePathOperation("networks", ChangeReplace),
+			),
+		},
+		{
+			"apply immediate when removing non-main network",
+			`
+networks:
+- type: Main
+  id: 1
+- type: Network
+  name: net1
+  id: 2
+`,
+			`
+networks:
+- type: Main
+  id: 1
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionApplyImmediate),
+				requirePathOperation("networks", ChangeReplace),
+			),
+		},
+		{
+			"restart when main network is removed",
+			`
+networks:
+- type: Main
+  id: 1
+- type: Network
+  name: net1
+  id: 2
+`,
+			`
+networks:
+- type: Network
+  name: net1
+  id: 2
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionRestart),
+				requirePathOperation("networks", ChangeReplace),
+			),
+		},
+		{
+			"apply immediate when removing non-main network from VM without main",
+			`
+networks:
+- type: ClusterNetwork
+  name: net1
+  id: 2
+- type: ClusterNetwork
+  name: net2
+  id: 3
+`,
+			`
+networks:
+- type: ClusterNetwork
+  name: net1
+  id: 2
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionApplyImmediate),
+				requirePathOperation("networks", ChangeReplace),
+			),
+		},
+		{
+			"apply immediate when adding non-main network to VM without main",
+			`
+networks:
+- type: ClusterNetwork
+  name: net1
+  id: 2
+`,
+			`
+networks:
+- type: ClusterNetwork
+  name: net1
+  id: 2
+- type: ClusterNetwork
+  name: net2
+  id: 3
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionApplyImmediate),
+				requirePathOperation("networks", ChangeReplace),
+			),
+		},
+		{
+			"restart when only-non-main spec gains main network",
+			`
+networks:
+- type: ClusterNetwork
+  name: net1
+  id: 2
+`,
+			`
+networks:
+- type: Main
+  id: 1
+- type: ClusterNetwork
+  name: net1
+  id: 2
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionRestart),
+				requirePathOperation("networks", ChangeReplace),
+			),
+		},
 	}
 
 	for _, tt := range tests {

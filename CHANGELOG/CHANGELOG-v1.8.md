@@ -14,6 +14,8 @@
  - **[core]** Added automatic cleanup of `NodeUSBDevice` resources that are absent on the node and are not assigned to a namespace or project. [#2220](https://github.com/deckhouse/virtualization/pull/2220)
  - **[module]** Added missing RBAC permissions for virtualization resources, including virtual machine MAC addresses, snapshot operations, and node USB devices. [#2276](https://github.com/deckhouse/virtualization/pull/2276)
  - **[vd]** Fixed a potential issue where a virtual disk could get stuck in the Provisioning state when using a storage class with the WaitForFirstConsumer mode. [#2292](https://github.com/deckhouse/virtualization/pull/2292)
+ - **[vm]** Fixed an issue that blocked virtual machine migration for VMs with additional network interfaces. [#2427](https://github.com/deckhouse/virtualization/pull/2427)
+ - **[vm]** Fixed duplicate service pods (`d8v-hp-*`) when hot-unplugging disks from VMs. [#2422](https://github.com/deckhouse/virtualization/pull/2422)
  - **[vm]** Fixed an issue with an unfrozen filesystem during virtual machine snapshot creation if the freeze occurred during migration. [#2225](https://github.com/deckhouse/virtualization/pull/2225)
  - **[vm]** Fixed removal of the `Main` network from a virtual machine: the virtual machine no longer uses an IP address from the virtualization CIDR after the network is removed. [#2185](https://github.com/deckhouse/virtualization/pull/2185)
  - **[vm]** Optimized virtual machine migration: it now uses `hostNetwork`, allowing the host MTU to be used instead of the pod MTU. [#2174](https://github.com/deckhouse/virtualization/pull/2174)

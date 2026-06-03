@@ -55,7 +55,7 @@ const (
 	migrationTargetMustDiffer
 )
 
-var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, Label(precheck.NoPrecheck), func() {
+var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, Label(precheck.PrecheckAffinityToleration), func() {
 	var (
 		f   *framework.Framework
 		ctx context.Context
