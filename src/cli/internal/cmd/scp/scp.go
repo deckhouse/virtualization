@@ -22,7 +22,6 @@ package scp
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/deckhouse/virtualization/src/cli/internal/clientconfig"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/ssh"
 	"github.com/deckhouse/virtualization/src/cli/internal/templates"
 )
@@ -68,25 +67,24 @@ func (o *SCP) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	client, defaultNamespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
-	if err != nil {
-		return err
-	}
+	// The Kubernetes client is not required: see SSH.Run for rationale.
+	// If the API server is reachable we honour the configured namespace,
+	// otherwise we fall back to "default".
+	defaultNamespace := ssh.ResolveDefaultNamespace(cmd)
 	local, remote, toRemote, err := PrepareCommand(cmd, defaultNamespace, &o.options, args)
 	if err != nil {
 		return err
 	}
 
-	if o.options.WrapLocalSSH {
-		clientArgs := o.buildSCPTarget(local, remote, toRemote)
-		return ssh.RunLocalClient(cmd, remote.Namespace, remote.Name, &o.options, clientArgs)
-	}
+	ssh.WarnDeprecatedSSHFlags(cmd)
 
-	return o.nativeSCP(client, local, remote, toRemote)
+	clientArgs := o.buildSCPTarget(local, remote, toRemote)
+	return ssh.RunLocalClient(cmd, remote.Namespace, remote.Name, &o.options, clientArgs)
 }
 
 func PrepareCommand(cmd *cobra.Command, defaultNamespace string, opts *ssh.SSHOptions, args []string) (local templates.LocalSCPArgument, remote templates.RemoteSCPArgument, toRemote bool, err error) {
 	opts.IdentityFilePathProvided = cmd.Flags().Changed(ssh.IdentityFilePathFlag)
+	opts.KnownHostsFilePathProvided = cmd.Flags().Changed("known-hosts")
 	local, remote, toRemote, err = templates.ParseSCPArguments(args[0], args[1])
 	if err != nil {
 		return local, remote, toRemote, err
