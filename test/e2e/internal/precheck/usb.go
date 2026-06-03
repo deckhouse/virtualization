@@ -64,7 +64,7 @@ func checkDummyHCDConfigured(ctx context.Context, f *framework.Framework) bool {
 }
 
 func (u *usbPrecheck) checkVirtualizationDra(ctx context.Context, f *framework.Framework) bool {
-	_, err := f.KubeClient().AppsV1().DaemonSets(metav1.NamespaceSystem).Get(ctx, "virtualization-dra", metav1.GetOptions{})
+	_, err := f.KubeClient().AppsV1().DaemonSets("d8-virtualization").Get(ctx, "virtualization-dra", metav1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return false
