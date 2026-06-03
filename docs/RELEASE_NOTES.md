@@ -3,6 +3,16 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.8.3
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: June 3, 2026.
+</span>
+
+### Fixes
+
+- [vm] Fixed an issue that blocked virtual machine migration for VMs with additional network interfaces.
+- [vm] Fixed duplicate service pods (`d8v-hp-*`) when hot-unplugging disks from VMs.
+
 ## v1.8.2
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: May 20, 2026.
