@@ -181,7 +181,7 @@ func filterSpecs(specs []specInfo, focusRegex, labelFilter string) []specInfo {
 	if labelFilter != "" {
 		for _, l := range strings.Split(labelFilter, ",") {
 			l = strings.TrimSpace(l)
-			if strings.HasPrefix(l, "~") {
+			if strings.HasPrefix(l, "!") {
 				negatedLabels[l[1:]] = true
 			} else {
 				requiredLabels[l] = true
