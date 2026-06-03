@@ -106,7 +106,7 @@ func runDomainCommand(opts BaseOptions, fromFile bool) error {
 func resolveXMLDir() (string, error) {
 	_, err := os.Stat(xmlDirNonRoot)
 	if err == nil {
-		return xmlDirNonRoot
+		return xmlDirNonRoot, nil
 	}
 	if os.IsNotExist(err) {
 		return xmlDir, nil
