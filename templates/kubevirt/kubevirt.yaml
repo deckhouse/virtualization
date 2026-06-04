@@ -296,6 +296,12 @@ env:
       patch: '{"spec":{"template":{"metadata":{"labels":{"security.deckhouse.io/security-policy-exception": "virt-handler-ds"}}}}}'
       type: strategic
 
+    # Explicit values in securityContext for containers to support SecurityPolicyException.
+    - resourceName: virt-handler
+      resourceType: DaemonSet
+      patch: {{ include "kubevirt.virt_handler_security_contexts_strategic_patch_json" . }}
+      type: strategic
+
     # Expose virt-handler ports: health API (--port) and console server (--console-server-port).
     - resourceName: virt-handler
       resourceType: DaemonSet
