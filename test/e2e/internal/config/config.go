@@ -111,9 +111,9 @@ const (
 )
 
 type TestData struct {
-	VMMigration  string `yaml:"vmMigration"`
-	Sshkey       string `yaml:"sshKey"`
-	SSHUser      string `yaml:"sshUser"`
+	VMMigration string `yaml:"vmMigration"`
+	Sshkey      string `yaml:"sshKey"`
+	SSHUser     string `yaml:"sshUser"`
 }
 
 type StorageClass struct {

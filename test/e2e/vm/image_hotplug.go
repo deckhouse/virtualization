@@ -103,7 +103,7 @@ var _ = Describe("VirtualMachineImageHotplug", Label(precheck.NoPrecheck), func(
 		util.UntilSSHReady(f, vm, framework.MiddleTimeout)
 		util.UntilGuestCommandsReady(f, vm, []string{"lsblk"}, framework.ShortTimeout)
 
-		By("Calculating inital block devices count")
+		By("Calculating initial block devices count")
 		initialDiskCnt, err := util.GetDiskCount(f, vm.Name, vm.Namespace)
 		Expect(err).NotTo(HaveOccurred())
 
