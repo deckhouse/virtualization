@@ -134,6 +134,13 @@ func Confirm() (bool, error) {
 func autoCleanupHandler(cmd *cobra.Command, args []string) error {
 	started := time.Now().UTC()
 
+	// Make sure the registry data directory exists before reading its stats.
+	// The registry creates it lazily on the first image push; without this
+	// the cleaner would fail with "no such file or directory" on a fresh cluster.
+	if err := os.MkdirAll(RepoDir, 0o755); err != nil {
+		return fmt.Errorf("ensure repositories dir exists: %w", err)
+	}
+
 	fsInfoBeforeCleanup, err := registry.StorageStats()
 	if err != nil {
 		return fmt.Errorf("get repositories filesystem info before cleanup: %w", err)
@@ -241,9 +248,16 @@ func performAutoCleanup() error {
 }
 
 func checkCleanupHandler(_ *cobra.Command, _ []string) error {
+	// Make sure the registry data directory exists before reading its stats.
+	// The registry creates it lazily on the first image push; without this
+	// the cleaner would fail with "no such file or directory" on a fresh cluster.
+	if err := os.MkdirAll(RepoDir, 0o755); err != nil {
+		return fmt.Errorf("ensure repositories dir exists: %w", err)
+	}
+
 	fsInfo, err := registry.StorageStats()
 	if err != nil {
-		return fmt.Errorf("get repositories filesystem info before cleanup: %w", err)
+		return fmt.Errorf("get repositories filesystem info: %w", err)
 	}
 
 	absentImages, err := getAbsentImages()

@@ -19,6 +19,8 @@ limitations under the License.
 package storage
 
 import (
+	"errors"
+
 	"golang.org/x/sys/unix"
 )
 
@@ -26,6 +28,12 @@ func FSBytes(dir string) (FSInfo, error) {
 	var stat unix.Statfs_t
 	err := unix.Statfs(dir, &stat)
 	if err != nil {
+		// Treat a missing path as "empty filesystem": the registry may not
+		// have created its data directory yet (e.g. before the first image
+		// push). Callers handle zero-valued FSInfo safely.
+		if errors.Is(err, unix.ENOENT) {
+			return FSInfo{}, nil
+		}
 		return FSInfo{}, err
 	}
 
