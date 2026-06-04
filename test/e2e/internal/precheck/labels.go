@@ -30,8 +30,11 @@ const (
 	// PrecheckSVDM - test requires SVDM module to be enabled.
 	PrecheckSVDM = "svdm-precheck"
 
-	// PrecheckStorageClass - test requires default StorageClass to be configured.
-	PrecheckStorageClass = "storageclass-precheck"
+	// PrecheckDefaultStorageClass - test requires default StorageClass to be configured.
+	PrecheckDefaultStorageClass = "defaultstorageclass-precheck"
+
+	// PrecheckImmediateStorageClass - test requires immediate StorageClass with same provisioner as default.
+	PrecheckImmediateStorageClass = "immediatestorageclass-precheck"
 
 	// PrecheckSnapshot - test requires snapshot-controller module to be enabled.
 	PrecheckSnapshot = "snapshot-precheck"
@@ -41,6 +44,16 @@ const (
 
 	// PrecheckUSB - test requires USB device with dummy_hcd to be configured.
 	PrecheckUSB = "usb-precheck"
+
+	// PrecheckAffinityToleration - test requires enough ready KVM-enabled master/worker nodes.
+	PrecheckAffinityToleration = "affinity-toleration-precheck"
+
+	// PrecheckPostCleanup - test requires postcleanup to be configured.
+	PrecheckPostCleanup = "postcleanup-precheck"
+
+	// PrecheckPrecreatedCVI - test requires precreated ClusterVirtualImages to be available.
+	// This is a common precheck that runs for all tests automatically.
+	PrecheckPrecreatedCVI = "precreatedcvi-precheck"
 
 	// NoPrecheck - test doesn't require any prechecks.
 	// Use this label for tests that don't depend on cluster configuration.
@@ -53,10 +66,14 @@ func KnownPrecheckLabels() []string {
 		PrecheckSDN,
 		PrecheckVMC,
 		PrecheckSVDM,
-		PrecheckStorageClass,
+		PrecheckDefaultStorageClass,
+		PrecheckImmediateStorageClass,
 		PrecheckSnapshot,
 		PrecheckVirtualization,
 		PrecheckUSB,
+		PrecheckAffinityToleration,
+		PrecheckPostCleanup,
+		PrecheckPrecreatedCVI,
 		NoPrecheck,
 	}
 }

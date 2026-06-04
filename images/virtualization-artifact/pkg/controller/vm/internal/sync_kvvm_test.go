@@ -22,12 +22,15 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/component-base/featuregate"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
@@ -48,18 +51,20 @@ var _ = Describe("SyncKvvmHandler", func() {
 	)
 
 	var (
-		ctx        context.Context
-		fakeClient client.WithWatch
-		resource   *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]
-		vmState    state.VirtualMachineState
-		recorder   *eventrecord.EventRecorderLoggerMock
+		ctx          context.Context
+		fakeClient   client.WithWatch
+		reconcileObj *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]
+		vmState      state.VirtualMachineState
+		recorder     *eventrecord.EventRecorderLoggerMock
+		featureGates featuregate.FeatureGate
 	)
 
 	BeforeEach(func() {
 		ctx = testutil.ContextBackgroundWithNoOpLogger()
 		fakeClient = nil
-		resource = nil
+		reconcileObj = nil
 		vmState = nil
+		featureGates = nil
 		recorder = &eventrecord.EventRecorderLoggerMock{
 			EventFunc:       func(_ client.Object, _, _, _ string) {},
 			EventfFunc:      func(_ client.Object, _, _, _ string, _ ...interface{}) {},
@@ -69,16 +74,17 @@ var _ = Describe("SyncKvvmHandler", func() {
 
 	AfterEach(func() {
 		fakeClient = nil
-		resource = nil
+		reconcileObj = nil
 		vmState = nil
 		recorder = nil
 	})
 
-	newVM := func(phase v1alpha2.MachinePhase) *v1alpha2.VirtualMachine {
+	makeVM := func(phase v1alpha2.MachinePhase) *v1alpha2.VirtualMachine {
 		vm := vmbuilder.NewEmpty(name, namespace)
-		vm.Status.Phase = phase
+
 		vm.Spec.VirtualMachineClassName = "vmclass"
 		vm.Spec.CPU.Cores = 2
+		vm.Spec.Memory.Size = resource.MustParse("2Gi")
 		vm.Spec.RunPolicy = v1alpha2.ManualPolicy
 		vm.Spec.VirtualMachineIPAddress = "test-ip"
 		vm.Spec.OsType = v1alpha2.GenericOs
@@ -86,10 +92,31 @@ var _ = Describe("SyncKvvmHandler", func() {
 			RestartApprovalMode: v1alpha2.Manual,
 		}
 
+		vm.Status.Phase = phase
+
 		return vm
 	}
 
-	newKVVM := func(vm *v1alpha2.VirtualMachine) *virtv1.VirtualMachine {
+	// It is like mapPhases in vm/internal/util.go but reversed.
+	mapVMPhaseToKVVMPrintableStatus := func(phase v1alpha2.MachinePhase) virtv1.VirtualMachinePrintableStatus {
+		switch phase {
+		case v1alpha2.MachineRunning:
+			return virtv1.VirtualMachineStatusRunning
+		case v1alpha2.MachineMigrating:
+			return virtv1.VirtualMachineStatusMigrating
+		case v1alpha2.MachineStopping:
+			return virtv1.VirtualMachineStatusStopping
+		case v1alpha2.MachineStopped:
+			return virtv1.VirtualMachineStatusStopped
+		case v1alpha2.MachineStarting:
+			return virtv1.VirtualMachineStatusProvisioning
+		case v1alpha2.MachinePending:
+			return virtv1.VirtualMachineStatusUnknown
+		}
+		return ""
+	}
+
+	makeKVVM := func(vm *v1alpha2.VirtualMachine) *virtv1.VirtualMachine {
 		kvvm := &virtv1.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
@@ -100,11 +127,20 @@ var _ = Describe("SyncKvvmHandler", func() {
 			},
 		}
 		kvvm.Spec.RunStrategy = ptr.To(virtv1.RunStrategyAlways)
+		kvvm.Spec.Template.Spec.Domain.Devices.Interfaces = []virtv1.Interface{
+			{Name: network.NameDefaultInterface},
+		}
+
+		// Printable status is required for proper detection if changes are disruptive.
+		kvvm.Status.PrintableStatus = mapVMPhaseToKVVMPrintableStatus(vm.Status.Phase)
 
 		Expect(kvbuilder.SetLastAppliedSpec(kvvm, &v1alpha2.VirtualMachine{
 			Spec: v1alpha2.VirtualMachineSpec{
 				CPU: v1alpha2.CPUSpec{
 					Cores: vm.Spec.CPU.Cores,
+				},
+				Memory: v1alpha2.MemorySpec{
+					Size: vm.Spec.Memory.Size,
 				},
 				VirtualMachineIPAddress: vm.Spec.VirtualMachineIPAddress,
 				RunPolicy:               vm.Spec.RunPolicy,
@@ -132,16 +168,53 @@ var _ = Describe("SyncKvvmHandler", func() {
 		return kvvm
 	}
 
-	newKVVMI := func() *virtv1.VirtualMachineInstance {
+	makeKVVMI := func() *virtv1.VirtualMachineInstance {
 		kvvmi := newEmptyKVVMI(name, namespace)
 		return kvvmi
 	}
 
+	makeVMIP := func() *v1alpha2.VirtualMachineIPAddress {
+		return &v1alpha2.VirtualMachineIPAddress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-ip",
+				Namespace: namespace,
+			},
+			Spec: v1alpha2.VirtualMachineIPAddressSpec{
+				Type:     v1alpha2.VirtualMachineIPAddressTypeStatic,
+				StaticIP: "192.168.1.10",
+			},
+			Status: v1alpha2.VirtualMachineIPAddressStatus{
+				Address: "192.168.1.10",
+				Phase:   v1alpha2.VirtualMachineIPAddressPhaseAttached,
+			},
+		}
+	}
+
+	makeVMClass := func() *v1alpha2.VirtualMachineClass {
+		return &v1alpha2.VirtualMachineClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "vmclass",
+			}, Spec: v1alpha2.VirtualMachineClassSpec{
+				CPU: v1alpha2.CPU{
+					Type: v1alpha2.CPUTypeHost,
+				},
+				NodeSelector: v1alpha2.NodeSelector{
+					MatchLabels: map[string]string{
+						"node1": "node1",
+					},
+				},
+			},
+		}
+	}
+
 	reconcile := func() {
-		h := NewSyncKvvmHandler(nil, fakeClient, recorder, featuregates.Default(), vmservice.NewMigrationVolumesService(fakeClient, MakeKVVMFromVMSpec, 10*time.Second))
+		if featureGates == nil {
+			featureGates = featuregates.Default()
+		}
+		h := NewSyncKvvmHandler(nil, fakeClient, recorder, featureGates, vmservice.NewMigrationVolumesService(fakeClient, MakeKVVMFromVMSpec, 10*time.Second))
 		_, err := h.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
-		err = resource.Update(context.Background())
+		err = reconcileObj.Update(context.Background())
 		Expect(err).NotTo(HaveOccurred())
 	}
 
@@ -175,47 +248,33 @@ var _ = Describe("SyncKvvmHandler", func() {
 		})).To(Succeed())
 	}
 
+	mutateCPUCores := func(cores int) func(fakeClient client.WithWatch, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) {
+		return func(fakeClient client.WithWatch, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) {
+			vm.Spec.CPU.Cores = cores
+		}
+	}
+
+	mutateMemorySize := func(size string) func(fakeClient client.WithWatch, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) {
+		memSize := resource.MustParse(size)
+		return func(fakeClient client.WithWatch, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) {
+			vm.Spec.Memory.Size = memSize
+		}
+	}
+
 	DescribeTable("AwaitingRestart Condition Tests",
 		func(phase v1alpha2.MachinePhase, needChange bool, expectedStatus metav1.ConditionStatus, expectedExistence bool) {
-			ip := &v1alpha2.VirtualMachineIPAddress{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-ip",
-					Namespace: namespace,
-				},
-				Spec: v1alpha2.VirtualMachineIPAddressSpec{
-					Type:     v1alpha2.VirtualMachineIPAddressTypeStatic,
-					StaticIP: "192.168.1.10",
-				},
-				Status: v1alpha2.VirtualMachineIPAddressStatus{
-					Address: "192.168.1.10",
-					Phase:   v1alpha2.VirtualMachineIPAddressPhaseAttached,
-				},
-			}
+			ip := makeVMIP()
+			vmClass := makeVMClass()
 
-			vmClass := &v1alpha2.VirtualMachineClass{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "vmclass",
-				}, Spec: v1alpha2.VirtualMachineClassSpec{
-					CPU: v1alpha2.CPU{
-						Type: v1alpha2.CPUTypeHost,
-					},
-					NodeSelector: v1alpha2.NodeSelector{
-						MatchLabels: map[string]string{
-							"node1": "node1",
-						},
-					},
-				},
-			}
-
-			vm := newVM(phase)
-			kvvm := newKVVM(vm)
-			kvvmi := newKVVMI()
+			vm := makeVM(phase)
+			kvvm := makeKVVM(vm)
+			kvvmi := makeKVVMI()
 
 			if needChange {
 				mutateKVVM(vm, kvvm)
 			}
 
-			fakeClient, resource, vmState = setupEnvironment(vm, kvvm, kvvmi, ip, vmClass)
+			fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, kvvmi, ip, vmClass)
 
 			reconcile()
 
@@ -248,39 +307,52 @@ var _ = Describe("SyncKvvmHandler", func() {
 		Entry("Pending phase without changes, shouldn't have condition", v1alpha2.MachinePending, false, metav1.ConditionUnknown, false),
 	)
 
+	DescribeTable("AwaitingRestart Condition for NonMigratable VM",
+		func(phase v1alpha2.MachinePhase, featureGate featuregate.FeatureGate, mutateFn func(fakeClient client.WithWatch, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine), expectedStatus metav1.ConditionStatus, expectedExistence bool) {
+			ip := makeVMIP()
+			vmClass := makeVMClass()
+
+			vm := makeVM(phase)
+			vm.Status.Conditions = append(vm.Status.Conditions, metav1.Condition{
+				Type:   vmcondition.TypeMigratable.String(),
+				Status: metav1.ConditionFalse,
+				Reason: string(vmcondition.ReasonHostDevicesNotMigratable),
+			})
+			kvvm := makeKVVM(vm)
+			kvvmi := makeKVVMI()
+
+			if mutateFn != nil {
+				mutateFn(fakeClient, vm, kvvm)
+			}
+
+			fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, kvvmi, ip, vmClass)
+
+			featureGates = featureGate
+
+			reconcile()
+
+			newVM := &v1alpha2.VirtualMachine{}
+			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
+			Expect(err).NotTo(HaveOccurred())
+
+			awaitCond, awaitExists := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, newVM.Status.Conditions)
+			Expect(awaitExists).To(Equal(expectedExistence))
+			if awaitExists {
+				Expect(awaitCond.Status).To(Equal(expectedStatus))
+			}
+		},
+		Entry("should present on cpu.cores change", v1alpha2.MachineRunning, nil, mutateCPUCores(3), metav1.ConditionTrue, true),
+		Entry("should present on cpu.cores change when hotplug enabled", v1alpha2.MachineRunning, newFeatureGateEnableCPUHotplug(), mutateCPUCores(3), metav1.ConditionTrue, true),
+		Entry("should present on memory.size change", v1alpha2.MachineRunning, nil, mutateMemorySize("4Gi"), metav1.ConditionTrue, true),
+		Entry("should present on memory.size change when hotplug enabled", v1alpha2.MachineRunning, newFeatureGateEnableMemoryHotplug(), mutateMemorySize("4Gi"), metav1.ConditionTrue, true),
+	)
+
 	DescribeTable("ConfigurationApplied Condition Tests",
 		func(phase v1alpha2.MachinePhase, notReady bool, expectedStatus metav1.ConditionStatus, expectedExistence bool) {
-			ip := &v1alpha2.VirtualMachineIPAddress{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-ip",
-					Namespace: namespace,
-				},
-				Spec: v1alpha2.VirtualMachineIPAddressSpec{
-					Type:     v1alpha2.VirtualMachineIPAddressTypeStatic,
-					StaticIP: "192.168.1.10",
-				},
-				Status: v1alpha2.VirtualMachineIPAddressStatus{
-					Address: "192.168.1.10",
-					Phase:   v1alpha2.VirtualMachineIPAddressPhaseAttached,
-				},
-			}
+			ip := makeVMIP()
+			vmClass := makeVMClass()
 
-			vmClass := &v1alpha2.VirtualMachineClass{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "vmclass",
-				}, Spec: v1alpha2.VirtualMachineClassSpec{
-					CPU: v1alpha2.CPU{
-						Type: v1alpha2.CPUTypeHost,
-					},
-					NodeSelector: v1alpha2.NodeSelector{
-						MatchLabels: map[string]string{
-							"node1": "node1",
-						},
-					},
-				},
-			}
-
-			vm := newVM(phase)
+			vm := makeVM(phase)
 			if notReady {
 				vm.Status.Conditions = append(vm.Status.Conditions, metav1.Condition{
 					Type:   vmcondition.TypeBlockDevicesReady.String(),
@@ -288,9 +360,10 @@ var _ = Describe("SyncKvvmHandler", func() {
 					Reason: "BlockDevicesNotReady",
 				})
 			}
-			kvvm := newKVVM(vm)
+			kvvm := makeKVVM(vm)
+			kvvmi := makeKVVMI()
 
-			fakeClient, resource, vmState = setupEnvironment(vm, kvvm, ip, vmClass)
+			fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, kvvmi, ip, vmClass)
 			reconcile()
 
 			newVM := &v1alpha2.VirtualMachine{}
@@ -322,6 +395,42 @@ var _ = Describe("SyncKvvmHandler", func() {
 		Entry("Pending phase with changes not applied, condition should not exist", v1alpha2.MachinePending, true, metav1.ConditionUnknown, false),
 	)
 
+	It("keeps ConfigurationApplied False and requeues while SDN is not ready", func() {
+		ip := &v1alpha2.VirtualMachineIPAddress{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-ip", Namespace: namespace},
+			Spec:       v1alpha2.VirtualMachineIPAddressSpec{Type: v1alpha2.VirtualMachineIPAddressTypeStatic, StaticIP: "192.168.1.10"},
+			Status:     v1alpha2.VirtualMachineIPAddressStatus{Address: "192.168.1.10", Phase: v1alpha2.VirtualMachineIPAddressPhaseAttached},
+		}
+		vmClass := &v1alpha2.VirtualMachineClass{
+			ObjectMeta: metav1.ObjectMeta{Name: "vmclass"},
+			Spec: v1alpha2.VirtualMachineClassSpec{
+				CPU:          v1alpha2.CPU{Type: v1alpha2.CPUTypeHost},
+				NodeSelector: v1alpha2.NodeSelector{MatchLabels: map[string]string{"node1": "node1"}},
+			},
+		}
+
+		vm := makeVM(v1alpha2.MachineRunning)
+		kvvm := makeKVVM(vm)
+		// Drop the interface so the desired network is out of sync with the KVVM,
+		// and provide no pod so SDN reports the interface as not ready.
+		kvvm.Spec.Template.Spec.Domain.Devices.Interfaces = nil
+
+		fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, ip, vmClass)
+
+		h := NewSyncKvvmHandler(nil, fakeClient, recorder, featuregates.Default(), vmservice.NewMigrationVolumesService(fakeClient, MakeKVVMFromVMSpec, 10*time.Second))
+		result, err := h.Handle(ctx, vmState)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.RequeueAfter).To(BeNumerically(">", 0))
+		Expect(reconcileObj.Update(context.Background())).To(Succeed())
+
+		updatedVM := &v1alpha2.VirtualMachine{}
+		Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), updatedVM)).To(Succeed())
+		cond, exists := conditions.GetCondition(vmcondition.TypeConfigurationApplied, updatedVM.Status.Conditions)
+		Expect(exists).To(BeTrue())
+		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+		Expect(cond.Reason).To(Equal(vmcondition.ReasonConfigurationNotApplied.String()))
+	})
+
 	DescribeTable("isPlacementPolicyChanged",
 		func(path string, expected bool) {
 			h := &SyncKvvmHandler{}
@@ -337,3 +446,26 @@ var _ = Describe("SyncKvvmHandler", func() {
 		Entry("cpu change is not a placement policy", "cpu.cores", false),
 	)
 })
+
+func newFeatureGate(enabled ...featuregate.Feature) featuregate.FeatureGate {
+	GinkgoHelper()
+
+	gate, setFromMap, err := featuregates.NewUnlocked()
+	Expect(err).NotTo(HaveOccurred())
+	featureMap := map[string]bool{}
+	for _, feature := range enabled {
+		featureMap[string(feature)] = true
+	}
+	err = setFromMap(featureMap)
+	Expect(err).NotTo(HaveOccurred())
+
+	return gate
+}
+
+func newFeatureGateEnableCPUHotplug() featuregate.FeatureGate {
+	return newFeatureGate(featuregates.HotplugCPUWithLiveMigration)
+}
+
+func newFeatureGateEnableMemoryHotplug() featuregate.FeatureGate {
+	return newFeatureGate(featuregates.HotplugMemoryWithLiveMigration)
+}

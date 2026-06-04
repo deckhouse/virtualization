@@ -23,11 +23,13 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	commonnetwork "github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
@@ -36,6 +38,20 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
+
+func newReadyNetwork(name, namespace string) *unstructured.Unstructured {
+	u := &unstructured.Unstructured{}
+	u.SetGroupVersionKind(commonnetwork.NetworkGVK)
+	u.SetName(name)
+	u.SetNamespace(namespace)
+	Expect(unstructured.SetNestedSlice(u.Object, []interface{}{
+		map[string]interface{}{
+			"type":   "Ready",
+			"status": "True",
+		},
+	}, "status", "conditions")).To(Succeed())
+	return u
+}
 
 var _ = Describe("NetworkInterfaceHandler", func() {
 	const (
@@ -225,7 +241,7 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 					  ]
 					}
 				]`
-				fakeClient, resource, vmState = setupEnvironment(vm, vmPod, mac1)
+				fakeClient, resource, vmState = setupEnvironment(vm, vmPod, mac1, newReadyNetwork("test-network", namespace))
 				reconcile()
 
 				newVM := &v1alpha2.VirtualMachine{}
@@ -277,7 +293,7 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 					  ]
 					}
 				]`
-				fakeClient, resource, vmState = setupEnvironment(vm, vmPod, mac1)
+				fakeClient, resource, vmState = setupEnvironment(vm, vmPod, mac1, newReadyNetwork("test-network", namespace))
 				reconcile()
 
 				newVM := &v1alpha2.VirtualMachine{}

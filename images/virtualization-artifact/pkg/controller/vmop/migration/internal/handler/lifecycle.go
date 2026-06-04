@@ -619,9 +619,50 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 			reason = vmopcondition.ReasonSourceSuspended
 			message = messageSourceVMSuspended
 		}
+		if details := formatMigrationDetails(mig, time.Now()); details != "" {
+			message = fmt.Sprintf("%s. %s", message, details)
+		}
 	}
 
 	return reason, message, nil
+}
+
+func formatMigrationDetails(mig *virtv1.VirtualMachineInstanceMigration, now time.Time) string {
+	if mig == nil || mig.Status.MigrationState == nil || mig.Status.MigrationState.TransferStatus == nil {
+		return ""
+	}
+
+	state := mig.Status.MigrationState
+	status := state.TransferStatus
+	parts := make([]string, 0, 7)
+	if state.StartTimestamp != nil {
+		parts = append(parts, fmt.Sprintf("TimeElapsed:%dms", now.Sub(state.StartTimestamp.Time).Milliseconds()))
+	}
+	if status.DataProcessedBytes != nil {
+		parts = append(parts, fmt.Sprintf("DataProcessed:%dMiB", bytesToMiB(*status.DataProcessedBytes)))
+	}
+	if status.DataRemainingBytes != nil {
+		parts = append(parts, fmt.Sprintf("DataRemaining:%dMiB", bytesToMiB(*status.DataRemainingBytes)))
+	}
+	if status.DataTotalBytes != nil {
+		parts = append(parts, fmt.Sprintf("DataTotal:%dMiB", bytesToMiB(*status.DataTotalBytes)))
+	}
+	if status.Iteration != nil {
+		parts = append(parts, fmt.Sprintf("Iteration:%d", *status.Iteration))
+	}
+	parts = append(parts, fmt.Sprintf("AutoConvergeThrottleSet:%t", status.AutoConvergeThrottle != nil))
+	if status.AutoConvergeThrottle != nil {
+		parts = append(parts, fmt.Sprintf("AutoConvergeThrottle:%d", *status.AutoConvergeThrottle))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+
+	return strings.Join(parts, " ")
+}
+
+func bytesToMiB(value uint64) uint64 {
+	return value / 1024 / 1024
 }
 
 func (h LifecycleHandler) calculateMigrationProgress(

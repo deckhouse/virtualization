@@ -64,7 +64,7 @@ var _ = Describe("Network types helpers", func() {
 			out, err := list.ToString()
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(out).To(Equal(`[{"id":2,"type":"Network","name":"n1","ifName":"veth_n12345678"}]`))
+			Expect(out).To(Equal(`[{"id":2,"type":"Network","name":"n1","ifName":"veth_n12345678","uid":0,"gid":0}]`))
 		})
 	})
 })

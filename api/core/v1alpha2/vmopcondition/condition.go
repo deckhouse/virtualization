@@ -59,6 +59,9 @@ const (
 	// ReasonNotReadyToBeExecuted is a ReasonCompleted indicating that the operation is not ready to be executed.
 	ReasonNotReadyToBeExecuted ReasonCompleted = "NotReadyToBeExecuted"
 
+	// ReasonSuperseded is a ReasonCompleted indicating that the operation has been superseded by another operation.
+	ReasonSuperseded ReasonCompleted = "Superseded"
+
 	// ReasonRestartInProgress is a ReasonCompleted indicating that the restart signal has been sent and restart is in progress.
 	ReasonRestartInProgress ReasonCompleted = "RestartInProgress"
 

@@ -117,7 +117,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 	case IsDiskProvisioningFinished(condition):
 		log.Debug("Disk provisioning finished: clean up")
 
-		setPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen)
+		setPhaseConditionForFinishedDisk(vd, pvc, cb, &vd.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC.
 		err = ds.diskService.Protect(ctx, supgen, vd, nil, pvc)
@@ -161,17 +161,14 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 			// OK.
 		case common.ErrQuotaExceeded(err):
 			ds.recorder.Event(vd, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
-			return setQuotaExceededPhaseCondition(cb, &vd.Status.Phase, err, vd.CreationTimestamp), nil
+			return setQuotaExceededPhaseCondition(vd, cb, &vd.Status.Phase, err, vd.CreationTimestamp), nil
 		default:
-			setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			setPhaseConditionToFailed(vd, cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
 			return reconcile.Result{}, err
 		}
 
 		vd.Status.Phase = v1alpha2.DiskProvisioning
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.Provisioning).
-			Message("DVCR Provisioner not found: create the new one.")
+		setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Provisioning, "DVCR Provisioner not found: create the new one.")
 
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case !podutil.IsPodComplete(pod):
@@ -188,10 +185,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 		}
 
 		vd.Status.Phase = v1alpha2.DiskProvisioning
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.Provisioning).
-			Message("Import is in the process of provisioning to DVCR.")
+		setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Provisioning, "Import is in the process of provisioning to DVCR.")
 
 		vd.Status.Progress = ds.statService.GetProgress(vd.GetUID(), pod, vd.Status.Progress, service.NewScaleOption(0, 50))
 		vd.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vd.GetUID(), pod)
@@ -199,6 +193,13 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 		if isStorageClassWFFC(sc) && len(vd.Status.AttachedToVirtualMachines) != 1 {
 			vd.Status.Progress = "50%"
 			vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
+			setReadyConditionWithWFFCAccounting(
+				vd,
+				cb,
+				metav1.ConditionFalse,
+				vdcondition.WaitingForFirstConsumer,
+				"The provisioning has been suspended: a created and scheduled virtual machine is awaited.",
+			)
 			return reconcile.Result{}, nil
 		}
 
@@ -216,10 +217,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
 				ds.recorder.Event(vd, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(vdcondition.ProvisioningFailed).
-					Message(service.CapitalizeFirstLetter(err.Error() + "."))
+				setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.ProvisioningFailed, service.CapitalizeFirstLetter(err.Error()+"."))
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err
@@ -230,14 +228,14 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 		vd.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vd.GetUID(), pod)
 
 		if imageformat.IsISO(ds.statService.GetFormat(pod)) {
-			setPhaseConditionToFailed(cb, &vd.Status.Phase, ErrISOSourceNotSupported)
+			setPhaseConditionToFailed(vd, cb, &vd.Status.Phase, ErrISOSourceNotSupported)
 			return reconcile.Result{}, nil
 		}
 
 		var diskSize resource.Quantity
 		diskSize, err = ds.getPVCSize(vd, pod)
 		if err != nil {
-			setPhaseConditionToFailed(cb, &vd.Status.Phase, err)
+			setPhaseConditionToFailed(vd, cb, &vd.Status.Phase, err)
 
 			if errors.Is(err, service.ErrInsufficientPVCSize) {
 				return reconcile.Result{}, nil
@@ -251,7 +249,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 		var nodePlacement *provisioner.NodePlacement
 		nodePlacement, err = getNodePlacement(ctx, ds.client, vd)
 		if err != nil {
-			setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			setPhaseConditionToFailed(vd, cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
 			return reconcile.Result{}, fmt.Errorf("failed to get importer tolerations: %w", err)
 		}
 
@@ -261,10 +259,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 		}
 
 		vd.Status.Phase = v1alpha2.DiskProvisioning
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.Provisioning).
-			Message("PVC Provisioner not found: create the new one.")
+		setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Provisioning, "PVC Provisioner not found: create the new one.")
 
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case dvQuotaNotExceededCondition != nil && dvQuotaNotExceededCondition.Status == corev1.ConditionFalse:
@@ -272,28 +267,19 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 		if dv.Status.ClaimName != "" && isStorageClassWFFC(sc) {
 			vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
 		}
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.QuotaExceeded).
-			Message(dvQuotaNotExceededCondition.Message)
+		setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.QuotaExceeded, dvQuotaNotExceededCondition.Message)
 		return reconcile.Result{}, nil
 	case dvRunningCondition != nil && dvRunningCondition.Status != corev1.ConditionTrue && dvRunningCondition.Reason == DVImagePullFailedReason:
 		vd.Status.Phase = v1alpha2.DiskPending
 		if dv.Status.ClaimName != "" && isStorageClassWFFC(sc) {
 			vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
 		}
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.ImagePullFailed).
-			Message(dvRunningCondition.Message)
+		setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.ImagePullFailed, dvRunningCondition.Message)
 		ds.recorder.Event(vd, corev1.EventTypeWarning, vdcondition.ImagePullFailed.String(), dvRunningCondition.Message)
 		return reconcile.Result{}, nil
 	case pvc == nil:
 		vd.Status.Phase = v1alpha2.DiskProvisioning
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.Provisioning).
-			Message("PVC not found: waiting for creation.")
+		setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Provisioning, "PVC not found: waiting for creation.")
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case ds.diskService.IsImportDone(dv, pvc):
 		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
@@ -306,10 +292,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 		)
 
 		vd.Status.Phase = v1alpha2.DiskReady
-		cb.
-			Status(metav1.ConditionTrue).
-			Reason(vdcondition.Ready).
-			Message("")
+		setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionTrue, vdcondition.Ready, "")
 
 		vd.Status.Progress = "100%"
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)

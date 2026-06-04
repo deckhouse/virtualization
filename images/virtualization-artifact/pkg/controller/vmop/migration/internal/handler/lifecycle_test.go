@@ -637,6 +637,47 @@ var _ = Describe("LifecycleHandler", func() {
 			Expect(completed.Reason).To(Equal(vmopcondition.ReasonSyncing.String()))
 		})
 
+		It("should include migration transfer details in syncing message", func() {
+			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
+			vmop := newVMOPMigrate()
+			vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+			processed := uint64(3529 * 1024 * 1024)
+			remaining := uint64(12049 * 1024 * 1024)
+			total := uint64(16405 * 1024 * 1024)
+			iteration := uint32(1)
+			throttle := uint32(0)
+
+			mig := newSimpleMigration(fmt.Sprintf("vmop-%s", vmop.Name), name)
+			mig.Status.Phase = virtv1.MigrationRunning
+			mig.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				StartTimestamp: &metav1.Time{Time: time.Now().Add(-30 * time.Second)},
+				MigrationUID:   types.UID("7d38a63b-ffa9-4d56-a924-6017f5832110"),
+				TransferStatus: &virtv1.VirtualMachineInstanceMigrationTransferStatus{
+					DataProcessedBytes:   &processed,
+					DataRemainingBytes:   &remaining,
+					DataTotalBytes:       &total,
+					Iteration:            &iteration,
+					AutoConvergeThrottle: &throttle,
+				},
+			}
+
+			fakeClient, srv = setupEnvironment(vmop, vm, mig)
+			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
+			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
+			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
+			h.progressStrategy = &progressStrategyStub{value: 30}
+
+			_, err := h.Handle(ctx, srv.Changed())
+			Expect(err).NotTo(HaveOccurred())
+
+			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
+			Expect(found).To(BeTrue())
+			Expect(completed.Message).NotTo(ContainSubstring("Migration info for 7d38a63b-ffa9-4d56-a924-6017f5832110:"))
+			Expect(completed.Message).To(ContainSubstring("Syncing source and target. TimeElapsed:"))
+			Expect(completed.Message).To(ContainSubstring("DataProcessed:3529MiB DataRemaining:12049MiB DataTotal:16405MiB"))
+			Expect(completed.Message).To(ContainSubstring("Iteration:1 AutoConvergeThrottleSet:true AutoConvergeThrottle:0"))
+		})
+
 		It("should prefer Aborted over NotConverging for terminal reason", func() {
 			h := LifecycleHandler{}
 			mig := &virtv1.VirtualMachineInstanceMigration{

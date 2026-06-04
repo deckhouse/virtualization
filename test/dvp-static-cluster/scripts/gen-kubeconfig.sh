@@ -161,9 +161,19 @@ log_success "SA, Secrets and ClusterAuthorizationRule applied"
 
 kubeconfig_cert_cluster_section() {
   log_info "Set cluster config"
+
+  local api_host
+  if api_host=$(kubectl -n d8-user-authn get ing kubernetes-api -ojson 2>/dev/null | jq -r '.spec.rules[].host' | head -1) && [ -n "$api_host" ]; then
+    log_info "Found kubernetes-api ingress in d8-user-authn"
+  elif api_host=$(kubectl -n kube-system get ing kubernetes-api -ojson 2>/dev/null | jq -r '.spec.rules[].host' | head -1) && [ -n "$api_host" ]; then
+    log_info "Found kubernetes-api ingress in kube-system"
+  else
+    exit_with_error "kubernetes-api ingress not found in d8-user-authn or kube-system"
+  fi
+
   kubectl config set-cluster "${CLUSTER_NAME}" \
     --insecure-skip-tls-verify=true \
-    --server=https://"$(kubectl -n d8-user-authn get ing kubernetes-api -ojson | jq '.spec.rules[].host' -r)" \
+    --server=https://"${api_host}" \
     --kubeconfig="${FILE_NAME}"
 }
 
@@ -189,11 +199,17 @@ kubeconfig_set_current_context() {
 }
 
 check_kubeconfig() {
-  if kubectl --kubeconfig "${FILE_NAME}" get no >/dev/null 2>&1; then
+  local output
+
+  if output=$(kubectl --kubeconfig "${FILE_NAME}" get no 2>&1); then
     return 0
   fi
 
-  log_error "Failed to get resources via generated kubeconfig"
+  log_warning "Generated kubeconfig is not ready yet"
+  echo "${output}"
+  kubectl --kubeconfig "${FILE_NAME}" auth can-i get nodes 2>&1 || true
+  kubectl get clusterrolebinding "user-authz:${SA_CAR_NAME}:super-admin" -o wide 2>&1 || true
+
   if [[ -f "${FILE_NAME}" ]]; then
     cat "${FILE_NAME}"
   fi
@@ -203,8 +219,8 @@ check_kubeconfig() {
 generate_kubeconfig() {
   log_info "Create kubeconfig"
 
-  local max_attempts=10
-  local retry_wait_seconds=5
+  local max_attempts=60
+  local retry_wait_seconds=10
   local attempt_number
 
   for ((attempt_number = 1; attempt_number <= max_attempts; attempt_number++)); do

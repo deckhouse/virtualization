@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/yaml"
@@ -239,6 +240,25 @@ func (s *SpecChanges) ConvertPendingChanges() ([]apiextensionsv1.JSON, error) {
 		res = append(res, apiextensionsv1.JSON{Raw: b})
 	}
 	return res, nil
+}
+
+func (s *SpecChanges) UpgradeBlockDeviceChangesToRestart() {
+	for i := range s.changes {
+		isBlockDeviceChange := s.changes[i].Path == blockDevicesPath || strings.HasPrefix(s.changes[i].Path, blockDevicesPath+".")
+		if isBlockDeviceChange && s.changes[i].ActionRequired == ActionApplyImmediate {
+			s.changes[i].ActionRequired = ActionRestart
+		}
+	}
+}
+
+func (s *SpecChanges) UpgradeHotplugComputeChangesToRestart() {
+	for i := range s.changes {
+		isCPUChange := s.changes[i].Path == cpuPath || strings.HasPrefix(s.changes[i].Path, cpuPath+".")
+		isMemoryChange := s.changes[i].Path == memoryPath || strings.HasPrefix(s.changes[i].Path, memoryPath+".")
+		if (isCPUChange || isMemoryChange) && s.changes[i].ActionRequired == ActionApplyImmediate {
+			s.changes[i].ActionRequired = ActionRestart
+		}
+	}
 }
 
 func (s *SpecChanges) Add(changes ...FieldChange) {

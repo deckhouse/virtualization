@@ -28,7 +28,6 @@ func NewEvictCommand() *cobra.Command {
 		Use:     "evict (VirtualMachine)",
 		Short:   "Evict a virtual machine.",
 		Example: lifecycle.Usage(),
-		Args:    templates.ExactArgs("evict", 1),
 		RunE:    lifecycle.Run,
 	}
 	AddCommandLineArgs(cmd.Flags(), &lifecycle.opts)

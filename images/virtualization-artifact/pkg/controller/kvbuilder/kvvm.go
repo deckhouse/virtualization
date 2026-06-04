@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -33,6 +34,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/array"
+	"github.com/deckhouse/virtualization-controller/pkg/common/nodeaffinity"
 	"github.com/deckhouse/virtualization-controller/pkg/common/resource_builder"
 	"github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
@@ -151,6 +153,8 @@ func (b *KVVM) SetCPUModel(class *v1alpha2.VirtualMachineClass) error {
 		b.Resource.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{}
 	}
 	cpu := b.Resource.Spec.Template.Spec.Domain.CPU
+	// Reset features to handle vmclass changes: only discovery type sets features.
+	cpu.Features = nil
 
 	switch class.Spec.CPU.Type {
 	case v1alpha2.CPUTypeHost:
@@ -318,7 +322,7 @@ func (b *KVVM) setCPUHotpluggable(cores int, coreFraction string) error {
 		domainSpec.CPU = &virtv1.CPU{}
 	}
 
-	fraction, err := GetCPUFraction(coreFraction)
+	fraction, err := ParseCPUCoreFraction(coreFraction)
 	if err != nil {
 		return err
 	}
@@ -440,14 +444,14 @@ func shouldKeepMemoryNonHotpluggable(kvvm *virtv1.VirtualMachine) bool {
 	return false
 }
 
-func GetCPUFraction(cpuFraction string) (int, error) {
+func ParseCPUCoreFraction(cpuFraction string) (int, error) {
 	if cpuFraction == "" {
 		return 100, nil
 	}
 	fraction := intstr.FromString(cpuFraction)
 	value, _, err := getIntOrPercentValueSafely(&fraction)
 	if err != nil {
-		return 0, fmt.Errorf("invalid value for cpu fraction: %w", err)
+		return 0, fmt.Errorf("invalid value for cpu core fraction: %w", err)
 	}
 	return value, nil
 }
@@ -511,6 +515,21 @@ func (b *KVVM) ClearDisks() {
 	b.Resource.Spec.Template.Spec.Volumes = nil
 }
 
+func (b *KVVM) getExistingDiskBus(name string) virtv1.DiskBus {
+	for _, d := range b.Resource.Spec.Template.Spec.Domain.Devices.Disks {
+		if d.Name != name {
+			continue
+		}
+		if d.CDRom != nil {
+			return d.CDRom.Bus
+		}
+		if d.Disk != nil {
+			return d.Disk.Bus
+		}
+	}
+	return ""
+}
+
 func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 	devPreset := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization)
 
@@ -522,6 +541,14 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 	} else {
 		dd.Disk = &virtv1.DiskTarget{
 			Bus: devPreset.DiskBus,
+		}
+	}
+
+	if existingBus := b.getExistingDiskBus(name); existingBus != "" {
+		if opts.IsCdrom {
+			dd.CDRom.Bus = existingBus
+		} else {
+			dd.Disk.Bus = existingBus
 		}
 	}
 
@@ -744,6 +771,25 @@ func (b *KVVM) ClearNetworkInterfaces() {
 	b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces = nil
 }
 
+func (b *KVVM) SetNetworkInterfaceAbsent(name string) {
+	for i, iface := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
+		if iface.Name == name {
+			b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces[i].State = virtv1.InterfaceStateAbsent
+			return
+		}
+	}
+}
+
+func (b *KVVM) RemoveNetworkInterface(name string) {
+	spec := &b.Resource.Spec.Template.Spec
+	spec.Domain.Devices.Interfaces = slices.DeleteFunc(spec.Domain.Devices.Interfaces, func(i virtv1.Interface) bool {
+		return i.Name == name
+	})
+	spec.Networks = slices.DeleteFunc(spec.Networks, func(n virtv1.Network) bool {
+		return n.Name == name
+	})
+}
+
 func (b *KVVM) SetNetworkInterface(name, macAddress string, acpiIndex int) {
 	net := virtv1.Network{
 		Name: name,
@@ -770,15 +816,16 @@ func (b *KVVM) SetNetworkInterface(name, macAddress string, acpiIndex int) {
 		iface.MacAddress = macAddress
 	}
 
-	ifaceExists := false
-	for _, i := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
-		if i.Name == name {
-			ifaceExists = true
+	updated := false
+	for i, existing := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
+		if existing.Name == name {
+			b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces[i] = iface
+			updated = true
 			break
 		}
 	}
 
-	if !ifaceExists {
+	if !updated {
 		b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces = append(b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces, iface)
 	}
 }
@@ -841,6 +888,32 @@ func (b *KVVM) SetMetadata(metadata metav1.ObjectMeta) {
 	maps.Copy(b.Resource.Spec.Template.ObjectMeta.Annotations, metadata.Annotations)
 
 	b.Resource.Spec.Template.ObjectMeta.Annotations = vm.RemoveNonPropagatableAnnotations(b.Resource.Spec.Template.ObjectMeta.Annotations)
+}
+
+func (b *KVVM) ApplyPVNodeAffinity(pvTerms []corev1.NodeSelectorTerm) {
+	if len(pvTerms) == 0 {
+		return
+	}
+
+	affinity := b.Resource.Spec.Template.Spec.Affinity
+	if affinity == nil {
+		affinity = &corev1.Affinity{}
+	}
+	if affinity.NodeAffinity == nil {
+		affinity.NodeAffinity = &corev1.NodeAffinity{}
+	}
+	if affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+		affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &corev1.NodeSelector{}
+	}
+
+	existing := affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+	if len(existing) == 0 {
+		affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = pvTerms
+	} else {
+		affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = nodeaffinity.CrossProductTerms(existing, pvTerms)
+	}
+
+	b.Resource.Spec.Template.Spec.Affinity = affinity
 }
 
 func (b *KVVM) SetUpdateVolumesStrategy(strategy *virtv1.UpdateVolumesStrategy) {

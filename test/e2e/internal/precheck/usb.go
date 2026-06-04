@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
@@ -49,7 +50,7 @@ func checkDummyHCDConfigured(ctx context.Context, f *framework.Framework) bool {
 
 	nodeUSBList, err := virtClient.NodeUSBDevices().List(ctx, metav1.ListOptions{})
 	if err != nil {
-		_, _ = fmt.Fprintf(GinkgoWriter, "failed to list NodeUSBDevices: %v\n", err)
+		GinkgoWriter.Printf("failed to list NodeUSBDevices: %v\n", err)
 		return false
 	}
 
@@ -62,10 +63,27 @@ func checkDummyHCDConfigured(ctx context.Context, f *framework.Framework) bool {
 	return false
 }
 
+func (u *usbPrecheck) checkVirtualizationDra(ctx context.Context, f *framework.Framework) bool {
+	_, err := f.KubeClient().AppsV1().DaemonSets("d8-virtualization").Get(ctx, "virtualization-dra", metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return false
+		}
+		GinkgoWriter.Printf("failed to get virtualization-dra DaemonSet: %v\n", err)
+		return false
+	}
+	return true
+}
+
 func (u *usbPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 	if !isCheckEnabled(usbPrecheckEnvName) {
 		_, _ = GinkgoWriter.Write([]byte("USB precheck is disabled.\n"))
 		return nil
+	}
+
+	if !u.checkVirtualizationDra(ctx, f) {
+		return fmt.Errorf("%s=no to disable this precheck: virtualization-dra DaemonSet is not running. "+
+			"Configure virtualization with DRA support", usbPrecheckEnvName)
 	}
 
 	if !checkDummyHCDConfigured(ctx, f) {

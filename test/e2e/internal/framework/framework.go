@@ -30,8 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 )
 
 const (
@@ -74,7 +72,7 @@ func (f *Framework) Before() {
 func (f *Framework) After() {
 	GinkgoHelper()
 
-	if config.IsCleanUpNeeded() {
+	if GetConfig().IsCleanupNeeded() {
 		defer func() {
 			if f.namespace != nil {
 				By("Cleanup: delete namespace")

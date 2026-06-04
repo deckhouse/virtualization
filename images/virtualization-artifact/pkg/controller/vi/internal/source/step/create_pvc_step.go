@@ -230,6 +230,10 @@ func (s CreatePersistentVolumeClaimStep) validateStorageClassCompatibility(ctx c
 	var originalPVC corev1.PersistentVolumeClaim
 	err = s.client.Get(ctx, types.NamespacedName{Name: pvcName, Namespace: vdSnapshot.Namespace}, &originalPVC)
 	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			log.With("pvc.name", pvcName).Debug("Original PVC does not exist, skipping storage class compatibility validation")
+			return nil
+		}
 		return fmt.Errorf("cannot fetch original PVC %q: %w", pvcName, err)
 	}
 

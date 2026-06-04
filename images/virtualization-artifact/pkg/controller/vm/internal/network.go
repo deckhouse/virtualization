@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -73,29 +74,57 @@ func (h *NetworkInterfaceHandler) Handle(ctx context.Context, s state.VirtualMac
 	}()
 
 	if !hasOnlyDefaultNetwork(vm) {
-		if !h.featureGate.Enabled(featuregates.SDN) {
-			cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonSDNModuleDisabled).Message("For additional network interfaces, please enable SDN module")
-			return reconcile.Result{}, nil
-		}
-
-		pods, err := s.Pods(ctx)
-		if err != nil {
+		if err := h.evaluateAdditionalNetworks(ctx, s, vm, cb); err != nil {
 			return reconcile.Result{}, err
-		}
-
-		errMsg, err := extractNetworkStatusFromPods(pods)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		if errMsg != "" {
-			cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonNetworkNotReady).Message(errMsg)
-		} else {
-			cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonNetworkReady).Message("")
 		}
 	}
 
 	return h.UpdateNetworkStatus(ctx, s, vm)
+}
+
+// evaluateAdditionalNetworks sets cb based on whether additional networks are
+// usable: requires SDN feature gate, then that referenced Networks/ClusterNetworks
+// are Ready, and finally that SDN reports the per-pod interfaces healthy.
+func (h *NetworkInterfaceHandler) evaluateAdditionalNetworks(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine, cb *conditions.ConditionBuilder) error {
+	if !h.featureGate.Enabled(featuregates.SDN) {
+		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonSDNModuleDisabled).Message("For additional network interfaces, please enable SDN module")
+		return nil
+	}
+
+	var pending, desired []string
+	for _, ns := range vm.Spec.Networks {
+		ready, err := network.IsNetworkSpecReady(ctx, s.Client(), vm.Namespace, ns)
+		if err != nil {
+			return err
+		}
+		if !ready {
+			pending = append(pending, network.SpecKey(ns))
+			continue
+		}
+		if ns.Type != v1alpha2.NetworksTypeMain {
+			desired = append(desired, ns.Name)
+		}
+	}
+	if len(pending) > 0 {
+		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonNetworkNotReady).
+			Message(fmt.Sprintf("Waiting for the following networks to become Ready: %s", strings.Join(pending, ", ")))
+		return nil
+	}
+
+	pods, err := s.Pods(ctx)
+	if err != nil {
+		return err
+	}
+	errMsg, err := extractNetworkStatusFromPods(pods, desired)
+	if err != nil {
+		return err
+	}
+	if errMsg != "" {
+		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonNetworkNotReady).Message(errMsg)
+		return nil
+	}
+	cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonNetworkReady).Message("")
+	return nil
 }
 
 func hasOnlyDefaultNetwork(vm *v1alpha2.VirtualMachine) bool {
@@ -108,25 +137,22 @@ func (h *NetworkInterfaceHandler) Name() string {
 }
 
 func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine) (reconcile.Result, error) {
-	// check that vmmacName is not removed when deleting a network interface from the spec, as it is still in use
-	if len(vm.Status.Networks) > len(vm.Spec.Networks) {
-		if vm.Status.Phase != v1alpha2.MachinePending && vm.Status.Phase != v1alpha2.MachineStopped {
-			return reconcile.Result{}, nil
-		}
-	}
-
 	if hasOnlyDefaultNetwork(vm) {
 		vm.Status.Networks = []v1alpha2.NetworksStatus{
 			{
 				ID:   network.ReservedMainID,
 				Type: v1alpha2.NetworksTypeMain,
-				Name: network.NameDefaultInterface,
 			},
 		}
 		return reconcile.Result{}, nil
 	}
 
 	kvvm, err := s.KVVM(ctx)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -156,7 +182,6 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 			networksStatus = append(networksStatus, v1alpha2.NetworksStatus{
 				ID:   interfaceSpec.ID,
 				Type: v1alpha2.NetworksTypeMain,
-				Name: network.NameDefaultInterface,
 			})
 			continue
 		}
@@ -170,11 +195,31 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 		})
 	}
 
+	// Network hot-unplug: retain a status entry the user removed from spec until
+	// KubeVirt fully detaches and drops the iface from KVVMI. The next reconcile
+	// then drops the entry, vmmac becomes unattached, deletion handler releases the MAC.
+	for _, prev := range vm.Status.Networks {
+		if prev.Type == v1alpha2.NetworksTypeMain || prev.MAC == "" {
+			continue
+		}
+		if slices.ContainsFunc(networksStatus, func(ns v1alpha2.NetworksStatus) bool {
+			return ns.Type == prev.Type && ns.Name == prev.Name
+		}) {
+			continue
+		}
+		if kvvmi == nil || !slices.ContainsFunc(kvvmi.Spec.Domain.Devices.Interfaces, func(i virtv1.Interface) bool {
+			return strings.EqualFold(i.MacAddress, prev.MAC)
+		}) {
+			continue
+		}
+		networksStatus = append(networksStatus, prev)
+	}
+
 	vm.Status.Networks = networksStatus
 	return reconcile.Result{}, nil
 }
 
-func extractNetworkStatusFromPods(pods *corev1.PodList) (string, error) {
+func extractNetworkStatusFromPods(pods *corev1.PodList, desired []string) (string, error) {
 	var errorMessages []string
 
 	if len(pods.Items) == 0 {
@@ -202,6 +247,19 @@ func extractNetworkStatusFromPods(pods *corev1.PodList) (string, error) {
 		}
 
 		podErrorMessages := collectInterfaceErrors(interfacesStatus)
+
+		if len(desired) > 0 {
+			present := make(map[string]struct{}, len(interfacesStatus))
+			for _, ifs := range interfacesStatus {
+				present[ifs.Name] = struct{}{}
+			}
+			for _, name := range desired {
+				if _, ok := present[name]; !ok {
+					podErrorMessages = append(podErrorMessages, fmt.Sprintf("(%s): waiting for SDN to report status", name))
+				}
+			}
+		}
+
 		if len(podErrorMessages) > 0 {
 			errorMessages = append(errorMessages, fmt.Sprintf("[%s]: %s", pod.Name, strings.Join(podErrorMessages, "; ")))
 		}

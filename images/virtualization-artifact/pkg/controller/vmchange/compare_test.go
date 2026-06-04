@@ -71,7 +71,7 @@ cpu:
 			),
 		},
 		{
-			"restart on cpu section change",
+			"restart on cpu section change when hotplug is disabled",
 			`
 cpu:
   cores: 2
@@ -85,6 +85,24 @@ cpu:
 			nil,
 			assertChanges(
 				actionRequired(ActionRestart),
+				requirePathOperation("cpu", ChangeReplace),
+			),
+		},
+		{
+			"immediate apply on cpu section change when hotplug is enabled",
+			`
+cpu:
+  cores: 2
+  coreFraction: 60%
+`,
+			`
+cpu:
+  cores: 6
+  coreFraction: 40%
+`,
+			[]featuregate.Feature{featuregates.HotplugCPUWithLiveMigration},
+			assertChanges(
+				actionRequired(ActionApplyImmediate),
 				requirePathOperation("cpu", ChangeReplace),
 			),
 		},
@@ -235,7 +253,7 @@ memory:
 			),
 		},
 		{
-			"restart on blockDeviceRefs section add",
+			"apply immediate on blockDeviceRefs section add",
 			``,
 			`
 blockDeviceRefs:
@@ -244,12 +262,12 @@ blockDeviceRefs:
 `,
 			nil,
 			assertChanges(
-				actionRequired(ActionRestart),
+				actionRequired(ActionApplyImmediate),
 				requirePathOperation("blockDeviceRefs", ChangeAdd),
 			),
 		},
 		{
-			"restart on blockDeviceRefs section remove",
+			"apply immediate on blockDeviceRefs section remove",
 			`
 blockDeviceRefs:
 - kind: VirtualImage
@@ -258,18 +276,20 @@ blockDeviceRefs:
 			``,
 			nil,
 			assertChanges(
-				actionRequired(ActionRestart),
+				actionRequired(ActionApplyImmediate),
 				requirePathOperation("blockDeviceRefs", ChangeRemove),
 			),
 		},
 		{
-			"restart on blockDeviceRefs add disk",
+			"apply immediate on blockDeviceRefs add disk",
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualImage
   name: linux
 `,
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualDisk
   name: linux
@@ -278,13 +298,14 @@ blockDeviceRefs:
 `,
 			nil,
 			assertChanges(
-				actionRequired(ActionRestart),
+				actionRequired(ActionApplyImmediate),
 				requirePathOperation("blockDeviceRefs.0", ChangeAdd),
 			),
 		},
 		{
-			"restart on blockDeviceRefs remove disk",
+			"apply immediate on blockDeviceRefs remove disk",
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualDisk
   name: linux
@@ -292,6 +313,29 @@ blockDeviceRefs:
   name: linux
 `,
 			`
+enableParavirtualization: true
+blockDeviceRefs:
+- kind: VirtualImage
+  name: linux
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionApplyImmediate),
+				requirePathOperation("blockDeviceRefs.0", ChangeRemove),
+			),
+		},
+		{
+			"restart on blockDeviceRefs remove disk with paravirt disabled",
+			`
+enableParavirtualization: false
+blockDeviceRefs:
+- kind: VirtualDisk
+  name: linux
+- kind: VirtualImage
+  name: linux
+`,
+			`
+enableParavirtualization: false
 blockDeviceRefs:
 - kind: VirtualImage
   name: linux
@@ -303,8 +347,9 @@ blockDeviceRefs:
 			),
 		},
 		{
-			"restart on blockDeviceRefs change order",
+			"apply immediate on blockDeviceRefs change order",
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualImage
   name: linux
@@ -312,6 +357,7 @@ blockDeviceRefs:
   name: linux
 `,
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualDisk
   name: linux
@@ -320,14 +366,15 @@ blockDeviceRefs:
 `,
 			nil,
 			assertChanges(
-				actionRequired(ActionRestart),
+				actionRequired(ActionApplyImmediate),
 				requirePathOperation("blockDeviceRefs.0", ChangeReplace),
 				requirePathOperation("blockDeviceRefs.1", ChangeReplace),
 			),
 		},
 		{
-			"restart on blockDeviceRefs change order :: bigger",
+			"apply immediate on blockDeviceRefs change order :: bigger",
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualImage
   name: linux
@@ -342,6 +389,7 @@ blockDeviceRefs:
 `,
 			// Change order: 12345 -> 25341
 			`
+enableParavirtualization: true
 blockDeviceRefs:
 - kind: VirtualDisk
   name: linux
@@ -356,7 +404,7 @@ blockDeviceRefs:
 `,
 			nil,
 			assertChanges(
-				actionRequired(ActionRestart),
+				actionRequired(ActionApplyImmediate),
 				requirePathOperation("blockDeviceRefs.0", ChangeReplace),
 				requirePathOperation("blockDeviceRefs.1", ChangeReplace),
 				requirePathOperation("blockDeviceRefs.4", ChangeReplace),
@@ -487,6 +535,155 @@ networks:
 				requirePathOperation("networks", ChangeReplace),
 			),
 		},
+		{
+			"apply immediate when adding non-main network to nil networks",
+			``,
+			`
+networks:
+- type: Main
+  id: 1
+- type: ClusterNetwork
+  name: additional
+  id: 2
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionApplyImmediate),
+				requirePathOperation("networks", ChangeAdd),
+			),
+		},
+		{
+			"apply immediate when adding non-main network to existing main",
+			`
+networks:
+- type: Main
+  id: 1
+`,
+			`
+networks:
+- type: Main
+  id: 1
+- type: ClusterNetwork
+  name: additional
+  id: 2
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionApplyImmediate),
+				requirePathOperation("networks", ChangeReplace),
+			),
+		},
+		{
+			"apply immediate when removing non-main network",
+			`
+networks:
+- type: Main
+  id: 1
+- type: Network
+  name: net1
+  id: 2
+`,
+			`
+networks:
+- type: Main
+  id: 1
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionApplyImmediate),
+				requirePathOperation("networks", ChangeReplace),
+			),
+		},
+		{
+			"restart when main network is removed",
+			`
+networks:
+- type: Main
+  id: 1
+- type: Network
+  name: net1
+  id: 2
+`,
+			`
+networks:
+- type: Network
+  name: net1
+  id: 2
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionRestart),
+				requirePathOperation("networks", ChangeReplace),
+			),
+		},
+		{
+			"apply immediate when removing non-main network from VM without main",
+			`
+networks:
+- type: ClusterNetwork
+  name: net1
+  id: 2
+- type: ClusterNetwork
+  name: net2
+  id: 3
+`,
+			`
+networks:
+- type: ClusterNetwork
+  name: net1
+  id: 2
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionApplyImmediate),
+				requirePathOperation("networks", ChangeReplace),
+			),
+		},
+		{
+			"apply immediate when adding non-main network to VM without main",
+			`
+networks:
+- type: ClusterNetwork
+  name: net1
+  id: 2
+`,
+			`
+networks:
+- type: ClusterNetwork
+  name: net1
+  id: 2
+- type: ClusterNetwork
+  name: net2
+  id: 3
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionApplyImmediate),
+				requirePathOperation("networks", ChangeReplace),
+			),
+		},
+		{
+			"restart when only-non-main spec gains main network",
+			`
+networks:
+- type: ClusterNetwork
+  name: net1
+  id: 2
+`,
+			`
+networks:
+- type: Main
+  id: 1
+- type: ClusterNetwork
+  name: net1
+  id: 2
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionRestart),
+				requirePathOperation("networks", ChangeReplace),
+			),
+		},
 	}
 
 	for _, tt := range tests {
@@ -511,6 +708,26 @@ networks:
 			tt.assertFn(t, changes)
 		})
 	}
+}
+
+// Test ApplyImmediate to Restart upgraders.
+func TestUpgradeHotplugComputeChangesToRestart(t *testing.T) {
+	const cpuReason = "cpu restart reason"
+
+	changes := SpecChanges{}
+	changes.Add(
+		FieldChange{Path: "cpu.cores", ActionRequired: ActionApplyImmediate, RestartMessage: cpuReason},
+		FieldChange{Path: "memory.size", ActionRequired: ActionApplyImmediate},
+		FieldChange{Path: "blockDeviceRefs.0", ActionRequired: ActionApplyImmediate},
+	)
+
+	changes.UpgradeHotplugComputeChangesToRestart()
+	changes.UpgradeBlockDeviceChangesToRestart()
+
+	require.Equal(t, ActionRestart, changes.GetAll()[0].ActionRequired)
+	require.Equal(t, cpuReason, changes.GetAll()[0].RestartMessage)
+	require.Equal(t, ActionRestart, changes.GetAll()[1].ActionRequired)
+	require.Equal(t, ActionRestart, changes.GetAll()[2].ActionRequired)
 }
 
 func loadVMSpec(t *testing.T, inYAML string) *v1alpha2.VirtualMachineSpec {

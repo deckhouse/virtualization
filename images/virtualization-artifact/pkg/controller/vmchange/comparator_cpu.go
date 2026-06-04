@@ -28,6 +28,8 @@ type comparatorCPU struct {
 	featureGate featuregate.FeatureGate
 }
 
+const cpuPath = "cpu"
+
 func NewComparatorCPU(featureGate featuregate.FeatureGate) VMSpecFieldComparator {
 	return &comparatorCPU{
 		featureGate: featureGate,
@@ -35,8 +37,8 @@ func NewComparatorCPU(featureGate featuregate.FeatureGate) VMSpecFieldComparator
 }
 
 // Compare returns changes in the cpu section.
-// // It supports CPU hotplug mechanism for cores changes.
-// // It requires reboot if cpu fraction is changed or if COU hotplug is disabled.
+// It returns "apply immediate" when cpu core fraction is changed or
+// CPU cores change is compatible with hotplug.
 func (c *comparatorCPU) Compare(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
 	coresRestartMsg := ""
 
@@ -50,18 +52,21 @@ func (c *comparatorCPU) Compare(current, desired *v1alpha2.VirtualMachineSpec) [
 		coresChangedAction = ActionRestart
 	}
 
+	fractionChangedAction := ActionApplyImmediate
+
 	// Require reboot if CPU hotplug is not enabled.
 	if !c.featureGate.Enabled(featuregates.HotplugCPUWithLiveMigration) {
 		coresChangedAction = ActionRestart
+		fractionChangedAction = ActionRestart
 	}
 
 	coresChanges := compareInts("cpu.cores", current.CPU.Cores, desired.CPU.Cores, 0, coresChangedAction)
 	if HasChanges(coresChanges) && coresRestartMsg != "" {
 		coresChanges[0].RestartMessage = coresRestartMsg
 	}
-	fractionChanges := compareStrings("cpu.coreFraction", current.CPU.CoreFraction, desired.CPU.CoreFraction, DefaultCPUCoreFraction, ActionRestart)
+	fractionChanges := compareStrings("cpu.coreFraction", current.CPU.CoreFraction, desired.CPU.CoreFraction, DefaultCPUCoreFraction, fractionChangedAction)
 
-	// Yield full replace if both fields changed.
+	// Yield a full replace for cpu section if both fields are changed.
 	if HasChanges(coresChanges) && HasChanges(fractionChanges) {
 		return []FieldChange{
 			{
@@ -69,7 +74,7 @@ func (c *comparatorCPU) Compare(current, desired *v1alpha2.VirtualMachineSpec) [
 				Path:           "cpu",
 				CurrentValue:   current.CPU,
 				DesiredValue:   desired.CPU,
-				ActionRequired: ActionRestart,
+				ActionRequired: MostDisruptiveAction(coresChangedAction, fractionChangedAction),
 				RestartMessage: coresRestartMsg,
 			},
 		}

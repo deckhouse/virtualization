@@ -26,6 +26,7 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/onsi/ginkgo/v2"
 	yamlv3 "gopkg.in/yaml.v3"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -39,7 +40,7 @@ func GetConfig() (*Config, error) {
 	}
 	data, err := os.ReadFile(cfg)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read config file %q: %w", cfg, err)
 	}
 	var conf Config
 
@@ -76,20 +77,44 @@ type Config struct {
 	LogFilter        []string         `yaml:"logFilter"`
 	CleanupResources []string         `yaml:"cleanupResources"`
 	RegexpLogFilter  []regexp.Regexp  `yaml:"regexpLogFilter"`
-	StorageClass     StorageClass
+	// PostCleanupMode controls cleanup of resources created during test execution (VMs, VDs, namespaces, etc.).
+	// Enabled by default (POST_CLEANUP=always or unset). Set to never or no-on-failure to skip cleanup for debugging.
+	PostCleanupMode PostCleanupMode `yaml:"postCleanupMode"`
+	// IsPrecreatedCVICleanupNeeded controls cleanup of precreated ClusterVirtualImages that are shared across test runs.
+	// Disabled by default (PRECREATED_CVI_CLEANUP=no): CVIs persist between runs for faster execution.
+	// Set to true to delete them after the suite.
+	IsPrecreatedCVICleanupNeeded bool `yaml:"isPrecreatedCVICleanupNeeded"`
+
+	StorageClass StorageClass
 }
 
+func (c *Config) IsCleanupNeeded() bool {
+	switch c.PostCleanupMode {
+	case PostCleanupAlways:
+		return true
+	case PostCleanupNever:
+		return false
+	case PostCleanupNoOnFailure:
+		return !ginkgo.CurrentSpecReport().Failed()
+	default:
+		ginkgo.GinkgoWriter.Printf("Unknown PostCleanupMode: %s, defaulting to always\n", c.PostCleanupMode)
+		return true
+	}
+}
+
+type PostCleanupMode string
+
+const (
+	PostCleanupAlways      PostCleanupMode = "always"
+	PostCleanupNever       PostCleanupMode = "never"
+	PostCleanupNoOnFailure PostCleanupMode = "no-on-failure"
+)
+
 type TestData struct {
-	ComplexTest       string `yaml:"complexTest"`
-	DiskResizing      string `yaml:"diskResizing"`
-	ImageHotplug      string `yaml:"imageHotplug"`
-	VMLabelAnnotation string `yaml:"vmLabelAnnotation"`
-	VMMigration       string `yaml:"vmMigration"`
-	VMMigrationCancel string `yaml:"vmMigrationCancel"`
-	VMEvacuation      string `yaml:"vmEvacuation"`
-	VdSnapshots       string `yaml:"vdSnapshots"`
-	Sshkey            string `yaml:"sshKey"`
-	SSHUser           string `yaml:"sshUser"`
+	ImageHotplug string `yaml:"imageHotplug"`
+	VMMigration  string `yaml:"vmMigration"`
+	Sshkey       string `yaml:"sshKey"`
+	SSHUser      string `yaml:"sshUser"`
 }
 
 type StorageClass struct {
@@ -131,6 +156,16 @@ type HelperImages struct {
 }
 
 func (c *Config) setEnvs() error {
+	postCleanupMode, err := LoadPostCleanupMode()
+	if err != nil {
+		return err
+	}
+	c.PostCleanupMode = postCleanupMode
+
+	// isPrecreatedCVICleanupNeeded: env var has priority over yaml config
+	if e, ok := os.LookupEnv("PRECREATED_CVI_CLEANUP"); ok {
+		c.IsPrecreatedCVICleanupNeeded = e == "yes"
+	}
 	// ClusterTransport
 	if e, ok := os.LookupEnv("E2E_CLUSTERTRANSPORT_KUBECONFIG"); ok {
 		c.ClusterTransport.KubeConfig = e

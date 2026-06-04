@@ -9,16 +9,12 @@ import:
     add: /relocate
     to: /
     after: install
-  - image: tools/tini-v0.19.0
-    add: /usr/bin/tini
-    to: /usr/bin/tini
-    after: install
 imageSpec:
   config:
     user: 0
 
 ---
-{{- $name := print $.ImageName "-dependencies" -}}
+{{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altLibs:
   - libxfs-devel
@@ -134,7 +130,7 @@ packages:
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
 {{- $gitRepoName := "libvirt" }}
-{{- $version := get $.Firmware $gitRepoName }}
+{{- $version := get .Firmware $gitRepoName }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries
 final: false
@@ -158,6 +154,10 @@ git:
     includePaths:
     - nsswitch.conf
 import:
+- image: tools/tini-v0.19.0
+  add: /usr/bin/tini
+  to: /relocate/usr/bin/tini
+  before: setup
 # Libvirt and QEMU libraries and binaries
 - image: {{ .ModuleNamePrefix }}packages/libvirt
   add: /libvirt
@@ -202,11 +202,9 @@ import:
   - virt-probe
   - virt-tail
 - image: {{ .ModuleNamePrefix }}virt-artifact
-  add: /kubevirt-binaries
+  add: /kubevirt-binaries/virt-launcher-hook
   to: /relocate/etc/libvirt/hooks/qemu
   before: setup
-  includePaths:
-  - virt-launcher-hook
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-gobuilder
   add: /binaries
   to: /usr/bin
@@ -230,6 +228,7 @@ import:
   after: setup
   includePaths:
   - sbin/hwclock
+  - sbin/nologin
 
 # GNU utilities
 - image: tools/coreutils
@@ -325,10 +324,10 @@ shell:
     echo "root:x:0:" >> /relocate/etc/group
     echo "root:x:::::::" >> /relocate/etc/shadow
 
-    echo "qemu:x:107:107::/home/qemu:/bin/bash" >> /relocate/etc/passwd
-    echo "qemu:x:107:" >> /relocate/etc/group
-    mkdir -p /relocate/home/qemu
-    chown -R 107:107 /relocate/home/qemu
+    echo "deckhouse:x:64535:64535:deckhouse:/home/deckhouse:/sbin/nologin" >> /relocate/etc/passwd
+    echo "deckhouse:x:64535:" >> /relocate/etc/group
+    mkdir -p /relocate/home/deckhouse
+    chown -R 64535:64535 /relocate/home/deckhouse
 
   - |
     echo "Create symlinks for OVMF"
@@ -392,6 +391,10 @@ shell:
     echo "Create symlink for run -> var/run "
     ln -s var/run run
 
+  - |
+    setcap cap_net_bind_service=+ep /relocate/usr/bin/virt-launcher-monitor
+    setcap cap_net_bind_service=+ep /relocate/usr/bin/tini
+
   # /etc/libvirt-init will be copied back into /etc/libvirt at runtime. This is necessary because we configure libvirt to mount /etc/libvirt and set readOnlyRootFilesystem for other directories.
   # DO NOT REMOVE. node-labeler.sh uses /etc/libvirt.
   - |
@@ -437,7 +440,7 @@ shell:
     echo "Build node-labeller binaries"
     cd /node-labeller
     echo '== go build -ldflags="-s -w" -o /binaries/node-labeller ./cmd/node-labeller =='
-    {{- $_ := set $ "ProjectName" (list $.ImageName "node-labeller" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "node-labeller" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /binaries/node-labeller ./cmd/node-labeller`) | nindent 6 }}
     echo "Done"
   - |
@@ -446,7 +449,7 @@ shell:
     export GOARCH=amd64
     export CGO_ENABLED=0
     echo '== go build -ldflags="-s -w" -o /binaries/vlctl ./cmd/vlctl/main.go =='
-    {{- $_ := set $ "ProjectName" (list $.ImageName "vlctl" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "vlctl" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /binaries/vlctl ./cmd/vlctl/main.go`) | nindent 6 }}
     echo "Done"
 ---
@@ -476,6 +479,6 @@ shell:
     echo "Building simple app that prints I'am temp pod"
     mkdir -p /bins
 
-    {{- $_ := set $ "ProjectName" (list $.ImageName "temp_pod" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "temp_pod" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `musl-gcc -static -Os -o /bins/temp_pod temp_pod.c`) | nindent 6 }}
     strip /bins/temp_pod

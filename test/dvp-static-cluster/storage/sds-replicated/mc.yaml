@@ -1,12 +1,3 @@
----
-apiVersion: deckhouse.io/v1alpha1
-kind: ModuleConfig
-metadata:
-  name: sds-node-configurator
-spec:
-  version: 1
-  enabled: true
----
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
 metadata:

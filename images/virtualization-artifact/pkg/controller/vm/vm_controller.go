@@ -51,12 +51,14 @@ func SetupController(
 	log *log.Logger,
 	dvcrSettings *dvcr.Settings,
 	firmwareImage string,
+	controllerNamespace string,
 ) error {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	mgrCache := mgr.GetCache()
 	client := mgr.GetClient()
 	blockDeviceService := service.NewBlockDeviceService(client)
 	vmClassService := service.NewVirtualMachineClassService(client)
+	attachmentService := service.NewAttachmentService(client, virtClient, controllerNamespace)
 
 	migrateVolumesService := vmservice.NewMigrationVolumesService(client, internal.MakeKVVMFromVMSpec, 10*time.Second)
 
@@ -77,6 +79,7 @@ func SetupController(
 		internal.NewSizePolicyHandler(),
 		internal.NewNetworkInterfaceHandler(featuregates.Default()),
 		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder, featuregates.Default(), migrateVolumesService),
+		internal.NewHotplugHandler(attachmentService),
 		internal.NewSyncPowerStateHandler(client, recorder),
 		internal.NewSyncMetadataHandler(client),
 		internal.NewLifeCycleHandler(client, recorder),
@@ -104,7 +107,7 @@ func SetupController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachine{}).
-		WithValidator(NewValidator(client, blockDeviceService, featuregates.Default(), log)).
+		WithValidator(NewValidator(client, blockDeviceService, attachmentService, featuregates.Default(), log)).
 		WithDefaulter(NewDefaulter(client, vmClassService, log)).
 		Complete(); err != nil {
 		return err

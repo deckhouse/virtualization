@@ -6,7 +6,7 @@ config:
     - GOPROXY
     - MODULES_MODULE_TAG
     - SOURCE_REPO
-    - SOURCE_REPO_GIT
+    - DECKHOUSE_PRIVATE_REPO
     - MODULE_EDITION
     - DISTRO_PACKAGES_PROXY
     - SVACE_ENABLED
@@ -21,7 +21,9 @@ config:
   secrets:
     allowValueIds:
     - SOURCE_REPO
+    - DECKHOUSE_PRIVATE_REPO
     - GOPROXY
+    - DISTRO_PACKAGES_PROXY
 helm:
   allowUncommittedFiles:
   - "Chart.lock"

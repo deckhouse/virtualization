@@ -21,11 +21,11 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal/validators"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -40,13 +40,14 @@ type Validator struct {
 	log        *log.Logger
 }
 
-func NewValidator(attachmentService *intsvc.AttachmentService, service *service.BlockDeviceService, log *log.Logger) *Validator {
+func NewValidator(c client.Client, attachmentService *service.AttachmentService, service *service.BlockDeviceService, log *log.Logger) *Validator {
 	return &Validator{
 		log: log.With("webhook", "validation"),
 		validators: []VirtualMachineBlockDeviceAttachmentValidator{
 			validators.NewSpecMutateValidator(),
 			validators.NewAttachmentConflictValidator(attachmentService, log),
 			validators.NewVMConnectLimiterValidator(service, log),
+			validators.NewPVNodeAffinityValidator(c, attachmentService),
 		},
 	}
 }

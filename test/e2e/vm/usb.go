@@ -19,6 +19,8 @@ package vm
 import (
 	"context"
 	"fmt"
+	"math/rand"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -40,11 +42,13 @@ import (
 
 var _ = Describe("VirtualMachineUSB", Label(precheck.PrecheckUSB), func() {
 	var (
-		f *framework.Framework
-		t *VMUSBTest
+		f   *framework.Framework
+		t   *VMUSBTest
+		ctx context.Context
 	)
 
 	BeforeEach(func() {
+		ctx = context.Background()
 		f = framework.NewFramework("vm-usb")
 		DeferCleanup(func() {
 			t.unassignNodeUSB()
@@ -52,18 +56,18 @@ var _ = Describe("VirtualMachineUSB", Label(precheck.PrecheckUSB), func() {
 		})
 
 		f.Before()
-		t = NewVMUSBTest(f)
+		t = NewVMUSBTest(ctx, f)
 	})
 
 	It("should write data to USB device and preserve after reconnection", func() {
 		By("Environment preparation", func() {
 			// TODO: Move all preflight checks to the `SynchronizedBeforeSuite` to ensure they are executed in a synchronized context.
-			if !t.checkDummyHCDConfigured() {
+			if !t.checkDummyHCDConfigured(ctx) {
 				Skip("dummy_hcd is not configured. Run generate_dummy_hcd_ngc.sh first.")
 			}
 
-			t.GenerateEnvironmentResources()
-			err := f.CreateWithDeferredDeletion(context.Background(), t.VD)
+			t.GenerateEnvironmentResources(ctx)
+			err := f.CreateWithDeferredDeletion(ctx, t.VD)
 			Expect(err).NotTo(HaveOccurred())
 
 			t.assignNodeUSB()
@@ -74,10 +78,10 @@ var _ = Describe("VirtualMachineUSB", Label(precheck.PrecheckUSB), func() {
 		})
 
 		By("Creating VM with USB device", func() {
-			err := f.CreateWithDeferredDeletion(context.Background(), t.VM)
+			err := f.CreateWithDeferredDeletion(ctx, t.VM)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, t.VM)
+			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, t.VM)
 			util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 			util.UntilGuestCommandsReady(f, t.VM, []string{"sudo", "tee", "udevadm"}, framework.LongTimeout)
 		})
@@ -91,7 +95,15 @@ var _ = Describe("VirtualMachineUSB", Label(precheck.PrecheckUSB), func() {
 		})
 
 		By("Mounting USB device", func() {
-			t.mountUSB()
+			GinkgoWriter.Println("Finding USB device")
+			mountDevice := t.findUSBMountDevice()
+			GinkgoWriter.Println("Found USB device:", mountDevice)
+
+			GinkgoWriter.Println("Formatting USB device")
+			t.formatUSBDevice(mountDevice)
+
+			GinkgoWriter.Println("Mounting USB device")
+			t.mountUSBDevice(mountDevice)
 		})
 
 		By("Writing data to USB device", func() {
@@ -102,7 +114,7 @@ var _ = Describe("VirtualMachineUSB", Label(precheck.PrecheckUSB), func() {
 			util.MigrateVirtualMachine(f, t.VM)
 			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
 
-			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
+			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
 			util.UntilSSHReady(f, t.VM, framework.ShortTimeout)
 		})
 
@@ -115,7 +127,12 @@ var _ = Describe("VirtualMachineUSB", Label(precheck.PrecheckUSB), func() {
 		})
 
 		By("Remounting USB device after migration", func() {
-			t.mountUSB()
+			GinkgoWriter.Println("Finding USB device")
+			mountDevice := t.findUSBMountDevice()
+			GinkgoWriter.Println("Found USB device:", mountDevice)
+
+			GinkgoWriter.Println("Remounting USB device")
+			t.mountUSBDevice(mountDevice)
 		})
 
 		By("Verifying data persists after migration", func() {
@@ -136,17 +153,16 @@ type VMUSBTest struct {
 	testContent string
 }
 
-func NewVMUSBTest(f *framework.Framework) *VMUSBTest {
+func NewVMUSBTest(ctx context.Context, f *framework.Framework) *VMUSBTest {
 	return &VMUSBTest{
 		Framework:   f,
-		ctx:         context.Background(),
+		ctx:         ctx,
 		testFile:    "/mnt/usb/testfile.txt",
 		testContent: "Hello USB " + time.Now().Format(time.RFC3339),
 	}
 }
 
-func (t *VMUSBTest) checkDummyHCDConfigured() bool {
-	ctx := context.Background()
+func (t *VMUSBTest) checkDummyHCDConfigured(ctx context.Context) bool {
 	virtClient := t.Framework.VirtClient()
 
 	nodeUSBList, err := virtClient.NodeUSBDevices().List(ctx, metav1.ListOptions{})
@@ -167,21 +183,23 @@ func (t *VMUSBTest) checkDummyHCDConfigured() bool {
 	return false
 }
 
-func (t *VMUSBTest) GenerateEnvironmentResources() {
-	ctx := context.Background()
+func (t *VMUSBTest) GenerateEnvironmentResources(ctx context.Context) {
 	virtClient := t.Framework.VirtClient()
 
 	nodeUSBList, err := virtClient.NodeUSBDevices().List(ctx, metav1.ListOptions{})
 	Expect(err).NotTo(HaveOccurred())
 
-	var freeUSB *v1alpha2.NodeUSBDevice
+	var freeUSBs []*v1alpha2.NodeUSBDevice
 	for i := range nodeUSBList.Items {
 		if nodeUSBList.Items[i].Status.Attributes.VendorID == "1d6b" && nodeUSBList.Items[i].Status.Attributes.ProductID == "0104" && nodeUSBList.Items[i].Spec.AssignedNamespace == "" {
-			freeUSB = &nodeUSBList.Items[i]
-			break
+			freeUSBs = append(freeUSBs, &nodeUSBList.Items[i])
 		}
 	}
-	Expect(freeUSB).NotTo(BeNil(), "no free USB devices available")
+	Expect(freeUSBs).NotTo(BeEmpty(), "no free USB devices available")
+
+	freeUSB := freeUSBs[rand.New(rand.NewSource(time.Now().UnixNano())).Intn(len(freeUSBs))]
+
+	GinkgoWriter.Println("Found free USB device:", freeUSB.Name)
 
 	t.NodeUSBDevice = freeUSB
 
@@ -255,11 +273,11 @@ func (t *VMUSBTest) verifyUSBTestData() {
 	Expect(result).To(ContainSubstring(t.testContent))
 }
 
-func (t *VMUSBTest) mountUSB() {
+func (t *VMUSBTest) findUSBMountDevice() string {
 	serial := t.NodeUSBDevice.Status.Attributes.Serial
 	Expect(serial).NotTo(BeEmpty(), "USB device serial must be set")
 
-	mountCmd := fmt.Sprintf(`
+	findDeviceCmd := fmt.Sprintf(`
 		usb_serial=%q
 		: > /tmp/usb-mount.err
 		for serial_file in /sys/bus/usb/devices/*/serial; do
@@ -293,20 +311,69 @@ func (t *VMUSBTest) mountUSB() {
 			exit 1
 		}
 
+		echo "$mount_device"
+	`, serial)
+
+	var mountDevice string
+
+	Eventually(func() error {
+		result, err := t.Framework.SSHCommand(
+			t.VM.Name,
+			t.VM.Namespace,
+			findDeviceCmd,
+			framework.WithSSHTimeout(framework.ShortTimeout),
+		)
+		if err != nil {
+			return err
+		}
+		mountDevice = strings.TrimSpace(result)
+		if mountDevice == "" {
+			return fmt.Errorf("empty mount device output")
+		}
+
+		return nil
+	}).WithTimeout(framework.MiddleTimeout).WithPolling(time.Second).Should(Succeed(), t.usbDiagnostics())
+
+	return mountDevice
+}
+
+func (t *VMUSBTest) formatUSBDevice(mountDevice string) {
+	formatCmd := fmt.Sprintf(`
+		: > /tmp/usb-mount.err
+		sudo mkfs.vfat -I %q 2>>/tmp/usb-mount.err
+	`, mountDevice)
+
+	Eventually(func() error {
+		_, err := t.Framework.SSHCommand(
+			t.VM.Name,
+			t.VM.Namespace,
+			formatCmd,
+			framework.WithSSHTimeout(framework.ShortTimeout),
+		)
+		return err
+	}).WithTimeout(framework.MiddleTimeout).WithPolling(time.Second).Should(Succeed(), t.usbDiagnostics())
+}
+
+func (t *VMUSBTest) mountUSBDevice(mountDevice string) {
+	mountCmd := fmt.Sprintf(`
+		: > /tmp/usb-mount.err
 		sudo mkdir -p /mnt/usb
 		if sudo mountpoint -q /mnt/usb; then
 			sudo umount /mnt/usb || true
 		fi
-		sudo mount -t auto "$mount_device" /mnt/usb 2>>/tmp/usb-mount.err || \
-			sudo mount -t vfat -o rw "$mount_device" /mnt/usb 2>>/tmp/usb-mount.err || \
-			sudo mount -o rw "$mount_device" /mnt/usb 2>>/tmp/usb-mount.err
+		sudo mount %q /mnt/usb 2>>/tmp/usb-mount.err
 		ls -la /mnt/usb
-	`, serial)
+	`, mountDevice)
 
 	Eventually(func() error {
-		_, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, mountCmd, framework.WithSSHTimeout(framework.MiddleTimeout))
+		_, err := t.Framework.SSHCommand(
+			t.VM.Name,
+			t.VM.Namespace,
+			mountCmd,
+			framework.WithSSHTimeout(framework.MiddleTimeout),
+		)
 		return err
-	}).WithTimeout(framework.MiddleTimeout).WithPolling(time.Second).Should(Succeed(), t.usbDiagnostics())
+	}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed(), t.usbDiagnostics())
 }
 
 func (t *VMUSBTest) usbDiagnostics() string {

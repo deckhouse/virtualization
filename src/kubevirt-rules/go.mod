@@ -4,7 +4,7 @@ module github.com/deckhouse/virtualization/src/kubevirt-rules
 go 1.24.0
 
 require (
-	github.com/deckhouse/kube-api-rewriter v0.2.0
+	github.com/deckhouse/kube-api-rewriter v0.2.1
 	sigs.k8s.io/yaml v1.6.0
 )
 
@@ -32,4 +32,9 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.7.0 // indirect
 )
 
-replace github.com/deckhouse/kube-api-rewriter => github.com/deckhouse/kube-api-rewriter v0.2.0
+replace github.com/deckhouse/kube-api-rewriter => github.com/deckhouse/kube-api-rewriter v0.2.1
+
+replace (
+	k8s.io/apimachinery => k8s.io/apimachinery v0.33.3
+	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20250701173324-9bd5c66d9911
+)

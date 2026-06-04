@@ -18,13 +18,17 @@ package vm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -64,10 +68,12 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 		vmFoo     *v1alpha2.VirtualMachine
 		vmBar     *v1alpha2.VirtualMachine
 
-		f *framework.Framework
+		ctx context.Context
+		f   *framework.Framework
 	)
 
 	BeforeEach(func() {
+		ctx = context.Background()
 		f = framework.NewFramework("vm-additional-network")
 		DeferCleanup(f.After)
 
@@ -97,24 +103,24 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 				vmFoo = buildVMWithNetworks("vm-foo", ns, vdFooRoot.Name, tc.vmFooAdditionalIP, true)
 				vmBar = buildVMWithNetworks("vm-bar", ns, vdBarRoot.Name, tc.vmBarAdditionalIP, tc.vmBarHasMainNetwork)
 
-				err := f.CreateWithDeferredDeletion(context.Background(), vdFooRoot, vdBarRoot, vmFoo, vmBar)
+				err := f.CreateWithDeferredDeletion(ctx, vdFooRoot, vdBarRoot, vmFoo, vmBar)
 				Expect(err).NotTo(HaveOccurred())
 
-				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmFoo, vmBar)
+				util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vmFoo, vmBar)
 				util.UntilSSHReady(f, vmFoo, framework.LongTimeout)
 				if tc.vmBarHasMainNetwork {
 					util.UntilSSHReady(f, vmBar, framework.LongTimeout)
 				}
 
 				By(fmt.Sprintf("Wait until vms %s and %s in phase running", vmFoo.GetName(), vmBar.GetName()), func() {
-					util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vmFoo, vmBar)
+					util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vmFoo, vmBar)
 				})
 			})
 
 			// If test fail due this timeout, rollback in test waiting for agent to be ready.
 			By("Wait for additional network interfaces to be ready", func() {
 				util.UntilConditionStatus(
-					context.Background(),
+					ctx,
 					vmcondition.TypeNetworkReady.String(),
 					"True",
 					framework.LongTimeout,
@@ -138,26 +144,26 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 			})
 
 			By("Check Cilium agents after migration", func() {
-				err := network.CheckCiliumAgents(context.Background(), f.Kubectl(), vmFoo.Name, f.Namespace().Name)
+				err := network.CheckCiliumAgents(ctx, f.Kubectl(), vmFoo.Name, f.Namespace().Name)
 				Expect(err).NotTo(HaveOccurred(), "Cilium agents check for VM %s", vmFoo.Name)
 
 				if tc.vmBarHasMainNetwork {
-					err = network.CheckCiliumAgents(context.Background(), f.Kubectl(), vmBar.Name, f.Namespace().Name)
+					err = network.CheckCiliumAgents(ctx, f.Kubectl(), vmBar.Name, f.Namespace().Name)
 					Expect(err).NotTo(HaveOccurred(), "Cilium agents check for VM %s", vmBar.Name)
 				}
 			})
 
 			By("Check VM can reach external network after migration", func() {
-				network.CheckExternalConnectivity(f, vmFoo.Name, network.ExternalHost, network.HTTPStatusOk)
+				network.CheckExternalConnectivity(f, vmFoo.Name, network.ExternalConnectivityHosts)
 
 				if tc.vmBarHasMainNetwork {
-					network.CheckExternalConnectivity(f, vmBar.Name, network.ExternalHost, network.HTTPStatusOk)
+					network.CheckExternalConnectivity(f, vmBar.Name, network.ExternalConnectivityHosts)
 				}
 			})
 
 			By("Wait for additional network interfaces to be ready after migration", func() {
 				util.UntilConditionStatus(
-					context.Background(),
+					ctx,
 					vmcondition.TypeNetworkReady.String(),
 					"True",
 					framework.LongTimeout,
@@ -176,6 +182,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 
 	Describe("verifies interface name persistence after removing middle ClusterNetwork", func() {
 		cloudInitOpt := vm.WithProvisioningUserData(object.UbuntuCloudInit)
+		memoryOpt := vm.WithMemory(resource.MustParse("512Mi"))
 
 		var (
 			vdRoot *v1alpha2.VirtualDisk
@@ -183,30 +190,28 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 		)
 
 		const (
-			getLastInterfaceNameCmd = "ip -o link show | tail -1 | cut -d: -f2 | awk \"{print \\$1}\""
+			expectedLastInterfaceName = "eno3"
 		)
 
 		It("should preserve interface name after removing middle ClusterNetwork and rebooting", func() {
-			var lastInterfaceNameBeforeRemoval string
-
 			By("Create VM with Main network and two additional ClusterNetworks", func() {
 				ns := f.Namespace().Name
 
 				vdRoot = object.NewVDFromCVI("vd-root", ns, object.PrecreatedCVIUbuntu)
 
-				vm = buildVMWithNetworks("vm", ns, vdRoot.Name, "192.168.1.20", true, cloudInitOpt)
+				vm = buildVMWithNetworks("vm", ns, vdRoot.Name, "192.168.1.20", true, cloudInitOpt, memoryOpt)
 				vm.Spec.Networks = append(vm.Spec.Networks, v1alpha2.NetworksSpec{
 					Type: v1alpha2.NetworksTypeClusterNetwork,
 					Name: util.ClusterNetworkName(secondAdditionalInterfaceVLANID),
 				})
 
-				err := f.CreateWithDeferredDeletion(context.Background(), vdRoot, vm)
+				err := f.CreateWithDeferredDeletion(ctx, vdRoot, vm)
 				Expect(err).NotTo(HaveOccurred())
 
-				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
-				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+				util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
+				util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 				util.UntilConditionStatus(
-					context.Background(),
+					ctx,
 					vmcondition.TypeNetworkReady.String(),
 					"True",
 					framework.LongTimeout,
@@ -216,22 +221,19 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 
 			By("Get last interface name via SSH", func() {
 				util.UntilSSHReady(f, vm, framework.LongTimeout)
-				output, err := f.SSHCommand(vm.Name, vm.Namespace, getLastInterfaceNameCmd)
-				Expect(err).NotTo(HaveOccurred())
-				lastInterfaceNameBeforeRemoval = strings.TrimSpace(output)
-				Expect(lastInterfaceNameBeforeRemoval).NotTo(BeEmpty(), "Failed to get last interface name")
+				checkLastInterfaceName(f, vm.Name, vm.Namespace, expectedLastInterfaceName)
 			})
 
 			By("Remove middle ClusterNetwork from VM spec", func() {
-				err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vm), vm)
+				err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), vm)
 				Expect(err).NotTo(HaveOccurred())
 				vm.Spec.Networks = []v1alpha2.NetworksSpec{vm.Spec.Networks[0], vm.Spec.Networks[2]}
-				err = f.Clients.GenericClient().Update(context.Background(), vm)
+				err = f.Clients.GenericClient().Update(ctx, vm)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("Reboot VM via VMOP", func() {
-				err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vm), vm)
+				err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), vm)
 				Expect(err).NotTo(HaveOccurred())
 
 				runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
@@ -240,10 +242,10 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 				util.RebootVirtualMachineByVMOP(f, vm)
 
 				util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(vm), previousRunningTime, framework.LongTimeout)
-				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
-				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+				util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
+				util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 				util.UntilConditionStatus(
-					context.Background(),
+					ctx,
 					vmcondition.TypeNetworkReady.String(),
 					"True",
 					framework.LongTimeout,
@@ -253,13 +255,117 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 
 			By("Verify last interface name has not changed", func() {
 				util.UntilSSHReady(f, vm, framework.LongTimeout)
-				output, err := f.SSHCommand(vm.Name, vm.Namespace, getLastInterfaceNameCmd)
-				Expect(err).NotTo(HaveOccurred())
-				lastInterfaceNameAfterRemoval := strings.TrimSpace(output)
-				Expect(lastInterfaceNameAfterRemoval).NotTo(BeEmpty(), "Failed to get last interface name")
+				checkLastInterfaceName(f, vm.Name, vm.Namespace, expectedLastInterfaceName)
+			})
+		})
+	})
 
-				Expect(lastInterfaceNameAfterRemoval).To(Equal(lastInterfaceNameBeforeRemoval),
-					fmt.Sprintf("Interface name changed from %s to %s after removing middle ClusterNetwork", lastInterfaceNameBeforeRemoval, lastInterfaceNameAfterRemoval))
+	Describe("verifies hotplug and hotunplug of additional network interfaces", func() {
+		const countNonLoopbackInterfacesCmd = "ip -o link show | grep -v 'lo:' | wc -l"
+
+		var (
+			vdRoot *v1alpha2.VirtualDisk
+			testVM *v1alpha2.VirtualMachine
+		)
+
+		getIfaceCount := func() int {
+			GinkgoHelper()
+			output, err := f.SSHCommand(testVM.Name, testVM.Namespace, countNonLoopbackInterfacesCmd)
+			Expect(err).NotTo(HaveOccurred())
+			count, err := strconv.Atoi(strings.TrimSpace(output))
+			Expect(err).NotTo(HaveOccurred())
+			return count
+		}
+
+		expectNoRestartRequired := func() {
+			GinkgoHelper()
+			Consistently(func(g Gomega) {
+				err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(testVM), testVM)
+				g.Expect(err).NotTo(HaveOccurred())
+				cond, _ := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, testVM.Status.Conditions)
+				g.Expect(cond.Status).NotTo(Equal(metav1.ConditionTrue),
+					"VM should not require restart for non-Main network change")
+			}).WithTimeout(10 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
+		}
+
+		It("should attach and detach ClusterNetwork on a running VM without reboot", func() {
+			var initialIfaceCount int
+
+			By("Create VM with only Main network", func() {
+				ns := f.Namespace().Name
+				vdRoot = object.NewVDFromCVI("vd-root", ns, object.PrecreatedCVIUbuntu)
+
+				testVM = vm.New(
+					vm.WithName("vm-hotplug"),
+					vm.WithNamespace(ns),
+					vm.WithBootloader(v1alpha2.EFI),
+					vm.WithCPU(1, ptr.To("5%")),
+					vm.WithMemory(resource.MustParse("512Mi")),
+					vm.WithRestartApprovalMode(v1alpha2.Manual),
+					vm.WithVirtualMachineClass(object.DefaultVMClass),
+					vm.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
+					vm.WithProvisioningUserData(object.UbuntuCloudInit),
+					vm.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
+						Kind: v1alpha2.VirtualDiskKind,
+						Name: vdRoot.Name,
+					}),
+					vm.WithNetwork(v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeMain}),
+				)
+
+				err := f.CreateWithDeferredDeletion(context.Background(), vdRoot, testVM)
+				Expect(err).NotTo(HaveOccurred())
+
+				util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, testVM)
+				util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(testVM), framework.LongTimeout)
+				util.UntilSSHReady(f, testVM, framework.LongTimeout)
+
+				initialIfaceCount = getIfaceCount()
+				Expect(initialIfaceCount).To(BeNumerically(">=", 1),
+					"VM should have at least one non-loopback interface")
+			})
+
+			By("Hotplug: add a ClusterNetwork to spec.networks", func() {
+				err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(testVM), testVM)
+				Expect(err).NotTo(HaveOccurred())
+				testVM.Spec.Networks = append(testVM.Spec.Networks, v1alpha2.NetworksSpec{
+					Type: v1alpha2.NetworksTypeClusterNetwork,
+					Name: util.ClusterNetworkName(additionalInterfaceVLANID),
+				})
+				err = f.Clients.GenericClient().Update(context.Background(), testVM)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("Verify new interface appears in the guest OS", func() {
+				util.UntilConditionStatus(ctx, vmcondition.TypeNetworkReady.String(), "True", framework.LongTimeout, testVM)
+				Eventually(getIfaceCount).
+					WithTimeout(framework.LongTimeout).
+					WithPolling(3*time.Second).
+					Should(Equal(initialIfaceCount+1), "new interface should appear after hotplug")
+			})
+
+			By("Verify VM did not ask for restart after hotplug", expectNoRestartRequired)
+
+			By("Hotunplug: remove the ClusterNetwork from spec.networks", func() {
+				err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(testVM), testVM)
+				Expect(err).NotTo(HaveOccurred())
+				testVM.Spec.Networks = []v1alpha2.NetworksSpec{testVM.Spec.Networks[0]}
+				err = f.Clients.GenericClient().Update(context.Background(), testVM)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("Verify interface disappears from the guest OS", func() {
+				Eventually(getIfaceCount).
+					WithTimeout(framework.LongTimeout).
+					WithPolling(3*time.Second).
+					Should(Equal(initialIfaceCount), "interface should disappear after hotunplug")
+			})
+
+			By("Verify VM did not ask for restart after hotunplug", expectNoRestartRequired)
+
+			By("Verify VM phase stayed Running throughout", func() {
+				err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(testVM), testVM)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(testVM.Status.Phase)).To(Equal(string(v1alpha2.MachineRunning)))
 			})
 		})
 	})
@@ -334,30 +440,70 @@ runcmd:
 func checkConnectivityBetweenVMs(f *framework.Framework, vmFoo, vmBar *v1alpha2.VirtualMachine, vmBarHasMainNetwork bool, vmBarAdditionalIP, vmFooAdditionalIP string) {
 	GinkgoHelper()
 
-	pingCmd := "ping -c 2 -W 2 -w 5 -q %s 2>&1 | grep -o \"[0-9]\\+%%\\s*packet loss\"" // %% -> % in output
-	expectedOut := "0% packet loss"
+	pingCmd := "ping -c 2 -W 2 -w 5 -q %s"
+	expectedPacketLoss := "0"
 
 	By(fmt.Sprintf("VM %s should have connectivity to %s (vm-bar)", vmFoo.Name, vmBarAdditionalIP))
-	checkResultSSHCommand(f, vmFoo.Name, vmFoo.Namespace, fmt.Sprintf(pingCmd, vmBarAdditionalIP), expectedOut)
+	checkPingPacketLoss(f, vmFoo.Name, vmFoo.Namespace, fmt.Sprintf(pingCmd, vmBarAdditionalIP), expectedPacketLoss)
 
 	if vmBarHasMainNetwork {
 		By(fmt.Sprintf("VM %s should have connectivity to %s (vm-foo)", vmBar.Name, vmFooAdditionalIP))
-		checkResultSSHCommand(f, vmBar.Name, vmBar.Namespace, fmt.Sprintf(pingCmd, vmFooAdditionalIP), expectedOut)
+		checkPingPacketLoss(f, vmBar.Name, vmBar.Namespace, fmt.Sprintf(pingCmd, vmFooAdditionalIP), expectedPacketLoss)
 	}
 }
 
 const (
 	Interval = 1 * time.Second
 	Timeout  = 90 * time.Second
+	// SSH command timeout should be safely above command-level deadlines (e.g. ping -w 5)
+	// to avoid killing healthy commands at the timeout boundary.
+	SSHCommandTimeout = 15 * time.Second
 )
 
-func checkResultSSHCommand(f *framework.Framework, vmName, vmNamespace, cmd, equal string) {
+func checkPingPacketLoss(f *framework.Framework, vmName, vmNamespace, cmd, expectedPacketLoss string) {
 	GinkgoHelper()
+	packetLossRE := regexp.MustCompile(`([0-9]+)%\s*packet loss`)
+
 	Eventually(func() (string, error) {
-		res, err := f.SSHCommand(vmName, vmNamespace, cmd, framework.WithSSHTimeout(5*time.Second))
+		res, err := f.SSHCommand(vmName, vmNamespace, cmd, framework.WithSSHTimeout(SSHCommandTimeout))
 		if err != nil {
 			return "", fmt.Errorf("cmd: %s\nstderr: %w", cmd, err)
 		}
-		return strings.TrimSpace(res), nil
-	}).WithTimeout(Timeout).WithPolling(Interval).Should(Equal(equal))
+		match := packetLossRE.FindStringSubmatch(res)
+		if len(match) < 2 {
+			return "", fmt.Errorf("cmd: %s\nfailed to parse packet loss from output: %q", cmd, strings.TrimSpace(res))
+		}
+
+		return match[1], nil
+	}).WithTimeout(Timeout).WithPolling(Interval).Should(Equal(expectedPacketLoss))
+}
+
+func checkLastInterfaceName(f *framework.Framework, vmName, vmNamespace, expected string) {
+	GinkgoHelper()
+	Eventually(func() (string, error) {
+		cmd := "ip -j link show"
+		result, err := f.SSHCommand(vmName, vmNamespace, cmd, framework.WithSSHTimeout(SSHCommandTimeout))
+		if err != nil {
+			return "", fmt.Errorf("failed to execute command: %w: %s", err, result)
+		}
+
+		var links IPLinks
+		err = json.Unmarshal([]byte(result), &links)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse ip JSON output: %w", err)
+		}
+		if len(links) == 0 {
+			return "", fmt.Errorf("no network interfaces found")
+		}
+
+		return links[len(links)-1].IFName, nil
+	}).WithTimeout(Timeout).WithPolling(Interval).Should(Equal(expected))
+}
+
+// IPLinks represents the JSON output of ip -j link show command.
+type IPLinks []IPLink
+
+// IPLink represents a single network interface in the ip JSON output.
+type IPLink struct {
+	IFName string `json:"ifname"`
 }

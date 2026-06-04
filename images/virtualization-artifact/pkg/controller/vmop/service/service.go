@@ -19,18 +19,22 @@ package service
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/ptr"
+	"k8s.io/client-go/util/retry"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/supersede"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
@@ -49,32 +53,54 @@ func NewBaseVMOPService(client client.Client, recorder eventrecord.EventRecorder
 }
 
 func (s *BaseVMOPService) ShouldExecuteOrSetFailedPhase(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (bool, error) {
-	should, err := s.ShouldExecute(ctx, vmop)
+	return s.ShouldExecuteOrSupersedeOrSetFailedPhase(ctx, vmop)
+}
+
+func (s *BaseVMOPService) ShouldExecuteOrSupersedeOrSetFailedPhase(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (bool, error) {
+	blockers, err := s.findOlderActiveVMOPs(ctx, vmop)
 	if err != nil {
 		return false, err
 	}
-	if should {
+	if len(blockers) == 0 {
 		return true, nil
 	}
 
-	vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
-	conditions.SetCondition(
-		conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
-			Generation(vmop.GetGeneration()).
-			Reason(vmopcondition.ReasonNotReadyToBeExecuted).
-			Message("VMOP cannot be executed now. Previously created operation should finish first.").
-			Status(metav1.ConditionFalse),
-		&vmop.Status.Conditions)
-	return false, nil
+	for i := range blockers {
+		oldVMOP := &blockers[i]
+		if !supersede.CanSupersede(oldVMOP, vmop) {
+			s.setNotReadyToBeExecuted(vmop)
+			return false, nil
+		}
+	}
+
+	for i := range blockers {
+		oldVMOP := &blockers[i]
+		if err := s.cleanupSupersededOperation(ctx, oldVMOP); err != nil {
+			return false, err
+		}
+		if err := s.markSuperseded(ctx, oldVMOP, vmop); err != nil {
+			return false, err
+		}
+	}
+
+	return true, nil
 }
 
 func (s *BaseVMOPService) ShouldExecute(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (bool, error) {
-	var vmopList v1alpha2.VirtualMachineOperationList
-	err := s.client.List(ctx, &vmopList, client.InNamespace(vmop.GetNamespace()))
+	blockers, err := s.findOlderActiveVMOPs(ctx, vmop)
 	if err != nil {
 		return false, err
 	}
+	return len(blockers) == 0, nil
+}
 
+func (s *BaseVMOPService) findOlderActiveVMOPs(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) ([]v1alpha2.VirtualMachineOperation, error) {
+	var vmopList v1alpha2.VirtualMachineOperationList
+	if err := s.client.List(ctx, &vmopList, client.InNamespace(vmop.GetNamespace())); err != nil {
+		return nil, err
+	}
+
+	blockers := make([]v1alpha2.VirtualMachineOperation, 0)
 	for _, other := range vmopList.Items {
 		if other.Spec.VirtualMachine != vmop.Spec.VirtualMachine {
 			continue
@@ -85,12 +111,90 @@ func (s *BaseVMOPService) ShouldExecute(ctx context.Context, vmop *v1alpha2.Virt
 		if other.GetUID() == vmop.GetUID() {
 			continue
 		}
-		if other.CreationTimestamp.Before(ptr.To(vmop.CreationTimestamp)) {
-			return false, nil
+		if isOlderVMOP(&other, vmop) {
+			blockers = append(blockers, other)
 		}
 	}
 
-	return true, nil
+	sort.SliceStable(blockers, func(i, j int) bool {
+		return isOlderVMOP(&blockers[i], &blockers[j])
+	})
+
+	return blockers, nil
+}
+
+func isOlderVMOP(a, b *v1alpha2.VirtualMachineOperation) bool {
+	if !a.CreationTimestamp.Equal(&b.CreationTimestamp) {
+		return a.CreationTimestamp.Before(&b.CreationTimestamp)
+	}
+	return a.GetName() < b.GetName()
+}
+
+func (s *BaseVMOPService) setNotReadyToBeExecuted(vmop *v1alpha2.VirtualMachineOperation) {
+	vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+	conditions.SetCondition(
+		conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
+			Generation(vmop.GetGeneration()).
+			Reason(vmopcondition.ReasonNotReadyToBeExecuted).
+			Message("VMOP cannot be executed now. Previously created operation should finish first.").
+			Status(metav1.ConditionFalse),
+		&vmop.Status.Conditions)
+}
+
+func (s *BaseVMOPService) cleanupSupersededOperation(ctx context.Context, oldVMOP *v1alpha2.VirtualMachineOperation) error {
+	key := types.NamespacedName{Name: oldVMOP.Spec.VirtualMachine, Namespace: oldVMOP.Namespace}
+
+	switch oldVMOP.Spec.Type {
+	case v1alpha2.VMOPTypeStart:
+		kvvm := &virtv1.VirtualMachine{}
+		if err := s.client.Get(ctx, key, kvvm); err != nil {
+			return client.IgnoreNotFound(err)
+		}
+		return kvvmutil.RemoveStartAnnotation(ctx, s.client, kvvm)
+	case v1alpha2.VMOPTypeRestart:
+		kvvm := &virtv1.VirtualMachine{}
+		if err := s.client.Get(ctx, key, kvvm); err != nil {
+			return client.IgnoreNotFound(err)
+		}
+		if err := kvvmutil.RemoveRestartAnnotation(ctx, s.client, kvvm); err != nil {
+			return err
+		}
+		return kvvmutil.RemoveStartAnnotation(ctx, s.client, kvvm)
+	case v1alpha2.VMOPTypeMigrate, v1alpha2.VMOPTypeEvict:
+		mig := &virtv1.VirtualMachineInstanceMigration{}
+		if err := s.client.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("vmop-%s", oldVMOP.Name), Namespace: oldVMOP.Namespace}, mig); err != nil {
+			return client.IgnoreNotFound(err)
+		}
+		return client.IgnoreNotFound(s.client.Delete(ctx, mig))
+	case v1alpha2.VMOPTypeStop:
+		return nil
+	default:
+		return nil
+	}
+}
+
+func (s *BaseVMOPService) markSuperseded(ctx context.Context, oldVMOP, newVMOP *v1alpha2.VirtualMachineOperation) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current := &v1alpha2.VirtualMachineOperation{}
+		if err := s.client.Get(ctx, types.NamespacedName{Name: oldVMOP.Name, Namespace: oldVMOP.Namespace}, current); err != nil {
+			return client.IgnoreNotFound(err)
+		}
+		if commonvmop.IsFinished(current) {
+			return nil
+		}
+
+		base := current.DeepCopy()
+		current.Status.Phase = v1alpha2.VMOPPhaseCompleted
+		conditions.SetCondition(
+			conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
+				Generation(current.GetGeneration()).
+				Reason(vmopcondition.ReasonSuperseded).
+				Message(fmt.Sprintf("Superseded by %s with type %s", newVMOP.Name, newVMOP.Spec.Type)).
+				Status(metav1.ConditionTrue),
+			&current.Status.Conditions)
+
+		return s.client.Status().Patch(ctx, current, client.MergeFrom(base))
+	})
 }
 
 func (s *BaseVMOPService) Init(vmop *v1alpha2.VirtualMachineOperation) {

@@ -43,11 +43,13 @@ import (
 
 var _ = Describe("VirtualMachineConnectivity", Label(precheck.NoPrecheck), func() {
 	var (
-		f *framework.Framework
-		t *VMConnectivityTest
+		f   *framework.Framework
+		t   *VMConnectivityTest
+		ctx context.Context
 	)
 
 	BeforeEach(func() {
+		ctx = context.Background()
 		f = framework.NewFramework("vm-connectivity")
 		DeferCleanup(f.After)
 		f.Before()
@@ -57,28 +59,28 @@ var _ = Describe("VirtualMachineConnectivity", Label(precheck.NoPrecheck), func(
 	It("checks VM network connectivity", func() {
 		By("Environment preparation", func() {
 			t.GenerateEnvironmentResources()
-			err := f.CreateWithDeferredDeletion(context.Background(), t.VDa, t.VDb, t.VMa, t.VMb, t.ServiceA, t.ServiceB, t.CurlPod)
+			err := f.CreateWithDeferredDeletion(ctx, t.VDa, t.VDb, t.VMa, t.VMb, t.ServiceA, t.ServiceB, t.CurlPod)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, t.VMa, t.VMb)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VMa), framework.MiddleTimeout)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VMb), framework.MiddleTimeout)
-			util.UntilObjectPhase(string(corev1.PodRunning), framework.ShortTimeout, t.CurlPod)
+			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, t.VMa, t.VMb)
+			util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(t.VMa), framework.MiddleTimeout)
+			util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(t.VMb), framework.MiddleTimeout)
+			util.UntilObjectPhase(ctx, string(corev1.PodRunning), framework.ShortTimeout, t.CurlPod)
 
 			t.CheckCloudInitCompleted(framework.LongTimeout)
 		})
 
 		// There is a known issue with the Cilium agent check.
 		By("Check Cilium agents are properly configured for the VMs", func() {
-			err := network.CheckCiliumAgents(context.Background(), f.Kubectl(), t.VMa.Name, f.Namespace().Name)
+			err := network.CheckCiliumAgents(ctx, f.Kubectl(), t.VMa.Name, f.Namespace().Name)
 			Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", t.VMa.Name)
-			err = network.CheckCiliumAgents(context.Background(), f.Kubectl(), t.VMb.Name, f.Namespace().Name)
+			err = network.CheckCiliumAgents(ctx, f.Kubectl(), t.VMb.Name, f.Namespace().Name)
 			Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", t.VMb.Name)
 		})
 
 		By("Check VMs can reach external network", func() {
-			network.CheckExternalConnectivity(f, t.VMa.Name, network.ExternalHost, network.HTTPStatusOk)
-			network.CheckExternalConnectivity(f, t.VMb.Name, network.ExternalHost, network.HTTPStatusOk)
+			network.CheckExternalConnectivity(f, t.VMa.Name, network.ExternalConnectivityHosts)
+			network.CheckExternalConnectivity(f, t.VMb.Name, network.ExternalConnectivityHosts)
 		})
 
 		By("Check nginx status on VMs", func() {
@@ -106,7 +108,7 @@ var _ = Describe("VirtualMachineConnectivity", Label(precheck.NoPrecheck), func(
 
 		By("Replace selector in service A with selector from service B", func() {
 			t.ServiceA.Spec.Selector["service"] = t.SelectorB
-			err := f.Clients.GenericClient().Update(context.Background(), t.ServiceA)
+			err := f.Clients.GenericClient().Update(ctx, t.ServiceA)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -118,7 +120,7 @@ var _ = Describe("VirtualMachineConnectivity", Label(precheck.NoPrecheck), func(
 
 		By("Change selector in service A back to selector from service A", func() {
 			t.ServiceA.Spec.Selector["service"] = t.SelectorA
-			err := f.Clients.GenericClient().Update(context.Background(), t.ServiceA)
+			err := f.Clients.GenericClient().Update(ctx, t.ServiceA)
 			Expect(err).NotTo(HaveOccurred())
 		})
 

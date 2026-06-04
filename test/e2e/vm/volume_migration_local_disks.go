@@ -57,11 +57,13 @@ func decoratorsForVolumeMigrations() []interface{} {
 var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Label(precheck.NoPrecheck), func() {
 	var (
 		f            *framework.Framework
+		ctx          context.Context
 		storageClass *storagev1.StorageClass
 		vi           *v1alpha2.VirtualImage
 	)
 
 	BeforeEach(func() {
+		ctx = context.Background()
 		f = framework.NewFramework("volume-migration-local-disks")
 		storageClass = framework.GetConfig().StorageClass.TemplateStorageClass
 		if storageClass == nil {
@@ -73,7 +75,7 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 		DeferCleanup(f.After)
 
 		newVI := object.NewGeneratedVIFromCVI("volume-migration-local-disks-", f.Namespace().Name, object.PrecreatedCVIAlpineBIOSPerf)
-		newVI, err := f.VirtClient().VirtualImages(f.Namespace().Name).Create(context.Background(), newVI, metav1.CreateOptions{})
+		newVI, err := f.VirtClient().VirtualImages(f.Namespace().Name).Create(ctx, newVI, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(newVI)
 		vi = newVI
@@ -107,18 +109,18 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 
 		vm, vds := build()
 
-		vm, err := f.VirtClient().VirtualMachines(ns).Create(context.Background(), vm, metav1.CreateOptions{})
+		vm, err := f.VirtClient().VirtualMachines(ns).Create(ctx, vm, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(vm)
 
 		for _, vd := range vds {
-			_, err := f.VirtClient().VirtualDisks(ns).Create(context.Background(), vd, metav1.CreateOptions{})
+			_, err := f.VirtClient().VirtualDisks(ns).Create(ctx, vd, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			f.DeferDelete(vd)
 		}
 
 		By("Wait until VM agent is ready")
-		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
 		const vmopName = "local-disks-migration"
 
@@ -126,7 +128,7 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 		util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
 		Eventually(func() error {
-			vm, err = f.VirtClient().VirtualMachines(ns).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
+			vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -134,7 +136,7 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 			// kubevirt "client socket is closed" and Volume(s)UpdateError.
 			util.SkipIfKnownMigrationFailure(vm)
 
-			vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(context.Background(), vmopName, metav1.GetOptions{})
+			vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(ctx, vmopName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -145,7 +147,7 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 			return nil
 		}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
 
-		vm, err = f.VirtClient().VirtualMachines(ns).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
+		vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(vm.Status.MigrationState).ShouldNot(BeNil())
 		Expect(vm.Status.MigrationState.EndTimestamp).ShouldNot(BeNil())
@@ -164,18 +166,18 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 
 		vm, vds := build()
 
-		vm, err := f.VirtClient().VirtualMachines(ns).Create(context.Background(), vm, metav1.CreateOptions{})
+		vm, err := f.VirtClient().VirtualMachines(ns).Create(ctx, vm, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(vm)
 
 		for _, vd := range vds {
-			_, err := f.VirtClient().VirtualDisks(ns).Create(context.Background(), vd, metav1.CreateOptions{})
+			_, err := f.VirtClient().VirtualDisks(ns).Create(ctx, vd, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			f.DeferDelete(vd)
 		}
 
 		By("Wait until VM agent is ready")
-		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
 		ExecStressNGInVirtualMachine(f, vm)
 
@@ -198,18 +200,18 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 
 		vm, vds := localMigrationRootAndAdditionalBuild()
 
-		vm, err := f.VirtClient().VirtualMachines(ns).Create(context.Background(), vm, metav1.CreateOptions{})
+		vm, err := f.VirtClient().VirtualMachines(ns).Create(ctx, vm, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(vm)
 
 		for _, vd := range vds {
-			_, err := f.VirtClient().VirtualDisks(ns).Create(context.Background(), vd, metav1.CreateOptions{})
+			_, err := f.VirtClient().VirtualDisks(ns).Create(ctx, vd, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			f.DeferDelete(vd)
 		}
 
 		By("Wait until VM agent is ready")
-		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
 		for i := range 2 {
 			vmopName := "local-disks-migration-" + strconv.Itoa(i)
@@ -218,7 +220,7 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 			util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
 			Eventually(func() error {
-				vm, err = f.VirtClient().VirtualMachines(ns).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
+				vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -226,7 +228,7 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 				// kubevirt "client socket is closed" and Volume(s)UpdateError.
 				util.SkipIfKnownMigrationFailure(vm)
 
-				vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(context.Background(), vmopName, metav1.GetOptions{})
+				vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(ctx, vmopName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -237,7 +239,7 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 				return nil
 			}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
 
-			vm, err = f.VirtClient().VirtualMachines(ns).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
+			vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vm.Status.MigrationState).ShouldNot(BeNil())
 			Expect(vm.Status.MigrationState.EndTimestamp).ShouldNot(BeNil())
@@ -247,26 +249,23 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 		}
 	})
 
-	// TODO: need v1.6.2 kubevirt to fix this test
 	It("should be reverted first and completed second", func() {
-		Skip("TODO: need v1.6.2 kubevirt to fix this test")
-
 		ns := f.Namespace().Name
 
 		vm, vds := localMigrationRootAndAdditionalBuild()
 
-		vm, err := f.VirtClient().VirtualMachines(ns).Create(context.Background(), vm, metav1.CreateOptions{})
+		vm, err := f.VirtClient().VirtualMachines(ns).Create(ctx, vm, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(vm)
 
 		for _, vd := range vds {
-			_, err := f.VirtClient().VirtualDisks(ns).Create(context.Background(), vd, metav1.CreateOptions{})
+			_, err := f.VirtClient().VirtualDisks(ns).Create(ctx, vd, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			f.DeferDelete(vd)
 		}
 
 		By("Wait until VM agent is ready")
-		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
 		ExecStressNGInVirtualMachine(f, vm)
 
@@ -287,20 +286,20 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 		util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName2))
 
 		Eventually(func(g Gomega) {
-			vm, err = f.VirtClient().VirtualMachines(ns).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
+			vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
 			g.Expect(err).NotTo(HaveOccurred())
 			// TODO: remove temporary migration skip logic when both known issues are fixed:
 			// kubevirt "client socket is closed" and Volume(s)UpdateError.
 			util.SkipIfKnownMigrationFailure(vm)
 
-			vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(context.Background(), vmopName2, metav1.GetOptions{})
+			vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(ctx, vmopName2, metav1.GetOptions{})
 			g.Expect(err).NotTo(HaveOccurred())
 
 			completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
 			g.Expect(completed.Status).To(Equal(metav1.ConditionTrue), "Reason: %s, Message: %s", completed.Reason, completed.Message)
 		}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
 
-		vm, err = f.VirtClient().VirtualMachines(ns).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
+		vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(vm.Status.MigrationState).ShouldNot(BeNil())
 		Expect(vm.Status.MigrationState.EndTimestamp).ShouldNot(BeNil())
@@ -314,18 +313,18 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 
 		vm, vds := localMigrationRootAndAdditionalBuild()
 
-		vm, err := f.VirtClient().VirtualMachines(ns).Create(context.Background(), vm, metav1.CreateOptions{})
+		vm, err := f.VirtClient().VirtualMachines(ns).Create(ctx, vm, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(vm)
 
 		for _, vd := range vds {
-			_, err := f.VirtClient().VirtualDisks(ns).Create(context.Background(), vd, metav1.CreateOptions{})
+			_, err := f.VirtClient().VirtualDisks(ns).Create(ctx, vd, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			f.DeferDelete(vd)
 		}
 
 		By("Wait until VM agent is ready")
-		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
 		ExecStressNGInVirtualMachine(f, vm)
 
@@ -335,7 +334,7 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 		util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
 		Eventually(func() error {
-			vm, err = f.VirtClient().VirtualMachines(ns).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
+			vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -353,7 +352,7 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 		untilVirtualDisksMigrationsFailed(f)
 	},
 		Entry("when virtual machine deleting", func(vm *v1alpha2.VirtualMachine) error {
-			return f.VirtClient().VirtualMachines(vm.GetNamespace()).Delete(context.Background(), vm.GetName(), metav1.DeleteOptions{})
+			return f.VirtClient().VirtualMachines(vm.GetNamespace()).Delete(ctx, vm.GetName(), metav1.DeleteOptions{})
 		}),
 		// Disabled because vm stopped after migration, that's why test fails.
 		// Entry("when virtual machine stopped from OS", func(vm *v1alpha2.VirtualMachine) error {
@@ -372,7 +371,7 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 			GinkgoHelper()
 
 			patchBytes := []byte(fmt.Sprintf(`{"metadata":{"labels": {"%s": "true"}}}`, unknownLabelKey))
-			_, err := f.KubeClient().CoreV1().Nodes().Patch(context.Background(), node.GetName(), types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{})
+			_, err := f.KubeClient().CoreV1().Nodes().Patch(ctx, node.GetName(), types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{})
 			Expect(err).NotTo(HaveOccurred())
 		}
 
@@ -387,13 +386,13 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 				patchBytes, err := patch.NewJSONPatch(patch.WithReplace("/metadata/labels", newLabels)).Bytes()
 				Expect(err).NotTo(HaveOccurred())
 
-				_, err = f.KubeClient().CoreV1().Nodes().Patch(context.Background(), node.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+				_, err = f.KubeClient().CoreV1().Nodes().Patch(ctx, node.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 				Expect(err).NotTo(HaveOccurred())
 			}
 		}
 
 		BeforeEach(func() {
-			nodes, err := f.KubeClient().CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+			nodes, err := f.KubeClient().CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			for _, node := range nodes.Items {
@@ -413,26 +412,26 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 			vm, vds := localMigrationRootAndAdditionalBuild()
 			vm.Spec.NodeSelector = map[string]string{unknownLabelKey: "true"}
 
-			vm, err := f.VirtClient().VirtualMachines(ns).Create(context.Background(), vm, metav1.CreateOptions{})
+			vm, err := f.VirtClient().VirtualMachines(ns).Create(ctx, vm, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			f.DeferDelete(vm)
 
 			for _, vd := range vds {
-				_, err := f.VirtClient().VirtualDisks(ns).Create(context.Background(), vd, metav1.CreateOptions{})
+				_, err := f.VirtClient().VirtualDisks(ns).Create(ctx, vd, metav1.CreateOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				f.DeferDelete(vd)
 			}
 
 			By("Wait until VM agent is ready")
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+			util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
-			vm, err = f.VirtClient().VirtualMachines(ns).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
+			vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			vmNodeName := vm.Status.Node
 			Expect(vmNodeName).NotTo(BeEmpty())
 
-			nodes, err := f.KubeClient().CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+			nodes, err := f.KubeClient().CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			for _, node := range nodes.Items {
@@ -447,7 +446,10 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 			util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
 			Eventually(func() error {
-				pods, err := f.KubeClient().CoreV1().Pods(ns).List(context.Background(), metav1.ListOptions{})
+				// filter pods by label, only virt-launcher pods needed, ignore hp pods (hotplug volumes)
+				pods, err := f.KubeClient().CoreV1().Pods(ns).List(ctx, metav1.ListOptions{
+					LabelSelector: "kubevirt.internal.virtualization.deckhouse.io=virt-launcher",
+				})
 				Expect(err).NotTo(HaveOccurred())
 
 				if len(pods.Items) != 2 {
@@ -480,7 +482,7 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 				return fmt.Errorf("pending pod is not unschedulable")
 			}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed())
 
-			err = f.VirtClient().VirtualMachineOperations(ns).Delete(context.Background(), vmopName, metav1.DeleteOptions{})
+			err = f.VirtClient().VirtualMachineOperations(ns).Delete(ctx, vmopName, metav1.DeleteOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			untilVirtualDisksMigrationsFailed(f)
@@ -493,13 +495,13 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 		vm, vds := localMigrationRootAndAdditionalBuild()
 
 		By("Creating VM")
-		vm, err := f.VirtClient().VirtualMachines(ns).Create(context.Background(), vm, metav1.CreateOptions{})
+		vm, err := f.VirtClient().VirtualMachines(ns).Create(ctx, vm, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(vm)
 
 		By("Creating VDs")
 		for _, vd := range vds {
-			_, err := f.VirtClient().VirtualDisks(ns).Create(context.Background(), vd, metav1.CreateOptions{})
+			_, err := f.VirtClient().VirtualDisks(ns).Create(ctx, vd, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			f.DeferDelete(vd)
 		}
@@ -507,19 +509,19 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 		By("Creating RWO VD for VMBDA")
 		const vdVmbdaName = "vd-vmbda-rwo"
 		vdVmbda := object.NewBlankVD(vdVmbdaName, ns, &storageClass.Name, ptr.To(resource.MustParse("100Mi")))
-		_, err = f.VirtClient().VirtualDisks(ns).Create(context.Background(), vdVmbda, metav1.CreateOptions{})
+		_, err = f.VirtClient().VirtualDisks(ns).Create(ctx, vdVmbda, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(vdVmbda)
 
 		By("Creating VMBDA")
 		const vmbdaName = "vd-vmbda-rwo"
 		vmbda := object.NewVMBDAFromDisk(vmbdaName, vm.Name, vdVmbda)
-		_, err = f.VirtClient().VirtualMachineBlockDeviceAttachments(ns).Create(context.Background(), vmbda, metav1.CreateOptions{})
+		_, err = f.VirtClient().VirtualMachineBlockDeviceAttachments(ns).Create(ctx, vmbda, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(vmbda)
 
 		By("Wait until VM agent is ready")
-		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
 		const vmopName = "local-disks-migration-with-rwo-vmbda"
 
@@ -527,7 +529,7 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 		util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
 		Eventually(func() error {
-			vm, err = f.VirtClient().VirtualMachines(ns).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
+			vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -535,7 +537,7 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 			// kubevirt "client socket is closed" and Volume(s)UpdateError.
 			util.SkipIfKnownMigrationFailure(vm)
 
-			vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(context.Background(), vmopName, metav1.GetOptions{})
+			vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(ctx, vmopName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -546,7 +548,7 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 			return nil
 		}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
 
-		vm, err = f.VirtClient().VirtualMachines(ns).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
+		vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(vm.Status.MigrationState).ShouldNot(BeNil())
 		Expect(vm.Status.MigrationState.EndTimestamp).ShouldNot(BeNil())

@@ -53,6 +53,8 @@ import (
 
 const nameSyncKvvmHandler = "SyncKvvmHandler"
 
+var errWaitForNetworkReady = errors.New("wait for SDN to configure network interfaces on the pod")
+
 type syncVolumesService interface {
 	SyncVolumes(ctx context.Context, s state.VirtualMachineState, restartRequired bool) (reconcile.Result, error)
 }
@@ -151,6 +153,14 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		lastClassAppliedSpec := h.loadClassLastAppliedSpec(class, kvvm)
 		changes = h.detectSpecChanges(ctx, kvvm, &current.Spec, lastAppliedSpec)
 		if !changes.IsEmpty() {
+			kvvmi, kvvmiErr := s.KVVMI(ctx)
+			if kvvmiErr == nil && hasNonHotpluggableVolumes(kvvmi) {
+				changes.UpgradeBlockDeviceChangesToRestart()
+			}
+			// Require restart for CPU and memory changes if VM is non migratable.
+			if h.isVMNonMigratable(current) {
+				changes.UpgradeHotplugComputeChangesToRestart()
+			}
 			allChanges.Add(changes.GetAll()...)
 		}
 		if class != nil {
@@ -193,7 +203,8 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 
 	// 3. Create or update KVVM.
 	synced, kvvmSyncErr := h.syncKVVM(ctx, s, allChanges)
-	if kvvmSyncErr != nil {
+	waitForNetwork := errors.Is(kvvmSyncErr, errWaitForNetworkReady)
+	if kvvmSyncErr != nil && !waitForNetwork {
 		errs = errors.Join(errs, fmt.Errorf("failed to sync the internal virtual machine: %w", kvvmSyncErr))
 	}
 
@@ -204,6 +215,11 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 
 	// 4. Set ConfigurationApplied condition.
 	switch {
+	case waitForNetwork:
+		cbConfApplied.
+			Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonConfigurationNotApplied).
+			Message("Waiting for SDN to configure network interfaces on the pod.")
 	case kvvmSyncErr != nil:
 		h.recorder.Event(current, corev1.EventTypeWarning, v1alpha2.ReasonErrVmNotSynced, kvvmSyncErr.Error())
 		cbConfApplied.
@@ -261,6 +277,9 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	result, migrateVolumesErr := h.syncVolumesService.SyncVolumes(ctx, s, cbAwaitingRestart.Condition().Status == metav1.ConditionTrue)
 	if migrateVolumesErr != nil {
 		errs = errors.Join(errs, fmt.Errorf("failed to sync migrating volumes: %w", migrateVolumesErr))
+	}
+	if waitForNetwork && result.RequeueAfter == 0 {
+		result.RequeueAfter = 5 * time.Second
 	}
 	return result, errs
 }
@@ -335,6 +354,15 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 
 		return true, nil
 	case allChanges.IsEmpty():
+		outOfSync, err := h.networksOutOfSync(ctx, s, kvvm)
+		if err != nil {
+			return false, fmt.Errorf("check network sync: %w", err)
+		}
+		if outOfSync {
+			if err := h.applyNetworkReadinessSync(ctx, s); err != nil {
+				return false, fmt.Errorf("apply network readiness sync: %w", err)
+			}
+		}
 		return true, nil
 	default:
 		// Delay changes propagation to KVVM until user restarts VM.
@@ -491,13 +519,40 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 		return nil, err
 	}
 
-	networkSpec := network.CreateNetworkSpec(current, vmmacs)
-
-	// Create kubevirt VirtualMachine resource from d8 VirtualMachine spec.
-	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, class, ipAddress, networkSpec)
+	filteredVM, err := filterReadyNetworks(ctx, s.Client(), current)
 	if err != nil {
 		return nil, err
 	}
+	networkSpec := network.CreateNetworkSpec(filteredVM, vmmacs)
+
+	kvvmi, err := s.KVVMI(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create kubevirt VirtualMachine resource from d8 VirtualMachine spec.
+	err = kvbuilder.ApplyVirtualMachineSpec(
+		kvvmBuilder,
+		current,
+		bdState.VDByName,
+		bdState.VIByName,
+		bdState.CVIByName,
+		bdState.VMBDAByBlockDeviceRef,
+		class,
+		ipAddress,
+		networkSpec,
+		kvvmi != nil && kvvmi.Status.Phase == virtv1.Running,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	pvTerms, err := s.PVNodeAffinityTerms(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to collect PV node affinities: %w", err)
+	}
+	kvvmBuilder.ApplyPVNodeAffinity(pvTerms)
+
 	newKVVM := kvvmBuilder.GetResource()
 
 	err = kvbuilder.SetLastAppliedSpec(newKVVM, current)
@@ -696,6 +751,24 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 		h.recorder.Event(current, corev1.EventTypeNormal, v1alpha2.ReasonVMChangesApplied, message)
 		log.Debug(message, "vm.name", current.GetName(), "changes", changes)
 
+		if hasNetworkChange(changes) {
+			desired, err := h.patchPodNetworkAnnotation(ctx, s)
+			if err != nil {
+				return fmt.Errorf("unable to patch pod network annotation: %w", err)
+			}
+
+			ready, err := h.isNetworkReadyOnPod(ctx, s, desired)
+			if err != nil {
+				return fmt.Errorf("unable to check pod network status: %w", err)
+			}
+			if !ready {
+				msg := "Waiting for SDN to configure network interfaces on the pod"
+				log.Info(msg)
+				h.recorder.Event(current, corev1.EventTypeNormal, v1alpha2.ReasonVMChangesApplied, msg)
+				return errWaitForNetworkReady
+			}
+		}
+
 		if err := h.updateKVVM(ctx, s); err != nil {
 			return fmt.Errorf("unable to update KVVM using new VM spec: %w", err)
 		}
@@ -755,7 +828,175 @@ func (h *SyncKvvmHandler) isVMUnschedulable(
 	return false
 }
 
+func (h *SyncKvvmHandler) isVMNonMigratable(
+	vm *v1alpha2.VirtualMachine,
+) bool {
+	vmMigratable, has := conditions.GetCondition(vmcondition.TypeMigratable, vm.Status.Conditions)
+	return has && vmMigratable.Status == metav1.ConditionFalse
+}
+
+func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine) (bool, error) {
+	if kvvm == nil {
+		return false, nil
+	}
+	filteredVM, err := filterReadyNetworks(ctx, s.Client(), s.VirtualMachine().Current())
+	if err != nil {
+		return false, err
+	}
+	vmmacs, err := s.VirtualMachineMACAddresses(ctx)
+	if err != nil {
+		return false, err
+	}
+	desired := network.CreateNetworkSpec(filteredVM, vmmacs)
+	actual := make(map[string]struct{})
+	for _, iface := range kvvm.Spec.Template.Spec.Domain.Devices.Interfaces {
+		if iface.State == virtv1.InterfaceStateAbsent {
+			continue
+		}
+		actual[iface.Name] = struct{}{}
+	}
+	if len(desired) != len(actual) {
+		return true, nil
+	}
+	for _, spec := range desired {
+		if _, ok := actual[spec.InterfaceName]; !ok {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (h *SyncKvvmHandler) applyNetworkReadinessSync(ctx context.Context, s state.VirtualMachineState) error {
+	desired, err := h.patchPodNetworkAnnotation(ctx, s)
+	if err != nil {
+		return fmt.Errorf("patch pod network annotation: %w", err)
+	}
+	ready, err := h.isNetworkReadyOnPod(ctx, s, desired)
+	if err != nil {
+		return fmt.Errorf("check pod network status: %w", err)
+	}
+	if !ready {
+		logger.FromContext(ctx).Info("Waiting for SDN to configure network interfaces on the pod before updating KVVM")
+		return errWaitForNetworkReady
+	}
+	return h.updateKVVM(ctx, s)
+}
+
+func filterReadyNetworks(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine) (*v1alpha2.VirtualMachine, error) {
+	if c == nil || vm == nil || len(vm.Spec.Networks) == 0 {
+		return vm, nil
+	}
+	kept := make([]v1alpha2.NetworksSpec, 0, len(vm.Spec.Networks))
+	for _, ns := range vm.Spec.Networks {
+		ready, err := network.IsNetworkSpecReady(ctx, c, vm.Namespace, ns)
+		if err != nil {
+			return nil, fmt.Errorf("check readiness for network %s: %w", network.SpecKey(ns), err)
+		}
+		if ready {
+			kept = append(kept, ns)
+		}
+	}
+	if len(kept) == len(vm.Spec.Networks) {
+		return vm, nil
+	}
+	out := vm.DeepCopy()
+	out.Spec.Networks = kept
+	return out, nil
+}
+
+func hasNetworkChange(changes vmchange.SpecChanges) bool {
+	for _, c := range changes.GetAll() {
+		if c.Path == "networks" {
+			return true
+		}
+	}
+	return false
+}
+
+func (h *SyncKvvmHandler) isNetworkReadyOnPod(ctx context.Context, s state.VirtualMachineState, desired []string) (bool, error) {
+	pods, err := s.Pods(ctx)
+	if err != nil {
+		return false, err
+	}
+	if pods == nil || len(pods.Items) == 0 {
+		return false, nil
+	}
+	errMsg, err := extractNetworkStatusFromPods(pods, desired)
+	if err != nil {
+		return false, err
+	}
+	return errMsg == "", nil
+}
+
+// patchPodNetworkAnnotation writes the desired networks-spec annotation onto
+// the virt-launcher pod and returns the names of additional networks it wrote.
+// The names let the caller assert SDN has already reflected each one in networks status
+func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state.VirtualMachineState) ([]string, error) {
+	log := logger.FromContext(ctx)
+
+	pod, err := s.Pod(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if pod == nil {
+		return nil, nil
+	}
+
+	current := s.VirtualMachine().Current()
+	vmmacs, err := s.VirtualMachineMACAddresses(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	filteredVM, err := filterReadyNetworks(ctx, s.Client(), current)
+	if err != nil {
+		return nil, err
+	}
+
+	var desired []string
+	for _, n := range filteredVM.Spec.Networks {
+		if n.Type == v1alpha2.NetworksTypeMain {
+			continue
+		}
+		desired = append(desired, n.Name)
+	}
+
+	networkConfigStr, err := network.CreateNetworkSpec(filteredVM, vmmacs).ToString()
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize network spec: %w", err)
+	}
+
+	if pod.Annotations[annotations.AnnNetworksSpec] == networkConfigStr {
+		return desired, nil
+	}
+
+	patch := client.MergeFrom(pod.DeepCopy())
+	if pod.Annotations == nil {
+		pod.Annotations = make(map[string]string)
+	}
+	pod.Annotations[annotations.AnnNetworksSpec] = networkConfigStr
+	if err := h.client.Patch(ctx, pod, patch); err != nil {
+		return nil, fmt.Errorf("failed to patch pod %s network annotation: %w", pod.Name, err)
+	}
+	log.Info("Patched pod network annotation", "pod", pod.Name, "networks", networkConfigStr)
+
+	return desired, nil
+}
+
 // isPlacementPolicyChanged returns true if any of the Affinity, NodePlacement, or Toleration rules have changed.
+func hasNonHotpluggableVolumes(kvvmi *virtv1.VirtualMachineInstance) bool {
+	if kvvmi == nil {
+		return false
+	}
+	for _, v := range kvvmi.Spec.Volumes {
+		if v.PersistentVolumeClaim != nil && !v.PersistentVolumeClaim.Hotpluggable ||
+			v.ContainerDisk != nil && !v.ContainerDisk.Hotpluggable {
+			return true
+		}
+	}
+	return false
+}
+
 func (h *SyncKvvmHandler) isPlacementPolicyChanged(allChanges vmchange.SpecChanges) bool {
 	for _, c := range allChanges.GetAll() {
 		switch c.Path {

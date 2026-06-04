@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -46,6 +47,13 @@ func NewOperationService(client client.Client, vmop *v1alpha2.VirtualMachineOper
 	default:
 		return nil, fmt.Errorf("unknown virtual machine operation type: %v", vmop.Spec.Type)
 	}
+}
+
+func isForceRequested(vmop *v1alpha2.VirtualMachineOperation) bool {
+	if vmop == nil {
+		return false
+	}
+	return ptr.Deref(vmop.Spec.Force, false)
 }
 
 func virtualMachineKeyByVmop(vmop *v1alpha2.VirtualMachineOperation) types.NamespacedName {

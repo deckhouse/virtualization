@@ -1,9 +1,9 @@
 module github.com/deckhouse/virtualization/kube-api-rewriter
 
-go 1.25.9
+go 1.25.10
 
 require (
-	github.com/deckhouse/kube-api-rewriter v0.2.0
+	github.com/deckhouse/kube-api-rewriter v0.2.1
 	github.com/deckhouse/virtualization/src/kubevirt-rules v0.0.0-00010101000000-000000000000
 )
 
@@ -19,7 +19,7 @@ require (
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/google/gnostic-models v0.6.9 // indirect
+	github.com/google/gnostic-models v0.7.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/josephburnett/jd v1.9.2 // indirect
@@ -42,6 +42,7 @@ require (
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
+	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/net v0.42.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
 	golang.org/x/sys v0.34.0 // indirect
@@ -58,7 +59,7 @@ require (
 	k8s.io/apiserver v0.33.3 // indirect
 	k8s.io/client-go v0.33.3 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
-	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff // indirect
+	k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b // indirect
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397 // indirect
 	sigs.k8s.io/controller-runtime v0.21.0 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
@@ -69,12 +70,21 @@ require (
 
 replace google.golang.org/protobuf => google.golang.org/protobuf v1.33.0
 
+replace (
+	k8s.io/api => k8s.io/api v0.33.3
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.33.3
+	k8s.io/apimachinery => k8s.io/apimachinery v0.33.3
+	k8s.io/apiserver => k8s.io/apiserver v0.33.3
+	k8s.io/client-go => k8s.io/client-go v0.33.3
+	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20250701173324-9bd5c66d9911
+)
+
 // CVE Replaces
 replace (
 	golang.org/x/net => golang.org/x/net v0.40.0 // CVE-2025-22870, CVE-2025-22872
 	golang.org/x/oauth2 => golang.org/x/oauth2 v0.27.0 // CVE-2025-22868
 )
 
-replace github.com/deckhouse/kube-api-rewriter => github.com/deckhouse/kube-api-rewriter v0.2.0
+replace github.com/deckhouse/kube-api-rewriter => github.com/deckhouse/kube-api-rewriter v0.2.1
 
 replace github.com/deckhouse/virtualization/src/kubevirt-rules => ./../../src/kubevirt-rules

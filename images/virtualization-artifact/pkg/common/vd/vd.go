@@ -17,10 +17,18 @@ limitations under the License.
 package vd
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 
+	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/component-base/featuregate"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -67,4 +75,96 @@ func StorageClassChanged(vd *v1alpha2.VirtualDisk) bool {
 	}
 
 	return *specSc != "" && statusSc != ""
+}
+
+type VirtualDiskStorageClassResolver interface {
+	GetModuleStorageClass(ctx context.Context) (*storagev1.StorageClass, error)
+	GetDefaultStorageClass(ctx context.Context) (*storagev1.StorageClass, error)
+}
+
+// ResolveStorageClassName resolves storage class name for a VirtualDisk
+// with the same precedence as VD handlers:
+// 1. vd.Status.StorageClassName
+// 2. vd.Spec.PersistentVolumeClaim.StorageClass
+// 3. module default storage class (if resolver is provided)
+// 4. cluster default storage class (if resolver is provided)
+func ResolveStorageClassName(ctx context.Context, vd *v1alpha2.VirtualDisk, resolver VirtualDiskStorageClassResolver) (string, error) {
+	if vd == nil {
+		return "", nil
+	}
+
+	if vd.Status.StorageClassName != "" {
+		return vd.Status.StorageClassName, nil
+	}
+
+	if vd.Spec.PersistentVolumeClaim.StorageClass != nil && *vd.Spec.PersistentVolumeClaim.StorageClass != "" {
+		return *vd.Spec.PersistentVolumeClaim.StorageClass, nil
+	}
+
+	if resolver == nil {
+		return "", nil
+	}
+
+	moduleStorageClass, err := resolver.GetModuleStorageClass(ctx)
+	if err != nil {
+		return "", err
+	}
+	if moduleStorageClass != nil {
+		return moduleStorageClass.Name, nil
+	}
+
+	defaultStorageClass, err := resolver.GetDefaultStorageClass(ctx)
+	if err != nil && !errors.Is(err, service.ErrDefaultStorageClassNotFound) {
+		return "", err
+	}
+	if defaultStorageClass != nil {
+		return defaultStorageClass.Name, nil
+	}
+
+	return "", fmt.Errorf("storage class for VirtualDisk %q cannot be determined", vd.Name)
+}
+
+func ValidateVirtualImageStorageClassProvisionerCompatibility(ctx context.Context, vd *v1alpha2.VirtualDisk, client client.Client) error {
+	if vd.Spec.DataSource == nil || vd.Spec.DataSource.Type != v1alpha2.DataSourceTypeObjectRef {
+		return nil
+	}
+
+	if vd.Spec.DataSource.ObjectRef == nil || vd.Spec.DataSource.ObjectRef.Kind != v1alpha2.VirtualDiskObjectRefKindVirtualImage {
+		return nil
+	}
+
+	vi, err := object.FetchObject(ctx, types.NamespacedName{Namespace: vd.Namespace, Name: vd.Spec.DataSource.ObjectRef.Name}, client, &v1alpha2.VirtualImage{})
+	if err != nil {
+		return err
+	}
+
+	if vi == nil || vi.Status.Phase != v1alpha2.ImageReady || vi.Spec.Storage == v1alpha2.StorageContainerRegistry {
+		return nil
+	}
+
+	vdSc, err := object.FetchObject(ctx, types.NamespacedName{Name: vd.Status.StorageClassName}, client, &storagev1.StorageClass{})
+	if err != nil {
+		return fmt.Errorf("get virtual disk storage class %q: %w", vd.Status.StorageClassName, err)
+	}
+	if vdSc == nil {
+		return fmt.Errorf("virtual disk storage class %q was not found", vd.Status.StorageClassName)
+	}
+
+	viSc, err := object.FetchObject(ctx, types.NamespacedName{Name: vi.Status.StorageClassName}, client, &storagev1.StorageClass{})
+	if err != nil {
+		return fmt.Errorf("get virtual image storage class %q: %w", vi.Status.StorageClassName, err)
+	}
+	if viSc == nil {
+		return fmt.Errorf("virtual image storage class %q was not found", vi.Status.StorageClassName)
+	}
+
+	if vdSc.Provisioner != viSc.Provisioner {
+		return fmt.Errorf(
+			"virtual disk storage class %q provisioner does not match virtual image storage class %q provisioner: source type with different provisioners is not supported yet",
+			vd.Status.StorageClassName,
+			vi.Status.StorageClassName,
+		)
+	}
+
+	return nil
 }

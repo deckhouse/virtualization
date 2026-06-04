@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -35,74 +36,97 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
-func GetBlockDevicePath(f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) string {
+func GetBlockDevicePath(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) string {
 	GinkgoHelper()
 
-	serial, ok := GetBlockDeviceSerialNumber(vm, bdKind, bdName)
-	Expect(ok).To(BeTrue(), "failed to get block device serial number")
+	serial, ok := GetBlockDeviceSerialNumber(ctx, vm, bdKind, bdName)
+	Expect(ok).To(BeTrue(), fmt.Sprintf("failed to get block device %s/%s serial number", bdKind, bdName))
 
 	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
-	Expect(err).NotTo(HaveOccurred(), "failed to get device by serial")
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to get device %s/%s by serial", bdKind, bdName))
 	return devicePath
 }
 
-func CreateBlockDeviceFilesystem(f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName, fsType string) {
+func CreateBlockDeviceFilesystem(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName, fsType string) {
 	GinkgoHelper()
 
-	serial, ok := GetBlockDeviceSerialNumber(vm, bdKind, bdName)
-	Expect(ok).To(BeTrue(), "failed to get block device serial number")
+	serial, ok := GetBlockDeviceSerialNumber(ctx, vm, bdKind, bdName)
+	Expect(ok).To(BeTrue(), fmt.Sprintf("failed to get block device %s/%s serial number", bdKind, bdName))
 
 	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
-	Expect(err).NotTo(HaveOccurred(), "failed to get device by serial")
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to get device %s/%s by serial", bdKind, bdName))
 
 	_, err = f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo mkfs.%s %s", fsType, devicePath))
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to create %s filesystem on block device %s/%s", fsType, bdKind, bdName))
 }
 
-func MountBlockDevice(f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName, mountPoint string) {
+func MountBlockDevice(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName, mountPoint string) {
 	GinkgoHelper()
 
-	serial, ok := GetBlockDeviceSerialNumber(vm, bdKind, bdName)
-	Expect(ok).To(BeTrue(), "failed to get block device serial number")
+	serial, ok := GetBlockDeviceSerialNumber(ctx, vm, bdKind, bdName)
+	Expect(ok).To(BeTrue(), fmt.Sprintf("failed to get block device %s/%s serial number", bdKind, bdName))
 
 	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
-	Expect(err).NotTo(HaveOccurred(), "failed to get device by serial")
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to get device %s/%s by serial", bdKind, bdName))
 
 	_, err = f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo mount %s %s", devicePath, mountPoint))
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to mount block device %s/%s to %s", bdKind, bdName, mountPoint))
 }
 
 func UnmountBlockDevice(f *framework.Framework, vm *v1alpha2.VirtualMachine, mountPoint string) {
 	GinkgoHelper()
 
 	_, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo umount %s", mountPoint))
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to unmount %s", mountPoint))
 }
 
-func RegisterFstabEntry(f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) {
+func RegisterFstabEntry(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) {
 	GinkgoHelper()
 
-	serial, ok := GetBlockDeviceSerialNumber(vm, bdKind, bdName)
-	Expect(ok).To(BeTrue(), "failed to get block device serial number")
+	serial, ok := GetBlockDeviceSerialNumber(ctx, vm, bdKind, bdName)
+	Expect(ok).To(BeTrue(), fmt.Sprintf("failed to get block device %s/%s serial number", bdKind, bdName))
 
 	cmd := fmt.Sprintf(`UUID=$(lsblk -o SERIAL,UUID | grep %s | awk "{print \$2}"); echo "UUID=$UUID /mnt ext4 defaults 0 0" | sudo tee -a /etc/fstab`, serial)
 	_, err := f.SSHCommand(vm.Name, vm.Namespace, cmd)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to register fstab entry for block device %s/%s", bdKind, bdName))
 }
 
-func GetBlockDeviceHash(f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) string {
+func GetBlockDeviceHash(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) string {
 	GinkgoHelper()
 
-	serial, ok := GetBlockDeviceSerialNumber(vm, bdKind, bdName)
-	Expect(ok).To(BeTrue(), "failed to get block device serial number")
+	serial, ok := GetBlockDeviceSerialNumber(ctx, vm, bdKind, bdName)
+	Expect(ok).To(BeTrue(), fmt.Sprintf("failed to get block device %s/%s serial number", bdKind, bdName))
 
 	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
-	Expect(err).NotTo(HaveOccurred(), "failed to get device by serial")
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to get device %s/%s by serial", bdKind, bdName))
 
 	// We use dd to ensure the entire disk is read.
 	cmdOut, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo dd if=%s bs=4M | sha256sum | awk \"{print \\$1}\"", devicePath))
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to get hash for block device %s/%s", bdKind, bdName))
 	return strings.TrimSpace(cmdOut)
+}
+
+func GetBlockDeviceLsblkSize(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) resource.Quantity {
+	GinkgoHelper()
+
+	serial, ok := GetBlockDeviceSerialNumber(ctx, vm, bdKind, bdName)
+	Expect(ok).To(BeTrue(), fmt.Sprintf("failed to get block device %s/%s serial number", bdKind, bdName))
+
+	cmdOut, err := f.SSHCommand(vm.Name, vm.Namespace, "sudo lsblk --nodeps --json -o SERIAL,SIZE")
+	Expect(err).NotTo(HaveOccurred())
+
+	var disks Disks
+	err = json.Unmarshal([]byte(cmdOut), &disks)
+	Expect(err).NotTo(HaveOccurred(), "failed to parse lsblk output")
+
+	for _, blockDevice := range disks.BlockDevices {
+		if blockDevice.Serial == serial {
+			return resource.MustParse(strings.TrimSpace(blockDevice.Size))
+		}
+	}
+
+	Fail(fmt.Sprintf("lsblk output does not contain block device with serial %s", serial))
+	return resource.Quantity{}
 }
 
 func GetBlockDeviceBySerial(f *framework.Framework, vm *v1alpha2.VirtualMachine, serial string) (string, error) {
@@ -128,17 +152,17 @@ func GetBlockDeviceBySerial(f *framework.Framework, vm *v1alpha2.VirtualMachine,
 	return "", errors.New("no block device found")
 }
 
-func GetBlockDeviceSerialNumber(vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) (string, bool) {
+func GetBlockDeviceSerialNumber(ctx context.Context, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) (string, bool) {
 	unstructuredVMI, err := framework.GetClients().DynamicClient().Resource(schema.GroupVersionResource{
 		Group:    "internal.virtualization.deckhouse.io",
 		Version:  "v1",
 		Resource: "internalvirtualizationvirtualmachineinstances",
-	}).Namespace(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-	Expect(err).NotTo(HaveOccurred())
+	}).Namespace(vm.Namespace).Get(ctx, vm.Name, metav1.GetOptions{})
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to get InternalVirtualizationVirtualMachineInstance %s/%s", vm.Namespace, vm.Name))
 
 	var kvvmi virtv1.VirtualMachineInstance
 	err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredVMI.Object, &kvvmi)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to convert InternalVirtualizationVirtualMachineInstance %s/%s to kubevirt VMI", vm.Namespace, vm.Name))
 
 	var blockDeviceName string
 	switch bdKind {
@@ -167,14 +191,14 @@ func WriteFile(f *framework.Framework, vm *v1alpha2.VirtualMachine, path, value 
 	// Escape single quotes in value to prevent command injection.
 	escapedValue := strings.ReplaceAll(value, "'", "'\"'\"'")
 	_, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo bash -c \"echo '%s' > %s\"", escapedValue, path))
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to write file %s on vm %s/%s", path, vm.Namespace, vm.Name))
 }
 
 func ReadFile(f *framework.Framework, vm *v1alpha2.VirtualMachine, path string) string {
 	GinkgoHelper()
 
 	cmdOut, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo cat %s", path))
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to read file %s on vm %s/%s", path, vm.Namespace, vm.Name))
 	return strings.TrimSpace(cmdOut)
 }
 
@@ -222,7 +246,8 @@ type Disks struct {
 
 // BlockDevice represents a single block device in the lsblk JSON output.
 type BlockDevice struct {
-	Name string `json:"name"`
-	Size string `json:"size"`
-	Type string `json:"type"`
+	Name   string `json:"name"`
+	Serial string `json:"serial"`
+	Size   string `json:"size"`
+	Type   string `json:"type"`
 }

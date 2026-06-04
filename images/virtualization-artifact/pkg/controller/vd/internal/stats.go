@@ -73,6 +73,9 @@ func (h StatsHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (rec
 		if vd.Status.Stats.CreationDuration.WaitingForDependencies != nil {
 			duration -= vd.Status.Stats.CreationDuration.WaitingForDependencies.Duration
 		}
+		if vd.Status.Stats.CreationDuration.WaitingForFirstConsumer != nil {
+			duration -= vd.Status.Stats.CreationDuration.WaitingForFirstConsumer.Duration
+		}
 
 		vd.Status.Stats.CreationDuration.TotalProvisioning = &metav1.Duration{
 			Duration: duration,

@@ -1,6 +1,6 @@
 ---
-{{- $gitRepoName := $.ImageName }}
-{{- $version := get $.Firmware $gitRepoName }}
+{{- $gitRepoName := .ImageName }}
+{{- $version := get .Firmware $gitRepoName }}
 {{- $gitRepoUrl := "qemu/qemu.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
@@ -24,7 +24,7 @@ git:
     - '**/*'
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ .PACKAGE_CLONE_REPO }}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2}}
@@ -62,8 +62,16 @@ shell:
 
     fi
 
+    echo "Apply SeaBIOS patches"
+    for p in /patches/seabios/*.patch ; do
+      [ -f "$p" ] || continue
+      git -C roms/seabios apply --check --ignore-space-change --ignore-whitespace "$p" >/dev/null 2>&1 || (echo "FAIL" ; exit 1)
+      echo -n "Apply ${p} to roms/seabios ... "
+      git -C roms/seabios apply --ignore-space-change --ignore-whitespace "$p" && echo OK || (echo FAIL ; exit 1)
+    done
+
 ---
-{{- $name := print $.ImageName "-dependencies" -}}
+{{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
 - binutils
@@ -160,7 +168,7 @@ import:
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ $.PACKAGE_CLONE_REPO }}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -200,6 +208,9 @@ shell:
     export CPPFLAGS="-I/usr/include"
 
     cd /{{ $gitRepoName }}-{{ $version }}
+
+    echo "Building patched SeaBIOS..."
+    make -C roms bios V=1 PYTHON=python3 HOSTCC=gcc -j$(nproc)
 
     for p in /patches/*.patch ; do
       echo -n "Apply ${p} ... "
@@ -344,9 +355,8 @@ shell:
       --enable-xkbcommon \
       --enable-zstd
 
-    {{- $_ := set $ "ProjectName" (list $.ImageName "qemu" | join "/") }}
+    {{- $_ := set $ "ProjectName" (list .ImageName "qemu" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `make -j$(nproc)`) | nindent 6 }}
-
   setup:
   - |
     /install-qemu.sh --version-num "{{ $version }}" \

@@ -1,9 +1,9 @@
 ---
-{{- $gitRepoName := $.ImageName }}
+{{- $gitRepoName := .ImageName }}
 {{- $version := get .Firmware $gitRepoName }}
 {{- $gitRepoUrl := "tianocore/edk2.git" }}
 
-{{- $name := print $.ImageName "-dependencies" -}}
+{{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
 - gcc gcc-c++
@@ -53,6 +53,13 @@ git:
   stageDependencies:
     install:
       - '*.json'
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}/patches
+  to: /src/patches
+  includePaths:
+  - '*.patch'
+  stageDependencies:
+    install:
+      - '*.patch'
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}/uefi-revocation-list
   to: /src/FIRMWARE
   includePaths:
@@ -62,7 +69,7 @@ git:
       - '*.bin'
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ .PACKAGE_CLONE_REPO }}
 shell:
   install:
   - |
@@ -89,6 +96,13 @@ shell:
         -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://gitlab.com/  \
         submodule update --init --recursive  --depth=1
     fi
+
+    echo "Applying patches..."
+    for p in /src/patches/*.patch; do
+      [ -f "$p" ] || continue
+      echo -n "Apply ${p} ... "
+      git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+    done
 
 ---
 

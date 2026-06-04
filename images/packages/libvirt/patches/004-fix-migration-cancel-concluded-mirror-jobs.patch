@@ -1,0 +1,122 @@
+diff --git a/src/qemu/qemu_migration.c b/src/qemu/qemu_migration.c
+index 832b2946e0..ea6f311109 100644
+--- a/src/qemu/qemu_migration.c
++++ b/src/qemu/qemu_migration.c
+@@ -814,6 +814,72 @@ qemuMigrationSrcNBDStorageCopyReady(virDomainObj *vm,
+     }
+ }
+ 
++/*
++ * Refresh status of migrating mirror jobs from QEMU and synthesize pending
++ * terminal transitions for concluded jobs so synchronous cancellation polling
++ * can process and dismiss them.
++ */
++static int
++qemuMigrationSrcNBDCopyRefreshConcluded(virDomainObj *vm,
++                                        virDomainAsyncJob asyncJob)
++{
++    qemuDomainObjPrivate *priv = vm->privateData;
++    qemuMonitorJobInfo **jobinfo = NULL;
++    size_t njobinfo = 0;
++    size_t i;
++    int ret = -1;
++    int rc;
++
++    if (qemuDomainObjEnterMonitorAsync(vm, asyncJob) < 0)
++        return -1;
++
++    rc = qemuMonitorGetJobInfo(priv->mon, &jobinfo, &njobinfo);
++    qemuDomainObjExitMonitor(vm);
++    if (rc < 0)
++        goto cleanup;
++
++    for (i = 0; i < vm->def->ndisks; i++) {
++        virDomainDiskDef *disk = vm->def->disks[i];
++        qemuDomainDiskPrivate *diskPriv = QEMU_DOMAIN_DISK_PRIVATE(disk);
++        qemuBlockJobData *job;
++        size_t j;
++
++        if (!diskPriv->migrating)
++            continue;
++
++        if (!(job = qemuBlockJobDiskGetJob(disk)))
++            continue;
++
++        for (j = 0; j < njobinfo; j++) {
++            if (STRNEQ_NULLABLE(job->name, jobinfo[j]->id))
++                continue;
++
++            if (jobinfo[j]->status == QEMU_MONITOR_JOB_STATUS_CONCLUDED &&
++                job->newstate == -1) {
++                g_free(job->errmsg);
++                job->errmsg = g_strdup(jobinfo[j]->error);
++
++                if (job->errmsg)
++                    job->newstate = QEMU_BLOCKJOB_STATE_FAILED;
++                else
++                    job->newstate = QEMU_BLOCKJOB_STATE_COMPLETED;
++            }
++
++            break;
++        }
++
++        virObjectUnref(job);
++    }
++
++    ret = 0;
++
++ cleanup:
++    for (i = 0; i < njobinfo; i++)
++        qemuMonitorJobInfoFree(jobinfo[i]);
++    VIR_FREE(jobinfo);
++
++    return ret;
++}
+ 
+ /*
+  * If @abortMigration is false, the function will report an error and return a
+@@ -840,6 +906,8 @@ qemuMigrationSrcNBDCopyCancelled(virDomainObj *vm,
+         active = 0;
+         completed = 0;
+ 
++        ignore_value(qemuMigrationSrcNBDCopyRefreshConcluded(vm, asyncJob));
++
+         for (i = 0; i < vm->def->ndisks; i++) {
+             virDomainDiskDef *disk = vm->def->disks[i];
+             qemuDomainDiskPrivate *diskPriv = QEMU_DOMAIN_DISK_PRIVATE(disk);
+@@ -848,8 +916,10 @@ qemuMigrationSrcNBDCopyCancelled(virDomainObj *vm,
+             if (!diskPriv->migrating)
+                 continue;
+ 
+-            if (!(job = qemuBlockJobDiskGetJob(disk)))
++            if (!(job = qemuBlockJobDiskGetJob(disk))) {
++                diskPriv->migrating = false;
+                 continue;
++            }
+ 
+             qemuBlockJobUpdate(vm, job, asyncJob);
+             switch (job->state) {
+@@ -940,6 +1010,8 @@ qemuMigrationSrcNBDCopyCancelOne(virDomainObj *vm,
+     if (rv < 0)
+         return -1;
+ 
++    job->state = QEMU_BLOCKJOB_STATE_ABORTING;
++
+     return 0;
+ }
+ 
+@@ -981,6 +1053,14 @@ qemuMigrationSrcNBDCopyCancel(virDomainObj *vm,
+             diskPriv->migrating = false;
+ 
+         if (!diskPriv->migrating) {
++            /* A disk may stop being marked as migrating while the tracked
++             * block job still has a pending state transition. Process it to
++             * ensure concluded jobs are dismissed and unregistered, otherwise
++             * stale jobs may remain in QEMU and block subsequent migrations.
++             */
++            if (job && job->newstate != -1)
++                qemuBlockJobUpdate(vm, job, asyncJob);
++
+             virObjectUnref(job);
+             continue;
+         }

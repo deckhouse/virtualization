@@ -86,8 +86,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachineSnapshotList{},
 		&VirtualMachineSnapshotOperation{},
 		&VirtualMachineSnapshotOperationList{},
-		&VirtualMachineRestore{},
-		&VirtualMachineRestoreList{},
 		&VirtualMachineMACAddress{},
 		&VirtualMachineMACAddressList{},
 		&VirtualMachineMACAddressLease{},

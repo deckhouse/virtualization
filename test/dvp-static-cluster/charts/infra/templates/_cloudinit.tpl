@@ -63,6 +63,7 @@ final_message: "\U0001F525\U0001F525\U0001F525 The system is finally up, after $
 
 {{- define "cloudinit.alpine" -}}
 #cloud-config
+ssh_pwauth: true
 package_update: true
 packages:
   - tmux
@@ -78,7 +79,7 @@ users:
     chpasswd: {expire: False}
     lock_passwd: false
     ssh_authorized_keys:
-      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFzMcx+aKT7jfkaeQrDdsKfeuSqX/4bqR4Z6IaDsiAFI user@default
+      - {{ .Values.discovered.publicSSHKey }}
 disk_setup:
   /dev/sdc:
     table_type: mbr

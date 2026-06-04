@@ -163,6 +163,9 @@ spec:
                         waitingForDependencies:
                           description: |
                             Длительность ожидания зависимостей для создания виртуального диска.
+                        waitingForFirstConsumer:
+                          description: |
+                            Длительность ожидания в фазе `WaitForFirstConsumer`.
                         dvcrProvisioning:
                           description: |
                             Длительность загрузки в Deckhouse Virtualization Container Registry (DVCR).

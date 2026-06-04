@@ -39,9 +39,13 @@ import (
 )
 
 var _ = Describe("VirtualImageCreation", Label(precheck.PrecheckSnapshot), func() {
-	var f *framework.Framework
+	var (
+		f   *framework.Framework
+		ctx context.Context
+	)
 
 	BeforeEach(func() {
+		ctx = context.Background()
 		f = framework.NewFramework("vi-creation")
 		sc := framework.GetConfig().StorageClass.TemplateStorageClass
 		if sc != nil && sc.Provisioner == framework.NFS {
@@ -75,16 +79,16 @@ var _ = Describe("VirtualImageCreation", Label(precheck.PrecheckSnapshot), func(
 					},
 				),
 			)
-			err := f.CreateWithDeferredDeletion(context.Background(), vd)
+			err := f.CreateWithDeferredDeletion(ctx, vd)
 			Expect(err).NotTo(HaveOccurred())
 			vm := object.NewMinimalVM("vm-", f.Namespace().Name, vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.VirtualDiskKind,
 				Name: vd.Name,
 			}))
-			err = f.CreateWithDeferredDeletion(context.Background(), vm)
+			err = f.CreateWithDeferredDeletion(ctx, vm)
 			Expect(err).NotTo(HaveOccurred())
-			util.UntilObjectPhase(string(v1alpha2.DiskReady), framework.LongTimeout, vd)
-			err = f.Delete(context.Background(), vm)
+			util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.LongTimeout, vd)
+			err = f.Delete(ctx, vm)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -95,9 +99,9 @@ var _ = Describe("VirtualImageCreation", Label(precheck.PrecheckSnapshot), func(
 				vdsnapshotbuilder.WithVirtualDiskName(vd.Name),
 				vdsnapshotbuilder.WithRequiredConsistency(true),
 			)
-			err := f.CreateWithDeferredDeletion(context.Background(), vdSnapshot)
+			err := f.CreateWithDeferredDeletion(ctx, vdSnapshot)
 			Expect(err).NotTo(HaveOccurred())
-			util.UntilObjectPhase(string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.ShortTimeout, vdSnapshot)
+			util.UntilObjectPhase(ctx, string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.ShortTimeout, vdSnapshot)
 		})
 
 		By("Generating base cvis", func() {
@@ -168,11 +172,11 @@ var _ = Describe("VirtualImageCreation", Label(precheck.PrecheckSnapshot), func(
 
 		By("Creating base images", func() {
 			for _, cvi := range baseCvis {
-				err := f.CreateWithDeferredDeletion(context.Background(), cvi)
+				err := f.CreateWithDeferredDeletion(ctx, cvi)
 				Expect(err).NotTo(HaveOccurred())
 			}
 			for _, vi := range baseVis {
-				err := f.CreateWithDeferredDeletion(context.Background(), vi)
+				err := f.CreateWithDeferredDeletion(ctx, vi)
 				Expect(err).NotTo(HaveOccurred())
 			}
 		})
@@ -241,12 +245,12 @@ var _ = Describe("VirtualImageCreation", Label(precheck.PrecheckSnapshot), func(
 
 		By("Creating images", func() {
 			for _, vi := range vis {
-				err := f.CreateWithDeferredDeletion(context.Background(), vi)
+				err := f.CreateWithDeferredDeletion(ctx, vi)
 				Expect(err).NotTo(HaveOccurred())
 			}
 
 			for _, cvi := range cvis {
-				err := f.CreateWithDeferredDeletion(context.Background(), cvi)
+				err := f.CreateWithDeferredDeletion(ctx, cvi)
 				Expect(err).NotTo(HaveOccurred())
 			}
 		})
@@ -263,7 +267,7 @@ var _ = Describe("VirtualImageCreation", Label(precheck.PrecheckSnapshot), func(
 			for _, cvi := range cvis {
 				objects = append(objects, cvi)
 			}
-			util.UntilObjectPhase(string(v1alpha2.ImageReady), framework.LongTimeout, objects...)
+			util.UntilObjectPhase(ctx, string(v1alpha2.ImageReady), framework.LongTimeout, objects...)
 		})
 	})
 })

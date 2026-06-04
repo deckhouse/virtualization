@@ -167,8 +167,8 @@ func IsContainerCreating(pod *corev1.Pod) bool {
 	return false
 }
 
-// QemuSubGID is the gid used as the qemu group in fsGroup
-const QemuSubGID = int64(107)
+// QemuSubGID is the gid used as the deckhouse group in fsGroup
+const QemuSubGID = int64(64535)
 
 // SetRestrictedSecurityContext sets the pod security params to be compatible with restricted PSA
 func SetRestrictedSecurityContext(podSpec *corev1.PodSpec) {

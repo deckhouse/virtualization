@@ -75,7 +75,13 @@ tasks:
           --timeout=3h \
           {{end -}}
           {{if .FOCUS -}}
-          --focus "{{ .FOCUS }}"
+          --focus "{{ .FOCUS }}" \
+          {{end -}}
+          {{if .DRY -}}
+          --dry-run \
+          {{end -}}
+          {{if .REPEAT -}}
+          --repeat "{{ .REPEAT }}"
           {{end -}}
 
   runp:

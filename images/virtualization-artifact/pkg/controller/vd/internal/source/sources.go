@@ -101,6 +101,7 @@ func IsDiskProvisioningFinished(c metav1.Condition) bool {
 }
 
 func setPhaseConditionForFinishedDisk(
+	vd *v1alpha2.VirtualDisk,
 	pvc *corev1.PersistentVolumeClaim,
 	cb *conditions.ConditionBuilder,
 	phase *v1alpha2.DiskPhase,
@@ -110,25 +111,18 @@ func setPhaseConditionForFinishedDisk(
 	switch {
 	case pvc == nil:
 		newPhase = v1alpha2.DiskLost
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.Lost).
-			Message(fmt.Sprintf("PVC %s not found.", supgen.PersistentVolumeClaim().String()))
+		setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Lost, fmt.Sprintf("PVC %s not found.", supgen.PersistentVolumeClaim().String()))
 	case pvc.Status.Phase == corev1.ClaimLost:
-		cb.Status(metav1.ConditionFalse)
 		if pvc.GetAnnotations()[annotations.AnnDataExportRequest] == "true" {
 			newPhase = v1alpha2.DiskExporting
-			cb.Reason(vdcondition.Exporting).Message("PV is being exported")
+			setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Exporting, "PV is being exported")
 		} else {
 			newPhase = v1alpha2.DiskLost
-			cb.Reason(vdcondition.Lost).Message(fmt.Sprintf("PV %s not found.", pvc.Spec.VolumeName))
+			setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Lost, fmt.Sprintf("PV %s not found.", pvc.Spec.VolumeName))
 		}
 	default:
 		newPhase = v1alpha2.DiskReady
-		cb.
-			Status(metav1.ConditionTrue).
-			Reason(vdcondition.Ready).
-			Message("")
+		setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionTrue, vdcondition.Ready, "")
 	}
 	if phase != nil && string(newPhase) != "" {
 		*phase = newPhase
@@ -145,17 +139,23 @@ func setPhaseConditionFromStorageError(err error, vd *v1alpha2.VirtualDisk, cb *
 		return false, nil
 	case errors.Is(err, volumemode.ErrStorageProfileNotFound):
 		vd.Status.Phase = v1alpha2.DiskPending
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.ProvisioningFailed).
-			Message("StorageProfile not found in the cluster: Please check a StorageClass name in the cluster or set a default StorageClass.")
+		setReadyConditionWithWFFCAccounting(
+			vd,
+			cb,
+			metav1.ConditionFalse,
+			vdcondition.ProvisioningFailed,
+			"StorageProfile not found in the cluster: Please check a StorageClass name in the cluster or set a default StorageClass.",
+		)
 		return true, nil
 	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
 		vd.Status.Phase = v1alpha2.DiskPending
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.ProvisioningFailed).
-			Message("Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass.")
+		setReadyConditionWithWFFCAccounting(
+			vd,
+			cb,
+			metav1.ConditionFalse,
+			vdcondition.ProvisioningFailed,
+			"Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass.",
+		)
 		return true, nil
 	default:
 		return false, err
@@ -176,10 +176,7 @@ func setPhaseConditionForPVCProvisioningDisk(
 	case err == nil:
 		if dv == nil {
 			vd.Status.Phase = v1alpha2.DiskProvisioning
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vdcondition.Provisioning).
-				Message("Waiting for the pvc importer to be created")
+			setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Provisioning, "Waiting for the pvc importer to be created")
 			return nil
 		}
 
@@ -194,21 +191,54 @@ func setPhaseConditionForPVCProvisioningDisk(
 		}
 
 		vd.Status.Phase = v1alpha2.DiskProvisioning
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.Provisioning).
-			Message("Import is in the process of provisioning to PVC.")
+		setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Provisioning, "Import is in the process of provisioning to PVC.")
 		return nil
 	case errors.Is(err, service.ErrDataVolumeNotRunning):
 		vd.Status.Phase = v1alpha2.DiskFailed
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.ProvisioningFailed).
-			Message(service.CapitalizeFirstLetter(err.Error()))
+		setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.ProvisioningFailed, service.CapitalizeFirstLetter(err.Error()))
 		return nil
 	default:
 		return err
 	}
+}
+
+func addWaitingForFirstConsumerDuration(vd *v1alpha2.VirtualDisk, nextReason string) {
+	readyCondition, ok := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+	if !ok || readyCondition.Reason != vdcondition.WaitingForFirstConsumer.String() || nextReason == vdcondition.WaitingForFirstConsumer.String() {
+		return
+	}
+
+	if readyCondition.LastTransitionTime.IsZero() {
+		return
+	}
+
+	wffcDuration := time.Since(readyCondition.LastTransitionTime.Time).Truncate(time.Second)
+	if wffcDuration <= 0 {
+		return
+	}
+
+	if vd.Status.Stats.CreationDuration.WaitingForFirstConsumer == nil {
+		vd.Status.Stats.CreationDuration.WaitingForFirstConsumer = &metav1.Duration{
+			Duration: wffcDuration,
+		}
+		return
+	}
+
+	vd.Status.Stats.CreationDuration.WaitingForFirstConsumer.Duration += wffcDuration
+}
+
+func setReadyConditionWithWFFCAccounting(
+	vd *v1alpha2.VirtualDisk,
+	cb *conditions.ConditionBuilder,
+	status metav1.ConditionStatus,
+	reason vdcondition.ReadyReason,
+	message string,
+) {
+	addWaitingForFirstConsumerDuration(vd, reason.String())
+	cb.
+		Status(status).
+		Reason(reason).
+		Message(message)
 }
 
 func setPhaseConditionFromPodError(
@@ -222,51 +252,42 @@ func setPhaseConditionFromPodError(
 	switch {
 	case errors.Is(podErr, service.ErrNotInitialized):
 		vd.Status.Phase = v1alpha2.DiskFailed
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.ProvisioningNotStarted).
-			Message(service.CapitalizeFirstLetter(podErr.Error()) + ".")
+		setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.ProvisioningNotStarted, service.CapitalizeFirstLetter(podErr.Error())+".")
 		return nil
 	case errors.Is(podErr, service.ErrNotScheduled):
 		vd.Status.Phase = v1alpha2.DiskPending
 
 		nodePlacement, err := getNodePlacement(ctx, c, vd)
 		if err != nil {
-			setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			setPhaseConditionToFailed(vd, cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
 			return fmt.Errorf("failed to get importer tolerations: %w", err)
 		}
 
 		var isChanged bool
 		isChanged, err = provisioner.IsNodePlacementChanged(nodePlacement, pod)
 		if err != nil {
-			setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			setPhaseConditionToFailed(vd, cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
 			return err
 		}
 
 		if isChanged {
 			err = c.Delete(ctx, pod)
 			if err != nil {
-				setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+				setPhaseConditionToFailed(vd, cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
 				return err
 			}
 
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vdcondition.ProvisioningNotStarted).
-				Message("Provisioner recreation due to a changes in the virtual machine tolerations.")
+			setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.ProvisioningNotStarted, "Provisioner recreation due to a changes in the virtual machine tolerations.")
 		} else {
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vdcondition.ProvisioningNotStarted).
-				Message(service.CapitalizeFirstLetter(podErr.Error()) + ".")
+			setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.ProvisioningNotStarted, service.CapitalizeFirstLetter(podErr.Error())+".")
 		}
 
 		return nil
 	case errors.Is(podErr, service.ErrProvisioningFailed):
-		setPhaseConditionToFailed(cb, &vd.Status.Phase, podErr)
+		setPhaseConditionToFailed(vd, cb, &vd.Status.Phase, podErr)
 		return nil
 	default:
-		setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", podErr))
+		setPhaseConditionToFailed(vd, cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", podErr))
 		return podErr
 	}
 }
@@ -289,14 +310,14 @@ func setPhaseConditionFromProvisioningError(
 		nodePlacement, err := getNodePlacement(ctx, c, vd)
 		if err != nil {
 			err = errors.Join(provisioningErr, err)
-			setPhaseConditionToFailed(cb, &vd.Status.Phase, err)
+			setPhaseConditionToFailed(vd, cb, &vd.Status.Phase, err)
 			return err
 		}
 
 		isChanged, err := provisioner.IsNodePlacementChanged(nodePlacement, dv)
 		if err != nil {
 			err = errors.Join(provisioningErr, err)
-			setPhaseConditionToFailed(cb, &vd.Status.Phase, err)
+			setPhaseConditionToFailed(vd, cb, &vd.Status.Phase, err)
 			return err
 		}
 
@@ -308,24 +329,18 @@ func setPhaseConditionFromProvisioningError(
 			_, err = cleaner.CleanUp(ctx, supgen)
 			if err != nil {
 				err = errors.Join(provisioningErr, err)
-				setPhaseConditionToFailed(cb, &vd.Status.Phase, err)
+				setPhaseConditionToFailed(vd, cb, &vd.Status.Phase, err)
 				return err
 			}
 
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vdcondition.Provisioning).
-				Message("PVC provisioner recreation due to a changes in the virtual machine tolerations.")
+			setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Provisioning, "PVC provisioner recreation due to a changes in the virtual machine tolerations.")
 		} else {
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vdcondition.Provisioning).
-				Message("Trying to schedule the PVC provisioner.")
+			setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Provisioning, "Trying to schedule the PVC provisioner.")
 		}
 
 		return nil
 	default:
-		setPhaseConditionToFailed(cb, &vd.Status.Phase, provisioningErr)
+		setPhaseConditionToFailed(vd, cb, &vd.Status.Phase, provisioningErr)
 		return provisioningErr
 	}
 }
@@ -337,11 +352,9 @@ func getNodePlacement(ctx context.Context, c client.Client, vd *v1alpha2.Virtual
 
 const retryPeriod = 1
 
-func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *v1alpha2.DiskPhase, err error, creationTimestamp metav1.Time) reconcile.Result {
+func setQuotaExceededPhaseCondition(vd *v1alpha2.VirtualDisk, cb *conditions.ConditionBuilder, phase *v1alpha2.DiskPhase, err error, creationTimestamp metav1.Time) reconcile.Result {
 	*phase = v1alpha2.DiskFailed
-	cb.
-		Status(metav1.ConditionFalse).
-		Reason(vdcondition.ProvisioningFailed)
+	setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.ProvisioningFailed, "")
 
 	if creationTimestamp.Add(30 * time.Minute).After(time.Now()) {
 		cb.Message(fmt.Sprintf("Quota exceeded: %s; Please configure quotas or try recreating the resource later.", err))
@@ -352,12 +365,9 @@ func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *v1al
 	return reconcile.Result{RequeueAfter: retryPeriod * time.Minute}
 }
 
-func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.DiskPhase, err error) {
+func setPhaseConditionToFailed(vd *v1alpha2.VirtualDisk, cb *conditions.ConditionBuilder, phase *v1alpha2.DiskPhase, err error) {
 	*phase = v1alpha2.DiskFailed
-	cb.
-		Status(metav1.ConditionFalse).
-		Reason(vdcondition.ProvisioningFailed).
-		Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+	setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.ProvisioningFailed, service.CapitalizeFirstLetter(err.Error())+".")
 }
 
 func isStorageClassWFFC(sc *storagev1.StorageClass) bool {

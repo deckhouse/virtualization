@@ -161,3 +161,9 @@ func WithUSBDevices(usbDevices []v1alpha2.USBDeviceSpecRef) Option {
 		vm.Spec.USBDevices = usbDevices
 	}
 }
+
+func WithIpAddress(ipAddress string) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.VirtualMachineIPAddress = ipAddress
+	}
+}
