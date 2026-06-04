@@ -674,8 +674,8 @@ var _ = Describe("LifecycleHandler", func() {
 			Expect(found).To(BeTrue())
 			Expect(completed.Message).NotTo(ContainSubstring("Migration info for 7d38a63b-ffa9-4d56-a924-6017f5832110:"))
 			Expect(completed.Message).To(ContainSubstring("Syncing source and target. TimeElapsed:"))
-			Expect(completed.Message).To(ContainSubstring("DataProcessed: 3529MiB DataRemaining: 12049MiB DataTotal: 16405MiB"))
-			Expect(completed.Message).To(ContainSubstring("Iteration: 1 AutoConvergeThrottleSet: true AutoConvergeThrottle: 0"))
+			Expect(completed.Message).To(ContainSubstring("DataProcessed:3529MiB DataRemaining:12049MiB DataTotal:16405MiB"))
+			Expect(completed.Message).To(ContainSubstring("Iteration:1 AutoConvergeThrottleSet:true AutoConvergeThrottle:0"))
 		})
 
 		It("should prefer Aborted over NotConverging for terminal reason", func() {
