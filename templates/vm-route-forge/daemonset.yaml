@@ -168,5 +168,4 @@ spec:
             periodSeconds: 1
             failureThreshold: 3
           {{- end }}
-
 {{- end }}
