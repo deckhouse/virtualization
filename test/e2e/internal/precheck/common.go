@@ -175,7 +175,7 @@ func filterSpecs(specs []specInfo, focusRegex, labelFilter string) []specInfo {
 		}
 	}
 
-	// Parse label filter (comma-separated, supports ~ for negated)
+	// Parse label filter (comma-separated, supports ! for negated)
 	requiredLabels := make(map[string]bool)
 	negatedLabels := make(map[string]bool)
 	if labelFilter != "" {
