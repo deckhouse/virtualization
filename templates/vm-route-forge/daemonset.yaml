@@ -53,9 +53,7 @@ spec:
           VM route forge component requires root privileges to interact with the host network layer.
 
     runAsNonRoot:
-      allowedValues:
-      - false
-      - true
+      allowedValue: false
       metadata:
         description: |
           Allow containers to run as root user (non-root disabled).
