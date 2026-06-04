@@ -409,19 +409,19 @@ var _ = Describe("SyncKvvmHandler", func() {
 			},
 		}
 
-		vm := newVM(v1alpha2.MachineRunning)
-		kvvm := newKVVM(vm)
+		vm := makeVM(v1alpha2.MachineRunning)
+		kvvm := makeKVVM(vm)
 		// Drop the interface so the desired network is out of sync with the KVVM,
 		// and provide no pod so SDN reports the interface as not ready.
 		kvvm.Spec.Template.Spec.Domain.Devices.Interfaces = nil
 
-		fakeClient, resource, vmState = setupEnvironment(vm, kvvm, ip, vmClass)
+		fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, ip, vmClass)
 
 		h := NewSyncKvvmHandler(nil, fakeClient, recorder, featuregates.Default(), vmservice.NewMigrationVolumesService(fakeClient, MakeKVVMFromVMSpec, 10*time.Second))
 		result, err := h.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.RequeueAfter).To(BeNumerically(">", 0))
-		Expect(resource.Update(context.Background())).To(Succeed())
+		Expect(reconcileObj.Update(context.Background())).To(Succeed())
 
 		updatedVM := &v1alpha2.VirtualMachine{}
 		Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), updatedVM)).To(Succeed())
