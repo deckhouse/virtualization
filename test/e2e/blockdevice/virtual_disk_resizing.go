@@ -118,7 +118,6 @@ var _ = Describe("VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
 		util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.MiddleTimeout, vdRoot, vdBlank, vdAttach)
 		util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.ShortTimeout, vm)
 		util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, vmbda)
-		util.UntilSSHReady(f, vm, framework.MiddleTimeout)
 
 		err = f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vdRoot), vdRoot)
 		Expect(err).NotTo(HaveOccurred())

@@ -18,6 +18,7 @@ package object
 
 const (
 	Mi256          = 256 * 1024 * 1024
+	Mi512          = 512 * 1024 * 1024
 	DefaultVMClass = "generic-for-e2e"
 
 	iperf3Script = `#!/bin/bash
