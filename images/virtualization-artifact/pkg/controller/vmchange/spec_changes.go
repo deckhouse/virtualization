@@ -244,7 +244,18 @@ func (s *SpecChanges) ConvertPendingChanges() ([]apiextensionsv1.JSON, error) {
 
 func (s *SpecChanges) UpgradeBlockDeviceChangesToRestart() {
 	for i := range s.changes {
-		if strings.HasPrefix(s.changes[i].Path, BlockDevicesPath) && s.changes[i].ActionRequired == ActionApplyImmediate {
+		isBlockDeviceChange := s.changes[i].Path == blockDevicesPath || strings.HasPrefix(s.changes[i].Path, blockDevicesPath+".")
+		if isBlockDeviceChange && s.changes[i].ActionRequired == ActionApplyImmediate {
+			s.changes[i].ActionRequired = ActionRestart
+		}
+	}
+}
+
+func (s *SpecChanges) UpgradeHotplugComputeChangesToRestart() {
+	for i := range s.changes {
+		isCPUChange := s.changes[i].Path == cpuPath || strings.HasPrefix(s.changes[i].Path, cpuPath+".")
+		isMemoryChange := s.changes[i].Path == memoryPath || strings.HasPrefix(s.changes[i].Path, memoryPath+".")
+		if (isCPUChange || isMemoryChange) && s.changes[i].ActionRequired == ActionApplyImmediate {
 			s.changes[i].ActionRequired = ActionRestart
 		}
 	}

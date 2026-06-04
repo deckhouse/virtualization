@@ -710,6 +710,26 @@ networks:
 	}
 }
 
+// Test ApplyImmediate to Restart upgraders.
+func TestUpgradeHotplugComputeChangesToRestart(t *testing.T) {
+	const cpuReason = "cpu restart reason"
+
+	changes := SpecChanges{}
+	changes.Add(
+		FieldChange{Path: "cpu.cores", ActionRequired: ActionApplyImmediate, RestartMessage: cpuReason},
+		FieldChange{Path: "memory.size", ActionRequired: ActionApplyImmediate},
+		FieldChange{Path: "blockDeviceRefs.0", ActionRequired: ActionApplyImmediate},
+	)
+
+	changes.UpgradeHotplugComputeChangesToRestart()
+	changes.UpgradeBlockDeviceChangesToRestart()
+
+	require.Equal(t, ActionRestart, changes.GetAll()[0].ActionRequired)
+	require.Equal(t, cpuReason, changes.GetAll()[0].RestartMessage)
+	require.Equal(t, ActionRestart, changes.GetAll()[1].ActionRequired)
+	require.Equal(t, ActionRestart, changes.GetAll()[2].ActionRequired)
+}
+
 func loadVMSpec(t *testing.T, inYAML string) *v1alpha2.VirtualMachineSpec {
 	t.Helper()
 	var spec v1alpha2.VirtualMachineSpec

@@ -28,6 +28,8 @@ type comparatorCPU struct {
 	featureGate featuregate.FeatureGate
 }
 
+const cpuPath = "cpu"
+
 func NewComparatorCPU(featureGate featuregate.FeatureGate) VMSpecFieldComparator {
 	return &comparatorCPU{
 		featureGate: featureGate,
