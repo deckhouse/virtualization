@@ -134,11 +134,8 @@ func Confirm() (bool, error) {
 func autoCleanupHandler(cmd *cobra.Command, args []string) error {
 	started := time.Now().UTC()
 
-	// Make sure the registry data directory exists before reading its stats.
-	// The registry creates it lazily on the first image push; without this
-	// the cleaner would fail with "no such file or directory" on a fresh cluster.
-	if err := os.MkdirAll(RepoDir, 0o755); err != nil {
-		return fmt.Errorf("ensure repositories dir exists: %w", err)
+	if err := ensureRepoDir(); err != nil {
+		return err
 	}
 
 	fsInfoBeforeCleanup, err := registry.StorageStats()
@@ -248,11 +245,8 @@ func performAutoCleanup() error {
 }
 
 func checkCleanupHandler(_ *cobra.Command, _ []string) error {
-	// Make sure the registry data directory exists before reading its stats.
-	// The registry creates it lazily on the first image push; without this
-	// the cleaner would fail with "no such file or directory" on a fresh cluster.
-	if err := os.MkdirAll(RepoDir, 0o755); err != nil {
-		return fmt.Errorf("ensure repositories dir exists: %w", err)
+	if err := ensureRepoDir(); err != nil {
+		return err
 	}
 
 	fsInfo, err := registry.StorageStats()
@@ -370,6 +364,13 @@ func compareRegistryAndClusterImages(images []registry.Image, kubeImages []kuber
 	}
 
 	return absentImages
+}
+
+func ensureRepoDir() error {
+	if err := os.MkdirAll(RepoDir, 0o755); err != nil {
+		return fmt.Errorf("ensure repositories dir exists: %w", err)
+	}
+	return nil
 }
 
 const (

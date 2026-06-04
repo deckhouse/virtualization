@@ -1,5 +1,7 @@
+//go:build unix
+
 /*
-Copyright 2025 Flant JSC
+Copyright 2026 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,21 +19,20 @@ limitations under the License.
 package storage
 
 import (
+	"errors"
+	"os"
 	"path/filepath"
 	"testing"
 )
 
-func TestFSBytes_MissingDirReturnsEmpty(t *testing.T) {
+func TestFSBytes_MissingDirReturnsError(t *testing.T) {
 	// Path that almost certainly does not exist. Use t.TempDir() as a base
 	// and append a child that we never create.
 	missing := filepath.Join(t.TempDir(), "does-not-exist", "repositories")
 
-	info, err := FSBytes(missing)
-	if err != nil {
-		t.Fatalf("FSBytes on a missing path must not return an error, got: %v", err)
-	}
-	if info.Total != 0 || info.Available != 0 {
-		t.Fatalf("expected zero-valued FSInfo on missing path, got: %+v", info)
+	_, err := FSBytes(missing)
+	if !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected not exist error for %q, got: %v", missing, err)
 	}
 }
 
