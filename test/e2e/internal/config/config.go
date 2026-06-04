@@ -111,7 +111,6 @@ const (
 )
 
 type TestData struct {
-	ImageHotplug string `yaml:"imageHotplug"`
 	VMMigration  string `yaml:"vmMigration"`
 	Sshkey       string `yaml:"sshKey"`
 	SSHUser      string `yaml:"sshUser"`
