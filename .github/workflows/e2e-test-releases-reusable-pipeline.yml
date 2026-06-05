@@ -535,16 +535,6 @@ jobs:
           cat "${context_path}"
           echo "release_namespace=$(jq -r '.namespace' "${context_path}")" >> "$GITHUB_OUTPUT"
 
-      - name: Upload current-release test results
-        uses: actions/upload-artifact@v7
-        if: always() && steps.release-e2e.outcome != 'skipped'
-        with:
-          name: current-release-e2e-results-${{ github.run_id }}
-          path: test/e2e/release_current_suite.xml
-          if-no-files-found: ignore
-          overwrite: true
-          retention-days: 3
-
       - name: Upload resources from failed current-release tests
         uses: actions/upload-artifact@v7
         if: always() && steps.release-e2e.outcome != 'skipped'
@@ -652,23 +642,11 @@ jobs:
           check-api: "false"
       - name: "Run E2E tests on new-release"
         env:
+          NEW_RELEASE: ${{ env.NEW_RELEASE }}
           CSI: ${{ inputs.storage_type }}
           STORAGE_CLASS_NAME: ${{ inputs.nested_storageclass_name }}
           E2E_CONFIG: ${{ github.workspace }}/test/e2e/default_config.yaml
           RELEASE_TEST_PHASE: post-upgrade
           RELEASE_NAMESPACE: ${{ needs.test-current-release.outputs.release_namespace }}
           RELEASE_UPGRADE_STARTED_AT: ${{ needs.patch-modulepulloverride.outputs.upgrade_started_at }}
-        run: |
-          echo "[INFO] New release tag: ${{ env.NEW_RELEASE }}"
-          echo "[INFO] Storage type: ${{ inputs.storage_type }}"
-          echo ""
-          echo "[INFO] Verifying virtualization module is running with new release"
-          kubectl get modules virtualization || true
-          kubectl get mpo virtualization || true
-          echo ""
-          echo "[INFO] Reusing namespace: ${RELEASE_NAMESPACE}"
-          cd ./test/e2e/
-          go tool ginkgo \
-            -v --race --timeout=45m \
-            ./release
-          echo "[INFO] Cluster is intentionally left running (no cleanup)"
+        run: bash "${E2E_SCRIPT_DIR}/run-release-e2e.sh"
