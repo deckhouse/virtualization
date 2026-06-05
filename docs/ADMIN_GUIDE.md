@@ -51,6 +51,41 @@ The module state is controlled through the `.spec.enabled` field. Specify:
 - `true`: To enable the module.
 - `false`: To disable the module.
 
+**Disable the module**
+
+After you disable the `virtualization` module, all services that create and run virtual machines will stop.
+To disable the module, add the `modules.deckhouse.io/allow-disabling` annotation with the value `true`
+to ModuleConfig `virtualization` and set the `spec.enabled` parameter to `false`.
+
+Before disabling:
+
+1. Delete all module resources: virtual machines, disks, images, and so on.
+1. Make sure no active resources remain in the cluster:
+
+   ```shell
+   d8 k get virtualization
+   ```
+
+Edit ModuleConfig `virtualization`:
+
+```yaml
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: virtualization
+  annotations:
+    modules.deckhouse.io/allow-disabling: "true"
+spec:
+  enabled: false
+  version: 1
+  settings:
+    # Specify the existing settings.
+```
+
+{{< alert level="danger" >}}
+If module resources are not deleted, disabling the module may result in data loss.
+{{< /alert >}}
+
 **Configuration version**
 
 The `.spec.version` parameter defines the version of the configuration schema. The parameter structure may change between versions. The current values are given in the settings section.

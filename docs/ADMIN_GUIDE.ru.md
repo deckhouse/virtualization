@@ -51,6 +51,41 @@ spec:
 - `true` — чтобы включить модуль;
 - `false` — чтобы выключить модуль.
 
+**Выключение модуля**
+
+После выключения модуля `virtualization` остановятся все сервисы, которые создают и запускают виртуальные машины.
+Чтобы выключить модуль, добавьте на ModuleConfig `virtualization` аннотацию `modules.deckhouse.io/allow-disabling`
+со значением `true` и установите параметр `spec.enabled` в значение `false`.
+
+Перед выключением:
+
+1. Удалите все ресурсы модуля: виртуальные машины, диски, образы и т. д.
+1. Убедитесь, что в кластере не осталось активных ресурсов:
+
+   ```shell
+   d8 k get virtualization
+   ```
+
+Отредактируйте ModuleConfig `virtualization`:
+
+```yaml
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: virtualization
+  annotations:
+    modules.deckhouse.io/allow-disabling: "true"
+spec:
+  enabled: false
+  version: 1
+  settings:
+    # Укажите существующие настройки.
+```
+
+{{< alert level="danger" >}}
+Если ресурсы модуля не удалены, выключение может привести к потере данных.
+{{< /alert >}}
+
 **Версия конфигурации**
 
 Параметр `.spec.version` определяет версию схемы настроек. Структура параметров может меняться между версиями. Актуальные значения приведены в разделе настроек.
