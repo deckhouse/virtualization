@@ -8,26 +8,16 @@ source "${SCRIPT_DIR}/common.sh"
 # shellcheck source=.github/scripts/bash/e2e/deckhouse.sh
 source "${SCRIPT_DIR}/deckhouse.sh"
 
-required_env_vars=(
-  DEV_REGISTRY_DOCKER_CFG
-  NESTED_STORAGE_CLASS_NAME
-  VIRTUALIZATION_TAG
-)
+require_env DEV_REGISTRY_DOCKER_CFG
+require_env NESTED_STORAGE_CLASS_NAME
+require_env VIRTUALIZATION_TAG
 
-for env_var in "${required_env_vars[@]}"; do
-  require_env "${env_var}"
-done
-
-required_env_value() {
-  local name="$1"
-
-  require_env "$name"
-  printf '%s' "${!name}"
-}
-
-dev_registry_docker_cfg="$(required_env_value DEV_REGISTRY_DOCKER_CFG)"
-nested_storage_class_name="$(required_env_value NESTED_STORAGE_CLASS_NAME)"
-virtualization_tag="$(required_env_value VIRTUALIZATION_TAG)"
+# shellcheck disable=SC2153,SC2154
+dev_registry_docker_cfg="${DEV_REGISTRY_DOCKER_CFG}"
+# shellcheck disable=SC2153,SC2154
+nested_storage_class_name="${NESTED_STORAGE_CLASS_NAME}"
+# shellcheck disable=SC2153,SC2154
+virtualization_tag="${VIRTUALIZATION_TAG}"
 
 kubectl_apply_with_retry() {
   local count=20
