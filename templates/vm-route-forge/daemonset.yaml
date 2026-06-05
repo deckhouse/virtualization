@@ -63,8 +63,8 @@ spec:
       allowedValue: true
       metadata:
         description: |
-          Allow privilege escalation for the virt-handler container.
-          Virt-handler component requires privilege escalation to access kernel-level system calls.
+          Allow privilege escalation.
+          VM route forge component requires privileges escalation to interact with the host network layer.
 
     privileged:
       allowedValue: true
@@ -73,6 +73,16 @@ spec:
           Allow privileged mode.
           VM route forge component requires privileged access to interact with the host network layer.
 
+    capabilities:
+      allowedValues:
+        add:
+          - NET_ADMIN
+        drop:
+          - ALL
+      description: |
+        Allow NET_ADMIN capability.
+        VM route forge component requires NET_ADMIN capability to interact with the host network layer.
+
   network:
     hostNetwork:
       allowedValue: true
@@ -80,6 +90,19 @@ spec:
         description: |
           VM route forge component needs hostNetwork to manipulate node route tables
           to allow traffic between virtual machines.
+    hostPorts:
+    - port: 4105
+      protocol: TCP
+      metadata:
+        description: |
+          Allow hostPort 4105 for health check service.
+          VM route forge component requires hostNetwork and health check service should be accessible via hostPort.
+    - port: 4106
+      protocol: TCP
+      metadata:
+        description: |
+          Allow hostPort 4106 for pprof service.
+          VM route forge component requires hostNetwork and pprof service should be accessible via hostPort.
 {{- end }}
 
 ---

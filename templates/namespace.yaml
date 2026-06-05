@@ -4,6 +4,8 @@ d8-{{ .Chart.Name }}
 
 {{- define "namespace.labels" }}
 prometheus.deckhouse.io/rules-watcher-enabled: "true"
+security.deckhouse.io/pod-policy: "restricted"
+security.deckhouse.io/enable-security-policy-check: "true"
 {{- end }}
 
 {{/* add these labels back to namespace.labels when fix templates for privileged Pods */}}
