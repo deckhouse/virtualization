@@ -79,9 +79,10 @@ spec:
           - NET_ADMIN
         drop:
           - ALL
-      description: |
-        Allow NET_ADMIN capability.
-        VM route forge component requires NET_ADMIN capability to interact with the host network layer.
+      metadata:
+        description: |
+          Allow NET_ADMIN capability.
+          VM route forge component requires NET_ADMIN capability to interact with the host network layer.
 
   network:
     hostNetwork:
