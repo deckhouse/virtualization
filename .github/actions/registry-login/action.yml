@@ -19,7 +19,7 @@ runs:
       run: |
         REGISTRY=$(base64 -d <<< "$DOCKER_CFG" | jq '.auths | to_entries | .[] | .key' -r)
         USERNAME=$(base64 -d <<< "$DOCKER_CFG" | jq -r '.auths | to_entries | .[] | .value.auth' | base64 -d | cut -d ':' -f1)
-        PASSWORD=$(base64 -d <<< "$DOCKER_CFG" | jq -r '.auths | to_entries | .[] | .value.auth' | base64 -d | cut -d ':' -f2)
+        PASSWORD=$(base64 -d <<< "$DOCKER_CFG" | jq -r '.auths | to_entries | .[] | .value.auth' | base64 -d | cut -d ':' -f2-)
 
         echo "::add-mask::$USERNAME"
         echo "::add-mask::$PASSWORD"
