@@ -568,7 +568,7 @@ jobs:
           USB_SUPPORTED: ${{ steps.detect-k8s-version.outputs.usb-supported }}
           FOCUS: ${{ inputs.e2e_focus_tests }}
         working-directory: ./test/e2e/
-        run: task e2e:ci
+        run: task run:ci
 
       - name: Upload summary test results (json)
         uses: actions/upload-artifact@v7
