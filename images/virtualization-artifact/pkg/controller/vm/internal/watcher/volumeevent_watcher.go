@@ -58,6 +58,46 @@ type VolumeEventWatcher struct {
 	client client.Client
 }
 
+func getVirtualMachineNameFromPodLabels(pod *corev1.Pod) (string, bool) {
+	if pod == nil {
+		return "", false
+	}
+
+	if vmName, hasLabel := pod.GetLabels()[virtv1.VirtualMachineNameLabel]; hasLabel {
+		return vmName, true
+	}
+
+	return "", false
+}
+
+func (w *VolumeEventWatcher) resolveVMNameByHotplugStatus(ctx context.Context, pod *corev1.Pod) (string, bool) {
+	if pod == nil {
+		return "", false
+	}
+
+	var kvvmiList virtv1.VirtualMachineInstanceList
+	if err := w.client.List(ctx, &kvvmiList, client.InNamespace(pod.Namespace)); err != nil {
+		return "", false
+	}
+
+	for _, kvvmi := range kvvmiList.Items {
+		for _, volumeStatus := range kvvmi.Status.VolumeStatus {
+			if volumeStatus.HotplugVolume == nil {
+				continue
+			}
+
+			if volumeStatus.HotplugVolume.AttachPodUID != "" && volumeStatus.HotplugVolume.AttachPodUID == pod.UID {
+				return kvvmi.Name, true
+			}
+			if volumeStatus.HotplugVolume.AttachPodName == pod.Name {
+				return kvvmi.Name, true
+			}
+		}
+	}
+
+	return "", false
+}
+
 func (w *VolumeEventWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
 		source.Kind(
@@ -80,8 +120,11 @@ func (w *VolumeEventWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 					return nil
 				}
 
-				vmName, hasLabel := pod.GetLabels()[virtv1.VirtualMachineNameLabel]
-				if !hasLabel {
+				vmName, ok := getVirtualMachineNameFromPodLabels(pod)
+				if !ok {
+					vmName, ok = w.resolveVMNameByHotplugStatus(ctx, pod)
+				}
+				if !ok {
 					return nil
 				}
 

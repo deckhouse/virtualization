@@ -23,8 +23,10 @@ import (
 	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -245,19 +247,59 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 }
 
 func (h *LifeCycleHandler) checkVMPodVolumeErrors(ctx context.Context, vm *v1alpha2.VirtualMachine, log *slog.Logger) error {
-	var podList corev1.PodList
-	err := h.client.List(ctx, &podList, &client.ListOptions{
+	podsByName := make(map[string]corev1.Pod, 2)
+
+	var launcherPods corev1.PodList
+	err := h.client.List(ctx, &launcherPods, &client.ListOptions{
 		Namespace: vm.Namespace,
 		LabelSelector: labels.SelectorFromSet(map[string]string{
 			virtv1.VirtualMachineNameLabel: vm.Name,
 		}),
 	})
 	if err != nil {
-		log.Error("Failed to list pods", "error", err)
+		log.Error("Failed to list launcher pods", "error", err)
 		return err
 	}
+	for _, pod := range launcherPods.Items {
+		podsByName[pod.Name] = pod
+	}
 
-	for _, pod := range podList.Items {
+	kvvmi := &virtv1.VirtualMachineInstance{}
+	err = h.client.Get(ctx, types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace}, kvvmi)
+	if err != nil && !apierrors.IsNotFound(err) {
+		log.Error("Failed to get KVVMI for hotplug pod resolution", "error", err)
+		return err
+	}
+	if err == nil {
+		for _, vs := range kvvmi.Status.VolumeStatus {
+			if vs.HotplugVolume == nil || vs.HotplugVolume.AttachPodName == "" {
+				continue
+			}
+			if _, exists := podsByName[vs.HotplugVolume.AttachPodName]; exists {
+				continue
+			}
+
+			attachPod := &corev1.Pod{}
+			err := h.client.Get(ctx, types.NamespacedName{
+				Name:      vs.HotplugVolume.AttachPodName,
+				Namespace: vm.Namespace,
+			}, attachPod)
+			if err != nil {
+				if apierrors.IsNotFound(err) {
+					continue
+				}
+				log.Error("Failed to get hotplug pod", "error", err, "pod", vs.HotplugVolume.AttachPodName)
+				return err
+			}
+			if vs.HotplugVolume.AttachPodUID != "" && attachPod.UID != vs.HotplugVolume.AttachPodUID {
+				continue
+			}
+
+			podsByName[attachPod.Name] = *attachPod
+		}
+	}
+
+	for _, pod := range podsByName {
 		if !podutil.IsContainerCreating(&pod) {
 			continue
 		}
