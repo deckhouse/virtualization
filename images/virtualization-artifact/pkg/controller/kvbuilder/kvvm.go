@@ -814,12 +814,9 @@ func (b *KVVM) SetNetworkInterface(name, macAddress string, acpiIndex int) {
 		Name:      name,
 		Model:     devPreset.InterfaceModel,
 		ACPIIndex: acpiIndex,
+		Binding:   &virtv1.PluginBinding{Name: "bpfbridge"},
 	}
-	if name == "default" {
-		iface.Binding = &virtv1.PluginBinding{Name: "bpfbridge"}
-	} else {
-		iface.Bridge = &virtv1.InterfaceBridge{}
-	}
+
 	if macAddress != "" {
 		iface.MacAddress = macAddress
 	}
