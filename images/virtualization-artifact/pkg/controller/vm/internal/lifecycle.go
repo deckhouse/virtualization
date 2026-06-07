@@ -247,7 +247,8 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 }
 
 func (h *LifeCycleHandler) checkVMPodVolumeErrors(ctx context.Context, vm *v1alpha2.VirtualMachine, log *slog.Logger) error {
-	podsByName := make(map[string]corev1.Pod, 2)
+	var pods []corev1.Pod
+	processedPodNames := make(map[string]struct{})
 
 	var launcherPods corev1.PodList
 	err := h.client.List(ctx, &launcherPods, &client.ListOptions{
@@ -261,7 +262,11 @@ func (h *LifeCycleHandler) checkVMPodVolumeErrors(ctx context.Context, vm *v1alp
 		return err
 	}
 	for _, pod := range launcherPods.Items {
-		podsByName[pod.Name] = pod
+		if _, exists := processedPodNames[pod.Name]; exists {
+			continue
+		}
+		processedPodNames[pod.Name] = struct{}{}
+		pods = append(pods, pod)
 	}
 
 	kvvmi := &virtv1.VirtualMachineInstance{}
@@ -275,7 +280,7 @@ func (h *LifeCycleHandler) checkVMPodVolumeErrors(ctx context.Context, vm *v1alp
 			if vs.HotplugVolume == nil || vs.HotplugVolume.AttachPodName == "" {
 				continue
 			}
-			if _, exists := podsByName[vs.HotplugVolume.AttachPodName]; exists {
+			if _, exists := processedPodNames[vs.HotplugVolume.AttachPodName]; exists {
 				continue
 			}
 
@@ -295,11 +300,12 @@ func (h *LifeCycleHandler) checkVMPodVolumeErrors(ctx context.Context, vm *v1alp
 				continue
 			}
 
-			podsByName[attachPod.Name] = *attachPod
+			processedPodNames[attachPod.Name] = struct{}{}
+			pods = append(pods, *attachPod)
 		}
 	}
 
-	for _, pod := range podsByName {
+	for _, pod := range pods {
 		if !podutil.IsContainerCreating(&pod) {
 			continue
 		}
