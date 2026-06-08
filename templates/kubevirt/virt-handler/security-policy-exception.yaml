@@ -3,7 +3,7 @@
 apiVersion: deckhouse.io/v1alpha1
 kind: SecurityPolicyException
 metadata:
-  name: virt-handler-ds-virt-handler-container
+  name: virt-handler-ds
   namespace: d8-{{ .Chart.Name }}
   {{- include "helm_lib_module_labels" (list . (dict "app" .Chart.Name)) | nindent 2 }}
 spec:
@@ -111,63 +111,5 @@ spec:
           metadata:
             description: |
               Allow read-write access to /var/run/kubevirt-private hostPath volume.
-
----
-# SecurityPolicyException for node-labeller (it is named as virt-launcher container).
-apiVersion: deckhouse.io/v1alpha1
-kind: SecurityPolicyException
-metadata:
-  name: virt-handler-ds-virt-launcher-container
-  namespace: d8-{{ .Chart.Name }}
-  {{- include "helm_lib_module_labels" (list . (dict "app" .Chart.Name)) | nindent 2 }}
-spec:
-  securityContext:
-    runAsUser:
-      allowedValues:
-        - 0
-      metadata:
-        description: |
-          Allow virt-handler container to run as root user (UID 0).
-          Virt-handler component requires root privileges to properly communicate with the KVM subsystem.
-
-    runAsNonRoot:
-      allowedValue: false
-      metadata:
-        description: |
-          Allow containers to run as root user (non-root disabled).
-          Virt-handler component requires root privileges to access kernel-level resources and interact with system calls.
-
-    allowPrivilegeEscalation:
-      allowedValue: true
-      metadata:
-        description: |
-          Allow privilege escalation for the virt-handler container.
-          Virt-handler component requires privilege escalation to access kernel-level system calls.
-
-    privileged:
-      allowedValue: true
-      metadata:
-        description: |
-          Allow privileged mode for the virt-handler.
-          Virt-handler component requires privileged access to interact with the KVM subsystem and Linux kernel.
-
-
-  # Allow mounting host directories.
-  volumes:
-    types:
-      allowedValues:
-        - hostPath
-      metadata:
-        description: |
-          Allow hostPath volume type for node-labeller.
-          node-labeller container of the virt-handler DaemonSet requires access to host filesystem to share virsh capabilities with the main virt-handler container.
-
-    hostPath:
-      allowedValues:
-        - path: /var/lib/d8-virtualization/node-labeller
-          readOnly: false
-          metadata:
-            description: |
-              Allow read-write access to /var/run/d8-virtualization/node-labeller hostPath volume.
 
 {{- end }}

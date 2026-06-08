@@ -293,10 +293,7 @@ env:
 # Labels to link with SecurityPolicyExceptions.
 {{ define "security-policy-exception-link-labels" }}
 labels:
-  # main container.
-  security.deckhouse.io/security-policy-exception/virt-handler: virt-handler-ds-virt-handler-container
-  # node-labeller container
-  security.deckhouse.io/security-policy-exception/virt-launcher: virt-handler-ds-virt-launcher-container
+  security.deckhouse.io/security-policy-exception: virt-handler-ds
 {{ end }}
     - resourceName: virt-handler
       resourceType: DaemonSet
