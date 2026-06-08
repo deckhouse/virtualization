@@ -24,15 +24,12 @@ commits = [
   "7779a9548280e3d28cd44555efe6d0e18a106b09",
   # images/virtualization-artifact/config/vm_sysprep.yaml - example config
   "552a06eb1d2f50ca2d765d42c5ab4d701c92a555",
-  # legacy entry
-  "d964aca8c51cc3f2dcd0d72b6016fa6ad94c1ce4",
 ]
 paths = [
   # test files and data
   '''^images/dvcr-artifact/pkg/uploader/testdata/auth.json$''',
   '''^images/hooks/pkg/hooks/generate-secret-for-dvcr/hook_test.go$''',
   '''^images/hooks/cmd/generate-secret-for-dvcr/main_test\.go$''',
-  '''^test/e2e/legacy/testdata/sshkeys/id_ed$''',
   '''^test/e2e/internal/object/const.go$''',
   '''^tests/e2e/object/const\.go$''',
   '''^tests/e2e/testdata/connectivity/sshkeys/id_ed$''',

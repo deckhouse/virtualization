@@ -17,12 +17,6 @@ clusterTransport:
 
 helperImages:
   curlImage: "curlimages/curl"
-testData:
-  sizingPolicy: "/tmp/testdata/sizing-policy"
-  vmConfiguration: "/tmp/testdata/vm-configuration"
-  vmMigration: "/tmp/testdata/vm-migration"
-  sshKey: "/tmp/testdata/sshkeys/id_ed"
-  sshUser: "cloud"
 logFilter:
   - "pattern to exclude"
   - "validation failed for data source objectref" # Err.
