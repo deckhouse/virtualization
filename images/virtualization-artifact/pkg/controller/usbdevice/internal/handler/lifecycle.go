@@ -167,6 +167,10 @@ func (h *LifecycleHandler) ensureResourceClaimTemplate(ctx context.Context, s st
 			}
 
 			if err := h.client.Create(ctx, template); err != nil {
+				if apierrors.IsAlreadyExists(err) {
+					log.Debug("ResourceClaimTemplate already exists during recreate", "template", templateName)
+					return nil
+				}
 				return fmt.Errorf("failed to recreate ResourceClaimTemplate: %w", err)
 			}
 
@@ -185,6 +189,10 @@ func (h *LifecycleHandler) ensureResourceClaimTemplate(ctx context.Context, s st
 	}
 
 	if err := h.client.Create(ctx, template); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			log.Debug("ResourceClaimTemplate already exists during create", "template", templateName)
+			return nil
+		}
 		return fmt.Errorf("failed to create ResourceClaimTemplate: %w", err)
 	}
 
