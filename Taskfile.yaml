@@ -179,8 +179,37 @@ tasks:
     cmds:
       - task: lint:doc-ru
       - task: lint:prettier:yaml
+      - task: lint:shellcheck
+      - task: lint:actionlint
       - task: virtualization-controller:dvcr:lint
       - task: virtualization-controller:lint
+
+  lint:shellcheck:
+    desc: "Run shellcheck for CI shell scripts."
+    cmds:
+      - |
+        docker run --rm \
+          -v "$PWD:/mnt" \
+          -w /mnt \
+          koalaman/shellcheck-alpine:v0.10.0 \
+          shellcheck \
+          .github/scripts/bash/e2e/*.sh \
+          api/scripts/update-codegen.sh \
+          images/virtualization-artifact/hack/args.sh \
+          images/virtualization-artifact/hack/dlv.sh \
+          images/virtualization-artifact/hack/pyroscope.sh
+
+  lint:actionlint:
+    desc: "Run actionlint for E2E GitHub workflows."
+    cmds:
+      - |
+        docker run --rm \
+          -v "$PWD:/repo" \
+          -w /repo \
+          rhysd/actionlint:1.7.7 \
+          -color \
+          -shellcheck= \
+          .github/workflows/e2e*.yml
 
   lint:doc-ru:
     desc: "Check the correspondence between description fields in the original crd and the Russian language version"

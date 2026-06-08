@@ -1,4 +1,4 @@
-# Copyright 2026 Flant JSC
+# Copyright 2025 Flant JSC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,19 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: E2E Release Test Reusable Pipeline
+name: E2E Nightly Pipeline (Reusable)
 
 on:
   workflow_call:
     inputs:
-      current_release:
-        required: true
-        type: string
-        description: "Current virtualization release tag (e.g. v1.4.1)"
-      new_release:
-        required: true
-        type: string
-        description: "New virtualization release tag to upgrade to (e.g. v1.5.0)"
       date_start:
         required: true
         type: string
@@ -46,21 +38,26 @@ on:
       cluster_config_additional_disk_size:
         required: false
         type: string
-        default: "250Gi"
+        default: "50Gi"
         description: "Set additional disk size for workers node in cluster config"
       storage_type:
         required: true
         type: string
-        description: "Storage type (replicated or nfs)"
+        description: "Storage type (ceph or replicated or etc.)"
       nested_storageclass_name:
         required: true
         type: string
         description: "Nested storage class name"
-      nested_cluster_network_name:
+      branch:
         required: false
         type: string
-        default: "cn-4006-for-e2e-test"
-        description: "ClusterNetwork name for nested VM additional network interface"
+        default: "main"
+        description: "Branch to use"
+      virtualization_tag:
+        required: false
+        type: string
+        default: "main"
+        description: "Virtualization tag"
       virtualization_image_url:
         required: false
         type: string
@@ -89,8 +86,23 @@ on:
       go_version:
         required: false
         type: string
-        default: "1.25.10"
+        default: "1.24.6"
         description: "Go version"
+      e2e_timeout:
+        required: false
+        type: string
+        default: "3h"
+        description: "E2E tests timeout"
+      e2e_focus_tests:
+        required: false
+        type: string
+        default: ""
+        description: "E2E tests focus tests like 'VirtualMachineConfiguration' and so on (by default all tests are run)"
+      nested_cluster_network_name:
+        required: false
+        type: string
+        default: "cn-4006-for-e2e-test"
+        description: "ClusterNetwork name for nested VM additional network interface"
       apt_mirror_enabled:
         required: false
         type: boolean
@@ -106,6 +118,11 @@ on:
         type: string
         default: "https://mirror.hetzner.com/ubuntu/packages"
         description: "APT mirror base URL (without trailing slash)"
+      pipeline_job_name:
+        required: false
+        type: string
+        default: ""
+        description: "Display name of the calling pipeline job in the parent workflow (e.g. 'E2E Pipeline (Replicated)'). Used to resolve per-stage job URLs in the report."
     secrets:
       DEV_REGISTRY_DOCKER_CFG:
         required: true
@@ -115,14 +132,34 @@ on:
         required: true
       BOOTSTRAP_DEV_PROXY:
         required: true
-      DEV_MODULES_REGISTRY_PASSWORD:
-        required: true
       E2E_ARTIFACTS_GPG_PASSPHRASE:
         required: true
+    outputs:
+      artifact-name:
+        description: "Name of the uploaded artifact with E2E report"
+        value: ${{ jobs.prepare-report.outputs.artifact-name }}
+      report_kind:
+        description: "E2E report kind for the cluster"
+        value: ${{ jobs.prepare-report.outputs.report_kind }}
+      status:
+        description: "E2E report status for the cluster"
+        value: ${{ jobs.prepare-report.outputs.status }}
+      failed_stage:
+        description: "Failed or final stage name for the cluster"
+        value: ${{ jobs.prepare-report.outputs.failed_stage }}
+      failed_stage_label:
+        description: "Human-readable failed or final stage label for the cluster"
+        value: ${{ jobs.prepare-report.outputs.failed_stage_label }}
+      workflow_run_url:
+        description: "Workflow run URL for the cluster pipeline"
+        value: ${{ jobs.prepare-report.outputs.workflow_run_url }}
+      branch:
+        description: "Branch used for the cluster pipeline"
+        value: ${{ jobs.prepare-report.outputs.branch }}
 
 env:
-  CURRENT_RELEASE: ${{ inputs.current_release }}
-  NEW_RELEASE: ${{ inputs.new_release }}
+  BRANCH: ${{ inputs.branch }}
+  VIRTUALIZATION_TAG: ${{ inputs.virtualization_tag }}
   DECKHOUSE_CHANNEL: ${{ inputs.deckhouse_channel }}
   DEFAULT_USER: ${{ inputs.default_user }}
   GO_VERSION: ${{ inputs.go_version }}
@@ -157,7 +194,7 @@ jobs:
         run: |
           GIT_SHORT_HASH=$(git rev-parse --short HEAD)
 
-          namespace="release-test-$STORAGE_TYPE-$GIT_SHORT_HASH-$RANDUUID4C"
+          namespace="nightly-e2e-$STORAGE_TYPE-$GIT_SHORT_HASH-$RANDUUID4C"
 
           echo "namespace=$namespace" >> "$GITHUB_OUTPUT"
           echo "sha_short=$GIT_SHORT_HASH" >> "$GITHUB_OUTPUT"
@@ -201,33 +238,29 @@ jobs:
           APT_MIRROR_URL: ${{ inputs.apt_mirror_url }}
           CLUSTER_CONFIG_WORKERS_MEMORY: ${{ inputs.cluster_config_workers_memory }}
           ADDITIONAL_DISK_SIZE: ${{ inputs.cluster_config_additional_disk_size }}
+          ENABLED_MODULES: ""
           NESTED_CLUSTER_NETWORK_NAME: ${{ inputs.nested_cluster_network_name }}
-          ENABLED_MODULES: console
         run: bash "${E2E_SCRIPT_DIR}/render-dvp-static-values.sh"
 
       - name: Bootstrap cluster [infra-deploy]
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
         run: |
           task infra-deploy
+
       - name: Bootstrap cluster [dhctl-bootstrap]
         id: dhctl-bootstrap
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
-        env:
-          BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
         run: |
           if [[ $(yq eval '.deckhouse.proxyEnabled' values.yaml) == true ]]; then
-            export HTTP_PROXY="$BOOTSTRAP_DEV_PROXY"
-            export HTTPS_PROXY="$BOOTSTRAP_DEV_PROXY"
+            export HTTP_PROXY="${{ secrets.BOOTSTRAP_DEV_PROXY }}"
+            export HTTPS_PROXY="${{ secrets.BOOTSTRAP_DEV_PROXY }}"
             echo "Proxy settings - configured"
           fi
 
           task dhctl-bootstrap
           echo "[SUCCESS] Done"
         timeout-minutes: 60
-      - name: Label cluster to prevent deletion
-        run: |
-          kubectl label namespace "${{ steps.vars.outputs.namespace }}" e2e-cluster/do-not-stop-vm-on-e2e-run=true
-          kubectl label vmclass "${{ steps.vars.outputs.namespace }}-cpu" e2e-cluster/do-not-stop-vm-on-e2e-run=true
+
       - name: Bootstrap cluster [show-connection-info]
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
         run: |
@@ -299,7 +332,7 @@ jobs:
           path: tmp values.yaml
           working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
           passphrase: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
-          artifact_name: ${{ env.STORAGE_TYPE }}-release-generated-files-${{ env.E2E_START_TIME }}
+          artifact_name: ${{ env.STORAGE_TYPE }}-generated-files-${{ env.E2E_START_TIME }}
           retention-days: 3
 
       - name: Encrypt and upload ssh config artifact
@@ -309,7 +342,7 @@ jobs:
           path: ssh
           working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp
           passphrase: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
-          artifact_name: ${{ env.STORAGE_TYPE }}-release-generated-files-ssh-${{ env.E2E_START_TIME }}
+          artifact_name: ${{ env.STORAGE_TYPE }}-generated-files-ssh-${{ env.E2E_START_TIME }}
           retention-days: 3
 
       - name: Encrypt and upload kubeconfig artifact
@@ -319,7 +352,7 @@ jobs:
           path: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/kube-config
           archive: "false"
           passphrase: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
-          artifact_name: ${{ env.STORAGE_TYPE }}-release-generated-files-kubeconfig-${{ env.E2E_START_TIME }}
+          artifact_name: ${{ env.STORAGE_TYPE }}-generated-files-kubeconfig-${{ env.E2E_START_TIME }}
           retention-days: 3
 
       - name: Add encrypted artifacts help to job summary
@@ -344,7 +377,10 @@ jobs:
         with:
           kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
       - name: Enable SDN
-        run: bash "${E2E_SCRIPT_DIR}/enable-sdn.sh"
+        run: |
+          # Keep SDN enable and readiness checks in a script because this step needs
+          # several retries around Deckhouse webhooks and detailed SDN diagnostics.
+          bash "${E2E_SCRIPT_DIR}/enable-sdn.sh"
 
       - name: Wait for nodenetworkinterfaces to be ready
         run: bash "${E2E_SCRIPT_DIR}/wait-nodenetworkinterfaces.sh"
@@ -360,6 +396,8 @@ jobs:
 
           kubectl get nodenetworkinterface -l nic-group=extra
 
+          # Use a retry wrapper because ClusterNetwork admission can race with the
+          # SDN webhook endpoint right after the module becomes Ready.
           cat <<'EOF' | bash "${E2E_SCRIPT_DIR}/apply-clusternetworks.sh"
           ---
           apiVersion: network.deckhouse.io/v1alpha1
@@ -414,27 +452,20 @@ jobs:
           kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
       - name: Configure replicated storage
         id: storage-replicated-setup
-        if: ${{ inputs.storage_type == 'replicated' || inputs.storage_type == 'mixed' }}
+        if: ${{ inputs.storage_type == 'replicated' }}
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/sds-replicated
         run: bash "${E2E_SCRIPT_DIR}/configure-sds-replicated.sh"
 
-      - name: Configure sds-local-volume
-        if: ${{ inputs.storage_type == 'local' || inputs.storage_type == 'mixed' }}
-        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/sds-local-volume
-        run: bash "${E2E_SCRIPT_DIR}/configure-sds-local-volume.sh"
-
       - name: Configure NFS storage
-        if: ${{ inputs.storage_type == 'nfs' || inputs.storage_type == 'mixed' }}
+        if: ${{ inputs.storage_type == 'nfs' }}
         id: storage-nfs-setup
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/nfs
         env:
           NAMESPACE: ${{ needs.bootstrap.outputs.namespace }}
-          STORAGE_TYPE: ${{ inputs.storage_type }}
-          CONFIGURE_DEFAULT_SC: ${{ inputs.storage_type != 'mixed' }}
         run: bash "${E2E_SCRIPT_DIR}/configure-csi-nfs.sh"
 
   configure-virtualization:
-    name: Configure Virtualization (current-release)
+    name: Configure Virtualization
     runs-on: ubuntu-latest
     needs:
       - bootstrap
@@ -455,10 +486,16 @@ jobs:
           check-api: "false"
       - name: Configure Virtualization
         env:
-          CURRENT_RELEASE: ${{ env.CURRENT_RELEASE }}
           DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
-        run: bash "${E2E_SCRIPT_DIR}/configure-virtualization-release.sh"
+          NESTED_STORAGE_CLASS_NAME: ${{ inputs.nested_storageclass_name }}
+          VIRTUALIZATION_TAG: ${{ env.VIRTUALIZATION_TAG }}
+        run: |
+          # Keep virtualization configuration in a script because it waits for
+          # Deckhouse queue/source propagation before applying ModuleConfig.
+          bash "${E2E_SCRIPT_DIR}/configure-virtualization.sh"
       - name: Wait for Virtualization to be ready
+        env:
+          STORAGE_TYPE: ${{ inputs.storage_type }}
         run: |
           source "${E2E_SCRIPT_DIR}/wait-virtualization-ready.sh"
 
@@ -473,14 +510,15 @@ jobs:
           echo "[INFO] Checking virt-handler pods "
           virt_handler_ready
 
-  test-current-release:
-    name: "E2E test (current-release: ${{ inputs.current_release }})"
+          enable_maintenance_mode "${STORAGE_TYPE}"
+
+  e2e-test:
+    name: E2E test
     runs-on: ubuntu-latest
     needs:
       - bootstrap
+      - configure-storage
       - configure-virtualization
-    outputs:
-      release_namespace: ${{ steps.export-release-context.outputs.release_namespace }}
     steps:
       - uses: actions/checkout@v6
 
@@ -495,120 +533,135 @@ jobs:
           checkout: "false"
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup kubeconfig
-        uses: ./.github/actions/use-nested-kubeconfig
-        with:
-          kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
-          check-api: "false"
       - name: Install ginkgo
         working-directory: ./test/e2e/
         run: |
           echo "Install ginkgo"
           go install tool
 
+      - name: Setup kubeconfig
+        uses: ./.github/actions/use-nested-kubeconfig
+        with:
+          kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
+          check-api: "false"
       - name: Download dependencies
         working-directory: ./test/e2e/
         run: |
           echo "Download dependencies"
           go mod download
 
-      - name: Create vmclass for release e2e tests
+      - name: Detect Kubernetes version for E2E
+        id: detect-k8s-version
+        run: bash "${E2E_SCRIPT_DIR}/detect-k8s-version.sh" "$GITHUB_OUTPUT"
+
+      - name: Create vmclass for e2e tests
         run: bash "${E2E_SCRIPT_DIR}/create-e2e-vmclass.sh"
 
-      - name: "Run E2E tests on current-release"
-        id: release-e2e
+      - name: Run E2E
+        id: e2e-report
         env:
-          CURRENT_RELEASE: ${{ env.CURRENT_RELEASE }}
+          TIMEOUT: ${{ inputs.e2e_timeout }}
           CSI: ${{ inputs.storage_type }}
           STORAGE_CLASS_NAME: ${{ inputs.nested_storageclass_name }}
-          E2E_CONFIG: ${{ github.workspace }}/test/e2e/default_config.yaml
-          RELEASE_TEST_PHASE: pre-upgrade
-          RELEASE_UPGRADE_CONTEXT_PATH: ${{ runner.temp }}/release-upgrade-context.json
-        run: bash "${E2E_SCRIPT_DIR}/run-release-e2e.sh"
+          LABELS: ${{ steps.detect-k8s-version.outputs.label-filter }}
+          SERVER_K8S_VERSION: ${{ steps.detect-k8s-version.outputs.server-version }}
+          USB_SUPPORTED: ${{ steps.detect-k8s-version.outputs.usb-supported }}
+          FOCUS: ${{ inputs.e2e_focus_tests }}
+        working-directory: ./test/e2e/
+        run: task run:ci
 
-      - name: Export release upgrade context
-        id: export-release-context
-        if: success() && steps.release-e2e.outcome != 'skipped'
-        run: |
-          context_path="${{ runner.temp }}/release-upgrade-context.json"
-          echo "[INFO] Reading release upgrade context from ${context_path}"
-          cat "${context_path}"
-          echo "release_namespace=$(jq -r '.namespace' "${context_path}")" >> "$GITHUB_OUTPUT"
-
-      - name: Upload resources from failed current-release tests
+      - name: Upload summary test results (json)
         uses: actions/upload-artifact@v7
-        if: always() && steps.release-e2e.outcome != 'skipped'
+        id: e2e-report-artifact
+        if: always() && steps.e2e-report.outcome != 'skipped'
         with:
-          name: current-release-resources-from-failed-tests-${{ github.run_id }}
-          path: ${{ runner.temp }}/e2e_failed__*
+          name: e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ inputs.date_start }}
+          path: |
+            test/e2e/e2e_report_*.json
+            test/e2e/e2e_output_*.log
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: 3
+
+      - name: Upload resources from failed tests
+        uses: actions/upload-artifact@v7
+        if: always() && steps.e2e-report.outcome != 'skipped'
+        with:
+          name: DUMP-${{ env.STORAGE_TYPE }}-${{ env.E2E_START_TIME }}
+          path: ${{ runner.temp }}/e2e_failed/
           if-no-files-found: ignore
           retention-days: 3
 
-  patch-modulepulloverride:
-    name: "Patch ModulePullOverride to new-release: ${{ inputs.new_release }}"
+  prepare-report:
+    name: Prepare E2E report
     runs-on: ubuntu-latest
     needs:
       - bootstrap
-      - test-current-release
+      - configure-sdn
+      - configure-storage
+      - configure-virtualization
+      - e2e-test
+    if: always()
     outputs:
-      upgrade_started_at: ${{ steps.patch-modulepulloverride.outputs.upgrade_started_at }}
+      artifact-name: ${{ steps.set-artifact-name.outputs.artifact-name }}
+      report_kind: ${{ steps.determine-stage.outputs.report_kind }}
+      status: ${{ steps.determine-stage.outputs.status }}
+      failed_stage: ${{ steps.determine-stage.outputs.failed_stage }}
+      failed_stage_label: ${{ steps.determine-stage.outputs.failed_stage_label }}
+      workflow_run_url: ${{ steps.determine-stage.outputs.workflow_run_url }}
+      branch: ${{ steps.determine-stage.outputs.branch }}
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup E2E toolchain
-        uses: ./.github/actions/setup-e2e-toolchain
+      - name: Download E2E test results if available
+        uses: actions/download-artifact@v8
+        continue-on-error: true
         with:
-          checkout: "false"
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ inputs.date_start }}
+          path: test/e2e/
 
-      - name: Setup kubeconfig
-        uses: ./.github/actions/use-nested-kubeconfig
-        with:
-          kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
-          check-api: "false"
-      - name: Show current MPO state
-        run: |
-          echo "[INFO] Current ModulePullOverride before patching:"
-          kubectl get mpo virtualization -o yaml
-
-      - name: "Patch ModulePullOverride to new-release: ${{ env.NEW_RELEASE }}"
-        id: patch-modulepulloverride
-        run: |
-          upgrade_started_at=$(date +%s)
-          echo "upgrade_started_at=${upgrade_started_at}" >> "$GITHUB_OUTPUT"
-          echo "[INFO] Patching MPO virtualization imageTag from ${{ env.CURRENT_RELEASE }} to ${{ env.NEW_RELEASE }}"
-          kubectl patch mpo virtualization --type merge -p '{"spec":{"imageTag":"${{ env.NEW_RELEASE }}"}}'
-
-          echo "[INFO] Show patched ModulePullOverride:"
-          kubectl get mpo virtualization -o yaml
-
-      - name: Setup crane and registry auth
-        uses: deckhouse/modules-actions/setup@v2
-        with:
-          registry: ${{ vars.DEV_REGISTRY }}
-          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
-          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
-
-      - name: Verify image digests in pods after upgrade
+      - name: Determine failed stage and prepare report
+        id: determine-stage
+        uses: actions/github-script@v7
         env:
-          DEV_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
-          NEW_RELEASE: ${{ env.NEW_RELEASE }}
-        run: bash "${E2E_SCRIPT_DIR}/verify-image-digests.sh"
+          STORAGE_TYPE: ${{ inputs.storage_type }}
+          PIPELINE_JOB_NAME: ${{ inputs.pipeline_job_name }}
+          NEEDS_CONTEXT: ${{ toJSON(needs) }}
+        with:
+          script: |
+            const buildClusterReport = require('./.github/scripts/js/e2e/report/cluster-report');
+            await buildClusterReport({
+              core,
+              context,
+              github,
+            });
 
-      - name: Show ModulePullOverride state after upgrade
+      - name: Upload E2E report artifact
+        id: upload-artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-report-${{ inputs.storage_type }}-${{ github.run_id }}-${{ inputs.date_start }}
+          path: ${{ steps.determine-stage.outputs.report_file }}
+          overwrite: true
+          retention-days: 3
+
+      - name: Set artifact name output
+        id: set-artifact-name
         run: |
-          echo "[INFO] ModulePullOverride after upgrade:"
-          kubectl get mpo virtualization -o yaml
-          echo "[INFO] Virtualization module status:"
-          kubectl get modules virtualization
+          ARTIFACT_NAME="e2e-report-${{ inputs.storage_type }}-${{ github.run_id }}-${{ inputs.date_start }}"
+          echo "artifact-name=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
+          echo "[INFO] Artifact name: $ARTIFACT_NAME"
 
-  test-new-release:
-    name: "E2E test (new-release: ${{ inputs.new_release }})"
+  undeploy-cluster:
+    name: Undeploy cluster
     runs-on: ubuntu-latest
     needs:
       - bootstrap
-      - patch-modulepulloverride
-      - test-current-release
+      - configure-sdn
+      - configure-storage
+      - configure-virtualization
+      - e2e-test
+    if: cancelled() || success()
     steps:
       - uses: actions/checkout@v6
 
@@ -618,35 +671,32 @@ jobs:
           checkout: "false"
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - name: Download artifacts
+        uses: actions/download-artifact@v8
         with:
-          go-version: "${{ env.GO_VERSION }}"
+          name: ${{ env.STORAGE_TYPE }}-generated-files-${{ env.E2E_START_TIME }}.zip.gpg
+          path: ${{ runner.temp }}/encrypted-generated-files
 
-      - name: Install ginkgo
-        working-directory: ./test/e2e/
-        run: |
-          echo "Install ginkgo"
-          go install tool
-
-      - name: Download dependencies
-        working-directory: ./test/e2e/
-        run: |
-          echo "Download dependencies"
-          go mod download
-
-      - name: Setup kubeconfig
-        uses: ./.github/actions/use-nested-kubeconfig
-        with:
-          kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
-          check-api: "false"
-      - name: "Run E2E tests on new-release"
+      - name: Decrypt generated files artifact
         env:
-          NEW_RELEASE: ${{ env.NEW_RELEASE }}
-          CSI: ${{ inputs.storage_type }}
-          STORAGE_CLASS_NAME: ${{ inputs.nested_storageclass_name }}
-          E2E_CONFIG: ${{ github.workspace }}/test/e2e/default_config.yaml
-          RELEASE_TEST_PHASE: post-upgrade
-          RELEASE_NAMESPACE: ${{ needs.test-current-release.outputs.release_namespace }}
-          RELEASE_UPGRADE_STARTED_AT: ${{ needs.patch-modulepulloverride.outputs.upgrade_started_at }}
-        run: bash "${E2E_SCRIPT_DIR}/run-release-e2e.sh"
+          GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
+          ARTIFACT_NAME: ${{ env.STORAGE_TYPE }}-generated-files-${{ env.E2E_START_TIME }}
+        run: |
+          artifact_path="${{ runner.temp }}/encrypted-generated-files/${ARTIFACT_NAME}.zip.gpg"
+          gpg --decrypt --batch --yes --pinentry-mode loopback \
+            --passphrase "$GPG_PASSPHRASE" \
+            --output "${RUNNER_TEMP}/${ARTIFACT_NAME}.zip" \
+            "$artifact_path"
+          unzip -o "${RUNNER_TEMP}/${ARTIFACT_NAME}.zip" -d "${{ env.SETUP_CLUSTER_TYPE_PATH }}"
+
+      - name: Configure kubectl via azure/k8s-set-context@v4
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          context: e2e-cluster-nightly-e2e-virt-sa
+          kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+
+      - name: infra-undeploy
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+        run: |
+          task infra-undeploy
