@@ -102,16 +102,32 @@ tasks:
     deps:
       - check-helm
     cmds:
-      - helm repo add deckhouse https://deckhouse.github.io/lib-helm
-      - helm repo update deckhouse
-      - helm dep update
+      - |
+        echo -e "Step 1: Add deckhouse Helm repo\n"
+        helm repo add deckhouse https://deckhouse.github.io/lib-helm
+        echo -e "\nStep 2: Update deckhouse Helm repo\n"
+        helm repo update deckhouse
+        echo -e "\nStep 3: Update dependencies\n"
+        helm dep update
 
   helm-bump-helm-lib:
     deps:
       - check-yq
     cmds:
+      - |
+        lib_helm_ver=$(yq '.dependencies[] | select(.name == "deckhouse_lib_helm").version' Chart.yaml)
+        echo lib_helm version before update: $lib_helm_ver && echo
       - yq -i '.dependencies[] |= select(.name == "deckhouse_lib_helm").version = "{{ .deckhouse_lib_helm_ver }}"' Chart.yaml
       - task: helm-update-subcharts
+      - |
+        lib_helm_ver=$(yq '.dependencies[] | select(.name == "deckhouse_lib_helm").version' Chart.yaml)
+        echo && echo lib_helm version after update: $lib_helm_ver
+
+  helm-render:
+    deps:
+      - check-helm
+    cmds:
+      - helm template virtualization . -f tools/kubeconform/fixtures/module-values.yaml --debug --devel > helm-template-render.yaml
 
   build:
     deps:

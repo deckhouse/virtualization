@@ -65,3 +65,8 @@ package-lock.json
 .dolt/
 *.db
 .beads-credential-key
+
+# AI tools
+.cache
+.gocache
+.pi_*
