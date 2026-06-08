@@ -67,5 +67,6 @@ package-lock.json
 .beads-credential-key
 
 # AI tools
+.cache
 .gocache
 .pi_*
