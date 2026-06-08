@@ -52,7 +52,6 @@ linters-settings:
         directories:
           - tools/addlicense/testdata
           - test/performance/ssh
-          - test/e2e/legacy/testdata/sshkeys
           - images/dvcr-artifact/staging
   container:
     exclude-rules:

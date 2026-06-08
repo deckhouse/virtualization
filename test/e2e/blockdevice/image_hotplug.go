@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package vm
+package blockdevice
 
 import (
 	"context"
@@ -86,7 +86,7 @@ var _ = Describe("VirtualMachineImageHotplug", Label(precheck.NoPrecheck), func(
 			vmbuilder.WithName("vm"),
 			vmbuilder.WithNamespace(f.Namespace().Name),
 			vmbuilder.WithCPU(1, ptr.To("100%")),
-			vmbuilder.WithMemory(resource.MustParse("256Mi")),
+			vmbuilder.WithMemory(resource.MustParse("512Mi")),
 			vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 			vmbuilder.WithProvisioningUserData(object.AlpineCloudInit),
 			vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
@@ -103,8 +103,8 @@ var _ = Describe("VirtualMachineImageHotplug", Label(precheck.NoPrecheck), func(
 		util.UntilSSHReady(f, vm, framework.MiddleTimeout)
 		util.UntilGuestCommandsReady(f, vm, []string{"lsblk"}, framework.ShortTimeout)
 
-		By("Calculating initial block devices count")
-		initialDiskCnt, err := util.GetDiskCount(f, vm.Name, vm.Namespace)
+		By("Getting initial block devices count")
+		initialDiskCount, err := util.GetDiskCount(f, vm.Name, vm.Namespace)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Attaching VirtualImages and ClusterVirtualImages via VMBDA resources")
@@ -146,7 +146,11 @@ var _ = Describe("VirtualMachineImageHotplug", Label(precheck.NoPrecheck), func(
 		Eventually(func(g Gomega) {
 			count, diskErr := util.GetDiskCount(f, vm.Name, vm.Namespace)
 			g.Expect(diskErr).NotTo(HaveOccurred())
-			g.Expect(count).To(Equal(initialDiskCnt + hotplugImagesCount))
+			g.Expect(count).To(
+				Equal(initialDiskCount+hotplugImagesCount),
+				"expected guest disk count to increase by %d after image hotplug",
+				hotplugImagesCount,
+			)
 		}).WithTimeout(framework.LongTimeout).WithPolling(hotplugPollInterval).Should(Succeed())
 
 		By("Checking that exactly one hotplugged ISO is attached as CD-ROM")
@@ -175,7 +179,7 @@ var _ = Describe("VirtualMachineImageHotplug", Label(precheck.NoPrecheck), func(
 		Eventually(func(g Gomega) {
 			count, diskErr := util.GetDiskCount(f, vm.Name, vm.Namespace)
 			g.Expect(diskErr).NotTo(HaveOccurred())
-			g.Expect(count).To(Equal(initialDiskCnt))
+			g.Expect(count).To(Equal(initialDiskCount))
 		}).WithTimeout(framework.LongTimeout).WithPolling(hotplugPollInterval).Should(Succeed())
 	})
 })
@@ -193,7 +197,11 @@ func waitBlockDeviceRefsAttached(ctx context.Context, f *framework.Framework, vm
 				attached++
 			}
 		}
-		g.Expect(attached).To(BeNumerically(">=", expectedAttached+1))
+		g.Expect(attached).To(
+			BeNumerically(">=", expectedAttached+1),
+			"expected at least %d attached block devices: %d hotplug images plus one root disk",
+			expectedAttached+1, expectedAttached,
+		)
 	}).WithTimeout(framework.LongTimeout).WithPolling(hotplugPollInterval).Should(Succeed())
 }
 
@@ -259,29 +267,100 @@ func isBlockDeviceCdRom(f *framework.Framework, vm *v1alpha2.VirtualMachine, blo
 }
 
 func isBlockDeviceReadOnly(f *framework.Framework, vm *v1alpha2.VirtualMachine, blockDeviceByID string) (bool, error) {
-	devicePath := fmt.Sprintf("/dev/disk/by-id/%s", blockDeviceByID)
-	cmd := fmt.Sprintf("lsblk --json --nodeps --output ro,type %s", devicePath)
+	if strings.HasPrefix(blockDeviceByID, cdRomByIDPrefix) {
+		return true, nil
+	}
 
-	optionsOut, err := f.SSHCommand(vm.Name, vm.Namespace, cmd)
+	devicePath := fmt.Sprintf("/dev/disk/by-id/%s", blockDeviceByID)
+	mountPoint := fmt.Sprintf("/tmp/vm-image-hotplug-%s", blockDeviceByID)
+	if isMounted, err := mountReadOnly(f, vm, devicePath, mountPoint); err != nil {
+		return false, err
+	} else if !isMounted {
+		return false, nil
+	}
+
+	readOnly, err := isMountPointReadOnly(f, vm, mountPoint)
+	if err != nil {
+		_ = unmountPath(f, vm, mountPoint)
+		return false, err
+	}
+	if err = unmountPath(f, vm, mountPoint); err != nil {
+		return false, err
+	}
+
+	return readOnly, nil
+}
+
+func mountReadOnly(f *framework.Framework, vm *v1alpha2.VirtualMachine, sourcePath, mountPoint string) (bool, error) {
+	if _, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo mkdir -p %q", mountPoint)); err != nil {
+		return false, err
+	}
+
+	isMounted, err := tryMountReadOnly(f, vm, sourcePath, mountPoint)
+	if err != nil {
+		return false, err
+	}
+	if isMounted {
+		return true, nil
+	}
+
+	partitionPath, err := firstPartitionPath(f, vm, sourcePath)
+	if err != nil {
+		return false, err
+	}
+	if partitionPath == "" {
+		return false, nil
+	}
+
+	return tryMountReadOnly(f, vm, partitionPath, mountPoint)
+}
+
+func tryMountReadOnly(f *framework.Framework, vm *v1alpha2.VirtualMachine, sourcePath, mountPoint string) (bool, error) {
+	cmd := fmt.Sprintf("if sudo mount -o ro %q %q >/dev/null 2>&1; then echo true; else echo false; fi", sourcePath, mountPoint)
+	out, err := f.SSHCommand(vm.Name, vm.Namespace, cmd)
 	if err != nil {
 		return false, err
 	}
 
-	var disks lsblkReadOnlyOutput
-	if err = json.Unmarshal([]byte(optionsOut), &disks); err != nil {
-		return false, err
-	}
-	if len(disks.BlockDevices) != 1 {
-		return false, fmt.Errorf("expected a single block device for path %q", devicePath)
-	}
-
-	bd := disks.BlockDevices[0]
-	return bd.ReadOnly || bd.Type == "rom", nil
+	return strings.TrimSpace(out) == "true", nil
 }
 
-type lsblkReadOnlyOutput struct {
-	BlockDevices []struct {
-		ReadOnly bool   `json:"ro"`
-		Type     string `json:"type"`
-	} `json:"blockdevices"`
+func firstPartitionPath(f *framework.Framework, vm *v1alpha2.VirtualMachine, sourcePath string) (string, error) {
+	cmd := fmt.Sprintf("lsblk -lnpo PATH %q 2>/dev/null; true", sourcePath)
+	out, err := f.SSHCommand(vm.Name, vm.Namespace, cmd)
+	if err != nil {
+		return "", err
+	}
+
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) < 2 {
+		return "", nil
+	}
+
+	return strings.TrimSpace(lines[1]), nil
+}
+
+func isMountPointReadOnly(f *framework.Framework, vm *v1alpha2.VirtualMachine, mountPoint string) (bool, error) {
+	cmd := fmt.Sprintf("findmnt --noheadings --output OPTIONS --target %q 2>/dev/null; true", mountPoint)
+	out, err := f.SSHCommand(vm.Name, vm.Namespace, cmd)
+	if err != nil {
+		return false, err
+	}
+
+	options := strings.TrimSpace(out)
+	if options == "" {
+		return false, nil
+	}
+
+	return strings.Contains(","+options+",", ",ro,"), nil
+}
+
+func unmountPath(f *framework.Framework, vm *v1alpha2.VirtualMachine, path string) error {
+	cmd := fmt.Sprintf("sudo umount %q >/dev/null 2>&1; sudo rmdir %q >/dev/null 2>&1; true", path, path)
+	_, err := f.SSHCommand(vm.Name, vm.Namespace, cmd)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

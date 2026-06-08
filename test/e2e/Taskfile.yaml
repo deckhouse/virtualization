@@ -6,16 +6,6 @@ vars:
   VERSION: "v1.0.0"
 
 tasks:
-  copy:
-    cmds:
-      - |
-        if [ "{{OS}}" == "darwin" ]; then
-          rm -rf /tmp/testdata
-        else
-          rm --force --recursive /tmp/testdata
-        fi
-        cp -a legacy/testdata /tmp/testdata
-
   kubectl:
     cmds:
       - |
@@ -35,7 +25,6 @@ tasks:
   run:ci:
     desc: "Run e2e tests in GitHub Actions"
     deps:
-      - copy
       - kubectl
       - d8
     cmds:
@@ -52,7 +41,6 @@ tasks:
   run:
     desc: "Run e2e tests"
     deps:
-      - copy
       - kubectl
       - d8
       - precheck:prepare
@@ -84,7 +72,6 @@ tasks:
   runp:
     desc: "Run e2e tests in parallel mode"
     deps:
-      - copy
       - kubectl
       - d8
       - precheck:prepare

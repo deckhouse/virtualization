@@ -92,7 +92,7 @@ task runp
 - Use the FOCUS environment variable to run a specific test.
 - Set `POST_CLEANUP=never` to disable cleanup after tests (takes precedence over `postCleanupMode` in config).
 - Set LABELS to run tests with specific label(https://onsi.github.io/ginkgo/#spec-labels).
-- Manage timeouts for new e2e tests (not for legacy tests) using env variables `E2E_SHORT_TIMEOUT`, `E2E_MIDDLE_TIMEOUT`, `E2E_LONG_TIMEOUT` and `E2E_MAX_TIMEOUT`.
+- Manage timeouts for e2e tests using env variables `E2E_SHORT_TIMEOUT`, `E2E_MIDDLE_TIMEOUT`, `E2E_LONG_TIMEOUT` and `E2E_MAX_TIMEOUT`.
 
 For example, to run only one test and leave all created resources in the cluster, use the following command:
 ```bash

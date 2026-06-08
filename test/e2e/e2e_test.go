@@ -29,7 +29,6 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/controller"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
-	"github.com/deckhouse/virtualization/test/e2e/legacy"
 	_ "github.com/deckhouse/virtualization/test/e2e/snapshot"
 	_ "github.com/deckhouse/virtualization/test/e2e/vm"
 	_ "github.com/deckhouse/virtualization/test/e2e/vmop"
@@ -45,7 +44,6 @@ var _ = SynchronizedBeforeSuite(func() {
 	// Initialize test resources BEFORE running prechecks
 	// This ensures resources are available even if prechecks fail
 	controller.NewBeforeProcess1Body()
-	legacy.NewBeforeProcess1Body()
 
 	// Validate precheck labels from JSON report (created by dry-run during prepare)
 	if err := precheck.ValidateFromJSONFile(precheck.LabelsFile); err != nil {
@@ -62,6 +60,5 @@ var _ = SynchronizedAfterSuite(func() {
 	// Cleanup precreated CVIs if PRECREATED_CVI_CLEANUP=yes
 	precheck.CleanupPrecreatedCVIs(context.Background(), framework.NewFramework(""))
 }, func() {
-	legacy.NewAfterAllProcessBody()
 	controller.NewAfterAllProcessBody()
 })

@@ -16,50 +16,8 @@ limitations under the License.
 
 package framework
 
-import (
-	"errors"
-	"fmt"
-	"os"
-
-	storagev1 "k8s.io/api/storage/v1"
-)
-
 const (
 	Ceph                = "rbd.csi.ceph.com"
 	SDSReplicatedVolume = "replicated.csi.storage.deckhouse.io"
 	NFS                 = "nfs.csi.k8s.io"
 )
-
-// Deprecated: do not use for new e2e tests (only for legacy ones).
-func (f *Framework) GetNamePrefix(storageClass *storagev1.StorageClass) (string, error) {
-	if prNumber, ok := os.LookupEnv("MODULES_MODULE_TAG"); ok && prNumber != "" {
-		return prNumber, nil
-	}
-
-	res := f.git.GetHeadHash()
-	if !res.WasSuccess() {
-		return "", errors.New(res.StdErr())
-	}
-
-	commitHash := res.StdOut()
-	commitHash = commitHash[:5]
-	namePrefix := fmt.Sprintf("v12n-%s", commitHash)
-
-	var scPrefix string
-	if storageClass != nil {
-		switch storageClass.Provisioner {
-		case Ceph:
-			scPrefix = "ceph"
-		case SDSReplicatedVolume:
-			scPrefix = "sds-rep-vol"
-		case NFS:
-			scPrefix = "nfs"
-		default:
-			scPrefix = "unknown-csi"
-		}
-
-		namePrefix = fmt.Sprintf("%s-%s", namePrefix, scPrefix)
-	}
-
-	return namePrefix, nil
-}

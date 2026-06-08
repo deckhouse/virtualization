@@ -17,13 +17,10 @@ limitations under the License.
 package config
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"regexp"
-	"slices"
 	"strconv"
 
 	"github.com/onsi/ginkgo/v2"
@@ -73,7 +70,6 @@ type Config struct {
 	ClusterTransport ClusterTransport `yaml:"clusterTransport"`
 	HelperImages     HelperImages     `yaml:"helperImages"`
 	NamespaceSuffix  string           `yaml:"namespaceSuffix"`
-	TestData         TestData         `yaml:"testData"`
 	LogFilter        []string         `yaml:"logFilter"`
 	CleanupResources []string         `yaml:"cleanupResources"`
 	RegexpLogFilter  []regexp.Regexp  `yaml:"regexpLogFilter"`
@@ -109,12 +105,6 @@ const (
 	PostCleanupNever       PostCleanupMode = "never"
 	PostCleanupNoOnFailure PostCleanupMode = "no-on-failure"
 )
-
-type TestData struct {
-	VMMigration string `yaml:"vmMigration"`
-	Sshkey      string `yaml:"sshKey"`
-	SSHUser     string `yaml:"sshUser"`
-}
 
 type StorageClass struct {
 	DefaultStorageClass   *storagev1.StorageClass
@@ -186,26 +176,6 @@ func (c *Config) setEnvs() error {
 		c.ClusterTransport.InsecureTLS = v
 	}
 	return nil
-}
-
-func (c *Config) GetTestCases() ([]string, error) {
-	testDataValue := reflect.ValueOf(c.TestData)
-	testDataType := reflect.TypeOf(c.TestData)
-	excludedData := []string{"Sshkey", "SSHUser"}
-	testCases := make([]string, 0, testDataType.NumField()-len(excludedData))
-
-	if testDataType.Kind() == reflect.Struct {
-		for i := 0; i < testDataType.NumField(); i++ {
-			field := testDataType.Field(i)
-			value := testDataValue.Field(i)
-			if !slices.Contains(excludedData, field.Name) {
-				testCases = append(testCases, fmt.Sprintf("%v", value.Interface()))
-			}
-		}
-		return testCases, nil
-	} else {
-		return nil, errors.New("`config.TestData` it is not a structure")
-	}
 }
 
 func (k *Kustomize) SetParams(filePath, namespace, namePrefix string) error {
