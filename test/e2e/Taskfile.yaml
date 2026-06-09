@@ -87,6 +87,7 @@ tasks:
       - copy
       - kubectl
       - d8
+      - precheck:prepare
     cmds:
       - |
         go tool ginkgo -v \
