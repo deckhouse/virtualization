@@ -1,5 +1,5 @@
 diff --git a/ShellPkg/Application/Shell/Shell.c b/ShellPkg/Application/Shell/Shell.c
-index 174eccecdd..fc1791d2cf 100644
+index 174eccecdd..579c2a62f0 100644
 --- a/ShellPkg/Application/Shell/Shell.c
 +++ b/ShellPkg/Application/Shell/Shell.c
 @@ -359,14 +359,6 @@ UefiMain (
@@ -17,21 +17,33 @@ index 174eccecdd..fc1791d2cf 100644
    if (PcdGet8 (PcdShellSupportLevel) > 3) {
      return (EFI_UNSUPPORTED);
    }
-@@ -481,6 +473,17 @@ UefiMain (
-       goto FreeResources;
-     }
+@@ -639,6 +631,29 @@ UefiMain (
+       }
  
-+    if (  (ShellInfoObject.ShellInitSettings.FileName == NULL)
-+       && !ShellInfoObject.ShellInitSettings.BitUnion.Bits.NoConsoleIn
-+       && !ShellInfoObject.ShellInitSettings.BitUnion.Bits.Exit)
-+    {
-+      STATIC CONST CHAR8  Msg[] = "No bootable device.\r\n";
-+      UINTN               i;
-+      for (i = 0; i < sizeof (Msg) - 1; i++) {
-+        IoWrite8 (0x403, (UINT8)Msg[i]);
-+      }
-+    }
+       if (!ShellInfoObject.ShellInitSettings.BitUnion.Bits.Exit && !ShellCommandGetExit () && ((PcdGet8 (PcdShellSupportLevel) >= 3) || PcdGetBool (PcdShellForceConsole)) && !EFI_ERROR (Status) && !ShellInfoObject.ShellInitSettings.BitUnion.Bits.NoConsoleIn) {
++        if (ShellInfoObject.ShellInitSettings.FileName == NULL)
++        {
++          CHAR16  *StartupScriptPath;
 +
-     //
-     // If shell support level is >= 1 create the mappings and paths
-     //
++          StartupScriptPath = NULL;
++          if ((PcdGet8 (PcdShellSupportLevel) >= 1) &&
++              !(ShellInfoObject.ShellInitSettings.BitUnion.Bits.NoStartup &&
++                !ShellInfoObject.ShellInitSettings.BitUnion.Bits.Startup))
++          {
++            StartupScriptPath = LocateStartupScript (ShellInfoObject.ImageDevPath, ShellInfoObject.FileDevPath);
++          }
++
++          if (StartupScriptPath == NULL) {
++            STATIC CONST CHAR8  Msg[] = "No bootable device.\r\n";
++            UINTN               i;
++            for (i = 0; i < sizeof (Msg) - 1; i++) {
++              IoWrite8 (0x403, (UINT8)Msg[i]);
++            }
++          } else {
++            FreePool (StartupScriptPath);
++          }
++        }
++
+         //
+         // begin the UI waiting loop
+         //
