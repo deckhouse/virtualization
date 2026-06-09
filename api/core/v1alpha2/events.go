@@ -113,6 +113,8 @@ const (
 	ReasonDataSourceSyncCompleted = "DataSourceImportCompleted"
 	// ReasonDataSourceSyncFailed is event reason that DataSource sync is failed.
 	ReasonDataSourceSyncFailed = "DataSourceImportFailed"
+	// ReasonDataSourceSyncFallback is event reason that DataSource sync uses fallback settings.
+	ReasonDataSourceSyncFallback = "DataSourceImportFallback"
 	// ReasonDataSourceQuotaExceeded is event reason that DataSource sync is failed because quota exceed.
 	ReasonDataSourceQuotaExceeded = "DataSourceQuotaExceed"
 

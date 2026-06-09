@@ -38,6 +38,8 @@ const (
 	InUseType Type = "InUse"
 	// MigratingType indicates that the virtual disk is in the process of migrating data from one volume to another (during the migration of a local disk or migration to another storage class).
 	MigratingType Type = "Migrating"
+	// SnapshotSizeFallbackType indicates that the disk is restored from a snapshot using fallback size detection.
+	SnapshotSizeFallbackType Type = "SnapshotSizeFallback"
 )
 
 type (
@@ -55,6 +57,8 @@ type (
 	InUseReason string
 	// MigratingReason represents the various reasons for the Migration condition type.
 	MigratingReason string
+	// SnapshotSizeFallbackReason represents the various reasons for the SnapshotSizeFallback condition type.
+	SnapshotSizeFallbackReason string
 )
 
 func (s DatasourceReadyReason) String() string {
@@ -82,6 +86,10 @@ func (s InUseReason) String() string {
 }
 
 func (s MigratingReason) String() string {
+	return string(s)
+}
+
+func (s SnapshotSizeFallbackReason) String() string {
 	return string(s)
 }
 
@@ -129,6 +137,9 @@ const (
 	StorageClassIsNotReady ReadyReason = "StorageClassIsNotReady"
 	// StorageClassProvisionerMismatch indicates that the VirtualDisk and source VirtualImage storage classes have different provisioners.
 	StorageClassProvisionerMismatch ReadyReason = "StorageClassProvisionerMismatch"
+
+	// LegacyNFSVolumeSnapshot indicates that a legacy NFS VolumeSnapshot does not contain the original VirtualDisk size annotation.
+	LegacyNFSVolumeSnapshot SnapshotSizeFallbackReason = "LegacyNFSVolumeSnapshot"
 
 	// InProgress indicates that the resize request has been detected and the operation is currently in progress.
 	InProgress ResizedReason = "InProgress"

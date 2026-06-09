@@ -217,6 +217,55 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 			Entry("from VD spec size when it is set", "30Gi", "20Gi", "10Gi", "30Gi"),
 			Entry("from restore size when annotation and VD size are omitted", "", "", "10Gi", "10Gi"),
 		)
+
+		DescribeTable("reports legacy snapshot size fallback only for NFS provisioner",
+			func(provisioner string, expectFallback bool) {
+				sc.Provisioner = provisioner
+				vs.Annotations = map[string]string{
+					annotations.AnnStorageClassName: sc.Name,
+				}
+				vs.Status.RestoreSize = ptr.To(resource.MustParse("10Gi"))
+				mockRecorder := &eventrecord.EventRecorderLoggerMock{
+					EventFunc: func(_ client.Object, _, _, _ string) {},
+				}
+
+				client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vdSnapshot, vs, sc).
+					WithInterceptorFuncs(interceptor.Funcs{
+						Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
+							_, ok := obj.(*corev1.PersistentVolumeClaim)
+							Expect(ok).To(BeTrue())
+							return nil
+						},
+					}).Build()
+
+				syncer := NewObjectRefVirtualDiskSnapshot(mockRecorder, svc, client)
+
+				res, err := syncer.Sync(ctx, vd)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(res.IsZero()).To(BeTrue())
+
+				ready, _ := conditions.GetCondition(vdcondition.Ready, vd.Status.Conditions)
+				Expect(ready.Reason).To(Equal(vdcondition.Provisioning.String()))
+
+				events := mockRecorder.EventCalls()
+				fallbackCondition, fallbackConditionExists := conditions.GetCondition(vdcondition.SnapshotSizeFallbackType, vd.Status.Conditions)
+				if expectFallback {
+					Expect(fallbackConditionExists).To(BeTrue())
+					Expect(fallbackCondition.Status).To(Equal(metav1.ConditionTrue))
+					Expect(fallbackCondition.Reason).To(Equal(vdcondition.LegacyNFSVolumeSnapshot.String()))
+					Expect(fallbackCondition.Message).To(ContainSubstring(annotations.AnnVirtualDiskOriginalSize))
+					Expect(events).To(HaveLen(2))
+					Expect(events[1].Eventtype).To(Equal(corev1.EventTypeWarning))
+					Expect(events[1].Reason).To(Equal(v1alpha2.ReasonDataSourceSyncFallback))
+					Expect(events[1].Message).To(ContainSubstring(annotations.AnnVirtualDiskOriginalSize))
+				} else {
+					Expect(fallbackConditionExists).To(BeFalse())
+					Expect(events).To(HaveLen(1))
+				}
+			},
+			Entry("for NFS", "nfs.csi.k8s.io", true),
+			Entry("not for other provisioner", "example.com/csi", false),
+		)
 	})
 
 	Context("VirtualDisk waits for the PVC to be Bound", func() {
