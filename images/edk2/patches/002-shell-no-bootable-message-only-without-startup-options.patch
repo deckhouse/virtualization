@@ -1,0 +1,37 @@
+diff --git a/ShellPkg/Application/Shell/Shell.c b/ShellPkg/Application/Shell/Shell.c
+index 174eccecdd..fc1791d2cf 100644
+--- a/ShellPkg/Application/Shell/Shell.c
++++ b/ShellPkg/Application/Shell/Shell.c
+@@ -359,14 +359,6 @@ UefiMain (
+   EFI_SIMPLE_TEXT_INPUT_PROTOCOL  *OldConIn;
+   SPLIT_LIST                      *Split;
+ 
+-  {
+-    STATIC CONST CHAR8  Msg[] = "No bootable device.\r\n";
+-    UINTN               i;
+-    for (i = 0; i < sizeof (Msg) - 1; i++) {
+-      IoWrite8 (0x403, (UINT8)Msg[i]);
+-    }
+-  }
+-
+   if (PcdGet8 (PcdShellSupportLevel) > 3) {
+     return (EFI_UNSUPPORTED);
+   }
+@@ -481,6 +473,17 @@ UefiMain (
+       goto FreeResources;
+     }
+ 
++    if (  (ShellInfoObject.ShellInitSettings.FileName == NULL)
++       && !ShellInfoObject.ShellInitSettings.BitUnion.Bits.NoConsoleIn
++       && !ShellInfoObject.ShellInitSettings.BitUnion.Bits.Exit)
++    {
++      STATIC CONST CHAR8  Msg[] = "No bootable device.\r\n";
++      UINTN               i;
++      for (i = 0; i < sizeof (Msg) - 1; i++) {
++        IoWrite8 (0x403, (UINT8)Msg[i]);
++      }
++    }
++
+     //
+     // If shell support level is >= 1 create the mappings and paths
+     //
