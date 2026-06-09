@@ -53,17 +53,13 @@ is_expired_tag() {
   local tag="$1"
   local created_epoch="$2"
 
-  case "${tag}" in
-    pr[0-9]* | release-*)
-      [ "${created_epoch}" -lt "${pr_threshold_epoch}" ]
-      ;;
-    v[0-9]*.[0-9]*.[0-9]*-rc.[0-9]*)
-      [ "${created_epoch}" -lt "${rc_threshold_epoch}" ]
-      ;;
-    *)
-      return 1
-      ;;
-  esac
+  if [[ "${tag}" =~ ^pr[0-9]+$ || "${tag}" =~ ^release-[0-9]+\.[0-9]+ ]]; then
+    [ "${created_epoch}" -lt "${pr_threshold_epoch}" ]
+  elif [[ "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]]; then
+    [ "${created_epoch}" -lt "${rc_threshold_epoch}" ]
+  else
+    return 1
+  fi
 }
 
 # crane delete removes the manifest by the digest the tag points to. Tags that
@@ -83,7 +79,7 @@ delete_tag() {
 
 cleanup_repo() {
   local tag created_epoch
-  local deleted=0 kept=0
+  local deleted=0 kept=0 failed=0
 
   while read -r tag; do
     [ -z "${tag}" ] && continue
@@ -96,14 +92,22 @@ cleanup_repo() {
     fi
 
     if is_expired_tag "${tag}" "${created_epoch}"; then
-      delete_tag "${tag}"
-      deleted=$((deleted + 1))
+      if delete_tag "${tag}"; then
+        deleted=$((deleted + 1))
+      else
+        log "WARN: failed to delete ${RELEASE_REPO}:${tag}"
+        failed=$((failed + 1))
+      fi
     else
       kept=$((kept + 1))
     fi
   done < <(crane ls "${RELEASE_REPO}")
 
-  log "done: ${deleted} deleted, ${kept} kept"
+  log "done: ${deleted} deleted, ${kept} kept, ${failed} failed"
+
+  if [ "${failed}" -gt 0 ]; then
+    return 1
+  fi
 }
 
 log "cleaning custom release tags in ${RELEASE_REPO}"
