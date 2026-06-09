@@ -54,7 +54,7 @@ spec:
       metadata:
         description: |
           Allow virtualization-dra container to run as root user (UID 0).
-          Virtualization DRA component requires root privileges to properly communicate with the KVM subsystem.
+          Virtualization DRA component requires root privileges to properly communicate with the host kernel.
 
     runAsNonRoot:
       allowedValue: false
@@ -67,33 +67,25 @@ spec:
       allowedValue: true
       metadata:
         description: |
-          Allow privilege escalation for the virt-handler container.
-          Virt-handler component requires privilege escalation to access kernel-level system calls.
+          Allow privilege escalation.
+          Virtualization DRA component requires privilege escalation to access kernel-level system calls.
 
     privileged:
       allowedValue: true
       metadata:
         description: |
           Allow privileged mode for the virtualization-dra DaemonSet.
-          Virtualization DRA component requires privileged access to interact with the KVM subsystem and Linux kernel.
+          Virtualization DRA component requires privileged access to interact with the Linux kernel.
 
     capabilities:
       allowedValues:
         add:
           - SYS_MODULE
-        # TODO: a simple workaround before specifying proper drop values for all containers.
-        drop: []
+        drop:
+          - ALL
       metadata:
         description: |
-          Allow Virtualization DRA component to have access to load eBPF and manage host route.
-
-    seccompProfile:
-      # TODO: a simple workaround before specifying proper seccompProfiles for all containers.
-      allowedValues:
-        - undefined
-      metadata:
-        description: |
-          Allow empty seccompProfile until specified.
+          Allow Virtualization DRA component to load additional USB kernel modules.
 
   network:
     hostNetwork:
@@ -102,6 +94,19 @@ spec:
         description: |
           Virtualization DRA component needs hostNetwork to provide
           USB devices to other Nodes and during VM migrations. Architectural feature.
+    hostPorts:
+      - port: 4107
+        protocol: TCP
+        metadata:
+          description: |
+            Allow hostPort 4107 for health check service.
+            Virtualization DRA component requires hostNetwork and health check service should be accessible via hostPort.
+      - port: 4280
+        protocol: TCP
+        metadata:
+          description: |
+            Allow hostPort 4280 for usbipd service.
+            Virtualization DRA component requires hostNetwork and usbipd service should be accessible via hostPort.
 
   # Allow mounting host directories.
   volumes:
@@ -186,7 +191,7 @@ spec:
               name: tmp
       containers:
         - name: virtualization-dra
-          {{- include "helm_lib_module_container_security_context_privileged_read_only_root_filesystem" . | nindent 10 }}
+          {{- include "helm_lib_module_container_security_context_pss_restricted_flexible" (dict "ro" true "caps" (list "SYS_MODULE") "uid" 0 "runAsNonRoot" false) | nindent 10 }}
           image: {{ include "helm_lib_module_image" (list . "virtualizationDraUsb") }}
           imagePullPolicy: "IfNotPresent"
           args:
