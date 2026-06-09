@@ -75,7 +75,7 @@ shell:
   - |
     cd /src
 
-    echo 123
+    echo 1234
 
     echo "Git clone Edk2 repository..."
     git clone \

@@ -1,8 +1,22 @@
 diff --git a/ShellPkg/Application/Shell/Shell.c b/ShellPkg/Application/Shell/Shell.c
-index 174eccecdd..579c2a62f0 100644
+index 174eccecdd..453adff412 100644
 --- a/ShellPkg/Application/Shell/Shell.c
 +++ b/ShellPkg/Application/Shell/Shell.c
-@@ -359,14 +359,6 @@ UefiMain (
+@@ -80,6 +80,13 @@ CONST CHAR16         mNoNestingEnvVarName[]  = L"nonesting";
+ CONST CHAR16         mNoNestingTrue[]        = L"True";
+ CONST CHAR16         mNoNestingFalse[]       = L"False";
+ 
++STATIC
++CHAR16 *
++LocateStartupScript (
++  IN EFI_DEVICE_PATH_PROTOCOL  *ImageDevicePath,
++  IN EFI_DEVICE_PATH_PROTOCOL  *FileDevicePath
++  );
++
+ /**
+   Cleans off leading and trailing spaces and tabs.
+ 
+@@ -359,14 +366,6 @@ UefiMain (
    EFI_SIMPLE_TEXT_INPUT_PROTOCOL  *OldConIn;
    SPLIT_LIST                      *Split;
  
@@ -17,7 +31,7 @@ index 174eccecdd..579c2a62f0 100644
    if (PcdGet8 (PcdShellSupportLevel) > 3) {
      return (EFI_UNSUPPORTED);
    }
-@@ -639,6 +631,29 @@ UefiMain (
+@@ -639,6 +638,29 @@ UefiMain (
        }
  
        if (!ShellInfoObject.ShellInitSettings.BitUnion.Bits.Exit && !ShellCommandGetExit () && ((PcdGet8 (PcdShellSupportLevel) >= 3) || PcdGetBool (PcdShellForceConsole)) && !EFI_ERROR (Status) && !ShellInfoObject.ShellInitSettings.BitUnion.Bits.NoConsoleIn) {
@@ -47,3 +61,11 @@ index 174eccecdd..579c2a62f0 100644
          //
          // begin the UI waiting loop
          //
+@@ -1240,6 +1262,7 @@ ProcessCommandLine (
+   @retval   NULL                  No Startup.nsh file was found.
+   @return   !=NULL                Pointer to NULL-terminated path.
+ **/
++STATIC
+ CHAR16 *
+ LocateStartupScript (
+   IN EFI_DEVICE_PATH_PROTOCOL  *ImageDevicePath,
