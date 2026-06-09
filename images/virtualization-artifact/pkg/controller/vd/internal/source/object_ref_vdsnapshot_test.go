@@ -218,8 +218,8 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 			Entry("from restore size when annotation and VD size are omitted", "", "", "10Gi", "10Gi"),
 		)
 
-		DescribeTable("reports legacy snapshot size fallback only for NFS provisioner",
-			func(provisioner string, expectFallback bool) {
+		DescribeTable("waits for explicit size only for legacy NFS snapshots",
+			func(provisioner string, expectWait bool) {
 				sc.Provisioner = provisioner
 				vs.Annotations = map[string]string{
 					annotations.AnnStorageClassName: sc.Name,
@@ -229,11 +229,13 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 					EventFunc: func(_ client.Object, _, _, _ string) {},
 				}
 
+				var pvcCreated bool
 				client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vdSnapshot, vs, sc).
 					WithInterceptorFuncs(interceptor.Funcs{
 						Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
 							_, ok := obj.(*corev1.PersistentVolumeClaim)
 							Expect(ok).To(BeTrue())
+							pvcCreated = true
 							return nil
 						},
 					}).Build()
@@ -245,11 +247,13 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 				Expect(res.IsZero()).To(BeTrue())
 
 				ready, _ := conditions.GetCondition(vdcondition.Ready, vd.Status.Conditions)
-				Expect(ready.Reason).To(Equal(vdcondition.Provisioning.String()))
-
 				events := mockRecorder.EventCalls()
 				fallbackCondition, fallbackConditionExists := conditions.GetCondition(vdcondition.SnapshotSizeFallbackType, vd.Status.Conditions)
-				if expectFallback {
+				if expectWait {
+					Expect(pvcCreated).To(BeFalse())
+					Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskPending))
+					Expect(ready.Reason).To(Equal(vdcondition.ProvisioningNotStarted.String()))
+					Expect(ready.Message).To(ContainSubstring("spec.persistentVolumeClaim.size"))
 					Expect(fallbackConditionExists).To(BeTrue())
 					Expect(fallbackCondition.Status).To(Equal(metav1.ConditionTrue))
 					Expect(fallbackCondition.Reason).To(Equal(vdcondition.LegacyNFSVolumeSnapshot.String()))
@@ -259,6 +263,8 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 					Expect(events[1].Reason).To(Equal(v1alpha2.ReasonDataSourceSyncFallback))
 					Expect(events[1].Message).To(ContainSubstring(annotations.AnnVirtualDiskOriginalSize))
 				} else {
+					Expect(pvcCreated).To(BeTrue())
+					Expect(ready.Reason).To(Equal(vdcondition.Provisioning.String()))
 					Expect(fallbackConditionExists).To(BeFalse())
 					Expect(events).To(HaveLen(1))
 				}

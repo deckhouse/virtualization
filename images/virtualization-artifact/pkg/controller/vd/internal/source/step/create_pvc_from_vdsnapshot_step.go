@@ -122,7 +122,40 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 		return &reconcile.Result{}, nil
 	}
 
-	pvc, legacySnapshotSizeFallback, err := s.buildPVC(ctx, vd, vs)
+	waitForExplicitSize, err := s.shouldWaitForExplicitSize(ctx, vd, vs)
+	if err != nil {
+		return nil, err
+	}
+	if waitForExplicitSize {
+		vd.Status.Phase = v1alpha2.DiskPending
+		message := fmt.Sprintf(
+			"VolumeSnapshot %q does not contain the %q annotation for NFS provisioner; specify spec.persistentVolumeClaim.size to continue.",
+			vs.Name,
+			annotations.AnnVirtualDiskOriginalSize,
+		)
+		conditions.SetCondition(
+			conditions.NewConditionBuilder(vdcondition.SnapshotSizeFallbackType).
+				Generation(vd.Generation).
+				Status(metav1.ConditionTrue).
+				Reason(vdcondition.LegacyNFSVolumeSnapshot).
+				Message(message),
+			&vd.Status.Conditions,
+		)
+		s.cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.ProvisioningNotStarted).
+			Message(message)
+		s.recorder.Event(
+			vd,
+			corev1.EventTypeWarning,
+			v1alpha2.ReasonDataSourceSyncFallback,
+			message,
+		)
+		return &reconcile.Result{}, nil
+	}
+	conditions.RemoveCondition(vdcondition.SnapshotSizeFallbackType, &vd.Status.Conditions)
+
+	pvc, err := s.buildPVC(vd, vs)
 	if err != nil {
 		if errors.Is(err, service.ErrInsufficientPVCSize) {
 			vd.Status.Phase = v1alpha2.DiskFailed
@@ -148,39 +181,10 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 	}
 
 	vd.Status.Phase = v1alpha2.DiskProvisioning
-	message := "PVC has created: waiting to be Bound."
-	if legacySnapshotSizeFallback {
-		message = fmt.Sprintf(
-			"PVC has created from a legacy snapshot without the %q annotation: using VolumeSnapshot restore size; waiting to be Bound.",
-			annotations.AnnVirtualDiskOriginalSize,
-		)
-		conditions.SetCondition(
-			conditions.NewConditionBuilder(vdcondition.SnapshotSizeFallbackType).
-				Generation(vd.Generation).
-				Status(metav1.ConditionTrue).
-				Reason(vdcondition.LegacyNFSVolumeSnapshot).
-				Message(fmt.Sprintf(
-					"VolumeSnapshot %q does not contain the %q annotation; using VolumeSnapshot restore size for NFS provisioner.",
-					vs.Name,
-					annotations.AnnVirtualDiskOriginalSize,
-				)),
-			&vd.Status.Conditions,
-		)
-		s.recorder.Event(
-			vd,
-			corev1.EventTypeWarning,
-			v1alpha2.ReasonDataSourceSyncFallback,
-			fmt.Sprintf(
-				"VolumeSnapshot %q does not contain the %q annotation; using VolumeSnapshot restore size.",
-				vs.Name,
-				annotations.AnnVirtualDiskOriginalSize,
-			),
-		)
-	}
 	s.cb.
 		Status(metav1.ConditionFalse).
 		Reason(vdcondition.Provisioning).
-		Message(message)
+		Message("PVC has created: waiting to be Bound.")
 
 	vd.Status.Progress = "0%"
 	vd.Status.SourceUID = ptr.To(vdSnapshot.UID)
@@ -189,7 +193,7 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 	return nil, nil
 }
 
-func (s CreatePVCFromVDSnapshotStep) buildPVC(ctx context.Context, vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) (*corev1.PersistentVolumeClaim, bool, error) {
+func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) (*corev1.PersistentVolumeClaim, error) {
 	var storageClassName string
 	snapshotStorageClassName := getSnapshotStorageClassName(vs)
 	if vd.Spec.PersistentVolumeClaim.StorageClass != nil && *vd.Spec.PersistentVolumeClaim.StorageClass != "" {
@@ -231,9 +235,9 @@ func (s CreatePVCFromVDSnapshotStep) buildPVC(ctx context.Context, vd *v1alpha2.
 		spec.VolumeMode = ptr.To(corev1.PersistentVolumeMode(volumeMode))
 	}
 
-	size, legacySnapshotSizeFallback, err := s.getPVCSize(ctx, vd, vs, snapshotStorageClassName)
+	size, err := s.getPVCSize(vd, vs)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
 	if size != nil {
@@ -258,7 +262,7 @@ func (s CreatePVCFromVDSnapshotStep) buildPVC(ctx context.Context, vd *v1alpha2.
 			},
 		},
 		Spec: spec,
-	}, legacySnapshotSizeFallback, nil
+	}, nil
 }
 
 func getSnapshotStorageClassName(vs *vsv1.VolumeSnapshot) string {
@@ -269,38 +273,43 @@ func getSnapshotStorageClassName(vs *vsv1.VolumeSnapshot) string {
 	return storageClassName
 }
 
-func (s CreatePVCFromVDSnapshotStep) getPVCSize(ctx context.Context, vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot, snapshotStorageClassName string) (*resource.Quantity, bool, error) {
+func (s CreatePVCFromVDSnapshotStep) getPVCSize(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) (*resource.Quantity, error) {
 	requestedSize := vd.Spec.PersistentVolumeClaim.Size
 	if requestedSize == nil {
 		originalSize := vs.Annotations[annotations.AnnVirtualDiskOriginalSize]
 		if originalSize != "" {
 			size, err := resource.ParseQuantity(originalSize)
 			if err != nil {
-				return nil, false, fmt.Errorf("failed to parse the original size %q: %w", originalSize, err)
+				return nil, fmt.Errorf("failed to parse the original size %q: %w", originalSize, err)
 			}
 			requestedSize = &size
 		}
 	}
 
 	if vs.Status == nil || vs.Status.RestoreSize == nil {
-		return requestedSize, false, nil
-	}
-
-	legacySnapshotSizeFallback := false
-	if requestedSize == nil && vs.Annotations[annotations.AnnVirtualDiskOriginalSize] == "" {
-		var err error
-		legacySnapshotSizeFallback, err = s.isNFSStorageClass(ctx, snapshotStorageClassName)
-		if err != nil {
-			return nil, false, err
-		}
+		return requestedSize, nil
 	}
 
 	size, err := service.GetValidatedPVCSize(requestedSize, *vs.Status.RestoreSize)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
-	return &size, legacySnapshotSizeFallback, nil
+	return &size, nil
+}
+
+func (s CreatePVCFromVDSnapshotStep) shouldWaitForExplicitSize(ctx context.Context, vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) (bool, error) {
+	if vd.Spec.PersistentVolumeClaim.Size != nil {
+		return false, nil
+	}
+	if vs.Annotations[annotations.AnnVirtualDiskOriginalSize] != "" {
+		return false, nil
+	}
+	if vs.Status == nil || vs.Status.RestoreSize == nil {
+		return false, nil
+	}
+
+	return s.isNFSStorageClass(ctx, getSnapshotStorageClassName(vs))
 }
 
 func (s CreatePVCFromVDSnapshotStep) isNFSStorageClass(ctx context.Context, storageClassName string) (bool, error) {
