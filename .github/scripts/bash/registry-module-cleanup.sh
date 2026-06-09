@@ -44,7 +44,7 @@ tag_created_epoch() {
   local tag="$1"
 
   crane config "${RELEASE_REPO}:${tag}" \
-    | jq -r '.created | split(".")[0] + "Z" | fromdateiso8601'
+    | jq -r '.created | sub("\\.[0-9]+";"") | sub("Z?$";"Z") | fromdateiso8601'
 }
 
 # Returns 0 if the tag is expired and should be deleted.
@@ -88,7 +88,7 @@ cleanup_repo() {
   while read -r tag; do
     [ -z "${tag}" ] && continue
 
-    created_epoch="$(tag_created_epoch "${tag}")"
+    created_epoch="$(tag_created_epoch "${tag}" 2>/dev/null)" || created_epoch=""
     if [ -z "${created_epoch}" ]; then
       log "skip ${tag}: cannot resolve creation time"
       kept=$((kept + 1))
