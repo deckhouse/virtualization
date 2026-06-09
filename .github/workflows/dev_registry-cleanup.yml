@@ -41,7 +41,7 @@ defaults:
     shell: bash
 
 jobs:
-  lint:
+  cleanup:
     runs-on: [self-hosted, regular]
     name: Run cleanup
     steps:
