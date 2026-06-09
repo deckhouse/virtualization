@@ -25,6 +25,15 @@ env:
 
 on:
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Show custom release tag cleanup actions without deleting tags"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
   schedule:
     - cron: "12 0 * * 6"
 
@@ -38,7 +47,11 @@ jobs:
     name: Run cleanup
     steps:
       - uses: actions/checkout@v4
-      - uses: deckhouse/modules-actions/setup@v2
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: deckhouse/modules-actions/setup@v4
         with:
           registry: ${{ vars.DEV_REGISTRY }}
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
@@ -47,5 +60,11 @@ jobs:
       - name: Cleanup
         run: |
           werf cleanup \
-          --repo ${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME} \
+          --repo "${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}" \
           --without-kube=true --config werf_cleanup.yaml
+
+      - name: Cleanup custom release tags
+        env:
+          REGISTRY_CLEANUP_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+        run: |
+          bash .github/scripts/bash/registry-module-cleanup.sh
