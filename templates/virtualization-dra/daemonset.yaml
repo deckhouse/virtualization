@@ -81,11 +81,12 @@ spec:
       allowedValues:
         add:
           - SYS_MODULE
+          - SYS_ADMIN
         drop:
           - ALL
       metadata:
         description: |
-          Allow Virtualization DRA component to load additional USB kernel modules.
+          Allow Virtualization DRA component to load additional USB kernel modules and make privileged syscalls to bind/undind usb devices via sysfs.
 
   network:
     hostNetwork:
@@ -179,7 +180,7 @@ spec:
           image: {{ include "helm_lib_module_image" (list . "virtualizationDraUsb") }}
           args:
             - init
-          {{- include "helm_lib_module_container_security_context_read_only_root_filesystem_capabilities_drop_all_and_add"  (list . (list "SYS_MODULE")) | nindent 10 }}
+          {{- include "helm_lib_module_container_security_context_pss_restricted_flexible" (dict "ro" true "caps" (list "SYS_MODULE") "uid" 0 "runAsNonRoot" false) | nindent 10 }}
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
@@ -191,7 +192,7 @@ spec:
               name: tmp
       containers:
         - name: virtualization-dra
-          {{- include "helm_lib_module_container_security_context_pss_restricted_flexible" (dict "ro" true "caps" (list "SYS_MODULE") "uid" 0 "runAsNonRoot" false) | nindent 10 }}
+          {{- include "helm_lib_module_container_security_context_pss_restricted_flexible" (dict "ro" true "caps" (list "SYS_ADMIN") "uid" 0 "runAsNonRoot" false) | nindent 10 }}
           image: {{ include "helm_lib_module_image" (list . "virtualizationDraUsb") }}
           imagePullPolicy: "IfNotPresent"
           args:
