@@ -16,6 +16,25 @@ name: E2E Nightly
 
 on:
   workflow_dispatch:
+    inputs:
+      e2e_image_source:
+        required: false
+        type: choice
+        default: external
+        description: "Image source for E2E HTTP images"
+        options:
+          - external
+          - in-cluster
+      e2e_image_base_url:
+        required: false
+        type: string
+        default: "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru"
+        description: "External base URL for E2E HTTP images"
+      e2e_incluster_image_base_url:
+        required: false
+        type: string
+        default: "http://share.e2e-test-images.svc.cluster.local"
+        description: "In-cluster base URL for E2E HTTP images"
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
@@ -95,6 +114,9 @@ jobs:
       default_user: cloud
       go_version: "1.25.10"
       e2e_timeout: "3.5h"
+      e2e_image_source: ${{ inputs.e2e_image_source }}
+      e2e_image_base_url: ${{ inputs.e2e_image_base_url }}
+      e2e_incluster_image_base_url: ${{ inputs.e2e_incluster_image_base_url }}
       date_start: ${{ needs.set-vars.outputs.date_start }}
       randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
       cluster_config_workers_memory: "9Gi"
@@ -124,6 +146,9 @@ jobs:
       default_user: cloud
       go_version: "1.24.13"
       e2e_timeout: "3.5h"
+      e2e_image_source: ${{ inputs.e2e_image_source }}
+      e2e_image_base_url: ${{ inputs.e2e_image_base_url }}
+      e2e_incluster_image_base_url: ${{ inputs.e2e_incluster_image_base_url }}
       date_start: ${{ needs.set-vars.outputs.date_start }}
       randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
       cluster_config_workers_memory: "9Gi"

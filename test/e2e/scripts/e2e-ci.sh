@@ -20,16 +20,38 @@ TIMEOUT="${TIMEOUT:-3h}"
 FOCUS="${FOCUS:-}"
 LABELS="${LABELS:-}"
 CSI="${CSI:-unknown}"
+E2E_IMAGE_BASE_URL="${E2E_IMAGE_BASE_URL:-}"
+
+readonly DEFAULT_IMAGE_BASE_URL="https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru"
 
 date_tag="$(date +"%Y-%m-%d")"
 e2e_report_file="e2e_report_${CSI}_${date_tag}.json"
 e2e_output_file="e2e_output_${CSI}_${date_tag}.log"
+
+rewrite_testdata_image_urls() {
+  local image_base_url="${E2E_IMAGE_BASE_URL%/}"
+
+  if [ -z "${image_base_url}" ] || [ "${image_base_url}" = "${DEFAULT_IMAGE_BASE_URL}" ]; then
+    return
+  fi
+
+  echo "[INFO] Using E2E image base URL: ${image_base_url}"
+  if [ -d /tmp/testdata ]; then
+    local escaped_image_base_url="${image_base_url//\\/\\\\}"
+    escaped_image_base_url="${escaped_image_base_url//&/\\&}"
+    escaped_image_base_url="${escaped_image_base_url//#/\\#}"
+
+    find /tmp/testdata -type f -exec sed -i "s#${DEFAULT_IMAGE_BASE_URL}#${escaped_image_base_url}#g" {} +
+  fi
+}
 
 echo "[INFO] Kubernetes server version: ${SERVER_K8S_VERSION:-unknown}"
 echo "[INFO] USB E2E supported: ${USB_SUPPORTED:-unknown}"
 if [ -n "${LABELS}" ]; then
   echo "[INFO] Applying Ginkgo label filter: ${LABELS}"
 fi
+
+rewrite_testdata_image_urls
 
 ./scripts/precheck-prepare_ci.sh
 

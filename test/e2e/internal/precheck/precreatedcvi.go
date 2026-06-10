@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"reflect"
 
 	. "github.com/onsi/ginkgo/v2"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -88,20 +89,27 @@ func (p *precreatedCVIPrecheck) ensureCVIs(ctx context.Context, f *framework.Fra
 		err := k8sClient.Get(ctx, client.ObjectKey{Name: cvi.GetName()}, existing)
 
 		if err == nil {
-			// CVI already exists, verify it's ready
-			if existing.Status.Phase != v1alpha2.ImageReady {
-				_, _ = fmt.Fprintf(GinkgoWriter,
-					"CVI %q exists but not ready (phase: %s), waiting...\n",
-					cvi.GetName(), existing.Status.Phase)
-			}
-			continue
-		}
+			if !reflect.DeepEqual(existing.Spec.DataSource, cvi.Spec.DataSource) {
+				_, _ = fmt.Fprintf(GinkgoWriter, "Recreating CVI %q because its data source changed\n", cvi.GetName())
 
-		if !k8serrors.IsNotFound(err) {
+				if err := k8sClient.Delete(ctx, existing); err != nil && !k8serrors.IsNotFound(err) {
+					return fmt.Errorf("failed to delete CVI %q: %w", cvi.GetName(), err)
+				}
+				util.UntilObjectsDeleted(ctx, framework.LongTimeout, existing)
+			} else {
+				// CVI already exists, verify it's ready
+				if existing.Status.Phase != v1alpha2.ImageReady {
+					_, _ = fmt.Fprintf(GinkgoWriter,
+						"CVI %q exists but not ready (phase: %s), waiting...\n",
+						cvi.GetName(), existing.Status.Phase)
+				}
+				continue
+			}
+		} else if !k8serrors.IsNotFound(err) {
 			return fmt.Errorf("failed to get CVI %q: %w", cvi.GetName(), err)
 		}
 
-		// CVI not found, create it
+		// CVI not found or was removed after a data source change, create it.
 		_, _ = fmt.Fprintf(GinkgoWriter, "Creating CVI %q\n", cvi.GetName())
 
 		err = k8sClient.Create(ctx, cvi)
