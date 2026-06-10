@@ -48,6 +48,14 @@ spec:
           description:
             VirtualMachineOperation enables declarative management of virtual
             machine state changes.
+          x-examples:
+            - apiVersion: virtualization.deckhouse.io/v1alpha2
+              kind: VirtualMachineOperation
+              metadata:
+                generateName: restart-linux-vm-
+              spec:
+                virtualMachineName: linux-vm
+                type: Restart
           properties:
             apiVersion:
               description: |-

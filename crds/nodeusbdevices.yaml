@@ -47,6 +47,13 @@ spec:
             Represents a USB device discovered on a specific node in the cluster.
             This resource is created automatically by the DRA (Dynamic Resource Allocation) system
             when a USB device is detected on a node.
+          x-examples:
+            - apiVersion: virtualization.deckhouse.io/v1alpha2
+              kind: NodeUSBDevice
+              metadata:
+                name: logitech-webcam
+              spec:
+                assignedNamespace: my-project
           properties:
             apiVersion:
               description: |-

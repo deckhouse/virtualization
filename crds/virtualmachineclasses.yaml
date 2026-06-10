@@ -44,6 +44,14 @@ spec:
           description: |-
             VirtualMachineClass resource describes CPU requirements, node placement, and sizing policy for VM resources.
             A resource cannot be deleted as long as it is used in one of the VMs.
+          x-examples:
+            - apiVersion: virtualization.deckhouse.io/v1alpha2
+              kind: VirtualMachineClass
+              metadata:
+                name: host
+              spec:
+                cpu:
+                  type: Host
           properties:
             apiVersion:
               description: |-

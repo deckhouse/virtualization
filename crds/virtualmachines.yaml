@@ -35,6 +35,24 @@ spec:
             - `.spec.runPolicy`.
 
             **Note:** The `metadata.name` field must comply with [Kubernetes object naming conventions](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/) and must not exceed 63 characters.
+          x-examples:
+            - apiVersion: virtualization.deckhouse.io/v1alpha2
+              kind: VirtualMachine
+              metadata:
+                name: linux-vm
+              spec:
+                virtualMachineClassName: generic
+                cpu:
+                  cores: 1
+                  coreFraction: 10%
+                memory:
+                  size: 1Gi
+                provisioning:
+                  type: UserData
+                  userData: <USER_DATA>
+                blockDeviceRefs:
+                  - kind: VirtualDisk
+                    name: linux-vm-root
           required:
             - spec
           properties:

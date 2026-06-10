@@ -50,6 +50,16 @@ spec:
           description: |-
             VirtualMachineBlockDeviceAttachment provides a hot plug for attaching a disk to a virtual machine.
             Disks are always attached using the SCSI bus, regardless of the enableParavirtualization setting.
+          x-examples:
+            - apiVersion: virtualization.deckhouse.io/v1alpha2
+              kind: VirtualMachineBlockDeviceAttachment
+              metadata:
+                name: attach-blank-disk
+              spec:
+                blockDeviceRef:
+                  kind: VirtualDisk
+                  name: blank-disk
+                virtualMachineName: linux-vm
           properties:
             apiVersion:
               description: |-
