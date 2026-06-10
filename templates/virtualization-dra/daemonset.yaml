@@ -80,13 +80,27 @@ spec:
     capabilities:
       allowedValues:
         add:
-          - SYS_MODULE
           - SYS_ADMIN
+          - SYS_MODULE
+          - SYS_RAWIO
+          - SYS_RESOURCE
+          - MKNOD
+          - NET_RAW
+          - NET_ADMIN
         drop:
           - ALL
       metadata:
         description: |
-          Allow Virtualization DRA component to load additional USB kernel modules and make privileged syscalls to bind/undind usb devices via sysfs.
+          Allow Virtualization DRA component to load additional USB kernel modules in init container.
+          Allow Virtualization DRA main container to make privileged syscalls to bind/unbind USB devices via sysfs.
+
+    seccompProfile:
+      allowedValues:
+        - RuntimeDefault
+        - Unconfined
+      metadata:
+        description:
+          Unconfined profile allows Virtualization DRA main container to make privileged syscalls to bind/unbind USB devices via sysfs.
 
   network:
     hostNetwork:
@@ -192,7 +206,27 @@ spec:
               name: tmp
       containers:
         - name: virtualization-dra
-          {{- include "helm_lib_module_container_security_context_pss_restricted_flexible" (dict "ro" true "caps" (list "SYS_ADMIN") "uid" 0 "runAsNonRoot" false) | nindent 10 }}
+          # Manipulating with /sysfs and USB devices requires a privileged container.
+          securityContext:
+            allowPrivilegeEscalation: true
+            capabilities:
+              add:
+                - SYS_ADMIN
+                - SYS_MODULE
+                - SYS_RAWIO
+                - SYS_RESOURCE
+                - MKNOD
+                - NET_RAW
+                - NET_ADMIN
+              drop:
+                - ALL
+            privileged: true
+            readOnlyRootFilesystem: true
+            runAsGroup: 0
+            runAsNonRoot: false
+            runAsUser: 0
+            seccompProfile:
+              type: Unconfined
           image: {{ include "helm_lib_module_image" (list . "virtualizationDraUsb") }}
           imagePullPolicy: "IfNotPresent"
           args:
