@@ -18,6 +18,7 @@
 ## Fixes
 
 
+ - **[core]** Remove excess empty labels with unused tsc frequencies on nodes. [#2351](https://github.com/deckhouse/virtualization/pull/2351)
  - **[core]** Better handling Windows guests: start and migration should work in clusters with frequent CPU frequencies drifts [#2345](https://github.com/deckhouse/virtualization/pull/2345)
  - **[module]** Fixed an issue where invalid `virtualization` module ModuleConfig settings could block the Deckhouse queue. [#2246](https://github.com/deckhouse/virtualization/pull/2246)
  - **[module]** Fixed duplicate series on the `Virtualization / Overview` dashboard. [#2189](https://github.com/deckhouse/virtualization/pull/2189)

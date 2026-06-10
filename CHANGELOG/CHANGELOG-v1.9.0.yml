@@ -87,6 +87,8 @@ core:
       pull_request: https://github.com/deckhouse/virtualization/pull/2409
     - summary: Prevent hotplug volume mount leaks on failed migration cleanup by bumping KubeVirt.
       pull_request: https://github.com/deckhouse/virtualization/pull/2385
+    - summary: Remove excess empty labels with unused tsc frequencies on nodes.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2351
     - summary: >-
         Better handling Windows guests: start and migration should work in clusters with frequent
         CPU frequencies drifts
