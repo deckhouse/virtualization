@@ -31,18 +31,16 @@ e2e_output_file="e2e_output_${CSI}_${date_tag}.log"
 rewrite_testdata_image_urls() {
   local image_base_url="${E2E_IMAGE_BASE_URL%/}"
 
-  if [ -z "${image_base_url}" ] || [ "${image_base_url}" = "${DEFAULT_IMAGE_BASE_URL}" ]; then
+  if [ -z "${image_base_url}" ] || [ "${image_base_url}" = "${DEFAULT_IMAGE_BASE_URL}" ] || [ ! -d /tmp/testdata ]; then
     return
   fi
 
-  echo "[INFO] Using E2E image base URL: ${image_base_url}"
-  if [ -d /tmp/testdata ]; then
-    local escaped_image_base_url="${image_base_url//\\/\\\\}"
-    escaped_image_base_url="${escaped_image_base_url//&/\\&}"
-    escaped_image_base_url="${escaped_image_base_url//#/\\#}"
+  echo "[INFO] Rewriting testdata image base URL to: ${image_base_url}"
+  # Escape sed replacement special characters (& and the # delimiter).
+  local escaped_image_base_url="${image_base_url//&/\\&}"
+  escaped_image_base_url="${escaped_image_base_url//#/\\#}"
 
-    find /tmp/testdata -type f -exec sed -i "s#${DEFAULT_IMAGE_BASE_URL}#${escaped_image_base_url}#g" {} +
-  fi
+  find /tmp/testdata -type f -exec sed -i "s#${DEFAULT_IMAGE_BASE_URL}#${escaped_image_base_url}#g" {} +
 }
 
 echo "[INFO] Kubernetes server version: ${SERVER_K8S_VERSION:-unknown}"

@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"reflect"
 
 	. "github.com/onsi/ginkgo/v2"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -89,8 +88,8 @@ func (p *precreatedCVIPrecheck) ensureCVIs(ctx context.Context, f *framework.Fra
 		err := k8sClient.Get(ctx, client.ObjectKey{Name: cvi.GetName()}, existing)
 
 		if err == nil {
-			if !reflect.DeepEqual(existing.Spec.DataSource, cvi.Spec.DataSource) {
-				_, _ = fmt.Fprintf(GinkgoWriter, "Recreating CVI %q because its data source changed\n", cvi.GetName())
+			if httpURLChanged(existing, cvi) {
+				_, _ = fmt.Fprintf(GinkgoWriter, "Recreating CVI %q because its image URL changed\n", cvi.GetName())
 
 				if err := k8sClient.Delete(ctx, existing); err != nil && !k8serrors.IsNotFound(err) {
 					return fmt.Errorf("failed to delete CVI %q: %w", cvi.GetName(), err)
@@ -118,6 +117,20 @@ func (p *precreatedCVIPrecheck) ensureCVIs(ctx context.Context, f *framework.Fra
 		}
 	}
 	return nil
+}
+
+// httpURLChanged reports whether the desired CVI uses a different HTTP image URL
+// than the existing one. Only the HTTP URL is compared because that is the single
+// field that may change between runs (e.g. when the image source is switched).
+// Comparing the whole DataSource via reflect.DeepEqual is unreliable, since the
+// API server may populate defaulted fields on the existing object.
+func httpURLChanged(existing, desired *v1alpha2.ClusterVirtualImage) bool {
+	existingHTTP := existing.Spec.DataSource.HTTP
+	desiredHTTP := desired.Spec.DataSource.HTTP
+	if existingHTTP == nil || desiredHTTP == nil {
+		return false
+	}
+	return existingHTTP.URL != desiredHTTP.URL
 }
 
 func (p *precreatedCVIPrecheck) waitForCVIsReady(ctx context.Context, cvis []*v1alpha2.ClusterVirtualImage) {

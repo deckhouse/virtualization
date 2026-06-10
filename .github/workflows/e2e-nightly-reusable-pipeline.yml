@@ -572,36 +572,6 @@ jobs:
       - name: Create vmclass for e2e tests
         run: bash "${E2E_SCRIPT_DIR}/create-e2e-vmclass.sh"
 
-      - name: Resolve E2E image source
-        id: e2e-image-source
-        env:
-          E2E_IMAGE_SOURCE: ${{ inputs.e2e_image_source }}
-          E2E_IMAGE_BASE_URL: ${{ inputs.e2e_image_base_url }}
-          E2E_INCLUSTER_IMAGE_BASE_URL: ${{ inputs.e2e_incluster_image_base_url }}
-        run: |
-          case "${E2E_IMAGE_SOURCE}" in
-            external)
-              image_base_url="${E2E_IMAGE_BASE_URL}"
-              ;;
-            in-cluster)
-              image_base_url="${E2E_INCLUSTER_IMAGE_BASE_URL}"
-              ;;
-            *)
-              echo "::error::Unsupported E2E image source: ${E2E_IMAGE_SOURCE}"
-              exit 1
-              ;;
-          esac
-
-          image_base_url="${image_base_url%/}"
-          if [[ -z "${image_base_url}" ]]; then
-            echo "::error::Resolved E2E image base URL is empty"
-            exit 1
-          fi
-
-          echo "base-url=${image_base_url}" >> "$GITHUB_OUTPUT"
-          echo "[INFO] E2E image source: ${E2E_IMAGE_SOURCE}"
-          echo "[INFO] E2E image base URL: ${image_base_url}"
-
       - name: Run E2E
         id: e2e-report
         env:
@@ -612,7 +582,7 @@ jobs:
           SERVER_K8S_VERSION: ${{ steps.detect-k8s-version.outputs.server-version }}
           USB_SUPPORTED: ${{ steps.detect-k8s-version.outputs.usb-supported }}
           FOCUS: ${{ inputs.e2e_focus_tests }}
-          E2E_IMAGE_BASE_URL: ${{ steps.e2e-image-source.outputs.base-url }}
+          E2E_IMAGE_BASE_URL: ${{ inputs.e2e_image_source == 'in-cluster' && inputs.e2e_incluster_image_base_url || inputs.e2e_image_base_url }}
         working-directory: ./test/e2e/
         run: task run:ci
 
