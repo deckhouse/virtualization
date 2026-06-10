@@ -95,17 +95,17 @@ spec:
           Virtualization DRA component needs hostNetwork to provide
           USB devices to other Nodes and during VM migrations. Architectural feature.
     hostPorts:
-      - port: 4107
+      - port: {{ include "virtualization_dra.health_port" . }}
         protocol: TCP
         metadata:
           description: |
-            Allow hostPort 4107 for health check service.
+            Allow hostPort {{ include "virtualization_dra.health_port" . }} for health check service.
             Virtualization DRA component requires hostNetwork and health check service should be accessible via hostPort.
-      - port: 4280
+      - port: {{ include "virtualization_dra.usbipd_port" . }}
         protocol: TCP
         metadata:
           description: |
-            Allow hostPort 4280 for usbipd service.
+            Allow hostPort {{ include "virtualization_dra.usbipd_port" . }} for usbipd service.
             Virtualization DRA component requires hostNetwork and usbipd service should be accessible via hostPort.
 
   # Allow mounting host directories.

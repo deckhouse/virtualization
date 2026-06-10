@@ -92,17 +92,17 @@ spec:
           VM route forge component needs hostNetwork to manipulate node route tables
           to allow traffic between virtual machines.
     hostPorts:
-    - port: 4105
+    - port: {{ include "vm_route_forge.health_port" . }}
       protocol: TCP
       metadata:
         description: |
-          Allow hostPort 4105 for health check service.
+          Allow hostPort {{ include "vm_route_forge.health_port" . }} for health check service.
           VM route forge component requires hostNetwork and health check service should be accessible via hostPort.
-    - port: 4106
+    - port: {{ include "vm_route_forge.pprof_port" . }}
       protocol: TCP
       metadata:
         description: |
-          Allow hostPort 4106 for pprof service.
+          Allow hostPort {{ include "vm_route_forge.pprof_port" . }} for pprof service.
           VM route forge component requires hostNetwork and pprof service should be accessible via hostPort.
 {{- end }}
 
