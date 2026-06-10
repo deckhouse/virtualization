@@ -45,17 +45,17 @@ spec:
           Virt-handler component needs hostNetwork to manipulate node route tables
           to allow traffic between virtual machines.
     hostPorts:
-      - port: 4100
+      - port: {{ include "virt_handler.port" . }}
         protocol: TCP
         metadata:
           description: |
-            Allow hostPort 4100 for metrics and health check service.
+            Allow hostPort {{ include "virt_handler.port" . }} for metrics and health check service.
             Virt-handler component requires hostNetwork and metrics and health check service should be accessible via hostPort.
-      - port: 4101
+      - port: {{ include "virt_handler.console_server_port" . }}
         protocol: TCP
         metadata:
           description: |
-            Allow hostPort 4101 for console service.
+            Allow hostPort {{ include "virt_handler.console_server_port" . }} for console service.
             Virt-handler component requires hostNetwork and console service should be accessible via hostPort.
 
     hostPID:
