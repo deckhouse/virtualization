@@ -42,7 +42,7 @@
   # instead of the default deckhouse_images source. Declared in a module-owned
   # data file so the image libraries in build/base-images stay untouched.
 */}}
-{{-     $pins := .Files.Get ".werf/base-images-pins.yml" | fromYaml }}
+{{-     $pins := .Files.Get "build/base-images/base-images-pins.yml" | fromYaml }}
 {{-     $containerFactoryOverrideImages := $pins.fromContainerFactory | default list }}
 {{-     $containerFactoryOverrides := dict }}
 {{-     range $k := $containerFactoryOverrideImages }}
