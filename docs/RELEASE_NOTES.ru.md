@@ -5,39 +5,39 @@ weight: 70
 
 ## v1.9.0
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
-Дата релиза: 1 июня 2026.
+Дата релиза: 10 июня 2026.
 </span>
 
 ### Новые возможности
 
-- [vm] Добавлена поддержка hotplug блочных устройств через изменение `.spec.blockDeviceRefs` у работающей ВМ.
-- [vm] Добавлена возможность изменять `coreFraction` у работающей ВМ без её ручной остановки. Новое значение применяется через живую миграцию.
+- [vm] Перезагрузка больше не требуется для подключения и отключения виртуальных дисков и образов через спецификацию виртуальной машины `.spec.blockDeviceRefs`.
+       - Работает для новых виртуальных машин, начиная с версии v1.9.0.
+       - Для работы на созданных ранее виртуальных машинах нужно выполнить перезагрузку. 
+- [vm] Добавлена возможность подключения дополнительных сетевых интерфейсов без перезагрузки через спецификацию виртуальной машины `.spec.networks`.
+- [vm] Добавлена возможность изменять `coreFraction` у работающей ВМ без перезагрузки. Новое значение применяется через живую миграцию.
+- [vm] В статус ВМ добавлено сообщение «No bootable device», если ВМ не может найти загрузочный диск для запуска.
 - [vm] Для ресурсов [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) добавлена колонка `Uptime`, показывающая время с момента запуска ВМ.
-- [vm] В статус ВМ добавлено сообщение «No bootable device», если ВМ не может найти загрузочный диск.
 - [vmop] Совместимые ресурсы [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) теперь могут заменять другую активную операцию над ВМ.
-- [vm] Добавлена валидация, запрещающая подключение виртуального диска к ВМ, если он недоступен на узлах её 
-планирования.
 - [usb] Для ресурса [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) добавлены условие `Attached` и колонка `ATTACHED`, отражающие состояние подключения USB-устройства в неймспейсе.
-- [vmrestore] Удалён устаревший ресурс [VirtualMachineRestore](/modules/virtualization/cr.html#virtualmachinerestore). Вместо него используйте ресурс [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) с типом `Clone` или `Restore`, а также ресурс [VirtualMachineSnapshotOperation](/modules/virtualization/cr.html#virtualmachinesnapshotoperation).
 
 ### Исправления
 
-- [vm] Исправлена миграция ВМ с hotplug-томами на файловой системе.
-- [vm] Исправлено обновление дисков у остановленных ВМ со StorageClass в режиме `WaitForFirstConsumer`.
-- [vm] Исправлено размещение подов ВМ с локальными дисками и hotplug-томами.
-- [vm] Исправлены проблемы планирования после смены [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) с типа `Discovery` на другой.
-- [vm] Исправлено зависание фоновых задач миграции после прерывания, из-за которого новые миграции могли не запускаться.
-- [vm] Исправлено размещение ВМ: она запускается только на узле, где доступны все её диски, в том числе подключённые через hotplug.
-- [vm] Исправлено сохранение порядка устройств в `.spec.blockDeviceRefs` при hotplug.
+- [vm] Исправлено зависание ВМ в фазе `Starting`, если обновить класс хранения у диска с режимом `WaitForFirstConsumer`, пока ВМ была остановлена.
+- [vm] Исправлены проблемы с планированием (scheduling) ВМ после смены [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) в спецификации ВМ с типа `Discovery` на другой.
+- [vm] Исправлена отмена миграции ВМ, из-за которой новые миграции могли не запускаться.
 - [vm] Улучшена работа гостевых ОС Windows в кластерах с частыми изменениями частоты CPU.
-- [core] Исправлено отключение hotplug-дисков на узле после неуспешной миграции ВМ, из-за которого могли блокироваться последующие операции с ВМ.
-- [vd] Время в фазе `WaitForFirstConsumer` больше не включается в метрику `totalProvisioning` виртуальных дисков.
+- [vd] Время в фазе `WaitForFirstConsumer` больше не включается в статусе `.status.stats.creationDuration.totalProvisioning` виртуальных дисков.
 - [module] Исправлена проблема, из-за которой некорректные настройки ModuleConfig модуля `virtualization` могли блокировать очередь Deckhouse.
 - [observability] Исправлено дублирование серий на дашборде `Virtualization / Overview`.
 
 ### Прочее
 
 - [vm] Для утилиты `vlctl` добавлены подкоманды `domain jobs` и `block-jobs`.
+- [vmrestore] Удалён устаревший ресурс [VirtualMachineRestore](/modules/virtualization/cr.html#virtualmachinerestore). Вместо него используйте ресурс [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) с типом `Clone` или `Restore`, а также ресурс [VirtualMachineSnapshotOperation](/modules/virtualization/cr.html#virtualmachinesnapshotoperation).
+
+### Безопасность
+
+- [vm] Системные ресурсы виртуальной машины (поды с префиксами `d8v-hp-` и `d8v-vm-`) теперь работают от пользователя `deckhouse`, без root-прав.
 
 ## v1.8.3
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
@@ -90,7 +90,7 @@ weight: 70
 
 - [vm] Для операций [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) с типами `Evict` и `Migrate` в статус ресурса добавлено поле `progress`, отображающее прогресс выполнения операции. Соответствующая колонка `PROGRESS` выводится при вызове `d8 k get vmop`.
 - [vm] Добавлена возможность изменять количество CPU виртуальной машины без её ручной остановки — новое значение применяется через живую миграцию. Для включения функциональности добавьте `HotplugCPUWithLiveMigration` в `.spec.settings.featureGates` ModuleConfig модуля `virtualization`.
-- [vm] Добавлена начальная поддержка изменения памяти виртуальной машины без её ручной остановки — изменение `.spec.memory` применяется через живую миграцию. применяется через живую миграцию. Для включения функциональности добавьте `HotplugMemoryWithLiveMigration` в `.spec.settings.featureGates` ModuleConfig модуля `virtualization`.
+- [vm] Добавлена начальная поддержка изменения памяти виртуальной машины без её ручной остановки — изменение `.spec.memory` применяется через живую миграцию. Для включения функциональности добавьте `HotplugMemoryWithLiveMigration` в `.spec.settings.featureGates` ModuleConfig модуля `virtualization`.
 
 ### Исправления
 
