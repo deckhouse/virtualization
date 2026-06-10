@@ -448,6 +448,12 @@ jobs:
           registry_login: ${{ secrets.PROD_READ_REGISTRY_USER }}
           registry_password: ${{ secrets.PROD_READ_REGISTRY_PASSWORD }}
 
+      - name: Log in to private registry
+        id: registry-login
+        uses: ./.github/actions/registry-login
+        with:
+          docker_cfg: ${{ secrets.PROD_RU_REGISTRY_DOCKER_CFG }}
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
