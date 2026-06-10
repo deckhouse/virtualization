@@ -99,7 +99,7 @@ spec:
         - RuntimeDefault
         - Unconfined
       metadata:
-        description:
+        description: |
           Unconfined profile allows Virtualization DRA main container to make privileged syscalls to bind/unbind USB devices via sysfs.
 
   network:
