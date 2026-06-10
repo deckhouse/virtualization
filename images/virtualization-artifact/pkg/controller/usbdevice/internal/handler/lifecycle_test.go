@@ -18,6 +18,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -397,7 +398,7 @@ var _ = Describe("LifecycleHandler", func() {
 		Entry("falls back to resource name when attribute name is empty", "", "usb-device-cr"),
 	)
 
-	It("should ignore already existing ResourceClaimTemplate on stale create", func() {
+	It("should ignore non-status already existing ResourceClaimTemplate on stale create", func() {
 		usbDevice := &v1alpha2.USBDevice{
 			ObjectMeta: metav1.ObjectMeta{Name: "usb-device-cr", Namespace: "default", UID: "usb-uid-1"},
 			Status:     v1alpha2.USBDeviceStatus{Attributes: v1alpha2.NodeUSBDeviceAttributes{Name: "usb-new-name", VendorID: "1234", ProductID: "5678"}},
@@ -417,7 +418,7 @@ var _ = Describe("LifecycleHandler", func() {
 		cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(usbDevice, nodeUSBDevice).WithIndex(vmObj, vmField, vmExtractValue).WithIndex(vmNodeObj, vmNodeField, vmNodeExtractValue).WithInterceptorFuncs(interceptor.Funcs{
 			Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
 				if _, ok := obj.(*resourcev1.ResourceClaimTemplate); ok {
-					return apierrors.NewAlreadyExists(resourcev1.Resource("resourceclaimtemplates"), obj.GetName())
+					return errors.New(`resourceclaimtemplates.resource.k8s.io "usb-device-cr-template" already exists`)
 				}
 				return nil
 			},
