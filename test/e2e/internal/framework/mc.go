@@ -71,6 +71,7 @@ type VirtualizationModuleConfigSettings struct {
 	VirtualMachineCIDRs []string `json:"virtualMachineCIDRs"`
 	Dvcr                Dvcr     `json:"dvcr"`
 	HighAvailability    bool     `json:"highAvailability,omitempty"`
+	FeatureGates        []string `json:"featureGates,omitempty"`
 }
 
 type Dvcr struct {

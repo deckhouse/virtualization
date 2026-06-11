@@ -38,14 +38,13 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("HotplugCPU", Label(precheck.NoPrecheck), func() {
+var _ = Describe("HotplugCPU", Label(precheck.PrecheckHotplugCPU), func() {
 	var (
 		f *framework.Framework
 		t *cpuHotplugTest
 	)
 
 	BeforeEach(func() {
-		Skip("Hotplug CPU requires enabled feature gates in ModuleConfig. Skip until prechecks are implemented.")
 		f = framework.NewFramework("cpu-hotplug")
 		DeferCleanup(f.After)
 		f.Before()

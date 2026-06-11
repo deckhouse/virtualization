@@ -40,14 +40,13 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("HotplugMemory", Label(precheck.NoPrecheck), func() {
+var _ = Describe("HotplugMemory", Label(precheck.PrecheckHotplugMemory), func() {
 	var (
 		f *framework.Framework
 		t *memoryHotplugTest
 	)
 
 	BeforeEach(func() {
-		Skip("Hotplug memory requires enabling feature gate 'HotplugMemoryWithLiveMigration' in ModuleConfig. Skip until prechecks are implemented.")
 		f = framework.NewFramework("memory-hotplug")
 		DeferCleanup(f.After)
 		f.Before()

@@ -45,6 +45,12 @@ const (
 	// PrecheckUSB - test requires USB device with dummy_hcd to be configured.
 	PrecheckUSB = "usb-precheck"
 
+	// PrecheckHotplugCPU - test requires HotplugCPUWithLiveMigration feature gate to be enabled in ModuleConfig/virtualization.
+	PrecheckHotplugCPU = "hotplug-cpu-precheck"
+
+	// PrecheckHotplugMemory - test requires HotplugMemoryWithLiveMigration feature gate to be enabled in ModuleConfig/virtualization.
+	PrecheckHotplugMemory = "hotplug-memory-precheck"
+
 	// PrecheckAffinityToleration - test requires enough ready KVM-enabled master/worker nodes.
 	PrecheckAffinityToleration = "affinity-toleration-precheck"
 
@@ -71,6 +77,8 @@ func KnownPrecheckLabels() []string {
 		PrecheckSnapshot,
 		PrecheckVirtualization,
 		PrecheckUSB,
+		PrecheckHotplugCPU,
+		PrecheckHotplugMemory,
 		PrecheckAffinityToleration,
 		PrecheckPostCleanup,
 		PrecheckPrecreatedCVI,
