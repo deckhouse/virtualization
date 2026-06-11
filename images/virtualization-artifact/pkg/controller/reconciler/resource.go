@@ -231,8 +231,15 @@ func (r *Resource[T, ST]) Update(ctx context.Context) error {
 }
 
 func (r *Resource[T, ST]) JSONPatchOpsForFinalizers() []patch.JSONPatchOperation {
+	// When the object has no finalizers yet, a JSON Patch "replace" is rejected by the API
+	// server (strict RFC 6902 semantics require the target path to exist), so "add" is used
+	// to create the field.
+	op := patch.PatchReplaceOp
+	if len(r.currentObj.GetFinalizers()) == 0 {
+		op = patch.PatchAddOp
+	}
 	return []patch.JSONPatchOperation{
-		patch.NewJSONPatchOperation(patch.PatchReplaceOp, "/metadata/finalizers", r.changedObj.GetFinalizers()),
+		patch.NewJSONPatchOperation(op, "/metadata/finalizers", r.changedObj.GetFinalizers()),
 	}
 }
 

@@ -19,8 +19,10 @@ package reconciler
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("jsonPatchOpsForMetadataMap", func() {
@@ -45,5 +47,30 @@ var _ = Describe("jsonPatchOpsForMetadataMap", func() {
 		Entry("empty current map uses add", map[string]string{}, map[string]string{"a": "b"}, patch.PatchAddOp),
 		// Object already has labels: replace updates the existing field.
 		Entry("non-empty current map uses replace", map[string]string{"x": "y"}, map[string]string{"a": "b"}, patch.PatchReplaceOp),
+	)
+})
+
+var _ = Describe("JSONPatchOpsForFinalizers", func() {
+	newResource := func(current, changed []string) *Resource[*v1alpha2.VirtualMachineOperation, v1alpha2.VirtualMachineOperationStatus] {
+		return &Resource[*v1alpha2.VirtualMachineOperation, v1alpha2.VirtualMachineOperationStatus]{
+			currentObj: &v1alpha2.VirtualMachineOperation{ObjectMeta: metav1.ObjectMeta{Finalizers: current}},
+			changedObj: &v1alpha2.VirtualMachineOperation{ObjectMeta: metav1.ObjectMeta{Finalizers: changed}},
+		}
+	}
+
+	DescribeTable("chooses the mutation op based on the current finalizers",
+		func(current, changed []string, expectedOp string) {
+			ops := newResource(current, changed).JSONPatchOpsForFinalizers()
+
+			Expect(ops).To(HaveLen(1))
+			Expect(ops[0].Op).To(Equal(expectedOp))
+			Expect(ops[0].Path).To(Equal("/metadata/finalizers"))
+			Expect(ops[0].Value).To(Equal(changed))
+		},
+		// Object has no finalizers: replace would be rejected by the API server, so add is used.
+		Entry("nil current uses add", nil, []string{"f1"}, patch.PatchAddOp),
+		Entry("empty current uses add", []string{}, []string{"f1"}, patch.PatchAddOp),
+		// Object already has finalizers: replace updates the existing field.
+		Entry("non-empty current uses replace", []string{"f0"}, []string{"f0", "f1"}, patch.PatchReplaceOp),
 	)
 })
