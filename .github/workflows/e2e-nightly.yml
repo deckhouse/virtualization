@@ -20,8 +20,8 @@ on:
       e2e_image_base_url:
         required: false
         type: string
-        default: ""
-        description: "Base URL for E2E HTTP images. Empty: download from default S3 storage. In-cluster image share: https://e2e-test-images.e2e.virtlab.flant.com"
+        default: "https://e2e-test-images.e2e.virtlab.flant.com"
+        description: "Base URL for E2E HTTP images. Default: in-cluster image share. Set empty to download from default S3 storage."
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
