@@ -31,7 +31,13 @@ e2e_output_file="e2e_output_${CSI}_${date_tag}.log"
 rewrite_testdata_image_urls() {
   local image_base_url="${E2E_IMAGE_BASE_URL%/}"
 
-  if [ -z "${image_base_url}" ] || [ "${image_base_url}" = "${DEFAULT_IMAGE_BASE_URL}" ] || [ ! -d /tmp/testdata ]; then
+  # No custom base URL requested: testdata already points to the default storage.
+  if [ -z "${image_base_url}" ] || [ "${image_base_url}" = "${DEFAULT_IMAGE_BASE_URL}" ]; then
+    return
+  fi
+
+  # Nothing to rewrite if testdata has not been copied.
+  if [ ! -d /tmp/testdata ]; then
     return
   fi
 
