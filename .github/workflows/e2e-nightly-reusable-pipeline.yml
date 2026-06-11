@@ -574,7 +574,7 @@ jobs:
           FOCUS: ${{ inputs.e2e_focus_tests }}
           E2E_IMAGE_BASE_URL: ${{ inputs.e2e_image_base_url }}
         working-directory: ./test/e2e/
-        run: FOCUS="VirtualMachineConfiguration" task run:ci
+        run: task run:ci
 
       - name: Upload summary test results (json)
         uses: actions/upload-artifact@v7

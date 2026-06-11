@@ -15,11 +15,6 @@
 name: E2E Nightly
 
 on:
-  pull_request:
-    types: [opened, reopened, synchronize, labeled, unlabeled]
-    branches:
-      - main
-      - chore/ci/use-image-share-in-e2e-cluster-for-test
   workflow_dispatch:
 
 env:
@@ -35,7 +30,6 @@ defaults:
 
 jobs:
   cleanup-nested-clusters:
-    if: ${{ github.event_name != 'pull_request' }}
     name: Cleanup nested clusters
     runs-on: ubuntu-latest
     steps:
@@ -57,7 +51,6 @@ jobs:
         run: bash .github/scripts/bash/e2e/cleanup-nightly-resources.sh
 
   power-off-vms-for-nested:
-    if: ${{ github.event_name != 'pull_request' }}
     name: Power off VMs for nested clusters
     needs: cleanup-nested-clusters
     runs-on: ubuntu-latest
@@ -77,7 +70,7 @@ jobs:
 
   set-vars:
     name: Set vars
-    # needs: power-off-vms-for-nested
+    needs: power-off-vms-for-nested
     runs-on: ubuntu-latest
     outputs:
       date_start: ${{ steps.vars.outputs.date_start }}
@@ -89,11 +82,10 @@ jobs:
       - name: Set vars
         id: vars
         uses: ./.github/actions/gen-run-id
-      
+
       - name: Resolve e2e image base url
         id: image-source
         run: echo "e2e_image_base_url=${E2E_IMAGE_BASE_URL}" >> "$GITHUB_OUTPUT"
-
 
   e2e-replicated:
     name: E2E Pipeline (Replicated)
@@ -126,7 +118,6 @@ jobs:
       E2E_ARTIFACTS_GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
 
   e2e-nfs:
-    if: ${{ github.event_name != 'pull_request' }}
     name: E2E Pipeline (NFS)
     needs:
       - set-vars
@@ -143,7 +134,6 @@ jobs:
       go_version: "1.24.13"
       e2e_timeout: "3.5h"
       e2e_image_base_url: ${{ needs.set-vars.outputs.e2e_image_base_url }}
-      # e2e_image_base_url: ${{ inputs.e2e_image_base_url }}
       date_start: ${{ needs.set-vars.outputs.date_start }}
       randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
       cluster_config_workers_memory: "9Gi"
@@ -162,7 +152,7 @@ jobs:
     name: End-to-End tests report
     needs:
       - e2e-replicated
-      # - e2e-nfs
+      - e2e-nfs
     if: ${{ always()}}
     steps:
       - uses: actions/checkout@v6
@@ -199,7 +189,7 @@ jobs:
         env:
           EXPECTED_STORAGE_TYPES: '["replicated","nfs"]'
           LOOP_API_BASE_URL: ${{ secrets.LOOP_API_BASE_URL }}
-          LOOP_CHANNEL_ID: ${{ secrets.LOOP_TEST_CHANNEL_ID }}
+          LOOP_CHANNEL_ID: ${{ secrets.LOOP_CHANNEL_ID }}
           LOOP_TOKEN: ${{ secrets.LOOP_TOKEN }}
         with:
           script: |
