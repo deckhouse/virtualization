@@ -20,10 +20,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	. "github.com/onsi/ginkgo/v2"
 	"k8s.io/component-base/featuregate"
 
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
