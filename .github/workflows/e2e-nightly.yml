@@ -15,6 +15,11 @@
 name: E2E Nightly
 
 on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+    branches:
+      - main
+      - chore/ci/use-image-share-in-e2e-cluster-for-test
   workflow_dispatch:
     inputs:
       e2e_image_base_url:
@@ -22,6 +27,9 @@ on:
         type: string
         default: "https://e2e-test-images.e2e.virtlab.flant.com"
         description: "Base URL for E2E HTTP images. Default: in-cluster image share. Set empty to download from default S3 storage."
+
+env:
+  E2E_IMAGE_BASE_URL: "https://e2e-test-images.e2e.virtlab.flant.com"
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
@@ -80,12 +88,20 @@ jobs:
     outputs:
       date_start: ${{ steps.vars.outputs.date_start }}
       randuuid4c: ${{ steps.vars.outputs.randuuid4c }}
+      e2e_image_base_url: ${{ steps.image-source.outputs.e2e_image_base_url }}
     steps:
       - uses: actions/checkout@v6
 
       - name: Set vars
         id: vars
         uses: ./.github/actions/gen-run-id
+      
+      - name: Resolve e2e image base url
+        id: image-source
+        env:
+          INPUT_URL: ${{ inputs.e2e_image_base_url }}
+        run: echo "e2e_image_base_url=${INPUT_URL:-$E2E_IMAGE_BASE_URL}" >> "$GITHUB_OUTPUT"
+
 
   e2e-replicated:
     name: E2E Pipeline (Replicated)
@@ -103,7 +119,7 @@ jobs:
       default_user: cloud
       go_version: "1.25.10"
       e2e_timeout: "3.5h"
-      e2e_image_base_url: ${{ inputs.e2e_image_base_url }}
+      e2e_image_base_url: ${{ needs.set-vars.outputs.e2e_image_base_url }}
       date_start: ${{ needs.set-vars.outputs.date_start }}
       randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
       cluster_config_workers_memory: "9Gi"
@@ -134,7 +150,8 @@ jobs:
       default_user: cloud
       go_version: "1.24.13"
       e2e_timeout: "3.5h"
-      e2e_image_base_url: ${{ inputs.e2e_image_base_url }}
+      e2e_image_base_url: ${{ needs.set-vars.outputs.e2e_image_base_url }}
+      # e2e_image_base_url: ${{ inputs.e2e_image_base_url }}
       date_start: ${{ needs.set-vars.outputs.date_start }}
       randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
       cluster_config_workers_memory: "9Gi"
