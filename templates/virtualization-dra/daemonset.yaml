@@ -54,7 +54,7 @@ spec:
       metadata:
         description: |
           Allow virtualization-dra container to run as root user (UID 0).
-          Virtualization DRA component requires root privileges to properly communicate with the KVM subsystem.
+          Virtualization DRA component requires root privileges to properly communicate with the host kernel.
 
     runAsNonRoot:
       allowedValue: false
@@ -63,12 +63,44 @@ spec:
           Allow containers to run as root user (non-root disabled).
           Virtualization DRA component requires root privileges to access kernel-level resources and interact with system calls.
 
+    allowPrivilegeEscalation:
+      allowedValue: true
+      metadata:
+        description: |
+          Allow privilege escalation.
+          Virtualization DRA component requires privilege escalation to access kernel-level system calls.
+
     privileged:
       allowedValue: true
       metadata:
         description: |
           Allow privileged mode for the virtualization-dra DaemonSet.
-          Virtualization DRA component requires privileged access to interact with the KVM subsystem and Linux kernel.
+          Virtualization DRA component requires privileged access to interact with the Linux kernel.
+
+    capabilities:
+      allowedValues:
+        add:
+          - SYS_ADMIN
+          - SYS_MODULE
+          - SYS_RAWIO
+          - SYS_RESOURCE
+          - MKNOD
+          - NET_RAW
+          - NET_ADMIN
+        drop:
+          - ALL
+      metadata:
+        description: |
+          Allow Virtualization DRA component to load additional USB kernel modules in init container.
+          Allow Virtualization DRA main container to make privileged syscalls to bind/unbind USB devices via sysfs.
+
+    seccompProfile:
+      allowedValues:
+        - RuntimeDefault
+        - Unconfined
+      metadata:
+        description: |
+          Unconfined profile allows Virtualization DRA main container to make privileged syscalls to bind/unbind USB devices via sysfs.
 
   network:
     hostNetwork:
@@ -77,6 +109,19 @@ spec:
         description: |
           Virtualization DRA component needs hostNetwork to provide
           USB devices to other Nodes and during VM migrations. Architectural feature.
+    hostPorts:
+      - port: {{ include "virtualization_dra.health_port" . }}
+        protocol: TCP
+        metadata:
+          description: |
+            Allow hostPort {{ include "virtualization_dra.health_port" . }} for health check service.
+            Virtualization DRA component requires hostNetwork and health check service should be accessible via hostPort.
+      - port: {{ include "virtualization_dra.usbipd_port" . }}
+        protocol: TCP
+        metadata:
+          description: |
+            Allow hostPort {{ include "virtualization_dra.usbipd_port" . }} for usbipd service.
+            Virtualization DRA component requires hostNetwork and usbipd service should be accessible via hostPort.
 
   # Allow mounting host directories.
   volumes:
@@ -149,7 +194,7 @@ spec:
           image: {{ include "helm_lib_module_image" (list . "virtualizationDraUsb") }}
           args:
             - init
-          {{- include "helm_lib_module_container_security_context_read_only_root_filesystem_capabilities_drop_all_and_add"  (list . (list "SYS_MODULE")) | nindent 10 }}
+          {{- include "helm_lib_module_container_security_context_pss_restricted_flexible" (dict "ro" true "caps" (list "SYS_MODULE") "uid" 0 "runAsNonRoot" false) | nindent 10 }}
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
@@ -161,7 +206,27 @@ spec:
               name: tmp
       containers:
         - name: virtualization-dra
-          {{- include "helm_lib_module_container_security_context_privileged_read_only_root_filesystem" . | nindent 10 }}
+          # Manipulating with /sysfs and USB devices requires a privileged container.
+          securityContext:
+            allowPrivilegeEscalation: true
+            capabilities:
+              add:
+                - SYS_ADMIN
+                - SYS_MODULE
+                - SYS_RAWIO
+                - SYS_RESOURCE
+                - MKNOD
+                - NET_RAW
+                - NET_ADMIN
+              drop:
+                - ALL
+            privileged: true
+            readOnlyRootFilesystem: true
+            runAsGroup: 0
+            runAsNonRoot: false
+            runAsUser: 0
+            seccompProfile:
+              type: Unconfined
           image: {{ include "helm_lib_module_image" (list . "virtualizationDraUsb") }}
           imagePullPolicy: "IfNotPresent"
           args:
