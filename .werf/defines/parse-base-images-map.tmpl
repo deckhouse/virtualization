@@ -22,12 +22,6 @@
   # <prefix>/<name>: "sha256:abcde12345
 */}}
 {{-   $usedImagesDict := (include "project_images" . | fromJson) }}
-{{/*
-  # defaultRegistry: main repo for stable base_images
-  # altRegistry: sandbox for experimental images (e.g. builder/distroless image)
-*/}}
-{{-   $defaultRegistry := $deckhouseImages.REGISTRY_PATH }}
-{{-   $altRegistry := $deckhouseImages.ALT_REGISTRY_PATH }}
 {{-   range $k, $v := $deckhouseImages }}
 {{-     if ne $k "REGISTRY_PATH" }}
 {{-       $baseImagePath := (printf "%s@%s" $deckhouseImages.REGISTRY_PATH (trimSuffix "/" $v)) }}
