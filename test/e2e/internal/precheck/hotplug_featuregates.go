@@ -21,21 +21,22 @@ import (
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
-	"k8s.io/component-base/featuregate"
 
-	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
 const (
 	hotplugCPUPrecheckEnvName    = "HOTPLUG_CPU_PRECHECK"
 	hotplugMemoryPrecheckEnvName = "HOTPLUG_MEMORY_PRECHECK"
+
+	hotplugCPUWithLiveMigration    = "HotplugCPUWithLiveMigration"
+	hotplugMemoryWithLiveMigration = "HotplugMemoryWithLiveMigration"
 )
 
 type moduleConfigFeatureGatePrecheck struct {
 	label       string
 	envName     string
-	featureGate featuregate.Feature
+	featureGate string
 }
 
 func (p *moduleConfigFeatureGatePrecheck) Label() string {
@@ -56,7 +57,7 @@ func (p *moduleConfigFeatureGatePrecheck) Run(ctx context.Context, f *framework.
 	featureGates := moduleConfig.Spec.Settings.FeatureGates
 	hasFeatureGate := false
 	for _, fg := range featureGates {
-		if fg == string(p.featureGate) {
+		if fg == p.featureGate {
 			hasFeatureGate = true
 			break
 		}
@@ -74,12 +75,12 @@ func init() {
 	RegisterPrecheck(&moduleConfigFeatureGatePrecheck{
 		label:       PrecheckHotplugCPU,
 		envName:     hotplugCPUPrecheckEnvName,
-		featureGate: featuregates.HotplugCPUWithLiveMigration,
+		featureGate: hotplugCPUWithLiveMigration,
 	}, false)
 
 	RegisterPrecheck(&moduleConfigFeatureGatePrecheck{
 		label:       PrecheckHotplugMemory,
 		envName:     hotplugMemoryPrecheckEnvName,
-		featureGate: featuregates.HotplugMemoryWithLiveMigration,
+		featureGate: hotplugMemoryWithLiveMigration,
 	}, false)
 }
