@@ -340,3 +340,6 @@ tools/xfsprogs-v6.16.0: "sha256:30170f2cf5a9f9b34cc1abf028a2f6bfa3572ed95f78110f
 tools/yq: "sha256:49d909fce43bf14543e030bb65f1f1c8a6ebe2067e12628de4f541f9f7275a5a" # from: builder/scratch
 tools/yq-v4.45.1: "sha256:93c062315cf7bc20f3dd973b8fb8adf9705a31f3ad7611a5d6a1a24593c867e2" # from: builder/scratch
 tools/yq-v4.47.1: "sha256:49d909fce43bf14543e030bb65f1f1c8a6ebe2067e12628de4f541f9f7275a5a" # from: builder/scratch
+
+ALT_REGISTRY_PATH: registry.deckhouse.io/container-factory
+builder/distroless: "sha256:bf930d66a701bb2fff5bcea46b00aac2e578bb388e96d28e04028811746d653a" # from: builder/scratch
