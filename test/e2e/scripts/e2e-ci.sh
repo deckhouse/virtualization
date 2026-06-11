@@ -80,5 +80,4 @@ ginkgo_exit_code="${PIPESTATUS[0]}"
 set -e
 
 echo "[INFO] Exit code: ${ginkgo_exit_code}"
-# exit "${ginkgo_exit_code}"
-exit 0
+exit "${ginkgo_exit_code}"

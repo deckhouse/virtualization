@@ -21,15 +21,9 @@ on:
       - main
       - chore/ci/use-image-share-in-e2e-cluster-for-test
   workflow_dispatch:
-    inputs:
-      e2e_image_base_url:
-        required: false
-        type: string
-        default: "https://e2e-test-images.e2e.virtlab.flant.com"
-        description: "Base URL for E2E HTTP images. Default: in-cluster image share. Set empty to download from default S3 storage."
 
 env:
-  E2E_IMAGE_BASE_URL: "https://e2e-test-images.e2e.virtlab.flant.com"
+  E2E_IMAGE_BASE_URL: "http://share.e2e-test-images.svc.cluster.local"
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
@@ -98,9 +92,7 @@ jobs:
       
       - name: Resolve e2e image base url
         id: image-source
-        env:
-          INPUT_URL: ${{ inputs.e2e_image_base_url }}
-        run: echo "e2e_image_base_url=${INPUT_URL:-$E2E_IMAGE_BASE_URL}" >> "$GITHUB_OUTPUT"
+        run: echo "e2e_image_base_url=${E2E_IMAGE_BASE_URL}" >> "$GITHUB_OUTPUT"
 
 
   e2e-replicated:
