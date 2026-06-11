@@ -88,27 +88,20 @@ func (p *precreatedCVIPrecheck) ensureCVIs(ctx context.Context, f *framework.Fra
 		err := k8sClient.Get(ctx, client.ObjectKey{Name: cvi.GetName()}, existing)
 
 		if err == nil {
-			if httpURLChanged(existing, cvi) {
-				_, _ = fmt.Fprintf(GinkgoWriter, "Recreating CVI %q because its image URL changed\n", cvi.GetName())
-
-				if err := k8sClient.Delete(ctx, existing); err != nil && !k8serrors.IsNotFound(err) {
-					return fmt.Errorf("failed to delete CVI %q: %w", cvi.GetName(), err)
-				}
-				util.UntilObjectsDeleted(ctx, framework.LongTimeout, existing)
-			} else {
-				// CVI already exists, verify it's ready
-				if existing.Status.Phase != v1alpha2.ImageReady {
-					_, _ = fmt.Fprintf(GinkgoWriter,
-						"CVI %q exists but not ready (phase: %s), waiting...\n",
-						cvi.GetName(), existing.Status.Phase)
-				}
-				continue
+			// CVI already exists, verify it's ready
+			if existing.Status.Phase != v1alpha2.ImageReady {
+				_, _ = fmt.Fprintf(GinkgoWriter,
+					"CVI %q exists but not ready (phase: %s), waiting...\n",
+					cvi.GetName(), existing.Status.Phase)
 			}
-		} else if !k8serrors.IsNotFound(err) {
+			continue
+		}
+
+		if !k8serrors.IsNotFound(err) {
 			return fmt.Errorf("failed to get CVI %q: %w", cvi.GetName(), err)
 		}
 
-		// CVI not found or was removed after a data source change, create it.
+		// CVI not found, create it
 		_, _ = fmt.Fprintf(GinkgoWriter, "Creating CVI %q\n", cvi.GetName())
 
 		err = k8sClient.Create(ctx, cvi)
@@ -117,20 +110,6 @@ func (p *precreatedCVIPrecheck) ensureCVIs(ctx context.Context, f *framework.Fra
 		}
 	}
 	return nil
-}
-
-// httpURLChanged reports whether the desired CVI uses a different HTTP image URL
-// than the existing one. Only the HTTP URL is compared because that is the single
-// field that may change between runs (e.g. when the image source is switched).
-// Comparing the whole DataSource via reflect.DeepEqual is unreliable, since the
-// API server may populate defaulted fields on the existing object.
-func httpURLChanged(existing, desired *v1alpha2.ClusterVirtualImage) bool {
-	existingHTTP := existing.Spec.DataSource.HTTP
-	desiredHTTP := desired.Spec.DataSource.HTTP
-	if existingHTTP == nil || desiredHTTP == nil {
-		return false
-	}
-	return existingHTTP.URL != desiredHTTP.URL
 }
 
 func (p *precreatedCVIPrecheck) waitForCVIsReady(ctx context.Context, cvis []*v1alpha2.ClusterVirtualImage) {
