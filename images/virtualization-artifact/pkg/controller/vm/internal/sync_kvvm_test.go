@@ -349,7 +349,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 	)
 
 	DescribeTable("AwaitingRestart Condition for Hotplug VM with Project Quota",
-		func(featureGate featuregate.FeatureGate, mutateFn func(fakeClient client.WithWatch, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine), quota *corev1.ResourceQuota, expectedStatus metav1.ConditionStatus, expectedExistence bool, expectedMessage string) {
+		func(featureGate featuregate.FeatureGate, mutateFn func(fakeClient client.WithWatch, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine), quota *corev1.ResourceQuota, expectedStatus metav1.ConditionStatus, expectedExistence bool, expectedMessages []string) {
 			ip := makeVMIP()
 			vmClass := makeVMClass()
 
@@ -374,7 +374,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 			Expect(awaitExists).To(Equal(expectedExistence))
 			if awaitExists {
 				Expect(awaitCond.Status).To(Equal(expectedStatus))
-				if expectedMessage != "" {
+				for _, expectedMessage := range expectedMessages {
 					Expect(awaitCond.Message).To(ContainSubstring(expectedMessage))
 				}
 			}
@@ -386,7 +386,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 			newResourceQuota(namespace, resource.MustParse("6"), resource.MustParse("32Gi"), resource.MustParse("3"), resource.MustParse("2Gi")),
 			metav1.ConditionTrue,
 			true,
-			`project quota "project-quota" has insufficient requests.cpu`,
+			[]string{`project quota "project-quota" has insufficient requests.cpu`},
 		),
 		Entry(
 			"should not present on cpu hotplug when quota is sufficient during migration",
@@ -395,7 +395,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 			newResourceQuota(namespace, resource.MustParse("8"), resource.MustParse("32Gi"), resource.MustParse("3"), resource.MustParse("2Gi")),
 			metav1.ConditionUnknown,
 			false,
-			"",
+			nil,
 		),
 		Entry(
 			"should present on memory hotplug when quota is insufficient during migration",
@@ -404,7 +404,22 @@ var _ = Describe("SyncKvvmHandler", func() {
 			newResourceQuota(namespace, resource.MustParse("8"), resource.MustParse("5Gi"), resource.MustParse("2"), resource.MustParse("2Gi")),
 			metav1.ConditionTrue,
 			true,
-			`project quota "project-quota" has insufficient requests.memory`,
+			[]string{`project quota "project-quota" has insufficient requests.memory`},
+		),
+		Entry(
+			"should present joined message when cpu and memory quota are insufficient during migration",
+			newFeatureGateEnableResourceHotplug(),
+			func(_ client.WithWatch, vm *v1alpha2.VirtualMachine, _ *virtv1.VirtualMachine) {
+				vm.Spec.CPU.Cores = 4
+				vm.Spec.Memory.Size = resource.MustParse("4Gi")
+			},
+			newResourceQuota(namespace, resource.MustParse("6"), resource.MustParse("5Gi"), resource.MustParse("3"), resource.MustParse("2Gi")),
+			metav1.ConditionTrue,
+			true,
+			[]string{
+				`project quota "project-quota" has insufficient requests.cpu`,
+				`project quota "project-quota" has insufficient requests.memory`,
+			},
 		),
 	)
 
@@ -529,6 +544,10 @@ func newFeatureGateEnableCPUHotplug() featuregate.FeatureGate {
 
 func newFeatureGateEnableMemoryHotplug() featuregate.FeatureGate {
 	return newFeatureGate(featuregates.HotplugMemoryWithLiveMigration)
+}
+
+func newFeatureGateEnableResourceHotplug() featuregate.FeatureGate {
+	return newFeatureGate(featuregates.HotplugCPUWithLiveMigration, featuregates.HotplugMemoryWithLiveMigration)
 }
 
 func newResourceQuota(namespace string, cpuHard, memoryHard, cpuUsed, memoryUsed resource.Quantity) *corev1.ResourceQuota {

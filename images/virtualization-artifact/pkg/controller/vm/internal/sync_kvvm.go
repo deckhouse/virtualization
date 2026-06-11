@@ -865,14 +865,26 @@ func (h *SyncKvvmHandler) hasInsufficientHotplugMigrationQuota(ctx context.Conte
 		return "", false, fmt.Errorf("list project quotas: %w", err)
 	}
 
+	var messages []string
+	requests := []struct {
+		name corev1.ResourceName
+		req  resource.Quantity
+	}{
+		{name: corev1.ResourceRequestsCPU, req: newCPU},
+		{name: corev1.ResourceRequestsMemory, req: newMemory},
+	}
+
 	for i := range quotaList.Items {
 		quota := &quotaList.Items[i]
-		if message, allowed := quotaAllowsHotplugMigration(quota, corev1.ResourceRequestsCPU, newCPU); !allowed {
-			return message, true, nil
+		for _, request := range requests {
+			if message, allowed := quotaAllowsHotplugMigration(quota, request.name, request.req); !allowed {
+				messages = append(messages, message)
+			}
 		}
-		if message, allowed := quotaAllowsHotplugMigration(quota, corev1.ResourceRequestsMemory, newMemory); !allowed {
-			return message, true, nil
-		}
+	}
+
+	if len(messages) > 0 {
+		return strings.Join(messages, " "), true, nil
 	}
 
 	return "", false, nil

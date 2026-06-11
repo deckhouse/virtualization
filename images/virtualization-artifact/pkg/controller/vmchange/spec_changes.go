@@ -256,13 +256,15 @@ func (s *SpecChanges) UpgradeHotplugComputeChangesToRestart() {
 }
 
 func (s *SpecChanges) UpgradeHotplugComputeChangesToRestartWithMessage(message string) {
+	messageAssigned := false
 	for i := range s.changes {
 		isCPUChange := s.changes[i].Path == cpuPath || strings.HasPrefix(s.changes[i].Path, cpuPath+".")
 		isMemoryChange := s.changes[i].Path == memoryPath || strings.HasPrefix(s.changes[i].Path, memoryPath+".")
 		if (isCPUChange || isMemoryChange) && s.changes[i].ActionRequired == ActionApplyImmediate {
 			s.changes[i].ActionRequired = ActionRestart
-			if message != "" && s.changes[i].RestartMessage == "" {
+			if message != "" && s.changes[i].RestartMessage == "" && !messageAssigned {
 				s.changes[i].RestartMessage = message
+				messageAssigned = true
 			}
 		}
 	}

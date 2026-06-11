@@ -737,6 +737,18 @@ func TestUpgradeHotplugComputeChangesToRestart(t *testing.T) {
 
 	require.Equal(t, ActionRestart, changes.GetAll()[0].ActionRequired)
 	require.Equal(t, quotaReason, changes.GetAll()[0].RestartMessage)
+
+	changes = SpecChanges{}
+	changes.Add(
+		FieldChange{Path: "cpu.cores", ActionRequired: ActionApplyImmediate},
+		FieldChange{Path: "memory.size", ActionRequired: ActionApplyImmediate},
+	)
+
+	changes.UpgradeHotplugComputeChangesToRestartWithMessage(quotaReason)
+
+	require.Equal(t, ActionRestart, changes.GetAll()[0].ActionRequired)
+	require.Equal(t, ActionRestart, changes.GetAll()[1].ActionRequired)
+	require.Equal(t, []string{quotaReason}, changes.GetRestartMessages())
 }
 
 func loadVMSpec(t *testing.T, inYAML string) *v1alpha2.VirtualMachineSpec {
