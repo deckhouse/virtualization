@@ -237,16 +237,26 @@ func (r *Resource[T, ST]) JSONPatchOpsForFinalizers() []patch.JSONPatchOperation
 }
 
 func (r *Resource[T, ST]) JSONPatchOpsForAnnotations() []patch.JSONPatchOperation {
-	return []patch.JSONPatchOperation{
-		patch.NewJSONPatchOperation(patch.PatchTestOp, "/metadata/annotations", r.currentObj.GetAnnotations()),
-		patch.NewJSONPatchOperation(patch.PatchReplaceOp, "/metadata/annotations", r.changedObj.GetAnnotations()),
-	}
+	return jsonPatchOpsForMetadataMap("/metadata/annotations", r.currentObj.GetAnnotations(), r.changedObj.GetAnnotations())
 }
 
 func (r *Resource[T, ST]) JSONPatchOpsForLabels() []patch.JSONPatchOperation {
+	return jsonPatchOpsForMetadataMap("/metadata/labels", r.currentObj.GetLabels(), r.changedObj.GetLabels())
+}
+
+// jsonPatchOpsForMetadataMap builds JSON Patch operations for a metadata map field
+// (labels or annotations). When the field is absent on the current object, a JSON Patch
+// "replace" is rejected by the API server because RFC 6902 requires the target location
+// to exist, so "add" is used to create the field. The "test" operation preserves the
+// optimistic lock against concurrent modifications between read and patch.
+func jsonPatchOpsForMetadataMap(path string, current, changed map[string]string) []patch.JSONPatchOperation {
+	op := patch.PatchReplaceOp
+	if len(current) == 0 {
+		op = patch.PatchAddOp
+	}
 	return []patch.JSONPatchOperation{
-		patch.NewJSONPatchOperation(patch.PatchTestOp, "/metadata/labels", r.currentObj.GetLabels()),
-		patch.NewJSONPatchOperation(patch.PatchReplaceOp, "/metadata/labels", r.changedObj.GetLabels()),
+		patch.NewJSONPatchOperation(patch.PatchTestOp, path, current),
+		patch.NewJSONPatchOperation(op, path, changed),
 	}
 }
 
