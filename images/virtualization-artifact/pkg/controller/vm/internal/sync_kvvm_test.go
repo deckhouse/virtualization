@@ -383,7 +383,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 			"should present on cpu hotplug when quota is insufficient during migration",
 			newFeatureGateEnableCPUHotplug(),
 			mutateCPUCores(4),
-			newResourceQuota(namespace, resource.MustParse("6"), resource.MustParse("32Gi"), resource.MustParse("3"), resource.MustParse("2Gi")),
+			newResourceQuota(resource.MustParse("6"), resource.MustParse("32Gi"), resource.MustParse("3"), resource.MustParse("2Gi")),
 			metav1.ConditionTrue,
 			true,
 			[]string{`project quota "project-quota" has insufficient requests.cpu`},
@@ -392,7 +392,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 			"should not present on cpu hotplug when quota is sufficient during migration",
 			newFeatureGateEnableCPUHotplug(),
 			mutateCPUCores(4),
-			newResourceQuota(namespace, resource.MustParse("8"), resource.MustParse("32Gi"), resource.MustParse("3"), resource.MustParse("2Gi")),
+			newResourceQuota(resource.MustParse("8"), resource.MustParse("32Gi"), resource.MustParse("3"), resource.MustParse("2Gi")),
 			metav1.ConditionUnknown,
 			false,
 			nil,
@@ -401,7 +401,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 			"should present on memory hotplug when quota is insufficient during migration",
 			newFeatureGateEnableMemoryHotplug(),
 			mutateMemorySize("4Gi"),
-			newResourceQuota(namespace, resource.MustParse("8"), resource.MustParse("5Gi"), resource.MustParse("2"), resource.MustParse("2Gi")),
+			newResourceQuota(resource.MustParse("8"), resource.MustParse("5Gi"), resource.MustParse("2"), resource.MustParse("2Gi")),
 			metav1.ConditionTrue,
 			true,
 			[]string{`project quota "project-quota" has insufficient requests.memory`},
@@ -413,7 +413,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 				vm.Spec.CPU.Cores = 4
 				vm.Spec.Memory.Size = resource.MustParse("4Gi")
 			},
-			newResourceQuota(namespace, resource.MustParse("6"), resource.MustParse("5Gi"), resource.MustParse("3"), resource.MustParse("2Gi")),
+			newResourceQuota(resource.MustParse("6"), resource.MustParse("5Gi"), resource.MustParse("3"), resource.MustParse("2Gi")),
 			metav1.ConditionTrue,
 			true,
 			[]string{
@@ -550,11 +550,13 @@ func newFeatureGateEnableResourceHotplug() featuregate.FeatureGate {
 	return newFeatureGate(featuregates.HotplugCPUWithLiveMigration, featuregates.HotplugMemoryWithLiveMigration)
 }
 
-func newResourceQuota(namespace string, cpuHard, memoryHard, cpuUsed, memoryUsed resource.Quantity) *corev1.ResourceQuota {
+func newResourceQuota(cpuHard, memoryHard, cpuUsed, memoryUsed resource.Quantity) *corev1.ResourceQuota {
+	const quotaNamespace = "default"
+
 	return &corev1.ResourceQuota{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "project-quota",
-			Namespace: namespace,
+			Namespace: quotaNamespace,
 		},
 		Spec: corev1.ResourceQuotaSpec{
 			Hard: corev1.ResourceList{
