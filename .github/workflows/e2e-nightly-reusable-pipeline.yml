@@ -111,8 +111,8 @@ on:
       e2e_incluster_image_base_url:
         required: false
         type: string
-        default: "http://share.e2e-test-images.svc.cluster.local"
-        description: "In-cluster base URL for HTTP images used by E2E tests"
+        default: "https://e2e-test-images.e2e.virtlab.flant.com"
+        description: "In-cluster base URL for HTTP images used by E2E tests (image share Ingress reachable from nested clusters)"
       nested_cluster_network_name:
         required: false
         type: string

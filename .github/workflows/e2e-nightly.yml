@@ -33,8 +33,8 @@ on:
       e2e_incluster_image_base_url:
         required: false
         type: string
-        default: "http://share.e2e-test-images.svc.cluster.local"
-        description: "In-cluster base URL for E2E HTTP images"
+        default: "https://e2e-test-images.e2e.virtlab.flant.com"
+        description: "In-cluster base URL for E2E HTTP images (image share Ingress reachable from nested clusters)"
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
