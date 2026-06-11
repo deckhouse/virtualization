@@ -45,7 +45,7 @@ func (p *moduleConfigFeatureGatePrecheck) Label() string {
 
 func (p *moduleConfigFeatureGatePrecheck) Run(ctx context.Context, f *framework.Framework) error {
 	if !isCheckEnabled(p.envName) {
-		_, _ = GinkgoWriter.Write([]byte(fmt.Sprintf("%s check is disabled.\n", p.featureGate)))
+		GinkgoWriter.Printf("%s check is disabled.\n", p.featureGate)
 		return nil
 	}
 
