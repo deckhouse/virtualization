@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/component-base/featuregate"
@@ -34,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
@@ -160,6 +162,19 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			// Require restart for CPU and memory changes if VM is non migratable.
 			if h.isVMNonMigratable(current) {
 				changes.UpgradeHotplugComputeChangesToRestart()
+			} else {
+				insufficientQuota, quotaErr := h.hasInsufficientHotplugMigrationQuota(ctx, current, changes)
+				if quotaErr != nil {
+					err = fmt.Errorf("failed to check project quota for hotplug migration: %w", quotaErr)
+					cbConfApplied.
+						Status(metav1.ConditionFalse).
+						Reason(vmcondition.ReasonConfigurationNotApplied).
+						Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+					return reconcile.Result{}, err
+				}
+				if insufficientQuota {
+					changes.UpgradeHotplugComputeChangesToRestart()
+				}
 			}
 			allChanges.Add(changes.GetAll()...)
 		}
@@ -833,6 +848,73 @@ func (h *SyncKvvmHandler) isVMNonMigratable(
 ) bool {
 	vmMigratable, has := conditions.GetCondition(vmcondition.TypeMigratable, vm.Status.Conditions)
 	return has && vmMigratable.Status == metav1.ConditionFalse
+}
+
+func (h *SyncKvvmHandler) hasInsufficientHotplugMigrationQuota(ctx context.Context, vm *v1alpha2.VirtualMachine, changes vmchange.SpecChanges) (bool, error) {
+	if !hasHotplugComputeApplyImmediateChange(changes) {
+		return false, nil
+	}
+
+	newCPU, newMemory, err := hotplugMigrationRequests(vm)
+	if err != nil {
+		return false, err
+	}
+
+	var quotaList corev1.ResourceQuotaList
+	if err = h.client.List(ctx, &quotaList, client.InNamespace(vm.GetNamespace())); err != nil {
+		return false, fmt.Errorf("list project quotas: %w", err)
+	}
+
+	for i := range quotaList.Items {
+		quota := &quotaList.Items[i]
+		if !quotaAllowsHotplugMigration(quota, corev1.ResourceRequestsCPU, newCPU) {
+			return true, nil
+		}
+		if !quotaAllowsHotplugMigration(quota, corev1.ResourceRequestsMemory, newMemory) {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func hasHotplugComputeApplyImmediateChange(changes vmchange.SpecChanges) bool {
+	for _, change := range changes.GetAll() {
+		isCPUChange := change.Path == "cpu" || strings.HasPrefix(change.Path, "cpu.")
+		isMemoryChange := change.Path == "memory" || strings.HasPrefix(change.Path, "memory.")
+		if (isCPUChange || isMemoryChange) && change.ActionRequired == vmchange.ActionApplyImmediate {
+			return true
+		}
+	}
+	return false
+}
+
+func hotplugMigrationRequests(vm *v1alpha2.VirtualMachine) (newCPU, newMemory resource.Quantity, err error) {
+	newCPUReq, err := kvbuilder.GetCPURequest(vm.Spec.CPU.Cores, vm.Spec.CPU.CoreFraction)
+	if err != nil {
+		return resource.Quantity{}, resource.Quantity{}, fmt.Errorf("calculate new CPU request: %w", err)
+	}
+
+	return *newCPUReq, vm.Spec.Memory.Size, nil
+}
+
+func quotaAllowsHotplugMigration(quota *corev1.ResourceQuota, resourceName corev1.ResourceName, newReq resource.Quantity) bool {
+	hard, hasHard := quota.Status.Hard[resourceName]
+	if !hasHard {
+		hard, hasHard = quota.Spec.Hard[resourceName]
+	}
+	if !hasHard {
+		return true
+	}
+
+	if newReq.Cmp(hard) == common.CmpGreater {
+		return false
+	}
+
+	used := quota.Status.Used[resourceName]
+	duringMigration := used.DeepCopy()
+	duringMigration.Add(newReq)
+	return duringMigration.Cmp(hard) != common.CmpGreater
 }
 
 func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine) (bool, error) {
