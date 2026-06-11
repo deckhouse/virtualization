@@ -349,7 +349,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 	)
 
 	DescribeTable("AwaitingRestart Condition for Hotplug VM with Project Quota",
-		func(featureGate featuregate.FeatureGate, mutateFn func(fakeClient client.WithWatch, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine), quota *corev1.ResourceQuota, expectedStatus metav1.ConditionStatus, expectedExistence bool) {
+		func(featureGate featuregate.FeatureGate, mutateFn func(fakeClient client.WithWatch, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine), quota *corev1.ResourceQuota, expectedStatus metav1.ConditionStatus, expectedExistence bool, expectedMessage string) {
 			ip := makeVMIP()
 			vmClass := makeVMClass()
 
@@ -374,6 +374,9 @@ var _ = Describe("SyncKvvmHandler", func() {
 			Expect(awaitExists).To(Equal(expectedExistence))
 			if awaitExists {
 				Expect(awaitCond.Status).To(Equal(expectedStatus))
+				if expectedMessage != "" {
+					Expect(awaitCond.Message).To(ContainSubstring(expectedMessage))
+				}
 			}
 		},
 		Entry(
@@ -383,6 +386,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 			newResourceQuota(namespace, resource.MustParse("6"), resource.MustParse("32Gi"), resource.MustParse("3"), resource.MustParse("2Gi")),
 			metav1.ConditionTrue,
 			true,
+			`project quota "project-quota" has insufficient requests.cpu`,
 		),
 		Entry(
 			"should not present on cpu hotplug when quota is sufficient during migration",
@@ -391,6 +395,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 			newResourceQuota(namespace, resource.MustParse("8"), resource.MustParse("32Gi"), resource.MustParse("3"), resource.MustParse("2Gi")),
 			metav1.ConditionUnknown,
 			false,
+			"",
 		),
 		Entry(
 			"should present on memory hotplug when quota is insufficient during migration",
@@ -399,6 +404,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 			newResourceQuota(namespace, resource.MustParse("8"), resource.MustParse("5Gi"), resource.MustParse("2"), resource.MustParse("2Gi")),
 			metav1.ConditionTrue,
 			true,
+			`project quota "project-quota" has insufficient requests.memory`,
 		),
 	)
 

@@ -163,7 +163,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			if h.isVMNonMigratable(current) {
 				changes.UpgradeHotplugComputeChangesToRestart()
 			} else {
-				insufficientQuota, quotaErr := h.hasInsufficientHotplugMigrationQuota(ctx, current, changes)
+				quotaMessage, insufficientQuota, quotaErr := h.hasInsufficientHotplugMigrationQuota(ctx, current, changes)
 				if quotaErr != nil {
 					err = fmt.Errorf("failed to check project quota for hotplug migration: %w", quotaErr)
 					cbConfApplied.
@@ -173,7 +173,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 					return reconcile.Result{}, err
 				}
 				if insufficientQuota {
-					changes.UpgradeHotplugComputeChangesToRestart()
+					changes.UpgradeHotplugComputeChangesToRestartWithMessage(quotaMessage)
 				}
 			}
 			allChanges.Add(changes.GetAll()...)
@@ -850,32 +850,32 @@ func (h *SyncKvvmHandler) isVMNonMigratable(
 	return has && vmMigratable.Status == metav1.ConditionFalse
 }
 
-func (h *SyncKvvmHandler) hasInsufficientHotplugMigrationQuota(ctx context.Context, vm *v1alpha2.VirtualMachine, changes vmchange.SpecChanges) (bool, error) {
+func (h *SyncKvvmHandler) hasInsufficientHotplugMigrationQuota(ctx context.Context, vm *v1alpha2.VirtualMachine, changes vmchange.SpecChanges) (string, bool, error) {
 	if !hasHotplugComputeApplyImmediateChange(changes) {
-		return false, nil
+		return "", false, nil
 	}
 
 	newCPU, newMemory, err := hotplugMigrationRequests(vm)
 	if err != nil {
-		return false, err
+		return "", false, err
 	}
 
 	var quotaList corev1.ResourceQuotaList
 	if err = h.client.List(ctx, &quotaList, client.InNamespace(vm.GetNamespace())); err != nil {
-		return false, fmt.Errorf("list project quotas: %w", err)
+		return "", false, fmt.Errorf("list project quotas: %w", err)
 	}
 
 	for i := range quotaList.Items {
 		quota := &quotaList.Items[i]
-		if !quotaAllowsHotplugMigration(quota, corev1.ResourceRequestsCPU, newCPU) {
-			return true, nil
+		if message, allowed := quotaAllowsHotplugMigration(quota, corev1.ResourceRequestsCPU, newCPU); !allowed {
+			return message, true, nil
 		}
-		if !quotaAllowsHotplugMigration(quota, corev1.ResourceRequestsMemory, newMemory) {
-			return true, nil
+		if message, allowed := quotaAllowsHotplugMigration(quota, corev1.ResourceRequestsMemory, newMemory); !allowed {
+			return message, true, nil
 		}
 	}
 
-	return false, nil
+	return "", false, nil
 }
 
 func hasHotplugComputeApplyImmediateChange(changes vmchange.SpecChanges) bool {
@@ -898,23 +898,52 @@ func hotplugMigrationRequests(vm *v1alpha2.VirtualMachine) (newCPU, newMemory re
 	return *newCPUReq, vm.Spec.Memory.Size, nil
 }
 
-func quotaAllowsHotplugMigration(quota *corev1.ResourceQuota, resourceName corev1.ResourceName, newReq resource.Quantity) bool {
+func quotaAllowsHotplugMigration(quota *corev1.ResourceQuota, resourceName corev1.ResourceName, newReq resource.Quantity) (string, bool) {
 	hard, hasHard := quota.Status.Hard[resourceName]
 	if !hasHard {
 		hard, hasHard = quota.Spec.Hard[resourceName]
 	}
 	if !hasHard {
-		return true
+		return "", true
 	}
 
 	if newReq.Cmp(hard) == common.CmpGreater {
-		return false
+		return hotplugMigrationQuotaMessage(quota, resourceName, newReq, resource.Quantity{}, hard), false
 	}
 
 	used := quota.Status.Used[resourceName]
 	duringMigration := used.DeepCopy()
 	duringMigration.Add(newReq)
-	return duringMigration.Cmp(hard) != common.CmpGreater
+	if duringMigration.Cmp(hard) == common.CmpGreater {
+		available := hard.DeepCopy()
+		available.Sub(used)
+		if available.Sign() < 0 {
+			available.Set(0)
+		}
+		return hotplugMigrationQuotaMessage(quota, resourceName, newReq, available, hard), false
+	}
+
+	return "", true
+}
+
+func hotplugMigrationQuotaMessage(quota *corev1.ResourceQuota, resourceName corev1.ResourceName, newReq, available, hard resource.Quantity) string {
+	if newReq.Cmp(hard) == common.CmpGreater {
+		return fmt.Sprintf(
+			"Hotplug migration cannot start because %s request %s exceeds project quota %q hard limit %s. Restart the virtual machine to apply the changes without live migration.",
+			resourceName,
+			newReq.String(),
+			quota.GetName(),
+			hard.String(),
+		)
+	}
+
+	return fmt.Sprintf(
+		"Hotplug migration cannot start because project quota %q has insufficient %s: required additional %s, available %s. Restart the virtual machine to apply the changes without live migration.",
+		quota.GetName(),
+		resourceName,
+		newReq.String(),
+		available.String(),
+	)
 }
 
 func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine) (bool, error) {
