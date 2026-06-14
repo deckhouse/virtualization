@@ -1,0 +1,12 @@
+# Base image source pins (module-owned configuration).
+#
+# deckhouse_images.yml and container_factory_images.yml in this directory are
+# treated as read-only image libraries. When the same image name exists in both,
+# the default merge precedence prefers deckhouse_images. List here the image
+# names that must instead be taken from container_factory_images, with a reason.
+#
+# Consumed by .werf/defines/parse-base-images-map.tmpl.
+fromContainerFactory:
+  # CVE mitigation (08-06-2026): requires the ALT 20260119 based toolchain
+  # provided by container-factory instead of the deckhouse_images build.
+  - builder/golang-alt-1.25
