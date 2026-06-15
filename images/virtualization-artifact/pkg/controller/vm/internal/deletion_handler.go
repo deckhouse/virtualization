@@ -37,7 +37,7 @@ const deletionHandlerName = "DeletionHandler"
 func NewDeletionHandler(client client.Client) *DeletionHandler {
 	return &DeletionHandler{
 		client:     client,
-		protection: service.NewProtectionService(client, v1alpha2.FinalizerKVVMProtection),
+		protection: service.NewProtectionService(client, v1alpha2.FinalizerKVVMProtection), //nolint:staticcheck // FinalizerKVVMProtection is deprecated but still required until migration is complete.
 	}
 }
 
