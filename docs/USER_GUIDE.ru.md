@@ -1699,7 +1699,7 @@ d8 v vnc linux-vm
 Пример команды для подключения по SSH:
 
 ```bash
-d8 v ssh cloud@linux-vm --local-ssh
+d8 v ssh cloud@linux-vm
 ```
 
 Как подключиться к виртуальной машине в веб-интерфейсе:
@@ -1825,7 +1825,7 @@ d8 k edit vm linux-vm
 Предположим, мы хотим изменить количество ядер процессора. В данный момент виртуальная машина запущена и использует одно ядро, что можно подтвердить, подключившись к ней через серийную консоль и выполнив команду `nproc`.
 
 ```bash
-d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+d8 v ssh cloud@linux-vm --command "nproc"
 ```
 
 Пример вывода:
@@ -1853,7 +1853,7 @@ d8 k edit vm linux-vm
 Изменения в конфигурации внесены, но ещё не применены к виртуальной машине. Проверьте это, повторно выполнив:
 
 ```bash
-d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+d8 v ssh cloud@linux-vm --command "nproc"
 ```
 
 Пример вывода:
@@ -1907,7 +1907,7 @@ d8 v restart linux-vm
 Выполните команду для проверки:
 
 ```bash
-d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+d8 v ssh cloud@linux-vm --command "nproc"
 ```
 
 Пример вывода:
@@ -2355,7 +2355,7 @@ attach-blank-disk   Attached   linux-vm              3m7s
 Подключитесь к виртуальной машине и удостоверитесь, что диск подключен:
 
 ```bash
-d8 v ssh cloud@linux-vm --local-ssh --command "lsblk"
+d8 v ssh cloud@linux-vm --command "lsblk"
 ```
 
 Пример вывода:

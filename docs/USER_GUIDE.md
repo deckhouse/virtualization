@@ -1682,7 +1682,7 @@ d8 v vnc linux-vm
 Example command for connecting via SSH.
 
 ```bash
-d8 v ssh cloud@linux-vm --local-ssh
+d8 v ssh cloud@linux-vm
 ```
 
 How to connect to a virtual machine in the web interface:
@@ -1807,7 +1807,7 @@ Let's consider an example of changing the configuration of a virtual machine:
 Suppose we want to change the number of processor cores. The virtual machine is currently running and using one core, which can be confirmed by connecting to it through the serial console and executing the `nproc` command.
 
 ```bash
-d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+d8 v ssh cloud@linux-vm --command "nproc"
 ```
 
 Example output:
@@ -1835,7 +1835,7 @@ Example output:
 Configuration changes have been made but not yet applied to the virtual machine. Check this by re-executing:
 
 ```bash
-d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+d8 v ssh cloud@linux-vm --command "nproc"
 ```
 
 Example output:
@@ -1889,7 +1889,7 @@ After a reboot, the changes will be applied and the `.status.restartAwaitingChan
 Execute the command to verify:
 
 ```bash
-d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+d8 v ssh cloud@linux-vm --command "nproc"
 ```
 
 Example output:
@@ -2338,7 +2338,7 @@ attach-blank-disk   Attached   linux-vm              3m7s
 Connect to the virtual machine and make sure the disk is connected:
 
 ```bash
-d8 v ssh cloud@linux-vm --local-ssh --command "lsblk"
+d8 v ssh cloud@linux-vm --command "lsblk"
 ```
 
 Example output:
