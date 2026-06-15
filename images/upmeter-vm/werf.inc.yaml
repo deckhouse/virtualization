@@ -1,0 +1,17 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-artifact
+final: false
+fromImage: builder/alpine
+shell:
+  install:
+    - apk add --no-cache ca-certificates curl
+    - mkdir -p /out/disk
+    - curl -fL --retry 5 --retry-delay 2 -o /out/disk/alpine-3-23-uefi-minimal.qcow2 https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/upmeter/alpine-3-23-uefi-minimal.qcow2
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: builder/scratch
+import:
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-artifact
+    add: /out/disk/alpine-3-23-uefi-minimal.qcow2
+    to: /disk/alpine-3-23-uefi-minimal.qcow2
+    after: install
