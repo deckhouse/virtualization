@@ -98,6 +98,11 @@ on:
         type: string
         default: ""
         description: "E2E tests focus tests like 'VirtualMachineConfiguration' and so on (by default all tests are run)"
+      e2e_image_base_url:
+        required: false
+        type: string
+        default: ""
+        description: "Base URL for HTTP images used by E2E tests. Empty means download from the default S3 storage."
       nested_cluster_network_name:
         required: false
         type: string
@@ -567,6 +572,7 @@ jobs:
           SERVER_K8S_VERSION: ${{ steps.detect-k8s-version.outputs.server-version }}
           USB_SUPPORTED: ${{ steps.detect-k8s-version.outputs.usb-supported }}
           FOCUS: ${{ inputs.e2e_focus_tests }}
+          E2E_IMAGE_BASE_URL: ${{ inputs.e2e_image_base_url }}
         working-directory: ./test/e2e/
         run: task run:ci
 

@@ -717,9 +717,7 @@ func deletePersistentVolumeClaim(ctx context.Context, pvc *corev1.PersistentVolu
 	var shouldPatch bool
 	for _, finalizer := range pvc.Finalizers {
 		switch finalizer {
-		// When pod completed, we cannot remove pvc, because Kubernetes protects pvc until pod is removed.
-		// https://github.com/kubernetes/kubernetes/issues/120756
-		case v1alpha2.FinalizerVDProtection, "kubernetes.io/pvc-protection": // remove
+		case v1alpha2.FinalizerVDProtection: // remove
 			shouldPatch = true
 		default:
 			newFinalizers = append(newFinalizers, finalizer)

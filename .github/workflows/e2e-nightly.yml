@@ -17,6 +17,9 @@ name: E2E Nightly
 on:
   workflow_dispatch:
 
+env:
+  E2E_IMAGE_BASE_URL: "http://share.e2e-test-images.svc.cluster.local"
+
 concurrency:
   group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
   cancel-in-progress: true
@@ -72,12 +75,17 @@ jobs:
     outputs:
       date_start: ${{ steps.vars.outputs.date_start }}
       randuuid4c: ${{ steps.vars.outputs.randuuid4c }}
+      e2e_image_base_url: ${{ steps.image-source.outputs.e2e_image_base_url }}
     steps:
       - uses: actions/checkout@v6
 
       - name: Set vars
         id: vars
         uses: ./.github/actions/gen-run-id
+
+      - name: Resolve e2e image base url
+        id: image-source
+        run: echo "e2e_image_base_url=${E2E_IMAGE_BASE_URL}" >> "$GITHUB_OUTPUT"
 
   e2e-replicated:
     name: E2E Pipeline (Replicated)
@@ -93,8 +101,9 @@ jobs:
       virtualization_tag: main
       deckhouse_channel: alpha
       default_user: cloud
-      go_version: "1.25.10"
+      go_version: "1.25.11"
       e2e_timeout: "3.5h"
+      e2e_image_base_url: ${{ needs.set-vars.outputs.e2e_image_base_url }}
       date_start: ${{ needs.set-vars.outputs.date_start }}
       randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
       cluster_config_workers_memory: "9Gi"
@@ -124,6 +133,7 @@ jobs:
       default_user: cloud
       go_version: "1.24.13"
       e2e_timeout: "3.5h"
+      e2e_image_base_url: ${{ needs.set-vars.outputs.e2e_image_base_url }}
       date_start: ${{ needs.set-vars.outputs.date_start }}
       randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
       cluster_config_workers_memory: "9Gi"

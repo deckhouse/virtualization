@@ -10,7 +10,7 @@ weight: 50
 
 ## Быстрый старт по созданию ВМ
 
-Пример создания виртуальной машины с Ubuntu 22.04.
+Пример создания виртуальной машины с Ubuntu 24.04.
 
 1. Создайте образ виртуальной машины из внешнего источника:
 
@@ -304,7 +304,7 @@ weight: 50
    apiVersion: virtualization.deckhouse.io/v1alpha2
    kind: VirtualImage
    metadata:
-     name: ubuntu-22-04
+     name: ubuntu-24-04
    spec:
      # Сохраним образ в DVCR.
      storage: ContainerRegistry
@@ -319,16 +319,16 @@ weight: 50
 1. Проверьте результат создания `VirtualImage`:
 
    ```bash
-   d8 k get virtualimage ubuntu-22-04
+   d8 k get virtualimage ubuntu-24-04
    # или более короткий вариант
-   d8 k get vi ubuntu-22-04
+   d8 k get vi ubuntu-24-04
    ```
 
    Пример вывода:
 
    ```txt
    NAME           PHASE   CDROM   PROGRESS   AGE
-   ubuntu-22-04   Ready   false   100%       23h
+   ubuntu-24-04   Ready   false   100%       23h
    ```
 
 После создания ресурс `VirtualImage` может находиться в следующих состояниях (фазах):
@@ -349,26 +349,26 @@ weight: 50
 Отследить процесс создания образа можно путем добавления ключа `-w` к предыдущей команде:
 
 ```bash
-d8 k get vi ubuntu-22-04 -w
+d8 k get vi ubuntu-24-04 -w
 ```
 
 Пример вывода:
 
 ```txt
 NAME           PHASE          CDROM   PROGRESS   AGE
-ubuntu-22-04   Provisioning   false              4s
-ubuntu-22-04   Provisioning   false   0.0%       4s
-ubuntu-22-04   Provisioning   false   28.2%      6s
-ubuntu-22-04   Provisioning   false   66.5%      8s
-ubuntu-22-04   Provisioning   false   100.0%     10s
-ubuntu-22-04   Provisioning   false   100.0%     16s
-ubuntu-22-04   Ready          false   100%       18s
+ubuntu-24-04   Provisioning   false              4s
+ubuntu-24-04   Provisioning   false   0.0%       4s
+ubuntu-24-04   Provisioning   false   28.2%      6s
+ubuntu-24-04   Provisioning   false   66.5%      8s
+ubuntu-24-04   Provisioning   false   100.0%     10s
+ubuntu-24-04   Provisioning   false   100.0%     16s
+ubuntu-24-04   Ready          false   100%       18s
 ```
 
 В описание ресурса `VirtualImage` можно получить дополнительную информацию о скачанном образе:
 
 ```bash
-d8 k describe vi ubuntu-22-04
+d8 k describe vi ubuntu-24-04
 ```
 
 Как создать образ с HTTP-сервера в веб-интерфейсе:
@@ -390,7 +390,7 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: ubuntu-22-04-pvc
+  name: ubuntu-24-04-pvc
 spec:
   # Настройки хранения проектного образа.
   storage: PersistentVolumeClaim
@@ -408,14 +408,14 @@ EOF
 Проверьте результат создания `VirtualImage`:
 
 ```bash
-d8 k get vi ubuntu-22-04-pvc
+d8 k get vi ubuntu-24-04-pvc
 ```
 
 Пример вывода:
 
 ```txt
 NAME              PHASE   CDROM   PROGRESS   AGE
-ubuntu-22-04-pvc  Ready   false   100%       23h
+ubuntu-24-04-pvc  Ready   false   100%       23h
 ```
 
 Если параметр `.spec.persistentVolumeClaim.storageClassName` не указан, то будет использован `StorageClass` по умолчанию на уровне кластера, либо для образов, если он указан в [настройках модуля](./admin_guide.html#настройки-классов-хранения-для-образов).
@@ -440,20 +440,20 @@ ubuntu-22-04-pvc  Ready   false   100%       23h
 1. Загрузите образ локально:
 
    ```bash
-   curl -L https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img -o ubuntu2204.img
+   curl -L https://cloud-images.ubuntu.com/minimal/releases/noble/release/ubuntu-24.04-minimal-cloudimg-amd64.img -o ubuntu2404.img
    ```
 
 1. Создайте `Dockerfile` со следующим содержимым:
 
    ```Dockerfile
    FROM scratch
-   COPY ubuntu2204.img /disk/ubuntu2204.img
+   COPY ubuntu2404.img /disk/ubuntu2404.img
    ```
 
 1. Соберите образ и загрузите его в container registry. В качестве container registry в примере ниже использован docker.io. Для выполнения необходимо иметь учетную запись сервиса и настроенное окружение.
 
    ```bash
-   docker build -t docker.io/<username>/ubuntu2204:latest
+   docker build -t docker.io/<username>/ubuntu2404:latest
    ```
 
    где `username` — имя пользователя, указанное при регистрации в docker.io.
@@ -461,7 +461,7 @@ ubuntu-22-04-pvc  Ready   false   100%       23h
 1. Загрузите созданный образ в container registry:
 
    ```bash
-   docker push docker.io/<username>/ubuntu2204:latest
+   docker push docker.io/<username>/ubuntu2404:latest
    ```
 
 1. Чтобы использовать этот образ, создайте в качестве примера ресурс:
@@ -471,13 +471,13 @@ ubuntu-22-04-pvc  Ready   false   100%       23h
    apiVersion: virtualization.deckhouse.io/v1alpha2
    kind: VirtualImage
    metadata:
-     name: ubuntu-2204
+     name: ubuntu-2404
    spec:
      storage: ContainerRegistry
      dataSource:
        type: ContainerImage
        containerImage:
-         image: docker.io/<username>/ubuntu2204:latest
+         image: docker.io/<username>/ubuntu2404:latest
    EOF
    ```
 
@@ -489,7 +489,7 @@ ubuntu-22-04-pvc  Ready   false   100%       23h
 - Из списка выберите «Загрузить данные из образа контейнера».
 - В открывшейся форме в поле «Имя образа» введите имя образа.
 - В поле «Хранилище» выберите `ContainerRegistry`.
-- В поле «Образ в реестре контейнеров» укажите `docker.io/<username>/ubuntu2204:latest`.
+- В поле «Образ в реестре контейнеров» укажите `docker.io/<username>/ubuntu2404:latest`.
 - Нажмите кнопку «Создать».
 - Статус образа отображается слева вверху, под именем образа.
 
@@ -759,14 +759,14 @@ blank-disk   Ready   100Mi      1m2s
 На примере ранее созданного проектного образа `VirtualImage`, рассмотрим команду позволяющую определить размер распакованного образа:
 
 ```bash
-d8 k get vi ubuntu-22-04 -o wide
+d8 k get vi ubuntu-24-04 -o wide
 ```
 
 Пример вывода:
 
 ```txt
 NAME           PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                                                       AGE
-ubuntu-22-04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-22-04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
+ubuntu-24-04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-24-04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
 ```
 
 Искомый размер указан в колонке **UNPACKEDSIZE** и равен 2.5Gi.
@@ -791,7 +791,7 @@ spec:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
-      name: ubuntu-22-04
+      name: ubuntu-24-04
 EOF
 ```
 
@@ -813,7 +813,7 @@ spec:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
-      name: ubuntu-22-04
+      name: ubuntu-24-04
 EOF
 ```
 
@@ -1008,7 +1008,7 @@ d8 k patch vd disk2 --type=merge --patch '{"spec":{"persistentVolumeClaim":{"sto
 
 ### Создание виртуальной машины
 
-Ниже представлен пример конфигурации виртуальной машины, запускающей ОС Ubuntu 22.04. В примере используется сценарий первичной инициализации виртуальной машины (cloud-init), который устанавливает гостевого агента `qemu-guest-agent` и сервис `nginx`, а также создает пользователя `cloud` с паролем `cloud`:
+Ниже представлен пример конфигурации виртуальной машины, запускающей ОС Ubuntu 24.04. В примере используется сценарий первичной инициализации виртуальной машины (cloud-init), который устанавливает гостевого агента `qemu-guest-agent` и сервис `nginx`, а также создает пользователя `cloud` с паролем `cloud`:
 
 Пароль в примере был сгенерирован с использованием команды `mkpasswd --method=SHA-512 --rounds=4096 -S saltsalt` и при необходимости вы можете его поменять на свой:
 
@@ -1338,13 +1338,13 @@ spec:
   - Используется 8 сокетов.
   - Ядра равномерно распределяются между сокетами.
   - Шаг изменения: 8 (общее количество ядер должно быть кратно 8).
-  - Допустимые значения: 72, 80, 88, 96 и так далее до 128.
+  - Допустимые значения: 72, 80, 88, 96 и так далее до 248.
   - Ограничения: минимум 9 ядер в сокете.
   - Пример: Если задано `.spec.cpu.cores` = 80, то топология: 8 сокетов по 10 ядер каждый.
 
 Шаг изменения указывает, на сколько можно увеличивать или уменьшать общее количество ядер, чтобы они равномерно распределялись по сокетам.
 
-Максимально возможное количество ядер - 128.
+Максимально возможное количество ядер - 248.
 
 Сводная таблица по диапазону `spec.cpu.cores`:
 
@@ -1353,7 +1353,7 @@ spec:
 | `1 ≤ cores ≤ 16`   | 1             | 1         | 1                     | 16                     |
 | `16 < cores ≤ 32`  | 2             | 2         | 9                     | 16                     |
 | `32 < cores ≤ 64`  | 4             | 4         | 9                     | 16                     |
-| `64 < cores ≤ 128` | 8             | 8         | 9                     | 16                     |
+| `64 < cores ≤ 248` | 8             | 8         | 9                     | 16                     |
 
 Overhead памяти не зависит от максимально возможной топологии по числу vCPU и вычисляется по фактически активным ядрам: (число сокетов × ядер на сокет × число потоков на ядро) × 8 MiB на каждое логическое ядро.
 
@@ -1699,7 +1699,7 @@ d8 v vnc linux-vm
 Пример команды для подключения по SSH:
 
 ```bash
-d8 v ssh cloud@linux-vm --local-ssh
+d8 v ssh cloud@linux-vm
 ```
 
 Как подключиться к виртуальной машине в веб-интерфейсе:
@@ -1825,7 +1825,7 @@ d8 k edit vm linux-vm
 Предположим, мы хотим изменить количество ядер процессора. В данный момент виртуальная машина запущена и использует одно ядро, что можно подтвердить, подключившись к ней через серийную консоль и выполнив команду `nproc`.
 
 ```bash
-d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+d8 v ssh cloud@linux-vm --command "nproc"
 ```
 
 Пример вывода:
@@ -1853,7 +1853,7 @@ d8 k edit vm linux-vm
 Изменения в конфигурации внесены, но ещё не применены к виртуальной машине. Проверьте это, повторно выполнив:
 
 ```bash
-d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+d8 v ssh cloud@linux-vm --command "nproc"
 ```
 
 Пример вывода:
@@ -1907,7 +1907,7 @@ d8 v restart linux-vm
 Выполните команду для проверки:
 
 ```bash
-d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+d8 v ssh cloud@linux-vm --command "nproc"
 ```
 
 Пример вывода:
@@ -1949,7 +1949,7 @@ spec:
     - HotplugCPUWithLiveMigration
 ```
 
-Если новое значение `spec.cpu.cores` попадает в диапазон горячего подключения для текущей топологии и ВМ допускает миграцию, изменение применяется через живую миграцию. Если новому значению требуется другая топология CPU или ВМ не может быть мигрирована, потребуется перезагрузка ВМ. Необходимость перезагрузки отражается в условии `AwaitingRestartToApplyConfiguration`.
+Если новое значение `spec.cpu.cores` попадает в диапазон горячего подключения для текущей топологии и ВМ допускает миграцию, изменение применяется через живую миграцию. Если новому значению требуется другая топология CPU или ВМ не может быть мигрирована, потребуется перезагрузка ВМ. Необходимость перезагрузки отражается в статусе ВМ в колонке `NEED RESTART`.
 
 Правила расчёта топологии и допустимые шаги изменения `spec.cpu.cores` описаны в разделе [Топологии CPU](#топологии-cpu).
 
@@ -1975,6 +1975,46 @@ spec:
 - Изменение `spec.cpu.cores` без перезагрузки возможно только в пределах диапазона горячего подключения текущей топологии CPU.
 - Если изменение требует смены топологии CPU, необходима перезагрузка ВМ.
 - При уменьшении количества CPU в пределах текущей топологии распределение ядер по сокетам может стать неравномерным.
+
+### Горячее подключение памяти
+
+Горячее подключение памяти позволяет увеличивать объём памяти (`spec.memory.size`) у работающей ВМ без перезагрузки, если изменение можно применить через живую миграцию. Уменьшение размера памяти всегда требует перезагрузки ВМ.
+
+По умолчанию эта функциональность отключена. Чтобы включить, добавьте `HotplugMemoryWithLiveMigration` в массив `.spec.settings.featureGates` в ModuleConfig/virtualization:
+
+```yaml
+kind: ModuleConfig
+metadata:
+  name: virtualization
+spec:
+  settings:
+    featureGates:
+    - HotplugMemoryWithLiveMigration
+```
+
+Если новое значение `spec.memory.size` больше текущего и ВМ допускает миграцию, изменение применяется через живую миграцию. Если требуется уменьшить память, изначально заданный размер памяти меньше 1 ГБ или ВМ не может быть мигрирована, потребуется перезагрузка ВМ. Необходимость перезагрузки отражается в статусе ВМ в колонке `NEED RESTART`.
+
+Особенности гостевых ОС:
+
+- После живой миграции при увеличении памяти новые блоки памяти могут потребовать явной активации в гостевой ОС; память, заданная при создании ВМ, дополнительной активации не требует.
+- В Linux добавленную память можно включить через sysfs (имя устройства см. в выводе `ls /sys/bus/memory/devices/`):
+
+  ```bash
+  echo 1 > /sys/bus/memory/devices/memoryXXX/online
+  ```
+
+- Чтобы в Linux автоматически включать добавленную память, настройте правило `udev`. После этого добавленная память отображается в выводе `free` и `lsmem`:
+
+  ```bash
+  cat <<'EOF' > /etc/udev/rules.d/99-hotplug-memory.rules
+  SUBSYSTEM=="memory",ACTION=="add",DEVPATH=="/devices/system/memory/memory[0-9]*", TEST=="state", ATTR{state}!="online", ATTR{state}="online"
+  EOF
+  ```
+
+Ограничения:
+
+- Увеличение памяти без перезагрузки возможно только если размер памяти ВМ не меньше 1 ГБ. Если изначально задано меньше 1 ГБ, любое изменение размера потребует перезагрузки.
+- Максимальный размер памяти для ВМ в текущей версии модуля ограничен значением 256 ГБ.
 
 ### Размещение ВМ по узлам
 
@@ -2315,7 +2355,7 @@ attach-blank-disk   Attached   linux-vm              3m7s
 Подключитесь к виртуальной машине и удостоверитесь, что диск подключен:
 
 ```bash
-d8 v ssh cloud@linux-vm --local-ssh --command "lsblk"
+d8 v ssh cloud@linux-vm --command "lsblk"
 ```
 
 Пример вывода:
@@ -2447,6 +2487,10 @@ MAC-адреса остаются неизменными, но имена инт
 ### Организация взаимодействия с ВМ
 
 К виртуальным машинам можно обращаться напрямую по их фиксированным IP-адресам. Однако такой подход имеет ограничения: прямое использование IP-адресов требует ручного управления, усложняет масштабирование и делает инфраструктуру менее гибкой. Альтернативой служат сервисы — механизм, который абстрагирует доступ к ВМ, предоставляя логические точки входа вместо привязки к физическим адресам.
+
+{{< alert level="info" >}}
+Если подключение к ВМ с узла кластера не проходит, проверьте `NetworkPolicy` в проекте. Сетевые политики проекта могут ограничивать доступ к ВМ, в том числе соединения с узлов кластера.
+{{< /alert >}}
 
 Сервисы упрощают взаимодействие как с отдельными ВМ, так и с группами подобных ВМ. Например, тип сервиса ClusterIP создаёт фиксированный внутренний адрес, через который можно обращаться как к одной, так и к группе ВМ, независимо от их реальных IP-адресов. Это позволяет другим компонентам системы взаимодействовать с ресурсами через стабильное имя или IP, автоматически направляя трафик к нужным машинам.
 
@@ -3778,22 +3822,22 @@ spec:
 
 ### Обзор
 
-Модуль предоставляет два пользовательских ресурса для управления USB-устройствами:
+Модуль предоставляет два кастомных ресурса для управления USB-устройствами:
 
-- [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) (cluster-scoped) — представляет USB-устройство, обнаруженное на конкретном узле. Создаётся автоматически системой DRA при обнаружении USB-устройства на узле.
-- [USBDevice](/modules/virtualization/cr.html#usbdevice) (namespace-scoped) — представляет USB-устройство, доступное для подключения к виртуальным машинам в заданном неймспейсе.
+- [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) (cluster-wide-ресурс) — представляет USB-устройство, обнаруженное на конкретном узле.
+- [USBDevice](/modules/virtualization/cr.html#usbdevice) (namespaced-ресурс) — представляет USB-устройство, доступное для подключения к виртуальным машинам в заданном неймспейсе.
 
 ### Принцип работы
 
 Проброс USB-устройства проходит через последовательный жизненный цикл — от обнаружения устройства на узле до подключения к виртуальной машине:
 
-1. Драйвер DRA автоматически обнаруживает USB-устройства на узлах кластера и создаёт ресурсы [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice).
+1. DRA-драйвер обнаруживает USB-устройства на узлах и публикует сведения о них в API Kubernetes как ResourceSlice. Контроллер модуля создаёт ресурсы [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) по этим данным.
 
-1. Администратор назначает неймспейс ресурсу [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice), установив поле `.spec.assignedNamespace`. Это делает устройство доступным в этом неймспейсе.
+1. Администратор назначает неймспейс ресурсу [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice), задав параметр ресурса `.spec.assignedNamespace`. Это делает устройство доступным в этом неймспейсе.
 
-1. После назначения неймспейса контроллер автоматически создаёт соответствующий ресурс [USBDevice](/modules/virtualization/cr.html#usbdevice) в этом неймспейсе.
+1. После назначения неймспейса контроллер модуля создаёт в нём ресурс [USBDevice](/modules/virtualization/cr.html#usbdevice).
 
-1. Устройство [USBDevice](/modules/virtualization/cr.html#usbdevice) подключается к виртуальной машине путём добавления в поле `.spec.usbDevices` ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine).
+1. Устройство [USBDevice](/modules/virtualization/cr.html#usbdevice) подключается к виртуальной машине путём добавления в параметр ресурса `.spec.usbDevices` ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine).
 
 ### Быстрый старт
 
@@ -3806,7 +3850,7 @@ spec:
    d8 k get nodeusbdevice
    ```
 
-1. Назначьте неймспейс ресурсу [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice), установив `.spec.assignedNamespace`:
+1. Назначьте неймспейс ресурсу [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice), задав параметр ресурса `.spec.assignedNamespace`:
 
    ```bash
    d8 k apply -f - <<EOF
@@ -3825,7 +3869,7 @@ spec:
    d8 k get usbdevice -n my-project
    ```
 
-1. Добавьте устройство в поле `.spec.usbDevices` ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine):
+1. Добавьте устройство в параметр ресурса `.spec.usbDevices` ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine):
 
    ```bash
    d8 k apply -f - <<EOF
@@ -3842,7 +3886,7 @@ spec:
 
 ### NodeUSBDevice
 
-Ресурс [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) отражает состояние физического USB-устройства, обнаруженного на узле кластера. Это cluster-scoped ресурс, представляющий физическое USB-устройство на узле. Он создаётся автоматически системой DRA.
+Ресурс [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) отражает состояние физического USB-устройства, обнаруженного на узле кластера. Это cluster-wide-ресурс, представляющий физическое USB-устройство на узле.
 
 Пример просмотра всех обнаруженных USB-устройств:
 
@@ -3874,7 +3918,7 @@ logitech-webcam     node-2         True    True      my-project   15m
 
 #### Назначение неймспейса USB-устройству
 
-Перед подключением USB-устройства к виртуальной машине его необходимо сделать доступным в конкретном неймспейсе. Для этого установите поле `.spec.assignedNamespace`:
+Перед подключением USB-устройства к виртуальной машине его необходимо сделать доступным в конкретном неймспейсе. Для этого задайте параметр ресурса `.spec.assignedNamespace`:
 
 ```bash
 d8 k apply -f - <<EOF
@@ -3887,11 +3931,11 @@ spec:
 EOF
 ```
 
-После назначения неймспейса соответствующий ресурс [USBDevice](/modules/virtualization/cr.html#usbdevice) автоматически создаётся в указанном неймспейсе.
+После назначения неймспейса в нём автоматически появляется ресурс [USBDevice](/modules/virtualization/cr.html#usbdevice).
 
 ### USBDevice
 
-[USBDevice](/modules/virtualization/cr.html#usbdevice) — это namespace-scoped ресурс, представляющий USB-устройство, доступное для подключения к виртуальным машинам в заданном неймспейсе. Создаётся автоматически, когда [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) имеет назначенный неймспейс.
+[USBDevice](/modules/virtualization/cr.html#usbdevice) — это namespaced-ресурс, представляющий USB-устройство, доступное для подключения к виртуальным машинам в заданном неймспейсе. Появляется автоматически, когда у связанного [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) задан неймспейс в параметре ресурса `.spec.assignedNamespace`.
 
 Пример просмотра USB-устройств в неймспейсе:
 
@@ -3908,7 +3952,7 @@ logitech-webcam    node-2   Logitech       Webcam C920         ABC123456   False
 
 #### Атрибуты USBDevice
 
-Ресурс [USBDevice](/modules/virtualization/cr.html#usbdevice) содержит подробную информацию о физическом USB-устройстве в статусных полях. Эти атрибуты доступны в `.status.attributes`:
+Ресурс [USBDevice](/modules/virtualization/cr.html#usbdevice) содержит подробную информацию о физическом USB-устройстве. Атрибуты перечислены в `.status.attributes`:
 
 - `vendorID` — USB идентификатор производителя (шестнадцатеричный формат);
 - `productID` — USB идентификатор продукта (шестнадцатеричный формат);
@@ -3935,7 +3979,7 @@ logitech-webcam    node-2   Logitech       Webcam C920         ABC123456   False
 
 ### Подключение USB-устройства к ВМ
 
-После появления ресурса [USBDevice](/modules/virtualization/cr.html#usbdevice) в неймспейсе его можно подключить к виртуальной машине. Для этого добавьте устройство в поле `.spec.usbDevices` ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine):
+После появления ресурса [USBDevice](/modules/virtualization/cr.html#usbdevice) в неймспейсе его можно подключить к виртуальной машине. Для этого добавьте устройство в параметр ресурса `.spec.usbDevices` ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine):
 
 ```bash
 d8 k apply -f - <<EOF

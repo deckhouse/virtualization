@@ -26,7 +26,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -48,7 +47,6 @@ const (
 	PhaseReady        = "Ready"
 	PhasePending      = "Pending"
 	PhaseRunning      = "Running"
-	storageClassName  = "STORAGE_CLASS_NAME"
 	testDataDir       = "/tmp/testdata"
 )
 
@@ -67,35 +65,16 @@ func Init() error {
 
 func configure() (err error) {
 	conf = framework.GetConfig()
-	defer framework.SetConfig(conf)
 
-	clients := framework.GetClients()
-	kubectl = clients.Kubectl()
+	kubectl = framework.GetClients().Kubectl()
 
-	var scList storagev1.StorageClassList
-	if err := clients.GenericClient().List(context.Background(), &scList); err != nil {
-		return fmt.Errorf("failed to list StorageClasses: %w", err)
+	if conf.StorageClass.TemplateStorageClass == nil {
+		return fmt.Errorf("TemplateStorageClass is not set")
 	}
 
-	conf.StorageClass.DefaultStorageClass = config.FindDefaultStorageClass(&scList)
-	if conf.StorageClass.DefaultStorageClass == nil {
-		return fmt.Errorf("default StorageClass not found in the cluster")
-	}
-
-	conf.StorageClass.ImmediateStorageClass = config.FindImmediateStorageClass(conf.StorageClass.DefaultStorageClass, &scList)
-
-	scFromEnv, err := GetStorageClassFromEnv(storageClassName)
-	if err != nil {
-		return err
-	}
-
-	if scFromEnv != nil {
-		conf.StorageClass.TemplateStorageClass = scFromEnv
-	} else {
-		conf.StorageClass.TemplateStorageClass = conf.StorageClass.DefaultStorageClass
-	}
-
-	if err = SetStorageClass(testDataDir, map[string]string{storageClassName: conf.StorageClass.TemplateStorageClass.Name}); err != nil {
+	if err = SetStorageClass(testDataDir, map[string]string{
+		config.StorageClassNameEnv: conf.StorageClass.TemplateStorageClass.Name,
+	}); err != nil {
 		return err
 	}
 

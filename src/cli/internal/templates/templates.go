@@ -97,6 +97,27 @@ func ExactArgs(nameOfCommand string, n int) cobra.PositionalArgs {
 	}
 }
 
+// MinimumArgs validate the minimum number of input parameters.
+// Any additional positional arguments after the required prefix are allowed
+// (for example, everything passed after `--`).
+func MinimumArgs(nameOfCommand string, n int) cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		if len(args) >= n {
+			return nil
+		}
+		err := errors.New("argument validation failed")
+		_, e := fmt.Fprintf(os.Stderr, "fatal: Number of input parameters is incorrect, %s accepts at least %d arg(s), received %d\n\n", nameOfCommand, n, len(args))
+		if e != nil {
+			err = errors.Join(err, e)
+		}
+		e = cmd.Help()
+		if e != nil {
+			err = errors.Join(err, e)
+		}
+		return err
+	}
+}
+
 // PrintWarningForPausedVM prints warning message if VM is paused
 func PrintWarningForPausedVM(ctx context.Context, virtCli kubeclient.Client, vmName, namespace string) {
 	vm, err := virtCli.VirtualMachines(namespace).Get(ctx, vmName, metav1.GetOptions{})
