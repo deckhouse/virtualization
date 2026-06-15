@@ -111,7 +111,7 @@ on:
         required: true
       VIRT_E2E_NIGHTLY_SA_TOKEN:
         required: true
-      PROD_IO_REGISTRY_DOCKER_CFG:
+      REGISTRY_DOCKER_CFG:
         required: true
       BOOTSTRAP_DEV_PROXY:
         required: true
@@ -174,7 +174,7 @@ jobs:
         id: registry-login
         uses: ./.github/actions/registry-login
         with:
-          docker_cfg: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
+          docker_cfg: ${{ secrets.REGISTRY_DOCKER_CFG }}
 
       - name: Configure kubectl via azure/k8s-set-context@v4
         uses: azure/k8s-set-context@v4
@@ -192,7 +192,8 @@ jobs:
           POD_SUBNET_CIDR: ${{ inputs.pod_subnet_cidr }}
           SERVICE_SUBNET_CIDR: ${{ inputs.service_subnet_cidr }}
           K8S_VERSION: ${{ env.K8S_VERSION }}
-          PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
+          REGISTRY: ${{ steps.registry-login.outputs.registry }}
+          REGISTRY_DOCKER_CFG: ${{ secrets.REGISTRY_DOCKER_CFG }}
           DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
           VIRTUALIZATION_IMAGE_URL: ${{ inputs.virtualization_image_url }}
           DEFAULT_USER: ${{ env.DEFAULT_USER }}

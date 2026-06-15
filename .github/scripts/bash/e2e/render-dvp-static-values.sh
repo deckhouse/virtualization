@@ -26,7 +26,8 @@ require_env DECKHOUSE_CHANNEL
 require_env POD_SUBNET_CIDR
 require_env SERVICE_SUBNET_CIDR
 require_env K8S_VERSION
-require_env PROD_IO_REGISTRY_DOCKER_CFG
+require_env REGISTRY
+require_env REGISTRY_DOCKER_CFG
 require_env VIRTUALIZATION_IMAGE_URL
 require_env DEFAULT_USER
 require_env APT_MIRROR_ENABLED
