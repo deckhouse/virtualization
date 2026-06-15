@@ -19,14 +19,14 @@ package ssh
 import (
 	"bytes"
 	"context"
-	"errors"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/deckhouse/virtualization/api/client/kubeclient"
+	"github.com/deckhouse/virtualization/src/cli/internal/clientconfig"
 )
 
 func TestSSH(t *testing.T) {
@@ -145,40 +145,66 @@ var _ = Describe("SSH", func() {
 	})
 
 	Describe("ResolveDefaultNamespace", func() {
-		var (
-			original  func(context.Context) (kubeclient.Client, string, bool, error)
-			cmdStderr *bytes.Buffer
-		)
-
-		BeforeEach(func() {
-			original = clientAndNamespaceFromContext
-			cmdStderr = &bytes.Buffer{}
-		})
-
-		AfterEach(func() {
-			clientAndNamespaceFromContext = original
-		})
-
-		newCmd := func() *cobra.Command {
-			cmd := NewCommand()
-			cmd.SetErr(cmdStderr)
-			return cmd
+		newCtx := func(ns string) context.Context {
+			yaml := []byte(`
+apiVersion: v1
+kind: Config
+current-context: test
+clusters:
+- name: test-cluster
+  cluster:
+    server: https://localhost:443
+contexts:
+- name: test
+  context:
+    cluster: test-cluster
+    user: test-user
+    namespace: ` + ns + `
+users:
+- name: test-user
+`)
+			clientConfig, err := clientcmd.NewClientConfigFromBytes(yaml)
+			Expect(err).NotTo(HaveOccurred())
+			return clientconfig.NewContext(context.Background(), clientConfig)
 		}
 
-		It("uses the namespace from the kubeconfig context when the API is reachable", func() {
-			clientAndNamespaceFromContext = func(_ context.Context) (kubeclient.Client, string, bool, error) {
-				return nil, "vm-team", false, nil
-			}
-			Expect(ResolveDefaultNamespace(newCmd())).To(Equal("vm-team"))
-			Expect(cmdStderr.String()).To(BeEmpty())
+		It("uses the namespace from the kubeconfig context", func() {
+			ctx := newCtx("vm-team")
+			ns, err := clientconfig.NamespaceFromContext(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ns).To(Equal("vm-team"))
 		})
 
-		It("falls back to \"default\" and warns when the client cannot be obtained", func() {
-			clientAndNamespaceFromContext = func(_ context.Context) (kubeclient.Client, string, bool, error) {
-				return nil, "", false, errors.New("no kubeconfig")
-			}
-			Expect(ResolveDefaultNamespace(newCmd())).To(Equal("default"))
-			Expect(cmdStderr.String()).To(ContainSubstring(`using "default"`))
+		It("returns \"default\" when no namespace is configured in the kubeconfig", func() {
+			yaml := []byte(`
+apiVersion: v1
+kind: Config
+current-context: test
+clusters:
+- name: test-cluster
+  cluster:
+    server: https://localhost:443
+contexts:
+- name: test
+  context:
+    cluster: test-cluster
+    user: test-user
+users:
+- name: test-user
+`)
+			clientConfig, err := clientcmd.NewClientConfigFromBytes(yaml)
+			Expect(err).NotTo(HaveOccurred())
+			ctx := clientconfig.NewContext(context.Background(), clientConfig)
+
+			ns, err := clientconfig.NamespaceFromContext(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ns).To(Equal("default"))
+		})
+
+		It("returns an error when no client config is in the context", func() {
+			ns, err := clientconfig.NamespaceFromContext(context.Background())
+			Expect(err).To(HaveOccurred())
+			Expect(ns).To(BeEmpty())
 		})
 	})
 })

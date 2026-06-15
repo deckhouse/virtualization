@@ -22,6 +22,7 @@ package scp
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/deckhouse/virtualization/src/cli/internal/clientconfig"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/ssh"
 	"github.com/deckhouse/virtualization/src/cli/internal/templates"
 )
@@ -67,10 +68,10 @@ func (o *SCP) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// The Kubernetes client is not required: see SSH.Run for rationale.
-	// If the API server is reachable we honour the configured namespace,
-	// otherwise we fall back to "default".
-	defaultNamespace := ssh.ResolveDefaultNamespace(cmd)
+	defaultNamespace, err := clientconfig.NamespaceFromContext(cmd.Context())
+	if err != nil {
+		return err
+	}
 	local, remote, toRemote, err := PrepareCommand(cmd, defaultNamespace, &o.options, args)
 	if err != nil {
 		return err

@@ -164,14 +164,10 @@ func (o *SSH) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// The Kubernetes client is not required for the local SSH path:
-	// the local `ssh` binary reaches the VM through `d8 v port-forward`
-	// running as a ProxyCommand, which establishes its own client
-	// connection from inside the command. If the API server is reachable,
-	// use the configured namespace; otherwise fall back to "default" so
-	// the user can still point at a VM that has the namespace embedded
-	// in its target (e.g. `user@myvm.test`).
-	defaultNamespace := ResolveDefaultNamespace(cmd)
+	defaultNamespace, err := clientconfig.NamespaceFromContext(cmd.Context())
+	if err != nil {
+		return err
+	}
 
 	// Anything passed after `--` is the command to execute on the VM.
 	// ArgsLenAtDash returns the number of positional args that appeared
@@ -190,21 +186,6 @@ func (o *SSH) Run(cmd *cobra.Command, args []string) error {
 
 	clientArgs := o.buildSSHTarget(namespace, name)
 	return RunLocalClient(cmd, namespace, name, &o.options, clientArgs)
-}
-
-// clientAndNamespaceFromContext is overridden in tests.
-var clientAndNamespaceFromContext = clientconfig.ClientAndNamespaceFromContext
-
-// ResolveDefaultNamespace returns the namespace from the active
-// kubeconfig context if the API server is reachable, and "default"
-// otherwise. A warning is emitted to stderr on fallback.
-func ResolveDefaultNamespace(cmd *cobra.Command) string {
-	if _, ns, _, err := clientAndNamespaceFromContext(cmd.Context()); err == nil {
-		return ns
-	}
-	_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
-		"Warning: could not determine namespace from kubeconfig, using \"default\".\n")
-	return "default"
 }
 
 func PrepareCommand(cmd *cobra.Command, defaultNamespace string, opts *SSHOptions, args []string) (namespace, name string, err error) {
