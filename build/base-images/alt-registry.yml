@@ -1,2 +1,0 @@
-REGISTRY_PATH: registry.deckhouse.io/container-factory
-builder/distroless: "sha256:bf930d66a701bb2fff5bcea46b00aac2e578bb388e96d28e04028811746d653a" # from: builder/scratch

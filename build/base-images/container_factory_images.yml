@@ -38,7 +38,7 @@ builder/alpine: "sha256:8fa8cf713bf8cfc9038901e5b2fbc97d0403794d834dc4a619e9e813
 builder/alpine-svace-3.21: "sha256:12a5eda001ea240e172e758d69a8c47c28e59b8491cc6cb721339a2029abf58f" # from: builder/alpine-3.21
 builder/alpine-svace-3.22: "sha256:6224c1fd05ff445a58804889b332991754319b8f744b88ca0a231332d10e2b12" # from: builder/alpine-3.22
 builder/alpine-svace: "sha256:6224c1fd05ff445a58804889b332991754319b8f744b88ca0a231332d10e2b12" # from: builder/alpine-3.22
-builder/distroless: "sha256:912601a9c82c8dc35a1e945a8d1626c8bd1a0355b8ee98ab267ba227dcffd2a3" # from: builder/scratch
+builder/distroless: "sha256:cd125c09e8315342655b019f970648ddbb9477e2b90b781c56cd7b8c1a3d8c54" # from: builder/scratch
 builder/golang-1.25: "sha256:f0f08a4271a44a63a75cfa5fc5282aecbc981736f29fc54a0c071516ea87baba" # from: builder/distroless
 builder/golang-1.26: "sha256:d771e7d448312e10eea7036af2f46a69d44461d711a2982f3c6ab544a5a2a0d9" # from: builder/distroless
 builder/golang-alpine-1.25: "sha256:9701f93cec25acec10837e2399f7fda7e4c23303bed6514bfa0ff692396f170b" # from: alpine:3.22.2
