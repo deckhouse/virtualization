@@ -15,6 +15,11 @@
 name: E2E Nightly
 
 on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+    branches:
+      - main
+      - feat/pm
   workflow_dispatch:
 
 env:
@@ -104,6 +109,7 @@ jobs:
       go_version: "1.25.11"
       e2e_timeout: "3.5h"
       e2e_image_base_url: ${{ needs.set-vars.outputs.e2e_image_base_url }}
+      e2e_focus_tests: "VirtualMachineConfiguration"
       date_start: ${{ needs.set-vars.outputs.date_start }}
       randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
       cluster_config_workers_memory: "9Gi"
