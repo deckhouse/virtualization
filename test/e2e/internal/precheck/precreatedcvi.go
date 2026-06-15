@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -121,8 +122,9 @@ func (p *precreatedCVIPrecheck) waitForCVIsReady(ctx context.Context, cvis []*v1
 		objs = append(objs, cvi)
 	}
 
-	// Use util's polling with 5 minute timeout
-	util.UntilObjectPhase(ctx, string(v1alpha2.ImageReady), framework.LongTimeout, objs...)
+	// Temporarily increasing the system readiness timeout to 20 minutes; currently, the Ubuntu ISO image is taking a long time to load.
+	// TODO: Revert back when the slow loading issue is fixed.
+	util.UntilObjectPhase(ctx, string(v1alpha2.ImageReady), 1200*time.Second, objs...)
 }
 
 // Register precreatedCVI precheck as common (runs for all tests).
