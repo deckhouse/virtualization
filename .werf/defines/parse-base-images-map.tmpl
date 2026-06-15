@@ -17,6 +17,7 @@
 {{- define "parse_base_images_map" }}
 {{-   $deckhouseImages := .Files.Get "build/base-images/deckhouse_images.yml" | fromYaml }}
 {{-   $containerFactoryImages := .Files.Get "build/base-images/container_factory_images.yml" | fromYaml }}
+{{-   $altRegistryImages := .Files.Get "build/base-images/alt-registry.yml" | fromYaml }}
 {{/*
   # deckhouse_images has a format
   # <prefix>/<name>: "sha256:abcde12345
@@ -37,23 +38,30 @@
 {{-       end }}
 {{-     end }}
 {{-     $_ := unset $containerFactoryImages "REGISTRY_PATH" }}
+{{-   end }}
+{{-   if $altRegistryImages }}
+{{-     range $k, $v := $altRegistryImages }}
+{{-       if ne $k "REGISTRY_PATH" }}
+{{-         $baseImagePath := (printf "%s@%s" $altRegistryImages.REGISTRY_PATH (trimSuffix "/" $v)) }}
+{{-         $_ := set $altRegistryImages $k $baseImagePath }}
+{{-       end }}
+{{-     end }}
+{{-     $_ := unset $altRegistryImages "REGISTRY_PATH" }}
+{{-   end }}
 {{/*
   # Source pins: image names that must be taken from container_factory_images
   # instead of the default deckhouse_images source. Declared in a module-owned
   # data file so the image libraries in build/base-images stay untouched.
 */}}
-{{-     $pins := .Files.Get "build/base-images/base-images-pins.yml" | fromYaml }}
-{{-     $containerFactoryOverrideImages := $pins.fromContainerFactory | default list }}
-{{-     $containerFactoryOverrides := dict }}
-{{-     range $k := $containerFactoryOverrideImages }}
-{{-       if hasKey $containerFactoryImages $k }}
-{{-         $_ := set $containerFactoryOverrides $k (get $containerFactoryImages $k) }}
-{{-       end }}
+{{-   $pins := .Files.Get "build/base-images/base-images-pins.yml" | fromYaml }}
+{{-   $containerFactoryOverrideImages := $pins.fromContainerFactory | default list }}
+{{-   $containerFactoryOverrides := dict }}
+{{-   range $k := $containerFactoryOverrideImages }}
+{{-     if hasKey $containerFactoryImages $k }}
+{{-       $_ := set $containerFactoryOverrides $k (get $containerFactoryImages $k) }}
 {{-     end }}
-{{-     $_ := set . "Images" (mustMerge $containerFactoryOverrides $deckhouseImages $containerFactoryImages) }}
-{{-   else }}
-{{-     $_ := set . "Images" (mustMerge $deckhouseImages) }}
 {{-   end }}
+{{-   $_ := set . "Images" (mustMerge $containerFactoryOverrides $deckhouseImages $containerFactoryImages $altRegistryImages) }}
 {{/* # base images artifacts */}}
 {{-   range $k, $v := .Images }}
 {{-     if hasKey $usedImagesDict $k }}
