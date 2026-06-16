@@ -19,6 +19,7 @@ on:
 
 env:
   E2E_IMAGE_BASE_URL: "http://share.e2e-test-images.svc.cluster.local"
+  DECKHOUSE_TAG: "v1.76.0"
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
@@ -76,6 +77,7 @@ jobs:
       date_start: ${{ steps.vars.outputs.date_start }}
       randuuid4c: ${{ steps.vars.outputs.randuuid4c }}
       e2e_image_base_url: ${{ steps.image-source.outputs.e2e_image_base_url }}
+      deckhouse_tag: ${{ steps.deckhouse-tag.outputs.deckhouse_tag }}
     steps:
       - uses: actions/checkout@v6
 
@@ -86,6 +88,10 @@ jobs:
       - name: Resolve e2e image base url
         id: image-source
         run: echo "e2e_image_base_url=${E2E_IMAGE_BASE_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve deckhouse tag
+        id: deckhouse-tag
+        run: echo "deckhouse_tag=${DECKHOUSE_TAG}" >> "$GITHUB_OUTPUT"
 
   e2e-replicated:
     name: E2E Pipeline (Replicated)
@@ -100,6 +106,7 @@ jobs:
       branch: main
       virtualization_tag: main
       deckhouse_channel: alpha
+      deckhouse_tag: ${{ needs.set-vars.outputs.deckhouse_tag }}
       default_user: cloud
       go_version: "1.25.11"
       e2e_timeout: "3.5h"
@@ -130,6 +137,7 @@ jobs:
       branch: main
       virtualization_tag: main
       deckhouse_channel: alpha
+      deckhouse_tag: ${{ needs.set-vars.outputs.deckhouse_tag }}
       default_user: cloud
       go_version: "1.24.13"
       e2e_timeout: "3.5h"

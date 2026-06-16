@@ -68,6 +68,11 @@ on:
         type: string
         default: "alpha"
         description: "Deckhouse release channel"
+      deckhouse_tag:
+        required: false
+        type: string
+        default: ""
+        description: "Deckhouse image tag. Empty means use deckhouse_channel."
       pod_subnet_cidr:
         required: false
         type: string
@@ -166,6 +171,7 @@ env:
   BRANCH: ${{ inputs.branch }}
   VIRTUALIZATION_TAG: ${{ inputs.virtualization_tag }}
   DECKHOUSE_CHANNEL: ${{ inputs.deckhouse_channel }}
+  DECKHOUSE_TAG: ${{ inputs.deckhouse_tag || inputs.deckhouse_channel }}
   DEFAULT_USER: ${{ inputs.default_user }}
   GO_VERSION: ${{ inputs.go_version }}
   SETUP_CLUSTER_TYPE_PATH: test/dvp-static-cluster
@@ -231,6 +237,7 @@ jobs:
           NAMESPACE: ${{ steps.vars.outputs.namespace }}
           STORAGE_TYPE: ${{ inputs.storage_type }}
           DECKHOUSE_CHANNEL: ${{ env.DECKHOUSE_CHANNEL }}
+          DECKHOUSE_TAG: ${{ env.DECKHOUSE_TAG }}
           POD_SUBNET_CIDR: ${{ inputs.pod_subnet_cidr }}
           SERVICE_SUBNET_CIDR: ${{ inputs.service_subnet_cidr }}
           K8S_VERSION: ${{ env.K8S_VERSION }}

@@ -37,6 +37,9 @@ concurrency:
   group: "${{ github.workflow }}-${{ github.event.inputs.current-release }}-${{ github.event.inputs.next-release || 'no-next' }}"
   cancel-in-progress: true
 
+env:
+  DECKHOUSE_TAG: "v1.76.0"
+
 defaults:
   run:
     shell: bash
@@ -48,12 +51,17 @@ jobs:
     outputs:
       date_start: ${{ steps.vars.outputs.date_start }}
       randuuid4c: ${{ steps.vars.outputs.randuuid4c }}
+      deckhouse_tag: ${{ steps.deckhouse-tag.outputs.deckhouse_tag }}
     steps:
       - uses: actions/checkout@v6
 
       - name: Set vars
         id: vars
         uses: ./.github/actions/gen-run-id
+
+      - name: Resolve deckhouse tag
+        id: deckhouse-tag
+        run: echo "deckhouse_tag=${DECKHOUSE_TAG}" >> "$GITHUB_OUTPUT"
 
   resolve-release-inputs:
     name: Resolve release inputs
@@ -217,6 +225,7 @@ jobs:
       nested_storageclass_name: nested-thin-r1
       nested_cluster_network_name: cn-4006-for-e2e-test
       deckhouse_channel: alpha
+      deckhouse_tag: ${{ needs.set-vars.outputs.deckhouse_tag }}
       default_user: cloud
       go_version: "1.25.8"
       date_start: ${{ needs.set-vars.outputs.date_start }}
