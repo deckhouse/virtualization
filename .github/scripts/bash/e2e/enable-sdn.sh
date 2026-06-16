@@ -15,8 +15,6 @@ show_sdn_state() {
   kubectl -n d8-sdn get pods,deploy,ds,svc,endpoints || true
 }
 
-# MODULE_SOURCE_PROD
-
 apply_sdn_module_source() {
   if [ -z "$MODULE_SOURCE_REGISTRY_CFG" ]; then
     echo "[INFO] use existing MODULE_SOURCE for sdn"
@@ -34,7 +32,7 @@ apply_sdn_module_source() {
   fi
 
 
-  echo "[INFO] Apply ModuleSource dev config"
+  echo "[INFO] Apply ModuleSource deckhouse-prod-sdn config"
   kubectl_apply_with_retry <<EOF
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleSource
