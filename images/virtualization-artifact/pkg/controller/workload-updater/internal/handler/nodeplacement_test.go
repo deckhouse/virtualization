@@ -31,6 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -169,6 +171,8 @@ var _ = Describe("TestNodePlacementHandler", func() {
 		func(kvvmiMutate func(*virtv1.VirtualMachineInstance)) {
 			vm, kvvmi := newVMAndKVVMI(true)
 			kvvmiMutate(kvvmi)
+			expectedSum, err := genNodePlacementSum(kvvmi)
+			Expect(err).NotTo(HaveOccurred())
 			fakeClient = setupEnvironment(vm, kvvmi)
 
 			mockMigration := &OneShotMigrationMock{
@@ -179,10 +183,14 @@ var _ = Describe("TestNodePlacementHandler", func() {
 			}
 
 			h := NewNodePlacementHandler(fakeClient, mockMigration)
-			_, err := h.Handle(ctx, vm)
+			_, err = h.Handle(ctx, vm)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(mockMigration.OnceMigrateCalls()).To(BeEmpty())
+
+			updatedKVVMI := &virtv1.VirtualMachineInstance{}
+			Expect(fakeClient.Get(ctx, object.NamespacedName(kvvmi), updatedKVVMI)).To(Succeed())
+			Expect(updatedKVVMI.GetAnnotations()).To(HaveKeyWithValue(annotations.AnnVMOPWorkloadUpdateNodePlacementSum, expectedSum))
 		},
 		Entry("VolumesChange condition is true", func(kvvmi *virtv1.VirtualMachineInstance) {
 			kvvmi.Status.Conditions = append(kvvmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
@@ -193,6 +201,12 @@ var _ = Describe("TestNodePlacementHandler", func() {
 		Entry("migrated volumes are present", func(kvvmi *virtv1.VirtualMachineInstance) {
 			kvvmi.Status.MigratedVolumes = []virtv1.StorageMigratedVolumeInfo{
 				{VolumeName: "root"},
+			}
+		}),
+		Entry("migration state is active", func(kvvmi *virtv1.VirtualMachineInstance) {
+			start := metav1.Now()
+			kvvmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				StartTimestamp: &start,
 			}
 		}),
 	)
