@@ -165,6 +165,38 @@ var _ = Describe("TestNodePlacementHandler", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
+	DescribeTable("should skip migration while volume migration is active",
+		func(kvvmiMutate func(*virtv1.VirtualMachineInstance)) {
+			vm, kvvmi := newVMAndKVVMI(true)
+			kvvmiMutate(kvvmi)
+			fakeClient = setupEnvironment(vm, kvvmi)
+
+			mockMigration := &OneShotMigrationMock{
+				OnceMigrateFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
+					Fail("migration should not be executed")
+					return false, nil
+				},
+			}
+
+			h := NewNodePlacementHandler(fakeClient, mockMigration)
+			_, err := h.Handle(ctx, vm)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(mockMigration.OnceMigrateCalls()).To(BeEmpty())
+		},
+		Entry("VolumesChange condition is true", func(kvvmi *virtv1.VirtualMachineInstance) {
+			kvvmi.Status.Conditions = append(kvvmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
+				Type:   virtv1.VirtualMachineInstanceVolumesChange,
+				Status: corev1.ConditionTrue,
+			})
+		}),
+		Entry("migrated volumes are present", func(kvvmi *virtv1.VirtualMachineInstance) {
+			kvvmi.Status.MigratedVolumes = []virtv1.StorageMigratedVolumeInfo{
+				{VolumeName: "root"},
+			}
+		}),
+	)
+
 	It("should return node placement handler name", func() {
 		h := NewNodePlacementHandler(nil, nil)
 		Expect(h.Name()).To(Equal(nodePlacementHandler))

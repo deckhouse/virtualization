@@ -66,6 +66,11 @@ func (h *NodePlacementHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualM
 		return reconcile.Result{}, nil
 	}
 
+	volumesChange, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceVolumesChange, kvvmi.Status.Conditions)
+	if volumesChange.Status == corev1.ConditionTrue || len(kvvmi.Status.MigratedVolumes) > 0 {
+		return reconcile.Result{}, nil
+	}
+
 	sum, err := genNodePlacementSum(kvvmi)
 	if err != nil {
 		return reconcile.Result{}, err
