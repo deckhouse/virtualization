@@ -24,7 +24,7 @@ apply_sdn_module_source() {
   local registry
   local repo
   registry="$(base64 -d <<< "$MODULE_SOURCE_REGISTRY_CFG" | jq '.auths | to_entries | .[] | .key' -r)"
-  
+
   if [[ "$registry" =~ "dev-" ]]; then
     repo="${registry}/sys/deckhouse-oss/modules"
   else
@@ -33,7 +33,7 @@ apply_sdn_module_source() {
 
 
   echo "[INFO] Apply ModuleSource deckhouse-prod-sdn config"
-  kubectl_apply_with_retry <<EOF
+  kubectl apply -f - <<EOF
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleSource
 metadata:
