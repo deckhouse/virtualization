@@ -27,6 +27,10 @@ const blockDevicesPath = "blockDeviceRefs"
 
 // compareBlockDevices returns changes between current and desired blockDevices lists.
 func compareBlockDevices(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+	if current.EnableParavirtualization && desired.EnableParavirtualization {
+		return nil
+	}
+
 	if len(current.BlockDeviceRefs) == 0 && len(desired.BlockDeviceRefs) == 0 {
 		return nil
 	}
