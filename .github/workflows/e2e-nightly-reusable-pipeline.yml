@@ -389,6 +389,8 @@ jobs:
         with:
           kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
       - name: Enable SDN
+        env:
+          MODULE_SOURCE_REGISTRY_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
         run: |
           # Keep SDN enable and readiness checks in a script because this step needs
           # several retries around Deckhouse webhooks and detailed SDN diagnostics.
