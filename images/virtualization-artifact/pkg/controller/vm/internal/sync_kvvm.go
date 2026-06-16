@@ -829,10 +829,6 @@ func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.Virtual
 		return false, nil
 	}
 	vm := s.VirtualMachine().Current()
-	kvvmi, err := s.KVVMI(ctx)
-	if err != nil {
-		return false, err
-	}
 	// For Main-only VMs, the default pod network may be implicit in the KVVM
 	// template but explicit in the running VMI: KubeVirt defaulting adds it to
 	// the VMI spec when the instance starts. If we later "fix" the KVVM template
@@ -840,8 +836,14 @@ func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.Virtual
 	// template diff as a non-live-updatable network change and sets RestartRequired.
 	// When there are no active additional interfaces, this is only an implicit-vs-
 	// explicit default-network drift, so do not reconcile it.
-	if hasOnlyDefaultNetwork(vm) && !hasActiveAdditionalInterfaces(kvvm) && isKVVMIRunning(kvvmi) {
-		return false, nil
+	if hasOnlyDefaultNetwork(vm) {
+		kvvmi, err := s.KVVMI(ctx)
+		if err != nil {
+			return false, err
+		}
+		if !hasActiveAdditionalInterfaces(kvvm) && isKVVMIRunning(kvvmi) {
+			return false, nil
+		}
 	}
 	filteredVM, err := filterReadyNetworks(ctx, s.Client(), vm)
 	if err != nil {
