@@ -58,6 +58,7 @@ const (
 
 const (
 	messageMigrationPending       = "The VirtualMachineOperation for migrating the virtual machine has been queued. Waiting for the queue to be processed and for this operation to be executed."
+	messageDisksPreparing         = "Preparing virtual disks for migration. VM migration will start after disk migration completes."
 	messageSyncingSourceAndTarget = "Syncing source and target"
 	messageTargetPodScheduling    = "Target pod is being scheduled"
 	messageTargetPodPreparing     = "Target pod is being prepared"
@@ -407,12 +408,18 @@ func (h LifecycleHandler) canExecute(vmop *v1alpha2.VirtualMachineOperation, vm 
 	migratable, _ := conditions.GetCondition(vmcondition.TypeMigratable, vm.Status.Conditions)
 
 	if migratable.Status == metav1.ConditionTrue {
+		message := ""
+		if migratable.Reason == vmcondition.ReasonDisksShouldBeMigrating.String() {
+			message = messageDisksPreparing
+		}
+
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 		vmop.Status.Progress = migrationprogress.FormatPercent(1)
 		conditions.SetCondition(
 			conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 				Generation(vmop.GetGeneration()).
 				Reason(vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate).
+				Message(message).
 				Status(metav1.ConditionFalse),
 			&vmop.Status.Conditions)
 		return false

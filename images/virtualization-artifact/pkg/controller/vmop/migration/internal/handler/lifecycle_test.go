@@ -307,6 +307,29 @@ var _ = Describe("LifecycleHandler", func() {
 		),
 	)
 
+	It("should show disk preparation message while waiting for local disk migration", func() {
+		vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
+		vm.Status.Conditions = []metav1.Condition{
+			{
+				Type:   vmcondition.TypeMigratable.String(),
+				Status: metav1.ConditionTrue,
+				Reason: vmcondition.ReasonDisksShouldBeMigrating.String(),
+			},
+		}
+		vmop := newVMOPMigrate()
+		h := LifecycleHandler{}
+
+		canExecute := h.canExecute(vmop, vm)
+
+		Expect(canExecute).To(BeFalse())
+		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+		Expect(vmop.Status.Progress).To(Equal("1%"))
+		completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+		Expect(found).To(BeTrue())
+		Expect(completed.Reason).To(Equal(vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate.String()))
+		Expect(completed.Message).To(Equal(messageDisksPreparing))
+	})
+
 	Describe("migration progress integration", func() {
 		It("should return generic failed reason for nil migration", func() {
 			h := LifecycleHandler{}
