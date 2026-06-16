@@ -16,7 +16,7 @@ show_sdn_state() {
 }
 
 apply_sdn_module_source() {
-  if [ -z "$MODULE_SOURCE_REGISTRY_CFG" ]; then
+  if [ -z "${MODULE_SOURCE_REGISTRY_CFG:-}" ]; then
     echo "[INFO] use existing MODULE_SOURCE for sdn"
     return 0
   fi
@@ -152,6 +152,7 @@ wait_for_sdn_admission_endpoint() {
 }
 
 echo "[INFO] Enable SDN"
+apply_sdn_module_source
 apply_sdn_module_config
 wait_for_sdn_module
 wait_for_sdn_workloads
