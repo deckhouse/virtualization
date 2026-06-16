@@ -180,8 +180,8 @@ tasks:
     vars:
       DeckhouseInstallImage:
         sh: yq eval '.deckhouse.registry + "/deckhouse/ee/install"' values.yaml
-      DeckhouseTag:
-        sh: yq eval '.deckhouse.tag' values.yaml
+      DeckhouseVersion:
+        sh: yq eval '.deckhouse.version' values.yaml
       prefix:
         sh: yq eval '.storageType' values.yaml
       start_time:
@@ -198,7 +198,7 @@ tasks:
         -v "{{ .TMP_DIR }}/config.yaml:/config.yaml" \
         -v "{{ .SSH_DIR }}:/tmp/.ssh/" \
         -v "{{ .TMP_DIR }}/dhctl:/tmp/dhctl/" \
-        {{ .DeckhouseInstallImage }}:{{ .DeckhouseTag }} \
+        {{ .DeckhouseInstallImage }}:{{ .DeckhouseVersion }} \
             dhctl bootstrap \
             --config=/config.yaml \
             --ssh-agent-private-keys=/tmp/.ssh/{{ .SSH_FILE_NAME }} \

@@ -71,11 +71,10 @@ on:
         type: string
         default: "alpha"
         description: "Deckhouse release channel"
-      deckhouse_tag:
-        required: false
+      deckhouse_version:
+        required: true
         type: string
-        default: ""
-        description: "Deckhouse image tag. Empty means use deckhouse_channel."
+        description: "Deckhouse install image tag for dhctl bootstrap. Either a release channel alias (e.g. 'alpha') for the prod registry, or a pinned version (e.g. 'v1.76.0') for the stage registry. Registry is selected via REGISTRY_DOCKER_CFG secret."
       pod_subnet_cidr:
         required: false
         type: string
@@ -129,7 +128,7 @@ env:
   CURRENT_RELEASE: ${{ inputs.current_release }}
   NEW_RELEASE: ${{ inputs.new_release }}
   DECKHOUSE_CHANNEL: ${{ inputs.deckhouse_channel }}
-  DECKHOUSE_TAG: ${{ inputs.deckhouse_tag || inputs.deckhouse_channel }}
+  DECKHOUSE_VERSION: ${{ inputs.deckhouse_version }}
   DEFAULT_USER: ${{ inputs.default_user }}
   GO_VERSION: ${{ inputs.go_version }}
   SETUP_CLUSTER_TYPE_PATH: test/dvp-static-cluster
@@ -195,7 +194,7 @@ jobs:
           NAMESPACE: ${{ steps.vars.outputs.namespace }}
           STORAGE_TYPE: ${{ inputs.storage_type }}
           DECKHOUSE_CHANNEL: ${{ env.DECKHOUSE_CHANNEL }}
-          DECKHOUSE_TAG: ${{ env.DECKHOUSE_TAG }}
+          DECKHOUSE_VERSION: ${{ env.DECKHOUSE_VERSION }}
           POD_SUBNET_CIDR: ${{ inputs.pod_subnet_cidr }}
           SERVICE_SUBNET_CIDR: ${{ inputs.service_subnet_cidr }}
           K8S_VERSION: ${{ env.K8S_VERSION }}

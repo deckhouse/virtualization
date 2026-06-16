@@ -23,7 +23,7 @@ source "${SCRIPT_DIR}/common.sh"
 require_env NAMESPACE
 require_env STORAGE_TYPE
 require_env DECKHOUSE_CHANNEL
-require_env DECKHOUSE_TAG
+require_env DECKHOUSE_VERSION
 require_env POD_SUBNET_CIDR
 require_env SERVICE_SUBNET_CIDR
 require_env K8S_VERSION
