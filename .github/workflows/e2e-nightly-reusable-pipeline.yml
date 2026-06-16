@@ -139,6 +139,8 @@ on:
         required: true
       REGISTRY_DOCKER_CFG:
         required: true
+      PROD_IO_REGISTRY_DOCKER_CFG:
+        required: false
       BOOTSTRAP_DEV_PROXY:
         required: true
       E2E_ARTIFACTS_GPG_PASSPHRASE:
