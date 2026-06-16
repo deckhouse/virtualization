@@ -281,7 +281,7 @@ blockDeviceRefs:
 			),
 		},
 		{
-			"apply immediate on blockDeviceRefs add disk",
+			"no changes on blockDeviceRefs add disk with paravirt enabled",
 			`
 enableParavirtualization: true
 blockDeviceRefs:
@@ -297,13 +297,10 @@ blockDeviceRefs:
   name: linux
 `,
 			nil,
-			assertChanges(
-				actionRequired(ActionApplyImmediate),
-				requirePathOperation("blockDeviceRefs.0", ChangeAdd),
-			),
+			assertNoChanges(),
 		},
 		{
-			"apply immediate on blockDeviceRefs remove disk",
+			"no changes on blockDeviceRefs remove disk with paravirt enabled",
 			`
 enableParavirtualization: true
 blockDeviceRefs:
@@ -319,10 +316,7 @@ blockDeviceRefs:
   name: linux
 `,
 			nil,
-			assertChanges(
-				actionRequired(ActionApplyImmediate),
-				requirePathOperation("blockDeviceRefs.0", ChangeRemove),
-			),
+			assertNoChanges(),
 		},
 		{
 			"restart on blockDeviceRefs remove disk with paravirt disabled",
@@ -347,7 +341,7 @@ blockDeviceRefs:
 			),
 		},
 		{
-			"apply immediate on blockDeviceRefs change order",
+			"no changes on blockDeviceRefs change order with paravirt enabled",
 			`
 enableParavirtualization: true
 blockDeviceRefs:
@@ -365,14 +359,10 @@ blockDeviceRefs:
   name: linux
 `,
 			nil,
-			assertChanges(
-				actionRequired(ActionApplyImmediate),
-				requirePathOperation("blockDeviceRefs.0", ChangeReplace),
-				requirePathOperation("blockDeviceRefs.1", ChangeReplace),
-			),
+			assertNoChanges(),
 		},
 		{
-			"apply immediate on blockDeviceRefs change order :: bigger",
+			"no changes on blockDeviceRefs change order with paravirt enabled :: bigger",
 			`
 enableParavirtualization: true
 blockDeviceRefs:
@@ -403,12 +393,7 @@ blockDeviceRefs:
   name: linux
 `,
 			nil,
-			assertChanges(
-				actionRequired(ActionApplyImmediate),
-				requirePathOperation("blockDeviceRefs.0", ChangeReplace),
-				requirePathOperation("blockDeviceRefs.1", ChangeReplace),
-				requirePathOperation("blockDeviceRefs.4", ChangeReplace),
-			),
+			assertNoChanges(),
 		},
 		{
 			"restart on provisioning add",
@@ -766,6 +751,13 @@ func assertChanges(asserts ...func(t *testing.T, changes SpecChanges)) func(t *t
 		for _, fn := range asserts {
 			fn(t, changes)
 		}
+	}
+}
+
+func assertNoChanges() func(t *testing.T, changes SpecChanges) {
+	return func(t *testing.T, changes SpecChanges) {
+		t.Helper()
+		require.True(t, changes.IsEmpty(), "changes should be empty, got %+v", changes)
 	}
 }
 
