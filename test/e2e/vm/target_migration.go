@@ -42,7 +42,7 @@ import (
 
 const hostnameLabelKey = "kubernetes.io/hostname"
 
-var _ = Describe("TargetMigration", Label(precheck.NoPrecheck), func() {
+var _ = Describe("TargetMigration", Label(precheck.PrecheckTargetMigration), func() {
 	var (
 		virtualMachine      *v1alpha2.VirtualMachine
 		targetMigrationVMOP *v1alpha2.VirtualMachineOperation
