@@ -33,12 +33,13 @@ type dataMetric struct {
 	Phase          v1alpha2.VMOPPhase
 	CreatedAt      int64 // Unix timestamp when operation was created (0 = not set)
 	StartedAt      int64 // Unix timestamp when operation transitioned to InProgress (0 = not set)
-	FinishedAt     int64 // Unix timestamp when operation finished (Completed/Failed) (0 = not set)
+	FinishedAt     int64 // Unix timestamp when operation finished (Completed/Failed/Superseded) (0 = not set)
 }
 
 var successfulTerminalReasons = map[string]struct{}{
 	vmopcondition.ReasonOperationCompleted.String(): {},
 	vmopcondition.ReasonMigrationCompleted.String(): {},
+	vmopcondition.ReasonSuperseded.String():         {},
 }
 
 var failedTerminalReasons = map[string]struct{}{
@@ -63,7 +64,7 @@ func newDataMetric(vmop *v1alpha2.VirtualMachineOperation) *dataMetric {
 	}
 
 	var finishedAt int64
-	if vmop.Status.Phase == v1alpha2.VMOPPhaseCompleted || vmop.Status.Phase == v1alpha2.VMOPPhaseFailed {
+	if isFinishedPhase(vmop.Status.Phase) {
 		completedCond, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
 		if isTerminalCompletedCondition(completedCond) {
 			finishedAt = completedCond.LastTransitionTime.Unix()
@@ -81,6 +82,10 @@ func newDataMetric(vmop *v1alpha2.VirtualMachineOperation) *dataMetric {
 		StartedAt:      startedAt,
 		FinishedAt:     finishedAt,
 	}
+}
+
+func isFinishedPhase(phase v1alpha2.VMOPPhase) bool {
+	return phase == v1alpha2.VMOPPhaseCompleted || phase == v1alpha2.VMOPPhaseFailed || phase == v1alpha2.VMOPPhaseSuperseded
 }
 
 func isTerminalCompletedCondition(cond metav1.Condition) bool {
