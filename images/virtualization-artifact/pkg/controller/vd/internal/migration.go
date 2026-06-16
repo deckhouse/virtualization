@@ -641,10 +641,18 @@ func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	switch len(pvcs) {
+
+	var livePVCs []corev1.PersistentVolumeClaim
+	for _, pvc := range pvcs {
+		if pvc.DeletionTimestamp.IsZero() {
+			livePVCs = append(livePVCs, pvc)
+		}
+	}
+
+	switch len(livePVCs) {
 	case 1: // only source pvc exists
 	case 2:
-		for _, pvc := range pvcs {
+		for _, pvc := range livePVCs {
 			// If TargetPVC is empty, that means previous reconciliation failed and not updated TargetPVC in status.
 			// So, we should use pvc, that is not equal to SourcePVC.
 			if pvc.Name == targetPVCName || pvc.Name != sourcePVCName {
@@ -652,7 +660,7 @@ func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context,
 			}
 		}
 	default:
-		return nil, fmt.Errorf("unexpected number of pvcs: %d, please report a bug", len(pvcs))
+		return nil, fmt.Errorf("unexpected number of pvcs: %d, please report a bug", len(livePVCs))
 	}
 
 	pvc := &corev1.PersistentVolumeClaim{
