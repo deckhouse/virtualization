@@ -75,6 +75,11 @@ on:
         required: true
         type: string
         description: "Deckhouse install image tag for dhctl bootstrap. Either a release channel alias (e.g. 'alpha') for the prod registry, or a pinned version (e.g. 'v1.76.0') for the stage registry. Registry is selected via REGISTRY_DOCKER_CFG secret."
+      registry_profile:
+        required: false
+        type: string
+        default: prod
+        description: "Active registry profile (prod or stage). When 'stage', the SDN module is pulled from the prod registry because it is absent in stage."
       pod_subnet_cidr:
         required: false
         type: string
@@ -117,6 +122,8 @@ on:
         required: true
       REGISTRY_DOCKER_CFG:
         required: true
+      PROD_IO_REGISTRY_DOCKER_CFG:
+        required: false
       BOOTSTRAP_DEV_PROXY:
         required: true
       DEV_MODULES_REGISTRY_PASSWORD:
@@ -351,6 +358,10 @@ jobs:
         with:
           kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
       - name: Enable SDN
+        env:
+          # SDN is absent in the stage registry, so for the stage profile pull it
+          # from prod via a dedicated ModuleSource. For prod, reuse the existing source.
+          MODULE_SOURCE_REGISTRY_CFG: ${{ inputs.registry_profile == 'stage' && secrets.PROD_IO_REGISTRY_DOCKER_CFG || '' }}
         run: bash "${E2E_SCRIPT_DIR}/enable-sdn.sh"
 
       - name: Wait for nodenetworkinterfaces to be ready

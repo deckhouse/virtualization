@@ -23,14 +23,8 @@ apply_sdn_module_source() {
 
   local registry
   local repo
-  registry="$(base64 -d <<< "$MODULE_SOURCE_REGISTRY_CFG" | jq '.auths | to_entries | .[] | .key' -r)"
-
-  if [[ "$registry" =~ "dev-" ]]; then
-    repo="${registry}/sys/deckhouse-oss/modules"
-  else
-    repo="${registry}/deckhouse/ee/modules"
-  fi
-
+  registry="$(registry_host_from_docker_cfg "$MODULE_SOURCE_REGISTRY_CFG")"
+  repo="$(modules_repo_for_registry "$registry")"
 
   echo "[INFO] Apply ModuleSource deckhouse-prod-sdn config"
   kubectl apply -f - <<EOF
@@ -48,17 +42,13 @@ EOF
 }
 
 apply_sdn_module_config() {
-  local count=12
-  local delay=10
   local source_field=""
 
   if [ -n "${MODULE_SOURCE_REGISTRY_CFG:-}" ]; then
     source_field="  source: deckhouse-prod-sdn"
   fi
 
-  for i in $(seq 1 "$count"); do
-    echo "[INFO] Apply SDN ModuleConfig attempt ${i}/${count}"
-    if kubectl apply -f - <<EOF
+  if kubectl_apply_with_retry 12 10 show_sdn_state <<EOF
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
 metadata:
@@ -67,21 +57,13 @@ spec:
   enabled: true
 ${source_field}
 EOF
-    then
-      echo "[SUCCESS] SDN ModuleConfig applied"
-      kubectl get mc sdn
-      return 0
-    fi
+  then
+    echo "[SUCCESS] SDN ModuleConfig applied"
+    kubectl get mc sdn
+    return 0
+  fi
 
-    if [ "$i" -lt "$count" ]; then
-      echo "[WARN] Failed to apply SDN ModuleConfig, retrying in ${delay} seconds..."
-      show_sdn_state
-      sleep "$delay"
-    fi
-  done
-
-  echo "[ERROR] Failed to apply SDN ModuleConfig after ${count} attempts"
-  show_sdn_state
+  echo "[ERROR] Failed to apply SDN ModuleConfig"
   d8 s logs | tail -n 100 || true
   return 1
 }

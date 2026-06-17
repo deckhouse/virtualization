@@ -61,9 +61,8 @@ mkdir -p tmp
 touch tmp/discovered-values.yaml
 
 # shellcheck disable=SC2153,SC2154
-dev_registry_docker_cfg="$(base64 -d <<< "${DEV_REGISTRY_DOCKER_CFG}")"
-registry="$(jq -r '.auths | to_entries[0].key' <<< "${dev_registry_docker_cfg}")"
-auth="$(jq -r '.auths | to_entries[0].value.auth' <<< "${dev_registry_docker_cfg}")"
+registry="$(registry_host_from_docker_cfg "${DEV_REGISTRY_DOCKER_CFG}")"
+auth="$(base64 -d <<< "${DEV_REGISTRY_DOCKER_CFG}" | jq -r '.auths | to_entries[0].value.auth')"
 
 REGISTRY="${registry}" AUTH="${auth}" yq eval --inplace \
   '.discovered.registry_url = env(REGISTRY) | .discovered.registry_auth = env(AUTH)' \

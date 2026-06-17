@@ -37,16 +37,6 @@ concurrency:
   group: "${{ github.workflow }}-${{ github.event.inputs.current-release }}-${{ github.event.inputs.next-release || 'no-next' }}"
   cancel-in-progress: true
 
-env:
-  # Deckhouse install image tag used by dhctl for nested cluster bootstrap.
-  # Accepts either a release channel alias (e.g. "alpha") when REGISTRY_DOCKER_CFG
-  # points to the prod registry (registry.deckhouse.io), or a pinned version
-  # (e.g. "v1.76.0") when it points to the stage registry
-  # (registry-stage.deckhouse.io), since stage exposes only vX.Y.Z tags.
-  # Current value is pinned to v1.76.0 because v1.75.x has a known issue
-  # affecting dhctl bootstrap; bump once a fix is verified upstream.
-  DECKHOUSE_VERSION: "v1.76.0"
-
 defaults:
   run:
     shell: bash
@@ -58,7 +48,9 @@ jobs:
     outputs:
       date_start: ${{ steps.vars.outputs.date_start }}
       randuuid4c: ${{ steps.vars.outputs.randuuid4c }}
-      deckhouse_version: ${{ steps.deckhouse-version.outputs.deckhouse_version }}
+      registry_profile: ${{ steps.registry-profile.outputs.registry_profile }}
+      deckhouse_channel: ${{ steps.registry-profile.outputs.deckhouse_channel }}
+      deckhouse_version: ${{ steps.registry-profile.outputs.deckhouse_version }}
     steps:
       - uses: actions/checkout@v6
 
@@ -66,9 +58,9 @@ jobs:
         id: vars
         uses: ./.github/actions/gen-run-id
 
-      - name: Resolve deckhouse version
-        id: deckhouse-version
-        run: echo "deckhouse_version=${DECKHOUSE_VERSION}" >> "$GITHUB_OUTPUT"
+      - name: Resolve registry profile
+        id: registry-profile
+        run: bash .github/scripts/bash/e2e/resolve-registry-profile.sh
 
   resolve-release-inputs:
     name: Resolve release inputs
@@ -231,8 +223,9 @@ jobs:
       storage_type: mixed
       nested_storageclass_name: nested-thin-r1
       nested_cluster_network_name: cn-4006-for-e2e-test
-      deckhouse_channel: alpha
+      deckhouse_channel: ${{ needs.set-vars.outputs.deckhouse_channel }}
       deckhouse_version: ${{ needs.set-vars.outputs.deckhouse_version }}
+      registry_profile: ${{ needs.set-vars.outputs.registry_profile }}
       default_user: cloud
       go_version: "1.25.8"
       date_start: ${{ needs.set-vars.outputs.date_start }}
@@ -243,7 +236,8 @@ jobs:
     secrets:
       DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
       VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
-      REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
+      REGISTRY_DOCKER_CFG: ${{ needs.set-vars.outputs.registry_profile == 'stage' && secrets.STAGE_IO_REGISTRY_DOCKER_CFG || secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
+      PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
       BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
       DEV_MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
       E2E_ARTIFACTS_GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}

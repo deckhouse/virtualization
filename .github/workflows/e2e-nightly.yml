@@ -19,14 +19,6 @@ on:
 
 env:
   E2E_IMAGE_BASE_URL: "http://share.e2e-test-images.svc.cluster.local"
-  # Deckhouse install image tag used by dhctl for nested cluster bootstrap.
-  # Accepts either a release channel alias (e.g. "alpha") when REGISTRY_DOCKER_CFG
-  # points to the prod registry (registry.deckhouse.io), or a pinned version
-  # (e.g. "v1.76.0") when it points to the stage registry
-  # (registry-stage.deckhouse.io), since stage exposes only vX.Y.Z tags.
-  # Current value is pinned to v1.76.0 because v1.75.x has a known issue
-  # affecting dhctl bootstrap; bump once a fix is verified upstream.
-  DECKHOUSE_VERSION: "v1.76.0"
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
@@ -84,7 +76,9 @@ jobs:
       date_start: ${{ steps.vars.outputs.date_start }}
       randuuid4c: ${{ steps.vars.outputs.randuuid4c }}
       e2e_image_base_url: ${{ steps.image-source.outputs.e2e_image_base_url }}
-      deckhouse_version: ${{ steps.deckhouse-version.outputs.deckhouse_version }}
+      registry_profile: ${{ steps.registry-profile.outputs.registry_profile }}
+      deckhouse_channel: ${{ steps.registry-profile.outputs.deckhouse_channel }}
+      deckhouse_version: ${{ steps.registry-profile.outputs.deckhouse_version }}
     steps:
       - uses: actions/checkout@v6
 
@@ -96,9 +90,9 @@ jobs:
         id: image-source
         run: echo "e2e_image_base_url=${E2E_IMAGE_BASE_URL}" >> "$GITHUB_OUTPUT"
 
-      - name: Resolve deckhouse version
-        id: deckhouse-version
-        run: echo "deckhouse_version=${DECKHOUSE_VERSION}" >> "$GITHUB_OUTPUT"
+      - name: Resolve registry profile
+        id: registry-profile
+        run: bash .github/scripts/bash/e2e/resolve-registry-profile.sh
 
   e2e-replicated:
     name: E2E Pipeline (Replicated)
@@ -112,8 +106,9 @@ jobs:
       nested_cluster_network_name: cn-4006-for-e2e-test
       branch: main
       virtualization_tag: main
-      deckhouse_channel: alpha
+      deckhouse_channel: ${{ needs.set-vars.outputs.deckhouse_channel }}
       deckhouse_version: ${{ needs.set-vars.outputs.deckhouse_version }}
+      registry_profile: ${{ needs.set-vars.outputs.registry_profile }}
       default_user: cloud
       go_version: "1.25.11"
       e2e_timeout: "3.5h"
@@ -127,7 +122,7 @@ jobs:
     secrets:
       DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
       VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
-      REGISTRY_DOCKER_CFG: ${{ secrets.STAGE_IO_REGISTRY_DOCKER_CFG }}
+      REGISTRY_DOCKER_CFG: ${{ needs.set-vars.outputs.registry_profile == 'stage' && secrets.STAGE_IO_REGISTRY_DOCKER_CFG || secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
       PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
       BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
       E2E_ARTIFACTS_GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
@@ -144,8 +139,9 @@ jobs:
       nested_cluster_network_name: cn-4006-for-e2e-test
       branch: main
       virtualization_tag: main
-      deckhouse_channel: alpha
+      deckhouse_channel: ${{ needs.set-vars.outputs.deckhouse_channel }}
       deckhouse_version: ${{ needs.set-vars.outputs.deckhouse_version }}
+      registry_profile: ${{ needs.set-vars.outputs.registry_profile }}
       default_user: cloud
       go_version: "1.24.13"
       e2e_timeout: "3.5h"
@@ -159,7 +155,7 @@ jobs:
     secrets:
       DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
       VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
-      REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
+      REGISTRY_DOCKER_CFG: ${{ needs.set-vars.outputs.registry_profile == 'stage' && secrets.STAGE_IO_REGISTRY_DOCKER_CFG || secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
       PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
       BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
       E2E_ARTIFACTS_GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
