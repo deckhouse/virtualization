@@ -40,50 +40,99 @@ import (
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vdsnapshotbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vdsnapshot"
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
+	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
 	viobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vi"
+	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-// vdCreationStorageClass is the storage class used by VirtualDiskCreation tests until
-// the e2e environment exposes this as a configurable parameter.
-const vdCreationStorageClass = "linstor-thin-r1-immediate"
-
 const vdCreationBlankSize = "64Mi"
 
-var _ = Describe("VirtualDiskCreation", Ordered, Label(precheck.NoPrecheck), func() {
+// mainStorageClass returns a pointer to the name of the StorageClass that block-device
+// creation tests use to provision VirtualDisks and VirtualImages. Its presence is
+// enforced by precheck.PrecheckMainStandbyStorageClass.
+func mainStorageClass() *string {
+	GinkgoHelper()
+
+	sc := framework.GetConfig().StorageClass.MainStorageClass
+	Expect(sc).NotTo(BeNil(),
+		"main StorageClass not found: annotate a StorageClass with %s=true (enforced by the %q precheck)",
+		config.MainStorageClassAnnotation, precheck.PrecheckMainStandbyStorageClass)
+
+	return ptr.To(sc.Name)
+}
+
+// standbyStorageClass returns a pointer to the name of the standby StorageClass, used as
+// the "other" StorageClass (same CSI driver as the main one) when a source object must
+// live on a different StorageClass than the produced one. Its presence and shared CSI
+// driver are enforced by precheck.PrecheckMainStandbyStorageClass.
+func standbyStorageClass() *string {
+	GinkgoHelper()
+
+	sc := framework.GetConfig().StorageClass.StandbyStorageClass
+	Expect(sc).NotTo(BeNil(),
+		"standby StorageClass not found: annotate a StorageClass with %s=true (enforced by the %q precheck)",
+		config.StandbyStorageClassAnnotation, precheck.PrecheckMainStandbyStorageClass)
+
+	return ptr.To(sc.Name)
+}
+
+// setupProject creates an isolated Deckhouse Project, waits until it is deployed and
+// switches the framework to operate inside the project's namespace. The project (and
+// therefore its namespace and every resource it contains) is removed during cleanup.
+func setupProject(ctx context.Context, f *framework.Framework, prefix string) {
+	GinkgoHelper()
+
+	project := object.NewIsolatedProject(prefix, framework.NamespaceBasePrefix)
+
+	By("Creating an isolated Project", func() {
+		err := f.CreateWithDeferredDeletion(ctx, project)
+		Expect(err).NotTo(HaveOccurred())
+
+		util.UntilObjectState(ctx, "Deployed", framework.ShortTimeout, project)
+	})
+
+	f.SetProjectNamespace(project.Name)
+}
+
+var _ = Describe("VirtualDiskCreation", Label(precheck.PrecheckMainStandbyStorageClass), func() {
 	var (
 		f   *framework.Framework
 		ctx context.Context
 
-		scPtr *string
+		scPtr        *string
+		standbySCPtr *string
 	)
 
-	BeforeAll(func() {
+	BeforeEach(func() {
 		ctx = context.Background()
-		f = framework.NewFramework("vd-creation")
+		f = framework.NewFramework("")
 		f.Before()
 		DeferCleanup(f.After)
+		setupProject(ctx, f, "vd-creation")
 
-		scPtr = ptr.To(vdCreationStorageClass)
+		scPtr = mainStorageClass()
+		standbySCPtr = standbyStorageClass()
 	})
 
-	It("provisions a VirtualDisk from HTTP data source", Label(precheck.NoPrecheck), func() {
+	It("provisions a VirtualDisk from HTTP data source", Label(precheck.PrecheckMainStandbyStorageClass), func() {
 		vd := vdbuilder.New(
 			vdbuilder.WithName("vd-http"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
-			vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageTestDataQCOW}),
+			vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageURLAlpineBIOS}),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
-		createVirtualDiskAndWait(ctx, f, vd)
+		createVirtualDiskAndRunVM(ctx, f, vd)
 	})
 
-	It("provisions a VirtualDisk from Upload data source", Label(precheck.NoPrecheck), func() {
+	It("provisions a VirtualDisk from Upload data source", Label(precheck.PrecheckMainStandbyStorageClass), func() {
 		vd := vdbuilder.New(
 			vdbuilder.WithName("vd-upload"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
@@ -96,7 +145,7 @@ var _ = Describe("VirtualDiskCreation", Ordered, Label(precheck.NoPrecheck), fun
 		var uploadFilePath string
 		By("Downloading source image to upload", func() {
 			var err error
-			uploadFilePath, err = downloadImageToTempFile(object.ImageTestDataQCOW)
+			uploadFilePath, err = downloadImageToTempFile(object.ImageURLAlpineBIOS)
 			Expect(err).NotTo(HaveOccurred(), "failed to download upload source image")
 			DeferCleanup(func() {
 				removeErr := os.Remove(uploadFilePath)
@@ -139,9 +188,11 @@ var _ = Describe("VirtualDiskCreation", Ordered, Label(precheck.NoPrecheck), fun
 
 		err := obs.WaitFor(vdobs.BeReady(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
+
+		runVirtualMachineFromDisks(ctx, f, vd)
 	})
 
-	It("provisions a VirtualDisk from ContainerImage (registry) data source", Label(precheck.NoPrecheck), func() {
+	It("provisions a VirtualDisk from ContainerImage (registry) data source", Label(precheck.PrecheckMainStandbyStorageClass), func() {
 		vd := vdbuilder.New(
 			vdbuilder.WithName("vd-registry"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
@@ -149,15 +200,15 @@ var _ = Describe("VirtualDiskCreation", Ordered, Label(precheck.NoPrecheck), fun
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
-		createVirtualDiskAndWait(ctx, f, vd)
+		createVirtualDiskAndRunVM(ctx, f, vd)
 	})
 
-	It("provisions a VirtualDisk from a VirtualImage on DVCR", Label(precheck.NoPrecheck), func() {
+	It("provisions a VirtualDisk from a VirtualImage on DVCR", Label(precheck.PrecheckMainStandbyStorageClass), func() {
 		baseVI := vibuilder.New(
 			vibuilder.WithName("vi-source-dvcr"),
 			vibuilder.WithNamespace(f.Namespace().Name),
 			vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
-			vibuilder.WithDataSourceHTTP(object.ImageTestDataQCOW, nil, nil),
+			vibuilder.WithDataSourceHTTP(object.ImageURLAlpineBIOS, nil, nil),
 		)
 
 		viObs := viobs.StartObserver(ctx, f, baseVI)
@@ -178,15 +229,15 @@ var _ = Describe("VirtualDiskCreation", Ordered, Label(precheck.NoPrecheck), fun
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
-		createVirtualDiskAndWait(ctx, f, vd)
+		createVirtualDiskAndRunVM(ctx, f, vd)
 	})
 
-	It("provisions a VirtualDisk from a VirtualImage on PVC", Label(precheck.NoPrecheck), func() {
+	It("provisions a VirtualDisk from a VirtualImage on PVC", Label(precheck.PrecheckMainStandbyStorageClass), func() {
 		baseVI := vibuilder.New(
 			vibuilder.WithName("vi-source-pvc"),
 			vibuilder.WithNamespace(f.Namespace().Name),
 			vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
-			vibuilder.WithDataSourceHTTP(object.ImageTestDataQCOW, nil, nil),
+			vibuilder.WithDataSourceHTTP(object.ImageURLAlpineBIOS, nil, nil),
 		)
 		baseVI.Spec.PersistentVolumeClaim.StorageClass = scPtr
 
@@ -208,28 +259,69 @@ var _ = Describe("VirtualDiskCreation", Ordered, Label(precheck.NoPrecheck), fun
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
-		createVirtualDiskAndWait(ctx, f, vd)
+		createVirtualDiskAndRunVM(ctx, f, vd)
 	})
 
-	It("provisions a VirtualDisk from a ClusterVirtualImage", Label(precheck.NoPrecheck), func() {
+	It("provisions a VirtualDisk from a VirtualImage on PVC backed by a different storage class of the same CSI driver", Label(precheck.PrecheckMainStandbyStorageClass), func() {
+		baseVI := vibuilder.New(
+			vibuilder.WithName("vi-source-pvc-other-sc"),
+			vibuilder.WithNamespace(f.Namespace().Name),
+			vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
+			vibuilder.WithDataSourceHTTP(object.ImageURLAlpineBIOS, nil, nil),
+		)
+		baseVI.Spec.PersistentVolumeClaim.StorageClass = standbySCPtr
+
+		viObs := viobs.StartObserver(ctx, f, baseVI)
+		viObs.Never(viobs.BeFailed())
+
+		By("Creating base VirtualImage on PVC with the standby storage class "+*standbySCPtr, func() {
+			err := f.CreateWithDeferredDeletion(ctx, baseVI)
+			Expect(err).NotTo(HaveOccurred())
+
+			err = viObs.WaitFor(viobs.BeReady(), framework.LongTimeout)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
 		vd := vdbuilder.New(
-			vdbuilder.WithName("vd-from-cvi"),
+			vdbuilder.WithName("vd-from-vi-other-sc"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
-			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVITestDataQCOW),
+			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindVirtualImage, baseVI.Name),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
-		createVirtualDiskAndWait(ctx, f, vd)
+		createVirtualDiskAndRunVM(ctx, f, vd)
 	})
 
-	It("provisions a blank VirtualDisk", Label(precheck.NoPrecheck), func() {
+	It("provisions a VirtualDisk from a ClusterVirtualImage", Label(precheck.PrecheckMainStandbyStorageClass), func() {
 		vd := vdbuilder.New(
+			vdbuilder.WithName("vd-from-cvi"),
+			vdbuilder.WithNamespace(f.Namespace().Name),
+			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
+			vdbuilder.WithStorageClass(scPtr),
+		)
+
+		createVirtualDiskAndRunVM(ctx, f, vd)
+	})
+
+	It("provisions a blank VirtualDisk and attaches it to a running VirtualMachine", Label(precheck.PrecheckMainStandbyStorageClass), func() {
+		blankVD := vdbuilder.New(
 			vdbuilder.WithName("vd-blank"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
 			vdbuilder.WithPersistentVolumeClaim(scPtr, ptr.To(resource.MustParse(vdCreationBlankSize))),
 		)
+		createVirtualDiskAndWait(ctx, f, blankVD)
 
-		createVirtualDiskAndWait(ctx, f, vd)
+		// A blank disk has no operating system, so the VM boots from a bootable
+		// VirtualDisk and the blank disk is attached as an additional volume.
+		bootVD := vdbuilder.New(
+			vdbuilder.WithName("vd-blank-boot"),
+			vdbuilder.WithNamespace(f.Namespace().Name),
+			vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageURLAlpineBIOS}),
+			vdbuilder.WithStorageClass(scPtr),
+		)
+		createVirtualDiskAndWait(ctx, f, bootVD)
+
+		runVirtualMachineFromDisks(ctx, f, bootVD, blankVD)
 	})
 
 	Context("with snapshots", Label(precheck.PrecheckSnapshot), func() {
@@ -237,7 +329,7 @@ var _ = Describe("VirtualDiskCreation", Ordered, Label(precheck.NoPrecheck), fun
 			baseVD := vdbuilder.New(
 				vdbuilder.WithName("vd-source-for-snapshot"),
 				vdbuilder.WithNamespace(f.Namespace().Name),
-				vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageTestDataQCOW}),
+				vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageURLAlpineBIOS}),
 				vdbuilder.WithStorageClass(scPtr),
 			)
 
@@ -264,7 +356,7 @@ var _ = Describe("VirtualDiskCreation", Ordered, Label(precheck.NoPrecheck), fun
 				vdbuilder.WithStorageClass(scPtr),
 			)
 
-			createVirtualDiskAndWait(ctx, f, vd)
+			createVirtualDiskAndRunVM(ctx, f, vd)
 		})
 	})
 })
@@ -286,6 +378,42 @@ func createVirtualDiskAndWait(ctx context.Context, f *framework.Framework, vd *v
 
 	err := obs.WaitFor(vdobs.BeReady(), framework.LongTimeout)
 	Expect(err).NotTo(HaveOccurred())
+}
+
+// createVirtualDiskAndRunVM provisions vd and then boots a VirtualMachine from it,
+// waiting until the VM is Running and its guest agent reports ready.
+func createVirtualDiskAndRunVM(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk) {
+	GinkgoHelper()
+
+	createVirtualDiskAndWait(ctx, f, vd)
+	runVirtualMachineFromDisks(ctx, f, vd)
+}
+
+// runVirtualMachineFromDisks boots a VirtualMachine from the given VirtualDisks (the
+// first one is the boot disk) and waits until the VM is Running and its guest agent
+// reports ready.
+func runVirtualMachineFromDisks(ctx context.Context, f *framework.Framework, vds ...*v1alpha2.VirtualDisk) {
+	GinkgoHelper()
+
+	vm := object.NewMinimalVM("vm-from-disk-", f.Namespace().Name,
+		vmbuilder.WithDisks(vds...),
+	)
+
+	By("Creating VirtualMachine from the VirtualDisk", func() {
+		err := f.CreateWithDeferredDeletion(ctx, vm)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	obs := vmobs.StartObserver(ctx, f, vm)
+	obs.Never(vmobs.BeFailed())
+
+	By("Waiting for the VirtualMachine to be Running", func() {
+		Expect(obs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)).NotTo(HaveOccurred())
+	})
+
+	By("Waiting for the guest agent to be ready", func() {
+		Expect(obs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)).NotTo(HaveOccurred())
+	})
 }
 
 func doRetriableUploadAttempt(url, filePath string) error {

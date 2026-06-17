@@ -31,6 +31,20 @@ const (
 
 	// StorageClassNameEnv overrides TemplateStorageClass for tests (see README).
 	StorageClassNameEnv = "STORAGE_CLASS_NAME"
+
+	// MainStorageClassAnnotation marks the StorageClass that e2e block-device tests use
+	// to provision VirtualDisks and VirtualImages.
+	MainStorageClassAnnotation = "e2e.virtualization.deckhouse.io/is-main-storage-class"
+
+	// StandbyStorageClassAnnotation marks the StorageClass that e2e block-device tests use
+	// as the "other" StorageClass when a source object must live on a different StorageClass
+	// than the produced one. It must be backed by the same CSI driver as the main one.
+	StandbyStorageClassAnnotation = "e2e.virtualization.deckhouse.io/is-standby-storage-class"
+
+	// DifferentCSIDriverStorageClassAnnotation marks the StorageClass that e2e block-device
+	// tests use to verify that creating a block device from a source on a different CSI
+	// driver is rejected. It must be backed by a different CSI driver than the main one.
+	DifferentCSIDriverStorageClassAnnotation = "e2e.virtualization.deckhouse.io/is-different-csi-driver-storage-class"
 )
 
 // FindDefaultStorageClass returns the default StorageClass from the list.
@@ -60,6 +74,32 @@ func FindDefaultStorageClass(scList *storagev1.StorageClassList) *storagev1.Stor
 	})
 
 	return &defaultClasses[0]
+}
+
+// FindStorageClassByAnnotation returns the StorageClass whose annotation `annotation`
+// is set to "true". When several match, the most recently created one is returned
+// (ties are broken by name, ascending). Returns nil if none match.
+func FindStorageClassByAnnotation(scList *storagev1.StorageClassList, annotation string) *storagev1.StorageClass {
+	var matched []storagev1.StorageClass
+	for i := range scList.Items {
+		sc := &scList.Items[i]
+		if sc.Annotations[annotation] == "true" {
+			matched = append(matched, *sc)
+		}
+	}
+
+	if len(matched) == 0 {
+		return nil
+	}
+
+	sort.Slice(matched, func(i, j int) bool {
+		if matched[i].CreationTimestamp.UnixNano() == matched[j].CreationTimestamp.UnixNano() {
+			return matched[i].Name < matched[j].Name
+		}
+		return matched[i].CreationTimestamp.UnixNano() > matched[j].CreationTimestamp.UnixNano()
+	})
+
+	return &matched[0]
 }
 
 // FindImmediateStorageClass finds an immediate StorageClass with the same provisioner as defaultSC.
@@ -105,6 +145,12 @@ func (c *Config) SetStorageClasses(ctx context.Context, k8sClient client.Client)
 	}
 
 	c.StorageClass.ImmediateStorageClass = FindImmediateStorageClass(c.StorageClass.DefaultStorageClass, &scList)
+
+	// Discovered non-fatally; their presence is enforced by the dedicated precheck for
+	// tests that require them.
+	c.StorageClass.MainStorageClass = FindStorageClassByAnnotation(&scList, MainStorageClassAnnotation)
+	c.StorageClass.StandbyStorageClass = FindStorageClassByAnnotation(&scList, StandbyStorageClassAnnotation)
+	c.StorageClass.DifferentCSIDriverStorageClass = FindStorageClassByAnnotation(&scList, DifferentCSIDriverStorageClassAnnotation)
 
 	templateSC, err := findStorageClassFromEnv(ctx, k8sClient, StorageClassNameEnv, &scList)
 	if err != nil {

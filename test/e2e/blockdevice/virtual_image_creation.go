@@ -23,51 +23,55 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vdsnapshotbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vdsnapshot"
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
+	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	viobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vi"
+	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("VirtualImageCreation", Ordered, Label(precheck.NoPrecheck), func() {
+var _ = Describe("VirtualImageCreation", Label(precheck.PrecheckMainStandbyStorageClass), func() {
 	var (
 		f   *framework.Framework
 		ctx context.Context
 
-		scPtr *string
+		scPtr        *string
+		standbySCPtr *string
 	)
 
-	BeforeAll(func() {
+	BeforeEach(func() {
 		ctx = context.Background()
-		f = framework.NewFramework("vi-creation")
+		f = framework.NewFramework("")
 		f.Before()
 		DeferCleanup(f.After)
+		setupProject(ctx, f, "vi-creation")
 
-		scPtr = ptr.To(vdCreationStorageClass)
+		scPtr = mainStorageClass()
+		standbySCPtr = standbyStorageClass()
 	})
 
-	It("provisions VirtualImages on DVCR and PVC from HTTP data source", Label(precheck.NoPrecheck), func() {
+	It("provisions VirtualImages on DVCR and PVC from HTTP data source", Label(precheck.PrecheckMainStandbyStorageClass), func() {
 		viDVCR := newVirtualImageOnDVCR("vi-http",
-			vibuilder.WithDataSourceHTTP(object.ImageTestDataQCOW, nil, nil),
+			vibuilder.WithDataSourceHTTP(object.ImageURLAlpineBIOS, nil, nil),
 		)
 		viPVC := newVirtualImageOnPVC("vi-pvc-http", scPtr,
-			vibuilder.WithDataSourceHTTP(object.ImageTestDataQCOW, nil, nil),
+			vibuilder.WithDataSourceHTTP(object.ImageURLAlpineBIOS, nil, nil),
 		)
 
-		createVirtualImageAndWait(ctx, f, viDVCR)
+		createVirtualImageAndRunVM(ctx, f, viDVCR)
 
-		createVirtualImageAndWait(ctx, f, viPVC)
+		createVirtualImageAndRunVM(ctx, f, viPVC)
 	})
 
-	It("provisions VirtualImages on DVCR and PVC from Upload data source", Label(precheck.NoPrecheck), func() {
+	It("provisions VirtualImages on DVCR and PVC from Upload data source", Label(precheck.PrecheckMainStandbyStorageClass), func() {
 		viDVCR := newVirtualImageOnDVCR("vi-upload",
 			vibuilder.WithDatasource(v1alpha2.VirtualImageDataSource{
 				Type: v1alpha2.DataSourceTypeUpload,
@@ -82,7 +86,7 @@ var _ = Describe("VirtualImageCreation", Ordered, Label(precheck.NoPrecheck), fu
 		var uploadFilePath string
 		By("Downloading source image to upload", func() {
 			var err error
-			uploadFilePath, err = downloadImageToTempFile(object.ImageTestDataQCOW)
+			uploadFilePath, err = downloadImageToTempFile(object.ImageURLAlpineBIOS)
 			Expect(err).NotTo(HaveOccurred(), "failed to download upload source image")
 			DeferCleanup(func() {
 				removeErr := os.Remove(uploadFilePath)
@@ -92,11 +96,13 @@ var _ = Describe("VirtualImageCreation", Ordered, Label(precheck.NoPrecheck), fu
 		})
 
 		uploadVirtualImageAndWait(ctx, f, viDVCR, uploadFilePath)
+		createVirtualMachineFromImageAndWaitAgentReady(ctx, f, viDVCR)
 
 		uploadVirtualImageAndWait(ctx, f, viPVC, uploadFilePath)
+		createVirtualMachineFromImageAndWaitAgentReady(ctx, f, viPVC)
 	})
 
-	It("provisions VirtualImages on DVCR and PVC from ContainerImage (registry) data source", Label(precheck.NoPrecheck), func() {
+	It("provisions VirtualImages on DVCR and PVC from ContainerImage (registry) data source", Label(precheck.PrecheckMainStandbyStorageClass), func() {
 		viDVCR := newVirtualImageOnDVCR("vi-registry",
 			vibuilder.WithDataSourceContainerImage(object.ImageURLContainerImage, v1alpha2.ImagePullSecretName{}, nil),
 		)
@@ -104,12 +110,12 @@ var _ = Describe("VirtualImageCreation", Ordered, Label(precheck.NoPrecheck), fu
 			vibuilder.WithDataSourceContainerImage(object.ImageURLContainerImage, v1alpha2.ImagePullSecretName{}, nil),
 		)
 
-		createVirtualImageAndWait(ctx, f, viDVCR)
+		createVirtualImageAndRunVM(ctx, f, viDVCR)
 
-		createVirtualImageAndWait(ctx, f, viPVC)
+		createVirtualImageAndRunVM(ctx, f, viPVC)
 	})
 
-	It("provisions VirtualImages on DVCR and PVC from a VirtualDisk", Label(precheck.NoPrecheck), func() {
+	It("provisions VirtualImages on DVCR and PVC from a VirtualDisk", Label(precheck.PrecheckMainStandbyStorageClass), func() {
 		vd := createHTTPVirtualDiskAndWait(ctx, f, "vd-source-for-vi", scPtr)
 
 		viDVCR := newVirtualImageOnDVCR("vi-from-vd",
@@ -119,27 +125,27 @@ var _ = Describe("VirtualImageCreation", Ordered, Label(precheck.NoPrecheck), fu
 			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualDisk, vd.Name),
 		)
 
-		createVirtualImageAndWait(ctx, f, viDVCR)
+		createVirtualImageAndRunVM(ctx, f, viDVCR)
 
-		createVirtualImageAndWait(ctx, f, viPVC)
+		createVirtualImageAndRunVM(ctx, f, viPVC)
 	})
 
-	It("provisions VirtualImages on DVCR and PVC from a ClusterVirtualImage", Label(precheck.NoPrecheck), func() {
+	It("provisions VirtualImages on DVCR and PVC from a ClusterVirtualImage", Label(precheck.PrecheckMainStandbyStorageClass), func() {
 		viDVCR := newVirtualImageOnDVCR("vi-from-cvi",
-			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVITestDataQCOW),
+			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
 		)
 		viPVC := newVirtualImageOnPVC("vi-pvc-from-cvi", scPtr,
-			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVITestDataQCOW),
+			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
 		)
 
-		createVirtualImageAndWait(ctx, f, viDVCR)
+		createVirtualImageAndRunVM(ctx, f, viDVCR)
 
-		createVirtualImageAndWait(ctx, f, viPVC)
+		createVirtualImageAndRunVM(ctx, f, viPVC)
 	})
 
-	It("provisions VirtualImages on DVCR and PVC from a VirtualImage on DVCR", Label(precheck.NoPrecheck), func() {
+	It("provisions VirtualImages on DVCR and PVC from a VirtualImage on DVCR", Label(precheck.PrecheckMainStandbyStorageClass), func() {
 		baseVI := newVirtualImageOnDVCR("vi-source-dvcr",
-			vibuilder.WithDataSourceHTTP(object.ImageTestDataQCOW, nil, nil),
+			vibuilder.WithDataSourceHTTP(object.ImageURLAlpineBIOS, nil, nil),
 		)
 		createVirtualImageAndWait(ctx, f, baseVI)
 
@@ -150,14 +156,14 @@ var _ = Describe("VirtualImageCreation", Ordered, Label(precheck.NoPrecheck), fu
 			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualImage, baseVI.Name),
 		)
 
-		createVirtualImageAndWait(ctx, f, viDVCR)
+		createVirtualImageAndRunVM(ctx, f, viDVCR)
 
-		createVirtualImageAndWait(ctx, f, viPVC)
+		createVirtualImageAndRunVM(ctx, f, viPVC)
 	})
 
-	It("provisions VirtualImages on DVCR and PVC from a VirtualImage on PVC", Label(precheck.NoPrecheck), func() {
+	It("provisions VirtualImages on DVCR and PVC from a VirtualImage on PVC", Label(precheck.PrecheckMainStandbyStorageClass), func() {
 		baseVI := newVirtualImageOnPVC("vi-source-pvc", scPtr,
-			vibuilder.WithDataSourceHTTP(object.ImageTestDataQCOW, nil, nil),
+			vibuilder.WithDataSourceHTTP(object.ImageURLAlpineBIOS, nil, nil),
 		)
 		createVirtualImageAndWait(ctx, f, baseVI)
 
@@ -168,9 +174,32 @@ var _ = Describe("VirtualImageCreation", Ordered, Label(precheck.NoPrecheck), fu
 			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualImage, baseVI.Name),
 		)
 
-		createVirtualImageAndWait(ctx, f, viDVCR)
+		createVirtualImageAndRunVM(ctx, f, viDVCR)
 
-		createVirtualImageAndWait(ctx, f, viPVC)
+		createVirtualImageAndRunVM(ctx, f, viPVC)
+	})
+
+	It("provisions a VirtualImage on PVC from a VirtualDisk on a different storage class of the same CSI driver", Label(precheck.PrecheckMainStandbyStorageClass), func() {
+		vd := createHTTPVirtualDiskAndWait(ctx, f, "vd-source-for-vi-other-sc", standbySCPtr)
+
+		viPVC := newVirtualImageOnPVC("vi-pvc-from-vd-other-sc", scPtr,
+			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualDisk, vd.Name),
+		)
+
+		createVirtualImageAndRunVM(ctx, f, viPVC)
+	})
+
+	It("provisions a VirtualImage on PVC from a VirtualImage on a different storage class of the same CSI driver", Label(precheck.PrecheckMainStandbyStorageClass), func() {
+		baseVI := newVirtualImageOnPVC("vi-source-pvc-other-sc", standbySCPtr,
+			vibuilder.WithDataSourceHTTP(object.ImageURLAlpineBIOS, nil, nil),
+		)
+		createVirtualImageAndWait(ctx, f, baseVI)
+
+		viPVC := newVirtualImageOnPVC("vi-pvc-from-vi-other-sc", scPtr,
+			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualImage, baseVI.Name),
+		)
+
+		createVirtualImageAndRunVM(ctx, f, viPVC)
 	})
 
 	Context("with snapshots", Label(precheck.PrecheckSnapshot), func() {
@@ -198,9 +227,9 @@ var _ = Describe("VirtualImageCreation", Ordered, Label(precheck.NoPrecheck), fu
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualDiskSnapshot, vdSnapshot.Name),
 			)
 
-			createVirtualImageAndWait(ctx, f, viDVCR)
+			createVirtualImageAndRunVM(ctx, f, viDVCR)
 
-			createVirtualImageAndWait(ctx, f, viPVC)
+			createVirtualImageAndRunVM(ctx, f, viPVC)
 		})
 	})
 })
@@ -278,13 +307,51 @@ func uploadVirtualImageAndWait(ctx context.Context, f *framework.Framework, vi *
 	Expect(err).NotTo(HaveOccurred())
 }
 
+// createVirtualImageAndRunVM provisions vi and then boots a VirtualMachine from it,
+// waiting until the VM is Running and its guest agent reports ready.
+func createVirtualImageAndRunVM(ctx context.Context, f *framework.Framework, vi *v1alpha2.VirtualImage) {
+	GinkgoHelper()
+
+	createVirtualImageAndWait(ctx, f, vi)
+	createVirtualMachineFromImageAndWaitAgentReady(ctx, f, vi)
+}
+
+// createVirtualMachineFromImageAndWaitAgentReady creates a VirtualMachine that boots
+// from vi and waits until the VM is Running and its guest agent reports ready.
+func createVirtualMachineFromImageAndWaitAgentReady(ctx context.Context, f *framework.Framework, vi *v1alpha2.VirtualImage) {
+	GinkgoHelper()
+
+	vm := object.NewMinimalVM("vm-from-vi-", f.Namespace().Name,
+		vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
+			Kind: v1alpha2.VirtualImageKind,
+			Name: vi.Name,
+		}),
+	)
+
+	By("Creating VirtualMachine from VirtualImage on "+virtualImageStorageName(vi), func() {
+		err := f.CreateWithDeferredDeletion(ctx, vm)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	obs := vmobs.StartObserver(ctx, f, vm)
+	obs.Never(vmobs.BeFailed())
+
+	By("Waiting for the VirtualMachine to be Running", func() {
+		Expect(obs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)).NotTo(HaveOccurred())
+	})
+
+	By("Waiting for the guest agent to be ready", func() {
+		Expect(obs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)).NotTo(HaveOccurred())
+	})
+}
+
 func createHTTPVirtualDiskAndWait(ctx context.Context, f *framework.Framework, name string, sc *string) *v1alpha2.VirtualDisk {
 	GinkgoHelper()
 
 	vd := vdbuilder.New(
 		vdbuilder.WithName(name),
 		vdbuilder.WithNamespace(f.Namespace().Name),
-		vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageTestDataQCOW}),
+		vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageURLAlpineBIOS}),
 		vdbuilder.WithStorageClass(sc),
 	)
 

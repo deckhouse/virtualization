@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/ptr"
 
 	cvibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/cvi"
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
@@ -46,7 +45,7 @@ import (
 // every newly created VirtualDisk, VirtualImage, and ClusterVirtualImage.
 const quotaExhaustedQuotaName = "v12n-e2e-block-pods-and-pvcs"
 
-var _ = Describe("QuotaExhausted", Ordered, Label(precheck.NoPrecheck), func() {
+var _ = Describe("QuotaExhausted", Ordered, Label(precheck.PrecheckMainStandbyStorageClass), func() {
 	var (
 		f   *framework.Framework
 		ctx context.Context
@@ -57,11 +56,12 @@ var _ = Describe("QuotaExhausted", Ordered, Label(precheck.NoPrecheck), func() {
 
 	BeforeAll(func() {
 		ctx = context.Background()
-		f = framework.NewFramework("quota-exhausted")
+		f = framework.NewFramework("")
 		f.Before()
 		DeferCleanup(f.After)
+		setupProject(ctx, f, "quota-exhausted")
 
-		scPtr = ptr.To(vdCreationStorageClass)
+		scPtr = mainStorageClass()
 
 		// Create a base VirtualDisk before applying the quota so that
 		// the ClusterVirtualImage spec below has a valid object-ref
@@ -72,7 +72,7 @@ var _ = Describe("QuotaExhausted", Ordered, Label(precheck.NoPrecheck), func() {
 		baseVD = vdbuilder.New(
 			vdbuilder.WithName("vd-quota-source"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
-			vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageTestDataQCOW}),
+			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVITestDataQCOW),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 		createVirtualDiskAndWait(ctx, f, baseVD)
@@ -80,11 +80,11 @@ var _ = Describe("QuotaExhausted", Ordered, Label(precheck.NoPrecheck), func() {
 		applyBlockingResourceQuota(ctx, f)
 	})
 
-	It("VirtualDisk reports QuotaExceeded reason on a fresh Ready condition", Label(precheck.NoPrecheck), func() {
+	It("VirtualDisk reports QuotaExceeded reason on a fresh Ready condition", Label(precheck.PrecheckMainStandbyStorageClass), func() {
 		vd := vdbuilder.New(
-			vdbuilder.WithName("vd-quota-http"),
+			vdbuilder.WithName("vd-quota-cvi"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
-			vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageTestDataQCOW}),
+			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVITestDataQCOW),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
@@ -99,12 +99,12 @@ var _ = Describe("QuotaExhausted", Ordered, Label(precheck.NoPrecheck), func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	It("VirtualImage on DVCR reports a quota-exceeded ProvisioningFailed Ready condition", Label(precheck.NoPrecheck), func() {
+	It("VirtualImage on DVCR reports a quota-exceeded ProvisioningFailed Ready condition", Label(precheck.PrecheckMainStandbyStorageClass), func() {
 		vi := vibuilder.New(
 			vibuilder.WithName("vi-dvcr-quota"),
 			vibuilder.WithNamespace(f.Namespace().Name),
 			vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
-			vibuilder.WithDataSourceHTTP(object.ImageTestDataQCOW, nil, nil),
+			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVITestDataQCOW),
 		)
 
 		obs := viobs.StartObserver(ctx, f, vi)
@@ -118,12 +118,12 @@ var _ = Describe("QuotaExhausted", Ordered, Label(precheck.NoPrecheck), func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	It("VirtualImage on PVC reports a quota-exceeded ProvisioningFailed Ready condition", Label(precheck.NoPrecheck), func() {
+	It("VirtualImage on PVC reports a quota-exceeded ProvisioningFailed Ready condition", Label(precheck.PrecheckMainStandbyStorageClass), func() {
 		vi := vibuilder.New(
 			vibuilder.WithName("vi-pvc-quota"),
 			vibuilder.WithNamespace(f.Namespace().Name),
 			vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
-			vibuilder.WithDataSourceHTTP(object.ImageTestDataQCOW, nil, nil),
+			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVITestDataQCOW),
 		)
 		vi.Spec.PersistentVolumeClaim.StorageClass = scPtr
 
@@ -138,7 +138,7 @@ var _ = Describe("QuotaExhausted", Ordered, Label(precheck.NoPrecheck), func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	It("ClusterVirtualImage from a project-scoped VirtualDisk reports a quota-exceeded ProvisioningFailed Ready condition", Label(precheck.NoPrecheck), func() {
+	It("ClusterVirtualImage from a project-scoped VirtualDisk reports a quota-exceeded ProvisioningFailed Ready condition", Label(precheck.PrecheckMainStandbyStorageClass), func() {
 		// CVI is cluster-scoped, so the name must be unique across
 		// concurrent test runs; suffix it with the per-run namespace.
 		cvi := cvibuilder.New(

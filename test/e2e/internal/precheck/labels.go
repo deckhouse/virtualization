@@ -36,6 +36,14 @@ const (
 	// PrecheckImmediateStorageClass - test requires immediate StorageClass with same provisioner as default.
 	PrecheckImmediateStorageClass = "immediatestorageclass-precheck"
 
+	// PrecheckMainStandbyStorageClass - test requires a main and a standby StorageClass
+	// (annotated for e2e) backed by the same CSI driver.
+	PrecheckMainStandbyStorageClass = "mainstandbystorageclass-precheck"
+
+	// PrecheckDifferentCSIDriverStorageClass - test requires a main StorageClass and a
+	// StorageClass backed by a different CSI driver (both annotated for e2e).
+	PrecheckDifferentCSIDriverStorageClass = "differentcsidriverstorageclass-precheck"
+
 	// PrecheckSnapshot - test requires snapshot-controller module to be enabled.
 	PrecheckSnapshot = "snapshot-precheck"
 
@@ -68,6 +76,8 @@ func KnownPrecheckLabels() []string {
 		PrecheckSVDM,
 		PrecheckDefaultStorageClass,
 		PrecheckImmediateStorageClass,
+		PrecheckMainStandbyStorageClass,
+		PrecheckDifferentCSIDriverStorageClass,
 		PrecheckSnapshot,
 		PrecheckVirtualization,
 		PrecheckUSB,

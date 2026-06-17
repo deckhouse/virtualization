@@ -121,6 +121,11 @@ type StorageClass struct {
 	DefaultStorageClass   *storagev1.StorageClass
 	ImmediateStorageClass *storagev1.StorageClass
 	TemplateStorageClass  *storagev1.StorageClass
+	MainStorageClass      *storagev1.StorageClass
+	StandbyStorageClass   *storagev1.StorageClass
+	// DifferentCSIDriverStorageClass is a StorageClass backed by a different CSI driver
+	// than MainStorageClass, used to verify cross-CSI provisioning is rejected.
+	DifferentCSIDriverStorageClass *storagev1.StorageClass
 }
 
 type ClusterTransport struct {
