@@ -28,7 +28,6 @@ import (
 	vdsnapshotbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vdsnapshot"
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
@@ -156,8 +155,9 @@ func differentCSIDriverStorageClass() *string {
 
 	sc := framework.GetConfig().StorageClass.DifferentCSIDriverStorageClass
 	Expect(sc).NotTo(BeNil(),
-		"different-CSI-driver StorageClass not found: annotate a StorageClass with %s=true (enforced by the %q precheck)",
-		config.DifferentCSIDriverStorageClassAnnotation, precheck.PrecheckDifferentCSIDriverStorageClass)
+		"no StorageClass with a CSI driver different from the main one was found "+
+			"(discovered automatically; enforced by the %q precheck)",
+		precheck.PrecheckDifferentCSIDriverStorageClass)
 
 	return ptr.To(sc.Name)
 }

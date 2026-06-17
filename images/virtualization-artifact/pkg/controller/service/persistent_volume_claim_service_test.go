@@ -22,6 +22,7 @@ import (
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -330,6 +331,9 @@ func diskImportTestScheme(t *testing.T) *runtime.Scheme {
 		t.Fatal(err)
 	}
 	if err := storagev1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	if err := netv1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
 	if err := vsv1.AddToScheme(scheme); err != nil {

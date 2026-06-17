@@ -40,11 +40,6 @@ const (
 	// as the "other" StorageClass when a source object must live on a different StorageClass
 	// than the produced one. It must be backed by the same CSI driver as the main one.
 	StandbyStorageClassAnnotation = "e2e.virtualization.deckhouse.io/is-standby-storage-class"
-
-	// DifferentCSIDriverStorageClassAnnotation marks the StorageClass that e2e block-device
-	// tests use to verify that creating a block device from a source on a different CSI
-	// driver is rejected. It must be backed by a different CSI driver than the main one.
-	DifferentCSIDriverStorageClassAnnotation = "e2e.virtualization.deckhouse.io/is-different-csi-driver-storage-class"
 )
 
 // FindDefaultStorageClass returns the default StorageClass from the list.
@@ -102,6 +97,25 @@ func FindStorageClassByAnnotation(scList *storagev1.StorageClassList, annotation
 	return &matched[0]
 }
 
+// FindStorageClassWithDifferentProvisioner returns a StorageClass whose provisioner (CSI
+// driver) differs from the given provisioner. When several match, the one with the
+// smallest name is returned for determinism. Returns nil if none match (the cluster has
+// only a single CSI driver).
+func FindStorageClassWithDifferentProvisioner(scList *storagev1.StorageClassList, provisioner string) *storagev1.StorageClass {
+	var match *storagev1.StorageClass
+	for i := range scList.Items {
+		sc := &scList.Items[i]
+		if sc.Provisioner == "" || sc.Provisioner == provisioner {
+			continue
+		}
+		if match == nil || sc.Name < match.Name {
+			match = sc
+		}
+	}
+
+	return match
+}
+
 // FindImmediateStorageClass finds an immediate StorageClass with the same provisioner as defaultSC.
 // It checks if defaultSC has Immediate binding mode first, then searches for an immediate SC with same provisioner.
 // Returns the immediate StorageClass if found, or nil if not found.
@@ -150,7 +164,11 @@ func (c *Config) SetStorageClasses(ctx context.Context, k8sClient client.Client)
 	// tests that require them.
 	c.StorageClass.MainStorageClass = FindStorageClassByAnnotation(&scList, MainStorageClassAnnotation)
 	c.StorageClass.StandbyStorageClass = FindStorageClassByAnnotation(&scList, StandbyStorageClassAnnotation)
-	c.StorageClass.DifferentCSIDriverStorageClass = FindStorageClassByAnnotation(&scList, DifferentCSIDriverStorageClassAnnotation)
+	// The different-CSI-driver StorageClass is discovered automatically: any StorageClass
+	// whose CSI driver differs from the main one. No annotation is required.
+	if c.StorageClass.MainStorageClass != nil {
+		c.StorageClass.DifferentCSIDriverStorageClass = FindStorageClassWithDifferentProvisioner(&scList, c.StorageClass.MainStorageClass.Provisioner)
+	}
 
 	templateSC, err := findStorageClassFromEnv(ctx, k8sClient, StorageClassNameEnv, &scList)
 	if err != nil {

@@ -262,19 +262,26 @@ var _ = Describe("VirtualDiskCreation", Label(precheck.PrecheckMainStandbyStorag
 			vdbuilder.WithNamespace(f.Namespace().Name),
 			vdbuilder.WithPersistentVolumeClaim(scPtr, ptr.To(resource.MustParse(vdCreationBlankSize))),
 		)
-		createVirtualDiskAndWait(ctx, f, blankVD)
 
 		// A blank disk has no operating system, so the VM boots from a bootable
-		// VirtualDisk and the blank disk is attached as an additional volume.
+		// VirtualDisk and the blank disk is attached as an additional volume. Both disks
+		// are created first and the VM provides the consumer that triggers provisioning
+		// (required for WaitForFirstConsumer storage classes).
 		bootVD := vdbuilder.New(
 			vdbuilder.WithName("vd-blank-boot"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
 			vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageURLAlpineBIOS}),
 			vdbuilder.WithStorageClass(scPtr),
 		)
-		createVirtualDiskAndWait(ctx, f, bootVD)
+
+		startVirtualDisk(ctx, f, bootVD)
+		startVirtualDisk(ctx, f, blankVD)
 
 		runVirtualMachineFromDisks(ctx, f, bootVD, blankVD)
+
+		By("Waiting for the VirtualDisks to be ready", func() {
+			util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.LongTimeout, bootVD, blankVD)
+		})
 	})
 
 	Context("with snapshots", Label(precheck.PrecheckSnapshot), func() {
@@ -286,7 +293,10 @@ var _ = Describe("VirtualDiskCreation", Label(precheck.PrecheckMainStandbyStorag
 				vdbuilder.WithStorageClass(scPtr),
 			)
 
-			createVirtualDiskAndWait(ctx, f, baseVD)
+			// Boot a VM from the source disk so it provisions (the VM is its consumer on
+			// WaitForFirstConsumer storage classes) and so the consistent snapshot below
+			// can freeze the guest filesystem via the agent.
+			createVirtualDiskAndRunVM(ctx, f, baseVD)
 
 			vdSnapshot := vdsnapshotbuilder.New(
 				vdsnapshotbuilder.WithName("vd-snapshot"),
@@ -361,7 +371,12 @@ func setupProject(ctx context.Context, f *framework.Framework, prefix string) {
 	f.SetProjectNamespace(project.Name)
 }
 
-func createVirtualDiskAndWait(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk) {
+// startVirtualDisk starts the VirtualDisk observer with the standard invariants and
+// creates vd, WITHOUT waiting for it to become Ready. The returned observer keeps
+// enforcing the invariants until cleanup. Waiting for readiness is left to the caller
+// because, on WaitForFirstConsumer storage classes, a VirtualDisk only provisions once a
+// consumer (a VirtualMachine) is scheduled.
+func startVirtualDisk(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk) vdobs.Observer {
 	GinkgoHelper()
 
 	obs := vdobs.StartObserver(ctx, f, vd)
@@ -376,17 +391,34 @@ func createVirtualDiskAndWait(ctx context.Context, f *framework.Framework, vd *v
 		Expect(err).NotTo(HaveOccurred())
 	})
 
+	return obs
+}
+
+// createVirtualDiskAndWait provisions vd and waits until it becomes Ready. It must only
+// be used for disks that provision without a VirtualMachine (e.g. an Upload disk, whose
+// uploader Pod is the consumer); on WaitForFirstConsumer storage classes a disk without
+// a consumer never becomes Ready - use createVirtualDiskAndRunVM instead.
+func createVirtualDiskAndWait(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk) {
+	GinkgoHelper()
+
+	obs := startVirtualDisk(ctx, f, vd)
 	err := obs.WaitFor(vdobs.BeReady(), framework.LongTimeout)
 	Expect(err).NotTo(HaveOccurred())
 }
 
-// createVirtualDiskAndRunVM provisions vd and then boots a VirtualMachine from it,
-// waiting until the VM is Running and its guest agent reports ready.
+// createVirtualDiskAndRunVM provisions vd by booting a VirtualMachine from it. The VM is
+// the disk's first consumer, so this works on both Immediate and WaitForFirstConsumer
+// storage classes. It waits until the VM is Running with a ready guest agent and the
+// disk is Ready.
 func createVirtualDiskAndRunVM(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk) {
 	GinkgoHelper()
 
-	createVirtualDiskAndWait(ctx, f, vd)
+	startVirtualDisk(ctx, f, vd)
 	runVirtualMachineFromDisks(ctx, f, vd)
+
+	By("Waiting for the VirtualDisk to be ready", func() {
+		util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.LongTimeout, vd)
+	})
 }
 
 // runVirtualMachineFromDisks boots a VirtualMachine from the given VirtualDisks (the

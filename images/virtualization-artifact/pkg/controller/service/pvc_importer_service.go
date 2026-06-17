@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -110,6 +111,12 @@ func (s *PVCImporterService) Import(ctx context.Context, target *corev1.Persiste
 
 	scratch, err := s.ensureScratch(ctx, target)
 	if err != nil {
+		return err
+	}
+
+	// The pvc-importer pod must be allowed egress (notably to DVCR) even inside
+	// network-isolated namespaces (e.g. Deckhouse Projects with networkPolicy: Isolated).
+	if err := s.ensureNetworkPolicy(ctx, target, sup); err != nil {
 		return err
 	}
 
@@ -283,6 +290,44 @@ func (s *PVCImporterService) ensureScratch(ctx context.Context, target *corev1.P
 	return scratch, nil
 }
 
+// ensureNetworkPolicy creates a NetworkPolicy that allows the pvc-importer pod egress
+// (notably to DVCR). It is required in network-isolated namespaces where a default-deny
+// policy would otherwise block the import. The policy selects the importer pods by their
+// app label, allows all egress, and is owned by the target PVC so it is garbage-collected
+// with the disk. It is idempotent and coexists with the NetworkPolicy that ImporterService
+// creates for DVCR-fed imports.
+func (s *PVCImporterService) ensureNetworkPolicy(ctx context.Context, target *corev1.PersistentVolumeClaim, sup supplements.Generator) error {
+	npName := sup.NetworkPolicy()
+	np := &netv1.NetworkPolicy{
+		TypeMeta: metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "networking.k8s.io/v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      npName.Name,
+			Namespace: npName.Namespace,
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion:         "v1",
+				Kind:               "PersistentVolumeClaim",
+				Name:               target.Name,
+				UID:                target.UID,
+				Controller:         ptr.To(true),
+				BlockOwnerDeletion: ptr.To(true),
+			}},
+		},
+		Spec: netv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{{
+					Key:      annotations.AppLabel,
+					Operator: metav1.LabelSelectorOpIn,
+					Values:   []string{annotations.CDILabelValue, annotations.DVCRLabelValue},
+				}},
+			},
+			Egress:      []netv1.NetworkPolicyEgressRule{{}},
+			PolicyTypes: []netv1.PolicyType{netv1.PolicyTypeEgress},
+		},
+	}
+
+	return client.IgnoreAlreadyExists(s.client.Create(ctx, np))
+}
+
 func scratchPVCSize(targetSize resource.Quantity) resource.Quantity {
 	size := targetSize.DeepCopy()
 	minOverhead := resource.MustParse("256Mi")
@@ -397,6 +442,9 @@ func (s *PVCImporterService) makeImporterPod(podName string, target *corev1.Pers
 			Namespace: target.Namespace,
 			Labels: map[string]string{
 				annotations.QuotaExcludeLabel: annotations.QuotaExcludeValue,
+				// Matches the importer NetworkPolicy selector so the pod is allowed
+				// egress (to DVCR) in network-isolated namespaces.
+				annotations.AppLabel: annotations.CDILabelValue,
 			},
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion:         "v1",

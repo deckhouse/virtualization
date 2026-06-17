@@ -19,7 +19,6 @@ package precheck
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	storagev1 "k8s.io/api/storage/v1"
@@ -35,8 +34,11 @@ const (
 // differentCSIDriverStorageClassPrecheck implements the Precheck interface for the
 // cross-CSI-driver block-device tests. It verifies that:
 //  1. a StorageClass annotated with MainStorageClassAnnotation=true exists;
-//  2. a StorageClass annotated with DifferentCSIDriverStorageClassAnnotation=true exists;
-//  3. the two StorageClasses are backed by different CSI drivers (provisioners).
+//  2. the cluster has at least one StorageClass whose CSI driver (provisioner) differs
+//     from the main one.
+//
+// The "different CSI driver" StorageClass is discovered automatically; no annotation is
+// required for it.
 type differentCSIDriverStorageClassPrecheck struct{}
 
 func (c *differentCSIDriverStorageClassPrecheck) Label() string {
@@ -56,37 +58,20 @@ func (c *differentCSIDriverStorageClassPrecheck) Run(ctx context.Context, f *fra
 	}
 
 	mainSC := config.FindStorageClassByAnnotation(&scList, config.MainStorageClassAnnotation)
-	differentSC := config.FindStorageClassByAnnotation(&scList, config.DifferentCSIDriverStorageClassAnnotation)
-
-	var missing []string
 	if mainSC == nil {
-		missing = append(missing, fmt.Sprintf("main StorageClass (annotation %s=true)", config.MainStorageClassAnnotation))
-	}
-	if differentSC == nil {
-		missing = append(missing, fmt.Sprintf("different-CSI-driver StorageClass (annotation %s=true)", config.DifferentCSIDriverStorageClassAnnotation))
-	}
-	if len(missing) > 0 {
 		return fmt.Errorf(
-			"%s=no to disable this precheck: the cross-CSI block-device tests require a main StorageClass and a StorageClass backed by a different CSI driver, but %s not found.\n"+
-				"Pick two StorageClasses backed by DIFFERENT CSI drivers and annotate them for the e2e tests:\n"+
-				"  kubectl annotate storageclass/<main-sc-name> %s=true --overwrite\n"+
-				"  kubectl annotate storageclass/<other-csi-sc-name> %s=true --overwrite",
-			differentCSIDriverStorageClassPrecheckEnvName,
-			strings.Join(missing, " and "),
-			config.MainStorageClassAnnotation,
-			config.DifferentCSIDriverStorageClassAnnotation,
+			"%s=no to disable this precheck: main StorageClass not found. Annotate one for the e2e tests:\n"+
+				"  kubectl annotate storageclass/<main-sc-name> %s=true --overwrite",
+			differentCSIDriverStorageClassPrecheckEnvName, config.MainStorageClassAnnotation,
 		)
 	}
 
-	if mainSC.Provisioner == differentSC.Provisioner {
+	differentSC := config.FindStorageClassWithDifferentProvisioner(&scList, mainSC.Provisioner)
+	if differentSC == nil {
 		return fmt.Errorf(
-			"%s=no to disable this precheck: main StorageClass %q and StorageClass %q both use the CSI driver %q, "+
-				"but this test requires two StorageClasses backed by DIFFERENT CSI drivers.\n"+
-				"Annotate a StorageClass that uses a different provisioner than %q:\n"+
-				"  kubectl annotate storageclass/<other-csi-sc-name> %s=true --overwrite",
-			differentCSIDriverStorageClassPrecheckEnvName,
-			mainSC.Name, differentSC.Name, mainSC.Provisioner, mainSC.Provisioner,
-			config.DifferentCSIDriverStorageClassAnnotation,
+			"%s=no to disable this precheck: no StorageClass with a CSI driver different from the main StorageClass %q (CSI driver %q) was found in the cluster. "+
+				"The cross-CSI block-device tests require a second CSI driver to be installed.",
+			differentCSIDriverStorageClassPrecheckEnvName, mainSC.Name, mainSC.Provisioner,
 		)
 	}
 
