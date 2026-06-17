@@ -1226,6 +1226,19 @@ rules:
   - get
   - list
   - watch
+# The embedded KubeVirt install strategy still generates the virt-api and
+# virt-controller ClusterRoles with access to CDI resources (cdi.kubevirt.io,
+# rewritten to cdi.internal.virtualization.deckhouse.io): the apiserver needs
+# get/list/watch on datasources/datavolumes and the controller needs '*'/'*'.
+# After the CDI removal these CRDs are gone, but virt-operator must still hold
+# these permissions to be allowed to grant them when creating those ClusterRoles
+# (RBAC privilege-escalation guard).
+- apiGroups:
+  - cdi.internal.virtualization.deckhouse.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
