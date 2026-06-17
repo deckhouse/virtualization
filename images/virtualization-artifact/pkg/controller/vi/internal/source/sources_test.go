@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -97,6 +98,7 @@ var _ = Describe("Sources helpers", func() {
 	newScheme := func() *runtime.Scheme {
 		scheme := runtime.NewScheme()
 		Expect(corev1.AddToScheme(scheme)).To(Succeed())
+		Expect(netv1.AddToScheme(scheme)).To(Succeed())
 		return scheme
 	}
 
