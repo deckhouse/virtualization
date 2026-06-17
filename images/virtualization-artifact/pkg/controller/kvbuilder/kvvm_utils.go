@@ -220,6 +220,10 @@ func applyBlockDeviceRefs(
 		}
 	}
 
+	if err := syncAttachedVMBDAHotplugVolumes(kvvm, vdByName, viByName, cviByName, vmbdaByBlockDeviceRef); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -252,6 +256,33 @@ func cleanupRemovedStaticDisks(kvvm *KVVM, specDiskNames, hotpluggableVolumes, v
 		kvvm.Resource.Spec.Template.Spec.Volumes,
 		func(v virtv1.Volume) bool { return isRemovedStatic(v.Name) },
 	)
+}
+
+func syncAttachedVMBDAHotplugVolumes(
+	kvvm *KVVM,
+	vdByName map[string]*v1alpha2.VirtualDisk,
+	viByName map[string]*v1alpha2.VirtualImage,
+	cviByName map[string]*v1alpha2.ClusterVirtualImage,
+	vmbdaByBlockDeviceRef map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment,
+) error {
+	kvvmVolumes := kvvm.Resource.Spec.Template.Spec.Volumes
+
+	for ref := range vmbdaByBlockDeviceRef {
+		diskName := GenerateDiskName(v1alpha2.BlockDeviceKind(ref.Kind), ref.Name)
+		if diskName == "" {
+			continue
+		}
+
+		if !slices.ContainsFunc(kvvmVolumes, func(v virtv1.Volume) bool { return v.Name == diskName }) {
+			continue
+		}
+
+		if err := setVMBDABlockDeviceDisk(kvvm, ref, vdByName, viByName, cviByName); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func setBlockDeviceDisk(
@@ -312,6 +343,38 @@ func setBlockDeviceDisk(
 
 	default:
 		return fmt.Errorf("unknown block device kind %q. %w", bd.Kind, common.ErrUnknownType)
+	}
+}
+
+func setVMBDABlockDeviceDisk(
+	kvvm *KVVM,
+	ref v1alpha2.VMBDAObjectRef,
+	vdByName map[string]*v1alpha2.VirtualDisk,
+	viByName map[string]*v1alpha2.VirtualImage,
+	cviByName map[string]*v1alpha2.ClusterVirtualImage,
+) error {
+	switch ref.Kind {
+	case v1alpha2.VMBDAObjectRefKindVirtualDisk:
+		vd, ok := vdByName[ref.Name]
+		if !ok || vd == nil {
+			return fmt.Errorf("unexpected error: virtual disk %q should exist in the cluster; please recreate it", ref.Name)
+		}
+
+		if vd.Status.Target.PersistentVolumeClaim == "" {
+			return nil
+		}
+
+		return kvvm.SetDisk(GenerateVDDiskName(ref.Name), SetDiskOptions{
+			PersistentVolumeClaim: ptr.To(vd.Status.Target.PersistentVolumeClaim),
+			Serial:                GenerateSerialFromObject(vd),
+			IsHotplugged:          true,
+		})
+	case v1alpha2.VMBDAObjectRefKindVirtualImage:
+		return setBlockDeviceDisk(kvvm, v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.ImageDevice, Name: ref.Name}, 0, true, vdByName, viByName, cviByName)
+	case v1alpha2.VMBDAObjectRefKindClusterVirtualImage:
+		return setBlockDeviceDisk(kvvm, v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.ClusterImageDevice, Name: ref.Name}, 0, true, vdByName, viByName, cviByName)
+	default:
+		return fmt.Errorf("unknown VMBDA block device kind %q. %w", ref.Kind, common.ErrUnknownType)
 	}
 }
 

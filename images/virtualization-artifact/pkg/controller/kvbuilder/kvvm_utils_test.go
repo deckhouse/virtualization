@@ -20,9 +20,139 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
+
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
+
+func newKVVMWithVMBDAVolume(vmName, vmNamespace, diskName, pvcName string) *KVVM {
+	kvvm := NewEmptyKVVM(
+		namespacedName(vmName, vmNamespace),
+		KVVMOptions{},
+	)
+	kvvm.Resource.Spec.Template.Spec.Volumes = []virtv1.Volume{
+		{
+			Name: GenerateVDDiskName(diskName),
+			VolumeSource: virtv1.VolumeSource{
+				PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: pvcName,
+					},
+					Hotpluggable: true,
+				},
+			},
+		},
+	}
+	kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks = []virtv1.Disk{
+		{Name: GenerateVDDiskName(diskName)},
+	}
+	return kvvm
+}
+
+var _ = Describe("syncAttachedVMBDAHotplugVolumes", func() {
+	const (
+		vmName      = "test-vm"
+		vmNamespace = "test-ns"
+		diskName    = "data-disk"
+		sourcePVC   = "pvc-source"
+		targetPVC   = "pvc-target"
+	)
+
+	It("should switch existing VMBDA volume back to source PVC after migration rollback", func() {
+		kvvm := newKVVMWithVMBDAVolume(vmName, vmNamespace, diskName, targetPVC)
+		vd := &v1alpha2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:       diskName,
+				Namespace:  vmNamespace,
+				UID:        "vd-uid",
+				Generation: 2,
+			},
+			Status: v1alpha2.VirtualDiskStatus{
+				Target: v1alpha2.DiskTarget{PersistentVolumeClaim: sourcePVC},
+				Conditions: []metav1.Condition{{
+					Type:               vdcondition.MigratingType.String(),
+					Status:             metav1.ConditionFalse,
+					ObservedGeneration: 2,
+					Reason:             "MigrationReverted",
+				}},
+				MigrationState: v1alpha2.VirtualDiskMigrationState{
+					SourcePVC: sourcePVC,
+					TargetPVC: targetPVC,
+				},
+			},
+		}
+
+		err := syncAttachedVMBDAHotplugVolumes(
+			kvvm,
+			map[string]*v1alpha2.VirtualDisk{diskName: vd},
+			nil,
+			nil,
+			map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment{
+				{Kind: v1alpha2.VMBDAObjectRefKindVirtualDisk, Name: diskName}: nil,
+			},
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(HaveLen(1))
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim).NotTo(BeNil())
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(sourcePVC))
+	})
+})
+
+var _ = Describe("ApplyMigrationVolumes", func() {
+	const (
+		vmName      = "test-vm"
+		vmNamespace = "test-ns"
+		diskName    = "data-disk"
+		sourcePVC   = "pvc-source"
+		targetPVC   = "pvc-target"
+	)
+
+	It("should switch hotplugged VMBDA disk to migration target PVC", func() {
+		kvvm := newKVVMWithVMBDAVolume(vmName, vmNamespace, diskName, sourcePVC)
+		vm := &v1alpha2.VirtualMachine{
+			Status: v1alpha2.VirtualMachineStatus{
+				BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
+					{
+						Kind:       v1alpha2.DiskDevice,
+						Name:       diskName,
+						Hotplugged: true,
+					},
+				},
+			},
+		}
+		vd := &v1alpha2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:       diskName,
+				Namespace:  vmNamespace,
+				UID:        "vd-uid",
+				Generation: 1,
+			},
+			Status: v1alpha2.VirtualDiskStatus{
+				Target: v1alpha2.DiskTarget{PersistentVolumeClaim: sourcePVC},
+				Conditions: []metav1.Condition{{
+					Type:               vdcondition.MigratingType.String(),
+					Status:             metav1.ConditionTrue,
+					ObservedGeneration: 1,
+					Reason:             "Migrating",
+				}},
+				MigrationState: v1alpha2.VirtualDiskMigrationState{
+					SourcePVC: sourcePVC,
+					TargetPVC: targetPVC,
+				},
+			},
+		}
+
+		err := ApplyMigrationVolumes(kvvm, vm, map[string]*v1alpha2.VirtualDisk{diskName: vd})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(HaveLen(1))
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim).NotTo(BeNil())
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(targetPVC))
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.Hotpluggable).To(BeTrue())
+	})
+})
 
 var _ = Describe("cleanupRemovedStaticDisks", func() {
 	const (
