@@ -353,15 +353,21 @@ func standbyStorageClass() *string {
 	return ptr.To(sc.Name)
 }
 
-// setupProject creates an isolated Deckhouse Project, waits until it is deployed and
+// setupProject creates a non-isolated Deckhouse Project, waits until it is deployed and
 // switches the framework to operate inside the project's namespace. The project (and
 // therefore its namespace and every resource it contains) is removed during cleanup.
+//
+// The project uses the "NotRestricted" network policy: these tests boot VirtualMachines
+// whose guests need outbound network access (cloud-init installs the qemu-guest-agent over
+// the network), which the "Isolated" policy would block, leaving the guest agent forever
+// not ready. Network-isolation behaviour is covered separately by the ImporterNetworkPolicy
+// spec.
 func setupProject(ctx context.Context, f *framework.Framework, prefix string) {
 	GinkgoHelper()
 
-	project := object.NewIsolatedProject(prefix, framework.NamespaceBasePrefix)
+	project := object.NewNonIsolatedProject(prefix, framework.NamespaceBasePrefix)
 
-	By("Creating an isolated Project", func() {
+	By("Creating a Project", func() {
 		err := f.CreateWithDeferredDeletion(ctx, project)
 		Expect(err).NotTo(HaveOccurred())
 
