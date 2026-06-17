@@ -95,7 +95,7 @@ type VirtualMachineSpec struct {
 	// Use the `virtio` bus to connect virtual devices of the VM. Set false to disable `virtio` for this VM.
 	// Note: To use paravirtualization mode, some operating systems require the appropriate drivers to be installed.
 	// +kubebuilder:default:=true
-	EnableParavirtualization bool `json:"enableParavirtualization,omitempty"`
+	EnableParavirtualization *bool `json:"enableParavirtualization,omitempty"`
 
 	// +kubebuilder:default:="Generic"
 	OsType OsType `json:"osType,omitempty"`
@@ -119,6 +119,10 @@ type VirtualMachineSpec struct {
 	// Devices are referenced by name of USBDevice resource in the same namespace.
 	// +kubebuilder:validation:MaxItems:=8
 	USBDevices []USBDeviceSpecRef `json:"usbDevices,omitempty"`
+}
+
+func (s *VirtualMachineSpec) IsParavirtualizationEnabled() bool {
+	return s == nil || s.EnableParavirtualization == nil || *s.EnableParavirtualization
 }
 
 // RunPolicy parameter defines the VM startup policy
