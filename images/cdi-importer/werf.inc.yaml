@@ -63,7 +63,7 @@ import:
   - cdi-importer
   - cdi-source-update-poller
 - image: {{ .ModuleNamePrefix }}qemu
-  add: /qemu-img
+  add: /out
   to: /qemu-img
   before: install
 {{- include "importPackageImages" (list . $cdiImporterDependencies.packages "install") -}}
