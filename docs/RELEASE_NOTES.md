@@ -3,6 +3,24 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.9.1
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: June 17, 2026.
+</span>
+
+### Fixes
+
+- [vd] Fixed errors when reverting a [VirtualDisk](/modules/virtualization/cr.html#virtualdisk) migration if several PVCs were associated with the disk. The controller now validates source and target PVC names before selecting the target.
+- [vm] Fixed live migration of VMs with container disks when upgrading to v1.9. Migration now works during the switch to rootless mode: it supports pre-rootless `virt-launcher` pods and mounts container disks on the target node.
+- [vm] Fixed a false restart requirement for VMs that use only the `Main` network after upgrading to v1.9. These VMs no longer receive `RestartRequired` when there are no actual configuration changes.
+
+### Security
+
+- [module] Fixed vulnerabilities:
+  - CVE-2026-42504
+  - CVE-2026-27145
+  - CVE-2026-42507
+
 ## v1.9.0
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: June 10, 2026.
