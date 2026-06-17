@@ -173,6 +173,52 @@ func BeReady() Predicate {
 	}
 }
 
+// BeQuotaExceeded reports the VirtualDisk has been parked in a
+// quota-exhausted state.
+//
+// The predicate is satisfied when the Ready condition is fresh,
+// reports Status=False with Reason=QuotaExceeded, and the phase is
+// either Failed (importer/uploader Pod creation rejected by the
+// project quota) or Pending (PVC creation rejected by the project
+// quota). Any other phase together with a fresh Reason=QuotaExceeded
+// is reported as a definite invariant violation.
+//
+// Returned values:
+//   - (true, nil)  - the VirtualDisk reports a fresh quota-exceeded
+//     Ready condition together with a matching phase;
+//   - (false, nil) - the controller has not yet reported a fresh
+//     quota-exceeded Ready condition;
+//   - (false, err) - Reason=QuotaExceeded is reported with an
+//     unexpected phase or Status, which is a controller bug.
+//
+// Intended for use with [Observer.WaitFor].
+func BeQuotaExceeded() Predicate {
+	return func(d *v1alpha2.VirtualDisk) (bool, error) {
+		cond := findCondition(d.Status.Conditions, vdcondition.ReadyType.String())
+		if cond == nil || !isConditionFresh(cond, d) {
+			return false, nil
+		}
+		if cond.Reason != vdcondition.QuotaExceeded.String() {
+			return false, nil
+		}
+		if cond.Status != metav1.ConditionFalse {
+			return false, fmt.Errorf(
+				"ready condition reason is %q but status is %s, expected %s",
+				cond.Reason, cond.Status, metav1.ConditionFalse,
+			)
+		}
+		switch d.Status.Phase {
+		case v1alpha2.DiskFailed, v1alpha2.DiskPending:
+			return true, nil
+		default:
+			return false, fmt.Errorf(
+				"ready condition reason is %q but phase is %q, expected %q or %q",
+				cond.Reason, d.Status.Phase, v1alpha2.DiskFailed, v1alpha2.DiskPending,
+			)
+		}
+	}
+}
+
 // BeReadyForUserUpload reports the VirtualDisk has reached the
 // WaitForUserUpload phase and exposes a usable external upload URL.
 //
@@ -195,6 +241,87 @@ func BeReadyForUserUpload() Predicate {
 		}
 		return true, nil
 	}
+}
+
+// HaveValidPhaseTransitions reports an invariant violation when
+// VirtualDisk.Status.Phase regresses to an earlier point of the
+// provisioning lifecycle.
+//
+// The phases observed during provisioning are organized into ordered
+// milestones:
+//
+//	0: ""                     (the controller has not yet computed a phase)
+//	1: Pending
+//	2: Provisioning, WaitForUserUpload, WaitForFirstConsumer
+//	3: Ready
+//
+// Rank-2 phases are considered equivalent: Provisioning may flip to
+// WaitForUserUpload or WaitForFirstConsumer (and back) while the
+// controller waits for the user upload or for the first consumer. Once a
+// higher milestone has been observed, the phase must not regress to a
+// lower one. For example, observing "" or Pending after Provisioning,
+// or any of the rank-0..2 phases after Ready, is a violation.
+//
+// Phases that are not part of the provisioning happy path (Failed,
+// Terminating, PVCLost, Resizing, Migrating) are skipped: they are
+// handled by other invariants (for example [BeFailed]) and may legally
+// follow Ready in unrelated lifecycle scenarios.
+//
+// Intended for use with [Observer.Always].
+func HaveValidPhaseTransitions() Predicate {
+	var (
+		maxRank     int
+		maxPhase    v1alpha2.DiskPhase
+		hasObserved bool
+	)
+
+	return func(d *v1alpha2.VirtualDisk) (bool, error) {
+		rank, known := diskPhaseRank(d.Status.Phase)
+		if !known {
+			return true, nil
+		}
+
+		if hasObserved && rank < maxRank {
+			return false, fmt.Errorf(
+				"phase regressed from %s to %s",
+				displayPhase(maxPhase), displayPhase(d.Status.Phase),
+			)
+		}
+
+		if !hasObserved || rank > maxRank {
+			maxRank = rank
+			maxPhase = d.Status.Phase
+		}
+		hasObserved = true
+		return true, nil
+	}
+}
+
+// diskPhaseRank returns the milestone rank of a VirtualDisk phase along
+// the provisioning happy path. Phases outside that path are reported as
+// unknown (false) so that callers can skip them.
+func diskPhaseRank(phase v1alpha2.DiskPhase) (int, bool) {
+	switch phase {
+	case "":
+		return 0, true
+	case v1alpha2.DiskPending:
+		return 1, true
+	case v1alpha2.DiskProvisioning,
+		v1alpha2.DiskWaitForUserUpload,
+		v1alpha2.DiskWaitForFirstConsumer:
+		return 2, true
+	case v1alpha2.DiskReady:
+		return 3, true
+	default:
+		return 0, false
+	}
+}
+
+func displayPhase(phase v1alpha2.DiskPhase) string {
+	if phase == "" {
+		return `""`
+	}
+	return fmt.Sprintf("%q", string(phase))
 }
 
 // HaveNonDecreasingProgress reports an invariant violation when

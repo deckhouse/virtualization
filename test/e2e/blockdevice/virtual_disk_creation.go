@@ -110,6 +110,7 @@ var _ = Describe("VirtualDiskCreation", Ordered, Label(precheck.NoPrecheck), fun
 		obs.Always(vdobs.BeStorageClassReady())
 		obs.Always(vdobs.BeDataSourceReady())
 		obs.Always(vdobs.HaveNonDecreasingProgress())
+		obs.Always(vdobs.HaveValidPhaseTransitions())
 
 		By("Creating VirtualDisk", func() {
 			err := f.CreateWithDeferredDeletion(ctx, vd)
@@ -276,6 +277,7 @@ func createVirtualDiskAndWait(ctx context.Context, f *framework.Framework, vd *v
 	obs.Always(vdobs.BeStorageClassReady())
 	obs.Always(vdobs.BeDataSourceReady())
 	obs.Always(vdobs.HaveNonDecreasingProgress())
+	obs.Always(vdobs.HaveValidPhaseTransitions())
 
 	By("Creating VirtualDisk", func() {
 		err := f.CreateWithDeferredDeletion(ctx, vd)

@@ -84,6 +84,56 @@ func BeReady() Predicate {
 	}
 }
 
+// quotaExceededMessagePrefix is the prefix the controller prepends to
+// the Ready condition message when the project quota is exhausted.
+const quotaExceededMessagePrefix = "Quota exceeded"
+
+// BeQuotaExceeded reports the VirtualImage has been parked in a
+// quota-exhausted state.
+//
+// The predicate is satisfied when the Ready condition is fresh,
+// reports Status=False with Reason=ProvisioningFailed, the message is
+// prefixed with "Quota exceeded" (the controller wraps the upstream
+// "exceeded quota:" Kubernetes error into a "Quota exceeded:" message),
+// and the phase is Failed.
+//
+// Returned values:
+//   - (true, nil)  - the VirtualImage reports a fresh quota-exceeded
+//     Ready condition together with the Failed phase;
+//   - (false, nil) - the controller has not yet reported a fresh
+//     quota-exceeded Ready condition;
+//   - (false, err) - the quota-exceeded message is reported with an
+//     unexpected phase or Status, which is a controller bug.
+//
+// Intended for use with [Observer.WaitFor].
+func BeQuotaExceeded() Predicate {
+	return func(i *v1alpha2.VirtualImage) (bool, error) {
+		cond := findCondition(i.Status.Conditions, vicondition.ReadyType.String())
+		if cond == nil || !isConditionFresh(cond, i) {
+			return false, nil
+		}
+		if cond.Reason != vicondition.ProvisioningFailed.String() {
+			return false, nil
+		}
+		if !strings.HasPrefix(cond.Message, quotaExceededMessagePrefix) {
+			return false, nil
+		}
+		if cond.Status != metav1.ConditionFalse {
+			return false, fmt.Errorf(
+				"ready condition reports a quota-exceeded ProvisioningFailed but status is %s, expected %s",
+				cond.Status, metav1.ConditionFalse,
+			)
+		}
+		if i.Status.Phase != v1alpha2.ImageFailed {
+			return false, fmt.Errorf(
+				"ready condition reports a quota-exceeded ProvisioningFailed but phase is %q, expected %q",
+				i.Status.Phase, v1alpha2.ImageFailed,
+			)
+		}
+		return true, nil
+	}
+}
+
 // BeReadyForUserUpload reports the VirtualImage has reached the
 // WaitForUserUpload phase and exposes a usable external upload URL.
 func BeReadyForUserUpload() Predicate {
@@ -99,6 +149,86 @@ func BeReadyForUserUpload() Predicate {
 		}
 		return true, nil
 	}
+}
+
+// HaveValidPhaseTransitions reports an invariant violation when
+// VirtualImage.Status.Phase regresses to an earlier point of the
+// provisioning lifecycle.
+//
+// The phases observed during provisioning are organized into ordered
+// milestones:
+//
+//	0: ""                     (the controller has not yet computed a phase)
+//	1: Pending
+//	2: Provisioning, WaitForUserUpload
+//	3: Ready
+//
+// Rank-2 phases are considered equivalent: Provisioning may flip to
+// WaitForUserUpload (and back) while the controller waits for the user
+// upload. Once a higher milestone has been observed, the phase must not
+// regress to a lower one. For example, observing "" or Pending after
+// Provisioning, or any of the rank-0..2 phases after Ready, is a
+// violation.
+//
+// Phases that are not part of the provisioning happy path (Failed,
+// Terminating, ImageLost) are skipped: they are handled by other
+// invariants (for example [BeFailed]) and may legally follow Ready in
+// unrelated lifecycle scenarios.
+//
+// Intended for use with [Observer.Always].
+func HaveValidPhaseTransitions() Predicate {
+	var (
+		maxRank     int
+		maxPhase    v1alpha2.ImagePhase
+		hasObserved bool
+	)
+
+	return func(i *v1alpha2.VirtualImage) (bool, error) {
+		rank, known := imagePhaseRank(i.Status.Phase)
+		if !known {
+			return true, nil
+		}
+
+		if hasObserved && rank < maxRank {
+			return false, fmt.Errorf(
+				"phase regressed from %s to %s",
+				displayPhase(maxPhase), displayPhase(i.Status.Phase),
+			)
+		}
+
+		if !hasObserved || rank > maxRank {
+			maxRank = rank
+			maxPhase = i.Status.Phase
+		}
+		hasObserved = true
+		return true, nil
+	}
+}
+
+// imagePhaseRank returns the milestone rank of a VirtualImage phase along
+// the provisioning happy path. Phases outside that path are reported as
+// unknown (false) so that callers can skip them.
+func imagePhaseRank(phase v1alpha2.ImagePhase) (int, bool) {
+	switch phase {
+	case "":
+		return 0, true
+	case v1alpha2.ImagePending:
+		return 1, true
+	case v1alpha2.ImageProvisioning,
+		v1alpha2.ImageWaitForUserUpload:
+		return 2, true
+	case v1alpha2.ImageReady:
+		return 3, true
+	default:
+		return 0, false
+	}
+}
+
+func displayPhase(phase v1alpha2.ImagePhase) string {
+	if phase == "" {
+		return `""`
+	}
+	return fmt.Sprintf("%q", string(phase))
 }
 
 // HaveNonDecreasingProgress reports an invariant violation when

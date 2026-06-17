@@ -229,6 +229,7 @@ func createVirtualImageAndWait(ctx context.Context, f *framework.Framework, vi *
 	obs := viobs.StartObserver(ctx, f, vi)
 	obs.Never(viobs.BeFailed())
 	obs.Always(viobs.HaveNonDecreasingProgress())
+	obs.Always(viobs.HaveValidPhaseTransitions())
 
 	By("Creating VirtualImage on "+virtualImageStorageName(vi), func() {
 		err := f.CreateWithDeferredDeletion(ctx, vi)
@@ -246,6 +247,7 @@ func uploadVirtualImageAndWait(ctx context.Context, f *framework.Framework, vi *
 	obs := viobs.StartObserver(ctx, f, vi)
 	obs.Never(viobs.BeFailed())
 	obs.Always(viobs.HaveNonDecreasingProgress())
+	obs.Always(viobs.HaveValidPhaseTransitions())
 
 	By("Creating VirtualImage on "+virtualImageStorageName(vi), func() {
 		err := f.CreateWithDeferredDeletion(ctx, vi)

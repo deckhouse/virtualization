@@ -18,12 +18,17 @@ package cvi
 
 import (
 	"fmt"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
+
+// quotaExceededMessagePrefix is the prefix the controller prepends to
+// the Ready condition message when the project quota is exhausted.
+const quotaExceededMessagePrefix = "Quota exceeded"
 
 func BeFailed() Predicate {
 	return func(i *v1alpha2.ClusterVirtualImage) (bool, error) {
@@ -67,6 +72,52 @@ func BeReady() Predicate {
 			return false, nil
 		}
 
+		return true, nil
+	}
+}
+
+// BeQuotaExceeded reports the ClusterVirtualImage has been parked in a
+// quota-exhausted state.
+//
+// The predicate is satisfied when the Ready condition is fresh,
+// reports Status=False with Reason=ProvisioningFailed, the message is
+// prefixed with "Quota exceeded" (the controller wraps the upstream
+// "exceeded quota:" Kubernetes error into a "Quota exceeded:" message),
+// and the phase is Failed.
+//
+// Returned values:
+//   - (true, nil)  - the ClusterVirtualImage reports a fresh
+//     quota-exceeded Ready condition together with the Failed phase;
+//   - (false, nil) - the controller has not yet reported a fresh
+//     quota-exceeded Ready condition;
+//   - (false, err) - the quota-exceeded message is reported with an
+//     unexpected phase or Status, which is a controller bug.
+//
+// Intended for use with [Observer.WaitFor].
+func BeQuotaExceeded() Predicate {
+	return func(i *v1alpha2.ClusterVirtualImage) (bool, error) {
+		cond := findCondition(i.Status.Conditions, cvicondition.ReadyType.String())
+		if cond == nil || !isConditionFresh(cond, i) {
+			return false, nil
+		}
+		if cond.Reason != cvicondition.ProvisioningFailed.String() {
+			return false, nil
+		}
+		if !strings.HasPrefix(cond.Message, quotaExceededMessagePrefix) {
+			return false, nil
+		}
+		if cond.Status != metav1.ConditionFalse {
+			return false, fmt.Errorf(
+				"ready condition reports a quota-exceeded ProvisioningFailed but status is %s, expected %s",
+				cond.Status, metav1.ConditionFalse,
+			)
+		}
+		if i.Status.Phase != v1alpha2.ImageFailed {
+			return false, fmt.Errorf(
+				"ready condition reports a quota-exceeded ProvisioningFailed but phase is %q, expected %q",
+				i.Status.Phase, v1alpha2.ImageFailed,
+			)
+		}
 		return true, nil
 	}
 }
