@@ -215,7 +215,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		cbConfApplied.
 			Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonConfigurationNotApplied).
-			Message("Waiting for SDN to configure network interfaces on the pod.")
+			Message("Waiting for SDN to configure network interfaces.")
 	case kvvmSyncErr != nil:
 		h.recorder.Event(current, corev1.EventTypeWarning, v1alpha2.ReasonErrVmNotSynced, kvvmSyncErr.Error())
 		cbConfApplied.
@@ -758,7 +758,7 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 				return fmt.Errorf("unable to check pod network status: %w", err)
 			}
 			if !ready {
-				msg := "Waiting for SDN to configure network interfaces on the pod"
+				msg := "Waiting for SDN to configure network interfaces"
 				log.Info(msg)
 				h.recorder.Event(current, corev1.EventTypeNormal, v1alpha2.ReasonVMChangesApplied, msg)
 				return errWaitForNetworkReady
@@ -828,7 +828,24 @@ func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.Virtual
 	if kvvm == nil {
 		return false, nil
 	}
-	filteredVM, err := filterReadyNetworks(ctx, s.Client(), s.VirtualMachine().Current())
+	vm := s.VirtualMachine().Current()
+	// For Main-only VMs, the default pod network may be implicit in the KVVM
+	// template but explicit in the running VMI: KubeVirt defaulting adds it to
+	// the VMI spec when the instance starts. If we later "fix" the KVVM template
+	// from [] to [default] while the VM is already Running, KubeVirt treats that
+	// template diff as a non-live-updatable network change and sets RestartRequired.
+	// When there are no active additional interfaces, this is only an implicit-vs-
+	// explicit default-network drift, so do not reconcile it.
+	if hasOnlyDefaultNetwork(vm) {
+		kvvmi, err := s.KVVMI(ctx)
+		if err != nil {
+			return false, err
+		}
+		if !hasActiveAdditionalInterfaces(kvvm) && isKVVMIRunning(kvvmi) {
+			return false, nil
+		}
+	}
+	filteredVM, err := filterReadyNetworks(ctx, s.Client(), vm)
 	if err != nil {
 		return false, err
 	}
@@ -855,7 +872,45 @@ func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.Virtual
 	return false, nil
 }
 
+func isKVVMIRunning(kvvmi *virtv1.VirtualMachineInstance) bool {
+	return kvvmi != nil && kvvmi.Status.Phase == virtv1.Running
+}
+
+func hasActiveAdditionalInterfaces(kvvm *virtv1.VirtualMachine) bool {
+	if kvvm == nil || kvvm.Spec.Template == nil {
+		return false
+	}
+	for _, iface := range kvvm.Spec.Template.Spec.Domain.Devices.Interfaces {
+		if iface.Name == network.NameDefaultInterface || iface.State == virtv1.InterfaceStateAbsent {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
 func (h *SyncKvvmHandler) applyNetworkReadinessSync(ctx context.Context, s state.VirtualMachineState) error {
+	vm := s.VirtualMachine().Current()
+	if hasOnlyDefaultNetwork(vm) {
+		kvvm, err := s.KVVM(ctx)
+		if err != nil {
+			return fmt.Errorf("find the internal virtual machine: %w", err)
+		}
+		kvvmi, err := s.KVVMI(ctx)
+		if err != nil {
+			return fmt.Errorf("find the internal virtual machine instance: %w", err)
+		}
+		// For Main-only VMs, KubeVirt may have already defaulted the pod network into
+		// the running VMI while the KVVM template still has no explicit interfaces.
+		// Waiting for SDN and updating the template would materialize [] -> [default]
+		// after the VM is Running, which KubeVirt can report as RestartRequired.
+		// If there are no active additional interfaces, there is nothing SDN-managed
+		// to wait for or sync, so skip the network readiness/update path.
+		if !hasActiveAdditionalInterfaces(kvvm) && isKVVMIRunning(kvvmi) {
+			return nil
+		}
+	}
+
 	desired, err := h.patchPodNetworkAnnotation(ctx, s)
 	if err != nil {
 		return fmt.Errorf("patch pod network annotation: %w", err)
