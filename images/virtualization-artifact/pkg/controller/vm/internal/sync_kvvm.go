@@ -585,11 +585,29 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 
 // IsKVVMChanged returns whether kvvm spec or special annotations are changed.
 func IsKVVMChanged(prevKVVM, newKVVM *virtv1.VirtualMachine) bool {
-	if prevKVVM.Annotations[annotations.AnnVMLastAppliedSpec] != newKVVM.Annotations[annotations.AnnVMLastAppliedSpec] {
+	prevKVVMLastAppliedSpecAnnotations, ok := prevKVVM.Annotations[annotations.AnnVMLastAppliedSpec]
+	if !ok {
+		prevKVVMLastAppliedSpecAnnotations = prevKVVM.Annotations[annotations.AnnVMLastAppliedSpecLegacy]
+	}
+	newKVVMLastAppliedSpecAnnotations, ok := newKVVM.Annotations[annotations.AnnVMLastAppliedSpec]
+	if !ok {
+		newKVVMLastAppliedSpecAnnotations = newKVVM.Annotations[annotations.AnnVMLastAppliedSpecLegacy]
+	}
+
+	if prevKVVMLastAppliedSpecAnnotations != newKVVMLastAppliedSpecAnnotations {
 		return true
 	}
 
-	if prevKVVM.Annotations[annotations.AnnVMClassLastAppliedSpec] != newKVVM.Annotations[annotations.AnnVMClassLastAppliedSpec] {
+	prevKVVMClassLastAppliedSpecAnnotations, ok := prevKVVM.Annotations[annotations.AnnVMClassLastAppliedSpec]
+	if !ok {
+		prevKVVMClassLastAppliedSpecAnnotations = prevKVVM.Annotations[annotations.AnnVMClassLastAppliedSpecLegacy]
+	}
+	newKVVMClassLastAppliedSpecAnnotations, ok := newKVVM.Annotations[annotations.AnnVMClassLastAppliedSpec]
+	if !ok {
+		newKVVMClassLastAppliedSpecAnnotations = newKVVM.Annotations[annotations.AnnVMClassLastAppliedSpecLegacy]
+	}
+
+	if prevKVVMClassLastAppliedSpecAnnotations != newKVVMClassLastAppliedSpecAnnotations {
 		return true
 	}
 
