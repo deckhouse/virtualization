@@ -573,6 +573,14 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 	ctx context.Context,
 	mig *virtv1.VirtualMachineInstanceMigration,
 ) (vmopcondition.ReasonCompleted, string, error) {
+	if cond, found := conditions.GetKVVMIMCondition(virtv1.VirtualMachineInstanceMigrationWaitingForSyncSlot, mig.Status.Conditions); found && cond.Status == corev1.ConditionTrue {
+		message := messageWaitingForSyncSlot
+		if cond.Message != "" {
+			message = cond.Message
+		}
+		return vmopcondition.ReasonWaitingForSyncSlot, message, nil
+	}
+
 	reason := vmopcondition.ReasonSyncing
 	message := messageSyncingSourceAndTarget
 
@@ -586,13 +594,6 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 	case virtv1.MigrationScheduled, virtv1.MigrationPreparingTarget:
 		reason = vmopcondition.ReasonTargetPreparing
 		message = messageTargetPodPreparing
-		if cond, found := conditions.GetKVVMIMCondition(virtv1.VirtualMachineInstanceMigrationWaitingForSyncSlot, mig.Status.Conditions); found && cond.Status == corev1.ConditionTrue {
-			reason = vmopcondition.ReasonWaitingForSyncSlot
-			message = messageWaitingForSyncSlot
-			if cond.Message != "" {
-				message = cond.Message
-			}
-		}
 	case virtv1.MigrationTargetReady, virtv1.MigrationWaitingForSync, virtv1.MigrationSynchronizing, virtv1.MigrationRunning:
 		reason = vmopcondition.ReasonSyncing
 		message = messageSyncingSourceAndTarget

@@ -177,6 +177,9 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 		case vmopcondition.ReasonMigrationTargetReady.String(), vmopcondition.ReasonSyncing.String(), vmopcondition.ReasonSourceSuspended.String(), vmopcondition.ReasonTargetResumed.String():
 			cb.Message("Migration is in progress: source and target are being synchronized.")
 
+		case vmopcondition.ReasonWaitingForSyncSlot.String():
+			cb.Message("Migration is in progress: waiting for a sync slot on the source node.")
+
 		case vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate.String():
 			// 3.1 Check if virtual disks can be migrated or ready to migrate
 			if err := h.syncWaitingForVMToBeReadyMigrate(ctx, s, cb); err != nil {
