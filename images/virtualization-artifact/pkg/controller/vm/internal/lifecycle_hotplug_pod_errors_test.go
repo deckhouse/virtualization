@@ -73,6 +73,25 @@ var _ = Describe("LifeCycleHandler hotplug pod errors", func() {
 			LastTimestamp: metav1.NewTime(time.Now()),
 		}
 	}
+	newKVVMIWithHotplugPod := func(vm *v1alpha2.VirtualMachine, pod *corev1.Pod, uid types.UID) *virtv1.VirtualMachineInstance {
+		return &virtv1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      vm.Name,
+				Namespace: vm.Namespace,
+			},
+			Status: virtv1.VirtualMachineInstanceStatus{
+				VolumeStatus: []virtv1.VolumeStatus{
+					{
+						Name: "vd-hotplug",
+						HotplugVolume: &virtv1.HotplugVolumeStatus{
+							AttachPodName: pod.Name,
+							AttachPodUID:  uid,
+						},
+					},
+				},
+			},
+		}
+	}
 
 	It("should return volume errors for launcher pod label", func() {
 		vm := &v1alpha2.VirtualMachine{
@@ -109,23 +128,7 @@ var _ = Describe("LifeCycleHandler hotplug pod errors", func() {
 		hotplugPod := newContainerCreatingPod(vm, "hp-pod", nil)
 		hotplugPod.UID = types.UID("hp-pod-uid")
 		event := newVolumeErrorEvent(vm, hotplugPod.Name)
-		kvvmi := &virtv1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      vm.Name,
-				Namespace: vm.Namespace,
-			},
-			Status: virtv1.VirtualMachineInstanceStatus{
-				VolumeStatus: []virtv1.VolumeStatus{
-					{
-						Name: "vd-hotplug",
-						HotplugVolume: &virtv1.HotplugVolumeStatus{
-							AttachPodName: hotplugPod.Name,
-							AttachPodUID:  hotplugPod.UID,
-						},
-					},
-				},
-			},
-		}
+		kvvmi := newKVVMIWithHotplugPod(vm, hotplugPod, hotplugPod.UID)
 
 		fakeClient, err := testutil.NewFakeClientWithObjects(vm, kvvmi, hotplugPod, event)
 		Expect(err).NotTo(HaveOccurred())
@@ -138,5 +141,68 @@ var _ = Describe("LifeCycleHandler hotplug pod errors", func() {
 		Expect(errors.As(err, &volumeErr)).To(BeTrue())
 		Expect(volumeErr.Reason).To(Equal(watcher.ReasonFailedMount))
 		Expect(volumeErr.Message).To(Equal("unable to mount volume"))
+	})
+
+	It("should ignore hotplug pod when UID does not match KVVMI status", func() {
+		vm := &v1alpha2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "vm",
+				Namespace: "default",
+			},
+		}
+		hotplugPod := newContainerCreatingPod(vm, "hp-pod", nil)
+		hotplugPod.UID = types.UID("hp-pod-uid")
+		event := newVolumeErrorEvent(vm, hotplugPod.Name)
+		kvvmi := newKVVMIWithHotplugPod(vm, hotplugPod, types.UID("other-hp-pod-uid"))
+
+		fakeClient, err := testutil.NewFakeClientWithObjects(vm, kvvmi, hotplugPod, event)
+		Expect(err).NotTo(HaveOccurred())
+		handler := NewLifeCycleHandler(fakeClient, nil)
+
+		err = handler.checkVMPodVolumeErrors(context.Background(), vm, slog.Default())
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("should ignore volume event when pod is not ContainerCreating", func() {
+		vm := &v1alpha2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "vm",
+				Namespace: "default",
+			},
+		}
+		pod := newContainerCreatingPod(vm, "vm-pod", map[string]string{
+			virtv1.VirtualMachineNameLabel: vm.Name,
+		})
+		pod.Status.Phase = corev1.PodRunning
+		pod.Status.ContainerStatuses = nil
+		event := newVolumeErrorEvent(vm, pod.Name)
+
+		fakeClient, err := testutil.NewFakeClientWithObjects(vm, pod, event)
+		Expect(err).NotTo(HaveOccurred())
+		handler := NewLifeCycleHandler(fakeClient, nil)
+
+		err = handler.checkVMPodVolumeErrors(context.Background(), vm, slog.Default())
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("should ignore non-volume warning events", func() {
+		vm := &v1alpha2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "vm",
+				Namespace: "default",
+			},
+		}
+		pod := newContainerCreatingPod(vm, "vm-pod", map[string]string{
+			virtv1.VirtualMachineNameLabel: vm.Name,
+		})
+		event := newVolumeErrorEvent(vm, pod.Name)
+		event.Reason = "FailedScheduling"
+
+		fakeClient, err := testutil.NewFakeClientWithObjects(vm, pod, event)
+		Expect(err).NotTo(HaveOccurred())
+		handler := NewLifeCycleHandler(fakeClient, nil)
+
+		err = handler.checkVMPodVolumeErrors(context.Background(), vm, slog.Default())
+		Expect(err).NotTo(HaveOccurred())
 	})
 })
