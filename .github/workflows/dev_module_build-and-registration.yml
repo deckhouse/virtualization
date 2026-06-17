@@ -17,6 +17,7 @@ name: Deploy Dev
 env:
   MODULES_REGISTRY: ${{ vars.DEV_REGISTRY }}
   CI_COMMIT_REF_NAME: ${{ github.event.inputs.tag }}
+  WERF_EXPERIMENTAL_IMPORT_BY_SOURCE_IMAGE_TAG: "true"
   MODULES_MODULE_NAME: ${{ vars.MODULE_NAME }}
   MODULES_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
   MODULES_REGISTRY_LOGIN: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
@@ -25,7 +26,7 @@ env:
   MODULES_MODULE_TAG: ${{ github.event.inputs.tag }}
   SOURCE_REPO: "${{secrets.SOURCE_REPO}}"
   DECKHOUSE_PRIVATE_REPO: "${{secrets.DECKHOUSE_PRIVATE_REPO}}"
-  GO_VERSION: "1.25.10"
+  GO_VERSION: "1.25.11"
   MODULE_EDITION: "EE"
 
 on:

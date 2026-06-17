@@ -97,6 +97,7 @@ func ApplyVirtualMachineSpec(
 	vdByName map[string]*v1alpha2.VirtualDisk,
 	viByName map[string]*v1alpha2.VirtualImage,
 	cviByName map[string]*v1alpha2.ClusterVirtualImage,
+	vmbdaByBlockDeviceRef map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment,
 	class *v1alpha2.VirtualMachineClass,
 	ipAddress string,
 	networkSpec network.InterfaceSpecList,
@@ -130,7 +131,7 @@ func ApplyVirtualMachineSpec(
 		return err
 	}
 
-	if err := applyBlockDeviceRefs(kvvm, vm, isVmRunning, vdByName, viByName, cviByName); err != nil {
+	if err := applyBlockDeviceRefs(kvvm, vm, isVmRunning, vdByName, viByName, cviByName, vmbdaByBlockDeviceRef); err != nil {
 		return err
 	}
 
@@ -143,7 +144,6 @@ func ApplyVirtualMachineSpec(
 		Version: v1alpha2.SchemeGroupVersion.Version,
 		Kind:    "VirtualMachine",
 	})
-	kvvm.AddFinalizer(v1alpha2.FinalizerKVVMProtection)
 
 	if ipAddress != "" {
 		// Set ip address cni request annotation.
@@ -166,6 +166,7 @@ func applyBlockDeviceRefs(
 	vdByName map[string]*v1alpha2.VirtualDisk,
 	viByName map[string]*v1alpha2.VirtualImage,
 	cviByName map[string]*v1alpha2.ClusterVirtualImage,
+	vmbdaByBlockDeviceRef map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment,
 ) error {
 	hasExplicitBootOrder := false
 	for _, bd := range vm.Spec.BlockDeviceRefs {
@@ -185,13 +186,22 @@ func applyBlockDeviceRefs(
 			hotpluggableVolumes[v.Name] = struct{}{}
 		}
 	}
+	vmbdaDiskNames := make(map[string]struct{}, len(vmbdaByBlockDeviceRef))
+	for ref := range vmbdaByBlockDeviceRef {
+		diskName := GenerateDiskName(v1alpha2.BlockDeviceKind(ref.Kind), ref.Name)
+		if diskName != "" {
+			vmbdaDiskNames[diskName] = struct{}{}
+		}
+	}
+
 	// This is needed to support disk removal in old VMs with static disks
-	cleanupRemovedStaticDisks(kvvm, specDiskNames, hotpluggableVolumes)
+	cleanupRemovedStaticDisks(kvvm, specDiskNames, hotpluggableVolumes, vmbdaDiskNames, isVmRunning)
 
 	kvvmVolumes := kvvm.Resource.Spec.Template.Spec.Volumes
 	for i, bd := range vm.Spec.BlockDeviceRefs {
 		diskName := GenerateDiskName(bd.Kind, bd.Name)
-		if vm.Spec.EnableParavirtualization && len(kvvmVolumes) > 0 && !slices.ContainsFunc(kvvmVolumes, func(v virtv1.Volume) bool { return v.Name == diskName }) {
+		// When VM is stopped, update disks unconditionally.
+		if isVmRunning && vm.Spec.EnableParavirtualization && len(kvvmVolumes) > 0 && !slices.ContainsFunc(kvvmVolumes, func(v virtv1.Volume) bool { return v.Name == diskName }) {
 			continue
 		}
 
@@ -213,11 +223,24 @@ func applyBlockDeviceRefs(
 	return nil
 }
 
-func cleanupRemovedStaticDisks(kvvm *KVVM, specDiskNames, hotpluggableVolumes map[string]struct{}) {
+func cleanupRemovedStaticDisks(kvvm *KVVM, specDiskNames, hotpluggableVolumes, vmbdaDiskNames map[string]struct{}, isVmRunning bool) {
+	// Disks attached via VMBDA should not be removed from KVVM spec even when VM is stopped.
+	// If VMBDA exists, the disk is associated with this VM - VMBDA controller will
+	// handle cleanup when VMBDA is deleted.
 	isRemovedStatic := func(name string) bool {
 		_, kind := GetOriginalDiskName(name)
 		_, inSpec := specDiskNames[name]
 		_, hotpluggable := hotpluggableVolumes[name]
+		_, attachedViaVMBDA := vmbdaDiskNames[name]
+
+		// Don't remove disks that are attached via VMBDA.
+		if attachedViaVMBDA {
+			return false
+		}
+		// When VM is stopped, remove all disks that are not in VM spec.
+		if !isVmRunning {
+			return kind != "" && !inSpec
+		}
 		return kind != "" && !inSpec && !hotpluggable
 	}
 
@@ -340,9 +363,47 @@ func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName ma
 }
 
 func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList) {
-	kvvm.ClearNetworkInterfaces()
+	desiredByName := make(map[string]struct{}, len(networkSpec))
+	for _, n := range networkSpec {
+		desiredByName[n.InterfaceName] = struct{}{}
+	}
+
+	for _, iface := range slices.Clone(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Interfaces) {
+		if _, wanted := desiredByName[iface.Name]; wanted {
+			continue
+		}
+		if iface.Name == network.NameDefaultInterface {
+			kvvm.RemoveNetworkInterface(iface.Name)
+			continue
+		}
+		kvvm.SetNetworkInterfaceAbsent(iface.Name)
+	}
+
 	for _, n := range networkSpec {
 		kvvm.SetNetworkInterface(n.InterfaceName, n.MAC, n.ID)
+	}
+
+	moveDefaultNetworkToFront(kvvm)
+}
+
+func moveDefaultNetworkToFront(kvvm *KVVM) {
+	spec := &kvvm.Resource.Spec.Template.Spec
+	slices.SortStableFunc(spec.Domain.Devices.Interfaces, func(a, b virtv1.Interface) int {
+		return defaultNameFirst(a.Name, b.Name)
+	})
+	slices.SortStableFunc(spec.Networks, func(a, b virtv1.Network) int {
+		return defaultNameFirst(a.Name, b.Name)
+	})
+}
+
+func defaultNameFirst(a, b string) int {
+	switch {
+	case a == network.NameDefaultInterface:
+		return -1
+	case b == network.NameDefaultInterface:
+		return 1
+	default:
+		return 0
 	}
 }
 

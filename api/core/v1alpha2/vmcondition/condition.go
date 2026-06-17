@@ -165,8 +165,10 @@ func (r RunningReason) String() string {
 }
 
 const (
-	ReasonVirtualMachineNotRunning    RunningReason = "NotRunning"
-	ReasonVirtualMachineRunning       RunningReason = "Running"
+	ReasonVirtualMachineNotRunning RunningReason = "NotRunning"
+	ReasonVirtualMachineRunning    RunningReason = "Running"
+	// ReasonNoBootableDeviceFound indicates that a virtual machine is running but no bootable device for an operating system was found.
+	ReasonNoBootableDeviceFound       RunningReason = "NoBootableDevice"
 	ReasonInternalVirtualMachineError RunningReason = "InternalVirtualMachineError"
 	ReasonPodNotStarted               RunningReason = "PodNotStarted"
 	ReasonPodTerminating              RunningReason = "PodTerminating"

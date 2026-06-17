@@ -535,6 +535,155 @@ networks:
 				requirePathOperation("networks", ChangeReplace),
 			),
 		},
+		{
+			"apply immediate when adding non-main network to nil networks",
+			``,
+			`
+networks:
+- type: Main
+  id: 1
+- type: ClusterNetwork
+  name: additional
+  id: 2
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionApplyImmediate),
+				requirePathOperation("networks", ChangeAdd),
+			),
+		},
+		{
+			"apply immediate when adding non-main network to existing main",
+			`
+networks:
+- type: Main
+  id: 1
+`,
+			`
+networks:
+- type: Main
+  id: 1
+- type: ClusterNetwork
+  name: additional
+  id: 2
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionApplyImmediate),
+				requirePathOperation("networks", ChangeReplace),
+			),
+		},
+		{
+			"apply immediate when removing non-main network",
+			`
+networks:
+- type: Main
+  id: 1
+- type: Network
+  name: net1
+  id: 2
+`,
+			`
+networks:
+- type: Main
+  id: 1
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionApplyImmediate),
+				requirePathOperation("networks", ChangeReplace),
+			),
+		},
+		{
+			"restart when main network is removed",
+			`
+networks:
+- type: Main
+  id: 1
+- type: Network
+  name: net1
+  id: 2
+`,
+			`
+networks:
+- type: Network
+  name: net1
+  id: 2
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionRestart),
+				requirePathOperation("networks", ChangeReplace),
+			),
+		},
+		{
+			"apply immediate when removing non-main network from VM without main",
+			`
+networks:
+- type: ClusterNetwork
+  name: net1
+  id: 2
+- type: ClusterNetwork
+  name: net2
+  id: 3
+`,
+			`
+networks:
+- type: ClusterNetwork
+  name: net1
+  id: 2
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionApplyImmediate),
+				requirePathOperation("networks", ChangeReplace),
+			),
+		},
+		{
+			"apply immediate when adding non-main network to VM without main",
+			`
+networks:
+- type: ClusterNetwork
+  name: net1
+  id: 2
+`,
+			`
+networks:
+- type: ClusterNetwork
+  name: net1
+  id: 2
+- type: ClusterNetwork
+  name: net2
+  id: 3
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionApplyImmediate),
+				requirePathOperation("networks", ChangeReplace),
+			),
+		},
+		{
+			"restart when only-non-main spec gains main network",
+			`
+networks:
+- type: ClusterNetwork
+  name: net1
+  id: 2
+`,
+			`
+networks:
+- type: Main
+  id: 1
+- type: ClusterNetwork
+  name: net1
+  id: 2
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionRestart),
+				requirePathOperation("networks", ChangeReplace),
+			),
+		},
 	}
 
 	for _, tt := range tests {
@@ -559,6 +708,47 @@ networks:
 			tt.assertFn(t, changes)
 		})
 	}
+}
+
+// Test ApplyImmediate to Restart upgraders.
+func TestUpgradeHotplugComputeChangesToRestart(t *testing.T) {
+	const cpuReason = "cpu restart reason"
+	const quotaReason = "quota restart reason"
+
+	changes := SpecChanges{}
+	changes.Add(
+		FieldChange{Path: "cpu.cores", ActionRequired: ActionApplyImmediate, RestartMessage: cpuReason},
+		FieldChange{Path: "memory.size", ActionRequired: ActionApplyImmediate},
+		FieldChange{Path: "blockDeviceRefs.0", ActionRequired: ActionApplyImmediate},
+	)
+
+	changes.UpgradeHotplugComputeChangesToRestart()
+	changes.UpgradeBlockDeviceChangesToRestart()
+
+	require.Equal(t, ActionRestart, changes.GetAll()[0].ActionRequired)
+	require.Equal(t, cpuReason, changes.GetAll()[0].RestartMessage)
+	require.Equal(t, ActionRestart, changes.GetAll()[1].ActionRequired)
+	require.Equal(t, ActionRestart, changes.GetAll()[2].ActionRequired)
+
+	changes = SpecChanges{}
+	changes.Add(FieldChange{Path: "memory.size", ActionRequired: ActionApplyImmediate})
+
+	changes.UpgradeHotplugComputeChangesToRestartWithMessage(quotaReason)
+
+	require.Equal(t, ActionRestart, changes.GetAll()[0].ActionRequired)
+	require.Equal(t, quotaReason, changes.GetAll()[0].RestartMessage)
+
+	changes = SpecChanges{}
+	changes.Add(
+		FieldChange{Path: "cpu.cores", ActionRequired: ActionApplyImmediate},
+		FieldChange{Path: "memory.size", ActionRequired: ActionApplyImmediate},
+	)
+
+	changes.UpgradeHotplugComputeChangesToRestartWithMessage(quotaReason)
+
+	require.Equal(t, ActionRestart, changes.GetAll()[0].ActionRequired)
+	require.Equal(t, ActionRestart, changes.GetAll()[1].ActionRequired)
+	require.Equal(t, []string{quotaReason}, changes.GetRestartMessages())
 }
 
 func loadVMSpec(t *testing.T, inYAML string) *v1alpha2.VirtualMachineSpec {

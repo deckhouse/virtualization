@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/component-base/featuregate"
@@ -34,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
@@ -52,6 +54,8 @@ import (
 )
 
 const nameSyncKvvmHandler = "SyncKvvmHandler"
+
+var errWaitForNetworkReady = errors.New("wait for SDN to configure network interfaces on the pod")
 
 type syncVolumesService interface {
 	SyncVolumes(ctx context.Context, s state.VirtualMachineState, restartRequired bool) (reconcile.Result, error)
@@ -155,6 +159,23 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			if kvvmiErr == nil && hasNonHotpluggableVolumes(kvvmi) {
 				changes.UpgradeBlockDeviceChangesToRestart()
 			}
+			// Require restart for CPU and memory changes if VM is non migratable.
+			if h.isVMNonMigratable(current) {
+				changes.UpgradeHotplugComputeChangesToRestart()
+			} else {
+				quotaMessage, insufficientQuota, quotaErr := h.hasInsufficientHotplugMigrationQuota(ctx, current, changes)
+				if quotaErr != nil {
+					err = fmt.Errorf("failed to check project quota for hotplug migration: %w", quotaErr)
+					cbConfApplied.
+						Status(metav1.ConditionFalse).
+						Reason(vmcondition.ReasonConfigurationNotApplied).
+						Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+					return reconcile.Result{}, err
+				}
+				if insufficientQuota {
+					changes.UpgradeHotplugComputeChangesToRestartWithMessage(quotaMessage)
+				}
+			}
 			allChanges.Add(changes.GetAll()...)
 		}
 		if class != nil {
@@ -197,7 +218,8 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 
 	// 3. Create or update KVVM.
 	synced, kvvmSyncErr := h.syncKVVM(ctx, s, allChanges)
-	if kvvmSyncErr != nil {
+	waitForNetwork := errors.Is(kvvmSyncErr, errWaitForNetworkReady)
+	if kvvmSyncErr != nil && !waitForNetwork {
 		errs = errors.Join(errs, fmt.Errorf("failed to sync the internal virtual machine: %w", kvvmSyncErr))
 	}
 
@@ -208,6 +230,11 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 
 	// 4. Set ConfigurationApplied condition.
 	switch {
+	case waitForNetwork:
+		cbConfApplied.
+			Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonConfigurationNotApplied).
+			Message("Waiting for SDN to configure network interfaces.")
 	case kvvmSyncErr != nil:
 		h.recorder.Event(current, corev1.EventTypeWarning, v1alpha2.ReasonErrVmNotSynced, kvvmSyncErr.Error())
 		cbConfApplied.
@@ -265,6 +292,9 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	result, migrateVolumesErr := h.syncVolumesService.SyncVolumes(ctx, s, cbAwaitingRestart.Condition().Status == metav1.ConditionTrue)
 	if migrateVolumesErr != nil {
 		errs = errors.Join(errs, fmt.Errorf("failed to sync migrating volumes: %w", migrateVolumesErr))
+	}
+	if waitForNetwork && result.RequeueAfter == 0 {
+		result.RequeueAfter = 5 * time.Second
 	}
 	return result, errs
 }
@@ -339,6 +369,15 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 
 		return true, nil
 	case allChanges.IsEmpty():
+		outOfSync, err := h.networksOutOfSync(ctx, s, kvvm)
+		if err != nil {
+			return false, fmt.Errorf("check network sync: %w", err)
+		}
+		if outOfSync {
+			if err := h.applyNetworkReadinessSync(ctx, s); err != nil {
+				return false, fmt.Errorf("apply network readiness sync: %w", err)
+			}
+		}
 		return true, nil
 	default:
 		// Delay changes propagation to KVVM until user restarts VM.
@@ -495,7 +534,11 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 		return nil, err
 	}
 
-	networkSpec := network.CreateNetworkSpec(current, vmmacs)
+	filteredVM, err := filterReadyNetworks(ctx, s.Client(), current)
+	if err != nil {
+		return nil, err
+	}
+	networkSpec := network.CreateNetworkSpec(filteredVM, vmmacs)
 
 	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {
@@ -503,7 +546,18 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 	}
 
 	// Create kubevirt VirtualMachine resource from d8 VirtualMachine spec.
-	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, class, ipAddress, networkSpec, kvvmi != nil && kvvmi.Status.Phase == virtv1.Running)
+	err = kvbuilder.ApplyVirtualMachineSpec(
+		kvvmBuilder,
+		current,
+		bdState.VDByName,
+		bdState.VIByName,
+		bdState.CVIByName,
+		bdState.VMBDAByBlockDeviceRef,
+		class,
+		ipAddress,
+		networkSpec,
+		kvvmi != nil && kvvmi.Status.Phase == virtv1.Running,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -531,11 +585,29 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 
 // IsKVVMChanged returns whether kvvm spec or special annotations are changed.
 func IsKVVMChanged(prevKVVM, newKVVM *virtv1.VirtualMachine) bool {
-	if prevKVVM.Annotations[annotations.AnnVMLastAppliedSpec] != newKVVM.Annotations[annotations.AnnVMLastAppliedSpec] {
+	prevKVVMLastAppliedSpecAnnotations, ok := prevKVVM.Annotations[annotations.AnnVMLastAppliedSpec]
+	if !ok {
+		prevKVVMLastAppliedSpecAnnotations = prevKVVM.Annotations[annotations.AnnVMLastAppliedSpecLegacy]
+	}
+	newKVVMLastAppliedSpecAnnotations, ok := newKVVM.Annotations[annotations.AnnVMLastAppliedSpec]
+	if !ok {
+		newKVVMLastAppliedSpecAnnotations = newKVVM.Annotations[annotations.AnnVMLastAppliedSpecLegacy]
+	}
+
+	if prevKVVMLastAppliedSpecAnnotations != newKVVMLastAppliedSpecAnnotations {
 		return true
 	}
 
-	if prevKVVM.Annotations[annotations.AnnVMClassLastAppliedSpec] != newKVVM.Annotations[annotations.AnnVMClassLastAppliedSpec] {
+	prevKVVMClassLastAppliedSpecAnnotations, ok := prevKVVM.Annotations[annotations.AnnVMClassLastAppliedSpec]
+	if !ok {
+		prevKVVMClassLastAppliedSpecAnnotations = prevKVVM.Annotations[annotations.AnnVMClassLastAppliedSpecLegacy]
+	}
+	newKVVMClassLastAppliedSpecAnnotations, ok := newKVVM.Annotations[annotations.AnnVMClassLastAppliedSpec]
+	if !ok {
+		newKVVMClassLastAppliedSpecAnnotations = newKVVM.Annotations[annotations.AnnVMClassLastAppliedSpecLegacy]
+	}
+
+	if prevKVVMClassLastAppliedSpecAnnotations != newKVVMClassLastAppliedSpecAnnotations {
 		return true
 	}
 
@@ -712,6 +784,24 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 		h.recorder.Event(current, corev1.EventTypeNormal, v1alpha2.ReasonVMChangesApplied, message)
 		log.Debug(message, "vm.name", current.GetName(), "changes", changes)
 
+		if hasNetworkChange(changes) {
+			desired, err := h.patchPodNetworkAnnotation(ctx, s)
+			if err != nil {
+				return fmt.Errorf("unable to patch pod network annotation: %w", err)
+			}
+
+			ready, err := h.isNetworkReadyOnPod(ctx, s, desired)
+			if err != nil {
+				return fmt.Errorf("unable to check pod network status: %w", err)
+			}
+			if !ready {
+				msg := "Waiting for SDN to configure network interfaces"
+				log.Info(msg)
+				h.recorder.Event(current, corev1.EventTypeNormal, v1alpha2.ReasonVMChangesApplied, msg)
+				return errWaitForNetworkReady
+			}
+		}
+
 		if err := h.updateKVVM(ctx, s); err != nil {
 			return fmt.Errorf("unable to update KVVM using new VM spec: %w", err)
 		}
@@ -769,6 +859,324 @@ func (h *SyncKvvmHandler) isVMUnschedulable(
 	}
 
 	return false
+}
+
+func (h *SyncKvvmHandler) isVMNonMigratable(
+	vm *v1alpha2.VirtualMachine,
+) bool {
+	vmMigratable, has := conditions.GetCondition(vmcondition.TypeMigratable, vm.Status.Conditions)
+	return has && vmMigratable.Status == metav1.ConditionFalse
+}
+
+func (h *SyncKvvmHandler) hasInsufficientHotplugMigrationQuota(ctx context.Context, vm *v1alpha2.VirtualMachine, changes vmchange.SpecChanges) (string, bool, error) {
+	if !hasHotplugComputeApplyImmediateChange(changes) {
+		return "", false, nil
+	}
+
+	newCPU, newMemory, err := hotplugMigrationRequests(vm)
+	if err != nil {
+		return "", false, err
+	}
+
+	var quotaList corev1.ResourceQuotaList
+	if err = h.client.List(ctx, &quotaList, client.InNamespace(vm.GetNamespace())); err != nil {
+		return "", false, fmt.Errorf("list project quotas: %w", err)
+	}
+
+	var messages []string
+	requests := []struct {
+		name corev1.ResourceName
+		req  resource.Quantity
+	}{
+		{name: corev1.ResourceRequestsCPU, req: newCPU},
+		{name: corev1.ResourceRequestsMemory, req: newMemory},
+	}
+
+	for i := range quotaList.Items {
+		quota := &quotaList.Items[i]
+		for _, request := range requests {
+			if message, allowed := quotaAllowsHotplugMigration(quota, request.name, request.req); !allowed {
+				messages = append(messages, message)
+			}
+		}
+	}
+
+	if len(messages) > 0 {
+		return strings.Join(messages, " "), true, nil
+	}
+
+	return "", false, nil
+}
+
+func hasHotplugComputeApplyImmediateChange(changes vmchange.SpecChanges) bool {
+	for _, change := range changes.GetAll() {
+		isCPUChange := change.Path == "cpu" || strings.HasPrefix(change.Path, "cpu.")
+		isMemoryChange := change.Path == "memory" || strings.HasPrefix(change.Path, "memory.")
+		if (isCPUChange || isMemoryChange) && change.ActionRequired == vmchange.ActionApplyImmediate {
+			return true
+		}
+	}
+	return false
+}
+
+func hotplugMigrationRequests(vm *v1alpha2.VirtualMachine) (newCPU, newMemory resource.Quantity, err error) {
+	newCPUReq, err := kvbuilder.GetCPURequest(vm.Spec.CPU.Cores, vm.Spec.CPU.CoreFraction)
+	if err != nil {
+		return resource.Quantity{}, resource.Quantity{}, fmt.Errorf("calculate new CPU request: %w", err)
+	}
+
+	return *newCPUReq, vm.Spec.Memory.Size, nil
+}
+
+func quotaAllowsHotplugMigration(quota *corev1.ResourceQuota, resourceName corev1.ResourceName, newReq resource.Quantity) (string, bool) {
+	hard, hasHard := quota.Status.Hard[resourceName]
+	if !hasHard {
+		hard, hasHard = quota.Spec.Hard[resourceName]
+	}
+	if !hasHard {
+		return "", true
+	}
+
+	if newReq.Cmp(hard) == common.CmpGreater {
+		return hotplugMigrationQuotaMessage(quota, resourceName, newReq, resource.Quantity{}, hard), false
+	}
+
+	used := quota.Status.Used[resourceName]
+	duringMigration := used.DeepCopy()
+	duringMigration.Add(newReq)
+	if duringMigration.Cmp(hard) == common.CmpGreater {
+		available := hard.DeepCopy()
+		available.Sub(used)
+		if available.Sign() < 0 {
+			available.Set(0)
+		}
+		return hotplugMigrationQuotaMessage(quota, resourceName, newReq, available, hard), false
+	}
+
+	return "", true
+}
+
+func hotplugMigrationQuotaMessage(quota *corev1.ResourceQuota, resourceName corev1.ResourceName, newReq, available, hard resource.Quantity) string {
+	if newReq.Cmp(hard) == common.CmpGreater {
+		return fmt.Sprintf(
+			"Hotplug migration cannot start because %s request %s exceeds project quota %q hard limit %s. Restart the virtual machine to apply the changes without live migration.",
+			resourceName,
+			newReq.String(),
+			quota.GetName(),
+			hard.String(),
+		)
+	}
+
+	return fmt.Sprintf(
+		"Hotplug migration cannot start because project quota %q has insufficient %s: required additional %s, available %s. Restart the virtual machine to apply the changes without live migration.",
+		quota.GetName(),
+		resourceName,
+		newReq.String(),
+		available.String(),
+	)
+}
+
+func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine) (bool, error) {
+	if kvvm == nil {
+		return false, nil
+	}
+	vm := s.VirtualMachine().Current()
+	// For Main-only VMs, the default pod network may be implicit in the KVVM
+	// template but explicit in the running VMI: KubeVirt defaulting adds it to
+	// the VMI spec when the instance starts. If we later "fix" the KVVM template
+	// from [] to [default] while the VM is already Running, KubeVirt treats that
+	// template diff as a non-live-updatable network change and sets RestartRequired.
+	// When there are no active additional interfaces, this is only an implicit-vs-
+	// explicit default-network drift, so do not reconcile it.
+	if hasOnlyDefaultNetwork(vm) {
+		kvvmi, err := s.KVVMI(ctx)
+		if err != nil {
+			return false, err
+		}
+		if !hasActiveAdditionalInterfaces(kvvm) && isKVVMIRunning(kvvmi) {
+			return false, nil
+		}
+	}
+	filteredVM, err := filterReadyNetworks(ctx, s.Client(), vm)
+	if err != nil {
+		return false, err
+	}
+	vmmacs, err := s.VirtualMachineMACAddresses(ctx)
+	if err != nil {
+		return false, err
+	}
+	desired := network.CreateNetworkSpec(filteredVM, vmmacs)
+	actual := make(map[string]struct{})
+	for _, iface := range kvvm.Spec.Template.Spec.Domain.Devices.Interfaces {
+		if iface.State == virtv1.InterfaceStateAbsent {
+			continue
+		}
+		actual[iface.Name] = struct{}{}
+	}
+	if len(desired) != len(actual) {
+		return true, nil
+	}
+	for _, spec := range desired {
+		if _, ok := actual[spec.InterfaceName]; !ok {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func isKVVMIRunning(kvvmi *virtv1.VirtualMachineInstance) bool {
+	return kvvmi != nil && kvvmi.Status.Phase == virtv1.Running
+}
+
+func hasActiveAdditionalInterfaces(kvvm *virtv1.VirtualMachine) bool {
+	if kvvm == nil || kvvm.Spec.Template == nil {
+		return false
+	}
+	for _, iface := range kvvm.Spec.Template.Spec.Domain.Devices.Interfaces {
+		if iface.Name == network.NameDefaultInterface || iface.State == virtv1.InterfaceStateAbsent {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+func (h *SyncKvvmHandler) applyNetworkReadinessSync(ctx context.Context, s state.VirtualMachineState) error {
+	vm := s.VirtualMachine().Current()
+	if hasOnlyDefaultNetwork(vm) {
+		kvvm, err := s.KVVM(ctx)
+		if err != nil {
+			return fmt.Errorf("find the internal virtual machine: %w", err)
+		}
+		kvvmi, err := s.KVVMI(ctx)
+		if err != nil {
+			return fmt.Errorf("find the internal virtual machine instance: %w", err)
+		}
+		// For Main-only VMs, KubeVirt may have already defaulted the pod network into
+		// the running VMI while the KVVM template still has no explicit interfaces.
+		// Waiting for SDN and updating the template would materialize [] -> [default]
+		// after the VM is Running, which KubeVirt can report as RestartRequired.
+		// If there are no active additional interfaces, there is nothing SDN-managed
+		// to wait for or sync, so skip the network readiness/update path.
+		if !hasActiveAdditionalInterfaces(kvvm) && isKVVMIRunning(kvvmi) {
+			return nil
+		}
+	}
+
+	desired, err := h.patchPodNetworkAnnotation(ctx, s)
+	if err != nil {
+		return fmt.Errorf("patch pod network annotation: %w", err)
+	}
+	ready, err := h.isNetworkReadyOnPod(ctx, s, desired)
+	if err != nil {
+		return fmt.Errorf("check pod network status: %w", err)
+	}
+	if !ready {
+		logger.FromContext(ctx).Info("Waiting for SDN to configure network interfaces on the pod before updating KVVM")
+		return errWaitForNetworkReady
+	}
+	return h.updateKVVM(ctx, s)
+}
+
+func filterReadyNetworks(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine) (*v1alpha2.VirtualMachine, error) {
+	if c == nil || vm == nil || len(vm.Spec.Networks) == 0 {
+		return vm, nil
+	}
+	kept := make([]v1alpha2.NetworksSpec, 0, len(vm.Spec.Networks))
+	for _, ns := range vm.Spec.Networks {
+		ready, err := network.IsNetworkSpecReady(ctx, c, vm.Namespace, ns)
+		if err != nil {
+			return nil, fmt.Errorf("check readiness for network %s: %w", network.SpecKey(ns), err)
+		}
+		if ready {
+			kept = append(kept, ns)
+		}
+	}
+	if len(kept) == len(vm.Spec.Networks) {
+		return vm, nil
+	}
+	out := vm.DeepCopy()
+	out.Spec.Networks = kept
+	return out, nil
+}
+
+func hasNetworkChange(changes vmchange.SpecChanges) bool {
+	for _, c := range changes.GetAll() {
+		if c.Path == "networks" {
+			return true
+		}
+	}
+	return false
+}
+
+func (h *SyncKvvmHandler) isNetworkReadyOnPod(ctx context.Context, s state.VirtualMachineState, desired []string) (bool, error) {
+	pods, err := s.Pods(ctx)
+	if err != nil {
+		return false, err
+	}
+	if pods == nil || len(pods.Items) == 0 {
+		return false, nil
+	}
+	errMsg, err := extractNetworkStatusFromPods(pods, desired)
+	if err != nil {
+		return false, err
+	}
+	return errMsg == "", nil
+}
+
+// patchPodNetworkAnnotation writes the desired networks-spec annotation onto
+// the virt-launcher pod and returns the names of additional networks it wrote.
+// The names let the caller assert SDN has already reflected each one in networks status
+func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state.VirtualMachineState) ([]string, error) {
+	log := logger.FromContext(ctx)
+
+	pod, err := s.Pod(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if pod == nil {
+		return nil, nil
+	}
+
+	current := s.VirtualMachine().Current()
+	vmmacs, err := s.VirtualMachineMACAddresses(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	filteredVM, err := filterReadyNetworks(ctx, s.Client(), current)
+	if err != nil {
+		return nil, err
+	}
+
+	var desired []string
+	for _, n := range filteredVM.Spec.Networks {
+		if n.Type == v1alpha2.NetworksTypeMain {
+			continue
+		}
+		desired = append(desired, n.Name)
+	}
+
+	networkConfigStr, err := network.CreateNetworkSpec(filteredVM, vmmacs).ToString()
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize network spec: %w", err)
+	}
+
+	if pod.Annotations[annotations.AnnNetworksSpec] == networkConfigStr {
+		return desired, nil
+	}
+
+	patch := client.MergeFrom(pod.DeepCopy())
+	if pod.Annotations == nil {
+		pod.Annotations = make(map[string]string)
+	}
+	pod.Annotations[annotations.AnnNetworksSpec] = networkConfigStr
+	if err := h.client.Patch(ctx, pod, patch); err != nil {
+		return nil, fmt.Errorf("failed to patch pod %s network annotation: %w", pod.Name, err)
+	}
+	log.Info("Patched pod network annotation", "pod", pod.Name, "networks", networkConfigStr)
+
+	return desired, nil
 }
 
 // isPlacementPolicyChanged returns true if any of the Affinity, NodePlacement, or Toleration rules have changed.

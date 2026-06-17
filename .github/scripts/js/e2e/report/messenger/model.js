@@ -30,32 +30,36 @@ const genericArtifactMissingLabel = "E2E REPORT ARTIFACT NOT FOUND";
  * @returns {Record<string, any>} Synthetic report payload.
  */
 function createMissingReport(clusterName) {
+  const missingStatusMessage = buildStatusMessage("missing", genericArtifactMissingLabel);
+  const clusterStatus = {
+    status: "missing",
+    stage: "artifact-missing",
+    stageLabel: genericArtifactMissingLabel,
+    message: missingStatusMessage,
+    reason: "cluster-report-artifact-missing",
+  };
+  const testStatus = {
+    status: "not-run",
+    reason: "cluster-report-artifact-missing",
+    message: "E2E status is unavailable because cluster report artifact was not found",
+  };
+
   return {
     schemaVersion: 1,
     cluster: clusterName,
     storageType: clusterName,
     reportKind: "artifact-missing",
     status: "missing",
-    statusMessage: buildStatusMessage("missing", genericArtifactMissingLabel),
+    statusMessage: missingStatusMessage,
     failedStage: "artifact-missing",
     failedStageLabel: genericArtifactMissingLabel,
     branch: "",
     workflowRunUrl: "",
-    clusterStatus: {
-      status: "missing",
-      stage: "artifact-missing",
-      stageLabel: genericArtifactMissingLabel,
-      message: buildStatusMessage("missing", genericArtifactMissingLabel),
-      reason: "cluster-report-artifact-missing",
-    },
-    testStatus: {
-      status: "not-run",
-      reason: "cluster-report-artifact-missing",
-      message:
-        "E2E status is unavailable because cluster report artifact was not found",
-    },
+    clusterStatus,
+    testStatus,
     metrics: zeroMetrics(),
     failedTests: [],
+    failedTestDetails: [],
     reportSource: "missing-artifact",
   };
 }

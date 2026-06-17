@@ -57,7 +57,6 @@ properties:
             description: |
               Тип используемого хранилища.
               - `persistentVolumeClaim` — Использование pvc
-              - `objectStorage` — Использование objectStorage
           persistentVolumeClaim:
             description: |
               Параметры для настройки PersistentVolumeClaim.
@@ -68,31 +67,6 @@ properties:
               size:
                 description: |
                   Размер pvc.
-          objectStorage:
-            description: |
-              Параметры для настройки объектного хранилища.
-            properties:
-              s3:
-                description: |
-                  Параметры для использования s3.
-                properties:
-                  accessKey:
-                    description: |
-                      accessKey должен быть закодирован в base64.
-                      accessKey — это уникальный идентификатор, который идентифицирует вас как пользователя, имеющего доступ к S3.
-                  secretKey:
-                    description: |
-                      secretKey должен быть закодирован в base64.
-                      secretKey — это конфиденциальный секретный ключ, связанный с вашим идентификатором ключа доступа.
-                  region:
-                    description: |
-                      Географическая зона.
-                  regionEndpoint:
-                    description: |
-                      Конечная точка для подключения к сервису S3.
-                  bucket:
-                    description: |
-                      Контейнер, в котором вы можете хранить свои файлы и объекты данных.
       gc:
         description: Настройки очистки хранилища
         properties:

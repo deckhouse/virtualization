@@ -17,15 +17,17 @@ limitations under the License.
 package framework
 
 import (
+	"context"
 	"sync"
 
 	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 )
 
 var (
-	conf        *config.Config
-	once        sync.Once
-	clientsOnce sync.Once
+	conf               *config.Config
+	confMu             sync.RWMutex
+	once               sync.Once
+	storageClassesOnce sync.Once
 )
 
 func onceLoadConfig() {
@@ -34,20 +36,44 @@ func onceLoadConfig() {
 		if err != nil {
 			panic(err)
 		}
-		SetConfig(c)
+		setConfig(c)
+	})
+}
+
+func initStorageClasses() {
+	storageClassesOnce.Do(func() {
+		onceLoadConfig()
+		InitClients()
+
+		confMu.Lock()
+		defer confMu.Unlock()
+
+		if err := conf.SetStorageClasses(context.Background(), clients.client); err != nil {
+			panic(err)
+		}
 	})
 }
 
 func GetConfig() *config.Config {
 	onceLoadConfig()
+	initStorageClasses()
 
+	confMu.RLock()
 	copied := *conf
+	confMu.RUnlock()
+
 	return &copied
 }
 
 // SetConfig sets the config.
-// this needs because we have some legacy, config mutating in the main test suite
-// should be refactored in the future
+//
+// Deprecated: config is populated by framework initialization; legacy should not mutate it.
 func SetConfig(c *config.Config) {
+	setConfig(c)
+}
+
+func setConfig(c *config.Config) {
+	confMu.Lock()
 	conf = c
+	confMu.Unlock()
 }

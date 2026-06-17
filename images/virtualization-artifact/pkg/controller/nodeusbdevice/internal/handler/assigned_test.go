@@ -18,6 +18,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice/internal/state"
@@ -123,6 +125,54 @@ var _ = Describe("AssignedHandler", func() {
 		Entry("device absent on host removes USBDevice", "test-namespace", true, true, true, string(nodeusbdevicecondition.InProgress), false),
 		Entry("unassigned removes stale USBDevice", "", false, false, true, string(nodeusbdevicecondition.Available), false),
 	)
+
+	It("should ignore not found error when deleting orphaned USBDevice", func() {
+		scheme := apiruntime.NewScheme()
+		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
+		Expect(corev1.AddToScheme(scheme)).To(Succeed())
+
+		node := &v1alpha2.NodeUSBDevice{
+			ObjectMeta: metav1.ObjectMeta{Name: "usb-device-1", UID: types.UID("node-usb-uid")},
+			Status: v1alpha2.NodeUSBDeviceStatus{
+				Attributes: v1alpha2.NodeUSBDeviceAttributes{VendorID: "1234", ProductID: "5678"},
+				NodeName:   "node-1",
+			},
+		}
+		usbDevice := &v1alpha2.USBDevice{ObjectMeta: metav1.ObjectMeta{Name: "usb-device-1", Namespace: "stale-namespace"}}
+
+		cl := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(node, usbDevice).
+			WithIndex(&v1alpha2.USBDevice{}, indexer.IndexFieldUSBDeviceByName, func(object client.Object) []string {
+				usbDevice, ok := object.(*v1alpha2.USBDevice)
+				if !ok || usbDevice == nil {
+					return nil
+				}
+				return []string{usbDevice.Name}
+			}).
+			WithInterceptorFuncs(interceptor.Funcs{
+				Delete: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.DeleteOption) error {
+					if _, ok := obj.(*v1alpha2.USBDevice); ok {
+						return errors.New(`usbdevices.virtualization.deckhouse.io "usb-device-1" not found`)
+					}
+					return nil
+				},
+			}).
+			Build()
+
+		res := reconciler.NewResource(
+			types.NamespacedName{Name: node.Name},
+			cl,
+			func() *v1alpha2.NodeUSBDevice { return &v1alpha2.NodeUSBDevice{} },
+			func(obj *v1alpha2.NodeUSBDevice) v1alpha2.NodeUSBDeviceStatus { return obj.Status },
+		)
+		Expect(res.Fetch(ctx)).To(Succeed())
+
+		h := NewAssignedHandler(cl)
+		st := state.New(cl, res)
+		_, err := h.Handle(ctx, st)
+		Expect(err).NotTo(HaveOccurred())
+	})
 
 	It("should update existing USBDevice when attributes change", func() {
 		scheme := apiruntime.NewScheme()

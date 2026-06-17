@@ -22,7 +22,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	virtv1 "kubevirt.io/api/core/v1"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -249,4 +251,153 @@ func TestSetOsType(t *testing.T) {
 			t.Error("TPM should be removed after changing from Windows to Generic OS")
 		}
 	})
+}
+
+func newTestKVVM() *KVVM {
+	return NewEmptyKVVM(types.NamespacedName{Name: "test", Namespace: "default"}, KVVMOptions{
+		EnableParavirtualization: true,
+	})
+}
+
+func TestSetNetworkInterfaceAbsent(t *testing.T) {
+	b := newTestKVVM()
+	b.SetNetworkInterface("default", "", 1)
+	b.SetNetworkInterface("veth_n12345678", "aa:bb:cc:dd:ee:ff", 2)
+
+	b.SetNetworkInterfaceAbsent("veth_n12345678")
+
+	for _, iface := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
+		if iface.Name == "veth_n12345678" {
+			if iface.State != virtv1.InterfaceStateAbsent {
+				t.Errorf("expected State %q, got %q", virtv1.InterfaceStateAbsent, iface.State)
+			}
+			return
+		}
+	}
+	t.Error("interface veth_n12345678 not found")
+}
+
+func TestSetNetworkInterfaceReplacesExisting(t *testing.T) {
+	b := newTestKVVM()
+	b.SetNetworkInterface("veth_n12345678", "aa:bb:cc:dd:ee:ff", 2)
+	b.SetNetworkInterfaceAbsent("veth_n12345678")
+
+	b.SetNetworkInterface("veth_n12345678", "aa:bb:cc:dd:ee:ff", 2)
+
+	for _, iface := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
+		if iface.Name == "veth_n12345678" {
+			if iface.State != "" {
+				t.Errorf("expected empty State after re-add, got %q", iface.State)
+			}
+			return
+		}
+	}
+	t.Error("interface veth_n12345678 not found")
+}
+
+func TestSetNetworkMarksRemovedAsAbsent(t *testing.T) {
+	b := newTestKVVM()
+	b.SetNetworkInterface("default", "", 1)
+	b.SetNetworkInterface("veth_n12345678", "aa:bb:cc:dd:ee:ff", 2)
+
+	setNetwork(b, network.InterfaceSpecList{
+		{InterfaceName: "default", MAC: "", ID: 1},
+	})
+
+	found := false
+	for _, iface := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
+		if iface.Name == "veth_n12345678" {
+			found = true
+			if iface.State != virtv1.InterfaceStateAbsent {
+				t.Errorf("removed interface should have State %q, got %q", virtv1.InterfaceStateAbsent, iface.State)
+			}
+		}
+		if iface.Name == "default" && iface.State != "" {
+			t.Errorf("kept interface should have empty State, got %q", iface.State)
+		}
+	}
+	if !found {
+		t.Error("removed interface should be retained with absent state, not deleted")
+	}
+}
+
+func TestSetNetworkRemovesDefaultEntirely(t *testing.T) {
+	b := newTestKVVM()
+	b.SetNetworkInterface("default", "", 1)
+	b.SetNetworkInterface("veth_n12345678", "aa:bb:cc:dd:ee:ff", 2)
+
+	setNetwork(b, network.InterfaceSpecList{
+		{InterfaceName: "veth_n12345678", MAC: "aa:bb:cc:dd:ee:ff", ID: 2},
+	})
+
+	for _, iface := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
+		if iface.Name == "default" {
+			t.Fatalf("default interface must be removed from KVVM template when Main is dropped (KubeVirt rejects State: absent on default)")
+		}
+	}
+	for _, n := range b.Resource.Spec.Template.Spec.Networks {
+		if n.Name == "default" {
+			t.Fatalf("default network entry must be removed alongside the interface")
+		}
+	}
+}
+
+func TestSetNetworkAddsNewInterface(t *testing.T) {
+	b := newTestKVVM()
+	b.SetNetworkInterface("default", "", 1)
+
+	setNetwork(b, network.InterfaceSpecList{
+		{InterfaceName: "default", MAC: "", ID: 1},
+		{InterfaceName: "veth_n12345678", MAC: "aa:bb:cc:dd:ee:ff", ID: 2},
+	})
+
+	found := false
+	for _, iface := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
+		if iface.Name == "veth_n12345678" {
+			found = true
+			if iface.ACPIIndex != 2 {
+				t.Errorf("expected ACPIIndex 2, got %d", iface.ACPIIndex)
+			}
+		}
+	}
+	if !found {
+		t.Error("new interface should be added")
+	}
+}
+
+func TestSetNetworkKeepsDefaultFirstWhenMainAddedLast(t *testing.T) {
+	b := newTestKVVM()
+	b.SetNetworkInterface("veth_cn11111111", "aa:bb:cc:dd:ee:01", 2)
+	b.SetNetworkInterface("veth_n22222222", "aa:bb:cc:dd:ee:02", 3)
+
+	setNetwork(b, network.InterfaceSpecList{
+		{InterfaceName: "default", MAC: "", ID: 1},
+		{InterfaceName: "veth_cn11111111", MAC: "aa:bb:cc:dd:ee:01", ID: 2},
+		{InterfaceName: "veth_n22222222", MAC: "aa:bb:cc:dd:ee:02", ID: 3},
+	})
+
+	ifaces := b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces
+	if got := ifaces[0].Name; got != "default" {
+		t.Errorf("default interface must be first, got order: %v", interfaceNames(ifaces))
+	}
+	nets := b.Resource.Spec.Template.Spec.Networks
+	if got := nets[0].Name; got != "default" {
+		t.Errorf("default network must be first, got order: %v", networkNames(nets))
+	}
+}
+
+func interfaceNames(ifaces []virtv1.Interface) []string {
+	names := make([]string, len(ifaces))
+	for i, iface := range ifaces {
+		names[i] = iface.Name
+	}
+	return names
+}
+
+func networkNames(nets []virtv1.Network) []string {
+	names := make([]string, len(nets))
+	for i, n := range nets {
+		names[i] = n.Name
+	}
+	return names
 }

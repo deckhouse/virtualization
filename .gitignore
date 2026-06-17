@@ -60,3 +60,13 @@ retry/
 # nodejs
 node_modules/
 package-lock.json
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+
+# AI tools
+.cache
+.gocache
+.pi_*

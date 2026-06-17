@@ -161,9 +161,19 @@ log_success "SA, Secrets and ClusterAuthorizationRule applied"
 
 kubeconfig_cert_cluster_section() {
   log_info "Set cluster config"
+
+  local api_host
+  if api_host=$(kubectl -n d8-user-authn get ing kubernetes-api -ojson 2>/dev/null | jq -r '.spec.rules[].host' | head -1) && [ -n "$api_host" ]; then
+    log_info "Found kubernetes-api ingress in d8-user-authn"
+  elif api_host=$(kubectl -n kube-system get ing kubernetes-api -ojson 2>/dev/null | jq -r '.spec.rules[].host' | head -1) && [ -n "$api_host" ]; then
+    log_info "Found kubernetes-api ingress in kube-system"
+  else
+    exit_with_error "kubernetes-api ingress not found in d8-user-authn or kube-system"
+  fi
+
   kubectl config set-cluster "${CLUSTER_NAME}" \
     --insecure-skip-tls-verify=true \
-    --server=https://"$(kubectl -n d8-user-authn get ing kubernetes-api -ojson | jq '.spec.rules[].host' -r)" \
+    --server=https://"${api_host}" \
     --kubeconfig="${FILE_NAME}"
 }
 

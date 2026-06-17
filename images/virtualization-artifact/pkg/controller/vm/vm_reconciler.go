@@ -31,6 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/watcher"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -76,6 +77,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		watcher.NewVMOPWatcher(),
 		watcher.NewVMMACWatcher(),
 		watcher.NewSecretWatcher(mgr.GetClient()),
+		watcher.NewNetworkWatcher(mgr.GetClient(), featuregates.Default()),
 	} {
 		err := w.Watch(mgr, ctr)
 		if err != nil {

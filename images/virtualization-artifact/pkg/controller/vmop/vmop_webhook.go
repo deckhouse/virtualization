@@ -31,6 +31,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/validator"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/supersede"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/version"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -43,6 +44,7 @@ func NewValidator(c client.Client, log *log.Logger) admission.CustomValidator {
 	).WithCreateValidators(
 		&nodeSelectorValidator{},
 		&localStorageMigrationValidator{client: c},
+		&activeVMOPValidator{client: c},
 	)
 }
 
@@ -79,6 +81,31 @@ func (n *nodeSelectorValidator) validateNodeSelector(nodeSelector map[string]str
 
 type localStorageMigrationValidator struct {
 	client client.Client
+}
+
+type activeVMOPValidator struct {
+	client client.Client
+}
+
+func (v *activeVMOPValidator) ValidateCreate(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (admission.Warnings, error) {
+	var vmopList v1alpha2.VirtualMachineOperationList
+	if err := v.client.List(ctx, &vmopList, client.InNamespace(vmop.Namespace)); err != nil {
+		return nil, fmt.Errorf("failed to list VirtualMachineOperations: %w", err)
+	}
+
+	for _, other := range vmopList.Items {
+		if other.Spec.VirtualMachine != vmop.Spec.VirtualMachine {
+			continue
+		}
+		if commonvmop.IsFinished(&other) {
+			continue
+		}
+		if !supersede.CanSupersede(&other, vmop) {
+			return nil, fmt.Errorf("VMOP cannot be executed now. Previously created operation %q should finish first", other.Name)
+		}
+	}
+
+	return nil, nil
 }
 
 func (v *localStorageMigrationValidator) ValidateCreate(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (admission.Warnings, error) {

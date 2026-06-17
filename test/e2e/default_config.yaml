@@ -1,8 +1,8 @@
 namespaceSuffix: "e2e"
 
-# isCleanupNeeded controls cleanup of resources created during test execution (VMs, VDs, namespaces, etc.)
-# Enabled by default. Set to false to skip cleanup for debugging.
-isCleanupNeeded: true
+# postCleanupMode controls cleanup of resources created during test execution (VMs, VDs, namespaces, etc.)
+# Enabled by default. Set to never or no-on-failure to skip cleanup for debugging.
+postCleanupMode: always
 # isPrecreatedCVICleanupNeeded controls cleanup of precreated ClusterVirtualImages shared across test runs
 # Disabled by default: CVIs persist between runs for faster execution.
 # Set to true to delete them after the suite.
@@ -22,7 +22,6 @@ testData:
   sizingPolicy: "/tmp/testdata/sizing-policy"
   vmConfiguration: "/tmp/testdata/vm-configuration"
   vmMigration: "/tmp/testdata/vm-migration"
-  vdSnapshots: "/tmp/testdata/vd-snapshots"
   sshKey: "/tmp/testdata/sshkeys/id_ed"
   sshUser: "cloud"
 logFilter:

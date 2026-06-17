@@ -39,9 +39,6 @@ const (
 	// CABundleVolName is the name of the volume containing certs from dataSource.http.caBundle field.
 	caBundleVolName = "ca-bundle-vol"
 
-	// AnnOwnerRef is used when owner is in a different namespace
-	AnnOwnerRef = annotations.AnnAPIGroup + "/storage.ownerRef"
-
 	// PodRunningReason is const that defines the pod was started as a reason
 	// PodRunningReason = "Pod is running"
 

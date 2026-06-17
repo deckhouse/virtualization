@@ -39,7 +39,9 @@ const (
 	AnnIntegrityCoreChecksumApplied = AnnIntegrityGroup + "core-spec-checksum-applied"
 
 	// AnnAPIGroup is the APIGroup for virtualization-controller.
-	AnnAPIGroup = "virt.deckhouse.io"
+	AnnAPIGroup = "internal.virtualization.deckhouse.io"
+	// AnnAPIGroupLegacy is the legacy APIGroup for virtualization-controller annotations.
+	AnnAPIGroupLegacy = "virt.deckhouse.io"
 
 	// AnnCreatedBy is a pod annotation indicating if the pod was created by the PVC.
 	AnnCreatedBy = AnnAPIGroup + "/storage.createdByController"
@@ -47,16 +49,24 @@ const (
 	// AnnPodRetainAfterCompletion is PVC annotation for retaining transfer pods after completion
 	AnnPodRetainAfterCompletion = AnnAPIGroup + "/storage.pod.retainAfterCompletion"
 
+	// AnnPodRetainAfterCompletionLegacy is the legacy PVC annotation for retaining transfer pods after completion.
+	AnnPodRetainAfterCompletionLegacy = AnnAPIGroupLegacy + "/storage.pod.retainAfterCompletion"
+
 	// AnnUploadURLDeprecated provides a const for CVMI/VMI/VMD uploadURL annotation.
 	// TODO remove annotation and its usages after version 1.0 becomes Stable.
-	AnnUploadURLDeprecated = AnnAPIGroup + "/upload.url"
+	AnnUploadURLDeprecated = AnnAPIGroupLegacy + "/upload.url"
 
 	// AnnTolerationsHash provides a const for annotation with hash of applied tolerations.
 	AnnTolerationsHash = AnnAPIGroup + "/tolerations-hash"
+	// AnnTolerationsHashLegacy provides a const for legacy annotation with hash of applied tolerations.
+	AnnTolerationsHashLegacy = AnnAPIGroupLegacy + "/tolerations-hash"
+
 	// AnnProvisionerTolerations provides a const for tolerations to use for provisioners.
 	AnnProvisionerTolerations = AnnAPIGroup + "/provisioner-tolerations"
 	// AnnProvisionerName provides a name of the PVC provisioner.
 	AnnProvisionerName = AnnAPIGroup + "/provisioner-name"
+	// AnnProvisionerNameLegacy provides a legacy name of data volume provisioner.
+	AnnProvisionerNameLegacy = AnnAPIGroupLegacy + "/provisioner-name"
 
 	// AnnDefaultStorageClass is the annotation indicating that a storage class is the default one.
 	AnnDefaultStorageClass = "storageclass.kubernetes.io/is-default-class"
@@ -72,14 +82,22 @@ const (
 
 	// AnnVMLastAppliedSpec is an annotation on KVVM. It contains a JSON with VM spec.
 	AnnVMLastAppliedSpec = AnnAPIGroup + "/vm.last-applied-spec"
+	// AnnVMLastAppliedSpecLegacy is a legacy annotation on KVVM. It contains a JSON with VM spec.
+	AnnVMLastAppliedSpecLegacy = AnnAPIGroupLegacy + "/vm.last-applied-spec"
 
 	// AnnVMClassLastAppliedSpec is an annotation on KVVM. It contains a JSON with VM spec.
 	AnnVMClassLastAppliedSpec = AnnAPIGroup + "/vmclass.last-applied-spec"
+	// AnnVMClassLastAppliedSpecLegacy is a legacy annotation on KVVM. It contains a JSON with VMClass spec.
+	AnnVMClassLastAppliedSpecLegacy = AnnAPIGroupLegacy + "/vmclass.last-applied-spec"
 
 	// LastPropagatedVMAnnotationsAnnotation is a marshalled map of previously applied virtual machine annotations.
 	LastPropagatedVMAnnotationsAnnotation = AnnAPIGroup + "/last-propagated-vm-annotations"
+	// LastPropagatedVMAnnotationsAnnotationLegacy is a legacy marshalled map of previously applied virtual machine annotations.
+	LastPropagatedVMAnnotationsAnnotationLegacy = AnnAPIGroupLegacy + "/last-propagated-vm-annotations"
 	// LastPropagatedVMLabelsAnnotation is a marshalled map of previously applied virtual machine labels.
 	LastPropagatedVMLabelsAnnotation = AnnAPIGroup + "/last-propagated-vm-labels"
+	// LastPropagatedVMLabelsAnnotationLegacy is a legacy marshalled map of previously applied virtual machine labels.
+	LastPropagatedVMLabelsAnnotationLegacy = AnnAPIGroupLegacy + "/last-propagated-vm-labels"
 
 	AnnOsType = AnnAPIGroupV + "/os-type"
 
@@ -94,8 +112,6 @@ const (
 	AnnVMOPWorkloadUpdateImage               = AnnAPIGroupV + "/workload-update-image"
 	AnnVMOPWorkloadUpdateNodePlacementSum    = AnnAPIGroupV + "/workload-update-node-placement-sum"
 	AnnVMOPWorkloadUpdateHotplugResourcesSum = AnnAPIGroupV + "/workload-update-hotplug-resources-sum"
-	// AnnVMRestore is an annotation on a resource that indicates it was created by the vmrestore controller; the value is the UID of the `VirtualMachineRestore` resource.
-	AnnVMRestore = AnnAPIGroupV + "/vmrestore"
 	// AnnVMOPEvacuation is an annotation on vmop that represents a vmop created by evacuation controller
 	AnnVMOPEvacuation = AnnAPIGroupV + "/evacuation"
 	// AnnVMOPVolumeMigration is an annotation on vmop that represents a vmop created by volume-migration controller
@@ -240,9 +256,9 @@ const (
 	AnnUSBIPAddress                = "usb.virtualization.deckhouse.io/usbip-address"
 
 	// DefaultUSBDeviceGroup is the default device group ID for USB devices.
-	DefaultUSBDeviceGroup = "107"
+	DefaultUSBDeviceGroup = "64535"
 	// DefaultUSBDeviceUser is the default device user ID for USB devices.
-	DefaultUSBDeviceUser = "107"
+	DefaultUSBDeviceUser = "64535"
 )
 
 // AddAnnotation adds an annotation to an object

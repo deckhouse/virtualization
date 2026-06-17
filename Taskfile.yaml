@@ -26,7 +26,7 @@ includes:
     dir: ./src/cli
 
 vars:
-  deckhouse_lib_helm_ver: 1.55.1
+  deckhouse_lib_helm_ver: 1.72.0
   TRIVY_VERSION: 0.55.0
   target: ""
   VALIDATION_FILES: "tools/validation/{main,messages,diff,no_cyrillic,doc_changes}.go"
@@ -50,6 +50,36 @@ tasks:
       - which jq >/dev/null || (echo "jq not found."; exit 1)
     silent: true
 
+  report:render:slowest:
+    desc: "Render slowest-specs chart for one Describe (DESCRIBE=..., JSON=...)"
+    silent: true
+    vars:
+      JSON: '{{.JSON | default ""}}'
+      DESCRIBE: '{{.DESCRIBE | default ""}}'
+      OUT_DIR: '{{.OUT_DIR | default "tmp"}}'
+    cmds:
+      - test -n "{{.JSON}}" || (echo "JSON=... is required"; exit 1)
+      - test -n "{{.DESCRIBE}}" || (echo "DESCRIBE=... is required"; exit 1)
+      - >-
+        python3 .github/scripts/python/e2e_report/charts.py slowest
+        --json "{{.JSON}}"
+        --describe "{{.DESCRIBE}}" --out-dir "{{.OUT_DIR}}/charts"
+
+  report:render:top-slowest:
+    desc: "Render slowest-specs charts for top-N slowest Describes"
+    silent: true
+    vars:
+      REPORTS_DIR: '{{.REPORTS_DIR | default "tmp/test-ci/report/out"}}'
+      OUT_DIR: '{{.OUT_DIR | default "tmp"}}'
+      TOP_N: "{{.TOP_N | default 5}}"
+    cmds:
+      - mkdir -p "{{.OUT_DIR}}" "{{.REPORTS_DIR}}"
+      - >-
+        python3 .github/scripts/python/e2e_report/charts.py top
+        --reports-dir "{{.REPORTS_DIR}}"
+        --out-dir "{{.OUT_DIR}}/charts"
+        --top-n "{{.TOP_N}}"
+
   check-helm:
     cmds:
       - which helm >/dev/null || (echo "helm not found."; exit 1)
@@ -72,16 +102,32 @@ tasks:
     deps:
       - check-helm
     cmds:
-      - helm repo add deckhouse https://deckhouse.github.io/lib-helm
-      - helm repo update deckhouse
-      - helm dep update
+      - |
+        echo -e "Step 1: Add deckhouse Helm repo\n"
+        helm repo add deckhouse https://deckhouse.github.io/lib-helm
+        echo -e "\nStep 2: Update deckhouse Helm repo\n"
+        helm repo update deckhouse
+        echo -e "\nStep 3: Update dependencies\n"
+        helm dep update
 
   helm-bump-helm-lib:
     deps:
       - check-yq
     cmds:
+      - |
+        lib_helm_ver=$(yq '.dependencies[] | select(.name == "deckhouse_lib_helm").version' Chart.yaml)
+        echo lib_helm version before update: $lib_helm_ver && echo
       - yq -i '.dependencies[] |= select(.name == "deckhouse_lib_helm").version = "{{ .deckhouse_lib_helm_ver }}"' Chart.yaml
       - task: helm-update-subcharts
+      - |
+        lib_helm_ver=$(yq '.dependencies[] | select(.name == "deckhouse_lib_helm").version' Chart.yaml)
+        echo && echo lib_helm version after update: $lib_helm_ver
+
+  helm-render:
+    deps:
+      - check-helm
+    cmds:
+      - helm template virtualization . -f tools/kubeconform/fixtures/module-values.yaml --debug --devel > helm-template-render.yaml
 
   build:
     deps:
@@ -133,8 +179,37 @@ tasks:
     cmds:
       - task: lint:doc-ru
       - task: lint:prettier:yaml
+      - task: lint:shellcheck
+      - task: lint:actionlint
       - task: virtualization-controller:dvcr:lint
       - task: virtualization-controller:lint
+
+  lint:shellcheck:
+    desc: "Run shellcheck for CI shell scripts."
+    cmds:
+      - |
+        docker run --rm \
+          -v "$PWD:/mnt" \
+          -w /mnt \
+          koalaman/shellcheck-alpine:v0.10.0 \
+          shellcheck \
+          .github/scripts/bash/e2e/*.sh \
+          api/scripts/update-codegen.sh \
+          images/virtualization-artifact/hack/args.sh \
+          images/virtualization-artifact/hack/dlv.sh \
+          images/virtualization-artifact/hack/pyroscope.sh
+
+  lint:actionlint:
+    desc: "Run actionlint for E2E GitHub workflows."
+    cmds:
+      - |
+        docker run --rm \
+          -v "$PWD:/repo" \
+          -w /repo \
+          rhysd/actionlint:1.7.7 \
+          -color \
+          -shellcheck= \
+          .github/workflows/e2e*.yml
 
   lint:doc-ru:
     desc: "Check the correspondence between description fields in the original crd and the Russian language version"
@@ -200,16 +275,6 @@ tasks:
                   "readinessProbe": null,
                   "livenessProbe": null,
                   "command": null
-                },
-                {
-                  "name": "proxy",
-                  "readinessProbe": null,
-                  "livenessProbe": null
-                },
-                {
-                  "name": "kube-rbac-proxy",
-                  "readinessProbe": null,
-                  "livenessProbe": null
                 }
               ]
             }
@@ -249,16 +314,6 @@ tasks:
                   "readinessProbe": null,
                   "livenessProbe": null,
                   "command": null
-                },
-                {
-                  "name": "proxy",
-                  "readinessProbe": null,
-                  "livenessProbe": null
-                },
-                {
-                  "name": "kube-rbac-proxy",
-                  "readinessProbe": null,
-                  "livenessProbe": null
                 }
               ]
             }

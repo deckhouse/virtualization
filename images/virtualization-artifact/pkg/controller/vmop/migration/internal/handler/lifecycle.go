@@ -46,6 +46,8 @@ import (
 
 const lifecycleHandlerName = "LifecycleHandler"
 
+const timeElapsedUpdateInterval = 10 * time.Second
+
 const (
 	progressMigrationPending   int32 = 0
 	progressDisksPreparing     int32 = 1
@@ -167,7 +169,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	// Synchronize conditions to the VMOP.
 	if commonvmop.IsOperationInProgress(vmop) {
 		log.Debug("Operation in progress, check if VM is completed", "vm.phase", vm.Status.Phase, "vmop.phase", vmop.Status.Phase)
-		return reconcile.Result{}, h.syncOperationComplete(ctx, vmop)
+		return h.syncOperationCompleteResult(ctx, vmop)
 	}
 
 	// 4. Check migration, if exists, that means previous reconcile finished with error and SignalSent condition is not synced.
@@ -183,7 +185,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 				Reason(vmopcondition.ReasonSignalSentSuccess).
 				Status(metav1.ConditionTrue),
 			&vmop.Status.Conditions)
-		return reconcile.Result{}, h.syncOperationComplete(ctx, vmop)
+		return h.syncOperationCompleteResult(ctx, vmop)
 	}
 
 	// 5. VMOP is not in progress.
@@ -250,6 +252,17 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 
 func (h LifecycleHandler) Name() string {
 	return lifecycleHandlerName
+}
+
+func (h LifecycleHandler) syncOperationCompleteResult(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (reconcile.Result, error) {
+	err := h.syncOperationComplete(ctx, vmop)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if vmop.Status.Phase == v1alpha2.VMOPPhaseInProgress || vmop.Status.Phase == v1alpha2.VMOPPhasePending {
+		return reconcile.Result{RequeueAfter: timeElapsedUpdateInterval}, nil
+	}
+	return reconcile.Result{}, nil
 }
 
 func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) error {
@@ -610,9 +623,54 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 			reason = vmopcondition.ReasonSourceSuspended
 			message = messageSourceVMSuspended
 		}
+		if details := formatMigrationDetails(mig, time.Now()); details != "" {
+			message = fmt.Sprintf("%s. %s", message, details)
+		}
 	}
 
 	return reason, message, nil
+}
+
+func formatMigrationDetails(mig *virtv1.VirtualMachineInstanceMigration, now time.Time) string {
+	if mig == nil || mig.Status.MigrationState == nil || mig.Status.MigrationState.TransferStatus == nil {
+		return ""
+	}
+
+	state := mig.Status.MigrationState
+	status := state.TransferStatus
+	parts := make([]string, 0, 7)
+	if state.StartTimestamp != nil {
+		elapsed := now.Sub(state.StartTimestamp.Time).Truncate(timeElapsedUpdateInterval)
+		if elapsed < 0 {
+			elapsed = 0
+		}
+		parts = append(parts, fmt.Sprintf("TimeElapsed:%ds", int64(elapsed.Seconds())))
+	}
+	if status.DataProcessedBytes != nil {
+		parts = append(parts, fmt.Sprintf("DataProcessed:%dMiB", bytesToMiB(*status.DataProcessedBytes)))
+	}
+	if status.DataRemainingBytes != nil {
+		parts = append(parts, fmt.Sprintf("DataRemaining:%dMiB", bytesToMiB(*status.DataRemainingBytes)))
+	}
+	if status.DataTotalBytes != nil {
+		parts = append(parts, fmt.Sprintf("DataTotal:%dMiB", bytesToMiB(*status.DataTotalBytes)))
+	}
+	if status.Iteration != nil {
+		parts = append(parts, fmt.Sprintf("Iteration:%d", *status.Iteration))
+	}
+	parts = append(parts, fmt.Sprintf("AutoConvergeThrottleSet:%t", status.AutoConvergeThrottle != nil))
+	if status.AutoConvergeThrottle != nil {
+		parts = append(parts, fmt.Sprintf("AutoConvergeThrottle:%d", *status.AutoConvergeThrottle))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+
+	return strings.Join(parts, " ")
+}
+
+func bytesToMiB(value uint64) uint64 {
+	return value / 1024 / 1024
 }
 
 func (h LifecycleHandler) calculateMigrationProgress(

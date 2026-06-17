@@ -446,7 +446,10 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 			util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
 			Eventually(func() error {
-				pods, err := f.KubeClient().CoreV1().Pods(ns).List(ctx, metav1.ListOptions{})
+				// filter pods by label, only virt-launcher pods needed, ignore hp pods (hotplug volumes)
+				pods, err := f.KubeClient().CoreV1().Pods(ns).List(ctx, metav1.ListOptions{
+					LabelSelector: "kubevirt.internal.virtualization.deckhouse.io=virt-launcher",
+				})
 				Expect(err).NotTo(HaveOccurred())
 
 				if len(pods.Items) != 2 {

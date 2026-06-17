@@ -44,11 +44,26 @@ spec:
         description: |
           Virt-handler component needs hostNetwork to manipulate node route tables
           to allow traffic between virtual machines.
+    hostPorts:
+      - port: {{ include "virt_handler.port" . }}
+        protocol: TCP
+        metadata:
+          description: |
+            Allow hostPort {{ include "virt_handler.port" . }} for metrics and health check service.
+            Virt-handler component requires hostNetwork and metrics and health check service should be accessible via hostPort.
+      - port: {{ include "virt_handler.console_server_port" . }}
+        protocol: TCP
+        metadata:
+          description: |
+            Allow hostPort {{ include "virt_handler.console_server_port" . }} for console service.
+            Virt-handler component requires hostNetwork and console service should be accessible via hostPort.
+
     hostPID:
       allowedValue: true
       metadata:
         description:
           Virt-handler component needs access to host PID.
+
   # Allow mounting host directories.
   volumes:
     types:
@@ -71,11 +86,16 @@ spec:
           metadata:
             description: |
               Allow read-write access to /var/lib/kubelet/pods hostPath volume.
-        - path: /var/lib/kubevirt-node-labeller
+        - path: /var/run/cilium
           readOnly: false
           metadata:
             description: |
-              Allow read-write access to /var/lib/kubevirt-node-labeller hostPath volume.
+              Allow read-write access to /var/run/cilium hostPath volume.
+        - path: /var/run/d8-virtualization/node-labeller
+          readOnly: false
+          metadata:
+            description: |
+              Allow read-write access to /var/run/d8-virtualization/node-labeller hostPath volume.
         - path: /var/run/kubevirt
           readOnly: false
           metadata:

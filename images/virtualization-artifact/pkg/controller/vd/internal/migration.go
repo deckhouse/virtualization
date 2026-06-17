@@ -641,18 +641,41 @@ func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+
+	if targetPVCName == sourcePVCName && targetPVCName != "" {
+		return nil, fmt.Errorf("target PersistentVolumeClaim %q matches source PersistentVolumeClaim", targetPVCName)
+	}
+
 	switch len(pvcs) {
-	case 1: // only source pvc exists
+	case 1:
+		if pvcs[0].Name != sourcePVCName {
+			return nil, fmt.Errorf("source PersistentVolumeClaim %q was not found", sourcePVCName)
+		}
+		if targetPVCName != "" {
+			return nil, fmt.Errorf("target PersistentVolumeClaim %q was not found", targetPVCName)
+		}
 	case 2:
+		sourcePVCExists := false
+		var targetPVC *corev1.PersistentVolumeClaim
 		for _, pvc := range pvcs {
-			// If TargetPVC is empty, that means previous reconciliation failed and not updated TargetPVC in status.
-			// So, we should use pvc, that is not equal to SourcePVC.
-			if pvc.Name == targetPVCName || pvc.Name != sourcePVCName {
-				return &pvc, nil
+			if pvc.Name == sourcePVCName {
+				sourcePVCExists = true
+				continue
+			}
+			if targetPVCName == "" || pvc.Name == targetPVCName {
+				targetPVC = &pvc
+				break
 			}
 		}
+		if !sourcePVCExists {
+			return nil, fmt.Errorf("source PersistentVolumeClaim %q was not found", sourcePVCName)
+		}
+		if targetPVC != nil {
+			return targetPVC, nil
+		}
+		return nil, fmt.Errorf("target PersistentVolumeClaim %q was not found", targetPVCName)
 	default:
-		return nil, fmt.Errorf("unexpected number of pvcs: %d, please report a bug", len(pvcs))
+		return nil, fmt.Errorf("unexpected number of PersistentVolumeClaims: %d, expected 1 or 2", len(pvcs))
 	}
 
 	pvc := &corev1.PersistentVolumeClaim{
@@ -717,9 +740,7 @@ func deletePersistentVolumeClaim(ctx context.Context, pvc *corev1.PersistentVolu
 	var shouldPatch bool
 	for _, finalizer := range pvc.Finalizers {
 		switch finalizer {
-		// When pod completed, we cannot remove pvc, because Kubernetes protects pvc until pod is removed.
-		// https://github.com/kubernetes/kubernetes/issues/120756
-		case v1alpha2.FinalizerVDProtection, "kubernetes.io/pvc-protection": // remove
+		case v1alpha2.FinalizerVDProtection: // remove
 			shouldPatch = true
 		default:
 			newFinalizers = append(newFinalizers, finalizer)

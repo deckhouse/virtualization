@@ -1,0 +1,15 @@
+name: Append encrypted artifacts help
+description: Append encrypted artifact decryption instructions to the job summary.
+inputs:
+  template:
+    description: Help template path.
+    required: false
+    default: .github/scripts/templates/encrypted-artifacts-help.md
+runs:
+  using: composite
+  steps:
+    - name: Append encrypted artifacts help
+      shell: bash
+      env:
+        TEMPLATE: ${{ inputs.template }}
+      run: cat "$TEMPLATE" >> "$GITHUB_STEP_SUMMARY"

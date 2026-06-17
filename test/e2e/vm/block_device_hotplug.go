@@ -182,7 +182,7 @@ func setupVM(f *framework.Framework, withBlank bool) (
 	vm = vmbuilder.New(
 		vmbuilder.WithName("vm"),
 		vmbuilder.WithNamespace(f.Namespace().Name),
-		vmbuilder.WithCPU(1, ptr.To("5%")),
+		vmbuilder.WithCPU(1, ptr.To("100%")),
 		vmbuilder.WithMemory(resource.MustParse("256Mi")),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 		vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
@@ -196,6 +196,9 @@ func setupVM(f *framework.Framework, withBlank bool) (
 
 	By("Waiting for SSH to be ready")
 	util.UntilSSHReady(f, vm, framework.LongTimeout)
+
+	By("Waiting for 'lsblk' to be ready for use")
+	util.UntilGuestCommandsReady(f, vm, []string{"lsblk"}, framework.MiddleTimeout)
 
 	By("Recording initial disk count")
 	initialDiskCount, err = util.GetDiskCount(f, vm.Name, vm.Namespace)

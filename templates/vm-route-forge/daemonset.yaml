@@ -59,12 +59,30 @@ spec:
           Allow containers to run as root user (non-root disabled).
           VM route forge component requires root privileges to interact with the host network layer.
 
+    allowPrivilegeEscalation:
+      allowedValue: true
+      metadata:
+        description: |
+          Allow privilege escalation.
+          VM route forge component requires privileges escalation to interact with the host network layer.
+
     privileged:
       allowedValue: true
       metadata:
         description: |
           Allow privileged mode.
           VM route forge component requires privileged access to interact with the host network layer.
+
+    capabilities:
+      allowedValues:
+        add:
+          - NET_ADMIN
+        drop:
+          - ALL
+      metadata:
+        description: |
+          Allow NET_ADMIN capability.
+          VM route forge component requires NET_ADMIN capability to interact with the host network layer.
 
   network:
     hostNetwork:
@@ -73,6 +91,19 @@ spec:
         description: |
           VM route forge component needs hostNetwork to manipulate node route tables
           to allow traffic between virtual machines.
+    hostPorts:
+    - port: {{ include "vm_route_forge.health_port" . }}
+      protocol: TCP
+      metadata:
+        description: |
+          Allow hostPort {{ include "vm_route_forge.health_port" . }} for health check service.
+          VM route forge component requires hostNetwork and health check service should be accessible via hostPort.
+    - port: {{ include "vm_route_forge.pprof_port" . }}
+      protocol: TCP
+      metadata:
+        description: |
+          Allow hostPort {{ include "vm_route_forge.pprof_port" . }} for pprof service.
+          VM route forge component requires hostNetwork and pprof service should be accessible via hostPort.
 {{- end }}
 
 ---
@@ -108,7 +139,7 @@ spec:
           {{- range .Values.virtualization.internal.moduleConfig.virtualMachineCIDRs }}
           - --cidr={{ . }}
           {{- end }}
-          {{- include "helm_lib_module_container_security_context_privileged_read_only_root_filesystem" . | nindent 10 }}
+          {{- include "helm_lib_module_container_security_context_pss_restricted_flexible" (dict "ro" true "caps" (list "NET_ADMIN") "uid" 0 "runAsNonRoot" false) | nindent 10 }}
           image: {{ include "helm_lib_module_image" (list . "vmRouteForge") }}
           imagePullPolicy: "IfNotPresent"
           env:
@@ -159,5 +190,4 @@ spec:
             periodSeconds: 1
             failureThreshold: 3
           {{- end }}
-
 {{- end }}

@@ -1,0 +1,306 @@
+#!/usr/bin/env bash
+
+# Copyright 2026 Flant JSC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=.github/scripts/bash/e2e/common.sh
+source "${SCRIPT_DIR}/common.sh"
+
+# Constants (nested cluster: 1 master + 3 workers x2)
+REQUIRED_MEM_GI=86
+REQUIRED_CPU=26
+MIN_MEM_GI_PER_NODE=12
+MIN_CPU_PER_NODE=4
+MIN_NODES_FOR_PLACEMENT=3
+POWER_OFF_POLL_INTERVAL_SEC=10
+POWER_OFF_WAIT_TIMEOUT_SEC=180
+
+mem_to_gi() {
+  local q="$1" q_lower
+  q_lower=$(echo "$q" | tr '[:upper:]' '[:lower:]')
+  if [[ "$q_lower" =~ ^([0-9]+\.?[0-9]*)gi?$ ]]; then
+    echo "${BASH_REMATCH[1]}"
+  elif [[ "$q_lower" =~ ^([0-9]+\.?[0-9]*)mi?$ ]]; then
+    echo "scale=4; ${BASH_REMATCH[1]} / 1024" | bc
+  elif [[ "$q_lower" =~ ^([0-9]+\.?[0-9]*)ki?$ ]]; then
+    echo "scale=6; ${BASH_REMATCH[1]} / 1024 / 1024" | bc
+  elif [[ "$q" =~ ^[0-9]+\.?[0-9]*$ ]]; then
+    echo "scale=6; $q / 1024 / 1024 / 1024" | bc
+  else
+    echo "0"
+  fi
+}
+
+cpu_to_cores() {
+  local q="${1:-0}" q_lower
+  q_lower=$(echo "$q" | tr '[:upper:]' '[:lower:]')
+  if [[ "$q_lower" == *m ]]; then
+    echo "scale=4; ${q%[mM]} / 1000" | bc
+  else
+    echo "${q:-0}"
+  fi
+}
+
+float_gt() { (($(echo "$1 > $2" | bc))); }
+float_le() { (($(echo "$1 <= $2" | bc))); }
+
+worker_nodes=$(kubectl get nodes -l node-role.kubernetes.io/worker -o jsonpath='{.items[*].metadata.name}')
+
+gather_node_resources() {
+  local available_mem_gi=0
+  local available_cpu=0
+  local nodes_meeting_min=0
+  local node node_json alloc_mem_gi alloc_cpu pods_json requested_mem_gi requested_cpu
+  local node_free_mem node_free_cpu node_ok_mem node_ok_cpu
+
+  for node in $worker_nodes; do
+    [[ -n "$node" ]] || continue
+    node_json=$(kubectl get node "$node" -o json 2>/dev/null) || true
+    if [[ -z "$node_json" ]]; then
+      echo "[WARN] Node $node: could not get node spec, skipping" >&2
+      continue
+    fi
+
+    alloc_mem_gi=$(mem_to_gi "$(echo "$node_json" | jq -r '.status.allocatable.memory // "0"')")
+    alloc_cpu=$(cpu_to_cores "$(echo "$node_json" | jq -r '.status.allocatable.cpu // "0"')")
+
+    pods_json=$(kubectl get pods -A --field-selector spec.nodeName="$node" -o json 2>/dev/null) || true
+    requested_mem_gi=0
+    requested_cpu=0
+    if [[ -n "$pods_json" ]]; then
+      while read -r qty; do
+        [[ -z "$qty" ]] && continue
+        requested_mem_gi=$(echo "$requested_mem_gi + $(mem_to_gi "$qty")" | bc)
+      done < <(echo "$pods_json" | jq -r '
+        .items[]
+        | select(.status.phase == "Running" or .status.phase == "Pending")
+        | [(.spec.containers[]? | try .resources.requests.memory catch null), (.spec.initContainers[]? | try .resources.requests.memory catch null)]
+        | .[] | . // "0"
+      ')
+
+      while read -r qty; do
+        [[ -z "$qty" ]] && continue
+        requested_cpu=$(echo "$requested_cpu + $(cpu_to_cores "$qty")" | bc)
+      done < <(echo "$pods_json" | jq -r '
+        .items[]
+        | select(.status.phase == "Running" or .status.phase == "Pending")
+        | [(.spec.containers[]? | try .resources.requests.cpu catch null), (.spec.initContainers[]? | try .resources.requests.cpu catch null)]
+        | .[] | . // "0"
+      ')
+    fi
+
+    node_free_mem=$(echo "x = $alloc_mem_gi - $requested_mem_gi; if (x < 0) 0 else x" | bc 2>/dev/null || echo "0")
+    node_free_cpu=$(echo "x = $alloc_cpu - $requested_cpu; if (x < 0) 0 else x" | bc 2>/dev/null || echo "0")
+
+    available_mem_gi=$(echo "$available_mem_gi + $node_free_mem" | bc)
+    available_cpu=$(echo "$available_cpu + $node_free_cpu" | bc)
+
+    node_ok_mem=$(echo "$node_free_mem >= $MIN_MEM_GI_PER_NODE" | bc)
+    node_ok_cpu=$(echo "$node_free_cpu >= $MIN_CPU_PER_NODE" | bc)
+    if [[ "$node_ok_mem" -eq 1 && "$node_ok_cpu" -eq 1 ]]; then
+      nodes_meeting_min=$((nodes_meeting_min + 1))
+    else
+      echo "[INFO] Node $node: does not meet placement min - free ${node_free_mem} Gi RAM, ${node_free_cpu} CPU (required: >= ${MIN_MEM_GI_PER_NODE} Gi, >= ${MIN_CPU_PER_NODE} CPU)" >&2
+    fi
+  done
+
+  printf '%s\t%s\t%s\n' "$available_mem_gi" "$available_cpu" "$nodes_meeting_min"
+}
+
+refresh_resource_state() {
+  IFS=$'\t' read -r available_mem_gi available_cpu nodes_meeting_min < <(gather_node_resources)
+  deficit_mem=$(echo "$REQUIRED_MEM_GI - $available_mem_gi" | bc 2>/dev/null || echo "$REQUIRED_MEM_GI")
+  deficit_cpu=$(echo "$REQUIRED_CPU - $available_cpu" | bc 2>/dev/null || echo "$REQUIRED_CPU")
+
+  total_sufficient=false
+  if float_le "$deficit_mem" 0 && float_le "$deficit_cpu" 0; then
+    total_sufficient=true
+  fi
+
+  placement_sufficient=false
+  if [[ $nodes_meeting_min -ge $MIN_NODES_FOR_PLACEMENT ]]; then
+    placement_sufficient=true
+  fi
+}
+
+get_vms_candidates() {
+  kubectl get vm -A -o json | jq -r '
+    .items[]
+    | select(.metadata.namespace | test("^nightly-e2e-|static-cse") | not)
+    | select(.metadata.labels | tostring | test("e2e-cluster/do-not-stop-vm-on-e2e-run") | not)
+    | select(.status.phase != "Stopped")
+    | [.metadata.namespace, .metadata.name, (.spec.memory.size // "0"), (.spec.cpu.cores // 0), (.spec.cpu.coreFraction // "100%")]
+    | @tsv
+  '
+}
+
+sort_by_mem_desc() {
+  while IFS=$'\t' read -r ns name mem_qty cores core_frac; do
+    [[ -n "$ns" ]] || continue
+    mem_gi=$(mem_to_gi "$mem_qty")
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$mem_gi" "$ns" "$name" "$mem_qty" "$cores" "$core_frac"
+  done | sort -t$'\t' -k1,1 -rn
+}
+
+vm_cpu_from_cores_and_fraction() {
+  local cores="$1" core_frac="$2" frac_pct=100
+  [[ "$core_frac" =~ ^([0-9]+)%$ ]] && frac_pct="${BASH_REMATCH[1]}"
+  echo "scale=2; $cores * $frac_pct / 100" | bc
+}
+
+print_power_off_plan() {
+  local plan_index=0 cumulative_mem=0 cumulative_cpu=0
+  local vm_mem_gi ns name mem_qty cores core_frac vm_cpu
+
+  echo "[INFO] Planned power-off order with projected VM-spec resources:"
+  echo "[INFO] Projection is based on VM spec memory/cpu; actual placement improvement depends on where workloads are running."
+
+  while IFS=$'\t' read -r vm_mem_gi ns name mem_qty cores core_frac; do
+    [[ -n "$ns" ]] || continue
+    plan_index=$((plan_index + 1))
+    vm_cpu=$(vm_cpu_from_cores_and_fraction "$cores" "$core_frac")
+    cumulative_mem=$(echo "$cumulative_mem + $vm_mem_gi" | bc)
+    cumulative_cpu=$(echo "$cumulative_cpu + $vm_cpu" | bc)
+    echo "[PLAN] ${plan_index}. ${ns}/${name} -> ${vm_mem_gi} Gi RAM, ${vm_cpu} CPU (cumulative: ${cumulative_mem} Gi RAM, ${cumulative_cpu} CPU)"
+  done < "$1"
+
+  if [[ $plan_index -eq 0 ]]; then
+    echo "[WARN] No VM candidates available for power off"
+  fi
+}
+
+count_stopped_requested_vms() {
+  local requested_vms_file="$1"
+  local stopped_requested=0 total_requested=0
+  local ns name phase
+
+  while IFS=$'\t' read -r ns name; do
+    [[ -n "$ns" ]] || continue
+    total_requested=$((total_requested + 1))
+    phase=$(kubectl get vm -n "$ns" "$name" -o jsonpath='{.status.phase}' 2>/dev/null || echo "Unknown")
+    if [[ "$phase" == "Stopped" ]]; then
+      stopped_requested=$((stopped_requested + 1))
+    fi
+  done < "$requested_vms_file"
+
+  printf '%s\t%s\n' "$stopped_requested" "$total_requested"
+}
+
+still_need_to_free() {
+  if ! $placement_sufficient; then return 0; fi
+  if ! $total_sufficient; then return 0; fi
+  return 1
+}
+
+main() {
+  refresh_resource_state
+  echo "[INFO] Workers: free ${available_mem_gi} Gi RAM, ${available_cpu} CPU; nodes with enough free resources for placement: ${nodes_meeting_min} (need at least ${MIN_NODES_FOR_PLACEMENT})"
+  echo "[INFO] Required: ${REQUIRED_MEM_GI} Gi, ${REQUIRED_CPU} CPU; need >= ${MIN_NODES_FOR_PLACEMENT} nodes with >= ${MIN_MEM_GI_PER_NODE} Gi and >= ${MIN_CPU_PER_NODE} CPU"
+  echo " "
+
+  if $total_sufficient && $placement_sufficient; then
+    echo "[INFO] Resources sufficient (total + placement), no VMs to power off"
+    exit 0
+  fi
+
+  if $total_sufficient; then
+    echo "[INFO] Cluster has enough free memory and cpu."
+  else
+    shortage_parts=""
+    float_gt "$deficit_mem" 0 && shortage_parts="${deficit_mem} Gi RAM"
+    float_gt "$deficit_cpu" 0 && shortage_parts="${shortage_parts:+$shortage_parts, }${deficit_cpu} CPU"
+    echo "[INFO] Resources shortage: need to free ${shortage_parts}. Proceed with power off some VMs to free cluster resources."
+  fi
+  if $placement_sufficient; then
+    echo "[INFO] Cluster has enough available nodes."
+  else
+    echo "[INFO] Available nodes shortage: only ${nodes_meeting_min} node(s) meet free resources requirement, expect at least ${MIN_NODES_FOR_PLACEMENT} available nodes. Proceed with power off some VMs to free resources."
+  fi
+  echo "[Note] Will ignore VMs in 'nightly-e2e-*', 'static-cse' namespaces, and VMs with the 'e2e-cluster/do-not-stop-vm-on-e2e-run' label."
+  echo "[INFO] Power off candidates sorted by memory (largest first); stop when enough resources are freed."
+
+  vm_candidates_file=$(mktemp)
+  requested_vms_file=$(mktemp)
+  trap 'rm -f "$vm_candidates_file" "$requested_vms_file"' EXIT
+  get_vms_candidates | sort_by_mem_desc > "$vm_candidates_file"
+  print_power_off_plan "$vm_candidates_file"
+
+  requested_count=0
+  while IFS=$'\t' read -r vm_mem_gi ns name mem_qty cores core_frac; do
+    [[ -n "$ns" ]] || continue
+    vm_cpu=$(vm_cpu_from_cores_and_fraction "$cores" "$core_frac")
+
+    echo "[INFO] Request power off for vm $ns/$name (${vm_mem_gi} Gi, ${vm_cpu} CPU)"
+    if ! kubectl patch vm -n "$ns" "$name" --type=merge -p '{"spec":{"runPolicy":"AlwaysOff"}}'; then
+      echo "[WARN] Failed to power off vm $ns/$name, skip it and continue with next candidate"
+      continue
+    fi
+    printf '%s\t%s\n' "$ns" "$name" >> "$requested_vms_file"
+    requested_count=$((requested_count + 1))
+  done < "$vm_candidates_file"
+
+  if [[ $requested_count -eq 0 ]]; then
+    echo "[ERROR] No running VM candidates available for power off, but resources are still insufficient."
+    echo "[ERROR] Human intervention is required."
+    rm -f "$vm_candidates_file" "$requested_vms_file"
+    trap - EXIT
+    exit 1
+  fi
+
+  echo "[INFO] Requested power off for ${requested_count} VM(s). Waiting up to ${POWER_OFF_WAIT_TIMEOUT_SEC}s and checking cluster resources every ${POWER_OFF_POLL_INTERVAL_SEC}s."
+
+  wait_elapsed=0
+  prev_nodes_meeting_min="$nodes_meeting_min"
+  while true; do
+    refresh_resource_state
+    IFS=$'\t' read -r stopped_requested total_requested < <(count_stopped_requested_vms "$requested_vms_file")
+    echo "[INFO] Current workers free: ${available_mem_gi} Gi RAM, ${available_cpu} CPU; nodes with enough free resources for placement: ${nodes_meeting_min}"
+    echo "[INFO] Requested VMs stopped: ${stopped_requested}/${total_requested}; waited ${wait_elapsed}s/${POWER_OFF_WAIT_TIMEOUT_SEC}s"
+    if [[ $prev_nodes_meeting_min -lt $MIN_NODES_FOR_PLACEMENT && $nodes_meeting_min -ge $MIN_NODES_FOR_PLACEMENT ]]; then
+      echo "[INFO] Placement now sufficient: ${nodes_meeting_min} nodes with >= ${MIN_MEM_GI_PER_NODE} Gi and >= ${MIN_CPU_PER_NODE} CPU"
+    fi
+    prev_nodes_meeting_min="$nodes_meeting_min"
+
+    if ! still_need_to_free; then
+      break
+    fi
+
+    if [[ $total_requested -gt 0 && $stopped_requested -eq $total_requested ]]; then
+      echo "[INFO] All requested VMs are already stopped; no need to wait further."
+      break
+    fi
+
+    if [[ $wait_elapsed -ge $POWER_OFF_WAIT_TIMEOUT_SEC ]]; then
+      break
+    fi
+
+    sleep "$POWER_OFF_POLL_INTERVAL_SEC"
+    wait_elapsed=$((wait_elapsed + POWER_OFF_POLL_INTERVAL_SEC))
+  done
+
+  rm -f "$vm_candidates_file" "$requested_vms_file"
+  trap - EXIT
+
+  echo "[INFO] Final workers free: ${available_mem_gi} Gi RAM, ${available_cpu} CPU; nodes with enough free resources for placement: ${nodes_meeting_min}"
+
+  if still_need_to_free; then
+    echo "[ERROR] Stopping VMs did not free enough resources. Human intervention is required."
+    exit 1
+  fi
+}
+
+main "$@"
