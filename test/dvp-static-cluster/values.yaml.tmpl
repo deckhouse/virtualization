@@ -5,10 +5,12 @@ sa: dkp-sa
 enabledModules: [${ENABLED_MODULES}]
 deckhouse:
   channel: ${DECKHOUSE_CHANNEL}
+  version: ${DECKHOUSE_VERSION}
   podSubnetCIDR: ${POD_SUBNET_CIDR}
   serviceSubnetCIDR: ${SERVICE_SUBNET_CIDR}
   kubernetesVersion: ${K8S_VERSION}
-  registryDockerCfg: ${PROD_IO_REGISTRY_DOCKER_CFG}
+  registry: ${REGISTRY}
+  registryDockerCfg: ${REGISTRY_DOCKER_CFG}
   bundle: Default
   proxyEnabled: false
 image:

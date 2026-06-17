@@ -19,32 +19,6 @@ nested_storage_class_name="${NESTED_STORAGE_CLASS_NAME}"
 # shellcheck disable=SC2153,SC2154
 virtualization_tag="${VIRTUALIZATION_TAG}"
 
-kubectl_apply_with_retry() {
-  local count=20
-  local delay=10
-  local manifest
-  manifest="$(mktemp)"
-  cat > "$manifest"
-
-  for i in $(seq 1 "$count"); do
-    echo "[INFO] kubectl apply attempt ${i}/${count}"
-    if kubectl apply -f "$manifest"; then
-      rm -f "$manifest"
-      return 0
-    fi
-
-    if [ "$i" -lt "$count" ]; then
-      echo "[WARN] kubectl apply failed, retrying in ${delay}s"
-      show_deckhouse_state
-      sleep "$delay"
-    fi
-  done
-
-  echo "[ERROR] kubectl apply failed after ${count} attempts"
-  rm -f "$manifest"
-  return 1
-}
-
 show_modulesource_status() {
   local ms_json
   local phase
@@ -143,10 +117,10 @@ wait_for_virtualization_dev_source() {
 
 apply_module_source() {
   local registry
-  registry="$(base64 -d <<< "$dev_registry_docker_cfg" | jq '.auths | to_entries | .[] | .key' -r)"
+  registry="$(registry_host_from_docker_cfg "$dev_registry_docker_cfg")"
 
   echo "[INFO] Apply ModuleSource dev config"
-  kubectl_apply_with_retry <<EOF
+  kubectl_apply_with_retry 20 10 show_deckhouse_state <<EOF
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleSource
 metadata:
@@ -162,7 +136,7 @@ EOF
 
 apply_virtualization_module_config() {
   echo "[INFO] Apply Virtualization module config"
-  kubectl_apply_with_retry <<EOF
+  kubectl_apply_with_retry 20 10 show_deckhouse_state <<EOF
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
 metadata:
