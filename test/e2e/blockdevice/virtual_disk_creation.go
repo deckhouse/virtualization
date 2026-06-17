@@ -54,53 +54,6 @@ import (
 
 const vdCreationBlankSize = "64Mi"
 
-// mainStorageClass returns a pointer to the name of the StorageClass that block-device
-// creation tests use to provision VirtualDisks and VirtualImages. Its presence is
-// enforced by precheck.PrecheckMainStandbyStorageClass.
-func mainStorageClass() *string {
-	GinkgoHelper()
-
-	sc := framework.GetConfig().StorageClass.MainStorageClass
-	Expect(sc).NotTo(BeNil(),
-		"main StorageClass not found: annotate a StorageClass with %s=true (enforced by the %q precheck)",
-		config.MainStorageClassAnnotation, precheck.PrecheckMainStandbyStorageClass)
-
-	return ptr.To(sc.Name)
-}
-
-// standbyStorageClass returns a pointer to the name of the standby StorageClass, used as
-// the "other" StorageClass (same CSI driver as the main one) when a source object must
-// live on a different StorageClass than the produced one. Its presence and shared CSI
-// driver are enforced by precheck.PrecheckMainStandbyStorageClass.
-func standbyStorageClass() *string {
-	GinkgoHelper()
-
-	sc := framework.GetConfig().StorageClass.StandbyStorageClass
-	Expect(sc).NotTo(BeNil(),
-		"standby StorageClass not found: annotate a StorageClass with %s=true (enforced by the %q precheck)",
-		config.StandbyStorageClassAnnotation, precheck.PrecheckMainStandbyStorageClass)
-
-	return ptr.To(sc.Name)
-}
-
-// setupProject creates an isolated Deckhouse Project, waits until it is deployed and
-// switches the framework to operate inside the project's namespace. The project (and
-// therefore its namespace and every resource it contains) is removed during cleanup.
-func setupProject(ctx context.Context, f *framework.Framework, prefix string) {
-	GinkgoHelper()
-
-	project := object.NewIsolatedProject(prefix, framework.NamespaceBasePrefix)
-
-	By("Creating an isolated Project", func() {
-		err := f.CreateWithDeferredDeletion(ctx, project)
-		Expect(err).NotTo(HaveOccurred())
-
-		util.UntilObjectState(ctx, "Deployed", framework.ShortTimeout, project)
-	})
-
-	f.SetProjectNamespace(project.Name)
-}
-
 var _ = Describe("VirtualDiskCreation", Label(precheck.PrecheckMainStandbyStorageClass), func() {
 	var (
 		f   *framework.Framework
@@ -360,6 +313,53 @@ var _ = Describe("VirtualDiskCreation", Label(precheck.PrecheckMainStandbyStorag
 		})
 	})
 })
+
+// mainStorageClass returns a pointer to the name of the StorageClass that block-device
+// creation tests use to provision VirtualDisks and VirtualImages. Its presence is
+// enforced by precheck.PrecheckMainStandbyStorageClass.
+func mainStorageClass() *string {
+	GinkgoHelper()
+
+	sc := framework.GetConfig().StorageClass.MainStorageClass
+	Expect(sc).NotTo(BeNil(),
+		"main StorageClass not found: annotate a StorageClass with %s=true (enforced by the %q precheck)",
+		config.MainStorageClassAnnotation, precheck.PrecheckMainStandbyStorageClass)
+
+	return ptr.To(sc.Name)
+}
+
+// standbyStorageClass returns a pointer to the name of the standby StorageClass, used as
+// the "other" StorageClass (same CSI driver as the main one) when a source object must
+// live on a different StorageClass than the produced one. Its presence and shared CSI
+// driver are enforced by precheck.PrecheckMainStandbyStorageClass.
+func standbyStorageClass() *string {
+	GinkgoHelper()
+
+	sc := framework.GetConfig().StorageClass.StandbyStorageClass
+	Expect(sc).NotTo(BeNil(),
+		"standby StorageClass not found: annotate a StorageClass with %s=true (enforced by the %q precheck)",
+		config.StandbyStorageClassAnnotation, precheck.PrecheckMainStandbyStorageClass)
+
+	return ptr.To(sc.Name)
+}
+
+// setupProject creates an isolated Deckhouse Project, waits until it is deployed and
+// switches the framework to operate inside the project's namespace. The project (and
+// therefore its namespace and every resource it contains) is removed during cleanup.
+func setupProject(ctx context.Context, f *framework.Framework, prefix string) {
+	GinkgoHelper()
+
+	project := object.NewIsolatedProject(prefix, framework.NamespaceBasePrefix)
+
+	By("Creating an isolated Project", func() {
+		err := f.CreateWithDeferredDeletion(ctx, project)
+		Expect(err).NotTo(HaveOccurred())
+
+		util.UntilObjectState(ctx, "Deployed", framework.ShortTimeout, project)
+	})
+
+	f.SetProjectNamespace(project.Name)
+}
 
 func createVirtualDiskAndWait(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk) {
 	GinkgoHelper()
