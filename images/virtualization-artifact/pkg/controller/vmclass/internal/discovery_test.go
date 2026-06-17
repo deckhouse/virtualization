@@ -519,5 +519,102 @@ var _ = Describe("DiscoveryHandler", func() {
 			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "svm"))
 			Expect(changed.Status.CpuFeatures.Enabled).NotTo(ContainElement("lm"))
 		})
+
+		It("should recompute features when available nodes change, not reuse cached status", func() {
+			// Regression test: previously the handler cached
+			// Status.CpuFeatures.Enabled forever, so when a node with a rare
+			// CPU feature disappeared from availableNodes, the class kept
+			// advertising that feature and VMs refused to schedule.
+			nodeOld := newNodeWithLabels("node-old", map[string]string{
+				virtv1.CPUFeatureLabel + "vmx": "true",
+				virtv1.CPUFeatureLabel + "avx": "true",
+				virtv1.CPUFeatureLabel + "hle": "true",
+			})
+			nodeNew := newNodeWithLabels("node-new", map[string]string{
+				virtv1.CPUFeatureLabel + "vmx": "true",
+				virtv1.CPUFeatureLabel + "avx": "true",
+				virtv1.CPUFeatureLabel + "fma": "true",
+			})
+			handlerOld := newVirtHandlerPod("node-old")
+			handlerNew := newVirtHandlerPod("node-new")
+
+			vmc := newVMClass("test-cache-staleness", v1alpha2.CPUTypeDiscovery, nil, nil)
+			vmcState, resource := setupDiscoveryEnvironment(vmc,
+				nodeOld, nodeNew,
+				handlerOld, handlerNew)
+
+			ctx := context.Background()
+			mockRecorder := &eventrecord.EventRecorderLoggerMock{
+				EventfFunc: func(involved client.Object, eventtype, reason, messageFmt string, args ...any) {},
+			}
+			handler := NewDiscoveryHandler(mockRecorder)
+
+			// Two passes are required: first sets the Discovered condition to
+			// Unknown (addAllUnknown requeue), second performs the actual
+			// discovery and writes Status.CpuFeatures.
+			_, err := handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changed := resource.Changed()
+			Expect(changed.Status.AvailableNodes).To(ConsistOf("node-old", "node-new"))
+			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "avx"))
+
+			// Simulate node-old disappearing (e.g. drained, deleted) by
+			// re-running discovery with only node-new in availableNodes. The
+			// next reconcile must drop hle/rtm from Enabled without manual
+			// intervention on the class status.
+			vmcState, resource = setupDiscoveryEnvironment(vmc,
+				nodeNew,
+				handlerNew)
+			// Replay the same reconcile pattern again on the fresh state.
+			_, err = handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changed = resource.Changed()
+			Expect(changed.Status.AvailableNodes).To(ConsistOf("node-new"))
+			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "avx", "fma"))
+		})
+
+		It("should mark Discovered=False when available nodes have no common CPU features", func() {
+			// Pick two labels that exist on opposite nodes so there is no
+			// common CPU feature between availableNodes.
+			node1 := newNodeWithLabels("node1", map[string]string{
+				virtv1.CPUFeatureLabel + "hle": "true",
+			})
+			node2 := newNodeWithLabels("node2", map[string]string{
+				virtv1.CPUFeatureLabel + "rtm": "true",
+			})
+			handler1 := newVirtHandlerPod("node1")
+			handler2 := newVirtHandlerPod("node2")
+
+			vmc := newVMClass("test-no-common", v1alpha2.CPUTypeDiscovery, nil, nil)
+			vmcState, resource := setupDiscoveryEnvironment(vmc,
+				node1, node2,
+				handler1, handler2)
+
+			ctx := context.Background()
+			mockRecorder := &eventrecord.EventRecorderLoggerMock{
+				EventfFunc: func(involved client.Object, eventtype, reason, messageFmt string, args ...any) {},
+			}
+			handler := NewDiscoveryHandler(mockRecorder)
+
+			_, err := handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changed := resource.Changed()
+			Expect(changed.Status.AvailableNodes).To(ConsistOf("node1", "node2"))
+			Expect(changed.Status.CpuFeatures.Enabled).To(BeEmpty())
+
+			cond := conditions.FindStatusCondition(changed.Status.Conditions, vmclasscondition.TypeDiscovered.String())
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(vmclasscondition.ReasonDiscoveryFailed.String()))
+		})
 	})
 })

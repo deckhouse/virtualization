@@ -19,7 +19,6 @@ package internal
 import (
 	"context"
 	"fmt"
-	"slices"
 	"sort"
 	"strings"
 
@@ -80,38 +79,33 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 		availableNodeNames[i] = n.GetName()
 	}
 
-	var (
-		featuresEnabled    []string
-		featuresNotEnabled []string
-	)
+	var featuresEnabled []string
 	switch cpuType {
 	case v1alpha2.CPUTypeDiscovery:
-		if fs := current.Status.CpuFeatures.Enabled; len(fs) > 0 {
-			featuresEnabled = fs
-			break
-		}
-		featuresEnabled = h.discoveryCommonFeatures(nodes)
+		// Always recompute features from availableNodes so the result reflects
+		// the current set of nodes filtered by spec.nodeSelector. Caching
+		// Status.CpuFeatures.Enabled would lock the class to whatever node
+		// composition existed at first reconcile and break when nodes are
+		// added/removed later.
+		featuresEnabled = h.discoveryCommonFeatures(availableNodes)
 	case v1alpha2.CPUTypeFeatures:
 		featuresEnabled = current.Spec.CPU.Features
-	}
-
-	if cpuType == v1alpha2.CPUTypeDiscovery || cpuType == v1alpha2.CPUTypeFeatures {
-		commonFeatures := h.discoveryCommonFeatures(availableNodes)
-		for _, cf := range commonFeatures {
-			if !slices.Contains(featuresEnabled, cf) {
-				featuresNotEnabled = append(featuresNotEnabled, cf)
-			}
-		}
 	}
 
 	cb := conditions.NewConditionBuilder(vmclasscondition.TypeDiscovered).Generation(current.GetGeneration())
 	switch cpuType {
 	case v1alpha2.CPUTypeDiscovery:
+		if len(availableNodes) == 0 {
+			cb.Message("No nodes match the class nodeSelector; skipping feature discovery.").
+				Reason(vmclasscondition.ReasonDiscoveryFailed).
+				Status(metav1.ConditionFalse)
+			break
+		}
 		if len(featuresEnabled) > 0 {
 			cb.Message("").Reason(vmclasscondition.ReasonDiscoverySucceeded).Status(metav1.ConditionTrue)
 			break
 		}
-		cb.Message("No common features are discovered on nodes.").
+		cb.Message("No common CPU features are discovered across available nodes.").
 			Reason(vmclasscondition.ReasonDiscoveryFailed).
 			Status(metav1.ConditionFalse)
 	default:
@@ -123,7 +117,6 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 
 	sort.Strings(availableNodeNames)
 	sort.Strings(featuresEnabled)
-	sort.Strings(featuresNotEnabled)
 
 	addedNodes, removedNodes := NodeNamesDiff(current.Status.AvailableNodes, availableNodeNames)
 	if len(addedNodes) > 0 || len(removedNodes) > 0 {
@@ -150,8 +143,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 	changed.Status.AvailableNodes = availableNodeNames
 	changed.Status.MaxAllocatableResources = h.maxAllocatableResources(availableNodes)
 	changed.Status.CpuFeatures = v1alpha2.CpuFeatures{
-		Enabled:          featuresEnabled,
-		NotEnabledCommon: featuresNotEnabled,
+		Enabled: featuresEnabled,
 	}
 
 	return reconcile.Result{}, nil
