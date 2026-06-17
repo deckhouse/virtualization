@@ -55,7 +55,7 @@ case "$REGISTRY_PROFILE" in
     ;;
 esac
 
-emit() {
+set_output() {
   local key="$1"
   local value="$2"
   echo "${key}=${value}"
@@ -65,6 +65,6 @@ emit() {
 }
 
 echo "[INFO] Resolved registry profile '${REGISTRY_PROFILE}'"
-emit registry_profile "$REGISTRY_PROFILE"
-emit deckhouse_channel "$DECKHOUSE_CHANNEL"
-emit deckhouse_version "$deckhouse_version"
+set_output registry_profile "$REGISTRY_PROFILE"
+set_output deckhouse_channel "$DECKHOUSE_CHANNEL"
+set_output deckhouse_version "$deckhouse_version"
