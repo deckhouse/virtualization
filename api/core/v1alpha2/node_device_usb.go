@@ -25,8 +25,7 @@ const (
 )
 
 // Represents a USB device discovered on a specific node in the cluster.
-// This resource is created automatically by the DRA (Dynamic Resource Allocation) system
-// when a USB device is detected on a node.
+// The module controller creates this resource from Kubernetes API data (ResourceSlice) published by the DRA driver.
 // +genclient
 // +genclient:nonNamespaced
 // +kubebuilder:object:root=true

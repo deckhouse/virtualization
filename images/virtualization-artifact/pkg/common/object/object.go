@@ -133,7 +133,9 @@ func GetAge(obj client.Object) time.Duration {
 // - CVMI, VMI has no annotation to retain pod after import
 // - CVMI, VMI is deleted
 func ShouldCleanupSubResources(obj metav1.Object) bool {
-	return obj.GetAnnotations()[annotations.AnnPodRetainAfterCompletion] != "true" || obj.GetDeletionTimestamp() != nil
+	return (obj.GetAnnotations()[annotations.AnnPodRetainAfterCompletion] != "true" &&
+		obj.GetAnnotations()[annotations.AnnPodRetainAfterCompletionLegacy] != "true") ||
+		obj.GetDeletionTimestamp() != nil
 }
 
 func IsTerminating(obj client.Object) bool {

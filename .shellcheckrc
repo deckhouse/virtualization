@@ -1,0 +1,3 @@
+shell=bash
+external-sources=true
+enable=quote-safe-variables,deprecate-which,check-unassigned-uppercase

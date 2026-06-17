@@ -713,6 +713,7 @@ networks:
 // Test ApplyImmediate to Restart upgraders.
 func TestUpgradeHotplugComputeChangesToRestart(t *testing.T) {
 	const cpuReason = "cpu restart reason"
+	const quotaReason = "quota restart reason"
 
 	changes := SpecChanges{}
 	changes.Add(
@@ -728,6 +729,26 @@ func TestUpgradeHotplugComputeChangesToRestart(t *testing.T) {
 	require.Equal(t, cpuReason, changes.GetAll()[0].RestartMessage)
 	require.Equal(t, ActionRestart, changes.GetAll()[1].ActionRequired)
 	require.Equal(t, ActionRestart, changes.GetAll()[2].ActionRequired)
+
+	changes = SpecChanges{}
+	changes.Add(FieldChange{Path: "memory.size", ActionRequired: ActionApplyImmediate})
+
+	changes.UpgradeHotplugComputeChangesToRestartWithMessage(quotaReason)
+
+	require.Equal(t, ActionRestart, changes.GetAll()[0].ActionRequired)
+	require.Equal(t, quotaReason, changes.GetAll()[0].RestartMessage)
+
+	changes = SpecChanges{}
+	changes.Add(
+		FieldChange{Path: "cpu.cores", ActionRequired: ActionApplyImmediate},
+		FieldChange{Path: "memory.size", ActionRequired: ActionApplyImmediate},
+	)
+
+	changes.UpgradeHotplugComputeChangesToRestartWithMessage(quotaReason)
+
+	require.Equal(t, ActionRestart, changes.GetAll()[0].ActionRequired)
+	require.Equal(t, ActionRestart, changes.GetAll()[1].ActionRequired)
+	require.Equal(t, []string{quotaReason}, changes.GetRestartMessages())
 }
 
 func loadVMSpec(t *testing.T, inYAML string) *v1alpha2.VirtualMachineSpec {

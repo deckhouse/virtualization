@@ -1,0 +1,81 @@
+name: GPG encrypt and upload
+description: Encrypt a file or archived paths with GPG and upload the encrypted artifact.
+inputs:
+  path:
+    description: File path to encrypt, or paths to zip when archive is true.
+    required: true
+  passphrase:
+    description: GPG symmetric encryption passphrase.
+    required: true
+  artifact_name:
+    description: Base artifact name without .gpg suffix.
+    required: true
+  working-directory:
+    description: Directory used for archive path resolution.
+    required: false
+    default: "."
+  archive:
+    description: Zip the provided paths before encryption.
+    required: false
+    default: "true"
+  retention-days:
+    description: Artifact retention in days.
+    required: false
+    default: "3"
+  overwrite:
+    description: Whether to overwrite an existing artifact.
+    required: false
+    default: "true"
+  include-hidden-files:
+    description: Whether upload-artifact includes hidden files.
+    required: false
+    default: "true"
+runs:
+  using: composite
+  steps:
+    - name: Encrypt artifact
+      id: encrypt
+      shell: bash
+      env:
+        ARTIFACT_NAME: ${{ inputs.artifact_name }}
+        ARCHIVE: ${{ inputs.archive }}
+        GPG_PASSPHRASE: ${{ inputs.passphrase }}
+        INPUT_PATH: ${{ inputs.path }}
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+      run: |
+        if [ "$ARCHIVE" = "true" ]; then
+          pushd "$WORKING_DIRECTORY"
+          # INPUT_PATH intentionally supports a whitespace-separated path list.
+          zip -r "$RUNNER_TEMP/${ARTIFACT_NAME}.zip" $INPUT_PATH
+          popd
+          input_file="$RUNNER_TEMP/${ARTIFACT_NAME}.zip"
+          encrypted_file="$RUNNER_TEMP/${ARTIFACT_NAME}.zip.gpg"
+          upload_name="${ARTIFACT_NAME}.zip.gpg"
+        else
+          input_file="$INPUT_PATH"
+          encrypted_file="$RUNNER_TEMP/${ARTIFACT_NAME}.gpg"
+          upload_name="${ARTIFACT_NAME}.gpg"
+        fi
+
+        gpg --symmetric --batch --yes --pinentry-mode loopback \
+          --passphrase "$GPG_PASSPHRASE" \
+          --cipher-algo AES256 \
+          --output "$encrypted_file" \
+          "$input_file"
+
+        if [ "$ARCHIVE" = "true" ]; then
+          rm -f "$input_file"
+        fi
+
+        echo "encrypted_path=$encrypted_file" >> "$GITHUB_OUTPUT"
+        echo "upload_name=$upload_name" >> "$GITHUB_OUTPUT"
+
+    - name: Upload encrypted artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ steps.encrypt.outputs.upload_name }}
+        path: ${{ steps.encrypt.outputs.encrypted_path }}
+        overwrite: ${{ inputs.overwrite }}
+        include-hidden-files: ${{ inputs.include-hidden-files }}
+        retention-days: ${{ inputs.retention-days }}
+        archive: false

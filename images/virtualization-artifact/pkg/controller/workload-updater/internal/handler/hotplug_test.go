@@ -23,12 +23,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 var _ = Describe("TestHotplugResourcesHandler", func() {
@@ -73,18 +75,29 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 
 	type testResourcesSettings struct {
 		hasHotMemoryChangeCondition bool
+		awaitingRestart             bool
 		shouldMigrate               bool
+		expectedMigrationCalls      int
 	}
 
 	DescribeTable("HotplugResourcesHandler should return serviceCompleteErr if migration executed",
 		func(settings testResourcesSettings) {
 			vm, kvvmi := newVMAndKVVMI(settings.hasHotMemoryChangeCondition)
+			if settings.awaitingRestart {
+				vm.Status.Conditions = append(vm.Status.Conditions, metav1.Condition{
+					Type:   vmcondition.TypeAwaitingRestartToApplyConfiguration.String(),
+					Status: metav1.ConditionTrue,
+					Reason: vmcondition.ReasonChangesPendingRestart.String(),
+				})
+			}
 			fakeClient = setupEnvironment(vm, kvvmi)
 
 			mockMigration := newOnceMigrationMock(settings.shouldMigrate)
 
 			h := NewHotplugHandler(fakeClient, mockMigration)
 			_, err := h.Handle(ctx, vm)
+
+			Expect(mockMigration.OnceMigrateCalls()).To(HaveLen(settings.expectedMigrationCalls))
 
 			if settings.hasHotMemoryChangeCondition && !settings.shouldMigrate {
 				Expect(err).ToNot(HaveOccurred())
@@ -100,6 +113,7 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 			testResourcesSettings{
 				hasHotMemoryChangeCondition: true,
 				shouldMigrate:               true,
+				expectedMigrationCalls:      1,
 			},
 		),
 		Entry(
@@ -107,12 +121,22 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 			testResourcesSettings{
 				hasHotMemoryChangeCondition: true,
 				shouldMigrate:               false,
+				expectedMigrationCalls:      1,
 			},
 		),
 		Entry(
 			"Migration should not be executed without hotMemoryChange condition",
 			testResourcesSettings{
 				hasHotMemoryChangeCondition: false,
+				expectedMigrationCalls:      0,
+			},
+		),
+		Entry(
+			"Migration should not be executed when VM awaits restart to apply configuration",
+			testResourcesSettings{
+				hasHotMemoryChangeCondition: true,
+				awaitingRestart:             true,
+				expectedMigrationCalls:      0,
 			},
 		),
 	)

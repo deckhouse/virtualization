@@ -18,6 +18,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -31,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
@@ -395,6 +397,46 @@ var _ = Describe("LifecycleHandler", func() {
 		Entry("uses provided attribute name", "usb-raw-device", "usb-raw-device"),
 		Entry("falls back to resource name when attribute name is empty", "", "usb-device-cr"),
 	)
+
+	It("should ignore non-status already existing ResourceClaimTemplate on stale create", func() {
+		usbDevice := &v1alpha2.USBDevice{
+			ObjectMeta: metav1.ObjectMeta{Name: "usb-device-cr", Namespace: "default", UID: "usb-uid-1"},
+			Status:     v1alpha2.USBDeviceStatus{Attributes: v1alpha2.NodeUSBDeviceAttributes{Name: "usb-new-name", VendorID: "1234", ProductID: "5678"}},
+		}
+
+		nodeUSBDevice := &v1alpha2.NodeUSBDevice{
+			ObjectMeta: metav1.ObjectMeta{Name: "usb-device-cr"},
+			Status: v1alpha2.NodeUSBDeviceStatus{
+				Attributes: v1alpha2.NodeUSBDeviceAttributes{Name: "usb-new-name", VendorID: "1234", ProductID: "5678"},
+				NodeName:   "node-1",
+				Conditions: []metav1.Condition{{Type: string(nodeusbdevicecondition.ReadyType), Status: metav1.ConditionTrue, Reason: string(nodeusbdevicecondition.Ready), Message: "Node status"}},
+			},
+		}
+
+		vmObj, vmField, vmExtractValue := indexer.IndexVMByUSBDevice()
+		vmNodeObj, vmNodeField, vmNodeExtractValue := indexer.IndexVMByNode()
+		cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(usbDevice, nodeUSBDevice).WithIndex(vmObj, vmField, vmExtractValue).WithIndex(vmNodeObj, vmNodeField, vmNodeExtractValue).WithInterceptorFuncs(interceptor.Funcs{
+			Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
+				if _, ok := obj.(*resourcev1.ResourceClaimTemplate); ok {
+					return errors.New(`resourceclaimtemplates.resource.k8s.io "usb-device-cr-template" already exists`)
+				}
+				return nil
+			},
+		}).Build()
+
+		res := reconciler.NewResource(
+			types.NamespacedName{Name: usbDevice.Name, Namespace: usbDevice.Namespace},
+			cl,
+			func() *v1alpha2.USBDevice { return &v1alpha2.USBDevice{} },
+			func(obj *v1alpha2.USBDevice) v1alpha2.USBDeviceStatus { return obj.Status },
+		)
+		Expect(res.Fetch(ctx)).To(Succeed())
+
+		st := state.New(cl, res)
+		h := NewLifecycleHandler(cl)
+		_, err := h.Handle(ctx, st)
+		Expect(err).NotTo(HaveOccurred())
+	})
 
 	It("should update existing ResourceClaimTemplate when selector drifts", func() {
 		usbDevice := &v1alpha2.USBDevice{

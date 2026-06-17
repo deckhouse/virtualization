@@ -19,13 +19,19 @@ package config
 import (
 	"context"
 	"fmt"
+	"os"
 	"sort"
 
 	storagev1 "k8s.io/api/storage/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const NFS = "nfs.csi.k8s.io"
+const (
+	NFS = "nfs.csi.k8s.io"
+
+	// StorageClassNameEnv overrides TemplateStorageClass for tests (see README).
+	StorageClassNameEnv = "STORAGE_CLASS_NAME"
+)
 
 // FindDefaultStorageClass returns the default StorageClass from the list.
 // It selects the most recently created default StorageClass (by creationTimestamp).
@@ -85,25 +91,55 @@ func FindImmediateStorageClass(defaultSC *storagev1.StorageClass, scList *storag
 	return nil
 }
 
-// SetImmediateStorageClass finds and sets ImmediateStorageClass in Config.
-// It searches for a StorageClass with VolumeBindingMode=Immediate and same provisioner as default StorageClass.
-// If default StorageClass already has Immediate binding mode, it will be used.
-func (c *Config) SetImmediateStorageClass(ctx context.Context, k8sClient client.Client) error {
-	if c.StorageClass.DefaultStorageClass == nil {
-		return fmt.Errorf("default StorageClass is not set")
-	}
-
+// SetStorageClasses discovers cluster StorageClasses and populates Config.StorageClass fields.
+// TemplateStorageClass is taken from StorageClassNameEnv when set, otherwise DefaultStorageClass is used.
+func (c *Config) SetStorageClasses(ctx context.Context, k8sClient client.Client) error {
 	var scList storagev1.StorageClassList
 	if err := k8sClient.List(ctx, &scList); err != nil {
 		return fmt.Errorf("failed to list StorageClasses: %w", err)
 	}
 
-	immediateSC := FindImmediateStorageClass(c.StorageClass.DefaultStorageClass, &scList)
-	if immediateSC == nil {
-		return fmt.Errorf("immediate StorageClass not found for provisioner %q",
-			c.StorageClass.DefaultStorageClass.Provisioner)
+	c.StorageClass.DefaultStorageClass = FindDefaultStorageClass(&scList)
+	if c.StorageClass.DefaultStorageClass == nil {
+		return fmt.Errorf("default StorageClass not found in the cluster")
 	}
 
-	c.StorageClass.ImmediateStorageClass = immediateSC
+	c.StorageClass.ImmediateStorageClass = FindImmediateStorageClass(c.StorageClass.DefaultStorageClass, &scList)
+
+	templateSC, err := findStorageClassFromEnv(ctx, k8sClient, StorageClassNameEnv, &scList)
+	if err != nil {
+		return err
+	}
+	if templateSC != nil {
+		c.StorageClass.TemplateStorageClass = templateSC
+	} else {
+		c.StorageClass.TemplateStorageClass = c.StorageClass.DefaultStorageClass
+	}
+
 	return nil
+}
+
+func findStorageClassFromEnv(
+	ctx context.Context,
+	k8sClient client.Client,
+	envName string,
+	scList *storagev1.StorageClassList,
+) (*storagev1.StorageClass, error) {
+	scName, ok := os.LookupEnv(envName)
+	if !ok {
+		return nil, nil
+	}
+
+	for i := range scList.Items {
+		if scList.Items[i].Name == scName {
+			return &scList.Items[i], nil
+		}
+	}
+
+	sc := &storagev1.StorageClass{}
+	if err := k8sClient.Get(ctx, client.ObjectKey{Name: scName}, sc); err != nil {
+		return nil, fmt.Errorf("failed to get StorageClass %q from %s env: %w", scName, envName, err)
+	}
+
+	return sc, nil
 }

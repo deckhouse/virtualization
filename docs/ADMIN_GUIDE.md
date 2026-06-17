@@ -51,6 +51,41 @@ The module state is controlled through the `.spec.enabled` field. Specify:
 - `true`: To enable the module.
 - `false`: To disable the module.
 
+**Disable the module**
+
+After you disable the `virtualization` module, all services that create and run virtual machines will stop.
+To disable the module, add the `modules.deckhouse.io/allow-disabling` annotation with the value `true`
+to ModuleConfig `virtualization` and set the `spec.enabled` parameter to `false`.
+
+Before disabling:
+
+1. Delete all module resources: virtual machines, disks, images, and so on.
+1. Make sure no active resources remain in the cluster:
+
+   ```shell
+   d8 k get virtualization
+   ```
+
+Edit ModuleConfig `virtualization`:
+
+```yaml
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: virtualization
+  annotations:
+    modules.deckhouse.io/allow-disabling: "true"
+spec:
+  enabled: false
+  version: 1
+  settings:
+    # Specify the existing settings.
+```
+
+{{< alert level="danger" >}}
+If module resources are not deleted, disabling the module may result in data loss.
+{{< /alert >}}
+
 **Configuration version**
 
 The `.spec.version` parameter defines the version of the configuration schema. The parameter structure may change between versions. The current values are given in the settings section.
@@ -126,19 +161,20 @@ Example:
 
 ```yaml
 spec:
-  ...
+#  ...
   settings:
     virtualImages:
-      allowedStorageClassNames:
-      - sc-1
-      - sc-2
+      allowedStorageClassSelector:
+        matchNames:
+        - sc-1
+        - sc-2
       defaultStorageClassName: sc-1
 ```
 
 Where:
 
-- `allowedStorageClassNames` (optional): A list of the allowed StorageClasses for creating a VirtualImage that can be explicitly specified in the resource specification.
-- `defaultStorageClassName` (optional): The StorageClass used by default when creating a VirtualImage if the `.spec.persistentVolumeClaim.storageClassName` parameter is not set.
+- `matchNames` (optional): List of the allowed StorageClasses for creating a [VirtualImage](/modules/virtualization/cr.html#virtualimage) that can be explicitly specified in the resource specification.
+- `defaultStorageClassName` (optional): StorageClass used by default when creating a [VirtualImage](/modules/virtualization/cr.html#virtualimage) if the `.spec.persistentVolumeClaim.storageClassName` parameter is not set.
 
 **Storage class settings for disks**
 
@@ -148,19 +184,20 @@ Example:
 
 ```yaml
 spec:
-  ...
+#  ...
   settings:
     virtualDisks:
-      allowedStorageClassNames:
-      - sc-1
-      - sc-2
+      allowedStorageClassSelector:
+        matchNames:
+        - sc-1
+        - sc-2
       defaultStorageClassName: sc-1
 ```
 
 Where:
 
-- `allowedStorageClassNames` (optional): A list of the allowed StorageClass for creating a VirtualDisk that can be explicitly specified in the resource specification.
-- `defaultStorageClassName` (optional): The StorageClass used by default when creating a VirtualDisk if the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified.
+- `matchNames` (optional): List of the allowed StorageClass for creating a [VirtualDisk](/modules/virtualization/cr.html#virtualdisk) that can be explicitly specified in the resource specification.
+- `defaultStorageClassName` (optional): StorageClass used by default when creating a [VirtualDisk](/modules/virtualization/cr.html#virtualdisk) if the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified.
 
 **Security Event Audit**
 
@@ -292,7 +329,7 @@ In this example, let's create a cluster image.
    apiVersion: virtualization.deckhouse.io/v1alpha2
    kind: ClusterVirtualImage
    metadata:
-     name: ubuntu-22-04
+     name: ubuntu-24-04
    spec:
      # Source for creating an image.
      dataSource:
@@ -305,17 +342,17 @@ In this example, let's create a cluster image.
 1. To verify that the ClusterVirtualImage has been created, run the following command:
 
    ```bash
-   d8 k get clustervirtualimage ubuntu-22-04
+   d8 k get clustervirtualimage ubuntu-24-04
 
    # A short version of the command.
-   d8 k get cvi ubuntu-22-04
+   d8 k get cvi ubuntu-24-04
    ```
 
    In the output, you should see information about the resource:
 
    ```console
    NAME           PHASE   CDROM   PROGRESS   AGE
-   ubuntu-22-04   Ready   false   100%       23h
+   ubuntu-24-04   Ready   false   100%       23h
    ```
 
 Once created, the ClusterVirtualImage resource can be in one of the following states (phases):
@@ -335,27 +372,27 @@ Diagnosing problems with a resource is done by analyzing the information in the 
 You can trace the image creation process by adding the `-w` key to the command used for verification of the created resource:
 
 ```bash
-d8 k get cvi ubuntu-22-04 -w
+d8 k get cvi ubuntu-24-04 -w
 ```
 
 Example output:
 
 ```console
 NAME           PHASE          CDROM   PROGRESS   AGE
-ubuntu-22-04   Provisioning   false              4s
-ubuntu-22-04   Provisioning   false   0.0%       4s
-ubuntu-22-04   Provisioning   false   28.2%      6s
-ubuntu-22-04   Provisioning   false   66.5%      8s
-ubuntu-22-04   Provisioning   false   100.0%     10s
-ubuntu-22-04   Provisioning   false   100.0%     16s
-ubuntu-22-04   Ready          false   100%       18s
+ubuntu-24-04   Provisioning   false              4s
+ubuntu-24-04   Provisioning   false   0.0%       4s
+ubuntu-24-04   Provisioning   false   28.2%      6s
+ubuntu-24-04   Provisioning   false   66.5%      8s
+ubuntu-24-04   Provisioning   false   100.0%     10s
+ubuntu-24-04   Provisioning   false   100.0%     16s
+ubuntu-24-04   Ready          false   100%       18s
 ```
 
 You can get additional information about the downloaded image from the description of the ClusterVirtualImage resource.
 To check on the description, run the following command:
 
 ```bash
-d8 k describe cvi ubuntu-22-04
+d8 k describe cvi ubuntu-24-04
 ```
 
 How to create an image from an HTTP server in the web interface:
@@ -374,20 +411,20 @@ An image stored in a container registry has a certain format. Let's look at an e
 1. First, download the image locally:
 
    ```bash
-   curl -L https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img -o ubuntu2204.img
+   curl -L https://cloud-images.ubuntu.com/minimal/releases/noble/release/ubuntu-24.04-minimal-cloudimg-amd64.img -o ubuntu2404.img
    ```
 
 1. Next, create a `Dockerfile` with the following contents:
 
    ```Dockerfile
    FROM scratch
-   COPY ubuntu2204.img /disk/ubuntu2204.img
+   COPY ubuntu2404.img /disk/ubuntu2404.img
    ```
 
 1. Build the image and upload it to the container registry. The example below uses `docker.io` as the container registry. You would need to have a service account and a configured environment to run it.
 
    ```bash
-   docker build -t docker.io/<username>/ubuntu2204:latest
+   docker build -t docker.io/<username>/ubuntu2404:latest
    ```
 
    Where `username` is the username specified when registering at `docker.io`.
@@ -395,7 +432,7 @@ An image stored in a container registry has a certain format. Let's look at an e
 1. Upload the created image to the container registry:
 
    ```bash
-   docker push docker.io/<username>/ubuntu2204:latest
+   docker push docker.io/<username>/ubuntu2404:latest
    ```
 
 1. To use this image, create a resource as an example:
@@ -405,12 +442,12 @@ An image stored in a container registry has a certain format. Let's look at an e
    apiVersion: virtualization.deckhouse.io/v1alpha2
    kind: ClusterVirtualImage
    metadata:
-     name: ubuntu-2204
+     name: ubuntu-2404
    spec:
      dataSource:
        type: ContainerImage
        containerImage:
-         image: docker.io/<username>/ubuntu2204:latest
+         image: docker.io/<username>/ubuntu2404:latest
    EOF
    ```
 
@@ -536,7 +573,7 @@ Images eligible for cleanup:
 KIND                   NAMESPACE            NAME
 ClusterVirtualImage                         debian-12
 VirtualDisk            default              debian-10-root
-VirtualImage           default              ubuntu-2204
+VirtualImage           default              ubuntu-2404
 ```
 
 ## Virtual machine classes

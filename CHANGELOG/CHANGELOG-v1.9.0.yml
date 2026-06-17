@@ -1,0 +1,229 @@
+ci:
+  features:
+    - summary: Add Python-generated E2E duration charts and slowest-specs workflow artifacts.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2361
+    - summary: Add step to switch modules to maintenance mode before e2e tests.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2321
+    - summary: >-
+        Deploy Prod workflow can prepare GitHub releases from changelog PRs and report release
+        status to Loop.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2291
+    - summary: test rolling over release to release
+      pull_request: https://github.com/deckhouse/virtualization/pull/2195
+  fixes:
+    - summary: The SDN readiness timeout during nested e2e bootstrap has been increased.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2413
+    - summary: >-
+        Increase release site validation wait time to reduce CI flakes while module versions
+        propagate.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2386
+    - summary: Release-channel validation now checks module versions on the module-specific release page.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2381
+    - summary: Fix E2E workflow artifact upload and download handling for encrypted generated files.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2364
+    - summary: >-
+        Improve E2E messenger report failure reasons, suite setup failure reporting, and
+        success-rate calculation.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2355
+    - summary: >-
+        Harden nested e2e module setup against Deckhouse module propagation and admission readiness
+        races.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2349
+    - summary: use discovered SSH credentials for Alpine VMs in static cluster e2e infrastructure.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2337
+    - summary: Wait longer for nested e2e kubeconfig authorization to become ready.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2336
+    - summary: docker login step
+      pull_request: https://github.com/deckhouse/virtualization/pull/2325
+    - summary: Retry applying Virtualization configuration in nested E2E workflow.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2319
+    - summary: Make nested E2E bootstrap diagnostics tolerate temporary Kubernetes API failures.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2317
+    - summary: >-
+        Enable source image tag-based werf imports in prod build workflows to avoid unnecessary
+        rebuilds caused by cache metadata mismatch between werf versions.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2310
+    - summary: >-
+        Skip USB nested e2e on Kubernetes versions below 1.34 and fall back to the default NFS
+        storage class.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2307
+    - summary: >-
+        Prevent E2E report parsing failures by separating the raw Ginkgo JSON report from the
+        summary report in CI artifacts.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2305
+    - summary: add SSH keepalive options to d8-based nested cluster access in CI and e2e helpers
+      pull_request: https://github.com/deckhouse/virtualization/pull/2301
+    - summary: >-
+        Refactor nested E2E report generation into tested Node.js scripts with JSON reports and
+        improve Loop reporting for missing artifacts, skipped tests, and stage failures.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2245
+core:
+  features:
+    - summary: Add live migration transfer details to VMOP condition messages.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2436
+    - summary: >-
+        CLI lifecycle commands (start, stop, restart, evict, migrate) now support multiple VM
+        targets, --all flag, --label-selector flag for label-based targeting, and --yes flag for
+        non-interactive confirmation.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2412
+    - summary: >-
+        Compatible VirtualMachineOperation resources can now supersede another active operation on
+        the same VM.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2338
+    - summary: >-
+        Added the `Uptime` column to `VirtualMachine` resources, showing the time since the VM
+        started.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2279
+  fixes:
+    - summary: >-
+        Fix USB startupPolicy='optional' in containers where sysfs exposes host devices but device
+        nodes are absent from the mount namespace.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2432
+    - summary: Create network interfaces with deckhouse user ownership (UID/GID 64535).
+      pull_request: https://github.com/deckhouse/virtualization/pull/2430
+    - summary: Fix panic in kubevirt CRD event handler on tombstone object delivery.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2420
+    - summary: Fix cleanup of stale hotplug attachment pods after removing VM disks.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2409
+    - summary: Prevent hotplug volume mount leaks on failed migration cleanup by bumping KubeVirt.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2385
+    - summary: >-
+        Better handling Windows guests: start and migration should work in clusters with frequent
+        CPU frequencies drifts
+      pull_request: https://github.com/deckhouse/virtualization/pull/2345
+    - summary: Preserve VirtualMachine uptime during migration by tracking the last start time in status.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2304
+    - summary: >-
+        Restore MigrationPending with 0% progress and treat target scheduling as in-progress for VM
+        migration operations.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2272
+    - summary: Propagate target migration pod unschedulable details to VMOP conditions.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2261
+    - summary: >-
+        Reconnect logic in d8 v vnc and d8 v console now refreshes client config before reconnect,
+        avoiding stale OIDC refresh token failures.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2253
+dvcr:
+  fixes:
+    - summary: >-
+        DVCR garbage collection no longer fails on a fresh PVC-backed registry before the first
+        image upload.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2447
+module:
+  fixes:
+    - summary: >-
+        Prevent the USB/IP module installation step from retrying indefinitely when kernel module
+        packages are unavailable.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2371
+    - summary: >-
+        Skip USBGateway detach cleanup for untracked USB devices and detach tracked devices only on
+        the last active consumer.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2298
+    - summary: >-
+        Fixed an issue where invalid `virtualization` module ModuleConfig settings could block the
+        Deckhouse queue.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2246
+    - summary: >-
+        Add idempotency for USB device cleanup in virtualization-dra to prevent errors on repeated
+        unprepare calls.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2216
+    - summary: Fixed duplicate series on the `Virtualization / Overview` dashboard.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2189
+test:
+  features:
+    - summary: >-
+        Add precheck system for e2e tests that validates cluster configuration before test
+        execution.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2269
+  fixes:
+    - summary: Make e2e precheck label parsing compatible with Ginkgo negated label filters.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2439
+    - summary: VirtualDiskResizing e2e test now waits for SSH before checking disk size after resize.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2424
+    - summary: Simplify VirtualDiskResizing disk size checks to reduce SSH command flakiness.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2405
+    - summary: Increase CPU core fraction for hotplug e2e VMs to avoid SSH disk probe timeouts.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2403
+    - summary: >-
+        Failed e2e dump artifacts are now stored in e2e_failed/<testcase>/... for both new and
+        legacy tests.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2383
+    - summary: >-
+        Improve reliability of flaky USB reconnection e2e test by splitting mount logic into find,
+        format, and mount steps.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2332
+    - summary: Fix e2e precheck prepare for focus/label filters containing spaces.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2318
+    - summary: >-
+        Make the e2e external connectivity check rely on successful outbound access to fallback
+        hosts instead of HTTP 200 from a single site.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2313
+    - summary: >-
+        Stabilized the VirtualMachineUSB e2e test by improving guest USB disk detection, remount
+        flow, and timeouts around migration.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2297
+    - summary: Improve VirtualMachineAdditionalNetworkInterfaces e2e test reliability and diagnostics.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2290
+    - summary: Increase timeout for repeated affinity migration in the legacy affinity/toleration e2e test.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2267
+    - summary: >-
+        Increase VirtualMachineSnapshot readiness timeout in VirtualMachineOperationRestore e2e test
+        to fix flakiness on NFS storage.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2254
+vd:
+  fixes:
+    - summary: >-
+        Time spent in the `WaitForFirstConsumer` phase is no longer included in
+        `.status.stats.creationDuration.totalProvisioning` of virtual disks.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2379
+    - summary: Allow ingress from virtualization namespace to importer pods
+      pull_request: https://github.com/deckhouse/virtualization/pull/2356
+    - summary: Restore requested VirtualDisk size from snapshot metadata.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2278
+vm:
+  features:
+    - summary: >-
+        The VM status now includes a `No bootable device` message when the VM cannot find a bootable
+        disk to start.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2404
+    - summary: Add domain jobs and block-jobs info subcommands to vlctl.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2280
+    - summary: >-
+        Added the ability to change `coreFraction` on a running VM without a restart. The new value
+        is applied via live migration.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2210
+    - summary: >-
+        Added the ability to attach additional network interfaces without a restart via the virtual
+        machine's `.spec.networks`.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2187
+    - summary: Provide "no bootable device" event to virt-launcher.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2183
+    - summary: >-
+        System virtual machine resources (pods with `d8v-hp-` and `d8v-vm-` prefixes) now run as the
+        `deckhouse` user, without root privileges.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2097
+    - summary: >-
+        A restart is no longer required to attach and detach virtual disks and images via the
+        virtual machine's `.spec.blockDeviceRefs`:
+
+        - Works for new virtual machines starting from v1.9.0.
+
+        - For previously created virtual machines, a restart is required to enable this behavior.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2033
+  fixes:
+    - summary: resolve xml dir for non root setup
+      pull_request: https://github.com/deckhouse/virtualization/pull/2434
+    - summary: >-
+        Fixed disk update for stopped VMs with WaitForFirstConsumer storage class. Previously, when
+        a VM was stopped and disks were changed, the KVVM was not updated, causing the VM to get
+        stuck in starting phase.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2407
+    - summary: >-
+        Fix VM migration failure caused by incorrect target disk size for filesystem-backed hotplug
+        volumes.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2402
+    - summary: Fix possible scheduling problems after changing vmclass from Discovery type to Model type.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2352
+    - summary: Fixed an issue with VM migration cancellation that prevented new migrations from starting.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2282
+

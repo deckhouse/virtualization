@@ -169,6 +169,46 @@ spec:
 '{{ include "kubevirt.virt_handler_probes_strategic_patch" . | fromYaml | toJson }}'
 {{- end }}
 
+
+{{- define "kubevirt.virt_handler_security_contexts_strategic_patch" -}}
+spec:
+  template:
+    spec:
+      containers:
+      - name: virt-handler
+        securityContext:
+          privileged: true
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: true
+          runAsUser: 0
+          runAsGroup: 0
+          seLinuxOptions:
+            level: s0
+      - name: virt-launcher-image-holder
+        securityContext:
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
+      initContainers:
+      - name: virt-launcher
+        securityContext:
+          privileged: true
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: true
+          runAsUser: 0
+          runAsGroup: 0
+{{- end -}}
+
+
+{{- define "kubevirt.virt_handler_security_contexts_strategic_patch_json" -}}
+'{{ include "kubevirt.virt_handler_security_contexts_strategic_patch" . | fromYaml | toJson }}'
+{{- end }}
+
+
 {{/* Calculate parallel migrations per cluster.
  This template returns:
   - Count of nodes with virt-handler if kubevirt config is in 'Deployed' phase.

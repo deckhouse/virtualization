@@ -3,6 +3,42 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.9.0
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: June 10, 2026.
+</span>
+
+### New features
+
+- [vm] A restart is no longer required to attach and detach virtual disks and images via the virtual machine's `.spec.blockDeviceRefs`.
+       - Works for new virtual machines starting from v1.9.0.
+       - For previously created virtual machines, a restart is required to enable this behavior.
+- [vm] Added the ability to attach additional network interfaces without a restart via the virtual machine's `.spec.networks`.
+- [vm] Added the ability to change `coreFraction` on a running VM without a restart. The new value is applied via live migration.
+- [vm] The VM status now includes a "No bootable device" message when the VM cannot find a bootable disk to start.
+- [vm] Added the `Uptime` column to [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resources, showing the time since the VM started.
+- [vmop] Compatible [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resources can now supersede another active operation on the same VM.
+- [usb] Added the `Attached` condition and `ATTACHED` column to the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource, reflecting the USB device's connection state in the namespace.
+
+### Fixes
+
+- [vm] Fixed VM hanging in the `Starting` phase when the StorageClass of a disk with `WaitForFirstConsumer` mode is updated while the VM is stopped.
+- [vm] Fixed scheduling issues for a VM after changing the [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) in the VM spec from the `Discovery` type to another.
+- [vm] Fixed an issue with VM migration cancellation that prevented new migrations from starting.
+- [vm] Improved Windows guest OS handling in clusters with frequent CPU frequency changes.
+- [vd] Time spent in the `WaitForFirstConsumer` phase is no longer included in `.status.stats.creationDuration.totalProvisioning` of virtual disks.
+- [module] Fixed an issue where invalid `virtualization` module ModuleConfig settings could block the Deckhouse queue.
+- [observability] Fixed duplicate series on the `Virtualization / Overview` dashboard.
+
+### Other
+
+- [vm] Added the `domain jobs` and `block-jobs` subcommands to the `vlctl` utility.
+- [vmrestore] Removed the deprecated [VirtualMachineRestore](/modules/virtualization/cr.html#virtualmachinerestore) resource. Use [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) with the `Clone` or `Restore` type, or [VirtualMachineSnapshotOperation](/modules/virtualization/cr.html#virtualmachinesnapshotoperation) instead.
+
+### Security
+
+- [vm] System virtual machine resources (pods with `d8v-hp-` and `d8v-vm-` prefixes) now run as the `deckhouse` user, without root privileges.
+
 ## v1.8.3
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: June 3, 2026.

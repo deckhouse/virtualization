@@ -29,7 +29,12 @@ import (
 
 // LoadLastAppliedSpec loads VM spec from JSON in the last-applied-spec annotation.
 func LoadLastAppliedSpec(kvvm *virtv1.VirtualMachine) (*v1alpha2.VirtualMachineSpec, error) {
-	lastSpecJSON := kvvm.GetAnnotations()[annotations.AnnVMLastAppliedSpec]
+	lastSpecJSON, ok := kvvm.GetAnnotations()[annotations.AnnVMLastAppliedSpec]
+
+	if !ok {
+		lastSpecJSON = kvvm.GetAnnotations()[annotations.AnnVMLastAppliedSpecLegacy]
+	}
+
 	if strings.TrimSpace(lastSpecJSON) == "" {
 		return nil, nil
 	}
@@ -55,7 +60,12 @@ func SetLastAppliedSpec(kvvm *virtv1.VirtualMachine, vm *v1alpha2.VirtualMachine
 
 // LoadLastAppliedClassSpec loads VMClass spec from JSON in the last-applied-spec annotation.
 func LoadLastAppliedClassSpec(kvvm *virtv1.VirtualMachine) (*v1alpha2.VirtualMachineClassSpec, error) {
-	lastSpecJSON := kvvm.GetAnnotations()[annotations.AnnVMClassLastAppliedSpec]
+	lastSpecJSON, ok := kvvm.GetAnnotations()[annotations.AnnVMClassLastAppliedSpec]
+
+	if !ok {
+		lastSpecJSON = kvvm.GetAnnotations()[annotations.AnnVMClassLastAppliedSpecLegacy]
+	}
+
 	if strings.TrimSpace(lastSpecJSON) == "" {
 		return nil, nil
 	}

@@ -1,0 +1,67 @@
+name: Setup E2E toolchain
+description: Checkout repository and install common E2E CLI tools.
+inputs:
+  checkout:
+    description: Run actions/checkout before installing tools.
+    required: false
+    default: "true"
+  task-version:
+    description: go-task version to install.
+    required: false
+    default: 3.x
+  d8-version:
+    description: deckhouse-cli version to install.
+    required: false
+    default: v0.29.24
+  install-kubectl:
+    description: Install kubectl via azure/setup-kubectl.
+    required: false
+    default: "true"
+  install-htpasswd:
+    description: Install htpasswd via apache2-utils.
+    required: false
+    default: "false"
+  github-token:
+    description: GitHub token passed to go-task/setup-task.
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Checkout
+      if: inputs.checkout == 'true'
+      uses: actions/checkout@v6
+
+    - name: Install Task
+      uses: go-task/setup-task@v2
+      with:
+        version: ${{ inputs.task-version }}
+        repo-token: ${{ inputs.github-token }}
+
+    - name: Restore d8 cache
+      id: d8-cache
+      uses: actions/cache@v4
+      with:
+        path: /opt/deckhouse/bin/d8
+        key: d8-${{ inputs.d8-version }}-${{ runner.os }}
+
+    - name: Setup d8
+      if: steps.d8-cache.outputs.cache-hit != 'true'
+      uses: ./.github/actions/install-d8
+      with:
+        version: ${{ inputs.d8-version }}
+
+    - name: Add d8 to PATH
+      shell: bash
+      run: echo "/opt/deckhouse/bin" >> "$GITHUB_PATH"
+
+    - name: Install kubectl CLI
+      if: inputs.install-kubectl == 'true'
+      uses: azure/setup-kubectl@v4
+
+    - name: Install htpasswd utility
+      if: inputs.install-htpasswd == 'true'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y apache2-utils

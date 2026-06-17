@@ -51,6 +51,17 @@ func ClientAndNamespaceFromContext(ctx context.Context) (client kubeclient.Clien
 	return client, namespace, overridden, nil
 }
 
+// NamespaceFromContext returns the namespace from the active kubeconfig
+// context.
+func NamespaceFromContext(ctx context.Context) (string, error) {
+	clientConfig, ok := ctx.Value(clientConfigKey).(clientcmd.ClientConfig)
+	if !ok {
+		return "", fmt.Errorf("unable to get client config from context")
+	}
+	namespace, _, err := clientConfig.Namespace()
+	return namespace, err
+}
+
 func GetRESTConfig(ctx context.Context) (*rest.Config, error) {
 	clientConfig, ok := ctx.Value(clientConfigKey).(clientcmd.ClientConfig)
 	if !ok {

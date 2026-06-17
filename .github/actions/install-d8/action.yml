@@ -2,14 +2,49 @@ name: Install deckhouse-cli
 description: Install deckhouse-cli
 inputs:
   version:
-    description: version of deckhouse-cli (like v0.25.1)
+    description: version of deckhouse-cli (like v0.29.24)
     required: false
     default: v0.29.24
+  max-attempts:
+    description: maximum number of install attempts on transient failures
+    required: false
+    default: "5"
+  retry-delay:
+    description: base delay between retries in seconds
+    required: false
+    default: "10"
 runs:
   using: "composite"
   steps:
     - name: Install deckhouse-cli
       shell: bash
+      env:
+        D8_VERSION: ${{ inputs.version }}
+        MAX_ATTEMPTS: ${{ inputs.max-attempts }}
+        RETRY_DELAY: ${{ inputs.retry-delay }}
       run: |
-        sh -c "$(curl -fsSL https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/tools/install.sh)" "" --version ${{ inputs.version }}
-        echo "/opt/deckhouse/bin" >> $GITHUB_PATH
+        # GitHub downloads can intermittently fail with 5xx errors or hang
+        # both when fetching install.sh and when install.sh itself downloads
+        # the d8 binary. The outer loop retries the whole install (covering
+        # both downloads), while the curl timeouts turn a hung connection into
+        # a fast failure that the loop can retry.
+        set -o pipefail
+
+        for ((attempt = 1; attempt <= MAX_ATTEMPTS; attempt++)); do
+          if curl -fsSL \
+              --connect-timeout 10 --max-time 60 \
+              https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/tools/install.sh \
+              | sh -s -- --version "${D8_VERSION}"; then
+            echo "deckhouse-cli installed successfully on attempt ${attempt}"
+            echo "/opt/deckhouse/bin" >> "${GITHUB_PATH}"
+            exit 0
+          fi
+
+          if [ "${attempt}" -lt "${MAX_ATTEMPTS}" ]; then
+            echo "::warning::Install attempt ${attempt}/${MAX_ATTEMPTS} failed, retrying in ${RETRY_DELAY}s..."
+            sleep "${RETRY_DELAY}"
+          fi
+        done
+
+        echo "::error::Failed to install deckhouse-cli after ${MAX_ATTEMPTS} attempts"
+        exit 1

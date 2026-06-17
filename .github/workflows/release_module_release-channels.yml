@@ -123,7 +123,7 @@ jobs:
     needs: print-vars
     if: ${{ !inputs.check_only && (inputs.ce || inputs.ee) }}
     env:
-      GO_VERSION: "1.25.10"
+      GO_VERSION: "1.25.11"
       input_channel: ${{ github.event.inputs.channel }}
       input_version: ${{ github.event.inputs.tag }}
     steps:
@@ -417,7 +417,7 @@ jobs:
     name: Check version on release channel
     runs-on: ubuntu-latest
     env:
-      GO_VERSION: "1.25.10"
+      GO_VERSION: "1.25.11"
       input_channel: ${{ github.event.inputs.channel }}
       input_version: ${{ github.event.inputs.tag }}
     needs:

@@ -131,7 +131,10 @@ func RemoveNonPropagatableAnnotations(anno map[string]string) map[string]string 
 	res := make(map[string]string)
 
 	for k, v := range anno {
-		if k == annotations.LastPropagatedVMAnnotationsAnnotation || k == annotations.LastPropagatedVMLabelsAnnotation {
+		if k == annotations.LastPropagatedVMAnnotationsAnnotation ||
+			k == annotations.LastPropagatedVMAnnotationsAnnotationLegacy ||
+			k == annotations.LastPropagatedVMLabelsAnnotation ||
+			k == annotations.LastPropagatedVMLabelsAnnotationLegacy {
 			continue
 		}
 

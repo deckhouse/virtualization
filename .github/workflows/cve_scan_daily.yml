@@ -88,5 +88,6 @@ jobs:
           cve_test_repo_git: ${{ steps.secrets.outputs.CVE_TEST_REPO_GIT }}
           cve_ssh_private_key: ${{ steps.secrets.outputs.CVE_TEST_SSH_PRIVATE_KEY }}
           trivy_reports_log_output: "1"
+          release_in_dev: ${{ startsWith(github.event.inputs.tag_name || 'main', 'release-') && 'true' || 'false' }}
           latest_releases_amount: 5
           scan_several_latest_releases: ${{ github.event_name == 'schedule' && 'True' || (inputs.scan_several_latest_releases && 'True' || 'False') }}

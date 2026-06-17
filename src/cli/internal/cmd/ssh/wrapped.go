@@ -32,18 +32,48 @@ import (
 )
 
 func addLocalSSHClientFlags(flagset *pflag.FlagSet, opts *SSHOptions) {
-	flagset.StringArrayVarP(&opts.AdditionalSSHLocalOptions, additionalOpts, additionalOptsShort, opts.AdditionalSSHLocalOptions,
-		"Additional options to be passed to the ssh client if --local-ssh=true is set")
+	flagset.StringArrayVar(&opts.AdditionalSSHOptions, additionalOpts, opts.AdditionalSSHOptions,
+		"Additional options to be passed to the local SSH/SCP client. "+
+			"May be repeated, or a single value may contain several options separated by spaces "+
+			"(e.g. --ssh-args='-o X -o Y').")
+	flagset.StringArrayVar(&opts.AdditionalSSHLocalOptions, additionalLocalOpts, opts.AdditionalSSHLocalOptions,
+		"Deprecated: use --ssh-args instead")
 	flagset.BoolVar(&opts.WrapLocalSSH, wrapLocalSSHFlag, opts.WrapLocalSSH,
-		"Use the SSH/SCP client available on your system by using this command as ProxyCommand; Default is false: use embedded SSH client with limited capabilities")
+		"Deprecated: local SSH/SCP client is always used")
+}
+
+func WarnDeprecatedSSHFlags(cmd *cobra.Command) {
+	if cmd.Flags().Changed(wrapLocalSSHFlag) {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: --%s is deprecated and has no effect; local SSH/SCP client is always used.\n", wrapLocalSSHFlag)
+	}
+	if cmd.Flags().Changed(additionalLocalOpts) {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: --%s is deprecated; use --%s instead.\n", additionalLocalOpts, additionalOpts)
+	}
+}
+
+// flattenSSHArgs splits each entry of additionalArgs by whitespace and
+// returns a single flat slice. This allows values such as
+// `--ssh-args='-o X -o Y'` to be passed as a single flag occurrence.
+func flattenSSHArgs(additionalArgs []string) []string {
+	var flat []string
+	for _, entry := range additionalArgs {
+		flat = append(flat, strings.Fields(entry)...)
+	}
+	return flat
 }
 
 func RunLocalClient(cmd *cobra.Command, namespace, name string, options *SSHOptions, clientArgs []string) error {
 	args := []string{"-o"}
 	args = append(args, buildProxyCommandOption(cmd, namespace, name, options.SSHPort))
 
+	if len(options.AdditionalSSHOptions) > 0 {
+		args = append(args, flattenSSHArgs(options.AdditionalSSHOptions)...)
+	}
 	if len(options.AdditionalSSHLocalOptions) > 0 {
-		args = append(args, options.AdditionalSSHLocalOptions...)
+		args = append(args, flattenSSHArgs(options.AdditionalSSHLocalOptions)...)
+	}
+	if options.KnownHostsFilePathProvided {
+		args = append(args, "-o", "UserKnownHostsFile="+options.KnownHostsFilePath)
 	}
 	if options.IdentityFilePathProvided {
 		args = append(args, "-i", options.IdentityFilePath)

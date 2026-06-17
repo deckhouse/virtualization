@@ -15,7 +15,7 @@
 name: Validations
 
 env:
-  GO_VERSION: "1.25.10"
+  GO_VERSION: "1.25.11"
 on:
   pull_request:
     types: [opened, synchronize, labeled, unlabeled]
@@ -50,7 +50,7 @@ jobs:
               - .helmignore
               - Chart.yaml
               - Taskfile.yaml
-            route_forge:
+            vm_route_forge:
               - 'images/vm-route-forge/bpf/route_watcher.c'
 
   no_cyrillic:
@@ -103,6 +103,59 @@ jobs:
         run: |
           task validation:doc-changes
 
+  shellcheck:
+    if: "!contains(github.event.pull_request.labels.*.name, 'validation/skip/shellcheck')"
+    runs-on: ubuntu-latest
+    name: Validation shellcheck
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Run shellcheck
+        uses: ludeeus/action-shellcheck@2.0.0
+        with:
+          scandir: .github/scripts/bash/e2e
+          additional_files: >-
+            api/scripts/update-codegen.sh
+            images/virtualization-artifact/hack/args.sh
+            images/virtualization-artifact/hack/dlv.sh
+            images/virtualization-artifact/hack/pyroscope.sh
+          check_together: "yes"
+          severity: warning
+          ignore_paths: >-
+            vendor
+            images/cdi-artifact
+            images/virt-api/__virt
+            images/virt-controller/__virt
+            images/virt-handler/__virt
+            images/virt-launcher/__virt
+
+  actionlint:
+    if: "!contains(github.event.pull_request.labels.*.name, 'validation/skip/actionlint')"
+    runs-on: ubuntu-latest
+    name: Validation actionlint
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Install actionlint
+        run: |
+          curl -sSfL \
+            https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash \
+            -o /tmp/download-actionlint.bash
+          bash /tmp/download-actionlint.bash 1.7.7
+
+      - name: Run actionlint
+        run: |
+          shellcheck_path="$(command -v shellcheck)"
+          ./actionlint -color -shellcheck="${shellcheck_path}" \
+            .github/workflows/dev_validation.yaml \
+            .github/workflows/e2e*.yml
+
   # Run helm templates validation on changes in related files and without the skip labels.
   helm_templates:
     needs: paths_filter
@@ -137,53 +190,44 @@ jobs:
       matrix:
         # Define two groups of components with their respective Go versions
         components:
-          - { component: virtualization-artifact, go-version: "1.25.10" }
-          - { component: vm-route-forge, go-version: "1.25.10" }
-          - { component: api, go-version: "1.25.10" }
+          - { component: virtualization-artifact, go-version: "1.25.11" }
+          - { component: vm-route-forge, go-version: "1.25.11" }
+          - { component: api, go-version: "1.25.11" }
 
     steps:
-      - name: Set skip flag
-        run: |
-          # Only run vm-route-forge if relevant files were changed
-          if [[ "${{ needs.paths_filter.outputs.vm_route_forge }}" == "true" ]]; then
-            echo "route_forge_skip=false" >> $GITHUB_ENV
-          else
-            echo "route_forge_skip=true" >> $GITHUB_ENV
-          fi
-
       - name: Setup Go ${{ matrix.components.go-version }}
-        if: matrix.components.component != 'vm-route-forge' || env.route_forge_skip != 'true'
+        if: matrix.components.component != 'vm-route-forge' || needs.paths_filter.outputs.vm_route_forge == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.components.go-version }}
 
       - name: Install Task
-        if: matrix.components.component != 'vm-route-forge' || env.route_forge_skip != 'true'
+        if: matrix.components.component != 'vm-route-forge' || needs.paths_filter.outputs.vm_route_forge == 'true'
         uses: go-task/setup-task@v2
         with:
           version: 3.x
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install dependencies
-        if: matrix.components.component != 'vm-route-forge' || env.route_forge_skip != 'true'
+        if: matrix.components.component != 'vm-route-forge' || needs.paths_filter.outputs.vm_route_forge == 'true'
         run: |
           echo "Install packages"
           export DEBIAN_FRONTEND=noninteractive
           sudo apt-get update
           sudo apt-get install -y -qq \
-            llvm linux-headers-$(uname -r) clang \
+            llvm "linux-headers-$(uname -r)" clang \
             libbpf-dev uuid-runtime \
             gcc-multilib yq
           sudo apt-get clean
 
       - uses: actions/checkout@v4
-        if: matrix.components.component != 'vm-route-forge' || env.route_forge_skip != 'true'
+        if: matrix.components.component != 'vm-route-forge' || needs.paths_filter.outputs.vm_route_forge == 'true'
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Run check gen files - ${{ matrix.components.component }}
-        if: matrix.components.component != 'vm-route-forge' || env.route_forge_skip != 'true'
+        if: matrix.components.component != 'vm-route-forge' || needs.paths_filter.outputs.vm_route_forge == 'true'
         run: |
           function check_diffs() {
             local folder=$1
@@ -215,8 +259,9 @@ jobs:
               ;;
             api)
               cd ./api
-              export GOPATH=$(go env GOPATH)
-              echo "GOPATH=$GOPATH" >> $GITHUB_ENV
+              GOPATH="$(go env GOPATH)"
+              export GOPATH
+              echo "GOPATH=$GOPATH" >> "$GITHUB_ENV"
               echo "Installing k8s tools..."
               go install tool
 

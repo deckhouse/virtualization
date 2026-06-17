@@ -17,9 +17,12 @@ limitations under the License.
 package v1alpha2
 
 const (
-	FinalizerCVIProtection                        = "virtualization.deckhouse.io/cvi-protection"
-	FinalizerVIProtection                         = "virtualization.deckhouse.io/vi-protection"
-	FinalizerVDProtection                         = "virtualization.deckhouse.io/vd-protection"
+	FinalizerCVIProtection = "virtualization.deckhouse.io/cvi-protection"
+	FinalizerVIProtection  = "virtualization.deckhouse.io/vi-protection"
+	FinalizerVDProtection  = "virtualization.deckhouse.io/vd-protection"
+	// FinalizerKVVMProtection protects KVVMs from deletion.
+	//
+	// Deprecated: FinalizerKVVMProtection is deprecated and should be deleted in the next versions.
 	FinalizerKVVMProtection                       = "virtualization.deckhouse.io/kvvm-protection"
 	FinalizerIPAddressProtection                  = "virtualization.deckhouse.io/vmip-protection"
 	FinalizerPodProtection                        = "virtualization.deckhouse.io/pod-protection"
@@ -41,6 +44,6 @@ const (
 	FinalizerVMBDACleanup           = "virtualization.deckhouse.io/vmbda-cleanup"
 	FinalizerMACAddressCleanup      = "virtualization.deckhouse.io/vmmac-cleanup"
 	FinalizerMACAddressLeaseCleanup = "virtualization.deckhouse.io/vmmacl-cleanup"
-	FinalizerNodeUSBDeviceCleanup  = "virtualization.deckhouse.io/nodeusbdevice-cleanup"
-	FinalizerUSBDeviceCleanup      = "virtualization.deckhouse.io/usbdevice-cleanup"
+	FinalizerNodeUSBDeviceCleanup   = "virtualization.deckhouse.io/nodeusbdevice-cleanup"
+	FinalizerUSBDeviceCleanup       = "virtualization.deckhouse.io/usbdevice-cleanup"
 )

@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -30,6 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 const hotplugHandler = "HotplugHandler"
@@ -48,6 +50,10 @@ type HotplugHandler struct {
 
 func (h *HotplugHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachine) (reconcile.Result, error) {
 	if vm == nil || !vm.GetDeletionTimestamp().IsZero() {
+		return reconcile.Result{}, nil
+	}
+
+	if isAwaitingRestartToApplyConfiguration(vm) {
 		return reconcile.Result{}, nil
 	}
 
@@ -79,6 +85,11 @@ func (h *HotplugHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachine
 
 func (h *HotplugHandler) Name() string {
 	return hotplugHandler
+}
+
+func isAwaitingRestartToApplyConfiguration(vm *v1alpha2.VirtualMachine) bool {
+	cond, _ := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, vm.Status.Conditions)
+	return cond.Status == metav1.ConditionTrue
 }
 
 func getHotplugResourcesSum(vm *v1alpha2.VirtualMachine) string {

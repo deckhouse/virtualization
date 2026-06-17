@@ -46,14 +46,21 @@ jobs:
     name: Set vars
     runs-on: ubuntu-latest
     outputs:
-      date_start: ${{ steps.vars.outputs.date-start }}
+      date_start: ${{ steps.vars.outputs.date_start }}
       randuuid4c: ${{ steps.vars.outputs.randuuid4c }}
+      registry_profile: ${{ steps.registry-profile.outputs.registry_profile }}
+      deckhouse_channel: ${{ steps.registry-profile.outputs.deckhouse_channel }}
+      deckhouse_version: ${{ steps.registry-profile.outputs.deckhouse_version }}
     steps:
+      - uses: actions/checkout@v6
+
       - name: Set vars
         id: vars
-        run: |
-          echo "date-start=$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
-          echo "randuuid4c=$(openssl rand -hex 2)" >> $GITHUB_OUTPUT
+        uses: ./.github/actions/gen-run-id
+
+      - name: Resolve registry profile
+        id: registry-profile
+        run: bash .github/scripts/bash/e2e/resolve-registry-profile.sh
 
   resolve-release-inputs:
     name: Resolve release inputs
@@ -167,7 +174,7 @@ jobs:
     steps:
       - name: Setup Docker config
         run: |
-          echo "DOCKER_CONFIG=$(mktemp -d)" >> $GITHUB_ENV
+          echo "DOCKER_CONFIG=$(mktemp -d)" >> "$GITHUB_ENV"
 
       - name: Print vars
         run: |
@@ -176,7 +183,7 @@ jobs:
           echo MODULES_MODULE_NAME=${{ vars.MODULE_NAME }}
           echo MODULES_MODULE_TAG=${{ matrix.module_tag }}
           echo CHECKOUT_REF=${{ matrix.checkout_ref }}
-          echo DOCKER_CONFIG=$DOCKER_CONFIG
+          echo "DOCKER_CONFIG=$DOCKER_CONFIG"
 
       - uses: actions/checkout@v4
         with:
@@ -216,16 +223,20 @@ jobs:
       storage_type: mixed
       nested_storageclass_name: nested-thin-r1
       nested_cluster_network_name: cn-4006-for-e2e-test
-      deckhouse_channel: alpha
+      deckhouse_channel: ${{ needs.set-vars.outputs.deckhouse_channel }}
+      deckhouse_version: ${{ needs.set-vars.outputs.deckhouse_version }}
+      registry_profile: ${{ needs.set-vars.outputs.registry_profile }}
       default_user: cloud
       go_version: "1.25.8"
       date_start: ${{ needs.set-vars.outputs.date_start }}
       randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
       cluster_config_workers_memory: "9Gi"
+      cluster_config_additional_disk_size: "250Gi"
       cluster_config_k8s_version: "1.34"
     secrets:
       DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
       VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+      REGISTRY_DOCKER_CFG: ${{ needs.set-vars.outputs.registry_profile == 'stage' && secrets.STAGE_IO_REGISTRY_DOCKER_CFG || secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
       PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
       BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
       DEV_MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}

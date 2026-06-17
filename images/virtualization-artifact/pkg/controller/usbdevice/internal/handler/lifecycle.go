@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 
 	resourcev1 "k8s.io/api/resource/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -167,6 +168,10 @@ func (h *LifecycleHandler) ensureResourceClaimTemplate(ctx context.Context, s st
 			}
 
 			if err := h.client.Create(ctx, template); err != nil {
+				if isAlreadyExistsResourceClaimTemplateError(err, templateName) {
+					log.Debug("ResourceClaimTemplate already exists during recreate", "template", templateName)
+					return nil
+				}
 				return fmt.Errorf("failed to recreate ResourceClaimTemplate: %w", err)
 			}
 
@@ -185,6 +190,10 @@ func (h *LifecycleHandler) ensureResourceClaimTemplate(ctx context.Context, s st
 	}
 
 	if err := h.client.Create(ctx, template); err != nil {
+		if isAlreadyExistsResourceClaimTemplateError(err, templateName) {
+			log.Debug("ResourceClaimTemplate already exists during create", "template", templateName)
+			return nil
+		}
 		return fmt.Errorf("failed to create ResourceClaimTemplate: %w", err)
 	}
 
@@ -247,6 +256,15 @@ func (h *LifecycleHandler) syncAttached(ctx context.Context, s state.USBDeviceSt
 
 	setAttachedCondition(current, &changed.Status.Conditions, metav1.ConditionFalse, usbdevicecondition.Available, "Device is requested by a virtual machine but not attached yet.")
 	return nil
+}
+
+func isAlreadyExistsResourceClaimTemplateError(err error, templateName string) bool {
+	if apierrors.IsAlreadyExists(err) {
+		return true
+	}
+
+	errText := err.Error()
+	return strings.Contains(errText, "resourceclaimtemplates.resource.k8s.io") && strings.Contains(errText, templateName) && strings.Contains(errText, "already exists")
 }
 
 func buildResourceClaimTemplateSpec(usbDevice *v1alpha2.USBDevice) resourcev1.ResourceClaimTemplateSpec {

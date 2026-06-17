@@ -36,6 +36,10 @@ type NodePlacement struct {
 func IsNodePlacementChanged(nodePlacement *NodePlacement, obj client.Object) (bool, error) {
 	oldHash, exists := obj.GetAnnotations()[annotations.AnnTolerationsHash]
 
+	if !exists {
+		oldHash, exists = obj.GetAnnotations()[annotations.AnnTolerationsHashLegacy]
+	}
+
 	if nodePlacement == nil && exists {
 		return true, nil
 	}
@@ -59,11 +63,17 @@ func KeepNodePlacementTolerations(nodePlacement *NodePlacement, obj client.Objec
 
 	if nodePlacement == nil || len(nodePlacement.Tolerations) == 0 {
 		_, ok := anno[annotations.AnnTolerationsHash]
+
+		if !ok {
+			_, ok = anno[annotations.AnnTolerationsHashLegacy]
+		}
+
 		if !ok {
 			return nil
 		}
 
 		delete(anno, annotations.AnnTolerationsHash)
+		delete(anno, annotations.AnnTolerationsHashLegacy)
 
 		obj.SetAnnotations(anno)
 

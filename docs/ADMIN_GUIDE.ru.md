@@ -51,6 +51,41 @@ spec:
 - `true` — чтобы включить модуль;
 - `false` — чтобы выключить модуль.
 
+**Выключение модуля**
+
+После выключения модуля `virtualization` остановятся все сервисы, которые создают и запускают виртуальные машины.
+Чтобы выключить модуль, добавьте на ModuleConfig `virtualization` аннотацию `modules.deckhouse.io/allow-disabling`
+со значением `true` и установите параметр `spec.enabled` в значение `false`.
+
+Перед выключением:
+
+1. Удалите все ресурсы модуля: виртуальные машины, диски, образы и т. д.
+1. Убедитесь, что в кластере не осталось активных ресурсов:
+
+   ```shell
+   d8 k get virtualization
+   ```
+
+Отредактируйте ModuleConfig `virtualization`:
+
+```yaml
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: virtualization
+  annotations:
+    modules.deckhouse.io/allow-disabling: "true"
+spec:
+  enabled: false
+  version: 1
+  settings:
+    # Укажите существующие настройки.
+```
+
+{{< alert level="danger" >}}
+Если ресурсы модуля не удалены, выключение может привести к потере данных.
+{{< /alert >}}
+
 **Версия конфигурации**
 
 Параметр `.spec.version` определяет версию схемы настроек. Структура параметров может меняться между версиями. Актуальные значения приведены в разделе настроек.
@@ -126,19 +161,20 @@ spec:
 
 ```yaml
 spec:
-  ...
+#  ...
   settings:
     virtualImages:
-      allowedStorageClassNames:
-      - sc-1
-      - sc-2
+      allowedStorageClassSelector:
+        matchNames:
+        - sc-1
+        - sc-2
       defaultStorageClassName: sc-1
 ```
 
 Здесь:
 
-- `allowedStorageClassNames` (опционально) — это список допустимых StorageClass для создания VirtualImage, которые можно явно указать в спецификации ресурса;
-- `defaultStorageClassName` (опционально) — это StorageClass, используемый по умолчанию при создании VirtualImage, если параметр `.spec.persistentVolumeClaim.storageClassName` не задан.
+- `matchNames` (опционально) — список допустимых StorageClass для создания [VirtualImage](/modules/virtualization/cr.html#virtualimage), которые можно явно указать в спецификации ресурса;
+- `defaultStorageClassName` (опционально) — StorageClass, используемый по умолчанию при создании [VirtualImage](/modules/virtualization/cr.html#virtualimage), если параметр `.spec.persistentVolumeClaim.storageClassName` не задан.
 
 **Настройки классов хранения для дисков**
 
@@ -148,19 +184,20 @@ spec:
 
 ```yaml
 spec:
-  ...
+#  ...
   settings:
     virtualDisks:
-      allowedStorageClassNames:
-      - sc-1
-      - sc-2
+      allowedStorageClassSelector:
+        matchNames:
+        - sc-1
+        - sc-2
       defaultStorageClassName: sc-1
 ```
 
 Здесь:
 
-- `allowedStorageClassNames` (опционально) — это список допустимых StorageClass для создания VirtualDisk, которые можно явно указать в спецификации ресурса;
-- `defaultStorageClassName` (опционально) — это StorageClass, используемый по умолчанию при создании VirtualDisk, если параметр `.spec.persistentVolumeClaim.storageClassName` не задан.
+- `matchNames` (опционально) — список допустимых StorageClass для создания [VirtualDisk](/modules/virtualization/cr.html#virtualdisk), которые можно явно указать в спецификации ресурса;
+- `defaultStorageClassName` (опционально) — StorageClass, используемый по умолчанию при создании [VirtualDisk](/modules/virtualization/cr.html#virtualdisk), если параметр `.spec.persistentVolumeClaim.storageClassName` не задан.
 
 **Аудит событий безопасности**
 
@@ -294,7 +331,7 @@ spec:
    apiVersion: virtualization.deckhouse.io/v1alpha2
    kind: ClusterVirtualImage
    metadata:
-     name: ubuntu-22-04
+     name: ubuntu-24-04
    spec:
      # Источник для создания образа.
      dataSource:
@@ -307,17 +344,17 @@ spec:
 1. Проверьте результат создания ресурса ClusterVirtualImage, выполнив следующую команду:
 
    ```bash
-   d8 k get clustervirtualimage ubuntu-22-04
+   d8 k get clustervirtualimage ubuntu-24-04
 
    # Короткий вариант команды.
-   d8 k get cvi ubuntu-22-04
+   d8 k get cvi ubuntu-24-04
    ```
 
    В результате будет выведена информация о ресурсе:
 
    ```console
    NAME           PHASE   CDROM   PROGRESS   AGE
-   ubuntu-22-04   Ready   false   100%       23h
+   ubuntu-24-04   Ready   false   100%       23h
    ```
 
 После создания ресурс ClusterVirtualImage может находиться в одном из следующих состояний (фаз):
@@ -337,27 +374,27 @@ spec:
 Чтобы отследить процесс создания образа, добавьте ключ `-w` к команде проверки результата создания ресурса:
 
 ```bash
-d8 k get cvi ubuntu-22-04 -w
+d8 k get cvi ubuntu-24-04 -w
 ```
 
 Пример вывода:
 
 ```console
 NAME           PHASE          CDROM   PROGRESS   AGE
-ubuntu-22-04   Provisioning   false              4s
-ubuntu-22-04   Provisioning   false   0.0%       4s
-ubuntu-22-04   Provisioning   false   28.2%      6s
-ubuntu-22-04   Provisioning   false   66.5%      8s
-ubuntu-22-04   Provisioning   false   100.0%     10s
-ubuntu-22-04   Provisioning   false   100.0%     16s
-ubuntu-22-04   Ready          false   100%       18s
+ubuntu-24-04   Provisioning   false              4s
+ubuntu-24-04   Provisioning   false   0.0%       4s
+ubuntu-24-04   Provisioning   false   28.2%      6s
+ubuntu-24-04   Provisioning   false   66.5%      8s
+ubuntu-24-04   Provisioning   false   100.0%     10s
+ubuntu-24-04   Provisioning   false   100.0%     16s
+ubuntu-24-04   Ready          false   100%       18s
 ```
 
 В описании ресурса ClusterVirtualImage можно получить дополнительную информацию о скачанном образе.
 Для этого выполните следующую команду:
 
 ```bash
-d8 k describe cvi ubuntu-22-04
+d8 k describe cvi ubuntu-24-04
 ```
 
 Как создать образ с HTTP-сервера в веб-интерфейсе:
@@ -376,20 +413,20 @@ d8 k describe cvi ubuntu-22-04
 1. Для начала загрузите образ локально:
 
    ```bash
-   curl -L https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img -o ubuntu2204.img
+   curl -L https://cloud-images.ubuntu.com/minimal/releases/noble/release/ubuntu-24.04-minimal-cloudimg-amd64.img -o ubuntu2404.img
    ```
 
 1. Далее создайте `Dockerfile` со следующим содержимым:
 
    ```Dockerfile
    FROM scratch
-   COPY ubuntu2204.img /disk/ubuntu2204.img
+   COPY ubuntu2404.img /disk/ubuntu2404.img
    ```
 
 1. Соберите образ и загрузите его в реестр контейнеров. В качестве реестра контейнеров в примере ниже использован `docker.io`. Для выполнения вам необходимо иметь учётную запись сервиса и настроенное окружение.
 
    ```bash
-   docker build -t docker.io/<username>/ubuntu2204:latest
+   docker build -t docker.io/<username>/ubuntu2404:latest
    ```
 
    где `<username>` — имя пользователя, указанное при регистрации в `docker.io`.
@@ -397,7 +434,7 @@ d8 k describe cvi ubuntu-22-04
 1. Загрузите созданный образ в реестр контейнеров:
 
    ```bash
-   docker push docker.io/<username>/ubuntu2204:latest
+   docker push docker.io/<username>/ubuntu2404:latest
    ```
 
 1. Чтобы использовать этот образ, создайте в качестве примера ресурс:
@@ -407,12 +444,12 @@ d8 k describe cvi ubuntu-22-04
    apiVersion: virtualization.deckhouse.io/v1alpha2
    kind: ClusterVirtualImage
    metadata:
-     name: ubuntu-2204
+     name: ubuntu-2404
    spec:
      dataSource:
        type: ContainerImage
        containerImage:
-         image: docker.io/<username>/ubuntu2204:latest
+         image: docker.io/<username>/ubuntu2404:latest
    EOF
    ```
 
@@ -539,7 +576,7 @@ Images eligible for cleanup:
 KIND                   NAMESPACE            NAME
 ClusterVirtualImage                         debian-12
 VirtualDisk            default              debian-10-root
-VirtualImage           default              ubuntu-2204
+VirtualImage           default              ubuntu-2404
 ```
 
 ## Классы виртуальных машин

@@ -88,6 +88,7 @@ function stop-pyroscope() {
     docker compose -f "${DOCKER_COMPOSE_FILE_PYROSCOPE_ONLY}" down
 }
 
+# shellcheck source=images/virtualization-artifact/hack/args.sh
 source "${DIR}/args.sh"
 set_flags_args "$@"
 

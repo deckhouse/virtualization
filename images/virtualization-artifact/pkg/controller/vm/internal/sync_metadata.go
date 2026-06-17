@@ -204,7 +204,10 @@ func (h *SyncMetadataHandler) updateKVVMSpecTemplateMetadataAnnotations(currAnno
 	res := make(map[string]string, len(newAnno))
 
 	for k, v := range newAnno {
-		if k == annotations.AnnVMLastAppliedSpec || k == annotations.AnnVMClassLastAppliedSpec {
+		if k == annotations.AnnVMLastAppliedSpec ||
+			k == annotations.AnnVMLastAppliedSpecLegacy ||
+			k == annotations.AnnVMClassLastAppliedSpec ||
+			k == annotations.AnnVMClassLastAppliedSpecLegacy {
 			continue
 		}
 
@@ -294,8 +297,15 @@ func PropagateVMMetadata(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachin
 func GetLastPropagatedLabels(kvvm *virtv1.VirtualMachine) (map[string]string, error) {
 	var lastPropagatedLabels map[string]string
 
-	if kvvm.Annotations[annotations.LastPropagatedVMLabelsAnnotation] != "" {
-		err := json.Unmarshal([]byte(kvvm.Annotations[annotations.LastPropagatedVMLabelsAnnotation]), &lastPropagatedLabels)
+	key := annotations.LastPropagatedVMLabelsAnnotation
+	lastPropagatedVMLabelsAnnotation, ok := kvvm.Annotations[key]
+	if !ok {
+		key = annotations.LastPropagatedVMLabelsAnnotationLegacy
+		lastPropagatedVMLabelsAnnotation = kvvm.Annotations[key]
+	}
+
+	if lastPropagatedVMLabelsAnnotation != "" {
+		err := json.Unmarshal([]byte(lastPropagatedVMLabelsAnnotation), &lastPropagatedLabels)
 		if err != nil {
 			return nil, err
 		}
@@ -323,8 +333,15 @@ func SetLastPropagatedLabels(metadata *metav1.ObjectMeta, vm *v1alpha2.VirtualMa
 func GetLastPropagatedAnnotations(kvvm *virtv1.VirtualMachine) (map[string]string, error) {
 	var lastPropagatedAnno map[string]string
 
-	if kvvm.Annotations[annotations.LastPropagatedVMAnnotationsAnnotation] != "" {
-		err := json.Unmarshal([]byte(kvvm.Annotations[annotations.LastPropagatedVMAnnotationsAnnotation]), &lastPropagatedAnno)
+	key := annotations.LastPropagatedVMAnnotationsAnnotation
+	lastPropagatedAnnotations, ok := kvvm.Annotations[key]
+	if !ok {
+		key = annotations.LastPropagatedVMAnnotationsAnnotationLegacy
+		lastPropagatedAnnotations = kvvm.Annotations[key]
+	}
+
+	if lastPropagatedAnnotations != "" {
+		err := json.Unmarshal([]byte(lastPropagatedAnnotations), &lastPropagatedAnno)
 		if err != nil {
 			return nil, err
 		}

@@ -6,7 +6,7 @@ d8-{{ .Chart.Name }}
 prometheus.deckhouse.io/rules-watcher-enabled: "true"
 {{- end }}
 
-{{/* add these labels back to namespace.labels when fix templates for privileged Pods */}}
+{{/* add these labels back to namespace.labels template after fixing securityContext in virt-handler and job install-strategy */}}
 {{- define "namespace.labels.disabled.temporarily" }}
 security.deckhouse.io/pod-policy: "restricted"
 security.deckhouse.io/enable-security-policy-check: "true"

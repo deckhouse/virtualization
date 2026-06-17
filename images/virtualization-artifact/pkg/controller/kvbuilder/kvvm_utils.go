@@ -144,7 +144,6 @@ func ApplyVirtualMachineSpec(
 		Version: v1alpha2.SchemeGroupVersion.Version,
 		Kind:    "VirtualMachine",
 	})
-	kvvm.AddFinalizer(v1alpha2.FinalizerKVVMProtection)
 
 	if ipAddress != "" {
 		// Set ip address cni request annotation.

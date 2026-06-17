@@ -1,0 +1,71 @@
+diff --git a/ShellPkg/Application/Shell/Shell.c b/ShellPkg/Application/Shell/Shell.c
+index 174eccecdd..453adff412 100644
+--- a/ShellPkg/Application/Shell/Shell.c
++++ b/ShellPkg/Application/Shell/Shell.c
+@@ -80,6 +80,13 @@ CONST CHAR16         mNoNestingEnvVarName[]  = L"nonesting";
+ CONST CHAR16         mNoNestingTrue[]        = L"True";
+ CONST CHAR16         mNoNestingFalse[]       = L"False";
+ 
++STATIC
++CHAR16 *
++LocateStartupScript (
++  IN EFI_DEVICE_PATH_PROTOCOL  *ImageDevicePath,
++  IN EFI_DEVICE_PATH_PROTOCOL  *FileDevicePath
++  );
++
+ /**
+   Cleans off leading and trailing spaces and tabs.
+ 
+@@ -359,14 +366,6 @@ UefiMain (
+   EFI_SIMPLE_TEXT_INPUT_PROTOCOL  *OldConIn;
+   SPLIT_LIST                      *Split;
+ 
+-  {
+-    STATIC CONST CHAR8  Msg[] = "No bootable device.\r\n";
+-    UINTN               i;
+-    for (i = 0; i < sizeof (Msg) - 1; i++) {
+-      IoWrite8 (0x403, (UINT8)Msg[i]);
+-    }
+-  }
+-
+   if (PcdGet8 (PcdShellSupportLevel) > 3) {
+     return (EFI_UNSUPPORTED);
+   }
+@@ -639,6 +638,29 @@ UefiMain (
+       }
+ 
+       if (!ShellInfoObject.ShellInitSettings.BitUnion.Bits.Exit && !ShellCommandGetExit () && ((PcdGet8 (PcdShellSupportLevel) >= 3) || PcdGetBool (PcdShellForceConsole)) && !EFI_ERROR (Status) && !ShellInfoObject.ShellInitSettings.BitUnion.Bits.NoConsoleIn) {
++        if (ShellInfoObject.ShellInitSettings.FileName == NULL)
++        {
++          CHAR16  *StartupScriptPath;
++
++          StartupScriptPath = NULL;
++          if ((PcdGet8 (PcdShellSupportLevel) >= 1) &&
++              !(ShellInfoObject.ShellInitSettings.BitUnion.Bits.NoStartup &&
++                !ShellInfoObject.ShellInitSettings.BitUnion.Bits.Startup))
++          {
++            StartupScriptPath = LocateStartupScript (ShellInfoObject.ImageDevPath, ShellInfoObject.FileDevPath);
++          }
++
++          if (StartupScriptPath == NULL) {
++            STATIC CONST CHAR8  Msg[] = "No bootable device.\r\n";
++            UINTN               i;
++            for (i = 0; i < sizeof (Msg) - 1; i++) {
++              IoWrite8 (0x403, (UINT8)Msg[i]);
++            }
++          } else {
++            FreePool (StartupScriptPath);
++          }
++        }
++
+         //
+         // begin the UI waiting loop
+         //
+@@ -1240,6 +1262,7 @@ ProcessCommandLine (
+   @retval   NULL                  No Startup.nsh file was found.
+   @return   !=NULL                Pointer to NULL-terminated path.
+ **/
++STATIC
+ CHAR16 *
+ LocateStartupScript (
+   IN EFI_DEVICE_PATH_PROTOCOL  *ImageDevicePath,

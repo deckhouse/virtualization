@@ -455,7 +455,7 @@ func (s *state) collectBlockDeviceRefs(ctx context.Context) ([]blockDeviceRef, e
 	}
 
 	for _, vmbda := range vmbdaList.Items {
-		if vmbda.Status.Phase != v1alpha2.BlockDeviceAttachmentPhaseAttached {
+		if vmbda.Status.Phase == v1alpha2.BlockDeviceAttachmentPhaseTerminating || vmbda.DeletionTimestamp != nil {
 			continue
 		}
 		ref := blockDeviceRef{

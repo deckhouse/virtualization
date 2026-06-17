@@ -1,0 +1,726 @@
+# Copyright 2025 Flant JSC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: E2E Nightly Pipeline (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      date_start:
+        required: true
+        type: string
+        description: "Date start"
+      randuuid4c:
+        required: true
+        type: string
+        description: "Random UUID first 4 chars"
+      cluster_config_k8s_version:
+        required: false
+        type: string
+        default: "Automatic"
+        description: "Set k8s version for cluster config, like 1.34, 1.36 (without patch version)"
+      cluster_config_workers_memory:
+        required: false
+        type: string
+        default: "8Gi"
+        description: "Set memory for workers node in cluster config"
+      cluster_config_additional_disk_size:
+        required: false
+        type: string
+        default: "50Gi"
+        description: "Set additional disk size for workers node in cluster config"
+      storage_type:
+        required: true
+        type: string
+        description: "Storage type (ceph or replicated or etc.)"
+      nested_storageclass_name:
+        required: true
+        type: string
+        description: "Nested storage class name"
+      branch:
+        required: false
+        type: string
+        default: "main"
+        description: "Branch to use"
+      virtualization_tag:
+        required: false
+        type: string
+        default: "main"
+        description: "Virtualization tag"
+      virtualization_image_url:
+        required: false
+        type: string
+        default: "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
+        description: "Virtualization image url (default noble-server-cloudimg-amd64.img)"
+      deckhouse_channel:
+        required: false
+        type: string
+        default: "alpha"
+        description: "Deckhouse release channel"
+      deckhouse_version:
+        required: true
+        type: string
+        description: "Deckhouse install image tag for dhctl bootstrap. Either a release channel alias (e.g. 'alpha') for the prod registry, or a pinned version (e.g. 'v1.76.0') for the stage registry. Registry is selected via REGISTRY_DOCKER_CFG secret."
+      registry_profile:
+        required: false
+        type: string
+        default: prod
+        description: "Active registry profile (prod or stage). When 'stage', the SDN module is pulled from the prod registry because it is absent in stage."
+      pod_subnet_cidr:
+        required: false
+        type: string
+        default: "10.88.0.0/16"
+        description: "Pod subnet CIDR"
+      service_subnet_cidr:
+        required: false
+        type: string
+        default: "10.99.0.0/16"
+        description: "Service subnet CIDR"
+      default_user:
+        required: false
+        type: string
+        default: "ubuntu"
+        description: "Default user for vms"
+      go_version:
+        required: false
+        type: string
+        default: "1.24.6"
+        description: "Go version"
+      e2e_timeout:
+        required: false
+        type: string
+        default: "3h"
+        description: "E2E tests timeout"
+      e2e_focus_tests:
+        required: false
+        type: string
+        default: ""
+        description: "E2E tests focus tests like 'VirtualMachineConfiguration' and so on (by default all tests are run)"
+      e2e_image_base_url:
+        required: false
+        type: string
+        default: ""
+        description: "Base URL for HTTP images used by E2E tests. Empty means download from the default S3 storage."
+      nested_cluster_network_name:
+        required: false
+        type: string
+        default: "cn-4006-for-e2e-test"
+        description: "ClusterNetwork name for nested VM additional network interface"
+      apt_mirror_enabled:
+        required: false
+        type: boolean
+        default: true
+        description: "Use custom APT mirror inside VMs cloud-init (Ubuntu). When false, VMs use stock Ubuntu repositories."
+      apt_mirror_name:
+        required: false
+        type: string
+        default: "hetzner"
+        description: "APT mirror short name (used as /etc/apt/sources.list.d/<name>.list file name)"
+      apt_mirror_url:
+        required: false
+        type: string
+        default: "https://mirror.hetzner.com/ubuntu/packages"
+        description: "APT mirror base URL (without trailing slash)"
+      pipeline_job_name:
+        required: false
+        type: string
+        default: ""
+        description: "Display name of the calling pipeline job in the parent workflow (e.g. 'E2E Pipeline (Replicated)'). Used to resolve per-stage job URLs in the report."
+    secrets:
+      DEV_REGISTRY_DOCKER_CFG:
+        required: true
+      VIRT_E2E_NIGHTLY_SA_TOKEN:
+        required: true
+      REGISTRY_DOCKER_CFG:
+        required: true
+      PROD_IO_REGISTRY_DOCKER_CFG:
+        required: false
+      BOOTSTRAP_DEV_PROXY:
+        required: true
+      E2E_ARTIFACTS_GPG_PASSPHRASE:
+        required: true
+    outputs:
+      artifact-name:
+        description: "Name of the uploaded artifact with E2E report"
+        value: ${{ jobs.prepare-report.outputs.artifact-name }}
+      report_kind:
+        description: "E2E report kind for the cluster"
+        value: ${{ jobs.prepare-report.outputs.report_kind }}
+      status:
+        description: "E2E report status for the cluster"
+        value: ${{ jobs.prepare-report.outputs.status }}
+      failed_stage:
+        description: "Failed or final stage name for the cluster"
+        value: ${{ jobs.prepare-report.outputs.failed_stage }}
+      failed_stage_label:
+        description: "Human-readable failed or final stage label for the cluster"
+        value: ${{ jobs.prepare-report.outputs.failed_stage_label }}
+      workflow_run_url:
+        description: "Workflow run URL for the cluster pipeline"
+        value: ${{ jobs.prepare-report.outputs.workflow_run_url }}
+      branch:
+        description: "Branch used for the cluster pipeline"
+        value: ${{ jobs.prepare-report.outputs.branch }}
+
+env:
+  BRANCH: ${{ inputs.branch }}
+  VIRTUALIZATION_TAG: ${{ inputs.virtualization_tag }}
+  DECKHOUSE_CHANNEL: ${{ inputs.deckhouse_channel }}
+  DECKHOUSE_VERSION: ${{ inputs.deckhouse_version }}
+  DEFAULT_USER: ${{ inputs.default_user }}
+  GO_VERSION: ${{ inputs.go_version }}
+  SETUP_CLUSTER_TYPE_PATH: test/dvp-static-cluster
+  E2E_SCRIPT_DIR: ${{ github.workspace }}/.github/scripts/bash/e2e
+  K8S_VERSION: ${{ inputs.cluster_config_k8s_version }}
+  STORAGE_TYPE: ${{ inputs.storage_type }}
+  E2E_START_TIME: ${{ inputs.date_start }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  bootstrap:
+    name: Bootstrap cluster
+    runs-on: ubuntu-latest
+    concurrency:
+      group: "${{ github.workflow }}-${{ github.event.number || github.ref }}-${{ inputs.storage_type }}"
+      cancel-in-progress: true
+    outputs:
+      kubeconfig: ${{ steps.generate-kubeconfig.outputs.kubeconfig }}
+      namespace: ${{ steps.vars.outputs.namespace }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set outputs
+        env:
+          RANDUUID4C: ${{ inputs.randuuid4c }}
+          STORAGE_TYPE: ${{ inputs.storage_type }}
+        id: vars
+        run: |
+          GIT_SHORT_HASH=$(git rev-parse --short HEAD)
+
+          namespace="nightly-e2e-$STORAGE_TYPE-$GIT_SHORT_HASH-$RANDUUID4C"
+
+          echo "namespace=$namespace" >> "$GITHUB_OUTPUT"
+          echo "sha_short=$GIT_SHORT_HASH" >> "$GITHUB_OUTPUT"
+
+      - name: Setup E2E toolchain
+        uses: ./.github/actions/setup-e2e-toolchain
+        with:
+          checkout: "false"
+          install-kubectl: "false"
+          install-htpasswd: "true"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to private registry
+        id: registry-login
+        uses: ./.github/actions/registry-login
+        with:
+          docker_cfg: ${{ secrets.REGISTRY_DOCKER_CFG }}
+
+      - name: Configure kubectl via azure/k8s-set-context@v4
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          context: e2e-cluster-nightly-e2e-virt-sa
+          kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+
+      - name: Generate values.yaml
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+        env:
+          NAMESPACE: ${{ steps.vars.outputs.namespace }}
+          STORAGE_TYPE: ${{ inputs.storage_type }}
+          DECKHOUSE_CHANNEL: ${{ env.DECKHOUSE_CHANNEL }}
+          DECKHOUSE_VERSION: ${{ env.DECKHOUSE_VERSION }}
+          POD_SUBNET_CIDR: ${{ inputs.pod_subnet_cidr }}
+          SERVICE_SUBNET_CIDR: ${{ inputs.service_subnet_cidr }}
+          K8S_VERSION: ${{ env.K8S_VERSION }}
+          REGISTRY: ${{ steps.registry-login.outputs.registry }}
+          REGISTRY_DOCKER_CFG: ${{ secrets.REGISTRY_DOCKER_CFG }}
+          DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
+          VIRTUALIZATION_IMAGE_URL: ${{ inputs.virtualization_image_url }}
+          DEFAULT_USER: ${{ env.DEFAULT_USER }}
+          APT_MIRROR_ENABLED: ${{ inputs.apt_mirror_enabled }}
+          APT_MIRROR_NAME: ${{ inputs.apt_mirror_name }}
+          APT_MIRROR_URL: ${{ inputs.apt_mirror_url }}
+          CLUSTER_CONFIG_WORKERS_MEMORY: ${{ inputs.cluster_config_workers_memory }}
+          ADDITIONAL_DISK_SIZE: ${{ inputs.cluster_config_additional_disk_size }}
+          ENABLED_MODULES: ""
+          NESTED_CLUSTER_NETWORK_NAME: ${{ inputs.nested_cluster_network_name }}
+        run: bash "${E2E_SCRIPT_DIR}/render-dvp-static-values.sh"
+
+      - name: Bootstrap cluster [infra-deploy]
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+        run: |
+          task infra-deploy
+
+      - name: Bootstrap cluster [dhctl-bootstrap]
+        id: dhctl-bootstrap
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+        run: |
+          if [[ $(yq eval '.deckhouse.proxyEnabled' values.yaml) == true ]]; then
+            export HTTP_PROXY="${{ secrets.BOOTSTRAP_DEV_PROXY }}"
+            export HTTPS_PROXY="${{ secrets.BOOTSTRAP_DEV_PROXY }}"
+            echo "Proxy settings - configured"
+          fi
+
+          task dhctl-bootstrap
+          echo "[SUCCESS] Done"
+        timeout-minutes: 60
+
+      - name: Bootstrap cluster [show-connection-info]
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+        run: |
+          task show-connection-info
+
+      - name: Save ssh to secrets in cluster
+        env:
+          NAMESPACE: ${{ steps.vars.outputs.namespace }}
+        if: always() && steps.dhctl-bootstrap.outcome == 'success'
+        run: |
+          kubectl -n "$NAMESPACE" create secret generic ssh-key --from-file="${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/ssh/cloud"
+
+      - name: Get info about nested cluster and master VM
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+        env:
+          NAMESPACE: ${{ steps.vars.outputs.namespace }}
+          STORAGE_TYPE: ${{ inputs.storage_type }}
+          DEFAULT_USER: ${{ env.DEFAULT_USER }}
+        run: |
+          bash "${E2E_SCRIPT_DIR}/show-nested-cluster-info.sh" \
+            "${NAMESPACE}" \
+            "${STORAGE_TYPE}" \
+            "${DEFAULT_USER}"
+
+      - name: Generate nested kubeconfig
+        id: generate-kubeconfig
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+        env:
+          KUBE_CONFIG_PATH: tmp/kube.config
+          NAMESPACE: ${{ steps.vars.outputs.namespace }}
+          STORAGE_TYPE: ${{ inputs.storage_type }}
+          DEFAULT_USER: ${{ env.DEFAULT_USER }}
+        run: |
+          bash "${E2E_SCRIPT_DIR}/gen-nested-kubeconfig.sh" \
+            "${KUBE_CONFIG_PATH}" \
+            "${NAMESPACE}" \
+            "${STORAGE_TYPE}" \
+            "${DEFAULT_USER}" \
+            "$GITHUB_OUTPUT"
+
+      - name: cloud-init logs
+        if: steps.dhctl-bootstrap.outcome == 'failure'
+        env:
+          NAMESPACE: ${{ steps.vars.outputs.namespace }}
+          STORAGE_TYPE: ${{ inputs.storage_type }}
+          DEFAULT_USER: ${{ env.DEFAULT_USER }}
+          SETUP_CLUSTER_TYPE_PATH: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+        run: |
+          bash "${E2E_SCRIPT_DIR}/collect-cloud-init-logs.sh" \
+            "${NAMESPACE}" \
+            "${STORAGE_TYPE}" \
+            "${DEFAULT_USER}" \
+            "${SETUP_CLUSTER_TYPE_PATH}"
+
+      - name: Prepare artifact
+        if: success() || failure()
+        env:
+          SETUP_CLUSTER_TYPE_PATH: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+          KUBECONFIG_B64: ${{ steps.generate-kubeconfig.outputs.kubeconfig }}
+        run: |
+          bash "${E2E_SCRIPT_DIR}/prepare-artifact.sh" \
+            "${SETUP_CLUSTER_TYPE_PATH}" \
+            "${KUBECONFIG_B64}"
+
+      - name: Encrypt and upload generated files artifact
+        if: success() || failure()
+        uses: ./.github/actions/gpg-encrypt-and-upload
+        with:
+          path: tmp values.yaml
+          working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+          passphrase: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
+          artifact_name: ${{ env.STORAGE_TYPE }}-generated-files-${{ env.E2E_START_TIME }}
+          retention-days: 3
+
+      - name: Encrypt and upload ssh config artifact
+        if: always()
+        uses: ./.github/actions/gpg-encrypt-and-upload
+        with:
+          path: ssh
+          working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp
+          passphrase: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
+          artifact_name: ${{ env.STORAGE_TYPE }}-generated-files-ssh-${{ env.E2E_START_TIME }}
+          retention-days: 3
+
+      - name: Encrypt and upload kubeconfig artifact
+        if: always()
+        uses: ./.github/actions/gpg-encrypt-and-upload
+        with:
+          path: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/kube-config
+          archive: "false"
+          passphrase: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
+          artifact_name: ${{ env.STORAGE_TYPE }}-generated-files-kubeconfig-${{ env.E2E_START_TIME }}
+          retention-days: 3
+
+      - name: Add encrypted artifacts help to job summary
+        if: always()
+        uses: ./.github/actions/append-encrypted-artifacts-help
+
+  configure-sdn:
+    name: Configure SDN
+    runs-on: ubuntu-latest
+    needs: bootstrap
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup E2E toolchain
+        uses: ./.github/actions/setup-e2e-toolchain
+        with:
+          checkout: "false"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check nested kube-api via generated kubeconfig
+        uses: ./.github/actions/use-nested-kubeconfig
+        with:
+          kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
+      - name: Enable SDN
+        env:
+          # SDN is absent in the stage registry, so for the stage profile pull it
+          # from prod via a dedicated ModuleSource. For prod, reuse the existing source.
+          MODULE_SOURCE_REGISTRY_CFG: ${{ inputs.registry_profile == 'stage' && secrets.PROD_IO_REGISTRY_DOCKER_CFG || '' }}
+        run: |
+          # Keep SDN enable and readiness checks in a script because this step needs
+          # several retries around Deckhouse webhooks and detailed SDN diagnostics.
+          bash "${E2E_SCRIPT_DIR}/enable-sdn.sh"
+
+      - name: Wait for nodenetworkinterfaces to be ready
+        run: bash "${E2E_SCRIPT_DIR}/wait-nodenetworkinterfaces.sh"
+
+      - name: Configure ClusterNetwork
+        run: |
+          extraNic=$(kubectl get nodenetworkinterfaces -l network.deckhouse.io/interface-type=NIC -o json | jq -r '.items[] | select(.status.operationalState == "Up") | select(.status.ifName != "eno1" and .status.ifName != "enp1s0") | .metadata.name')
+
+          for nic in $extraNic; do
+            echo "[INFO] Label nodenetworkinterface $nic nic-group=extra"
+            kubectl label nodenetworkinterfaces "$nic" nic-group=extra
+          done
+
+          kubectl get nodenetworkinterface -l nic-group=extra
+
+          # Use a retry wrapper because ClusterNetwork admission can race with the
+          # SDN webhook endpoint right after the module becomes Ready.
+          cat <<'EOF' | bash "${E2E_SCRIPT_DIR}/apply-clusternetworks.sh"
+          ---
+          apiVersion: network.deckhouse.io/v1alpha1
+          kind: ClusterNetwork
+          metadata:
+            name: cn-4006-for-e2e-test
+          spec:
+            parentNodeNetworkInterfaces:
+              labelSelector:
+                matchLabels:
+                  nic-group: extra
+            type: Access
+          ---
+          apiVersion: network.deckhouse.io/v1alpha1
+          kind: ClusterNetwork
+          metadata:
+            name: cn-4007-for-e2e-test
+          spec:
+            parentNodeNetworkInterfaces:
+              labelSelector:
+                matchLabels:
+                  nic-group: extra
+            type: VLAN
+            vlan:
+              id: 4007
+          EOF
+
+          echo "[INFO] Wait for ClusterNetwork cn-4006-for-e2e-test to be ready"
+          kubectl wait clusternetworks.network.deckhouse.io --for=condition=Ready cn-4006-for-e2e-test --timeout=120s
+
+          echo "[INFO] Wait for ClusterNetwork cn-4007-for-e2e-test to be ready"
+          kubectl wait clusternetworks.network.deckhouse.io --for=condition=Ready cn-4007-for-e2e-test --timeout=120s
+
+  configure-storage:
+    name: Configure storage
+    runs-on: ubuntu-latest
+    needs:
+      - configure-sdn
+      - bootstrap
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup E2E toolchain
+        uses: ./.github/actions/setup-e2e-toolchain
+        with:
+          checkout: "false"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check nested kube-api via generated kubeconfig
+        uses: ./.github/actions/use-nested-kubeconfig
+        with:
+          kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
+      - name: Configure replicated storage
+        id: storage-replicated-setup
+        if: ${{ inputs.storage_type == 'replicated' }}
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/sds-replicated
+        run: bash "${E2E_SCRIPT_DIR}/configure-sds-replicated.sh"
+
+      - name: Configure NFS storage
+        if: ${{ inputs.storage_type == 'nfs' }}
+        id: storage-nfs-setup
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/nfs
+        env:
+          NAMESPACE: ${{ needs.bootstrap.outputs.namespace }}
+        run: bash "${E2E_SCRIPT_DIR}/configure-csi-nfs.sh"
+
+  configure-virtualization:
+    name: Configure Virtualization
+    runs-on: ubuntu-latest
+    needs:
+      - bootstrap
+      - configure-storage
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup E2E toolchain
+        uses: ./.github/actions/setup-e2e-toolchain
+        with:
+          checkout: "false"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup kubeconfig
+        uses: ./.github/actions/use-nested-kubeconfig
+        with:
+          kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
+          check-api: "false"
+      - name: Configure Virtualization
+        env:
+          DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
+          NESTED_STORAGE_CLASS_NAME: ${{ inputs.nested_storageclass_name }}
+          VIRTUALIZATION_TAG: ${{ env.VIRTUALIZATION_TAG }}
+        run: |
+          # Keep virtualization configuration in a script because it waits for
+          # Deckhouse queue/source propagation before applying ModuleConfig.
+          bash "${E2E_SCRIPT_DIR}/configure-virtualization.sh"
+      - name: Wait for Virtualization to be ready
+        env:
+          STORAGE_TYPE: ${{ inputs.storage_type }}
+        run: |
+          source "${E2E_SCRIPT_DIR}/wait-virtualization-ready.sh"
+
+          echo " "
+          echo "[INFO] Waiting for Virtualization module to be ready"
+          d8_queue
+
+          virtualization_ready
+
+          echo "[INFO] Checking Virtualization module deployments"
+          kubectl -n d8-virtualization wait --for=condition=Available deploy --all --timeout 900s
+          echo "[INFO] Checking virt-handler pods "
+          virt_handler_ready
+
+          enable_maintenance_mode "${STORAGE_TYPE}"
+
+  e2e-test:
+    name: E2E test
+    runs-on: ubuntu-latest
+    needs:
+      - bootstrap
+      - configure-storage
+      - configure-virtualization
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+
+      - name: Setup E2E toolchain
+        uses: ./.github/actions/setup-e2e-toolchain
+        with:
+          checkout: "false"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install ginkgo
+        working-directory: ./test/e2e/
+        run: |
+          echo "Install ginkgo"
+          go install tool
+
+      - name: Setup kubeconfig
+        uses: ./.github/actions/use-nested-kubeconfig
+        with:
+          kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
+          check-api: "false"
+      - name: Download dependencies
+        working-directory: ./test/e2e/
+        run: |
+          echo "Download dependencies"
+          go mod download
+
+      - name: Detect Kubernetes version for E2E
+        id: detect-k8s-version
+        run: bash "${E2E_SCRIPT_DIR}/detect-k8s-version.sh" "$GITHUB_OUTPUT"
+
+      - name: Create vmclass for e2e tests
+        run: bash "${E2E_SCRIPT_DIR}/create-e2e-vmclass.sh"
+
+      - name: Run E2E
+        id: e2e-report
+        env:
+          TIMEOUT: ${{ inputs.e2e_timeout }}
+          CSI: ${{ inputs.storage_type }}
+          STORAGE_CLASS_NAME: ${{ inputs.nested_storageclass_name }}
+          LABELS: ${{ steps.detect-k8s-version.outputs.label-filter }}
+          SERVER_K8S_VERSION: ${{ steps.detect-k8s-version.outputs.server-version }}
+          USB_SUPPORTED: ${{ steps.detect-k8s-version.outputs.usb-supported }}
+          FOCUS: ${{ inputs.e2e_focus_tests }}
+          E2E_IMAGE_BASE_URL: ${{ inputs.e2e_image_base_url }}
+        working-directory: ./test/e2e/
+        run: task run:ci
+
+      - name: Upload summary test results (json)
+        uses: actions/upload-artifact@v7
+        id: e2e-report-artifact
+        if: always() && steps.e2e-report.outcome != 'skipped'
+        with:
+          name: e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ inputs.date_start }}
+          path: |
+            test/e2e/e2e_report_*.json
+            test/e2e/e2e_output_*.log
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: 3
+
+      - name: Upload resources from failed tests
+        uses: actions/upload-artifact@v7
+        if: always() && steps.e2e-report.outcome != 'skipped'
+        with:
+          name: DUMP-${{ env.STORAGE_TYPE }}-${{ env.E2E_START_TIME }}
+          path: ${{ runner.temp }}/e2e_failed/
+          if-no-files-found: ignore
+          retention-days: 3
+
+  prepare-report:
+    name: Prepare E2E report
+    runs-on: ubuntu-latest
+    needs:
+      - bootstrap
+      - configure-sdn
+      - configure-storage
+      - configure-virtualization
+      - e2e-test
+    if: always()
+    outputs:
+      artifact-name: ${{ steps.set-artifact-name.outputs.artifact-name }}
+      report_kind: ${{ steps.determine-stage.outputs.report_kind }}
+      status: ${{ steps.determine-stage.outputs.status }}
+      failed_stage: ${{ steps.determine-stage.outputs.failed_stage }}
+      failed_stage_label: ${{ steps.determine-stage.outputs.failed_stage_label }}
+      workflow_run_url: ${{ steps.determine-stage.outputs.workflow_run_url }}
+      branch: ${{ steps.determine-stage.outputs.branch }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download E2E test results if available
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}-${{ inputs.date_start }}
+          path: test/e2e/
+
+      - name: Determine failed stage and prepare report
+        id: determine-stage
+        uses: actions/github-script@v7
+        env:
+          STORAGE_TYPE: ${{ inputs.storage_type }}
+          PIPELINE_JOB_NAME: ${{ inputs.pipeline_job_name }}
+          NEEDS_CONTEXT: ${{ toJSON(needs) }}
+        with:
+          script: |
+            const buildClusterReport = require('./.github/scripts/js/e2e/report/cluster-report');
+            await buildClusterReport({
+              core,
+              context,
+              github,
+            });
+
+      - name: Upload E2E report artifact
+        id: upload-artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-report-${{ inputs.storage_type }}-${{ github.run_id }}-${{ inputs.date_start }}
+          path: ${{ steps.determine-stage.outputs.report_file }}
+          overwrite: true
+          retention-days: 3
+
+      - name: Set artifact name output
+        id: set-artifact-name
+        run: |
+          ARTIFACT_NAME="e2e-report-${{ inputs.storage_type }}-${{ github.run_id }}-${{ inputs.date_start }}"
+          echo "artifact-name=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
+          echo "[INFO] Artifact name: $ARTIFACT_NAME"
+
+  undeploy-cluster:
+    name: Undeploy cluster
+    runs-on: ubuntu-latest
+    needs:
+      - bootstrap
+      - configure-sdn
+      - configure-storage
+      - configure-virtualization
+      - e2e-test
+    if: cancelled() || success()
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup E2E toolchain
+        uses: ./.github/actions/setup-e2e-toolchain
+        with:
+          checkout: "false"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.STORAGE_TYPE }}-generated-files-${{ env.E2E_START_TIME }}.zip.gpg
+          path: ${{ runner.temp }}/encrypted-generated-files
+
+      - name: Decrypt generated files artifact
+        env:
+          GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
+          ARTIFACT_NAME: ${{ env.STORAGE_TYPE }}-generated-files-${{ env.E2E_START_TIME }}
+        run: |
+          artifact_path="${{ runner.temp }}/encrypted-generated-files/${ARTIFACT_NAME}.zip.gpg"
+          gpg --decrypt --batch --yes --pinentry-mode loopback \
+            --passphrase "$GPG_PASSPHRASE" \
+            --output "${RUNNER_TEMP}/${ARTIFACT_NAME}.zip" \
+            "$artifact_path"
+          unzip -o "${RUNNER_TEMP}/${ARTIFACT_NAME}.zip" -d "${{ env.SETUP_CLUSTER_TYPE_PATH }}"
+
+      - name: Configure kubectl via azure/k8s-set-context@v4
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          context: e2e-cluster-nightly-e2e-virt-sa
+          kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+
+      - name: infra-undeploy
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+        run: |
+          task infra-undeploy

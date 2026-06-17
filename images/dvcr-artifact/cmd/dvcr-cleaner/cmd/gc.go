@@ -134,6 +134,10 @@ func Confirm() (bool, error) {
 func autoCleanupHandler(cmd *cobra.Command, args []string) error {
 	started := time.Now().UTC()
 
+	if err := ensureRepoDir(); err != nil {
+		return err
+	}
+
 	fsInfoBeforeCleanup, err := registry.StorageStats()
 	if err != nil {
 		return fmt.Errorf("get repositories filesystem info before cleanup: %w", err)
@@ -241,9 +245,13 @@ func performAutoCleanup() error {
 }
 
 func checkCleanupHandler(_ *cobra.Command, _ []string) error {
+	if err := ensureRepoDir(); err != nil {
+		return err
+	}
+
 	fsInfo, err := registry.StorageStats()
 	if err != nil {
-		return fmt.Errorf("get repositories filesystem info before cleanup: %w", err)
+		return fmt.Errorf("get repositories filesystem info: %w", err)
 	}
 
 	absentImages, err := getAbsentImages()
@@ -356,6 +364,13 @@ func compareRegistryAndClusterImages(images []registry.Image, kubeImages []kuber
 	}
 
 	return absentImages
+}
+
+func ensureRepoDir() error {
+	if err := os.MkdirAll(RepoDir, 0o755); err != nil {
+		return fmt.Errorf("ensure repositories dir exists: %w", err)
+	}
+	return nil
 }
 
 const (

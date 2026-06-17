@@ -94,19 +94,6 @@ tasks:
     cmds:
       - helm template static-dvp-over-dvp-infra ./charts/infra -f values.yaml -f {{ .DISCOVERED_VALUES_FILE }} >> {{ .TMP_DIR }}/infra.yaml
 
-  # Temporary workaround (TODO: remove afte fixing the issue).
-  # This task is needed to fix the issue with cluster migration while setting up and running tests.
-  infra-pin-vms:
-    desc: Pin VMs to nodes
-    cmds:
-      - |
-        for vm in $(kubectl -n {{ .NAMESPACE }} get vm -o name); do
-          echo "Getting VM $vm node"
-          pinNode=$(kubectl -n {{ .NAMESPACE }} get vm $vm jsonpath='{.status.nodeName}')
-          echo "Pinning VM $vm to node $pinNode"
-          kubectl -n {{ .NAMESPACE }} patch vm $vm --type merge --patch '{"spec":{"nodeSelector":{"kubernetes.io/hostname":"'${pinNode}'"}}}'
-        done
-
   infra-deploy:
     deps:
       - render-infra
@@ -191,7 +178,10 @@ tasks:
     deps:
       - render-cluster-config
     vars:
-      DeckhouseInstallImage: "registry.deckhouse.io/deckhouse/ee/install"
+      DeckhouseInstallImage:
+        sh: yq eval '.deckhouse.registry + "/deckhouse/ee/install"' values.yaml
+      DeckhouseVersion:
+        sh: yq eval '.deckhouse.version' values.yaml
       prefix:
         sh: yq eval '.storageType' values.yaml
       start_time:
@@ -208,7 +198,7 @@ tasks:
         -v "{{ .TMP_DIR }}/config.yaml:/config.yaml" \
         -v "{{ .SSH_DIR }}:/tmp/.ssh/" \
         -v "{{ .TMP_DIR }}/dhctl:/tmp/dhctl/" \
-        {{ .DeckhouseInstallImage }}:{{ .DECKHOUSE_CHANNEL }} \
+        {{ .DeckhouseInstallImage }}:{{ .DeckhouseVersion }} \
             dhctl bootstrap \
             --config=/config.yaml \
             --ssh-agent-private-keys=/tmp/.ssh/{{ .SSH_FILE_NAME }} \

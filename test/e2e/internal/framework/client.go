@@ -17,6 +17,8 @@ limitations under the License.
 package framework
 
 import (
+	"sync"
+
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -39,9 +41,12 @@ import (
 
 var clients = Clients{}
 
+var clientsOnce sync.Once
+
 func GetClients() Clients {
 	onceLoadConfig()
 	InitClients()
+	initStorageClasses()
 	return clients
 }
 
@@ -93,7 +98,7 @@ func (c Clients) Git() gt.Git {
 // This should be called before using framework clients.
 func InitClients() {
 	clientsOnce.Do(func() {
-		_ = GetConfig()
+		onceLoadConfig()
 
 		restConfig, err := conf.ClusterTransport.RestConfig()
 		if err != nil {

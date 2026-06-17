@@ -64,8 +64,8 @@ d8 v scp user@myvm:myfile.bin ~/myfile.bin
 #### ssh
 
 ```shell
-d8 v --identity-file=/path/to/ssh_key ssh user@myvm.mynamespace
-d8 v ssh --local-ssh=true --namespace=mynamespace --username=user myvm
+d8 v ssh --identity-file=/path/to/ssh_key user@myvm.mynamespace
+d8 v ssh --namespace=mynamespace --username=user myvm
 ```
 
 #### vnc

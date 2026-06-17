@@ -15,35 +15,55 @@ show_sdn_state() {
   kubectl -n d8-sdn get pods,deploy,ds,svc,endpoints || true
 }
 
-apply_sdn_module_config() {
-  local count=12
-  local delay=10
+apply_sdn_module_source() {
+  if [ -z "${MODULE_SOURCE_REGISTRY_CFG:-}" ]; then
+    echo "[INFO] use existing MODULE_SOURCE for sdn"
+    return 0
+  fi
 
-  for i in $(seq 1 "$count"); do
-    echo "[INFO] Apply SDN ModuleConfig attempt ${i}/${count}"
-    if kubectl apply -f - <<'EOF'
+  local registry
+  local repo
+  registry="$(registry_host_from_docker_cfg "$MODULE_SOURCE_REGISTRY_CFG")"
+  repo="$(modules_repo_for_registry "$registry")"
+
+  echo "[INFO] Apply ModuleSource deckhouse-prod-sdn config"
+  kubectl apply -f - <<EOF
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleSource
+metadata:
+  name: deckhouse-prod-sdn
+spec:
+  registry:
+    ca: ""
+    dockerCfg: "${MODULE_SOURCE_REGISTRY_CFG}"
+    repo: "${repo}"
+    scheme: HTTPS
+EOF
+}
+
+apply_sdn_module_config() {
+  local source_field=""
+
+  if [ -n "${MODULE_SOURCE_REGISTRY_CFG:-}" ]; then
+    source_field="  source: deckhouse-prod-sdn"
+  fi
+
+  if kubectl_apply_with_retry 12 10 show_sdn_state <<EOF
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
 metadata:
   name: sdn
 spec:
   enabled: true
+${source_field}
 EOF
-    then
-      echo "[SUCCESS] SDN ModuleConfig applied"
-      kubectl get mc sdn
-      return 0
-    fi
+  then
+    echo "[SUCCESS] SDN ModuleConfig applied"
+    kubectl get mc sdn
+    return 0
+  fi
 
-    if [ "$i" -lt "$count" ]; then
-      echo "[WARN] Failed to apply SDN ModuleConfig, retrying in ${delay} seconds..."
-      show_sdn_state
-      sleep "$delay"
-    fi
-  done
-
-  echo "[ERROR] Failed to apply SDN ModuleConfig after ${count} attempts"
-  show_sdn_state
+  echo "[ERROR] Failed to apply SDN ModuleConfig"
   d8 s logs | tail -n 100 || true
   return 1
 }
@@ -114,6 +134,7 @@ wait_for_sdn_admission_endpoint() {
 }
 
 echo "[INFO] Enable SDN"
+apply_sdn_module_source
 apply_sdn_module_config
 wait_for_sdn_module
 wait_for_sdn_workloads

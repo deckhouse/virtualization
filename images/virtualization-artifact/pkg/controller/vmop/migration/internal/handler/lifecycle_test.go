@@ -667,13 +667,14 @@ var _ = Describe("LifecycleHandler", func() {
 			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
 			h.progressStrategy = &progressStrategyStub{value: 30}
 
-			_, err := h.Handle(ctx, srv.Changed())
+			result, err := h.Handle(ctx, srv.Changed())
 			Expect(err).NotTo(HaveOccurred())
+			Expect(result.RequeueAfter).To(Equal(10 * time.Second))
 
 			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
 			Expect(found).To(BeTrue())
 			Expect(completed.Message).NotTo(ContainSubstring("Migration info for 7d38a63b-ffa9-4d56-a924-6017f5832110:"))
-			Expect(completed.Message).To(ContainSubstring("Syncing source and target. TimeElapsed:"))
+			Expect(completed.Message).To(ContainSubstring("Syncing source and target. TimeElapsed:30s"))
 			Expect(completed.Message).To(ContainSubstring("DataProcessed:3529MiB DataRemaining:12049MiB DataTotal:16405MiB"))
 			Expect(completed.Message).To(ContainSubstring("Iteration:1 AutoConvergeThrottleSet:true AutoConvergeThrottle:0"))
 		})

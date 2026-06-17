@@ -245,20 +245,6 @@ func WaitResources(resources []string, resource kc.Resource, opts kc.WaitOptions
 	Expect(waitErr).To(BeEmpty(), "should observe resources in '%s' state before %s timeout", opts.For, opts.Timeout.String())
 }
 
-func GetStorageClassFromEnv(envName string) (*storagev1.StorageClass, error) {
-	sc := &storagev1.StorageClass{}
-	scName, ok := os.LookupEnv(envName)
-	if ok {
-		err := GetObject(kc.ResourceStorageClass, scName, sc, kc.GetOptions{})
-		if err != nil {
-			return nil, err
-		}
-		return sc, nil
-	}
-
-	return nil, nil
-}
-
 func SetStorageClass(tmplRoot string, storageClasse map[string]string) error {
 	return filepath.Walk(tmplRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {

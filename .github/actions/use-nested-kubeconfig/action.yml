@@ -1,0 +1,58 @@
+name: Use nested kubeconfig
+description: Decode a nested-cluster kubeconfig and optionally wait for the API.
+inputs:
+  kubeconfig:
+    description: Double-base64 encoded kubeconfig.
+    required: true
+  context:
+    description: Context to select after writing kubeconfig.
+    required: false
+    default: nested-e2e-nested-sa
+  check-api:
+    description: Run kubectl get nodes with retries.
+    required: false
+    default: "true"
+  attempts:
+    description: Number of kubectl get nodes attempts.
+    required: false
+    default: "30"
+  delay-seconds:
+    description: Delay between API check attempts.
+    required: false
+    default: "10"
+runs:
+  using: composite
+  steps:
+    - name: Configure nested kubeconfig
+      shell: bash
+      env:
+        KUBECONFIG_B64: ${{ inputs.kubeconfig }}
+        KUBECONTEXT: ${{ inputs.context }}
+        CHECK_API: ${{ inputs.check-api }}
+        ATTEMPTS: ${{ inputs.attempts }}
+        DELAY_SECONDS: ${{ inputs.delay-seconds }}
+      run: |
+        mkdir -p ~/.kube
+        echo "[INFO] Configure kubeconfig for nested cluster"
+        printf '%s' "$KUBECONFIG_B64" | base64 -d | base64 -d > ~/.kube/config
+        chmod 600 ~/.kube/config
+
+        if [ -n "$KUBECONTEXT" ]; then
+          kubectl config use-context "$KUBECONTEXT"
+        fi
+
+        if [ "$CHECK_API" != "true" ]; then
+          exit 0
+        fi
+
+        for i in $(seq 1 "$ATTEMPTS"); do
+          echo "[INFO] Check nested kube-api availability ${i}/${ATTEMPTS}"
+          if kubectl get nodes; then
+            echo "[SUCCESS] Nested kube-api is available"
+            exit 0
+          fi
+          sleep "$DELAY_SECONDS"
+        done
+
+        echo "[ERROR] Nested kube-api is not available"
+        exit 1

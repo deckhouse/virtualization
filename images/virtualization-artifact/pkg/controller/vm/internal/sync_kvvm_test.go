@@ -22,6 +22,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/component-base/featuregate"
@@ -347,6 +348,81 @@ var _ = Describe("SyncKvvmHandler", func() {
 		Entry("should present on memory.size change when hotplug enabled", v1alpha2.MachineRunning, newFeatureGateEnableMemoryHotplug(), mutateMemorySize("4Gi"), metav1.ConditionTrue, true),
 	)
 
+	DescribeTable("AwaitingRestart Condition for Hotplug VM with Project Quota",
+		func(featureGate featuregate.FeatureGate, mutateFn func(fakeClient client.WithWatch, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine), quota *corev1.ResourceQuota, expectedStatus metav1.ConditionStatus, expectedExistence bool, expectedMessages []string) {
+			ip := makeVMIP()
+			vmClass := makeVMClass()
+
+			vm := makeVM(v1alpha2.MachineRunning)
+			kvvm := makeKVVM(vm)
+			kvvmi := makeKVVMI()
+
+			if mutateFn != nil {
+				mutateFn(fakeClient, vm, kvvm)
+			}
+
+			fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, kvvmi, ip, vmClass, quota)
+			featureGates = featureGate
+
+			reconcile()
+
+			newVM := &v1alpha2.VirtualMachine{}
+			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
+			Expect(err).NotTo(HaveOccurred())
+
+			awaitCond, awaitExists := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, newVM.Status.Conditions)
+			Expect(awaitExists).To(Equal(expectedExistence))
+			if awaitExists {
+				Expect(awaitCond.Status).To(Equal(expectedStatus))
+				for _, expectedMessage := range expectedMessages {
+					Expect(awaitCond.Message).To(ContainSubstring(expectedMessage))
+				}
+			}
+		},
+		Entry(
+			"should present on cpu hotplug when quota is insufficient during migration",
+			newFeatureGateEnableCPUHotplug(),
+			mutateCPUCores(4),
+			newResourceQuota(resource.MustParse("6"), resource.MustParse("32Gi"), resource.MustParse("3"), resource.MustParse("2Gi")),
+			metav1.ConditionTrue,
+			true,
+			[]string{`project quota "project-quota" has insufficient requests.cpu`},
+		),
+		Entry(
+			"should not present on cpu hotplug when quota is sufficient during migration",
+			newFeatureGateEnableCPUHotplug(),
+			mutateCPUCores(4),
+			newResourceQuota(resource.MustParse("8"), resource.MustParse("32Gi"), resource.MustParse("3"), resource.MustParse("2Gi")),
+			metav1.ConditionUnknown,
+			false,
+			nil,
+		),
+		Entry(
+			"should present on memory hotplug when quota is insufficient during migration",
+			newFeatureGateEnableMemoryHotplug(),
+			mutateMemorySize("4Gi"),
+			newResourceQuota(resource.MustParse("8"), resource.MustParse("5Gi"), resource.MustParse("2"), resource.MustParse("2Gi")),
+			metav1.ConditionTrue,
+			true,
+			[]string{`project quota "project-quota" has insufficient requests.memory`},
+		),
+		Entry(
+			"should present joined message when cpu and memory quota are insufficient during migration",
+			newFeatureGateEnableResourceHotplug(),
+			func(_ client.WithWatch, vm *v1alpha2.VirtualMachine, _ *virtv1.VirtualMachine) {
+				vm.Spec.CPU.Cores = 4
+				vm.Spec.Memory.Size = resource.MustParse("4Gi")
+			},
+			newResourceQuota(resource.MustParse("6"), resource.MustParse("5Gi"), resource.MustParse("3"), resource.MustParse("2Gi")),
+			metav1.ConditionTrue,
+			true,
+			[]string{
+				`project quota "project-quota" has insufficient requests.cpu`,
+				`project quota "project-quota" has insufficient requests.memory`,
+			},
+		),
+	)
+
 	DescribeTable("ConfigurationApplied Condition Tests",
 		func(phase v1alpha2.MachinePhase, notReady bool, expectedStatus metav1.ConditionStatus, expectedExistence bool) {
 			ip := makeVMIP()
@@ -468,4 +544,35 @@ func newFeatureGateEnableCPUHotplug() featuregate.FeatureGate {
 
 func newFeatureGateEnableMemoryHotplug() featuregate.FeatureGate {
 	return newFeatureGate(featuregates.HotplugMemoryWithLiveMigration)
+}
+
+func newFeatureGateEnableResourceHotplug() featuregate.FeatureGate {
+	return newFeatureGate(featuregates.HotplugCPUWithLiveMigration, featuregates.HotplugMemoryWithLiveMigration)
+}
+
+func newResourceQuota(cpuHard, memoryHard, cpuUsed, memoryUsed resource.Quantity) *corev1.ResourceQuota {
+	const quotaNamespace = "default"
+
+	return &corev1.ResourceQuota{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "project-quota",
+			Namespace: quotaNamespace,
+		},
+		Spec: corev1.ResourceQuotaSpec{
+			Hard: corev1.ResourceList{
+				corev1.ResourceRequestsCPU:    cpuHard,
+				corev1.ResourceRequestsMemory: memoryHard,
+			},
+		},
+		Status: corev1.ResourceQuotaStatus{
+			Hard: corev1.ResourceList{
+				corev1.ResourceRequestsCPU:    cpuHard,
+				corev1.ResourceRequestsMemory: memoryHard,
+			},
+			Used: corev1.ResourceList{
+				corev1.ResourceRequestsCPU:    cpuUsed,
+				corev1.ResourceRequestsMemory: memoryUsed,
+			},
+		},
+	}
 }

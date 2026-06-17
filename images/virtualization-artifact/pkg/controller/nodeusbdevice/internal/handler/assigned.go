@@ -19,6 +19,7 @@ package handler
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -217,8 +218,20 @@ func (h *AssignedHandler) deleteUSBDevice(ctx context.Context, namespace, name s
 	}
 
 	if err := h.client.Delete(ctx, usbDevice); err != nil {
+		if isNotFoundUSBDeviceError(err, namespace, name) {
+			return nil
+		}
 		return fmt.Errorf("failed to delete USBDevice: %w", err)
 	}
 
 	return nil
+}
+
+func isNotFoundUSBDeviceError(err error, namespace, name string) bool {
+	if errors.IsNotFound(err) {
+		return true
+	}
+
+	errText := err.Error()
+	return namespace != "" && strings.Contains(errText, "usbdevices.virtualization.deckhouse.io") && strings.Contains(errText, name) && strings.Contains(errText, "not found")
 }
