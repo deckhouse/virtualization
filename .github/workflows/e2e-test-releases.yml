@@ -48,12 +48,19 @@ jobs:
     outputs:
       date_start: ${{ steps.vars.outputs.date_start }}
       randuuid4c: ${{ steps.vars.outputs.randuuid4c }}
+      registry_profile: ${{ steps.registry-profile.outputs.registry_profile }}
+      deckhouse_channel: ${{ steps.registry-profile.outputs.deckhouse_channel }}
+      deckhouse_version: ${{ steps.registry-profile.outputs.deckhouse_version }}
     steps:
       - uses: actions/checkout@v6
 
       - name: Set vars
         id: vars
         uses: ./.github/actions/gen-run-id
+
+      - name: Resolve registry profile
+        id: registry-profile
+        run: bash .github/scripts/bash/e2e/resolve-registry-profile.sh
 
   resolve-release-inputs:
     name: Resolve release inputs
@@ -216,7 +223,9 @@ jobs:
       storage_type: mixed
       nested_storageclass_name: nested-thin-r1
       nested_cluster_network_name: cn-4006-for-e2e-test
-      deckhouse_channel: alpha
+      deckhouse_channel: ${{ needs.set-vars.outputs.deckhouse_channel }}
+      deckhouse_version: ${{ needs.set-vars.outputs.deckhouse_version }}
+      registry_profile: ${{ needs.set-vars.outputs.registry_profile }}
       default_user: cloud
       go_version: "1.25.8"
       date_start: ${{ needs.set-vars.outputs.date_start }}
@@ -227,6 +236,7 @@ jobs:
     secrets:
       DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
       VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+      REGISTRY_DOCKER_CFG: ${{ needs.set-vars.outputs.registry_profile == 'stage' && secrets.STAGE_IO_REGISTRY_DOCKER_CFG || secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
       PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
       BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
       DEV_MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
