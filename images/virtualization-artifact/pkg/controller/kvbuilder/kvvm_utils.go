@@ -266,6 +266,7 @@ func syncAttachedVMBDAHotplugVolumes(
 	vmbdaByBlockDeviceRef map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment,
 ) error {
 	kvvmVolumes := kvvm.Resource.Spec.Template.Spec.Volumes
+	vmMigrating := anyVirtualDiskMigrating(vdByName)
 
 	for ref := range vmbdaByBlockDeviceRef {
 		diskName := GenerateDiskName(v1alpha2.BlockDeviceKind(ref.Kind), ref.Name)
@@ -277,12 +278,25 @@ func syncAttachedVMBDAHotplugVolumes(
 			continue
 		}
 
-		if err := setVMBDABlockDeviceDisk(kvvm, ref, vdByName, viByName, cviByName); err != nil {
+		if err := setVMBDABlockDeviceDisk(kvvm, ref, vdByName, viByName, cviByName, vmMigrating); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func anyVirtualDiskMigrating(vdByName map[string]*v1alpha2.VirtualDisk) bool {
+	for _, vd := range vdByName {
+		if vd == nil {
+			continue
+		}
+		migrating, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
+		if migrating.Status == metav1.ConditionTrue {
+			return true
+		}
+	}
+	return false
 }
 
 func setBlockDeviceDisk(
@@ -352,6 +366,7 @@ func setVMBDABlockDeviceDisk(
 	vdByName map[string]*v1alpha2.VirtualDisk,
 	viByName map[string]*v1alpha2.VirtualImage,
 	cviByName map[string]*v1alpha2.ClusterVirtualImage,
+	vmMigrating bool,
 ) error {
 	switch ref.Kind {
 	case v1alpha2.VMBDAObjectRefKindVirtualDisk:
@@ -360,12 +375,16 @@ func setVMBDABlockDeviceDisk(
 			return fmt.Errorf("unexpected error: virtual disk %q should exist in the cluster; please recreate it", ref.Name)
 		}
 
-		if vd.Status.Target.PersistentVolumeClaim == "" {
+		pvcName := vd.Status.Target.PersistentVolumeClaim
+		if vmMigrating && vd.Status.MigrationState.TargetPVC != "" {
+			pvcName = vd.Status.MigrationState.TargetPVC
+		}
+		if pvcName == "" {
 			return nil
 		}
 
 		return kvvm.SetDisk(GenerateVDDiskName(ref.Name), SetDiskOptions{
-			PersistentVolumeClaim: ptr.To(vd.Status.Target.PersistentVolumeClaim),
+			PersistentVolumeClaim: ptr.To(pvcName),
 			Serial:                GenerateSerialFromObject(vd),
 			IsHotplugged:          true,
 		})
