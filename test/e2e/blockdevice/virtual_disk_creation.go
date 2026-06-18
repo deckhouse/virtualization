@@ -31,6 +31,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	netv1 "k8s.io/api/networking/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -71,13 +72,17 @@ const (
 	progressBoundaryBudget = time.Minute
 )
 
-var _ = Describe("VirtualDiskCreation", Label(precheck.PrecheckMainStandbyStorageClass), func() {
+var _ = Describe("VirtualDiskCreation", Label(
+	precheck.PrecheckWFFCStorageClass,
+	precheck.PrecheckImmediateStorageClass,
+	precheck.PrecheckSameCSIDriverStorageClass,
+), func() {
 	var (
 		f   *framework.Framework
 		ctx context.Context
 
-		scPtr        *string
-		standbySCPtr *string
+		scPtr          *string
+		immediateSCPtr *string
 	)
 
 	BeforeEach(func() {
@@ -87,11 +92,11 @@ var _ = Describe("VirtualDiskCreation", Label(precheck.PrecheckMainStandbyStorag
 		DeferCleanup(f.After)
 		setupProject(ctx, f, "vd-creation")
 
-		scPtr = mainStorageClass()
-		standbySCPtr = standbyStorageClass()
+		scPtr = wffcStorageClass()
+		immediateSCPtr = immediateStorageClass()
 	})
 
-	It("provisions a VirtualDisk from HTTP data source", Label(precheck.PrecheckMainStandbyStorageClass), func() {
+	It("provisions a VirtualDisk from HTTP data source", func() {
 		vd := vdbuilder.New(
 			vdbuilder.WithName("vd-http"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
@@ -102,7 +107,7 @@ var _ = Describe("VirtualDiskCreation", Label(precheck.PrecheckMainStandbyStorag
 		createVirtualDiskAndRunVM(ctx, f, vd)
 	})
 
-	It("provisions a VirtualDisk from Upload data source", Label(precheck.PrecheckMainStandbyStorageClass), func() {
+	It("provisions a VirtualDisk from Upload data source", func() {
 		vd := vdbuilder.New(
 			vdbuilder.WithName("vd-upload"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
@@ -130,6 +135,7 @@ var _ = Describe("VirtualDiskCreation", Label(precheck.PrecheckMainStandbyStorag
 		obs.Always(vdobs.BeDataSourceReady())
 		obs.Always(vdobs.HaveNonDecreasingProgress())
 		obs.Always(vdobs.HaveValidPhaseTransitions())
+		obs.Always(vdobs.HaveProgressWhileProvisioning())
 
 		By("Creating VirtualDisk", func() {
 			err := f.CreateWithDeferredDeletion(ctx, vd)
@@ -156,21 +162,13 @@ var _ = Describe("VirtualDiskCreation", Label(precheck.PrecheckMainStandbyStorag
 			Expect(err).NotTo(HaveOccurred(), "upload should succeed")
 		})
 
-		// On a WaitForFirstConsumer storage class the uploaded data lands in DVCR, and
-		// the final import into the disk's volume only runs once the disk has a consumer.
-		// Create the VirtualMachine first (as that consumer), then assert the disk is Ready.
-		runVirtualMachineFromDisks(ctx, f, vd)
-
-		// Poll the current phase instead of obs.WaitFor: the disk usually becomes Ready
-		// while runVirtualMachineFromDisks is still waiting for the VM/agent, and the
-		// observer only delivers new watch events to a freshly-registered WaitFor listener
-		// (it would block on an already-Ready disk).
-		By("Waiting for the VirtualDisk to be ready", func() {
-			util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.LongTimeout, vd)
-		})
+		// On a WaitForFirstConsumer storage class the uploaded data lands in DVCR, and the
+		// final import into the disk's volume only runs once the disk has a consumer; the
+		// VirtualMachine created below is that consumer.
+		runVirtualMachineFromDisks(ctx, f, observedDisk{vd: vd, obs: obs})
 	})
 
-	It("provisions a VirtualDisk from ContainerImage (registry) data source", Label(precheck.PrecheckMainStandbyStorageClass), func() {
+	It("provisions a VirtualDisk from ContainerImage (registry) data source", func() {
 		vd := vdbuilder.New(
 			vdbuilder.WithName("vd-registry"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
@@ -181,7 +179,7 @@ var _ = Describe("VirtualDiskCreation", Label(precheck.PrecheckMainStandbyStorag
 		createVirtualDiskAndRunVM(ctx, f, vd)
 	})
 
-	It("provisions a VirtualDisk from a VirtualImage on DVCR", Label(precheck.PrecheckMainStandbyStorageClass), func() {
+	It("provisions a VirtualDisk from a VirtualImage on DVCR", func() {
 		baseVI := vibuilder.New(
 			vibuilder.WithName("vi-source-dvcr"),
 			vibuilder.WithNamespace(f.Namespace().Name),
@@ -220,7 +218,7 @@ var _ = Describe("VirtualDiskCreation", Label(precheck.PrecheckMainStandbyStorag
 	// Re-enable once same-CSI clones are routed through host-assisted prime/rebind (fresh
 	// volume owned solely by the VM's node).
 	/*
-		It("provisions a VirtualDisk from a VirtualImage on PVC", Label(precheck.PrecheckMainStandbyStorageClass), func() {
+		It("provisions a VirtualDisk from a VirtualImage on PVC", func() {
 			baseVI := vibuilder.New(
 				vibuilder.WithName("vi-source-pvc"),
 				vibuilder.WithNamespace(f.Namespace().Name),
@@ -251,7 +249,7 @@ var _ = Describe("VirtualDiskCreation", Label(precheck.PrecheckMainStandbyStorag
 		})
 	*/
 
-	It("provisions a VirtualDisk from a VirtualImage on PVC backed by a different storage class of the same CSI driver", Label(precheck.PrecheckMainStandbyStorageClass), func() {
+	It("provisions a VirtualDisk from a VirtualImage on PVC backed by a different storage class of the same CSI driver", func() {
 		baseVI := vibuilder.New(
 			vibuilder.WithName("vi-source-pvc-other-sc"),
 			vibuilder.WithNamespace(f.Namespace().Name),
@@ -260,12 +258,12 @@ var _ = Describe("VirtualDiskCreation", Label(precheck.PrecheckMainStandbyStorag
 			// VI on a different storage class), so source the base image from a CVI.
 			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
 		)
-		baseVI.Spec.PersistentVolumeClaim.StorageClass = standbySCPtr
+		baseVI.Spec.PersistentVolumeClaim.StorageClass = immediateSCPtr
 
 		viObs := viobs.StartObserver(ctx, f, baseVI)
 		viObs.Never(viobs.BeFailed())
 
-		By("Creating base VirtualImage on PVC with the standby storage class "+*standbySCPtr, func() {
+		By("Creating base VirtualImage on PVC with the immediate storage class "+*immediateSCPtr, func() {
 			err := f.CreateWithDeferredDeletion(ctx, baseVI)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -283,7 +281,7 @@ var _ = Describe("VirtualDiskCreation", Label(precheck.PrecheckMainStandbyStorag
 		createVirtualDiskAndRunVM(ctx, f, vd)
 	})
 
-	It("provisions a VirtualDisk from a ClusterVirtualImage", Label(precheck.PrecheckMainStandbyStorageClass), func() {
+	It("provisions a VirtualDisk from a ClusterVirtualImage", func() {
 		vd := vdbuilder.New(
 			vdbuilder.WithName("vd-from-cvi"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
@@ -294,7 +292,7 @@ var _ = Describe("VirtualDiskCreation", Label(precheck.PrecheckMainStandbyStorag
 		createVirtualDiskAndRunVM(ctx, f, vd)
 	})
 
-	It("provisions a blank VirtualDisk and attaches it to a running VirtualMachine", Label(precheck.PrecheckMainStandbyStorageClass), func() {
+	It("provisions a blank VirtualDisk and attaches it to a running VirtualMachine", func() {
 		blankVD := vdbuilder.New(
 			vdbuilder.WithName("vd-blank"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
@@ -314,14 +312,13 @@ var _ = Describe("VirtualDiskCreation", Label(precheck.PrecheckMainStandbyStorag
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
-		startVirtualDisk(ctx, f, bootVD)
-		startVirtualDisk(ctx, f, blankVD)
+		bootObs := startVirtualDisk(ctx, f, bootVD)
+		blankObs := startVirtualDisk(ctx, f, blankVD)
 
-		runVirtualMachineFromDisks(ctx, f, bootVD, blankVD)
-
-		By("Waiting for the VirtualDisks to be ready", func() {
-			util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.LongTimeout, bootVD, blankVD)
-		})
+		runVirtualMachineFromDisks(ctx, f,
+			observedDisk{vd: bootVD, obs: bootObs},
+			observedDisk{vd: blankVD, obs: blankObs},
+		)
 	})
 
 	// TODO(csi): temporarily disabled for the same reason as "VirtualImage on PVC" above.
@@ -372,33 +369,67 @@ var _ = Describe("VirtualDiskCreation", Label(precheck.PrecheckMainStandbyStorag
 	*/
 })
 
-// mainStorageClass returns a pointer to the name of the StorageClass that block-device
-// creation tests use to provision VirtualDisks and VirtualImages. Its presence is
-// enforced by precheck.PrecheckMainStandbyStorageClass.
-func mainStorageClass() *string {
+// wffcStorageClass returns a pointer to the name of the WaitForFirstConsumer StorageClass
+// that block-device tests use to provision the scenario's main VirtualDisks and
+// VirtualImages. Its presence and WaitForFirstConsumer volume binding mode are enforced by
+// precheck.PrecheckWFFCStorageClass.
+func wffcStorageClass() *string {
 	GinkgoHelper()
 
-	sc := framework.GetConfig().StorageClass.MainStorageClass
+	sc := framework.GetConfig().StorageClass.WFFCStorageClass
 	Expect(sc).NotTo(BeNil(),
-		"main StorageClass not found: annotate a StorageClass with %s=true (enforced by the %q precheck)",
-		config.MainStorageClassAnnotation, precheck.PrecheckMainStandbyStorageClass)
+		"WFFC StorageClass not found: annotate a StorageClass with %s=true (enforced by the %q precheck)",
+		config.WFFCStorageClassAnnotation, precheck.PrecheckWFFCStorageClass)
 
 	return ptr.To(sc.Name)
 }
 
-// standbyStorageClass returns a pointer to the name of the standby StorageClass, used as
-// the "other" StorageClass (same CSI driver as the main one) when a source object must
-// live on a different StorageClass than the produced one. Its presence and shared CSI
-// driver are enforced by precheck.PrecheckMainStandbyStorageClass.
-func standbyStorageClass() *string {
+// immediateStorageClass returns a pointer to the name of the immediate StorageClass, used as
+// the "other" StorageClass (same CSI driver as the WFFC one) when a source object must
+// live on a different StorageClass than the produced one, and to provision dependent objects
+// that must become Ready without a consumer. Its presence and Immediate volume binding mode are
+// enforced by precheck.PrecheckImmediateStorageClass; the shared CSI driver with the WFFC
+// StorageClass is enforced by precheck.PrecheckSameCSIDriverStorageClass.
+func immediateStorageClass() *string {
 	GinkgoHelper()
 
-	sc := framework.GetConfig().StorageClass.StandbyStorageClass
+	sc := framework.GetConfig().StorageClass.ImmediateStorageClass
 	Expect(sc).NotTo(BeNil(),
-		"standby StorageClass not found: annotate a StorageClass with %s=true (enforced by the %q precheck)",
-		config.StandbyStorageClassAnnotation, precheck.PrecheckMainStandbyStorageClass)
+		"immediate StorageClass not found: annotate a StorageClass with %s=true (enforced by the %q precheck)",
+		config.ImmediateStorageClassAnnotation, precheck.PrecheckImmediateStorageClass)
 
 	return ptr.To(sc.Name)
+}
+
+// expectedDiskPhaseBeforeVM returns the phase predicate the disk must satisfy before its
+// consuming VirtualMachine is created: a WaitForFirstConsumer disk parks in the
+// WaitForFirstConsumer phase until the VM (its consumer) is scheduled, while an Immediate
+// disk provisions to Ready on its own.
+func expectedDiskPhaseBeforeVM(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk) vdobs.Predicate {
+	GinkgoHelper()
+
+	if storageClassIsWaitForFirstConsumer(ctx, f, ptr.Deref(vd.Spec.PersistentVolumeClaim.StorageClass, "")) {
+		return vdobs.BeWaitForFirstConsumer()
+	}
+	return vdobs.BeReady()
+}
+
+// storageClassIsWaitForFirstConsumer reports whether the named StorageClass (or the cluster
+// default, when name is empty) uses the WaitForFirstConsumer volume binding mode.
+func storageClassIsWaitForFirstConsumer(ctx context.Context, f *framework.Framework, name string) bool {
+	GinkgoHelper()
+
+	var sc *storagev1.StorageClass
+	if name == "" {
+		sc = framework.GetConfig().StorageClass.DefaultStorageClass
+		Expect(sc).NotTo(BeNil(), "default StorageClass not found")
+	} else {
+		got, err := f.KubeClient().StorageV1().StorageClasses().Get(ctx, name, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred(), "failed to get StorageClass %q", name)
+		sc = got
+	}
+
+	return sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer
 }
 
 // setupProject creates a non-isolated Deckhouse Project, waits until it is deployed and
@@ -439,6 +470,7 @@ func startVirtualDisk(ctx context.Context, f *framework.Framework, vd *v1alpha2.
 	obs.Always(vdobs.BeDataSourceReady())
 	obs.Always(vdobs.HaveNonDecreasingProgress())
 	obs.Always(vdobs.HaveValidPhaseTransitions())
+	obs.Always(vdobs.HaveProgressWhileProvisioning())
 	obs.Always(vdobs.HaveTimelyProgress(progressUpdateInterval, progressBoundaryBudget))
 
 	By("Creating VirtualDisk", func() {
@@ -461,45 +493,86 @@ func createVirtualDiskAndWait(ctx context.Context, f *framework.Framework, vd *v
 	Expect(err).NotTo(HaveOccurred())
 }
 
-// createVirtualDiskAndRunVM provisions vd by booting a VirtualMachine from it. The VM is
-// the disk's first consumer, so this works on both Immediate and WaitForFirstConsumer
-// storage classes. It waits until the VM is Running with a ready guest agent and the
-// disk is Ready.
+// observedDisk pairs a VirtualDisk with the observer watching its lifecycle, as
+// returned by startVirtualDisk.
+type observedDisk struct {
+	vd  *v1alpha2.VirtualDisk
+	obs vdobs.Observer
+}
+
+// virtualDiskNoun returns the singular or plural "VirtualDisk(s)" noun for use
+// in step messages, depending on how many disks are involved.
+func virtualDiskNoun(n int) string {
+	if n == 1 {
+		return "VirtualDisk"
+	}
+	return "VirtualDisks"
+}
+
+// createVirtualDiskAndRunVM provisions vd by booting a VirtualMachine from it (see
+// runVirtualMachineFromDisks for the exact lifecycle). The VM is the disk's first
+// consumer, so this works on both Immediate and WaitForFirstConsumer storage classes.
 func createVirtualDiskAndRunVM(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk) {
 	GinkgoHelper()
 
-	startVirtualDisk(ctx, f, vd)
-	runVirtualMachineFromDisks(ctx, f, vd)
-
-	By("Waiting for the VirtualDisk to be ready", func() {
-		util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.LongTimeout, vd)
-	})
+	obs := startVirtualDisk(ctx, f, vd)
+	runVirtualMachineFromDisks(ctx, f, observedDisk{vd: vd, obs: obs})
 }
 
-// runVirtualMachineFromDisks boots a VirtualMachine from the given VirtualDisks (the
-// first one is the boot disk) and waits until the VM is Running and its guest agent
-// reports ready.
-func runVirtualMachineFromDisks(ctx context.Context, f *framework.Framework, vds ...*v1alpha2.VirtualDisk) {
+// runVirtualMachineFromDisks drives the disk/VM lifecycle for the given disks, which the
+// caller has already created via startVirtualDisk (the first disk is the boot disk):
+//
+//  1. (the disks are already created by the caller);
+//  2. wait every disk to be Ready or waiting for a consumer (WaitForFirstConsumer);
+//  3. create the VirtualMachine that consumes the disks;
+//  4. wait every disk to become Ready (a WaitForFirstConsumer disk provisions only once
+//     the VirtualMachine is scheduled as its consumer);
+//  5. wait the VirtualMachine to be Running;
+//  6. wait the VirtualMachine guest agent to be ready.
+func runVirtualMachineFromDisks(ctx context.Context, f *framework.Framework, disks ...observedDisk) {
 	GinkgoHelper()
 
+	noun := virtualDiskNoun(len(disks))
+
+	By(fmt.Sprintf("Waiting for the %s to settle before creating the VirtualMachine", noun), func() {
+		for _, d := range disks {
+			// A WaitForFirstConsumer disk must park in WaitForFirstConsumer (it provisions
+			// only once the VM consumer is scheduled); an Immediate disk must become Ready.
+			Expect(d.obs.WaitFor(expectedDiskPhaseBeforeVM(ctx, f, d.vd), framework.LongTimeout)).NotTo(HaveOccurred())
+		}
+	})
+
+	vds := make([]*v1alpha2.VirtualDisk, len(disks))
+	for i := range disks {
+		vds[i] = disks[i].vd
+	}
 	vm := object.NewMinimalVM("vm-from-disk-", f.Namespace().Name,
 		vmbuilder.WithDisks(vds...),
 	)
 
-	By("Creating VirtualMachine from the VirtualDisk", func() {
+	By(fmt.Sprintf("Creating VirtualMachine from the %s", noun), func() {
 		err := f.CreateWithDeferredDeletion(ctx, vm)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	obs := vmobs.StartObserver(ctx, f, vm)
-	obs.Never(vmobs.BeFailed())
+	// Start the observer only after Create: the VM uses a generated name, so its
+	// name is unknown (and the observer cannot match its watch events) until the
+	// API server assigns it during Create.
+	vmObs := vmobs.StartObserver(ctx, f, vm)
+	vmObs.Never(vmobs.BeFailed())
+
+	By(fmt.Sprintf("Waiting for the %s to be Ready", noun), func() {
+		for _, d := range disks {
+			Expect(d.obs.WaitFor(vdobs.BeReady(), framework.LongTimeout)).NotTo(HaveOccurred())
+		}
+	})
 
 	By("Waiting for the VirtualMachine to be Running", func() {
-		Expect(obs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)).NotTo(HaveOccurred())
+		Expect(vmObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)).NotTo(HaveOccurred())
 	})
 
 	By("Waiting for the guest agent to be ready", func() {
-		Expect(obs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)).NotTo(HaveOccurred())
+		Expect(vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)).NotTo(HaveOccurred())
 	})
 }
 

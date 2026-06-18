@@ -206,9 +206,16 @@ func (s *PVCImporterService) ensurePrime(ctx context.Context, target *corev1.Per
 	prime.Spec.DataSource = nil
 	prime.Spec.DataSourceRef = nil
 
-	// Pin the prime to the same node the target was scheduled to (the VirtualMachine's
-	// node), so the populated volume is local and can be rebound without a cross-node move.
-	if selectedNode := target.Annotations[selectedNodeAnnotation]; selectedNode != "" {
+	// Pin the prime to the consuming VirtualMachine's node so the populated volume is
+	// local to that node and can later be rebound to the target and attached to the VM
+	// without a cross-node move. The VM's node (nodePlacement.Node) is preferred because
+	// a VM's disk is hotplug-attached and never sets the target PVC's selected-node
+	// annotation itself; the target's selected-node is used only as a fallback.
+	selectedNode := target.Annotations[selectedNodeAnnotation]
+	if nodePlacement != nil && nodePlacement.Node != "" {
+		selectedNode = nodePlacement.Node
+	}
+	if selectedNode != "" {
 		if prime.Annotations == nil {
 			prime.Annotations = map[string]string{}
 		}

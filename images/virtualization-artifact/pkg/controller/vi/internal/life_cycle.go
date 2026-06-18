@@ -128,13 +128,40 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage)
 		return reconcile.Result{}, fmt.Errorf("data source runner not found for type: %s", vi.Spec.DataSource.Type)
 	}
 
+	var (
+		result reconcile.Result
+		err    error
+	)
 	switch vi.Spec.Storage {
 	case v1alpha2.StorageKubernetes, v1alpha2.StoragePersistentVolumeClaim:
-		return ds.StoreToPVC(ctx, vi)
+		result, err = ds.StoreToPVC(ctx, vi)
 	case v1alpha2.StorageContainerRegistry:
-		return ds.StoreToDVCR(ctx, vi)
+		result, err = ds.StoreToDVCR(ctx, vi)
 	default:
 		return reconcile.Result{}, fmt.Errorf("unknown spec storage: %s", vi.Spec.Storage)
+	}
+	if err != nil {
+		return result, err
+	}
+
+	normalizeProgress(vi)
+
+	return result, nil
+}
+
+// normalizeProgress enforces the phase/progress invariants on the final status:
+//   - an image in the Provisioning phase must always expose a progress percentage;
+//     until the importer reports real progress it defaults to "0%";
+//   - an image parked in WaitForUserUpload has not received any data yet, so its
+//     progress is always "0%".
+func normalizeProgress(vi *v1alpha2.VirtualImage) {
+	switch vi.Status.Phase {
+	case v1alpha2.ImageProvisioning:
+		if vi.Status.Progress == "" {
+			vi.Status.Progress = "0%"
+		}
+	case v1alpha2.ImageWaitForUserUpload:
+		vi.Status.Progress = "0%"
 	}
 }
 

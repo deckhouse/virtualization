@@ -20,9 +20,10 @@ limitations under the License.
 // The observer subscribes to events for a particular (name, namespace) pair
 // and exposes three primitives:
 //
-//   - WaitFor blocks until the predicate is satisfied by an event observed
-//     after the call, returns the predicate's diagnostic error, the timeout
-//     elapses, or one of the registered Always/Never invariants fires.
+//   - WaitFor blocks until the predicate is satisfied by the latest observed
+//     state or any event observed after the call, returns the predicate's
+//     diagnostic error, the timeout elapses, or one of the registered
+//     Always/Never invariants fires.
 //   - Never and Always register live predicates that are evaluated against
 //     every event recorded after the call, directly inside the watch loop.
 //     The very first violation is captured in Err and aborts every WaitFor
@@ -87,11 +88,12 @@ type Observer[T Object] interface {
 	// immediately and does not consult past history: only events recorded
 	// after the call are evaluated.
 	Always(predicate Predicate[T])
-	// WaitFor returns nil as soon as the predicate returns (true, nil) for
-	// an event observed after the call. It returns an error if the predicate
-	// returns a non-nil error, the timeout elapses, the observer is stopped,
-	// or one of the registered invariants is violated. WaitFor does not
-	// consult past history.
+	// WaitFor returns nil as soon as the predicate returns (true, nil). It
+	// first evaluates the most recently observed state (so an
+	// already-satisfied condition returns immediately, even if no further
+	// event arrives), then every event observed after the call. It returns an
+	// error if the predicate returns a non-nil error, the timeout elapses, the
+	// observer is stopped, or one of the registered invariants is violated.
 	WaitFor(predicate Predicate[T], timeout time.Duration) error
 	// Err returns the first invariant violation captured by Never or Always,
 	// or nil if no invariant has been violated. Once Err returns a non-nil
@@ -147,6 +149,8 @@ type observer[T Object] struct {
 
 	mu        sync.Mutex
 	listeners map[chan T]struct{}
+	latest    T
+	hasLatest bool
 
 	invMu             sync.Mutex
 	neverPredicates   []Predicate[T]
@@ -186,10 +190,14 @@ func (o *observer[T]) run(wi watch.Interface, cancel context.CancelFunc) {
 	}
 }
 
-// broadcast forwards the event to every active WaitFor listener.
+// broadcast records the latest observation and forwards it to every active
+// WaitFor listener.
 func (o *observer[T]) broadcast(obj T) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
+
+	o.latest = obj
+	o.hasLatest = true
 
 	for ch := range o.listeners {
 		select {
@@ -289,6 +297,8 @@ func (o *observer[T]) WaitFor(predicate Predicate[T], timeout time.Duration) err
 	o.mu.Lock()
 	ch := make(chan T, 256)
 	o.listeners[ch] = struct{}{}
+	latest := o.latest
+	hasLatest := o.hasLatest
 	o.mu.Unlock()
 
 	defer func() {
@@ -296,6 +306,20 @@ func (o *observer[T]) WaitFor(predicate Predicate[T], timeout time.Duration) err
 		delete(o.listeners, ch)
 		o.mu.Unlock()
 	}()
+
+	// Evaluate the most recently observed state first: the predicate may
+	// already be satisfied (e.g. a disk that became Ready before this call),
+	// in which case no further watch event would arrive to unblock the loop
+	// below. The listener registered above still catches any newer event.
+	if hasLatest {
+		ok, err := predicate(latest)
+		if err != nil {
+			return fmt.Errorf("observer: WaitFor predicate: %w", err)
+		}
+		if ok {
+			return nil
+		}
+	}
 
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()

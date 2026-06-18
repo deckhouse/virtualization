@@ -32,14 +32,17 @@ const (
 	// StorageClassNameEnv overrides TemplateStorageClass for tests (see README).
 	StorageClassNameEnv = "STORAGE_CLASS_NAME"
 
-	// MainStorageClassAnnotation marks the StorageClass that e2e block-device tests use
-	// to provision VirtualDisks and VirtualImages.
-	MainStorageClassAnnotation = "e2e.virtualization.deckhouse.io/is-main-storage-class"
+	// WFFCStorageClassAnnotation marks the StorageClass that e2e block-device tests use to
+	// provision the scenario's main VirtualDisks and VirtualImages. It must use the
+	// WaitForFirstConsumer volume binding mode.
+	WFFCStorageClassAnnotation = "e2e.virtualization.deckhouse.io/is-wffc-storage-class"
 
-	// StandbyStorageClassAnnotation marks the StorageClass that e2e block-device tests use
+	// ImmediateStorageClassAnnotation marks the StorageClass that e2e block-device tests use
 	// as the "other" StorageClass when a source object must live on a different StorageClass
-	// than the produced one. It must be backed by the same CSI driver as the main one.
-	StandbyStorageClassAnnotation = "e2e.virtualization.deckhouse.io/is-standby-storage-class"
+	// than the produced one, and to provision dependent objects that must become Ready without
+	// a consumer. It must be backed by the same CSI driver as the WFFC one and use the
+	// Immediate volume binding mode.
+	ImmediateStorageClassAnnotation = "e2e.virtualization.deckhouse.io/is-immediate-storage-class"
 )
 
 // FindDefaultStorageClass returns the default StorageClass from the list.
@@ -116,35 +119,6 @@ func FindStorageClassWithDifferentProvisioner(scList *storagev1.StorageClassList
 	return match
 }
 
-// FindImmediateStorageClass finds an immediate StorageClass with the same provisioner as defaultSC.
-// It checks if defaultSC has Immediate binding mode first, then searches for an immediate SC with same provisioner.
-// Returns the immediate StorageClass if found, or nil if not found.
-func FindImmediateStorageClass(defaultSC *storagev1.StorageClass, scList *storagev1.StorageClassList) *storagev1.StorageClass {
-	if defaultSC == nil {
-		return nil
-	}
-
-	// If default StorageClass already has Immediate binding mode, use it
-	if defaultSC.VolumeBindingMode != nil &&
-		*defaultSC.VolumeBindingMode == storagev1.VolumeBindingImmediate {
-		return defaultSC
-	}
-
-	// Find immediate StorageClass with same provisioner
-	for i := range scList.Items {
-		sc := &scList.Items[i]
-		if sc.VolumeBindingMode == nil {
-			continue
-		}
-		if *sc.VolumeBindingMode == storagev1.VolumeBindingImmediate &&
-			sc.Provisioner == defaultSC.Provisioner {
-			return sc
-		}
-	}
-
-	return nil
-}
-
 // SetStorageClasses discovers cluster StorageClasses and populates Config.StorageClass fields.
 // TemplateStorageClass is taken from StorageClassNameEnv when set, otherwise DefaultStorageClass is used.
 func (c *Config) SetStorageClasses(ctx context.Context, k8sClient client.Client) error {
@@ -158,16 +132,14 @@ func (c *Config) SetStorageClasses(ctx context.Context, k8sClient client.Client)
 		return fmt.Errorf("default StorageClass not found in the cluster")
 	}
 
-	c.StorageClass.ImmediateStorageClass = FindImmediateStorageClass(c.StorageClass.DefaultStorageClass, &scList)
-
-	// Discovered non-fatally; their presence is enforced by the dedicated precheck for
-	// tests that require them.
-	c.StorageClass.MainStorageClass = FindStorageClassByAnnotation(&scList, MainStorageClassAnnotation)
-	c.StorageClass.StandbyStorageClass = FindStorageClassByAnnotation(&scList, StandbyStorageClassAnnotation)
+	// Discovered non-fatally; their presence (and the volume binding modes of the WFFC and
+	// immediate StorageClasses) is enforced by the dedicated prechecks for tests that require them.
+	c.StorageClass.WFFCStorageClass = FindStorageClassByAnnotation(&scList, WFFCStorageClassAnnotation)
+	c.StorageClass.ImmediateStorageClass = FindStorageClassByAnnotation(&scList, ImmediateStorageClassAnnotation)
 	// The different-CSI-driver StorageClass is discovered automatically: any StorageClass
-	// whose CSI driver differs from the main one. No annotation is required.
-	if c.StorageClass.MainStorageClass != nil {
-		c.StorageClass.DifferentCSIDriverStorageClass = FindStorageClassWithDifferentProvisioner(&scList, c.StorageClass.MainStorageClass.Provisioner)
+	// whose CSI driver differs from the WFFC one. No annotation is required.
+	if c.StorageClass.WFFCStorageClass != nil {
+		c.StorageClass.DifferentCSIDriverStorageClass = FindStorageClassWithDifferentProvisioner(&scList, c.StorageClass.WFFCStorageClass.Provisioner)
 	}
 
 	templateSC, err := findStorageClassFromEnv(ctx, k8sClient, StorageClassNameEnv, &scList)

@@ -293,6 +293,58 @@ var _ = Describe("LifeCycleHandler Run", func() {
 		),
 	)
 
+	DescribeTable(
+		"Phase/progress invariants on the final status",
+		func(phase v1alpha2.DiskPhase, syncProgress, expectedProgress string) {
+			var sourcesMock SourcesMock
+			sourcesMock.ChangedFunc = func(_ context.Context, _ *v1alpha2.VirtualDisk) bool {
+				return false
+			}
+			sourcesMock.GetFunc = func(_ v1alpha2.DataSourceType) (source.Handler, bool) {
+				return &source.HandlerMock{SyncFunc: func(_ context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
+					vd.Status.Phase = phase
+					vd.Status.Progress = syncProgress
+					return reconcile.Result{}, nil
+				}}, true
+			}
+			recorder := &eventrecord.EventRecorderLoggerMock{
+				EventFunc: func(_ client.Object, _, _, _ string) {},
+			}
+			ctx := logger.ToContext(context.TODO(), testutil.NewNoOpSlogLogger())
+			vd := v1alpha2.VirtualDisk{
+				Spec: v1alpha2.VirtualDiskSpec{
+					DataSource: &v1alpha2.VirtualDiskDataSource{
+						Type: v1alpha2.DataSourceTypeHTTP,
+					},
+				},
+				Status: v1alpha2.VirtualDiskStatus{
+					StorageClassName: "vd-sc",
+					Conditions: []metav1.Condition{
+						{
+							Type:   vdcondition.DatasourceReadyType.String(),
+							Status: metav1.ConditionTrue,
+						},
+						{
+							Type:   vdcondition.StorageClassReadyType.String(),
+							Status: metav1.ConditionTrue,
+						},
+					},
+				},
+			}
+
+			handler := NewLifeCycleHandler(recorder, nil, &sourcesMock, nil)
+			_, err := handler.Handle(ctx, &vd)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vd.Status.Phase).To(Equal(phase))
+			Expect(vd.Status.Progress).To(Equal(expectedProgress))
+		},
+		Entry("Provisioning defaults empty progress to 0%", v1alpha2.DiskProvisioning, "", "0%"),
+		Entry("Provisioning keeps the reported progress", v1alpha2.DiskProvisioning, "42.0%", "42.0%"),
+		Entry("WaitForUserUpload forces empty progress to 0%", v1alpha2.DiskWaitForUserUpload, "", "0%"),
+		Entry("WaitForUserUpload forces progress to 0%", v1alpha2.DiskWaitForUserUpload, "73%", "0%"),
+		Entry("other phases keep their progress untouched", v1alpha2.DiskPending, "55%", "55%"),
+	)
+
 	It("should handle a VirtualDisk without data source", func() {
 		var sourcesMock SourcesMock
 		recorder := &eventrecord.EventRecorderLoggerMock{

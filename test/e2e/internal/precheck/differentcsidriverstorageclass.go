@@ -33,9 +33,9 @@ const (
 
 // differentCSIDriverStorageClassPrecheck implements the Precheck interface for the
 // cross-CSI-driver block-device tests. It verifies that:
-//  1. a StorageClass annotated with MainStorageClassAnnotation=true exists;
+//  1. a StorageClass annotated with WFFCStorageClassAnnotation=true exists;
 //  2. the cluster has at least one StorageClass whose CSI driver (provisioner) differs
-//     from the main one.
+//     from the WFFC one.
 //
 // The "different CSI driver" StorageClass is discovered automatically; no annotation is
 // required for it.
@@ -57,27 +57,27 @@ func (c *differentCSIDriverStorageClassPrecheck) Run(ctx context.Context, f *fra
 		return fmt.Errorf("%s=no to disable this precheck: list StorageClasses: %w", differentCSIDriverStorageClassPrecheckEnvName, err)
 	}
 
-	mainSC := config.FindStorageClassByAnnotation(&scList, config.MainStorageClassAnnotation)
-	if mainSC == nil {
+	wffcSC := config.FindStorageClassByAnnotation(&scList, config.WFFCStorageClassAnnotation)
+	if wffcSC == nil {
 		return fmt.Errorf(
-			"%s=no to disable this precheck: main StorageClass not found. Annotate one for the e2e tests:\n"+
-				"  kubectl annotate storageclass/<main-sc-name> %s=true --overwrite",
-			differentCSIDriverStorageClassPrecheckEnvName, config.MainStorageClassAnnotation,
+			"%s=no to disable this precheck: WFFC StorageClass not found. Annotate one for the e2e tests:\n"+
+				"  kubectl annotate storageclass/<wffc-sc-name> %s=true --overwrite",
+			differentCSIDriverStorageClassPrecheckEnvName, config.WFFCStorageClassAnnotation,
 		)
 	}
 
-	differentSC := config.FindStorageClassWithDifferentProvisioner(&scList, mainSC.Provisioner)
+	differentSC := config.FindStorageClassWithDifferentProvisioner(&scList, wffcSC.Provisioner)
 	if differentSC == nil {
 		return fmt.Errorf(
-			"%s=no to disable this precheck: no StorageClass with a CSI driver different from the main StorageClass %q (CSI driver %q) was found in the cluster; "+
+			"%s=no to disable this precheck: no StorageClass with a CSI driver different from the WFFC StorageClass %q (CSI driver %q) was found in the cluster; "+
 				"the cross-CSI block-device tests require a second CSI driver to be installed",
-			differentCSIDriverStorageClassPrecheckEnvName, mainSC.Name, mainSC.Provisioner,
+			differentCSIDriverStorageClassPrecheckEnvName, wffcSC.Name, wffcSC.Provisioner,
 		)
 	}
 
 	_, _ = fmt.Fprintf(GinkgoWriter,
-		"different CSI driver StorageClass precheck passed: the tests will use main StorageClass %q (CSI driver %q) and StorageClass %q (CSI driver %q).\n",
-		mainSC.Name, mainSC.Provisioner, differentSC.Name, differentSC.Provisioner,
+		"different CSI driver StorageClass precheck passed: the tests will use WFFC StorageClass %q (CSI driver %q) and StorageClass %q (CSI driver %q).\n",
+		wffcSC.Name, wffcSC.Provisioner, differentSC.Name, differentSC.Provisioner,
 	)
 
 	return nil

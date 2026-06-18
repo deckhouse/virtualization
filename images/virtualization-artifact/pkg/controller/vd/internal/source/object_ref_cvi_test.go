@@ -18,6 +18,7 @@ package source
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -178,6 +179,29 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
 			Expect(vd.Status.Progress).ToNot(BeEmpty())
 			Expect(vd.Status.Target.PersistentVolumeClaim).ToNot(BeEmpty())
+		})
+
+		It("propagates a target PVC quota rejection as Pending/QuotaExceeded instead of an error", func() {
+			vd.Status = v1alpha2.VirtualDiskStatus{
+				StorageClassName: sc.Name,
+				Target: v1alpha2.DiskTarget{
+					PersistentVolumeClaim: "test-pvc",
+				},
+			}
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cvi, sc).Build()
+			pvcSvc.CreateTargetFunc = func(_ context.Context, _ types.NamespacedName, _ string, _ resource.Quantity, _ *service.PVCImportSource, _ kclient.Object, _ service.VolumeAndAccessModesGetter, _ *provisioner.NodePlacement) error {
+				return errors.New(`persistentvolumeclaims "d8v-vd-test" is forbidden: exceeded quota: block-pods-and-pvcs, requested: count/persistentvolumeclaims=1, used: count/persistentvolumeclaims=1, limited: count/persistentvolumeclaims=0`)
+			}
+
+			syncer := NewObjectRefClusterVirtualImage(svc, pvcSvc, stat, fakeClient)
+
+			res, err := syncer.Sync(ctx, vd)
+			// The quota rejection must not surface as a reconciler error.
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.IsZero()).To(BeTrue())
+
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskPending))
+			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.QuotaExceeded, true)
 		})
 	})
 

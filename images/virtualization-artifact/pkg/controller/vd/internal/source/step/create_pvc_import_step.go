@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -120,6 +121,20 @@ func (s PVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*rec
 		return nil, fmt.Errorf("failed to get importer tolerations: %w", err)
 	}
 
+	// On a WaitForFirstConsumer storage class the imported volume must be
+	// provisioned on the VirtualMachine's node so it can be attached to the VM.
+	// Wait until the VM is scheduled (its node is known) before creating the
+	// target/prime PVCs; otherwise the prime would be provisioned on the
+	// importer pod's arbitrary node and the VM could never attach it.
+	if isWFFC && (nodePlacement == nil || nodePlacement.Node == "") {
+		vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
+		s.cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.WaitingForFirstConsumer).
+			Message("Awaiting the scheduling of the VirtualMachine with the attached VirtualDisk.")
+		return &reconcile.Result{}, nil
+	}
+
 	key := types.NamespacedName{Name: vd.Status.Target.PersistentVolumeClaim, Namespace: vd.Namespace}
 	if err := s.pvc.CreateTarget(ctx, key, sc.Name, s.size, s.source, vd, s.disk, nodePlacement); err != nil {
 		if errors.Is(err, volumemode.ErrStorageProfileNotFound) {
@@ -128,6 +143,18 @@ func (s PVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*rec
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.ProvisioningFailed).
 				Message("StorageProfile not found in the cluster: Please check a StorageProfile name in the cluster.")
+			return &reconcile.Result{}, nil
+		}
+		// A project quota that rejects the target PVC is a recoverable, user-facing
+		// condition rather than a controller error: surface it on the Ready condition
+		// (and requeue via the resource-quota watcher) instead of returning an error
+		// that would be logged as a "Reconciler error".
+		if common.ErrQuotaExceeded(err) {
+			vd.Status.Phase = v1alpha2.DiskPending
+			s.cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdcondition.QuotaExceeded).
+				Message(fmt.Sprintf("Quota exceeded during the creation of the target PersistentVolumeClaim: %s", err))
 			return &reconcile.Result{}, nil
 		}
 		return nil, fmt.Errorf("create target pvc: %w", err)
@@ -164,6 +191,10 @@ func GetNodePlacement(ctx context.Context, c client.Client, vd *v1alpha2.Virtual
 	}
 
 	var nodePlacement provisioner.NodePlacement
+	// The node the VM is scheduled on (empty until the VM's virt-launcher pod is
+	// scheduled). Import helpers (prime PVC, importer pod) are pinned here so a
+	// WaitForFirstConsumer node-local volume is provisioned on the VM's node.
+	nodePlacement.Node = vm.Status.Node
 	nodePlacement.Tolerations = append(nodePlacement.Tolerations, vm.Spec.Tolerations...)
 
 	vmClassKey := types.NamespacedName{Name: vm.Spec.VirtualMachineClassName}

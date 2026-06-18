@@ -38,7 +38,11 @@ import (
 // data source:
 //   - an ISO VirtualImage boots a VirtualMachine directly (as a CD-ROM);
 //   - a qcow2 VirtualImage backs a VirtualDisk, and a VirtualMachine boots from that disk.
-var _ = Describe("VirtualImageFormat", Label(precheck.NoPrecheck), func() {
+//
+// The qcow2 spec provisions its main VirtualDisk on the WFFC StorageClass, so the precheck
+// label is declared on the Describe (the spec-label validator only reads container-hierarchy
+// labels, not leaf It labels).
+var _ = Describe("VirtualImageFormat", Label(precheck.PrecheckWFFCStorageClass), func() {
 	var (
 		f   *framework.Framework
 		ctx context.Context
@@ -75,12 +79,13 @@ var _ = Describe("VirtualImageFormat", Label(precheck.NoPrecheck), func() {
 
 		createVirtualImageAndWait(ctx, f, vi)
 
+		// The disk under test is the scenario's main resource, so it lives on the WFFC
+		// storage class.
 		vd := object.NewVDFromVI("vd-from-vi-qcow2", f.Namespace().Name, vi,
+			vdbuilder.WithStorageClass(wffcStorageClass()),
 			vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))))
 
-		createVirtualDiskAndWait(ctx, f, vd)
-
-		runVirtualMachineFromDisks(ctx, f, vd)
+		createVirtualDiskAndRunVM(ctx, f, vd)
 	})
 })
 

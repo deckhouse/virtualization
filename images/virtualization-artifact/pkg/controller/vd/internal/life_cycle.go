@@ -165,5 +165,23 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 		return reconcile.Result{}, fmt.Errorf("failed to sync virtual disk data source %s: %w", ds.Name(), err)
 	}
 
+	normalizeProgress(vd)
+
 	return result, nil
+}
+
+// normalizeProgress enforces the phase/progress invariants on the final status:
+//   - a disk in the Provisioning phase must always expose a progress percentage;
+//     until the importer reports real progress it defaults to "0%";
+//   - a disk parked in WaitForUserUpload has not received any data yet, so its
+//     progress is always "0%".
+func normalizeProgress(vd *v1alpha2.VirtualDisk) {
+	switch vd.Status.Phase {
+	case v1alpha2.DiskProvisioning:
+		if vd.Status.Progress == "" {
+			vd.Status.Progress = "0%"
+		}
+	case v1alpha2.DiskWaitForUserUpload:
+		vd.Status.Progress = "0%"
+	}
 }

@@ -174,6 +174,17 @@ func BeReady() Predicate {
 	}
 }
 
+// BeWaitForFirstConsumer reports the VirtualDisk has parked in the
+// WaitForFirstConsumer phase, waiting for a consumer (a VirtualMachine) to be
+// scheduled before it can provision its volume. It is used to synchronize a disk
+// on a WaitForFirstConsumer storage class before creating the VirtualMachine that
+// consumes it. Intended for use with [Observer.WaitFor].
+func BeWaitForFirstConsumer() Predicate {
+	return func(d *v1alpha2.VirtualDisk) (bool, error) {
+		return d.Status.Phase == v1alpha2.DiskWaitForFirstConsumer, nil
+	}
+}
+
 // BeQuotaExceeded reports the VirtualDisk has been parked in a
 // quota-exhausted state.
 //
@@ -345,6 +356,27 @@ func HaveNonDecreasingProgress() Predicate {
 		}
 
 		previous = &current
+		return true, nil
+	}
+}
+
+// HaveProgressWhileProvisioning reports an invariant violation when a
+// VirtualDisk in the Provisioning phase does not expose a progress
+// percentage. The controller must always publish a percentage while
+// provisioning (at least "0%" before the importer reports real progress), so
+// an empty Progress in the Provisioning phase is a controller bug. Phases
+// other than Provisioning are skipped. Intended for use with [Observer.Always].
+func HaveProgressWhileProvisioning() Predicate {
+	return func(d *v1alpha2.VirtualDisk) (bool, error) {
+		if d.Status.Phase != v1alpha2.DiskProvisioning {
+			return true, nil
+		}
+		if d.Status.Progress == "" {
+			return false, errors.New("phase is Provisioning but progress is empty, expected a percentage (at least \"0%\")")
+		}
+		if _, err := parseProgress(d.Status.Progress); err != nil {
+			return false, fmt.Errorf("phase is Provisioning but progress is invalid: %w", err)
+		}
 		return true, nil
 	}
 }

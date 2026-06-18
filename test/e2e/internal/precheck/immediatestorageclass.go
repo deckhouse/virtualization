@@ -30,11 +30,10 @@ const (
 	immediateStorageClassPrecheckEnvName = "IMMEDIATE_STORAGE_CLASS_PRECHECK"
 )
 
-// immediateStorageClassPrecheck implements Precheck interface for immediate StorageClass.
-// This precheck verifies that:
-// 1. Default StorageClass has VolumeBindingMode=Immediate, OR
-// 2. There is an immediate StorageClass with the same provisioner as default StorageClass.
-// This is required for tests that work with snapshots, as PVs need to be immediately bound.
+// immediateStorageClassPrecheck implements Precheck interface for the immediate StorageClass.
+// This precheck verifies that a StorageClass annotated with ImmediateStorageClassAnnotation=true
+// exists and uses the Immediate volume binding mode. This is required for tests that work with
+// snapshots, as PVs need to be immediately bound.
 type immediateStorageClassPrecheck struct{}
 
 func (c *immediateStorageClassPrecheck) Label() string {
@@ -52,23 +51,37 @@ func (c *immediateStorageClassPrecheck) Run(ctx context.Context, f *framework.Fr
 		return fmt.Errorf("%s=no to disable this precheck: list StorageClasses: %w", immediateStorageClassPrecheckEnvName, err)
 	}
 
-	// Find default StorageClass
-	defaultSC := config.FindDefaultStorageClass(&scList)
-	if defaultSC == nil {
-		return fmt.Errorf("%s=no to disable this precheck: cluster has no default StorageClass",
-			immediateStorageClassPrecheckEnvName)
+	immediateSC := config.FindStorageClassByAnnotation(&scList, config.ImmediateStorageClassAnnotation)
+	if immediateSC == nil {
+		return fmt.Errorf(
+			"%s=no to disable this precheck: immediate StorageClass not found. Annotate an Immediate-binding StorageClass for the e2e tests:\n"+
+				"  kubectl annotate storageclass/<immediate-sc-name> %s=true --overwrite",
+			immediateStorageClassPrecheckEnvName, config.ImmediateStorageClassAnnotation)
 	}
 
-	// Check if immediate StorageClass exists with same provisioner
-	immediateSC := config.FindImmediateStorageClass(defaultSC, &scList)
-	if immediateSC == nil {
-		return fmt.Errorf("%s=no to disable this precheck: default StorageClass %q has WaitForFirstConsumer binding mode, "+
-			"and no immediate StorageClass found with the same provisioner %q. "+
-			"Create an immediate StorageClass or set an immediate StorageClass as default",
-			immediateStorageClassPrecheckEnvName, defaultSC.Name, defaultSC.Provisioner)
+	if !isImmediateBinding(immediateSC) {
+		return fmt.Errorf(
+			"%s=no to disable this precheck: StorageClass %q annotated with %s=true must use the Immediate volume binding mode, but it is %q",
+			immediateStorageClassPrecheckEnvName, immediateSC.Name, config.ImmediateStorageClassAnnotation,
+			volumeBindingMode(immediateSC))
 	}
 
 	return nil
+}
+
+// isImmediateBinding reports whether sc uses the Immediate volume binding mode. A nil
+// VolumeBindingMode defaults to Immediate per the Kubernetes API.
+func isImmediateBinding(sc *storagev1.StorageClass) bool {
+	return sc.VolumeBindingMode == nil || *sc.VolumeBindingMode == storagev1.VolumeBindingImmediate
+}
+
+// volumeBindingMode returns sc's volume binding mode for diagnostics, rendering a nil
+// mode as its Immediate default.
+func volumeBindingMode(sc *storagev1.StorageClass) storagev1.VolumeBindingMode {
+	if sc.VolumeBindingMode == nil {
+		return storagev1.VolumeBindingImmediate
+	}
+	return *sc.VolumeBindingMode
 }
 
 // Register ImmediateStorageClass precheck (not common - requires explicit label).

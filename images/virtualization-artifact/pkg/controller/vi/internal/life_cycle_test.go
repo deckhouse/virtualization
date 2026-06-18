@@ -221,6 +221,50 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			},
 		),
 	)
+
+	DescribeTable(
+		"Phase/progress invariants on the final status",
+		func(phase v1alpha2.ImagePhase, syncProgress, expectedProgress string) {
+			var sourcesMock SourcesMock
+			sourcesMock.ChangedFunc = func(_ context.Context, _ *v1alpha2.VirtualImage) bool {
+				return false
+			}
+			sourcesMock.ForFunc = func(_ v1alpha2.DataSourceType) (source.Handler, bool) {
+				return &source.HandlerMock{StoreToDVCRFunc: func(_ context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error) {
+					vi.Status.Phase = phase
+					vi.Status.Progress = syncProgress
+					return reconcile.Result{}, nil
+				}}, true
+			}
+			recorder := &eventrecord.EventRecorderLoggerMock{
+				EventFunc: func(_ client.Object, _, _, _ string) {},
+			}
+			vi := v1alpha2.VirtualImage{
+				Spec: v1alpha2.VirtualImageSpec{
+					Storage: v1alpha2.StorageContainerRegistry,
+				},
+				Status: v1alpha2.VirtualImageStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:   vicondition.DatasourceReadyType.String(),
+							Status: metav1.ConditionTrue,
+						},
+					},
+				},
+			}
+
+			handler := NewLifeCycleHandler(recorder, &sourcesMock, nil)
+			_, err := handler.Handle(context.TODO(), &vi)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vi.Status.Phase).To(Equal(phase))
+			Expect(vi.Status.Progress).To(Equal(expectedProgress))
+		},
+		Entry("Provisioning defaults empty progress to 0%", v1alpha2.ImageProvisioning, "", "0%"),
+		Entry("Provisioning keeps the reported progress", v1alpha2.ImageProvisioning, "42.0%", "42.0%"),
+		Entry("WaitForUserUpload forces empty progress to 0%", v1alpha2.ImageWaitForUserUpload, "", "0%"),
+		Entry("WaitForUserUpload forces progress to 0%", v1alpha2.ImageWaitForUserUpload, "73%", "0%"),
+		Entry("other phases keep their progress untouched", v1alpha2.ImagePending, "55%", "55%"),
+	)
 })
 
 type cleanupAfterSpecChangeTestArgs struct {

@@ -33,15 +33,19 @@ const (
 	// PrecheckDefaultStorageClass - test requires default StorageClass to be configured.
 	PrecheckDefaultStorageClass = "defaultstorageclass-precheck"
 
-	// PrecheckImmediateStorageClass - test requires immediate StorageClass with same provisioner as default.
+	// PrecheckImmediateStorageClass - test requires an immediate StorageClass annotated for e2e.
 	PrecheckImmediateStorageClass = "immediatestorageclass-precheck"
 
-	// PrecheckMainStandbyStorageClass - test requires a main and a standby StorageClass
-	// (annotated for e2e) backed by the same CSI driver.
-	PrecheckMainStandbyStorageClass = "mainstandbystorageclass-precheck"
+	// PrecheckWFFCStorageClass - test requires a WaitForFirstConsumer StorageClass annotated
+	// for e2e.
+	PrecheckWFFCStorageClass = "wffcstorageclass-precheck"
 
-	// PrecheckDifferentCSIDriverStorageClass - test requires a main StorageClass and a
-	// StorageClass backed by a different CSI driver (both annotated for e2e).
+	// PrecheckSameCSIDriverStorageClass - test requires the WFFC and immediate StorageClasses
+	// (annotated for e2e) to be backed by the same CSI driver.
+	PrecheckSameCSIDriverStorageClass = "samecsidriverstorageclass-precheck"
+
+	// PrecheckDifferentCSIDriverStorageClass - test requires a WFFC StorageClass and a
+	// StorageClass backed by a different CSI driver (the WFFC one annotated for e2e).
 	PrecheckDifferentCSIDriverStorageClass = "differentcsidriverstorageclass-precheck"
 
 	// PrecheckSnapshot - test requires snapshot-controller module to be enabled.
@@ -76,7 +80,8 @@ func KnownPrecheckLabels() []string {
 		PrecheckSVDM,
 		PrecheckDefaultStorageClass,
 		PrecheckImmediateStorageClass,
-		PrecheckMainStandbyStorageClass,
+		PrecheckWFFCStorageClass,
+		PrecheckSameCSIDriverStorageClass,
 		PrecheckDifferentCSIDriverStorageClass,
 		PrecheckSnapshot,
 		PrecheckVirtualization,

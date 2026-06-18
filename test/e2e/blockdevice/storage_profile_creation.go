@@ -48,8 +48,10 @@ var (
 )
 
 // The virtualization-controller storageprofile controller must create a StorageProfile
-// for every StorageClass added to the cluster. This is verified by creating a new
-// StorageClass via a ReplicatedStorageClass and waiting for the matching StorageProfile.
+// for every StorageClass added to the cluster and remove it once the StorageClass is
+// deleted. This is verified by creating a new StorageClass via a ReplicatedStorageClass,
+// waiting for the matching StorageProfile, then deleting the ReplicatedStorageClass and
+// waiting for the StorageProfile to disappear.
 var _ = Describe("StorageProfileCreation", Label(precheck.NoPrecheck), func() {
 	var (
 		f   *framework.Framework
@@ -65,7 +67,7 @@ var _ = Describe("StorageProfileCreation", Label(precheck.NoPrecheck), func() {
 		DeferCleanup(f.After)
 	})
 
-	It("creates a StorageProfile when a new StorageClass is added via a ReplicatedStorageClass", func() {
+	It("creates a StorageProfile when a StorageClass is added and deletes it when the StorageClass is removed", func() {
 		poolName := discoverReplicatedStoragePool(ctx, f)
 
 		// Cluster-scoped name with a random suffix to stay unique across parallel runs.
@@ -75,6 +77,8 @@ var _ = Describe("StorageProfileCreation", Label(precheck.NoPrecheck), func() {
 			_, err := f.DynamicClient().Resource(replicatedStorageClassGVR).Create(ctx, newReplicatedStorageClass(name, poolName), metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred(), "failed to create ReplicatedStorageClass %q", name)
 
+			// Safety net: the spec deletes the ReplicatedStorageClass explicitly below,
+			// so this cleanup tolerates a missing object on the happy path.
 			DeferCleanup(func() {
 				err := f.DynamicClient().Resource(replicatedStorageClassGVR).Delete(context.Background(), name, metav1.DeleteOptions{})
 				Expect(err == nil || k8serrors.IsNotFound(err)).To(BeTrue(),
@@ -101,6 +105,28 @@ var _ = Describe("StorageProfileCreation", Label(precheck.NoPrecheck), func() {
 				g.Expect(sp.Status.Provisioner).NotTo(BeNil(), "StorageProfile %q must report its provisioner", name)
 			}).WithTimeout(framework.LongTimeout).WithPolling(framework.PollingInterval).Should(Succeed(),
 				"StorageProfile %q was not created for the new StorageClass", name)
+		})
+
+		By("Deleting the ReplicatedStorageClass", func() {
+			err := f.DynamicClient().Resource(replicatedStorageClassGVR).Delete(ctx, name, metav1.DeleteOptions{})
+			Expect(err).NotTo(HaveOccurred(), "failed to delete ReplicatedStorageClass %q", name)
+		})
+
+		By("Waiting for the StorageClass to be deleted with the ReplicatedStorageClass", func() {
+			Eventually(func() bool {
+				_, err := f.KubeClient().StorageV1().StorageClasses().Get(ctx, name, metav1.GetOptions{})
+				return k8serrors.IsNotFound(err)
+			}).WithTimeout(framework.LongTimeout).WithPolling(framework.PollingInterval).Should(BeTrue(),
+				"StorageClass %q was not deleted with the ReplicatedStorageClass", name)
+		})
+
+		By("Waiting for the StorageProfile to be deleted for the removed StorageClass", func() {
+			Eventually(func() bool {
+				sp := &rewrite.StorageProfile{}
+				err := f.RewriteClient().Get(ctx, name, sp)
+				return k8serrors.IsNotFound(err)
+			}).WithTimeout(framework.LongTimeout).WithPolling(framework.PollingInterval).Should(BeTrue(),
+				"StorageProfile %q was not deleted after its StorageClass was removed", name)
 		})
 	})
 })

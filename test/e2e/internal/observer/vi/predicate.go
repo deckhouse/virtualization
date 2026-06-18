@@ -256,6 +256,27 @@ func HaveNonDecreasingProgress() Predicate {
 	}
 }
 
+// HaveProgressWhileProvisioning reports an invariant violation when a
+// VirtualImage in the Provisioning phase does not expose a progress
+// percentage. The controller must always publish a percentage while
+// provisioning (at least "0%" before the importer reports real progress), so
+// an empty Progress in the Provisioning phase is a controller bug. Phases
+// other than Provisioning are skipped. Intended for use with [Observer.Always].
+func HaveProgressWhileProvisioning() Predicate {
+	return func(i *v1alpha2.VirtualImage) (bool, error) {
+		if i.Status.Phase != v1alpha2.ImageProvisioning {
+			return true, nil
+		}
+		if i.Status.Progress == "" {
+			return false, errors.New("phase is Provisioning but progress is empty, expected a percentage (at least \"0%\")")
+		}
+		if _, err := parseProgress(i.Status.Progress); err != nil {
+			return false, fmt.Errorf("phase is Provisioning but progress is invalid: %w", err)
+		}
+		return true, nil
+	}
+}
+
 // HaveTimelyProgress reports an invariant violation when, during active
 // provisioning, VirtualImage.Status.Progress does not stream smoothly.
 //

@@ -52,7 +52,7 @@ var _ = Describe("CrossCSIDriverProvisioning", Label(precheck.PrecheckDifferentC
 		f.Before()
 		DeferCleanup(f.After)
 
-		scPtr = mainStorageClass()
+		scPtr = wffcStorageClass()
 		differentSCPtr = differentCSIDriverStorageClass()
 	})
 
