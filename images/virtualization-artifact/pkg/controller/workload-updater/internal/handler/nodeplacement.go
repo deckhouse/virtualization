@@ -66,6 +66,16 @@ func (h *NodePlacementHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualM
 		return reconcile.Result{}, nil
 	}
 
+	// A node placement update is fulfilled via live migration. If the VMI is
+	// not live-migratable (e.g. it has local/non-shared disks), a live
+	// migration can never reconcile the placement, so never trigger it.
+	// The placement sum is intentionally not recorded here: once the VMI
+	// becomes migratable again (e.g. after disks are migrated to shared
+	// storage), the migration must still be able to fire.
+	if !isLiveMigratable(kvvmi) {
+		return reconcile.Result{}, nil
+	}
+
 	sum, err := genNodePlacementSum(kvvmi)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -98,6 +108,11 @@ func shouldSkipNodePlacementMigration(kvvmi *virtv1.VirtualMachineInstance) bool
 
 	migrationState := kvvmi.Status.MigrationState
 	return migrationState != nil && migrationState.StartTimestamp != nil && migrationState.EndTimestamp == nil
+}
+
+func isLiveMigratable(kvvmi *virtv1.VirtualMachineInstance) bool {
+	cond, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceIsMigratable, kvvmi.Status.Conditions)
+	return cond.Status == corev1.ConditionTrue
 }
 
 func ensureAnnotation(ctx context.Context, cl client.Client, obj client.Object, annoKey, annoValue string) error {

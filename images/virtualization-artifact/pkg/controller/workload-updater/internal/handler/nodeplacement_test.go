@@ -66,6 +66,10 @@ var _ = Describe("TestNodePlacementHandler", func() {
 				Type:   conditions.VirtualMachineInstanceNodePlacementNotMatched,
 				Status: status,
 			})
+			kvvmi.Status.Conditions = append(kvvmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
+				Type:   virtv1.VirtualMachineInstanceIsMigratable,
+				Status: corev1.ConditionTrue,
+			})
 		}
 		return vm, kvvmi
 	}
@@ -209,6 +213,45 @@ var _ = Describe("TestNodePlacementHandler", func() {
 				StartTimestamp: &start,
 			}
 		}),
+	)
+
+	DescribeTable("should skip migration and not record placement sum when VMI is not live-migratable",
+		func(migratableStatus corev1.ConditionStatus) {
+			vm := vmbuilder.NewEmpty(name, namespace)
+			kvvmi := newEmptyKVVMI(name, namespace)
+			kvvmi.Status.Conditions = append(kvvmi.Status.Conditions,
+				virtv1.VirtualMachineInstanceCondition{
+					Type:   conditions.VirtualMachineInstanceNodePlacementNotMatched,
+					Status: corev1.ConditionTrue,
+				},
+				virtv1.VirtualMachineInstanceCondition{
+					Type:   virtv1.VirtualMachineInstanceIsMigratable,
+					Status: migratableStatus,
+				},
+			)
+			fakeClient = setupEnvironment(vm, kvvmi)
+
+			mockMigration := &OneShotMigrationMock{
+				OnceMigrateFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
+					Fail("migration should not be executed for a non-migratable VMI")
+					return false, nil
+				},
+			}
+
+			h := NewNodePlacementHandler(fakeClient, mockMigration)
+			_, err := h.Handle(ctx, vm)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(mockMigration.OnceMigrateCalls()).To(BeEmpty())
+
+			// The placement sum must not be recorded so that the migration can
+			// still fire once the VMI becomes migratable again.
+			updatedKVVMI := &virtv1.VirtualMachineInstance{}
+			Expect(fakeClient.Get(ctx, object.NamespacedName(kvvmi), updatedKVVMI)).To(Succeed())
+			Expect(updatedKVVMI.GetAnnotations()).NotTo(HaveKey(annotations.AnnVMOPWorkloadUpdateNodePlacementSum))
+		},
+		Entry("LiveMigratable is False", corev1.ConditionFalse),
+		Entry("LiveMigratable is Unknown", corev1.ConditionUnknown),
 	)
 
 	It("should return node placement handler name", func() {
