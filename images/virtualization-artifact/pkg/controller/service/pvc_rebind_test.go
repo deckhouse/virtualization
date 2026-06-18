@@ -36,34 +36,24 @@ const (
 	rebindPVNm     = "pv-1"
 )
 
-func rebindScheme(t *testing.T) *runtime.Scheme {
-	t.Helper()
-	scheme := runtime.NewScheme()
-	if err := corev1.AddToScheme(scheme); err != nil {
-		t.Fatal(err)
-	}
-	return scheme
-}
-
 func rebindClient(objs ...client.Object) client.Client {
 	return fake.NewClientBuilder().
-		WithScheme(rebindSchemeForBuilder()).
+		WithScheme(rebindScheme()).
 		WithStatusSubresource(&corev1.PersistentVolumeClaim{}, &corev1.PersistentVolume{}).
 		WithObjects(objs...).
 		Build()
 }
 
-// rebindSchemeForBuilder mirrors rebindScheme but without *testing.T for use in helpers.
-func rebindSchemeForBuilder() *runtime.Scheme {
+func rebindScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
 	return scheme
 }
 
-func newBoundPVC(name string, volumeName string, uid types.UID) *corev1.PersistentVolumeClaim {
+func newBoundPVC(name string, uid types.UID) *corev1.PersistentVolumeClaim {
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: rebindNS, UID: uid},
-		Spec:       corev1.PersistentVolumeClaimSpec{VolumeName: volumeName},
+		Spec:       corev1.PersistentVolumeClaimSpec{VolumeName: rebindPVNm},
 		Status:     corev1.PersistentVolumeClaimStatus{Phase: corev1.ClaimBound},
 	}
 }
@@ -76,9 +66,9 @@ func newPendingPVC(name string, uid types.UID) *corev1.PersistentVolumeClaim {
 	}
 }
 
-func newPV(name string, claimRefName string, claimRefUID types.UID, reclaim corev1.PersistentVolumeReclaimPolicy) *corev1.PersistentVolume {
+func newPV(claimRefName string, claimRefUID types.UID, reclaim corev1.PersistentVolumeReclaimPolicy) *corev1.PersistentVolume {
 	pv := &corev1.PersistentVolume{
-		ObjectMeta: metav1.ObjectMeta{Name: name},
+		ObjectMeta: metav1.ObjectMeta{Name: rebindPVNm},
 		Spec: corev1.PersistentVolumeSpec{
 			PersistentVolumeReclaimPolicy: reclaim,
 		},
@@ -126,10 +116,9 @@ func targetKey() types.NamespacedName {
 // the prime PVC is deleted. Binding is finalized by the cluster binder afterwards,
 // so Rebind returns false.
 func TestRebindTransfersPVAndDeletesPrime(t *testing.T) {
-	_ = rebindScheme(t)
-	prime := newBoundPVC(rebindPrimeNm, rebindPVNm, "prime-uid")
+	prime := newBoundPVC(rebindPrimeNm, "prime-uid")
 	target := newPendingPVC(rebindTargetNm, "target-uid")
-	pv := newPV(rebindPVNm, rebindPrimeNm, "prime-uid", corev1.PersistentVolumeReclaimDelete)
+	pv := newPV(rebindPrimeNm, "prime-uid", corev1.PersistentVolumeReclaimDelete)
 	c := rebindClient(prime, target, pv)
 
 	done, err := Rebind(context.Background(), c, primeKey(), targetKey())
@@ -164,10 +153,9 @@ func TestRebindTransfersPVAndDeletesPrime(t *testing.T) {
 // TestRebindCompletesWhenTargetBound covers the final pass: once the binder has
 // bound the target, Rebind restores the original reclaim policy and reports done.
 func TestRebindCompletesWhenTargetBound(t *testing.T) {
-	_ = rebindScheme(t)
 	// Target already bound to the PV (binder finished).
-	target := newBoundPVC(rebindTargetNm, rebindPVNm, "target-uid")
-	pv := newPV(rebindPVNm, rebindTargetNm, "target-uid", corev1.PersistentVolumeReclaimRetain)
+	target := newBoundPVC(rebindTargetNm, "target-uid")
+	pv := newPV(rebindTargetNm, "target-uid", corev1.PersistentVolumeReclaimRetain)
 	pv.Annotations = map[string]string{rebindOriginalReclaimPolicyAnnotation: string(corev1.PersistentVolumeReclaimDelete)}
 	// Prime already gone.
 	c := rebindClient(target, pv)
@@ -192,10 +180,9 @@ func TestRebindCompletesWhenTargetBound(t *testing.T) {
 // TestRebindEndToEnd drives the full lifecycle through repeated calls, simulating
 // the PV binder between calls, and asserts idempotency.
 func TestRebindEndToEnd(t *testing.T) {
-	_ = rebindScheme(t)
-	prime := newBoundPVC(rebindPrimeNm, rebindPVNm, "prime-uid")
+	prime := newBoundPVC(rebindPrimeNm, "prime-uid")
 	target := newPendingPVC(rebindTargetNm, "target-uid")
-	pv := newPV(rebindPVNm, rebindPrimeNm, "prime-uid", corev1.PersistentVolumeReclaimDelete)
+	pv := newPV(rebindPrimeNm, "prime-uid", corev1.PersistentVolumeReclaimDelete)
 	c := rebindClient(prime, target, pv)
 	ctx := context.Background()
 
@@ -245,9 +232,8 @@ func TestRebindEndToEnd(t *testing.T) {
 // TestRebindAlreadyDone returns true immediately when the target is already bound
 // and the prime PVC no longer exists.
 func TestRebindAlreadyDone(t *testing.T) {
-	_ = rebindScheme(t)
-	target := newBoundPVC(rebindTargetNm, rebindPVNm, "target-uid")
-	pv := newPV(rebindPVNm, rebindTargetNm, "target-uid", corev1.PersistentVolumeReclaimDelete)
+	target := newBoundPVC(rebindTargetNm, "target-uid")
+	pv := newPV(rebindTargetNm, "target-uid", corev1.PersistentVolumeReclaimDelete)
 	c := rebindClient(target, pv)
 
 	done, err := Rebind(context.Background(), c, primeKey(), targetKey())
@@ -259,7 +245,6 @@ func TestRebindAlreadyDone(t *testing.T) {
 // TestRebindWaitsWhenPrimeNotBound returns (false, nil) without touching anything
 // while the prime PVC has not been provisioned yet.
 func TestRebindWaitsWhenPrimeNotBound(t *testing.T) {
-	_ = rebindScheme(t)
 	prime := newPendingPVC(rebindPrimeNm, "prime-uid") // no VolumeName yet
 	target := newPendingPVC(rebindTargetNm, "target-uid")
 	c := rebindClient(prime, target)
@@ -278,10 +263,8 @@ func TestRebindWaitsWhenPrimeNotBound(t *testing.T) {
 }
 
 func TestRebindErrors(t *testing.T) {
-	_ = rebindScheme(t)
-
 	t.Run("target not found", func(t *testing.T) {
-		c := rebindClient(newBoundPVC(rebindPrimeNm, rebindPVNm, "prime-uid"))
+		c := rebindClient(newBoundPVC(rebindPrimeNm, "prime-uid"))
 		if _, err := Rebind(context.Background(), c, primeKey(), targetKey()); err == nil {
 			t.Fatal("expected error when target PVC is missing")
 		}
@@ -296,7 +279,7 @@ func TestRebindErrors(t *testing.T) {
 
 	t.Run("pv not found", func(t *testing.T) {
 		c := rebindClient(
-			newBoundPVC(rebindPrimeNm, rebindPVNm, "prime-uid"),
+			newBoundPVC(rebindPrimeNm, "prime-uid"),
 			newPendingPVC(rebindTargetNm, "target-uid"),
 		)
 		if _, err := Rebind(context.Background(), c, primeKey(), targetKey()); err == nil {

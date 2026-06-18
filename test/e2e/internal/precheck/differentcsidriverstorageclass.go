@@ -69,8 +69,8 @@ func (c *differentCSIDriverStorageClassPrecheck) Run(ctx context.Context, f *fra
 	differentSC := config.FindStorageClassWithDifferentProvisioner(&scList, mainSC.Provisioner)
 	if differentSC == nil {
 		return fmt.Errorf(
-			"%s=no to disable this precheck: no StorageClass with a CSI driver different from the main StorageClass %q (CSI driver %q) was found in the cluster. "+
-				"The cross-CSI block-device tests require a second CSI driver to be installed.",
+			"%s=no to disable this precheck: no StorageClass with a CSI driver different from the main StorageClass %q (CSI driver %q) was found in the cluster; "+
+				"the cross-CSI block-device tests require a second CSI driver to be installed",
 			differentCSIDriverStorageClassPrecheckEnvName, mainSC.Name, mainSC.Provisioner,
 		)
 	}

@@ -247,9 +247,9 @@ func (v *Validator) validateSourceStorageClassProvisionerCompatibility(ctx conte
 		return nil
 	}
 
-	targetSCName, err := v.resolveTargetStorageClassName(ctx, vi)
-	if err != nil || targetSCName == "" {
-		return err
+	targetSCName := v.resolveTargetStorageClassName(ctx, vi)
+	if targetSCName == "" {
+		return nil
 	}
 
 	targetProvisioner, err := storageclass.ProvisionerOf(ctx, v.client, targetSCName)
@@ -274,25 +274,25 @@ func (v *Validator) validateSourceStorageClassProvisionerCompatibility(ctx conte
 // resolveTargetStorageClassName resolves the storage class name a PVC-backed
 // VirtualImage will use: the explicit spec value, otherwise the module default,
 // otherwise the cluster default. Returns an empty name when it cannot be resolved.
-func (v *Validator) resolveTargetStorageClassName(ctx context.Context, vi *v1alpha2.VirtualImage) (string, error) {
+func (v *Validator) resolveTargetStorageClassName(ctx context.Context, vi *v1alpha2.VirtualImage) string {
 	if vi.Spec.PersistentVolumeClaim.StorageClass != nil && *vi.Spec.PersistentVolumeClaim.StorageClass != "" {
-		return *vi.Spec.PersistentVolumeClaim.StorageClass, nil
+		return *vi.Spec.PersistentVolumeClaim.StorageClass
 	}
 
 	if moduleSC, err := v.scService.GetModuleStorageClass(ctx); err == nil && moduleSC != nil {
-		return moduleSC.Name, nil
+		return moduleSC.Name
 	}
 
 	defaultSC, err := v.scService.GetDefaultStorageClass(ctx)
 	if err != nil {
 		// Cannot determine the target storage class; skip the cross-CSI check.
-		return "", nil
+		return ""
 	}
 	if defaultSC != nil {
-		return defaultSC.Name, nil
+		return defaultSC.Name
 	}
 
-	return "", nil
+	return ""
 }
 
 func (v *Validator) validateDefaultStorageClass(ctx context.Context) error {
