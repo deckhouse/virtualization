@@ -57,8 +57,14 @@ func NewMigrationConfiguration(allowAutoConverge bool, kvconfig virtv1.KubeVirt)
 	if kvconfig.Spec.Configuration.MigrationConfiguration != nil && kvconfig.Spec.Configuration.MigrationConfiguration.ParallelSyncMigrationsPerNode != nil {
 		parallelSyncMigrationsPerNode = *kvconfig.Spec.Configuration.MigrationConfiguration.ParallelSyncMigrationsPerNode
 	}
+	if parallelSyncMigrationsPerNode == 0 {
+		parallelSyncMigrationsPerNode = ParallelSyncMigrationsPerNodeDefault
+	}
 	if parallelSyncMigrationsPerNode > parallelOutboundMigrationsPerNode {
 		parallelSyncMigrationsPerNode = parallelOutboundMigrationsPerNode
+	}
+	if parallelSyncMigrationsPerNode == 0 {
+		parallelSyncMigrationsPerNode = ParallelSyncMigrationsPerNodeDefault
 	}
 	// Reuse default value of BandwidthPerNode as bandwidthPerMigration.
 	bandwidthPerMigration := resource.MustParse(BandwidthPerMigrationDefault)

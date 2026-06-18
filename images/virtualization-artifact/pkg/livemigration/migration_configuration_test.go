@@ -66,3 +66,35 @@ func TestNewMigrationConfiguration_ParallelSyncClampedToOutbound(t *testing.T) {
 	require.Equal(t, uint32(1), *cfg.ParallelSyncMigrationsPerNode,
 		"sync cap must be clamped to outbound cap")
 }
+
+func TestNewMigrationConfiguration_ParallelSyncZeroResetToDefault(t *testing.T) {
+	kv := virtv1.KubeVirt{
+		Spec: virtv1.KubeVirtSpec{
+			Configuration: virtv1.KubeVirtConfiguration{
+				MigrationConfiguration: &virtv1.MigrationConfiguration{
+					ParallelOutboundMigrationsPerNode: ptr.To[uint32](2),
+					ParallelSyncMigrationsPerNode:     ptr.To[uint32](0),
+				},
+			},
+		},
+	}
+	cfg := NewMigrationConfiguration(false, kv)
+	require.Equal(t, ParallelSyncMigrationsPerNodeDefault, *cfg.ParallelSyncMigrationsPerNode,
+		"sync cap 0 must reset to default")
+}
+
+func TestNewMigrationConfiguration_ParallelOutboundZeroFloorsSync(t *testing.T) {
+	kv := virtv1.KubeVirt{
+		Spec: virtv1.KubeVirtSpec{
+			Configuration: virtv1.KubeVirtConfiguration{
+				MigrationConfiguration: &virtv1.MigrationConfiguration{
+					ParallelOutboundMigrationsPerNode: ptr.To[uint32](0),
+					ParallelSyncMigrationsPerNode:     ptr.To[uint32](2),
+				},
+			},
+		},
+	}
+	cfg := NewMigrationConfiguration(false, kv)
+	require.Equal(t, ParallelSyncMigrationsPerNodeDefault, *cfg.ParallelSyncMigrationsPerNode,
+		"sync cap must never be 0, even when outbound is 0")
+}
