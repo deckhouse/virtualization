@@ -482,9 +482,7 @@ func (s *state) resolvePVCName(ctx context.Context, kind v1alpha2.BlockDeviceKin
 			return "", nil
 		}
 		migrating, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
-		if migrating.Status == metav1.ConditionTrue &&
-			conditions.IsLastUpdated(migrating, vd) &&
-			vd.Status.MigrationState.TargetPVC != "" {
+		if migrating.Status == metav1.ConditionTrue {
 			return vd.Status.MigrationState.TargetPVC, nil
 		}
 		return vd.Status.Target.PersistentVolumeClaim, nil
