@@ -167,7 +167,16 @@ func BuildHTTPClient(httpClient *http.Client) *http.Client {
 		}
 		httpClient = &http.Client{
 			Transport: tr,
-			Timeout:   time.Second,
+			// The import/upload pods serve their progress metrics from the same
+			// process that streams the data. While a large upload/import is in
+			// flight the metrics endpoint can take noticeably longer than a
+			// second to respond, so a 1s timeout makes the scrape fail often and
+			// the reported progress gets stuck (e.g. jumps 0% -> 50% only when
+			// the pod finally succeeds). A more forgiving timeout lets the
+			// controller read the live progress metric reliably. Unreachable
+			// pods (connection refused / no route / closed port) still fail fast
+			// because those errors are returned before the timeout elapses.
+			Timeout: 5 * time.Second,
 		}
 	}
 	return httpClient

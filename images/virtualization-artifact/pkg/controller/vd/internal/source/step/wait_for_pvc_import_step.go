@@ -22,7 +22,6 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -106,28 +105,12 @@ func (s WaitForPVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk
 		return &reconcile.Result{}, nil
 	}
 
-	if s.pvc.Status.Phase != corev1.ClaimBound {
-		wffc, err := s.isWFFC(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("is wffc: %w", err)
-		}
-
-		if wffc {
-			vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
-			s.cb.
-				Status(metav1.ConditionFalse).
-				Reason(vdcondition.WaitingForFirstConsumer).
-				Message("Awaiting the creation and scheduling of the VirtualMachine with the attached VirtualDisk.")
-			return &reconcile.Result{}, nil
-		}
-
-		vd.Status.Phase = v1alpha2.DiskProvisioning
-		s.cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.Provisioning).
-			Message(fmt.Sprintf("Waiting for the PersistentVolumeClaim %q to be Bound.", s.pvc.Name))
-		return &reconcile.Result{}, nil
-	}
+	// Note: the target PVC is intentionally NOT required to be Bound here. The
+	// importer fills a separate prime PVC and its volume is rebound to the target on
+	// completion (see PVCImporterService.Wait/Rebind), so the target only becomes
+	// Bound at the very end of the import. Gating the import on the target being
+	// Bound would deadlock (the target waits for the rebind, the rebind waits for the
+	// import). The import and the rebind are driven by Import/WaitForImport below.
 
 	nodePlacement, err := GetNodePlacement(ctx, s.client, vd)
 	if err != nil {
@@ -169,24 +152,6 @@ func (s WaitForPVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk
 
 		return &reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
 	}
-}
-
-func (s WaitForPVCImportStep) isWFFC(ctx context.Context) (bool, error) {
-	if s.pvc.Spec.StorageClassName == nil || *s.pvc.Spec.StorageClassName == "" {
-		return false, nil
-	}
-
-	scKey := types.NamespacedName{Name: *s.pvc.Spec.StorageClassName}
-	sc, err := object.FetchObject(ctx, scKey, s.client, &storagev1.StorageClass{})
-	if err != nil {
-		return false, fmt.Errorf("fetch storage class: %w", err)
-	}
-
-	if sc == nil || sc.VolumeBindingMode == nil || *sc.VolumeBindingMode != storagev1.VolumeBindingWaitForFirstConsumer {
-		return false, nil
-	}
-
-	return true, nil
 }
 
 // refreshProgressFromPod queries the pvc-importer pod (named after the target

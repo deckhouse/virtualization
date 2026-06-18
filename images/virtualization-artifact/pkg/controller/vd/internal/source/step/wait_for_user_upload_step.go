@@ -155,11 +155,14 @@ func (s WaitForDVCRUploaderStep) Take(ctx context.Context, vd *v1alpha2.VirtualD
 		return nil, nil
 	}
 
-	uploadStarted := s.stat.IsUploadStarted(vd.GetUID(), s.pod) || hasUploadProgress(vd.Status.Progress)
-	if !uploadStarted {
-		return nil, nil
-	}
-
+	// Reaching this step means the preceding WaitForUserUploadStep has already
+	// let the pipeline through, i.e. the user upload has started and the
+	// uploader pod is running. We deliberately do not re-check IsUploadStarted
+	// here: it issues another best-effort metrics scrape that, under upload
+	// load, frequently times out and would make this step bail out before it
+	// can report progress, keeping vd.Status.Progress stuck at 0% until the pod
+	// succeeds. Instead, keep requeueing every second and report the live
+	// progress metric whenever the scrape succeeds.
 	if err := s.stat.CheckPod(s.pod); err != nil {
 		return handleUploaderPodError(vd, err, s.cb, true)
 	}

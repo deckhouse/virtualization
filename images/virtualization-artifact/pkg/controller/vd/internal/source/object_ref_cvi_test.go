@@ -181,8 +181,12 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 		})
 	})
 
-	Context("VirtualDisk waits for the PVC to be Bound", func() {
-		It("waits for the first consumer", func() {
+	Context("VirtualDisk is provisioning while its PVC is not yet Bound", func() {
+		// With the prime/rebind import flow the importer fills a separate prime PVC
+		// and the target PVC only becomes Bound at the very end (via rebind), so a
+		// Pending target means the import is in progress, regardless of the storage
+		// class binding mode.
+		It("reports Provisioning for WFFC storage class", func() {
 			pvc.Status.Phase = corev1.ClaimPending
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingWaitForFirstConsumer)
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
@@ -191,15 +195,15 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res.IsZero()).To(BeTrue())
+			Expect(res.RequeueAfter).ToNot(BeZero())
 
-			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.WaitingForFirstConsumer, true)
-			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskWaitForFirstConsumer))
+			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
 			Expect(vd.Status.Progress).ToNot(BeEmpty())
 			Expect(vd.Status.Target.PersistentVolumeClaim).ToNot(BeEmpty())
 		})
 
-		It("is in provisioning", func() {
+		It("reports Provisioning for Immediate storage class", func() {
 			pvc.Status.Phase = corev1.ClaimPending
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingImmediate)
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
@@ -208,7 +212,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res.IsZero()).To(BeTrue())
+			Expect(res.RequeueAfter).ToNot(BeZero())
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
 			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))

@@ -43,6 +43,10 @@ const (
 	cloneStrategySnapshot = "snapshot"
 	cloneStrategyCSI      = "csi-clone"
 	cloneStrategyHost     = "host-assisted"
+
+	// virtualizationAPIGroup is used as the target PVC dataSourceRef API group to
+	// defer dynamic provisioning of host-assisted import targets (see createTarget).
+	virtualizationAPIGroup = "virtualization.deckhouse.io"
 )
 
 // PersistentVolumeClaimService is the single entry point for filling a target
@@ -202,6 +206,21 @@ func (s *PersistentVolumeClaimService) createTarget(ctx context.Context, target 
 		}
 	}
 
+	// For the host-assisted import path (everything that is not a smart clone), the
+	// importer fills a separate prime PVC and its volume is later rebound to this
+	// target (see PVCImporterService). Set a dataSourceRef to defer dynamic
+	// provisioning so the CSI provisioner does not race the rebind by creating an
+	// empty volume for the target when a consumer pins it to a node.
+	strategy := target.Annotations[annotations.AnnPVCImportCloneStrategy]
+	if strategy != cloneStrategySnapshot && strategy != cloneStrategyCSI {
+		target.Spec.DataSource = nil
+		target.Spec.DataSourceRef = &corev1.TypedObjectReference{
+			APIGroup: ptr.To(virtualizationAPIGroup),
+			Kind:     "VirtualDisk",
+			Name:     owner.GetName(),
+		}
+	}
+
 	if nodePlacement != nil {
 		if err := provisioner.KeepNodePlacementTolerations(nodePlacement, target); err != nil {
 			return fmt.Errorf("keep node placement: %w", err)
@@ -292,23 +311,37 @@ func (s *PersistentVolumeClaimService) choosePVCCloneStrategy(ctx context.Contex
 		}
 	}
 
-	if preferred == cloneStrategySnapshot && s.canSnapshotClone(ctx, sourceClaim, sourceSC, targetSC, targetVolumeMode) {
-		return cloneStrategySnapshot
-	}
+	// TODO(csi): the snapshot clone strategy is temporarily disabled. A CSI
+	// snapshot-clone leaves the cloned volume DRBD-Primary on a node other than the
+	// consuming VirtualMachine's, and DRBD (single-primary) then refuses to promote it
+	// read-write on the VM's node ("failed to set source device readwrite"), so the disk
+	// never attaches. Until snapshot-sourced disks are materialized into a fresh volume
+	// owned solely by the VM's node, never pick the snapshot strategy.
+	/*
+		if preferred == cloneStrategySnapshot && s.canSnapshotClone(ctx, sourceClaim, sourceSC, targetSC, targetVolumeMode) {
+			return cloneStrategySnapshot
+		}
+	*/
 	if preferred != cloneStrategyHost && canCSIClone(sourceClaim, sourceSC, targetSC, targetVolumeMode) {
 		return cloneStrategyCSI
 	}
-	if preferred == cloneStrategyCSI && s.canSnapshotClone(ctx, sourceClaim, sourceSC, targetSC, targetVolumeMode) {
-		return cloneStrategySnapshot
-	}
+	/*
+		if preferred == cloneStrategyCSI && s.canSnapshotClone(ctx, sourceClaim, sourceSC, targetSC, targetVolumeMode) {
+			return cloneStrategySnapshot
+		}
+	*/
 	return cloneStrategyHost
 }
 
+// TODO(csi): re-enable together with the snapshot clone strategy in
+// choosePVCCloneStrategy (currently disabled due to the DRBD single-primary issue).
+/*
 func (s *PersistentVolumeClaimService) canSnapshotClone(ctx context.Context, sourceClaim *corev1.PersistentVolumeClaim, sourceSC, targetSC *storagev1.StorageClass, targetVolumeMode corev1.PersistentVolumeMode) bool {
 	return sourceSC.Provisioner == targetSC.Provisioner &&
 		volumeModesEqual(sourceClaim, targetVolumeMode) &&
 		s.snapshotClassForProvisioner(ctx, sourceSC.Provisioner) != ""
 }
+*/
 
 func canCSIClone(sourceClaim *corev1.PersistentVolumeClaim, sourceSC, targetSC *storagev1.StorageClass, targetVolumeMode corev1.PersistentVolumeMode) bool {
 	return sourceClaim.Namespace != "" &&

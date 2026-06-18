@@ -109,7 +109,16 @@ func (s *PVCImporterService) Import(ctx context.Context, target *corev1.Persiste
 		return err
 	}
 
-	scratch, err := s.ensureScratch(ctx, target)
+	// The importer fills a dedicated prime PVC instead of the target. This keeps the
+	// target PVC untouched until the import has finished and its populated volume is
+	// rebound to the target (see Wait/Rebind), so the importer pod and the consuming
+	// VirtualMachine never contend for the same ReadWriteOnce volume.
+	prime, err := s.ensurePrime(ctx, target, nodePlacement)
+	if err != nil {
+		return err
+	}
+
+	scratch, err := s.ensureScratch(ctx, prime)
 	if err != nil {
 		return err
 	}
@@ -137,7 +146,7 @@ func (s *PVCImporterService) Import(ctx context.Context, target *corev1.Persiste
 		return fmt.Errorf("fetch importer pod: %w", err)
 	}
 	if pod == nil {
-		pod = s.makeImporterPod(podKey.Name, target, source, sourceClaim, scratch.Name, nodePlacement)
+		pod = s.makeImporterPod(podKey.Name, target, prime, owner.GetUID(), source, sourceClaim, scratch.Name, nodePlacement)
 		if err := s.client.Create(ctx, pod); err != nil && !k8serrors.IsAlreadyExists(err) {
 			return fmt.Errorf("create importer pod: %w", err)
 		}
@@ -146,11 +155,82 @@ func (s *PVCImporterService) Import(ctx context.Context, target *corev1.Persiste
 	return nil
 }
 
+// primePVCName returns the name of the prime PVC that the importer fills for the
+// given target PVC.
+func primePVCName(target *corev1.PersistentVolumeClaim) string {
+	return target.Name + "-prime"
+}
+
+// selectedNodeAnnotation is the standard annotation the scheduler sets on a
+// WaitForFirstConsumer PVC to pin its provisioning to a node. The prime PVC and
+// the importer pod are pinned to the same node as the target so the populated
+// volume can later be rebound to the target without a cross-node move.
+const selectedNodeAnnotation = "volume.kubernetes.io/selected-node"
+
+// ensurePrime creates the prime PVC the importer writes into. The prime mirrors
+// the target's storage spec (storage class, size, access/volume modes) but never
+// carries the target's data source: it is filled by the pvc-importer pod and its
+// volume is later rebound to the target. The prime is owned by the target so it
+// is garbage-collected if the disk is removed before the import finishes, and is
+// excluded from namespace quota accounting.
+func (s *PVCImporterService) ensurePrime(ctx context.Context, target *corev1.PersistentVolumeClaim, nodePlacement *provisioner.NodePlacement) (*corev1.PersistentVolumeClaim, error) {
+	name := primePVCName(target)
+	prime, err := object.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: target.Namespace}, s.client, &corev1.PersistentVolumeClaim{})
+	if err != nil {
+		return nil, fmt.Errorf("fetch prime pvc: %w", err)
+	}
+	if prime != nil {
+		return prime, nil
+	}
+
+	prime = &corev1.PersistentVolumeClaim{
+		TypeMeta: metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: target.Namespace,
+			Labels: map[string]string{
+				annotations.QuotaExcludeLabel: annotations.QuotaExcludeValue,
+			},
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion:         "v1",
+				Kind:               "PersistentVolumeClaim",
+				Name:               target.Name,
+				UID:                target.UID,
+				Controller:         ptr.To(true),
+				BlockOwnerDeletion: ptr.To(true),
+			}},
+		},
+		Spec: *target.Spec.DeepCopy(),
+	}
+	prime.Spec.VolumeName = ""
+	prime.Spec.DataSource = nil
+	prime.Spec.DataSourceRef = nil
+
+	// Pin the prime to the same node the target was scheduled to (the VirtualMachine's
+	// node), so the populated volume is local and can be rebound without a cross-node move.
+	if selectedNode := target.Annotations[selectedNodeAnnotation]; selectedNode != "" {
+		if prime.Annotations == nil {
+			prime.Annotations = map[string]string{}
+		}
+		prime.Annotations[selectedNodeAnnotation] = selectedNode
+	}
+
+	if nodePlacement != nil {
+		if err := provisioner.KeepNodePlacementTolerations(nodePlacement, prime); err != nil {
+			return nil, fmt.Errorf("keep node placement on prime: %w", err)
+		}
+	}
+
+	if err := s.client.Create(ctx, prime); err != nil && !k8serrors.IsAlreadyExists(err) {
+		return nil, fmt.Errorf("create prime pvc: %w", err)
+	}
+	return prime, nil
+}
+
 func (s *PVCImporterService) Wait(ctx context.Context, target *corev1.PersistentVolumeClaim, sup supplements.Generator) (corev1.PodPhase, error) {
 	phase := corev1.PodPhase(target.Annotations[annotations.AnnPVCImportPhase])
 	if phase == corev1.PodSucceeded {
-		_, err := s.CleanUp(ctx, sup, target)
-		return phase, err
+		return phase, nil
 	}
 
 	pod, err := object.FetchObject(ctx, sup.PVCImporterPod(), s.client, &corev1.Pod{})
@@ -163,27 +243,43 @@ func (s *PVCImporterService) Wait(ctx context.Context, target *corev1.Persistent
 	if pod.Status.Phase == "" {
 		return corev1.PodPending, nil
 	}
-	if pod.Status.Phase != "" && pod.Status.Phase != phase {
+	if pod.Status.Phase != "" && pod.Status.Phase != phase && pod.Status.Phase != corev1.PodSucceeded {
 		if err := s.patchTargetImportPhase(ctx, target, pod.Status.Phase); err != nil {
 			return "", err
 		}
 	}
 	if pod.Status.Phase == corev1.PodSucceeded {
-		_, err := s.CleanUp(ctx, sup, target)
-		return pod.Status.Phase, err
+		// The prime PVC is populated; rebind its volume to the target. Rebind is
+		// idempotent and resumable: it returns false until the target is Bound, so
+		// the import is only reported Succeeded once the target carries the data.
+		primeKey := types.NamespacedName{Name: primePVCName(target), Namespace: target.Namespace}
+		done, err := Rebind(ctx, s.client, primeKey, client.ObjectKeyFromObject(target))
+		if err != nil {
+			return "", fmt.Errorf("rebind prime to target: %w", err)
+		}
+		if !done {
+			return corev1.PodRunning, nil
+		}
+		if err := s.patchTargetImportPhase(ctx, target, corev1.PodSucceeded); err != nil {
+			return "", err
+		}
+		_, err = s.CleanUp(ctx, sup, target)
+		return corev1.PodSucceeded, err
 	}
 	return pod.Status.Phase, nil
 }
 
-// CleanUp removes the pvc-importer pod and the scratch PVC associated with
-// the target PVC. The pod name is taken from target's annotation when
-// available and falls back to the generator-issued name. CleanUp is
-// idempotent: missing resources are ignored.
+// CleanUp removes the pvc-importer pod and the helper PVCs (prime and its
+// scratch) associated with the target PVC. The prime PVC is normally deleted by
+// Rebind once its volume has been transferred to the target; deleting it here is
+// a safe, idempotent fallback for imports that were abandoned before completion.
+// CleanUp is idempotent: missing resources are ignored.
 func (s *PVCImporterService) CleanUp(ctx context.Context, sup supplements.Generator, target *corev1.PersistentVolumeClaim) (bool, error) {
 	var deleted bool
 	for _, obj := range []client.Object{
 		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: sup.PVCImporterPod().Name, Namespace: target.Namespace}},
-		&corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: target.Name + "-scratch", Namespace: target.Namespace}},
+		&corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: primePVCName(target) + "-scratch", Namespace: target.Namespace}},
+		&corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: primePVCName(target), Namespace: target.Namespace}},
 	} {
 		err := s.client.Delete(ctx, obj)
 		switch {
@@ -247,11 +343,11 @@ func (s *PVCImporterService) ensureSupplements(ctx context.Context, target *core
 }
 
 // ensureScratch makes sure the scratch PVC exists; it is created sized as the
-// target plus a small overhead and owned by target so it is garbage-collected
-// once the import finishes.
-func (s *PVCImporterService) ensureScratch(ctx context.Context, target *corev1.PersistentVolumeClaim) (*corev1.PersistentVolumeClaim, error) {
-	name := target.Name + "-scratch"
-	scratch, err := object.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: target.Namespace}, s.client, &corev1.PersistentVolumeClaim{})
+// base PVC (the prime) plus a small overhead and owned by it so it is
+// garbage-collected once the import finishes.
+func (s *PVCImporterService) ensureScratch(ctx context.Context, base *corev1.PersistentVolumeClaim) (*corev1.PersistentVolumeClaim, error) {
+	name := base.Name + "-scratch"
+	scratch, err := object.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: base.Namespace}, s.client, &corev1.PersistentVolumeClaim{})
 	if err != nil {
 		return nil, fmt.Errorf("fetch scratch pvc: %w", err)
 	}
@@ -259,26 +355,26 @@ func (s *PVCImporterService) ensureScratch(ctx context.Context, target *corev1.P
 		return scratch, nil
 	}
 
-	size := scratchPVCSize(target.Spec.Resources.Requests[corev1.ResourceStorage])
+	size := scratchPVCSize(base.Spec.Resources.Requests[corev1.ResourceStorage])
 	volumeMode := corev1.PersistentVolumeFilesystem
 	scratch = &corev1.PersistentVolumeClaim{
 		TypeMeta: metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: target.Namespace,
+			Namespace: base.Namespace,
 			Labels: map[string]string{
 				annotations.QuotaExcludeLabel: annotations.QuotaExcludeValue,
 			},
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion:         "v1",
 				Kind:               "PersistentVolumeClaim",
-				Name:               target.Name,
-				UID:                target.UID,
+				Name:               base.Name,
+				UID:                base.UID,
 				Controller:         ptr.To(true),
 				BlockOwnerDeletion: ptr.To(true),
 			}},
 		},
-		Spec: target.Spec,
+		Spec: *base.Spec.DeepCopy(),
 	}
 	scratch.Spec.VolumeName = ""
 	scratch.Spec.VolumeMode = &volumeMode
@@ -339,14 +435,16 @@ func scratchPVCSize(targetSize resource.Quantity) resource.Quantity {
 	return size
 }
 
-// makeImporterPod builds the pvc-importer pod descriptor. The pod is owned by
-// the target PVC and labelled to be excluded from namespace quota accounting.
-func (s *PVCImporterService) makeImporterPod(podName string, target *corev1.PersistentVolumeClaim, source *PVCImportSource, sourceClaim *corev1.PersistentVolumeClaim, scratchName string, nodePlacement *provisioner.NodePlacement) *corev1.Pod {
+// makeImporterPod builds the pvc-importer pod descriptor. It fills dataPVC (the
+// prime PVC) with the imported data, while ownership/UID are taken from target
+// (the VirtualDisk's PVC) so the pod is garbage-collected with the disk and
+// labelled to be excluded from namespace quota accounting.
+func (s *PVCImporterService) makeImporterPod(podName string, target, dataPVC *corev1.PersistentVolumeClaim, ownerUID types.UID, source *PVCImportSource, sourceClaim *corev1.PersistentVolumeClaim, scratchName string, nodePlacement *provisioner.NodePlacement) *corev1.Pod {
 	registryEndpoint := ""
 	if source != nil && source.Registry != nil {
 		registryEndpoint = source.Registry.URL
 	}
-	imageSize := target.Spec.Resources.Requests[corev1.ResourceStorage]
+	imageSize := dataPVC.Spec.Resources.Requests[corev1.ResourceStorage]
 
 	container := corev1.Container{
 		Name:            "d8v-pvc-importer",
@@ -359,7 +457,11 @@ func (s *PVCImporterService) makeImporterPod(podName string, target *corev1.Pers
 			{Name: common.ImporterEndpoint, Value: registryEndpoint},
 			{Name: common.ImporterContentType, Value: "kubevirt"},
 			{Name: common.ImporterImageSize, Value: imageSize.String()},
-			{Name: common.OwnerUID, Value: string(target.UID)},
+			// The progress metric (kubevirt_cdi_import_progress_total) is labelled with
+			// this ownerUID; it must be the VirtualDisk's UID so the controller's progress
+			// scraper (which queries by vd.GetUID()) can match it. Using the target PVC UID
+			// here would make progress appear stuck (jumping 0->100 / 50->100).
+			{Name: common.OwnerUID, Value: string(ownerUID)},
 			{Name: common.FilesystemOverheadVar, Value: "0"},
 			{Name: common.InsecureTLSVar, Value: "false"},
 		},
@@ -389,7 +491,7 @@ func (s *PVCImporterService) makeImporterPod(podName string, target *corev1.Pers
 		container.Env = append(container.Env, corev1.EnvVar{Name: common.ImporterCertDirVar, Value: common.ImporterCertDir})
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{Name: "cert-vol", MountPath: common.ImporterCertDir})
 	}
-	if target.Spec.VolumeMode != nil && *target.Spec.VolumeMode == corev1.PersistentVolumeBlock {
+	if dataPVC.Spec.VolumeMode != nil && *dataPVC.Spec.VolumeMode == corev1.PersistentVolumeBlock {
 		container.VolumeDevices = []corev1.VolumeDevice{{Name: pvcImporterDataVolName, DevicePath: pvcImporterWriteBlockPath}}
 	} else {
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{Name: pvcImporterDataVolName, MountPath: pvcImporterDataDir})
@@ -397,7 +499,7 @@ func (s *PVCImporterService) makeImporterPod(podName string, target *corev1.Pers
 
 	volumes := []corev1.Volume{
 		{Name: "tmp", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
-		{Name: pvcImporterDataVolName, VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: target.Name}}},
+		{Name: pvcImporterDataVolName, VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: dataPVC.Name}}},
 		{Name: pvcImporterScratchVolName, VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: scratchName}}},
 	}
 	if source != nil && source.Registry != nil && source.Registry.CertConfigMap != "" {
@@ -418,7 +520,7 @@ func (s *PVCImporterService) makeImporterPod(podName string, target *corev1.Pers
 		}
 
 		targetPath := pvcImporterDataDir + "/disk.img"
-		if target.Spec.VolumeMode != nil && *target.Spec.VolumeMode == corev1.PersistentVolumeBlock {
+		if dataPVC.Spec.VolumeMode != nil && *dataPVC.Spec.VolumeMode == corev1.PersistentVolumeBlock {
 			targetPath = pvcImporterWriteBlockPath
 		}
 
@@ -465,6 +567,25 @@ func (s *PVCImporterService) makeImporterPod(podName string, target *corev1.Pers
 	if nodePlacement != nil {
 		pod.Spec.Tolerations = nodePlacement.Tolerations
 		_ = provisioner.KeepNodePlacementTolerations(nodePlacement, pod)
+	}
+
+	// Pin the importer to the node the prime volume is provisioned on so the pod can
+	// mount it (ReadWriteOnce) and so the populated volume stays local to the
+	// consuming VirtualMachine's node.
+	if selectedNode := dataPVC.Annotations[selectedNodeAnnotation]; selectedNode != "" {
+		pod.Spec.Affinity = &corev1.Affinity{
+			NodeAffinity: &corev1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+					NodeSelectorTerms: []corev1.NodeSelectorTerm{{
+						MatchExpressions: []corev1.NodeSelectorRequirement{{
+							Key:      corev1.LabelHostname,
+							Operator: corev1.NodeSelectorOpIn,
+							Values:   []string{selectedNode},
+						}},
+					}},
+				},
+			},
+		}
 	}
 	return pod
 }

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -251,6 +252,69 @@ func HaveNonDecreasingProgress() Predicate {
 		}
 
 		previous = &current
+		return true, nil
+	}
+}
+
+// HaveTimelyProgress reports an invariant violation when, during active
+// provisioning, VirtualImage.Status.Progress stays at the same value for longer
+// than threshold before advancing.
+//
+// The intent is to catch progress that "jumps" instead of streaming smoothly,
+// for example an image whose progress sits at 0% for a long time and then jumps
+// straight to 50% (which happens when the controller fails to scrape the live
+// import metric and only learns the final value when the import pod completes).
+// While progress is being reported it must change at least once every
+// threshold; if two consecutive distinct progress values are observed more than
+// threshold apart, the invariant fails.
+//
+// Only the Provisioning phase is inspected: the Pending and WaitForUserUpload
+// phases legitimately sit at 0% (the image is waiting for the user upload to
+// begin) and are skipped. Reaching 100% is treated like any other advance, so a
+// long stall just before completion (e.g. 50% -> 100%) is also reported.
+// Intended for use with [Observer.Always].
+func HaveTimelyProgress(threshold time.Duration) Predicate {
+	var (
+		tracking     bool
+		lastProgress float64
+		lastAdvance  time.Time
+	)
+
+	return func(i *v1alpha2.VirtualImage) (bool, error) {
+		if i.Status.Phase != v1alpha2.ImageProvisioning {
+			// Not importing right now; restart tracking for the next window.
+			tracking = false
+			return true, nil
+		}
+		if i.Status.Progress == "" {
+			return true, nil
+		}
+
+		current, err := parseProgress(i.Status.Progress)
+		if err != nil {
+			return false, err
+		}
+
+		now := time.Now()
+		if !tracking {
+			tracking = true
+			lastProgress = current
+			lastAdvance = now
+			return true, nil
+		}
+		if current == lastProgress {
+			return true, nil
+		}
+
+		if gap := now.Sub(lastAdvance); gap > threshold {
+			return false, fmt.Errorf(
+				"progress stalled at %.1f%% for %s before advancing to %.1f%%; it must update at least every %s",
+				lastProgress, gap.Round(time.Second), current, threshold,
+			)
+		}
+
+		lastProgress = current
+		lastAdvance = now
 		return true, nil
 	}
 }

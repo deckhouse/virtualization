@@ -146,12 +146,39 @@ func TestPVCServiceWaitForImportIsResumable(t *testing.T) {
 		t.Fatalf("get pod: %v", err)
 	}
 
+	// The importer fills the prime PVC, not the target.
+	primeName := primePVCName(target)
+	prime := &corev1.PersistentVolumeClaim{}
+	if err := c.Get(ctx, types.NamespacedName{Name: primeName, Namespace: target.Namespace}, prime); err != nil {
+		t.Fatalf("get prime pvc: %v", err)
+	}
+	if got := pod.Spec.Volumes; len(got) == 0 {
+		t.Fatalf("importer pod has no volumes")
+	}
 	scratch := &corev1.PersistentVolumeClaim{}
-	if err := c.Get(ctx, types.NamespacedName{Name: target.Name + "-scratch", Namespace: target.Namespace}, scratch); err != nil {
+	if err := c.Get(ctx, types.NamespacedName{Name: primeName + "-scratch", Namespace: target.Namespace}, scratch); err != nil {
 		t.Fatalf("get scratch pvc: %v", err)
 	}
 	if got, want := scratch.Spec.Resources.Requests[corev1.ResourceStorage], resource.MustParse("1342177280"); got.Cmp(want) != 0 {
 		t.Fatalf("unexpected scratch size: got %s, want %s", got.String(), want.String())
+	}
+
+	// Simulate the provisioner binding the prime PVC to a PersistentVolume.
+	prime.Spec.VolumeName = "pv-prime"
+	if err := c.Update(ctx, prime); err != nil {
+		t.Fatalf("bind prime pvc: %v", err)
+	}
+	pv := &corev1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{Name: "pv-prime"},
+		Spec: corev1.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
+			ClaimRef: &corev1.ObjectReference{
+				Kind: "PersistentVolumeClaim", Namespace: target.Namespace, Name: prime.Name, UID: prime.UID,
+			},
+		},
+	}
+	if err := c.Create(ctx, pv); err != nil {
+		t.Fatalf("create prime pv: %v", err)
 	}
 
 	pod.Status.Phase = corev1.PodSucceeded
@@ -169,7 +196,21 @@ func TestPVCServiceWaitForImportIsResumable(t *testing.T) {
 	if phase != corev1.PodSucceeded {
 		t.Fatalf("unexpected final phase: %s", phase)
 	}
-	if err := c.Get(ctx, types.NamespacedName{Name: target.Name + "-scratch", Namespace: target.Namespace}, &corev1.PersistentVolumeClaim{}); client.IgnoreNotFound(err) == nil && err == nil {
+
+	// The prime's volume must have been rebound to the target.
+	refreshedTarget := &corev1.PersistentVolumeClaim{}
+	if err := c.Get(ctx, client.ObjectKeyFromObject(target), refreshedTarget); err != nil {
+		t.Fatalf("refresh target: %v", err)
+	}
+	if refreshedTarget.Spec.VolumeName != "pv-prime" {
+		t.Fatalf("target was not rebound to prime's PV: volumeName=%q", refreshedTarget.Spec.VolumeName)
+	}
+
+	// Helper resources must be cleaned up.
+	if err := c.Get(ctx, types.NamespacedName{Name: primeName, Namespace: target.Namespace}, &corev1.PersistentVolumeClaim{}); client.IgnoreNotFound(err) == nil && err == nil {
+		t.Fatalf("prime pvc still exists")
+	}
+	if err := c.Get(ctx, types.NamespacedName{Name: primeName + "-scratch", Namespace: target.Namespace}, &corev1.PersistentVolumeClaim{}); client.IgnoreNotFound(err) == nil && err == nil {
 		t.Fatalf("scratch pvc still exists")
 	}
 	if err := c.Get(ctx, types.NamespacedName{Name: importerPodName, Namespace: target.Namespace}, &corev1.Pod{}); client.IgnoreNotFound(err) == nil && err == nil {
@@ -177,6 +218,10 @@ func TestPVCServiceWaitForImportIsResumable(t *testing.T) {
 	}
 }
 
+// TODO(csi): re-enable when the snapshot clone strategy is restored. The snapshot
+// strategy is currently disabled in choosePVCCloneStrategy (DRBD single-primary issue),
+// so this case now resolves to a CSI clone instead of a snapshot clone.
+/*
 func TestPVCServiceCreateTargetPicksVolumeSnapshotStrategyWhenPossible(t *testing.T) {
 	ctx := context.Background()
 	vd := diskImportTestVD()
@@ -219,6 +264,7 @@ func TestPVCServiceCreateTargetPicksVolumeSnapshotStrategyWhenPossible(t *testin
 		t.Fatalf("unexpected snapshot source: %#v", snapshot.Spec.Source.PersistentVolumeClaimName)
 	}
 }
+*/
 
 func TestPVCServiceWaitForImportSmartCloneMarksSucceededAndCleansSnapshot(t *testing.T) {
 	ctx := context.Background()

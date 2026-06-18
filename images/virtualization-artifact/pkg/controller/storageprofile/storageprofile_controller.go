@@ -102,6 +102,8 @@ func (r *Reconciler) reconcileStorageProfile(ctx context.Context, sc *storagev1.
 	profile.Status.DataImportCronSourceFormat = reconcileDataImportCronSourceFormat(profile.Spec.DataImportCronSourceFormat)
 	if len(profile.Spec.ClaimPropertySets) > 0 {
 		profile.Status.ClaimPropertySets = profile.Spec.ClaimPropertySets
+	} else if sets, ok := claimPropertySetsForProvisioner(sc.Provisioner); ok {
+		profile.Status.ClaimPropertySets = sets
 	} else {
 		profile.Status.ClaimPropertySets = defaultClaimPropertySets()
 	}
