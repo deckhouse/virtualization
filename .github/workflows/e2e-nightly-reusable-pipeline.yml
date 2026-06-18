@@ -485,6 +485,9 @@ jobs:
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/nfs
         env:
           NAMESPACE: ${{ needs.bootstrap.outputs.namespace }}
+          # csi-nfs is absent in the stage registry; pull it from prod via the same
+          # ModuleSource deckhouse-prod that enable-sdn.sh creates for the stage profile.
+          MODULE_SOURCE_REGISTRY_CFG: ${{ inputs.registry_profile == 'stage' && secrets.PROD_IO_REGISTRY_DOCKER_CFG || '' }}
         run: bash "${E2E_SCRIPT_DIR}/configure-csi-nfs.sh"
 
   configure-virtualization:

@@ -26,12 +26,12 @@ apply_sdn_module_source() {
   registry="$(registry_host_from_docker_cfg "$MODULE_SOURCE_REGISTRY_CFG")"
   repo="$(modules_repo_for_registry "$registry")"
 
-  echo "[INFO] Apply ModuleSource deckhouse-prod-sdn config"
+  echo "[INFO] Apply ModuleSource deckhouse-prod config"
   kubectl apply -f - <<EOF
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleSource
 metadata:
-  name: deckhouse-prod-sdn
+  name: deckhouse-prod
 spec:
   registry:
     ca: ""
@@ -45,7 +45,7 @@ apply_sdn_module_config() {
   local source_field=""
 
   if [ -n "${MODULE_SOURCE_REGISTRY_CFG:-}" ]; then
-    source_field="  source: deckhouse-prod-sdn"
+    source_field="  source: deckhouse-prod"
   fi
 
   if kubectl_apply_with_retry 12 10 show_sdn_state <<EOF
