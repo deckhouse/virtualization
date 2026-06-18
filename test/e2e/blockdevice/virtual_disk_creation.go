@@ -61,7 +61,15 @@ const vdCreationBlankSize = "64Mi"
 // scrapes the import pod's live metric roughly every second), so a longer gap
 // between two distinct progress values means progress "jumped" (e.g. stayed at
 // 0% and then leapt to 50%), which the HaveTimelyProgress invariant rejects.
-const progressUpdateInterval = 10 * time.Second
+//
+// progressBoundaryBudget is the more lenient budget granted only to the 0% and
+// 50% stage boundaries, where the import legitimately pauses (import-pod
+// scheduling at 0% and the DVCR->PVC hand-off at 50%). Even there progress must
+// resume within this budget.
+const (
+	progressUpdateInterval = 10 * time.Second
+	progressBoundaryBudget = time.Minute
+)
 
 var _ = Describe("VirtualDiskCreation", Label(precheck.PrecheckMainStandbyStorageClass), func() {
 	var (
@@ -431,7 +439,7 @@ func startVirtualDisk(ctx context.Context, f *framework.Framework, vd *v1alpha2.
 	obs.Always(vdobs.BeDataSourceReady())
 	obs.Always(vdobs.HaveNonDecreasingProgress())
 	obs.Always(vdobs.HaveValidPhaseTransitions())
-	obs.Always(vdobs.HaveTimelyProgress(progressUpdateInterval))
+	obs.Always(vdobs.HaveTimelyProgress(progressUpdateInterval, progressBoundaryBudget))
 
 	By("Creating VirtualDisk", func() {
 		err := f.CreateWithDeferredDeletion(ctx, vd)

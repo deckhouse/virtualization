@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/net"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/humanize_bytes"
+	"github.com/deckhouse/virtualization-controller/pkg/common/percent"
 )
 
 var httpClient *http.Client
@@ -122,7 +123,7 @@ func extractProgress(report, ownerUID string) (*ImportProgress, error) {
 }
 
 func (p *ImportProgress) Progress() string {
-	return fmt.Sprintf("%.1f%%", p.progress)
+	return percent.Format(p.progress)
 }
 
 func (p *ImportProgress) ProgressRaw() float64 {

@@ -257,23 +257,25 @@ func HaveNonDecreasingProgress() Predicate {
 }
 
 // HaveTimelyProgress reports an invariant violation when, during active
-// provisioning, VirtualImage.Status.Progress stays at the same value for longer
-// than threshold before advancing.
+// provisioning, VirtualImage.Status.Progress does not stream smoothly.
 //
-// The intent is to catch progress that "jumps" instead of streaming smoothly,
-// for example an image whose progress sits at 0% for a long time and then jumps
-// straight to 50% (which happens when the controller fails to scrape the live
-// import metric and only learns the final value when the import pod completes).
-// While progress is being reported it must change at least once every
-// threshold; if two consecutive distinct progress values are observed more than
-// threshold apart, the invariant fails.
+// The import must report distinct percentages frequently, so two checks are
+// enforced while the image is in the Provisioning phase:
 //
-// Only the Provisioning phase is inspected: the Pending and WaitForUserUpload
-// phases legitimately sit at 0% (the image is waiting for the user upload to
-// begin) and are skipped. Reaching 100% is treated like any other advance, so a
-// long stall just before completion (e.g. 50% -> 100%) is also reported.
-// Intended for use with [Observer.Always].
-func HaveTimelyProgress(threshold time.Duration) Predicate {
+//   - Timeliness: progress must advance at least once every threshold. The only
+//     exception are the two stage boundaries 0% and 50% - the points where the
+//     import legitimately pauses (import-pod scheduling at 0% and the DVCR->PVC
+//     hand-off at 50%); they may stay unchanged up to boundaryBudget, never
+//     longer.
+//   - Coverage: progress must actually stream intermediate percentages. Jumping
+//     straight from one stage boundary to the next (0% -> >=50% or 50% -> 100%)
+//     means the intermediate values were never reported, so progress would be
+//     just 0%/50%/100%, which is rejected.
+//
+// The Pending and WaitForUserUpload phases legitimately sit at 0% (the image is
+// waiting for the user upload to begin) and are skipped. Intended for use with
+// [Observer.Always].
+func HaveTimelyProgress(threshold, boundaryBudget time.Duration) Predicate {
 	var (
 		tracking     bool
 		lastProgress float64
@@ -306,16 +308,60 @@ func HaveTimelyProgress(threshold time.Duration) Predicate {
 			return true, nil
 		}
 
-		if gap := now.Sub(lastAdvance); gap > threshold {
+		budget := threshold
+		if isProgressBoundary(lastProgress) {
+			budget = boundaryBudget
+		}
+		if gap := now.Sub(lastAdvance); gap > budget {
 			return false, fmt.Errorf(
-				"progress stalled at %.1f%% for %s before advancing to %.1f%%; it must update at least every %s",
-				lastProgress, gap.Round(time.Second), current, threshold,
+				"progress stalled at %s for %s before advancing to %s; it must update at least every %s (only 0%%/50%% may pause, up to %s)",
+				formatProgressValue(lastProgress), gap.Round(time.Second), formatProgressValue(current), threshold, boundaryBudget,
+			)
+		}
+
+		if isProgressStageJump(lastProgress, current) {
+			return false, fmt.Errorf(
+				"progress jumped from %s to %s without any intermediate values; it must stream distinct percentages, not only 0%%/50%%/100%%",
+				formatProgressValue(lastProgress), formatProgressValue(current),
 			)
 		}
 
 		lastProgress = current
 		lastAdvance = now
 		return true, nil
+	}
+}
+
+// isProgressBoundary reports whether p is one of the two stage boundaries (0% or
+// 50%) where the import legitimately pauses.
+func isProgressBoundary(p float64) bool {
+	return p == 0 || p == 50
+}
+
+// isProgressStageJump reports whether advancing from -> to skips a whole import
+// stage's stream of intermediate values: 0% straight to >=50%, or 50% straight
+// to 100%.
+func isProgressStageJump(from, to float64) bool {
+	switch {
+	case from == 0 && to >= 50:
+		return true
+	case from == 50 && to >= 100:
+		return true
+	default:
+		return false
+	}
+}
+
+// formatProgressValue renders a parsed progress percentage the same way the
+// controller does: 0%/100% without a fraction, everything else with one decimal.
+func formatProgressValue(p float64) string {
+	switch p {
+	case 0:
+		return "0%"
+	case 100:
+		return "100%"
+	default:
+		return fmt.Sprintf("%.1f%%", p)
 	}
 }
 

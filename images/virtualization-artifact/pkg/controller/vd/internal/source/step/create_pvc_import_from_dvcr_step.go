@@ -87,7 +87,7 @@ func (s StartImportFromDVCRStep) Take(ctx context.Context, vd *v1alpha2.VirtualD
 		return nil, nil
 	}
 
-	vd.Status.Progress = "50%"
+	vd.Status.Progress = "50.0%"
 	vd.Status.DownloadSpeed = s.stat.GetDownloadSpeed(vd.GetUID(), s.pod)
 
 	if imageformat.IsISO(s.stat.GetFormat(s.pod)) {
