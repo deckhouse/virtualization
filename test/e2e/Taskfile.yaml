@@ -81,6 +81,11 @@ tasks:
           --repeat "{{ .REPEAT }}"
           {{end -}}
 
+  fzf:
+    desc: "Select and run e2e suites with fzf"
+    cmds:
+      - ./scripts/e2e-fzf {{.CLI_ARGS}}
+
   runp:
     desc: "Run e2e tests in parallel mode"
     deps:
