@@ -84,6 +84,7 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 
 	if vdSnapshot == nil {
 		vd.Status.Phase = v1alpha2.DiskPending
+		vd.Status.Progress = ""
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningNotStarted).
@@ -98,6 +99,7 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 
 	if vdSnapshot.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseReady || vs == nil || vs.Status == nil || vs.Status.ReadyToUse == nil || !*vs.Status.ReadyToUse {
 		vd.Status.Phase = v1alpha2.DiskPending
+		vd.Status.Progress = ""
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningNotStarted).

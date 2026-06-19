@@ -112,6 +112,7 @@ func (s WaitForDVCRImporterStep) handlePodError(ctx context.Context, vd *v1alpha
 		return &reconcile.Result{}, nil
 	case errors.Is(podErr, service.ErrNotScheduled):
 		vd.Status.Phase = v1alpha2.DiskPending
+		vd.Status.Progress = ""
 
 		nodePlacement, err := GetNodePlacement(ctx, s.client, vd)
 		if err != nil {

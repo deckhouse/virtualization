@@ -99,10 +99,13 @@ func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.VirtualIm
 		return CleanUpSupplements(ctx, vi, ds)
 	case object.IsTerminating(pod):
 		vi.Status.Phase = v1alpha2.ImagePending
+		vi.Status.Progress = ""
 
 		log.Info("Cleaning up...")
 	case pod == nil:
-		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
+		if vi.Status.Progress == "" {
+			vi.Status.Progress = "0%"
+		}
 
 		envSettings := ds.getEnvSettings(vi, supgen)
 
@@ -224,7 +227,9 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualIma
 	case object.AnyTerminating(pod, pvc):
 		log.Info("Waiting for supplements to be terminated")
 	case pod == nil:
-		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
+		if vi.Status.Progress == "" {
+			vi.Status.Progress = "0%"
+		}
 
 		envSettings := ds.getEnvSettings(vi, supgen)
 		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource), service.WithSystemNodeToleration())

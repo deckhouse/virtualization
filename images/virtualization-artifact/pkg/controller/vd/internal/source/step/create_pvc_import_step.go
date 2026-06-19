@@ -151,6 +151,7 @@ func (s PVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*rec
 		// that would be logged as a "Reconciler error".
 		if common.ErrQuotaExceeded(err) {
 			vd.Status.Phase = v1alpha2.DiskPending
+			vd.Status.Progress = ""
 			s.cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.QuotaExceeded).

@@ -197,6 +197,7 @@ func (ds RegistryDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtu
 		return CleanUpSupplements(ctx, vi, ds)
 	case object.IsTerminating(pod):
 		vi.Status.Phase = v1alpha2.ImagePending
+		vi.Status.Progress = ""
 
 		log.Info("Cleaning up...")
 	case pod == nil:
@@ -274,7 +275,7 @@ func (ds RegistryDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtu
 			Message("Import is in the process of provisioning to DVCR.")
 
 		vi.Status.Phase = v1alpha2.ImageProvisioning
-		vi.Status.Progress = "0%"
+		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
 		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		log.Info("Provisioning...", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)

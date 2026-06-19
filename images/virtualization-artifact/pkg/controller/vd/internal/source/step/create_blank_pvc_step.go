@@ -133,6 +133,7 @@ func (s CreateBlankPVCStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 			log.Debug("Quota exceeded during PVC creation")
 
 			vd.Status.Phase = v1alpha2.DiskPending
+			vd.Status.Progress = ""
 			s.cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.QuotaExceeded).

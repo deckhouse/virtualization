@@ -82,6 +82,7 @@ func (s CreatePersistentVolumeClaimStep) Take(ctx context.Context, vi *v1alpha2.
 
 	if vdSnapshot == nil {
 		vi.Status.Phase = v1alpha2.ImagePending
+		vi.Status.Progress = ""
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningNotStarted).
@@ -96,6 +97,7 @@ func (s CreatePersistentVolumeClaimStep) Take(ctx context.Context, vi *v1alpha2.
 
 	if vdSnapshot.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseReady || vs == nil || vs.Status == nil || vs.Status.ReadyToUse == nil || !*vs.Status.ReadyToUse {
 		vi.Status.Phase = v1alpha2.ImagePending
+		vi.Status.Progress = ""
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningNotStarted).

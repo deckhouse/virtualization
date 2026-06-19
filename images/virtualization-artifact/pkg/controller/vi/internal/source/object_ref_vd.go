@@ -108,10 +108,13 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *v1alpha2.Vir
 		return CleanUpSupplements(ctx, vi, ds)
 	case object.IsTerminating(pod):
 		vi.Status.Phase = v1alpha2.ImagePending
+		vi.Status.Progress = ""
 
 		log.Info("Cleaning up...")
 	case pod == nil:
-		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
+		if vi.Status.Progress == "" {
+			vi.Status.Progress = "0%"
+		}
 		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		pvc := &corev1.PersistentVolumeClaim{}
