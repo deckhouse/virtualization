@@ -88,6 +88,10 @@ func (imp *Bounder) makeBounderPodSpec() (*corev1.Pod, error) {
 			},
 			Labels: map[string]string{
 				annotations.HeritageLabel: annotations.HeritageValue,
+				// The bounder pod is internal scaffolding - it triggers binding
+				// of a WaitForFirstConsumer PVC by getting itself scheduled to
+				// a node - and must not be billed against the project quota.
+				annotations.QuotaExcludeLabel: annotations.QuotaExcludeValue,
 			},
 			Finalizers: []string{
 				imp.PodSettings.Finalizer,

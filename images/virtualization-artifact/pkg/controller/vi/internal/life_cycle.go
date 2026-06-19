@@ -162,12 +162,22 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage)
 }
 
 // normalizeProgress enforces the phase/progress invariants on the final status:
-//   - an image in the Provisioning phase must always expose a progress percentage;
-//     until the importer reports real progress it defaults to "0%";
-//   - an image parked in WaitForUserUpload has not received any data yet, so its
-//     progress is always "0%".
+//   - an image that has not yet entered Provisioning ("" or Pending) must NOT
+//     expose any progress percentage. Progress describes how far the import
+//     has advanced, so it is meaningful only once the import has actually
+//     started; any earlier setter (some source paths optimistically populate
+//     "0%" before they have decided whether the phase will advance to
+//     Provisioning in this reconcile) is unconditionally cleared here so that
+//     consumers never observe e.g. "Pending 0%";
+//   - an image in the Provisioning phase must always expose a progress
+//     percentage; until the importer reports real progress it defaults to
+//     "0%";
+//   - an image parked in WaitForUserUpload has not received any data yet, so
+//     its progress is always "0%".
 func normalizeProgress(vi *v1alpha2.VirtualImage) {
 	switch vi.Status.Phase {
+	case "", v1alpha2.ImagePending:
+		vi.Status.Progress = ""
 	case v1alpha2.ImageProvisioning:
 		if vi.Status.Progress == "" {
 			vi.Status.Progress = "0%"

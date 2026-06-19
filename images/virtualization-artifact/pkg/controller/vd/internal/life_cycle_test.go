@@ -343,7 +343,12 @@ var _ = Describe("LifeCycleHandler Run", func() {
 		Entry("Provisioning keeps the reported progress", v1alpha2.DiskProvisioning, "42.0%", "42.0%"),
 		Entry("WaitForUserUpload forces empty progress to 0%", v1alpha2.DiskWaitForUserUpload, "", "0%"),
 		Entry("WaitForUserUpload forces progress to 0%", v1alpha2.DiskWaitForUserUpload, "73%", "0%"),
-		Entry("other phases keep their progress untouched", v1alpha2.DiskPending, "55%", "55%"),
+		Entry("Pending clears any progress prematurely set by a source step", v1alpha2.DiskPending, "55%", ""),
+		Entry("Pending keeps progress empty", v1alpha2.DiskPending, "", ""),
+		Entry("WaitForFirstConsumer preserves the in-flight progress", v1alpha2.DiskWaitForFirstConsumer, "12%", "12%"),
+		Entry("WaitForFirstConsumer leaves an empty progress untouched", v1alpha2.DiskWaitForFirstConsumer, "", ""),
+		Entry("empty phase clears any progress prematurely set by a source step", v1alpha2.DiskPhase(""), "10%", ""),
+		Entry("Ready keeps the reported progress untouched", v1alpha2.DiskReady, "100%", "100%"),
 	)
 
 	It("surfaces a namespace-terminating sync error on the Ready condition without failing the reconcile", func() {

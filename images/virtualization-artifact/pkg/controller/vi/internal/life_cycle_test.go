@@ -265,7 +265,10 @@ var _ = Describe("LifeCycleHandler Run", func() {
 		Entry("Provisioning keeps the reported progress", v1alpha2.ImageProvisioning, "42.0%", "42.0%"),
 		Entry("WaitForUserUpload forces empty progress to 0%", v1alpha2.ImageWaitForUserUpload, "", "0%"),
 		Entry("WaitForUserUpload forces progress to 0%", v1alpha2.ImageWaitForUserUpload, "73%", "0%"),
-		Entry("other phases keep their progress untouched", v1alpha2.ImagePending, "55%", "55%"),
+		Entry("Pending clears any progress prematurely set by a source path", v1alpha2.ImagePending, "55%", ""),
+		Entry("Pending keeps progress empty", v1alpha2.ImagePending, "", ""),
+		Entry("empty phase clears any progress prematurely set by a source path", v1alpha2.ImagePhase(""), "10%", ""),
+		Entry("Ready keeps the reported progress untouched", v1alpha2.ImageReady, "100%", "100%"),
 	)
 
 	It("surfaces a namespace-terminating store error on the Ready condition without failing the reconcile", func() {
