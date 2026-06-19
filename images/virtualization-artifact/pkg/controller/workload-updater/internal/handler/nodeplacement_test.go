@@ -31,6 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -63,6 +65,10 @@ var _ = Describe("TestNodePlacementHandler", func() {
 			kvvmi.Status.Conditions = append(kvvmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
 				Type:   conditions.VirtualMachineInstanceNodePlacementNotMatched,
 				Status: status,
+			})
+			kvvmi.Status.Conditions = append(kvvmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
+				Type:   virtv1.VirtualMachineInstanceIsMigratable,
+				Status: corev1.ConditionTrue,
 			})
 		}
 		return vm, kvvmi
@@ -164,6 +170,118 @@ var _ = Describe("TestNodePlacementHandler", func() {
 		_, err = h.Handle(ctx, vm)
 		Expect(err).NotTo(HaveOccurred())
 	})
+
+	DescribeTable("should skip migration while volume migration is active",
+		func(kvvmiMutate func(*virtv1.VirtualMachineInstance)) {
+			vm, kvvmi := newVMAndKVVMI(true)
+			kvvmiMutate(kvvmi)
+			fakeClient = setupEnvironment(vm, kvvmi)
+
+			mockMigration := &OneShotMigrationMock{
+				OnceMigrateFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
+					Fail("migration should not be executed")
+					return false, nil
+				},
+			}
+
+			h := NewNodePlacementHandler(fakeClient, mockMigration)
+			_, err := h.Handle(ctx, vm)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(mockMigration.OnceMigrateCalls()).To(BeEmpty())
+
+			// While a migration is in progress the handler must not record the
+			// placement sum, so it can still fire once the migration settles.
+			updatedKVVMI := &virtv1.VirtualMachineInstance{}
+			Expect(fakeClient.Get(ctx, object.NamespacedName(kvvmi), updatedKVVMI)).To(Succeed())
+			Expect(updatedKVVMI.GetAnnotations()).NotTo(HaveKey(annotations.AnnVMOPWorkloadUpdateNodePlacementSum))
+		},
+		Entry("VolumesChange condition is true", func(kvvmi *virtv1.VirtualMachineInstance) {
+			kvvmi.Status.Conditions = append(kvvmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
+				Type:   virtv1.VirtualMachineInstanceVolumesChange,
+				Status: corev1.ConditionTrue,
+			})
+		}),
+		Entry("migrated volumes are present", func(kvvmi *virtv1.VirtualMachineInstance) {
+			kvvmi.Status.MigratedVolumes = []virtv1.StorageMigratedVolumeInfo{
+				{VolumeName: "root"},
+			}
+		}),
+		Entry("migration state is active", func(kvvmi *virtv1.VirtualMachineInstance) {
+			start := metav1.Now()
+			kvvmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				StartTimestamp: &start,
+			}
+		}),
+	)
+
+	It("should requeue and skip migration right after a completed migration", func() {
+		vm, kvvmi := newVMAndKVVMI(true)
+		start := metav1.Now()
+		end := metav1.Now()
+		kvvmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+			StartTimestamp: &start,
+			EndTimestamp:   &end,
+		}
+		fakeClient = setupEnvironment(vm, kvvmi)
+
+		mockMigration := &OneShotMigrationMock{
+			OnceMigrateFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
+				Fail("migration should not be executed while migration state is settling")
+				return false, nil
+			},
+		}
+
+		h := NewNodePlacementHandler(fakeClient, mockMigration)
+		result, err := h.Handle(ctx, vm)
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.RequeueAfter).To(BeNumerically(">", 0))
+		Expect(mockMigration.OnceMigrateCalls()).To(BeEmpty())
+
+		updatedKVVMI := &virtv1.VirtualMachineInstance{}
+		Expect(fakeClient.Get(ctx, object.NamespacedName(kvvmi), updatedKVVMI)).To(Succeed())
+		Expect(updatedKVVMI.GetAnnotations()).NotTo(HaveKey(annotations.AnnVMOPWorkloadUpdateNodePlacementSum))
+	})
+
+	DescribeTable("should skip migration and not record placement sum when VMI is not live-migratable",
+		func(migratableStatus corev1.ConditionStatus) {
+			vm := vmbuilder.NewEmpty(name, namespace)
+			kvvmi := newEmptyKVVMI(name, namespace)
+			kvvmi.Status.Conditions = append(kvvmi.Status.Conditions,
+				virtv1.VirtualMachineInstanceCondition{
+					Type:   conditions.VirtualMachineInstanceNodePlacementNotMatched,
+					Status: corev1.ConditionTrue,
+				},
+				virtv1.VirtualMachineInstanceCondition{
+					Type:   virtv1.VirtualMachineInstanceIsMigratable,
+					Status: migratableStatus,
+				},
+			)
+			fakeClient = setupEnvironment(vm, kvvmi)
+
+			mockMigration := &OneShotMigrationMock{
+				OnceMigrateFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
+					Fail("migration should not be executed for a non-migratable VMI")
+					return false, nil
+				},
+			}
+
+			h := NewNodePlacementHandler(fakeClient, mockMigration)
+			_, err := h.Handle(ctx, vm)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(mockMigration.OnceMigrateCalls()).To(BeEmpty())
+
+			// The placement sum must not be recorded so that the migration can
+			// still fire once the VMI becomes migratable again.
+			updatedKVVMI := &virtv1.VirtualMachineInstance{}
+			Expect(fakeClient.Get(ctx, object.NamespacedName(kvvmi), updatedKVVMI)).To(Succeed())
+			Expect(updatedKVVMI.GetAnnotations()).NotTo(HaveKey(annotations.AnnVMOPWorkloadUpdateNodePlacementSum))
+		},
+		Entry("LiveMigratable is False", corev1.ConditionFalse),
+		Entry("LiveMigratable is Unknown", corev1.ConditionUnknown),
+	)
 
 	It("should return node placement handler name", func() {
 		h := NewNodePlacementHandler(nil, nil)
