@@ -247,7 +247,7 @@ var _ = Describe("Sources helpers", func() {
 			source := service.NewPVCPVCImportSource(sourcePVC.Name, sourcePVC.Namespace)
 			cb := conditions.NewConditionBuilder(vicondition.ReadyType)
 
-			result, err := reconcilePVCImportFromReadySource(ctx, vi, pvc, source, resource.MustParse("1Gi"), cb, supgen, disk, func() {})
+			result, err := reconcilePVCImportFromReadySource(ctx, vi, pvc, source, resource.MustParse("1Gi"), cb, supgen, nil, disk, func() {})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.RequeueAfter).ToNot(BeZero())
 

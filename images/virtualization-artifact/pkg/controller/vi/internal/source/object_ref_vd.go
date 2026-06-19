@@ -248,7 +248,9 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *v1alpha2.Virt
 			"The ObjectRef DataSource import has started",
 		)
 
-		vi.Status.Progress = "0%"
+		if vi.Status.Progress == "" {
+			vi.Status.Progress = "0%"
+		}
 		vi.Status.SourceUID = ptr.To(vdRef.GetUID())
 
 		source := service.NewPVCPVCImportSource(vdRef.Status.Target.PersistentVolumeClaim, vdRef.Namespace)
@@ -259,7 +261,7 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *v1alpha2.Virt
 			return reconcile.Result{}, err
 		}
 
-		return reconcilePVCImportFromReadySource(ctx, vi, pvc, source, size, cb, supgen, ds.diskService, func() {
+		return reconcilePVCImportFromReadySource(ctx, vi, pvc, source, size, cb, supgen, ds.statService, ds.diskService, func() {
 			ds.recorder.Event(vi, corev1.EventTypeNormal, v1alpha2.ReasonDataSourceSyncCompleted, "The ObjectRef DataSource import has completed")
 			q, err := resource.ParseQuantity(vdRef.Status.Capacity)
 			if err != nil {

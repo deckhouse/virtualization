@@ -106,6 +106,49 @@ func IsImageProvisioningFinished(c metav1.Condition) bool {
 	return c.Reason == vicondition.Ready.String()
 }
 
+// pvcImportProgressRequeue is how often a VirtualImage on PVC is requeued while
+// its import is in flight so that vi.Status.Progress is refreshed from the
+// pvc-importer pod metric and streams intermediate percentages.
+const pvcImportProgressRequeue = 2 * time.Second
+
+// refreshPVCImportProgress republishes vi.Status.Progress from the pvc-importer
+// pod's kubevirt_cdi_import_progress_total metric while the import to the target
+// PVC is running, so the reported progress streams intermediate percentages
+// instead of jumping straight from its starting value to 100%.
+//
+// When scale is set, the metric (0..100) is projected into the
+// [scale.Low, scale.High] slice of the overall progress (e.g. 50..100 for the
+// HTTP/Registry/Upload data sources whose first half is already filled by the
+// DVCR phase). The previous progress is kept untouched when the stat service,
+// the pod, or the metric is not yet available.
+func refreshPVCImportProgress(
+	ctx context.Context,
+	vi *v1alpha2.VirtualImage,
+	disk *service.DiskService,
+	stat Stat,
+	supgen supplements.Generator,
+	scale *service.ScaleOption,
+) error {
+	if stat == nil {
+		return nil
+	}
+
+	pod, err := disk.GetPVCImporterPod(ctx, supgen)
+	if err != nil {
+		return fmt.Errorf("fetch pvc-importer pod: %w", err)
+	}
+	if pod == nil {
+		return nil
+	}
+
+	var opts []service.GetProgressOption
+	if scale != nil {
+		opts = append(opts, scale)
+	}
+	vi.Status.Progress = stat.GetProgress(vi.GetUID(), pod, vi.Status.Progress, opts...)
+	return nil
+}
+
 func setPhaseConditionForFinishedImage(
 	pvc *corev1.PersistentVolumeClaim,
 	cb *conditions.ConditionBuilder,
@@ -268,8 +311,15 @@ func reconcilePVCImportFromDVCR(
 	default:
 		vi.Status.Phase = v1alpha2.ImageProvisioning
 		cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("Import is in the process of provisioning to PVC.")
-		vi.Status.Progress = "50.0%"
-		return reconcile.Result{RequeueAfter: time.Second}, nil
+		if vi.Status.Progress == "" {
+			vi.Status.Progress = "50.0%"
+		}
+		// The DVCR phase fills the first half of the overall progress, so the
+		// pvc-importer metric (0..100) is projected into the 50..100 slice.
+		if err := refreshPVCImportProgress(ctx, vi, disk, stat, supgen, service.NewScaleOption(50, 100)); err != nil {
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
 	}
 }
 
@@ -292,6 +342,7 @@ func reconcilePVCImportFromReadySource(
 	size resource.Quantity,
 	cb *conditions.ConditionBuilder,
 	supgen supplements.Generator,
+	stat Stat,
 	disk *service.DiskService,
 	ready func(),
 ) (reconcile.Result, error) {
@@ -338,9 +389,14 @@ func reconcilePVCImportFromReadySource(
 		return reconcile.Result{}, nil
 	default:
 		vi.Status.Phase = v1alpha2.ImageProvisioning
-		vi.Status.Progress = "0%"
+		if vi.Status.Progress == "" {
+			vi.Status.Progress = "0%"
+		}
 		cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("Import is in the process of provisioning to PVC.")
-		return reconcile.Result{RequeueAfter: time.Second}, nil
+		if err := refreshPVCImportProgress(ctx, vi, disk, stat, supgen, nil); err != nil {
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
 	}
 }
 

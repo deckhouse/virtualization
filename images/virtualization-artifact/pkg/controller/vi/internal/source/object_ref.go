@@ -170,7 +170,9 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.Virtu
 			return reconcile.Result{}, nil
 		}
 
-		vi.Status.Progress = "0%"
+		if vi.Status.Progress == "" {
+			vi.Status.Progress = "0%"
+		}
 		vi.Status.SourceUID = ptr.To(dvcrDataSource.GetUID())
 
 		var diskSize resource.Quantity
@@ -191,7 +193,7 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.Virtu
 			return reconcile.Result{}, err
 		}
 
-		return reconcilePVCImportFromReadySource(ctx, vi, pvc, source, diskSize, cb, supgen, ds.diskService, func() {
+		return reconcilePVCImportFromReadySource(ctx, vi, pvc, source, diskSize, cb, supgen, ds.statService, ds.diskService, func() {
 			ds.recorder.Event(vi, corev1.EventTypeNormal, v1alpha2.ReasonDataSourceSyncCompleted, "The ObjectRef DataSource import has completed")
 			vi.Status.Size = dvcrDataSource.GetSize()
 			vi.Status.CDROM = dvcrDataSource.IsCDROM()

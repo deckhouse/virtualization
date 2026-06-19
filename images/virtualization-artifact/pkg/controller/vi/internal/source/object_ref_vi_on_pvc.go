@@ -156,7 +156,12 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, vi
 			Message("")
 
 		vi.Status.Phase = v1alpha2.ImageReady
-		vi.Status.Size = viRef.Status.Size
+		// Report the size of the image actually produced in DVCR (measured by the
+		// importer), not the source VI's reported size. A raw block-device source
+		// (a VirtualImage on PVC) exposes the full, possibly over-allocated device
+		// size, so the converted image can be larger than the source's nominal
+		// size; copying the source size would under-size any downstream PVC.
+		vi.Status.Size = ds.statService.GetSize(pod)
 		vi.Status.CDROM = viRef.Status.CDROM
 		vi.Status.Format = viRef.Status.Format
 		vi.Status.Progress = "100%"
@@ -221,7 +226,9 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 			"The ObjectRef DataSource import has started",
 		)
 
-		vi.Status.Progress = "0%"
+		if vi.Status.Progress == "" {
+			vi.Status.Progress = "0%"
+		}
 		vi.Status.SourceUID = ptr.To(viRef.GetUID())
 
 		var size resource.Quantity
@@ -238,7 +245,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 
 		source := service.NewPVCPVCImportSource(viRef.Status.Target.PersistentVolumeClaim, viRef.Namespace)
 
-		return reconcilePVCImportFromReadySource(ctx, vi, pvc, source, size, cb, supgen, ds.diskService, func() {
+		return reconcilePVCImportFromReadySource(ctx, vi, pvc, source, size, cb, supgen, ds.statService, ds.diskService, func() {
 			ds.recorder.Event(vi, corev1.EventTypeNormal, v1alpha2.ReasonDataSourceSyncCompleted, "The ObjectRef DataSource import has completed")
 			vi.Status.Size = viRef.Status.Size
 			vi.Status.CDROM = viRef.Status.CDROM

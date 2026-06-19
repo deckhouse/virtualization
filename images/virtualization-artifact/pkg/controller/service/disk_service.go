@@ -95,6 +95,13 @@ func (s DiskService) GetVolumeAndAccessModes(ctx context.Context, obj client.Obj
 	return s.volumeAndAccessModesGetter.GetVolumeAndAccessModes(ctx, obj, sc)
 }
 
+// GetPVCImporterPod returns the pvc-importer pod that populates the target PVC,
+// or nil when it has not been created yet. It is used to read the import
+// progress metric while the import is in flight.
+func (s DiskService) GetPVCImporterPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error) {
+	return object.FetchObject(ctx, sup.PVCImporterPod(), s.client, &corev1.Pod{})
+}
+
 func (s DiskService) CheckProvisioning(ctx context.Context, pvc *corev1.PersistentVolumeClaim) error {
 	if pvc == nil || pvc.Status.Phase == corev1.ClaimBound {
 		return nil
@@ -274,9 +281,39 @@ func (s DiskService) GetVirtualDiskSnapshot(ctx context.Context, name, namespace
 
 var ErrInsufficientPVCSize = errors.New("the specified pvc size is insufficient")
 
+// DefaultAlignBlockSize is the alignment used for image-derived volume sizes.
+// It mirrors CDI's util.DefaultAlignBlockSize (1 MiB), a multiple of all known
+// hardware block sizes (512/4k/8k/32k/64k).
+const DefaultAlignBlockSize int64 = 1024 * 1024
+
+// alignUpToBlockSize rounds size up to the next multiple of DefaultAlignBlockSize.
+//
+// qemu-img convert aligns the produced image's virtual size up to a block
+// boundary, so the converted image can end up slightly larger than the raw size
+// reported for the source. Sizing the target volume from the unaligned size can
+// therefore leave it a few bytes too small and make the importer fail with
+// "virtual image size ... is larger than the reported available storage". CDI
+// solves this by aligning the required space the same way (see
+// GetRequiredSpace), and we mirror it here.
+func alignUpToBlockSize(size int64) int64 {
+	if size <= 0 {
+		return size
+	}
+	blocks := (size + DefaultAlignBlockSize - 1) / DefaultAlignBlockSize
+	return blocks * DefaultAlignBlockSize
+}
+
 func GetValidatedPVCSize(pvcSize *resource.Quantity, requiredSize resource.Quantity) (resource.Quantity, error) {
 	if requiredSize.IsZero() {
 		return resource.Quantity{}, errors.New("got zero size from data source, please report a bug")
+	}
+
+	// Align the image-derived required size up to the block boundary to absorb
+	// the size growth that qemu-img convert introduces during provisioning. Keep
+	// the original quantity untouched when it is already aligned to preserve its
+	// representation.
+	if aligned := alignUpToBlockSize(requiredSize.Value()); aligned != requiredSize.Value() {
+		requiredSize = *resource.NewQuantity(aligned, resource.BinarySI)
 	}
 
 	if pvcSize == nil {
