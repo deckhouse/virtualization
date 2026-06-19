@@ -19,7 +19,7 @@ package precheck
 import (
 	"context"
 	"fmt"
-	"strings"
+	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -68,6 +68,16 @@ func (t *targetMigrationPrecheck) Run(ctx context.Context, f *framework.Framewor
 }
 
 func checkTargetMigrationFeature(ctx context.Context, f *framework.Framework) error {
+	mc, err := f.GetVirtualizationModuleConfig(ctx)
+	if err != nil {
+		return fmt.Errorf("%s=no to disable this precheck: failed to get virtualization module config: %w", targetMigrationPrecheckEnvName, err)
+	}
+
+	enabled := slices.Contains(mc.Spec.Settings.FeatureGates, targetMigrationFeatureName)
+	if !enabled {
+		return fmt.Errorf("%s=no to disable this precheck: %s feature should be enabled", targetMigrationPrecheckEnvName, targetMigrationFeatureName)
+	}
+
 	vmop := &v1alpha2.VirtualMachineOperation{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "target-migration-precheck",
@@ -84,18 +94,14 @@ func checkTargetMigrationFeature(ctx context.Context, f *framework.Framework) er
 		},
 	}
 
-	err := f.GenericClient().Create(ctx, vmop, &client.CreateOptions{
+	err = f.GenericClient().Create(ctx, vmop, &client.CreateOptions{
 		DryRun: []string{metav1.DryRunAll},
 	})
-	if err == nil {
-		return nil
+	if err != nil {
+		return fmt.Errorf("%s=no to disable this precheck: failed to check %s feature availability: %w", targetMigrationPrecheckEnvName, targetMigrationFeatureName, err)
 	}
 
-	if strings.Contains(err.Error(), "nodeSelector") {
-		return fmt.Errorf("%s=no to disable this precheck: %s feature should be enabled: %w", targetMigrationPrecheckEnvName, targetMigrationFeatureName, err)
-	}
-
-	return fmt.Errorf("%s=no to disable this precheck: failed to check %s feature availability: %w", targetMigrationPrecheckEnvName, targetMigrationFeatureName, err)
+	return nil
 }
 
 func init() {

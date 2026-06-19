@@ -69,6 +69,7 @@ type VirtualizationModuleConfigSpec struct {
 type VirtualizationModuleConfigSettings struct {
 	Loglevel            string   `json:"logLevel,omitempty"`
 	VirtualMachineCIDRs []string `json:"virtualMachineCIDRs"`
+	FeatureGates        []string `json:"featureGates,omitempty"`
 	Dvcr                Dvcr     `json:"dvcr"`
 	HighAvailability    bool     `json:"highAvailability,omitempty"`
 }
