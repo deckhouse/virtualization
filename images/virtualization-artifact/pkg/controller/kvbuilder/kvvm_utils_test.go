@@ -28,7 +28,12 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
-func newKVVMWithVMBDAVolume(vmNamespace, diskName, pvcName string) *KVVM {
+func newKVVMWithVMBDAVolume(pvcName string) *KVVM {
+	const (
+		vmNamespace = "test-ns"
+		diskName    = "data-disk"
+	)
+
 	kvvm := NewEmptyKVVM(
 		namespacedName("test-vm", vmNamespace),
 		KVVMOptions{},
@@ -62,7 +67,7 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes", func() {
 	)
 
 	It("should switch existing VMBDA volume back to source PVC after migration rollback", func() {
-		kvvm := newKVVMWithVMBDAVolume(vmNamespace, diskName, targetPVC)
+		kvvm := newKVVMWithVMBDAVolume(targetPVC)
 		vd := &v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       diskName,
@@ -101,7 +106,7 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes", func() {
 	})
 
 	It("should remove terminating VirtualDisk attached via VMBDA", func() {
-		kvvm := newKVVMWithVMBDAVolume(vmNamespace, diskName, sourcePVC)
+		kvvm := newKVVMWithVMBDAVolume(sourcePVC)
 		vd := &v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{Name: diskName, Namespace: vmNamespace},
 			Status: v1alpha2.VirtualDiskStatus{
@@ -125,7 +130,7 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes", func() {
 	})
 
 	It("should remove missing VirtualDisk attached via VMBDA", func() {
-		kvvm := newKVVMWithVMBDAVolume(vmNamespace, diskName, sourcePVC)
+		kvvm := newKVVMWithVMBDAVolume(sourcePVC)
 
 		err := syncAttachedVMBDAHotplugVolumes(
 			kvvm,
@@ -152,7 +157,7 @@ var _ = Describe("ApplyMigrationVolumes", func() {
 	)
 
 	It("should switch hotplugged VMBDA disk to migration target PVC", func() {
-		kvvm := newKVVMWithVMBDAVolume(vmNamespace, diskName, sourcePVC)
+		kvvm := newKVVMWithVMBDAVolume(sourcePVC)
 		vm := &v1alpha2.VirtualMachine{
 			Status: v1alpha2.VirtualMachineStatus{
 				BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
