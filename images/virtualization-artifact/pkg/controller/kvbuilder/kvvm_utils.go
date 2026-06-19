@@ -360,7 +360,7 @@ func setVMBDABlockDeviceDisk(
 			return fmt.Errorf("unexpected error: virtual disk %q should exist in the cluster; please recreate it", ref.Name)
 		}
 
-		if vd.Status.Target.PersistentVolumeClaim == "" {
+		if vd.Status.Phase == v1alpha2.DiskTerminating || vd.Status.Target.PersistentVolumeClaim == "" {
 			return nil
 		}
 
