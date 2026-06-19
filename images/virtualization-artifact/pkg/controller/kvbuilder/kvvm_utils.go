@@ -362,16 +362,19 @@ func setVMBDABlockDeviceDisk(
 ) error {
 	switch ref.Kind {
 	case v1alpha2.VMBDAObjectRefKindVirtualDisk:
+		name := GenerateVDDiskName(ref.Name)
 		vd, ok := vdByName[ref.Name]
 		if !ok || vd == nil {
-			return fmt.Errorf("unexpected error: virtual disk %q should exist in the cluster; please recreate it", ref.Name)
-		}
-
-		if vd.Status.Target.PersistentVolumeClaim == "" {
+			removeDisk(kvvm, name)
 			return nil
 		}
 
-		return kvvm.SetDisk(GenerateVDDiskName(ref.Name), SetDiskOptions{
+		if vd.Status.Phase == v1alpha2.DiskTerminating || vd.Status.Target.PersistentVolumeClaim == "" {
+			removeDisk(kvvm, name)
+			return nil
+		}
+
+		return kvvm.SetDisk(name, SetDiskOptions{
 			PersistentVolumeClaim: ptr.To(vd.Status.Target.PersistentVolumeClaim),
 			Serial:                GenerateSerialFromObject(vd),
 			IsHotplugged:          true,
@@ -383,6 +386,17 @@ func setVMBDABlockDeviceDisk(
 	default:
 		return fmt.Errorf("unknown VMBDA block device kind %q. %w", ref.Kind, common.ErrUnknownType)
 	}
+}
+
+func removeDisk(kvvm *KVVM, name string) {
+	kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks = slices.DeleteFunc(
+		kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks,
+		func(d virtv1.Disk) bool { return d.Name == name },
+	)
+	kvvm.Resource.Spec.Template.Spec.Volumes = slices.DeleteFunc(
+		kvvm.Resource.Spec.Template.Spec.Volumes,
+		func(v virtv1.Volume) bool { return v.Name == name },
+	)
 }
 
 func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName map[string]*v1alpha2.VirtualDisk) error {

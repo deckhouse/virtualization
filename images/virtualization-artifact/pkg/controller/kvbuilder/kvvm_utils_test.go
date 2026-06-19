@@ -28,9 +28,14 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
-func newKVVMWithVMBDAVolume(vmName, vmNamespace, diskName, pvcName string) *KVVM {
+func newKVVMWithVMBDAVolume(pvcName string) *KVVM {
+	const (
+		vmNamespace = "test-ns"
+		diskName    = "data-disk"
+	)
+
 	kvvm := NewEmptyKVVM(
-		namespacedName(vmName, vmNamespace),
+		namespacedName("test-vm", vmNamespace),
 		KVVMOptions{},
 	)
 	kvvm.Resource.Spec.Template.Spec.Volumes = []virtv1.Volume{
@@ -62,7 +67,7 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes", func() {
 	)
 
 	It("should switch existing VMBDA volume back to source PVC after migration rollback", func() {
-		kvvm := newKVVMWithVMBDAVolume(vmName, vmNamespace, diskName, targetPVC)
+		kvvm := newKVVMWithVMBDAVolume(targetPVC)
 		vd := &v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       diskName,
@@ -99,6 +104,47 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes", func() {
 		Expect(kvvm.Resource.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim).NotTo(BeNil())
 		Expect(kvvm.Resource.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(sourcePVC))
 	})
+
+	It("should remove terminating VirtualDisk attached via VMBDA", func() {
+		kvvm := newKVVMWithVMBDAVolume(sourcePVC)
+		vd := &v1alpha2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{Name: diskName, Namespace: vmNamespace},
+			Status: v1alpha2.VirtualDiskStatus{
+				Phase:  v1alpha2.DiskTerminating,
+				Target: v1alpha2.DiskTarget{PersistentVolumeClaim: sourcePVC},
+			},
+		}
+
+		err := syncAttachedVMBDAHotplugVolumes(
+			kvvm,
+			map[string]*v1alpha2.VirtualDisk{diskName: vd},
+			nil,
+			nil,
+			map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment{
+				{Kind: v1alpha2.VMBDAObjectRefKindVirtualDisk, Name: diskName}: nil,
+			},
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(BeEmpty())
+		Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks).To(BeEmpty())
+	})
+
+	It("should remove missing VirtualDisk attached via VMBDA", func() {
+		kvvm := newKVVMWithVMBDAVolume(sourcePVC)
+
+		err := syncAttachedVMBDAHotplugVolumes(
+			kvvm,
+			map[string]*v1alpha2.VirtualDisk{},
+			nil,
+			nil,
+			map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment{
+				{Kind: v1alpha2.VMBDAObjectRefKindVirtualDisk, Name: diskName}: nil,
+			},
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(BeEmpty())
+		Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks).To(BeEmpty())
+	})
 })
 
 var _ = Describe("ApplyMigrationVolumes", func() {
@@ -111,7 +157,7 @@ var _ = Describe("ApplyMigrationVolumes", func() {
 	)
 
 	It("should switch hotplugged VMBDA disk to migration target PVC", func() {
-		kvvm := newKVVMWithVMBDAVolume(vmName, vmNamespace, diskName, sourcePVC)
+		kvvm := newKVVMWithVMBDAVolume(sourcePVC)
 		vm := &v1alpha2.VirtualMachine{
 			Status: v1alpha2.VirtualMachineStatus{
 				BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
