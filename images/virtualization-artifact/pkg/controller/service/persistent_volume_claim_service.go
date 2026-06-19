@@ -311,37 +311,23 @@ func (s *PersistentVolumeClaimService) choosePVCCloneStrategy(ctx context.Contex
 		}
 	}
 
-	// TODO(csi): the snapshot clone strategy is temporarily disabled. A CSI
-	// snapshot-clone leaves the cloned volume DRBD-Primary on a node other than the
-	// consuming VirtualMachine's, and DRBD (single-primary) then refuses to promote it
-	// read-write on the VM's node ("failed to set source device readwrite"), so the disk
-	// never attaches. Until snapshot-sourced disks are materialized into a fresh volume
-	// owned solely by the VM's node, never pick the snapshot strategy.
-	/*
-		if preferred == cloneStrategySnapshot && s.canSnapshotClone(ctx, sourceClaim, sourceSC, targetSC, targetVolumeMode) {
-			return cloneStrategySnapshot
-		}
-	*/
+	if preferred == cloneStrategySnapshot && s.canSnapshotClone(ctx, sourceClaim, sourceSC, targetSC, targetVolumeMode) {
+		return cloneStrategySnapshot
+	}
 	if preferred != cloneStrategyHost && canCSIClone(sourceClaim, sourceSC, targetSC, targetVolumeMode) {
 		return cloneStrategyCSI
 	}
-	/*
-		if preferred == cloneStrategyCSI && s.canSnapshotClone(ctx, sourceClaim, sourceSC, targetSC, targetVolumeMode) {
-			return cloneStrategySnapshot
-		}
-	*/
+	if preferred == cloneStrategyCSI && s.canSnapshotClone(ctx, sourceClaim, sourceSC, targetSC, targetVolumeMode) {
+		return cloneStrategySnapshot
+	}
 	return cloneStrategyHost
 }
 
-// TODO(csi): re-enable together with the snapshot clone strategy in
-// choosePVCCloneStrategy (currently disabled due to the DRBD single-primary issue).
-/*
 func (s *PersistentVolumeClaimService) canSnapshotClone(ctx context.Context, sourceClaim *corev1.PersistentVolumeClaim, sourceSC, targetSC *storagev1.StorageClass, targetVolumeMode corev1.PersistentVolumeMode) bool {
 	return sourceSC.Provisioner == targetSC.Provisioner &&
 		volumeModesEqual(sourceClaim, targetVolumeMode) &&
 		s.snapshotClassForProvisioner(ctx, sourceSC.Provisioner) != ""
 }
-*/
 
 func canCSIClone(sourceClaim *corev1.PersistentVolumeClaim, sourceSC, targetSC *storagev1.StorageClass, targetVolumeMode corev1.PersistentVolumeMode) bool {
 	return sourceClaim.Namespace != "" &&

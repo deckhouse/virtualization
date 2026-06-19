@@ -218,10 +218,6 @@ func TestPVCServiceWaitForImportIsResumable(t *testing.T) {
 	}
 }
 
-// TODO(csi): re-enable when the snapshot clone strategy is restored. The snapshot
-// strategy is currently disabled in choosePVCCloneStrategy (DRBD single-primary issue),
-// so this case now resolves to a CSI clone instead of a snapshot clone.
-/*
 func TestPVCServiceCreateTargetPicksVolumeSnapshotStrategyWhenPossible(t *testing.T) {
 	ctx := context.Background()
 	vd := diskImportTestVD()
@@ -264,7 +260,6 @@ func TestPVCServiceCreateTargetPicksVolumeSnapshotStrategyWhenPossible(t *testin
 		t.Fatalf("unexpected snapshot source: %#v", snapshot.Spec.Source.PersistentVolumeClaimName)
 	}
 }
-*/
 
 func TestPVCServiceWaitForImportSmartCloneMarksSucceededAndCleansSnapshot(t *testing.T) {
 	ctx := context.Background()
