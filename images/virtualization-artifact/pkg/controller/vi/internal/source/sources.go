@@ -23,8 +23,11 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
@@ -35,6 +38,38 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
+
+// needBounderForClone reports whether a bounder pod must be created to unblock
+// provisioning of the target PVC.
+//
+// A smart-clone target (CSI clone / VolumeSnapshot restore) is dynamically
+// provisioned from a dataSource and has no importer pod. On a
+// WaitForFirstConsumer storage class such a PVC stays Pending until a consumer
+// pod is scheduled. A VirtualImage on PVC never gets a VirtualMachine consumer,
+// so without a bounder pod (whose only job is to get scheduled and trigger the
+// binding) the import would hang forever. Host-assisted imports bind the target
+// via the prime-PVC rebind and never need a bounder.
+func needBounderForClone(ctx context.Context, cl client.Client, pvc *corev1.PersistentVolumeClaim) (bool, error) {
+	if pvc == nil || pvc.Status.Phase == corev1.ClaimBound {
+		return false, nil
+	}
+	if !service.IsSmartClonePVC(pvc) {
+		return false, nil
+	}
+	if pvc.Spec.StorageClassName == nil || *pvc.Spec.StorageClassName == "" {
+		return false, nil
+	}
+
+	sc, err := object.FetchObject(ctx, types.NamespacedName{Name: *pvc.Spec.StorageClassName}, cl, &storagev1.StorageClass{})
+	if err != nil {
+		return false, fmt.Errorf("fetch storage class: %w", err)
+	}
+	if sc == nil || sc.VolumeBindingMode == nil || *sc.VolumeBindingMode != storagev1.VolumeBindingWaitForFirstConsumer {
+		return false, nil
+	}
+
+	return true, nil
+}
 
 type Handler interface {
 	StoreToDVCR(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error)

@@ -460,3 +460,14 @@ func volumeModesEqual(sourceClaim *corev1.PersistentVolumeClaim, targetVolumeMod
 func isSmartCloneStrategy(strategy string) bool {
 	return strategy == cloneStrategySnapshot || strategy == cloneStrategyCSI
 }
+
+// IsSmartClonePVC reports whether the target PVC is provisioned via a smart
+// clone (CSI clone or VolumeSnapshot restore). Such targets are dynamically
+// provisioned from a dataSource and, unlike host-assisted imports, have no
+// importer pod that would trigger binding of a WaitForFirstConsumer volume.
+func IsSmartClonePVC(pvc *corev1.PersistentVolumeClaim) bool {
+	if pvc == nil {
+		return false
+	}
+	return isSmartCloneStrategy(pvc.Annotations[annotations.AnnPVCImportCloneStrategy])
+}

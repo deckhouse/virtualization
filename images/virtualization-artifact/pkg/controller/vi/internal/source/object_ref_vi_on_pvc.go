@@ -48,6 +48,7 @@ import (
 type ObjectRefDataVirtualImageOnPVC struct {
 	statService     Stat
 	importerService Importer
+	bounderService  Bounder
 	dvcrSettings    *dvcr.Settings
 	client          client.Client
 	diskService     *service.DiskService
@@ -58,6 +59,7 @@ func NewObjectRefDataVirtualImageOnPVC(
 	recorder eventrecord.EventRecorderLogger,
 	statService Stat,
 	importerService Importer,
+	bounderService Bounder,
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 	diskService *service.DiskService,
@@ -65,6 +67,7 @@ func NewObjectRefDataVirtualImageOnPVC(
 	return &ObjectRefDataVirtualImageOnPVC{
 		statService:     statService,
 		importerService: importerService,
+		bounderService:  bounderService,
 		dvcrSettings:    dvcrSettings,
 		client:          client,
 		diskService:     diskService,
@@ -245,6 +248,14 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 
 		source := service.NewPVCPVCImportSource(viRef.Status.Target.PersistentVolumeClaim, viRef.Namespace)
 
+		// A same-CSI PVC source is provisioned via a smart clone (no importer pod).
+		// On a WaitForFirstConsumer storage class the target PVC needs a consumer to
+		// bind; create a bounder pod to trigger it, since a VirtualImage never gets a
+		// VirtualMachine consumer of its own.
+		if err = ds.ensureBounder(ctx, vi, pvc, supgen); err != nil {
+			return reconcile.Result{}, err
+		}
+
 		return reconcilePVCImportFromReadySource(ctx, vi, pvc, source, size, cb, supgen, ds.statService, ds.diskService, func() {
 			ds.recorder.Event(vi, corev1.EventTypeNormal, v1alpha2.ReasonDataSourceSyncCompleted, "The ObjectRef DataSource import has completed")
 			vi.Status.Size = viRef.Status.Size
@@ -256,10 +267,29 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
+// ensureBounder creates a bounder pod when the target PVC is a smart clone on a
+// WaitForFirstConsumer storage class, so its provisioning is triggered. The
+// bounder pod is quota-excluded and owned by the target, and is removed by
+// CleanUpSupplements once the image is Ready.
+func (ds ObjectRefDataVirtualImageOnPVC) ensureBounder(ctx context.Context, vi *v1alpha2.VirtualImage, pvc *corev1.PersistentVolumeClaim, supgen supplements.Generator) error {
+	need, err := needBounderForClone(ctx, ds.client, pvc)
+	if err != nil || !need {
+		return err
+	}
+
+	ownerRef := metav1.NewControllerRef(vi, vi.GroupVersionKind())
+	return ds.bounderService.Start(ctx, ownerRef, supgen, service.WithSystemNodeToleration())
+}
+
 func (ds ObjectRefDataVirtualImageOnPVC) CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, error) {
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
 	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
+
+	bounderRequeue, err := ds.bounderService.CleanUp(ctx, supgen)
 	if err != nil {
 		return false, err
 	}
@@ -269,7 +299,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) CleanUp(ctx context.Context, vi *v1alph
 		return false, err
 	}
 
-	return importerRequeue || diskRequeue, nil
+	return importerRequeue || bounderRequeue || diskRequeue, nil
 }
 
 func (ds ObjectRefDataVirtualImageOnPVC) getEnvSettings(vi *v1alpha2.VirtualImage, sup supplements.Generator) *importer.Settings {
@@ -293,12 +323,17 @@ func (ds ObjectRefDataVirtualImageOnPVC) CleanUpSupplements(ctx context.Context,
 		return reconcile.Result{}, err
 	}
 
+	bounderRequeue, err := ds.bounderService.CleanUpSupplements(ctx, supgen)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if importerRequeue || diskRequeue {
+	if importerRequeue || bounderRequeue || diskRequeue {
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	} else {
 		return reconcile.Result{}, nil

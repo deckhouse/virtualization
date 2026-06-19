@@ -51,6 +51,7 @@ import (
 
 type ObjectRefVirtualDisk struct {
 	importerService Importer
+	bounderService  Bounder
 	diskService     *service.DiskService
 	statService     Stat
 	dvcrSettings    *dvcr.Settings
@@ -61,6 +62,7 @@ type ObjectRefVirtualDisk struct {
 func NewObjectRefVirtualDisk(
 	recorder eventrecord.EventRecorderLogger,
 	importerService Importer,
+	bounderService Bounder,
 	client client.Client,
 	diskService *service.DiskService,
 	dvcrSettings *dvcr.Settings,
@@ -68,6 +70,7 @@ func NewObjectRefVirtualDisk(
 ) *ObjectRefVirtualDisk {
 	return &ObjectRefVirtualDisk{
 		importerService: importerService,
+		bounderService:  bounderService,
 		client:          client,
 		recorder:        recorder,
 		diskService:     diskService,
@@ -261,6 +264,14 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *v1alpha2.Virt
 			return reconcile.Result{}, err
 		}
 
+		// A same-CSI PVC source is provisioned via a smart clone (no importer pod).
+		// On a WaitForFirstConsumer storage class the target PVC needs a consumer to
+		// bind; create a bounder pod to trigger it, since a VirtualImage never gets a
+		// VirtualMachine consumer of its own.
+		if err = ds.ensureBounder(ctx, vi, pvc, supgen); err != nil {
+			return reconcile.Result{}, err
+		}
+
 		return reconcilePVCImportFromReadySource(ctx, vi, pvc, source, size, cb, supgen, ds.statService, ds.diskService, func() {
 			ds.recorder.Event(vi, corev1.EventTypeNormal, v1alpha2.ReasonDataSourceSyncCompleted, "The ObjectRef DataSource import has completed")
 			q, err := resource.ParseQuantity(vdRef.Status.Capacity)
@@ -292,16 +303,35 @@ func (ds ObjectRefVirtualDisk) CleanUpSupplements(ctx context.Context, vi *v1alp
 		return reconcile.Result{}, err
 	}
 
+	bounderRequeue, err := ds.bounderService.CleanUpSupplements(ctx, supgen)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if importerRequeue || diskRequeue {
+	if importerRequeue || bounderRequeue || diskRequeue {
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	} else {
 		return reconcile.Result{}, nil
 	}
+}
+
+// ensureBounder creates a bounder pod when the target PVC is a smart clone on a
+// WaitForFirstConsumer storage class, so its provisioning is triggered. The
+// bounder pod is quota-excluded and owned by the target, and is removed by
+// CleanUpSupplements once the image is Ready.
+func (ds ObjectRefVirtualDisk) ensureBounder(ctx context.Context, vi *v1alpha2.VirtualImage, pvc *corev1.PersistentVolumeClaim, supgen supplements.Generator) error {
+	need, err := needBounderForClone(ctx, ds.client, pvc)
+	if err != nil || !need {
+		return err
+	}
+
+	ownerRef := metav1.NewControllerRef(vi, vi.GroupVersionKind())
+	return ds.bounderService.Start(ctx, ownerRef, supgen, service.WithSystemNodeToleration())
 }
 
 func (ds ObjectRefVirtualDisk) CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, error) {
@@ -312,12 +342,17 @@ func (ds ObjectRefVirtualDisk) CleanUp(ctx context.Context, vi *v1alpha2.Virtual
 		return false, err
 	}
 
+	bounderRequeue, err := ds.bounderService.CleanUp(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
+
 	diskRequeue, err := ds.diskService.CleanUp(ctx, supgen)
 	if err != nil {
 		return false, err
 	}
 
-	return importerRequeue || diskRequeue, nil
+	return importerRequeue || bounderRequeue || diskRequeue, nil
 }
 
 func (ds ObjectRefVirtualDisk) getEnvSettings(vi *v1alpha2.VirtualImage, sup supplements.Generator, volumeMode *corev1.PersistentVolumeMode) *importer.Settings {

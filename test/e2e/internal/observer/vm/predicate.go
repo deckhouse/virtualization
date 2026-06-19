@@ -57,6 +57,24 @@ func BeFailed() Predicate {
 	}
 }
 
+// HaveNoBootableDevice reports an invariant violation when the VirtualMachine's
+// Running condition reports NoBootableDevice: the firmware scanned every block
+// device and found nothing to boot from. This does not resolve on its own, so
+// it is used with [Observer.Never] to fail the spec immediately instead of
+// blocking until the guest-agent wait times out.
+func HaveNoBootableDevice() Predicate {
+	return func(vm *v1alpha2.VirtualMachine) (bool, error) {
+		cond := findCondition(vm.Status.Conditions, vmcondition.TypeRunning.String())
+		if cond == nil {
+			return false, nil
+		}
+		if cond.Reason == vmcondition.ReasonNoBootableDeviceFound.String() {
+			return true, fmt.Errorf("VirtualMachine reports no bootable device: %s", cond.Message)
+		}
+		return false, nil
+	}
+}
+
 func findCondition(conds []metav1.Condition, condType string) *metav1.Condition {
 	for i := range conds {
 		if conds[i].Type == condType {

@@ -174,19 +174,19 @@ var _ = Describe("Source validations and helpers", func() {
 		})
 
 		It("constructs syncer", func() {
-			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, fake.NewClientBuilder().WithScheme(scheme).Build(), nil, settings, nil)
+			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, nil, fake.NewClientBuilder().WithScheme(scheme).Build(), nil, settings, nil)
 			Expect(syncer).ToNot(BeNil())
 		})
 
 		It("returns error for non virtual disk source", func() {
 			vi.Spec.DataSource.ObjectRef.Kind = v1alpha2.VirtualImageObjectRefKindVirtualImage
-			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, fake.NewClientBuilder().WithScheme(scheme).Build(), nil, settings, nil)
+			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, nil, fake.NewClientBuilder().WithScheme(scheme).Build(), nil, settings, nil)
 
 			Expect(syncer.Validate(ctx, vi)).To(MatchError("not a VirtualDisk data source"))
 		})
 
 		It("returns not ready when virtual disk is absent", func() {
-			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, fake.NewClientBuilder().WithScheme(scheme).Build(), nil, settings, nil)
+			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, nil, fake.NewClientBuilder().WithScheme(scheme).Build(), nil, settings, nil)
 
 			Expect(syncer.Validate(ctx, vi)).To(MatchError("VirtualDisk vd not ready"))
 		})
@@ -205,7 +205,7 @@ var _ = Describe("Source validations and helpers", func() {
 				},
 			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd).Build()
-			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, client, nil, settings, nil)
+			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, nil, client, nil, settings, nil)
 
 			Expect(syncer.Validate(ctx, vi)).To(MatchError("the VirtualDisk vd not ready for use"))
 		})
@@ -224,7 +224,7 @@ var _ = Describe("Source validations and helpers", func() {
 				},
 			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd).Build()
-			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, client, nil, settings, nil)
+			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, nil, client, nil, settings, nil)
 
 			Expect(syncer.Validate(ctx, vi)).To(Succeed())
 		})
@@ -243,7 +243,7 @@ var _ = Describe("Source validations and helpers", func() {
 				},
 			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd).Build()
-			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, client, nil, settings, nil)
+			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, nil, client, nil, settings, nil)
 
 			Expect(syncer.Validate(ctx, vi)).To(MatchError("the VirtualDisk vd attached to VirtualMachine"))
 		})
@@ -255,14 +255,14 @@ var _ = Describe("Source validations and helpers", func() {
 				Status:     v1alpha2.VirtualDiskStatus{Phase: v1alpha2.DiskReady},
 			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd).Build()
-			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, client, nil, settings, nil)
+			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, nil, client, nil, settings, nil)
 
 			Expect(syncer.Validate(ctx, vi)).To(Succeed())
 		})
 
 		It("builds importer settings for filesystem and block pvc", func() {
 			supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
-			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, fake.NewClientBuilder().WithScheme(scheme).Build(), nil, settings, nil)
+			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, nil, fake.NewClientBuilder().WithScheme(scheme).Build(), nil, settings, nil)
 
 			fsSettings := syncer.getEnvSettings(vi, supgen, ptr.To(corev1.PersistentVolumeFilesystem))
 			blockSettings := syncer.getEnvSettings(vi, supgen, ptr.To(corev1.PersistentVolumeBlock))
