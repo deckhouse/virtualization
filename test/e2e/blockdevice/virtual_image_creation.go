@@ -118,7 +118,7 @@ var _ = Describe("VirtualImageCreation", Label(
 			vi := newVirtualImageOnPVC("vi-pvc-from-cvi", scPtr,
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
 			)
-			createVirtualImageAndRunVM(ctx, f, vi)
+			createVirtualImageAndRunVM(ctx, f, vi, withIntermediateProgress())
 		})
 	})
 
@@ -205,14 +205,14 @@ var _ = Describe("VirtualImageCreation", Label(
 			vi := newVirtualImageOnDVCR("vi-from-vi-dvcr",
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualImage, baseVI.Name),
 			)
-			createVirtualImageAndRunVM(ctx, f, vi)
+			createVirtualImageAndRunVM(ctx, f, vi, withMinimalProgress())
 		})
 
 		It("provisions a VirtualImage on PVC", func() {
 			vi := newVirtualImageOnPVC("vi-pvc-from-vi-dvcr", scPtr,
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualImage, baseVI.Name),
 			)
-			createVirtualImageAndRunVM(ctx, f, vi)
+			createVirtualImageAndRunVM(ctx, f, vi, withIntermediateProgress())
 		})
 	})
 
@@ -337,6 +337,8 @@ func newVirtualImageOnPVC(name string, sc *string, opts ...vibuilder.Option) *v1
 // progressWaitOptions tunes the progress coverage expected while waiting for a
 // VirtualImage or VirtualDisk to become Ready.
 type progressWaitOptions struct {
+	// progressCoverage selects the expected set of observed progress values.
+	progressCoverage progressCoverage
 	// skipStreamingProgress selects the minimal progress coverage (0% and
 	// 100%). It is used by bind-based provisioning such as a CSI clone, which
 	// does not report intermediate percentages.
@@ -350,16 +352,41 @@ type progressWaitOptions struct {
 
 type progressWaitOption func(*progressWaitOptions)
 
+type progressCoverage int
+
+const (
+	progressCoverageFull progressCoverage = iota
+	progressCoverageMinimal
+	progressCoverageIntermediate
+)
+
 // withoutStreamingProgress selects minimal progress coverage for resources
 // provisioned via a CSI clone (a VirtualImage/VirtualDisk on PVC created from a
 // PVC-backed source on the same CSI driver), where there is no importer pod to
 // report intermediate percentages.
 func withoutStreamingProgress() progressWaitOption {
-	return func(o *progressWaitOptions) { o.skipStreamingProgress = true }
+	return func(o *progressWaitOptions) {
+		o.skipStreamingProgress = true
+		o.progressCoverage = progressCoverageMinimal
+	}
 }
 
 func withoutDiskStreamingProgress() progressWaitOption {
-	return func(o *progressWaitOptions) { o.skipDiskStreamingProgress = true }
+	return func(o *progressWaitOptions) {
+		o.skipDiskStreamingProgress = true
+	}
+}
+
+func withMinimalProgress() progressWaitOption {
+	return func(o *progressWaitOptions) {
+		o.progressCoverage = progressCoverageMinimal
+	}
+}
+
+func withIntermediateProgress() progressWaitOption {
+	return func(o *progressWaitOptions) {
+		o.progressCoverage = progressCoverageIntermediate
+	}
 }
 
 func createVirtualImageAndWait(ctx context.Context, f *framework.Framework, vi *v1alpha2.VirtualImage, opts ...progressWaitOption) {
@@ -427,25 +454,45 @@ func uploadVirtualImageAndWait(ctx context.Context, f *framework.Framework, vi *
 
 func virtualImageProgressExpectations(vi *v1alpha2.VirtualImage, o progressWaitOptions) viobs.ProgressExpectations {
 	if vi.Spec.Storage == v1alpha2.StorageContainerRegistry {
+		if o.progressCoverage == progressCoverageMinimal || isVirtualImageFromCVI(vi) {
+			return minimalVirtualImageProgress()
+		}
+		return intermediateVirtualImageProgress()
+	}
+	switch {
+	case o.progressCoverage == progressCoverageMinimal:
+		return minimalVirtualImageProgress()
+	case o.progressCoverage == progressCoverageIntermediate || isVirtualImageFromCVI(vi):
+		return intermediateVirtualImageProgress()
+	default:
 		return viobs.ProgressExpectations{
 			RequireZero:                    true,
+			RequireBetweenZeroAndFifty:     true,
+			RequireBetweenFiftyAndHundred:  true,
 			RequireIntermediateExceptFifty: true,
 			RequireHundred:                 true,
 		}
 	}
-	if o.skipStreamingProgress {
-		return viobs.ProgressExpectations{
-			RequireZero:    true,
-			RequireHundred: true,
-		}
+}
+
+func minimalVirtualImageProgress() viobs.ProgressExpectations {
+	return viobs.ProgressExpectations{
+		RequireZero:    true,
+		RequireHundred: true,
 	}
+}
+
+func intermediateVirtualImageProgress() viobs.ProgressExpectations {
 	return viobs.ProgressExpectations{
 		RequireZero:                    true,
-		RequireBetweenZeroAndFifty:     true,
-		RequireBetweenFiftyAndHundred:  true,
 		RequireIntermediateExceptFifty: true,
 		RequireHundred:                 true,
 	}
+}
+
+func isVirtualImageFromCVI(vi *v1alpha2.VirtualImage) bool {
+	return vi.Spec.DataSource.ObjectRef != nil &&
+		vi.Spec.DataSource.ObjectRef.Kind == v1alpha2.VirtualImageObjectRefKindClusterVirtualImage
 }
 
 // createVirtualImageAndRunVM provisions a (qcow2) VirtualImage, provisions a VirtualDisk
@@ -467,6 +514,8 @@ func runVirtualMachineFromImageDisk(ctx context.Context, f *framework.Framework,
 
 	if vi.Spec.Storage == v1alpha2.StoragePersistentVolumeClaim {
 		opts = append(opts, withoutDiskStreamingProgress())
+	} else {
+		opts = append(opts, withIntermediateProgress())
 	}
 
 	// The disk that boots the VM is the scenario's main resource, so it lives on the WFFC

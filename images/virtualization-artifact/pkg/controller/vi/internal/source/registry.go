@@ -150,7 +150,7 @@ func (ds RegistryDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.Virtua
 			Reason(vicondition.Provisioning).
 			Message("DVCR Provisioner not found: create the new one.")
 
-		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress, service.NewScaleOption(0, 50))
+		vi.Status.Progress = service.CapProgressBelow(ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress, service.NewScaleOption(0, 50)), 100)
 
 		err = ds.importerService.Protect(ctx, pod, supgen)
 		if err != nil {
@@ -275,7 +275,7 @@ func (ds RegistryDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtu
 			Message("Import is in the process of provisioning to DVCR.")
 
 		vi.Status.Phase = v1alpha2.ImageProvisioning
-		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
+		vi.Status.Progress = service.CapProgressBelow(ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress), 100)
 		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		log.Info("Provisioning...", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)

@@ -202,7 +202,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
-		createVirtualDiskAndRunVM(ctx, f, vd)
+		createVirtualDiskAndRunVM(ctx, f, vd, withIntermediateProgress())
 	})
 
 	// TODO(csi): temporarily disabled. A VirtualDisk created from a same-CSI source on a
@@ -282,7 +282,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
-		bootObs := startVirtualDisk(ctx, f, bootVD)
+		bootObs := startVirtualDisk(ctx, f, bootVD, withIntermediateProgress())
 		// Same-CSI PVC source provisions via a CSI clone (no streamed progress).
 		cloneObs := startVirtualDisk(ctx, f, vd, withoutStreamingProgress())
 
@@ -300,7 +300,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
-		createVirtualDiskAndRunVM(ctx, f, vd)
+		createVirtualDiskAndRunVM(ctx, f, vd, withIntermediateProgress())
 	})
 
 	It("provisions a blank VirtualDisk and attaches it to a running VirtualMachine", func() {
@@ -323,7 +323,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
-		bootObs := startVirtualDisk(ctx, f, bootVD)
+		bootObs := startVirtualDisk(ctx, f, bootVD, withIntermediateProgress())
 		// A blank disk is provisioned by the CSI driver and may legitimately jump
 		// straight from 0% to 100%.
 		blankObs := startVirtualDisk(ctx, f, blankVD, withoutStreamingProgress())
@@ -487,7 +487,7 @@ func startVirtualDisk(ctx context.Context, f *framework.Framework, vd *v1alpha2.
 	obs.Always(vdobs.BeStorageClassReady())
 	obs.Always(vdobs.BeDataSourceReady())
 	obs.Always(vdobs.HaveValidPhaseTransitions())
-	obs.Always(vdobs.HaveValidProgress(virtualDiskProgressExpectations(o), progressUpdateInterval, progressBoundaryBudget))
+	obs.Always(vdobs.HaveValidProgress(virtualDiskProgressExpectations(vd, o), progressUpdateInterval, progressBoundaryBudget))
 
 	By("Creating VirtualDisk", func() {
 		err := f.CreateWithDeferredDeletion(ctx, vd)
@@ -497,14 +497,27 @@ func startVirtualDisk(ctx context.Context, f *framework.Framework, vd *v1alpha2.
 	return obs
 }
 
-func virtualDiskProgressExpectations(o progressWaitOptions) vdobs.ProgressExpectations {
+func virtualDiskProgressExpectations(vd *v1alpha2.VirtualDisk, o progressWaitOptions) vdobs.ProgressExpectations {
 	if o.skipStreamingProgress || o.skipDiskStreamingProgress {
 		return vdobs.ProgressExpectations{
 			RequireZero:    true,
 			RequireHundred: true,
 		}
 	}
+	if o.progressCoverage == progressCoverageIntermediate || isVirtualDiskFromCVI(vd) {
+		return vdobs.ProgressExpectations{
+			RequireZero:                    true,
+			RequireIntermediateExceptFifty: true,
+			RequireHundred:                 true,
+		}
+	}
 	return streamedVirtualDiskProgress()
+}
+
+func isVirtualDiskFromCVI(vd *v1alpha2.VirtualDisk) bool {
+	return vd.Spec.DataSource != nil &&
+		vd.Spec.DataSource.ObjectRef != nil &&
+		vd.Spec.DataSource.ObjectRef.Kind == v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage
 }
 
 func streamedVirtualDiskProgress() vdobs.ProgressExpectations {
@@ -521,10 +534,10 @@ func streamedVirtualDiskProgress() vdobs.ProgressExpectations {
 // be used for disks that provision without a VirtualMachine (e.g. an Upload disk, whose
 // uploader Pod is the consumer); on WaitForFirstConsumer storage classes a disk without
 // a consumer never becomes Ready - use createVirtualDiskAndRunVM instead.
-func createVirtualDiskAndWait(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk) {
+func createVirtualDiskAndWait(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk, opts ...progressWaitOption) {
 	GinkgoHelper()
 
-	obs := startVirtualDisk(ctx, f, vd)
+	obs := startVirtualDisk(ctx, f, vd, opts...)
 	err := obs.WaitFor(vdobs.BeReady(), framework.LongTimeout)
 	Expect(err).NotTo(HaveOccurred())
 }

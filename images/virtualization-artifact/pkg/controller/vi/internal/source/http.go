@@ -157,7 +157,7 @@ func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.VirtualIm
 		vi.Status.Size = ds.statService.GetSize(pod)
 		vi.Status.CDROM = ds.statService.GetCDROM(pod)
 		vi.Status.Format = ds.statService.GetFormat(pod)
-		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
+		vi.Status.Progress = "100%"
 		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
 
@@ -179,7 +179,7 @@ func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.VirtualIm
 			Message("Import is in the process of provisioning to DVCR.")
 
 		vi.Status.Phase = v1alpha2.ImageProvisioning
-		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
+		vi.Status.Progress = service.CapProgressBelow(ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress), 100)
 		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
 
@@ -272,7 +272,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualIma
 			Reason(vicondition.Provisioning).
 			Message("Import is in the process of provisioning to DVCR.")
 
-		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress, service.NewScaleOption(0, 50))
+		vi.Status.Progress = service.CapProgressBelow(ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress, service.NewScaleOption(0, 50)), 100)
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
 	default:
 		ds.recorder.Event(

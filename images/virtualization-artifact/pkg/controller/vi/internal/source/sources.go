@@ -180,7 +180,7 @@ func refreshPVCImportProgress(
 	if scale != nil {
 		opts = append(opts, scale)
 	}
-	vi.Status.Progress = stat.GetProgress(vi.GetUID(), pod, vi.Status.Progress, opts...)
+	vi.Status.Progress = service.CapProgressBelow(stat.GetProgress(vi.GetUID(), pod, vi.Status.Progress, opts...), 100)
 	return nil
 }
 

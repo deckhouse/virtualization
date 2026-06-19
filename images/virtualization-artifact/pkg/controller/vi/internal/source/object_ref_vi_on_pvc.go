@@ -191,7 +191,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, vi
 			Message("Import is in the process of provisioning to DVCR.")
 
 		vi.Status.Phase = v1alpha2.ImageProvisioning
-		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
+		vi.Status.Progress = service.CapProgressBelow(ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress), 100)
 		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		log.Info("Provisioning...", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
