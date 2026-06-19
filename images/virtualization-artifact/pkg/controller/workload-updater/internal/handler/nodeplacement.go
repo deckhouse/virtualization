@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -37,6 +38,8 @@ import (
 
 const (
 	nodePlacementHandler = "NodePlacementHandler"
+
+	nodePlacementMigrationSettleDelay = time.Minute
 )
 
 func NewNodePlacementHandler(client client.Client, migration OneShotMigration) *NodePlacementHandler {
@@ -79,8 +82,8 @@ func (h *NodePlacementHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualM
 	// Do not trigger a node placement migration while a volume migration or a
 	// live migration is in progress: a concurrent migration cannot be started
 	// and OnceMigrate already deduplicates against in-flight migrations.
-	if shouldSkipNodePlacementMigration(kvvmi) {
-		return reconcile.Result{}, nil
+	if result, skip := shouldSkipNodePlacementMigration(kvvmi); skip {
+		return result, nil
 	}
 
 	sum, err := genNodePlacementSum(kvvmi)
@@ -103,14 +106,27 @@ func (h *NodePlacementHandler) Name() string {
 	return nodePlacementHandler
 }
 
-func shouldSkipNodePlacementMigration(kvvmi *virtv1.VirtualMachineInstance) bool {
+func shouldSkipNodePlacementMigration(kvvmi *virtv1.VirtualMachineInstance) (reconcile.Result, bool) {
 	volumesChange, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceVolumesChange, kvvmi.Status.Conditions)
 	if volumesChange.Status == corev1.ConditionTrue || len(kvvmi.Status.MigratedVolumes) > 0 {
-		return true
+		return reconcile.Result{}, true
 	}
 
 	migrationState := kvvmi.Status.MigrationState
-	return migrationState != nil && migrationState.StartTimestamp != nil && migrationState.EndTimestamp == nil
+	if migrationState == nil || migrationState.StartTimestamp == nil {
+		return reconcile.Result{}, false
+	}
+
+	if migrationState.EndTimestamp == nil {
+		return reconcile.Result{}, true
+	}
+
+	settleUntil := migrationState.EndTimestamp.Add(nodePlacementMigrationSettleDelay)
+	if requeueAfter := time.Until(settleUntil); requeueAfter > 0 {
+		return reconcile.Result{RequeueAfter: requeueAfter}, true
+	}
+
+	return reconcile.Result{}, false
 }
 
 func isLiveMigratable(kvvmi *virtv1.VirtualMachineInstance) bool {
