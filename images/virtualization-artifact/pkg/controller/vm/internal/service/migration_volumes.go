@@ -104,8 +104,18 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		return reconcile.Result{}, err
 	}
 
-	if kvvmInCluster == nil || kvvmiInCluster == nil {
-		log.Info("Virtualmachine or kvvmi is nil, skip volume migration.")
+	if kvvmInCluster == nil {
+		log.Info("Virtualmachine is nil, skip volume migration.")
+		return reconcile.Result{}, nil
+	}
+
+	if kvvmiInCluster == nil {
+		if s.shouldPatchVolumes(kvvmInCluster, builtKVVM) {
+			log.Info("kvvmi is nil, force revert kvvm volumes to source volumes.")
+			return reconcile.Result{}, s.patchVolumes(ctx, builtKVVM)
+		}
+
+		log.Info("kvvmi is nil and kvvm volumes are already reverted, skip volume migration.")
 		return reconcile.Result{}, nil
 	}
 
@@ -250,6 +260,12 @@ func (s MigrationVolumesService) patchVolumes(ctx context.Context, kvvm *virtv1.
 
 	err = s.client.Patch(ctx, kvvm, client.RawPatch(types.JSONPatchType, patchBytes))
 	return err
+}
+
+func (s MigrationVolumesService) shouldPatchVolumes(currentKVVM, desiredKVVM *virtv1.VirtualMachine) bool {
+	return !equality.Semantic.DeepEqual(currentKVVM.Spec.UpdateVolumesStrategy, desiredKVVM.Spec.UpdateVolumesStrategy) ||
+		!equality.Semantic.DeepEqual(currentKVVM.Spec.Template.Spec.Volumes, desiredKVVM.Spec.Template.Spec.Volumes) ||
+		!equality.Semantic.DeepEqual(currentKVVM.Spec.Template.Spec.Affinity, desiredKVVM.Spec.Template.Spec.Affinity)
 }
 
 func (s MigrationVolumesService) VolumesSynced(ctx context.Context, vmState state.VirtualMachineState) (bool, error) {
