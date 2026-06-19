@@ -19,6 +19,7 @@ package cvi
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -32,6 +33,13 @@ type Observer = observer.Observer[*v1alpha2.ClusterVirtualImage]
 
 type Predicate = observer.Predicate[*v1alpha2.ClusterVirtualImage]
 
+// StartObserver starts a ClusterVirtualImage Observer and registers a
+// DeferCleanup that stops the watch and re-asserts no invariant was
+// violated. In addition, a watcher goroutine surfaces the very first
+// Never/Always violation through Ginkgo's Fail the moment it fires, so the
+// test fails at the precise instant of the breach instead of blocking on a
+// subsequent unrelated WaitFor and only reporting the violation in
+// DeferCleanup.
 func StartObserver(ctx context.Context, f *framework.Framework, cvi *v1alpha2.ClusterVirtualImage) Observer {
 	GinkgoHelper()
 
@@ -43,6 +51,8 @@ func StartObserver(ctx context.Context, f *framework.Framework, cvi *v1alpha2.Cl
 	)
 	Expect(err).NotTo(HaveOccurred(), "failed to start observer for ClusterVirtualImage %s", cvi.Name)
 
+	go failFastOnInvariant(obs, fmt.Sprintf("ClusterVirtualImage %s", cvi.Name))
+
 	DeferCleanup(func() {
 		obs.Stop()
 		Expect(obs.Err()).NotTo(HaveOccurred(),
@@ -51,4 +61,20 @@ func StartObserver(ctx context.Context, f *framework.Framework, cvi *v1alpha2.Cl
 	})
 
 	return obs
+}
+
+// failFastOnInvariant blocks until obs either reports an invariant
+// violation or stops cleanly, and surfaces the first violation as a
+// Ginkgo failure right away. It is meant to be launched in its own
+// goroutine; defer GinkgoRecover() lets Fail's panic be captured by
+// Ginkgo even though we are off the spec's main goroutine.
+func failFastOnInvariant(obs Observer, label string) {
+	defer GinkgoRecover()
+	select {
+	case <-obs.InvariantViolated():
+	case <-obs.Stopped():
+	}
+	if err := obs.Err(); err != nil {
+		Fail(fmt.Sprintf("%s observer reported an invariant violation: %s", label, err))
+	}
 }

@@ -381,6 +381,36 @@ func HaveProgressWhileProvisioning() Predicate {
 	}
 }
 
+// HaveNoProgressBeforeProvisioning reports an invariant violation when
+// a VirtualDisk exposes a progress percentage while it is still in the
+// pre-Provisioning phases ("" or Pending). The progress percentage
+// describes how much of the import has been transferred and is
+// meaningful only once the import has actually started, so any
+// non-empty Progress at this stage is a controller bug.
+//
+// Phases at and beyond Provisioning are skipped (the in-import behaviour
+// is enforced by [HaveProgressWhileProvisioning] and
+// [HaveTimelyProgress]).
+//
+// Intended for use with [Observer.Always].
+func HaveNoProgressBeforeProvisioning() Predicate {
+	return func(d *v1alpha2.VirtualDisk) (bool, error) {
+		switch d.Status.Phase {
+		case "", v1alpha2.DiskPending:
+			// fall through to the check below
+		default:
+			return true, nil
+		}
+		if d.Status.Progress == "" {
+			return true, nil
+		}
+		return false, fmt.Errorf(
+			"phase is %s but progress is %q, expected an empty progress until the disk enters Provisioning",
+			displayPhase(d.Status.Phase), d.Status.Progress,
+		)
+	}
+}
+
 // HaveTimelyProgress reports an invariant violation when, during active
 // provisioning, VirtualDisk.Status.Progress does not stream smoothly.
 //
@@ -395,7 +425,9 @@ func HaveProgressWhileProvisioning() Predicate {
 //   - Coverage: progress must actually stream intermediate percentages. Jumping
 //     straight from one stage boundary to the next (0% -> >=50% or 50% -> 100%)
 //     means the intermediate values were never reported, so progress would be
-//     just 0%/50%/100%, which is rejected.
+//     just 0%/50%/100%, which is rejected. Coverage is also enforced across
+//     the Provisioning -> Ready boundary, where the controller would otherwise
+//     leap from a still-low progress (e.g. 0%) directly to 100%.
 //
 // The Pending, WaitForFirstConsumer and WaitForUserUpload phases legitimately
 // sit at 0% (the disk is waiting for a consumer or for the user upload to
@@ -408,6 +440,29 @@ func HaveTimelyProgress(threshold, boundaryBudget time.Duration) Predicate {
 	)
 
 	return func(d *v1alpha2.VirtualDisk) (bool, error) {
+		// Provisioning -> Ready boundary: the in-Provisioning jump check
+		// below stops tracking the moment the phase leaves Provisioning,
+		// so a controller that leaps from a still-low progress directly
+		// to 100% at the very moment of transition would slip past it.
+		// Re-evaluate the stage-jump rule here using the freshly-observed
+		// final progress (typically 100%) and reset tracking afterwards.
+		if d.Status.Phase == v1alpha2.DiskReady && tracking {
+			final, err := parseProgress(d.Status.Progress)
+			if err != nil {
+				tracking = false
+				return false, fmt.Errorf("phase is Ready but progress is invalid: %w", err)
+			}
+			tracking = false
+			if isProgressStageJump(lastProgress, final) {
+				return false, fmt.Errorf(
+					"disk transitioned to Ready with progress %s after %s; intermediate percentages between %s and %s were never reported",
+					formatProgressValue(final), formatProgressValue(lastProgress),
+					formatProgressValue(lastProgress), formatProgressValue(final),
+				)
+			}
+			return true, nil
+		}
+
 		if d.Status.Phase != v1alpha2.DiskProvisioning {
 			// Not importing right now; restart tracking for the next window.
 			tracking = false

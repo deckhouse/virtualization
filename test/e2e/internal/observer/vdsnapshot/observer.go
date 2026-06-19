@@ -21,6 +21,7 @@ package vdsnapshot
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -42,6 +43,12 @@ type Predicate = observer.Predicate[*v1alpha2.VirtualDiskSnapshot]
 // and registers a DeferCleanup that stops the underlying watch and asserts no
 // registered invariant was violated. Start it before creating the snapshot so
 // the very first phase transitions are captured.
+//
+// In addition to the deferred assertion, a watcher goroutine surfaces the
+// very first Never/Always violation through Ginkgo's Fail the moment it
+// fires, so the test fails at the precise instant of the breach instead of
+// blocking on a subsequent unrelated WaitFor and only reporting the
+// violation in DeferCleanup.
 func StartObserver(ctx context.Context, f *framework.Framework, snapshot *v1alpha2.VirtualDiskSnapshot) Observer {
 	GinkgoHelper()
 
@@ -53,6 +60,8 @@ func StartObserver(ctx context.Context, f *framework.Framework, snapshot *v1alph
 	)
 	Expect(err).NotTo(HaveOccurred(), "failed to start observer for VirtualDiskSnapshot %s/%s", snapshot.Namespace, snapshot.Name)
 
+	go failFastOnInvariant(obs, fmt.Sprintf("VirtualDiskSnapshot %s/%s", snapshot.Namespace, snapshot.Name))
+
 	DeferCleanup(func() {
 		obs.Stop()
 		Expect(obs.Err()).NotTo(HaveOccurred(),
@@ -61,4 +70,20 @@ func StartObserver(ctx context.Context, f *framework.Framework, snapshot *v1alph
 	})
 
 	return obs
+}
+
+// failFastOnInvariant blocks until obs either reports an invariant
+// violation or stops cleanly, and surfaces the first violation as a
+// Ginkgo failure right away. It is meant to be launched in its own
+// goroutine; defer GinkgoRecover() lets Fail's panic be captured by
+// Ginkgo even though we are off the spec's main goroutine.
+func failFastOnInvariant(obs Observer, label string) {
+	defer GinkgoRecover()
+	select {
+	case <-obs.InvariantViolated():
+	case <-obs.Stopped():
+	}
+	if err := obs.Err(); err != nil {
+		Fail(fmt.Sprintf("%s observer reported an invariant violation: %s", label, err))
+	}
 }

@@ -338,6 +338,7 @@ func createVirtualImageAndWait(ctx context.Context, f *framework.Framework, vi *
 	obs.Never(viobs.BeFailed())
 	obs.Always(viobs.HaveNonDecreasingProgress())
 	obs.Always(viobs.HaveValidPhaseTransitions())
+	obs.Always(viobs.HaveNoProgressBeforeProvisioning())
 	obs.Always(viobs.HaveProgressWhileProvisioning())
 	obs.Always(viobs.HaveTimelyProgress(progressUpdateInterval, progressBoundaryBudget))
 
@@ -359,6 +360,7 @@ func uploadVirtualImageAndWait(ctx context.Context, f *framework.Framework, vi *
 	obs.Never(viobs.BeFailed())
 	obs.Always(viobs.HaveNonDecreasingProgress())
 	obs.Always(viobs.HaveValidPhaseTransitions())
+	obs.Always(viobs.HaveNoProgressBeforeProvisioning())
 	obs.Always(viobs.HaveProgressWhileProvisioning())
 	obs.Always(viobs.HaveTimelyProgress(progressUpdateInterval, progressBoundaryBudget))
 

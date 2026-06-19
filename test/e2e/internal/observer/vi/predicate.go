@@ -277,6 +277,36 @@ func HaveProgressWhileProvisioning() Predicate {
 	}
 }
 
+// HaveNoProgressBeforeProvisioning reports an invariant violation when
+// a VirtualImage exposes a progress percentage while it is still in the
+// pre-Provisioning phases ("" or Pending). The progress percentage
+// describes how much of the import has been transferred and is
+// meaningful only once the import has actually started, so any
+// non-empty Progress at this stage is a controller bug.
+//
+// Phases at and beyond Provisioning are skipped (the in-import behaviour
+// is enforced by [HaveProgressWhileProvisioning] and
+// [HaveTimelyProgress]).
+//
+// Intended for use with [Observer.Always].
+func HaveNoProgressBeforeProvisioning() Predicate {
+	return func(i *v1alpha2.VirtualImage) (bool, error) {
+		switch i.Status.Phase {
+		case "", v1alpha2.ImagePending:
+			// fall through to the check below
+		default:
+			return true, nil
+		}
+		if i.Status.Progress == "" {
+			return true, nil
+		}
+		return false, fmt.Errorf(
+			"phase is %s but progress is %q, expected an empty progress until the import enters Provisioning",
+			displayPhase(i.Status.Phase), i.Status.Progress,
+		)
+	}
+}
+
 // HaveTimelyProgress reports an invariant violation when, during active
 // provisioning, VirtualImage.Status.Progress does not stream smoothly.
 //
@@ -291,7 +321,9 @@ func HaveProgressWhileProvisioning() Predicate {
 //   - Coverage: progress must actually stream intermediate percentages. Jumping
 //     straight from one stage boundary to the next (0% -> >=50% or 50% -> 100%)
 //     means the intermediate values were never reported, so progress would be
-//     just 0%/50%/100%, which is rejected.
+//     just 0%/50%/100%, which is rejected. Coverage is also enforced across
+//     the Provisioning -> Ready boundary, where the controller would otherwise
+//     leap from a still-low progress (e.g. 0%) directly to 100%.
 //
 // The Pending and WaitForUserUpload phases legitimately sit at 0% (the image is
 // waiting for the user upload to begin) and are skipped. Intended for use with
@@ -304,6 +336,29 @@ func HaveTimelyProgress(threshold, boundaryBudget time.Duration) Predicate {
 	)
 
 	return func(i *v1alpha2.VirtualImage) (bool, error) {
+		// Provisioning -> Ready boundary: the in-Provisioning jump check
+		// below stops tracking the moment the phase leaves Provisioning,
+		// so a controller that leaps from a still-low progress directly
+		// to 100% at the very moment of transition would slip past it.
+		// Re-evaluate the stage-jump rule here using the freshly-observed
+		// final progress (typically 100%) and reset tracking afterwards.
+		if i.Status.Phase == v1alpha2.ImageReady && tracking {
+			final, err := parseProgress(i.Status.Progress)
+			if err != nil {
+				tracking = false
+				return false, fmt.Errorf("phase is Ready but progress is invalid: %w", err)
+			}
+			tracking = false
+			if isProgressStageJump(lastProgress, final) {
+				return false, fmt.Errorf(
+					"image transitioned to Ready with progress %s after %s; intermediate percentages between %s and %s were never reported",
+					formatProgressValue(final), formatProgressValue(lastProgress),
+					formatProgressValue(lastProgress), formatProgressValue(final),
+				)
+			}
+			return true, nil
+		}
+
 		if i.Status.Phase != v1alpha2.ImageProvisioning {
 			// Not importing right now; restart tracking for the next window.
 			tracking = false

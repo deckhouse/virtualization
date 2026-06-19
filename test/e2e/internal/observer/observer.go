@@ -100,6 +100,17 @@ type Observer[T Object] interface {
 	// error, no further events are evaluated against any registered
 	// invariant.
 	Err() error
+	// InvariantViolated returns a channel that is closed as soon as a Never
+	// or Always predicate captures the first violation. It lets external
+	// watchers (e.g. a fail-fast goroutine that calls Ginkgo's Fail) react
+	// the instant a contract is broken, instead of waiting until the next
+	// WaitFor or the observer's deferred cleanup.
+	InvariantViolated() <-chan struct{}
+	// Stopped returns a channel that is closed when the observer has fully
+	// stopped (either because Stop was called or because the underlying
+	// watch terminated). External watchers use it to exit cleanly when no
+	// invariant violation has occurred.
+	Stopped() <-chan struct{}
 	// Stop terminates the underlying watch and unblocks every pending WaitFor
 	// call. Stop is idempotent and safe to call concurrently from multiple
 	// goroutines.
@@ -281,6 +292,14 @@ func (o *observer[T]) Err() error {
 	return o.firstErr
 }
 
+func (o *observer[T]) InvariantViolated() <-chan struct{} {
+	return o.invariantViolated
+}
+
+func (o *observer[T]) Stopped() <-chan struct{} {
+	return o.done
+}
+
 func (o *observer[T]) WaitFor(predicate Predicate[T], timeout time.Duration) error {
 	// If an invariant has already fired, abort immediately.
 	if err := o.Err(); err != nil {
@@ -316,6 +335,13 @@ func (o *observer[T]) WaitFor(predicate Predicate[T], timeout time.Duration) err
 		if err != nil {
 			return fmt.Errorf("observer: WaitFor predicate: %w", err)
 		}
+		// An Always/Never predicate may have latched on the same event that
+		// satisfies this one. The invariant violation takes precedence:
+		// returning nil here would hide the breach until the observer is
+		// stopped. Re-check Err() before reporting success.
+		if invErr := o.Err(); invErr != nil {
+			return fmt.Errorf("observer: WaitFor aborted by invariant: %w", invErr)
+		}
 		if ok {
 			return nil
 		}
@@ -330,6 +356,15 @@ func (o *observer[T]) WaitFor(predicate Predicate[T], timeout time.Duration) err
 			ok, err := predicate(obj)
 			if err != nil {
 				return fmt.Errorf("observer: WaitFor predicate: %w", err)
+			}
+			// run() invokes broadcast (which delivers the event into ch)
+			// synchronously before checkInvariants. If an invariant fires on
+			// the same event, the listener and invariantViolated select cases
+			// can race; Go's select then picks pseudo-randomly between them.
+			// Re-check Err() here so the invariant takes precedence over a
+			// successful predicate match on the very same event.
+			if invErr := o.Err(); invErr != nil {
+				return fmt.Errorf("observer: WaitFor aborted by invariant: %w", invErr)
 			}
 			if ok {
 				return nil

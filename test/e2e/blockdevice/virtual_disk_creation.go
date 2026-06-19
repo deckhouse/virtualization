@@ -135,6 +135,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 		obs.Always(vdobs.BeDataSourceReady())
 		obs.Always(vdobs.HaveNonDecreasingProgress())
 		obs.Always(vdobs.HaveValidPhaseTransitions())
+		obs.Always(vdobs.HaveNoProgressBeforeProvisioning())
 		obs.Always(vdobs.HaveProgressWhileProvisioning())
 		obs.Always(vdobs.HaveTimelyProgress(progressUpdateInterval, progressBoundaryBudget))
 
@@ -471,6 +472,7 @@ func startVirtualDisk(ctx context.Context, f *framework.Framework, vd *v1alpha2.
 	obs.Always(vdobs.BeDataSourceReady())
 	obs.Always(vdobs.HaveNonDecreasingProgress())
 	obs.Always(vdobs.HaveValidPhaseTransitions())
+	obs.Always(vdobs.HaveNoProgressBeforeProvisioning())
 	obs.Always(vdobs.HaveProgressWhileProvisioning())
 	obs.Always(vdobs.HaveTimelyProgress(progressUpdateInterval, progressBoundaryBudget))
 
