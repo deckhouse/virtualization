@@ -28,9 +28,9 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
-func newKVVMWithVMBDAVolume(vmName, vmNamespace, diskName, pvcName string) *KVVM {
+func newKVVMWithVMBDAVolume(vmNamespace, diskName, pvcName string) *KVVM {
 	kvvm := NewEmptyKVVM(
-		namespacedName(vmName, vmNamespace),
+		namespacedName("test-vm", vmNamespace),
 		KVVMOptions{},
 	)
 	kvvm.Resource.Spec.Template.Spec.Volumes = []virtv1.Volume{
@@ -62,7 +62,7 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes", func() {
 	)
 
 	It("should switch existing VMBDA volume back to source PVC after migration rollback", func() {
-		kvvm := newKVVMWithVMBDAVolume(vmName, vmNamespace, diskName, targetPVC)
+		kvvm := newKVVMWithVMBDAVolume(vmNamespace, diskName, targetPVC)
 		vd := &v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       diskName,
@@ -101,7 +101,7 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes", func() {
 	})
 
 	It("should remove terminating VirtualDisk attached via VMBDA", func() {
-		kvvm := newKVVMWithVMBDAVolume(vmName, vmNamespace, diskName, sourcePVC)
+		kvvm := newKVVMWithVMBDAVolume(vmNamespace, diskName, sourcePVC)
 		vd := &v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{Name: diskName, Namespace: vmNamespace},
 			Status: v1alpha2.VirtualDiskStatus{
@@ -125,7 +125,7 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes", func() {
 	})
 
 	It("should remove missing VirtualDisk attached via VMBDA", func() {
-		kvvm := newKVVMWithVMBDAVolume(vmName, vmNamespace, diskName, sourcePVC)
+		kvvm := newKVVMWithVMBDAVolume(vmNamespace, diskName, sourcePVC)
 
 		err := syncAttachedVMBDAHotplugVolumes(
 			kvvm,
@@ -152,7 +152,7 @@ var _ = Describe("ApplyMigrationVolumes", func() {
 	)
 
 	It("should switch hotplugged VMBDA disk to migration target PVC", func() {
-		kvvm := newKVVMWithVMBDAVolume(vmName, vmNamespace, diskName, sourcePVC)
+		kvvm := newKVVMWithVMBDAVolume(vmNamespace, diskName, sourcePVC)
 		vm := &v1alpha2.VirtualMachine{
 			Status: v1alpha2.VirtualMachineStatus{
 				BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
