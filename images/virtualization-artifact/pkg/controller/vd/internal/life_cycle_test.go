@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -344,6 +345,51 @@ var _ = Describe("LifeCycleHandler Run", func() {
 		Entry("WaitForUserUpload forces progress to 0%", v1alpha2.DiskWaitForUserUpload, "73%", "0%"),
 		Entry("other phases keep their progress untouched", v1alpha2.DiskPending, "55%", "55%"),
 	)
+
+	It("surfaces a namespace-terminating sync error on the Ready condition without failing the reconcile", func() {
+		var sourcesMock SourcesMock
+		sourcesMock.ChangedFunc = func(_ context.Context, _ *v1alpha2.VirtualDisk) bool {
+			return false
+		}
+		sourcesMock.GetFunc = func(_ v1alpha2.DataSourceType) (source.Handler, bool) {
+			return &source.HandlerMock{SyncFunc: func(_ context.Context, _ *v1alpha2.VirtualDisk) (reconcile.Result, error) {
+				return reconcile.Result{}, errors.New(`secrets "d8v-vd-dvcr-auth" is forbidden: unable to create new content in namespace ns because it is being terminated`)
+			}}, true
+		}
+		recorder := &eventrecord.EventRecorderLoggerMock{
+			EventFunc: func(_ client.Object, _, _, _ string) {},
+		}
+		ctx := logger.ToContext(context.TODO(), testutil.NewNoOpSlogLogger())
+		vd := v1alpha2.VirtualDisk{
+			Spec: v1alpha2.VirtualDiskSpec{
+				DataSource: &v1alpha2.VirtualDiskDataSource{
+					Type: v1alpha2.DataSourceTypeHTTP,
+				},
+			},
+			Status: v1alpha2.VirtualDiskStatus{
+				StorageClassName: "vd-sc",
+				Conditions: []metav1.Condition{
+					{
+						Type:   vdcondition.DatasourceReadyType.String(),
+						Status: metav1.ConditionTrue,
+					},
+					{
+						Type:   vdcondition.StorageClassReadyType.String(),
+						Status: metav1.ConditionTrue,
+					},
+				},
+			},
+		}
+
+		handler := NewLifeCycleHandler(recorder, nil, &sourcesMock, nil)
+		_, err := handler.Handle(ctx, &vd)
+		Expect(err).NotTo(HaveOccurred())
+
+		readyCond, ok := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+		Expect(ok).To(BeTrue())
+		Expect(readyCond.Status).To(Equal(metav1.ConditionFalse))
+		Expect(readyCond.Reason).To(Equal(vdcondition.Provisioning.String()))
+	})
 
 	It("should handle a VirtualDisk without data source", func() {
 		var sourcesMock SourcesMock

@@ -25,28 +25,28 @@ const (
 	PrecheckSDN = "sdn-precheck"
 
 	// PrecheckVMC - test requires VMC module to be enabled.
-	PrecheckVMC = "vmc-precheck"
+	PrecheckVMC = "vmclass-precheck"
 
 	// PrecheckSVDM - test requires SVDM module to be enabled.
 	PrecheckSVDM = "svdm-precheck"
 
 	// PrecheckDefaultStorageClass - test requires default StorageClass to be configured.
-	PrecheckDefaultStorageClass = "defaultstorageclass-precheck"
+	PrecheckDefaultStorageClass = "default-sc-precheck"
 
 	// PrecheckImmediateStorageClass - test requires an immediate StorageClass annotated for e2e.
-	PrecheckImmediateStorageClass = "immediatestorageclass-precheck"
+	PrecheckImmediateStorageClass = "immediate-sc-precheck"
 
 	// PrecheckWFFCStorageClass - test requires a WaitForFirstConsumer StorageClass annotated
 	// for e2e.
-	PrecheckWFFCStorageClass = "wffcstorageclass-precheck"
+	PrecheckWFFCStorageClass = "wffc-sc-precheck"
 
 	// PrecheckSameCSIDriverStorageClass - test requires the WFFC and immediate StorageClasses
 	// (annotated for e2e) to be backed by the same CSI driver.
-	PrecheckSameCSIDriverStorageClass = "samecsidriverstorageclass-precheck"
+	PrecheckSameCSIDriverStorageClass = "same-csi-sc-precheck"
 
 	// PrecheckDifferentCSIDriverStorageClass - test requires a WFFC StorageClass and a
 	// StorageClass backed by a different CSI driver (the WFFC one annotated for e2e).
-	PrecheckDifferentCSIDriverStorageClass = "differentcsidriverstorageclass-precheck"
+	PrecheckDifferentCSIDriverStorageClass = "different-csi-sc-precheck"
 
 	// PrecheckSnapshot - test requires snapshot-controller module to be enabled.
 	PrecheckSnapshot = "snapshot-precheck"
@@ -61,11 +61,11 @@ const (
 	PrecheckAffinityToleration = "affinity-toleration-precheck"
 
 	// PrecheckPostCleanup - test requires postcleanup to be configured.
-	PrecheckPostCleanup = "postcleanup-precheck"
+	PrecheckPostCleanup = "post-cleanup-precheck"
 
 	// PrecheckPrecreatedCVI - test requires precreated ClusterVirtualImages to be available.
 	// This is a common precheck that runs for all tests automatically.
-	PrecheckPrecreatedCVI = "precreatedcvi-precheck"
+	PrecheckPrecreatedCVI = "precreated-cvi-precheck"
 
 	// NoPrecheck - test doesn't require any prechecks.
 	// Use this label for tests that don't depend on cluster configuration.

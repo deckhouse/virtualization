@@ -21,6 +21,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -257,7 +258,26 @@ func (s StatService) GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgre
 		res = o.Apply(res)
 	}
 
-	return res
+	// Keep the reported progress monotonic: an importer pod that restarts
+	// (RestartPolicy=OnFailure) resets its kubevirt_cdi_import_progress_total
+	// metric to 0, which would otherwise make progress jump backwards (e.g.
+	// 46.4% -> 0%). Never report a value lower than the one already published.
+	return maxProgress(prevProgress, res)
+}
+
+// maxProgress returns whichever of prev/next represents the larger percentage so
+// reported progress never moves backwards. If either value cannot be parsed as a
+// percentage, next is returned unchanged.
+func maxProgress(prev, next string) string {
+	prevVal := percent.ExtractPercentageFloat(prev)
+	nextVal := percent.ExtractPercentageFloat(next)
+	if math.IsNaN(prevVal) || math.IsNaN(nextVal) {
+		return next
+	}
+	if prevVal > nextVal {
+		return prev
+	}
+	return next
 }
 
 func (s StatService) IsImportStarted(ownerUID types.UID, pod *corev1.Pod) bool {

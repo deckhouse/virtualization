@@ -136,6 +136,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 		obs.Always(vdobs.HaveNonDecreasingProgress())
 		obs.Always(vdobs.HaveValidPhaseTransitions())
 		obs.Always(vdobs.HaveProgressWhileProvisioning())
+		obs.Always(vdobs.HaveTimelyProgress(progressUpdateInterval, progressBoundaryBudget))
 
 		By("Creating VirtualDisk", func() {
 			err := f.CreateWithDeferredDeletion(ctx, vd)

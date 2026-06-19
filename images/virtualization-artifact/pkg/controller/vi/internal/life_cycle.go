@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -141,6 +142,17 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage)
 		return reconcile.Result{}, fmt.Errorf("unknown spec storage: %s", vi.Spec.Storage)
 	}
 	if err != nil {
+		// The namespace is being torn down (e.g. Project/namespace cleanup): the
+		// VirtualImage is going away too, so creating helper objects is legitimately
+		// rejected. Surface it on the Ready condition instead of failing the reconcile.
+		if common.ErrNamespaceTerminating(err) {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vicondition.Provisioning).
+				Message("Namespace is terminating: provisioning is paused.")
+			conditions.SetCondition(cb, &vi.Status.Conditions)
+			return reconcile.Result{}, nil
+		}
 		return result, err
 	}
 

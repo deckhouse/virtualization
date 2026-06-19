@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -162,6 +163,17 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 
 	result, err := ds.Sync(ctx, vd)
 	if err != nil {
+		// The namespace is being torn down (e.g. Project/namespace cleanup): the
+		// VirtualDisk is going away too, so creating helper objects is legitimately
+		// rejected. Surface it on the Ready condition instead of failing the reconcile.
+		if common.ErrNamespaceTerminating(err) {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdcondition.Provisioning).
+				Message("Namespace is terminating: provisioning is paused.")
+			conditions.SetCondition(cb, &vd.Status.Conditions)
+			return reconcile.Result{}, nil
+		}
 		return reconcile.Result{}, fmt.Errorf("failed to sync virtual disk data source %s: %w", ds.Name(), err)
 	}
 
