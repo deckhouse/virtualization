@@ -68,6 +68,15 @@ on:
         type: string
         default: "alpha"
         description: "Deckhouse release channel"
+      deckhouse_version:
+        required: true
+        type: string
+        description: "Deckhouse install image tag for dhctl bootstrap. Either a release channel alias (e.g. 'alpha') for the prod registry, or a pinned version (e.g. 'v1.76.0') for the stage registry. Registry is selected via REGISTRY_DOCKER_CFG secret."
+      registry_profile:
+        required: false
+        type: string
+        default: prod
+        description: "Active registry profile (prod or stage). When 'stage', the SDN module is pulled from the prod registry because it is absent in stage."
       pod_subnet_cidr:
         required: false
         type: string
@@ -133,8 +142,10 @@ on:
         required: true
       VIRT_E2E_NIGHTLY_SA_TOKEN:
         required: true
-      PROD_IO_REGISTRY_DOCKER_CFG:
+      REGISTRY_DOCKER_CFG:
         required: true
+      PROD_IO_REGISTRY_DOCKER_CFG:
+        required: false
       BOOTSTRAP_DEV_PROXY:
         required: true
       E2E_ARTIFACTS_GPG_PASSPHRASE:
@@ -166,6 +177,7 @@ env:
   BRANCH: ${{ inputs.branch }}
   VIRTUALIZATION_TAG: ${{ inputs.virtualization_tag }}
   DECKHOUSE_CHANNEL: ${{ inputs.deckhouse_channel }}
+  DECKHOUSE_VERSION: ${{ inputs.deckhouse_version }}
   DEFAULT_USER: ${{ inputs.default_user }}
   GO_VERSION: ${{ inputs.go_version }}
   SETUP_CLUSTER_TYPE_PATH: test/dvp-static-cluster
@@ -216,7 +228,7 @@ jobs:
         id: registry-login
         uses: ./.github/actions/registry-login
         with:
-          docker_cfg: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
+          docker_cfg: ${{ secrets.REGISTRY_DOCKER_CFG }}
 
       - name: Configure kubectl via azure/k8s-set-context@v4
         uses: azure/k8s-set-context@v4
@@ -231,10 +243,12 @@ jobs:
           NAMESPACE: ${{ steps.vars.outputs.namespace }}
           STORAGE_TYPE: ${{ inputs.storage_type }}
           DECKHOUSE_CHANNEL: ${{ env.DECKHOUSE_CHANNEL }}
+          DECKHOUSE_VERSION: ${{ env.DECKHOUSE_VERSION }}
           POD_SUBNET_CIDR: ${{ inputs.pod_subnet_cidr }}
           SERVICE_SUBNET_CIDR: ${{ inputs.service_subnet_cidr }}
           K8S_VERSION: ${{ env.K8S_VERSION }}
-          PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
+          REGISTRY: ${{ steps.registry-login.outputs.registry }}
+          REGISTRY_DOCKER_CFG: ${{ secrets.REGISTRY_DOCKER_CFG }}
           DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
           VIRTUALIZATION_IMAGE_URL: ${{ inputs.virtualization_image_url }}
           DEFAULT_USER: ${{ env.DEFAULT_USER }}
@@ -382,6 +396,10 @@ jobs:
         with:
           kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
       - name: Enable SDN
+        env:
+          # SDN is absent in the stage registry, so for the stage profile pull it
+          # from prod via a dedicated ModuleSource. For prod, reuse the existing source.
+          MODULE_SOURCE_REGISTRY_CFG: ${{ inputs.registry_profile == 'stage' && secrets.PROD_IO_REGISTRY_DOCKER_CFG || '' }}
         run: |
           # Keep SDN enable and readiness checks in a script because this step needs
           # several retries around Deckhouse webhooks and detailed SDN diagnostics.
@@ -467,6 +485,9 @@ jobs:
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/nfs
         env:
           NAMESPACE: ${{ needs.bootstrap.outputs.namespace }}
+          # csi-nfs is absent in the stage registry; pull it from prod via the same
+          # ModuleSource deckhouse-prod that enable-sdn.sh creates for the stage profile.
+          MODULE_SOURCE_REGISTRY_CFG: ${{ inputs.registry_profile == 'stage' && secrets.PROD_IO_REGISTRY_DOCKER_CFG || '' }}
         run: bash "${E2E_SCRIPT_DIR}/configure-csi-nfs.sh"
 
   configure-virtualization:

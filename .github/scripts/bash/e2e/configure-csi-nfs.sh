@@ -20,6 +20,25 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=.github/scripts/bash/e2e/common.sh
 source "${SCRIPT_DIR}/common.sh"
 
+apply_csi_nfs_module_config() {
+  local source_field="  source: deckhouse"
+
+  if [ -n "${MODULE_SOURCE_REGISTRY_CFG:-}" ]; then
+    source_field="  source: deckhouse-prod"
+  fi
+
+  kubectl apply -f - <<EOF
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: csi-nfs
+spec:
+  enabled: true
+${source_field}
+  version: 1
+EOF
+}
+
 nfs_ready() {
   local count=90
   local controller
@@ -58,8 +77,12 @@ nfs_ready() {
   exit 1
 }
 
-echo "[INFO] Apply csi-nfs ModuleConfig, ModulePullOverride, snapshot-controller"
-kubectl apply -f mc.yaml
+if [ -n "${MODULE_SOURCE_REGISTRY_CFG:-}" ]; then
+  echo "[INFO] Apply csi-nfs ModuleConfig with deckhouse-prod source (stage profile)"
+else
+  echo "[INFO] Apply csi-nfs ModuleConfig with deckhouse source"
+fi
+apply_csi_nfs_module_config
 
 echo "[INFO] Wait for csi-nfs module to be ready"
 kubectl wait --for=jsonpath='{.status.phase}'=Ready modules csi-nfs --timeout=300s

@@ -642,25 +642,50 @@ func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context,
 		return nil, err
 	}
 
-	var livePVCs []corev1.PersistentVolumeClaim
+	// Skip terminating PVCs: the source PVC of a previous completed migration may still be
+	// finalizing when the next migration starts. Counting it would let the checks below adopt
+	// it as the target, leaving the migration stuck once it is deleted.
+	livePVCs := make([]corev1.PersistentVolumeClaim, 0, len(pvcs))
 	for _, pvc := range pvcs {
 		if pvc.DeletionTimestamp.IsZero() {
 			livePVCs = append(livePVCs, pvc)
 		}
 	}
 
+	if targetPVCName == sourcePVCName && targetPVCName != "" {
+		return nil, fmt.Errorf("target PersistentVolumeClaim %q matches source PersistentVolumeClaim", targetPVCName)
+	}
+
 	switch len(livePVCs) {
-	case 1: // only source pvc exists
+	case 1:
+		if livePVCs[0].Name != sourcePVCName {
+			return nil, fmt.Errorf("source PersistentVolumeClaim %q was not found", sourcePVCName)
+		}
+		if targetPVCName != "" {
+			return nil, fmt.Errorf("target PersistentVolumeClaim %q was not found", targetPVCName)
+		}
 	case 2:
+		sourcePVCExists := false
+		var targetPVC *corev1.PersistentVolumeClaim
 		for _, pvc := range livePVCs {
-			// If TargetPVC is empty, that means previous reconciliation failed and not updated TargetPVC in status.
-			// So, we should use pvc, that is not equal to SourcePVC.
-			if pvc.Name == targetPVCName || pvc.Name != sourcePVCName {
-				return &pvc, nil
+			if pvc.Name == sourcePVCName {
+				sourcePVCExists = true
+				continue
+			}
+			if targetPVCName == "" || pvc.Name == targetPVCName {
+				targetPVC = &pvc
+				break
 			}
 		}
+		if !sourcePVCExists {
+			return nil, fmt.Errorf("source PersistentVolumeClaim %q was not found", sourcePVCName)
+		}
+		if targetPVC != nil {
+			return targetPVC, nil
+		}
+		return nil, fmt.Errorf("target PersistentVolumeClaim %q was not found", targetPVCName)
 	default:
-		return nil, fmt.Errorf("unexpected number of pvcs: %d, please report a bug", len(livePVCs))
+		return nil, fmt.Errorf("unexpected number of PersistentVolumeClaims: %d, expected 1 or 2", len(livePVCs))
 	}
 
 	pvc := &corev1.PersistentVolumeClaim{

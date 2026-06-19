@@ -19,6 +19,8 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=.github/scripts/bash/e2e/common.sh
 source "${SCRIPT_DIR}/common.sh"
+# shellcheck source=.github/scripts/bash/e2e/deckhouse.sh
+source "${SCRIPT_DIR}/deckhouse.sh"
 
 require_env DEV_REGISTRY_DOCKER_CFG
 require_env CURRENT_RELEASE
@@ -33,10 +35,10 @@ required_env_value() {
 dev_registry_docker_cfg="$(required_env_value DEV_REGISTRY_DOCKER_CFG)"
 current_release="$(required_env_value CURRENT_RELEASE)"
 
-REGISTRY="$(base64 -d <<< "${dev_registry_docker_cfg}" | jq '.auths | to_entries | .[] | .key' -r)"
+REGISTRY="$(registry_host_from_docker_cfg "${dev_registry_docker_cfg}")"
 
 echo "[INFO] Apply ModuleSource prod config"
-kubectl apply -f - <<EOF
+kubectl_apply_with_retry 20 10 show_deckhouse_state <<EOF
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleSource
 metadata:
@@ -52,7 +54,7 @@ EOF
 kubectl wait --for=jsonpath='{.status.phase}'=Active ms deckhouse-dev --timeout=30s
 
 echo "[INFO] Apply Virtualization module config with current-release tag: ${current_release}"
-kubectl apply -f - <<EOF
+kubectl_apply_with_retry 20 10 show_deckhouse_state <<EOF
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
 metadata:

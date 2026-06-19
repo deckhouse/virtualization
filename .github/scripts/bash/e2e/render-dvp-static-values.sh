@@ -23,10 +23,12 @@ source "${SCRIPT_DIR}/common.sh"
 require_env NAMESPACE
 require_env STORAGE_TYPE
 require_env DECKHOUSE_CHANNEL
+require_env DECKHOUSE_VERSION
 require_env POD_SUBNET_CIDR
 require_env SERVICE_SUBNET_CIDR
 require_env K8S_VERSION
-require_env PROD_IO_REGISTRY_DOCKER_CFG
+require_env REGISTRY
+require_env REGISTRY_DOCKER_CFG
 require_env VIRTUALIZATION_IMAGE_URL
 require_env DEFAULT_USER
 require_env APT_MIRROR_ENABLED
@@ -59,9 +61,8 @@ mkdir -p tmp
 touch tmp/discovered-values.yaml
 
 # shellcheck disable=SC2153,SC2154
-dev_registry_docker_cfg="$(base64 -d <<< "${DEV_REGISTRY_DOCKER_CFG}")"
-registry="$(jq -r '.auths | to_entries[0].key' <<< "${dev_registry_docker_cfg}")"
-auth="$(jq -r '.auths | to_entries[0].value.auth' <<< "${dev_registry_docker_cfg}")"
+registry="$(registry_host_from_docker_cfg "${DEV_REGISTRY_DOCKER_CFG}")"
+auth="$(base64 -d <<< "${DEV_REGISTRY_DOCKER_CFG}" | jq -r '.auths | to_entries[0].value.auth')"
 
 REGISTRY="${registry}" AUTH="${auth}" yq eval --inplace \
   '.discovered.registry_url = env(REGISTRY) | .discovered.registry_auth = env(AUTH)' \
