@@ -450,15 +450,15 @@ ubuntu-24-04-pvc  Ready   false   100%       23h
    COPY ubuntu2404.img /disk/ubuntu2404.img
    ```
 
-1. Соберите образ и загрузите его в container registry. В качестве container registry в примере ниже использован docker.io. Для выполнения необходимо иметь учетную запись сервиса и настроенное окружение.
+1. Соберите образ контейнера. В примере ниже в качестве хранилища образов контейнеров использован [docker.com](https://www.docker.com/). Для выполнения вам необходимо иметь учётную запись сервиса и настроенное окружение:
 
    ```bash
    docker build -t docker.io/<username>/ubuntu2404:latest
    ```
 
-   где `username` — имя пользователя, указанное при регистрации в docker.io.
+   где `username` — имя пользователя, указанное при регистрации в [docker.com](https://www.docker.com/).
 
-1. Загрузите созданный образ в container registry:
+1. Загрузите созданный образ в хранилище образов контейнеров:
 
    ```bash
    docker push docker.io/<username>/ubuntu2404:latest
@@ -1980,7 +1980,7 @@ spec:
 
 Горячее подключение памяти позволяет увеличивать объём памяти (`spec.memory.size`) у работающей ВМ без перезагрузки, если изменение можно применить через живую миграцию. Уменьшение размера памяти всегда требует перезагрузки ВМ.
 
-По умолчанию эта функциональность отключена. Чтобы включить, добавьте `HotplugMemoryWithLiveMigration` в массив `.spec.settings.featureGates` в ModuleConfig/virtualization:
+По умолчанию эта функциональность отключена. Чтобы включить, добавьте `HotplugMemoryWithLiveMigration` в массив `.spec.settings.featureGates` в ModuleConfig `virtualization`:
 
 ```yaml
 kind: ModuleConfig
@@ -3809,7 +3809,7 @@ spec:
 ## USB-устройства
 
 {{< alert level="warning">}}
-Проброс USB-устройств доступен только в **Enterprise Edition (EE)** платформы Deckhouse Virtualization Platform.
+Проброс USB-устройств доступен только в Deckhouse Virtualization Platform  **Enterprise Edition (EE)**.
 {{< /alert >}}
 
 Модуль виртуализации поддерживает проброс USB-устройств в виртуальные машины с использованием DRA (Dynamic Resource Allocation). В этом разделе описано, как использовать USB-устройства с виртуальными машинами.
@@ -3837,7 +3837,7 @@ spec:
 
 1. После назначения неймспейса контроллер модуля создаёт в нём ресурс [USBDevice](/modules/virtualization/cr.html#usbdevice).
 
-1. Устройство [USBDevice](/modules/virtualization/cr.html#usbdevice) подключается к виртуальной машине путём добавления в параметр ресурса `.spec.usbDevices` ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine).
+1. Устройство [USBDevice](/modules/virtualization/cr.html#usbdevice) подключается к виртуальной машине путём добавления в параметр `.spec.usbDevices` ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine).
 
 ### Быстрый старт
 
@@ -3869,7 +3869,7 @@ spec:
    d8 k get usbdevice -n my-project
    ```
 
-1. Добавьте устройство в параметр ресурса `.spec.usbDevices` ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine):
+1. Добавьте устройство в параметр `.spec.usbDevices` ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine):
 
    ```bash
    d8 k apply -f - <<EOF
@@ -3898,8 +3898,8 @@ d8 k get nodeusbdevice
 
 ```console
 NAME                 NODE           READY   ASSIGNED   NAMESPACE   AGE
-usb-flash-drive     node-1         True    False                  10m
-logitech-webcam     node-2         True    True      my-project   15m
+usb-flash-drive      node-1         True    False                  10m
+logitech-webcam      node-2         True    True       my-project  15m
 ```
 
 #### Условия NodeUSBDevice
@@ -3918,7 +3918,7 @@ logitech-webcam     node-2         True    True      my-project   15m
 
 #### Назначение неймспейса USB-устройству
 
-Перед подключением USB-устройства к виртуальной машине его необходимо сделать доступным в конкретном неймспейсе. Для этого задайте параметр ресурса `.spec.assignedNamespace`:
+Перед подключением USB-устройства к виртуальной машине его необходимо сделать доступным в конкретном неймспейсе. Для этого задайте параметр `.spec.assignedNamespace`:
 
 ```bash
 d8 k apply -f - <<EOF
@@ -3935,7 +3935,7 @@ EOF
 
 ### USBDevice
 
-[USBDevice](/modules/virtualization/cr.html#usbdevice) — это namespaced-ресурс, представляющий USB-устройство, доступное для подключения к виртуальным машинам в заданном неймспейсе. Появляется автоматически, когда у связанного [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) задан неймспейс в параметре ресурса `.spec.assignedNamespace`.
+[USBDevice](/modules/virtualization/cr.html#usbdevice) — это namespaced-ресурс, представляющий USB-устройство, доступное для подключения к виртуальным машинам в заданном неймспейсе. Появляется автоматически, когда у связанного [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) задан неймспейс в параметре `.spec.assignedNamespace`.
 
 Пример просмотра USB-устройств в неймспейсе:
 
@@ -3979,7 +3979,7 @@ logitech-webcam    node-2   Logitech       Webcam C920         ABC123456   False
 
 ### Подключение USB-устройства к ВМ
 
-После появления ресурса [USBDevice](/modules/virtualization/cr.html#usbdevice) в неймспейсе его можно подключить к виртуальной машине. Для этого добавьте устройство в параметр ресурса `.spec.usbDevices` ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine):
+После появления ресурса [USBDevice](/modules/virtualization/cr.html#usbdevice) в неймспейсе его можно подключить к виртуальной машине. Для этого добавьте устройство в параметр `.spec.usbDevices` ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine):
 
 ```bash
 d8 k apply -f - <<EOF
@@ -4052,7 +4052,7 @@ Status:
 
 {{< alert level="info" >}}
 Если USB-устройство физически отключено от узла, условие `Attached` принимает значение `False`.
-Статусы ресурсов `USBDevice` и `NodeUSBDevice` обновляются и указывают на отсутствие устройства на хосте.
+Статусы ресурсов [USBDevice](/modules/virtualization/cr.html#usbdevice) и [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) обновляются и указывают на отсутствие устройства на хосте.
 {{< /alert >}}
 
 ### Требования и ограничения
@@ -4060,7 +4060,7 @@ Status:
 При использовании проброса USB-устройств необходимо учитывать следующие требования и ограничения:
 
 - Драйвер DRA должен быть установлен на узлах, где требуется обнаружение USB-устройств.
-- USB-устройства пробрасываются на узел ВМ по сети с использованием USBIP. Виртуальная машина не обязана работать на том же узле, где физически подключено устройство. При подключении по сети действуют следующие ограничения по количеству устройств и выбору концентратора:
+- USB-устройства пробрасываются на узел ВМ по сети с использованием USBIP. Виртуальная машина не обязательно должна работать на том же узле, где физически подключено устройство. При подключении по сети действуют следующие ограничения по количеству устройств и выбору концентратора:
   - Узел может подключить не более 16 USB-устройств: до 8 на концентратор USB 2.0 и до 8 на концентратор USB 3.0.
   - Концентратор определяется скоростью устройства и не может быть выбран вручную. Устройство, работающее на USB 2.0, не может быть подключено к концентратору USB 3.0, и наоборот.
 - USB-устройства поддерживают hot-plug — их можно подключать и отключать от работающей ВМ без её остановки.
