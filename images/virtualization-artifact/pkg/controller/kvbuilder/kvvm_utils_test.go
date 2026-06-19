@@ -100,8 +100,8 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes", func() {
 		Expect(kvvm.Resource.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(sourcePVC))
 	})
 
-	It("should skip terminating VirtualDisk attached via VMBDA", func() {
-		kvvm := NewEmptyKVVM(namespacedName(vmName, vmNamespace), KVVMOptions{})
+	It("should remove terminating VirtualDisk attached via VMBDA", func() {
+		kvvm := newKVVMWithVMBDAVolume(vmName, vmNamespace, diskName, sourcePVC)
 		vd := &v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{Name: diskName, Namespace: vmNamespace},
 			Status: v1alpha2.VirtualDiskStatus{
@@ -113,6 +113,23 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes", func() {
 		err := syncAttachedVMBDAHotplugVolumes(
 			kvvm,
 			map[string]*v1alpha2.VirtualDisk{diskName: vd},
+			nil,
+			nil,
+			map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment{
+				{Kind: v1alpha2.VMBDAObjectRefKindVirtualDisk, Name: diskName}: nil,
+			},
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(BeEmpty())
+		Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks).To(BeEmpty())
+	})
+
+	It("should remove missing VirtualDisk attached via VMBDA", func() {
+		kvvm := newKVVMWithVMBDAVolume(vmName, vmNamespace, diskName, sourcePVC)
+
+		err := syncAttachedVMBDAHotplugVolumes(
+			kvvm,
+			map[string]*v1alpha2.VirtualDisk{},
 			nil,
 			nil,
 			map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment{
