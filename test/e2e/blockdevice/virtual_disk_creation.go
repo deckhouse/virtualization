@@ -57,16 +57,12 @@ import (
 const vdCreationBlankSize = "64Mi"
 
 // progressUpdateInterval is the maximum time the reported import progress is
-// allowed to stay unchanged while a VirtualDisk/VirtualImage is actively
-// provisioning. The import must stream progress smoothly (the controller
-// scrapes the import pod's live metric roughly every second), so a longer gap
-// between two distinct progress values means progress "jumped" (e.g. stayed at
-// 0% and then leapt to 50%), which the HaveTimelyProgress invariant rejects.
+// allowed to stay unchanged between observed status updates. The controllers
+// refresh progress roughly every two seconds while an importer is active, but
+// the e2e contract allows a wider 10 second window.
 //
-// progressBoundaryBudget is the more lenient budget granted only to the 0% and
-// 50% stage boundaries, where the import legitimately pauses (import-pod
-// scheduling at 0% and the DVCR->PVC hand-off at 50%). Even there progress must
-// resume within this budget.
+// progressBoundaryBudget is the more lenient budget granted only to 0%, 50% and
+// 100%, where provisioning may legitimately pause.
 const (
 	progressUpdateInterval = 10 * time.Second
 	progressBoundaryBudget = time.Minute
@@ -133,11 +129,8 @@ var _ = Describe("VirtualDiskCreation", Label(
 		obs.Never(vdobs.BeFailed())
 		obs.Always(vdobs.BeStorageClassReady())
 		obs.Always(vdobs.BeDataSourceReady())
-		obs.Always(vdobs.HaveNonDecreasingProgress())
 		obs.Always(vdobs.HaveValidPhaseTransitions())
-		obs.Always(vdobs.HaveNoProgressBeforeProvisioning())
-		obs.Always(vdobs.HaveProgressWhileProvisioning())
-		obs.Always(vdobs.HaveTimelyProgress(progressUpdateInterval, progressBoundaryBudget))
+		obs.Always(vdobs.HaveValidProgress(streamedVirtualDiskProgress(), progressUpdateInterval, progressBoundaryBudget))
 
 		By("Creating VirtualDisk", func() {
 			err := f.CreateWithDeferredDeletion(ctx, vd)
@@ -280,7 +273,23 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
-		createVirtualDiskAndRunVM(ctx, f, vd)
+		bootVD := vdbuilder.New(
+			vdbuilder.WithName("vd-from-vi-other-sc-boot"),
+			vdbuilder.WithNamespace(f.Namespace().Name),
+			// The boot disk is incidental here; the scenario checks that the
+			// same-CSI clone disk provisions and attaches successfully.
+			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
+			vdbuilder.WithStorageClass(scPtr),
+		)
+
+		bootObs := startVirtualDisk(ctx, f, bootVD)
+		// Same-CSI PVC source provisions via a CSI clone (no streamed progress).
+		cloneObs := startVirtualDisk(ctx, f, vd, withoutStreamingProgress())
+
+		runVirtualMachineFromDisks(ctx, f,
+			observedDisk{vd: bootVD, obs: bootObs},
+			observedDisk{vd: vd, obs: cloneObs},
+		)
 	})
 
 	It("provisions a VirtualDisk from a ClusterVirtualImage", func() {
@@ -315,7 +324,9 @@ var _ = Describe("VirtualDiskCreation", Label(
 		)
 
 		bootObs := startVirtualDisk(ctx, f, bootVD)
-		blankObs := startVirtualDisk(ctx, f, blankVD)
+		// A blank disk is provisioned by the CSI driver and may legitimately jump
+		// straight from 0% to 100%.
+		blankObs := startVirtualDisk(ctx, f, blankVD, withoutStreamingProgress())
 
 		runVirtualMachineFromDisks(ctx, f,
 			observedDisk{vd: bootVD, obs: bootObs},
@@ -463,18 +474,20 @@ func setupProject(ctx context.Context, f *framework.Framework, prefix string) {
 // enforcing the invariants until cleanup. Waiting for readiness is left to the caller
 // because, on WaitForFirstConsumer storage classes, a VirtualDisk only provisions once a
 // consumer (a VirtualMachine) is scheduled.
-func startVirtualDisk(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk) vdobs.Observer {
+func startVirtualDisk(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk, opts ...progressWaitOption) vdobs.Observer {
 	GinkgoHelper()
+
+	var o progressWaitOptions
+	for _, fn := range opts {
+		fn(&o)
+	}
 
 	obs := vdobs.StartObserver(ctx, f, vd)
 	obs.Never(vdobs.BeFailed())
 	obs.Always(vdobs.BeStorageClassReady())
 	obs.Always(vdobs.BeDataSourceReady())
-	obs.Always(vdobs.HaveNonDecreasingProgress())
 	obs.Always(vdobs.HaveValidPhaseTransitions())
-	obs.Always(vdobs.HaveNoProgressBeforeProvisioning())
-	obs.Always(vdobs.HaveProgressWhileProvisioning())
-	obs.Always(vdobs.HaveTimelyProgress(progressUpdateInterval, progressBoundaryBudget))
+	obs.Always(vdobs.HaveValidProgress(virtualDiskProgressExpectations(o), progressUpdateInterval, progressBoundaryBudget))
 
 	By("Creating VirtualDisk", func() {
 		err := f.CreateWithDeferredDeletion(ctx, vd)
@@ -482,6 +495,26 @@ func startVirtualDisk(ctx context.Context, f *framework.Framework, vd *v1alpha2.
 	})
 
 	return obs
+}
+
+func virtualDiskProgressExpectations(o progressWaitOptions) vdobs.ProgressExpectations {
+	if o.skipStreamingProgress || o.skipDiskStreamingProgress {
+		return vdobs.ProgressExpectations{
+			RequireZero:    true,
+			RequireHundred: true,
+		}
+	}
+	return streamedVirtualDiskProgress()
+}
+
+func streamedVirtualDiskProgress() vdobs.ProgressExpectations {
+	return vdobs.ProgressExpectations{
+		RequireZero:                    true,
+		RequireBetweenZeroAndFifty:     true,
+		RequireBetweenFiftyAndHundred:  true,
+		RequireIntermediateExceptFifty: true,
+		RequireHundred:                 true,
+	}
 }
 
 // createVirtualDiskAndWait provisions vd and waits until it becomes Ready. It must only
@@ -515,10 +548,10 @@ func virtualDiskNoun(n int) string {
 // createVirtualDiskAndRunVM provisions vd by booting a VirtualMachine from it (see
 // runVirtualMachineFromDisks for the exact lifecycle). The VM is the disk's first
 // consumer, so this works on both Immediate and WaitForFirstConsumer storage classes.
-func createVirtualDiskAndRunVM(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk) {
+func createVirtualDiskAndRunVM(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk, opts ...progressWaitOption) {
 	GinkgoHelper()
 
-	obs := startVirtualDisk(ctx, f, vd)
+	obs := startVirtualDisk(ctx, f, vd, opts...)
 	runVirtualMachineFromDisks(ctx, f, observedDisk{vd: vd, obs: obs})
 }
 
@@ -563,6 +596,9 @@ func runVirtualMachineFromDisks(ctx context.Context, f *framework.Framework, dis
 	// API server assigns it during Create.
 	vmObs := vmobs.StartObserver(ctx, f, vm)
 	vmObs.Never(vmobs.BeFailed())
+	// Fail fast instead of blocking on the guest-agent wait: a VM that reports
+	// NoBootableDevice will never boot an OS and never bring up its agent.
+	vmObs.Never(vmobs.HaveNoBootableDevice())
 
 	By(fmt.Sprintf("Waiting for the %s to be Ready", noun), func() {
 		for _, d := range disks {

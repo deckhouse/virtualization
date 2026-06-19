@@ -186,7 +186,7 @@ var _ = Describe("VirtualImageCreation", Label(
 			vi := newVirtualImageOnPVC("vi-pvc-from-vd", scPtr,
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualDisk, vd.Name),
 			)
-			createVirtualImageAndRunVM(ctx, f, vi)
+			createVirtualImageAndRunVM(ctx, f, vi, withoutStreamingProgress())
 		})
 	})
 
@@ -240,7 +240,9 @@ var _ = Describe("VirtualImageCreation", Label(
 			vi := newVirtualImageOnPVC("vi-pvc-from-vi-pvc", scPtr,
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualImage, baseVI.Name),
 			)
-			createVirtualImageAndRunVM(ctx, f, vi)
+			// PVC-to-PVC on the same CSI driver provisions via a CSI clone, which is
+			// instantaneous and does not stream intermediate progress.
+			createVirtualImageAndRunVM(ctx, f, vi, withoutStreamingProgress())
 		})
 	})
 
@@ -256,7 +258,8 @@ var _ = Describe("VirtualImageCreation", Label(
 			vi := newVirtualImageOnPVC("vi-pvc-from-vd-other-sc", scPtr,
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualDisk, vd.Name),
 			)
-			createVirtualImageAndRunVM(ctx, f, vi)
+			// Same-CSI PVC source provisions via a CSI clone (no streamed progress).
+			createVirtualImageAndRunVM(ctx, f, vi, withoutStreamingProgress())
 		})
 
 		It("provisions a VirtualImage from a VirtualImage", func() {
@@ -268,7 +271,8 @@ var _ = Describe("VirtualImageCreation", Label(
 			vi := newVirtualImageOnPVC("vi-pvc-from-vi-other-sc", scPtr,
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualImage, baseVI.Name),
 			)
-			createVirtualImageAndRunVM(ctx, f, vi)
+			// Same-CSI PVC source provisions via a CSI clone (no streamed progress).
+			createVirtualImageAndRunVM(ctx, f, vi, withoutStreamingProgress())
 		})
 	})
 
@@ -308,7 +312,7 @@ var _ = Describe("VirtualImageCreation", Label(
 			vi := newVirtualImageOnPVC("vi-pvc-from-vdsnapshot", scPtr,
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualDiskSnapshot, vdSnapshot.Name),
 			)
-			createVirtualImageAndRunVM(ctx, f, vi)
+			createVirtualImageAndRunVM(ctx, f, vi, withoutStreamingProgress())
 		})
 	})
 })
@@ -330,17 +334,47 @@ func newVirtualImageOnPVC(name string, sc *string, opts ...vibuilder.Option) *v1
 	return vi
 }
 
-func createVirtualImageAndWait(ctx context.Context, f *framework.Framework, vi *v1alpha2.VirtualImage) {
+// progressWaitOptions tunes the progress coverage expected while waiting for a
+// VirtualImage or VirtualDisk to become Ready.
+type progressWaitOptions struct {
+	// skipStreamingProgress selects the minimal progress coverage (0% and
+	// 100%). It is used by bind-based provisioning such as a CSI clone, which
+	// does not report intermediate percentages.
+	skipStreamingProgress bool
+	// skipDiskStreamingProgress relaxes only the downstream VirtualDisk progress
+	// check used by createVirtualImageAndRunVM. A PVC-backed VirtualImage can be
+	// imported with streamed progress, while the disk created from it is then a
+	// same-CSI PVC clone with no importer pod to report intermediate percentages.
+	skipDiskStreamingProgress bool
+}
+
+type progressWaitOption func(*progressWaitOptions)
+
+// withoutStreamingProgress selects minimal progress coverage for resources
+// provisioned via a CSI clone (a VirtualImage/VirtualDisk on PVC created from a
+// PVC-backed source on the same CSI driver), where there is no importer pod to
+// report intermediate percentages.
+func withoutStreamingProgress() progressWaitOption {
+	return func(o *progressWaitOptions) { o.skipStreamingProgress = true }
+}
+
+func withoutDiskStreamingProgress() progressWaitOption {
+	return func(o *progressWaitOptions) { o.skipDiskStreamingProgress = true }
+}
+
+func createVirtualImageAndWait(ctx context.Context, f *framework.Framework, vi *v1alpha2.VirtualImage, opts ...progressWaitOption) {
 	GinkgoHelper()
+
+	var o progressWaitOptions
+	for _, fn := range opts {
+		fn(&o)
+	}
 
 	vi.Namespace = f.Namespace().Name
 	obs := viobs.StartObserver(ctx, f, vi)
 	obs.Never(viobs.BeFailed())
-	obs.Always(viobs.HaveNonDecreasingProgress())
 	obs.Always(viobs.HaveValidPhaseTransitions())
-	obs.Always(viobs.HaveNoProgressBeforeProvisioning())
-	obs.Always(viobs.HaveProgressWhileProvisioning())
-	obs.Always(viobs.HaveTimelyProgress(progressUpdateInterval, progressBoundaryBudget))
+	obs.Always(viobs.HaveValidProgress(virtualImageProgressExpectations(vi, o), progressUpdateInterval, progressBoundaryBudget))
 
 	By("Creating VirtualImage on "+virtualImageStorageName(vi), func() {
 		err := f.CreateWithDeferredDeletion(ctx, vi)
@@ -358,11 +392,8 @@ func uploadVirtualImageAndWait(ctx context.Context, f *framework.Framework, vi *
 	vi.Namespace = f.Namespace().Name
 	obs := viobs.StartObserver(ctx, f, vi)
 	obs.Never(viobs.BeFailed())
-	obs.Always(viobs.HaveNonDecreasingProgress())
 	obs.Always(viobs.HaveValidPhaseTransitions())
-	obs.Always(viobs.HaveNoProgressBeforeProvisioning())
-	obs.Always(viobs.HaveProgressWhileProvisioning())
-	obs.Always(viobs.HaveTimelyProgress(progressUpdateInterval, progressBoundaryBudget))
+	obs.Always(viobs.HaveValidProgress(virtualImageProgressExpectations(vi, progressWaitOptions{}), progressUpdateInterval, progressBoundaryBudget))
 
 	By("Creating VirtualImage on "+virtualImageStorageName(vi), func() {
 		err := f.CreateWithDeferredDeletion(ctx, vi)
@@ -394,29 +425,56 @@ func uploadVirtualImageAndWait(ctx context.Context, f *framework.Framework, vi *
 	})
 }
 
+func virtualImageProgressExpectations(vi *v1alpha2.VirtualImage, o progressWaitOptions) viobs.ProgressExpectations {
+	if vi.Spec.Storage == v1alpha2.StorageContainerRegistry {
+		return viobs.ProgressExpectations{
+			RequireZero:                    true,
+			RequireIntermediateExceptFifty: true,
+			RequireHundred:                 true,
+		}
+	}
+	if o.skipStreamingProgress {
+		return viobs.ProgressExpectations{
+			RequireZero:    true,
+			RequireHundred: true,
+		}
+	}
+	return viobs.ProgressExpectations{
+		RequireZero:                    true,
+		RequireBetweenZeroAndFifty:     true,
+		RequireBetweenFiftyAndHundred:  true,
+		RequireIntermediateExceptFifty: true,
+		RequireHundred:                 true,
+	}
+}
+
 // createVirtualImageAndRunVM provisions a (qcow2) VirtualImage, provisions a VirtualDisk
 // from it, and boots a VirtualMachine from that disk. A VirtualImage cannot occupy a VM's
 // first block-device slot, so booting always goes through a VirtualDisk; the VM is run
 // until it is Running and its guest agent is ready.
-func createVirtualImageAndRunVM(ctx context.Context, f *framework.Framework, vi *v1alpha2.VirtualImage) {
+func createVirtualImageAndRunVM(ctx context.Context, f *framework.Framework, vi *v1alpha2.VirtualImage, opts ...progressWaitOption) {
 	GinkgoHelper()
 
-	createVirtualImageAndWait(ctx, f, vi)
-	runVirtualMachineFromImageDisk(ctx, f, vi)
+	createVirtualImageAndWait(ctx, f, vi, opts...)
+	runVirtualMachineFromImageDisk(ctx, f, vi, opts...)
 }
 
 // runVirtualMachineFromImageDisk provisions a VirtualDisk from the (Ready) VirtualImage
 // and boots a VirtualMachine from that disk, waiting until the VM is Running and its guest
 // agent is ready.
-func runVirtualMachineFromImageDisk(ctx context.Context, f *framework.Framework, vi *v1alpha2.VirtualImage) {
+func runVirtualMachineFromImageDisk(ctx context.Context, f *framework.Framework, vi *v1alpha2.VirtualImage, opts ...progressWaitOption) {
 	GinkgoHelper()
+
+	if vi.Spec.Storage == v1alpha2.StoragePersistentVolumeClaim {
+		opts = append(opts, withoutDiskStreamingProgress())
+	}
 
 	// The disk that boots the VM is the scenario's main resource, so it lives on the WFFC
 	// storage class.
 	vd := object.NewVDFromVI("vd-from-"+vi.Name, f.Namespace().Name, vi,
 		vdbuilder.WithStorageClass(wffcStorageClass()),
 	)
-	createVirtualDiskAndRunVM(ctx, f, vd)
+	createVirtualDiskAndRunVM(ctx, f, vd, opts...)
 }
 
 func createSourceVirtualDiskAndWait(ctx context.Context, f *framework.Framework, name string, sc *string) *v1alpha2.VirtualDisk {

@@ -232,137 +232,31 @@ func displayPhase(phase v1alpha2.ImagePhase) string {
 	return fmt.Sprintf("%q", string(phase))
 }
 
-// HaveNonDecreasingProgress reports an invariant violation when
-// VirtualImage.Status.Progress moves backwards between observed states.
-func HaveNonDecreasingProgress() Predicate {
-	var previous *float64
-
-	return func(i *v1alpha2.VirtualImage) (bool, error) {
-		if i.Status.Progress == "" {
-			return true, nil
-		}
-
-		current, err := parseProgress(i.Status.Progress)
-		if err != nil {
-			return false, err
-		}
-
-		if previous != nil && current < *previous {
-			return false, fmt.Errorf("progress decreased from %.2f%% to %.2f%%", *previous, current)
-		}
-
-		previous = &current
-		return true, nil
-	}
+// ProgressExpectations describes which progress values a scenario must observe
+// before the VirtualImage reaches Ready.
+type ProgressExpectations struct {
+	RequireZero                    bool
+	RequireBetweenZeroAndFifty     bool
+	RequireBetweenFiftyAndHundred  bool
+	RequireIntermediateExceptFifty bool
+	RequireHundred                 bool
 }
 
-// HaveProgressWhileProvisioning reports an invariant violation when a
-// VirtualImage in the Provisioning phase does not expose a progress
-// percentage. The controller must always publish a percentage while
-// provisioning (at least "0%" before the importer reports real progress), so
-// an empty Progress in the Provisioning phase is a controller bug. Phases
-// other than Provisioning are skipped. Intended for use with [Observer.Always].
-func HaveProgressWhileProvisioning() Predicate {
-	return func(i *v1alpha2.VirtualImage) (bool, error) {
-		if i.Status.Phase != v1alpha2.ImageProvisioning {
-			return true, nil
-		}
-		if i.Status.Progress == "" {
-			return false, errors.New("phase is Provisioning but progress is empty, expected a percentage (at least \"0%\")")
-		}
-		if _, err := parseProgress(i.Status.Progress); err != nil {
-			return false, fmt.Errorf("phase is Provisioning but progress is invalid: %w", err)
-		}
-		return true, nil
-	}
-}
-
-// HaveNoProgressBeforeProvisioning reports an invariant violation when
-// a VirtualImage exposes a progress percentage while it is still in the
-// pre-Provisioning phases ("" or Pending). The progress percentage
-// describes how much of the import has been transferred and is
-// meaningful only once the import has actually started, so any
-// non-empty Progress at this stage is a controller bug.
-//
-// Phases at and beyond Provisioning are skipped (the in-import behaviour
-// is enforced by [HaveProgressWhileProvisioning] and
-// [HaveTimelyProgress]).
-//
-// Intended for use with [Observer.Always].
-func HaveNoProgressBeforeProvisioning() Predicate {
-	return func(i *v1alpha2.VirtualImage) (bool, error) {
-		switch i.Status.Phase {
-		case "", v1alpha2.ImagePending:
-			// fall through to the check below
-		default:
-			return true, nil
-		}
-		if i.Status.Progress == "" {
-			return true, nil
-		}
-		return false, fmt.Errorf(
-			"phase is %s but progress is %q, expected an empty progress until the import enters Provisioning",
-			displayPhase(i.Status.Phase), i.Status.Progress,
-		)
-	}
-}
-
-// HaveTimelyProgress reports an invariant violation when, during active
-// provisioning, VirtualImage.Status.Progress does not stream smoothly.
-//
-// The import must report distinct percentages frequently, so two checks are
-// enforced while the image is in the Provisioning phase:
-//
-//   - Timeliness: progress must advance at least once every threshold. The only
-//     exception are the two stage boundaries 0% and 50% - the points where the
-//     import legitimately pauses (import-pod scheduling at 0% and the DVCR->PVC
-//     hand-off at 50%); they may stay unchanged up to boundaryBudget, never
-//     longer.
-//   - Coverage: progress must actually stream intermediate percentages. Jumping
-//     straight from one stage boundary to the next (0% -> >=50% or 50% -> 100%)
-//     means the intermediate values were never reported, so progress would be
-//     just 0%/50%/100%, which is rejected. Coverage is also enforced across
-//     the Provisioning -> Ready boundary, where the controller would otherwise
-//     leap from a still-low progress (e.g. 0%) directly to 100%.
-//
-// The Pending and WaitForUserUpload phases legitimately sit at 0% (the image is
-// waiting for the user upload to begin) and are skipped. Intended for use with
-// [Observer.Always].
-func HaveTimelyProgress(threshold, boundaryBudget time.Duration) Predicate {
+// HaveValidProgress enforces the common VirtualImage progress contract and the
+// scenario-specific coverage expectations.
+func HaveValidProgress(expect ProgressExpectations, updateInterval, boundaryBudget time.Duration) Predicate {
 	var (
-		tracking     bool
-		lastProgress float64
-		lastAdvance  time.Time
+		previous    *float64
+		lastAdvance time.Time
+		observed    progressObservations
 	)
 
 	return func(i *v1alpha2.VirtualImage) (bool, error) {
-		// Provisioning -> Ready boundary: the in-Provisioning jump check
-		// below stops tracking the moment the phase leaves Provisioning,
-		// so a controller that leaps from a still-low progress directly
-		// to 100% at the very moment of transition would slip past it.
-		// Re-evaluate the stage-jump rule here using the freshly-observed
-		// final progress (typically 100%) and reset tracking afterwards.
-		if i.Status.Phase == v1alpha2.ImageReady && tracking {
-			final, err := parseProgress(i.Status.Progress)
-			if err != nil {
-				tracking = false
-				return false, fmt.Errorf("phase is Ready but progress is invalid: %w", err)
-			}
-			tracking = false
-			if isProgressStageJump(lastProgress, final) {
-				return false, fmt.Errorf(
-					"image transitioned to Ready with progress %s after %s; intermediate percentages between %s and %s were never reported",
-					formatProgressValue(final), formatProgressValue(lastProgress),
-					formatProgressValue(lastProgress), formatProgressValue(final),
-				)
-			}
-			return true, nil
+		if i.Status.Phase == v1alpha2.ImagePending && i.Status.Progress != "" {
+			return false, fmt.Errorf("phase is Pending but progress is %q, expected empty progress", i.Status.Progress)
 		}
-
-		if i.Status.Phase != v1alpha2.ImageProvisioning {
-			// Not importing right now; restart tracking for the next window.
-			tracking = false
-			return true, nil
+		if i.Status.Phase == v1alpha2.ImageReady && i.Status.Progress == "" {
+			return false, errors.New("phase is Ready but progress is empty, expected 100%")
 		}
 		if i.Status.Progress == "" {
 			return true, nil
@@ -373,59 +267,93 @@ func HaveTimelyProgress(threshold, boundaryBudget time.Duration) Predicate {
 			return false, err
 		}
 
+		if current == 100 && i.Status.Phase != v1alpha2.ImageReady {
+			return false, fmt.Errorf("progress is 100%% but phase is %s, expected Ready", displayPhase(i.Status.Phase))
+		}
+		if i.Status.Phase == v1alpha2.ImageReady && current != 100 {
+			return false, fmt.Errorf("phase is Ready but progress is %q, expected 100%%", i.Status.Progress)
+		}
+		if previous != nil && current < *previous {
+			return false, fmt.Errorf("progress decreased from %s to %s", formatProgressValue(*previous), formatProgressValue(current))
+		}
+		if previous != nil && current == *previous && current == 100 && i.Status.Phase == v1alpha2.ImageReady {
+			return observed.satisfies(expect)
+		}
+
 		now := time.Now()
-		if !tracking {
-			tracking = true
-			lastProgress = current
-			lastAdvance = now
-			return true, nil
-		}
-		if current == lastProgress {
-			return true, nil
-		}
-
-		budget := threshold
-		if isProgressBoundary(lastProgress) {
-			budget = boundaryBudget
-		}
-		if gap := now.Sub(lastAdvance); gap > budget {
-			return false, fmt.Errorf(
-				"progress stalled at %s for %s before advancing to %s; it must update at least every %s (only 0%%/50%% may pause, up to %s)",
-				formatProgressValue(lastProgress), gap.Round(time.Second), formatProgressValue(current), threshold, boundaryBudget,
-			)
+		if previous != nil {
+			budget := updateInterval
+			if isProgressLongPauseValue(*previous) {
+				budget = boundaryBudget
+			}
+			if gap := now.Sub(lastAdvance); gap > budget {
+				return false, fmt.Errorf(
+					"progress stayed at %s for %s before %s; it must grow at least every %s (0%%, 50%% and 100%% may stay up to %s)",
+					formatProgressValue(*previous), gap.Round(time.Second), formatProgressValue(current), updateInterval, boundaryBudget,
+				)
+			}
+			if current == *previous && i.Status.Phase != v1alpha2.ImageReady {
+				return true, nil
+			}
 		}
 
-		if isProgressStageJump(lastProgress, current) {
-			return false, fmt.Errorf(
-				"progress jumped from %s to %s without any intermediate values; it must stream distinct percentages, not only 0%%/50%%/100%%",
-				formatProgressValue(lastProgress), formatProgressValue(current),
-			)
-		}
-
-		lastProgress = current
+		observed.record(current)
+		previous = &current
 		lastAdvance = now
+
+		if i.Status.Phase != v1alpha2.ImageReady {
+			return true, nil
+		}
+		return observed.satisfies(expect)
+	}
+}
+
+type progressObservations struct {
+	hasZero                    bool
+	hasBetweenZeroAndFifty     bool
+	hasBetweenFiftyAndHundred  bool
+	hasIntermediateExceptFifty bool
+	hasHundred                 bool
+}
+
+func (o *progressObservations) record(p float64) {
+	switch {
+	case p == 0:
+		o.hasZero = true
+	case p > 0 && p < 50:
+		o.hasBetweenZeroAndFifty = true
+		o.hasIntermediateExceptFifty = true
+	case p > 50 && p < 100:
+		o.hasBetweenFiftyAndHundred = true
+		o.hasIntermediateExceptFifty = true
+	case p > 0 && p < 100 && p != 50:
+		o.hasIntermediateExceptFifty = true
+	case p == 100:
+		o.hasHundred = true
+	}
+}
+
+func (o progressObservations) satisfies(expect ProgressExpectations) (bool, error) {
+	switch {
+	case expect.RequireZero && !o.hasZero:
+		return false, errors.New("progress reached Ready without observing 0%")
+	case expect.RequireBetweenZeroAndFifty && !o.hasBetweenZeroAndFifty:
+		return false, errors.New("progress reached Ready without observing a value in (0%;50%)")
+	case expect.RequireBetweenFiftyAndHundred && !o.hasBetweenFiftyAndHundred:
+		return false, errors.New("progress reached Ready without observing a value in (50%;100%)")
+	case expect.RequireIntermediateExceptFifty && !o.hasIntermediateExceptFifty:
+		return false, errors.New("progress reached Ready without observing a value in (0%;100%) different from 50%")
+	case expect.RequireHundred && !o.hasHundred:
+		return false, errors.New("progress reached Ready without observing 100%")
+	default:
 		return true, nil
 	}
 }
 
-// isProgressBoundary reports whether p is one of the two stage boundaries (0% or
-// 50%) where the import legitimately pauses.
-func isProgressBoundary(p float64) bool {
-	return p == 0 || p == 50
-}
-
-// isProgressStageJump reports whether advancing from -> to skips a whole import
-// stage's stream of intermediate values: 0% straight to >=50%, or 50% straight
-// to 100%.
-func isProgressStageJump(from, to float64) bool {
-	switch {
-	case from == 0 && to >= 50:
-		return true
-	case from == 50 && to >= 100:
-		return true
-	default:
-		return false
-	}
+// isProgressLongPauseValue reports whether p may legitimately stay unchanged
+// for the longer progress budget.
+func isProgressLongPauseValue(p float64) bool {
+	return p == 0 || p == 50 || p == 100
 }
 
 // formatProgressValue renders a parsed progress percentage the same way the
