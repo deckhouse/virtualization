@@ -642,9 +642,6 @@ func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context,
 		return nil, err
 	}
 
-	// Skip terminating PVCs: the source PVC of a previous completed migration may still be
-	// finalizing when the next migration starts. Counting it would let the checks below adopt
-	// it as the target, leaving the migration stuck once it is deleted.
 	livePVCs := make([]corev1.PersistentVolumeClaim, 0, len(pvcs))
 	for _, pvc := range pvcs {
 		if pvc.DeletionTimestamp.IsZero() {
