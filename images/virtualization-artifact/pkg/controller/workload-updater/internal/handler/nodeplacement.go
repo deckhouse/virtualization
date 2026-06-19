@@ -76,13 +76,16 @@ func (h *NodePlacementHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualM
 		return reconcile.Result{}, nil
 	}
 
+	// Do not trigger a node placement migration while a volume migration or a
+	// live migration is in progress: a concurrent migration cannot be started
+	// and OnceMigrate already deduplicates against in-flight migrations.
+	if shouldSkipNodePlacementMigration(kvvmi) {
+		return reconcile.Result{}, nil
+	}
+
 	sum, err := genNodePlacementSum(kvvmi)
 	if err != nil {
 		return reconcile.Result{}, err
-	}
-
-	if shouldSkipNodePlacementMigration(kvvmi) {
-		return reconcile.Result{}, ensureAnnotation(ctx, h.client, kvvmi, annotations.AnnVMOPWorkloadUpdateNodePlacementSum, sum)
 	}
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(nodePlacementHandler))
@@ -113,22 +116,6 @@ func shouldSkipNodePlacementMigration(kvvmi *virtv1.VirtualMachineInstance) bool
 func isLiveMigratable(kvvmi *virtv1.VirtualMachineInstance) bool {
 	cond, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceIsMigratable, kvvmi.Status.Conditions)
 	return cond.Status == corev1.ConditionTrue
-}
-
-func ensureAnnotation(ctx context.Context, cl client.Client, obj client.Object, annoKey, annoValue string) error {
-	if obj.GetAnnotations()[annoKey] == annoValue {
-		return nil
-	}
-
-	base := obj.DeepCopyObject().(client.Object)
-	annotations := make(map[string]string, len(obj.GetAnnotations())+1)
-	for key, value := range obj.GetAnnotations() {
-		annotations[key] = value
-	}
-	annotations[annoKey] = annoValue
-	obj.SetAnnotations(annotations)
-
-	return cl.Patch(ctx, obj, client.MergeFrom(base))
 }
 
 func genNodePlacementSum(kvvmi *virtv1.VirtualMachineInstance) (string, error) {

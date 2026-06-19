@@ -175,8 +175,6 @@ var _ = Describe("TestNodePlacementHandler", func() {
 		func(kvvmiMutate func(*virtv1.VirtualMachineInstance)) {
 			vm, kvvmi := newVMAndKVVMI(true)
 			kvvmiMutate(kvvmi)
-			expectedSum, err := genNodePlacementSum(kvvmi)
-			Expect(err).NotTo(HaveOccurred())
 			fakeClient = setupEnvironment(vm, kvvmi)
 
 			mockMigration := &OneShotMigrationMock{
@@ -187,14 +185,16 @@ var _ = Describe("TestNodePlacementHandler", func() {
 			}
 
 			h := NewNodePlacementHandler(fakeClient, mockMigration)
-			_, err = h.Handle(ctx, vm)
+			_, err := h.Handle(ctx, vm)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(mockMigration.OnceMigrateCalls()).To(BeEmpty())
 
+			// While a migration is in progress the handler must not record the
+			// placement sum, so it can still fire once the migration settles.
 			updatedKVVMI := &virtv1.VirtualMachineInstance{}
 			Expect(fakeClient.Get(ctx, object.NamespacedName(kvvmi), updatedKVVMI)).To(Succeed())
-			Expect(updatedKVVMI.GetAnnotations()).To(HaveKeyWithValue(annotations.AnnVMOPWorkloadUpdateNodePlacementSum, expectedSum))
+			Expect(updatedKVVMI.GetAnnotations()).NotTo(HaveKey(annotations.AnnVMOPWorkloadUpdateNodePlacementSum))
 		},
 		Entry("VolumesChange condition is true", func(kvvmi *virtv1.VirtualMachineInstance) {
 			kvvmi.Status.Conditions = append(kvvmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
