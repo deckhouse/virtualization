@@ -421,13 +421,13 @@ An image stored in a container registry has a certain format. Let's look at an e
    COPY ubuntu2404.img /disk/ubuntu2404.img
    ```
 
-1. Build the image and upload it to the container registry. The example below uses `docker.io` as the container registry. You would need to have a service account and a configured environment to run it.
+1. Build the container image. The example below uses [docker.com](https://www.docker.com/) as the container registry. You need an account on the service and a properly configured environment:
 
    ```bash
    docker build -t docker.io/<username>/ubuntu2404:latest
    ```
 
-   Where `username` is the username specified when registering at `docker.io`.
+   Where `username` is the username you specified during registration on [docker.com](https://www.docker.com/).
 
 1. Upload the created image to the container registry:
 
