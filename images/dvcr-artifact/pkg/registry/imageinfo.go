@@ -43,7 +43,7 @@ const (
 	isoImageType         = "iso"
 )
 
-func getImageInfo(ctx context.Context, sourceReader io.ReadCloser) (ImageInfo, error) {
+func getImageInfo(ctx context.Context, sourceReader io.ReadCloser, sourceImageSize int64) (ImageInfo, error) {
 	initialReadSize := syntheticHeadSize
 	headerBuf := make([]byte, initialReadSize)
 	n, err := io.ReadFull(sourceReader, headerBuf)

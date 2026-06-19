@@ -306,7 +306,7 @@ func (p DataProcessor) inspectAndStreamSourceImage(
 	errsGroup.Go(func() error {
 		defer imageInfoReader.Close()
 
-		info, err := getImageInfo(ctx, imageInfoReader)
+		info, err := getImageInfo(ctx, imageInfoReader, int64(sourceImageSize))
 		if err != nil {
 			return err
 		}
