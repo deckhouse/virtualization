@@ -363,14 +363,18 @@ var _ = Describe("MigrationHandler", func() {
 			size = resource.MustParse("10Gi")
 		})
 
-		It("should return error when target PVC name matches source PVC name", func() {
+		It("should ignore stale target PVC name when it matches source PVC name", func() {
 			sourcePVC := newEmptyPVC("source-pvc", "default")
 			withOwner(sourcePVC, vd)
 			Expect(fakeClient.Create(ctx, sourcePVC)).To(Succeed())
 
+			targetPVC := newEmptyPVC("target-pvc", "default")
+			withOwner(targetPVC, vd)
+			Expect(fakeClient.Create(ctx, targetPVC)).To(Succeed())
+
 			pvc, err := migrationHandler.createTargetPersistentVolumeClaim(ctx, vd, storageClass, size, "source-pvc", "source-pvc", corev1.PersistentVolumeBlock, corev1.ReadWriteOnce)
-			Expect(err).To(MatchError(ContainSubstring("matches source PersistentVolumeClaim")))
-			Expect(pvc).To(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pvc.Name).To(Equal("target-pvc"))
 		})
 
 		It("should select the only non-source PVC when target PVC name is empty", func() {

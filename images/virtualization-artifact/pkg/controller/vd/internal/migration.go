@@ -643,7 +643,11 @@ func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context,
 	}
 
 	if targetPVCName == sourcePVCName && targetPVCName != "" {
-		return nil, fmt.Errorf("target PersistentVolumeClaim %q matches source PersistentVolumeClaim", targetPVCName)
+		logger.FromContext(ctx).Debug("Target PersistentVolumeClaim name matches source PersistentVolumeClaim; ignoring stale target name",
+			slog.String("targetPVC", targetPVCName),
+			slog.String("sourcePVC", sourcePVCName),
+		)
+		targetPVCName = ""
 	}
 
 	switch len(pvcs) {
