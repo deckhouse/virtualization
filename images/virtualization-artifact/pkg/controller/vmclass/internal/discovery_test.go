@@ -69,6 +69,7 @@ func newVirtHandlerPod(nodeName string) *corev1.Pod {
 	}
 }
 
+//nolint:unparam // helper preserves generic signature for reuse across test cases
 func newVMClass(name string, cpuType v1alpha2.CPUType, nodeSelector *v1alpha2.NodeSelector, discoveryNodeSelector *metav1.LabelSelector) *v1alpha2.VirtualMachineClass {
 	vmc := &v1alpha2.VirtualMachineClass{
 		TypeMeta: metav1.TypeMeta{
