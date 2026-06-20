@@ -136,13 +136,13 @@ func (r *Reconciler) reconcileImporter(ctx context.Context, pvc *corev1.Persiste
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	if wffc && pvc.Annotations[service.SelectedNodeAnnotation] == "" {
-		return reconcile.Result{RequeueAfter: requeueAfter}, nil
-	}
 
 	owner, sup, err := r.ownerAndSupplements(ctx, pvc)
 	if err != nil {
 		return reconcile.Result{}, err
+	}
+	if _, ok := owner.(*v1alpha2.VirtualDisk); ok && wffc && pvc.Annotations[service.SelectedNodeAnnotation] == "" {
+		return reconcile.Result{RequeueAfter: requeueAfter}, nil
 	}
 	source := sourceFromAnnotations(pvc, strategy, sup)
 	if err := r.pvc.Import(ctx, pvc, source, owner, sup, nil); err != nil {

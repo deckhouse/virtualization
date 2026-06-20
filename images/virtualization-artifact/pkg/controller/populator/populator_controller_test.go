@@ -102,6 +102,37 @@ func TestPopulatorStartsDVCRImport(t *testing.T) {
 	}
 }
 
+func TestPopulatorStartsVirtualImageWFFCDVCRImportWithoutSelectedNode(t *testing.T) {
+	ctx := context.Background()
+	vi := testVI()
+	pvc := testVITargetPVC(vi)
+	pvc.Annotations[annotations.AnnPVCPopulationStrategy] = service.PopulationStrategyDVCR
+	pvc.Annotations[annotations.AnnPVCPopulationSourceDVCR] = "docker://registry.example/image:tag"
+	sc := &storagev1.StorageClass{
+		ObjectMeta:        metav1.ObjectMeta{Name: "fast"},
+		VolumeBindingMode: ptr.To(storagev1.VolumeBindingWaitForFirstConsumer),
+	}
+
+	c := fake.NewClientBuilder().
+		WithScheme(testScheme(t)).
+		WithObjects(vi, pvc, sc).
+		Build()
+	r := testReconciler(c)
+
+	result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(pvc)})
+	if err != nil {
+		t.Fatalf("reconcile failed: %v", err)
+	}
+	if result.RequeueAfter == 0 {
+		t.Fatalf("expected requeue while importer is pending")
+	}
+
+	pod := &corev1.Pod{}
+	if err := c.Get(ctx, types.NamespacedName{Name: "d8v-vi-pvc-importer-" + string(vi.UID), Namespace: vi.Namespace}, pod); err != nil {
+		t.Fatalf("expected pvc-importer pod: %v", err)
+	}
+}
+
 func TestPopulatorStartsStandaloneDVCRImport(t *testing.T) {
 	ctx := context.Background()
 	pvc := testStandaloneTargetPVC("target", "default")
@@ -257,6 +288,17 @@ func testVD() *v1alpha2.VirtualDisk {
 	}
 }
 
+func testVI() *v1alpha2.VirtualImage {
+	return &v1alpha2.VirtualImage{
+		TypeMeta: metav1.TypeMeta{APIVersion: v1alpha2.SchemeGroupVersion.String(), Kind: v1alpha2.VirtualImageKind},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "image",
+			Namespace: "default",
+			UID:       "66666666-6666-6666-6666-666666666666",
+		},
+	}
+}
+
 func testTargetPVC(vd *v1alpha2.VirtualDisk) *corev1.PersistentVolumeClaim {
 	return &corev1.PersistentVolumeClaim{
 		TypeMeta: metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
@@ -272,6 +314,35 @@ func testTargetPVC(vd *v1alpha2.VirtualDisk) *corev1.PersistentVolumeClaim {
 				Kind:       v1alpha2.VirtualDiskKind,
 				Name:       vd.Name,
 				UID:        vd.UID,
+				Controller: ptr.To(true),
+			}},
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			StorageClassName: ptr.To("fast"),
+			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+			VolumeMode:       ptr.To(corev1.PersistentVolumeFilesystem),
+			Resources: corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse("1Gi"),
+			}},
+		},
+	}
+}
+
+func testVITargetPVC(vi *v1alpha2.VirtualImage) *corev1.PersistentVolumeClaim {
+	return &corev1.PersistentVolumeClaim{
+		TypeMeta: metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "target",
+			Namespace: vi.Namespace,
+			UID:       "77777777-7777-7777-7777-777777777777",
+			Annotations: map[string]string{
+				annotations.AnnPVCImportPhase: string(corev1.PodPending),
+			},
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion: v1alpha2.SchemeGroupVersion.String(),
+				Kind:       v1alpha2.VirtualImageKind,
+				Name:       vi.Name,
+				UID:        vi.UID,
 				Controller: ptr.To(true),
 			}},
 		},
