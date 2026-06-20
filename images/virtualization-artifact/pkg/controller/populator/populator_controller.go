@@ -144,7 +144,7 @@ func (r *Reconciler) reconcileImporter(ctx context.Context, pvc *corev1.Persiste
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	source := sourceFromAnnotations(pvc, strategy)
+	source := sourceFromAnnotations(pvc, strategy, sup)
 	if err := r.pvc.Import(ctx, pvc, source, owner, sup, nil); err != nil {
 		return reconcile.Result{}, fmt.Errorf("import to pvc: %w", err)
 	}
@@ -166,13 +166,21 @@ func (r *Reconciler) reconcileImporter(ctx context.Context, pvc *corev1.Persiste
 	}
 }
 
-func sourceFromAnnotations(pvc *corev1.PersistentVolumeClaim, strategy string) *service.PVCImportSource {
+func sourceFromAnnotations(pvc *corev1.PersistentVolumeClaim, strategy string, sup supplements.Generator) *service.PVCImportSource {
 	switch strategy {
 	case service.PopulationStrategyDVCR:
+		secret := pvc.Annotations[annotations.AnnPVCPopulationSourceDVCRSecret]
+		if secret == "" && sup != nil {
+			secret = sup.DVCRAuthSecretForDV().Name
+		}
+		certConfigMap := pvc.Annotations[annotations.AnnPVCPopulationSourceDVCRCertConfigMap]
+		if certConfigMap == "" && sup != nil {
+			certConfigMap = sup.DVCRCABundleConfigMapForDV().Name
+		}
 		return service.NewPVCRegistryImportSource(
 			pvc.Annotations[annotations.AnnPVCPopulationSourceDVCR],
-			pvc.Annotations[annotations.AnnPVCPopulationSourceDVCRSecret],
-			pvc.Annotations[annotations.AnnPVCPopulationSourceDVCRCertConfigMap],
+			secret,
+			certConfigMap,
 		)
 	case service.PopulationStrategyHostAssigned:
 		namespace := pvc.Annotations[annotations.AnnPVCPopulationSourcePVCNamespace]

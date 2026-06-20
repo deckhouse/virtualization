@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
@@ -88,7 +89,10 @@ func Rebind(ctx context.Context, c client.Client, prime, target types.Namespaced
 	}
 
 	// Step 1: Retain the PV so deleting the prime PVC can never delete the volume.
-	if pv.Spec.PersistentVolumeReclaimPolicy != corev1.PersistentVolumeReclaimRetain {
+	if err := updatePersistentVolume(ctx, c, pvName, func(pv *corev1.PersistentVolume) (bool, error) {
+		if pv.Spec.PersistentVolumeReclaimPolicy == corev1.PersistentVolumeReclaimRetain {
+			return false, nil
+		}
 		if pv.Annotations == nil {
 			pv.Annotations = map[string]string{}
 		}
@@ -96,13 +100,16 @@ func Rebind(ctx context.Context, c client.Client, prime, target types.Namespaced
 			pv.Annotations[rebindOriginalReclaimPolicyAnnotation] = string(pv.Spec.PersistentVolumeReclaimPolicy)
 		}
 		pv.Spec.PersistentVolumeReclaimPolicy = corev1.PersistentVolumeReclaimRetain
-		if err := c.Update(ctx, pv); err != nil {
-			return false, fmt.Errorf("retain persistent volume %q: %w", pvName, err)
-		}
+		return true, nil
+	}); err != nil {
+		return false, fmt.Errorf("retain persistent volume %q: %w", pvName, err)
 	}
 
 	// Step 2: Point the PV at the target PVC.
-	if pv.Spec.ClaimRef == nil || pv.Spec.ClaimRef.UID != targetPVC.UID {
+	if err := updatePersistentVolume(ctx, c, pvName, func(pv *corev1.PersistentVolume) (bool, error) {
+		if pv.Spec.ClaimRef != nil && pv.Spec.ClaimRef.UID == targetPVC.UID {
+			return false, nil
+		}
 		pv.Spec.ClaimRef = &corev1.ObjectReference{
 			Kind:            "PersistentVolumeClaim",
 			APIVersion:      "v1",
@@ -111,17 +118,20 @@ func Rebind(ctx context.Context, c client.Client, prime, target types.Namespaced
 			UID:             targetPVC.UID,
 			ResourceVersion: targetPVC.ResourceVersion,
 		}
-		if err := c.Update(ctx, pv); err != nil {
-			return false, fmt.Errorf("rebind persistent volume %q claimRef to target: %w", pvName, err)
-		}
+		return true, nil
+	}); err != nil {
+		return false, fmt.Errorf("rebind persistent volume %q claimRef to target: %w", pvName, err)
 	}
 
 	// Step 3: Point the target PVC at the PV.
-	if targetPVC.Spec.VolumeName != pvName {
-		targetPVC.Spec.VolumeName = pvName
-		if err := c.Update(ctx, targetPVC); err != nil {
-			return false, fmt.Errorf("set target pvc %s volumeName: %w", target, err)
+	if err := updatePersistentVolumeClaim(ctx, c, target, func(pvc *corev1.PersistentVolumeClaim) (bool, error) {
+		if pvc.Spec.VolumeName == pvName {
+			return false, nil
 		}
+		pvc.Spec.VolumeName = pvName
+		return true, nil
+	}); err != nil {
+		return false, fmt.Errorf("set target pvc %s volumeName: %w", target, err)
 	}
 
 	// Step 4: Delete the prime PVC. The PV is safe now: its ClaimRef points to
@@ -138,29 +148,66 @@ func Rebind(ctx context.Context, c client.Client, prime, target types.Namespaced
 		return false, nil
 	}
 
-	if err := restoreReclaimPolicy(ctx, c, pv); err != nil {
+	if err := restoreReclaimPolicy(ctx, c, pvName); err != nil {
 		return false, err
 	}
 	return true, nil
 }
 
+func updatePersistentVolume(ctx context.Context, c client.Client, name string, mutate func(*corev1.PersistentVolume) (bool, error)) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		current := &corev1.PersistentVolume{}
+		if err := c.Get(ctx, types.NamespacedName{Name: name}, current); err != nil {
+			return err
+		}
+		changed, err := mutate(current)
+		if err != nil {
+			return err
+		}
+		if !changed {
+			return nil
+		}
+		return c.Update(ctx, current)
+	})
+}
+
+func updatePersistentVolumeClaim(ctx context.Context, c client.Client, key types.NamespacedName, mutate func(*corev1.PersistentVolumeClaim) (bool, error)) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		current := &corev1.PersistentVolumeClaim{}
+		if err := c.Get(ctx, key, current); err != nil {
+			return err
+		}
+		changed, err := mutate(current)
+		if err != nil {
+			return err
+		}
+		if !changed {
+			return nil
+		}
+		return c.Update(ctx, current)
+	})
+}
+
 // restoreReclaimPolicy reverts the PV reclaim policy to the value saved before
 // Rebind switched it to Retain. It is a no-op when no original value was saved.
-func restoreReclaimPolicy(ctx context.Context, c client.Client, pv *corev1.PersistentVolume) error {
-	original, ok := pv.Annotations[rebindOriginalReclaimPolicyAnnotation]
-	if !ok || original == "" || original == string(corev1.PersistentVolumeReclaimRetain) {
-		// Nothing to restore (it was Retain to begin with, or already restored).
-		if ok {
-			delete(pv.Annotations, rebindOriginalReclaimPolicyAnnotation)
-			return c.Update(ctx, pv)
+func restoreReclaimPolicy(ctx context.Context, c client.Client, pvName string) error {
+	err := updatePersistentVolume(ctx, c, pvName, func(pv *corev1.PersistentVolume) (bool, error) {
+		original, ok := pv.Annotations[rebindOriginalReclaimPolicyAnnotation]
+		if !ok || original == "" || original == string(corev1.PersistentVolumeReclaimRetain) {
+			// Nothing to restore (it was Retain to begin with, or already restored).
+			if ok {
+				delete(pv.Annotations, rebindOriginalReclaimPolicyAnnotation)
+				return true, nil
+			}
+			return false, nil
 		}
-		return nil
-	}
 
-	pv.Spec.PersistentVolumeReclaimPolicy = corev1.PersistentVolumeReclaimPolicy(original)
-	delete(pv.Annotations, rebindOriginalReclaimPolicyAnnotation)
-	if err := c.Update(ctx, pv); err != nil {
-		return fmt.Errorf("restore persistent volume %q reclaim policy: %w", pv.Name, err)
+		pv.Spec.PersistentVolumeReclaimPolicy = corev1.PersistentVolumeReclaimPolicy(original)
+		delete(pv.Annotations, rebindOriginalReclaimPolicyAnnotation)
+		return true, nil
+	})
+	if err != nil {
+		return fmt.Errorf("restore persistent volume %q reclaim policy: %w", pvName, err)
 	}
 	return nil
 }

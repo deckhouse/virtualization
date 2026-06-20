@@ -33,8 +33,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -127,6 +129,9 @@ func TestPopulatorStartsStandaloneDVCRImport(t *testing.T) {
 	if len(pod.OwnerReferences) != 1 || pod.OwnerReferences[0].Kind != "PersistentVolumeClaim" || pod.OwnerReferences[0].Name != pvc.Name {
 		t.Fatalf("unexpected pod owner references: %#v", pod.OwnerReferences)
 	}
+
+	sup := supplements.NewGenerator(pvcSupplementPrefix, pvc.Name, pvc.Namespace, pvc.UID)
+	assertContainerUsesDVCRSupplement(t, pod.Spec.Containers[0], sup)
 }
 
 func TestPopulatorCreatesMissingSnapshot(t *testing.T) {
@@ -199,6 +204,28 @@ func testReconciler(c client.Client) *Reconciler {
 			PullPolicy: string(corev1.PullIfNotPresent),
 			Verbose:    "1",
 		}),
+	}
+}
+
+func assertContainerUsesDVCRSupplement(t *testing.T, container corev1.Container, sup supplements.Generator) {
+	t.Helper()
+
+	certName := sup.DVCRCABundleConfigMapForDV().Name
+	var hasCertDir bool
+	var hasAuthSecret bool
+	for _, env := range container.Env {
+		if env.Name == common.ImporterCertDirVar {
+			hasCertDir = true
+		}
+		if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil && env.ValueFrom.SecretKeyRef.Name == sup.DVCRAuthSecretForDV().Name {
+			hasAuthSecret = true
+		}
+	}
+	if !hasCertDir {
+		t.Fatalf("expected importer container to use DVCR CA configmap %q", certName)
+	}
+	if !hasAuthSecret {
+		t.Fatalf("expected importer container to use DVCR auth secret %q", sup.DVCRAuthSecretForDV().Name)
 	}
 }
 

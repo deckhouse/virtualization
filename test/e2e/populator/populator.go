@@ -43,7 +43,8 @@ import (
 
 const (
 	populatorPVCSize       = "64Mi"
-	populatorWaitTimeout   = 10 * time.Minute
+	populatorDVCRPVCSize   = "256Mi"
+	populatorWaitTimeout   = 3 * time.Minute
 	populatorPollInterval  = 2 * time.Second
 	snapshotStorageAPI     = "snapshot.storage.k8s.io"
 	populatorSourcePVCName = "source"
@@ -56,13 +57,11 @@ const (
 
 var _ = Describe("Populator", Label(precheck.PrecheckImmediateStorageClass, precheck.PrecheckSnapshot), func() {
 	var (
-		ctx context.Context
-		f   *framework.Framework
-		sc  string
+		f  *framework.Framework
+		sc string
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		f = framework.NewFramework("populator")
 		f.Before()
 		DeferCleanup(f.After)
@@ -74,7 +73,7 @@ var _ = Describe("Populator", Label(precheck.PrecheckImmediateStorageClass, prec
 		sc = immediateSC.Name
 	})
 
-	It("creates target PVC from PVC using CSI clone", func() {
+	It("creates target PVC from PVC using CSI clone", func(ctx SpecContext) {
 		source := newPopulatorPVC(populatorSourcePVCName, f.Namespace().Name, sc, nil)
 		target := newPopulatorPVC("target-csi-clone", f.Namespace().Name, sc, map[string]string{
 			annotations.AnnPVCPopulationStrategy:           populationStrategyCSIClone,
@@ -91,9 +90,9 @@ var _ = Describe("Populator", Label(precheck.PrecheckImmediateStorageClass, prec
 
 		waitPVCBoundAndDone(targetObs)
 		waitPopulatorCleanup(ctx, f, target.Name)
-	})
+	}, SpecTimeout(populatorWaitTimeout))
 
-	It("creates target PVC from PVC using snapshot", func() {
+	It("creates target PVC from PVC using snapshot", func(ctx SpecContext) {
 		source := newPopulatorPVC(populatorSourcePVCName, f.Namespace().Name, sc, nil)
 		snapshotName := "target-snapshot-" + rand.String(5)
 		target := newPopulatorPVC("target-snapshot", f.Namespace().Name, sc, map[string]string{
@@ -113,9 +112,9 @@ var _ = Describe("Populator", Label(precheck.PrecheckImmediateStorageClass, prec
 
 		waitPVCBoundAndDone(targetObs)
 		waitPopulatorCleanup(ctx, f, target.Name)
-	})
+	}, SpecTimeout(populatorWaitTimeout))
 
-	It("creates target PVC from PVC using host assigned population", func() {
+	It("creates target PVC from PVC using host assigned population", func(ctx SpecContext) {
 		source := newPopulatorPVC(populatorSourcePVCName, f.Namespace().Name, sc, nil)
 		target := newPopulatorPVC("target-host-assigned", f.Namespace().Name, sc, map[string]string{
 			annotations.AnnPVCPopulationStrategy:           populationStrategyHostAssigned,
@@ -137,14 +136,14 @@ var _ = Describe("Populator", Label(precheck.PrecheckImmediateStorageClass, prec
 
 		waitPVCBoundAndDone(targetObs)
 		waitPopulatorCleanup(ctx, f, target.Name)
-	})
+	}, SpecTimeout(populatorWaitTimeout))
 
-	It("creates target PVC from DVCR", func() {
+	It("creates target PVC from DVCR", func(ctx SpecContext) {
 		cvi := &v1alpha2.ClusterVirtualImage{}
 		Expect(f.GenericClient().Get(ctx, crclient.ObjectKey{Name: object.PrecreatedCVIAlpineBIOS}, cvi)).To(Succeed())
 		Expect(cvi.Status.Target.RegistryURL).NotTo(BeEmpty())
 
-		target := newPopulatorPVC("target-dvcr", f.Namespace().Name, sc, map[string]string{
+		target := newPopulatorPVCWithSize("target-dvcr", f.Namespace().Name, sc, populatorDVCRPVCSize, map[string]string{
 			annotations.AnnPVCPopulationStrategy:   populationStrategyDVCR,
 			annotations.AnnPVCPopulationSourceDVCR: "docker://" + cvi.Status.Target.RegistryURL,
 		})
@@ -158,10 +157,14 @@ var _ = Describe("Populator", Label(precheck.PrecheckImmediateStorageClass, prec
 
 		waitPVCBoundAndDone(targetObs)
 		waitPopulatorCleanup(ctx, f, target.Name)
-	})
+	}, SpecTimeout(populatorWaitTimeout))
 })
 
 func newPopulatorPVC(name, namespace, storageClass string, anns map[string]string) *corev1.PersistentVolumeClaim {
+	return newPopulatorPVCWithSize(name, namespace, storageClass, populatorPVCSize, anns)
+}
+
+func newPopulatorPVCWithSize(name, namespace, storageClass, size string, anns map[string]string) *corev1.PersistentVolumeClaim {
 	return &corev1.PersistentVolumeClaim{
 		TypeMeta: metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{
@@ -174,7 +177,7 @@ func newPopulatorPVC(name, namespace, storageClass string, anns map[string]strin
 			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 			VolumeMode:       ptr.To(corev1.PersistentVolumeFilesystem),
 			Resources: corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{
-				corev1.ResourceStorage: resource.MustParse(populatorPVCSize),
+				corev1.ResourceStorage: resource.MustParse(size),
 			}},
 		},
 	}
