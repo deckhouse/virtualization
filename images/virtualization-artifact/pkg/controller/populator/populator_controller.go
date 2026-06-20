@@ -50,7 +50,8 @@ const (
 	PodVerbose    = "3"
 	PodPullPolicy = string(corev1.PullIfNotPresent)
 
-	requeueAfter = time.Second
+	requeueAfter        = time.Second
+	pvcSupplementPrefix = "pvc"
 )
 
 type Reconciler struct {
@@ -143,10 +144,6 @@ func (r *Reconciler) reconcileImporter(ctx context.Context, pvc *corev1.Persiste
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	if owner == nil {
-		return reconcile.Result{RequeueAfter: requeueAfter}, nil
-	}
-
 	source := sourceFromAnnotations(pvc, strategy)
 	if err := r.pvc.Import(ctx, pvc, source, owner, sup, nil); err != nil {
 		return reconcile.Result{}, fmt.Errorf("import to pvc: %w", err)
@@ -211,7 +208,7 @@ func (r *Reconciler) ownerAndSupplements(ctx context.Context, pvc *corev1.Persis
 			return vi, supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID), nil
 		}
 	}
-	return nil, nil, nil
+	return pvc, supplements.NewGenerator(pvcSupplementPrefix, pvc.Name, pvc.Namespace, pvc.UID), nil
 }
 
 func (r *Reconciler) markDone(ctx context.Context, pvc *corev1.PersistentVolumeClaim) error {

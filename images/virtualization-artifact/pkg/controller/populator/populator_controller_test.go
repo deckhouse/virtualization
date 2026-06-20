@@ -100,6 +100,35 @@ func TestPopulatorStartsDVCRImport(t *testing.T) {
 	}
 }
 
+func TestPopulatorStartsStandaloneDVCRImport(t *testing.T) {
+	ctx := context.Background()
+	pvc := testStandaloneTargetPVC("target", "default")
+	pvc.Annotations[annotations.AnnPVCPopulationStrategy] = service.PopulationStrategyDVCR
+	pvc.Annotations[annotations.AnnPVCPopulationSourceDVCR] = "docker://registry.example/disk:tag"
+
+	c := fake.NewClientBuilder().
+		WithScheme(testScheme(t)).
+		WithObjects(pvc).
+		Build()
+	r := testReconciler(c)
+
+	result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(pvc)})
+	if err != nil {
+		t.Fatalf("reconcile failed: %v", err)
+	}
+	if result.RequeueAfter == 0 {
+		t.Fatalf("expected requeue while importer is pending")
+	}
+
+	pod := &corev1.Pod{}
+	if err := c.Get(ctx, types.NamespacedName{Name: "d8v-pvc-pvc-importer-" + string(pvc.UID), Namespace: pvc.Namespace}, pod); err != nil {
+		t.Fatalf("expected standalone pvc-importer pod: %v", err)
+	}
+	if len(pod.OwnerReferences) != 1 || pod.OwnerReferences[0].Kind != "PersistentVolumeClaim" || pod.OwnerReferences[0].Name != pvc.Name {
+		t.Fatalf("unexpected pod owner references: %#v", pod.OwnerReferences)
+	}
+}
+
 func TestPopulatorCreatesMissingSnapshot(t *testing.T) {
 	ctx := context.Background()
 	vd := testVD()
@@ -137,6 +166,28 @@ func TestPopulatorCreatesMissingSnapshot(t *testing.T) {
 	}
 	if len(snapshot.OwnerReferences) != 1 || snapshot.OwnerReferences[0].Kind != "PersistentVolumeClaim" || snapshot.OwnerReferences[0].Name != source.Name {
 		t.Fatalf("unexpected snapshot owner references: %#v", snapshot.OwnerReferences)
+	}
+}
+
+func testStandaloneTargetPVC(name, namespace string) *corev1.PersistentVolumeClaim {
+	return &corev1.PersistentVolumeClaim{
+		TypeMeta: metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			UID:       "55555555-5555-5555-5555-555555555555",
+			Annotations: map[string]string{
+				annotations.AnnPVCImportPhase: string(corev1.PodPending),
+			},
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			StorageClassName: ptr.To("fast"),
+			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+			VolumeMode:       ptr.To(corev1.PersistentVolumeFilesystem),
+			Resources: corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse("1Gi"),
+			}},
+		},
 	}
 }
 

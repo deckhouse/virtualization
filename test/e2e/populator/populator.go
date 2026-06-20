@@ -18,7 +18,6 @@ package populator
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -36,6 +36,8 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	podobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/pod"
+	pvcobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/pvc"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 )
 
@@ -81,12 +83,14 @@ var _ = Describe("Populator", Label(precheck.PrecheckImmediateStorageClass, prec
 		})
 		target.Spec.DataSourceRef = &corev1.TypedObjectReference{Kind: "PersistentVolumeClaim", Name: source.Name}
 
+		sourceObs := startPVCObserver(ctx, f, source)
+		targetObs := startPVCObserver(ctx, f, target)
 		Expect(f.CreateWithDeferredDeletion(ctx, source)).To(Succeed())
-		waitPVCBound(ctx, f, source.Name)
+		waitPVCBound(sourceObs)
 		Expect(f.CreateWithDeferredDeletion(ctx, target)).To(Succeed())
 
-		waitPVCBoundAndDone(ctx, f, target.Name)
-		expectPopulatorCleanup(ctx, f, target.Name)
+		waitPVCBoundAndDone(targetObs)
+		waitPopulatorCleanup(ctx, f, target.Name)
 	})
 
 	It("creates target PVC from PVC using snapshot", func() {
@@ -101,12 +105,14 @@ var _ = Describe("Populator", Label(precheck.PrecheckImmediateStorageClass, prec
 		target.Spec.DataSource = &corev1.TypedLocalObjectReference{APIGroup: ptr.To(snapshotStorageAPI), Kind: "VolumeSnapshot", Name: snapshotName}
 		target.Spec.DataSourceRef = &corev1.TypedObjectReference{APIGroup: ptr.To(snapshotStorageAPI), Kind: "VolumeSnapshot", Name: snapshotName}
 
+		sourceObs := startPVCObserver(ctx, f, source)
+		targetObs := startPVCObserver(ctx, f, target)
 		Expect(f.CreateWithDeferredDeletion(ctx, source)).To(Succeed())
-		waitPVCBound(ctx, f, source.Name)
+		waitPVCBound(sourceObs)
 		Expect(f.CreateWithDeferredDeletion(ctx, target)).To(Succeed())
 
-		waitPVCBoundAndDone(ctx, f, target.Name)
-		expectPopulatorCleanup(ctx, f, target.Name)
+		waitPVCBoundAndDone(targetObs)
+		waitPopulatorCleanup(ctx, f, target.Name)
 	})
 
 	It("creates target PVC from PVC using host assigned population", func() {
@@ -122,22 +128,21 @@ var _ = Describe("Populator", Label(precheck.PrecheckImmediateStorageClass, prec
 			Name:     source.Name,
 		}
 
+		sourceObs := startPVCObserver(ctx, f, source)
+		targetObs := startPVCObserver(ctx, f, target)
 		Expect(f.CreateWithDeferredDeletion(ctx, source)).To(Succeed())
-		waitPVCBound(ctx, f, source.Name)
+		waitPVCBound(sourceObs)
 		writeRawDiskImage(ctx, f, source.Name)
 		Expect(f.CreateWithDeferredDeletion(ctx, target)).To(Succeed())
 
-		waitPVCBoundAndDone(ctx, f, target.Name)
-		expectPopulatorCleanup(ctx, f, target.Name)
+		waitPVCBoundAndDone(targetObs)
+		waitPopulatorCleanup(ctx, f, target.Name)
 	})
 
 	It("creates target PVC from DVCR", func() {
 		cvi := &v1alpha2.ClusterVirtualImage{}
-		Eventually(func(g Gomega) {
-			err := f.GenericClient().Get(ctx, crclient.ObjectKey{Name: object.PrecreatedCVIAlpineBIOS}, cvi)
-			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(cvi.Status.Target.RegistryURL).NotTo(BeEmpty())
-		}).WithTimeout(populatorWaitTimeout).WithPolling(populatorPollInterval).Should(Succeed())
+		Expect(f.GenericClient().Get(ctx, crclient.ObjectKey{Name: object.PrecreatedCVIAlpineBIOS}, cvi)).To(Succeed())
+		Expect(cvi.Status.Target.RegistryURL).NotTo(BeEmpty())
 
 		target := newPopulatorPVC("target-dvcr", f.Namespace().Name, sc, map[string]string{
 			annotations.AnnPVCPopulationStrategy:   populationStrategyDVCR,
@@ -148,10 +153,11 @@ var _ = Describe("Populator", Label(precheck.PrecheckImmediateStorageClass, prec
 			Kind:     "ClusterVirtualImage",
 			Name:     cvi.Name,
 		}
+		targetObs := startPVCObserver(ctx, f, target)
 		Expect(f.CreateWithDeferredDeletion(ctx, target)).To(Succeed())
 
-		waitPVCBoundAndDone(ctx, f, target.Name)
-		expectPopulatorCleanup(ctx, f, target.Name)
+		waitPVCBoundAndDone(targetObs)
+		waitPopulatorCleanup(ctx, f, target.Name)
 	})
 })
 
@@ -174,41 +180,54 @@ func newPopulatorPVC(name, namespace, storageClass string, anns map[string]strin
 	}
 }
 
-func waitPVCBoundAndDone(ctx context.Context, f *framework.Framework, name string) {
+func startPVCObserver(ctx context.Context, f *framework.Framework, pvc *corev1.PersistentVolumeClaim) pvcobs.Observer {
 	GinkgoHelper()
-	Eventually(func(g Gomega) {
-		pvc := getPVC(ctx, f, name)
-		g.Expect(pvc.Status.Phase).To(Equal(corev1.ClaimBound))
-		g.Expect(pvc.Annotations[annotations.AnnPVCPopulationDone]).To(Equal("true"))
-	}).WithTimeout(populatorWaitTimeout).WithPolling(populatorPollInterval).Should(Succeed())
+	obs := pvcobs.StartObserver(ctx, f, pvc)
+	obs.Never(pvcobs.BeLost())
+	return obs
 }
 
-func waitPVCBound(ctx context.Context, f *framework.Framework, name string) {
+func waitPVCBoundAndDone(obs pvcobs.Observer) {
 	GinkgoHelper()
-	Eventually(func(g Gomega) {
-		g.Expect(getPVC(ctx, f, name).Status.Phase).To(Equal(corev1.ClaimBound))
-	}).WithTimeout(populatorWaitTimeout).WithPolling(populatorPollInterval).Should(Succeed())
+	Expect(obs.WaitFor(pvcobs.BeBoundAndPopulated(), populatorWaitTimeout)).To(Succeed())
 }
 
-func getPVC(ctx context.Context, f *framework.Framework, name string) *corev1.PersistentVolumeClaim {
+func waitPVCBound(obs pvcobs.Observer) {
 	GinkgoHelper()
-	pvc := &corev1.PersistentVolumeClaim{}
-	Expect(f.GenericClient().Get(ctx, crclient.ObjectKey{Name: name, Namespace: f.Namespace().Name}, pvc)).To(Succeed())
-	return pvc
+	Expect(obs.WaitFor(pvcobs.BeBound(), populatorWaitTimeout)).To(Succeed())
 }
 
-func expectPopulatorCleanup(ctx context.Context, f *framework.Framework, targetName string) {
+func waitPopulatorCleanup(ctx context.Context, f *framework.Framework, targetName string) {
 	GinkgoHelper()
-	Eventually(func(g Gomega) {
+	target := &corev1.PersistentVolumeClaim{}
+	Expect(f.GenericClient().Get(ctx, crclient.ObjectKey{Name: targetName, Namespace: f.Namespace().Name}, target)).To(Succeed())
+	importerPodName := "d8v-pvc-pvc-importer-" + string(target.UID)
+
+	err := wait.PollUntilContextTimeout(ctx, populatorPollInterval, populatorWaitTimeout, true, func(ctx context.Context) (bool, error) {
 		for _, key := range []types.NamespacedName{
 			{Name: targetName + "-prime", Namespace: f.Namespace().Name},
 			{Name: targetName + "-prime-scratch", Namespace: f.Namespace().Name},
 		} {
 			pvc := &corev1.PersistentVolumeClaim{}
 			err := f.GenericClient().Get(ctx, key, pvc)
-			g.Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "expected %s to be cleaned up, got %v", key, err)
+			if err == nil {
+				return false, nil
+			}
+			if !k8serrors.IsNotFound(err) {
+				return false, err
+			}
 		}
-	}).WithTimeout(populatorWaitTimeout).WithPolling(populatorPollInterval).Should(Succeed())
+		pod := &corev1.Pod{}
+		err := f.GenericClient().Get(ctx, crclient.ObjectKey{Name: importerPodName, Namespace: f.Namespace().Name}, pod)
+		if err == nil {
+			return false, nil
+		}
+		if !k8serrors.IsNotFound(err) {
+			return false, err
+		}
+		return true, nil
+	})
+	Expect(err).NotTo(HaveOccurred())
 }
 
 func writeRawDiskImage(ctx context.Context, f *framework.Framework, sourcePVC string) {
@@ -220,6 +239,9 @@ func writeRawDiskImage(ctx context.Context, f *framework.Framework, sourcePVC st
 		},
 		Spec: corev1.PodSpec{
 			RestartPolicy: corev1.RestartPolicyNever,
+			SecurityContext: &corev1.PodSecurityContext{
+				FSGroup: ptr.To[int64](65532),
+			},
 			Containers: []corev1.Container{{
 				Name:    "writer",
 				Image:   framework.GetConfig().HelperImages.CurlImage,
@@ -238,14 +260,8 @@ func writeRawDiskImage(ctx context.Context, f *framework.Framework, sourcePVC st
 			}},
 		},
 	}
+	obs := podobs.StartObserver(ctx, f, pod)
+	obs.Never(podobs.BeFailed())
 	Expect(f.CreateWithDeferredDeletion(ctx, pod)).To(Succeed())
-	Eventually(func() corev1.PodPhase {
-		refreshed := &corev1.Pod{}
-		err := f.GenericClient().Get(ctx, crclient.ObjectKey{Name: pod.Name, Namespace: pod.Namespace}, refreshed)
-		if err != nil {
-			return ""
-		}
-		return refreshed.Status.Phase
-	}).WithTimeout(populatorWaitTimeout).WithPolling(populatorPollInterval).Should(Equal(corev1.PodSucceeded),
-		fmt.Sprintf("source writer pod %s should complete", pod.Name))
+	Expect(obs.WaitFor(podobs.BeSucceeded(), populatorWaitTimeout)).To(Succeed())
 }
