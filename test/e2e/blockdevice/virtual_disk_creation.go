@@ -534,10 +534,10 @@ func streamedVirtualDiskProgress() vdobs.ProgressExpectations {
 // be used for disks that provision without a VirtualMachine (e.g. an Upload disk, whose
 // uploader Pod is the consumer); on WaitForFirstConsumer storage classes a disk without
 // a consumer never becomes Ready - use createVirtualDiskAndRunVM instead.
-func createVirtualDiskAndWait(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk, opts ...progressWaitOption) {
+func createVirtualDiskAndWait(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk) {
 	GinkgoHelper()
 
-	obs := startVirtualDisk(ctx, f, vd, opts...)
+	obs := startVirtualDisk(ctx, f, vd)
 	err := obs.WaitFor(vdobs.BeReady(), framework.LongTimeout)
 	Expect(err).NotTo(HaveOccurred())
 }

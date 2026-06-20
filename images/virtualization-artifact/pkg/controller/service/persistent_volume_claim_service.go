@@ -229,7 +229,7 @@ func (s *PersistentVolumeClaimService) newTargetPVC(ctx context.Context, key typ
 	return target, nil
 }
 
-func (s *PersistentVolumeClaimService) preparePopulationFromPVC(ctx context.Context, target *corev1.PersistentVolumeClaim, source *corev1.PersistentVolumeClaim, owner client.Object) error {
+func (s *PersistentVolumeClaimService) preparePopulationFromPVC(ctx context.Context, target, source *corev1.PersistentVolumeClaim, owner client.Object) error {
 	targetSC, err := object.FetchObject(ctx, types.NamespacedName{Name: ptr.Deref(target.Spec.StorageClassName, "")}, s.client, &storagev1.StorageClass{})
 	if err != nil {
 		return fmt.Errorf("fetch target storage class: %w", err)
