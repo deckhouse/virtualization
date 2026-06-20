@@ -162,9 +162,9 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 				},
 			}
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cvi, sc).Build()
-			pvcSvc.CreateTargetFunc = func(_ context.Context, _ types.NamespacedName, _ string, _ resource.Quantity, _ *service.PVCImportSource, _ kclient.Object, _ service.VolumeAndAccessModesGetter, _ *provisioner.NodePlacement) error {
+			pvcSvc.CreateTargetFromDVCRFunc = func(_ context.Context, _ types.NamespacedName, _ string, _ *resource.Quantity, _ kclient.Object, _ *service.PVCImportSourceRegistry, _ service.VolumeAndAccessModesGetter, _ *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {
 				importStarted = true
-				return nil
+				return corev1.PersistentVolumeClaim{}, nil
 			}
 
 			syncer := NewObjectRefClusterVirtualImage(svc, pvcSvc, stat, fakeClient)
@@ -189,8 +189,8 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 				},
 			}
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cvi, sc).Build()
-			pvcSvc.CreateTargetFunc = func(_ context.Context, _ types.NamespacedName, _ string, _ resource.Quantity, _ *service.PVCImportSource, _ kclient.Object, _ service.VolumeAndAccessModesGetter, _ *provisioner.NodePlacement) error {
-				return errors.New(`persistentvolumeclaims "d8v-vd-test" is forbidden: exceeded quota: block-pods-and-pvcs, requested: count/persistentvolumeclaims=1, used: count/persistentvolumeclaims=1, limited: count/persistentvolumeclaims=0`)
+			pvcSvc.CreateTargetFromDVCRFunc = func(_ context.Context, _ types.NamespacedName, _ string, _ *resource.Quantity, _ kclient.Object, _ *service.PVCImportSourceRegistry, _ service.VolumeAndAccessModesGetter, _ *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {
+				return corev1.PersistentVolumeClaim{}, errors.New(`persistentvolumeclaims "d8v-vd-test" is forbidden: exceeded quota: block-pods-and-pvcs, requested: count/persistentvolumeclaims=1, used: count/persistentvolumeclaims=1, limited: count/persistentvolumeclaims=0`)
 			}
 
 			syncer := NewObjectRefClusterVirtualImage(svc, pvcSvc, stat, fakeClient)
@@ -278,7 +278,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			Expect(res.RequeueAfter).ToNot(BeZero())
 		})
 
-		It("resumes by starting the PVC import when the target PVC already exists", func() {
+		It("waits for populator when the target PVC already exists", func() {
 			pvc.Status.Phase = corev1.ClaimBound
 			pvc.Annotations = map[string]string{
 				annotations.AnnPVCImportPhase: string(corev1.PodPending),
@@ -305,7 +305,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.RequeueAfter).ToNot(BeZero())
-			Expect(imported).To(BeTrue())
+			Expect(imported).To(BeFalse())
 			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
 		})

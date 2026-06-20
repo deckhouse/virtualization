@@ -11,7 +11,9 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/api/storage/v1"
@@ -463,11 +465,17 @@ var _ DataSourcePVCService = &DataSourcePVCServiceMock{}
 //
 //		// make and configure a mocked DataSourcePVCService
 //		mockedDataSourcePVCService := &DataSourcePVCServiceMock{
-//			CreateBlankFunc: func(ctx context.Context, target *corev1.PersistentVolumeClaim, nodePlacement *provisioner.NodePlacement) error {
-//				panic("mock out the CreateBlank method")
+//			CreateBlankTargetFunc: func(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, modeGetter step.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {
+//				panic("mock out the CreateBlankTarget method")
 //			},
-//			CreateTargetFunc: func(ctx context.Context, key types.NamespacedName, storageClassName string, size resource.Quantity, source *service.PVCImportSource, owner client.Object, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) error {
-//				panic("mock out the CreateTarget method")
+//			CreateTargetFromDVCRFunc: func(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, source *service.PVCImportSourceRegistry, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {
+//				panic("mock out the CreateTargetFromDVCR method")
+//			},
+//			CreateTargetFromPVCFunc: func(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, source *corev1.PersistentVolumeClaim, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {
+//				panic("mock out the CreateTargetFromPVC method")
+//			},
+//			CreateTargetFromVSFunc: func(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, source *vsv1.VolumeSnapshot, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {
+//				panic("mock out the CreateTargetFromVS method")
 //			},
 //			FinalizersFunc: func() []string {
 //				panic("mock out the Finalizers method")
@@ -485,11 +493,17 @@ var _ DataSourcePVCService = &DataSourcePVCServiceMock{}
 //
 //	}
 type DataSourcePVCServiceMock struct {
-	// CreateBlankFunc mocks the CreateBlank method.
-	CreateBlankFunc func(ctx context.Context, target *corev1.PersistentVolumeClaim, nodePlacement *provisioner.NodePlacement) error
+	// CreateBlankTargetFunc mocks the CreateBlankTarget method.
+	CreateBlankTargetFunc func(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, modeGetter step.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error)
 
-	// CreateTargetFunc mocks the CreateTarget method.
-	CreateTargetFunc func(ctx context.Context, key types.NamespacedName, storageClassName string, size resource.Quantity, source *service.PVCImportSource, owner client.Object, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) error
+	// CreateTargetFromDVCRFunc mocks the CreateTargetFromDVCR method.
+	CreateTargetFromDVCRFunc func(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, source *service.PVCImportSourceRegistry, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error)
+
+	// CreateTargetFromPVCFunc mocks the CreateTargetFromPVC method.
+	CreateTargetFromPVCFunc func(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, source *corev1.PersistentVolumeClaim, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error)
+
+	// CreateTargetFromVSFunc mocks the CreateTargetFromVS method.
+	CreateTargetFromVSFunc func(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, source *vsv1.VolumeSnapshot, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error)
 
 	// FinalizersFunc mocks the Finalizers method.
 	FinalizersFunc func() []string
@@ -502,17 +516,8 @@ type DataSourcePVCServiceMock struct {
 
 	// calls tracks calls to the methods.
 	calls struct {
-		// CreateBlank holds details about calls to the CreateBlank method.
-		CreateBlank []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
-			// Target is the target argument value.
-			Target *corev1.PersistentVolumeClaim
-			// NodePlacement is the nodePlacement argument value.
-			NodePlacement *provisioner.NodePlacement
-		}
-		// CreateTarget holds details about calls to the CreateTarget method.
-		CreateTarget []struct {
+		// CreateBlankTarget holds details about calls to the CreateBlankTarget method.
+		CreateBlankTarget []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Key is the key argument value.
@@ -520,11 +525,66 @@ type DataSourcePVCServiceMock struct {
 			// StorageClassName is the storageClassName argument value.
 			StorageClassName string
 			// Size is the size argument value.
-			Size resource.Quantity
-			// Source is the source argument value.
-			Source *service.PVCImportSource
+			Size *resource.Quantity
 			// Owner is the owner argument value.
 			Owner client.Object
+			// ModeGetter is the modeGetter argument value.
+			ModeGetter step.VolumeAndAccessModesGetter
+			// NodePlacement is the nodePlacement argument value.
+			NodePlacement *provisioner.NodePlacement
+		}
+		// CreateTargetFromDVCR holds details about calls to the CreateTargetFromDVCR method.
+		CreateTargetFromDVCR []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Key is the key argument value.
+			Key types.NamespacedName
+			// StorageClassName is the storageClassName argument value.
+			StorageClassName string
+			// Size is the size argument value.
+			Size *resource.Quantity
+			// Owner is the owner argument value.
+			Owner client.Object
+			// Source is the source argument value.
+			Source *service.PVCImportSourceRegistry
+			// ModeGetter is the modeGetter argument value.
+			ModeGetter service.VolumeAndAccessModesGetter
+			// NodePlacement is the nodePlacement argument value.
+			NodePlacement *provisioner.NodePlacement
+		}
+		// CreateTargetFromPVC holds details about calls to the CreateTargetFromPVC method.
+		CreateTargetFromPVC []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Key is the key argument value.
+			Key types.NamespacedName
+			// StorageClassName is the storageClassName argument value.
+			StorageClassName string
+			// Size is the size argument value.
+			Size *resource.Quantity
+			// Owner is the owner argument value.
+			Owner client.Object
+			// Source is the source argument value.
+			Source *corev1.PersistentVolumeClaim
+			// ModeGetter is the modeGetter argument value.
+			ModeGetter service.VolumeAndAccessModesGetter
+			// NodePlacement is the nodePlacement argument value.
+			NodePlacement *provisioner.NodePlacement
+		}
+		// CreateTargetFromVS holds details about calls to the CreateTargetFromVS method.
+		CreateTargetFromVS []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Key is the key argument value.
+			Key types.NamespacedName
+			// StorageClassName is the storageClassName argument value.
+			StorageClassName string
+			// Size is the size argument value.
+			Size *resource.Quantity
+			// Owner is the owner argument value.
+			Owner client.Object
+			// Source is the source argument value.
+			Source *vsv1.VolumeSnapshot
 			// ModeGetter is the modeGetter argument value.
 			ModeGetter service.VolumeAndAccessModesGetter
 			// NodePlacement is the nodePlacement argument value.
@@ -564,65 +624,83 @@ type DataSourcePVCServiceMock struct {
 			NodePlacement *provisioner.NodePlacement
 		}
 	}
-	lockCreateBlank   sync.RWMutex
-	lockCreateTarget  sync.RWMutex
-	lockFinalizers    sync.RWMutex
-	lockImport        sync.RWMutex
-	lockWaitForImport sync.RWMutex
+	lockCreateBlankTarget    sync.RWMutex
+	lockCreateTargetFromDVCR sync.RWMutex
+	lockCreateTargetFromPVC  sync.RWMutex
+	lockCreateTargetFromVS   sync.RWMutex
+	lockFinalizers           sync.RWMutex
+	lockImport               sync.RWMutex
+	lockWaitForImport        sync.RWMutex
 }
 
-// CreateBlank calls CreateBlankFunc.
-func (mock *DataSourcePVCServiceMock) CreateBlank(ctx context.Context, target *corev1.PersistentVolumeClaim, nodePlacement *provisioner.NodePlacement) error {
-	if mock.CreateBlankFunc == nil {
-		panic("DataSourcePVCServiceMock.CreateBlankFunc: method is nil but DataSourcePVCService.CreateBlank was just called")
-	}
-	callInfo := struct {
-		Ctx           context.Context
-		Target        *corev1.PersistentVolumeClaim
-		NodePlacement *provisioner.NodePlacement
-	}{
-		Ctx:           ctx,
-		Target:        target,
-		NodePlacement: nodePlacement,
-	}
-	mock.lockCreateBlank.Lock()
-	mock.calls.CreateBlank = append(mock.calls.CreateBlank, callInfo)
-	mock.lockCreateBlank.Unlock()
-	return mock.CreateBlankFunc(ctx, target, nodePlacement)
-}
-
-// CreateBlankCalls gets all the calls that were made to CreateBlank.
-// Check the length with:
-//
-//	len(mockedDataSourcePVCService.CreateBlankCalls())
-func (mock *DataSourcePVCServiceMock) CreateBlankCalls() []struct {
-	Ctx           context.Context
-	Target        *corev1.PersistentVolumeClaim
-	NodePlacement *provisioner.NodePlacement
-} {
-	var calls []struct {
-		Ctx           context.Context
-		Target        *corev1.PersistentVolumeClaim
-		NodePlacement *provisioner.NodePlacement
-	}
-	mock.lockCreateBlank.RLock()
-	calls = mock.calls.CreateBlank
-	mock.lockCreateBlank.RUnlock()
-	return calls
-}
-
-// CreateTarget calls CreateTargetFunc.
-func (mock *DataSourcePVCServiceMock) CreateTarget(ctx context.Context, key types.NamespacedName, storageClassName string, size resource.Quantity, source *service.PVCImportSource, owner client.Object, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) error {
-	if mock.CreateTargetFunc == nil {
-		panic("DataSourcePVCServiceMock.CreateTargetFunc: method is nil but DataSourcePVCService.CreateTarget was just called")
+// CreateBlankTarget calls CreateBlankTargetFunc.
+func (mock *DataSourcePVCServiceMock) CreateBlankTarget(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, modeGetter step.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {
+	if mock.CreateBlankTargetFunc == nil {
+		panic("DataSourcePVCServiceMock.CreateBlankTargetFunc: method is nil but DataSourcePVCService.CreateBlankTarget was just called")
 	}
 	callInfo := struct {
 		Ctx              context.Context
 		Key              types.NamespacedName
 		StorageClassName string
-		Size             resource.Quantity
-		Source           *service.PVCImportSource
+		Size             *resource.Quantity
 		Owner            client.Object
+		ModeGetter       step.VolumeAndAccessModesGetter
+		NodePlacement    *provisioner.NodePlacement
+	}{
+		Ctx:              ctx,
+		Key:              key,
+		StorageClassName: storageClassName,
+		Size:             size,
+		Owner:            owner,
+		ModeGetter:       modeGetter,
+		NodePlacement:    nodePlacement,
+	}
+	mock.lockCreateBlankTarget.Lock()
+	mock.calls.CreateBlankTarget = append(mock.calls.CreateBlankTarget, callInfo)
+	mock.lockCreateBlankTarget.Unlock()
+	return mock.CreateBlankTargetFunc(ctx, key, storageClassName, size, owner, modeGetter, nodePlacement)
+}
+
+// CreateBlankTargetCalls gets all the calls that were made to CreateBlankTarget.
+// Check the length with:
+//
+//	len(mockedDataSourcePVCService.CreateBlankTargetCalls())
+func (mock *DataSourcePVCServiceMock) CreateBlankTargetCalls() []struct {
+	Ctx              context.Context
+	Key              types.NamespacedName
+	StorageClassName string
+	Size             *resource.Quantity
+	Owner            client.Object
+	ModeGetter       step.VolumeAndAccessModesGetter
+	NodePlacement    *provisioner.NodePlacement
+} {
+	var calls []struct {
+		Ctx              context.Context
+		Key              types.NamespacedName
+		StorageClassName string
+		Size             *resource.Quantity
+		Owner            client.Object
+		ModeGetter       step.VolumeAndAccessModesGetter
+		NodePlacement    *provisioner.NodePlacement
+	}
+	mock.lockCreateBlankTarget.RLock()
+	calls = mock.calls.CreateBlankTarget
+	mock.lockCreateBlankTarget.RUnlock()
+	return calls
+}
+
+// CreateTargetFromDVCR calls CreateTargetFromDVCRFunc.
+func (mock *DataSourcePVCServiceMock) CreateTargetFromDVCR(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, source *service.PVCImportSourceRegistry, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {
+	if mock.CreateTargetFromDVCRFunc == nil {
+		panic("DataSourcePVCServiceMock.CreateTargetFromDVCRFunc: method is nil but DataSourcePVCService.CreateTargetFromDVCR was just called")
+	}
+	callInfo := struct {
+		Ctx              context.Context
+		Key              types.NamespacedName
+		StorageClassName string
+		Size             *resource.Quantity
+		Owner            client.Object
+		Source           *service.PVCImportSourceRegistry
 		ModeGetter       service.VolumeAndAccessModesGetter
 		NodePlacement    *provisioner.NodePlacement
 	}{
@@ -630,28 +708,28 @@ func (mock *DataSourcePVCServiceMock) CreateTarget(ctx context.Context, key type
 		Key:              key,
 		StorageClassName: storageClassName,
 		Size:             size,
-		Source:           source,
 		Owner:            owner,
+		Source:           source,
 		ModeGetter:       modeGetter,
 		NodePlacement:    nodePlacement,
 	}
-	mock.lockCreateTarget.Lock()
-	mock.calls.CreateTarget = append(mock.calls.CreateTarget, callInfo)
-	mock.lockCreateTarget.Unlock()
-	return mock.CreateTargetFunc(ctx, key, storageClassName, size, source, owner, modeGetter, nodePlacement)
+	mock.lockCreateTargetFromDVCR.Lock()
+	mock.calls.CreateTargetFromDVCR = append(mock.calls.CreateTargetFromDVCR, callInfo)
+	mock.lockCreateTargetFromDVCR.Unlock()
+	return mock.CreateTargetFromDVCRFunc(ctx, key, storageClassName, size, owner, source, modeGetter, nodePlacement)
 }
 
-// CreateTargetCalls gets all the calls that were made to CreateTarget.
+// CreateTargetFromDVCRCalls gets all the calls that were made to CreateTargetFromDVCR.
 // Check the length with:
 //
-//	len(mockedDataSourcePVCService.CreateTargetCalls())
-func (mock *DataSourcePVCServiceMock) CreateTargetCalls() []struct {
+//	len(mockedDataSourcePVCService.CreateTargetFromDVCRCalls())
+func (mock *DataSourcePVCServiceMock) CreateTargetFromDVCRCalls() []struct {
 	Ctx              context.Context
 	Key              types.NamespacedName
 	StorageClassName string
-	Size             resource.Quantity
-	Source           *service.PVCImportSource
+	Size             *resource.Quantity
 	Owner            client.Object
+	Source           *service.PVCImportSourceRegistry
 	ModeGetter       service.VolumeAndAccessModesGetter
 	NodePlacement    *provisioner.NodePlacement
 } {
@@ -659,15 +737,135 @@ func (mock *DataSourcePVCServiceMock) CreateTargetCalls() []struct {
 		Ctx              context.Context
 		Key              types.NamespacedName
 		StorageClassName string
-		Size             resource.Quantity
-		Source           *service.PVCImportSource
+		Size             *resource.Quantity
 		Owner            client.Object
+		Source           *service.PVCImportSourceRegistry
 		ModeGetter       service.VolumeAndAccessModesGetter
 		NodePlacement    *provisioner.NodePlacement
 	}
-	mock.lockCreateTarget.RLock()
-	calls = mock.calls.CreateTarget
-	mock.lockCreateTarget.RUnlock()
+	mock.lockCreateTargetFromDVCR.RLock()
+	calls = mock.calls.CreateTargetFromDVCR
+	mock.lockCreateTargetFromDVCR.RUnlock()
+	return calls
+}
+
+// CreateTargetFromPVC calls CreateTargetFromPVCFunc.
+func (mock *DataSourcePVCServiceMock) CreateTargetFromPVC(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, source *corev1.PersistentVolumeClaim, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {
+	if mock.CreateTargetFromPVCFunc == nil {
+		panic("DataSourcePVCServiceMock.CreateTargetFromPVCFunc: method is nil but DataSourcePVCService.CreateTargetFromPVC was just called")
+	}
+	callInfo := struct {
+		Ctx              context.Context
+		Key              types.NamespacedName
+		StorageClassName string
+		Size             *resource.Quantity
+		Owner            client.Object
+		Source           *corev1.PersistentVolumeClaim
+		ModeGetter       service.VolumeAndAccessModesGetter
+		NodePlacement    *provisioner.NodePlacement
+	}{
+		Ctx:              ctx,
+		Key:              key,
+		StorageClassName: storageClassName,
+		Size:             size,
+		Owner:            owner,
+		Source:           source,
+		ModeGetter:       modeGetter,
+		NodePlacement:    nodePlacement,
+	}
+	mock.lockCreateTargetFromPVC.Lock()
+	mock.calls.CreateTargetFromPVC = append(mock.calls.CreateTargetFromPVC, callInfo)
+	mock.lockCreateTargetFromPVC.Unlock()
+	return mock.CreateTargetFromPVCFunc(ctx, key, storageClassName, size, owner, source, modeGetter, nodePlacement)
+}
+
+// CreateTargetFromPVCCalls gets all the calls that were made to CreateTargetFromPVC.
+// Check the length with:
+//
+//	len(mockedDataSourcePVCService.CreateTargetFromPVCCalls())
+func (mock *DataSourcePVCServiceMock) CreateTargetFromPVCCalls() []struct {
+	Ctx              context.Context
+	Key              types.NamespacedName
+	StorageClassName string
+	Size             *resource.Quantity
+	Owner            client.Object
+	Source           *corev1.PersistentVolumeClaim
+	ModeGetter       service.VolumeAndAccessModesGetter
+	NodePlacement    *provisioner.NodePlacement
+} {
+	var calls []struct {
+		Ctx              context.Context
+		Key              types.NamespacedName
+		StorageClassName string
+		Size             *resource.Quantity
+		Owner            client.Object
+		Source           *corev1.PersistentVolumeClaim
+		ModeGetter       service.VolumeAndAccessModesGetter
+		NodePlacement    *provisioner.NodePlacement
+	}
+	mock.lockCreateTargetFromPVC.RLock()
+	calls = mock.calls.CreateTargetFromPVC
+	mock.lockCreateTargetFromPVC.RUnlock()
+	return calls
+}
+
+// CreateTargetFromVS calls CreateTargetFromVSFunc.
+func (mock *DataSourcePVCServiceMock) CreateTargetFromVS(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, source *vsv1.VolumeSnapshot, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {
+	if mock.CreateTargetFromVSFunc == nil {
+		panic("DataSourcePVCServiceMock.CreateTargetFromVSFunc: method is nil but DataSourcePVCService.CreateTargetFromVS was just called")
+	}
+	callInfo := struct {
+		Ctx              context.Context
+		Key              types.NamespacedName
+		StorageClassName string
+		Size             *resource.Quantity
+		Owner            client.Object
+		Source           *vsv1.VolumeSnapshot
+		ModeGetter       service.VolumeAndAccessModesGetter
+		NodePlacement    *provisioner.NodePlacement
+	}{
+		Ctx:              ctx,
+		Key:              key,
+		StorageClassName: storageClassName,
+		Size:             size,
+		Owner:            owner,
+		Source:           source,
+		ModeGetter:       modeGetter,
+		NodePlacement:    nodePlacement,
+	}
+	mock.lockCreateTargetFromVS.Lock()
+	mock.calls.CreateTargetFromVS = append(mock.calls.CreateTargetFromVS, callInfo)
+	mock.lockCreateTargetFromVS.Unlock()
+	return mock.CreateTargetFromVSFunc(ctx, key, storageClassName, size, owner, source, modeGetter, nodePlacement)
+}
+
+// CreateTargetFromVSCalls gets all the calls that were made to CreateTargetFromVS.
+// Check the length with:
+//
+//	len(mockedDataSourcePVCService.CreateTargetFromVSCalls())
+func (mock *DataSourcePVCServiceMock) CreateTargetFromVSCalls() []struct {
+	Ctx              context.Context
+	Key              types.NamespacedName
+	StorageClassName string
+	Size             *resource.Quantity
+	Owner            client.Object
+	Source           *vsv1.VolumeSnapshot
+	ModeGetter       service.VolumeAndAccessModesGetter
+	NodePlacement    *provisioner.NodePlacement
+} {
+	var calls []struct {
+		Ctx              context.Context
+		Key              types.NamespacedName
+		StorageClassName string
+		Size             *resource.Quantity
+		Owner            client.Object
+		Source           *vsv1.VolumeSnapshot
+		ModeGetter       service.VolumeAndAccessModesGetter
+		NodePlacement    *provisioner.NodePlacement
+	}
+	mock.lockCreateTargetFromVS.RLock()
+	calls = mock.calls.CreateTargetFromVS
+	mock.lockCreateTargetFromVS.RUnlock()
 	return calls
 }
 
@@ -1330,6 +1528,9 @@ var _ ObjectRefVirtualDiskSnapshotDiskService = &ObjectRefVirtualDiskSnapshotDis
 //			GetCapacityFunc: func(pvc *corev1.PersistentVolumeClaim) string {
 //				panic("mock out the GetCapacity method")
 //			},
+//			GetVolumeAndAccessModesFunc: func(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+//				panic("mock out the GetVolumeAndAccessModes method")
+//			},
 //		}
 //
 //		// use mockedObjectRefVirtualDiskSnapshotDiskService in code that requires ObjectRefVirtualDiskSnapshotDiskService
@@ -1342,6 +1543,9 @@ type ObjectRefVirtualDiskSnapshotDiskServiceMock struct {
 
 	// GetCapacityFunc mocks the GetCapacity method.
 	GetCapacityFunc func(pvc *corev1.PersistentVolumeClaim) string
+
+	// GetVolumeAndAccessModesFunc mocks the GetVolumeAndAccessModes method.
+	GetVolumeAndAccessModesFunc func(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -1357,9 +1561,19 @@ type ObjectRefVirtualDiskSnapshotDiskServiceMock struct {
 			// Pvc is the pvc argument value.
 			Pvc *corev1.PersistentVolumeClaim
 		}
+		// GetVolumeAndAccessModes holds details about calls to the GetVolumeAndAccessModes method.
+		GetVolumeAndAccessModes []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Obj is the obj argument value.
+			Obj client.Object
+			// Sc is the sc argument value.
+			Sc *v1.StorageClass
+		}
 	}
-	lockCleanUpSupplements sync.RWMutex
-	lockGetCapacity        sync.RWMutex
+	lockCleanUpSupplements      sync.RWMutex
+	lockGetCapacity             sync.RWMutex
+	lockGetVolumeAndAccessModes sync.RWMutex
 }
 
 // CleanUpSupplements calls CleanUpSupplementsFunc.
@@ -1427,6 +1641,46 @@ func (mock *ObjectRefVirtualDiskSnapshotDiskServiceMock) GetCapacityCalls() []st
 	mock.lockGetCapacity.RLock()
 	calls = mock.calls.GetCapacity
 	mock.lockGetCapacity.RUnlock()
+	return calls
+}
+
+// GetVolumeAndAccessModes calls GetVolumeAndAccessModesFunc.
+func (mock *ObjectRefVirtualDiskSnapshotDiskServiceMock) GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+	if mock.GetVolumeAndAccessModesFunc == nil {
+		panic("ObjectRefVirtualDiskSnapshotDiskServiceMock.GetVolumeAndAccessModesFunc: method is nil but ObjectRefVirtualDiskSnapshotDiskService.GetVolumeAndAccessModes was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		Obj client.Object
+		Sc  *v1.StorageClass
+	}{
+		Ctx: ctx,
+		Obj: obj,
+		Sc:  sc,
+	}
+	mock.lockGetVolumeAndAccessModes.Lock()
+	mock.calls.GetVolumeAndAccessModes = append(mock.calls.GetVolumeAndAccessModes, callInfo)
+	mock.lockGetVolumeAndAccessModes.Unlock()
+	return mock.GetVolumeAndAccessModesFunc(ctx, obj, sc)
+}
+
+// GetVolumeAndAccessModesCalls gets all the calls that were made to GetVolumeAndAccessModes.
+// Check the length with:
+//
+//	len(mockedObjectRefVirtualDiskSnapshotDiskService.GetVolumeAndAccessModesCalls())
+func (mock *ObjectRefVirtualDiskSnapshotDiskServiceMock) GetVolumeAndAccessModesCalls() []struct {
+	Ctx context.Context
+	Obj client.Object
+	Sc  *v1.StorageClass
+} {
+	var calls []struct {
+		Ctx context.Context
+		Obj client.Object
+		Sc  *v1.StorageClass
+	}
+	mock.lockGetVolumeAndAccessModes.RLock()
+	calls = mock.calls.GetVolumeAndAccessModes
+	mock.lockGetVolumeAndAccessModes.RUnlock()
 	return calls
 }
 

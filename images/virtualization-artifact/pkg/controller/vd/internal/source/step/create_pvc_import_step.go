@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -36,7 +37,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -50,18 +50,17 @@ type PVCImportStepDiskService interface {
 // PVCService is the contract every PVC-import step relies on to create and
 // populate a target PersistentVolumeClaim.
 type PVCService interface {
-	Finalizers() []string
-	CreateTarget(ctx context.Context, key types.NamespacedName, storageClassName string, size resource.Quantity, source *service.PVCImportSource, owner client.Object, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) error
+	CreateTargetFromDVCR(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, source *service.PVCImportSourceRegistry, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error)
+	CreateTargetFromPVC(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, source *corev1.PersistentVolumeClaim, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error)
+	CreateTargetFromVS(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, source *vsv1.VolumeSnapshot, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error)
 	Import(ctx context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) error
 	WaitForImport(ctx context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) (corev1.PodPhase, error)
 }
 
 // PVCImportStep is the step that initiates target PVC creation for a
-// VirtualDisk import. It assembles the target PVC descriptor (Name,
-// Namespace, OwnerReferences, Finalizers, base Spec) and calls
-// PersistentVolumeClaimService.CreateTarget, which determines the import
-// strategy and creates the target PVC with the annotations/dataSource needed
-// by the wait step.
+// VirtualDisk import. It explicitly chooses the target creation method from the
+// import source and creates the target PVC with the annotations/dataSource
+// needed by the wait step.
 //
 // The step is idempotent: subsequent invocations are no-ops once the target
 // PVC already exists.
@@ -74,7 +73,7 @@ type PVCImportStep struct {
 	cb     *conditions.ConditionBuilder
 }
 
-func NewPVCImportStep(
+func NewCreatePVCStep(
 	disk PVCImportStepDiskService,
 	pvcSvc PVCService,
 	c client.Client,
@@ -136,7 +135,7 @@ func (s PVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*rec
 	}
 
 	key := types.NamespacedName{Name: vd.Status.Target.PersistentVolumeClaim, Namespace: vd.Namespace}
-	if err := s.pvc.CreateTarget(ctx, key, sc.Name, s.size, s.source, vd, s.disk, nodePlacement); err != nil {
+	if err := s.createTarget(ctx, key, sc.Name, vd, nodePlacement); err != nil {
 		if errors.Is(err, volumemode.ErrStorageProfileNotFound) {
 			vd.Status.Phase = v1alpha2.DiskFailed
 			s.cb.
@@ -161,19 +160,29 @@ func (s PVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*rec
 		return nil, fmt.Errorf("create target pvc: %w", err)
 	}
 
-	target, err := object.FetchObject(ctx, key, s.client, &corev1.PersistentVolumeClaim{})
-	if err != nil {
-		return nil, fmt.Errorf("fetch target pvc: %w", err)
-	}
-	if target == nil {
-		return nil, nil
-	}
-
-	sup := vdsupplements.NewGenerator(vd)
-	if err := s.pvc.Import(ctx, target, s.source, vd, sup, nodePlacement); err != nil {
-		return nil, fmt.Errorf("import to pvc: %w", err)
-	}
 	return nil, nil
+}
+
+func (s PVCImportStep) createTarget(ctx context.Context, key types.NamespacedName, storageClassName string, vd *v1alpha2.VirtualDisk, nodePlacement *provisioner.NodePlacement) error {
+	switch {
+	case s.source == nil:
+		return nil
+	case s.source.Registry != nil:
+		_, err := s.pvc.CreateTargetFromDVCR(ctx, key, storageClassName, &s.size, vd, s.source.Registry, s.disk, nodePlacement)
+		return err
+	case s.source.PVC != nil:
+		sourceClaim, err := object.FetchObject(ctx, types.NamespacedName{Name: s.source.PVC.Name, Namespace: s.source.PVC.Namespace}, s.client, &corev1.PersistentVolumeClaim{})
+		if err != nil {
+			return fmt.Errorf("fetch source pvc: %w", err)
+		}
+		if sourceClaim == nil {
+			return fmt.Errorf("source pvc %s/%s not found", s.source.PVC.Namespace, s.source.PVC.Name)
+		}
+		_, err = s.pvc.CreateTargetFromPVC(ctx, key, storageClassName, &s.size, vd, sourceClaim, s.disk, nodePlacement)
+		return err
+	default:
+		return nil
+	}
 }
 
 func GetNodePlacement(ctx context.Context, c client.Client, vd *v1alpha2.VirtualDisk) (*provisioner.NodePlacement, error) {

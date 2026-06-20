@@ -82,6 +82,10 @@ func NewDiskService(
 	}
 }
 
+func (s DiskService) Client() client.Client {
+	return s.client
+}
+
 // PersistentVolumeClaim returns the PersistentVolumeClaimService that this
 // DiskService delegates target-PVC creation and import orchestration to.
 // Steps and data sources should call PersistentVolumeClaim().Import to drive

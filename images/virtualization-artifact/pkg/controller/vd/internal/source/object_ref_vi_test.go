@@ -161,9 +161,9 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 				},
 			}
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vi, sc).Build()
-			pvcSvc.CreateTargetFunc = func(_ context.Context, _ types.NamespacedName, _ string, _ resource.Quantity, _ *service.PVCImportSource, _ kclient.Object, _ service.VolumeAndAccessModesGetter, _ *provisioner.NodePlacement) error {
+			pvcSvc.CreateTargetFromDVCRFunc = func(_ context.Context, _ types.NamespacedName, _ string, _ *resource.Quantity, _ kclient.Object, _ *service.PVCImportSourceRegistry, _ service.VolumeAndAccessModesGetter, _ *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {
 				importStarted = true
-				return nil
+				return corev1.PersistentVolumeClaim{}, nil
 			}
 
 			syncer := NewObjectRefVirtualImage(svc, pvcSvc, stat, fakeClient)
@@ -282,7 +282,7 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.RequeueAfter).ToNot(BeZero())
-			Expect(imported).To(BeTrue())
+			Expect(imported).To(BeFalse())
 			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
 		})

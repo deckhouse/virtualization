@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -297,7 +298,7 @@ func reconcilePVCImportFromDVCR(
 			return reconcile.Result{}, err
 		}
 
-		err = disk.PersistentVolumeClaim().CreateTarget(ctx, supgen.PersistentVolumeClaim(), vi.Status.StorageClassName, diskSize, source, vi, disk, nil)
+		err = createPVCImportTarget(ctx, vi, supgen, diskSize, source, disk)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, cb); err != nil || updated {
 			return reconcile.Result{}, err
 		}
@@ -309,10 +310,6 @@ func reconcilePVCImportFromDVCR(
 		if target == nil {
 			return reconcile.Result{RequeueAfter: time.Second}, nil
 		}
-		if err := disk.PersistentVolumeClaim().Import(ctx, target, source, vi, supgen, nil); err != nil {
-			return reconcile.Result{}, err
-		}
-
 		vi.Status.Phase = v1alpha2.ImageProvisioning
 		cb.
 			Status(metav1.ConditionFalse).
@@ -321,18 +318,8 @@ func reconcilePVCImportFromDVCR(
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
-	if err := disk.PersistentVolumeClaim().Import(ctx, pvc, source, vi, supgen, nil); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	phase, err := disk.PersistentVolumeClaim().WaitForImport(ctx, pvc, source, vi, supgen, nil)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
 	vi.Status.Target.PersistentVolumeClaim = pvc.Name
-	switch phase {
-	case corev1.PodSucceeded:
+	if pvc.Annotations[annotations.AnnPVCPopulationDone] == "true" {
 		vi.Status.Phase = v1alpha2.ImageReady
 		cb.Status(metav1.ConditionTrue).Reason(vicondition.Ready).Message("")
 		vi.Status.Progress = "100%"
@@ -340,23 +327,25 @@ func reconcilePVCImportFromDVCR(
 		vi.Status.CDROM = stat.GetCDROM(pod)
 		vi.Status.DownloadSpeed = stat.GetDownloadSpeed(vi.GetUID(), pod)
 		return reconcile.Result{RequeueAfter: time.Second}, nil
-	case corev1.PodFailed:
+	}
+
+	if corev1.PodPhase(pvc.Annotations[annotations.AnnPVCImportPhase]) == corev1.PodFailed {
 		vi.Status.Phase = v1alpha2.ImageFailed
 		cb.Status(metav1.ConditionFalse).Reason(vicondition.ProvisioningFailed).Message("VirtualImage importer Pod failed.")
 		return reconcile.Result{}, nil
-	default:
-		vi.Status.Phase = v1alpha2.ImageProvisioning
-		cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("Import is in the process of provisioning to PVC.")
-		if vi.Status.Progress == "" {
-			vi.Status.Progress = "50.0%"
-		}
-		// The DVCR phase fills the first half of the overall progress, so the
-		// pvc-importer metric (0..100) is projected into the 50..100 slice.
-		if err := refreshPVCImportProgress(ctx, vi, disk, stat, supgen, service.NewScaleOption(50, 100)); err != nil {
-			return reconcile.Result{}, err
-		}
-		return reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
 	}
+
+	vi.Status.Phase = v1alpha2.ImageProvisioning
+	cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("Import is in the process of provisioning to PVC.")
+	if vi.Status.Progress == "" {
+		vi.Status.Progress = "50.0%"
+	}
+	// The DVCR phase fills the first half of the overall progress, so the
+	// pvc-importer metric (0..100) is projected into the 50..100 slice.
+	if err := refreshPVCImportProgress(ctx, vi, disk, stat, supgen, service.NewScaleOption(50, 100)); err != nil {
+		return reconcile.Result{}, err
+	}
+	return reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
 }
 
 func getPVCSizeFromPod(stat Stat, pod *corev1.Pod) (resource.Quantity, error) {
@@ -383,7 +372,7 @@ func reconcilePVCImportFromReadySource(
 	ready func(),
 ) (reconcile.Result, error) {
 	if pvc == nil {
-		err := disk.PersistentVolumeClaim().CreateTarget(ctx, supgen.PersistentVolumeClaim(), vi.Status.StorageClassName, size, source, vi, disk, nil)
+		err := createPVCImportTarget(ctx, vi, supgen, size, source, disk)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, cb); err != nil || updated {
 			return reconcile.Result{}, err
 		}
@@ -395,44 +384,65 @@ func reconcilePVCImportFromReadySource(
 		if target == nil {
 			return reconcile.Result{RequeueAfter: time.Second}, nil
 		}
-		if err := disk.PersistentVolumeClaim().Import(ctx, target, source, vi, supgen, nil); err != nil {
-			return reconcile.Result{}, err
-		}
 		vi.Status.Phase = v1alpha2.ImageProvisioning
 		cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("PVC Provisioner not found: create the new one.")
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
-	if err := disk.PersistentVolumeClaim().Import(ctx, pvc, source, vi, supgen, nil); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	phase, err := disk.PersistentVolumeClaim().WaitForImport(ctx, pvc, source, vi, supgen, nil)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
 	vi.Status.Target.PersistentVolumeClaim = pvc.Name
-	switch phase {
-	case corev1.PodSucceeded:
+	if pvc.Annotations[annotations.AnnPVCPopulationDone] == "true" {
 		vi.Status.Phase = v1alpha2.ImageReady
 		cb.Status(metav1.ConditionTrue).Reason(vicondition.Ready).Message("")
 		vi.Status.Progress = "100%"
 		ready()
 		return reconcile.Result{RequeueAfter: time.Second}, nil
-	case corev1.PodFailed:
+	}
+
+	if corev1.PodPhase(pvc.Annotations[annotations.AnnPVCImportPhase]) == corev1.PodFailed {
 		vi.Status.Phase = v1alpha2.ImageFailed
 		cb.Status(metav1.ConditionFalse).Reason(vicondition.ProvisioningFailed).Message("VirtualImage importer Pod failed.")
 		return reconcile.Result{}, nil
+	}
+
+	vi.Status.Phase = v1alpha2.ImageProvisioning
+	if vi.Status.Progress == "" {
+		vi.Status.Progress = "0%"
+	}
+	cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("Import is in the process of provisioning to PVC.")
+	if err := refreshPVCImportProgress(ctx, vi, disk, stat, supgen, nil); err != nil {
+		return reconcile.Result{}, err
+	}
+	return reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
+}
+
+func createPVCImportTarget(
+	ctx context.Context,
+	vi *v1alpha2.VirtualImage,
+	supgen supplements.Generator,
+	size resource.Quantity,
+	source *service.PVCImportSource,
+	disk *service.DiskService,
+) error {
+	key := supgen.PersistentVolumeClaim()
+	switch {
+	case source == nil:
+		_, err := disk.PersistentVolumeClaim().CreateBlankTarget(ctx, key, vi.Status.StorageClassName, &size, vi, disk, nil)
+		return err
+	case source.Registry != nil:
+		_, err := disk.PersistentVolumeClaim().CreateTargetFromDVCR(ctx, key, vi.Status.StorageClassName, &size, vi, source.Registry, disk, nil)
+		return err
+	case source.PVC != nil:
+		sourceClaim, err := object.FetchObject(ctx, types.NamespacedName{Name: source.PVC.Name, Namespace: source.PVC.Namespace}, disk.Client(), &corev1.PersistentVolumeClaim{})
+		if err != nil {
+			return fmt.Errorf("fetch source pvc: %w", err)
+		}
+		if sourceClaim == nil {
+			return fmt.Errorf("source pvc %s/%s not found", source.PVC.Namespace, source.PVC.Name)
+		}
+		_, err = disk.PersistentVolumeClaim().CreateTargetFromPVC(ctx, key, vi.Status.StorageClassName, &size, vi, sourceClaim, disk, nil)
+		return err
 	default:
-		vi.Status.Phase = v1alpha2.ImageProvisioning
-		if vi.Status.Progress == "" {
-			vi.Status.Progress = "0%"
-		}
-		cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("Import is in the process of provisioning to PVC.")
-		if err := refreshPVCImportProgress(ctx, vi, disk, stat, supgen, nil); err != nil {
-			return reconcile.Result{}, err
-		}
-		return reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
+		return nil
 	}
 }
 

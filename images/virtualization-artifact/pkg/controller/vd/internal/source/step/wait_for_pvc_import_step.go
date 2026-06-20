@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -112,27 +113,9 @@ func (s WaitForPVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk
 	// Bound would deadlock (the target waits for the rebind, the rebind waits for the
 	// import). The import and the rebind are driven by Import/WaitForImport below.
 
-	nodePlacement, err := GetNodePlacement(ctx, s.client, vd)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get importer tolerations: %w", err)
-	}
-
-	var source *service.PVCImportSource
-	if s.sourceProvider != nil {
-		source, err = s.sourceProvider(ctx, vd)
-		if err != nil {
-			return nil, fmt.Errorf("build pvc import source: %w", err)
-		}
-	}
-
-	sup := vdsupplements.NewGenerator(vd)
-	if err := s.pvcSvc.Import(ctx, s.pvc, source, vd, sup, nodePlacement); err != nil {
-		return nil, fmt.Errorf("import to pvc: %w", err)
-	}
-
-	phase, err := s.pvcSvc.WaitForImport(ctx, s.pvc, source, vd, sup, nodePlacement)
-	if err != nil {
-		return nil, fmt.Errorf("pvc import: %w", err)
+	phase := corev1.PodPhase(s.pvc.Annotations[annotations.AnnPVCImportPhase])
+	if s.pvc.Annotations[annotations.AnnPVCPopulationDone] == "true" {
+		phase = corev1.PodSucceeded
 	}
 
 	switch phase {

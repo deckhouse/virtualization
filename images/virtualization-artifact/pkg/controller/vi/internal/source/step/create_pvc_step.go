@@ -19,12 +19,12 @@ package step
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -33,6 +33,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -43,7 +44,11 @@ import (
 )
 
 type CreatePersistentVolumeClaimStep struct {
-	pvc      *corev1.PersistentVolumeClaim
+	pvc    *corev1.PersistentVolumeClaim
+	disk   service.VolumeAndAccessModesGetter
+	pvcSvc interface {
+		CreateTargetFromVS(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, source *vsv1.VolumeSnapshot, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error)
+	}
 	recorder eventrecord.EventRecorderLogger
 	client   client.Client
 	cb       *conditions.ConditionBuilder
@@ -51,12 +56,18 @@ type CreatePersistentVolumeClaimStep struct {
 
 func NewCreatePersistentVolumeClaimStep(
 	pvc *corev1.PersistentVolumeClaim,
+	disk service.VolumeAndAccessModesGetter,
+	pvcSvc interface {
+		CreateTargetFromVS(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, source *vsv1.VolumeSnapshot, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error)
+	},
 	recorder eventrecord.EventRecorderLogger,
 	client client.Client,
 	cb *conditions.ConditionBuilder,
 ) *CreatePersistentVolumeClaimStep {
 	return &CreatePersistentVolumeClaimStep{
 		pvc:      pvc,
+		disk:     disk,
+		pvcSvc:   pvcSvc,
 		recorder: recorder,
 		client:   client,
 		cb:       cb,
@@ -120,9 +131,14 @@ func (s CreatePersistentVolumeClaimStep) Take(ctx context.Context, vi *v1alpha2.
 		return &reconcile.Result{}, nil
 	}
 
-	pvc := s.buildPVC(vi, vs)
+	storageClassName := s.storageClassName(vi, vs)
+	if storageClassName != "" {
+		vi.Status.StorageClassName = storageClassName
+	}
+	size := s.restoreSize(vs)
+	key := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID).PersistentVolumeClaim()
 
-	err = s.client.Create(ctx, pvc)
+	pvc, err := s.pvcSvc.CreateTargetFromVS(ctx, key, storageClassName, size, vi, vs, s.disk, nil)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return nil, fmt.Errorf("create pvc: %w", err)
 	}
@@ -140,72 +156,22 @@ func (s CreatePersistentVolumeClaimStep) Take(ctx context.Context, vi *v1alpha2.
 	return nil, nil
 }
 
-func (s CreatePersistentVolumeClaimStep) buildPVC(vi *v1alpha2.VirtualImage, vs *vsv1.VolumeSnapshot) *corev1.PersistentVolumeClaim {
-	var storageClassName string
+func (s CreatePersistentVolumeClaimStep) storageClassName(vi *v1alpha2.VirtualImage, vs *vsv1.VolumeSnapshot) string {
 	if vi.Spec.PersistentVolumeClaim.StorageClass != nil && *vi.Spec.PersistentVolumeClaim.StorageClass != "" {
-		storageClassName = *vi.Spec.PersistentVolumeClaim.StorageClass
-	} else {
-		storageClassName = vs.Annotations[annotations.AnnStorageClassName]
-		if storageClassName == "" {
-			storageClassName = vs.Annotations[annotations.AnnStorageClassNameDeprecated]
-		}
+		return *vi.Spec.PersistentVolumeClaim.StorageClass
 	}
-	volumeMode := vs.Annotations[annotations.AnnVolumeMode]
-	if volumeMode == "" {
-		volumeMode = vs.Annotations[annotations.AnnVolumeModeDeprecated]
+	storageClassName := vs.Annotations[annotations.AnnStorageClassName]
+	if storageClassName == "" {
+		storageClassName = vs.Annotations[annotations.AnnStorageClassNameDeprecated]
 	}
-	accessModesRaw := vs.Annotations[annotations.AnnAccessModes]
-	if accessModesRaw == "" {
-		accessModesRaw = vs.Annotations[annotations.AnnAccessModesDeprecated]
-	}
+	return storageClassName
+}
 
-	accessModesStr := strings.Split(accessModesRaw, ",")
-	accessModes := make([]corev1.PersistentVolumeAccessMode, 0, len(accessModesStr))
-	for _, accessModeStr := range accessModesStr {
-		accessModes = append(accessModes, corev1.PersistentVolumeAccessMode(accessModeStr))
-	}
-
-	spec := corev1.PersistentVolumeClaimSpec{
-		AccessModes: accessModes,
-		DataSource: &corev1.TypedLocalObjectReference{
-			APIGroup: ptr.To(vs.GroupVersionKind().Group),
-			Kind:     vs.Kind,
-			Name:     vs.Name,
-		},
-	}
-
-	if storageClassName != "" {
-		spec.StorageClassName = &storageClassName
-		vi.Status.StorageClassName = storageClassName
-	}
-
-	if volumeMode != "" {
-		spec.VolumeMode = ptr.To(corev1.PersistentVolumeMode(volumeMode))
-	}
-
+func (s CreatePersistentVolumeClaimStep) restoreSize(vs *vsv1.VolumeSnapshot) *resource.Quantity {
 	if vs.Status != nil && vs.Status.RestoreSize != nil {
-		spec.Resources = corev1.VolumeResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceStorage: *vs.Status.RestoreSize,
-			},
-		}
+		return vs.Status.RestoreSize
 	}
-
-	pvcKey := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID).PersistentVolumeClaim()
-
-	return &corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pvcKey.Name,
-			Namespace: pvcKey.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				service.MakeOwnerReference(vi),
-			},
-			Finalizers: []string{
-				v1alpha2.FinalizerVIProtection,
-			},
-		},
-		Spec: spec,
-	}
+	return nil
 }
 
 func (s CreatePersistentVolumeClaimStep) validateStorageClassCompatibility(ctx context.Context, vi *v1alpha2.VirtualImage, vdSnapshot *v1alpha2.VirtualDiskSnapshot, vs *vsv1.VolumeSnapshot) error {

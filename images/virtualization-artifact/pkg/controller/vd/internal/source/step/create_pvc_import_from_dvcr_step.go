@@ -58,7 +58,7 @@ type StartImportFromDVCRStep struct {
 	cb     *conditions.ConditionBuilder
 }
 
-func NewStartImportFromDVCRStep(
+func NewCreatePVCFromDVCRStep(
 	pvc *corev1.PersistentVolumeClaim,
 	pod *corev1.Pod,
 	stat StartImportFromDVCRStepStatService,
@@ -115,7 +115,7 @@ func (s StartImportFromDVCRStep) Take(ctx context.Context, vd *v1alpha2.VirtualD
 
 	source := BuildDVCRPVCImportSource(vd, s.stat.GetDVCRImageName(s.pod))
 
-	return NewPVCImportStep(s.disk, s.pvcSvc, s.client, source, size, s.cb).Take(ctx, vd)
+	return NewCreatePVCStep(s.disk, s.pvcSvc, s.client, source, size, s.cb).Take(ctx, vd)
 }
 
 func (s StartImportFromDVCRStep) getPVCSize(vd *v1alpha2.VirtualDisk) (resource.Quantity, error) {

@@ -326,11 +326,10 @@ var _ = Describe("UploadDataSource", func() {
 
 		It("starts the PVC import using a registry source", func() {
 			var started bool
-			pvcSvc.CreateTargetFunc = func(_ context.Context, _ types.NamespacedName, _ string, _ resource.Quantity, source *service.PVCImportSource, _ client.Object, _ service.VolumeAndAccessModesGetter, _ *provisioner.NodePlacement) error {
+			pvcSvc.CreateTargetFromDVCRFunc = func(_ context.Context, _ types.NamespacedName, _ string, _ *resource.Quantity, _ client.Object, source *service.PVCImportSourceRegistry, _ service.VolumeAndAccessModesGetter, _ *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {
 				started = true
 				Expect(source).ToNot(BeNil())
-				Expect(source.Registry).ToNot(BeNil())
-				return nil
+				return corev1.PersistentVolumeClaim{}, nil
 			}
 
 			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sc).Build()
@@ -403,7 +402,7 @@ var _ = Describe("UploadDataSource", func() {
 			pvc.Annotations = map[string]string{annotations.AnnPVCImportPhase: string(corev1.PodPending)}
 		})
 
-		It("resumes by starting the PVC import before waiting for it", func() {
+		It("waits for populator to start the PVC import", func() {
 			var imported bool
 			pvcSvc.ImportFunc = func(_ context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) error {
 				imported = true
@@ -421,7 +420,7 @@ var _ = Describe("UploadDataSource", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.RequeueAfter).ToNot(BeZero())
 
-			Expect(imported).To(BeTrue())
+			Expect(imported).To(BeFalse())
 			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
 		})

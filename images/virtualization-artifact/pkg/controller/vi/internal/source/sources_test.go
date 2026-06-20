@@ -214,7 +214,7 @@ var _ = Describe("Sources helpers", func() {
 	})
 
 	Describe("PVC import resume", func() {
-		It("starts the PVC import for an existing target PVC created from DVCR", func() {
+		It("waits for populator to import an existing target PVC created from DVCR", func() {
 			ctx := context.Background()
 			vi := newVI()
 			vi.Status.StorageClassName = "sc"
@@ -229,13 +229,11 @@ var _ = Describe("Sources helpers", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.RequeueAfter).ToNot(BeZero())
 
-			pod := &corev1.Pod{}
-			Expect(client.Get(ctx, supgen.PVCImporterPod(), pod)).To(Succeed())
 			Expect(vi.Status.Phase).To(Equal(v1alpha2.ImageProvisioning))
 			Expect(cb.Condition().Reason).To(Equal(vicondition.Provisioning.String()))
 		})
 
-		It("starts the PVC import for an existing target PVC created from another PVC", func() {
+		It("waits for populator to import an existing target PVC created from another PVC", func() {
 			ctx := context.Background()
 			vi := newVI()
 			vi.Status.StorageClassName = "sc"
@@ -251,8 +249,6 @@ var _ = Describe("Sources helpers", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.RequeueAfter).ToNot(BeZero())
 
-			pod := &corev1.Pod{}
-			Expect(client.Get(ctx, supgen.PVCImporterPod(), pod)).To(Succeed())
 			Expect(vi.Status.Phase).To(Equal(v1alpha2.ImageProvisioning))
 			Expect(cb.Condition().Reason).To(Equal(vicondition.Provisioning.String()))
 		})

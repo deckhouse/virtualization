@@ -47,7 +47,7 @@ type StartImportFromClusterVirtualImageStep struct {
 	cb     *conditions.ConditionBuilder
 }
 
-func NewStartImportFromClusterVirtualImageStep(
+func NewCreatePVCFromClusterVirtualImageStep(
 	pvc *corev1.PersistentVolumeClaim,
 	disk PVCImportStepDiskService,
 	pvcSvc PVCService,
@@ -105,7 +105,7 @@ func (s StartImportFromClusterVirtualImageStep) Take(ctx context.Context, vd *v1
 		return nil, err
 	}
 
-	return NewPVCImportStep(s.disk, s.pvcSvc, s.client, source, size, s.cb).Take(ctx, vd)
+	return NewCreatePVCStep(s.disk, s.pvcSvc, s.client, source, size, s.cb).Take(ctx, vd)
 }
 
 func (s StartImportFromClusterVirtualImageStep) getPVCSize(vd *v1alpha2.VirtualDisk, cviRef *v1alpha2.ClusterVirtualImage) (resource.Quantity, error) {

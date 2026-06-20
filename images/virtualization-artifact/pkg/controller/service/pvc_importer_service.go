@@ -167,6 +167,9 @@ func primePVCName(target *corev1.PersistentVolumeClaim) string {
 // volume can later be rebound to the target without a cross-node move.
 const selectedNodeAnnotation = "volume.kubernetes.io/selected-node"
 
+// SelectedNodeAnnotation is the scheduler annotation that pins a WFFC PVC to a node.
+const SelectedNodeAnnotation = selectedNodeAnnotation
+
 // ensurePrime creates the prime PVC the importer writes into. The prime mirrors
 // the target's storage spec (storage class, size, access/volume modes) but never
 // carries the target's data source: it is filled by the pvc-importer pod and its

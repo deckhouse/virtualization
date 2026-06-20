@@ -74,6 +74,7 @@ type ObjectRefClusterVirtualImageStatService interface {
 
 type ObjectRefVirtualDiskSnapshotDiskService interface {
 	step.ReadyStepDiskService
+	step.PVCImportStepDiskService
 }
 
 type UploadDataSourceDiskService interface {

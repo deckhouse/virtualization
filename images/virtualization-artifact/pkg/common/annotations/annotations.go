@@ -176,6 +176,22 @@ const (
 	AnnPVCImportCloneStrategy = AnnAPIGroupV + "/pvc-import.clone-strategy"
 	// AnnPVCImportCloneSnapshot stores the name of the VolumeSnapshot used for snapshot-based cloning.
 	AnnPVCImportCloneSnapshot = AnnAPIGroupV + "/pvc-import.clone-snapshot"
+	// AnnPVCPopulationStrategy stores the strategy used by populator-controller.
+	AnnPVCPopulationStrategy = AnnAPIGroupV + "/pvc-population-strategy"
+	// AnnPVCPopulationSourcePVC stores the source PVC name for PVC-backed population.
+	AnnPVCPopulationSourcePVC = AnnAPIGroupV + "/pvc-population-source-pvc"
+	// AnnPVCPopulationSourcePVCNamespace stores the source PVC namespace for PVC-backed population.
+	AnnPVCPopulationSourcePVCNamespace = AnnAPIGroupV + "/pvc-population-source-pvc-namespace"
+	// AnnPVCPopulationSourceDVCR stores the source DVCR image path for registry-backed population.
+	AnnPVCPopulationSourceDVCR = AnnAPIGroupV + "/pvc-population-source-dvcr"
+	// AnnPVCPopulationSourceDVCRSecret stores the DVCR auth Secret name.
+	AnnPVCPopulationSourceDVCRSecret = AnnAPIGroupV + "/pvc-population-source-dvcr-secret"
+	// AnnPVCPopulationSourceDVCRCertConfigMap stores the DVCR CA ConfigMap name.
+	AnnPVCPopulationSourceDVCRCertConfigMap = AnnAPIGroupV + "/pvc-population-source-dvcr-cert-configmap"
+	// AnnPVCPopulationDone marks target PVCs already populated by populator-controller.
+	AnnPVCPopulationDone = AnnAPIGroupV + "/pvc-population-done"
+	// AnnPVCCloneStrategy overrides StorageProfile cloneStrategy for PVC-to-PVC population.
+	AnnPVCCloneStrategy = AnnAPIGroupV + "/pvc-clone-strategy"
 
 	// TODO: remove deprecated annotations in the v1 version.
 	// AnnStorageClassName is the annotation for indicating that storage class name. (USED IN STORAGE sds controllers)
