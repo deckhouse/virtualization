@@ -121,6 +121,9 @@ func TestPVCServiceCreateTargetCreatesPVCWithRegistrySource(t *testing.T) {
 	if got := pvc.Annotations[annotations.AnnPVCPopulationStrategy]; got != PopulationStrategyDVCR {
 		t.Fatalf("unexpected population strategy: %q", got)
 	}
+	if pvc.Spec.DataSourceRef == nil || ptr.Deref(pvc.Spec.DataSourceRef.APIGroup, "") != virtualizationAPIGroup || pvc.Spec.DataSourceRef.Kind != v1alpha2.VirtualDiskKind || pvc.Spec.DataSourceRef.Name != vd.Name {
+		t.Fatalf("target pvc does not reference VirtualDisk populator source: %#v", pvc.Spec.DataSourceRef)
+	}
 	if got := pvc.Annotations[annotations.AnnPVCPopulationSourceDVCR]; got != url {
 		t.Fatalf("unexpected dvcr source: %q", got)
 	}

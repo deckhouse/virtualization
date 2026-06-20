@@ -335,7 +335,7 @@ var _ = Describe("HTTPDataSource", func() {
 			pvc.Status.Phase = corev1.ClaimBound
 			pvc.Annotations = map[string]string{annotations.AnnPVCImportPhase: string(corev1.PodRunning)}
 			pod := &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{Name: "importer", Namespace: vd.Namespace},
+				ObjectMeta: metav1.ObjectMeta{Name: vdsupplements.NewGenerator(vd).PVCImporterPod().Name, Namespace: vd.Namespace},
 				Status:     corev1.PodStatus{Phase: corev1.PodSucceeded},
 			}
 			importerSvc.GetPodFunc = func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) { return pod, nil }
@@ -357,6 +357,24 @@ var _ = Describe("HTTPDataSource", func() {
 
 			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
+		})
+
+		It("keeps progress below 100 until PVC population is done", func() {
+			stat.GetProgressFunc = func(_ types.UID, _ *corev1.Pod, _ string, _ ...service.GetProgressOption) string {
+				return "100%"
+			}
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: vdsupplements.NewGenerator(vd).PVCImporterPod().Name, Namespace: vd.Namespace},
+				Status:     corev1.PodStatus{Phase: corev1.PodSucceeded},
+			}
+
+			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, pod).Build()
+			res, err := newSyncer(cl).Sync(ctx, vd)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.RequeueAfter).ToNot(BeZero())
+
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
+			Expect(vd.Status.Progress).To(Equal("99.9%"))
 		})
 
 		It("waits for populator when the target PVC already exists", func() {

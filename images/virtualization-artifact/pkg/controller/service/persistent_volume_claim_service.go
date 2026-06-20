@@ -141,6 +141,7 @@ func (s *PersistentVolumeClaimService) CreateTargetFromDVCR(ctx context.Context,
 		target.Annotations[annotations.AnnPVCPopulationSourceDVCRCertConfigMap] = source.CertConfigMap
 	}
 	target.Annotations[annotations.AnnPVCImportPhase] = string(corev1.PodPending)
+	target.Spec.DataSourceRef = &corev1.TypedObjectReference{APIGroup: ptr.To(virtualizationAPIGroup), Kind: owner.GetObjectKind().GroupVersionKind().Kind, Name: owner.GetName()}
 	if nodePlacement != nil {
 		if err := provisioner.KeepNodePlacementTolerations(nodePlacement, &target); err != nil {
 			return corev1.PersistentVolumeClaim{}, fmt.Errorf("keep node placement: %w", err)

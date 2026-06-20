@@ -159,6 +159,7 @@ func (s WaitForPVCImportStep) refreshProgressFromPod(ctx context.Context, vd *v1
 		opts = append(opts, s.progressScale)
 	}
 	vd.Status.Progress = s.stat.GetProgress(vd.GetUID(), pod, vd.Status.Progress, opts...)
+	vd.Status.Progress = service.CapProgressBelow(vd.Status.Progress, 100)
 	return nil
 }
 
