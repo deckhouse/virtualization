@@ -31,6 +31,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
 	vdsnapshotobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vdsnapshot"
 	viobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vi"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
@@ -537,7 +538,8 @@ func createSourceVirtualDiskAndWait(ctx context.Context, f *framework.Framework,
 		vdbuilder.WithStorageClass(sc),
 	)
 
-	createVirtualDiskAndWait(ctx, f, vd)
+	obs := startVirtualDisk(ctx, f, vd, withoutStreamingProgress())
+	Expect(obs.WaitFor(vdobs.BeReady(), framework.LongTimeout)).To(Succeed())
 
 	return vd
 }

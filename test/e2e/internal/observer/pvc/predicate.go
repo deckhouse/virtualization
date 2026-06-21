@@ -42,9 +42,6 @@ func BeLost() Predicate {
 		if pvc.Status.Phase == corev1.ClaimLost {
 			return true, fmt.Errorf("PersistentVolumeClaim entered Lost phase")
 		}
-		if phase := corev1.PodPhase(pvc.Annotations[annotations.AnnPVCImportPhase]); phase == corev1.PodFailed {
-			return true, fmt.Errorf("PVC population importer failed")
-		}
 		return false, nil
 	}
 }

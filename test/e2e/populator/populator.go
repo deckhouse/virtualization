@@ -76,9 +76,8 @@ var _ = Describe("Populator", Label(precheck.PrecheckImmediateStorageClass, prec
 	It("creates target PVC from PVC using CSI clone", func(ctx SpecContext) {
 		source := newPopulatorPVC(populatorSourcePVCName, f.Namespace().Name, sc, nil)
 		target := newPopulatorPVC("target-csi-clone", f.Namespace().Name, sc, map[string]string{
-			annotations.AnnPVCPopulationStrategy:           populationStrategyCSIClone,
-			annotations.AnnPVCPopulationSourcePVC:          source.Name,
-			annotations.AnnPVCPopulationSourcePVCNamespace: source.Namespace,
+			annotations.AnnPVCPopulationStrategy:  populationStrategyCSIClone,
+			annotations.AnnPVCPopulationSourcePVC: source.Name,
 		})
 		target.Spec.DataSourceRef = &corev1.TypedObjectReference{Kind: "PersistentVolumeClaim", Name: source.Name}
 
@@ -96,10 +95,8 @@ var _ = Describe("Populator", Label(precheck.PrecheckImmediateStorageClass, prec
 		source := newPopulatorPVC(populatorSourcePVCName, f.Namespace().Name, sc, nil)
 		snapshotName := "target-snapshot-" + rand.String(5)
 		target := newPopulatorPVC("target-snapshot", f.Namespace().Name, sc, map[string]string{
-			annotations.AnnPVCPopulationStrategy:           populationStrategySnapshot,
-			annotations.AnnPVCPopulationSourcePVC:          source.Name,
-			annotations.AnnPVCPopulationSourcePVCNamespace: source.Namespace,
-			annotations.AnnPVCImportCloneSnapshot:          snapshotName,
+			annotations.AnnPVCPopulationStrategy:  populationStrategySnapshot,
+			annotations.AnnPVCPopulationSourcePVC: source.Name,
 		})
 		target.Spec.DataSource = &corev1.TypedLocalObjectReference{APIGroup: ptr.To(snapshotStorageAPI), Kind: "VolumeSnapshot", Name: snapshotName}
 		target.Spec.DataSourceRef = &corev1.TypedObjectReference{APIGroup: ptr.To(snapshotStorageAPI), Kind: "VolumeSnapshot", Name: snapshotName}
@@ -117,9 +114,8 @@ var _ = Describe("Populator", Label(precheck.PrecheckImmediateStorageClass, prec
 	It("creates target PVC from PVC using host assigned population", func(ctx SpecContext) {
 		source := newPopulatorPVC(populatorSourcePVCName, f.Namespace().Name, sc, nil)
 		target := newPopulatorPVC("target-host-assigned", f.Namespace().Name, sc, map[string]string{
-			annotations.AnnPVCPopulationStrategy:           populationStrategyHostAssigned,
-			annotations.AnnPVCPopulationSourcePVC:          source.Name,
-			annotations.AnnPVCPopulationSourcePVCNamespace: source.Namespace,
+			annotations.AnnPVCPopulationStrategy:  populationStrategyHostAssigned,
+			annotations.AnnPVCPopulationSourcePVC: source.Name,
 		})
 		target.Spec.DataSourceRef = &corev1.TypedObjectReference{
 			APIGroup: ptr.To("virtualization.deckhouse.io"),
@@ -204,7 +200,11 @@ func waitPopulatorCleanup(ctx context.Context, f *framework.Framework, targetNam
 	GinkgoHelper()
 	target := &corev1.PersistentVolumeClaim{}
 	Expect(f.GenericClient().Get(ctx, crclient.ObjectKey{Name: targetName, Namespace: f.Namespace().Name}, target)).To(Succeed())
-	importerPodName := "d8v-pvc-pvc-importer-" + string(target.UID)
+	podNames := []string{
+		"d8v-pvc-pvc-importer-" + string(target.UID),
+		"d8v-pvc-pvc-source-importer-" + string(target.UID),
+		"d8v-pvc-pvc-target-importer-" + string(target.UID),
+	}
 
 	err := wait.PollUntilContextTimeout(ctx, populatorPollInterval, populatorWaitTimeout, true, func(ctx context.Context) (bool, error) {
 		for _, key := range []types.NamespacedName{
@@ -220,13 +220,15 @@ func waitPopulatorCleanup(ctx context.Context, f *framework.Framework, targetNam
 				return false, err
 			}
 		}
-		pod := &corev1.Pod{}
-		err := f.GenericClient().Get(ctx, crclient.ObjectKey{Name: importerPodName, Namespace: f.Namespace().Name}, pod)
-		if err == nil {
-			return false, nil
-		}
-		if !k8serrors.IsNotFound(err) {
-			return false, err
+		for _, podName := range podNames {
+			pod := &corev1.Pod{}
+			err := f.GenericClient().Get(ctx, crclient.ObjectKey{Name: podName, Namespace: f.Namespace().Name}, pod)
+			if err == nil {
+				return false, nil
+			}
+			if !k8serrors.IsNotFound(err) {
+				return false, err
+			}
 		}
 		return true, nil
 	})

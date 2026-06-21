@@ -169,12 +169,10 @@ func (r *Reconciler) reconcileImporter(ctx context.Context, pvc *corev1.Persiste
 func sourceFromAnnotations(pvc *corev1.PersistentVolumeClaim, strategy string, sup supplements.Generator) *service.PVCImportSource {
 	switch strategy {
 	case service.PopulationStrategyDVCR:
-		secret := pvc.Annotations[annotations.AnnPVCPopulationSourceDVCRSecret]
-		if secret == "" && sup != nil {
+		secret := ""
+		certConfigMap := ""
+		if sup != nil {
 			secret = sup.DVCRAuthSecretForDV().Name
-		}
-		certConfigMap := pvc.Annotations[annotations.AnnPVCPopulationSourceDVCRCertConfigMap]
-		if certConfigMap == "" && sup != nil {
 			certConfigMap = sup.DVCRCABundleConfigMapForDV().Name
 		}
 		return service.NewPVCRegistryImportSource(
@@ -183,11 +181,7 @@ func sourceFromAnnotations(pvc *corev1.PersistentVolumeClaim, strategy string, s
 			certConfigMap,
 		)
 	case service.PopulationStrategyHostAssigned:
-		namespace := pvc.Annotations[annotations.AnnPVCPopulationSourcePVCNamespace]
-		if namespace == "" {
-			namespace = pvc.Namespace
-		}
-		return service.NewPVCPVCImportSource(pvc.Annotations[annotations.AnnPVCPopulationSourcePVC], namespace)
+		return service.NewPVCPVCImportSource(pvc.Annotations[annotations.AnnPVCPopulationSourcePVC], pvc.Namespace)
 	default:
 		return nil
 	}
@@ -229,7 +223,6 @@ func (r *Reconciler) markDone(ctx context.Context, pvc *corev1.PersistentVolumeC
 		patch.Annotations = map[string]string{}
 	}
 	patch.Annotations[annotations.AnnPVCPopulationDone] = "true"
-	patch.Annotations[annotations.AnnPVCImportPhase] = string(corev1.PodSucceeded)
 	return r.client.Patch(ctx, patch, client.MergeFrom(latest))
 }
 
@@ -244,7 +237,7 @@ func (r *Reconciler) cleanup(ctx context.Context, pvc *corev1.PersistentVolumeCl
 		}
 	}
 	if strategy == service.PopulationStrategySnapshot {
-		snapshotName := pvc.Annotations[annotations.AnnPVCImportCloneSnapshot]
+		snapshotName := snapshotNameFromPVC(pvc)
 		if snapshotName != "" {
 			err := r.client.Delete(ctx, &vsv1.VolumeSnapshot{ObjectMeta: metav1.ObjectMeta{Name: snapshotName, Namespace: pvc.Namespace}})
 			if err != nil && !k8serrors.IsNotFound(err) {
@@ -256,13 +249,7 @@ func (r *Reconciler) cleanup(ctx context.Context, pvc *corev1.PersistentVolumeCl
 }
 
 func (r *Reconciler) ensureSnapshot(ctx context.Context, pvc *corev1.PersistentVolumeClaim) error {
-	snapshotName := pvc.Annotations[annotations.AnnPVCImportCloneSnapshot]
-	if snapshotName == "" && pvc.Spec.DataSourceRef != nil && pvc.Spec.DataSourceRef.Kind == "VolumeSnapshot" {
-		snapshotName = pvc.Spec.DataSourceRef.Name
-	}
-	if snapshotName == "" && pvc.Spec.DataSource != nil && pvc.Spec.DataSource.Kind == "VolumeSnapshot" {
-		snapshotName = pvc.Spec.DataSource.Name
-	}
+	snapshotName := snapshotNameFromPVC(pvc)
 	if snapshotName == "" {
 		return fmt.Errorf("snapshot population pvc %s/%s has no VolumeSnapshot name", pvc.Namespace, pvc.Name)
 	}
@@ -279,10 +266,7 @@ func (r *Reconciler) ensureSnapshot(ctx context.Context, pvc *corev1.PersistentV
 	if sourceName == "" {
 		return fmt.Errorf("snapshot population pvc %s/%s has no source pvc annotation", pvc.Namespace, pvc.Name)
 	}
-	sourceNamespace := pvc.Annotations[annotations.AnnPVCPopulationSourcePVCNamespace]
-	if sourceNamespace == "" {
-		sourceNamespace = pvc.Namespace
-	}
+	sourceNamespace := pvc.Namespace
 	sourcePVC, err := object.FetchObject(ctx, types.NamespacedName{Name: sourceName, Namespace: sourceNamespace}, r.client, &corev1.PersistentVolumeClaim{})
 	if err != nil {
 		return fmt.Errorf("fetch source pvc: %w", err)
@@ -339,6 +323,19 @@ func (r *Reconciler) snapshotClassForPVC(ctx context.Context, pvc *corev1.Persis
 		}
 	}
 	return "", fmt.Errorf("no compatible VolumeSnapshotClass found for provisioner %q", sc.Provisioner)
+}
+
+func snapshotNameFromPVC(pvc *corev1.PersistentVolumeClaim) string {
+	if pvc == nil {
+		return ""
+	}
+	if pvc.Spec.DataSourceRef != nil && pvc.Spec.DataSourceRef.Kind == "VolumeSnapshot" {
+		return pvc.Spec.DataSourceRef.Name
+	}
+	if pvc.Spec.DataSource != nil && pvc.Spec.DataSource.Kind == "VolumeSnapshot" {
+		return pvc.Spec.DataSource.Name
+	}
+	return ""
 }
 
 func (r *Reconciler) isWaitForFirstConsumer(ctx context.Context, pvc *corev1.PersistentVolumeClaim) (bool, error) {

@@ -176,6 +176,10 @@ func refreshPVCImportProgress(
 	if pod == nil {
 		return nil
 	}
+	if !service.PodHasMetricsPort(pod) {
+		vi.Status.Progress = service.AdvanceProgressBelow(vi.Status.Progress, 100)
+		return nil
+	}
 
 	var opts []service.GetProgressOption
 	if scale != nil {
@@ -183,6 +187,17 @@ func refreshPVCImportProgress(
 	}
 	vi.Status.Progress = service.CapProgressBelow(stat.GetProgress(vi.GetUID(), pod, vi.Status.Progress, opts...), 100)
 	return nil
+}
+
+func pvcImporterPodPhase(ctx context.Context, disk *service.DiskService, supgen supplements.Generator) (corev1.PodPhase, error) {
+	pod, err := disk.GetPVCImporterPod(ctx, supgen)
+	if err != nil {
+		return "", fmt.Errorf("fetch pvc-importer pod: %w", err)
+	}
+	if pod == nil || pod.Status.Phase == "" {
+		return corev1.PodPending, nil
+	}
+	return pod.Status.Phase, nil
 }
 
 func setPhaseConditionForFinishedImage(
@@ -329,7 +344,11 @@ func reconcilePVCImportFromDVCR(
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
-	if corev1.PodPhase(pvc.Annotations[annotations.AnnPVCImportPhase]) == corev1.PodFailed {
+	importPhase, err := pvcImporterPodPhase(ctx, disk, supgen)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if importPhase == corev1.PodFailed {
 		vi.Status.Phase = v1alpha2.ImageFailed
 		cb.Status(metav1.ConditionFalse).Reason(vicondition.ProvisioningFailed).Message("VirtualImage importer Pod failed.")
 		return reconcile.Result{}, nil
@@ -339,6 +358,9 @@ func reconcilePVCImportFromDVCR(
 	cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("Import is in the process of provisioning to PVC.")
 	if vi.Status.Progress == "" {
 		vi.Status.Progress = "50.0%"
+	}
+	if importPhase == corev1.PodSucceeded {
+		return reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
 	}
 	// The DVCR phase fills the first half of the overall progress, so the
 	// pvc-importer metric (0..100) is projected into the 50..100 slice.
@@ -398,7 +420,11 @@ func reconcilePVCImportFromReadySource(
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
-	if corev1.PodPhase(pvc.Annotations[annotations.AnnPVCImportPhase]) == corev1.PodFailed {
+	importPhase, err := pvcImporterPodPhase(ctx, disk, supgen)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if importPhase == corev1.PodFailed {
 		vi.Status.Phase = v1alpha2.ImageFailed
 		cb.Status(metav1.ConditionFalse).Reason(vicondition.ProvisioningFailed).Message("VirtualImage importer Pod failed.")
 		return reconcile.Result{}, nil
@@ -409,6 +435,9 @@ func reconcilePVCImportFromReadySource(
 		vi.Status.Progress = "0%"
 	}
 	cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("Import is in the process of provisioning to PVC.")
+	if importPhase == corev1.PodSucceeded {
+		return reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
+	}
 	if err := refreshPVCImportProgress(ctx, vi, disk, stat, supgen, nil); err != nil {
 		return reconcile.Result{}, err
 	}

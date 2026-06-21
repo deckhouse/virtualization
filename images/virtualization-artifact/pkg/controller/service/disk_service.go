@@ -99,10 +99,14 @@ func (s DiskService) GetVolumeAndAccessModes(ctx context.Context, obj client.Obj
 	return s.volumeAndAccessModesGetter.GetVolumeAndAccessModes(ctx, obj, sc)
 }
 
-// GetPVCImporterPod returns the pvc-importer pod that populates the target PVC,
-// or nil when it has not been created yet. It is used to read the import
-// progress metric while the import is in flight.
+// GetPVCImporterPod returns the pod that writes into the prime PVC, or nil when
+// it has not been created yet. Host-assigned PVC-to-PVC clones use the
+// pvc-target-importer pod; DVCR imports keep the legacy pvc-importer name.
 func (s DiskService) GetPVCImporterPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error) {
+	pod, err := object.FetchObject(ctx, sup.PVCTargetImporterPod(), s.client, &corev1.Pod{})
+	if err != nil || pod != nil {
+		return pod, err
+	}
 	return object.FetchObject(ctx, sup.PVCImporterPod(), s.client, &corev1.Pod{})
 }
 

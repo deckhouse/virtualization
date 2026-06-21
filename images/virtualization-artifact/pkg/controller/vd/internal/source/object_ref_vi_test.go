@@ -239,9 +239,7 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 
 		It("requeues when the import has just completed", func() {
 			pvc.Status.Phase = corev1.ClaimBound
-			pvc.Annotations = map[string]string{
-				annotations.AnnPVCImportPhase: string(corev1.PodRunning),
-			}
+			pvc.Annotations = map[string]string{annotations.AnnPVCPopulationStrategy: service.PopulationStrategyDVCR}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, vi).Build()
 			pvcSvc.WaitForImportFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ kclient.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
 				return corev1.PodSucceeded, nil
@@ -256,9 +254,7 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 
 		It("resumes by starting the PVC import when the target PVC already exists", func() {
 			pvc.Status.Phase = corev1.ClaimBound
-			pvc.Annotations = map[string]string{
-				annotations.AnnPVCImportPhase: string(corev1.PodPending),
-			}
+			pvc.Annotations = map[string]string{annotations.AnnPVCPopulationStrategy: service.PopulationStrategyDVCR}
 			vi.Spec.Storage = v1alpha2.StoragePersistentVolumeClaim
 			vi.Status.Target.PersistentVolumeClaim = "source-pvc"
 			var imported bool

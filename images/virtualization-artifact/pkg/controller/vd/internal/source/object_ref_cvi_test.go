@@ -263,9 +263,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 
 		It("requeues when the import has just completed", func() {
 			pvc.Status.Phase = corev1.ClaimBound
-			pvc.Annotations = map[string]string{
-				annotations.AnnPVCImportPhase: string(corev1.PodRunning),
-			}
+			pvc.Annotations = map[string]string{annotations.AnnPVCPopulationStrategy: service.PopulationStrategyDVCR}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, cvi).Build()
 			pvcSvc.WaitForImportFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ kclient.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
 				return corev1.PodSucceeded, nil
@@ -280,9 +278,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 
 		It("waits for populator when the target PVC already exists", func() {
 			pvc.Status.Phase = corev1.ClaimBound
-			pvc.Annotations = map[string]string{
-				annotations.AnnPVCImportPhase: string(corev1.PodPending),
-			}
+			pvc.Annotations = map[string]string{annotations.AnnPVCPopulationStrategy: service.PopulationStrategyDVCR}
 			cvi.Status.Target.RegistryURL = "registry.example/cvi/source"
 			var imported bool
 			pvcSvc.ImportFunc = func(_ context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, _ kclient.Object, _ supplements.Generator, _ *provisioner.NodePlacement) error {

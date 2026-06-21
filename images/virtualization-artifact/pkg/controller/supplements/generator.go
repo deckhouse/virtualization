@@ -25,17 +25,19 @@ import (
 )
 
 const (
-	tplCommon              = "d8v-%s-%s-%s"
-	tplDVCRAuthSecret      = "d8v-%s-dvcr-auth-%s-%s"
-	tplDVCRAuthSecretForDV = "d8v-%s-dvcr-auth-dv-%s-%s"
-	tplDVCRCABundle        = "d8v-%s-dvcr-ca-%s-%s"
-	tplCABundle            = "d8v-%s-ca-%s-%s"
-	tplImagePullSecret     = "d8v-%s-pull-image-%s-%s"
-	tplImporterPod         = "d8v-%s-importer-%s"
-	tplPVCImporterPod      = "d8v-%s-pvc-importer-%s"
-	tplBounderPod          = "d8v-%s-bounder-%s-%s"
-	tplUploaderPod         = "d8v-%s-uploader-%s-%s"
-	tplUploaderTLSSecret   = "d8v-%s-tls-%s-%s"
+	tplCommon               = "d8v-%s-%s-%s"
+	tplDVCRAuthSecret       = "d8v-%s-dvcr-auth-%s-%s"
+	tplDVCRAuthSecretForDV  = "d8v-%s-dvcr-auth-dv-%s-%s"
+	tplDVCRCABundle         = "d8v-%s-dvcr-ca-%s-%s"
+	tplCABundle             = "d8v-%s-ca-%s-%s"
+	tplImagePullSecret      = "d8v-%s-pull-image-%s-%s"
+	tplImporterPod          = "d8v-%s-importer-%s"
+	tplPVCImporterPod       = "d8v-%s-pvc-importer-%s"
+	tplPVCSourceImporterPod = "d8v-%s-pvc-source-importer-%s"
+	tplPVCTargetImporterPod = "d8v-%s-pvc-target-importer-%s"
+	tplBounderPod           = "d8v-%s-bounder-%s-%s"
+	tplUploaderPod          = "d8v-%s-uploader-%s-%s"
+	tplUploaderTLSSecret    = "d8v-%s-tls-%s-%s"
 )
 
 type Generator interface {
@@ -46,6 +48,8 @@ type Generator interface {
 	BounderPod() types.NamespacedName
 	ImporterPod() types.NamespacedName
 	PVCImporterPod() types.NamespacedName
+	PVCSourceImporterPod() types.NamespacedName
+	PVCTargetImporterPod() types.NamespacedName
 	UploaderPod() types.NamespacedName
 	UploaderService() types.NamespacedName
 	UploaderIngress() types.NamespacedName
@@ -153,6 +157,22 @@ func (g *generator) ImporterPod() types.NamespacedName {
 // that runs in the first import phase.
 func (g *generator) PVCImporterPod() types.NamespacedName {
 	name := fmt.Sprintf(tplPVCImporterPod, g.prefix, g.UID())
+	return types.NamespacedName{
+		Name:      name,
+		Namespace: g.namespace,
+	}
+}
+
+func (g *generator) PVCSourceImporterPod() types.NamespacedName {
+	name := fmt.Sprintf(tplPVCSourceImporterPod, g.prefix, g.UID())
+	return types.NamespacedName{
+		Name:      name,
+		Namespace: g.namespace,
+	}
+}
+
+func (g *generator) PVCTargetImporterPod() types.NamespacedName {
+	name := fmt.Sprintf(tplPVCTargetImporterPod, g.prefix, g.UID())
 	return types.NamespacedName{
 		Name:      name,
 		Namespace: g.namespace,

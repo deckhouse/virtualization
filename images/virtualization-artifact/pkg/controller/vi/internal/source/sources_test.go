@@ -108,7 +108,7 @@ var _ = Describe("Sources helpers", func() {
 				Name:        name,
 				Namespace:   namespace,
 				UID:         types.UID(name + "-uid"),
-				Annotations: map[string]string{annotations.AnnPVCImportPhase: string(corev1.PodPending)},
+				Annotations: map[string]string{},
 			},
 			Spec: corev1.PersistentVolumeClaimSpec{
 				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},

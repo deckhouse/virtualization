@@ -48,7 +48,7 @@ var _ = Describe("Generator", func() {
 
 				Expect(result.Name).To(HavePrefix("d8v-"))
 				Expect(result.Name).To(ContainSubstring(expectedPrefix))
-				if expectedPrefix != "importer" && expectedPrefix != "pvc-importer" {
+				if expectedPrefix != "importer" && expectedPrefix != "pvc-importer" && expectedPrefix != "pvc-source-importer" && expectedPrefix != "pvc-target-importer" {
 					Expect(result.Name).To(ContainSubstring(name))
 				}
 				Expect(result.Name).To(HaveSuffix(string(uid)))
@@ -60,6 +60,8 @@ var _ = Describe("Generator", func() {
 			Entry("ImagePullSecret", func(g Generator) types.NamespacedName { return g.ImagePullSecret() }, "pull-image"),
 			Entry("ImporterPod", func(g Generator) types.NamespacedName { return g.ImporterPod() }, "importer"),
 			Entry("PVCImporterPod", func(g Generator) types.NamespacedName { return g.PVCImporterPod() }, "pvc-importer"),
+			Entry("PVCSourceImporterPod", func(g Generator) types.NamespacedName { return g.PVCSourceImporterPod() }, "pvc-source-importer"),
+			Entry("PVCTargetImporterPod", func(g Generator) types.NamespacedName { return g.PVCTargetImporterPod() }, "pvc-target-importer"),
 			Entry("BounderPod", func(g Generator) types.NamespacedName { return g.BounderPod() }, "bounder"),
 			Entry("UploaderPod", func(g Generator) types.NamespacedName { return g.UploaderPod() }, "uploader"),
 			Entry("UploaderService", func(g Generator) types.NamespacedName { return g.UploaderService() }, "vi"),

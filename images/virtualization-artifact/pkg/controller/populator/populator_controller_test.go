@@ -165,6 +165,82 @@ func TestPopulatorStartsStandaloneDVCRImport(t *testing.T) {
 	assertContainerUsesDVCRSupplement(t, pod.Spec.Containers[0], sup)
 }
 
+func TestPopulatorStartsHostAssignedPVCCloneWithSourceAndTargetPods(t *testing.T) {
+	ctx := context.Background()
+	vd := testVD()
+	source := testSourcePVC("source", vd.Namespace)
+	source.Spec.VolumeMode = ptr.To(corev1.PersistentVolumeBlock)
+	target := testTargetPVC(vd)
+	target.Annotations[annotations.AnnPVCPopulationStrategy] = service.PopulationStrategyHostAssigned
+	target.Annotations[annotations.AnnPVCPopulationSourcePVC] = source.Name
+	target.Spec.VolumeMode = ptr.To(corev1.PersistentVolumeBlock)
+
+	c := fake.NewClientBuilder().
+		WithScheme(testScheme(t)).
+		WithObjects(vd, source, target).
+		Build()
+	r := testReconciler(c)
+	sup := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+
+	result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(target)})
+	if err != nil {
+		t.Fatalf("reconcile failed: %v", err)
+	}
+	if result.RequeueAfter == 0 {
+		t.Fatalf("expected requeue while source importer is pending")
+	}
+
+	sourcePod := &corev1.Pod{}
+	if err := c.Get(ctx, sup.PVCSourceImporterPod(), sourcePod); err != nil {
+		t.Fatalf("expected pvc-source-importer pod: %v", err)
+	}
+	if got := sourcePod.Spec.Containers[0].Command; len(got) != 1 || got[0] != "/usr/sbin/nbdkit" {
+		t.Fatalf("unexpected source pod command: %#v", got)
+	}
+	if err := c.Get(ctx, sup.PVCTargetImporterPod(), &corev1.Pod{}); client.IgnoreNotFound(err) == nil && err == nil {
+		t.Fatalf("target importer pod must wait for source pod IP")
+	}
+	if err := c.Get(ctx, sup.PVCImporterPod(), &corev1.Pod{}); client.IgnoreNotFound(err) == nil && err == nil {
+		t.Fatalf("host-assigned clone must not create legacy pvc-importer pod")
+	}
+
+	sourcePod.Status.Phase = corev1.PodRunning
+	sourcePod.Status.PodIP = "10.0.0.20"
+	sourcePod.Status.Conditions = []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}
+	if err := c.Status().Update(ctx, sourcePod); err != nil {
+		t.Fatalf("update source pod status: %v", err)
+	}
+
+	result, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(target)})
+	if err != nil {
+		t.Fatalf("second reconcile failed: %v", err)
+	}
+	if result.RequeueAfter == 0 {
+		t.Fatalf("expected requeue while target importer is pending")
+	}
+
+	targetPod := &corev1.Pod{}
+	if err := c.Get(ctx, sup.PVCTargetImporterPod(), targetPod); err != nil {
+		t.Fatalf("expected pvc-target-importer pod: %v", err)
+	}
+	container := targetPod.Spec.Containers[0]
+	if got := container.Command; len(got) != 1 || got[0] != "/usr/bin/qemu-img" {
+		t.Fatalf("unexpected target pod command: %#v", got)
+	}
+	wantArgs := []string{"convert", "-p", "-O", "raw", "nbd://10.0.0.20:10809", "/dev/pvc-importer-block-volume"}
+	if len(container.Args) != len(wantArgs) {
+		t.Fatalf("unexpected target pod args: %#v", container.Args)
+	}
+	for i := range wantArgs {
+		if container.Args[i] != wantArgs[i] {
+			t.Fatalf("unexpected target pod args: got %#v, want %#v", container.Args, wantArgs)
+		}
+	}
+	if err := c.Get(ctx, types.NamespacedName{Name: target.Name + "-prime-scratch", Namespace: target.Namespace}, &corev1.PersistentVolumeClaim{}); client.IgnoreNotFound(err) == nil && err == nil {
+		t.Fatalf("host-assigned clone must not create scratch pvc")
+	}
+}
+
 func TestPopulatorCreatesMissingSnapshot(t *testing.T) {
 	ctx := context.Background()
 	vd := testVD()
@@ -172,8 +248,6 @@ func TestPopulatorCreatesMissingSnapshot(t *testing.T) {
 	target := testTargetPVC(vd)
 	target.Annotations[annotations.AnnPVCPopulationStrategy] = service.PopulationStrategySnapshot
 	target.Annotations[annotations.AnnPVCPopulationSourcePVC] = source.Name
-	target.Annotations[annotations.AnnPVCPopulationSourcePVCNamespace] = source.Namespace
-	target.Annotations[annotations.AnnPVCImportCloneSnapshot] = "target-snapshot"
 	target.Spec.DataSource = &corev1.TypedLocalObjectReference{APIGroup: ptr.To("snapshot.storage.k8s.io"), Kind: "VolumeSnapshot", Name: "target-snapshot"}
 	target.Spec.DataSourceRef = &corev1.TypedObjectReference{APIGroup: ptr.To("snapshot.storage.k8s.io"), Kind: "VolumeSnapshot", Name: "target-snapshot"}
 	sc := &storagev1.StorageClass{ObjectMeta: metav1.ObjectMeta{Name: "fast"}, Provisioner: "csi.example.com"}
@@ -209,12 +283,10 @@ func testStandaloneTargetPVC(name, namespace string) *corev1.PersistentVolumeCla
 	return &corev1.PersistentVolumeClaim{
 		TypeMeta: metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			UID:       "55555555-5555-5555-5555-555555555555",
-			Annotations: map[string]string{
-				annotations.AnnPVCImportPhase: string(corev1.PodPending),
-			},
+			Name:        name,
+			Namespace:   namespace,
+			UID:         "55555555-5555-5555-5555-555555555555",
+			Annotations: map[string]string{},
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			StorageClassName: ptr.To("fast"),
@@ -303,12 +375,10 @@ func testTargetPVC(vd *v1alpha2.VirtualDisk) *corev1.PersistentVolumeClaim {
 	return &corev1.PersistentVolumeClaim{
 		TypeMeta: metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "target",
-			Namespace: vd.Namespace,
-			UID:       "33333333-3333-3333-3333-333333333333",
-			Annotations: map[string]string{
-				annotations.AnnPVCImportPhase: string(corev1.PodPending),
-			},
+			Name:        "target",
+			Namespace:   vd.Namespace,
+			UID:         "33333333-3333-3333-3333-333333333333",
+			Annotations: map[string]string{},
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion: v1alpha2.SchemeGroupVersion.String(),
 				Kind:       v1alpha2.VirtualDiskKind,
@@ -332,12 +402,10 @@ func testVITargetPVC(vi *v1alpha2.VirtualImage) *corev1.PersistentVolumeClaim {
 	return &corev1.PersistentVolumeClaim{
 		TypeMeta: metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "target",
-			Namespace: vi.Namespace,
-			UID:       "77777777-7777-7777-7777-777777777777",
-			Annotations: map[string]string{
-				annotations.AnnPVCImportPhase: string(corev1.PodPending),
-			},
+			Name:        "target",
+			Namespace:   vi.Namespace,
+			UID:         "77777777-7777-7777-7777-777777777777",
+			Annotations: map[string]string{},
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion: v1alpha2.SchemeGroupVersion.String(),
 				Kind:       v1alpha2.VirtualImageKind,

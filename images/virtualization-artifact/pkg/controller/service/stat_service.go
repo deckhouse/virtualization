@@ -227,6 +227,35 @@ func CapProgressBelow(progress string, high float64) string {
 	return percent.Format(high - 0.1)
 }
 
+func AdvanceProgressBelow(progress string, high float64) string {
+	value := percent.ExtractPercentageFloat(progress)
+	if math.IsNaN(value) {
+		return percent.Format(0.1)
+	}
+	if value >= high {
+		return percent.Format(high - 0.1)
+	}
+	next := value + 0.5
+	if next >= high {
+		next = high - 0.1
+	}
+	return percent.Format(next)
+}
+
+func PodHasMetricsPort(pod *corev1.Pod) bool {
+	if pod == nil {
+		return false
+	}
+	for _, container := range pod.Spec.Containers {
+		for _, port := range container.Ports {
+			if port.Name == "metrics" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (s StatService) GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...GetProgressOption) string {
 	if pod == nil {
 		return prevProgress

@@ -113,9 +113,9 @@ func (s WaitForPVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk
 	// Bound would deadlock (the target waits for the rebind, the rebind waits for the
 	// import). The import and the rebind are driven by Import/WaitForImport below.
 
-	phase := corev1.PodPhase(s.pvc.Annotations[annotations.AnnPVCImportPhase])
-	if s.pvc.Annotations[annotations.AnnPVCPopulationDone] == "true" {
-		phase = corev1.PodSucceeded
+	phase, err := s.pvcImportPodPhase(ctx, vd)
+	if err != nil {
+		return nil, err
 	}
 
 	switch phase {
@@ -137,6 +137,20 @@ func (s WaitForPVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk
 	}
 }
 
+func (s WaitForPVCImportStep) pvcImportPodPhase(ctx context.Context, vd *v1alpha2.VirtualDisk) (corev1.PodPhase, error) {
+	if s.pvc.Annotations[annotations.AnnPVCPopulationDone] == "true" {
+		return corev1.PodSucceeded, nil
+	}
+	pod, err := s.fetchPVCImportPod(ctx, vd)
+	if err != nil {
+		return "", fmt.Errorf("fetch pvc-importer pod: %w", err)
+	}
+	if pod == nil || pod.Status.Phase == "" {
+		return corev1.PodPending, nil
+	}
+	return pod.Status.Phase, nil
+}
+
 // refreshProgressFromPod queries the pvc-importer pod (named after the target
 // PVC) for its progress metric and updates vd.Status.Progress. Silently keeps
 // the previous value when stat/pod is missing or metrics are not yet readable.
@@ -145,12 +159,15 @@ func (s WaitForPVCImportStep) refreshProgressFromPod(ctx context.Context, vd *v1
 		return nil
 	}
 
-	podName := vdsupplements.NewGenerator(vd).PVCImporterPod().Name
-	pod, err := object.FetchObject(ctx, types.NamespacedName{Name: podName, Namespace: s.pvc.Namespace}, s.client, &corev1.Pod{})
+	pod, err := s.fetchPVCImportPod(ctx, vd)
 	if err != nil {
 		return fmt.Errorf("fetch pvc-importer pod: %w", err)
 	}
 	if pod == nil {
+		return nil
+	}
+	if s.pvc.Annotations[annotations.AnnPVCPopulationStrategy] == service.PopulationStrategyHostAssigned && !service.PodHasMetricsPort(pod) {
+		vd.Status.Progress = service.AdvanceProgressBelow(vd.Status.Progress, 100)
 		return nil
 	}
 
@@ -161,6 +178,14 @@ func (s WaitForPVCImportStep) refreshProgressFromPod(ctx context.Context, vd *v1
 	vd.Status.Progress = s.stat.GetProgress(vd.GetUID(), pod, vd.Status.Progress, opts...)
 	vd.Status.Progress = service.CapProgressBelow(vd.Status.Progress, 100)
 	return nil
+}
+
+func (s WaitForPVCImportStep) fetchPVCImportPod(ctx context.Context, vd *v1alpha2.VirtualDisk) (*corev1.Pod, error) {
+	sup := vdsupplements.NewGenerator(vd)
+	if s.pvc.Annotations[annotations.AnnPVCPopulationStrategy] == service.PopulationStrategyHostAssigned {
+		return object.FetchObject(ctx, types.NamespacedName{Name: sup.PVCTargetImporterPod().Name, Namespace: s.pvc.Namespace}, s.client, &corev1.Pod{})
+	}
+	return object.FetchObject(ctx, types.NamespacedName{Name: sup.PVCImporterPod().Name, Namespace: s.pvc.Namespace}, s.client, &corev1.Pod{})
 }
 
 // StaticPVCImportSource returns a PVCImportSourceProvider that always returns

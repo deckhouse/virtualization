@@ -358,7 +358,7 @@ var _ = Describe("UploadDataSource", func() {
 	Context("PVC is Bound and the import is complete", func() {
 		BeforeEach(func() {
 			pvc.Status.Phase = corev1.ClaimBound
-			pvc.Annotations = map[string]string{annotations.AnnPVCImportPhase: string(corev1.PodSucceeded)}
+			pvc.Annotations = map[string]string{annotations.AnnPVCPopulationDone: "true"}
 		})
 
 		It("marks DiskReady and cleans up the uploader once the condition is finished", func() {
@@ -399,7 +399,7 @@ var _ = Describe("UploadDataSource", func() {
 	Context("Target PVC already exists and import resources were not created yet", func() {
 		BeforeEach(func() {
 			pvc.Status.Phase = corev1.ClaimBound
-			pvc.Annotations = map[string]string{annotations.AnnPVCImportPhase: string(corev1.PodPending)}
+			pvc.Annotations = map[string]string{annotations.AnnPVCPopulationStrategy: service.PopulationStrategyDVCR}
 		})
 
 		It("waits for populator to start the PVC import", func() {

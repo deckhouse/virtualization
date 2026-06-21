@@ -43,10 +43,12 @@ import (
 const (
 	pvcImporterDataVolName     = "pvc-importer-data-vol"
 	pvcImporterScratchVolName  = "pvc-importer-scratch-vol"
+	pvcImporterSourceVolName   = "pvc-importer-source-vol"
 	pvcImporterDataDir         = "/data"
 	pvcImporterScratchDataDir  = "/scratch"
 	pvcImporterWriteBlockPath  = "/dev/pvc-importer-block-volume"
 	pvcImporterSourceBlockPath = "/dev/source-block-volume"
+	pvcImporterNBDPort         = 10809
 	sourceRegistry             = "registry"
 )
 
@@ -100,9 +102,12 @@ func NewPVCImporterService(
 // The caller is responsible for creating the target PVC up front; Import does
 // not validate ownership or finalizers on it.
 func (s *PVCImporterService) Import(ctx context.Context, target *corev1.PersistentVolumeClaim, source *PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) error {
-	phase := corev1.PodPhase(target.Annotations[annotations.AnnPVCImportPhase])
-	if phase == corev1.PodSucceeded {
+	if target.Annotations[annotations.AnnPVCPopulationDone] == "true" {
 		return nil
+	}
+
+	if source != nil && source.PVC != nil {
+		return s.importFromPVC(ctx, target, source, owner, sup, nodePlacement)
 	}
 
 	if err := s.ensureSupplements(ctx, target, owner, sup); err != nil {
@@ -150,7 +155,57 @@ func (s *PVCImporterService) Import(ctx context.Context, target *corev1.Persiste
 		if err := s.client.Create(ctx, pod); err != nil && !k8serrors.IsAlreadyExists(err) {
 			return fmt.Errorf("create importer pod: %w", err)
 		}
-		return s.patchTargetImportPhase(ctx, target, corev1.PodPending)
+	}
+	return nil
+}
+
+func (s *PVCImporterService) importFromPVC(ctx context.Context, target *corev1.PersistentVolumeClaim, source *PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) error {
+	sourceClaim, err := object.FetchObject(ctx, types.NamespacedName{Name: source.PVC.Name, Namespace: source.PVC.Namespace}, s.client, &corev1.PersistentVolumeClaim{})
+	if err != nil {
+		return fmt.Errorf("fetch source pvc: %w", err)
+	}
+	if sourceClaim == nil {
+		return fmt.Errorf("source pvc %s/%s not found", source.PVC.Namespace, source.PVC.Name)
+	}
+
+	prime, err := s.ensurePrime(ctx, target, nodePlacement)
+	if err != nil {
+		return err
+	}
+
+	if err := s.ensureNetworkPolicy(ctx, target, sup); err != nil {
+		return err
+	}
+
+	sourcePodKey := sup.PVCSourceImporterPod()
+	sourcePod, err := object.FetchObject(ctx, sourcePodKey, s.client, &corev1.Pod{})
+	if err != nil {
+		return fmt.Errorf("fetch source importer pod: %w", err)
+	}
+	if sourcePod == nil {
+		sourcePod = s.makeSourceImporterPod(sourcePodKey.Name, target, sourceClaim)
+		if err := s.client.Create(ctx, sourcePod); err != nil && !k8serrors.IsAlreadyExists(err) {
+			return fmt.Errorf("create source importer pod: %w", err)
+		}
+		return nil
+	}
+	if sourcePod.Status.Phase == corev1.PodFailed {
+		return nil
+	}
+	if !isPodReady(sourcePod) || sourcePod.Status.PodIP == "" {
+		return nil
+	}
+
+	targetPodKey := sup.PVCTargetImporterPod()
+	targetPod, err := object.FetchObject(ctx, targetPodKey, s.client, &corev1.Pod{})
+	if err != nil {
+		return fmt.Errorf("fetch target importer pod: %w", err)
+	}
+	if targetPod == nil {
+		targetPod = s.makeTargetImporterPod(targetPodKey.Name, target, prime, owner.GetUID(), sourcePod.Status.PodIP, nodePlacement)
+		if err := s.client.Create(ctx, targetPod); err != nil && !k8serrors.IsAlreadyExists(err) {
+			return fmt.Errorf("create target importer pod: %w", err)
+		}
 	}
 	return nil
 }
@@ -238,9 +293,12 @@ func (s *PVCImporterService) ensurePrime(ctx context.Context, target *corev1.Per
 }
 
 func (s *PVCImporterService) Wait(ctx context.Context, target *corev1.PersistentVolumeClaim, sup supplements.Generator) (corev1.PodPhase, error) {
-	phase := corev1.PodPhase(target.Annotations[annotations.AnnPVCImportPhase])
-	if phase == corev1.PodSucceeded {
-		return phase, nil
+	if target.Annotations[annotations.AnnPVCPopulationDone] == "true" {
+		return corev1.PodSucceeded, nil
+	}
+
+	if target.Annotations[annotations.AnnPVCPopulationStrategy] == PopulationStrategyHostAssigned {
+		return s.waitHostAssigned(ctx, target, sup)
 	}
 
 	pod, err := object.FetchObject(ctx, sup.PVCImporterPod(), s.client, &corev1.Pod{})
@@ -252,11 +310,6 @@ func (s *PVCImporterService) Wait(ctx context.Context, target *corev1.Persistent
 	}
 	if pod.Status.Phase == "" {
 		return corev1.PodPending, nil
-	}
-	if pod.Status.Phase != "" && pod.Status.Phase != phase && pod.Status.Phase != corev1.PodSucceeded {
-		if err := s.patchTargetImportPhase(ctx, target, pod.Status.Phase); err != nil {
-			return "", err
-		}
 	}
 	if pod.Status.Phase == corev1.PodSucceeded {
 		// The prime PVC is populated; rebind its volume to the target. Rebind is
@@ -270,13 +323,42 @@ func (s *PVCImporterService) Wait(ctx context.Context, target *corev1.Persistent
 		if !done {
 			return corev1.PodRunning, nil
 		}
-		if err := s.patchTargetImportPhase(ctx, target, corev1.PodSucceeded); err != nil {
-			return "", err
-		}
 		_, err = s.CleanUp(ctx, sup, target)
 		return corev1.PodSucceeded, err
 	}
 	return pod.Status.Phase, nil
+}
+
+func (s *PVCImporterService) waitHostAssigned(ctx context.Context, target *corev1.PersistentVolumeClaim, sup supplements.Generator) (corev1.PodPhase, error) {
+	sourcePod, err := object.FetchObject(ctx, sup.PVCSourceImporterPod(), s.client, &corev1.Pod{})
+	if err != nil {
+		return "", fmt.Errorf("fetch source importer pod: %w", err)
+	}
+	if sourcePod != nil && sourcePod.Status.Phase == corev1.PodFailed {
+		return corev1.PodFailed, nil
+	}
+
+	targetPod, err := object.FetchObject(ctx, sup.PVCTargetImporterPod(), s.client, &corev1.Pod{})
+	if err != nil {
+		return "", fmt.Errorf("fetch target importer pod: %w", err)
+	}
+	if targetPod == nil || targetPod.Status.Phase == "" {
+		return corev1.PodPending, nil
+	}
+	if targetPod.Status.Phase != corev1.PodSucceeded {
+		return targetPod.Status.Phase, nil
+	}
+
+	primeKey := types.NamespacedName{Name: primePVCName(target), Namespace: target.Namespace}
+	done, err := Rebind(ctx, s.client, primeKey, client.ObjectKeyFromObject(target))
+	if err != nil {
+		return "", fmt.Errorf("rebind prime to target: %w", err)
+	}
+	if !done {
+		return corev1.PodRunning, nil
+	}
+	_, err = s.CleanUp(ctx, sup, target)
+	return corev1.PodSucceeded, err
 }
 
 // CleanUp removes the pvc-importer pod and the helper PVCs (prime and its
@@ -288,6 +370,8 @@ func (s *PVCImporterService) CleanUp(ctx context.Context, sup supplements.Genera
 	var deleted bool
 	for _, obj := range []client.Object{
 		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: sup.PVCImporterPod().Name, Namespace: target.Namespace}},
+		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: sup.PVCSourceImporterPod().Name, Namespace: target.Namespace}},
+		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: sup.PVCTargetImporterPod().Name, Namespace: target.Namespace}},
 		&corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: primePVCName(target) + "-scratch", Namespace: target.Namespace}},
 		&corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: primePVCName(target), Namespace: target.Namespace}},
 	} {
@@ -426,8 +510,19 @@ func (s *PVCImporterService) ensureNetworkPolicy(ctx context.Context, target *co
 					Values:   []string{annotations.CDILabelValue, annotations.DVCRLabelValue},
 				}},
 			},
+			Ingress: []netv1.NetworkPolicyIngressRule{{
+				From: []netv1.NetworkPolicyPeer{{
+					PodSelector: &metav1.LabelSelector{
+						MatchExpressions: []metav1.LabelSelectorRequirement{{
+							Key:      annotations.AppLabel,
+							Operator: metav1.LabelSelectorOpIn,
+							Values:   []string{annotations.CDILabelValue},
+						}},
+					},
+				}},
+			}},
 			Egress:      []netv1.NetworkPolicyEgressRule{{}},
-			PolicyTypes: []netv1.PolicyType{netv1.PolicyTypeEgress},
+			PolicyTypes: []netv1.PolicyType{netv1.PolicyTypeIngress, netv1.PolicyTypeEgress},
 		},
 	}
 
@@ -600,14 +695,144 @@ func (s *PVCImporterService) makeImporterPod(podName string, target, dataPVC *co
 	return pod
 }
 
-// patchTargetImportPhase mirrors the pvc-importer pod phase onto the target
-// PVC's annotation so external observers and other reconciliations can read
-// the import progress without having to look up the helper pod.
-func (s *PVCImporterService) patchTargetImportPhase(ctx context.Context, target *corev1.PersistentVolumeClaim, phase corev1.PodPhase) error {
-	copy := target.DeepCopy()
-	if copy.Annotations == nil {
-		copy.Annotations = map[string]string{}
+func (s *PVCImporterService) makeSourceImporterPod(podName string, target, sourceClaim *corev1.PersistentVolumeClaim) *corev1.Pod {
+	sourcePath := "/source/disk.img"
+	var volumeDevices []corev1.VolumeDevice
+	volumeMounts := []corev1.VolumeMount{{Name: "tmp", MountPath: "/tmp"}}
+	if sourceClaim.Spec.VolumeMode != nil && *sourceClaim.Spec.VolumeMode == corev1.PersistentVolumeBlock {
+		sourcePath = pvcImporterSourceBlockPath
+		volumeDevices = append(volumeDevices, corev1.VolumeDevice{Name: pvcImporterSourceVolName, DevicePath: pvcImporterSourceBlockPath})
+	} else {
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{Name: pvcImporterSourceVolName, MountPath: "/source", ReadOnly: true})
 	}
-	copy.Annotations[annotations.AnnPVCImportPhase] = string(phase)
-	return s.client.Patch(ctx, copy, client.MergeFrom(target))
+
+	pod := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podName,
+			Namespace: target.Namespace,
+			Labels: map[string]string{
+				annotations.QuotaExcludeLabel: annotations.QuotaExcludeValue,
+				annotations.AppLabel:          annotations.CDILabelValue,
+			},
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion:         "v1",
+				Kind:               "PersistentVolumeClaim",
+				Name:               target.Name,
+				UID:                target.UID,
+				Controller:         ptr.To(true),
+				BlockOwnerDeletion: ptr.To(true),
+			}},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:            "d8v-pvc-source-importer",
+				Image:           s.image,
+				ImagePullPolicy: corev1.PullPolicy(s.pullPolicy),
+				Command:         []string{"/usr/sbin/nbdkit"},
+				Args:            []string{"-f", "-r", "-p", fmt.Sprintf("%d", pvcImporterNBDPort), "file", sourcePath},
+				Ports:           []corev1.ContainerPort{{Name: "nbd", ContainerPort: pvcImporterNBDPort, Protocol: corev1.ProtocolTCP}},
+				VolumeMounts:    volumeMounts,
+				VolumeDevices:   volumeDevices,
+			}},
+			RestartPolicy: corev1.RestartPolicyOnFailure,
+			Volumes: []corev1.Volume{
+				{Name: "tmp", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
+				{Name: pvcImporterSourceVolName, VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: sourceClaim.Name,
+					ReadOnly:  true,
+				}}},
+			},
+		},
+	}
+	if s.resourceRequirements.Requests != nil || s.resourceRequirements.Limits != nil {
+		pod.Spec.Containers[0].Resources = s.resourceRequirements
+	}
+	podutil.SetRestrictedSecurityContext(&pod.Spec)
+	return pod
+}
+
+func isPodReady(pod *corev1.Pod) bool {
+	if pod.Status.Phase != corev1.PodRunning {
+		return false
+	}
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type == corev1.PodReady {
+			return condition.Status == corev1.ConditionTrue
+		}
+	}
+	return false
+}
+
+func (s *PVCImporterService) makeTargetImporterPod(podName string, target, dataPVC *corev1.PersistentVolumeClaim, ownerUID types.UID, sourcePodIP string, nodePlacement *provisioner.NodePlacement) *corev1.Pod {
+	targetPath := pvcImporterDataDir + "/disk.img"
+	volumeMounts := []corev1.VolumeMount{{Name: "tmp", MountPath: "/tmp"}}
+	var volumeDevices []corev1.VolumeDevice
+	if dataPVC.Spec.VolumeMode != nil && *dataPVC.Spec.VolumeMode == corev1.PersistentVolumeBlock {
+		targetPath = pvcImporterWriteBlockPath
+		volumeDevices = append(volumeDevices, corev1.VolumeDevice{Name: pvcImporterDataVolName, DevicePath: pvcImporterWriteBlockPath})
+	} else {
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{Name: pvcImporterDataVolName, MountPath: pvcImporterDataDir})
+	}
+
+	pod := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podName,
+			Namespace: target.Namespace,
+			Labels: map[string]string{
+				annotations.QuotaExcludeLabel: annotations.QuotaExcludeValue,
+				annotations.AppLabel:          annotations.CDILabelValue,
+			},
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion:         "v1",
+				Kind:               "PersistentVolumeClaim",
+				Name:               target.Name,
+				UID:                target.UID,
+				Controller:         ptr.To(true),
+				BlockOwnerDeletion: ptr.To(true),
+			}},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:            "d8v-pvc-target-importer",
+				Image:           s.image,
+				ImagePullPolicy: corev1.PullPolicy(s.pullPolicy),
+				Command:         []string{"/usr/bin/qemu-img"},
+				Args:            []string{"convert", "-p", "-O", "raw", fmt.Sprintf("nbd://%s:%d", sourcePodIP, pvcImporterNBDPort), targetPath},
+				Env:             []corev1.EnvVar{{Name: common.OwnerUID, Value: string(ownerUID)}},
+				VolumeMounts:    volumeMounts,
+				VolumeDevices:   volumeDevices,
+			}},
+			RestartPolicy: corev1.RestartPolicyOnFailure,
+			Volumes: []corev1.Volume{
+				{Name: "tmp", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
+				{Name: pvcImporterDataVolName, VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: dataPVC.Name}}},
+			},
+		},
+	}
+	if s.resourceRequirements.Requests != nil || s.resourceRequirements.Limits != nil {
+		pod.Spec.Containers[0].Resources = s.resourceRequirements
+	}
+	if nodePlacement != nil {
+		pod.Spec.Tolerations = nodePlacement.Tolerations
+		_ = provisioner.KeepNodePlacementTolerations(nodePlacement, pod)
+	}
+	if selectedNode := dataPVC.Annotations[selectedNodeAnnotation]; selectedNode != "" {
+		pod.Spec.Affinity = &corev1.Affinity{
+			NodeAffinity: &corev1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+					NodeSelectorTerms: []corev1.NodeSelectorTerm{{
+						MatchExpressions: []corev1.NodeSelectorRequirement{{
+							Key:      corev1.LabelHostname,
+							Operator: corev1.NodeSelectorOpIn,
+							Values:   []string{selectedNode},
+						}},
+					}},
+				},
+			},
+		}
+	}
+	podutil.SetRestrictedSecurityContext(&pod.Spec)
+	return pod
 }

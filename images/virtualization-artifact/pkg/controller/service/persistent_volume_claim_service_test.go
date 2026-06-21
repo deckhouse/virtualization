@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -99,21 +100,16 @@ func TestPVCServiceCreateTargetCreatesPVCWithRegistrySource(t *testing.T) {
 	svc := newTestPVCService(c)
 
 	url := "docker://registry.example/image:tag"
-	secret := "auth"
-	cert := "ca"
 	vd := diskImportTestVD()
 	key := types.NamespacedName{Name: vd.Status.Target.PersistentVolumeClaim, Namespace: vd.Namespace}
 
-	if _, err := svc.CreateTargetFromDVCR(ctx, key, sc.Name, ptr.To(resource.MustParse("1Gi")), vd, &PVCImportSourceRegistry{URL: url, Secret: secret, CertConfigMap: cert}, testVolumeModeGetter{}, nil); err != nil {
+	if _, err := svc.CreateTargetFromDVCR(ctx, key, sc.Name, ptr.To(resource.MustParse("1Gi")), vd, &PVCImportSourceRegistry{URL: url}, testVolumeModeGetter{}, nil); err != nil {
 		t.Fatalf("CreateTargetFromDVCR failed: %v", err)
 	}
 
 	pvc := &corev1.PersistentVolumeClaim{}
 	if err := c.Get(ctx, key, pvc); err != nil {
 		t.Fatalf("target pvc not found: %v", err)
-	}
-	if got := pvc.Annotations[annotations.AnnPVCImportPhase]; got != string(corev1.PodPending) {
-		t.Fatalf("unexpected import phase annotation: %q", got)
 	}
 	if len(pvc.OwnerReferences) != 1 || pvc.OwnerReferences[0].Kind != v1alpha2.VirtualDiskKind {
 		t.Fatalf("target pvc owner reference not set: %#v", pvc.OwnerReferences)
@@ -126,12 +122,6 @@ func TestPVCServiceCreateTargetCreatesPVCWithRegistrySource(t *testing.T) {
 	}
 	if got := pvc.Annotations[annotations.AnnPVCPopulationSourceDVCR]; got != url {
 		t.Fatalf("unexpected dvcr source: %q", got)
-	}
-	if got := pvc.Annotations[annotations.AnnPVCPopulationSourceDVCRSecret]; got != secret {
-		t.Fatalf("unexpected dvcr secret: %q", got)
-	}
-	if got := pvc.Annotations[annotations.AnnPVCPopulationSourceDVCRCertConfigMap]; got != cert {
-		t.Fatalf("unexpected dvcr cert configmap: %q", got)
 	}
 }
 
@@ -254,11 +244,8 @@ func TestPVCServiceCreateTargetPicksVolumeSnapshotStrategyWhenPossible(t *testin
 	if err := c.Get(ctx, types.NamespacedName{Name: target.Name, Namespace: target.Namespace}, created); err != nil {
 		t.Fatalf("target pvc not found: %v", err)
 	}
-	if got := created.Annotations[annotations.AnnPVCImportCloneStrategy]; got != cloneStrategySnapshot {
-		t.Fatalf("unexpected clone strategy: %q", got)
-	}
-	if got := created.Annotations[annotations.AnnPVCImportPhase]; got != string(corev1.PodPending) {
-		t.Fatalf("unexpected import phase: %q", got)
+	if got := created.Annotations[annotations.AnnPVCPopulationStrategy]; got != PopulationStrategySnapshot {
+		t.Fatalf("unexpected population strategy: %q", got)
 	}
 	if created.Spec.DataSourceRef == nil || created.Spec.DataSourceRef.Kind != "VolumeSnapshot" {
 		t.Fatalf("target pvc does not reference VolumeSnapshot: %#v", created.Spec.DataSourceRef)
@@ -268,7 +255,7 @@ func TestPVCServiceCreateTargetPicksVolumeSnapshotStrategyWhenPossible(t *testin
 	}
 
 	snapshot := &vsv1.VolumeSnapshot{}
-	if err := c.Get(ctx, types.NamespacedName{Name: created.Annotations[annotations.AnnPVCImportCloneSnapshot], Namespace: vd.Namespace}, snapshot); err != nil {
+	if err := c.Get(ctx, types.NamespacedName{Name: created.Spec.DataSourceRef.Name, Namespace: vd.Namespace}, snapshot); err != nil {
 		t.Fatalf("clone snapshot not found: %v", err)
 	}
 	if snapshot.Spec.Source.PersistentVolumeClaimName == nil || *snapshot.Spec.Source.PersistentVolumeClaimName != sourceClaim.Name {
@@ -280,10 +267,9 @@ func TestPVCServiceWaitForImportSmartCloneMarksSucceededAndCleansSnapshot(t *tes
 	ctx := context.Background()
 	vd := diskImportTestVD()
 	target := diskImportTargetPVC(vd)
-	target.Annotations[annotations.AnnPVCImportCloneStrategy] = cloneStrategySnapshot
-	target.Annotations[annotations.AnnPVCImportCloneSnapshot] = target.Name + "-clone-snapshot"
-	target.Annotations[annotations.AnnPVCImportPhase] = string(corev1.PodPending)
-	snapshot := &vsv1.VolumeSnapshot{ObjectMeta: metav1.ObjectMeta{Name: target.Annotations[annotations.AnnPVCImportCloneSnapshot], Namespace: target.Namespace}}
+	target.Annotations[annotations.AnnPVCPopulationStrategy] = PopulationStrategySnapshot
+	target.Spec.DataSourceRef = &corev1.TypedObjectReference{APIGroup: ptr.To("snapshot.storage.k8s.io"), Kind: "VolumeSnapshot", Name: target.Name + "-clone-snapshot"}
+	snapshot := &vsv1.VolumeSnapshot{ObjectMeta: metav1.ObjectMeta{Name: target.Spec.DataSourceRef.Name, Namespace: target.Namespace}}
 	c := fake.NewClientBuilder().WithScheme(diskImportTestScheme(t)).WithObjects(target, snapshot).Build()
 	svc := newTestPVCService(c)
 	sup := newTestVDSupplements(vd)
@@ -298,22 +284,13 @@ func TestPVCServiceWaitForImportSmartCloneMarksSucceededAndCleansSnapshot(t *tes
 	if err := c.Get(ctx, types.NamespacedName{Name: snapshot.Name, Namespace: snapshot.Namespace}, &vsv1.VolumeSnapshot{}); client.IgnoreNotFound(err) == nil && err == nil {
 		t.Fatalf("clone snapshot still exists")
 	}
-	refreshed := &corev1.PersistentVolumeClaim{}
-	if err := c.Get(ctx, client.ObjectKeyFromObject(target), refreshed); err != nil {
-		t.Fatalf("refresh target: %v", err)
-	}
-	if got := refreshed.Annotations[annotations.AnnPVCImportPhase]; got != string(corev1.PodSucceeded) {
-		t.Fatalf("unexpected import phase: %q", got)
-	}
 }
 
 func TestPVCServiceWaitForImportHostAssistedUsesQemuImgConvert(t *testing.T) {
 	ctx := context.Background()
 	vd := diskImportTestVD()
 	target := diskImportTargetPVC(vd)
-	importerPodName := diskImportImporterPodName(vd)
-	target.Annotations[annotations.AnnPVCImportCloneStrategy] = cloneStrategyHost
-	target.Annotations[annotations.AnnPVCImportPhase] = string(corev1.PodPending)
+	target.Annotations[annotations.AnnPVCPopulationStrategy] = PopulationStrategyHostAssigned
 	target.Spec.VolumeMode = ptr.To(corev1.PersistentVolumeBlock)
 	sourceClaim := diskImportSourcePVC()
 	sourceClaim.Spec.VolumeMode = ptr.To(corev1.PersistentVolumeBlock)
@@ -333,18 +310,37 @@ func TestPVCServiceWaitForImportHostAssistedUsesQemuImgConvert(t *testing.T) {
 		t.Fatalf("unexpected phase: %s", phase)
 	}
 
-	pod := &corev1.Pod{}
-	if err := c.Get(ctx, types.NamespacedName{Name: importerPodName, Namespace: target.Namespace}, pod); err != nil {
-		t.Fatalf("get import pod: %v", err)
+	sourcePod := &corev1.Pod{}
+	if err := c.Get(ctx, sup.PVCSourceImporterPod(), sourcePod); err != nil {
+		t.Fatalf("get source import pod: %v", err)
 	}
-	if len(pod.Spec.Containers) != 1 {
-		t.Fatalf("unexpected containers: %#v", pod.Spec.Containers)
+	if err := c.Get(ctx, types.NamespacedName{Name: primePVCName(target) + "-scratch", Namespace: target.Namespace}, &corev1.PersistentVolumeClaim{}); !k8serrors.IsNotFound(err) {
+		t.Fatalf("host-assigned import must not create scratch pvc, got error: %v", err)
 	}
-	container := pod.Spec.Containers[0]
+	sourceContainer := sourcePod.Spec.Containers[0]
+	if got := sourceContainer.Command; len(got) != 1 || got[0] != "/usr/sbin/nbdkit" {
+		t.Fatalf("unexpected source command: %#v", got)
+	}
+
+	sourcePod.Status.Phase = corev1.PodRunning
+	sourcePod.Status.PodIP = "10.0.0.10"
+	sourcePod.Status.Conditions = []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}
+	if err := c.Status().Update(ctx, sourcePod); err != nil {
+		t.Fatalf("update source pod status: %v", err)
+	}
+	if err := svc.Import(ctx, target, NewPVCPVCImportSource(sourceClaim.Name, sourceClaim.Namespace), vd, sup, nil); err != nil {
+		t.Fatalf("second Import failed: %v", err)
+	}
+
+	targetPod := &corev1.Pod{}
+	if err := c.Get(ctx, sup.PVCTargetImporterPod(), targetPod); err != nil {
+		t.Fatalf("get target import pod: %v", err)
+	}
+	container := targetPod.Spec.Containers[0]
 	if got := container.Command; len(got) != 1 || got[0] != "/usr/bin/qemu-img" {
 		t.Fatalf("unexpected command: %#v", got)
 	}
-	wantArgs := []string{"convert", "-p", "-O", "raw", pvcImporterSourceBlockPath, pvcImporterWriteBlockPath}
+	wantArgs := []string{"convert", "-p", "-O", "raw", "nbd://10.0.0.10:10809", pvcImporterWriteBlockPath}
 	if len(container.Args) != len(wantArgs) {
 		t.Fatalf("unexpected args: %#v", container.Args)
 	}
@@ -372,11 +368,47 @@ func TestPVCServiceCreateTargetFallsBackToCSIClone(t *testing.T) {
 	if err := c.Get(ctx, types.NamespacedName{Name: target.Name, Namespace: target.Namespace}, created); err != nil {
 		t.Fatalf("target pvc not found: %v", err)
 	}
-	if got := created.Annotations[annotations.AnnPVCImportCloneStrategy]; got != cloneStrategyCSI {
-		t.Fatalf("unexpected clone strategy: %q", got)
+	if got := created.Annotations[annotations.AnnPVCPopulationStrategy]; got != PopulationStrategyCSIClone {
+		t.Fatalf("unexpected population strategy: %q", got)
 	}
 	if created.Spec.DataSourceRef == nil || created.Spec.DataSourceRef.Kind != "PersistentVolumeClaim" || created.Spec.DataSourceRef.Name != sourceClaim.Name {
 		t.Fatalf("target pvc does not reference source PVC: %#v", created.Spec.DataSourceRef)
+	}
+}
+
+func TestPVCServiceCreateTargetFromPVCUsesHostAssignedForSDSReplicated(t *testing.T) {
+	ctx := context.Background()
+	vd := diskImportTestVD()
+	sc := diskImportStorageClass()
+	sc.Provisioner = sdsReplicatedCSIProvisioner
+	sourceClaim := diskImportSourcePVC()
+	snapshotClass := &vsv1.VolumeSnapshotClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "sds-replicated-volume"},
+		Driver:     sc.Provisioner,
+	}
+	c := fake.NewClientBuilder().WithScheme(diskImportTestScheme(t)).WithObjects(sc, sourceClaim, snapshotClass).Build()
+	svc := newTestPVCService(c)
+	target := newTestTargetPVC(vd, sc, resource.MustParse("1Gi"))
+
+	if _, err := svc.CreateTargetFromPVC(ctx, client.ObjectKeyFromObject(target), sc.Name, ptr.To(resource.MustParse("1Gi")), vd, sourceClaim, testVolumeModeGetter{}, nil); err != nil {
+		t.Fatalf("CreateTargetFromPVC failed: %v", err)
+	}
+
+	created := &corev1.PersistentVolumeClaim{}
+	if err := c.Get(ctx, types.NamespacedName{Name: target.Name, Namespace: target.Namespace}, created); err != nil {
+		t.Fatalf("target pvc not found: %v", err)
+	}
+	if got := created.Annotations[annotations.AnnPVCPopulationStrategy]; got != PopulationStrategyHostAssigned {
+		t.Fatalf("unexpected population strategy: %q", got)
+	}
+	if got := created.Annotations[annotations.AnnPVCPopulationSourcePVC]; got != sourceClaim.Name {
+		t.Fatalf("unexpected source pvc: %q", got)
+	}
+	if created.Spec.DataSource != nil {
+		t.Fatalf("host-assigned target pvc must not use storage dataSource: %#v", created.Spec.DataSource)
+	}
+	if created.Spec.DataSourceRef == nil || created.Spec.DataSourceRef.APIGroup == nil || *created.Spec.DataSourceRef.APIGroup != virtualizationAPIGroup {
+		t.Fatalf("target pvc does not defer host-assigned provisioning: %#v", created.Spec.DataSourceRef)
 	}
 }
 

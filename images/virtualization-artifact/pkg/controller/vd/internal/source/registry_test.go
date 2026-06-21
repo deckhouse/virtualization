@@ -321,7 +321,7 @@ var _ = Describe("RegistryDataSource", func() {
 	Context("PVC is Bound and the import is complete", func() {
 		BeforeEach(func() {
 			pvc.Status.Phase = corev1.ClaimBound
-			pvc.Annotations = map[string]string{annotations.AnnPVCImportPhase: string(corev1.PodSucceeded)}
+			pvc.Annotations = map[string]string{annotations.AnnPVCPopulationDone: "true"}
 		})
 
 		It("marks DiskReady", func() {
@@ -339,7 +339,7 @@ var _ = Describe("RegistryDataSource", func() {
 	Context("PVC is Bound and the import is still in flight", func() {
 		BeforeEach(func() {
 			pvc.Status.Phase = corev1.ClaimBound
-			pvc.Annotations = map[string]string{annotations.AnnPVCImportPhase: string(corev1.PodPending)}
+			pvc.Annotations = map[string]string{annotations.AnnPVCPopulationStrategy: service.PopulationStrategyDVCR}
 			pod := &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{Name: "importer", Namespace: vd.Namespace},
 				Status:     corev1.PodStatus{Phase: corev1.PodSucceeded},

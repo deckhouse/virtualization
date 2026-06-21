@@ -44,6 +44,8 @@ const (
 	cloneStrategyCSI      = "csi-clone"
 	cloneStrategyHost     = "host-assisted"
 
+	sdsReplicatedCSIProvisioner = "replicated.csi.storage.deckhouse.io"
+
 	PopulationStrategySnapshot     = "snapshot"
 	PopulationStrategyCSIClone     = "csi-clone"
 	PopulationStrategyHostAssigned = "host-assigned"
@@ -134,13 +136,6 @@ func (s *PersistentVolumeClaimService) CreateTargetFromDVCR(ctx context.Context,
 	if source != nil {
 		target.Annotations[annotations.AnnPVCPopulationSourceDVCR] = source.URL
 	}
-	if source != nil && source.Secret != "" {
-		target.Annotations[annotations.AnnPVCPopulationSourceDVCRSecret] = source.Secret
-	}
-	if source != nil && source.CertConfigMap != "" {
-		target.Annotations[annotations.AnnPVCPopulationSourceDVCRCertConfigMap] = source.CertConfigMap
-	}
-	target.Annotations[annotations.AnnPVCImportPhase] = string(corev1.PodPending)
 	target.Spec.DataSourceRef = &corev1.TypedObjectReference{APIGroup: ptr.To(virtualizationAPIGroup), Kind: owner.GetObjectKind().GroupVersionKind().Kind, Name: owner.GetName()}
 	if nodePlacement != nil {
 		if err := provisioner.KeepNodePlacementTolerations(nodePlacement, &target); err != nil {
@@ -249,13 +244,10 @@ func (s *PersistentVolumeClaimService) preparePopulationFromPVC(ctx context.Cont
 	}
 	target.Spec.Resources.Requests[corev1.ResourceStorage] = pvcCloneTargetSize(target.Spec.Resources.Requests[corev1.ResourceStorage], source)
 	target.Annotations[annotations.AnnPVCPopulationSourcePVC] = source.Name
-	target.Annotations[annotations.AnnPVCPopulationSourcePVCNamespace] = source.Namespace
-	target.Annotations[annotations.AnnPVCImportPhase] = string(corev1.PodPending)
 
 	switch strategy {
 	case PopulationStrategySnapshot:
 		snapshotName := target.Name + "-clone-snapshot"
-		target.Annotations[annotations.AnnPVCImportCloneSnapshot] = snapshotName
 		setPVCPopulationAnnotation(target.Annotations, PopulationStrategySnapshot)
 		target.Spec.DataSource = &corev1.TypedLocalObjectReference{APIGroup: ptr.To("snapshot.storage.k8s.io"), Kind: "VolumeSnapshot", Name: snapshotName}
 		target.Spec.DataSourceRef = &corev1.TypedObjectReference{APIGroup: ptr.To("snapshot.storage.k8s.io"), Kind: "VolumeSnapshot", Name: snapshotName}
@@ -274,15 +266,11 @@ func (s *PersistentVolumeClaimService) preparePopulationFromPVC(ctx context.Cont
 
 func setPVCPopulationAnnotation(annotationsMap map[string]string, strategy string) {
 	annotationsMap[annotations.AnnPVCPopulationStrategy] = strategy
-	annotationsMap[annotations.AnnPVCImportCloneStrategy] = strategy
 }
 
 func (s *PersistentVolumeClaimService) WaitForImport(ctx context.Context, target *corev1.PersistentVolumeClaim, source *PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) (corev1.PodPhase, error) {
-	if source != nil && source.PVC != nil && isSmartCloneStrategy(target.Annotations[annotations.AnnPVCImportCloneStrategy]) {
+	if source != nil && source.PVC != nil && IsSmartClonePVC(target) {
 		if target.Status.Phase == corev1.ClaimBound {
-			if err := s.importer.patchTargetImportPhase(ctx, target, corev1.PodSucceeded); err != nil {
-				return "", err
-			}
 			return corev1.PodSucceeded, s.cleanupCloneSnapshot(ctx, target)
 		}
 		return corev1.PodPending, nil
@@ -292,7 +280,7 @@ func (s *PersistentVolumeClaimService) WaitForImport(ctx context.Context, target
 }
 
 func (s *PersistentVolumeClaimService) Import(ctx context.Context, target *corev1.PersistentVolumeClaim, source *PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) error {
-	if source != nil && source.PVC != nil && isSmartCloneStrategy(target.Annotations[annotations.AnnPVCImportCloneStrategy]) {
+	if source != nil && source.PVC != nil && IsSmartClonePVC(target) {
 		return nil
 	}
 
@@ -316,6 +304,16 @@ func (s *PersistentVolumeClaimService) Cleanup(ctx context.Context, sup suppleme
 func (s *PersistentVolumeClaimService) choosePVCCloneStrategy(ctx context.Context, sourceClaim *corev1.PersistentVolumeClaim, targetSC *storagev1.StorageClass, targetVolumeMode corev1.PersistentVolumeMode) string {
 	sourceSC, err := s.fetchSourceStorageClass(ctx, sourceClaim)
 	if err != nil || sourceSC == nil {
+		return cloneStrategyHost
+	}
+
+	if sourceSC.Provisioner == sdsReplicatedCSIProvisioner || targetSC.Provisioner == sdsReplicatedCSIProvisioner {
+		// TODO: Return snapshot/CSI smart cloning for SDS Replicated PVC-to-PVC
+		// clones after the storage bug is fixed. Snapshot restore between
+		// linstor-thin-r1-immediate and linstor-thin-r1 currently succeeds from
+		// the Kubernetes/CSI point of view (snapshot ReadyToUse, target PVC Bound,
+		// correct restore size), but the restored block volume is zero-filled at
+		// the beginning of the disk and loses the boot sector/MBR.
 		return cloneStrategyHost
 	}
 
@@ -383,9 +381,9 @@ func (s *PersistentVolumeClaimService) snapshotClassForProvisioner(ctx context.C
 }
 
 func (s *PersistentVolumeClaimService) ensureCloneSnapshot(ctx context.Context, sourceClaim, target *corev1.PersistentVolumeClaim, owner client.Object) error {
-	snapshotName := target.Annotations[annotations.AnnPVCImportCloneSnapshot]
+	snapshotName := cloneSnapshotName(target)
 	if snapshotName == "" {
-		return fmt.Errorf("clone snapshot annotation is empty")
+		return fmt.Errorf("clone snapshot name is empty")
 	}
 	existing, err := object.FetchObject(ctx, types.NamespacedName{Name: snapshotName, Namespace: target.Namespace}, s.client, &vsv1.VolumeSnapshot{})
 	if err != nil {
@@ -428,10 +426,10 @@ func (s *PersistentVolumeClaimService) ensureCloneSnapshot(ctx context.Context, 
 }
 
 func (s *PersistentVolumeClaimService) cleanupCloneSnapshot(ctx context.Context, target *corev1.PersistentVolumeClaim) error {
-	if target.Annotations[annotations.AnnPVCImportCloneStrategy] != cloneStrategySnapshot {
+	if target.Annotations[annotations.AnnPVCPopulationStrategy] != PopulationStrategySnapshot {
 		return nil
 	}
-	snapshotName := target.Annotations[annotations.AnnPVCImportCloneSnapshot]
+	snapshotName := snapshotNameFromPVC(target)
 	if snapshotName == "" {
 		return nil
 	}
@@ -475,5 +473,25 @@ func IsSmartClonePVC(pvc *corev1.PersistentVolumeClaim) bool {
 	if pvc == nil {
 		return false
 	}
-	return isSmartCloneStrategy(pvc.Annotations[annotations.AnnPVCImportCloneStrategy])
+	return isSmartCloneStrategy(pvc.Annotations[annotations.AnnPVCPopulationStrategy])
+}
+
+func cloneSnapshotName(target *corev1.PersistentVolumeClaim) string {
+	if target == nil || target.Name == "" {
+		return ""
+	}
+	return target.Name + "-clone-snapshot"
+}
+
+func snapshotNameFromPVC(target *corev1.PersistentVolumeClaim) string {
+	if target == nil {
+		return ""
+	}
+	if target.Spec.DataSourceRef != nil && target.Spec.DataSourceRef.Kind == "VolumeSnapshot" {
+		return target.Spec.DataSourceRef.Name
+	}
+	if target.Spec.DataSource != nil && target.Spec.DataSource.Kind == "VolumeSnapshot" {
+		return target.Spec.DataSource.Name
+	}
+	return cloneSnapshotName(target)
 }

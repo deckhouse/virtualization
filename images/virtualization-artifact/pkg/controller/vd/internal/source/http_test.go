@@ -333,7 +333,7 @@ var _ = Describe("HTTPDataSource", func() {
 	Context("PVC is Bound and the import is still in flight", func() {
 		BeforeEach(func() {
 			pvc.Status.Phase = corev1.ClaimBound
-			pvc.Annotations = map[string]string{annotations.AnnPVCImportPhase: string(corev1.PodRunning)}
+			pvc.Annotations = map[string]string{annotations.AnnPVCPopulationStrategy: service.PopulationStrategyDVCR}
 			pod := &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{Name: vdsupplements.NewGenerator(vd).PVCImporterPod().Name, Namespace: vd.Namespace},
 				Status:     corev1.PodStatus{Phase: corev1.PodSucceeded},
@@ -365,7 +365,7 @@ var _ = Describe("HTTPDataSource", func() {
 			}
 			pod := &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{Name: vdsupplements.NewGenerator(vd).PVCImporterPod().Name, Namespace: vd.Namespace},
-				Status:     corev1.PodStatus{Phase: corev1.PodSucceeded},
+				Status:     corev1.PodStatus{Phase: corev1.PodRunning},
 			}
 
 			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, pod).Build()
@@ -378,7 +378,7 @@ var _ = Describe("HTTPDataSource", func() {
 		})
 
 		It("waits for populator when the target PVC already exists", func() {
-			pvc.Annotations = map[string]string{annotations.AnnPVCImportPhase: string(corev1.PodPending)}
+			pvc.Annotations = map[string]string{annotations.AnnPVCPopulationStrategy: service.PopulationStrategyDVCR}
 			var imported bool
 			pvcSvc.ImportFunc = func(_ context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, _ client.Object, _ supplements.Generator, _ *provisioner.NodePlacement) error {
 				imported = true
@@ -419,7 +419,7 @@ var _ = Describe("HTTPDataSource", func() {
 	Context("PVC is Bound and the import is complete", func() {
 		BeforeEach(func() {
 			pvc.Status.Phase = corev1.ClaimBound
-			pvc.Annotations = map[string]string{annotations.AnnPVCImportPhase: string(corev1.PodSucceeded)}
+			pvc.Annotations = map[string]string{annotations.AnnPVCPopulationDone: "true"}
 		})
 
 		It("marks DiskReady and cleans up the importer once the condition is finished", func() {
