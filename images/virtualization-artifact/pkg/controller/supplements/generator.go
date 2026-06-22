@@ -25,20 +25,20 @@ import (
 )
 
 const (
-	tplCommon               = "d8v-%s-%s-%s"
-	tplDVCRAuthSecret       = "d8v-%s-dvcr-auth-%s-%s"
-	tplDVCRAuthSecretForDV  = "d8v-%s-dvcr-auth-dv-%s-%s"
-	tplDVCRCABundle         = "d8v-%s-dvcr-ca-%s-%s"
-	tplCABundle             = "d8v-%s-ca-%s-%s"
-	tplImagePullSecret      = "d8v-%s-pull-image-%s-%s"
-	tplImporterPod          = "d8v-%s-importer-%s"
-	tplPVCImporterPod       = "d8v-%s-pvc-importer-%s"
-	tplPVCSourceImporterPod    = "d8v-%s-pvc-source-importer-%s"
+	tplCommon                   = "d8v-%s-%s-%s"
+	tplDVCRAuthSecret           = "d8v-%s-dvcr-auth-%s-%s"
+	tplDVCRAuthSecretForDV      = "d8v-%s-dvcr-auth-dv-%s-%s"
+	tplDVCRCABundle             = "d8v-%s-dvcr-ca-%s-%s"
+	tplCABundle                 = "d8v-%s-ca-%s-%s"
+	tplImagePullSecret          = "d8v-%s-pull-image-%s-%s"
+	tplImporterPod              = "d8v-%s-importer-%s"
+	tplPVCImporterPod           = "d8v-%s-pvc-importer-%s"
+	tplPVCSourceImporterPod     = "d8v-%s-pvc-source-importer-%s"
 	tplPVCSourceImporterService = "d8v-%s-pvc-source-nbd-%s"
-	tplPVCTargetImporterPod    = "d8v-%s-pvc-target-importer-%s"
-	tplBounderPod           = "d8v-%s-bounder-%s-%s"
-	tplUploaderPod          = "d8v-%s-uploader-%s-%s"
-	tplUploaderTLSSecret    = "d8v-%s-tls-%s-%s"
+	tplPVCTargetImporterPod     = "d8v-%s-pvc-target-importer-%s"
+	tplBounderPod               = "d8v-%s-bounder-%s-%s"
+	tplUploaderPod              = "d8v-%s-uploader-%s-%s"
+	tplUploaderTLSSecret        = "d8v-%s-tls-%s-%s"
 )
 
 type Generator interface {

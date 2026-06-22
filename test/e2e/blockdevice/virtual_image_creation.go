@@ -466,10 +466,10 @@ func virtualImageProgressExpectations(vi *v1alpha2.VirtualImage, o progressWaitO
 		}
 		return intermediateVirtualImageProgress()
 	}
-	switch {
-	case o.progressCoverage == progressCoverageMinimal:
+	switch o.progressCoverage {
+	case progressCoverageMinimal:
 		return minimalVirtualImageProgress()
-	case o.progressCoverage == progressCoverageIntermediate:
+	case progressCoverageIntermediate:
 		return intermediateVirtualImageProgress()
 	default:
 		return viobs.ProgressExpectations{

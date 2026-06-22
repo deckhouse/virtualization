@@ -746,8 +746,8 @@ func (s *PVCImporterService) makeSourceImporterPod(podName string, target, sourc
 			Namespace: target.Namespace,
 			Labels: map[string]string{
 				annotations.QuotaExcludeLabel:  annotations.QuotaExcludeValue,
-				annotations.AppLabel:             annotations.CDILabelValue,
-				annotations.PVCImportRoleLabel:   annotations.PVCImportRoleSource,
+				annotations.AppLabel:           annotations.CDILabelValue,
+				annotations.PVCImportRoleLabel: annotations.PVCImportRoleSource,
 			},
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion:         "v1",

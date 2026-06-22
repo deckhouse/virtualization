@@ -102,7 +102,7 @@ func newTestStorageClass(name string) *storagev1.StorageClass {
 	reclaimPolicy := corev1.PersistentVolumeReclaimDelete
 	volumeBindingMode := storagev1.VolumeBindingWaitForFirstConsumer
 	return &storagev1.StorageClass{
-		ObjectMeta: metav1.ObjectMeta{Name: name},
+		ObjectMeta:        metav1.ObjectMeta{Name: name},
 		Provisioner:       "kubernetes.io/no-provisioner",
 		ReclaimPolicy:     &reclaimPolicy,
 		VolumeBindingMode: &volumeBindingMode,

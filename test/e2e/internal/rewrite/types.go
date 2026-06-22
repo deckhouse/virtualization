@@ -22,14 +22,6 @@ import (
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
-func rewriteVirtualizationV1beta1(resource string) schema.GroupVersionResource {
-	return schema.GroupVersionResource{
-		Group:    "internal.virtualization.deckhouse.io",
-		Version:  "v1beta1",
-		Resource: resource,
-	}
-}
-
 func rewriteVirtualizationV1(resource string) schema.GroupVersionResource {
 	return schema.GroupVersionResource{
 		Group:    "internal.virtualization.deckhouse.io",

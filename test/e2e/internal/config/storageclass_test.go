@@ -17,7 +17,6 @@ limitations under the License.
 package config
 
 import (
-	"os"
 	"testing"
 
 	storagev1 "k8s.io/api/storage/v1"
@@ -37,11 +36,11 @@ func TestResolveWFFCStorageClass(t *testing.T) {
 					"storageclass.kubernetes.io/is-default-class": "true",
 				},
 			},
-			Provisioner:         provisioner,
-			VolumeBindingMode:   &immediate,
+			Provisioner:       provisioner,
+			VolumeBindingMode: &immediate,
 		},
 		{
-			ObjectMeta: metav1.ObjectMeta{Name: "rv-thin-r1-wffc"},
+			ObjectMeta:        metav1.ObjectMeta{Name: "rv-thin-r1-wffc"},
 			Provisioner:       provisioner,
 			VolumeBindingMode: &wffc,
 		},
@@ -83,7 +82,7 @@ func TestResolveWFFCStorageClass(t *testing.T) {
 		t.Fatal("ResolveWFFCStorageClass() with missing env SC expected error")
 	}
 
-	os.Unsetenv(WFFCStorageClassEnv)
+	t.Setenv(WFFCStorageClassEnv, "")
 	scList.Items[0].Annotations = nil
 	if got, err := ResolveWFFCStorageClass(scList); err != nil || got != nil {
 		t.Fatalf("ResolveWFFCStorageClass() without default = (%#v, %v), want (nil, nil)", got, err)
@@ -103,11 +102,11 @@ func TestResolveImmediateStorageClass(t *testing.T) {
 					"storageclass.kubernetes.io/is-default-class": "true",
 				},
 			},
-			Provisioner:         provisioner,
-			VolumeBindingMode:   &wffc,
+			Provisioner:       provisioner,
+			VolumeBindingMode: &wffc,
 		},
 		{
-			ObjectMeta: metav1.ObjectMeta{Name: "rv-thin-r1"},
+			ObjectMeta:        metav1.ObjectMeta{Name: "rv-thin-r1"},
 			Provisioner:       provisioner,
 			VolumeBindingMode: &immediate,
 		},
