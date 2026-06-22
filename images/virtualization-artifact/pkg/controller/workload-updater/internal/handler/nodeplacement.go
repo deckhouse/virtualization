@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -37,6 +38,8 @@ import (
 
 const (
 	nodePlacementHandler = "NodePlacementHandler"
+
+	nodePlacementMigrationSettleDelay = time.Minute
 )
 
 func NewNodePlacementHandler(client client.Client, migration OneShotMigration) *NodePlacementHandler {
@@ -66,6 +69,23 @@ func (h *NodePlacementHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualM
 		return reconcile.Result{}, nil
 	}
 
+	// A node placement update is fulfilled via live migration. If the VMI is
+	// not live-migratable (e.g. it has local/non-shared disks), a live
+	// migration can never reconcile the placement, so never trigger it.
+	// The placement sum is intentionally not recorded here: once the VMI
+	// becomes migratable again (e.g. after disks are migrated to shared
+	// storage), the migration must still be able to fire.
+	if !isLiveMigratable(kvvmi) {
+		return reconcile.Result{}, nil
+	}
+
+	// Do not trigger a node placement migration while a volume migration or a
+	// live migration is in progress: a concurrent migration cannot be started
+	// and OnceMigrate already deduplicates against in-flight migrations.
+	if result, skip := shouldSkipNodePlacementMigration(kvvmi); skip {
+		return result, nil
+	}
+
 	sum, err := genNodePlacementSum(kvvmi)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -84,6 +104,34 @@ func (h *NodePlacementHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualM
 
 func (h *NodePlacementHandler) Name() string {
 	return nodePlacementHandler
+}
+
+func shouldSkipNodePlacementMigration(kvvmi *virtv1.VirtualMachineInstance) (reconcile.Result, bool) {
+	volumesChange, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceVolumesChange, kvvmi.Status.Conditions)
+	if volumesChange.Status == corev1.ConditionTrue || len(kvvmi.Status.MigratedVolumes) > 0 {
+		return reconcile.Result{}, true
+	}
+
+	migrationState := kvvmi.Status.MigrationState
+	if migrationState == nil || migrationState.StartTimestamp == nil {
+		return reconcile.Result{}, false
+	}
+
+	if migrationState.EndTimestamp == nil {
+		return reconcile.Result{}, true
+	}
+
+	settleUntil := migrationState.EndTimestamp.Add(nodePlacementMigrationSettleDelay)
+	if requeueAfter := time.Until(settleUntil); requeueAfter > 0 {
+		return reconcile.Result{RequeueAfter: requeueAfter}, true
+	}
+
+	return reconcile.Result{}, false
+}
+
+func isLiveMigratable(kvvmi *virtv1.VirtualMachineInstance) bool {
+	cond, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceIsMigratable, kvvmi.Status.Conditions)
+	return cond.Status == corev1.ConditionTrue
 }
 
 func genNodePlacementSum(kvvmi *virtv1.VirtualMachineInstance) (string, error) {

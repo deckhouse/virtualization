@@ -60,6 +60,9 @@ const (
 	// PrecheckAffinityToleration - test requires enough ready KVM-enabled master/worker nodes.
 	PrecheckAffinityToleration = "affinity-toleration-precheck"
 
+	// PrecheckTargetMigration - test requires target migration feature to be available.
+	PrecheckTargetMigration = "target-migration-precheck"
+
 	// PrecheckPostCleanup - test requires postcleanup to be configured.
 	PrecheckPostCleanup = "post-cleanup-precheck"
 
@@ -87,6 +90,7 @@ func KnownPrecheckLabels() []string {
 		PrecheckVirtualization,
 		PrecheckUSB,
 		PrecheckAffinityToleration,
+		PrecheckTargetMigration,
 		PrecheckPostCleanup,
 		PrecheckPrecreatedCVI,
 		NoPrecheck,

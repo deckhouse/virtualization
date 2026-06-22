@@ -363,14 +363,18 @@ var _ = Describe("MigrationHandler", func() {
 			size = resource.MustParse("10Gi")
 		})
 
-		It("should return error when target PVC name matches source PVC name", func() {
+		It("should ignore stale target PVC name when it matches source PVC name", func() {
 			sourcePVC := newEmptyPVC("source-pvc", "default")
 			withOwner(sourcePVC, vd)
 			Expect(fakeClient.Create(ctx, sourcePVC)).To(Succeed())
 
+			targetPVC := newEmptyPVC("target-pvc", "default")
+			withOwner(targetPVC, vd)
+			Expect(fakeClient.Create(ctx, targetPVC)).To(Succeed())
+
 			pvc, err := migrationHandler.createTargetPersistentVolumeClaim(ctx, vd, storageClass, size, "source-pvc", "source-pvc", corev1.PersistentVolumeBlock, corev1.ReadWriteOnce)
-			Expect(err).To(MatchError(ContainSubstring("matches source PersistentVolumeClaim")))
-			Expect(pvc).To(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pvc.Name).To(Equal("target-pvc"))
 		})
 
 		It("should select the only non-source PVC when target PVC name is empty", func() {
@@ -387,7 +391,7 @@ var _ = Describe("MigrationHandler", func() {
 			Expect(pvc.Name).To(Equal("target-pvc"))
 		})
 
-		It("should return error when target PVC name is specified but not found", func() {
+		It("should select the only non-source PVC when target PVC name is specified but not found", func() {
 			sourcePVC := newEmptyPVC("source-pvc", "default")
 			withOwner(sourcePVC, vd)
 			Expect(fakeClient.Create(ctx, sourcePVC)).To(Succeed())
@@ -397,7 +401,17 @@ var _ = Describe("MigrationHandler", func() {
 			Expect(fakeClient.Create(ctx, otherPVC)).To(Succeed())
 
 			pvc, err := migrationHandler.createTargetPersistentVolumeClaim(ctx, vd, storageClass, size, "missing-pvc", "source-pvc", corev1.PersistentVolumeBlock, corev1.ReadWriteOnce)
-			Expect(err).To(MatchError(ContainSubstring("target PersistentVolumeClaim \"missing-pvc\" was not found")))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pvc.Name).To(Equal("other-pvc"))
+		})
+
+		It("should skip when source PVC was not found", func() {
+			ownedPVC := newEmptyPVC("owned-pvc", "default")
+			withOwner(ownedPVC, vd)
+			Expect(fakeClient.Create(ctx, ownedPVC)).To(Succeed())
+
+			pvc, err := migrationHandler.createTargetPersistentVolumeClaim(ctx, vd, storageClass, size, "", "missing-source-pvc", corev1.PersistentVolumeBlock, corev1.ReadWriteOnce)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(pvc).To(BeNil())
 		})
 
@@ -415,7 +429,7 @@ var _ = Describe("MigrationHandler", func() {
 			Expect(pvc.Name).To(Equal("target-pvc"))
 		})
 
-		It("should return error when target PVC cannot be selected unambiguously", func() {
+		It("should skip when target PVC cannot be selected unambiguously", func() {
 			sourcePVC := newEmptyPVC("source-pvc", "default")
 			withOwner(sourcePVC, vd)
 			Expect(fakeClient.Create(ctx, sourcePVC)).To(Succeed())
@@ -429,7 +443,7 @@ var _ = Describe("MigrationHandler", func() {
 			Expect(fakeClient.Create(ctx, secondPVC)).To(Succeed())
 
 			pvc, err := migrationHandler.createTargetPersistentVolumeClaim(ctx, vd, storageClass, size, "", "source-pvc", corev1.PersistentVolumeBlock, corev1.ReadWriteOnce)
-			Expect(err).To(MatchError(ContainSubstring("unexpected number of PersistentVolumeClaims: 3, expected 1 or 2")))
+			Expect(err).NotTo(HaveOccurred())
 			Expect(pvc).To(BeNil())
 		})
 	})

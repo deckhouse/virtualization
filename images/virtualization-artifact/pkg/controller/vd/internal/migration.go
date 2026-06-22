@@ -411,6 +411,10 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 	if err != nil {
 		return err
 	}
+	if pvc == nil {
+		log.Debug("Target PersistentVolumeClaim is not ready for migration preparation; skip")
+		return nil
+	}
 
 	log.Info(
 		"The target PersistentVolumeClaim has been created or already exists",
@@ -419,7 +423,10 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 	)
 
 	if vd.Status.Target.PersistentVolumeClaim == pvc.Name {
-		return errors.New("the target PersistentVolumeClaim name matched the source PersistentVolumeClaim name, please report a bug")
+		log.Debug("Target PersistentVolumeClaim name matches source PersistentVolumeClaim after selection; skip",
+			slog.String("pvc", pvc.Name),
+		)
+		return nil
 	}
 
 	vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{
@@ -643,39 +650,62 @@ func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context,
 	}
 
 	if targetPVCName == sourcePVCName && targetPVCName != "" {
-		return nil, fmt.Errorf("target PersistentVolumeClaim %q matches source PersistentVolumeClaim", targetPVCName)
+		logger.FromContext(ctx).Debug("Target PersistentVolumeClaim name matches source PersistentVolumeClaim; ignoring stale target name",
+			slog.String("targetPVC", targetPVCName),
+			slog.String("sourcePVC", sourcePVCName),
+		)
+		targetPVCName = ""
 	}
 
 	switch len(pvcs) {
 	case 1:
 		if pvcs[0].Name != sourcePVCName {
-			return nil, fmt.Errorf("source PersistentVolumeClaim %q was not found", sourcePVCName)
+			logger.FromContext(ctx).Debug("Source PersistentVolumeClaim was not found among owned PersistentVolumeClaims; skip migration preparation",
+				slog.String("sourcePVC", sourcePVCName),
+				slog.String("ownedPVC", pvcs[0].Name),
+			)
+			return nil, nil
 		}
 		if targetPVCName != "" {
-			return nil, fmt.Errorf("target PersistentVolumeClaim %q was not found", targetPVCName)
+			logger.FromContext(ctx).Debug("Target PersistentVolumeClaim was not found; ignoring stale target name",
+				slog.String("targetPVC", targetPVCName),
+			)
 		}
 	case 2:
 		sourcePVCExists := false
-		var targetPVC *corev1.PersistentVolumeClaim
+		var targetPVC, fallbackTargetPVC *corev1.PersistentVolumeClaim
 		for _, pvc := range pvcs {
 			if pvc.Name == sourcePVCName {
 				sourcePVCExists = true
 				continue
 			}
+			fallbackTargetPVC = &pvc
 			if targetPVCName == "" || pvc.Name == targetPVCName {
 				targetPVC = &pvc
 				break
 			}
 		}
 		if !sourcePVCExists {
-			return nil, fmt.Errorf("source PersistentVolumeClaim %q was not found", sourcePVCName)
+			logger.FromContext(ctx).Debug("Source PersistentVolumeClaim was not found among owned PersistentVolumeClaims; skip migration preparation",
+				slog.String("sourcePVC", sourcePVCName),
+			)
+			return nil, nil
 		}
 		if targetPVC != nil {
 			return targetPVC, nil
 		}
-		return nil, fmt.Errorf("target PersistentVolumeClaim %q was not found", targetPVCName)
+		if fallbackTargetPVC != nil {
+			logger.FromContext(ctx).Debug("Target PersistentVolumeClaim was not found; using the only non-source PersistentVolumeClaim",
+				slog.String("targetPVC", targetPVCName),
+				slog.String("fallbackPVC", fallbackTargetPVC.Name),
+			)
+			return fallbackTargetPVC, nil
+		}
 	default:
-		return nil, fmt.Errorf("unexpected number of PersistentVolumeClaims: %d, expected 1 or 2", len(pvcs))
+		logger.FromContext(ctx).Debug("Unexpected number of owned PersistentVolumeClaims; skip migration preparation",
+			slog.Int("count", len(pvcs)),
+		)
+		return nil, nil
 	}
 
 	pvc := &corev1.PersistentVolumeClaim{
