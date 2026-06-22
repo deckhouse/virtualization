@@ -225,6 +225,8 @@ const (
 
 	// AnnVMFilesystemRequest is an annotation on a virtual machine that indicates a request to freeze or unfreeze the filesystem has been sent.
 	AnnVMFilesystemRequest = AnnAPIGroupV + "/virtual-machine-filesystem-request"
+	// AnnVMGPUID is an annotation on a virtual machine that selects a GPU UUID for DRA passthrough.
+	AnnVMGPUID = AnnAPIGroupV + "/gpu-id"
 
 	// AnnDVCRDeploymentSwitchToGarbageCollectionMode is an annotation on secret/dvcr-garbage-collection to indicate that deployment/dcvr should be switched to garbage-collection mode.
 	AnnDVCRDeploymentSwitchToGarbageCollectionMode = AnnAPIGroupV + "/dvcr-deployment-switch-to-garbage-collection-mode"

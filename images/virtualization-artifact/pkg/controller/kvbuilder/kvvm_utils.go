@@ -133,6 +133,8 @@ func ApplyVirtualMachineSpec(
 		return err
 	}
 
+	kvvm.SetGPU(vm.Name, vm.Annotations[annotations.AnnVMGPUID])
+
 	if err := kvvm.SetProvisioning(vm.Spec.Provisioning); err != nil {
 		return err
 	}
