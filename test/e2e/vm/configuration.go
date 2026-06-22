@@ -24,9 +24,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -34,9 +37,6 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
