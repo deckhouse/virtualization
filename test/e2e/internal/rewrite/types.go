@@ -47,8 +47,11 @@ type StorageProfile struct {
 }
 
 func (StorageProfile) GVR() schema.GroupVersionResource {
-	resource := rewriteInternalVirtualizationResource("storageprofiles")
-	return rewriteVirtualizationV1beta1(resource)
+	return schema.GroupVersionResource{
+		Group:    "cdi.internal.virtualization.deckhouse.io",
+		Version:  "v1beta1",
+		Resource: rewriteInternalVirtualizationResource("storageprofiles"),
+	}
 }
 
 type VirtualMachineInstanceMigration struct {

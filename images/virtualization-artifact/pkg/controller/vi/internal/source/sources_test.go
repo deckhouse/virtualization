@@ -334,6 +334,15 @@ var _ = Describe("Sources helpers", func() {
 		Entry("no error", nil, false, nil, v1alpha2.ImagePhase(""), conditions.ReasonUnknown.String(), ""),
 		Entry("storage profile missing", volumemode.ErrStorageProfileNotFound, true, nil, v1alpha2.ImageFailed, vicondition.ProvisioningFailed.String(), "StorageProfile not found in the cluster: Please check a StorageClass name in the cluster or set a default StorageClass."),
 		Entry("default storage class missing", service.ErrDefaultStorageClassNotFound, true, nil, v1alpha2.ImagePending, vicondition.ProvisioningFailed.String(), "Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass."),
+		Entry(
+			"quota exceeded",
+			errors.New("create dvcr target pvc: exceeded quota: persistentvolumeclaims"),
+			true,
+			nil,
+			v1alpha2.ImageFailed,
+			vicondition.ProvisioningFailed.String(),
+			"Quota exceeded: create dvcr target pvc: exceeded quota: persistentvolumeclaims; Retry in 1 minute.",
+		),
 		Entry("unexpected error", errors.New("boom"), false, errors.New("boom"), v1alpha2.ImagePhase(""), conditions.ReasonUnknown.String(), ""),
 	)
 

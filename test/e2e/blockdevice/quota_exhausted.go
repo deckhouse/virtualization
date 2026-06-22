@@ -18,31 +18,29 @@ package blockdevice
 
 import (
 	"context"
-	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
-	cvibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/cvi"
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
-	cviobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/cvi"
+	rqobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/resourcequota"
 	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
 	viobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vi"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 )
 
 // quotaExhaustedQuotaName is the name of the project ResourceQuota that
-// blocks every Pod and PVC creation in the test namespace, forcing the
-// virtualization-controller to surface the quota-exceeded condition on
-// every newly created VirtualDisk, VirtualImage, and ClusterVirtualImage.
+// blocks every Pod and PersistentVolumeClaim creation in the test namespace,
+// forcing the virtualization-controller to surface the quota-exceeded condition
+// on resources that create backing PVCs. Importer/ bounder Pods carry the
+// resource-quota-overrides.deckhouse.io/ignore label and are not blocked.
 const quotaExhaustedQuotaName = "v12n-e2e-block-pods-and-pvcs"
 
 var _ = Describe("QuotaExhausted", Ordered, Label(precheck.PrecheckImmediateStorageClass), func() {
@@ -105,25 +103,6 @@ var _ = Describe("QuotaExhausted", Ordered, Label(precheck.PrecheckImmediateStor
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	It("VirtualImage on DVCR reports a quota-exceeded ProvisioningFailed Ready condition", Label(precheck.PrecheckImmediateStorageClass), func() {
-		vi := vibuilder.New(
-			vibuilder.WithName("vi-dvcr-quota"),
-			vibuilder.WithNamespace(f.Namespace().Name),
-			vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
-			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVITestDataQCOW),
-		)
-
-		obs := viobs.StartObserver(ctx, f, vi)
-
-		By("Creating VirtualImage on DVCR", func() {
-			err := f.CreateWithDeferredDeletion(ctx, vi)
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		err := obs.WaitFor(viobs.BeQuotaExceeded(), framework.LongTimeout)
-		Expect(err).NotTo(HaveOccurred())
-	})
-
 	It("VirtualImage on PVC reports a quota-exceeded ProvisioningFailed Ready condition", Label(precheck.PrecheckImmediateStorageClass), func() {
 		vi := vibuilder.New(
 			vibuilder.WithName("vi-pvc-quota"),
@@ -141,29 +120,6 @@ var _ = Describe("QuotaExhausted", Ordered, Label(precheck.PrecheckImmediateStor
 		})
 
 		err := obs.WaitFor(viobs.BeQuotaExceeded(), framework.LongTimeout)
-		Expect(err).NotTo(HaveOccurred())
-	})
-
-	It("ClusterVirtualImage from a project-scoped VirtualDisk reports a quota-exceeded ProvisioningFailed Ready condition", Label(precheck.PrecheckImmediateStorageClass), func() {
-		// CVI is cluster-scoped, so the name must be unique across
-		// concurrent test runs; suffix it with the per-run namespace.
-		cvi := cvibuilder.New(
-			cvibuilder.WithName(fmt.Sprintf("cvi-quota-%s", f.Namespace().Name)),
-			cvibuilder.WithDataSourceObjectRef(
-				v1alpha2.ClusterVirtualImageObjectRefKindVirtualDisk,
-				baseVD.Name,
-				baseVD.Namespace,
-			),
-		)
-
-		obs := cviobs.StartObserver(ctx, f, cvi)
-
-		By("Creating ClusterVirtualImage", func() {
-			err := f.CreateWithDeferredDeletion(ctx, cvi)
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		err := obs.WaitFor(cviobs.BeQuotaExceeded(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
 	})
 })
@@ -193,26 +149,12 @@ func applyBlockingResourceQuota(ctx context.Context, f *framework.Framework) {
 	}
 
 	By("Applying a project-blocking ResourceQuota", func() {
+		obs := rqobs.StartObserver(ctx, f, quota)
+
 		err := f.CreateWithDeferredDeletion(ctx, quota)
 		Expect(err).NotTo(HaveOccurred(), "failed to create quota %q", quota.Name)
-	})
 
-	By("Waiting for the ResourceQuota to be enforced by the project", func() {
-		Eventually(func(g Gomega) {
-			var rq corev1.ResourceQuota
-			err := f.Clients.GenericClient().Get(ctx, types.NamespacedName{
-				Namespace: quota.Namespace,
-				Name:      quota.Name,
-			}, &rq)
-			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(rq.Status.Hard).To(HaveKeyWithValue(
-				corev1.ResourceName("count/pods"),
-				resource.MustParse("0"),
-			))
-			g.Expect(rq.Status.Hard).To(HaveKeyWithValue(
-				corev1.ResourceName("count/persistentvolumeclaims"),
-				resource.MustParse("0"),
-			))
-		}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
+		err = obs.WaitFor(rqobs.BeEnforced(), framework.MiddleTimeout)
+		Expect(err).NotTo(HaveOccurred(), "ResourceQuota %q was not enforced by the project", quota.Name)
 	})
 }

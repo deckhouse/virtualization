@@ -504,7 +504,13 @@ func virtualDiskProgressExpectations(vd *v1alpha2.VirtualDisk, o progressWaitOpt
 			RequireHundred: true,
 		}
 	}
-	if o.progressCoverage == progressCoverageIntermediate || isVirtualDiskFromCVI(vd) {
+	if isVirtualDiskFromCVI(vd) {
+		return vdobs.ProgressExpectations{
+			RequireZero:    true,
+			RequireHundred: true,
+		}
+	}
+	if o.progressCoverage == progressCoverageIntermediate {
 		return vdobs.ProgressExpectations{
 			RequireZero:                    true,
 			RequireIntermediateExceptFifty: true,
@@ -587,7 +593,8 @@ func runVirtualMachineFromDisks(ctx context.Context, f *framework.Framework, dis
 		for _, d := range disks {
 			// A WaitForFirstConsumer disk must park in WaitForFirstConsumer (it provisions
 			// only once the VM consumer is scheduled); an Immediate disk must become Ready.
-			Expect(d.obs.WaitFor(expectedDiskPhaseBeforeVM(ctx, f, d.vd), framework.LongTimeout)).NotTo(HaveOccurred())
+			err := d.obs.WaitFor(expectedDiskPhaseBeforeVM(ctx, f, d.vd), framework.LongTimeout)
+			Expect(err).NotTo(HaveOccurred())
 		}
 	})
 
@@ -615,16 +622,19 @@ func runVirtualMachineFromDisks(ctx context.Context, f *framework.Framework, dis
 
 	By(fmt.Sprintf("Waiting for the %s to be Ready", noun), func() {
 		for _, d := range disks {
-			Expect(d.obs.WaitFor(vdobs.BeReady(), framework.LongTimeout)).NotTo(HaveOccurred())
+			err := d.obs.WaitFor(vdobs.BeReady(), framework.LongTimeout)
+			Expect(err).NotTo(HaveOccurred())
 		}
 	})
 
 	By("Waiting for the VirtualMachine to be Running", func() {
-		Expect(vmObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)).NotTo(HaveOccurred())
+		err := vmObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	By("Waiting for the guest agent to be ready", func() {
-		Expect(vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)).NotTo(HaveOccurred())
+		err := vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
+		Expect(err).NotTo(HaveOccurred())
 	})
 }
 

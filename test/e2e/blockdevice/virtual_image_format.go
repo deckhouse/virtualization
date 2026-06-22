@@ -111,6 +111,7 @@ func runVirtualMachineFromImageUntilRunning(ctx context.Context, f *framework.Fr
 	obs.Never(vmobs.BeFailed())
 
 	By("Waiting for the VirtualMachine to be Running", func() {
-		Expect(obs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)).NotTo(HaveOccurred())
+		err := obs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
+		Expect(err).NotTo(HaveOccurred())
 	})
 }

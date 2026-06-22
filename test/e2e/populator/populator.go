@@ -188,12 +188,14 @@ func startPVCObserver(ctx context.Context, f *framework.Framework, pvc *corev1.P
 
 func waitPVCBoundAndDone(obs pvcobs.Observer) {
 	GinkgoHelper()
-	Expect(obs.WaitFor(pvcobs.BeBoundAndPopulated(), populatorWaitTimeout)).To(Succeed())
+	err := obs.WaitFor(pvcobs.BeBoundAndPopulated(), populatorWaitTimeout)
+	Expect(err).NotTo(HaveOccurred())
 }
 
 func waitPVCBound(obs pvcobs.Observer) {
 	GinkgoHelper()
-	Expect(obs.WaitFor(pvcobs.BeBound(), populatorWaitTimeout)).To(Succeed())
+	err := obs.WaitFor(pvcobs.BeBound(), populatorWaitTimeout)
+	Expect(err).NotTo(HaveOccurred())
 }
 
 func waitPopulatorCleanup(ctx context.Context, f *framework.Framework, targetName string) {
@@ -268,5 +270,6 @@ func writeRawDiskImage(ctx context.Context, f *framework.Framework, sourcePVC st
 	obs := podobs.StartObserver(ctx, f, pod)
 	obs.Never(podobs.BeFailed())
 	Expect(f.CreateWithDeferredDeletion(ctx, pod)).To(Succeed())
-	Expect(obs.WaitFor(podobs.BeSucceeded(), populatorWaitTimeout)).To(Succeed())
+	err := obs.WaitFor(podobs.BeSucceeded(), populatorWaitTimeout)
+	Expect(err).NotTo(HaveOccurred())
 }

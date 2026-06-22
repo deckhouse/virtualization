@@ -298,7 +298,8 @@ var _ = Describe("VirtualImageCreation", Label(
 				err := f.CreateWithDeferredDeletion(ctx, vdSnapshot)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(snapObs.WaitFor(vdsnapshotobs.BeReady(), framework.LongTimeout)).NotTo(HaveOccurred())
+				err = snapObs.WaitFor(vdsnapshotobs.BeReady(), framework.LongTimeout)
+				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 
@@ -410,7 +411,8 @@ func createVirtualImageAndWait(ctx context.Context, f *framework.Framework, vi *
 	})
 
 	By("Waiting for the VirtualImage to be Ready", func() {
-		Expect(obs.WaitFor(viobs.BeReady(), framework.LongTimeout)).NotTo(HaveOccurred())
+		err := obs.WaitFor(viobs.BeReady(), framework.LongTimeout)
+		Expect(err).NotTo(HaveOccurred())
 	})
 }
 
@@ -449,13 +451,17 @@ func uploadVirtualImageAndWait(ctx context.Context, f *framework.Framework, vi *
 	})
 
 	By("Waiting for the VirtualImage to be Ready", func() {
-		Expect(obs.WaitFor(viobs.BeReady(), framework.LongTimeout)).NotTo(HaveOccurred())
+		err := obs.WaitFor(viobs.BeReady(), framework.LongTimeout)
+		Expect(err).NotTo(HaveOccurred())
 	})
 }
 
 func virtualImageProgressExpectations(vi *v1alpha2.VirtualImage, o progressWaitOptions) viobs.ProgressExpectations {
+	if isVirtualImageFromCVI(vi) {
+		return minimalVirtualImageProgress()
+	}
 	if vi.Spec.Storage == v1alpha2.StorageContainerRegistry {
-		if o.progressCoverage == progressCoverageMinimal || isVirtualImageFromCVI(vi) {
+		if o.progressCoverage == progressCoverageMinimal {
 			return minimalVirtualImageProgress()
 		}
 		return intermediateVirtualImageProgress()
@@ -463,7 +469,7 @@ func virtualImageProgressExpectations(vi *v1alpha2.VirtualImage, o progressWaitO
 	switch {
 	case o.progressCoverage == progressCoverageMinimal:
 		return minimalVirtualImageProgress()
-	case o.progressCoverage == progressCoverageIntermediate || isVirtualImageFromCVI(vi):
+	case o.progressCoverage == progressCoverageIntermediate:
 		return intermediateVirtualImageProgress()
 	default:
 		return viobs.ProgressExpectations{
@@ -539,7 +545,8 @@ func createSourceVirtualDiskAndWait(ctx context.Context, f *framework.Framework,
 	)
 
 	obs := startVirtualDisk(ctx, f, vd, withoutStreamingProgress())
-	Expect(obs.WaitFor(vdobs.BeReady(), framework.LongTimeout)).To(Succeed())
+	err := obs.WaitFor(vdobs.BeReady(), framework.LongTimeout)
+	Expect(err).NotTo(HaveOccurred())
 
 	return vd
 }

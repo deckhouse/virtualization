@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -269,6 +270,9 @@ func setPhaseConditionFromStorageError(err error, vi *v1alpha2.VirtualImage, cb 
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningFailed).
 			Message("Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass.")
+		return true, nil
+	case common.ErrQuotaExceeded(err):
+		_ = setQuotaExceededPhaseCondition(cb, &vi.Status.Phase, err, vi.CreationTimestamp)
 		return true, nil
 	default:
 		return false, err
