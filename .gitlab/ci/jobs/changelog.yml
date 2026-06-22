@@ -1,0 +1,90 @@
+# Copyright 2026 Flant JSC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Re-generate CHANGELOG files for a milestone and (optionally) open a MR.
+#
+# Migration of:
+#   - .github/workflows/changelog-by-milestone.yml  (issues.milestoned)
+#   - .github/workflows/changelog-by-pull.yml       (pull_request_target)
+#   - .github/workflows/changelog-command.yml       (repository_dispatch /changelog)
+# All three used ./.github/actions/milestone-changelog (composite action).
+#
+# Per migration plan §0(3) and §11.5.4 the GitLab jobs are manual + scheduled,
+# NOT reactive. A webhook-listener for slash-command-equivalents and label
+# events is a documented TODO (see .gitlab/README.md).
+#
+# Required CI/CD variable: GITLAB_API_TOKEN (Project Access Token, scope api).
+
+# Variables exposed at "Run pipeline" UI:
+#   MILESTONE_TITLE    - if set, generate only this milestone (e.g. "v1.21.3").
+#                        Leave empty to iterate over all active milestones.
+#   OPEN_CHANGELOG_MR  - "true" to push a branch and open a changelog MR.
+#                        Defaults to "false" (files only, no MR).
+#   CHANGELOG_BASE_BRANCH - target branch (default "main").
+
+changelog:milestone:
+  stage: lint
+  # TODO_RUNNER_TAG: confirm registered runner tag at
+  # https://fox.flant.com/deckhouse/virtualization/-/runners after registration.
+  tags:
+    - deckhouse
+  image:
+    name: python:3.12-slim
+    entrypoint: [""]
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends git curl jq ca-certificates openssh-client
+  script:
+    - bash .gitlab/ci/scripts/changelog-milestone.sh
+  variables:
+    MILESTONE_TITLE: ""
+    OPEN_CHANGELOG_MR: "false"
+    CHANGELOG_BASE_BRANCH: "main"
+  rules:
+    # Mode 1: manual with optional MILESTONE_TITLE / OPEN_CHANGELOG_MR vars.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+    # Mode 2: scheduled daily run. We intentionally do NOT auto-open the MR on
+    # schedule; set OPEN_CHANGELOG_MR=true in the schedule definition if you
+    # want MRs created.
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: manual
+      allow_failure: true
+
+# Optional: process all active milestones (one MR per milestone).
+# Run on a schedule (e.g. nightly). Iterates over all open milestones and
+# generates CHANGELOG files locally; OPEN_CHANGELOG_MR controls whether
+# MRs are opened.
+changelog:all-active-milestones:
+  stage: lint
+  # TODO_RUNNER_TAG: confirm registered runner tag at
+  # https://fox.flant.com/deckhouse/virtualization/-/runners after registration.
+  tags:
+    - deckhouse
+  image:
+    name: python:3.12-slim
+    entrypoint: [""]
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends git curl jq ca-certificates openssh-client
+  script:
+    - bash .gitlab/ci/scripts/changelog-milestone.sh
+  variables:
+    MILESTONE_TITLE: ""
+    OPEN_CHANGELOG_MR: "false"
+    CHANGELOG_BASE_BRANCH: "main"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: manual
+      allow_failure: true

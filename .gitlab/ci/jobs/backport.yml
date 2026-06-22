@@ -1,0 +1,53 @@
+# Copyright 2026 Flant JSC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Backport a merged MR to a release branch (clone + cherry-pick + push + MR).
+#
+# Migration of .github/workflows/on-pull-request-backport.yml which used
+# deckhouse/backport-action@v1.0.0 with automerge=true and direct push to
+# the release branch. Per migration plan §0(6) and §11.9 we open a
+# reviewable backport MR instead of pushing directly.
+#
+# Triggers (per plan §11.9.4):
+#   1. Manual pipeline (Run pipeline UI) with variable TARGET_BRANCH=release-1.21.
+#   2. Manual pipeline with the backport-release-X.Y label detected on the MR
+#      (GitLab does NOT auto-trigger on label change; documented TODO).
+#
+# Required CI/CD variable: GITLAB_API_TOKEN (Project Access Token, scope api).
+
+backport:
+  stage: lint
+  # TODO_RUNNER_TAG: confirm registered runner tag at
+  # https://fox.flant.com/deckhouse/virtualization/-/runners after registration.
+  tags:
+    - deckhouse
+  image:
+    name: alpine:3.20
+    entrypoint: [""]
+  before_script:
+    - apk add --no-cache bash git curl jq openssh-client
+  script:
+    - bash .gitlab/ci/scripts/backport.sh
+  rules:
+    # Mode 1: explicit manual run with TARGET_BRANCH provided via UI.
+    - if: $TARGET_BRANCH
+      when: manual
+    # Mode 2: MR with a backport-release-X.Y label. GitLab does NOT auto-run
+    # pipelines on label change; user has to press "Run pipeline" on the MR
+    # (TODO: webhook-listener per migration plan §7).
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS =~ /backport-release-[0-9]+\.[0-9]+/
+      when: manual
+    # Mode 3: scheduled backport sweep (TODO: future automation).
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: manual

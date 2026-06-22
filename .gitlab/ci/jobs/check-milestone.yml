@@ -1,0 +1,38 @@
+# Copyright 2026 Flant JSC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Verify MR has a milestone assigned (GitLab API check).
+#
+# Migration of .github/workflows/check-pr-milestone.yml.
+# Required CI/CD variable: GITLAB_API_TOKEN (Project Access Token, scope api).
+
+check:milestone:
+  stage: lint
+  # TODO_RUNNER_TAG: confirm registered runner tag at
+  # https://fox.flant.com/deckhouse/virtualization/-/runners after registration.
+  tags:
+    - deckhouse
+  image:
+    name: alpine:3.20
+    entrypoint: [""]
+  before_script:
+    - apk add --no-cache bash curl jq
+  script:
+    - bash .gitlab/ci/scripts/check-milestone.sh
+  rules:
+    # MR open/synchronize/reopen/milestone changes.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    # Skip-label to bypass (per migration plan §11.10.3).
+    - if: $CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/check_milestone/
+      when: never

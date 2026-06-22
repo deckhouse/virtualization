@@ -1,0 +1,42 @@
+# Copyright 2026 Flant JSC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Auto-assign MR author as MR assignee (GitLab API).
+#
+# Migration of .github/workflows/dev_auto-pr-author-assign.yml.
+# Behaviour per migration plan §0(4): if MR already has an assignee, skip.
+# Required CI/CD variable: GITLAB_API_TOKEN (Project Access Token, scope api).
+
+auto-assign-author:
+  stage: info
+  # TODO_RUNNER_TAG: confirm registered runner tag at
+  # https://fox.flant.com/deckhouse/virtualization/-/runners after registration.
+  tags:
+    - deckhouse
+  image:
+    name: alpine:3.20
+    entrypoint: [""]
+  before_script:
+    - apk add --no-cache bash curl jq
+  script:
+    - bash .gitlab/ci/scripts/auto-assign-author.sh
+  rules:
+    # Only run on MR open/reopen events; do not re-run on every push.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - .gitlab/ci/scripts/auto-assign-author.sh
+          - .gitlab/ci/jobs/auto-assign-author.yml
+    # Open MR without a triggering push (e.g. from Run pipeline UI) is also covered
+    # by the merge_request_event pipeline source above; no manual trigger needed.
