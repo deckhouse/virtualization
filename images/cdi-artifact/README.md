@@ -5,8 +5,9 @@ It is based on the KubeVirt Containerized Data Importer codebase and keeps the o
 
 Only the runtime code needed by virtualization importer pods is kept here:
 
-- container image unpack/import into a PVC;
+- container image unpack/import into a PVC (DVCR path uses qemu-img);
+- host-assigned PVC-to-PVC clone uses nbdcopy for byte-for-byte copy over NBD;
 - raw/qcow2 conversion, resize, and progress reporting;
-- nbdkit/qemu helpers needed by that import path.
+- nbdkit helpers needed by that import path.
 
 CDI controllers, APIs, DataVolume logic, upload proxy/server, VDDK, imageio, S3, GCS, and upstream development tooling are intentionally removed.

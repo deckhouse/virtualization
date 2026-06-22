@@ -19,6 +19,7 @@ imageSpec:
 binaries:
   # nbd bins and libs
   - /usr/sbin/nbdkit
+  - /usr/bin/nbdcopy
   - /usr/lib64/nbdkit/filters/*.so
   - /usr/lib64/nbdkit/plugins/*.so
   # PVC importer binary

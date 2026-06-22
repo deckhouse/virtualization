@@ -9,7 +9,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"kubevirt.io/containerized-data-importer/pkg/common"
-	"kubevirt.io/containerized-data-importer/pkg/image"
 	"kubevirt.io/containerized-data-importer/pkg/importer"
 	"kubevirt.io/containerized-data-importer/pkg/util"
 	prometheusutil "kubevirt.io/containerized-data-importer/pkg/util/prometheus"
@@ -59,9 +58,9 @@ func run() int {
 		return 1
 	}
 
-	if err := image.ConvertNBDToRaw(nbdEndpoint, dest); err != nil {
+	if err := importer.CopyNBDToDevice(nbdEndpoint, dest); err != nil {
 		klog.Errorf("%+v", err)
-		if writeErr := util.WriteTerminationMessage(fmt.Sprintf("Unable to convert NBD image: %v", err.Error())); writeErr != nil {
+		if writeErr := util.WriteTerminationMessage(fmt.Sprintf("Unable to copy NBD image: %v", err.Error())); writeErr != nil {
 			klog.Errorf("%+v", writeErr)
 		}
 		return 1
@@ -106,7 +105,7 @@ func fsyncDataFile(path string) error {
 	defer file.Close()
 
 	if err := file.Sync(); err != nil {
-		return fmt.Errorf("fsync after qemu-img write: %w", err)
+		return fmt.Errorf("fsync after nbdcopy write: %w", err)
 	}
 	klog.V(3).Infof("Successfully completed fsync(%s) syscall, committed to disk\n", path)
 	return nil
