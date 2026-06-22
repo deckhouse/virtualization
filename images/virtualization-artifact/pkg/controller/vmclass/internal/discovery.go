@@ -19,6 +19,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -91,6 +92,20 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 		featuresEnabled = current.Spec.CPU.Features
 	}
 
+	// notEnabledCommon: CPU features common to every available node but not
+	// part of the enabled model. For Discovery these are features present on
+	// all schedulable nodes beyond the discovered intersection; for Features
+	// these are features the nodes support but the user did not request.
+	var featuresNotEnabled []string
+	if cpuType == v1alpha2.CPUTypeDiscovery || cpuType == v1alpha2.CPUTypeFeatures {
+		commonFeatures := h.discoveryCommonFeatures(availableNodes)
+		for _, cf := range commonFeatures {
+			if !slices.Contains(featuresEnabled, cf) {
+				featuresNotEnabled = append(featuresNotEnabled, cf)
+			}
+		}
+	}
+
 	availableNodeNames := make([]string, len(availableNodes))
 	for i, n := range availableNodes {
 		availableNodeNames[i] = n.GetName()
@@ -121,6 +136,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 
 	sort.Strings(availableNodeNames)
 	sort.Strings(featuresEnabled)
+	sort.Strings(featuresNotEnabled)
 
 	addedNodes, removedNodes := NodeNamesDiff(current.Status.AvailableNodes, availableNodeNames)
 	if len(addedNodes) > 0 || len(removedNodes) > 0 {
@@ -147,7 +163,8 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 	changed.Status.AvailableNodes = availableNodeNames
 	changed.Status.MaxAllocatableResources = h.maxAllocatableResources(availableNodes)
 	changed.Status.CpuFeatures = v1alpha2.CpuFeatures{
-		Enabled: featuresEnabled,
+		Enabled:          featuresEnabled,
+		NotEnabledCommon: featuresNotEnabled,
 	}
 
 	return reconcile.Result{}, nil

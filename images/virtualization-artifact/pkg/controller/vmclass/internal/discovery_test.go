@@ -69,7 +69,6 @@ func newVirtHandlerPod(nodeName string) *corev1.Pod {
 	}
 }
 
-//nolint:unparam // helper preserves generic signature for reuse across test cases
 func newVMClass(name string, cpuType v1alpha2.CPUType, nodeSelector *v1alpha2.NodeSelector, discoveryNodeSelector *metav1.LabelSelector) *v1alpha2.VirtualMachineClass {
 	vmc := &v1alpha2.VirtualMachineClass{
 		TypeMeta: metav1.TypeMeta{
@@ -739,6 +738,295 @@ var _ = Describe("DiscoveryHandler", func() {
 			Expect(cond).NotTo(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 			Expect(cond.Reason).To(Equal(vmclasscondition.ReasonDiscoveryFailed.String()))
+		})
+
+		It("should populate enabled from spec.cpu.features and keep all matching nodes for Features type", func() {
+			// UF1: Features type takes enabled features verbatim from spec; no
+			// discovery happens and every node exposing the requested features is
+			// schedulable.
+			node1 := newNodeWithLabels("node1", map[string]string{
+				virtv1.CPUFeatureLabel + "vmx": "true",
+				virtv1.CPUFeatureLabel + "svm": "true",
+			})
+			node2 := newNodeWithLabels("node2", map[string]string{
+				virtv1.CPUFeatureLabel + "vmx": "true",
+				virtv1.CPUFeatureLabel + "svm": "true",
+			})
+			node3 := newNodeWithLabels("node3", map[string]string{
+				virtv1.CPUFeatureLabel + "vmx": "true",
+				virtv1.CPUFeatureLabel + "svm": "true",
+			})
+
+			virtHandler1 := newVirtHandlerPod("node1")
+			virtHandler2 := newVirtHandlerPod("node2")
+			virtHandler3 := newVirtHandlerPod("node3")
+
+			vmc := newVMClass("test-features-basic", v1alpha2.CPUTypeFeatures, nil, nil)
+			vmc.Spec.CPU.Features = []string{"vmx", "svm"}
+
+			vmcState, resource := setupDiscoveryEnvironment(vmc,
+				node1, node2, node3,
+				virtHandler1, virtHandler2, virtHandler3)
+
+			ctx := context.Background()
+
+			mockRecorder := &eventrecord.EventRecorderLoggerMock{
+				EventfFunc: func(involved client.Object, eventtype, reason, messageFmt string, args ...any) {},
+			}
+			handler := NewDiscoveryHandler(mockRecorder)
+
+			_, err := handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changed := resource.Changed()
+
+			Expect(changed.Status.AvailableNodes).To(ConsistOf("node1", "node2", "node3"))
+			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "svm"))
+			Expect(changed.Status.CpuFeatures.NotEnabledCommon).To(BeEmpty())
+
+			cond := conditions.FindStatusCondition(changed.Status.Conditions, vmclasscondition.TypeDiscovered.String())
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(vmclasscondition.ReasonDiscoverySkip.String()))
+		})
+
+		It("should exclude nodes missing a requested feature for Features type", func() {
+			// UF2: Nodes() filters via matchLabels on every spec feature, so a
+			// node lacking any requested feature never reaches availableNodes.
+			node1 := newNodeWithLabels("node1", map[string]string{
+				virtv1.CPUFeatureLabel + "vmx": "true",
+				virtv1.CPUFeatureLabel + "svm": "true",
+			})
+			node2 := newNodeWithLabels("node2", map[string]string{
+				virtv1.CPUFeatureLabel + "vmx": "true",
+			})
+
+			virtHandler1 := newVirtHandlerPod("node1")
+			virtHandler2 := newVirtHandlerPod("node2")
+
+			vmc := newVMClass("test-features-missing", v1alpha2.CPUTypeFeatures, nil, nil)
+			vmc.Spec.CPU.Features = []string{"vmx", "svm"}
+
+			vmcState, resource := setupDiscoveryEnvironment(vmc,
+				node1, node2,
+				virtHandler1, virtHandler2)
+
+			ctx := context.Background()
+
+			mockRecorder := &eventrecord.EventRecorderLoggerMock{
+				EventfFunc: func(involved client.Object, eventtype, reason, messageFmt string, args ...any) {},
+			}
+			handler := NewDiscoveryHandler(mockRecorder)
+
+			_, err := handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changed := resource.Changed()
+
+			Expect(changed.Status.AvailableNodes).To(ConsistOf("node1"))
+			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "svm"))
+			Expect(changed.Status.CpuFeatures.NotEnabledCommon).To(BeEmpty())
+		})
+
+		It("should narrow availableNodes by spec.nodeSelector for Features type", func() {
+			// UF3: spec.nodeSelector restricts scheduling independently of the
+			// feature match performed by Nodes().
+			node1 := newNodeWithLabels("node1", map[string]string{
+				"node.deckhouse.io/group":      "worker",
+				virtv1.CPUFeatureLabel + "vmx": "true",
+			})
+			node2 := newNodeWithLabels("node2", map[string]string{
+				"node.deckhouse.io/group":      "worker",
+				virtv1.CPUFeatureLabel + "vmx": "true",
+			})
+			node3 := newNodeWithLabels("node3", map[string]string{
+				"node.deckhouse.io/group":      "master",
+				virtv1.CPUFeatureLabel + "vmx": "true",
+			})
+
+			virtHandler1 := newVirtHandlerPod("node1")
+			virtHandler2 := newVirtHandlerPod("node2")
+			virtHandler3 := newVirtHandlerPod("node3")
+
+			vmc := newVMClass("test-features-nodeselector", v1alpha2.CPUTypeFeatures, &v1alpha2.NodeSelector{
+				MatchExpressions: []corev1.NodeSelectorRequirement{
+					{
+						Key:      "node.deckhouse.io/group",
+						Operator: corev1.NodeSelectorOpIn,
+						Values:   []string{"worker"},
+					},
+				},
+			}, nil)
+			vmc.Spec.CPU.Features = []string{"vmx"}
+
+			vmcState, resource := setupDiscoveryEnvironment(vmc,
+				node1, node2, node3,
+				virtHandler1, virtHandler2, virtHandler3)
+
+			ctx := context.Background()
+
+			mockRecorder := &eventrecord.EventRecorderLoggerMock{
+				EventfFunc: func(involved client.Object, eventtype, reason, messageFmt string, args ...any) {},
+			}
+			handler := NewDiscoveryHandler(mockRecorder)
+
+			_, err := handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changed := resource.Changed()
+
+			Expect(changed.Status.AvailableNodes).To(ConsistOf("node1", "node2"))
+			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx"))
+			Expect(changed.Status.CpuFeatures.NotEnabledCommon).To(BeEmpty())
+		})
+
+		It("should report notEnabledCommon for Features type when nodes share extra features", func() {
+			// UF4: notEnabledCommon (variant B) = commonFeatures(availableNodes)
+			// minus spec.cpu.features. Every schedulable node supports sse2 but
+			// the user did not request it, so it must be reported as not enabled.
+			node1 := newNodeWithLabels("node1", map[string]string{
+				virtv1.CPUFeatureLabel + "vmx":  "true",
+				virtv1.CPUFeatureLabel + "sse2": "true",
+			})
+			node2 := newNodeWithLabels("node2", map[string]string{
+				virtv1.CPUFeatureLabel + "vmx":  "true",
+				virtv1.CPUFeatureLabel + "sse2": "true",
+			})
+
+			virtHandler1 := newVirtHandlerPod("node1")
+			virtHandler2 := newVirtHandlerPod("node2")
+
+			vmc := newVMClass("test-features-notenabled", v1alpha2.CPUTypeFeatures, nil, nil)
+			vmc.Spec.CPU.Features = []string{"vmx"}
+
+			vmcState, resource := setupDiscoveryEnvironment(vmc,
+				node1, node2,
+				virtHandler1, virtHandler2)
+
+			ctx := context.Background()
+
+			mockRecorder := &eventrecord.EventRecorderLoggerMock{
+				EventfFunc: func(involved client.Object, eventtype, reason, messageFmt string, args ...any) {},
+			}
+			handler := NewDiscoveryHandler(mockRecorder)
+
+			_, err := handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changed := resource.Changed()
+
+			Expect(changed.Status.AvailableNodes).To(ConsistOf("node1", "node2"))
+			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx"))
+			Expect(changed.Status.CpuFeatures.NotEnabledCommon).To(ConsistOf("sse2"))
+		})
+
+		It("should leave notEnabledCommon empty for Discovery when availableNodes match the discovered model", func() {
+			// UF5: for Discovery, availableNodes are filtered by nodesWithAllFeatures
+			// against the discovered intersection, so commonFeatures(availableNodes)
+			// collapses back to the enabled set and notEnabledCommon stays empty.
+			// A non-empty result is only possible when spec.nodeSelector excludes
+			// part of the discovery pool, shrinking the common set below the model.
+			node1 := newNodeWithLabels("node1", map[string]string{
+				virtv1.CPUFeatureLabel + "vmx":  "true",
+				virtv1.CPUFeatureLabel + "avx":  "true",
+				virtv1.CPUFeatureLabel + "sse2": "true",
+			})
+			node2 := newNodeWithLabels("node2", map[string]string{
+				virtv1.CPUFeatureLabel + "vmx":  "true",
+				virtv1.CPUFeatureLabel + "avx":  "true",
+				virtv1.CPUFeatureLabel + "sse2": "true",
+			})
+
+			virtHandler1 := newVirtHandlerPod("node1")
+			virtHandler2 := newVirtHandlerPod("node2")
+
+			vmc := newVMClass("test-discovery-notenabled-empty", v1alpha2.CPUTypeDiscovery, nil, nil)
+
+			vmcState, resource := setupDiscoveryEnvironment(vmc,
+				node1, node2,
+				virtHandler1, virtHandler2)
+
+			ctx := context.Background()
+
+			mockRecorder := &eventrecord.EventRecorderLoggerMock{
+				EventfFunc: func(involved client.Object, eventtype, reason, messageFmt string, args ...any) {},
+			}
+			handler := NewDiscoveryHandler(mockRecorder)
+
+			_, err := handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changed := resource.Changed()
+
+			Expect(changed.Status.AvailableNodes).To(ConsistOf("node1", "node2"))
+			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "avx", "sse2"))
+			Expect(changed.Status.CpuFeatures.NotEnabledCommon).To(BeEmpty())
+		})
+
+		It("should report notEnabledCommon for Discovery when spec.nodeSelector shrinks availableNodes below the discovery pool", func() {
+			// UF6: discovery pool is {node1,node2} with common features
+			// {vmx,avx,sse2}, but spec.nodeSelector keeps only node1, whose labels
+			// add clwb. commonFeatures(availableNodes={node1}) = {vmx,avx,sse2,clwb},
+			// so clwb is common to the (shrunk) available set yet not part of the
+			// discovered model and must surface in notEnabledCommon.
+			node1 := newNodeWithLabels("node1", map[string]string{
+				"node.deckhouse.io/group":       "worker",
+				virtv1.CPUFeatureLabel + "vmx":  "true",
+				virtv1.CPUFeatureLabel + "avx":  "true",
+				virtv1.CPUFeatureLabel + "sse2": "true",
+				virtv1.CPUFeatureLabel + "clwb": "true",
+			})
+			node2 := newNodeWithLabels("node2", map[string]string{
+				"node.deckhouse.io/group":       "compute",
+				virtv1.CPUFeatureLabel + "vmx":  "true",
+				virtv1.CPUFeatureLabel + "avx":  "true",
+				virtv1.CPUFeatureLabel + "sse2": "true",
+			})
+
+			virtHandler1 := newVirtHandlerPod("node1")
+			virtHandler2 := newVirtHandlerPod("node2")
+
+			vmc := newVMClass("test-discovery-notenabled-shrink", v1alpha2.CPUTypeDiscovery, &v1alpha2.NodeSelector{
+				MatchExpressions: []corev1.NodeSelectorRequirement{
+					{
+						Key:      "node.deckhouse.io/group",
+						Operator: corev1.NodeSelectorOpIn,
+						Values:   []string{"worker"},
+					},
+				},
+			}, &metav1.LabelSelector{})
+
+			vmcState, resource := setupDiscoveryEnvironment(vmc,
+				node1, node2,
+				virtHandler1, virtHandler2)
+
+			ctx := context.Background()
+
+			mockRecorder := &eventrecord.EventRecorderLoggerMock{
+				EventfFunc: func(involved client.Object, eventtype, reason, messageFmt string, args ...any) {},
+			}
+			handler := NewDiscoveryHandler(mockRecorder)
+
+			_, err := handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changed := resource.Changed()
+
+			Expect(changed.Status.AvailableNodes).To(ConsistOf("node1"))
+			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "avx", "sse2"))
+			Expect(changed.Status.CpuFeatures.NotEnabledCommon).To(ConsistOf("clwb"))
 		})
 	})
 })
