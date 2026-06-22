@@ -203,17 +203,27 @@ func TestPopulatorStartsHostAssignedPVCCloneWithSourceAndTargetPods(t *testing.T
 		t.Fatalf("expected pvc-target-importer pod: %v", err)
 	}
 	container := targetPod.Spec.Containers[0]
-	if got := container.Command; len(got) != 1 || got[0] != "/usr/bin/qemu-img" {
+	if got := container.Command; len(got) != 1 || got[0] != "/usr/bin/pvc-target-importer" {
 		t.Fatalf("unexpected target pod command: %#v", got)
 	}
-	wantArgs := []string{"convert", "-p", "-O", "raw", "nbd://" + sup.PVCSourceImporterService().Name + ":10809", "/dev/pvc-importer-block-volume"}
-	if len(container.Args) != len(wantArgs) {
-		t.Fatalf("unexpected target pod args: %#v", container.Args)
-	}
-	for i := range wantArgs {
-		if container.Args[i] != wantArgs[i] {
-			t.Fatalf("unexpected target pod args: got %#v, want %#v", container.Args, wantArgs)
+	wantNBD := "nbd://" + sup.PVCSourceImporterService().Name + ":10809"
+	var gotOwnerUID, gotNBD string
+	for _, env := range container.Env {
+		switch env.Name {
+		case common.OwnerUID:
+			gotOwnerUID = env.Value
+		case common.ImporterNBDEndpoint:
+			gotNBD = env.Value
 		}
+	}
+	if gotOwnerUID != string(vd.UID) {
+		t.Fatalf("unexpected owner UID env: got %q, want %q", gotOwnerUID, vd.UID)
+	}
+	if gotNBD != wantNBD {
+		t.Fatalf("unexpected NBD endpoint env: got %q, want %q", gotNBD, wantNBD)
+	}
+	if len(container.Ports) != 1 || container.Ports[0].Name != "metrics" || container.Ports[0].ContainerPort != 8443 {
+		t.Fatalf("unexpected metrics port: %#v", container.Ports)
 	}
 	if err := c.Get(ctx, sup.PVCImporterPod(), &corev1.Pod{}); client.IgnoreNotFound(err) == nil && err == nil {
 		t.Fatalf("host-assigned clone must not create legacy pvc-importer pod")

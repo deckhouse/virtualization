@@ -166,10 +166,6 @@ func (s WaitForPVCImportStep) refreshProgressFromPod(ctx context.Context, vd *v1
 	if pod == nil {
 		return nil
 	}
-	if s.pvc.Annotations[annotations.AnnPVCPopulationStrategy] == service.PopulationStrategyHostAssigned && !service.PodHasMetricsPort(pod) {
-		vd.Status.Progress = service.AdvanceProgressBelow(vd.Status.Progress, 100)
-		return nil
-	}
 
 	var opts []service.GetProgressOption
 	if s.progressScale != nil {

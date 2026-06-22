@@ -59,6 +59,7 @@ type ImgInfo struct {
 // QEMUOperations defines the interface for executing qemu subprocesses
 type QEMUOperations interface {
 	ConvertToRawStream(*url.URL, string, bool, string) error
+	ConvertNBDToRaw(string, string) error
 	ConvertToFormatStream(url *url.URL, format, dest string, preallocate bool) error
 	Resize(string, resource.Quantity, bool) error
 	Info(url *url.URL) (*ImgInfo, error)
@@ -162,6 +163,15 @@ func (o *qemuOperations) ConvertToRawStream(url *url.URL, dest string, prealloca
 	return convertToRaw(url.String(), dest, preallocate, cacheMode)
 }
 
+func (o *qemuOperations) ConvertNBDToRaw(nbdURL, dest string) error {
+	args := []string{"convert", "-p", "-O", "raw", nbdURL, dest}
+	klog.V(1).Infof("Running qemu-img with args: %v", args)
+	if _, err := qemuExecFunction(nil, reportProgressFull, "qemu-img", args...); err != nil {
+		return errors.Wrap(err, "could not convert NBD image to raw")
+	}
+	return nil
+}
+
 // convertQuantityToQemuSize translates a quantity string into a Qemu compatible string.
 func convertQuantityToQemuSize(size resource.Quantity) string {
 	int64Size, asInt := size.AsInt64()
@@ -262,6 +272,11 @@ func ConvertToRawStream(url *url.URL, dest string, preallocate bool, cacheMode s
 	return qemuIterface.ConvertToRawStream(url, dest, preallocate, cacheMode)
 }
 
+// ConvertNBDToRaw converts an NBD image to raw format and reports 0..100 import progress.
+func ConvertNBDToRaw(nbdURL, dest string) error {
+	return qemuIterface.ConvertNBDToRaw(nbdURL, dest)
+}
+
 // Validate does basic validation of a qemu image
 func Validate(url *url.URL, availableSize int64) error {
 	return qemuIterface.Validate(url, availableSize)
@@ -275,6 +290,14 @@ func Validate(url *url.URL, availableSize int64) error {
 const convertProgressBase = 50.0
 
 func reportProgress(line string) {
+	reportProgressScaled(line, convertProgressBase, 100.0)
+}
+
+func reportProgressFull(line string) {
+	reportProgressScaled(line, 0, 100.0)
+}
+
+func reportProgressScaled(line string, low, high float64) {
 	// (45.34/100%)
 	matches := re.FindStringSubmatch(line)
 	if len(matches) == 2 && ownerUID != "" {
@@ -284,8 +307,7 @@ func reportProgress(line string) {
 		if v <= 0 {
 			return
 		}
-		// Project qemu's 0..100 into convertProgressBase..100.
-		scaled := convertProgressBase + v*((100.0-convertProgressBase)/100.0)
+		scaled := low + v*((high-low)/100.0)
 		progress, err := metrics.Progress(ownerUID).Get()
 		if err == nil && scaled > progress {
 			metrics.Progress(ownerUID).Add(scaled - progress)

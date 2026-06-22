@@ -5,6 +5,7 @@
 {{- define "$name" -}}
 binaries:
 - /cdi-binaries/pvc-importer
+- /cdi-binaries/pvc-target-importer
 packages:
 - libnbd
 - libxml2
@@ -71,6 +72,11 @@ shell:
   - |
     {{- $_ := set $ "ProjectName" (list .ImageName "pvc-importer" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /cdi-binaries/pvc-importer ./cmd/pvc-importer`) | nindent 6 }}
+
+  - echo ============== Build pvc-target-importer ===========
+  - |
+    {{- $_ := set $ "ProjectName" (list .ImageName "pvc-target-importer" | join "/") }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /cdi-binaries/pvc-target-importer ./cmd/pvc-target-importer`) | nindent 6 }}
 
   - chown -R 64535:64535 /cdi-binaries/*
   - ls -la /cdi-binaries

@@ -30,6 +30,7 @@ const (
 	CacheModeTryNone      = "TRYNONE"
 	FilesystemOverheadVar = "FILESYSTEM_OVERHEAD"
 	OwnerUID              = "OWNER_UID"
+	ImporterNBDEndpoint   = "IMPORTER_NBD_ENDPOINT"
 
 	GenericError         = "Error"
 	PreallocationApplied = "Preallocation applied"

@@ -787,11 +787,9 @@ func (s *PVCImporterService) makeSourceImporterPod(podName string, target, sourc
 }
 
 func (s *PVCImporterService) makeTargetImporterPod(podName string, target, dataPVC *corev1.PersistentVolumeClaim, ownerUID types.UID, sourceNBDHost string, nodePlacement *provisioner.NodePlacement) *corev1.Pod {
-	targetPath := pvcImporterDataDir + "/disk.img"
 	volumeMounts := []corev1.VolumeMount{{Name: "tmp", MountPath: "/tmp"}}
 	var volumeDevices []corev1.VolumeDevice
 	if dataPVC.Spec.VolumeMode != nil && *dataPVC.Spec.VolumeMode == corev1.PersistentVolumeBlock {
-		targetPath = pvcImporterWriteBlockPath
 		volumeDevices = append(volumeDevices, corev1.VolumeDevice{Name: pvcImporterDataVolName, DevicePath: pvcImporterWriteBlockPath})
 	} else {
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{Name: pvcImporterDataVolName, MountPath: pvcImporterDataDir})
@@ -820,11 +818,15 @@ func (s *PVCImporterService) makeTargetImporterPod(podName string, target, dataP
 				Name:            "d8v-pvc-target-importer",
 				Image:           s.image,
 				ImagePullPolicy: corev1.PullPolicy(s.pullPolicy),
-				Command:         []string{"/usr/bin/qemu-img"},
-				Args:            []string{"convert", "-p", "-O", "raw", fmt.Sprintf("nbd://%s:%d", sourceNBDHost, pvcImporterNBDPort), targetPath},
-				Env:             []corev1.EnvVar{{Name: common.OwnerUID, Value: string(ownerUID)}},
-				VolumeMounts:    volumeMounts,
-				VolumeDevices:   volumeDevices,
+				Command:         []string{"/usr/bin/pvc-target-importer"},
+				Args:            []string{"-v=" + s.verbose},
+				Env: []corev1.EnvVar{
+					{Name: common.OwnerUID, Value: string(ownerUID)},
+					{Name: common.ImporterNBDEndpoint, Value: fmt.Sprintf("nbd://%s:%d", sourceNBDHost, pvcImporterNBDPort)},
+				},
+				Ports:         []corev1.ContainerPort{{Name: "metrics", ContainerPort: 8443, Protocol: corev1.ProtocolTCP}},
+				VolumeMounts:  volumeMounts,
+				VolumeDevices: volumeDevices,
 			}},
 			RestartPolicy: corev1.RestartPolicyOnFailure,
 			Volumes: []corev1.Volume{

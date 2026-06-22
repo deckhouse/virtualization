@@ -177,10 +177,6 @@ func refreshPVCImportProgress(
 	if pod == nil {
 		return nil
 	}
-	if !service.PodHasMetricsPort(pod) {
-		vi.Status.Progress = service.AdvanceProgressBelow(vi.Status.Progress, 100)
-		return nil
-	}
 
 	var opts []service.GetProgressOption
 	if scale != nil {
