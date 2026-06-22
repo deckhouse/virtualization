@@ -28,46 +28,8 @@
 # epic owner) is responsible for adding `local:` entries for this file.
 
 # ---------------------------------------------------------------------------
-# Shared change-path anchors
+# Validation jobs
 # ---------------------------------------------------------------------------
-
-# Paths that should re-run helm_templates validation. Mirrors the GH
-# paths_filter `helm_templates` block from dev_validation.yaml.
-.changes_helm_templates: &changes_helm_templates
-  - 'crds/**/*'
-  - 'charts/**/*'
-  - 'tools/kubeconform/**/*'
-  - 'templates/**/*'
-  - '.helmignore'
-  - 'Chart.yaml'
-  - 'Taskfile.yaml'
-
-# Paths that should re-run the vm-route-forge generated-files check.
-.changes_vm_route_forge: &changes_vm_route_forge
-  - 'images/vm-route-forge/bpf/route_watcher.c'
-  - 'images/vm-route-forge/**/*'
-
-# Paths that should re-run the api/controller generated-files checks.
-.changes_go_generated: &changes_go_generated
-  - 'api/**/*'
-  - 'images/virtualization-artifact/**/*'
-  - 'go.mod'
-  - 'go.sum'
-
-# Skip labels - exact match against validation/skip/* labels from the GH
-# workflow. The `actionlint` skip is intentionally omitted (decision #5).
-.skip_no_cyrillic: &skip_no_cyrillic
-  - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/no_cyrillic/'
-    when: never
-.skip_doc_changes: &skip_doc_changes
-  - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/doc_changes/'
-    when: never
-.skip_shellcheck: &skip_shellcheck
-  - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/shellcheck/'
-    when: never
-.skip_helm_templates: &skip_helm_templates
-  - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/helm_templates/'
-    when: never
 
 # ---------------------------------------------------------------------------
 # no_cyrillic
@@ -85,7 +47,8 @@ lint:no-cyrillic:
   script:
     - task validation:no-cyrillic
   rules:
-    - *skip_no_cyrillic
+    - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/no_cyrillic/'
+      when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == "main"'
     - if: '$CI_COMMIT_BRANCH =~ /^release-/'
@@ -107,7 +70,8 @@ lint:doc-changes:
   script:
     - task validation:doc-changes
   rules:
-    - *skip_doc_changes
+    - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/doc_changes/'
+      when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == "main"'
     - if: '$CI_COMMIT_BRANCH =~ /^release-/'
@@ -132,7 +96,8 @@ lint:shellcheck:
   script:
     - task lint:shellcheck
   rules:
-    - *skip_shellcheck
+    - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/shellcheck/'
+      when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == "main"'
     - if: '$CI_COMMIT_BRANCH =~ /^release-/'
@@ -187,13 +152,28 @@ lint:helm-templates:
   script:
     - task validation:helm-templates
   rules:
-    - *skip_helm_templates
+    - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/helm_templates/'
+      when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
-        paths: *changes_helm_templates
+        paths:
+          - 'crds/**/*'
+          - 'charts/**/*'
+          - 'tools/kubeconform/**/*'
+          - 'templates/**/*'
+          - '.helmignore'
+          - 'Chart.yaml'
+          - 'Taskfile.yaml'
     - if: '$CI_COMMIT_BRANCH == "main"'
       changes:
-        paths: *changes_helm_templates
+        paths:
+          - 'crds/**/*'
+          - 'charts/**/*'
+          - 'tools/kubeconform/**/*'
+          - 'templates/**/*'
+          - '.helmignore'
+          - 'Chart.yaml'
+          - 'Taskfile.yaml'
 
 # ---------------------------------------------------------------------------
 # check_gens_files
@@ -255,10 +235,16 @@ check:gens-files:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
-        paths: *changes_go_generated
+        paths:
+          - 'api/**/*'
+          - 'images/virtualization-artifact/**/*'
+          - 'go.mod'
+          - 'go.sum'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
-        paths: *changes_vm_route_forge
+        paths:
+          - 'images/vm-route-forge/bpf/route_watcher.c'
+          - 'images/vm-route-forge/**/*'
     - if: '$CI_COMMIT_BRANCH == "main"'
 
 # ---------------------------------------------------------------------------

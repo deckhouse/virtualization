@@ -9,13 +9,13 @@
 #   4. notify       - send Loop webhook with success/failure
 #
 # GitLab mapping:
-#   - The build step is delegated to the upstream `.build` template from
-#     deckhouse/3p/deckhouse/modules-gitlab-ci@v13.0 (Build.gitlab-ci.yml)
-#     via `extends: .dev_tags` (ref-name tag).
+#   - The build step reuses the local `.local_build` template, with `.dev_vars`
+#     for DEV registry variables and job-local rules for schedule/manual runs.
 #   - The analyze step uses the upstream `.svace_analyze` template
 #     (Svace_Analayze.gitlab-ci.yml; note upstream file name typo).
 #   - Schedule cron: "00 04 * * 6" -> Pipeline Schedule in UI.
 #   - workflow_dispatch -> when: manual.
+#   - MR opt-in -> set SVACE_PIPELINE_ENABLED=true when running a pipeline.
 #   - Loop notification kept as a manual / always job. The original GH
 #     webhook URL is the LOOP_WEBHOOK_URL masked variable (see
 #     .gitlab/README.md variables list).
@@ -70,14 +70,15 @@ svace:set-vars:
 # ---------------------------------------------------------------------------
 # build: produces Svace-instrumented artifacts.
 #
-# Reuses .dev_tags so the build tag follows the branch name. The upstream
-# `.build` template accepts the same `module_source` / `module_name` /
-# `module_tag` semantics as deckhouse/modules-actions/build@v4.
+# Reuses `.local_build` so it does not inherit the dev-tag-only rules from
+# `.dev_tags`. The preceding svace:set-vars job writes the actual
+# MODULES_MODULE_TAG into a dotenv artifact.
 # ---------------------------------------------------------------------------
 
 svace:build:
   extends:
-    - .dev_tags
+    - .local_build
+    - .dev_vars
   stage: build
   # TODO_RUNNER_TAG: build with svace instrumentation requires more CPU/RAM;
   # narrow to [deckhouse, large] once runners are registered.
@@ -86,6 +87,14 @@ svace:build:
     - svace:set-vars
   variables:
     WERF_VIRTUAL_MERGE: "0"
+    SVACE_ENABLED: "true"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: manual
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $SVACE_PIPELINE_ENABLED == "true"'
+      when: manual
+    - when: never
 
 # ---------------------------------------------------------------------------
 # analyze: invoke the upstream `.svace_analyze` template.
@@ -100,15 +109,15 @@ svace:analyze:
   # TODO_RUNNER_TAG: SSH-heavy; narrow to [deckhouse, large] if available.
   interruptible: false
   needs:
+    - job: svace:set-vars
+      artifacts: true
     - job: svace:build
       optional: true
-  dependencies:
-    - svace:set-vars
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
     - if: '$CI_PIPELINE_SOURCE == "web"'
       when: manual
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $SVACE_ENABLED == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $SVACE_PIPELINE_ENABLED == "true"'
       when: manual
     - when: never
 

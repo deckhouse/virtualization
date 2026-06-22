@@ -9,11 +9,13 @@
 # owns any future re-introduction of e2e stages under a separate file.
 #
 # Stage semantics:
+#   pre               — upstream Translate_Changelog hidden template stage
 #   info              — manifest printers, set_vars helper
 #   lint              — Go lint, helm lint, yaml lint, no-cyrillic, etc.
 #   test              — Go unit tests, hooks tests
 #   build             — werf build for dev / dev-tags / main / prod
 #   scan              — cve_scan, gitleaks, svace (owned by sibling issues)
+#   gitleaks          — upstream hidden template stage; visible jobs override it
 #   deploy_dev        — DEV tag deploy to alpha/beta/ea/stable/rock-solid
 #   deploy_prod_alpha / beta / ea / stable / rock_solid
 #                     — sequential prod release-channel deploy chain
@@ -26,11 +28,14 @@
 # land in our `build` stage (not a separate "build" from upstream).
 
 stages:
+  # Keep upstream hidden templates valid even when visible jobs override stages.
+  - pre
   - info
   - lint
   - test
   - build
   - scan
+  - gitleaks
   - deploy_dev
   - deploy_prod_alpha
   - deploy_prod_beta

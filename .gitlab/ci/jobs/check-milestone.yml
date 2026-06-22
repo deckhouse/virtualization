@@ -31,8 +31,8 @@ check:milestone:
   script:
     - bash .gitlab/ci/scripts/check-milestone.sh
   rules:
-    # MR open/synchronize/reopen/milestone changes.
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    # Skip-label to bypass (per migration plan §11.10.3).
+    # Skip-label must be first because GitLab rules are evaluated first-match.
     - if: $CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/check_milestone/
       when: never
+    # MR open/synchronize/reopen/milestone changes.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
