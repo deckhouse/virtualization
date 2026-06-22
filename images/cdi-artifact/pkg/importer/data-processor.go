@@ -21,7 +21,6 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
-
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/klog/v2"
 
@@ -62,8 +61,10 @@ const (
 )
 
 // may be overridden in tests
-var getAvailableSpaceBlockFunc = util.GetAvailableSpaceBlock
-var getAvailableSpaceFunc = util.GetAvailableSpace
+var (
+	getAvailableSpaceBlockFunc = util.GetAvailableSpaceBlock
+	getAvailableSpaceFunc      = util.GetAvailableSpace
+)
 
 // DataSourceInterface is the interface all data sources should implement.
 type DataSourceInterface interface {
@@ -308,7 +309,7 @@ func (dp *DataProcessor) resize() (ProcessingPhase, error) {
 	dp.preallocationApplied = dp.preallocation
 	if dp.dataFile != "" && !isBlockDev {
 		// Change permissions to 0660
-		err := os.Chmod(dp.dataFile, 0660)
+		err := os.Chmod(dp.dataFile, 0o660)
 		if err != nil {
 			return ProcessingPhaseError, errors.Wrap(err, "Unable to change permissions of target file")
 		}

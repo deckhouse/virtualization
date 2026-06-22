@@ -22,7 +22,6 @@ import (
 	"syscall"
 
 	"github.com/pkg/errors"
-
 	"k8s.io/klog/v2"
 )
 
@@ -77,7 +76,7 @@ func (c *directIOChecker) CheckFile(path string) (bool, error) {
 	flags := syscall.O_RDONLY
 	if _, err := c.OSInterface.Stat(path); errors.Is(err, os.ErrNotExist) {
 		// try to create the file and perform the check
-		flags = flags | syscall.O_CREAT
+		flags |= syscall.O_CREAT
 		defer removeTempFileAndCheckErr(c.OSInterface, path)
 	}
 	return c.check(path, flags)
@@ -86,12 +85,12 @@ func (c *directIOChecker) CheckFile(path string) (bool, error) {
 // based on https://github.com/kubevirt/kubevirt/blob/c4fc4ab72a868399f5331438f35b8c33e7dd0720/pkg/virt-launcher/virtwrap/converter/converter.go#L346
 func (c *directIOChecker) check(path string, flags int) (bool, error) {
 	// #nosec No risk for path injection as we only open the file, not read from it. The function leaks only whether the directory to `path` exists.
-	f, err := c.OSInterface.OpenFile(path, flags|syscall.O_DIRECT, 0600)
+	f, err := c.OSInterface.OpenFile(path, flags|syscall.O_DIRECT, 0o600)
 	if err != nil {
 		// EINVAL is returned if the filesystem does not support the O_DIRECT flag
 		if perr := (&os.PathError{}); errors.As(err, &perr) && errors.Is(perr, syscall.EINVAL) {
 			// #nosec No risk for path injection as we only open the file, not read from it. The function leaks only whether the directory to `path` exists.
-			f, err := c.OSInterface.OpenFile(path, flags & ^syscall.O_DIRECT, 0600)
+			f, err := c.OSInterface.OpenFile(path, flags & ^syscall.O_DIRECT, 0o600)
 			if err == nil {
 				defer closeIOAndCheckErr(f)
 				return false, nil

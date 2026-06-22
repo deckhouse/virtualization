@@ -30,7 +30,7 @@ func convertTo(format, src, dest string, preallocate bool) error {
 		_, err = qemuExecFunction(nil, reportProgress, "qemu-img", args...)
 	}
 	if err != nil {
-		os.Remove(dest)
+		_ = os.Remove(dest)
 		errorMsg := fmt.Sprintf("could not convert image to %s", format)
 		if nbdkitLog, err := os.ReadFile(common.NbdkitLogPath); err == nil {
 			errorMsg += " " + string(nbdkitLog)

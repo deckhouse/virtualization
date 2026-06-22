@@ -27,7 +27,6 @@ import (
 
 	"github.com/pkg/errors"
 	"golang.org/x/sys/unix"
-
 	"k8s.io/klog/v2"
 )
 
@@ -45,8 +44,10 @@ type ProcessLimitValues struct {
 
 type processLimiter struct{}
 
-var execCommand = exec.Command
-var execCommandContext = exec.CommandContext
+var (
+	execCommand        = exec.Command
+	execCommandContext = exec.CommandContext
+)
 
 var limiter = NewProcessLimiter()
 
@@ -184,7 +185,7 @@ func executeWithLimits(limits *ProcessLimitValues, callback func(string), logErr
 	return output, nil
 }
 
-func prlimit(pid int, limit int, value *syscall.Rlimit) error {
+func prlimit(pid, limit int, value *syscall.Rlimit) error {
 	_, _, e1 := syscall.RawSyscall6(syscall.SYS_PRLIMIT64, uintptr(pid), uintptr(limit), uintptr(unsafe.Pointer(value)), 0, 0, 0)
 	if e1 != 0 {
 		return errors.Wrapf(e1, "error setting prlimit on %d with value %d on pid %d", limit, value, pid)

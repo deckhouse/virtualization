@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-
 	"k8s.io/client-go/util/cert"
 	"k8s.io/klog/v2"
 
@@ -103,13 +102,13 @@ func StartPrometheusEndpoint(certsDirectory string) {
 	}
 
 	certFile := path.Join(certsDirectory, "tls.crt")
-	if err = os.WriteFile(certFile, certBytes, 0600); err != nil {
+	if err = os.WriteFile(certFile, certBytes, 0o600); err != nil {
 		klog.Error("Error writing cert file")
 		return
 	}
 
 	keyFile := path.Join(certsDirectory, "tls.key")
-	if err = os.WriteFile(keyFile, keyBytes, 0600); err != nil {
+	if err = os.WriteFile(keyFile, keyBytes, 0o600); err != nil {
 		klog.Error("Error writing key file")
 		return
 	}

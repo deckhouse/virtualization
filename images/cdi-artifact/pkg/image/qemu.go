@@ -27,7 +27,6 @@ import (
 
 	"github.com/docker/go-units"
 	"github.com/pkg/errors"
-
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/klog/v2"
 
@@ -38,9 +37,9 @@ import (
 )
 
 const (
-	networkTimeoutSecs = 3600    //max is 10000
-	maxMemory          = 1 << 30 //value from OpenStack Nova
-	maxCPUSecs         = 30      //value from OpenStack Nova
+	networkTimeoutSecs = 3600    // max is 10000
+	maxMemory          = 1 << 30 // value from OpenStack Nova
+	maxCPUSecs         = 30      // value from OpenStack Nova
 	matcherString      = "\\((\\d?\\d\\.\\d\\d)\\/100%\\)"
 )
 
@@ -65,7 +64,7 @@ type QEMUOperations interface {
 	Info(url *url.URL) (*ImgInfo, error)
 	Validate(*url.URL, int64) error
 	CreateBlankImage(string, resource.Quantity, bool) error
-	Rebase(backingFile string, delta string) error
+	Rebase(backingFile, delta string) error
 	Commit(image string) error
 }
 
@@ -118,7 +117,7 @@ func convertToRaw(src, dest string, preallocate bool, cacheMode string) error {
 		_, err = qemuExecFunction(nil, reportProgress, "qemu-img", args...)
 	}
 	if err != nil {
-		os.Remove(dest)
+		_ = os.Remove(dest)
 		errorMsg := "could not convert image to raw"
 		if nbdkitLog, err := os.ReadFile(common.NbdkitLogPath); err == nil {
 			errorMsg += " " + string(nbdkitLog)
@@ -129,7 +128,7 @@ func convertToRaw(src, dest string, preallocate bool, cacheMode string) error {
 	return nil
 }
 
-func getCacheMode(path string, cacheMode string) (string, error) {
+func getCacheMode(path, cacheMode string) (string, error) {
 	if cacheMode != common.CacheModeTryNone {
 		return "writeback", nil
 	}
@@ -336,11 +335,11 @@ func (o *qemuOperations) CreateBlankImage(dest string, size resource.Quantity, p
 	}
 	_, err = qemuExecFunction(nil, nil, "qemu-img", args...)
 	if err != nil {
-		os.Remove(dest)
+		_ = os.Remove(dest)
 		return errors.Wrap(err, fmt.Sprintf("could not create raw image with size %s in %s", size.String(), dest))
 	}
 	// Change permissions to 0660
-	err = os.Chmod(dest, 0660)
+	err = os.Chmod(dest, 0o660)
 	if err != nil {
 		err = errors.Wrap(err, "Unable to change permissions of target file")
 		return err
@@ -410,7 +409,7 @@ func addPreallocation(args []string, preallocationMethods [][]string, qemuFn fun
 
 // Rebase changes a QCOW's backing file to point to a previously-downloaded base image.
 // Depends on original image having been downloaded as raw.
-func (o *qemuOperations) Rebase(backingFile string, delta string) error {
+func (o *qemuOperations) Rebase(backingFile, delta string) error {
 	klog.V(1).Infof("Rebasing %s onto %s", delta, backingFile)
 	args := []string{"rebase", "-p", "-u", "-F", "raw", "-b", backingFile, delta}
 	_, err := qemuExecFunction(nil, reportProgress, "qemu-img", args...)

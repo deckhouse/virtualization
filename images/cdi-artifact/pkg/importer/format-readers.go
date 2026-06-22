@@ -26,7 +26,6 @@ import (
 	"github.com/klauspost/compress/zstd"
 	"github.com/pkg/errors"
 	"github.com/ulikunitz/xz"
-
 	"k8s.io/klog/v2"
 
 	"kubevirt.io/containerized-data-importer/pkg/common"
@@ -36,9 +35,7 @@ import (
 	prometheusutil "kubevirt.io/containerized-data-importer/pkg/util/prometheus"
 )
 
-var (
-	ownerUID string
-)
+var ownerUID string
 
 func init() {
 	if err := metrics.SetupMetrics(); err != nil {
@@ -217,7 +214,7 @@ func (fr *FormatReaders) zstReader() (io.ReadCloser, error) {
 // Return the size of the endpoint "through the eye" of the previous reader. Note: there is no
 // qcow2 reader so nil is returned so that nothing is appended to the reader stack.
 // Note: size is stored at offset 24 in the qcow2 header.
-func (fr *FormatReaders) qcow2NopReader(h *image.Header) (io.Reader, error) {
+func (fr *FormatReaders) qcow2NopReader(h *image.Header) (io.Reader, error) { //nolint:unparam // upstream CDI API keeps the reader return for symmetry with other format handlers.
 	s := hex.EncodeToString(fr.buf[h.SizeOff : h.SizeOff+h.SizeLen])
 	_, err := strconv.ParseInt(s, 16, 64)
 	if err != nil {

@@ -24,7 +24,6 @@ import (
 
 	"github.com/containers/image/v5/types"
 	"github.com/pkg/errors"
-
 	"k8s.io/klog/v2"
 
 	"kubevirt.io/containerized-data-importer/pkg/common"
@@ -48,9 +47,9 @@ type RegistryDataSource struct {
 	certDir     string
 	insecureTLS bool
 	imageDir    string
-	//The discovered image file in scratch space.
+	// The discovered image file in scratch space.
 	url *url.URL
-	//The discovered image info from the registry.
+	// The discovered image info from the registry.
 	info *types.ImageInspectInfo
 }
 
@@ -93,7 +92,7 @@ func (rd *RegistryDataSource) Transfer(path string) (ProcessingPhase, error) {
 		return ProcessingPhaseError, err
 	}
 	if size <= int64(0) {
-		//Path provided is invalid.
+		// Path provided is invalid.
 		return ProcessingPhaseError, ErrInvalidPath
 	}
 
@@ -183,7 +182,7 @@ func getImageFileName(dir string) (string, error) {
 // CreateCertificateDir creates a common certificate dir
 func CreateCertificateDir(registryCertDir string) (string, error) {
 	allCerts := "/tmp/all_certs"
-	if err := os.MkdirAll(allCerts, 0700); err != nil {
+	if err := os.MkdirAll(allCerts, 0o700); err != nil {
 		return allCerts, err
 	}
 

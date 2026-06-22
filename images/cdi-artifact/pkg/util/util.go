@@ -9,8 +9,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"kubevirt.io/containerized-data-importer/pkg/common"
@@ -54,8 +53,8 @@ func (r *CountingReader) Close() error {
 }
 
 // GetAvailableSpaceByVolumeMode calls another method based on the volumeMode parameter to get the amount of available space.
-func GetAvailableSpaceByVolumeMode(volumeMode v1.PersistentVolumeMode) (int64, error) {
-	if volumeMode == v1.PersistentVolumeBlock {
+func GetAvailableSpaceByVolumeMode(volumeMode corev1.PersistentVolumeMode) (int64, error) {
+	if volumeMode == corev1.PersistentVolumeBlock {
 		return GetAvailableSpaceBlock(common.WriteBlockPath)
 	}
 	return GetAvailableSpace(common.ImporterVolumePath)
@@ -80,7 +79,7 @@ func WriteTerminationMessageToFile(file, message string) error {
 	scanner := bufio.NewScanner(strings.NewReader(message))
 
 	if scanner.Scan() {
-		if err := os.WriteFile(file, scanner.Bytes(), 0600); err != nil {
+		if err := os.WriteFile(file, scanner.Bytes(), 0o600); err != nil {
 			return errors.Wrap(err, "could not create termination message file")
 		}
 	}

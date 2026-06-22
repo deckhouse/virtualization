@@ -31,7 +31,6 @@ import (
 	"github.com/containers/image/v5/pkg/blobinfocache"
 	"github.com/containers/image/v5/types"
 	"github.com/pkg/errors"
-
 	"k8s.io/klog/v2"
 
 	"kubevirt.io/containerized-data-importer/pkg/common"
@@ -157,7 +156,7 @@ func closeImage(src types.ImageSource) {
 	}
 }
 
-func hasPrefix(path string, pathPrefix string) bool {
+func hasPrefix(path, pathPrefix string) bool {
 	return strings.HasPrefix(path, pathPrefix) ||
 		strings.HasPrefix(path, "./"+pathPrefix)
 }
@@ -171,13 +170,14 @@ func isDir(hdr *tar.Header) bool {
 }
 
 func processLayer(ctx context.Context,
-	sys *types.SystemContext,
+	_ *types.SystemContext,
 	src types.ImageSource,
 	layer types.BlobInfo,
 	destDir string,
 	pathPrefix string,
 	cache types.BlobInfoCache,
-	stopAtFirst bool) (bool, error) {
+	stopAtFirst bool,
+) (bool, error) {
 	var reader io.ReadCloser
 	reader, _, err := src.GetBlob(ctx, layer, cache)
 	if err != nil {
@@ -196,7 +196,7 @@ func processLayer(ctx context.Context,
 	if err != nil {
 		return false, errors.Wrap(err, "Could not read layer")
 	}
-	defer fr.Close()
+	defer func() { _ = fr.Close() }()
 
 	tarReader := tar.NewReader(fr.TopReader())
 	found := false
@@ -269,7 +269,7 @@ func copyRegistryImage(url, destDir, pathPrefix, accessKey, secKey, certDir stri
 		klog.Errorf("Error retrieving image: %v", err)
 		return nil, errors.Wrap(err, "Error retrieving image")
 	}
-	defer imgCloser.Close()
+	defer func() { _ = imgCloser.Close() }()
 
 	cache := blobinfocache.DefaultCache(srcCtx)
 	found := false

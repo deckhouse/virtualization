@@ -13,7 +13,6 @@ import (
 
 	"github.com/pkg/errors"
 	"golang.org/x/sys/unix"
-
 	"k8s.io/klog/v2"
 )
 
@@ -69,7 +68,7 @@ func LinkFile(source, target string) error {
 }
 
 // CopyDir copies a dir from one location to another.
-func CopyDir(source string, dest string) error {
+func CopyDir(source, dest string) error {
 	// get properties of source dir
 	sourceinfo, err := os.Stat(source)
 	if err != nil {
@@ -244,7 +243,7 @@ func StreamDataToFile(r io.Reader, fileName string, preallocate bool) (int64, in
 	}
 
 	if err != nil {
-		os.Remove(outFile.Name())
+		_ = os.Remove(outFile.Name())
 		if strings.Contains(err.Error(), "no space left on device") {
 			err = errors.Wrapf(err, "unable to write to file")
 		}

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-
 	"k8s.io/klog/v2"
 
 	"kubevirt.io/containerized-data-importer/pkg/common"
@@ -317,6 +316,7 @@ func NewMockNbdkitCurl(nbdkitPidFile, user, password, certDir, socket string, ex
 func (m *mockNbdkit) StartNbdkit(source string) error {
 	return nil
 }
+
 func (m *mockNbdkit) KillNbdkit() error {
 	return nil
 }

@@ -9,7 +9,6 @@ import (
 	"syscall"
 
 	"github.com/pkg/errors"
-
 	"k8s.io/klog/v2"
 
 	"kubevirt.io/containerized-data-importer/pkg/common"
@@ -58,9 +57,6 @@ func GetTerminationChannel() <-chan os.Signal {
 	return terminationChannel
 }
 
-// newTerminationChannel should be overridden for unit tests
-var newTerminationChannel = GetTerminationChannel
-
 func envsToLabels(envs []string) map[string]string {
 	labels := map[string]string{}
 	for _, env := range envs {
@@ -96,7 +92,7 @@ func streamDataToFile(r io.Reader, fileName string) error {
 	klog.V(1).Infof("Writing data...\n")
 	if _, err = io.Copy(outFile, r); err != nil {
 		klog.Errorf("Unable to write file from dataReader: %v\n", err)
-		os.Remove(outFile.Name())
+		_ = os.Remove(outFile.Name())
 		if strings.Contains(err.Error(), "no space left on device") {
 			return errors.Wrapf(err, "unable to write to file")
 		}
