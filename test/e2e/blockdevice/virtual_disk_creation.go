@@ -205,44 +205,35 @@ var _ = Describe("VirtualDiskCreation", Label(
 		createVirtualDiskAndRunVM(ctx, f, vd, withIntermediateProgress())
 	})
 
-	// TODO(csi): temporarily disabled. A VirtualDisk created from a same-CSI source on a
-	// WaitForFirstConsumer storage class uses the CSI snapshot-clone path (not prime/rebind),
-	// which leaves the cloned volume DRBD-Primary on a different node than the VirtualMachine.
-	// DRBD is single-primary, so the VM's node cannot promote the volume read-write
-	// (NodePublishVolume: "failed to set source device readwrite") and the disk never attaches.
-	// Re-enable once same-CSI clones are routed through host-assisted prime/rebind (fresh
-	// volume owned solely by the VM's node).
-	/*
-		It("provisions a VirtualDisk from a VirtualImage on PVC", func() {
-			baseVI := vibuilder.New(
-				vibuilder.WithName("vi-source-pvc"),
-				vibuilder.WithNamespace(f.Namespace().Name),
-				vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
-				vibuilder.WithDataSourceHTTP(object.ImageURLAlpineBIOS, nil, nil),
-			)
-			baseVI.Spec.PersistentVolumeClaim.StorageClass = scPtr
+	It("provisions a VirtualDisk from a VirtualImage on PVC", func() {
+		baseVI := vibuilder.New(
+			vibuilder.WithName("vi-source-pvc"),
+			vibuilder.WithNamespace(f.Namespace().Name),
+			vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
+			vibuilder.WithDataSourceHTTP(object.ImageURLAlpineBIOS, nil, nil),
+		)
+		baseVI.Spec.PersistentVolumeClaim.StorageClass = scPtr
 
-			viObs := viobs.StartObserver(ctx, f, baseVI)
-			viObs.Never(viobs.BeFailed())
+		viObs := viobs.StartObserver(ctx, f, baseVI)
+		viObs.Never(viobs.BeFailed())
 
-			By("Creating base VirtualImage on PVC", func() {
-				err := f.CreateWithDeferredDeletion(ctx, baseVI)
-				Expect(err).NotTo(HaveOccurred())
+		By("Creating base VirtualImage on PVC", func() {
+			err := f.CreateWithDeferredDeletion(ctx, baseVI)
+			Expect(err).NotTo(HaveOccurred())
 
-				err = viObs.WaitFor(viobs.BeReady(), framework.LongTimeout)
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			vd := vdbuilder.New(
-				vdbuilder.WithName("vd-from-vi-pvc"),
-				vdbuilder.WithNamespace(f.Namespace().Name),
-				vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindVirtualImage, baseVI.Name),
-				vdbuilder.WithStorageClass(scPtr),
-			)
-
-			createVirtualDiskAndRunVM(ctx, f, vd)
+			err = viObs.WaitFor(viobs.BeReady(), framework.LongTimeout)
+			Expect(err).NotTo(HaveOccurred())
 		})
-	*/
+
+		vd := vdbuilder.New(
+			vdbuilder.WithName("vd-from-vi-pvc"),
+			vdbuilder.WithNamespace(f.Namespace().Name),
+			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindVirtualImage, baseVI.Name),
+			vdbuilder.WithStorageClass(scPtr),
+		)
+
+		createVirtualDiskAndRunVM(ctx, f, vd)
+	})
 
 	It("provisions a VirtualDisk from a VirtualImage on PVC backed by a different storage class of the same CSI driver", func() {
 		baseVI := vibuilder.New(
