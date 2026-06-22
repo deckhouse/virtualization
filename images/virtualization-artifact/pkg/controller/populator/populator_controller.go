@@ -19,7 +19,6 @@ package populator
 import (
 	"context"
 	"fmt"
-	"time"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -28,11 +27,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
@@ -41,6 +38,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -50,13 +48,13 @@ const (
 	PodVerbose    = "3"
 	PodPullPolicy = string(corev1.PullIfNotPresent)
 
-	requeueAfter        = time.Second
 	pvcSupplementPrefix = "pvc"
 )
 
 type Reconciler struct {
 	client client.Client
 	pvc    *service.PersistentVolumeClaimService
+	log    *log.Logger
 }
 
 func NewController(
@@ -68,6 +66,7 @@ func NewController(
 ) (controller.Controller, error) {
 	reconciler := &Reconciler{
 		client: mgr.GetClient(),
+		log:    log,
 		pvc: service.NewPersistentVolumeClaimService(mgr.GetClient(), dvcrSettings, nil, service.DiskImporterConfig{
 			Image:                diskImporterImage,
 			ResourceRequirements: requirements,
@@ -76,10 +75,15 @@ func NewController(
 		}),
 	}
 
-	ctr, err := builder.ControllerManagedBy(mgr).
-		For(&corev1.PersistentVolumeClaim{}, builder.WithPredicates(predicate.NewPredicateFuncs(hasPopulationStrategy))).
-		Build(reconciler)
+	ctr, err := controller.New(ControllerName, mgr, controller.Options{
+		Reconciler:     reconciler,
+		LogConstructor: logger.NewConstructor(log),
+	})
 	if err != nil {
+		return nil, err
+	}
+
+	if err := addWatches(mgr, ctr); err != nil {
 		return nil, err
 	}
 
@@ -107,14 +111,18 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 	switch strategy {
 	case service.PopulationStrategyCSIClone:
-		return r.reconcileBoundOnly(ctx, pvc)
+		_, err := r.reconcileBoundOnly(ctx, pvc)
+		return reconcile.Result{}, err
 	case service.PopulationStrategySnapshot:
 		if err := r.ensureSnapshot(ctx, pvc); err != nil {
 			return reconcile.Result{}, err
 		}
-		res, err := r.reconcileBoundOnly(ctx, pvc)
-		if err != nil || !res.IsZero() {
-			return res, err
+		marked, err := r.reconcileBoundOnly(ctx, pvc)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		if !marked {
+			return reconcile.Result{}, nil
 		}
 		return reconcile.Result{}, r.cleanup(ctx, pvc, strategy)
 	case service.PopulationStrategyDVCR, service.PopulationStrategyHostAssigned:
@@ -124,11 +132,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 }
 
-func (r *Reconciler) reconcileBoundOnly(ctx context.Context, pvc *corev1.PersistentVolumeClaim) (reconcile.Result, error) {
+func (r *Reconciler) reconcileBoundOnly(ctx context.Context, pvc *corev1.PersistentVolumeClaim) (bool, error) {
 	if pvc.Status.Phase != corev1.ClaimBound {
-		return reconcile.Result{RequeueAfter: requeueAfter}, nil
+		return false, nil
 	}
-	return reconcile.Result{}, r.markDone(ctx, pvc)
+	return true, r.markDone(ctx, pvc)
 }
 
 func (r *Reconciler) reconcileImporter(ctx context.Context, pvc *corev1.PersistentVolumeClaim, strategy string) (reconcile.Result, error) {
@@ -142,27 +150,77 @@ func (r *Reconciler) reconcileImporter(ctx context.Context, pvc *corev1.Persiste
 		return reconcile.Result{}, err
 	}
 	if _, ok := owner.(*v1alpha2.VirtualDisk); ok && wffc && pvc.Annotations[service.SelectedNodeAnnotation] == "" {
-		return reconcile.Result{RequeueAfter: requeueAfter}, nil
+		r.log.Info("PVC population waiting for WaitForFirstConsumer node selection",
+			"namespace", pvc.Namespace,
+			"pvc", pvc.Name,
+			"strategy", strategy,
+		)
+		return reconcile.Result{}, nil
 	}
+
+	beforePods, err := r.importerPodSnapshots(ctx, sup, strategy)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	source := sourceFromAnnotations(pvc, strategy, sup)
 	if err := r.pvc.Import(ctx, pvc, source, owner, sup, nil); err != nil {
 		return reconcile.Result{}, fmt.Errorf("import to pvc: %w", err)
+	}
+
+	afterImportPods, err := r.importerPodSnapshots(ctx, sup, strategy)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	r.logImporterPodTransitions(pvc, strategy, beforePods, afterImportPods)
+
+	rebindStarted := r.rebindPending(ctx, pvc, sup, strategy)
+	if rebindStarted {
+		r.log.Info("PVC population rebind started",
+			"namespace", pvc.Namespace,
+			"pvc", pvc.Name,
+			"strategy", strategy,
+		)
 	}
 
 	phase, err := r.pvc.WaitForImport(ctx, pvc, source, owner, sup, nil)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("wait for pvc import: %w", err)
 	}
+
+	afterWaitPods, err := r.importerPodSnapshots(ctx, sup, strategy)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	r.logImporterPodTransitions(pvc, strategy, afterImportPods, afterWaitPods)
+
 	switch phase {
 	case corev1.PodSucceeded:
+		if rebindStarted {
+			r.log.Info("PVC population rebind finished",
+				"namespace", pvc.Namespace,
+				"pvc", pvc.Name,
+				"strategy", strategy,
+			)
+		}
 		if err := r.markDone(ctx, pvc); err != nil {
 			return reconcile.Result{}, err
 		}
+		r.log.Info("PVC population finished",
+			"namespace", pvc.Namespace,
+			"pvc", pvc.Name,
+			"strategy", strategy,
+		)
 		return reconcile.Result{}, r.cleanup(ctx, pvc, strategy)
 	case corev1.PodFailed:
+		r.log.Info("PVC population importer pod failed",
+			"namespace", pvc.Namespace,
+			"pvc", pvc.Name,
+			"strategy", strategy,
+		)
 		return reconcile.Result{}, nil
 	default:
-		return reconcile.Result{RequeueAfter: requeueAfter}, nil
+		return reconcile.Result{}, nil
 	}
 }
 
@@ -297,6 +355,11 @@ func (r *Reconciler) ensureSnapshot(ctx context.Context, pvc *corev1.PersistentV
 	if err := r.client.Create(ctx, vs); err != nil && !k8serrors.IsAlreadyExists(err) {
 		return fmt.Errorf("create volume snapshot: %w", err)
 	}
+	r.log.Info("PVC population snapshot created",
+		"namespace", pvc.Namespace,
+		"pvc", pvc.Name,
+		"snapshot", snapshotName,
+	)
 	return nil
 }
 

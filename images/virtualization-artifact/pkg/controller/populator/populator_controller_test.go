@@ -37,6 +37,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -84,8 +85,8 @@ func TestPopulatorStartsDVCRImport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reconcile failed: %v", err)
 	}
-	if result.RequeueAfter == 0 {
-		t.Fatalf("expected requeue while importer is pending")
+	if !result.IsZero() {
+		t.Fatalf("expected no requeue while importer is pending, got %#v", result)
 	}
 
 	pod := &corev1.Pod{}
@@ -123,8 +124,8 @@ func TestPopulatorStartsVirtualImageWFFCDVCRImportWithoutSelectedNode(t *testing
 	if err != nil {
 		t.Fatalf("reconcile failed: %v", err)
 	}
-	if result.RequeueAfter == 0 {
-		t.Fatalf("expected requeue while importer is pending")
+	if !result.IsZero() {
+		t.Fatalf("expected no requeue while importer is pending, got %#v", result)
 	}
 
 	pod := &corev1.Pod{}
@@ -149,8 +150,8 @@ func TestPopulatorStartsStandaloneDVCRImport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reconcile failed: %v", err)
 	}
-	if result.RequeueAfter == 0 {
-		t.Fatalf("expected requeue while importer is pending")
+	if !result.IsZero() {
+		t.Fatalf("expected no requeue while importer is pending, got %#v", result)
 	}
 
 	pod := &corev1.Pod{}
@@ -186,8 +187,8 @@ func TestPopulatorStartsHostAssignedPVCCloneWithSourceAndTargetPods(t *testing.T
 	if err != nil {
 		t.Fatalf("reconcile failed: %v", err)
 	}
-	if result.RequeueAfter == 0 {
-		t.Fatalf("expected requeue while source importer is pending")
+	if !result.IsZero() {
+		t.Fatalf("expected no requeue while source importer is pending, got %#v", result)
 	}
 
 	sourcePod := &corev1.Pod{}
@@ -244,8 +245,8 @@ func TestPopulatorCreatesMissingSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reconcile failed: %v", err)
 	}
-	if result.RequeueAfter == 0 {
-		t.Fatalf("expected requeue while snapshot target is pending")
+	if !result.IsZero() {
+		t.Fatalf("expected no requeue while snapshot target is pending, got %#v", result)
 	}
 
 	snapshot := &vsv1.VolumeSnapshot{}
@@ -283,6 +284,7 @@ func testStandaloneTargetPVC(name, namespace string) *corev1.PersistentVolumeCla
 func testReconciler(c client.Client) *Reconciler {
 	return &Reconciler{
 		client: c,
+		log:    logger.NewLogger("error", string(logger.Discard), 0),
 		pvc: service.NewPersistentVolumeClaimService(c, nil, nil, service.DiskImporterConfig{
 			Image:      "pvc-importer:latest",
 			PullPolicy: string(corev1.PullIfNotPresent),
