@@ -1,0 +1,298 @@
+# Validation, lint, scan, and gitlab-ci lint jobs.
+#
+# This file is the direct migration of the GitHub Actions workflow
+# .github/workflows/dev_validation.yaml (paths_filter + no_cyrillic +
+# doc_changes + shellcheck + helm_templates + check_gens_files).
+#
+# Per the migration plan (decision #5), the `actionlint` job from the GH
+# workflow is intentionally NOT migrated. In its place we run the new
+# `lint:gitlab-ci` job that validates the GitLab CI configuration itself
+# via the GitLab CI Lint API. The legacy skip-label
+# `validation/skip/actionlint` is therefore obsolete and not honored.
+#
+# Each job:
+# - inherits `tags: [deckhouse]` from .gitlab/ci/defaults.yml;
+# - emits a `# TODO_RUNNER_TAG:` comment where the real runner tag (e.g.
+#   large / regular) might need to replace `deckhouse` once runners are
+#   registered on fox.flant.com/deckhouse/virtualization;
+# - has `interruptible: true` where short-lived (safe to cancel on a new
+#   push) and `interruptible: false` where a long run is expected;
+# - honors `validation/skip/<name>` labels via `when: never` rules.
+#
+# The job file assumes the upstream template include for
+# `/templates/Setup.gitlab-ci.yml` from deckhouse/3p/deckhouse/modules-gitlab-ci@v13.0
+# is in scope so that the shared `default:` and `stages:` are merged.
+# It also assumes the `lint` stage is declared in .gitlab/ci/stages.yml.
+#
+# Coordination note: the parent .gitlab/ci/includes.yml (owned by the
+# epic owner) is responsible for adding `local:` entries for this file.
+
+# ---------------------------------------------------------------------------
+# Shared change-path anchors
+# ---------------------------------------------------------------------------
+
+# Paths that should re-run helm_templates validation. Mirrors the GH
+# paths_filter `helm_templates` block from dev_validation.yaml.
+.changes_helm_templates: &changes_helm_templates
+  - 'crds/**/*'
+  - 'charts/**/*'
+  - 'tools/kubeconform/**/*'
+  - 'templates/**/*'
+  - '.helmignore'
+  - 'Chart.yaml'
+  - 'Taskfile.yaml'
+
+# Paths that should re-run the vm-route-forge generated-files check.
+.changes_vm_route_forge: &changes_vm_route_forge
+  - 'images/vm-route-forge/bpf/route_watcher.c'
+  - 'images/vm-route-forge/**/*'
+
+# Paths that should re-run the api/controller generated-files checks.
+.changes_go_generated: &changes_go_generated
+  - 'api/**/*'
+  - 'images/virtualization-artifact/**/*'
+  - 'go.mod'
+  - 'go.sum'
+
+# Skip labels - exact match against validation/skip/* labels from the GH
+# workflow. The `actionlint` skip is intentionally omitted (decision #5).
+.skip_no_cyrillic: &skip_no_cyrillic
+  - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/no_cyrillic/'
+    when: never
+.skip_doc_changes: &skip_doc_changes
+  - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/doc_changes/'
+    when: never
+.skip_shellcheck: &skip_shellcheck
+  - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/shellcheck/'
+    when: never
+.skip_helm_templates: &skip_helm_templates
+  - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/helm_templates/'
+    when: never
+
+# ---------------------------------------------------------------------------
+# no_cyrillic
+# ---------------------------------------------------------------------------
+
+lint:no-cyrillic:
+  stage: lint
+  # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
+  interruptible: true
+  image:
+    name: golang:1.25.11
+    entrypoint: ['']
+  before_script:
+    - go install github.com/go-task/task/v3/cmd/task@latest
+  script:
+    - task validation:no-cyrillic
+  rules:
+    - *skip_no_cyrillic
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+
+# ---------------------------------------------------------------------------
+# doc_changes
+# ---------------------------------------------------------------------------
+
+lint:doc-changes:
+  stage: lint
+  # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
+  interruptible: true
+  image:
+    name: golang:1.25.11
+    entrypoint: ['']
+  before_script:
+    - go install github.com/go-task/task/v3/cmd/task@latest
+  script:
+    - task validation:doc-changes
+  rules:
+    - *skip_doc_changes
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/'
+
+# ---------------------------------------------------------------------------
+# shellcheck
+#
+# Reuses the upstream-equivalent task `lint:shellcheck`. The .github
+# workflow additionally scanned images/virtualization-artifact/hack/*.sh;
+# the Taskfile already does that.
+# ---------------------------------------------------------------------------
+
+lint:shellcheck:
+  stage: lint
+  # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
+  interruptible: true
+  image:
+    name: golang:1.25.11
+    entrypoint: ['']
+  before_script:
+    - go install github.com/go-task/task/v3/cmd/task@latest
+  script:
+    - task lint:shellcheck
+  rules:
+    - *skip_shellcheck
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/'
+
+# ---------------------------------------------------------------------------
+# yaml (prettier)
+# ---------------------------------------------------------------------------
+
+lint:yaml:
+  stage: lint
+  # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
+  interruptible: true
+  image:
+    name: golang:1.25.11
+    entrypoint: ['']
+  before_script:
+    - go install github.com/go-task/task/v3/cmd/task@latest
+  script:
+    - task lint:prettier:yaml
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        paths:
+          - '**/*.yaml'
+          - '**/*.yml'
+          - '.gitlab-ci.yml'
+          - '.gitlab/**/*'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        paths:
+          - '**/*.yaml'
+          - '**/*.yml'
+          - '.gitlab-ci.yml'
+          - '.gitlab/**/*'
+
+# ---------------------------------------------------------------------------
+# helm_templates
+#
+# GH used dorny/paths-filter to gate this on changes to helm-related
+# files. GitLab equivalent: rules.changes.
+# ---------------------------------------------------------------------------
+
+lint:helm-templates:
+  stage: lint
+  # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
+  interruptible: true
+  image:
+    name: golang:1.25.11
+    entrypoint: ['']
+  before_script:
+    - go install github.com/go-task/task/v3/cmd/task@latest
+  script:
+    - task validation:helm-templates
+  rules:
+    - *skip_helm_templates
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        paths: *changes_helm_templates
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        paths: *changes_helm_templates
+
+# ---------------------------------------------------------------------------
+# check_gens_files
+#
+# Matrix over components. Each component regenerates files via
+# `task controller:dev:gogenerate` / `task generate` / `task
+# vm-route-forge:gen` and fails if `git diff --exit-code` reports
+# any drift against origin/main (or the current branch base).
+# ---------------------------------------------------------------------------
+
+check:gens-files:
+  stage: lint
+  # TODO_RUNNER_TAG: heavy jobs may need [deckhouse, large] once runners
+  # are registered.
+  interruptible: true
+  image:
+    name: golang:1.25.11
+    entrypoint: ['']
+  before_script:
+    - go install github.com/go-task/task/v3/cmd/task@latest
+    - apt-get update && apt-get install -y -qq git
+  script:
+    - |
+      set -e
+      function check_diffs() {
+        local folder="$1"
+        if ! git diff --exit-code -- "$folder"; then
+          echo "::error title=Generated files out of date::Run 'go generate' / 'task generate' for $folder and commit the diff."
+          echo "--- git diff ---"
+          git diff origin/main -- "$folder" || true
+          echo "--- end ---"
+          exit 1
+        fi
+        echo "OK: $folder"
+      }
+      case "$COMPONENT" in
+        virtualization-artifact)
+          (cd images/virtualization-artifact && go install tool)
+          task controller:dev:gogenerate
+          check_diffs images/virtualization-artifact
+          ;;
+        vm-route-forge)
+          task vm-route-forge:gen
+          check_diffs images/vm-route-forge
+          ;;
+        api)
+          (cd api && go install tool)
+          task generate
+          check_diffs api
+          ;;
+        *)
+          echo "Unknown COMPONENT: $COMPONENT"; exit 1 ;;
+      esac
+  parallel:
+    matrix:
+      - COMPONENT: [virtualization-artifact, api]
+      - COMPONENT: vm-route-forge
+        RUN_ON_CHANGE: "true"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        paths: *changes_go_generated
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        paths: *changes_vm_route_forge
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+# ---------------------------------------------------------------------------
+# gitlab-ci-lint
+#
+# Replaces the legacy actionlint job (decision #5). Runs only when the
+# GitLab CI configuration itself changes. Uses the GitLab CI Lint API
+# at ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/ci/lint.
+#
+# Authentication: PRIVATE-TOKEN via GITLAB_API_TOKEN (project access
+# token, scope api). The script lives in
+# .gitlab/ci/scripts/gitlab-ci-lint.sh (owned by this issue).
+# ---------------------------------------------------------------------------
+
+lint:gitlab-ci:
+  stage: lint
+  # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
+  interruptible: true
+  image:
+    name: alpine:3.20
+    entrypoint: ['']
+  before_script:
+    - apk add --no-cache bash curl jq
+  script:
+    - bash .gitlab/ci/scripts/gitlab-ci-lint.sh
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        paths:
+          - '.gitlab-ci.yml'
+          - '.gitlab/**/*'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        paths:
+          - '.gitlab-ci.yml'
+          - '.gitlab/**/*'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
