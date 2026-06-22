@@ -40,9 +40,13 @@ func run() int {
 	defer func() { _ = os.RemoveAll(certsDirectory) }()
 	prometheusutil.StartPrometheusEndpoint(certsDirectory)
 
-	nbdEndpoint, err := util.ParseEnvVar(common.ImporterNBDEndpoint, true)
+	nbdEndpoint, err := util.ParseEnvVar(common.ImporterNBDEndpoint, false)
 	if err != nil {
 		klog.Error(err)
+		return 1
+	}
+	if nbdEndpoint == "" {
+		klog.Error("IMPORTER_NBD_ENDPOINT is required")
 		return 1
 	}
 
