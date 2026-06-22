@@ -1,0 +1,54 @@
+# Copyright 2026 Flant JSC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Translate Russian CHANGELOG/*.ru.yml to English and open an MR.
+#
+# Migration of .github/workflows/translate-changelog.yml which called
+# deckhouse/modules-actions/translate-changelog@v10 (composite action).
+#
+# Per migration plan §0(2) we delegate to the upstream GitLab CI template at
+# https://fox.flant.com/deckhouse/3p/deckhouse/modules-gitlab-ci (local checkout
+# at /Users/korolevn/repos/Virtualization-tasks/github/3p-deckhouse/modules-gitlab-ci,
+# branch v13.0, HEAD 006d51c35904b434eca2045a449aafb5e37a8827).
+#
+# The upstream template name is `.translate_and_create_mr` (see
+# modules-gitlab-ci/templates/Translate_Changelog.gitlab-ci.yml).
+#
+# Required CI/CD variable: RELEASE_TOKEN (or GITLAB_API_TOKEN, alias).
+# The upstream template prefers RELEASE_TOKEN; if unset it falls back to CI_JOB_TOKEN
+# (works in GitLab 15.9+ for push and MR create).
+
+include:
+  - project: 'deckhouse/3p/deckhouse/modules-gitlab-ci'
+    ref: 'v13.0'
+    file: '/templates/Translate_Changelog.gitlab-ci.yml'
+
+# Local job definition that extends the upstream hidden job.
+# Tag override is intentional: we want our project's runner tag, not the
+# upstream default.
+# TODO_RUNNER_TAG: confirm registered runner tag at
+# https://fox.flant.com/deckhouse/virtualization/-/runners after registration.
+translate:changelog:
+  extends: .translate_and_create_mr
+  tags:
+    - deckhouse
+  variables:
+    # Path to CHANGELOG dir (upstream default; explicit for clarity).
+    TRANSLATE_CHANGELOG_PATH: "CHANGELOG"
+    # Target branch the resulting MR should target.
+    TRANSLATE_BASE_BRANCH: "main"
+    # Upstream expects either RELEASE_TOKEN or CI_JOB_TOKEN.
+    # RELEASE_TOKEN should be set as a masked Project Access Token in CI/CD variables
+    # (same as GITLAB_API_TOKEN). Fall back to GITLAB_API_TOKEN via rules if needed.
+    RELEASE_TOKEN: ${RELEASE_TOKEN:-$GITLAB_API_TOKEN}

@@ -84,3 +84,12 @@ include:
   - local: '.gitlab/ci/jobs/svace.yml'
   - local: '.gitlab/ci/jobs/cve-scan.yml'
   - local: '.gitlab/ci/jobs/gitleaks.yml'
+
+  # --- Local GitLab API automation, changelog, backport, and manual tools ---
+  - local: '.gitlab/ci/jobs/auto-assign-author.yml'
+  - local: '.gitlab/ci/jobs/backport.yml'
+  - local: '.gitlab/ci/jobs/changelog.yml'
+  - local: '.gitlab/ci/jobs/check-changelog.yml'
+  - local: '.gitlab/ci/jobs/check-milestone.yml'
+  - local: '.gitlab/ci/jobs/manual-tools.yml'
+  - local: '.gitlab/ci/jobs/translate-changelog.yml'
