@@ -50,7 +50,7 @@ var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
 		PreRelease:    featuregate.Alpha,
 	},
 	TargetMigration: {
-		Default:       version.GetEdition() == version.EditionEE,
+		Default:       true,
 		LockToDefault: true,
 		PreRelease:    featuregate.Alpha,
 	},
