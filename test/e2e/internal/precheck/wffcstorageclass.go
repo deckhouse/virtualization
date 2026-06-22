@@ -33,8 +33,8 @@ const (
 
 // wffcStorageClassPrecheck implements the Precheck interface for the WaitForFirstConsumer
 // StorageClass used by block-device tests to provision the scenario's main resources. It
-// verifies that a StorageClass annotated with WFFCStorageClassAnnotation=true exists and
-// uses the WaitForFirstConsumer volume binding mode.
+// verifies that a WFFC StorageClass can be resolved and uses the WaitForFirstConsumer
+// volume binding mode.
 type wffcStorageClassPrecheck struct{}
 
 func (c *wffcStorageClassPrecheck) Label() string {
@@ -53,25 +53,24 @@ func (c *wffcStorageClassPrecheck) Run(ctx context.Context, f *framework.Framewo
 		return fmt.Errorf("%s=no to disable this precheck: list StorageClasses: %w", wffcStorageClassPrecheckEnvName, err)
 	}
 
-	wffcSC := config.FindStorageClassByAnnotation(&scList, config.WFFCStorageClassAnnotation)
+	wffcSC, err := config.ResolveWFFCStorageClass(&scList)
+	if err != nil {
+		return fmt.Errorf("%s=no to disable this precheck: %w", wffcStorageClassPrecheckEnvName, err)
+	}
 	if wffcSC == nil {
 		return fmt.Errorf(
-			"%s=no to disable this precheck: WFFC StorageClass not found. Annotate a StorageClass that uses the "+
-				"WaitForFirstConsumer volume binding mode for the e2e tests:\n"+
-				"  kubectl annotate storageclass/<wffc-sc-name> %s=true --overwrite",
-			wffcStorageClassPrecheckEnvName, config.WFFCStorageClassAnnotation,
+			"%s=no to disable this precheck: WFFC StorageClass not found. "+
+				"Set %s explicitly or configure a default StorageClass with WaitForFirstConsumer binding, "+
+				"or with Immediate binding and another WaitForFirstConsumer StorageClass on the same CSI driver",
+			wffcStorageClassPrecheckEnvName, config.WFFCStorageClassEnv,
 		)
 	}
 
-	if !isWFFCBinding(wffcSC) {
+	if !config.IsWFFCBinding(wffcSC) {
 		return fmt.Errorf(
-			"%s=no to disable this precheck: WFFC StorageClass %q annotated with %s=true must use the WaitForFirstConsumer "+
-				"volume binding mode, but it is %q.\n"+
-				"Annotate a StorageClass that uses the WaitForFirstConsumer volume binding mode:\n"+
-				"  kubectl annotate storageclass/<wffc-sc-name> %s=true --overwrite",
-			wffcStorageClassPrecheckEnvName,
-			wffcSC.Name, config.WFFCStorageClassAnnotation, volumeBindingMode(wffcSC),
-			config.WFFCStorageClassAnnotation,
+			"%s=no to disable this precheck: WFFC StorageClass %q must use the WaitForFirstConsumer "+
+				"volume binding mode, but it is %q",
+			wffcStorageClassPrecheckEnvName, wffcSC.Name, config.VolumeBindingMode(wffcSC),
 		)
 	}
 
@@ -81,11 +80,6 @@ func (c *wffcStorageClassPrecheck) Run(ctx context.Context, f *framework.Framewo
 	)
 
 	return nil
-}
-
-// isWFFCBinding reports whether sc uses the WaitForFirstConsumer volume binding mode.
-func isWFFCBinding(sc *storagev1.StorageClass) bool {
-	return sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer
 }
 
 // Register WFFCStorageClass precheck (not common - requires explicit label).

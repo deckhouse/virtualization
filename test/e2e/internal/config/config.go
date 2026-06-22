@@ -119,15 +119,15 @@ type TestData struct {
 
 type StorageClass struct {
 	DefaultStorageClass *storagev1.StorageClass
-	// ImmediateStorageClass is the StorageClass annotated with ImmediateStorageClassAnnotation.
-	// It uses the Immediate volume binding mode and shares the CSI driver with WFFCStorageClass,
-	// so tests can use it both as the "other" same-CSI StorageClass and to provision dependent
-	// objects that must become Ready without a consumer.
+	// ImmediateStorageClass is resolved from IMMEDIATE_STORAGE_CLASS or derived from the default
+	// StorageClass. It uses the Immediate volume binding mode and shares the CSI driver with
+	// WFFCStorageClass, so tests can use it both as the "other" same-CSI StorageClass and to
+	// provision dependent objects that must become Ready without a consumer.
 	ImmediateStorageClass *storagev1.StorageClass
 	TemplateStorageClass  *storagev1.StorageClass
-	// WFFCStorageClass is the StorageClass annotated with WFFCStorageClassAnnotation. It uses the
-	// WaitForFirstConsumer volume binding mode and backs the scenario's main VirtualDisks and
-	// VirtualImages.
+	// WFFCStorageClass is resolved from WFFC_STORAGE_CLASS or derived from the default
+	// StorageClass. It uses the WaitForFirstConsumer volume binding mode and backs the
+	// scenario's main VirtualDisks and VirtualImages.
 	WFFCStorageClass *storagev1.StorageClass
 	// DifferentCSIDriverStorageClass is a StorageClass backed by a different CSI driver
 	// than WFFCStorageClass, used to verify cross-CSI provisioning is rejected.

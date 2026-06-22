@@ -391,8 +391,8 @@ func wffcStorageClass() *string {
 
 	sc := framework.GetConfig().StorageClass.WFFCStorageClass
 	Expect(sc).NotTo(BeNil(),
-		"WFFC StorageClass not found: annotate a StorageClass with %s=true (enforced by the %q precheck)",
-		config.WFFCStorageClassAnnotation, precheck.PrecheckWFFCStorageClass)
+		"WFFC StorageClass not found: set %s or configure a default StorageClass (enforced by the %q precheck)",
+		config.WFFCStorageClassEnv, precheck.PrecheckWFFCStorageClass)
 
 	return ptr.To(sc.Name)
 }
@@ -408,8 +408,8 @@ func immediateStorageClass() *string {
 
 	sc := framework.GetConfig().StorageClass.ImmediateStorageClass
 	Expect(sc).NotTo(BeNil(),
-		"immediate StorageClass not found: annotate a StorageClass with %s=true (enforced by the %q precheck)",
-		config.ImmediateStorageClassAnnotation, precheck.PrecheckImmediateStorageClass)
+		"immediate StorageClass not found: set %s or configure a default StorageClass (enforced by the %q precheck)",
+		config.ImmediateStorageClassEnv, precheck.PrecheckImmediateStorageClass)
 
 	return ptr.To(sc.Name)
 }

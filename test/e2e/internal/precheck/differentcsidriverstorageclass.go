@@ -33,12 +33,12 @@ const (
 
 // differentCSIDriverStorageClassPrecheck implements the Precheck interface for the
 // cross-CSI-driver block-device tests. It verifies that:
-//  1. a StorageClass annotated with WFFCStorageClassAnnotation=true exists;
+//  1. a WFFC StorageClass can be resolved;
 //  2. the cluster has at least one StorageClass whose CSI driver (provisioner) differs
 //     from the WFFC one.
 //
-// The "different CSI driver" StorageClass is discovered automatically; no annotation is
-// required for it.
+// The "different CSI driver" StorageClass is discovered automatically; no extra
+// configuration is required for it.
 type differentCSIDriverStorageClassPrecheck struct{}
 
 func (c *differentCSIDriverStorageClassPrecheck) Label() string {
@@ -57,12 +57,14 @@ func (c *differentCSIDriverStorageClassPrecheck) Run(ctx context.Context, f *fra
 		return fmt.Errorf("%s=no to disable this precheck: list StorageClasses: %w", differentCSIDriverStorageClassPrecheckEnvName, err)
 	}
 
-	wffcSC := config.FindStorageClassByAnnotation(&scList, config.WFFCStorageClassAnnotation)
+	wffcSC, err := config.ResolveWFFCStorageClass(&scList)
+	if err != nil {
+		return fmt.Errorf("%s=no to disable this precheck: resolve WFFC StorageClass: %w", differentCSIDriverStorageClassPrecheckEnvName, err)
+	}
 	if wffcSC == nil {
 		return fmt.Errorf(
-			"%s=no to disable this precheck: WFFC StorageClass not found. Annotate one for the e2e tests:\n"+
-				"  kubectl annotate storageclass/<wffc-sc-name> %s=true --overwrite",
-			differentCSIDriverStorageClassPrecheckEnvName, config.WFFCStorageClassAnnotation,
+			"%s=no to disable this precheck: WFFC StorageClass not found. Set %s or configure a default StorageClass",
+			differentCSIDriverStorageClassPrecheckEnvName, config.WFFCStorageClassEnv,
 		)
 	}
 

@@ -33,19 +33,19 @@ const (
 	// PrecheckDefaultStorageClass - test requires default StorageClass to be configured.
 	PrecheckDefaultStorageClass = "default-sc-precheck"
 
-	// PrecheckImmediateStorageClass - test requires an immediate StorageClass annotated for e2e.
+	// PrecheckImmediateStorageClass - test requires an immediate StorageClass to be configured.
 	PrecheckImmediateStorageClass = "immediate-sc-precheck"
 
-	// PrecheckWFFCStorageClass - test requires a WaitForFirstConsumer StorageClass annotated
-	// for e2e.
+	// PrecheckWFFCStorageClass - test requires a WaitForFirstConsumer StorageClass to be
+	// configured.
 	PrecheckWFFCStorageClass = "wffc-sc-precheck"
 
 	// PrecheckSameCSIDriverStorageClass - test requires the WFFC and immediate StorageClasses
-	// (annotated for e2e) to be backed by the same CSI driver.
+	// to be backed by the same CSI driver.
 	PrecheckSameCSIDriverStorageClass = "same-csi-sc-precheck"
 
 	// PrecheckDifferentCSIDriverStorageClass - test requires a WFFC StorageClass and a
-	// StorageClass backed by a different CSI driver (the WFFC one annotated for e2e).
+	// StorageClass backed by a different CSI driver.
 	PrecheckDifferentCSIDriverStorageClass = "different-csi-sc-precheck"
 
 	// PrecheckSnapshot - test requires snapshot-controller module to be enabled.

@@ -54,30 +54,27 @@ func (c *sameCSIDriverStorageClassPrecheck) Run(ctx context.Context, f *framewor
 		return fmt.Errorf("%s=no to disable this precheck: list StorageClasses: %w", sameCSIDriverStorageClassPrecheckEnvName, err)
 	}
 
-	wffcSC := config.FindStorageClassByAnnotation(&scList, config.WFFCStorageClassAnnotation)
-	immediateSC := config.FindStorageClassByAnnotation(&scList, config.ImmediateStorageClassAnnotation)
+	wffcSC, err := config.ResolveWFFCStorageClass(&scList)
+	if err != nil {
+		return fmt.Errorf("%s=no to disable this precheck: resolve WFFC StorageClass: %w", sameCSIDriverStorageClassPrecheckEnvName, err)
+	}
+	immediateSC, err := config.ResolveImmediateStorageClass(&scList)
+	if err != nil {
+		return fmt.Errorf("%s=no to disable this precheck: resolve immediate StorageClass: %w", sameCSIDriverStorageClassPrecheckEnvName, err)
+	}
 	if wffcSC == nil || immediateSC == nil {
 		return fmt.Errorf(
-			"%s=no to disable this precheck: both the WFFC StorageClass (annotation %s=true) and the immediate "+
-				"StorageClass (annotation %s=true) must be annotated for the e2e tests:\n"+
-				"  kubectl annotate storageclass/<wffc-sc-name> %s=true --overwrite\n"+
-				"  kubectl annotate storageclass/<immediate-sc-name> %s=true --overwrite",
-			sameCSIDriverStorageClassPrecheckEnvName,
-			config.WFFCStorageClassAnnotation, config.ImmediateStorageClassAnnotation,
-			config.WFFCStorageClassAnnotation, config.ImmediateStorageClassAnnotation,
+			"%s=no to disable this precheck: both the WFFC StorageClass (%s) and the immediate StorageClass (%s) must be configured",
+			sameCSIDriverStorageClassPrecheckEnvName, config.WFFCStorageClassEnv, config.ImmediateStorageClassEnv,
 		)
 	}
 
 	if wffcSC.Provisioner != immediateSC.Provisioner {
 		return fmt.Errorf(
 			"%s=no to disable this precheck: WFFC StorageClass %q (CSI driver %q) and immediate StorageClass %q (CSI driver %q) "+
-				"must be backed by the same CSI driver.\n"+
-				"Annotate two StorageClasses that share the same provisioner:\n"+
-				"  kubectl annotate storageclass/<wffc-sc-name> %s=true --overwrite\n"+
-				"  kubectl annotate storageclass/<immediate-sc-name> %s=true --overwrite",
+				"must be backed by the same CSI driver",
 			sameCSIDriverStorageClassPrecheckEnvName,
 			wffcSC.Name, wffcSC.Provisioner, immediateSC.Name, immediateSC.Provisioner,
-			config.WFFCStorageClassAnnotation, config.ImmediateStorageClassAnnotation,
 		)
 	}
 

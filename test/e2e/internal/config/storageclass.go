@@ -32,17 +32,17 @@ const (
 	// StorageClassNameEnv overrides TemplateStorageClass for tests (see README).
 	StorageClassNameEnv = "STORAGE_CLASS_NAME"
 
-	// WFFCStorageClassAnnotation marks the StorageClass that e2e block-device tests use to
-	// provision the scenario's main VirtualDisks and VirtualImages. It must use the
-	// WaitForFirstConsumer volume binding mode.
-	WFFCStorageClassAnnotation = "e2e.virtualization.deckhouse.io/is-wffc-storage-class"
+	// WFFCStorageClassEnv overrides the WaitForFirstConsumer StorageClass used by block-device
+	// tests. When unset, the class is derived from the default StorageClass: the default itself
+	// when it uses WaitForFirstConsumer, or another StorageClass on the same CSI driver when
+	// the default uses Immediate binding.
+	WFFCStorageClassEnv = "WFFC_STORAGE_CLASS"
 
-	// ImmediateStorageClassAnnotation marks the StorageClass that e2e block-device tests use
-	// as the "other" StorageClass when a source object must live on a different StorageClass
-	// than the produced one, and to provision dependent objects that must become Ready without
-	// a consumer. It must be backed by the same CSI driver as the WFFC one and use the
-	// Immediate volume binding mode.
-	ImmediateStorageClassAnnotation = "e2e.virtualization.deckhouse.io/is-immediate-storage-class"
+	// ImmediateStorageClassEnv overrides the Immediate StorageClass used by block-device tests.
+	// When unset, the class is derived from the default StorageClass: the default itself when
+	// it uses Immediate binding, or another StorageClass on the same CSI driver when the
+	// default uses WaitForFirstConsumer.
+	ImmediateStorageClassEnv = "IMMEDIATE_STORAGE_CLASS"
 )
 
 // FindDefaultStorageClass returns the default StorageClass from the list.
@@ -74,30 +74,24 @@ func FindDefaultStorageClass(scList *storagev1.StorageClassList) *storagev1.Stor
 	return &defaultClasses[0]
 }
 
-// FindStorageClassByAnnotation returns the StorageClass whose annotation `annotation`
-// is set to "true". When several match, the most recently created one is returned
-// (ties are broken by name, ascending). Returns nil if none match.
-func FindStorageClassByAnnotation(scList *storagev1.StorageClassList, annotation string) *storagev1.StorageClass {
-	var matched []storagev1.StorageClass
-	for i := range scList.Items {
-		sc := &scList.Items[i]
-		if sc.Annotations[annotation] == "true" {
-			matched = append(matched, *sc)
-		}
+// IsWFFCBinding reports whether sc uses the WaitForFirstConsumer volume binding mode.
+func IsWFFCBinding(sc *storagev1.StorageClass) bool {
+	return sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer
+}
+
+// IsImmediateBinding reports whether sc uses the Immediate volume binding mode. A nil
+// VolumeBindingMode defaults to Immediate per the Kubernetes API.
+func IsImmediateBinding(sc *storagev1.StorageClass) bool {
+	return sc.VolumeBindingMode == nil || *sc.VolumeBindingMode == storagev1.VolumeBindingImmediate
+}
+
+// VolumeBindingMode returns sc's volume binding mode for diagnostics, rendering a nil
+// mode as its Immediate default.
+func VolumeBindingMode(sc *storagev1.StorageClass) storagev1.VolumeBindingMode {
+	if sc.VolumeBindingMode == nil {
+		return storagev1.VolumeBindingImmediate
 	}
-
-	if len(matched) == 0 {
-		return nil
-	}
-
-	sort.Slice(matched, func(i, j int) bool {
-		if matched[i].CreationTimestamp.UnixNano() == matched[j].CreationTimestamp.UnixNano() {
-			return matched[i].Name < matched[j].Name
-		}
-		return matched[i].CreationTimestamp.UnixNano() > matched[j].CreationTimestamp.UnixNano()
-	})
-
-	return &matched[0]
+	return *sc.VolumeBindingMode
 }
 
 // FindStorageClassWithDifferentProvisioner returns a StorageClass whose provisioner (CSI
@@ -119,6 +113,96 @@ func FindStorageClassWithDifferentProvisioner(scList *storagev1.StorageClassList
 	return match
 }
 
+// FindStorageClassWithProvisionerAndBinding returns a StorageClass backed by provisioner
+// with the requested volume binding mode. When several match, the most recently created
+// one is returned (ties are broken by name, ascending).
+func FindStorageClassWithProvisionerAndBinding(
+	scList *storagev1.StorageClassList,
+	provisioner string,
+	wffc bool,
+) *storagev1.StorageClass {
+	var matched []storagev1.StorageClass
+	for i := range scList.Items {
+		sc := &scList.Items[i]
+		if sc.Provisioner != provisioner {
+			continue
+		}
+		if wffc && IsWFFCBinding(sc) {
+			matched = append(matched, *sc)
+		}
+		if !wffc && IsImmediateBinding(sc) {
+			matched = append(matched, *sc)
+		}
+	}
+
+	if len(matched) == 0 {
+		return nil
+	}
+
+	sort.Slice(matched, func(i, j int) bool {
+		if matched[i].CreationTimestamp.UnixNano() == matched[j].CreationTimestamp.UnixNano() {
+			return matched[i].Name < matched[j].Name
+		}
+		return matched[i].CreationTimestamp.UnixNano() > matched[j].CreationTimestamp.UnixNano()
+	})
+
+	return &matched[0]
+}
+
+// ResolveWFFCStorageClass returns the WaitForFirstConsumer StorageClass for block-device
+// tests. When WFFC_STORAGE_CLASS is set, that StorageClass is returned. Otherwise the class
+// is derived from the default StorageClass: the default itself when it uses
+// WaitForFirstConsumer, or another StorageClass on the same CSI driver when the default
+// uses Immediate binding. Returns nil when no default StorageClass is configured and the
+// env var is unset, or when auto-detection finds no matching StorageClass.
+func ResolveWFFCStorageClass(scList *storagev1.StorageClassList) (*storagev1.StorageClass, error) {
+	if sc, err := resolveStorageClassFromEnv(scList, WFFCStorageClassEnv); err != nil || sc != nil {
+		return sc, err
+	}
+
+	defaultSC := FindDefaultStorageClass(scList)
+	if defaultSC == nil {
+		return nil, nil
+	}
+
+	if IsWFFCBinding(defaultSC) {
+		return defaultSC, nil
+	}
+
+	if IsImmediateBinding(defaultSC) {
+		return FindStorageClassWithProvisionerAndBinding(scList, defaultSC.Provisioner, true), nil
+	}
+
+	return nil, nil
+}
+
+// ResolveImmediateStorageClass returns the Immediate StorageClass for block-device tests.
+// When IMMEDIATE_STORAGE_CLASS is set, that StorageClass is returned. Otherwise the class
+// is derived from the default StorageClass: the default itself when it uses Immediate
+// binding, or another StorageClass on the same CSI driver when the default uses
+// WaitForFirstConsumer. Returns nil when no default StorageClass is configured and the
+// env var is unset, or when auto-detection finds no matching StorageClass.
+func ResolveImmediateStorageClass(scList *storagev1.StorageClassList) (*storagev1.StorageClass, error) {
+	if sc, err := resolveStorageClassFromEnv(scList, ImmediateStorageClassEnv); err != nil || sc != nil {
+		return sc, err
+	}
+
+	defaultSC := FindDefaultStorageClass(scList)
+	if defaultSC == nil {
+		return nil, nil
+	}
+
+	if IsImmediateBinding(defaultSC) {
+		return defaultSC, nil
+	}
+
+	if IsWFFCBinding(defaultSC) {
+		return FindStorageClassWithProvisionerAndBinding(scList, defaultSC.Provisioner, false), nil
+	}
+
+	return nil, nil
+}
+
 // SetStorageClasses discovers cluster StorageClasses and populates Config.StorageClass fields.
 // TemplateStorageClass is taken from StorageClassNameEnv when set, otherwise DefaultStorageClass is used.
 func (c *Config) SetStorageClasses(ctx context.Context, k8sClient client.Client) error {
@@ -128,30 +212,58 @@ func (c *Config) SetStorageClasses(ctx context.Context, k8sClient client.Client)
 	}
 
 	c.StorageClass.DefaultStorageClass = FindDefaultStorageClass(&scList)
-	if c.StorageClass.DefaultStorageClass == nil {
-		return fmt.Errorf("default StorageClass not found in the cluster")
-	}
 
-	// Discovered non-fatally; their presence (and the volume binding modes of the WFFC and
-	// immediate StorageClasses) is enforced by the dedicated prechecks for tests that require them.
-	c.StorageClass.WFFCStorageClass = FindStorageClassByAnnotation(&scList, WFFCStorageClassAnnotation)
-	c.StorageClass.ImmediateStorageClass = FindStorageClassByAnnotation(&scList, ImmediateStorageClassAnnotation)
-	// The different-CSI-driver StorageClass is discovered automatically: any StorageClass
-	// whose CSI driver differs from the WFFC one. No annotation is required.
+	wffcSC, err := ResolveWFFCStorageClass(&scList)
+	if err != nil {
+		return err
+	}
+	c.StorageClass.WFFCStorageClass = wffcSC
+
+	immediateSC, err := ResolveImmediateStorageClass(&scList)
+	if err != nil {
+		return err
+	}
+	c.StorageClass.ImmediateStorageClass = immediateSC
+
 	if c.StorageClass.WFFCStorageClass != nil {
-		c.StorageClass.DifferentCSIDriverStorageClass = FindStorageClassWithDifferentProvisioner(&scList, c.StorageClass.WFFCStorageClass.Provisioner)
+		c.StorageClass.DifferentCSIDriverStorageClass = FindStorageClassWithDifferentProvisioner(
+			&scList, c.StorageClass.WFFCStorageClass.Provisioner,
+		)
 	}
 
 	templateSC, err := findStorageClassFromEnv(ctx, k8sClient, StorageClassNameEnv, &scList)
 	if err != nil {
 		return err
 	}
-	if templateSC != nil {
+	switch {
+	case templateSC != nil:
 		c.StorageClass.TemplateStorageClass = templateSC
-	} else {
+	case c.StorageClass.DefaultStorageClass != nil:
 		c.StorageClass.TemplateStorageClass = c.StorageClass.DefaultStorageClass
 	}
 
+	return nil
+}
+
+func resolveStorageClassFromEnv(scList *storagev1.StorageClassList, envName string) (*storagev1.StorageClass, error) {
+	scName, ok := os.LookupEnv(envName)
+	if !ok || scName == "" {
+		return nil, nil
+	}
+
+	if sc := findStorageClassInList(scList, scName); sc != nil {
+		return sc, nil
+	}
+
+	return nil, fmt.Errorf("StorageClass %q from %s env not found", scName, envName)
+}
+
+func findStorageClassInList(scList *storagev1.StorageClassList, name string) *storagev1.StorageClass {
+	for i := range scList.Items {
+		if scList.Items[i].Name == name {
+			return &scList.Items[i]
+		}
+	}
 	return nil
 }
 

@@ -51,6 +51,17 @@ Additionally, the storage class in the tests can be defined by the environment v
 STORAGE_CLASS_NAME=linstor-thin-r1 task run
 ```
 
+Block-device tests that require both WaitForFirstConsumer and Immediate StorageClasses resolve
+them from the default StorageClass and its siblings on the same CSI driver. You can override
+the auto-detection explicitly:
+
+```bash
+WFFC_STORAGE_CLASS=linstor-thin-r1-wffc IMMEDIATE_STORAGE_CLASS=linstor-thin-r1 task run
+```
+
+When the cluster has no default StorageClass, set `WFFC_STORAGE_CLASS` and `IMMEDIATE_STORAGE_CLASS`
+explicitly. Auto-detection requires a default StorageClass.
+
 ### E2E configuration
 
 Temp directories, prefixes, images and ssh settings can be set in the
