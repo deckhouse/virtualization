@@ -411,7 +411,7 @@ var _ = Describe("DiscoveryHandler", func() {
 			Expect(cond.Reason).To(Equal(vmclasscondition.ReasonDiscoverySucceeded.String()))
 		})
 
-		It("should filter nodes by discovery.nodeSelector.matchLabels", func() {
+		It("should derive features from discovery.nodeSelector.matchLabels pool", func() {
 			node1 := newNodeWithLabels("node1", map[string]string{
 				"node.deckhouse.io/group":      "worker",
 				virtv1.CPUFeatureLabel + "vmx": "true",
@@ -459,11 +459,16 @@ var _ = Describe("DiscoveryHandler", func() {
 
 			changed := resource.Changed()
 
+			// Features come from the discovery pool (worker nodes only), so lm
+			// is excluded even though node3 has it.
 			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "svm"))
 			Expect(changed.Status.CpuFeatures.Enabled).NotTo(ContainElement("lm"))
+			// spec.nodeSelector is empty, so every node exposing the discovered
+			// features is schedulable, including node3 from outside the pool.
+			Expect(changed.Status.AvailableNodes).To(ConsistOf("node1", "node2", "node3"))
 		})
 
-		It("should filter nodes by discovery.nodeSelector.matchExpressions with In operator", func() {
+		It("should derive features from discovery.nodeSelector.matchExpressions pool", func() {
 			node1 := newNodeWithLabels("node1", map[string]string{
 				"node.deckhouse.io/group":      "worker",
 				virtv1.CPUFeatureLabel + "vmx": "true",
@@ -519,6 +524,124 @@ var _ = Describe("DiscoveryHandler", func() {
 
 			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "svm"))
 			Expect(changed.Status.CpuFeatures.Enabled).NotTo(ContainElement("lm"))
+			// spec.nodeSelector is empty, so node3 also remains schedulable as it
+			// exposes all discovered features.
+			Expect(changed.Status.AvailableNodes).To(ConsistOf("node1", "node2", "node3"))
+		})
+
+		It("should keep discovery pool and schedulable nodes separate", func() {
+			// discovery.nodeSelector narrows the feature-discovery pool, while
+			// spec.nodeSelector narrows where VMs schedule. A node outside the
+			// discovery pool but matching spec.nodeSelector and exposing the
+			// discovered features must appear in availableNodes.
+			node1 := newNodeWithLabels("node1", map[string]string{
+				"node.deckhouse.io/group":      "worker",
+				virtv1.CPUFeatureLabel + "vmx": "true",
+				virtv1.CPUFeatureLabel + "svm": "true",
+			})
+			node2 := newNodeWithLabels("node2", map[string]string{
+				"node.deckhouse.io/group":      "compute",
+				virtv1.CPUFeatureLabel + "vmx": "true",
+				virtv1.CPUFeatureLabel + "svm": "true",
+			})
+
+			virtHandler1 := newVirtHandlerPod("node1")
+			virtHandler2 := newVirtHandlerPod("node2")
+
+			// Discovery pool is worker only; spec.nodeSelector allows compute too.
+			vmc := newVMClass("test-pool-separation",
+				v1alpha2.CPUTypeDiscovery,
+				&v1alpha2.NodeSelector{
+					MatchExpressions: []corev1.NodeSelectorRequirement{
+						{
+							Key:      "node.deckhouse.io/group",
+							Operator: corev1.NodeSelectorOpIn,
+							Values:   []string{"worker", "compute"},
+						},
+					},
+				},
+				&metav1.LabelSelector{
+					MatchLabels: map[string]string{"node.deckhouse.io/group": "worker"},
+				},
+			)
+
+			vmcState, resource := setupDiscoveryEnvironment(vmc,
+				node1, node2,
+				virtHandler1, virtHandler2)
+
+			ctx := context.Background()
+
+			mockRecorder := &eventrecord.EventRecorderLoggerMock{
+				EventfFunc: func(involved client.Object, eventtype, reason, messageFmt string, args ...any) {},
+			}
+			handler := NewDiscoveryHandler(mockRecorder)
+
+			_, err := handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changed := resource.Changed()
+
+			// Features discovered from the worker pool only.
+			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "svm"))
+			// Both nodes match spec.nodeSelector and expose the discovered
+			// features, so both are schedulable even though node2 is outside the
+			// discovery pool.
+			Expect(changed.Status.AvailableNodes).To(ConsistOf("node1", "node2"))
+		})
+
+		It("should exclude schedulable nodes missing a discovered feature", func() {
+			// A node matching spec.nodeSelector but lacking a feature present in
+			// the discovery pool must not be schedulable, since the universal CPU
+			// model would not run on it.
+			node1 := newNodeWithLabels("node1", map[string]string{
+				"kubernetes.io/hostname":       "node1",
+				"node.deckhouse.io/group":      "worker",
+				virtv1.CPUFeatureLabel + "vmx": "true",
+				virtv1.CPUFeatureLabel + "svm": "true",
+			})
+			node2 := newNodeWithLabels("node2", map[string]string{
+				"node.deckhouse.io/group":      "worker",
+				virtv1.CPUFeatureLabel + "vmx": "true",
+			})
+
+			virtHandler1 := newVirtHandlerPod("node1")
+			virtHandler2 := newVirtHandlerPod("node2")
+
+			// Discovery pool is node1 only; spec.nodeSelector is empty so both
+			// nodes are candidates for scheduling.
+			vmc := newVMClass("test-feature-mismatch",
+				v1alpha2.CPUTypeDiscovery,
+				nil,
+				&metav1.LabelSelector{
+					MatchLabels: map[string]string{"kubernetes.io/hostname": "node1"},
+				},
+			)
+
+			vmcState, resource := setupDiscoveryEnvironment(vmc,
+				node1, node2,
+				virtHandler1, virtHandler2)
+
+			ctx := context.Background()
+
+			mockRecorder := &eventrecord.EventRecorderLoggerMock{
+				EventfFunc: func(involved client.Object, eventtype, reason, messageFmt string, args ...any) {},
+			}
+			handler := NewDiscoveryHandler(mockRecorder)
+
+			_, err := handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changed := resource.Changed()
+
+			// Discovered model is derived from node1 only.
+			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "svm"))
+			// node2 misses svm, so it cannot run the universal CPU model and is
+			// excluded from availableNodes even though it matches spec.nodeSelector.
+			Expect(changed.Status.AvailableNodes).To(ConsistOf("node1"))
 		})
 
 		It("should recompute features when available nodes change, not reuse cached status", func() {
