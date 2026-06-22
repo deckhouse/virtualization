@@ -142,6 +142,10 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 
 	kvvmSynced := equality.Semantic.DeepEqual(builtKVVMWithMigrationVolumes.Spec.Template.Spec.Volumes, kvvmInCluster.Spec.Template.Spec.Volumes)
 	if kvvmSynced {
+		if !equality.Semantic.DeepEqual(builtKVVMWithMigrationVolumes.Spec.Template.Spec.Affinity, kvvmInCluster.Spec.Template.Spec.Affinity) {
+			log.Info("kvvm volumes are synced but affinity drifted, re-patch affinity.")
+			return reconcile.Result{}, s.patchVolumes(ctx, builtKVVMWithMigrationVolumes)
+		}
 		if vmop != nil && (!readWriteOnceDisksSynced || !storageClassChangedDisksSynced) {
 			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 		}

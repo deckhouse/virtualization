@@ -408,11 +408,16 @@ func (s *state) PVNodeAffinityTerms(ctx context.Context) ([]corev1.NodeSelectorT
 		return nil, fmt.Errorf("collect block device refs: %w", err)
 	}
 
+	vmMigrating, err := s.isVolumeMigrating(ctx, refs)
+	if err != nil {
+		return nil, err
+	}
+
 	var perPVTerms [][]corev1.NodeSelectorTerm
 	namespace := s.vm.Current().GetNamespace()
 
 	for _, ref := range refs {
-		pvcName, err := s.resolvePVCName(ctx, ref.Kind, ref.Name)
+		pvcName, err := s.resolvePVCName(ctx, ref.Kind, ref.Name, vmMigrating)
 		if err != nil {
 			return nil, fmt.Errorf("resolve PVC name for %s/%s: %w", ref.Kind, ref.Name, err)
 		}
@@ -431,6 +436,26 @@ func (s *state) PVNodeAffinityTerms(ctx context.Context) ([]corev1.NodeSelectorT
 	}
 
 	return nodeaffinity.IntersectTerms(perPVTerms), nil
+}
+
+func (s *state) isVolumeMigrating(ctx context.Context, refs []blockDeviceRef) (bool, error) {
+	for _, ref := range refs {
+		if ref.Kind != v1alpha2.DiskDevice {
+			continue
+		}
+		vd, err := s.VirtualDisk(ctx, ref.Name)
+		if err != nil {
+			return false, err
+		}
+		if vd == nil {
+			continue
+		}
+		migrating, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
+		if migrating.Status == metav1.ConditionTrue {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (s *state) collectBlockDeviceRefs(ctx context.Context) ([]blockDeviceRef, error) {
@@ -471,7 +496,7 @@ func (s *state) collectBlockDeviceRefs(ctx context.Context) ([]blockDeviceRef, e
 	return refs, nil
 }
 
-func (s *state) resolvePVCName(ctx context.Context, kind v1alpha2.BlockDeviceKind, name string) (string, error) {
+func (s *state) resolvePVCName(ctx context.Context, kind v1alpha2.BlockDeviceKind, name string, vmMigrating bool) (string, error) {
 	switch kind {
 	case v1alpha2.DiskDevice:
 		vd, err := s.VirtualDisk(ctx, name)
@@ -481,10 +506,7 @@ func (s *state) resolvePVCName(ctx context.Context, kind v1alpha2.BlockDeviceKin
 		if vd == nil {
 			return "", nil
 		}
-		migrating, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
-		if migrating.Status == metav1.ConditionTrue &&
-			conditions.IsLastUpdated(migrating, vd) &&
-			vd.Status.MigrationState.TargetPVC != "" {
+		if vmMigrating {
 			return vd.Status.MigrationState.TargetPVC, nil
 		}
 		return vd.Status.Target.PersistentVolumeClaim, nil

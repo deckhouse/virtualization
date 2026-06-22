@@ -643,7 +643,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 			"affinity should fall back to source when migration is not in progress")
 	})
 
-	It("should fall back to source PVC when Migrating condition is stale (older generation)", func() {
+	It("should use target PVC while migrating even when the Migrating condition is stale (older generation)", func() {
 		vm := makeVM(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"})
 
 		vd := makeVD("local-disk", "pvc-source")
@@ -669,8 +669,8 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 		terms, err := s.PVNodeAffinityTerms(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(terms).To(HaveLen(1))
-		Expect(terms[0].MatchExpressions[0].Values).To(ConsistOf(node1),
-			"affinity should fall back to source when Migrating condition is not last-updated")
+		Expect(terms[0].MatchExpressions[0].Values).To(ConsistOf(node2),
+			"a migrating disk must never pin to the source node, even with a stale Migrating condition")
 	})
 })
 
