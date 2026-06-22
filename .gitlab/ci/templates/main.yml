@@ -1,0 +1,15 @@
+# DEV pipeline context: main-branch builds.
+#
+# Carries forward the previous root .gitlab-ci.yml `.main` template. Uses a
+# fixed `v0.0.0-main` tag so that every main push produces an
+# overwritable slot in the DEV registry (the next push replaces the tag).
+
+.main:
+  variables:
+    MODULES_MODULE_TAG: v0.0.0-main
+  extends:
+    - .dev_vars
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: always
+    - when: never

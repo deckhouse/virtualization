@@ -1,0 +1,75 @@
+# Top-level include fan-out for the deckhouse/virtualization GitLab pipeline.
+#
+# Order is significant: stages/variables/defaults must be loaded before any
+# job file because GitLab CI merges variables and stages across all included
+# documents. The Setup template from modules-gitlab-ci provides its own
+# stages: [build, deploy]; we explicitly extend stages via .gitlab/ci/stages.yml
+# so the final list is the union of both.
+#
+# Upstream template names (verified in
+# /Users/korolevn/repos/Virtualization-tasks/github/3p-deckhouse/modules-gitlab-ci,
+# branch v13.0, HEAD 006d51c):
+#   - Setup.gitlab-ci.yml           (trdl + werf + ci-env + dual-registry login)
+#   - Build.gitlab-ci.yml           (extends .build — werf build + bundle copy +
+#                                   release-channel copy + module registration)
+#   - Deploy.gitlab-ci.yml          (extends .deploy — release-channel crane copy)
+#   - CVE_Scan.gitlab-ci.yml        (extends .cve_scan — Trivy scan via Vault)
+#   - gitleaks.gitlab-ci.yml        (extends .gitleaks_scan — secrets scanning)
+#   - Go_Checks.gitlab-ci.yml       (Go lint/test helpers)
+#   - Translate_Changelog.gitlab-ci.yml (CHANGELOG/*.ru.yml -> EN MR)
+#   - Merge_Release.gitlab-ci.yml   (release-label driven merge+tag+release)
+#   - Svace_Analayze.gitlab-ci.yml  (note: typo in upstream file name)
+#   - Antivirus_Scan.gitlab-ci.yml  (antivirus scan over recent releases)
+#   - Semgrep.gitlab-ci.yml         (semgrep SAST)
+#
+# We only include the templates whose behavior is consumed by jobs owned by
+# this issue (Setup, Build, Deploy). The remaining upstream templates are
+# surfaced here for visibility — child issues that own cve-scan.yml,
+# gitleaks.yml, etc. add the matching `include: local:` entries for the
+# corresponding job files.
+
+include:
+  # --- Upstream modules-gitlab-ci (deckhouse/3p, ref v13.0) ---
+  # TODO: pin to SHA after first green pipeline on virt-test; see migration
+  # plan §11.2. Until then, branch ref v13.0 keeps fixes flowing.
+  - project: 'deckhouse/3p/deckhouse/modules-gitlab-ci'
+    ref: 'v13.0'
+    file:
+      # Setup.gitlab-ci.yml provides trdl + werf setup + dual-registry
+      # `werf cr login` in before_script. See templates/Setup.gitlab-ci.yml.
+      - '/templates/Setup.gitlab-ci.yml'
+      # Build.gitlab-ci.yml and Deploy.gitlab-ci.yml are intentionally NOT
+      # included directly. Their hidden jobs (.build, .deploy) ship with
+      # `rules:` baked in (`if: $CI_COMMIT_BRANCH`, `if: $CI_COMMIT_TAG`,
+      # `when: manual`) that override our strict gating via
+      # .dev / .dev_tags / .main / .prod_manual. We mirror the upstream
+      # script bodies in .gitlab/ci/templates/{build,deploy}.yml as
+      # `.local_build` and `.local_deploy` and extend those instead.
+
+  # --- Local structural fragments (order: stages, vars, defaults, then jobs) ---
+  - local: '.gitlab/ci/stages.yml'
+  - local: '.gitlab/ci/variables.yml'
+  - local: '.gitlab/ci/defaults.yml'
+  - local: '.gitlab/ci/workflow.yml'
+
+  # --- Local shared templates (extends: ...) ---
+  - local: '.gitlab/ci/templates/dev_vars.yml'
+  - local: '.gitlab/ci/templates/prod_vars.yml'
+  - local: '.gitlab/ci/templates/dev.yml'
+  - local: '.gitlab/ci/templates/dev_tags.yml'
+  - local: '.gitlab/ci/templates/main.yml'
+  - local: '.gitlab/ci/templates/prod_manual.yml'
+  - local: '.gitlab/ci/templates/prod_always.yml'
+  - local: '.gitlab/ci/templates/info.yml'
+  - local: '.gitlab/ci/templates/dual_registry_login.yml'
+  - local: '.gitlab/ci/templates/build.yml'
+  - local: '.gitlab/ci/templates/deploy.yml'
+
+  # --- Local job files owned by this issue ---
+  - local: '.gitlab/ci/jobs/info.yml'
+  - local: '.gitlab/ci/jobs/test.yml'
+  - local: '.gitlab/ci/jobs/build-dev.yml'
+  - local: '.gitlab/ci/jobs/build-prod.yml'
+  - local: '.gitlab/ci/jobs/deploy-dev.yml'
+  - local: '.gitlab/ci/jobs/deploy-prod.yml'
+  - local: '.gitlab/ci/jobs/cleanup.yml'

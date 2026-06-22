@@ -1,0 +1,38 @@
+# Lint + unit-test jobs.
+#
+# Carries forward the lint/test jobs from the previous root .gitlab-ci.yml:
+#   lint:virtualization-controller  -> task virtualization-controller:init + lint
+#   test:virtualization-controller  -> task virtualization-controller:init + test:unit
+#   test:hooks                      -> task hooks:test
+#
+# All three extend .dev so they only run on MR pipelines with the right
+# MODULES_MODULE_TAG/registry context. The other lint checks (yaml-lint,
+# no-cyrillic, shellcheck, helm-templates, gen-files-check, dmt-lint,
+# gitlab-ci-lint) live in .gitlab/ci/jobs/lint-validate.yml, which is owned
+# by a different subagent issue — keep the include line for it commented
+# here as a hint for the integration step.
+
+lint:virtualization-controller:
+  stage: lint
+  script:
+    - task virtualization-controller:init
+    - task virtualization-controller:lint
+    # TODO: needs follow-up — dvcr lint target has known issues
+    # - task virtualization-controller:dvcr:lint
+  extends:
+    - .dev
+
+test:virtualization-controller:
+  stage: test
+  script:
+    - task virtualization-controller:init
+    - task virtualization-controller:test:unit
+  extends:
+    - .dev
+
+test:hooks:
+  stage: test
+  script:
+    - task hooks:test
+  extends:
+    - .dev

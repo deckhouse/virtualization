@@ -1,0 +1,31 @@
+# Dual-registry login helper for prod release jobs.
+#
+# The upstream modules-gitlab-ci Setup.gitlab-ci.yml (templates/Setup.gitlab-ci.yml)
+# does:
+#   werf cr login -u $MODULES_REGISTRY_LOGIN -p $MODULES_REGISTRY_PASSWORD $MODULES_REGISTRY
+#   if [[ -n $DEV_MODULES_REGISTRY_LOGIN && ... ]]; then
+#     werf cr login -u $DEV_MODULES_REGISTRY_LOGIN -p $DEV_MODULES_REGISTRY_PASSWORD $DEV_MODULES_REGISTRY
+#   fi
+#
+# That means a job only needs to set DEV_MODULES_REGISTRY_* in addition to
+# MODULES_REGISTRY_* to get a second login. We expose DEV_MODULES_REGISTRY_*
+# via this helper so prod release jobs (which need to copy from DEV and
+# register into PROD) can extend both .prod_vars and .dual_registry_login
+# and end up with the right pair of `werf cr login` calls.
+#
+# Usage:
+#   extends:
+#     - .prod_vars              # sets MODULES_* = PROD_*
+#     - .dual_registry_login    # adds DEV_MODULES_* = DEV_*
+#     - .build                  # upstream werf build + bundle/release-channel copy
+#
+# TODO: confirm with a virt-test pipeline that the second login is actually
+# required for the build_prod / deploy_to_prod_* chain (the plan §11.7.3
+# flags this as an open question because the previous GH workflow did both
+# logins via two consecutive `modules-actions/setup` steps).
+
+.dual_registry_login:
+  variables:
+    DEV_MODULES_REGISTRY: "${DEV_REGISTRY}"
+    DEV_MODULES_REGISTRY_LOGIN: "${DEV_MODULES_REGISTRY_LOGIN}"
+    DEV_MODULES_REGISTRY_PASSWORD: "${DEV_MODULES_REGISTRY_PASSWORD}"

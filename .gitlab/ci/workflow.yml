@@ -1,0 +1,26 @@
+# Pipeline-level workflow rules.
+#
+# Intentionally minimal: we do NOT use `workflow:rules:` to gate individual
+# jobs — gating is handled per-job via `rules:` against
+# $CI_PIPELINE_SOURCE, $CI_COMMIT_BRANCH, $CI_COMMIT_TAG. The global
+# workflow rules here only decide whether a pipeline is created at all.
+#
+# Behaviors preserved from the previous root .gitlab-ci.yml:
+#   - MR pipelines (push + MR events) are always created.
+#   - Pushes to main create a pipeline.
+#   - Pushes of tags vX.Y.Z-dev* / vX.Y.Z create pipelines.
+#   - Manual/scheduled/web pipelines always run.
+#
+# TODO: once auto-cancel-redundant-pipelines is verified at the project
+# level, add `interruptible: true` here as a project default (see plan §11.15).
+# Per-job overrides will set `interruptible: false` for build_prod and the
+# prod-deploy chain.
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-dev.*)?$/
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_PIPELINE_SOURCE == "push"

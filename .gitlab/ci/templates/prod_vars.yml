@@ -1,0 +1,23 @@
+# PROD registry variable bundle.
+#
+# Carries forward the previous root .gitlab-ci.yml `.prod_vars` template.
+# Anything that uses `extends: .prod_vars` gets MODULES_REGISTRY,
+# MODULES_REGISTRY_LOGIN, MODULES_REGISTRY_PASSWORD, MODULES_MODULE_SOURCE
+# and ENV=PROD, all sourced from the PROD_* Project Variables introduced in
+# plan §11.6.
+#
+# MODULES_MODULE_SOURCE is composed dynamically from PROD_REGISTRY,
+# PROD_MODULE_SOURCE_NAME, and the matrix-driven EDITION variable so that
+# ce/ee/se-plus/fe editions can each deploy into the right subpath without
+# duplicating templates.
+
+.prod_vars:
+  variables:
+    MODULES_REGISTRY: "${PROD_REGISTRY}"
+    MODULES_REGISTRY_LOGIN: "${PROD_MODULES_REGISTRY_LOGIN}"
+    MODULES_REGISTRY_PASSWORD: "${PROD_MODULES_REGISTRY_PASSWORD}"
+    MODULES_MODULE_SOURCE: "${PROD_REGISTRY}/${PROD_MODULE_SOURCE_NAME}/${EDITION}/modules"
+    ENV: PROD
+    # Backwards-compat fallback. Same migration caveat as .dev_vars.
+    PROD_REGISTRY_FALLBACK_LOGIN: "${PROD_MODULES_REGISTRY_LOGIN}"
+    PROD_REGISTRY_FALLBACK_PASSWORD: "${PROD_MODULES_REGISTRY_PASSWORD}"
