@@ -278,6 +278,13 @@ func syncAttachedVMBDAHotplugVolumes(
 			continue
 		}
 
+		if vd, ok := vdByName[ref.Name]; ok && vd != nil {
+			migrating, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
+			if migrating.Status == metav1.ConditionTrue {
+				continue
+			}
+		}
+
 		if err := setVMBDABlockDeviceDisk(kvvm, ref, vdByName, viByName, cviByName); err != nil {
 			return err
 		}
