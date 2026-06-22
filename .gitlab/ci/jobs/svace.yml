@@ -1,0 +1,155 @@
+# Svace scheduled + manual analysis.
+#
+# Migration of .github/workflows/dev_build_svace.yml. The GH workflow
+# did:
+#   1. set_vars    - compute MODULES_MODULE_TAG-*svace
+#   2. dev_setup_build - build with svace_enabled=true (deferred to
+#                       deckhouse/modules-actions/build@v4)
+#   3. analyze_build  - run svace_analyze@v4 against the built artifacts
+#   4. notify       - send Loop webhook with success/failure
+#
+# GitLab mapping:
+#   - The build step is delegated to the upstream `.build` template from
+#     deckhouse/3p/deckhouse/modules-gitlab-ci@v13.0 (Build.gitlab-ci.yml)
+#     via `extends: .dev_tags` (ref-name tag).
+#   - The analyze step uses the upstream `.svace_analyze` template
+#     (Svace_Analayze.gitlab-ci.yml; note upstream file name typo).
+#   - Schedule cron: "00 04 * * 6" -> Pipeline Schedule in UI.
+#   - workflow_dispatch -> when: manual.
+#   - Loop notification kept as a manual / always job. The original GH
+#     webhook URL is the LOOP_WEBHOOK_URL masked variable (see
+#     .gitlab/README.md variables list).
+#
+# Required CI/CD variables (declared in the project):
+#   SVACE_ANALYZE_HOST            masked
+#   SVACE_ANALYZE_SSH_USER        masked
+#   SVACE_ANALYZE_SSH_PRIVATE_KEY_B64  masked
+#   SVACER_URL                    var
+#   SVACER_IMPORT_USER            masked
+#   SVACER_IMPORT_PASSWORD        masked
+#   LOOP_WEBHOOK_URL              masked
+#
+# Tag suffix: `${CI_COMMIT_REF_NAME}-svace` matches the GH workflow
+# behavior.
+
+# ---------------------------------------------------------------------------
+# set-vars: produce a dotenv artifact with MODULES_MODULE_TAG-*svace.
+# ---------------------------------------------------------------------------
+
+svace:set-vars:
+  extends:
+    - .info
+  stage: info
+  # TODO_RUNNER_TAG: short-lived helper job, [deckhouse] is fine.
+  interruptible: true
+  image:
+    name: alpine:3.20
+    entrypoint: ['']
+  before_script:
+    - apk add --no-cache bash
+  script:
+    - |
+      set -euo pipefail
+      REF="${CI_COMMIT_REF_NAME:-}"
+      case "$REF" in
+        main|release-*)
+          TAG="${REF}-svace" ;;
+        "")
+          TAG="manual-svace" ;;
+        *)
+          TAG="${REF//\//_}-svace" ;;
+      esac
+      echo "MODULES_MODULE_TAG=${TAG}" > svace.env
+      echo "MODULE_EDITION=EE"        >> svace.env
+      echo "REF_NAME=${REF}"          >> svace.env
+      cat svace.env
+  artifacts:
+    reports:
+      dotenv: svace.env
+
+# ---------------------------------------------------------------------------
+# build: produces Svace-instrumented artifacts.
+#
+# Reuses .dev_tags so the build tag follows the branch name. The upstream
+# `.build` template accepts the same `module_source` / `module_name` /
+# `module_tag` semantics as deckhouse/modules-actions/build@v4.
+# ---------------------------------------------------------------------------
+
+svace:build:
+  extends:
+    - .dev_tags
+  stage: build
+  # TODO_RUNNER_TAG: build with svace instrumentation requires more CPU/RAM;
+  # narrow to [deckhouse, large] once runners are registered.
+  interruptible: false
+  needs:
+    - svace:set-vars
+  variables:
+    WERF_VIRTUAL_MERGE: "0"
+
+# ---------------------------------------------------------------------------
+# analyze: invoke the upstream `.svace_analyze` template.
+#
+# Id-token + vault wiring is inherited from the upstream template.
+# ---------------------------------------------------------------------------
+
+svace:analyze:
+  extends:
+    - .svace_analyze
+  stage: scan
+  # TODO_RUNNER_TAG: SSH-heavy; narrow to [deckhouse, large] if available.
+  interruptible: false
+  needs:
+    - job: svace:build
+      optional: true
+  dependencies:
+    - svace:set-vars
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: manual
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $SVACE_ENABLED == "true"'
+      when: manual
+    - when: never
+
+# ---------------------------------------------------------------------------
+# notify: post the result to Loop (best-effort).
+# ---------------------------------------------------------------------------
+
+svace:notify:
+  stage: cleanup
+  # TODO_RUNNER_TAG: short-lived helper, [deckhouse] is fine.
+  interruptible: true
+  image:
+    name: alpine:3.20
+    entrypoint: ['']
+  before_script:
+    - apk add --no-cache bash curl
+  variables:
+    GIT_STRATEGY: none
+  needs:
+    - job: svace:set-vars
+    - job: svace:build
+    - job: svace:analyze
+  script:
+    - |
+      set -euo pipefail
+      DATE=$(date '+%Y-%m-%d')
+      STATUS=":white_check_mark: SUCCESS!"
+      if [[ "${CI_JOB_STATUS:-success}" != "success" ]]; then
+        STATUS=":x: FAIL!"
+      fi
+      MESSAGE="### :gear: **DVP ${DATE} Weekly Svace Analyze Report**
+      **Branch:** \`${REF_NAME:-${CI_COMMIT_REF_NAME}}\`
+      **Status:** ${STATUS}
+      [:link: Pipeline](${CI_PIPELINE_URL})"
+      curl --silent --show-error --fail \
+        --request POST \
+        --header 'Content-Type: application/json' \
+        --data "$(printf '{"text": "%s"}' "${MESSAGE}")" \
+        "${LOOP_WEBHOOK_URL}" || echo "Loop webhook failed (non-fatal)"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: always
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: always

@@ -38,6 +38,10 @@ include:
       # Setup.gitlab-ci.yml provides trdl + werf setup + dual-registry
       # `werf cr login` in before_script. See templates/Setup.gitlab-ci.yml.
       - '/templates/Setup.gitlab-ci.yml'
+      # Validation/scanning jobs extend these upstream templates.
+      - '/templates/CVE_Scan.gitlab-ci.yml'
+      - '/templates/gitleaks.gitlab-ci.yml'
+      - '/templates/Svace_Analayze.gitlab-ci.yml'
       # Build.gitlab-ci.yml and Deploy.gitlab-ci.yml are intentionally NOT
       # included directly. Their hidden jobs (.build, .deploy) ship with
       # `rules:` baked in (`if: $CI_COMMIT_BRANCH`, `if: $CI_COMMIT_TAG`,
@@ -73,3 +77,10 @@ include:
   - local: '.gitlab/ci/jobs/deploy-dev.yml'
   - local: '.gitlab/ci/jobs/deploy-prod.yml'
   - local: '.gitlab/ci/jobs/cleanup.yml'
+
+  # --- Local validation and scanning jobs ---
+  - local: '.gitlab/ci/jobs/lint-validate.yml'
+  - local: '.gitlab/ci/jobs/precache.yml'
+  - local: '.gitlab/ci/jobs/svace.yml'
+  - local: '.gitlab/ci/jobs/cve-scan.yml'
+  - local: '.gitlab/ci/jobs/gitleaks.yml'

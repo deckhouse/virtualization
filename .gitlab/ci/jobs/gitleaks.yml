@@ -1,0 +1,54 @@
+# Gitleaks secrets scanning.
+#
+# Migration of:
+#   - .github/workflows/gitleaks-scan-on-pr.yml        (PR diff scan)
+#   - .github/workflows/gitleaks-scan-on-schedule.yml  (daily full scan)
+#
+# Both GH workflows invoked `deckhouse/modules-actions/gitleaks@v6`. The
+# upstream modules-gitlab-ci@v13.0 `.gitleaks_scan` template provides
+# the same functionality via the GitLab-native gitleaks release binary.
+# The upstream template already exposes three reusable jobs:
+#
+#   gitleaks_diff            -> SCAN_MODE=diff, runs on MR
+#   gitleaks_full_manual     -> SCAN_MODE=full, manual
+#   gitleaks_full_scheduled  -> SCAN_MODE=full, schedule
+#
+# We re-declare each of them here with the same behavior so the owner
+# of this file (this issue) can adjust rules:changes / labels without
+# touching the upstream file. They are simple aliases via `extends:`.
+
+gitleaks:diff:
+  extends: .gitleaks_scan
+  stage: scan
+  # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
+  interruptible: true
+  variables:
+    SCAN_MODE: "diff"
+    GIT_DEPTH: "0"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+gitleaks:full:scheduled:
+  extends: .gitleaks_scan
+  stage: scan
+  # TODO_RUNNER_TAG: full-history scan is heavier than diff; narrow to
+  # [deckhouse, large] if available.
+  interruptible: false
+  variables:
+    SCAN_MODE: "full"
+    GIT_DEPTH: "0"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+
+gitleaks:full:manual:
+  extends: .gitleaks_scan
+  stage: scan
+  # TODO_RUNNER_TAG: same as gitleaks:full:scheduled.
+  interruptible: false
+  variables:
+    SCAN_MODE: "full"
+    GIT_DEPTH: "0"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: manual
+    - when: never

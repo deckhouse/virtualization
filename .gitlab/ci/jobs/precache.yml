@@ -1,0 +1,49 @@
+# Scheduled/manual precache builds.
+#
+# Migration of .github/workflows/dev_build_precache.yml. The original GH
+# workflow rebuilt the module against `main` every 8 hours to keep the
+# dev registry warm.
+#
+# GitLab mapping:
+#   on: schedule (cron: "0 */8 * * *") -> Pipeline Schedule in UI
+#                                       + rules: schedule
+#   on: workflow_dispatch              -> when: manual (Run pipeline)
+#   matrix.branch: [main]              -> single .main job
+#
+# The actual build is delegated to the upstream `.build` template from
+# deckhouse/3p/deckhouse/modules-gitlab-ci@v13.0 (Build.gitlab-ci.yml)
+# via `.gitlab/ci/templates/main.yml` / `dev.yml`. This file only sets
+# the trigger surface and the per-pipeline variables that the upstream
+# build template expects.
+
+precache:build:main:
+  extends:
+    - .main
+  stage: build
+  # TODO_RUNNER_TAG: scheduled builds should run on a runner pool separate
+  # from interactive MR builds. Once runners are registered, narrow this
+  # to the dedicated precache tag (e.g. [deckhouse, precache]).
+  interruptible: false
+  variables:
+    MODULES_MODULE_TAG: "${CI_COMMIT_REF_NAME:-main}"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: manual
+
+# Manual override that lets an operator rebuild against a specific
+# branch (e.g. release-1.21) by setting REF_BRANCH when running the
+# pipeline via UI. Mirrors the workflow_dispatch + pr_number input from
+# the GH workflow but keeps it branch-driven for precache.
+precache:build:branch:
+  extends:
+    - .dev_tags
+  stage: build
+  # TODO_RUNNER_TAG: same as precache:build:main.
+  interruptible: false
+  variables:
+    MODULES_MODULE_TAG: "${REF_BRANCH}"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web" && $REF_BRANCH'
+      when: manual
+    - when: never
