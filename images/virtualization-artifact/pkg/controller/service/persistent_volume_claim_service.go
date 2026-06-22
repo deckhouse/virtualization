@@ -44,8 +44,6 @@ const (
 	cloneStrategyCSI      = "csi-clone"
 	cloneStrategyHost     = "host-assisted"
 
-	sdsReplicatedCSIProvisioner = "replicated.csi.storage.deckhouse.io"
-
 	PopulationStrategySnapshot     = "snapshot"
 	PopulationStrategyCSIClone     = "csi-clone"
 	PopulationStrategyHostAssigned = "host-assigned"
@@ -304,16 +302,6 @@ func (s *PersistentVolumeClaimService) Cleanup(ctx context.Context, sup suppleme
 func (s *PersistentVolumeClaimService) choosePVCCloneStrategy(ctx context.Context, sourceClaim *corev1.PersistentVolumeClaim, targetSC *storagev1.StorageClass, targetVolumeMode corev1.PersistentVolumeMode) string {
 	sourceSC, err := s.fetchSourceStorageClass(ctx, sourceClaim)
 	if err != nil || sourceSC == nil {
-		return cloneStrategyHost
-	}
-
-	if sourceSC.Provisioner == sdsReplicatedCSIProvisioner || targetSC.Provisioner == sdsReplicatedCSIProvisioner {
-		// TODO: Return snapshot/CSI smart cloning for SDS Replicated PVC-to-PVC
-		// clones after the storage bug is fixed. Snapshot restore between
-		// linstor-thin-r1-immediate and linstor-thin-r1 currently succeeds from
-		// the Kubernetes/CSI point of view (snapshot ReadyToUse, target PVC Bound,
-		// correct restore size), but the restored block volume is zero-filled at
-		// the beginning of the disk and loses the boot sector/MBR.
 		return cloneStrategyHost
 	}
 

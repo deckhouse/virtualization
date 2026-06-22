@@ -197,28 +197,6 @@ func TestPopulatorStartsHostAssignedPVCCloneWithSourceAndTargetPods(t *testing.T
 	if got := sourcePod.Spec.Containers[0].Command; len(got) != 1 || got[0] != "/usr/sbin/nbdkit" {
 		t.Fatalf("unexpected source pod command: %#v", got)
 	}
-	if err := c.Get(ctx, sup.PVCTargetImporterPod(), &corev1.Pod{}); client.IgnoreNotFound(err) == nil && err == nil {
-		t.Fatalf("target importer pod must wait for source pod IP")
-	}
-	if err := c.Get(ctx, sup.PVCImporterPod(), &corev1.Pod{}); client.IgnoreNotFound(err) == nil && err == nil {
-		t.Fatalf("host-assigned clone must not create legacy pvc-importer pod")
-	}
-
-	sourcePod.Status.Phase = corev1.PodRunning
-	sourcePod.Status.PodIP = "10.0.0.20"
-	sourcePod.Status.Conditions = []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}
-	if err := c.Status().Update(ctx, sourcePod); err != nil {
-		t.Fatalf("update source pod status: %v", err)
-	}
-
-	result, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(target)})
-	if err != nil {
-		t.Fatalf("second reconcile failed: %v", err)
-	}
-	if result.RequeueAfter == 0 {
-		t.Fatalf("expected requeue while target importer is pending")
-	}
-
 	targetPod := &corev1.Pod{}
 	if err := c.Get(ctx, sup.PVCTargetImporterPod(), targetPod); err != nil {
 		t.Fatalf("expected pvc-target-importer pod: %v", err)
@@ -227,7 +205,7 @@ func TestPopulatorStartsHostAssignedPVCCloneWithSourceAndTargetPods(t *testing.T
 	if got := container.Command; len(got) != 1 || got[0] != "/usr/bin/qemu-img" {
 		t.Fatalf("unexpected target pod command: %#v", got)
 	}
-	wantArgs := []string{"convert", "-p", "-O", "raw", "nbd://10.0.0.20:10809", "/dev/pvc-importer-block-volume"}
+	wantArgs := []string{"convert", "-p", "-O", "raw", "nbd://" + sup.PVCSourceImporterService().Name + ":10809", "/dev/pvc-importer-block-volume"}
 	if len(container.Args) != len(wantArgs) {
 		t.Fatalf("unexpected target pod args: %#v", container.Args)
 	}
@@ -235,6 +213,9 @@ func TestPopulatorStartsHostAssignedPVCCloneWithSourceAndTargetPods(t *testing.T
 		if container.Args[i] != wantArgs[i] {
 			t.Fatalf("unexpected target pod args: got %#v, want %#v", container.Args, wantArgs)
 		}
+	}
+	if err := c.Get(ctx, sup.PVCImporterPod(), &corev1.Pod{}); client.IgnoreNotFound(err) == nil && err == nil {
+		t.Fatalf("host-assigned clone must not create legacy pvc-importer pod")
 	}
 	if err := c.Get(ctx, types.NamespacedName{Name: target.Name + "-prime-scratch", Namespace: target.Namespace}, &corev1.PersistentVolumeClaim{}); client.IgnoreNotFound(err) == nil && err == nil {
 		t.Fatalf("host-assigned clone must not create scratch pvc")

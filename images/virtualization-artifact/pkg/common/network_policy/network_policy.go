@@ -19,6 +19,7 @@ package networkpolicy
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -28,6 +29,31 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 )
+
+// PVCImporterIngressPeers returns ingress peers for pvc-importer pods:
+//   - other CDI-labelled importer pods (host-assigned source/target NBD traffic);
+//   - the virtualization-controller namespace (progress metrics scrape).
+func PVCImporterIngressPeers(controllerNamespace string) []netv1.NetworkPolicyPeer {
+	peers := []netv1.NetworkPolicyPeer{{
+		PodSelector: &metav1.LabelSelector{
+			MatchExpressions: []metav1.LabelSelectorRequirement{{
+				Key:      annotations.AppLabel,
+				Operator: metav1.LabelSelectorOpIn,
+				Values:   []string{annotations.CDILabelValue},
+			}},
+		},
+	}}
+	if controllerNamespace != "" {
+		peers = append(peers, netv1.NetworkPolicyPeer{
+			NamespaceSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					corev1.LabelMetadataName: controllerNamespace,
+				},
+			},
+		})
+	}
+	return peers
+}
 
 func CreateNetworkPolicy(ctx context.Context, c client.Client, obj metav1.Object, sup supplements.Generator, finalizer string) error {
 	npName := sup.NetworkPolicy()

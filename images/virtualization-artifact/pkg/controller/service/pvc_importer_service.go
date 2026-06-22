@@ -26,11 +26,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	networkpolicy "github.com/deckhouse/virtualization-controller/pkg/common/network_policy"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
@@ -176,6 +178,11 @@ func (s *PVCImporterService) importFromPVC(ctx context.Context, target *corev1.P
 	if err := s.ensureNetworkPolicy(ctx, target, sup); err != nil {
 		return err
 	}
+	if err := s.ensureSourceImporterService(ctx, target, sup); err != nil {
+		return err
+	}
+
+	sourceNBDHost := sup.PVCSourceImporterService().Name
 
 	sourcePodKey := sup.PVCSourceImporterPod()
 	sourcePod, err := object.FetchObject(ctx, sourcePodKey, s.client, &corev1.Pod{})
@@ -187,12 +194,7 @@ func (s *PVCImporterService) importFromPVC(ctx context.Context, target *corev1.P
 		if err := s.client.Create(ctx, sourcePod); err != nil && !k8serrors.IsAlreadyExists(err) {
 			return fmt.Errorf("create source importer pod: %w", err)
 		}
-		return nil
-	}
-	if sourcePod.Status.Phase == corev1.PodFailed {
-		return nil
-	}
-	if !isPodReady(sourcePod) || sourcePod.Status.PodIP == "" {
+	} else if sourcePod.Status.Phase == corev1.PodFailed {
 		return nil
 	}
 
@@ -202,7 +204,7 @@ func (s *PVCImporterService) importFromPVC(ctx context.Context, target *corev1.P
 		return fmt.Errorf("fetch target importer pod: %w", err)
 	}
 	if targetPod == nil {
-		targetPod = s.makeTargetImporterPod(targetPodKey.Name, target, prime, owner.GetUID(), sourcePod.Status.PodIP, nodePlacement)
+		targetPod = s.makeTargetImporterPod(targetPodKey.Name, target, prime, owner.GetUID(), sourceNBDHost, nodePlacement)
 		if err := s.client.Create(ctx, targetPod); err != nil && !k8serrors.IsAlreadyExists(err) {
 			return fmt.Errorf("create target importer pod: %w", err)
 		}
@@ -369,6 +371,7 @@ func (s *PVCImporterService) waitHostAssigned(ctx context.Context, target *corev
 func (s *PVCImporterService) CleanUp(ctx context.Context, sup supplements.Generator, target *corev1.PersistentVolumeClaim) (bool, error) {
 	var deleted bool
 	for _, obj := range []client.Object{
+		&corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: sup.PVCSourceImporterService().Name, Namespace: target.Namespace}},
 		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: sup.PVCImporterPod().Name, Namespace: target.Namespace}},
 		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: sup.PVCSourceImporterPod().Name, Namespace: target.Namespace}},
 		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: sup.PVCTargetImporterPod().Name, Namespace: target.Namespace}},
@@ -481,12 +484,18 @@ func (s *PVCImporterService) ensureScratch(ctx context.Context, base *corev1.Per
 }
 
 // ensureNetworkPolicy creates a NetworkPolicy that allows the pvc-importer pod egress
-// (notably to DVCR). It is required in network-isolated namespaces where a default-deny
-// policy would otherwise block the import. The policy selects the importer pods by their
-// app label, allows all egress, and is owned by the target PVC so it is garbage-collected
-// with the disk. It is idempotent and coexists with the NetworkPolicy that ImporterService
-// creates for DVCR-fed imports.
+// (notably to DVCR) and ingress from sibling importer pods and from the
+// virtualization-controller namespace (progress metrics scrape). It is required in
+// network-isolated namespaces where a default-deny policy would otherwise block the
+// import. The policy selects the importer pods by their app label, allows all egress,
+// and is owned by the target PVC so it is garbage-collected with the disk. It is
+// idempotent and coexists with the NetworkPolicy that ImporterService creates for
+// DVCR-fed imports.
 func (s *PVCImporterService) ensureNetworkPolicy(ctx context.Context, target *corev1.PersistentVolumeClaim, sup supplements.Generator) error {
+	controllerNamespace := ""
+	if s.dvcrSettings != nil {
+		controllerNamespace = s.dvcrSettings.ControllerNamespace
+	}
 	npName := sup.NetworkPolicy()
 	np := &netv1.NetworkPolicy{
 		TypeMeta: metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "networking.k8s.io/v1"},
@@ -511,15 +520,7 @@ func (s *PVCImporterService) ensureNetworkPolicy(ctx context.Context, target *co
 				}},
 			},
 			Ingress: []netv1.NetworkPolicyIngressRule{{
-				From: []netv1.NetworkPolicyPeer{{
-					PodSelector: &metav1.LabelSelector{
-						MatchExpressions: []metav1.LabelSelectorRequirement{{
-							Key:      annotations.AppLabel,
-							Operator: metav1.LabelSelectorOpIn,
-							Values:   []string{annotations.CDILabelValue},
-						}},
-					},
-				}},
+				From: networkpolicy.PVCImporterIngressPeers(controllerNamespace),
 			}},
 			Egress:      []netv1.NetworkPolicyEgressRule{{}},
 			PolicyTypes: []netv1.PolicyType{netv1.PolicyTypeIngress, netv1.PolicyTypeEgress},
@@ -527,6 +528,38 @@ func (s *PVCImporterService) ensureNetworkPolicy(ctx context.Context, target *co
 	}
 
 	return client.IgnoreAlreadyExists(s.client.Create(ctx, np))
+}
+
+func (s *PVCImporterService) ensureSourceImporterService(ctx context.Context, target *corev1.PersistentVolumeClaim, sup supplements.Generator) error {
+	svcKey := sup.PVCSourceImporterService()
+	svc := &corev1.Service{
+		TypeMeta: metav1.TypeMeta{Kind: "Service", APIVersion: "v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      svcKey.Name,
+			Namespace: svcKey.Namespace,
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion:         "v1",
+				Kind:               "PersistentVolumeClaim",
+				Name:               target.Name,
+				UID:                target.UID,
+				Controller:         ptr.To(true),
+				BlockOwnerDeletion: ptr.To(true),
+			}},
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{
+				annotations.AppLabel:           annotations.CDILabelValue,
+				annotations.PVCImportRoleLabel: annotations.PVCImportRoleSource,
+			},
+			Ports: []corev1.ServicePort{{
+				Name:       "nbd",
+				Port:       pvcImporterNBDPort,
+				TargetPort: intstr.FromInt32(pvcImporterNBDPort),
+				Protocol:   corev1.ProtocolTCP,
+			}},
+		},
+	}
+	return client.IgnoreAlreadyExists(s.client.Create(ctx, svc))
 }
 
 func scratchPVCSize(targetSize resource.Quantity) resource.Quantity {
@@ -712,8 +745,9 @@ func (s *PVCImporterService) makeSourceImporterPod(podName string, target, sourc
 			Name:      podName,
 			Namespace: target.Namespace,
 			Labels: map[string]string{
-				annotations.QuotaExcludeLabel: annotations.QuotaExcludeValue,
-				annotations.AppLabel:          annotations.CDILabelValue,
+				annotations.QuotaExcludeLabel:  annotations.QuotaExcludeValue,
+				annotations.AppLabel:             annotations.CDILabelValue,
+				annotations.PVCImportRoleLabel:   annotations.PVCImportRoleSource,
 			},
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion:         "v1",
@@ -752,19 +786,7 @@ func (s *PVCImporterService) makeSourceImporterPod(podName string, target, sourc
 	return pod
 }
 
-func isPodReady(pod *corev1.Pod) bool {
-	if pod.Status.Phase != corev1.PodRunning {
-		return false
-	}
-	for _, condition := range pod.Status.Conditions {
-		if condition.Type == corev1.PodReady {
-			return condition.Status == corev1.ConditionTrue
-		}
-	}
-	return false
-}
-
-func (s *PVCImporterService) makeTargetImporterPod(podName string, target, dataPVC *corev1.PersistentVolumeClaim, ownerUID types.UID, sourcePodIP string, nodePlacement *provisioner.NodePlacement) *corev1.Pod {
+func (s *PVCImporterService) makeTargetImporterPod(podName string, target, dataPVC *corev1.PersistentVolumeClaim, ownerUID types.UID, sourceNBDHost string, nodePlacement *provisioner.NodePlacement) *corev1.Pod {
 	targetPath := pvcImporterDataDir + "/disk.img"
 	volumeMounts := []corev1.VolumeMount{{Name: "tmp", MountPath: "/tmp"}}
 	var volumeDevices []corev1.VolumeDevice
@@ -799,7 +821,7 @@ func (s *PVCImporterService) makeTargetImporterPod(podName string, target, dataP
 				Image:           s.image,
 				ImagePullPolicy: corev1.PullPolicy(s.pullPolicy),
 				Command:         []string{"/usr/bin/qemu-img"},
-				Args:            []string{"convert", "-p", "-O", "raw", fmt.Sprintf("nbd://%s:%d", sourcePodIP, pvcImporterNBDPort), targetPath},
+				Args:            []string{"convert", "-p", "-O", "raw", fmt.Sprintf("nbd://%s:%d", sourceNBDHost, pvcImporterNBDPort), targetPath},
 				Env:             []corev1.EnvVar{{Name: common.OwnerUID, Value: string(ownerUID)}},
 				VolumeMounts:    volumeMounts,
 				VolumeDevices:   volumeDevices,

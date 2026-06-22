@@ -36,6 +36,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	commonpvc "github.com/deckhouse/virtualization-controller/pkg/common/pvc"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/storageprofile"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -314,6 +315,10 @@ func TestPVCServiceWaitForImportHostAssistedUsesQemuImgConvert(t *testing.T) {
 	if err := c.Get(ctx, sup.PVCSourceImporterPod(), sourcePod); err != nil {
 		t.Fatalf("get source import pod: %v", err)
 	}
+	targetPod := &corev1.Pod{}
+	if err := c.Get(ctx, sup.PVCTargetImporterPod(), targetPod); err != nil {
+		t.Fatalf("get target import pod: %v", err)
+	}
 	if err := c.Get(ctx, types.NamespacedName{Name: primePVCName(target) + "-scratch", Namespace: target.Namespace}, &corev1.PersistentVolumeClaim{}); !k8serrors.IsNotFound(err) {
 		t.Fatalf("host-assigned import must not create scratch pvc, got error: %v", err)
 	}
@@ -321,26 +326,11 @@ func TestPVCServiceWaitForImportHostAssistedUsesQemuImgConvert(t *testing.T) {
 	if got := sourceContainer.Command; len(got) != 1 || got[0] != "/usr/sbin/nbdkit" {
 		t.Fatalf("unexpected source command: %#v", got)
 	}
-
-	sourcePod.Status.Phase = corev1.PodRunning
-	sourcePod.Status.PodIP = "10.0.0.10"
-	sourcePod.Status.Conditions = []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}
-	if err := c.Status().Update(ctx, sourcePod); err != nil {
-		t.Fatalf("update source pod status: %v", err)
-	}
-	if err := svc.Import(ctx, target, NewPVCPVCImportSource(sourceClaim.Name, sourceClaim.Namespace), vd, sup, nil); err != nil {
-		t.Fatalf("second Import failed: %v", err)
-	}
-
-	targetPod := &corev1.Pod{}
-	if err := c.Get(ctx, sup.PVCTargetImporterPod(), targetPod); err != nil {
-		t.Fatalf("get target import pod: %v", err)
-	}
 	container := targetPod.Spec.Containers[0]
 	if got := container.Command; len(got) != 1 || got[0] != "/usr/bin/qemu-img" {
 		t.Fatalf("unexpected command: %#v", got)
 	}
-	wantArgs := []string{"convert", "-p", "-O", "raw", "nbd://10.0.0.10:10809", pvcImporterWriteBlockPath}
+	wantArgs := []string{"convert", "-p", "-O", "raw", "nbd://" + sup.PVCSourceImporterService().Name + ":10809", pvcImporterWriteBlockPath}
 	if len(container.Args) != len(wantArgs) {
 		t.Fatalf("unexpected args: %#v", container.Args)
 	}
@@ -380,13 +370,20 @@ func TestPVCServiceCreateTargetFromPVCUsesHostAssignedForSDSReplicated(t *testin
 	ctx := context.Background()
 	vd := diskImportTestVD()
 	sc := diskImportStorageClass()
-	sc.Provisioner = sdsReplicatedCSIProvisioner
+	sc.Provisioner = storageprofile.SDSReplicatedCSIProvisioner
 	sourceClaim := diskImportSourcePVC()
 	snapshotClass := &vsv1.VolumeSnapshotClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "sds-replicated-volume"},
 		Driver:     sc.Provisioner,
 	}
-	c := fake.NewClientBuilder().WithScheme(diskImportTestScheme(t)).WithObjects(sc, sourceClaim, snapshotClass).Build()
+	hostAssisted := cdiv1.CloneStrategyHostAssisted
+	sp := &cdiv1.StorageProfile{
+		ObjectMeta: metav1.ObjectMeta{Name: sc.Name},
+		Status: cdiv1.StorageProfileStatus{
+			CloneStrategy: &hostAssisted,
+		},
+	}
+	c := fake.NewClientBuilder().WithScheme(diskImportTestScheme(t)).WithObjects(sc, sourceClaim, snapshotClass, sp).Build()
 	svc := newTestPVCService(c)
 	target := newTestTargetPVC(vd, sc, resource.MustParse("1Gi"))
 

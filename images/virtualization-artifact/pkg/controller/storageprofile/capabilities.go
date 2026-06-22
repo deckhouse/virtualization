@@ -27,6 +27,9 @@ type storageCapability struct {
 	volumeMode corev1.PersistentVolumeMode
 }
 
+// SDSReplicatedCSIProvisioner is the Deckhouse SDS Replicated CSI driver.
+const SDSReplicatedCSIProvisioner = "replicated.csi.storage.deckhouse.io"
+
 var (
 	rwx   = corev1.ReadWriteMany
 	rwo   = corev1.ReadWriteOnce
@@ -64,7 +67,7 @@ var capabilitiesByProvisioner = map[string][]storageCapability{
 	// LINSTOR
 	"linstor.csi.linbit.com": createAllButRWXFileCapabilities(),
 	// Deckhouse
-	"replicated.csi.storage.deckhouse.io":   createAllButRWXFileCapabilities(),
+	SDSReplicatedCSIProvisioner:             createAllButRWXFileCapabilities(),
 	"local.csi.storage.deckhouse.io":        createTopoLVMCapabilities(),
 	"scsi-generic.csi.storage.deckhouse.io": createAllButRWXFileCapabilities(),
 	// DELL Unity XT

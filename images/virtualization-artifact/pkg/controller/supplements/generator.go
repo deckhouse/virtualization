@@ -33,8 +33,9 @@ const (
 	tplImagePullSecret      = "d8v-%s-pull-image-%s-%s"
 	tplImporterPod          = "d8v-%s-importer-%s"
 	tplPVCImporterPod       = "d8v-%s-pvc-importer-%s"
-	tplPVCSourceImporterPod = "d8v-%s-pvc-source-importer-%s"
-	tplPVCTargetImporterPod = "d8v-%s-pvc-target-importer-%s"
+	tplPVCSourceImporterPod    = "d8v-%s-pvc-source-importer-%s"
+	tplPVCSourceImporterService = "d8v-%s-pvc-source-nbd-%s"
+	tplPVCTargetImporterPod    = "d8v-%s-pvc-target-importer-%s"
 	tplBounderPod           = "d8v-%s-bounder-%s-%s"
 	tplUploaderPod          = "d8v-%s-uploader-%s-%s"
 	tplUploaderTLSSecret    = "d8v-%s-tls-%s-%s"
@@ -49,6 +50,7 @@ type Generator interface {
 	ImporterPod() types.NamespacedName
 	PVCImporterPod() types.NamespacedName
 	PVCSourceImporterPod() types.NamespacedName
+	PVCSourceImporterService() types.NamespacedName
 	PVCTargetImporterPod() types.NamespacedName
 	UploaderPod() types.NamespacedName
 	UploaderService() types.NamespacedName
@@ -165,6 +167,14 @@ func (g *generator) PVCImporterPod() types.NamespacedName {
 
 func (g *generator) PVCSourceImporterPod() types.NamespacedName {
 	name := fmt.Sprintf(tplPVCSourceImporterPod, g.prefix, g.UID())
+	return types.NamespacedName{
+		Name:      name,
+		Namespace: g.namespace,
+	}
+}
+
+func (g *generator) PVCSourceImporterService() types.NamespacedName {
+	name := fmt.Sprintf(tplPVCSourceImporterService, g.prefix, g.UID())
 	return types.NamespacedName{
 		Name:      name,
 		Namespace: g.namespace,

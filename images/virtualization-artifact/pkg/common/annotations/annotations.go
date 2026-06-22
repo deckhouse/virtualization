@@ -144,6 +144,11 @@ const (
 
 	UploaderServiceLabel = "service"
 
+	// PVCImportRoleLabel distinguishes source/target importer pods in a host-assigned PVC clone.
+	PVCImportRoleLabel = LabelsPrefix + "/pvc-import-role"
+	// PVCImportRoleSource marks the nbdkit pod that serves the source PVC over NBD.
+	PVCImportRoleSource = "source"
+
 	// AppKubernetesManagedByLabel is the Kubernetes recommended managed-by label.
 	AppKubernetesManagedByLabel = "app.kubernetes.io/managed-by"
 	// AppKubernetesComponentLabel is the Kubernetes recommended component label.

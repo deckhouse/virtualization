@@ -22,6 +22,7 @@ import (
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -53,6 +54,40 @@ func TestReconcileStorageProfileCreatesSnapshotStrategy(t *testing.T) {
 	}
 	if sp.Status.SnapshotClass == nil || *sp.Status.SnapshotClass != vsc.Name {
 		t.Fatalf("unexpected snapshot class: %#v", sp.Status.SnapshotClass)
+	}
+}
+
+func TestReconcileStorageProfileForcesHostAssistedForSDSReplicated(t *testing.T) {
+	ctx := context.Background()
+	scheme := storageProfileTestScheme(t)
+	sc := &storagev1.StorageClass{Provisioner: SDSReplicatedCSIProvisioner}
+	sc.Name = "rv-thin-r1"
+	vsc := &vsv1.VolumeSnapshotClass{Driver: sc.Provisioner}
+	vsc.Name = "sds-replicated-volume"
+	snapshot := cdiv1.CloneStrategySnapshot
+	existing := &cdiv1.StorageProfile{
+		ObjectMeta: metav1.ObjectMeta{Name: sc.Name},
+		Spec: cdiv1.StorageProfileSpec{
+			CloneStrategy: &snapshot,
+		},
+	}
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sc, vsc, existing).Build()
+	r := &Reconciler{client: c}
+
+	_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: sc.Name}})
+	if err != nil {
+		t.Fatalf("reconcile failed: %v", err)
+	}
+
+	sp := &cdiv1.StorageProfile{}
+	if err := c.Get(ctx, types.NamespacedName{Name: sc.Name}, sp); err != nil {
+		t.Fatalf("storageprofile not found: %v", err)
+	}
+	if sp.Spec.CloneStrategy == nil || *sp.Spec.CloneStrategy != cdiv1.CloneStrategySnapshot {
+		t.Fatalf("spec clone strategy must stay snapshot: %#v", sp.Spec.CloneStrategy)
+	}
+	if sp.Status.CloneStrategy == nil || *sp.Status.CloneStrategy != cdiv1.CloneStrategyHostAssisted {
+		t.Fatalf("unexpected clone strategy: %#v", sp.Status.CloneStrategy)
 	}
 }
 
