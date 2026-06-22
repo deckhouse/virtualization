@@ -421,6 +421,33 @@ var _ = Describe("SyncKvvmHandler", func() {
 		Entry("Pending phase without changes, shouldn't have condition", v1alpha2.MachinePending, false, metav1.ConditionUnknown, false),
 	)
 
+	It("should require restart when GPU annotation changes on a running VM", func() {
+		ip := makeVMIP()
+		vmClass := makeVMClass()
+
+		vm := makeVM(v1alpha2.MachineRunning)
+		vm.Annotations = map[string]string{annotations.AnnVMGPUID: "GPU-new"}
+		kvvm := makeKVVM(vm)
+		kvvm.Annotations[kvbuilder.AppliedGPUAnnotation] = "GPU-old"
+		kvvmi := makeKVVMI()
+
+		fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, kvvmi, ip, vmClass)
+
+		reconcile()
+
+		newVM := &v1alpha2.VirtualMachine{}
+		Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)).To(Succeed())
+		awaitCond, awaitExists := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, newVM.Status.Conditions)
+		Expect(awaitExists).To(BeTrue())
+		Expect(awaitCond.Status).To(Equal(metav1.ConditionTrue))
+		Expect(newVM.Status.RestartAwaitingChanges).NotTo(BeEmpty())
+
+		updatedKVVM := &virtv1.VirtualMachine{}
+		Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(kvvm), updatedKVVM)).To(Succeed())
+		Expect(updatedKVVM.Annotations).To(HaveKeyWithValue(kvbuilder.AppliedGPUAnnotation, "GPU-old"))
+		Expect(updatedKVVM.Spec.Template.Spec.Domain.Devices.GPUs).To(BeEmpty())
+	})
+
 	DescribeTable("AwaitingRestart Condition for NonMigratable VM",
 		func(phase v1alpha2.MachinePhase, featureGate featuregate.FeatureGate, mutateFn func(fakeClient client.WithWatch, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine), expectedStatus metav1.ConditionStatus, expectedExistence bool) {
 			ip := makeVMIP()
