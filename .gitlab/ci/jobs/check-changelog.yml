@@ -34,8 +34,8 @@ check:changelog:
   script:
     - bash .gitlab/ci/scripts/check-changelog-entry.sh
   rules:
-    # Run on MR pipelines only.
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    # Skip-label to bypass (per migration plan §11.10.3).
+    # Skip-label must be first because GitLab rules are evaluated first-match.
     - if: $CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/check_changelog/
       when: never
+    # Run on MR pipelines only.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"

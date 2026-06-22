@@ -41,6 +41,7 @@ include:
 # https://fox.flant.com/deckhouse/virtualization/-/runners after registration.
 translate:changelog:
   extends: .translate_and_create_mr
+  stage: notify
   tags:
     - deckhouse
   variables:
@@ -48,7 +49,7 @@ translate:changelog:
     TRANSLATE_CHANGELOG_PATH: "CHANGELOG"
     # Target branch the resulting MR should target.
     TRANSLATE_BASE_BRANCH: "main"
-    # Upstream expects either RELEASE_TOKEN or CI_JOB_TOKEN.
-    # RELEASE_TOKEN should be set as a masked Project Access Token in CI/CD variables
-    # (same as GITLAB_API_TOKEN). Fall back to GITLAB_API_TOKEN via rules if needed.
-    RELEASE_TOKEN: ${RELEASE_TOKEN:-$GITLAB_API_TOKEN}
+    # Upstream expects RELEASE_TOKEN or falls back to CI_JOB_TOKEN in its shell
+    # script. GitLab does not evaluate shell parameter expansion in `variables:`;
+    # set RELEASE_TOKEN explicitly in project CI/CD variables if CI_JOB_TOKEN
+    # does not have enough permissions to push and create merge requests.

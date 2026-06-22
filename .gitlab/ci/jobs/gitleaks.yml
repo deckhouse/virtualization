@@ -13,9 +13,25 @@
 #   gitleaks_full_manual     -> SCAN_MODE=full, manual
 #   gitleaks_full_scheduled  -> SCAN_MODE=full, schedule
 #
-# We re-declare each of them here with the same behavior so the owner
-# of this file (this issue) can adjust rules:changes / labels without
-# touching the upstream file. They are simple aliases via `extends:`.
+# We re-declare each of them here with project-specific names and stage/rules
+# so the owner of this file can adjust rules:changes / labels without touching
+# the upstream file. The upstream file also defines visible jobs; because this
+# local file is included after the upstream template, these same-name overrides
+# disable those generic jobs and leave only the project-specific jobs below.
+
+# Disable generic visible jobs from the upstream include. Keep the hidden
+# `.gitleaks_scan` template active for project-specific jobs below.
+gitleaks_diff:
+  rules:
+    - when: never
+
+gitleaks_full_manual:
+  rules:
+    - when: never
+
+gitleaks_full_scheduled:
+  rules:
+    - when: never
 
 gitleaks:diff:
   extends: .gitleaks_scan
