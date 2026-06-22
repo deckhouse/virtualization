@@ -1,0 +1,29 @@
+# Cleanup job.
+#
+# Carries forward the cleanup job from the previous root .gitlab-ci.yml.
+# Runs only on scheduled pipelines and prunes old module images from the
+# DEV registry using werf cleanup --without-kube=true.
+#
+# Behavior preserved:
+#   - registry host: dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization
+#     (kept as a literal because we are cleaning exactly this repo's
+#     namespace, regardless of DEV_REGISTRY variable contents).
+#   - tag: v0.0.0-main (matches the build_main tag).
+#   - resource: not pinned (single schedule at a time is enough).
+#   - MODULES_REGISTRY is set so any inherited .dev_vars does not override
+#     the hardcoded path — we deliberately do NOT extend .dev_vars here.
+#
+# TODO: parameterize the registry path via DEV_MODULE_SOURCE / MODULE_NAME
+# once the previous GH cleanup workflow (dev_registry-cleanup.yml) is fully
+# analyzed — see migration plan §2 row for dev_registry-cleanup.yml.
+
+cleanup:
+  stage: cleanup
+  variables:
+    MODULES_MODULE_TAG: v0.0.0-main
+    MODULES_REGISTRY: dev-registry.deckhouse.io
+    MODULES_MODULE_SOURCE: dev-registry.deckhouse.io/sys/deckhouse-oss/modules
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  script:
+    - werf cleanup --repo dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization --without-kube=true

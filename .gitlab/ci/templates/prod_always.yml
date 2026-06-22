@@ -1,0 +1,17 @@
+# PROD pipeline context: automatic prod build on tag push.
+#
+# Carries forward the previous root .gitlab-ci.yml `.prod_always` template.
+# Runs on every vX.Y.Z tag push, with `when: always` so that the build
+# fires automatically once the tag is in place. The deploy step (in
+# deploy-prod.yml) is still `when: manual` via .prod_manual.
+
+.prod_always:
+  variables:
+    MODULES_MODULE_TAG: ${CI_COMMIT_REF_NAME}
+  extends:
+    - .prod_vars
+  rules:
+    # https://regex101.com/r/lToOvi/1
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+      when: always
+    - when: never

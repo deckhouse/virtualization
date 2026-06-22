@@ -1,0 +1,41 @@
+# Pipeline stages for the deckhouse/virtualization module.
+#
+# This is the union of the stages used by the previous root .gitlab-ci.yml
+# and the new stages introduced by the GitHub Actions migration plan
+# (tmp/ai-summary/gitlab-ci-migration-plan.md §11.8).
+#
+# We intentionally drop the `e2e` stage here: the migration plan explicitly
+# excludes all e2e-* workflows from the GitLab CI migration. A child issue
+# owns any future re-introduction of e2e stages under a separate file.
+#
+# Stage semantics:
+#   info              — manifest printers, set_vars helper
+#   lint              — Go lint, helm lint, yaml lint, no-cyrillic, etc.
+#   test              — Go unit tests, hooks tests
+#   build             — werf build for dev / dev-tags / main / prod
+#   scan              — cve_scan, gitleaks, svace (owned by sibling issues)
+#   deploy_dev        — DEV tag deploy to alpha/beta/ea/stable/rock-solid
+#   deploy_prod_alpha / beta / ea / stable / rock_solid
+#                     — sequential prod release-channel deploy chain
+#   notify            — release-results-to-loop and similar fan-out
+#   cleanup           — scheduled registry cleanup
+#
+# Upstream Setup.gitlab-ci.yml declares `stages: [build, deploy]` which
+# would otherwise conflict with our expanded list. We override by re-stating
+# the full list here; jobs that `extends: .build` keep `stage: build` and
+# land in our `build` stage (not a separate "build" from upstream).
+
+stages:
+  - info
+  - lint
+  - test
+  - build
+  - scan
+  - deploy_dev
+  - deploy_prod_alpha
+  - deploy_prod_beta
+  - deploy_prod_ea
+  - deploy_prod_stable
+  - deploy_prod_rock_solid
+  - notify
+  - cleanup

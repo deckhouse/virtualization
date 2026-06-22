@@ -1,0 +1,42 @@
+# PROD build job.
+#
+# Carries forward build_prod from the previous root .gitlab-ci.yml. Builds
+# the module images for every edition on tag push (vX.Y.Z), then leaves
+# the deploy step to .gitlab/ci/jobs/deploy-prod.yml.
+#
+# Editions: ce / ee / fe today. The previous GH workflow
+# release_module_build-and-registration.yml also had an `se-plus` edition;
+# the migration plan flags this as a TODO (plan §7, question about se-plus
+# edition parity). Until that decision is made, we keep the ce/ee/fe matrix
+# from the previous GitLab config to preserve behavior.
+#
+# Resource group: prod — prevents two prod builds from racing (kept from
+# the previous root .gitlab-ci.yml).
+#
+# Upstream .build expects MODULES_MODULE_SOURCE and WERF_REPO; .prod_vars
+# sets MODULES_MODULE_SOURCE per-edition (PROD_REGISTRY/PROD_MODULE_SOURCE_NAME/
+# EDITION/modules), and WERF_REPO defaults to MODULES_MODULE_SOURCE/
+# MODULES_MODULE_NAME in upstream Setup — correct for prod.
+#
+# `.dual_registry_login` is included so the second `werf cr login` from
+# upstream Setup.gitlab-ci.yml also fires against DEV_REGISTRY; the
+# previous GH workflow did both logins via two consecutive
+# modules-actions/setup steps, and the migration plan keeps that behavior.
+
+build_prod:
+  stage: build
+  resource_group: prod
+  interruptible: false
+  extends:
+    - .local_build
+    - .prod_always
+    - .dual_registry_login
+  parallel:
+    matrix:
+      - EDITION:
+          - ce
+          - ee
+          - fe
+      # TODO: add `se-plus` edition here once parity with the GH
+      # release_module_build-and-registration.yml workflow is decided
+      # (see migration plan §7, "TODO: edition se-plus").

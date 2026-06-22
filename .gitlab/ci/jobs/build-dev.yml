@@ -1,0 +1,43 @@
+# DEV build jobs.
+#
+# Carries forward build_dev, build_dev_tags and build_main from the
+# previous root .gitlab-ci.yml. All three extend:
+#   - .local_build  (this repo) — same body as upstream modules-gitlab-ci
+#                    Build.gitlab-ci.yml `.build` (werf build + bundle crane
+#                    copy + release-channel crane copy + crane append to
+#                    register module), but without the upstream `rules:`
+#                    that would override our strict gating via .dev /
+#                    .dev_tags / .main.
+#   - .dev / .dev_tags / .main  (this repo) for registry + tag context.
+#
+# The previous root .gitlab-ci.yml had its own `.build` template with the
+# same body; it is replaced here by `.local_build` (verified against
+# /Users/korolevn/repos/Virtualization-tasks/github/3p-deckhouse/modules-gitlab-ci
+# templates/Build.gitlab-ci.yml — werf build with --save-build-report,
+# bundle / release-channel-version crane copy, and crane append to
+# register the module). The upstream version uses WERF_REPO env instead of
+# an explicit --repo flag, which is equivalent because MODULES_MODULE_SOURCE
+# is the same in both cases.
+#
+# build_main keeps `interruptible: true` so a new main push cancels an
+# older main pipeline. build_dev and build_dev_tags inherit the project
+# default (interruptible not set, so they can be cancelled manually).
+
+build_dev:
+  stage: build
+  extends:
+    - .local_build
+    - .dev
+
+build_dev_tags:
+  stage: build
+  extends:
+    - .local_build
+    - .dev_tags
+
+build_main:
+  stage: build
+  interruptible: true
+  extends:
+    - .local_build
+    - .main

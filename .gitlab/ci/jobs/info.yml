@@ -1,0 +1,21 @@
+# Info-stage jobs: kubectl manifest printers.
+#
+# Carries forward show_dev_manifest and show_main_manifest from the
+# previous root .gitlab-ci.yml. These jobs do not run any heavy tooling;
+# they just print a copy-paste helper so testers can quickly wire up a
+# ModuleConfig + ModulePullOverride for the build under test.
+#
+# Both extend .info (script body) and either .dev (MR pipelines) or .main
+# (pushes to the default branch) for MODULES_MODULE_TAG + registry vars.
+
+show_dev_manifest:
+  stage: info
+  extends:
+    - .info
+    - .dev
+
+show_main_manifest:
+  stage: info
+  extends:
+    - .info
+    - .main

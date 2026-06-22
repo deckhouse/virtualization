@@ -1,0 +1,60 @@
+# Pipeline-wide variables.
+#
+# These values are project defaults. Anything secret (passwords, SSH keys,
+# docker configs) lives in GitLab Settings -> CI/CD -> Variables (masked
+# where appropriate) and is referenced via ${VAR} expansion below.
+#
+# Legacy variable migration (plan §11.6):
+#   EXTERNAL_MODULES_DEV_REGISTRY_LOGIN    -> DEV_MODULES_REGISTRY_LOGIN
+#   EXTERNAL_MODULES_DEV_REGISTRY_PASSWORD -> DEV_MODULES_REGISTRY_PASSWORD
+#   EXTERNAL_MODULES_PROD_REGISTRY_LOGIN   -> PROD_MODULES_REGISTRY_LOGIN
+#   EXTERNAL_MODULES_PROD_REGISTRY_PASSWORD-> PROD_MODULES_REGISTRY_PASSWORD
+# Hardcoded registry hosts (`dev-registry.deckhouse.io`,
+# `registry-write.deckhouse.io`, `sys/deckhouse-oss/modules`,
+# `deckhouse/${EDITION}/modules`) move to DEV_REGISTRY / DEV_MODULE_SOURCE /
+# PROD_REGISTRY / PROD_MODULE_SOURCE_NAME vars.
+#
+# See .gitlab/README.md (TODO) for the migration steps.
+
+variables:
+  # --- Module identity ---
+  MODULE_NAME: virtualization
+  # Kept for backwards compatibility with the previous root .gitlab-ci.yml;
+  # upstream templates expect MODULES_MODULE_NAME.
+  MODULES_MODULE_NAME: virtualization
+
+  # --- Werf / base images / lib-helm ---
+  # These match upstream modules-gitlab-ci Setup.gitlab-ci.yml defaults.
+  # Override at the project level once the base-images + lib-helm versions
+  # are validated against this module's werf config.
+  BASE_IMAGES_VERSION: v0.5.7
+  WERF_VERSION: "2 stable"
+  # DECKHOUSE_LIB_HELM_VERSION: leave empty here; populate when the lib-helm
+  # version is pinned in Taskfile.yaml. Upstream Setup.gitlab-ci.yml
+  # only downloads if this var is non-empty.
+  DECKHOUSE_LIB_HELM_VERSION: ""
+  # Disable VEX notice noise from trivy (matches previous GH env).
+  TRIVY_DISABLE_VEX_NOTICE: "true"
+
+  # --- DEV registry (vars-only, populated via GitLab CI/CD variables) ---
+  # Required Project Variables (vars, not masked):
+  #   DEV_REGISTRY                  e.g. dev-registry.deckhouse.io
+  #   DEV_MODULE_SOURCE             e.g. dev-registry.deckhouse.io/sys/deckhouse-oss/modules
+  #   DEV_MODULES_REGISTRY_LOGIN
+  # Required Project Variables (masked):
+  #   DEV_MODULES_REGISTRY_PASSWORD
+  #
+  # --- PROD registry (vars-only) ---
+  # Required Project Variables (vars):
+  #   PROD_REGISTRY                 e.g. registry-write.deckhouse.io
+  #   PROD_MODULE_SOURCE_NAME       e.g. deckhouse
+  #   PROD_MODULES_REGISTRY_LOGIN
+  # Required Project Variables (masked):
+  #   PROD_MODULES_REGISTRY_PASSWORD
+  # Optional read-only license registry (used by cve-scan + check:requirements):
+  #   PROD_READ_REGISTRY, PROD_READ_REGISTRY_USER, PROD_READ_REGISTRY_PASSWORD
+
+  # --- Build/dev tooling (kept from previous root) ---
+  GO_VERSION: "1.25.11"
+  GOLANGCI_LINT_VERSION: "2.11.1"
+  WERF_EXPERIMENTAL_IMPORT_BY_SOURCE_IMAGE_TAG: "true"
