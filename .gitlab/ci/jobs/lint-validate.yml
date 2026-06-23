@@ -326,8 +326,11 @@ check:gens-files:
           # llvm-strip and the libbpf/kernel headers. The GitLab shell runner
           # has no sudo, so instead of apt-get (as the GH workflow did) run
           # generation inside the public cilium/ebpf-builder image, which ships
-          # clang-22, llvm-strip-22, libbpf-dev and linux headers. go generate
-          # runs in the container against the repo bind-mounted at /src.
+          # clang-14/17/22, llvm-strip-14/17/22, libbpf-dev and linux headers.
+          # go generate runs in the container against the repo bind-mounted at
+          # /src. Use clang-14 to match the toolchain that produced the
+          # committed ebpf_x86_bpfel.{go,o} files (GH ran on ubuntu-22.04 where
+          # apt-get install clang pulls clang-14).
           #
           # BPF2GO_CC/STRIP point bpf2go at the versioned binaries (the image
           # has no bare `clang`). BPF2GO_CFLAGS adds the arch-specific include
@@ -337,8 +340,8 @@ check:gens-files:
           docker run --rm --platform linux/amd64 \
             -v "${PWD}:/src" \
             -w /src/images/vm-route-forge \
-            -e BPF2GO_CC=clang-22 \
-            -e BPF2GO_STRIP=llvm-strip-22 \
+            -e BPF2GO_CC=clang-14 \
+            -e BPF2GO_STRIP=llvm-strip-14 \
             -e BPF2GO_CFLAGS="-I/usr/include/x86_64-linux-gnu" \
             -e GOTOOLCHAIN=auto \
             ghcr.io/cilium/ebpf-builder:1777990914 \
