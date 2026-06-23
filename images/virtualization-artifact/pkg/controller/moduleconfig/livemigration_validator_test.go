@@ -35,13 +35,30 @@ var _ = Describe("parseLiveMigrationSystemNetworkName", func() {
 		},
 		Entry("nil settings", mcapi.SettingsValues(nil), ""),
 		Entry("missing liveMigration", mcapi.SettingsValues{}, ""),
-		Entry("liveMigration without systemNetworkName",
+		Entry("liveMigration without network",
 			mcapi.SettingsValues{"liveMigration": map[string]any{}}, ""),
+		Entry("network type Default ignores systemNetwork name",
+			mcapi.SettingsValues{"liveMigration": map[string]any{
+				"network": map[string]any{
+					"type":          "Default",
+					"systemNetwork": map[string]any{"name": "migration"},
+				},
+			}}, ""),
 		Entry("happy path",
-			mcapi.SettingsValues{"liveMigration": map[string]any{"systemNetworkName": "migration"}},
+			mcapi.SettingsValues{"liveMigration": map[string]any{
+				"network": map[string]any{
+					"type":          "SystemNetwork",
+					"systemNetwork": map[string]any{"name": "migration"},
+				},
+			}},
 			"migration"),
-		Entry("non-string value treated as absent",
-			mcapi.SettingsValues{"liveMigration": map[string]any{"systemNetworkName": 42}}, ""),
+		Entry("non-string name treated as absent",
+			mcapi.SettingsValues{"liveMigration": map[string]any{
+				"network": map[string]any{
+					"type":          "SystemNetwork",
+					"systemNetwork": map[string]any{"name": 42},
+				},
+			}}, ""),
 	)
 })
 
@@ -57,7 +74,12 @@ var _ = Describe("liveMigrationValidator", func() {
 		mc.Name = moduleConfigName
 		if name != "" {
 			mc.Spec.Settings = mcapi.SettingsValues{
-				"liveMigration": map[string]any{"systemNetworkName": name},
+				"liveMigration": map[string]any{
+					"network": map[string]any{
+						"type":          "SystemNetwork",
+						"systemNetwork": map[string]any{"name": name},
+					},
+				},
 			}
 		}
 		return mc

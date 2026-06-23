@@ -256,15 +256,50 @@ properties:
     type: object
     description: |
       Live migration network configuration.
+    x-examples:
+      - network:
+          type: Default
+      - network:
+          type: SystemNetwork
+          systemNetwork:
+            name: migration-net
     properties:
-      systemNetworkName:
-        type: string
-        minLength: 1
+      network:
+        type: object
+        default: {}
         description: |
-          Name of a `SystemNetwork` (sdn module) whose per-host IP addresses are used for VM live migration traffic between `virt-handler` pods.
-
-          Requires the `sdn` module. When unset, live migration traffic flows over the default node network.
-        x-examples: ["migration"]
+          Network used for VM live migration traffic between `virt-handler` pods.
+        properties:
+          type:
+            type: string
+            default: Default
+            description: |
+              The network used for live migration traffic:
+              - `Default` — migration traffic flows over the default node network (pod network);
+              - `SystemNetwork` — migration traffic flows over a `SystemNetwork` (sdn module) whose per-host IP addresses are used. Requires the `sdn` module.
+            enum:
+              - Default
+              - SystemNetwork
+          systemNetwork:
+            type: object
+            description: |
+              Parameters of the `SystemNetwork` used for live migration traffic. Required when `type` is `SystemNetwork`.
+            required: [name]
+            properties:
+              name:
+                type: string
+                minLength: 1
+                description: |
+                  Name of a `SystemNetwork` (sdn module) whose per-host IP addresses are used for VM live migration traffic between `virt-handler` pods.
+                x-examples: ["migration-net"]
+        oneOf:
+          - properties:
+              type:
+                enum: [Default]
+          - required: [systemNetwork]
+            properties:
+              type:
+                enum: [SystemNetwork]
   logLevel:
     type: string
     description: |

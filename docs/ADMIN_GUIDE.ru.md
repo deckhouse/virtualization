@@ -1222,7 +1222,19 @@ spec:
 - Включён модуль `sdn`.
 - Ресурс `SystemNetwork` создан и находится в состоянии `Ready`.
 
-Чтобы включить возможность, укажите имя подготовленного `SystemNetwork` в поле `spec.settings.liveMigration.systemNetworkName` ресурса ModuleConfig `virtualization`. После настройки каждая миграция виртуальных машин в кластере выполняется по VLAN указанного `SystemNetwork`.
+Чтобы включить возможность, задайте `spec.settings.liveMigration.network` в ресурсе ModuleConfig `virtualization`: укажите `type: SystemNetwork` и имя подготовленного `SystemNetwork` в поле `systemNetwork.name`. После настройки каждая миграция виртуальных машин в кластере выполняется по VLAN указанного `SystemNetwork`.
+
+```yaml
+spec:
+  settings:
+    liveMigration:
+      network:
+        type: SystemNetwork
+        systemNetwork:
+          name: migration-net
+```
+
+Чтобы вернуть трафик миграции на основную сеть узла, задайте `type: Default` (значение по умолчанию).
 
 #### Режим обслуживания
 

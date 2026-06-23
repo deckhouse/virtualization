@@ -31,10 +31,14 @@ import (
 )
 
 const (
-	liveMigrationField   = "liveMigration"
-	systemNetworkNameKey = "systemNetworkName"
-	conditionTypeReady   = "Ready"
-	conditionStatusTrue  = "True"
+	liveMigrationField  = "liveMigration"
+	networkKey          = "network"
+	networkTypeKey      = "type"
+	systemNetworkKey    = "systemNetwork"
+	systemNetworkType   = "SystemNetwork"
+	nameKey             = "name"
+	conditionTypeReady  = "Ready"
+	conditionStatusTrue = "True"
 )
 
 var systemNetworkGVK = schema.GroupVersionKind{
@@ -70,15 +74,15 @@ func (v liveMigrationValidator) validate(ctx context.Context, mc *mcapi.ModuleCo
 	err := v.client.Get(ctx, client.ObjectKey{Name: name}, sn)
 	switch {
 	case meta.IsNoMatchError(err):
-		return nil, fmt.Errorf("liveMigration.systemNetworkName=%q: SDN module is not enabled", name)
+		return nil, fmt.Errorf("liveMigration.network.systemNetwork.name=%q: SDN module is not enabled", name)
 	case apierrors.IsNotFound(err):
-		return nil, fmt.Errorf("liveMigration.systemNetworkName=%q: SystemNetwork not found", name)
+		return nil, fmt.Errorf("liveMigration.network.systemNetwork.name=%q: SystemNetwork not found", name)
 	case err != nil:
-		return nil, fmt.Errorf("liveMigration.systemNetworkName=%q: %w", name, err)
+		return nil, fmt.Errorf("liveMigration.network.systemNetwork.name=%q: %w", name, err)
 	}
 
 	if !isSystemNetworkReady(sn) {
-		return nil, fmt.Errorf("liveMigration.systemNetworkName=%q: SystemNetwork is not Ready", name)
+		return nil, fmt.Errorf("liveMigration.network.systemNetwork.name=%q: SystemNetwork is not Ready", name)
 	}
 	return nil, nil
 }
@@ -88,7 +92,18 @@ func parseLiveMigrationSystemNetworkName(settings mcapi.SettingsValues) string {
 	if !ok {
 		return ""
 	}
-	name, _ := lm[systemNetworkNameKey].(string)
+	network, ok := lm[networkKey].(map[string]any)
+	if !ok {
+		return ""
+	}
+	if t, _ := network[networkTypeKey].(string); t != systemNetworkType {
+		return ""
+	}
+	sn, ok := network[systemNetworkKey].(map[string]any)
+	if !ok {
+		return ""
+	}
+	name, _ := sn[nameKey].(string)
 	return name
 }
 

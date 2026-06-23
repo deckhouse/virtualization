@@ -1212,7 +1212,19 @@ Prerequisites:
 - The `sdn` module is enabled.
 - A `SystemNetwork` resource exists and is in the `Ready` state.
 
-To enable the feature, set `spec.settings.liveMigration.systemNetworkName` on the `virtualization` ModuleConfig to the name of the prepared `SystemNetwork`. Once configured, every VM migration in the cluster runs over the specified `SystemNetwork` VLAN.
+To enable the feature, set `spec.settings.liveMigration.network` on the `virtualization` ModuleConfig: use `type: SystemNetwork` and specify the name of the prepared `SystemNetwork` under `systemNetwork.name`. Once configured, every VM migration in the cluster runs over the specified `SystemNetwork` VLAN.
+
+```yaml
+spec:
+  settings:
+    liveMigration:
+      network:
+        type: SystemNetwork
+        systemNetwork:
+          name: migration-net
+```
+
+To route migration traffic back over the default node network, set `type: Default` (the default value).
 
 #### Maintenance mode
 

@@ -82,10 +82,10 @@ var _ = Describe("VirtualMachineMigrationDedicatedNetwork", Label(precheck.Prech
 	})
 
 	It("routes live migration traffic over the configured SystemNetwork", func() {
-		By("Reading liveMigration.systemNetworkName from the virtualization ModuleConfig", func() {
+		By("Reading liveMigration.network.systemNetwork.name from the virtualization ModuleConfig", func() {
 			systemNetworkName = getConfiguredSystemNetworkName(ctx, f)
 			if systemNetworkName == "" {
-				Skip("ModuleConfig virtualization has no spec.settings.liveMigration.systemNetworkName; configure it to run this test")
+				Skip("ModuleConfig virtualization has no spec.settings.liveMigration.network.systemNetwork.name; configure it to run this test")
 			}
 		})
 
@@ -209,7 +209,18 @@ func getConfiguredSystemNetworkName(ctx context.Context, f *framework.Framework)
 	if !ok {
 		return ""
 	}
-	name, _ := lm["systemNetworkName"].(string)
+	network, ok := lm["network"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	if t, _ := network["type"].(string); t != "SystemNetwork" {
+		return ""
+	}
+	sn, ok := network["systemNetwork"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	name, _ := sn["name"].(string)
 	return name
 }
 

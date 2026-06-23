@@ -88,10 +88,13 @@ true
   value: "24h"
 - name: GC_VM_POD_SCHEDULE
   value: "0 0 * * *"
-{{- if (hasKey (.Values.virtualization | default dict) "liveMigration") }}
-{{- if .Values.virtualization.liveMigration.systemNetworkName }}
+{{- $liveMigration := (.Values.virtualization | default dict).liveMigration | default dict }}
+{{- $migrationNetwork := $liveMigration.network | default dict }}
+{{- if eq ($migrationNetwork.type | default "Default") "SystemNetwork" }}
+{{- $systemNetworkName := ($migrationNetwork.systemNetwork | default dict).name | default "" }}
+{{- if $systemNetworkName }}
 - name: MIGRATION_SYSTEM_NETWORK_NAME
-  value: {{ .Values.virtualization.liveMigration.systemNetworkName | quote }}
+  value: {{ $systemNetworkName | quote }}
 {{- end }}
 {{- end }}
 - name: METRICS_BIND_ADDRESS
