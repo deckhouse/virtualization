@@ -39,8 +39,11 @@ lint:no-cyrillic:
   stage: lint
   # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
   interruptible: true
+  variables:
+    GIT_DEPTH: "0"
   before_script:
-    - bash .gitlab/ci/scripts/check-runner-tools.sh go task
+    - bash .gitlab/ci/scripts/check-runner-tools.sh go task git
+    - git fetch --no-tags origin +main:refs/remotes/origin/main
   script:
     - task validation:no-cyrillic
   rules:
@@ -59,8 +62,11 @@ lint:doc-changes:
   stage: lint
   # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
   interruptible: true
+  variables:
+    GIT_DEPTH: "0"
   before_script:
-    - bash .gitlab/ci/scripts/check-runner-tools.sh go task
+    - bash .gitlab/ci/scripts/check-runner-tools.sh go task git
+    - git fetch --no-tags origin +main:refs/remotes/origin/main
   script:
     - task validation:doc-changes
   rules:
