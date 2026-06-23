@@ -36,10 +36,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-const (
-	nameGPUResourceClaimHandler = "GPUResourceClaimHandler"
-	gpuDeviceClassName          = "gpu.deckhouse.io"
-)
+const nameGPUResourceClaimHandler = "GPUResourceClaimHandler"
 
 func NewGPUResourceClaimHandler(client client.Client) *GPUResourceClaimHandler {
 	return &GPUResourceClaimHandler{client: client}
@@ -83,6 +80,10 @@ func (h *GPUResourceClaimHandler) Handle(ctx context.Context, s state.VirtualMac
 			continue
 		}
 
+		if !metav1.IsControlledBy(template, vm) {
+			return reconcile.Result{}, fmt.Errorf("GPU ResourceClaimTemplate %s/%s is not controlled by VirtualMachine %s/%s", template.Namespace, template.Name, vm.Namespace, vm.Name)
+		}
+
 		if reflect.DeepEqual(template.Spec, desiredSpec) {
 			continue
 		}
@@ -124,7 +125,7 @@ func buildGPUResourceClaimTemplateSpec(device v1alpha2.GPUDeviceSpec) resourcev1
 				Requests: []resourcev1.DeviceRequest{{
 					Name: kvbuilder.GPUResourceClaimRequestName(device.Name),
 					Exactly: &resourcev1.ExactDeviceRequest{
-						DeviceClassName: gpuDeviceClassName,
+						DeviceClassName: kvbuilder.GPUDeviceClassName,
 						AllocationMode:  resourcev1.DeviceAllocationModeExactCount,
 						Count:           1,
 						Selectors: []resourcev1.DeviceSelector{{

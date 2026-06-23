@@ -55,7 +55,7 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 		Expect(template.Spec.Spec.Devices.Requests).To(HaveLen(1))
 		request := template.Spec.Spec.Devices.Requests[0]
 		Expect(request.Name).To(Equal(kvbuilder.GPUResourceClaimRequestName("gpu0")))
-		Expect(request.Exactly.DeviceClassName).To(Equal(gpuDeviceClassName))
+		Expect(request.Exactly.DeviceClassName).To(Equal(kvbuilder.GPUDeviceClassName))
 		Expect(request.Exactly.Selectors[0].CEL.Expression).To(ContainSubstring(`productName == "NVIDIA H100"`))
 		Expect(request.Exactly.Selectors[0].CEL.Expression).To(ContainSubstring(`deviceType == "physical"`))
 		Expect(request.Exactly.Selectors[0].CEL.Expression).To(ContainSubstring(`!has(device.attributes["gpu.deckhouse.io"].sharingStrategy)`))
@@ -73,5 +73,21 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 		stored := &resourcev1.ResourceClaimTemplate{}
 		err = fakeClient.Get(context.Background(), types.NamespacedName{Name: kvbuilder.GPUResourceClaimTemplateName(vmName, "gpu0"), Namespace: namespace}, stored)
 		Expect(err).To(HaveOccurred())
+	})
+
+	It("should not replace GPU ResourceClaimTemplate owned by another controller", func() {
+		vm := newVM(v1alpha2.GPUDeviceSpec{Name: "gpu0", Model: gpuModel})
+		template := &resourcev1.ResourceClaimTemplate{
+			ObjectMeta: metav1.ObjectMeta{Name: kvbuilder.GPUResourceClaimTemplateName(vmName, "gpu0"), Namespace: namespace},
+		}
+		fakeClient, _, vmState := setupEnvironment(vm, template)
+		handler := NewGPUResourceClaimHandler(fakeClient)
+
+		_, err := handler.Handle(context.Background(), vmState)
+
+		Expect(err).To(HaveOccurred())
+		stored := &resourcev1.ResourceClaimTemplate{}
+		Expect(fakeClient.Get(context.Background(), types.NamespacedName{Name: template.Name, Namespace: namespace}, stored)).To(Succeed())
+		Expect(stored.OwnerReferences).To(BeEmpty())
 	})
 })

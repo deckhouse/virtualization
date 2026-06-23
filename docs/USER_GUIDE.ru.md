@@ -4046,6 +4046,52 @@ spec:
 
 В результате будет создана ВМ с именем `clone-database-prod` и диск с именем `clone-database-root-prod`.
 
+## GPU-устройства
+
+{{< alert level="warning" >}}
+Проброс GPU-устройств — экспериментальная возможность. Для работы требуются Enterprise Edition (EE), поддержка Kubernetes DRA и внешний GPU DRA-провайдер, создающий `DeviceClass` с именем `gpu.deckhouse.io`.
+{{< /alert >}}
+
+Модуль виртуализации может подключать физические GPU-устройства к виртуальным машинам с помощью DRA (Dynamic Resource Allocation). GPU запрашивается по модели продукта через поле `.spec.gpuDevices` ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine).
+
+Для проброса GPU требуются:
+
+- Kubernetes версии 1.34 или выше с DRA feature gates, необходимыми для конфигурации кластера.
+- Feature gate `GPU`, включённый в настройках модуля `virtualization`.
+- Установленный в кластере GPU DRA-провайдер.
+- [DeviceClass](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/#device-classes) `gpu.deckhouse.io`, созданный GPU DRA-провайдером.
+
+Чтобы включить feature gate модуля:
+
+```yaml
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: virtualization
+spec:
+  settings:
+    featureGates:
+      - GPU
+```
+
+Чтобы запросить GPU-устройство, добавьте `.spec.gpuDevices` в спецификацию ВМ:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  name: linux-vm
+spec:
+  # ... другие настройки ВМ ...
+  gpuDevices:
+    - name: gpu0
+      model: NVIDIA H100
+```
+
+Поле `name` должно быть уникальным внутри `.spec.gpuDevices` и может содержать до 55 символов DNS label. Поле `model` должно совпадать с названием продукта GPU, которое GPU DRA-провайдер публикует в атрибуте устройства `device.attributes["gpu.deckhouse.io"].productName`.
+
+Изменение `.spec.gpuDevices` требует перезапуска виртуальной машины для применения новой конфигурации.
+
 ## USB-устройства
 
 {{< alert level="warning">}}

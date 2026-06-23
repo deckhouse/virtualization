@@ -18,19 +18,35 @@ package vmchange
 
 import (
 	"reflect"
+	"slices"
+	"strings"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func compareGPUDevices(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
-	currentValue := NewValue(current.GPUDevices, current.GPUDevices == nil, false)
-	desiredValue := NewValue(desired.GPUDevices, desired.GPUDevices == nil, false)
+	currentGPUDevices := sortedGPUDevicesForCompare(current.GPUDevices)
+	desiredGPUDevices := sortedGPUDevicesForCompare(desired.GPUDevices)
+	currentValue := NewValue(currentGPUDevices, current.GPUDevices == nil, false)
+	desiredValue := NewValue(desiredGPUDevices, desired.GPUDevices == nil, false)
 
 	return compareValues(
 		"gpuDevices",
 		currentValue,
 		desiredValue,
-		reflect.DeepEqual(current.GPUDevices, desired.GPUDevices),
+		reflect.DeepEqual(currentGPUDevices, desiredGPUDevices),
 		ActionRestart,
 	)
+}
+
+func sortedGPUDevicesForCompare(devices []v1alpha2.GPUDeviceSpec) []v1alpha2.GPUDeviceSpec {
+	if devices == nil {
+		return nil
+	}
+
+	sorted := slices.Clone(devices)
+	slices.SortFunc(sorted, func(a, b v1alpha2.GPUDeviceSpec) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+	return sorted
 }
