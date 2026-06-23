@@ -53,7 +53,7 @@ gl_required_env() {
 gl_log_call() {
   local method="$1"
   local path="$2"
-  echo ">>> ${method} ${CI_API_V4_URL}${path}"
+  echo ">>> ${method} ${CI_API_V4_URL}${path}" >&2
 }
 
 # api METHOD PATH [extra curl args]
@@ -91,7 +91,7 @@ api() {
   rm -f "$response_file"
 
   if [[ "$http_code" =~ ^2 ]]; then
-    echo "<<< status=${http_code}"
+    echo "<<< status=${http_code}" >&2
     return 0
   fi
 
