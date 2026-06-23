@@ -17,7 +17,6 @@ limitations under the License.
 package kvbuilder
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 
@@ -29,27 +28,24 @@ import (
 )
 
 const (
-	GPUNamePrefix                            = "gpu-"
-	GPUDeviceClassName                       = "gpu.deckhouse.io"
-	GPUResourceClaimTemplateNameSuffixFormat = "-gpu-%s-template"
-	GPUResourceClaimRequestNamePrefix        = "req-gpu-"
+	GPUNamePrefix      = "gpu-"
+	GPUDeviceClassName = "gpu.deckhouse.io"
 )
 
 func GPUResourceClaimName(deviceName string) string {
 	return GPUNamePrefix + deviceName
 }
 
+func GPUResourceClaimRequestName(deviceName string) string {
+	return GPUNamePrefix + deviceName
+}
+
 func GPUResourceClaimTemplateName(vmName, deviceName string) string {
-	return vmName + fmt.Sprintf(GPUResourceClaimTemplateNameSuffixFormat, deviceName)
+	return vmName + "-" + deviceName
 }
 
 func IsGPUResourceClaimTemplateName(vmName, templateName string) bool {
-	prefix := vmName + "-gpu-"
-	return strings.HasPrefix(templateName, prefix) && strings.HasSuffix(templateName, "-template")
-}
-
-func GPUResourceClaimRequestName(deviceName string) string {
-	return GPUResourceClaimRequestNamePrefix + deviceName
+	return strings.HasPrefix(templateName, vmName+"-")
 }
 
 func (b *KVVM) SetGPUDevices(vmName string, devices []v1alpha2.GPUDeviceSpec) {
