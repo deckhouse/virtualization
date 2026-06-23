@@ -39,11 +39,8 @@ lint:no-cyrillic:
   stage: lint
   # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
   interruptible: true
-  image:
-    name: golang:1.25.11
-    entrypoint: ['']
   before_script:
-    - go install github.com/go-task/task/v3/cmd/task@latest
+    - bash .gitlab/ci/scripts/check-runner-tools.sh go task
   script:
     - task validation:no-cyrillic
   rules:
@@ -62,11 +59,8 @@ lint:doc-changes:
   stage: lint
   # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
   interruptible: true
-  image:
-    name: golang:1.25.11
-    entrypoint: ['']
   before_script:
-    - go install github.com/go-task/task/v3/cmd/task@latest
+    - bash .gitlab/ci/scripts/check-runner-tools.sh go task
   script:
     - task validation:doc-changes
   rules:
@@ -88,11 +82,8 @@ lint:shellcheck:
   stage: lint
   # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
   interruptible: true
-  image:
-    name: golang:1.25.11
-    entrypoint: ['']
   before_script:
-    - go install github.com/go-task/task/v3/cmd/task@latest
+    - bash .gitlab/ci/scripts/check-runner-tools.sh go task shellcheck
   script:
     - task lint:shellcheck
   rules:
@@ -110,11 +101,8 @@ lint:yaml:
   stage: lint
   # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
   interruptible: true
-  image:
-    name: golang:1.25.11
-    entrypoint: ['']
   before_script:
-    - go install github.com/go-task/task/v3/cmd/task@latest
+    - bash .gitlab/ci/scripts/check-runner-tools.sh go task
   script:
     - task lint:prettier:yaml
   rules:
@@ -144,11 +132,8 @@ lint:helm-templates:
   stage: lint
   # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
   interruptible: true
-  image:
-    name: golang:1.25.11
-    entrypoint: ['']
   before_script:
-    - go install github.com/go-task/task/v3/cmd/task@latest
+    - bash .gitlab/ci/scripts/check-runner-tools.sh go task
   script:
     - task validation:helm-templates
   rules:
@@ -189,12 +174,8 @@ check:gens-files:
   # TODO_RUNNER_TAG: heavy jobs may need [deckhouse, large] once runners
   # are registered.
   interruptible: true
-  image:
-    name: golang:1.25.11
-    entrypoint: ['']
   before_script:
-    - go install github.com/go-task/task/v3/cmd/task@latest
-    - apt-get update && apt-get install -y -qq git
+    - bash .gitlab/ci/scripts/check-runner-tools.sh go task git
   script:
     - |
       set -e
@@ -263,11 +244,8 @@ lint:gitlab-ci:
   stage: lint
   # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
   interruptible: true
-  image:
-    name: alpine:3.20
-    entrypoint: ['']
   before_script:
-    - apk add --no-cache bash curl jq
+    - bash .gitlab/ci/scripts/check-runner-tools.sh bash curl jq
   script:
     - bash .gitlab/ci/scripts/gitlab-ci-lint.sh
   rules:

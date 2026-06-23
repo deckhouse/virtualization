@@ -44,6 +44,12 @@ translate:changelog:
   stage: notify
   tags:
     - deckhouse
+  before_script:
+    - bash .gitlab/ci/scripts/check-runner-tools.sh git curl jq python3
+    - python3 -m venv /tmp/venv
+    - /tmp/venv/bin/pip install --no-cache-dir deep-translator packaging
+    - git -C "${CI_PROJECT_DIR}" config user.email "gitlab-ci@gitlab.com"
+    - git -C "${CI_PROJECT_DIR}" config user.name "GitLab CI"
   variables:
     # Path to CHANGELOG dir (upstream default; explicit for clarity).
     TRANSLATE_CHANGELOG_PATH: "CHANGELOG"
@@ -53,3 +59,5 @@ translate:changelog:
     # script. GitLab does not evaluate shell parameter expansion in `variables:`;
     # set RELEASE_TOKEN explicitly in project CI/CD variables if CI_JOB_TOKEN
     # does not have enough permissions to push and create merge requests.
+    # The local before_script intentionally replaces the upstream template's
+    # container/package-manager setup so the job works on shell executors.

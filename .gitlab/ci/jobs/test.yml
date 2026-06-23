@@ -15,6 +15,7 @@
 lint:virtualization-controller:
   stage: lint
   script:
+    - bash .gitlab/ci/scripts/check-runner-tools.sh task
     - task virtualization-controller:init
     - task virtualization-controller:lint
     # TODO: needs follow-up — dvcr lint target has known issues
@@ -25,6 +26,7 @@ lint:virtualization-controller:
 test:virtualization-controller:
   stage: test
   script:
+    - bash .gitlab/ci/scripts/check-runner-tools.sh task
     - task virtualization-controller:init
     - task virtualization-controller:test:unit
   extends:
@@ -33,6 +35,7 @@ test:virtualization-controller:
 test:hooks:
   stage: test
   script:
+    - bash .gitlab/ci/scripts/check-runner-tools.sh task
     - task hooks:test
   extends:
     - .dev

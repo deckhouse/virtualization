@@ -26,4 +26,5 @@ cleanup:
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
+    - bash .gitlab/ci/scripts/check-runner-tools.sh werf
     - werf cleanup --repo dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization --without-kube=true
