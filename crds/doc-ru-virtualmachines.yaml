@@ -588,6 +588,20 @@ spec:
                       name:
                         description: |
                           Имя ресурса `USBDevice` в том же пространстве имен.
+                gpuDevices:
+                  description: |
+                    Список GPU-устройств для подключения к виртуальной машине.
+                    Устройства запрашиваются по модели GPU.
+                    Для использования требуется feature gate `GPU` и DeviceClass `gpu.deckhouse.io`.
+                  items:
+                    properties:
+                      model:
+                        description: |
+                          Название продукта GPU, например `NVIDIA H100`.
+                      name:
+                        description: |
+                          Уникальное имя GPU-устройства внутри спецификации виртуальной машины.
+                          Значение используется для генерации имён DRA claim и request.
             status:
               properties:
                 blockDeviceRefs:

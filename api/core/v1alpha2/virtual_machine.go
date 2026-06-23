@@ -119,6 +119,13 @@ type VirtualMachineSpec struct {
 	// Devices are referenced by name of USBDevice resource in the same namespace.
 	// +kubebuilder:validation:MaxItems:=8
 	USBDevices []USBDeviceSpecRef `json:"usbDevices,omitempty"`
+	// List of GPU devices to attach to the virtual machine.
+	// Devices are requested by GPU model.
+	// This feature requires the GPU feature gate and the gpu.deckhouse.io DeviceClass.
+	// +kubebuilder:validation:MaxItems:=16
+	// +listType=map
+	// +listMapKey=name
+	GPUDevices []GPUDeviceSpec `json:"gpuDevices,omitempty"`
 }
 
 // RunPolicy parameter defines the VM startup policy
@@ -495,6 +502,20 @@ const (
 type USBDeviceSpecRef struct {
 	// The name of USBDevice resource in the same namespace.
 	Name string `json:"name"`
+}
+
+// GPUDeviceSpec requests a GPU device by model.
+type GPUDeviceSpec struct {
+	// A unique GPU device name inside the virtual machine spec.
+	// The value is used to generate DRA claim and request names.
+	// +kubebuilder:validation:MinLength:=1
+	// +kubebuilder:validation:MaxLength:=59
+	// +kubebuilder:validation:Pattern:=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	Name string `json:"name"`
+	// GPU product name, for example NVIDIA H100.
+	// +kubebuilder:validation:MinLength:=1
+	// +kubebuilder:validation:MaxLength:=128
+	Model string `json:"model"`
 }
 
 // USBDeviceStatusRef represents the status of a USB device attached to the virtual machine.

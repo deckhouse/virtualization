@@ -133,6 +133,8 @@ func ApplyVirtualMachineSpec(
 		return err
 	}
 
+	kvvm.SetGPUDevices(vm.Name, vm.Spec.GPUDevices)
+
 	if err := kvvm.SetProvisioning(vm.Spec.Provisioning); err != nil {
 		return err
 	}
