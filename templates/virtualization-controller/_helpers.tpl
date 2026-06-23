@@ -108,6 +108,8 @@ true
 {{- end }}
 - name: FIRMWARE_IMAGE
   value: {{ include "helm_lib_module_image" (list . "virtLauncher") }}
+- name: DISABLE_FIRMWARE_UPDATE
+  value: {{ .Values.virtualization.internal.disableFirmwareUpdate | default false | quote }}
 - name: CLUSTER_UUID
   value: {{ .Values.global.discovery.clusterUUID }}
 - name: CLUSTER_POD_SUBNET_CIDR
