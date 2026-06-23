@@ -281,7 +281,11 @@ check:gens-files:
   interruptible: true
   before_script:
     # git is needed by check_diffs (git diff). go/task are host tools.
-    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task git
+    # docker is needed by the vm-route-forge matrix leg, which runs bpf2go
+    # inside the cilium/ebpf-builder image (the runner has no sudo to apt-get
+    # clang/llvm-strip). The other legs don't use docker but it must be
+    # present for the matrix job to start.
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task git docker
     - |
       # `go install tool` (used by all components) puts binaries in
       # $(go env GOPATH)/bin, but the shell runner does not add that dir to
@@ -318,25 +322,27 @@ check:gens-files:
           check_diffs images/virtualization-artifact
           ;;
         vm-route-forge)
-          # bpf2go (go tool github.com/cilium/ebpf/cmd/bpf2go) shells out to
-          # `clang` and `llvm-strip`. Install the same apt packages as the
-          # GitHub workflow (.github/workflows/dev_validation.yaml,
-          # check_gens_files -> Install dependencies). Prefer already-installed
-          # tools; only apt-get when missing, and use sudo -n so a password
-          # prompt fails fast instead of hanging the job.
-          if ! command -v clang >/dev/null 2>&1 || ! command -v llvm-strip >/dev/null 2>&1; then
-            if command -v apt-get >/dev/null 2>&1; then
-              export DEBIAN_FRONTEND=noninteractive
-              sudo -n apt-get update
-              sudo -n apt-get install -y -qq \
-                llvm "linux-headers-$(uname -r)" clang \
-                libbpf-dev uuid-runtime gcc-multilib
-            else
-              echo "ERROR: clang/llvm-strip missing and apt-get unavailable on the runner" >&2
-              exit 1
-            fi
-          fi
-          task vm-route-forge:gen
+          # bpf2go (go tool github.com/cilium/ebpf/cmd/bpf2go) needs clang,
+          # llvm-strip and the libbpf/kernel headers. The GitLab shell runner
+          # has no sudo, so instead of apt-get (as the GH workflow did) run
+          # generation inside the public cilium/ebpf-builder image, which ships
+          # clang-22, llvm-strip-22, libbpf-dev and linux headers. go generate
+          # runs in the container against the repo bind-mounted at /src.
+          #
+          # BPF2GO_CC/STRIP point bpf2go at the versioned binaries (the image
+          # has no bare `clang`). BPF2GO_CFLAGS adds the arch-specific include
+          # dir so <asm/ptrace.h> resolves (the image symlinks /usr/include/asm
+          # to asm-generic, which lacks ptrace.h; the real one lives under
+          # x86_64-linux-gnu on amd64 / aarch64-linux-gnu on arm64).
+          docker run --rm --platform linux/amd64 \
+            -v "${PWD}:/src" \
+            -w /src/images/vm-route-forge \
+            -e BPF2GO_CC=clang-22 \
+            -e BPF2GO_STRIP=llvm-strip-22 \
+            -e BPF2GO_CFLAGS="-I/usr/include/x86_64-linux-gnu" \
+            -e GOTOOLCHAIN=auto \
+            ghcr.io/cilium/ebpf-builder:1777990914 \
+            sh -c 'go generate ./...'
           check_diffs images/vm-route-forge
           ;;
         api)
