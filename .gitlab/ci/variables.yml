@@ -57,4 +57,12 @@ variables:
   # --- Build/dev tooling (kept from previous root) ---
   GO_VERSION: "1.25.11"
   GOLANGCI_LINT_VERSION: "2.11.1"
+  # Let the host Go toolchain auto-download the version required by go.mod
+  # (currently go 1.25.11). Runner hosts may ship an older Go with
+  # GOTOOLCHAIN pinned to that older version (e.g. GOTOOLCHAIN=go1.25.9),
+  # which otherwise makes `go mod download` / `go install` fail with
+  # "go.mod requires go >= 1.25.11". `auto` overrides the runner env var
+  # (GitLab CI variables take precedence over runner environment variables)
+  # and matches the behavior of GitHub's actions/setup-go@v5.
+  GOTOOLCHAIN: "auto"
   WERF_EXPERIMENTAL_IMPORT_BY_SOURCE_IMAGE_TAG: "true"

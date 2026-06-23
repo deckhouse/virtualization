@@ -3,7 +3,7 @@
 # Carries forward the lint/test jobs from the previous root .gitlab-ci.yml:
 #   lint:virtualization-controller  -> task virtualization-controller:init + lint
 #   test:virtualization-controller  -> task virtualization-controller:init + test:unit
-#   test:hooks                      -> task hooks:test
+#   test:hooks                      -> task gohooks:test
 #
 # All three extend .dev so they only run on MR pipelines with the right
 # MODULES_MODULE_TAG/registry context. The other lint checks (yaml-lint,
@@ -36,6 +36,6 @@ test:hooks:
   stage: test
   script:
     - bash .gitlab/ci/scripts/check-runner-tools.sh task
-    - task hooks:test
+    - task gohooks:test
   extends:
     - .dev
