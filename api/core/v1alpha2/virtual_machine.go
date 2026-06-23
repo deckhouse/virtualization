@@ -121,6 +121,7 @@ type VirtualMachineSpec struct {
 	USBDevices []USBDeviceSpecRef `json:"usbDevices,omitempty"`
 	// List of GPU devices to attach to the virtual machine.
 	// Devices are requested by GPU model.
+	// This feature requires the GPU feature gate and the gpu.deckhouse.io DeviceClass.
 	// +kubebuilder:validation:MaxItems:=16
 	// +listType=map
 	// +listMapKey=name
@@ -506,8 +507,9 @@ type USBDeviceSpecRef struct {
 // GPUDeviceSpec requests a GPU device by model.
 type GPUDeviceSpec struct {
 	// A unique GPU device name inside the virtual machine spec.
+	// The value is used to generate DRA claim and request names.
 	// +kubebuilder:validation:MinLength:=1
-	// +kubebuilder:validation:MaxLength:=63
+	// +kubebuilder:validation:MaxLength:=55
 	// +kubebuilder:validation:Pattern:=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 	Name string `json:"name"`
 	// GPU product name, for example NVIDIA H100.

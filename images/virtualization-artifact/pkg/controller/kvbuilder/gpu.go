@@ -30,6 +30,7 @@ import (
 
 const (
 	GPUNamePrefix                            = "gpu-"
+	GPUDeviceClassName                       = "gpu.deckhouse.io"
 	GPUResourceClaimTemplateNameSuffixFormat = "-gpu-%s-template"
 	GPUResourceClaimRequestNamePrefix        = "req-gpu-"
 )
