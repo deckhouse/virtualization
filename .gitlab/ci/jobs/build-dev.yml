@@ -23,14 +23,24 @@
 # older main pipeline. build_dev and build_dev_tags inherit the project
 # default (interruptible not set, so they can be cancelled manually).
 
+# `needs: []` is intentional: it opts these jobs into DAG mode with no
+# artifact downloads. Without it, GitLab's legacy behavior downloads ALL
+# artifacts from every prior-stage job, which leaks unrelated dotenv
+# artifacts (e.g. svace:set-vars writes MODULES_MODULE_TAG=<branch>-svace)
+# and overrides the per-template MODULES_MODULE_TAG from .dev / .dev_tags /
+# .main. These builds derive their tag and registry vars from their own
+# templates and need no upstream artifacts.
+
 build_dev:
   stage: build
+  needs: []
   extends:
     - .local_build
     - .dev
 
 build_dev_tags:
   stage: build
+  needs: []
   extends:
     - .local_build
     - .dev_tags
@@ -38,6 +48,7 @@ build_dev_tags:
 build_main:
   stage: build
   interruptible: true
+  needs: []
   extends:
     - .local_build
     - .main
