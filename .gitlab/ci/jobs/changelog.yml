@@ -39,11 +39,8 @@ changelog:milestone:
   # https://fox.flant.com/deckhouse/virtualization/-/runners after registration.
   tags:
     - deckhouse
-  image:
-    name: python:3.12-slim
-    entrypoint: [""]
   before_script:
-    - apt-get update -qq && apt-get install -y -qq --no-install-recommends git curl jq ca-certificates openssh-client
+    - bash .gitlab/ci/scripts/check-runner-tools.sh bash git curl jq ssh-agent ssh-add python3
   script:
     - bash .gitlab/ci/scripts/changelog-milestone.sh
   variables:
@@ -73,11 +70,8 @@ changelog:all-active-milestones:
   # https://fox.flant.com/deckhouse/virtualization/-/runners after registration.
   tags:
     - deckhouse
-  image:
-    name: python:3.12-slim
-    entrypoint: [""]
   before_script:
-    - apt-get update -qq && apt-get install -y -qq --no-install-recommends git curl jq ca-certificates openssh-client
+    - bash .gitlab/ci/scripts/check-runner-tools.sh bash git curl jq ssh-agent ssh-add python3
   script:
     - bash .gitlab/ci/scripts/changelog-milestone.sh
   variables:

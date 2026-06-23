@@ -67,6 +67,7 @@ For a release engineer:
         ├── changelog_collect.py
         ├── check-changelog-entry.sh           # wrapper for check_changelog_entry.py
         ├── check-milestone.sh
+        ├── check-runner-tools.sh              # shell-executor tool preflight
         ├── check_changelog_entry.py
         ├── setup-mr-settings.sh               # one-off project settings
         └── lib/
@@ -195,6 +196,28 @@ grep -rn 'tags:' .gitlab/ci/jobs/ | grep deckhouse
 
 Look for `TODO_RUNNER_TAG` comments in each job yml; replace the tag and
 remove the comment when finalised.
+
+### Shell executor requirements
+
+The project runner is expected to use the GitLab Runner `shell` executor.
+For that executor, `image:` and container `entrypoint:` settings are ignored,
+so project jobs do not install packages with `apk`, `apt-get`, or other host
+package managers. Tools must already be installed on the runner host. Jobs that
+need non-trivial tools call `.gitlab/ci/scripts/check-runner-tools.sh` in
+`before_script` and fail early with a clear message if a tool is missing.
+
+Expected host tools for project-owned jobs:
+
+| Job family | Required runner tools |
+|---|---|
+| Common GitLab API helpers | `bash`, `curl`, `jq` |
+| Go/task validation jobs | `go`, `task`; `lint:shellcheck` also needs `shellcheck` |
+| Generated-file checks | `go`, `task`, `git` |
+| Build/deploy/precache/cleanup templates | upstream `Setup.gitlab-ci.yml` needs `bash`, `curl`, `trdl` bootstrap support, `werf`, `jq`, `crane`, registry credentials, and SSH tools when Svace keys are configured |
+| Changelog/check-changelog jobs | `bash`, `python3`, `curl`, `jq`; changelog MR creation also needs `git`, `ssh-agent`, `ssh-add` |
+| Backport | `bash`, `git`, `curl`, `jq`, `ssh-agent`, `ssh-add` |
+| MR summary | `node`, `npm` |
+| Upstream scanning templates | use the requirements from `modules-gitlab-ci@v13.0` (for example CVE scan downloads `d8` and uses `curl`, `tar`, `jq`, `git`, SSH tools) |
 
 ## 7. Jobs reference
 

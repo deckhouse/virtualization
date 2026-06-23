@@ -34,10 +34,8 @@ mrs:summary:
   # https://fox.flant.com/deckhouse/virtualization/-/runners after registration.
   tags:
     - deckhouse
-  image:
-    name: node:24-alpine
-    entrypoint: [""]
   before_script:
+    - bash .gitlab/ci/scripts/check-runner-tools.sh node npm
     - corepack enable || true
     - cd .gitlab/scripts/js
     - npm ci --omit=dev || npm install --omit=dev
