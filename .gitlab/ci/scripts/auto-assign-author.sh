@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# shellcheck disable=SC2154 # CI_* and GITLAB_API_TOKEN are injected by the GitLab Runner at job runtime.
+
 # Auto-assign MR author as the MR assignee.
 #
 # Migration of .github/workflows/dev_auto-pr-author-assign.yml which used the
@@ -31,7 +33,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib/api.sh
+# shellcheck source=.gitlab/ci/scripts/lib/api.sh
 source "${SCRIPT_DIR}/lib/api.sh"
 
 gl_required_env CI_API_V4_URL GITLAB_API_TOKEN CI_PROJECT_ID CI_MERGE_REQUEST_IID

@@ -188,16 +188,30 @@ tasks:
     desc: "Run shellcheck for CI shell scripts."
     cmds:
       - |
+        set -e
+        # Collect the explicit per-file list plus two recursive trees.
+        # Use find (not ** glob) so this works under plain sh / task default
+        # shell, which does not enable globstar.
+        EXPLICIT=".github/scripts/bash/e2e/*.sh
+        api/scripts/update-codegen.sh
+        images/virtualization-artifact/hack/args.sh
+        images/virtualization-artifact/hack/dlv.sh
+        images/virtualization-artifact/hack/pyroscope.sh"
+        EXPANDED="$( { for f in $EXPLICIT; do [ -f "$f" ] && echo "$f"; done; \
+          find .gitlab/ci/scripts -type f -name '*.sh'; } | sort -u)"
+        if [ -z "$EXPANDED" ]; then
+          echo "No shell scripts found to lint."; exit 0
+        fi
+        echo "==> shellcheck will scan $(printf '%s\n' "$EXPANDED" | wc -l | tr -d ' ') files:"
+        printf '  %s\n' $EXPANDED
+        echo "==> running shellcheck (koalaman/shellcheck-alpine:v0.10.0)"
         docker run --rm \
           -v "$PWD:/mnt" \
           -w /mnt \
           koalaman/shellcheck-alpine:v0.10.0 \
           shellcheck \
-          .github/scripts/bash/e2e/*.sh \
-          api/scripts/update-codegen.sh \
-          images/virtualization-artifact/hack/args.sh \
-          images/virtualization-artifact/hack/dlv.sh \
-          images/virtualization-artifact/hack/pyroscope.sh
+          $EXPANDED
+        echo "==> shellcheck: no issues found"
 
   lint:actionlint:
     desc: "Run actionlint for E2E GitHub workflows."
