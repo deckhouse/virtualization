@@ -94,10 +94,6 @@ func DefaultOptions(current *v1alpha2.VirtualMachine) KVVMOptions {
 	}
 }
 
-func (b *KVVM) Options() KVVMOptions {
-	return b.opts
-}
-
 func NewEmptyKVVM(name types.NamespacedName, opts KVVMOptions) *KVVM {
 	return &KVVM{
 		opts: opts,
