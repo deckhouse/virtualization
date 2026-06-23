@@ -31,7 +31,7 @@
 .local_build:
   stage: build
   script:
-    - bash .gitlab/ci/scripts/check-runner-tools.sh werf jq crane
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh werf jq crane
     # Use gitlab ci job token
     - |
       SOURCE_REPO=${SOURCE_REPO#git@}

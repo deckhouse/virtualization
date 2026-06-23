@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# .gitlab/ci/scripts/gitlab-ci-lint.sh
+# .gitlab/ci/scripts/bash/gitlab-ci-lint.sh
 #
 # Calls the GitLab CI Lint API
 #   POST ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/ci/lint
@@ -17,7 +17,7 @@
 # Authentication: PRIVATE-TOKEN via GITLAB_API_TOKEN (Project Access
 # Token, scope api). Falls back to CI_JOB_TOKEN for read-only pipeline
 # scope when GITLAB_API_TOKEN is unset (matches the convention in
-# .gitlab/ci/scripts/lib/api.sh).
+# .gitlab/ci/scripts/bash/lib/api.sh).
 #
 # Exit codes:
 #   0  - CI config is valid.

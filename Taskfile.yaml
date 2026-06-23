@@ -191,16 +191,16 @@ tasks:
     cmds:
       - |
         set -e
-        # Collect the explicit per-file list plus two recursive trees.
-        # Use find (not ** glob) so this works under plain sh / task default
-        # shell, which does not enable globstar.
+        # The .gitlab/ci/scripts tree is split into bash/ and python/ folders,
+        # so lint:shellcheck points directly at the bash folder (no find scan).
         EXPLICIT=".github/scripts/bash/e2e/*.sh
+        .gitlab/ci/scripts/bash/*.sh
+        .gitlab/ci/scripts/bash/lib/*.sh
         api/scripts/update-codegen.sh
         images/virtualization-artifact/hack/args.sh
         images/virtualization-artifact/hack/dlv.sh
         images/virtualization-artifact/hack/pyroscope.sh"
-        EXPANDED="$( { for f in $EXPLICIT; do [ -f "$f" ] && echo "$f"; done; \
-          find .gitlab/ci/scripts -type f -name '*.sh'; } | sort -u)"
+        EXPANDED="$(for f in $EXPLICIT; do [ -f "$f" ] && echo "$f"; done | sort -u)"
         if [ -z "$EXPANDED" ]; then
           echo "No shell scripts found to lint."; exit 0
         fi

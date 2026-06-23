@@ -31,7 +31,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=.gitlab/ci/scripts/lib/api.sh
+# shellcheck source=.gitlab/ci/scripts/bash/lib/api.sh
 source "${SCRIPT_DIR}/lib/api.sh"
 
 if [[ "${CI_PIPELINE_SOURCE:-}" != "merge_request_event" ]]; then

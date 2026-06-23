@@ -34,4 +34,4 @@ else
   exit 1
 fi
 
-exec "${PYTHON_BIN}" "${SCRIPT_DIR}/check_changelog_entry.py"
+exec "${PYTHON_BIN}" "${SCRIPT_DIR}/../python/check_changelog_entry.py"

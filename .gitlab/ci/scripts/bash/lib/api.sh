@@ -18,7 +18,7 @@
 # Shared GitLab API helpers for migration-era jobs.
 #
 # Source from a job's script:
-#   source .gitlab/ci/scripts/lib/api.sh
+#   source .gitlab/ci/scripts/bash/lib/api.sh
 #
 # Provides:
 #   api METHOD PATH [curl-args...]   -- REST call with PRIVATE-TOKEN, prints body, returns exit code.

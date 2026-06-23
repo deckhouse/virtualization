@@ -15,8 +15,8 @@
 # Allowed `section` values for ```changes fenced blocks in MR descriptions.
 #
 # This list is shared between:
-#   - .gitlab/ci/scripts/check-changelog-entry.sh (validates MR description blocks)
-#   - .gitlab/ci/scripts/changelog_collect.py (groups changes by section)
+#   - .gitlab/ci/scripts/bash/check-changelog-entry.sh (validates MR description blocks)
+#   - .gitlab/ci/scripts/python/changelog_collect.py (groups changes by section)
 #   - .github/actions/milestone-changelog/action.yml (kept in sync during migration)
 #
 # Suffix `:low` pins the section to low impact_level (impact_level field becomes optional).

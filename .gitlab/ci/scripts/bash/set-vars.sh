@@ -26,7 +26,7 @@
 #   set_vars:
 #     stage: info
 #     script:
-#       - bash .gitlab/ci/scripts/set-vars.sh
+#       - bash .gitlab/ci/scripts/bash/set-vars.sh
 #     artifacts:
 #       reports:
 #         dotenv: set_vars.env
@@ -37,7 +37,7 @@ set -euo pipefail
 
 # Source the api() helper for the GitLab API call below.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=.gitlab/ci/scripts/lib/api.sh
+# shellcheck source=.gitlab/ci/scripts/bash/lib/api.sh
 source "${SCRIPT_DIR}/lib/api.sh"
 
 OUTPUT="${CI_PROJECT_DIR:-.}/set_vars.env"

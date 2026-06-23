@@ -24,9 +24,9 @@ check:milestone:
   tags:
     - deckhouse
   before_script:
-    - bash .gitlab/ci/scripts/check-runner-tools.sh bash curl jq
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash curl jq
   script:
-    - bash .gitlab/ci/scripts/check-milestone.sh
+    - bash .gitlab/ci/scripts/bash/check-milestone.sh
   rules:
     # Skip-label must be first because GitLab rules are evaluated first-match.
     - if: $CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/check_milestone/
