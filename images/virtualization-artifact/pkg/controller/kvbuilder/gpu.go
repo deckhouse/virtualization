@@ -44,7 +44,8 @@ func GPUResourceClaimTemplateName(vmName, deviceName string) string {
 }
 
 func IsGPUResourceClaimTemplateName(vmName, templateName string) bool {
-	return templateName == vmName+"-gpu-template" || strings.HasPrefix(templateName, vmName+"-gpu-") && strings.HasSuffix(templateName, "-template")
+	prefix := vmName + "-gpu-"
+	return strings.HasPrefix(templateName, prefix) && strings.HasSuffix(templateName, "-template")
 }
 
 func GPUResourceClaimRequestName(deviceName string) string {
