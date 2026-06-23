@@ -91,8 +91,9 @@ const (
 	virtualMachineCIDRsEnv                     = "VIRTUAL_MACHINE_CIDRS"
 	virtualMachineIPLeasesRetentionDurationEnv = "VIRTUAL_MACHINE_IP_LEASES_RETENTION_DURATION"
 
-	FirmwareImageEnv      = "FIRMWARE_IMAGE"
-	VirtControllerNameEnv = "VIRT_CONTROLLER_NAME"
+	FirmwareImageEnv         = "FIRMWARE_IMAGE"
+	VirtControllerNameEnv    = "VIRT_CONTROLLER_NAME"
+	DisableFirmwareUpdateEnv = "DISABLE_FIRMWARE_UPDATE"
 
 	SdnEnabledEnv  = "SDN_ENABLED"
 	clusterUUIDEnv = "CLUSTER_UUID"
@@ -141,6 +142,17 @@ func main() {
 
 	var virtControllerName string
 	pflag.StringVar(&virtControllerName, "virt-controller-name", getEnv(VirtControllerNameEnv, "virt-controller"), "Virt controller name")
+
+	var disableFirmwareUpdate bool
+	disableFirmwareUpdateRaw := os.Getenv(DisableFirmwareUpdateEnv)
+	if disableFirmwareUpdateRaw != "" {
+		disableFirmwareUpdate, err = strconv.ParseBool(disableFirmwareUpdateRaw)
+		if err != nil {
+			slog.Default().Error(err.Error())
+			os.Exit(1)
+		}
+	}
+	pflag.BoolVar(&disableFirmwareUpdate, "disable-firmware-update", disableFirmwareUpdate, "disable automatic firmware update migrations")
 
 	var leaderElection bool
 	pflag.BoolVar(&leaderElection, "leader-election", true, "Leader election")
@@ -458,7 +470,7 @@ func main() {
 	}
 
 	workloadUpdaterLogger := logger.NewControllerLogger(workloadupdater.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if err = workloadupdater.SetupController(ctx, mgr, workloadUpdaterLogger, firmwareImage, controllerNamespace, virtControllerName); err != nil {
+	if err = workloadupdater.SetupController(ctx, mgr, workloadUpdaterLogger, firmwareImage, controllerNamespace, virtControllerName, disableFirmwareUpdate); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
