@@ -32,10 +32,8 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 const (
@@ -279,8 +277,7 @@ func syncAttachedVMBDAHotplugVolumes(
 		}
 
 		if vd, ok := vdByName[ref.Name]; ok && vd != nil {
-			migrating, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
-			if migrating.Status == metav1.ConditionTrue {
+			if isVolumeMigrating(vd) {
 				continue
 			}
 		}
@@ -400,6 +397,10 @@ func removeDisk(kvvm *KVVM, name string) {
 	)
 }
 
+func isVolumeMigrating(vd *v1alpha2.VirtualDisk) bool {
+	return !vd.Status.MigrationState.StartTimestamp.IsZero() && vd.Status.MigrationState.EndTimestamp.IsZero()
+}
+
 func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName map[string]*v1alpha2.VirtualDisk) error {
 	bootOrder := uint(1)
 	var updateVolumesStrategy *virtv1.UpdateVolumesStrategy = nil
@@ -418,8 +419,7 @@ func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName ma
 		}
 
 		var pvcName string
-		migrating, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
-		if migrating.Status == metav1.ConditionTrue && conditions.IsLastUpdated(migrating, vd) && vd.Status.MigrationState.TargetPVC != "" {
+		if isVolumeMigrating(vd) && vd.Status.MigrationState.TargetPVC != "" {
 			pvcName = vd.Status.MigrationState.TargetPVC
 			updateVolumesStrategy = ptr.To(virtv1.UpdateVolumesStrategyMigration)
 		}

@@ -84,8 +84,10 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes", func() {
 					Reason:             "MigrationReverted",
 				}},
 				MigrationState: v1alpha2.VirtualDiskMigrationState{
-					SourcePVC: sourcePVC,
-					TargetPVC: targetPVC,
+					SourcePVC:      sourcePVC,
+					TargetPVC:      targetPVC,
+					StartTimestamp: metav1.Now(),
+					EndTimestamp:   metav1.Now(),
 				},
 			},
 		}
@@ -185,8 +187,9 @@ var _ = Describe("ApplyMigrationVolumes", func() {
 					Reason:             "Migrating",
 				}},
 				MigrationState: v1alpha2.VirtualDiskMigrationState{
-					SourcePVC: sourcePVC,
-					TargetPVC: targetPVC,
+					SourcePVC:      sourcePVC,
+					TargetPVC:      targetPVC,
+					StartTimestamp: metav1.Now(),
 				},
 			},
 		}
