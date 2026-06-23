@@ -40,22 +40,24 @@ type firmwareMigration interface {
 	OnceMigrate(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error)
 }
 
-func NewFirmwareHandler(client client.Client, migration firmwareMigration, firmwareImage, namespace, virtControllerName string) *FirmwareHandler {
+func NewFirmwareHandler(client client.Client, migration firmwareMigration, firmwareImage, namespace, virtControllerName string, disableFirmwareUpdate bool) *FirmwareHandler {
 	return &FirmwareHandler{
-		client:             client,
-		oneShotMigration:   migration,
-		firmwareImage:      firmwareImage,
-		namespace:          namespace,
-		virtControllerName: virtControllerName,
+		client:                client,
+		oneShotMigration:      migration,
+		firmwareImage:         firmwareImage,
+		namespace:             namespace,
+		virtControllerName:    virtControllerName,
+		disableFirmwareUpdate: disableFirmwareUpdate,
 	}
 }
 
 type FirmwareHandler struct {
-	client             client.Client
-	oneShotMigration   firmwareMigration
-	firmwareImage      string
-	namespace          string
-	virtControllerName string
+	client                client.Client
+	oneShotMigration      firmwareMigration
+	firmwareImage         string
+	namespace             string
+	virtControllerName    string
+	disableFirmwareUpdate bool
 }
 
 func (h *FirmwareHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachine) (reconcile.Result, error) {
@@ -69,6 +71,11 @@ func (h *FirmwareHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachin
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(firmwareHandler))
 	ctx = logger.ToContext(ctx, log)
+
+	if h.disableFirmwareUpdate {
+		log.Info("Automatic firmware update is disabled by environment")
+		return reconcile.Result{}, nil
+	}
 
 	if ready, err := h.isVirtControllerUpToDate(ctx); err != nil {
 		return reconcile.Result{}, err
