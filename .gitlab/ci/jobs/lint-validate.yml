@@ -88,9 +88,11 @@ lint:shellcheck:
   stage: lint
   # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
   interruptible: true
+  # The `task lint:shellcheck` target runs shellcheck inside the
+  # koalaman/shellcheck-alpine Docker image, so the runner needs docker —
+  # not a host-installed shellcheck binary.
   before_script:
-    - bash .gitlab/ci/scripts/check-runner-tools.sh go task
-    - bash .gitlab/ci/scripts/install-shellcheck.sh
+    - bash .gitlab/ci/scripts/check-runner-tools.sh go task docker
   script:
     - task lint:shellcheck
   rules:
