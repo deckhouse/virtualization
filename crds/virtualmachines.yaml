@@ -1060,7 +1060,7 @@ spec:
                           The name of USBDevice resource in the same namespace.
                 gpuDevices:
                   type: array
-                  maxItems: 8
+                  maxItems: 16
                   x-kubernetes-list-map-keys:
                     - name
                   x-kubernetes-list-type: map
