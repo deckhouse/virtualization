@@ -187,7 +187,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 
 		viObs := viobs.StartObserver(ctx, f, baseVI)
 		viObs.Never(viobs.BeFailed())
-		viObs.Always(viobs.HaveFormat(expectedVirtualImageFormat(baseVI)))
+		viObs.Always(viobs.HaveFormat(expectedVirtualImageFormat(ctx, f, baseVI)))
 
 		By("Creating base VirtualImage on DVCR", func() {
 			err := f.CreateWithDeferredDeletion(ctx, baseVI)
@@ -218,7 +218,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 
 		viObs := viobs.StartObserver(ctx, f, baseVI)
 		viObs.Never(viobs.BeFailed())
-		viObs.Always(viobs.HaveFormat(expectedVirtualImageFormat(baseVI)))
+		viObs.Always(viobs.HaveFormat(expectedVirtualImageFormat(ctx, f, baseVI)))
 
 		By("Creating base VirtualImage on PVC", func() {
 			err := f.CreateWithDeferredDeletion(ctx, baseVI)
@@ -251,7 +251,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 
 		viObs := viobs.StartObserver(ctx, f, baseVI)
 		viObs.Never(viobs.BeFailed())
-		viObs.Always(viobs.HaveFormat(expectedVirtualImageFormat(baseVI)))
+		viObs.Always(viobs.HaveFormat(expectedVirtualImageFormat(ctx, f, baseVI)))
 
 		By("Creating base VirtualImage on PVC with the immediate storage class "+*immediateSCPtr, func() {
 			err := f.CreateWithDeferredDeletion(ctx, baseVI)
