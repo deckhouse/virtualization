@@ -106,8 +106,8 @@ func (s UploaderService) Start(
 		return err
 	}
 
-	ing, err := uploader.NewIngress(s.getIngressSettings(ownerRef, sup)).Create(ctx, s.client)
-	if err != nil && !k8serrors.IsAlreadyExists(err) {
+	ing, err := uploader.NewIngress(s.getIngressSettings(ownerRef, sup)).Apply(ctx, s.client)
+	if err != nil {
 		return err
 	}
 
