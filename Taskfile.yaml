@@ -204,11 +204,11 @@ tasks:
         fi
         echo "==> shellcheck will scan $(printf '%s\n' "$EXPANDED" | wc -l | tr -d ' ') files:"
         printf '  %s\n' $EXPANDED
-        echo "==> running shellcheck (koalaman/shellcheck-alpine:v0.10.0)"
+        echo "==> running shellcheck (koalaman/shellcheck-alpine:v0.11.0)"
         docker run --rm \
           -v "$PWD:/mnt" \
           -w /mnt \
-          koalaman/shellcheck-alpine:v0.10.0 \
+          koalaman/shellcheck-alpine:v0.11.0 \
           shellcheck \
           $EXPANDED
         echo "==> shellcheck: no issues found"
