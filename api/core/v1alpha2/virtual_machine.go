@@ -517,7 +517,7 @@ type GPUDeviceSpec struct {
 	// A unique GPU device name inside the virtual machine spec.
 	// The value is used to generate DRA claim and request names.
 	// +kubebuilder:validation:MinLength:=1
-	// +kubebuilder:validation:MaxLength:=55
+	// +kubebuilder:validation:MaxLength:=59
 	// +kubebuilder:validation:Pattern:=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 	Name string `json:"name"`
 	// GPU product name, for example NVIDIA H100.

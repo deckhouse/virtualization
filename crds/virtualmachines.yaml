@@ -1082,7 +1082,7 @@ spec:
                           GPU product name, for example NVIDIA H100.
                       name:
                         minLength: 1
-                        maxLength: 55
+                        maxLength: 59
                         pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                         type: string
                         description: |

@@ -4088,7 +4088,7 @@ spec:
       model: NVIDIA H100
 ```
 
-Поле `name` должно быть уникальным внутри `.spec.gpuDevices` и может содержать до 55 символов DNS label. Поле `model` должно совпадать с названием продукта GPU, которое GPU DRA-провайдер публикует в атрибуте устройства `device.attributes["gpu.deckhouse.io"].productName`.
+Поле `name` должно быть уникальным внутри `.spec.gpuDevices` и может содержать до 59 символов DNS label. Поле `model` должно совпадать с названием продукта GPU, которое GPU DRA-провайдер публикует в атрибуте устройства `device.attributes["gpu.deckhouse.io"].productName`.
 
 Изменение `.spec.gpuDevices` требует перезапуска виртуальной машины для применения новой конфигурации.
 
