@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
@@ -60,53 +59,46 @@ func (h *GPUResourceClaimHandler) Handle(ctx context.Context, s state.VirtualMac
 	}
 
 	vm := s.VirtualMachine().Current()
-	gpuID := vm.Annotations[annotations.AnnVMGPUID]
-	templateName := kvbuilder.GPUResourceClaimTemplateName(vm.Name)
-	template := &resourcev1.ResourceClaimTemplate{}
-	key := types.NamespacedName{Name: templateName, Namespace: vm.Namespace}
+	log := logger.FromContext(ctx).With(logger.SlogHandler(nameGPUResourceClaimHandler))
+	desiredTemplateNames := make(map[string]struct{}, len(vm.Spec.GPUDevices))
 
-	if gpuID == "" {
-		if err := h.client.Get(ctx, key, template); err != nil {
-			if apierrors.IsNotFound(err) {
-				return reconcile.Result{}, nil
-			}
+	for _, device := range vm.Spec.GPUDevices {
+		templateName := kvbuilder.GPUResourceClaimTemplateName(vm.Name, device.Name)
+		desiredTemplateNames[templateName] = struct{}{}
+		desiredSpec := buildGPUResourceClaimTemplateSpec(device)
+		template := &resourcev1.ResourceClaimTemplate{}
+		key := types.NamespacedName{Name: templateName, Namespace: vm.Namespace}
+
+		err := h.client.Get(ctx, key, template)
+		if err != nil && !apierrors.IsNotFound(err) {
 			return reconcile.Result{}, fmt.Errorf("failed to get GPU ResourceClaimTemplate: %w", err)
 		}
-		if metav1.IsControlledBy(template, vm) {
-			if err := h.client.Delete(ctx, template); err != nil && !apierrors.IsNotFound(err) {
-				return reconcile.Result{}, fmt.Errorf("failed to delete GPU ResourceClaimTemplate: %w", err)
+
+		if apierrors.IsNotFound(err) {
+			template = buildGPUResourceClaimTemplate(vm, templateName, desiredSpec)
+			if err := h.client.Create(ctx, template); err != nil && !apierrors.IsAlreadyExists(err) {
+				return reconcile.Result{}, fmt.Errorf("failed to create GPU ResourceClaimTemplate: %w", err)
 			}
+			log.Info("created GPU ResourceClaimTemplate", "template", templateName)
+			continue
 		}
-		return reconcile.Result{}, nil
-	}
 
-	desiredSpec := buildGPUResourceClaimTemplateSpec(gpuID)
-	log := logger.FromContext(ctx).With(logger.SlogHandler(nameGPUResourceClaimHandler))
-	err := h.client.Get(ctx, key, template)
-	if err != nil && !apierrors.IsNotFound(err) {
-		return reconcile.Result{}, fmt.Errorf("failed to get GPU ResourceClaimTemplate: %w", err)
-	}
-
-	if apierrors.IsNotFound(err) {
+		if reflect.DeepEqual(template.Spec, desiredSpec) {
+			continue
+		}
+		if err := h.client.Delete(ctx, template); err != nil && !apierrors.IsNotFound(err) {
+			return reconcile.Result{}, fmt.Errorf("failed to delete outdated GPU ResourceClaimTemplate: %w", err)
+		}
 		template = buildGPUResourceClaimTemplate(vm, templateName, desiredSpec)
 		if err := h.client.Create(ctx, template); err != nil && !apierrors.IsAlreadyExists(err) {
-			return reconcile.Result{}, fmt.Errorf("failed to create GPU ResourceClaimTemplate: %w", err)
+			return reconcile.Result{}, fmt.Errorf("failed to recreate GPU ResourceClaimTemplate: %w", err)
 		}
-		log.Info("created GPU ResourceClaimTemplate", "template", templateName)
-		return reconcile.Result{}, nil
+		log.Info("recreated GPU ResourceClaimTemplate", "template", templateName)
 	}
 
-	if reflect.DeepEqual(template.Spec, desiredSpec) {
-		return reconcile.Result{}, nil
+	if err := h.deleteOrphanedTemplates(ctx, vm, desiredTemplateNames); err != nil {
+		return reconcile.Result{}, err
 	}
-	if err := h.client.Delete(ctx, template); err != nil && !apierrors.IsNotFound(err) {
-		return reconcile.Result{}, fmt.Errorf("failed to delete outdated GPU ResourceClaimTemplate: %w", err)
-	}
-	template = buildGPUResourceClaimTemplate(vm, templateName, desiredSpec)
-	if err := h.client.Create(ctx, template); err != nil && !apierrors.IsAlreadyExists(err) {
-		return reconcile.Result{}, fmt.Errorf("failed to recreate GPU ResourceClaimTemplate: %w", err)
-	}
-	log.Info("recreated GPU ResourceClaimTemplate", "template", templateName)
 	return reconcile.Result{}, nil
 }
 
@@ -121,16 +113,16 @@ func buildGPUResourceClaimTemplate(vm *v1alpha2.VirtualMachine, name string, spe
 	}
 }
 
-func buildGPUResourceClaimTemplateSpec(gpuID string) resourcev1.ResourceClaimTemplateSpec {
+func buildGPUResourceClaimTemplateSpec(device v1alpha2.GPUDeviceSpec) resourcev1.ResourceClaimTemplateSpec {
 	selector := fmt.Sprintf(
-		`device.attributes["gpu.deckhouse.io"].gpuUUID == %s && device.attributes["gpu.deckhouse.io"].deviceType == "physical" && !has(device.attributes["gpu.deckhouse.io"].sharingStrategy)`,
-		strconv.Quote(gpuID),
+		`device.attributes["gpu.deckhouse.io"].device == %s && device.attributes["gpu.deckhouse.io"].deviceType == "physical" && !has(device.attributes["gpu.deckhouse.io"].sharingStrategy)`,
+		strconv.Quote(device.Model),
 	)
 	return resourcev1.ResourceClaimTemplateSpec{
 		Spec: resourcev1.ResourceClaimSpec{
 			Devices: resourcev1.DeviceClaim{
 				Requests: []resourcev1.DeviceRequest{{
-					Name: kvbuilder.GPUResourceClaimRequestName,
+					Name: kvbuilder.GPUResourceClaimRequestName(device.Name),
 					Exactly: &resourcev1.ExactDeviceRequest{
 						DeviceClassName: gpuDeviceClassName,
 						AllocationMode:  resourcev1.DeviceAllocationModeExactCount,
@@ -143,4 +135,25 @@ func buildGPUResourceClaimTemplateSpec(gpuID string) resourcev1.ResourceClaimTem
 			},
 		},
 	}
+}
+
+func (h *GPUResourceClaimHandler) deleteOrphanedTemplates(ctx context.Context, vm *v1alpha2.VirtualMachine, desiredTemplateNames map[string]struct{}) error {
+	var templates resourcev1.ResourceClaimTemplateList
+	if err := h.client.List(ctx, &templates, client.InNamespace(vm.Namespace)); err != nil {
+		return fmt.Errorf("failed to list GPU ResourceClaimTemplates: %w", err)
+	}
+
+	for i := range templates.Items {
+		template := &templates.Items[i]
+		if !metav1.IsControlledBy(template, vm) || !kvbuilder.IsGPUResourceClaimTemplateName(vm.Name, template.Name) {
+			continue
+		}
+		if _, ok := desiredTemplateNames[template.Name]; ok {
+			continue
+		}
+		if err := h.client.Delete(ctx, template); err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete GPU ResourceClaimTemplate: %w", err)
+		}
+	}
+	return nil
 }
