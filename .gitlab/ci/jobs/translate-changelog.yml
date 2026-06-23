@@ -45,7 +45,7 @@ translate:changelog:
   tags:
     - deckhouse
   before_script:
-    - bash .gitlab/ci/scripts/check-runner-tools.sh git curl jq python3
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh git curl jq python3
     - python3 -m venv /tmp/venv
     - /tmp/venv/bin/pip install --no-cache-dir deep-translator packaging
     - git -C "${CI_PROJECT_DIR}" config user.email "gitlab-ci@gitlab.com"

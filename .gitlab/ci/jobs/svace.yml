@@ -56,7 +56,7 @@ svace:set-vars:
       when: always
     - when: never
   before_script:
-    - bash .gitlab/ci/scripts/check-runner-tools.sh bash
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash
   script:
     - |
       set -euo pipefail
@@ -140,7 +140,7 @@ svace:notify:
   # TODO_RUNNER_TAG: short-lived helper, [deckhouse] is fine.
   interruptible: true
   before_script:
-    - bash .gitlab/ci/scripts/check-runner-tools.sh bash curl jq
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash curl jq
   variables:
     GIT_STRATEGY: none
   needs:

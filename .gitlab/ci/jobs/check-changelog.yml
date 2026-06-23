@@ -27,9 +27,9 @@ check:changelog:
   tags:
     - deckhouse
   before_script:
-    - bash .gitlab/ci/scripts/check-runner-tools.sh bash curl jq python3
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash curl jq python3
   script:
-    - bash .gitlab/ci/scripts/check-changelog-entry.sh
+    - bash .gitlab/ci/scripts/bash/check-changelog-entry.sh
   rules:
     # Skip-label must be first because GitLab rules are evaluated first-match.
     - if: $CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/check_changelog/

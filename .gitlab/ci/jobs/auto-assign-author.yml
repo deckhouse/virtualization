@@ -25,9 +25,9 @@ auto-assign-author:
   tags:
     - deckhouse
   before_script:
-    - bash .gitlab/ci/scripts/check-runner-tools.sh bash curl jq
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash curl jq
   script:
-    - bash .gitlab/ci/scripts/auto-assign-author.sh
+    - bash .gitlab/ci/scripts/bash/auto-assign-author.sh
   rules:
     # Run on every MR pipeline. The script is idempotent: it skips when the MR
     # already has an assignee, so re-running on each push is harmless. Gating on

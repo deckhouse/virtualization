@@ -39,7 +39,7 @@ For a release engineer:
 1. Verify all CI/CD variables from [§3](#3-required-cicd-variables) exist in
    the project's `Settings -> CI/CD -> Variables`. Add missing ones — they are
    not auto-provisioned.
-2. Run `bash .gitlab/ci/scripts/setup-mr-settings.sh --dry-run` to preview
+2. Run `bash .gitlab/ci/scripts/bash/setup-mr-settings.sh --dry-run` to preview
    the project MR settings that the script will apply, then drop `--dry-run`
    to apply them once.
 3. For a release: see [§8](#8-manual-pipelines) (`backport`, `changelog:milestone`,
@@ -61,24 +61,28 @@ For a release engineer:
     │   ├── manual-tools.yml                   # mrs:summary (Loop notification)
     │   └── translate-changelog.yml            # ru -> en changelog + MR
     └── scripts/
-        ├── auto-assign-author.sh
-        ├── backport.sh
-        ├── changelog-milestone.sh             # wrapper for changelog_collect.py
-        ├── changelog_collect.py
-        ├── check-changelog-entry.sh           # wrapper for check_changelog_entry.py
-        ├── check-milestone.sh
-        ├── check-runner-tools.sh              # shell-executor tool preflight
-        ├── check_changelog_entry.py
-        ├── setup-mr-settings.sh               # one-off project settings
-        └── lib/
-            └── api.sh                         # shared GitLab API helper
+        ├── bash/
+        │   ├── auto-assign-author.sh
+        │   ├── backport.sh
+        │   ├── changelog-milestone.sh         # wrapper for ../python/changelog_collect.py
+        │   ├── check-changelog-entry.sh       # wrapper for ../python/check_changelog_entry.py
+        │   ├── check-milestone.sh
+        │   ├── check-runner-tools.sh          # shell-executor tool preflight
+        │   ├── gitlab-ci-lint.sh
+        │   ├── set-vars.sh
+        │   ├── setup-mr-settings.sh           # one-off project settings
+        │   └── lib/
+        │       └── api.sh                     # shared GitLab API helper
+        └── python/
+            ├── changelog_collect.py
+            └── check_changelog_entry.py
 .gitlab/scripts/js/
 ├── package.json
 └── mrs_notifier.mjs                           # GitLab counterpart of prs_notifier.mjs
 ```
 
-Every job `extends` (or `include`s) a script in `.gitlab/ci/scripts/`.
-Scripts source `.gitlab/ci/scripts/lib/api.sh` for the `api GET / POST / PUT`
+Every job `extends` (or `include`s) a script in `.gitlab/ci/scripts/bash/`.
+Scripts source `.gitlab/ci/scripts/bash/lib/api.sh` for the `api GET / POST / PUT`
 helper.
 
 ## 3. Required CI/CD variables
@@ -203,7 +207,7 @@ The project runner is expected to use the GitLab Runner `shell` executor.
 For that executor, `image:` and container `entrypoint:` settings are ignored,
 so project jobs do not install packages with `apk`, `apt-get`, or other host
 package managers. Tools must already be installed on the runner host. Jobs that
-need non-trivial tools call `.gitlab/ci/scripts/check-runner-tools.sh` in
+need non-trivial tools call `.gitlab/ci/scripts/bash/check-runner-tools.sh` in
 `before_script` and fail early with a clear message if a tool is missing.
 
 Expected host tools for project-owned jobs:

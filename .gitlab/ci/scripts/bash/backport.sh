@@ -40,7 +40,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=.gitlab/ci/scripts/lib/api.sh
+# shellcheck source=.gitlab/ci/scripts/bash/lib/api.sh
 source "${SCRIPT_DIR}/lib/api.sh"
 
 gl_required_env CI_API_V4_URL GITLAB_API_TOKEN CI_PROJECT_ID CI_SERVER_HOST CI_PROJECT_PATH

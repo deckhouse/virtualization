@@ -20,7 +20,7 @@
 .local_deploy:
   stage: deploy
   script:
-    - bash .gitlab/ci/scripts/check-runner-tools.sh crane
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh crane
     - |
       REPO="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}/release"
 

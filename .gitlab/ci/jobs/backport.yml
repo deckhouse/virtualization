@@ -33,9 +33,9 @@ backport:
   tags:
     - deckhouse
   before_script:
-    - bash .gitlab/ci/scripts/check-runner-tools.sh bash git curl jq ssh-agent ssh-add
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash git curl jq ssh-agent ssh-add
   script:
-    - bash .gitlab/ci/scripts/backport.sh
+    - bash .gitlab/ci/scripts/bash/backport.sh
   rules:
     # Mode 1: explicit manual run with TARGET_BRANCH provided via UI.
     - if: $TARGET_BRANCH

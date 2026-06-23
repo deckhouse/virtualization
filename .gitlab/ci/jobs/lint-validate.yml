@@ -42,7 +42,7 @@ lint:no-cyrillic:
   variables:
     GIT_DEPTH: "0"
   before_script:
-    - bash .gitlab/ci/scripts/check-runner-tools.sh go task git
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task git
     - git fetch --no-tags origin +main:refs/remotes/origin/main
   script:
     - task validation:no-cyrillic
@@ -65,7 +65,7 @@ lint:doc-changes:
   variables:
     GIT_DEPTH: "0"
   before_script:
-    - bash .gitlab/ci/scripts/check-runner-tools.sh go task git
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task git
     - git fetch --no-tags origin +main:refs/remotes/origin/main
   script:
     - task validation:doc-changes
@@ -92,7 +92,7 @@ lint:shellcheck:
   # koalaman/shellcheck-alpine Docker image, so the runner needs docker —
   # not a host-installed shellcheck binary.
   before_script:
-    - bash .gitlab/ci/scripts/check-runner-tools.sh go task docker
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task docker
   script:
     - task lint:shellcheck
   rules:
@@ -111,7 +111,7 @@ lint:yaml:
   # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
   interruptible: true
   before_script:
-    - bash .gitlab/ci/scripts/check-runner-tools.sh go task
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task
   script:
     - task lint:prettier:yaml
   rules:
@@ -142,7 +142,7 @@ lint:helm-templates:
   # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
   interruptible: true
   before_script:
-    - bash .gitlab/ci/scripts/check-runner-tools.sh go task
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task
   script:
     - task validation:helm-templates
   rules:
@@ -184,7 +184,7 @@ check:gens-files:
   # are registered.
   interruptible: true
   before_script:
-    - bash .gitlab/ci/scripts/check-runner-tools.sh go task git
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task git
   script:
     - |
       set -e
@@ -244,7 +244,7 @@ check:gens-files:
 #
 # Authentication: PRIVATE-TOKEN via GITLAB_API_TOKEN (project access
 # token, scope api). The script lives in
-# .gitlab/ci/scripts/gitlab-ci-lint.sh (owned by this issue).
+# .gitlab/ci/scripts/bash/gitlab-ci-lint.sh (owned by this issue).
 # ---------------------------------------------------------------------------
 
 lint:gitlab-ci:
@@ -252,9 +252,9 @@ lint:gitlab-ci:
   # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
   interruptible: true
   before_script:
-    - bash .gitlab/ci/scripts/check-runner-tools.sh bash curl jq
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash curl jq
   script:
-    - bash .gitlab/ci/scripts/gitlab-ci-lint.sh
+    - bash .gitlab/ci/scripts/bash/gitlab-ci-lint.sh
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
