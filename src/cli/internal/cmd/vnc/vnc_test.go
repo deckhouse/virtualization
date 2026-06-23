@@ -19,9 +19,12 @@ package vnc
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -109,6 +112,61 @@ var _ = Describe("VNC", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(connectCalls).To(Equal(2))
 			Expect(clientCalls).To(Equal(2))
+		})
+
+		It("keeps proxy listener alive until context is canceled", func() {
+			proxyOnly = true
+			customPort = 0
+			listenAddress = "127.0.0.1"
+
+			clientAndNamespaceFromContext = func(context.Context) (kubeclient.Client, string, bool, error) {
+				return newFakeClient(), "default", false, nil
+			}
+
+			connectDone := make(chan struct{})
+			connectFunc = func(ctx context.Context, ln *net.TCPListener, _ kubeclient.Client, cmd *cobra.Command, _, _ string) error {
+				// Mirror real connect(): in proxy-only mode the listener must
+				// stay alive until ctx is canceled, not return immediately.
+				port := ln.Addr().(*net.TCPAddr).Port
+				Expect(port).To(BeNumerically(">", 0))
+				fmt.Fprintf(cmd.OutOrStdout(), "{\"port\":%d}\n", port)
+				<-ctx.Done()
+				close(connectDone)
+				return ctx.Err()
+			}
+
+			ctx, cancel := context.WithCancel(context.Background())
+			cmd := &cobra.Command{}
+			stdout := &bytes.Buffer{}
+			cmd.SetOut(stdout)
+			cmd.SetErr(stdout)
+			cmd.SetContext(ctx)
+
+			runDone := make(chan error, 1)
+			go func() { runDone <- (&VNC{}).Run(cmd, []string{"test-vm"}) }()
+
+			// Listener must be reachable after the port is printed.
+			Eventually(stdout).Should(ContainSubstring(`"port"`))
+			var port int
+			for _, line := range bytes.Split(stdout.Bytes(), []byte("\n")) {
+				if bytes.Contains(line, []byte(`"port"`)) {
+					Expect(json.Unmarshal(line, &struct {
+						Port *int `json:"port"`
+					}{Port: &port})).To(Succeed())
+					break
+				}
+			}
+
+			conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), time.Second)
+			Expect(err).NotTo(HaveOccurred())
+			conn.Close()
+
+			// Run must not return on its own: proxy stays up until ctx cancel.
+			Consistently(runDone, 200*time.Millisecond).ShouldNot(Receive())
+
+			cancel()
+			Eventually(connectDone).Should(BeClosed())
+			Eventually(runDone).Should(Receive())
 		})
 	})
 })
