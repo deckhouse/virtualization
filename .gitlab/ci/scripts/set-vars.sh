@@ -31,11 +31,13 @@
 #       reports:
 #         dotenv: set_vars.env
 
+# shellcheck disable=SC2154 # CI_* and GITLAB_API_TOKEN are injected by the GitLab Runner at job runtime.
+
 set -euo pipefail
 
 # Source the api() helper for the GitLab API call below.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib/api.sh
+# shellcheck source=.gitlab/ci/scripts/lib/api.sh
 source "${SCRIPT_DIR}/lib/api.sh"
 
 OUTPUT="${CI_PROJECT_DIR:-.}/set_vars.env"

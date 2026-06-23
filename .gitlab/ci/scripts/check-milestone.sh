@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# shellcheck disable=SC2154 # CI_* and GITLAB_API_TOKEN are injected by the GitLab Runner at job runtime.
+
 # Check that the current MR has a milestone assigned.
 #
 # Migration of .github/workflows/check-pr-milestone.yml which used
@@ -29,7 +31,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib/api.sh
+# shellcheck source=.gitlab/ci/scripts/lib/api.sh
 source "${SCRIPT_DIR}/lib/api.sh"
 
 if [[ "${CI_PIPELINE_SOURCE:-}" != "merge_request_event" ]]; then
