@@ -131,6 +131,74 @@ lint:yaml:
           - ".gitlab/**/*"
 
 # ---------------------------------------------------------------------------
+# go (golangci-lint across every Go module)
+#
+# Migration of the GitHub Actions `lint_go` job from
+# .github/workflows/dev_module_build.yml. It installs the pinned
+# golangci-lint v${GOLANGCI_LINT_VERSION} (same method/version as the GH job)
+# and runs `golangci-lint run` in every directory that ships a .golangci.yaml,
+# excluding the upstream/vendored modules that GH also skipped:
+#   images/cdi-cloner/cloner-startup, images/dvcr-artifact, test/performance/shatal.
+# This supersedes the old single-dir `lint:virtualization-controller` job.
+# ---------------------------------------------------------------------------
+
+lint:go:
+  stage: lint
+  # TODO_RUNNER_TAG: lints every Go module; may need [deckhouse, large] once
+  # runners are registered.
+  interruptible: true
+  before_script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go curl
+    - |
+      set -e
+      # Install the pinned prebuilt golangci-lint v2 binary.
+      curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
+        | sh -s -- -b "$(go env GOPATH)/bin" "v${GOLANGCI_LINT_VERSION}"
+      export PATH="$(go env GOPATH)/bin:${PATH}"
+      golangci-lint --version
+  script:
+    - |
+      set -e
+      export PATH="$(go env GOPATH)/bin:${PATH}"
+
+      # Directories containing a .golangci.yaml, excluding the same upstream /
+      # vendored modules as .github/workflows/dev_module_build.yml (lint_go).
+      mapfile -t config_dirs < <(
+        find . \
+          -path ./images/cdi-cloner/cloner-startup -prune -o \
+          -path ./images/dvcr-artifact -prune -o \
+          -path ./test/performance/shatal -prune -o \
+          -type f -name '.golangci.yaml' -not -type l -printf '%h\0' | \
+        xargs -0 -n1 | sort -u
+      )
+      count=${#config_dirs[@]}
+      echo "Found ${count} directories with golangci-lint configurations"
+
+      error_count=0
+      for dir in "${config_dirs[@]}"; do
+        echo "------------------------------------------------------------"
+        echo "Linting: ${dir}"
+        pushd "$dir" >/dev/null
+        if ! golangci-lint run; then
+          error_count=$(( error_count + 1 ))
+        fi
+        popd >/dev/null
+      done
+
+      if [ "$error_count" -gt 0 ]; then
+        echo "${error_count} directory/directories failed golangci-lint"
+        exit 1
+      fi
+      echo "All golangci-lint checks passed"
+  rules:
+    - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/go/'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: "$CI_COMMIT_BRANCH =~ /^release-/"
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+
+# ---------------------------------------------------------------------------
 # helm_templates
 #
 # GH used dorny/paths-filter to gate this on changes to helm-related
@@ -142,7 +210,35 @@ lint:helm-templates:
   # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
   interruptible: true
   before_script:
-    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task
+    # go + task are host tools; docker runs kubeconform; git/curl/python3 are
+    # needed by tools/kubeconform/kubeconform.sh (clone kubeconform.git, fetch
+    # CRD schemas, run openapi2jsonschema.py).
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task docker git curl python3
+    - |
+      # Helm and jq are not guaranteed on the runner host. Install portable
+      # prebuilt binaries into a user-writable dir on PATH (no sudo needed).
+      set -e
+      case "$(uname -m)" in
+        x86_64)         arch="amd64" ;;
+        aarch64|arm64)  arch="arm64" ;;
+        *)              arch="amd64" ;;
+      esac
+      bin_dir="$HOME/.local/bin"
+      mkdir -p "$bin_dir"
+      export PATH="$bin_dir:$PATH"
+      if ! command -v helm >/dev/null 2>&1; then
+        echo "Installing Helm v${HELM_VERSION} (${arch})..."
+        curl -sSfL "https://get.helm.sh/helm-v${HELM_VERSION}-linux-${arch}.tar.gz" -o /tmp/helm.tar.gz
+        tar -xzf /tmp/helm.tar.gz -C /tmp "linux-${arch}/helm"
+        install -m 0755 "/tmp/linux-${arch}/helm" "$bin_dir/helm"
+        helm version
+      fi
+      if ! command -v jq >/dev/null 2>&1; then
+        echo "Installing jq v${JQ_VERSION} (${arch})..."
+        curl -sSfL -o "$bin_dir/jq" "https://github.com/jqlang/jq/releases/download/jq-${JQ_VERSION}/jq-linux-${arch}"
+        chmod +x "$bin_dir/jq"
+        jq --version
+      fi
   script:
     - task validation:helm-templates
   rules:
