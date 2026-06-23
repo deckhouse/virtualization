@@ -29,11 +29,9 @@ auto-assign-author:
   script:
     - bash .gitlab/ci/scripts/auto-assign-author.sh
   rules:
-    # Only run on MR open/reopen events; do not re-run on every push.
+    # Run on every MR pipeline. The script is idempotent: it skips when the MR
+    # already has an assignee, so re-running on each push is harmless. Gating on
+    # changes: to this job's own files (the previous behaviour) was wrong — it
+    # meant the author was only auto-assigned when the auto-assign files changed,
+    # which never happens on normal MRs.
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        paths:
-          - .gitlab/ci/scripts/auto-assign-author.sh
-          - .gitlab/ci/jobs/auto-assign-author.yml
-    # Open MR without a triggering push (e.g. from Run pipeline UI) is also covered
-    # by the merge_request_event pipeline source above; no manual trigger needed.
