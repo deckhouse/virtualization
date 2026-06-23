@@ -403,7 +403,7 @@ shell:
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-gobuilder
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.25" "builder/golang-alt-svace-1.25" }}
+fromImage: builder/golang-alt-1.25
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}/node-labeller
     to: /node-labeller
@@ -455,7 +455,7 @@ shell:
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-debian-1.25" "builder/golang-alt-svace-1.25" }}
+fromImage: builder/golang-debian-1.25
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}/static_binaries
     to: /static_binaries
