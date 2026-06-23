@@ -63,7 +63,6 @@ if [[ -z "${SHELLCHECK_ARCH:-}" ]]; then
     *)             SHELLCHECK_ARCH="x86_64" ;;
   esac
 fi
-ARCH_DIR="shellcheck-${VERSION}.linux.${SHELLCHECK_ARCH}"
 
 # Prerequisites: a downloader + tar with xz support.
 if command -v curl >/dev/null 2>&1; then
@@ -79,13 +78,22 @@ command -v xz >/dev/null 2>&1 || fail "xz is required to decompress the .tar.xz 
 
 mkdir -p "${INSTALL_DIR}"
 
-URL="https://github.com/koalaman/shellcheck/releases/download/${VERSION}/shellcheck-${VERSION}.linux.${SHELLCHECK_ARCH}"
+# Release asset name is shellcheck-<version>.linux.<arch>.tar.xz. The inner
+# directory of the tarball is just shellcheck-<version> (no arch suffix), so
+# extract into a temp dir and move the binary instead of hard-coding the path.
+URL="https://github.com/koalaman/shellcheck/releases/download/${VERSION}/shellcheck-${VERSION}.linux.${SHELLCHECK_ARCH}.tar.xz"
 
 log "Installing shellcheck ${VERSION} -> ${INSTALL_DIR}"
 log "Downloading ${URL}"
-fetch "${URL}" | tar -xJ --strip-components=1 -C "${INSTALL_DIR}" "${ARCH_DIR}/shellcheck"
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "${TMP_DIR}"' EXIT
+fetch "${URL}" | tar -xJ -C "${TMP_DIR}"
 
-chmod +x "${INSTALL_DIR}/shellcheck"
+# The archive contains a single shellcheck-<version>/ directory.
+BINARY="$(find "${TMP_DIR}" -type f -name shellcheck -print -quit)"
+[[ -n "${BINARY}" ]] || fail "shellcheck binary not found in the extracted archive"
+
+install -m 0755 "${BINARY}" "${INSTALL_DIR}/shellcheck"
 
 # Ensure the install dir is on PATH for the rest of the job. On the GitLab
 # shell executor before_script and script share one bash session, so this
