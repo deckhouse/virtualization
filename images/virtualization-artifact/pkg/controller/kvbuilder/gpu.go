@@ -19,9 +19,8 @@ package kvbuilder
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
-
 	"slices"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
