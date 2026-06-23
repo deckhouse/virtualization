@@ -28,7 +28,7 @@ var _ = Describe("GPU", func() {
 	It("should render DRA GPU resource claims", func() {
 		kvvm := NewEmptyKVVM(types.NamespacedName{Name: "vm-a", Namespace: "default"}, KVVMOptions{})
 
-		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", Model: "h100-sxm5-96gb"}})
+		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", Model: "NVIDIA H100"}})
 		res := kvvm.GetResource()
 
 		Expect(res.Spec.Template.Spec.ResourceClaims).To(HaveLen(1))
@@ -45,8 +45,8 @@ var _ = Describe("GPU", func() {
 		kvvm := NewEmptyKVVM(types.NamespacedName{Name: "vm-a", Namespace: "default"}, KVVMOptions{})
 
 		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{
-			{Name: "gpu1", Model: "h100-sxm5-96gb"},
-			{Name: "gpu0", Model: "a100-sxm4-40gb"},
+			{Name: "gpu1", Model: "NVIDIA H100"},
+			{Name: "gpu0", Model: "NVIDIA A100-SXM4-40GB"},
 		})
 		res := kvvm.GetResource()
 
@@ -60,9 +60,9 @@ var _ = Describe("GPU", func() {
 
 	It("should replace rendered DRA GPU resource claims", func() {
 		kvvm := NewEmptyKVVM(types.NamespacedName{Name: "vm-a", Namespace: "default"}, KVVMOptions{})
-		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", Model: "h100-sxm5-96gb"}})
+		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", Model: "NVIDIA H100"}})
 
-		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu1", Model: "a100-sxm4-40gb"}})
+		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu1", Model: "NVIDIA A100-SXM4-40GB"}})
 		res := kvvm.GetResource()
 
 		Expect(res.Spec.Template.Spec.ResourceClaims).To(HaveLen(1))
@@ -74,7 +74,7 @@ var _ = Describe("GPU", func() {
 
 	It("should remove rendered DRA GPU resource claims", func() {
 		kvvm := NewEmptyKVVM(types.NamespacedName{Name: "vm-a", Namespace: "default"}, KVVMOptions{})
-		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", Model: "h100-sxm5-96gb"}})
+		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", Model: "NVIDIA H100"}})
 
 		kvvm.SetGPUDevices("vm-a", nil)
 		res := kvvm.GetResource()

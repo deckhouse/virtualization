@@ -518,10 +518,9 @@ type GPUDeviceSpec struct {
 	// +kubebuilder:validation:MaxLength:=63
 	// +kubebuilder:validation:Pattern:=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 	Name string `json:"name"`
-	// GPU model identifier, for example h100-sxm5-96gb.
+	// GPU product name, for example NVIDIA H100.
 	// +kubebuilder:validation:MinLength:=1
-	// +kubebuilder:validation:MaxLength:=63
-	// +kubebuilder:validation:Pattern:=`^[A-Za-z0-9]([A-Za-z0-9_.-]*[A-Za-z0-9])?$`
+	// +kubebuilder:validation:MaxLength:=128
 	Model string `json:"model"`
 }
 
