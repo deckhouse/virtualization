@@ -115,7 +115,7 @@ func buildGPUResourceClaimTemplate(vm *v1alpha2.VirtualMachine, name string, spe
 
 func buildGPUResourceClaimTemplateSpec(device v1alpha2.GPUDeviceSpec) resourcev1.ResourceClaimTemplateSpec {
 	selector := fmt.Sprintf(
-		`device.attributes["gpu.deckhouse.io"].device == %s && device.attributes["gpu.deckhouse.io"].deviceType == "physical" && !has(device.attributes["gpu.deckhouse.io"].sharingStrategy)`,
+		`device.attributes["gpu.deckhouse.io"].productName == %s && device.attributes["gpu.deckhouse.io"].deviceType == "physical" && !has(device.attributes["gpu.deckhouse.io"].sharingStrategy)`,
 		strconv.Quote(device.Model),
 	)
 	return resourcev1.ResourceClaimTemplateSpec{

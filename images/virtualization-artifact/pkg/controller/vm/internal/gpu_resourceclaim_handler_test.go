@@ -33,7 +33,7 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 	const (
 		vmName    = "vm-a"
 		namespace = "default"
-		gpuModel  = "h100-sxm5-96gb"
+		gpuModel  = "NVIDIA H100"
 	)
 
 	newVM := func(devices ...v1alpha2.GPUDeviceSpec) *v1alpha2.VirtualMachine {
@@ -56,7 +56,7 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 		request := template.Spec.Spec.Devices.Requests[0]
 		Expect(request.Name).To(Equal(kvbuilder.GPUResourceClaimRequestName("gpu0")))
 		Expect(request.Exactly.DeviceClassName).To(Equal(gpuDeviceClassName))
-		Expect(request.Exactly.Selectors[0].CEL.Expression).To(ContainSubstring(`device == "h100-sxm5-96gb"`))
+		Expect(request.Exactly.Selectors[0].CEL.Expression).To(ContainSubstring(`productName == "NVIDIA H100"`))
 		Expect(request.Exactly.Selectors[0].CEL.Expression).To(ContainSubstring(`deviceType == "physical"`))
 		Expect(request.Exactly.Selectors[0].CEL.Expression).To(ContainSubstring(`!has(device.attributes["gpu.deckhouse.io"].sharingStrategy)`))
 	})

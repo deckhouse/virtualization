@@ -313,7 +313,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 		vmClass := makeVMClass()
 
 		vm := makeVM(v1alpha2.MachineRunning)
-		vm.Spec.GPUDevices = []v1alpha2.GPUDeviceSpec{{Name: "gpu0", Model: "h100-sxm5-96gb"}}
+		vm.Spec.GPUDevices = []v1alpha2.GPUDeviceSpec{{Name: "gpu0", Model: "NVIDIA H100"}}
 		kvvm := makeKVVM(vm)
 		Expect(kvbuilder.SetLastAppliedSpec(kvvm, &v1alpha2.VirtualMachine{
 			Spec: v1alpha2.VirtualMachineSpec{
@@ -330,7 +330,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 				Disruptions: &v1alpha2.Disruptions{
 					RestartApprovalMode: vm.Spec.Disruptions.RestartApprovalMode,
 				},
-				GPUDevices: []v1alpha2.GPUDeviceSpec{{Name: "gpu0", Model: "a100-sxm4-40gb"}},
+				GPUDevices: []v1alpha2.GPUDeviceSpec{{Name: "gpu0", Model: "NVIDIA A100-SXM4-40GB"}},
 			},
 		})).To(Succeed())
 		kvvm.SetGroupVersionKind(virtv1.VirtualMachineGroupVersionKind)
