@@ -42,6 +42,19 @@ svace:set-vars:
   stage: info
   # TODO_RUNNER_TAG: short-lived helper job, [deckhouse] is fine.
   interruptible: true
+  # Only emit the svace tag dotenv in contexts where svace actually runs.
+  # Without these rules this job ran on EVERY MR pipeline and leaked a
+  # MODULES_MODULE_TAG=<branch>-svace dotenv artifact into build jobs,
+  # overriding their own mr<iid> tag. Runs automatically (no `when: manual`)
+  # so the manual svace:build job can consume its artifact.
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: always
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: always
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $SVACE_PIPELINE_ENABLED == "true"'
+      when: always
+    - when: never
   before_script:
     - bash .gitlab/ci/scripts/check-runner-tools.sh bash
   script:
