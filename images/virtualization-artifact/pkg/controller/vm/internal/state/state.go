@@ -23,7 +23,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -37,12 +36,10 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/nodeaffinity"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type VirtualMachineState interface {
@@ -450,8 +447,7 @@ func (s *state) isVolumeMigrating(ctx context.Context, refs []blockDeviceRef) (b
 		if vd == nil {
 			continue
 		}
-		migrating, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
-		if migrating.Status == metav1.ConditionTrue {
+		if commonvd.IsMigrating(vd) {
 			return true, nil
 		}
 	}
@@ -539,10 +535,7 @@ func (s *state) resolveStorageClassName(ctx context.Context, kind v1alpha2.Block
 		}
 		// During migration, status.StorageClassName can still point to the old PVC's class.
 		// Avoid using it for the target PVC; rely on target PVC fields instead.
-		migrating, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
-		if migrating.Status == metav1.ConditionTrue &&
-			conditions.IsLastUpdated(migrating, vd) &&
-			vd.Status.MigrationState.TargetPVC == pvcName {
+		if commonvd.IsMigrating(vd) && vd.Status.MigrationState.TargetPVC == pvcName {
 			return "", nil
 		}
 		return commonvd.ResolveStorageClassName(ctx, vd, nil)
