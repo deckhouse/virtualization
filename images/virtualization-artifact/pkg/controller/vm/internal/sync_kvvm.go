@@ -1234,10 +1234,10 @@ func (h *SyncKvvmHandler) buildInProgressInplaceResizeMsg(kvvmi *virtv1.VirtualM
 
 	cond := h.inplaceResize.ResizeCondition(kvvmi)
 	switch cond.Reason {
-	case "PodResizePending", "PodResizeInProgress":
+	case virtv1.VirtualMachineInstanceReasonPodResizePending, virtv1.VirtualMachineInstanceReasonPodResizeInProgress:
 		msg.WriteString(" ")
 		msg.WriteString(strings.ReplaceAll(cond.Message, "Pod", "VM"))
-	case "PodResizeCompleted":
+	case virtv1.VirtualMachineInstanceReasonPodResizeCompleted:
 		msg.WriteString(" Waiting when cpu and memory will be hotplugged on virtual machine.")
 	default:
 		msg.WriteString(" reason: ")

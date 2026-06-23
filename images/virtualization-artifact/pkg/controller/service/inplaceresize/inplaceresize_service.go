@@ -26,7 +26,6 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
@@ -45,28 +44,28 @@ type Service struct {
 }
 
 func (s *Service) InProgress(kvvmi *virtv1.VirtualMachineInstance) bool {
-	return s.featureGates.Enabled(featuregates.HotplugCPUAndMemoryWithInPlaceResize) && kvvmi != nil && kvvmi.GetAnnotations()[annotations.AnnVirtualMachineInstanceInPlaceResizeInProgress] == "true"
+	return s.featureGates.Enabled(featuregates.HotplugCPUAndMemoryWithInPlaceResize) && kvvmi != nil && kvvmi.GetAnnotations()[virtv1.VirtualMachineInstanceInPlaceResizeInProgressAnn] == "true"
 }
 
 func (s *Service) IsCompleted(kvvmi *virtv1.VirtualMachineInstance) bool {
-	cond, _ := conditions.GetKVVMICondition("PodResourceResizeInProgress", kvvmi.Status.Conditions)
-	return cond.Reason == "PodResizeCompleted"
+	cond, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstancePodResourceResizeInProgress, kvvmi.Status.Conditions)
+	return cond.Reason == virtv1.VirtualMachineInstanceReasonPodResizeCompleted
 }
 
 var ErrConditionNotFound = errors.New("condition not found")
 
 func (s *Service) IsPossible(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
-	cond, exists := conditions.GetKVVMICondition("PodResourceResizeInProgress", kvvmi.Status.Conditions)
+	cond, exists := conditions.GetKVVMICondition(virtv1.VirtualMachineInstancePodResourceResizeInProgress, kvvmi.Status.Conditions)
 	if !exists {
-		return false, fmt.Errorf("failed to get PodResourceResizeInProgress condition: %w", ErrConditionNotFound)
+		return false, fmt.Errorf("failed to get %s condition: %w", virtv1.VirtualMachineInstancePodResourceResizeInProgress, ErrConditionNotFound)
 	}
 
 	switch cond.Reason {
-	case "PodResizeCompleted":
+	case virtv1.VirtualMachineInstanceReasonPodResizeCompleted:
 		return false, nil
-	case "PodResizePending", "PodResizeInProgress":
+	case virtv1.VirtualMachineInstanceReasonPodResizePending, virtv1.VirtualMachineInstanceReasonPodResizeInProgress:
 	default:
-		return false, fmt.Errorf("unexpected PodResourceResizeInProgress condition reason: %s", cond.Reason)
+		return false, fmt.Errorf("unexpected %s condition reason: %s", virtv1.VirtualMachineInstancePodResourceResizeInProgress, cond.Reason)
 	}
 
 	pod, err := kvvm.FindPodByKVVMI(ctx, s.client, kvvmi)
@@ -87,7 +86,7 @@ func (s *Service) IsPossible(ctx context.Context, kvvmi *virtv1.VirtualMachineIn
 }
 
 func (s *Service) ResizeCondition(kvvmi *virtv1.VirtualMachineInstance) virtv1.VirtualMachineInstanceCondition {
-	cond, _ := conditions.GetKVVMICondition("PodResourceResizeInProgress", kvvmi.Status.Conditions)
+	cond, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstancePodResourceResizeInProgress, kvvmi.Status.Conditions)
 	return cond
 }
 

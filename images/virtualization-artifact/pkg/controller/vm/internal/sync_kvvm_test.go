@@ -31,7 +31,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -178,11 +177,11 @@ var _ = Describe("SyncKvvmHandler", func() {
 	makeResizingKVVMI := func(reason, message string, conditionType virtv1.VirtualMachineInstanceConditionType) *virtv1.VirtualMachineInstance {
 		kvvmi := makeKVVMI()
 		kvvmi.Annotations = map[string]string{
-			annotations.AnnVirtualMachineInstanceInPlaceResizeInProgress: "true",
+			virtv1.VirtualMachineInstanceInPlaceResizeInProgressAnn: "true",
 		}
 		kvvmi.Status.Conditions = []virtv1.VirtualMachineInstanceCondition{
 			{
-				Type:    "PodResourceResizeInProgress",
+				Type:    virtv1.VirtualMachineInstancePodResourceResizeInProgress,
 				Status:  corev1.ConditionTrue,
 				Reason:  reason,
 				Message: message,
@@ -520,19 +519,19 @@ var _ = Describe("SyncKvvmHandler", func() {
 		Entry(
 			"cpu hotplug pending",
 			newFeatureGateEnableResourceInPlaceResize(),
-			makeResizingKVVMI(string(corev1.PodResizePending), "Waiting for kubelet", virtv1.VirtualMachineInstanceVCPUChange),
+			makeResizingKVVMI(virtv1.VirtualMachineInstanceReasonPodResizePending, "Waiting for kubelet", virtv1.VirtualMachineInstanceVCPUChange),
 			"CPU hotplug is in progress. Waiting for kubelet",
 		),
 		Entry(
 			"memory hotplug in progress",
 			newFeatureGateEnableResourceInPlaceResize(),
-			makeResizingKVVMI(string(corev1.PodResizeInProgress), "Resizing pod resources", virtv1.VirtualMachineInstanceMemoryChange),
+			makeResizingKVVMI(virtv1.VirtualMachineInstanceReasonPodResizeInProgress, "Resizing pod resources", virtv1.VirtualMachineInstanceMemoryChange),
 			"Memory hotplug is in progress. Resizing pod resources",
 		),
 		Entry(
 			"resize completed",
 			newFeatureGateEnableResourceInPlaceResize(),
-			makeResizingKVVMI("PodResizeCompleted", "Completed", virtv1.VirtualMachineInstanceVCPUChange),
+			makeResizingKVVMI(virtv1.VirtualMachineInstanceReasonPodResizeCompleted, "Completed", virtv1.VirtualMachineInstanceVCPUChange),
 			"CPU hotplug is in progress. Waiting when cpu and memory will be hotplugged on virtual machine.",
 		),
 		Entry(

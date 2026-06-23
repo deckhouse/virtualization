@@ -249,9 +249,6 @@ const (
 	DefaultUSBDeviceGroup = "64535"
 	// DefaultUSBDeviceUser is the default device user ID for USB devices.
 	DefaultUSBDeviceUser = "64535"
-
-	AnnVirtualMachineInstanceInPlaceResizeInProgress = "kubevirt.io/in-place-resize-in-progress"
-	AnnVirtualMachineInstanceDisableInPlaceResize    = "kubevirt.io/disable-in-place-resize"
 )
 
 // AddAnnotation adds an annotation to an object

@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/inplaceresize"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -76,9 +75,9 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 			if kvvmi.Annotations == nil {
 				kvvmi.Annotations = make(map[string]string)
 			}
-			kvvmi.Annotations[annotations.AnnVirtualMachineInstanceInPlaceResizeInProgress] = "true"
+			kvvmi.Annotations[virtv1.VirtualMachineInstanceInPlaceResizeInProgressAnn] = "true"
 			kvvmi.Status.Conditions = append(kvvmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
-				Type:   "PodResourceResizeInProgress",
+				Type:   virtv1.VirtualMachineInstancePodResourceResizeInProgress,
 				Status: corev1.ConditionTrue,
 				Reason: resizeState.conditionReason,
 			})
@@ -88,7 +87,7 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 	}
 
 	newLauncherPod := func(kvvmi *virtv1.VirtualMachineInstance, resizeState inPlaceResizeState) *corev1.Pod {
-		if !resizeState.inProgress || resizeState.conditionReason == "PodResizeCompleted" {
+		if !resizeState.inProgress || resizeState.conditionReason == virtv1.VirtualMachineInstanceReasonPodResizeCompleted {
 			return nil
 		}
 
@@ -239,7 +238,7 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 				expectedMigrationCalls:      0,
 				resizeState: inPlaceResizeState{
 					inProgress:      true,
-					conditionReason: "PodResizeCompleted",
+					conditionReason: virtv1.VirtualMachineInstanceReasonPodResizeCompleted,
 				},
 			},
 		),
@@ -250,7 +249,7 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 				expectedMigrationCalls:      0,
 				resizeState: inPlaceResizeState{
 					inProgress:      true,
-					conditionReason: "PodResizePending",
+					conditionReason: virtv1.VirtualMachineInstanceReasonPodResizePending,
 				},
 			},
 		),
@@ -263,7 +262,7 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 				expectedErr:                 serviceCompleteErr,
 				resizeState: inPlaceResizeState{
 					inProgress:             true,
-					conditionReason:        "PodResizePending",
+					conditionReason:        virtv1.VirtualMachineInstanceReasonPodResizePending,
 					podResizePendingReason: string(corev1.PodReasonDeferred),
 				},
 			},
@@ -277,7 +276,7 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 				expectedErr:                 serviceCompleteErr,
 				resizeState: inPlaceResizeState{
 					inProgress:             true,
-					conditionReason:        "PodResizeInProgress",
+					conditionReason:        virtv1.VirtualMachineInstanceReasonPodResizeInProgress,
 					podResizePendingReason: string(corev1.PodReasonInfeasible),
 				},
 			},
@@ -291,7 +290,7 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 				expectedErr:                 serviceCompleteErr,
 				resizeState: inPlaceResizeState{
 					inProgress:                true,
-					conditionReason:           "PodResizeInProgress",
+					conditionReason:           virtv1.VirtualMachineInstanceReasonPodResizeInProgress,
 					podResizeInProgressReason: string(corev1.PodReasonError),
 				},
 			},
