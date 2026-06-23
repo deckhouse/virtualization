@@ -75,26 +75,28 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 		return reconcile.Result{}, err
 	}
 
-	availableNodeNames := make([]string, len(availableNodes))
-	for i, n := range availableNodes {
-		availableNodeNames[i] = n.GetName()
-	}
-
-	var (
-		featuresEnabled    []string
-		featuresNotEnabled []string
-	)
+	var featuresEnabled []string
+	var discoveryPool []corev1.Node
 	switch cpuType {
 	case v1alpha2.CPUTypeDiscovery:
-		if fs := current.Status.CpuFeatures.Enabled; len(fs) > 0 {
-			featuresEnabled = fs
-			break
+		// Discover features from the discovery nodeSelector pool, then restrict
+		// schedulable nodes to those that expose every discovered feature so
+		// VMs can only land on nodes compatible with the universal CPU model.
+		discoveryPool, err = s.DiscoveryNodes(ctx)
+		if err != nil {
+			return reconcile.Result{}, err
 		}
-		featuresEnabled = h.discoveryCommonFeatures(nodes)
+		featuresEnabled = h.discoveryCommonFeatures(discoveryPool)
+		availableNodes = h.nodesWithAllFeatures(availableNodes, featuresEnabled)
 	case v1alpha2.CPUTypeFeatures:
 		featuresEnabled = current.Spec.CPU.Features
 	}
 
+	// notEnabledCommon: CPU features common to every available node but not
+	// part of the enabled model. For Discovery these are features present on
+	// all schedulable nodes beyond the discovered intersection; for Features
+	// these are features the nodes support but the user did not request.
+	var featuresNotEnabled []string
 	if cpuType == v1alpha2.CPUTypeDiscovery || cpuType == v1alpha2.CPUTypeFeatures {
 		commonFeatures := h.discoveryCommonFeatures(availableNodes)
 		for _, cf := range commonFeatures {
@@ -104,14 +106,25 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 		}
 	}
 
+	availableNodeNames := make([]string, len(availableNodes))
+	for i, n := range availableNodes {
+		availableNodeNames[i] = n.GetName()
+	}
+
 	cb := conditions.NewConditionBuilder(vmclasscondition.TypeDiscovered).Generation(current.GetGeneration())
 	switch cpuType {
 	case v1alpha2.CPUTypeDiscovery:
+		if len(discoveryPool) == 0 {
+			cb.Message("No nodes match the discovery nodeSelector; skipping feature discovery.").
+				Reason(vmclasscondition.ReasonDiscoveryFailed).
+				Status(metav1.ConditionFalse)
+			break
+		}
 		if len(featuresEnabled) > 0 {
 			cb.Message("").Reason(vmclasscondition.ReasonDiscoverySucceeded).Status(metav1.ConditionTrue)
 			break
 		}
-		cb.Message("No common features are discovered on nodes.").
+		cb.Message("No common CPU features are discovered across discovery nodes.").
 			Reason(vmclasscondition.ReasonDiscoveryFailed).
 			Status(metav1.ConditionFalse)
 	default:
@@ -209,6 +222,34 @@ func (h *DiscoveryHandler) discoveryCommonFeatures(nodes []corev1.Node) []string
 		}
 	}
 	return features
+}
+
+// nodesWithAllFeatures keeps only nodes whose labels confirm every feature is
+// present. When features is empty no filtering is applied and nodes are
+// returned as-is.
+func (h *DiscoveryHandler) nodesWithAllFeatures(nodes []corev1.Node, features []string) []corev1.Node {
+	if len(features) == 0 {
+		return nodes
+	}
+	required := make(map[string]struct{}, len(features))
+	for _, f := range features {
+		required[virtv1.CPUFeatureLabel+f] = struct{}{}
+	}
+	result := make([]corev1.Node, 0, len(nodes))
+	for _, n := range nodes {
+		labels := n.GetLabels()
+		ok := true
+		for k := range required {
+			if labels[k] != "true" {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			result = append(result, n)
+		}
+	}
+	return result
 }
 
 func (h *DiscoveryHandler) maxAllocatableResources(nodes []corev1.Node) corev1.ResourceList {

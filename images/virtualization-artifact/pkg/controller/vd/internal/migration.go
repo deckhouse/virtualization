@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -648,6 +649,11 @@ func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+
+	// A previous migration's PVC may still be terminating when the next migration starts, remove it
+	pvcs = slices.DeleteFunc(pvcs, func(pvc corev1.PersistentVolumeClaim) bool {
+		return pvc.Name != sourcePVCName && pvc.DeletionTimestamp != nil
+	})
 
 	if targetPVCName == sourcePVCName && targetPVCName != "" {
 		logger.FromContext(ctx).Debug("Target PersistentVolumeClaim name matches source PersistentVolumeClaim; ignoring stale target name",
