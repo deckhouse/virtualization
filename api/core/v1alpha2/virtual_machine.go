@@ -121,7 +121,7 @@ type VirtualMachineSpec struct {
 	USBDevices []USBDeviceSpecRef `json:"usbDevices,omitempty"`
 	// List of GPU devices to attach to the virtual machine.
 	// Devices are requested by GPU model.
-	// +kubebuilder:validation:MaxItems:=8
+	// +kubebuilder:validation:MaxItems:=16
 	// +listType=map
 	// +listMapKey=name
 	GPUDevices []GPUDeviceSpec `json:"gpuDevices,omitempty"`
