@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -34,40 +33,37 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 	const (
 		vmName    = "vm-a"
 		namespace = "default"
-		gpuID     = "GPU-test"
+		gpuModel  = "h100-sxm5-96gb"
 	)
 
-	newVM := func(id string) *v1alpha2.VirtualMachine {
-		vm := &v1alpha2.VirtualMachine{
-			ObjectMeta: metav1.ObjectMeta{Name: vmName, Namespace: namespace, Annotations: map[string]string{}},
+	newVM := func(devices ...v1alpha2.GPUDeviceSpec) *v1alpha2.VirtualMachine {
+		return &v1alpha2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: vmName, Namespace: namespace},
+			Spec:       v1alpha2.VirtualMachineSpec{GPUDevices: devices},
 		}
-		if id != "" {
-			vm.Annotations[annotations.AnnVMGPUID] = id
-		}
-		return vm
 	}
 
 	It("should create GPU ResourceClaimTemplate", func() {
-		fakeClient, _, vmState := setupEnvironment(newVM(gpuID))
+		fakeClient, _, vmState := setupEnvironment(newVM(v1alpha2.GPUDeviceSpec{Name: "gpu0", Model: gpuModel}))
 		handler := NewGPUResourceClaimHandler(fakeClient)
 
 		_, err := handler.Handle(context.Background(), vmState)
 
 		Expect(err).NotTo(HaveOccurred())
 		template := &resourcev1.ResourceClaimTemplate{}
-		Expect(fakeClient.Get(context.Background(), types.NamespacedName{Name: kvbuilder.GPUResourceClaimTemplateName(vmName), Namespace: namespace}, template)).To(Succeed())
+		Expect(fakeClient.Get(context.Background(), types.NamespacedName{Name: kvbuilder.GPUResourceClaimTemplateName(vmName, "gpu0"), Namespace: namespace}, template)).To(Succeed())
 		Expect(template.Spec.Spec.Devices.Requests).To(HaveLen(1))
 		request := template.Spec.Spec.Devices.Requests[0]
-		Expect(request.Name).To(Equal(kvbuilder.GPUResourceClaimRequestName))
+		Expect(request.Name).To(Equal(kvbuilder.GPUResourceClaimRequestName("gpu0")))
 		Expect(request.Exactly.DeviceClassName).To(Equal(gpuDeviceClassName))
-		Expect(request.Exactly.Selectors[0].CEL.Expression).To(ContainSubstring(`gpuUUID == "GPU-test"`))
+		Expect(request.Exactly.Selectors[0].CEL.Expression).To(ContainSubstring(`device == "h100-sxm5-96gb"`))
 		Expect(request.Exactly.Selectors[0].CEL.Expression).To(ContainSubstring(`deviceType == "physical"`))
 		Expect(request.Exactly.Selectors[0].CEL.Expression).To(ContainSubstring(`!has(device.attributes["gpu.deckhouse.io"].sharingStrategy)`))
 	})
 
 	It("should delete owned GPU ResourceClaimTemplate when annotation is removed", func() {
-		vm := newVM("")
-		template := buildGPUResourceClaimTemplate(vm, kvbuilder.GPUResourceClaimTemplateName(vmName), buildGPUResourceClaimTemplateSpec(gpuID))
+		vm := newVM()
+		template := buildGPUResourceClaimTemplate(vm, kvbuilder.GPUResourceClaimTemplateName(vmName, "gpu0"), buildGPUResourceClaimTemplateSpec(v1alpha2.GPUDeviceSpec{Name: "gpu0", Model: gpuModel}))
 		fakeClient, _, vmState := setupEnvironment(vm, template)
 		handler := NewGPUResourceClaimHandler(fakeClient)
 
@@ -75,7 +71,7 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 
 		Expect(err).NotTo(HaveOccurred())
 		stored := &resourcev1.ResourceClaimTemplate{}
-		err = fakeClient.Get(context.Background(), types.NamespacedName{Name: kvbuilder.GPUResourceClaimTemplateName(vmName), Namespace: namespace}, stored)
+		err = fakeClient.Get(context.Background(), types.NamespacedName{Name: kvbuilder.GPUResourceClaimTemplateName(vmName, "gpu0"), Namespace: namespace}, stored)
 		Expect(err).To(HaveOccurred())
 	})
 })

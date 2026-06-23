@@ -119,6 +119,12 @@ type VirtualMachineSpec struct {
 	// Devices are referenced by name of USBDevice resource in the same namespace.
 	// +kubebuilder:validation:MaxItems:=8
 	USBDevices []USBDeviceSpecRef `json:"usbDevices,omitempty"`
+	// List of GPU devices to attach to the virtual machine.
+	// Devices are requested by GPU model.
+	// +kubebuilder:validation:MaxItems:=8
+	// +listType=map
+	// +listMapKey=name
+	GPUDevices []GPUDeviceSpec `json:"gpuDevices,omitempty"`
 }
 
 // RunPolicy parameter defines the VM startup policy
@@ -495,6 +501,20 @@ const (
 type USBDeviceSpecRef struct {
 	// The name of USBDevice resource in the same namespace.
 	Name string `json:"name"`
+}
+
+// GPUDeviceSpec requests a GPU device by model.
+type GPUDeviceSpec struct {
+	// A unique GPU device name inside the virtual machine spec.
+	// +kubebuilder:validation:MinLength:=1
+	// +kubebuilder:validation:MaxLength:=63
+	// +kubebuilder:validation:Pattern:=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	Name string `json:"name"`
+	// GPU model identifier, for example h100-sxm5-96gb.
+	// +kubebuilder:validation:MinLength:=1
+	// +kubebuilder:validation:MaxLength:=63
+	// +kubebuilder:validation:Pattern:=`^[A-Za-z0-9]([A-Za-z0-9_.-]*[A-Za-z0-9])?$`
+	Model string `json:"model"`
 }
 
 // USBDeviceStatusRef represents the status of a USB device attached to the virtual machine.

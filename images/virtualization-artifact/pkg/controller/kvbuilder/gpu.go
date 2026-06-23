@@ -17,57 +17,106 @@ limitations under the License.
 package kvbuilder
 
 import (
+	"encoding/json"
+	"fmt"
+	"strings"
+
 	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
+
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
-	GPUName                            = "gpu"
-	GPUResourceClaimTemplateNameSuffix = "-gpu-template"
-	GPUResourceClaimRequestName        = "req-gpu"
-	AppliedGPUAnnotation               = "internal.virtualization.deckhouse.io/applied-gpu-id"
+	GPUNamePrefix                            = "gpu-"
+	GPUResourceClaimTemplateNameSuffixFormat = "-gpu-%s-template"
+	GPUResourceClaimRequestNamePrefix        = "req-gpu-"
+	AppliedGPUDevicesAnnotation              = "internal.virtualization.deckhouse.io/applied-gpu-devices"
 )
 
-func GPUResourceClaimTemplateName(vmName string) string {
-	return vmName + GPUResourceClaimTemplateNameSuffix
+func GPUResourceClaimName(deviceName string) string {
+	return GPUNamePrefix + deviceName
 }
 
-func (b *KVVM) SetGPU(vmName, gpuID string) {
+func GPUResourceClaimTemplateName(vmName, deviceName string) string {
+	return vmName + fmt.Sprintf(GPUResourceClaimTemplateNameSuffixFormat, deviceName)
+}
+
+func IsGPUResourceClaimTemplateName(vmName, templateName string) bool {
+	return templateName == vmName+"-gpu-template" || strings.HasPrefix(templateName, vmName+"-gpu-") && strings.HasSuffix(templateName, "-template")
+}
+
+func GPUResourceClaimRequestName(deviceName string) string {
+	return GPUResourceClaimRequestNamePrefix + deviceName
+}
+
+func EncodeGPUDevices(devices []v1alpha2.GPUDeviceSpec) string {
+	if len(devices) == 0 {
+		return ""
+	}
+	data, err := json.Marshal(sortGPUDevices(devices))
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+func (b *KVVM) SetGPUDevices(vmName string, devices []v1alpha2.GPUDeviceSpec) {
+	devices = sortGPUDevices(devices)
+
 	b.Resource.Spec.Template.Spec.ResourceClaims = slices.DeleteFunc(
 		b.Resource.Spec.Template.Spec.ResourceClaims,
-		func(claim virtv1.ResourceClaim) bool { return claim.Name == GPUName },
+		func(claim virtv1.ResourceClaim) bool {
+			return strings.HasPrefix(claim.Name, GPUNamePrefix)
+		},
 	)
 	b.Resource.Spec.Template.Spec.Domain.Devices.GPUs = slices.DeleteFunc(
 		b.Resource.Spec.Template.Spec.Domain.Devices.GPUs,
-		func(gpu virtv1.GPU) bool { return gpu.Name == GPUName },
+		func(gpu virtv1.GPU) bool {
+			return strings.HasPrefix(gpu.Name, GPUNamePrefix)
+		},
 	)
 
-	if gpuID == "" {
+	if len(devices) == 0 {
 		if b.Resource.Annotations != nil {
-			delete(b.Resource.Annotations, AppliedGPUAnnotation)
+			delete(b.Resource.Annotations, AppliedGPUDevicesAnnotation)
 		}
 		return
 	}
 
-	b.Resource.Spec.Template.Spec.ResourceClaims = append(b.Resource.Spec.Template.Spec.ResourceClaims, virtv1.ResourceClaim{
-		PodResourceClaim: corev1.PodResourceClaim{
-			Name:                      GPUName,
-			ResourceClaimTemplateName: ptr.To(GPUResourceClaimTemplateName(vmName)),
-		},
-	})
-	b.Resource.Spec.Template.Spec.Domain.Devices.GPUs = append(b.Resource.Spec.Template.Spec.Domain.Devices.GPUs, virtv1.GPU{
-		Name: GPUName,
-		ClaimRequest: &virtv1.ClaimRequest{
-			ClaimName:   ptr.To(GPUName),
-			RequestName: ptr.To(GPUResourceClaimRequestName),
-		},
-	})
+	for _, device := range devices {
+		claimName := GPUResourceClaimName(device.Name)
+		b.Resource.Spec.Template.Spec.ResourceClaims = append(b.Resource.Spec.Template.Spec.ResourceClaims, virtv1.ResourceClaim{
+			PodResourceClaim: corev1.PodResourceClaim{
+				Name:                      claimName,
+				ResourceClaimTemplateName: ptr.To(GPUResourceClaimTemplateName(vmName, device.Name)),
+			},
+		})
+		b.Resource.Spec.Template.Spec.Domain.Devices.GPUs = append(b.Resource.Spec.Template.Spec.Domain.Devices.GPUs, virtv1.GPU{
+			Name: claimName,
+			ClaimRequest: &virtv1.ClaimRequest{
+				ClaimName:   ptr.To(claimName),
+				RequestName: ptr.To(GPUResourceClaimRequestName(device.Name)),
+			},
+		})
+	}
 
 	if b.Resource.Annotations == nil {
 		b.Resource.Annotations = make(map[string]string, 1)
 	}
-	b.Resource.Annotations[AppliedGPUAnnotation] = gpuID
+	b.Resource.Annotations[AppliedGPUDevicesAnnotation] = EncodeGPUDevices(devices)
+}
+
+func sortGPUDevices(devices []v1alpha2.GPUDeviceSpec) []v1alpha2.GPUDeviceSpec {
+	if len(devices) == 0 {
+		return nil
+	}
+	sorted := slices.Clone(devices)
+	slices.SortFunc(sorted, func(a, b v1alpha2.GPUDeviceSpec) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+	return sorted
 }

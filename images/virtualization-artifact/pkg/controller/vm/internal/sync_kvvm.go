@@ -154,8 +154,6 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		lastAppliedSpec = h.loadLastAppliedSpec(current, kvvm)
 		lastClassAppliedSpec := h.loadClassLastAppliedSpec(class, kvvm)
 		changes = h.detectSpecChanges(ctx, kvvm, &current.Spec, lastAppliedSpec)
-		gpuAnnotationChanges := detectGPUAnnotationChanges(kvvm, current)
-		changes.Add(gpuAnnotationChanges.GetAll()...)
 		if !changes.IsEmpty() {
 			kvvmi, kvvmiErr := s.KVVMI(ctx)
 			if kvvmiErr == nil && hasNonHotpluggableVolumes(kvvmi) {
@@ -694,35 +692,6 @@ func (h *SyncKvvmHandler) detectSpecChanges(
 	log.Info(fmt.Sprintf("detected VM changes JSON: %s", specChanges.ToJSON()))
 
 	return specChanges
-}
-
-func detectGPUAnnotationChanges(kvvm *virtv1.VirtualMachine, vm *v1alpha2.VirtualMachine) vmchange.SpecChanges {
-	var changes vmchange.SpecChanges
-	if kvvm == nil || vm == nil {
-		return changes
-	}
-
-	currentValue := kvvm.Annotations[kvbuilder.AppliedGPUAnnotation]
-	desiredValue := vm.Annotations[annotations.AnnVMGPUID]
-	if currentValue == desiredValue {
-		return changes
-	}
-
-	operation := vmchange.ChangeReplace
-	if currentValue == "" {
-		operation = vmchange.ChangeAdd
-	}
-	if desiredValue == "" {
-		operation = vmchange.ChangeRemove
-	}
-	changes.Add(vmchange.FieldChange{
-		Operation:      operation,
-		Path:           "metadata.annotations." + annotations.AnnVMGPUID,
-		CurrentValue:   currentValue,
-		DesiredValue:   desiredValue,
-		ActionRequired: vmchange.ActionRestart,
-	})
-	return changes
 }
 
 func (h *SyncKvvmHandler) detectClassSpecChanges(ctx context.Context, currentClassSpec, lastClassSpec *v1alpha2.VirtualMachineClassSpec) vmchange.SpecChanges {

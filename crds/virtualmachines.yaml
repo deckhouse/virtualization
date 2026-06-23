@@ -1038,6 +1038,35 @@ spec:
                         type: string
                         description: |
                           The name of USBDevice resource in the same namespace.
+                gpuDevices:
+                  type: array
+                  maxItems: 8
+                  x-kubernetes-list-map-keys:
+                    - name
+                  x-kubernetes-list-type: map
+                  description: |
+                    List of GPU devices to attach to the virtual machine.
+                    Devices are requested by GPU model.
+                  items:
+                    type: object
+                    required:
+                      - model
+                      - name
+                    properties:
+                      model:
+                        minLength: 1
+                        maxLength: 63
+                        pattern: ^[A-Za-z0-9]([A-Za-z0-9_.-]*[A-Za-z0-9])?$
+                        type: string
+                        description: |
+                          GPU model identifier, for example h100-sxm5-96gb.
+                      name:
+                        minLength: 1
+                        maxLength: 63
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                        type: string
+                        description: |
+                          A unique GPU device name inside the virtual machine spec.
             status:
               type: object
               properties:

@@ -31,7 +31,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -309,14 +308,33 @@ var _ = Describe("SyncKvvmHandler", func() {
 		Entry("Pending phase without changes, shouldn't have condition", v1alpha2.MachinePending, false, metav1.ConditionUnknown, false),
 	)
 
-	It("should require restart when GPU annotation changes on a running VM", func() {
+	It("should require restart when GPU devices change on a running VM", func() {
 		ip := makeVMIP()
 		vmClass := makeVMClass()
 
 		vm := makeVM(v1alpha2.MachineRunning)
-		vm.Annotations = map[string]string{annotations.AnnVMGPUID: "GPU-new"}
+		vm.Spec.GPUDevices = []v1alpha2.GPUDeviceSpec{{Name: "gpu0", Model: "h100-sxm5-96gb"}}
 		kvvm := makeKVVM(vm)
-		kvvm.Annotations[kvbuilder.AppliedGPUAnnotation] = "GPU-old"
+		Expect(kvbuilder.SetLastAppliedSpec(kvvm, &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
+				CPU: v1alpha2.CPUSpec{
+					Cores: vm.Spec.CPU.Cores,
+				},
+				Memory: v1alpha2.MemorySpec{
+					Size: vm.Spec.Memory.Size,
+				},
+				VirtualMachineIPAddress: vm.Spec.VirtualMachineIPAddress,
+				RunPolicy:               vm.Spec.RunPolicy,
+				OsType:                  vm.Spec.OsType,
+				VirtualMachineClassName: vm.Spec.VirtualMachineClassName,
+				Disruptions: &v1alpha2.Disruptions{
+					RestartApprovalMode: vm.Spec.Disruptions.RestartApprovalMode,
+				},
+				GPUDevices: []v1alpha2.GPUDeviceSpec{{Name: "gpu0", Model: "a100-sxm4-40gb"}},
+			},
+		})).To(Succeed())
+		kvvm.Annotations[kvbuilder.AppliedGPUDevicesAnnotation] = `[{"name":"gpu0","model":"a100-sxm4-40gb"}]`
+		kvvm.SetGroupVersionKind(virtv1.VirtualMachineGroupVersionKind)
 		kvvmi := makeKVVMI()
 
 		fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, kvvmi, ip, vmClass)
@@ -332,7 +350,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 
 		updatedKVVM := &virtv1.VirtualMachine{}
 		Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(kvvm), updatedKVVM)).To(Succeed())
-		Expect(updatedKVVM.Annotations).To(HaveKeyWithValue(kvbuilder.AppliedGPUAnnotation, "GPU-old"))
+		Expect(updatedKVVM.Annotations).To(HaveKeyWithValue(kvbuilder.AppliedGPUDevicesAnnotation, `[{"name":"gpu0","model":"a100-sxm4-40gb"}]`))
 		Expect(updatedKVVM.Spec.Template.Spec.Domain.Devices.GPUs).To(BeEmpty())
 	})
 

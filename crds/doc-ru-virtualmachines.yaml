@@ -588,6 +588,18 @@ spec:
                       name:
                         description: |
                           Имя ресурса `USBDevice` в том же пространстве имен.
+                gpuDevices:
+                  description: |
+                    Список GPU-устройств для подключения к виртуальной машине.
+                    Устройства запрашиваются по модели GPU.
+                  items:
+                    properties:
+                      model:
+                        description: |
+                          Идентификатор модели GPU, например `h100-sxm5-96gb`.
+                      name:
+                        description: |
+                          Уникальное имя GPU-устройства внутри спецификации виртуальной машины.
             status:
               properties:
                 blockDeviceRefs:

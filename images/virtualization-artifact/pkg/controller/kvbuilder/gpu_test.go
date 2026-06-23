@@ -20,34 +20,36 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("GPU", func() {
-	It("should render DRA GPU resource claim", func() {
+	It("should render DRA GPU resource claims", func() {
 		kvvm := NewEmptyKVVM(types.NamespacedName{Name: "vm-a", Namespace: "default"}, KVVMOptions{})
 
-		kvvm.SetGPU("vm-a", "GPU-test")
+		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", Model: "h100-sxm5-96gb"}})
 		res := kvvm.GetResource()
 
 		Expect(res.Spec.Template.Spec.ResourceClaims).To(HaveLen(1))
-		Expect(res.Spec.Template.Spec.ResourceClaims[0].Name).To(Equal(GPUName))
-		Expect(*res.Spec.Template.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Equal("vm-a-gpu-template"))
+		Expect(res.Spec.Template.Spec.ResourceClaims[0].Name).To(Equal("gpu-gpu0"))
+		Expect(*res.Spec.Template.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Equal("vm-a-gpu-gpu0-template"))
 		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs).To(HaveLen(1))
-		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs[0].Name).To(Equal(GPUName))
-		Expect(*res.Spec.Template.Spec.Domain.Devices.GPUs[0].ClaimName).To(Equal(GPUName))
-		Expect(*res.Spec.Template.Spec.Domain.Devices.GPUs[0].RequestName).To(Equal(GPUResourceClaimRequestName))
-		Expect(res.Annotations).To(HaveKeyWithValue(AppliedGPUAnnotation, "GPU-test"))
+		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs[0].Name).To(Equal("gpu-gpu0"))
+		Expect(*res.Spec.Template.Spec.Domain.Devices.GPUs[0].ClaimName).To(Equal("gpu-gpu0"))
+		Expect(*res.Spec.Template.Spec.Domain.Devices.GPUs[0].RequestName).To(Equal("req-gpu-gpu0"))
+		Expect(res.Annotations).To(HaveKeyWithValue(AppliedGPUDevicesAnnotation, `[{"name":"gpu0","model":"h100-sxm5-96gb"}]`))
 	})
 
-	It("should remove rendered DRA GPU resource claim", func() {
+	It("should remove rendered DRA GPU resource claims", func() {
 		kvvm := NewEmptyKVVM(types.NamespacedName{Name: "vm-a", Namespace: "default"}, KVVMOptions{})
-		kvvm.SetGPU("vm-a", "GPU-test")
+		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", Model: "h100-sxm5-96gb"}})
 
-		kvvm.SetGPU("vm-a", "")
+		kvvm.SetGPUDevices("vm-a", nil)
 		res := kvvm.GetResource()
 
 		Expect(res.Spec.Template.Spec.ResourceClaims).To(BeEmpty())
 		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs).To(BeEmpty())
-		Expect(res.Annotations).NotTo(HaveKey(AppliedGPUAnnotation))
+		Expect(res.Annotations).NotTo(HaveKey(AppliedGPUDevicesAnnotation))
 	})
 })
