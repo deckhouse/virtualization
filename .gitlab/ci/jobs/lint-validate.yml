@@ -216,9 +216,7 @@ check:gens-files:
       esac
   parallel:
     matrix:
-      - COMPONENT: [virtualization-artifact, api]
-      - COMPONENT: vm-route-forge
-        RUN_ON_CHANGE: "true"
+      - COMPONENT: [virtualization-artifact, api, vm-route-forge]
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
