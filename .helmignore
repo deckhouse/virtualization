@@ -1,13 +1,36 @@
+# Directories
+api
 crds
+CHANGELOG
 docs
 enabled
+hack
 hooks
 images
 lib
 Makefile
 openapi
+src
+test
+tools
+tmp
+
+# Files
 *.md
 release.yaml
 werf*.yaml
 NOTES.txt
+
+# Hidden
+.cache
+.dmtlint.yaml
+.editorconfig
 .git
+.github
+.gitlab-ci.yaml
+.gitleaks.toml
+.gocache
+.idea
+.mirrord
+.pi*
+.prettierignore

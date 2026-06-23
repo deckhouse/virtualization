@@ -1,0 +1,53 @@
+namespace: ${NAMESPACE}
+storageType: ${STORAGE_TYPE}
+storageClass: ${DEFAULT_STORAGE_CLASS}
+sa: dkp-sa
+enabledModules: [${ENABLED_MODULES}]
+deckhouse:
+  channel: ${DECKHOUSE_CHANNEL}
+  version: ${DECKHOUSE_VERSION}
+  podSubnetCIDR: ${POD_SUBNET_CIDR}
+  serviceSubnetCIDR: ${SERVICE_SUBNET_CIDR}
+  kubernetesVersion: ${K8S_VERSION}
+  registry: ${REGISTRY}
+  registryDockerCfg: ${REGISTRY_DOCKER_CFG}
+  bundle: Default
+  proxyEnabled: false
+image:
+  url: ${VIRTUALIZATION_IMAGE_URL}
+  defaultUser: ${DEFAULT_USER}
+  bootloader: BIOS
+ingressHosts:
+  - api
+  - grafana
+  - dex
+  - prometheus
+  - console
+  - virtualization
+instances:
+  aptMirror:
+    enabled: ${APT_MIRROR_ENABLED}
+    name: ${APT_MIRROR_NAME}
+    url: ${APT_MIRROR_URL}
+  masterNodes:
+    count: 1
+    cfg:
+      rootDiskSize: 60Gi
+      cpu:
+        cores: 4
+        coreFraction: 50%
+      memory:
+        size: 12Gi
+  additionalNodes:
+    - name: worker
+      count: 3
+      cfg:
+        cpu:
+          cores: 6
+          coreFraction: 50%
+        memory:
+          size: ${CLUSTER_CONFIG_WORKERS_MEMORY}
+        additionalDisks:
+          - size: ${ADDITIONAL_DISK_SIZE}
+  networkConfig:
+    clusterNetworkName: ${NESTED_CLUSTER_NETWORK_NAME}

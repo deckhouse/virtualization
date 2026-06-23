@@ -33,15 +33,14 @@ import (
 )
 
 const (
-	KnownHostsFileName                              = "d8virtualization_known_hosts"
 	portFlag, portFlagShort                         = "port", "p"
 	usernameFlag, usernameFlagShort                 = "username", "l"
 	IdentityFilePathFlag, identityFilePathFlagShort = "identity-file", "i"
 	knownHostsFilePathFlag                          = "known-hosts"
 	commandToExecute, commandToExecuteShort         = "command", "c"
-	additionalOpts, additionalOptsShort             = "local-ssh-opts", "t"
+	additionalOpts                                  = "ssh-args"
+	additionalLocalOpts                             = "local-ssh-opts"
 	wrapLocalSSHFlag                                = "local-ssh"
-	wrapLocalSSHDefault                             = false
 )
 
 type SSH struct {
@@ -50,28 +49,32 @@ type SSH struct {
 }
 
 type SSHOptions struct {
-	SSHPort                   int
-	SSHUsername               string
-	IdentityFilePath          string
-	IdentityFilePathProvided  bool
-	KnownHostsFilePath        string
-	KnownHostsFilePathDefault string
-	AdditionalSSHLocalOptions []string
-	WrapLocalSSH              bool
-	LocalClientName           string
+	SSHPort                    int
+	SSHUsername                string
+	IdentityFilePath           string
+	IdentityFilePathProvided   bool
+	KnownHostsFilePath         string
+	KnownHostsFilePathDefault  string
+	KnownHostsFilePathProvided bool
+	AdditionalSSHOptions       []string
+	AdditionalSSHLocalOptions  []string
+	WrapLocalSSH               bool
+	LocalClientName            string
 }
 
 func DefaultSSHOptions() SSHOptions {
 	options := SSHOptions{
-		SSHPort:                   22,
-		SSHUsername:               defaultUsername(),
-		IdentityFilePath:          filepath.Join("~", ".ssh", "id_rsa"),
-		IdentityFilePathProvided:  false,
-		KnownHostsFilePath:        "",
-		KnownHostsFilePathDefault: filepath.Join("~", ".ssh", KnownHostsFileName),
-		AdditionalSSHLocalOptions: []string{},
-		WrapLocalSSH:              wrapLocalSSHDefault,
-		LocalClientName:           "ssh",
+		SSHPort:                    22,
+		SSHUsername:                defaultUsername(),
+		IdentityFilePath:           filepath.Join("~", ".ssh", "id_rsa"),
+		IdentityFilePathProvided:   false,
+		KnownHostsFilePath:         "",
+		KnownHostsFilePathDefault:  "",
+		KnownHostsFilePathProvided: false,
+		AdditionalSSHOptions:       []string{},
+		AdditionalSSHLocalOptions:  []string{},
+		WrapLocalSSH:               false,
+		LocalClientName:            "ssh",
 	}
 
 	return options
@@ -127,10 +130,10 @@ func NewCommand() *cobra.Command {
 	}
 
 	cmd := &cobra.Command{
-		Use:     "ssh [-n|--namespace NAMESPACE] VIRTUAL-MACHINE-NAME",
+		Use:     "ssh [-n|--namespace NAMESPACE] VIRTUAL-MACHINE-NAME [-- COMMAND [ARGS]...]",
 		Short:   "Open a SSH connection to a virtual machine.",
 		Example: usage(),
-		Args:    templates.ExactArgs("ssh", 1),
+		Args:    templates.MinimumArgs("ssh", 1),
 		RunE:    c.Run,
 	}
 
@@ -139,16 +142,16 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().StringVarP(&c.options.SSHUsername, usernameFlag, usernameFlagShort, c.options.SSHUsername,
 		"Specify user to log into virtual machine; If unassigned, this will be empty and the SSH default will apply")
 	cmd.Flags().StringVarP(&c.command, commandToExecute, commandToExecuteShort, c.command,
-		"Specify a command to execute in the VM.")
+		"Specify a command to execute in the VM. Equivalent to passing the command after --.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 
 func AddCommonSSHFlags(flagset *pflag.FlagSet, opts *SSHOptions) {
 	flagset.StringVarP(&opts.IdentityFilePath, IdentityFilePathFlag, identityFilePathFlagShort, opts.IdentityFilePath,
-		"Specify a path to a private key used for authenticating to the server; If not provided, the client will try to use the local ssh-agent at $SSH_AUTH_SOCK")
+		"Specify a path to a private key passed to the local SSH/SCP client as -i; If not provided, OpenSSH default identity selection applies")
 	flagset.StringVar(&opts.KnownHostsFilePath, knownHostsFilePathFlag, opts.KnownHostsFilePathDefault,
-		"Set a path to the known_hosts file.")
+		"Set a path to the known_hosts file passed to the local SSH/SCP client as UserKnownHostsFile.")
 	flagset.IntVarP(&opts.SSHPort, portFlag, portFlagShort, opts.SSHPort,
 		`Specify a port to connect to`)
 
@@ -161,25 +164,33 @@ func (o *SSH) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	client, defaultNamespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	defaultNamespace, err := clientconfig.NamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}
+
+	// Anything passed after `--` is the command to execute on the VM.
+	// ArgsLenAtDash returns the number of positional args that appeared
+	// before the `--` separator; everything after it is appended to args.
+	if dashIdx := cmd.ArgsLenAtDash(); dashIdx != -1 && dashIdx < len(args) {
+		o.command = strings.Join(args[dashIdx:], " ")
+		args = args[:dashIdx]
+	}
+
 	namespace, name, err := PrepareCommand(cmd, defaultNamespace, &o.options, args)
 	if err != nil {
 		return err
 	}
 
-	if o.options.WrapLocalSSH {
-		clientArgs := o.buildSSHTarget(namespace, name)
-		return RunLocalClient(cmd, namespace, name, &o.options, clientArgs)
-	}
+	WarnDeprecatedSSHFlags(cmd)
 
-	return o.nativeSSH(namespace, name, client)
+	clientArgs := o.buildSSHTarget(namespace, name)
+	return RunLocalClient(cmd, namespace, name, &o.options, clientArgs)
 }
 
 func PrepareCommand(cmd *cobra.Command, defaultNamespace string, opts *SSHOptions, args []string) (namespace, name string, err error) {
 	opts.IdentityFilePathProvided = cmd.Flags().Changed(IdentityFilePathFlag)
+	opts.KnownHostsFilePathProvided = cmd.Flags().Changed(knownHostsFilePathFlag)
 	var targetUsername string
 	namespace, name, targetUsername, err = templates.ParseSSHTarget(args[0])
 	if err != nil {
@@ -206,20 +217,20 @@ func usage() string {
   # Specify identity file:
   {{ProgramName}} ssh -n vms user@myvm -%s /some/path/id_rsa_for_myvm
 
-  # Run command instead of opening shell:
+  # Run a command on the VM (either via -c or by passing it after --):
   {{ProgramName}} ssh -n vms user@myvm -%s 'ls -la /'
+  {{ProgramName}} ssh -n vms user@myvm -- 'ls -la /'
 
-  # Connect using the local ssh binary found in $PATH:
-  {{ProgramName}} ssh --%s=true user@myvm
+  # Pass several options to the local ssh client in one go:
+  {{ProgramName}} ssh user@myvm --%s='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR'
 
-  # Specify additional options for local ssh:
-  {{ProgramName}} ssh user@myvm --%s=true --%s='-o StrictHostKeyChecking=no' --%s='-o UserKnownHostsFile=/dev/null'
+  # ...or repeat the flag for each option:
+  {{ProgramName}} ssh user@myvm --%s='-o StrictHostKeyChecking=no' --%s='-o UserKnownHostsFile=/dev/null'
 `,
 		usernameFlag,
 		identityFilePathFlagShort,
 		commandToExecuteShort,
-		wrapLocalSSHFlag,
-		wrapLocalSSHFlag,
+		additionalOpts,
 		additionalOpts,
 		additionalOpts,
 	)

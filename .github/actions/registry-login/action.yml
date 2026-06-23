@@ -1,0 +1,28 @@
+name: Registry login
+description: Parse a dockerconfigjson secret, log in to the registry, and expose the registry host.
+inputs:
+  docker_cfg:
+    description: Base64-encoded dockerconfigjson content.
+    required: true
+outputs:
+  registry:
+    description: Registry host parsed from the dockerconfigjson.
+    value: ${{ steps.login.outputs.registry }}
+runs:
+  using: composite
+  steps:
+    - name: Log in to private registry
+      id: login
+      shell: bash
+      env:
+        DOCKER_CFG: ${{ inputs.docker_cfg }}
+      run: |
+        REGISTRY=$(base64 -d <<< "$DOCKER_CFG" | jq '.auths | to_entries | .[] | .key' -r)
+        USERNAME=$(base64 -d <<< "$DOCKER_CFG" | jq -r '.auths | to_entries | .[] | .value.auth' | base64 -d | cut -d ':' -f1)
+        PASSWORD=$(base64 -d <<< "$DOCKER_CFG" | jq -r '.auths | to_entries | .[] | .value.auth' | base64 -d | cut -d ':' -f2-)
+
+        echo "::add-mask::$USERNAME"
+        echo "::add-mask::$PASSWORD"
+        echo "$PASSWORD" | docker login "$REGISTRY" --username "$USERNAME" --password-stdin
+
+        echo "registry=$REGISTRY" >> "$GITHUB_OUTPUT"

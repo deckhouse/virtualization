@@ -172,6 +172,11 @@ func (s DiskService) CheckProvisioning(ctx context.Context, pvc *corev1.Persiste
 	}
 
 	podName, ok := pvc.Annotations[annotations.AnnProvisionerName]
+
+	if !ok || podName == "" {
+		podName, ok = pvc.Annotations[annotations.AnnProvisionerNameLegacy]
+	}
+
 	if !ok || podName == "" {
 		return nil
 	}

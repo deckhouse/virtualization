@@ -26,7 +26,7 @@ includes:
     dir: ./src/cli
 
 vars:
-  deckhouse_lib_helm_ver: 1.55.1
+  deckhouse_lib_helm_ver: 1.72.0
   TRIVY_VERSION: 0.55.0
   target: ""
   VALIDATION_FILES: "tools/validation/{main,messages,diff,no_cyrillic,doc_changes}.go"
@@ -102,16 +102,32 @@ tasks:
     deps:
       - check-helm
     cmds:
-      - helm repo add deckhouse https://deckhouse.github.io/lib-helm
-      - helm repo update deckhouse
-      - helm dep update
+      - |
+        echo -e "Step 1: Add deckhouse Helm repo\n"
+        helm repo add deckhouse https://deckhouse.github.io/lib-helm
+        echo -e "\nStep 2: Update deckhouse Helm repo\n"
+        helm repo update deckhouse
+        echo -e "\nStep 3: Update dependencies\n"
+        helm dep update
 
   helm-bump-helm-lib:
     deps:
       - check-yq
     cmds:
+      - |
+        lib_helm_ver=$(yq '.dependencies[] | select(.name == "deckhouse_lib_helm").version' Chart.yaml)
+        echo lib_helm version before update: $lib_helm_ver && echo
       - yq -i '.dependencies[] |= select(.name == "deckhouse_lib_helm").version = "{{ .deckhouse_lib_helm_ver }}"' Chart.yaml
       - task: helm-update-subcharts
+      - |
+        lib_helm_ver=$(yq '.dependencies[] | select(.name == "deckhouse_lib_helm").version' Chart.yaml)
+        echo && echo lib_helm version after update: $lib_helm_ver
+
+  helm-render:
+    deps:
+      - check-helm
+    cmds:
+      - helm template virtualization . -f tools/kubeconform/fixtures/module-values.yaml --debug --devel > helm-template-render.yaml
 
   build:
     deps:
@@ -163,8 +179,37 @@ tasks:
     cmds:
       - task: lint:doc-ru
       - task: lint:prettier:yaml
+      - task: lint:shellcheck
+      - task: lint:actionlint
       - task: virtualization-controller:dvcr:lint
       - task: virtualization-controller:lint
+
+  lint:shellcheck:
+    desc: "Run shellcheck for CI shell scripts."
+    cmds:
+      - |
+        docker run --rm \
+          -v "$PWD:/mnt" \
+          -w /mnt \
+          koalaman/shellcheck-alpine:v0.10.0 \
+          shellcheck \
+          .github/scripts/bash/e2e/*.sh \
+          api/scripts/update-codegen.sh \
+          images/virtualization-artifact/hack/args.sh \
+          images/virtualization-artifact/hack/dlv.sh \
+          images/virtualization-artifact/hack/pyroscope.sh
+
+  lint:actionlint:
+    desc: "Run actionlint for E2E GitHub workflows."
+    cmds:
+      - |
+        docker run --rm \
+          -v "$PWD:/repo" \
+          -w /repo \
+          rhysd/actionlint:1.7.7 \
+          -color \
+          -shellcheck= \
+          .github/workflows/e2e*.yml
 
   lint:doc-ru:
     desc: "Check the correspondence between description fields in the original crd and the Russian language version"
@@ -230,16 +275,6 @@ tasks:
                   "readinessProbe": null,
                   "livenessProbe": null,
                   "command": null
-                },
-                {
-                  "name": "proxy",
-                  "readinessProbe": null,
-                  "livenessProbe": null
-                },
-                {
-                  "name": "kube-rbac-proxy",
-                  "readinessProbe": null,
-                  "livenessProbe": null
                 }
               ]
             }
@@ -279,16 +314,6 @@ tasks:
                   "readinessProbe": null,
                   "livenessProbe": null,
                   "command": null
-                },
-                {
-                  "name": "proxy",
-                  "readinessProbe": null,
-                  "livenessProbe": null
-                },
-                {
-                  "name": "kube-rbac-proxy",
-                  "readinessProbe": null,
-                  "livenessProbe": null
                 }
               ]
             }

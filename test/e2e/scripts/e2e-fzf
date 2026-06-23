@@ -1,0 +1,390 @@
+#!/usr/bin/env python3
+
+# Copyright 2026 Flant JSC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import argparse
+import os
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Collect top-level Ginkgo e2e suites, select them with fzf, and build a task command.",
+    )
+    parser.add_argument("-l", "--list", action="store_true", help="print collected suites and exit")
+    parser.add_argument("-r", "--run", action="store_true", help="run the command after selection")
+    parser.add_argument("-c", "--copy", action="store_true", help="copy the command after selection")
+    parser.add_argument("-n", "--repeat", type=int, default=1, help="run selected suites this number of times")
+    args = parser.parse_args()
+    if args.repeat < 1:
+        parser.error("--repeat must be greater than zero")
+    return args
+
+
+def git_root():
+    result = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError("Run this script from inside a git repository")
+    return Path(result.stdout.strip())
+
+
+def parse_go_string(src, idx):
+    if idx >= len(src):
+        return None, idx
+    quote = src[idx]
+    if quote == "`":
+        end = src.find("`", idx + 1)
+        if end == -1:
+            return None, idx
+        return src[idx + 1:end], end + 1
+    if quote != '"':
+        return None, idx
+
+    out = []
+    i = idx + 1
+    while i < len(src):
+        ch = src[i]
+        if ch == "\\" and i + 1 < len(src):
+            out.append(src[i:i + 2])
+            i += 2
+            continue
+        if ch == '"':
+            raw = '"' + "".join(out) + '"'
+            try:
+                return bytes(raw[1:-1], "utf-8").decode("unicode_escape"), i + 1
+            except UnicodeDecodeError:
+                return raw[1:-1], i + 1
+        out.append(ch)
+        i += 1
+    return None, idx
+
+
+def first_string_arg(src, idx):
+    i = idx
+    depth = 0
+    state = None
+
+    while i < len(src):
+        ch = src[i]
+        nxt = src[i + 1] if i + 1 < len(src) else ""
+
+        if state == "line_comment":
+            if ch == "\n":
+                state = None
+            i += 1
+            continue
+        if state == "block_comment":
+            if ch == "*" and nxt == "/":
+                state = None
+                i += 2
+            else:
+                i += 1
+            continue
+        if ch == "/" and nxt == "/":
+            state = "line_comment"
+            i += 2
+            continue
+        if ch == "/" and nxt == "*":
+            state = "block_comment"
+            i += 2
+            continue
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            if depth == 0:
+                return None
+            depth -= 1
+            if depth == 0:
+                return None
+        elif ch in ('"', "`"):
+            value, end = parse_go_string(src, i)
+            if value is not None:
+                return value
+            i = end
+            continue
+        i += 1
+
+    return None
+
+
+def collect_file(path):
+    src = path.read_text(encoding="utf-8")
+    suites = []
+    i = 0
+    paren_depth = 0
+    state = None
+
+    while i < len(src):
+        ch = src[i]
+        nxt = src[i + 1] if i + 1 < len(src) else ""
+
+        if state == "line_comment":
+            if ch == "\n":
+                state = None
+            i += 1
+            continue
+        if state == "block_comment":
+            if ch == "*" and nxt == "/":
+                state = None
+                i += 2
+            else:
+                i += 1
+            continue
+        if state == "string":
+            if ch == "\\":
+                i += 2
+                continue
+            if ch == '"':
+                state = None
+            i += 1
+            continue
+        if state == "raw_string":
+            if ch == "`":
+                state = None
+            i += 1
+            continue
+        if ch == "/" and nxt == "/":
+            state = "line_comment"
+            i += 2
+            continue
+        if ch == "/" and nxt == "*":
+            state = "block_comment"
+            i += 2
+            continue
+        if ch == '"':
+            state = "string"
+            i += 1
+            continue
+        if ch == "`":
+            state = "raw_string"
+            i += 1
+            continue
+        if ch == "(":
+            paren_depth += 1
+            i += 1
+            continue
+        if ch == ")":
+            paren_depth -= 1
+            i += 1
+            continue
+        if ch == "_" or ch.isalpha():
+            start = i
+            i += 1
+            while i < len(src) and (src[i] == "_" or src[i].isalnum()):
+                i += 1
+            name = src[start:i]
+            j = i
+            while j < len(src) and src[j].isspace():
+                j += 1
+            if name == "Describe" and paren_depth == 0 and j < len(src) and src[j] == "(":
+                value = first_string_arg(src, j)
+                if value:
+                    suites.append(value)
+            continue
+        i += 1
+
+    return suites
+
+
+def collect_suites(e2e_dir):
+    suites = []
+    for path in e2e_dir.rglob("*.go"):
+        if any(part.startswith(".") for part in path.relative_to(e2e_dir).parts):
+            continue
+        suites.extend(collect_file(path))
+    return sorted(set(suites))
+
+
+def select_suites(suites):
+    if not shutil.which("fzf"):
+        raise RuntimeError("fzf is required")
+
+    fzf_opts = shlex.split(os.environ.get("FZF_OPTS", ""))
+    result = subprocess.run(
+        ["fzf", "--multi", "--prompt=e2e suites> ", *fzf_opts],
+        input="\n".join(suites) + "\n",
+        stdout=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        raise RuntimeError("No suites selected")
+    return [line for line in result.stdout.splitlines() if line]
+
+
+def escape_focus_part(value):
+    return re.sub(r"([\\.^$|?*+()[\]{}])", r"\\\1", value)
+
+
+def build_focus(suites):
+    focus = "|".join(escape_focus_part(suite) for suite in suites)
+    if len(suites) > 1:
+        return f"({focus})"
+    return focus
+
+
+def build_command(e2e_dir, focus):
+    return f"cd {shlex.quote(str(e2e_dir))} && FOCUS={shlex.quote(focus)} task run"
+
+
+def copy_command(command):
+    commands = [
+        (["pbcopy"], None),
+        (["xclip", "-selection", "clipboard"], None),
+        (["wl-copy"], None),
+    ]
+    for args, _ in commands:
+        if shutil.which(args[0]):
+            subprocess.run(args, input=command, text=True, check=True)
+            return
+    raise RuntimeError("No clipboard utility found")
+
+
+def run_command(e2e_dir, focus):
+    env = os.environ.copy()
+    env["FOCUS"] = focus
+    return subprocess.run(["task", "run"], cwd=e2e_dir, env=env, check=False).returncode
+
+
+def format_duration(seconds):
+    return f"{seconds:.1f}s"
+
+
+def print_results_table(results):
+    headers = ["Run", "Suite", "Status", "Exit code", "Duration"]
+    rows = []
+    for result in results:
+        status = "PASS" if result["exit_code"] == 0 else "FAIL"
+        rows.append([
+            str(result["index"]),
+            result["suite"],
+            status,
+            str(result["exit_code"]),
+            format_duration(result["duration"]),
+        ])
+
+    widths = [len(header) for header in headers]
+    for row in rows:
+        widths = [max(width, len(cell)) for width, cell in zip(widths, row)]
+
+    def line(left, fill, separator, right):
+        parts = [fill * (width + 2) for width in widths]
+        return left + separator.join(parts) + right
+
+    def row(values):
+        cells = [f" {value:<{width}} " for value, width in zip(values, widths)]
+        return "|" + "|".join(cells) + "|"
+
+    print(line("+", "-", "+", "+"))
+    print(row(headers))
+    print(line("+", "=", "+", "+"))
+    for values in rows:
+        print(row(values))
+    print(line("+", "-", "+", "+"))
+
+    passed = sum(1 for result in results if result["exit_code"] == 0)
+    failed = len(results) - passed
+    print(f"Summary: total={len(results)} passed={passed} failed={failed}")
+
+
+def run_repeated(e2e_dir, suites, repeat):
+    results = []
+    total = repeat * len(suites)
+    current = 0
+    for index in range(1, repeat + 1):
+        for suite in suites:
+            current += 1
+            focus = build_focus([suite])
+            print(f"\nRun {index}/{repeat}: {suite} ({current}/{total})", flush=True)
+            started_at = time.monotonic()
+            exit_code = run_command(e2e_dir, focus)
+            duration = time.monotonic() - started_at
+            results.append({"index": index, "suite": suite, "exit_code": exit_code, "duration": duration})
+
+    print("\nResults")
+    print_results_table(results)
+    return 1 if any(result["exit_code"] != 0 for result in results) else 0
+
+
+def ask_repeat_count():
+    while True:
+        value = input("Repeat count: ").strip()
+        if not value:
+            return None
+        try:
+            repeat = int(value)
+        except ValueError:
+            print("Repeat count must be a number")
+            continue
+        if repeat < 1:
+            print("Repeat count must be greater than zero")
+            continue
+        return repeat
+
+
+def main():
+    args = parse_args()
+
+    try:
+        repo_root = git_root()
+        e2e_dir = Path(os.environ.get("E2E_DIR", repo_root / "test/e2e"))
+        if not e2e_dir.is_dir():
+            raise RuntimeError(f"E2E directory does not exist: {e2e_dir}")
+
+        suites = collect_suites(e2e_dir)
+        if args.list:
+            print("\n".join(suites))
+            return 0
+
+        selected = select_suites(suites)
+        focus = build_focus(selected)
+        command = build_command(e2e_dir, focus)
+        print(command, flush=True)
+
+        if args.copy:
+            copy_command(command)
+            return 0
+        if args.run or args.repeat > 1:
+            return run_repeated(e2e_dir, selected, args.repeat)
+        if sys.stdin.isatty():
+            action = input("Action: [Enter] done, [r]un once, [n] repeat, [c]opy: ")
+            if action.lower() == "r":
+                return run_repeated(e2e_dir, selected, 1)
+            if action.lower() == "n":
+                repeat = ask_repeat_count()
+                if repeat is not None:
+                    return run_repeated(e2e_dir, selected, repeat)
+            if action.lower() == "c":
+                copy_command(command)
+        return 0
+    except RuntimeError as err:
+        print(err, file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

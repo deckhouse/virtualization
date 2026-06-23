@@ -24,7 +24,7 @@ env:
   MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
   SOURCE_REPO: "${{secrets.SOURCE_REPO}}"
   DECKHOUSE_PRIVATE_REPO: "${{secrets.DECKHOUSE_PRIVATE_REPO}}"
-  GO_VERSION: "1.25.10"
+  GO_VERSION: "1.25.11"
   GOLANGCI_LINT_VERSION: "2.11.1"
   TRIVY_DISABLE_VEX_NOTICE: "true"
 
@@ -64,6 +64,7 @@ jobs:
       modules_module_tag: ${{ steps.modules_module_tag.outputs.MODULES_MODULE_TAG }}
       module_edition: ${{ steps.modules_module_tag.outputs.MODULE_EDITION }}
       runner_type: ${{ steps.modules_module_tag.outputs.RUNNER_TYPE }}
+      release_in_dev: ${{ steps.modules_module_tag.outputs.RELEASE_IN_DEV }}
       debug_component: ${{ steps.get-labels.outputs.debug_component }}
     steps:
       - name: Get Pull Request Labels
@@ -131,6 +132,12 @@ jobs:
           fi
 
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_OUTPUT"
+
+          if [[ "${{ github.ref_name }}" =~ ^release-[0-9]+\.[0-9]+ ]]; then
+            echo "RELEASE_IN_DEV=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "RELEASE_IN_DEV=false" >> "$GITHUB_OUTPUT"
+          fi
 
           # Select edition for build, default EE
           if echo "${{ steps.get-labels.outputs.prLabels }}" | grep -q "edition/ce"; then
@@ -560,6 +567,7 @@ jobs:
           cve_test_repo_git: ${{ steps.secrets.outputs.CVE_TEST_REPO_GIT }}
           cve_ssh_private_key: ${{ steps.secrets.outputs.CVE_TEST_SSH_PRIVATE_KEY }}
           trivy_reports_log_output: "1"
+          release_in_dev: ${{ needs.set_vars.outputs.release_in_dev }}
 
   analyze_build:
     if: ${{ github.event.inputs.svace_enabled == 'true' || contains(github.event.pull_request.labels.*.name, 'analyze/svace') }}

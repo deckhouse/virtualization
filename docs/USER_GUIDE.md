@@ -10,7 +10,7 @@ This guide is intended for users of the `virtualization` module in the Deckhouse
 
 ## Quick start on creating a VM
 
-Example of creating a virtual machine with Ubuntu 22.04.
+Example of creating a virtual machine with Ubuntu 24.04.
 
 1. Create a virtual machine image from an external source:
 
@@ -299,7 +299,7 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: ubuntu-22-04
+  name: ubuntu-24-04
 spec:
   # Save the image to DVCR
   storage: ContainerRegistry
@@ -314,16 +314,16 @@ EOF
 Check the result of the `VirtualImage` creation:
 
 ```bash
-d8 k get virtualimage ubuntu-22-04
+d8 k get virtualimage ubuntu-24-04
 # or a shorter version
-d8 k get vi ubuntu-22-04
+d8 k get vi ubuntu-24-04
 ```
 
 Example output:
 
 ```txt
 NAME           PHASE   CDROM   PROGRESS   AGE
-ubuntu-22-04   Ready   false   100%       23h
+ubuntu-24-04   Ready   false   100%       23h
 ```
 
 After creation the `VirtualImage` resource can be in the following states (phases):
@@ -344,26 +344,26 @@ Diagnosing problems with a resource is done by analyzing the information in the 
 You can trace the image creation process by adding the `-w` key to the previous command:
 
 ```bash
-d8 k get vi ubuntu-22-04 -w
+d8 k get vi ubuntu-24-04 -w
 ```
 
 Example output:
 
 ```txt
 NAME           PHASE          CDROM   PROGRESS   AGE
-ubuntu-22-04   Provisioning   false              4s
-ubuntu-22-04   Provisioning   false   0.0%       4s
-ubuntu-22-04   Provisioning   false   28.2%      6s
-ubuntu-22-04   Provisioning   false   66.5%      8s
-ubuntu-22-04   Provisioning   false   100.0%     10s
-ubuntu-22-04   Provisioning   false   100.0%     16s
-ubuntu-22-04   Ready          false   100%       18s
+ubuntu-24-04   Provisioning   false              4s
+ubuntu-24-04   Provisioning   false   0.0%       4s
+ubuntu-24-04   Provisioning   false   28.2%      6s
+ubuntu-24-04   Provisioning   false   66.5%      8s
+ubuntu-24-04   Provisioning   false   100.0%     10s
+ubuntu-24-04   Provisioning   false   100.0%     16s
+ubuntu-24-04   Ready          false   100%       18s
 ```
 
 The `VirtualImage` resource description provides additional information about the downloaded image:
 
 ```bash
-d8 k describe vi ubuntu-22-04
+d8 k describe vi ubuntu-24-04
 ```
 
 How to create an image from an HTTP server in the web interface:
@@ -385,7 +385,7 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: ubuntu-22-04-pvc
+  name: ubuntu-24-04-pvc
 spec:
   storage: PersistentVolumeClaim
   persistentVolumeClaim:
@@ -402,14 +402,14 @@ EOF
 Check the result of the `VirtualImage` creation:
 
 ```bash
-d8 k get vi ubuntu-22-04-pvc
+d8 k get vi ubuntu-24-04-pvc
 ```
 
 Example output:
 
 ```txt
 NAME              PHASE   CDROM   PROGRESS   AGE
-ubuntu-22-04-pvc  Ready   false   100%       23h
+ubuntu-24-04-pvc  Ready   false   100%       23h
 ```
 
 If the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified, the default `StorageClass` at the cluster level will be used, or for images if specified in [module settings](./admin_guide.html#storage-class-settings-for-images).
@@ -431,49 +431,49 @@ How to create an image and store it in PVC in the web interface:
 
 An image stored in Container Registry has a certain format. Let's look at an example:
 
-First, download the image locally:
+1. Download the image locally:
 
-```bash
-curl -L https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img -o ubuntu2204.img
-```
+   ```bash
+   curl -L https://cloud-images.ubuntu.com/minimal/releases/noble/release/ubuntu-24.04-minimal-cloudimg-amd64.img -o ubuntu2404.img
+   ```
 
-Next, create a `Dockerfile` with the following contents:
+1. Create a `Dockerfile` with the following contents:
 
-```Dockerfile
-FROM scratch
-COPY ubuntu2204.img /disk/ubuntu2204.img
-```
+   ```Dockerfile
+   FROM scratch
+   COPY ubuntu2404.img /disk/ubuntu2404.img
+   ```
 
-Build the image and load it into the container registry. The example below uses docker.io as the container registry. you need to have a service account and a customized environment to run it.
+1. Build the container image. The example below uses [docker.com](https://www.docker.com/) as the container registry. You need an account on the service and a properly configured environment:
 
-```bash
-docker build -t docker.io/<username>/ubuntu2204:latest
-```
+   ```bash
+   docker build -t docker.io/<username>/ubuntu2404:latest
+   ```
 
-where `username` is the username specified when registering with docker.io.
+   Where `username` is the username specified when registering with [docker.com](https://www.docker.com/).
 
-Load the created image into the container registry:
+1. Push the created image to the container registry:
 
-```bash
-docker push docker.io/<username>/ubuntu2204:latest
-```
+   ```bash
+   docker push docker.io/<username>/ubuntu2404:latest
+   ```
 
-To use this image, create a resource as an example:
+1. To use this image, create a resource as an example:
 
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualImage
-metadata:
-  name: ubuntu-2204
-spec:
-  storage: ContainerRegistry
-  dataSource:
-    type: ContainerImage
-    containerImage:
-      image: docker.io/<username>/ubuntu2204:latest
-EOF
-```
+   ```yaml
+   d8 k apply -f - <<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: VirtualImage
+   metadata:
+     name: ubuntu-2404
+   spec:
+     storage: ContainerRegistry
+     dataSource:
+       type: ContainerImage
+       containerImage:
+         image: docker.io/<username>/ubuntu2404:latest
+   EOF
+   ```
 
 How to create an image from Container Registry in the web interface:
 
@@ -483,7 +483,7 @@ How to create an image from Container Registry in the web interface:
 - Select "Upload data from container image" from the list.
 - In the form that opens, enter the image name in the "Image Name" field.
 - In the "Storage" field, select `ContainerRegistry`.
-- In the "Image in Container Registry" field, specify `docker.io/<username>/ubuntu2204:latest`.
+- In the "Image in Container Registry" field, specify `docker.io/<username>/ubuntu2404:latest`.
 - Click the "Create" button.
 - The image status is displayed at the top left, under the image name.
 
@@ -751,14 +751,14 @@ When creating a disk, you can specify its desired size, which must be equal to o
 Using the example of the previously created image `VirtualImage`, let's consider the command that allows you to determine the size of the unpacked image:
 
 ```bash
-d8 k get vi ubuntu-22-04 -o wide
+d8 k get vi ubuntu-24-04 -o wide
 ```
 
 Example output:
 
 ```txt
 NAME           PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                                                       AGE
-ubuntu-22-04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-22-04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
+ubuntu-24-04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-24-04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
 ```
 
 The size you are looking for is specified in the **UNPACKEDSIZE** column and is 2.5Gi.
@@ -783,7 +783,7 @@ spec:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
-      name: ubuntu-22-04
+      name: ubuntu-24-04
 EOF
 ```
 
@@ -805,7 +805,7 @@ spec:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
-      name: ubuntu-22-04
+      name: ubuntu-24-04
 EOF
 ```
 
@@ -1000,7 +1000,7 @@ The full description of virtual machine configuration parameters can be found at
 
 ### Creating a virtual machine
 
-Below is an example of a simple virtual machine configuration running Ubuntu OS 22.04. The example uses the initial virtual machine initialization script (cloud-init), which installs the `qemu-guest-agent` guest agent and the `nginx` service, and creates the `cloud` user with the `cloud` password:
+Below is an example of a simple virtual machine configuration running Ubuntu OS 24.04. The example uses the initial virtual machine initialization script (cloud-init), which installs the `qemu-guest-agent` guest agent and the `nginx` service, and creates the `cloud` user with the `cloud` password:
 
 The password in the example was generated using the command `mkpasswd --method=SHA-512 --rounds=4096 -S saltsalt` and you can change it to your own if necessary:
 
@@ -1320,13 +1320,13 @@ Next, the system automatically determines the topology depending on the specifie
   - 8 sockets are used.
   - Cores are evenly distributed among the sockets.
   - Step change: 8 (the total number of cores must be a multiple of 8).
-  - Valid values: 72, 80, 88, 96, and so on up to 128.
+  - Valid values: 72, 80, 88, 96, and so on up to 248.
   - Limitations: minimum 9 cores per socket.
   - Example: If `.spec.cpu.cores` = 80, topology: 8 sockets with 10 cores each.
 
 The change step indicates by how much the total number of cores can be increased or decreased so that they are evenly distributed across the sockets.
 
-The maximum possible number of cores is 128.
+The maximum possible number of cores is 248.
 
 Summary table by `spec.cpu.cores` range:
 
@@ -1335,7 +1335,7 @@ Summary table by `spec.cpu.cores` range:
 | `1 ≤ cores ≤ 16`   | 1                 | 1           | 1                        | 16                       |
 | `16 < cores ≤ 32`  | 2                 | 2           | 9                        | 16                       |
 | `32 < cores ≤ 64`  | 4                 | 4           | 9                        | 16                       |
-| `64 < cores ≤ 128` | 8                 | 8           | 9                        | 16                       |
+| `64 < cores ≤ 248` | 8                 | 8           | 9                        | 16                       |
 
 Memory overhead does not depend on the maximum possible vCPU topology; it is calculated from actively used cores: (sockets × cores per socket × threads per core) × 8 MiB per logical CPU.
 
@@ -1682,7 +1682,7 @@ d8 v vnc linux-vm
 Example command for connecting via SSH.
 
 ```bash
-d8 v ssh cloud@linux-vm --local-ssh
+d8 v ssh cloud@linux-vm
 ```
 
 How to connect to a virtual machine in the web interface:
@@ -1807,7 +1807,7 @@ Let's consider an example of changing the configuration of a virtual machine:
 Suppose we want to change the number of processor cores. The virtual machine is currently running and using one core, which can be confirmed by connecting to it through the serial console and executing the `nproc` command.
 
 ```bash
-d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+d8 v ssh cloud@linux-vm --command "nproc"
 ```
 
 Example output:
@@ -1835,7 +1835,7 @@ Example output:
 Configuration changes have been made but not yet applied to the virtual machine. Check this by re-executing:
 
 ```bash
-d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+d8 v ssh cloud@linux-vm --command "nproc"
 ```
 
 Example output:
@@ -1889,7 +1889,7 @@ After a reboot, the changes will be applied and the `.status.restartAwaitingChan
 Execute the command to verify:
 
 ```bash
-d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+d8 v ssh cloud@linux-vm --command "nproc"
 ```
 
 Example output:
@@ -1959,6 +1959,48 @@ Limitations:
 - Changing `spec.cpu.cores` without restart is possible only within the hotplug range of the current CPU topology.
 - If the change requires CPU topology reconfiguration, a VM restart is required.
 - When decreasing CPU count within the current topology, CPU distribution across sockets may become uneven.
+
+### Memory hotplug
+
+Memory hotplug lets you increase `spec.memory.size` for a running VM without restart when the change can be applied through live migration. Decreasing memory always requires a VM restart.
+
+This functionality is disabled by default.
+
+To enable this functionality, add `HotplugMemoryWithLiveMigration` to `.spec.settings.featureGates` array in the ModuleConfig `virtualization`:
+
+```yaml
+kind: ModuleConfig
+metadata:
+  name: virtualization
+spec:
+  settings:
+    featureGates:
+    - HotplugMemoryWithLiveMigration
+```
+
+If the new `spec.memory.size` is greater than the current value and the VM is migratable, the change is applied through live migration. If you need to shrink memory, the VM originally had less than 1 GiB of memory, or the VM cannot be migrated, a VM restart is required. The need for restart is reflected by the `AwaitingRestartToApplyConfiguration` condition.
+
+Guest OS specifics:
+
+- After live migration, newly added memory blocks may require explicit activation inside the guest OS; memory configured at VM creation does not require extra activation.
+- On Linux, added memory can be enabled through sysfs (see device names in `ls /sys/bus/memory/devices/`):
+
+  ```bash
+  echo 1 > /sys/bus/memory/devices/memoryXXX/online
+  ```
+
+- To automatically enable added memory on Linux, configure a `udev` rule. After that, added memory becomes visible in `free` and `lsmem`:
+
+  ```bash
+  cat <<'EOF' > /etc/udev/rules.d/99-hotplug-memory.rules
+  SUBSYSTEM=="memory",ACTION=="add",DEVPATH=="/devices/system/memory/memory[0-9]*", TEST=="state", ATTR{state}!="online", ATTR{state}="online"
+  EOF
+  ```
+
+Limitations:
+
+- Increasing memory without restart is possible only if the VM memory size is at least 1 GiB. If the VM was created with less than 1 GiB, any memory size change requires a restart.
+- In the current module version, the maximum VM memory size is limited to 256 GiB.
 
 ### Placement of VMs by nodes
 
@@ -2296,7 +2338,7 @@ attach-blank-disk   Attached   linux-vm              3m7s
 Connect to the virtual machine and make sure the disk is connected:
 
 ```bash
-d8 v ssh cloud@linux-vm --local-ssh --command "lsblk"
+d8 v ssh cloud@linux-vm --command "lsblk"
 ```
 
 Example output:
@@ -2428,6 +2470,10 @@ Predictable interface order works only on guest OS with systemd (e.g. Ubuntu, De
 ### Organizing interaction with virtual machines
 
 Virtual machines can be accessed directly via their fixed IP addresses. However, this approach has limitations: direct use of IP addresses requires manual management, complicates scaling, and makes the infrastructure less flexible. An alternative is services—a mechanism that abstracts access to VMs by providing logical entry points instead of binding to physical addresses.
+
+{{< alert level="info" >}}
+If connecting to a VM from a cluster node does not work, check `NetworkPolicy` in the project. Project network policies can restrict access to the VM, including connections from cluster nodes.
+{{< /alert >}}
 
 Services simplify interaction with both individual VMs and groups of similar VMs. For example, the ClusterIP service type creates a fixed internal address that can be used to access both a single VM and a group of VMs, regardless of their actual IP addresses. This allows other system components to interact with resources through a stable name or IP, automatically directing traffic to the right machines.
 
@@ -3732,7 +3778,7 @@ As a result, a VM named `clone-database-prod` and a disk named `clone-database-r
 ## USB Devices
 
 {{< alert level="warning" >}}
-USB device passthrough is available only in the **Enterprise Edition (EE)** of the Deckhouse Virtualization Platform.
+USB device passthrough is available only in the Deckhouse Virtualization Platform **Enterprise Edition (EE)**.
 {{< /alert >}}
 
 The virtualization module supports USB device passthrough to virtual machines using DRA (Dynamic Resource Allocation). This section describes how to use USB devices with virtual machines.
@@ -3747,18 +3793,18 @@ USB device passthrough requires:
 
 The module provides two custom resources for managing USB devices:
 
-- [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) (cluster-scoped) — represents a USB device discovered on a specific node. Created automatically by the DRA system when a USB device is detected on a node.
-- [USBDevice](/modules/virtualization/cr.html#usbdevice) (namespace-scoped) — represents a USB device available for attachment to virtual machines in a given namespace.
+- [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) (cluster-wide resource) — represents a USB device discovered on a specific node.
+- [USBDevice](/modules/virtualization/cr.html#usbdevice) (namespaced resource) — represents a USB device available for attachment to virtual machines in a given namespace.
 
 ### How It Works
 
 USB device passthrough follows a defined lifecycle — from device discovery on a node to attachment to a virtual machine:
 
-1. The DRA driver automatically discovers USB devices on cluster nodes and creates [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resources.
+1. The DRA driver discovers USB devices on cluster nodes and publishes them to the Kubernetes API as ResourceSlices. The module controller creates [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resources from that data.
 
-1. An administrator assigns a namespace to the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource by setting the `.spec.assignedNamespace` field. This makes the device available in that namespace.
+1. An administrator assigns a namespace to the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource by setting the `.spec.assignedNamespace` resource field. This makes the device available in that namespace.
 
-1. After the namespace is assigned, the controller automatically creates a corresponding [USBDevice](/modules/virtualization/cr.html#usbdevice) resource in that namespace.
+1. After the namespace is assigned, the module controller automatically creates a corresponding [USBDevice](/modules/virtualization/cr.html#usbdevice) resource in that namespace.
 
 1. The [USBDevice](/modules/virtualization/cr.html#usbdevice) is attached to a virtual machine by adding it to the `.spec.usbDevices` field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
 
@@ -3767,13 +3813,13 @@ USB device passthrough follows a defined lifecycle — from device discovery on 
 The following steps describe the minimal workflow for attaching a USB device to a virtual machine:
 
 1. Connect the USB device to a cluster node.
-1. Verify that a NodeUSBDevice resource has been created:
+1. Verify that a [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource has been created:
 
    ```bash
    d8 k get nodeusbdevice
    ```
 
-1. Assign a namespace to the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) by setting `.spec.assignedNamespace`.
+1. Assign a namespace to the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) by setting the `.spec.assignedNamespace` resource field.
 
    ```bash
    d8 k apply -f - <<EOF
@@ -3809,7 +3855,7 @@ The following steps describe the minimal workflow for attaching a USB device to 
 
 ### NodeUSBDevice
 
-[NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource reflects the state of a physical USB device detected on a cluster node. It is a cluster-scoped resource that represents a physical USB device on a node. It is created automatically by the DRA system.
+[NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource reflects the state of a physical USB device detected on a cluster node. It is a cluster-wide resource that represents a physical USB device on a node.
 
 Example of viewing all discovered USB devices:
 
@@ -3821,8 +3867,8 @@ Example output:
 
 ```console
 NAME                 NODE           READY   ASSIGNED   NAMESPACE   AGE
-usb-flash-drive     node-1         True    False                  10m
-logitech-webcam     node-2         True    True      my-project   15m
+usb-flash-drive      node-1         True    False                  10m
+logitech-webcam      node-2         True    True       my-project  15m
 ```
 
 #### NodeUSBDevice Conditions
@@ -3841,7 +3887,7 @@ The status of a [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) r
 
 #### Assigning a Namespace
 
-Before a USB device can be attached to a virtual machine, it must be exposed to a specific namespace. To make a USB device available in a specific namespace, set the `.spec.assignedNamespace` field:
+Before a USB device can be attached to a virtual machine, it must be exposed to a specific namespace. To make a USB device available in a specific namespace, set the `.spec.assignedNamespace` parameter of the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource:
 
 ```bash
 d8 k apply -f - <<EOF
@@ -3858,7 +3904,7 @@ After assigning the namespace, a corresponding [USBDevice](/modules/virtualizati
 
 ### USBDevice
 
-Once a namespace is assigned to a [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice), a corresponding [USBDevice](/modules/virtualization/cr.html#usbdevice) resource is created in automatically that namespace. It is a namespace-scoped resource that represents a USB device available for attachment to virtual machines within a given namespace.
+When the related [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) has the `.spec.assignedNamespace` field set, a corresponding [USBDevice](/modules/virtualization/cr.html#usbdevice) resource is created in that namespace. It is a namespaced resource that represents a USB device available for attachment to virtual machines within a given namespace.
 
 Example of viewing USB devices in a namespace:
 
@@ -3875,7 +3921,7 @@ logitech-webcam    node-2   Logitech       Webcam C920         ABC123456   False
 
 #### USBDevice Attributes
 
-The [USBDevice](/modules/virtualization/cr.html#usbdevice) resource exposes detailed information about the physical USB device through its status fields. This attributes are available in `.status.attributes`:
+The [USBDevice](/modules/virtualization/cr.html#usbdevice) resource exposes detailed information about the physical USB device. These attributes are available in `.status.attributes`:
 
 - `vendorID`: USB vendor ID (hexadecimal format).
 - `productID`: USB product ID (hexadecimal format).
@@ -3975,7 +4021,7 @@ Status:
 
 {{< alert level="info" >}}
 If a USB device is physically disconnected from the node, the `Attached` condition becomes `False`.
-Both `USBDevice` and `NodeUSBDevice` resources update their status conditions to indicate that the device is no longer present on the host.
+Both [USBDevice](/modules/virtualization/cr.html#usbdevice) and [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resources update their status conditions to indicate that the device is no longer present on the host.
 {{< /alert >}}
 
 ### Requirements and Limitations

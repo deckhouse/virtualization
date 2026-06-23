@@ -66,11 +66,6 @@ var _ = Describe("DataExports", label.Slow(), Label(precheck.PrecheckSVDM, prech
 	BeforeEach(func() {
 		ctx = context.Background()
 		f = framework.NewFramework("data-exports")
-		moduleEnabled, err := checkStorageVolumeDataManagerEnabled(ctx)
-		Expect(err).NotTo(HaveOccurred(), "Failed to get modules")
-		if !moduleEnabled {
-			Skip("Module 'storage-volume-data-manager' is disabled. Skipping all tests with using this module.")
-		}
 
 		f.Before()
 		DeferCleanup(f.After)
@@ -367,14 +362,4 @@ func handleUploadResponse(resp *http.Response) error {
 	}
 
 	return fmt.Errorf("upload failed with status %d: %s", resp.StatusCode, body)
-}
-
-func checkStorageVolumeDataManagerEnabled(ctx context.Context) (bool, error) {
-	sdnModule, err := framework.NewFramework("").GetModuleConfig(ctx, "storage-volume-data-manager")
-	if err != nil {
-		return false, err
-	}
-	enabled := sdnModule.Spec.Enabled
-
-	return enabled != nil && *enabled, nil
 }
