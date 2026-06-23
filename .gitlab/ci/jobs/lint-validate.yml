@@ -89,7 +89,8 @@ lint:shellcheck:
   # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
   interruptible: true
   before_script:
-    - bash .gitlab/ci/scripts/check-runner-tools.sh go task shellcheck
+    - bash .gitlab/ci/scripts/check-runner-tools.sh go task
+    - bash .gitlab/ci/scripts/install-shellcheck.sh
   script:
     - task lint:shellcheck
   rules:
