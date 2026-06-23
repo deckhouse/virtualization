@@ -32,16 +32,16 @@ include:
   # --- Upstream modules-gitlab-ci (deckhouse/3p, ref v13.0) ---
   # TODO: pin to SHA after first green pipeline on virt-test; see migration
   # plan §11.2. Until then, branch ref v13.0 keeps fixes flowing.
-  - project: 'deckhouse/3p/deckhouse/modules-gitlab-ci'
-    ref: 'v13.0'
+  - project: "deckhouse/3p/deckhouse/modules-gitlab-ci"
+    ref: "v13.0"
     file:
       # Setup.gitlab-ci.yml provides trdl + werf setup + dual-registry
       # `werf cr login` in before_script. See templates/Setup.gitlab-ci.yml.
-      - '/templates/Setup.gitlab-ci.yml'
+      - "/templates/Setup.gitlab-ci.yml"
       # Validation/scanning jobs extend these upstream templates.
-      - '/templates/CVE_Scan.gitlab-ci.yml'
-      - '/templates/gitleaks.gitlab-ci.yml'
-      - '/templates/Svace_Analayze.gitlab-ci.yml'
+      - "/templates/CVE_Scan.gitlab-ci.yml"
+      - "/templates/gitleaks.gitlab-ci.yml"
+      - "/templates/Svace_Analayze.gitlab-ci.yml"
       # Build.gitlab-ci.yml and Deploy.gitlab-ci.yml are intentionally NOT
       # included directly. Their hidden jobs (.build, .deploy) ship with
       # `rules:` baked in (`if: $CI_COMMIT_BRANCH`, `if: $CI_COMMIT_TAG`,
@@ -51,45 +51,45 @@ include:
       # `.local_build` and `.local_deploy` and extend those instead.
 
   # --- Local structural fragments (order: stages, vars, defaults, then jobs) ---
-  - local: '.gitlab/ci/stages.yml'
-  - local: '.gitlab/ci/variables.yml'
-  - local: '.gitlab/ci/defaults.yml'
-  - local: '.gitlab/ci/workflow.yml'
+  - local: ".gitlab/ci/stages.yml"
+  - local: ".gitlab/ci/variables.yml"
+  - local: ".gitlab/ci/defaults.yml"
+  - local: ".gitlab/ci/workflow.yml"
 
   # --- Local shared templates (extends: ...) ---
-  - local: '.gitlab/ci/templates/dev_vars.yml'
-  - local: '.gitlab/ci/templates/prod_vars.yml'
-  - local: '.gitlab/ci/templates/dev.yml'
-  - local: '.gitlab/ci/templates/dev_tags.yml'
-  - local: '.gitlab/ci/templates/main.yml'
-  - local: '.gitlab/ci/templates/prod_manual.yml'
-  - local: '.gitlab/ci/templates/prod_always.yml'
-  - local: '.gitlab/ci/templates/info.yml'
-  - local: '.gitlab/ci/templates/dual_registry_login.yml'
-  - local: '.gitlab/ci/templates/build.yml'
-  - local: '.gitlab/ci/templates/deploy.yml'
+  - local: ".gitlab/ci/templates/dev_vars.yml"
+  - local: ".gitlab/ci/templates/prod_vars.yml"
+  - local: ".gitlab/ci/templates/dev.yml"
+  - local: ".gitlab/ci/templates/dev_tags.yml"
+  - local: ".gitlab/ci/templates/main.yml"
+  - local: ".gitlab/ci/templates/prod_manual.yml"
+  - local: ".gitlab/ci/templates/prod_always.yml"
+  - local: ".gitlab/ci/templates/info.yml"
+  - local: ".gitlab/ci/templates/dual_registry_login.yml"
+  - local: ".gitlab/ci/templates/build.yml"
+  - local: ".gitlab/ci/templates/deploy.yml"
 
   # --- Local job files owned by this issue ---
-  - local: '.gitlab/ci/jobs/info.yml'
-  - local: '.gitlab/ci/jobs/test.yml'
-  - local: '.gitlab/ci/jobs/build-dev.yml'
-  - local: '.gitlab/ci/jobs/build-prod.yml'
-  - local: '.gitlab/ci/jobs/deploy-dev.yml'
-  - local: '.gitlab/ci/jobs/deploy-prod.yml'
-  - local: '.gitlab/ci/jobs/cleanup.yml'
+  - local: ".gitlab/ci/jobs/info.yml"
+  - local: ".gitlab/ci/jobs/test.yml"
+  - local: ".gitlab/ci/jobs/build-dev.yml"
+  - local: ".gitlab/ci/jobs/build-prod.yml"
+  - local: ".gitlab/ci/jobs/deploy-dev.yml"
+  - local: ".gitlab/ci/jobs/deploy-prod.yml"
+  - local: ".gitlab/ci/jobs/cleanup.yml"
 
   # --- Local validation and scanning jobs ---
-  - local: '.gitlab/ci/jobs/lint-validate.yml'
-  - local: '.gitlab/ci/jobs/precache.yml'
-  - local: '.gitlab/ci/jobs/svace.yml'
-  - local: '.gitlab/ci/jobs/cve-scan.yml'
-  - local: '.gitlab/ci/jobs/gitleaks.yml'
+  - local: ".gitlab/ci/jobs/lint-validate.yml"
+  - local: ".gitlab/ci/jobs/precache.yml"
+  - local: ".gitlab/ci/jobs/svace.yml"
+  - local: ".gitlab/ci/jobs/cve-scan.yml"
+  - local: ".gitlab/ci/jobs/gitleaks.yml"
 
   # --- Local GitLab API automation, changelog, backport, and manual tools ---
-  - local: '.gitlab/ci/jobs/auto-assign-author.yml'
-  - local: '.gitlab/ci/jobs/backport.yml'
-  - local: '.gitlab/ci/jobs/changelog.yml'
-  - local: '.gitlab/ci/jobs/check-changelog.yml'
-  - local: '.gitlab/ci/jobs/check-milestone.yml'
-  - local: '.gitlab/ci/jobs/manual-tools.yml'
-  - local: '.gitlab/ci/jobs/translate-changelog.yml'
+  - local: ".gitlab/ci/jobs/auto-assign-author.yml"
+  - local: ".gitlab/ci/jobs/backport.yml"
+  - local: ".gitlab/ci/jobs/changelog.yml"
+  - local: ".gitlab/ci/jobs/check-changelog.yml"
+  - local: ".gitlab/ci/jobs/check-milestone.yml"
+  - local: ".gitlab/ci/jobs/manual-tools.yml"
+  - local: ".gitlab/ci/jobs/translate-changelog.yml"

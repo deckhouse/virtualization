@@ -51,7 +51,7 @@ lint:no-cyrillic:
       when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == "main"'
-    - if: '$CI_COMMIT_BRANCH =~ /^release-/'
+    - if: "$CI_COMMIT_BRANCH =~ /^release-/"
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
 
 # ---------------------------------------------------------------------------
@@ -74,7 +74,7 @@ lint:doc-changes:
       when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == "main"'
-    - if: '$CI_COMMIT_BRANCH =~ /^release-/'
+    - if: "$CI_COMMIT_BRANCH =~ /^release-/"
 
 # ---------------------------------------------------------------------------
 # shellcheck
@@ -100,7 +100,7 @@ lint:shellcheck:
       when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == "main"'
-    - if: '$CI_COMMIT_BRANCH =~ /^release-/'
+    - if: "$CI_COMMIT_BRANCH =~ /^release-/"
 
 # ---------------------------------------------------------------------------
 # yaml (prettier)
@@ -118,17 +118,17 @@ lint:yaml:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
         paths:
-          - '**/*.yaml'
-          - '**/*.yml'
-          - '.gitlab-ci.yml'
-          - '.gitlab/**/*'
+          - "**/*.yaml"
+          - "**/*.yml"
+          - ".gitlab-ci.yml"
+          - ".gitlab/**/*"
     - if: '$CI_COMMIT_BRANCH == "main"'
       changes:
         paths:
-          - '**/*.yaml'
-          - '**/*.yml'
-          - '.gitlab-ci.yml'
-          - '.gitlab/**/*'
+          - "**/*.yaml"
+          - "**/*.yml"
+          - ".gitlab-ci.yml"
+          - ".gitlab/**/*"
 
 # ---------------------------------------------------------------------------
 # helm_templates
@@ -151,23 +151,23 @@ lint:helm-templates:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
         paths:
-          - 'crds/**/*'
-          - 'charts/**/*'
-          - 'tools/kubeconform/**/*'
-          - 'templates/**/*'
-          - '.helmignore'
-          - 'Chart.yaml'
-          - 'Taskfile.yaml'
+          - "crds/**/*"
+          - "charts/**/*"
+          - "tools/kubeconform/**/*"
+          - "templates/**/*"
+          - ".helmignore"
+          - "Chart.yaml"
+          - "Taskfile.yaml"
     - if: '$CI_COMMIT_BRANCH == "main"'
       changes:
         paths:
-          - 'crds/**/*'
-          - 'charts/**/*'
-          - 'tools/kubeconform/**/*'
-          - 'templates/**/*'
-          - '.helmignore'
-          - 'Chart.yaml'
-          - 'Taskfile.yaml'
+          - "crds/**/*"
+          - "charts/**/*"
+          - "tools/kubeconform/**/*"
+          - "templates/**/*"
+          - ".helmignore"
+          - "Chart.yaml"
+          - "Taskfile.yaml"
 
 # ---------------------------------------------------------------------------
 # check_gens_files
@@ -224,15 +224,15 @@ check:gens-files:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
         paths:
-          - 'api/**/*'
-          - 'images/virtualization-artifact/**/*'
-          - 'go.mod'
-          - 'go.sum'
+          - "api/**/*"
+          - "images/virtualization-artifact/**/*"
+          - "go.mod"
+          - "go.sum"
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
         paths:
-          - 'images/vm-route-forge/bpf/route_watcher.c'
-          - 'images/vm-route-forge/**/*'
+          - "images/vm-route-forge/bpf/route_watcher.c"
+          - "images/vm-route-forge/**/*"
     - if: '$CI_COMMIT_BRANCH == "main"'
 
 # ---------------------------------------------------------------------------
@@ -259,11 +259,11 @@ lint:gitlab-ci:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
         paths:
-          - '.gitlab-ci.yml'
-          - '.gitlab/**/*'
+          - ".gitlab-ci.yml"
+          - ".gitlab/**/*"
     - if: '$CI_COMMIT_BRANCH == "main"'
       changes:
         paths:
-          - '.gitlab-ci.yml'
-          - '.gitlab/**/*'
+          - ".gitlab-ci.yml"
+          - ".gitlab/**/*"
     - if: '$CI_PIPELINE_SOURCE == "schedule"'

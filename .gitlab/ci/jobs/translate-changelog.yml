@@ -30,9 +30,9 @@
 # (works in GitLab 15.9+ for push and MR create).
 
 include:
-  - project: 'deckhouse/3p/deckhouse/modules-gitlab-ci'
-    ref: 'v13.0'
-    file: '/templates/Translate_Changelog.gitlab-ci.yml'
+  - project: "deckhouse/3p/deckhouse/modules-gitlab-ci"
+    ref: "v13.0"
+    file: "/templates/Translate_Changelog.gitlab-ci.yml"
 
 # Local job definition that extends the upstream hidden job.
 # Tag override is intentional: we want our project's runner tag, not the
