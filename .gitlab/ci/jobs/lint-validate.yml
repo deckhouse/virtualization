@@ -280,10 +280,22 @@ check:gens-files:
   # are registered.
   interruptible: true
   before_script:
+    # git is needed by check_diffs (git diff). go/task are host tools.
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task git
+    - |
+      # `go install tool` (used by all components) puts binaries in
+      # $(go env GOPATH)/bin, but the shell runner does not add that dir to
+      # PATH. GitHub's setup-go@v5 does this automatically; replicate it here
+      # so //go:generate directives invoking `moq`, `ginkgo`, etc. resolve.
+      # (PATH is re-exported in the script block too, since each top-level
+      # script line is a fresh shell.)
+      export PATH="$(go env GOPATH)/bin:${PATH}"
+      echo "GOPATH/bin added to PATH: $(go env GOPATH)/bin"
   script:
     - |
       set -e
+      # Restore PATH augmented in before_script for this shell too.
+      export PATH="$(go env GOPATH)/bin:${PATH}"
       function check_diffs() {
         local folder="$1"
         if ! git diff --exit-code -- "$folder"; then
@@ -297,17 +309,41 @@ check:gens-files:
       }
       case "$COMPONENT" in
         virtualization-artifact)
+          # go.mod `tool` directives include moq + ginkgo; go install tool
+          # puts them in $GOPATH/bin (already on PATH above). Mirrors GH:
+          # cd images/virtualization-artifact && go install tool, then run
+          # generation from the root Taskfile namespace.
           (cd images/virtualization-artifact && go install tool)
           task controller:dev:gogenerate
           check_diffs images/virtualization-artifact
           ;;
         vm-route-forge)
+          # bpf2go (go tool github.com/cilium/ebpf/cmd/bpf2go) shells out to
+          # `clang` and `llvm-strip`. Install the same apt packages as the
+          # GitHub workflow (.github/workflows/dev_validation.yaml,
+          # check_gens_files -> Install dependencies). Prefer already-installed
+          # tools; only apt-get when missing, and use sudo -n so a password
+          # prompt fails fast instead of hanging the job.
+          if ! command -v clang >/dev/null 2>&1 || ! command -v llvm-strip >/dev/null 2>&1; then
+            if command -v apt-get >/dev/null 2>&1; then
+              export DEBIAN_FRONTEND=noninteractive
+              sudo -n apt-get update
+              sudo -n apt-get install -y -qq \
+                llvm "linux-headers-$(uname -r)" clang \
+                libbpf-dev uuid-runtime gcc-multilib
+            else
+              echo "ERROR: clang/llvm-strip missing and apt-get unavailable on the runner" >&2
+              exit 1
+            fi
+          fi
           task vm-route-forge:gen
           check_diffs images/vm-route-forge
           ;;
         api)
-          (cd api && go install tool)
-          task generate
+          # `task generate` is defined in api/Taskfile.dist.yaml, not the
+          # root Taskfile — it must run from inside api/. Mirrors GH:
+          # cd ./api && go install tool && task generate.
+          (cd api && go install tool && task generate)
           check_diffs api
           ;;
         *)
