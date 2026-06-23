@@ -38,7 +38,38 @@ var _ = Describe("GPU", func() {
 		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs[0].Name).To(Equal("gpu-gpu0"))
 		Expect(*res.Spec.Template.Spec.Domain.Devices.GPUs[0].ClaimName).To(Equal("gpu-gpu0"))
 		Expect(*res.Spec.Template.Spec.Domain.Devices.GPUs[0].RequestName).To(Equal("req-gpu-gpu0"))
-		Expect(res.Annotations).To(HaveKeyWithValue(AppliedGPUDevicesAnnotation, `[{"name":"gpu0","model":"h100-sxm5-96gb"}]`))
+		Expect(res.Annotations).To(BeEmpty())
+	})
+
+	It("should render DRA GPU resource claims in stable order", func() {
+		kvvm := NewEmptyKVVM(types.NamespacedName{Name: "vm-a", Namespace: "default"}, KVVMOptions{})
+
+		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{
+			{Name: "gpu1", Model: "h100-sxm5-96gb"},
+			{Name: "gpu0", Model: "a100-sxm4-40gb"},
+		})
+		res := kvvm.GetResource()
+
+		Expect(res.Spec.Template.Spec.ResourceClaims).To(HaveLen(2))
+		Expect(res.Spec.Template.Spec.ResourceClaims[0].Name).To(Equal("gpu-gpu0"))
+		Expect(res.Spec.Template.Spec.ResourceClaims[1].Name).To(Equal("gpu-gpu1"))
+		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs).To(HaveLen(2))
+		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs[0].Name).To(Equal("gpu-gpu0"))
+		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs[1].Name).To(Equal("gpu-gpu1"))
+	})
+
+	It("should replace rendered DRA GPU resource claims", func() {
+		kvvm := NewEmptyKVVM(types.NamespacedName{Name: "vm-a", Namespace: "default"}, KVVMOptions{})
+		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", Model: "h100-sxm5-96gb"}})
+
+		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu1", Model: "a100-sxm4-40gb"}})
+		res := kvvm.GetResource()
+
+		Expect(res.Spec.Template.Spec.ResourceClaims).To(HaveLen(1))
+		Expect(res.Spec.Template.Spec.ResourceClaims[0].Name).To(Equal("gpu-gpu1"))
+		Expect(*res.Spec.Template.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Equal("vm-a-gpu-gpu1-template"))
+		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs).To(HaveLen(1))
+		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs[0].Name).To(Equal("gpu-gpu1"))
 	})
 
 	It("should remove rendered DRA GPU resource claims", func() {
@@ -50,6 +81,6 @@ var _ = Describe("GPU", func() {
 
 		Expect(res.Spec.Template.Spec.ResourceClaims).To(BeEmpty())
 		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs).To(BeEmpty())
-		Expect(res.Annotations).NotTo(HaveKey(AppliedGPUDevicesAnnotation))
+		Expect(res.Annotations).To(BeEmpty())
 	})
 })
