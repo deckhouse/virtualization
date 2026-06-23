@@ -57,6 +57,11 @@ variables:
   # --- Build/dev tooling (kept from previous root) ---
   GO_VERSION: "1.25.11"
   GOLANGCI_LINT_VERSION: "2.11.1"
+  # Helm v3 + jq are needed by `task validation:helm-templates` (tools/kubeconform).
+  # They are not assumed to be on the runner host; lint:helm-templates installs
+  # portable binaries from these versions in its before_script.
+  HELM_VERSION: "3.16.3"
+  JQ_VERSION: "1.7.1"
   # Let the host Go toolchain auto-download the version required by go.mod
   # (currently go 1.25.11). Runner hosts may ship an older Go with
   # GOTOOLCHAIN pinned to that older version (e.g. GOTOOLCHAIN=go1.25.9),
