@@ -553,8 +553,9 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 			Reason:             "Migrating",
 		}}
 		vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{
-			SourcePVC: "pvc-source",
-			TargetPVC: "pvc-target",
+			SourcePVC:      "pvc-source",
+			TargetPVC:      "pvc-target",
+			StartTimestamp: metav1.Now(),
 		}
 
 		pvcSource := makePVC("pvc-source", "pv-source")
@@ -584,8 +585,9 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 			Reason:             "Migrating",
 		}}
 		vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{
-			SourcePVC: "pvc-source",
-			TargetPVC: "pvc-target",
+			SourcePVC:      "pvc-source",
+			TargetPVC:      "pvc-target",
+			StartTimestamp: metav1.Now(),
 		}
 
 		pvcSource := makePVC("pvc-source", "pv-source")
@@ -613,7 +615,38 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 			"affinity for unbound target PVC should use target storage class, not source VD status class")
 	})
 
-	It("should fall back to source PVC when migration condition is False (e.g. reverted)", func() {
+	It("should use target PVC's PV node affinity while in-flight even when the Migrating condition is False (WaitForTargetReady)", func() {
+		vm := makeVM(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"})
+
+		vd := makeVD("local-disk", "pvc-source")
+		vd.Generation = 1
+		vd.Status.Conditions = []metav1.Condition{{
+			Type:               vdcondition.MigratingType.String(),
+			Status:             metav1.ConditionFalse,
+			ObservedGeneration: 1,
+			Reason:             "WaitForTargetReady",
+		}}
+		vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{
+			SourcePVC:      "pvc-source",
+			TargetPVC:      "pvc-target",
+			StartTimestamp: metav1.Now(),
+		}
+
+		pvcSource := makePVC("pvc-source", "pv-source")
+		pvSource := makePV("pv-source", nodeAffinityTerm(node1))
+		pvcTarget := makePVC("pvc-target", "pv-target")
+		pvTarget := makePV("pv-target", nodeAffinityTerm(node2))
+
+		s := buildState(vm, vd, pvcSource, pvSource, pvcTarget, pvTarget)
+		ctx := logger.ToContext(context.TODO(), slog.Default())
+		terms, err := s.PVNodeAffinityTerms(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(terms).To(HaveLen(1))
+		Expect(terms[0].MatchExpressions[0].Values).To(ConsistOf(node2),
+			"affinity must follow the in-flight migration target even while the Migrating condition is False")
+	})
+
+	It("should fall back to source PVC when migration has ended (reverted)", func() {
 		vm := makeVM(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"})
 
 		vd := makeVD("local-disk", "pvc-source")
@@ -625,8 +658,10 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 			Reason:             "MigrationReverted",
 		}}
 		vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{
-			SourcePVC: "pvc-source",
-			TargetPVC: "pvc-target",
+			SourcePVC:      "pvc-source",
+			TargetPVC:      "pvc-target",
+			StartTimestamp: metav1.Now(),
+			EndTimestamp:   metav1.Now(),
 		}
 
 		pvcSource := makePVC("pvc-source", "pv-source")
@@ -655,8 +690,9 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 			Reason:             "Migrating",
 		}}
 		vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{
-			SourcePVC: "pvc-source",
-			TargetPVC: "pvc-target",
+			SourcePVC:      "pvc-source",
+			TargetPVC:      "pvc-target",
+			StartTimestamp: metav1.Now(),
 		}
 
 		pvcSource := makePVC("pvc-source", "pv-source")
