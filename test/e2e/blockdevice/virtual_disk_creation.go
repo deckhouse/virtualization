@@ -40,8 +40,7 @@ import (
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
-	// TODO(csi): re-add when the "VirtualDiskSnapshot" spec is re-enabled (see below).
-	// vdsnapshotbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vdsnapshot"
+	vdsnapshotbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vdsnapshot"
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -49,6 +48,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
+	vdsnapshotobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vdsnapshot"
 	viobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vi"
 	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
@@ -330,52 +330,46 @@ var _ = Describe("VirtualDiskCreation", Label(
 		)
 	})
 
-	// TODO(csi): temporarily disabled for the same reason as "VirtualImage on PVC" above.
-	// A VirtualDisk created from a VirtualDiskSnapshot uses the CSI snapshot-clone/restore
-	// path, which leaves the volume DRBD-Primary on a node other than the VirtualMachine's,
-	// so DRBD (single-primary) refuses to promote it read-write on the VM's node
-	// ("failed to set source device readwrite"). Re-enable once snapshot-sourced disks are
-	// materialized into a fresh volume owned solely by the VM's node.
-	/*
-		Context("with snapshots", Label(precheck.PrecheckSnapshot), func() {
-			It("provisions a VirtualDisk from a VirtualDiskSnapshot", func() {
-				baseVD := vdbuilder.New(
-					vdbuilder.WithName("vd-source-for-snapshot"),
-					vdbuilder.WithNamespace(f.Namespace().Name),
-					vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageURLAlpineBIOS}),
-					vdbuilder.WithStorageClass(scPtr),
-				)
+	Context("with snapshots", Label(precheck.PrecheckSnapshot), func() {
+		It("provisions a VirtualDisk from a VirtualDiskSnapshot", func() {
+			baseVD := vdbuilder.New(
+				vdbuilder.WithName("vd-source-for-snapshot"),
+				vdbuilder.WithNamespace(f.Namespace().Name),
+				vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageURLAlpineBIOS}),
+				vdbuilder.WithStorageClass(scPtr),
+			)
 
-				// Boot a VM from the source disk so it provisions (the VM is its consumer on
-				// WaitForFirstConsumer storage classes) and so the consistent snapshot below
-				// can freeze the guest filesystem via the agent.
-				createVirtualDiskAndRunVM(ctx, f, baseVD)
+			// Boot a VM from the source disk so it provisions (the VM is its consumer on
+			// WaitForFirstConsumer storage classes) and so the consistent snapshot below
+			// can freeze the guest filesystem via the agent.
+			createVirtualDiskAndRunVM(ctx, f, baseVD)
 
-				vdSnapshot := vdsnapshotbuilder.New(
-					vdsnapshotbuilder.WithName("vd-snapshot"),
-					vdsnapshotbuilder.WithNamespace(f.Namespace().Name),
-					vdsnapshotbuilder.WithVirtualDiskName(baseVD.Name),
-					vdsnapshotbuilder.WithRequiredConsistency(true),
-				)
+			vdSnapshot := vdsnapshotbuilder.New(
+				vdsnapshotbuilder.WithName("vd-snapshot"),
+				vdsnapshotbuilder.WithNamespace(f.Namespace().Name),
+				vdsnapshotbuilder.WithVirtualDiskName(baseVD.Name),
+				vdsnapshotbuilder.WithRequiredConsistency(true),
+			)
 
-				By("Creating VirtualDiskSnapshot", func() {
-					err := f.CreateWithDeferredDeletion(ctx, vdSnapshot)
-					Expect(err).NotTo(HaveOccurred())
+			snapObs := vdsnapshotobs.StartObserver(ctx, f, vdSnapshot)
+			By("Creating VirtualDiskSnapshot", func() {
+				err := f.CreateWithDeferredDeletion(ctx, vdSnapshot)
+				Expect(err).NotTo(HaveOccurred())
 
-					util.UntilObjectPhase(ctx, string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.LongTimeout, vdSnapshot)
-				})
-
-				vd := vdbuilder.New(
-					vdbuilder.WithName("vd-from-snapshot"),
-					vdbuilder.WithNamespace(f.Namespace().Name),
-					vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindVirtualDiskSnapshot, vdSnapshot.Name),
-					vdbuilder.WithStorageClass(scPtr),
-				)
-
-				createVirtualDiskAndRunVM(ctx, f, vd)
+				err = snapObs.WaitFor(vdsnapshotobs.BeReady(), framework.LongTimeout)
+				Expect(err).NotTo(HaveOccurred())
 			})
+
+			vd := vdbuilder.New(
+				vdbuilder.WithName("vd-from-snapshot"),
+				vdbuilder.WithNamespace(f.Namespace().Name),
+				vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindVirtualDiskSnapshot, vdSnapshot.Name),
+				vdbuilder.WithStorageClass(scPtr),
+			)
+
+			createVirtualDiskAndRunVM(ctx, f, vd, withoutStreamingProgress())
 		})
-	*/
+	})
 })
 
 // wffcStorageClass returns a pointer to the name of the WaitForFirstConsumer StorageClass
