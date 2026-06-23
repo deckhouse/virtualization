@@ -112,32 +112,34 @@ EOF
 
 SETTINGS_PATH="/projects/${PROJECT_ID}"
 
-run() {
-  if [[ "$DRY_RUN" == "true" ]]; then
-    echo "DRY-RUN: $@"
-  else
-    eval "$@"
-  fi
-}
+curl_args=(
+  curl --silent --show-error --request PUT
+  --header "PRIVATE-TOKEN: ${GITLAB_API_TOKEN}"
+  --header "Content-Type: application/json"
+  --data "${SETTINGS_BODY}"
+  "${API_BASE}${SETTINGS_PATH}"
+)
 
 echo "Applying project MR settings to project_id=${PROJECT_ID}..."
 
 # Push the settings payload via PUT.
-run curl --silent --show-error --request PUT \
-  --header "PRIVATE-TOKEN: ${GITLAB_API_TOKEN}" \
-  --header "Content-Type: application/json" \
-  --data "${SETTINGS_BODY}" \
-  "${API_BASE}${SETTINGS_PATH}" \
-  | jq '{
-      id, name, path_with_namespace,
-      merge_method, squash_option,
-      remove_source_branch_after_merge,
-      only_allow_merge_if_pipeline_succeeds,
-      only_allow_merge_if_all_discussions_are_resolved,
-      allow_merge_on_skipped_pipeline,
-      resolve_outdated_diff_discussions,
-      printing_merge_request_link_enabled
-    }'
+if [[ "$DRY_RUN" == "true" ]]; then
+  printf 'DRY-RUN:'
+  printf ' %q' "${curl_args[@]}"
+  printf '\n'
+else
+  "${curl_args[@]}" \
+    | jq '{
+        id, name, path_with_namespace,
+        merge_method, squash_option,
+        remove_source_branch_after_merge,
+        only_allow_merge_if_pipeline_succeeds,
+        only_allow_merge_if_all_discussions_are_resolved,
+        allow_merge_on_skipped_pipeline,
+        resolve_outdated_diff_discussions,
+        printing_merge_request_link_enabled
+      }'
+fi
 
 # Approvers: leave empty unless team decides on a default approver group.
 # Push rules: file_size_limit and other settings are configured via UI
