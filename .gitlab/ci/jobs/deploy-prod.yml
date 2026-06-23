@@ -29,7 +29,7 @@ deploy_to_prod_alpha:
   stage: deploy_prod_alpha
   variables:
     RELEASE_CHANNEL: alpha
-  needs: ['build_prod']
+  needs: ["build_prod"]
   extends:
     - .local_deploy
     - .prod_manual
@@ -45,7 +45,7 @@ deploy_to_prod_beta:
   stage: deploy_prod_beta
   variables:
     RELEASE_CHANNEL: beta
-  needs: ['deploy_to_prod_alpha']
+  needs: ["deploy_to_prod_alpha"]
   extends:
     - .local_deploy
     - .prod_manual
@@ -61,7 +61,7 @@ deploy_to_prod_ea:
   stage: deploy_prod_ea
   variables:
     RELEASE_CHANNEL: early-access
-  needs: ['deploy_to_prod_beta']
+  needs: ["deploy_to_prod_beta"]
   extends:
     - .local_deploy
     - .prod_manual
@@ -77,7 +77,7 @@ deploy_to_prod_stable:
   stage: deploy_prod_stable
   variables:
     RELEASE_CHANNEL: stable
-  needs: ['deploy_to_prod_ea']
+  needs: ["deploy_to_prod_ea"]
   extends:
     - .local_deploy
     - .prod_manual
@@ -93,7 +93,7 @@ deploy_to_prod_rock_solid:
   stage: deploy_prod_rock_solid
   variables:
     RELEASE_CHANNEL: rock-solid
-  needs: ['deploy_to_prod_stable']
+  needs: ["deploy_to_prod_stable"]
   extends:
     - .local_deploy
     - .prod_manual
