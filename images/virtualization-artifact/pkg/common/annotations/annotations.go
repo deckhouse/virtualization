@@ -181,8 +181,6 @@ const (
 	AnnPVCPopulationSourceDVCR = AnnAPIGroupV + "/pvc-population-source-dvcr"
 	// AnnPVCPopulationDone marks target PVCs already populated by populator-controller.
 	AnnPVCPopulationDone = AnnAPIGroupV + "/pvc-population-done"
-	// AnnPVCCloneStrategy overrides StorageProfile cloneStrategy for PVC-to-PVC population.
-	AnnPVCCloneStrategy = AnnAPIGroupV + "/pvc-clone-strategy"
 
 	// TODO: remove deprecated annotations in the v1 version.
 	// AnnStorageClassName is the annotation for indicating that storage class name. (USED IN STORAGE sds controllers)

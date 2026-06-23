@@ -57,7 +57,7 @@ func TestReconcileStorageProfileCreatesSnapshotStrategy(t *testing.T) {
 	}
 }
 
-func TestReconcileStorageProfileForcesHostAssistedForSDSReplicated(t *testing.T) {
+func TestReconcileStorageProfileUsesSnapshotForSDSReplicated(t *testing.T) {
 	ctx := context.Background()
 	scheme := storageProfileTestScheme(t)
 	sc := &storagev1.StorageClass{Provisioner: SDSReplicatedCSIProvisioner}
@@ -86,8 +86,11 @@ func TestReconcileStorageProfileForcesHostAssistedForSDSReplicated(t *testing.T)
 	if sp.Spec.CloneStrategy == nil || *sp.Spec.CloneStrategy != cdiv1.CloneStrategySnapshot {
 		t.Fatalf("spec clone strategy must stay snapshot: %#v", sp.Spec.CloneStrategy)
 	}
-	if sp.Status.CloneStrategy == nil || *sp.Status.CloneStrategy != cdiv1.CloneStrategyHostAssisted {
+	if sp.Status.CloneStrategy == nil || *sp.Status.CloneStrategy != cdiv1.CloneStrategySnapshot {
 		t.Fatalf("unexpected clone strategy: %#v", sp.Status.CloneStrategy)
+	}
+	if sp.Status.SnapshotClass == nil || *sp.Status.SnapshotClass != vsc.Name {
+		t.Fatalf("unexpected snapshot class: %#v", sp.Status.SnapshotClass)
 	}
 }
 

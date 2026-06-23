@@ -147,16 +147,6 @@ func (r *Reconciler) snapshotClassForProvisioner(ctx context.Context, provisione
 }
 
 func reconcileCloneStrategy(sc *storagev1.StorageClass, desired *cdiv1.CDICloneStrategy, snapshotClass string) *cdiv1.CDICloneStrategy {
-	if sc.Provisioner == SDSReplicatedCSIProvisioner {
-		// Snapshot/CSI smart cloning for SDS Replicated PVC-to-PVC clones is disabled
-		// until the storage bug is fixed. Snapshot restore between linstor-thin-r1-immediate
-		// and linstor-thin-r1 currently succeeds from the Kubernetes/CSI point of view
-		// (snapshot ReadyToUse, target PVC Bound, correct restore size), but the restored
-		// block volume is zero-filled at the beginning of the disk and loses the boot
-		// sector/MBR.
-		strategy := cdiv1.CloneStrategyHostAssisted
-		return &strategy
-	}
 	if desired != nil {
 		return desired
 	}

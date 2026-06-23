@@ -236,10 +236,7 @@ func (s *PersistentVolumeClaimService) preparePopulationFromPVC(ctx context.Cont
 		targetVolumeMode = *target.Spec.VolumeMode
 	}
 
-	strategy := owner.GetAnnotations()[annotations.AnnPVCCloneStrategy]
-	if strategy == "" {
-		strategy = s.choosePVCCloneStrategy(ctx, source, targetSC, targetVolumeMode)
-	}
+	strategy := s.choosePVCCloneStrategy(ctx, source, targetSC, targetVolumeMode)
 	target.Spec.Resources.Requests[corev1.ResourceStorage] = pvcCloneTargetSize(target.Spec.Resources.Requests[corev1.ResourceStorage], source)
 	target.Annotations[annotations.AnnPVCPopulationSourcePVC] = source.Name
 

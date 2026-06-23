@@ -377,7 +377,7 @@ func TestPVCServiceCreateTargetFallsBackToCSIClone(t *testing.T) {
 	}
 }
 
-func TestPVCServiceCreateTargetFromPVCUsesHostAssignedForSDSReplicated(t *testing.T) {
+func TestPVCServiceCreateTargetFromPVCUsesSnapshotForSDSReplicated(t *testing.T) {
 	ctx := context.Background()
 	vd := diskImportTestVD()
 	sc := diskImportStorageClass()
@@ -387,11 +387,11 @@ func TestPVCServiceCreateTargetFromPVCUsesHostAssignedForSDSReplicated(t *testin
 		ObjectMeta: metav1.ObjectMeta{Name: "sds-replicated-volume"},
 		Driver:     sc.Provisioner,
 	}
-	hostAssisted := cdiv1.CloneStrategyHostAssisted
+	snapshot := cdiv1.CloneStrategySnapshot
 	sp := &cdiv1.StorageProfile{
 		ObjectMeta: metav1.ObjectMeta{Name: sc.Name},
 		Status: cdiv1.StorageProfileStatus{
-			CloneStrategy: &hostAssisted,
+			CloneStrategy: &snapshot,
 		},
 	}
 	c := fake.NewClientBuilder().WithScheme(diskImportTestScheme(t)).WithObjects(sc, sourceClaim, snapshotClass, sp).Build()
@@ -406,46 +406,18 @@ func TestPVCServiceCreateTargetFromPVCUsesHostAssignedForSDSReplicated(t *testin
 	if err := c.Get(ctx, types.NamespacedName{Name: target.Name, Namespace: target.Namespace}, created); err != nil {
 		t.Fatalf("target pvc not found: %v", err)
 	}
-	if got := created.Annotations[annotations.AnnPVCPopulationStrategy]; got != PopulationStrategyHostAssigned {
+	if got := created.Annotations[annotations.AnnPVCPopulationStrategy]; got != PopulationStrategySnapshot {
 		t.Fatalf("unexpected population strategy: %q", got)
 	}
 	if got := created.Annotations[annotations.AnnPVCPopulationSourcePVC]; got != sourceClaim.Name {
 		t.Fatalf("unexpected source pvc: %q", got)
 	}
-	if created.Spec.DataSource != nil {
-		t.Fatalf("host-assigned target pvc must not use storage dataSource: %#v", created.Spec.DataSource)
+	if created.Spec.DataSourceRef == nil || created.Spec.DataSourceRef.Kind != "VolumeSnapshot" {
+		t.Fatalf("target pvc does not reference VolumeSnapshot: %#v", created.Spec.DataSourceRef)
 	}
-	if created.Spec.DataSourceRef == nil || created.Spec.DataSourceRef.APIGroup == nil || *created.Spec.DataSourceRef.APIGroup != virtualizationAPIGroup {
-		t.Fatalf("target pvc does not defer host-assigned provisioning: %#v", created.Spec.DataSourceRef)
-	}
-}
-
-func TestPVCServiceCreateTargetFromPVCHonorsOwnerCloneStrategyOverride(t *testing.T) {
-	ctx := context.Background()
-	vd := diskImportTestVD()
-	vd.Annotations = map[string]string{annotations.AnnPVCCloneStrategy: PopulationStrategyHostAssigned}
-	sc := diskImportStorageClass()
-	sourceClaim := diskImportSourcePVC()
-	c := fake.NewClientBuilder().WithScheme(diskImportTestScheme(t)).WithObjects(sc, sourceClaim).Build()
-	svc := newTestPVCService(c)
-	target := newTestTargetPVC(vd, sc, resource.MustParse("1Gi"))
-
-	if _, err := svc.CreateTargetFromPVC(ctx, client.ObjectKeyFromObject(target), sc.Name, ptr.To(resource.MustParse("1Gi")), vd, sourceClaim, testVolumeModeGetter{}, nil); err != nil {
-		t.Fatalf("CreateTargetFromPVC failed: %v", err)
-	}
-
-	created := &corev1.PersistentVolumeClaim{}
-	if err := c.Get(ctx, types.NamespacedName{Name: target.Name, Namespace: target.Namespace}, created); err != nil {
-		t.Fatalf("target pvc not found: %v", err)
-	}
-	if got := created.Annotations[annotations.AnnPVCPopulationStrategy]; got != PopulationStrategyHostAssigned {
-		t.Fatalf("unexpected population strategy: %q", got)
-	}
-	if got := created.Annotations[annotations.AnnPVCPopulationSourcePVC]; got != sourceClaim.Name {
-		t.Fatalf("unexpected source pvc: %q", got)
-	}
-	if created.Spec.DataSourceRef == nil || created.Spec.DataSourceRef.APIGroup == nil || *created.Spec.DataSourceRef.APIGroup != virtualizationAPIGroup {
-		t.Fatalf("target pvc does not defer host-assigned provisioning: %#v", created.Spec.DataSourceRef)
+	snapshotObj := &vsv1.VolumeSnapshot{}
+	if err := c.Get(ctx, types.NamespacedName{Name: created.Spec.DataSourceRef.Name, Namespace: vd.Namespace}, snapshotObj); err != nil {
+		t.Fatalf("clone snapshot not found: %v", err)
 	}
 }
 
