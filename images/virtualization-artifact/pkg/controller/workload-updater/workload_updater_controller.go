@@ -42,11 +42,12 @@ func SetupController(
 	firmwareImage,
 	namespace,
 	virtControllerName string,
+	disableFirmwareUpdate bool,
 ) error {
 	client := mgr.GetClient()
 
 	handlers := []Handler{
-		handler.NewFirmwareHandler(client, service.NewOneShotMigrationService(client, "firmware-update-"), firmwareImage, namespace, virtControllerName),
+		handler.NewFirmwareHandler(client, service.NewOneShotMigrationService(client, "firmware-update-"), firmwareImage, namespace, virtControllerName, disableFirmwareUpdate),
 		handler.NewNodePlacementHandler(client, service.NewOneShotMigrationService(client, "nodeplacement-update-")),
 	}
 	isMemoryHotplug := featuregates.Default().Enabled(featuregates.HotplugMemoryWithLiveMigration)
