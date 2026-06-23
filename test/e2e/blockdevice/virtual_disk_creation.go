@@ -70,16 +70,13 @@ const (
 )
 
 var _ = Describe("VirtualDiskCreation", Label(
-	precheck.PrecheckWFFCStorageClass,
-	precheck.PrecheckImmediateStorageClass,
-	precheck.PrecheckSameCSIDriverStorageClass,
+	precheck.PrecheckDefaultStorageClass,
 ), func() {
 	var (
 		f   *framework.Framework
 		ctx context.Context
 
-		scPtr          *string
-		immediateSCPtr *string
+		scPtr *string
 	)
 
 	BeforeEach(func() {
@@ -89,8 +86,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 		DeferCleanup(f.After)
 		setupProject(ctx, f, "vd-creation")
 
-		scPtr = wffcStorageClass()
-		immediateSCPtr = immediateStorageClass()
+		scPtr = defaultStorageClass()
 	})
 
 	It("provisions a VirtualDisk from HTTP data source", func() {
@@ -238,54 +234,59 @@ var _ = Describe("VirtualDiskCreation", Label(
 		createVirtualDiskAndRunVM(ctx, f, vd, withoutStreamingProgress())
 	})
 
-	It("provisions a VirtualDisk from a VirtualImage on PVC backed by a different storage class of the same CSI driver", func() {
-		baseVI := vibuilder.New(
-			vibuilder.WithName("vi-source-pvc-other-sc"),
-			vibuilder.WithNamespace(f.Namespace().Name),
-			vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
-			// The source image type is incidental here (the scenario tests cloning from a
-			// VI on a different storage class), so source the base image from a CVI.
-			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
-		)
-		baseVI.Spec.PersistentVolumeClaim.StorageClass = immediateSCPtr
+	// TODO(sc): disabled while VirtualDiskCreation is constrained to a single
+	// default StorageClass. Re-enable when different-StorageClass scenarios are
+	// needed again.
+	/*
+		It("provisions a VirtualDisk from a VirtualImage on PVC backed by a different storage class of the same CSI driver", func() {
+			baseVI := vibuilder.New(
+				vibuilder.WithName("vi-source-pvc-other-sc"),
+				vibuilder.WithNamespace(f.Namespace().Name),
+				vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
+				// The source image type is incidental here (the scenario tests cloning from
+				// a PVC-backed VI), so source the base image from a CVI.
+				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
+			)
+			baseVI.Spec.PersistentVolumeClaim.StorageClass = scPtr
 
-		viObs := viobs.StartObserver(ctx, f, baseVI)
-		viObs.Never(viobs.BeFailed())
-		viObs.Always(viobs.HaveFormat(expectedVirtualImageFormat(ctx, f, baseVI)))
+			viObs := viobs.StartObserver(ctx, f, baseVI)
+			viObs.Never(viobs.BeFailed())
+			viObs.Always(viobs.HaveFormat(expectedVirtualImageFormat(ctx, f, baseVI)))
 
-		By("Creating base VirtualImage on PVC with the immediate storage class "+*immediateSCPtr, func() {
-			err := f.CreateWithDeferredDeletion(ctx, baseVI)
-			Expect(err).NotTo(HaveOccurred())
+			By("Creating base VirtualImage on PVC with the default storage class "+*scPtr, func() {
+				err := f.CreateWithDeferredDeletion(ctx, baseVI)
+				Expect(err).NotTo(HaveOccurred())
 
-			err = viObs.WaitFor(viobs.BeReady(), framework.LongTimeout)
-			Expect(err).NotTo(HaveOccurred())
+				err = viObs.WaitFor(viobs.BeReady(), framework.LongTimeout)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			vd := vdbuilder.New(
+				vdbuilder.WithName("vd-from-vi-other-sc"),
+				vdbuilder.WithNamespace(f.Namespace().Name),
+				vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindVirtualImage, baseVI.Name),
+				vdbuilder.WithStorageClass(scPtr),
+			)
+
+			bootVD := vdbuilder.New(
+				vdbuilder.WithName("vd-from-vi-other-sc-boot"),
+				vdbuilder.WithNamespace(f.Namespace().Name),
+				// The boot disk is incidental here; the scenario checks that the
+				// cloned disk provisions and attaches successfully.
+				vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
+				vdbuilder.WithStorageClass(scPtr),
+			)
+
+			bootObs := startVirtualDisk(ctx, f, bootVD, withIntermediateProgress())
+			// PVC-backed source provisioning does not stream importer progress.
+			cloneObs := startVirtualDisk(ctx, f, vd, withoutStreamingProgress())
+
+			runVirtualMachineFromDisks(ctx, f,
+				observedDisk{vd: bootVD, obs: bootObs},
+				observedDisk{vd: vd, obs: cloneObs},
+			)
 		})
-
-		vd := vdbuilder.New(
-			vdbuilder.WithName("vd-from-vi-other-sc"),
-			vdbuilder.WithNamespace(f.Namespace().Name),
-			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindVirtualImage, baseVI.Name),
-			vdbuilder.WithStorageClass(scPtr),
-		)
-
-		bootVD := vdbuilder.New(
-			vdbuilder.WithName("vd-from-vi-other-sc-boot"),
-			vdbuilder.WithNamespace(f.Namespace().Name),
-			// The boot disk is incidental here; the scenario checks that the
-			// same-CSI clone disk provisions and attaches successfully.
-			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
-			vdbuilder.WithStorageClass(scPtr),
-		)
-
-		bootObs := startVirtualDisk(ctx, f, bootVD, withIntermediateProgress())
-		// Same-CSI PVC source provisions via a CSI clone (no streamed progress).
-		cloneObs := startVirtualDisk(ctx, f, vd, withoutStreamingProgress())
-
-		runVirtualMachineFromDisks(ctx, f,
-			observedDisk{vd: bootVD, obs: bootObs},
-			observedDisk{vd: vd, obs: cloneObs},
-		)
-	})
+	*/
 
 	It("provisions a VirtualDisk from a ClusterVirtualImage", func() {
 		vd := vdbuilder.New(
