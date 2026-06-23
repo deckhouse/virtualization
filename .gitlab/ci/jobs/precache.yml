@@ -10,14 +10,14 @@
 #   on: workflow_dispatch              -> when: manual (Run pipeline)
 #   matrix.branch: [main]              -> single .main job
 #
-# The actual build is delegated to the upstream `.build` template from
-# deckhouse/3p/deckhouse/modules-gitlab-ci@v13.0 (Build.gitlab-ci.yml)
-# via `.gitlab/ci/templates/main.yml` / `dev.yml`. This file only sets
-# the trigger surface and the per-pipeline variables that the upstream
-# build template expects.
+# The actual build uses the local `.local_build` template, which mirrors the
+# upstream Build.gitlab-ci.yml script without inheriting its broad rules. This
+# file sets the trigger surface and the per-pipeline variables that the build
+# template expects.
 
 precache:build:main:
   extends:
+    - .local_build
     - .main
   stage: build
   # TODO_RUNNER_TAG: scheduled builds should run on a runner pool separate
@@ -37,7 +37,8 @@ precache:build:main:
 # the GH workflow but keeps it branch-driven for precache.
 precache:build:branch:
   extends:
-    - .dev_tags
+    - .local_build
+    - .dev_vars
   stage: build
   # TODO_RUNNER_TAG: same as precache:build:main.
   interruptible: false

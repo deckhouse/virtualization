@@ -22,14 +22,17 @@
 # Disable generic visible jobs from the upstream include. Keep the hidden
 # `.gitleaks_scan` template active for project-specific jobs below.
 gitleaks_diff:
+  extends: .gitleaks_scan
   rules:
     - when: never
 
 gitleaks_full_manual:
+  extends: .gitleaks_scan
   rules:
     - when: never
 
 gitleaks_full_scheduled:
+  extends: .gitleaks_scan
   rules:
     - when: never
 
