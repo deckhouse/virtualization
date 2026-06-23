@@ -17,7 +17,6 @@ limitations under the License.
 package kvbuilder
 
 import (
-	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -33,7 +32,6 @@ const (
 	GPUNamePrefix                            = "gpu-"
 	GPUResourceClaimTemplateNameSuffixFormat = "-gpu-%s-template"
 	GPUResourceClaimRequestNamePrefix        = "req-gpu-"
-	AppliedGPUDevicesAnnotation              = "internal.virtualization.deckhouse.io/applied-gpu-devices"
 )
 
 func GPUResourceClaimName(deviceName string) string {
@@ -50,17 +48,6 @@ func IsGPUResourceClaimTemplateName(vmName, templateName string) bool {
 
 func GPUResourceClaimRequestName(deviceName string) string {
 	return GPUResourceClaimRequestNamePrefix + deviceName
-}
-
-func EncodeGPUDevices(devices []v1alpha2.GPUDeviceSpec) string {
-	if len(devices) == 0 {
-		return ""
-	}
-	data, err := json.Marshal(sortGPUDevices(devices))
-	if err != nil {
-		return ""
-	}
-	return string(data)
 }
 
 func (b *KVVM) SetGPUDevices(vmName string, devices []v1alpha2.GPUDeviceSpec) {
@@ -80,9 +67,6 @@ func (b *KVVM) SetGPUDevices(vmName string, devices []v1alpha2.GPUDeviceSpec) {
 	)
 
 	if len(devices) == 0 {
-		if b.Resource.Annotations != nil {
-			delete(b.Resource.Annotations, AppliedGPUDevicesAnnotation)
-		}
 		return
 	}
 
@@ -102,11 +86,6 @@ func (b *KVVM) SetGPUDevices(vmName string, devices []v1alpha2.GPUDeviceSpec) {
 			},
 		})
 	}
-
-	if b.Resource.Annotations == nil {
-		b.Resource.Annotations = make(map[string]string, 1)
-	}
-	b.Resource.Annotations[AppliedGPUDevicesAnnotation] = EncodeGPUDevices(devices)
 }
 
 func sortGPUDevices(devices []v1alpha2.GPUDeviceSpec) []v1alpha2.GPUDeviceSpec {

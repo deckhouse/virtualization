@@ -445,7 +445,6 @@ var _ = Describe("SyncKvvmHandler", func() {
 				GPUDevices: []v1alpha2.GPUDeviceSpec{{Name: "gpu0", Model: "a100-sxm4-40gb"}},
 			},
 		})).To(Succeed())
-		kvvm.Annotations[kvbuilder.AppliedGPUDevicesAnnotation] = `[{"name":"gpu0","model":"a100-sxm4-40gb"}]`
 		kvvm.SetGroupVersionKind(virtv1.VirtualMachineGroupVersionKind)
 		kvvmi := makeKVVMI()
 
@@ -462,7 +461,6 @@ var _ = Describe("SyncKvvmHandler", func() {
 
 		updatedKVVM := &virtv1.VirtualMachine{}
 		Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(kvvm), updatedKVVM)).To(Succeed())
-		Expect(updatedKVVM.Annotations).To(HaveKeyWithValue(kvbuilder.AppliedGPUDevicesAnnotation, `[{"name":"gpu0","model":"a100-sxm4-40gb"}]`))
 		Expect(updatedKVVM.Spec.Template.Spec.Domain.Devices.GPUs).To(BeEmpty())
 	})
 
