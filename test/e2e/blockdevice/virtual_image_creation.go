@@ -28,6 +28,7 @@ import (
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vdsnapshotbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vdsnapshot"
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
+	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
@@ -404,6 +405,7 @@ func createVirtualImageAndWait(ctx context.Context, f *framework.Framework, vi *
 	obs.Never(viobs.BeFailed())
 	obs.Always(viobs.HaveValidPhaseTransitions())
 	obs.Always(viobs.HaveValidProgress(virtualImageProgressExpectations(vi, o), progressUpdateInterval, progressBoundaryBudget))
+	obs.Always(viobs.HaveFormat(expectedVirtualImageFormat(vi)))
 
 	By("Creating VirtualImage on "+virtualImageStorageName(vi), func() {
 		err := f.CreateWithDeferredDeletion(ctx, vi)
@@ -424,6 +426,7 @@ func uploadVirtualImageAndWait(ctx context.Context, f *framework.Framework, vi *
 	obs.Never(viobs.BeFailed())
 	obs.Always(viobs.HaveValidPhaseTransitions())
 	obs.Always(viobs.HaveValidProgress(virtualImageProgressExpectations(vi, progressWaitOptions{}), progressUpdateInterval, progressBoundaryBudget))
+	obs.Always(viobs.HaveFormat(expectedVirtualImageFormat(vi)))
 
 	By("Creating VirtualImage on "+virtualImageStorageName(vi), func() {
 		err := f.CreateWithDeferredDeletion(ctx, vi)
@@ -560,4 +563,21 @@ func virtualImageStorageName(vi *v1alpha2.VirtualImage) string {
 	default:
 		return string(vi.Spec.Storage)
 	}
+}
+
+// expectedVirtualImageFormat returns the image format actually stored for vi.
+// Block PVC volumes hold a flat raw disk; DVCR and filesystem PVC volumes keep qcow2.
+func expectedVirtualImageFormat(vi *v1alpha2.VirtualImage) string {
+	if vi.Spec.Storage == v1alpha2.StoragePersistentVolumeClaim {
+		return imageformat.FormatRAW
+	}
+	if vi.Spec.DataSource.HTTP != nil && vi.Spec.DataSource.HTTP.URL == object.ImageURLUbuntuISO {
+		return imageformat.FormatISO
+	}
+	if vi.Spec.DataSource.ObjectRef != nil &&
+		vi.Spec.DataSource.ObjectRef.Kind == v1alpha2.VirtualImageObjectRefKindClusterVirtualImage &&
+		vi.Spec.DataSource.ObjectRef.Name == object.PrecreatedCVIUbuntuISO {
+		return imageformat.FormatISO
+	}
+	return imageformat.FormatQCOW2
 }

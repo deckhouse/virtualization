@@ -29,10 +29,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
@@ -251,6 +253,23 @@ var _ = Describe("Sources helpers", func() {
 
 			Expect(vi.Status.Phase).To(Equal(v1alpha2.ImageProvisioning))
 			Expect(cb.Condition().Reason).To(Equal(vicondition.Provisioning.String()))
+		})
+
+		It("sets raw format when block PVC import is complete", func() {
+			ctx := context.Background()
+			vi := newVI()
+			pvc := newBoundImportPVC("target", vi.Namespace)
+			pvc.Spec.VolumeMode = ptr.To(corev1.PersistentVolumeBlock)
+			pvc.Annotations[annotations.AnnPVCPopulationDone] = "true"
+			supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
+			cb := conditions.NewConditionBuilder(vicondition.ReadyType)
+
+			result, err := reconcilePVCImportFromReadySource(ctx, vi, pvc, nil, resource.MustParse("200Mi"), cb, supgen, nil, nil, func() {})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.RequeueAfter).ToNot(BeZero())
+
+			Expect(vi.Status.Phase).To(Equal(v1alpha2.ImageReady))
+			Expect(vi.Status.Format).To(Equal(imageformat.FormatRAW))
 		})
 	})
 

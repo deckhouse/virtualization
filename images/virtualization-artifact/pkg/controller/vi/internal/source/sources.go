@@ -32,6 +32,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -340,6 +341,7 @@ func reconcilePVCImportFromDVCR(
 		vi.Status.Progress = "100%"
 		vi.Status.Size = stat.GetSize(pod)
 		vi.Status.CDROM = stat.GetCDROM(pod)
+		vi.Status.Format = imageformat.StorageFormat(pvc)
 		vi.Status.DownloadSpeed = stat.GetDownloadSpeed(vi.GetUID(), pod)
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
@@ -417,6 +419,7 @@ func reconcilePVCImportFromReadySource(
 		cb.Status(metav1.ConditionTrue).Reason(vicondition.Ready).Message("")
 		vi.Status.Progress = "100%"
 		ready()
+		vi.Status.Format = imageformat.StorageFormat(pvc)
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 

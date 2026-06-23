@@ -34,7 +34,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
-	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -291,7 +290,6 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *v1alpha2.Virt
 				Unpacked:      vdRef.Status.Capacity,
 				UnpackedBytes: strconv.FormatInt(intQ, 10),
 			}
-			vi.Status.Format = imageformat.FormatRAW
 		})
 	}
 

@@ -30,6 +30,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -186,6 +187,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 
 		viObs := viobs.StartObserver(ctx, f, baseVI)
 		viObs.Never(viobs.BeFailed())
+		viObs.Always(viobs.HaveFormat(expectedVirtualImageFormat(baseVI)))
 
 		By("Creating base VirtualImage on DVCR", func() {
 			err := f.CreateWithDeferredDeletion(ctx, baseVI)
@@ -216,6 +218,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 
 		viObs := viobs.StartObserver(ctx, f, baseVI)
 		viObs.Never(viobs.BeFailed())
+		viObs.Always(viobs.HaveFormat(expectedVirtualImageFormat(baseVI)))
 
 		By("Creating base VirtualImage on PVC", func() {
 			err := f.CreateWithDeferredDeletion(ctx, baseVI)
@@ -248,6 +251,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 
 		viObs := viobs.StartObserver(ctx, f, baseVI)
 		viObs.Never(viobs.BeFailed())
+		viObs.Always(viobs.HaveFormat(expectedVirtualImageFormat(baseVI)))
 
 		By("Creating base VirtualImage on PVC with the immediate storage class "+*immediateSCPtr, func() {
 			err := f.CreateWithDeferredDeletion(ctx, baseVI)
@@ -615,6 +619,10 @@ func runVirtualMachineFromDisks(ctx context.Context, f *framework.Framework, dis
 		for _, d := range disks {
 			err := d.obs.WaitFor(vdobs.BeReady(), framework.LongTimeout)
 			Expect(err).NotTo(HaveOccurred())
+
+			err = f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(d.vd), d.vd)
+			Expect(err).NotTo(HaveOccurred())
+			expectVirtualDiskBlockStorage(ctx, f, d.vd)
 		}
 	})
 
@@ -824,6 +832,23 @@ func allowIngressToUploaderNetworkPolicy(ctx context.Context, f *framework.Frame
 		return fmt.Errorf("no NetworkPolicy owned by UID %q found in %q", ownerUID, namespace)
 	}
 	return nil
+}
+
+// expectVirtualDiskBlockStorage verifies that a Ready VirtualDisk target PVC is a
+// block volume. Block-device tests store flat raw disks on such volumes.
+func expectVirtualDiskBlockStorage(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk) {
+	GinkgoHelper()
+
+	Expect(vd.Status.Target.PersistentVolumeClaim).NotTo(BeEmpty())
+
+	pvc := &corev1.PersistentVolumeClaim{}
+	err := f.Clients.GenericClient().Get(ctx, types.NamespacedName{
+		Name:      vd.Status.Target.PersistentVolumeClaim,
+		Namespace: vd.Namespace,
+	}, pvc)
+	Expect(err).NotTo(HaveOccurred(), "failed to get target PVC for VirtualDisk %q", vd.Name)
+	Expect(pvc.Spec.VolumeMode).NotTo(BeNil())
+	Expect(*pvc.Spec.VolumeMode).To(Equal(corev1.PersistentVolumeBlock))
 }
 
 func isOwnedByUID(refs []metav1.OwnerReference, uid types.UID) bool {

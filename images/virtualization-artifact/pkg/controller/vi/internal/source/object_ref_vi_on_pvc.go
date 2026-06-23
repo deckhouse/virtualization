@@ -263,7 +263,6 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 			ds.recorder.Event(vi, corev1.EventTypeNormal, v1alpha2.ReasonDataSourceSyncCompleted, "The ObjectRef DataSource import has completed")
 			vi.Status.Size = viRef.Status.Size
 			vi.Status.CDROM = viRef.Status.CDROM
-			vi.Status.Format = viRef.Status.Format
 		})
 	}
 

@@ -46,6 +46,20 @@ func BeFailed() Predicate {
 	}
 }
 
+// HaveFormat reports an invariant violation when a Ready VirtualImage reports a
+// status.format different from the expected on-disk format.
+func HaveFormat(expected string) Predicate {
+	return func(i *v1alpha2.VirtualImage) (bool, error) {
+		if i.Status.Phase != v1alpha2.ImageReady {
+			return true, nil
+		}
+		if i.Status.Format != expected {
+			return false, fmt.Errorf("status.format is %q, expected %q", i.Status.Format, expected)
+		}
+		return true, nil
+	}
+}
+
 // BeReady reports the VirtualImage has finished provisioning.
 //
 // The predicate is satisfied only when the phase is Ready and the Ready
