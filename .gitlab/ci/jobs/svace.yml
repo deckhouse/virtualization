@@ -127,7 +127,7 @@ svace:notify:
   # TODO_RUNNER_TAG: short-lived helper, [deckhouse] is fine.
   interruptible: true
   before_script:
-    - bash .gitlab/ci/scripts/check-runner-tools.sh bash curl
+    - bash .gitlab/ci/scripts/check-runner-tools.sh bash curl jq
   variables:
     GIT_STRATEGY: none
   needs:
@@ -149,7 +149,7 @@ svace:notify:
       curl --silent --show-error --fail \
         --request POST \
         --header 'Content-Type: application/json' \
-        --data "$(printf '{"text": "%s"}' "${MESSAGE}")" \
+        --data "$(jq -n --arg text "${MESSAGE}" '{text: $text}')" \
         "${LOOP_WEBHOOK_URL}" || echo "Loop webhook failed (non-fatal)"
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'

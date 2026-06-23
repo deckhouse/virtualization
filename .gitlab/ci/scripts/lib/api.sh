@@ -87,14 +87,15 @@ api() {
     --header "Accept: application/json" \
     "${CI_API_V4_URL}${path}" "$@")"
 
-  cat "$response_file"
-  rm -f "$response_file"
-
   if [[ "$http_code" =~ ^2 ]]; then
+    cat "$response_file"
+    rm -f "$response_file"
     echo "<<< status=${http_code}" >&2
     return 0
   fi
 
+  cat "$response_file" >&2
+  rm -f "$response_file"
   echo "<<< status=${http_code} (FAILED)" >&2
   return 1
 }
