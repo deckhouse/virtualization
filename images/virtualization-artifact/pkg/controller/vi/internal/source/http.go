@@ -353,7 +353,7 @@ func (ds HTTPDataSource) getPVCSize(pod *corev1.Pod) (resource.Quantity, error) 
 		return resource.Quantity{}, errors.New("got zero unpacked size from data source")
 	}
 
-	return service.GetValidatedPVCSize(&unpackedSize, unpackedSize)
+	return service.GetValidatedPVCSize(nil, unpackedSize)
 }
 
 func (ds HTTPDataSource) getSource(sup supplements.Generator, dvcrSourceImageName string) *service.PVCImportSource {

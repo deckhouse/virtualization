@@ -353,5 +353,5 @@ func (ds ObjectRefDataVirtualImageOnPVC) getPVCSize(refSize v1alpha2.ImageStatus
 		return resource.Quantity{}, errors.New("got zero unpacked size from data source")
 	}
 
-	return service.GetValidatedPVCSize(&unpackedSize, unpackedSize)
+	return service.GetValidatedPVCSize(nil, unpackedSize)
 }

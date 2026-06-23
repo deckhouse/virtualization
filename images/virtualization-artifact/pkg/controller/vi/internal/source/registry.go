@@ -372,7 +372,7 @@ func (ds RegistryDataSource) getPVCSize(pod *corev1.Pod) (resource.Quantity, err
 		return resource.Quantity{}, errors.New("got zero unpacked size from data source")
 	}
 
-	return service.GetValidatedPVCSize(&unpackedSize, unpackedSize)
+	return service.GetValidatedPVCSize(nil, unpackedSize)
 }
 
 func (ds RegistryDataSource) getSource(sup supplements.Generator, dvcrSourceImageName string) *service.PVCImportSource {

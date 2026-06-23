@@ -508,7 +508,7 @@ func (ds ObjectRefDataSource) getPVCSize(dvcrDataSource controller.DVCRDataSourc
 		return resource.Quantity{}, errors.New("got zero unpacked size from data source")
 	}
 
-	return service.GetValidatedPVCSize(&unpackedSize, unpackedSize)
+	return service.GetValidatedPVCSize(nil, unpackedSize)
 }
 
 func (ds ObjectRefDataSource) getSource(sup supplements.Generator, dvcrDataSource controller.DVCRDataSource) (*service.PVCImportSource, error) {

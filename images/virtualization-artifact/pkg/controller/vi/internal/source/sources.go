@@ -378,7 +378,7 @@ func getPVCSizeFromPod(stat Stat, pod *corev1.Pod) (resource.Quantity, error) {
 	if unpackedSize.IsZero() {
 		return resource.Quantity{}, errors.New("got zero unpacked size from data source")
 	}
-	return service.GetValidatedPVCSize(&unpackedSize, unpackedSize)
+	return service.GetValidatedPVCSize(nil, unpackedSize)
 }
 
 func reconcilePVCImportFromReadySource(

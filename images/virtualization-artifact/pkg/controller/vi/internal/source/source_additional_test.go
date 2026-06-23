@@ -392,6 +392,27 @@ var _ = Describe("Source validations and helpers", func() {
 			Expect(source.Registry.URL).To(Equal("docker://registry.example/source"))
 		})
 
+		It("aligns pvc size up to the block boundary for unaligned image sizes", func() {
+			vi.Spec.DataSource.ObjectRef = &v1alpha2.VirtualImageObjectRef{Kind: v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, Name: "cvi"}
+			cvi := &v1alpha2.ClusterVirtualImage{
+				ObjectMeta: metav1.ObjectMeta{Name: "cvi", UID: "cvi-uid"},
+				Status: v1alpha2.ClusterVirtualImageStatus{
+					Phase:  v1alpha2.ImageReady,
+					Format: "qcow2",
+					Size:   v1alpha2.ImageStatusSize{UnpackedBytes: "1607484928"},
+					Target: v1alpha2.ClusterVirtualImageStatusTarget{RegistryURL: "registry.example/source"},
+				},
+			}
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cvi).Build()
+			ds := NewObjectRefDataSource(newRecorder(), nil, nil, nil, settings, client, nil)
+			dvcrSource, err := controller.NewDVCRDataSourcesForVMI(ctx, vi.Spec.DataSource, vi, client)
+			Expect(err).ToNot(HaveOccurred())
+
+			pvcSize, err := ds.getPVCSize(dvcrSource)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pvcSize.Value()).To(Equal(int64(1608515584)))
+		})
+
 		It("rejects not ready dvcr source in helper methods", func() {
 			ds := NewObjectRefDataSource(newRecorder(), nil, nil, nil, settings, fake.NewClientBuilder().WithScheme(scheme).Build(), nil)
 			notReady := controller.DVCRDataSource{}
