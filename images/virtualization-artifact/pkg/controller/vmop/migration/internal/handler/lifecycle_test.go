@@ -665,7 +665,7 @@ var _ = Describe("LifecycleHandler", func() {
 			fakeClient, srv = setupEnvironment(vmop, vm, mig)
 			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
 			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
-			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
+			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
 			h.progressStrategy = &progressStrategyStub{value: 30}
 
 			result, err := h.Handle(ctx, srv.Changed())
