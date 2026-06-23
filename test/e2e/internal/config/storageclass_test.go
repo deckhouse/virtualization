@@ -17,11 +17,89 @@ limitations under the License.
 package config
 
 import (
+	"os"
 	"testing"
 
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+func TestResolveTemplateStorageClass(t *testing.T) {
+	scList := &storagev1.StorageClassList{Items: []storagev1.StorageClass{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "linstor-thin-r1",
+				Annotations: map[string]string{
+					"storageclass.kubernetes.io/is-default-class": "true",
+				},
+			},
+			Provisioner: "replicated.csi.storage.deckhouse.io",
+		},
+		{
+			ObjectMeta:  metav1.ObjectMeta{Name: "sds-local-thin-wffc"},
+			Provisioner: "local.csi.storage.deckhouse.io",
+		},
+	}}
+
+	t.Run("uses default when env is unset", func(t *testing.T) {
+		unsetStorageClassNameEnv(t)
+
+		got, err := ResolveTemplateStorageClass(scList)
+		if err != nil {
+			t.Fatalf("ResolveTemplateStorageClass() error = %v", err)
+		}
+		if got == nil || got.Name != "linstor-thin-r1" {
+			t.Fatalf("ResolveTemplateStorageClass() = %#v, want linstor-thin-r1", got)
+		}
+	})
+
+	t.Run("uses env override", func(t *testing.T) {
+		unsetStorageClassNameEnv(t)
+		t.Setenv(StorageClassNameEnv, "sds-local-thin-wffc")
+
+		got, err := ResolveTemplateStorageClass(scList)
+		if err != nil {
+			t.Fatalf("ResolveTemplateStorageClass() with env error = %v", err)
+		}
+		if got == nil || got.Name != "sds-local-thin-wffc" {
+			t.Fatalf("ResolveTemplateStorageClass() with env = %#v, want sds-local-thin-wffc", got)
+		}
+	})
+
+	t.Run("errors on missing env override", func(t *testing.T) {
+		unsetStorageClassNameEnv(t)
+		t.Setenv(StorageClassNameEnv, "missing-sc")
+
+		if _, err := ResolveTemplateStorageClass(scList); err == nil {
+			t.Fatal("ResolveTemplateStorageClass() with missing env SC expected error")
+		}
+	})
+
+	t.Run("errors on empty env override", func(t *testing.T) {
+		unsetStorageClassNameEnv(t)
+		t.Setenv(StorageClassNameEnv, "")
+
+		if _, err := ResolveTemplateStorageClass(scList); err == nil {
+			t.Fatal("ResolveTemplateStorageClass() with empty env SC expected error")
+		}
+	})
+
+	t.Run("returns nil without default and env", func(t *testing.T) {
+		unsetStorageClassNameEnv(t)
+		scListWithoutDefault := &storagev1.StorageClassList{Items: []storagev1.StorageClass{{
+			ObjectMeta:  metav1.ObjectMeta{Name: "sds-local-thin-wffc"},
+			Provisioner: "local.csi.storage.deckhouse.io",
+		}}}
+
+		got, err := ResolveTemplateStorageClass(scListWithoutDefault)
+		if err != nil {
+			t.Fatalf("ResolveTemplateStorageClass() without default error = %v", err)
+		}
+		if got != nil {
+			t.Fatalf("ResolveTemplateStorageClass() without default = %#v, want nil", got)
+		}
+	})
+}
 
 func TestResolveWFFCStorageClass(t *testing.T) {
 	wffc := storagev1.VolumeBindingWaitForFirstConsumer
@@ -87,6 +165,22 @@ func TestResolveWFFCStorageClass(t *testing.T) {
 	if got, err := ResolveWFFCStorageClass(scList); err != nil || got != nil {
 		t.Fatalf("ResolveWFFCStorageClass() without default = (%#v, %v), want (nil, nil)", got, err)
 	}
+}
+
+func unsetStorageClassNameEnv(t *testing.T) {
+	t.Helper()
+
+	oldValue, wasSet := os.LookupEnv(StorageClassNameEnv)
+	if err := os.Unsetenv(StorageClassNameEnv); err != nil {
+		t.Fatalf("failed to unset %s: %v", StorageClassNameEnv, err)
+	}
+	t.Cleanup(func() {
+		if wasSet {
+			_ = os.Setenv(StorageClassNameEnv, oldValue)
+			return
+		}
+		_ = os.Unsetenv(StorageClassNameEnv)
+	})
 }
 
 func TestResolveImmediateStorageClass(t *testing.T) {

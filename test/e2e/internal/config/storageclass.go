@@ -203,6 +203,23 @@ func ResolveImmediateStorageClass(scList *storagev1.StorageClassList) (*storagev
 	return nil, nil
 }
 
+// ResolveTemplateStorageClass returns the StorageClass used by tests that allow either an
+// explicit STORAGE_CLASS_NAME override or the cluster default StorageClass.
+func ResolveTemplateStorageClass(scList *storagev1.StorageClassList) (*storagev1.StorageClass, error) {
+	scName, ok := os.LookupEnv(StorageClassNameEnv)
+	if ok {
+		if scName == "" {
+			return nil, fmt.Errorf("%s env is set but empty", StorageClassNameEnv)
+		}
+		if sc := findStorageClassInList(scList, scName); sc != nil {
+			return sc, nil
+		}
+		return nil, fmt.Errorf("StorageClass %q from %s env not found", scName, StorageClassNameEnv)
+	}
+
+	return FindDefaultStorageClass(scList), nil
+}
+
 // SetStorageClasses discovers cluster StorageClasses and populates Config.StorageClass fields.
 // TemplateStorageClass is taken from StorageClassNameEnv when set, otherwise DefaultStorageClass is used.
 func (c *Config) SetStorageClasses(ctx context.Context, k8sClient client.Client) error {
@@ -231,15 +248,12 @@ func (c *Config) SetStorageClasses(ctx context.Context, k8sClient client.Client)
 		)
 	}
 
-	templateSC, err := findStorageClassFromEnv(ctx, k8sClient, StorageClassNameEnv, &scList)
+	templateSC, err := ResolveTemplateStorageClass(&scList)
 	if err != nil {
 		return err
 	}
-	switch {
-	case templateSC != nil:
+	if templateSC != nil {
 		c.StorageClass.TemplateStorageClass = templateSC
-	case c.StorageClass.DefaultStorageClass != nil:
-		c.StorageClass.TemplateStorageClass = c.StorageClass.DefaultStorageClass
 	}
 
 	return nil
@@ -265,29 +279,4 @@ func findStorageClassInList(scList *storagev1.StorageClassList, name string) *st
 		}
 	}
 	return nil
-}
-
-func findStorageClassFromEnv(
-	ctx context.Context,
-	k8sClient client.Client,
-	envName string,
-	scList *storagev1.StorageClassList,
-) (*storagev1.StorageClass, error) {
-	scName, ok := os.LookupEnv(envName)
-	if !ok {
-		return nil, nil
-	}
-
-	for i := range scList.Items {
-		if scList.Items[i].Name == scName {
-			return &scList.Items[i], nil
-		}
-	}
-
-	sc := &storagev1.StorageClass{}
-	if err := k8sClient.Get(ctx, client.ObjectKey{Name: scName}, sc); err != nil {
-		return nil, fmt.Errorf("failed to get StorageClass %q from %s env: %w", scName, envName, err)
-	}
-
-	return sc, nil
 }
