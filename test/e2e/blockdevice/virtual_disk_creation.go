@@ -232,7 +232,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
-		createVirtualDiskAndRunVM(ctx, f, vd)
+		createVirtualDiskAndRunVM(ctx, f, vd, withoutStreamingProgress())
 	})
 
 	It("provisions a VirtualDisk from a VirtualImage on PVC backed by a different storage class of the same CSI driver", func() {
