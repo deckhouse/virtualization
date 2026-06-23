@@ -174,6 +174,13 @@ func BeReady() Predicate {
 	}
 }
 
+// BeDetached reports the VirtualDisk is not attached to any VirtualMachine.
+func BeDetached() Predicate {
+	return func(d *v1alpha2.VirtualDisk) (bool, error) {
+		return len(d.Status.AttachedToVirtualMachines) == 0, nil
+	}
+}
+
 // BeWaitForFirstConsumer reports the VirtualDisk has parked in the
 // WaitForFirstConsumer phase, waiting for a consumer (a VirtualMachine) to be
 // scheduled before it can provision its volume. It is used to synchronize a disk

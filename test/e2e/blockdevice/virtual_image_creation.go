@@ -31,6 +31,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
 	vdsnapshotobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vdsnapshot"
 	viobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vi"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
@@ -72,14 +73,14 @@ var _ = Describe("VirtualImageCreation", Label(
 			vi := newVirtualImageOnDVCR("vi-http",
 				vibuilder.WithDataSourceHTTP(object.ImageURLAlpineBIOS, nil, nil),
 			)
-			createVirtualImageAndWait(ctx, f, vi)
+			createVirtualImageAndRunVM(ctx, f, vi)
 		})
 
 		It("provisions a VirtualImage on PVC", func() {
 			vi := newVirtualImageOnPVC("vi-pvc-http", scPtr,
 				vibuilder.WithDataSourceHTTP(object.ImageURLAlpineBIOS, nil, nil),
 			)
-			createVirtualImageAndWait(ctx, f, vi)
+			createVirtualImageAndRunVM(ctx, f, vi)
 		})
 	})
 
@@ -90,14 +91,14 @@ var _ = Describe("VirtualImageCreation", Label(
 			vi := newVirtualImageOnDVCR("vi-registry",
 				vibuilder.WithDataSourceContainerImage(object.ImageURLContainerImage, v1alpha2.ImagePullSecretName{}, nil),
 			)
-			createVirtualImageAndWait(ctx, f, vi)
+			createVirtualImageAndRunVM(ctx, f, vi)
 		})
 
 		It("provisions a VirtualImage on PVC", func() {
 			vi := newVirtualImageOnPVC("vi-pvc-registry", scPtr,
 				vibuilder.WithDataSourceContainerImage(object.ImageURLContainerImage, v1alpha2.ImagePullSecretName{}, nil),
 			)
-			createVirtualImageAndWait(ctx, f, vi)
+			createVirtualImageAndRunVM(ctx, f, vi)
 		})
 	})
 
@@ -108,14 +109,14 @@ var _ = Describe("VirtualImageCreation", Label(
 			vi := newVirtualImageOnDVCR("vi-from-cvi",
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
 			)
-			createVirtualImageAndWait(ctx, f, vi)
+			createVirtualImageAndRunVM(ctx, f, vi)
 		})
 
 		It("provisions a VirtualImage on PVC", func() {
 			vi := newVirtualImageOnPVC("vi-pvc-from-cvi", scPtr,
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
 			)
-			createVirtualImageAndWait(ctx, f, vi, withIntermediateProgress())
+			createVirtualImageAndRunVM(ctx, f, vi, withIntermediateProgress())
 		})
 	})
 
@@ -148,6 +149,7 @@ var _ = Describe("VirtualImageCreation", Label(
 				}),
 			)
 			uploadVirtualImageAndWait(ctx, f, vi, uploadFilePath)
+			runVirtualMachineFromImageDisk(ctx, f, vi)
 		})
 
 		It("provisions a VirtualImage on PVC", func() {
@@ -157,6 +159,7 @@ var _ = Describe("VirtualImageCreation", Label(
 				}),
 			)
 			uploadVirtualImageAndWait(ctx, f, vi, uploadFilePath)
+			runVirtualMachineFromImageDisk(ctx, f, vi)
 		})
 	})
 
@@ -172,14 +175,14 @@ var _ = Describe("VirtualImageCreation", Label(
 			vi := newVirtualImageOnDVCR("vi-from-vd",
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualDisk, vd.Name),
 			)
-			createVirtualImageAndWait(ctx, f, vi)
+			createVirtualImageAndRunVM(ctx, f, vi)
 		})
 
 		It("provisions a VirtualImage on PVC", func() {
 			vi := newVirtualImageOnPVC("vi-pvc-from-vd", scPtr,
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualDisk, vd.Name),
 			)
-			createVirtualImageAndWait(ctx, f, vi, withoutStreamingProgress())
+			createVirtualImageAndRunVM(ctx, f, vi, withoutStreamingProgress())
 		})
 	})
 
@@ -198,14 +201,14 @@ var _ = Describe("VirtualImageCreation", Label(
 			vi := newVirtualImageOnDVCR("vi-from-vi-dvcr",
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualImage, baseVI.Name),
 			)
-			createVirtualImageAndWait(ctx, f, vi, withMinimalProgress())
+			createVirtualImageAndRunVM(ctx, f, vi, withMinimalProgress())
 		})
 
 		It("provisions a VirtualImage on PVC", func() {
 			vi := newVirtualImageOnPVC("vi-pvc-from-vi-dvcr", scPtr,
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualImage, baseVI.Name),
 			)
-			createVirtualImageAndWait(ctx, f, vi, withIntermediateProgress())
+			createVirtualImageAndRunVM(ctx, f, vi, withIntermediateProgress())
 		})
 	})
 
@@ -224,7 +227,7 @@ var _ = Describe("VirtualImageCreation", Label(
 			vi := newVirtualImageOnDVCR("vi-from-vi-pvc",
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualImage, baseVI.Name),
 			)
-			createVirtualImageAndWait(ctx, f, vi)
+			createVirtualImageAndRunVM(ctx, f, vi)
 		})
 
 		It("provisions a VirtualImage on PVC", func() {
@@ -232,7 +235,7 @@ var _ = Describe("VirtualImageCreation", Label(
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualImage, baseVI.Name),
 			)
 			// PVC-to-PVC snapshot population does not stream importer progress.
-			createVirtualImageAndWait(ctx, f, vi, withoutStreamingProgress())
+			createVirtualImageAndRunVM(ctx, f, vi, withoutStreamingProgress())
 		})
 	})
 
@@ -294,7 +297,7 @@ var _ = Describe("VirtualImageCreation", Label(
 			vi := newVirtualImageOnDVCR("vi-from-vdsnapshot",
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualDiskSnapshot, vdSnapshot.Name),
 			)
-			createVirtualImageAndWait(ctx, f, vi)
+			createVirtualImageAndRunVM(ctx, f, vi)
 		})
 
 		It("provisions a VirtualImage on PVC", func() {
@@ -532,7 +535,18 @@ func createSourceVirtualDiskAndWait(ctx context.Context, f *framework.Framework,
 		vdbuilder.WithStorageClass(sc),
 	)
 
-	createVirtualDiskAndRunVM(ctx, f, vd, withoutStreamingProgress())
+	obs := startVirtualDisk(ctx, f, vd, withoutStreamingProgress())
+	vm := runVirtualMachineFromDisks(ctx, f, observedDisk{vd: vd, obs: obs})
+
+	By("Deleting the temporary VirtualMachine that provisioned the source VirtualDisk", func() {
+		err := f.Delete(ctx, vm)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	By("Waiting for the source VirtualDisk to detach", func() {
+		err := obs.WaitFor(vdobs.BeDetached(), framework.LongTimeout)
+		Expect(err).NotTo(HaveOccurred())
+	})
 
 	return vd
 }

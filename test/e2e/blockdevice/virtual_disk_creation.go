@@ -557,11 +557,11 @@ func virtualDiskNoun(n int) string {
 // createVirtualDiskAndRunVM provisions vd by booting a VirtualMachine from it (see
 // runVirtualMachineFromDisks for the exact lifecycle). The VM is the disk's first
 // consumer, so this works on both Immediate and WaitForFirstConsumer storage classes.
-func createVirtualDiskAndRunVM(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk, opts ...progressWaitOption) {
+func createVirtualDiskAndRunVM(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk, opts ...progressWaitOption) *v1alpha2.VirtualMachine {
 	GinkgoHelper()
 
 	obs := startVirtualDisk(ctx, f, vd, opts...)
-	runVirtualMachineFromDisks(ctx, f, observedDisk{vd: vd, obs: obs})
+	return runVirtualMachineFromDisks(ctx, f, observedDisk{vd: vd, obs: obs})
 }
 
 // runVirtualMachineFromDisks drives the disk/VM lifecycle for the given disks, which the
@@ -574,7 +574,7 @@ func createVirtualDiskAndRunVM(ctx context.Context, f *framework.Framework, vd *
 //     the VirtualMachine is scheduled as its consumer);
 //  5. wait the VirtualMachine to be Running;
 //  6. wait the VirtualMachine guest agent to be ready.
-func runVirtualMachineFromDisks(ctx context.Context, f *framework.Framework, disks ...observedDisk) {
+func runVirtualMachineFromDisks(ctx context.Context, f *framework.Framework, disks ...observedDisk) *v1alpha2.VirtualMachine {
 	GinkgoHelper()
 
 	noun := virtualDiskNoun(len(disks))
@@ -630,6 +630,8 @@ func runVirtualMachineFromDisks(ctx context.Context, f *framework.Framework, dis
 		err := vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
 	})
+
+	return vm
 }
 
 func doRetriableUploadAttempt(url, filePath string) error {
