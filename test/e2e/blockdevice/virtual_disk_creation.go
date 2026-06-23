@@ -25,7 +25,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -68,6 +70,10 @@ const (
 	progressUpdateInterval = 10 * time.Second
 	progressBoundaryBudget = time.Minute
 )
+
+const hostnameNodeSelectorKey = "kubernetes.io/hostname"
+
+var pinnedScenarioNodes sync.Map
 
 var _ = Describe("VirtualDiskCreation", Label(
 	precheck.PrecheckDefaultStorageClass,
@@ -192,6 +198,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			err = viObs.WaitFor(viobs.BeReady(), framework.LongTimeout)
 			Expect(err).NotTo(HaveOccurred())
 		})
+		rememberVirtualImageNode(ctx, f, baseVI)
 
 		vd := vdbuilder.New(
 			vdbuilder.WithName("vd-from-vi"),
@@ -223,6 +230,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			err = viObs.WaitFor(viobs.BeReady(), framework.LongTimeout)
 			Expect(err).NotTo(HaveOccurred())
 		})
+		rememberVirtualImageNode(ctx, f, baseVI)
 
 		vd := vdbuilder.New(
 			vdbuilder.WithName("vd-from-vi-pvc"),
@@ -343,6 +351,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			// WaitForFirstConsumer storage classes) and so the consistent snapshot below
 			// can freeze the guest filesystem via the agent.
 			createVirtualDiskAndRunVM(ctx, f, baseVD)
+			rememberVirtualDiskNode(ctx, f, baseVD)
 
 			vdSnapshot := vdsnapshotbuilder.New(
 				vdsnapshotbuilder.WithName("vd-snapshot"),
@@ -435,6 +444,111 @@ func storageClassIsWaitForFirstConsumer(ctx context.Context, f *framework.Framew
 	return sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer
 }
 
+func rememberVirtualImageNode(ctx context.Context, f *framework.Framework, vi *v1alpha2.VirtualImage) {
+	GinkgoHelper()
+
+	if vi.Spec.Storage != v1alpha2.StoragePersistentVolumeClaim {
+		return
+	}
+
+	err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vi), vi)
+	Expect(err).NotTo(HaveOccurred())
+
+	rememberNodeFromPVC(ctx, f, vi.Namespace, vi.Status.Target.PersistentVolumeClaim)
+}
+
+func rememberVirtualDiskNode(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk) {
+	GinkgoHelper()
+
+	err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vd), vd)
+	Expect(err).NotTo(HaveOccurred())
+
+	rememberNodeFromPVC(ctx, f, vd.Namespace, vd.Status.Target.PersistentVolumeClaim)
+}
+
+func rememberNodeFromPVC(ctx context.Context, f *framework.Framework, namespace, pvcName string) {
+	GinkgoHelper()
+
+	if pvcName == "" {
+		return
+	}
+
+	node := nodeForPVC(ctx, f, namespace, pvcName)
+	if node == "" {
+		return
+	}
+
+	rememberScenarioNode(f, node)
+}
+
+func rememberScenarioNode(f *framework.Framework, node string) {
+	GinkgoHelper()
+
+	if node == "" {
+		return
+	}
+
+	namespace := f.Namespace().Name
+	if existing, ok := pinnedScenarioNodes.Load(namespace); ok {
+		Expect(existing).To(Equal(node), "scenario resources must stay on one node")
+		return
+	}
+
+	pinnedScenarioNodes.Store(namespace, node)
+}
+
+func scenarioNode(f *framework.Framework) (string, bool) {
+	GinkgoHelper()
+
+	node, ok := pinnedScenarioNodes.Load(f.Namespace().Name)
+	if !ok {
+		return "", false
+	}
+
+	return node.(string), true
+}
+
+func nodeForPVC(ctx context.Context, f *framework.Framework, namespace, pvcName string) string {
+	GinkgoHelper()
+
+	var pvc corev1.PersistentVolumeClaim
+	err := f.Clients.GenericClient().Get(ctx, types.NamespacedName{Name: pvcName, Namespace: namespace}, &pvc)
+	Expect(err).NotTo(HaveOccurred(), "failed to get PVC %s/%s", namespace, pvcName)
+	if pvc.Spec.VolumeName == "" {
+		return ""
+	}
+
+	var pv corev1.PersistentVolume
+	err = f.Clients.GenericClient().Get(ctx, types.NamespacedName{Name: pvc.Spec.VolumeName}, &pv)
+	Expect(err).NotTo(HaveOccurred(), "failed to get PV %s for PVC %s/%s", pvc.Spec.VolumeName, namespace, pvcName)
+
+	return nodeFromPV(&pv)
+}
+
+func nodeFromPV(pv *corev1.PersistentVolume) string {
+	GinkgoHelper()
+
+	if pv.Spec.NodeAffinity == nil || pv.Spec.NodeAffinity.Required == nil {
+		return ""
+	}
+
+	var candidates []string
+	for _, term := range pv.Spec.NodeAffinity.Required.NodeSelectorTerms {
+		for _, expr := range term.MatchExpressions {
+			if expr.Key != "topology.sds-local-volume-csi/node" && expr.Key != hostnameNodeSelectorKey {
+				continue
+			}
+			candidates = append(candidates, expr.Values...)
+		}
+	}
+	if len(candidates) == 0 {
+		return ""
+	}
+
+	sort.Strings(candidates)
+	return candidates[0]
+}
+
 // setupProject creates a non-isolated Deckhouse Project, waits until it is deployed and
 // switches the framework to operate inside the project's namespace. The project (and
 // therefore its namespace and every resource it contains) is removed during cleanup.
@@ -457,6 +571,9 @@ func setupProject(ctx context.Context, f *framework.Framework, prefix string) {
 	})
 
 	f.SetProjectNamespace(project.Name)
+	DeferCleanup(func() {
+		pinnedScenarioNodes.Delete(project.Name)
+	})
 }
 
 // startVirtualDisk starts the VirtualDisk observer with the standard invariants and
@@ -592,9 +709,20 @@ func runVirtualMachineFromDisks(ctx context.Context, f *framework.Framework, dis
 	for i := range disks {
 		vds[i] = disks[i].vd
 	}
-	vm := object.NewMinimalVM("vm-from-disk-", f.Namespace().Name,
+
+	vmOpts := []vmbuilder.Option{
 		vmbuilder.WithDisks(vds...),
-	)
+	}
+	if node, ok := scenarioNode(f); ok {
+		// TODO: remove this test-level pin once local PVC/snapshot sources and
+		// target VMs are guaranteed to use the same node by the controllers.
+		// Without it, a source PV can be bound to one node while the target VM
+		// and its hotplug pod try to start on another node.
+		vmOpts = append(vmOpts, vmbuilder.WithNodeSelector(map[string]string{
+			hostnameNodeSelectorKey: node,
+		}))
+	}
+	vm := object.NewMinimalVM("vm-from-disk-", f.Namespace().Name, vmOpts...)
 
 	By(fmt.Sprintf("Creating VirtualMachine from the %s", noun), func() {
 		err := f.CreateWithDeferredDeletion(ctx, vm)
@@ -630,6 +758,17 @@ func runVirtualMachineFromDisks(ctx context.Context, f *framework.Framework, dis
 		err := vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
 	})
+
+	node, pinned := scenarioNode(f)
+	if pinned {
+		err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), vm)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(vm.Status.Node).To(Equal(node), "VirtualMachine must run on the scenario source node")
+
+		for _, d := range disks {
+			rememberVirtualDiskNode(ctx, f, d.vd)
+		}
+	}
 
 	return vm
 }

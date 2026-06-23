@@ -404,6 +404,8 @@ func createVirtualImageAndWait(ctx context.Context, f *framework.Framework, vi *
 		err := obs.WaitFor(viobs.BeReady(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
 	})
+
+	rememberVirtualImageNode(ctx, f, vi)
 }
 
 func uploadVirtualImageAndWait(ctx context.Context, f *framework.Framework, vi *v1alpha2.VirtualImage, uploadFilePath string) {
@@ -445,6 +447,8 @@ func uploadVirtualImageAndWait(ctx context.Context, f *framework.Framework, vi *
 		err := obs.WaitFor(viobs.BeReady(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
 	})
+
+	rememberVirtualImageNode(ctx, f, vi)
 }
 
 func virtualImageProgressExpectations(vi *v1alpha2.VirtualImage, o progressWaitOptions) viobs.ProgressExpectations {
@@ -547,6 +551,8 @@ func createSourceVirtualDiskAndWait(ctx context.Context, f *framework.Framework,
 		err := obs.WaitFor(vdobs.BeDetached(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
 	})
+
+	rememberVirtualDiskNode(ctx, f, vd)
 
 	return vd
 }
