@@ -1,0 +1,28 @@
+core:
+  fixes:
+  - summary: Обновляйте время миграции VMOP каждые десять секунд во время миграции.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2495
+  - summary: Строго выбирайте целевой PVC для миграции VirtualDisk, чтобы избежать
+      использования несвязанного PVC.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2493
+  - summary: Исправлена ​​ошибка исправления метаданных с сообщением «сервер отклонил
+      наш запрос» для объектов без финализаторов, меток или аннотаций.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2479
+vd:
+  fixes:
+  - summary: Исправлена ​​отмена изменения класса хранилища виртуальных дисков и отмена
+      миграции локального диска.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2502
+vm:
+  fixes:
+  - summary: Исправлена ​​проблема, из-за которой виртуальная машина не запускалась
+      после неудачной миграции диска в локальное хранилище.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2509
+  - summary: Исправлена ​​живая миграция виртуальных машин с дисками в локальном хранилище,
+      подключенными через VirtualMachineBlockDeviceAttachment (горячее подключение).
+      Целевой узел больше не соответствует исходному узлу.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2508
+  - summary: Исправлено требование ложной перезагрузки для виртуальных машин только
+      с основной сетью после обновления до версии 1.9.1. Такие ВМ теперь не получают
+      статус RestartRequired, если их конфигурация фактически не менялась.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2475
