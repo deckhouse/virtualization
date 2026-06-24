@@ -211,6 +211,41 @@ func shellArgs(args []string) string {
 	return strings.Join(quoted, " ")
 }
 
+func GetVMNode(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine) (string, error) {
+	GinkgoHelper()
+
+	err := f.GenericClient().Get(ctx, client.ObjectKeyFromObject(vm), vm)
+	if err != nil {
+		return "", err
+	}
+	if vm.Status.Node == "" {
+		return "", fmt.Errorf("vm %s/%s has empty status.node", vm.Namespace, vm.Name)
+	}
+
+	return vm.Status.Node, nil
+}
+
+func ExpectNoVMOperationsForVirtualMachine(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine) {
+	GinkgoHelper()
+
+	vmops, err := f.VirtClient().VirtualMachineOperations(vm.Namespace).List(ctx, metav1.ListOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, vmop := range vmops.Items {
+		if vmop.Spec.VirtualMachine == vm.Name {
+			Fail(fmt.Sprintf("unexpected VMOP %q for VM %q", vmop.Name, vm.Name))
+		}
+	}
+}
+
+func ExpectVMOnNode(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, expectedNode string) {
+	GinkgoHelper()
+
+	node, err := GetVMNode(ctx, f, vm)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(node).To(Equal(expectedNode))
+}
+
 func UntilVMMigrationSucceeded(key client.ObjectKey, timeout time.Duration) {
 	GinkgoHelper()
 

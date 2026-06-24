@@ -396,7 +396,8 @@ virtualization:
         - 10.0.10.0/24
         - 10.0.20.0/24
         - 10.0.30.0/24
-      featureGates: []
+      featureGates:
+        - HotplugCPUAndMemoryWithInPlaceResize
     moduleState: {}
     virtConfig:
       phase: Deployed
