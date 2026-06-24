@@ -37,10 +37,9 @@ var _ = Describe("parseLiveMigrationSystemNetworkName", func() {
 		Entry("missing liveMigration", mcapi.SettingsValues{}, ""),
 		Entry("liveMigration without network",
 			mcapi.SettingsValues{"liveMigration": map[string]any{}}, ""),
-		Entry("network type Default ignores systemNetwork name",
+		Entry("network without type returns empty",
 			mcapi.SettingsValues{"liveMigration": map[string]any{
 				"network": map[string]any{
-					"type":          "Default",
 					"systemNetwork": map[string]any{"name": "migration"},
 				},
 			}}, ""),

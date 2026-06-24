@@ -90,7 +90,7 @@ true
   value: "0 0 * * *"
 {{- $liveMigration := (.Values.virtualization | default dict).liveMigration | default dict }}
 {{- $migrationNetwork := $liveMigration.network | default dict }}
-{{- if eq ($migrationNetwork.type | default "Default") "SystemNetwork" }}
+{{- if eq $migrationNetwork.type "SystemNetwork" }}
 {{- $systemNetworkName := ($migrationNetwork.systemNetwork | default dict).name | default "" }}
 {{- if $systemNetworkName }}
 - name: MIGRATION_SYSTEM_NETWORK_NAME

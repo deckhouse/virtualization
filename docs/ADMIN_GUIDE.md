@@ -1261,7 +1261,7 @@ spec:
           name: migration-net
 ```
 
-To route migration traffic back over the default node network, set `type: Default` (the default value).
+To route migration traffic back over the default node network, remove the `network` block (it is the implicit default when unset).
 
 #### Maintenance mode
 
