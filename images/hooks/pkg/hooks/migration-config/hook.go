@@ -39,6 +39,7 @@ const (
 	parallelSyncMigrationsPerNodeAnnotation     = "virtualization.deckhouse.io/parallel-sync-migrations-per-node"
 	progressTimeoutAnnotation                   = "virtualization.deckhouse.io/progress-timeout"
 	disableTLSAnnotation                        = "virtualization.deckhouse.io/disable-tls"
+	disableFirmwareUpdateAnnotation             = "virtualization.deckhouse.io/disable-firmware-update"
 
 	bandwidthPerMigrationValuesPath             = "virtualization.internal.virtConfig.bandwidthPerMigration"
 	completionTimeoutPerGiBValuesPath           = "virtualization.internal.virtConfig.completionTimeoutPerGiB"
@@ -46,6 +47,7 @@ const (
 	parallelSyncMigrationsPerNodeValuesPath     = "virtualization.internal.virtConfig.parallelSyncMigrationsPerNode"
 	progressTimeoutValuesPath                   = "virtualization.internal.virtConfig.progressTimeout"
 	disableTLSValuesPath                        = "virtualization.internal.virtConfig.disableTLS"
+	disableFirmwareUpdateValuesPath             = "virtualization.internal.disableFirmwareUpdate"
 
 	defaultBandwidthPerMigration             = "640Mi"
 	defaultCompletionTimeoutPerGiB           = 800
@@ -53,6 +55,7 @@ const (
 	defaultParallelSyncMigrationsPerNode     = 1
 	defaultProgressTimeout                   = 150
 	defaultDisableTLS                        = false
+	defaultDisableFirmwareUpdate             = false
 )
 
 // migrationParams defines migration parameters configurable via ModuleConfig annotations.
@@ -88,6 +91,11 @@ var migrationParams = []migrationParam{
 		annotation:   disableTLSAnnotation,
 		valuesPath:   disableTLSValuesPath,
 		defaultValue: defaultDisableTLS,
+	},
+	{
+		annotation:   disableFirmwareUpdateAnnotation,
+		valuesPath:   disableFirmwareUpdateValuesPath,
+		defaultValue: defaultDisableFirmwareUpdate,
 	},
 }
 

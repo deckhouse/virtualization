@@ -20,13 +20,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,67 +43,61 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("HotplugMemory", Label(precheck.NoPrecheck), func() {
+func decoratorsForMemoryHotplugWithLiveMigration() []interface{} {
+	if os.Getenv("PARALLEL_MEMORY_HOTPLUG_MIGRATIONS") != "true" {
+		return nil
+	}
+	return []interface{}{Ordered, ContinueOnFailure}
+}
+
+var _ = Describe("HotplugMemory", func() {
 	var (
 		f *framework.Framework
 		t *memoryHotplugTest
 	)
 
 	BeforeEach(func() {
-		Skip("Hotplug memory requires enabling feature gate 'HotplugMemoryWithLiveMigration' in ModuleConfig. Skip until prechecks are implemented.")
 		f = framework.NewFramework("memory-hotplug")
 		DeferCleanup(f.After)
 		f.Before()
 		t = newMemoryHotplugTest(f)
 	})
 
-	DescribeTable("should apply memory changes with live migration", func(initialMemory, changedMemory string) {
-		initialQuantity := resource.MustParse(initialMemory)
-		changedQuantity := resource.MustParse(changedMemory)
+	Describe("InPlaceResize", Label(precheck.HotplugInPlaceResizePrecheck), func() {
+		DescribeTable("should apply memory changes in-place without restart",
+			func(initialMemory, changedMemory string) {
+				t.applyMemoryChangeInPlace(initialMemory, changedMemory)
+			},
+			Entry("change memory from 1Gi to 2Gi", "1Gi", "2Gi"),
+			Entry("change memory from 1Gi to 4Gi", "1Gi", "4Gi"),
+		)
 
-		By("Environment preparation")
-		vmName := strings.ToLower(fmt.Sprintf("vm-%s-%s", initialMemory, changedMemory))
-		t.generateResources(vmName, initialMemory)
-		err := f.CreateWithDeferredDeletion(context.Background(), t.VM, t.VD)
-		Expect(err).NotTo(HaveOccurred())
+		DescribeTable("should require restart to decrease memory",
+			func(initialMemory, changedMemory string) {
+				t.requireRestartToDecreaseMemory(initialMemory, changedMemory, false)
+			},
+			Entry("decrease memory from 2Gi to 1Gi", "2Gi", "1Gi"),
+			Entry("decrease memory from 4Gi to 1Gi", "4Gi", "1Gi"),
+		)
+	})
 
-		By("Waiting for VM agent to be ready")
-		util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
+	Describe("LiveMigration", decoratorsForMemoryHotplugWithLiveMigration(), Label(precheck.HotplugMemoryWithLiveMigrationPrecheck), func() {
+		DescribeTable("should apply memory changes via live migration without restart",
+			func(initialMemory, changedMemory string) {
+				t.applyMemoryChangeWithLiveMigration(initialMemory, changedMemory)
+			},
+			Entry("change memory from 1Gi to 2Gi", "1Gi", "2Gi"),
+			Entry("change memory from 1Gi to 4Gi", "1Gi", "4Gi"),
+		)
 
-		By("Checking initial memory size")
-		err = f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(t.VM.Status.Resources.Memory.Size).To(Equal(initialQuantity))
-
-		guestMemorySize, err := t.getGuestMemorySize()
-		Expect(err).NotTo(HaveOccurred())
-		Expect(guestMemorySize).To(Equal(int(initialQuantity.Value())))
-
-		By("Applying memory size changes")
-		patch, err := json.Marshal([]map[string]interface{}{{
-			"op":    "replace",
-			"path":  "/spec/memory/size",
-			"value": changedMemory,
-		}})
-		Expect(err).NotTo(HaveOccurred())
-		err = f.GenericClient().Patch(context.Background(), t.VM, crclient.RawPatch(types.JSONPatchType, patch))
-		Expect(err).NotTo(HaveOccurred())
-
-		By("Waiting until memory size is applied without restart")
-		util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(t.VM), framework.MaxTimeout)
-		util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
-
-		By("Checking changed memory size")
-		err = f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(t.VM.Status.Resources.Memory.Size).To(Equal(changedQuantity))
-
-		guestMemorySize, err = t.getGuestMemorySize()
-		Expect(err).NotTo(HaveOccurred())
-		Expect(guestMemorySize).To(Equal(int(changedQuantity.Value())))
-	},
-		Entry("change memory from 1Gi to 2Gi", "1Gi", "2Gi"),
-	)
+		DescribeTable("should require restart to decrease memory",
+			func(initialMemory, changedMemory string) {
+				t.requireRestartToDecreaseMemory(initialMemory, changedMemory, true)
+			},
+			Entry("decrease memory from 2Gi to 1Gi", "2Gi", "1Gi"),
+			Entry("decrease memory from 4Gi to 1Gi", "4Gi", "1Gi"),
+		)
+	})
 })
 
 type memoryHotplugTest struct {
@@ -114,7 +111,134 @@ func newMemoryHotplugTest(f *framework.Framework) *memoryHotplugTest {
 	return &memoryHotplugTest{Framework: f}
 }
 
-func (t *memoryHotplugTest) generateResources(vmName, memSize string) {
+func (t *memoryHotplugTest) applyMemoryChangeInPlace(initialMemory, changedMemory string) {
+	t.applyMemoryChange(initialMemory, changedMemory, false)
+}
+
+func (t *memoryHotplugTest) applyMemoryChangeWithLiveMigration(initialMemory, changedMemory string) {
+	t.applyMemoryChange(initialMemory, changedMemory, true)
+}
+
+func (t *memoryHotplugTest) requireRestartToDecreaseMemory(initialMemory, changedMemory string, liveMigration bool) {
+	ctx := context.Background()
+	initialQuantity := resource.MustParse(initialMemory)
+
+	By("Environment preparation")
+	vmName := strings.ToLower(fmt.Sprintf("vm-%s-%s-decrease", initialMemory, changedMemory))
+	if liveMigration {
+		vmName += "-migrate"
+	}
+	t.generateResourcesWithRestartApproval(vmName, initialMemory, liveMigration, v1alpha2.Manual)
+	err := t.Framework.CreateWithDeferredDeletion(ctx, t.VM, t.VD)
+	Expect(err).NotTo(HaveOccurred())
+
+	By("Wait until VM agent is ready")
+	util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
+
+	By("Waiting for VM agent to be ready")
+	util.UntilSSHReady(t.Framework, t.VM, framework.ShortTimeout)
+
+	initialNode, err := util.GetVMNode(ctx, t.Framework, t.VM)
+	Expect(err).NotTo(HaveOccurred())
+
+	initialGuestMemorySize, err := t.getGuestMemorySize()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(initialGuestMemorySize).To(Equal(int(initialQuantity.Value())))
+
+	By("Applying memory decrease")
+	patch, err := json.Marshal([]map[string]interface{}{{
+		"op":    "replace",
+		"path":  "/spec/memory/size",
+		"value": changedMemory,
+	}})
+	Expect(err).NotTo(HaveOccurred())
+	err = t.Framework.GenericClient().Patch(ctx, t.VM, crclient.RawPatch(types.JSONPatchType, patch))
+	Expect(err).NotTo(HaveOccurred())
+
+	By("Waiting until restart is required")
+	Expect(util.IsRestartRequired(t.VM, framework.ShortTimeout)).To(BeTrue())
+	util.ExpectNoVMOperationsForVirtualMachine(ctx, t.Framework, t.VM)
+	util.ExpectVMOnNode(ctx, t.Framework, t.VM, initialNode)
+
+	By("Checking memory size is not applied without restart")
+	err = t.Framework.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(t.VM.Status.Resources.Memory.Size).To(Equal(initialQuantity))
+
+	guestMemorySize, err := t.getGuestMemorySize()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(guestMemorySize).To(Equal(initialGuestMemorySize))
+}
+
+func (t *memoryHotplugTest) applyMemoryChange(initialMemory, changedMemory string, liveMigration bool) {
+	ctx := context.Background()
+	initialQuantity := resource.MustParse(initialMemory)
+	changedQuantity := resource.MustParse(changedMemory)
+
+	By("Environment preparation")
+	vmName := strings.ToLower(fmt.Sprintf("vm-%s-%s", initialMemory, changedMemory))
+	if liveMigration {
+		vmName += "-migrate"
+	}
+	t.generateResources(vmName, initialMemory, liveMigration)
+	err := t.Framework.CreateWithDeferredDeletion(ctx, t.VM, t.VD)
+	Expect(err).NotTo(HaveOccurred())
+
+	By("Wait until VM agent is ready")
+	util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
+
+	By("Waiting for VM agent to be ready")
+	util.UntilSSHReady(t.Framework, t.VM, framework.ShortTimeout)
+
+	By("Checking initial memory size")
+	err = t.Framework.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(t.VM.Status.Resources.Memory.Size).To(Equal(initialQuantity))
+
+	guestMemorySize, err := t.getGuestMemorySize()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(guestMemorySize).To(Equal(int(initialQuantity.Value())))
+
+	initialNode, err := util.GetVMNode(ctx, t.Framework, t.VM)
+	Expect(err).NotTo(HaveOccurred())
+
+	By("Applying memory size changes")
+	patch, err := json.Marshal([]map[string]interface{}{{
+		"op":    "replace",
+		"path":  "/spec/memory/size",
+		"value": changedMemory,
+	}})
+	Expect(err).NotTo(HaveOccurred())
+	err = t.Framework.GenericClient().Patch(ctx, t.VM, crclient.RawPatch(types.JSONPatchType, patch))
+	Expect(err).NotTo(HaveOccurred())
+
+	if liveMigration {
+		By("Waiting until memory size is applied via live migration")
+		util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(t.VM), framework.MaxTimeout)
+	} else {
+		By("Waiting until memory size is applied in-place")
+		untilVMMemorySizeApplied(crclient.ObjectKeyFromObject(t.VM), changedQuantity, framework.MaxTimeout)
+		util.ExpectNoVMOperationsForVirtualMachine(ctx, t.Framework, t.VM)
+		util.ExpectVMOnNode(ctx, t.Framework, t.VM, initialNode)
+	}
+
+	util.UntilSSHReady(t.Framework, t.VM, framework.MiddleTimeout)
+
+	By("Checking changed memory size")
+	err = t.Framework.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(t.VM.Status.Resources.Memory.Size).To(Equal(changedQuantity))
+
+	guestMemorySize, err = t.getGuestMemorySize()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(guestMemorySize).To(Equal(int(changedQuantity.Value())))
+}
+
+func (t *memoryHotplugTest) generateResources(vmName, memSize string, disableInPlaceResize bool) {
+	t.generateResourcesWithRestartApproval(vmName, memSize, disableInPlaceResize, v1alpha2.Automatic)
+}
+
+func (t *memoryHotplugTest) generateResourcesWithRestartApproval(vmName, memSize string, disableInPlaceResize bool, restartApprovalMode v1alpha2.RestartApprovalMode) {
 	memSizeQuantity := resource.MustParse(memSize)
 
 	vdName := fmt.Sprintf("vd-%s-root", vmName)
@@ -122,7 +246,7 @@ func (t *memoryHotplugTest) generateResources(vmName, memSize string) {
 		vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
 	)
 
-	t.VM = vmbuilder.New(
+	opts := []vmbuilder.Option{
 		vmbuilder.WithName(vmName),
 		vmbuilder.WithNamespace(t.Framework.Namespace().Name),
 		vmbuilder.WithCPU(2, ptr.To("10%")),
@@ -135,8 +259,13 @@ func (t *memoryHotplugTest) generateResources(vmName, memSize string) {
 				Name: t.VD.Name,
 			},
 		),
-		vmbuilder.WithRestartApprovalMode(v1alpha2.Automatic),
-	)
+		vmbuilder.WithRestartApprovalMode(restartApprovalMode),
+	}
+	if disableInPlaceResize {
+		opts = append(opts, vmbuilder.WithAnnotation(disableInPlaceResizeAnn, "true"))
+	}
+
+	t.VM = vmbuilder.New(opts...)
 }
 
 var totalOnlineMemRe = regexp.MustCompile(`^Total online memory:\s+(\d+)$`)
@@ -157,4 +286,14 @@ func (t *memoryHotplugTest) getGuestMemorySize() (int, error) {
 	}
 
 	return 0, fmt.Errorf("failed to find total online memory in lsmem output: %v", cmdOut)
+}
+
+func untilVMMemorySizeApplied(key crclient.ObjectKey, expectedSize resource.Quantity, timeout time.Duration) {
+	GinkgoHelper()
+
+	Eventually(func(g Gomega) {
+		vm, err := framework.GetClients().VirtClient().VirtualMachines(key.Namespace).Get(context.Background(), key.Name, metav1.GetOptions{})
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(vm.Status.Resources.Memory.Size).To(Equal(expectedSize))
+	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }

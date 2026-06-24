@@ -110,11 +110,10 @@ func (s *Creator) createVMs(ctx context.Context) {
 				},
 			},
 			Spec: v1alpha2.VirtualMachineSpec{
-				VirtualMachineClassName:  "generic-v1",
-				RunPolicy:                v1alpha2.AlwaysOnPolicy,
-				EnableParavirtualization: true,
-				OsType:                   v1alpha2.GenericOs,
-				Bootloader:               "BIOS",
+				VirtualMachineClassName: "generic-v1",
+				RunPolicy:               v1alpha2.AlwaysOnPolicy,
+				OsType:                  v1alpha2.GenericOs,
+				Bootloader:              "BIOS",
 				CPU: v1alpha2.CPUSpec{
 					Cores:        1,
 					CoreFraction: "10%",

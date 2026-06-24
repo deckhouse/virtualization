@@ -36,7 +36,17 @@ import (
 const (
 	ReasonFailedAttachVolume = "FailedAttachVolume"
 	ReasonFailedMount        = "FailedMount"
+	ReasonFailedMapVolume    = "FailedMapVolume"
 )
+
+func IsVolumeErrorReason(reason string) bool {
+	switch reason {
+	case ReasonFailedAttachVolume, ReasonFailedMount, ReasonFailedMapVolume:
+		return true
+	default:
+		return false
+	}
+}
 
 func NewVolumeEventWatcher(client client.Client) *VolumeEventWatcher {
 	return &VolumeEventWatcher{
@@ -46,6 +56,38 @@ func NewVolumeEventWatcher(client client.Client) *VolumeEventWatcher {
 
 type VolumeEventWatcher struct {
 	client client.Client
+}
+
+func (w *VolumeEventWatcher) resolveVirtualMachineName(ctx context.Context, pod *corev1.Pod) string {
+	if pod == nil {
+		return ""
+	}
+
+	if vmName, hasLabel := pod.GetLabels()[virtv1.VirtualMachineNameLabel]; hasLabel {
+		return vmName
+	}
+
+	var kvvmiList virtv1.VirtualMachineInstanceList
+	if err := w.client.List(ctx, &kvvmiList, client.InNamespace(pod.Namespace)); err != nil {
+		return ""
+	}
+
+	for _, kvvmi := range kvvmiList.Items {
+		for _, volumeStatus := range kvvmi.Status.VolumeStatus {
+			if volumeStatus.HotplugVolume == nil {
+				continue
+			}
+
+			if volumeStatus.HotplugVolume.AttachPodUID != "" && volumeStatus.HotplugVolume.AttachPodUID == pod.UID {
+				return kvvmi.Name
+			}
+			if volumeStatus.HotplugVolume.AttachPodName == pod.Name {
+				return kvvmi.Name
+			}
+		}
+	}
+
+	return ""
 }
 
 func (w *VolumeEventWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
@@ -58,7 +100,7 @@ func (w *VolumeEventWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 					return nil
 				}
 
-				if e.Reason != ReasonFailedAttachVolume && e.Reason != ReasonFailedMount {
+				if !IsVolumeErrorReason(e.Reason) {
 					return nil
 				}
 
@@ -70,8 +112,8 @@ func (w *VolumeEventWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 					return nil
 				}
 
-				vmName, hasLabel := pod.GetLabels()[virtv1.VirtualMachineNameLabel]
-				if !hasLabel {
+				vmName := w.resolveVirtualMachineName(ctx, pod)
+				if vmName == "" {
 					return nil
 				}
 
@@ -87,7 +129,7 @@ func (w *VolumeEventWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 			predicate.TypedFuncs[*corev1.Event]{
 				CreateFunc: func(e event.TypedCreateEvent[*corev1.Event]) bool {
 					return e.Object.Type == corev1.EventTypeWarning &&
-						(e.Object.Reason == ReasonFailedAttachVolume || e.Object.Reason == ReasonFailedMount)
+						IsVolumeErrorReason(e.Object.Reason)
 				},
 				UpdateFunc: func(e event.TypedUpdateEvent[*corev1.Event]) bool {
 					return false

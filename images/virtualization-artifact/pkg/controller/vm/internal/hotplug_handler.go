@@ -57,7 +57,7 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 		return reconcile.Result{}, err
 	}
 
-	if !current.Spec.EnableParavirtualization {
+	if !current.Spec.IsParavirtualizationEnabled() {
 		return reconcile.Result{}, nil
 	}
 

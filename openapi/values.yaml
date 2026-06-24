@@ -145,6 +145,9 @@ properties:
             type: integer
           disableTLS:
             type: boolean
+      disableFirmwareUpdate:
+        type: boolean
+        default: false
       moduleConfig:
         type: object
         additionalProperties: true
