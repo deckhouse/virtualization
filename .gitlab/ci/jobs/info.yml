@@ -19,3 +19,43 @@ show_main_manifest:
   extends:
     - .info
     - .main
+
+# set_vars: derive label-driven build variables for the dev build jobs.
+#
+# Mirrors the GitHub Actions `set_vars` job from dev_module_build.yml:
+#   - MODULE_EDITION  CE when the MR carries the `edition/ce` label, else EE.
+#   - DEBUG_COMPONENT the first `delve/*` label (empty if none).
+#   - RELEASE_IN_DEV  true on release-X.Y branches, false otherwise.
+#
+# The dotenv artifact is consumed by build_dev / build_dev_tags / build_main
+# via `needs: [{job: set_vars, artifacts: true}]`. werf reads MODULE_EDITION
+# (.werf/consts.yaml: `env "MODULE_EDITION" "EE"`) and DEBUG_COMPONENT
+# (werf.yaml: `env "DEBUG_COMPONENT" ""`) from the process environment, so
+# the dotenv vars flow straight into the werf build.
+#
+# MODULES_MODULE_TAG is intentionally NOT emitted here (see set-vars.sh);
+# each build job still derives its tag from .dev / .dev_tags / .main.
+#
+# Rules mirror the union of the dev build jobs' rules (.dev / .dev_tags /
+# .main) so set_vars always runs when any of them runs and the `needs:` edge
+# is satisfied. Specifying an explicit `needs:` on the build jobs also keeps
+# them in DAG mode, so the svace:set-vars dotenv still does not leak in.
+
+set_vars:
+  stage: info
+  interruptible: true
+  before_script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash
+  script:
+    - bash .gitlab/ci/scripts/bash/set-vars.sh
+  artifacts:
+    reports:
+      dotenv: set_vars.env
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      when: always
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-dev.*$/'
+      when: always
+    - when: never

@@ -52,7 +52,9 @@ CHANGES_BLOCK_RE = re.compile(
     re.DOTALL,
 )
 KEY_VALUE_RE = re.compile(r"^([A-Za-z_]+)\s*:\s*(.*)$")
-ALLOWED_TYPES = {"feature", "fix", "breaking", "chore", "docs", "refactor", "test"}
+# deckhouse/changelog-action@v2.6.0 only renders 'feature' (-> features) and
+# 'fix' (-> fixes) in CHANGELOG-*.yml. Keep in sync with changelog_collect.py.
+ALLOWED_TYPES = {"feature", "fix"}
 
 
 def log(message: str) -> None:
@@ -133,8 +135,10 @@ def validate_block(
         errors.append(f"block #{block_index}: missing required key 'type'")
     elif change_type not in ALLOWED_TYPES:
         errors.append(
-            f"block #{block_index}: type '{change_type}' is not one of "
-            f"{sorted(ALLOWED_TYPES)}"
+            f"block #{block_index}: type '{change_type}' is not supported; "
+            f"allowed types are {sorted(ALLOWED_TYPES)} "
+            f"(deckhouse changelog only supports 'feature' and 'fix', "
+            f"rendered as the 'features'/'fixes' sections)"
         )
 
     summary = fields.get("summary", "")
