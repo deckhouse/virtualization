@@ -47,10 +47,17 @@ changelog:milestone:
     CHANGELOG_BASE_BRANCH: "main"
   rules:
     # Mode 1: manual with optional MILESTONE_TITLE / OPEN_CHANGELOG_MR vars.
+    # allow_failure: true is REQUIRED here: `when: manual` inside `rules:`
+    # defaults to allow_failure: false, which makes the (unplayed) manual job
+    # block every later stage of the MR pipeline (test/build/...). GitHub ran
+    # changelog generation in a separate workflow, fully decoupled from the
+    # build/test pipeline, so this manual job must be non-blocking/optional.
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       when: manual
+      allow_failure: true
     - if: $CI_PIPELINE_SOURCE == "web"
       when: manual
+      allow_failure: true
     # Mode 2: scheduled daily run. We intentionally do NOT auto-open the MR on
     # schedule; set OPEN_CHANGELOG_MR=true in the schedule definition if you
     # want MRs created.
