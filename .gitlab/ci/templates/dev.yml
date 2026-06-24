@@ -4,9 +4,6 @@
 # that uses `extends: .dev` runs only on MR pipelines, derives its
 # MODULES_MODULE_TAG from the MR iid, and inherits the DEV registry
 # credentials via .dev_vars.
-#
-# TODO_RUNNER_TAG: runner tags come from .gitlab/ci/defaults.yml; this file
-# only sets logic-level defaults.
 
 .dev:
   variables:

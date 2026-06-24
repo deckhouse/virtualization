@@ -29,9 +29,6 @@
 #   --project-id <id>     override CI_PROJECT_ID
 #   --api-base <url>      default $CI_API_V4_URL or https://fox.flant.com/api/v4
 #   --dry-run             print curl commands instead of executing them
-#
-# TODO_RUNNER_TAG: this script is intended to be run by a human from a
-# workstation, not from CI. No runner tag applies.
 
 set -euo pipefail
 

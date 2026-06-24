@@ -37,8 +37,6 @@ include:
 # Local job definition that extends the upstream hidden job.
 # Tag override is intentional: we want our project's runner tag, not the
 # upstream default.
-# TODO_RUNNER_TAG: confirm registered runner tag at
-# https://fox.flant.com/deckhouse/virtualization/-/runners after registration.
 translate:changelog:
   extends: .translate_and_create_mr
   stage: notify

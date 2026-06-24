@@ -40,7 +40,6 @@ svace:set-vars:
   extends:
     - .info
   stage: info
-  # TODO_RUNNER_TAG: short-lived helper job, [deckhouse] is fine.
   interruptible: true
   # Only emit the svace tag dotenv in contexts where svace actually runs.
   # Without these rules this job ran on EVERY MR pipeline and leaked a
@@ -90,8 +89,6 @@ svace:build:
     - .local_build
     - .dev_vars
   stage: build
-  # TODO_RUNNER_TAG: build with svace instrumentation requires more CPU/RAM;
-  # narrow to [deckhouse, large] once runners are registered.
   interruptible: false
   needs:
     - svace:set-vars
@@ -116,7 +113,6 @@ svace:analyze:
   extends:
     - .svace_analyze
   stage: scan
-  # TODO_RUNNER_TAG: SSH-heavy; narrow to [deckhouse, large] if available.
   interruptible: false
   needs:
     - job: svace:set-vars
@@ -137,7 +133,6 @@ svace:analyze:
 
 svace:notify:
   stage: cleanup
-  # TODO_RUNNER_TAG: short-lived helper, [deckhouse] is fine.
   interruptible: true
   before_script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash curl jq
