@@ -177,6 +177,20 @@ Components used to create and import virtual machine images or disks (they run o
 | `importer-*`   | system/worker |         |
 | `uploader-*`   | system/worker |         |
 
+### Full tainted cluster
+
+A full tainted cluster is one where all nodes have taints (any taints). Administrators typically use this configuration to control which nodes pods and virtual machines can be scheduled onto.
+
+When running the `virtualization` module in such a cluster, account for the configuration details below:
+
+1. If a [VirtualDisk](/modules/virtualization/cr.html#virtualdisk) uses a StorageClass with `volumeBindingMode: Immediate`, a PersistentVolume is created as soon as the disk is created. This happens before the virtual machine is scheduled. Make sure the provisioner can create volumes on nodes that are allowed for virtual machines through [placement settings](./user_guide.html#placement-of-vms-by-nodes), including `nodeSelector`, `tolerations`, and settings in the virtual machine `spec` or [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass). Otherwise, the disk may end up on a node where the virtual machine cannot run.
+
+2. If the StorageClass uses `volumeBindingMode: WaitForFirstConsumer`, the volume is created on the node where the virtual machine is scheduled, and this issue does not occur.
+
+3. [VirtualImage](/modules/virtualization/cr.html#virtualimage) and [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) require the `importer-*` and `uploader-*` pods from the table above. They have a toleration for the `dedicated.deckhouse.io=system` taint.
+
+4. The cluster must have a `system` NodeGroup or dedicated nodes with the `dedicated.deckhouse.io=system` taint. Without such nodes, images will not reach the `Ready` phase.
+
 ## Module update
 
 The `virtualization` module uses five update channels designed for use in different environments that have different requirements in terms of reliability:
