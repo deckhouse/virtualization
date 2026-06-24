@@ -7,6 +7,7 @@ tool github.com/onsi/ginkgo/v2/ginkgo
 require (
 	github.com/deckhouse/virtualization-controller v0.0.0-00010101000000-000000000000
 	github.com/deckhouse/virtualization/api v0.0.0-20240923080356-bb5809dba578
+	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
 	github.com/onsi/ginkgo/v2 v2.23.3
 	github.com/onsi/gomega v1.37.0
 	github.com/stretchr/testify v1.11.1
@@ -43,7 +44,6 @@ require (
 	github.com/google/pprof v0.0.0-20241210010833-40e02aabc2ad // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
