@@ -171,16 +171,14 @@ func unsetStorageClassNameEnv(t *testing.T) {
 	t.Helper()
 
 	oldValue, wasSet := os.LookupEnv(StorageClassNameEnv)
+	if wasSet {
+		t.Setenv(StorageClassNameEnv, oldValue)
+	} else {
+		t.Setenv(StorageClassNameEnv, "")
+	}
 	if err := os.Unsetenv(StorageClassNameEnv); err != nil {
 		t.Fatalf("failed to unset %s: %v", StorageClassNameEnv, err)
 	}
-	t.Cleanup(func() {
-		if wasSet {
-			_ = os.Setenv(StorageClassNameEnv, oldValue)
-			return
-		}
-		_ = os.Unsetenv(StorageClassNameEnv)
-	})
 }
 
 func TestResolveImmediateStorageClass(t *testing.T) {

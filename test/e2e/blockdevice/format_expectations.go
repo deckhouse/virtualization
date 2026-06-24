@@ -25,8 +25,8 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
-	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
@@ -46,13 +46,6 @@ func expectedFormatForStorageClass(ctx context.Context, f *framework.Framework, 
 		return imageformat.FormatRAW
 	}
 	return imageformat.FormatQCOW2
-}
-
-// expectedVirtualDiskFormat is an alias for expectedFormatForStorageClass: VirtualDisks
-// on PVC follow the same block/raw vs filesystem/qcow2 rule as VirtualImages on PVC.
-func expectedVirtualDiskFormat(ctx context.Context, f *framework.Framework, scName string) string {
-	GinkgoHelper()
-	return expectedFormatForStorageClass(ctx, f, scName)
 }
 
 // expectedVirtualImageFormat returns the image format actually stored for vi.

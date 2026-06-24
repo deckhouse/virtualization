@@ -674,11 +674,11 @@ func virtualDiskNoun(n int) string {
 // createVirtualDiskAndRunVM provisions vd by booting a VirtualMachine from it (see
 // runVirtualMachineFromDisks for the exact lifecycle). The VM is the disk's first
 // consumer, so this works on both Immediate and WaitForFirstConsumer storage classes.
-func createVirtualDiskAndRunVM(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk, opts ...progressWaitOption) *v1alpha2.VirtualMachine {
+func createVirtualDiskAndRunVM(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk, opts ...progressWaitOption) {
 	GinkgoHelper()
 
 	obs := startVirtualDisk(ctx, f, vd, opts...)
-	return runVirtualMachineFromDisks(ctx, f, observedDisk{vd: vd, obs: obs})
+	runVirtualMachineFromDisks(ctx, f, observedDisk{vd: vd, obs: obs})
 }
 
 // runVirtualMachineFromDisks drives the disk/VM lifecycle for the given disks, which the

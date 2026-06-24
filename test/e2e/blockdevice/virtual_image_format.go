@@ -139,7 +139,7 @@ func runVirtualMachineFromImageUntilRunning(ctx context.Context, f *framework.Fr
 
 	By("Checking that the OS installer boot screen is visible over VNC", func() {
 		Eventually(func(g Gomega) {
-			frame, err := captureVNCFrame(ctx, f, vm)
+			frame, err := captureVNCFrame(ctx, vm)
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(hasUbuntuInstallerBootScreen(frame)).To(BeTrue(), "expected Ubuntu installer language selection screen")
 		}).WithTimeout(framework.MiddleTimeout).WithPolling(5 * time.Second).Should(Succeed())
@@ -152,7 +152,7 @@ type vncFrame struct {
 	pixels []byte
 }
 
-func captureVNCFrame(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine) (*vncFrame, error) {
+func captureVNCFrame(ctx context.Context, vm *v1alpha2.VirtualMachine) (*vncFrame, error) {
 	GinkgoHelper()
 
 	restConfig, err := framework.GetConfig().ClusterTransport.RestConfig()
@@ -179,11 +179,18 @@ func captureVNCFrame(ctx context.Context, f *framework.Framework, vm *v1alpha2.V
 	dialCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 
-	conn, _, err := dialer.DialContext(dialCtx, vncURL.String(), vncHeaders(restConfig))
+	conn, resp, err := dialer.DialContext(dialCtx, vncURL.String(), vncHeaders(restConfig))
+	if resp != nil && resp.Body != nil {
+		defer func() {
+			_ = resp.Body.Close()
+		}()
+	}
 	if err != nil {
 		return nil, fmt.Errorf("connect to VNC websocket: %w", err)
 	}
-	defer conn.Close()
+	defer func() {
+		_ = conn.Close()
+	}()
 
 	deadline := time.Now().Add(15 * time.Second)
 	_ = conn.SetReadDeadline(deadline)
