@@ -1,0 +1,33 @@
+core:
+  fixes:
+    - summary: Update VMOP migration elapsed time every ten seconds while migration is in progress.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2495
+    - summary: Select VirtualDisk migration target PVC strictly to avoid using an unrelated PVC.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2493
+    - summary: >-
+        Fix metadata patch failing with "the server rejected our request" for objects without
+        finalizers, labels or annotations.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2479
+vd:
+  fixes:
+    - summary: >-
+        Fixed cancellation of virtual disk storage class changes and cancellation of local disk
+        migration.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2502
+vm:
+  fixes:
+    - summary: >-
+        Fixed an issue that prevented a VM from starting after a failed migration of a disk on local
+        storage.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2509
+    - summary: >-
+        Fixed live migration of VMs with disks on local storage attached via
+        VirtualMachineBlockDeviceAttachment (hotplug). The target node no longer matches the source
+        node.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2508
+    - summary: >-
+        Fixed a false reboot requirement for VMs with only the Main network after upgrading to
+        v1.9.1. Such VMs now do not receive the RestartRequired status if their configuration has
+        not actually changed.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2475
+
