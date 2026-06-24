@@ -74,7 +74,7 @@ func (v *BlockDeviceSpecRefsValidator) ValidateCreate(_ context.Context, vm *v1a
 func (v *BlockDeviceSpecRefsValidator) ValidateUpdate(_ context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	var warnings admission.Warnings
 
-	if !newVM.Spec.EnableParavirtualization && hasBlockDeviceChanges(oldVM, newVM) {
+	if !newVM.Spec.IsParavirtualizationEnabled() && hasBlockDeviceChanges(oldVM, newVM) {
 		warnings = append(warnings, "Hot-plugging block devices with enableParavirtualization=false is not supported. Restart the VM to apply changes.")
 	}
 

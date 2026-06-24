@@ -166,6 +166,8 @@ func applyBlockDeviceRefs(
 	cviByName map[string]*v1alpha2.ClusterVirtualImage,
 	vmbdaByBlockDeviceRef map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment,
 ) error {
+	isParavirtualizationEnabled := vm.Spec.IsParavirtualizationEnabled()
+
 	hasExplicitBootOrder := false
 	for _, bd := range vm.Spec.BlockDeviceRefs {
 		if bd.BootOrder != nil {
@@ -199,7 +201,7 @@ func applyBlockDeviceRefs(
 	for i, bd := range vm.Spec.BlockDeviceRefs {
 		diskName := GenerateDiskName(bd.Kind, bd.Name)
 		// When VM is stopped, update disks unconditionally.
-		if isVmRunning && vm.Spec.EnableParavirtualization && len(kvvmVolumes) > 0 && !slices.ContainsFunc(kvvmVolumes, func(v virtv1.Volume) bool { return v.Name == diskName }) {
+		if isVmRunning && isParavirtualizationEnabled && len(kvvmVolumes) > 0 && !slices.ContainsFunc(kvvmVolumes, func(v virtv1.Volume) bool { return v.Name == diskName }) {
 			continue
 		}
 
@@ -213,7 +215,7 @@ func applyBlockDeviceRefs(
 		}
 
 		_, hotpluggable := hotpluggableVolumes[diskName]
-		if err := setBlockDeviceDisk(kvvm, bd, kvBootOrder, hotpluggable || (vm.Spec.EnableParavirtualization && !isVmRunning), vdByName, viByName, cviByName); err != nil {
+		if err := setBlockDeviceDisk(kvvm, bd, kvBootOrder, hotpluggable || (isParavirtualizationEnabled && !isVmRunning), vdByName, viByName, cviByName); err != nil {
 			return err
 		}
 	}

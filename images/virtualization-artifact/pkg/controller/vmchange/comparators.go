@@ -93,7 +93,7 @@ func compareTerminationGracePeriodSeconds(current, desired *v1alpha2.VirtualMach
 }
 
 func compareEnableParavirtualization(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
-	return compareBools(
+	return comparePtrBools(
 		"enableParavirtualization",
 		current.EnableParavirtualization,
 		desired.EnableParavirtualization,
