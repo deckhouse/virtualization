@@ -10,6 +10,12 @@
 # hardcoded matrix (RELEASE_CHANNEL x EDITION) in deploy-prod.yml. Once we
 # decide whether to expose that flexibility (likely via "Run pipeline"
 # variables), this template will gain extra variables.
+#
+# The single-channel dispatch with Run-pipeline inputs (channel, editions,
+# tag, enableBuild, check_only, release_to_gitlab, send_results_to_loop,
+# requirements/version checks) is now implemented in
+# .gitlab/ci/jobs/release-channels.yml (prod:* jobs). This template stays
+# as the tag-push chained-deploy context.
 
 .prod_manual:
   variables:

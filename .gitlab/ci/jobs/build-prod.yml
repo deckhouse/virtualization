@@ -1,17 +1,23 @@
 # PROD build job.
 #
-# Carries forward build_prod from the previous root .gitlab-ci.yml. Builds
-# the module images for every edition on tag push (vX.Y.Z), then leaves
-# the deploy step to .gitlab/ci/jobs/deploy-prod.yml.
+# Builds the module images for every edition on tag push (vX.Y.Z), then
+# leaves the deploy step to .gitlab/ci/jobs/deploy-prod.yml.
 #
-# Editions: ce / ee / fe today. The previous GH workflow
-# release_module_build-and-registration.yml also had an `se-plus` edition;
-# the migration plan flags this as a TODO (plan §7, question about se-plus
-# edition parity). Until that decision is made, we keep the ce/ee/fe matrix
-# from the previous GitLab config to preserve behavior.
+# Parity with .github/workflows/release_module_build-and-registration.yml:
+# four editions ce / ee / se-plus / fe, each with its own
+# MODULES_MODULE_SOURCE subpath and the correct MODULE_EDITION (CE only for
+# ce, EE for ee/se-plus/fe). MODULE_EDITION is consumed by
+# .werf/consts.yaml (defaults to EE) and used as a Go build tag plus an
+# EE-only image gate, so it MUST be set per edition — otherwise the ce prod
+# image is built as EE.
 #
-# Resource group: prod — prevents two prod builds from racing (kept from
-# the previous root .gitlab-ci.yml).
+# Note vs GitHub: GH runs ce and ee in parallel, then se-plus and fe after
+# ee (needs: prod_ee_setup_build). The GitLab matrix runs all four in
+# parallel. Each edition builds into its own registry subpath with no shared
+# artifact, so the GH `needs: ee` ordering is a sequencing/resource guard,
+# not a data dependency; the parallel matrix is acceptable.
+#
+# Resource group: prod — prevents two prod builds from racing.
 #
 # Upstream .build expects MODULES_MODULE_SOURCE and WERF_REPO; .prod_vars
 # sets MODULES_MODULE_SOURCE per-edition (PROD_REGISTRY/PROD_MODULE_SOURCE_NAME/
@@ -33,10 +39,11 @@ build_prod:
     - .dual_registry_login
   parallel:
     matrix:
-      - EDITION:
-          - ce
-          - ee
-          - fe
-      # TODO: add `se-plus` edition here once parity with the GH
-      # release_module_build-and-registration.yml workflow is decided
-      # (see migration plan §7, "TODO: edition se-plus").
+      - EDITION: ce
+        MODULE_EDITION: CE
+      - EDITION: ee
+        MODULE_EDITION: EE
+      - EDITION: se-plus
+        MODULE_EDITION: EE
+      - EDITION: fe
+        MODULE_EDITION: EE
