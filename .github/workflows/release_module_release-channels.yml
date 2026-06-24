@@ -415,7 +415,7 @@ jobs:
 
   check-version-on-release-channel:
     name: Check version on release channel
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, regular]
     env:
       GO_VERSION: "1.25.11"
       input_channel: ${{ github.event.inputs.channel }}
