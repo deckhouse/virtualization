@@ -11,6 +11,8 @@ Release date: June 17, 2026.
 ### Fixes
 
 - [vd] Fixed errors when reverting a [VirtualDisk](/modules/virtualization/cr.html#virtualdisk) migration if several PVCs were associated with the disk. The controller now validates source and target PVC names before selecting the target.
+- [vm] Fixed live migration and eviction of VMs with local-storage disks attached via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug). The migration target pod is no longer scheduled on the source node.
+- [vm] Fixed VM recovery after a failed local-storage disk migration and restart. The VM can start again without `ManualRecoveryRequired`. Automatic node placement updates are deferred until volume migration completes.
 - [vm] Fixed live migration of VMs with container disks when upgrading to v1.9. Migration now works during the switch to rootless mode: it supports pre-rootless `virt-launcher` pods and mounts container disks on the target node.
 - [vm] Fixed a false restart requirement for VMs that use only the `Main` network after upgrading to v1.9. These VMs no longer receive `RestartRequired` when there are no actual configuration changes.
 
