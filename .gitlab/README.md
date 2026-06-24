@@ -268,24 +268,72 @@ for the future plan.
 
 ## 9. Scheduled pipelines
 
-Some jobs are intended to run on a schedule (e.g. `mrs:summary` once per day
-at 10:00 Moscow time). Configure them at
-`CI/CD -> Schedules -> New schedule`:
+Several jobs are intended to run on a schedule. Configure schedules at
+`CI/CD -> Schedules -> New schedule`. Each scheduled job has its own intended
+cadence:
 
-| Schedule name | Cron | Target branch | Variables |
-|---|---|---|---|
-| `mrs-summary-daily` | `0 7 * * *` (10:00 MSK) | `main` | _(none — uses project vars)_ |
-| `changelog-sweep` | `0 3 * * *` (06:00 MSK) | `main` | `OPEN_CHANGELOG_MR=false` |
+| Job(s) | Intended cron | Notes |
+|---|---|---|
+| `cve:scan:daily` | `0 2 * * *` (daily) | CVE scan of `main`. |
+| `svace:*` | `0 4 * * 6` (weekly, Sat) | Svace analysis + report. |
+| `gitleaks:full:scheduled` | daily | Full secrets scan. |
+| `precache` | `0 */8 * * *` (every 8h) | Warm the build cache. |
+| `changelog:milestone` / `changelog:all-active-milestones` | nightly | Re-generate CHANGELOG. |
+| `mrs:summary` | `0 7 * * *` (10:00 MSK) | MR summary to Loop. |
+| `cleanup` | `12 0 * * 6` (weekly, Sat) | Prune old DEV registry images. |
 
-Schedules trigger pipelines whose `CI_PIPELINE_SOURCE == "schedule"`. Jobs
-that should run on a schedule have a corresponding rule with
-`when: manual allow_failure: true` so they don't break the schedule if a
-maintainer hasn't pre-approved them.
+Schedules trigger pipelines whose `CI_PIPELINE_SOURCE == "schedule"`.
+
+> **Known issue — tracked in `virtualization-m9e.5.11`.** Every scheduled job
+> currently gates **only** on `CI_PIPELINE_SOURCE == "schedule"` with **no
+> discriminator**. In GitLab a schedule triggers the whole pipeline, so a
+> single schedule fires **all** of these jobs at once, and multiple schedules
+> each fire **all** of them — there is no way to honor the distinct crons
+> above (e.g. weekly `cleanup` vs daily `cve:scan:daily`). Result: `cleanup`
+> never runs at its intended weekly cadence (it runs at whatever cadence any
+> schedule has, or never if no schedule exists). The fix is a `SCHEDULE_TYPE`
+> (or `SCHEDULE_CRON`) variable set per schedule, with each job gated on
+> `CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "<name>"`.
 
 ## 10. Known TODOs / migration risks
 
-These are intentional gaps from the first-iteration migration. Track them
-under the `virtualization-m9e.3` Beads issue.
+Migration goal: **full parity with GitHub Actions** (development is moving to
+GitLab). The previous root `.gitlab-ci.yml` is **not** a behavior baseline —
+anything that diverges from the GitHub workflows is a gap to fix, even if it
+matches the old GitLab config. Open work is tracked under sub-epics
+`virtualization-m9e.6` (prod release parity) and `virtualization-m9e.5`
+(review findings & fixes).
+
+### Confirmed bugs / parity gaps (must fix)
+
+- **`build_prod` builds `ce` as EE** (`virtualization-m9e.6.1`) — `.prod_vars`
+  never sets `MODULE_EDITION`, so werf defaults to `EE`. GitHub sets
+  `MODULE_EDITION=CE` only for `ce` (EE for `ee`/`se-plus`/`fe`). The `ce`
+  prod image is therefore mis-built as EE.
+- **Edition `se-plus` missing in prod** (`virtualization-m9e.6.2`) — GitHub
+  `release_module_build-and-registration.yml` and
+  `release_module_release-channels.yml` build and deploy `se-plus`
+  (path `se-plus/modules`, `MODULE_EDITION=EE`). The GitLab build/deploy
+  matrices only have `ce`/`ee`/`fe`. This is a parity gap to fix, not a
+  conditional feature.
+- **Release-channels feature parity** (`virtualization-m9e.6.3`) — the GitHub
+  `release_module_release-channels.yml` workflow exposes inputs (`channel`,
+  `ce`, `ee`, `tag`, `enableBuild`, `release_to_github`, `check_only`,
+  `skip_requirements_check`, `send_results_to_loop`) and runs requirements
+  check, version check (registry/releases/documentation), release creation,
+  and a Loop notification. The GitLab port collapses this into a hardcoded
+  `RELEASE_CHANNEL x EDITION` matrix and is missing the rest. Audit upstream
+  `modules-gitlab-ci` templates first, then port or document each capability.
+- **Scheduled-job discriminator** (`virtualization-m9e.5.11`) — see the known
+  issue in [§9](#9-scheduled-pipelines): `cleanup` and the other scheduled
+  jobs cannot honor their individual crons without a `SCHEDULE_TYPE` variable.
+- **`test` serialized behind `lint`** (`virtualization-m9e.5.12`) — test jobs
+  lack `needs:`, so they wait for the whole `lint` stage instead of running in
+  parallel as on GitHub. (Mixing lint and validation in one stage is fine —
+  same-stage jobs already run in parallel; the fix is a DAG `needs:`, not
+  splitting stages.)
+
+### Intentional first-iteration gaps
 
 - **Webhook listener for slash-commands** — GitLab does not natively start
   pipelines on MR comment creation or label change. See
@@ -294,22 +342,11 @@ under the `virtualization-m9e.3` Beads issue.
   the webhook listener lands, add a `merge_request.closed` / `milestoned`
   handler that triggers `changelog:milestone` with the right
   `MILESTONE_TITLE`.
-- **Edition `se-plus`** — the legacy `.gitlab-ci.yml` builds only
-  `ce`/`ee`/`fe`. GitHub's `release_module_build-and-registration.yml`
-  also built `se-plus`. Add `se-plus` to the `parallel.matrix.EDITION`
-  list if/when Deckhouse supports it for this module.
-- **Inputs of `release_module_release-channels.yml`** — the GH workflow
-  exposed `channel`, `ce`, `ee`, `tag`, `enableBuild`,
-  `release_to_github`, `check_only`, `skip_requirements_check`,
-  `send_results_to_loop`. The current prod deploy jobs only accept a
-  tag-based trigger. Variables for `channel`, `tag`, and `check_only` are
-  already supported in the deploy job UI. The rest are tracked under the
-  build/deploy epic.
-- **`prs_notifier.mjs` STUCK detection** — the original GitHub version
-  uses per-review `submitted_at` to compute "stuck for 1.5 days". The
-  GitLab port currently treats all unresolved discussions as "stuck"
-  without checking thread age. TODO: pull `discussions[].notes[].created_at`
-  to refine the heuristic.
+- **`prs_notifier.mjs` STUCK detection** (`virtualization-m9e.5.14`) — the
+  original GitHub version uses per-review `submitted_at` to compute "stuck for
+  1.5 days". The GitLab port currently treats all unresolved discussions as
+  "stuck" without checking thread age. TODO: pull
+  `discussions[].notes[].created_at` to refine the heuristic.
 - **GitLab username for `z9r5`** — the doc reviewer is hard-coded as
   `DOC_REVIEWER=z9r5` in `mrs:summary`. Override via the
   `DOC_REVIEWER` CI/CD variable until the real username is confirmed.
@@ -367,8 +404,8 @@ For full GitHub parity, deploy a small **webhook-listener** service that:
    `POST /api/v4/projects/:id/trigger/pipeline` with the right variables.
 
 Until that exists, the manual job matrix in [§7](#7-jobs-reference) and the
-two scheduled jobs in [§9](#9-scheduled-pipelines) cover the same surface
-area, with a human pressing the button.
+scheduled jobs in [§9](#9-scheduled-pipelines) cover the same surface area,
+with a human pressing the button.
 
 ## See also
 
