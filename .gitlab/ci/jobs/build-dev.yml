@@ -23,24 +23,36 @@
 # older main pipeline. build_dev and build_dev_tags inherit the project
 # default (interruptible not set, so they can be cancelled manually).
 
-# `needs: []` is intentional: it opts these jobs into DAG mode with no
-# artifact downloads. Without it, GitLab's legacy behavior downloads ALL
-# artifacts from every prior-stage job, which leaks unrelated dotenv
-# artifacts (e.g. svace:set-vars writes MODULES_MODULE_TAG=<branch>-svace)
-# and overrides the per-template MODULES_MODULE_TAG from .dev / .dev_tags /
-# .main. These builds derive their tag and registry vars from their own
-# templates and need no upstream artifacts.
+# `needs: [set_vars]` (with artifacts) is intentional: it opts these jobs
+# into DAG mode and pulls ONLY the set_vars dotenv (MODULE_EDITION,
+# DEBUG_COMPONENT, RELEASE_IN_DEV). It replaces the previous bare `needs: []`,
+# which existed to stop GitLab's legacy behavior of downloading ALL prior-stage
+# artifacts and leaking unrelated dotenv artifacts (e.g. svace:set-vars writes
+# MODULES_MODULE_TAG=<branch>-svace) that override the per-template
+# MODULES_MODULE_TAG from .dev / .dev_tags / .main. Listing set_vars explicitly
+# keeps that protection: svace.env is still not downloaded. set_vars does NOT
+# emit MODULES_MODULE_TAG, so the per-template tag is preserved.
+#
+# WERF_VIRTUAL_MERGE=0 mirrors the GitHub dev_setup_build job env.
 
 build_dev:
   stage: build
-  needs: []
+  needs:
+    - job: set_vars
+      artifacts: true
+  variables:
+    WERF_VIRTUAL_MERGE: "0"
   extends:
     - .local_build
     - .dev
 
 build_dev_tags:
   stage: build
-  needs: []
+  needs:
+    - job: set_vars
+      artifacts: true
+  variables:
+    WERF_VIRTUAL_MERGE: "0"
   extends:
     - .local_build
     - .dev_tags
@@ -48,7 +60,11 @@ build_dev_tags:
 build_main:
   stage: build
   interruptible: true
-  needs: []
+  needs:
+    - job: set_vars
+      artifacts: true
+  variables:
+    WERF_VIRTUAL_MERGE: "0"
   extends:
     - .local_build
     - .main

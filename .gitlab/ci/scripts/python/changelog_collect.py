@@ -61,7 +61,14 @@ CHANGES_BLOCK_RE = re.compile(
     re.DOTALL,
 )
 KEY_VALUE_RE = re.compile(r"^([A-Za-z_]+)\s*:\s*(.*)$")
-ALLOWED_TYPES = {"feature", "fix", "breaking", "chore", "docs", "refactor", "test"}
+# deckhouse/changelog-action@v2.6.0 only renders 'feature' (-> features) and 'fix'
+# (-> fixes) sections in CHANGELOG-*.yml. Keep in sync with
+# check_changelog_entry.py.
+ALLOWED_TYPES = {"feature", "fix"}
+TYPE_TO_SECTION = {
+    "feature": "features",
+    "fix": "fixes",
+}
 
 
 def log(message: str) -> None:
@@ -189,20 +196,73 @@ def group_entries(entries: list[dict]) -> dict[str, list[dict]]:
     return grouped
 
 
+def yaml_summary_scalar(value: str) -> str:
+    """Emit a YAML scalar for a changelog summary line.
+
+    Plain style when safe (matches deckhouse/changelog-action output for the
+    common case); double-quoted otherwise to avoid YAML injection.
+    """
+    if value == "":
+        return '""'
+    if (
+        re.search(r"[:#]", value)
+        or value[0] in "-?,[]{}'\"&*!|>%@`"
+        or value.endswith(" ")
+        or ": " in value
+        or " #" in value
+    ):
+        return json.dumps(value, ensure_ascii=False)
+    return value
+
+
 def render_yaml(entries: list[dict], milestone_title: str) -> str:
-    grouped = group_entries(entries)
-    lines = [f"# Changelog for {milestone_title}", ""]
-    for section in sorted(grouped.keys()):
-        section_entries = grouped[section]
-        lines.append(f"## {section}")
-        lines.append("")
-        for entry in section_entries:
-            lines.append(
-                f"- **{entry['type']}** ({entry['impact_level']}): {entry['summary']} "
-                f"(MR !{entry['mr_iid']})"
+    """Render CHANGELOG-<milestone>.yml in the deckhouse schema.
+
+    Schema (matches deckhouse/changelog-action@v2.6.0 release_yaml)::
+
+        <section>:
+          features:
+            - summary: <text>
+              pull_request: <mr_url>
+          fixes:
+            - summary: <text>
+              pull_request: <mr_url>
+
+    Sections are sorted alphabetically and emitted compactly (no blank lines
+    between sections). The ':low' impact_level suffix is stripped from the
+    section key: it only pins impact_level during validation and is not
+    represented in the YAML. Within each section, entries are ordered by MR iid
+    descending, matching the historical generator output. An empty milestone
+    yields '{}' (same as the historical generator).
+    """
+    grouped: dict[str, dict[str, list[dict]]] = {}
+    for entry in entries:
+        section_key = entry["section"].split(":", 1)[0]
+        bucket = TYPE_TO_SECTION.get(entry["type"])
+        if bucket is None:
+            log(
+                f"WARN: MR !{entry['mr_iid']} has unsupported type "
+                f"'{entry['type']}' (allowed: {sorted(ALLOWED_TYPES)}), skipping."
             )
-        lines.append("")
-    return "\n".join(lines).rstrip() + "\n"
+            continue
+        grouped.setdefault(section_key, {"features": [], "fixes": []})[bucket].append(entry)
+
+    if not grouped:
+        return "{}\n\n"
+
+    lines: list[str] = []
+    for section in sorted(grouped.keys()):
+        buckets = grouped[section]
+        lines.append(f"{section}:")
+        for bucket in ("features", "fixes"):
+            items = sorted(buckets[bucket], key=lambda e: e["mr_iid"], reverse=True)
+            if not items:
+                continue
+            lines.append(f"  {bucket}:")
+            for entry in items:
+                lines.append(f"    - summary: {yaml_summary_scalar(entry['summary'])}")
+                lines.append(f"      pull_request: {entry['mr_url']}")
+    return "\n".join(lines) + "\n\n"
 
 
 def render_markdown(entries: list[dict], milestone_title: str, minor_version: str) -> str:
