@@ -20,9 +20,6 @@ precache:build:main:
     - .local_build
     - .main
   stage: build
-  # TODO_RUNNER_TAG: scheduled builds should run on a runner pool separate
-  # from interactive MR builds. Once runners are registered, narrow this
-  # to the dedicated precache tag (e.g. [deckhouse, precache]).
   interruptible: false
   variables:
     MODULES_MODULE_TAG: "${CI_COMMIT_REF_NAME:-main}"
@@ -40,7 +37,6 @@ precache:build:branch:
     - .local_build
     - .dev_vars
   stage: build
-  # TODO_RUNNER_TAG: same as precache:build:main.
   interruptible: false
   variables:
     MODULES_MODULE_TAG: "${REF_BRANCH}"

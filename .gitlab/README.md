@@ -186,20 +186,9 @@ For local debugging (e.g. `setup-mr-settings.sh`) you can export
 
 ## 6. Runner tags
 
-All jobs in this directory specify `tags: [deckhouse]`. This is a placeholder
-until concrete runner tags are registered at
+All jobs in this directory specify `tags: [deckhouse]`. This is the agreed
+runner tag for the project, registered at
 <https://fox.flant.com/deckhouse/virtualization/-/runners>.
-
-Once registration is complete, update the value:
-
-```bash
-# Find every "tags:" line in this directory that says "deckhouse".
-grep -rn 'tags:' .gitlab/ci/jobs/ | grep deckhouse
-# Update each to the real runner tag, e.g. "deckhouse-large" or "dvp".
-```
-
-Look for `TODO_RUNNER_TAG` comments in each job yml; replace the tag and
-remove the comment when finalised.
 
 ### Shell executor requirements
 
@@ -278,9 +267,6 @@ maintainer hasn't pre-approved them.
 These are intentional gaps from the first-iteration migration. Track them
 under the `virtualization-m9e.3` Beads issue.
 
-- **`TODO_RUNNER_TAG`** — every job uses `tags: [deckhouse]` as a
-  placeholder. Replace with the real registered runner tag once
-  available. Search for `TODO_RUNNER_TAG` in this directory.
 - **Webhook listener for slash-commands** — GitLab does not natively start
   pipelines on MR comment creation or label change. See
   [§12](#12-slash-commands-and-webhook-listener).

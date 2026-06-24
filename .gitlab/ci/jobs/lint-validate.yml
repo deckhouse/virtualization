@@ -12,9 +12,6 @@
 #
 # Each job:
 # - inherits `tags: [deckhouse]` from .gitlab/ci/defaults.yml;
-# - emits a `# TODO_RUNNER_TAG:` comment where the real runner tag (e.g.
-#   large / regular) might need to replace `deckhouse` once runners are
-#   registered on fox.flant.com/deckhouse/virtualization;
 # - has `interruptible: true` where short-lived (safe to cancel on a new
 #   push) and `interruptible: false` where a long run is expected;
 # - honors `validation/skip/<name>` labels via `when: never` rules.
@@ -37,7 +34,6 @@
 
 lint:no-cyrillic:
   stage: lint
-  # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
   interruptible: true
   variables:
     GIT_DEPTH: "0"
@@ -60,7 +56,6 @@ lint:no-cyrillic:
 
 lint:doc-changes:
   stage: lint
-  # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
   interruptible: true
   variables:
     GIT_DEPTH: "0"
@@ -86,7 +81,6 @@ lint:doc-changes:
 
 lint:shellcheck:
   stage: lint
-  # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
   interruptible: true
   # The `task lint:shellcheck` target runs shellcheck inside the
   # koalaman/shellcheck-alpine Docker image, so the runner needs docker —
@@ -108,7 +102,6 @@ lint:shellcheck:
 
 lint:yaml:
   stage: lint
-  # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
   interruptible: true
   before_script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task
@@ -144,8 +137,6 @@ lint:yaml:
 
 lint:go:
   stage: lint
-  # TODO_RUNNER_TAG: lints every Go module; may need [deckhouse, large] once
-  # runners are registered.
   interruptible: true
   before_script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go curl
@@ -207,7 +198,6 @@ lint:go:
 
 lint:helm-templates:
   stage: lint
-  # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
   interruptible: true
   before_script:
     # go + task are host tools; docker runs kubeconform; git/curl/python3 are
@@ -276,8 +266,6 @@ lint:helm-templates:
 
 check:gens-files:
   stage: lint
-  # TODO_RUNNER_TAG: heavy jobs may need [deckhouse, large] once runners
-  # are registered.
   interruptible: true
   before_script:
     # git is needed by check_diffs (git diff). go/task are host tools.
@@ -390,7 +378,6 @@ check:gens-files:
 
 lint:gitlab-ci:
   stage: lint
-  # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
   interruptible: true
   before_script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash curl jq

@@ -5,12 +5,6 @@
 # resources are not pinned to a specific tag set (we leave GitLab's
 # scheduling to runner tags only).
 #
-# TODO_RUNNER_TAG: the `deckhouse` tag is the agreed default across the
-# migration plan (decision 7 in tmp/ai-summary/gitlab-ci-migration-plan.md
-# §0). The real runner set on fox.flant.com/deckhouse/virtualization may use
-# `large` / `regular` / similar — once runners are registered, narrow this
-# to the actual tag list. Until then, `deckhouse` is the safe placeholder.
-#
 # Per-job `interruptible` is intentionally NOT set here; long-running jobs
 # (build_prod and the deploy chain) need `interruptible: false`, while
 # short-lived lint/test/build_dev jobs benefit from `interruptible: true`.
@@ -19,6 +13,3 @@
 default:
   tags:
     - deckhouse
-  # TODO_RUNNER_TAG: confirm registered runner tags on
-  # fox.flant.com/deckhouse/virtualization and replace [deckhouse] above
-  # with the real tag list (e.g. [deckhouse, large] for heavy builds).

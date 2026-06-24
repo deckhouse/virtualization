@@ -35,8 +35,6 @@
 
 changelog:milestone:
   stage: lint
-  # TODO_RUNNER_TAG: confirm registered runner tag at
-  # https://fox.flant.com/deckhouse/virtualization/-/runners after registration.
   tags:
     - deckhouse
   before_script:
@@ -66,8 +64,6 @@ changelog:milestone:
 # MRs are opened.
 changelog:all-active-milestones:
   stage: lint
-  # TODO_RUNNER_TAG: confirm registered runner tag at
-  # https://fox.flant.com/deckhouse/virtualization/-/runners after registration.
   tags:
     - deckhouse
   before_script:

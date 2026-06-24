@@ -22,8 +22,6 @@
 
 check:changelog:
   stage: lint
-  # TODO_RUNNER_TAG: confirm registered runner tag at
-  # https://fox.flant.com/deckhouse/virtualization/-/runners after registration.
   tags:
     - deckhouse
   before_script:

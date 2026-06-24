@@ -39,7 +39,6 @@ gitleaks_full_scheduled:
 gitleaks:diff:
   extends: .gitleaks_scan
   stage: scan
-  # TODO_RUNNER_TAG: confirm real runner tag on fox.flant.com runner pool.
   interruptible: true
   variables:
     SCAN_MODE: "diff"
@@ -50,8 +49,6 @@ gitleaks:diff:
 gitleaks:full:scheduled:
   extends: .gitleaks_scan
   stage: scan
-  # TODO_RUNNER_TAG: full-history scan is heavier than diff; narrow to
-  # [deckhouse, large] if available.
   interruptible: false
   variables:
     SCAN_MODE: "full"
@@ -62,7 +59,6 @@ gitleaks:full:scheduled:
 gitleaks:full:manual:
   extends: .gitleaks_scan
   stage: scan
-  # TODO_RUNNER_TAG: same as gitleaks:full:scheduled.
   interruptible: false
   variables:
     SCAN_MODE: "full"
