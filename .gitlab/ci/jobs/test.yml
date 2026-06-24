@@ -11,8 +11,15 @@
 # All test jobs extend .dev so they only run on MR pipelines with the right
 # MODULES_MODULE_TAG/registry context.
 
+# `needs: []` mirrors the GitHub dev_module_build.yml `test` job, which has no
+# `needs` and runs on every PR push (pull_request: synchronize) independently of
+# lint/build. Without it the test jobs sit in the `test` stage waiting for the
+# whole `lint` stage to succeed, which a still-unplayed blocking manual job
+# (e.g. changelog:milestone) can stall indefinitely. DAG mode lets unit tests
+# start immediately on every MR pipeline.
 test:virtualization-controller:
   stage: test
+  needs: []
   script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh task
     - task virtualization-controller:init
@@ -22,6 +29,7 @@ test:virtualization-controller:
 
 test:hooks:
   stage: test
+  needs: []
   script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh task
     - task gohooks:test
