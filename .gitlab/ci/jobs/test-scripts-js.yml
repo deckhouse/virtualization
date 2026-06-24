@@ -1,0 +1,41 @@
+# Copyright 2026 Flant JSC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# JS smoke tests for .gitlab/scripts/js.
+#
+# Ports the GitHub Actions `test_scripts_js` job from
+# .github/workflows/dev_module_build.yml, which ran `npm test` in
+# .github/scripts/js. The GitLab counterpart lives in .gitlab/scripts/js
+# (mrs_notifier.mjs); its `npm test` runs node:test over
+# mrs_notifier.test.mjs, a minimal smoke test (syntax check + structural
+# assertions) because mrs_notifier.mjs auto-runs at import time and cannot
+# yet be imported by a unit test. See mrs_notifier.test.mjs for the TODO
+# on adding real unit tests.
+#
+# MR-gated via .dev. The smoke test uses only Node.js built-ins, so no
+# dependencies are required; `npm install` is still run to match the
+# upstream job shape and to fail fast if package.json is broken.
+# TODO: commit a package-lock.json and switch to `npm ci`.
+
+test:scripts:js:
+  stage: test
+  interruptible: true
+  before_script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh node npm
+  script:
+    - cd .gitlab/scripts/js
+    - npm install --no-audit --no-fund
+    - npm test
+  extends:
+    - .dev

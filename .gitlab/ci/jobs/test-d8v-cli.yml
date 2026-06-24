@@ -1,0 +1,36 @@
+# Copyright 2026 Flant JSC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# d8v CLI build + workability check.
+#
+# Ports the GitHub Actions `test_build_d8v_cli` job from
+# .github/workflows/dev_module_build.yml, which ran `task d8v-cli:build`,
+# installed the binary, and ran `d8v --help` as a smoke check (PR only).
+#
+# The root Taskfile.yaml `d8v-cli` include sets `dir: ./src/cli`, so
+# `task d8v-cli:build` emits ./src/cli/d8v. The workability check invokes
+# that binary with `--help` (cobra exits 0 on help).
+#
+# MR-gated via .dev (mirrors the GH PR-only trigger).
+
+test:build:d8v-cli:
+  stage: test
+  interruptible: true
+  before_script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task
+  script:
+    - task d8v-cli:build
+    - ./src/cli/d8v --help
+  extends:
+    - .dev

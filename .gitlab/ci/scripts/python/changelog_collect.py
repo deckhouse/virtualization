@@ -436,7 +436,11 @@ def main() -> int:
                 f"- `{yml_path.relative_to(project_dir)}`\n"
                 f"- `{md_path.relative_to(project_dir)}`\n"
             )
-            body_path = project_dir / "CHANGELOG" / f".mr-body-{title}.md"
+            # Write the MR body OUTSIDE CHANGELOG/ so `git add CHANGELOG/`
+            # in push_changelog_mr cannot accidentally stage it. It is only
+            # consumed by reading its content into a merge_request.description
+            # push option and is never committed to the changelog branch.
+            body_path = project_dir / f".mr-body-{title}.md"
             body_path.write_text(pr_body, encoding="utf-8")
             try:
                 push_changelog_mr(

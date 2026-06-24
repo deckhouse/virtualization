@@ -12,22 +12,41 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Translate Russian CHANGELOG/*.ru.yml to English and open an MR.
+# Translate English CHANGELOG/CHANGELOG-v*.yml to Russian (.ru.yml) and open an MR.
 #
 # Migration of .github/workflows/translate-changelog.yml which called
-# deckhouse/modules-actions/translate-changelog@v10 (composite action).
+# deckhouse/modules-actions/translate-changelog@v10 with source_lang: en,
+# target_lang: ru, file_prefix: CHANGELOG-v, triggered on push to the
+# default branch (main) and release-X.Y branches.
+#
+# Direction note (verified against upstream):
+# The upstream modules-gitlab-ci@v13.0 `.translate_and_create_mr` template
+# (templates/Translate_Changelog.gitlab-ci.yml) is hardcoded to the OPPOSITE
+# direction (RU -> EN, globs `v*.ru.yml`) and exposes NO direction variables
+# (only TRANSLATE_CHANGELOG_PATH / TRANSLATE_BASE_BRANCH). This repo has no
+# *.ru.yml sources, only CHANGELOG-v*.yml (English), so the upstream script
+# would no-op here. To match the GitHub workflow (EN -> RU) and this repo's
+# file naming, this job overrides `script:` with an EN->RU implementation and
+# declares the direction explicitly via TRANSLATE_SOURCE_LANG /
+# TRANSLATE_TARGET_LANG, which are consumed by the local script below (NOT by
+# the upstream template). The job still extends `.translate_and_create_mr` to
+# inherit its image and base variables.
+#
+# Trigger: push to the default branch (main) or any release-X.Y branch,
+# matching the GH workflow. The upstream template's default rule
+# (`$CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH`, which excludes main) is
+# replaced by the explicit rules block below.
+#
+# Required CI/CD variable: RELEASE_TOKEN (or GITLAB_API_TOKEN, alias).
+# The upstream template prefers RELEASE_TOKEN; if unset it falls back to
+# CI_JOB_TOKEN (works in GitLab 15.9+ for push and MR create). Set
+# RELEASE_TOKEN explicitly in project CI/CD variables if CI_JOB_TOKEN lacks
+# push / merge-request permissions.
 #
 # Per migration plan §0(2) we delegate to the upstream GitLab CI template at
 # https://fox.flant.com/deckhouse/3p/deckhouse/modules-gitlab-ci (local checkout
 # at /Users/korolevn/repos/Virtualization-tasks/github/3p-deckhouse/modules-gitlab-ci,
 # branch v13.0, HEAD 006d51c35904b434eca2045a449aafb5e37a8827).
-#
-# The upstream template name is `.translate_and_create_mr` (see
-# modules-gitlab-ci/templates/Translate_Changelog.gitlab-ci.yml).
-#
-# Required CI/CD variable: RELEASE_TOKEN (or GITLAB_API_TOKEN, alias).
-# The upstream template prefers RELEASE_TOKEN; if unset it falls back to CI_JOB_TOKEN
-# (works in GitLab 15.9+ for push and MR create).
 
 include:
   - project: "deckhouse/3p/deckhouse/modules-gitlab-ci"
@@ -36,12 +55,20 @@ include:
 
 # Local job definition that extends the upstream hidden job.
 # Tag override is intentional: we want our project's runner tag, not the
-# upstream default.
+# upstream default. The upstream `script:` is overridden with an EN->RU
+# implementation (see direction note above) because the upstream template
+# direction is hardcoded RU->EN and cannot be parameterized.
 translate:changelog:
   extends: .translate_and_create_mr
   stage: notify
   tags:
     - deckhouse
+  rules:
+    # Match the GH workflow trigger: push to main (default branch) or
+    # release-X.Y branches. Replaces the upstream default rule
+    # (`$CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH`) which excludes main.
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_COMMIT_BRANCH =~ /^release-[0-9]+\.[0-9]+$/'
   before_script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh git curl jq python3
     - python3 -m venv /tmp/venv
@@ -53,9 +80,143 @@ translate:changelog:
     TRANSLATE_CHANGELOG_PATH: "CHANGELOG"
     # Target branch the resulting MR should target.
     TRANSLATE_BASE_BRANCH: "main"
+    # File prefix of English source changelogs (matches GH file_prefix).
+    TRANSLATE_FILE_PREFIX: "CHANGELOG-v"
+    # Translation direction (EN -> RU), matching the GH workflow. These are
+    # consumed by the local script below, NOT by the upstream template.
+    TRANSLATE_SOURCE_LANG: "en"
+    TRANSLATE_TARGET_LANG: "ru"
     # Upstream expects RELEASE_TOKEN or falls back to CI_JOB_TOKEN in its shell
     # script. GitLab does not evaluate shell parameter expansion in `variables:`;
     # set RELEASE_TOKEN explicitly in project CI/CD variables if CI_JOB_TOKEN
     # does not have enough permissions to push and create merge requests.
     # The local before_script intentionally replaces the upstream template's
     # container/package-manager setup so the job works on shell executors.
+  script:
+    - |
+      set -euo pipefail
+      export PATH="/tmp/venv/bin:$PATH"
+      CHANGELOG_PATH="${TRANSLATE_CHANGELOG_PATH}"
+      FILE_PREFIX="${TRANSLATE_FILE_PREFIX}"
+      SRC_LANG="${TRANSLATE_SOURCE_LANG}"
+      TGT_LANG="${TRANSLATE_TARGET_LANG}"
+      # Detect English source changelog changes in the last commit
+      # (exclude already-translated *.ru.yml files).
+      CHANGED=$(git show --name-only --pretty=format: HEAD \
+        | grep "^${CHANGELOG_PATH}/${FILE_PREFIX}.*\.yml$" \
+        | grep -v "\.ru\.yml$" || true)
+      if [ -z "$CHANGED" ]; then
+        echo "No ${FILE_PREFIX}*.yml (English) changelog files changed in last commit, skipping."
+        exit 0
+      fi
+      echo "English changelog files changed in last commit: $CHANGED"
+      # Translate latest English changelog to Russian (EN -> RU), matching
+      # deckhouse/modules-actions/translate-changelog@v10.
+      TRANSLATE_OUTPUT=$(cd "${CI_PROJECT_DIR}" && python3 - "$CHANGELOG_PATH" "$FILE_PREFIX" "$SRC_LANG" "$TGT_LANG" << 'PYEOF'
+      import re
+      import sys
+      from pathlib import Path
+      try:
+          from packaging import version as pkg_version
+          from deep_translator import GoogleTranslator
+      except ImportError as e:
+          print(f"Import error: {e}", file=sys.stderr)
+          sys.exit(1)
+      changelog_dir, file_prefix, src_lang, tgt_lang = sys.argv[1:5]
+      path = Path(changelog_dir)
+      if not path.exists():
+          sys.exit(0)
+      # English source files: <prefix>*.yml excluding *.ru.yml.
+      en_files = [f for f in path.glob(f"{file_prefix}*.yml") if not f.name.endswith(".ru.yml")]
+      if not en_files:
+          sys.exit(0)
+      versions = []
+      ver_re = re.compile(re.escape(file_prefix) + r"(\d+\.\d+\.\d+)\.yml$")
+      for f in en_files:
+          m = ver_re.match(f.name)
+          if m:
+              try:
+                  ver = pkg_version.parse(m.group(1))
+                  versions.append((ver, f.name))
+              except pkg_version.InvalidVersion:
+                  pass
+      if not versions:
+          sys.exit(0)
+      versions.sort(reverse=True, key=lambda x: x[0])
+      latest_ver, en_name = versions[0]
+      version_str = f"v{latest_ver}"
+      ru_name = en_name.replace(".yml", ".ru.yml")
+      if (path / ru_name).exists():
+          sys.exit(0)
+      en_path, ru_path = path / en_name, path / ru_name
+      translator = GoogleTranslator(source=src_lang, target=tgt_lang)
+      with open(en_path, "r", encoding="utf-8") as f:
+          en_lines = f.readlines()
+      with open(ru_path, "w", encoding="utf-8") as f:
+          for line in en_lines:
+              if not line.strip():
+                  f.write(line)
+                  continue
+              indent_len = len(line) - len(line.lstrip())
+              content = line.strip()
+              try:
+                  translated = translator.translate(content)
+              except Exception:
+                  translated = content
+              f.write(" " * indent_len + translated + "\n")
+      print(f"VERSION={version_str}")
+      print(f"EN_FILE={en_name}")
+      print(f"RU_FILE={ru_name}")
+      PYEOF
+      ) || TRANSLATE_OUTPUT=""
+      # Parse VERSION from output; if missing, nothing was translated.
+      VERSION=$(echo "$TRANSLATE_OUTPUT" | grep "^VERSION=" | cut -d= -f2)
+      if [ -z "$VERSION" ]; then
+        echo "No English changelog to translate (or Russian already exists)."
+        exit 0
+      fi
+      EN_FILE=$(echo "$TRANSLATE_OUTPUT" | grep "^EN_FILE=" | cut -d= -f2)
+      RU_FILE=$(echo "$TRANSLATE_OUTPUT" | grep "^RU_FILE=" | cut -d= -f2)
+      echo "Translated $EN_FILE -> $RU_FILE (version $VERSION)"
+      # Commit and push
+      git add "${CHANGELOG_PATH}/"
+      git status
+      if git diff --staged --quiet; then
+        echo "No staged changes."
+        exit 0
+      fi
+      git commit -m "Translate changelog ${VERSION} to Russian"
+      BRANCH="${CI_COMMIT_REF_NAME:-${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}}"
+      if [ -z "$BRANCH" ]; then
+        echo "Cannot push: CI_COMMIT_REF_NAME and CI_MERGE_REQUEST_SOURCE_BRANCH_NAME are empty."
+        exit 1
+      fi
+      git checkout -B "$BRANCH"
+      REPO_URL="https://oauth2:${RELEASE_TOKEN:-$CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+      git remote set-url origin "$REPO_URL"
+      git push origin "$BRANCH"
+      # Create MR if not exists
+      EXISTING_MR=$(curl -s --header "PRIVATE-TOKEN: ${RELEASE_TOKEN:-$CI_JOB_TOKEN}" \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/merge_requests?source_branch=${CI_COMMIT_REF_NAME}&target_branch=${TRANSLATE_BASE_BRANCH}&state=opened" \
+        | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['iid'] if d else '')" 2>/dev/null || echo "")
+      if [ -n "$EXISTING_MR" ]; then
+        echo "MR !${EXISTING_MR} already exists for ${CI_COMMIT_REF_NAME} -> ${TRANSLATE_BASE_BRANCH}"
+        exit 0
+      fi
+      RU_PATH="${CI_PROJECT_DIR}/${CHANGELOG_PATH}/${RU_FILE}"
+      DESC_FILE="/tmp/mr_desc.md"
+      printf "## Changelog %s\n\nThis MR contains the Russian translation of the English changelog for version %s.\n\n**Source file:** \\\`%s/%s\\\`\n**Translated file:** \\\`%s/%s\\\`\n\n<details>\n<summary>Changelog content</summary>\n\n\\\`\\\`\\\`yaml\n%s\n\\\`\\\`\\\`\n\n</details>\n" \
+        "$VERSION" "$VERSION" "$CHANGELOG_PATH" "$EN_FILE" "$CHANGELOG_PATH" "$RU_FILE" "$(cat "$RU_PATH")" > "$DESC_FILE"
+      jq -n \
+        --arg source_branch "$CI_COMMIT_REF_NAME" \
+        --arg target_branch "${TRANSLATE_BASE_BRANCH}" \
+        --arg title "$VERSION" \
+        --rawfile description "$DESC_FILE" \
+        '{ source_branch: $source_branch, target_branch: $target_branch, title: $title, description: $description }' \
+        | curl -s --request POST \
+          --header "PRIVATE-TOKEN: ${RELEASE_TOKEN:-$CI_JOB_TOKEN}" \
+          --header "Content-Type: application/json" \
+          --data @- \
+          "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/merge_requests" \
+          | python3 -c "import sys,json; d=json.load(sys.stdin); print('Created MR !'+str(d.get('iid','')))"
+      echo "Translate changelog and create MR done."

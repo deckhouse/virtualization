@@ -59,6 +59,10 @@ For a release engineer:
     │   ├── check-changelog.yml                # validate ```changes blocks
     │   ├── check-milestone.yml                # MR has a milestone
     │   ├── manual-tools.yml                   # mrs:summary (Loop notification)
+    │   ├── lint-dmt.yml                       # DMT linter (allow_failure: true)
+    │   ├── test-scripts-js.yml                # JS smoke tests (.gitlab/scripts/js)
+    │   ├── test-scripts-python.yml            # python py_compile smoke check
+    │   ├── test-d8v-cli.yml                    # d8v CLI build + --help check
     │   └── translate-changelog.yml            # ru -> en changelog + MR
     └── scripts/
         ├── bash/
@@ -78,7 +82,8 @@ For a release engineer:
             └── check_changelog_entry.py
 .gitlab/scripts/js/
 ├── package.json
-└── mrs_notifier.mjs                           # GitLab counterpart of prs_notifier.mjs
+├── mrs_notifier.mjs                           # GitLab counterpart of prs_notifier.mjs
+└── mrs_notifier.test.mjs                      # node:test smoke test
 ```
 
 Every job `extends` (or `include`s) a script in `.gitlab/ci/scripts/bash/`.
@@ -107,6 +112,7 @@ files. The full list (including build/deploy) is in
 | `LOOP_TOKEN` | Loop API (optional) | Only needed if Loop API is used in addition to the webhook. |
 | `DMT_METRICS_TOKEN` | DMT linter | Auth token for DMT metrics endpoint. |
 | `DMT_METRICS_URL` | DMT linter | Endpoint URL for DMT metrics. |
+| `VAULT_ROLE` | cve scan | Vault role at `seguro.flant.com`; value = repository name (`virtualization`). Required by the upstream `.cve_scan` template for JWT-based Vault login. Without it, `cve:scan:*` jobs fail at Vault login. |
 
 ### Plain variables (`Masked = off`)
 
@@ -210,6 +216,10 @@ Expected host tools for project-owned jobs:
 | Changelog/check-changelog jobs | `bash`, `python3`, `curl`, `jq`; changelog MR creation also needs `git`, `ssh-agent`, `ssh-add` |
 | Backport | `bash`, `git`, `curl`, `jq`, `ssh-agent`, `ssh-add` |
 | MR summary | `node`, `npm` |
+| `test:scripts:js` | `node`, `npm` |
+| `test:scripts:python` | `python3` |
+| `test:build:d8v-cli` | `go`, `task` |
+| `lint:dmt` | upstream Setup (trdl-installed `dmt`) |
 | Upstream scanning templates | use the requirements from `modules-gitlab-ci@v13.0` (for example CVE scan downloads `d8` and uses `curl`, `tar`, `jq`, `git`, SSH tools) |
 
 ## 7. Jobs reference
@@ -219,11 +229,21 @@ Expected host tools for project-owned jobs:
 | `auto-assign-author` | info | MR opened / reopened | `GITLAB_API_TOKEN` | Assigns the MR author via API. Skips silently if the MR already has an assignee (plan §0(4)). |
 | `check:milestone` | lint | MR open / synchronize | `GITLAB_API_TOKEN` | Fails if MR has no `milestone` assigned. |
 | `check:changelog` | lint | MR open / synchronize | `GITLAB_API_TOKEN` | Validates ` ```changes ` blocks in MR description against `.gitlab/ci/changelog-sections.txt`. |
-| `translate:changelog` | (template) | push to any branch except default | `RELEASE_TOKEN` (or `GITLAB_API_TOKEN`) | Extends upstream `.translate_and_create_mr` from `modules-gitlab-ci@v13.0`. Translates `CHANGELOG/v*.ru.yml` to English and opens an MR. |
+| `translate:changelog` | pre | push to `main` / `release-X.Y` | `RELEASE_TOKEN` (falls back to `CI_JOB_TOKEN`) | Translates the latest English `CHANGELOG/CHANGELOG-v*.yml` to Russian (`.ru.yml`) and opens an MR. |
+| `lint:dmt` | lint | MR (`merge_request_event`) | `DMT_METRICS_URL`, `DMT_METRICS_TOKEN` (optional) | Runs `dmt lint ./` (Deckhouse Module Tester). Non-blocking (`allow_failure: true`), mirroring GH `continue-on-error: true`. |
+| `test:scripts:js` | test | MR (`merge_request_event`) | — | Runs `npm test` (node:test smoke test) in `.gitlab/scripts/js`. |
+| `test:scripts:python` | test | MR (`merge_request_event`) | — | `python3 -m py_compile` syntax smoke check over `.gitlab/ci/scripts/python/*.py`. Non-blocking; real unit tests are a TODO. |
+| `test:build:d8v-cli` | test | MR (`merge_request_event`) | — | Builds the `d8v` CLI (`task d8v-cli:build`) and runs `./src/cli/d8v --help`. |
 | `changelog:milestone` | lint | manual / scheduled | `GITLAB_API_TOKEN` | Re-generates `CHANGELOG/CHANGELOG-<milestone>.yml` and `CHANGELOG/CHANGELOG-<minor>.md` from MRs with a milestone. Optionally opens a changelog MR. |
 | `changelog:all-active-milestones` | lint | manual / scheduled | `GITLAB_API_TOKEN` | Same as above, but iterates over all active milestones. |
 | `backport` | lint | manual with `TARGET_BRANCH` OR MR labelled `backport-release-X.Y` | `GITLAB_API_TOKEN` | Cherry-picks the merged MR into a new `backport/<iid>/<release>` branch, pushes it, and opens an MR to the release branch. |
 | `mrs:summary` | notify | manual / scheduled | `GITLAB_API_TOKEN`, `LOOP_WEBHOOK_URL` | Posts a markdown summary of open MRs to Loop (replaces `prs_notifier.mjs`). |
+
+### CVE (Trivy) scan
+- `cve:scan:mr` — per-MR scan of the dev build image (`mr${CI_MERGE_REQUEST_IID}`), runs after `build_dev`, gated on `merge_request_event`; non-blocking (`allow_failure: true`).
+- `cve:scan:daily` — scheduled daily scan of `main` (`0 02 * * *`).
+- `cve:scan:manual` — web-triggered manual scan of `${SCAN_TAG:-main}`.
+All extend the upstream `.cve_scan` template. **Required Project CI/CD variable:** `VAULT_ROLE` (Vault role at seguro.flant.com; value = repository name, `virtualization`). Without it, scan jobs fail at Vault login.
 
 ## 8. Manual pipelines
 
@@ -298,6 +318,20 @@ under the `virtualization-m9e.3` Beads issue.
   any secret that CVE scan needs is expected to live in CI/CD variables.
   If a secret remains in Vault only, the CVE-scan job needs a JWT-auth
   sidecar (out of scope for the first iteration).
+
+### Ported/dropped GitHub jobs (issue `virtualization-m9e.5.8`)
+
+The GitHub workflow `.github/workflows/dev_module_build.yml` defined four jobs
+with no direct GitLab counterpart. Decisions:
+
+| GH job | Decision | Notes |
+|---|---|---|
+| `lint_dmt` | **Ported** → `lint:dmt` (`.gitlab/ci/jobs/lint-dmt.yml`) | The upstream `Build.gitlab-ci.yml` ships a hidden `.lint` template running `dmt lint ./` with `allow_failure: true`. We mirror its script (we do NOT include `Build.gitlab-ci.yml` directly, to avoid its `.build`/`.deploy` rules bypassing our `.dev` gating) and rely on Setup's `before_script` to install `dmt` via `trdl`. `allow_failure: true` mirrors GH `continue-on-error: true`. `DMT_METRICS_URL`/`DMT_METRICS_TOKEN` are optional CI/CD vars. |
+| `test_scripts_js` | **Ported** → `test:scripts:js` (`.gitlab/ci/jobs/test-scripts-js.yml`) | Fixed `.gitlab/scripts/js/package.json` which referenced a missing `mrs_notifier.test.mjs`; added that file as a minimal node:test smoke test (syntax check + structural assertions). `mrs_notifier.mjs` auto-runs at import, so full unit tests are a TODO pending a refactor exporting pure helpers. |
+| `test_scripts_python` | **Ported (smoke)** → `test:scripts:python` (`.gitlab/ci/jobs/test-scripts-python.yml`) | `.gitlab/ci/scripts/python/` has no tests; this is a non-blocking `python3 -m py_compile` syntax check. Real unit tests are a TODO. |
+| `test_build_d8v_cli` | **Ported** → `test:build:d8v-cli` (`.gitlab/ci/jobs/test-d8v-cli.yml`) | Runs `task d8v-cli:build` then `./src/cli/d8v --help`. MR-gated via `.dev`, mirroring the GH PR-only trigger. |
+
+All four jobs are wired into `.gitlab/ci/includes.yml`.
 
 ## 11. Updating upstream templates (`modules-gitlab-ci`)
 

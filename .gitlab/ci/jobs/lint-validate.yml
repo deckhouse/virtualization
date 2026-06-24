@@ -131,7 +131,11 @@ lint:yaml:
 # golangci-lint v${GOLANGCI_LINT_VERSION} (same method/version as the GH job)
 # and runs `golangci-lint run` in every directory that ships a .golangci.yaml,
 # excluding the upstream/vendored modules that GH also skipped:
-#   images/cdi-cloner/cloner-startup, images/dvcr-artifact, test/performance/shatal.
+#   images/cdi-cloner/cloner-startup, images/dvcr-artifact.
+# NOTE: .github/workflows/dev_module_build.yml also pruned ./test/performance/shatal,
+# but that path never existed (the real module is test/performance/tools/shatal),
+# so shatal was effectively linted there too. The dead prune entry is dropped here
+# and test/performance/tools/shatal is intentionally linted.
 # This supersedes the old single-dir `lint:virtualization-controller` job.
 # ---------------------------------------------------------------------------
 
@@ -153,12 +157,15 @@ lint:go:
       export PATH="$(go env GOPATH)/bin:${PATH}"
 
       # Directories containing a .golangci.yaml, excluding the same upstream /
-      # vendored modules as .github/workflows/dev_module_build.yml (lint_go).
+      # vendored modules as .github/workflows/dev_module_build.yml (lint_go):
+      #   images/cdi-cloner/cloner-startup, images/dvcr-artifact.
+      # The GH prune of ./test/performance/shatal was a no-op (path never
+      # existed; real module is test/performance/tools/shatal), so shatal is
+      # intentionally linted here, matching actual current behavior.
       mapfile -t config_dirs < <(
         find . \
           -path ./images/cdi-cloner/cloner-startup -prune -o \
           -path ./images/dvcr-artifact -prune -o \
-          -path ./test/performance/shatal -prune -o \
           -type f -name '.golangci.yaml' -not -type l -printf '%h\0' | \
         xargs -0 -n1 | sort -u
       )

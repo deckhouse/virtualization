@@ -72,6 +72,9 @@ include:
   # --- Local job files owned by this issue ---
   - local: ".gitlab/ci/jobs/info.yml"
   - local: ".gitlab/ci/jobs/test.yml"
+  - local: ".gitlab/ci/jobs/test-scripts-js.yml"
+  - local: ".gitlab/ci/jobs/test-scripts-python.yml"
+  - local: ".gitlab/ci/jobs/test-d8v-cli.yml"
   - local: ".gitlab/ci/jobs/build-dev.yml"
   - local: ".gitlab/ci/jobs/build-prod.yml"
   - local: ".gitlab/ci/jobs/deploy-dev.yml"
@@ -79,6 +82,7 @@ include:
   - local: ".gitlab/ci/jobs/cleanup.yml"
 
   # --- Local validation and scanning jobs ---
+  - local: ".gitlab/ci/jobs/lint-dmt.yml"
   - local: ".gitlab/ci/jobs/lint-validate.yml"
   - local: ".gitlab/ci/jobs/precache.yml"
   - local: ".gitlab/ci/jobs/svace.yml"
