@@ -68,3 +68,20 @@ build_main:
   extends:
     - .local_build
     - .main
+
+# build_release mirrors GitHub dev_module_build.yml `push: [release-*]`: a
+# squash-merge into a release-X.Y branch rebuilds the dev image tagged with the
+# branch name. Without this job GitLab created a pipeline on the merge push but
+# built nothing for release branches (only .dev/.main/.dev_tags had build jobs).
+# interruptible: true so a newer release-branch push cancels an older build.
+build_release:
+  stage: build
+  interruptible: true
+  needs:
+    - job: set_vars
+      artifacts: true
+  variables:
+    WERF_VIRTUAL_MERGE: "0"
+  extends:
+    - .local_build
+    - .release

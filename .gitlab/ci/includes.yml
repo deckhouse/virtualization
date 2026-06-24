@@ -62,6 +62,7 @@ include:
   - local: ".gitlab/ci/templates/dev.yml"
   - local: ".gitlab/ci/templates/dev_tags.yml"
   - local: ".gitlab/ci/templates/main.yml"
+  - local: ".gitlab/ci/templates/release.yml"
   - local: ".gitlab/ci/templates/prod_manual.yml"
   - local: ".gitlab/ci/templates/prod_always.yml"
   - local: ".gitlab/ci/templates/info.yml"
