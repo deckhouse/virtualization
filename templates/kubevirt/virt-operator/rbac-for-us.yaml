@@ -372,7 +372,6 @@ rules:
   - snapshot.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationvirtualmachinesnapshots
-  - internalvirtualizationvirtualmachinerestores
   - internalvirtualizationvirtualmachinesnapshotcontents
   verbs:
   - get
@@ -897,7 +896,6 @@ rules:
   resources:
   - internalvirtualizationvirtualmachinesnapshots
   - internalvirtualizationvirtualmachinesnapshotcontents
-  - internalvirtualizationvirtualmachinerestores
   verbs:
   - get
   - delete
@@ -1049,7 +1047,6 @@ rules:
   resources:
   - internalvirtualizationvirtualmachinesnapshots
   - internalvirtualizationvirtualmachinesnapshotcontents
-  - internalvirtualizationvirtualmachinerestores
   verbs:
   - get
   - delete
@@ -1156,7 +1153,6 @@ rules:
   resources:
   - internalvirtualizationvirtualmachinesnapshots
   - internalvirtualizationvirtualmachinesnapshotcontents
-  - internalvirtualizationvirtualmachinerestores
   verbs:
   - get
   - list

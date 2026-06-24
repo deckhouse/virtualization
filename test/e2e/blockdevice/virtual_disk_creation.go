@@ -745,7 +745,7 @@ func runVirtualMachineFromDisks(ctx context.Context, f *framework.Framework, dis
 
 			err = f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(d.vd), d.vd)
 			Expect(err).NotTo(HaveOccurred())
-			expectVirtualDiskBlockStorage(ctx, f, d.vd)
+			expectVirtualDiskStorageMode(ctx, f, d.vd)
 		}
 	})
 
@@ -970,9 +970,9 @@ func allowIngressToUploaderNetworkPolicy(ctx context.Context, f *framework.Frame
 	return nil
 }
 
-// expectVirtualDiskBlockStorage verifies that a Ready VirtualDisk target PVC is a
-// block volume. Block-device tests store flat raw disks on such volumes.
-func expectVirtualDiskBlockStorage(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk) {
+// expectVirtualDiskStorageMode verifies that a Ready VirtualDisk target PVC
+// matches the volume mode resolved for the disk's StorageClass.
+func expectVirtualDiskStorageMode(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk) {
 	GinkgoHelper()
 
 	Expect(vd.Status.Target.PersistentVolumeClaim).NotTo(BeEmpty())
@@ -984,7 +984,7 @@ func expectVirtualDiskBlockStorage(ctx context.Context, f *framework.Framework, 
 	}, pvc)
 	Expect(err).NotTo(HaveOccurred(), "failed to get target PVC for VirtualDisk %q", vd.Name)
 	Expect(pvc.Spec.VolumeMode).NotTo(BeNil())
-	Expect(*pvc.Spec.VolumeMode).To(Equal(corev1.PersistentVolumeBlock))
+	Expect(*pvc.Spec.VolumeMode).To(Equal(storageClassVolumeMode(ctx, f, vd.Status.StorageClassName)))
 }
 
 func isOwnedByUID(refs []metav1.OwnerReference, uid types.UID) bool {

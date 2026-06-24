@@ -4461,7 +4461,7 @@ spec:
                   ready
                 type: boolean
               restoreInProgress:
-                description: RestoreInProgress is the name of the VirtualMachineRestore
+                description: RestoreInProgress is the name of the restore operation
                   currently executing
                 type: string
               runStrategy:

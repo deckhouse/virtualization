@@ -32,7 +32,6 @@ logFilter:
   - "failed to sync powerstate" # Msg.
   - "does not have a pvc reference" # "err": "kvvm head-345e7b6a-testcases-image-hotplug/head-345e7b6a-vm-image-hotplug spec volume vi-head-345e7b6a-vi-alpine-http does not have a pvc reference"
   - "virtualmachineipaddressleases.virtualization.deckhouse.io "
-  - "Failed to watch" # error if virtualization-controller restarts during tests. "msg": "Failed to watch", "err": "Get \"http://127.0.0.1:23915/apis/virtualization.deckhouse.io/v1alpha2/virtualmachinerestores?allowWatchBookmarks=true\u0026resourceVersion=709816257\u0026timeoutSeconds=310\u0026watch=true\": context canceled"
   - "leader election lost"
   - 'virtualMachineSnapshotSecret \"\" not found' # "msg": "virtualMachineSnapshotSecret \"\" not found"
   - 'failed to sync migrating volumes: admission webhook \"virtualmachine-validator.kubevirt.io\" denied the request: spec.template.spec.domain.devices.disks'

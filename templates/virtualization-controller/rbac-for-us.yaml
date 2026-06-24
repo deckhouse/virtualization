@@ -241,7 +241,6 @@ rules:
   - virtualmachineclasses
   - virtualdisksnapshots
   - virtualmachinesnapshots
-  - virtualmachinerestores
   - nodeusbdevices
   - usbdevices
   verbs:
@@ -269,7 +268,6 @@ rules:
   - virtualmachineclasses/finalizers
   - virtualdisksnapshots/finalizers
   - virtualmachinesnapshots/finalizers
-  - virtualmachinerestores/finalizers
   - nodeusbdevices/finalizers
   - usbdevices/finalizers
   - virtualmachineipaddresses/status
@@ -286,7 +284,6 @@ rules:
   - virtualmachineclasses/status
   - virtualdisksnapshots/status
   - virtualmachinesnapshots/status
-  - virtualmachinerestores/status
   - nodeusbdevices/status
   - usbdevices/status
   verbs:

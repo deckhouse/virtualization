@@ -330,17 +330,6 @@ var KubevirtAPIGroupsRules = map[string]rewriter.APIGroupRule{
 			Renamed:          "snapshot.internal.virtualization.deckhouse.io",
 		},
 		ResourceRules: map[string]rewriter.ResourceRule{
-			// virtualmachinerestores.snapshot.kubevirt.io
-			"virtualmachinerestores": {
-				Kind:             "VirtualMachineRestore",
-				ListKind:         "VirtualMachineRestoreList",
-				Plural:           "virtualmachinerestores",
-				Singular:         "virtualmachinerestore",
-				Versions:         []string{"v1alpha1"},
-				PreferredVersion: "v1alpha1",
-				Categories:       []string{"all"},
-				ShortNames:       []string{"vmrestore", "vmrestores"},
-			},
 			// virtualmachinesnapshotcontents.snapshot.kubevirt.io
 			"virtualmachinesnapshotcontents": {
 				Kind:             "VirtualMachineSnapshotContent",
@@ -416,11 +405,6 @@ var KubevirtWebhooks = map[string]rewriter.WebhookRule{
 		Path:     "/virtualmachinesnapshots-validate",
 		Group:    "snapshot.kubevirt.io",
 		Resource: "virtualmachinesnapshots",
-	},
-	"/virtualmachinerestores-validate": {
-		Path:     "/virtualmachinerestores-validate",
-		Group:    "snapshot.kubevirt.io",
-		Resource: "virtualmachinerestores",
 	},
 	"/virtualmachineexports-validate": {
 		Path:     "/virtualmachineexports-validate",

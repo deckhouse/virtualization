@@ -176,7 +176,7 @@ func newStorageClassServiceMock(existedStorageClass *string, unsupportedStorageC
 	storageClassServiceMock.ValidateClaimPropertySetsFunc = func(_ *cdiv1.StorageProfile) error {
 		if unsupportedStorageClass {
 			return fmt.Errorf(
-				"the storage class %q lacks of capabilities to support 'Virtual Images on PVC' function; use StorageClass that supports volume mode 'Block' and access mode 'ReadWriteMany'",
+				"the storage class %q lacks of capabilities to support 'Virtual Images on PVC' function; use StorageClass that supports volume mode 'Block' or 'Filesystem' and access mode 'ReadWriteOnce' or 'ReadWriteMany'",
 				*existedStorageClass,
 			)
 		}

@@ -79,13 +79,15 @@ func (v viStorageClassValidator) validateStorageClass(ctx context.Context, scNam
 	}
 
 	for _, cps := range scProfile.Status.ClaimPropertySets {
-		if slices.Contains(cps.AccessModes, corev1.ReadWriteMany) && *cps.VolumeMode == corev1.PersistentVolumeBlock {
+		if cps.VolumeMode != nil &&
+			(slices.Contains(cps.AccessModes, corev1.ReadWriteOnce) || slices.Contains(cps.AccessModes, corev1.ReadWriteMany)) &&
+			(*cps.VolumeMode == corev1.PersistentVolumeBlock || *cps.VolumeMode == corev1.PersistentVolumeFilesystem) {
 			return admission.Warnings{}, nil
 		}
 	}
 
 	return admission.Warnings{}, fmt.Errorf(
-		"the storage class %q lacks of capabilities to support 'Virtual Images on PVC' function; use StorageClass that supports volume mode 'Block' and access mode 'ReadWriteMany'",
+		"the storage class %q lacks of capabilities to support 'Virtual Images on PVC' function; use StorageClass that supports volume mode 'Block' or 'Filesystem' and access mode 'ReadWriteOnce' or 'ReadWriteMany'",
 		scName,
 	)
 }
