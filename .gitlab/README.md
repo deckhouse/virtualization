@@ -239,6 +239,31 @@ Expected host tools for project-owned jobs:
 | `backport` | lint | manual with `TARGET_BRANCH` OR MR labelled `backport-release-X.Y` | `GITLAB_API_TOKEN` | Cherry-picks the merged MR into a new `backport/<iid>/<release>` branch, pushes it, and opens an MR to the release branch. |
 | `mrs:summary` | notify | manual / scheduled | `GITLAB_API_TOKEN`, `LOOP_WEBHOOK_URL` | Posts a markdown summary of open MRs to Loop (replaces `prs_notifier.mjs`). |
 
+### Prod release channels (manual `Run pipeline`)
+
+Parity with `.github/workflows/release_module_release-channels.yml`. A manual
+single-channel/single-tag release flow triggered from `Run pipeline` on the
+tag `$RELEASE_TAG` (`CI_PIPELINE_SOURCE == "web"`). It never collides with
+the tag-push flow (`build_prod` / `deploy_to_prod_*`) because it only runs on
+web pipelines.
+
+| Job | Stage | What it does |
+|---|---|---|
+| `prod:print-vars` | info | Echoes release inputs and enforces `RELEASE_TAG` matches the pipeline ref tag. |
+| `prod:check-requirements` | prod_check | `tools/moduleversions check:requirements` (Deckhouse version range). Skipped when `CHECK_ONLY` or `SKIP_REQUIREMENTS_CHECK`. |
+| `prod:build:<ce/ee/se-plus/fe>` | build | Optional (`ENABLE_BUILD`) werf build per edition. `se-plus`/`fe` `needs: prod:build:ee` (GH cascade). |
+| `prod:deploy:<ce/ee/se-plus/fe>` | prod_deploy | `crane copy :$RELEASE_TAG -> :$RELEASE_CHANNEL` per selected edition. |
+| `prod:check-version` | prod_verify | Matrix `registry`/`releases`/`documentation` via `tools/moduleversions`. |
+| `prod:create-gitlab-release` | prod_release | Creates a GitLab release from the merged `label:changelog` MR description (was `create-github-release`). |
+| `prod:notify-loop` | notify | Posts a release status table to Loop (`LOOP_WEBHOOK_URL`). |
+
+**Required Project CI/CD variables:** `GITLAB_API_TOKEN` (api scope,
+Maintainer role — release creation + MR query), `LOOP_WEBHOOK_URL`, and the
+read-only `PROD_READ_REGISTRY` / `PROD_READ_REGISTRY_USER` /
+`PROD_READ_REGISTRY_PASSWORD` triple. Note: `tools/moduleversions` hardcodes
+`registry.deckhouse.io`; `PROD_READ_REGISTRY` must resolve to that host for
+the crane login to apply.
+
 ### CVE (Trivy) scan
 - `cve:scan:mr` — per-MR scan of the dev build image (`mr${CI_MERGE_REQUEST_IID}`), runs after `build_dev`, gated on `merge_request_event`; non-blocking (`allow_failure: true`).
 - `cve:scan:daily` — scheduled daily scan of `main` (`0 02 * * *`).
@@ -258,6 +283,12 @@ pipeline:
    - For `changelog:milestone`: optionally set `MILESTONE_TITLE=v1.21.3` and
      `OPEN_CHANGELOG_MR=true`.
    - For `mrs:summary`: ensure `LOOP_WEBHOOK_URL` is set.
+   - For a **prod release-channel dispatch** (`prod:*` jobs): run the pipeline
+     **on the tag** (`$RELEASE_TAG`) and set `RELEASE_TAG=vX.Y.Z`,
+     `RELEASE_CHANNEL=alpha|beta|early-access|stable|rock-solid`,
+     `EDITION_CE=true` and/or `EDITION_EE=true`, plus `ENABLE_BUILD`,
+     `CHECK_ONLY`, `SKIP_REQUIREMENTS_CHECK`, `RELEASE_TO_GITLAB`,
+     `SEND_RESULTS_TO_LOOP` as needed. See [§7 Prod release channels](#7-jobs-reference).
 4. Submit. The pipeline starts; manual jobs appear under the pipeline view
    with a `play` button.
 
@@ -306,24 +337,32 @@ matches the old GitLab config. Open work is tracked under sub-epics
 
 ### Confirmed bugs / parity gaps (must fix)
 
-- **`build_prod` builds `ce` as EE** (`virtualization-m9e.6.1`) — `.prod_vars`
-  never sets `MODULE_EDITION`, so werf defaults to `EE`. GitHub sets
-  `MODULE_EDITION=CE` only for `ce` (EE for `ee`/`se-plus`/`fe`). The `ce`
-  prod image is therefore mis-built as EE.
-- **Edition `se-plus` missing in prod** (`virtualization-m9e.6.2`) — GitHub
-  `release_module_build-and-registration.yml` and
-  `release_module_release-channels.yml` build and deploy `se-plus`
-  (path `se-plus/modules`, `MODULE_EDITION=EE`). The GitLab build/deploy
-  matrices only have `ce`/`ee`/`fe`. This is a parity gap to fix, not a
-  conditional feature.
-- **Release-channels feature parity** (`virtualization-m9e.6.3`) — the GitHub
-  `release_module_release-channels.yml` workflow exposes inputs (`channel`,
-  `ce`, `ee`, `tag`, `enableBuild`, `release_to_github`, `check_only`,
-  `skip_requirements_check`, `send_results_to_loop`) and runs requirements
-  check, version check (registry/releases/documentation), release creation,
-  and a Loop notification. The GitLab port collapses this into a hardcoded
-  `RELEASE_CHANNEL x EDITION` matrix and is missing the rest. Audit upstream
-  `modules-gitlab-ci` templates first, then port or document each capability.
+- **`build_prod` builds `ce` as EE** (`virtualization-m9e.6.1`) — **FIXED**.
+  `.gitlab/ci/jobs/build-prod.yml` and `deploy-prod.yml` now set
+  `MODULE_EDITION` per edition via the `parallel:matrix` (CE for `ce`, EE for
+  `ee`/`se-plus`/`fe`), matching GitHub. `.prod_vars` intentionally does not
+  set it (it comes from the matrix).
+- **Edition `se-plus` missing in prod** (`virtualization-m9e.6.2`) — **FIXED**.
+  `se-plus` (path `se-plus/modules`, `MODULE_EDITION=EE`) is added to the
+  `build_prod` and `deploy_to_prod_*` matrices, matching the GitHub release
+  workflows. Note: GH runs `se-plus`/`fe` after `ee` (`needs:`); the GitLab
+  matrix runs all four editions in parallel — acceptable since each edition
+  builds into its own registry subpath with no shared artifact.
+- **Release-channels feature parity** (`virtualization-m9e.6.3`) — **PORTED**
+  (with documented deviations). `.gitlab/ci/jobs/release-channels.yml` adds a
+  manual `Run pipeline` flow (`prod:*` jobs) mirroring
+  `release_module_release-channels.yml`: `RELEASE_CHANNEL`/`EDITION_CE`/
+  `EDITION_EE`/`RELEASE_TAG`/`ENABLE_BUILD`/`CHECK_ONLY`/
+  `SKIP_REQUIREMENTS_CHECK`/`RELEASE_TO_GITLAB`/`SEND_RESULTS_TO_LOOP` inputs,
+  requirements check (`prod:check-requirements`), build/deploy per edition,
+  version verification matrix (`prod:check-version`), release creation
+  (`prod:create-gitlab-release`), and Loop notification (`prod:notify-loop`).
+  Deviations from GitHub (intentional): release creation targets **GitLab
+  Releases** (not GitHub Releases) since development moves to GitLab; the
+  pipeline must run **on the tag** (`RELEASE_TAG == CI_COMMIT_TAG`, enforced
+  by `prod:print-vars`) because GitLab cannot checkout an arbitrary tag
+  without overriding the inherited werf `Setup` before_script; per-(channel,tag)
+  concurrency uses `resource_group` (serialize, no cancel-in-progress).
 - **Scheduled-job discriminator** (`virtualization-m9e.5.11`) — see the known
   issue in [§9](#9-scheduled-pipelines): `cleanup` and the other scheduled
   jobs cannot honor their individual crons without a `SCHEDULE_TYPE` variable.

@@ -79,6 +79,10 @@ include:
   - local: ".gitlab/ci/jobs/build-prod.yml"
   - local: ".gitlab/ci/jobs/deploy-dev.yml"
   - local: ".gitlab/ci/jobs/deploy-prod.yml"
+  # Prod release-channels parity flow (manual single-channel dispatch):
+  # requirements check, build/deploy per edition, version verification,
+  # GitLab release creation, Loop notification. See virtualization-m9e.6.3.
+  - local: ".gitlab/ci/jobs/release-channels.yml"
   - local: ".gitlab/ci/jobs/cleanup.yml"
 
   # --- Local validation and scanning jobs ---

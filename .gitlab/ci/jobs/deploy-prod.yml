@@ -1,10 +1,16 @@
 # PROD deploy jobs.
 #
-# Carries forward deploy_to_prod_{alpha,beta,ea,stable,rock_solid} from
-# the previous root .gitlab-ci.yml. Each job runs after the previous one
-# (alpha -> beta -> ea -> stable -> rock_solid), waits for the matching
-# matrix entry of build_prod, and copies the built release image to the
-# named release channel.
+# Parity with .github/workflows/release_module_release-channels.yml release
+# channels: alpha -> beta -> early-access -> stable -> rock-solid. Each job
+# waits for the previous one (and build_prod for alpha), then copies the
+# built release image to the named release channel. All five are manual
+# (when: manual from .prod_manual) on a vX.Y.Z tag.
+#
+# The EDITION matrix mirrors build_prod (ce/ee/se-plus/fe) with the correct
+# MODULE_EDITION per edition, so deploy runs against the same per-edition
+# source path the build pushed to. MODULE_EDITION is forwarded to the
+# deploy step for consistency with the build (werf deploy reads it from the
+# environment).
 #
 # Extends:
 #   - .local_deploy    (this repo — mirrors upstream modules-gitlab-ci
@@ -15,15 +21,18 @@
 #                       with `when: manual`).
 #   - .dual_registry_login (this repo — also login against DEV_REGISTRY).
 #
-# All five are manual (`when: manual` from .prod_manual) and depend on
-# each other via `needs:` to preserve the gate-by-gate prod release flow.
+# TODO: per migration plan §11.4.1 and sub-epic virtualization-m9e.6.3, the
+# GH release_module_release-channels workflow exposes inputs (channel,
+# ce/ee, tag, enableBuild, release_to_github, check_only,
+# send_results_to_loop, requirements/version checks, github release
+# creation, Loop notification) that are not yet ported. Track in m9e.6.3.
 #
-# TODO: per migration plan §11.4.1, the GH release_module_release-channels
-# workflow exposes inputs (channel, ce/ee, tag, enableBuild,
-# release_to_github, check_only, send_results_to_loop, ...) that we
-# currently collapse into the hardcoded RELEASE_CHANNEL x EDITION matrix.
-# Decide whether to expose that flexibility via "Run pipeline" UI variables
-# before locking the release flow down.
+# This file is the tag-push chained-deploy flow. The GitHub
+# release_module_release-channels parity flow (single-channel dispatch with
+# requirements/version checks, release creation, Loop notify) now lives in
+# .gitlab/ci/jobs/release-channels.yml (prod:* jobs, manual Run pipeline).
+# This tag-push chain and that flow coexist because the parity flow is gated
+# to CI_PIPELINE_SOURCE == "web".
 
 deploy_to_prod_alpha:
   stage: deploy_prod_alpha
@@ -36,10 +45,14 @@ deploy_to_prod_alpha:
     - .dual_registry_login
   parallel:
     matrix:
-      - EDITION:
-          - ce
-          - ee
-          - fe
+      - EDITION: ce
+        MODULE_EDITION: CE
+      - EDITION: ee
+        MODULE_EDITION: EE
+      - EDITION: se-plus
+        MODULE_EDITION: EE
+      - EDITION: fe
+        MODULE_EDITION: EE
 
 deploy_to_prod_beta:
   stage: deploy_prod_beta
@@ -52,10 +65,14 @@ deploy_to_prod_beta:
     - .dual_registry_login
   parallel:
     matrix:
-      - EDITION:
-          - ce
-          - ee
-          - fe
+      - EDITION: ce
+        MODULE_EDITION: CE
+      - EDITION: ee
+        MODULE_EDITION: EE
+      - EDITION: se-plus
+        MODULE_EDITION: EE
+      - EDITION: fe
+        MODULE_EDITION: EE
 
 deploy_to_prod_ea:
   stage: deploy_prod_ea
@@ -68,10 +85,14 @@ deploy_to_prod_ea:
     - .dual_registry_login
   parallel:
     matrix:
-      - EDITION:
-          - ce
-          - ee
-          - fe
+      - EDITION: ce
+        MODULE_EDITION: CE
+      - EDITION: ee
+        MODULE_EDITION: EE
+      - EDITION: se-plus
+        MODULE_EDITION: EE
+      - EDITION: fe
+        MODULE_EDITION: EE
 
 deploy_to_prod_stable:
   stage: deploy_prod_stable
@@ -84,10 +105,14 @@ deploy_to_prod_stable:
     - .dual_registry_login
   parallel:
     matrix:
-      - EDITION:
-          - ce
-          - ee
-          - fe
+      - EDITION: ce
+        MODULE_EDITION: CE
+      - EDITION: ee
+        MODULE_EDITION: EE
+      - EDITION: se-plus
+        MODULE_EDITION: EE
+      - EDITION: fe
+        MODULE_EDITION: EE
 
 deploy_to_prod_rock_solid:
   stage: deploy_prod_rock_solid
@@ -100,7 +125,11 @@ deploy_to_prod_rock_solid:
     - .dual_registry_login
   parallel:
     matrix:
-      - EDITION:
-          - ce
-          - ee
-          - fe
+      - EDITION: ce
+        MODULE_EDITION: CE
+      - EDITION: ee
+        MODULE_EDITION: EE
+      - EDITION: se-plus
+        MODULE_EDITION: EE
+      - EDITION: fe
+        MODULE_EDITION: EE

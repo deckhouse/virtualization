@@ -18,7 +18,11 @@
 #   gitleaks          — upstream hidden template stage; visible jobs override it
 #   deploy_dev        — DEV tag deploy to alpha/beta/ea/stable/rock-solid
 #   deploy_prod_alpha / beta / ea / stable / rock_solid
-#                     — sequential prod release-channel deploy chain
+#                     — sequential prod release-channel deploy chain (tag-push flow)
+#   prod_check          — requirements check before release-channel dispatch (m9e.6.3)
+#   prod_deploy         — single-channel/edition deploy from Run pipeline (m9e.6.3)
+#   prod_verify         — version-on-release-channel check matrix (m9e.6.3)
+#   prod_release        — GitLab release creation (m9e.6.3)
 #   notify            — release-results-to-loop and similar fan-out
 #   cleanup           — scheduled registry cleanup
 #
@@ -42,5 +46,9 @@ stages:
   - deploy_prod_ea
   - deploy_prod_stable
   - deploy_prod_rock_solid
+  - prod_check
+  - prod_deploy
+  - prod_verify
+  - prod_release
   - notify
   - cleanup

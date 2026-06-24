@@ -10,6 +10,26 @@
 # PROD_MODULE_SOURCE_NAME, and the matrix-driven EDITION variable so that
 # ce/ee/se-plus/fe editions can each deploy into the right subpath without
 # duplicating templates.
+#
+# MODULE_EDITION is NOT set here: it is provided per edition by the
+# parallel:matrix in build-prod.yml / deploy-prod.yml (CE for ce, EE for
+# ee/se-plus/fe), matching .github/workflows/release_module_build-and-registration.yml.
+# .werf/consts.yaml defaults MODULE_EDITION to EE, so it MUST be set by the
+# matrix — otherwise the ce prod image is built/deployed as EE.
+
+# Read-only registry bundle for prod verification jobs
+# (prod:check-requirements, prod:check-version in release-channels.yml).
+#
+# Sets MODULES_REGISTRY_* to PROD_READ_REGISTRY_* so the upstream Setup
+# `werf cr login` authenticates against the read-only registry used by the
+# tools/moduleversions checks. NOTE: the Go/bash tools hardcode
+# registry.deckhouse.io; PROD_READ_REGISTRY must resolve to that host for
+# crane auth to apply (see tools/moduleversions Taskfile.dist.yaml).
+.prod_read_registry:
+  variables:
+    MODULES_REGISTRY: "${PROD_READ_REGISTRY}"
+    MODULES_REGISTRY_LOGIN: "${PROD_READ_REGISTRY_USER}"
+    MODULES_REGISTRY_PASSWORD: "${PROD_READ_REGISTRY_PASSWORD}"
 
 .prod_vars:
   variables:
