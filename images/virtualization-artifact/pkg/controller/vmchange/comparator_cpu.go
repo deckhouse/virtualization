@@ -55,7 +55,7 @@ func (c *comparatorCPU) Compare(current, desired *v1alpha2.VirtualMachineSpec) [
 	fractionChangedAction := ActionApplyImmediate
 
 	// Require reboot if CPU hotplug is not enabled.
-	if !c.featureGate.Enabled(featuregates.HotplugCPUWithLiveMigration) {
+	if !c.featureGate.Enabled(featuregates.HotplugCPUWithLiveMigration) && !c.featureGate.Enabled(featuregates.HotplugCPUAndMemoryWithInPlaceResize) {
 		coresChangedAction = ActionRestart
 		fractionChangedAction = ActionRestart
 	}

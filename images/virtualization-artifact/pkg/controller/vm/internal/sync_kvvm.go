@@ -44,6 +44,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/inplaceresize"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmchange"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -74,6 +75,7 @@ func NewSyncKvvmHandler(
 		recorder:           recorder,
 		featureGate:        featureGate,
 		syncVolumesService: syncVolumesService,
+		inplaceResize:      inplaceresize.New(featureGate, client),
 	}
 }
 
@@ -83,6 +85,7 @@ type SyncKvvmHandler struct {
 	dvcrSettings       *dvcr.Settings
 	featureGate        featuregate.FeatureGate
 	syncVolumesService syncVolumesService
+	inplaceResize      *inplaceresize.Service
 }
 
 func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
@@ -228,6 +231,13 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		changed.Status.RestartAwaitingChanges = nil
 	}
 
+	kvvmi, err := s.KVVMI(ctx)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	inplaceResizeInProgress := kvvmi != nil && h.inplaceResize.InProgress(kvvmi)
+
 	// 4. Set ConfigurationApplied condition.
 	switch {
 	case waitForNetwork:
@@ -266,6 +276,10 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			Status(metav1.ConditionTrue).
 			Reason(vmcondition.ReasonChangesPendingRestart).
 			Message("VirtualMachineClass.spec has been modified. Waiting for the user to restart in order to apply the configuration changes.")
+	case inplaceResizeInProgress:
+		msg := h.buildInProgressInplaceResizeMsg(kvvmi)
+		h.recorder.Event(current, corev1.EventTypeNormal, h.resizingEventReason(kvvmi), msg)
+		cbConfApplied.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonConfigurationNotApplied).Message(msg)
 	case synced:
 		h.recorder.Event(current, corev1.EventTypeNormal, v1alpha2.ReasonErrVmSynced, "The virtual machine configuration successfully synced")
 		cbConfApplied.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonConfigurationApplied)
@@ -1204,4 +1218,49 @@ func (h *SyncKvvmHandler) isPlacementPolicyChanged(allChanges vmchange.SpecChang
 	}
 
 	return false
+}
+
+func (h *SyncKvvmHandler) buildInProgressInplaceResizeMsg(kvvmi *virtv1.VirtualMachineInstance) string {
+	msg := strings.Builder{}
+
+	switch {
+	case h.inplaceResize.CPUChange(kvvmi):
+		msg.WriteString("CPU hotplug is in progress.")
+	case h.inplaceResize.MemoryChange(kvvmi):
+		msg.WriteString("Memory hotplug is in progress.")
+	default:
+		msg.WriteString("Hotplug is in progress.")
+	}
+
+	cond := h.inplaceResize.ResizeCondition(kvvmi)
+	switch cond.Reason {
+	case virtv1.VirtualMachineInstanceReasonPodResizePending, virtv1.VirtualMachineInstanceReasonPodResizeInProgress:
+		msg.WriteString(" ")
+		msg.WriteString(strings.ReplaceAll(cond.Message, "Pod", "VM"))
+	case virtv1.VirtualMachineInstanceReasonPodResizeCompleted:
+		msg.WriteString(" Waiting when cpu and memory will be hotplugged on virtual machine.")
+	default:
+		msg.WriteString(" reason: ")
+		msg.WriteString(cond.Reason)
+		msg.WriteString(", message: ")
+		msg.WriteString(cond.Message)
+	}
+
+	return msg.String()
+}
+
+func (h *SyncKvvmHandler) resizingEventReason(kvvmi *virtv1.VirtualMachineInstance) string {
+	cpuChange := h.inplaceResize.CPUChange(kvvmi)
+	memoryChange := h.inplaceResize.MemoryChange(kvvmi)
+
+	switch {
+	case cpuChange && memoryChange:
+		return v1alpha2.ReasonVMCPUAndMemoryResizing
+	case cpuChange:
+		return v1alpha2.ReasonVMCPUResizing
+	case memoryChange:
+		return v1alpha2.ReasonVMMemoryResizing
+	default:
+		return ""
+	}
 }

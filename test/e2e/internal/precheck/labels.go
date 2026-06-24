@@ -61,6 +61,15 @@ const (
 	// NoPrecheck - test doesn't require any prechecks.
 	// Use this label for tests that don't depend on cluster configuration.
 	NoPrecheck = "no-precheck"
+
+	// HotplugCPUWithLiveMigrationPrecheck - test requires HotplugCPUWithLiveMigration feature gate to be enabled.
+	HotplugCPUWithLiveMigrationPrecheck = "hotplugcpuwithlivemigration-precheck"
+
+	// HotplugMemoryWithLiveMigrationPrecheck - test requires HotplugMemoryWithLiveMigration feature gate to be enabled.
+	HotplugMemoryWithLiveMigrationPrecheck = "hotplugmemorywithlivemigration-precheck"
+
+	// HotplugInPlaceResizePrecheck - test requires HotplugCPUAndMemoryWithInPlaceResize feature gate to be enabled.
+	HotplugInPlaceResizePrecheck = "hotpluginplaceresize-precheck"
 )
 
 // KnownPrecheckLabels returns all known precheck label constants.
@@ -79,6 +88,9 @@ func KnownPrecheckLabels() []string {
 		PrecheckPostCleanup,
 		PrecheckPrecreatedCVI,
 		NoPrecheck,
+		HotplugCPUWithLiveMigrationPrecheck,
+		HotplugMemoryWithLiveMigrationPrecheck,
+		HotplugInPlaceResizePrecheck,
 	}
 }
 
