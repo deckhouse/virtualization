@@ -54,6 +54,21 @@ variables:
   # Optional read-only license registry (used by cve-scan + check:requirements):
   #   PROD_READ_REGISTRY, PROD_READ_REGISTRY_USER, PROD_READ_REGISTRY_PASSWORD
 
+  # --- CVE scan (Trivy) ---
+  # Required Project Variable (vars, not masked):
+  #   VAULT_ROLE        - role name to authenticate against seguro.flant.com
+  #                       via GitLab id_tokens (aud: gitlab-access-aud) +
+  #                       d8-cli `stronghold write auth/fox/login`.
+  #                       The upstream `.cve_scan` template declares
+  #                       VAULT_ROLE with no default; the operator MUST set
+  #                       it here or as a Project CI/CD variable, otherwise
+  #                       cve:scan:daily / cve:scan:manual / cve:scan:mr
+  #                       fail at the Vault login step.
+  #                       Value: the same role the GH workflow used, i.e.
+  #                       the repository name ("virtualization").
+  #   VAULT_ADDR        - defaults to https://seguro.flant.com upstream;
+  #                       override only if the Vault endpoint differs.
+
   # --- Build/dev tooling (kept from previous root) ---
   GO_VERSION: "1.25.11"
   GOLANGCI_LINT_VERSION: "2.11.1"
