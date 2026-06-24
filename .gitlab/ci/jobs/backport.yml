@@ -34,15 +34,22 @@ backport:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash git curl jq ssh-agent ssh-add
   script:
     - bash .gitlab/ci/scripts/bash/backport.sh
+  # allow_failure: true on every rule: `when: manual` inside `rules:` defaults
+  # to allow_failure: false, so on an MR carrying a backport-release-X.Y label
+  # this unplayed manual job would block the whole MR pipeline (test/build/...).
+  # Backport is an opt-in side action, so it must never gate the pipeline.
   rules:
     # Mode 1: explicit manual run with TARGET_BRANCH provided via UI.
     - if: $TARGET_BRANCH
       when: manual
+      allow_failure: true
     # Mode 2: MR with a backport-release-X.Y label. GitLab does NOT auto-run
     # pipelines on label change; user has to press "Run pipeline" on the MR
     # (TODO: webhook-listener per migration plan §7).
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS =~ /backport-release-[0-9]+\.[0-9]+/
       when: manual
+      allow_failure: true
     # Mode 3: scheduled backport sweep (TODO: future automation).
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: manual
+      allow_failure: true
