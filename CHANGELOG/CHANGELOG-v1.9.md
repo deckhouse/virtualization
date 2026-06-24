@@ -18,11 +18,16 @@
 ## Fixes
 
 
+ - **[core]** Remove excess empty labels with unused tsc frequencies on nodes. [#2351](https://github.com/deckhouse/virtualization/pull/2351)
  - **[core]** Better handling Windows guests: start and migration should work in clusters with frequent CPU frequencies drifts [#2345](https://github.com/deckhouse/virtualization/pull/2345)
  - **[module]** Fixed an issue where invalid `virtualization` module ModuleConfig settings could block the Deckhouse queue. [#2246](https://github.com/deckhouse/virtualization/pull/2246)
  - **[module]** Fixed duplicate series on the `Virtualization / Overview` dashboard. [#2189](https://github.com/deckhouse/virtualization/pull/2189)
+ - **[vd]** Fixed cancellation of virtual disk storage class changes and cancellation of local disk migration. [#2502](https://github.com/deckhouse/virtualization/pull/2502)
  - **[vd]** Time spent in the `WaitForFirstConsumer` phase is no longer included in `.status.stats.creationDuration.totalProvisioning` of virtual disks. [#2379](https://github.com/deckhouse/virtualization/pull/2379)
  - **[vd]** Allow ingress from virtualization namespace to importer pods [#2356](https://github.com/deckhouse/virtualization/pull/2356)
+ - **[vm]** Fixed an issue that prevented a VM from starting after a failed migration of a disk on local storage. [#2509](https://github.com/deckhouse/virtualization/pull/2509)
+ - **[vm]** Fixed live migration of VMs with disks on local storage attached via VirtualMachineBlockDeviceAttachment (hotplug). The target node no longer matches the source node. [#2508](https://github.com/deckhouse/virtualization/pull/2508)
+ - **[vm]** Fixed a false reboot requirement for VMs with only the Main network after upgrading to v1.9.1. Such VMs now do not receive the RestartRequired status if their configuration has not actually changed. [#2475](https://github.com/deckhouse/virtualization/pull/2475)
  - **[vm]** Fixed disk update for stopped VMs with WaitForFirstConsumer storage class. Previously, when a VM was stopped and disks were changed, the KVVM was not updated, causing the VM to get stuck in starting phase. [#2407](https://github.com/deckhouse/virtualization/pull/2407)
  - **[vm]** Fix VM migration failure caused by incorrect target disk size for filesystem-backed hotplug volumes. [#2402](https://github.com/deckhouse/virtualization/pull/2402)
  - **[vm]** Fix possible scheduling problems after changing vmclass from Discovery type to Model type. [#2352](https://github.com/deckhouse/virtualization/pull/2352)
@@ -32,4 +37,8 @@
 
 
  - **[api]** Removed the deprecated `VirtualMachineRestore` resource. Use `VirtualMachineOperation` with the `Clone` or `Restore` type, or `VirtualMachineSnapshotOperation` instead. [#2368](https://github.com/deckhouse/virtualization/pull/2368)
+ - **[core]** Fixed vulnerability:
+    - CVE-2026-42504 
+    - CVE-2026-27145
+    - CVE-2026-42507 [#2486](https://github.com/deckhouse/virtualization/pull/2486)
 
