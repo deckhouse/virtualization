@@ -19,7 +19,8 @@
 #   deploy_dev        — DEV tag deploy to alpha/beta/ea/stable/rock-solid
 #   deploy_prod_alpha / beta / ea / stable / rock_solid
 #                     — sequential prod release-channel deploy chain (tag-push flow)
-#   prod_check          — requirements check before release-channel dispatch (m9e.6.3)
+#   prod_check          — requirements check before release-channel dispatch (m9e.6.3).
+#                         Runs BEFORE build so prod:build:* can need it.
 #   prod_deploy         — single-channel/edition deploy from Run pipeline (m9e.6.3)
 #   prod_verify         — version-on-release-channel check matrix (m9e.6.3)
 #   prod_release        — GitLab release creation (m9e.6.3)
@@ -37,6 +38,7 @@ stages:
   - info
   - lint
   - test
+  - prod_check
   - build
   - scan
   - gitleaks
@@ -46,7 +48,6 @@ stages:
   - deploy_prod_ea
   - deploy_prod_stable
   - deploy_prod_rock_solid
-  - prod_check
   - prod_deploy
   - prod_verify
   - prod_release
