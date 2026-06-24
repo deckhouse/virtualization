@@ -158,7 +158,9 @@ prod:build:ce:
     - .local_build
     - .prod_vars
     - .dual_registry_login
-  needs: ["prod:check-requirements"]
+  needs:
+    - job: prod:check-requirements
+      optional: true
   variables:
     EDITION: ce
     MODULE_EDITION: CE
@@ -197,7 +199,9 @@ prod:build:ee:
     - .local_build
     - .prod_vars
     - .dual_registry_login
-  needs: ["prod:check-requirements"]
+  needs:
+    - job: prod:check-requirements
+      optional: true
   variables:
     EDITION: ee
     MODULE_EDITION: EE
