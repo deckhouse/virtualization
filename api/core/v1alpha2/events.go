@@ -58,6 +58,15 @@ const (
 	// ReasonErrRestartAwaitingChanges is event reason indicating that the vm has pending changes requiring a restart.
 	ReasonErrRestartAwaitingChanges = "RestartAwaitingChanges"
 
+	// ReasonVMCPUResizing is event reason that the vm cpu is resizing.
+	ReasonVMCPUResizing = "CPUResizing"
+
+	// ReasonVMMemoryResizing is event reason that the vm memory is resizing.
+	ReasonVMMemoryResizing = "MemoryResizing"
+
+	// ReasonVMCPUAndMemoryResizing is event reason that the vm cpu and memory are resizing.
+	ReasonVMCPUAndMemoryResizing = "CPUAndMemoryResizing"
+
 	// ReasonErrVMOPFailed is event reason that operation is failed
 	ReasonErrVMOPFailed = "VirtualMachineOperationFailed"
 
@@ -173,4 +182,10 @@ const (
 
 	// ReasonDeleted is event reason that Object is deleted.
 	ReasonDeleted = "Deleted"
+
+	// ReasonVMHotplugMemoryNotSupported is event reason that VMHotplugMemoryNotSupported.
+	ReasonVMHotplugCPUNotSupported = "VMHotplugCPUNotSupported"
+
+	// ReasonVMHotplugMemoryNotSupported is event reason that VMHotplugMemoryNotSupported.
+	ReasonVMHotplugMemoryNotSupported = "VMHotplugMemoryNotSupported"
 )
