@@ -13,6 +13,7 @@ secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
 shell:
+  installCacheVersion: '{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}' # force rebuild for greenteagc A/B test
   install:
   - |
     echo "Git clone {{ $gitRepoName }} repository..."
@@ -112,6 +113,11 @@ shell:
 
     - export GOOS=linux
     - export GOARCH=amd64
+    # A/B test: disable Green Tea GC to check live-migration TLS throughput regression.
+    # Toolchain (ALT 20260119, CVE mitigation) bakes GOEXPERIMENT=greenteagc, which is
+    # the only build-setting delta between v1.8.3 (go1.25.10, ~9.4 Gbps) and v1.9.1
+    # (go1.25.11 greenteagc, ~0.3 Gbps) virt-handler binaries.
+    - export GOEXPERIMENT=nogreenteagc
     - export CGO_ENABLED=0
 
     - echo ============== Build container-disk ===================
