@@ -13,6 +13,7 @@ secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
 shell:
+  installCacheVersion: '{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}' # force rebuild for old-toolchain A/B test
   install:
   - |
     echo "Git clone {{ $gitRepoName }} repository..."

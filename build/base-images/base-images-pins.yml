@@ -7,6 +7,8 @@
 #
 # Consumed by .werf/defines/parse-base-images-map.tmpl.
 fromContainerFactory:
-  # CVE mitigation (08-06-2026): requires the ALT 20260119 based toolchain
-  # provided by container-factory instead of the deckhouse_images build.
-  - builder/golang-alt-1.25
+  # A/B test: pin temporarily commented to build virt-* against the pre-CVE
+  # toolchain (ALT 20250625 / go1.25.10, the v1.8.3 base) instead of the
+  # ALT 20260119 toolchain (go1.25.11). If live-migration throughput is
+  # restored, the regression is in the toolchain; if not, it is elsewhere.
+  # - builder/golang-alt-1.25
