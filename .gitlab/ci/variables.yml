@@ -14,7 +14,6 @@
 # `deckhouse/${EDITION}/modules`) move to DEV_REGISTRY / DEV_MODULE_SOURCE /
 # PROD_REGISTRY / PROD_MODULE_SOURCE_NAME vars.
 #
-# See .gitlab/README.md (TODO) for the migration steps.
 
 variables:
   # --- Module identity ---

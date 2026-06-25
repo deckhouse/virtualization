@@ -31,7 +31,7 @@
 # it inherits Setup's before_script, which performs the trdl+dmt bootstrap.
 #
 # DMT_METRICS_URL / DMT_METRICS_TOKEN are optional CI/CD variables consumed
-# by dmt for metrics reporting; see .gitlab/README.md §3.
+# by dmt for metrics reporting.
 
 lint:dmt:
   stage: lint

@@ -22,7 +22,7 @@
 #
 # Per migration plan §0(3) and §11.5.4 the GitLab jobs are manual + scheduled,
 # NOT reactive. A webhook-listener for slash-command-equivalents and label
-# events is a documented TODO (see .gitlab/README.md).
+# events is a documented TODO.
 #
 # Required CI/CD variable: GITLAB_API_TOKEN (Project Access Token, scope api).
 

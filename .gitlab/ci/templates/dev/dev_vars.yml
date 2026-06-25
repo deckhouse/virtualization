@@ -7,8 +7,7 @@
 # plan §11.6.
 #
 # The legacy EXTERNAL_MODULES_DEV_REGISTRY_* names are still accepted as
-# fallback to ease the variable-rename migration; they are documented in
-# .gitlab/README.md (TODO) as deprecated.
+# fallback to ease the variable-rename migration.
 
 .dev_vars:
   variables:
