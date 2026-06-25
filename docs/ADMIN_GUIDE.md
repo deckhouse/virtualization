@@ -1242,12 +1242,12 @@ How to start VM migration in the web interface:
 
 #### Dedicated migration network
 
-By default, live migration traffic flows over the node's default network and competes with workload traffic. You can also route it over a dedicated VLAN provisioned by the [`sdn`](https://deckhouse.io/modules/sdn/) module.
+By default, live migration traffic flows over the node's default network and competes with workload traffic. You can also route it over a dedicated VLAN provisioned by the [`sdn`](/modules/sdn/) module.
 
 Prerequisites:
 
 - The `sdn` module is enabled.
-- A `SystemNetwork` resource exists and is in the `Ready` state.
+- A [SystemNetwork](/modules/sdn/cr.html#systemnetwork) resource exists and is in the `Ready` state.
 
 To enable the feature, set `spec.settings.liveMigration.network` on the `virtualization` ModuleConfig: use `type: SystemNetwork` and specify the name of the prepared `SystemNetwork` under `systemNetwork.name`. Once configured, every VM migration in the cluster runs over the specified `SystemNetwork` VLAN.
 
