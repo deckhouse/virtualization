@@ -26,7 +26,10 @@
 # The shell runner host does not ship Node.js, so the job runs inside the
 # official `node:${NODE_VERSION}` image via `docker run`, mirroring how
 # check:gens-files runs the vm-route-forge leg in cilium/ebpf-builder. The
-# repo is bind-mounted at /src and npm install/npm test execute there.
+# repo is bind-mounted READ-ONLY at /src and copied to an ephemeral tmpdir
+# inside the container, so node_modules/package-lock.json never pollute the
+# shared shell-executor workspace (root-owned files there break `git clean`
+# on subsequent checkouts of unrelated jobs).
 # TODO: commit a package-lock.json and switch to `npm ci`.
 
 test:scripts:js:
@@ -37,17 +40,29 @@ test:scripts:js:
   script:
     - |
       set -e
-      # Run as the host runner-user uid/gid so node_modules and
-      # package-lock.json are owned by the runner-user, not root.
-      # Root-owned files would block `git clean` on the next checkout
-      # (shell executor reuses the same workspace) and fail jobs like
-      # gitleaks:diff before their script even starts.
+      # Run npm in a throwaway tmpdir INSIDE the container so node_modules
+      # and package-lock.json never land in the shared shell-executor
+      # workspace. Previously npm ran directly against a read-write
+      # bind-mount of the repo: under the default container uid (root) it
+      # created root-owned node_modules/ that the runner-user could not
+      # remove, which broke `git clean` on the next job's checkout and
+      # failed unrelated jobs (show_dev_manifest, gitleaks:diff, ...) with
+      # "warning: failed to remove ...: Permission denied".
+      #
+      # The repo is mounted read-only at /src; the test sources are copied
+      # to an ephemeral tmpdir where npm install/npm test execute.
       docker run --rm --platform linux/amd64 \
-        -v "${PWD}:/src" \
-        -w /src/.gitlab/scripts/js \
+        -v "${PWD}:/src:ro" \
         -u "$(id -u):$(id -g)" \
         -e HOME=/tmp \
         node:${NODE_VERSION} \
-        sh -c 'npm install --no-audit --no-fund --cache /tmp/.npm && npm test'
+        sh -c '
+          set -e
+          work="$(mktemp -d)"
+          cp -a /src/.gitlab/scripts/js/. "$work"/
+          cd "$work"
+          npm install --no-audit --no-fund --cache /tmp/.npm
+          npm test
+        '
   extends:
     - .dev
