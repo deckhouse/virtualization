@@ -19,7 +19,7 @@ deploy_for_dev_tag:
   stage: deploy_dev
   needs: ["build_dev_tags"]
   extends:
-    - .local_deploy
+    - .base_deploy
     - .dev_tags
     - .dual_registry_login
   parallel:

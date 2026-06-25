@@ -10,14 +10,14 @@
 #   on: workflow_dispatch              -> when: manual (Run pipeline)
 #   matrix.branch: [main]              -> single .main job
 #
-# The actual build uses the local `.local_build` template, which mirrors the
+# The actual build uses the local `.base_build` template, which mirrors the
 # upstream Build.gitlab-ci.yml script without inheriting its broad rules. This
 # file sets the trigger surface and the per-pipeline variables that the build
 # template expects.
 
 precache:build:main:
   extends:
-    - .local_build
+    - .base_build
     - .main
   stage: build
   interruptible: false
@@ -34,7 +34,7 @@ precache:build:main:
 # the GH workflow but keeps it branch-driven for precache.
 precache:build:branch:
   extends:
-    - .local_build
+    - .base_build
     - .dev_vars
   stage: build
   interruptible: false

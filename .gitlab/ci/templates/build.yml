@@ -1,4 +1,10 @@
-# Local .local_build template.
+# Base build template (.base_build).
+#
+# Naming: this is the BASE werf-build job body that other build jobs extend
+# (build_dev / build_main / build_prod / prod:build:* / precache / svace).
+# It was previously named `.local_build`; renamed to `.base_build` because
+# "local" was uninformative and collided conceptually with `include: local:`.
+# "base" states the intent: a base template meant to be extended.
 #
 # This template mirrors the upstream modules-gitlab-ci Build.gitlab-ci.yml
 # `.build` body verbatim (verified against
@@ -15,7 +21,7 @@
 #   specific branch / tag patterns provided by .dev / .dev_tags / .main /
 #   .prod_always.
 #
-#   By keeping the upstream body in a locally named `.local_build` we keep
+#   By keeping the upstream body in a base template `.base_build` we keep
 #   the same script (so future upstream fixes can be copy-pasted here)
 #   while our job-level rules from .dev / .main / .prod_always / etc.
 #   drive the gating.
@@ -28,7 +34,7 @@
 # `rules:` overrides through extends (tracked in upstream issues), revisit
 # this template and switch back to `extends: .build`.
 
-.local_build:
+.base_build:
   stage: build
   script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh werf jq crane

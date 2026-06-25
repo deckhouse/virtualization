@@ -136,7 +136,7 @@ prod:check-requirements:
 # ---------------------------------------------------------------------------
 # 3+4. build (toggleable) + deploy, per edition
 # ---------------------------------------------------------------------------
-# Deploy step (crane copy :tag -> :channel). Separate from .local_deploy so
+# Deploy step (crane copy :tag -> :channel). Separate from .base_deploy so
 # the job can land in the deploy_prod stage.
 .prod_deploy_script:
   before_script:
@@ -155,7 +155,7 @@ prod:build:ce:
   resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:ce"
   extends:
     - .prod_release_rules
-    - .local_build
+    - .base_build
     - .prod_vars
     - .dual_registry_login
   needs:
@@ -196,7 +196,7 @@ prod:build:ee:
   resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:ee"
   extends:
     - .prod_release_rules
-    - .local_build
+    - .base_build
     - .prod_vars
     - .dual_registry_login
   needs:
@@ -237,7 +237,7 @@ prod:build:se-plus:
   resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:se-plus"
   extends:
     - .prod_release_rules
-    - .local_build
+    - .base_build
     - .prod_vars
     - .dual_registry_login
   needs: ["prod:build:ee"]
@@ -274,7 +274,7 @@ prod:build:fe:
   resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:fe"
   extends:
     - .prod_release_rules
-    - .local_build
+    - .base_build
     - .prod_vars
     - .dual_registry_login
   needs: ["prod:build:ee"]
