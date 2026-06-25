@@ -1,11 +1,16 @@
-# Local .local_deploy template.
+# Base deploy template (.base_deploy).
+#
+# Naming: this is the BASE crane-copy deploy job body extended by
+# deploy_for_dev_tag / deploy_to_prod_*. Previously named `.local_deploy`;
+# renamed to `.base_deploy` for the same reason as `.base_build` ("local"
+# was uninformative and clashed with `include: local:`).
 #
 # Mirrors upstream modules-gitlab-ci Deploy.gitlab-ci.yml `.deploy` body
 # (verified in
 # /Users/korolevn/repos/Virtualization-tasks/github/3p-deckhouse/modules-gitlab-ci
 # templates/Deploy.gitlab-ci.yml, branch v13.0, HEAD 006d51c).
 #
-# Why a local copy (same reasoning as .local_build in build.yml):
+# Why a local copy (same reasoning as .base_build in build.yml):
 #
 #   Upstream `.deploy` has `rules: [{if: $CI_COMMIT_TAG}]` + `when: manual`
 #   baked in. Because GitLab CI merges parent rules with parent-first
@@ -13,11 +18,11 @@
 #   tags too (we want it auto on dev tags and absent on prod tags).
 #   The prod-channel chain (deploy_to_prod_*) wants `when: manual` from
 #   .prod_manual, so the upstream `when: manual` happens to match — but we
-#   still want explicit control. Keeping the upstream body in `.local_deploy`
+#   still want explicit control. Keeping the upstream body in `.base_deploy`
 #   means the same script is shared by all jobs but gating is fully driven
 #   by our own templates.
 
-.local_deploy:
+.base_deploy:
   stage: deploy
   script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh crane

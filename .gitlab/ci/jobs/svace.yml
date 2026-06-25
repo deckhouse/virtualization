@@ -9,7 +9,7 @@
 #   4. notify       - send Loop webhook with success/failure
 #
 # GitLab mapping:
-#   - The build step reuses the local `.local_build` template, with `.dev_vars`
+#   - The build step reuses the local `.base_build` template, with `.dev_vars`
 #     for DEV registry variables and job-local rules for schedule/manual runs.
 #   - The analyze step uses the upstream `.svace_analyze` template
 #     (Svace_Analayze.gitlab-ci.yml; note upstream file name typo).
@@ -79,14 +79,14 @@ svace:set-vars:
 # ---------------------------------------------------------------------------
 # build: produces Svace-instrumented artifacts.
 #
-# Reuses `.local_build` so it does not inherit the dev-tag-only rules from
+# Reuses `.base_build` so it does not inherit the dev-tag-only rules from
 # `.dev_tags`. The preceding svace:set-vars job writes the actual
 # MODULES_MODULE_TAG into a dotenv artifact.
 # ---------------------------------------------------------------------------
 
 svace:build:
   extends:
-    - .local_build
+    - .base_build
     - .dev_vars
   stage: build
   interruptible: false

@@ -34,7 +34,7 @@ build_prod:
   resource_group: prod
   interruptible: false
   extends:
-    - .local_build
+    - .base_build
     - .prod_always
     - .dual_registry_login
   parallel:

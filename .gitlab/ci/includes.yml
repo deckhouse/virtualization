@@ -48,7 +48,7 @@ include:
       # `when: manual`) that override our strict gating via
       # .dev / .dev_tags / .main / .prod_manual. We mirror the upstream
       # script bodies in .gitlab/ci/templates/{build,deploy}.yml as
-      # `.local_build` and `.local_deploy` and extend those instead.
+      # `.base_build` and `.base_deploy` and extend those instead.
 
   # --- Local structural fragments (order: stages, vars, defaults, then jobs) ---
   - local: ".gitlab/ci/stages.yml"

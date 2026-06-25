@@ -2,7 +2,7 @@
 #
 # Carries forward build_dev, build_dev_tags and build_main from the
 # previous root .gitlab-ci.yml. All three extend:
-#   - .local_build  (this repo) — same body as upstream modules-gitlab-ci
+#   - .base_build  (this repo) — same body as upstream modules-gitlab-ci
 #                    Build.gitlab-ci.yml `.build` (werf build + bundle crane
 #                    copy + release-channel crane copy + crane append to
 #                    register module), but without the upstream `rules:`
@@ -11,7 +11,7 @@
 #   - .dev / .dev_tags / .main  (this repo) for registry + tag context.
 #
 # The previous root .gitlab-ci.yml had its own `.build` template with the
-# same body; it is replaced here by `.local_build` (verified against
+# same body; it is replaced here by `.base_build` (verified against
 # /Users/korolevn/repos/Virtualization-tasks/github/3p-deckhouse/modules-gitlab-ci
 # templates/Build.gitlab-ci.yml — werf build with --save-build-report,
 # bundle / release-channel-version crane copy, and crane append to
@@ -43,7 +43,7 @@ build_dev:
   variables:
     WERF_VIRTUAL_MERGE: "0"
   extends:
-    - .local_build
+    - .base_build
     - .dev
 
 build_dev_tags:
@@ -54,7 +54,7 @@ build_dev_tags:
   variables:
     WERF_VIRTUAL_MERGE: "0"
   extends:
-    - .local_build
+    - .base_build
     - .dev_tags
 
 build_main:
@@ -66,7 +66,7 @@ build_main:
   variables:
     WERF_VIRTUAL_MERGE: "0"
   extends:
-    - .local_build
+    - .base_build
     - .main
 
 # build_release mirrors GitHub dev_module_build.yml `push: [release-*]`: a
@@ -83,5 +83,5 @@ build_release:
   variables:
     WERF_VIRTUAL_MERGE: "0"
   extends:
-    - .local_build
+    - .base_build
     - .release

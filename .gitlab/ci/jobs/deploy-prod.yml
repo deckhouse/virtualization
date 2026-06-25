@@ -19,7 +19,7 @@
 # environment).
 #
 # Extends:
-#   - .local_deploy    (this repo — mirrors upstream modules-gitlab-ci
+#   - .base_deploy    (this repo — mirrors upstream modules-gitlab-ci
 #                       Deploy.gitlab-ci.yml `.deploy` script body without
 #                       the upstream `rules:` that would override our
 #                       gating).
@@ -46,7 +46,7 @@ deploy_to_prod_alpha:
     RELEASE_CHANNEL: alpha
   needs: ["build_prod"]
   extends:
-    - .local_deploy
+    - .base_deploy
     - .prod_manual
     - .dual_registry_login
   parallel:
@@ -66,7 +66,7 @@ deploy_to_prod_beta:
     RELEASE_CHANNEL: beta
   needs: ["build_prod"]
   extends:
-    - .local_deploy
+    - .base_deploy
     - .prod_manual
     - .dual_registry_login
   parallel:
@@ -86,7 +86,7 @@ deploy_to_prod_ea:
     RELEASE_CHANNEL: early-access
   needs: ["build_prod"]
   extends:
-    - .local_deploy
+    - .base_deploy
     - .prod_manual
     - .dual_registry_login
   parallel:
@@ -106,7 +106,7 @@ deploy_to_prod_stable:
     RELEASE_CHANNEL: stable
   needs: ["build_prod"]
   extends:
-    - .local_deploy
+    - .base_deploy
     - .prod_manual
     - .dual_registry_login
   parallel:
@@ -126,7 +126,7 @@ deploy_to_prod_rock_solid:
     RELEASE_CHANNEL: rock-solid
   needs: ["build_prod"]
   extends:
-    - .local_deploy
+    - .base_deploy
     - .prod_manual
     - .dual_registry_login
   parallel:
