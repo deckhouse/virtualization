@@ -16,26 +16,31 @@
 #
 # Ports the GitHub Actions `test_scripts_js` job from
 # .github/workflows/dev_module_build.yml, which ran `npm test` in
-# .github/scripts/js. The GitLab counterpart lives in .gitlab/scripts/js
-# (mrs_notifier.mjs); its `npm test` runs node:test over
+# .github/scripts/js with Node.js 24. The GitLab counterpart lives in
+# .gitlab/scripts/js (mrs_notifier.mjs); its `npm test` runs node:test over
 # mrs_notifier.test.mjs, a minimal smoke test (syntax check + structural
 # assertions) because mrs_notifier.mjs auto-runs at import time and cannot
 # yet be imported by a unit test. See mrs_notifier.test.mjs for the TODO
 # on adding real unit tests.
 #
-# MR-gated via .dev. The smoke test uses only Node.js built-ins, so no
-# dependencies are required; `npm install` is still run to match the
-# upstream job shape and to fail fast if package.json is broken.
+# The shell runner host does not ship Node.js, so the job runs inside the
+# official `node:${NODE_VERSION}` image via `docker run`, mirroring how
+# check:gens-files runs the vm-route-forge leg in cilium/ebpf-builder. The
+# repo is bind-mounted at /src and npm install/npm test execute there.
 # TODO: commit a package-lock.json and switch to `npm ci`.
 
 test:scripts:js:
   stage: test
   interruptible: true
   before_script:
-    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh node npm
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh docker
   script:
-    - cd .gitlab/scripts/js
-    - npm install --no-audit --no-fund
-    - npm test
+    - |
+      set -e
+      docker run --rm --platform linux/amd64 \
+        -v "${PWD}:/src" \
+        -w /src/.gitlab/scripts/js \
+        node:${NODE_VERSION} \
+        sh -c 'npm install --no-audit --no-fund && npm test'
   extends:
     - .dev
