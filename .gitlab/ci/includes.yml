@@ -47,7 +47,7 @@ include:
       # `rules:` baked in (`if: $CI_COMMIT_BRANCH`, `if: $CI_COMMIT_TAG`,
       # `when: manual`) that override our strict gating via
       # .dev / .dev_tags / .main / .prod_manual. We mirror the upstream
-      # script bodies in .gitlab/ci/templates/{build,deploy}.yml as
+      # script bodies in .gitlab/ci/templates/base/{build,deploy}.yml as
       # `.base_build` and `.base_deploy` and extend those instead.
 
   # --- Local structural fragments (order: stages, vars, defaults, then jobs) ---
@@ -57,18 +57,24 @@ include:
   - local: ".gitlab/ci/workflow.yml"
 
   # --- Local shared templates (extends: ...) ---
-  - local: ".gitlab/ci/templates/dev_vars.yml"
-  - local: ".gitlab/ci/templates/prod_vars.yml"
-  - local: ".gitlab/ci/templates/dev.yml"
-  - local: ".gitlab/ci/templates/dev_tags.yml"
-  - local: ".gitlab/ci/templates/main.yml"
-  - local: ".gitlab/ci/templates/release.yml"
-  - local: ".gitlab/ci/templates/prod_manual.yml"
-  - local: ".gitlab/ci/templates/prod_always.yml"
-  - local: ".gitlab/ci/templates/info.yml"
-  - local: ".gitlab/ci/templates/dual_registry_login.yml"
-  - local: ".gitlab/ci/templates/build.yml"
-  - local: ".gitlab/ci/templates/deploy.yml"
+  # templates/ is grouped by the two global processes plus shared base:
+  #   base/    - process-agnostic base job bodies + helpers
+  #   dev/     - development process (DEV registry): MR / main / release / dev-tag
+  #   release/ - release process (PROD registry): tag-push + manual dispatch
+  # Anchor names are unchanged (.base_build, .dev, .prod_vars, ...), so no job
+  # `extends:` edits are needed (see virtualization-m9e.5.22).
+  - local: ".gitlab/ci/templates/dev/dev_vars.yml"
+  - local: ".gitlab/ci/templates/release/prod_vars.yml"
+  - local: ".gitlab/ci/templates/dev/dev.yml"
+  - local: ".gitlab/ci/templates/dev/dev_tags.yml"
+  - local: ".gitlab/ci/templates/dev/main.yml"
+  - local: ".gitlab/ci/templates/dev/release.yml"
+  - local: ".gitlab/ci/templates/release/prod_manual.yml"
+  - local: ".gitlab/ci/templates/release/prod_always.yml"
+  - local: ".gitlab/ci/templates/base/info.yml"
+  - local: ".gitlab/ci/templates/base/dual_registry_login.yml"
+  - local: ".gitlab/ci/templates/base/build.yml"
+  - local: ".gitlab/ci/templates/base/deploy.yml"
 
   # --- Local job files owned by this issue ---
   - local: ".gitlab/ci/jobs/info.yml"
