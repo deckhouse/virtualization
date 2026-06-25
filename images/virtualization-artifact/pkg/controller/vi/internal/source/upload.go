@@ -109,6 +109,22 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		return reconcile.Result{}, err
 	}
 
+	// Sync the uploader Ingress host before the readiness probe:
+	// IsUploaderReady HTTPS-probes the Ingress host, so a stale host (e.g. after
+	// publicDomainTemplate changed) makes readiness fail with a TLS error.
+	// Initial creation is handled by Start, so skip when the pod is absent.
+	if pod != nil && ds.uploaderService.IngressHostDrifted(ing) {
+		var oldHost string
+		if ing != nil && len(ing.Spec.Rules) > 0 {
+			oldHost = ing.Spec.Rules[0].Host
+		}
+		log.Info("Syncing uploader Ingress: host drifted", "old", oldHost, "new", ds.uploaderService.ExpectedIngressHost())
+		ing, err = ds.uploaderService.EnsureIngress(ctx, vi, supgen)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
 	isUploaderReady, err := ds.statService.IsUploaderReady(pod, svc, ing, tlsSecret)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -194,17 +210,6 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.WaitForUserUpload).
 					Message("Waiting for the user upload.")
-
-				// Re-sync the uploader Ingress when publicDomainTemplate changed
-				// after the supplements were created. Apply is a no-op when fields
-				// already match.
-				if ds.uploaderService.IngressHostDrifted(ing) {
-					log.Info("Syncing uploader Ingress: host drifted", "old", ing.Spec.Rules[0].Host, "new", ds.uploaderService.ExpectedIngressHost())
-					ing, err = ds.uploaderService.EnsureIngress(ctx, vi, supgen)
-					if err != nil {
-						return reconcile.Result{}, err
-					}
-				}
 
 				vi.Status.ImageUploadURLs = &v1alpha2.ImageUploadURLs{
 					External:  ds.uploaderService.GetExternalURL(ctx, ing),
@@ -387,6 +392,22 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 		return reconcile.Result{}, err
 	}
 
+	// Sync the uploader Ingress host before the readiness probe:
+	// IsUploaderReady HTTPS-probes the Ingress host, so a stale host (e.g. after
+	// publicDomainTemplate changed) makes readiness fail with a TLS error.
+	// Initial creation is handled by Start, so skip when the pod is absent.
+	if pod != nil && ds.uploaderService.IngressHostDrifted(ing) {
+		var oldHost string
+		if ing != nil && len(ing.Spec.Rules) > 0 {
+			oldHost = ing.Spec.Rules[0].Host
+		}
+		log.Info("Syncing uploader Ingress: host drifted", "old", oldHost, "new", ds.uploaderService.ExpectedIngressHost())
+		ing, err = ds.uploaderService.EnsureIngress(ctx, vi, supgen)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
 	isUploaderReady, err := ds.statService.IsUploaderReady(pod, svc, ing, tlsSecret)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -497,17 +518,6 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 
 		vi.Status.Phase = v1alpha2.ImageWaitForUserUpload
 		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
-
-		// Re-sync the uploader Ingress when publicDomainTemplate changed after
-		// the supplements were created. Apply is a no-op when fields already match.
-		if ds.uploaderService.IngressHostDrifted(ing) {
-			log.Info("Syncing uploader Ingress: host drifted", "old", ing.Spec.Rules[0].Host, "new", ds.uploaderService.ExpectedIngressHost())
-			ing, err = ds.uploaderService.EnsureIngress(ctx, vi, supgen)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-		}
-
 		vi.Status.ImageUploadURLs = &v1alpha2.ImageUploadURLs{
 			External:  ds.uploaderService.GetExternalURL(ctx, ing),
 			InCluster: ds.uploaderService.GetInClusterURL(ctx, svc),
