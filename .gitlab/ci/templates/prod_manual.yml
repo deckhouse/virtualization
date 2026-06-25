@@ -15,7 +15,9 @@
 # tag, enableBuild, check_only, release_to_gitlab, send_results_to_loop,
 # requirements/version checks) is now implemented in
 # .gitlab/ci/jobs/release-channels.yml (prod:* jobs). This template stays
-# as the tag-push chained-deploy context.
+# as the tag-push deploy context: each channel deploy is an independent
+# `when: manual` job in the single `deploy_prod` stage (no forced
+# alpha->...->rock-solid promotion chain; see virtualization-m9e.5.21).
 
 .prod_manual:
   variables:

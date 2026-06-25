@@ -15,13 +15,16 @@
 #   test              — Go unit tests, hooks tests
 #   build             — werf build for dev / dev-tags / main / prod
 #   scan              — cve_scan, gitleaks, svace (owned by sibling issues)
-#   gitleaks          — upstream hidden template stage; visible jobs override it
 #   deploy_dev        — DEV tag deploy to alpha/beta/ea/stable/rock-solid
-#   deploy_prod_alpha / beta / ea / stable / rock_solid
-#                     — sequential prod release-channel deploy chain (tag-push flow)
 #   prod_check          — requirements check before release-channel dispatch (m9e.6.3).
 #                         Runs BEFORE build so prod:build:* can need it.
-#   prod_deploy         — single-channel/edition deploy from Run pipeline (m9e.6.3)
+#   deploy_prod         — prod release-channel deploy. ONE stage with independent
+#                         manual jobs per channel (tag-push flow, deploy-prod.yml)
+#                         and per-edition deploy from Run pipeline
+#                         (web flow, release-channels.yml). No forced
+#                         alpha->...->rock-solid promotion chain — each channel
+#                         deploy is an independent `when: manual` job, matching
+#                         GitHub release_module_release-channels.yml semantics.
 #   prod_verify         — version-on-release-channel check matrix (m9e.6.3)
 #   prod_release        — GitLab release creation (m9e.6.3)
 #   notify            — release-results-to-loop and similar fan-out
@@ -41,14 +44,8 @@ stages:
   - prod_check
   - build
   - scan
-  - gitleaks
   - deploy_dev
-  - deploy_prod_alpha
-  - deploy_prod_beta
-  - deploy_prod_ea
-  - deploy_prod_stable
-  - deploy_prod_rock_solid
-  - prod_deploy
+  - deploy_prod
   - prod_verify
   - prod_release
   - notify
