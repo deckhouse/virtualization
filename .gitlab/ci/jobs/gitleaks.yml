@@ -21,18 +21,28 @@
 
 # Disable generic visible jobs from the upstream include. Keep the hidden
 # `.gitleaks_scan` template active for project-specific jobs below.
+#
+# These overrides MUST set `stage: scan`: the upstream `.gitleaks_scan`
+# template declares `stage: gitleaks`, but that stage was removed from
+# stages.yml (it was dead — every active gitleaks job runs in `scan`). Even
+# with `when: never`, GitLab validates the stage exists at config-parse
+# time, so leaving the inherited `gitleaks` stage here would break the
+# pipeline. See virtualization-m9e.5.21.
 gitleaks_diff:
   extends: .gitleaks_scan
+  stage: scan
   rules:
     - when: never
 
 gitleaks_full_manual:
   extends: .gitleaks_scan
+  stage: scan
   rules:
     - when: never
 
 gitleaks_full_scheduled:
   extends: .gitleaks_scan
+  stage: scan
   rules:
     - when: never
 

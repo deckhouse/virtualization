@@ -137,7 +137,7 @@ prod:check-requirements:
 # 3+4. build (toggleable) + deploy, per edition
 # ---------------------------------------------------------------------------
 # Deploy step (crane copy :tag -> :channel). Separate from .local_deploy so
-# the job can land in the prod_deploy stage.
+# the job can land in the deploy_prod stage.
 .prod_deploy_script:
   before_script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh crane
@@ -170,7 +170,7 @@ prod:build:ce:
     - when: never
 
 prod:deploy:ce:
-  stage: prod_deploy
+  stage: deploy_prod
   resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:ce"
   extends:
     - .prod_release_rules
@@ -211,7 +211,7 @@ prod:build:ee:
     - when: never
 
 prod:deploy:ee:
-  stage: prod_deploy
+  stage: deploy_prod
   resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:ee"
   extends:
     - .prod_release_rules
@@ -250,7 +250,7 @@ prod:build:se-plus:
     - when: never
 
 prod:deploy:se-plus:
-  stage: prod_deploy
+  stage: deploy_prod
   resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:se-plus"
   extends:
     - .prod_release_rules
@@ -287,7 +287,7 @@ prod:build:fe:
     - when: never
 
 prod:deploy:fe:
-  stage: prod_deploy
+  stage: deploy_prod
   resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:fe"
   extends:
     - .prod_release_rules

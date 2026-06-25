@@ -1,10 +1,16 @@
 # PROD deploy jobs.
 #
-# Parity with .github/workflows/release_module_release-channels.yml release
-# channels: alpha -> beta -> early-access -> stable -> rock-solid. Each job
-# waits for the previous one (and build_prod for alpha), then copies the
-# built release image to the named release channel. All five are manual
-# (when: manual from .prod_manual) on a vX.Y.Z tag.
+# Parity with .github/workflows/release_module_release-channels.yml: the
+# channel is selected by the operator, not promoted through a fixed chain.
+# All five channel deploys (alpha / beta / early-access / stable /
+# rock-solid) are INDEPENDENT manual jobs (when: manual from .prod_manual)
+# in a single `deploy_prod` stage. Each only `needs: [build_prod]`, so any
+# channel can be deployed directly after the build without first clicking
+# the earlier channels. This replaces the previous forced promotion chain
+# (alpha -> beta -> ea -> stable -> rock-solid across five separate stages),
+# which was a carried-over artifact of the old root .gitlab-ci.yml and
+# diverged from GitHub (see virtualization-m9e.5.21). Each job copies the
+# built release image to its named release channel on a vX.Y.Z tag.
 #
 # The EDITION matrix mirrors build_prod (ce/ee/se-plus/fe) with the correct
 # MODULE_EDITION per edition, so deploy runs against the same per-edition
@@ -35,7 +41,7 @@
 # to CI_PIPELINE_SOURCE == "web".
 
 deploy_to_prod_alpha:
-  stage: deploy_prod_alpha
+  stage: deploy_prod
   variables:
     RELEASE_CHANNEL: alpha
   needs: ["build_prod"]
@@ -55,10 +61,10 @@ deploy_to_prod_alpha:
         MODULE_EDITION: EE
 
 deploy_to_prod_beta:
-  stage: deploy_prod_beta
+  stage: deploy_prod
   variables:
     RELEASE_CHANNEL: beta
-  needs: ["deploy_to_prod_alpha"]
+  needs: ["build_prod"]
   extends:
     - .local_deploy
     - .prod_manual
@@ -75,10 +81,10 @@ deploy_to_prod_beta:
         MODULE_EDITION: EE
 
 deploy_to_prod_ea:
-  stage: deploy_prod_ea
+  stage: deploy_prod
   variables:
     RELEASE_CHANNEL: early-access
-  needs: ["deploy_to_prod_beta"]
+  needs: ["build_prod"]
   extends:
     - .local_deploy
     - .prod_manual
@@ -95,10 +101,10 @@ deploy_to_prod_ea:
         MODULE_EDITION: EE
 
 deploy_to_prod_stable:
-  stage: deploy_prod_stable
+  stage: deploy_prod
   variables:
     RELEASE_CHANNEL: stable
-  needs: ["deploy_to_prod_ea"]
+  needs: ["build_prod"]
   extends:
     - .local_deploy
     - .prod_manual
@@ -115,10 +121,10 @@ deploy_to_prod_stable:
         MODULE_EDITION: EE
 
 deploy_to_prod_rock_solid:
-  stage: deploy_prod_rock_solid
+  stage: deploy_prod
   variables:
     RELEASE_CHANNEL: rock-solid
-  needs: ["deploy_to_prod_stable"]
+  needs: ["build_prod"]
   extends:
     - .local_deploy
     - .prod_manual

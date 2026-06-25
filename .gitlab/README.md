@@ -252,7 +252,7 @@ web pipelines.
 | `prod:print-vars` | info | Echoes release inputs and enforces `RELEASE_TAG` matches the pipeline ref tag. |
 | `prod:check-requirements` | prod_check | `tools/moduleversions check:requirements` (Deckhouse version range). Skipped when `CHECK_ONLY` or `SKIP_REQUIREMENTS_CHECK`. |
 | `prod:build:<ce/ee/se-plus/fe>` | build | Optional (`ENABLE_BUILD`) werf build per edition. `se-plus`/`fe` `needs: prod:build:ee` (GH cascade). |
-| `prod:deploy:<ce/ee/se-plus/fe>` | prod_deploy | `crane copy :$RELEASE_TAG -> :$RELEASE_CHANNEL` per selected edition. |
+| `prod:deploy:<ce/ee/se-plus/fe>` | deploy_prod | `crane copy :$RELEASE_TAG -> :$RELEASE_CHANNEL` per selected edition. |
 | `prod:check-version` | prod_verify | Matrix `registry`/`releases`/`documentation` via `tools/moduleversions`. |
 | `prod:create-gitlab-release` | prod_release | Creates a GitLab release from the merged `label:changelog` MR description (was `create-github-release`). |
 | `prod:notify-loop` | notify | Posts a release status table to Loop (`LOOP_WEBHOOK_URL`). |
