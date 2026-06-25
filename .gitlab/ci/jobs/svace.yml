@@ -17,8 +17,7 @@
 #   - workflow_dispatch -> when: manual.
 #   - MR opt-in -> set SVACE_PIPELINE_ENABLED=true when running a pipeline.
 #   - Loop notification kept as a manual / always job. The original GH
-#     webhook URL is the LOOP_WEBHOOK_URL masked variable (see
-#     .gitlab/README.md variables list).
+#     webhook URL is the LOOP_WEBHOOK_URL masked variable.
 #
 # Required CI/CD variables (declared in the project):
 #   SVACE_ANALYZE_HOST            masked
