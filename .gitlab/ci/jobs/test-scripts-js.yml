@@ -37,10 +37,17 @@ test:scripts:js:
   script:
     - |
       set -e
+      # Run as the host runner-user uid/gid so node_modules and
+      # package-lock.json are owned by the runner-user, not root.
+      # Root-owned files would block `git clean` on the next checkout
+      # (shell executor reuses the same workspace) and fail jobs like
+      # gitleaks:diff before their script even starts.
       docker run --rm --platform linux/amd64 \
         -v "${PWD}:/src" \
         -w /src/.gitlab/scripts/js \
+        -u "$(id -u):$(id -g)" \
+        -e HOME=/tmp \
         node:${NODE_VERSION} \
-        sh -c 'npm install --no-audit --no-fund && npm test'
+        sh -c 'npm install --no-audit --no-fund --cache /tmp/.npm && npm test'
   extends:
     - .dev
