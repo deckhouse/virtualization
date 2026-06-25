@@ -16,7 +16,7 @@
 #   build             — werf build for dev / dev-tags / main / prod
 #   scan              — cve_scan, gitleaks, svace (owned by sibling issues)
 #   deploy_dev        — DEV tag deploy to alpha/beta/ea/stable/rock-solid
-#   prod_check          — requirements check before release-channel dispatch (m9e.6.3).
+#   prod_check          — requirements check before release-channel dispatch.
 #                         Runs BEFORE build so prod:build:* can need it.
 #   deploy_prod         — prod release-channel deploy. ONE stage with independent
 #                         manual jobs per channel (tag-push flow, deploy-prod.yml)
@@ -25,8 +25,8 @@
 #                         alpha->...->rock-solid promotion chain — each channel
 #                         deploy is an independent `when: manual` job, matching
 #                         GitHub release_module_release-channels.yml semantics.
-#   prod_verify         — version-on-release-channel check matrix (m9e.6.3)
-#   prod_release        — GitLab release creation (m9e.6.3)
+#   prod_verify         — version-on-release-channel check matrix
+#   prod_release        — GitLab release creation
 #   notify            — release-results-to-loop and similar fan-out
 #   cleanup           — scheduled registry cleanup
 #
