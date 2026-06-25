@@ -122,6 +122,13 @@ lint:yaml:
           - "**/*.yml"
           - ".gitlab-ci.yml"
           - ".gitlab/**/*"
+    - if: "$CI_COMMIT_BRANCH =~ /^release-/"
+      changes:
+        paths:
+          - "**/*.yaml"
+          - "**/*.yml"
+          - ".gitlab-ci.yml"
+          - ".gitlab/**/*"
 
 # ---------------------------------------------------------------------------
 # go (golangci-lint across every Go module)
@@ -261,6 +268,16 @@ lint:helm-templates:
           - ".helmignore"
           - "Chart.yaml"
           - "Taskfile.yaml"
+    - if: "$CI_COMMIT_BRANCH =~ /^release-/"
+      changes:
+        paths:
+          - "crds/**/*"
+          - "charts/**/*"
+          - "tools/kubeconform/**/*"
+          - "templates/**/*"
+          - ".helmignore"
+          - "Chart.yaml"
+          - "Taskfile.yaml"
 
 # ---------------------------------------------------------------------------
 # check_gens_files
@@ -370,6 +387,7 @@ check:gens-files:
           - "images/vm-route-forge/bpf/route_watcher.c"
           - "images/vm-route-forge/**/*"
     - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: "$CI_COMMIT_BRANCH =~ /^release-/"
 
 # ---------------------------------------------------------------------------
 # gitlab-ci-lint
@@ -397,6 +415,11 @@ lint:gitlab-ci:
           - ".gitlab-ci.yml"
           - ".gitlab/**/*"
     - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        paths:
+          - ".gitlab-ci.yml"
+          - ".gitlab/**/*"
+    - if: "$CI_COMMIT_BRANCH =~ /^release-/"
       changes:
         paths:
           - ".gitlab-ci.yml"
