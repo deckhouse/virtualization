@@ -159,8 +159,11 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		changes = h.detectSpecChanges(ctx, kvvm, &current.Spec, lastAppliedSpec)
 		if !changes.IsEmpty() {
 			kvvmi, kvvmiErr := s.KVVMI(ctx)
-			if kvvmiErr == nil && hasNonHotpluggableVolumes(kvvmi) {
-				changes.UpgradeBlockDeviceChangesToRestart()
+			if kvvmiErr == nil {
+				nonHotpluggableVolumes := nonHotpluggableVolumeRefs(kvvmi)
+				changes.UpgradeBlockDeviceChangesToRestartIf(func(change vmchange.FieldChange) bool {
+					return blockDeviceChangeTouchesRefs(change, nonHotpluggableVolumes)
+				})
 			}
 			// Require restart for CPU and memory changes if VM is non migratable.
 			if h.isVMNonMigratable(current) {
@@ -193,7 +196,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	if kvvm == nil || changes.IsEmpty() {
 		changed.Status.RestartAwaitingChanges = nil
 	} else {
-		changed.Status.RestartAwaitingChanges, err = changes.ConvertPendingChanges()
+		changed.Status.RestartAwaitingChanges, err = changes.ConvertPendingRestartChanges()
 		if err != nil {
 			err = fmt.Errorf("failed to generate pending configuration changes: %w", err)
 			cbConfApplied.
@@ -201,6 +204,9 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 				Reason(vmcondition.ReasonConfigurationNotApplied).
 				Message(service.CapitalizeFirstLetter(err.Error()) + ".")
 			return reconcile.Result{}, err
+		}
+		if len(changed.Status.RestartAwaitingChanges) == 0 {
+			changed.Status.RestartAwaitingChanges = nil
 		}
 	}
 
@@ -1193,18 +1199,54 @@ func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state
 	return desired, nil
 }
 
-// isPlacementPolicyChanged returns true if any of the Affinity, NodePlacement, or Toleration rules have changed.
-func hasNonHotpluggableVolumes(kvvmi *virtv1.VirtualMachineInstance) bool {
+func nonHotpluggableVolumeRefs(kvvmi *virtv1.VirtualMachineInstance) map[nameKindKey]struct{} {
+	refs := make(map[nameKindKey]struct{})
 	if kvvmi == nil {
-		return false
+		return refs
 	}
+
 	for _, v := range kvvmi.Spec.Volumes {
 		if v.PersistentVolumeClaim != nil && !v.PersistentVolumeClaim.Hotpluggable ||
 			v.ContainerDisk != nil && !v.ContainerDisk.Hotpluggable {
+			name, kind := kvbuilder.GetOriginalDiskName(v.Name)
+			if kind == "" {
+				continue
+			}
+			refs[nameKindKey{kind: kind, name: name}] = struct{}{}
+		}
+	}
+
+	return refs
+}
+
+func blockDeviceChangeTouchesRefs(change vmchange.FieldChange, refs map[nameKindKey]struct{}) bool {
+	if len(refs) == 0 {
+		return false
+	}
+
+	for _, ref := range blockDeviceRefsFromValue(change.CurrentValue) {
+		if _, ok := refs[nameKindKey{kind: ref.Kind, name: ref.Name}]; ok {
 			return true
 		}
 	}
+	for _, ref := range blockDeviceRefsFromValue(change.DesiredValue) {
+		if _, ok := refs[nameKindKey{kind: ref.Kind, name: ref.Name}]; ok {
+			return true
+		}
+	}
+
 	return false
+}
+
+func blockDeviceRefsFromValue(value interface{}) []v1alpha2.BlockDeviceSpecRef {
+	switch v := value.(type) {
+	case v1alpha2.BlockDeviceSpecRef:
+		return []v1alpha2.BlockDeviceSpecRef{v}
+	case []v1alpha2.BlockDeviceSpecRef:
+		return v
+	default:
+		return nil
+	}
 }
 
 func (h *SyncKvvmHandler) isPlacementPolicyChanged(allChanges vmchange.SpecChanges) bool {
