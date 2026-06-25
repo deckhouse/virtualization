@@ -77,6 +77,11 @@ variables:
   # portable binaries from these versions in its before_script.
   HELM_VERSION: "3.16.3"
   JQ_VERSION: "1.7.1"
+  # Node.js for test:scripts:js (.gitlab/scripts/js). The runner host has no
+  # Node.js, so the job runs inside the official node:${NODE_VERSION} image via
+  # `docker run`. Matches the Node version pinned in the GH workflow
+  # (.github/workflows/dev_module_build.yml test_scripts_js env NODE_VERSION).
+  NODE_VERSION: "24"
   # Let the host Go toolchain auto-download the version required by go.mod
   # (currently go 1.25.11). Runner hosts may ship an older Go with
   # GOTOOLCHAIN pinned to that older version (e.g. GOTOOLCHAIN=go1.25.9),
