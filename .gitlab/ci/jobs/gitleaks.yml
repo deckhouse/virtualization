@@ -27,7 +27,7 @@
 # stages.yml (it was dead — every active gitleaks job runs in `scan`). Even
 # with `when: never`, GitLab validates the stage exists at config-parse
 # time, so leaving the inherited `gitleaks` stage here would break the
-# pipeline. See virtualization-m9e.5.21.
+# pipeline.
 gitleaks_diff:
   extends: .gitleaks_scan
   stage: scan

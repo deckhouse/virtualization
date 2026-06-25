@@ -62,7 +62,7 @@ include:
   #   dev/     - development process (DEV registry): MR / main / release / dev-tag
   #   release/ - release process (PROD registry): tag-push + manual dispatch
   # Anchor names are unchanged (.base_build, .dev, .prod_vars, ...), so no job
-  # `extends:` edits are needed (see virtualization-m9e.5.22).
+  # `extends:` edits are needed.
   - local: ".gitlab/ci/templates/dev/dev_vars.yml"
   - local: ".gitlab/ci/templates/release/prod_vars.yml"
   - local: ".gitlab/ci/templates/dev/dev.yml"
@@ -88,7 +88,7 @@ include:
   - local: ".gitlab/ci/jobs/deploy-prod.yml"
   # Prod release-channels parity flow (manual single-channel dispatch):
   # requirements check, build/deploy per edition, version verification,
-  # GitLab release creation, Loop notification. See virtualization-m9e.6.3.
+  # GitLab release creation, Loop notification.
   - local: ".gitlab/ci/jobs/release-channels.yml"
   - local: ".gitlab/ci/jobs/cleanup.yml"
 
