@@ -128,7 +128,7 @@ var _ = Describe("TestFirmwareHandler", func() {
 				},
 			}
 
-			h := NewFirmwareHandler(fakeClient, mockMigration, firmwareImage, virtControllerNamespace, virtControllerName)
+			h := NewFirmwareHandler(fakeClient, mockMigration, firmwareImage, virtControllerNamespace, virtControllerName, false)
 			_, err := h.Handle(ctx, vm)
 
 			if needMigrate {
@@ -155,15 +155,33 @@ var _ = Describe("TestFirmwareHandler", func() {
 				migrationCalled = true
 				return false, nil
 			},
-		}, firmwareImage, virtControllerNamespace, virtControllerName)
+		}, firmwareImage, virtControllerNamespace, virtControllerName, false)
 
 		_, err := h.Handle(ctx, vm)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(migrationCalled).To(BeTrue())
 	})
 
+	It("should skip migration when firmware update is disabled", func() {
+		vm := newVMNeedMigrate()
+		deploy := newVirtController(true, firmwareImage)
+		fakeClient = setupFirmwareEnvironment(vm, deploy)
+
+		migrationCalled := false
+		h := NewFirmwareHandler(fakeClient, &firmwareMigrationStub{
+			onceMigrate: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
+				migrationCalled = true
+				return false, nil
+			},
+		}, firmwareImage, virtControllerNamespace, virtControllerName, true)
+
+		_, err := h.Handle(ctx, vm)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(migrationCalled).To(BeFalse())
+	})
+
 	It("should return nil when vm is nil", func() {
-		h := NewFirmwareHandler(nil, nil, firmwareImage, virtControllerNamespace, virtControllerName)
+		h := NewFirmwareHandler(nil, nil, firmwareImage, virtControllerNamespace, virtControllerName, false)
 
 		_, err := h.Handle(ctx, nil)
 		Expect(err).NotTo(HaveOccurred())
@@ -174,7 +192,7 @@ var _ = Describe("TestFirmwareHandler", func() {
 		now := metav1.Now()
 		vm.DeletionTimestamp = &now
 
-		h := NewFirmwareHandler(nil, nil, firmwareImage, virtControllerNamespace, virtControllerName)
+		h := NewFirmwareHandler(nil, nil, firmwareImage, virtControllerNamespace, virtControllerName, false)
 		_, err := h.Handle(ctx, vm)
 		Expect(err).NotTo(HaveOccurred())
 	})
@@ -187,7 +205,7 @@ var _ = Describe("TestFirmwareHandler", func() {
 			onceMigrate: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
 				return false, nil
 			},
-		}, firmwareImage, virtControllerNamespace, virtControllerName)
+		}, firmwareImage, virtControllerNamespace, virtControllerName, false)
 
 		_, err := h.Handle(ctx, vm)
 		Expect(err).To(HaveOccurred())
@@ -202,7 +220,7 @@ var _ = Describe("TestFirmwareHandler", func() {
 
 		DescribeTable("should evaluate FirmwareUpToDate condition",
 			func(vm *v1alpha2.VirtualMachine, expected bool) {
-				h := NewFirmwareHandler(nil, nil, firmwareImage, virtControllerNamespace, virtControllerName)
+				h := NewFirmwareHandler(nil, nil, firmwareImage, virtControllerNamespace, virtControllerName, false)
 				Expect(h.needUpdate(vm)).To(Equal(expected))
 			},
 			Entry("FirmwareUpToDate is False", buildVMWithConditions([]metav1.Condition{{
@@ -222,7 +240,8 @@ var _ = Describe("TestFirmwareHandler", func() {
 
 	Describe("isVirtControllerUpToDate", func() {
 		It("should return error when deployment is not found", func() {
-			h := NewFirmwareHandler(setupFirmwareEnvironment(newVMNeedMigrate()), nil, firmwareImage, virtControllerNamespace, virtControllerName)
+			fakeClient := setupFirmwareEnvironment(newVMNeedMigrate())
+			h := NewFirmwareHandler(fakeClient, nil, firmwareImage, virtControllerNamespace, virtControllerName, false)
 
 			ready, err := h.isVirtControllerUpToDate(ctx)
 			Expect(err).To(HaveOccurred())
@@ -231,7 +250,8 @@ var _ = Describe("TestFirmwareHandler", func() {
 
 		DescribeTable("should evaluate deployment state and launcher image",
 			func(deploy *appsv1.Deployment, expectedReady bool) {
-				h := NewFirmwareHandler(setupFirmwareEnvironment(newVMNeedMigrate(), deploy), nil, firmwareImage, virtControllerNamespace, virtControllerName)
+				fakeClient := setupFirmwareEnvironment(newVMNeedMigrate(), deploy)
+				h := NewFirmwareHandler(fakeClient, nil, firmwareImage, virtControllerNamespace, virtControllerName, false)
 
 				ready, err := h.isVirtControllerUpToDate(ctx)
 				Expect(err).NotTo(HaveOccurred())
@@ -310,7 +330,7 @@ var _ = Describe("TestFirmwareHandler", func() {
 	})
 
 	It("should return firmware handler name", func() {
-		h := NewFirmwareHandler(nil, nil, firmwareImage, virtControllerNamespace, virtControllerName)
+		h := NewFirmwareHandler(nil, nil, firmwareImage, virtControllerNamespace, virtControllerName, false)
 		Expect(h.Name()).To(Equal(firmwareHandler))
 	})
 })

@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -65,7 +66,7 @@ var _ = Describe("HotplugHandler", func() {
 		return &v1alpha2.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{Name: vmName, Namespace: vmNamespace},
 			Spec: v1alpha2.VirtualMachineSpec{
-				EnableParavirtualization: true,
+				EnableParavirtualization: ptr.To(true),
 				BlockDeviceRefs:          bdRefs,
 			},
 			Status: v1alpha2.VirtualMachineStatus{
@@ -291,7 +292,7 @@ var _ = Describe("HotplugHandler", func() {
 			vm := newVM(v1alpha2.MachineRunning, v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.DiskDevice, Name: vdName,
 			})
-			vm.Spec.EnableParavirtualization = false
+			vm.Spec.EnableParavirtualization = ptr.To(false)
 			kvvm := newKVVM(nil)
 			kvvmi := newEmptyKVVMI(vmName, vmNamespace)
 			vd := newVD(vdName, vdPVCName)
@@ -305,7 +306,7 @@ var _ = Describe("HotplugHandler", func() {
 
 		It("should not unplug a hotpluggable disk removed from spec", func() {
 			vm := newVM(v1alpha2.MachineRunning)
-			vm.Spec.EnableParavirtualization = false
+			vm.Spec.EnableParavirtualization = ptr.To(false)
 			kvvm := newKVVM([]virtv1.Volume{
 				{
 					Name: "vd-" + vdName,

@@ -3333,6 +3333,11 @@ func (in *VirtualMachineSpec) DeepCopyInto(out *VirtualMachineSpec) {
 		*out = new(int64)
 		**out = **in
 	}
+	if in.EnableParavirtualization != nil {
+		in, out := &in.EnableParavirtualization, &out.EnableParavirtualization
+		*out = new(bool)
+		**out = **in
+	}
 	out.CPU = in.CPU
 	in.Memory.DeepCopyInto(&out.Memory)
 	if in.BlockDeviceRefs != nil {

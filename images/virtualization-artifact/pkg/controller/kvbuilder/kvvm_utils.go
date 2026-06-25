@@ -32,10 +32,8 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 const (
@@ -144,7 +142,6 @@ func ApplyVirtualMachineSpec(
 		Version: v1alpha2.SchemeGroupVersion.Version,
 		Kind:    "VirtualMachine",
 	})
-	kvvm.AddFinalizer(v1alpha2.FinalizerKVVMProtection)
 
 	if ipAddress != "" {
 		// Set ip address cni request annotation.
@@ -169,6 +166,8 @@ func applyBlockDeviceRefs(
 	cviByName map[string]*v1alpha2.ClusterVirtualImage,
 	vmbdaByBlockDeviceRef map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment,
 ) error {
+	isParavirtualizationEnabled := vm.Spec.IsParavirtualizationEnabled()
+
 	hasExplicitBootOrder := false
 	for _, bd := range vm.Spec.BlockDeviceRefs {
 		if bd.BootOrder != nil {
@@ -202,7 +201,7 @@ func applyBlockDeviceRefs(
 	for i, bd := range vm.Spec.BlockDeviceRefs {
 		diskName := GenerateDiskName(bd.Kind, bd.Name)
 		// When VM is stopped, update disks unconditionally.
-		if isVmRunning && vm.Spec.EnableParavirtualization && len(kvvmVolumes) > 0 && !slices.ContainsFunc(kvvmVolumes, func(v virtv1.Volume) bool { return v.Name == diskName }) {
+		if isVmRunning && isParavirtualizationEnabled && len(kvvmVolumes) > 0 && !slices.ContainsFunc(kvvmVolumes, func(v virtv1.Volume) bool { return v.Name == diskName }) {
 			continue
 		}
 
@@ -216,9 +215,13 @@ func applyBlockDeviceRefs(
 		}
 
 		_, hotpluggable := hotpluggableVolumes[diskName]
-		if err := setBlockDeviceDisk(kvvm, bd, kvBootOrder, hotpluggable || (vm.Spec.EnableParavirtualization && !isVmRunning), vdByName, viByName, cviByName); err != nil {
+		if err := setBlockDeviceDisk(kvvm, bd, kvBootOrder, hotpluggable || (isParavirtualizationEnabled && !isVmRunning), vdByName, viByName, cviByName); err != nil {
 			return err
 		}
+	}
+
+	if err := syncAttachedVMBDAHotplugVolumes(kvvm, vdByName, viByName, cviByName, vmbdaByBlockDeviceRef); err != nil {
+		return err
 	}
 
 	return nil
@@ -253,6 +256,39 @@ func cleanupRemovedStaticDisks(kvvm *KVVM, specDiskNames, hotpluggableVolumes, v
 		kvvm.Resource.Spec.Template.Spec.Volumes,
 		func(v virtv1.Volume) bool { return isRemovedStatic(v.Name) },
 	)
+}
+
+func syncAttachedVMBDAHotplugVolumes(
+	kvvm *KVVM,
+	vdByName map[string]*v1alpha2.VirtualDisk,
+	viByName map[string]*v1alpha2.VirtualImage,
+	cviByName map[string]*v1alpha2.ClusterVirtualImage,
+	vmbdaByBlockDeviceRef map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment,
+) error {
+	kvvmVolumes := kvvm.Resource.Spec.Template.Spec.Volumes
+
+	for ref := range vmbdaByBlockDeviceRef {
+		diskName := GenerateDiskName(v1alpha2.BlockDeviceKind(ref.Kind), ref.Name)
+		if diskName == "" {
+			continue
+		}
+
+		if !slices.ContainsFunc(kvvmVolumes, func(v virtv1.Volume) bool { return v.Name == diskName }) {
+			continue
+		}
+
+		if vd, ok := vdByName[ref.Name]; ok && vd != nil {
+			if isVolumeMigrating(vd) {
+				continue
+			}
+		}
+
+		if err := setVMBDABlockDeviceDisk(kvvm, ref, vdByName, viByName, cviByName); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func setBlockDeviceDisk(
@@ -316,6 +352,56 @@ func setBlockDeviceDisk(
 	}
 }
 
+func setVMBDABlockDeviceDisk(
+	kvvm *KVVM,
+	ref v1alpha2.VMBDAObjectRef,
+	vdByName map[string]*v1alpha2.VirtualDisk,
+	viByName map[string]*v1alpha2.VirtualImage,
+	cviByName map[string]*v1alpha2.ClusterVirtualImage,
+) error {
+	switch ref.Kind {
+	case v1alpha2.VMBDAObjectRefKindVirtualDisk:
+		name := GenerateVDDiskName(ref.Name)
+		vd, ok := vdByName[ref.Name]
+		if !ok || vd == nil {
+			removeDisk(kvvm, name)
+			return nil
+		}
+
+		if vd.Status.Phase == v1alpha2.DiskTerminating || vd.Status.Target.PersistentVolumeClaim == "" {
+			removeDisk(kvvm, name)
+			return nil
+		}
+
+		return kvvm.SetDisk(name, SetDiskOptions{
+			PersistentVolumeClaim: ptr.To(vd.Status.Target.PersistentVolumeClaim),
+			Serial:                GenerateSerialFromObject(vd),
+			IsHotplugged:          true,
+		})
+	case v1alpha2.VMBDAObjectRefKindVirtualImage:
+		return setBlockDeviceDisk(kvvm, v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.ImageDevice, Name: ref.Name}, 0, true, vdByName, viByName, cviByName)
+	case v1alpha2.VMBDAObjectRefKindClusterVirtualImage:
+		return setBlockDeviceDisk(kvvm, v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.ClusterImageDevice, Name: ref.Name}, 0, true, vdByName, viByName, cviByName)
+	default:
+		return fmt.Errorf("unknown VMBDA block device kind %q. %w", ref.Kind, common.ErrUnknownType)
+	}
+}
+
+func removeDisk(kvvm *KVVM, name string) {
+	kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks = slices.DeleteFunc(
+		kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks,
+		func(d virtv1.Disk) bool { return d.Name == name },
+	)
+	kvvm.Resource.Spec.Template.Spec.Volumes = slices.DeleteFunc(
+		kvvm.Resource.Spec.Template.Spec.Volumes,
+		func(v virtv1.Volume) bool { return v.Name == name },
+	)
+}
+
+func isVolumeMigrating(vd *v1alpha2.VirtualDisk) bool {
+	return !vd.Status.MigrationState.StartTimestamp.IsZero() && vd.Status.MigrationState.EndTimestamp.IsZero()
+}
+
 func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName map[string]*v1alpha2.VirtualDisk) error {
 	bootOrder := uint(1)
 	var updateVolumesStrategy *virtv1.UpdateVolumesStrategy = nil
@@ -334,8 +420,7 @@ func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName ma
 		}
 
 		var pvcName string
-		migrating, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
-		if migrating.Status == metav1.ConditionTrue && conditions.IsLastUpdated(migrating, vd) && vd.Status.MigrationState.TargetPVC != "" {
+		if isVolumeMigrating(vd) && vd.Status.MigrationState.TargetPVC != "" {
 			pvcName = vd.Status.MigrationState.TargetPVC
 			updateVolumesStrategy = ptr.To(virtv1.UpdateVolumesStrategyMigration)
 		}

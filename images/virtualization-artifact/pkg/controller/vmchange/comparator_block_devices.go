@@ -79,7 +79,7 @@ func compareBlockDevices(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 		itemPath := blockDevicesItemPath(idx)
 
 		action := ActionApplyImmediate
-		if !current.EnableParavirtualization {
+		if !current.IsParavirtualizationEnabled() {
 			action = ActionRestart
 		}
 

@@ -88,7 +88,7 @@ func NewKVVM(currentKVVM *virtv1.VirtualMachine, opts KVVMOptions) *KVVM {
 
 func DefaultOptions(current *v1alpha2.VirtualMachine) KVVMOptions {
 	return KVVMOptions{
-		EnableParavirtualization: current.Spec.EnableParavirtualization,
+		EnableParavirtualization: current.Spec.IsParavirtualizationEnabled(),
 		OsType:                   current.Spec.OsType,
 		DisableHypervSyNIC:       os.Getenv("DISABLE_HYPERV_SYNIC") == "1",
 	}

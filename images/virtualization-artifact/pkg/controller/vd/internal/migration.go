@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -411,6 +412,10 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 	if err != nil {
 		return err
 	}
+	if pvc == nil {
+		log.Debug("Target PersistentVolumeClaim is not ready for migration preparation; skip")
+		return nil
+	}
 
 	log.Info(
 		"The target PersistentVolumeClaim has been created or already exists",
@@ -419,7 +424,10 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 	)
 
 	if vd.Status.Target.PersistentVolumeClaim == pvc.Name {
-		return errors.New("the target PersistentVolumeClaim name matched the source PersistentVolumeClaim name, please report a bug")
+		log.Debug("Target PersistentVolumeClaim name matches source PersistentVolumeClaim after selection; skip",
+			slog.String("pvc", pvc.Name),
+		)
+		return nil
 	}
 
 	vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{
@@ -641,18 +649,69 @@ func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+
+	// A previous migration's PVC may still be terminating when the next migration starts, remove it
+	pvcs = slices.DeleteFunc(pvcs, func(pvc corev1.PersistentVolumeClaim) bool {
+		return pvc.Name != sourcePVCName && pvc.DeletionTimestamp != nil
+	})
+
+	if targetPVCName == sourcePVCName && targetPVCName != "" {
+		logger.FromContext(ctx).Debug("Target PersistentVolumeClaim name matches source PersistentVolumeClaim; ignoring stale target name",
+			slog.String("targetPVC", targetPVCName),
+			slog.String("sourcePVC", sourcePVCName),
+		)
+		targetPVCName = ""
+	}
+
 	switch len(pvcs) {
-	case 1: // only source pvc exists
+	case 1:
+		if pvcs[0].Name != sourcePVCName {
+			logger.FromContext(ctx).Debug("Source PersistentVolumeClaim was not found among owned PersistentVolumeClaims; skip migration preparation",
+				slog.String("sourcePVC", sourcePVCName),
+				slog.String("ownedPVC", pvcs[0].Name),
+			)
+			return nil, nil
+		}
+		if targetPVCName != "" {
+			logger.FromContext(ctx).Debug("Target PersistentVolumeClaim was not found; ignoring stale target name",
+				slog.String("targetPVC", targetPVCName),
+			)
+		}
 	case 2:
+		sourcePVCExists := false
+		var targetPVC, fallbackTargetPVC *corev1.PersistentVolumeClaim
 		for _, pvc := range pvcs {
-			// If TargetPVC is empty, that means previous reconciliation failed and not updated TargetPVC in status.
-			// So, we should use pvc, that is not equal to SourcePVC.
-			if pvc.Name == targetPVCName || pvc.Name != sourcePVCName {
-				return &pvc, nil
+			if pvc.Name == sourcePVCName {
+				sourcePVCExists = true
+				continue
+			}
+			fallbackTargetPVC = &pvc
+			if targetPVCName == "" || pvc.Name == targetPVCName {
+				targetPVC = &pvc
+				break
 			}
 		}
+		if !sourcePVCExists {
+			logger.FromContext(ctx).Debug("Source PersistentVolumeClaim was not found among owned PersistentVolumeClaims; skip migration preparation",
+				slog.String("sourcePVC", sourcePVCName),
+			)
+			return nil, nil
+		}
+		if targetPVC != nil {
+			return targetPVC, nil
+		}
+		if fallbackTargetPVC != nil {
+			logger.FromContext(ctx).Debug("Target PersistentVolumeClaim was not found; using the only non-source PersistentVolumeClaim",
+				slog.String("targetPVC", targetPVCName),
+				slog.String("fallbackPVC", fallbackTargetPVC.Name),
+			)
+			return fallbackTargetPVC, nil
+		}
 	default:
-		return nil, fmt.Errorf("unexpected number of pvcs: %d, please report a bug", len(pvcs))
+		logger.FromContext(ctx).Debug("Unexpected number of owned PersistentVolumeClaims; skip migration preparation",
+			slog.Int("count", len(pvcs)),
+		)
+		return nil, nil
 	}
 
 	pvc := &corev1.PersistentVolumeClaim{

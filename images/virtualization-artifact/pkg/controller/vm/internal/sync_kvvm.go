@@ -44,6 +44,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/inplaceresize"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmchange"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -74,6 +75,7 @@ func NewSyncKvvmHandler(
 		recorder:           recorder,
 		featureGate:        featureGate,
 		syncVolumesService: syncVolumesService,
+		inplaceResize:      inplaceresize.New(featureGate, client),
 	}
 }
 
@@ -83,6 +85,7 @@ type SyncKvvmHandler struct {
 	dvcrSettings       *dvcr.Settings
 	featureGate        featuregate.FeatureGate
 	syncVolumesService syncVolumesService
+	inplaceResize      *inplaceresize.Service
 }
 
 func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
@@ -228,13 +231,20 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		changed.Status.RestartAwaitingChanges = nil
 	}
 
+	kvvmi, err := s.KVVMI(ctx)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	inplaceResizeInProgress := kvvmi != nil && h.inplaceResize.InProgress(kvvmi)
+
 	// 4. Set ConfigurationApplied condition.
 	switch {
 	case waitForNetwork:
 		cbConfApplied.
 			Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonConfigurationNotApplied).
-			Message("Waiting for SDN to configure network interfaces on the pod.")
+			Message("Waiting for SDN to configure network interfaces.")
 	case kvvmSyncErr != nil:
 		h.recorder.Event(current, corev1.EventTypeWarning, v1alpha2.ReasonErrVmNotSynced, kvvmSyncErr.Error())
 		cbConfApplied.
@@ -266,6 +276,10 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			Status(metav1.ConditionTrue).
 			Reason(vmcondition.ReasonChangesPendingRestart).
 			Message("VirtualMachineClass.spec has been modified. Waiting for the user to restart in order to apply the configuration changes.")
+	case inplaceResizeInProgress:
+		msg := h.buildInProgressInplaceResizeMsg(kvvmi)
+		h.recorder.Event(current, corev1.EventTypeNormal, h.resizingEventReason(kvvmi), msg)
+		cbConfApplied.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonConfigurationNotApplied).Message(msg)
 	case synced:
 		h.recorder.Event(current, corev1.EventTypeNormal, v1alpha2.ReasonErrVmSynced, "The virtual machine configuration successfully synced")
 		cbConfApplied.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonConfigurationApplied)
@@ -585,11 +599,29 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 
 // IsKVVMChanged returns whether kvvm spec or special annotations are changed.
 func IsKVVMChanged(prevKVVM, newKVVM *virtv1.VirtualMachine) bool {
-	if prevKVVM.Annotations[annotations.AnnVMLastAppliedSpec] != newKVVM.Annotations[annotations.AnnVMLastAppliedSpec] {
+	prevKVVMLastAppliedSpecAnnotations, ok := prevKVVM.Annotations[annotations.AnnVMLastAppliedSpec]
+	if !ok {
+		prevKVVMLastAppliedSpecAnnotations = prevKVVM.Annotations[annotations.AnnVMLastAppliedSpecLegacy]
+	}
+	newKVVMLastAppliedSpecAnnotations, ok := newKVVM.Annotations[annotations.AnnVMLastAppliedSpec]
+	if !ok {
+		newKVVMLastAppliedSpecAnnotations = newKVVM.Annotations[annotations.AnnVMLastAppliedSpecLegacy]
+	}
+
+	if prevKVVMLastAppliedSpecAnnotations != newKVVMLastAppliedSpecAnnotations {
 		return true
 	}
 
-	if prevKVVM.Annotations[annotations.AnnVMClassLastAppliedSpec] != newKVVM.Annotations[annotations.AnnVMClassLastAppliedSpec] {
+	prevKVVMClassLastAppliedSpecAnnotations, ok := prevKVVM.Annotations[annotations.AnnVMClassLastAppliedSpec]
+	if !ok {
+		prevKVVMClassLastAppliedSpecAnnotations = prevKVVM.Annotations[annotations.AnnVMClassLastAppliedSpecLegacy]
+	}
+	newKVVMClassLastAppliedSpecAnnotations, ok := newKVVM.Annotations[annotations.AnnVMClassLastAppliedSpec]
+	if !ok {
+		newKVVMClassLastAppliedSpecAnnotations = newKVVM.Annotations[annotations.AnnVMClassLastAppliedSpecLegacy]
+	}
+
+	if prevKVVMClassLastAppliedSpecAnnotations != newKVVMClassLastAppliedSpecAnnotations {
 		return true
 	}
 
@@ -777,7 +809,7 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 				return fmt.Errorf("unable to check pod network status: %w", err)
 			}
 			if !ready {
-				msg := "Waiting for SDN to configure network interfaces on the pod"
+				msg := "Waiting for SDN to configure network interfaces"
 				log.Info(msg)
 				h.recorder.Event(current, corev1.EventTypeNormal, v1alpha2.ReasonVMChangesApplied, msg)
 				return errWaitForNetworkReady
@@ -962,7 +994,24 @@ func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.Virtual
 	if kvvm == nil {
 		return false, nil
 	}
-	filteredVM, err := filterReadyNetworks(ctx, s.Client(), s.VirtualMachine().Current())
+	vm := s.VirtualMachine().Current()
+	// For Main-only VMs, the default pod network may be implicit in the KVVM
+	// template but explicit in the running VMI: KubeVirt defaulting adds it to
+	// the VMI spec when the instance starts. If we later "fix" the KVVM template
+	// from [] to [default] while the VM is already Running, KubeVirt treats that
+	// template diff as a non-live-updatable network change and sets RestartRequired.
+	// When there are no active additional interfaces, this is only an implicit-vs-
+	// explicit default-network drift, so do not reconcile it.
+	if hasOnlyDefaultNetwork(vm) {
+		kvvmi, err := s.KVVMI(ctx)
+		if err != nil {
+			return false, err
+		}
+		if !hasActiveAdditionalInterfaces(kvvm) && isKVVMIRunning(kvvmi) {
+			return false, nil
+		}
+	}
+	filteredVM, err := filterReadyNetworks(ctx, s.Client(), vm)
 	if err != nil {
 		return false, err
 	}
@@ -989,7 +1038,45 @@ func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.Virtual
 	return false, nil
 }
 
+func isKVVMIRunning(kvvmi *virtv1.VirtualMachineInstance) bool {
+	return kvvmi != nil && kvvmi.Status.Phase == virtv1.Running
+}
+
+func hasActiveAdditionalInterfaces(kvvm *virtv1.VirtualMachine) bool {
+	if kvvm == nil || kvvm.Spec.Template == nil {
+		return false
+	}
+	for _, iface := range kvvm.Spec.Template.Spec.Domain.Devices.Interfaces {
+		if iface.Name == network.NameDefaultInterface || iface.State == virtv1.InterfaceStateAbsent {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
 func (h *SyncKvvmHandler) applyNetworkReadinessSync(ctx context.Context, s state.VirtualMachineState) error {
+	vm := s.VirtualMachine().Current()
+	if hasOnlyDefaultNetwork(vm) {
+		kvvm, err := s.KVVM(ctx)
+		if err != nil {
+			return fmt.Errorf("find the internal virtual machine: %w", err)
+		}
+		kvvmi, err := s.KVVMI(ctx)
+		if err != nil {
+			return fmt.Errorf("find the internal virtual machine instance: %w", err)
+		}
+		// For Main-only VMs, KubeVirt may have already defaulted the pod network into
+		// the running VMI while the KVVM template still has no explicit interfaces.
+		// Waiting for SDN and updating the template would materialize [] -> [default]
+		// after the VM is Running, which KubeVirt can report as RestartRequired.
+		// If there are no active additional interfaces, there is nothing SDN-managed
+		// to wait for or sync, so skip the network readiness/update path.
+		if !hasActiveAdditionalInterfaces(kvvm) && isKVVMIRunning(kvvmi) {
+			return nil
+		}
+	}
+
 	desired, err := h.patchPodNetworkAnnotation(ctx, s)
 	if err != nil {
 		return fmt.Errorf("patch pod network annotation: %w", err)
@@ -1131,4 +1218,49 @@ func (h *SyncKvvmHandler) isPlacementPolicyChanged(allChanges vmchange.SpecChang
 	}
 
 	return false
+}
+
+func (h *SyncKvvmHandler) buildInProgressInplaceResizeMsg(kvvmi *virtv1.VirtualMachineInstance) string {
+	msg := strings.Builder{}
+
+	switch {
+	case h.inplaceResize.CPUChange(kvvmi):
+		msg.WriteString("CPU hotplug is in progress.")
+	case h.inplaceResize.MemoryChange(kvvmi):
+		msg.WriteString("Memory hotplug is in progress.")
+	default:
+		msg.WriteString("Hotplug is in progress.")
+	}
+
+	cond := h.inplaceResize.ResizeCondition(kvvmi)
+	switch cond.Reason {
+	case virtv1.VirtualMachineInstanceReasonPodResizePending, virtv1.VirtualMachineInstanceReasonPodResizeInProgress:
+		msg.WriteString(" ")
+		msg.WriteString(strings.ReplaceAll(cond.Message, "Pod", "VM"))
+	case virtv1.VirtualMachineInstanceReasonPodResizeCompleted:
+		msg.WriteString(" Waiting when cpu and memory will be hotplugged on virtual machine.")
+	default:
+		msg.WriteString(" reason: ")
+		msg.WriteString(cond.Reason)
+		msg.WriteString(", message: ")
+		msg.WriteString(cond.Message)
+	}
+
+	return msg.String()
+}
+
+func (h *SyncKvvmHandler) resizingEventReason(kvvmi *virtv1.VirtualMachineInstance) string {
+	cpuChange := h.inplaceResize.CPUChange(kvvmi)
+	memoryChange := h.inplaceResize.MemoryChange(kvvmi)
+
+	switch {
+	case cpuChange && memoryChange:
+		return v1alpha2.ReasonVMCPUAndMemoryResizing
+	case cpuChange:
+		return v1alpha2.ReasonVMCPUResizing
+	case memoryChange:
+		return v1alpha2.ReasonVMMemoryResizing
+	default:
+		return ""
+	}
 }

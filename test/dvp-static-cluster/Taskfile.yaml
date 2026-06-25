@@ -178,7 +178,10 @@ tasks:
     deps:
       - render-cluster-config
     vars:
-      DeckhouseInstallImage: "registry.deckhouse.io/deckhouse/ee/install"
+      DeckhouseInstallImage:
+        sh: yq eval '.deckhouse.registry + "/deckhouse/ee/install"' values.yaml
+      DeckhouseVersion:
+        sh: yq eval '.deckhouse.version' values.yaml
       prefix:
         sh: yq eval '.storageType' values.yaml
       start_time:
@@ -195,7 +198,7 @@ tasks:
         -v "{{ .TMP_DIR }}/config.yaml:/config.yaml" \
         -v "{{ .SSH_DIR }}:/tmp/.ssh/" \
         -v "{{ .TMP_DIR }}/dhctl:/tmp/dhctl/" \
-        {{ .DeckhouseInstallImage }}:{{ .DECKHOUSE_CHANNEL }} \
+        {{ .DeckhouseInstallImage }}:{{ .DeckhouseVersion }} \
             dhctl bootstrap \
             --config=/config.yaml \
             --ssh-agent-private-keys=/tmp/.ssh/{{ .SSH_FILE_NAME }} \

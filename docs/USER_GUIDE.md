@@ -431,49 +431,49 @@ How to create an image and store it in PVC in the web interface:
 
 An image stored in Container Registry has a certain format. Let's look at an example:
 
-First, download the image locally:
+1. Download the image locally:
 
-```bash
-curl -L https://cloud-images.ubuntu.com/minimal/releases/noble/release/ubuntu-24.04-minimal-cloudimg-amd64.img -o ubuntu2404.img
-```
+   ```bash
+   curl -L https://cloud-images.ubuntu.com/minimal/releases/noble/release/ubuntu-24.04-minimal-cloudimg-amd64.img -o ubuntu2404.img
+   ```
 
-Next, create a `Dockerfile` with the following contents:
+1. Create a `Dockerfile` with the following contents:
 
-```Dockerfile
-FROM scratch
-COPY ubuntu2404.img /disk/ubuntu2404.img
-```
+   ```Dockerfile
+   FROM scratch
+   COPY ubuntu2404.img /disk/ubuntu2404.img
+   ```
 
-Build the image and load it into the container registry. The example below uses docker.io as the container registry. you need to have a service account and a customized environment to run it.
+1. Build the container image. The example below uses [docker.com](https://www.docker.com/) as the container registry. You need an account on the service and a properly configured environment:
 
-```bash
-docker build -t docker.io/<username>/ubuntu2404:latest
-```
+   ```bash
+   docker build -t docker.io/<username>/ubuntu2404:latest
+   ```
 
-where `username` is the username specified when registering with docker.io.
+   Where `username` is the username specified when registering with [docker.com](https://www.docker.com/).
 
-Load the created image into the container registry:
+1. Push the created image to the container registry:
 
-```bash
-docker push docker.io/<username>/ubuntu2404:latest
-```
+   ```bash
+   docker push docker.io/<username>/ubuntu2404:latest
+   ```
 
-To use this image, create a resource as an example:
+1. To use this image, create a resource as an example:
 
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualImage
-metadata:
-  name: ubuntu-2404
-spec:
-  storage: ContainerRegistry
-  dataSource:
-    type: ContainerImage
-    containerImage:
-      image: docker.io/<username>/ubuntu2404:latest
-EOF
-```
+   ```yaml
+   d8 k apply -f - <<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: VirtualImage
+   metadata:
+     name: ubuntu-2404
+   spec:
+     storage: ContainerRegistry
+     dataSource:
+       type: ContainerImage
+       containerImage:
+         image: docker.io/<username>/ubuntu2404:latest
+   EOF
+   ```
 
 How to create an image from Container Registry in the web interface:
 
@@ -1966,7 +1966,7 @@ Memory hotplug lets you increase `spec.memory.size` for a running VM without res
 
 This functionality is disabled by default.
 
-To enable this functionality, add `HotplugMemoryWithLiveMigration` to `.spec.settings.featureGates` array in the ModuleConfig/virtualization:
+To enable this functionality, add `HotplugMemoryWithLiveMigration` to `.spec.settings.featureGates` array in the ModuleConfig `virtualization`:
 
 ```yaml
 kind: ModuleConfig
@@ -3778,7 +3778,7 @@ As a result, a VM named `clone-database-prod` and a disk named `clone-database-r
 ## USB Devices
 
 {{< alert level="warning" >}}
-USB device passthrough is available only in the **Enterprise Edition (EE)** of the Deckhouse Virtualization Platform.
+USB device passthrough is available only in the Deckhouse Virtualization Platform **Enterprise Edition (EE)**.
 {{< /alert >}}
 
 The virtualization module supports USB device passthrough to virtual machines using DRA (Dynamic Resource Allocation). This section describes how to use USB devices with virtual machines.
@@ -3806,14 +3806,14 @@ USB device passthrough follows a defined lifecycle — from device discovery on 
 
 1. After the namespace is assigned, the module controller automatically creates a corresponding [USBDevice](/modules/virtualization/cr.html#usbdevice) resource in that namespace.
 
-1. The [USBDevice](/modules/virtualization/cr.html#usbdevice) is attached to a virtual machine by adding it to the `.spec.usbDevices` resource field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
+1. The [USBDevice](/modules/virtualization/cr.html#usbdevice) is attached to a virtual machine by adding it to the `.spec.usbDevices` field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
 
 ### Quick Start
 
 The following steps describe the minimal workflow for attaching a USB device to a virtual machine:
 
 1. Connect the USB device to a cluster node.
-1. Verify that a NodeUSBDevice resource has been created:
+1. Verify that a [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource has been created:
 
    ```bash
    d8 k get nodeusbdevice
@@ -3838,7 +3838,7 @@ The following steps describe the minimal workflow for attaching a USB device to 
    d8 k get usbdevice -n my-project
    ```
 
-1. Add the device to the `.spec.usbDevices` resource field of a [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
+1. Add the device to the `.spec.usbDevices` field of a [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
 
    ```bash
    d8 k apply -f - <<EOF
@@ -3867,8 +3867,8 @@ Example output:
 
 ```console
 NAME                 NODE           READY   ASSIGNED   NAMESPACE   AGE
-usb-flash-drive     node-1         True    False                  10m
-logitech-webcam     node-2         True    True      my-project   15m
+usb-flash-drive      node-1         True    False                  10m
+logitech-webcam      node-2         True    True       my-project  15m
 ```
 
 #### NodeUSBDevice Conditions
@@ -3887,7 +3887,7 @@ The status of a [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) r
 
 #### Assigning a Namespace
 
-Before a USB device can be attached to a virtual machine, it must be exposed to a specific namespace. To make a USB device available in a specific namespace, set the `.spec.assignedNamespace` resource field:
+Before a USB device can be attached to a virtual machine, it must be exposed to a specific namespace. To make a USB device available in a specific namespace, set the `.spec.assignedNamespace` parameter of the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource:
 
 ```bash
 d8 k apply -f - <<EOF
@@ -3904,7 +3904,7 @@ After assigning the namespace, a corresponding [USBDevice](/modules/virtualizati
 
 ### USBDevice
 
-When the related [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) has the `.spec.assignedNamespace` resource field set, a corresponding [USBDevice](/modules/virtualization/cr.html#usbdevice) resource is created in that namespace. It is a namespaced resource that represents a USB device available for attachment to virtual machines within a given namespace.
+When the related [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) has the `.spec.assignedNamespace` field set, a corresponding [USBDevice](/modules/virtualization/cr.html#usbdevice) resource is created in that namespace. It is a namespaced resource that represents a USB device available for attachment to virtual machines within a given namespace.
 
 Example of viewing USB devices in a namespace:
 
@@ -3948,7 +3948,7 @@ The [USBDevice](/modules/virtualization/cr.html#usbdevice) resource provides sta
 
 ### Attaching USB Device to VM
 
-After the [USBDevice](/modules/virtualization/cr.html#usbdevice) resource is available in a namespace, it can be attached to a virtual machine. To attach a USB device to a virtual machine, add the device to the `.spec.usbDevices` resource field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource specification:
+After the [USBDevice](/modules/virtualization/cr.html#usbdevice) resource is available in a namespace, it can be attached to a virtual machine. To attach a USB device to a virtual machine, add the device to the `.spec.usbDevices` field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource specification:
 
 ```bash
 d8 k apply -f - <<EOF
@@ -4021,7 +4021,7 @@ Status:
 
 {{< alert level="info" >}}
 If a USB device is physically disconnected from the node, the `Attached` condition becomes `False`.
-Both `USBDevice` and `NodeUSBDevice` resources update their status conditions to indicate that the device is no longer present on the host.
+Both [USBDevice](/modules/virtualization/cr.html#usbdevice) and [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resources update their status conditions to indicate that the device is no longer present on the host.
 {{< /alert >}}
 
 ### Requirements and Limitations

@@ -174,6 +174,29 @@ var _ = Describe("SyncKvvmHandler", func() {
 		return kvvmi
 	}
 
+	makeResizingKVVMI := func(reason, message string, conditionType virtv1.VirtualMachineInstanceConditionType) *virtv1.VirtualMachineInstance {
+		kvvmi := makeKVVMI()
+		kvvmi.Annotations = map[string]string{
+			virtv1.VirtualMachineInstanceInPlaceResizeInProgressAnn: "true",
+		}
+		kvvmi.Status.Conditions = []virtv1.VirtualMachineInstanceCondition{
+			{
+				Type:    virtv1.VirtualMachineInstancePodResourceResizeInProgress,
+				Status:  corev1.ConditionTrue,
+				Reason:  reason,
+				Message: message,
+			},
+		}
+		if conditionType != "" {
+			kvvmi.Status.Conditions = append(kvvmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
+				Type:   conditionType,
+				Status: corev1.ConditionTrue,
+			})
+		}
+
+		return kvvmi
+	}
+
 	makeVMIP := func() *v1alpha2.VirtualMachineIPAddress {
 		return &v1alpha2.VirtualMachineIPAddress{
 			ObjectMeta: metav1.ObjectMeta{
@@ -471,6 +494,54 @@ var _ = Describe("SyncKvvmHandler", func() {
 		Entry("Pending phase with changes not applied, condition should not exist", v1alpha2.MachinePending, true, metav1.ConditionUnknown, false),
 	)
 
+	DescribeTable("ConfigurationApplied Condition for in-place resize",
+		func(featureGate featuregate.FeatureGate, kvvmi *virtv1.VirtualMachineInstance, expectedMessage string) {
+			ip := makeVMIP()
+			vmClass := makeVMClass()
+			vm := makeVM(v1alpha2.MachineRunning)
+			kvvm := makeKVVM(vm)
+
+			fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, kvvmi, ip, vmClass)
+			featureGates = featureGate
+
+			reconcile()
+
+			newVM := &v1alpha2.VirtualMachine{}
+			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
+			Expect(err).NotTo(HaveOccurred())
+
+			confAppliedCond, confAppliedExists := conditions.GetCondition(vmcondition.TypeConfigurationApplied, newVM.Status.Conditions)
+			Expect(confAppliedExists).To(BeTrue())
+			Expect(confAppliedCond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(confAppliedCond.Reason).To(Equal(vmcondition.ReasonConfigurationNotApplied.String()))
+			Expect(confAppliedCond.Message).To(Equal(expectedMessage))
+		},
+		Entry(
+			"cpu hotplug pending",
+			newFeatureGateEnableResourceInPlaceResize(),
+			makeResizingKVVMI(virtv1.VirtualMachineInstanceReasonPodResizePending, "Waiting for kubelet", virtv1.VirtualMachineInstanceVCPUChange),
+			"CPU hotplug is in progress. Waiting for kubelet",
+		),
+		Entry(
+			"memory hotplug in progress",
+			newFeatureGateEnableResourceInPlaceResize(),
+			makeResizingKVVMI(virtv1.VirtualMachineInstanceReasonPodResizeInProgress, "Resizing pod resources", virtv1.VirtualMachineInstanceMemoryChange),
+			"Memory hotplug is in progress. Resizing pod resources",
+		),
+		Entry(
+			"resize completed",
+			newFeatureGateEnableResourceInPlaceResize(),
+			makeResizingKVVMI(virtv1.VirtualMachineInstanceReasonPodResizeCompleted, "Completed", virtv1.VirtualMachineInstanceVCPUChange),
+			"CPU hotplug is in progress. Waiting when cpu and memory will be hotplugged on virtual machine.",
+		),
+		Entry(
+			"unexpected resize reason",
+			newFeatureGateEnableResourceInPlaceResize(),
+			makeResizingKVVMI("UnexpectedReason", "unexpected", ""),
+			"Hotplug is in progress. reason: UnexpectedReason, message: unexpected",
+		),
+	)
+
 	It("keeps ConfigurationApplied False and requeues while SDN is not ready", func() {
 		ip := &v1alpha2.VirtualMachineIPAddress{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-ip", Namespace: namespace},
@@ -548,6 +619,10 @@ func newFeatureGateEnableMemoryHotplug() featuregate.FeatureGate {
 
 func newFeatureGateEnableResourceHotplug() featuregate.FeatureGate {
 	return newFeatureGate(featuregates.HotplugCPUWithLiveMigration, featuregates.HotplugMemoryWithLiveMigration)
+}
+
+func newFeatureGateEnableResourceInPlaceResize() featuregate.FeatureGate {
+	return newFeatureGate(featuregates.HotplugCPUAndMemoryWithInPlaceResize)
 }
 
 func newResourceQuota(cpuHard, memoryHard, cpuUsed, memoryUsed resource.Quantity) *corev1.ResourceQuota {

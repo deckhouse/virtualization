@@ -83,6 +83,9 @@ jobs:
       date_start: ${{ steps.vars.outputs.date_start }}
       randuuid4c: ${{ steps.vars.outputs.randuuid4c }}
       e2e_image_base_url: ${{ steps.image-source.outputs.e2e_image_base_url }}
+      registry_profile: ${{ steps.registry-profile.outputs.registry_profile }}
+      deckhouse_channel: ${{ steps.registry-profile.outputs.deckhouse_channel }}
+      deckhouse_version: ${{ steps.registry-profile.outputs.deckhouse_version }}
     steps:
       - uses: actions/checkout@v6
 
@@ -93,6 +96,10 @@ jobs:
       - name: Resolve e2e image base url
         id: image-source
         run: echo "e2e_image_base_url=${E2E_IMAGE_BASE_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve registry profile
+        id: registry-profile
+        run: bash .github/scripts/bash/e2e/resolve-registry-profile.sh
 
   e2e-replicated:
     name: E2E Pipeline (Replicated)
@@ -121,6 +128,7 @@ jobs:
     secrets:
       DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
       VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+      REGISTRY_DOCKER_CFG: ${{ needs.set-vars.outputs.registry_profile == 'stage' && secrets.STAGE_IO_REGISTRY_DOCKER_CFG || secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
       PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
       BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
       E2E_ARTIFACTS_GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
@@ -138,7 +146,9 @@ jobs:
       nested_cluster_network_name: cn-4006-for-e2e-test
       branch: main
       virtualization_tag: main
-      deckhouse_channel: alpha
+      deckhouse_channel: ${{ needs.set-vars.outputs.deckhouse_channel }}
+      deckhouse_version: ${{ needs.set-vars.outputs.deckhouse_version }}
+      registry_profile: ${{ needs.set-vars.outputs.registry_profile }}
       default_user: cloud
       go_version: "1.24.13"
       e2e_timeout: "3.5h"
@@ -152,6 +162,7 @@ jobs:
     secrets:
       DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
       VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+      REGISTRY_DOCKER_CFG: ${{ needs.set-vars.outputs.registry_profile == 'stage' && secrets.STAGE_IO_REGISTRY_DOCKER_CFG || secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
       PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
       BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
       E2E_ARTIFACTS_GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
