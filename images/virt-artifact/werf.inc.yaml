@@ -13,6 +13,7 @@ secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
 shell:
+  installCacheVersion: '{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}' # force rebuild for old-toolchain A/B test
   install:
   - |
     echo "Git clone {{ $gitRepoName }} repository..."
@@ -43,7 +44,11 @@ packages:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.25" "builder/golang-alt-1.25" }}
+# A/B test: pin this stage to the go1.26.4 toolchain (ALT 20260119, the same new
+# base as v1.9.1 but Go 1.26.4 instead of 1.25.11) to check whether a newer
+# Go version restores live-migration TLS throughput. Only virt-artifact is
+# affected; dvcr and other images keep the new toolchain.
+from: registry.deckhouse.io/container-factory@sha256:71dffc9bccd6c1ce5ecd78495652c9d209b518ec297a80e358b4a98e33d5b40c
 mount:
 {{- include "mount points for golang builds" . }}
 secrets:
