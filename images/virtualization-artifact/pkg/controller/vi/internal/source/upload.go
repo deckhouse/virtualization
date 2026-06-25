@@ -195,6 +195,17 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 					Reason(vicondition.WaitForUserUpload).
 					Message("Waiting for the user upload.")
 
+				// Re-sync the uploader Ingress when publicDomainTemplate changed
+				// after the supplements were created. Apply is a no-op when fields
+				// already match.
+				if ds.uploaderService.IngressHostDrifted(ing) {
+					log.Info("Syncing uploader Ingress: host drifted", "old", ing.Spec.Rules[0].Host, "new", ds.uploaderService.ExpectedIngressHost())
+					ing, err = ds.uploaderService.EnsureIngress(ctx, vi, supgen)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
+				}
+
 				vi.Status.ImageUploadURLs = &v1alpha2.ImageUploadURLs{
 					External:  ds.uploaderService.GetExternalURL(ctx, ing),
 					InCluster: ds.uploaderService.GetInClusterURL(ctx, svc),
@@ -486,6 +497,17 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 
 		vi.Status.Phase = v1alpha2.ImageWaitForUserUpload
 		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
+
+		// Re-sync the uploader Ingress when publicDomainTemplate changed after
+		// the supplements were created. Apply is a no-op when fields already match.
+		if ds.uploaderService.IngressHostDrifted(ing) {
+			log.Info("Syncing uploader Ingress: host drifted", "old", ing.Spec.Rules[0].Host, "new", ds.uploaderService.ExpectedIngressHost())
+			ing, err = ds.uploaderService.EnsureIngress(ctx, vi, supgen)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+
 		vi.Status.ImageUploadURLs = &v1alpha2.ImageUploadURLs{
 			External:  ds.uploaderService.GetExternalURL(ctx, ing),
 			InCluster: ds.uploaderService.GetInClusterURL(ctx, svc),

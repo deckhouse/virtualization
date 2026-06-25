@@ -57,6 +57,9 @@ type Uploader interface {
 	Unprotect(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
 	GetExternalURL(ctx context.Context, ing *netv1.Ingress) string
 	GetInClusterURL(ctx context.Context, svc *corev1.Service) string
+	EnsureIngress(ctx context.Context, obj client.Object, sup supplements.Generator) (*netv1.Ingress, error)
+	IngressHostDrifted(ing *netv1.Ingress) bool
+	ExpectedIngressHost() string
 }
 
 type Stat interface {

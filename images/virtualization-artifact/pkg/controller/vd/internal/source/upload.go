@@ -202,6 +202,18 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 
 				vd.Status.Phase = v1alpha2.DiskWaitForUserUpload
 				setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.WaitForUserUpload, "Waiting for the user upload.")
+
+				// Re-sync the uploader Ingress when publicDomainTemplate changed
+				// after the supplements were created. Apply is a no-op when fields
+				// already match.
+				if ds.uploaderService.IngressHostDrifted(ing) {
+					log.Info("Syncing uploader Ingress: host drifted", "old", ing.Spec.Rules[0].Host, "new", ds.uploaderService.ExpectedIngressHost())
+					ing, err = ds.uploaderService.EnsureIngress(ctx, vd, supgen)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
+				}
+
 				vd.Status.ImageUploadURLs = &v1alpha2.ImageUploadURLs{
 					External:  ds.uploaderService.GetExternalURL(ctx, ing),
 					InCluster: ds.uploaderService.GetInClusterURL(ctx, svc),

@@ -243,6 +243,17 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 
 		cvi.Status.Phase = v1alpha2.ImageWaitForUserUpload
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
+
+		// Re-sync the uploader Ingress when publicDomainTemplate changed after
+		// the supplements were created. Apply is a no-op when fields already match.
+		if ds.uploaderService.IngressHostDrifted(ing) {
+			log.Info("Syncing uploader Ingress: host drifted", "old", ing.Spec.Rules[0].Host, "new", ds.uploaderService.ExpectedIngressHost())
+			ing, err = ds.uploaderService.EnsureIngress(ctx, cvi, supgen)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+
 		cvi.Status.ImageUploadURLs = &v1alpha2.ImageUploadURLs{
 			External:  ds.uploaderService.GetExternalURL(ctx, ing),
 			InCluster: ds.uploaderService.GetInClusterURL(ctx, svc),
