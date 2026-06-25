@@ -113,7 +113,9 @@ jobs:
       nested_cluster_network_name: cn-4006-for-e2e-test
       branch: main
       virtualization_tag: pr2088
-      deckhouse_channel: alpha
+      deckhouse_channel: ${{ needs.set-vars.outputs.deckhouse_channel }}
+      deckhouse_version: ${{ needs.set-vars.outputs.deckhouse_version }}
+      registry_profile: ${{ needs.set-vars.outputs.registry_profile }}
       default_user: cloud
       go_version: "1.25.11"
       e2e_timeout: "3.5h"
