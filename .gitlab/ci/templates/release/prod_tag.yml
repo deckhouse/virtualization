@@ -5,12 +5,12 @@
 # channel deploy waits for a human click. They share the common base .prod_tag
 # (PROD registry vars + the tag as module tag).
 #
-# TODO: the GH release_module_release-channels.yml workflow exposes inputs
-# (channel, ce/ee, tag, enableBuild, release_to_github, check_only, ...) that
-# the tag-push flow collapses into a hardcoded matrix (RELEASE_CHANNEL x
-# EDITION) in deploy-prod.yml. The single-channel dispatch with those inputs
-# lives in release-channels.yml (prod:* jobs, manual Run pipeline); this
-# template stays the tag-push context.
+# Note: the GH release_module_release-channels.yml inputs (channel, ce/ee,
+# tag, enableBuild, release_to_github, check_only, ...) are collapsed here into
+# a hardcoded matrix (RELEASE_CHANNEL x EDITION) in deploy-prod.yml. The
+# single-channel dispatch that exposes those inputs lives in
+# release-channels.yml (prod:* jobs, manual Run pipeline); this template stays
+# the tag-push context.
 
 .prod_tag:
   extends:

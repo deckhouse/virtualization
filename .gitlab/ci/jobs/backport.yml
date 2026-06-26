@@ -61,9 +61,3 @@ backport:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS =~ /(^|,\s*)status\/backport(,|$)/
       when: manual
       allow_failure: true
-    # Mode 3: scheduled backport sweep (TODO: future automation), under the
-    # dedicated backport-sweep pipeline schedule
-    # ($SCHEDULE_TYPE == "backport-sweep").
-    - if: $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "backport-sweep"
-      when: manual
-      allow_failure: true

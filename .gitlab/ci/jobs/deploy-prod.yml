@@ -27,11 +27,6 @@
 #                       with `when: manual`).
 #   - .also_login_dev_registry (this repo — also login against DEV_REGISTRY).
 #
-# TODO: the GH release_module_release-channels workflow exposes inputs
-# (channel, ce/ee, tag, enableBuild, release_to_github, check_only,
-# send_results_to_loop, requirements/version checks, github release
-# creation, Loop notification) that are not yet ported.
-#
 # This file is the tag-push chained-deploy flow. The GitHub
 # release_module_release-channels parity flow (single-channel dispatch with
 # requirements/version checks, release creation, Loop notify) now lives in
