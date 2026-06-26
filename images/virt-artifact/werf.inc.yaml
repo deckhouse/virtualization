@@ -43,17 +43,7 @@ packages:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-# Dev: use the dev-registry ALT toolchain image with GOST TLS priority fix
-# (go1.25.11 + greenteagc + gogost, but GOST cipher suites no longer preferred
-# in TLS 1.3 auto-negotiate -> AES-GCM negotiated, fast). Restores live-migration
-# throughput vs the slow 713b7c2 toolchain.
-#
-# TODO: image 78a55067 lives in dev-registry.deckhouse.io/container-factory only.
-# Once base-images (branch go-gost-tls-priority) is released to prod
-# registry.deckhouse.io/container-factory, switch this back to the regular
-# fromImage: builder/golang-alt-1.25 and update the SHA in
-# build/base-images/container_factory_images.yml accordingly.
-from: dev-registry.deckhouse.io/container-factory@sha256:78a55067d15c9f23c0c725336f14329838115a4d860dfe6d6a8f41e66a240f72
+fromImage: builder/golang-alt-1.25
 mount:
 {{- include "mount points for golang builds" . }}
 secrets:
