@@ -8,8 +8,7 @@
 # dev tags are build-only (see build_dev_tags).
 #
 # Mirrors upstream modules-gitlab-ci Deploy.gitlab-ci.yml `.deploy` body
-# (verified in
-# /Users/korolevn/repos/Virtualization-tasks/github/3p-deckhouse/modules-gitlab-ci
+# (verified in deckhouse/3p/deckhouse/modules-gitlab-ci
 # templates/Deploy.gitlab-ci.yml, branch v13.0, HEAD 006d51c).
 #
 # Why a local copy (same reasoning as .base_build in build.yml):

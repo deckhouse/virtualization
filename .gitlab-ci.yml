@@ -9,9 +9,8 @@
 # .gitlab/ci/includes.yml (see that file for the full include list).
 #
 # Upstream templates are sourced from deckhouse/3p/deckhouse/modules-gitlab-ci
-# at ref v13.0 (HEAD 006d51c35904b434eca2045a449aafb5e37a8827). The plan
-# calls for swapping the branch ref for a pinned SHA after the first green
-# pipeline on virt-test.
+# at ref v13.0 (HEAD 006d51c35904b434eca2045a449aafb5e37a8827). Swap the
+# branch ref for a pinned SHA after the first green pipeline on virt-test.
 
 include:
   - local: '.gitlab/ci/includes.yml'

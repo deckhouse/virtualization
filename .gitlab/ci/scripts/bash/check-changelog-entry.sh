@@ -16,7 +16,7 @@
 # Thin bash wrapper around check_changelog_entry.py.
 #
 # Allows the job yml to call a single bash script while keeping the
-# actual validation logic in Python (preferred per migration plan §11.11.2).
+# actual validation logic in Python.
 #
 # Picks the first available interpreter: python3, python.
 # Required environment is documented in check_changelog_entry.py.

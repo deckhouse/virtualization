@@ -20,7 +20,7 @@
 # Migration of .github/workflows/dev_auto-pr-author-assign.yml which used the
 # third-party toshimaru/auto-author-assign@v2.1.0 action.
 #
-# Behaviour (per migration plan §0 / §11):
+# Behaviour:
 #   - Skip silently if MR already has at least one assignee.
 #   - Otherwise assign the MR author (the user who opened the MR).
 #   - Token: GITLAB_API_TOKEN (Project Access Token, scope api).
@@ -57,7 +57,7 @@ assignee_count="$(printf '%s' "$mr_json" | jq -r '.assignees | length')"
 echo "Current assignee count: ${assignee_count}"
 
 if [[ "${assignee_count}" -gt 0 ]]; then
-  echo "MR already has ${assignee_count} assignee(s) — skipping auto-assign per plan §0(4)."
+  echo "MR already has ${assignee_count} assignee(s) — skipping auto-assign."
   exit 0
 fi
 

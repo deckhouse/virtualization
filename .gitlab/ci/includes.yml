@@ -7,8 +7,7 @@
 # so the final list is the union of both.
 #
 # Upstream template names (verified in
-# /Users/korolevn/repos/Virtualization-tasks/github/3p-deckhouse/modules-gitlab-ci,
-# branch v13.0, HEAD 006d51c):
+# deckhouse/3p/deckhouse/modules-gitlab-ci, branch v13.0, HEAD 006d51c):
 #   - Setup.gitlab-ci.yml           (trdl + werf + ci-env + dual-registry login)
 #   - Build.gitlab-ci.yml           (extends .build — werf build + bundle copy +
 #                                   release-channel copy + module registration)
@@ -30,8 +29,8 @@
 
 include:
   # --- Upstream modules-gitlab-ci (deckhouse/3p, ref v13.0) ---
-  # TODO: pin to SHA after first green pipeline on virt-test; see migration
-  # plan §11.2. Until then, branch ref v13.0 keeps fixes flowing.
+  # TODO: pin to SHA after first green pipeline on virt-test. Until then,
+  # branch ref v13.0 keeps fixes flowing.
   - project: "deckhouse/3p/deckhouse/modules-gitlab-ci"
     ref: "v13.0"
     file:

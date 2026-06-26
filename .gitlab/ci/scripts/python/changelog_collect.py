@@ -18,7 +18,7 @@
 Migration of .github/actions/milestone-changelog/action.yml (composite action)
 which used deckhouse/changelog-action@v2.6.0.
 
-Strategy chosen per migration plan §11.5.3 (Variant B - rewrite in python).
+Strategy: rewrite the parser in Python (Variant B).
 
 Behaviour:
   1. Resolve target milestone from MILESTONE_TITLE or list open milestones.

@@ -8,7 +8,7 @@
 #
 # This template mirrors the upstream modules-gitlab-ci Build.gitlab-ci.yml
 # `.build` body verbatim (verified against
-# /Users/korolevn/repos/Virtualization-tasks/github/3p-deckhouse/modules-gitlab-ci
+# deckhouse/3p/deckhouse/modules-gitlab-ci
 # templates/Build.gitlab-ci.yml, branch v13.0, HEAD 006d51c).
 #
 # Why a local copy instead of `extends: .build`:

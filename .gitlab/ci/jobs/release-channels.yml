@@ -32,7 +32,7 @@
 #     fails fast instead of building the wrong ref. GitHub let `tag` differ
 #     from the workflow ref (it checked out ref:inputs.tag); GitLab cannot
 #     do that without overriding the inherited Setup before_script, which
-#     the migration plan forbids.
+#     we avoid.
 #   - Per-(channel,tag) concurrency uses resource_group (a mutex); GitLab has
 #     no cancel-in-progress equivalent, so concurrent same-(channel,tag)
 #     dispatches serialize instead of cancelling.

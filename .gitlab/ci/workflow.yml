@@ -12,7 +12,7 @@
 #   - Manual/scheduled/web pipelines always run.
 #
 # TODO: once auto-cancel-redundant-pipelines is verified at the project
-# level, add `interruptible: true` here as a project default (see plan §11.15).
+# level, add `interruptible: true` here as a project default.
 # Per-job overrides will set `interruptible: false` for build_prod and the
 # prod-deploy chain.
 

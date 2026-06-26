@@ -20,7 +20,7 @@
 # Migration of .github/workflows/on-pull-request-backport.yml which used
 # deckhouse/backport-action@v1.0.0 and direct cherry-pick to release branch.
 #
-# Per migration plan §0(6) and §11.9 we DO NOT use the GitLab cherry-pick
+# We DO NOT use the GitLab cherry-pick
 # REST endpoint (POST /repository/commits/:sha/cherry_pick) because it
 # bypasses code review. Instead we:
 #   1. clone the repo (or reuse the runner workspace),

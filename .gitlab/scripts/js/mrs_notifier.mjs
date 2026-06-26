@@ -29,7 +29,7 @@
 //   MANAGER_LOOP_NAME (optional)  @firstname.lastname of the manager.
 //                                 Default "@yuriy.milyutin".
 //
-// Mapping cheat-sheet (per migration plan §11.12.2):
+// Mapping cheat-sheet:
 //   octokit            -> axios with PRIVATE-TOKEN
 //   pr.draft           -> mr.draft (or mr.work_in_progress for older GitLab)
 //   pr.head.ref        -> mr.source_branch

@@ -3,8 +3,7 @@
 # Carries forward the previous root .gitlab-ci.yml `.dev_vars` template.
 # Anything that uses `extends: .dev_vars` gets MODULES_REGISTRY,
 # MODULES_REGISTRY_LOGIN, MODULES_REGISTRY_PASSWORD, MODULES_MODULE_SOURCE
-# and ENV=DEV, all sourced from the DEV_* Project Variables introduced in
-# plan §11.6.
+# and ENV=DEV, all sourced from the DEV_* Project Variables.
 #
 # The legacy EXTERNAL_MODULES_DEV_REGISTRY_* names are still accepted as
 # fallback to ease the variable-rename migration.

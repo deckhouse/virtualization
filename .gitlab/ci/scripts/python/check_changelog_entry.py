@@ -19,7 +19,7 @@ Migration of the validation logic in
 .github/workflows/check-changelog-entry.yml which used
 deckhouse/changelog-action@v2.6.0 with validate_only=true.
 
-Behaviour (per migration plan §11.11):
+Behaviour:
   - Fetch MR description via GitLab API (CI_API_V4_URL).
   - Locate fenced code blocks with language ``changes``.
   - For each block validate required keys: section, type, summary.

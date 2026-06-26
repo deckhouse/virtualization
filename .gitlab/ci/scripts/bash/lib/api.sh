@@ -25,7 +25,7 @@
 #   gl_required_env                  -- fails if required env vars are missing.
 #   gl_log_call                      -- echoes request line for log readability.
 #
-# Conventions (see tmp/ai-summary/gitlab-ci-migration-plan.md §11.1):
+# Conventions:
 #   - Always CI_API_V4_URL (never hardcode the host).
 #   - Always GITLAB_API_TOKEN (Project Access Token, scope api).
 #   - Always CI_PROJECT_ID (numeric) and CI_MERGE_REQUEST_IID (iid, not id).

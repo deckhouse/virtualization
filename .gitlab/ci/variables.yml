@@ -4,7 +4,7 @@
 # docker configs) lives in GitLab Settings -> CI/CD -> Variables (masked
 # where appropriate) and is referenced via ${VAR} expansion below.
 #
-# Legacy variable migration (plan §11.6):
+# Legacy variable migration:
 #   EXTERNAL_MODULES_DEV_REGISTRY_LOGIN    -> DEV_MODULES_REGISTRY_LOGIN
 #   EXTERNAL_MODULES_DEV_REGISTRY_PASSWORD -> DEV_MODULES_REGISTRY_PASSWORD
 #   EXTERNAL_MODULES_PROD_REGISTRY_LOGIN   -> PROD_MODULES_REGISTRY_LOGIN

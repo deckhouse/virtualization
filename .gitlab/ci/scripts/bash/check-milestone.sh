@@ -20,7 +20,7 @@
 # Migration of .github/workflows/check-pr-milestone.yml which used
 # actions/github-script@v6.4.1 to GET the PR and assert data.milestone.
 #
-# Behaviour (per plan §0):
+# Behaviour:
 #   - On MR pipelines: GET MR via API, ensure milestone is present.
 #   - On other pipelines: no-op (print "skipping").
 #   - Skip-labels respected (see rules in job yml).

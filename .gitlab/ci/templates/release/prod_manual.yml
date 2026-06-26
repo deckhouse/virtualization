@@ -4,12 +4,11 @@
 # Runs on tags matching vX.Y.Z (no -dev suffix), with `when: manual` so
 # each release channel deploy requires a human click.
 #
-# TODO: per plan §11.4.1, the GH release_module_release-channels.yml
-# workflow exposes inputs (channel, ce/ee, tag, enableBuild,
-# release_to_github, check_only, ...) that we currently collapse into
-# hardcoded matrix (RELEASE_CHANNEL x EDITION) in deploy-prod.yml. Once we
-# decide whether to expose that flexibility (likely via "Run pipeline"
-# variables), this template will gain extra variables.
+# TODO: the GH release_module_release-channels.yml workflow exposes inputs
+# (channel, ce/ee, tag, enableBuild, release_to_github, check_only, ...) that
+# we currently collapse into a hardcoded matrix (RELEASE_CHANNEL x EDITION) in
+# deploy-prod.yml. Once we decide whether to expose that flexibility (likely
+# via "Run pipeline" variables), this template will gain extra variables.
 #
 # The single-channel dispatch with Run-pipeline inputs (channel, editions,
 # tag, enableBuild, check_only, release_to_gitlab, send_results_to_loop,
