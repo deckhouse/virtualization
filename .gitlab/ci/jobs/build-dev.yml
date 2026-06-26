@@ -12,7 +12,7 @@
 #
 # The previous root .gitlab-ci.yml had its own `.build` template with the
 # same body; it is replaced here by `.base_build` (verified against
-# /Users/korolevn/repos/Virtualization-tasks/github/3p-deckhouse/modules-gitlab-ci
+# deckhouse/3p/deckhouse/modules-gitlab-ci
 # templates/Build.gitlab-ci.yml — werf build with --save-build-report,
 # bundle / release-channel-version crane copy, and crane append to
 # register the module). The upstream version uses WERF_REPO env instead of

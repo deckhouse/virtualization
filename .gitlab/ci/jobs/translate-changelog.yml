@@ -43,10 +43,9 @@
 # RELEASE_TOKEN explicitly in project CI/CD variables if CI_JOB_TOKEN lacks
 # push / merge-request permissions.
 #
-# Per migration plan §0(2) we delegate to the upstream GitLab CI template at
-# https://fox.flant.com/deckhouse/3p/deckhouse/modules-gitlab-ci (local checkout
-# at /Users/korolevn/repos/Virtualization-tasks/github/3p-deckhouse/modules-gitlab-ci,
-# branch v13.0, HEAD 006d51c35904b434eca2045a449aafb5e37a8827).
+# We delegate to the upstream GitLab CI template at
+# https://fox.flant.com/deckhouse/3p/deckhouse/modules-gitlab-ci
+# (branch v13.0, HEAD 006d51c35904b434eca2045a449aafb5e37a8827).
 
 include:
   - project: "deckhouse/3p/deckhouse/modules-gitlab-ci"

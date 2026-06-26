@@ -16,10 +16,10 @@
 #
 # Migration of .github/workflows/on-pull-request-backport.yml which used
 # deckhouse/backport-action@v1.0.0 with automerge=true and direct push to
-# the release branch. Per migration plan §0(6) and §11.9 we open a
-# reviewable backport MR instead of pushing directly.
+# the release branch. We open a reviewable backport MR instead of pushing
+# directly.
 #
-# Triggers (per plan §11.9.4):
+# Triggers:
 #   1. Manual pipeline (Run pipeline UI) with variable TARGET_BRANCH=release-1.21.
 #   2. Manual pipeline on an MR carrying the `status/backport` label.
 #      GitLab does NOT auto-trigger pipelines on label change; the user must

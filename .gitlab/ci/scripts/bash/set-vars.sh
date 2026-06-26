@@ -17,7 +17,7 @@
 # set-vars.sh — derives per-pipeline variables for downstream jobs.
 #
 # Carries forward the responsibilities of the GH `set_vars` job from
-# dev_module_build.yml (migration plan §11.3.4). Produces a dotenv
+# dev_module_build.yml. Produces a dotenv
 # artifact that downstream jobs consume via `needs: [set_vars]` +
 # `artifacts.reports.dotenv`.
 #

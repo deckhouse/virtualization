@@ -27,9 +27,8 @@
 #                       with `when: manual`).
 #   - .dual_registry_login (this repo — also login against DEV_REGISTRY).
 #
-# TODO: per migration plan §11.4.1, the
-# GH release_module_release-channels workflow exposes inputs (channel,
-# ce/ee, tag, enableBuild, release_to_github, check_only,
+# TODO: the GH release_module_release-channels workflow exposes inputs
+# (channel, ce/ee, tag, enableBuild, release_to_github, check_only,
 # send_results_to_loop, requirements/version checks, github release
 # creation, Loop notification) that are not yet ported.
 #

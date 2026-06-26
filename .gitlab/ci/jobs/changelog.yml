@@ -20,8 +20,7 @@
 #   - .github/workflows/changelog-command.yml       (repository_dispatch /changelog)
 # All three used ./.github/actions/milestone-changelog (composite action).
 #
-# Per migration plan §0(3) and §11.5.4 the GitLab jobs are manual + scheduled,
-# NOT reactive. Reactive webhook automation (slash-command-equivalents,
+# The GitLab jobs are manual + scheduled, NOT reactive. Reactive webhook automation (slash-command-equivalents,
 # label/milestone events) is an accepted permanent gap — no webhook-listener
 # will be built.
 #

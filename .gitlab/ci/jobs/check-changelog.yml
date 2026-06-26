@@ -16,8 +16,8 @@
 #
 # Migration of .github/workflows/check-changelog-entry.yml which used
 # deckhouse/changelog-action@v2.6.0 with validate_only=true.
-# Per migration plan §11.11 the validation is implemented in Python and
-# uses .gitlab/ci/changelog-sections.txt as the source of truth.
+# The validation is implemented in Python and uses
+# .gitlab/ci/changelog-sections.txt as the source of truth.
 # Required CI/CD variable: GITLAB_API_TOKEN (Project Access Token, scope api).
 
 check:changelog:

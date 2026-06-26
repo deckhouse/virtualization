@@ -29,9 +29,9 @@
 #     - .build                  # upstream werf build + bundle/release-channel copy
 #
 # TODO: confirm with a virt-test pipeline that the second login is actually
-# required for the build_prod / deploy_to_prod_* chain (the plan §11.7.3
-# flags this as an open question because the previous GH workflow did both
-# logins via two consecutive `modules-actions/setup` steps).
+# required for the build_prod / deploy_to_prod_* chain (an open question,
+# because the previous GH workflow did both logins via two consecutive
+# `modules-actions/setup` steps).
 
 .dual_registry_login:
   variables:

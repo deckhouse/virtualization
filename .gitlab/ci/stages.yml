@@ -1,12 +1,11 @@
 # Pipeline stages for the deckhouse/virtualization module.
 #
 # This is the union of the stages used by the previous root .gitlab-ci.yml
-# and the new stages introduced by the GitHub Actions migration plan
-# (tmp/ai-summary/gitlab-ci-migration-plan.md §11.8).
+# and the new stages introduced during the GitHub Actions migration.
 #
-# We intentionally drop the `e2e` stage here: the migration plan explicitly
-# excludes all e2e-* workflows from the GitLab CI migration. A child issue
-# owns any future re-introduction of e2e stages under a separate file.
+# We intentionally drop the `e2e` stage here: all e2e-* workflows are
+# excluded from the GitLab CI migration. Any future re-introduction of e2e
+# stages lives in a separate file.
 #
 # Stage semantics:
 #   pre               — upstream Translate_Changelog hidden template stage

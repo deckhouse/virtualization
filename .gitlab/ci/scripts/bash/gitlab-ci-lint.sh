@@ -21,8 +21,7 @@
 # with a `content` payload assembled from the project files that make
 # up the effective CI configuration.
 #
-# Migration plan §11.14 specified a single-document lint, which is what
-# GitLab's lint API supports per request. We therefore lint the root
+# A single-document lint is what GitLab's lint API supports per request. We therefore lint the root
 # `.gitlab-ci.yml` directly. The upstream project owner is responsible
 # for keeping `.gitlab/ci/includes.yml` and the `local:` job files
 # self-consistent; this script only checks that the *merged* file the

@@ -4,8 +4,7 @@
 # .github/workflows/dev_validation.yaml (paths_filter + no_cyrillic +
 # doc_changes + shellcheck + helm_templates + check_gens_files).
 #
-# Per the migration plan (decision #5), the `actionlint` job from the GH
-# workflow is intentionally NOT migrated. In its place we run the new
+# The `actionlint` job from the GH workflow is intentionally NOT migrated. In its place we run the new
 # `lint:gitlab-ci` job that validates the GitLab CI configuration itself
 # via the GitLab CI Lint API. The legacy skip-label
 # `validation/skip/actionlint` is therefore obsolete and not honored.

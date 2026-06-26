@@ -16,7 +16,7 @@
 # Thin wrapper around changelog_collect.py to keep the job yml language-agnostic.
 #
 # Selects python3 / python at runtime. The actual logic lives in Python
-# (preferred per migration plan §11.5.3 Variant B).
+# (Variant B).
 
 set -euo pipefail
 

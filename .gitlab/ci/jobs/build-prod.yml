@@ -27,7 +27,7 @@
 # `.dual_registry_login` is included so the second `werf cr login` from
 # upstream Setup.gitlab-ci.yml also fires against DEV_REGISTRY; the
 # previous GH workflow did both logins via two consecutive
-# modules-actions/setup steps, and the migration plan keeps that behavior.
+# modules-actions/setup steps; we keep that behavior.
 
 build_prod:
   stage: build
