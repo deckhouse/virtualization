@@ -13,9 +13,9 @@ config:
     - SVACE_ANALYZE_HOST
     - SVACE_ANALYZE_SSH_USER
     - DEBUG_COMPONENT
-      - ACTIONS_ID_TOKEN_REQUEST_TOKEN
-      - VAULT_KEY
-      - WERF_SIGN_KEY
+    - ACTIONS_ID_TOKEN_REQUEST_TOKEN
+    - VAULT_KEY
+    - WERF_SIGN_KEY
   stapel:
     mount:
       allowBuildDir: true
