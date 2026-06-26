@@ -44,7 +44,7 @@ builder/golang-1.26: "sha256:d771e7d448312e10eea7036af2f46a69d44461d711a2982f3c6
 builder/golang-alpine-1.25: "sha256:9701f93cec25acec10837e2399f7fda7e4c23303bed6514bfa0ff692396f170b" # from: alpine:3.22.2
 builder/golang-alpine-1.26.4: "sha256:193e8ed6cd7fc19015ab615ccf92d0fe02471e66e3e5abf560b3a87fb05bdb62" # from: alpine:3.22.2
 builder/golang-alpine: "sha256:193e8ed6cd7fc19015ab615ccf92d0fe02471e66e3e5abf560b3a87fb05bdb62" # from: alpine:3.22.2
-builder/golang-alt-1.25: "sha256:603fbc50b120329f25fa2d2162ec051d744edf66230e2362d9f0a5ffb9537c0f" # from: registry.altlinux.org/p11/alt:20260119
+builder/golang-alt-1.25: "sha256:603fbc50b120329f25fa2d2162ec051d744edf66230e2362d9f0a5ffb9537c0f" # from: registry.altlinux.org/p11/alt:20260119 (v1.1.11 container-factory)
 builder/golang-alt-1.26: "sha256:71dffc9bccd6c1ce5ecd78495652c9d209b518ec297a80e358b4a98e33d5b40c" # from: registry.altlinux.org/p11/alt:20260119
 builder/golang-alt: "sha256:71dffc9bccd6c1ce5ecd78495652c9d209b518ec297a80e358b4a98e33d5b40c" # from: registry.altlinux.org/p11/alt:20260119
 builder/golang-artifact-1.25: "sha256:3a6662d203f06e0a136378677fd2da6e726a08db45f77a8e9c50495c111c445a" # from: builder/distroless
