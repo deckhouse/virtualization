@@ -38,6 +38,8 @@
 
 backport:
   stage: lint
+  # Mutates state (cherry-pick + opens an MR); never auto-cancel mid-run.
+  interruptible: false
   tags:
     - deckhouse
   before_script:

@@ -60,6 +60,8 @@ include:
 translate:changelog:
   extends: .translate_and_create_mr
   stage: notify
+  # Mutates state (translates + opens an MR); never auto-cancel mid-run.
+  interruptible: false
   tags:
     - deckhouse
   rules:

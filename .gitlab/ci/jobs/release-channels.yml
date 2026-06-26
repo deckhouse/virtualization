@@ -76,8 +76,11 @@ variables:
     options: ["true", "false"]
     description: "Send the release result summary to Loop via webhook"
 
-# Common rule: only on manual web pipelines with a valid tag.
+# Common rule: only on manual web pipelines with a valid tag. Every prod:* job
+# extends this; interruptible:false keeps the whole manual release flow from
+# being auto-cancelled (overrides the global interruptible:true default).
 .prod_release_rules:
+  interruptible: false
   rules:
     - if: $CI_PIPELINE_SOURCE == "web" && $RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/
     - when: never

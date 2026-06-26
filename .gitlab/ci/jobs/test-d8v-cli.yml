@@ -26,7 +26,6 @@
 
 test:build:d8v-cli:
   stage: test
-  interruptible: true
   before_script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task
   script:

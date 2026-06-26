@@ -27,7 +27,6 @@
 
 test:scripts:python:
   stage: test
-  interruptible: true
   before_script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh python3
   script:

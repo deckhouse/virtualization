@@ -35,7 +35,6 @@
 
 test:scripts:js:
   stage: test
-  interruptible: true
   before_script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh docker
   script:

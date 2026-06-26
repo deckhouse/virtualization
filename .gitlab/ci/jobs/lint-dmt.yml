@@ -35,7 +35,6 @@
 
 lint:dmt:
   stage: lint
-  interruptible: true
   allow_failure: true
   script:
     - dmt lint ./

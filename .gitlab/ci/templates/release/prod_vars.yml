@@ -21,6 +21,9 @@
 .prod_vars:
   extends:
     - .login_prod_registry
+  # Prod build/deploy jobs must never be auto-cancelled mid-release; override
+  # the global `interruptible: true` default for every job that extends this.
+  interruptible: false
   variables:
     MODULES_MODULE_SOURCE: "${PROD_REGISTRY}/${PROD_MODULE_SOURCE_NAME}/${EDITION}/modules"
     ENV: PROD
