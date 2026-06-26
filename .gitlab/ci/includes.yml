@@ -62,16 +62,17 @@ include:
   #   release/ - release process (PROD registry): tag-push + manual dispatch
   # Anchor names are unchanged (.base_build, .dev, .prod_vars, ...), so no job
   # `extends:` edits are needed.
+  # Registry-login helpers must load before dev_vars/prod_vars, which extend
+  # them (.login_dev_registry / .login_prod_registry).
+  - local: ".gitlab/ci/templates/base/registry-login.yml"
   - local: ".gitlab/ci/templates/dev/dev_vars.yml"
   - local: ".gitlab/ci/templates/release/prod_vars.yml"
   - local: ".gitlab/ci/templates/dev/dev.yml"
   - local: ".gitlab/ci/templates/dev/dev_tags.yml"
   - local: ".gitlab/ci/templates/dev/main.yml"
   - local: ".gitlab/ci/templates/dev/release.yml"
-  - local: ".gitlab/ci/templates/release/prod_manual.yml"
-  - local: ".gitlab/ci/templates/release/prod_always.yml"
+  - local: ".gitlab/ci/templates/release/prod_tag.yml"
   - local: ".gitlab/ci/templates/base/info.yml"
-  - local: ".gitlab/ci/templates/base/dual_registry_login.yml"
   - local: ".gitlab/ci/templates/base/build.yml"
   - local: ".gitlab/ci/templates/base/deploy.yml"
 

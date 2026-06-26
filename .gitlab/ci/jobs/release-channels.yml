@@ -121,7 +121,7 @@ prod:check-requirements:
   stage: prod_check
   extends:
     - .prod_release_rules
-    - .prod_read_registry
+    - .login_prod_read_registry
   needs: ["prod:print-vars"]
   variables:
     MODULES_MODULE_TAG: "${RELEASE_TAG}"
@@ -157,7 +157,7 @@ prod:build:ce:
     - .prod_release_rules
     - .base_build
     - .prod_vars
-    - .dual_registry_login
+    - .also_login_dev_registry
   needs:
     - job: prod:check-requirements
       optional: true
@@ -176,7 +176,7 @@ prod:deploy:ce:
     - .prod_release_rules
     - .prod_deploy_script
     - .prod_vars
-    - .dual_registry_login
+    - .also_login_dev_registry
   needs:
     - job: prod:check-requirements
       optional: true
@@ -198,7 +198,7 @@ prod:build:ee:
     - .prod_release_rules
     - .base_build
     - .prod_vars
-    - .dual_registry_login
+    - .also_login_dev_registry
   needs:
     - job: prod:check-requirements
       optional: true
@@ -217,7 +217,7 @@ prod:deploy:ee:
     - .prod_release_rules
     - .prod_deploy_script
     - .prod_vars
-    - .dual_registry_login
+    - .also_login_dev_registry
   needs:
     - job: prod:check-requirements
       optional: true
@@ -239,7 +239,7 @@ prod:build:se-plus:
     - .prod_release_rules
     - .base_build
     - .prod_vars
-    - .dual_registry_login
+    - .also_login_dev_registry
   needs: ["prod:build:ee"]
   variables:
     EDITION: se-plus
@@ -256,7 +256,7 @@ prod:deploy:se-plus:
     - .prod_release_rules
     - .prod_deploy_script
     - .prod_vars
-    - .dual_registry_login
+    - .also_login_dev_registry
   needs:
     - job: prod:build:se-plus
       optional: true
@@ -276,7 +276,7 @@ prod:build:fe:
     - .prod_release_rules
     - .base_build
     - .prod_vars
-    - .dual_registry_login
+    - .also_login_dev_registry
   needs: ["prod:build:ee"]
   variables:
     EDITION: fe
@@ -293,7 +293,7 @@ prod:deploy:fe:
     - .prod_release_rules
     - .prod_deploy_script
     - .prod_vars
-    - .dual_registry_login
+    - .also_login_dev_registry
   needs:
     - job: prod:build:fe
       optional: true
@@ -312,7 +312,7 @@ prod:check-version:
   stage: prod_verify
   extends:
     - .prod_release_rules
-    - .prod_read_registry
+    - .login_prod_read_registry
   needs:
     - job: prod:deploy:ce
       optional: true

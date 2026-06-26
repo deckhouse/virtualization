@@ -25,7 +25,7 @@
 #                       gating).
 #   - .prod_manual     (this repo — PROD registry vars + tag-match rule
 #                       with `when: manual`).
-#   - .dual_registry_login (this repo — also login against DEV_REGISTRY).
+#   - .also_login_dev_registry (this repo — also login against DEV_REGISTRY).
 #
 # TODO: the GH release_module_release-channels workflow exposes inputs
 # (channel, ce/ee, tag, enableBuild, release_to_github, check_only,
@@ -47,7 +47,7 @@ deploy_to_prod_alpha:
   extends:
     - .base_deploy
     - .prod_manual
-    - .dual_registry_login
+    - .also_login_dev_registry
   parallel:
     matrix:
       - EDITION: ce
@@ -67,7 +67,7 @@ deploy_to_prod_beta:
   extends:
     - .base_deploy
     - .prod_manual
-    - .dual_registry_login
+    - .also_login_dev_registry
   parallel:
     matrix:
       - EDITION: ce
@@ -87,7 +87,7 @@ deploy_to_prod_ea:
   extends:
     - .base_deploy
     - .prod_manual
-    - .dual_registry_login
+    - .also_login_dev_registry
   parallel:
     matrix:
       - EDITION: ce
@@ -107,7 +107,7 @@ deploy_to_prod_stable:
   extends:
     - .base_deploy
     - .prod_manual
-    - .dual_registry_login
+    - .also_login_dev_registry
   parallel:
     matrix:
       - EDITION: ce
@@ -127,7 +127,7 @@ deploy_to_prod_rock_solid:
   extends:
     - .base_deploy
     - .prod_manual
-    - .dual_registry_login
+    - .also_login_dev_registry
   parallel:
     matrix:
       - EDITION: ce

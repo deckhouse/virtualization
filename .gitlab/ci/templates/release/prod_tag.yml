@@ -1,0 +1,39 @@
+# PROD pipeline context: vX.Y.Z tag-push build & deploy.
+#
+# .prod_always (build) and .prod_manual (deploy) are identical except for the
+# rule's `when:` — build fires automatically once the tag is pushed, each
+# channel deploy waits for a human click. They share the common base .prod_tag
+# (PROD registry vars + the tag as module tag).
+#
+# TODO: the GH release_module_release-channels.yml workflow exposes inputs
+# (channel, ce/ee, tag, enableBuild, release_to_github, check_only, ...) that
+# the tag-push flow collapses into a hardcoded matrix (RELEASE_CHANNEL x
+# EDITION) in deploy-prod.yml. The single-channel dispatch with those inputs
+# lives in release-channels.yml (prod:* jobs, manual Run pipeline); this
+# template stays the tag-push context.
+
+.prod_tag:
+  extends:
+    - .prod_vars
+  variables:
+    MODULES_MODULE_TAG: ${CI_COMMIT_REF_NAME}
+
+# Build context: auto on a vX.Y.Z tag push.
+.prod_always:
+  extends:
+    - .prod_tag
+  rules:
+    # https://regex101.com/r/lToOvi/1
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+      when: always
+    - when: never
+
+# Deploy context: same tag match, but each channel deploy is manual.
+.prod_manual:
+  extends:
+    - .prod_tag
+  rules:
+    # https://regex101.com/r/lToOvi/1
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+      when: manual
+    - when: never
