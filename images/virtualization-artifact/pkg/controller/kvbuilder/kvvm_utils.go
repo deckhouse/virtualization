@@ -653,5 +653,10 @@ func setNetworksAnnotation(kvvm *KVVM, networkSpec network.InterfaceSpecList) er
 		return err
 	}
 	kvvm.SetKVVMIAnnotation(annotations.AnnNetworksSpec, networkConfigStr)
+	// Signal that DVP provisions TAP devices natively (bpfbridge). Without this annotation
+	// SDN falls back to legacy tap+bridge wiring for additional interfaces, which conflicts
+	// with the bpfbridge binding and breaks L2 connectivity for VMs created with secondary
+	// networks from the start (as opposed to hotplugged later).
+	kvvm.SetKVVMIAnnotation(annotations.AnnTapProvisionByDVPSupported, "true")
 	return nil
 }
