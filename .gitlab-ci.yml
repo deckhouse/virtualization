@@ -139,6 +139,8 @@ variables:
     MODULES_REGISTRY_PASSWORD: ${EXTERNAL_MODULES_PROD_REGISTRY_PASSWORD}
     MODULES_REGISTRY: registry-write.deckhouse.io
     MODULES_MODULE_SOURCE: ${MODULES_REGISTRY}/deckhouse/${EDITION}/modules
+    REGISTRY_USER: ${MODULES_REGISTRY_LOGIN}
+    REGISTRY_PASSWORD: ${MODULES_REGISTRY_PASSWORD}
     ENV: PROD
 
 # Templates ============================================================================================================
