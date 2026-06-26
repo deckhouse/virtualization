@@ -23,6 +23,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 
@@ -319,24 +320,31 @@ func validateSpecs(specs []specInfo) error {
 // Run executes prechecks based on loaded spec labels.
 func Run(f *framework.Framework, labelFilter string) {
 	ctx := context.Background()
-	// Run common prechecks first (always run)
-	for _, p := range commonPrechecks {
-		_, _ = GinkgoWriter.Write([]byte("Running common precheck: " + p.Label() + "\n"))
+
+	// runOne executes a single precheck and prints its progress to stdout.
+	// stdout is used (instead of GinkgoWriter) so the progress is visible
+	// immediately even in parallel mode, where GinkgoWriter output is buffered.
+	runOne := func(kind, label string, p Precheck) {
+		fmt.Printf("[precheck] running %s precheck %q ...\n", kind, label)
+		start := time.Now()
 		if err := p.Run(ctx, f); err != nil {
-			Fail("common precheck " + p.Label() + " failed: " + err.Error())
+			Fail(kind + " precheck " + label + " failed: " + err.Error())
 		}
+		fmt.Printf("[precheck] %s precheck %q passed (%s)\n", kind, label, time.Since(start).Truncate(time.Millisecond))
 	}
 
-	// Run prechecks for loaded labels
+	// Run common prechecks first (always run).
+	for _, p := range commonPrechecks {
+		runOne("common", p.Label(), p)
+	}
+
+	// Run prechecks for loaded labels.
 	for _, label := range specLabels {
 		p := registeredPrechecks[label]
 		if p == nil {
 			continue
 		}
-		_, _ = GinkgoWriter.Write([]byte("Running precheck: " + label + "\n"))
-		if err := p.Run(ctx, f); err != nil {
-			Fail("precheck " + label + " failed: " + err.Error())
-		}
+		runOne("labeled", label, p)
 	}
 }
 

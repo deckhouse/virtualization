@@ -91,6 +91,7 @@ rules:
   - storage.k8s.io
   resources:
   - storageclasses
+  - csidrivers
   verbs:
   - get
   - list
@@ -128,7 +129,7 @@ rules:
 - apiGroups:
   - cdi.internal.virtualization.deckhouse.io
   resources:
-  - internalvirtualizationdatavolumes
+  - internalvirtualizationstorageprofiles
   verbs:
   - get
   - create
@@ -152,17 +153,18 @@ rules:
   - list
   - delete
 - apiGroups:
-    - snapshot.storage.k8s.io
+  - snapshot.storage.k8s.io
   resources:
-    - volumesnapshots
+  - volumesnapshots
+  - volumesnapshotclasses
   verbs:
-    - get
-    - watch
-    - create
-    - patch
-    - update
-    - list
-    - delete
+  - get
+  - watch
+  - create
+  - patch
+  - update
+  - list
+  - delete
 - apiGroups:
     - internal.virtualization.deckhouse.io
   resources:
@@ -239,7 +241,6 @@ rules:
   - virtualmachineclasses
   - virtualdisksnapshots
   - virtualmachinesnapshots
-  - virtualmachinerestores
   - nodeusbdevices
   - usbdevices
   verbs:
@@ -267,7 +268,6 @@ rules:
   - virtualmachineclasses/finalizers
   - virtualdisksnapshots/finalizers
   - virtualmachinesnapshots/finalizers
-  - virtualmachinerestores/finalizers
   - nodeusbdevices/finalizers
   - usbdevices/finalizers
   - virtualmachineipaddresses/status
@@ -284,7 +284,6 @@ rules:
   - virtualmachineclasses/status
   - virtualdisksnapshots/status
   - virtualmachinesnapshots/status
-  - virtualmachinerestores/status
   - nodeusbdevices/status
   - usbdevices/status
   verbs:

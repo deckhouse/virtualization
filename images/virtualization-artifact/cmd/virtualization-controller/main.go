@@ -49,7 +49,9 @@ import (
 	mc "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/populator"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/resourceslice"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/storageprofile"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/usbdevice"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vdsnapshot"
@@ -115,7 +117,6 @@ func main() {
 	}
 
 	var logDebugControllerList []string
-	fmt.Print(len(logDebugControllerList))
 	logDebugControllerListRaw := os.Getenv(logDebugControllerListEnv)
 	if logDebugControllerListRaw != "" {
 		logDebugControllerListRaw = strings.ReplaceAll(logDebugControllerListRaw, " ", "")
@@ -359,13 +360,25 @@ func main() {
 	}
 
 	vdLogger := logger.NewControllerLogger(vd.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = vd.NewController(ctx, mgr, vdLogger, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, vdStorageClassSettings); err != nil {
+	if _, err = vd.NewController(ctx, mgr, vdLogger, importSettings.ImporterImage, importSettings.DiskImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, vdStorageClassSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
 	viLogger := logger.NewControllerLogger(vi.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = vi.NewController(ctx, mgr, viLogger, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.BounderImage, importSettings.Requirements, dvcrSettings, viStorageClassSettings); err != nil {
+	if _, err = vi.NewController(ctx, mgr, viLogger, importSettings.ImporterImage, importSettings.DiskImporterImage, importSettings.UploaderImage, importSettings.BounderImage, importSettings.Requirements, dvcrSettings, viStorageClassSettings); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	populatorLogger := logger.NewControllerLogger(populator.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = populator.NewController(mgr, populatorLogger, importSettings.DiskImporterImage, importSettings.Requirements, dvcrSettings); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	storageProfileLogger := logger.NewControllerLogger(storageprofile.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = storageprofile.NewController(mgr, storageProfileLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

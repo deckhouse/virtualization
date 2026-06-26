@@ -1,0 +1,472 @@
+/*
+Copyright 2026 Flant JSC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package service
+
+import (
+	"context"
+	"fmt"
+
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
+	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
+	commonpvc "github.com/deckhouse/virtualization-controller/pkg/common/pvc"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+)
+
+const (
+	cloneStrategySnapshot = "snapshot"
+	cloneStrategyCSI      = "csi-clone"
+	cloneStrategyHost     = "host-assisted"
+
+	PopulationStrategySnapshot     = "snapshot"
+	PopulationStrategyCSIClone     = "csi-clone"
+	PopulationStrategyHostAssigned = "host-assigned"
+	PopulationStrategyDVCR         = "dvcr"
+
+	// virtualizationAPIGroup is used as the target PVC dataSourceRef API group to
+	// defer dynamic provisioning of host-assisted import targets (see createTarget).
+	virtualizationAPIGroup = "virtualization.deckhouse.io"
+)
+
+// PersistentVolumeClaimService is the single entry point for filling a target
+// PersistentVolumeClaim with data. Callers describe the desired target PVC
+// (Name, Namespace, OwnerReferences, Finalizers, base Spec) together with a
+// PVCImportSource (DVCR registry image, another PVC, or nothing for a blank
+// target) and let the service decide *how* to populate the PVC: a smart clone
+// via VolumeSnapshot, a CSI clone via dataSource, a host-assisted copy via
+// the pvc-importer pod, or any other strategy that may be added in the
+// future. The service also creates and cleans up every helper resource the
+// chosen strategy needs (scratch PVC, pvc-importer pod, secret/configmap
+// copies of DVCR auth/CA, VolumeSnapshot, etc.).
+//
+// PersistentVolumeClaimService is intentionally agnostic of VirtualDisk and
+// VirtualImage: the caller passes the owning object as a client.Object so the
+// service can attach it as an OwnerReference where appropriate.
+type PersistentVolumeClaimService struct {
+	client     client.Client
+	importer   *PVCImporterService
+	protection *ProtectionService
+}
+
+type VolumeAndAccessModesGetter interface {
+	GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
+}
+
+// NewPersistentVolumeClaimService constructs a PersistentVolumeClaimService
+// configured with the pvc-importer pod settings and the DVCR settings used to
+// derive auth/CA supplements.
+func NewPersistentVolumeClaimService(
+	c client.Client,
+	dvcrSettings *dvcr.Settings,
+	protection *ProtectionService,
+	cfg DiskImporterConfig,
+) *PersistentVolumeClaimService {
+	return &PersistentVolumeClaimService{
+		client:     c,
+		importer:   NewPVCImporterService(c, dvcrSettings, cfg.Image, cfg.ResourceRequirements, cfg.PullPolicy, cfg.Verbose),
+		protection: protection,
+	}
+}
+
+// Finalizers returns the finalizer slice that should be applied to target
+// PVCs at creation time so the controller can perform explicit cleanup before
+// garbage collection. Callers building target PVC descriptors should populate
+// ObjectMeta.Finalizers with this slice.
+func (s *PersistentVolumeClaimService) Finalizers() []string {
+	if s.protection == nil {
+		return nil
+	}
+	finalizer := s.protection.GetFinalizer()
+	if finalizer == "" {
+		return nil
+	}
+	return []string{finalizer}
+}
+
+func (s *PersistentVolumeClaimService) CreateBlankTarget(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, modeGetter VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {
+	target, err := s.newTargetPVC(ctx, key, storageClassName, size, owner, modeGetter)
+	if err != nil {
+		return corev1.PersistentVolumeClaim{}, err
+	}
+	if nodePlacement != nil {
+		if err := provisioner.KeepNodePlacementTolerations(nodePlacement, &target); err != nil {
+			return corev1.PersistentVolumeClaim{}, fmt.Errorf("keep node placement: %w", err)
+		}
+	}
+	if err := s.client.Create(ctx, &target); err != nil && !k8serrors.IsAlreadyExists(err) {
+		return corev1.PersistentVolumeClaim{}, fmt.Errorf("create blank target pvc: %w", err)
+	}
+	return target, nil
+}
+
+func (s *PersistentVolumeClaimService) CreateTargetFromDVCR(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, source *PVCImportSourceRegistry, modeGetter VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {
+	target, err := s.newTargetPVC(ctx, key, storageClassName, size, owner, modeGetter)
+	if err != nil {
+		return corev1.PersistentVolumeClaim{}, err
+	}
+	setPVCPopulationAnnotation(target.Annotations, PopulationStrategyDVCR)
+	if source != nil {
+		target.Annotations[annotations.AnnPVCPopulationSourceDVCR] = source.URL
+	}
+	target.Spec.DataSourceRef = &corev1.TypedObjectReference{APIGroup: ptr.To(virtualizationAPIGroup), Kind: owner.GetObjectKind().GroupVersionKind().Kind, Name: owner.GetName()}
+	if nodePlacement != nil {
+		if err := provisioner.KeepNodePlacementTolerations(nodePlacement, &target); err != nil {
+			return corev1.PersistentVolumeClaim{}, fmt.Errorf("keep node placement: %w", err)
+		}
+	}
+	if err := s.client.Create(ctx, &target); err != nil && !k8serrors.IsAlreadyExists(err) {
+		return corev1.PersistentVolumeClaim{}, fmt.Errorf("create dvcr target pvc: %w", err)
+	}
+	return target, nil
+}
+
+func (s *PersistentVolumeClaimService) CreateTargetFromVS(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, source *vsv1.VolumeSnapshot, modeGetter VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {
+	target, err := s.newTargetPVC(ctx, key, storageClassName, size, owner, modeGetter)
+	if err != nil {
+		return corev1.PersistentVolumeClaim{}, err
+	}
+	target.Spec.DataSource = &corev1.TypedLocalObjectReference{APIGroup: ptr.To("snapshot.storage.k8s.io"), Kind: "VolumeSnapshot", Name: source.Name}
+	target.Spec.DataSourceRef = &corev1.TypedObjectReference{APIGroup: ptr.To("snapshot.storage.k8s.io"), Kind: "VolumeSnapshot", Name: source.Name}
+	if nodePlacement != nil {
+		if err := provisioner.KeepNodePlacementTolerations(nodePlacement, &target); err != nil {
+			return corev1.PersistentVolumeClaim{}, fmt.Errorf("keep node placement: %w", err)
+		}
+	}
+	if err := s.client.Create(ctx, &target); err != nil && !k8serrors.IsAlreadyExists(err) {
+		return corev1.PersistentVolumeClaim{}, fmt.Errorf("create volume snapshot target pvc: %w", err)
+	}
+	return target, nil
+}
+
+func (s *PersistentVolumeClaimService) CreateTargetFromPVC(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, source *corev1.PersistentVolumeClaim, modeGetter VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {
+	target, err := s.newTargetPVC(ctx, key, storageClassName, size, owner, modeGetter)
+	if err != nil {
+		return corev1.PersistentVolumeClaim{}, err
+	}
+	if err := s.preparePopulationFromPVC(ctx, &target, source, owner); err != nil {
+		return corev1.PersistentVolumeClaim{}, err
+	}
+	if nodePlacement != nil {
+		if err := provisioner.KeepNodePlacementTolerations(nodePlacement, &target); err != nil {
+			return corev1.PersistentVolumeClaim{}, fmt.Errorf("keep node placement: %w", err)
+		}
+	}
+	if err := s.client.Create(ctx, &target); err != nil && !k8serrors.IsAlreadyExists(err) {
+		return corev1.PersistentVolumeClaim{}, fmt.Errorf("create pvc target pvc: %w", err)
+	}
+	return target, nil
+}
+
+func (s *PersistentVolumeClaimService) newTargetPVC(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, modeGetter VolumeAndAccessModesGetter) (corev1.PersistentVolumeClaim, error) {
+	existing, err := object.FetchObject(ctx, key, s.client, &corev1.PersistentVolumeClaim{})
+	if err != nil {
+		return corev1.PersistentVolumeClaim{}, fmt.Errorf("fetch target pvc: %w", err)
+	}
+	if existing != nil {
+		return *existing, nil
+	}
+
+	sc, err := object.FetchObject(ctx, types.NamespacedName{Name: storageClassName}, s.client, &storagev1.StorageClass{})
+	if err != nil {
+		return corev1.PersistentVolumeClaim{}, fmt.Errorf("fetch storage class: %w", err)
+	}
+	if sc == nil {
+		return corev1.PersistentVolumeClaim{}, fmt.Errorf("storage class %q not found", storageClassName)
+	}
+
+	volumeMode, accessMode, err := modeGetter.GetVolumeAndAccessModes(ctx, owner, sc)
+	if err != nil {
+		return corev1.PersistentVolumeClaim{}, err
+	}
+
+	requested := resource.Quantity{}
+	if size != nil {
+		requested = size.DeepCopy()
+	}
+	target := corev1.PersistentVolumeClaim{
+		TypeMeta: metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            key.Name,
+			Namespace:       key.Namespace,
+			Finalizers:      s.Finalizers(),
+			OwnerReferences: []metav1.OwnerReference{MakeControllerOwnerReference(owner)},
+			Annotations:     map[string]string{},
+		},
+		Spec: *commonpvc.CreateSpec(&sc.Name, requested, accessMode, volumeMode),
+	}
+	return target, nil
+}
+
+func (s *PersistentVolumeClaimService) preparePopulationFromPVC(ctx context.Context, target, source *corev1.PersistentVolumeClaim, owner client.Object) error {
+	targetSC, err := object.FetchObject(ctx, types.NamespacedName{Name: ptr.Deref(target.Spec.StorageClassName, "")}, s.client, &storagev1.StorageClass{})
+	if err != nil {
+		return fmt.Errorf("fetch target storage class: %w", err)
+	}
+	if targetSC == nil {
+		return fmt.Errorf("target storage class %q not found", ptr.Deref(target.Spec.StorageClassName, ""))
+	}
+	targetVolumeMode := corev1.PersistentVolumeFilesystem
+	if target.Spec.VolumeMode != nil {
+		targetVolumeMode = *target.Spec.VolumeMode
+	}
+
+	strategy := s.choosePVCCloneStrategy(ctx, source, targetSC, targetVolumeMode)
+	target.Spec.Resources.Requests[corev1.ResourceStorage] = pvcCloneTargetSize(target.Spec.Resources.Requests[corev1.ResourceStorage], source)
+	target.Annotations[annotations.AnnPVCPopulationSourcePVC] = source.Name
+
+	switch strategy {
+	case PopulationStrategySnapshot:
+		snapshotName := target.Name + "-clone-snapshot"
+		setPVCPopulationAnnotation(target.Annotations, PopulationStrategySnapshot)
+		target.Spec.DataSource = &corev1.TypedLocalObjectReference{APIGroup: ptr.To("snapshot.storage.k8s.io"), Kind: "VolumeSnapshot", Name: snapshotName}
+		target.Spec.DataSourceRef = &corev1.TypedObjectReference{APIGroup: ptr.To("snapshot.storage.k8s.io"), Kind: "VolumeSnapshot", Name: snapshotName}
+		return s.ensureCloneSnapshot(ctx, source, target, source)
+	case PopulationStrategyCSIClone:
+		setPVCPopulationAnnotation(target.Annotations, PopulationStrategyCSIClone)
+		target.Spec.DataSource = &corev1.TypedLocalObjectReference{Kind: "PersistentVolumeClaim", Name: source.Name}
+		target.Spec.DataSourceRef = &corev1.TypedObjectReference{Kind: "PersistentVolumeClaim", Name: source.Name}
+	default:
+		setPVCPopulationAnnotation(target.Annotations, PopulationStrategyHostAssigned)
+		target.Spec.DataSource = nil
+		target.Spec.DataSourceRef = &corev1.TypedObjectReference{APIGroup: ptr.To(virtualizationAPIGroup), Kind: owner.GetObjectKind().GroupVersionKind().Kind, Name: owner.GetName()}
+	}
+	return nil
+}
+
+func setPVCPopulationAnnotation(annotationsMap map[string]string, strategy string) {
+	annotationsMap[annotations.AnnPVCPopulationStrategy] = strategy
+}
+
+func (s *PersistentVolumeClaimService) WaitForImport(ctx context.Context, target *corev1.PersistentVolumeClaim, source *PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) (corev1.PodPhase, error) {
+	if source != nil && source.PVC != nil && IsSmartClonePVC(target) {
+		if target.Status.Phase == corev1.ClaimBound {
+			return corev1.PodSucceeded, s.cleanupCloneSnapshot(ctx, target)
+		}
+		return corev1.PodPending, nil
+	}
+
+	return s.importer.Wait(ctx, target, sup)
+}
+
+func (s *PersistentVolumeClaimService) Import(ctx context.Context, target *corev1.PersistentVolumeClaim, source *PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) error {
+	if source != nil && source.PVC != nil && IsSmartClonePVC(target) {
+		return nil
+	}
+
+	return s.importer.Import(ctx, target, source, owner, sup, nodePlacement)
+}
+
+// Cleanup removes every helper resource the import has used (pvc-importer
+// pod, scratch PVC, clone VolumeSnapshot). It is idempotent and safe to call
+// multiple times.
+func (s *PersistentVolumeClaimService) Cleanup(ctx context.Context, sup supplements.Generator, target *corev1.PersistentVolumeClaim) (bool, error) {
+	deleted, err := s.importer.CleanUp(ctx, sup, target)
+	if err != nil {
+		return false, err
+	}
+	if err := s.cleanupCloneSnapshot(ctx, target); err != nil {
+		return false, err
+	}
+	return deleted, nil
+}
+
+func (s *PersistentVolumeClaimService) choosePVCCloneStrategy(ctx context.Context, sourceClaim *corev1.PersistentVolumeClaim, targetSC *storagev1.StorageClass, targetVolumeMode corev1.PersistentVolumeMode) string {
+	sourceSC, err := s.fetchSourceStorageClass(ctx, sourceClaim)
+	if err != nil || sourceSC == nil {
+		return cloneStrategyHost
+	}
+
+	preferred := cloneStrategySnapshot
+	if sp, err := object.FetchObject(ctx, types.NamespacedName{Name: targetSC.Name}, s.client, &cdiv1.StorageProfile{}); err == nil && sp != nil && sp.Status.CloneStrategy != nil {
+		switch *sp.Status.CloneStrategy {
+		case cdiv1.CloneStrategyCsiClone:
+			preferred = cloneStrategyCSI
+		case cdiv1.CloneStrategyHostAssisted:
+			preferred = cloneStrategyHost
+		case cdiv1.CloneStrategySnapshot:
+			preferred = cloneStrategySnapshot
+		}
+	}
+
+	if preferred == cloneStrategySnapshot && s.canSnapshotClone(ctx, sourceClaim, sourceSC, targetSC, targetVolumeMode) {
+		return cloneStrategySnapshot
+	}
+	if preferred != cloneStrategyHost && canCSIClone(sourceClaim, sourceSC, targetSC, targetVolumeMode) {
+		return cloneStrategyCSI
+	}
+	if preferred == cloneStrategyCSI && s.canSnapshotClone(ctx, sourceClaim, sourceSC, targetSC, targetVolumeMode) {
+		return cloneStrategySnapshot
+	}
+	return cloneStrategyHost
+}
+
+func (s *PersistentVolumeClaimService) canSnapshotClone(ctx context.Context, sourceClaim *corev1.PersistentVolumeClaim, sourceSC, targetSC *storagev1.StorageClass, targetVolumeMode corev1.PersistentVolumeMode) bool {
+	return sourceSC.Provisioner == targetSC.Provisioner &&
+		volumeModesEqual(sourceClaim, targetVolumeMode) &&
+		s.snapshotClassForProvisioner(ctx, sourceSC.Provisioner) != ""
+}
+
+func canCSIClone(sourceClaim *corev1.PersistentVolumeClaim, sourceSC, targetSC *storagev1.StorageClass, targetVolumeMode corev1.PersistentVolumeMode) bool {
+	return sourceClaim.Namespace != "" &&
+		sourceSC.Provisioner == targetSC.Provisioner &&
+		volumeModesEqual(sourceClaim, targetVolumeMode)
+}
+
+func (s *PersistentVolumeClaimService) fetchSourceStorageClass(ctx context.Context, claim *corev1.PersistentVolumeClaim) (*storagev1.StorageClass, error) {
+	if claim.Spec.StorageClassName == nil || *claim.Spec.StorageClassName == "" {
+		return nil, fmt.Errorf("source pvc %s/%s has no storageClassName", claim.Namespace, claim.Name)
+	}
+	sc, err := object.FetchObject(ctx, types.NamespacedName{Name: *claim.Spec.StorageClassName}, s.client, &storagev1.StorageClass{})
+	if err != nil {
+		return nil, fmt.Errorf("fetch source storage class: %w", err)
+	}
+	if sc == nil {
+		return nil, fmt.Errorf("source storage class %q not found", *claim.Spec.StorageClassName)
+	}
+	return sc, nil
+}
+
+func (s *PersistentVolumeClaimService) snapshotClassForProvisioner(ctx context.Context, provisionerName string) string {
+	var list vsv1.VolumeSnapshotClassList
+	if err := s.client.List(ctx, &list); err != nil {
+		return ""
+	}
+	for _, item := range list.Items {
+		if item.Driver == provisionerName {
+			return item.Name
+		}
+	}
+	return ""
+}
+
+func (s *PersistentVolumeClaimService) ensureCloneSnapshot(ctx context.Context, sourceClaim, target *corev1.PersistentVolumeClaim, owner client.Object) error {
+	snapshotName := cloneSnapshotName(target)
+	if snapshotName == "" {
+		return fmt.Errorf("clone snapshot name is empty")
+	}
+	existing, err := object.FetchObject(ctx, types.NamespacedName{Name: snapshotName, Namespace: target.Namespace}, s.client, &vsv1.VolumeSnapshot{})
+	if err != nil {
+		return fmt.Errorf("fetch clone snapshot: %w", err)
+	}
+	if existing != nil {
+		return nil
+	}
+
+	ownerRef := ownerReferenceForObject(owner)
+	ownerRef.Controller = ptr.To(false)
+
+	vs := &vsv1.VolumeSnapshot{
+		TypeMeta: metav1.TypeMeta{Kind: "VolumeSnapshot", APIVersion: "snapshot.storage.k8s.io/v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            snapshotName,
+			Namespace:       target.Namespace,
+			OwnerReferences: []metav1.OwnerReference{ownerRef},
+		},
+		Spec: vsv1.VolumeSnapshotSpec{
+			Source: vsv1.VolumeSnapshotSource{
+				PersistentVolumeClaimName: ptr.To(sourceClaim.Name),
+			},
+		},
+	}
+	if err := s.client.Create(ctx, vs); err != nil && !k8serrors.IsAlreadyExists(err) {
+		return fmt.Errorf("create clone snapshot: %w", err)
+	}
+	return nil
+}
+
+func (s *PersistentVolumeClaimService) cleanupCloneSnapshot(ctx context.Context, target *corev1.PersistentVolumeClaim) error {
+	if target.Annotations[annotations.AnnPVCPopulationStrategy] != PopulationStrategySnapshot {
+		return nil
+	}
+	snapshotName := snapshotNameFromPVC(target)
+	if snapshotName == "" {
+		return nil
+	}
+	err := s.client.Delete(ctx, &vsv1.VolumeSnapshot{ObjectMeta: metav1.ObjectMeta{Name: snapshotName, Namespace: target.Namespace}})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return err
+	}
+	return nil
+}
+
+func pvcCloneTargetSize(requested resource.Quantity, sourceClaim *corev1.PersistentVolumeClaim) resource.Quantity {
+	size := requested.DeepCopy()
+	for _, candidate := range []resource.Quantity{
+		sourceClaim.Spec.Resources.Requests[corev1.ResourceStorage],
+		sourceClaim.Status.Capacity[corev1.ResourceStorage],
+	} {
+		if !candidate.IsZero() && size.Cmp(candidate) < 0 {
+			size = candidate.DeepCopy()
+		}
+	}
+	return size
+}
+
+func volumeModesEqual(sourceClaim *corev1.PersistentVolumeClaim, targetVolumeMode corev1.PersistentVolumeMode) bool {
+	sourceMode := corev1.PersistentVolumeFilesystem
+	if sourceClaim.Spec.VolumeMode != nil {
+		sourceMode = *sourceClaim.Spec.VolumeMode
+	}
+	return sourceMode == targetVolumeMode
+}
+
+func isSmartCloneStrategy(strategy string) bool {
+	return strategy == cloneStrategySnapshot || strategy == cloneStrategyCSI
+}
+
+// IsSmartClonePVC reports whether the target PVC is provisioned via a smart
+// clone (CSI clone or VolumeSnapshot restore). Such targets are dynamically
+// provisioned from a dataSource and, unlike host-assisted imports, have no
+// importer pod that would trigger binding of a WaitForFirstConsumer volume.
+func IsSmartClonePVC(pvc *corev1.PersistentVolumeClaim) bool {
+	if pvc == nil {
+		return false
+	}
+	return isSmartCloneStrategy(pvc.Annotations[annotations.AnnPVCPopulationStrategy])
+}
+
+func cloneSnapshotName(target *corev1.PersistentVolumeClaim) string {
+	if target == nil || target.Name == "" {
+		return ""
+	}
+	return target.Name + "-clone-snapshot"
+}
+
+func snapshotNameFromPVC(target *corev1.PersistentVolumeClaim) string {
+	if target == nil {
+		return ""
+	}
+	if target.Spec.DataSourceRef != nil && target.Spec.DataSourceRef.Kind == "VolumeSnapshot" {
+		return target.Spec.DataSourceRef.Name
+	}
+	if target.Spec.DataSource != nil && target.Spec.DataSource.Kind == "VolumeSnapshot" {
+		return target.Spec.DataSource.Name
+	}
+	return cloneSnapshotName(target)
+}

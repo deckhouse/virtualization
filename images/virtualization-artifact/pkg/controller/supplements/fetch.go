@@ -40,8 +40,7 @@ const (
 	SupplementUploaderIngress SupplementType = "UploaderIngress"
 
 	// Volumes
-	SupplementPVC        SupplementType = "PersistentVolumeClaim"
-	SupplementDataVolume SupplementType = "DataVolume"
+	SupplementPVC SupplementType = "PersistentVolumeClaim"
 
 	// ConfigMaps/Secrets
 	SupplementDVCRAuthSecret        SupplementType = "DVCRAuthSecret"
@@ -72,8 +71,6 @@ func GetSupplementName(gen Generator, supplementType SupplementType) (types.Name
 	// Volumes
 	case SupplementPVC:
 		return gen.PersistentVolumeClaim(), nil
-	case SupplementDataVolume:
-		return gen.DataVolume(), nil
 
 	// ConfigMaps/Secrets
 	case SupplementDVCRAuthSecret:
@@ -114,8 +111,6 @@ func GetLegacySupplementName(gen Generator, supplementType SupplementType) (type
 	// Volumes
 	case SupplementPVC:
 		return gen.LegacyPersistentVolumeClaim(), nil
-	case SupplementDataVolume:
-		return gen.LegacyDataVolume(), nil
 
 	// ConfigMaps/Secrets
 	case SupplementDVCRAuthSecret:

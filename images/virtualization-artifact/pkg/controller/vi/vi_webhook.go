@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/common/storageclass"
 	"github.com/deckhouse/virtualization-controller/pkg/common/validate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/service"
@@ -63,6 +64,10 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 
 	if len(vi.Name) > validate.MaxVirtualImageNameLen {
 		return nil, fmt.Errorf("the VirtualImage name %q is too long: it must be no more than %d characters", vi.Name, validate.MaxVirtualImageNameLen)
+	}
+
+	if err := v.validateSourceStorageClassProvisionerCompatibility(ctx, vi); err != nil {
+		return nil, err
 	}
 
 	if vi.Spec.Storage == v1alpha2.StorageKubernetes {
@@ -202,6 +207,92 @@ func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admissi
 	err := fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
 	v.logger.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
 	return nil, nil
+}
+
+// validateSourceStorageClassProvisionerCompatibility forbids creating a VirtualImage
+// on a PVC from an object reference (VirtualDisk, VirtualImage, VirtualDiskSnapshot)
+// whose storage is backed by a different CSI driver than the target storage class.
+// Cross-CSI-driver provisioning is not supported.
+func (v *Validator) validateSourceStorageClassProvisionerCompatibility(ctx context.Context, vi *v1alpha2.VirtualImage) error {
+	// Only PVC-backed targets have a storage class provisioner to compare against.
+	if vi.Spec.Storage != v1alpha2.StoragePersistentVolumeClaim && vi.Spec.Storage != v1alpha2.StorageKubernetes {
+		return nil
+	}
+
+	if vi.Spec.DataSource.Type != v1alpha2.DataSourceTypeObjectRef || vi.Spec.DataSource.ObjectRef == nil {
+		return nil
+	}
+
+	ref := vi.Spec.DataSource.ObjectRef
+
+	var (
+		sourceProvisioner string
+		determinable      bool
+		err               error
+	)
+	switch ref.Kind {
+	case v1alpha2.VirtualImageObjectRefKindVirtualDisk:
+		sourceProvisioner, determinable, err = storageclass.ProvisionerOfVirtualDisk(ctx, v.client, vi.Namespace, ref.Name)
+	case v1alpha2.VirtualImageObjectRefKindVirtualImage:
+		sourceProvisioner, determinable, err = storageclass.ProvisionerOfVirtualImage(ctx, v.client, vi.Namespace, ref.Name)
+	case v1alpha2.VirtualImageObjectRefKindVirtualDiskSnapshot:
+		sourceProvisioner, determinable, err = storageclass.ProvisionerOfVirtualDiskSnapshot(ctx, v.client, vi.Namespace, ref.Name)
+	default:
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !determinable {
+		return nil
+	}
+
+	targetSCName := v.resolveTargetStorageClassName(ctx, vi)
+	if targetSCName == "" {
+		return nil
+	}
+
+	targetProvisioner, err := storageclass.ProvisionerOf(ctx, v.client, targetSCName)
+	if err != nil {
+		return err
+	}
+	if targetProvisioner == "" {
+		return nil
+	}
+
+	if targetProvisioner != sourceProvisioner {
+		return fmt.Errorf(
+			"virtual image storage class %q provisioner %q does not match the source %s %q provisioner %q: "+
+				"creating an image from a source on a different CSI driver is not supported",
+			targetSCName, targetProvisioner, ref.Kind, ref.Name, sourceProvisioner,
+		)
+	}
+
+	return nil
+}
+
+// resolveTargetStorageClassName resolves the storage class name a PVC-backed
+// VirtualImage will use: the explicit spec value, otherwise the module default,
+// otherwise the cluster default. Returns an empty name when it cannot be resolved.
+func (v *Validator) resolveTargetStorageClassName(ctx context.Context, vi *v1alpha2.VirtualImage) string {
+	if vi.Spec.PersistentVolumeClaim.StorageClass != nil && *vi.Spec.PersistentVolumeClaim.StorageClass != "" {
+		return *vi.Spec.PersistentVolumeClaim.StorageClass
+	}
+
+	if moduleSC, err := v.scService.GetModuleStorageClass(ctx); err == nil && moduleSC != nil {
+		return moduleSC.Name
+	}
+
+	defaultSC, err := v.scService.GetDefaultStorageClass(ctx)
+	if err != nil {
+		// Cannot determine the target storage class; skip the cross-CSI check.
+		return ""
+	}
+	if defaultSC != nil {
+		return defaultSC.Name
+	}
+
+	return ""
 }
 
 func (v *Validator) validateDefaultStorageClass(ctx context.Context) error {

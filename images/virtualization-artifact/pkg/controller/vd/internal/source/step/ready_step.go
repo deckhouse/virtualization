@@ -22,8 +22,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
@@ -31,17 +29,13 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
-const readyStep = "ready"
-
 type ReadyStepDiskService interface {
 	GetCapacity(pvc *corev1.PersistentVolumeClaim) string
 	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
-	Protect(ctx context.Context, sup supplements.Generator, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
 }
 
 type ReadyStep struct {
@@ -63,8 +57,6 @@ func NewReadyStep(
 }
 
 func (s ReadyStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
-	log := logger.FromContext(ctx).With(logger.SlogStep(readyStep))
-
 	if s.pvc == nil {
 		if vd.Status.Progress == "100%" {
 			vd.Status.Phase = v1alpha2.DiskLost
@@ -75,26 +67,30 @@ func (s ReadyStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconci
 			return &reconcile.Result{}, nil
 		}
 
-		log.Debug("PVC not created yet")
 		return nil, nil
 	}
 
 	vdsupplements.SetPVCName(vd, s.pvc.Name)
+	if s.pvc.GetAnnotations()[annotations.AnnPVCPopulationStrategy] != "" &&
+		s.pvc.GetAnnotations()[annotations.AnnPVCPopulationDone] != "true" {
+		return nil, nil
+	}
 
 	switch s.pvc.Status.Phase {
 	case corev1.ClaimLost:
-		s.cb.Status(metav1.ConditionFalse)
 		if s.pvc.GetAnnotations()[annotations.AnnDataExportRequest] == "true" {
 			vd.Status.Phase = v1alpha2.DiskExporting
-			s.cb.Reason(vdcondition.Exporting).Message("PV is being exported")
+			s.cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdcondition.Exporting).
+				Message("The VirtualDisk is being exported.")
 		} else {
 			vd.Status.Phase = v1alpha2.DiskLost
 			s.cb.
+				Status(metav1.ConditionFalse).
 				Reason(vdcondition.Lost).
 				Message(fmt.Sprintf("The PersistentVolume %q not found.", s.pvc.Spec.VolumeName))
 		}
-
-		log.Debug("PVC is Lost")
 
 		return &reconcile.Result{}, nil
 	case corev1.ClaimBound:
@@ -106,25 +102,15 @@ func (s ReadyStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconci
 		vd.Status.Progress = "100%"
 		vd.Status.Capacity = s.diskService.GetCapacity(s.pvc)
 
-		log.Debug("PVC is Bound")
-
-		supgen := vdsupplements.NewGenerator(vd)
-		err := s.diskService.Protect(ctx, supgen, vd, nil, s.pvc)
-		if err != nil {
-			return nil, fmt.Errorf("protect underlying pvc: %w", err)
-		}
-
 		if object.ShouldCleanupSubResources(vd) {
-			_, err = s.diskService.CleanUpSupplements(ctx, supgen)
-			if err != nil {
+			supgen := vdsupplements.NewGenerator(vd)
+			if _, err := s.diskService.CleanUpSupplements(ctx, supgen); err != nil {
 				return nil, fmt.Errorf("clean up supplements: %w", err)
 			}
 		}
 
 		return &reconcile.Result{}, nil
 	default:
-		log.Debug("PVC not bound yet")
-
 		return nil, nil
 	}
 }

@@ -2,59 +2,42 @@ version: "3"
 
 silent: true
 
-env:
-  CDI_REPO: "https://github.com/kubevirt/containerized-data-importer.git"
-  CDI_VERSION: "v1.60.3"
-
 tasks:
-  default:
+  test:unit:
+    desc: "Run go unit tests"
     cmds:
-      - task: status
+      - go test ./cmd/... ./pkg/...
 
-  status:
-    desc: "Show git status in cloned repo"
+  lint:
+    desc: "Run linters locally"
+    cmds:
+      - task: lint:go
+
+  lint:go:
+    desc: "Run golangci-lint"
+    deps:
+      - _ensure:golangci-lint
+    cmds:
+      - golangci-lint run
+
+  _ensure:golangci-lint:
+    desc: "Ensure golangci-lint v2+ is available"
+    internal: true
     cmds:
       - |
-        dir=$(find . -type d -name __containerized-data-importer_\* -depth 1 | head -n1)
-
-        if [[ -z $dir ]] ; then
-          echo "CDI not cloned, run 'task patch:new' to start working on a new patch."
-          exit 0
+        GOLANGCI_LINT_MIN_VERSION="2.0"
+        if ! command -v golangci-lint &> /dev/null; then
+          echo "Installing golangci-lint..."
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
+        fi
+        CURRENT_VERSION=$(golangci-lint --version 2>/dev/null | grep -oP 'version \K[0-9]+\.[0-9]+' || echo "0.0")
+        if [ "$(printf '%s\n' "$GOLANGCI_LINT_MIN_VERSION" "$CURRENT_VERSION" | sort -V | head -n1)" != "$GOLANGCI_LINT_MIN_VERSION" ]; then
+          echo "Upgrading golangci-lint from $CURRENT_VERSION to $GOLANGCI_LINT_MIN_VERSION+"
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
         fi
 
-        cd $dir
-        git status
-
-  cleanup:
-    desc: "Remove cloned CDI git repo"
+  ci:
+    desc: "Run lint and unit tests (CI entrypoint)"
     cmds:
-      - |
-        CDI_PATH=$(find . -type d -name __containerized-data-importer_\* -depth 1)
-        read -p "Delete these directories? [y/N] " answer
-
-        if [[ "${answer}" != "${answer#[Yy]}" ]] ; then
-          rm -rf ${CDI_PATH}
-        fi
-
-  patch:new:
-    desc: "Checkout CDI sources, create temp branch, apply all patches as individual commits"
-    cmds:
-      - |
-        ../../hack/patch_helper.sh --repo ${CDI_REPO} \
-          --ref ${CDI_VERSION} \
-          --patches-dir ./patches
-
-  patch:edit:
-    desc: "Checkout CDI sources, create temp branch, apply patches with commits, leave specified patch uncommitted"
-    cmds:
-      - |
-        patchName="{{.CLI_ARGS}}"
-        if [[ -z ${patchName} ]] ; then
-          echo "Specify patch name, e.g.: task patch:edit -- 001-feature-name.patch"
-          exit 1
-        fi
-
-        ../../hack/patch_helper.sh --repo ${CDI_REPO} \
-          --ref ${CDI_VERSION} \
-          --patches-dir ./patches \
-          --stop-at ${patchName}
+      - task: lint
+      - task: test:unit

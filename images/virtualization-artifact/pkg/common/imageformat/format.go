@@ -16,13 +16,27 @@ limitations under the License.
 
 package imageformat
 
-import "strings"
+import (
+	"strings"
+
+	corev1 "k8s.io/api/core/v1"
+)
 
 const (
-	FormatISO = "iso"
-	FormatRAW = "raw"
+	FormatISO   = "iso"
+	FormatRAW   = "raw"
+	FormatQCOW2 = "qcow2"
 )
 
 func IsISO(format string) bool {
 	return strings.ToLower(format) == FormatISO
+}
+
+// StorageFormat returns the image format actually stored on a PVC.
+// Block volumes are populated as a flat raw disk; filesystem volumes keep a qcow2 file.
+func StorageFormat(pvc *corev1.PersistentVolumeClaim) string {
+	if pvc != nil && pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == corev1.PersistentVolumeBlock {
+		return FormatRAW
+	}
+	return FormatQCOW2
 }

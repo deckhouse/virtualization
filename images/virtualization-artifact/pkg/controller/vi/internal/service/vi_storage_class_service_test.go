@@ -206,7 +206,7 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 			service = NewVirtualImageStorageClassService(nil, config.VirtualImageStorageClassSettings{})
 		})
 		When("a storage profile has the volume mode `Filesystem` and the access mode `ReadWriteMany`", func() {
-			It("returns an error", func() {
+			It("does not return an error", func() {
 				sp := &cdiv1.StorageProfile{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "FilesystemStorageClass",
@@ -216,6 +216,26 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 						ClaimPropertySets: []cdiv1.ClaimPropertySet{
 							{
 								AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+								VolumeMode:  ptr.To(corev1.PersistentVolumeFilesystem),
+							},
+						},
+					},
+				}
+				err := service.ValidateClaimPropertySets(sp)
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+		When("a storage profile has the volume mode `Filesystem` and the access mode `ReadOnlyMany`", func() {
+			It("returns an error", func() {
+				sp := &cdiv1.StorageProfile{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ReadOnlyFilesystemStorageClass",
+					},
+					Spec: cdiv1.StorageProfileSpec{},
+					Status: cdiv1.StorageProfileStatus{
+						ClaimPropertySets: []cdiv1.ClaimPropertySet{
+							{
+								AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadOnlyMany},
 								VolumeMode:  ptr.To(corev1.PersistentVolumeFilesystem),
 							},
 						},
@@ -254,7 +274,7 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 			})
 		})
 		When("a storage profile has the volume mode `Block` and the access mode `ReadWriteOnce`", func() {
-			It("returns an error", func() {
+			It("does not return an error", func() {
 				sp := &cdiv1.StorageProfile{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "BlockStorageClass",
@@ -274,7 +294,7 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 					},
 				}
 				err := service.ValidateClaimPropertySets(sp)
-				Expect(err).To(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 	})

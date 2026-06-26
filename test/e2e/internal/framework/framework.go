@@ -44,6 +44,7 @@ type Framework struct {
 	Clients
 
 	skipNsCreation  bool
+	skipNsDeletion  bool
 	namespacePrefix string
 	namespace       *corev1.Namespace
 
@@ -74,7 +75,7 @@ func (f *Framework) After() {
 
 	if GetConfig().IsCleanupNeeded() {
 		defer func() {
-			if f.namespace != nil {
+			if f.namespace != nil && !f.skipNsDeletion {
 				By("Cleanup: delete namespace")
 				err := f.Delete(context.Background(), f.namespace)
 				Expect(err).NotTo(HaveOccurred(), "Failed to delete namespace %q", f.namespace.Name)
@@ -120,6 +121,21 @@ func (f *Framework) createNamespace(prefix string) (*corev1.Namespace, error) {
 
 func (f *Framework) Namespace() *corev1.Namespace {
 	return f.namespace
+}
+
+// SetProjectNamespace makes the framework operate inside an externally managed namespace,
+// such as the one created by a Deckhouse Project. After does not delete this namespace:
+// the owning resource (e.g. the Project) is expected to be cleaned up separately (for
+// instance via CreateWithDeferredDeletion).
+func (f *Framework) SetProjectNamespace(name string) {
+	f.namespace = &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Namespace",
+			APIVersion: corev1.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+	}
+	f.skipNsDeletion = true
 }
 
 func (f *Framework) DeferDelete(objs ...client.Object) {

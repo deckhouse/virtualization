@@ -56,7 +56,7 @@ func Test_ScalePercent(t *testing.T) {
 			"0%",
 			0.0,
 			50.0,
-			"0.0%",
+			"0%",
 		},
 		{
 			"0%",
@@ -74,7 +74,7 @@ func Test_ScalePercent(t *testing.T) {
 			"100%",
 			50.0,
 			100.0,
-			"100.0%",
+			"100%",
 		},
 	}
 
