@@ -20,17 +20,22 @@ workflow:
   rules:
     # MR pipelines always run.
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    # Avoid duplicate pipelines: when a branch push has an open MR, GitLab
-    # would otherwise create both a branch pipeline and an MR pipeline. Skip
-    # the redundant branch pipeline and keep only the MR one. (The default
-    # branch and release/tag pushes are handled by the explicit rules below,
-    # which take precedence because rules are first-match.)
+    # Default-branch (main) pushes always create a pipeline. Listed before the
+    # `when: never` dedup rule below so a main push is never skipped.
     - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    # Tag pushes (vX.Y.Z / vX.Y.Z-dev*) always create a pipeline (also matched
+    # before the dedup rule).
     - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-dev.*)?$/
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_PIPELINE_SOURCE == "web"
-    # Plain branch pushes (non-default, non-tag) only create a pipeline when
-    # there is no open MR for the branch, preventing duplicate pipelines.
+    # Avoid duplicate pipelines: a push to a non-default, non-tag branch that
+    # already has an open MR would otherwise create BOTH a branch pipeline and
+    # an MR pipeline. The predefined $CI_OPEN_MERGE_REQUESTS is non-empty only
+    # when the pushed branch is the source of an open MR, so THIS rule is what
+    # skips the redundant branch pipeline (keeping only the MR one). main / tags
+    # / schedule / web are matched by the earlier rules and never reach here
+    # (rules are first-match).
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_OPEN_MERGE_REQUESTS
       when: never
+    # Plain branch push with no open MR: create the branch pipeline.
     - if: $CI_PIPELINE_SOURCE == "push"
