@@ -4,9 +4,10 @@
 # Triggers on tags matching vX.Y.Z-dev* (regex kept identical to the
 # previous regex101 link in the original .gitlab-ci.yml).
 #
-# Use case: a developer pushes v1.21.0-dev-build42 -> build_dev_tags runs,
-# pushes images into DEV_REGISTRY tagged with the raw tag name, then
-# deploy_for_dev_tag fans out across all release channels.
+# Use case: a developer pushes v1.21.0-dev-build42 -> build_dev_tags runs and
+# pushes images into DEV_REGISTRY tagged with the raw tag name. There is no
+# deploy step: the DEV registry has no release channels, only tags (matching
+# the build-only GitHub "Deploy Dev" workflow).
 
 .dev_tags:
   variables:

@@ -84,7 +84,10 @@ include:
   - local: ".gitlab/ci/jobs/test-d8v-cli.yml"
   - local: ".gitlab/ci/jobs/build-dev.yml"
   - local: ".gitlab/ci/jobs/build-prod.yml"
-  - local: ".gitlab/ci/jobs/deploy-dev.yml"
+  # No deploy-dev.yml: the DEV registry has no release channels (only tags),
+  # so a dev tag is just built (build_dev_tags) and never crane-copied into
+  # alpha/beta/... The GitHub "Deploy Dev" workflow
+  # (dev_module_build-and-registration.yml) is build-only as well.
   - local: ".gitlab/ci/jobs/deploy-prod.yml"
   # Prod release-channels parity flow (manual single-channel dispatch):
   # requirements check, build/deploy per edition, version verification,
