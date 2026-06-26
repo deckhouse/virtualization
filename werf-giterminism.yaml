@@ -1,7 +1,7 @@
 giterminismConfigVersion: 1
 config:
   goTemplateRendering:  # The rules for the Go-template functions
-    allowEnvVariables: 
+    allowEnvVariables:
     - /CI_.+/
     - GOPROXY
     - MODULES_MODULE_TAG
@@ -27,7 +27,6 @@ config:
     - DECKHOUSE_PRIVATE_REPO
     - GOPROXY
     - DISTRO_PACKAGES_PROXY
-helm:
     allowEnvVariables:
       - REGISTRY_USER
       - REGISTRY_PASSWORD
@@ -38,7 +37,7 @@ helm:
       - TRANSIT_SECRET_ENGINE_PATH
       - ACTIONS_ID_TOKEN_REQUEST_TOKEN
       - ACTIONS_ID_TOKEN_REQUEST_URL
-
+helm:
   allowUncommittedFiles:
   - "Chart.lock"
   - "charts/*.tgz"
