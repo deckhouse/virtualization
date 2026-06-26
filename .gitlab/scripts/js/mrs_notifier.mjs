@@ -24,8 +24,9 @@
 //   CI_PROJECT_ID     (required)  numeric project id (use the variable,
 //                                 not the slug, to survive renames).
 //   LOOP_WEBHOOK_URL  (required)  Loop incoming webhook URL.
-//   DOC_REVIEWER      (optional)  GitLab username of doc reviewer.
-//                                 Default "z9r5" (TODO: confirm GitLab username).
+//   DOC_REVIEWER      (optional)  GitLab username of the doc reviewer (the one
+//                                 reviewer kept as a real @-mention).
+//                                 Default "gitlab-virt-bot".
 //   MANAGER_LOOP_NAME (optional)  @firstname.lastname of the manager.
 //                                 Default "@yuriy.milyutin".
 //
@@ -47,7 +48,7 @@ const PROJECT_ID = process.env.CI_PROJECT_ID;
 const API_BASE = (process.env.CI_API_V4_URL || '').replace(/\/+$/, '');
 const TOKEN = process.env.GITLAB_API_TOKEN;
 const LOOP_URL = process.env.LOOP_WEBHOOK_URL;
-const DOC_REVIEWER = process.env.DOC_REVIEWER || 'z9r5';
+const DOC_REVIEWER = process.env.DOC_REVIEWER || 'gitlab-virt-bot';
 const MANAGER_LOOP_NAME = process.env.MANAGER_LOOP_NAME || '@yuriy.milyutin';
 const PROJECT = ':dvp: DVP';
 
