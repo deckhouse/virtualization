@@ -123,7 +123,7 @@ func buildGPUResourceClaimTemplateSpec(device v1alpha2.GPUDeviceSpec) resourcev1
 		Spec: resourcev1.ResourceClaimSpec{
 			Devices: resourcev1.DeviceClaim{
 				Requests: []resourcev1.DeviceRequest{{
-					Name: kvbuilder.GPUResourceClaimRequestName(device.Name),
+					Name: kvbuilder.GPUResourceClaimName(device.Name),
 					Exactly: &resourcev1.ExactDeviceRequest{
 						DeviceClassName: kvbuilder.GPUDeviceClassName,
 						AllocationMode:  resourcev1.DeviceAllocationModeExactCount,

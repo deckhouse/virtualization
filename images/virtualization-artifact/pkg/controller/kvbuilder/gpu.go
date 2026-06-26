@@ -36,10 +36,6 @@ func GPUResourceClaimName(deviceName string) string {
 	return GPUNamePrefix + deviceName
 }
 
-func GPUResourceClaimRequestName(deviceName string) string {
-	return GPUNamePrefix + deviceName
-}
-
 func GPUResourceClaimTemplateName(vmName, deviceName string) string {
 	return vmName + "-" + deviceName
 }
@@ -49,7 +45,7 @@ func IsGPUResourceClaimTemplateName(vmName, templateName string) bool {
 }
 
 func (b *KVVM) SetGPUDevices(vmName string, devices []v1alpha2.GPUDeviceSpec) {
-	devices = sortGPUDevices(devices)
+	devices = SortGPUDevices(devices)
 
 	b.Resource.Spec.Template.Spec.ResourceClaims = slices.DeleteFunc(
 		b.Resource.Spec.Template.Spec.ResourceClaims,
@@ -80,13 +76,13 @@ func (b *KVVM) SetGPUDevices(vmName string, devices []v1alpha2.GPUDeviceSpec) {
 			Name: claimName,
 			ClaimRequest: &virtv1.ClaimRequest{
 				ClaimName:   ptr.To(claimName),
-				RequestName: ptr.To(GPUResourceClaimRequestName(device.Name)),
+				RequestName: ptr.To(GPUResourceClaimName(device.Name)),
 			},
 		})
 	}
 }
 
-func sortGPUDevices(devices []v1alpha2.GPUDeviceSpec) []v1alpha2.GPUDeviceSpec {
+func SortGPUDevices(devices []v1alpha2.GPUDeviceSpec) []v1alpha2.GPUDeviceSpec {
 	if len(devices) == 0 {
 		return nil
 	}

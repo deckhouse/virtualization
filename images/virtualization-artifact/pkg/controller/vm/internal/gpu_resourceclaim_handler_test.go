@@ -54,7 +54,7 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 		Expect(fakeClient.Get(context.Background(), types.NamespacedName{Name: kvbuilder.GPUResourceClaimTemplateName(vmName, "gpu0"), Namespace: namespace}, template)).To(Succeed())
 		Expect(template.Spec.Spec.Devices.Requests).To(HaveLen(1))
 		request := template.Spec.Spec.Devices.Requests[0]
-		Expect(request.Name).To(Equal(kvbuilder.GPUResourceClaimRequestName("gpu0")))
+		Expect(request.Name).To(Equal(kvbuilder.GPUResourceClaimName("gpu0")))
 		Expect(request.Exactly.DeviceClassName).To(Equal(kvbuilder.GPUDeviceClassName))
 		Expect(request.Exactly.Selectors[0].CEL.Expression).To(ContainSubstring(`productName == "NVIDIA H100"`))
 		Expect(request.Exactly.Selectors[0].CEL.Expression).To(ContainSubstring(`deviceType == "physical"`))
