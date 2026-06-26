@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Unit tests for mrs_notifier.mjs classification logic.
+// Unit tests for mrs_notifier.mjs.
 //
 // mrs_notifier.mjs guards its `run()` call behind a direct-invocation check
 // and validates env vars only inside `run()`, so it can be safely imported
 // here without triggering network calls or process.exit. The pure helpers
-// `classifyMR` and `extractUnresolvedThreads` are exercised directly with
-// synthetic data — no network access required.
+// `classifyMR`, `extractUnresolvedThreads`, `shouldNotifyMR`, and `formatUser`
+// are exercised directly with synthetic data — no network access required.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -27,7 +27,12 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-import { classifyMR, extractUnresolvedThreads } from './mrs_notifier.mjs';
+import {
+  classifyMR,
+  extractUnresolvedThreads,
+  shouldNotifyMR,
+  formatUser,
+} from './mrs_notifier.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MODULE_PATH = path.join(__dirname, 'mrs_notifier.mjs');
@@ -245,4 +250,57 @@ test('extractUnresolvedThreads + classifyMR integration: old unresolved => stuck
   } else {
     assert.equal(classifyMR([], threads), 'changes_requested');
   }
+});
+
+// ---- shouldNotifyMR (open-MR filter) ----
+
+test('shouldNotifyMR: plain open MR is included', () => {
+  assert.equal(shouldNotifyMR({ source_branch: 'feature/x', labels: [] }), true);
+});
+
+test('shouldNotifyMR: drafts and WIP are excluded', () => {
+  assert.equal(shouldNotifyMR({ draft: true, source_branch: 'x' }), false);
+  assert.equal(shouldNotifyMR({ work_in_progress: true, source_branch: 'x' }), false);
+});
+
+test('shouldNotifyMR: release-* source branches are excluded (case-insensitive)', () => {
+  assert.equal(shouldNotifyMR({ source_branch: 'release-1.2' }), false);
+  assert.equal(shouldNotifyMR({ source_branch: 'Release-1.2' }), false);
+});
+
+test('shouldNotifyMR: autorelease and changelog bot MRs are excluded', () => {
+  assert.equal(shouldNotifyMR({ source_branch: 'x', labels: ['autorelease'] }), false);
+  assert.equal(shouldNotifyMR({ source_branch: 'x', labels: ['Autorelease/v1'] }), false);
+  assert.equal(shouldNotifyMR({ source_branch: 'x', labels: ['changelog'] }), false);
+});
+
+test('shouldNotifyMR: missing source_branch/labels is safe', () => {
+  assert.equal(shouldNotifyMR({}), true);
+});
+
+// ---- formatUser (Loop mention rendering) ----
+
+test('formatUser: null user => unknown', () => {
+  assert.equal(formatUser(null, null), 'unknown');
+});
+
+test('formatUser: profile name rendered as @first.last lowercase', () => {
+  assert.equal(
+    formatUser({ username: 'jdoe' }, { name: 'John Doe' }),
+    '@john.doe',
+  );
+});
+
+test('formatUser: no profile name => username with nudge', () => {
+  assert.equal(
+    formatUser({ username: 'jdoe' }, null),
+    'jdoe (Set name in profile!)',
+  );
+});
+
+test('formatUser: falls back to login when username absent', () => {
+  assert.equal(
+    formatUser({ login: 'ghuser' }, {}),
+    'ghuser (Set name in profile!)',
+  );
 });

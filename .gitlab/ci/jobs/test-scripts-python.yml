@@ -12,25 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Python syntax smoke check for .gitlab/ci/scripts/python.
+# Python unit tests for .gitlab/ci/scripts/python.
 #
 # Ports the GitHub Actions `test_scripts_python` job from
 # .github/workflows/dev_module_build.yml, which ran `python -m unittest` in
 # .github/scripts/python. The GitLab Python scripts
-# (changelog_collect.py, check_changelog_entry.py) currently have no unit
-# tests, so this job is a non-blocking `py_compile` syntax check only.
-# TODO: add real unit tests under .gitlab/ci/scripts/python/tests/ and
-# switch this job to `python3 -m unittest discover`.
+# (changelog_collect.py, check_changelog_entry.py) ship real unittest suites
+# under .gitlab/ci/scripts/python/tests/ covering the pure parse/validate/
+# render helpers (no network access). A py_compile pass first catches syntax
+# errors in any script not reached by an import; then unittest discover runs
+# the suites. Standard library only — no third-party deps to install.
 #
 # MR-gated via .dev.
 
 test:scripts:python:
   stage: test
   interruptible: true
-  allow_failure: true
   before_script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh python3
   script:
     - python3 -m py_compile .gitlab/ci/scripts/python/*.py
+    - >-
+      python3 -m unittest discover
+      -s .gitlab/ci/scripts/python/tests
+      -t .gitlab/ci/scripts/python
+      -p 'test_*.py'
   extends:
     - .dev

@@ -76,6 +76,19 @@ function validateEnv() {
   }
 }
 
+// Pure predicate: decide whether an open MR belongs in the review summary.
+// Excludes drafts/WIP, release-* source branches, and autorelease/changelog
+// bot MRs (these are not human review work). Exported for unit testing.
+export function shouldNotifyMR(mr) {
+  if (mr.draft || mr.work_in_progress) return false;
+  const head = (mr.source_branch || '').toLowerCase();
+  if (head.startsWith('release-')) return false;
+  const labels = (mr.labels || []).map((l) => l.toLowerCase());
+  if (labels.some((l) => l.startsWith('autorelease'))) return false;
+  if (labels.includes('changelog')) return false;
+  return true;
+}
+
 async function fetchOpenMRs() {
   const { data } = await api.get(`/projects/${PROJECT_ID}/merge_requests`, {
     params: {
@@ -85,15 +98,7 @@ async function fetchOpenMRs() {
       sort: 'asc',
     },
   });
-  return data.filter((mr) => {
-    if (mr.draft || mr.work_in_progress) return false;
-    const head = (mr.source_branch || '').toLowerCase();
-    if (head.startsWith('release-')) return false;
-    const labels = (mr.labels || []).map((l) => l.toLowerCase());
-    if (labels.some((l) => l.startsWith('autorelease'))) return false;
-    if (labels.includes('changelog')) return false;
-    return true;
-  });
+  return data.filter(shouldNotifyMR);
 }
 
 async function fetchUser(id) {
@@ -107,7 +112,10 @@ async function fetchUser(id) {
   }
 }
 
-function formatUser(user, details) {
+// Pure helper: render a Loop mention for a user. Prefers the profile name
+// rendered as @first.last; falls back to the username with a nudge to set a
+// real name. Exported for unit testing.
+export function formatUser(user, details) {
   if (!user) return 'unknown';
   if (details && details.name) {
     const loopName = details.name.replace(/ /g, '.').toLowerCase();
