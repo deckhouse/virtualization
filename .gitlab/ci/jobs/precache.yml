@@ -7,6 +7,7 @@
 # GitLab mapping:
 #   on: schedule (cron: "0 */8 * * *") -> Pipeline Schedule in UI
 #                                       + rules: schedule
+#                                       ($SCHEDULE_TYPE == "precache")
 #   on: workflow_dispatch              -> when: manual (Run pipeline)
 #   matrix.branch: [main]              -> single .main job
 #
@@ -24,7 +25,7 @@ precache:build:main:
   variables:
     MODULES_MODULE_TAG: "${CI_COMMIT_REF_NAME:-main}"
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "precache"'
     - if: '$CI_PIPELINE_SOURCE == "web"'
       when: manual
 

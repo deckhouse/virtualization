@@ -13,7 +13,9 @@
 #     for DEV registry variables and job-local rules for schedule/manual runs.
 #   - The analyze step uses the upstream `.svace_analyze` template
 #     (Svace_Analayze.gitlab-ci.yml; note upstream file name typo).
-#   - Schedule cron: "00 04 * * 6" -> Pipeline Schedule in UI.
+#   - Schedule cron: "00 04 * * 6" -> Pipeline Schedule in UI, with
+#     $SCHEDULE_TYPE == "svace" so the svace jobs run only under that
+#     dedicated schedule and not under any other pipeline schedule.
 #   - workflow_dispatch -> when: manual.
 #   - MR opt-in -> set SVACE_PIPELINE_ENABLED=true when running a pipeline.
 #   - Loop notification kept as a manual / always job. The original GH
@@ -46,7 +48,7 @@ svace:set-vars:
   # overriding their own mr<iid> tag. Runs automatically (no `when: manual`)
   # so the manual svace:build job can consume its artifact.
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "svace"'
       when: always
     - if: '$CI_PIPELINE_SOURCE == "web"'
       when: always
@@ -95,7 +97,7 @@ svace:build:
     WERF_VIRTUAL_MERGE: "0"
     SVACE_ENABLED: "true"
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "svace"'
     - if: '$CI_PIPELINE_SOURCE == "web"'
       when: manual
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $SVACE_PIPELINE_ENABLED == "true"'
@@ -119,7 +121,7 @@ svace:analyze:
     - job: svace:build
       optional: true
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "svace"'
     - if: '$CI_PIPELINE_SOURCE == "web"'
       when: manual
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $SVACE_PIPELINE_ENABLED == "true"'
@@ -159,7 +161,7 @@ svace:notify:
         --data "$(jq -n --arg text "${MESSAGE}" '{text: $text}')" \
         "${LOOP_WEBHOOK_URL}" || echo "Loop webhook failed (non-fatal)"
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "svace"'
       when: always
     - if: '$CI_PIPELINE_SOURCE == "web"'
       when: always
