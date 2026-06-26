@@ -90,3 +90,28 @@ variables:
   # and matches the behavior of GitHub's actions/setup-go@v5.
   GOTOOLCHAIN: "auto"
   WERF_EXPERIMENTAL_IMPORT_BY_SOURCE_IMAGE_TAG: "true"
+
+  # --- Pipeline schedule discriminator ---
+  # SCHEDULE_TYPE is NOT a fixed value here. It is set per pipeline schedule
+  # in GitLab UI (Settings -> CI/CD -> Schedules -> <schedule> -> Variables),
+  # and each scheduled job gates on its own expected value, e.g.:
+  #   $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "cleanup"
+  # This prevents a job from running under every pipeline schedule that happens
+  # to fire. Operators must set SCHEDULE_TYPE to exactly one of the values
+  # below when creating a pipeline schedule:
+  #
+  #   Job(s)                         SCHEDULE_TYPE                    Intended cron
+  #   cleanup                        cleanup                          12 0 * * 6
+  #   cve:scan:daily                 cve-scan-daily                   0 2 * * *
+  #   svace:*                        svace                            0 4 * * 6
+  #   gitleaks:full:scheduled        gitleaks-full                    daily
+  #   precache:build:main            precache                         0 */8 * * *
+  #   changelog:milestone            changelog-milestone              nightly
+  #   changelog:all-active-milestones changelog-all-active-milestones nightly
+  #   mrs:summary                    mrs-summary                      0 7 * * *
+  #   lint:no-cyrillic / lint:go / lint:gitlab-ci lint-validate       as needed
+  #   backport (scheduled sweep)     backport-sweep                   as needed
+  #
+  # The global workflow:rules in .gitlab/ci/workflow.yml still create a
+  # pipeline for any schedule; SCHEDULE_TYPE only narrows which jobs run
+  # inside it. Manual/MR/web behavior is unaffected.

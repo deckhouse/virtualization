@@ -48,7 +48,7 @@ lint:no-cyrillic:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == "main"'
     - if: "$CI_COMMIT_BRANCH =~ /^release-/"
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "lint-validate"'
 
 # ---------------------------------------------------------------------------
 # doc_changes
@@ -201,7 +201,7 @@ lint:go:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == "main"'
     - if: "$CI_COMMIT_BRANCH =~ /^release-/"
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "lint-validate"'
 
 # ---------------------------------------------------------------------------
 # helm_templates
@@ -424,4 +424,4 @@ lint:gitlab-ci:
         paths:
           - ".gitlab-ci.yml"
           - ".gitlab/**/*"
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "lint-validate"'

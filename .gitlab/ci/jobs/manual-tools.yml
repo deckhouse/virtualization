@@ -44,7 +44,8 @@ mrs:summary:
     - if: $CI_PIPELINE_SOURCE == "web"
       when: manual
     # Scheduled daily run (e.g. 10:00 Moscow time — configure in
-    # Settings -> CI/CD -> Schedules).
-    - if: $CI_PIPELINE_SOURCE == "schedule"
+    # Settings -> CI/CD -> Schedules), under the dedicated mrs-summary
+    # pipeline schedule ($SCHEDULE_TYPE == "mrs-summary").
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "mrs-summary"
       when: manual
       allow_failure: true

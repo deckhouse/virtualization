@@ -64,7 +64,7 @@ gitleaks:full:scheduled:
     SCAN_MODE: "full"
     GIT_DEPTH: "0"
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "gitleaks-full"'
 
 gitleaks:full:manual:
   extends: .gitleaks_scan
