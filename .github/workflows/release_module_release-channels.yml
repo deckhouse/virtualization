@@ -441,12 +441,11 @@ jobs:
         with:
           go-version: "${{ env.GO_VERSION }}"
 
-      - name: Login to PROD_REGISTRY
-        uses: deckhouse/modules-actions/setup@v2
+      - name: Log in to private registry
+        id: registry-login
+        uses: ./.github/actions/registry-login
         with:
-          registry: ${{ vars.PROD_READ_REGISTRY }}
-          registry_login: ${{ secrets.PROD_READ_REGISTRY_USER }}
-          registry_password: ${{ secrets.PROD_READ_REGISTRY_PASSWORD }}
+          docker_cfg: ${{ secrets.PROD_RU_REGISTRY_DOCKER_CFG }}
 
       - uses: actions/checkout@v4
         with:
