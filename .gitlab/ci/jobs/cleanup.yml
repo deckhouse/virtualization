@@ -34,6 +34,10 @@ cleanup:
     - .dev_vars
   variables:
     MODULES_MODULE_TAG: v0.0.0-main
+    # Explicitly disable werf dry-run, mirroring GitHub dev_registry-cleanup.yml
+    # (env WERF_DRY_RUN: "false"). Without this an inherited/global
+    # WERF_DRY_RUN=true would make cleanup silently prune nothing.
+    WERF_DRY_RUN: "false"
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "cleanup"
   script:
