@@ -20,8 +20,9 @@
 #                         so prod:build:* can `needs:` it — the early position
 #                         is a DAG-ordering artifact, not a dev-pipeline stage.
 #   build             — werf build for dev / dev-tags / main / prod
+#                       (dev tags are build-only: the DEV registry has no
+#                       release channels, so there is no DEV deploy stage)
 #   scan              — cve_scan, gitleaks, svace (owned by sibling issues)
-#   deploy_dev        — DEV tag deploy to alpha/beta/ea/stable/rock-solid
 #   deploy_prod         — prod release-channel deploy. ONE stage with independent
 #                         manual jobs per channel (tag-push flow, deploy-prod.yml)
 #                         and per-edition deploy from Run pipeline
@@ -48,7 +49,6 @@ stages:
   - prod_check
   - build
   - scan
-  - deploy_dev
   - deploy_prod
   - prod_verify
   - prod_release

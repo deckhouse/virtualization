@@ -1,12 +1,13 @@
 # DEV pipeline context: main-branch builds.
 #
-# Carries forward the previous root .gitlab-ci.yml `.main` template. Uses a
-# fixed `v0.0.0-main` tag so that every main push produces an
-# overwritable slot in the DEV registry (the next push replaces the tag).
+# Uses the `main` tag, matching GitHub dev_module_build.yml `set_vars`
+# (MODULES_MODULE_TAG = github.ref_name = "main" for the default branch,
+# see .github/workflows/dev_module_build.yml:121-122). Every main push
+# overwrites this tag in the DEV registry, producing a single rolling slot.
 
 .main:
   variables:
-    MODULES_MODULE_TAG: v0.0.0-main
+    MODULES_MODULE_TAG: main
   extends:
     - .dev_vars
   rules:

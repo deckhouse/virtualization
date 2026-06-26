@@ -1,9 +1,11 @@
 # Base deploy template (.base_deploy).
 #
-# Naming: this is the BASE crane-copy deploy job body extended by
-# deploy_for_dev_tag / deploy_to_prod_*. Previously named `.local_deploy`;
-# renamed to `.base_deploy` for the same reason as `.base_build` ("local"
-# was uninformative and clashed with `include: local:`).
+# Naming: this is the BASE crane-copy deploy job body extended by the prod
+# release-channel deploy jobs (deploy_to_prod_* and prod:deploy:*). Previously
+# named `.local_deploy`; renamed to `.base_deploy` for the same reason as
+# `.base_build` ("local" was uninformative and clashed with `include: local:`).
+# Note: there is no DEV deploy — the DEV registry has no release channels, so
+# dev tags are build-only (see build_dev_tags).
 #
 # Mirrors upstream modules-gitlab-ci Deploy.gitlab-ci.yml `.deploy` body
 # (verified in
@@ -14,8 +16,7 @@
 #
 #   Upstream `.deploy` has `rules: [{if: $CI_COMMIT_TAG}]` + `when: manual`
 #   baked in. Because GitLab CI merges parent rules with parent-first
-#   precedence, that turns deploy_for_dev_tag into a manual job on prod
-#   tags too (we want it auto on dev tags and absent on prod tags).
+#   precedence, those rules would override our own gating.
 #   The prod-channel chain (deploy_to_prod_*) wants `when: manual` from
 #   .prod_manual, so the upstream `when: manual` happens to match — but we
 #   still want explicit control. Keeping the upstream body in `.base_deploy`
