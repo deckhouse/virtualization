@@ -21,8 +21,17 @@
 #
 # Triggers (per plan §11.9.4):
 #   1. Manual pipeline (Run pipeline UI) with variable TARGET_BRANCH=release-1.21.
-#   2. Manual pipeline with the backport-release-X.Y label detected on the MR
-#      (GitLab does NOT auto-trigger on label change; documented TODO).
+#   2. Manual pipeline on an MR carrying the `status/backport` label.
+#      GitLab does NOT auto-trigger pipelines on label change; the user must
+#      press "Run pipeline" on the MR (TODO: webhook-listener per plan §7).
+#      The target branch is derived from the source MR milestone title
+#      (vX.Y.Z or X.Y.Z -> release-X.Y); TARGET_BRANCH overrides this.
+#
+# After the backport job finishes, backport.sh updates the source MR:
+#   - always removes `status/backport`;
+#   - on success adds `status/backport/success` and comments with the
+#     backport MR link;
+#   - on failure adds `status/backport/failed` and comments with the job link.
 #
 # Required CI/CD variable: GITLAB_API_TOKEN (Project Access Token, scope api).
 
@@ -35,18 +44,20 @@ backport:
   script:
     - bash .gitlab/ci/scripts/bash/backport.sh
   # allow_failure: true on every rule: `when: manual` inside `rules:` defaults
-  # to allow_failure: false, so on an MR carrying a backport-release-X.Y label
+  # to allow_failure: false, so on an MR carrying the `status/backport` label
   # this unplayed manual job would block the whole MR pipeline (test/build/...).
   # Backport is an opt-in side action, so it must never gate the pipeline.
   rules:
-    # Mode 1: explicit manual run with TARGET_BRANCH provided via UI.
+    # Mode 1: explicit manual run with TARGET_BRANCH provided via UI (overrides
+    # milestone-based inference).
     - if: $TARGET_BRANCH
       when: manual
       allow_failure: true
-    # Mode 2: MR with a backport-release-X.Y label. GitLab does NOT auto-run
+    # Mode 2: MR with the `status/backport` label. GitLab does NOT auto-run
     # pipelines on label change; user has to press "Run pipeline" on the MR
-    # (TODO: webhook-listener per migration plan §7).
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS =~ /backport-release-[0-9]+\.[0-9]+/
+    # (TODO: webhook-listener per migration plan §7). The target branch is
+    # derived from the source MR milestone by backport.sh.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS =~ /(^|,\s*)status\/backport(,|$)/
       when: manual
       allow_failure: true
     # Mode 3: scheduled backport sweep (TODO: future automation), under the
