@@ -28,10 +28,10 @@
 # official `node:${NODE_VERSION}` image via `docker run`, mirroring how
 # check:gens-files runs the vm-route-forge leg in cilium/ebpf-builder. The
 # repo is bind-mounted READ-ONLY at /src and copied to an ephemeral tmpdir
-# inside the container, so node_modules/package-lock.json never pollute the
-# shared shell-executor workspace (root-owned files there break `git clean`
-# on subsequent checkouts of unrelated jobs).
-# TODO: commit a package-lock.json and switch to `npm ci`.
+# inside the container, so node_modules never pollutes the shared
+# shell-executor workspace (root-owned files there break `git clean` on
+# subsequent checkouts of unrelated jobs). The committed package-lock.json
+# lets the job use `npm ci` for reproducible installs.
 
 test:scripts:js:
   stage: test
@@ -42,8 +42,8 @@ test:scripts:js:
     - |
       set -e
       # Run npm in a throwaway tmpdir INSIDE the container so node_modules
-      # and package-lock.json never land in the shared shell-executor
-      # workspace. Previously npm ran directly against a read-write
+      # never lands in the shared shell-executor workspace. Previously npm
+      # ran directly against a read-write
       # bind-mount of the repo: under the default container uid (root) it
       # created root-owned node_modules/ that the runner-user could not
       # remove, which broke `git clean` on the next job's checkout and
@@ -51,7 +51,7 @@ test:scripts:js:
       # "warning: failed to remove ...: Permission denied".
       #
       # The repo is mounted read-only at /src; the test sources are copied
-      # to an ephemeral tmpdir where npm install/npm test execute.
+      # to an ephemeral tmpdir where npm ci/npm test execute.
       docker run --rm --platform linux/amd64 \
         -v "${PWD}:/src:ro" \
         -u "$(id -u):$(id -g)" \
@@ -62,7 +62,7 @@ test:scripts:js:
           work="$(mktemp -d)"
           cp -a /src/.gitlab/scripts/js/. "$work"/
           cd "$work"
-          npm install --no-audit --no-fund --cache /tmp/.npm
+          npm ci --no-audit --no-fund --cache /tmp/.npm
           npm test
         '
   extends:
