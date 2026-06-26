@@ -1,9 +1,8 @@
 # PROD registry variable bundle.
 #
-# Carries forward the previous root .gitlab-ci.yml `.prod_vars` template.
-# Anything that uses `extends: .prod_vars` gets MODULES_REGISTRY,
-# MODULES_REGISTRY_LOGIN, MODULES_REGISTRY_PASSWORD, MODULES_MODULE_SOURCE
-# and ENV=PROD, all sourced from the PROD_* Project Variables.
+# Anything that uses `extends: .prod_vars` authenticates against the PROD
+# registry (via .login_prod_registry) and gets MODULES_MODULE_SOURCE and
+# ENV=PROD, all sourced from the PROD_* Project Variables.
 #
 # MODULES_MODULE_SOURCE is composed dynamically from PROD_REGISTRY,
 # PROD_MODULE_SOURCE_NAME, and the matrix-driven EDITION variable so that
@@ -15,25 +14,13 @@
 # ee/se-plus/fe), matching .github/workflows/release_module_build-and-registration.yml.
 # .werf/consts.yaml defaults MODULE_EDITION to EE, so it MUST be set by the
 # matrix — otherwise the ce prod image is built/deployed as EE.
-
-# Read-only registry bundle for prod verification jobs
-# (prod:check-requirements, prod:check-version in release-channels.yml).
 #
-# Sets MODULES_REGISTRY_* to PROD_READ_REGISTRY_* so the upstream Setup
-# `werf cr login` authenticates against the read-only registry used by the
-# tools/moduleversions checks. NOTE: the Go/bash tools hardcode
-# registry.deckhouse.io; PROD_READ_REGISTRY must resolve to that host for
-# crane auth to apply (see tools/moduleversions Taskfile.dist.yaml).
-.prod_read_registry:
-  variables:
-    MODULES_REGISTRY: "${PROD_READ_REGISTRY}"
-    MODULES_REGISTRY_LOGIN: "${PROD_READ_REGISTRY_USER}"
-    MODULES_REGISTRY_PASSWORD: "${PROD_READ_REGISTRY_PASSWORD}"
+# The read-only registry login used by the prod verification jobs lives in
+# base/registry-login.yml as .login_prod_read_registry.
 
 .prod_vars:
+  extends:
+    - .login_prod_registry
   variables:
-    MODULES_REGISTRY: "${PROD_REGISTRY}"
-    MODULES_REGISTRY_LOGIN: "${PROD_MODULES_REGISTRY_LOGIN}"
-    MODULES_REGISTRY_PASSWORD: "${PROD_MODULES_REGISTRY_PASSWORD}"
     MODULES_MODULE_SOURCE: "${PROD_REGISTRY}/${PROD_MODULE_SOURCE_NAME}/${EDITION}/modules"
     ENV: PROD
