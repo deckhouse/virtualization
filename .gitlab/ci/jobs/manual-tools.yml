@@ -21,7 +21,8 @@
 # Migration plan §0(1) explicitly removes GitHub slash-command dispatch
 # (/.github/workflows/dispatch-slash-command.yml) and replaces it with
 # manual pipelines. The two manual jobs in this file are the closest
-# equivalents. There is no automated webhook listener yet (TODO).
+# equivalents. There is no automated webhook listener, and this is an
+# accepted permanent gap (no webhook-listener will be built).
 
 # Variables for "Run pipeline" UI:
 #   LOOP_WEBHOOK_URL     (required)  Loop incoming webhook URL.

@@ -13,11 +13,15 @@
 #   info              — manifest printers, set_vars helper
 #   lint              — Go lint, helm lint, yaml lint, no-cyrillic, etc.
 #   test              — Go unit tests, hooks tests
+#   prod_check          — release-channel requirements check
+#                         (prod:check-requirements). Runs ONLY in the manual
+#                         web release-channel flow (CI_PIPELINE_SOURCE == web),
+#                         NOT in dev/MR pipelines. Declared BEFORE build purely
+#                         so prod:build:* can `needs:` it — the early position
+#                         is a DAG-ordering artifact, not a dev-pipeline stage.
 #   build             — werf build for dev / dev-tags / main / prod
 #   scan              — cve_scan, gitleaks, svace (owned by sibling issues)
 #   deploy_dev        — DEV tag deploy to alpha/beta/ea/stable/rock-solid
-#   prod_check          — requirements check before release-channel dispatch.
-#                         Runs BEFORE build so prod:build:* can need it.
 #   deploy_prod         — prod release-channel deploy. ONE stage with independent
 #                         manual jobs per channel (tag-push flow, deploy-prod.yml)
 #                         and per-edition deploy from Run pipeline

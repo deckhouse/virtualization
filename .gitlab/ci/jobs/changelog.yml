@@ -21,8 +21,9 @@
 # All three used ./.github/actions/milestone-changelog (composite action).
 #
 # Per migration plan §0(3) and §11.5.4 the GitLab jobs are manual + scheduled,
-# NOT reactive. A webhook-listener for slash-command-equivalents and label
-# events is a documented TODO.
+# NOT reactive. Reactive webhook automation (slash-command-equivalents,
+# label/milestone events) is an accepted permanent gap — no webhook-listener
+# will be built.
 #
 # Required CI/CD variable: GITLAB_API_TOKEN (Project Access Token, scope api).
 

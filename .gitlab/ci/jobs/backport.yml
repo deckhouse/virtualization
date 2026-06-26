@@ -23,7 +23,8 @@
 #   1. Manual pipeline (Run pipeline UI) with variable TARGET_BRANCH=release-1.21.
 #   2. Manual pipeline on an MR carrying the `status/backport` label.
 #      GitLab does NOT auto-trigger pipelines on label change; the user must
-#      press "Run pipeline" on the MR (TODO: webhook-listener per plan §7).
+#      press "Run pipeline" on the MR. Webhook-driven auto-trigger is an
+#      accepted permanent gap (no webhook-listener will be built).
 #      The target branch is derived from the source MR milestone title
 #      (vX.Y.Z or X.Y.Z -> release-X.Y); TARGET_BRANCH overrides this.
 #
@@ -55,8 +56,8 @@ backport:
       allow_failure: true
     # Mode 2: MR with the `status/backport` label. GitLab does NOT auto-run
     # pipelines on label change; user has to press "Run pipeline" on the MR
-    # (TODO: webhook-listener per migration plan §7). The target branch is
-    # derived from the source MR milestone by backport.sh.
+    # (webhook auto-trigger is an accepted permanent gap, not planned). The
+    # target branch is derived from the source MR milestone by backport.sh.
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS =~ /(^|,\s*)status\/backport(,|$)/
       when: manual
       allow_failure: true
