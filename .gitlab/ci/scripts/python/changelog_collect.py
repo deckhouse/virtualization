@@ -138,6 +138,16 @@ def parse_changes_block(block_text: str) -> dict[str, str] | None:
     return fields
 
 
+def has_label(mr: dict, label: str) -> bool:
+    labels = mr.get("labels") or []
+    for item in labels:
+        if isinstance(item, str) and item == label:
+            return True
+        if isinstance(item, dict) and item.get("name") == label:
+            return True
+    return False
+
+
 def collect_entries_for_milestone(
     api_base: str, project_id: str, milestone_title: str, token: str,
     allowed_sections: set[str],
@@ -159,6 +169,9 @@ def collect_entries_for_milestone(
 
     entries: list[dict] = []
     for mr in mrs:
+        if has_label(mr, "changelog"):
+            log(f"Skipping changelog MR !{mr['iid']}.")
+            continue
         description = (mr.get("description") or "").strip()
         if not description:
             continue
@@ -317,7 +330,6 @@ def push_changelog_mr(
     server_host: str,
     token: str,
     milestone_title: str,
-    milestone_number: str,
     base_branch: str,
     pr_body_path: Path,
 ) -> None:
@@ -349,7 +361,7 @@ def push_changelog_mr(
         "-o", f"merge_request.label=changelog",
         "-o", f"merge_request.label=auto",
         "-o", f"merge_request.label=status/backport",
-        "-o", f"merge_request.milestone={milestone_number}",
+        "-o", f"merge_request.milestone={milestone_title}",
         "-o", f"merge_request.description={pr_body_path.read_text(encoding='utf-8')}",
         "-o", "merge_request.remove_source_branch",
         "origin", branch,
@@ -449,7 +461,6 @@ def main() -> int:
                     server_host=server_host,
                     token=token,
                     milestone_title=title,
-                    milestone_number=str(iid),
                     base_branch=base_branch,
                     pr_body_path=body_path,
                 )

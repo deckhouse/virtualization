@@ -60,11 +60,10 @@ changelog:milestone:
       allow_failure: true
     # Mode 2: scheduled daily run. We intentionally do NOT auto-open the MR on
     # schedule; set OPEN_CHANGELOG_MR=true in the schedule definition if you
-    # want MRs created. Runs only under the dedicated changelog-milestone
-    # pipeline schedule ($SCHEDULE_TYPE == "changelog-milestone").
+    # want MRs created. Runs automatically under the dedicated
+    # changelog-milestone pipeline schedule
+    # ($SCHEDULE_TYPE == "changelog-milestone").
     - if: $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "changelog-milestone"
-      when: manual
-      allow_failure: true
 
 # Optional: process all active milestones (one MR per milestone).
 # Run on a schedule (e.g. nightly). Iterates over all open milestones and
@@ -84,5 +83,3 @@ changelog:all-active-milestones:
     CHANGELOG_BASE_BRANCH: "main"
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "changelog-all-active-milestones"
-      when: manual
-      allow_failure: true
