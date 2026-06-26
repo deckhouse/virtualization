@@ -29,8 +29,9 @@
 
 include:
   # --- Upstream modules-gitlab-ci (deckhouse/3p, ref v13.0) ---
-  # TODO: pin to SHA after first green pipeline on virt-test. Until then,
-  # branch ref v13.0 keeps fixes flowing.
+  # Tracks the v13.0 branch so upstream fixes flow in automatically. To pin for
+  # reproducibility, swap the ref for the branch HEAD SHA
+  # (006d51c35904b434eca2045a449aafb5e37a8827 at the time of writing).
   - project: "deckhouse/3p/deckhouse/modules-gitlab-ci"
     ref: "v13.0"
     file:
