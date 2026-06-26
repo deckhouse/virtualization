@@ -29,11 +29,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import changelog_collect as cl  # noqa: E402
 
 
-def entry(section, type_, summary, mr_iid, impact_level="high", mr_url=None):
+def entry(section, type_, summary, mr_iid, impact_level="high", mr_url=None, impact=""):
     return {
         "section": section,
         "type": type_,
         "summary": summary,
+        "impact": impact,
         "impact_level": impact_level,
         "mr_iid": mr_iid,
         "mr_title": f"MR {mr_iid}",
@@ -74,6 +75,15 @@ class ParseChangesBlockTest(unittest.TestCase):
             "section: vm\ntype: fix\nsummary: s\nimpact_level: low"
         )
         self.assertEqual(parsed["impact_level"], "low")
+
+    def test_multiline_impact_is_preserved(self):
+        parsed = cl.parse_changes_block(
+            "section: core\ntype: feature\nsummary: containerd v2\n"
+            "impact: First line.\nSecond line.\nimpact_level: high"
+        )
+        self.assertEqual(parsed["impact"], "First line.\nSecond line.")
+        self.assertEqual(parsed["impact_level"], "high")
+        self.assertEqual(parsed["summary"], "containerd v2")
 
 
 class HasLabelTest(unittest.TestCase):
@@ -165,14 +175,72 @@ class RenderYamlTest(unittest.TestCase):
         entries = [entry("vm", "chore", "noise", 1)]
         self.assertEqual(cl.render_yaml(entries, "v1.21.0"), "{}\n\n")
 
+    def test_single_line_impact_emitted_after_pull_request(self):
+        entries = [entry("core", "feature", "containerd v2", 9, impact="Recreate images.")]
+        out = cl.render_yaml(entries, "v1.21.0")
+        self.assertIn("      pull_request: https://gl/-/merge_requests/9", out)
+        self.assertIn("      impact: Recreate images.", out)
 
-class RenderMarkdownTest(unittest.TestCase):
+    def test_multiline_impact_emitted_as_literal_block(self):
+        entries = [entry("core", "feature", "containerd v2", 9, impact="L1\nL2")]
+        out = cl.render_yaml(entries, "v1.21.0")
+        self.assertIn("      impact: |-", out)
+        self.assertIn("        L1", out)
+        self.assertIn("        L2", out)
+
+    def test_no_impact_means_no_impact_line(self):
+        entries = [entry("vm", "fix", "fixed Y", 11)]
+        out = cl.render_yaml(entries, "v1.21.0")
+        self.assertNotIn("impact:", out)
+
+
+class RenderMilestoneMdBlockTest(unittest.TestCase):
     def test_basic_structure(self):
         entries = [entry("vm", "fix", "fixed Y", 11, impact_level="high")]
-        out = cl.render_markdown(entries, "v1.21.0", "v1.21")
-        self.assertIn("# Changelog v1.21", out)
-        self.assertIn("## vm", out)
+        out = cl.render_milestone_md_block(entries, "v1.21.0")
+        self.assertIn("## v1.21.0", out)
+        self.assertIn("### vm", out)
         self.assertIn("**fix** (high): fixed Y ([!11]", out)
+
+    def test_empty_entries_render_placeholder(self):
+        out = cl.render_milestone_md_block([], "v1.21.0")
+        self.assertIn("## v1.21.0", out)
+        self.assertIn("_No changelog entries._", out)
+
+
+class MergeMinorMarkdownTest(unittest.TestCase):
+    def test_new_file_creates_header_and_block(self):
+        block = cl.render_milestone_md_block(
+            [entry("vm", "fix", "a", 1)], "v1.21.0"
+        )
+        out = cl.merge_minor_markdown("", "v1.21", "v1.21.0", block)
+        self.assertIn("# Changelog v1.21", out)
+        self.assertIn("## v1.21.0", out)
+
+    def test_existing_patch_preserved_and_sorted_desc(self):
+        first = cl.merge_minor_markdown(
+            "", "v1.21", "v1.21.0",
+            cl.render_milestone_md_block([entry("vm", "fix", "older", 1)], "v1.21.0"),
+        )
+        second = cl.merge_minor_markdown(
+            first, "v1.21", "v1.21.1",
+            cl.render_milestone_md_block([entry("vm", "fix", "newer", 2)], "v1.21.1"),
+        )
+        # Both patch blocks are present (cumulative)...
+        self.assertIn("## v1.21.0", second)
+        self.assertIn("## v1.21.1", second)
+        self.assertIn("older", second)
+        self.assertIn("newer", second)
+        # ...and the newer patch is listed first.
+        self.assertLess(second.index("## v1.21.1"), second.index("## v1.21.0"))
+
+    def test_regenerating_same_milestone_is_idempotent(self):
+        block_v0 = cl.render_milestone_md_block(
+            [entry("vm", "fix", "a", 1)], "v1.21.0"
+        )
+        once = cl.merge_minor_markdown("", "v1.21", "v1.21.0", block_v0)
+        twice = cl.merge_minor_markdown(once, "v1.21", "v1.21.0", block_v0)
+        self.assertEqual(once, twice)
 
 
 class MinorVersionFromTagTest(unittest.TestCase):

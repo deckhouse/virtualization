@@ -61,6 +61,11 @@ CHANGES_BLOCK_RE = re.compile(
     re.DOTALL,
 )
 KEY_VALUE_RE = re.compile(r"^([A-Za-z_]+)\s*:\s*(.*)$")
+# Only these keys start a new field in a ```changes block. Any other line is
+# treated as a continuation of the current field, so multi-line values (most
+# importantly `impact:`, the high-impact migration note) are preserved instead
+# of being dropped. Mirrors the deckhouse/changelog-action block schema.
+KNOWN_BLOCK_KEYS = {"section", "type", "summary", "impact", "impact_level"}
 # deckhouse/changelog-action@v2.6.0 only renders 'feature' (-> features) and 'fix'
 # (-> fixes) sections in CHANGELOG-*.yml. Keep in sync with
 # check_changelog_entry.py.
@@ -125,13 +130,20 @@ def next_link(link_header: str) -> str:
 
 def parse_changes_block(block_text: str) -> dict[str, str] | None:
     fields: dict[str, str] = {}
+    current_key: str | None = None
     for raw_line in block_text.splitlines():
         match = KEY_VALUE_RE.match(raw_line.rstrip())
-        if not match:
-            continue
-        key = match.group(1).strip().lower()
-        value = match.group(2).strip()
-        fields[key] = value
+        if match and match.group(1).strip().lower() in KNOWN_BLOCK_KEYS:
+            key = match.group(1).strip().lower()
+            fields[key] = match.group(2).strip()
+            current_key = key
+        elif current_key is not None:
+            # Continuation line of the current field (e.g. a multi-line impact).
+            cont = raw_line.strip()
+            if cont:
+                fields[current_key] = (
+                    f"{fields[current_key]}\n{cont}" if fields[current_key] else cont
+                )
     required = {"section", "type", "summary"}
     if not required.issubset(fields):
         return None
@@ -192,6 +204,7 @@ def collect_entries_for_milestone(
                     "section": section,
                     "type": parsed["type"],
                     "summary": parsed["summary"],
+                    "impact": parsed.get("impact", ""),
                     "impact_level": impact_level or "high",
                     "mr_iid": mr["iid"],
                     "mr_title": mr.get("title", ""),
@@ -275,19 +288,34 @@ def render_yaml(entries: list[dict], milestone_title: str) -> str:
             for entry in items:
                 lines.append(f"    - summary: {yaml_summary_scalar(entry['summary'])}")
                 lines.append(f"      pull_request: {entry['mr_url']}")
+                # High-impact entries carry a free-text `impact` migration note.
+                # Preserve it (deckhouse/changelog-action emits it after
+                # pull_request); a multi-line note becomes a literal block.
+                impact = entry.get("impact", "")
+                if impact:
+                    if "\n" in impact:
+                        lines.append("      impact: |-")
+                        for impact_line in impact.split("\n"):
+                            lines.append(f"        {impact_line}" if impact_line else "")
+                    else:
+                        lines.append(f"      impact: {yaml_summary_scalar(impact)}")
     return "\n".join(lines) + "\n\n"
 
 
-def render_markdown(entries: list[dict], milestone_title: str, minor_version: str) -> str:
+def render_milestone_md_block(entries: list[dict], milestone_title: str) -> str:
+    """Render the markdown block for ONE milestone (patch version).
+
+    Heading is `## <milestone_title>` so that
+    :func:`merge_minor_markdown` can merge multiple patch versions into the
+    cumulative `CHANGELOG-<minor>.md` idempotently.
+    """
     grouped = group_entries(entries)
-    lines = [
-        f"# Changelog {minor_version}",
-        "",
-        f"Auto-generated summary for milestone `{milestone_title}`.",
-        "",
-    ]
+    lines = [f"## {milestone_title}", ""]
+    if not grouped:
+        lines.append("_No changelog entries._")
+        return "\n".join(lines).rstrip() + "\n"
     for section in sorted(grouped.keys()):
-        lines.append(f"## {section}")
+        lines.append(f"### {section}")
         lines.append("")
         for entry in grouped[section]:
             lines.append(
@@ -296,6 +324,57 @@ def render_markdown(entries: list[dict], milestone_title: str, minor_version: st
             )
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
+
+
+def md_version_sort_key(title: str) -> tuple[int, int, int]:
+    """Sort key for `## vX.Y.Z` headings; missing parts sort as 0."""
+    m = re.match(r"^v?(\d+)\.(\d+)(?:\.(\d+))?", title)
+    if not m:
+        return (0, 0, 0)
+    return tuple(int(part) if part else 0 for part in m.groups())  # type: ignore[return-value]
+
+
+def parse_minor_md_blocks(text: str) -> dict[str, str]:
+    """Split an existing CHANGELOG-<minor>.md into {milestone_title: block}.
+
+    Content before the first `## ` heading (the file header) is dropped — it is
+    regenerated. Each block keeps its own `## <title>` heading.
+    """
+    blocks: dict[str, str] = {}
+    current_title: str | None = None
+    current_lines: list[str] = []
+    for line in text.splitlines():
+        if line.startswith("## "):
+            if current_title is not None:
+                blocks[current_title] = "\n".join(current_lines).rstrip() + "\n"
+            current_title = line[3:].strip()
+            current_lines = [line]
+        elif current_title is not None:
+            current_lines.append(line)
+    if current_title is not None:
+        blocks[current_title] = "\n".join(current_lines).rstrip() + "\n"
+    return blocks
+
+
+def merge_minor_markdown(
+    existing_text: str, minor_version: str, milestone_title: str, block: str
+) -> str:
+    """Merge ``block`` for ``milestone_title`` into the cumulative minor file.
+
+    Replaces this milestone's block if present (idempotent re-generation) or
+    inserts it, then re-emits all patch blocks newest-first. This is what keeps
+    CHANGELOG-<minor>.md cumulative across patch releases (the GitHub
+    changelog-action produced a cumulative ``branch_markdown``); rendering only
+    the current milestone would drop the earlier patches.
+    """
+    blocks = parse_minor_md_blocks(existing_text)
+    blocks[milestone_title] = block
+    ordered = sorted(blocks.keys(), key=md_version_sort_key, reverse=True)
+    out = [f"# Changelog {minor_version}", ""]
+    for title in ordered:
+        out.append(blocks[title].rstrip())
+        out.append("")
+    return "\n".join(out).rstrip() + "\n"
 
 
 def minor_version_from_tag(tag: str) -> str:
@@ -317,8 +396,13 @@ def write_files(
     minor = minor_version_from_tag(milestone_title)
     md_path = changelog_dir / f"CHANGELOG-{minor}.md"
     yml_path.write_text(render_yaml(entries, milestone_title), encoding="utf-8")
+    # Merge this milestone's block into the cumulative minor markdown so earlier
+    # patch releases of the same minor are preserved.
+    existing_md = md_path.read_text(encoding="utf-8") if md_path.is_file() else ""
+    block = render_milestone_md_block(entries, milestone_title)
     md_path.write_text(
-        render_markdown(entries, milestone_title, minor), encoding="utf-8"
+        merge_minor_markdown(existing_md, minor, milestone_title, block),
+        encoding="utf-8",
     )
     log(f"Wrote {yml_path.relative_to(project_dir)} and {md_path.relative_to(project_dir)}.")
     return yml_path, md_path

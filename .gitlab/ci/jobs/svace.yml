@@ -135,20 +135,32 @@ svace:analyze:
 svace:notify:
   stage: cleanup
   interruptible: true
-  before_script:
-    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash curl jq
-  variables:
-    GIT_STRATEGY: none
+  # needs svace:analyze (non-optional) so this job stays coupled to a real
+  # svace run: on an unrelated web pipeline svace:analyze is manual and never
+  # played, so it is skipped and this notify is skipped too. The on_success /
+  # on_failure rule pair (same idiom as prod:notify-loop) makes notify run on
+  # BOTH a passing and a failing svace:analyze. set-vars is pulled for the
+  # REF_NAME dotenv.
   needs:
     - job: svace:set-vars
-    - job: svace:build
+      artifacts: true
     - job: svace:analyze
+  before_script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash curl jq
   script:
     - |
       set -euo pipefail
+      source .gitlab/ci/scripts/bash/lib/api.sh
+      gl_required_env CI_API_V4_URL GITLAB_API_TOKEN CI_PROJECT_ID CI_PIPELINE_ID LOOP_WEBHOOK_URL
       DATE=$(date '+%Y-%m-%d')
-      STATUS=":white_check_mark: SUCCESS!"
-      if [[ "${CI_JOB_STATUS:-success}" != "success" ]]; then
+      # Derive the result from the svace:analyze job, not this notify job:
+      # CI_JOB_STATUS would report THIS job and is almost always "success".
+      # Mirrors the GitHub `needs.analyze_build.result == 'success'` check.
+      ANALYZE_STATUS=$(api GET "/projects/${CI_PROJECT_ID}/pipelines/${CI_PIPELINE_ID}/jobs?per_page=100" \
+        | jq -r '[.[] | select(.name == "svace:analyze")][0].status // ""')
+      if [[ "${ANALYZE_STATUS}" == "success" ]]; then
+        STATUS=":white_check_mark: SUCCESS!"
+      else
         STATUS=":x: FAIL!"
       fi
       MESSAGE="### :gear: **DVP ${DATE} Weekly Svace Analyze Report**
@@ -162,6 +174,10 @@ svace:notify:
         "${LOOP_WEBHOOK_URL}" || echo "Loop webhook failed (non-fatal)"
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "svace"'
-      when: always
+      when: on_success
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "svace"'
+      when: on_failure
     - if: '$CI_PIPELINE_SOURCE == "web"'
-      when: always
+      when: on_success
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: on_failure
