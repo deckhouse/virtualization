@@ -10,9 +10,9 @@
 # `validation/skip/actionlint` is therefore obsolete and not honored.
 #
 # Each job:
-# - inherits `tags: [deckhouse]` from .gitlab/ci/defaults.yml;
-# - has `interruptible: true` where short-lived (safe to cancel on a new
-#   push) and `interruptible: false` where a long run is expected;
+# - inherits `tags: [deckhouse]` and `interruptible: true` from
+#   .gitlab/ci/defaults.yml (these short-lived checks are safe to cancel on a
+#   new push);
 # - honors `validation/skip/<name>` labels via `when: never` rules.
 #
 # The job file assumes the upstream template include for
@@ -33,7 +33,6 @@
 
 lint:no-cyrillic:
   stage: lint
-  interruptible: true
   variables:
     GIT_DEPTH: "0"
   before_script:
@@ -55,7 +54,6 @@ lint:no-cyrillic:
 
 lint:doc-changes:
   stage: lint
-  interruptible: true
   variables:
     GIT_DEPTH: "0"
   before_script:
@@ -80,7 +78,6 @@ lint:doc-changes:
 
 lint:shellcheck:
   stage: lint
-  interruptible: true
   # The `task lint:shellcheck` target runs shellcheck inside the
   # koalaman/shellcheck-alpine Docker image, so the runner needs docker —
   # not a host-installed shellcheck binary.
@@ -101,7 +98,6 @@ lint:shellcheck:
 
 lint:yaml:
   stage: lint
-  interruptible: true
   before_script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task
   script:
@@ -147,7 +143,6 @@ lint:yaml:
 
 lint:go:
   stage: lint
-  interruptible: true
   before_script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go curl
     - |
@@ -211,7 +206,6 @@ lint:go:
 
 lint:helm-templates:
   stage: lint
-  interruptible: true
   before_script:
     # go + task are host tools; docker runs kubeconform; git/curl/python3 are
     # needed by tools/kubeconform/kubeconform.sh (clone kubeconform.git, fetch
@@ -289,7 +283,6 @@ lint:helm-templates:
 
 check:gens-files:
   stage: lint
-  interruptible: true
   before_script:
     # git is needed by check_diffs (git diff). go/task are host tools.
     # docker is needed by the vm-route-forge matrix leg, which runs bpf2go
@@ -402,7 +395,6 @@ check:gens-files:
 
 lint:gitlab-ci:
   stage: lint
-  interruptible: true
   before_script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash curl jq
   script:

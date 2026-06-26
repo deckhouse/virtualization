@@ -11,10 +11,9 @@
 #   - Pushes of tags vX.Y.Z-dev* / vX.Y.Z create pipelines.
 #   - Manual/scheduled/web pipelines always run.
 #
-# TODO: once auto-cancel-redundant-pipelines is verified at the project
-# level, add `interruptible: true` here as a project default.
-# Per-job overrides will set `interruptible: false` for build_prod and the
-# prod-deploy chain.
+# Jobs default to `interruptible: true` (see .gitlab/ci/defaults.yml) so a
+# new commit cancels the redundant in-flight pipeline once "Auto-cancel
+# redundant pipelines" is enabled at the project level.
 
 workflow:
   rules:

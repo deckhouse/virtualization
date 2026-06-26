@@ -49,7 +49,6 @@ gitleaks_full_scheduled:
 gitleaks:diff:
   extends: .gitleaks_scan
   stage: scan
-  interruptible: true
   variables:
     SCAN_MODE: "diff"
     GIT_DEPTH: "0"

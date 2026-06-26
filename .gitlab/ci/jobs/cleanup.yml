@@ -30,6 +30,8 @@
 
 cleanup:
   stage: cleanup
+  # Mutates the registry (werf cleanup); never auto-cancel mid-run.
+  interruptible: false
   extends:
     - .dev_vars
   variables:

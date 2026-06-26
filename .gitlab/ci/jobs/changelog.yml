@@ -35,6 +35,8 @@
 
 changelog:milestone:
   stage: lint
+  # Mutates state (commits + opens an MR); never auto-cancel mid-run.
+  interruptible: false
   tags:
     - deckhouse
   before_script:
@@ -71,6 +73,8 @@ changelog:milestone:
 # MRs are opened.
 changelog:all-active-milestones:
   stage: lint
+  # Mutates state (commits + opens an MR); never auto-cancel mid-run.
+  interruptible: false
   tags:
     - deckhouse
   before_script:

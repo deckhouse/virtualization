@@ -43,7 +43,6 @@ show_main_manifest:
 
 set_vars:
   stage: info
-  interruptible: true
   before_script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash
   script:

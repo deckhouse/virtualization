@@ -32,7 +32,7 @@
 build_prod:
   stage: build
   resource_group: prod
-  interruptible: false
+  # interruptible: false is inherited from .prod_vars (via .prod_always).
   extends:
     - .base_build
     - .prod_always

@@ -41,7 +41,6 @@ svace:set-vars:
   extends:
     - .info
   stage: info
-  interruptible: true
   # Only emit the svace tag dotenv in contexts where svace actually runs.
   # Without these rules this job ran on EVERY MR pipeline and leaked a
   # MODULES_MODULE_TAG=<branch>-svace dotenv artifact into build jobs,
@@ -134,7 +133,6 @@ svace:analyze:
 
 svace:notify:
   stage: cleanup
-  interruptible: true
   # needs svace:analyze (non-optional) so this job stays coupled to a real
   # svace run: on an unrelated web pipeline svace:analyze is manual and never
   # played, so it is skipped and this notify is skipped too. The on_success /
