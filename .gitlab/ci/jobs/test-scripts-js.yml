@@ -12,16 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# JS smoke tests for .gitlab/scripts/js.
+# JS unit tests for .gitlab/scripts/js.
 #
 # Ports the GitHub Actions `test_scripts_js` job from
 # .github/workflows/dev_module_build.yml, which ran `npm test` in
 # .github/scripts/js with Node.js 24. The GitLab counterpart lives in
 # .gitlab/scripts/js (mrs_notifier.mjs); its `npm test` runs node:test over
-# mrs_notifier.test.mjs, a minimal smoke test (syntax check + structural
-# assertions) because mrs_notifier.mjs auto-runs at import time and cannot
-# yet be imported by a unit test. See mrs_notifier.test.mjs for the TODO
-# on adding real unit tests.
+# mrs_notifier.test.mjs. mrs_notifier.mjs guards run() behind a
+# direct-invocation check and exports its pure helpers (classifyMR,
+# extractUnresolvedThreads, shouldNotifyMR, formatUser), so the suite imports
+# the module and exercises real classification/filter/formatting logic with
+# synthetic data (no network), alongside structural smoke assertions.
 #
 # The shell runner host does not ship Node.js, so the job runs inside the
 # official `node:${NODE_VERSION}` image via `docker run`, mirroring how
