@@ -119,6 +119,8 @@ before_script:
 # Vars =================================================================================================================
 
 variables:
+  REGISTRY_USER: ${MODULES_DEV_REGISTRY_LOGIN}
+  REGISTRY_PASSWORD: ${MODULES_DEV_REGISTRY_PASSWORD}
   MODULES_MODULE_NAME: virtualization
 
 # DEV registry

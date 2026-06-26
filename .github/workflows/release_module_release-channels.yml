@@ -205,7 +205,7 @@ jobs:
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
       - if: ${{ inputs.enableBuild }}
-        uses: deckhouse/modules-actions/build@v4
+        uses: deckhouse/modules-actions/build@v15
         with:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
@@ -271,7 +271,7 @@ jobs:
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
       - if: ${{ inputs.enableBuild }}
-        uses: deckhouse/modules-actions/build@v4
+        uses: deckhouse/modules-actions/build@v15
         with:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
@@ -330,7 +330,7 @@ jobs:
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
       - if: ${{ inputs.enableBuild }}
-        uses: deckhouse/modules-actions/build@v4
+        uses: deckhouse/modules-actions/build@v15
         with:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
@@ -393,7 +393,7 @@ jobs:
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
       - if: ${{ inputs.enableBuild }}
-        uses: deckhouse/modules-actions/build@v4
+        uses: deckhouse/modules-actions/build@v15
         with:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
