@@ -20,11 +20,13 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"hash/fnv"
 	"slices"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	kvalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 
@@ -42,28 +44,94 @@ const (
 	CVIDiskPrefix = "cvi-"
 )
 
+// Budgets for the user-controlled part of a derived KubeVirt volume/disk name.
+//
+// A KubeVirt volume/disk name must be a valid DNS-1123 label (<=63), because it
+// can become a container name. For containerDisks (VirtualImage/ClusterVirtualImage)
+// KubeVirt additionally wraps the volume name as "volume<volumeName>-init", so the
+// effective budget is tighter. These values keep the final container name within 63:
+//
+//	VD : "vd-"+X                       , X <= 60
+//	VI : "volume"+"vi-"+X+"-init"  <=63 , X <= 49
+//	CVI: "volume"+"cvi-"+X+"-init" <=63 , X <= 48
+const (
+	vdNameBudget  = 60
+	viNameBudget  = 49
+	cviNameBudget = 48
+)
+
+// diskNameHashLen is the length in hex chars of the FNV-1a 64-bit suffix appended
+// when the user name does not fit the budget (or is not a valid DNS-1123 label).
+const diskNameHashLen = 16
+
 func GenerateVDDiskName(name string) string {
-	return VDDiskPrefix + name
+	return VDDiskPrefix + shortenDiskName(name, vdNameBudget)
 }
 
 func GenerateVIDiskName(name string) string {
-	return VIDiskPrefix + name
+	return VIDiskPrefix + shortenDiskName(name, viNameBudget)
 }
 
 func GenerateCVIDiskName(name string) string {
-	return CVIDiskPrefix + name
+	return CVIDiskPrefix + shortenDiskName(name, cviNameBudget)
 }
 
 func GenerateDiskName(kind v1alpha2.BlockDeviceKind, name string) string {
 	switch kind {
 	case v1alpha2.DiskDevice:
-		return VDDiskPrefix + name
+		return GenerateVDDiskName(name)
 	case v1alpha2.ImageDevice:
-		return VIDiskPrefix + name
+		return GenerateVIDiskName(name)
 	case v1alpha2.ClusterImageDevice:
-		return CVIDiskPrefix + name
+		return GenerateCVIDiskName(name)
 	}
 	return ""
+}
+
+// shortenDiskName maps a user resource name onto the user-controlled part of a
+// KubeVirt volume/disk name within the given budget.
+//
+// If the name already fits the budget and is a valid DNS-1123 label, it is
+// returned unchanged (passthrough) — this keeps derived names byte-identical for
+// every name allowed by the previous validation, so existing KubeVirt volumes are
+// never renamed. Otherwise the name is deterministically shortened to a readable
+// prefix plus an FNV-1a 64-bit hash of the full name, keeping the result a valid
+// label within the budget. The hash is taken from the full name so that distinct
+// names never share a derived name due to truncation or sanitization.
+func shortenDiskName(name string, budget int) string {
+	if len(name) <= budget && len(kvalidation.IsDNS1123Label(name)) == 0 {
+		return name
+	}
+
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(name))
+	suffix := hex.EncodeToString(h.Sum(nil)) // 16 hex chars for a 64-bit hash
+
+	readable := strings.Trim(sanitizeLabel(name), "-")
+	if maxReadable := budget - 1 - len(suffix); len(readable) > maxReadable {
+		readable = strings.TrimRight(readable[:maxReadable], "-")
+	}
+	if readable == "" {
+		return suffix
+	}
+	return readable + "-" + suffix
+}
+
+// sanitizeLabel replaces every character that is not allowed in a DNS-1123 label
+// with '-'. Resource names are already lowercase DNS subdomains, so in practice
+// this only rewrites '.'.
+func sanitizeLabel(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '-':
+			b.WriteRune(r)
+		default:
+			b.WriteByte('-')
+		}
+	}
+	return b.String()
 }
 
 func GetOriginalDiskName(prefixedName string) (string, v1alpha2.BlockDeviceKind) {
