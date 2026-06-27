@@ -284,6 +284,14 @@ func applyBlockDeviceRefs(
 	cviByName map[string]*v1alpha2.ClusterVirtualImage,
 	vmbdaByBlockDeviceRef map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment,
 ) error {
+	// Backstop against a derived-name collision. The derivation is collision-
+	// resistant (64-bit hash), so this is astronomically unlikely, but SetDisk
+	// replaces an existing disk/volume by name, so a silent collision would drop
+	// one disk and mount another's PVC. Fail loudly instead of corrupting the VM.
+	if err := detectDiskNameCollisions(vm, vmbdaByBlockDeviceRef); err != nil {
+		return err
+	}
+
 	isParavirtualizationEnabled := vm.Spec.IsParavirtualizationEnabled()
 
 	hasExplicitBootOrder := false
@@ -342,6 +350,37 @@ func applyBlockDeviceRefs(
 		return err
 	}
 
+	return nil
+}
+
+// detectDiskNameCollisions returns an error if two distinct block devices of this
+// VM (spec refs or VMBDA-attached) derive the same KubeVirt volume/disk name.
+func detectDiskNameCollisions(vm *v1alpha2.VirtualMachine, vmbdaByBlockDeviceRef map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment) error {
+	owners := make(map[string]nameKind)
+	check := func(kind v1alpha2.BlockDeviceKind, name string) error {
+		diskName := GenerateDiskName(kind, name)
+		if diskName == "" {
+			return nil
+		}
+		cur := nameKind{name: name, kind: kind}
+		if prev, ok := owners[diskName]; ok && prev != cur {
+			return fmt.Errorf("%s %q and %s %q resolve to the same internal disk name and cannot be attached to the same virtual machine; recreate one of them with a different name",
+				prev.kind, prev.name, kind, name)
+		}
+		owners[diskName] = cur
+		return nil
+	}
+
+	for _, bd := range vm.Spec.BlockDeviceRefs {
+		if err := check(bd.Kind, bd.Name); err != nil {
+			return err
+		}
+	}
+	for ref := range vmbdaByBlockDeviceRef {
+		if err := check(v1alpha2.BlockDeviceKind(ref.Kind), ref.Name); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

@@ -130,3 +130,36 @@ var _ = Describe("VolumeNameResolver", func() {
 		Expect(kind).To(BeEmpty())
 	})
 })
+
+var _ = Describe("detectDiskNameCollisions", func() {
+	It("passes for distinct block devices (incl. long and dotted names)", func() {
+		vm := &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
+				BlockDeviceRefs: []v1alpha2.BlockDeviceSpecRef{
+					{Kind: v1alpha2.DiskDevice, Name: "data"},
+					{Kind: v1alpha2.DiskDevice, Name: strings.Repeat("a", 80)},
+					{Kind: v1alpha2.ImageDevice, Name: "ubuntu"},
+					{Kind: v1alpha2.DiskDevice, Name: "disk.with.dots"},
+				},
+			},
+		}
+		vmbda := map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment{
+			{Kind: v1alpha2.VMBDAObjectRefKindVirtualDisk, Name: "extra"}: nil,
+		}
+		Expect(detectDiskNameCollisions(vm, vmbda)).To(Succeed())
+	})
+
+	It("does not flag the same resource present in both spec and VMBDA", func() {
+		vm := &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
+				BlockDeviceRefs: []v1alpha2.BlockDeviceSpecRef{
+					{Kind: v1alpha2.DiskDevice, Name: "shared"},
+				},
+			},
+		}
+		vmbda := map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment{
+			{Kind: v1alpha2.VMBDAObjectRefKindVirtualDisk, Name: "shared"}: nil,
+		}
+		Expect(detectDiskNameCollisions(vm, vmbda)).To(Succeed())
+	})
+})
