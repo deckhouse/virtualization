@@ -26,8 +26,8 @@ import (
 func compareGPUDevices(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
 	currentGPUDevices := kvbuilder.SortGPUDevices(current.GPUDevices)
 	desiredGPUDevices := kvbuilder.SortGPUDevices(desired.GPUDevices)
-	currentValue := NewValue(currentGPUDevices, current.GPUDevices == nil, false)
-	desiredValue := NewValue(desiredGPUDevices, desired.GPUDevices == nil, false)
+	currentValue := NewValue(currentGPUDevices, len(currentGPUDevices) == 0, false)
+	desiredValue := NewValue(desiredGPUDevices, len(desiredGPUDevices) == 0, false)
 
 	return compareValues(
 		"gpuDevices",
