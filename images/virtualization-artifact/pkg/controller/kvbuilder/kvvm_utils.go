@@ -60,10 +60,6 @@ const (
 	cviNameBudget = 48
 )
 
-// diskNameHashLen is the length in hex chars of the FNV-1a 64-bit suffix appended
-// when the user name does not fit the budget (or is not a valid DNS-1123 label).
-const diskNameHashLen = 16
-
 func GenerateVDDiskName(name string) string {
 	return VDDiskPrefix + shortenDiskName(name, vdNameBudget)
 }
