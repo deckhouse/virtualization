@@ -37,7 +37,11 @@ func GPUResourceClaimName(deviceName string) string {
 }
 
 func GPUResourceClaimTemplateName(vmName, deviceName string) string {
-	return vmName + "-" + deviceName
+	// The vmName hash suffix keeps the template name unique per VM: two VMs in the
+	// same namespace whose "<vmName>-<deviceName>" prefixes collide (e.g. VM "a" with
+	// device "b-c" and VM "a-b" with device "c") would otherwise fight over one name
+	// and deadlock the losing VM's reconciliation on a not-controlled-by error.
+	return vmName + "-" + deviceName + "-" + GenerateSerial(vmName)[:8]
 }
 
 func IsGPUResourceClaimTemplateName(vmName, templateName string) bool {
