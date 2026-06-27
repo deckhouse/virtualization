@@ -16,21 +16,25 @@ limitations under the License.
 
 package validate
 
+import kvalidation "k8s.io/apimachinery/pkg/util/validation"
+
+// The underlying KubeVirt volume/disk name (and the container it may become) must
+// be a valid DNS-1123 label (<=63). That name is now derived independently and
+// shortened to fit (see kvbuilder.GenerateDiskName), so the user-facing name is no
+// longer constrained by it and may use the full Kubernetes DNS subdomain length.
+
 // MaxDiskNameLen determines the max len of vd.
-// Disk and volume name in kubevirt can be a valid container name (len 63) since disk name can become a container name which will fail to schedule if invalid.
-// We add prefix "vd-" for the vd name, so max len reduced to 60.
-const MaxDiskNameLen = 60
+const MaxDiskNameLen = kvalidation.DNS1123SubdomainMaxLength
 
 // MaxVirtualImageNameLen determines the max len of vi.
-// Disk and volume name in kubevirt can be a valid container name (len 63) since disk name can become a container name which will fail to schedule if invalid.
-// We and kubevirt add prefixes "vi-", "volume" and suffix "-init", so max len reduced to 49.
-const MaxVirtualImageNameLen = 49
+const MaxVirtualImageNameLen = kvalidation.DNS1123SubdomainMaxLength
 
 // MaxClusterVirtualImageNameLen determines the max len of cvi.
-// Disk and volume name in kubevirt can be a valid container name (len 63) since disk name can become a container name which will fail to schedule if invalid.
-// We and kubevirt add prefixes "cvi-", "volume" and suffix "-init", so max len reduced to 48.
-const MaxClusterVirtualImageNameLen = 48
+const MaxClusterVirtualImageNameLen = kvalidation.DNS1123SubdomainMaxLength
 
 // MaxVirtualMachineNameLen determines the max len of vm.
-// The limitation is reportedly associated with the PodDisruptionBudget resource, which has a label containing the virtual machine's name, and the label's value cannot exceed 63 characters.
+// Unlike disks/images, a VirtualMachine name is not decoupled yet: it still flows
+// into KubeVirt pod names (e.g. the launcher pod "d8v-vm-<name>-...") and label
+// values that cap at 63. Raising it requires changes in the KubeVirt fork, so it
+// stays limited for now.
 const MaxVirtualMachineNameLen = 63
