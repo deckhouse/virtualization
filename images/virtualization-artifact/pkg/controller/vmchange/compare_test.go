@@ -721,6 +721,15 @@ gpuDevices:
 				requirePathOperation("gpuDevices", ChangeReplace),
 			),
 		},
+		{
+			"no restart when gpu devices change between empty list and unset",
+			`
+gpuDevices: []
+`,
+			``,
+			nil,
+			assertNoChanges(),
+		},
 	}
 
 	for _, tt := range tests {
