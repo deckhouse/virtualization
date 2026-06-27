@@ -3809,7 +3809,7 @@ spec:
 ## GPU-устройства
 
 {{< alert level="warning" >}}
-Проброс GPU-устройств — экспериментальная возможность. Для работы требуются Enterprise Edition (EE), поддержка Kubernetes DRA и внешний GPU DRA-провайдер, создающий `DeviceClass` с именем `gpu.deckhouse.io`.
+Проброс GPU-устройств — экспериментальная возможность. Для работы требуются Enterprise Edition (EE), поддержка Kubernetes DRA и внешний GPU DRA-провайдер, публикующий GPU как DRA-ресурсы с атрибутами устройства `gpu.deckhouse.io`.
 {{< /alert >}}
 
 Модуль виртуализации может подключать физические GPU-устройства к виртуальным машинам с помощью DRA (Dynamic Resource Allocation). GPU запрашивается по модели продукта через поле `.spec.gpuDevices` ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine).
@@ -3818,8 +3818,7 @@ spec:
 
 - Kubernetes версии 1.34 или выше с DRA feature gates, необходимыми для конфигурации кластера.
 - Feature gate `GPU`, включённый в настройках модуля `virtualization`.
-- Установленный в кластере GPU DRA-провайдер.
-- [DeviceClass](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/#device-classes) `gpu.deckhouse.io`, созданный GPU DRA-провайдером.
+- Установленный в кластере GPU DRA-провайдер, публикующий GPU с атрибутами устройства `gpu.deckhouse.io`. [DeviceClass](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/#device-classes) `gpu.deckhouse.io` создаётся модулем.
 
 Чтобы включить feature gate модуля:
 

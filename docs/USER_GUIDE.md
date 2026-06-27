@@ -3778,7 +3778,7 @@ As a result, a VM named `clone-database-prod` and a disk named `clone-database-r
 ## GPU Devices
 
 {{< alert level="warning" >}}
-GPU device passthrough is an experimental feature. It requires the Enterprise Edition (EE), Kubernetes DRA support, and an external GPU DRA provider that creates the `gpu.deckhouse.io` `DeviceClass`.
+GPU device passthrough is an experimental feature. It requires the Enterprise Edition (EE), Kubernetes DRA support, and an external GPU DRA provider that publishes GPUs as DRA resources with `gpu.deckhouse.io` device attributes.
 {{< /alert >}}
 
 The virtualization module can attach physical GPU devices to virtual machines using DRA (Dynamic Resource Allocation). A GPU is requested by product model through the `.spec.gpuDevices` field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
@@ -3787,8 +3787,7 @@ GPU device passthrough requires:
 
 - Kubernetes version 1.34 or higher with DRA feature gates required by the cluster configuration.
 - The `GPU` feature gate enabled in the `virtualization` module settings.
-- A GPU DRA provider installed in the cluster.
-- The `gpu.deckhouse.io` [DeviceClass](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/#device-classes) created by the GPU DRA provider.
+- A GPU DRA provider installed in the cluster that publishes GPUs with `gpu.deckhouse.io` device attributes. The `gpu.deckhouse.io` [DeviceClass](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/#device-classes) is created by the module.
 
 To enable the module feature gate:
 
