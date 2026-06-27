@@ -18,6 +18,7 @@ package vm
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -113,15 +114,19 @@ func newEvacuationVM(name, namespace, cviName string, bootloader v1alpha2.Bootlo
 	*v1alpha2.VirtualDisk,
 	*v1alpha2.VirtualDisk,
 ) {
+	// Long disk names (>60 chars, the former limit) to exercise live-migrating a VM
+	// whose disks use the full Kubernetes name length. The VM name itself stays
+	// short, as VirtualMachine names remain limited.
+	longSuffix := "-" + strings.Repeat("a", 80)
 	vdRoot := object.NewVDFromCVI(
-		name+"-root",
+		name+"-root"+longSuffix,
 		namespace,
 		cviName,
 		vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
 	)
 
 	vdBlank := object.NewBlankVD(
-		name+"-blank",
+		name+"-blank"+longSuffix,
 		namespace,
 		nil,
 		ptr.To(resource.MustParse("100Mi")),
