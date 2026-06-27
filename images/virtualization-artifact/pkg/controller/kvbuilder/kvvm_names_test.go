@@ -100,3 +100,33 @@ var _ = Describe("Derived KubeVirt disk/volume names", func() {
 		Expect(kind).To(Equal(v1alpha2.DiskDevice))
 	})
 })
+
+var _ = Describe("VolumeNameResolver", func() {
+	It("reverses derived names via candidates, including hashed ones", func() {
+		longName := strings.Repeat("a", vdNameBudget+10) // forced into the hash branch
+		r := NewVolumeNameResolver()
+		r.Add(v1alpha2.DiskDevice, longName)
+		r.Add(v1alpha2.ImageDevice, "ubuntu")
+
+		name, kind := r.Resolve(GenerateVDDiskName(longName))
+		Expect(name).To(Equal(longName))
+		Expect(kind).To(Equal(v1alpha2.DiskDevice))
+
+		name, kind = r.Resolve(GenerateVIDiskName("ubuntu"))
+		Expect(name).To(Equal("ubuntu"))
+		Expect(kind).To(Equal(v1alpha2.ImageDevice))
+	})
+
+	It("falls back to prefix-strip for legacy names not among candidates", func() {
+		r := NewVolumeNameResolver()
+		name, kind := r.Resolve("vd-legacy-disk")
+		Expect(name).To(Equal("legacy-disk"))
+		Expect(kind).To(Equal(v1alpha2.DiskDevice))
+	})
+
+	It("returns empty kind for non block-device volumes", func() {
+		r := NewVolumeNameResolver()
+		_, kind := r.Resolve("cloudinit")
+		Expect(kind).To(BeEmpty())
+	})
+})

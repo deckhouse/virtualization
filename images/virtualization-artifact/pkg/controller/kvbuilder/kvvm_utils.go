@@ -88,6 +88,56 @@ func GenerateDiskName(kind v1alpha2.BlockDeviceKind, name string) string {
 	return ""
 }
 
+// GenerateVMBDADiskName returns the derived KubeVirt volume/disk name for a VMBDA
+// block device reference.
+func GenerateVMBDADiskName(ref v1alpha2.VMBDAObjectRef) string {
+	switch ref.Kind {
+	case v1alpha2.VMBDAObjectRefKindVirtualDisk:
+		return GenerateVDDiskName(ref.Name)
+	case v1alpha2.VMBDAObjectRefKindVirtualImage:
+		return GenerateVIDiskName(ref.Name)
+	case v1alpha2.VMBDAObjectRefKindClusterVirtualImage:
+		return GenerateCVIDiskName(ref.Name)
+	}
+	return ""
+}
+
+type nameKind struct {
+	name string
+	kind v1alpha2.BlockDeviceKind
+}
+
+// VolumeNameResolver reverses a derived KubeVirt volume/disk name back to the user
+// resource it was generated from. Shortened/hashed names are not reversible by
+// prefix-strip, so callers seed the resolver with the resources they already know
+// (VM spec refs, VMBDA refs); the resolver matches by forward-generating each
+// candidate's volume name. Names without a matching candidate fall back to
+// prefix-strip, which stays correct for legacy names that were never shortened.
+type VolumeNameResolver struct {
+	byVolumeName map[string]nameKind
+}
+
+func NewVolumeNameResolver() *VolumeNameResolver {
+	return &VolumeNameResolver{byVolumeName: make(map[string]nameKind)}
+}
+
+// Add registers a candidate user resource by its kind and name.
+func (r *VolumeNameResolver) Add(kind v1alpha2.BlockDeviceKind, name string) {
+	if volumeName := GenerateDiskName(kind, name); volumeName != "" {
+		r.byVolumeName[volumeName] = nameKind{name: name, kind: kind}
+	}
+}
+
+// Resolve returns the user resource (name, kind) for a derived volume name, or
+// ("", "") for volumes that are not vd/vi/cvi block devices. It matches the
+// seeded candidates first and falls back to prefix-strip for legacy short names.
+func (r *VolumeNameResolver) Resolve(volumeName string) (string, v1alpha2.BlockDeviceKind) {
+	if nk, ok := r.byVolumeName[volumeName]; ok {
+		return nk.name, nk.kind
+	}
+	return GetOriginalDiskName(volumeName)
+}
+
 // shortenDiskName maps a user resource name onto the user-controlled part of a
 // KubeVirt volume/disk name within the given budget.
 //
