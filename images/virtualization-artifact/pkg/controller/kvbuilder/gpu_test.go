@@ -33,7 +33,7 @@ var _ = Describe("GPU", func() {
 
 		Expect(res.Spec.Template.Spec.ResourceClaims).To(HaveLen(1))
 		Expect(res.Spec.Template.Spec.ResourceClaims[0].Name).To(Equal("gpu-gpu0"))
-		Expect(*res.Spec.Template.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Equal("vm-a-gpu0"))
+		Expect(*res.Spec.Template.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Equal(GPUResourceClaimTemplateName("vm-a", "gpu0")))
 		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs).To(HaveLen(1))
 		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs[0].Name).To(Equal("gpu-gpu0"))
 		Expect(*res.Spec.Template.Spec.Domain.Devices.GPUs[0].ClaimName).To(Equal("gpu-gpu0"))
@@ -67,7 +67,7 @@ var _ = Describe("GPU", func() {
 
 		Expect(res.Spec.Template.Spec.ResourceClaims).To(HaveLen(1))
 		Expect(res.Spec.Template.Spec.ResourceClaims[0].Name).To(Equal("gpu-gpu1"))
-		Expect(*res.Spec.Template.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Equal("vm-a-gpu1"))
+		Expect(*res.Spec.Template.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Equal(GPUResourceClaimTemplateName("vm-a", "gpu1")))
 		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs).To(HaveLen(1))
 		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs[0].Name).To(Equal("gpu-gpu1"))
 	})
