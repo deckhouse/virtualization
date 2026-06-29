@@ -17,13 +17,15 @@ limitations under the License.
 package livemigration
 
 import (
+	"strconv"
+	"sync"
+	"sync/atomic"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	coordinationv1 "k8s.io/api/coordination/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 )
@@ -56,60 +58,108 @@ var _ = Describe("InboundMigrationLimiter", func() {
 	}
 
 	It("Should acquire one slot only for the same target node", func() {
-		first := newKVVMI("first", "first-migration")
-		second := newKVVMI("second", "second-migration")
-		fakeClient, err := testutil.NewFakeClientWithObjects(first, second)
-		Expect(err).NotTo(HaveOccurred())
-
-		limiter := NewInboundMigrationLimiter(fakeClient)
-		acquired, err := limiter.TryAcquire(ctx, first, targetNode, 1)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(acquired).To(BeTrue())
-
-		acquired, err = limiter.TryAcquire(ctx, second, targetNode, 1)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(acquired).To(BeFalse())
+		limiter := NewInboundMigrationLimiter(true, 1)
+		Expect(limiter.TryAcquire(newKVVMI("first", "first-migration"), targetNode)).To(BeTrue())
+		Expect(limiter.TryAcquire(newKVVMI("second", "second-migration"), targetNode)).To(BeFalse())
 	})
 
-	It("Should release acquired slot", func() {
+	It("Should be idempotent for the same migration", func() {
+		limiter := NewInboundMigrationLimiter(true, 1)
 		first := newKVVMI("first", "first-migration")
-		second := newKVVMI("second", "second-migration")
-		fakeClient, err := testutil.NewFakeClientWithObjects(first, second)
-		Expect(err).NotTo(HaveOccurred())
-
-		limiter := NewInboundMigrationLimiter(fakeClient)
-		acquired, err := limiter.TryAcquire(ctx, first, targetNode, 1)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(acquired).To(BeTrue())
-
-		Expect(limiter.Release(ctx, first, targetNode, 1)).To(Succeed())
-
-		acquired, err = limiter.TryAcquire(ctx, second, targetNode, 1)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(acquired).To(BeTrue())
+		Expect(limiter.TryAcquire(first, targetNode)).To(BeTrue())
+		Expect(limiter.TryAcquire(first, targetNode)).To(BeTrue())
+		// The repeated acquire must not consume the only remaining slot.
+		Expect(limiter.TryAcquire(newKVVMI("second", "second-migration"), targetNode)).To(BeFalse())
 	})
 
-	It("Should steal stale slot", func() {
+	It("Should release the slot and let the next migration in", func() {
+		limiter := NewInboundMigrationLimiter(true, 1)
 		first := newKVVMI("first", "first-migration")
-		second := newKVVMI("second", "second-migration")
-		fakeClient, err := testutil.NewFakeClientWithObjects(first, second)
+		Expect(limiter.TryAcquire(first, targetNode)).To(BeTrue())
+
+		limiter.Release(first, targetNode)
+		Expect(limiter.TryAcquire(newKVVMI("second", "second-migration"), targetNode)).To(BeTrue())
+	})
+
+	It("Should release idempotently", func() {
+		limiter := NewInboundMigrationLimiter(true, 1)
+		first := newKVVMI("first", "first-migration")
+		Expect(limiter.TryAcquire(first, targetNode)).To(BeTrue())
+		limiter.Release(first, targetNode)
+		limiter.Release(first, targetNode)
+		Expect(limiter.TryAcquire(newKVVMI("second", "second-migration"), targetNode)).To(BeTrue())
+	})
+
+	It("Should respect a limit greater than one", func() {
+		limiter := NewInboundMigrationLimiter(true, 2)
+		Expect(limiter.TryAcquire(newKVVMI("first", "first-migration"), targetNode)).To(BeTrue())
+		Expect(limiter.TryAcquire(newKVVMI("second", "second-migration"), targetNode)).To(BeTrue())
+		Expect(limiter.TryAcquire(newKVVMI("third", "third-migration"), targetNode)).To(BeFalse())
+	})
+
+	It("Should give each target node its own slots", func() {
+		limiter := NewInboundMigrationLimiter(true, 1)
+		Expect(limiter.TryAcquire(newKVVMI("first", "first-migration"), "node-a")).To(BeTrue())
+		Expect(limiter.TryAcquire(newKVVMI("second", "second-migration"), "node-b")).To(BeTrue())
+	})
+
+	It("Should not acquire when disabled", func() {
+		limiter := NewInboundMigrationLimiter(false, 1)
+		Expect(limiter.Enabled()).To(BeFalse())
+	})
+
+	It("Should not hand out the same last slot to concurrent acquirers", func() {
+		limiter := NewInboundMigrationLimiter(true, 1)
+
+		const workers = 50
+		var acquired int64
+		var wg sync.WaitGroup
+		wg.Add(workers)
+		for i := range workers {
+			go func(i int) {
+				defer wg.Done()
+				name := "vm-" + strconv.Itoa(i)
+				if limiter.TryAcquire(newKVVMI(name, "migration-"+strconv.Itoa(i)), targetNode) {
+					atomic.AddInt64(&acquired, 1)
+				}
+			}(i)
+		}
+		wg.Wait()
+
+		Expect(acquired).To(Equal(int64(1)))
+	})
+
+	It("Should restore acquired slots from VMI annotations on startup", func() {
+		acquiredVMI := newKVVMI("acquired", "acquired-migration")
+		MarkInboundMigrationSlotAcquired(acquiredVMI, targetNode)
+
+		waitingVMI := newKVVMI("waiting", "waiting-migration")
+		MarkInboundMigrationSlotWaiting(waitingVMI, targetNode)
+
+		staleVMI := newKVVMI("stale", "stale-migration")
+		MarkInboundMigrationSlotAcquired(staleVMI, targetNode)
+		staleVMI.Status.MigrationState.Completed = true
+
+		fakeClient, err := testutil.NewFakeClientWithObjects(acquiredVMI, waitingVMI, staleVMI)
 		Expect(err).NotTo(HaveOccurred())
 
-		limiter := NewInboundMigrationLimiter(fakeClient)
-		acquired, err := limiter.TryAcquire(ctx, first, targetNode, 1)
+		limiter := NewInboundMigrationLimiter(true, 1)
+		Expect(limiter.Restore(ctx, fakeClient)).To(Succeed())
+
+		// Only the acquired, still-active VMI must hold the single slot.
+		Expect(limiter.TryAcquire(newKVVMI("newcomer", "newcomer-migration"), targetNode)).To(BeFalse())
+		// The restored owner re-acquires idempotently.
+		Expect(limiter.TryAcquire(acquiredVMI, targetNode)).To(BeTrue())
+	})
+
+	It("Should not restore when disabled", func() {
+		acquiredVMI := newKVVMI("acquired", "acquired-migration")
+		MarkInboundMigrationSlotAcquired(acquiredVMI, targetNode)
+
+		fakeClient, err := testutil.NewFakeClientWithObjects(acquiredVMI)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(acquired).To(BeTrue())
 
-		first.Status.MigrationState.Completed = true
-		Expect(fakeClient.Status().Update(ctx, first)).To(Succeed())
-
-		acquired, err = limiter.TryAcquire(ctx, second, targetNode, 1)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(acquired).To(BeTrue())
-
-		var leases coordinationv1.LeaseList
-		Expect(fakeClient.List(ctx, &leases, client.InNamespace(InboundMigrationLeaseNamespace))).To(Succeed())
-		Expect(leases.Items).To(HaveLen(1))
-		Expect(leases.Items[0].Annotations).To(HaveKeyWithValue(InboundMigrationVMINameAnnotation, second.Name))
+		limiter := NewInboundMigrationLimiter(false, 1)
+		Expect(limiter.Restore(ctx, fakeClient)).To(Succeed())
 	})
 })

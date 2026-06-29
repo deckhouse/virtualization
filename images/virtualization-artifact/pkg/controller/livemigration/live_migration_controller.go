@@ -25,7 +25,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/livemigration/internal"
+	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
 
@@ -40,8 +42,14 @@ func SetupController(
 ) error {
 	client := mgr.GetClient()
 
+	limiterEnabled, limit := config.LoadInboundMigrationLimitFromEnv()
+	limiter := livemigration.NewInboundMigrationLimiter(limiterEnabled, limit)
+	if err := limiter.Restore(ctx, client); err != nil {
+		return err
+	}
+
 	handlers := []Handler{
-		internal.NewDynamicSettingsHandler(client),
+		internal.NewDynamicSettingsHandler(client, limiter),
 	}
 	r := NewReconciler(client, handlers...)
 

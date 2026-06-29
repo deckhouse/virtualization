@@ -18,17 +18,10 @@ package livemigration
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"strconv"
 	"strings"
-	"time"
+	"sync"
 
-	coordinationv1 "k8s.io/api/coordination/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -37,254 +30,175 @@ const (
 	InboundMigrationSlotAnnotation       = "virtualization.deckhouse.io/inbound-migration-slot"
 	InboundMigrationTargetNodeAnnotation = "virtualization.deckhouse.io/inbound-migration-target-node"
 	InboundMigrationSlotWaiting          = "waiting"
+	InboundMigrationSlotAcquired         = "acquired"
 
-	InboundMigrationLimiterComponentLabel = "virtualization.deckhouse.io/component"
-	InboundMigrationTargetNodeHashLabel   = "virtualization.deckhouse.io/target-node-hash"
-	InboundMigrationSlotIndexLabel        = "virtualization.deckhouse.io/slot-index"
-
-	InboundMigrationLimiterComponent = "inbound-migration-limiter"
-
-	InboundMigrationLeaseTargetNodeAnnotation       = "virtualization.deckhouse.io/target-node"
-	InboundMigrationVMINamespaceAnnotation          = "virtualization.deckhouse.io/vmi-namespace"
-	InboundMigrationVMINameAnnotation               = "virtualization.deckhouse.io/vmi-name"
-	InboundMigrationMigrationUIDAnnotation          = "virtualization.deckhouse.io/migration-uid"
-	InboundMigrationLeaseNamespace                  = "d8-virtualization"
-	ParallelInboundMigrationsPerNodeDefault         = 1
-	InboundMigrationLeaseDurationSeconds      int32 = 300
+	ParallelInboundMigrationsPerNodeDefault = 1
 )
 
+// InboundMigrationLimiter limits the number of concurrent inbound live migrations
+// per target node. The gate runs in the single leader instance of
+// virtualization-controller, so an in-memory registry guarded by a mutex is
+// enough to serialize concurrent reconcile workers without a cluster resource.
+//
+// The registry is not persisted: it is rebuilt on startup from VMI annotations
+// (see Restore).
 type InboundMigrationLimiter struct {
-	client client.Client
+	mu      sync.Mutex
+	enabled bool
+	limit   int
+	// slots maps a target node to the set of owner keys currently holding a slot.
+	slots map[string]map[string]struct{}
 }
 
-func NewInboundMigrationLimiter(client client.Client) *InboundMigrationLimiter {
-	return &InboundMigrationLimiter{client: client}
-}
-
-func (l *InboundMigrationLimiter) TryAcquire(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance, targetNode string, limit int) (bool, error) {
+func NewInboundMigrationLimiter(enabled bool, limit int) *InboundMigrationLimiter {
 	if limit < 1 {
-		limit = 1
+		limit = ParallelInboundMigrationsPerNodeDefault
 	}
-
-	slots := slotNames(targetNode, limit)
-	for _, slot := range slots {
-		lease, err := l.getLease(ctx, slot)
-		if apierrors.IsNotFound(err) {
-			continue
-		}
-		if err != nil {
-			return false, err
-		}
-		if leaseHeldByVMI(lease, kvvmi) {
-			return true, l.renewLease(ctx, lease)
-		}
+	return &InboundMigrationLimiter{
+		enabled: enabled,
+		limit:   limit,
+		slots:   map[string]map[string]struct{}{},
 	}
-
-	for slotIndex, slot := range slots {
-		acquired, err := l.tryAcquireSlot(ctx, kvvmi, targetNode, slot, slotIndex)
-		if apierrors.IsConflict(err) || apierrors.IsAlreadyExists(err) {
-			continue
-		}
-		if err != nil {
-			return false, err
-		}
-		if acquired {
-			return true, nil
-		}
-	}
-
-	return false, nil
 }
 
-func (l *InboundMigrationLimiter) Release(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance, targetNode string, limit int) error {
+func (l *InboundMigrationLimiter) Enabled() bool {
+	return l.enabled
+}
+
+// TryAcquire reserves an inbound slot on targetNode for the migration owning kvvmi.
+// It is idempotent by owner key: a repeated call for the same migration returns
+// the slot it already holds instead of taking a second one.
+func (l *InboundMigrationLimiter) TryAcquire(kvvmi *virtv1.VirtualMachineInstance, targetNode string) bool {
 	if targetNode == "" {
+		return false
+	}
+	owner := ownerKey(kvvmi)
+	if owner == "" {
+		return false
+	}
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	owners := l.slots[targetNode]
+	if owners == nil {
+		owners = map[string]struct{}{}
+		l.slots[targetNode] = owners
+	}
+
+	if _, ok := owners[owner]; ok {
+		return true
+	}
+	if len(owners) >= l.limit {
+		return false
+	}
+
+	owners[owner] = struct{}{}
+	return true
+}
+
+// Release frees the slot held by the migration owning kvvmi on targetNode.
+// It is idempotent: releasing a slot that is not held is a no-op.
+func (l *InboundMigrationLimiter) Release(kvvmi *virtv1.VirtualMachineInstance, targetNode string) {
+	if targetNode == "" {
+		return
+	}
+	owner := ownerKey(kvvmi)
+	if owner == "" {
+		return
+	}
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	owners := l.slots[targetNode]
+	if owners == nil {
+		return
+	}
+	delete(owners, owner)
+	if len(owners) == 0 {
+		delete(l.slots, targetNode)
+	}
+}
+
+// Restore rebuilds the in-memory registry after a controller restart or leader
+// change by scanning VMIs annotated with inbound-migration-slot=acquired.
+//
+// Stale annotations (VMI no longer in an active migration) do not occupy a slot;
+// they are cleaned up by the regular reconcile when the migration reaches a
+// terminal phase.
+//
+// ponytail: stale annotation cleanup is left to the reconcile release path
+// instead of patching VMIs here — same end state, no extra writes at startup.
+func (l *InboundMigrationLimiter) Restore(ctx context.Context, c client.Client) error {
+	if !l.enabled {
 		return nil
 	}
-	if limit < 1 {
-		limit = 1
-	}
 
-	for _, slot := range slotNames(targetNode, limit) {
-		lease, err := l.getLease(ctx, slot)
-		if apierrors.IsNotFound(err) {
-			continue
-		}
-		if err != nil {
-			return err
-		}
-		if leaseHeldByVMI(lease, kvvmi) {
-			return client.IgnoreNotFound(l.client.Delete(ctx, lease))
-		}
-	}
-
-	var leases coordinationv1.LeaseList
-	err := l.client.List(ctx, &leases,
-		client.InNamespace(InboundMigrationLeaseNamespace),
-		client.MatchingLabels{
-			InboundMigrationLimiterComponentLabel: InboundMigrationLimiterComponent,
-			InboundMigrationTargetNodeHashLabel:   targetNodeHash(targetNode),
-		},
-	)
-	if err != nil {
+	var vmis virtv1.VirtualMachineInstanceList
+	if err := c.List(ctx, &vmis); err != nil {
 		return err
 	}
 
-	for i := range leases.Items {
-		lease := &leases.Items[i]
-		if leaseHeldByVMI(lease, kvvmi) {
-			return client.IgnoreNotFound(l.client.Delete(ctx, lease))
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	for i := range vmis.Items {
+		kvvmi := &vmis.Items[i]
+		if kvvmi.Annotations[InboundMigrationSlotAnnotation] != InboundMigrationSlotAcquired {
+			continue
 		}
+		if !isInActiveMigration(kvvmi) {
+			continue
+		}
+		targetNode := kvvmi.Annotations[InboundMigrationTargetNodeAnnotation]
+		owner := ownerKey(kvvmi)
+		if targetNode == "" || owner == "" {
+			continue
+		}
+		owners := l.slots[targetNode]
+		if owners == nil {
+			owners = map[string]struct{}{}
+			l.slots[targetNode] = owners
+		}
+		owners[owner] = struct{}{}
 	}
 
 	return nil
 }
 
-func (l *InboundMigrationLimiter) tryAcquireSlot(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance, targetNode, slot string, slotIndex int) (bool, error) {
-	lease, err := l.getLease(ctx, slot)
-	if apierrors.IsNotFound(err) {
-		return true, l.client.Create(ctx, newInboundMigrationLease(kvvmi, targetNode, slot, slotIndex))
-	}
-	if err != nil {
-		return false, err
-	}
-	if leaseHeldByVMI(lease, kvvmi) {
-		return true, l.renewLease(ctx, lease)
-	}
-
-	active, err := l.leaseHolderIsActive(ctx, lease)
-	if err != nil {
-		return false, err
-	}
-	if active {
-		return false, nil
-	}
-
-	updateLeaseHolder(lease, kvvmi, targetNode, slotIndex)
-	return true, l.client.Update(ctx, lease)
+func isInActiveMigration(kvvmi *virtv1.VirtualMachineInstance) bool {
+	state := kvvmi.Status.MigrationState
+	return state != nil && !state.Completed && !state.Failed
 }
 
-func (l *InboundMigrationLimiter) getLease(ctx context.Context, name string) (*coordinationv1.Lease, error) {
-	lease := &coordinationv1.Lease{}
-	err := l.client.Get(ctx, types.NamespacedName{Namespace: InboundMigrationLeaseNamespace, Name: name}, lease)
-	return lease, err
-}
-
-func (l *InboundMigrationLimiter) renewLease(ctx context.Context, lease *coordinationv1.Lease) error {
-	now := metav1.NewMicroTime(time.Now())
-	lease.Spec.RenewTime = &now
-	return l.client.Update(ctx, lease)
-}
-
-func (l *InboundMigrationLimiter) leaseHolderIsActive(ctx context.Context, lease *coordinationv1.Lease) (bool, error) {
-	vmiNamespace := lease.Annotations[InboundMigrationVMINamespaceAnnotation]
-	vmiName := lease.Annotations[InboundMigrationVMINameAnnotation]
-	migrationUID := lease.Annotations[InboundMigrationMigrationUIDAnnotation]
-	if vmiNamespace == "" || vmiName == "" || migrationUID == "" {
-		return false, nil
+// ownerKey identifies the migration that owns a slot. Binding to VMI plus the
+// current migration UID keeps repeated reconciles of the same migration
+// idempotent while distinguishing a fresh migration of the same VMI.
+func ownerKey(kvvmi *virtv1.VirtualMachineInstance) string {
+	if kvvmi.Status.MigrationState == nil {
+		return ""
 	}
-
-	var kvvmi virtv1.VirtualMachineInstance
-	err := l.client.Get(ctx, types.NamespacedName{Namespace: vmiNamespace, Name: vmiName}, &kvvmi)
-	if apierrors.IsNotFound(err) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	if kvvmi.Status.MigrationState == nil || kvvmi.Status.MigrationState.Completed || kvvmi.Status.MigrationState.Failed {
-		return false, nil
-	}
-	if string(kvvmi.Status.MigrationState.MigrationUID) != migrationUID {
-		return false, nil
-	}
-
-	return true, nil
-}
-
-func newInboundMigrationLease(kvvmi *virtv1.VirtualMachineInstance, targetNode, name string, slotIndex int) *coordinationv1.Lease {
-	now := metav1.NewMicroTime(time.Now())
-	lease := &coordinationv1.Lease{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   InboundMigrationLeaseNamespace,
-			Name:        name,
-			Labels:      map[string]string{},
-			Annotations: map[string]string{},
-		},
-		Spec: coordinationv1.LeaseSpec{
-			LeaseDurationSeconds: ptrInt32(InboundMigrationLeaseDurationSeconds),
-			AcquireTime:          &now,
-			RenewTime:            &now,
-		},
-	}
-	updateLeaseHolder(lease, kvvmi, targetNode, slotIndex)
-	return lease
-}
-
-func updateLeaseHolder(lease *coordinationv1.Lease, kvvmi *virtv1.VirtualMachineInstance, targetNode string, slotIndex int) {
-	if lease.Labels == nil {
-		lease.Labels = map[string]string{}
-	}
-	if lease.Annotations == nil {
-		lease.Annotations = map[string]string{}
-	}
-
-	migrationUID := string(kvvmi.Status.MigrationState.MigrationUID)
-	lease.Labels[InboundMigrationLimiterComponentLabel] = InboundMigrationLimiterComponent
-	lease.Labels[InboundMigrationTargetNodeHashLabel] = targetNodeHash(targetNode)
-	lease.Labels[InboundMigrationSlotIndexLabel] = strconv.Itoa(slotIndex)
-	lease.Annotations[InboundMigrationLeaseTargetNodeAnnotation] = targetNode
-	lease.Annotations[InboundMigrationVMINamespaceAnnotation] = kvvmi.Namespace
-	lease.Annotations[InboundMigrationVMINameAnnotation] = kvvmi.Name
-	lease.Annotations[InboundMigrationMigrationUIDAnnotation] = migrationUID
-	lease.Spec.HolderIdentity = ptrString(fmt.Sprintf("%s/%s/%s", kvvmi.Namespace, kvvmi.Name, migrationUID))
-	now := metav1.NewMicroTime(time.Now())
-	lease.Spec.RenewTime = &now
-	if lease.Spec.AcquireTime == nil {
-		lease.Spec.AcquireTime = &now
-	}
-}
-
-func leaseHeldByVMI(lease *coordinationv1.Lease, kvvmi *virtv1.VirtualMachineInstance) bool {
-	if lease.Annotations == nil || kvvmi.Status.MigrationState == nil {
-		return false
-	}
-
-	return lease.Annotations[InboundMigrationVMINamespaceAnnotation] == kvvmi.Namespace &&
-		lease.Annotations[InboundMigrationVMINameAnnotation] == kvvmi.Name &&
-		lease.Annotations[InboundMigrationMigrationUIDAnnotation] == string(kvvmi.Status.MigrationState.MigrationUID)
-}
-
-func slotNames(targetNode string, limit int) []string {
-	result := make([]string, 0, limit)
-	hash := targetNodeHash(targetNode)
-	for i := range limit {
-		result = append(result, fmt.Sprintf("inbound-migration-%s-%d", hash, i))
-	}
-	return result
-}
-
-func targetNodeHash(targetNode string) string {
-	sum := sha256.Sum256([]byte(targetNode))
-	return hex.EncodeToString(sum[:])[:16]
-}
-
-func ptrString(v string) *string {
-	return &v
-}
-
-func ptrInt32(v int32) *int32 {
-	return &v
+	return fmt.Sprintf("%s/%s/%s", kvvmi.Namespace, kvvmi.Name, kvvmi.Status.MigrationState.MigrationUID)
 }
 
 func MarkInboundMigrationSlotWaiting(kvvmi *virtv1.VirtualMachineInstance, targetNode string) {
+	setInboundMigrationSlot(kvvmi, InboundMigrationSlotWaiting, targetNode)
+}
+
+func MarkInboundMigrationSlotAcquired(kvvmi *virtv1.VirtualMachineInstance, targetNode string) {
+	setInboundMigrationSlot(kvvmi, InboundMigrationSlotAcquired, targetNode)
+}
+
+func setInboundMigrationSlot(kvvmi *virtv1.VirtualMachineInstance, state, targetNode string) {
 	if kvvmi.Annotations == nil {
 		kvvmi.Annotations = map[string]string{}
 	}
-	kvvmi.Annotations[InboundMigrationSlotAnnotation] = InboundMigrationSlotWaiting
+	kvvmi.Annotations[InboundMigrationSlotAnnotation] = state
 	kvvmi.Annotations[InboundMigrationTargetNodeAnnotation] = targetNode
 }
 
-func ClearInboundMigrationSlotWaiting(kvvmi *virtv1.VirtualMachineInstance) {
+func ClearInboundMigrationSlot(kvvmi *virtv1.VirtualMachineInstance) {
 	if kvvmi.Annotations == nil {
 		return
 	}
@@ -304,8 +218,9 @@ func InboundMigrationWaitingTargetNode(kvvmi *virtv1.VirtualMachineInstance) str
 }
 
 func DumpInboundMigrationSlot(kvvmi *virtv1.VirtualMachineInstance) string {
-	if !IsInboundMigrationSlotWaiting(kvvmi) {
-		return "not waiting"
+	state := kvvmi.Annotations[InboundMigrationSlotAnnotation]
+	if state == "" {
+		return "not set"
 	}
-	return strings.Join([]string{InboundMigrationSlotWaiting, InboundMigrationWaitingTargetNode(kvvmi)}, ":")
+	return strings.Join([]string{state, InboundMigrationWaitingTargetNode(kvvmi)}, ":")
 }

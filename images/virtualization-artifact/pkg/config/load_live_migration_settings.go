@@ -17,6 +17,9 @@ limitations under the License.
 package config
 
 import (
+	"os"
+	"strconv"
+
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -24,7 +27,30 @@ import (
 
 const (
 	DefaultLiveMigrationPolicy = v1alpha2.PreferSafeMigrationPolicy
+
+	ParallelInboundMigrationsPerNodeVar = "PARALLEL_INBOUND_MIGRATIONS_PER_NODE"
+	InboundMigrationLimitVar            = "INBOUND_MIGRATION_LIMIT"
+	InboundMigrationLimitDisabled       = "disabled"
+
+	defaultParallelInboundMigrationsPerNode = 1
 )
+
+// LoadInboundMigrationLimitFromEnv reads the inbound migration limit configuration
+// applied at controller startup. The limit defaults to 1 and is disabled entirely
+// when INBOUND_MIGRATION_LIMIT is set to "disabled".
+func LoadInboundMigrationLimitFromEnv() (enabled bool, limit int) {
+	if os.Getenv(InboundMigrationLimitVar) == InboundMigrationLimitDisabled {
+		return false, defaultParallelInboundMigrationsPerNode
+	}
+
+	limit = defaultParallelInboundMigrationsPerNode
+	if raw := os.Getenv(ParallelInboundMigrationsPerNodeVar); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed >= 1 {
+			limit = parsed
+		}
+	}
+	return true, limit
+}
 
 var systemMigrationPolicyOverride v1alpha2.LiveMigrationPolicy
 
