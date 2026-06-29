@@ -12,6 +12,7 @@
 # which registries a job authenticates to. Pick the primary with exactly one of
 # .login_dev_registry / .login_prod_registry / .login_prod_read_registry, and
 # add .also_login_dev_registry when a prod job must also read the DEV registry.
+# Prod BUILD jobs additionally add .werf_secondary_repo to reuse DEV-built layers.
 
 # Primary = DEV registry (write). Used by all dev builds
 # (MR / main / release-* / dev tags); pulled in via .dev_vars.
@@ -41,17 +42,28 @@
 
 # Additional DEV login for prod jobs that must ALSO read the DEV registry.
 # Compose with the prod primary, e.g.:
-#   extends: [.prod_vars, .also_login_dev_registry, .base_build]
-# Prod werf builds reuse already-built layers from the DEV registry as a
-# read-only secondary repo (WERF_SECONDARY_REPO_1). This mirrors the GitHub
-# build action input
-# `secondary_repo: "${vars.DEV_MODULE_SOURCE}/${vars.MODULE_NAME}"`, which the
-# action exports as WERF_SECONDARY_REPO_1 (see modules-actions/build/action.yml).
-# Dev builds never need this (their primary already IS the DEV registry); deploy
-# jobs that compose it ignore the secondary repo (they crane-copy, not build).
+#   extends: [.prod_vars, .also_login_dev_registry]
+# Needed by BOTH prod builds (which reuse DEV layers, see .werf_secondary_repo) and
+# prod deploys (which crane-copy the source image out of the DEV registry). Dev
+# jobs never need it — their primary already IS the DEV registry.
 .also_login_dev_registry:
   variables:
     DEV_MODULES_REGISTRY: "${DEV_REGISTRY}"
     DEV_MODULES_REGISTRY_LOGIN: "${DEV_MODULES_REGISTRY_LOGIN}"
     DEV_MODULES_REGISTRY_PASSWORD: "${DEV_MODULES_REGISTRY_PASSWORD}"
+
+# werf secondary read-only repos (the WERF_SECONDARY_REPO_* family): repos with
+# already-built images that `werf build` reuses as a cache, so prod builds don't
+# rebuild from scratch. Group all WERF_SECONDARY_REPO_N here; today we set just
+# _1 = the DEV registry. These are consumed ONLY by `werf build`, so this belongs
+# on BUILD jobs alone — never on deploy jobs, which crane-copy rather than build.
+# WERF_SECONDARY_REPO_1 mirrors the GitHub build action input
+# `secondary_repo: "${vars.DEV_MODULE_SOURCE}/${vars.MODULE_NAME}"` (exported as
+# WERF_SECONDARY_REPO_1 by modules-actions/build), which in the GH workflows is
+# passed to build@v4 only, never to deploy@v2. (Related werf repo families if
+# ever needed: WERF_REPO — primary, set by upstream Setup; WERF_CACHE_REPO_*;
+# WERF_FINAL_REPO.) Compose alongside .also_login_dev_registry on build jobs:
+#   extends: [.prod_vars, .also_login_dev_registry, .werf_secondary_repo, .base_build]
+.werf_secondary_repo:
+  variables:
     WERF_SECONDARY_REPO_1: "${DEV_MODULE_SOURCE}/${MODULE_NAME}"

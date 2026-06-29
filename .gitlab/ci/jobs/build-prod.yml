@@ -28,6 +28,9 @@
 # upstream Setup.gitlab-ci.yml also fires against DEV_REGISTRY; the
 # previous GH workflow did both logins via two consecutive
 # modules-actions/setup steps; we keep that behavior.
+# `.werf_secondary_repo` sets WERF_SECONDARY_REPO_1 so `werf build` reuses already-
+# built layers from the DEV registry — the GH `secondary_repo` input to build@v4.
+# It lives on build jobs only (deploy jobs crane-copy, never build).
 
 build_prod:
   stage: build
@@ -37,6 +40,7 @@ build_prod:
     - .base_build
     - .prod_always
     - .also_login_dev_registry
+    - .werf_secondary_repo
   parallel:
     matrix:
       - EDITION: ce

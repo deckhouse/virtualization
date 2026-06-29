@@ -161,6 +161,7 @@ prod:build:ce:
     - .base_build
     - .prod_vars
     - .also_login_dev_registry
+    - .werf_secondary_repo
   needs:
     - job: prod:check-requirements
       optional: true
@@ -202,6 +203,7 @@ prod:build:ee:
     - .base_build
     - .prod_vars
     - .also_login_dev_registry
+    - .werf_secondary_repo
   needs:
     - job: prod:check-requirements
       optional: true
@@ -243,6 +245,7 @@ prod:build:se-plus:
     - .base_build
     - .prod_vars
     - .also_login_dev_registry
+    - .werf_secondary_repo
   needs: ["prod:build:ee"]
   variables:
     EDITION: se-plus
@@ -280,6 +283,7 @@ prod:build:fe:
     - .base_build
     - .prod_vars
     - .also_login_dev_registry
+    - .werf_secondary_repo
   needs: ["prod:build:ee"]
   variables:
     EDITION: fe
