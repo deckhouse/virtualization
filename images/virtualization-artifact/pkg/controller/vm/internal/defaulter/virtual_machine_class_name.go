@@ -22,6 +22,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -56,10 +57,8 @@ func (v *VirtualMachineClassNameDefaulter) Default(ctx context.Context, vm *v1al
 		return err
 	}
 
-	// "No default class" is not a mutating error, validators will complain
-	// about missing field during validation phase later.
 	if defaultClass == nil {
-		return nil
+		return fmt.Errorf("spec.virtualMachineClassName is empty and no default VirtualMachineClass is configured; set spec.virtualMachineClassName explicitly or mark one VirtualMachineClass as default with the %q annotation set to %q", annotations.AnnVirtualMachineClassDefault, "true")
 	}
 
 	vm.Spec.VirtualMachineClassName = defaultClass.GetName()
