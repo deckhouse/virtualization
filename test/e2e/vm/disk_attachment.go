@@ -18,6 +18,7 @@ package vm
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -58,14 +59,20 @@ var _ = Describe("DiskAttachment", Label(precheck.NoPrecheck), func() {
 
 	It("attaches and detaches a virtual disk to a running VM", func() {
 		By("Create test resources", func() {
+			// Use names longer than the former 60-character VirtualDisk limit to
+			// exercise end-to-end that disk names up to the Kubernetes name length
+			// work through VM start and disk hotplug; the underlying KubeVirt volume
+			// name is derived and shortened internally.
+			longName := func(base string) string { return base + "-" + strings.Repeat("a", 80) }
+
 			// Create VD from CVI for VM root disk
-			vdRoot = object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
+			vdRoot = object.NewVDFromCVI(longName("vd-root"), f.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
 				vdbuilder.WithSize(ptr.To(resource.MustParse("512Mi"))),
 			)
 
 			// Create blank VD without consumer (for attachment test)
 			vdBlank = vdbuilder.New(
-				vdbuilder.WithName("vd-blank"),
+				vdbuilder.WithName(longName("vd-blank")),
 				vdbuilder.WithNamespace(f.Namespace().Name),
 				vdbuilder.WithPersistentVolumeClaim(nil, ptr.To(resource.MustParse("100Mi"))),
 			)

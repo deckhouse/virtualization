@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
@@ -129,7 +130,7 @@ func (t *configurationTest) GenerateResources(restartApprovalMode v1alpha2.Resta
 	t.VDRoot = object.NewVDFromCVI("vd-root", t.Framework.Namespace().Name, object.PrecreatedCVIAlpineBIOS)
 
 	t.VM = object.NewMinimalVM("vm", t.Framework.Namespace().Name,
-		vmbuilder.WithEnableParavirtualization(initialEnableParavirtualization),
+		vmbuilder.WithEnableParavirtualization(ptr.To(initialEnableParavirtualization)),
 		vmbuilder.WithRunPolicy(initialRunPolicy),
 		vmbuilder.WithDisks(t.VDRoot),
 		vmbuilder.WithRestartApprovalMode(restartApprovalMode),

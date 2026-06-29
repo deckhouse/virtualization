@@ -196,10 +196,6 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 		warnings = append(warnings, fmt.Sprintf(" the VirtualImage name %q is invalid as it contains now forbidden symbol '.', allowed symbols for name are [0-9a-zA-Z-]. Create another image with valid name to avoid problems with future updates.", newVI.Name))
 	}
 
-	if len(newVI.Name) > validate.MaxVirtualImageNameLen {
-		warnings = append(warnings, fmt.Sprintf("the VirtualImage name %q is too long: it must be no more than %d characters", newVI.Name, validate.MaxVirtualImageNameLen))
-	}
-
 	return warnings, nil
 }
 

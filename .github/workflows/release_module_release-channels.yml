@@ -119,7 +119,7 @@ jobs:
 
   check-requirements-before-build:
     name: Check module requirements before build
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, regular]
     needs: print-vars
     if: ${{ !inputs.check_only && (inputs.ce || inputs.ee) }}
     env:
@@ -415,7 +415,7 @@ jobs:
 
   check-version-on-release-channel:
     name: Check version on release channel
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, regular]
     env:
       GO_VERSION: "1.25.11"
       input_channel: ${{ github.event.inputs.channel }}
