@@ -16,7 +16,10 @@ limitations under the License.
 
 package vmchange
 
-import "k8s.io/apimachinery/pkg/api/resource"
+import (
+	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/utils/ptr"
+)
 
 func compareStrings(path, current, desired, defaultValue string, onChange ActionType) []FieldChange {
 	currentValue := NewStringValue(current, defaultValue)
@@ -53,10 +56,15 @@ func comparePtrInt64(path string, current, desired *int64, defaultValue int64, o
 	return compareValues(path, currentValue, desiredValue, isEqual, onChange)
 }
 
-func compareBools(path string, current, desired, defaultValue bool, onChange ActionType) []FieldChange {
-	currentValue := NewBoolValue(current, defaultValue)
-	desiredValue := NewBoolValue(desired, defaultValue)
-	isEqual := current == desired
+func comparePtrBools(path string, current, desired *bool, defaultValue bool, onChange ActionType) []FieldChange {
+	if current == nil && desired == nil {
+		return nil
+	}
+
+	isEqual := ptr.Equal(current, desired)
+	currentValue := NewPtrBoolValue(current, defaultValue)
+	desiredValue := NewPtrBoolValue(desired, defaultValue)
+
 	return compareValues(path, currentValue, desiredValue, isEqual, onChange)
 }
 
