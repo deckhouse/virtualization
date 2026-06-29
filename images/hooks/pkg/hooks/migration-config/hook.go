@@ -33,29 +33,23 @@ const (
 	snapshotModuleConfig = "module-config"
 	moduleConfigJQFilter = `.metadata.annotations`
 
-	bandwidthPerMigrationAnnotation             = "virtualization.deckhouse.io/bandwidth-per-migration"
-	completionTimeoutPerGiBAnnotation           = "virtualization.deckhouse.io/completion-timeout-per-gib"
-	parallelOutboundMigrationsPerNodeAnnotation = "virtualization.deckhouse.io/parallel-outbound-migrations-per-node"
-	parallelSyncMigrationsPerNodeAnnotation     = "virtualization.deckhouse.io/parallel-sync-migrations-per-node"
-	progressTimeoutAnnotation                   = "virtualization.deckhouse.io/progress-timeout"
-	disableTLSAnnotation                        = "virtualization.deckhouse.io/disable-tls"
-	disableFirmwareUpdateAnnotation             = "virtualization.deckhouse.io/disable-firmware-update"
+	bandwidthPerMigrationAnnotation   = "virtualization.deckhouse.io/bandwidth-per-migration"
+	completionTimeoutPerGiBAnnotation = "virtualization.deckhouse.io/completion-timeout-per-gib"
+	progressTimeoutAnnotation         = "virtualization.deckhouse.io/progress-timeout"
+	disableTLSAnnotation              = "virtualization.deckhouse.io/disable-tls"
+	disableFirmwareUpdateAnnotation   = "virtualization.deckhouse.io/disable-firmware-update"
 
-	bandwidthPerMigrationValuesPath             = "virtualization.internal.virtConfig.bandwidthPerMigration"
-	completionTimeoutPerGiBValuesPath           = "virtualization.internal.virtConfig.completionTimeoutPerGiB"
-	parallelOutboundMigrationsPerNodeValuesPath = "virtualization.internal.virtConfig.parallelOutboundMigrationsPerNode"
-	parallelSyncMigrationsPerNodeValuesPath     = "virtualization.internal.virtConfig.parallelSyncMigrationsPerNode"
-	progressTimeoutValuesPath                   = "virtualization.internal.virtConfig.progressTimeout"
-	disableTLSValuesPath                        = "virtualization.internal.virtConfig.disableTLS"
-	disableFirmwareUpdateValuesPath             = "virtualization.internal.disableFirmwareUpdate"
+	bandwidthPerMigrationValuesPath   = "virtualization.internal.virtConfig.bandwidthPerMigration"
+	completionTimeoutPerGiBValuesPath = "virtualization.internal.virtConfig.completionTimeoutPerGiB"
+	progressTimeoutValuesPath         = "virtualization.internal.virtConfig.progressTimeout"
+	disableTLSValuesPath              = "virtualization.internal.virtConfig.disableTLS"
+	disableFirmwareUpdateValuesPath   = "virtualization.internal.disableFirmwareUpdate"
 
-	defaultBandwidthPerMigration             = "640Mi"
-	defaultCompletionTimeoutPerGiB           = 800
-	defaultParallelOutboundMigrationsPerNode = 2
-	defaultParallelSyncMigrationsPerNode     = 1
-	defaultProgressTimeout                   = 150
-	defaultDisableTLS                        = false
-	defaultDisableFirmwareUpdate             = false
+	defaultBandwidthPerMigration   = "640Mi"
+	defaultCompletionTimeoutPerGiB = 800
+	defaultProgressTimeout         = 150
+	defaultDisableTLS              = false
+	defaultDisableFirmwareUpdate   = false
 )
 
 // migrationParams defines migration parameters configurable via ModuleConfig annotations.
@@ -71,16 +65,6 @@ var migrationParams = []migrationParam{
 		annotation:   completionTimeoutPerGiBAnnotation,
 		valuesPath:   completionTimeoutPerGiBValuesPath,
 		defaultValue: defaultCompletionTimeoutPerGiB,
-	},
-	{
-		annotation:   parallelOutboundMigrationsPerNodeAnnotation,
-		valuesPath:   parallelOutboundMigrationsPerNodeValuesPath,
-		defaultValue: defaultParallelOutboundMigrationsPerNode,
-	},
-	{
-		annotation:   parallelSyncMigrationsPerNodeAnnotation,
-		valuesPath:   parallelSyncMigrationsPerNodeValuesPath,
-		defaultValue: defaultParallelSyncMigrationsPerNode,
 	},
 	{
 		annotation:   progressTimeoutAnnotation,

@@ -356,7 +356,7 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 	}
 
 	vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
-	if reason == vmopcondition.ReasonMigrationPending {
+	if reason == vmopcondition.ReasonMigrationPending || reason == vmopcondition.ReasonWaitingForSyncSlot {
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 	}
 	progress := h.calculateMigrationProgress(vmop, mig, reason)
@@ -473,7 +473,7 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMac
 	}
 
 	vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
-	if reason == vmopcondition.ReasonMigrationPending {
+	if reason == vmopcondition.ReasonMigrationPending || reason == vmopcondition.ReasonWaitingForSyncSlot {
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 	}
 	progress := h.calculateMigrationProgress(vmop, mig, reason)

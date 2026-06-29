@@ -271,11 +271,11 @@ spec:
 {{- end -}}
 
 {{- define "kubevirt.parallel_outbound_migrations_per_node" -}}
-{{- .Values.virtualization.internal | dig "virtConfig" "parallelOutboundMigrationsPerNode" 2 -}}
+{{- .Values.virtualization | dig "liveMigration" "outbound" "perNode" 2 -}}
 {{- end -}}
 
 {{- define "kubevirt.parallel_sync_migrations_per_node" -}}
-{{- .Values.virtualization.internal | dig "virtConfig" "parallelSyncMigrationsPerNode" 1 -}}
+{{- .Values.virtualization | dig "liveMigration" "outbound" "syncPerNode" 1 -}}
 {{- end -}}
 
 {{- define "kubevirt.progress_timeout" -}}
