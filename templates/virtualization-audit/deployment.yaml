@@ -62,7 +62,6 @@ spec:
       labels:
         app: virtualization-audit
       annotations:
-        checksum/secret: {{ include (print $.Template.BasePath "/virtualization-audit/cert-secret.yaml") . | sha256sum }}
         kubectl.kubernetes.io/default-container: virtualization-audit
     spec:
       {{ include "helm_lib_pod_anti_affinity_for_ha" (list . (dict "app" "virtualization-audit")) | nindent 6 }}
