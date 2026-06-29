@@ -160,7 +160,7 @@ prod:build:ce:
     - .prod_release_rules
     - .base_build
     - .prod_vars
-    - .also_login_dev_registry
+    - .dev_registry_pull_login
     - .werf_secondary_repo
   needs:
     - job: prod:check-requirements
@@ -180,7 +180,7 @@ prod:deploy:ce:
     - .prod_release_rules
     - .prod_deploy_script
     - .prod_vars
-    - .also_login_dev_registry
+    - .dev_registry_pull_login
   needs:
     - job: prod:check-requirements
       optional: true
@@ -202,7 +202,7 @@ prod:build:ee:
     - .prod_release_rules
     - .base_build
     - .prod_vars
-    - .also_login_dev_registry
+    - .dev_registry_pull_login
     - .werf_secondary_repo
   needs:
     - job: prod:check-requirements
@@ -222,7 +222,7 @@ prod:deploy:ee:
     - .prod_release_rules
     - .prod_deploy_script
     - .prod_vars
-    - .also_login_dev_registry
+    - .dev_registry_pull_login
   needs:
     - job: prod:check-requirements
       optional: true
@@ -244,7 +244,7 @@ prod:build:se-plus:
     - .prod_release_rules
     - .base_build
     - .prod_vars
-    - .also_login_dev_registry
+    - .dev_registry_pull_login
     - .werf_secondary_repo
   needs: ["prod:build:ee"]
   variables:
@@ -262,7 +262,7 @@ prod:deploy:se-plus:
     - .prod_release_rules
     - .prod_deploy_script
     - .prod_vars
-    - .also_login_dev_registry
+    - .dev_registry_pull_login
   needs:
     - job: prod:build:se-plus
       optional: true
@@ -282,7 +282,7 @@ prod:build:fe:
     - .prod_release_rules
     - .base_build
     - .prod_vars
-    - .also_login_dev_registry
+    - .dev_registry_pull_login
     - .werf_secondary_repo
   needs: ["prod:build:ee"]
   variables:
@@ -300,7 +300,7 @@ prod:deploy:fe:
     - .prod_release_rules
     - .prod_deploy_script
     - .prod_vars
-    - .also_login_dev_registry
+    - .dev_registry_pull_login
   needs:
     - job: prod:build:fe
       optional: true

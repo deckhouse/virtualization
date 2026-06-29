@@ -25,7 +25,7 @@
 #                       gating).
 #   - .prod_manual     (this repo — PROD registry vars + tag-match rule
 #                       with `when: manual`).
-#   - .also_login_dev_registry (this repo — also login against DEV_REGISTRY).
+#   - .dev_registry_pull_login (this repo — also login against DEV_REGISTRY).
 #
 # This file is the tag-push chained-deploy flow. The GitHub
 # release_module_release-channels parity flow (single-channel dispatch with
@@ -42,7 +42,7 @@ deploy_to_prod_alpha:
   extends:
     - .base_deploy
     - .prod_manual
-    - .also_login_dev_registry
+    - .dev_registry_pull_login
   parallel:
     matrix:
       - EDITION: ce
@@ -62,7 +62,7 @@ deploy_to_prod_beta:
   extends:
     - .base_deploy
     - .prod_manual
-    - .also_login_dev_registry
+    - .dev_registry_pull_login
   parallel:
     matrix:
       - EDITION: ce
@@ -82,7 +82,7 @@ deploy_to_prod_ea:
   extends:
     - .base_deploy
     - .prod_manual
-    - .also_login_dev_registry
+    - .dev_registry_pull_login
   parallel:
     matrix:
       - EDITION: ce
@@ -102,7 +102,7 @@ deploy_to_prod_stable:
   extends:
     - .base_deploy
     - .prod_manual
-    - .also_login_dev_registry
+    - .dev_registry_pull_login
   parallel:
     matrix:
       - EDITION: ce
@@ -122,7 +122,7 @@ deploy_to_prod_rock_solid:
   extends:
     - .base_deploy
     - .prod_manual
-    - .also_login_dev_registry
+    - .dev_registry_pull_login
   parallel:
     matrix:
       - EDITION: ce
