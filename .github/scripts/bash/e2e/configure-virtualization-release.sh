@@ -72,8 +72,6 @@ spec:
       - 192.168.10.0/24
     featureGates:
       - HotplugCPUWithLiveMigration
-      - HotplugMemoryWithLiveMigration
-      - HotplugCPUAndMemoryWithInPlaceResize
   source: deckhouse-dev
   version: 1
 ---
