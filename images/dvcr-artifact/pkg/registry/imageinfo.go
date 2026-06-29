@@ -43,7 +43,7 @@ const (
 	isoImageType         = "iso"
 )
 
-func getImageInfo(ctx context.Context, sourceReader io.ReadCloser) (ImageInfo, error) {
+func getImageInfo(ctx context.Context, sourceReader io.ReadCloser, sourceImageSize int64) (ImageInfo, error) {
 	initialReadSize := syntheticHeadSize
 	headerBuf := make([]byte, initialReadSize)
 	n, err := io.ReadFull(sourceReader, headerBuf)
@@ -71,7 +71,7 @@ func getImageInfo(ctx context.Context, sourceReader io.ReadCloser) (ImageInfo, e
 		return getImageInfoVMDK(ctx, formatSourceReaders.TopReader(), headerBuf)
 	}
 
-	return getImageInfoStandard(ctx, formatSourceReaders, headerBuf)
+	return getImageInfoStandard(ctx, formatSourceReaders, headerBuf, sourceImageSize)
 }
 
 // getImageInfoVMDK obtains information about the VMDK image using a synthetic file.
@@ -147,7 +147,7 @@ func getImageInfoVMDK(ctx context.Context, sourceReader io.Reader, headerBuf []b
 }
 
 // getImageInfoStandard handles non-VMDK formats using the first 64MB of the file.
-func getImageInfoStandard(ctx context.Context, formatSourceReaders *importer.FormatReaders, headerBuf []byte) (ImageInfo, error) {
+func getImageInfoStandard(ctx context.Context, formatSourceReaders *importer.FormatReaders, headerBuf []byte, sourceImageSize int64) (ImageInfo, error) {
 	var tempImageInfoFile *os.File
 	var err error
 	var bytesWrittenToTemp int64
@@ -198,10 +198,17 @@ func getImageInfoStandard(ctx context.Context, formatSourceReaders *importer.For
 		}
 
 		if imageInfo.Format != "raw" {
-			// It's necessary to read everything from the original image to avoid blocking.
-			_, err = io.Copy(&EmptyWriter{}, formatSourceReaders.TopReader())
-			if err != nil {
-				return ImageInfo{}, fmt.Errorf("error copying to nowhere: %w", err)
+			// VirtualSize is already populated by qemu-img info on the 64MiB temp file.
+			// For archived formats (gz/xz/zst) we still must drain so the upstream
+			// TeeReader sees the underlying compressed bytes; for plain qcow2 no
+			// drain is needed, which lets the main upload run at full speed.
+			// TODO: drop this branch once the TeeReader in inspectAndStreamSourceImage
+			// no longer blocks the upload pipeline.
+			if formatSourceReaders.Archived {
+				_, err = io.Copy(&EmptyWriter{}, formatSourceReaders.TopReader())
+				if err != nil {
+					return ImageInfo{}, fmt.Errorf("error copying to nowhere: %w", err)
+				}
 			}
 
 			return imageInfo, nil
@@ -226,13 +233,20 @@ func getImageInfoStandard(ctx context.Context, formatSourceReaders *importer.For
 			imageInfo.Format = isoImageType
 		}
 
-		// Count uncompressed size of source image.
-		n, err := io.Copy(&EmptyWriter{}, formatSourceReaders.TopReader())
-		if err != nil {
-			return ImageInfo{}, fmt.Errorf("error copying to nowhere: %w", err)
+		// For archived raw/iso we still need to drain to compute the uncompressed
+		// size; for plain raw/iso the uncompressed size equals the on-wire source
+		// size, so we avoid the costly full-stream drain.
+		// TODO: drop this branch once the TeeReader in inspectAndStreamSourceImage
+		// no longer blocks the upload pipeline.
+		if formatSourceReaders.Archived {
+			n, err := io.Copy(&EmptyWriter{}, formatSourceReaders.TopReader())
+			if err != nil {
+				return ImageInfo{}, fmt.Errorf("error copying to nowhere: %w", err)
+			}
+			imageInfo.VirtualSize = uint64(bytesWrittenToTemp + n)
+		} else {
+			imageInfo.VirtualSize = uint64(sourceImageSize)
 		}
-
-		imageInfo.VirtualSize = uint64(bytesWrittenToTemp + n)
 
 		return imageInfo, nil
 	}

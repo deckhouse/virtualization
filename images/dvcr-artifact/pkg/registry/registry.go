@@ -277,7 +277,7 @@ func (p DataProcessor) inspectAndStreamSourceImage(
 		defer imageInfoWriter.Close()
 
 		klog.Infoln("Streaming from the source")
-		doneSize, err := io.Copy(streamWriter, io.TeeReader(sourceImageReader, imageInfoWriter))
+		doneSize, err := io.Copy(streamWriter, nonBlockingTeeReader(sourceImageReader, imageInfoWriter))
 		if err != nil {
 			return fmt.Errorf("error copying from the source: %w", err)
 		}
@@ -306,7 +306,7 @@ func (p DataProcessor) inspectAndStreamSourceImage(
 	errsGroup.Go(func() error {
 		defer imageInfoReader.Close()
 
-		info, err := getImageInfo(ctx, imageInfoReader)
+		info, err := getImageInfo(ctx, imageInfoReader, int64(sourceImageSize))
 		if err != nil {
 			return err
 		}
