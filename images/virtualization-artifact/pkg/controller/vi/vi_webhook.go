@@ -31,7 +31,6 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common/storageclass"
-	"github.com/deckhouse/virtualization-controller/pkg/common/validate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -60,10 +59,6 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 
 	if strings.Contains(vi.Name, ".") {
 		return nil, fmt.Errorf("the VirtualImage name %q is invalid: '.' is forbidden, allowed name symbols are [0-9a-zA-Z-]", vi.Name)
-	}
-
-	if len(vi.Name) > validate.MaxVirtualImageNameLen {
-		return nil, fmt.Errorf("the VirtualImage name %q is too long: it must be no more than %d characters", vi.Name, validate.MaxVirtualImageNameLen)
 	}
 
 	if err := v.validateSourceStorageClassProvisionerCompatibility(ctx, vi); err != nil {
