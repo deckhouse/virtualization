@@ -333,11 +333,6 @@ func (r *Reconciler) ensureSnapshot(ctx context.Context, pvc *corev1.PersistentV
 		return fmt.Errorf("source pvc %s/%s not found", sourceNamespace, sourceName)
 	}
 
-	snapshotClass, err := r.snapshotClassForPVC(ctx, sourcePVC)
-	if err != nil {
-		return err
-	}
-
 	vs := &vsv1.VolumeSnapshot{
 		TypeMeta: metav1.TypeMeta{Kind: "VolumeSnapshot", APIVersion: "snapshot.storage.k8s.io/v1"},
 		ObjectMeta: metav1.ObjectMeta{
@@ -349,7 +344,6 @@ func (r *Reconciler) ensureSnapshot(ctx context.Context, pvc *corev1.PersistentV
 			Source: vsv1.VolumeSnapshotSource{
 				PersistentVolumeClaimName: ptr.To(sourcePVC.Name),
 			},
-			VolumeSnapshotClassName: ptr.To(snapshotClass),
 		},
 	}
 	if err := r.client.Create(ctx, vs); err != nil && !k8serrors.IsAlreadyExists(err) {
@@ -363,30 +357,6 @@ func (r *Reconciler) ensureSnapshot(ctx context.Context, pvc *corev1.PersistentV
 	return nil
 }
 
-func (r *Reconciler) snapshotClassForPVC(ctx context.Context, pvc *corev1.PersistentVolumeClaim) (string, error) {
-	storageClassName := ptr.Deref(pvc.Spec.StorageClassName, "")
-	if storageClassName == "" {
-		return "", fmt.Errorf("source pvc %s/%s has no storageClassName", pvc.Namespace, pvc.Name)
-	}
-	sc, err := object.FetchObject(ctx, types.NamespacedName{Name: storageClassName}, r.client, &storagev1.StorageClass{})
-	if err != nil {
-		return "", fmt.Errorf("fetch source storage class: %w", err)
-	}
-	if sc == nil {
-		return "", fmt.Errorf("source storage class %q not found", storageClassName)
-	}
-
-	var list vsv1.VolumeSnapshotClassList
-	if err := r.client.List(ctx, &list); err != nil {
-		return "", fmt.Errorf("list volume snapshot classes: %w", err)
-	}
-	for _, item := range list.Items {
-		if item.Driver == sc.Provisioner {
-			return item.Name, nil
-		}
-	}
-	return "", fmt.Errorf("no compatible VolumeSnapshotClass found for provisioner %q", sc.Provisioner)
-}
 
 func snapshotNameFromPVC(pvc *corev1.PersistentVolumeClaim) string {
 	if pvc == nil {

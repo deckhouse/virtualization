@@ -378,15 +378,6 @@ func (s *PersistentVolumeClaimService) ensureCloneSnapshot(ctx context.Context, 
 		return nil
 	}
 
-	sourceSC, err := s.fetchSourceStorageClass(ctx, sourceClaim)
-	if err != nil {
-		return err
-	}
-	snapshotClass := s.snapshotClassForProvisioner(ctx, sourceSC.Provisioner)
-	if snapshotClass == "" {
-		return fmt.Errorf("no compatible VolumeSnapshotClass found for provisioner %q", sourceSC.Provisioner)
-	}
-
 	ownerRef := ownerReferenceForObject(owner)
 	ownerRef.Controller = ptr.To(false)
 
@@ -401,7 +392,6 @@ func (s *PersistentVolumeClaimService) ensureCloneSnapshot(ctx context.Context, 
 			Source: vsv1.VolumeSnapshotSource{
 				PersistentVolumeClaimName: ptr.To(sourceClaim.Name),
 			},
-			VolumeSnapshotClassName: ptr.To(snapshotClass),
 		},
 	}
 	if err := s.client.Create(ctx, vs); err != nil && !k8serrors.IsAlreadyExists(err) {
