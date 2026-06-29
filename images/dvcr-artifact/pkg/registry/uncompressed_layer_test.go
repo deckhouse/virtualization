@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/stream"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
@@ -42,14 +43,14 @@ func Test_UncompressedLayer_MediaType(t *testing.T) {
 func Test_UncompressedLayer_NotComputedBeforeConsumed(t *testing.T) {
 	l := newUncompressedLayer(io.NopCloser(bytes.NewReader([]byte("data"))))
 
-	if _, err := l.Digest(); !errors.Is(err, errNotComputed) {
-		t.Fatalf("Digest before consume: got %v, want errNotComputed", err)
+	if _, err := l.Digest(); !errors.Is(err, stream.ErrNotComputed) {
+		t.Fatalf("Digest before consume: got %v, want stream.ErrNotComputed", err)
 	}
-	if _, err := l.DiffID(); !errors.Is(err, errNotComputed) {
-		t.Fatalf("DiffID before consume: got %v, want errNotComputed", err)
+	if _, err := l.DiffID(); !errors.Is(err, stream.ErrNotComputed) {
+		t.Fatalf("DiffID before consume: got %v, want stream.ErrNotComputed", err)
 	}
-	if _, err := l.Size(); !errors.Is(err, errNotComputed) {
-		t.Fatalf("Size before consume: got %v, want errNotComputed", err)
+	if _, err := l.Size(); !errors.Is(err, stream.ErrNotComputed) {
+		t.Fatalf("Size before consume: got %v, want stream.ErrNotComputed", err)
 	}
 }
 
@@ -118,8 +119,8 @@ func Test_UncompressedLayer_SecondReadFailsAfterConsumed(t *testing.T) {
 		t.Fatalf("Close: %v", err)
 	}
 
-	if _, err := l.Compressed(); !errors.Is(err, errConsumed) {
-		t.Fatalf("second Compressed: got %v, want errConsumed", err)
+	if _, err := l.Compressed(); !errors.Is(err, stream.ErrConsumed) {
+		t.Fatalf("second Compressed: got %v, want stream.ErrConsumed", err)
 	}
 }
 

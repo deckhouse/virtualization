@@ -26,17 +26,8 @@ import (
 	"sync"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/stream"
 	"github.com/google/go-containerregistry/pkg/v1/types"
-)
-
-var (
-	// errNotComputed is returned when the requested value is not yet computed
-	// because the stream has not been consumed yet.
-	errNotComputed = errors.New("value not computed until stream is consumed")
-
-	// errConsumed is returned when the underlying stream has already been
-	// consumed and closed.
-	errConsumed = errors.New("stream was already consumed")
 )
 
 // uncompressedLayer is a single-pass streaming v1.Layer that uploads the raw
@@ -67,13 +58,16 @@ func newUncompressedLayer(rc io.ReadCloser) *uncompressedLayer {
 	return &uncompressedLayer{blob: rc}
 }
 
-// Digest implements v1.Layer. It returns errNotComputed until the stream is
-// consumed, which marks the layer as streaming for remote.WriteLayer.
+// Digest implements v1.Layer. Until the stream is consumed it returns
+// stream.ErrNotComputed: remote's pusher detects a streaming layer by
+// errors.Is(err, stream.ErrNotComputed) and only then routes the upload through
+// its lazy (chunked, digest-after-consume) path. Returning a different sentinel
+// makes the pusher treat the error as fatal.
 func (l *uncompressedLayer) Digest() (v1.Hash, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.digest == nil {
-		return v1.Hash{}, errNotComputed
+		return v1.Hash{}, stream.ErrNotComputed
 	}
 	return *l.digest, nil
 }
@@ -88,7 +82,7 @@ func (l *uncompressedLayer) Size() (int64, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.size == 0 {
-		return 0, errNotComputed
+		return 0, stream.ErrNotComputed
 	}
 	return l.size, nil
 }
@@ -113,7 +107,7 @@ func (l *uncompressedLayer) reader() (io.ReadCloser, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.consumed {
-		return nil, errConsumed
+		return nil, stream.ErrConsumed
 	}
 	return newUncompressedReader(l), nil
 }
