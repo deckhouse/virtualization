@@ -162,8 +162,8 @@ replace (
 
 // CVE Replaces
 replace (
-	golang.org/x/crypto => golang.org/x/crypto v0.45.0 // CVE-2024-45337,CVE-2025-22869,CVE-2025-47914
-	golang.org/x/net => golang.org/x/net v0.48.0
+	golang.org/x/crypto => golang.org/x/crypto v0.52.0 // CVE mitigation 2026-06-29
+	golang.org/x/net => golang.org/x/net v0.55.0
 	golang.org/x/oauth2 => golang.org/x/oauth2 v0.27.0 // CVE-2025-22868
 )
 
