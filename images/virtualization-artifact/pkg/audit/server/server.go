@@ -25,6 +25,8 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"sync"
+	"time"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 )
@@ -40,14 +42,16 @@ type Server interface {
 
 func NewServer(addr string, handler func([]byte) error) (Server, error) {
 	return &tcpServer{
-		addr:    addr,
-		handler: handler,
+		gracefulShutdownTimeout: 5 * time.Second,
+		addr:                    addr,
+		handler:                 handler,
 	}, nil
 }
 
 type tcpServer struct {
-	addr    string
-	handler func([]byte) error
+	gracefulShutdownTimeout time.Duration
+	addr                    string
+	handler                 func([]byte) error
 }
 
 func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
@@ -82,10 +86,25 @@ func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
 
 	defer listener.Close()
 
-	// Accept connections in a loop that respects context cancellation
+	var (
+		wg      sync.WaitGroup
+		mu      sync.Mutex
+		conns   = map[net.Conn]struct{}{}
+		closing bool
+	)
+
+	// On shutdown: stop accepting and close every active connection. Closing a
+	// tls.Conn sends close_notify, so the peer sees a clean EOF instead of a
+	// truncated record ("bad record MAC") and can reconnect to another replica.
 	go func() {
 		<-ctx.Done()
 		listener.Close()
+		mu.Lock()
+		closing = true
+		for c := range conns {
+			c.Close()
+		}
+		mu.Unlock()
 	}()
 
 	log.Debug("Server started", slog.String("address", s.addr))
@@ -96,6 +115,7 @@ func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
 			// Check if server is shutting down
 			select {
 			case <-ctx.Done():
+				waitWithTimeout(&wg, s.gracefulShutdownTimeout)
 				return nil
 			default:
 				log.Error("Error accepting connection", log.Err(err))
@@ -103,8 +123,38 @@ func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
 			}
 		}
 
+		mu.Lock()
+		if closing {
+			mu.Unlock()
+			conn.Close()
+			continue
+		}
+		conns[conn] = struct{}{}
+		mu.Unlock()
+
 		// Handle each connection in its own goroutine
-		go s.handleConnection(ctx, conn)
+		wg.Go(func() {
+			defer func() {
+				mu.Lock()
+				delete(conns, conn)
+				mu.Unlock()
+			}()
+			s.handleConnection(ctx, conn)
+		})
+	}
+}
+
+// waitWithTimeout blocks until the WaitGroup drains or the timeout elapses,
+// so in-flight connections finish cleanly without holding shutdown forever.
+func waitWithTimeout(wg *sync.WaitGroup, timeout time.Duration) {
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(timeout):
 	}
 }
 
