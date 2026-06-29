@@ -19,7 +19,10 @@ package main
 import (
 	"context"
 	"flag"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/logs"
 	"k8s.io/klog/v2"
@@ -32,11 +35,26 @@ func init() {
 	flag.Parse()
 }
 
+// TODO(profiling): temporary CPU-profiling hook, remove before merge.
+// Starts net/http/pprof so a CPU profile can be captured during import via
+// `kubectl port-forward <importer-pod> 6060:6060` + `go tool pprof`.
+func startPprof() {
+	go func() {
+		klog.Infoln("Starting pprof server on :6060")
+		srv := &http.Server{Addr: ":6060", ReadHeaderTimeout: 10 * time.Second}
+		if err := srv.ListenAndServe(); err != nil {
+			klog.Warningf("pprof server stopped: %v", err)
+		}
+	}()
+}
+
 func main() {
 	defer klog.Flush()
 
 	logs.Progress.SetOutput(os.Stdout)
 	logs.Warn.SetOutput(os.Stderr)
+
+	startPprof()
 
 	klog.Infoln("Starting registry importer")
 
