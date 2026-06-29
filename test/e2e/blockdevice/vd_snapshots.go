@@ -19,6 +19,7 @@ package blockdevice
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -63,7 +64,9 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		DeferCleanup(f.After)
 
 		By("Environment preparation")
-		vd := object.NewVDFromCVI("vd", f.Namespace().Name, object.PrecreatedCVIUbuntu)
+		// Long disk name (>60 chars, the former limit) to exercise snapshotting a
+		// disk whose name uses the full Kubernetes name length.
+		vd := object.NewVDFromCVI("vd-"+strings.Repeat("a", 80), f.Namespace().Name, object.PrecreatedCVIUbuntu)
 		vm := object.NewMinimalVM("vm-", f.Namespace().Name,
 			vmbuilder.WithName("vm"),
 			vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
