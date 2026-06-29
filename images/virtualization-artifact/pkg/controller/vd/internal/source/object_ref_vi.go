@@ -74,6 +74,7 @@ func (ds ObjectRefVirtualImage) Sync(ctx context.Context, vd *v1alpha2.VirtualDi
 	return steptaker.NewStepTakers[*v1alpha2.VirtualDisk](
 		step.NewReadyStep(ds.diskService, pvc, cb),
 		step.NewTerminatingStep(pvc),
+		step.NewCreatePVCFromVSStep(pvc, ds.client, cb),
 		step.NewCreateDataVolumeFromVirtualImageStep(pvc, dv, ds.diskService, ds.client, cb),
 		step.NewEnsureNodePlacementStep(pvc, dv, ds.diskService, ds.client, cb),
 		step.NewWaitForDVStep(pvc, dv, ds.diskService, ds.client, cb),
