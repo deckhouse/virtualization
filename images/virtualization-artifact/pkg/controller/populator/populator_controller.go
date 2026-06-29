@@ -357,7 +357,6 @@ func (r *Reconciler) ensureSnapshot(ctx context.Context, pvc *corev1.PersistentV
 	return nil
 }
 
-
 func snapshotNameFromPVC(pvc *corev1.PersistentVolumeClaim) string {
 	if pvc == nil {
 		return ""

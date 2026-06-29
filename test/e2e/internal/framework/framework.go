@@ -92,7 +92,7 @@ func (f *Framework) After(ctx context.Context) {
 	if CurrentSpecReport().Failed() {
 		if f.namespace != nil {
 			By("Failed: save resource dump")
-			f.saveTestCaseDump()
+			f.saveTestCaseDump(ctx)
 		}
 	}
 }

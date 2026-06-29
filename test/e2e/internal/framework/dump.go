@@ -56,7 +56,7 @@ func truncateTestName(s string, maxLen int) string {
 //
 // NOTE: This method is called in AfterEach for failed specs only. Avoid to use Expect,
 // as it fails without reporting. Better use GinkgoWriter to report errors at this point.
-func (f *Framework) saveTestCaseDump() {
+func (f *Framework) saveTestCaseDump(ctx context.Context) {
 	ft := GetFormattedTestCaseFullText()
 	tmpDir := GetTMPDir()
 	dumpDir := path.Join(tmpDir, "e2e_failed", ft)
@@ -68,11 +68,11 @@ func (f *Framework) saveTestCaseDump() {
 	}
 
 	f.saveTestCaseResources(dumpDir)
-	f.savePodAdditionalInfo(dumpDir)
+	f.savePodAdditionalInfo(ctx, dumpDir)
 	f.saveIntvirtvmDescriptions(dumpDir)
 	f.saveIntvirtvmiDescriptions(dumpDir)
 	f.saveNodeAdditionalInfo(dumpDir)
-	f.saveEvents(dumpDir)
+	f.saveEvents(ctx, dumpDir)
 	f.saveClusterNetworkInfo(dumpDir)
 }
 
@@ -133,8 +133,8 @@ func (f *Framework) saveTestCaseResources(dumpDir string) {
 	}
 }
 
-func (f *Framework) savePodAdditionalInfo(dumpDir string) {
-	pods, err := f.Clients.kubeClient.CoreV1().Pods(f.Namespace().Name).List(context.Background(), metav1.ListOptions{})
+func (f *Framework) savePodAdditionalInfo(ctx context.Context, dumpDir string) {
+	pods, err := f.Clients.kubeClient.CoreV1().Pods(f.Namespace().Name).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		GinkgoWriter.Printf("Failed to get PodList:\n%s\n", err)
 		return
@@ -146,7 +146,7 @@ func (f *Framework) savePodAdditionalInfo(dumpDir string) {
 	}
 
 	for _, pod := range pods.Items {
-		f.writePodLogs(pod.Name, pod.Namespace, dumpDir)
+		f.writePodLogs(ctx, pod.Name, pod.Namespace, dumpDir)
 		f.writePodDescription(pod.Name, pod.Namespace, dumpDir)
 		f.writeVirtualMachineGuestInfo(pod, dumpDir)
 	}
@@ -178,8 +178,8 @@ func (f *Framework) saveIntvirtvmiDescriptions(dumpDir string) {
 	}
 }
 
-func (f *Framework) writePodLogs(name, namespace, dumpDir string) {
-	pod, err := f.Clients.kubeClient.CoreV1().Pods(namespace).Get(context.Background(), name, metav1.GetOptions{})
+func (f *Framework) writePodLogs(ctx context.Context, name, namespace, dumpDir string) {
+	pod, err := f.Clients.kubeClient.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		GinkgoWriter.Printf("Failed to get pod:\nPodName: %s\nError: %v\n", name, err)
 		return
@@ -190,15 +190,15 @@ func (f *Framework) writePodLogs(name, namespace, dumpDir string) {
 			GinkgoWriter.Printf("Skipping container without d8v prefix:\nPodName: %s\nContainer: %s\n", pod.Name, container.Name)
 			continue
 		}
-		f.writePodContainerLogs(pod, container.Name, dumpDir)
+		f.writePodContainerLogs(ctx, pod, container.Name, dumpDir)
 	}
 }
 
-func (f *Framework) writePodContainerLogs(pod *corev1.Pod, containerName, dumpDir string) {
+func (f *Framework) writePodContainerLogs(ctx context.Context, pod *corev1.Pod, containerName, dumpDir string) {
 	podLogs, err := f.Clients.KubeClient().CoreV1().Pods(pod.Namespace).GetLogs(pod.Name,
 		&corev1.PodLogOptions{
 			Container: containerName,
-		}).Stream(context.Background())
+		}).Stream(ctx)
 	if err != nil {
 		GinkgoWriter.Printf("Failed to get logs:\nPodName: %s\nContainer: %s\nError: %v\n", pod.Name, containerName, err)
 		return
@@ -289,10 +289,10 @@ func (f *Framework) writeNodeList(dumpDir string) {
 	}
 }
 
-func (f *Framework) saveEvents(dumpDir string) {
+func (f *Framework) saveEvents(ctx context.Context, dumpDir string) {
 	GinkgoHelper()
 	namespace := f.Namespace().Name
-	events, err := f.Clients.kubeClient.CoreV1().Events(namespace).List(context.Background(), metav1.ListOptions{})
+	events, err := f.Clients.kubeClient.CoreV1().Events(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		GinkgoWriter.Printf("Failed to get events:\nError: %v\n", err)
 		return
