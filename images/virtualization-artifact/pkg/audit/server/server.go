@@ -25,10 +25,16 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 )
+
+// maxAuditEventSize bounds a single audit event line. The bufio.Scanner default
+// is 64 KiB, which k8s audit events with large objects (managedFields, VM specs)
+// can exceed — dropping the rest of the connection. 4 MiB leaves generous headroom.
+const maxAuditEventSize = 4 * 1024 * 1024
 
 type Server interface {
 	Run(ctx context.Context, opts ...Option) error
@@ -57,44 +63,42 @@ func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
 	var listener net.Listener
 	var err error
 	if o.TLS != nil {
-		certPool, err := x509.SystemCertPool()
-		if err != nil {
-			return fmt.Errorf("fail to get system cert pool: %w", err)
-		}
-
-		if caCertPEM, err := os.ReadFile(o.TLS.CaFile); err != nil {
-			return fmt.Errorf("fail to read CA PEM: %w", err)
-		} else if ok := certPool.AppendCertsFromPEM(caCertPEM); !ok {
-			return fmt.Errorf("invalid cert in CA PEM: %w", err)
-		}
-
-		cert, err := tls.LoadX509KeyPair(o.TLS.CertFile, o.TLS.KeyFile)
-		if err != nil {
+		// The pod is rolled on every certificate rotation (module policy), so the
+		// cert is loaded once at startup; graceful shutdown drains connections so
+		// that roll stays clean for the log-shipper.
+		var cfg *tls.Config
+		if cfg, err = loadServerTLSConfig(o.TLS); err != nil {
 			return err
 		}
-
-		config := &tls.Config{
-			RootCAs:      certPool,
-			Certificates: []tls.Certificate{cert},
-		}
-
-		listener, err = tls.Listen("tcp", s.addr, config)
-		if err != nil {
-			return err
-		}
+		listener, err = tls.Listen("tcp", s.addr, cfg)
 	} else {
 		listener, err = net.Listen("tcp", s.addr)
-		if err != nil {
-			return err
-		}
+	}
+	if err != nil {
+		return err
 	}
 
 	defer listener.Close()
 
-	// Accept connections in a loop that respects context cancellation
+	var (
+		wg      sync.WaitGroup
+		mu      sync.Mutex
+		conns   = map[net.Conn]struct{}{}
+		closing bool
+	)
+
+	// On shutdown: stop accepting and close every active connection. Closing a
+	// tls.Conn sends close_notify, so the peer sees a clean EOF instead of a
+	// truncated record ("bad record MAC") and can reconnect to another replica.
 	go func() {
 		<-ctx.Done()
 		listener.Close()
+		mu.Lock()
+		closing = true
+		for c := range conns {
+			c.Close()
+		}
+		mu.Unlock()
 	}()
 
 	log.Debug("Server started", slog.String("address", s.addr))
@@ -105,6 +109,7 @@ func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
 			// Check if server is shutting down
 			select {
 			case <-ctx.Done():
+				waitWithTimeout(&wg, s.gracefulShutdownTimeout)
 				return nil
 			default:
 				log.Error("Error accepting connection", log.Err(err))
@@ -112,9 +117,66 @@ func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
 			}
 		}
 
+		mu.Lock()
+		if closing {
+			mu.Unlock()
+			conn.Close()
+			continue
+		}
+		conns[conn] = struct{}{}
+		mu.Unlock()
+
 		// Handle each connection in its own goroutine
-		go s.handleConnection(ctx, conn)
+		wg.Go(func() {
+			defer func() {
+				mu.Lock()
+				delete(conns, conn)
+				mu.Unlock()
+			}()
+			s.handleConnection(ctx, conn)
+		})
 	}
+}
+
+// waitWithTimeout blocks until the WaitGroup drains or the timeout elapses,
+// so in-flight connections finish cleanly without holding shutdown forever.
+func waitWithTimeout(wg *sync.WaitGroup, timeout time.Duration) {
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(timeout):
+	}
+}
+
+// loadServerTLSConfig reads the server certificate and the client CA from disk
+// and builds a config that requires and verifies a client certificate (mTLS),
+// so only clients holding a certificate signed by our CA can submit audit events.
+func loadServerTLSConfig(t *TLSPair) (*tls.Config, error) {
+	cert, err := tls.LoadX509KeyPair(t.CertFile, t.KeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("load TLS key pair: %w", err)
+	}
+
+	caPEM, err := os.ReadFile(t.CaFile)
+	if err != nil {
+		return nil, fmt.Errorf("read CA file: %w", err)
+	}
+
+	clientCAs := x509.NewCertPool()
+	if !clientCAs.AppendCertsFromPEM(caPEM) {
+		return nil, fmt.Errorf("no valid certificate found in CA file %q", t.CaFile)
+	}
+
+	return &tls.Config{
+		MinVersion:   tls.VersionTLS12,
+		Certificates: []tls.Certificate{cert},
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientCAs:    clientCAs,
+	}, nil
 }
 
 func (s *tcpServer) handleConnection(ctx context.Context, conn net.Conn) {
@@ -123,22 +185,21 @@ func (s *tcpServer) handleConnection(ctx context.Context, conn net.Conn) {
 	log.Debug("New connection", slog.String("remote", conn.RemoteAddr().String()))
 
 	scanner := bufio.NewScanner(conn)
+	scanner.Buffer(make([]byte, 0, bufio.MaxScanTokenSize), maxAuditEventSize)
 	for scanner.Scan() {
-		select {
-		case <-ctx.Done():
+		if ctx.Err() != nil {
 			return
-		default:
-			line := scanner.Bytes()
+		}
 
-			err := s.handler(line)
-			if err != nil {
-				log.Debug("Error processing line", log.Err(err))
-			}
-			continue
+		if err := s.handler(scanner.Bytes()); err != nil {
+			log.Warn("Failed to process audit event", log.Err(err))
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Error("Scanner error", log.Err(err))
+		// A peer dropping the connection mid-stream (pod roll, vector reconnect)
+		// surfaces here as EOF / reset / "bad record MAC". It is expected churn,
+		// not a server fault, so it stays at debug level.
+		log.Debug("Connection closed with error", slog.String("remote", conn.RemoteAddr().String()), log.Err(err))
 	}
 }
