@@ -63,18 +63,12 @@ func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
 	var listener net.Listener
 	var err error
 	if o.TLS != nil {
-		// Fail fast if the certificate material is missing or invalid at startup.
-		if _, err = loadServerTLSConfig(o.TLS); err != nil {
+		// The pod is rolled on every certificate rotation (module policy), so the
+		// cert is loaded once at startup; graceful shutdown drains connections so
+		// that roll stays clean for the log-shipper.
+		var cfg *tls.Config
+		if cfg, err = loadServerTLSConfig(o.TLS); err != nil {
 			return err
-		}
-
-		// ponytail: reload cert and client CA from disk on every handshake so
-		// secret rotation needs no pod restart. Handshakes are rare (vector keeps
-		// a persistent connection), so per-handshake disk reads are negligible.
-		cfg := &tls.Config{
-			GetConfigForClient: func(*tls.ClientHelloInfo) (*tls.Config, error) {
-				return loadServerTLSConfig(o.TLS)
-			},
 		}
 		listener, err = tls.Listen("tcp", s.addr, cfg)
 	} else {
