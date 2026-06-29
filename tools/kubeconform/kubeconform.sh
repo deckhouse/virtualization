@@ -81,9 +81,9 @@ if [[ ! -d schemas ]]; then
   echo "  GrafanaDashboardDefinition"
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/300-prometheus/crds/grafanadashboarddefinition.yaml
   echo " ClusterLoggingConfig"
-  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/460-log-shipper/crds/cluster-logging-config.yaml
+  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/4a9b5fc21f29c4310e3739508a066dd43a87d681/modules/460-log-shipper/crds/cluster-logging-config.yaml
   echo " ClusterLogDestination"
-  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/460-log-shipper/crds/cluster-log-destination.yaml
+  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/4a9b5fc21f29c4310e3739508a066dd43a87d681/modules/460-log-shipper/crds/cluster-log-destination.yaml
   echo " Descheduler"
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/400-descheduler/crds/deschedulers.yaml
 
