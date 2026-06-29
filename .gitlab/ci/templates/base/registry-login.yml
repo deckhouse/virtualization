@@ -11,7 +11,7 @@
 # These templates just populate those variables, so `extends`-ing them selects
 # which registries a job authenticates to. Pick the primary with exactly one of
 # .login_dev_registry / .login_prod_registry / .login_prod_read_registry, and
-# add .also_login_dev_registry when a prod job must also read the DEV registry.
+# add .dev_registry_pull_login when a prod job must also read the DEV registry.
 # Prod BUILD jobs additionally add .werf_secondary_repo to reuse DEV-built layers.
 
 # Primary = DEV registry (write). Used by all dev builds
@@ -42,11 +42,11 @@
 
 # Additional DEV login for prod jobs that must ALSO read the DEV registry.
 # Compose with the prod primary, e.g.:
-#   extends: [.prod_vars, .also_login_dev_registry]
+#   extends: [.prod_vars, .dev_registry_pull_login]
 # Needed by BOTH prod builds (which reuse DEV layers, see .werf_secondary_repo) and
 # prod deploys (which crane-copy the source image out of the DEV registry). Dev
 # jobs never need it — their primary already IS the DEV registry.
-.also_login_dev_registry:
+.dev_registry_pull_login:
   variables:
     DEV_MODULES_REGISTRY: "${DEV_REGISTRY}"
     DEV_MODULES_REGISTRY_LOGIN: "${DEV_MODULES_REGISTRY_LOGIN}"
@@ -62,8 +62,8 @@
 # WERF_SECONDARY_REPO_1 by modules-actions/build), which in the GH workflows is
 # passed to build@v4 only, never to deploy@v2. (Related werf repo families if
 # ever needed: WERF_REPO — primary, set by upstream Setup; WERF_CACHE_REPO_*;
-# WERF_FINAL_REPO.) Compose alongside .also_login_dev_registry on build jobs:
-#   extends: [.prod_vars, .also_login_dev_registry, .werf_secondary_repo, .base_build]
+# WERF_FINAL_REPO.) Compose alongside .dev_registry_pull_login on build jobs:
+#   extends: [.prod_vars, .dev_registry_pull_login, .werf_secondary_repo, .base_build]
 .werf_secondary_repo:
   variables:
     WERF_SECONDARY_REPO_1: "${DEV_MODULE_SOURCE}/${MODULE_NAME}"

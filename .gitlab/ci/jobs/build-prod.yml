@@ -24,7 +24,7 @@
 # EDITION/modules), and WERF_REPO defaults to MODULES_MODULE_SOURCE/
 # MODULES_MODULE_NAME in upstream Setup — correct for prod.
 #
-# `.also_login_dev_registry` is included so the second `werf cr login` from
+# `.dev_registry_pull_login` is included so the second `werf cr login` from
 # upstream Setup.gitlab-ci.yml also fires against DEV_REGISTRY; the
 # previous GH workflow did both logins via two consecutive
 # modules-actions/setup steps; we keep that behavior.
@@ -39,7 +39,7 @@ build_prod:
   extends:
     - .base_build
     - .prod_always
-    - .also_login_dev_registry
+    - .dev_registry_pull_login
     - .werf_secondary_repo
   parallel:
     matrix:
