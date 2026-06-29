@@ -162,6 +162,7 @@ var _ = Describe("MigrationConfig", func() {
 			bandwidthPerMigrationAnnotation:             defaultBandwidthPerMigration,
 			completionTimeoutPerGiBAnnotation:           "800",
 			parallelOutboundMigrationsPerNodeAnnotation: "1",
+			parallelInboundMigrationsPerNodeAnnotation:  "1",
 			progressTimeoutAnnotation:                   "150",
 			disableTLSAnnotation:                        "false",
 			disableFirmwareUpdateAnnotation:             "false",
@@ -175,6 +176,10 @@ var _ = Describe("MigrationConfig", func() {
 				return gjson.Result{Type: gjson.Number, Num: defaultCompletionTimeoutPerGiB}
 			case parallelOutboundMigrationsPerNodeValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultParallelOutboundMigrationsPerNode}
+			case parallelInboundMigrationsPerNodeValuesPath:
+				return gjson.Result{Type: gjson.Number, Num: defaultParallelInboundMigrationsPerNode}
+			case inboundMigrationLimitValuesPath:
+				return gjson.Result{Type: gjson.String, Str: defaultInboundMigrationLimit}
 			case progressTimeoutValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultProgressTimeout}
 			case disableTLSValuesPath:
@@ -224,6 +229,10 @@ var _ = Describe("MigrationConfig", func() {
 				return gjson.Result{Type: gjson.Number, Num: defaultCompletionTimeoutPerGiB}
 			case parallelOutboundMigrationsPerNodeValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultParallelOutboundMigrationsPerNode}
+			case parallelInboundMigrationsPerNodeValuesPath:
+				return gjson.Result{Type: gjson.Number, Num: defaultParallelInboundMigrationsPerNode}
+			case inboundMigrationLimitValuesPath:
+				return gjson.Result{Type: gjson.String, Str: defaultInboundMigrationLimit}
 			case progressTimeoutValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultProgressTimeout}
 			case disableTLSValuesPath:
@@ -253,6 +262,10 @@ var _ = Describe("MigrationConfig", func() {
 				return gjson.Result{Type: gjson.Number, Num: defaultCompletionTimeoutPerGiB}
 			case parallelOutboundMigrationsPerNodeValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultParallelOutboundMigrationsPerNode}
+			case parallelInboundMigrationsPerNodeValuesPath:
+				return gjson.Result{Type: gjson.Number, Num: defaultParallelInboundMigrationsPerNode}
+			case inboundMigrationLimitValuesPath:
+				return gjson.Result{Type: gjson.String, Str: defaultInboundMigrationLimit}
 			case progressTimeoutValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultProgressTimeout}
 			case disableTLSValuesPath:
