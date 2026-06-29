@@ -6,3 +6,4 @@
 | Dmitry Rakitin   | dmitry.rakitin@flant.com   | [@Isteb4k](https://github.com/Isteb4k)               | 
 | Ivan Mikheykin   | ivan.mikheykin@flant.com   | [@diafour](https://github.com/diafour)               | 
 | Yaroslav Borbat  | yaroslav.borbat@flant.com  | [@yaroslavborbat](https://github.com/yaroslavborbat) | 
+
