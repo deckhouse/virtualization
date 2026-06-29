@@ -55,7 +55,7 @@ var _ = Describe("IPAM", Label(precheck.NoPrecheck), func() {
 	})
 
 	AfterEach(func() {
-		f.After()
+		f.After(context.Background())
 	})
 
 	Context("vmip with type Auto", func() {

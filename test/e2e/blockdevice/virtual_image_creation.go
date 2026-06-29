@@ -42,8 +42,7 @@ var _ = Describe("VirtualImageCreation", Label(
 	precheck.PrecheckSnapshot,
 ), func() {
 	var (
-		f   *framework.Framework
-		ctx context.Context
+		f *framework.Framework
 
 		scPtr *string
 	)
@@ -53,8 +52,7 @@ var _ = Describe("VirtualImageCreation", Label(
 	// its own Project, so the DVCR and PVC specs can run in parallel) and from a
 	// BeforeAll for specs that share a common dependency created once for the whole
 	// Ordered container.
-	setup := func() {
-		ctx = context.Background()
+	setup := func(ctx context.Context) {
 		f = framework.NewFramework("")
 		f.Before()
 		DeferCleanup(f.After)
@@ -69,14 +67,14 @@ var _ = Describe("VirtualImageCreation", Label(
 	Context("from HTTP data source", func() {
 		BeforeEach(setup)
 
-		It("provisions a VirtualImage on DVCR", func() {
+		It("provisions a VirtualImage on DVCR", func(ctx context.Context) {
 			vi := newVirtualImageOnDVCR("vi-http",
 				vibuilder.WithDataSourceHTTP(object.ImageURLAlpineBIOS, nil, nil),
 			)
 			createVirtualImageAndRunVM(ctx, f, vi)
 		})
 
-		It("provisions a VirtualImage on PVC", func() {
+		It("provisions a VirtualImage on PVC", func(ctx context.Context) {
 			vi := newVirtualImageOnPVC("vi-pvc-http", scPtr,
 				vibuilder.WithDataSourceHTTP(object.ImageURLAlpineBIOS, nil, nil),
 			)
@@ -87,14 +85,14 @@ var _ = Describe("VirtualImageCreation", Label(
 	Context("from ContainerImage (registry) data source", func() {
 		BeforeEach(setup)
 
-		It("provisions a VirtualImage on DVCR", func() {
+		It("provisions a VirtualImage on DVCR", func(ctx context.Context) {
 			vi := newVirtualImageOnDVCR("vi-registry",
 				vibuilder.WithDataSourceContainerImage(object.ImageURLContainerImage, v1alpha2.ImagePullSecretName{}, nil),
 			)
 			createVirtualImageAndRunVM(ctx, f, vi)
 		})
 
-		It("provisions a VirtualImage on PVC", func() {
+		It("provisions a VirtualImage on PVC", func(ctx context.Context) {
 			vi := newVirtualImageOnPVC("vi-pvc-registry", scPtr,
 				vibuilder.WithDataSourceContainerImage(object.ImageURLContainerImage, v1alpha2.ImagePullSecretName{}, nil),
 			)
@@ -105,14 +103,14 @@ var _ = Describe("VirtualImageCreation", Label(
 	Context("from a ClusterVirtualImage", func() {
 		BeforeEach(setup)
 
-		It("provisions a VirtualImage on DVCR", func() {
+		It("provisions a VirtualImage on DVCR", func(ctx context.Context) {
 			vi := newVirtualImageOnDVCR("vi-from-cvi",
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
 			)
 			createVirtualImageAndRunVM(ctx, f, vi)
 		})
 
-		It("provisions a VirtualImage on PVC", func() {
+		It("provisions a VirtualImage on PVC", func(ctx context.Context) {
 			vi := newVirtualImageOnPVC("vi-pvc-from-cvi", scPtr,
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
 			)
@@ -127,8 +125,8 @@ var _ = Describe("VirtualImageCreation", Label(
 	Context("from Upload data source", Ordered, func() {
 		var uploadFilePath string
 
-		BeforeAll(func() {
-			setup()
+		BeforeAll(func(ctx context.Context) {
+			setup(ctx)
 
 			By("Downloading source image to upload", func() {
 				var err error
@@ -142,7 +140,7 @@ var _ = Describe("VirtualImageCreation", Label(
 			})
 		})
 
-		It("provisions a VirtualImage on DVCR", func() {
+		It("provisions a VirtualImage on DVCR", func(ctx context.Context) {
 			vi := newVirtualImageOnDVCR("vi-upload",
 				vibuilder.WithDatasource(v1alpha2.VirtualImageDataSource{
 					Type: v1alpha2.DataSourceTypeUpload,
@@ -152,7 +150,7 @@ var _ = Describe("VirtualImageCreation", Label(
 			runVirtualMachineFromImageDisk(ctx, f, vi)
 		})
 
-		It("provisions a VirtualImage on PVC", func() {
+		It("provisions a VirtualImage on PVC", func(ctx context.Context) {
 			vi := newVirtualImageOnPVC("vi-pvc-upload", scPtr,
 				vibuilder.WithDatasource(v1alpha2.VirtualImageDataSource{
 					Type: v1alpha2.DataSourceTypeUpload,
@@ -166,19 +164,19 @@ var _ = Describe("VirtualImageCreation", Label(
 	Context("from a VirtualDisk", Ordered, func() {
 		var vd *v1alpha2.VirtualDisk
 
-		BeforeAll(func() {
-			setup()
+		BeforeAll(func(ctx context.Context) {
+			setup(ctx)
 			vd = createSourceVirtualDiskAndWait(ctx, f, "vd-source-for-vi", scPtr)
 		})
 
-		It("provisions a VirtualImage on DVCR", func() {
+		It("provisions a VirtualImage on DVCR", func(ctx context.Context) {
 			vi := newVirtualImageOnDVCR("vi-from-vd",
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualDisk, vd.Name),
 			)
 			createVirtualImageAndRunVM(ctx, f, vi)
 		})
 
-		It("provisions a VirtualImage on PVC", func() {
+		It("provisions a VirtualImage on PVC", func(ctx context.Context) {
 			vi := newVirtualImageOnPVC("vi-pvc-from-vd", scPtr,
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualDisk, vd.Name),
 			)
@@ -189,22 +187,22 @@ var _ = Describe("VirtualImageCreation", Label(
 	Context("from a VirtualImage on DVCR", Ordered, func() {
 		var baseVI *v1alpha2.VirtualImage
 
-		BeforeAll(func() {
-			setup()
+		BeforeAll(func(ctx context.Context) {
+			setup(ctx)
 			baseVI = newVirtualImageOnDVCR("vi-source-dvcr",
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
 			)
 			createVirtualImageAndWait(ctx, f, baseVI)
 		})
 
-		It("provisions a VirtualImage on DVCR", func() {
+		It("provisions a VirtualImage on DVCR", func(ctx context.Context) {
 			vi := newVirtualImageOnDVCR("vi-from-vi-dvcr",
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualImage, baseVI.Name),
 			)
 			createVirtualImageAndRunVM(ctx, f, vi, withMinimalProgress())
 		})
 
-		It("provisions a VirtualImage on PVC", func() {
+		It("provisions a VirtualImage on PVC", func(ctx context.Context) {
 			vi := newVirtualImageOnPVC("vi-pvc-from-vi-dvcr", scPtr,
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualImage, baseVI.Name),
 			)
@@ -215,22 +213,22 @@ var _ = Describe("VirtualImageCreation", Label(
 	Context("from a VirtualImage on PVC", Ordered, func() {
 		var baseVI *v1alpha2.VirtualImage
 
-		BeforeAll(func() {
-			setup()
+		BeforeAll(func(ctx context.Context) {
+			setup(ctx)
 			baseVI = newVirtualImageOnPVC("vi-source-pvc", scPtr,
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
 			)
 			createVirtualImageAndWait(ctx, f, baseVI)
 		})
 
-		It("provisions a VirtualImage on DVCR", func() {
+		It("provisions a VirtualImage on DVCR", func(ctx context.Context) {
 			vi := newVirtualImageOnDVCR("vi-from-vi-pvc",
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualImage, baseVI.Name),
 			)
 			createVirtualImageAndRunVM(ctx, f, vi)
 		})
 
-		It("provisions a VirtualImage on PVC", func() {
+		It("provisions a VirtualImage on PVC", func(ctx context.Context) {
 			vi := newVirtualImageOnPVC("vi-pvc-from-vi-pvc", scPtr,
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualImage, baseVI.Name),
 			)
@@ -272,8 +270,8 @@ var _ = Describe("VirtualImageCreation", Label(
 	Context("from a VirtualDiskSnapshot", Ordered, Label(precheck.PrecheckSnapshot), func() {
 		var vdSnapshot *v1alpha2.VirtualDiskSnapshot
 
-		BeforeAll(func() {
-			setup()
+		BeforeAll(func(ctx context.Context) {
+			setup(ctx)
 			vd := createSourceVirtualDiskAndWait(ctx, f, "vd-source-for-vi-snapshot", scPtr)
 
 			vdSnapshot = vdsnapshotbuilder.New(
@@ -293,14 +291,14 @@ var _ = Describe("VirtualImageCreation", Label(
 			})
 		})
 
-		It("provisions a VirtualImage on DVCR", func() {
+		It("provisions a VirtualImage on DVCR", func(ctx context.Context) {
 			vi := newVirtualImageOnDVCR("vi-from-vdsnapshot",
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualDiskSnapshot, vdSnapshot.Name),
 			)
 			createVirtualImageAndRunVM(ctx, f, vi)
 		})
 
-		It("provisions a VirtualImage on PVC", func() {
+		It("provisions a VirtualImage on PVC", func(ctx context.Context) {
 			vi := newVirtualImageOnPVC("vi-pvc-from-vdsnapshot", scPtr,
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualDiskSnapshot, vdSnapshot.Name),
 			)
