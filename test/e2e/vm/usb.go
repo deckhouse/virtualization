@@ -50,9 +50,9 @@ var _ = Describe("VirtualMachineUSB", Label(precheck.PrecheckUSB), func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		f = framework.NewFramework("vm-usb")
-		DeferCleanup(func() {
+		DeferCleanup(func(ctx context.Context) {
 			t.unassignNodeUSB()
-			f.After()
+			f.After(ctx)
 		})
 
 		f.Before()

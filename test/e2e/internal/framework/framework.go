@@ -70,21 +70,21 @@ func (f *Framework) Before() {
 	}
 }
 
-func (f *Framework) After() {
+func (f *Framework) After(ctx context.Context) {
 	GinkgoHelper()
 
 	if GetConfig().IsCleanupNeeded() {
 		defer func() {
 			if f.namespace != nil && !f.skipNsDeletion {
 				By("Cleanup: delete namespace")
-				err := f.Delete(context.Background(), f.namespace)
+				err := f.Delete(ctx, f.namespace)
 				Expect(err).NotTo(HaveOccurred(), "Failed to delete namespace %q", f.namespace.Name)
 			}
 		}()
 
 		defer func() {
 			By("Cleanup: process deferred deletions")
-			err := f.Delete(context.Background(), f.objectsToDelete...)
+			err := f.Delete(ctx, f.objectsToDelete...)
 			Expect(err).NotTo(HaveOccurred(), "Failed to delete object")
 		}()
 	}

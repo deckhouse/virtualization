@@ -79,14 +79,12 @@ var _ = Describe("VirtualDiskCreation", Label(
 	precheck.PrecheckDefaultStorageClass,
 ), func() {
 	var (
-		f   *framework.Framework
-		ctx context.Context
+		f *framework.Framework
 
 		scPtr *string
 	)
 
-	BeforeEach(func() {
-		ctx = context.Background()
+	BeforeEach(func(ctx context.Context) {
 		f = framework.NewFramework("")
 		f.Before()
 		DeferCleanup(f.After)
@@ -95,7 +93,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 		scPtr = defaultStorageClass()
 	})
 
-	It("provisions a VirtualDisk from HTTP data source", func() {
+	It("provisions a VirtualDisk from HTTP data source", func(ctx context.Context) {
 		vd := vdbuilder.New(
 			vdbuilder.WithName("vd-http"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
@@ -106,7 +104,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 		createVirtualDiskAndRunVM(ctx, f, vd)
 	})
 
-	It("provisions a VirtualDisk from Upload data source", func() {
+	It("provisions a VirtualDisk from Upload data source", func(ctx context.Context) {
 		vd := vdbuilder.New(
 			vdbuilder.WithName("vd-upload"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
@@ -166,7 +164,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 		runVirtualMachineFromDisks(ctx, f, observedDisk{vd: vd, obs: obs})
 	})
 
-	It("provisions a VirtualDisk from ContainerImage (registry) data source", func() {
+	It("provisions a VirtualDisk from ContainerImage (registry) data source", func(ctx context.Context) {
 		vd := vdbuilder.New(
 			vdbuilder.WithName("vd-registry"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
@@ -177,7 +175,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 		createVirtualDiskAndRunVM(ctx, f, vd)
 	})
 
-	It("provisions a VirtualDisk from a VirtualImage on DVCR", func() {
+	It("provisions a VirtualDisk from a VirtualImage on DVCR", func(ctx context.Context) {
 		baseVI := vibuilder.New(
 			vibuilder.WithName("vi-source-dvcr"),
 			vibuilder.WithNamespace(f.Namespace().Name),
@@ -210,7 +208,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 		createVirtualDiskAndRunVM(ctx, f, vd, withIntermediateProgress())
 	})
 
-	It("provisions a VirtualDisk from a VirtualImage on PVC", func() {
+	It("provisions a VirtualDisk from a VirtualImage on PVC", func(ctx context.Context) {
 		baseVI := vibuilder.New(
 			vibuilder.WithName("vi-source-pvc"),
 			vibuilder.WithNamespace(f.Namespace().Name),
@@ -296,7 +294,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 		})
 	*/
 
-	It("provisions a VirtualDisk from a ClusterVirtualImage", func() {
+	It("provisions a VirtualDisk from a ClusterVirtualImage", func(ctx context.Context) {
 		vd := vdbuilder.New(
 			vdbuilder.WithName("vd-from-cvi"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
@@ -307,7 +305,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 		createVirtualDiskAndRunVM(ctx, f, vd, withIntermediateProgress())
 	})
 
-	It("provisions a blank VirtualDisk and attaches it to a running VirtualMachine", func() {
+	It("provisions a blank VirtualDisk and attaches it to a running VirtualMachine", func(ctx context.Context) {
 		blankVD := vdbuilder.New(
 			vdbuilder.WithName("vd-blank"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
@@ -339,7 +337,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 	})
 
 	Context("with snapshots", Label(precheck.PrecheckSnapshot), func() {
-		It("provisions a VirtualDisk from a VirtualDiskSnapshot", func() {
+		It("provisions a VirtualDisk from a VirtualDiskSnapshot", func(ctx context.Context) {
 			baseVD := vdbuilder.New(
 				vdbuilder.WithName("vd-source-for-snapshot"),
 				vdbuilder.WithNamespace(f.Namespace().Name),
