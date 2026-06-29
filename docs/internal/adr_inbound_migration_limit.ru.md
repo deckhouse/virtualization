@@ -90,7 +90,7 @@ kvvmi.Status.MigrationState.MigrationConfiguration = conf
 5. Перед patch-ем `KVVMI.status.migrationState.migrationConfiguration` controller пытается получить inbound slot через in-memory limiter.
 6. Если slot получен, controller выставляет `MigrationConfiguration`, и миграция продолжается.
 7. Если slot занят, controller не выставляет `MigrationConfiguration`, помечает VMI annotation-ом ожидания и requeue-ит reconcile.
-8. KubeVirt patch в месте ожидания `migrationConfiguration` не считает timeout, пока VMI помечена как ожидающая inbound slot. Очередь на inbound slot не имеет таймаута: ожидающая миграция не должна превращаться в `Failed`.
+8. Очередь на inbound slot не имеет таймаута: ожидающая миграция не должна превращаться в `Failed`. Это обеспечивается существующим поведением KubeVirt, дополнительный patch не требуется (см. Timeout ожидания migration parameters).
 9. Slot освобождается при завершении миграции, а после рестарта контроллера учёт восстанавливается сканированием VMI по annotation `inbound-migration-slot=acquired`.
 
 In-memory выбран осознанно: gate уже выполняется в единственном leader-инстансе `virtualization-controller`, поэтому достаточно процессного состояния под mutex-ом — это даёт сериализацию concurrent reconcile без нового кластерного ресурса, RBAC и cleanup-логики stale leases. Kubernetes `Lease` рассмотрен и отклонён (см. Альтернативы).
@@ -163,19 +163,20 @@ virtualization.deckhouse.io/inbound-migration-target-node: <node>
 
 ## Timeout ожидания migration parameters
 
-В KubeVirt есть ожидание `migrationConfiguration`. Если параметры не появились за заданное время, миграция может быть завершена ошибкой.
+Очередь на inbound slot должна быть **без таймаута**: вторая и последующие миграции на ту же target node должны штатно стоять в очереди, а не падать по timeout в `Failed`.
 
-Очередь на inbound slot должна быть **без таймаута**. Если оставить таймаут, вторая и последующие миграции на ту же target node будут штатно стоять в очереди, но падать по timeout — и мы получим множество VM с `Failed` VMOP вместо ожидания.
+Анализ кода собираемого форка `deckhouse/3p-kubevirt` (`v1.6.2-v12n`) показал, что **отдельный patch KubeVirt не требуется**: ожидание `migrationConfiguration` уже происходит без таймаута.
 
-Поэтому для inbound limiter поведение KubeVirt нужно изменить:
+Поток:
 
-```text
-Если MigrationConfiguration == nil
-и VMI имеет annotation virtualization.deckhouse.io/inbound-migration-slot=waiting,
-то timeout ожидания migration parameters не тикает и не приводит к failed migration.
-```
+1. Patch «External migration configuration» в `pkg/virt-handler/migration-source.go` при `MigrationState.MigrationConfiguration == nil` просто прерывает reconcile (`return nil`) и ждёт следующего апдейта VMI — таймера здесь нет.
+2. Единственные таймауты миграции (`handlePendingPodTimeout` в `pkg/virt-controller/watch/migration/migration.go`: unschedulable 5 мин, catch-all 15 мин) срабатывают только пока target pod в фазе `Pending`.
+3. `virtualization-controller` выдаёт slot и `MigrationConfiguration` только когда `MigrationState != nil`, а это поле создаётся virt-controller-ом на handoff (Scheduled → PreparingTarget), то есть когда target pod уже `Running`. К моменту ожидания slot окно pending-таймаута уже закрыто, и withholding `MigrationConfiguration` не удерживает pod в `Pending`.
+4. В фазах `PreparingTarget`/`TargetReady` миграция фейлится только если target pod упал (`!targetPodExists || PodIsDown`), без таймаута по времени.
 
-Если annotation `waiting` отсутствует, существующее поведение timeout-а сохраняется. Это важно, чтобы реальные проблемы с выдачей migration parameters не маскировались inbound limiter-ом.
+Поэтому очередь на inbound slot и так получается без таймаута. Единственный остаточный таймаут — catch-all pending timeout target pod-а — срабатывает только если pod реально не может зашедулиться (нет ресурсов на ноде), не связан с inbound limiter-ом и является штатным желаемым поведением KubeVirt.
+
+Если в будущем версия KubeVirt введёт таймаут на ожидании `migrationConfiguration`, его нужно будет исключить для VMI с annotation `virtualization.deckhouse.io/inbound-migration-slot=waiting`. На текущем форке это не требуется.
 
 ## In-memory slot model
 
@@ -274,7 +275,10 @@ virtualization.deckhouse.io/parallel-inbound-migrations-per-node: "1"
 
 ```text
 virtualization.internal.virtConfig.parallelInboundMigrationsPerNode
+virtualization.internal.virtConfig.inboundMigrationLimit
 ```
+
+Значения пробрасываются в `virtualization-controller` через env-переменные деплоймента (`PARALLEL_INBOUND_MIGRATIONS_PER_NODE`, `INBOUND_MIGRATION_LIMIT`) в `templates/virtualization-controller/_helpers.tpl` и читаются на старте контроллера.
 
 ### Отключение
 
@@ -295,8 +299,9 @@ virtualization.deckhouse.io/inbound-migration-limit: "disabled"
 - `images/virtualization-artifact/pkg/controller/livemigration/live_migration_reconciler.go` — release/восстановление на завершении миграции;
 - `images/virtualization-artifact/pkg/livemigration/migration_configuration.go` — существующая генерация `MigrationConfiguration`;
 - `images/virtualization-artifact/pkg/controller/vmop/migration/internal/handler/lifecycle.go` — отображение ожидания в статус `VMOP`;
-- KubeVirt patch в месте ожидания `migrationConfiguration` — исключить период `inbound-migration-slot=waiting` из timeout-а ожидания parameters;
-- `images/hooks/pkg/hooks/migration-config/hook.go` и `templates/kubevirt/_kubevirt_helpers.tpl` — чтение аннотаций ModuleConfig и проброс лимита/флага отключения в контроллер.
+- `images/hooks/pkg/hooks/migration-config/hook.go`, `openapi/values.yaml` и `templates/virtualization-controller/_helpers.tpl` — чтение аннотаций ModuleConfig и проброс лимита/флага отключения в контроллер через env.
+
+KubeVirt patch для timeout-а ожидания `migrationConfiguration` **не требуется** на текущем форке (см. Timeout ожидания migration parameters).
 
 ## Альтернативы
 
@@ -404,8 +409,7 @@ virtualization.deckhouse.io/inbound-migration-limit: "disabled"
 ### Отрицательные
 
 - Состояние limiter-а не персистентно: после рестарта/смены leader его нужно восстанавливать из наблюдаемого состояния KubeVirt migrations.
-- Требуется patch KubeVirt timeout-а ожидания `migrationConfiguration`.
-- Появляется Deckhouse-specific поведение, которое нужно учитывать при обновлении KubeVirt.
+- При обновлении KubeVirt нужно проверять, что ожидание `migrationConfiguration` по-прежнему происходит без таймаута; если upstream введёт таймаут, его придётся исключать для VMI с `inbound-migration-slot=waiting`.
 - Изменение лимита/отключение требует рестарта контроллера.
 - Возможна меньшая скорость массовой эвакуации, если много VM мигрируют на одну target node.
 - Нужно аккуратно синхронизировать annotations, in-memory учёт и status patch VMI.
@@ -437,15 +441,9 @@ type InboundMigrationLimiter interface {
 5. если slot не получен, выставить waiting annotations и не выставлять `MigrationConfiguration`;
 6. если slot получен, удалить waiting annotations и выставить `MigrationConfiguration`.
 
-### Шаг 3. Изменить KubeVirt timeout ожидания parameters
+### Шаг 3. KubeVirt timeout ожидания parameters — patch не требуется
 
-В KubeVirt patch-е ожидания `migrationConfiguration` добавить правило:
-
-```text
-VMI with virtualization.deckhouse.io/inbound-migration-slot=waiting is waiting for inbound slot and must not fail by migration parameters timeout.
-```
-
-Очередь на inbound slot не имеет таймаута.
+Анализ собираемого форка `deckhouse/3p-kubevirt` (`v1.6.2-v12n`) показал, что ожидание `migrationConfiguration` уже происходит без таймаута, а pending-таймауты target pod-а не пересекаются с фазой ожидания slot (см. Timeout ожидания migration parameters). Очередь на inbound slot получается без таймаута без дополнительного patch-а.
 
 ### Шаг 4. Добавить release и восстановление
 
@@ -475,22 +473,20 @@ VMI with virtualization.deckhouse.io/inbound-migration-slot=waiting is waiting f
 
 1. одна миграция на target node получает slot и получает `MigrationConfiguration`;
 2. при лимите `1` вторая миграция на ту же target node получает waiting annotations и не получает `MigrationConfiguration`;
-3. KubeVirt timeout ожидания parameters не fail-ит VMI с `inbound-migration-slot=waiting`;
-4. migration без waiting annotation сохраняет существующее timeout-поведение;
-5. миграция на другую target node получает свой slot и продолжается;
-6. после завершения первой миграции ожидающая миграция получает освободившийся slot;
-7. повторный reconcile той же migration идемпотентен и не занимает второй slot;
-8. concurrent `TryAcquire` не выдаёт один и тот же slot двум migrations одновременно;
-9. release идемпотентен;
-10. после рестарта учёт восстанавливается сканированием VMI по annotation `acquired` и лимит не превышается; устаревшие annotations отбрасываются;
-11. при отключении аннотацией gate не применяется и поведение совпадает с текущим;
-12. VMOP для ожидающей inbound slot миграции остаётся в `Pending`, а не переходит в `Failed`.
+3. миграция на другую target node получает свой slot и продолжается;
+4. после завершения первой миграции ожидающая миграция получает освободившийся slot;
+5. повторный reconcile той же migration идемпотентен и не занимает второй slot;
+6. concurrent `TryAcquire` не выдаёт один и тот же slot двум migrations одновременно;
+7. release идемпотентен;
+8. после рестарта учёт восстанавливается сканированием VMI по annotation `acquired` и лимит не превышается; устаревшие annotations отбрасываются;
+9. при отключении аннотацией gate не применяется и поведение совпадает с текущим;
+10. VMOP для ожидающей inbound slot миграции остаётся в `Pending`, а не переходит в `Failed`.
 
 ## Нерешённые вопросы
 
-1. Достаточно ли вести owner по `VirtualMachineInstanceMigration`, или удобнее привязывать slot к VMI и текущему migration UID из `MigrationState`?
+1. ~~Достаточно ли вести owner по `VirtualMachineInstanceMigration`, или удобнее привязывать slot к VMI и текущему migration UID из `MigrationState`?~~ Решено: owner ведётся по `namespace/name/migrationUID` VMI.
 2. Нужно ли добавлять новый API reason в `VMOP`, или достаточно существующего `MigrationPending` с уточнённым message.
-3. Где именно в KubeVirt ожидании `migrationConfiguration` лучше исключить waiting period из timeout-а: останавливать timer или игнорировать timeout result при наличии annotation.
+3. ~~Где именно в KubeVirt ожидании `migrationConfiguration` лучше исключить waiting period из timeout-а.~~ Снято: на текущем форке таймаута на ожидании `migrationConfiguration` нет, patch не требуется (см. Timeout ожидания migration parameters).
 
 ## Рекомендация
 
@@ -498,4 +494,4 @@ VMI with virtualization.deckhouse.io/inbound-migration-slot=waiting is waiting f
 
 Target node должен выбирать Kubernetes scheduler. `virtualization-controller` только читает результат scheduling-а из KubeVirt/VMI state и использует его для slot-based limiter-а.
 
-По умолчанию использовать лимит `1`, waiting annotations и patch KubeVirt timeout-а ожидания migration parameters так, чтобы очередь на inbound slot была без таймаута. В `VMOP` отображать ожидание как `Pending` с понятным сообщением, не переводя операцию в `Failed`. Лимит конфигурировать аннотацией на ModuleConfig с применением по рестарту контроллера и предусмотреть аннотацию для полного отключения ограничения.
+По умолчанию использовать лимит `1` и waiting annotations. Очередь на inbound slot получается без таймаута без дополнительного patch-а KubeVirt: существующий gate `migrationConfiguration` ждёт без таймера, а pending-таймауты target pod-а не пересекаются с фазой ожидания slot. В `VMOP` отображать ожидание как `Pending` с понятным сообщением, не переводя операцию в `Failed`. Лимит конфигурировать аннотацией на ModuleConfig с применением по рестарту контроллера и предусмотреть аннотацию для полного отключения ограничения.
