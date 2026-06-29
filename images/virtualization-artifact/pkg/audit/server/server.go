@@ -25,10 +25,14 @@ import (
 	"log/slog"
 	"net"
 	"os"
-	"time"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 )
+
+// maxAuditEventSize bounds a single audit event line. The bufio.Scanner default
+// is 64 KiB, which k8s audit events with large objects (managedFields, VM specs)
+// can exceed — dropping the rest of the connection. 4 MiB leaves generous headroom.
+const maxAuditEventSize = 4 * 1024 * 1024
 
 type Server interface {
 	Run(ctx context.Context, opts ...Option) error
@@ -36,16 +40,14 @@ type Server interface {
 
 func NewServer(addr string, handler func([]byte) error) (Server, error) {
 	return &tcpServer{
-		gracefulShutdownTimeout: 5 * time.Second,
-		addr:                    addr,
-		handler:                 handler,
+		addr:    addr,
+		handler: handler,
 	}, nil
 }
 
 type tcpServer struct {
-	gracefulShutdownTimeout time.Duration
-	addr                    string
-	handler                 func([]byte) error
+	addr    string
+	handler func([]byte) error
 }
 
 func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
@@ -57,36 +59,25 @@ func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
 	var listener net.Listener
 	var err error
 	if o.TLS != nil {
-		certPool, err := x509.SystemCertPool()
-		if err != nil {
-			return fmt.Errorf("fail to get system cert pool: %w", err)
-		}
-
-		if caCertPEM, err := os.ReadFile(o.TLS.CaFile); err != nil {
-			return fmt.Errorf("fail to read CA PEM: %w", err)
-		} else if ok := certPool.AppendCertsFromPEM(caCertPEM); !ok {
-			return fmt.Errorf("invalid cert in CA PEM: %w", err)
-		}
-
-		cert, err := tls.LoadX509KeyPair(o.TLS.CertFile, o.TLS.KeyFile)
-		if err != nil {
+		// Fail fast if the certificate material is missing or invalid at startup.
+		if _, err = loadServerTLSConfig(o.TLS); err != nil {
 			return err
 		}
 
-		config := &tls.Config{
-			RootCAs:      certPool,
-			Certificates: []tls.Certificate{cert},
+		// ponytail: reload cert and client CA from disk on every handshake so
+		// secret rotation needs no pod restart. Handshakes are rare (vector keeps
+		// a persistent connection), so per-handshake disk reads are negligible.
+		cfg := &tls.Config{
+			GetConfigForClient: func(*tls.ClientHelloInfo) (*tls.Config, error) {
+				return loadServerTLSConfig(o.TLS)
+			},
 		}
-
-		listener, err = tls.Listen("tcp", s.addr, config)
-		if err != nil {
-			return err
-		}
+		listener, err = tls.Listen("tcp", s.addr, cfg)
 	} else {
 		listener, err = net.Listen("tcp", s.addr)
-		if err != nil {
-			return err
-		}
+	}
+	if err != nil {
+		return err
 	}
 
 	defer listener.Close()
@@ -117,28 +108,54 @@ func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
 	}
 }
 
+// loadServerTLSConfig reads the server certificate and the client CA from disk
+// and builds a config that requires and verifies a client certificate (mTLS),
+// so only clients holding a certificate signed by our CA can submit audit events.
+func loadServerTLSConfig(t *TLSPair) (*tls.Config, error) {
+	cert, err := tls.LoadX509KeyPair(t.CertFile, t.KeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("load TLS key pair: %w", err)
+	}
+
+	caPEM, err := os.ReadFile(t.CaFile)
+	if err != nil {
+		return nil, fmt.Errorf("read CA file: %w", err)
+	}
+
+	clientCAs := x509.NewCertPool()
+	if !clientCAs.AppendCertsFromPEM(caPEM) {
+		return nil, fmt.Errorf("no valid certificate found in CA file %q", t.CaFile)
+	}
+
+	return &tls.Config{
+		MinVersion:   tls.VersionTLS12,
+		Certificates: []tls.Certificate{cert},
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientCAs:    clientCAs,
+	}, nil
+}
+
 func (s *tcpServer) handleConnection(ctx context.Context, conn net.Conn) {
 	defer conn.Close()
 
 	log.Debug("New connection", slog.String("remote", conn.RemoteAddr().String()))
 
 	scanner := bufio.NewScanner(conn)
+	scanner.Buffer(make([]byte, 0, bufio.MaxScanTokenSize), maxAuditEventSize)
 	for scanner.Scan() {
-		select {
-		case <-ctx.Done():
+		if ctx.Err() != nil {
 			return
-		default:
-			line := scanner.Bytes()
+		}
 
-			err := s.handler(line)
-			if err != nil {
-				log.Debug("Error processing line", log.Err(err))
-			}
-			continue
+		if err := s.handler(scanner.Bytes()); err != nil {
+			log.Warn("Failed to process audit event", log.Err(err))
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Error("Scanner error", log.Err(err))
+		// A peer dropping the connection mid-stream (pod roll, vector reconnect)
+		// surfaces here as EOF / reset / "bad record MAC". It is expected churn,
+		// not a server fault, so it stays at debug level.
+		log.Debug("Connection closed with error", slog.String("remote", conn.RemoteAddr().String()), log.Err(err))
 	}
 }
