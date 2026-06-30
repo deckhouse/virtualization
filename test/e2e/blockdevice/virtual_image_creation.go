@@ -390,7 +390,7 @@ func createVirtualImageAndWait(ctx context.Context, f *framework.Framework, vi *
 	obs := viobs.StartObserver(ctx, f, vi)
 	obs.Never(viobs.BeFailed())
 	obs.Always(viobs.HaveValidPhaseTransitions())
-	obs.Always(viobs.HaveValidProgress(virtualImageProgressExpectations(vi, o), progressUpdateInterval, progressBoundaryBudget))
+	obs.Always(viobs.HaveValidProgress(virtualImageProgressExpectations(vi, o)))
 	obs.Always(viobs.HaveFormat(expectedVirtualImageFormat(ctx, f, vi)))
 
 	By("Creating VirtualImage on "+virtualImageStorageName(vi), func() {
@@ -413,7 +413,7 @@ func uploadVirtualImageAndWait(ctx context.Context, f *framework.Framework, vi *
 	obs := viobs.StartObserver(ctx, f, vi)
 	obs.Never(viobs.BeFailed())
 	obs.Always(viobs.HaveValidPhaseTransitions())
-	obs.Always(viobs.HaveValidProgress(virtualImageProgressExpectations(vi, progressWaitOptions{}), progressUpdateInterval, progressBoundaryBudget))
+	obs.Always(viobs.HaveValidProgress(virtualImageProgressExpectations(vi, progressWaitOptions{})))
 	obs.Always(viobs.HaveFormat(expectedVirtualImageFormat(ctx, f, vi)))
 
 	By("Creating VirtualImage on "+virtualImageStorageName(vi), func() {

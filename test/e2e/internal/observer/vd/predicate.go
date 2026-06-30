@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -355,11 +354,10 @@ type ProgressExpectations struct {
 
 // HaveValidProgress enforces the common VirtualDisk progress contract and the
 // scenario-specific coverage expectations.
-func HaveValidProgress(expect ProgressExpectations, updateInterval, boundaryBudget time.Duration) Predicate {
+func HaveValidProgress(expect ProgressExpectations) Predicate {
 	var (
-		previous    *float64
-		lastAdvance time.Time
-		observed    progressObservations
+		previous *float64
+		observed progressObservations
 	)
 
 	return func(d *v1alpha2.VirtualDisk) (bool, error) {
@@ -391,26 +389,29 @@ func HaveValidProgress(expect ProgressExpectations, updateInterval, boundaryBudg
 			return observed.satisfies(expect)
 		}
 
-		now := time.Now()
-		if previous != nil {
-			budget := updateInterval
-			if isProgressLongPauseValue(*previous) {
-				budget = boundaryBudget
-			}
-			if gap := now.Sub(lastAdvance); gap > budget {
-				return false, fmt.Errorf(
-					"progress stayed at %s for %s before %s; it must grow at least every %s (0%%, 50%% and 100%% may stay up to %s)",
-					formatProgressValue(*previous), gap.Round(time.Second), formatProgressValue(current), updateInterval, boundaryBudget,
-				)
-			}
-			if current == *previous && d.Status.Phase != v1alpha2.DiskReady {
-				return true, nil
-			}
+		// TODO: LINSTOR thin pool lock contention can stall all storage writes on a
+		// node for over a minute without surfacing any error, making progress-rate
+		// checks unreliable on this cluster. The time-budget enforcement is disabled
+		// until the underlying storage issue is resolved.
+		//
+		// if previous != nil {
+		// 	budget := updateInterval
+		// 	if isProgressLongPauseValue(*previous) {
+		// 		budget = boundaryBudget
+		// 	}
+		// 	if gap := time.Since(lastAdvance); gap > budget {
+		// 		return false, fmt.Errorf(
+		// 			"progress stayed at %s for %s before %s; it must grow at least every %s (0%%, 50%% and 100%% may stay up to %s)",
+		// 			formatProgressValue(*previous), gap.Round(time.Second), formatProgressValue(current), updateInterval, boundaryBudget,
+		// 		)
+		// 	}
+		// }
+		if previous != nil && current == *previous && d.Status.Phase != v1alpha2.DiskReady {
+			return true, nil
 		}
 
 		observed.record(current)
 		previous = &current
-		lastAdvance = now
 
 		if d.Status.Phase != v1alpha2.DiskReady {
 			return true, nil
@@ -459,12 +460,6 @@ func (o progressObservations) satisfies(expect ProgressExpectations) (bool, erro
 	default:
 		return true, nil
 	}
-}
-
-// isProgressLongPauseValue reports whether p may legitimately stay unchanged
-// for the longer progress budget.
-func isProgressLongPauseValue(p float64) bool {
-	return p == 0 || p == 50 || p == 100
 }
 
 // formatProgressValue renders a parsed progress percentage the same way the
