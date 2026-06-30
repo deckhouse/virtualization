@@ -21,12 +21,18 @@ import (
 	"errors"
 	"fmt"
 
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/common/steptaker"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source/step"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -80,10 +86,17 @@ func (ds ObjectRefVirtualDiskSnapshotPVC) Sync(ctx context.Context, vi *v1alpha2
 		return reconcile.Result{}, fmt.Errorf("fetch pvc: %w", err)
 	}
 
+	var pvcSvc interface {
+		CreateTargetFromVS(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, source *vsv1.VolumeSnapshot, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error)
+	}
+	if pvc == nil && vi.Status.Target.PersistentVolumeClaim == "" {
+		pvcSvc = ds.diskService.PersistentVolumeClaim()
+	}
+
 	return steptaker.NewStepTakers[*v1alpha2.VirtualImage](
 		step.NewReadyPersistentVolumeClaimStep(pvc, ds.bounder, ds.recorder, cb),
 		step.NewTerminatingStep(pvc),
-		step.NewCreatePersistentVolumeClaimStep(pvc, ds.recorder, ds.client, cb),
+		step.NewCreatePersistentVolumeClaimStep(pvc, ds.diskService, pvcSvc, ds.recorder, ds.client, cb),
 		step.NewCreateBounderPodStep(pvc, ds.bounder, ds.client, ds.recorder, cb),
 		step.NewWaitForPVCStep(pvc, cb),
 	).Run(ctx, vi)

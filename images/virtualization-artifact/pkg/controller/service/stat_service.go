@@ -21,6 +21,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -182,7 +183,7 @@ func (s StatService) GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *v1al
 
 	progress, err := monitoring.GetImportProgressFromPod(string(ownerUID), pod)
 	if err != nil {
-		s.logger.Error("GetDownloadSpeed: Cannot get import progress from pod", "err", err)
+		s.logger.Warn("GetDownloadSpeed: Cannot get import progress from pod", "err", err)
 		return nil
 	}
 
@@ -218,6 +219,14 @@ func (o ScaleOption) Apply(progress string) string {
 	return percent.ScalePercentage(progress, o.Low, o.High)
 }
 
+func CapProgressBelow(progress string, high float64) string {
+	value := percent.ExtractPercentageFloat(progress)
+	if math.IsNaN(value) || value < high {
+		return progress
+	}
+	return percent.Format(high - 0.1)
+}
+
 func (s StatService) GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...GetProgressOption) string {
 	if pod == nil {
 		return prevProgress
@@ -244,7 +253,7 @@ func (s StatService) GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgre
 
 	progress, err := monitoring.GetImportProgressFromPod(string(ownerUID), pod)
 	if err != nil {
-		s.logger.Error("GetProgress: Cannot get import progress from pod", "err", err)
+		s.logger.Warn("GetProgress: Cannot get import progress from pod", "err", err)
 		return prevProgress
 	}
 
@@ -257,13 +266,32 @@ func (s StatService) GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgre
 		res = o.Apply(res)
 	}
 
-	return res
+	// Keep the reported progress monotonic: an importer pod that restarts
+	// (RestartPolicy=OnFailure) resets its kubevirt_cdi_import_progress_total
+	// metric to 0, which would otherwise make progress jump backwards (e.g.
+	// 46.4% -> 0%). Never report a value lower than the one already published.
+	return maxProgress(prevProgress, res)
+}
+
+// maxProgress returns whichever of prev/next represents the larger percentage so
+// reported progress never moves backwards. If either value cannot be parsed as a
+// percentage, next is returned unchanged.
+func maxProgress(prev, next string) string {
+	prevVal := percent.ExtractPercentageFloat(prev)
+	nextVal := percent.ExtractPercentageFloat(next)
+	if math.IsNaN(prevVal) || math.IsNaN(nextVal) {
+		return next
+	}
+	if prevVal > nextVal {
+		return prev
+	}
+	return next
 }
 
 func (s StatService) IsImportStarted(ownerUID types.UID, pod *corev1.Pod) bool {
 	progress, err := monitoring.GetImportProgressFromPod(string(ownerUID), pod)
 	if err != nil {
-		s.logger.Error("IsImportStarted: Cannot get import progress from pod", "err", err)
+		s.logger.Warn("IsImportStarted: Cannot get import progress from pod", "err", err)
 		return false
 	}
 
@@ -280,6 +308,21 @@ func (s StatService) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *
 	}
 
 	if !podutil.IsPodReady(pod) {
+		return false, nil
+	}
+
+	if svc.Spec.ClusterIP != "" {
+		client := &http.Client{Timeout: 5 * time.Second}
+		response, err := client.Get(fmt.Sprintf("http://%s/upload", svc.Spec.ClusterIP))
+		if err != nil {
+			return false, nil
+		}
+		defer response.Body.Close()
+
+		if response.StatusCode == http.StatusOK {
+			return true, nil
+		}
+
 		return false, nil
 	}
 

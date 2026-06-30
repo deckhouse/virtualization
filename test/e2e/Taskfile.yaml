@@ -58,7 +58,7 @@ tasks:
       - precheck:prepare
     cmds:
       - |
-        go tool ginkgo -v \
+        {{if .STORAGE_CLASS_NAME -}}STORAGE_CLASS_NAME="{{.STORAGE_CLASS_NAME}}" {{end -}}go tool ginkgo -v \
           --race \
           {{if not .FOCUS -}}
           --label-filter="!Slow" \
@@ -95,7 +95,7 @@ tasks:
       - precheck:prepare
     cmds:
       - |
-        go tool ginkgo -v \
+        {{if .STORAGE_CLASS_NAME -}}STORAGE_CLASS_NAME="{{.STORAGE_CLASS_NAME}}" {{end -}}go tool ginkgo -v \
           -p --procs=12 \
           --race \
           {{if .LABELS -}}

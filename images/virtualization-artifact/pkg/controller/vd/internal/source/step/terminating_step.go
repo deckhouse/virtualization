@@ -24,11 +24,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
-
-const terminatingStep = "terminating"
 
 type TerminatingStep struct {
 	pvc *corev1.PersistentVolumeClaim
@@ -46,10 +43,6 @@ func (s TerminatingStep) Take(ctx context.Context, _ *v1alpha2.VirtualDisk) (*re
 	}
 
 	if object.IsTerminating(s.pvc) {
-		log := logger.FromContext(ctx).With(logger.SlogStep(terminatingStep))
-
-		log.Debug("Wait until PVC will be terminated")
-
 		return &reconcile.Result{RequeueAfter: 2 * time.Second}, nil
 	}
 

@@ -26,6 +26,7 @@ import (
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -62,6 +63,47 @@ var _ = Describe("VirtualMachineNoBootableDevice", Label(precheck.NoPrecheck), f
 
 		By("Creating resources")
 		err := f.CreateWithDeferredDeletion(ctx, vdBlank, vm)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Waiting for virtual machine to be Running")
+		util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
+
+		By("Checking Running condition reason indicates no bootable device")
+		Eventually(func(g Gomega) {
+			err = f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), vm)
+			g.Expect(err).NotTo(HaveOccurred())
+
+			runningCondition, found := conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
+			g.Expect(found).To(BeTrue())
+			g.Expect(runningCondition.Reason).To(Equal(vmcondition.ReasonNoBootableDeviceFound.String()))
+			g.Expect(runningCondition.Status).To(Equal(metav1.ConditionTrue))
+		}).WithTimeout(framework.LongTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
+	})
+
+	It("sets Running condition reason to NoBootableDevice when booting from a non-bootable qcow2 image", func() {
+		By("Creating a VirtualImage from a non-bootable qcow2 image")
+		qcowVI := vibuilder.New(
+			vibuilder.WithName("vi-qcow2"),
+			vibuilder.WithNamespace(f.Namespace().Name),
+			vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
+			vibuilder.WithDataSourceHTTP(object.ImageTestDataQCOW, nil, nil),
+		)
+
+		err := f.CreateWithDeferredDeletion(ctx, qcowVI)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Waiting for the VirtualImage to be ready")
+		util.UntilObjectPhase(ctx, string(v1alpha2.ImageReady), framework.LongTimeout, qcowVI)
+
+		By("Creating a virtual machine booting from the qcow2 image")
+		vm := object.NewMinimalVM("vm-qcow2-", f.Namespace().Name,
+			vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
+				Kind: v1alpha2.ImageDevice,
+				Name: qcowVI.Name,
+			}),
+		)
+
+		err = f.CreateWithDeferredDeletion(ctx, vm)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for virtual machine to be Running")

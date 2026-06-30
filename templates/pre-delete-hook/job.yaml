@@ -34,14 +34,6 @@ spec:
                 },
                 "namespace": "d8-{{ .Chart.Name }}",
                 "name": "config"
-              },
-              {
-                "gvr": {
-                  "Group": "cdi.internal.virtualization.deckhouse.io",
-                  "Version": "v1beta1",
-                  "Resource": "internalvirtualizationcdis"
-                },
-                "name": "config"
               }
             ]
         resources:

@@ -129,7 +129,7 @@ var _ = Describe("VNC", func() {
 				// stay alive until ctx is canceled, not return immediately.
 				port := ln.Addr().(*net.TCPAddr).Port
 				Expect(port).To(BeNumerically(">", 0))
-				fmt.Fprintf(cmd.OutOrStdout(), "{\"port\":%d}\n", port)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "{\"port\":%d}\n", port)
 				<-ctx.Done()
 				close(connectDone)
 				return ctx.Err()

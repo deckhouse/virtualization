@@ -30,8 +30,8 @@ const (
 	defaultStorageClassPrecheckEnvName = "DEFAULT_STORAGE_CLASS_PRECHECK"
 )
 
-// defaultStorageClassPrecheck implements Precheck interface for default StorageClass.
-// This is a common precheck that runs for all tests.
+// defaultStorageClassPrecheck verifies that tests can resolve their template StorageClass:
+// STORAGE_CLASS_NAME when it is set, otherwise the cluster default StorageClass.
 type defaultStorageClassPrecheck struct{}
 
 func (c *defaultStorageClassPrecheck) Label() string {
@@ -50,10 +50,15 @@ func (c *defaultStorageClassPrecheck) Run(ctx context.Context, f *framework.Fram
 		return fmt.Errorf("%s=no to disable this precheck: list StorageClasses: %w", defaultStorageClassPrecheckEnvName, err)
 	}
 
-	if config.FindDefaultStorageClass(&scList) == nil {
-		return fmt.Errorf("%s=no to disable this precheck: cluster has no default StorageClass. "+
-			"Please set a default StorageClass with: kubectl annotate storageclass/<name> storageclass.kubernetes.io/is-default-class=true",
-			defaultStorageClassPrecheckEnvName)
+	templateSC, err := config.ResolveTemplateStorageClass(&scList)
+	if err != nil {
+		return fmt.Errorf("%s=no to disable this precheck: %w", defaultStorageClassPrecheckEnvName, err)
+	}
+	if templateSC == nil {
+		return fmt.Errorf("%s=no to disable this precheck: cluster has no default StorageClass and %s is not set. "+
+			"Please set %s or set a default StorageClass with: "+
+			"kubectl annotate storageclass/<name> storageclass.kubernetes.io/is-default-class=true",
+			defaultStorageClassPrecheckEnvName, config.StorageClassNameEnv, config.StorageClassNameEnv)
 	}
 
 	return nil

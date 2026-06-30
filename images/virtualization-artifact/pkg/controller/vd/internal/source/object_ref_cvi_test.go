@@ -18,6 +18,7 @@ package source
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -27,11 +28,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
@@ -48,8 +51,9 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 		vd     *v1alpha2.VirtualDisk
 		sc     *storagev1.StorageClass
 		pvc    *corev1.PersistentVolumeClaim
-		dv     *cdiv1.DataVolume
 		svc    *ObjectRefVirtualImageDiskServiceMock
+		pvcSvc *DataSourcePVCServiceMock
+		stat   *ObjectRefClusterVirtualImageStatServiceMock
 	)
 
 	BeforeEach(func() {
@@ -58,21 +62,33 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 		scheme = runtime.NewScheme()
 		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 		Expect(corev1.AddToScheme(scheme)).To(Succeed())
-		Expect(cdiv1.AddToScheme(scheme)).To(Succeed())
 		Expect(storagev1.AddToScheme(scheme)).To(Succeed())
 
-		svc = &ObjectRefVirtualImageDiskServiceMock{
-			GetProgressFunc: func(_ *cdiv1.DataVolume, _ string, _ ...service.GetProgressOption) string {
-				return "10%"
+		stat = &ObjectRefClusterVirtualImageStatServiceMock{
+			GetProgressFunc: func(_ types.UID, _ *corev1.Pod, prev string, _ ...service.GetProgressOption) string {
+				return prev
 			},
+		}
+
+		svc = &ObjectRefVirtualImageDiskServiceMock{
 			GetCapacityFunc: func(_ *corev1.PersistentVolumeClaim) string {
 				return "100Mi"
 			},
 			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, error) {
 				return false, nil
 			},
-			ProtectFunc: func(_ context.Context, _ supplements.Generator, _ client.Object, _ *cdiv1.DataVolume, _ *corev1.PersistentVolumeClaim) error {
+			GetVolumeAndAccessModesFunc: func(_ context.Context, _ kclient.Object, _ *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+				return corev1.PersistentVolumeFilesystem, corev1.ReadWriteOnce, nil
+			},
+		}
+
+		pvcSvc = &DataSourcePVCServiceMock{
+			FinalizersFunc: func() []string { return nil },
+			ImportFunc: func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ kclient.Object, _ supplements.Generator, _ *provisioner.NodePlacement) error {
 				return nil
+			},
+			WaitForImportFunc: func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ kclient.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
+				return corev1.PodRunning, nil
 			},
 		}
 
@@ -134,88 +150,93 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 				},
 			},
 		}
-
-		dv = &cdiv1.DataVolume{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      supgen.DataVolume().Name,
-				Namespace: vd.Namespace,
-			},
-			Status: cdiv1.DataVolumeStatus{
-				ClaimName: pvc.Name,
-			},
-		}
 	})
 
 	Context("VirtualDisk has just been created", func() {
-		It("must create DataVolume", func() {
-			var dvCreated bool
+		It("must start PVC import", func() {
+			var importStarted bool
 			vd.Status = v1alpha2.VirtualDiskStatus{
+				StorageClassName: sc.Name,
 				Target: v1alpha2.DiskTarget{
 					PersistentVolumeClaim: "test-pvc",
 				},
 			}
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cvi, sc).Build()
-			svc.StartFunc = func(_ context.Context, _ resource.Quantity, _ *storagev1.StorageClass, _ *cdiv1.DataVolumeSource, _ client.Object, _ supplements.DataVolumeSupplement, _ ...service.Option) error {
-				dvCreated = true
-				return nil
+			pvcSvc.CreateTargetFromDVCRFunc = func(_ context.Context, _ types.NamespacedName, _ string, _ *resource.Quantity, _ kclient.Object, _ *service.PVCImportSourceRegistry, _ service.VolumeAndAccessModesGetter, _ *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {
+				importStarted = true
+				return corev1.PersistentVolumeClaim{}, nil
 			}
 
-			syncer := NewObjectRefClusterVirtualImage(svc, fakeClient)
+			syncer := NewObjectRefClusterVirtualImage(svc, pvcSvc, stat, fakeClient)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.IsZero()).To(BeTrue())
 
-			Expect(dvCreated).To(BeTrue())
+			Expect(importStarted).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
 			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
 			Expect(vd.Status.Progress).ToNot(BeEmpty())
 			Expect(vd.Status.Target.PersistentVolumeClaim).ToNot(BeEmpty())
 		})
-	})
 
-	Context("VirtualDisk waits for the PVC to be Bound", func() {
-		BeforeEach(func() {
-			svc.CheckProvisioningFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim) error {
-				return nil
-			}
-		})
-
-		It("waits for the first consumer", func() {
-			dv.Status.Phase = cdiv1.PendingPopulation
-			dv.Status.Conditions = []cdiv1.DataVolumeCondition{
-				{
-					Type:   cdiv1.DataVolumeRunning,
-					Status: corev1.ConditionFalse,
-					Reason: "",
+		It("propagates a target PVC quota rejection as Pending/QuotaExceeded instead of an error", func() {
+			vd.Status = v1alpha2.VirtualDiskStatus{
+				StorageClassName: sc.Name,
+				Target: v1alpha2.DiskTarget{
+					PersistentVolumeClaim: "test-pvc",
 				},
 			}
-			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingWaitForFirstConsumer)
-			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, dv, sc).Build()
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cvi, sc).Build()
+			pvcSvc.CreateTargetFromDVCRFunc = func(_ context.Context, _ types.NamespacedName, _ string, _ *resource.Quantity, _ kclient.Object, _ *service.PVCImportSourceRegistry, _ service.VolumeAndAccessModesGetter, _ *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {
+				return corev1.PersistentVolumeClaim{}, errors.New(`persistentvolumeclaims "d8v-vd-test" is forbidden: exceeded quota: block-pods-and-pvcs, requested: count/persistentvolumeclaims=1, used: count/persistentvolumeclaims=1, limited: count/persistentvolumeclaims=0`)
+			}
 
-			syncer := NewObjectRefClusterVirtualImage(svc, client)
+			syncer := NewObjectRefClusterVirtualImage(svc, pvcSvc, stat, fakeClient)
 
 			res, err := syncer.Sync(ctx, vd)
+			// The quota rejection must not surface as a reconciler error.
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.IsZero()).To(BeTrue())
 
-			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.WaitingForFirstConsumer, true)
-			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskWaitForFirstConsumer))
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskPending))
+			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.QuotaExceeded, true)
+		})
+	})
+
+	Context("VirtualDisk is provisioning while its PVC is not yet Bound", func() {
+		// With the prime/rebind import flow the importer fills a separate prime PVC
+		// and the target PVC only becomes Bound at the very end (via rebind), so a
+		// Pending target means the import is in progress, regardless of the storage
+		// class binding mode.
+		It("reports Provisioning for WFFC storage class", func() {
+			pvc.Status.Phase = corev1.ClaimPending
+			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingWaitForFirstConsumer)
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
+
+			syncer := NewObjectRefClusterVirtualImage(svc, pvcSvc, stat, client)
+
+			res, err := syncer.Sync(ctx, vd)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.RequeueAfter).ToNot(BeZero())
+
+			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
 			Expect(vd.Status.Progress).ToNot(BeEmpty())
 			Expect(vd.Status.Target.PersistentVolumeClaim).ToNot(BeEmpty())
 		})
 
-		It("is in provisioning", func() {
+		It("reports Provisioning for Immediate storage class", func() {
 			pvc.Status.Phase = corev1.ClaimPending
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingImmediate)
-			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, dv, sc).Build()
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
 
-			syncer := NewObjectRefClusterVirtualImage(svc, client)
+			syncer := NewObjectRefClusterVirtualImage(svc, pvcSvc, stat, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res.IsZero()).To(BeTrue())
+			Expect(res.RequeueAfter).ToNot(BeZero())
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
 			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
@@ -226,11 +247,10 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 
 	Context("VirtualDisk is ready", func() {
 		It("checks that the VirtualDisk is ready", func() {
-			dv.Status.Phase = cdiv1.Succeeded
 			pvc.Status.Phase = corev1.ClaimBound
-			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(dv, pvc).Build()
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
 
-			syncer := NewObjectRefClusterVirtualImage(svc, client)
+			syncer := NewObjectRefClusterVirtualImage(svc, pvcSvc, stat, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -239,6 +259,51 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			ExpectCondition(vd, metav1.ConditionTrue, vdcondition.Ready, false)
 			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskReady))
 			ExpectStats(vd)
+		})
+
+		It("requeues when the import has just completed", func() {
+			pvc.Status.Phase = corev1.ClaimBound
+			pvc.Annotations = map[string]string{annotations.AnnPVCPopulationStrategy: service.PopulationStrategyDVCR}
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, cvi).Build()
+			pvcSvc.WaitForImportFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim, _ *service.PVCImportSource, _ kclient.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
+				return corev1.PodSucceeded, nil
+			}
+
+			syncer := NewObjectRefClusterVirtualImage(svc, pvcSvc, stat, client)
+
+			res, err := syncer.Sync(ctx, vd)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.RequeueAfter).ToNot(BeZero())
+		})
+
+		It("waits for populator when the target PVC already exists", func() {
+			pvc.Status.Phase = corev1.ClaimBound
+			pvc.Annotations = map[string]string{annotations.AnnPVCPopulationStrategy: service.PopulationStrategyDVCR}
+			cvi.Status.Target.RegistryURL = "registry.example/cvi/source"
+			var imported bool
+			pvcSvc.ImportFunc = func(_ context.Context, target *corev1.PersistentVolumeClaim, source *service.PVCImportSource, _ kclient.Object, _ supplements.Generator, _ *provisioner.NodePlacement) error {
+				imported = true
+				Expect(target.Name).To(Equal(pvc.Name))
+				Expect(source).ToNot(BeNil())
+				Expect(source.Registry).ToNot(BeNil())
+				return nil
+			}
+			pvcSvc.WaitForImportFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim, source *service.PVCImportSource, _ kclient.Object, _ supplements.Generator, _ *provisioner.NodePlacement) (corev1.PodPhase, error) {
+				Expect(imported).To(BeTrue())
+				Expect(source).ToNot(BeNil())
+				Expect(source.Registry).ToNot(BeNil())
+				return corev1.PodPending, nil
+			}
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, cvi).Build()
+
+			syncer := NewObjectRefClusterVirtualImage(svc, pvcSvc, stat, client)
+
+			res, err := syncer.Sync(ctx, vd)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.RequeueAfter).ToNot(BeZero())
+			Expect(imported).To(BeFalse())
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
+			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
 		})
 	})
 
@@ -258,7 +323,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
 
-			syncer := NewObjectRefClusterVirtualImage(svc, client)
+			syncer := NewObjectRefClusterVirtualImage(svc, pvcSvc, stat, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -274,7 +339,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			vd.Status.Target.PersistentVolumeClaim = pvc.Name
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
 
-			syncer := NewObjectRefClusterVirtualImage(svc, client)
+			syncer := NewObjectRefClusterVirtualImage(svc, pvcSvc, stat, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())

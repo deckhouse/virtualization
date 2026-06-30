@@ -1,0 +1,16 @@
+# A list of pre-created mount points for containerd strict mode.
+#
+# See images/cdi-artifact/cmd/pvc-importer.
+#
+# Some volume mounts are ignored:
+# - /extraheaders - Etra headers not implemented in virtualization-controller.
+# - /google - No support for GCS data source in VirtualImage.
+# - /tmp - already in the 'distroless' base image.
+
+dirs:
+  - /certs
+  - /data
+  - /opt
+  - /proxycerts
+  - /scratch
+  - /shared

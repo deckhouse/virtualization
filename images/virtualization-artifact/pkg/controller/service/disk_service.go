@@ -20,9 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"strconv"
-	"strings"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -36,11 +34,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	dvutil "github.com/deckhouse/virtualization-controller/pkg/common/datavolume"
 	networkpolicy "github.com/deckhouse/virtualization-controller/pkg/common/network_policy"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -52,8 +48,16 @@ type DiskService struct {
 	dvcrSettings   *dvcr.Settings
 	protection     *ProtectionService
 	controllerName string
+	pvc            *PersistentVolumeClaimService
 
 	volumeAndAccessModesGetter volumemode.VolumeAndAccessModesGetter
+}
+
+type DiskImporterConfig struct {
+	Image                string
+	ResourceRequirements corev1.ResourceRequirements
+	PullPolicy           string
+	Verbose              string
 }
 
 func NewDiskService(
@@ -61,109 +65,49 @@ func NewDiskService(
 	dvcrSettings *dvcr.Settings,
 	protection *ProtectionService,
 	controllerName string,
+	diskImporterConfig ...DiskImporterConfig,
 ) *DiskService {
+	var cfg DiskImporterConfig
+	if len(diskImporterConfig) > 0 {
+		cfg = diskImporterConfig[0]
+	}
+
 	return &DiskService{
 		client:                     client,
 		dvcrSettings:               dvcrSettings,
 		protection:                 protection,
 		controllerName:             controllerName,
+		pvc:                        NewPersistentVolumeClaimService(client, dvcrSettings, protection, cfg),
 		volumeAndAccessModesGetter: volumemode.NewVolumeAndAccessModesGetter(client, nil),
 	}
 }
 
-func (s DiskService) Start(
-	ctx context.Context,
-	pvcSize resource.Quantity,
-	sc *storagev1.StorageClass,
-	source *cdiv1.DataVolumeSource,
-	obj client.Object,
-	sup supplements.DataVolumeSupplement,
-	opts ...Option,
-) error {
-	if sc == nil {
-		return errors.New("cannot create DataVolume: StorageClass must not be nil")
-	}
+func (s DiskService) Client() client.Client {
+	return s.client
+}
 
-	options := newGenericOptions(opts...)
-
-	dvBuilder := kvbuilder.NewDV(sup.DataVolume())
-	dvBuilder.SetDataSource(source)
-	dvBuilder.SetOwnerRef(obj, obj.GetObjectKind().GroupVersionKind())
-
-	if options.nodePlacement != nil {
-		err := dvBuilder.SetNodePlacement(options.nodePlacement)
-		if err != nil {
-			return fmt.Errorf("set node placement: %w", err)
-		}
-	}
-
-	volumeMode, accessMode, err := s.GetVolumeAndAccessModes(ctx, obj, sc)
-	if err != nil {
-		return fmt.Errorf("get volume and access modes: %w", err)
-	}
-
-	dvBuilder.SetPVC(&sc.Name, pvcSize, accessMode, volumeMode)
-
-	if s.isImmediateBindingMode(sc) {
-		dvBuilder.SetImmediate()
-	}
-
-	dv := dvBuilder.GetResource()
-	err = s.client.Create(ctx, dv)
-	if err != nil && !k8serrors.IsAlreadyExists(err) {
-		return err
-	}
-
-	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, dv, sup, s.protection.GetFinalizer())
-	if err != nil {
-		return fmt.Errorf("failed to create NetworkPolicy: %w", err)
-	}
-
-	if source.Blank != nil || source.PVC != nil {
-		return nil
-	}
-
-	return supplements.EnsureForDataVolume(ctx, s.client, sup, dvBuilder.GetResource(), s.dvcrSettings)
+// PersistentVolumeClaim returns the PersistentVolumeClaimService that this
+// DiskService delegates target-PVC creation and import orchestration to.
+// Steps and data sources should call PersistentVolumeClaim().Import to drive
+// a target PVC towards Bound + populated state instead of orchestrating
+// scratch PVCs / pvc-importer pods themselves.
+func (s DiskService) PersistentVolumeClaim() *PersistentVolumeClaimService {
+	return s.pvc
 }
 
 func (s DiskService) GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 	return s.volumeAndAccessModesGetter.GetVolumeAndAccessModes(ctx, obj, sc)
 }
 
-func (s DiskService) StartImmediate(
-	ctx context.Context,
-	pvcSize resource.Quantity,
-	sc *storagev1.StorageClass,
-	source *cdiv1.DataVolumeSource,
-	obj client.Object,
-	dataVolumeSupplement supplements.DataVolumeSupplement,
-) error {
-	if sc == nil {
-		return errors.New("cannot create DataVolume: StorageClass must not be nil")
+// GetPVCImporterPod returns the pod that writes into the prime PVC, or nil when
+// it has not been created yet. Host-assigned PVC-to-PVC clones use the
+// pvc-target-importer pod; DVCR imports keep the legacy pvc-importer name.
+func (s DiskService) GetPVCImporterPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error) {
+	pod, err := object.FetchObject(ctx, sup.PVCTargetImporterPod(), s.client, &corev1.Pod{})
+	if err != nil || pod != nil {
+		return pod, err
 	}
-
-	dvBuilder := kvbuilder.NewDV(dataVolumeSupplement.DataVolume())
-	dvBuilder.SetDataSource(source)
-	dvBuilder.SetOwnerRef(obj, obj.GetObjectKind().GroupVersionKind())
-	dvBuilder.SetPVC(ptr.To(sc.GetName()), pvcSize, corev1.ReadWriteMany, corev1.PersistentVolumeBlock)
-	dvBuilder.SetImmediate()
-	dv := dvBuilder.GetResource()
-
-	err := s.client.Create(ctx, dv)
-	if err != nil && !k8serrors.IsAlreadyExists(err) {
-		return err
-	}
-
-	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, dv, dataVolumeSupplement, s.protection.GetFinalizer())
-	if err != nil {
-		return fmt.Errorf("failed to create NetworkPolicy: %w", err)
-	}
-
-	if source.PVC != nil {
-		return nil
-	}
-
-	return supplements.EnsureForDataVolume(ctx, s.client, dataVolumeSupplement, dvBuilder.GetResource(), s.dvcrSettings)
+	return object.FetchObject(ctx, sup.PVCImporterPod(), s.client, &corev1.Pod{})
 }
 
 func (s DiskService) CheckProvisioning(ctx context.Context, pvc *corev1.PersistentVolumeClaim) error {
@@ -183,7 +127,7 @@ func (s DiskService) CheckProvisioning(ctx context.Context, pvc *corev1.Persiste
 
 	pod, err := object.FetchObject(ctx, types.NamespacedName{Name: podName, Namespace: pvc.Namespace}, s.client, &corev1.Pod{})
 	if err != nil {
-		return fmt.Errorf("failed to fetch data volume provisioner %s: %w", podName, err)
+		return fmt.Errorf("failed to fetch pvc provisioner %s: %w", podName, err)
 	}
 
 	if pod == nil {
@@ -192,7 +136,7 @@ func (s DiskService) CheckProvisioning(ctx context.Context, pvc *corev1.Persiste
 
 	scheduled, _ := conditions.GetPodCondition(corev1.PodScheduled, pod.Status.Conditions)
 	if scheduled.Status == corev1.ConditionFalse && scheduled.Reason == corev1.PodReasonUnschedulable {
-		return ErrDataVolumeProvisionerUnschedulable
+		return ErrProvisionerUnschedulable
 	}
 
 	return nil
@@ -238,28 +182,18 @@ func (s DiskService) CleanUp(ctx context.Context, sup supplements.Generator) (bo
 }
 
 func (s DiskService) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error) {
-	// 1. Update owner ref of pvc.
-	pvc, err := s.GetPersistentVolumeClaim(ctx, sup)
+	target := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      sup.PersistentVolumeClaim().Name,
+			Namespace: sup.PersistentVolumeClaim().Namespace,
+		},
+	}
+	importSupplementsDeleted, err := s.pvc.Cleanup(ctx, sup, target)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("delete pvc import supplements: %w", err)
 	}
 
-	if pvc != nil {
-		ownerReferences := slices.DeleteFunc(pvc.OwnerReferences, func(ref metav1.OwnerReference) bool {
-			return ref.Kind == "DataVolume"
-		})
-
-		if len(pvc.OwnerReferences) != len(ownerReferences) {
-			pvc.OwnerReferences = ownerReferences
-			err = s.client.Update(ctx, pvc)
-			if err != nil && !k8serrors.IsNotFound(err) {
-				return false, fmt.Errorf("update owner ref of pvc: %w", err)
-			}
-		}
-	}
-
-	// 2. Delete network policy.
-	networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, sup.LegacyDataVolume(), sup)
+	networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, sup.LegacyCommonResourceName(), sup)
 	if err != nil {
 		return false, err
 	}
@@ -276,78 +210,10 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup supplements.Gen
 		}
 	}
 
-	// 3. Delete DataVolume.
-	var hasDeleted bool
-	dv, err := s.GetDataVolume(ctx, sup)
-	if err != nil {
-		return false, fmt.Errorf("get dv: %w", err)
-	}
-
-	if dv != nil {
-		err = s.protection.RemoveProtection(ctx, dv)
-		if err != nil {
-			return false, fmt.Errorf("remove protection from dv: %w", err)
-		}
-
-		err = s.client.Delete(ctx, dv)
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return false, fmt.Errorf("delete dv: %w", err)
-		}
-
-		hasDeleted = true
-	}
-
-	return hasDeleted, supplements.CleanupForDataVolume(ctx, s.client, sup, s.dvcrSettings)
+	return importSupplementsDeleted || networkPolicy != nil, nil
 }
 
-func (s DiskService) Protect(ctx context.Context, sup supplements.Generator, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
-	err := s.protection.AddOwnerRef(ctx, owner, pvc)
-	if err != nil {
-		return fmt.Errorf("failed to add owner ref for pvc: %w", err)
-	}
-
-	err = s.protection.AddProtection(ctx, dv, pvc)
-	if err != nil {
-		return fmt.Errorf("failed to add protection for disk's supplements: %w", err)
-	}
-
-	if dv != nil {
-		networkPolicy, err := networkpolicy.GetNetworkPolicyFromObject(ctx, s.client, dv, sup)
-		if err != nil {
-			return fmt.Errorf("failed to get networkPolicy for disk's supplements protection: %w", err)
-		}
-
-		if networkPolicy != nil {
-			err = s.protection.AddProtection(ctx, networkPolicy)
-			if err != nil {
-				return fmt.Errorf("failed to remove protection for disk's supplements: %w", err)
-			}
-		}
-	}
-
-	return nil
-}
-
-func (s DiskService) Unprotect(ctx context.Context, sup supplements.Generator, dv *cdiv1.DataVolume) error {
-	err := s.protection.RemoveProtection(ctx, dv)
-	if err != nil {
-		return fmt.Errorf("failed to remove protection for disk's supplements: %w", err)
-	}
-
-	if dv != nil {
-		networkPolicy, err := networkpolicy.GetNetworkPolicyFromObject(ctx, s.client, dv, sup)
-		if err != nil {
-			return fmt.Errorf("failed to get networkPolicy for removing disk's supplements protection: %w", err)
-		}
-
-		if networkPolicy != nil {
-			err = s.protection.RemoveProtection(ctx, networkPolicy)
-			if err != nil {
-				return fmt.Errorf("failed to remove protection for disk's supplements: %w", err)
-			}
-		}
-	}
-
+func (s DiskService) Unprotect(_ context.Context, _ supplements.Generator) error {
 	return nil
 }
 
@@ -373,27 +239,6 @@ func (s DiskService) Resize(ctx context.Context, pvc *corev1.PersistentVolumeCla
 	return nil
 }
 
-func (s DiskService) IsImportDone(dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) bool {
-	return dv != nil && dv.Status.Phase == cdiv1.Succeeded && pvc != nil && pvc.Status.Phase == corev1.ClaimBound
-}
-
-func (s DiskService) GetProgress(dv *cdiv1.DataVolume, prevProgress string, opts ...GetProgressOption) string {
-	if dv == nil {
-		return prevProgress
-	}
-
-	dvProgress := string(dv.Status.Progress)
-	if dvProgress != "N/A" && dvProgress != "" {
-		for _, o := range opts {
-			dvProgress = o.Apply(dvProgress)
-		}
-
-		return dvProgress
-	}
-
-	return prevProgress
-}
-
 func (s DiskService) GetCapacity(pvc *corev1.PersistentVolumeClaim) string {
 	if pvc != nil && pvc.Status.Phase == corev1.ClaimBound {
 		return ptr.To(pvc.Status.Capacity[corev1.ResourceStorage]).String()
@@ -406,19 +251,8 @@ func (s DiskService) GetStorageProfile(ctx context.Context, name string) (*cdiv1
 	return object.FetchObject(ctx, types.NamespacedName{Name: name}, s.client, &cdiv1.StorageProfile{})
 }
 
-func (s DiskService) isImmediateBindingMode(sc *storagev1.StorageClass) bool {
-	if sc == nil {
-		return false
-	}
-	return sc.GetAnnotations()[annotations.AnnVirtualDiskBindingMode] == string(storagev1.VolumeBindingImmediate)
-}
-
 func (s DiskService) GetStorageClass(ctx context.Context, scName string) (*storagev1.StorageClass, error) {
 	return object.FetchObject(ctx, types.NamespacedName{Name: scName}, s.client, &storagev1.StorageClass{})
-}
-
-func (s DiskService) GetDataVolume(ctx context.Context, sup supplements.Generator) (*cdiv1.DataVolume, error) {
-	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementDataVolume, &cdiv1.DataVolume{})
 }
 
 func (s DiskService) GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
@@ -453,54 +287,41 @@ func (s DiskService) GetVirtualDiskSnapshot(ctx context.Context, name, namespace
 	return object.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: namespace}, s.client, &v1alpha2.VirtualDiskSnapshot{})
 }
 
-func (s DiskService) CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
-	if dv == nil {
-		return nil
-	}
-
-	dvRunning := GetDataVolumeCondition(cdiv1.DataVolumeRunning, dv.Status.Conditions)
-	if dvRunning == nil || dvRunning.Status != corev1.ConditionFalse {
-		return nil
-	}
-
-	if strings.Contains(dvRunning.Reason, "Error") {
-		return fmt.Errorf("%w: %s", ErrDataVolumeNotRunning, dvRunning.Message)
-	}
-
-	if pvc == nil {
-		return nil
-	}
-
-	key := types.NamespacedName{
-		Namespace: dv.Namespace,
-		Name:      dvutil.GetImporterPrimeName(pvc.UID),
-	}
-
-	cdiImporterPrime, err := object.FetchObject(ctx, key, s.client, &corev1.Pod{})
-	if err != nil {
-		return err
-	}
-
-	if cdiImporterPrime != nil {
-		podInitializedCond, ok := conditions.GetPodCondition(corev1.PodInitialized, cdiImporterPrime.Status.Conditions)
-		if ok && podInitializedCond.Status == corev1.ConditionFalse && strings.Contains(podInitializedCond.Reason, "Error") {
-			return fmt.Errorf("%w; %s error %s: %s", ErrDataVolumeNotRunning, key.String(), podInitializedCond.Reason, podInitializedCond.Message)
-		}
-
-		podScheduledCond, ok := conditions.GetPodCondition(corev1.PodScheduled, cdiImporterPrime.Status.Conditions)
-		if ok && podScheduledCond.Status == corev1.ConditionFalse && strings.Contains(podScheduledCond.Reason, "Error") {
-			return fmt.Errorf("%w; %s error %s: %s", ErrDataVolumeNotRunning, key.String(), podScheduledCond.Reason, podScheduledCond.Message)
-		}
-	}
-
-	return nil
-}
-
 var ErrInsufficientPVCSize = errors.New("the specified pvc size is insufficient")
+
+// DefaultAlignBlockSize is the alignment used for image-derived volume sizes.
+// It mirrors CDI's util.DefaultAlignBlockSize (1 MiB), a multiple of all known
+// hardware block sizes (512/4k/8k/32k/64k).
+const DefaultAlignBlockSize int64 = 1024 * 1024
+
+// alignUpToBlockSize rounds size up to the next multiple of DefaultAlignBlockSize.
+//
+// qemu-img convert aligns the produced image's virtual size up to a block
+// boundary, so the converted image can end up slightly larger than the raw size
+// reported for the source. Sizing the target volume from the unaligned size can
+// therefore leave it a few bytes too small and make the importer fail with
+// "virtual image size ... is larger than the reported available storage". CDI
+// solves this by aligning the required space the same way (see
+// GetRequiredSpace), and we mirror it here.
+func alignUpToBlockSize(size int64) int64 {
+	if size <= 0 {
+		return size
+	}
+	blocks := (size + DefaultAlignBlockSize - 1) / DefaultAlignBlockSize
+	return blocks * DefaultAlignBlockSize
+}
 
 func GetValidatedPVCSize(pvcSize *resource.Quantity, requiredSize resource.Quantity) (resource.Quantity, error) {
 	if requiredSize.IsZero() {
 		return resource.Quantity{}, errors.New("got zero size from data source, please report a bug")
+	}
+
+	// Align the image-derived required size up to the block boundary to absorb
+	// the size growth that qemu-img convert introduces during provisioning. Keep
+	// the original quantity untouched when it is already aligned to preserve its
+	// representation.
+	if aligned := alignUpToBlockSize(requiredSize.Value()); aligned != requiredSize.Value() {
+		requiredSize = *resource.NewQuantity(aligned, resource.BinarySI)
 	}
 
 	if pvcSize == nil {

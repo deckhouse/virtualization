@@ -23,11 +23,10 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -50,6 +49,7 @@ import (
 type ObjectRefDataVirtualImageOnPVC struct {
 	statService     Stat
 	importerService Importer
+	bounderService  Bounder
 	dvcrSettings    *dvcr.Settings
 	client          client.Client
 	diskService     *service.DiskService
@@ -60,6 +60,7 @@ func NewObjectRefDataVirtualImageOnPVC(
 	recorder eventrecord.EventRecorderLogger,
 	statService Stat,
 	importerService Importer,
+	bounderService Bounder,
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 	diskService *service.DiskService,
@@ -67,6 +68,7 @@ func NewObjectRefDataVirtualImageOnPVC(
 	return &ObjectRefDataVirtualImageOnPVC{
 		statService:     statService,
 		importerService: importerService,
+		bounderService:  bounderService,
 		dvcrSettings:    dvcrSettings,
 		client:          client,
 		diskService:     diskService,
@@ -103,13 +105,22 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, vi
 		return CleanUpSupplements(ctx, vi, ds)
 	case object.IsTerminating(pod):
 		vi.Status.Phase = v1alpha2.ImagePending
+		vi.Status.Progress = ""
 
 		log.Info("Cleaning up...")
 	case pod == nil:
-		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
+		if vi.Status.Progress == "" {
+			vi.Status.Progress = "0%"
+		}
 		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
-		envSettings := ds.getEnvSettings(vi, supgen)
+		pvc := &corev1.PersistentVolumeClaim{}
+		err = ds.client.Get(ctx, types.NamespacedName{Name: viRef.Status.Target.PersistentVolumeClaim, Namespace: viRef.Namespace}, pvc)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		envSettings := ds.getEnvSettings(vi, supgen, pvc.Spec.VolumeMode)
 
 		ownerRef := metav1.NewControllerRef(vi, vi.GroupVersionKind())
 		podSettings := ds.importerService.GetPodSettingsWithPVC(ownerRef, supgen, viRef.Status.Target.PersistentVolumeClaim, viRef.Namespace)
@@ -158,7 +169,12 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, vi
 			Message("")
 
 		vi.Status.Phase = v1alpha2.ImageReady
-		vi.Status.Size = viRef.Status.Size
+		// Report the size of the image actually produced in DVCR (measured by the
+		// importer), not the source VI's reported size. A raw block-device source
+		// (a VirtualImage on PVC) exposes the full, possibly over-allocated device
+		// size, so the converted image can be larger than the source's nominal
+		// size; copying the source size would under-size any downstream PVC.
+		vi.Status.Size = ds.statService.GetSize(pod)
 		vi.Status.CDROM = viRef.Status.CDROM
 		vi.Status.Format = viRef.Status.Format
 		vi.Status.Progress = "100%"
@@ -182,7 +198,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, vi
 			Message("Import is in the process of provisioning to DVCR.")
 
 		vi.Status.Phase = v1alpha2.ImageProvisioning
-		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
+		vi.Status.Progress = service.CapProgressBelow(ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress), 100)
 		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		log.Info("Provisioning...", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
@@ -195,20 +211,9 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 	log, _ := logger.GetDataSourceContext(ctx, objectRefDataSource)
 
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
-	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
 	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
-	}
-
-	var dvQuotaNotExceededCondition *cdiv1.DataVolumeCondition
-	var dvRunningCondition *cdiv1.DataVolumeCondition
-	if dv != nil {
-		dvQuotaNotExceededCondition = service.GetDataVolumeCondition(DVQoutaNotExceededConditionType, dv.Status.Conditions)
-		dvRunningCondition = service.GetDataVolumeCondition(DVRunningConditionType, dv.Status.Conditions)
 	}
 
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
@@ -218,21 +223,15 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 
 		setPhaseConditionForFinishedImage(pvc, cb, &vi.Status.Phase, supgen)
 
-		// Protect Ready Disk and underlying PVC.
-		err = ds.diskService.Protect(ctx, supgen, vi, nil, pvc)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		err = ds.diskService.Unprotect(ctx, supgen, dv)
+		err = ds.diskService.Unprotect(ctx, supgen)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
 		return CleanUpSupplements(ctx, vi, ds)
-	case object.AnyTerminating(dv, pvc):
+	case object.AnyTerminating(pvc):
 		log.Info("Waiting for supplements to be terminated")
-	case dv == nil:
+	default:
 		ds.recorder.Event(
 			vi,
 			corev1.EventTypeNormal,
@@ -240,7 +239,9 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 			"The ObjectRef DataSource import has started",
 		)
 
-		vi.Status.Progress = "0%"
+		if vi.Status.Progress == "" {
+			vi.Status.Progress = "0%"
+		}
 		vi.Status.SourceUID = ptr.To(viRef.GetUID())
 
 		var size resource.Quantity
@@ -255,91 +256,38 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 			return reconcile.Result{}, err
 		}
 
-		source := &cdiv1.DataVolumeSource{
-			PVC: &cdiv1.DataVolumeSourcePVC{
-				Name:      viRef.Status.Target.PersistentVolumeClaim,
-				Namespace: viRef.Namespace,
-			},
-		}
+		source := service.NewPVCPVCImportSource(viRef.Status.Target.PersistentVolumeClaim, viRef.Namespace)
 
-		var sc *storagev1.StorageClass
-		sc, err = ds.diskService.GetStorageClass(ctx, vi.Status.StorageClassName)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		err = ds.diskService.StartImmediate(ctx, size, sc, source, vi, supgen)
-		if updated, err := setPhaseConditionFromStorageError(err, vi, cb); err != nil || updated {
+		// A same-CSI PVC source is provisioned via a smart clone (no importer pod).
+		// On a WaitForFirstConsumer storage class the target PVC needs a consumer to
+		// bind; create a bounder pod to trigger it, since a VirtualImage never gets a
+		// VirtualMachine consumer of its own.
+		if err = ds.ensureBounder(ctx, vi, pvc, supgen); err != nil {
 			return reconcile.Result{}, err
 		}
 
-		vi.Status.Phase = v1alpha2.ImageProvisioning
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vicondition.Provisioning).
-			Message("PVC Provisioner not found: create the new one.")
-
-		return reconcile.Result{RequeueAfter: time.Second}, nil
-	case dvQuotaNotExceededCondition != nil && dvQuotaNotExceededCondition.Status == corev1.ConditionFalse:
-		vi.Status.Phase = v1alpha2.ImagePending
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vicondition.QuotaExceeded).
-			Message(dvQuotaNotExceededCondition.Message)
-		return reconcile.Result{}, nil
-	case dvRunningCondition != nil && dvRunningCondition.Status != corev1.ConditionTrue && dvRunningCondition.Reason == DVImagePullFailedReason:
-		vi.Status.Phase = v1alpha2.ImagePending
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vicondition.ImagePullFailed).
-			Message(dvRunningCondition.Message)
-		ds.recorder.Event(vi, corev1.EventTypeWarning, vicondition.ImagePullFailed.String(), dvRunningCondition.Message)
-		return reconcile.Result{}, nil
-	case pvc == nil:
-		vi.Status.Phase = v1alpha2.ImageProvisioning
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vicondition.Provisioning).
-			Message("PVC not found: waiting for creation.")
-		return reconcile.Result{RequeueAfter: time.Second}, nil
-	case ds.diskService.IsImportDone(dv, pvc):
-		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
-		ds.recorder.Event(
-			vi,
-			corev1.EventTypeNormal,
-			v1alpha2.ReasonDataSourceSyncCompleted,
-			"The ObjectRef DataSource import has completed",
-		)
-
-		vi.Status.Phase = v1alpha2.ImageReady
-		cb.
-			Status(metav1.ConditionTrue).
-			Reason(vicondition.Ready).
-			Message("")
-		vi.Status.Size = viRef.Status.Size
-		vi.Status.CDROM = viRef.Status.CDROM
-		vi.Status.Format = viRef.Status.Format
-		vi.Status.Progress = "100%"
-		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
-	default:
-		log.Info("Provisioning to PVC is in progress", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
-
-		vi.Status.Progress = ds.diskService.GetProgress(dv, vi.Status.Progress, service.NewScaleOption(0, 100))
-		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
-
-		err = ds.diskService.Protect(ctx, supgen, vi, dv, pvc)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		err = setPhaseConditionForPVCProvisioningImage(ctx, dv, vi, pvc, cb, ds.diskService)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		return reconcile.Result{}, nil
+		return reconcilePVCImportFromReadySource(ctx, vi, pvc, source, size, cb, supgen, ds.statService, ds.diskService, func() {
+			ds.recorder.Event(vi, corev1.EventTypeNormal, v1alpha2.ReasonDataSourceSyncCompleted, "The ObjectRef DataSource import has completed")
+			vi.Status.Size = viRef.Status.Size
+			vi.Status.CDROM = viRef.Status.CDROM
+		})
 	}
 
 	return reconcile.Result{RequeueAfter: time.Second}, nil
+}
+
+// ensureBounder creates a bounder pod when the target PVC is a smart clone on a
+// WaitForFirstConsumer storage class, so its provisioning is triggered. The
+// bounder pod is quota-excluded and owned by the target, and is removed by
+// CleanUpSupplements once the image is Ready.
+func (ds ObjectRefDataVirtualImageOnPVC) ensureBounder(ctx context.Context, vi *v1alpha2.VirtualImage, pvc *corev1.PersistentVolumeClaim, supgen supplements.Generator) error {
+	need, err := needBounderForClone(ctx, ds.client, pvc)
+	if err != nil || !need {
+		return err
+	}
+
+	ownerRef := metav1.NewControllerRef(vi, vi.GroupVersionKind())
+	return ds.bounderService.Start(ctx, ownerRef, supgen, service.WithSystemNodeToleration())
 }
 
 func (ds ObjectRefDataVirtualImageOnPVC) CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, error) {
@@ -350,17 +298,26 @@ func (ds ObjectRefDataVirtualImageOnPVC) CleanUp(ctx context.Context, vi *v1alph
 		return false, err
 	}
 
+	bounderRequeue, err := ds.bounderService.CleanUp(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
+
 	diskRequeue, err := ds.diskService.CleanUp(ctx, supgen)
 	if err != nil {
 		return false, err
 	}
 
-	return importerRequeue || diskRequeue, nil
+	return importerRequeue || bounderRequeue || diskRequeue, nil
 }
 
-func (ds ObjectRefDataVirtualImageOnPVC) getEnvSettings(vi *v1alpha2.VirtualImage, sup supplements.Generator) *importer.Settings {
+func (ds ObjectRefDataVirtualImageOnPVC) getEnvSettings(vi *v1alpha2.VirtualImage, sup supplements.Generator, volumeMode *corev1.PersistentVolumeMode) *importer.Settings {
 	var settings importer.Settings
-	importer.ApplyBlockDeviceSourceSettings(&settings)
+	if volumeMode != nil && *volumeMode == corev1.PersistentVolumeBlock {
+		importer.ApplyBlockDeviceSourceSettings(&settings)
+	} else {
+		importer.ApplyFilesystemSourceSettings(&settings)
+	}
 	importer.ApplyDVCRDestinationSettings(
 		&settings,
 		ds.dvcrSettings,
@@ -379,12 +336,17 @@ func (ds ObjectRefDataVirtualImageOnPVC) CleanUpSupplements(ctx context.Context,
 		return reconcile.Result{}, err
 	}
 
+	bounderRequeue, err := ds.bounderService.CleanUpSupplements(ctx, supgen)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if importerRequeue || diskRequeue {
+	if importerRequeue || bounderRequeue || diskRequeue {
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	} else {
 		return reconcile.Result{}, nil
@@ -401,5 +363,5 @@ func (ds ObjectRefDataVirtualImageOnPVC) getPVCSize(refSize v1alpha2.ImageStatus
 		return resource.Quantity{}, errors.New("got zero unpacked size from data source")
 	}
 
-	return service.GetValidatedPVCSize(&unpackedSize, unpackedSize)
+	return service.GetValidatedPVCSize(nil, unpackedSize)
 }

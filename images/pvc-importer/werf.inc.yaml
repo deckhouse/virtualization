@@ -1,0 +1,83 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
+git:
+  {{- include "image mount points" . }}
+import:
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
+  add: /relocate
+  to: /
+  before: setup
+# Binaries are built from images/cdi-artifact by images/cdi-artifact/werf.inc.yaml.
+imageSpec:
+  config:
+    entrypoint: ["/usr/bin/pvc-importer", "-alsologtostderr"]
+    user: 64535
+
+---
+{{- define "pvc-importer-deps" -}}
+binaries:
+  # nbd bins and libs
+  - /usr/sbin/nbdkit
+  - /usr/bin/nbdcopy
+  - /usr/lib64/nbdkit/filters/*.so
+  - /usr/lib64/nbdkit/plugins/*.so
+  # PVC importer binary
+  - /usr/bin/pvc-importer
+  - /usr/bin/pvc-target-importer
+  # QEMU bins
+  - /usr/bin/qemu-img
+# do not include glibc, it will be replaced by one from qemu-img
+packages:
+- nbdkit libnbd
+- libtasn1 libxml2
+- xz
+- libunistring
+- libffi libgmp gnutls
+- nettle libidn2
+- p11-kit zlib
+- glib2 libbsd libfuse3
+- gcc ubdsrv liburing
+- libaio libaudit libcap-ng numactl
+- linux-pam zstd
+{{- end -}}
+
+{{ $pvcImporterDependencies := include "pvc-importer-deps" . | fromYaml }}
+
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
+final: false
+fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
+import:
+- image: tools/util-linux
+  add: /
+  to: /relocate/usr
+  after: setup
+  includePaths:
+  - sbin/blockdev
+  - bin/mount
+  - bin/umount
+- image: {{ .ModuleNamePrefix }}cdi-artifact
+  add: /cdi-binaries
+  to: /usr/bin
+  before: setup
+  includePaths:
+  - pvc-importer
+  - pvc-target-importer
+- image: {{ .ModuleNamePrefix }}qemu
+  add: /qemu-img
+  to: /qemu-img
+  before: install
+{{- include "importPackageImages" (list . $pvcImporterDependencies.packages "install") -}}
+shell:
+  install:
+  - |
+    echo "Install packages"
+    PKGS="{{ $pvcImporterDependencies.packages | join " " }}"
+    PKGS+=" qemu-img"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+  setup:
+  - |
+    /relocate_binaries.sh -i "{{ $pvcImporterDependencies.binaries | join " " }}" -o /relocate

@@ -30,11 +30,10 @@ const (
 	immediateStorageClassPrecheckEnvName = "IMMEDIATE_STORAGE_CLASS_PRECHECK"
 )
 
-// immediateStorageClassPrecheck implements Precheck interface for immediate StorageClass.
-// This precheck verifies that:
-// 1. Default StorageClass has VolumeBindingMode=Immediate, OR
-// 2. There is an immediate StorageClass with the same provisioner as default StorageClass.
-// This is required for tests that work with snapshots, as PVs need to be immediately bound.
+// immediateStorageClassPrecheck implements Precheck interface for the immediate StorageClass.
+// This precheck verifies that an Immediate StorageClass can be resolved and uses the
+// Immediate volume binding mode. This is required for tests that work with snapshots, as
+// PVs need to be immediately bound.
 type immediateStorageClassPrecheck struct{}
 
 func (c *immediateStorageClassPrecheck) Label() string {
@@ -52,20 +51,24 @@ func (c *immediateStorageClassPrecheck) Run(ctx context.Context, f *framework.Fr
 		return fmt.Errorf("%s=no to disable this precheck: list StorageClasses: %w", immediateStorageClassPrecheckEnvName, err)
 	}
 
-	// Find default StorageClass
-	defaultSC := config.FindDefaultStorageClass(&scList)
-	if defaultSC == nil {
-		return fmt.Errorf("%s=no to disable this precheck: cluster has no default StorageClass",
-			immediateStorageClassPrecheckEnvName)
+	immediateSC, err := config.ResolveImmediateStorageClass(&scList)
+	if err != nil {
+		return fmt.Errorf("%s=no to disable this precheck: %w", immediateStorageClassPrecheckEnvName, err)
+	}
+	if immediateSC == nil {
+		return fmt.Errorf(
+			"%s=no to disable this precheck: immediate StorageClass not found. "+
+				"Set %s explicitly or configure a default StorageClass with Immediate binding, "+
+				"or with WaitForFirstConsumer binding and another Immediate StorageClass on the same CSI driver",
+			immediateStorageClassPrecheckEnvName, config.ImmediateStorageClassEnv,
+		)
 	}
 
-	// Check if immediate StorageClass exists with same provisioner
-	immediateSC := config.FindImmediateStorageClass(defaultSC, &scList)
-	if immediateSC == nil {
-		return fmt.Errorf("%s=no to disable this precheck: default StorageClass %q has WaitForFirstConsumer binding mode, "+
-			"and no immediate StorageClass found with the same provisioner %q. "+
-			"Create an immediate StorageClass or set an immediate StorageClass as default",
-			immediateStorageClassPrecheckEnvName, defaultSC.Name, defaultSC.Provisioner)
+	if !config.IsImmediateBinding(immediateSC) {
+		return fmt.Errorf(
+			"%s=no to disable this precheck: StorageClass %q must use the Immediate volume binding mode, but it is %q",
+			immediateStorageClassPrecheckEnvName, immediateSC.Name, config.VolumeBindingMode(immediateSC),
+		)
 	}
 
 	return nil

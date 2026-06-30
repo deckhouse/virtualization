@@ -63,7 +63,7 @@ const (
 
 	// AnnProvisionerTolerations provides a const for tolerations to use for provisioners.
 	AnnProvisionerTolerations = AnnAPIGroup + "/provisioner-tolerations"
-	// AnnProvisionerName provides a name of data volume provisioner.
+	// AnnProvisionerName provides a name of the PVC provisioner.
 	AnnProvisionerName = AnnAPIGroup + "/provisioner-name"
 	// AnnProvisionerNameLegacy provides a legacy name of data volume provisioner.
 	AnnProvisionerNameLegacy = AnnAPIGroupLegacy + "/provisioner-name"
@@ -144,6 +144,11 @@ const (
 
 	UploaderServiceLabel = "service"
 
+	// PVCImportRoleLabel distinguishes source/target importer pods in a host-assigned PVC clone.
+	PVCImportRoleLabel = LabelsPrefix + "/pvc-import-role"
+	// PVCImportRoleSource marks the nbdkit pod that serves the source PVC over NBD.
+	PVCImportRoleSource = "source"
+
 	// AppKubernetesManagedByLabel is the Kubernetes recommended managed-by label.
 	AppKubernetesManagedByLabel = "app.kubernetes.io/managed-by"
 	// AppKubernetesComponentLabel is the Kubernetes recommended component label.
@@ -166,6 +171,16 @@ const (
 
 	// AnnDataExportRequest is the annotation for indicating that export requested.
 	AnnDataExportRequest = "storage.deckhouse.io/data-export-request"
+
+	// PVC population annotations.
+	// AnnPVCPopulationStrategy stores the strategy used by populator-controller.
+	AnnPVCPopulationStrategy = AnnAPIGroupV + "/pvc-population-strategy"
+	// AnnPVCPopulationSourcePVC stores the source PVC name for PVC-backed population.
+	AnnPVCPopulationSourcePVC = AnnAPIGroupV + "/pvc-population-source-pvc"
+	// AnnPVCPopulationSourceDVCR stores the source DVCR image path for registry-backed population.
+	AnnPVCPopulationSourceDVCR = AnnAPIGroupV + "/pvc-population-source-dvcr"
+	// AnnPVCPopulationDone marks target PVCs already populated by populator-controller.
+	AnnPVCPopulationDone = AnnAPIGroupV + "/pvc-population-done"
 
 	// TODO: remove deprecated annotations in the v1 version.
 	// AnnStorageClassName is the annotation for indicating that storage class name. (USED IN STORAGE sds controllers)
