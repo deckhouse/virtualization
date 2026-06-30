@@ -99,7 +99,8 @@ var _ = Describe("VirtualMachineEvacuation", Label(precheck.NoPrecheck), func() 
 				if _, exists := vmop.Annotations[evacuationAnnotation]; !exists {
 					continue
 				}
-				if vmop.Status.Phase == v1alpha2.VMOPPhaseFailed || vmop.Status.Phase == v1alpha2.VMOPPhaseCompleted {
+				switch vmop.Status.Phase {
+				case v1alpha2.VMOPPhaseFailed, v1alpha2.VMOPPhaseCompleted, v1alpha2.VMOPPhaseSuperseded:
 					finishedVMOPs[vmop.Spec.VirtualMachine] = struct{}{}
 				}
 			}
