@@ -28,6 +28,8 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/importer"
+	// Prefer AES-GCM over GOST for TLS 1.3 when built with -tags=dvcr_no_gost_tls.
+	_ "github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/gosttls"
 )
 
 func init() {
