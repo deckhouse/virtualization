@@ -122,7 +122,7 @@ func setPhaseConditionForFinishedImage(
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.PVCLost).
-			Message("The underlying PersistentVolumeClaim was not found.")
+			Message(fmt.Sprintf("The underlying PersistentVolumeClaim %q was not found.", supgen.PersistentVolumeClaim().String()))
 	default:
 		*phase = v1alpha2.ImageReady
 		cb.
@@ -215,7 +215,7 @@ func setPhaseConditionFromStorageError(err error, vi *v1alpha2.VirtualImage, cb 
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningFailed).
-			Message("StorageProfile not found in the cluster: Please check a StorageClass name in the cluster or set a default StorageClass.")
+			Message("The StorageClass is not fully configured in the cluster. Check the StorageClass name or set a default StorageClass.")
 		return true, nil
 	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
 		vi.Status.Phase = v1alpha2.ImagePending

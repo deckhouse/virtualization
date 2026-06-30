@@ -109,7 +109,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdscondition.VolumeSnapshotLost).
-				Message("The underlying VolumeSnapshot is no longer available.")
+				Message(fmt.Sprintf("The underlying VolumeSnapshot %q is no longer available.", vsName))
 			return reconcile.Result{Requeue: true}, nil
 		}
 

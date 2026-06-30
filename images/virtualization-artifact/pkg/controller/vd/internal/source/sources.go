@@ -111,14 +111,14 @@ func setPhaseConditionForFinishedDisk(
 	switch {
 	case pvc == nil:
 		newPhase = v1alpha2.DiskLost
-		setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Lost, "The underlying PersistentVolumeClaim was not found.")
+		setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Lost, fmt.Sprintf("The underlying PersistentVolumeClaim %q was not found.", supgen.PersistentVolumeClaim().String()))
 	case pvc.Status.Phase == corev1.ClaimLost:
 		if pvc.GetAnnotations()[annotations.AnnDataExportRequest] == "true" {
 			newPhase = v1alpha2.DiskExporting
 			setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Exporting, "PV is being exported")
 		} else {
 			newPhase = v1alpha2.DiskLost
-			setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Lost, "The underlying PersistentVolume was not found.")
+			setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Lost, fmt.Sprintf("The underlying PersistentVolume %q was not found.", pvc.Spec.VolumeName))
 		}
 	default:
 		newPhase = v1alpha2.DiskReady
