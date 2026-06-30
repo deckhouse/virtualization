@@ -156,7 +156,7 @@ func setPhaseConditionForPVCProvisioningImage(
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vicondition.Provisioning).
-				Message("Preparing the image storage.")
+				Message("Preparing the PersistentVolumeClaim for the image.")
 			return nil
 		}
 

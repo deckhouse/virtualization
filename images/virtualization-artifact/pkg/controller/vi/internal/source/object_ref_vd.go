@@ -298,7 +298,7 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *v1alpha2.Virt
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("Preparing the image storage.")
+			Message("Preparing the PersistentVolumeClaim for the image.")
 
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case dvQuotaNotExceededCondition != nil && dvQuotaNotExceededCondition.Status == corev1.ConditionFalse:
