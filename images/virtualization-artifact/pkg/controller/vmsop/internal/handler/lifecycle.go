@@ -99,9 +99,8 @@ func (h *LifecycleHandler) Handle(ctx context.Context, vmsop *v1alpha2.VirtualMa
 	}
 
 	if restorerSecret == nil {
-		msg := "The VirtualMachineSnapshot is not ready to be used yet."
-		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonNotReadyToBeExecuted, msg)
-		return reconcile.Result{}, errors.New(msg)
+		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonNotReadyToBeExecuted, "The VirtualMachineSnapshot is not ready to be used yet.")
+		return reconcile.Result{}, errors.New("virtual machine snapshot secret is nil")
 	}
 
 	hasInProgress, err := h.hasOperationsInProgress(ctx, vmsop)
