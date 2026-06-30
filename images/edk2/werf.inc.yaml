@@ -139,13 +139,11 @@ shell:
   - |
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
+    PKGS+=" qemu-img"
     for pkg in $PKGS; do
-      cp -a /$pkg/. /
+      rsync -avul --keep-dirlinks /$pkg/ /
       rm -rf /$pkg
     done
-
-    rsync -avul --keep-dirlinks /qemu-img/ /
-    rm -rf /qemu-img
 
     cd /{{ $gitRepoName }}-{{ $version }}
 
