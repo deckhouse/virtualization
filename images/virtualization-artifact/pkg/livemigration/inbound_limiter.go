@@ -130,7 +130,7 @@ func (l *InboundMigrationLimiter) Release(kvvmi *virtv1.VirtualMachineInstance, 
 //
 // ponytail: stale annotation cleanup is left to the reconcile release path
 // instead of patching VMIs here — same end state, no extra writes at startup.
-func (l *InboundMigrationLimiter) Restore(ctx context.Context, c client.Client) error {
+func (l *InboundMigrationLimiter) Restore(ctx context.Context, c client.Reader) error {
 	if !l.enabled {
 		return nil
 	}

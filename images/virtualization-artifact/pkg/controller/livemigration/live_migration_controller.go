@@ -44,7 +44,8 @@ func SetupController(
 
 	limiterEnabled, limit := config.LoadInboundMigrationLimitFromEnv()
 	limiter := livemigration.NewInboundMigrationLimiter(limiterEnabled, limit)
-	if err := limiter.Restore(ctx, client); err != nil {
+	// Use the direct API reader: the manager cache is not started yet at setup time.
+	if err := limiter.Restore(ctx, mgr.GetAPIReader()); err != nil {
 		return err
 	}
 
