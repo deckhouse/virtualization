@@ -263,7 +263,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 					cb.
 						Status(metav1.ConditionFalse).
 						Reason(vmbdacondition.DeviceNotAvailableOnNode).
-						Message("The disk storage is not available on the node where the VirtualMachine is currently running.")
+						Message(fmt.Sprintf("The disk storage is not available on node %q where the VirtualMachine is running.", kvvmi.Status.NodeName))
 					return reconcile.Result{}, nil
 				}
 			}
