@@ -205,7 +205,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVir
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.Provisioning).
-			Message("Image provisioning has started.")
+			Message("Preparing to import the image.")
 
 		log.Info("Ready", "progress", cvi.Status.Progress, "pod.phase", "nil")
 
@@ -283,7 +283,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVir
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.Provisioning).
-			Message("The image is being provisioned.")
+			Message("The image is being imported.")
 
 		cvi.Status.Phase = v1alpha2.ImageProvisioning
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)

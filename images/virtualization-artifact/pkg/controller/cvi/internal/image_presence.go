@@ -61,7 +61,7 @@ func (h *ImagePresenceHandler) Handle(ctx context.Context, cvi *v1alpha2.Cluster
 			Generation(cvi.Generation).
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.ImageLost).
-			Message("The image data is no longer available in the cluster storage and needs to be recreated.")
+			Message("The image data is no longer available and needs to be recreated.")
 
 		conditions.SetCondition(cb, &cvi.Status.Conditions)
 	}

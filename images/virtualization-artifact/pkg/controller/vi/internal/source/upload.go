@@ -174,7 +174,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("Importing the image.")
+			Message("Preparing to import the image.")
 
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case !podutil.IsPodComplete(pod):
@@ -420,7 +420,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("Importing the image.")
+			Message("Preparing to import the image.")
 
 		log.Info("Create uploader pod...", "progress", vi.Status.Progress, "pod.phase", nil)
 

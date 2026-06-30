@@ -129,7 +129,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, vi
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("Importing the image.")
+			Message("Preparing to import the image.")
 
 		log.Info("Create importer pod...", "progress", vi.Status.Progress, "pod.phase", "nil")
 

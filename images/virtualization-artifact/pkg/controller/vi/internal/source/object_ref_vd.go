@@ -138,7 +138,7 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *v1alpha2.Vir
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("Importing the image.")
+			Message("Preparing to import the image.")
 
 		log.Info("Create importer pod...", "progress", vi.Status.Progress, "pod.phase", "nil")
 

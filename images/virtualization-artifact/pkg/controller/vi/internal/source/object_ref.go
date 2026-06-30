@@ -397,7 +397,7 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virt
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("Importing the image.")
+			Message("Preparing to import the image.")
 
 		log.Info("Ready", "progress", vi.Status.Progress, "pod.phase", "nil")
 
