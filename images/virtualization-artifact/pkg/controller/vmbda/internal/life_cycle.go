@@ -173,7 +173,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.NotAttached).
-			Message(fmt.Sprintf("VirtualMachine %q is not running.", vm.Name))
+			Message(fmt.Sprintf("VirtualMachine %q is Running, but its underlying virtualization instance is not ready yet.", vm.Name))
 		return reconcile.Result{}, nil
 	}
 
@@ -187,7 +187,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.NotAttached).
-			Message(fmt.Sprintf("VirtualMachine %q is not running.", vm.Name))
+			Message(fmt.Sprintf("VirtualMachine %q is Running, but its underlying virtualization instance is not ready yet.", vm.Name))
 		return reconcile.Result{}, nil
 	}
 
