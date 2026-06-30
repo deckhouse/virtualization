@@ -84,7 +84,7 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 		if p.UserDataRef == nil || p.UserDataRef.Kind != v1alpha2.UserDataRefKindSecret {
 			cb.Status(metav1.ConditionFalse).
 				Reason(vmcondition.ReasonProvisioningNotReady).
-				Message(fmt.Sprintf("spec.provisioning.userDataRef.kind must be %q", v1alpha2.UserDataRefKindSecret))
+				Message(fmt.Sprintf("spec.provisioning.userDataRef.kind must be %q.", v1alpha2.UserDataRefKindSecret))
 		}
 		key := types.NamespacedName{Name: p.UserDataRef.Name, Namespace: current.GetNamespace()}
 		err := h.genConditionFromSecret(ctx, cb, key)
@@ -96,7 +96,7 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 		if p.SysprepRef == nil || p.SysprepRef.Kind != v1alpha2.SysprepRefKindSecret {
 			cb.Status(metav1.ConditionFalse).
 				Reason(vmcondition.ReasonProvisioningNotReady).
-				Message(fmt.Sprintf("spec.provisioning.sysprepRef.kind must be %q", v1alpha2.SysprepRefKindSecret))
+				Message(fmt.Sprintf("spec.provisioning.sysprepRef.kind must be %q.", v1alpha2.SysprepRefKindSecret))
 		}
 		key := types.NamespacedName{Name: p.SysprepRef.Name, Namespace: current.GetNamespace()}
 		err := h.genConditionFromSecret(ctx, cb, key)
