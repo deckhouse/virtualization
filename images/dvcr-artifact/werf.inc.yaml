@@ -121,7 +121,7 @@ shell:
       rm -rf /$pkg
     done
 
-    tar -C /qemu-img -cf - . | tar -C / --keep-directory-symlink -xf -
+    tar -C /qemu-img -cf - . | tar -C / --keep-directory-symlink --overwrite -xf -
     rm -rf /qemu-img
 
   setup:
