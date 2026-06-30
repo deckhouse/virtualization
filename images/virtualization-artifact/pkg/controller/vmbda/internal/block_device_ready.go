@@ -89,7 +89,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.BlockDeviceNotReady).
-				Message(fmt.Sprintf("Waiting for the VirtualImage %q to be observed in its latest state generation.", viKey.String()))
+				Message(fmt.Sprintf("Waiting for the VirtualImage %q changes to be processed.", viKey.String()))
 			return reconcile.Result{}, nil
 		}
 
@@ -106,7 +106,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vmbdacondition.BlockDeviceNotReady).
-					Message("Waiting until VirtualImage has associated PersistentVolumeClaim name.")
+					Message(fmt.Sprintf("Waiting for the VirtualImage %q storage to be provisioned.", viKey.String()))
 				return reconcile.Result{}, nil
 			}
 			ad := service.NewAttachmentDiskFromVirtualImage(vi)
@@ -119,7 +119,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vmbdacondition.BlockDeviceNotReady).
-					Message(fmt.Sprintf("Underlying PersistentVolumeClaim %q not found.", vi.Status.Target.PersistentVolumeClaim))
+					Message(fmt.Sprintf("The VirtualImage %q storage is not ready.", viKey.String()))
 				return reconcile.Result{}, nil
 			}
 
@@ -127,7 +127,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vmbdacondition.BlockDeviceNotReady).
-					Message(fmt.Sprintf("Underlying PersistentVolumeClaim %q not bound.", vi.Status.Target.PersistentVolumeClaim))
+					Message(fmt.Sprintf("The VirtualImage %q storage is not bound yet.", viKey.String()))
 				return reconcile.Result{}, nil
 			}
 
@@ -138,7 +138,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vmbdacondition.BlockDeviceNotReady).
-					Message("Waiting until VirtualImage has associated RegistryUrl.")
+					Message(fmt.Sprintf("Waiting for the VirtualImage %q to be published and become available.", viKey.String()))
 				return reconcile.Result{}, nil
 			}
 		}
@@ -175,7 +175,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.BlockDeviceNotReady).
-				Message(fmt.Sprintf("Waiting for the ClusterVirtualImage %q to be observed in its latest state generation.", cviKey.String()))
+				Message(fmt.Sprintf("Waiting for the ClusterVirtualImage %q changes to be processed.", cviKey.String()))
 			return reconcile.Result{}, nil
 		}
 
@@ -191,7 +191,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.BlockDeviceNotReady).
-				Message("Waiting until VirtualImage has associated RegistryUrl.")
+				Message(fmt.Sprintf("Waiting for the ClusterVirtualImage %q to be published and become available.", cviKey.String()))
 			return reconcile.Result{}, nil
 		}
 
@@ -261,7 +261,7 @@ func (h BlockDeviceReadyHandler) ValidateVirtualDiskReady(ctx context.Context, v
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.BlockDeviceNotReady).
-			Message("Waiting until VirtualDisk has associated PersistentVolumeClaim name.")
+			Message(fmt.Sprintf("Waiting for the VirtualDisk %q storage to be provisioned.", vdKey.String()))
 		return nil
 	}
 
@@ -275,7 +275,7 @@ func (h BlockDeviceReadyHandler) ValidateVirtualDiskReady(ctx context.Context, v
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.BlockDeviceNotReady).
-			Message(fmt.Sprintf("Underlying PersistentVolumeClaim %q not found.", vd.Status.Target))
+			Message(fmt.Sprintf("The VirtualDisk %q storage is not ready.", vdKey.String()))
 		return nil
 	}
 
@@ -283,7 +283,7 @@ func (h BlockDeviceReadyHandler) ValidateVirtualDiskReady(ctx context.Context, v
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.BlockDeviceNotReady).
-			Message(fmt.Sprintf("Underlying PersistentVolumeClaim %q not bound.", vd.Status.Target))
+			Message(fmt.Sprintf("The VirtualDisk %q storage is not bound yet.", vdKey.String()))
 		return nil
 	}
 

@@ -61,7 +61,7 @@ func (h *BlockDeviceLimiter) Handle(ctx context.Context, vmbda *v1alpha2.Virtual
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.CapacityReached).
-			Message(fmt.Sprintf("Can not attach %d block devices (%d is maximum) to `VirtualMachine` %q", blockDeviceAttachedCount, common.VMBlockDeviceAttachedLimit, vmbda.Spec.VirtualMachineName))
+			Message(fmt.Sprintf("Cannot attach %d block devices to VirtualMachine %q: the maximum is %d.", blockDeviceAttachedCount, vmbda.Spec.VirtualMachineName, common.VMBlockDeviceAttachedLimit))
 	}
 
 	return reconcile.Result{}, nil

@@ -155,7 +155,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.NotAttached).
-			Message(fmt.Sprintf("AttachmentDisk %q not found.", vmbda.Spec.BlockDeviceRef.Name))
+			Message(fmt.Sprintf("Block device %q not found.", vmbda.Spec.BlockDeviceRef.Name))
 		return reconcile.Result{}, nil
 	}
 
@@ -173,7 +173,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.NotAttached).
-			Message(fmt.Sprintf("InternalVirtualizationVirtualMachine %q not found.", vm.Name))
+			Message(fmt.Sprintf("VirtualMachine %q is not fully started yet.", vm.Name))
 		return reconcile.Result{}, nil
 	}
 
@@ -187,7 +187,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.NotAttached).
-			Message(fmt.Sprintf("InternalVirtualizationVirtualMachineInstance %q not found.", vm.Name))
+			Message(fmt.Sprintf("VirtualMachine %q is not fully started yet.", vm.Name))
 		return reconcile.Result{}, nil
 	}
 
@@ -263,7 +263,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 					cb.
 						Status(metav1.ConditionFalse).
 						Reason(vmbdacondition.DeviceNotAvailableOnNode).
-						Message(fmt.Sprintf("PersistentVolume %q is not available on node %q where the virtual machine is running", pvc.Spec.VolumeName, kvvmi.Status.NodeName))
+						Message("The disk storage is not available on the node where the VirtualMachine is currently running.")
 					return reconcile.Result{}, nil
 				}
 			}
@@ -286,7 +286,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.AttachmentRequestSent).
-			Message("Attachment request has sent: attachment is in progress.")
+			Message("Attachment request has been sent: attachment is in progress.")
 		return reconcile.Result{}, nil
 	case errors.Is(canErr, service.ErrHotPlugRequestAlreadySent):
 		log.Info("Attachment request sent: attachment is in progress.")
