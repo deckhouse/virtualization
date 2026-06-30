@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -59,7 +60,7 @@ var _ = Describe("ObjectRef VirtualImage on PVC", func() {
 			EventFunc: func(_ client.Object, _, _, _ string) {},
 		}
 
-		syncer := NewObjectRefVirtualImageOnPvc(recorder, importer, &dvcr.Settings{}, stat)
+		syncer := NewObjectRefVirtualImageOnPvc(recorder, importer, fake.NewClientBuilder().Build(), &dvcr.Settings{}, stat)
 
 		vi := &v1alpha2.VirtualImage{
 			ObjectMeta: metav1.ObjectMeta{
