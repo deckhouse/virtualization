@@ -474,7 +474,6 @@ var _ = Describe("LifecycleHandler", func() {
 			Expect(h.calculateMigrationProgress(vmop, mig, reason)).To(Equal(expected))
 		},
 			Entry("migration pending", vmopcondition.ReasonMigrationPending, nil, int32(0)),
-			Entry("disks preparing", vmopcondition.ReasonDisksPreparing, nil, int32(1)),
 			Entry("target scheduling", vmopcondition.ReasonTargetScheduling, nil, int32(2)),
 			Entry("target unschedulable", vmopcondition.ReasonTargetUnschedulable, nil, int32(2)),
 			Entry("target preparing", vmopcondition.ReasonTargetPreparing, nil, int32(3)),

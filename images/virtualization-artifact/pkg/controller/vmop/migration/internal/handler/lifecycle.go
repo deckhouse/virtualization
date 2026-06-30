@@ -50,7 +50,6 @@ const timeElapsedUpdateInterval = 10 * time.Second
 
 const (
 	progressMigrationPending   int32 = 0
-	progressDisksPreparing     int32 = 1
 	progressTargetScheduling   int32 = 2
 	progressTargetPreparing    int32 = 3
 	progressSourceSuspended    int32 = 91
@@ -691,8 +690,6 @@ func (h LifecycleHandler) calculateMigrationProgress(
 	switch reason {
 	case vmopcondition.ReasonMigrationPending:
 		return progressMigrationPending
-	case vmopcondition.ReasonDisksPreparing:
-		return progressDisksPreparing
 	case vmopcondition.ReasonTargetScheduling:
 		return progressTargetScheduling
 	case vmopcondition.ReasonTargetUnschedulable:
