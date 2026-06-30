@@ -214,7 +214,7 @@ func (h ResizingHandler) ResizeNeeded(
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ResizingNotAvailable).
-			Message("Disk resizing is not allowed: Storage class is not ready")
+			Message("Disk resizing is not allowed: the StorageClass is not ready.")
 		conditions.SetCondition(cb, &vd.Status.Conditions)
 	}
 

@@ -196,7 +196,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *v1alpha2.C
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("Restoring data from the snapshot. Waiting for the volume to be ready.")
+			Message("Restoring data from the snapshot. Waiting for the PersistentVolumeClaim to be Bound.")
 
 		cvi.Status.Progress = "0%"
 		cvi.Status.SourceUID = ptr.To(vs.UID)
@@ -274,7 +274,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *v1alpha2.C
 					cb.
 						Status(metav1.ConditionFalse).
 						Reason(vicondition.Provisioning).
-						Message("Restoring data from the snapshot. Waiting for the volume to be provisioned.")
+						Message("Restoring data from the snapshot. Waiting for the PersistentVolumeClaim to be Bound.")
 
 					return reconcile.Result{RequeueAfter: time.Second}, nil
 				}

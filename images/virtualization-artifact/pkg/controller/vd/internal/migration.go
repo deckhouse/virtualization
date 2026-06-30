@@ -498,7 +498,7 @@ func (h MigrationHandler) handleMigrateSync(ctx context.Context, vd *v1alpha2.Vi
 	}
 
 	if pvc.Status.Phase == corev1.ClaimBound {
-		cb.Status(metav1.ConditionTrue).Reason(vdcondition.InProgress).Message("The target PersistentVolumeClaim is bound.")
+		cb.Status(metav1.ConditionTrue).Reason(vdcondition.InProgress).Message("The target PersistentVolumeClaim is Bound.")
 		conditions.SetCondition(cb, &vd.Status.Conditions)
 		return nil
 	}

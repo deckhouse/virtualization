@@ -185,7 +185,7 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.Virtu
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vicondition.ProvisioningFailed).
-				Message("Waiting for the source DataSource to become ready.")
+				Message("Waiting for the source data to become ready.")
 			return reconcile.Result{}, nil
 		}
 
@@ -429,7 +429,7 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virt
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vicondition.ProvisioningFailed).
-				Message("Waiting for the source DataSource to become ready.")
+				Message("Waiting for the source data to become ready.")
 			return reconcile.Result{}, nil
 		}
 
