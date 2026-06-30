@@ -66,6 +66,10 @@ import:
   add: /qemu-img
   to: /qemu-img
   before: install
+- image: {{ .ModuleNamePrefix }}rsync
+  add: /rsync
+  to: /rsync-bin
+  before: install
 {{- include "importPackageImages" (list . $cdiImporterDependencies.packages "install") -}}
 shell:
   install:
@@ -77,7 +81,9 @@ shell:
       rm -rf /$pkg
     done
 
-    tar -C /qemu-img -cf - . | tar -C / --keep-directory-symlink --overwrite -xf -
+    cp -a /rsync-bin/. /
+    rm -rf /rsync-bin
+    rsync -avul --force --keep-dirlinks /qemu-img/ /
     rm -rf /qemu-img
   setup:
   - |
