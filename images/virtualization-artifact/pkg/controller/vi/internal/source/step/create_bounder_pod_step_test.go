@@ -166,7 +166,7 @@ var _ = Describe("CreateBounderPodStep", func() {
 			0,
 			v1alpha2.ImagePhase(""),
 			vicondition.Provisioning.String(),
-			"Waiting for the image storage to be ready.",
+			"Waiting for the PersistentVolumeClaim to be Bound.",
 			time.Duration(0),
 		),
 		Entry("handles quota exceeded error",
