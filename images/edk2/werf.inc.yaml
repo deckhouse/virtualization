@@ -122,9 +122,12 @@ import:
   - build.sh
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
-  add: /out
-  to: /qemu-img
+  add: /out/usr/bin
+  to: /qemu-img/usr/bin
   before: install
+  includePaths:
+  - qemu-img
+  - qemu-nbd
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}

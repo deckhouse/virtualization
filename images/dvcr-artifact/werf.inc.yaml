@@ -109,7 +109,7 @@ import:
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
   add: /out/usr/bin
-  to: /qemu-img
+  to: /qemu-img/usr/bin
   before: install
   includePaths:
   - qemu-img
