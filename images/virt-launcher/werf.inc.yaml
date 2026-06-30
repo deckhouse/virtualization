@@ -88,8 +88,8 @@ binaries:
   - /usr/sbin/biosdecode /usr/sbin/dmidecode
   # Numactl
   - /usr/bin/memhog /usr/bin/migratepages /usr/bin/migspeed /usr/bin/numactl /usr/bin/numastat
-  # qemu
-  - /usr/bin/qemu-img /usr/bin/qemu-nbd /usr/bin/elf2dmp /usr/bin/qemu-system-x86_64
+  # qemu binaries are handled in the install stage via /VBINS (pm-package
+  # import to /qemu-bins/usr), not here — they are not present in /usr/bin.
   # gobuilder
   - /usr/bin/node-labeller
   - /usr/bin/vlctl
