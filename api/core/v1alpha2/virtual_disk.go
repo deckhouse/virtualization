@@ -31,7 +31,7 @@ const (
 //
 // Once a VirtualDisk is created, the following fields in `.spec.persistentVolumeClaim` can be changed: `size` and `storageClassName`. All other fields are immutable.
 //
-// **Note:** The `metadata.name` field must comply with [Kubernetes object naming conventions](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/) and must not exceed 60 characters.
+// **Note:** The `metadata.name` field must comply with [Kubernetes object naming conventions](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/).
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
 // +kubebuilder:resource:categories={virtualization},scope=Namespaced,shortName={vd},singular=virtualdisk

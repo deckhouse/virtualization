@@ -16,21 +16,14 @@ limitations under the License.
 
 package validate
 
-// MaxDiskNameLen determines the max len of vd.
-// Disk and volume name in kubevirt can be a valid container name (len 63) since disk name can become a container name which will fail to schedule if invalid.
-// We add prefix "vd-" for the vd name, so max len reduced to 60.
-const MaxDiskNameLen = 60
-
-// MaxVirtualImageNameLen determines the max len of vi.
-// Disk and volume name in kubevirt can be a valid container name (len 63) since disk name can become a container name which will fail to schedule if invalid.
-// We and kubevirt add prefixes "vi-", "volume" and suffix "-init", so max len reduced to 49.
-const MaxVirtualImageNameLen = 49
-
-// MaxClusterVirtualImageNameLen determines the max len of cvi.
-// Disk and volume name in kubevirt can be a valid container name (len 63) since disk name can become a container name which will fail to schedule if invalid.
-// We and kubevirt add prefixes "cvi-", "volume" and suffix "-init", so max len reduced to 48.
-const MaxClusterVirtualImageNameLen = 48
+// VirtualDisk/VirtualImage/ClusterVirtualImage names are not length-limited by DVP:
+// the derived KubeVirt volume/disk name is shortened independently (see
+// kvbuilder.GenerateDiskName), and the overall name is already bounded by Kubernetes
+// (DNS subdomain, <=253). Only VirtualMachine keeps a DVP limit.
 
 // MaxVirtualMachineNameLen determines the max len of vm.
-// The limitation is reportedly associated with the PodDisruptionBudget resource, which has a label containing the virtual machine's name, and the label's value cannot exceed 63 characters.
+// Unlike disks/images, a VirtualMachine name is not decoupled: it flows into KubeVirt
+// pod names (e.g. the launcher pod "d8v-vm-<name>-...") and label values that cap at
+// 63 (Kubernetes does not enforce this, so DVP must). Raising it requires changes in
+// the KubeVirt fork.
 const MaxVirtualMachineNameLen = 63
