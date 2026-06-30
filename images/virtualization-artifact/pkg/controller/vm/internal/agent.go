@@ -131,14 +131,14 @@ func (h *AgentHandler) syncAgentVersionNotSupport(vm *v1alpha2.VirtualMachine, k
 	if kvvmi == nil {
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonAgentNotReady).
-			Message("Failed to check version, because Vm is not running.")
+			Message("Cannot check the agent version: the VirtualMachine is not running.")
 		return
 	}
 
 	for _, c := range kvvmi.Status.Conditions {
 		status := conditionStatus(string(c.Status))
 		if c.Type == virtv1.VirtualMachineInstanceUnsupportedAgent && status == metav1.ConditionTrue {
-			cb.Status(status).Reason(vmcondition.ReasonAgentNotSupported).Message(c.Reason)
+			cb.Status(status).Reason(vmcondition.ReasonAgentNotSupported).Message("The guest agent version is not supported.")
 			return
 		}
 	}

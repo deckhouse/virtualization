@@ -196,7 +196,7 @@ var _ = Describe("MigratingHandler", func() {
 			Expect(exists).To(BeTrue())
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 			Expect(cond.Reason).To(Equal(vmcondition.ReasonMigratingPending.String()))
-			Expect(cond.Message).To(Equal("Migration is in progress: target pod is being scheduled."))
+			Expect(cond.Message).To(Equal("Migration is in progress: scheduling the migration target."))
 		})
 
 		It("Should set active progress message when vmop is in progress with target preparing reason", func() {
@@ -215,7 +215,7 @@ var _ = Describe("MigratingHandler", func() {
 			Expect(exists).To(BeTrue())
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 			Expect(cond.Reason).To(Equal(vmcondition.ReasonMigratingPending.String()))
-			Expect(cond.Message).To(Equal("Migration is in progress: target pod is being scheduled and prepared."))
+			Expect(cond.Message).To(Equal("Migration is in progress: preparing the migration target."))
 		})
 
 		It("Should set active progress message when vmop is in progress with target ready reason", func() {
