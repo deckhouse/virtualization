@@ -52,12 +52,12 @@ func NewIngress(settings *IngressSettings) *Ingress {
 	return &Ingress{settings}
 }
 
+const fieldOwner = "virtualization-controller"
+
 // Apply reconciles the Ingress using server-side apply: it creates the Ingress
 // if absent and updates spec/annotations when they drift (e.g. when
 // publicDomainTemplate changes UPLOADER_INGRESS_HOST). Field ownership is
 // stable across controller restarts.
-const fieldOwner = "virtualization-controller"
-
 func (i *Ingress) Apply(ctx context.Context, c client.Client) (*netv1.Ingress, error) {
 	desired := i.makeSpec()
 	desired.SetGroupVersionKind(netv1.SchemeGroupVersion.WithKind("Ingress"))
