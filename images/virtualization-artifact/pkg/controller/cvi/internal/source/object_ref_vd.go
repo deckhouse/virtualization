@@ -136,7 +136,7 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *v1alpha2.ClusterVi
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.Provisioning).
-			Message("DVCR Provisioner not found: create the new one.")
+			Message("Image provisioning has started.")
 
 		log.Info("Create importer pod...", "progress", cvi.Status.Progress, "pod.phase", "nil")
 
@@ -204,7 +204,7 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *v1alpha2.ClusterVi
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.Provisioning).
-			Message("Import is in the process of provisioning to DVCR.")
+			Message("The image is being provisioned.")
 
 		cvi.Status.Phase = v1alpha2.ImageProvisioning
 		cvi.Status.Progress = ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress)
