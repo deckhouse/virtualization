@@ -72,7 +72,7 @@ func (h *SizePolicyHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 
 	switch {
 	case vmClass == nil:
-		cb.Message(fmt.Sprintf("VirtualMachineClass %q not found.", changed.Spec.VirtualMachineClassName)).
+		cb.Message(fmt.Sprintf("VirtualMachineClass %q not found. Specify an existing VirtualMachineClass in spec.virtualMachineClassName.", changed.Spec.VirtualMachineClassName)).
 			Reason(vmcondition.ReasonVirtualMachineClassNotFound).
 			Status(metav1.ConditionFalse)
 	case vmClass.Status.Phase == v1alpha2.ClassPhaseTerminating:
@@ -82,7 +82,7 @@ func (h *SizePolicyHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 	default:
 		err = h.service.CheckVMMatchedSizePolicy(changed, vmClass)
 		if err != nil {
-			cb.Message(fmt.Sprintf("Size policy matching errors: %s.", err.Error())).
+			cb.Message(fmt.Sprintf("The VirtualMachine %s.", err.Error())).
 				Reason(vmcondition.ReasonSizingPolicyNotMatched).
 				Status(metav1.ConditionFalse)
 		}
