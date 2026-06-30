@@ -111,14 +111,14 @@ func setPhaseConditionForFinishedDisk(
 	switch {
 	case pvc == nil:
 		newPhase = v1alpha2.DiskLost
-		setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Lost, fmt.Sprintf("PVC %s not found.", supgen.PersistentVolumeClaim().String()))
+		setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Lost, "The underlying PersistentVolumeClaim was not found.")
 	case pvc.Status.Phase == corev1.ClaimLost:
 		if pvc.GetAnnotations()[annotations.AnnDataExportRequest] == "true" {
 			newPhase = v1alpha2.DiskExporting
 			setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Exporting, "PV is being exported")
 		} else {
 			newPhase = v1alpha2.DiskLost
-			setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Lost, fmt.Sprintf("PV %s not found.", pvc.Spec.VolumeName))
+			setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Lost, "The underlying PersistentVolume was not found.")
 		}
 	default:
 		newPhase = v1alpha2.DiskReady
@@ -144,7 +144,7 @@ func setPhaseConditionFromStorageError(err error, vd *v1alpha2.VirtualDisk, cb *
 			cb,
 			metav1.ConditionFalse,
 			vdcondition.ProvisioningFailed,
-			"StorageProfile not found in the cluster: Please check a StorageClass name in the cluster or set a default StorageClass.",
+			"The StorageClass is not fully configured in the cluster. Check the StorageClass name or set a default StorageClass.",
 		)
 		return true, nil
 	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
@@ -176,7 +176,7 @@ func setPhaseConditionForPVCProvisioningDisk(
 	case err == nil:
 		if dv == nil {
 			vd.Status.Phase = v1alpha2.DiskProvisioning
-			setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Provisioning, "Waiting for the pvc importer to be created")
+			setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Provisioning, "Waiting for the disk provisioning to start.")
 			return nil
 		}
 
@@ -191,7 +191,7 @@ func setPhaseConditionForPVCProvisioningDisk(
 		}
 
 		vd.Status.Phase = v1alpha2.DiskProvisioning
-		setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Provisioning, "Import is in the process of provisioning to PVC.")
+		setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Provisioning, "Importing data into the PersistentVolumeClaim.")
 		return nil
 	case errors.Is(err, service.ErrDataVolumeNotRunning):
 		vd.Status.Phase = v1alpha2.DiskFailed
@@ -333,9 +333,9 @@ func setPhaseConditionFromProvisioningError(
 				return err
 			}
 
-			setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Provisioning, "PVC provisioner recreation due to a changes in the virtual machine tolerations.")
+			setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Provisioning, "Recreating the disk provisioner due to changes in the virtual machine tolerations.")
 		} else {
-			setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Provisioning, "Trying to schedule the PVC provisioner.")
+			setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Provisioning, "Scheduling the disk provisioner.")
 		}
 
 		return nil

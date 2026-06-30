@@ -533,7 +533,7 @@ func (h MigrationHandler) handleMigrateSync(ctx context.Context, vd *v1alpha2.Vi
 		}
 	}
 
-	cb.Message("Target persistent volume claim is not bound or not waiting for first consumer.")
+	cb.Message("Waiting for the target PersistentVolumeClaim to be provisioned.")
 	conditions.SetCondition(cb, &vd.Status.Conditions)
 	return nil
 }

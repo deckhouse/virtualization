@@ -106,7 +106,7 @@ func (s CreateDataVolumeStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningFailed).
-			Message("StorageProfile not found in the cluster: Please check a StorageProfile name in the cluster.")
+			Message("The StorageClass is not fully configured in the cluster. Check the StorageClass name or set a default StorageClass.")
 		return &reconcile.Result{}, nil
 	default:
 		return nil, fmt.Errorf("start immediate: %w", err)
