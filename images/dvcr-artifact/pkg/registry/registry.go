@@ -419,21 +419,7 @@ func destNameOptions(destInsecure bool) []name.Option {
 
 func destRemoteOptions(ctx context.Context, destUsername, destPassword string, destInsecure bool) []remote.Option {
 	tlsConfig := &tls.Config{
-		InsecureSkipVerify: destInsecure, //nolint:gosec // dest is the in-cluster DVCR; verification is controlled by DESTINATION_INSECURE_TLS.
-		// The DVCR upload dominates importer CPU because the GOST-enabled
-		// toolchain negotiates a software GOST (Kuznyechik/MGM) TLS cipher,
-		// which has no hardware acceleration and caps throughput at a few MB/s
-		// on a single core. Pin TLS 1.2 with AES-GCM so the hardware-accelerated
-		// (AES-NI) cipher is used instead. TLS 1.3 ignores CipherSuites, so the
-		// version must be capped for the suite list to take effect.
-		MinVersion: tls.VersionTLS12,
-		MaxVersion: tls.VersionTLS12,
-		CipherSuites: []uint16{
-			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-		},
+		InsecureSkipVerify: destInsecure,
 	}
 
 	transport := http.DefaultTransport.(*http.Transport).Clone()
