@@ -142,6 +142,9 @@ const (
 
 	// ReasonOperationCompleted is a ReasonCompleted indicating that operation is completed.
 	ReasonOperationCompleted ReasonCompleted = "OperationCompleted"
+
+	// ReasonMigrationNetworkUnavailable indicates that liveMigration.network.systemNetwork is configured in the ModuleConfig but the source node has no resolved migration interface.
+	ReasonMigrationNetworkUnavailable ReasonCompleted = "MigrationNetworkUnavailable"
 )
 
 // ReasonCompleted represents specific reasons for the 'SignalSent' condition type.
