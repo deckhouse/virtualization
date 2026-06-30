@@ -21,6 +21,9 @@
     MODULES_REGISTRY: "${DEV_REGISTRY}"
     MODULES_REGISTRY_LOGIN: "${DEV_MODULES_REGISTRY_LOGIN}"
     MODULES_REGISTRY_PASSWORD: "${DEV_MODULES_REGISTRY_PASSWORD}"
+    # Generic aliases some tooling expects for the primary registry credentials.
+    REGISTRY_USER: "${MODULES_REGISTRY_LOGIN}"
+    REGISTRY_PASSWORD: "${MODULES_REGISTRY_PASSWORD}"
 
 # Primary = PROD registry (write). Used by prod release builds/deploys;
 # pulled in via .prod_vars.
@@ -29,6 +32,9 @@
     MODULES_REGISTRY: "${PROD_REGISTRY}"
     MODULES_REGISTRY_LOGIN: "${PROD_MODULES_REGISTRY_LOGIN}"
     MODULES_REGISTRY_PASSWORD: "${PROD_MODULES_REGISTRY_PASSWORD}"
+    # Generic aliases some tooling expects for the primary registry credentials.
+    REGISTRY_USER: "${MODULES_REGISTRY_LOGIN}"
+    REGISTRY_PASSWORD: "${MODULES_REGISTRY_PASSWORD}"
 
 # Primary = PROD read-only registry. Used by the version/requirements check
 # jobs (prod:check-requirements, prod:check-version). NOTE: the Go/bash tools

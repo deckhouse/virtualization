@@ -1,41 +1,46 @@
 # DEV build jobs.
 #
-# Carries forward build_dev, build_dev_tags and build_main from the
-# previous root .gitlab-ci.yml. All three extend:
-#   - .base_build  (this repo) — same body as upstream modules-gitlab-ci
-#                    Build.gitlab-ci.yml `.build` (werf build + bundle crane
-#                    copy + release-channel crane copy + crane append to
-#                    register module), but without the upstream `rules:`
-#                    that would override our strict gating via .dev /
-#                    .dev_tags / .main.
-#   - .dev / .dev_tags / .main  (this repo) for registry + tag context.
+# Four jobs build the module into the DEV registry, one per pipeline context:
+#   build_dev          MR pipelines        (.dev,      tag mr<iid>)
+#   build_dev_tags     vX.Y.Z / -rc.N tag  (.dev_tags, tag = the tag name)
+#   build_main         push to main        (.main,     tag main)
+#   build_release      push to release-X.Y (.release,  tag = branch name)
 #
-# The previous root .gitlab-ci.yml had its own `.build` template with the
-# same body; it is replaced here by `.base_build` (verified against
-# deckhouse/3p/deckhouse/modules-gitlab-ci
-# templates/Build.gitlab-ci.yml — werf build with --save-build-report,
-# bundle / release-channel-version crane copy, and crane append to
-# register the module). The upstream version uses WERF_REPO env instead of
-# an explicit --repo flag, which is equivalent because MODULES_MODULE_SOURCE
-# is the same in both cases.
+# They are IDENTICAL except for that context template (which supplies
+# MODULES_MODULE_TAG + the trigger rule), so the common body lives once in the
+# hidden `.dev_build` base below and each job is just `extends: [.dev_build,
+# <context>]`. The four jobs are kept distinct (not collapsed into one job with
+# rule-variables) so each context shows up as its own named, independently
+# retriable job in the pipeline UI.
 #
-# All dev build jobs inherit the global `interruptible: true` default
-# (.gitlab/ci/defaults.yml), so a new push to the same MR/branch cancels the
-# older in-flight build.
+# .dev / .main are intentionally NOT folded into .dev_build: they are reused as
+# context mixins by other jobs (tests, lint:dmt, show_*_manifest, precache), so
+# they must stay standalone. .dev_tags / .release are build-only today.
 
-# `needs: [set_vars]` (with artifacts) is intentional: it opts these jobs
-# into DAG mode and pulls ONLY the set_vars dotenv (MODULE_EDITION,
-# DEBUG_COMPONENT, RELEASE_IN_DEV). It replaces the previous bare `needs: []`,
-# which existed to stop GitLab's legacy behavior of downloading ALL prior-stage
-# artifacts and leaking unrelated dotenv artifacts (e.g. svace:set-vars writes
-# MODULES_MODULE_TAG=<branch>-svace) that override the per-template
-# MODULES_MODULE_TAG from .dev / .dev_tags / .main. Listing set_vars explicitly
-# keeps that protection: svace.env is still not downloaded. set_vars does NOT
-# emit MODULES_MODULE_TAG, so the per-template tag is preserved.
+# Shared base for the DEV-registry build jobs.
 #
-# WERF_VIRTUAL_MERGE=0 mirrors the GitHub dev_setup_build job env.
-
-build_dev:
+# - .base_build (this repo): same body as upstream modules-gitlab-ci
+#   Build.gitlab-ci.yml `.build` (werf build --save-build-report + bundle crane
+#   copy + release-channel crane copy + crane append to register the module),
+#   without the upstream `rules:` that would override our strict gating. Upstream
+#   uses WERF_REPO env instead of an explicit --repo flag, equivalent here
+#   because MODULES_MODULE_SOURCE is the same.
+#
+# - `needs: [set_vars]` (with artifacts) opts these jobs into DAG mode and pulls
+#   ONLY the set_vars dotenv (MODULE_EDITION, DEBUG_COMPONENT, RELEASE_IN_DEV).
+#   It replaces a bare `needs: []` whose purpose was to stop GitLab's legacy
+#   behavior of downloading ALL prior-stage artifacts and leaking unrelated
+#   dotenv (e.g. svace:set-vars writes MODULES_MODULE_TAG=<branch>-svace, which
+#   would override the per-context MODULES_MODULE_TAG). Listing set_vars
+#   explicitly keeps that protection; set_vars does NOT emit MODULES_MODULE_TAG,
+#   so the per-context tag from .dev / .dev_tags / .main / .release is preserved.
+#
+# - WERF_VIRTUAL_MERGE=0 mirrors the GitHub dev_setup_build job env.
+#
+# - interruptible: true is inherited from the global default
+#   (.gitlab/ci/defaults.yml), so a new push to the same MR/branch cancels the
+#   older in-flight build.
+.dev_build:
   stage: build
   needs:
     - job: set_vars
@@ -44,43 +49,27 @@ build_dev:
     WERF_VIRTUAL_MERGE: "0"
   extends:
     - .base_build
+
+build_dev:
+  extends:
+    - .dev_build
     - .dev
 
 build_dev_tags:
-  stage: build
-  needs:
-    - job: set_vars
-      artifacts: true
-  variables:
-    WERF_VIRTUAL_MERGE: "0"
   extends:
-    - .base_build
+    - .dev_build
     - .dev_tags
 
 build_main:
-  stage: build
-  needs:
-    - job: set_vars
-      artifacts: true
-  variables:
-    WERF_VIRTUAL_MERGE: "0"
   extends:
-    - .base_build
+    - .dev_build
     - .main
 
 # build_release mirrors GitHub dev_module_build.yml `push: [release-*]`: a
 # squash-merge into a release-X.Y branch rebuilds the dev image tagged with the
 # branch name. Without this job GitLab created a pipeline on the merge push but
-# built nothing for release branches (only .dev/.main/.dev_tags had build jobs).
-# Inherits the default interruptible: true, so a newer release-branch push
-# cancels an older build.
+# built nothing for release branches.
 build_release:
-  stage: build
-  needs:
-    - job: set_vars
-      artifacts: true
-  variables:
-    WERF_VIRTUAL_MERGE: "0"
   extends:
-    - .base_build
+    - .dev_build
     - .release
