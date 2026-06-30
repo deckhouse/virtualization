@@ -1174,21 +1174,22 @@ Virtual machine migration is an important feature in virtualized infrastructure 
 {{< alert level="warning" >}}
 Live migration has the following limitations:
 
-- By default, only one virtual machine transfers memory at a time from each node, while other migrations can be prepared in parallel. Both limits are configurable (see [Tuning live migration concurrency](#tuning-live-migration-concurrency)).
+- By default, only one virtual machine transfers memory at a time from each node. Other migrations from the same node can be prepared in parallel. For more information on configuring the limits, see the [Tuning live migration concurrency](#tuning-live-migration-concurrency) section.
 - The total number of concurrent migrations in the cluster cannot exceed the number of nodes where running virtual machines is permitted.
 - The bandwidth for a single migration is limited to 5 Gbps.
 {{< /alert >}}
 
 #### Tuning live migration concurrency
 
-When several virtual machines migrate from the same node at once (for example, during node drain), the memory-copy phase competes for network bandwidth. To avoid contention, live migration uses two independent per-source-node limits:
+When several virtual machines migrate from the same node at once (for example, during node drain), the data-transfer (sync) phase competes for network bandwidth. To avoid contention, live migration uses two independent per-source-node limits:
 
-- **Preparation pool** — `parallelOutboundMigrationsPerNode` (default `2`): how many migrations from a node can be prepared in parallel (scheduling the target pod, mounting devices) up to the `TargetReady` state.
-- **Data-transfer pool** — `parallelSyncMigrationsPerNode` (default `1`): how many of the prepared migrations may copy memory at the same time. The value is capped by `parallelOutboundMigrationsPerNode`.
+- Preparation pool — parameter [.spec.settings.liveMigration.outbound.perNode](/modules/virtualization/alpha/configuration.html#parameters-livemigration-outbound-pernode) (default `2`): how many migrations from a node can be prepared in parallel (scheduling the target pod, mounting devices) up to the `TargetReady` state.
+- Data-transfer pool — parameter [.spec.settings.liveMigration.outbound.syncPerNode](/modules/virtualization/alpha/configuration.html#parameters-livemigration-outbound-syncpernode) (default `1`): how many prepared migrations may be in the data-transfer (sync) phase at the same time. The value must not exceed `perNode`.
 
-With the defaults, while one virtual machine copies its memory the next one is already prepared and starts transferring the moment the first finishes, so a node drain runs as a pipeline instead of strictly one full migration after another.
+With the defaults, the next virtual machine is already prepared while the previous one transfers memory and starts transferring as soon as the previous migration finishes. A node drain runs as a pipeline instead of strictly one full migration after another.
 
-A migration that is prepared but waiting for a free sync slot stays in the `Pending` phase with the `WaitingForSyncSlot` reason on its `VirtualMachineOperation`.
+A migration that is prepared but waiting for a free data-transfer (sync) slot stays in the `Pending` phase with the `WaitingForSyncSlot` reason in the
+[VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource.
 
 Configure the limits in the module settings:
 

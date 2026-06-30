@@ -159,24 +159,16 @@ properties:
     items:
       type: string
   liveMigration:
-    type: object
     description: |
       Настройки живой миграции.
     properties:
       outbound:
-        type: object
         description: |
           Лимиты одновременных исходящих живых миграций на узле-источнике.
         properties:
           perNode:
-            type: integer
-            minimum: 1
-            default: 2
             description: |
               Максимальное число одновременных исходящих живых миграций на узле-источнике.
           syncPerNode:
-            type: integer
-            minimum: 1
-            default: 1
             description: |
               Максимальное число одновременных исходящих живых миграций на узле-источнике, которым разрешено находиться в фазе передачи данных (sync). Миграции сверх лимита ожидают свободный слот.
