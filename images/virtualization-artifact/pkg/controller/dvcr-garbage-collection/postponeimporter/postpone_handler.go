@@ -102,7 +102,7 @@ func (p *PostponeHandler[T]) Handle(ctx context.Context, obj T) (reconcile.Resul
 		cb := conditions.NewConditionBuilder(getReadyType(obj)).Generation(obj.GetGeneration())
 		cb.Status(metav1.ConditionFalse).
 			Reason(ProvisioningPostponedReason).
-			Message("DVCR is in garbage collection mode: wait until it finishes before creating provisioner.")
+			Message("DVCR is performing garbage collection. The operation is postponed and will continue automatically once it completes.")
 		conditions.SetCondition(cb, conditions.NewConditionsAccessor(obj).Conditions())
 	}
 	// Garbage collection enabled and resources are postponed: requeue to check garbage collection status later.
