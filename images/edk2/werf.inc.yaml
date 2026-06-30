@@ -22,7 +22,6 @@ altPackages:
 - python3-modules-sqlite3 python3-module-virt-firmware
 - libdwarf-devel
 - bc perl-PathTools perl-IPC-Cmd perl-JSON
-- rsync
 packages:
 - zlib libisoburn libburn libisofs
 - openssl
@@ -122,10 +121,6 @@ import:
   - Logo.bmp
   - build.sh
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
-- image: {{ .ModuleNamePrefix }}qemu
-  add: /qemu-img
-  to: /qemu-img
-  before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -139,9 +134,8 @@ shell:
   - |
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
-    PKGS+=" qemu-img"
     for pkg in $PKGS; do
-      rsync -avul --force --keep-dirlinks /$pkg/ /
+      cp -a /$pkg/. /
       rm -rf /$pkg
     done
 
