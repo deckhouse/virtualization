@@ -246,6 +246,46 @@ var _ = Describe("LifecycleHandler", func() {
 		Expect(completed.Reason).To(Equal(vmopcondition.ReasonTargetScheduling.String()))
 	})
 
+	It("should set Pending phase while waiting for a sync slot", func() {
+		vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
+		vm.Status.Conditions = []metav1.Condition{{
+			Type:   string(vmcondition.TypeMigrating),
+			Reason: string(vmcondition.ReasonReadyToMigrate),
+		}}
+		vmop := newVMOPMigrate()
+		vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+
+		mig := &virtv1.VirtualMachineInstanceMigration{}
+		mig.Namespace = namespace
+		mig.Name = fmt.Sprintf("vmop-%s", vmop.Name)
+		mig.Status.Phase = virtv1.MigrationTargetReady
+		mig.Status.Conditions = []virtv1.VirtualMachineInstanceMigrationCondition{{
+			Type:   virtv1.VirtualMachineInstanceMigrationWaitingForSyncSlot,
+			Status: corev1.ConditionTrue,
+			Reason: "PerNodeSyncPoolFull",
+		}}
+		mig.OwnerReferences = []metav1.OwnerReference{{
+			Kind:       "VirtualMachineOperation",
+			Name:       vmop.Name,
+			UID:        vmop.UID,
+			Controller: ptr.To(true),
+		}}
+		mig.Spec.VMIName = name
+
+		fakeClient, srv = setupEnvironment(vmop, vm, mig)
+		migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
+		base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
+
+		h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
+		_, err := h.Handle(ctx, srv.Changed())
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+		completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
+		Expect(found).To(BeTrue())
+		Expect(completed.Reason).To(Equal(vmopcondition.ReasonWaitingForSyncSlot.String()))
+	})
+
 	DescribeTable("TargetMigration", func(vmPolicy v1alpha2.LiveMigrationPolicy, nodeSelector map[string]string, targetMigrationEnabled bool) {
 		vm := newVM(vmPolicy)
 		vm.Status.Conditions = []metav1.Condition{

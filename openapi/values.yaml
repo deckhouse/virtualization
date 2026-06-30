@@ -137,8 +137,6 @@ properties:
             type: integer
           parallelMigrationsPerCluster:
             type: integer
-          parallelOutboundMigrationsPerNode:
-            type: integer
           progressTimeout:
             type: integer
           disableTLS:

@@ -53,6 +53,7 @@ const (
 	progressDisksPreparing     int32 = 1
 	progressTargetScheduling   int32 = 2
 	progressTargetPreparing    int32 = 3
+	progressWaitingForSyncSlot int32 = 4
 	progressSourceSuspended    int32 = 91
 	progressTargetResumed      int32 = 92
 	progressMigrationCompleted int32 = 100
@@ -63,6 +64,7 @@ const (
 	messageSyncingSourceAndTarget = "Syncing source and target"
 	messageTargetPodScheduling    = "Target pod is being scheduled"
 	messageTargetPodPreparing     = "Target pod is being prepared"
+	messageWaitingForSyncSlot     = "Target prepared; waiting for sync slot on source node"
 	messageTargetVMResumed        = "Target VM resumed"
 	messageSourceVMSuspended      = "Source VM suspended"
 )
@@ -354,7 +356,7 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 	}
 
 	vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
-	if reason == vmopcondition.ReasonMigrationPending {
+	if reason == vmopcondition.ReasonMigrationPending || reason == vmopcondition.ReasonWaitingForSyncSlot {
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 	}
 	progress := h.calculateMigrationProgress(vmop, mig, reason)
@@ -471,7 +473,7 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMac
 	}
 
 	vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
-	if reason == vmopcondition.ReasonMigrationPending {
+	if reason == vmopcondition.ReasonMigrationPending || reason == vmopcondition.ReasonWaitingForSyncSlot {
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 	}
 	progress := h.calculateMigrationProgress(vmop, mig, reason)
@@ -584,6 +586,14 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 	ctx context.Context,
 	mig *virtv1.VirtualMachineInstanceMigration,
 ) (vmopcondition.ReasonCompleted, string, error) {
+	if cond, found := conditions.GetKVVMIMCondition(virtv1.VirtualMachineInstanceMigrationWaitingForSyncSlot, mig.Status.Conditions); found && cond.Status == corev1.ConditionTrue {
+		message := messageWaitingForSyncSlot
+		if cond.Message != "" {
+			message = cond.Message
+		}
+		return vmopcondition.ReasonWaitingForSyncSlot, message, nil
+	}
+
 	reason := vmopcondition.ReasonSyncing
 	message := messageSyncingSourceAndTarget
 
@@ -689,6 +699,8 @@ func (h LifecycleHandler) calculateMigrationProgress(
 		return progressTargetScheduling
 	case vmopcondition.ReasonTargetPreparing:
 		return progressTargetPreparing
+	case vmopcondition.ReasonWaitingForSyncSlot:
+		return progressWaitingForSyncSlot
 	case vmopcondition.ReasonTargetDiskError:
 		return progressTargetPreparing
 	case vmopcondition.ReasonSyncing, vmopcondition.ReasonNotConverging:

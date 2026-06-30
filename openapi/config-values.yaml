@@ -232,3 +232,25 @@ properties:
         - "HotplugCPUWithLiveMigration"
         - "HotplugMemoryWithLiveMigration"
         - "HotplugCPUAndMemoryWithInPlaceResize"
+  liveMigration:
+    type: object
+    description: |
+      Live migration settings.
+    properties:
+      outbound:
+        type: object
+        description: |
+          Concurrency limits for outgoing live migrations on a source node.
+        properties:
+          perNode:
+            type: integer
+            minimum: 1
+            default: 2
+            description: |
+              Maximum number of concurrent outgoing live migrations per source node.
+          syncPerNode:
+            type: integer
+            minimum: 1
+            default: 1
+            description: |
+              Maximum number of concurrent outgoing live migrations per source node allowed to be in the sync phase. Migrations above this limit wait for a free slot.

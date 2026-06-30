@@ -31,6 +31,7 @@ import (
 
 const (
 	ParallelOutboundMigrationsPerNodeDefault uint32 = 2
+	ParallelSyncMigrationsPerNodeDefault     uint32 = 1
 	ParallelMigrationsPerClusterDefault      uint32 = 5
 	BandwidthPerMigrationDefault                    = "0Mi"
 	NodeDrainTaintDefaultKey                 string = "kubevirt.io/drain"
@@ -51,6 +52,19 @@ func NewMigrationConfiguration(allowAutoConverge bool, kvconfig virtv1.KubeVirt)
 	parallelOutboundMigrationsPerNode := ParallelOutboundMigrationsPerNodeDefault
 	if kvconfig.Spec.Configuration.MigrationConfiguration != nil && kvconfig.Spec.Configuration.MigrationConfiguration.ParallelOutboundMigrationsPerNode != nil {
 		parallelOutboundMigrationsPerNode = *kvconfig.Spec.Configuration.MigrationConfiguration.ParallelOutboundMigrationsPerNode
+	}
+	parallelSyncMigrationsPerNode := ParallelSyncMigrationsPerNodeDefault
+	if kvconfig.Spec.Configuration.MigrationConfiguration != nil && kvconfig.Spec.Configuration.MigrationConfiguration.ParallelSyncMigrationsPerNode != nil {
+		parallelSyncMigrationsPerNode = *kvconfig.Spec.Configuration.MigrationConfiguration.ParallelSyncMigrationsPerNode
+	}
+	if parallelSyncMigrationsPerNode == 0 {
+		parallelSyncMigrationsPerNode = ParallelSyncMigrationsPerNodeDefault
+	}
+	if parallelSyncMigrationsPerNode > parallelOutboundMigrationsPerNode {
+		parallelSyncMigrationsPerNode = parallelOutboundMigrationsPerNode
+	}
+	if parallelSyncMigrationsPerNode == 0 {
+		parallelSyncMigrationsPerNode = ParallelSyncMigrationsPerNodeDefault
 	}
 	// Reuse default value of BandwidthPerNode as bandwidthPerMigration.
 	bandwidthPerMigration := resource.MustParse(BandwidthPerMigrationDefault)
@@ -73,6 +87,7 @@ func NewMigrationConfiguration(allowAutoConverge bool, kvconfig virtv1.KubeVirt)
 	return &virtv1.MigrationConfiguration{
 		ParallelMigrationsPerCluster:      &parallelMigrationsPerCluster,
 		ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
+		ParallelSyncMigrationsPerNode:     &parallelSyncMigrationsPerNode,
 		NodeDrainTaintKey:                 &nodeDrainTaintDefaultKey,
 		BandwidthPerMigration:             &bandwidthPerMigration,
 		ProgressTimeout:                   &progressTimeout,
