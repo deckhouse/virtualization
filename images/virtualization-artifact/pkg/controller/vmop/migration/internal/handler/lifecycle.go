@@ -423,7 +423,6 @@ func (h LifecycleHandler) canExecute(vmop *v1alpha2.VirtualMachineOperation, vm 
 
 	if migratable.Status == metav1.ConditionTrue {
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
-		vmop.Status.Progress = migrationprogress.FormatPercent(1)
 		conditions.SetCondition(
 			conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 				Generation(vmop.GetGeneration()).
