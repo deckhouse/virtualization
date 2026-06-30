@@ -87,7 +87,6 @@ packages:
 - gcc ubdsrv liburing
 - libaio libaudit libcap-ng numactl
 - linux-pam libunistring glib2
-- rsync
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -111,6 +110,10 @@ import:
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /qemu-img
+  before: install
+- image: rsync
+  add: /usr/bin/rsync
+  to: /usr/bin/rsync
   before: install
 shell:
   install:
