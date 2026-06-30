@@ -59,6 +59,8 @@ set_vars:
     # can consume the set_vars dotenv (RELEASE_IN_DEV=true, MODULE_EDITION).
     - if: '$CI_COMMIT_BRANCH =~ /^release-[0-9]+\.[0-9]+/'
       when: always
-    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-dev.*$/'
+    # Release / release-candidate tags: build_dev_tags (DEV build) consumes
+    # this set_vars dotenv. Matches the .dev_tags rule (vX.Y.Z and vX.Y.Z-rc.N).
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-rc\.\d+)?$/'
       when: always
     - when: never
