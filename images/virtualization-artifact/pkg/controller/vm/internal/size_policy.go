@@ -76,7 +76,7 @@ func (h *SizePolicyHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 			Reason(vmcondition.ReasonVirtualMachineClassNotFound).
 			Status(metav1.ConditionFalse)
 	case vmClass.Status.Phase == v1alpha2.ClassPhaseTerminating:
-		cb.Message(fmt.Sprintf("Virtual machine class %q is terminating.", vmClass.Name)).
+		cb.Message(fmt.Sprintf("VirtualMachineClass %q is terminating.", vmClass.Name)).
 			Reason(vmcondition.ReasonVirtualMachineClassTerminating).
 			Status(metav1.ConditionFalse)
 	default:

@@ -70,7 +70,7 @@ func (h *LifeCycleHandler) Handle(_ context.Context, s state.VirtualMachineClass
 			notReady = true
 		}
 		if len(changed.Status.CpuFeatures.Enabled) == 0 {
-			cb.Message("No cpu feature enabled.")
+			cb.Message("No CPU features enabled.")
 			cb.Reason(vmclasscondition.ReasonNoCpuFeaturesEnabled)
 			notReady = true
 		}

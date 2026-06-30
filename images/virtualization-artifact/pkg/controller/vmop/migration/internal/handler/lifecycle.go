@@ -60,11 +60,11 @@ const (
 
 const (
 	messageMigrationPending       = "The VirtualMachineOperation for migrating the virtual machine has been queued. Waiting for the queue to be processed and for this operation to be executed."
-	messageSyncingSourceAndTarget = "Syncing source and target"
-	messageTargetPodScheduling    = "Target pod is being scheduled"
-	messageTargetPodPreparing     = "Target pod is being prepared"
-	messageTargetVMResumed        = "Target VM resumed"
-	messageSourceVMSuspended      = "Source VM suspended"
+	messageSyncingSourceAndTarget = "Synchronizing the VirtualMachine to the destination node"
+	messageTargetPodScheduling    = "Selecting a node to migrate the VirtualMachine to"
+	messageTargetPodPreparing     = "Preparing the destination node for the VirtualMachine"
+	messageTargetVMResumed        = "The VirtualMachine has resumed on the destination node"
+	messageSourceVMSuspended      = "The VirtualMachine has been suspended on the source node"
 )
 
 const (

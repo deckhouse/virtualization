@@ -122,7 +122,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 		conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 			Generation(vmop.GetGeneration()).
 			Reason(reason).
-			Message("Wait for operation to complete").
+			Message("Waiting for the operation to complete.").
 			Status(metav1.ConditionFalse),
 		&vmop.Status.Conditions)
 
