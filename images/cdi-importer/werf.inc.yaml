@@ -63,12 +63,9 @@ import:
   - cdi-importer
   - cdi-source-update-poller
 - image: {{ .ModuleNamePrefix }}qemu
-  add: /out/usr/bin
-  to: /qemu-img/usr/bin
+  add: /qemu-img
+  to: /qemu-img
   before: install
-  includePaths:
-  - qemu-img
-  - qemu-nbd
 {{- include "importPackageImages" (list . $cdiImporterDependencies.packages "install") -}}
 shell:
   install:

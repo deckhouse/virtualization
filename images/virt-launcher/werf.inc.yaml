@@ -88,8 +88,9 @@ binaries:
   - /usr/sbin/biosdecode /usr/sbin/dmidecode
   # Numactl
   - /usr/bin/memhog /usr/bin/migratepages /usr/bin/migspeed /usr/bin/numactl /usr/bin/numastat
-  # qemu binaries are handled in the install stage via /VBINS (pm-package
-  # import to /qemu-bins/usr), not here — they are not present in /usr/bin.
+  # qemu
+  # commented out due to automatic relocate in `beforeInstall` step
+  # - /usr/bin/elf2dmp
   # gobuilder
   - /usr/bin/node-labeller
   - /usr/bin/vlctl
@@ -162,10 +163,9 @@ import:
   add: /libvirt
   to: /libvirt-bins
   before: install
-# QEMU binaries (only, no transitive deps via -1)
 - image: {{ .ModuleNamePrefix }}qemu
-  add: /out/usr
-  to: /qemu-bins/usr
+  add: /qemu-img
+  to: /qemu-bins
   before: install
 # EDK2 (uefi firmware)
 - image: {{ .ModuleNamePrefix }}edk2
@@ -276,13 +276,13 @@ shell:
     echo "=====Copy libvirt binaries to temp folder======"
     cp -a /libvirt-bins/. /VBINS/
 
-    echo "=====Copy qemu binaries, modules and firmware to temp folder======"
-    cp -a /qemu-bins/usr/. /VBINS/
+    echo "=====Copy qemu binaries to temp folder======"
+    cp -a /qemu-bins/. /VBINS/
+
 
     echo "find and copy additional libs"
     FILES=$(find /VBINS/usr/bin/ -type f)
     FILES+=" $(find /VBINS/usr/sbin/ -type f)"
-    FILES+=" $(find /VBINS/usr/libexec/ -type f 2>/dev/null)"
 
     LIBS="/usr/lib64/libbsd.s* /usr/lib64/libnbd.s* /usr/lib64/libfuse3.s*"
     LIBS+=" /usr/lib64/libjson-c.s* /usr/lib64/libssh.s* /usr/lib64/libssh2.s*"
@@ -297,15 +297,12 @@ shell:
     echo "Relocate additional libs to /VBINS"
     ./relocate_binaries.sh -i "$LIBS" -o /VBINS
 
-    # QEMU dynamically-loaded modules (dlopen, not visible to ldd) and
-    # firmware / bios / keymaps (not binaries) — copy as-is.
-    cp -a /VBINS/usr/lib64/qemu /relocate/usr/lib64/ 2>/dev/null || true
-    cp -a /VBINS/usr/share/qemu /relocate/usr/share/ 2>/dev/null || true
-
     cp -a /VBINS/. /relocate
 
+    echo "Show libs after relocation in /relocate/usr/lib64"
+    ls -la /relocate/usr/lib64
     # Cleanup
-    rm -rf /{VBINS,libvirt-bins,qemu-bins}
+    rm -rf /{VBINS,qemu-bins,libvirt-bins}
 
   setup:
   - |

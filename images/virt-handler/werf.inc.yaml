@@ -68,8 +68,6 @@ binaries:
 - /usr/bin/osirrox
 - /usr/bin/xorriso-dd-target
 - /usr/bin/xorrisofs
-- /usr/bin/qemu-img
-- /usr/bin/qemu-nbd
 packages:
 - libisoburn nftables acl libmnl libjansson4 libnftnl
 - glibc libattr pcre2 selinux
@@ -93,9 +91,9 @@ import:
   - bin/umount
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
-  add: /out
-  to: /qemu
-  before: install
+  add: /qemu-img
+  to: /relocate
+  before: setup
 shell:
   install:
   - |
@@ -105,8 +103,7 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-    cp -a /qemu/. /
-    rm -rf /qemu
+
   setup:
   - |
     /relocate_binaries.sh -i "{{ $builderDependencies.binaries | join " " }}" -o /relocate

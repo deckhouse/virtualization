@@ -4,4 +4,4 @@ final: false
 fromImage: builder/distroless
 shell:
   install:
-    - pm install -1 qemu -d /out
+    - pm install -1 qemu -d /qemu-img
