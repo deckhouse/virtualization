@@ -119,7 +119,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.Vir
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vmbdacondition.BlockDeviceNotReady).
-					Message(fmt.Sprintf("The VirtualImage %q storage is not ready.", viKey.String()))
+					Message(fmt.Sprintf("The VirtualImage %q storage was not found.", viKey.String()))
 				return reconcile.Result{}, nil
 			}
 
@@ -275,7 +275,7 @@ func (h BlockDeviceReadyHandler) ValidateVirtualDiskReady(ctx context.Context, v
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.BlockDeviceNotReady).
-			Message(fmt.Sprintf("The VirtualDisk %q storage is not ready.", vdKey.String()))
+			Message(fmt.Sprintf("The VirtualDisk %q storage was not found.", vdKey.String()))
 		return nil
 	}
 
