@@ -111,10 +111,6 @@ import:
   add: /qemu-img
   to: /qemu-img
   before: install
-- image: rsync
-  add: /usr/bin/rsync
-  to: /usr/bin/rsync
-  before: install
 shell:
   install:
   - |
@@ -125,7 +121,7 @@ shell:
       rm -rf /$pkg
     done
 
-    rsync -avul --force --keep-dirlinks /qemu-img/ /
+    tar -C /qemu-img -cf - . | tar -C / --keep-directory-symlink -xf -
     rm -rf /qemu-img
 
   setup:
