@@ -207,7 +207,7 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 					fmt.Sprintf("Wait until operation is completed; VirtualMachineOperation: %s.", vmop.Name),
 				)
 
-			case v1alpha2.VMOPPhaseCompleted, v1alpha2.VMOPPhaseFailed, v1alpha2.VMOPPhaseTerminating:
+			case v1alpha2.VMOPPhaseCompleted, v1alpha2.VMOPPhaseFailed, v1alpha2.VMOPPhaseTerminating, v1alpha2.VMOPPhaseSuperseded:
 				conditions.RemoveCondition(vmcondition.TypeMigrating, &vm.Status.Conditions)
 				return nil
 			}

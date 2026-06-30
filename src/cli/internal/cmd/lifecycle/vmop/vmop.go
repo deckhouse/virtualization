@@ -164,8 +164,11 @@ func (v VirtualMachineOperation) generateMsg(vmop *v1alpha2.VirtualMachineOperat
 	case v1alpha2.VMOPPhaseCompleted:
 		sb.WriteString("completed.")
 	case v1alpha2.VMOPPhaseFailed:
-		cond, _ := getCondition(vmopcondition.TypeCompleted.String(), vmop.Status.Conditions)
+		cond := getCondition(vmopcondition.TypeCompleted.String(), vmop.Status.Conditions)
 		fmt.Fprintf(&sb, "failed. type=%q reason=%q, message=%q.", cond.Type, cond.Reason, cond.Message)
+	case v1alpha2.VMOPPhaseSuperseded:
+		cond := getCondition(vmopcondition.TypeCompleted.String(), vmop.Status.Conditions)
+		fmt.Fprintf(&sb, "superseded. type=%q reason=%q, message=%q.", cond.Type, cond.Reason, cond.Message)
 	case "":
 		sb.WriteString("created.")
 	default:
@@ -233,7 +236,7 @@ func (v VirtualMachineOperation) isPhaseOrFailed(vmop *v1alpha2.VirtualMachineOp
 	if vmop == nil {
 		return false
 	}
-	return vmop.Status.Phase == phase || vmop.Status.Phase == v1alpha2.VMOPPhaseFailed
+	return vmop.Status.Phase == phase || vmop.Status.Phase == v1alpha2.VMOPPhaseFailed || vmop.Status.Phase == v1alpha2.VMOPPhaseSuperseded
 }
 
 func (v VirtualMachineOperation) newVMOP(vmName, vmNamespace string, t v1alpha2.VMOPType, force *bool) *v1alpha2.VirtualMachineOperation {
@@ -254,12 +257,12 @@ func (v VirtualMachineOperation) newVMOP(vmName, vmNamespace string, t v1alpha2.
 	}
 }
 
-func getCondition(condType string, conds []metav1.Condition) (metav1.Condition, bool) {
+func getCondition(condType string, conds []metav1.Condition) metav1.Condition {
 	for _, cond := range conds {
 		if cond.Type == condType {
-			return cond, true
+			return cond
 		}
 	}
 
-	return metav1.Condition{}, false
+	return metav1.Condition{}
 }

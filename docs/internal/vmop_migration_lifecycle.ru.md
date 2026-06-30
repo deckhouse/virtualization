@@ -33,6 +33,7 @@
 | `MigrationState.Completed == true` | `SourceSuspended` | `InProgress` | `91%` |
 | `TargetNodeDomainReadyTimestamp != nil` | `TargetResumed` | `InProgress` | `92%` |
 | `MigrationSucceeded` | `Completed` | `Completed` | `100%` |
+| Вытеснена более новым VMOP | `Superseded` | `Superseded` | сохранить текущий |
 
 ## Семантика причин
 
@@ -50,6 +51,7 @@
 | `Completed` | Миграция успешно завершена. |
 | `Aborted` | Миграция была прервана. |
 | `Failed` | Миграция завершилась ошибкой без уточненной причины. |
+| `Superseded` | Операция вытеснена более новым VMOP для той же VM. |
 
 ## Модель прогресса
 
@@ -235,3 +237,4 @@ PodScheduled=False, Reason=Unschedulable
 | Источник приостановлен во время финальной передачи | `InProgress` | `SourceSuspended` | `91%` |
 | Цель возобновлена | `InProgress` | `TargetResumed` | `92%` |
 | Миграция успешно завершена | `Completed` | `Completed` | `100%` |
+| VMOP миграции вытеснен | `Superseded` | `Superseded` | сохранить текущий |

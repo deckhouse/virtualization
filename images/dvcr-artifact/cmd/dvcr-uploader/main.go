@@ -27,6 +27,8 @@ import (
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	cryptowatch "kubevirt.io/containerized-data-importer/pkg/util/tls-crypto-watch"
 
+	// Prefer AES-GCM over GOST for TLS 1.3 when built with -tags=dvcr_no_gost_tls.
+	_ "github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/gosttls"
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/uploader"
 )
 
