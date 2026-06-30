@@ -80,7 +80,7 @@ func (s WaitForPodStep) Take(_ context.Context, vi *v1alpha2.VirtualImage) (*rec
 				s.cb.
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.Provisioning).
-					Message("Waiting for PersistentVolumeClaim to be Bound")
+					Message("Waiting for the PersistentVolumeClaim to be Bound.")
 
 				return &reconcile.Result{Requeue: true}, nil
 			}

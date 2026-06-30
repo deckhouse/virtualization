@@ -392,7 +392,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdscondition.Snapshotting).
-			Message(fmt.Sprintf("Waiting for the snapshot of virtual disk %q to be ready to use.", vdSnapshot.Name))
+			Message(fmt.Sprintf("Waiting for the snapshot of virtual disk %q to be ready to use.", vdSnapshot.Spec.VirtualDiskName))
 		return reconcile.Result{}, nil
 	default:
 		log.Debug("The volume snapshot is ready to use")

@@ -114,7 +114,7 @@ var _ = Describe("WaitForPodStep", func() {
 			reconcile.Result{Requeue: true},
 			v1alpha2.ImageProvisioning,
 			vicondition.Provisioning.String(),
-			"Waiting for PersistentVolumeClaim to be Bound",
+			"Waiting for the PersistentVolumeClaim to be Bound.",
 			"",
 			"",
 		),

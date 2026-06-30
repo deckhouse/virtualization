@@ -115,7 +115,7 @@ func setPhaseConditionForFinishedDisk(
 	case pvc.Status.Phase == corev1.ClaimLost:
 		if pvc.GetAnnotations()[annotations.AnnDataExportRequest] == "true" {
 			newPhase = v1alpha2.DiskExporting
-			setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Exporting, "PV is being exported")
+			setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Exporting, "The PersistentVolume is being exported.")
 		} else {
 			newPhase = v1alpha2.DiskLost
 			setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Lost, fmt.Sprintf("The underlying PersistentVolume %q was not found.", pvc.Spec.VolumeName))
