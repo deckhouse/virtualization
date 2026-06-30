@@ -90,7 +90,7 @@ var _ = Describe("VirtualMachineSupersede", Label(precheck.NoPrecheck), func() {
 		util.UntilConditionReason(ctx, vmopcondition.TypeCompleted.String(), vmopcondition.ReasonSuperseded.String(), framework.MiddleTimeout, startVMOP)
 	})
 
-	It("supersedes a stuck Migrate operation with a Stop", func() {
+	DescribeTable("supersedes a stuck Migrate operation", func(supersederType v1alpha2.VMOPType) {
 		ctx := context.Background()
 		f = framework.NewFramework("vm-supersede-migrate")
 		DeferCleanup(f.After)
@@ -125,18 +125,87 @@ var _ = Describe("VirtualMachineSupersede", Label(precheck.NoPrecheck), func() {
 		Expect(err).NotTo(HaveOccurred())
 		util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseInProgress), framework.MiddleTimeout, migrateVMOP)
 
-		By("Supersede the Migrate with a Stop")
-		stopVMOP := vmopbuilder.New(
-			vmopbuilder.WithName("vmop-stop"),
+		By("Supersede the Migrate with a " + string(supersederType))
+		superseder := vmopbuilder.New(
+			vmopbuilder.WithName("vmop-superseder"),
 			vmopbuilder.WithNamespace(vm.Namespace),
-			vmopbuilder.WithType(v1alpha2.VMOPTypeStop),
+			vmopbuilder.WithType(supersederType),
 			vmopbuilder.WithVirtualMachine(vm.Name),
 		)
-		err = f.CreateWithDeferredDeletion(ctx, stopVMOP)
+		err = f.CreateWithDeferredDeletion(ctx, superseder)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Ensure the Migrate VMOP is Superseded")
 		util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseSuperseded), framework.MiddleTimeout, migrateVMOP)
 		util.UntilConditionReason(ctx, vmopcondition.TypeCompleted.String(), vmopcondition.ReasonSuperseded.String(), framework.MiddleTimeout, migrateVMOP)
-	})
+	},
+		Entry("with a Stop", v1alpha2.VMOPTypeStop),
+		Entry("with a Restart", v1alpha2.VMOPTypeRestart),
+	)
+
+	DescribeTable("supersedes a stuck Restart operation", func(supersederType v1alpha2.VMOPType) {
+		ctx := context.Background()
+		f = framework.NewFramework("vm-supersede-restart")
+		DeferCleanup(f.After)
+		f.Before()
+
+		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIUbuntu)
+		vm := object.NewMinimalVM("", f.Namespace().Name,
+			vmbuilder.WithName("vm"),
+			vmbuilder.WithRunPolicy(v1alpha2.ManualPolicy),
+			// 100% core fraction is the only value the sizing policy allows at high
+			// core counts, so set it up front to keep the later cores bump valid.
+			vmbuilder.WithCPU(1, ptr.To("100%")),
+			vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
+				Kind: v1alpha2.VirtualDiskKind,
+				Name: vdRoot.Name,
+			}),
+		)
+
+		By("Environment preparation: start the VM and wait until it is running")
+		err := f.CreateWithDeferredDeletion(ctx, vdRoot, vm)
+		Expect(err).NotTo(HaveOccurred())
+		util.UntilObjectPhase(ctx, string(v1alpha2.MachineStopped), framework.LongTimeout, vm)
+		util.StartVirtualMachine(ctx, f, vm)
+		util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
+
+		By("Bump CPU cores beyond cluster capacity")
+		// unschedulableCPUCores changes the CPU socket topology, which makes the
+		// cores change restart-required rather than a live-migrating hotplug, and
+		// exceeds any node's capacity, so the restarted launcher pod stays
+		// Unschedulable and the Restart VMOP never leaves InProgress.
+		const unschedulableCPUCores = 240
+		running := getVirtualMachine(ctx, f, vm.Name)
+		running.Spec.CPU.Cores = unschedulableCPUCores
+		Expect(f.GenericClient().Update(ctx, running)).To(Succeed())
+
+		By("Restart the VM: the restarted pod is unschedulable, so the Restart VMOP stays InProgress")
+		restartVMOP := vmopbuilder.New(
+			vmopbuilder.WithName("vmop-restart"),
+			vmopbuilder.WithNamespace(vm.Namespace),
+			vmopbuilder.WithType(v1alpha2.VMOPTypeRestart),
+			vmopbuilder.WithVirtualMachine(vm.Name),
+		)
+		err = f.CreateWithDeferredDeletion(ctx, restartVMOP)
+		Expect(err).NotTo(HaveOccurred())
+		util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseInProgress), framework.MiddleTimeout, restartVMOP)
+
+		By("Supersede the Restart with a forced " + string(supersederType))
+		superseder := vmopbuilder.New(
+			vmopbuilder.WithName("vmop-superseder"),
+			vmopbuilder.WithNamespace(vm.Namespace),
+			vmopbuilder.WithType(supersederType),
+			vmopbuilder.WithVirtualMachine(vm.Name),
+			vmopbuilder.WithForce(ptr.To(true)),
+		)
+		err = f.CreateWithDeferredDeletion(ctx, superseder)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Ensure the Restart VMOP is Superseded")
+		util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseSuperseded), framework.MiddleTimeout, restartVMOP)
+		util.UntilConditionReason(ctx, vmopcondition.TypeCompleted.String(), vmopcondition.ReasonSuperseded.String(), framework.MiddleTimeout, restartVMOP)
+	},
+		Entry("by a force Stop", v1alpha2.VMOPTypeStop),
+		Entry("by a force Restart", v1alpha2.VMOPTypeRestart),
+	)
 })
