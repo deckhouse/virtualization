@@ -89,7 +89,7 @@ binaries:
   # Numactl
   - /usr/bin/memhog /usr/bin/migratepages /usr/bin/migspeed /usr/bin/numactl /usr/bin/numastat
   # qemu
-  - /usr/bin/qemu-img /usr/bin/qemu-nbd /usr/bin/elf2dmp
+  - /usr/bin/qemu-img /usr/bin/qemu-nbd /usr/bin/elf2dmp /usr/bin/qemu-system-x86_64
   # gobuilder
   - /usr/bin/node-labeller
   - /usr/bin/vlctl
@@ -165,8 +165,8 @@ import:
 # QEMU binaries (only, no transitive deps via -1)
 - image: {{ .ModuleNamePrefix }}qemu
   add: /out/usr
-  to: /usr
-  before: setup
+  to: /qemu-bins/usr
+  before: install
 # EDK2 (uefi firmware)
 - image: {{ .ModuleNamePrefix }}edk2
   add: /FIRMWARE/
@@ -276,9 +276,13 @@ shell:
     echo "=====Copy libvirt binaries to temp folder======"
     cp -a /libvirt-bins/. /VBINS/
 
+    echo "=====Copy qemu binaries, modules and firmware to temp folder======"
+    cp -a /qemu-bins/usr/. /VBINS/
+
     echo "find and copy additional libs"
     FILES=$(find /VBINS/usr/bin/ -type f)
     FILES+=" $(find /VBINS/usr/sbin/ -type f)"
+    FILES+=" $(find /VBINS/usr/libexec/ -type f 2>/dev/null)"
 
     LIBS="/usr/lib64/libbsd.s* /usr/lib64/libnbd.s* /usr/lib64/libfuse3.s*"
     LIBS+=" /usr/lib64/libjson-c.s* /usr/lib64/libssh.s* /usr/lib64/libssh2.s*"
@@ -286,6 +290,8 @@ shell:
     LIBS+=" /usr/lib64/libxml2.s* /usr/lib64/libgcc_s* /usr/lib64/libaudit*"
     LIBS+=" /usr/lib64/libisoburn.s* /usr/lib64/libacl.s*"
     LIBS+=" /usr/lib64/libusb-*"
+    # QEMU dynamically-loaded modules (lib64/qemu/*.so)
+    LIBS+=" /usr/lib64/qemu/*.so"
 
     echo "Relocate additional libs for files in /VBINS"
     ./relocate_binaries.sh -i "$FILES" -o /VBINS
@@ -293,10 +299,13 @@ shell:
     echo "Relocate additional libs to /VBINS"
     ./relocate_binaries.sh -i "$LIBS" -o /VBINS
 
+    # QEMU firmware / bios / keymaps (not binaries, copy as-is)
+    cp -a /VBINS/usr/share/qemu /relocate/usr/share/ 2>/dev/null || true
+
     cp -a /VBINS/. /relocate
 
     # Cleanup
-    rm -rf /{VBINS,libvirt-bins}
+    rm -rf /{VBINS,libvirt-bins,qemu-bins}
 
   setup:
   - |

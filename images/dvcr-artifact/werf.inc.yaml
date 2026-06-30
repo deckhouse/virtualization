@@ -108,9 +108,12 @@ import:
   before: setup
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
-  add: /out
+  add: /out/usr/bin
   to: /qemu-img
   before: install
+  includePaths:
+  - qemu-img
+  - qemu-nbd
 shell:
   install:
   - |
