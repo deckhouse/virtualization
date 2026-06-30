@@ -86,7 +86,7 @@ func (s ReadyStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconci
 		s.cb.Status(metav1.ConditionFalse)
 		if s.pvc.GetAnnotations()[annotations.AnnDataExportRequest] == "true" {
 			vd.Status.Phase = v1alpha2.DiskExporting
-			s.cb.Reason(vdcondition.Exporting).Message("PV is being exported")
+			s.cb.Reason(vdcondition.Exporting).Message("The PersistentVolume is being exported.")
 		} else {
 			vd.Status.Phase = v1alpha2.DiskLost
 			s.cb.

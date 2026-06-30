@@ -224,7 +224,7 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.Virtu
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("Preparing the disk storage for the image.")
+			Message("Preparing the image storage.")
 
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case dvQuotaNotExceededCondition != nil && dvQuotaNotExceededCondition.Status == corev1.ConditionFalse:
@@ -247,7 +247,7 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.Virtu
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("PVC not found: waiting for creation.")
+			Message("Waiting for the PersistentVolumeClaim to be created.")
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case ds.diskService.IsImportDone(dv, pvc):
 		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)

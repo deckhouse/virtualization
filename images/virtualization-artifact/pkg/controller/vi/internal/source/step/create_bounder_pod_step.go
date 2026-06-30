@@ -99,7 +99,7 @@ func (s CreateBounderPodStep) Take(ctx context.Context, vi *v1alpha2.VirtualImag
 	s.cb.
 		Status(metav1.ConditionFalse).
 		Reason(vicondition.Provisioning).
-		Message("Waiting for the disk storage to be Bound.")
+		Message("Waiting for the image storage to be ready.")
 
 	return nil, nil
 }

@@ -122,7 +122,7 @@ func setPhaseConditionForFinishedImage(
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.PVCLost).
-			Message(fmt.Sprintf("PVC %s not found.", supgen.PersistentVolumeClaim().String()))
+			Message("The underlying PersistentVolumeClaim was not found.")
 	default:
 		*phase = v1alpha2.ImageReady
 		cb.
@@ -156,7 +156,7 @@ func setPhaseConditionForPVCProvisioningImage(
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vicondition.Provisioning).
-				Message("Preparing to provision the disk storage.")
+				Message("Preparing the image storage.")
 			return nil
 		}
 
@@ -164,7 +164,7 @@ func setPhaseConditionForPVCProvisioningImage(
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("Import is in the process of provisioning to PVC.")
+			Message("Importing data into the PersistentVolumeClaim.")
 		return nil
 	case errors.Is(err, service.ErrDataVolumeNotRunning):
 		vi.Status.Phase = v1alpha2.ImageProvisioning
