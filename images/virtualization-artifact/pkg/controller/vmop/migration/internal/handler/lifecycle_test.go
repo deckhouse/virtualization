@@ -674,7 +674,7 @@ var _ = Describe("LifecycleHandler", func() {
 			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
 			Expect(found).To(BeTrue())
 			Expect(completed.Message).NotTo(ContainSubstring("Migration info for 7d38a63b-ffa9-4d56-a924-6017f5832110:"))
-			Expect(completed.Message).To(ContainSubstring("Synchronizing the VirtualMachine to the destination node. TimeElapsed:30s"))
+			Expect(completed.Message).To(ContainSubstring("Source and target are being synchronized. TimeElapsed:30s"))
 			Expect(completed.Message).To(ContainSubstring("DataProcessed:3529MiB DataRemaining:12049MiB DataTotal:16405MiB"))
 			Expect(completed.Message).To(ContainSubstring("Iteration:1 AutoConvergeThrottleSet:true AutoConvergeThrottle:0"))
 		})
