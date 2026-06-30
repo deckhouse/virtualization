@@ -52,14 +52,21 @@ func NewIngress(settings *IngressSettings) *Ingress {
 	return &Ingress{settings}
 }
 
-func (i *Ingress) Create(ctx context.Context, client client.Client) (*netv1.Ingress, error) {
-	ing := i.makeSpec()
+const fieldOwner = "virtualization-controller"
 
-	if err := client.Create(ctx, ing); err != nil {
+// Apply reconciles the Ingress using server-side apply: it creates the Ingress
+// if absent and updates spec/annotations when they drift (e.g. when
+// publicDomainTemplate changes UPLOADER_INGRESS_HOST). Field ownership is
+// stable across controller restarts.
+func (i *Ingress) Apply(ctx context.Context, c client.Client) (*netv1.Ingress, error) {
+	desired := i.makeSpec()
+	desired.SetGroupVersionKind(netv1.SchemeGroupVersion.WithKind("Ingress"))
+
+	if err := c.Patch(ctx, desired, client.Apply, client.FieldOwner(fieldOwner)); err != nil {
 		return nil, err
 	}
 
-	return ing, nil
+	return desired, nil
 }
 
 // makeSpec fills Ingress structure with uploader settings.

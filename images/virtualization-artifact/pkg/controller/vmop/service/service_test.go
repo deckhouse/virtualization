@@ -56,7 +56,7 @@ var _ = Describe("BaseVMOPService", func() {
 
 			changed := &v1alpha2.VirtualMachineOperation{}
 			Expect(client.Get(ctx, types.NamespacedName{Name: oldVMOP.Name, Namespace: oldVMOP.Namespace}, changed)).To(Succeed())
-			Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
+			Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhaseSuperseded))
 
 			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, changed.Status.Conditions)
 			Expect(found).To(BeTrue())
@@ -78,7 +78,7 @@ var _ = Describe("BaseVMOPService", func() {
 
 			changed := &v1alpha2.VirtualMachineOperation{}
 			Expect(client.Get(ctx, types.NamespacedName{Name: oldVMOP.Name, Namespace: oldVMOP.Namespace}, changed)).To(Succeed())
-			Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
+			Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhaseSuperseded))
 
 			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, changed.Status.Conditions)
 			Expect(found).To(BeTrue())
@@ -100,7 +100,7 @@ var _ = Describe("BaseVMOPService", func() {
 
 			changed := &v1alpha2.VirtualMachineOperation{}
 			Expect(client.Get(ctx, types.NamespacedName{Name: oldVMOP.Name, Namespace: oldVMOP.Namespace}, changed)).To(Succeed())
-			Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
+			Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhaseSuperseded))
 
 			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, changed.Status.Conditions)
 			Expect(found).To(BeTrue())
@@ -136,7 +136,7 @@ var _ = Describe("BaseVMOPService", func() {
 
 					changed := &v1alpha2.VirtualMachineOperation{}
 					Expect(client.Get(ctx, types.NamespacedName{Name: oldVMOP.Name, Namespace: oldVMOP.Namespace}, changed)).To(Succeed())
-					Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
+					Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhaseSuperseded))
 
 					deletedMigration := &virtv1.VirtualMachineInstanceMigration{}
 					err = client.Get(ctx, types.NamespacedName{Name: migration.Name, Namespace: migration.Namespace}, deletedMigration)

@@ -106,8 +106,8 @@ func (s UploaderService) Start(
 		return err
 	}
 
-	ing, err := uploader.NewIngress(s.getIngressSettings(ownerRef, sup)).Create(ctx, s.client)
-	if err != nil && !k8serrors.IsAlreadyExists(err) {
+	ing, err := uploader.NewIngress(s.getIngressSettings(ownerRef, sup)).Apply(ctx, s.client)
+	if err != nil {
 		return err
 	}
 
@@ -273,6 +273,41 @@ func (s UploaderService) getServiceSettings(ownerRef *metav1.OwnerReference, sup
 		Namespace:      uploaderSvc.Namespace,
 		OwnerReference: *ownerRef,
 	}
+}
+
+// EnsureIngress reconciles the uploader Ingress with server-side apply and
+// returns the fresh object. It is cheap: callers should invoke it only when the
+// already-fetched Ingress host drifted from the configured UPLOADER_INGRESS_HOST
+// (e.g. after publicDomainTemplate change). When there is no drift, skip the call:
+// Apply is a no-op only when managed fields already match, but avoiding the
+// round-trip entirely keeps steady-state reconcile free of extra writes.
+func (s UploaderService) EnsureIngress(ctx context.Context, obj client.Object, sup supplements.Generator) (*netv1.Ingress, error) {
+	ownerRef := metav1.NewControllerRef(obj, obj.GetObjectKind().GroupVersionKind())
+	ing, err := uploader.NewIngress(s.getIngressSettings(ownerRef, sup)).Apply(ctx, s.client)
+	if err != nil {
+		return nil, err
+	}
+	if err := supplements.EnsureForIngress(ctx, s.client, sup, ing, s.dvcrSettings); err != nil {
+		return nil, err
+	}
+	return ing, nil
+}
+
+// ExpectedIngressHost returns the host the uploader Ingress should expose,
+// derived from UPLOADER_INGRESS_HOST (i.e. the rendered publicDomainTemplate).
+func (s UploaderService) ExpectedIngressHost() string {
+	return s.dvcrSettings.UploaderIngressSettings.Host
+}
+
+// IngressHostDrifted reports whether the given Ingress host differs from the
+// configured one. An absent Ingress (nil) or an Ingress without rules is
+// treated as drift so callers fall back to EnsureIngress / Start.
+func (s UploaderService) IngressHostDrifted(ing *netv1.Ingress) bool {
+	expected := s.ExpectedIngressHost()
+	if ing == nil || len(ing.Spec.Rules) == 0 {
+		return true
+	}
+	return ing.Spec.Rules[0].Host != expected
 }
 
 func (s UploaderService) getIngressSettings(ownerRef *metav1.OwnerReference, sup supplements.Generator) *uploader.IngressSettings {

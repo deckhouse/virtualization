@@ -251,7 +251,7 @@ func untilVirtualMachinesWillBeStartMigratingAndCancelImmediately(f *framework.F
 						return err
 					}
 				}
-			case v1alpha2.VMOPPhaseFailed, v1alpha2.VMOPPhaseCompleted:
+			case v1alpha2.VMOPPhaseFailed, v1alpha2.VMOPPhaseCompleted, v1alpha2.VMOPPhaseSuperseded:
 				someCompleted = true
 				return nil
 			}

@@ -101,6 +101,22 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		return reconcile.Result{}, err
 	}
 
+	// Sync the uploader Ingress host before the readiness probe:
+	// IsUploaderReady HTTPS-probes the Ingress host, so a stale host (e.g. after
+	// publicDomainTemplate changed) makes readiness fail with a TLS error.
+	// Initial creation is handled by Start, so skip when the pod is absent.
+	if pod != nil && ds.uploaderService.IngressHostDrifted(ing) {
+		var oldHost string
+		if ing != nil && len(ing.Spec.Rules) > 0 {
+			oldHost = ing.Spec.Rules[0].Host
+		}
+		log.Info("Syncing uploader Ingress: host drifted", "old", oldHost, "new", ds.uploaderService.ExpectedIngressHost())
+		ing, err = ds.uploaderService.EnsureIngress(ctx, cvi, supgen)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
 	isUploaderReady, err := ds.statService.IsUploaderReady(pod, svc, ing, tlsSecret)
 	if err != nil {
 		return reconcile.Result{}, err

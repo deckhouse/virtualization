@@ -245,17 +245,23 @@ func connect(ctx context.Context, ln *net.TCPListener, virtCli kubeclient.Client
 
 	go func() {
 		if proxyOnly {
-			defer close(doneChan)
 			optionString, err := json.Marshal(struct {
 				Port int `json:"port"`
 			}{port})
 			if err != nil {
 				viewResErr <- fmt.Errorf("error encountered: %s", err.Error())
+				return
 			}
 			_, err = fmt.Fprintln(cmd.OutOrStdout(), string(optionString))
 			if err != nil {
 				viewResErr <- fmt.Errorf("error encountered: %s", err.Error())
+				return
 			}
+			// Keep the proxy alive until the context is canceled so VNC clients
+			// can connect to the listener. Closing doneChan here would tear
+			// down the listener immediately after printing the port.
+			<-ctx.Done()
+			close(doneChan)
 		} else {
 			// execute VNC Viewer
 			checkAndRunVNCViewer(ctx, doneChan, viewResErr, port)

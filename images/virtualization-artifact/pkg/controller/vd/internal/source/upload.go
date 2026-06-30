@@ -108,6 +108,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 	).Run(ctx, vd)
 }
 
+
 func (ds UploadDataSource) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
 	supgen := vdsupplements.NewGenerator(vd)
 

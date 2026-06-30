@@ -162,7 +162,8 @@ type VirtualMachineOperationList struct {
 // * `Completed`: The operation has been completed successfully.
 // * `Failed`: The operation failed. For details, refer to the `conditions` field and events.
 // * `Terminating`: The operation is being deleted.
-// +kubebuilder:validation:Enum={Pending,InProgress,Completed,Failed,Terminating}
+// * `Superseded`: The operation has been superseded by another operation.
+// +kubebuilder:validation:Enum={Pending,InProgress,Completed,Failed,Terminating,Superseded}
 type VMOPPhase string
 
 const (
@@ -171,6 +172,7 @@ const (
 	VMOPPhaseCompleted   VMOPPhase = "Completed"
 	VMOPPhaseFailed      VMOPPhase = "Failed"
 	VMOPPhaseTerminating VMOPPhase = "Terminating"
+	VMOPPhaseSuperseded  VMOPPhase = "Superseded"
 )
 
 // Type of the operation to execute on a virtual machine:
