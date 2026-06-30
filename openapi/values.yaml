@@ -143,6 +143,8 @@ properties:
             type: integer
           inboundMigrationLimit:
             type: string
+          outboundMigrationLimit:
+            type: string
           progressTimeout:
             type: integer
           disableTLS:

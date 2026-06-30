@@ -284,4 +284,30 @@ var _ = Describe("MigrationConfig", func() {
 		Expect(setValues).To(HaveLen(1))
 		Expect(setValues).To(HaveKeyWithValue(parallelOutboundMigrationsPerNodeValuesPath, 5))
 	})
+
+	It("Should set inbound and outbound migration limits to disabled", func() {
+		setSnapshots(newSnapshot(map[string]string{
+			inboundMigrationLimitAnnotation:  "disabled",
+			outboundMigrationLimitAnnotation: "disabled",
+		}))
+
+		values.GetMock.Set(func(path string) gjson.Result {
+			switch path {
+			case inboundMigrationLimitValuesPath, outboundMigrationLimitValuesPath:
+				return gjson.Result{Type: gjson.String, Str: ""}
+			default:
+				return gjson.Result{}
+			}
+		})
+
+		setValues := map[string]any{}
+		values.SetMock.Set(func(path string, v any) {
+			setValues[path] = v
+		})
+
+		Expect(reconcile(context.Background(), newInput())).To(Succeed())
+
+		Expect(setValues).To(HaveKeyWithValue(inboundMigrationLimitValuesPath, "disabled"))
+		Expect(setValues).To(HaveKeyWithValue(outboundMigrationLimitValuesPath, "disabled"))
+	})
 })
