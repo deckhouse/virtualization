@@ -290,8 +290,6 @@ shell:
     LIBS+=" /usr/lib64/libxml2.s* /usr/lib64/libgcc_s* /usr/lib64/libaudit*"
     LIBS+=" /usr/lib64/libisoburn.s* /usr/lib64/libacl.s*"
     LIBS+=" /usr/lib64/libusb-*"
-    # QEMU dynamically-loaded modules (lib64/qemu/*.so)
-    LIBS+=" /usr/lib64/qemu/*.so"
 
     echo "Relocate additional libs for files in /VBINS"
     ./relocate_binaries.sh -i "$FILES" -o /VBINS
@@ -299,7 +297,9 @@ shell:
     echo "Relocate additional libs to /VBINS"
     ./relocate_binaries.sh -i "$LIBS" -o /VBINS
 
-    # QEMU firmware / bios / keymaps (not binaries, copy as-is)
+    # QEMU dynamically-loaded modules (dlopen, not visible to ldd) and
+    # firmware / bios / keymaps (not binaries) — copy as-is.
+    cp -a /VBINS/usr/lib64/qemu /relocate/usr/lib64/ 2>/dev/null || true
     cp -a /VBINS/usr/share/qemu /relocate/usr/share/ 2>/dev/null || true
 
     cp -a /VBINS/. /relocate
