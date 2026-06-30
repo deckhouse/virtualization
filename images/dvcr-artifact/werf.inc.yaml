@@ -87,6 +87,7 @@ packages:
 - gcc ubdsrv liburing
 - libaio libaudit libcap-ng numactl
 - linux-pam libunistring glib2
+- rsync
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -116,11 +117,13 @@ shell:
   - |
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
-    PKGS+=" qemu-img"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
+
+    rsync -avul --force --keep-dirlinks /qemu-img/ /
+    rm -rf /qemu-img
 
   setup:
   - |

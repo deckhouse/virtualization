@@ -38,6 +38,7 @@ packages:
 - gcc ubdsrv liburing
 - libaio libaudit libcap-ng numactl
 - linux-pam zstd
+- rsync
 {{- end -}}
 
 {{ $cdiImporterDependencies := include "cdi-importer-deps" . | fromYaml }}
@@ -72,11 +73,13 @@ shell:
   - |
     echo "Install packages"
     PKGS="{{ $cdiImporterDependencies.packages | join " " }}"
-    PKGS+=" qemu-img"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
+
+    rsync -avul --force --keep-dirlinks /qemu-img/ /
+    rm -rf /qemu-img
   setup:
   - |
     /relocate_binaries.sh -i "{{ $cdiImporterDependencies.binaries | join " " }}" -o /relocate
