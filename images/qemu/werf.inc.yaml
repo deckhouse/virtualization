@@ -4,4 +4,5 @@ final: false
 fromImage: builder/distroless
 shell:
   install:
-    - pm install -1 qemu -d /qemu-img
+    - pm install qemu -d /qemu-img
+    - pm install ncurses -d /qemu-img
