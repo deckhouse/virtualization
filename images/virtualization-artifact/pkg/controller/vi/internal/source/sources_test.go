@@ -242,7 +242,7 @@ var _ = Describe("Sources helpers", func() {
 			Expect(cb.Condition().Reason).To(Equal(expectedReason))
 			Expect(cb.Condition().Message).To(Equal(expectedMessage))
 		},
-		Entry("waits for pvc importer creation when dv is absent", nil, nil, v1alpha2.ImageProvisioning, metav1.ConditionFalse, vicondition.Provisioning.String(), "Waiting for the pvc importer to be created", nil),
+		Entry("waits for pvc importer creation when dv is absent", nil, nil, v1alpha2.ImageProvisioning, metav1.ConditionFalse, vicondition.Provisioning.String(), "Preparing to provision the disk storage.", nil),
 		Entry("reports provisioning in progress", &cdiv1.DataVolume{}, nil, v1alpha2.ImageProvisioning, metav1.ConditionFalse, vicondition.Provisioning.String(), "Import is in the process of provisioning to PVC.", nil),
 		Entry("handles data volume not running", &cdiv1.DataVolume{}, service.ErrDataVolumeNotRunning, v1alpha2.ImageProvisioning, metav1.ConditionFalse, vicondition.ProvisioningFailed.String(), "Pvc importer is not running", nil),
 		Entry("handles missing default storage class", &cdiv1.DataVolume{}, service.ErrDefaultStorageClassNotFound, v1alpha2.ImagePending, metav1.ConditionFalse, vicondition.ProvisioningFailed.String(), "Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass.", nil),

@@ -166,7 +166,7 @@ var _ = Describe("CreateBounderPodStep", func() {
 			0,
 			v1alpha2.ImagePhase(""),
 			vicondition.Provisioning.String(),
-			"Bounder pod has created: waiting to be Bound.",
+			"Waiting for the disk storage to be Bound.",
 			time.Duration(0),
 		),
 		Entry("handles quota exceeded error",

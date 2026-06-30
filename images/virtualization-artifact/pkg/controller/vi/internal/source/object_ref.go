@@ -185,7 +185,7 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.Virtu
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vicondition.ProvisioningFailed).
-				Message("Failed to get stats from non-ready datasource: waiting for the DataSource to be ready.")
+				Message("Waiting for the source DataSource to become ready.")
 			return reconcile.Result{}, nil
 		}
 
@@ -224,7 +224,7 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.Virtu
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("PVC Provisioner not found: create the new one.")
+			Message("Preparing the disk storage for the image.")
 
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case dvQuotaNotExceededCondition != nil && dvQuotaNotExceededCondition.Status == corev1.ConditionFalse:
@@ -397,7 +397,7 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virt
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("DVCR Provisioner not found: create the new one.")
+			Message("Importing the image.")
 
 		log.Info("Ready", "progress", vi.Status.Progress, "pod.phase", "nil")
 
@@ -429,7 +429,7 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virt
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vicondition.ProvisioningFailed).
-				Message("Failed to get stats from non-ready datasource: waiting for the DataSource to be ready.")
+				Message("Waiting for the source DataSource to become ready.")
 			return reconcile.Result{}, nil
 		}
 
@@ -455,7 +455,7 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virt
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("Import is in the process of provisioning to DVCR.")
+			Message("The image is being imported.")
 
 		vi.Status.Phase = v1alpha2.ImageProvisioning
 		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)

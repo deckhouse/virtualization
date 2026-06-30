@@ -156,7 +156,7 @@ func setPhaseConditionForPVCProvisioningImage(
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vicondition.Provisioning).
-				Message("Waiting for the pvc importer to be created")
+				Message("Preparing to provision the disk storage.")
 			return nil
 		}
 
