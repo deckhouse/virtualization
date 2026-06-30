@@ -141,7 +141,7 @@ shell:
     PKGS="{{ $builderDependencies.packages | join " " }}"
     PKGS+=" qemu-img"
     for pkg in $PKGS; do
-      rsync -avul --keep-dirlinks /$pkg/ /
+      rsync -avul --force --keep-dirlinks /$pkg/ /
       rm -rf /$pkg
     done
 
