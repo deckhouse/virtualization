@@ -67,69 +67,29 @@ shell:
 ---
 {{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
-binaries:
-- /usr/local/bin/dvcr-importer
-- /usr/sbin/nbd*
-- /usr/lib64/nbdkit/filters/*.so
-- /usr/lib64/nbdkit/plugins/*.so
-- /usr/bin/file
-- /usr/share/misc/magic.mgc
-- /usr/local/bin/dvcr-uploader
-- /usr/local/bin/dvcr-cleaner
-- /usr/bin/qemu-img
-- /usr/bin/qemu-nbd
-- /usr/lib64/libnbd.s*
 packages:
-- bzip2 file nbdkit libnbd xz libxml2
+- bzip2 file xz libxml2
 - libseccomp zlib zstd
-- libffi libgmp gnutls nettle libidn2
-- p11-kit libtasn1 libfuse3
-- gcc ubdsrv liburing
-- libaio libaudit libcap-ng numactl
-- linux-pam libunistring glib2
+- libffi gmp gnutls nettle libidn2
+- p11-kit libtasn1 libfuse
+- liburing libaio libaudit libcap-ng numactl
+- libunistring glib2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
-fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
+fromImage: builder/distroless
 import:
-- image: tools/util-linux
-  add: /
-  to: /relocate/usr
-  after: setup
-  includePaths:
-  - bin/mount
-  - bin/umount
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
   add: /out
-  to: /usr/local/bin
-  before: setup
-{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
+  to: /relocate/usr/local/bin
+  before: install
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
-  to: /qemu-img
-  before: install
-- image: {{ .ModuleNamePrefix }}rsync
-  add: /rsync
-  to: /rsync-bin
+  to: /relocate
   before: install
 shell:
   install:
-  - |
-    # Install packages
-    PKGS="{{ $builderDependencies.packages | join " " }}"
-    for pkg in $PKGS; do
-      cp -a /$pkg/. /
-      rm -rf /$pkg
-    done
-
-    cp -a /rsync-bin/. /
-    rm -rf /rsync-bin
-    rsync -avul --force --keep-dirlinks /qemu-img/ /
-    rm -rf /qemu-img
-
-  setup:
-  - |
-    /relocate_binaries.sh -i "{{ $builderDependencies.binaries | join " " }}" -o /relocate
+  - pm install {{ $builderDependencies.packages | join " " }} -d /relocate
