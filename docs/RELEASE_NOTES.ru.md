@@ -3,6 +3,18 @@ title: "Релизы"
 weight: 70
 ---
 
+## v1.9.2
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 1 июля 2026.
+</span>
+
+### Исправления
+
+- [vm] Исправлено снижение скорости живой миграции работающих виртуальных машин по сравнению с v1.8.3.
+- [dvcr] Исправлена низкая скорость импорта и загрузки образов в DVCR.
+- [usb] Исправлены повторяющиеся сбои Bashible на узлах Debian при установке модулей ядра USB/IP (ошибка `Unable to locate package`).
+- [observability] Исправлена потеря событий аудита и ложные срабатывания алерта `D8LogShipperDestinationErrors` при ротации сертификатов пода `virtualization-audit`.
+
 ## v1.9.1
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Дата релиза: 24 июня 2026.
