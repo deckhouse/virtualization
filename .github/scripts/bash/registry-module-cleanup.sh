@@ -47,16 +47,16 @@ tag_created_epoch() {
     | jq -r '.created | sub("\\.[0-9]+";"") | sub("Z?$";"Z") | fromdateiso8601'
 }
 
-# Returns 0 if the tag is expired and should be deleted.
-# Protected tags (release channels, stable vX.Y.Z, main) never match.
-is_expired_tag() {
+# Echoes the expiry threshold epoch for a cleanup-candidate tag, or returns 1
+# for protected tags (release channels, stable vX.Y.Z, main). Name-only, no
+# network — lets the caller skip the crane config call for protected tags.
+tag_threshold_epoch() {
   local tag="$1"
-  local created_epoch="$2"
 
   if [[ "${tag}" =~ ^pr[0-9]+$ || "${tag}" =~ ^release-[0-9]+\.[0-9]+ ]]; then
-    [ "${created_epoch}" -lt "${pr_threshold_epoch}" ]
+    echo "${pr_threshold_epoch}"
   elif [[ "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]]; then
-    [ "${created_epoch}" -lt "${rc_threshold_epoch}" ]
+    echo "${rc_threshold_epoch}"
   else
     return 1
   fi
@@ -78,11 +78,14 @@ delete_tag() {
 }
 
 cleanup_repo() {
-  local tag created_epoch
+  local tag threshold_epoch created_epoch
   local deleted=0 kept=0 failed=0
 
   while read -r tag; do
     [ -z "${tag}" ] && continue
+
+    # Filter by name first: protected tags never reach the crane config call.
+    threshold_epoch="$(tag_threshold_epoch "${tag}")" || { kept=$((kept + 1)); continue; }
 
     created_epoch="$(tag_created_epoch "${tag}" 2>/dev/null)" || created_epoch=""
     if [ -z "${created_epoch}" ]; then
@@ -91,7 +94,7 @@ cleanup_repo() {
       continue
     fi
 
-    if is_expired_tag "${tag}" "${created_epoch}"; then
+    if [ "${created_epoch}" -lt "${threshold_epoch}" ]; then
       if delete_tag "${tag}"; then
         deleted=$((deleted + 1))
       else
