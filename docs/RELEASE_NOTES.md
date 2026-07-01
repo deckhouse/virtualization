@@ -3,6 +3,17 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.9.2
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: July 1, 2026.
+</span>
+
+### Fixes
+
+- [vm] Fixed reduced throughput during live migration of running VMs compared to v1.8.3.
+- [dvcr] Fixed slow import and upload of images to DVCR when network bandwidth was not the bottleneck.
+- [observability] Fixed loss of audit events and false `D8LogShipperDestinationErrors` alerts during certificate rotation of the `virtualization-audit` pod.
+
 ## v1.9.1
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: June 24, 2026.
