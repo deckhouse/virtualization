@@ -86,6 +86,8 @@ if [[ ! -d schemas ]]; then
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/4a9b5fc21f29c4310e3739508a066dd43a87d681/modules/460-log-shipper/crds/cluster-log-destination.yaml
   echo " Descheduler"
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/400-descheduler/crds/deschedulers.yaml
+  echo " CiliumClusterwideNetworkPolicy"
+  curl -LOs https://raw.githubusercontent.com/cilium/cilium/main/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumclusterwidenetworkpolicies.yaml
 
   # Transform CRDs to JSON schemas.
   export FILENAME_FORMAT='{kind}-{group}-{version}'
@@ -108,6 +110,17 @@ if [[ ! -d schemas ]]; then
   # Any field present in the Custom Resource (CR) that isn’t defined in the schema—such as metadata.labels—will cause validation to fail.
   find -iname "descheduler-deckhouse-*.json" | while read f ; do jq '(.properties.metadata) |= {type: "object"}' "$f" > tmp.json && mv tmp.json "$f" ; done
 
+  cd ..
+fi
+
+if [[ ! -f schemas/ciliumclusterwidenetworkpolicy-cilium-v2.json ]]; then
+  cd schemas
+  echo Download Cilium CRDs ...
+  echo " CiliumClusterwideNetworkPolicy"
+  curl -LOs https://raw.githubusercontent.com/cilium/cilium/main/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumclusterwidenetworkpolicies.yaml
+  export FILENAME_FORMAT='{kind}-{group}-{version}'
+  echo Transform Cilium CRDs ...
+  ../kubeconform.git/scripts/openapi2jsonschema.py ciliumclusterwidenetworkpolicies.yaml
   cd ..
 fi
 
