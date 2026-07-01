@@ -99,6 +99,12 @@ const (
 	// ReasonVISpecHasBeenChanged is event reason that spec of virtual image has been changed.
 	ReasonVISpecHasBeenChanged = "VirtualImageSpecHasBeenChanged"
 
+	// ReasonVIImageLostRecovering is event reason that a lost virtual image is being recovered by restarting the import.
+	ReasonVIImageLostRecovering = "VirtualImageLostRecovering"
+
+	// ReasonCVIImageLostRecovering is event reason that a lost cluster virtual image is being recovered by restarting the import.
+	ReasonCVIImageLostRecovering = "ClusterVirtualImageLostRecovering"
+
 	// ReasonVDContainerRegistrySecretNotFound is event reason that VDContainerRegistrySecret not found.
 	ReasonVDContainerRegistrySecretNotFound = "VirtualDiskContainerRegistrySecretNotFound"
 

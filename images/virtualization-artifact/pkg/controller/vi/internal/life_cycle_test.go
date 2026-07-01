@@ -221,7 +221,58 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			},
 		),
 	)
+	DescribeTable(
+		"Recovery from ImageLost restarts import only for recoverable sources",
+		func(args imageLostRecoveryTestArgs) {
+			var sourcesMock SourcesMock
+			cleanUpCalled := false
+			vi := v1alpha2.VirtualImage{
+				Spec: v1alpha2.VirtualImageSpec{
+					DataSource: v1alpha2.VirtualImageDataSource{Type: args.SourceType},
+				},
+				Status: v1alpha2.VirtualImageStatus{Phase: v1alpha2.ImageLost},
+			}
+
+			sourcesMock.CleanUpFunc = func(_ context.Context, _ *v1alpha2.VirtualImage) (bool, error) {
+				cleanUpCalled = true
+				return false, nil
+			}
+
+			recorder := &eventrecord.EventRecorderLoggerMock{
+				EventFunc: func(_ client.Object, _, _, _ string) {},
+			}
+
+			handler := NewLifeCycleHandler(recorder, &sourcesMock, nil)
+
+			_, _ = handler.Handle(context.TODO(), &vi)
+
+			Expect(cleanUpCalled).To(Equal(args.ExpectRecovery))
+			Expect(vi.Status.Phase).To(Equal(args.ExpectPhase))
+		},
+		Entry(
+			"HTTP source is recovered",
+			imageLostRecoveryTestArgs{
+				SourceType:     v1alpha2.DataSourceTypeHTTP,
+				ExpectRecovery: true,
+				ExpectPhase:    v1alpha2.ImagePending,
+			},
+		),
+		Entry(
+			"Upload source stays lost",
+			imageLostRecoveryTestArgs{
+				SourceType:     v1alpha2.DataSourceTypeUpload,
+				ExpectRecovery: false,
+				ExpectPhase:    v1alpha2.ImageLost,
+			},
+		),
+	)
 })
+
+type imageLostRecoveryTestArgs struct {
+	SourceType     v1alpha2.DataSourceType
+	ExpectRecovery bool
+	ExpectPhase    v1alpha2.ImagePhase
+}
 
 type cleanupAfterSpecChangeTestArgs struct {
 	ReadyCondition metav1.Condition
