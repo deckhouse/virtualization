@@ -1,0 +1,52 @@
+# Copyright 2026 Flant JSC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Manual / scheduled helper jobs that don't fit elsewhere.
+#
+# Currently:
+#   - mrs:summary  : post a Loop summary of open MRs (GitLab counterpart of
+#                    .github/workflows/dev_prs-summary.yml / .github/scripts/prs_notifier.mjs).
+#
+# GitHub slash-command dispatch
+# (/.github/workflows/dispatch-slash-command.yml) is removed and replaced
+# with manual pipelines. The two manual jobs in this file are the closest
+# equivalents. There is no automated webhook listener, and this is an
+# accepted permanent gap (no webhook-listener will be built).
+
+# Variables for "Run pipeline" UI:
+#   LOOP_WEBHOOK_URL     (required)  Loop incoming webhook URL.
+#   DOC_REVIEWER         (optional)  GitLab username of doc reviewer.
+#   MANAGER_LOOP_NAME    (optional)  @firstname.lastname of the manager.
+
+mrs:summary:
+  stage: notify
+  tags:
+    - deckhouse
+  before_script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh node npm
+    - corepack enable || true
+    - cd .gitlab/scripts/js
+    - npm ci --omit=dev || npm install --omit=dev
+  script:
+    - node mrs_notifier.mjs
+  rules:
+    # Manual trigger from "Run pipeline" UI.
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+    # Scheduled daily run (e.g. 10:00 Moscow time — configure in
+    # Settings -> CI/CD -> Schedules), under the dedicated mrs-summary
+    # pipeline schedule ($SCHEDULE_TYPE == "mrs-summary").
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "mrs-summary"
+      when: manual
+      allow_failure: true

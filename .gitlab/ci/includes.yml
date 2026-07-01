@@ -1,0 +1,114 @@
+# Top-level include fan-out for the deckhouse/virtualization GitLab pipeline.
+#
+# Order is significant: stages/variables/defaults must be loaded before any
+# job file because GitLab CI merges variables and stages across all included
+# documents. The Setup template from modules-gitlab-ci provides its own
+# stages: [build, deploy]; we explicitly extend stages via .gitlab/ci/stages.yml
+# so the final list is the union of both.
+#
+# Upstream template names (verified in
+# deckhouse/3p/deckhouse/modules-gitlab-ci, branch v13.0, HEAD 006d51c):
+#   - Setup.gitlab-ci.yml           (trdl + werf + ci-env + dual-registry login)
+#   - Build.gitlab-ci.yml           (extends .build — werf build + bundle copy +
+#                                   release-channel copy + module registration)
+#   - Deploy.gitlab-ci.yml          (extends .deploy — release-channel crane copy)
+#   - CVE_Scan.gitlab-ci.yml        (extends .cve_scan — Trivy scan via Vault)
+#   - gitleaks.gitlab-ci.yml        (extends .gitleaks_scan — secrets scanning)
+#   - Go_Checks.gitlab-ci.yml       (Go lint/test helpers)
+#   - Translate_Changelog.gitlab-ci.yml (CHANGELOG/*.ru.yml -> EN MR)
+#   - Merge_Release.gitlab-ci.yml   (release-label driven merge+tag+release)
+#   - Svace_Analayze.gitlab-ci.yml  (note: typo in upstream file name)
+#   - Antivirus_Scan.gitlab-ci.yml  (antivirus scan over recent releases)
+#   - Semgrep.gitlab-ci.yml         (semgrep SAST)
+#
+# We only include the templates whose behavior is consumed by jobs owned by
+# this issue (Setup, Build, Deploy). The remaining upstream templates are
+# surfaced here for visibility — child issues that own cve-scan.yml,
+# gitleaks.yml, etc. add the matching `include: local:` entries for the
+# corresponding job files.
+
+include:
+  # --- Upstream modules-gitlab-ci (deckhouse/3p, ref v13.0) ---
+  # Tracks the v13.0 branch so upstream fixes flow in automatically. To pin for
+  # reproducibility, swap the ref for the branch HEAD SHA
+  # (006d51c35904b434eca2045a449aafb5e37a8827 at the time of writing).
+  - project: "deckhouse/3p/deckhouse/modules-gitlab-ci"
+    ref: "v13.0"
+    file:
+      # Setup.gitlab-ci.yml provides trdl + werf setup + dual-registry
+      # `werf cr login` in before_script. See templates/Setup.gitlab-ci.yml.
+      - "/templates/Setup.gitlab-ci.yml"
+      # Validation/scanning jobs extend these upstream templates.
+      - "/templates/CVE_Scan.gitlab-ci.yml"
+      - "/templates/gitleaks.gitlab-ci.yml"
+      - "/templates/Svace_Analayze.gitlab-ci.yml"
+      # Build.gitlab-ci.yml and Deploy.gitlab-ci.yml are intentionally NOT
+      # included directly. Their hidden jobs (.build, .deploy) ship with
+      # `rules:` baked in (`if: $CI_COMMIT_BRANCH`, `if: $CI_COMMIT_TAG`,
+      # `when: manual`) that override our strict gating via
+      # .dev / .dev_tags / .main / .prod_manual. We mirror the upstream
+      # script bodies in .gitlab/ci/templates/base/{build,deploy}.yml as
+      # `.base_build` and `.base_deploy` and extend those instead.
+
+  # --- Local structural fragments (order: stages, vars, defaults, then jobs) ---
+  - local: ".gitlab/ci/stages.yml"
+  - local: ".gitlab/ci/variables.yml"
+  - local: ".gitlab/ci/defaults.yml"
+  - local: ".gitlab/ci/workflow.yml"
+
+  # --- Local shared templates (extends: ...) ---
+  # templates/ is grouped by the two global processes plus shared base:
+  #   base/    - process-agnostic base job bodies + helpers
+  #   dev/     - development process (DEV registry): MR / main / release / dev-tag
+  #   release/ - release process (PROD registry): tag-push + manual dispatch
+  # Anchor names are unchanged (.base_build, .dev, .prod_vars, ...), so no job
+  # `extends:` edits are needed.
+  # Registry-login helpers must load before dev_vars/prod_vars, which extend
+  # them (.login_dev_registry / .login_prod_registry).
+  - local: ".gitlab/ci/templates/base/registry-login.yml"
+  - local: ".gitlab/ci/templates/dev/dev_vars.yml"
+  - local: ".gitlab/ci/templates/release/prod_vars.yml"
+  - local: ".gitlab/ci/templates/dev/dev.yml"
+  - local: ".gitlab/ci/templates/dev/dev_tags.yml"
+  - local: ".gitlab/ci/templates/dev/main.yml"
+  - local: ".gitlab/ci/templates/dev/release.yml"
+  - local: ".gitlab/ci/templates/release/prod_tag.yml"
+  - local: ".gitlab/ci/templates/base/info.yml"
+  - local: ".gitlab/ci/templates/base/build.yml"
+  - local: ".gitlab/ci/templates/base/deploy.yml"
+
+  # --- Local job files owned by this issue ---
+  - local: ".gitlab/ci/jobs/info.yml"
+  - local: ".gitlab/ci/jobs/test.yml"
+  - local: ".gitlab/ci/jobs/test-scripts-js.yml"
+  - local: ".gitlab/ci/jobs/test-scripts-python.yml"
+  - local: ".gitlab/ci/jobs/test-d8v-cli.yml"
+  - local: ".gitlab/ci/jobs/build-dev.yml"
+  - local: ".gitlab/ci/jobs/build-prod.yml"
+  # No deploy-dev.yml: the DEV registry has no release channels (only tags),
+  # so a dev tag is just built (build_dev_tags) and never crane-copied into
+  # alpha/beta/... The GitHub "Deploy Dev" workflow
+  # (dev_module_build-and-registration.yml) is build-only as well.
+  - local: ".gitlab/ci/jobs/deploy-prod.yml"
+  # Prod release-channels parity flow (manual single-channel dispatch):
+  # requirements check, build/deploy per edition, version verification,
+  # GitLab release creation, Loop notification.
+  - local: ".gitlab/ci/jobs/release-channels.yml"
+  - local: ".gitlab/ci/jobs/cleanup.yml"
+
+  # --- Local validation and scanning jobs ---
+  - local: ".gitlab/ci/jobs/lint-dmt.yml"
+  - local: ".gitlab/ci/jobs/lint-validate.yml"
+  - local: ".gitlab/ci/jobs/precache.yml"
+  - local: ".gitlab/ci/jobs/svace.yml"
+  - local: ".gitlab/ci/jobs/cve-scan.yml"
+  - local: ".gitlab/ci/jobs/gitleaks.yml"
+
+  # --- Local GitLab API automation, changelog, backport, and manual tools ---
+  - local: ".gitlab/ci/jobs/auto-assign-author.yml"
+  - local: ".gitlab/ci/jobs/backport.yml"
+  - local: ".gitlab/ci/jobs/changelog.yml"
+  - local: ".gitlab/ci/jobs/check-changelog.yml"
+  - local: ".gitlab/ci/jobs/check-milestone.yml"
+  - local: ".gitlab/ci/jobs/manual-tools.yml"
+  - local: ".gitlab/ci/jobs/translate-changelog.yml"

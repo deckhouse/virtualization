@@ -1,0 +1,72 @@
+# Base build template (.base_build).
+#
+# Naming: this is the BASE werf-build job body that other build jobs extend
+# (build_dev / build_main / build_prod / prod:build:* / precache / svace).
+# It was previously named `.local_build`; renamed to `.base_build` because
+# "local" was uninformative and collided conceptually with `include: local:`.
+# "base" states the intent: a base template meant to be extended.
+#
+# This template mirrors the upstream modules-gitlab-ci Build.gitlab-ci.yml
+# `.build` body verbatim (verified against
+# deckhouse/3p/deckhouse/modules-gitlab-ci
+# templates/Build.gitlab-ci.yml, branch v13.0, HEAD 006d51c).
+#
+# Why a local copy instead of `extends: .build`:
+#
+#   Upstream `.build` carries two `rules:` that fire on ANY branch or tag
+#   push (`if: $CI_COMMIT_BRANCH`, `if: $CI_COMMIT_TAG`). GitLab CI merges
+#   rules from all `extends:` parents with the parent's rules evaluated
+#   first, so the upstream rules always win. That regresses behavior for
+#   jobs like build_dev_tags, build_main, build_prod which need to gate on
+#   specific branch / tag patterns provided by .dev / .dev_tags / .main /
+#   .prod_always.
+#
+#   By keeping the upstream body in a base template `.base_build` we keep
+#   the same script (so future upstream fixes can be copy-pasted here)
+#   while our job-level rules from .dev / .main / .prod_always / etc.
+#   drive the gating.
+#
+# Required variables (documented in variables.yml + upstream Setup):
+#   MODULES_MODULE_SOURCE, MODULES_MODULE_NAME, MODULES_MODULE_TAG,
+#   WERF_REPO, SVACE_ENABLED (optional).
+#
+# TODO: after the upstream modules-gitlab-ci repo lands a way to pass
+# `rules:` overrides through extends (tracked in upstream issues), revisit
+# this template and switch back to `extends: .build`.
+
+.base_build:
+  stage: build
+  script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh werf jq crane
+    # Use gitlab ci job token
+    - |
+      SOURCE_REPO=${SOURCE_REPO#git@}
+      SOURCE_REPO=${SOURCE_REPO//://}
+      export SOURCE_REPO=https://gitlab-ci-token:${CI_JOB_TOKEN}@${SOURCE_REPO}
+
+    # Build images
+    - |
+      werf build \
+        --save-build-report --build-report-path images_tags_werf.json
+
+    # Bundle image
+    - |
+      IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
+      IMAGE_DST="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json):${MODULES_MODULE_TAG}"
+
+      echo "✨ Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
+      crane copy ${IMAGE_SRC} ${IMAGE_DST}
+    # Release-channel image
+    - |
+      IMAGE_SRC="$(jq -r '.Images."release-channel-version".DockerImageName' images_tags_werf.json)"
+      IMAGE_DST="$(jq -r '.Images."release-channel-version".DockerRepo' images_tags_werf.json)/release:${MODULES_MODULE_TAG}"
+
+      echo "✨ Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
+      crane copy ${IMAGE_SRC} ${IMAGE_DST}
+    # Register module
+    - |
+      echo "✨ Register the module ${MODULES_MODULE_NAME}"
+      crane append \
+        --oci-empty-base \
+        --new_layer "" \
+        --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"

@@ -1,0 +1,16 @@
+# DEV pipeline context: main-branch builds.
+#
+# Uses the `main` tag, matching GitHub dev_module_build.yml `set_vars`
+# (MODULES_MODULE_TAG = github.ref_name = "main" for the default branch,
+# see .github/workflows/dev_module_build.yml:121-122). Every main push
+# overwrites this tag in the DEV registry, producing a single rolling slot.
+
+.main:
+  variables:
+    MODULES_MODULE_TAG: main
+  extends:
+    - .dev_vars
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: always
+    - when: never
