@@ -1176,7 +1176,8 @@ func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state
 		return nil, fmt.Errorf("failed to serialize network spec: %w", err)
 	}
 
-	if pod.Annotations[annotations.AnnNetworksSpec] == networkConfigStr {
+	if pod.Annotations[annotations.AnnNetworksSpec] == networkConfigStr &&
+		pod.Annotations[annotations.AnnTapProvisionByDVPSupported] == "true" {
 		return desired, nil
 	}
 
@@ -1185,6 +1186,7 @@ func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state
 		pod.Annotations = make(map[string]string)
 	}
 	pod.Annotations[annotations.AnnNetworksSpec] = networkConfigStr
+	pod.Annotations[annotations.AnnTapProvisionByDVPSupported] = "true"
 	if err := h.client.Patch(ctx, pod, patch); err != nil {
 		return nil, fmt.Errorf("failed to patch pod %s network annotation: %w", pod.Name, err)
 	}

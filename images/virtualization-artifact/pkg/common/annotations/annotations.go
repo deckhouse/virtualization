@@ -209,6 +209,8 @@ const (
 	AnnNetworksSpec = "network.deckhouse.io/networks-spec"
 	// AnnNetworksStatus is the annotation for view current network configuration into Pod.
 	AnnNetworksStatus = "network.deckhouse.io/networks-status"
+	// AnnTapProvisionByDVPSupported is the annotation that indicates DVP supports TAP provision for the Pod.
+	AnnTapProvisionByDVPSupported = "network.deckhouse.io/tap-provision-by-dvp-supported"
 
 	// AnnVirtualDiskOriginalAnnotations is the annotation for storing original VirtualDisk annotations.
 	AnnVirtualDiskOriginalAnnotations = AnnAPIGroupV + "/vd-original-annotations"
