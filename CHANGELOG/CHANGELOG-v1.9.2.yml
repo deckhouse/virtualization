@@ -1,0 +1,21 @@
+core:
+  fixes:
+    - summary: Fixed reduced throughput during live migration of running VMs compared to v1.8.3.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2541
+module:
+  fixes:
+    - summary: >-
+        Fixed slow import and upload of images to DVCR when network bandwidth was not the
+        bottleneck.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2552
+    - summary: >-
+        Detect xz-compressed USB/IP kernel modules on Debian and avoid installing Ubuntu-specific
+        kernel module packages.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2544
+observability:
+  fixes:
+    - summary: >-
+        Fixed loss of audit events and false `D8LogShipperDestinationErrors` alerts during
+        certificate rotation of the `virtualization-audit` pod.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2551
+
