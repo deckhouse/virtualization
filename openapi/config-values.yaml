@@ -13,7 +13,7 @@ properties:
     type: array
     minItems: 1
     description: |
-      List of CIDRs used to allocate static IP addresses for Virtual Machines.
+      Subnets for automatic VM IP allocation. Specify the subnet start address aligned to the mask, not an arbitrary IP from the range (for example, `192.168.1.192/27`, not `192.168.1.190/27`).
 
       > **Warning.** The subnet for virtual machines should not be the same as the subnet used for pods, services and nodes. Address conflicts can lead to unpredictable behavior and networking problems.
       >
