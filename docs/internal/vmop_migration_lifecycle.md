@@ -60,7 +60,6 @@ Fixed progress values:
 | Reason | Progress |
 |---|---:|
 | `MigrationPending` | `0%` |
-| `DisksPreparing` | `1%` |
 | `TargetScheduling` | `2%` |
 | `TargetUnschedulable` | `2%` |
 | `TargetPreparing` | `3%` |
@@ -218,7 +217,7 @@ Important messages:
 |---|---|
 | `MigrationPending` | `Migration is awaiting start.` |
 | `TargetScheduling` | `Migration is in progress: target pod is being scheduled.` |
-| `MigrationPrepareTarget`, `TargetPreparing`, `DisksPreparing` | `Migration is in progress: target pod is being scheduled and prepared.` |
+| `MigrationPrepareTarget`, `TargetPreparing` | `Migration is in progress: target pod is being scheduled and prepared.` |
 | `MigrationTargetReady`, `Syncing`, `SourceSuspended`, `TargetResumed` | `Migration is in progress: source and target are being synchronized.` |
 
 ## Practical examples

@@ -139,6 +139,12 @@ properties:
             type: integer
           parallelOutboundMigrationsPerNode:
             type: integer
+          parallelInboundMigrationsPerNode:
+            type: integer
+          inboundMigrationLimit:
+            type: string
+          outboundMigrationLimit:
+            type: string
           progressTimeout:
             type: integer
           disableTLS:

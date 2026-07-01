@@ -36,6 +36,9 @@ const (
 	bandwidthPerMigrationAnnotation             = "virtualization.deckhouse.io/bandwidth-per-migration"
 	completionTimeoutPerGiBAnnotation           = "virtualization.deckhouse.io/completion-timeout-per-gib"
 	parallelOutboundMigrationsPerNodeAnnotation = "virtualization.deckhouse.io/parallel-outbound-migrations-per-node"
+	parallelInboundMigrationsPerNodeAnnotation  = "virtualization.deckhouse.io/parallel-inbound-migrations-per-node"
+	inboundMigrationLimitAnnotation             = "virtualization.deckhouse.io/inbound-migration-limit"
+	outboundMigrationLimitAnnotation            = "virtualization.deckhouse.io/outbound-migration-limit"
 	progressTimeoutAnnotation                   = "virtualization.deckhouse.io/progress-timeout"
 	disableTLSAnnotation                        = "virtualization.deckhouse.io/disable-tls"
 	disableFirmwareUpdateAnnotation             = "virtualization.deckhouse.io/disable-firmware-update"
@@ -43,6 +46,9 @@ const (
 	bandwidthPerMigrationValuesPath             = "virtualization.internal.virtConfig.bandwidthPerMigration"
 	completionTimeoutPerGiBValuesPath           = "virtualization.internal.virtConfig.completionTimeoutPerGiB"
 	parallelOutboundMigrationsPerNodeValuesPath = "virtualization.internal.virtConfig.parallelOutboundMigrationsPerNode"
+	parallelInboundMigrationsPerNodeValuesPath  = "virtualization.internal.virtConfig.parallelInboundMigrationsPerNode"
+	inboundMigrationLimitValuesPath             = "virtualization.internal.virtConfig.inboundMigrationLimit"
+	outboundMigrationLimitValuesPath            = "virtualization.internal.virtConfig.outboundMigrationLimit"
 	progressTimeoutValuesPath                   = "virtualization.internal.virtConfig.progressTimeout"
 	disableTLSValuesPath                        = "virtualization.internal.virtConfig.disableTLS"
 	disableFirmwareUpdateValuesPath             = "virtualization.internal.disableFirmwareUpdate"
@@ -50,6 +56,9 @@ const (
 	defaultBandwidthPerMigration             = "640Mi"
 	defaultCompletionTimeoutPerGiB           = 800
 	defaultParallelOutboundMigrationsPerNode = 1
+	defaultParallelInboundMigrationsPerNode  = 1
+	defaultInboundMigrationLimit             = ""
+	defaultOutboundMigrationLimit            = ""
 	defaultProgressTimeout                   = 150
 	defaultDisableTLS                        = false
 	defaultDisableFirmwareUpdate             = false
@@ -73,6 +82,21 @@ var migrationParams = []migrationParam{
 		annotation:   parallelOutboundMigrationsPerNodeAnnotation,
 		valuesPath:   parallelOutboundMigrationsPerNodeValuesPath,
 		defaultValue: defaultParallelOutboundMigrationsPerNode,
+	},
+	{
+		annotation:   parallelInboundMigrationsPerNodeAnnotation,
+		valuesPath:   parallelInboundMigrationsPerNodeValuesPath,
+		defaultValue: defaultParallelInboundMigrationsPerNode,
+	},
+	{
+		annotation:   inboundMigrationLimitAnnotation,
+		valuesPath:   inboundMigrationLimitValuesPath,
+		defaultValue: defaultInboundMigrationLimit,
+	},
+	{
+		annotation:   outboundMigrationLimitAnnotation,
+		valuesPath:   outboundMigrationLimitValuesPath,
+		defaultValue: defaultOutboundMigrationLimit,
 	},
 	{
 		annotation:   progressTimeoutAnnotation,
