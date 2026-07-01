@@ -66,7 +66,7 @@ jobs:
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - uses: deckhouse/modules-actions/build@v4
+      - uses: deckhouse/modules-actions/build@v15
         env:
           WERF_EXPERIMENTAL_IMPORT_BY_SOURCE_IMAGE_TAG: "true"
         with:
