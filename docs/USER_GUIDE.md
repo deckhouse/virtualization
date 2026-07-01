@@ -1568,6 +1568,12 @@ spec:
 
 To improve VM management efficiency, it is recommended to install the QEMU Guest Agent, a tool that enables communication between the hypervisor and the operating system inside the VM.
 
+The module supports `qemu-guest-agent` version 5.2.0 and later. To check the current agent version in the guest OS, run:
+
+```bash
+qemu-guest-agent --version
+```
+
 How will the agent help?
 
 - It will provide consistent snapshots of disks and VMs.
