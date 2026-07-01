@@ -18,10 +18,13 @@
 ## Fixes
 
 
+ - **[core]** Fixed reduced throughput during live migration of running VMs compared to v1.8.3. [#2541](https://github.com/deckhouse/virtualization/pull/2541)
  - **[core]** Remove excess empty labels with unused tsc frequencies on nodes. [#2351](https://github.com/deckhouse/virtualization/pull/2351)
  - **[core]** Better handling Windows guests: start and migration should work in clusters with frequent CPU frequencies drifts [#2345](https://github.com/deckhouse/virtualization/pull/2345)
+ - **[module]** Fixed slow import and upload of images to DVCR when network bandwidth was not the bottleneck. [#2552](https://github.com/deckhouse/virtualization/pull/2552)
  - **[module]** Fixed an issue where invalid `virtualization` module ModuleConfig settings could block the Deckhouse queue. [#2246](https://github.com/deckhouse/virtualization/pull/2246)
  - **[module]** Fixed duplicate series on the `Virtualization / Overview` dashboard. [#2189](https://github.com/deckhouse/virtualization/pull/2189)
+ - **[observability]** Fixed loss of audit events and false `D8LogShipperDestinationErrors` alerts during certificate rotation of the `virtualization-audit` pod. [#2551](https://github.com/deckhouse/virtualization/pull/2551)
  - **[vd]** Fixed cancellation of virtual disk storage class changes and cancellation of local disk migration. [#2502](https://github.com/deckhouse/virtualization/pull/2502)
  - **[vd]** Time spent in the `WaitForFirstConsumer` phase is no longer included in `.status.stats.creationDuration.totalProvisioning` of virtual disks. [#2379](https://github.com/deckhouse/virtualization/pull/2379)
  - **[vd]** Allow ingress from virtualization namespace to importer pods [#2356](https://github.com/deckhouse/virtualization/pull/2356)
