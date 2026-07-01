@@ -23,9 +23,9 @@ altPackages:
 - libdwarf-devel
 - bc perl-PathTools perl-IPC-Cmd perl-JSON
 packages:
-- zlib libisoburn libburn libisofs
+- zlib xorriso libburn libisofs
 - openssl
-- libcurl util-linux
+- curl util-linux
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
