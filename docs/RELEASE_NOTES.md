@@ -12,7 +12,6 @@ Release date: July 1, 2026.
 
 - [vm] Fixed reduced throughput during live migration of running VMs compared to v1.8.3.
 - [dvcr] Fixed slow import and upload of images to DVCR when network bandwidth was not the bottleneck.
-- [usb] Fixed repeated Bashible failures on Debian nodes when installing USB/IP kernel modules (`Unable to locate package`).
 - [observability] Fixed loss of audit events and false `D8LogShipperDestinationErrors` alerts during certificate rotation of the `virtualization-audit` pod.
 
 ## v1.9.1
