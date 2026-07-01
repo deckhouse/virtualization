@@ -77,7 +77,7 @@ func (s WaitingDisksReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualM
 		err := s.client.Get(ctx, vdKey, &vd)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
-				cb.Message("Waiting for resource readiness.")
+				cb.Message("Waiting for the virtual disks to become ready.")
 				conditions.SetCondition(cb, &vmop.Status.Conditions)
 				return &reconcile.Result{}, nil
 			}
@@ -96,13 +96,13 @@ func (s WaitingDisksReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualM
 			continue
 		case v1alpha2.DiskWaitForFirstConsumer:
 			if vmop.Spec.Type == v1alpha2.VMOPTypeClone {
-				cb.Message("Waiting for resource readiness.")
+				cb.Message("Waiting for the virtual disks to become ready.")
 				conditions.SetCondition(cb, &vmop.Status.Conditions)
 				return &reconcile.Result{}, nil // Should wait for disk ready.
 			}
 			continue
 		default:
-			cb.Message("Waiting for resource readiness.")
+			cb.Message("Waiting for the virtual disks to become ready.")
 			conditions.SetCondition(cb, &vmop.Status.Conditions)
 			return &reconcile.Result{}, nil
 		}

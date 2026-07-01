@@ -76,7 +76,7 @@ func (h *ImagePresenceHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualI
 			Generation(vi.Generation).
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ImageLost).
-			Message(fmt.Sprintf("Image %q not found in DVCR.", registryURL))
+			Message("The image data is no longer available and needs to be recreated.")
 
 		conditions.SetCondition(cb, &vi.Status.Conditions)
 	}

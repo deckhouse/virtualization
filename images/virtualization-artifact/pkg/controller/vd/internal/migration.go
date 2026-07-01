@@ -492,13 +492,13 @@ func (h MigrationHandler) handleMigrateSync(ctx context.Context, vd *v1alpha2.Vi
 		Reason(vdcondition.MigratingWaitForTargetReadyReason)
 
 	if pvc == nil {
-		cb.Message("Target persistent volume claim is not found.")
+		cb.Message("The target PersistentVolumeClaim is not found.")
 		conditions.SetCondition(cb, &vd.Status.Conditions)
 		return nil
 	}
 
 	if pvc.Status.Phase == corev1.ClaimBound {
-		cb.Status(metav1.ConditionTrue).Reason(vdcondition.InProgress).Message("Target persistent volume claim is bound.")
+		cb.Status(metav1.ConditionTrue).Reason(vdcondition.InProgress).Message("The target PersistentVolumeClaim is Bound.")
 		conditions.SetCondition(cb, &vd.Status.Conditions)
 		return nil
 	}
@@ -509,7 +509,7 @@ func (h MigrationHandler) handleMigrateSync(ctx context.Context, vd *v1alpha2.Vi
 			storageClassName = *sc
 		}
 		if storageClassName == "" {
-			cb.Message("Target persistent volume claim is pending.")
+			cb.Message("The target PersistentVolumeClaim is pending.")
 			conditions.SetCondition(cb, &vd.Status.Conditions)
 			return nil
 		}
@@ -518,7 +518,7 @@ func (h MigrationHandler) handleMigrateSync(ctx context.Context, vd *v1alpha2.Vi
 		err = h.client.Get(ctx, types.NamespacedName{Name: storageClassName}, sc)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
-				cb.Message("Target persistent volume claim is pending, StorageClass is not found.")
+				cb.Message("The target PersistentVolumeClaim is pending; the StorageClass is not found.")
 				conditions.SetCondition(cb, &vd.Status.Conditions)
 				return nil
 			}
@@ -527,13 +527,13 @@ func (h MigrationHandler) handleMigrateSync(ctx context.Context, vd *v1alpha2.Vi
 
 		isWaitForFistConsumer := sc.VolumeBindingMode == nil || *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer
 		if isWaitForFistConsumer {
-			cb.Status(metav1.ConditionTrue).Reason(vdcondition.InProgress).Message("Target persistent volume claim is waiting for first consumer.")
+			cb.Status(metav1.ConditionTrue).Reason(vdcondition.InProgress).Message("The target PersistentVolumeClaim is waiting for the first consumer.")
 			conditions.SetCondition(cb, &vd.Status.Conditions)
 			return nil
 		}
 	}
 
-	cb.Message("Target persistent volume claim is not bound or not waiting for first consumer.")
+	cb.Message("Waiting for the target PersistentVolumeClaim to be provisioned.")
 	conditions.SetCondition(cb, &vd.Status.Conditions)
 	return nil
 }

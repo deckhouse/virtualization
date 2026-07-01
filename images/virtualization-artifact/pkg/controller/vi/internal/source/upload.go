@@ -190,7 +190,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("DVCR Provisioner not found: create the new one.")
+			Message("Preparing to import the image.")
 
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case !podutil.IsPodComplete(pod):
@@ -232,7 +232,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("Import is in the process of provisioning to DVCR.")
+			Message("The image is being imported.")
 
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress, service.NewScaleOption(0, 50))
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
@@ -297,7 +297,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("PVC Provisioner not found: create the new one.")
+			Message("Preparing the PersistentVolumeClaim for the image.")
 
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case dvQuotaNotExceededCondition != nil && dvQuotaNotExceededCondition.Status == corev1.ConditionFalse:
@@ -320,7 +320,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("PVC not found: waiting for creation.")
+			Message("Waiting for the PersistentVolumeClaim to be created.")
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case ds.diskService.IsImportDone(dv, pvc):
 		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
@@ -452,7 +452,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("DVCR Provisioner not found: create the new one.")
+			Message("Preparing to import the image.")
 
 		log.Info("Create uploader pod...", "progress", vi.Status.Progress, "pod.phase", nil)
 
@@ -497,7 +497,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("Import is in the process of provisioning to DVCR.")
+			Message("The image is being imported.")
 
 		vi.Status.Phase = v1alpha2.ImageProvisioning
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)

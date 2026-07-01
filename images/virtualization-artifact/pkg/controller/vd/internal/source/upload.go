@@ -320,7 +320,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 		}
 
 		vd.Status.Phase = v1alpha2.DiskProvisioning
-		setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Provisioning, "PVC Provisioner not found: create the new one.")
+		setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Provisioning, "Preparing the disk storage.")
 
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case dvQuotaNotExceededCondition != nil && dvQuotaNotExceededCondition.Status == corev1.ConditionFalse:
@@ -340,7 +340,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 		return reconcile.Result{}, nil
 	case pvc == nil:
 		vd.Status.Phase = v1alpha2.DiskProvisioning
-		setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Provisioning, "PVC not found: waiting for creation.")
+		setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.Provisioning, "Waiting for the PersistentVolumeClaim to be created.")
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case ds.diskService.IsImportDone(dv, pvc):
 		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)

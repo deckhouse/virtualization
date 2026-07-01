@@ -181,7 +181,7 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMac
 	conditions.SetCondition(
 		completedCond.
 			Reason(reason).
-			Message("Wait for operation to complete").
+			Message("Waiting for the operation to complete.").
 			Status(metav1.ConditionFalse),
 		&vmop.Status.Conditions)
 	conditions.SetCondition(
