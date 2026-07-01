@@ -272,7 +272,7 @@ spec:
 
 {{- define "kubevirt.parallel_outbound_migrations_per_node" -}}
 {{- if eq (.Values.virtualization.internal | dig "virtConfig" "outboundMigrationLimit" "") "disabled" -}}
-{{- /* ponytail: "disabled" lifts the per-node outbound cap; cluster total still bounds it. */ -}}
+{{- /* "disabled" lifts the per-node outbound cap; cluster total still bounds it. */ -}}
 {{- 1000000 -}}
 {{- else -}}
 {{- .Values.virtualization.internal | dig "virtConfig" "parallelOutboundMigrationsPerNode" 2 -}}

@@ -128,7 +128,7 @@ func (l *InboundMigrationLimiter) Release(kvvmi *virtv1.VirtualMachineInstance, 
 // they are cleaned up by the regular reconcile when the migration reaches a
 // terminal phase.
 //
-// ponytail: stale annotation cleanup is left to the reconcile release path
+// stale annotation cleanup is left to the reconcile release path
 // instead of patching VMIs here — same end state, no extra writes at startup.
 func (l *InboundMigrationLimiter) Restore(ctx context.Context, c client.Reader) error {
 	if !l.enabled {
