@@ -20,8 +20,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -31,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmbdacondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 type LifeCycleHandler struct {
@@ -253,6 +256,17 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 			}
 
 			if pvc != nil {
+				if isVirtualMachineMigrating(vm) && isReadWriteOnce(pvc) {
+					log.Info("Cannot hot-plug a ReadWriteOnce disk while the virtual machine is migrating")
+
+					vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhasePending
+					cb.
+						Status(metav1.ConditionFalse).
+						Reason(vmbdacondition.BlockedByMigration).
+						Message("Cannot hot-plug a ReadWriteOnce disk while the virtual machine is migrating.")
+					return reconcile.Result{}, nil
+				}
+
 				available, err := h.attacher.IsPVAvailableOnVMNode(ctx, pvc, kvvmi)
 				if err != nil {
 					return reconcile.Result{}, err
@@ -300,4 +314,13 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 	default:
 		return reconcile.Result{}, canErr
 	}
+}
+
+func isVirtualMachineMigrating(vm *v1alpha2.VirtualMachine) bool {
+	migrating, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
+	return migrating.Status == metav1.ConditionTrue
+}
+
+func isReadWriteOnce(pvc *corev1.PersistentVolumeClaim) bool {
+	return !slices.Contains(pvc.Spec.AccessModes, corev1.ReadWriteMany)
 }
