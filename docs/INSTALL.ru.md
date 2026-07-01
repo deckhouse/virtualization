@@ -177,19 +177,17 @@ weight: 15
 | `importer-*`        | system/worker |             |
 | `uploader-*`        | system/worker |             |
 
-### Full tainted кластер
+### Кластер с taints на всех узлах
 
-Full tainted кластер относится к кластерам, на всех узлах которых установлены taints (любые). Администратор обычно использует такую конфигурацию, чтобы контролировать, на какие узлы могут попадать поды и виртуальные машины.
+Иногда taints настроены на всех узлах кластера. Так администратор явно контролирует, на какие узлы могут попадать поды и виртуальные машины.
 
-При работе модуля `virtualization` в таком кластере учитывайте особенности настройки, описанные ниже:
+При работе модуля `virtualization` в такой конфигурации учитывайте следующее:
 
-1. Если для [VirtualDisk](/modules/virtualization/cr.html#virtualdisk) используется StorageClass с `volumeBindingMode: Immediate`, PersistentVolume создаётся сразу после создания диска. Это происходит ещё до планирования виртуальной машины. Убедитесь, что provisioner может создавать тома на узлах, которые разрешены для виртуальных машин через [параметры размещения](./user_guide.html#размещение-вм-по-узлам), включая `nodeSelector`, `tolerations` и настройки в `spec` виртуальной машины или [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass). Иначе диск может оказаться на узле, где виртуальная машина не сможет запуститься.
-
-1. Если StorageClass использует `volumeBindingMode: WaitForFirstConsumer`, том создаётся на узле планирования виртуальной машины, и эта проблема не возникает.
+1. При создании [VirtualDisk](/modules/virtualization/cr.html#virtualdisk) обратите внимание на `volumeBindingMode` StorageClass. Если задано `Immediate`, PersistentVolume создаётся сразу после создания диска — ещё до планирования виртуальной машины. Убедитесь, что provisioner может создавать тома на узлах, которые разрешены для виртуальных машин через [параметры размещения](./user_guide.html#размещение-вм-по-узлам), включая `nodeSelector`, `tolerations` и настройки в `spec` виртуальной машины или [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass). Иначе диск может оказаться на узле, где виртуальная машина не сможет запуститься. При `WaitForFirstConsumer` том создаётся на узле планирования виртуальной машины, и эта проблема не возникает.
 
 1. Для работы [VirtualImage](/modules/virtualization/cr.html#virtualimage) и [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) нужны поды `importer-*` и `uploader-*` из таблицы выше. У них есть toleration к taint `dedicated.deckhouse.io=system`.
 
-1. В кластере должна быть NodeGroup `system` либо выделенные узлы с taint `dedicated.deckhouse.io=system`. Без таких узлов образы не перейдут в фазу `Ready`.
+1. В кластере должна быть NodeGroup `system`, либо администратор сам добавляет taint `dedicated.deckhouse.io=system` на выбранные узлы без создания NodeGroup. Без таких узлов поды `importer-*` и `uploader-*` не будут запланированы, и образы не перейдут в фазу `Ready`.
 
 ## Обновление модуля
 
