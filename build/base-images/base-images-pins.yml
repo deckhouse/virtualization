@@ -10,3 +10,4 @@ fromContainerFactory:
   # CVE mitigation (08-06-2026): requires the ALT 20260119 based toolchain
   # provided by container-factory instead of the deckhouse_images build.
   - builder/golang-alt-1.25
+  - builder/distroless

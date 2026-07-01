@@ -4,5 +4,4 @@ final: false
 fromImage: builder/distroless
 shell:
   install:
-    - pm install qemu -d /qemu-img
-    - pm install ncurses -d /qemu-img
+    - pm install rsync -d /rsync

@@ -16,67 +16,38 @@ imageSpec:
 
 ---
 {{- define "cdi-importer-deps" -}}
-binaries:
-  # nbd bins and libs
-  - /usr/sbin/nbdkit
-  - /usr/lib64/nbdkit/filters/*.so
-  - /usr/lib64/nbdkit/plugins/*.so
-  # CDI binaries
-  - /usr/bin/cdi-image-size-detection /usr/bin/cdi-importer /usr/bin/cdi-source-update-poller
-  # QEMU bins
-  - /usr/bin/qemu-img
-# do not include glibc, it will be replaced by one from qemu-img
 packages:
-- nbdkit libnbd
 - libtasn1 libxml2
 - xz
 - libunistring
-- libffi libgmp gnutls
+- libffi gmp gnutls
 - nettle libidn2
 - p11-kit zlib
-- glib2 libbsd libfuse3
-- gcc ubdsrv liburing
+- glib2 libfuse
+- liburing
 - libaio libaudit libcap-ng numactl
-- linux-pam zstd
+- zstd libnbd
+- nbdkit libbsd linux-pam
 {{- end -}}
 
 {{ $cdiImporterDependencies := include "cdi-importer-deps" . | fromYaml }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
-fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
+fromImage: builder/distroless
 import:
-- image: tools/util-linux
-  add: /
-  to: /relocate/usr
-  after: setup
-  includePaths:
-  - sbin/blockdev
-  - bin/mount
-  - bin/umount
 - image: {{ .ModuleNamePrefix }}cdi-artifact
   add: /cdi-binaries
-  to: /usr/bin
-  before: setup
+  to: /relocate/usr/bin
+  before: install
   includePaths:
   - cdi-image-size-detection
   - cdi-importer
   - cdi-source-update-poller
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
-  to: /qemu-img
+  to: /relocate
   before: install
-{{- include "importPackageImages" (list . $cdiImporterDependencies.packages "install") -}}
 shell:
   install:
-  - |
-    echo "Install packages"
-    PKGS="{{ $cdiImporterDependencies.packages | join " " }}"
-    PKGS+=" qemu-img"
-    for pkg in $PKGS; do
-      cp -a /$pkg/. /
-      rm -rf /$pkg
-    done
-  setup:
-  - |
-    /relocate_binaries.sh -i "{{ $cdiImporterDependencies.binaries | join " " }}" -o /relocate
+  - pm install {{ $cdiImporterDependencies.packages | join " " }} -d /relocate
