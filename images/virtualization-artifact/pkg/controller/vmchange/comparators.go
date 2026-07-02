@@ -130,6 +130,14 @@ func compareProvisioning(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 		ActionRestart,
 	)
 	if len(changes) > 0 {
+		// Provisioning data is consumed at boot only, so its removal can be
+		// applied to the underlying VM immediately: it allows deleting the
+		// referenced secret without restarting the VM.
+		for i := range changes {
+			if changes[i].Operation == ChangeRemove {
+				changes[i].ActionRequired = ActionApplyImmediate
+			}
+		}
 		return changes
 	}
 
