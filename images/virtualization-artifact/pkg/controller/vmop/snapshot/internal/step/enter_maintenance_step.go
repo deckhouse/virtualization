@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -82,6 +83,25 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 		)
 
 		return nil, nil
+	}
+
+	// Capture whether the VM was running before restore stops it. Restore must not silently leave a
+	// running VM stopped: the start intent is stored on the VM so it survives the KVVM deletion during
+	// maintenance and is consumed by the power-state handler once restore completes (see checkNeedStartVM).
+	if vm.Status.Phase == v1alpha2.MachineRunning || vm.Status.Phase == v1alpha2.MachinePending {
+		if vm.Annotations == nil {
+			vm.Annotations = make(map[string]string)
+		}
+		if vm.Annotations[annotations.AnnVMStartRequestedAfterRestore] != "true" {
+			vm.Annotations[annotations.AnnVMStartRequestedAfterRestore] = "true"
+			if err = s.client.Update(ctx, vm); err != nil {
+				if apierrors.IsConflict(err) {
+					return &reconcile.Result{}, nil
+				}
+				s.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "Failed to mark VM for start after restore: "+err.Error())
+				return &reconcile.Result{}, err
+			}
+		}
 	}
 
 	conditions.SetCondition(
