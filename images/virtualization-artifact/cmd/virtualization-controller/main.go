@@ -487,6 +487,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Enterprise-only controllers (compiled in EE builds only, see setup_enterprise_{ee,ce}.go).
+	if err = setupEnterpriseControllers(ctx, mgr, logLevel, logOutput, logDebugVerbosity, logDebugControllerList); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
 	vmmacLogger := logger.NewControllerLogger(vmmac.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
 	if _, err = vmmac.NewController(ctx, mgr, vmmacLogger, clusterUUID, virtClient); err != nil {
 		log.Error(err.Error())
