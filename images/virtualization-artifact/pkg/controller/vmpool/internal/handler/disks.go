@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -167,6 +168,11 @@ func (h *DisksHandler) pruneRemovedTemplates(ctx context.Context, pool *v1alpha2
 		}
 
 		isBoot := false
+		// attached stays true while any live member still references the disk — a
+		// boot device (cannot hot-unplug) or a detach that has not succeeded yet.
+		// A disk is deleted only once nothing references it, otherwise the VM would
+		// hang waiting for a block device that is terminating under it.
+		attached := false
 		for k := range members {
 			m := &members[k]
 			if m.GetDeletionTimestamp() != nil {
@@ -177,9 +183,11 @@ func (h *DisksHandler) pruneRemovedTemplates(ctx context.Context, pool *v1alpha2
 				// not referenced by this member
 			case 0:
 				isBoot = true
+				attached = true
 			default:
 				if err := h.detachDisk(ctx, m, d.Name); err != nil {
 					errs = errors.Join(errs, err)
+					attached = true
 				}
 			}
 		}
@@ -187,6 +195,9 @@ func (h *DisksHandler) pruneRemovedTemplates(ctx context.Context, pool *v1alpha2
 			log.Info("keeping a disk of a removed template: it is the boot device of a running replica and cannot be hot-unplugged; recreate the replica to remove it",
 				"disk", d.Name, "diskTemplate", tmpl)
 			continue
+		}
+		if attached {
+			continue // detach not yet done; retry next reconcile, never delete an attached disk
 		}
 		if err := h.client.Delete(ctx, d); err != nil && !apierrors.IsNotFound(err) {
 			errs = errors.Join(errs, fmt.Errorf("delete disk %s of removed template %s: %w", d.Name, tmpl, err))
@@ -404,21 +415,36 @@ func blockDevicesReady(vm *v1alpha2.VirtualMachine) bool {
 }
 
 func (h *DisksHandler) detachDisk(ctx context.Context, m *v1alpha2.VirtualMachine, diskName string) error {
-	updated := m.DeepCopy()
-	refs := updated.Spec.BlockDeviceRefs[:0]
-	for _, ref := range m.Spec.BlockDeviceRefs {
-		if ref.Kind == v1alpha2.DiskDevice && ref.Name == diskName {
-			continue
+	// Re-read and retry on conflict: a member is a running VM the vm-controller
+	// updates often, so a blind Update from a cached copy would frequently lose the
+	// race — and a failed detach must never let the caller delete a still-attached
+	// disk out from under the VM.
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		cur := &v1alpha2.VirtualMachine{}
+		if err := h.client.Get(ctx, client.ObjectKeyFromObject(m), cur); err != nil {
+			return err
 		}
-		refs = append(refs, ref)
-	}
-	updated.Spec.BlockDeviceRefs = refs
-	if err := h.client.Update(ctx, updated); err != nil {
+		refs := make([]v1alpha2.BlockDeviceSpecRef, 0, len(cur.Spec.BlockDeviceRefs))
+		for _, ref := range cur.Spec.BlockDeviceRefs {
+			if ref.Kind == v1alpha2.DiskDevice && ref.Name == diskName {
+				continue
+			}
+			refs = append(refs, ref)
+		}
+		if len(refs) == len(cur.Spec.BlockDeviceRefs) {
+			cur.DeepCopyInto(m) // already detached; sync the caller's copy
+			return nil
+		}
+		cur.Spec.BlockDeviceRefs = refs
+		if err := h.client.Update(ctx, cur); err != nil {
+			return err
+		}
+		cur.DeepCopyInto(m)
+		return nil
+	})
+	if err != nil {
 		return fmt.Errorf("detach disk %s from %s: %w", diskName, m.GetName(), err)
 	}
-	// Keep the caller's copy in sync so detaching several disks from the same
-	// member in one pass builds on the fresh refs and resourceVersion.
-	updated.DeepCopyInto(m)
 	return nil
 }
 

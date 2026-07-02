@@ -18,14 +18,17 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/poollabels"
@@ -516,6 +519,33 @@ var _ = Describe("DisksHandler", func() {
 			refs := getVM(ctx, c, "web-a").Spec.BlockDeviceRefs
 			Expect(refs).NotTo(ContainElement(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-a-data"})) // detached
 			Expect(refs).To(ContainElement(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-a-system"}))  // kept
+		})
+
+		It("does not delete a removed-template disk while it is still attached (detach failed)", func() {
+			pool := newPool(1) // all templates removed from the spec
+			m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
+			m.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{
+				{Kind: v1alpha2.ImageDevice, Name: "boot-img"},  // not pool-managed → ignored
+				{Kind: v1alpha2.DiskDevice, Name: "web-a-data"}, // removed template, non-boot
+			}
+			data := labeledDisk(pool, "web-a-data", "data")
+			c, err := testutil.NewFakeClientWithInterceptorWithObjects(interceptor.Funcs{
+				Update: func(ctx context.Context, cl client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+					if _, ok := obj.(*v1alpha2.VirtualMachine); ok {
+						return apierrors.NewInternalError(fmt.Errorf("detach denied"))
+					}
+					return cl.Update(ctx, obj, opts...)
+				},
+			}, pool, m, data)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = NewDisksHandler(c).Handle(ctx, pool)
+			Expect(err).To(HaveOccurred()) // the failed detach surfaces
+
+			// The disk must NOT be deleted while the VM still references it, or the VM
+			// would hang waiting for a block device terminating under it.
+			_, ok := diskExists(ctx, c, "web-a-data")
+			Expect(ok).To(BeTrue())
 		})
 
 		It("keeps a boot disk of a removed template (cannot hot-unplug)", func() {
