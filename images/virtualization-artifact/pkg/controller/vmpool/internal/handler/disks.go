@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/poollabels"
@@ -55,13 +56,30 @@ func NewDisksHandler(c client.Client) *DisksHandler {
 func (h *DisksHandler) Name() string { return disksHandlerName }
 
 func (h *DisksHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMachinePool) (reconcile.Result, error) {
-	if pool.GetDeletionTimestamp() != nil || len(pool.Spec.VirtualDiskTemplates) == 0 {
+	if pool.GetDeletionTimestamp() != nil {
 		return reconcile.Result{}, nil
 	}
 
 	members, err := poollabels.ListMembers(ctx, h.client, pool)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("list pool members: %w", err)
+	}
+
+	var errs error
+
+	// Delete disks whose disk template was removed from the spec (as opposed to a
+	// disk merely freed from a scaled-down replica, which stays for reuse). Runs
+	// even when no templates remain, so removing the last one still cleans up.
+	if err := h.pruneRemovedTemplates(ctx, pool, members); err != nil {
+		errs = errors.Join(errs, err)
+	}
+	if len(pool.Spec.VirtualDiskTemplates) == 0 {
+		return reconcile.Result{}, errs
+	}
+
+	// Grow existing disks to the template's requested size (increase only).
+	if err := h.reconcileDiskSizes(ctx, pool); err != nil {
+		errs = errors.Join(errs, err)
 	}
 
 	// Disks referenced by any live member — the authoritative "in use" signal for
@@ -81,7 +99,6 @@ func (h *DisksHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMachine
 	// (the informer cache does not yet reflect the attach we just did).
 	assignedThisPass := map[string]bool{}
 
-	var errs error
 	for i := range members {
 		m := &members[i]
 		if m.GetDeletionTimestamp() != nil {
@@ -118,6 +135,110 @@ func (h *DisksHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMachine
 		}
 	}
 	return reconcile.Result{}, errs
+}
+
+// pruneRemovedTemplates deletes disks whose disk template is no longer present
+// in the pool spec — the template was removed, as opposed to a disk merely freed
+// from a scaled-down replica (that one is kept for reuse and aged out by ttl).
+// An attached disk is detached first (hot-unplug); a disk that is a replica's
+// first (boot) device cannot be hot-unplugged, so it is left in place until the
+// replica is recreated.
+func (h *DisksHandler) pruneRemovedTemplates(ctx context.Context, pool *v1alpha2.VirtualMachinePool, members []v1alpha2.VirtualMachine) error {
+	current := make(map[string]bool, len(pool.Spec.VirtualDiskTemplates))
+	for j := range pool.Spec.VirtualDiskTemplates {
+		current[pool.Spec.VirtualDiskTemplates[j].Name] = true
+	}
+
+	var list v1alpha2.VirtualDiskList
+	if err := h.client.List(ctx, &list,
+		client.InNamespace(pool.GetNamespace()),
+		client.MatchingLabels{poollabels.PoolUID: string(pool.GetUID())},
+	); err != nil {
+		return fmt.Errorf("list pool disks: %w", err)
+	}
+
+	log := logf.FromContext(ctx)
+	var errs error
+	for i := range list.Items {
+		d := &list.Items[i]
+		tmpl, managed := d.GetLabels()[poollabels.DiskTemplate]
+		if !managed || current[tmpl] || d.GetDeletionTimestamp() != nil {
+			continue
+		}
+
+		isBoot := false
+		for k := range members {
+			m := &members[k]
+			if m.GetDeletionTimestamp() != nil {
+				continue
+			}
+			switch diskRefIndex(m, d.Name) {
+			case -1:
+				// not referenced by this member
+			case 0:
+				isBoot = true
+			default:
+				if err := h.detachDisk(ctx, m, d.Name); err != nil {
+					errs = errors.Join(errs, err)
+				}
+			}
+		}
+		if isBoot {
+			log.Info("keeping a disk of a removed template: it is the boot device of a running replica and cannot be hot-unplugged; recreate the replica to remove it",
+				"disk", d.Name, "diskTemplate", tmpl)
+			continue
+		}
+		if err := h.client.Delete(ctx, d); err != nil && !apierrors.IsNotFound(err) {
+			errs = errors.Join(errs, fmt.Errorf("delete disk %s of removed template %s: %w", d.Name, tmpl, err))
+		}
+	}
+	return errs
+}
+
+// reconcileDiskSizes grows every managed disk of a still-present template to the
+// template's requested size. Increase only: storage cannot shrink, so a template
+// size smaller than an existing disk is ignored.
+func (h *DisksHandler) reconcileDiskSizes(ctx context.Context, pool *v1alpha2.VirtualMachinePool) error {
+	var errs error
+	for j := range pool.Spec.VirtualDiskTemplates {
+		dt := pool.Spec.VirtualDiskTemplates[j]
+		want := dt.Spec.PersistentVolumeClaim.Size
+		if want == nil {
+			continue
+		}
+		var list v1alpha2.VirtualDiskList
+		if err := h.client.List(ctx, &list,
+			client.InNamespace(pool.GetNamespace()),
+			client.MatchingLabels{poollabels.PoolUID: string(pool.GetUID()), poollabels.DiskTemplate: dt.Name},
+		); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("list disks of template %s: %w", dt.Name, err))
+			continue
+		}
+		for i := range list.Items {
+			d := &list.Items[i]
+			if have := d.Spec.PersistentVolumeClaim.Size; have != nil && want.Cmp(*have) <= 0 {
+				continue // already at or above the requested size
+			}
+			patched := d.DeepCopy()
+			size := want.DeepCopy()
+			patched.Spec.PersistentVolumeClaim.Size = &size
+			if err := h.client.Update(ctx, patched); err != nil {
+				errs = errors.Join(errs, fmt.Errorf("resize disk %s: %w", d.Name, err))
+			}
+		}
+	}
+	return errs
+}
+
+// diskRefIndex returns the position of the VirtualDisk ref in the member's block
+// device list (0 = boot device), or -1 if the member does not reference it.
+func diskRefIndex(m *v1alpha2.VirtualMachine, diskName string) int {
+	for i, ref := range m.Spec.BlockDeviceRefs {
+		if ref.Kind == v1alpha2.DiskDevice && ref.Name == diskName {
+			return i
+		}
+	}
+	return -1
 }
 
 // gcReuseDisks stamps free reuse disks with a free-since time, clears it when a
@@ -295,6 +416,9 @@ func (h *DisksHandler) detachDisk(ctx context.Context, m *v1alpha2.VirtualMachin
 	if err := h.client.Update(ctx, updated); err != nil {
 		return fmt.Errorf("detach disk %s from %s: %w", diskName, m.GetName(), err)
 	}
+	// Keep the caller's copy in sync so detaching several disks from the same
+	// member in one pass builds on the fresh refs and resourceVersion.
+	updated.DeepCopyInto(m)
 	return nil
 }
 

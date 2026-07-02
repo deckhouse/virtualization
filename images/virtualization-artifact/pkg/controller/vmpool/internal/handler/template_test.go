@@ -43,14 +43,14 @@ var _ = Describe("TemplateHandler", func() {
 		ctx = context.Background()
 	})
 
-	poolWithRunPolicy := func(p v1alpha2.RunPolicy) *v1alpha2.VirtualMachinePool {
+	poolWithRunPolicy := func() *v1alpha2.VirtualMachinePool {
 		pool := newPool(1)
-		pool.Spec.VirtualMachineTemplate.Spec.RunPolicy = p
+		pool.Spec.VirtualMachineTemplate.Spec.RunPolicy = v1alpha2.AlwaysOnPolicy
 		return pool
 	}
 
 	It("patches a lagging replica's spec and records the patched revision", func() {
-		pool := poolWithRunPolicy(v1alpha2.AlwaysOnPolicy)
+		pool := poolWithRunPolicy()
 		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
 		m.Spec.RunPolicy = v1alpha2.AlwaysOnUnlessStoppedManually // differs from template
 		c, err := testutil.NewFakeClientWithObjects(pool, m)
@@ -67,7 +67,7 @@ var _ = Describe("TemplateHandler", func() {
 	})
 
 	It("preserves per-replica disk refs when patching the spec", func() {
-		pool := poolWithRunPolicy(v1alpha2.AlwaysOnPolicy)
+		pool := poolWithRunPolicy()
 		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
 		m.Spec.RunPolicy = v1alpha2.AlwaysOnUnlessStoppedManually // differs → triggers a spec patch
 		// A per-replica disk the pool attached; it is not part of the template and
@@ -85,7 +85,7 @@ var _ = Describe("TemplateHandler", func() {
 	})
 
 	It("does not reintroduce a template placeholder over the resolved per-replica ref", func() {
-		pool := poolWithRunPolicy(v1alpha2.AlwaysOnPolicy)
+		pool := poolWithRunPolicy()
 		// The template references a disk template by name (placeholder); the member
 		// already has it resolved to a concrete per-replica disk.
 		pool.Spec.VirtualMachineTemplate.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.DiskDevice, Name: "system"}}
@@ -106,7 +106,7 @@ var _ = Describe("TemplateHandler", func() {
 	})
 
 	It("marks the replica on the current template once patched and not awaiting restart", func() {
-		pool := poolWithRunPolicy(v1alpha2.AlwaysOnPolicy)
+		pool := poolWithRunPolicy()
 		hash := poollabels.ComputeTemplateHash(pool)
 		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
 		m.Annotations = map[string]string{poollabels.PatchedTemplateHash: hash}
@@ -122,7 +122,7 @@ var _ = Describe("TemplateHandler", func() {
 	})
 
 	It("keeps the old revision label while the replica awaits a restart", func() {
-		pool := poolWithRunPolicy(v1alpha2.AlwaysOnPolicy)
+		pool := poolWithRunPolicy()
 		hash := poollabels.ComputeTemplateHash(pool)
 		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
 		m.Annotations = map[string]string{poollabels.PatchedTemplateHash: hash}
@@ -143,7 +143,7 @@ var _ = Describe("TemplateHandler", func() {
 	})
 
 	It("does not re-patch or relabel a stable replica", func() {
-		pool := poolWithRunPolicy(v1alpha2.AlwaysOnPolicy)
+		pool := poolWithRunPolicy()
 		hash := poollabels.ComputeTemplateHash(pool)
 		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
 		m.Annotations = map[string]string{poollabels.PatchedTemplateHash: hash}

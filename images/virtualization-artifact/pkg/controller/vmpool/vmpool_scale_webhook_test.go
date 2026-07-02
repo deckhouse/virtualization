@@ -70,7 +70,7 @@ var _ = Describe("scaleValidator", func() {
 	It("denies a decrease for an Explicit pool", func() {
 		resp := validatorFor(poolWithPolicy(v1alpha2.ScaleDownPolicyExplicit)).Handle(ctx, scaleUpdateRequest(5, 3))
 		Expect(resp.Allowed).To(BeFalse())
-		Expect(string(resp.Result.Message)).To(ContainSubstring("scaleDownWith"))
+		Expect(resp.Result.Message).To(ContainSubstring("scaleDownWith"))
 	})
 
 	It("allows a decrease for a NewestFirst pool", func() {

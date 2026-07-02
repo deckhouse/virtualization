@@ -22,6 +22,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -72,9 +73,25 @@ func reuseDisk(pool *v1alpha2.VirtualMachinePool, name string, phase v1alpha2.Di
 	}
 }
 
-func listReuseDisks(ctx context.Context, c client.Client, dtName string) []v1alpha2.VirtualDisk {
+// labeledDisk builds a pool-managed disk of the given template. Prune keys on the
+// pool-uid and disk-template labels, so the owner is irrelevant here.
+func labeledDisk(pool *v1alpha2.VirtualMachinePool, name, tmpl string) *v1alpha2.VirtualDisk {
+	return &v1alpha2.VirtualDisk{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: poolNamespace,
+			Labels: map[string]string{
+				poollabels.PoolUID:      string(pool.GetUID()),
+				poollabels.Pool:         pool.GetName(),
+				poollabels.DiskTemplate: tmpl,
+			},
+		},
+	}
+}
+
+func listReuseDisks(ctx context.Context, c client.Client) []v1alpha2.VirtualDisk {
 	var list v1alpha2.VirtualDiskList
-	Expect(c.List(ctx, &list, client.InNamespace(poolNamespace), client.MatchingLabels{poollabels.DiskTemplate: dtName})).To(Succeed())
+	Expect(c.List(ctx, &list, client.InNamespace(poolNamespace), client.MatchingLabels{poollabels.DiskTemplate: "cache"})).To(Succeed())
 	return list.Items
 }
 
@@ -196,7 +213,7 @@ var _ = Describe("DisksHandler", func() {
 		_, err = NewDisksHandler(c).Handle(ctx, pool)
 		Expect(err).NotTo(HaveOccurred())
 
-		disks := listReuseDisks(ctx, c, "cache")
+		disks := listReuseDisks(ctx, c)
 		Expect(disks).To(HaveLen(1))
 		Expect(disks[0].Name).To(HavePrefix(poolName + "-cache-"))
 		ref := metav1.GetControllerOf(&disks[0])
@@ -215,7 +232,7 @@ var _ = Describe("DisksHandler", func() {
 		_, err = NewDisksHandler(c).Handle(ctx, pool)
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(listReuseDisks(ctx, c, "cache")).To(HaveLen(1)) // no new disk created
+		Expect(listReuseDisks(ctx, c)).To(HaveLen(1)) // no new disk created
 		Expect(getVM(ctx, c, "web-a").Spec.BlockDeviceRefs).To(ContainElement(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-cache-free"}))
 	})
 
@@ -233,7 +250,7 @@ var _ = Describe("DisksHandler", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		// The busy disk stays with its holder; the newcomer gets a fresh one.
-		Expect(listReuseDisks(ctx, c, "cache")).To(HaveLen(2))
+		Expect(listReuseDisks(ctx, c)).To(HaveLen(2))
 		Expect(getVM(ctx, c, "web-new").Spec.BlockDeviceRefs).NotTo(ContainElement(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-cache-busy"}))
 	})
 
@@ -250,7 +267,7 @@ var _ = Describe("DisksHandler", func() {
 
 		// The free provisioning disk is reused (attaching it lets it bind); no
 		// duplicate is created — this is the fix for reuse-disk over-creation.
-		Expect(listReuseDisks(ctx, c, "cache")).To(HaveLen(1))
+		Expect(listReuseDisks(ctx, c)).To(HaveLen(1))
 		Expect(getVM(ctx, c, "web-a").Spec.BlockDeviceRefs).To(ContainElement(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-cache-pending"}))
 	})
 
@@ -265,7 +282,7 @@ var _ = Describe("DisksHandler", func() {
 		_, err = NewDisksHandler(c).Handle(ctx, pool)
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(listReuseDisks(ctx, c, "cache")).To(HaveLen(2)) // failed one kept + a fresh one
+		Expect(listReuseDisks(ctx, c)).To(HaveLen(2)) // failed one kept + a fresh one
 		Expect(getVM(ctx, c, "web-a").Spec.BlockDeviceRefs).NotTo(ContainElement(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-cache-failed"}))
 	})
 
@@ -398,6 +415,123 @@ var _ = Describe("DisksHandler", func() {
 
 			_, ok := diskExists(ctx, c, "web-cache-1")
 			Expect(ok).To(BeTrue()) // no ttl → never aged out
+		})
+	})
+
+	Context("disk resize", func() {
+		sizedPool := func(size string) *v1alpha2.VirtualMachinePool {
+			q := resource.MustParse(size)
+			p := newPool(1)
+			p.Spec.VirtualDiskTemplates = []v1alpha2.VirtualDiskTemplateSpec{{
+				Name:    "system",
+				Reclaim: v1alpha2.VirtualDiskReclaim{OnScaleDown: v1alpha2.VirtualDiskReclaimDelete},
+				Spec:    v1alpha2.VirtualDiskSpec{PersistentVolumeClaim: v1alpha2.VirtualDiskPersistentVolumeClaim{Size: &q}},
+			}}
+			return p
+		}
+		sizedDisk := func(pool *v1alpha2.VirtualMachinePool, name, size string) *v1alpha2.VirtualDisk {
+			d := labeledDisk(pool, name, "system")
+			q := resource.MustParse(size)
+			d.Spec.PersistentVolumeClaim.Size = &q
+			return d
+		}
+
+		It("grows every existing disk of the template to the requested size", func() {
+			pool := sizedPool("10Gi")
+			m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
+			m.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.DiskDevice, Name: "web-a-system"}}
+			disk := sizedDisk(pool, "web-a-system", "5Gi")
+			c, err := testutil.NewFakeClientWithObjects(pool, m, disk)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = NewDisksHandler(c).Handle(ctx, pool)
+			Expect(err).NotTo(HaveOccurred())
+
+			vd, ok := diskExists(ctx, c, "web-a-system")
+			Expect(ok).To(BeTrue())
+			Expect(vd.Spec.PersistentVolumeClaim.Size.String()).To(Equal("10Gi"))
+		})
+
+		It("does not shrink a disk larger than the template size", func() {
+			pool := sizedPool("10Gi")
+			disk := sizedDisk(pool, "web-a-system", "20Gi") // free, already bigger
+			c, err := testutil.NewFakeClientWithObjects(pool, disk)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = NewDisksHandler(c).Handle(ctx, pool)
+			Expect(err).NotTo(HaveOccurred())
+
+			vd, ok := diskExists(ctx, c, "web-a-system")
+			Expect(ok).To(BeTrue())
+			Expect(vd.Spec.PersistentVolumeClaim.Size.String()).To(Equal("20Gi")) // untouched
+		})
+	})
+
+	Context("removed disk template", func() {
+		It("deletes a free reuse disk whose template was removed from the spec", func() {
+			pool := newPool(0) // spec.virtualDiskTemplates is now empty
+			leftover := labeledDisk(pool, "web-cache-old", "cache")
+			c, err := testutil.NewFakeClientWithObjects(pool, leftover)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = NewDisksHandler(c).Handle(ctx, pool)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, ok := diskExists(ctx, c, "web-cache-old")
+			Expect(ok).To(BeFalse()) // template gone → disk removed
+		})
+
+		It("keeps a freed reuse disk while its template still exists", func() {
+			pool := newPool(0)
+			pool.Spec.VirtualDiskTemplates = []v1alpha2.VirtualDiskTemplateSpec{diskTemplate("cache", v1alpha2.VirtualDiskReclaimRetain)}
+			free := labeledDisk(pool, "web-cache-1", "cache")
+			c, err := testutil.NewFakeClientWithObjects(pool, free)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = NewDisksHandler(c).Handle(ctx, pool)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, ok := diskExists(ctx, c, "web-cache-1")
+			Expect(ok).To(BeTrue()) // template present, no ttl → kept for reuse
+		})
+
+		It("detaches and deletes a non-boot disk of a removed template", func() {
+			pool := newPool(1)
+			pool.Spec.VirtualDiskTemplates = []v1alpha2.VirtualDiskTemplateSpec{diskTemplate("system", v1alpha2.VirtualDiskReclaimDelete)} // "data" removed
+			m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
+			m.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{
+				{Kind: v1alpha2.DiskDevice, Name: "web-a-system"}, // boot, still present
+				{Kind: v1alpha2.DiskDevice, Name: "web-a-data"},   // removed template, non-boot
+			}
+			system := labeledDisk(pool, "web-a-system", "system")
+			data := labeledDisk(pool, "web-a-data", "data")
+			c, err := testutil.NewFakeClientWithObjects(pool, m, system, data)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = NewDisksHandler(c).Handle(ctx, pool)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, ok := diskExists(ctx, c, "web-a-data")
+			Expect(ok).To(BeFalse()) // deleted
+			refs := getVM(ctx, c, "web-a").Spec.BlockDeviceRefs
+			Expect(refs).NotTo(ContainElement(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-a-data"})) // detached
+			Expect(refs).To(ContainElement(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-a-system"}))  // kept
+		})
+
+		It("keeps a boot disk of a removed template (cannot hot-unplug)", func() {
+			pool := newPool(1) // all templates removed
+			m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
+			m.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.DiskDevice, Name: "web-a-root"}}
+			root := labeledDisk(pool, "web-a-root", "root")
+			c, err := testutil.NewFakeClientWithObjects(pool, m, root)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = NewDisksHandler(c).Handle(ctx, pool)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, ok := diskExists(ctx, c, "web-a-root")
+			Expect(ok).To(BeTrue()) // boot disk cannot be hot-unplugged → kept
+			Expect(getVM(ctx, c, "web-a").Spec.BlockDeviceRefs).To(ContainElement(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-a-root"}))
 		})
 	})
 })
