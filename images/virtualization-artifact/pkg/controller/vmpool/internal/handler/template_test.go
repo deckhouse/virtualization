@@ -10,7 +10,6 @@ package handler
 
 import (
 	"context"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -32,10 +31,8 @@ func getVM(ctx context.Context, c client.Client, name string) *v1alpha2.VirtualM
 
 var _ = Describe("TemplateHandler", func() {
 	var ctx context.Context
-	var when time.Time
 	BeforeEach(func() {
 		ctx = context.Background()
-		when = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	})
 
 	poolWithRunPolicy := func(p v1alpha2.RunPolicy) *v1alpha2.VirtualMachinePool {
@@ -46,7 +43,7 @@ var _ = Describe("TemplateHandler", func() {
 
 	It("patches a lagging replica's spec and records the patched revision", func() {
 		pool := poolWithRunPolicy(v1alpha2.AlwaysOnPolicy)
-		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, when, false)
+		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
 		m.Spec.RunPolicy = v1alpha2.AlwaysOnUnlessStoppedManually // differs from template
 		c, err := testutil.NewFakeClientWithObjects(pool, m)
 		Expect(err).NotTo(HaveOccurred())
@@ -64,7 +61,7 @@ var _ = Describe("TemplateHandler", func() {
 	It("marks the replica on the current template once patched and not awaiting restart", func() {
 		pool := poolWithRunPolicy(v1alpha2.AlwaysOnPolicy)
 		hash := poollabels.ComputeTemplateHash(pool)
-		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, when, false)
+		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
 		m.Annotations = map[string]string{poollabels.PatchedTemplateHash: hash}
 		m.Labels[poollabels.TemplateHash] = "old"
 		m.Spec.RunPolicy = v1alpha2.AlwaysOnPolicy
@@ -80,7 +77,7 @@ var _ = Describe("TemplateHandler", func() {
 	It("keeps the old revision label while the replica awaits a restart", func() {
 		pool := poolWithRunPolicy(v1alpha2.AlwaysOnPolicy)
 		hash := poollabels.ComputeTemplateHash(pool)
-		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, when, false)
+		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
 		m.Annotations = map[string]string{poollabels.PatchedTemplateHash: hash}
 		m.Labels[poollabels.TemplateHash] = "old"
 		m.Spec.RunPolicy = v1alpha2.AlwaysOnPolicy
@@ -101,7 +98,7 @@ var _ = Describe("TemplateHandler", func() {
 	It("does not re-patch or relabel a stable replica", func() {
 		pool := poolWithRunPolicy(v1alpha2.AlwaysOnPolicy)
 		hash := poollabels.ComputeTemplateHash(pool)
-		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, when, false)
+		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
 		m.Annotations = map[string]string{poollabels.PatchedTemplateHash: hash}
 		m.Labels[poollabels.TemplateHash] = hash
 		m.Spec.RunPolicy = v1alpha2.AlwaysOnPolicy

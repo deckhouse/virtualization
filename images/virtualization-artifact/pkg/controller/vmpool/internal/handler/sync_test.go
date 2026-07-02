@@ -33,6 +33,11 @@ const (
 	poolUID       = types.UID("pool-uid-0001")
 )
 
+// referenceTime is an arbitrary fixed clock for the tests. Only relative offsets
+// from it matter (e.g. which replica is older); the wall clock is never read, so
+// the value — and the real-world date — is irrelevant.
+var referenceTime = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+
 func newPool(replicas int32) *v1alpha2.VirtualMachinePool {
 	return &v1alpha2.VirtualMachinePool{
 		ObjectMeta: metav1.ObjectMeta{
@@ -82,15 +87,13 @@ func listMemberNames(ctx context.Context, c client.Client, pool *v1alpha2.Virtua
 
 var _ = Describe("SyncHandler", func() {
 	var (
-		ctx   context.Context
-		exp   *expectations.Expectations
-		clock time.Time
+		ctx context.Context
+		exp *expectations.Expectations
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
 		exp = expectations.New()
-		clock = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	})
 
 	Context("scale up", func() {
@@ -152,8 +155,8 @@ var _ = Describe("SyncHandler", func() {
 	Context("steady state", func() {
 		It("neither creates nor deletes when live == desired", func() {
 			pool := newPool(2)
-			m1 := newMemberVM(pool, "web-aaaaa", v1alpha2.MachineRunning, clock, false)
-			m2 := newMemberVM(pool, "web-bbbbb", v1alpha2.MachineRunning, clock, false)
+			m1 := newMemberVM(pool, "web-aaaaa", v1alpha2.MachineRunning, referenceTime, false)
+			m2 := newMemberVM(pool, "web-bbbbb", v1alpha2.MachineRunning, referenceTime, false)
 			c, err := testutil.NewFakeClientWithObjects(pool, m1, m2)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -173,8 +176,8 @@ var _ = Describe("SyncHandler", func() {
 		It("reports Synced when every replica is on the current template hash", func() {
 			pool := newPool(2)
 			hash := poollabels.ComputeTemplateHash(pool)
-			m1 := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, clock, false)
-			m2 := newMemberVM(pool, "web-b", v1alpha2.MachineRunning, clock, false)
+			m1 := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
+			m2 := newMemberVM(pool, "web-b", v1alpha2.MachineRunning, referenceTime, false)
 			m1.Labels[poollabels.TemplateHash] = hash
 			m2.Labels[poollabels.TemplateHash] = hash
 			c, err := testutil.NewFakeClientWithObjects(pool, m1, m2)
@@ -191,8 +194,8 @@ var _ = Describe("SyncHandler", func() {
 		It("reports Synced=False when a replica lags on an old hash", func() {
 			pool := newPool(2)
 			hash := poollabels.ComputeTemplateHash(pool)
-			current := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, clock, false)
-			lagging := newMemberVM(pool, "web-b", v1alpha2.MachineRunning, clock, false)
+			current := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
+			lagging := newMemberVM(pool, "web-b", v1alpha2.MachineRunning, referenceTime, false)
 			current.Labels[poollabels.TemplateHash] = hash
 			lagging.Labels[poollabels.TemplateHash] = "stale"
 			c, err := testutil.NewFakeClientWithObjects(pool, current, lagging)
@@ -209,8 +212,8 @@ var _ = Describe("SyncHandler", func() {
 	Context("scale down", func() {
 		It("deletes the youngest surplus replicas", func() {
 			pool := newPool(1)
-			older := newMemberVM(pool, "web-old", v1alpha2.MachineRunning, clock, false)
-			newer := newMemberVM(pool, "web-new", v1alpha2.MachineRunning, clock.Add(time.Minute), false)
+			older := newMemberVM(pool, "web-old", v1alpha2.MachineRunning, referenceTime, false)
+			newer := newMemberVM(pool, "web-new", v1alpha2.MachineRunning, referenceTime.Add(time.Minute), false)
 			c, err := testutil.NewFakeClientWithObjects(pool, older, newer)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -224,8 +227,8 @@ var _ = Describe("SyncHandler", func() {
 		It("deletes the oldest surplus replicas under OldestFirst", func() {
 			pool := newPool(1)
 			pool.Spec.ScaleDownPolicy = v1alpha2.ScaleDownPolicyOldestFirst
-			older := newMemberVM(pool, "web-old", v1alpha2.MachineRunning, clock, false)
-			newer := newMemberVM(pool, "web-new", v1alpha2.MachineRunning, clock.Add(time.Minute), false)
+			older := newMemberVM(pool, "web-old", v1alpha2.MachineRunning, referenceTime, false)
+			newer := newMemberVM(pool, "web-new", v1alpha2.MachineRunning, referenceTime.Add(time.Minute), false)
 			c, err := testutil.NewFakeClientWithObjects(pool, older, newer)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -238,8 +241,8 @@ var _ = Describe("SyncHandler", func() {
 		It("removes nothing anonymously under Explicit", func() {
 			pool := newPool(1)
 			pool.Spec.ScaleDownPolicy = v1alpha2.ScaleDownPolicyExplicit
-			m1 := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, clock, false)
-			m2 := newMemberVM(pool, "web-b", v1alpha2.MachineRunning, clock.Add(time.Minute), false)
+			m1 := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
+			m2 := newMemberVM(pool, "web-b", v1alpha2.MachineRunning, referenceTime.Add(time.Minute), false)
 			c, err := testutil.NewFakeClientWithObjects(pool, m1, m2)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -256,9 +259,9 @@ var _ = Describe("SyncHandler", func() {
 			pool := newPool(1)
 			// live=3, desired=1 => surplus 2; one member already Terminating counts
 			// as one of those two, so only ONE healthy replica should be deleted.
-			terminating := newMemberVM(pool, "web-term", v1alpha2.MachineRunning, clock, true)
-			healthyOld := newMemberVM(pool, "web-old", v1alpha2.MachineRunning, clock.Add(time.Minute), false)
-			healthyNew := newMemberVM(pool, "web-new", v1alpha2.MachineRunning, clock.Add(2*time.Minute), false)
+			terminating := newMemberVM(pool, "web-term", v1alpha2.MachineRunning, referenceTime, true)
+			healthyOld := newMemberVM(pool, "web-old", v1alpha2.MachineRunning, referenceTime.Add(time.Minute), false)
+			healthyNew := newMemberVM(pool, "web-new", v1alpha2.MachineRunning, referenceTime.Add(2*time.Minute), false)
 			c, err := testutil.NewFakeClientWithObjects(pool, terminating, healthyOld, healthyNew)
 			Expect(err).NotTo(HaveOccurred())
 

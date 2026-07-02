@@ -19,6 +19,10 @@ import (
 
 const key = "ci/web"
 
+// referenceTime is an arbitrary fixed clock; the TTL test advances it by hand
+// via the injected now func, so the real-world date is irrelevant.
+var referenceTime = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+
 var _ = Describe("Expectations", func() {
 	Context("an unknown key", func() {
 		It("is satisfied (nothing expected yet)", func() {
@@ -112,7 +116,7 @@ var _ = Describe("Expectations", func() {
 	Context("TTL safety valve", func() {
 		It("becomes satisfied once the expectation outlives the TTL", func() {
 			e := NewWithTTL(time.Minute)
-			now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+			now := referenceTime
 			e.now = func() time.Time { return now }
 
 			e.ExpectCreations(key, 1)
