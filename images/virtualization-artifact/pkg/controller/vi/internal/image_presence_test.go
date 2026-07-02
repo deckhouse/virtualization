@@ -23,8 +23,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
@@ -37,7 +39,10 @@ var _ = Describe("ImagePresenceHandler", func() {
 
 	BeforeEach(func() {
 		imageChecker = &dvcr.ImageCheckerMock{}
-		handler = NewImagePresenceHandlerWithChecker(imageChecker)
+		recorder := &eventrecord.EventRecorderLoggerMock{
+			EventFunc: func(_ client.Object, _, _, _ string) {},
+		}
+		handler = NewImagePresenceHandlerWithChecker(recorder, imageChecker)
 	})
 
 	Context("Handle", func() {
@@ -118,13 +123,69 @@ var _ = Describe("ImagePresenceHandler", func() {
 			result, err := handler.Handle(context.Background(), vi)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.RequeueAfter).To(BeZero())
+			Expect(result.RequeueAfter).To(Equal(imageLostRecheckInterval))
 			Expect(vi.Status.Phase).To(Equal(v1alpha2.ImageLost))
 
 			readyCondition := findCondition(vi.Status.Conditions, vicondition.ReadyType.String())
 			Expect(readyCondition).NotTo(BeNil())
 			Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
 			Expect(readyCondition.Reason).To(Equal(vicondition.ImageLost.String()))
+		})
+
+		It("should restore Ready phase when a lost image reappears", func() {
+			imageChecker.CheckImageExistsFunc = func(_ context.Context, _ string) (bool, error) {
+				return true, nil
+			}
+
+			vi := &v1alpha2.VirtualImage{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 1,
+				},
+				Spec: v1alpha2.VirtualImageSpec{
+					Storage: v1alpha2.StorageContainerRegistry,
+				},
+				Status: v1alpha2.VirtualImageStatus{
+					Phase: v1alpha2.ImageLost,
+					Target: v1alpha2.VirtualImageStatusTarget{
+						RegistryURL: "dvcr.example.com/vi/test:abc123",
+					},
+				},
+			}
+
+			result, err := handler.Handle(context.Background(), vi)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.RequeueAfter).To(BeZero())
+			Expect(vi.Status.Phase).To(Equal(v1alpha2.ImageReady))
+
+			readyCondition := findCondition(vi.Status.Conditions, vicondition.ReadyType.String())
+			Expect(readyCondition).NotTo(BeNil())
+			Expect(readyCondition.Status).To(Equal(metav1.ConditionTrue))
+			Expect(readyCondition.Reason).To(Equal(vicondition.Ready.String()))
+		})
+
+		It("should stay lost and keep polling while the image is still missing", func() {
+			imageChecker.CheckImageExistsFunc = func(_ context.Context, _ string) (bool, error) {
+				return false, nil
+			}
+
+			vi := &v1alpha2.VirtualImage{
+				Spec: v1alpha2.VirtualImageSpec{
+					Storage: v1alpha2.StorageContainerRegistry,
+				},
+				Status: v1alpha2.VirtualImageStatus{
+					Phase: v1alpha2.ImageLost,
+					Target: v1alpha2.VirtualImageStatusTarget{
+						RegistryURL: "dvcr.example.com/vi/test:abc123",
+					},
+				},
+			}
+
+			result, err := handler.Handle(context.Background(), vi)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.RequeueAfter).To(Equal(imageLostRecheckInterval))
+			Expect(vi.Status.Phase).To(Equal(v1alpha2.ImageLost))
 		})
 
 		It("should keep Ready phase when image exists", func() {

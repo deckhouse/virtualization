@@ -63,35 +63,8 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage)
 		return reconcile.Result{}, nil
 	}
 
-	if vi.Status.Phase == v1alpha2.ImagePVCLost {
+	if vi.Status.Phase == v1alpha2.ImageLost || vi.Status.Phase == v1alpha2.ImagePVCLost {
 		return reconcile.Result{}, nil
-	}
-
-	if vi.Status.Phase == v1alpha2.ImageLost {
-		// Upload images cannot be recovered automatically: the data was uploaded once and cannot be re-fetched.
-		if vi.Spec.DataSource.Type == v1alpha2.DataSourceTypeUpload {
-			return reconcile.Result{}, nil
-		}
-
-		h.recorder.Event(
-			vi,
-			corev1.EventTypeNormal,
-			v1alpha2.ReasonVIImageLostRecovering,
-			"The image is lost in DVCR: import process is restarted by controller.",
-		)
-
-		// On a truly broken DVCR the re-import stalls in Pending/Failed instead of looping;
-		// only a racing GC could cause Ready->ImageLost->recover churn every check interval.
-		vi.Status = v1alpha2.VirtualImageStatus{
-			Phase: v1alpha2.ImagePending,
-		}
-
-		_, err := h.sources.CleanUp(ctx, vi)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		return reconcile.Result{Requeue: true}, nil
 	}
 
 	if vi.Status.Phase == "" {

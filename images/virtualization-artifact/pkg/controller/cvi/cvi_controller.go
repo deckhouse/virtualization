@@ -83,8 +83,8 @@ func NewController(
 		mgr.GetClient(),
 		postponeimporter.NewHandler[*v1alpha2.ClusterVirtualImage](dvcrService, recorder),
 		internal.NewDatasourceReadyHandler(sources),
-		internal.NewLifeCycleHandler(recorder, sources, mgr.GetClient()),
-		internal.NewImagePresenceHandler(dvcr.NewImageChecker(mgr.GetClient(), dvcrSettings)),
+		internal.NewLifeCycleHandler(sources, mgr.GetClient()),
+		internal.NewImagePresenceHandler(recorder, dvcr.NewImageChecker(mgr.GetClient(), dvcrSettings)),
 		internal.NewDeletionHandler(sources),
 		internal.NewAttacheeHandler(mgr.GetClient()),
 	)

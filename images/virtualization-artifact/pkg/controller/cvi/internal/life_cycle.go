@@ -20,29 +20,25 @@ import (
 	"context"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi/internal/source"
-	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
 
 type LifeCycleHandler struct {
-	client   client.Client
-	sources  *source.Sources
-	recorder eventrecord.EventRecorderLogger
+	client  client.Client
+	sources *source.Sources
 }
 
-func NewLifeCycleHandler(recorder eventrecord.EventRecorderLogger, sources *source.Sources, client client.Client) *LifeCycleHandler {
+func NewLifeCycleHandler(sources *source.Sources, client client.Client) *LifeCycleHandler {
 	return &LifeCycleHandler{
-		client:   client,
-		sources:  sources,
-		recorder: recorder,
+		client:  client,
+		sources: sources,
 	}
 }
 
@@ -64,32 +60,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, cvi *v1alpha2.ClusterVirtu
 	}
 
 	if cvi.Status.Phase == v1alpha2.ImageLost {
-		// Upload images cannot be recovered automatically: the data was uploaded once and cannot be re-fetched.
-		if cvi.Spec.DataSource.Type == v1alpha2.DataSourceTypeUpload {
-			return reconcile.Result{}, nil
-		}
-
-		h.recorder.Event(
-			cvi,
-			corev1.EventTypeNormal,
-			v1alpha2.ReasonCVIImageLostRecovering,
-			"The image is lost in DVCR: import process is restarted by controller.",
-		)
-
-		// On a truly broken DVCR the re-import stalls in Pending/Failed instead of looping;
-		// only a racing GC could cause Ready->ImageLost->recover churn every check interval.
-		cvi.Status = v1alpha2.ClusterVirtualImageStatus{
-			Phase:              v1alpha2.ImagePending,
-			Conditions:         cvi.Status.Conditions,
-			ObservedGeneration: cvi.Status.ObservedGeneration,
-		}
-
-		_, err := h.sources.CleanUp(ctx, cvi)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{}, nil
 	}
 
 	if cvi.Status.Phase == "" {
