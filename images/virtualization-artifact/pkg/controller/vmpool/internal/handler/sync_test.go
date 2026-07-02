@@ -14,11 +14,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/expectations"
@@ -306,6 +309,51 @@ var _ = Describe("SyncHandler", func() {
 			// web-new (youngest healthy) deleted; web-term still present (Terminating,
 			// held by finalizer); web-old kept.
 			Expect(remaining).To(ConsistOf("web-term", "web-old"))
+		})
+	})
+
+	Context("events", func() {
+		// recordingRecorder captures (eventtype, reason) of emitted events.
+		recordingRecorder := func(pairs *[][2]string) eventrecord.EventRecorderLogger {
+			return &eventrecord.EventRecorderLoggerMock{
+				EventfFunc: func(_ client.Object, eventtype, reason, _ string, _ ...interface{}) {
+					*pairs = append(*pairs, [2]string{eventtype, reason})
+				},
+			}
+		}
+
+		It("emits a SuccessfulCreate event per created replica", func() {
+			pool := newPool(2)
+			c, err := testutil.NewFakeClientWithObjects(pool)
+			Expect(err).NotTo(HaveOccurred())
+			var events [][2]string
+
+			_, err = NewSyncHandler(c, exp, recordingRecorder(&events)).Handle(ctx, pool)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(events).To(ConsistOf(
+				[2]string{corev1.EventTypeNormal, reasonSuccessfulCreate},
+				[2]string{corev1.EventTypeNormal, reasonSuccessfulCreate},
+			))
+		})
+
+		It("emits FailedCreate and rolls back the expectation when creation fails", func() {
+			pool := newPool(1)
+			c, err := testutil.NewFakeClientWithInterceptorWithObjects(interceptor.Funcs{
+				Create: func(context.Context, client.WithWatch, client.Object, ...client.CreateOption) error {
+					return apierrors.NewBadRequest("denied by admission webhook")
+				},
+			}, pool)
+			Expect(err).NotTo(HaveOccurred())
+			var events [][2]string
+
+			_, err = NewSyncHandler(c, exp, recordingRecorder(&events)).Handle(ctx, pool)
+			Expect(err).To(HaveOccurred())
+
+			Expect(events).To(ContainElement([2]string{corev1.EventTypeWarning, reasonFailedCreate}))
+			// The failed creation was un-expected, so the pool is not wedged waiting
+			// for an event that will never arrive.
+			Expect(exp.Satisfied("ci/web")).To(BeTrue())
 		})
 	})
 })
