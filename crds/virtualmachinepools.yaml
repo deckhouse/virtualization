@@ -340,8 +340,19 @@ spec:
                   properties:
                     metadata:
                       description: |-
-                        Standard object metadata applied to every replica. Arbitrary user labels and
-                        annotations are allowed; the controller adds its managed pool labels on top.
+                        Metadata applied to every replica. Arbitrary user labels and annotations are
+                        allowed; the controller adds its managed pool labels on top. A curated
+                        struct (not the full ObjectMeta) so the CRD schema exposes labels and
+                        annotations instead of an opaque object.
+                      properties:
+                        annotations:
+                          additionalProperties:
+                            type: string
+                          type: object
+                        labels:
+                          additionalProperties:
+                            type: string
+                          type: object
                       type: object
                     spec:
                       description: Spec of the virtual machine that backs each replica.

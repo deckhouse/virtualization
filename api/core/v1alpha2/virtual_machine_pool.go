@@ -171,16 +171,27 @@ const (
 // VirtualMachineTemplateSpec describes the metadata and spec a pool replica is
 // created with.
 type VirtualMachineTemplateSpec struct {
-	// Standard object metadata applied to every replica. Arbitrary user labels and
-	// annotations are allowed; the controller adds its managed pool labels on top.
+	// Metadata applied to every replica. Arbitrary user labels and annotations are
+	// allowed; the controller adds its managed pool labels on top. A curated
+	// struct (not the full ObjectMeta) so the CRD schema exposes labels and
+	// annotations instead of an opaque object.
 	//
 	// +optional
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Metadata VirtualMachineTemplateMetadata `json:"metadata,omitempty"`
 
 	// Spec of the virtual machine that backs each replica.
 	//
 	// +optional
 	Spec VirtualMachineSpec `json:"spec,omitempty"`
+}
+
+// VirtualMachineTemplateMetadata is the subset of object metadata a pool
+// stamps onto each replica.
+type VirtualMachineTemplateMetadata struct {
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // VirtualMachinePoolStatus is the observed state of a VirtualMachinePool.

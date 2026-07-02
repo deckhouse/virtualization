@@ -178,8 +178,8 @@ func pickVictims(policy v1alpha2.ScaleDownPolicy, candidates []v1alpha2.VirtualM
 func (h *SyncHandler) newMember(pool *v1alpha2.VirtualMachinePool) *v1alpha2.VirtualMachine {
 	tmpl := pool.Spec.VirtualMachineTemplate
 
-	labels := make(map[string]string, len(tmpl.Labels)+2)
-	for k, v := range tmpl.Labels {
+	labels := make(map[string]string, len(tmpl.Metadata.Labels)+3)
+	for k, v := range tmpl.Metadata.Labels {
 		labels[k] = v
 	}
 	for k, v := range poollabels.Member(pool) {
@@ -189,9 +189,9 @@ func (h *SyncHandler) newMember(pool *v1alpha2.VirtualMachinePool) *v1alpha2.Vir
 	labels[poollabels.TemplateHash] = poollabels.ComputeTemplateHash(pool)
 
 	var annotations map[string]string
-	if len(tmpl.Annotations) > 0 {
-		annotations = make(map[string]string, len(tmpl.Annotations))
-		for k, v := range tmpl.Annotations {
+	if len(tmpl.Metadata.Annotations) > 0 {
+		annotations = make(map[string]string, len(tmpl.Metadata.Annotations))
+		for k, v := range tmpl.Metadata.Annotations {
 			annotations[k] = v
 		}
 	}
