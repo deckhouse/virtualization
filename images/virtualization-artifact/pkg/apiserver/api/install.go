@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/storage"
@@ -53,7 +54,7 @@ func init() {
 	)
 }
 
-func Build(store *storage.VirtualMachineStorage) genericapiserver.APIGroupInfo {
+func Build(store *storage.VirtualMachineStorage, client client.Client) genericapiserver.APIGroupInfo {
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(subresources.GroupName, Scheme, ParameterCodec, Codecs)
 	resourcesV1alpha2 := map[string]rest.Storage{
 		"virtualmachines":                     store,
@@ -68,6 +69,9 @@ func Build(store *storage.VirtualMachineStorage) genericapiserver.APIGroupInfo {
 		"virtualmachines/addresourceclaim":    store.AddResourceClaimREST(),
 		"virtualmachines/removeresourceclaim": store.RemoveResourceClaimREST(),
 	}
+	// Enterprise-only resources (e.g. virtualmachinepools/scaledownwith) are added
+	// by the EE build; the CE build leaves the map untouched.
+	installEnterpriseResources(resourcesV1alpha2, client)
 	apiGroupInfo.VersionedResourcesStorageMap[subv1alpha2.SchemeGroupVersion.Version] = resourcesV1alpha2
 	return apiGroupInfo
 }
@@ -77,12 +81,13 @@ func Install(
 	server *genericapiserver.GenericAPIServer,
 	kubevirt vmrest.KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
+	client client.Client,
 ) error {
 	vmStorage := storage.NewStorage(
 		vmLister,
 		kubevirt,
 		proxyCertManager,
 	)
-	info := Build(vmStorage)
+	info := Build(vmStorage, client)
 	return server.InstallAPIGroup(&info)
 }
