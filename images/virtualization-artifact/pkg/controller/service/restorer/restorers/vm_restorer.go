@@ -193,10 +193,18 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 			vm.Annotations = make(map[string]string)
 		}
 
+		// EnterMaintenance records the pre-restore power-state intent on the live VM so it survives the KVVM
+		// deletion. The snapshot template does not carry it, so preserve it across the full annotation overwrite
+		// below; otherwise the VM would never be started again after restore.
+		startIntent := vm.Annotations[annotations.AnnVMStartRequestedAfterRestore]
+
 		vm.Spec = v.vm.Spec
 		vm.Labels = v.vm.Labels
 		vm.Annotations = v.vm.Annotations
 		vm.Annotations[annotations.AnnVMOPRestore] = v.restoreUID
+		if startIntent != "" {
+			vm.Annotations[annotations.AnnVMStartRequestedAfterRestore] = startIntent
+		}
 
 		updErr := v.client.Update(ctx, vm)
 		if updErr != nil {
